@@ -18,6 +18,7 @@ use App\AssinaturaEletronica\Exception\MuitosPdfsGerados;
 use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
 use App\AssinaturaEletronica\Exception\PdfDoDocumentoSendoGerado;
 use App\AssinaturaEletronica\Pdf\ModoDaFolha;
+use App\AssinaturaEletronica\Pdf\PerfilDoPdf;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDePdf;
@@ -36,6 +37,7 @@ use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Tests\AssinaturaEletronica\Support\OficinaDosUseCasesDaAssinatura;
 use App\Tests\AssinaturaEletronica\Support\TravasContadas;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\FolhaDeTeste;
+use App\Tests\AssinaturaEletronica\Unit\Pdf\PdfLido;
 use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -51,7 +53,8 @@ use Symfony\Component\Lock\LockInterface;
  *
  * Com versão guardada, entrega essa versão sem gerar; sem versão, gera no modo assinar e congela a versão
  * `para_assinar` uma vez só, com o evento na trilha. Só gov.br e ICP, na vez; sem trava do documento, sem vaga ou sem
- * cota não gera; acima do teto não guarda nada; na corrida, quem perde apaga o próprio arquivo.
+ * cota não gera; o desenho acima do teto vira o leve, e os dois acima do teto não guardam nada; na corrida, quem perde
+ * entrega a última versão e apaga o próprio arquivo.
  */
 #[CoversClass(ObterPdfParaAssinarUseCase::class)]
 #[CoversClass(PdfParaAssinarCongelado::class)]
@@ -70,7 +73,7 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
     private TravasContadas $lojaDeTravas;
     private int $cotas = 0;
     private bool $cabe = true;
-    private int $teto = PdfParaAssinarCongelado::TETO_EM_BYTES;
+    private int $teto = PdfDaAssinatura::TETO_PARA_O_MOTOR;
 
     protected function setUp(): void
     {
@@ -179,7 +182,32 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
         self::assertSame([], $this->logger->doNivel('error'));
     }
 
-    #[TestDox('a vez muda entre a geração e a trava (o outro signatário recusou): a recusa do estado sobe e a transação apaga o arquivo novo')]
+    #[TestDox('corrida: entre a geração e a trava, outro pedido congelou a v1 e Ana devolveu a v2; este entrega a v2 (a última) como "{nome} - para assinar.pdf" e apaga o próprio arquivo')]
+    public function testCorridaComDevolvida(): void
+    {
+        $bia = $this->comGovbr(anaComIcp: true);
+        $this->aoTravar = function (DocumentoParaAssinar $d): void {
+            $agora = new \DateTimeImmutable(self::AGORA);
+            $congelada = VersaoDoPdf::paraAssinar($d, 1, 'do-outro-pedido.pdf', self::NOME_CONGELADO, self::SHA, 9, ['v' => 1], $agora);
+            $devolvida = VersaoDoPdf::devolvida($d->getSignatarios()[0], 2, 'devolvida-pela-ana.pdf', 'Contrato assinado.pdf', self::SHA, 9, ['v' => 1], $agora);
+            foreach ([$congelada, $devolvida] as $versao) {
+                $this->disco->semear(ChavesDeAssinaturaEletronica::versao($versao), '%PDF-');
+                $this->versoesNaBase[] = $versao;
+            }
+        };
+
+        $pdf = $this->useCase()->executar($this->chave->token($bia), $this->cota());
+
+        self::assertSame('devolvida-pela-ana.pdf', $pdf->chave?->nome);
+        self::assertSame('Contrato de honorários - para assinar.pdf', $pdf->nome);
+        self::assertCount(2, $this->versoesNaBase, 'nenhuma versão nova');
+        self::assertCount(1, $this->disco->gravadas);
+        self::assertFalse($this->disco->existe($this->disco->gravadas[0]), 'o arquivo deste pedido não fica órfão');
+        self::assertSame([], $this->gravados, 'nenhum evento deste pedido');
+        self::assertSame([], $this->logger->doNivel('error'));
+    }
+
+    #[TestDox('a vez muda entre a geração e a trava (o outro signatário recusou): link inválido, como antes de gerar, e a transação apaga o arquivo novo')]
     public function testVezMudaDentroDaTransacao(): void
     {
         $bia = $this->comGovbr();
@@ -191,8 +219,8 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
         try {
             $this->useCase()->executar($this->chave->token($bia), $this->cota());
             self::fail('a vez de Bia acabou com a recusa de Ana');
-        } catch (AcaoRecusada $e) {
-            self::assertSame('assinatura_eletronica.publica.estado.cancelado', $e->getMessage());
+        } catch (LinkInvalido $e) {
+            self::assertSame(LinkInvalido::CHAVE, $e->getMessage());
         }
 
         self::assertSame([], $this->versoesNaBase);
@@ -260,7 +288,40 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
         self::assertTrue($this->trava('assinatura_pdf_documento_1')->acquire(false));
     }
 
-    #[TestDox('PDF acima do teto: recusa com o texto do catálogo público, sem congelar, sem arquivo no disco nem na área temporária')]
+    #[TestDox('o desenho passa do teto e o leve cabe: congela o leve (a imagem de 1240 x 1754 px) com o evento, chama a cada pedaço nas duas tentativas e não deixa arquivo')]
+    public function testLeveQuandoODesenhoPassaDoTeto(): void
+    {
+        $bia = $this->comGovbr();
+        $pdf = $this->pdfDaAssinatura();
+        $desenho = iterator_to_array($pdf->pedacos($bia->getDocumento(), ModoDaFolha::Assinar), false);
+        $leve = iterator_to_array($pdf->pedacos($bia->getDocumento(), ModoDaFolha::Assinar, PerfilDoPdf::Leve), false);
+        $this->teto = intdiv(\strlen(implode('', $desenho)) + \strlen(implode('', $leve)), 2);
+        self::assertGreaterThan($this->teto, \strlen(implode('', $desenho)), 'o desenho passa do teto');
+        self::assertLessThan($this->teto, \strlen(implode('', $leve)), 'o leve cabe');
+        self::assertGreaterThan(0, $antesDoTeto = self::quantosCabem($desenho, $this->teto), 'a primeira tentativa gera algum pedaço');
+        $area = DiretorioTemporarioPrivado::doProcesso(PdfParaAssinarCongelado::AREA)->caminho();
+        $antes = glob($area . '/*') ?: [];
+        $pedacos = 0;
+
+        $versao = $this->congelado($pdf)->congelar($bia, static function () use (&$pedacos): void {
+            ++$pedacos;
+        });
+
+        $bytes = $this->disco->ler(ChavesDeAssinaturaEletronica::versao($versao));
+        self::assertSame([[1240, 1754]], (new PdfLido($bytes))->medidasDasImagens(), 'o leve');
+        self::assertLessThanOrEqual($this->teto, \strlen($bytes));
+        self::assertSame([$versao], $this->versoesNaBase);
+        self::assertSame(OrigemDaVersao::ParaAssinar, $versao->getOrigem());
+        self::assertSame(hash('sha256', $bytes), $versao->getSha256());
+        self::assertSame(\strlen($bytes), $versao->getTamanho());
+        self::assertSame([TipoDeEvento::PdfParaAssinarGerado->value], $this->tiposGravados());
+        self::assertSame($versao->getSha256(), $this->ultimoGravado(TipoDeEvento::PdfParaAssinarGerado)->getDados()['sha256'] ?? null);
+        self::assertSame($antesDoTeto + \count($leve), $pedacos, 'a cada pedaço, nas duas tentativas');
+        self::assertCount(1, $this->disco->gravadas, 'só o leve vai para o armazenamento');
+        self::assertSame($antes, glob($area . '/*') ?: [], 'as duas áreas temporárias saíram com os arquivos');
+    }
+
+    #[TestDox('PDF acima do teto no desenho e no leve: recusa com o texto do catálogo público, sem congelar, sem arquivo no disco nem na área temporária')]
     public function testAcimaDoTeto(): void
     {
         $bia = $this->comGovbr();
@@ -283,10 +344,11 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
         self::assertTrue($this->trava('assinatura_pdf_vaga_0')->acquire(false));
     }
 
-    #[TestDox('o teto padrão é 19 MiB e o texto da recusa está no catálogo público')]
+    #[TestDox('o teto padrão é o único do PDF para o motor (19 MiB) e o texto da recusa está no catálogo público')]
     public function testTetoEOTexto(): void
     {
-        self::assertSame(19 * 1024 * 1024, PdfParaAssinarCongelado::TETO_EM_BYTES);
+        self::assertSame(PdfDaAssinatura::TETO_PARA_O_MOTOR, (new \ReflectionParameter([PdfParaAssinarCongelado::class, '__construct'], 'teto'))->getDefaultValue());
+        self::assertSame(19 * 1024 * 1024, PdfDaAssinatura::TETO_PARA_O_MOTOR);
         self::assertSame(
             'O PDF deste documento passa de 19 MB, o limite para assinar com certificado. Avise quem enviou o documento para assinar.',
             self::tradutorDaAssinatura()->trans(PdfParaAssinarCongelado::GRANDE_DEMAIS),
@@ -320,7 +382,13 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
     private function useCase(): ObterPdfParaAssinarUseCase
     {
         $pdf = $this->pdfDaAssinatura();
-        $congelado = new PdfParaAssinarCongelado(
+
+        return new ObterPdfParaAssinarUseCase($this->link(), $this->versoes, $this->congelado($pdf), $pdf, new VagasDeGeracaoDoPdf(new LockFactory($this->lojaDeTravas)), self::tradutorDaAssinatura(), $this->relogio);
+    }
+
+    private function congelado(PdfDaAssinatura $pdf): PdfParaAssinarCongelado
+    {
+        return new PdfParaAssinarCongelado(
             $pdf,
             $this->disco,
             $this->documentos,
@@ -332,8 +400,24 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
             $this->relogio,
             $this->teto,
         );
+    }
 
-        return new ObterPdfParaAssinarUseCase($this->link(), $this->versoes, $congelado, $pdf, new VagasDeGeracaoDoPdf(new LockFactory($this->lojaDeTravas)), self::tradutorDaAssinatura(), $this->relogio);
+    /**
+     * Quantos pedaços, do começo, cabem juntos no teto: os que a tentativa gera antes de parar.
+     *
+     * @param list<string> $pedacos
+     */
+    private static function quantosCabem(array $pedacos, int $teto): int
+    {
+        $soma = 0;
+        foreach ($pedacos as $i => $pedaco) {
+            $soma += \strlen($pedaco);
+            if ($soma > $teto) {
+                return $i;
+            }
+        }
+
+        return \count($pedacos);
     }
 
     /** @return \Closure(): bool a cota de quem pede, contada */
@@ -353,10 +437,10 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
     }
 
     /**
-     * Documento enviado às 9h com código, Ana (Simples) e Bia (gov.br com CPF), sem conteúdo (a folha é só o
-     * manifesto); com `$comOriginal`, o original já assinado guardado no rascunho. Devolve Bia.
+     * Documento enviado às 9h com código, Ana (Simples, ou ICP com `$anaComIcp`) e Bia (gov.br com CPF), sem conteúdo
+     * (a folha é só o manifesto); com `$comOriginal`, o original já assinado guardado no rascunho. Devolve Bia.
      */
-    private function comGovbr(bool $emOrdem = false, bool $comOriginal = false): Signatario
+    private function comGovbr(bool $emOrdem = false, bool $comOriginal = false, bool $anaComIcp = false): Signatario
     {
         $momento = new \DateTimeImmutable('2026-11-09 08:00:00');
         $documento = new DocumentoParaAssinar($this->tenant, null, $momento);
@@ -364,7 +448,7 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
             'nome' => 'Contrato de honorários',
             'emOrdem' => $emOrdem,
             'signatarios' => [
-                ['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com'],
+                ['nome' => 'Ana Lima', 'email' => 'ana@exemplo.com'] + ($anaComIcp ? ['nivel' => 'icp'] : []),
                 ['nome' => 'Bia Souza', 'email' => 'bia@exemplo.com', 'nivel' => 'govbr', 'cpf' => self::CPF_ANA],
             ],
         ]), [], $momento);

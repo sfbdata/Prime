@@ -67,8 +67,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Etapa 5 (bloco 5C): `GET /assinar/{token}/para-assinar`, o "Baixar PDF para assinar" do signatário gov.br ou ICP na
  * vez dele ({@see ObterPdfParaAssinarUseCase}): a última versão guardada ou, sem ela, o PDF do documento no modo assinar,
  * congelado na primeira vez. Os mesmos limitadores e a mesma regra de tempo e memória do `GET /assinar/{token}/pdf`; o
- * excesso responde 429 `{"erro": ...}` e o PDF acima do teto responde 422 `{"erro": ...}`, com o texto que a página
- * mostra.
+ * excesso responde 429 `{"erro": ...}` e o PDF acima do teto (no perfil do desenho e no leve) responde 422
+ * `{"erro": ...}`, com o texto que a página mostra. Como no `GET /assinar/{token}/pdf`, qualquer estado fora da vez,
+ * antes de gerar ou depois (com a linha travada), é a página "Link inválido." com 404.
  *
  * Etapa 5 (bloco 5C): o `POST /assinar/{token}` despacha pelo nível do signatário do link. gov.br e ICP mandam
  * multipart (`nome`, `cpf`, `aceite`, `arquivo`) para a {@see AssinarComCertificadoUseCase}, depois da regra de tempo e

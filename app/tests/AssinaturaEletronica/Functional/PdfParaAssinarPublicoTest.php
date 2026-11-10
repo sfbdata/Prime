@@ -33,7 +33,8 @@ use Symfony\Component\Filesystem\Filesystem;
  * "Baixar PDF para assinar" pela HTTP (etapa 5, bloco 5C): `GET /assinar/{token}/para-assinar`, contra o disco real (a
  * entrega lê o arquivo guardado). Bia assina com gov.br; o validador de cadeia é dublado como configurado (sem ele o
  * envio com gov.br não sai). Com o original já assinado, entrega a versão dele sem gerar; sem versão, gera, congela e
- * entrega a mesma da segunda vez. O excesso responde 429 e o PDF acima do teto 422, com o texto que a página mostra.
+ * entrega a mesma da segunda vez. O excesso responde 429 e o PDF acima do teto (também no perfil leve) 422, com o texto
+ * que a página mostra.
  */
 #[CoversClass(AssinaturaPublicaController::class)]
 #[CoversClass(ObterPdfParaAssinarUseCase::class)]
@@ -134,7 +135,7 @@ final class PdfParaAssinarPublicoTest extends JusPrimeWebTestCase
         self::assertSame([], $this->origens($id));
     }
 
-    #[TestDox('PDF acima do teto: 422 {"erro": ...} com o texto do catálogo público, sem versão nem evento')]
+    #[TestDox('PDF acima do teto no desenho e no leve: 422 {"erro": ...} com o texto do catálogo público, sem versão nem evento')]
     public function testAcimaDoTeto(): void
     {
         [$id, $token] = $this->comGovbr();

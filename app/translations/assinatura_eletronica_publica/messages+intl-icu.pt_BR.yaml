@@ -80,8 +80,8 @@ assinatura_eletronica_publica:
             situacao_ok: '{n} assinatura(s) íntegra(s) em {arquivo}. A validade do certificado é confirmada no Validar do ITI.'
             situacao_ok_preservadas: '{n} assinatura(s) íntegra(s) em {arquivo}, com as anteriores preservadas. A validade do certificado é confirmada no Validar do ITI.'
             nome_para_assinar: '{nome} - para assinar.pdf'
-            # O PDF para assinar gerado acima do teto (PdfParaAssinarCongelado::TETO_EM_BYTES): não é guardado. O "19 MB"
-            # do texto acompanha o teto.
+            # O PDF para assinar gerado acima do teto (PdfDaAssinatura::TETO_PARA_O_MOTOR), também no perfil leve: não é
+            # guardado. O "19 MB" do texto acompanha o teto.
             pdf_grande_demais: 'O PDF deste documento passa de 19 MB, o limite para assinar com certificado. Avise quem enviou o documento para assinar.'
             metodo:
                 govbr: 'Conta gov.br'

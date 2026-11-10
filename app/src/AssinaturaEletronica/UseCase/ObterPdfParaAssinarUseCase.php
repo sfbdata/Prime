@@ -43,9 +43,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *   ({@see MuitosPdfsGerados}), as duas travas renovadas a cada pedaço e liberadas no fim. Da segunda vez em diante,
  *   a versão congelada é a última, e sai pelo caminho de cima.
  *
- * Acima do teto do PDF para assinar, {@see AcaoRecusada} com o texto do catálogo público, sem guardar nada. A vez que
- * muda entre a conferência e a trava da linha (o documento cancelado nesse meio) também sai como {@see AcaoRecusada},
- * com o texto do estado, e o arquivo gerado sai do disco.
+ * O congelamento tenta o perfil do desenho e, acima do teto ({@see PdfDaAssinatura::TETO_PARA_O_MOTOR}), o leve. Os
+ * dois acima do teto: {@see AcaoRecusada} com o texto do catálogo público, sem guardar nada. Como no download do PDF
+ * com selo ({@see ObterPdfDaAssinaturaUseCase::doSignatario()}), os estados do documento e do signatário saem todos
+ * como {@see LinkInvalido}: também a vez que muda entre a conferência e a trava da linha (o documento
+ * cancelado nesse meio), e o arquivo gerado sai do disco. Se, nesse meio, outro signatário devolveu a versão dele, é
+ * ela que sai (a última, a mesma regra de cima), como "{nome} - para assinar.pdf", e o arquivo gerado sai do disco.
  */
 final readonly class ObterPdfParaAssinarUseCase
 {
@@ -65,11 +68,11 @@ final readonly class ObterPdfParaAssinarUseCase
     /**
      * @param \Closure(): bool $cabeNaCota consome a cota do limitador da geração; falso quando estourou
      *
-     * @throws LinkInvalido
+     * @throws LinkInvalido              token ruim, sem certificado ou fora da vez, antes de gerar ou com a linha travada
      * @throws PdfDoDocumentoSendoGerado
      * @throws MuitosPdfsSendoGerados
      * @throws MuitosPdfsGerados
-     * @throws AcaoRecusada
+     * @throws AcaoRecusada              só o PDF acima do teto nos dois perfis
      * @throws FalhaAoMontarPdf
      */
     public function executar(#[\SensitiveParameter] string $token, \Closure $cabeNaCota): PdfParaEntregar
