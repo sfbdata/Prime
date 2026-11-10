@@ -13,6 +13,10 @@
 
     O subtítulo vem do macro já escapado: o `info` (o data-info das janelas) é montado por bloco, com `{% set %}` e
     `{% endset %}`, e não com `~`, para não escapá-lo de novo.
+
+    E12 (P18): a justificativa ligada a uma batida de trabalho externo (`registroPonto`, que o servidor da etapa
+    acrescenta) não tem lápis nem lixeira: ela é a análise daquela batida, e o servidor recusa editar e excluir. No lugar,
+    "Segue para a análise do gestor.". Sem o campo (antes da E12), como sempre.
 #}
 {% if justificativas is empty %}
     <div class="pe-abas-vazio">Nenhuma justificativa enviada nesta competência.</div>
@@ -76,6 +80,9 @@
                                                 data-token="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">Recusar</button>
                                     </span>
                                 {%- endif -%}
+                                {%- if j.registroPonto is defined and j.registroPonto is not null -%}
+                                    <span class="pe-just-segue" data-justificativa-da-batida>Segue para a análise do gestor.</span>
+                                {%- else -%}
                                 {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa). #}
                                 <button type="button" class="pe-just-icone pe-just-icone--editar"
                                         title="Editar justificativa"
@@ -100,6 +107,7 @@
                                         data-excluir-url="{{ path('ponto_justificativa_excluir', {id: j.id}) }}" data-info="{{ info }}">
                                     <i class="bi bi-trash3" aria-hidden="true"></i>
                                 </button>
+                                {%- endif -%}
                             {%- endif -%}
                         </td>
                     </tr>

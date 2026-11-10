@@ -680,5 +680,9 @@
         limpar,
         enviarPendentes,
         apagarRecusas,
+        // E12 (P18): esta fila guarda e reenvia a marca e o local e o motivo do trabalho externo (`normalizar`,
+        // `payloadDe`). A tela só manda a batida externa para a fila que diz isto: a de antes da E12, no cache do
+        // navegador, a reenviaria como batida comum.
+        LEVA_TRABALHO_EXTERNO: true,
     });
 })();

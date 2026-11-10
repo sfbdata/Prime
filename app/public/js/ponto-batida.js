@@ -154,18 +154,30 @@
      * Distância e raio saem com o ponto de milhar do pt-BR, como no servidor (`PosicaoNaCerca`, `number_format`); abaixo
      * de 1000 m, o texto é o do desenho.
      *
-     * A sede citada é a que `avaliarPosicao` devolve (a decisiva, a do menor excedente), com a distância dela. Puro:
-     * o nome da sede volta dentro de uma string, e quem mostra põe por `textContent`.
+     * A sede citada é a válida MAIS PRÓXIMA em metros (desenho L528, `maisProx`), a mesma do servidor (`CercaDoPonto`),
+     * e não a decisiva de `avaliarPosicao` (a do menor excedente), que continua decidindo o `fora` da tela. Válida: a
+     * distância é número e o raio é positivo (as sedes da tela já chegam só com as válidas, `SedesDaCercaDoPonto`). Na
+     * mesma distância, a primeira, como no servidor. Puro: o nome da sede volta dentro de uma string, e quem mostra põe
+     * por `textContent`.
      */
-    function textosDoForaDoRaio(onde, trabalhoExternoPermitido) {
-        const sede = onde && onde.sede ? onde.sede : null;
-        // `Number(null)` é 0: distância e raio ausentes não podem virar "a 0 m".
-        const distancia = onde && typeof onde.distancia === 'number' ? onde.distancia : NaN;
-        const raio = sede && sede.raio !== null && sede.raio !== undefined && sede.raio !== '' ? Number(sede.raio) : NaN;
+    function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {
+        let sede = null;
+        let distancia = Infinity;
+        if (posicao && Array.isArray(sedes)) {
+            for (const candidata of sedes) {
+                const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);
+                // `Number(null)` é 0 e `NaN > 0` é falso: raio ausente ou inválido não entra (nem vira "0 m").
+                const raio = Number(candidata.raio);
+                if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && medida < distancia) {
+                    sede = candidata;
+                    distancia = medida;
+                }
+            }
+        }
         let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
-        if (sede && Number.isFinite(distancia) && Number.isFinite(raio)) {
+        if (sede) {
             detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')
-                + ' m. O raio permitido é de ' + Math.round(raio).toLocaleString('pt-BR') + ' m.';
+                + ' m. O raio permitido é de ' + Math.round(Number(sede.raio)).toLocaleString('pt-BR') + ' m.';
         }
         const permitido = trabalhoExternoPermitido === true;
         if (permitido) {

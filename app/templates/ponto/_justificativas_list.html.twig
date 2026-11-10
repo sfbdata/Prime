@@ -83,8 +83,11 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa). #}
-                                {% if batch[0].status == 'pendente' %}
+                                {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa).
+                                   E12 (P18): a ligada a uma batida de trabalho externo (`registroPonto`) não se edita; o servidor recusa. #}
+                                {% if batch[0].status == 'pendente' and batch[0].registroPonto is defined and batch[0].registroPonto is not null %}
+                                    <span class="text-muted small" data-justificativa-da-batida>Segue para a análise do gestor.</span>
+                                {% elseif batch[0].status == 'pendente' %}
                                 <button type="button"
                                             class="btn btn-sm btn-outline-primary"
                                             title="Editar justificativa"

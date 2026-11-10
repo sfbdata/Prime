@@ -188,7 +188,8 @@ final class FilaSemInternetJsTest extends TestCase
             self::assertStringNotContainsString($proibido, $fila);
         }
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $fila);
-        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+estado,\s+remover,\s+limpar,\s+enviarPendentes,\s+apagarRecusas,\s+\}\);/', $fila);
+        // E12: mais a marca de que esta fila leva o trabalho externo (a tela não manda a batida externa para a fila antiga).
+        self::assertMatchesRegularExpression('/window\.PontoFila = Object\.freeze\(\{\s+disponivel,\s+guardar,\s+estado,\s+remover,\s+limpar,\s+enviarPendentes,\s+apagarRecusas,\s+(?:\/\/[^\n]*\n\s+)*LEVA_TRABALHO_EXTERNO: true,\s+\}\);/', $fila);
     }
 
     #[TestDox('A tela carrega a fila depois do módulo da batida e antes do próprio script')]

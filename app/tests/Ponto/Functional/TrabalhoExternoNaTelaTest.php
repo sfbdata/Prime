@@ -15,6 +15,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Twig\Environment;
 
 /**
@@ -177,6 +181,44 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $celula);
         self::assertCount(0, $celula->filter('.pe-just-sub'));
         self::assertSame('Audiência no fórum', trim($celula->filter('.pe-just-mot')->text()));
+
+        // Sem a batida ligada, o lápis e a lixeira continuam (antes e depois do campo do servidor da etapa).
+        $acoes = $tela->filter('tr.pe-just-lin > td.pe-just-acoes');
+        self::assertCount(1, $acoes->filter('td.pe-just-acoes > button.pe-just-icone--editar[data-justificativa-editar]'));
+        self::assertCount(1, $acoes->filter('td.pe-just-acoes > button.pe-just-icone[data-excluir-url]'));
+        self::assertCount(0, $acoes->filter('.pe-just-segue'));
+    }
+
+    #[TestDox('Ligada a uma batida de trabalho externo: sem lápis nem lixeira, com "Segue para a análise do gestor."; as outras como sempre')]
+    public function testJustificativaDaBatidaSemEditarNemExcluir(): void
+    {
+        $batida = ['tipo' => 'entrada', 'dataHora' => new \DateTimeImmutable('2026-11-09 08:05:00')];
+
+        $acoes = $this->linhaDaLista(['registroPonto' => $batida]);
+        self::assertCount(1, $acoes->filter('td.pe-just-acoes > span.pe-just-segue[data-justificativa-da-batida]:only-child'), 'no lugar dos dois botões');
+        self::assertSame('Segue para a análise do gestor.', trim($acoes->filter('span.pe-just-segue')->text()));
+        self::assertCount(0, $acoes->filter('[data-justificativa-editar], [data-excluir-url], .bi-pencil, .bi-trash3'));
+
+        foreach (['sem a batida ligada' => ['registroPonto' => null], 'sem o campo (antes do servidor da etapa)' => []] as $caso => $campos) {
+            $acoes = $this->linhaDaLista($campos);
+            self::assertCount(1, $acoes->filter('td.pe-just-acoes > button.pe-just-icone--editar[data-justificativa-editar]'), $caso);
+            self::assertCount(1, $acoes->filter('td.pe-just-acoes > button.pe-just-icone[data-excluir-url]'), $caso);
+            self::assertCount(0, $acoes->filter('.pe-just-segue'), $caso);
+        }
+
+        // Analisada, a trava de sempre (a linha é só da que está em análise).
+        $analisada = $this->linhaDaLista(['registroPonto' => $batida, 'status' => 'abonado', 'dataAnalise' => new \DateTimeImmutable('2026-11-10')]);
+        self::assertCount(1, $analisada->filter('td.pe-just-acoes > span.pe-just-trava[data-justificativa-bloqueada]'));
+        self::assertCount(0, $analisada->filter('.pe-just-segue'));
+
+        // A lista antiga (tela antiga), do mesmo jeito: sem o lápis da ligada em análise.
+        $antiga = new Crawler($this->renderComSessao('ponto/_justificativas_list.html.twig', ['justificativas' => [$this->justificativaEmArray(['registroPonto' => $batida])]]));
+        self::assertCount(1, $antiga->filter('tbody > tr > td > span[data-justificativa-da-batida]'));
+        self::assertSame('Segue para a análise do gestor.', trim($antiga->filter('[data-justificativa-da-batida]')->text()));
+        self::assertCount(0, $antiga->filter('button[title="Editar justificativa"]'));
+        $antigaSemLigacao = new Crawler($this->renderComSessao('ponto/_justificativas_list.html.twig', ['justificativas' => [$this->justificativaEmArray(['registroPonto' => null])]]));
+        self::assertCount(1, $antigaSemLigacao->filter('button[title="Editar justificativa"]'));
+        self::assertCount(0, $antigaSemLigacao->filter('[data-justificativa-da-batida]'));
     }
 
     private function tela(): Crawler
@@ -193,6 +235,66 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
     private function twig(): Environment
     {
         return static::getContainer()->get('twig');
+    }
+
+    /**
+     * As ações de uma linha de "Minhas Justificativas" (o parcial da aba), com uma justificativa em array: o campo
+     * `registroPonto` chega com o servidor da etapa e não existe na entidade desta branch.
+     *
+     * @param array<string, mixed> $campos
+     */
+    private function linhaDaLista(array $campos): Crawler
+    {
+        $html = $this->renderComSessao('ponto/_abas_justificativas.html.twig', ['justificativas' => [$this->justificativaEmArray($campos)], 'podeAnalisarAPropria' => false]);
+
+        return (new Crawler($html))->filter('table.pe-just-tab > tbody > tr.pe-just-lin > td.pe-just-acoes');
+    }
+
+    /**
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function justificativaEmArray(array $campos): array
+    {
+        return $campos + [
+            'id' => 41,
+            'data' => new \DateTimeImmutable('2026-11-09'),
+            'tipo' => 'trabalho_externo',
+            'labelTipo' => 'Trabalho externo',
+            'motivo' => 'Audiência no fórum',
+            'status' => 'pendente',
+            'anexoPath' => null,
+            'observacaoAnalise' => null,
+            'dataAnalise' => null,
+            'abonoParcial' => false,
+            'horaInicioAbono' => null,
+            'horaFimAbono' => null,
+            'tipoRegistroEsquecido' => null,
+            'horaRegistroEsquecido' => null,
+            'batchId' => null,
+            'tenant' => ['id' => 7],
+            'user' => ['id' => 9],
+        ];
+    }
+
+    /**
+     * Render de um parcial que usa `csrf_token()`: precisa de uma sessão na pilha de pedidos.
+     *
+     * @param array<string, mixed> $contexto
+     */
+    private function renderComSessao(string $modelo, array $contexto): string
+    {
+        $pedido = new Request();
+        $pedido->setSession(new Session(new MockArraySessionStorage()));
+        $pilha = static::getContainer()->get('request_stack');
+        self::assertInstanceOf(RequestStack::class, $pilha);
+        $pilha->push($pedido);
+        try {
+            return $this->twig()->render($modelo, $contexto);
+        } finally {
+            $pilha->pop();
+        }
     }
 
     private function subtitulo(mixed $justificativa): string

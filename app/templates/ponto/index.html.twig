@@ -1219,8 +1219,9 @@
     // true, o botão "Registrar como trabalho externo"), escrito DENTRO de `alvo`. Hoje o alvo é `#batida-aviso`; a tela
     // vermelha da E8 reaproveita este bloco mudando só o alvo. `foraDoRaio` é `{ titulo, detalhe, trabalhoExterno }`, a
     // forma da resposta do servidor e a de `PontoBatida.textosDoForaDoRaio`. Todo texto entra por `textContent`: o
-    // detalhe traz o nome da sede, que é digitado por alguém.
-    function mostrarForaDoRaio(alvo, foraDoRaio) {
+    // detalhe traz o nome da sede, que é digitado por alguém. `tipo` é o da batida que falhou (desenho L824, `ctx.t`):
+    // é ele que vai como trabalho externo, e não o que estiver escolhido quando a pessoa tocar em "Registrar".
+    function mostrarForaDoRaio(alvo, foraDoRaio, tipo) {
         const titulo = document.createElement('b');
         titulo.className = 'pe-fora-titulo';
         titulo.textContent = foraDoRaio.titulo;
@@ -1237,17 +1238,18 @@
             icone.className = 'bi bi-briefcase';
             icone.setAttribute('aria-hidden', 'true');
             botao.append(icone, 'Registrar como trabalho externo');
-            botao.addEventListener('click', () => abrirJanelaDoTrabalhoExterno(botao));
+            botao.addEventListener('click', () => abrirJanelaDoTrabalhoExterno(botao, tipo));
             partes.push(botao);
         }
         alvo.replaceChildren(...partes);
     }
 
-    // A avaliação local de `fora` nos textos do desenho. As funções vêm do módulo; sem elas (módulo antigo no cache do
-    // navegador), sai só o título, sem o botão, em vez de lançar no meio do toque.
-    function foraDoRaioDaTela(onde) {
+    // A avaliação local de `fora` nos textos do desenho, com a sede mais próxima da posição (como o servidor). As funções
+    // vêm do módulo; sem elas (módulo antigo no cache do navegador), sai só o título, sem o botão, em vez de lançar no
+    // meio do toque.
+    function foraDoRaioDaTela(posicao) {
         if (typeof PontoBatida.textosDoForaDoRaio === 'function') {
-            return PontoBatida.textosDoForaDoRaio(onde, TRABALHO_EXTERNO_PERMITIDO);
+            return PontoBatida.textosDoForaDoRaio(posicao, SEDES, TRABALHO_EXTERNO_PERMITIDO);
         }
 
         return { titulo: 'Você está fora do raio permitido', detalhe: '', trabalhoExterno: false };
@@ -1257,11 +1259,24 @@
         return typeof PontoBatida.foraDoRaioDaResposta === 'function' ? PontoBatida.foraDoRaioDaResposta(data) : null;
     }
 
-    // Janela "Trabalho externo" (E12, desenho L766, L289 e L808) na moldura das janelas do Ponto (`PontoAbas`): abre
-    // com o campo vazio e o foco nele. Esc, o "x" e "Cancelar" fecham pela moldura.
+    // Janela "Trabalho externo" (E12, desenho L766, L289 e L808) na moldura das janelas do Ponto (`PontoAbas`). Esc, o
+    // "x" e "Cancelar" fecham pela moldura.
     const JANELA_DO_TRABALHO_EXTERNO = 'ponto-janela-externo';
+    // O local e o motivo digitados ficam guardados NA PÁGINA até a batida externa entrar ou ir para a fila sem
+    // internet: fechar a janela, uma resposta que não confirma ou a recusa do texto não apagam o que a pessoa escreveu.
+    let textoDoTrabalhoExterno = '';
+    // O tipo da batida que falhou (desenho L824, `ctx.t`), posto ao abrir a janela: é o que vai no envio.
+    let tipoDoTrabalhoExterno = null;
+    // Os dois porquês de o envio não sair pelo caminho externo (o botão de bater ocupado ou o dia completo) e o da fila
+    // antiga (ponto-fila.js de antes da E12 no cache do navegador), que guardaria a batida sem a marca e sem o texto.
+    const AVISO_EXTERNO_EM_ANDAMENTO = 'Um registro ainda está em andamento. Espere a resposta e registre o trabalho externo de novo.';
+    const AVISO_EXTERNO_DIA_COMPLETO = 'Não há registro livre hoje. O trabalho externo não foi enviado.';
+    const AVISO_EXTERNO_SEM_FILA = 'Sem internet, o trabalho externo não pôde ser guardado. Tente de novo quando a conexão voltar.';
+    // As recusas do servidor ao local e ao motivo (`TrabalhoExternoDaBatida`, 422): voltam para a linha de erro da janela.
+    const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];
 
-    function abrirJanelaDoTrabalhoExterno(origem) {
+    // Abre a janela da batida `tipo` com o texto guardado e o foco no campo; `erro`, quando há, vai na linha de erro.
+    function abrirJanelaDoTrabalhoExterno(origem, tipo, erro) {
         if (!window.PontoAbas) {
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
             return;
@@ -1270,18 +1285,39 @@
         if (!fundo) {
             return;
         }
+        tipoDoTrabalhoExterno = tipo || tipoRegistro.value;
         const campo = fundo.querySelector('[data-externo-motivo]');
-        campo.value = '';
+        campo.value = textoDoTrabalhoExterno;
+        if (erro) {
+            window.PontoAbas.mostrarErro(fundo, erro);
+        }
         campo.focus();
     }
 
-    // "Registrar": sem o local e o motivo, a frase do desenho fica na janela; com eles, a janela fecha e a batida do
-    // tipo da vez sai como trabalho externo (`registrarComoTrabalhoExterno`).
+    // A batida externa não se completou (atrasada, sem confirmação, não entrou, sem rede e sem fila, ou o servidor
+    // recusou o texto): a janela volta com o texto guardado, o tipo da batida e o porquê. Toque comum: nada.
+    function reabrirTrabalhoExterno(payload, porque) {
+        if (payload.trabalhoExterno !== true) {
+            return;
+        }
+        abrirJanelaDoTrabalhoExterno(btnPonto, payload.tipo, porque);
+    }
+
+    const campoDoTrabalhoExterno = document.querySelector('#' + JANELA_DO_TRABALHO_EXTERNO + ' [data-externo-motivo]');
+    if (campoDoTrabalhoExterno) {
+        campoDoTrabalhoExterno.addEventListener('input', function () {
+            textoDoTrabalhoExterno = campoDoTrabalhoExterno.value;
+        });
+    }
+
+    // "Registrar": sem o local e o motivo, a frase do desenho fica na janela; com eles, a janela fecha e a batida que
+    // falhou sai como trabalho externo (`registrarComoTrabalhoExterno`).
     const botaoRegistrarExterno = document.querySelector('#' + JANELA_DO_TRABALHO_EXTERNO + ' [data-externo-registrar]');
     if (botaoRegistrarExterno) {
         botaoRegistrarExterno.addEventListener('click', function () {
             const fundo = document.getElementById(JANELA_DO_TRABALHO_EXTERNO);
             const campo = fundo.querySelector('[data-externo-motivo]');
+            textoDoTrabalhoExterno = campo.value;
             const motivo = campo.value.trim();
             if (motivo === '') {
                 window.PontoAbas.mostrarErro(fundo, 'Informe o local e o motivo.');
@@ -1289,26 +1325,27 @@
                 return;
             }
             window.PontoAbas.fecharJanela();
-            registrarComoTrabalhoExterno(motivo);
+            registrarComoTrabalhoExterno(motivo, tipoDoTrabalhoExterno);
         });
     }
 
     // O envio do trabalho externo é o MESMO do botão de bater (fila sem internet, prazo, avisos, atualização da tela):
-    // o motivo fica aqui só durante o clique no botão, que o handler lê antes do primeiro `await`, e sai logo depois.
-    // É um toque novo: o handler faz outro `idEnvio`. Botão desabilitado (envio em andamento ou o dia completo) não
-    // emite clique, e o próprio botão mostra o estado.
-    let motivoDoTrabalhoExterno = null;
+    // o tipo e o motivo ficam aqui só durante o clique no botão, que o handler lê antes do primeiro `await`, e saem logo
+    // depois. É um toque novo: o handler faz outro `idEnvio`. Botão desabilitado (envio em andamento ou o dia completo)
+    // não emite clique: o porquê vai na caixa do resultado, e o texto fica guardado.
+    let trabalhoExternoDoToque = null;
 
-    function registrarComoTrabalhoExterno(motivo) {
+    function registrarComoTrabalhoExterno(motivo, tipo) {
         if (btnPonto.disabled) {
+            mostrarAvisoBatida(envioEmAndamento ? AVISO_EXTERNO_EM_ANDAMENTO : AVISO_EXTERNO_DIA_COMPLETO, 'warning');
             return;
         }
-        motivoDoTrabalhoExterno = motivo;
+        trabalhoExternoDoToque = { tipo: tipo || tipoRegistro.value, motivo };
         try {
             btnPonto.focus();
             btnPonto.click();
         } finally {
-            motivoDoTrabalhoExterno = null;
+            trabalhoExternoDoToque = null;
         }
     }
 
@@ -1735,13 +1772,24 @@
 
     // Guarda a batida do toque na fila, com o MESMO identificador e a MESMA hora do toque. Devolve false quando não
     // deu (sem fila, sem identificador, erro do IndexedDB): quem chama segue o caminho de antes.
+    //
+    // E12: a batida externa só vai para a fila que leva a marca e o texto (`PontoFila.LEVA_TRABALHO_EXTERNO`). Com a fila
+    // antiga no cache do navegador, ela sairia depois como batida comum: não guarda, avisa e devolve true (nada mais é
+    // tentado neste toque; o texto fica na página). Guardada, o texto guardado na página sai.
     async function guardarNaFila(payload) {
         if (!payload.idEnvio || !filaDisponivel()) {
             return false;
         }
+        if (payload.trabalhoExterno === true && window.PontoFila.LEVA_TRABALHO_EXTERNO !== true) {
+            mostrarAvisoBatida(AVISO_EXTERNO_SEM_FILA, 'danger');
+            return true;
+        }
         const entrada = Object.assign({}, payload, { usuarioId: FILA_USUARIO_ID, escritorioId: FILA_ESCRITORIO_ID });
         if (!(await window.PontoFila.guardar(entrada))) {
             return false;
+        }
+        if (payload.trabalhoExterno === true) {
+            textoDoTrabalhoExterno = '';
         }
         // Sem rede, o botão de atualizar NÃO aparece (como no `AVISO_SEM_REDE`): recarregar sem conexão leva a tela.
         // Origem própria (`guardada`): o resultado de uma rodada nunca troca este aviso, só acrescenta abaixo dele.
@@ -2020,9 +2068,9 @@
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
             return;
         }
-        // E12: o local e o motivo do trabalho externo, quando o toque veio da janela (`registrarComoTrabalhoExterno`).
-        // Lido aqui, antes de qualquer `await`, porque a janela o apaga assim que o clique volta. Null no toque comum.
-        const motivoExterno = motivoDoTrabalhoExterno;
+        // E12: o tipo e o motivo do trabalho externo, quando o toque veio da janela (`registrarComoTrabalhoExterno`).
+        // Lidos aqui, antes de qualquer `await`, porque a janela os apaga assim que o clique volta. Null no toque comum.
+        const externo = trabalhoExternoDoToque;
         // Ainda no gesto, antes de qualquer `await`: a janelinha do alerta do ponto (navegador minimizado) precisa da
         // permissão, e o Chrome esconde o pedido feito sem clique.
         window.PontoBatida.pedirPermissaoDeNotificacao();
@@ -2043,11 +2091,11 @@
         if (!dispensaLocalizacao) {
             const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
             // E12 (P18): o toque de trabalho externo não para aqui; o servidor decide.
-            if (motivoExterno === null && onde.situacao === 'fora') {
-                // E12 (P18, desenho L528): o título, o detalhe e, com a opção do escritório, o botão do trabalho externo.
-                // Nada é enviado.
+            if (externo === null && onde.situacao === 'fora') {
+                // E12 (P18, desenho L528): o título, o detalhe (a sede mais próxima) e, com a opção do escritório, o botão
+                // do trabalho externo para o tipo deste toque. Nada é enviado.
                 mostrarAvisoBatida('', 'danger');
-                mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(onde));
+                mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(currentLocation), tipoRegistro.value);
                 return;
             }
         }
@@ -2066,10 +2114,11 @@
         // tentativa desta batida, e o servidor não grava duas vezes o mesmo.
         const horaAparelho = Date.now();
         const payload = { tipo: tipoRegistro.value, idEnvio: idDoEnvio(), horaAparelho };
-        // E12: o corpo de sempre mais a marca e o motivo. Sem internet, vai para a fila com eles.
-        if (motivoExterno !== null) {
+        // E12: o corpo de sempre com o tipo da batida que falhou, a marca e o motivo. Sem internet, vai para a fila com eles.
+        if (externo !== null) {
+            payload.tipo = externo.tipo;
             payload.trabalhoExterno = true;
-            payload.motivoTrabalhoExterno = motivoExterno;
+            payload.motivoTrabalhoExterno = externo.motivo;
         }
         aplicarConfirmacaoDoAlerta(payload);   // E11: "Registrar assim mesmo" refaz a batida do alerta
 
@@ -2136,6 +2185,7 @@
                     'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.',
                     'danger'
                 );
+                reabrirTrabalhoExterno(payload, 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.');
             } else if (resultado.tipo === 'sucesso') {
                 sucesso = true;
                 batidaAceita = { tipo: payload.tipo, resposta: resultado.data };
@@ -2148,21 +2198,33 @@
                 // Sem `await`: um erro da atualização não pode cair no `catch` abaixo, que diria "sem confirmação"
                 // de uma batida que o servidor confirmou.
                 atualizarDepoisDaBatida(avisos.length === 0);
+                // E12: a batida externa entrou; o texto guardado na página sai.
+                if (payload.trabalhoExterno === true) {
+                    textoDoTrabalhoExterno = '';
+                }
             } else if (resultado.tipo === 'recusa') {
                 mostrarAvisoBatida(resultado.mensagem, 'danger');
                 // E12: fora do raio (403) ou GPS impreciso (422) trazem `foraDoRaio`, mostrado como o da avaliação local.
+                // O botão do bloco abre a janela para o tipo deste envio.
                 const foraDoRaio = foraDoRaioDaResposta(resultado.data);
                 if (foraDoRaio) {
-                    mostrarForaDoRaio(avisoBatida, foraDoRaio);
+                    mostrarForaDoRaio(avisoBatida, foraDoRaio, payload.tipo);
+                } else if (resultado.status === 422 && RECUSAS_DO_TEXTO_EXTERNO.includes(resultado.mensagem)) {
+                    // E12: o servidor recusou o local e o motivo: a janela volta com o texto e a frase dele.
+                    reabrirTrabalhoExterno(payload, resultado.mensagem);
                 }
             } else if (resultado.tipo === 'nao_entrou') {
                 mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
+                reabrirTrabalhoExterno(payload, AVISO_NAO_ENTROU);
             } else if (resultado.tipo === 'sem_rede') {
-                // Sem rede, o botão de atualizar NÃO aparece (ver `AVISO_SEM_REDE`).
+                // Sem rede, o botão de atualizar NÃO aparece (ver `AVISO_SEM_REDE`). Chega aqui só sem fila: com ela, a
+                // batida já teria sido guardada acima.
                 mostrarAvisoBatida(AVISO_SEM_REDE, 'danger', false);
+                reabrirTrabalhoExterno(payload, AVISO_SEM_REDE);
             } else {
                 // `sem_confirmacao`: a batida PODE ter entrado, então nunca se afirma que não entrou.
                 mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
+                reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO);
             }
         } catch (erro) {
             // O `catch` que o envio tinha antes da extração: erro da própria tela nunca vira silêncio, e o aviso

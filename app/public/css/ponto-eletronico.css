@@ -719,6 +719,9 @@
 .pe-just-anexo { display: inline-flex; align-items: center; gap: 5px; }
 .pe-tab td.pe-just-acoes { text-align: right; }
 .pe-just-trava { color: var(--pe-trava); font-size: 16px; }
+/* E12 (P18): no lugar do lápis e da lixeira da justificativa ligada a uma batida de trabalho externo. O desenho não tem
+   a linha; tamanho e cor do subtítulo da lista (.pe-just-sub, L545). */
+.pe-just-segue { font-size: 12.5px; color: var(--pe-mudo); white-space: nowrap; }
 .pe-just-analise { display: inline-flex; gap: 4px; }
 .pe-just-btn {
     height: 28px;
