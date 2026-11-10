@@ -127,6 +127,24 @@ final class SeloEVinculoDoDocumentoTest extends TestCase
         self::assertSame($primeira, $documento->getPasta());
     }
 
+    #[TestDox('vínculo: só documento aguardando ou concluído, fora da Lixeira (E3-10)')]
+    public function testVinculoSoNoEnvioForaDaLixeira(): void
+    {
+        $naLixeira = $this->concluido();
+        $naLixeira->moverParaLixeira(null, new \DateTimeImmutable('2026-11-09 10:00:00'));
+
+        foreach (['rascunho' => $this->rascunho(), 'na Lixeira' => $naLixeira] as $caso => $documento) {
+            try {
+                $documento->definirVinculo($this->pasta(), new User(), new \DateTimeImmutable());
+                self::fail('deveria recusar: ' . $caso);
+            } catch (AcaoRecusada $e) {
+                self::assertSame('assinatura_eletronica.erro.vinculo_fora_do_envio', $e->getMessage(), $caso);
+            }
+            self::assertNull($documento->getPasta(), $caso);
+            self::assertFalse($documento->isVinculoPendente(), $caso);
+        }
+    }
+
     #[TestDox('vínculo: pasta de outro escritório nunca entra')]
     public function testVinculoDeOutroEscritorio(): void
     {

@@ -79,7 +79,7 @@ class AuditLogSubscriber
         // Documento da Assinatura: os blocos e o texto lateral são o conteúdo inteiro do documento (pode ter dado de
         // cliente e até 2.000 blocos); as chaves dos arquivos e o carimbo de alteração não são diff útil. A trilha do
         // próprio documento registra cada salvamento; aqui ficam nome, situação, pasta, cor e Lixeira.
-        DocumentoParaAssinar::class => ['blocos', 'lateral', 'mensagem', 'alteradoEm', 'logoChave', 'arquivoEnviadoChave'],
+        DocumentoParaAssinar::class => ['blocos', 'lateral', 'mensagem', 'alteradoEm', 'logoChave', 'arquivoEnviadoChave', 'arquivoFinalChave'],
     ];
 
     /**

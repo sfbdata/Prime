@@ -290,7 +290,7 @@ final class FontesDeReferenciaTest extends KernelTestCase
 
         $datas = (new DatasDasReferencias($conexao))->para([$final]);
         $data = $datas[DatasDasReferencias::chaveDe('assinatura_documento_final', $comFinal)] ?? self::fail('data do PDF final não respondida');
-        self::assertSame('2026-01-02 03:04:05', $data['data']?->format('Y-m-d H:i:s'));
+        self::assertNull($data['data'], 'o PDF final nasce depois do último salvamento: a data é a do arquivo no disco');
         self::assertTrue($data['naLixeira'], 'documento na Lixeira fica fora da liberação');
     }
 

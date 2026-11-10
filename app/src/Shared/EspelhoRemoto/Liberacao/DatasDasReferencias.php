@@ -32,7 +32,8 @@ final class DatasDasReferencias
         // Documento da Assinatura: a última alteração; na Lixeira fica fora da liberação, como o da pasta.
         'assinatura_documento_arquivo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
         'assinatura_documento_logo' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
-        'assinatura_documento_final' => 'SELECT id, alterado_em AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
+        // O PDF final nasce depois do último salvamento (na conclusão ou no 1º download): sem data no banco, vale a do disco.
+        'assinatura_documento_final' => 'SELECT id, NULL AS data, (excluido_em IS NOT NULL) AS na_lixeira FROM assinatura_eletronica_documento WHERE id IN (:ids)',
     ];
 
     public function __construct(

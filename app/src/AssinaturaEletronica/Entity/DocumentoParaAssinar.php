@@ -391,6 +391,10 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         if ($this->pasta !== null) {
             throw new AcaoRecusada('assinatura_eletronica.erro.vinculo_ja_definido');
         }
+        $situacaoQueVincula = \in_array($this->situacao, [SituacaoDoDocumento::Aguardando, SituacaoDoDocumento::Concluido], true);
+        if (!$situacaoQueVincula || $this->estaNaLixeira()) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.vinculo_fora_do_envio');
+        }
         if (!self::doMesmoEscritorio($this->tenant, $pasta->getTenant())) {
             throw new \LogicException('A pasta do vínculo é de outro escritório.');
         }

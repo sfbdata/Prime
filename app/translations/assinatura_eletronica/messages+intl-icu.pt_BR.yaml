@@ -73,6 +73,7 @@ assinatura_eletronica:
         reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
         selo_sem_chave: Código de validação sem chave configurada. Fale com o suporte.
         vinculo_ja_definido: Este documento já está vinculado a uma pasta.
+        vinculo_fora_do_envio: Só documentos aguardando assinatura ou concluídos, fora da Lixeira, podem ser vinculados a uma pasta.
         cancelar_fora_do_envio: Só documentos aguardando assinatura podem ter o envio cancelado.
         lembrete_fora_do_envio: Só documentos aguardando assinatura, dentro do prazo, recebem lembrete.
         lembrete_sem_pendente: Nenhum signatário aguarda assinatura.
