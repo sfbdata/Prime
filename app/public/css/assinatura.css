@@ -58,6 +58,7 @@
     --bja-verm: #a3232b;
     --bja-verm-tx: #7f1c23;
     --bja-verm-claro: #fdecee;
+    --bja-verde-tx: #145a32;
     --bja-cor-borda: #9aabb7;
     --bja-pv: #dfe6ec;
     --bja-sombra: 0 1px 3px rgba(18, 36, 47, .06);
@@ -96,6 +97,7 @@
     --bja-neutro-hover: rgba(255, 255, 255, .06);
     --bja-verm-tx: #f08a92;
     --bja-verm-claro: rgba(163, 35, 43, .18);
+    --bja-verde-tx: #7fd1a1;
     --bja-cor-borda: var(--bs-border-color);
     --bja-pv: var(--bs-secondary-bg);
     --bja-sombra: none;
@@ -193,6 +195,7 @@
     --bja-mudo: #5b7383;
     --bja-azul-tx: #0a6fa0;
     --bja-azul-claro: #e5f1f7;
+    --bja-verde-tx: #145a32;
     --bja-card: #fff;
     --bja-borda: #d3dde4;
     --bja-div: #e6edf2;
@@ -330,9 +333,11 @@
 .bja .bjaToast.is-info { background: #0a6fa0; }
 
 /* ── Vincular à pasta de Expediente (etapa 3, bloco 3; desenho 17, linhas 149, 222 e 277) ── */
-.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: #145a32; text-decoration: none; }
-.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: #145a32; text-decoration: none; }
-.bja .bjaVincLin:hover, .bja .bjaVincDet:hover { color: #145a32; }
+/* O verde do desenho (#145a32) não se lê no fundo escuro: `--bja-verde-tx` vira um verde claro no tema escuro, e a
+   linha pintada volta ao do desenho, como os outros textos dela. */
+.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }
+.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }
+.bja .bjaVincLin:hover, .bja .bjaVincDet:hover { color: var(--bja-verde-tx); }
 .bja .bjaVincFundo { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
 .bja .bjaVincCx { width: 100%; max-width: 560px; overflow: hidden; box-sizing: border-box; }
 .bja .bjaVincCorpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -344,10 +349,6 @@
 .bja .bjaVincIt > .bjaVincCli { flex: 1; min-width: 0; }
 .bja .bjaVincIt > .bjaVincAcao { font-size: 12px; }
 .bja .bjaVincVazio { padding: 14px; font-size: 13px; color: var(--bja-mudo); }
-/* O verde do desenho não se lê no fundo escuro: no tema escuro, um verde claro (a linha pintada fica com o do desenho). */
-[data-bs-theme="dark"] .bja .bjaVincLin, [data-bs-theme="dark"] .bja .bjaVincDet,
-[data-bs-theme="dark"] .bja .bjaVincLin:hover, [data-bs-theme="dark"] .bja .bjaVincDet:hover { color: #7fd1a1; }
-[data-bs-theme="dark"] .bja .bjaLin.tem-cor .bjaVincLin { color: #145a32; }
 
 /* Balão das dicas (data-tip): o do bj-dica.js do desenho, valores linha a linha. Fica com as cores do desenho nos
    dois temas, como os selos. */

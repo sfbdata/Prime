@@ -122,8 +122,8 @@ final class AssinaturaVinculoJsTest extends TestCase
         $css = self::ler(self::CSS);
 
         foreach ([
-            '.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: #145a32; text-decoration: none; }',
-            '.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: #145a32; text-decoration: none; }',
+            '.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }',
+            '.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: var(--bja-verde-tx); text-decoration: none; }',
             '.bja .bjaVincFundo { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }',
             '.bja .bjaVincCx { width: 100%; max-width: 560px; overflow: hidden; box-sizing: border-box; }',
             '.bja .bjaVincCorpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }',
@@ -139,6 +139,29 @@ final class AssinaturaVinculoJsTest extends TestCase
         }
         self::assertStringContainsString('display: flex; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-bottom: 1px solid var(--bja-div);', $css);
         self::assertStringContainsString('font: inherit; font-size: 13.5px; color: var(--bja-texto); text-align: left; cursor: pointer;', $css);
+    }
+
+    #[TestDox('o verde do vínculo é variável: o do desenho no tema claro e na linha pintada, um verde claro só no tema escuro')]
+    public function testVerdeDoVinculoPorTema(): void
+    {
+        $css = self::ler(self::CSS);
+
+        self::assertSame(['#145a32', '#7fd1a1', '#145a32'], self::valoresDaVariavel($css, '--bja-verde-tx'), 'claro, escuro e linha pintada, nessa ordem');
+        self::assertSame(1, substr_count($css, '#7fd1a1'), 'o verde claro só na variável do tema escuro');
+        self::assertDoesNotMatchRegularExpression('/bjaVinc(Lin|Det)[^{]*\{[^}]*#[0-9a-f]{6}/i', $css, 'as regras do vínculo usam a variável, não a cor escrita');
+        foreach (["\n.bja {", "\n[data-bs-theme=\"dark\"] .bja {", "\n[data-bs-theme=\"dark\"] .bja .bjaLin.tem-cor {"] as $bloco) {
+            $inicio = strpos($css, $bloco);
+            self::assertIsInt($inicio, $bloco);
+            self::assertStringContainsString('--bja-verde-tx:', substr($css, $inicio, (int) strpos($css, '}', $inicio) - $inicio), $bloco);
+        }
+    }
+
+    /** @return list<string> os valores dados à variável, na ordem do arquivo */
+    private static function valoresDaVariavel(string $css, string $variavel): array
+    {
+        preg_match_all('/' . preg_quote($variavel, '/') . ':\s*([^;]+);/', $css, $achados);
+
+        return $achados[1];
     }
 
     #[TestDox('textos do desenho no catálogo js.vinculo, sem travessão, sem o aviso da aba Expediente nem o botão de NUP digitado')]
