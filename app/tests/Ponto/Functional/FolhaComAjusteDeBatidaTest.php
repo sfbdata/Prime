@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\DTO\LinhaDaFolhaImpressa;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
@@ -19,13 +20,16 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BancoDeHorasPorLotes;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\InicioContagemResolver;
+use App\Ponto\Service\LinhasDaFolhaImpressa;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Ponto\Support\DesenhoDaFolhaEspiao;
 use Doctrine\ORM\EntityManagerInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
@@ -33,25 +37,27 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Twig\Environment;
 
 /**
  * A folha conta a batida EFETIVA (E10, plano-e10-ponto §1, §4 e §7, bloco A): a desconsiderada sai da conta, a
- * incluída entra e a alterada vale pela hora nova, com a original guardada no banco. O PDF e o XLSX imprimem a hora
- * ajustada com a marca "aj" e, no mês com ajuste, a legenda dela nas observações (decisão 5).
+ * incluída entra e a alterada vale pela hora nova, com a original guardada no banco. O XLSX imprime a hora ajustada
+ * com a marca "aj" e, no mês com ajuste, a legenda dela nas observações (decisão 5). A folha em PDF (desenhada em
+ * imagem na E16) imprime a hora efetiva sem marca e, nas observações do dia, "<Batida> ajustada em dd/mm/aaaa" de
+ * cada batida ajustada (desenho L622; decisão 20 da E16), lida no conteúdo que chegou ao desenho
+ * ({@see DesenhoDaFolhaEspiao}).
  *
  * O dia (sempre ONTEM, como no `FolhaExportacaoMesmaEscolhaTest`): entrada 08:04 (e uma 07:11 desconsiderada),
  * repouso 12:02, retorno 13:03 incluído pelo gestor e a saída 17:05 alterada para 18:37. Conta: 3:58 + 5:34 = 9:32
  * (572 min). O cenário de controle grava as mesmas quatro horas como batidas, sem ajuste nenhum: a mesma conta, sem
- * marca nem legenda. As horas não se repetem em outro lugar da folha (o contratual padrão é 09:00).
+ * marca, sem legenda e sem "ajustada em". As horas não se repetem em outro lugar da folha (o contratual padrão é 09:00).
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(FolhaPontoBuilder::class)]
 #[CoversClass(FolhaPontoXlsxExporter::class)]
+#[CoversClass(DadosDaFolhaExportada::class)]
+#[CoversClass(LinhasDaFolhaImpressa::class)]
 final class FolhaComAjusteDeBatidaTest extends JusPrimeWebTestCase
 {
-    private const LEGENDA_NO_PDF = 'aj: hor&#225;rio ajustado pelo gestor; o registro original fica guardado.';
-
     /** @var array{extra: RegistroPonto, saida: RegistroPonto, inclusao: PontoAjuste, alteracao: PontoAjuste}|null */
     private ?array $ajustes = null;
 
@@ -62,7 +68,7 @@ final class FolhaComAjusteDeBatidaTest extends JusPrimeWebTestCase
         [$tenant, $colaborador, $dia] = $this->cenario(true);
         $ajustes = $this->ajustes ?? throw new \LogicException('Cenário sem ajustes.');
 
-        $linha = $this->linhaDoDia($this->dadosDoPdf($tenant, $colaborador, $dia), $dia);
+        $linha = $this->linhaDoDia($this->dadosDaFolha($tenant, $colaborador, $dia), $dia);
 
         self::assertSame(['08:04:00', '12:02:00', '13:03:00', '18:37:00'], [$linha['entrada'], $linha['repouso'], $linha['retorno'], $linha['saida']]);
         self::assertSame('9:32', $linha['horasTrabalhadas']);
@@ -120,44 +126,63 @@ final class FolhaComAjusteDeBatidaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('17:05', $texto, 'a hora original da alterada não sai na planilha');
     }
 
-    #[TestDox('O PDF imprime a hora ajustada com "aj" e a legenda nas observações gerais')]
-    public function testPdfMarcaOAjusteEPoeALegenda(): void
+    #[TestDox('O PDF imprime as horas efetivas sem marca e, nas observações do dia, "<Batida> ajustada em dd/mm/aaaa" de cada batida ajustada (decisão 20 da E16)')]
+    public function testPdfMostraOAjusteNasObservacoesDoDia(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
         [$tenant, $colaborador, $dia] = $this->cenario(true);
+        $ajustes = $this->ajustes ?? throw new \LogicException('Cenário sem ajustes.');
 
+        $linha = $this->linhaDoPdf($client, $desenho, $tenant, $colaborador, $dia);
+
+        self::assertSame(['08:04', '12:02', '13:03', '18:37'], $linha->batidas, 'as efetivas: a inclusão e a hora nova da alterada, sem marca');
+        self::assertSame('9:32', $linha->trabalhadas);
+        // A entrada só teve a 07:11 desconsiderada: a efetiva (08:04) não foi ajustada. O feriado, se o dia tiver, vem depois.
+        self::assertStringStartsWith(
+            sprintf('Retorno ajustada em %s · Saída ajustada em %s', $ajustes['inclusao']->getCriadoEm()->format('d/m/Y'), $ajustes['alteracao']->getCriadoEm()->format('d/m/Y')),
+            $linha->observacao,
+        );
+        self::assertStringNotContainsString('Entrada ajustada', $linha->observacao);
+        self::assertStringNotContainsString('07:11', $desenho->textoDoUltimo(), 'a desconsiderada não sai na folha');
+        self::assertStringNotContainsString('17:05', $desenho->textoDoUltimo(), 'a hora original da alterada não sai na folha');
+    }
+
+    #[TestDox('Sem ajuste no mês, a mesma conta sai sem "ajustada em" no PDF e sem a marca "aj" e a legenda no XLSX')]
+    public function testSemAjusteNaoHaMarcaNemLegenda(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
+        [$tenant, $colaborador, $dia] = $this->cenario(false);
+
+        self::assertSame('9:32', $this->linhaDoDia($this->dadosDaFolha($tenant, $colaborador, $dia), $dia)['horasTrabalhadas']);
+        $linhaDoPdf = $this->linhaDoPdf($client, $desenho, $tenant, $colaborador, $dia);
+        self::assertSame(['08:04', '12:02', '13:03', '18:37'], $linhaDoPdf->batidas);
+        self::assertSame('9:32', $linhaDoPdf->trabalhadas);
+        self::assertStringNotContainsString('ajustada em', $desenho->textoDoUltimo());
+
+        [$planilha, $linha] = $this->planilhaDoDia($client, $tenant, $colaborador, $dia);
+        self::assertSame(['13:03', '18:37', '9:32'], [$planilha->getCell("E{$linha}")->getValue(), $planilha->getCell("F{$linha}")->getValue(), $planilha->getCell("G{$linha}")->getValue()]);
+        self::assertStringNotContainsString(FolhaPontoXlsxExporter::LEGENDA_DO_AJUSTE, self::textoDa($planilha));
+    }
+
+    /** A linha do dia na folha em PDF, pela rota: o que chegou ao desenho (a página é imagem, sem texto para ler). */
+    private function linhaDoPdf(KernelBrowser $client, DesenhoDaFolhaEspiao $desenho, Tenant $tenant, User $colaborador, \DateTimeImmutable $dia): LinhaDaFolhaImpressa
+    {
         $this->logarComTenant($client, $colaborador, $tenant);
         $client->request('GET', sprintf('/ponto/exportar-folha-pdf?mes=%d&ano=%d', (int) $dia->format('n'), (int) $dia->format('Y')));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/pdf');
 
-        // O Dompdf comprime o texto; o que dá para ler é o HTML que ele recebe, montado com os passos do controller.
-        $html = static::getContainer()->get(Environment::class)->render('ponto/folha_pdf.html.twig', $this->dadosDoPdf($tenant, $colaborador, $dia));
+        foreach ($desenho->ultimo()->linhas as $linha) {
+            if ($linha->data === $dia->format('Y-m-d')) {
+                return $linha;
+            }
+        }
 
-        self::assertStringContainsString('<td>08:04</td>', $html);
-        self::assertStringContainsString('<td>13:03 <span class="aj">aj</span></td>', $html);
-        self::assertStringContainsString('<td>18:37 <span class="aj">aj</span></td>', $html);
-        self::assertStringContainsString(self::LEGENDA_NO_PDF, $html);
-        self::assertStringNotContainsString('07:11', $html);
-        self::assertStringNotContainsString('17:05', $html);
-    }
-
-    #[TestDox('Sem ajuste no mês, a mesma conta sai sem a marca "aj" e sem a legenda, no PDF e no XLSX')]
-    public function testSemAjusteNaoHaMarcaNemLegenda(): void
-    {
-        $client = static::createClient();
-        [$tenant, $colaborador, $dia] = $this->cenario(false);
-
-        $dados = $this->dadosDoPdf($tenant, $colaborador, $dia);
-        self::assertSame('9:32', $this->linhaDoDia($dados, $dia)['horasTrabalhadas']);
-        $html = static::getContainer()->get(Environment::class)->render('ponto/folha_pdf.html.twig', $dados);
-        self::assertStringContainsString('<td>18:37</td>', $html);
-        self::assertStringNotContainsString('<span class="aj">', $html);
-        self::assertStringNotContainsString(self::LEGENDA_NO_PDF, $html);
-
-        [$planilha, $linha] = $this->planilhaDoDia($client, $tenant, $colaborador, $dia);
-        self::assertSame(['13:03', '18:37', '9:32'], [$planilha->getCell("E{$linha}")->getValue(), $planilha->getCell("F{$linha}")->getValue(), $planilha->getCell("G{$linha}")->getValue()]);
-        self::assertStringNotContainsString(FolhaPontoXlsxExporter::LEGENDA_DO_AJUSTE, self::textoDa($planilha));
+        self::fail('a linha do dia deveria estar na folha em PDF');
     }
 
     /** @return array{0: Worksheet, 1: int} a planilha exportada e o número da linha do dia */
@@ -193,12 +218,12 @@ final class FolhaComAjusteDeBatidaTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Os dados do PDF montados com EXATAMENTE os passos de `PontoController::exportarFolhaPdf` e o mesmo
-     * `montarDadosFolha` (por reflexão), como no `FolhaExportacaoMesmaEscolhaTest`.
+     * Os dados da folha exportada: as linhas do `FolhaPontoBuilder` do mês e o mesmo `DadosDaFolhaExportada::montar`
+     * da rota do XLSX, como no `AlertasAntesDaBatidaControllerTest`.
      *
      * @return array<string, mixed>
      */
-    private function dadosDoPdf(Tenant $tenant, User $colaborador, \DateTimeImmutable $dia): array
+    private function dadosDaFolha(Tenant $tenant, User $colaborador, \DateTimeImmutable $dia): array
     {
         $container = static::getContainer();
         $builder = $container->get(FolhaPontoBuilder::class);
@@ -222,10 +247,9 @@ final class FolhaComAjusteDeBatidaTest extends JusPrimeWebTestCase
             $jornadaTenant,
             $inicioContagem,
         );
-        $controller = $container->get(PontoController::class);
 
-        return (new \ReflectionMethod($controller, 'montarDadosFolha'))
-            ->invoke($controller, $colaborador, $tenant, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $builder, $inicioContagem);
+        return $container->get(DadosDaFolhaExportada::class)
+            ->montar($colaborador, $tenant, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $inicioContagem);
     }
 
     /**
