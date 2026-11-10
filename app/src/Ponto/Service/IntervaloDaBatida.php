@@ -6,9 +6,8 @@ namespace App\Ponto\Service;
 
 /**
  * O que as regras de intervalo dizem de uma batida, no momento dela ({@see AlertasAntesDaBatida}; spec
- * docs/specs/ponto-desenho-0811.md, P21 e E11). Três respostas, que podem vir juntas na entrada:
+ * docs/specs/ponto-desenho-0811.md, P21 e E11). Duas respostas, que podem vir juntas na entrada; nenhuma recusa:
  *
- * - `recusa`: a regra de antes da E11, que só vale com a chave `ponto-alertas` desligada (a batida não grava);
  * - `alerta`: a janela "Antes de registrar" do desenho. A batida só grava com a confirmação da pessoa, ou quando vem da
  *   fila sem internet, que não tem como mostrar a janela;
  * - `avisoDepois`: a batida grava e a resposta avisa (a interjornada contada de uma saída vinda de esquecimento, spec
@@ -17,7 +16,6 @@ namespace App\Ponto\Service;
 final readonly class IntervaloDaBatida
 {
     public function __construct(
-        public ?string $recusa = null,
         public ?string $alerta = null,
         public ?string $avisoDepois = null,
     ) {

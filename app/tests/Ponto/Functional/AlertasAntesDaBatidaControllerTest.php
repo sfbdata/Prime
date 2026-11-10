@@ -30,9 +30,10 @@ use Twig\Environment;
  * E11 do desenho do Ponto (spec docs/specs/ponto-desenho-0811.md, P21; risco ALTO): o intervalo curto, a interjornada
  * e o 7º dia seguido avisam antes de gravar, com os mínimos da Jornada do escritório (aqui 30 minutos de intervalo e
  * 8 horas de interjornada). A primeira tentativa devolve o alerta sem gravar; "Registrar assim mesmo" manda de novo com
- * a confirmação e o mesmo `idEnvio`, a batida grava e a folha marca o não conforme. A chave `ponto-alertas` desligada
- * volta à recusa de antes. A batida da fila e a saída de esquecimento ficam em BatidaSemInternet*Test e
- * InterjornadaDeEsquecimentoTest.
+ * a confirmação e o mesmo `idEnvio`, a batida grava e a folha marca o não conforme. Com a chave `ponto-alertas`
+ * desligada nada avisa e nada recusa: a batida grava direto e a folha continua marcando (desenho L498). O "Descanso
+ * Semanal Remunerado" da folha sai da maior sequência de dias com registro (desenho L693). A batida da fila e a saída de
+ * esquecimento ficam em BatidaSemInternet*Test e InterjornadaDeEsquecimentoTest.
  *
  * A pessoa tem home office liberado todo dia (a batida passa sem GPS).
  */
@@ -92,13 +93,7 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertTrue($gravou['success'], (string) ($gravou['message'] ?? ''));
         self::assertSame(1, $this->batidas('retorno'));
         self::assertSame(self::ID_DO_ENVIO, $this->em()->getConnection()->fetchOne("SELECT id_envio FROM registro_ponto WHERE user_id = ? AND tipo = 'retorno'", [$this->pessoa->getId()]));
-        // A folha só mede o intervalo do dia com horas apuradas, e o dia de hoje só apura com a saída.
-        $this->registrarBatida(
-            $this->em()->getReference(User::class, (int) $this->pessoa->getId()),
-            $this->em()->getReference(Tenant::class, (int) $this->escritorio->getId()),
-            'saida',
-            new \DateTimeImmutable('+1 second'),
-        );   // as requisições limparam o EntityManager
+        $this->saidaLogoDepois();
         $folha = $this->dadosDaFolha(new \DateTimeImmutable());
         self::assertFalse($folha['intrajornadaConforme'], 'a folha reflete o horário real');
         self::assertStringContainsString('Intervalo Intrajornada (m&#237;n. ', $this->pdf($folha));
@@ -174,13 +169,13 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('alerta', $resposta);
     }
 
-    #[TestDox('Validação da interjornada desligada na Jornada do escritório: a entrada no 7º dia seguido e antes da interjornada grava sem alerta')]
+    #[TestDox('Validação da interjornada desligada na Jornada do escritório: a entrada antes da interjornada grava sem alerta')]
     public function testValidacaoDaInterjornadaDesligadaNaoAvisa(): void
     {
         $this->jornada->setMinimoMinutosInterjornada(2400);   // a saída de ontem às 09:00 ainda não cumpriu as 40 horas
         $this->jornada->setValidacaoInterjornadaHabilitada(false);
         $this->em()->flush();
-        $this->diasComRegistro(6);
+        $this->diasComRegistro(3);
 
         $resposta = $this->bater('entrada');
 
@@ -188,34 +183,108 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('alerta', $resposta);
     }
 
-    #[TestDox('Chave ponto-alertas desligada no escritório: o retorno curto é recusado como antes da E11 (422), o 7º dia não avisa e o cartão perde o aviso do intervalo')]
-    public function testChaveDesligadaRecusaComoAntes(): void
+    #[TestDox('O 7º dia segue só a chave ponto-alertas: com a validação da interjornada desligada na Jornada, ainda avisa')]
+    public function testSetimoDiaSemAValidacaoDaInterjornada(): void
+    {
+        $this->jornada->setValidacaoInterjornadaHabilitada(false);
+        $this->em()->flush();
+        $this->diasComRegistro(6);
+
+        $alerta = $this->bater('entrada');
+
+        self::assertFalse($alerta['success']);
+        self::assertSame(self::SETIMO_DIA, $alerta['alerta']);
+    }
+
+    #[TestDox('O 7º dia conta só este escritório: seis dias de batida no escritório B não fazem a 1ª entrada no A avisar')]
+    public function testSetimoDiaNaoContaOutroEscritorio(): void
+    {
+        $outro = $this->escritorio('Escritório B');
+        $this->vincular($this->pessoa, $outro);
+        for ($d = 1; $d <= 6; ++$d) {
+            $dia = new \DateTimeImmutable(sprintf('-%d days', $d));
+            $this->registrarBatida($this->pessoa, $outro, 'entrada', $dia->setTime(8, 0));
+            $this->registrarBatida($this->pessoa, $outro, 'saida', $dia->setTime(9, 0));
+        }
+
+        $resposta = $this->bater('entrada');
+
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('alerta', $resposta);
+        self::assertSame(1, $this->batidas('entrada'), 'a entrada de hoje no A');
+    }
+
+    #[TestDox('Chave ponto-alertas desligada no escritório: o retorno curto grava direto, sem alerta nem recusa, a folha marca o intrajornada não conforme e o cartão perde o aviso do intervalo')]
+    public function testChaveDesligadaGravaSemAviso(): void
     {
         $this->pularPertoDaMeiaNoite();
         self::assertSame('30', $this->minimoDoAvisoNoCartao(), 'com a chave ligada o cartão avisa com o mínimo do escritório');
-        $configuracao = new ConfiguracaoDoPonto($this->escritorio);
-        $configuracao->definir(FuncoesDoPonto::ALERTAS, false, $this->pessoa, new \DateTimeImmutable());
-        $this->em()->persist($configuracao);
-        $this->em()->flush();
+        $this->jornadaPessoal($this->pessoa, $this->escritorio, [[[1, 2, 3, 4, 5, 6, 7], '08:00', '12:00', '13:00', '17:00']]);
+        $this->desligarOsAlertasNoEscritorio();
         $this->registrarBatida($this->pessoa, $this->escritorio, 'entrada', new \DateTimeImmutable('-40 minutes'));
         $this->registrarBatida($this->pessoa, $this->escritorio, 'repouso', new \DateTimeImmutable('-12 minutes'));
 
-        $resposta = $this->bater('retorno', true);
+        $resposta = $this->bater('retorno');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Intervalo mínimo de repouso é de 30 minuto(s). Aguarde mais 18 minuto(s).', $resposta['message']);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
         self::assertArrayNotHasKey('alerta', $resposta);
-        self::assertSame(0, $this->batidas('retorno'), 'a confirmação não fura a recusa');
+        self::assertSame(1, $this->batidas('retorno'));
+        $this->saidaLogoDepois();
+        $folha = $this->dadosDaFolha(new \DateTimeImmutable());
+        self::assertFalse($folha['intrajornadaConforme'], 'a folha continua marcando com a chave desligada');
+        $this->pdf($folha);
         self::assertSame('0', $this->minimoDoAvisoNoCartao());
+    }
+
+    #[TestDox('Chave ponto-alertas desligada: a entrada antes da interjornada grava direto, sem alerta nem recusa, e a folha marca a interjornada não conforme')]
+    public function testChaveDesligadaEntradaAntesDaInterjornadaGrava(): void
+    {
+        $this->jornada->setMinimoMinutosInterjornada(2400);
+        $this->em()->flush();
+        $this->jornadaPessoal($this->pessoa, $this->escritorio, [[[1, 2, 3, 4, 5, 6, 7], '08:00', '12:00', '13:00', '17:00']]);
+        $this->desligarOsAlertasNoEscritorio();
+        $ontem = new \DateTimeImmutable('yesterday');
+        $this->registrarBatida($this->pessoa, $this->escritorio, 'entrada', $ontem->setTime(7, 0));
+        $this->registrarBatida($this->pessoa, $this->escritorio, 'saida', $ontem->setTime(8, 0));
+
+        $resposta = $this->bater('entrada');
+
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('alerta', $resposta);
+        self::assertSame(2, $this->batidas('entrada'));
+        if ((int) $ontem->format('n') === (int) date('n')) {   // a folha do mês não vê a saída do mês anterior
+            self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['interjornadaConforme']);
+        }
+    }
+
+    #[TestDox('Folha: 7 dias seguidos com registro no mês marcam o Descanso Semanal Remunerado não conforme no PDF; 6 dias, conforme')]
+    public function testDescansoSemanalDaFolha(): void
+    {
+        $outubro = new \DateTimeImmutable('2026-10-05');
+        for ($d = 0; $d < 6; ++$d) {
+            $this->registrarBatida($this->pessoa, $this->escritorio, 'entrada', $outubro->modify(sprintf('+%d days', $d))->setTime(8, 0));
+            $this->registrarBatida($this->pessoa, $this->escritorio, 'saida', $outubro->modify(sprintf('+%d days', $d))->setTime(17, 0));
+        }
+        self::assertTrue($this->dadosDaFolha($outubro)['descansoSemanalConforme'], '6 dias seguidos: conforme');
+
+        $this->registrarBatida(
+            $this->em()->getReference(User::class, (int) $this->pessoa->getId()),
+            $this->em()->getReference(Tenant::class, (int) $this->escritorio->getId()),
+            'entrada',
+            $outubro->modify('+6 days')->setTime(8, 0),
+        );   // o 7º dia seguido (a leitura da folha limpou o EntityManager)
+        $folha = $this->dadosDaFolha($outubro);
+
+        self::assertFalse($folha['descansoSemanalConforme']);
+        $html = static::getContainer()->get(Environment::class)->render('ponto/folha_pdf.html.twig', $folha);
+        self::assertMatchesRegularExpression('/Descanso Semanal Remunerado:\s*<span class="nao-conforme">&#10007; N&#227;o Conforme<\/span>/', $html);
     }
 
     #[TestDox('Chave ponto-alertas desligada: o 7º dia seguido não é olhado, a entrada grava')]
     public function testChaveDesligadaNaoOlhaOSetimoDia(): void
     {
-        $configuracao = new ConfiguracaoDoPonto($this->escritorio);
-        $configuracao->definir(FuncoesDoPonto::ALERTAS, false, $this->pessoa, new \DateTimeImmutable());
-        $this->em()->persist($configuracao);
-        $this->em()->flush();
+        $this->desligarOsAlertasNoEscritorio();
         $this->diasComRegistro(6);
 
         self::assertTrue($this->bater('entrada')['success']);
@@ -244,6 +313,29 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
     }
 
     // ----------------------------------------------------------------- apoio
+
+    /** A chave `ponto-alertas` desligada na camada Escritório (o Global continua ligado). */
+    private function desligarOsAlertasNoEscritorio(): void
+    {
+        $configuracao = new ConfiguracaoDoPonto($this->escritorio);
+        $configuracao->definir(FuncoesDoPonto::ALERTAS, false, $this->pessoa, new \DateTimeImmutable());
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+    }
+
+    /**
+     * A saída logo depois do retorno: a folha só mede o intervalo do dia com horas apuradas, e o dia de hoje só apura com
+     * a saída. Por referência: as requisições limparam o EntityManager.
+     */
+    private function saidaLogoDepois(): void
+    {
+        $this->registrarBatida(
+            $this->em()->getReference(User::class, (int) $this->pessoa->getId()),
+            $this->em()->getReference(Tenant::class, (int) $this->escritorio->getId()),
+            'saida',
+            new \DateTimeImmutable('+1 second'),
+        );
+    }
 
     /** As batidas de minutos atrás cairiam em ontem perto da meia-noite. */
     private function pularPertoDaMeiaNoite(): void

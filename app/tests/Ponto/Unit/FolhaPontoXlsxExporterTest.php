@@ -111,4 +111,13 @@ final class FolhaPontoXlsxExporterTest extends TestCase
         }
         self::assertSame('Maria da Silva', $aba->getCell('A' . $this->celulaCom($aba, 'João Souza')->getRow())->getValue());
     }
+
+    #[TestDox('E11: o Descanso Semanal Remunerado sai do dado da folha (desenho L693), não mais fixo em Conforme')]
+    public function testDescansoSemanalDaFolha(): void
+    {
+        $this->celulaCom($this->gerar(['descansoSemanalConforme' => false]), 'Descanso Semanal Remunerado:  ✗ Não Conforme');
+        $this->celulaCom($this->gerar(['descansoSemanalConforme' => true]), 'Descanso Semanal Remunerado:  ✓ Conforme');
+        $this->celulaCom($this->gerar([]), 'Descanso Semanal Remunerado:  ✓ Conforme');
+        self::addToAssertionCount(3);
+    }
 }

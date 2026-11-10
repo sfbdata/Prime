@@ -401,7 +401,7 @@ final class FolhaPontoXlsxExporter
         $intervalos = [
             'Intervalo Intrajornada (mín. ' . $minimoR . '):  ' . ($conformeRepouso ? '✓ Conforme' : '✗ Não Conforme'),
             'Intervalo Interjornada (mín. ' . $minimoI . '):  ' . ($conformeInterjornada ? '✓ Conforme' : '✗ Não Conforme'),
-            'Descanso Semanal Remunerado:  ✓ Conforme',
+            'Descanso Semanal Remunerado:  ' . (($c['descansoSemanalConforme'] ?? true) ? '✓ Conforme' : '✗ Não Conforme'),
             'Trabalho em Feriados:  ' . $feriados . ' dia' . ($feriados !== 1 ? 's' : ''),
             'Trabalho em Finais de Semana:  ' . $fds . ' dia' . ($fds !== 1 ? 's' : ''),
         ];

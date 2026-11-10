@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 /**
  * Os alertas que não bloqueiam (spec docs/specs/ponto-desenho-0811.md, P21 e E11): o texto exato de cada alerta com os
  * mínimos da Jornada do escritório (aqui 30 minutos de intervalo e 8 horas de interjornada, não o 1h e 11h fixos do
- * desenho), o 7º dia seguido, as validações desligadas e a chave `ponto-alertas` desligada (a recusa de antes).
+ * desenho), o 7º dia seguido, as validações desligadas e a chave `ponto-alertas` desligada (nada avisa e nada recusa).
  */
 #[CoversClass(AlertasAntesDaBatida::class)]
 #[CoversClass(IntervaloDaBatida::class)]
@@ -94,7 +94,6 @@ final class AlertasAntesDaBatidaTest extends TestCase
         $intervalo = $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_RETORNO, $this->momento());
 
         self::assertSame('Faltam 18 minutos para completar o intervalo mínimo de 30min. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.', $intervalo->alerta);
-        self::assertNull($intervalo->recusa);
         self::assertNull($intervalo->avisoDepois);
     }
 
@@ -114,10 +113,10 @@ final class AlertasAntesDaBatidaTest extends TestCase
         $intervalo = $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-11-10 05:00:00'));
 
         self::assertSame('Faltam 1h00 para completar 8h de descanso desde a saída de ontem. Se registrar agora, a folha marcará a interjornada como não conforme.', $intervalo->alerta);
-        self::assertNull($intervalo->recusa);
+        self::assertNull($intervalo->avisoDepois);
     }
 
-    #[TestDox('A saída do mesmo dia diz "de hoje"; a de antes de ontem, a data')]
+    #[TestDox('A saída do mesmo dia (dois turnos) avisa sem prometer a marca da folha, que só compara com o dia anterior; a de antes de ontem diz a data e promete')]
     public function testDiaDaSaida(): void
     {
         $this->registros->method('ultimaSaidaQueFechouTurno')->willReturnOnConsecutiveCalls(
@@ -129,8 +128,8 @@ final class AlertasAntesDaBatidaTest extends TestCase
         $deHoje = $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento());
         $daData = $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento());
 
-        self::assertStringContainsString('completar 40h de descanso desde a saída de hoje.', (string) $deHoje->alerta);
-        self::assertStringContainsString('completar 40h de descanso desde a saída de 08/11.', (string) $daData->alerta);
+        self::assertSame('Faltam 38h20 para completar 40h de descanso desde a saída de hoje.', $deHoje->alerta);
+        self::assertSame('Faltam 1h20 para completar 40h de descanso desde a saída de 08/11. Se registrar agora, a folha marcará a interjornada como não conforme.', $daData->alerta);
     }
 
     #[TestDox('7º dia seguido: seis dias antes de hoje com registro, o texto exato do alerta')]
@@ -185,10 +184,10 @@ final class AlertasAntesDaBatidaTest extends TestCase
         $this->registros->method('ultimaSaidaQueFechouTurno')->willReturn($this->batida(RegistroPonto::TIPO_SAIDA, '2026-11-10 12:00:00'));
         $this->registros->method('batidasDoPeriodoNoEscritorio')->willReturn($this->diasAntesDeHoje(6));
 
-        self::assertStringStartsWith('Faltam 6h20 para completar 8h de descanso', (string) $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento())->alerta);
+        self::assertSame('Faltam 6h20 para completar 8h de descanso desde a saída de hoje.', $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento())->alerta);
     }
 
-    #[TestDox('Validações do intervalo e da interjornada desligadas na Jornada do escritório: nada avisa, nem o 7º dia')]
+    #[TestDox('Validações do intervalo e da interjornada desligadas na Jornada do escritório: nem o intervalo nem a interjornada avisam')]
     public function testValidacoesDesligadas(): void
     {
         $this->jornada->setValidacaoRepousoHabilitada(false);
@@ -196,7 +195,7 @@ final class AlertasAntesDaBatidaTest extends TestCase
         $registros = $this->createMock(RegistroPontoRepository::class);
         $registros->expects(self::never())->method('findRepousoDoDia');
         $registros->expects(self::never())->method('ultimaSaidaQueFechouTurno');
-        $registros->expects(self::never())->method('batidasDoPeriodoNoEscritorio');
+        $registros->method('batidasDoPeriodoNoEscritorio')->willReturn($this->diasAntesDeHoje(5));
 
         $alertas = $this->alertas(true, $registros);
 
@@ -204,30 +203,35 @@ final class AlertasAntesDaBatidaTest extends TestCase
         self::assertEquals(IntervaloDaBatida::livre(), $alertas->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento()));
     }
 
-    #[TestDox('Chave ponto-alertas desligada: a recusa de antes da E11, com o mínimo do escritório; o 7º dia não é olhado')]
-    public function testChaveDesligadaRecusa(): void
+    #[TestDox('O 7º dia segue só a chave ponto-alertas: avisa mesmo com a validação da interjornada desligada na Jornada')]
+    public function testSetimoDiaSemAValidacaoDaInterjornada(): void
+    {
+        $this->jornada->setValidacaoInterjornadaHabilitada(false);
+        $this->registros->method('batidasDoPeriodoNoEscritorio')->willReturn($this->diasAntesDeHoje(6));
+
+        self::assertSame(
+            'Este será o 7º dia seguido com registro, sem o descanso semanal.',
+            $this->alertas()->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento())->alerta,
+        );
+    }
+
+    #[TestDox('Chave ponto-alertas desligada: nada avisa e nada recusa (desenho L498), nem o intervalo, nem a interjornada, nem o 7º dia')]
+    public function testChaveDesligadaNadaAvisa(): void
     {
         $registros = $this->createMock(RegistroPontoRepository::class);
-        $registros->method('findRepousoDoDia')->willReturn($this->batida(RegistroPonto::TIPO_REPOUSO, '2026-11-10 13:28:00'));
-        $registros->method('ultimaSaidaQueFechouTurno')->willReturnOnConsecutiveCalls(
-            $this->batida(RegistroPonto::TIPO_SAIDA, '2026-11-09 22:00:00'),
-            null,
-        );
+        $registros->expects(self::never())->method('findRepousoDoDia');
         $registros->expects(self::never())->method('batidasDoPeriodoNoEscritorio');
+        $registros->method('ultimaSaidaQueFechouTurno')->willReturn($this->batida(RegistroPonto::TIPO_SAIDA, '2026-11-09 22:00:00'));
         $alertas = $this->alertas(false, $registros);
 
         $retorno = $alertas->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_RETORNO, $this->momento());
         $entrada = $alertas->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-11-10 05:00:00'));
-        $semSaida = $alertas->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento());
 
-        self::assertSame('Intervalo mínimo de repouso é de 30 minuto(s). Aguarde mais 18 minuto(s).', $retorno->recusa);
-        self::assertNull($retorno->alerta);
-        self::assertSame('Interjornada mínima é de 8h. Aguarde mais 1h00m.', $entrada->recusa);
-        self::assertNull($entrada->alerta);
-        self::assertEquals(IntervaloDaBatida::livre(), $semSaida);
+        self::assertEquals(IntervaloDaBatida::livre(), $retorno);
+        self::assertEquals(IntervaloDaBatida::livre(), $entrada);
     }
 
-    #[TestDox('Saída vinda de esquecimento (R4): sem alerta nem recusa, a batida grava e avisa depois')]
+    #[TestDox('Saída vinda de esquecimento (R4), com a chave ligada ou desligada: sem alerta, a batida grava e avisa depois')]
     public function testSaidaDeEsquecimentoSoAvisaDepois(): void
     {
         $saida = $this->batida(RegistroPonto::TIPO_SAIDA, '2026-11-10 10:40:00');
@@ -240,7 +244,6 @@ final class AlertasAntesDaBatidaTest extends TestCase
             $intervalo = $this->alertas($chave, null, $justificativas)->avaliar($this->user, $this->tenant, RegistroPonto::TIPO_ENTRADA, $this->momento());
 
             self::assertNull($intervalo->alerta);
-            self::assertNull($intervalo->recusa);
             self::assertSame(sprintf(SaidaDeEsquecimento::AVISO_INTERJORNADA, '10/11', '10:40', 8), $intervalo->avisoDepois);
         }
     }

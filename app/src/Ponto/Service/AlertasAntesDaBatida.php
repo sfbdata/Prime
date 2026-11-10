@@ -11,23 +11,27 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
 
 /**
- * Alertas que não bloqueiam (spec docs/specs/ponto-desenho-0811.md, P21 e E11; desenho 16, `alertaPre` L455 a L464 e a
- * janela "Antes de registrar" L288). Risco ALTO: ponto eletrônico.
+ * Alertas que não bloqueiam (spec docs/specs/ponto-desenho-0811.md, P21 e E11; desenho 16, `alertaPre` L455 a L464, a
+ * janela "Antes de registrar" L288 e o `if (!forcar && this.ef('alertas'))` da batida, L498). Risco ALTO: ponto
+ * eletrônico.
  *
  * Quem: a pessoa que bate o ponto, na tela do Ponto ou no atalho do cabeçalho.
  * Para quê: saber, antes de gravar, que a batida deixa o intervalo, a interjornada ou o descanso semanal fora da regra,
- * e registrar assim mesmo: "O alerta não impede o registro: a folha deve refletir o horário real.".
+ * e registrar assim mesmo: "O alerta não impede o registro: a folha deve refletir o horário real.". Nada aqui recusa.
  *
- * Com as validações da Jornada do escritório ligadas e a chave `ponto-alertas` ligada (Global e Escritório):
- * - retorno com o repouso de hoje abaixo do mínimo de intervalo do escritório: alerta;
- * - entrada antes do mínimo de interjornada do escritório, contado da última saída que fechou um turno aqui: alerta (a
- *   saída vinda de esquecimento continua só avisando depois, R4 da spec ponto-esquecimento-nao-trava);
- * - entrada depois de 6 ou mais dias seguidos com registro aqui (o desenho olha 7 dias para trás): alerta. O desenho
- *   não tem chave própria para o descanso semanal; ele segue a validação do descanso entre jornadas.
+ * Com a chave `ponto-alertas` ligada (Global e Escritório):
+ * - retorno com o repouso de hoje abaixo do mínimo de intervalo do escritório (com a validação do repouso ligada na
+ *   Jornada do escritório): alerta;
+ * - entrada antes do mínimo de interjornada do escritório (com a validação da interjornada ligada), contado da última
+ *   saída que fechou um turno aqui: alerta. A frase do "não conforme" só vai quando a saída é de outro dia: a folha
+ *   compara a entrada do dia com a saída do dia anterior, e a saída de hoje (dois turnos) não entra nessa conta;
+ * - entrada, primeira batida do dia, depois de 6 ou mais dias seguidos com registro aqui (o desenho olha 7 dias para
+ *   trás): alerta. O desenho não tem validação própria para o descanso semanal: ele segue só a chave.
  * Só o primeiro alerta vai à janela, na ordem do desenho (interjornada antes do descanso semanal).
  *
- * Com a chave desligada a janela não existe e vale a regra de antes da E11 (a decisão que preserva o sistema de hoje):
- * o retorno e a entrada abaixo do mínimo são recusados, com as mesmas frases; o descanso semanal não é olhado.
+ * Com a chave desligada não há alerta nem recusa: a batida grava direto, como no desenho, e a folha continua marcando o
+ * que ficou fora da regra. A saída vinda de esquecimento, com ou sem a chave, só avisa depois de gravar (R4 da spec
+ * ponto-esquecimento-nao-trava; aviso de antes da E11, que não é alerta desta etapa).
  *
  * Os mínimos são os da Jornada do escritório (o desenho fixa 1h e 11h); sem Jornada, os padrões de sempre (60 e 660
  * minutos). Tudo neste escritório: as batidas de outro escritório da mesma pessoa não entram na conta.
@@ -42,17 +46,17 @@ final class AlertasAntesDaBatida
 
     public const ALERTA_INTRAJORNADA = 'Faltam %s para completar o intervalo mínimo de %s. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.';
     public const ALERTA_INTERJORNADA = 'Faltam %s para completar %s de descanso desde a saída %s. Se registrar agora, a folha marcará a interjornada como não conforme.';
+    /** A saída do mesmo dia (dois turnos): a folha não marca, e o alerta não promete a marca. */
+    public const ALERTA_INTERJORNADA_DE_HOJE = 'Faltam %s para completar %s de descanso desde a saída de hoje.';
     public const ALERTA_DESCANSO_SEMANAL = 'Este será o %dº dia seguido com registro, sem o descanso semanal.';
-
-    /** As recusas de antes da E11, que ficam para a chave desligada. */
-    public const RECUSA_INTRAJORNADA = 'Intervalo mínimo de repouso é de %d minuto(s). Aguarde mais %d minuto(s).';
-    public const RECUSA_INTERJORNADA = 'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.';
 
     /** Dias seguidos com registro antes de hoje a partir dos quais a entrada avisa (desenho L461: `run >= 6`). */
     public const DIAS_SEGUIDOS_PARA_AVISAR = 6;
 
     /** Quantos dias antes de hoje o desenho olha (L461: `d <= 7`). */
     private const DIAS_OLHADOS = 7;
+
+    private const DE_HOJE = 'de hoje';
 
     private const MINIMO_REPOUSO_PADRAO = 60;
     private const MINIMO_INTERJORNADA_PADRAO = 660;
@@ -72,10 +76,11 @@ final class AlertasAntesDaBatida
         }
         $avisa = $this->funcoes->vale(FuncoesDoPonto::ALERTAS, $tenant);
         $jornada = $tenant->getJornadaTenant();
+        if ($tipo === RegistroPonto::TIPO_RETORNO) {
+            return $avisa ? $this->doRetorno($user, $tenant, $jornada, $momento) : IntervaloDaBatida::livre();
+        }
 
-        return $tipo === RegistroPonto::TIPO_RETORNO
-            ? $this->doRetorno($user, $tenant, $jornada, $momento, $avisa)
-            : $this->daEntrada($user, $tenant, $jornada, $momento, $avisa);
+        return $this->daEntrada($user, $tenant, $jornada, $momento, $avisa);
     }
 
     /**
@@ -115,36 +120,30 @@ final class AlertasAntesDaBatida
     }
 
     /** O retorno com o primeiro repouso de hoje, até o momento da batida (a da fila não mede contra um repouso posterior). */
-    private function doRetorno(User $user, Tenant $tenant, ?JornadaTenant $jornada, \DateTimeImmutable $momento, bool $avisa): IntervaloDaBatida
+    private function doRetorno(User $user, Tenant $tenant, ?JornadaTenant $jornada, \DateTimeImmutable $momento): IntervaloDaBatida
     {
         $repouso = ($jornada?->isValidacaoRepousoHabilitada() ?? true) ? $this->registros->findRepousoDoDia($user, $tenant, $momento, $momento) : null;
         if ($repouso === null) {
             return IntervaloDaBatida::livre();
         }
         $minimo = $jornada?->getMinimoMinutosRepouso() ?? self::MINIMO_REPOUSO_PADRAO;
-        $passados = $momento->getTimestamp() - $repouso->getDataHora()->getTimestamp();
-        if ($avisa) {
-            $faltam = $minimo * 60 - $passados;
+        $faltam = $minimo * 60 - ($momento->getTimestamp() - $repouso->getDataHora()->getTimestamp());
 
-            return $faltam > 0
-                ? new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTRAJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo)))
-                : IntervaloDaBatida::livre();
-        }
-        $minutos = (int) round($passados / 60);
-
-        return $minutos < $minimo
-            ? new IntervaloDaBatida(recusa: sprintf(self::RECUSA_INTRAJORNADA, $minimo, $minimo - $minutos))
+        return $faltam > 0
+            ? new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTRAJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo)))
             : IntervaloDaBatida::livre();
     }
 
-    /** A entrada: a interjornada e, sem alerta dela e com a chave ligada, o descanso semanal. */
+    /**
+     * A entrada: a interjornada (com a validação dela ligada na Jornada) e, sem alerta dela e com a chave ligada, o
+     * descanso semanal. O aviso da saída de esquecimento vale com ou sem a chave (R4).
+     */
     private function daEntrada(User $user, Tenant $tenant, ?JornadaTenant $jornada, \DateTimeImmutable $momento, bool $avisa): IntervaloDaBatida
     {
-        if (!($jornada?->isValidacaoInterjornadaHabilitada() ?? true)) {
-            return IntervaloDaBatida::livre();
-        }
-        $interjornada = $this->interjornada($user, $tenant, $jornada, $momento, $avisa);
-        if ($interjornada->recusa !== null || $interjornada->alerta !== null || !$avisa) {
+        $interjornada = ($jornada?->isValidacaoInterjornadaHabilitada() ?? true)
+            ? $this->interjornada($user, $tenant, $jornada, $momento, $avisa)
+            : IntervaloDaBatida::livre();
+        if ($interjornada->alerta !== null || !$avisa) {
             return $interjornada;
         }
 
@@ -153,8 +152,8 @@ final class AlertasAntesDaBatida
 
     /**
      * A interjornada medida da última saída que FECHOU um turno neste escritório, até o momento (a saída solta não conta,
-     * R4). A saída vinda de esquecimento só avisa depois, com a conta de antes (minutos arredondados). A saída batida:
-     * alerta com a chave ligada (conta em segundos, a mesma do "não conforme" da folha), recusa com ela desligada.
+     * R4). A saída vinda de esquecimento só avisa depois, com a conta de antes (minutos arredondados). A saída batida,
+     * com a chave ligada: alerta (conta em segundos, a mesma do "não conforme" da folha); com ela desligada, nada.
      */
     private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornada, \DateTimeImmutable $momento, bool $avisa): IntervaloDaBatida
     {
@@ -168,18 +167,17 @@ final class AlertasAntesDaBatida
         if ($faltam <= 0) {
             return IntervaloDaBatida::livre();
         }
-        $minutos = (int) round($passados / 60);
         if ($this->saidaDeEsquecimento->veioDeEsquecimento($saida)) {
-            return $minutos < $minimo ? new IntervaloDaBatida(avisoDepois: $this->avisoDoEsquecimento($saida, $minimo)) : IntervaloDaBatida::livre();
+            return (int) round($passados / 60) < $minimo ? new IntervaloDaBatida(avisoDepois: $this->avisoDoEsquecimento($saida, $minimo)) : IntervaloDaBatida::livre();
         }
-        if ($avisa) {
-            return new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTERJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo), self::diaDaSaida($saida, $momento)));
+        if (!$avisa) {
+            return IntervaloDaBatida::livre();
         }
-        $falta = $minimo - $minutos;
+        $dia = self::diaDaSaida($saida, $momento);
 
-        return $minutos < $minimo
-            ? new IntervaloDaBatida(recusa: sprintf(self::RECUSA_INTERJORNADA, intdiv($minimo, 60), intdiv($falta, 60), $falta % 60))
-            : IntervaloDaBatida::livre();
+        return new IntervaloDaBatida(alerta: $dia === self::DE_HOJE
+            ? sprintf(self::ALERTA_INTERJORNADA_DE_HOJE, self::tempoQueFalta($faltam), self::duracao($minimo))
+            : sprintf(self::ALERTA_INTERJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo), $dia));
     }
 
     private function avisoDoEsquecimento(RegistroPonto $saida, int $minimo): string
@@ -193,7 +191,7 @@ final class AlertasAntesDaBatida
         $dia = $saida->getDataHora()->format('Y-m-d');
 
         return match ($dia) {
-            $momento->format('Y-m-d') => 'de hoje',
+            $momento->format('Y-m-d') => self::DE_HOJE,
             $momento->modify('-1 day')->format('Y-m-d') => 'de ontem',
             default => 'de ' . $saida->getDataHora()->format('d/m'),
         };
