@@ -164,7 +164,7 @@ final class ExcluirJustificativaEmAnaliseUseCaseTest extends KernelTestCase
             self::fail('a exclusão devia ser recusada');
         } catch (ExclusaoDeJustificativaRecusadaException $e) {
             self::assertSame(ExclusaoDeJustificativaRecusadaException::MEXEU_NA_FOLHA, $e->motivo);
-            self::assertSame('Esta justificativa já mexeu na folha e não pode ser excluída. Volte-a para análise.', $e->getMessage());
+            self::assertSame('Esta justificativa já foi abonada uma vez e mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.', $e->getMessage());
         }
 
         self::assertTrue($this->em()->isOpen(), 'a recusa não fecha o EntityManager');

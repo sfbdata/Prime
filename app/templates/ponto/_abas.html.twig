@@ -18,9 +18,10 @@
     molde das de gestão (painel buscado em `ponto_auditoria`), para quem tem `GestaoDoPonto::veAuditoria`.
 
     Recebe: pendencias, justificativas, abaAberta (uma de PontoController::ABAS_DO_CARTAO), podeAnalisarAPropria,
-    competenciaSelecionada (o plano B da exclusão, sem a linha na tela, reabre a aba no mesmo mês), comprovantesVisiveis
-    e comprovantes (E15), bancoDeHoras (E17) e, das abas de gestão, veEquipe, veAuditoria, veConfiguracoes e
-    equipeAAnalisar (o número da aba Equipe).
+    justificativasComAjuste (E10: as em análise que já mexeram na folha, sem o "Excluir"), competenciaSelecionada (o
+    plano B da exclusão, sem a linha na tela, reabre a aba no mesmo mês), comprovantesVisiveis e comprovantes (E15),
+    bancoDeHoras (E17) e, das abas de gestão, veEquipe, veAuditoria, veConfiguracoes e equipeAAnalisar (o número da
+    aba Equipe).
 #}
 {% set comprovantesVisiveis = comprovantesVisiveis|default(false) %}
 {% set bancoDeHoras = bancoDeHoras|default(null) %}
@@ -85,7 +86,7 @@
         {% include 'ponto/_abas_pendencias.html.twig' with {pendencias: pendencias} only %}
     </div>
     <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-justificativas" aria-labelledby="ponto-aba-justificativas"{{ aberta == 'justificativas' ? '' : ' hidden' }}>
-        {% include 'ponto/_abas_justificativas.html.twig' with {justificativas: justificativas, podeAnalisarAPropria: podeAnalisarAPropria} only %}
+        {% include 'ponto/_abas_justificativas.html.twig' with {justificativas: justificativas, podeAnalisarAPropria: podeAnalisarAPropria, justificativasComAjuste: justificativasComAjuste|default([])} only %}
     </div>
     {% if comprovantesVisiveis %}
     <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-comprovantes" aria-labelledby="ponto-aba-comprovantes"{{ aberta == 'comprovantes' ? '' : ' hidden' }}>

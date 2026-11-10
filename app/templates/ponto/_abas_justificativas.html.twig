@@ -1,8 +1,11 @@
 {#
     Aba "Minhas Justificativas" do cartão de abas (P39, desenho 16 L178 a L190). Só as do mês escolhido na Folha.
     Uma linha por justificativa, como no desenho: a situação, a exclusão e a análise são de cada dia (a ficha do
-    gestor também analisa dia a dia). Recebe `justificativas` (do mês, data mais nova primeiro) e
-    `podeAnalisarAPropria` (P43 a: o primário e o Master; o servidor confere de novo, AnaliseDaPropriaJustificativa).
+    gestor também analisa dia a dia). Recebe `justificativas` (do mês, data mais nova primeiro),
+    `podeAnalisarAPropria` (P43 a: o primário e o Master; o servidor confere de novo, AnaliseDaPropriaJustificativa) e
+    `justificativasComAjuste` (E10: ids das em análise que já mexeram na folha, abonadas uma vez e devolvidas para
+    análise; a lixeira delas não aparece, e o servidor recusa a exclusão do mesmo jeito,
+    ExcluirJustificativaEmAnaliseUseCase).
 
     Situações no masculino da aba (P40 e D22): "Em análise", "Abonado", "Recusado". Ficam do sistema, no molde do
     desenho: "Não abonado" (a falta registrada pelo gestor), o horário do abono parcial (P45), o "Ver" do atestado e o
@@ -106,6 +109,7 @@
                                         data-justificativa-editar>
                                     <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </button>
+                                {%- if j.id not in justificativasComAjuste|default([]) -%}
                                 <button type="button" class="pe-just-icone" aria-label="Excluir justificativa" title="Excluir enquanto não analisada"
                                         data-excluir-url="{{ path('ponto_justificativa_excluir', {id: j.id}) }}" data-info="{{ info }}">
                                     <i class="bi bi-trash3" aria-hidden="true"></i>

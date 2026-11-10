@@ -119,10 +119,35 @@ final class ExcluirJustificativaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(
-            'Esta justificativa já mexeu na folha e não pode ser excluída. Volte-a para análise.',
+            'Esta justificativa já foi abonada uma vez e mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.',
             json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? null,
         );
         self::assertSame('pendente', $this->statusNoBanco((int) $j->getId()));
+    }
+
+    #[TestDox('E10, tela: na aba "Minhas Justificativas", a em análise sem ajuste mostra o "Excluir"; a que já mexeu na folha (abonada e devolvida para análise) não mostra, e o lápis fica')]
+    public function testExcluirSomeDaQueJaMexeuNaFolha(): void
+    {
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+        $dia       = new \DateTimeImmutable('first day of this month');
+        $semAjuste = $this->justificativa($this->dono, $this->escritorio, $dia, 'pendente');
+        $comAjuste = $this->justificativa($this->dono, $this->escritorio, $dia, 'pendente', ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'entrada', 'horaRegistroEsquecido' => '00:00']);
+        $analisar  = static::getContainer()->get(AnalisarJustificativaUseCase::class);
+        $analisar->abonar($comAjuste, $this->escritorio, $gestor, '');
+        $analisar->reverter($comAjuste, $this->escritorio, $gestor);
+        self::assertSame('pendente', $this->statusNoBanco($comAjuste));
+
+        $this->logarComTenant($this->client, $this->dono, $this->escritorio);
+        $this->em()->clear();
+        $tela = $this->client->request('GET', '/ponto/?aba=justificativas');
+
+        self::assertResponseIsSuccessful();
+        $linha = static fn (int $id): string => sprintf('tr.pe-just-lin[data-justificativa="%d"]', $id);
+        self::assertCount(1, $tela->filter($linha((int) $semAjuste->getId()) . ' [data-excluir-url]'), 'a sem ajuste pode ser excluída');
+        self::assertCount(1, $tela->filter($linha((int) $comAjuste->getId())), 'a que já mexeu na folha continua na lista');
+        self::assertCount(1, $tela->filter($linha((int) $comAjuste->getId()) . ' [data-justificativa-editar]'), 'o lápis continua');
+        self::assertCount(0, $tela->filter($linha((int) $comAjuste->getId()) . ' [data-excluir-url]'), 'sem o "Excluir": o servidor recusaria');
     }
 
     #[TestDox('Do próprio dono, mas de outro escritório: 404 pelo escritório da sessão, e nada sai')]

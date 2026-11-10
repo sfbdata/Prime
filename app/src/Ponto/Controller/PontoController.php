@@ -37,6 +37,7 @@ use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\PontoAjusteRepository;
 use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
@@ -150,6 +151,7 @@ final class PontoController extends AbstractController
         FuncoesDoPonto $funcoes,
         GestaoDoPonto $gestao,
         JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe,
+        PontoAjusteRepository $ajustes,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -297,6 +299,8 @@ final class PontoController extends AbstractController
             // também, mas só no plano B do js/ponto-abas.js, quando a linha não está na tela).
             'abaAberta'                => $this->abaAberta($request),
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
+            // E10: a em análise que já mexeu na folha não mostra o "Excluir" (o servidor recusa do mesmo jeito).
+            'justificativasComAjuste'  => $ajustes->idsDasJustificativasComAjuste($tenant, self::idsEmAnalise($justificativasDaCompetencia)),
             // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
             'comprovantesVisiveis'     => $abaDosComprovantes->visivel($tenant, $user),
             'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
@@ -1249,6 +1253,25 @@ final class PontoController extends AbstractController
         }
 
         return $choque->naBatida($user, $tenant, $agora);
+    }
+
+    /**
+     * Os ids das justificativas ainda em análise: só nelas a aba "Minhas Justificativas" mostra o "Excluir".
+     *
+     * @param iterable<JustificativaPonto> $justificativas
+     *
+     * @return list<int>
+     */
+    private static function idsEmAnalise(iterable $justificativas): array
+    {
+        $ids = [];
+        foreach ($justificativas as $justificativa) {
+            if ($justificativa->getStatus() === 'pendente' && $justificativa->getId() !== null) {
+                $ids[] = $justificativa->getId();
+            }
+        }
+
+        return $ids;
     }
 
     /**
