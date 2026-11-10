@@ -118,14 +118,10 @@ final class ConferenciaDePdf
             }
             $posicao = $achada + 10;
 
-            $casou = preg_match('/\G\/ByteRange\s*+\[\s*+(\d++)\s++(\d++)\s++(\d++)\s++(\d++)\s*+\]/', $pdf, $partes, 0, $achada);
-            if ($casou === false) {
-                throw new \RuntimeException('Falha na leitura do /ByteRange.');
-            }
-            if ($casou === 0) {
+            $partes = self::faixaEm($pdf, $achada);
+            if ($partes === null) {
                 continue;
             }
-
             $chave = $partes[1] . ',' . $partes[2] . ',' . $partes[3] . ',' . $partes[4];
             if (isset($vistas[$chave])) {
                 continue;
@@ -134,21 +130,45 @@ final class ConferenciaDePdf
             if (\count($declaracoes) >= LimitesDaConferencia::ASSINATURAS_MAXIMAS) {
                 return null;
             }
-
-            $declaracoes[] = [
-                'numeros' => array_map(
-                    static fn (string $n): int => \strlen($n) > LimitesDaConferencia::DIGITOS_MAXIMOS_DA_FAIXA ? -1 : (int) $n,
-                    [$partes[1], $partes[2], $partes[3], $partes[4]],
-                ),
-                'inicio' => $achada,
-                'fim' => $achada + \strlen($partes[0]),
-            ];
+            $declaracoes[] = self::declaracao($partes, $achada);
         }
 
         // Ordem do protótipo (fim da faixa, estável); número absurdo vai para o fim, como o número enorme do JS.
         usort($declaracoes, static fn (array $x, array $y): int => self::chaveDeOrdem($x['numeros']) <=> self::chaveDeOrdem($y['numeros']));
 
         return $declaracoes;
+    }
+
+    /**
+     * O texto do `/ByteRange [a l c m]` que começa em `$achada` e os quatro números; null se ali não há os quatro.
+     *
+     * @return array{string, string, string, string, string}|null
+     */
+    private static function faixaEm(string $pdf, int $achada): ?array
+    {
+        $casou = preg_match('/\G\/ByteRange\s*+\[\s*+(\d++)\s++(\d++)\s++(\d++)\s++(\d++)\s*+\]/', $pdf, $partes, 0, $achada);
+        if ($casou === false) {
+            throw new \RuntimeException('Falha na leitura do /ByteRange.');
+        }
+
+        return $casou === 0 ? null : [$partes[0], $partes[1], $partes[2], $partes[3], $partes[4]];
+    }
+
+    /**
+     * @param array{string, string, string, string, string} $partes
+     *
+     * @return array{numeros: list<int>, inicio: int, fim: int}
+     */
+    private static function declaracao(array $partes, int $achada): array
+    {
+        return [
+            'numeros' => array_map(
+                static fn (string $n): int => \strlen($n) > LimitesDaConferencia::DIGITOS_MAXIMOS_DA_FAIXA ? -1 : (int) $n,
+                [$partes[1], $partes[2], $partes[3], $partes[4]],
+            ),
+            'inicio' => $achada,
+            'fim' => $achada + \strlen($partes[0]),
+        ];
     }
 
     /** @param list<int> $numeros */
@@ -160,17 +180,9 @@ final class ConferenciaDePdf
     /** @param array{numeros: list<int>, inicio: int, fim: int} $declaracao */
     private function umaAssinatura(string $pdf, array $declaracao, int $ordem): AssinaturaConferida
     {
-        [$a, $l, $c, $m] = $declaracao['numeros'];
-        $tamanho = \strlen($pdf);
+        [, $l, $c, $m] = $declaracao['numeros'];
         $absurda = \in_array(-1, $declaracao['numeros'], true);
-        $fim = $absurda ? -1 : $c + $m;
-        $base = [
-            'ordem' => $ordem,
-            'faixaDeBytes' => $declaracao['numeros'],
-            'fim' => $fim,
-            'cobreODocumento' => !$absurda && $fim === $tamanho,
-            'bytesDepois' => $absurda ? 0 : max(0, $tamanho - $fim),
-        ];
+        $base = self::base($declaracao['numeros'], $ordem, \strlen($pdf), $absurda);
 
         $motivoDaFaixa = self::motivoDeFaixaInvalida($pdf, $declaracao, $absurda);
         if ($motivoDaFaixa !== null) {
@@ -178,42 +190,20 @@ final class ConferenciaDePdf
         }
 
         $dicionario = self::dicionario($pdf, $l, $c);
-        $tipo = match (true) {
-            str_contains($dicionario, 'ETSI.RFC3161') => self::TIPO_CARIMBO_DO_TEMPO,
-            str_contains($dicionario, 'ETSI.CAdES') => 'PAdES',
-            str_contains($dicionario, 'adbe.pkcs7') => 'PKCS#7',
-            default => 'Digital',
-        };
-        $base += [
-            'faixaValida' => true,
-            'tipo' => $tipo,
-            'docMdp' => self::docMdp($dicionario),
-        ];
+        $tipo = self::tipo($dicionario);
+        $base += ['faixaValida' => true, 'tipo' => $tipo, 'docMdp' => self::docMdp($dicionario)];
         $horaDoDicionario = self::horaDoDicionario($dicionario);
 
         if ($c - $l > LimitesDaConferencia::TRECHO_DA_ASSINATURA_MAXIMO_EM_BYTES) {
             return self::montar($base, null, null, $horaDoDicionario, VereditoDaAssinatura::NaoConferida, self::MOTIVO_ASSINATURA_GRANDE);
         }
-
-        try {
-            $cms = $this->leitorDeAssinaturaCms->conferir(self::bytesDoTrecho(substr($pdf, $l, $c - $l)), $pdf, $l, $c, $m);
-        } catch (FormatoNaoReconhecido $e) {
-            return self::montar($base, null, null, $horaDoDicionario, VereditoDaAssinatura::NaoConferida, $e->motivo());
-        } catch (\Throwable) {
-            return self::montar($base, null, null, $horaDoDicionario, VereditoDaAssinatura::NaoConferida, FormatoNaoReconhecido::MOTIVO);
+        $cms = $this->lerCms($pdf, $l, $c, $m);
+        if (\is_string($cms)) {
+            return self::montar($base, null, null, $horaDoDicionario, VereditoDaAssinatura::NaoConferida, $cms);
         }
 
-        // Ordem do protótipo: "conteúdo" antes de "chave" quando os dois falham. No carimbo do tempo o messageDigest é
-        // o do TSTInfo, não o da faixa (M15): só a chave decide.
         $carimbo = $tipo === self::TIPO_CARIMBO_DO_TEMPO;
-        [$veredito, $motivo] = match (true) {
-            !$carimbo && $cms->resumoConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CONTEUDO_ALTERADO],
-            $cms->chaveConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CHAVE_NAO_CONFERE],
-            $cms->vinculo === VinculoDoCertificado::Diferente => [VereditoDaAssinatura::Alterada, self::MOTIVO_CERTIFICADO_TROCADO],
-            $carimbo => [VereditoDaAssinatura::NaoConferida, self::MOTIVO_CARIMBO_DO_TEMPO],
-            $cms->resumoConfere === true && $cms->chaveConfere === true => [VereditoDaAssinatura::Integra, self::MOTIVO_INTEGRA],
-            default => [VereditoDaAssinatura::NaoConferida, $cms->motivo ?? FormatoNaoReconhecido::MOTIVO],
-        };
+        [$veredito, $motivo] = self::veredito($cms, $carimbo);
 
         return self::montar(
             $base,
@@ -224,6 +214,66 @@ final class ConferenciaDePdf
             $motivo,
             resumoConfere: $carimbo ? null : $cms->resumoConfere,
         );
+    }
+
+    /**
+     * Ordem, faixa, fim e bytes depois da assinatura.
+     *
+     * @param list<int> $numeros
+     *
+     * @return array{ordem: int, faixaDeBytes: list<int>, fim: int, cobreODocumento: bool, bytesDepois: int}
+     */
+    private static function base(array $numeros, int $ordem, int $tamanho, bool $absurda): array
+    {
+        $fim = $absurda ? -1 : $numeros[2] + $numeros[3];
+
+        return [
+            'ordem' => $ordem,
+            'faixaDeBytes' => $numeros,
+            'fim' => $fim,
+            'cobreODocumento' => !$absurda && $fim === $tamanho,
+            'bytesDepois' => $absurda ? 0 : max(0, $tamanho - $fim),
+        ];
+    }
+
+    private static function tipo(string $dicionario): string
+    {
+        return match (true) {
+            str_contains($dicionario, 'ETSI.RFC3161') => self::TIPO_CARIMBO_DO_TEMPO,
+            str_contains($dicionario, 'ETSI.CAdES') => 'PAdES',
+            str_contains($dicionario, 'adbe.pkcs7') => 'PKCS#7',
+            default => 'Digital',
+        };
+    }
+
+    /** O CMS conferido, ou o motivo de não ter dado para ler. */
+    private function lerCms(string $pdf, int $l, int $c, int $m): ConferenciaDoCms|string
+    {
+        try {
+            return $this->leitorDeAssinaturaCms->conferir(self::bytesDoTrecho(substr($pdf, $l, $c - $l)), $pdf, $l, $c, $m);
+        } catch (FormatoNaoReconhecido $e) {
+            return $e->motivo();
+        } catch (\Throwable) {
+            return FormatoNaoReconhecido::MOTIVO;
+        }
+    }
+
+    /**
+     * Ordem do protótipo: "conteúdo" antes de "chave" quando os dois falham. No carimbo do tempo o messageDigest é o
+     * do TSTInfo, não o da faixa (M15): só a chave decide.
+     *
+     * @return array{VereditoDaAssinatura, string}
+     */
+    private static function veredito(ConferenciaDoCms $cms, bool $carimbo): array
+    {
+        return match (true) {
+            !$carimbo && $cms->resumoConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CONTEUDO_ALTERADO],
+            $cms->chaveConfere === false => [VereditoDaAssinatura::Alterada, self::MOTIVO_CHAVE_NAO_CONFERE],
+            $cms->vinculo === VinculoDoCertificado::Diferente => [VereditoDaAssinatura::Alterada, self::MOTIVO_CERTIFICADO_TROCADO],
+            $carimbo => [VereditoDaAssinatura::NaoConferida, self::MOTIVO_CARIMBO_DO_TEMPO],
+            $cms->resumoConfere === true && $cms->chaveConfere === true => [VereditoDaAssinatura::Integra, self::MOTIVO_INTEGRA],
+            default => [VereditoDaAssinatura::NaoConferida, $cms->motivo ?? FormatoNaoReconhecido::MOTIVO],
+        };
     }
 
     /**

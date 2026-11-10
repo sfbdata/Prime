@@ -213,9 +213,29 @@ final class IndiceDoPdf
     {
         $this->fimDeObjetos = $this->posicoes('endobj');
         $this->fimDeFluxos = $this->posicoes('endstream');
-
-        // Cabeçalhos soltos, em ordem; o maior número antes de cada fronteira vai junto.
         sort($fronteiras);
+        [$maiores, $ordem] = $this->indexarCabecalhos($fronteiras);
+        foreach ($this->tamanhosDeclarados() as [$onde, $tamanho]) {
+            self::subirAntesDe($maiores, $fronteiras, $onde, $tamanho - 1);
+        }
+        $this->raizes = $this->raizesDeclaradas();
+        $this->indexarFluxos($ordem, $fronteiras, $maiores);
+
+        foreach ($maiores as $fronteira => $numero) {
+            $this->proximoNumero[$fronteira] = $numero + 1;
+        }
+    }
+
+    /**
+     * Cabeçalhos soltos, em ordem; o maior número antes de cada fronteira vai junto.
+     *
+     * @param list<int> $fronteiras em ordem
+     *
+     * @return array{array<int, int>, list<array{int, int}>} maior número antes de cada fronteira; posição e número de
+     *                                                       cada cabeçalho
+     */
+    private function indexarCabecalhos(array $fronteiras): array
+    {
         $maiores = [];
         $maior = -1;
         $proxima = 0;
@@ -243,16 +263,18 @@ final class IndiceDoPdf
             $maiores[$fronteiras[$proxima++]] = $maior;
         }
 
-        foreach ($this->tamanhosDeclarados() as [$onde, $tamanho]) {
-            foreach ($fronteiras as $fronteira) {
-                if ($onde < $fronteira) {
-                    $maiores[$fronteira] = max($maiores[$fronteira], $tamanho - 1);
-                }
-            }
-        }
+        return [$maiores, $ordem];
+    }
 
-        $this->raizes = $this->raizesDeclaradas();
-
+    /**
+     * Os números de cada /ObjStm, e o maior deles antes de cada fronteira.
+     *
+     * @param list<array{int, int}> $ordem
+     * @param list<int>             $fronteiras
+     * @param array<int, int>       $maiores
+     */
+    private function indexarFluxos(array $ordem, array $fronteiras, array &$maiores): void
+    {
         $guardados = 0;
         foreach ($this->fluxosDeObjetos($ordem) as $indice => [$onde, $numeros]) {
             $guardados += \count($numeros);
@@ -262,16 +284,22 @@ final class IndiceDoPdf
             foreach ($numeros as $numero) {
                 $this->emFluxos[$numero][] = $indice;
             }
-            $maiorNoFluxo = $numeros === [] ? -1 : max($numeros);
-            foreach ($fronteiras as $fronteira) {
-                if ($onde < $fronteira) {
-                    $maiores[$fronteira] = max($maiores[$fronteira], $maiorNoFluxo);
-                }
-            }
+            self::subirAntesDe($maiores, $fronteiras, $onde, $numeros === [] ? -1 : max($numeros));
         }
+    }
 
-        foreach ($maiores as $fronteira => $numero) {
-            $this->proximoNumero[$fronteira] = $numero + 1;
+    /**
+     * O maior número antes de cada fronteira que fica depois de `$onde` passa a ser pelo menos `$numero`.
+     *
+     * @param array<int, int> $maiores
+     * @param list<int>       $fronteiras
+     */
+    private static function subirAntesDe(array &$maiores, array $fronteiras, int $onde, int $numero): void
+    {
+        foreach ($fronteiras as $fronteira) {
+            if ($onde < $fronteira) {
+                $maiores[$fronteira] = max($maiores[$fronteira], $numero);
+            }
         }
     }
 

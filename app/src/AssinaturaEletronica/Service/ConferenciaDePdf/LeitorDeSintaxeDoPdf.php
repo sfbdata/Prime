@@ -298,61 +298,81 @@ final class LeitorDeSintaxeDoPdf
 
         $caractere = $texto[$posicao];
         if ($caractere === '<' && ($texto[$posicao + 1] ?? '') === '<') {
-            $partes = [];
-            foreach ($this->lerDicionario($texto, $posicao, $limite, $nivel) as $chave => $valor) {
-                $partes[] = $chave . ' ' . $valor;
+            return $this->dicionarioComoValor($texto, $posicao, $limite, $nivel);
+        }
+
+        return match ($caractere) {
+            '[' => $this->vetor($texto, $posicao, $limite, $nivel),
+            '(' => self::textoLiteral($texto, $posicao, $limite),
+            '<' => self::hexadecimal($texto, $posicao, $limite),
+            '/' => self::nome($texto, $posicao, $limite),
+            default => self::tokenOuReferencia($texto, $posicao, $limite),
+        };
+    }
+
+    /** @throws FormatoNaoReconhecido */
+    private function dicionarioComoValor(string $texto, int &$posicao, int $limite, int $nivel): string
+    {
+        $partes = [];
+        foreach ($this->lerDicionario($texto, $posicao, $limite, $nivel) as $chave => $valor) {
+            $partes[] = $chave . ' ' . $valor;
+        }
+
+        return '<<' . ($partes === [] ? '' : ' ' . implode(' ', $partes)) . ' >>';
+    }
+
+    /** @throws FormatoNaoReconhecido */
+    private function vetor(string $texto, int &$posicao, int $limite, int $nivel): string
+    {
+        ++$posicao;
+        $itens = [];
+        while (true) {
+            $posicao = self::pularEspacos($texto, $posicao, $limite);
+            if ($posicao >= $limite) {
+                throw new FormatoNaoReconhecido('Vetor sem fim.');
             }
+            if ($texto[$posicao] === ']') {
+                ++$posicao;
 
-            return '<<' . ($partes === [] ? '' : ' ' . implode(' ', $partes)) . ' >>';
-        }
-        if ($caractere === '[') {
-            ++$posicao;
-            $itens = [];
-            while (true) {
-                $posicao = self::pularEspacos($texto, $posicao, $limite);
-                if ($posicao >= $limite) {
-                    throw new FormatoNaoReconhecido('Vetor sem fim.');
-                }
-                if ($texto[$posicao] === ']') {
-                    ++$posicao;
-
-                    return '[' . ($itens === [] ? '' : ' ' . implode(' ', $itens)) . ' ]';
-                }
-                $itens[] = $this->valor($texto, $posicao, $limite, $nivel + 1);
+                return '[' . ($itens === [] ? '' : ' ' . implode(' ', $itens)) . ' ]';
             }
+            $itens[] = $this->valor($texto, $posicao, $limite, $nivel + 1);
         }
-        if ($caractere === '(') {
-            return self::textoLiteral($texto, $posicao, $limite);
-        }
-        if ($caractere === '<') {
-            $fim = strpos($texto, '>', $posicao);
-            if ($fim === false || $fim >= $limite) {
-                throw new FormatoNaoReconhecido('Hexadecimal sem fim.');
-            }
-            $valor = substr($texto, $posicao, $fim + 1 - $posicao);
-            $posicao = $fim + 1;
+    }
 
-            return $valor;
+    /** @throws FormatoNaoReconhecido */
+    private static function hexadecimal(string $texto, int &$posicao, int $limite): string
+    {
+        $fim = strpos($texto, '>', $posicao);
+        if ($fim === false || $fim >= $limite) {
+            throw new FormatoNaoReconhecido('Hexadecimal sem fim.');
         }
-        if ($caractere === '/') {
-            return self::nome($texto, $posicao, $limite);
-        }
+        $valor = substr($texto, $posicao, $fim + 1 - $posicao);
+        $posicao = $fim + 1;
 
+        return $valor;
+    }
+
+    /**
+     * Número, palavra ou referência indireta: `N G R` é um valor só.
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private static function tokenOuReferencia(string $texto, int &$posicao, int $limite): string
+    {
         $token = self::token($texto, $posicao, $limite);
-        // Referência indireta: `N G R` é um valor só.
-        if (ctype_digit($token)) {
-            $volta = $posicao;
-            $segunda = self::pularEspacos($texto, $posicao, $limite);
-            $geracao = $segunda < $limite ? self::tokenOuVazio($texto, $segunda, $limite) : '';
-            if ($geracao !== '' && ctype_digit($geracao)) {
-                $terceira = self::pularEspacos($texto, $segunda, $limite);
-                if ($terceira < $limite && self::tokenOuVazio($texto, $terceira, $limite) === 'R') {
-                    $posicao = $terceira;
+        if (!ctype_digit($token)) {
+            return $token;
+        }
+        $segunda = self::pularEspacos($texto, $posicao, $limite);
+        $geracao = $segunda < $limite ? self::tokenOuVazio($texto, $segunda, $limite) : '';
+        if ($geracao !== '' && ctype_digit($geracao)) {
+            $terceira = self::pularEspacos($texto, $segunda, $limite);
+            if ($terceira < $limite && self::tokenOuVazio($texto, $terceira, $limite) === 'R') {
+                $posicao = $terceira;
 
-                    return $token . ' ' . $geracao . ' R';
-                }
+                return $token . ' ' . $geracao . ' R';
             }
-            $posicao = $volta;
         }
 
         return $token;

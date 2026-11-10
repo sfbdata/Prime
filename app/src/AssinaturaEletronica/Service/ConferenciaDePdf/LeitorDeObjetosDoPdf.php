@@ -55,18 +55,12 @@ final class LeitorDeObjetosDoPdf
 
     private function objetoEmFluxo(string $pdf, int $numero): ?string
     {
+        $fluxos = self::marcadoresDeFluxo($pdf);
+        if ($fluxos === null) {
+            return null;
+        }
         $trabalho = 0;
         $lidos = [];
-        $fluxos = [];
-        $posicao = 0;
-        while (preg_match('/\/Type\s*+\/ObjStm/', $pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
-            if (\count($fluxos) >= LimitesDaConferencia::OBJETOS_MAXIMOS) {
-                return null;
-            }
-            $fluxos[] = $partes[0][1];
-            $posicao = $partes[0][1] + \strlen($partes[0][0]);
-        }
-
         foreach (array_reverse($fluxos) as $tipo) {
             $dicionario = $this->dicionarioDoFluxo($pdf, $tipo, $trabalho);
             if ($dicionario === null || $trabalho > LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES) {
@@ -83,22 +77,59 @@ final class LeitorDeObjetosDoPdf
             if ($corpo === null) {
                 return null;
             }
-            [$dados, $quantidade, $primeiro] = $corpo;
+            $achado = self::objetoNoFluxo($corpo, $numero);
+            if ($achado !== null) {
+                return $achado[0];
+            }
+        }
 
-            $cabecalho = preg_split('/\s++/', trim(substr($dados, 0, $primeiro)), 2 * $quantidade + 1);
-            if ($cabecalho === false) {
+        return null;
+    }
+
+    /**
+     * A posição de cada `/Type/ObjStm` do arquivo; null acima de `OBJETOS_MAXIMOS`.
+     *
+     * @return list<int>|null
+     */
+    private static function marcadoresDeFluxo(string $pdf): ?array
+    {
+        $fluxos = [];
+        $posicao = 0;
+        while (preg_match('/\/Type\s*+\/ObjStm/', $pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
+            if (\count($fluxos) >= LimitesDaConferencia::OBJETOS_MAXIMOS) {
                 return null;
             }
-            $cabecalho = array_map('intval', $cabecalho);
-            for ($i = 0; $i < $quantidade; ++$i) {
-                if (($cabecalho[2 * $i] ?? null) !== $numero) {
-                    continue;
-                }
-                $inicio = $primeiro + ($cabecalho[2 * $i + 1] ?? 0);
-                $fim = $i + 1 < $quantidade ? $primeiro + ($cabecalho[2 * $i + 3] ?? 0) : \strlen($dados);
+            $fluxos[] = $partes[0][1];
+            $posicao = $partes[0][1] + \strlen($partes[0][0]);
+        }
 
-                return $fim >= $inicio ? trim(substr($dados, $inicio, $fim - $inicio)) : null;
+        return $fluxos;
+    }
+
+    /**
+     * O objeto no fluxo já lido. Null se o fluxo não o tem (a procura segue); senão a resposta da procura: o corpo, ou
+     * null quando o cabeçalho do fluxo ou os deslocamentos não dão para ler.
+     *
+     * @param array{string, int, int} $corpo os dados, o /N e o /First
+     *
+     * @return array{?string}|null
+     */
+    private static function objetoNoFluxo(array $corpo, int $numero): ?array
+    {
+        [$dados, $quantidade, $primeiro] = $corpo;
+        $cabecalho = preg_split('/\s++/', trim(substr($dados, 0, $primeiro)), 2 * $quantidade + 1);
+        if ($cabecalho === false) {
+            return [null];
+        }
+        $cabecalho = array_map('intval', $cabecalho);
+        for ($i = 0; $i < $quantidade; ++$i) {
+            if (($cabecalho[2 * $i] ?? null) !== $numero) {
+                continue;
             }
+            $inicio = $primeiro + ($cabecalho[2 * $i + 1] ?? 0);
+            $fim = $i + 1 < $quantidade ? $primeiro + ($cabecalho[2 * $i + 3] ?? 0) : \strlen($dados);
+
+            return [$fim >= $inicio ? trim(substr($dados, $inicio, $fim - $inicio)) : null];
         }
 
         return null;

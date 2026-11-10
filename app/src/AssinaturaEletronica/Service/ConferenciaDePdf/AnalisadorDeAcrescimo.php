@@ -181,31 +181,44 @@ final class AnalisadorDeAcrescimo
                 return $falha;
             }
 
-            $numeros = LeitorDeSintaxeDoPdf::numerosDoCabecalho($partes[1][0], $partes[2][0]);
-            if ($numeros === null) {
-                return 'um cabeçalho de objeto não dá para ler';
-            }
-            [$numero, $geracao] = $numeros;
-            $objeto = $this->indice->objeto($numero, $geracao, $cabecalho + \strlen($partes[0][0]), $this->fim);
-            if ($objeto === null) {
-                return 'não foi possível ler o objeto ' . $numero;
-            }
-            if ($geracao !== 0) {
-                return 'o objeto ' . $numero . ' tem geração diferente de zero';
-            }
-            $this->cabecalhos[$cabecalho] = $numero;
-            $falha = $this->guardar($objeto);
-            if ($falha === null && $objeto->tipo() === '/ObjStm') {
-                $falha = $this->abrirFluxo($objeto);
-            }
-            if ($falha === null && $objeto->tipo() === '/XRef') {
-                $falha = $this->lerIndiceEmFluxo($objeto);
-            }
-            if ($falha !== null) {
-                return $falha;
+            $objeto = $this->lerObjeto($cabecalho, $cabecalho + \strlen($partes[0][0]), $partes[1][0], $partes[2][0]);
+            if (\is_string($objeto)) {
+                return $objeto;
             }
             $posicao = $objeto->depoisDoObjeto;
         }
+    }
+
+    /**
+     * Lê e guarda o objeto do cabeçalho em `$cabecalho` (abrindo o /ObjStm e lendo o /XRef). Devolve o objeto ou a
+     * razão de não conferir.
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private function lerObjeto(int $cabecalho, int $depoisDoCabecalho, string $numeroLido, string $geracaoLida): ObjetoDoPdf|string
+    {
+        $numeros = LeitorDeSintaxeDoPdf::numerosDoCabecalho($numeroLido, $geracaoLida);
+        if ($numeros === null) {
+            return 'um cabeçalho de objeto não dá para ler';
+        }
+        [$numero, $geracao] = $numeros;
+        $objeto = $this->indice->objeto($numero, $geracao, $depoisDoCabecalho, $this->fim);
+        if ($objeto === null) {
+            return 'não foi possível ler o objeto ' . $numero;
+        }
+        if ($geracao !== 0) {
+            return 'o objeto ' . $numero . ' tem geração diferente de zero';
+        }
+        $this->cabecalhos[$cabecalho] = $numero;
+        $falha = $this->guardar($objeto);
+        if ($falha === null && $objeto->tipo() === '/ObjStm') {
+            $falha = $this->abrirFluxo($objeto);
+        }
+        if ($falha === null && $objeto->tipo() === '/XRef') {
+            $falha = $this->lerIndiceEmFluxo($objeto);
+        }
+
+        return $falha ?? $objeto;
     }
 
     private function guardar(ObjetoDoPdf $objeto): ?string
@@ -297,33 +310,58 @@ final class AnalisadorDeAcrescimo
     {
         $falha = 'o índice do acréscimo não dá para ler';
         $dados = $fluxo->fluxo ? $this->sintaxe->dados($this->pdf, $fluxo) : null;
-        $tamanho = $fluxo->valor('/Size') ?? '';
-        if ($dados === null || preg_match('/^\[ (\d) (\d) (\d) \]$/', $fluxo->valor('/W') ?? '', $w) !== 1
-            || !ctype_digit($tamanho) || \strlen($tamanho) > 9) {
+        $formato = $dados === null ? null : self::formatoDoIndice($fluxo);
+        if ($dados === null || $formato === null) {
             return $falha;
         }
-        $larguras = [(int) $w[1], (int) $w[2], (int) $w[3]];
-        $faixas = $fluxo->valor('/Index') ?? '[ 0 ' . $tamanho . ' ]';
-        if (max($larguras) > 7 || preg_match('/^\[(?: \d{1,9})*+ \]$/', $faixas) !== 1) {
-            return $falha;
-        }
-        preg_match_all('/\d++/', $faixas, $partes);
-        $numeros = array_map('intval', $partes[0]);
-        $linha = array_sum($larguras);
+        [$larguras, $numeros] = $formato;
         $total = 0;
         for ($i = 1; $i < \count($numeros); $i += 2) {
             $total += $numeros[$i];
         }
-        if (\count($numeros) % 2 !== 0 || $linha === 0) {
-            return $falha;
-        }
         if ($total + \count($this->entradas) > LimitesDaConferencia::OBJETOS_MAXIMOS) {
             throw new LimiteExcedido('Entradas demais no índice do acréscimo.');
         }
-        if (\strlen($dados) < $total * $linha) {
+        if (\strlen($dados) < $total * array_sum($larguras)) {
             return $falha;
         }
+        $this->lerEntradasDoIndice($dados, $larguras, $numeros);
 
+        return null;
+    }
+
+    /**
+     * As larguras do /W e os números do /Index (ou `[0 /Size]`) do fluxo de índice; null se não dão para ler.
+     *
+     * @return array{list<int>, list<int>}|null
+     */
+    private static function formatoDoIndice(ObjetoDoPdf $fluxo): ?array
+    {
+        $tamanho = $fluxo->valor('/Size') ?? '';
+        if (preg_match('/^\[ (\d) (\d) (\d) \]$/', $fluxo->valor('/W') ?? '', $w) !== 1 || !ctype_digit($tamanho) || \strlen($tamanho) > 9) {
+            return null;
+        }
+        $larguras = [(int) $w[1], (int) $w[2], (int) $w[3]];
+        $faixas = $fluxo->valor('/Index') ?? '[ 0 ' . $tamanho . ' ]';
+        if (max($larguras) > 7 || preg_match('/^\[(?: \d{1,9})*+ \]$/', $faixas) !== 1) {
+            return null;
+        }
+        preg_match_all('/\d++/', $faixas, $partes);
+        $numeros = array_map('intval', $partes[0]);
+
+        return \count($numeros) % 2 !== 0 || array_sum($larguras) === 0 ? null : [$larguras, $numeros];
+    }
+
+    /**
+     * As linhas do fluxo de índice, já conferido o tamanho.
+     *
+     * @param list<int> $larguras
+     * @param list<int> $numeros
+     *
+     * @throws LimiteExcedido
+     */
+    private function lerEntradasDoIndice(string $dados, array $larguras, array $numeros): void
+    {
         $posicao = 0;
         for ($i = 0; $i < \count($numeros); $i += 2) {
             for ($j = 0; $j < $numeros[$i + 1]; ++$j) {
@@ -338,8 +376,6 @@ final class AnalisadorDeAcrescimo
                 }
             }
         }
-
-        return null;
     }
 
     private static function inteiro(string $dados, int $posicao, int $largura): int
@@ -426,6 +462,21 @@ final class AnalisadorDeAcrescimo
             return $aceito ? null : [];
         }
 
+        return $this->chavesNaoAceitas($velho, $atual);
+    }
+
+    /**
+     * Redefinição de dicionário: null se aceita; senão, as chaves que mudaram sem poder.
+     *
+     * @param array<string, string> $velho
+     * @param array<string, string> $atual
+     *
+     * @return list<string>|null
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private function chavesNaoAceitas(array $velho, array $atual): ?array
+    {
         $chaves = self::diferencas($velho, $atual);
         if ($chaves === []) {
             return null;

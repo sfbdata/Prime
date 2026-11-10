@@ -86,16 +86,7 @@ final class LeitorDeAssinaturaCms
      */
     private function conferirSignatario(string $der, NoDer $signatario, array $certificados, string $pdf, int $tamanho1, int $inicio2, int $tamanho2): ConferenciaDoCms
     {
-        $campos = LeitorDer::filhos($der, $signatario);
-        $i = 1;
-        $identificacao = LeitorDer::item($campos, $i++);
-        $oidDoResumo = LeitorDer::hex($der, LeitorDer::primeiroFilho($der, LeitorDer::item($campos, $i++)));
-        $atributos = null;
-        if (LeitorDer::item($campos, $i)->etiqueta === 0xA0) {
-            $atributos = LeitorDer::item($campos, $i++);
-        }
-        $oidDaAssinatura = LeitorDer::hex($der, LeitorDer::primeiroFilho($der, LeitorDer::item($campos, $i++)));
-        $assinatura = LeitorDer::valor($der, LeitorDer::item($campos, $i));
+        [$identificacao, $oidDoResumo, $atributos, $oidDaAssinatura, $assinatura] = self::camposDoSignatario($der, $signatario);
 
         $algoritmo = self::RESUMOS[$oidDoResumo] ?? null;
         if ($algoritmo === null) {
@@ -107,29 +98,13 @@ final class LeitorDeAssinaturaCms
             return new ConferenciaDoCms($algoritmo, null, null, null, null, self::MOTIVO_SEM_CERTIFICADO, VinculoDoCertificado::NaoConferido);
         }
 
-        $hash = self::HASHES[$algoritmo];
-        $contexto = hash_init($hash);
-        hash_update($contexto, substr($pdf, 0, $tamanho1));
-        hash_update($contexto, substr($pdf, $inicio2, $tamanho2));
-        $resumoDaFaixa = hash_final($contexto, true);
+        $resumoDaFaixa = self::resumoDaFaixa(self::HASHES[$algoritmo], $pdf, $tamanho1, $inicio2, $tamanho2);
 
         $resumoConfere = null;
         $hora = null;
         $vinculo = VinculoDoCertificado::NaoVinculado;
         if ($atributos !== null) {
-            $resumoDeclarado = null;
-            $vinculos = [];
-            foreach (LeitorDer::filhos($der, $atributos) as $atributo) {
-                $partes = LeitorDer::filhos($der, $atributo);
-                $oid = LeitorDer::hex($der, LeitorDer::item($partes, 0));
-                if ($oid === self::OID_RESUMO_DA_MENSAGEM) {
-                    $resumoDeclarado = LeitorDer::valor($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
-                } elseif ($oid === self::OID_HORA_DA_ASSINATURA) {
-                    $hora = LeitorDer::data($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
-                } elseif ($oid === self::OID_VINCULO_V2 || $oid === self::OID_VINCULO_V1) {
-                    $vinculos[] = [$oid === self::OID_VINCULO_V2, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1))];
-                }
-            }
+            [$resumoDeclarado, $hora, $vinculos] = self::atributosAssinados($der, $atributos);
             $vinculo = self::vinculo($der, $vinculos, $certificado);
             $resumoConfere = $resumoDeclarado !== null && hash_equals($resumoDaFaixa, $resumoDeclarado);
             // A assinatura cobre os atributos com a etiqueta de SET OF (0x31), não a [0] IMPLICIT do SignerInfo.
@@ -139,17 +114,81 @@ final class LeitorDeAssinaturaCms
         }
 
         $chave = $this->verificadorDeChave->verificar($oidDaAssinatura, $algoritmo, $alvo, $assinatura, $certificado->chavePublica);
-        $motivo = match (true) {
-            $chave->confere === null => $chave->motivo ?? VerificadorDeChave::MOTIVO_CHAVE,
-            $resumoConfere === null => self::MOTIVO_SEM_ATRIBUTOS,
-            default => null,
-        };
+        $motivo = self::motivo($chave, $resumoConfere);
         // O atributo só prova o vínculo (ou a troca) quando a assinatura sobre os atributos confere.
         if ($chave->confere !== true && $vinculo !== VinculoDoCertificado::NaoVinculado) {
             $vinculo = VinculoDoCertificado::NaoConferido;
         }
 
         return new ConferenciaDoCms($algoritmo, $resumoConfere, $chave->confere, $certificado, $hora, $motivo, $vinculo);
+    }
+
+    /**
+     * A identificação do signatário, o OID do resumo, os atributos assinados (se houver), o OID e o valor da assinatura.
+     *
+     * @return array{NoDer, string, ?NoDer, string, string}
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private static function camposDoSignatario(string $der, NoDer $signatario): array
+    {
+        $campos = LeitorDer::filhos($der, $signatario);
+        $i = 1;
+        $identificacao = LeitorDer::item($campos, $i++);
+        $oidDoResumo = LeitorDer::hex($der, LeitorDer::primeiroFilho($der, LeitorDer::item($campos, $i++)));
+        $atributos = null;
+        if (LeitorDer::item($campos, $i)->etiqueta === 0xA0) {
+            $atributos = LeitorDer::item($campos, $i++);
+        }
+        $oidDaAssinatura = LeitorDer::hex($der, LeitorDer::primeiroFilho($der, LeitorDer::item($campos, $i++)));
+        $assinatura = LeitorDer::valor($der, LeitorDer::item($campos, $i));
+
+        return [$identificacao, $oidDoResumo, $atributos, $oidDaAssinatura, $assinatura];
+    }
+
+    private static function motivo(ResultadoDaChave $chave, ?bool $resumoConfere): ?string
+    {
+        return match (true) {
+            $chave->confere === null => $chave->motivo ?? VerificadorDeChave::MOTIVO_CHAVE,
+            $resumoConfere === null => self::MOTIVO_SEM_ATRIBUTOS,
+            default => null,
+        };
+    }
+
+    private static function resumoDaFaixa(string $hash, string $pdf, int $tamanho1, int $inicio2, int $tamanho2): string
+    {
+        $contexto = hash_init($hash);
+        hash_update($contexto, substr($pdf, 0, $tamanho1));
+        hash_update($contexto, substr($pdf, $inicio2, $tamanho2));
+
+        return hash_final($contexto, true);
+    }
+
+    /**
+     * O messageDigest, o signingTime e os atributos de vínculo (se é v2 e o SigningCertificate de cada um).
+     *
+     * @return array{?string, ?\DateTimeImmutable, list<array{bool, NoDer}>}
+     *
+     * @throws FormatoNaoReconhecido
+     */
+    private static function atributosAssinados(string $der, NoDer $atributos): array
+    {
+        $resumoDeclarado = null;
+        $hora = null;
+        $vinculos = [];
+        foreach (LeitorDer::filhos($der, $atributos) as $atributo) {
+            $partes = LeitorDer::filhos($der, $atributo);
+            $oid = LeitorDer::hex($der, LeitorDer::item($partes, 0));
+            if ($oid === self::OID_RESUMO_DA_MENSAGEM) {
+                $resumoDeclarado = LeitorDer::valor($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
+            } elseif ($oid === self::OID_HORA_DA_ASSINATURA) {
+                $hora = LeitorDer::data($der, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1)));
+            } elseif ($oid === self::OID_VINCULO_V2 || $oid === self::OID_VINCULO_V1) {
+                $vinculos[] = [$oid === self::OID_VINCULO_V2, LeitorDer::primeiroFilho($der, LeitorDer::item($partes, 1))];
+            }
+        }
+
+        return [$resumoDeclarado, $hora, $vinculos];
     }
 
     /**
