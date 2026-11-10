@@ -2058,8 +2058,8 @@
             return;
         }
         alertaEmEspera = { tipo: payload.tipo, idEnvio: payload.idEnvio };
-        // E12: a batida de trabalho externo volta externa, com o mesmo motivo. Sem isso, o "Registrar assim mesmo" fora
-        // do raio pararia na cerca da tela, e dentro dele sairia como batida comum, sem a análise do gestor.
+        // E12: a batida de trabalho externo volta externa, com o mesmo motivo. Sem isso, o "Registrar assim mesmo" iria
+        // como batida comum, que a cerca recusa fora do raio.
         if (payload.trabalhoExterno === true) {
             alertaEmEspera.externo = { tipo: payload.tipo, motivo: payload.motivoTrabalhoExterno };
         }

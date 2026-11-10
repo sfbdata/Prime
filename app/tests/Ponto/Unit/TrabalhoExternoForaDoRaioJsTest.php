@@ -533,6 +533,12 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             'e sai logo depois, para o próximo toque ser comum'
         );
 
+        // A confirmação muda só o tipo, o envio e a própria marca; a do trabalho externo e o motivo ficam como o toque montou.
+        $aplicar = self::corpo(self::tela(), 'function aplicarConfirmacaoDoAlerta(payload) {');
+        self::assertStringNotContainsString('trabalhoExterno', $aplicar);
+        self::assertStringNotContainsString('motivoTrabalhoExterno', $aplicar);
+        self::assertStringNotContainsString('delete ', $aplicar);
+
         // O toque lê a marca antes da cerca da tela e aplica a confirmação depois de montar o corpo externo.
         $toque = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
         self::assertGreaterThan(

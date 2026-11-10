@@ -13,6 +13,7 @@ use App\Ponto\DTO\DadosDoComprovante;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\AlertasAntesDaBatida;
 use App\Ponto\Service\CercaDoPonto;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
@@ -290,6 +291,33 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->avisosDoGestor());
     }
 
+    #[TestDox('Batida externa no 7º dia seguido (E11): o alerta volta sem gravar nada; o "Registrar assim mesmo" com o mesmo envio grava a batida externa, a justificativa ligada e o aviso ao gestor')]
+    public function testAlertaAntesDaBatidaExterna(): void
+    {
+        for ($d = 1; $d <= AlertasAntesDaBatida::DIAS_SEGUIDOS_PARA_AVISAR; ++$d) {
+            $this->batidaAntiga(new \DateTimeImmutable(sprintf('-%d days 08:00', $d)));
+        }
+        $antes = $this->contar('registro_ponto');
+        $corpo = ['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO, 'idEnvio' => self::ID];
+
+        $alerta = $this->bater($corpo);
+
+        self::assertResponseIsSuccessful();
+        self::assertFalse($alerta['success']);
+        self::assertSame(sprintf(AlertasAntesDaBatida::ALERTA_DESCANSO_SEMANAL, 7), $alerta['alerta']);
+        self::assertSame([$antes, 0, 0], [$this->contar('registro_ponto'), $this->contar('justificativa_ponto'), $this->avisosDoGestor()], 'o alerta não grava nada');
+
+        $resposta = $this->bater($corpo + [AlertasAntesDaBatida::CAMPO_DA_CONFIRMACAO => true]);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($resposta['success']);
+        self::assertTrue($resposta['data']['trabalhoExterno']);
+        $batida = $this->ultimaBatida();
+        self::assertSame([true, self::MOTIVO, self::ID], [$batida['trabalho_externo'], $batida['motivo_trabalho_externo'], $batida['id_envio']]);
+        self::assertSame($batida['id'], $this->unicaJustificativa()['registro_ponto_id']);
+        self::assertSame([$antes + 1, 1], [$this->contar('registro_ponto'), $this->avisosDoGestor()]);
+    }
+
     #[TestDox('Dois pedidos do mesmo envio ao mesmo tempo: o índice único barra o segundo, que responde "já registrada" sem a hora e não deixa batida, justificativa, trilha nem aviso')]
     public function testIndiceUnicoBarraOSegundoPedido(): void
     {
@@ -515,6 +543,18 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertCount(1, $linhas);
 
         return $linhas[0];
+    }
+
+    /** Uma batida de um dia que passou, na sede, gravada direto (sem a tela), para o 7º dia seguido. */
+    private function batidaAntiga(\DateTimeImmutable $quando): void
+    {
+        $registro = new RegistroPonto();
+        $registro->setUser($this->ana);
+        $registro->setTenant($this->escritorio);
+        $registro->setTipo(RegistroPonto::TIPO_ENTRADA);
+        $registro->setDataHora(\DateTime::createFromImmutable($quando));
+        $this->em()->persist($registro);
+        $this->em()->flush();
     }
 
     private function contar(string $tabela): int
