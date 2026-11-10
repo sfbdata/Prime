@@ -380,4 +380,36 @@ final class VerificadorAlertaPontoTest extends TestCase
 
         self::assertSame('aviso_repouso_6h', $resultado['tipo']);
     }
+
+    #[TestDox('Feriado de hoje com trabalho: o aviso de intervalo mínimo concluído continua, ele vem das batidas')]
+    public function testFeriadoMantemOAvisoDeRetorno(): void
+    {
+        $jornadaTenant = $this->createMock(JornadaTenant::class);
+        $jornadaTenant->method('getMinimoMinutosRepouso')->willReturn(60);
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-30');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00'),
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 13:05:00'), $jornadaTenant);
+
+        self::assertSame('retorno', $resultado['tipo']);
+    }
+
+    #[TestDox('Os feriados lidos são só os do escritório do aviso, escrito na consulta (como as batidas)')]
+    public function testConsultaOsFeriadosSoNoEscritorioDoAviso(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoRepository->expects(self::once())
+            ->method('doEscritorio')
+            ->with(self::identicalTo($this->tenant))
+            ->willReturn([]);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 09:00:00'), null);
+
+        self::assertSame('entrada', $resultado['tipo']);
+    }
 }
