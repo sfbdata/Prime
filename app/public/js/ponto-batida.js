@@ -151,6 +151,9 @@
      * permitido é de R m."; sem sede, "O registro exige estar dentro do raio de uma sede do escritório."; com o trabalho
      * externo permitido no escritório (P74), mais " Aproxime-se ou informe o trabalho externo.".
      *
+     * Distância e raio saem com o ponto de milhar do pt-BR, como no servidor (`PosicaoNaCerca`, `number_format`); abaixo
+     * de 1000 m, o texto é o do desenho.
+     *
      * A sede citada é a que `avaliarPosicao` devolve (a decisiva, a do menor excedente), com a distância dela. Puro:
      * o nome da sede volta dentro de uma string, e quem mostra põe por `textContent`.
      */
@@ -162,7 +165,7 @@
         let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
         if (sede && Number.isFinite(distancia) && Number.isFinite(raio)) {
             detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')
-                + ' m. O raio permitido é de ' + Math.round(raio) + ' m.';
+                + ' m. O raio permitido é de ' + Math.round(raio).toLocaleString('pt-BR') + ' m.';
         }
         const permitido = trabalhoExternoPermitido === true;
         if (permitido) {

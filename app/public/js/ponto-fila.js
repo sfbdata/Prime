@@ -37,6 +37,8 @@
     // quebra o sigilo do AES-GCM.
     const TAMANHO_DO_IV = 12;
     const CAMPOS_DA_POSICAO = ['latitude', 'longitude', 'precisaoGps'];
+    // E12 (P18): o local e o motivo do trabalho externo têm até 500 caracteres, o limite do servidor e o da janela.
+    const LIMITE_DO_MOTIVO_EXTERNO = 500;
     // Transação de escrita que só termina (`oncomplete`) depois de o navegador gravar no disco: a batida guardada não
     // pode sumir num desligamento logo depois do aviso de que ficou guardada. Navegador que não conhece a opção ignora
     // o terceiro argumento e grava como sempre.
@@ -252,7 +254,13 @@
 
     /**
      * Só os campos do contrato, com os tipos dele: `{ idEnvio, tipo, horaAparelho, latitude?, longitude?,
-     * precisaoGps?, usuarioId, escritorioId }`. Nada da tela entra por acaso. Null quando falta o essencial.
+     * precisaoGps?, usuarioId, escritorioId, trabalhoExterno?, motivoTrabalhoExterno? }`. Nada da tela entra por acaso.
+     * Null quando falta o essencial.
+     *
+     * E12 (P18): a batida de trabalho externo guardada sem internet leva `trabalhoExterno: true` e o local e o motivo
+     * (texto, até 500 caracteres). Sem a marca (as entradas de antes da E12 e toda batida comum), nenhum dos dois:
+     * a batida segue comum (externo falso). Marca sem texto vai assim mesmo, e o servidor recusa com a frase dele, em
+     * vez de a batida virar comum calada.
      */
     function normalizar(entrada) {
         if (!entrada || typeof entrada.idEnvio !== 'string' || entrada.idEnvio === '' || typeof entrada.tipo !== 'string' || entrada.tipo === '') {
@@ -270,6 +278,12 @@
                 limpa[campo] = entrada[campo];
             }
         });
+        if (entrada.trabalhoExterno === true) {
+            const motivo = typeof entrada.motivoTrabalhoExterno === 'string' ? entrada.motivoTrabalhoExterno : '';
+            limpa.trabalhoExterno = true;
+            // Corte por caractere (`Array.from`), não por unidade do UTF-16: emoji não fica pela metade.
+            limpa.motivoTrabalhoExterno = Array.from(motivo).slice(0, LIMITE_DO_MOTIVO_EXTERNO).join('');
+        }
 
         return limpa;
     }
@@ -534,6 +548,12 @@
                 payload[campo] = entrada[campo];
             }
         });
+        // E12 (P18): o trabalho externo guardado sai com a marca e o local e o motivo. Entrada antiga, sem a marca,
+        // sai como batida comum.
+        if (entrada.trabalhoExterno === true) {
+            payload.trabalhoExterno = true;
+            payload.motivoTrabalhoExterno = typeof entrada.motivoTrabalhoExterno === 'string' ? entrada.motivoTrabalhoExterno : '';
+        }
 
         return payload;
     }

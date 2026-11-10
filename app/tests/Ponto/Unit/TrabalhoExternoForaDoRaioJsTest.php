@@ -68,9 +68,9 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString("let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';", $textos, 'sem sede, a frase do desenho');
         self::assertStringContainsString(
             "detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')\n"
-            . "                + ' m. O raio permitido é de ' + Math.round(raio) + ' m.';",
+            . "                + ' m. O raio permitido é de ' + Math.round(raio).toLocaleString('pt-BR') + ' m.';",
             $textos,
-            'a sede, a distância com o milhar em pt-BR e o raio, como no desenho'
+            'a sede, a distância e o raio com o milhar em pt-BR, como o servidor (PosicaoNaCerca)'
         );
         self::assertMatchesRegularExpression(
             "/const permitido = trabalhoExternoPermitido === true;\s+if \(permitido\) \{\s+detalhe \+= ' Aproxime-se ou informe o trabalho externo\.';\s+\}/",
@@ -262,6 +262,46 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $parcial = self::arquivo('templates/ponto/_config_trabalho_externo.html.twig');
         self::assertStringContainsString('data-url="/ponto/configuracoes/trabalho-externo"', $parcial, 'a rota ponto_configuracao_trabalho_externo, escrita');
         self::assertStringNotContainsString("path('ponto_configuracao_trabalho_externo')", $parcial, 'path() de rota ainda inexistente quebraria o painel');
+    }
+
+    #[TestDox('A fila sem internet guarda e reenvia a marca e o local e o motivo do trabalho externo; entrada antiga segue comum')]
+    public function testFilaSemInternetLevaOsDoisCampos(): void
+    {
+        $fila = self::arquivo('public/js/ponto-fila.js');
+        self::assertStringContainsString('const LIMITE_DO_MOTIVO_EXTERNO = 500;', $fila, 'o limite do servidor e o da janela');
+
+        // Guardar: os dois campos só com a marca true; sem ela (entrada de antes da E12, batida comum), nenhum dos dois.
+        $normalizar = self::corpo($fila, 'function normalizar(entrada) {');
+        $externoGuardado = self::corpo($normalizar, 'if (entrada.trabalhoExterno === true) {');
+        self::assertStringContainsString("const motivo = typeof entrada.motivoTrabalhoExterno === 'string' ? entrada.motivoTrabalhoExterno : '';", $externoGuardado);
+        self::assertStringContainsString('limpa.trabalhoExterno = true;', $externoGuardado);
+        self::assertStringContainsString("limpa.motivoTrabalhoExterno = Array.from(motivo).slice(0, LIMITE_DO_MOTIVO_EXTERNO).join('');", $externoGuardado, 'até 500, cortado por caractere');
+        self::assertSame(1, substr_count($normalizar, 'limpa.trabalhoExterno'), 'a marca só entra dentro do if');
+        self::assertSame(1, substr_count($normalizar, 'limpa.motivoTrabalhoExterno'), 'o motivo só entra dentro do if');
+        self::assertMatchesRegularExpression('/limpa\.motivoTrabalhoExterno = [^\n]+\n\s+\}\s+return limpa;\s+\}$/', $normalizar, 'o if vem depois do resto e antes do retorno');
+
+        // Reenviar: o corpo da batida guardada leva os dois campos, também só com a marca true.
+        $payload = self::corpo($fila, 'function payloadDe(entrada) {');
+        $externoEnviado = self::corpo($payload, 'if (entrada.trabalhoExterno === true) {');
+        self::assertStringContainsString('payload.trabalhoExterno = true;', $externoEnviado);
+        self::assertStringContainsString("payload.motivoTrabalhoExterno = typeof entrada.motivoTrabalhoExterno === 'string' ? entrada.motivoTrabalhoExterno : '';", $externoEnviado);
+        self::assertSame(1, substr_count($payload, 'payload.trabalhoExterno'));
+        self::assertSame(1, substr_count($payload, 'payload.motivoTrabalhoExterno'));
+        self::assertMatchesRegularExpression('/payload\.motivoTrabalhoExterno = [^\n]+\n\s+\}\s+return payload;\s+\}$/', $payload);
+
+        // A recusa guardada continua só com os campos dela (sem o motivo).
+        self::assertStringNotContainsString('TrabalhoExterno', self::corpo($fila, 'function normalizarRecusa(recusa) {'));
+
+        // A tela põe os dois campos no corpo ANTES de entregá-lo à fila (as duas chamadas de `guardarNaFila`).
+        $toque = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
+        $posicaoDoMotivo = strpos($toque, 'payload.motivoTrabalhoExterno = motivoExterno;');
+        self::assertIsInt($posicaoDoMotivo);
+        self::assertGreaterThan($posicaoDoMotivo, strpos($toque, 'guardarNaFila(payload)'));
+        self::assertStringContainsString(
+            'const entrada = Object.assign({}, payload, { usuarioId: FILA_USUARIO_ID, escritorioId: FILA_ESCRITORIO_ID });',
+            self::corpo(self::tela(), 'async function guardarNaFila(payload) {'),
+            'o corpo inteiro vai para a fila, que escolhe os campos'
+        );
     }
 
     #[TestDox('Sem travessão nos textos novos que a pessoa vê')]
