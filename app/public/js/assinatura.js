@@ -161,6 +161,12 @@
     /* p1 do desenho: o primeiro pendente da lista, alvo do Copiar link e do Enviar lembrete (só com o documento Aguardando). */
     const primeiroPendente = d => (d.signatarios || []).find(x => x.situacao === 'pendente') || null;
     const temLink = d => !!d && !d.naLixeira && stAtual(d) === 'aguardando' && !!primeiroPendente(d);
+    /* Etapa 3, bloco 3: "Vincular à pasta" (public/js/assinatura-vinculo.js, camada #bjaCamVinc). Sem ele, sem vínculo. */
+    const V = window.BJAVinculo ? window.BJAVinculo.criar({
+        T: T, esc: esc, url: { vincular: ds.urlVincular || '', pastas: ds.urlPastas || '' }, camada: $('bjaCamVinc'),
+        pedir: pedir, postJson: postJson, comId: comId, avisar: avisar, falha: falha,
+        depois: async d => { if (d && s.tela === 'det' && s.det && String(s.det.id) === String(d.id)) { mostrarDetalhe(d); } await carregar(); },
+    }) : null;
 
     async function carregar() {
         if (!url.documentos) { return; }
@@ -328,12 +334,12 @@
         const id = String(d.id), n = d.assinados || 0, tot = d.total || 0, pct = tot ? Math.round(n / tot * 100) : 0, hex = corHex(d.cor);
         return '<tr class="bjaLin' + (hex ? ' tem-cor' : '') + '" data-bja-id="' + esc(id) + '"' + (hex ? ' style="background:' + hex + '"' : '') + '>'
             + '<td class="bjaTdSel"><input type="checkbox" data-bja-sel="' + esc(id) + '" data-bja-foco="sel-' + esc(id) + '" aria-label="' + esc(T('selecionar_doc', { nome: d.nome })) + '"' + (s.sel[id] ? ' checked' : '') + '></td>'
-            + '<td class="bjaTdDoc"><button type="button" class="bjaNomeDoc" data-bja-acao="abrir">' + esc(d.nome) + '</button><div class="bjaSub">' + esc([d.categoria, d.pasta].filter(Boolean).join(' · ')) + '</div></td>'
+            + '<td class="bjaTdDoc"><button type="button" class="bjaNomeDoc" data-bja-acao="abrir">' + esc(d.nome) + '</button><div class="bjaSub">' + esc([d.categoria, d.pasta].filter(Boolean).join(' · ')) + '</div>' + (V ? V.textoDaLinha(d) : '') + '</td>'
             + '<td class="bjaTdSig"><div class="bjaQuem">' + esc(T('assinaram', { n: n, total: tot })) + '</div><div class="bjaBarra"><div style="width:' + pct + '%"></div></div></td>'
             + '<td class="bjaNw">' + esc(data(d.criadoEm)) + '</td>'
             + '<td class="bjaNw">' + (d.stA === 'aguardando' ? esc(data(d.venceEm)) : '') + '</td>'
             + '<td>' + seloHtml(d.stA) + '</td>'
-            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
+            + '<td class="bjaTdAc">' + (temLink(d) ? acoesDaLinha() : '') + (V ? V.botaoDaLinha(d, d.stA) : '') + '<button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
             + '<button type="button" class="bjaB bjaI bjaN" data-bja-acao="ctx" aria-label="' + esc(T('mais_opcoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></td></tr>';
     }
 
@@ -875,6 +881,7 @@
                 + (sg === 'pendente' && st === 'aguardando' ? acoesDoSignatario(d, x, i) : '') + '</div>';
         }).join('');
         const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '')
+            + (V ? V.botaoDoDetalhe(d, st) : '')
             + (st === 'aguardando' && !d.naLixeira && url.cancelar ? '<button type="button" class="bjaB bjaR" data-bja-acao="det-cancelar">' + esc(T('det.cancelar')) + '</button>' : '');
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
@@ -883,7 +890,7 @@
             + '<div class="bjaGrid"><div class="bjaLat">'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-people"></i>' + esc(T('det.signatarios')) + '</div>' + sigs + '</section>'
             + '<section class="bjaCard bjaCodCard"><div class="bjaCodRot">' + esc(T('det.codigo')) + '</div><div class="bjaCodVal">' + esc(d.codigo || T('det.gerado_no_envio')) + '</div>'
-            + (bts ? '<div class="bjaCodBts">' + bts + '</div>' : '') + '</section>'
+            + (bts ? '<div class="bjaCodBts">' + bts + '</div>' : '') + (V ? V.linkDoDetalhe(d) : '') + '</section>'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-clock-history"></i>' + esc(T('det.trilha')) + '</div><div class="bjaTrilha">' + evs + '</div></section>'
             + '</div><div class="bjaCent"><div class="bjaPv" data-folha="d"></div></div></div>';
         pintarPrevias();
@@ -1234,6 +1241,8 @@
             if (d0.stA === 'rascunho' && !d0.naLixeira && url.documento) { L.push(['bi-pencil', T('ctx.continuar'), 'ctx-continuar']); }
             if (temLink(d0) && url.documento) { L.push(['bi-link-45deg', T('ctx.copiar'), 'ctx-copiar']); }
             if (temLink(d0) && url.lembrete) { L.push(['bi-bell', T('ctx.lembrete'), 'ctx-lembrete']); }
+            const vinc = V && V.itemDoMenu(d0, d0.stA);
+            if (vinc) { L.push(vinc); }
             if (url.duplicar) { L.push(['bi-copy', T('ctx.duplicar'), 'ctx-duplicar']); }
         }
         L.push(['bi-check2-square', s.sel[String(d0.id)] ? T('ctx.desmarcar') : T('ctx.selecionar'), 'ctx-sel']);
@@ -1432,6 +1441,9 @@
             case 'sig-previa': { const x = signatarioDoBotao(alvo); if (x && s.det) { window.open(comIdOrdem(url.previa, s.det.id, x.ordem), '_blank', 'noopener'); } break; }
             case 'sem-link': ev.preventDefault(); avisar(T('toast.sem_chave'), 'erro'); break;
             case 'det-cancelar': pedirCancelamento(); break;
+            case 'lin-vincular': { const d = idLinha ? doc(idLinha) : null; if (d && V) { V.abrir(d, d.stA); } break; }
+            case 'ctx-vincular': { const d = doc(s.ctx.id); fecharCtx(); if (d && V) { V.abrir(d, d.stA); } break; }
+            case 'det-vincular': if (s.det && V) { V.abrir(s.det, stAtual(s.det)); } break;
             case 'canc-nao': s.canc = false; desenharCamadas(); break;
             case 'canc-sim': cancelarEnvio(); break;
             default: acaoDoModelo(nome, alvo); break;

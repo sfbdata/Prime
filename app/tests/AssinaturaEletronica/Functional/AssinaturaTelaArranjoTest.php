@@ -28,7 +28,7 @@ use Symfony\Component\DomCrawler\Crawler;
 #[CoversNothing]
 final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 {
-    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao', 'enviar', 'lembrete', 'cancelar', 'previa', 'rubrica', 'modelos', 'modelo-criar', 'modelo-salvar', 'modelo-excluir'];
+    private const URLS_DA_ETAPA = ['documentos', 'documento', 'criar', 'salvar', 'duplicar', 'lixeira', 'restaurar', 'excluir', 'cor', 'arquivo', 'logo', 'logo-padrao', 'enviar', 'lembrete', 'cancelar', 'previa', 'rubrica', 'modelos', 'modelo-criar', 'modelo-salvar', 'modelo-excluir', 'vincular', 'pastas'];
 
     private KernelBrowser $clienteAtual;
 
@@ -80,6 +80,9 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertStringEndsWith('/assinatura/modelos', (string) $raiz->attr('data-url-modelo-criar'));
         self::assertStringEndsWith('/assinatura/modelos/0', (string) $raiz->attr('data-url-modelo-salvar'));
         self::assertStringEndsWith('/assinatura/modelos/0/excluir', (string) $raiz->attr('data-url-modelo-excluir'));
+        // Etapa 3, bloco 3: vincular à pasta e a busca das pastas.
+        self::assertStringEndsWith('/assinatura/documentos/0/vincular', (string) $raiz->attr('data-url-vincular'));
+        self::assertStringEndsWith('/assinatura/pastas', (string) $raiz->attr('data-url-pastas'));
     }
 
     #[TestDox('A raiz tem a lista visível e o assistente, o detalhe, o editor de modelo, a câmera e as camadas vazios, nessa ordem')]
@@ -88,7 +91,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         $crawler = $this->abrir();
 
         self::assertSame(
-            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaTelaMod', 'bjaValCam', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast'],
+            ['bjaTelaLista', 'bjaTelaNovo', 'bjaTelaDet', 'bjaTelaMod', 'bjaValCam', 'bjaCamCtx', 'bjaCamModal', 'bjaCamToast', 'bjaCamVinc'],
             $crawler->filter('.bja > *')->each(static fn (Crawler $n): string => (string) $n->attr('id')),
         );
         self::assertCount(1, $crawler->filter('.bja > .bjaTela#bjaTelaLista:not([hidden])'));
@@ -171,7 +174,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href*="css/assinatura.css"]'));
     }
 
-    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth, qrcode e jsQR do vendor, modelos, folha, validar e tela, nessa ordem')]
+    #[TestDox('Scripts: catálogo da tela, pdf.js 3.11.174 com SRI, mammoth, qrcode e jsQR do vendor, modelos, folha, validar, vínculo e tela, nessa ordem')]
     public function testScripts(): void
     {
         $crawler = $this->abrir();
@@ -191,7 +194,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
 
             return -1;
         };
-        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'vendor/jsqr/jsQR.js', 'js/assinatura-validar.js', 'js/assinatura.js']);
+        $ordem = array_map($posicao, ['pdf.js/3.11.174/pdf.min.js', 'vendor/mammoth/mammoth.browser.min.js', 'vendor/qrcode-generator/qrcode.js', 'js/assinatura-modelos.js', 'js/assinatura-folha.js', 'vendor/jsqr/jsQR.js', 'js/assinatura-validar.js', 'js/assinatura-vinculo.js', 'js/assinatura.js']);
         self::assertNotContains(-1, $ordem, implode(', ', $srcs));
         $ordenada = $ordem;
         sort($ordenada);
@@ -202,6 +205,7 @@ final class AssinaturaTelaArranjoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('assinatura_eletronica_tela.js.folha.previa', $catalogo);
         self::assertStringContainsString('assinatura_eletronica_tela.js.canc.texto', $catalogo);
         self::assertStringContainsString('assinatura_eletronica_tela.js.toast.link_copiado', $catalogo);
+        self::assertStringContainsString('assinatura_eletronica_tela.js.vinculo.vazio', $catalogo);
     }
 
     #[TestDox('Os arquivos da tela não levam travessão (regra do dono)')]

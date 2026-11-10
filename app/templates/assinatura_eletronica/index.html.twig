@@ -31,7 +31,9 @@
     lembrete: path('assinatura_eletronica_lembrete', {id: 0}),
     cancelar: path('assinatura_eletronica_cancelar', {id: 0}),
     previa: path('assinatura_eletronica_previa', {id: 0, ordem: 0}),
-    rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0})
+    rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0}),
+    vincular: path('assinatura_eletronica_vincular', {id: 0}),
+    pastas: path('assinatura_eletronica_pastas')
 }) %}
 {# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B. A rota
    do carimbo chega com o 5B: até lá o caminho fica escrito aqui, com o mesmo marcador 0 no lugar do {id}. #}
@@ -114,6 +116,8 @@
     <div class="bjaCamada" id="bjaCamCtx"></div>
     <div class="bjaCamada" id="bjaCamModal"></div>
     <div class="bjaCamada" id="bjaCamToast"></div>
+    {# Etapa 3, bloco 3: a janela "Vincular à pasta de Expediente" (public/js/assinatura-vinculo.js). #}
+    <div class="bjaCamada" id="bjaCamVinc"></div>
 </div>
 {% endblock %}
 
@@ -132,5 +136,6 @@
 <script src="{{ asset('js/vendor/jsqr/jsQR.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-validar.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-ja-assinado.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-vinculo.js') }}" defer></script>
 <script src="{{ asset('js/assinatura.js') }}" defer></script>
 {% endblock %}

@@ -329,6 +329,26 @@
 .bja .bjaToast.is-aviso { background: #8a6200; }
 .bja .bjaToast.is-info { background: #0a6fa0; }
 
+/* ── Vincular à pasta de Expediente (etapa 3, bloco 3; desenho 17, linhas 149, 222 e 277) ── */
+.bja .bjaVincLin { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: bold; color: #145a32; text-decoration: none; }
+.bja .bjaVincDet { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; color: #145a32; text-decoration: none; }
+.bja .bjaVincLin:hover, .bja .bjaVincDet:hover { color: #145a32; }
+.bja .bjaVincFundo { position: fixed; inset: 0; z-index: 2147483100; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.bja .bjaVincCx { width: 100%; max-width: 560px; overflow: hidden; box-sizing: border-box; }
+.bja .bjaVincCorpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.bja .bjaVincInfo { font-size: 13px; color: var(--bja-t2); }
+.bja .bjaVincLista { max-height: 300px; overflow-y: auto; border: 1px solid var(--bja-div); }
+.bja .bjaVincIt { display: flex; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-bottom: 1px solid var(--bja-div); background: var(--bja-card); font: inherit; font-size: 13.5px; color: var(--bja-texto); text-align: left; cursor: pointer; margin: 0; box-sizing: border-box; }
+.bja .bjaVincIt:hover { background: #3b8fc2; color: #fff; }
+.bja .bjaVincIt > b { min-width: 64px; }
+.bja .bjaVincIt > .bjaVincCli { flex: 1; min-width: 0; }
+.bja .bjaVincIt > .bjaVincAcao { font-size: 12px; }
+.bja .bjaVincVazio { padding: 14px; font-size: 13px; color: var(--bja-mudo); }
+/* O verde do desenho não se lê no fundo escuro: no tema escuro, um verde claro (a linha pintada fica com o do desenho). */
+[data-bs-theme="dark"] .bja .bjaVincLin, [data-bs-theme="dark"] .bja .bjaVincDet,
+[data-bs-theme="dark"] .bja .bjaVincLin:hover, [data-bs-theme="dark"] .bja .bjaVincDet:hover { color: #7fd1a1; }
+[data-bs-theme="dark"] .bja .bjaLin.tem-cor .bjaVincLin { color: #145a32; }
+
 /* Balão das dicas (data-tip): o do bj-dica.js do desenho, valores linha a linha. Fica com as cores do desenho nos
    dois temas, como os selos. */
 .bja .bjaBalao { position: fixed; left: 0; top: 0; z-index: 2147483647; pointer-events: none; max-width: min(300px, calc(100vw - 16px)); padding: 6px 10px; border-radius: 4px; background: #e5f1f7; color: #0b4f73; border: 1px solid #b9d6e8; font: 600 12px/1.4 Arial, Helvetica, sans-serif; box-shadow: 0 4px 14px rgba(10, 60, 90, .14); white-space: pre-line; overflow-wrap: anywhere; opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s; }
