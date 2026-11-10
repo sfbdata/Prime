@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 #[AsCommand(
     name: 'app:conferir-segredos',
-    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO e ASSINATURA_SELFIE_CHAVE sem mostrar os valores',
+    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE e ASSINATURA_SELO_SEGREDO sem mostrar os valores',
 )]
 final class ConferirSegredosCommand extends Command
 {
@@ -39,6 +39,9 @@ final class ConferirSegredosCommand extends Command
         #[Autowire(param: 'assinatura.selfie_chave')]
         #[\SensitiveParameter]
         private readonly string $chaveDaSelfie,
+        #[Autowire(param: 'assinatura.selo_segredo')]
+        #[\SensitiveParameter]
+        private readonly string $segredoDoSelo,
         #[Autowire('%kernel.project_dir%/../.env.prod.example')]
         private readonly string $caminhoDoModelo,
     ) {
@@ -74,6 +77,7 @@ final class ConferirSegredosCommand extends Command
                 $modelo,
             ),
             $this->conferente->conferirAssinatura($this->segredoDaAssinatura, $this->chaveDaSelfie, $modelo),
+            $this->conferente->conferirSelo($this->segredoDoSelo, $this->segredoDaAssinatura, $this->segredoDaAplicacao, $modelo),
         );
 
         if ($problemas !== []) {
@@ -83,7 +87,7 @@ final class ConferirSegredosCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO e ASSINATURA_SELFIE_CHAVE conferidos.');
+        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE e ASSINATURA_SELO_SEGREDO conferidos.');
 
         return Command::SUCCESS;
     }

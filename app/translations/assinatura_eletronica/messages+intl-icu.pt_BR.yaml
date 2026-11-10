@@ -22,6 +22,10 @@ assinatura_eletronica:
         documento_concluido: 'Documento concluído: todas as assinaturas registradas'
         lembrete_enviado: Lembrete enviado a {nome}
         envio_cancelado: Envio cancelado
+        # Etapa 3: o vínculo à pasta (contrato da etapa 3, seção 2, item 9).
+        vinculo_definido: 'Definido o vínculo à pasta {nup} ao concluir'
+        vinculo_feito: 'Documento assinado vinculado à pasta {nup}'
+        vinculo_nao_aplicado: 'Vínculo à pasta {nup} não aplicado: {motivo}'
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.
@@ -67,6 +71,8 @@ assinatura_eletronica:
         envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
         envio_reforcada_menor: 'A assinatura Reforçada colhe selfie e não é usada para menor ({nome}). Escolha outra forma de assinatura.'
         reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
+        selo_sem_chave: Código de validação sem chave configurada. Fale com o suporte.
+        vinculo_ja_definido: Este documento já está vinculado a uma pasta.
         cancelar_fora_do_envio: Só documentos aguardando assinatura podem ter o envio cancelado.
         lembrete_fora_do_envio: Só documentos aguardando assinatura, dentro do prazo, recebem lembrete.
         lembrete_sem_pendente: Nenhum signatário aguarda assinatura.

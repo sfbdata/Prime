@@ -14,6 +14,7 @@ use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\ChaveDoSelo;
 use App\AssinaturaEletronica\Service\CofreDaSelfie;
 use App\AssinaturaEletronica\Service\ConferenciaDoEnvio;
 use App\AssinaturaEletronica\Service\ConteudoCanonicoDoDocumento;
@@ -28,14 +29,21 @@ use Psr\Clock\ClockInterface;
  * signatários, congela o conteúdo (hash canônico), grava o sha256 do token de cada signatário e registra o envio.
  * Depois do COMMIT, o convite por e-mail: com "em ordem" só ao primeiro; sem, a todos. O link do convite é remontado e
  * conferido com o `token_hash` recém-gravado; sem link, o convite não sai (`email_nao_enviado`).
+ *
+ * Etapa 3 (contrato da etapa 3, seção 2, item 4): depois do hash, o código de validação do selo. Colisão com o código
+ * de outro documento (de qualquer escritório) tenta de novo com a tentativa seguinte, até {@see TENTATIVAS_DO_CODIGO};
+ * o índice único da coluna garante. Sem o segredo do selo, o envio recusa antes da transação.
  */
 final readonly class EnviarDocumentoUseCase
 {
+    public const TENTATIVAS_DO_CODIGO = 5;
+
     public function __construct(
         private DocumentoParaAssinarRepository $documentos,
         private EventoDaTrilhaRepository $eventos,
         private ConteudoCanonicoDoDocumento $conteudo,
         private ChaveDaAssinatura $chave,
+        private ChaveDoSelo $selo,
         private CofreDaSelfie $cofre,
         private TrilhaDoDocumento $trilha,
         private CorreioDaAssinatura $correio,
@@ -53,6 +61,7 @@ final readonly class EnviarDocumentoUseCase
     public function executar(User $ator, Tenant $tenant, int $id): array
     {
         $this->chave->exigirConfigurada();
+        $this->selo->exigirConfigurada();
         $documento = $this->documentos->doEscritorioMesmoNaLixeira($id, $tenant) ?? throw new DocumentoNaoEncontrado();
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
@@ -66,6 +75,7 @@ final readonly class EnviarDocumentoUseCase
 
             $hash = $this->conteudo->hash($documento);
             $documento->enviar($hash, $agora);
+            $this->gerarCodigo($documento, $hash);
             foreach ($documento->getSignatarios() as $signatario) {
                 $signatario->definirTokenHash(ChaveDaAssinatura::hashDoToken($this->chave->token($signatario)));
             }
@@ -78,6 +88,23 @@ final readonly class EnviarDocumentoUseCase
         ));
 
         return $this->apresentacao->detalhe($documento, $this->eventos->doDocumento($documento));
+    }
+
+    /** O código de validação do selo: a primeira tentativa que nenhum documento usa. */
+    private function gerarCodigo(DocumentoParaAssinar $documento, string $hash): void
+    {
+        $id = $documento->getId() ?? throw new \LogicException('Documento sem id não recebe código de validação.');
+
+        for ($tentativa = 0; $tentativa < self::TENTATIVAS_DO_CODIGO; ++$tentativa) {
+            $codigo = $this->selo->codigo($id, $hash, $tentativa);
+            if (!$this->documentos->codigoEmUso($codigo)) {
+                $documento->definirCodigo($codigo);
+
+                return;
+            }
+        }
+
+        throw new \RuntimeException(sprintf('Nenhum código de validação livre em %d tentativas.', self::TENTATIVAS_DO_CODIGO));
     }
 
     /** @return list<Signatario> */

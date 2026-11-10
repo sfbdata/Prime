@@ -23,6 +23,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Etapa 2 (contrato da etapa 2, seção 5.1): o `Detalhe` traz o hash e as datas do envio e, por signatário, o link do
  * signatário (só enquanto ele pode assinar e com o segredo configurado), a rubrica, o motivo da recusa e o nome
  * digitado ao assinar.
+ *
+ * Etapa 3 (contrato da etapa 3, seção 2, item 11): `codigo`, o código de validação do selo, no `Resumo` e por ele no
+ * `Detalhe`; nulo no rascunho.
  */
 final readonly class ApresentacaoDoDocumento
 {
@@ -53,6 +56,7 @@ final readonly class ApresentacaoDoDocumento
             'venceEm' => self::iso($resumo->venceEm),
             'cor' => $resumo->cor->value,
             'naLixeira' => $resumo->naLixeira,
+            'codigo' => $resumo->codigo,
             'assinados' => $resumo->contarAssinados(),
             'total' => \count($resumo->signatarios),
             'signatarios' => array_map(

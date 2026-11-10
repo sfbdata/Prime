@@ -13,6 +13,7 @@ use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
+use App\AssinaturaEletronica\Service\ChaveDoSelo;
 use App\AssinaturaEletronica\Service\CofreDaSelfie;
 use App\AssinaturaEletronica\Service\ConferenciaDoEnvio;
 use App\AssinaturaEletronica\Service\ConteudoCanonicoDoDocumento;
@@ -30,7 +31,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * "Gerar links e enviar" (contrato da etapa 2, seções 3, 4.1 e 6) com os repositórios do domínio dublados: a trava e a
  * releitura, a conferência dos signatários, o sha256 do token de cada um, o convite depois do COMMIT e as falhas do
- * e-mail como evento, sem desfazer o envio.
+ * e-mail como evento, sem desfazer o envio. Etapa 3: o código de validação do selo, gerado no envio depois do hash, com
+ * a colisão (outra tentativa) e a recusa sem o segredo do selo.
  */
 #[CoversClass(EnviarDocumentoUseCase::class)]
 #[CoversClass(CorreioDaAssinatura::class)]
@@ -42,12 +44,14 @@ final class EnviarDocumentoUseCaseTest extends TestCase
 
     private User $advogada;
     private CofreDaSelfie $cofre;
+    private ChaveDoSelo $selo;
 
     protected function setUp(): void
     {
         $this->montarOficina();
         $this->advogada = self::usuario('advogada@escritorio.test', 'Dra. Advogada');
         $this->cofre = new CofreDaSelfie(str_repeat('ab', 32));
+        $this->selo = new ChaveDoSelo('selo-de-teste-com-32-bytes-ou-mais-0123456');
     }
 
     #[TestDox('envia: aguardando, sha256 do token de cada signatário guardado e um convite com o link a cada um, Reply-To de quem enviou')]
@@ -109,6 +113,69 @@ final class EnviarDocumentoUseCaseTest extends TestCase
 
         $this->expectExceptionObject(new AcaoRecusada('assinatura_eletronica.erro.sem_chave'));
         $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+    }
+
+    #[TestDox('etapa 3: o código de validação sai do id e do hash enviado, no formato BJA, e vai para o detalhe')]
+    public function testGeraOCodigo(): void
+    {
+        $documento = $this->rascunho();
+
+        $detalhe = $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+
+        $esperado = $this->selo->codigo(1, (string) $documento->getHashEnviado());
+        self::assertMatchesRegularExpression('/^BJA-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/', $esperado);
+        self::assertSame($esperado, $documento->getCodigo());
+        self::assertSame($esperado, $detalhe['codigo']);
+    }
+
+    #[TestDox('etapa 3: código já usado por outro documento, vai a tentativa seguinte')]
+    public function testCodigoEmUsoTentaOutro(): void
+    {
+        $documento = $this->rascunho();
+        $consultados = [];
+        $this->documentos->method('codigoEmUso')->willReturnCallback(static function (string $codigo) use (&$consultados): bool {
+            $consultados[] = $codigo;
+
+            return \count($consultados) === 1;
+        });
+
+        $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+
+        $hash = (string) $documento->getHashEnviado();
+        self::assertSame([$this->selo->codigo(1, $hash, 0), $this->selo->codigo(1, $hash, 1)], $consultados);
+        self::assertSame($this->selo->codigo(1, $hash, 1), $documento->getCodigo());
+    }
+
+    #[TestDox('etapa 3: nenhuma tentativa livre, o envio falha sem código')]
+    public function testSemCodigoLivre(): void
+    {
+        $documento = $this->rascunho();
+        $this->documentos->expects(self::exactly(EnviarDocumentoUseCase::TENTATIVAS_DO_CODIGO))->method('codigoEmUso')->willReturn(true);
+
+        try {
+            $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+            self::fail('Esperava a falha do código.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Nenhum código de validação livre', $e->getMessage());
+        }
+        self::assertNull($documento->getCodigo());
+        self::assertSame([], $this->mailer->enviados);
+    }
+
+    #[TestDox('etapa 3: sem o segredo do selo, recusa antes de abrir a transação')]
+    public function testSemSegredoDoSelo(): void
+    {
+        $documento = $this->rascunho();
+        $this->selo = new ChaveDoSelo('curto');
+        $this->documentos->expects(self::never())->method('emTransacao');
+
+        try {
+            $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+            self::fail('Esperava a recusa.');
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.erro.selo_sem_chave', $e->getMessage());
+        }
+        self::assertSame(SituacaoDoDocumento::Rascunho, $documento->getSituacao());
     }
 
     #[TestDox('documento de outro escritório: 404 e nada gravado')]
@@ -270,6 +337,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
             $this->eventosDaTrilha,
             new ConteudoCanonicoDoDocumento($this->disco),
             $this->chave,
+            $this->selo,
             $this->cofre,
             $this->trilha(),
             $this->correio(),

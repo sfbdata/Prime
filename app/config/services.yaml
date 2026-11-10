@@ -16,6 +16,9 @@ parameters:
     # Assinatura Reforçada (etapa 7): chave da cifra da selfie, 64 hexadecimais (32 bytes), nunca o APP_SECRET nem o
     # segredo acima. Vazia: o envio e o "Assinar" Reforçado recusam. Runbook: assinatura-selfie-chave-em-producao.md.
     assinatura.selfie_chave: '%env(string:default::ASSINATURA_SELFIE_CHAVE)%'
+    # Assinatura, etapa 3: segredo próprio do código de validação (BJA-XXXX-XXXX-XXXX) do PDF com selo, no mínimo 32
+    # bytes, nunca o APP_SECRET nem os dois acima. Vazio: o envio recusa. Runbook: assinatura-selo-segredo-em-producao.md.
+    assinatura.selo_segredo: '%env(string:default::ASSINATURA_SELO_SEGREDO)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
     # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos

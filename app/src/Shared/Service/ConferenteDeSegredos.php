@@ -7,14 +7,15 @@ namespace App\Shared\Service;
 /**
  * Confere os segredos de produção antes do go-live (auditoria 4.11): o APP_SECRET assina o HMAC do código de troca
  * de senha, a referência de recarga, o link rastreado, o descadastro e o lembrar-me; as chaves de cifra guardam os
- * tokens do sync e o certificado do banco do Contribua. Na Assinatura de documentos, o segredo do link e do código e a
- * chave que cifra a selfie da Reforçada. Nenhum problema devolvido traz o valor conferido.
+ * tokens do sync e o certificado do banco do Contribua. Na Assinatura de documentos, o segredo do link e do código, a
+ * chave que cifra a selfie da Reforçada e o segredo do código de validação do selo. Nenhum problema devolvido traz o
+ * valor conferido.
  */
 final class ConferenteDeSegredos
 {
     public const TAMANHO_MINIMO_DO_APP_SECRET = 32;
 
-    /** A mesma conta do `ChaveDaAssinatura::configurada()` (o Shared não depende do domínio). */
+    /** A mesma conta do `ChaveDaAssinatura::configurada()` e do `ChaveDoSelo::configurada()` (o Shared não depende do domínio). */
     public const TAMANHO_MINIMO_DO_SEGREDO_DA_ASSINATURA = 32;
 
     /**
@@ -76,6 +77,34 @@ final class ConferenteDeSegredos
         }
 
         return $problemas;
+    }
+
+    /**
+     * O segredo do código de validação do selo da Assinatura (etapa 3), com a regra de quem o usa (`ChaveDoSelo`): ao
+     * menos 32 caracteres sem contar espaço e quebra de linha das pontas. Nunca igual ao do modelo, ao
+     * `ASSINATURA_SEGREDO` nem ao `APP_SECRET` (segredo próprio).
+     *
+     * @param string $modelo conteúdo do .env.prod.example, só para comparar (nunca é devolvido)
+     *
+     * @return list<string> os problemas achados, sem os valores; vazio quando está tudo certo
+     */
+    public function conferirSelo(
+        #[\SensitiveParameter] string $segredoDoSelo,
+        #[\SensitiveParameter] string $segredoDaAssinatura,
+        #[\SensitiveParameter] string $appSecret,
+        string $modelo,
+    ): array {
+        if (\strlen(trim($segredoDoSelo)) < self::TAMANHO_MINIMO_DO_SEGREDO_DA_ASSINATURA) {
+            return [sprintf('ASSINATURA_SELO_SEGREDO ausente ou com menos de %d caracteres: o envio de documentos fica recusado. Siga docs/runbooks/assinatura-selo-segredo-em-producao.md.', self::TAMANHO_MINIMO_DO_SEGREDO_DA_ASSINATURA)];
+        }
+        if (self::igualAoModelo($segredoDoSelo, self::valoresDoModelo($modelo)['ASSINATURA_SELO_SEGREDO'] ?? '')) {
+            return ['ASSINATURA_SELO_SEGREDO é o mesmo do .env.prod.example (público no repositório). Gere outro.'];
+        }
+        if (hash_equals($segredoDaAssinatura, $segredoDoSelo) || hash_equals($appSecret, $segredoDoSelo)) {
+            return ['ASSINATURA_SELO_SEGREDO repete o ASSINATURA_SEGREDO ou o APP_SECRET: precisa ser próprio. Gere outro.'];
+        }
+
+        return [];
     }
 
     private static function problemaDaChaveDeCifra(string $nome, string $chave, string $doModelo): ?string

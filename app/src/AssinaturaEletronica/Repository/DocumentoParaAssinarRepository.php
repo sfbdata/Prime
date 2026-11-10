@@ -86,7 +86,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     {
         /** @var list<array<string, mixed>> $linhas */
         $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
-            ->select('d.id', 'd.nome', 'd.categoria', 'd.pastaRotulo', 'd.situacao', 'd.criadoEm', 'd.venceEm', 'd.cor', 'd.excluidoEm')
+            ->select('d.id', 'd.nome', 'd.categoria', 'd.pastaRotulo', 'd.situacao', 'd.criadoEm', 'd.venceEm', 'd.cor', 'd.excluidoEm', 'd.codigo')
             ->andWhere('d.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('d.criadoEm', 'DESC')
@@ -100,8 +100,8 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
     }
 
     /**
-     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF ou logo própria), Lixeira
-     * incluída. Quem apaga arquivo depois do COMMIT confere aqui antes: arquivo em uso não sai.
+     * Dos nomes de arquivo dados, os que algum documento do escritório ainda usa (PDF enviado, logo própria ou PDF final
+     * com selo), Lixeira incluída. Quem apaga arquivo depois do COMMIT confere aqui antes: arquivo em uso não sai.
      *
      * @param list<string> $nomes
      *
@@ -113,17 +113,17 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             return [];
         }
 
-        /** @var list<array{pdf: ?string, logo: ?string}> $linhas */
+        /** @var list<array{pdf: ?string, logo: ?string, final: ?string}> $linhas */
         $linhas = $this->lixeira->comLixeiraVisivel(fn (): array => $this->createQueryBuilder('d')
-            ->select('d.arquivoEnviadoChave AS pdf', 'd.logoChave AS logo')
+            ->select('d.arquivoEnviadoChave AS pdf', 'd.logoChave AS logo', 'd.arquivoFinalChave AS final')
             ->andWhere('d.tenant = :tenant')
-            ->andWhere('d.arquivoEnviadoChave IN (:nomes) OR d.logoChave IN (:nomes)')
+            ->andWhere('d.arquivoEnviadoChave IN (:nomes) OR d.logoChave IN (:nomes) OR d.arquivoFinalChave IN (:nomes)')
             ->setParameter('tenant', $tenant)
             ->setParameter('nomes', $nomes)
             ->getQuery()
             ->getScalarResult());
 
-        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'));
+        $usados = array_merge(array_column($linhas, 'pdf'), array_column($linhas, 'logo'), array_column($linhas, 'final'));
 
         return array_values(array_filter($nomes, static fn (string $nome): bool => \in_array($nome, $usados, true)));
     }
@@ -163,6 +163,32 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             ->setParameter('hash', $tokenHash)
             ->getQuery()
             ->getOneOrNullResult());
+    }
+
+    /**
+     * A porta da validação pública (etapa 3): o documento do código de validação, de qualquer escritório e mesmo na
+     * Lixeira (a prova continua). Sem escritório na consulta: o código é a chave. Só para as rotas públicas, onde o
+     * filtro de escritório já foi desligado pelo listener; quem mostra o resultado nunca expõe CPF nem e-mail.
+     */
+    public function porCodigo(string $codigo): ?DocumentoParaAssinar
+    {
+        return $this->lixeira->comLixeiraVisivel(fn (): ?DocumentoParaAssinar => $this->createQueryBuilder('d')
+            ->andWhere('d.codigo = :codigo')
+            ->setParameter('codigo', $codigo)
+            ->getQuery()
+            ->getOneOrNullResult());
+    }
+
+    /**
+     * Se algum documento, de qualquer escritório e mesmo na Lixeira, já tem este código: a colisão do envio. Por DBAL,
+     * de propósito: o filtro de escritório da sessão esconderia o código de outro escritório, e o índice único não.
+     */
+    public function codigoEmUso(string $codigo): bool
+    {
+        return $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM assinatura_eletronica_documento WHERE codigo = ?',
+            [$codigo],
+        ) !== false;
     }
 
     /**
@@ -250,6 +276,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             cor: $linha['cor'] instanceof CorDaLinha ? $linha['cor'] : CorDaLinha::from((string) $linha['cor']),
             naLixeira: ($linha['excluidoEm'] ?? null) !== null,
             signatarios: $signatarios,
+            codigo: isset($linha['codigo']) ? (string) $linha['codigo'] : null,
         );
     }
 

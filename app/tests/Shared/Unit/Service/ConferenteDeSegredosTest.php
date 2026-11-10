@@ -13,8 +13,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Conferente do `app:conferir-segredos` (auditoria 4.11): recusa APP_SECRET curto ou igual ao do modelo
  * (.env.prod.example) e chave de cifra que não decodifica para 32 bytes. Na Assinatura de documentos, o segredo do link
- * e do código e a chave da selfie, ausentes, fora do formato ou iguais aos do modelo. Nenhum problema traz o valor
- * conferido.
+ * e do código e a chave da selfie, ausentes, fora do formato ou iguais aos do modelo, e o segredo do selo, que também
+ * não pode repetir o da Assinatura nem o APP_SECRET. Nenhum problema traz o valor conferido.
  */
 #[CoversClass(ConferenteDeSegredos::class)]
 final class ConferenteDeSegredosTest extends TestCase
@@ -167,5 +167,38 @@ final class ConferenteDeSegredosTest extends TestCase
         self::assertStringContainsString('ASSINATURA_SELFIE_CHAVE', $problemas[1]);
         self::assertStringNotContainsString($segredo, implode("\n", $problemas));
         self::assertStringNotContainsString($chave, implode("\n", $problemas));
+    }
+
+    #[TestDox('Selo da Assinatura (etapa 3): segredo próprio com 32 caracteres, nenhum problema')]
+    public function testSeloOk(): void
+    {
+        self::assertSame([], (new ConferenteDeSegredos())->conferirSelo(str_repeat('z', 32), str_repeat('s', 32), $this->segredo, $this->modelo));
+        self::assertSame([], (new ConferenteDeSegredos())->conferirSelo(str_repeat('z', 40) . "\n", str_repeat('s', 32), $this->segredo, $this->modelo), 'o segredo longo com quebra de linha é o que o sistema aceita');
+    }
+
+    /** @return iterable<string, array{string}> o segredo do selo recusado */
+    public static function seloRecusado(): iterable
+    {
+        yield 'ausente' => [''];
+        yield 'com 31 caracteres' => [str_repeat('z', 31)];
+        yield 'curto com quebra de linha' => [str_repeat('z', 31) . "\n"];
+        yield 'igual ao ASSINATURA_SEGREDO' => [str_repeat('s', 32)];
+        yield 'igual ao APP_SECRET' => ['app-secret-de-teste-com-32-bytes-ou-mais'];
+        yield 'igual ao do modelo' => ['selo-do-modelo-publico-com-32-bytes-ou-mais'];
+    }
+
+    #[DataProvider('seloRecusado')]
+    #[TestDox('Selo recusa: $_dataName, só com o nome e sem o valor')]
+    public function testSeloRecusado(string $selo): void
+    {
+        $this->modelo .= "ASSINATURA_SELO_SEGREDO='selo-do-modelo-publico-com-32-bytes-ou-mais'\n";
+
+        $problemas = (new ConferenteDeSegredos())->conferirSelo($selo, str_repeat('s', 32), 'app-secret-de-teste-com-32-bytes-ou-mais', $this->modelo);
+
+        self::assertCount(1, $problemas);
+        self::assertStringContainsString('ASSINATURA_SELO_SEGREDO', $problemas[0]);
+        if (trim($selo) !== '') {
+            self::assertStringNotContainsString(trim($selo), $problemas[0]);
+        }
     }
 }
