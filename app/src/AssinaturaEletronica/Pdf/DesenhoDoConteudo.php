@@ -73,12 +73,12 @@ final class DesenhoDoConteudo
 
         $cor = Cor::hex(self::TEXTO);
         $tela->retangulo($lugar->centro - $lugar->meiaLargura, $lugar->y + $linha, $lugar->meiaLargura * 2, .9, $cor);
-        $rotulo = trim($lugar->rotulo) !== '' ? $lugar->rotulo : ($signatario !== null ? $signatario->nome : TextosDaFolha::ASSINATURA);
+        $rotulo = trim($lugar->rotulo) !== '' ? $lugar->rotulo : ($signatario !== null ? $signatario->nome : $recursos->folha->textos->assinatura);
         $fonte = $lugar->mini ? Fonte::Sans : Fonte::SansNegrito;
         $tela->texto(TextoComNegrito::semMarcas($rotulo), $lugar->centro, $lugar->y + $nome, $fonte, $lugar->mini ? 13.5 : 15, $cor, Alinhamento::Centro);
 
         if ($assinou && $signatario->assinadoEm !== null) {
-            $texto = sprintf(TextosDaFolha::ASSINADO_EM, TextosDaFolha::dataHora($signatario->assinadoEm));
+            $texto = $recursos->folha->textos->assinadoEm($signatario->assinadoEm);
             $tela->texto($texto, $lugar->centro, $lugar->y + $data, Fonte::SansNegrito, $lugar->mini ? 11 : 12.5, Cor::hex('#1e7b45'), Alinhamento::Centro);
         }
     }

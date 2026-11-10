@@ -13,16 +13,25 @@ use App\AssinaturaEletronica\Pdf\RecursosDaFolha;
 use App\AssinaturaEletronica\Pdf\SemPaginasDepoisDoConteudo;
 use App\AssinaturaEletronica\Pdf\SignatarioDaFolha;
 use App\AssinaturaEletronica\Pdf\Tela;
+use App\AssinaturaEletronica\Pdf\TextosDaFolha;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\Translator;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Folhas prontas para os testes do PDF, e o que eles precisam do ambiente (fontes URW e Ghostscript).
+ * Folhas prontas para os testes do PDF, e o que eles precisam do ambiente (fontes URW e Ghostscript). Os textos da
+ * folha saem do catálogo de verdade ({@see textos()}), como em produção, sem repetir os textos à mão.
  */
 final class FolhaDeTeste
 {
     public const CODIGO = 'BJA-7KQ2-M9XD-4HRT';
     public const FONTE = '/usr/share/fonts/opentype/urw-base35/NimbusSans-Regular.otf';
+    private const CATALOGO_DA_TELA = 'assinatura_eletronica_tela';
     private const TEXTO = 'Pelo presente instrumento particular, as partes acima qualificadas têm entre si justo e contratado o que segue, mediante as cláusulas e condições abaixo descritas, que mutuamente aceitam e outorgam.';
+
+    private static ?TranslatorInterface $tradutor = null;
 
     private function __construct()
     {
@@ -58,12 +67,33 @@ final class FolhaDeTeste
             'concluido' => false,
             'emitidoEm' => $quando,
             'urlDeValidacao' => 'https://www.bluejus.com.br/assinar/validar/' . self::CODIGO,
+            'textos' => self::textos(),
         ], $mudancas);
         $argumentos['paginasDepois'] ??= $argumentos['folhaBranca'] === true && $argumentos['codigo'] === null
             ? new SemPaginasDepoisDoConteudo()
             : self::manifestoSemPaginas();
 
         return new FolhaParaMontar(...$argumentos);
+    }
+
+    /** Os textos da folha pelo catálogo de verdade, o bloco `pdf:` da tela. */
+    public static function textos(?TranslatorInterface $tradutor = null): TextosDaFolha
+    {
+        return new TextosDaFolha($tradutor ?? self::tradutor());
+    }
+
+    /** O tradutor pt_BR com o catálogo da tela da Assinatura (o arquivo de verdade), montado uma vez. */
+    public static function tradutor(): TranslatorInterface
+    {
+        if (self::$tradutor === null) {
+            $tradutor = new Translator('pt_BR');
+            $tradutor->addLoader('yaml', new YamlFileLoader());
+            $arquivo = CatalogoPtBr::raiz() . '/' . self::CATALOGO_DA_TELA . '/' . CatalogoPtBr::NOME_DO_ARQUIVO;
+            $tradutor->addResource('yaml', $arquivo, 'pt_BR', 'messages+intl-icu');
+            self::$tradutor = $tradutor;
+        }
+
+        return self::$tradutor;
     }
 
     /**

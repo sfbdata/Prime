@@ -24,6 +24,7 @@ final class EscritorDePdfTest extends TestCase
         self::assertSame(2, $pdf->paginas());
         self::assertSame(2, substr_count($pdf->bytes, '/MediaBox [0 0 595.28 841.89]'));
         self::assertSame('Documento BlueJus BJA-1', $pdf->titulo());
+        self::assertSame('BlueJus', $pdf->produtor());
         self::assertCount(2, $pdf->jpegs());
         self::assertSame([40, 20], \array_slice(getimagesizefromstring($pdf->jpegs()[1]) ?: [], 0, 2));
 
@@ -36,10 +37,10 @@ final class EscritorDePdfTest extends TestCase
         }
     }
 
-    #[TestDox('Parênteses e barra invertida do título saem escapados')]
+    #[TestDox('Parênteses e barra invertida do título e do produtor saem escapados')]
     public function testTituloEscapado(): void
     {
-        self::assertStringContainsString('/Title (a \\(b\\) \\\\ c)', self::pdf(1, 'a (b) \\ c'));
+        self::assertStringContainsString('/Title (a \\(b\\) \\\\ c) /Producer (p \\(q\\))', self::pdf(1, 'a (b) \\ c', produtor: 'p (q)'));
     }
 
     #[TestDox('Sem perfil é o do desenho: a imagem inteira, em JPEG 90')]
@@ -78,10 +79,10 @@ final class EscritorDePdfTest extends TestCase
         $escritor->inicio();
 
         $this->expectException(FalhaAoMontarPdf::class);
-        $escritor->fim('vazio');
+        $escritor->fim('vazio', 'BlueJus');
     }
 
-    private static function pdf(int $paginas, string $titulo, ?PerfilDoPdf $perfil = null, int $largura = 20, int $altura = 20): string
+    private static function pdf(int $paginas, string $titulo, ?PerfilDoPdf $perfil = null, int $largura = 20, int $altura = 20, string $produtor = 'BlueJus'): string
     {
         $escritor = $perfil === null ? new EscritorDePdf() : new EscritorDePdf($perfil);
         $pdf = $escritor->inicio();
@@ -91,6 +92,6 @@ final class EscritorDePdfTest extends TestCase
             imagedestroy($imagem);
         }
 
-        return $pdf . $escritor->fim($titulo);
+        return $pdf . $escritor->fim($titulo, $produtor);
     }
 }

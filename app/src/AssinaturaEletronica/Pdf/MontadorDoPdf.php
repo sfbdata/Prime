@@ -21,8 +21,6 @@ use Psr\Log\NullLogger;
  */
 final class MontadorDoPdf
 {
-    public const TITULO = 'Documento BlueJus %s';
-
     public function __construct(
         private readonly string $ghostscriptBin,
         private readonly MolduraDaFolha $moldura = new MolduraDaFolha(),
@@ -64,7 +62,7 @@ final class MontadorDoPdf
             for ($j = 0; $j < $folha->paginasDepois->quantas(); ++$j) {
                 yield $this->paginaDepois($escritor, $recursos, $j, \count($paginas) + $j + 1, $total);
             }
-            yield $escritor->fim(sprintf(self::TITULO, $folha->codigoImpresso()));
+            yield $escritor->fim($folha->textos->titulo($folha->codigoImpresso()), $folha->textos->produtor);
         } finally {
             $recursos->liberar();
         }

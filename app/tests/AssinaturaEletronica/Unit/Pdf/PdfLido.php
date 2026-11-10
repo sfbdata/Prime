@@ -37,7 +37,12 @@ final class PdfLido
 
     public function titulo(): ?string
     {
-        return preg_match('#/Title \((.*?)\) /Producer \(BlueJus\)#', $this->bytes, $m) === 1 ? $m[1] : null;
+        return preg_match('#/Title \((.*?)\) /Producer \(#', $this->bytes, $m) === 1 ? $m[1] : null;
+    }
+
+    public function produtor(): ?string
+    {
+        return preg_match('#/Producer \((.*?)\) >>#', $this->bytes, $m) === 1 ? $m[1] : null;
     }
 
     /** @return list<string> */

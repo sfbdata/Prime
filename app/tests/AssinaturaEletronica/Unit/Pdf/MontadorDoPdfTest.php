@@ -188,7 +188,7 @@ final class MontadorDoPdfTest extends TestCase
             imagedestroy($imagem);
         }
 
-        return $pdf . $escritor->fim('enviado');
+        return $pdf . $escritor->fim('enviado', 'BlueJus');
     }
 
     /** Onde o código do rodapé deve terminar: cada letra do tamanho 20 crescendo 0,85, com 1,5 entre elas. */

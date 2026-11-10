@@ -25,6 +25,7 @@ use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Tenant\Armazenamento\ChavesDeTenant;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A {@see FolhaParaMontar} de um documento (o `d` do `pdf(d)` do desenho, dc:392-394): blocos, layout, logo, cabeçalho
@@ -38,6 +39,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * - Manifesto em toda folha, menos na folha branca sem código (E3-3, `!(d.limpa && !d.cod)`).
  * - Modo: sem ele, rascunho no rascunho e final nos demais; quem pede o modo (o PDF para assinar da etapa 5, bloco 5C,
  *   `pdf(dA, 'assinar')` de dc:466) recebe a folha nele. O modo só muda o nome do arquivo, nunca a folha.
+ * - Textos impressos: do bloco `pdf:` do catálogo da tela ({@see TextosDaFolha}), traduzidos a cada folha.
  */
 final readonly class FolhaDoDocumento
 {
@@ -49,12 +51,14 @@ final readonly class FolhaDoDocumento
         private ManifestoDoDocumento $manifesto,
         private UrlGeneratorInterface $urls,
         private ClockInterface $relogio,
+        private TranslatorInterface $tradutor,
     ) {
     }
 
     public function de(DocumentoParaAssinar $documento, ?ModoDaFolha $modo = null): FolhaParaMontar
     {
         $rascunho = $documento->getSituacao() === SituacaoDoDocumento::Rascunho;
+        $textos = new TextosDaFolha($this->tradutor);
 
         return new FolhaParaMontar(
             modo: $modo ?? ($rascunho ? ModoDaFolha::Rascunho : ModoDaFolha::Final),
@@ -70,9 +74,10 @@ final readonly class FolhaDoDocumento
             signatarios: array_map($this->signatario(...), $documento->getSignatarios()),
             concluido: $documento->getSituacao() === SituacaoDoDocumento::Concluido,
             emitidoEm: \DateTimeImmutable::createFromInterface($this->relogio->now()),
-            urlDeValidacao: $this->urls->generate(self::ROTA_DA_VALIDACAO, ['codigo' => $documento->getCodigo() ?? TextosDaFolha::RASCUNHO], UrlGeneratorInterface::ABSOLUTE_URL),
+            urlDeValidacao: $this->urls->generate(self::ROTA_DA_VALIDACAO, ['codigo' => $documento->getCodigo() ?? $textos->rascunho], UrlGeneratorInterface::ABSOLUTE_URL),
             pdfEnviado: $this->lerOuFalhar(ChavesDeAssinaturaEletronica::arquivo($documento)),
             paginasDepois: $this->paginasDepois($documento),
+            textos: $textos,
         );
     }
 

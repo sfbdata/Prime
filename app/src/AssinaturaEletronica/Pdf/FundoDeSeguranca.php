@@ -17,9 +17,10 @@ final class FundoDeSeguranca
     private const FIOS_DA_BORDA = [[0.0, '#0a6fa0'], [2.1, '#1e7b45'], [4.2, '#8a6d1f']];
     private const FATOR_DA_BORDA = 3;
 
-    public function desenhar(Tela $tela, string $hash, int $pagina, string $codigo): void
+    public function desenhar(Tela $tela, FolhaParaMontar $folha, int $pagina): void
     {
-        $sorteio = Sorteio::daPagina($hash, $pagina);
+        $sorteio = Sorteio::daPagina($folha->hash, $pagina);
+        $codigo = $folha->codigoImpresso();
         $this->iris($tela);
 
         $fase = $sorteio->proximo() * 6;
@@ -31,12 +32,12 @@ final class FundoDeSeguranca
         $petalas = 9 + (int) floor($sorteio->proximo() * 5);
         $this->rosacea($tela, $giro, $petalas);
 
-        $this->marcaDagua($tela, $codigo);
+        $this->marcaDagua($tela, $folha->textos->marcaDagua($codigo));
         $tela->contorno(12, 12, Tela::W - 24, Tela::H - 24, 2, Cor::hex(self::NV));
         $tela->contorno(34, 34, Tela::W - 68, Tela::H - 68, .8, Cor::hex(self::NV));
         $this->borda($tela);
-        $this->microtexto($tela, $codigo);
-        $this->faixaLateral($tela);
+        $this->microtexto($tela, $folha->textos->microtexto($codigo));
+        $this->faixaLateral($tela, $folha->textos->faixa);
     }
 
     private function iris(Tela $tela): void
@@ -81,11 +82,11 @@ final class FundoDeSeguranca
      * mais de 3000 de comprimento; as letras que caem inteiras fora da folha (além de 800 do centro, no eixo girado,
      * sendo que a folha chega a 774) não são desenhadas: a imagem é a mesma e a página sai mais rápido.
      */
-    private function marcaDagua(Tela $tela, string $codigo): void
+    private function marcaDagua(Tela $tela, string $trecho): void
     {
         $giro = -M_PI / 6.4;
         $cor = Cor::hex(self::NV, .04);
-        $letras = mb_str_split(str_repeat(sprintf(TextosDaFolha::MARCA_DAGUA, $codigo), 9));
+        $letras = mb_str_split(str_repeat($trecho, 9));
 
         for ($yy = -1050, $i = 0; $yy < 1050; $yy += 62, ++$i) {
             $lx = -1400 + ($i % 2) * 80;
@@ -144,11 +145,11 @@ final class FundoDeSeguranca
     }
 
     /** Repetido nove vezes e cortado no último caractere que cabe em 890 (o `while … slice(0, -1)` do desenho). */
-    private function microtexto(Tela $tela, string $codigo): void
+    private function microtexto(Tela $tela, string $trecho): void
     {
         $cabe = '';
         $largura = 0.0;
-        foreach (mb_str_split(str_repeat(sprintf(TextosDaFolha::MICROTEXTO, $codigo), 9)) as $letra) {
+        foreach (mb_str_split(str_repeat($trecho, 9)) as $letra) {
             $largura += MedidorDeTexto::largura($letra, Fonte::Sans, 5);
             if ($largura > 890) {
                 break;
@@ -160,14 +161,14 @@ final class FundoDeSeguranca
     }
 
     /** translate(945, 48): a cada 100, retângulo 12 x 62 em gradiente e "BLUEJUS ASSINA" girado -90 graus. */
-    private function faixaLateral(Tela $tela): void
+    private function faixaLateral(Tela $tela, string $faixa): void
     {
         $paradas = array_map(static fn (string $hex): Cor => Cor::hex($hex), self::FAIXA);
 
         for ($yy = 0; $yy + 74 < Tela::H - 96; $yy += 100) {
             $topo = 48 + $yy;
             $tela->gradiente(945, $topo + 8, 12, 62, [945.0, (float) $topo], [957.0, $topo + 62.0], $paradas, 1 / Tela::ESCALA);
-            $tela->texto(TextosDaFolha::FAIXA, 945 + 8.5, $topo + 66, Fonte::SansNegrito, 6.5, Cor::hex(self::NV), Alinhamento::Esquerda, -M_PI / 2);
+            $tela->texto($faixa, 945 + 8.5, $topo + 66, Fonte::SansNegrito, 6.5, Cor::hex(self::NV), Alinhamento::Esquerda, -M_PI / 2);
         }
     }
 }
