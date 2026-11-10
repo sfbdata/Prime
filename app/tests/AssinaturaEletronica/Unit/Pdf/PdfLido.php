@@ -52,6 +52,52 @@ final class PdfLido
         return $jpegs;
     }
 
+    /**
+     * O `/Width` e o `/Height` de cada imagem, na ordem das páginas.
+     *
+     * @return list<array{int, int}>
+     */
+    public function medidasDasImagens(): array
+    {
+        preg_match_all('#/Subtype /Image /Width (\d+) /Height (\d+) #', $this->bytes, $m, \PREG_SET_ORDER);
+
+        return array_map(static fn (array $imagem): array => [(int) $imagem[1], (int) $imagem[2]], $m);
+    }
+
+    /**
+     * As tabelas de quantização (segmentos DQT) de uma JPEG, até o início dos dados (SOS). Com a mesma libjpeg, elas
+     * só dependem da qualidade: duas JPEGs de mesma qualidade têm as mesmas tabelas.
+     */
+    public static function quantizacao(string $jpeg): string
+    {
+        $tabelas = '';
+        $posicao = 2;
+        while ($posicao + 4 <= \strlen($jpeg) && $jpeg[$posicao] === "\xFF" && $jpeg[$posicao + 1] !== "\xDA") {
+            $tamanho = (int) (unpack('n', substr($jpeg, $posicao + 2, 2)) ?: [1 => 0])[1];
+            if ($tamanho < 2) {
+                break;
+            }
+            if ($jpeg[$posicao + 1] === "\xDB") {
+                $tabelas .= substr($jpeg, $posicao + 4, $tamanho - 2);
+            }
+            $posicao += 2 + $tamanho;
+        }
+
+        return $tabelas;
+    }
+
+    /** As tabelas de quantização de uma JPEG qualquer, gerada pela mesma GD na qualidade pedida. */
+    public static function quantizacaoDaQualidade(int $qualidade): string
+    {
+        $imagem = imagecreatetruecolor(8, 8);
+        ob_start();
+        imagejpeg($imagem, null, $qualidade);
+        $jpeg = (string) ob_get_clean();
+        imagedestroy($imagem);
+
+        return self::quantizacao($jpeg);
+    }
+
     public function imagem(int $pagina): \GdImage
     {
         $imagem = imagecreatefromstring($this->jpegs()[$pagina - 1]);

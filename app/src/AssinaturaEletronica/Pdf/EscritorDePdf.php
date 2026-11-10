@@ -7,9 +7,12 @@ namespace App\AssinaturaEletronica\Pdf;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 
 /**
- * O PDF do desenho (dc:421-425, E3-1), sem biblioteca: cada página é uma JPEG (qualidade 90) desenhada inteira numa
- * folha A4 de 595,28 x 841,89 pt. Objetos: 1 catálogo, 2 árvore de páginas, a partir de 3 um trio por página
- * (página, imagem `DCTDecode`, conteúdo) e por último as informações (`/Title`, `/Producer`).
+ * O PDF do desenho (dc:421-425, E3-1), sem biblioteca: cada página é uma JPEG desenhada inteira numa folha A4 de
+ * 595,28 x 841,89 pt. Objetos: 1 catálogo, 2 árvore de páginas, a partir de 3 um trio por página (página, imagem
+ * `DCTDecode`, conteúdo) e por último as informações (`/Title`, `/Producer`).
+ *
+ * O {@see PerfilDoPdf} decide a qualidade da JPEG e se a imagem é reduzida antes: a folha e a matriz que desenha a
+ * imagem são as mesmas nos dois perfis, só muda quantos pixels a imagem tem (o `/Width` e o `/Height` dela).
  *
  * Escreve em pedaços, na ordem: {@see inicio()}, uma {@see pagina()} por vez e {@see fim()}. A árvore de páginas vai
  * no fim (a tabela de referências aceita qualquer ordem), para ninguém precisar saber antes quantas páginas haverá.
@@ -17,6 +20,7 @@ use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
  */
 final class EscritorDePdf
 {
+    /** A qualidade da JPEG no perfil do desenho, o padrão ({@see PerfilDoPdf::qualidade()}). */
     public const QUALIDADE = 90;
     private const LARGURA_PT = '595.28';
     private const ALTURA_PT = '841.89';
@@ -27,6 +31,10 @@ final class EscritorDePdf
     private array $posicoes = [];
     private int $paginas = 0;
 
+    public function __construct(private readonly PerfilDoPdf $perfil = PerfilDoPdf::Desenho)
+    {
+    }
+
     public function inicio(): string
     {
         return $this->bruto("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n") . $this->objeto(1, '<< /Type /Catalog /Pages 2 0 R >>');
@@ -35,7 +43,7 @@ final class EscritorDePdf
     /** @throws FalhaAoMontarPdf */
     public function pagina(\GdImage $imagem): string
     {
-        $jpeg = self::jpeg($imagem);
+        [$jpeg, $largura, $altura] = $this->jpeg($imagem);
         $pagina = self::PRIMEIRO_OBJETO_DE_PAGINA + $this->paginas * 3;
         ++$this->paginas;
 
@@ -51,8 +59,8 @@ final class EscritorDePdf
         $saida .= $this->bruto(sprintf(
             "%d 0 obj\n<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n",
             $pagina + 1,
-            imagesx($imagem),
-            imagesy($imagem),
+            $largura,
+            $altura,
             \strlen($jpeg),
         ) . $jpeg . "\nendstream\nendobj\n");
 
@@ -101,18 +109,43 @@ final class EscritorDePdf
         return $bytes;
     }
 
-    /** @throws FalhaAoMontarPdf */
-    private static function jpeg(\GdImage $imagem): string
+    /**
+     * A JPEG da página no perfil, com a largura e a altura dela em pixels (as do `/Width` e do `/Height` da imagem).
+     * No perfil leve a página é reduzida antes, e a reduzida é liberada assim que vira JPEG.
+     *
+     * @return array{string, int, int}
+     *
+     * @throws FalhaAoMontarPdf
+     */
+    private function jpeg(\GdImage $imagem): array
     {
-        ob_start();
-        $gerou = imagejpeg($imagem, null, self::QUALIDADE);
-        $jpeg = (string) ob_get_clean();
+        $reducao = $this->perfil->reducao();
+        $reduzida = null;
+        if ($reducao !== 1.0) {
+            $reduzida = imagescale($imagem, (int) round(imagesx($imagem) * $reducao), (int) round(imagesy($imagem) * $reducao), \IMG_BICUBIC);
+            if ($reduzida === false) {
+                throw new FalhaAoMontarPdf('A GD não reduziu a página.');
+            }
+        }
+        $saida = $reduzida ?? $imagem;
+        $largura = imagesx($saida);
+        $altura = imagesy($saida);
+
+        try {
+            ob_start();
+            $gerou = imagejpeg($saida, null, $this->perfil->qualidade());
+            $jpeg = (string) ob_get_clean();
+        } finally {
+            if ($reduzida !== null) {
+                imagedestroy($reduzida);
+            }
+        }
 
         if (!$gerou || $jpeg === '') {
             throw new FalhaAoMontarPdf('A GD não gerou a JPEG da página.');
         }
 
-        return $jpeg;
+        return [$jpeg, $largura, $altura];
     }
 
     /** Texto literal do PDF: barra invertida e parênteses escapados. */

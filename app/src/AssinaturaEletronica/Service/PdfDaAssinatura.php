@@ -7,6 +7,7 @@ namespace App\AssinaturaEletronica\Service;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Pdf\MontadorDoPdf;
+use App\AssinaturaEletronica\Pdf\PerfilDoPdf;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -15,6 +16,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 final readonly class PdfDaAssinatura
 {
+    /** O teto de 20 MB do motor e do validador (E5-8 e etapa 6), menos 1 MiB de folga para a assinatura. */
+    public const TETO_PARA_O_MOTOR = 19 * 1024 * 1024;
+
     private const NOME_DO_ARQUIVO = 'assinatura_eletronica_tela.js.pdf.nome_arquivo';
 
     public function __construct(
@@ -25,15 +29,16 @@ final readonly class PdfDaAssinatura
     }
 
     /**
-     * Preguiçoso como o {@see MontadorDoPdf::emPedacos()}: a folha é lida agora, a diagramação no primeiro pedaço.
+     * Preguiçoso como o {@see MontadorDoPdf::emPedacos()}: a folha é lida agora, a diagramação no primeiro pedaço. O
+     * perfil padrão é o do desenho; o leve fica para o gerado que passar do {@see TETO_PARA_O_MOTOR}.
      *
      * @return \Generator<int, string>
      *
      * @throws FalhaAoMontarPdf
      */
-    public function pedacos(DocumentoParaAssinar $documento): \Generator
+    public function pedacos(DocumentoParaAssinar $documento, PerfilDoPdf $perfil = PerfilDoPdf::Desenho): \Generator
     {
-        return $this->montador->emPedacos($this->folha->de($documento));
+        return $this->montador->emPedacos($this->folha->de($documento), $perfil);
     }
 
     /**

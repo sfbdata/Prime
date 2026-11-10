@@ -42,14 +42,16 @@ final class MontadorDoPdf
      * ao pico da montagem. Medido com 28 páginas e limite de 128 MB: juntando, o pico foi de 122 MB e a montagem
      * falhou; consumindo os pedaços, o mesmo documento ficou em 66 MB.
      *
+     * O perfil só muda a JPEG de cada página ({@see PerfilDoPdf}); o desenho da página é sempre o mesmo.
+     *
      * @return \Generator<int, string>
      *
      * @throws FalhaAoMontarPdf
      */
-    public function emPedacos(FolhaParaMontar $folha): \Generator
+    public function emPedacos(FolhaParaMontar $folha, PerfilDoPdf $perfil = PerfilDoPdf::Desenho): \Generator
     {
         $recursos = new RecursosDaFolha($folha, new RasterDoPdfEnviado($this->ghostscriptBin, $folha->pdfEnviado, $this->logger, $folha->hash));
-        $escritor = new EscritorDePdf();
+        $escritor = new EscritorDePdf($perfil);
 
         try {
             $paginas = $this->diagramar($folha);
