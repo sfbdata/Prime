@@ -16,6 +16,11 @@ TETO_DO_PDF = 20 * 1024 * 1024
 TEMPO_MAXIMO = 30.0
 SIMULTANEAS = 2
 ESPERA_NA_FILA = 10.0
+# Conexões abertas ao mesmo tempo (cada uma é um fio e pode guardar até 20 MB de corpo); acima disso a conexão
+# nova é fechada sem resposta. Prazo total para chegar o pedido inteiro (cabeçalhos e corpo): sem ele, um byte a
+# cada 29 s prenderia o fio para sempre (o tempo de 30 s do socket vale para cada leitura, não para o pedido).
+CONEXOES_SIMULTANEAS = 8
+PRAZO_DO_PEDIDO = 15.0
 
 # Fontes oficiais das âncoras (E6-5). O download é por HTTP: o certificado TLS do acraiz vem sem a intermediária
 # do Let's Encrypt e o repo.iti.br responde com certificado falso. O SHA-512 publicado ao lado só pega pacote
@@ -105,6 +110,8 @@ class Configuracao:
     tempo_maximo: float = TEMPO_MAXIMO
     simultaneas: int = SIMULTANEAS
     espera_na_fila: float = ESPERA_NA_FILA
+    conexoes_simultaneas: int = CONEXOES_SIMULTANEAS
+    prazo_do_pedido: float = PRAZO_DO_PEDIDO
     diretorio_de_dados: str = '/dados'
     icp_url_do_pacote: str = ICP_URL_DO_PACOTE
     icp_url_do_hash: str = ICP_URL_DO_HASH

@@ -43,6 +43,10 @@ from .execucao import ErroConhecido
 
 ANCORAS_ACEITAS = ('icp', 'govbr', 'qualquer')
 
+# Famílias de âncora que cada valor de `ancora` usa. Família pedida sem raiz carregada = 503
+# `ancoras_indisponiveis` (o servidor responde antes de conferir; ver `ConjuntoDeAncoras.familias_sem_raiz`).
+FAMILIAS_DA_ANCORA = {'icp': ('icp',), 'govbr': ('govbr',), 'qualquer': ('icp', 'govbr')}
+
 OID_CPF = '2.16.76.1.3.1'
 OID_CNPJ = '2.16.76.1.3.3'
 

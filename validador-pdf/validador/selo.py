@@ -1,11 +1,14 @@
 """Selo PAdES do BlueJus no PDF final (spec docs/specs/assinatura-documentos-etapa-8.md, E8-1 a E8-5).
 
 - A chave: PKCS#12 e senha lidos a cada pedido dos `secrets` do compose (`/run/secrets/selo_pkcs12` e
-  `/run/secrets/selo_pkcs12_senha`); sem eles, 503 `selo_nao_configurado`. O PHP nunca vê a chave.
+  `/run/secrets/selo_pkcs12_senha`); sem eles (ausentes ou vazios), 503 `selo_nao_configurado`. O PHP nunca vê a
+  chave.
 - Campo invisível `SeloBlueJus`, PAdES (ETSI.CAdES.detached), acréscimo incremental sobre o PDF da etapa 3.
 - Sem `ASSINATURA_SELO_TSA_URL`: PAdES B-B (sem carimbo e sem DSS). Com ACT: carimbo do tempo e a informação de
   validação embutida no DSS (B-LT); ACT que não responde = 502. Nos dois casos o certificado do selo é conferido
-  antes contra as âncoras ICP-Brasil (vencido, revogado ou de fora = 503 `selo_nao_configurado`).
+  antes contra as âncoras ICP-Brasil: secrets presentes mas inutilizáveis (senha errada, PKCS#12 ilegível ou grande
+  demais, e-CNPJ vencido, revogado ou fora das âncoras) = 503 `selo_certificado_invalido`. Âncoras ICP-Brasil ainda
+  não carregadas = 503 `ancoras_indisponiveis` (o servidor responde antes de chamar `selar`).
 - Só sela PDF do próprio BlueJus (`/Producer (BlueJus)`) e sem nenhuma assinatura (nem campo vazio); senão 422.
 """
 
@@ -40,7 +43,7 @@ TETO_DA_SENHA = 4096
 TEMPO_DA_ACT = 10
 
 # Ao selar, a revogação é tolerante: LCR fora do ar não impede o selo (só não vai para o DSS); certificado
-# revogado, vencido ou fora da ICP-Brasil impede (503 selo_nao_configurado).
+# revogado, vencido ou fora da ICP-Brasil impede (503 selo_certificado_invalido).
 POLITICA_DO_SELO = CertRevTrustPolicy(
     RevocationCheckingPolicy(
         ee_certificate_rule=RevocationCheckingRule.CHECK_IF_DECLARED_SOFT,
@@ -50,7 +53,10 @@ POLITICA_DO_SELO = CertRevTrustPolicy(
 
 
 def ler_credencial(configuracao: Configuracao) -> tuple[bytes, bytes] | None:
-    """PKCS#12 e senha dos secrets; None se algum falta ou está vazio (selo não configurado)."""
+    """PKCS#12 e senha dos secrets; None se algum falta ou o PKCS#12 está vazio (selo não configurado).
+
+    Arquivo presente mas grande demais não é "sem secrets": levanta ErroConhecido('selo_certificado_invalido').
+    """
     try:
         with open(configuracao.selo_pkcs12, 'rb') as arquivo:
             pkcs12 = arquivo.read(TETO_DO_PKCS12 + 1)
@@ -58,8 +64,10 @@ def ler_credencial(configuracao: Configuracao) -> tuple[bytes, bytes] | None:
             senha = arquivo.read(TETO_DA_SENHA + 1)
     except OSError:
         return None
-    if not pkcs12 or len(pkcs12) > TETO_DO_PKCS12 or len(senha) > TETO_DA_SENHA:
+    if not pkcs12:
         return None
+    if len(pkcs12) > TETO_DO_PKCS12 or len(senha) > TETO_DA_SENHA:
+        raise ErroConhecido('selo_certificado_invalido')
     # A senha é o arquivo inteiro, sem a quebra de linha do fim (o editor costuma pôr uma).
     return pkcs12, senha.rstrip(b'\r\n')
 
@@ -80,7 +88,8 @@ def selar(
     try:
         assinante = signers.SimpleSigner.load_pkcs12_data(pkcs12, other_certs=[], passphrase=senha or None)
     except (ValueError, TypeError):
-        raise ErroConhecido('selo_nao_configurado') from None
+        # Senha errada ou PKCS#12 ilegível: os secrets existem, mas não servem.
+        raise ErroConhecido('selo_certificado_invalido') from None
     return asyncio.run(_selar(pdf, assinante, url_da_act, conjunto, revogacao))
 
 
@@ -136,8 +145,8 @@ async def _selar(pdf, assinante, url_da_act: str, conjunto: ConjuntoDeAncoras, r
     except TimestampRequestError:
         raise ErroConhecido('carimbo_indisponivel') from None
     except (SigningError, PathBuildingError, PathValidationError, ValidationError):
-        # Certificado do selo vencido, revogado ou que não chega a uma âncora ICP-Brasil.
-        raise ErroConhecido('selo_nao_configurado') from None
+        # Certificado do selo vencido, revogado, sem o uso de chave ou que não chega a uma âncora ICP-Brasil.
+        raise ErroConhecido('selo_certificado_invalido') from None
     finally:
         if backend is not None:
             await backend.close()

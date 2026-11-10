@@ -48,6 +48,9 @@ COPY validador /app/validador
 RUN python -m compileall -q /app/validador
 USER 10001:10001
 EXPOSE 8080
+# O /saude responde 503 enquanto a ICP-Brasil ou o gov.br estiver sem raiz carregada (primeira subida sem rede,
+# volume perdido, ITI fora do ar): o contêiner fica "unhealthy" até a atualização trazer as âncoras. Por isso o php
+# não espera `service_healthy` deste serviço para subir (o PHP trata a falta como passageira).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/saude', timeout=4)"]
 CMD ["python", "-m", "validador"]

@@ -7,10 +7,12 @@ Ida e volta: o PDF selado passa no próprio /v1/conferir com a raiz de teste.
 from __future__ import annotations
 
 import io
+import logging
 from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from cryptography import x509
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
@@ -151,28 +153,76 @@ def test_so_sela_pdf_do_bluejus_sem_assinatura_e_422(servidor, ecnpj, nome):
     assert (situacao, dados) == (422, {'v': 1, 'erro': 'nao_selavel'})
 
 
-def test_sem_secrets_e_503(configuracao, conjunto, tmp_path):
+def test_sem_secrets_e_503_selo_nao_configurado(configuracao, conjunto, tmp_path, caplog):
     sem_arquivo = replace(configuracao, selo_pkcs12=str(tmp_path / 'nao-existe'))
     sem_senha = replace(configuracao, selo_senha=str(tmp_path / 'nao-existe'))
     (tmp_path / 'vazio').write_bytes(b'')
     vazio = replace(configuracao, selo_pkcs12=str(tmp_path / 'vazio'))
 
-    for cfg in (sem_arquivo, sem_senha, vazio):
-        with servidor_no_ar(cfg, conjunto) as srv:
-            situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
-        assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_nao_configurado'})
+    with caplog.at_level(logging.INFO, logger='validador.servidor'):
+        for cfg in (sem_arquivo, sem_senha, vazio):
+            with servidor_no_ar(cfg, conjunto) as srv:
+                situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+                esperar_no_log(caplog, 'resultado=selo_nao_configurado')
+            assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_nao_configurado'})
+
+    assert 'selo nao configurado: secrets do selo ausentes ou vazios' in caplog.text
+    assert 'certificado invalido' not in caplog.text
 
 
-def test_senha_errada_e_503(configuracao, conjunto, tmp_path):
-    (tmp_path / 'senha').write_bytes(b'errada\n')
-
-    with servidor_no_ar(replace(configuracao, selo_senha=str(tmp_path / 'senha')), conjunto) as srv:
+def test_sem_secrets_e_sem_ancoras_continua_selo_nao_configurado(configuracao, tmp_path):
+    # O PHP trata só este código como "não configurado" (guarda sem selo, sem trilha): ele vem antes das âncoras.
+    cfg = replace(configuracao, selo_pkcs12=str(tmp_path / 'nao-existe'))
+    with servidor_no_ar(cfg, ConjuntoDeAncoras()) as srv:
         situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
 
     assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_nao_configurado'})
 
 
-@pytest.mark.parametrize('problema', ['vencido', 'revogado', 'fora_da_icp'])
+def test_ancoras_icp_sem_raiz_e_503_ancoras_indisponiveis(configuracao, ecnpj):
+    # Secrets bons, mas o volume das âncoras está vazio: passageiro, não "selo não configurado".
+    so_govbr = ConjuntoDeAncoras(govbr_raizes=(ecnpj.raiz.der,))
+    for conjunto in (ConjuntoDeAncoras(), so_govbr):
+        with servidor_no_ar(configuracao, conjunto) as srv:
+            situacao, dados, resposta = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+
+        assert (situacao, dados) == (503, {'v': 1, 'erro': 'ancoras_indisponiveis'})
+        assert resposta.getheader('Retry-After') == '60'
+
+
+def test_senha_errada_e_503_selo_certificado_invalido(configuracao, conjunto, tmp_path, caplog):
+    (tmp_path / 'senha').write_bytes(b'errada\n')
+
+    with caplog.at_level(logging.INFO, logger='validador.servidor'), \
+            servidor_no_ar(replace(configuracao, selo_senha=str(tmp_path / 'senha')), conjunto) as srv:
+        situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+        esperar_no_log(caplog, 'resultado=selo_certificado_invalido')
+
+    assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_certificado_invalido'})
+    erros = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert [r.getMessage() for r in erros] == [
+        'selo com certificado invalido: senha errada, PKCS#12 ilegivel, e-CNPJ vencido, revogado ou fora das '
+        'ancoras ICP-Brasil'
+    ]
+    assert 'selo nao configurado' not in caplog.text
+
+
+def test_pkcs12_grande_demais_e_selo_certificado_invalido(configuracao, conjunto, tmp_path):
+    (tmp_path / 'grande').write_bytes(b'0' * (selo.TETO_DO_PKCS12 + 1))
+
+    with servidor_no_ar(replace(configuracao, selo_pkcs12=str(tmp_path / 'grande')), conjunto) as srv:
+        situacao, dados, _ = pedir_json(srv, 'POST', '/v1/selar', pdfs.pdf_em_imagem())
+
+    assert (situacao, dados) == (503, {'v': 1, 'erro': 'selo_certificado_invalido'})
+
+
+SO_CIFRAGEM = x509.KeyUsage(
+    digital_signature=False, content_commitment=False, key_encipherment=True, data_encipherment=False,
+    key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False,
+)
+
+
+@pytest.mark.parametrize('problema', ['vencido', 'revogado', 'fora_da_icp', 'uso_da_chave'])
 def test_nunca_sela_com_certificado_vencido_revogado_ou_fora_das_ancoras(configuracao, ecnpj, problema):
     folha = ecnpj.folha
     lcr = ecnpj.ac.lcr()
@@ -183,10 +233,13 @@ def test_nunca_sela_com_certificado_vencido_revogado_ou_fora_das_ancoras(configu
         )
     elif problema == 'revogado':
         lcr = ecnpj.ac.lcr([folha])
+    elif problema == 'uso_da_chave':
+        folha = ecnpj.ac.emitir_folha('SO CIFRAGEM', cnpj=CNPJ, uso_da_chave=SO_CIFRAGEM)
     else:
-        conjunto = ConjuntoDeAncoras()  # âncoras ICP ainda não carregadas, ou e-CNPJ de outra raiz
+        # As âncoras ICP estão carregadas, mas o e-CNPJ é de outra raiz.
+        conjunto = ConjuntoDeAncoras(icp_raizes=(pki.criar_raiz('AC Raiz Outra').der,))
 
-    with pytest.raises(execucao.ErroConhecido, match='^selo_nao_configurado$'):
+    with pytest.raises(execucao.ErroConhecido, match='^selo_certificado_invalido$'):
         selo.selar(
             pdfs.pdf_em_imagem(), folha.pkcs12(SENHA, [ecnpj.ac]), SENHA, '', conjunto,
             Revogacao(buscar_na_rede=False, lcrs=(lcr,)),
@@ -214,8 +267,6 @@ def test_credencial_le_a_senha_sem_a_quebra_de_linha(configuracao):
 
 
 def test_selo_nao_aparece_no_log(servidor, caplog):
-    import logging
-
     with caplog.at_level(logging.DEBUG):
         selar(servidor, pdfs.pdf_em_imagem('BJA-SEGREDO-0000-0000'))
         esperar_no_log(caplog, 'POST /v1/selar 200')

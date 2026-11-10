@@ -10,7 +10,8 @@
   SHA-256 está na lista fixada (`Configuracao.govbr_raizes_sha256`); lista vazia = nenhuma raiz gov.br e nenhum
   download.
 - Atualização ao subir e a cada 24 h (1 h depois de uma falha). Download que falha ou não confere mantém a última
-  boa, guardada no diretório de dados (volume `validador_ancoras`). Nada aqui vem do PDF conferido.
+  boa, guardada no diretório de dados (volume `validador_ancoras`). Nada aqui vem do PDF conferido. Família sem
+  nenhuma raiz (primeira subida sem rede, volume perdido): o servidor responde 503 `ancoras_indisponiveis`.
 - O zip é lido em memória, com limites de tamanho e de quantidade: nada é extraído para o disco.
 """
 
@@ -67,6 +68,18 @@ class ConjuntoDeAncoras:
     govbr_raizes: tuple[bytes, ...] = ()
     govbr_intermediarias: tuple[bytes, ...] = ()
     atualizadas_em: str | None = None
+
+    def raizes_por_familia(self) -> dict[str, int]:
+        return {'icp': len(self.icp_raizes), 'govbr': len(self.govbr_raizes)}
+
+    def familias_sem_raiz(self, familias: tuple[str, ...] = ('icp', 'govbr')) -> list[str]:
+        """Das famílias dadas, as que estão sem nenhuma raiz carregada (volume vazio, perdido ou ITI fora do ar).
+
+        Conferir com uma família vazia daria `cadeia_nao_confiavel` a uma assinatura legítima; por isso o servidor
+        responde 503 `ancoras_indisponiveis` (passageiro) antes de conferir ou selar.
+        """
+        contagem = self.raizes_por_familia()
+        return [familia for familia in familias if not contagem[familia]]
 
 
 def sha256_hex(der: bytes) -> str:
