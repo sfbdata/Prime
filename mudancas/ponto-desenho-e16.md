@@ -27,7 +27,7 @@ tipo: alteracao
 - Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
 - A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
 - Depois de assinar a folha, o aviso "Folha assinada." aparece no rodapé da tela, como os outros avisos do Ponto.
-- Na folha em PDF e na planilha, a linha do dia de hoje mostra o saldo do mês até ontem, igual à tela. Antes ficava em branco no PDF e com "Sem dado" na planilha.
+- Na folha em PDF e na planilha, a linha do dia de hoje mostra o saldo do mês até ontem, igual à tela, no lugar do "Sem dado" de antes.
 - Na folha em PDF, endereço e nomes compridos ficam com a letra um pouco menor para aparecerem inteiros; só o que ainda não couber é encurtado.
 - Na planilha, a pessoa sem código de funcionário fica com o código em branco, em vez de receber um número que não é dela.
 - No Painel do Master, o catálogo de recursos ganhou a chave "Ponto: aceite da folha", que liga ou desliga a assinatura mensal da folha para todos os escritórios de uma vez. Ela já vem ligada.
