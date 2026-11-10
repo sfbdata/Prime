@@ -342,7 +342,14 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertSame('/ponto/?competencia=' . $recente->format('Y-m') . '&esquecimento=' . $recente->format('Y-m-d') . ':saida', $cartao['link']);
         self::assertNull($cartao['orientacao']);
 
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
+        // Sem pendência aqui: outra pessoa, só com a pendência antiga em Y (a batida gravada não se apaga, E10). Os
+        // escritórios voltam do banco: a requisição limpou a unidade de trabalho.
+        $this->x = $this->em()->find(Tenant::class, $this->x->getId()) ?? throw new \LogicException('X sumiu.');
+        $this->y = $this->em()->find(Tenant::class, $this->y->getId()) ?? throw new \LogicException('Y sumiu.');
+        $this->user = $this->user(['ROLE_USER']);
+        $this->vincular($this->user, $this->x, ['modules.ponto.view']);
+        $this->vincular($this->user, $this->y, ['modules.ponto.view']);
+        $this->batida($this->y, 'entrada', $antiga->setTime(8, 0));
         $cartao = $this->cartao();
         self::assertSame('/escritorio/selecionar', $cartao['link']);
         self::assertStringContainsString((string) $this->y->getName(), (string) $cartao['orientacao'], 'só a própria pessoa vê o nome');

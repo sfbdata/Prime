@@ -5,6 +5,8 @@ namespace App\Ponto\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Model\AjusteDaMarcacao;
+use App\Ponto\Model\MarcacaoDoPonto;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -16,7 +18,9 @@ use Doctrine\ORM\Mapping as ORM;
 // NSR único por escritório (D2). As batidas sem NSR (antigas, do gestor, do abono) ficam nulas: no PostgreSQL o
 // nulo não colide no índice único, o mesmo que um índice parcial `WHERE nsr IS NOT NULL`.
 #[ORM\UniqueConstraint(name: 'uniq_registro_ponto_tenant_nsr', columns: ['tenant_id', 'nsr'])]
-class RegistroPonto implements Auditavel, TenantAware
+// E10: a batida gravada só se insere (gatilho registro_ponto_so_insercao). Data e hora, tipo, pessoa e escritório não
+// mudam depois do id: a correção vai para ponto_ajuste (PontoAjuste).
+class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 {
     /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */
     public const INDICE_DO_ENVIO = 'uniq_registro_ponto_user_envio';
@@ -325,5 +329,38 @@ class RegistroPonto implements Auditavel, TenantAware
     {
         $this->motivoTrabalhoExterno = $motivoTrabalhoExterno;
         return $this;
+    }
+
+    /**
+     * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A mesma regra de
+     * `EscolhaDasBatidasDoDia::ehDoColaborador` (a aprovação de esquecimento grava observação fixa; o lançamento e a
+     * edição do admin gravam o snapshot `Lançamento manual`).
+     */
+    public function feitaPeloColaborador(): bool
+    {
+        return $this->observacao === null
+            && $this->sedeNomeSnapshot !== self::SNAPSHOT_LANCAMENTO_MANUAL;
+    }
+
+    public function pessoaId(): int
+    {
+        return $this->user?->getId() ?? throw new \LogicException('A batida ainda não tem a pessoa gravada.');
+    }
+
+    /** O alvo dos ajustes desta batida: 'b{id}'. */
+    public function alvo(): string
+    {
+        return 'b' . ($this->id ?? throw new \LogicException('A batida ainda não foi gravada: não tem alvo de ajuste.'));
+    }
+
+    /** A batida original, sem ajuste: não tem cabeça de linhagem. */
+    public function cabeca(): ?int
+    {
+        return null;
+    }
+
+    public function ajuste(): ?AjusteDaMarcacao
+    {
+        return null;
     }
 }

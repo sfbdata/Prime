@@ -132,19 +132,23 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         self::assertSame([], $resposta['avisos']);
     }
 
-    #[TestDox('Vínculo inativo em Y não avisa; Y excluído não avisa (separados)')]
-    public function testVinculoInativoEEscritorioExcluido(): void
+    #[TestDox('Vínculo inativo em Y não avisa')]
+    public function testVinculoInativoNaoAvisa(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->y->getId()]);
         self::assertSame([], $this->baterEmX('entrada')['avisos'], 'vínculo inativo');
+    }
 
+    /** Separado do vínculo inativo: cada caso bate a própria entrada em X (a batida gravada não se apaga, E10). */
+    #[TestDox('Escritório excluído (Z inativo) não avisa')]
+    public function testEscritorioExcluidoNaoAvisa(): void
+    {
         $z = $this->tenant('Escritório Z');
         $this->vincular($this->user, $z, ['modules.ponto.view']);
         $this->batida($z, 'entrada', $this->hojeCedo(1));
         $z->setIsActive(false);
         $this->em()->flush();
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
         self::assertSame([], $this->baterEmX('entrada')['avisos'], 'escritório excluído');
     }
 
@@ -238,8 +242,14 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $master, $this->x);
         self::assertSame([], $this->postar('entrada')['avisos'], 'sem vínculo em Y');
 
-        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$master->getId(), $this->x->getId()]);
-        $this->vincular($master, $this->y, []);
+        // Com vínculo em Y: outro Master na mesma situação, que bate a própria entrada em X (a batida gravada não se
+        // apaga, E10).
+        $comVinculo = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->vincular($comVinculo, $this->x, []);
+        $this->vincular($comVinculo, $this->y, []);
+        $this->homeOfficeTodoDia($comVinculo, $this->x);
+        $this->batida($this->y, 'entrada', $this->hojeCedo(1), $comVinculo);
+        $this->logarComTenant($this->client, $comVinculo, $this->x);
         $resposta = $this->postar('entrada');
         self::assertTrue($resposta['success'], 'com vínculo em Y');
         self::assertSame([$this->avisoDeY()], $resposta['avisos']);

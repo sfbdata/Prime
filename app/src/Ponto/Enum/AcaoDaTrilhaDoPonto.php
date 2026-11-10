@@ -10,7 +10,9 @@ namespace App\Ponto\Enum;
  * Auditoria e pode mudar à vontade.
  *
  * Fora da trilha, no `audit_log` como sempre: sede, feriado, limites, prazos, modo facial, foto e a chave Global do
- * Master. A chave do Escritório (E7) entra como "Configuração do escritório"; os ajustes de batida são da E10.
+ * Master. A chave Escritório de uma função (E7) entra como "Configuração do escritório". Os ajustes de batida (E10)
+ * entram como inclusão, ajuste, desconsideração e ajuste desfeito; a inclusão do esquecimento abonado continua como
+ * "Batida do esquecimento abonado".
  */
 enum AcaoDaTrilhaDoPonto: string
 {
@@ -27,6 +29,10 @@ enum AcaoDaTrilhaDoPonto: string
     case EscalaAlterada        = 'escala_alterada';
     case ConfiguracaoDoEscritorio = 'configuracao_do_escritorio';
     case Sincronizacao         = 'sincronizacao';
+    case BatidaIncluida        = 'batida_incluida';
+    case BatidaAjustada        = 'batida_ajustada';
+    case BatidaDesconsiderada  = 'batida_desconsiderada';
+    case AjusteDesfeito        = 'ajuste_desfeito';
 
     public function rotulo(): string
     {
@@ -44,6 +50,10 @@ enum AcaoDaTrilhaDoPonto: string
             self::EscalaAlterada        => 'Escala alterada',
             self::ConfiguracaoDoEscritorio => 'Configuração do escritório',
             self::Sincronizacao         => 'Sincronização',
+            self::BatidaIncluida        => 'Batida incluída',
+            self::BatidaAjustada        => 'Batida ajustada',
+            self::BatidaDesconsiderada  => 'Batida desconsiderada',
+            self::AjusteDesfeito        => 'Ajuste desfeito',
         };
     }
 

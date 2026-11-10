@@ -3,11 +3,16 @@
 namespace App\Ponto\Repository;
 
 use App\Entity\Auth\User;
+use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Enum\TipoDoAjuste;
+use App\Ponto\Model\AlvoDoAjuste;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -61,6 +66,9 @@ WHERE b.tipo = 'saida'
 ORDER BY b.data_hora DESC, b.id DESC
 LIMIT 1
 SQL;
+
+    /** E10: o maior id de uma coluna INT do PostgreSQL; alvo de ajuste acima disso não existe (e não vira erro de banco). */
+    private const MAIOR_ID = 2147483647;
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -466,5 +474,221 @@ SQL;
             ->setParameter('tenant', $sede->getTenant())
             ->getQuery()
             ->execute();
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // E10 (plano-e10-ponto §6): a linhagem dos ajustes de batida (`ponto_ajuste`). Toda consulta leva o escritório
+    // escrito à mão, além do filtro; alvo de outro escritório ou de outra pessoa não existe para quem pede.
+    // ---------------------------------------------------------------------------------------------------------------
+
+    /**
+     * A batida que um ajuste vai corrigir: 'b{id}' é o registro original da pessoa NESTE escritório; 'a{id}' é uma
+     * inclusão da pessoa NESTE escritório. Devolve a raiz, a cabeça da linhagem (o ajuste sem sucessor) e a forma que a
+     * folha conta agora (tipo e data/hora nulos quando a cabeça é uma desconsideração). Alvo malformado, de outra pessoa
+     * ou de outro escritório: nulo. Quem vai gravar lê sob a trava da pessoa ({@see \App\Ponto\Service\GravacaoDoAjusteDoPonto::travar}).
+     */
+    public function alvoDoAjuste(User $pessoa, Tenant $tenant, string $alvo): ?AlvoDoAjuste
+    {
+        if (preg_match('/^([ba])([1-9]\d{0,9})$/', $alvo, $partes) !== 1 || (int) $partes[2] > self::MAIOR_ID) {
+            return null;
+        }
+
+        return $partes[1] === 'b'
+            ? $this->alvoNaBatida($pessoa, $tenant, (int) $partes[2])
+            : $this->alvoNaInclusao($pessoa, $tenant, (int) $partes[2]);
+    }
+
+    /**
+     * As desconsiderações da pessoa NESTE escritório que ainda são a cabeça da linhagem (a batida está fora da conta),
+     * com a batida desconsiderada na competência: a linha "Desconsideradas" da ficha, com o Restaurar. Inclui as feitas
+     * pela análise da justificativa; quem decide se restaura é o UseCase.
+     *
+     * @return list<PontoAjuste> em ordem da batida desconsiderada
+     */
+    public function desconsideradasDaCompetencia(User $pessoa, Tenant $tenant, int $ano, int $mes): array
+    {
+        $inicio = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+
+        return $this->cabecasDeLinhagem()
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.user = :pessoa')
+            ->andWhere('a.tipo = :tipo')
+            ->andWhere('a.dataHoraAnterior >= :inicio')
+            ->andWhere('a.dataHoraAnterior < :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('tipo', TipoDoAjuste::Desconsideracao->value)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $inicio->modify('first day of next month'))
+            ->orderBy('a.dataHoraAnterior', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * A inclusão que o abono deste esquecimento criou, como alvo de ajuste (para a volta à análise desconsiderá-la).
+     * Do escritório e da pessoa da justificativa; se a justificativa foi abonada mais de uma vez, a inclusão mais nova.
+     */
+    public function inclusaoDoEsquecimento(JustificativaPonto $justificativa): ?AlvoDoAjuste
+    {
+        $pessoa = $justificativa->getUser();
+        $tenant = $justificativa->getTenant();
+        if ($pessoa === null || $tenant === null || $justificativa->getId() === null) {
+            return null;
+        }
+
+        $inclusao = $this->getEntityManager()->createQueryBuilder()
+            ->select('i')
+            ->from(PontoAjuste::class, 'i')
+            ->andWhere('i.justificativa = :justificativa')
+            ->andWhere('i.tipo = :tipo')
+            ->andWhere('i.tenant = :tenant')
+            ->andWhere('i.user = :pessoa')
+            ->setParameter('justificativa', $justificativa)
+            ->setParameter('tipo', TipoDoAjuste::Inclusao->value)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
+            ->orderBy('i.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $inclusao instanceof PontoAjuste ? $this->alvoDaInclusao($pessoa, $tenant, $inclusao) : null;
+    }
+
+    /**
+     * A justificativa já mexeu na folha: algum ajuste (inclusão do esquecimento, desconsideração da análise) aponta para
+     * ela. O escritório do ajuste tem de ser o da justificativa.
+     */
+    public function existeAjusteDaJustificativa(int $justificativaId): bool
+    {
+        $achado = $this->getEntityManager()->createQueryBuilder()
+            ->select('a.id')
+            ->from(PontoAjuste::class, 'a')
+            ->join('a.justificativa', 'j')
+            ->andWhere('j.id = :justificativa')
+            ->andWhere('a.tenant = j.tenant')
+            ->setParameter('justificativa', $justificativaId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $achado !== null;
+    }
+
+    /**
+     * A desconsideração ligada a esta justificativa que AINDA é a cabeça da linhagem (ninguém a restaurou nem ajustou
+     * depois), ou nula: a E12 a restaura quando o gestor volta para análise a recusa de um trabalho externo. O
+     * escritório do ajuste tem de ser o da justificativa.
+     */
+    public function desconsideracaoDaJustificativa(int $justificativaId): ?PontoAjuste
+    {
+        $desconsideracao = $this->cabecasDeLinhagem()
+            ->join('a.justificativa', 'j')
+            ->andWhere('j.id = :justificativa')
+            ->andWhere('a.tenant = j.tenant')
+            ->andWhere('a.tipo = :tipo')
+            ->setParameter('justificativa', $justificativaId)
+            ->setParameter('tipo', TipoDoAjuste::Desconsideracao->value)
+            ->orderBy('a.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $desconsideracao instanceof PontoAjuste ? $desconsideracao : null;
+    }
+
+    private function alvoNaBatida(User $pessoa, Tenant $tenant, int $registroId): ?AlvoDoAjuste
+    {
+        $batida = $this->createQueryBuilder('r')
+            ->andWhere('r.id = :id')
+            ->andWhere('r.user = :pessoa')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('id', $registroId)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+        if (!$batida instanceof RegistroPonto) {
+            return null;
+        }
+        // Sem ajuste (cabeça nula), a forma atual é a do próprio registro.
+        $cabeca   = $this->cabecaDaBatida($batida, $tenant);
+        $original = $batida->getDataHora();
+        $tipo     = $cabeca !== null ? $cabeca->getTipoMarcacaoNova() : $batida->getTipo();
+        $dataHora = $cabeca !== null ? $cabeca->getDataHoraNova() : ($original === null ? null : \DateTimeImmutable::createFromInterface($original));
+
+        return new AlvoDoAjuste($tenant, $pessoa, 'b' . $registroId, $batida, null, $cabeca, $tipo, $dataHora);
+    }
+
+    /** A última linha da linhagem do registro original, ou nula se ele nunca foi ajustado. */
+    private function cabecaDaBatida(RegistroPonto $batida, Tenant $tenant): ?PontoAjuste
+    {
+        $cabeca = $this->cabecasDeLinhagem()
+            ->andWhere('a.registroPonto = :raiz')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('raiz', $batida)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $cabeca instanceof PontoAjuste ? $cabeca : null;
+    }
+
+    private function alvoNaInclusao(User $pessoa, Tenant $tenant, int $inclusaoId): ?AlvoDoAjuste
+    {
+        $inclusao = $this->getEntityManager()->createQueryBuilder()
+            ->select('i')
+            ->from(PontoAjuste::class, 'i')
+            ->andWhere('i.id = :id')
+            ->andWhere('i.tipo = :tipo')
+            ->andWhere('i.user = :pessoa')
+            ->andWhere('i.tenant = :tenant')
+            ->setParameter('id', $inclusaoId)
+            ->setParameter('tipo', TipoDoAjuste::Inclusao->value)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $inclusao instanceof PontoAjuste ? $this->alvoDaInclusao($pessoa, $tenant, $inclusao) : null;
+    }
+
+    /** A inclusão como alvo: a cabeça é a última linha da linhagem dela, ou a própria inclusão se ninguém a ajustou. */
+    private function alvoDaInclusao(User $pessoa, Tenant $tenant, PontoAjuste $inclusao): AlvoDoAjuste
+    {
+        $cabeca = $this->cabecasDeLinhagem()
+            ->andWhere('a.inclusao = :raiz OR a.id = :raiz')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('raiz', $inclusao->getId())
+            ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+        $cabeca = $cabeca instanceof PontoAjuste ? $cabeca : $inclusao;
+
+        return new AlvoDoAjuste(
+            $tenant,
+            $pessoa,
+            'a' . $inclusao->getId(),
+            null,
+            $inclusao,
+            $cabeca,
+            $cabeca->getTipoMarcacaoNova(),
+            $cabeca->getDataHoraNova(),
+        );
+    }
+
+    /** Os ajustes que ninguém sucedeu (nenhuma linha tem `anterior` apontando para eles): as cabeças de linhagem. */
+    private function cabecasDeLinhagem(): QueryBuilder
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('a')
+            ->from(PontoAjuste::class, 'a')
+            ->andWhere(sprintf('NOT EXISTS (SELECT s.id FROM %s s WHERE s.anterior = a)', PontoAjuste::class));
     }
 }

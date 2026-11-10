@@ -6,8 +6,10 @@ namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Enum\TipoDoAjuste;
 use App\Ponto\Enum\TipoJustificativa;
 
 /**
@@ -56,6 +58,43 @@ final class DetalheDaTrilhaDoPonto
     public static function daBatidaDoEsquecimento(RegistroPonto $batida, JustificativaPonto $justificativa): array
     {
         return self::daBatida($batida) + ['justificativa_id' => $justificativa->getId()];
+    }
+
+    /**
+     * Um ajuste de batida (E10): o colaborador, a linhagem (o ajuste, o alvo, o que ele desfaz, a justificativa) e a
+     * marcação antes e depois, cada uma com tipo e data/hora, ou nula onde não há (a inclusão não tem anterior, a
+     * desconsideração não tem nova). Sem o motivo, que é texto livre.
+     *
+     * @return array<string, mixed>
+     */
+    public static function daAjuste(PontoAjuste $ajuste): array
+    {
+        return self::colaborador($ajuste->getUser()) + [
+            'ajuste_id'        => $ajuste->getId(),
+            'alvo'             => $ajuste->alvo(),
+            'anterior'         => self::marcacao($ajuste->getTipoMarcacaoAnterior(), $ajuste->getDataHoraAnterior()),
+            'novo'             => self::marcacao($ajuste->getTipoMarcacaoNova(), $ajuste->getDataHoraNova()),
+            'justificativa_id' => $ajuste->getJustificativa()?->getId(),
+            'desfaz_id'        => $ajuste->getDesfaz()?->getId(),
+        ];
+    }
+
+    /**
+     * A inclusão que o abono de um esquecimento criou (E10): o evento continua `batida_do_esquecimento`, com o detalhe do
+     * ajuste e, como a batida de antes da E10, o tipo e a data/hora no primeiro nível (o texto da trilha não muda).
+     *
+     * @return array<string, mixed>
+     */
+    public static function daInclusaoDoEsquecimento(PontoAjuste $inclusao): array
+    {
+        if ($inclusao->getTipo() !== TipoDoAjuste::Inclusao || $inclusao->getJustificativa() === null) {
+            throw new \LogicException('O evento do esquecimento abonado é de uma inclusão ligada à justificativa.');
+        }
+
+        return self::daAjuste($inclusao) + [
+            'tipo'      => $inclusao->getTipoMarcacaoNova(),
+            'data_hora' => $inclusao->getDataHoraNova()?->format('Y-m-d H:i:s'),
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -177,6 +216,10 @@ final class DetalheDaTrilhaDoPonto
             AcaoDaTrilhaDoPonto::JustificativaReaberta => self::textoDaJustificativa($detalhe) . self::textoDaSituacaoAnterior($detalhe),
             AcaoDaTrilhaDoPonto::EscalaAlterada       => self::textoDaEscala($detalhe),
             AcaoDaTrilhaDoPonto::Sincronizacao        => self::textoDaSincronizacao($detalhe),
+            AcaoDaTrilhaDoPonto::BatidaIncluida       => self::textoDaMarcacao($detalhe, 'novo') . ' incluída',
+            AcaoDaTrilhaDoPonto::BatidaAjustada       => self::textoDaMarcacao($detalhe, 'anterior') . ' passou para ' . self::textoDaMarcacao($detalhe, 'novo'),
+            AcaoDaTrilhaDoPonto::BatidaDesconsiderada => self::textoDaMarcacao($detalhe, 'anterior') . ' desconsiderada',
+            AcaoDaTrilhaDoPonto::AjusteDesfeito       => self::textoDoAjusteDesfeito($detalhe),
             default                                   => self::textoDaJustificativa($detalhe),
         };
     }
@@ -229,6 +272,46 @@ final class DetalheDaTrilhaDoPonto
             . (($detalhe['sem_internet'] ?? false) === true ? ' · sem internet' : '');
 
         return $tipo . ($momento !== null ? ' às ' . $momento : '') . $marcas;
+    }
+
+    /**
+     * Um lado do ajuste ('anterior' ou 'novo') no texto da batida: "Saída às 18:00 de 21/10/2026".
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaMarcacao(array $detalhe, string $lado): string
+    {
+        $marcacao = $detalhe[$lado] ?? null;
+
+        /** @var array<string, mixed> $marcacao */
+        $marcacao = is_array($marcacao) ? $marcacao : [];
+
+        return self::textoDaBatida($marcacao);
+    }
+
+    /**
+     * A restauração traz a batida de volta (tem a nova); sem a nova, é a inclusão do esquecimento desconsiderada quando a
+     * justificativa voltou para análise.
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDoAjusteDesfeito(array $detalhe): string
+    {
+        if (is_array($detalhe['novo'] ?? null)) {
+            return self::textoDaMarcacao($detalhe, 'novo') . ' restaurada';
+        }
+
+        return self::textoDaMarcacao($detalhe, 'anterior') . ', do esquecimento abonado, desconsiderada ao voltar a justificativa para análise';
+    }
+
+    /** @return array{tipo: string, data_hora: string}|null */
+    private static function marcacao(?string $tipo, ?\DateTimeImmutable $dataHora): ?array
+    {
+        if ($tipo === null || $dataHora === null) {
+            return null;
+        }
+
+        return ['tipo' => $tipo, 'data_hora' => $dataHora->format('Y-m-d H:i:s')];
     }
 
     /** @param array<string, mixed> $detalhe */

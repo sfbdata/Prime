@@ -248,20 +248,16 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $resposta['message'] ?? null);
     }
 
-    #[TestDox('Saída solta em A no horário de B passa; seis horas depois a entrada em A passa com a interjornada ligada (a saída solta não conta); a folha de A fica com o dia incompleto e 0 minutos')]
+    #[TestDox('Saída solta em A seis horas atrás; agora a entrada em A passa com a interjornada ligada (a saída solta não conta); a folha de A fica com o dia incompleto e 0 minutos')]
     public function testSaidaAntesDaEntradaNaoCredita(): void
     {
         if ((int) (new \DateTimeImmutable())->format('G') < 7) {
             self::markTestSkipped('Antes das 07:00 a saída de seis horas atrás cairia em ontem.');
         }
         $this->jornadaDeHojeEmTornoDeAgora();
-        $saida = $this->baterEmA('saida');
-        self::assertTrue($saida['success'] ?? false, (string) ($saida['message'] ?? ''));
-        // A saída das 07:00: o mesmo registro, levado seis horas para trás (a batida grava a hora do servidor).
-        $this->em()->getConnection()->executeStatement(
-            "UPDATE registro_ponto SET data_hora = data_hora - INTERVAL '6 hours' WHERE user_id = ? AND tenant_id = ? AND tipo = 'saida'",
-            [$this->pessoa->getId(), $this->a->getId()],
-        );
+        // A saída das 07:00, gravada já seis horas antes de agora: a batida gravada não muda de hora (E10), e a saída
+        // solta pela tela no horário de B é a de testSaidaSoltaNoHorarioDeBPassaComAviso.
+        $this->registrarBatida($this->pessoa, $this->a, 'saida', (new \DateTimeImmutable())->modify('-6 hours'));
         $this->vinculoEmB->alterarRegistroDePonto(false);   // fora do horário de B: a entrada das 13:00
         $this->em()->flush();
         // A interjornada fica LIGADA (padrão do escritório): a saída solta não fecha entrada nenhuma e não conta (R4).
