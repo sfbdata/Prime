@@ -353,6 +353,34 @@
     }
 
     /**
+     * Avisa o servidor de que uma rodada da fila sem internet enviou batidas (evento "Sincronização" da auditoria do
+     * Ponto, E14; desenho 16, L438). POST JSON `{idsEnvio}` com prazo próprio (`ENVIO_PRAZO_MS`), como todo envio do
+     * Ponto; o token `ajax` entra pelo interceptador do `base.html.twig`. Não espera a resposta e nunca lança: as
+     * batidas já entraram, e a falha só vai para o console.
+     */
+    function avisarSincronizacaoDaFila(url, idsEnvio) {
+        try {
+            const aborto = new AbortController();
+            const prazo  = setTimeout(() => aborto.abort(), ENVIO_PRAZO_MS);
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ idsEnvio }),
+                signal: aborto.signal,
+            }).then((resposta) => {
+                if (!resposta.ok) {
+                    console.error('A sincronização da fila não entrou na auditoria:', resposta.status);
+                }
+            }).catch((erro) => {
+                console.error('A sincronização da fila não entrou na auditoria:', erro);
+            }).finally(() => clearTimeout(prazo));
+        } catch (erro) {
+            console.error('A sincronização da fila não entrou na auditoria:', erro);
+        }
+    }
+
+    /**
      * Pede a permissão de notificação do sistema (a "janelinha" do alerta do ponto, que aparece
      * mesmo com o navegador minimizado), só se a pessoa ainda não respondeu (`default`).
      *
@@ -385,6 +413,7 @@
         novoIdDeEnvio,
         enviarBatida,
         buscarTelaDoPonto,
+        avisarSincronizacaoDaFila,
         pedirPermissaoDeNotificacao,
     });
 })();

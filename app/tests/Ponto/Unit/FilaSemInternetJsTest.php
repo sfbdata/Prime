@@ -542,7 +542,7 @@ final class FilaSemInternetJsTest extends TestCase
 
         // Lida depois de cada rodada (antes do aviso, que olha se esvaziou) e de cada gravação.
         self::assertMatchesRegularExpression(
-            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);\s+mostrarResultadoDaFila\(resultado\);/',
+            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*avisarSincronizacao\(resultado\);\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);\s+mostrarResultadoDaFila\(resultado\);/',
             self::corpo($tela, 'function rodadaDaFila() {')
         );
         self::assertStringContainsString('await lerEstadoDaFila(entrada);', self::corpo($tela, 'async function guardarNaFila(payload) {'));
@@ -763,14 +763,31 @@ final class FilaSemInternetJsTest extends TestCase
         $tela = self::tela();
         self::assertStringContainsString("const URL_DA_SINCRONIZACAO = '{{ path('ponto_fila_sincronizada') }}';", $tela);
         self::assertMatchesRegularExpression(
-            '/mostrarResultadoDaFila\(resultado\);\s+avisarSincronizacao\(resultado\);\s+\} catch \(erro\) \{/',
+            '/const resultado = await window\.PontoFila\.enviarPendentes\([^;]+;\s+(\/\/[^\n]*\n\s+)*avisarSincronizacao\(resultado\);\s+(\/\/[^\n]*\n\s+)*await lerEstadoDaFila\(\);/',
             self::corpo($tela, 'function rodadaDaFila() {'),
-            'cada rodada avisa, depois do aviso da tela',
+            'cada rodada avisa logo depois do envio, antes da leitura e do aviso da tela, que podem falhar',
         );
+        self::assertSame(2, substr_count($tela, 'avisarSincronizacao('), 'a declaração e a rodada');
         $avisar = self::corpo($tela, 'function avisarSincronizacao(resultado)');
         self::assertStringContainsString('resultado.idsEnviados.length === 0', $avisar, 'rodada sem enviadas não avisa');
-        self::assertStringContainsString('body: JSON.stringify({ idsEnvio: resultado.idsEnviados }),', $avisar);
+        self::assertStringContainsString('window.PontoBatida.avisarSincronizacaoDaFila(URL_DA_SINCRONIZACAO, resultado.idsEnviados);', $avisar);
+        self::assertStringContainsString("typeof window.PontoBatida.avisarSincronizacaoDaFila !== 'function'", $avisar, 'sem o módulo, não lança');
         self::assertStringNotContainsString('await', $avisar, 'o aviso não segura a rodada');
         self::assertStringNotContainsString('mostrarAviso', $avisar, 'nada na tela: as batidas já entraram');
+
+        // O envio mora no módulo da batida, com prazo próprio, sem esperar e sem lançar.
+        $modulo = (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-batida.js');
+        $envio = self::corpo($modulo, 'function avisarSincronizacaoDaFila(url, idsEnvio)');
+        foreach ([
+            'setTimeout(() => aborto.abort(), ENVIO_PRAZO_MS)',
+            'signal: aborto.signal',
+            'body: JSON.stringify({ idsEnvio }),',
+            '.finally(() => clearTimeout(prazo));',
+            '} catch (erro) {',
+        ] as $trecho) {
+            self::assertStringContainsString($trecho, $envio);
+        }
+        self::assertStringNotContainsString('await', $envio, 'o aviso não segura a rodada');
+        self::assertMatchesRegularExpression('/window\.PontoBatida = Object\.freeze\(\{[^}]*avisarSincronizacaoDaFila,/', $modulo);
     }
 }

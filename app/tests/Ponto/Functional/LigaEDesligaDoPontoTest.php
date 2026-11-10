@@ -212,16 +212,22 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
     {
         $this->entrar($this->primario);
         $container = static::getContainer();
-        $container->set(TrilhaDoPontoRepository::class, new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+        $falsa = new class ($container->get(ManagerRegistry::class)) extends TrilhaDoPontoRepository {
+            public int $chamadas = 0;
+
             public function inserir(array $linha): void
             {
+                ++$this->chamadas;
+
                 throw new \RuntimeException('Falha simulada da trilha.');
             }
-        });
+        };
+        $container->set(TrilhaDoPontoRepository::class, $falsa);
 
         $this->client->request('POST', '/ponto/configuracoes/funcoes/ponto-geo', server: $this->ajax(), content: '{"ligada":false}');
 
         self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, $falsa->chamadas, 'o erro veio da trilha simulada, depois de gravar a chave, e não de antes');
         $linha = $this->configuracao($this->escritorio);
         self::assertTrue($linha === null || !\array_key_exists('ponto-geo', $linha['chaves']), 'a chave voltou com a transação');
         self::assertSame(0, (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_auditoria WHERE tenant_id = ?', [$this->escritorio->getId()]));

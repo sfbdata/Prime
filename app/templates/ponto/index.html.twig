@@ -1775,18 +1775,11 @@
     // sem aviso na tela: as batidas já entraram (cada uma com a marca " · sem internet" na trilha); uma falha aqui só
     // deixa o evento da rodada de fora, e vai para o console.
     function avisarSincronizacao(resultado) {
-        if (!resultado || !Array.isArray(resultado.idsEnviados) || resultado.idsEnviados.length === 0) {
+        if (!resultado || !Array.isArray(resultado.idsEnviados) || resultado.idsEnviados.length === 0
+            || !window.PontoBatida || typeof window.PontoBatida.avisarSincronizacaoDaFila !== 'function') {
             return;
         }
-        fetch(URL_DA_SINCRONIZACAO, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ idsEnvio: resultado.idsEnviados }),
-        }).then((resposta) => {
-            if (!resposta.ok) {
-                console.error('A sincronização da fila não entrou na auditoria:', resposta.status);
-            }
-        }).catch((erro) => console.error('A sincronização da fila não entrou na auditoria:', erro));
+        window.PontoBatida.avisarSincronizacaoDaFila(URL_DA_SINCRONIZACAO, resultado.idsEnviados);
     }
 
     // Uma rodada da fila. A trava de uma execução por vez é a do módulo (`PontoFila.enviarPendentes`); aqui a rodada em
@@ -1796,11 +1789,13 @@
             rodadaDaFilaEmCurso = (async () => {
                 try {
                     const resultado = await window.PontoFila.enviarPendentes(URL_DA_BATIDA, FILA_USUARIO_ID, FILA_ESCRITORIO_ID);
+                    // O evento da auditoria sai primeiro: as batidas já foram enviadas, e uma falha na leitura ou no aviso
+                    // da tela não pode perdê-lo. Ele não espera a resposta e nunca lança.
+                    avisarSincronizacao(resultado);
                     // Rodou ou não (outra aba enviando), a fila pode ter mudado: o estado da página e as recusas vêm de
                     // uma leitura nova, feita agora. Da rodada, só as enviadas (para o aviso).
                     await lerEstadoDaFila();
                     mostrarResultadoDaFila(resultado);
-                    avisarSincronizacao(resultado);
                 } catch (erro) {
                     console.error('Falha na rodada das batidas guardadas:', erro);
                 } finally {
