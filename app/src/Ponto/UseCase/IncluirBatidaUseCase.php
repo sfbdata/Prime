@@ -12,7 +12,7 @@ use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
 
 /**
- * O gestor inclui na folha a batida que falta (E10, plano-e10-ponto §6): o "+" e o "Adicionar Batida" da ficha do
+ * O gestor inclui na folha a batida que falta (E10, plano-e10-ponto §6): o "+" e o "Incluir batida" da ficha do
  * colaborador. A batida entra como ajuste de inclusão (o alvo dela é 'a{id}'), com o motivo e o evento
  * `batida_incluida` na trilha do Ponto, no mesmo COMMIT. Nada entra em `registro_ponto`, que guarda só o que o
  * colaborador bateu.

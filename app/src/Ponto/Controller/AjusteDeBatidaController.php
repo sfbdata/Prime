@@ -70,7 +70,7 @@ final class AjusteDeBatidaController extends AbstractController
     ) {
     }
 
-    /** O "+" e o "Adicionar Batida" da ficha: a batida que falta entra como inclusão, com o motivo. */
+    /** O "+" e o "Incluir batida" da ficha: a batida que falta entra como inclusão, com o motivo. */
     #[Route('/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
     public function incluir(int $tenantId, User $user, Request $request, IncluirBatidaUseCase $incluirBatida): Response
     {
