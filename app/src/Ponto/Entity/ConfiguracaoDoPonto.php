@@ -92,6 +92,14 @@ class ConfiguracaoDoPonto implements TenantAware, Auditavel
         $this->atualizadoEm = $em;
     }
 
+    /** P74 (E12): permite ou não o trabalho externo no escritório e carimba quem e quando. */
+    public function definirTrabalhoExterno(bool $permite, User $por, \DateTimeImmutable $em): void
+    {
+        $this->permiteTrabalhoExterno = $permite;
+        $this->atualizadoPor = $por;
+        $this->atualizadoEm = $em;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

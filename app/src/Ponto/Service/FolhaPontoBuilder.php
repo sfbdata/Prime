@@ -39,7 +39,7 @@ class FolhaPontoBuilder
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
      * @param ?\DateTimeImmutable $hoje         O dia de hoje da folha (dia futuro e hoje sem saída). Omitido, o de
      *                                            agora; o banco passa o dia de referência dos lotes (E17).
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -134,6 +134,7 @@ class FolhaPontoBuilder
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
                 'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
                 'semInternet'    => $this->diaTeveBatidaSemInternet($escolha->escolhidas()),
+                'trabalhoExterno' => $this->diaTeveTrabalhoExterno($escolha->escolhidas()),
             ];
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
@@ -194,7 +195,7 @@ class FolhaPontoBuilder
                                 ? TipoJustificativa::tryFrom($justificativaDoDia->getTipo())
                                 : null;
 
-                            if ($tipoJustificativa !== null && !$tipoJustificativa->abonaSaldo()) {
+                            if ($this->naoPerdoaAJornada($justificativaDoDia, $tipoJustificativa)) {
                                 // Categoria técnica (Esquecimento de Registro e irmãos) e falta não
                                 // justificada: aparecem na folha, mas não perdoam a jornada. A aprovação
                                 // do esquecimento já repôs a batida — o déficit que sobra é atraso ou
@@ -309,6 +310,32 @@ class FolhaPontoBuilder
     {
         foreach ($batidasDoDia as $batida) {
             if ($batida->isEnviadaSemInternet()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A justificativa abonada que aparece na folha sem perdoar a jornada: a de categoria técnica, a falta não
+     * justificada e a ligada a uma batida (trabalho externo, E12), cuja aprovação só confirma a batida, que já conta.
+     */
+    private function naoPerdoaAJornada(JustificativaPonto $justificativa, ?TipoJustificativa $tipo): bool
+    {
+        return $justificativa->analisaUmaBatida() || ($tipo !== null && !$tipo->abonaSaldo());
+    }
+
+    /**
+     * Indica se alguma batida escolhida do dia foi registrada como trabalho externo, fora do raio das sedes (selo
+     * "Trabalho externo", spec ponto-desenho-0811 E12). Como o "Sem internet": as batidas fora da conta não acendem.
+     *
+     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     */
+    private function diaTeveTrabalhoExterno(array $batidasDoDia): bool
+    {
+        foreach ($batidasDoDia as $batida) {
+            if ($batida->isTrabalhoExterno()) {
                 return true;
             }
         }

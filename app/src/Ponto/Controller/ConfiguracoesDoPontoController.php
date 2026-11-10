@@ -12,6 +12,7 @@ use App\Ponto\DTO\SedeDoPontoInput;
 use App\Ponto\Exception\ConfiguracaoDoPontoRecusadaException;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Ponto\Service\SedesEFeriadosDoPonto;
+use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\CadastrarFeriadoDoPontoUseCase;
 use App\Ponto\UseCase\ObterConfiguracoesDoPontoUseCase;
 use App\Ponto\UseCase\RemoverFeriadoDoPontoUseCase;
@@ -52,6 +53,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         private readonly ObterConfiguracoesDoPontoUseCase $funcoesDoPonto,
         private readonly SedesEFeriadosDoPonto $sedesEFeriados,
         private readonly TranslatorInterface $tradutor,
+        private readonly TrabalhoExternoDaBatida $trabalhoExterno,
     ) {
     }
 
@@ -74,6 +76,8 @@ final class ConfiguracoesDoPontoController extends AbstractController
             'tenantIdDoPonto' => $escritorio->getId(),
             'lotacoesDoPonto' => $feriados['lotacoesDoPonto'],
             'feriadosDoPonto' => $feriados['feriadosDoPonto'],
+            // E12 (P74): a caixa "Permitir trabalho externo"; quem muda é a rota ponto_configuracao_trabalho_externo.
+            'permite_trabalho_externo' => $this->trabalhoExterno->permitido($escritorio),
         ]);
     }
 

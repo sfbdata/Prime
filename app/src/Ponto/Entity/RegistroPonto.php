@@ -95,6 +95,15 @@ class RegistroPonto implements Auditavel, TenantAware
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $idEnvio = null;
 
+    // E12 (spec ponto-desenho-0811, P18 e P74): a batida feita fora do raio das sedes e registrada como trabalho
+    // externo. Fica sem sede, com a posição e o local e motivo que a pessoa escreveu, e vai para a análise do gestor
+    // por uma justificativa `trabalho_externo` ligada a ela.
+    #[ORM\Column(options: ['default' => false])]
+    private bool $trabalhoExterno = false;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $motivoTrabalhoExterno = null;
+
     public function __construct()
     {
         $this->dataHora = new \DateTime();
@@ -271,6 +280,28 @@ class RegistroPonto implements Auditavel, TenantAware
     public function setIdEnvio(?string $idEnvio): static
     {
         $this->idEnvio = $idEnvio;
+        return $this;
+    }
+
+    public function isTrabalhoExterno(): bool
+    {
+        return $this->trabalhoExterno;
+    }
+
+    public function setTrabalhoExterno(bool $trabalhoExterno): static
+    {
+        $this->trabalhoExterno = $trabalhoExterno;
+        return $this;
+    }
+
+    public function getMotivoTrabalhoExterno(): ?string
+    {
+        return $this->motivoTrabalhoExterno;
+    }
+
+    public function setMotivoTrabalhoExterno(?string $motivoTrabalhoExterno): static
+    {
+        $this->motivoTrabalhoExterno = $motivoTrabalhoExterno;
         return $this;
     }
 }

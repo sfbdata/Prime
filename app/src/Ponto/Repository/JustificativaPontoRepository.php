@@ -250,8 +250,8 @@ class JustificativaPontoRepository extends ServiceEntityRepository
      * (dois esquecimentos, por exemplo) tanto faz quem vence; o problema é o dia que tem uma que
      * abona e outra que não.
      *
-     * Precedência: **abonada que perdoa o déficit** > abonada que não perdoa (categoria técnica e
-     * falta não justificada) > pendente/rejeitada. Empate dentro do mesmo nível: vence a ÚLTIMA da
+     * Precedência: **abonada que perdoa o déficit** > abonada que não perdoa (categoria técnica,
+     * falta não justificada e a ligada a uma batida, E12) > pendente/rejeitada. Empate dentro do mesmo nível: vence a ÚLTIMA da
      * ordem recebida — que é a de maior id, porque `findByUserAndCompetencia` ordena por id
      * crescente. Quem chamar com uma lista fora dessa ordem recebe outro empate; a ordenação da
      * consulta é parte da regra, não enfeite.
@@ -289,6 +289,11 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     {
         if ($justificativa->getStatus() !== 'abonado') {
             return 0;
+        }
+
+        // A ligada a uma batida (trabalho externo, E12) nunca abona, nem abonada: aprovar só confirma a batida.
+        if ($justificativa->analisaUmaBatida()) {
+            return 1;
         }
 
         $tipo = $justificativa->getTipo() !== null

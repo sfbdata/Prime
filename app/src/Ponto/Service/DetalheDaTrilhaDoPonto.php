@@ -32,6 +32,8 @@ final class DetalheDaTrilhaDoPonto
             'data_hora'   => $batida->getDataHora()?->format('Y-m-d H:i:s'),
             'home_office' => $batida->isHomeOffice(),
             'sede'        => $batida->getSedeNomeSnapshot(),
+            'trabalho_externo' => $batida->isTrabalhoExterno(),      // E12
+            'sem_internet'     => $batida->isEnviadaSemInternet(),   // E14
         ];
     }
 
@@ -143,6 +145,8 @@ final class DetalheDaTrilhaDoPonto
         $onde     = ($detalhe['home_office'] ?? false) === true ? ', em home office' : '';
         $sede     = self::textoDe($detalhe, 'sede');
         $onde     = $onde === '' && $sede !== null ? ', na sede ' . $sede : $onde;
+        $onde    .= ($detalhe['trabalho_externo'] ?? false) === true ? ', em trabalho externo' : '';
+        $onde    .= ($detalhe['sem_internet'] ?? false) === true ? ', enviada sem internet' : '';
 
         return $tipo . ($momento !== null ? ' às ' . $momento : '') . $onde;
     }

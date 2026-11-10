@@ -23,6 +23,8 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\Service\CercaDoPonto;
+use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
@@ -115,6 +117,8 @@ final class PontoController extends AbstractController
         private readonly PublicoDosAvisosDePonto $publico,
         private readonly EnvioDaBatida $envioDaBatida,
         private readonly JustificativaPontoRepository $justificativas,
+        private readonly CercaDoPonto $cerca,
+        private readonly TrabalhoExternoDaBatida $trabalhoExterno,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -241,6 +245,9 @@ final class PontoController extends AbstractController
             'homeOfficeHoje' => $homeOfficeHoje,
             'geoLigado'      => $geoLigado,
             'sedesDaTela'    => $sedesDaTela,
+            // E12 (P18, P74): a cerca vale hoje para a pessoa (sem home office e com a geolocalização) e o escritório
+            // permite o trabalho externo. Como a cerca da tela, é cortesia: quem decide é a `batida()`.
+            'trabalho_externo_permitido' => !$homeOfficeHoje && $geoLigado && $this->trabalhoExterno->permitido($tenant),
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
@@ -881,8 +888,8 @@ final class PontoController extends AbstractController
         // office. A posição que vier é descartada, como no home office: o escritório escolheu não usar localização.
         $cercaVale = !$homeOfficeHoje && $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
 
-        $sedeEncontrada = null;
-        $distanciaSedeEncontrada = null;
+        $posicao = null;
+        $motivoExterno = null;   // E12: preenchido só na batida de trabalho externo
         $latitudeFloat = null;
         $longitudeFloat = null;
         $precisaoGpsFloat = null;
@@ -928,42 +935,19 @@ final class PontoController extends AbstractController
                 ], 422);
             }
 
-            $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
-            if (empty($sedes)) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Nenhuma sede configurada para o tenant.',
-                ], 403);
-            }
+            // E12: a cerca com a precisão (CercaDoPonto); o escritório sem sede válida fica fora do raio.
+            $posicao = $this->cerca->avaliar($sedeRepository->findBy(['tenant' => $tenant]), $latitudeFloat, $longitudeFloat, $precisaoGpsFloat);
+            if (!$posicao->estaDentro()) {
+                $permitido = $this->trabalhoExterno->permitido($tenant);
+                if (!$permitido || !TrabalhoExternoDaBatida::foiPedido($data)) {
+                    $recusa = $posicao->recusa($permitido);
 
-            foreach ($sedes as $sede) {
-                if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
-                    continue;
+                    return $this->json(['success' => false, 'message' => $recusa['titulo'] . '. ' . $recusa['detalhe'], 'foraDoRaio' => $recusa], $posicao->statusDaRecusa());
                 }
-
-                $distancia = $this->calcularDistanciaMetros(
-                    $latitudeFloat,
-                    $longitudeFloat,
-                    (float) $sede->getLatitude(),
-                    (float) $sede->getLongitude()
-                );
-
-                $raioPermitido = (float) $sede->getRaioPermitido();
-                if ($raioPermitido <= 0) {
-                    continue;
+                $motivoExterno = TrabalhoExternoDaBatida::motivoDo($data);
+                if (($recusaDoMotivo = TrabalhoExternoDaBatida::recusaDoMotivo($motivoExterno)) !== null) {
+                    return $this->json(['success' => false, 'message' => $recusaDoMotivo], 422);
                 }
-
-                if ($distancia <= $raioPermitido && ($distanciaSedeEncontrada === null || $distancia < $distanciaSedeEncontrada)) {
-                    $sedeEncontrada = $sede;
-                    $distanciaSedeEncontrada = $distancia;
-                }
-            }
-
-            if ($sedeEncontrada === null) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Você está fora da área permitida das sedes para registrar o ponto.',
-                ], 403);
             }
         }
 
@@ -1000,30 +984,45 @@ final class PontoController extends AbstractController
         $envio->gravarEm($registro);
         $registro->setHomeOffice($homeOfficeHoje);
 
-        if ($cercaVale) {
-            $registro->setSede($sedeEncontrada);
-            $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
+        $justificativaExterna = null;
+        if ($posicao !== null) {
+            if ($motivoExterno !== null) {
+                TrabalhoExternoDaBatida::marcar($registro, $motivoExterno);   // E12: sem sede, com o local e o motivo
+                $justificativaExterna = $this->trabalhoExterno->justificativaDa($registro);
+            } else {
+                $registro->setSede($posicao->sede);
+                $registro->setSedeNomeSnapshot($posicao->sede?->getNome());
+            }
             $registro->setLatitude((string) $latitudeFloat);
             $registro->setLongitude((string) $longitudeFloat);
             $registro->setPrecisaoGps((string) $precisaoGpsFloat);
         }
 
-        if (!$this->gravouSemRepetirOEnvio($envio, fn () => $this->gravarBatida($entityManager, $trilha, $registro, $tenant))) {
+        if (!$this->gravouSemRepetirOEnvio($envio, fn () => $this->gravarBatida($entityManager, $trilha, $registro, $tenant, $justificativaExterna))) {
             return $this->respostaJaRegistrada($tipo, null);
+        }
+        if ($justificativaExterna !== null) {
+            $this->trabalhoExterno->avisarGestores($justificativaExterna, $tenant);   // depois do COMMIT; a falha não desfaz a batida
         }
 
         $dados = [
             'hora' => $registro->getDataHora()->format('H:i:s'),
             'tipo' => $tipo,
         ];
-        if ($cercaVale) {
-            $dados['sede'] = $sedeEncontrada->getNome();
-            $dados['distancia'] = $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null;
+        if ($justificativaExterna !== null) {
+            $dados['trabalhoExterno'] = true;
+        } elseif ($posicao !== null) {
+            $dados['sede'] = $posicao->sede?->getNome();
+            $dados['distancia'] = $posicao->distancia !== null ? round($posicao->distancia, 2) : null;
         }
 
         return $this->json([
             'success' => true,
-            'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
+            'message' => match (true) {
+                $justificativaExterna !== null => TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA,
+                $homeOfficeHoje                => 'Ponto (home office) registrado com sucesso!',
+                default                        => 'Ponto registrado com sucesso!',
+            },
             'data'    => $dados,
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
@@ -1098,14 +1097,21 @@ final class PontoController extends AbstractController
 
     /**
      * Grava a batida e o evento dela na trilha de auditoria (E9) no mesmo COMMIT: se a batida falha, a trilha não
-     * ganha linha; se a trilha falha, a batida não entra.
+     * ganha linha; se a trilha falha, a batida não entra. Na de trabalho externo (E12), a justificativa ligada e o envio
+     * dela na trilha entram no mesmo COMMIT, com a trava da trilha por último.
      */
-    private function gravarBatida(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant): void
+    private function gravarBatida(EntityManagerInterface $entityManager, TrilhaDoPonto $trilha, RegistroPonto $registro, Tenant $tenant, ?JustificativaPonto $justificativaExterna = null): void
     {
-        $trilha->emTransacao(static function () use ($entityManager, $trilha, $registro, $tenant): void {
+        $trilha->emTransacao(static function () use ($entityManager, $trilha, $registro, $tenant, $justificativaExterna): void {
             $entityManager->persist($registro);
+            if ($justificativaExterna !== null) {
+                $entityManager->persist($justificativaExterna);
+            }
             $entityManager->flush();
             $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::BatidaRegistrada->value, DetalheDaTrilhaDoPonto::daBatida($registro) + ['registro_id' => $registro->getId()]);
+            if ($justificativaExterna !== null) {
+                $trilha->registrar($tenant, $registro->getUser(), AcaoDaTrilhaDoPonto::JustificativaEnviada->value, DetalheDaTrilhaDoPonto::doLote([$justificativaExterna]));
+            }
         });
     }
 
@@ -1310,22 +1316,6 @@ final class PontoController extends AbstractController
         [$hSai, $mSai] = array_map('intval', explode(':', $saidaHorario));
 
         return ($hSai * 60 + $mSai) - ($hEnt * 60 + $mEnt);
-    }
-
-    private function calcularDistanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $raioTerra = 6371000;
-
-        $deltaLat = deg2rad($lat2 - $lat1);
-        $deltaLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($deltaLat / 2) * sin($deltaLat / 2)
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
-            * sin($deltaLon / 2) * sin($deltaLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $raioTerra * $c;
     }
 
     #[Route('/exportar-folha-pdf', name: 'ponto_exportar_pdf')]

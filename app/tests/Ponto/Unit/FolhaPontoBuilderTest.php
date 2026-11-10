@@ -664,6 +664,39 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($linha['semInternet'], 'a batida escolhida que veio da fila acende o selo');
     }
 
+    public function testSeloTrabalhoExternoSaiSoDasBatidasEscolhidas(): void
+    {
+        // E12 (spec ponto-desenho-0811): como o "Sem internet", o selo olha só as batidas que a folha mostra.
+        $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
+        $repeticaoExterna = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
+        $repeticaoExterna->setTrabalhoExterno(true);
+
+        $linha = $this->linhaDoDia7([$entrada, $repeticaoExterna, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
+        self::assertFalse($linha['trabalhoExterno'], 'a repetição fora da conta não acende o selo');
+
+        $saidaExterna = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
+        $saidaExterna->setTrabalhoExterno(true);
+        $linha = $this->linhaDoDia7([$entrada, $saidaExterna], []);
+        self::assertTrue($linha['trabalhoExterno'], 'a batida escolhida de trabalho externo acende o selo');
+        self::assertFalse($linha['semInternet']);
+    }
+
+    public function testJustificativaLigadaABatidaNaoAbonaSaldoMesmoAbonada(): void
+    {
+        // E12: aprovar o trabalho externo só confirma a batida, que já conta; o déficit do dia continua.
+        $ligada = $this->justificativaAbonada('trabalho_externo');
+        $ligada->setRegistroPonto($this->diaDeSeteHoras()[0]);
+        $linha = $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $ligada]);
+        self::assertSame(-60, $linha['saldoDia']);
+
+        $parcialLigada = $this->justificativaAbonada('trabalho_externo', true, '14:00', '16:00');
+        $parcialLigada->setRegistroPonto($this->diaDeSeteHoras()[0]);
+        self::assertSame(-60, $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $parcialLigada])['saldoDia'], 'nem o abono parcial soma');
+
+        // A justificativa de trabalho externo avulsa (pela janela de justificar, sem batida) continua abonando.
+        self::assertSame(0, $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $this->justificativaAbonada('trabalho_externo')])['saldoDia']);
+    }
+
     private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
     {
         $registro = $this->batida($tipo, $hora, $data);

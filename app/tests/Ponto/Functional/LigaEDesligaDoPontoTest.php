@@ -322,8 +322,10 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $bia, $outro);
         self::assertSame('Geolocalização é obrigatória para registrar o ponto.', $this->bater(['tipo' => 'entrada'])['message']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Você está fora da área permitida das sedes para registrar o ponto.', $this->bater(['tipo' => 'entrada', 'latitude' => -10.0, 'longitude' => -40.0, 'precisaoGps' => 10.0])['message']);
+        $fora = $this->bater(['tipo' => 'entrada', 'latitude' => -10.0, 'longitude' => -40.0, 'precisaoGps' => 10.0]);
         self::assertResponseStatusCodeSame(403);
+        self::assertSame('Você está fora do raio permitido', $fora['foraDoRaio']['titulo'], 'a cerca do outro escritório continua valendo (E12)');
+        self::assertStringStartsWith('Você está fora do raio permitido. A sede mais próxima é ', $fora['message']);
         self::assertSame(0, $this->batidas($bia));
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -123,5 +124,20 @@ final class JustificativaPontoIndexacaoTest extends TestCase
         self::assertCount(2, $indexado);
         self::assertSame($dia2, $indexado['2026-06-02']);
         self::assertSame($dia3, $indexado['2026-06-03']);
+    }
+
+    public function testLigadaABatidaAbonadaNaoVenceAQueAbonaOSaldo(): void
+    {
+        // E12 (spec ponto-desenho-0811): a justificativa do trabalho externo, ligada à batida, nunca abona. Abonada, ela
+        // disputa o dia como a técnica: perde para o atestado abonado e ganha da pendente.
+        $externa = $this->justificativa('trabalho_externo', 'abonado');
+        $externa->setRegistroPonto(new RegistroPonto());
+        $atestado = $this->justificativa('atestado_medico', 'abonado');
+        $pendente = $this->justificativa('atestado_medico', 'pendente');
+        $avulsa = $this->justificativa('trabalho_externo', 'abonado');
+
+        self::assertSame($atestado, $this->repositorio->indexarPorDia([$atestado, $externa])['2026-06-02']);
+        self::assertSame($externa, $this->repositorio->indexarPorDia([$externa, $pendente])['2026-06-02']);
+        self::assertSame($avulsa, $this->repositorio->indexarPorDia([$avulsa, $externa])['2026-06-02'], 'a avulsa (sem batida) continua abonando');
     }
 }
