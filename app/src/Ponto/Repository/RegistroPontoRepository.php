@@ -252,6 +252,35 @@ SQL;
     }
 
     /**
+     * As batidas da pessoa NESTE escritório que vieram da fila sem internet com um destes identificadores de envio (E14,
+     * evento "Sincronização"). Tenant explícito além do filtro; o identificador de outra pessoa ou de outro escritório não
+     * acha nada.
+     *
+     * @param list<string> $idsEnvio
+     *
+     * @return list<RegistroPonto>
+     */
+    public function semInternetDosEnvios(User $user, Tenant $tenant, array $idsEnvio): array
+    {
+        if ($idsEnvio === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.idEnvio IN (:ids)')
+            ->andWhere('r.enviadaSemInternet = true')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $idsEnvio)
+            ->orderBy('r.dataHora', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
      * (spec `ponto-por-escritorio.md` §2.1). Com `$ate`, só o repouso até esse instante do dia: a batida guardada sem
      * internet (spec ponto-desenho-0811 E14) não mede o intervalo contra um repouso batido depois dela.

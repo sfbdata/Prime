@@ -1475,6 +1475,7 @@
     // do GPS (5 s), fica longe do limite de 60 s da guarda de atraso do envio.
     const FILA_PRAZO_ANTES_DO_TOQUE_MS = 10000;
     const URL_DA_BATIDA = '{{ path('ponto_batida') }}';
+    const URL_DA_SINCRONIZACAO = '{{ path('ponto_fila_sincronizada') }}';
     // Dois textos para a batida guardada: o aparelho sabe que está sem internet (`navigator.onLine === false`), ou diz
     // que tem rede e o envio ficou sem resposta (prazo estourado, servidor fora). No segundo, "Sem internet" mandaria a
     // pessoa olhar um sinal que está bom.
@@ -1769,6 +1770,25 @@
         concluirResultadoDaFila(parte);
     }
 
+    // A rodada que enviou batidas avisa o servidor, para o evento "Sincronização" da trilha (E14, dc L438). O servidor
+    // confere cada envio contra as batidas da pessoa que vieram da fila e não conta duas vezes a mesma. Sem esperar e
+    // sem aviso na tela: as batidas já entraram (cada uma com a marca " · sem internet" na trilha); uma falha aqui só
+    // deixa o evento da rodada de fora, e vai para o console.
+    function avisarSincronizacao(resultado) {
+        if (!resultado || !Array.isArray(resultado.idsEnviados) || resultado.idsEnviados.length === 0) {
+            return;
+        }
+        fetch(URL_DA_SINCRONIZACAO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ idsEnvio: resultado.idsEnviados }),
+        }).then((resposta) => {
+            if (!resposta.ok) {
+                console.error('A sincronização da fila não entrou na auditoria:', resposta.status);
+            }
+        }).catch((erro) => console.error('A sincronização da fila não entrou na auditoria:', erro));
+    }
+
     // Uma rodada da fila. A trava de uma execução por vez é a do módulo (`PontoFila.enviarPendentes`); aqui a rodada em
     // curso é compartilhada, para o toque poder esperar a que já estava correndo. Nunca rejeita.
     function rodadaDaFila() {
@@ -1780,6 +1800,7 @@
                     // uma leitura nova, feita agora. Da rodada, só as enviadas (para o aviso).
                     await lerEstadoDaFila();
                     mostrarResultadoDaFila(resultado);
+                    avisarSincronizacao(resultado);
                 } catch (erro) {
                     console.error('Falha na rodada das batidas guardadas:', erro);
                 } finally {

@@ -143,6 +143,18 @@ final class DetalheDaTrilhaDoPonto
         return ['chave' => $chave, 'titulo' => $titulo, 'ligada' => $ligada];
     }
 
+    /**
+     * A rodada da fila sem internet que enviou batidas (E14, dc L438): quem, quais batidas e quantas.
+     *
+     * @param list<int> $registroIds
+     *
+     * @return array<string, mixed>
+     */
+    public static function daSincronizacao(User $pessoa, array $registroIds): array
+    {
+        return self::colaborador($pessoa) + ['registro_ids' => $registroIds, 'quantidade' => \count($registroIds)];
+    }
+
     /** @param array<string, mixed> $detalhe */
     public static function texto(string $acao, array $detalhe): string
     {
@@ -163,6 +175,7 @@ final class DetalheDaTrilhaDoPonto
             AcaoDaTrilhaDoPonto::AbonoEmLote          => self::textoDoLote($detalhe),
             AcaoDaTrilhaDoPonto::JustificativaReaberta => self::textoDaJustificativa($detalhe) . self::textoDaSituacaoAnterior($detalhe),
             AcaoDaTrilhaDoPonto::EscalaAlterada       => self::textoDaEscala($detalhe),
+            AcaoDaTrilhaDoPonto::Sincronizacao        => self::textoDaSincronizacao($detalhe),
             default                                   => self::textoDaJustificativa($detalhe),
         };
     }
@@ -243,6 +256,19 @@ final class DetalheDaTrilhaDoPonto
         $titulo = self::textoDe($detalhe, 'titulo') ?? self::textoDe($detalhe, 'chave') ?? 'Função';
 
         return $titulo . (($detalhe['ligada'] ?? null) === true ? ' ativado' : ' desativado');
+    }
+
+    /**
+     * Como o desenho (dc L438), "N batida(s) enviada(s) ao voltar a internet", com o plural escrito por inteiro, como as
+     * mensagens do abono em lote da E5: "1 batida enviada" e "3 batidas enviadas".
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaSincronizacao(array $detalhe): string
+    {
+        $quantidade = (int) ($detalhe['quantidade'] ?? 0);
+
+        return sprintf($quantidade === 1 ? '%d batida enviada ao voltar a internet' : '%d batidas enviadas ao voltar a internet', $quantidade);
     }
 
     /** @param array<string, mixed> $detalhe */

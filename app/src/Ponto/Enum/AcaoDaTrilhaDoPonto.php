@@ -26,6 +26,7 @@ enum AcaoDaTrilhaDoPonto: string
     case JustificativaLancada  = 'justificativa_lancada';
     case EscalaAlterada        = 'escala_alterada';
     case ConfiguracaoDoEscritorio = 'configuracao_do_escritorio';
+    case Sincronizacao         = 'sincronizacao';
 
     public function rotulo(): string
     {
@@ -42,6 +43,7 @@ enum AcaoDaTrilhaDoPonto: string
             self::JustificativaLancada  => 'Justificativa lançada já abonada',
             self::EscalaAlterada        => 'Escala alterada',
             self::ConfiguracaoDoEscritorio => 'Configuração do escritório',
+            self::Sincronizacao         => 'Sincronização',
         };
     }
 

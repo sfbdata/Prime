@@ -576,10 +576,11 @@
     }
 
     async function enviarAgora(url, usuarioId, escritorioId) {
-        // Só o que esta rodada fez, em números. O estado da fila NÃO sai daqui: `guardadas` é o retrato do começo da
-        // rodada, e uma batida guardada no meio dela ficaria de fora (ver `estado`). As recusas também não: ficam na loja
-        // delas (`recusar`), e a tela as lê de lá.
-        const resultado = { enviadas: 0, recusadas: 0 };
+        // Só o que esta rodada fez: os números e os identificadores das enviadas (para o evento "Sincronização" da
+        // trilha, E14, dc L438). O estado da fila NÃO sai daqui: `guardadas` é o retrato do começo da rodada, e uma
+        // batida guardada no meio dela ficaria de fora (ver `estado`). As recusas também não: ficam na loja delas
+        // (`recusar`), e a tela as lê de lá.
+        const resultado = { enviadas: 0, recusadas: 0, idsEnviados: [] };
         const guardadas = await todas();
 
         for (const entrada of guardadas) {
@@ -594,6 +595,7 @@
             if (destino === 'enviada') {
                 await remover(entrada.idEnvio);
                 resultado.enviadas++;
+                resultado.idsEnviados.push(entrada.idEnvio);
             } else if (destino === 'recusada') {
                 // A entrada sai da fila e a recusa entra na loja dela, na mesma transação. Não deu: nada mudou, e a
                 // entrada volta na próxima rodada (o servidor recusa de novo e a recusa é gravada então).
@@ -626,8 +628,9 @@
      * vez: o segundo disparo enquanto o primeiro corre (o evento `online` junto do relógio de um minuto) volta com
      * `null` sem mandar nada, e a mesma entrada nunca sai duas vezes desta página.
      *
-     * Resolve com o que a rodada fez, em números (`{ enviadas, recusadas }`), ou `null` quando não rodou; nunca com o
-     * estado da fila nem com as recusas, que a tela lê de novo depois (`estado`). Nunca rejeita.
+     * Resolve com o que a rodada fez (`{ enviadas, recusadas, idsEnviados }`: os números e os `idEnvio` das enviadas),
+     * ou `null` quando não rodou; nunca com o estado da fila nem com as recusas, que a tela lê de novo depois
+     * (`estado`). Nunca rejeita.
      */
     async function enviarPendentes(url, usuarioId, escritorioId) {
         if (envioEmAndamento) {

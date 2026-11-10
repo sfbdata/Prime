@@ -6,6 +6,7 @@ namespace App\Ponto\Repository;
 
 use App\Ponto\Entity\EventoDaTrilhaDoPonto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
@@ -175,6 +176,30 @@ class TrilhaDoPontoRepository extends ServiceEntityRepository
     private static function textoOuNulo(mixed $valor): ?string
     {
         return $valor === null ? null : (string) $valor;
+    }
+
+    /**
+     * Das batidas pedidas, as que já entraram num evento "Sincronização" do escritório (E14): o mesmo aviso repetido (a
+     * tela mandou de novo, outra aba, a resposta que não chegou) não conta a batida duas vezes. Chame depois de
+     * `travar`, na mesma transação do evento novo.
+     *
+     * @param list<int> $registroIds
+     *
+     * @return list<int>
+     */
+    public function jaSincronizados(int $tenantId, array $registroIds): array
+    {
+        if ($registroIds === []) {
+            return [];
+        }
+
+        return array_map('intval', $this->conexao()->fetchFirstColumn(
+            "SELECT DISTINCT (r.id)::int FROM ponto_auditoria a
+             CROSS JOIN LATERAL json_array_elements_text(a.detalhe -> 'registro_ids') AS r(id)
+             WHERE a.tenant_id = ? AND a.acao = ? AND (r.id)::int IN (?)",
+            [$tenantId, 'sincronizacao', $registroIds],
+            [ParameterType::INTEGER, ParameterType::STRING, ArrayParameterType::INTEGER],
+        ));
     }
 
     private function conexao(): Connection

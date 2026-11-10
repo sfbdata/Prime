@@ -510,7 +510,8 @@ final class FilaSemInternetJsTest extends TestCase
 
         // A rodada não devolve retrato da fila: o retrato é do começo dela e perde a batida guardada no meio.
         $envio = self::corpo($fila, 'async function enviarAgora(url, usuarioId, escritorioId) {');
-        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: 0 };', $envio);
+        // Os `idEnvio` das enviadas (E14, Sincronização) são o que a rodada mandou, não um retrato da fila.
+        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: 0, idsEnviados: [] };', $envio);
         foreach (['restantes', 'pendentes', 'emOutroEscritorio', 'contagemDe('] as $retrato) {
             self::assertStringNotContainsString($retrato, $envio, 'a rodada devolveu estado: ' . $retrato);
         }
@@ -746,5 +747,30 @@ final class FilaSemInternetJsTest extends TestCase
         foreach (['--pe-info-bd:      #9fc3d8;', '--pe-azul:         #0a6fa0;', '--pe-info-bg:      #e5f1f7;', '--pe-info-cor:     #0b4f75;'] as $token) {
             self::assertStringContainsString($token, $css);
         }
+    }
+
+    #[TestDox('Sincronização (E14, dc L438): a rodada devolve os `idEnvio` das enviadas, e a tela os avisa ao servidor depois de cada rodada, sem esperar e sem aviso na tela')]
+    public function testRodadaAvisaASincronizacao(): void
+    {
+        $enviar = self::corpo(self::fila(), 'async function enviarAgora(');
+        self::assertStringContainsString('const resultado = { enviadas: 0, recusadas: 0, idsEnviados: [] };', $enviar);
+        self::assertMatchesRegularExpression(
+            '/await remover\(entrada\.idEnvio\);\s+resultado\.enviadas\+\+;\s+resultado\.idsEnviados\.push\(entrada\.idEnvio\);/',
+            $enviar,
+            'só a enviada (a que saiu da fila) entra na lista',
+        );
+
+        $tela = self::tela();
+        self::assertStringContainsString("const URL_DA_SINCRONIZACAO = '{{ path('ponto_fila_sincronizada') }}';", $tela);
+        self::assertMatchesRegularExpression(
+            '/mostrarResultadoDaFila\(resultado\);\s+avisarSincronizacao\(resultado\);\s+\} catch \(erro\) \{/',
+            self::corpo($tela, 'function rodadaDaFila() {'),
+            'cada rodada avisa, depois do aviso da tela',
+        );
+        $avisar = self::corpo($tela, 'function avisarSincronizacao(resultado)');
+        self::assertStringContainsString('resultado.idsEnviados.length === 0', $avisar, 'rodada sem enviadas não avisa');
+        self::assertStringContainsString('body: JSON.stringify({ idsEnvio: resultado.idsEnviados }),', $avisar);
+        self::assertStringNotContainsString('await', $avisar, 'o aviso não segura a rodada');
+        self::assertStringNotContainsString('mostrarAviso', $avisar, 'nada na tela: as batidas já entraram');
     }
 }
