@@ -72,6 +72,7 @@ final readonly class SalvarRascunhoUseCase
         $id = $this->transacao->executar(
             function () use ($ator, $tenant, $documento, $configuracao, $entrada, $blocos, $agora, $troca): int {
                 $this->travarERecarregar($documento, $tenant);
+                $blocos = $this->reconferirDepoisDaTrava($documento, $configuracao, $entrada, $blocos);
                 $conteudo = $this->arquivos->comParagrafoDoOriginal($blocos['blocos'], $documento, $blocos['mudaOriginal'], $blocos['original']);
                 $documento->aplicarRascunho($entrada->dados, $conteudo, $agora);
                 $this->aplicarPdf($documento, $entrada, $blocos['paginas'], $troca);
@@ -155,6 +156,26 @@ final readonly class SalvarRascunhoUseCase
         if ($documento->getId() !== null && !$this->documentos->travarERecarregar($documento, $tenant)) {
             throw new DocumentoNaoEncontrado();
         }
+    }
+
+    /**
+     * Sem PDF novo, o número de páginas e o "tem arquivo" saem do documento, e a primeira conferência o leu antes da
+     * trava: outra aba pode ter tirado ou trocado o PDF nesse meio. Relido, confere de novo (a página de um PDF que
+     * saiu recusa). Com PDF novo, os dois vêm do arquivo enviado e nada muda.
+     *
+     * @param array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado} $conferido
+     *
+     * @return array{blocos: list<array<string, int|string>>, paginas: ?int, mudaOriginal: bool, original: ?OriginalJaAssinado}
+     *
+     * @throws AcaoRecusada
+     */
+    private function reconferirDepoisDaTrava(DocumentoParaAssinar $documento, ?ConfiguracaoDaAssinatura $configuracao, EntradaDoRascunho $entrada, array $conferido): array
+    {
+        if ($entrada->arquivo !== null || $documento->getId() === null) {
+            return $conferido;
+        }
+
+        return $this->conferir($documento, $configuracao, $entrada);
     }
 
     /** Com página do PDF, o enviado agora troca o guardado (sem envio, fica o atual); sem nenhuma, o PDF sai. */

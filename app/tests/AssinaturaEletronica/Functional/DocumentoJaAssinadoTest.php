@@ -6,6 +6,7 @@ namespace App\Tests\AssinaturaEletronica\Functional;
 
 use App\AssinaturaEletronica\Controller\ArquivosDaAssinaturaController;
 use App\AssinaturaEletronica\Controller\ConferenciaDoPdfController;
+use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\ArquivosDoRascunho;
 use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\AssinaturaEletronica\UseCase\ConferirPdfEnviadoUseCase;
@@ -13,6 +14,9 @@ use App\AssinaturaEletronica\UseCase\DuplicarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterOriginalComAssinaturasUseCase;
 use App\AssinaturaEletronica\UseCase\SalvarRascunhoUseCase;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Tests\AssinaturaEletronica\Support\DocumentosComTravaEspiada;
 use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
 use App\Tests\AssinaturaEletronica\Unit\ConferenciaDePdf\OficinaDePdfAssinado;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
@@ -293,6 +297,46 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertSame(['pg', 'a'], array_column($this->detalhe($id)['blocos'], 'k'));
     }
 
+    #[TestDox('aba antiga depois que outra tirou o PDF: relido na trava, a página dele recusa com 422 e nada é gravado')]
+    public function testAbaAntigaDepoisQueOutraTirouOPdf(): void
+    {
+        $this->emMemoria();
+        $documentos = $this->travaEspiada();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->pdf());
+        self::assertResponseStatusCodeSame(201);
+        $documentos->antesDaTrava = function () use ($id): bool {
+            // A outra aba tirou o PDF depois que esta leu o documento e antes de esta travar.
+            $this->conexao()->executeStatement('UPDATE assinatura_eletronica_documento SET arquivo_enviado_chave = NULL, arquivo_enviado_nome = NULL, arquivo_enviado_paginas = NULL WHERE id = ?', [$id]);
+
+            return true;
+        };
+
+        $this->salvar($id, ['nome' => 'Contrato da aba antiga', 'blocos' => self::CONTEUDO]);
+
+        self::assertSame(1, $documentos->travas, 'o rascunho existente é travado e relido antes de gravar');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('O documento usa páginas de um PDF que não foi enviado.', $this->json()['erro']);
+    }
+
+    #[TestDox('a trava não acha o rascunho (outra aba o mandou para a Lixeira): 404 e nada é gravado')]
+    public function testTravaNaoAchaORascunho(): void
+    {
+        $this->emMemoria();
+        $documentos = $this->travaEspiada();
+        $this->entrar(true);
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => self::CONTEUDO], $this->pdf());
+        $documentos->antesDaTrava = static fn (): bool => false;
+
+        $this->salvar($id, ['nome' => 'Contrato da aba antiga', 'blocos' => self::CONTEUDO]);
+
+        self::assertResponseStatusCodeSame(404);
+        $documentos->antesDaTrava = null;
+        $detalhe = $this->detalhe($id);
+        self::assertSame('Contrato', $detalhe['nome']);
+        self::assertCount(1, $detalhe['eventos'], 'só o "Rascunho salvo" da criação');
+    }
+
     #[TestDox('sem lugar para o parágrafo no teto de 2.000 blocos: 422 blocos_demais antes de gravar; com um lugar, salva')]
     public function testParagrafoNoTetoDeBlocos(): void
     {
@@ -415,6 +459,16 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertCount(1, $modulo);
         self::assertCount(1, $tela);
         self::assertLessThan($tela[0], $modulo[0]);
+    }
+
+    /** O repositório de verdade com o gancho antes da trava; depois do disco em memória e antes do primeiro pedido, que monta o UseCase. */
+    private function travaEspiada(): DocumentosComTravaEspiada
+    {
+        $container = static::getContainer();
+        $documentos = new DocumentosComTravaEspiada($container->get('doctrine'), $container->get(AcessoALixeira::class), $container->get(TransacaoComArquivoNovo::class));
+        $container->set(DocumentoParaAssinarRepository::class, $documentos);
+
+        return $documentos;
     }
 
     private function emMemoria(): ArmazenamentoEmMemoriaNoContainer
