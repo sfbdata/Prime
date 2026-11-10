@@ -15,6 +15,9 @@ namespace App\AssinaturaEletronica\Pdf;
  * - `logo` e `rubrica` em bytes (PNG, JPEG ou GIF); logo nula ou ilegível cai na marca "BlueJus" em texto.
  * - `urlDeValidacao` é o endereço absoluto que vai no QR (E3-14), já com o código.
  * - `pdfEnviado` são os bytes do PDF do documento por upload (as páginas dos blocos `pg`).
+ * - `paginasDepois` são as páginas depois do conteúdo (o manifesto). Folha branca que também é rascunho (sem
+ *   `codigo`) não leva manifesto (`if (!(d.limpa && !d.cod))`, dc:417): nesse caso quem monta a folha passa
+ *   {@see SemPaginasDepoisDoConteudo}. Só folha branca, ou só rascunho, leva o manifesto.
  */
 final readonly class FolhaParaMontar
 {

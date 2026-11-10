@@ -8,10 +8,11 @@ use App\AssinaturaEletronica\Pdf\Diagramacao\ElementoDaPagina;
 use App\AssinaturaEletronica\Pdf\Diagramacao\LinhaDeTexto;
 use App\AssinaturaEletronica\Pdf\Diagramacao\LugarDeAssinatura;
 use App\AssinaturaEletronica\Pdf\Diagramacao\PaginaDoPdfEnviado;
+use App\AssinaturaEletronica\Pdf\Diagramacao\Palavra;
 use App\AssinaturaEletronica\Pdf\Diagramacao\TextoComNegrito;
 
 /**
- * Pinta os elementos de uma página do conteúdo (o `pg.forEach(o => …)` do `pdf()`, dc:405): linhas de texto, lugares
+ * Pinta os elementos de uma página do conteúdo (o `pg.forEach(o => …)` do `pdf()`, dc:416): linhas de texto, lugares
  * de assinatura e a página do PDF enviado.
  */
 final class DesenhoDoConteudo
@@ -35,7 +36,7 @@ final class DesenhoDoConteudo
     /** Justificada: o espaço entre palavras estica até a margem; à direita e ao centro, a linha toda se desloca. */
     private function linha(Tela $tela, LinhaDeTexto $linha): void
     {
-        $larguras = array_map(static fn ($p): float => TextoComNegrito::largura($p, $linha->tamanho, $linha->tudoNegrito), $linha->palavras);
+        $larguras = array_map(static fn (Palavra $p): float => TextoComNegrito::largura($p, $linha->tamanho, $linha->tudoNegrito), $linha->palavras);
         $soma = array_sum($larguras);
         $vaos = \count($larguras) - 1;
         $espaco = $linha->justificar && $vaos > 0 ? ($linha->largura - $soma) / $vaos : $linha->espaco;

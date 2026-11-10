@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O fundo de cada página sai do sorteio do desenho (`rnd` em dc:307): os valores esperados foram tirados rodando o
+ * O fundo de cada página sai do sorteio do desenho (`rnd` em dc:409): os valores esperados foram tirados rodando o
  * código do desenho no node, com o mesmo hash e a mesma página. Igualdade exata: qualquer diferença muda a folha.
  */
 #[CoversClass(Sorteio::class)]

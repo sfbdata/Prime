@@ -11,6 +11,9 @@ namespace App\AssinaturaEletronica\Pdf;
  * Para cada página o montador pinta a moldura completa (fundo de segurança, mesmo na folha branca, e cabeçalho do
  * escritório), chama {@see desenhar()} e depois pinta o rodapé completo (QR, código, hash e selo) por cima. As páginas
  * entram na numeração "PÁGINA n DE total" de todas as páginas do documento.
+ *
+ * Folha branca que também é rascunho não tem manifesto (dc:417): quem monta a folha passa
+ * {@see SemPaginasDepoisDoConteudo} (contrato em {@see FolhaParaMontar}).
  */
 interface PaginasDepoisDoConteudo
 {
