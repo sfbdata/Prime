@@ -9,9 +9,11 @@ use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Asset\Packages;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -27,6 +29,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Etapa 3 (contrato da etapa 3, seção 2, item 11): `codigo`, o código de validação do selo, no `Resumo` e por ele no
  * `Detalhe`; nulo no rascunho.
+ *
+ * Etapa 5, bloco 5A: `jaAssinado`, o quadro "Documento já assinado" do detalhe (dc:218) a partir da versão mais recente
+ * do PDF que chegou assinado (o original ou o último devolvido), com a URL de "Baixar original com as assinaturas";
+ * nulo sem ela.
  */
 final readonly class ApresentacaoDoDocumento
 {
@@ -37,6 +43,8 @@ final readonly class ApresentacaoDoDocumento
         private TranslatorInterface $tradutor,
         private Packages $assets,
         private ChaveDaAssinatura $chave,
+        private VersaoDoPdfRepository $versoes,
+        private ApresentacaoDaConferencia $conferencia,
     ) {
     }
 
@@ -85,6 +93,7 @@ final readonly class ApresentacaoDoDocumento
             'prazoDias' => $documento->getPrazoDias(),
             'logo' => ['tipo' => $documento->getLogoTipo()->value, 'url' => $this->urlDaLogo($documento)],
             'arquivo' => $this->arquivo($documento),
+            'jaAssinado' => $this->jaAssinado($documento),
             'hashEnviado' => $documento->getHashEnviado(),
             'enviadoEm' => self::iso($documento->getEnviadoEm()),
             'concluidoEm' => self::iso($documento->getConcluidoEm()),
@@ -168,6 +177,24 @@ final readonly class ApresentacaoDoDocumento
             'nome' => (string) $documento->getArquivoEnviadoNome(),
             'paginas' => $documento->getArquivoEnviadoPaginas(),
         ];
+    }
+
+    /**
+     * O `pres` do desenho: a última versão, menos o PDF para assinar congelado (esse não chegou assinado).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function jaAssinado(DocumentoParaAssinar $documento): ?array
+    {
+        $versao = $this->versoes->ultima($documento);
+        if ($versao === null || $versao->getOrigem() === OrigemDaVersao::ParaAssinar) {
+            return null;
+        }
+        $quadro = $this->conferencia->quadro(SerializacaoDaConferencia::deJson($versao->getAnalise()));
+
+        return $quadro !== null
+            ? $quadro + ['original' => $this->urls->generate('assinatura_eletronica_original', ['id' => $documento->getId()])]
+            : null;
     }
 
     /** @return array<string, mixed> */

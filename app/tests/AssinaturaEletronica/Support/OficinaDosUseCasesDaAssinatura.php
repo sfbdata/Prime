@@ -13,6 +13,8 @@ use App\AssinaturaEletronica\Enum\TipoDeCarta;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
+use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
+use App\AssinaturaEletronica\Service\ApresentacaoDaConferencia;
 use App\AssinaturaEletronica\Service\ApresentacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\CorreioDaAssinatura;
@@ -182,7 +184,15 @@ trait OficinaDosUseCasesDaAssinatura
 
     private function apresentacao(): ApresentacaoDoDocumento
     {
-        return new ApresentacaoDoDocumento(self::urls(), new IdentityTranslator(), new Packages(new Package(new EmptyVersionStrategy())), $this->chave);
+        // Etapa 5 (5A): sem versão do PDF guardada, o `jaAssinado` do detalhe sai nulo.
+        return new ApresentacaoDoDocumento(
+            self::urls(),
+            new IdentityTranslator(),
+            new Packages(new Package(new EmptyVersionStrategy())),
+            $this->chave,
+            $this->createStub(VersaoDoPdfRepository::class),
+            new ApresentacaoDaConferencia(new IdentityTranslator()),
+        );
     }
 
     private function pagina(): PaginaDoSignatario

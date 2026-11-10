@@ -13,6 +13,10 @@
    E-mail (mailto), WhatsApp, Tela do signatário (prévia em nova aba), Enviar lembrete e Cancelar envio. Etapa 4:
    Criar novo modelo, Editar, Excluir e Duplicar e adaptar; o editor vira blocos aqui (lerEd do desenho) e nenhum HTML
    vai ao servidor. Ficam para depois: Baixar PDF com selo e Vincular à pasta.
+
+   Etapa 5, bloco 5A (docs/specs/assinatura-documentos-etapa-5.md): o PDF que já chega assinado. O quadro do passo 3 e
+   o do detalhe, com os botões, ficam no assinatura-ja-assinado.js (window.BJAJaAssinado); aqui só a ligação: o PDF
+   escolhido é conferido no servidor sem gravar (w.pres), e as ações ja-original e ja-carimbo do detalhe.
    ============================================================================= */
 (function () {
     'use strict';
@@ -21,6 +25,8 @@
     if (!raiz || !window.BJAFolha) { return; }
 
     const F = window.BJAFolha;
+    /* Etapa 5 (5A): o documento que já chega assinado. Sem o arquivo, a tela segue sem o quadro. */
+    const J = window.BJAJaAssinado || null;
     const T = (chave, p) => BJ_T.t(['assinatura_eletronica_tela', 'js', chave].join('.'), p);
     const lerJson = (texto, padrao) => { try { const v = JSON.parse(texto || ''); return v == null ? padrao : v; } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -46,6 +52,8 @@
         modeloCriar: ds.urlModeloCriar || '',
         modeloSalvar: ds.urlModeloSalvar || '',
         modeloExcluir: ds.urlModeloExcluir || '',
+        pdfConferir: ds.urlPdfConferir || '',
+        carimbo: ds.urlCarimbo || '',
     };
     /* Troca o marcador 0 (último trecho "0" do caminho) pelo id real, como a Agenda 1A. */
     const comId = (modelo, id) => {
@@ -128,6 +136,8 @@
     let edAtual = null, edRng = null;
 
     /* ── Servidor ───────────────────────────────────────────────────────── */
+    /* Etapa 5 (5A): `blob` devolve o arquivo da resposta de sucesso (os downloads do quadro "já assinado"); na recusa, o
+       JSON inteiro fica em `dados` do erro, além do `texto`. */
     async function pedir(endereco, opcoes) {
         const o = opcoes || {};
         const r = await fetch(endereco, {
@@ -136,9 +146,10 @@
             credentials: 'same-origin',
             headers: Object.assign({ Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, o.headers || {}),
         });
+        if (o.blob && r.ok) { return r.blob(); }
         let j = null;
         try { j = await r.json(); } catch (e) { j = null; }
-        if (!r.ok) { const erro = new Error('HTTP ' + r.status); erro.texto = (j && j.erro) || ''; erro.status = r.status; throw erro; }
+        if (!r.ok) { const erro = new Error('HTTP ' + r.status); erro.texto = (j && j.erro) || ''; erro.dados = j; erro.status = r.status; throw erro; }
         return j || {};
     }
     const postJson = (endereco, corpo) => pedir(endereco, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json' } });
@@ -450,6 +461,7 @@
             passo: 1, mod: '', up: null, nome: '', pasta: '', c: padrao(), sign: [], seq: false,
             msg: T('p4.mensagem_padrao'), dias: 7, logo: logoInicial(), logoFix: logoFixInicial(), logoVista: false, limpa: false,
             layout: '', lateral: '', categoria: '', modelo: null, arquivo: null, arquivoId: 0, arqServ: null, rasc: null,
+            pres: null,
         }, o || {});
     }
 
@@ -572,7 +584,7 @@
 
     function passo3() {
         const w = s.w;
-        return '<div class="bjaP3"><div class="bjaP3Cab"><b>' + esc(T('p3.quem')) + '</b>'
+        return '<div class="bjaP3">' + (J ? J.quadro(w.pres) : '') + '<div class="bjaP3Cab"><b>' + esc(T('p3.quem')) + '</b>'
             + '<label class="bjaOrdem"><input type="checkbox" data-bja-wchk="seq"' + (w.seq ? ' checked' : '') + '>' + esc(T('p3.em_ordem')) + '</label>'
             + '<button type="button" class="bjaB" data-bja-acao="add-eu"><i class="bi bi-person-check"></i>' + esc(T('p3.incluir_me')) + '</button>'
             + '<button type="button" class="bjaB" data-bja-acao="add-sig"><i class="bi bi-plus-lg"></i>' + esc(T('p3.adicionar')) + '</button></div>'
@@ -684,13 +696,16 @@
                 throw new Error('tipo');
             }
             up.push({ k: 'a', i: 0, r: '' });
+            // Etapa 5 (5A, E5-6): o PDF é conferido no servidor sem gravar; com assinatura digital, o quadro do passo 3.
+            const pres = arquivo && J && url.pdfConferir ? await J.conferir(url.pdfConferir, arquivo, pedir) : null;
+            if (!s.w) { return; }
             s.arqSt = '';
-            Object.assign(s.w, { passo: 3, up: up, nome: nome, mod: '', modelo: null, categoria: T('documento_avulso'), layout: '', lateral: '', arquivo: arquivo, arquivoId: id, arqServ: null, sign: [sigVazio()] });
+            Object.assign(s.w, { passo: 3, up: up, nome: nome, mod: '', modelo: null, categoria: T('documento_avulso'), layout: '', lateral: '', arquivo: arquivo, arquivoId: id, arqServ: null, sign: [sigVazio()], pres: pres });
             s.wErro = '';
             desenharNovo();
         } catch (e) {
-            console.error(e);
-            arqSt(T('p1.erro'));
+            if (!e || !e.texto) { console.error(e); }
+            arqSt((e && e.texto) || T('p1.erro'));
         }
     }
 
@@ -864,6 +879,7 @@
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
             + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(st) + '">' + esc(T('situacao.' + st)) + '</span></div>'
+            + (J ? J.quadroDoDetalhe(d, url.carimbo) : '')
             + '<div class="bjaGrid"><div class="bjaLat">'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-people"></i>' + esc(T('det.signatarios')) + '</div>' + sigs + '</section>'
             + '<section class="bjaCard bjaCodCard"><div class="bjaCodRot">' + esc(T('det.codigo')) + '</div><div class="bjaCodVal">' + esc(d.codigo || T('det.gerado_no_envio')) + '</div>'
@@ -1406,6 +1422,8 @@
             case 'add-sig': s.w.sign = s.w.sign.concat([sigVazio()]); erroW(''); redesenharCorpo(); break;
             case 'tira-sig': { const cx = alvo.closest('[data-bja-i]'); if (cx) { const i = +cx.getAttribute('data-bja-i'); s.w.sign = s.w.sign.filter((_, j) => j !== i); erroW(''); redesenharCorpo(); } break; }
             case 'det-retomar': if (s.det) { retomar(s.det); } break;
+            case 'ja-original': if (J && s.det) { J.baixarOriginal(s.det, pedir, avisar); } break;
+            case 'ja-carimbo': if (J && s.det && url.carimbo) { J.baixarCarimbo(s.det, comId(url.carimbo, s.det.id), pedir, avisar); } break;
             case 'lin-copiar': if (idLinha) { copiarDaLista((doc(idLinha) || {}).id); } break;
             case 'lin-lembrete': if (idLinha) { lembrar(idLinha); } break;
             case 'ctx-copiar': { const d = doc(s.ctx.id); fecharCtx(); if (d) { copiarDaLista(d.id); } break; }
