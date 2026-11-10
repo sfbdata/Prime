@@ -195,7 +195,7 @@ final class CarimboVisivelObjetos
         $this->gastar(\strlen($this->pdf));
         $soltos = [];
         $posicao = 0;
-        while (preg_match('/(?:^|[\s>])(\d++)\s++(\d++)\s++obj\b/', $this->pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
+        while (($partes = CarimboVisivelExpressao::casar('/(?:^|[\s>])(\d++)\s++(\d++)\s++obj\b/', $this->pdf, \PREG_OFFSET_CAPTURE, $posicao)) !== null) {
             $this->contarEntradas(1);
             if (\strlen($partes[1][0]) <= 9 && \strlen($partes[2][0]) <= 5) {
                 $soltos[(int) $partes[1][0] * self::GERACOES + (int) $partes[2][0]] = $partes[0][1];
@@ -268,7 +268,7 @@ final class CarimboVisivelObjetos
         $this->gastar(\strlen($this->pdf));
         $marcadores = [];
         $posicao = 0;
-        while (preg_match('/\/Type\s*+\/ObjStm/', $this->pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
+        while (($partes = CarimboVisivelExpressao::casar('/\/Type\s*+\/ObjStm/', $this->pdf, \PREG_OFFSET_CAPTURE, $posicao)) !== null) {
             if (\count($marcadores) >= LimitesDaConferencia::OBJETOS_MAXIMOS) {
                 $this->semMaisFluxos = true;
 
@@ -310,8 +310,9 @@ final class CarimboVisivelObjetos
      */
     private function corpoDoFluxo(string $dicionario, int $comeco): ?array
     {
-        if (preg_match('/\/N\s++(\d{1,9})/', $dicionario, $n) !== 1 || preg_match('/\/First\s++(\d{1,9})/', $dicionario, $f) !== 1
-            || (int) $n[1] > LimitesDaConferencia::OBJETOS_MAXIMOS) {
+        $n = CarimboVisivelExpressao::casar('/\/N\s++(\d{1,9}+)/', $dicionario);
+        $f = CarimboVisivelExpressao::casar('/\/First\s++(\d{1,9}+)/', $dicionario);
+        if ($n === null || $f === null || (int) $n[1] > LimitesDaConferencia::OBJETOS_MAXIMOS) {
             return null;
         }
         $inicio = $comeco + 6;
@@ -359,8 +360,7 @@ final class CarimboVisivelObjetos
     private function cabecalho(string $dados, int $quantidade, int $primeiro): array
     {
         $this->gastar($primeiro);
-        $partes = preg_split('/\s++/', trim(substr($dados, 0, $primeiro)), 2 * $quantidade + 1);
 
-        return $partes === false ? [] : array_map('intval', $partes);
+        return array_map('intval', CarimboVisivelExpressao::dividir('/\s++/', trim(substr($dados, 0, $primeiro)), 2 * $quantidade + 1));
     }
 }

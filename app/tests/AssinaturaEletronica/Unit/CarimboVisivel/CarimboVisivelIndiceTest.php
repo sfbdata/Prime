@@ -82,6 +82,7 @@ final class CarimboVisivelIndiceTest extends TestCase
         yield 'cabeçalho com mais de 9 algarismos' => [MontadorDePdfDoCarimbo::classico(self::OBJETOS + [5 => "(texto\n1234567890 0 obj)"])];
         yield '/Size que deixa o /Size novo um acima do limite' => [str_replace('/Size 5', '/Size 8388604', $classico)];
         yield '/Size de um trailer antigo acima do limite' => [OficinaDePdfAssinado::acrescimoSemAssinatura(str_replace('/Size 5', '/Size 9000000', $classico), [1 => self::OBJETOS[1]], 5)];
+        yield 'pares de /Index acima do teto de cabeçalhos' => [MontadorDePdfDoCarimbo::classico(self::OBJETOS + [5 => '<</Type/XRef/Index[' . str_repeat('0 1 ', LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO + 1) . ']/Length 0>>' . "\nstream\n\nendstream"])];
         yield 'faixa do /Index acima do limite' => [MontadorDePdfDoCarimbo::classico(self::OBJETOS + [5 => '<</Type/XRef/Index[8388600 4]/Length 0>>' . "\nstream\n\nendstream"])];
     }
 
@@ -90,5 +91,18 @@ final class CarimboVisivelIndiceTest extends TestCase
     public function testAcimaDoLimite(string $pdf): void
     {
         self::assertNull(CarimboVisivelIndice::ler($pdf));
+    }
+
+    #[TestDox('startxref: vale o último seguido de número, como o último casamento do protótipo')]
+    public function testUltimoStartxref(): void
+    {
+        $classico = MontadorDePdfDoCarimbo::classico(self::OBJETOS);
+        preg_match('/startxref\n(\d+)/', $classico, $xref);
+
+        self::assertSame((int) $xref[1], CarimboVisivelIndice::ler($classico . "startxref\n%%EOF\n")?->anterior);
+        $comTexto = MontadorDePdfDoCarimbo::classico(self::OBJETOS + [5 => '(startxref 1)']);
+        preg_match('/startxref\n(\d+)/', $comTexto, $xrefDoTexto);
+        self::assertSame((int) $xrefDoTexto[1], CarimboVisivelIndice::ler($comTexto)?->anterior, 'um `startxref` antes não conta');
+        self::assertNull(CarimboVisivelIndice::ler($classico . "startxref\n9999999999\n%%EOF\n"), 'mais de 9 algarismos');
     }
 }

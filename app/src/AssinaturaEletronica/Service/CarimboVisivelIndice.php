@@ -43,7 +43,9 @@ final readonly class CarimboVisivelIndice
 
     /**
      * Null quando o protótipo diria "Estrutura do PDF não reconhecida.", e também quando o /Size novo (o primeiro
-     * livre mais os três objetos do carimbo e o do fluxo /XRef) passaria de `NUMERO_MAXIMO_DE_OBJETO`.
+     * livre mais os três objetos do carimbo e o do fluxo /XRef) passaria de `NUMERO_MAXIMO_DE_OBJETO`. Nenhuma
+     * varredura do arquivo monta lista: cada uma anda com `strrpos` ou com `preg_match` e posição, até o teto de
+     * cabeçalhos do motor. Uma expressão que falha (limite do PCRE) lança, e o carimbo recusa.
      */
     public static function ler(string $pdf): ?self
     {
@@ -51,41 +53,56 @@ final readonly class CarimboVisivelIndice
         if ($anterior === null) {
             return null;
         }
-        $classico = preg_match('/^\s*xref/', substr($pdf, $anterior, 40)) === 1;
+        $classico = CarimboVisivelExpressao::casar('/^\s*+xref/', substr($pdf, $anterior, 40)) !== null;
         $dicionario = self::dicionario($pdf, $anterior, $classico);
-        if ($dicionario === null
-            || preg_match('/\/Size\s+(\d{1,9})(?!\d)/', $dicionario, $tamanho) !== 1
-            || preg_match('/\/Root\s+(\d{1,10})\s+(\d{1,5})\s+R/', $dicionario, $raiz) !== 1) {
+        $tamanho = $dicionario === null ? null : CarimboVisivelExpressao::casar('/\/Size\s++(\d{1,9}+)(?!\d)/', $dicionario);
+        $raiz = $dicionario === null ? null : CarimboVisivelExpressao::casar('/\/Root\s++(\d{1,10}+)\s++(\d{1,5}+)\s++R/', $dicionario);
+        if ($dicionario === null || $tamanho === null || $raiz === null) {
             return null;
         }
         $emUso = self::seguinteAoMaiorEmUso($pdf);
         if ($emUso === null || max((int) $tamanho[1], $emUso) + 4 > self::NUMERO_MAXIMO_DE_OBJETO) {
             return null;
         }
-        preg_match('/\/Info\s+\d+\s+\d+\s+R/', $dicionario, $informacoes);
-        preg_match('/\/ID\s*\[[^\]]*\]/', $dicionario, $identificador);
+        $informacoes = CarimboVisivelExpressao::casar('/\/Info\s++\d++\s++\d++\s++R/', $dicionario);
+        $identificador = CarimboVisivelExpressao::casar('/\/ID\s*+\[[^\]]*+\]/', $dicionario);
 
         return new self(
             $anterior,
             $classico,
             (int) $tamanho[1],
             max((int) $tamanho[1], $emUso),
-            $raiz[0],
+            (string) $raiz[0],
             (int) $raiz[1],
             (int) $raiz[2],
             ' ' . ($informacoes[0] ?? '') . ' ' . ($identificador[0] ?? ''),
         );
     }
 
-    /** O número do último `startxref`, se ele aponta para dentro do arquivo. */
+    /**
+     * O número do último `startxref` seguido de número (o último casamento de `startxref\s+(\d+)` do protótipo), se
+     * ele aponta para dentro do arquivo. Anda de trás para a frente com `strrpos`, sem montar lista, até o teto de
+     * cabeçalhos do motor.
+     */
     private static function ultimoStartxref(string $pdf): ?int
     {
-        if ((int) preg_match_all('/startxref\s+(\d+)/', $pdf, $partes) === 0) {
-            return null;
-        }
-        $texto = $partes[1][\count($partes[1]) - 1];
+        $antes = \strlen($pdf);
+        for ($vezes = 0; $antes > 0 && $vezes < LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO; ++$vezes) {
+            // Com deslocamento negativo, o `strrpos` só acha ocorrência que começa antes de `$antes`.
+            $posicao = strrpos($pdf, 'startxref', $antes - \strlen($pdf) - 1);
+            if ($posicao === false) {
+                return null;
+            }
+            $numero = CarimboVisivelExpressao::casar('/\G\s++(\d++)/', $pdf, 0, $posicao + 9);
+            if ($numero !== null) {
+                $texto = (string) $numero[1];
 
-        return \strlen($texto) <= 9 && (int) $texto < \strlen($pdf) ? (int) $texto : null;
+                return \strlen($texto) <= 9 && (int) $texto < \strlen($pdf) ? (int) $texto : null;
+            }
+            $antes = $posicao;
+        }
+
+        return null;
     }
 
     /** Clássico: do `trailer` depois do índice até o `startxref`. Fluxo: do índice até a palavra `stream`. */
@@ -104,49 +121,59 @@ final readonly class CarimboVisivelIndice
      * O maior entre todo /Size do arquivo (um /Size fora de trailer ou fluxo /XRef só deixa o número maior) e um a mais
      * que o maior número em uso: cabeçalhos soltos (o padrão do leitor do motor) e faixas `primeiro quantidade` do
      * /Index dos fluxos /XRef (os objetos dentro de /ObjStm são achados por elas ou pelo /Size). Número de mais de 9
-     * algarismos conta como acima do limite. Null acima do teto de cabeçalhos do motor (M27).
+     * algarismos conta como acima do limite. Null acima do teto de cabeçalhos do motor (M27), em ocorrências de cada
+     * padrão ou em pares de /Index somados.
      */
     private static function seguinteAoMaiorEmUso(string $pdf): ?int
     {
+        $pares = 0;
         $maiores = [
             self::maiorDasOcorrencias($pdf, '/\/Size\s*+(\d++)/', self::numero(...)),
             self::maiorDasOcorrencias($pdf, '/(?:^|[\s>])(\d++)\s++\d++\s++obj\b/', static fn (string $numero): int => self::numero($numero) + 1),
-            self::maiorDasOcorrencias($pdf, '/\/Index\s*+\[([\d\s]*+)\]/', self::fimDasFaixas(...)),
+            self::maiorDasOcorrencias($pdf, '/\/Index\s*+\[([\d\s]*+)\]/', static function (string $miolo) use (&$pares): ?int {
+                return self::fimDasFaixas($miolo, $pares);
+            }),
         ];
 
         return \in_array(null, $maiores, true) ? null : max($maiores);
     }
 
     /**
-     * O maior valor do primeiro grupo de cada ocorrência do padrão, numa varredura só; null acima do teto de
-     * cabeçalhos do motor.
+     * O maior valor do primeiro grupo de cada ocorrência do padrão, com `preg_match` e posição (sem lista); null acima
+     * do teto de cabeçalhos do motor, ou se o valor de uma ocorrência é null.
      *
-     * @param \Closure(string): int $valor
+     * @param \Closure(string): ?int $valor
      */
     private static function maiorDasOcorrencias(string $pdf, string $padrao, \Closure $valor): ?int
     {
         $maior = 0;
-        $vezes = 0;
         $posicao = 0;
-        while (preg_match($padrao, $pdf, $partes, \PREG_OFFSET_CAPTURE, $posicao) === 1) {
-            if (++$vezes > LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO) {
+        for ($vezes = 1; ($partes = CarimboVisivelExpressao::casar($padrao, $pdf, \PREG_OFFSET_CAPTURE, $posicao)) !== null; ++$vezes) {
+            $deste = $vezes > LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO ? null : $valor((string) $partes[1][0]);
+            if ($deste === null) {
                 return null;
             }
-            $maior = max($maior, $valor($partes[1][0]));
-            $posicao = $partes[0][1] + \strlen($partes[0][0]);
+            $maior = max($maior, $deste);
+            $posicao = (int) $partes[0][1] + \strlen((string) $partes[0][0]);
         }
 
         return $maior;
     }
 
-    /** O fim (primeiro mais quantidade) da faixa que vai mais longe num /Index, par a par, sem montar a lista. */
-    private static function fimDasFaixas(string $miolo): int
+    /**
+     * O fim (primeiro mais quantidade) da faixa que vai mais longe num /Index, par a par, sem montar a lista. Os pares
+     * de todos os /Index somam em `$pares`; acima do teto de cabeçalhos do motor, null.
+     */
+    private static function fimDasFaixas(string $miolo, int &$pares): ?int
     {
         $fim = 0;
         $posicao = 0;
-        while (preg_match('/\G\s*+(\d++)\s++(\d++)/', $miolo, $faixa, 0, $posicao) === 1) {
-            $posicao += \strlen($faixa[0]);
-            $fim = max($fim, self::numero($faixa[1]) + self::numero($faixa[2]));
+        while (($faixa = CarimboVisivelExpressao::casar('/\G\s*+(\d++)\s++(\d++)/', $miolo, 0, $posicao)) !== null) {
+            if (++$pares > LimitesDaConferencia::CABECALHOS_MAXIMOS_DO_ARQUIVO) {
+                return null;
+            }
+            $posicao += \strlen((string) $faixa[0]);
+            $fim = max($fim, self::numero((string) $faixa[1]) + self::numero((string) $faixa[2]));
         }
 
         return $fim;

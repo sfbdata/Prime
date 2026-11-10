@@ -14,6 +14,7 @@ use App\AssinaturaEletronica\Service\CarimboVisivelIndice;
 use App\AssinaturaEletronica\Service\CarimboVisivelResultado;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDePdf;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoPrefixo;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
 use App\AssinaturaEletronica\Service\LocalizadorDaUltimaPagina;
 use App\Entity\Tenant\Tenant;
@@ -422,10 +423,101 @@ final class CarimboVisivelTest extends TestCase
         $textos = array_filter((new \ReflectionClass(CarimboVisivel::class))->getConstants(), 'is_string');
 
         self::assertSame('Não foi possível carimbar.', CarimboVisivel::FALHA);
-        self::assertCount(8, $textos);
+        self::assertCount(9, $textos);
         foreach ($textos as $nome => $texto) {
             self::assertStringEndsNotWith('Use o original.', $texto, $nome);
         }
+    }
+
+    /** @return iterable<string, array{\Closure(): string, ?string}> */
+    public static function padroesRepetidos(): iterable
+    {
+        $base = [
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>',
+        ];
+        $fluxo = static fn (string $miolo): \Closure => static fn (): string => MontadorDePdfDoCarimbo::classico($base + [
+            4 => '<</Length ' . \strlen($miolo) . ">>\nstream\n" . $miolo . "\nendstream",
+        ]);
+
+        yield '`startxref 1` (vale o último do arquivo)' => [$fluxo(str_repeat("startxref 1\n", 1_500_000)), null];
+        yield 'cabeçalho `1 0 obj`' => [$fluxo(str_repeat("\n1 0 obj", 1_500_000)), 'Estrutura do PDF não reconhecida.'];
+        yield '`/Size 1`' => [$fluxo(str_repeat("/Size 1\n", 1_500_000)), 'Estrutura do PDF não reconhecida.'];
+        yield '`/Index[0 1]`' => [$fluxo(str_repeat("/Index[0 1]\n", 1_500_000)), 'Estrutura do PDF não reconhecida.'];
+        yield 'par de um /Index só' => [$fluxo('/Index[' . str_repeat('0 1 ', 1_500_000) . ']'), 'Estrutura do PDF não reconhecida.'];
+    }
+
+    /** @param \Closure(): string $pdf */
+    #[DataProvider('padroesRepetidos')]
+    #[TestDox('sonda: $_dataName repetido 1,5 milhão de vezes num fluxo, sem montar lista: rápido e sem estourar a memória')]
+    public function testPadraoRepetido(\Closure $pdf, ?string $recusa): void
+    {
+        $original = $pdf();
+        $antes = memory_get_usage();
+        memory_reset_peak_usage();
+        $inicio = hrtime(true);
+        $resultado = self::carimbar($original);
+        $segundos = (hrtime(true) - $inicio) / 1e9;
+
+        self::assertSame($recusa, $resultado->recusa);
+        self::assertLessThan(2.0, $segundos);
+        // Uma cópia do original vai no carimbado; o resto (procura e varreduras) cabe em 16 MB.
+        self::assertLessThan(\strlen($original) + 16 * 1024 * 1024, memory_get_peak_usage() - $antes);
+    }
+
+    #[TestDox('sonda: /MediaBox e /CropBox com um milhão de algarismos: caixa ilegível, carimbo no tamanho carta, rápido')]
+    public function testCaixaComMilhaoDeAlgarismos(): void
+    {
+        $vetor = '[' . str_repeat('1', 1_000_000) . ' 1 1 1 x]';
+        $original = MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox 4 0 R/CropBox 5 0 R>>',
+            4 => $vetor,
+            5 => $vetor,
+        ]);
+        $inicio = hrtime(true);
+        $acrescimo = substr(self::carimbado($original), \strlen($original));
+
+        self::assertLessThan(1.0, (hrtime(true) - $inicio) / 1e9);
+        self::assertStringContainsString('/Rect[20 10 400 42]', $acrescimo);
+    }
+
+    #[TestDox('falha do PCRE (limite de retrocesso) recusa: nunca sai carimbado')]
+    public function testFalhaDaExpressao(): void
+    {
+        $limite = (string) ini_get('pcre.backtrack_limit');
+        ini_set('pcre.backtrack_limit', '1');
+        try {
+            $resultado = self::carimbar(OficinaDePdfAssinado::pdfSemAssinatura());
+        } finally {
+            ini_set('pcre.backtrack_limit', $limite);
+        }
+
+        self::assertFalse($resultado->foiCarimbado());
+        self::assertNotNull($resultado->recusa);
+    }
+
+    #[TestDox('borda do teto do motor: PDF a 100 bytes do teto recusa como grande demais; o que cabe com o acréscimo carimba')]
+    public function testTetoDoMotor(): void
+    {
+        $teto = LimitesDaConferencia::PDF_MAXIMO_EM_BYTES;
+        $perto = self::comTamanho($teto - 100);
+        $resultado = self::carimbar($perto);
+
+        self::assertSame($teto - 100, \strlen($perto));
+        self::assertNull($resultado->pdf);
+        self::assertSame('O arquivo passa do limite de 20 MB para conferência.', $resultado->recusa);
+        self::assertSame(ConferenciaDePdf::MOTIVO_GRANDE . '.', CarimboVisivel::GRANDE_DEMAIS);
+
+        $longe = self::comTamanho($teto - 4096);
+        $acrescimo = \strlen(self::carimbado($longe)) - \strlen($longe);
+        // Com o mesmo número de algarismos nas posições, o acréscimo tem o mesmo tamanho: o resultado fica no teto.
+        $noTeto = self::comTamanho($teto - $acrescimo);
+
+        self::assertSame($teto, \strlen(self::carimbado($noTeto)));
+        self::assertNotNull(self::carimbar(self::comTamanho(4096))->pdf);
     }
 
     #[TestDox('verificação final: carimbo que mudaria o número de assinaturas para o motor é recusado')]
@@ -436,6 +528,22 @@ final class CarimboVisivelTest extends TestCase
         self::assertNull($resultado->pdf);
         self::assertSame('Verificação final não confirmou a preservação.', $resultado->recusa);
         self::assertStringEndsNotWith('Use o original.', (string) $resultado->recusa);
+    }
+
+    /** Um PDF carimbável de exatamente `$bytes` bytes, com o enchimento num fluxo. */
+    private static function comTamanho(int $bytes): string
+    {
+        $pdf = static fn (int $enchimento): string => MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>',
+            4 => '<</Length ' . $enchimento . ">>\nstream\n" . str_repeat('0', $enchimento) . "\nendstream",
+        ]);
+        $enchimento = $bytes - \strlen($pdf(0));
+        // O /Length e o `startxref` ganham algarismos: uma segunda medida acerta.
+        $enchimento -= \strlen($pdf($enchimento)) - $bytes;
+
+        return $pdf($enchimento);
     }
 
     /**

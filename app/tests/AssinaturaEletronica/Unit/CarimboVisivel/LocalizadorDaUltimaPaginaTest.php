@@ -86,6 +86,10 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
         yield 'em objeto à parte' => ['/MediaBox 4 0 R', [0.0, 0.0, 200.0, 300.0]];
         yield 'sem área: carta' => ['/MediaBox[0 0 0 300]', [0.0, 0.0, 612.0, 792.0]];
         yield 'com três números: carta, sem procurar no pai' => ['/MediaBox[0 0 300]', [0.0, 0.0, 612.0, 792.0]];
+        // `[0 0 200 300` e `]` somam 13 bytes; o resto é espaço.
+        yield 'texto no teto da caixa: lida' => ['/MediaBox[0 0 200 300' . str_repeat(' ', LocalizadorDaUltimaPagina::CAIXA_MAXIMA_EM_BYTES - 13) . ']', [0.0, 0.0, 200.0, 300.0]];
+        yield 'texto um acima do teto da caixa: ilegível, carta' => ['/MediaBox[0 0 200 300' . str_repeat(' ', LocalizadorDaUltimaPagina::CAIXA_MAXIMA_EM_BYTES - 12) . ']', [0.0, 0.0, 612.0, 792.0]];
+        yield 'número terminado em ponto' => ['/MediaBox[0. 0 200. 300.5]', [0.0, 0.0, 200.0, 300.5]];
     }
 
     /** @param list<float> $esperada */
@@ -451,5 +455,40 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
         $pagina = $procura();
 
         return [$pagina, (hrtime(true) - $inicio) / 1e9, memory_get_peak_usage() - $antes];
+    }
+
+    #[TestDox('sonda: /MediaBox e /CropBox com um milhão de algarismos são ilegíveis pelo teto da caixa, sem passar pela expressão')]
+    public function testCaixaComMilhaoDeAlgarismos(): void
+    {
+        $vetor = '[' . str_repeat('1', 1_000_000) . ' 1 1 1 x]';
+        $pdf = MontadorDePdfDoCarimbo::classico([
+            1 => self::CATALOGO,
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox 4 0 R/CropBox 5 0 R>>',
+            4 => $vetor,
+            5 => $vetor,
+        ]);
+
+        [$pagina, $segundos, $memoria] = self::medir(static fn (): ?CarimboVisivelPagina => self::localizar($pdf));
+
+        self::assertSame(LocalizadorDaUltimaPagina::CAIXA_CARTA, $pagina?->caixa);
+        self::assertLessThan(0.5, $segundos);
+        self::assertLessThan(3 * \strlen($pdf), $memoria);
+    }
+
+    #[TestDox('falha do PCRE (limite de retrocesso) devolve null: nunca vira caixa ilegível no tamanho carta')]
+    public function testFalhaDaExpressao(): void
+    {
+        $pdf = OficinaDePdfAssinado::pdfSemAssinatura();
+        $limite = (string) ini_get('pcre.backtrack_limit');
+        ini_set('pcre.backtrack_limit', '1');
+        try {
+            $pagina = self::localizar($pdf);
+        } finally {
+            ini_set('pcre.backtrack_limit', $limite);
+        }
+
+        self::assertNull($pagina);
+        self::assertNotNull(self::localizar($pdf));
     }
 }
