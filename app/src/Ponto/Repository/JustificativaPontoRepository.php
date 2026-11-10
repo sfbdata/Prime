@@ -335,6 +335,9 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     {
         return $this->emAnaliseNoEscritorio($tenant)
             ->addSelect('u')
+            // E12: a batida ligada ao trabalho externo, para o subtítulo "TIPO às HH:MM", na mesma consulta.
+            ->leftJoin('j.registroPonto', 'rp')
+            ->addSelect('rp')
             ->orderBy('j.data', 'DESC')
             ->addOrderBy('u.fullName', 'ASC')
             ->addOrderBy('j.id', 'ASC')

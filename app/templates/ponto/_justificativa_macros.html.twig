@@ -8,8 +8,8 @@
     veio algo. Todas as tags tiram os espaços das pontas, e quem usa imprime a saída como veio: ela já sai escapada, e
     uma concatenação com `~` (ou um filtro que devolva texto comum) faria o `{{ }}` escapá-la de novo.
 
-    E12 (P18; desenho L545, `sub` "TIPO às HH:MM"): o trabalho externo diz a batida ligada a ele (`registroPonto`, que o
-    servidor da etapa acrescenta). Sem a batida ligada (as de antes da E12, ou o objeto não tem o campo), vazio.
+    E12 (P18; desenho L545, `sub` "TIPO às HH:MM"): o trabalho externo diz a batida ligada a ele (`registroPonto`; na Equipe, o
+    JustificativaAAnalisarOutput leva só o tipo e a hora dela). Sem a batida ligada (as de antes da E12, ou o objeto não tem o campo), vazio.
 #}
 {%- macro subtitulo(j) -%}
     {%- set nomesDoRegistro = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} -%}

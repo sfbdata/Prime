@@ -434,6 +434,23 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame('Trabalho externo', trim($etiqueta->text()));
     }
 
+    #[TestDox('Equipe (E12, desenho L545): a justificativa da batida externa mostra "TIPO às HH:MM" da batida ligada em "Justificativas a analisar"')]
+    public function testEquipeMostraABatidaExterna(): void
+    {
+        $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
+        self::assertResponseIsSuccessful();
+        $hora = substr((string) $this->ultimaBatida()['data_hora'], 11, 5);
+
+        $this->logarComTenant($this->client, $this->gestor, $this->escritorio);
+        $equipe = $this->client->request('GET', '/ponto/equipe');
+        self::assertResponseIsSuccessful();
+
+        $linha = $equipe->filter('form.pe-eq-abonar > label.pe-eq-just');
+        self::assertCount(1, $linha);
+        self::assertSame('Trabalho Externo (Home Office / Campo)', $linha->filter('span:not([class])')->text());
+        self::assertSame('Entrada às ' . $hora, $linha->filter('span.pe-eq-just-sub')->text());
+    }
+
     #[TestDox('A /ponto passa `trabalho_externo_permitido`: só com a cerca valendo hoje e a função permitida')]
     public function testVariavelDaTela(): void
     {
