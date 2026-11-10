@@ -25,13 +25,17 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * documento com o carimbo das assinaturas eletrônicas feitas pelo BlueJus e o código de validação. A cópia é montada na
  * hora e nunca guardada: nada é gravado no banco, na trilha nem no armazenamento.
  *
- * O documento é lido pelo escritório logado (mesmo na Lixeira, como o Detalhe); o de outro escritório, o inexistente, o
- * que não tem PDF assinado guardado e o que perdeu o arquivo dão o mesmo {@see DocumentoNaoEncontrado}.
+ * O documento é lido pelo escritório logado (mesmo na Lixeira, como o Detalhe); o de outro escritório e o inexistente
+ * dão {@see DocumentoNaoEncontrado}. Depois, na ordem: sem PDF assinado guardado (ou com o arquivo ausente), "sem
+ * original"; sem assinatura BlueJus, "sem assinatura", antes de ler o arquivo e de chamar o carimbo; senão, o que o
+ * carimbo devolver.
  */
 final readonly class ObterCopiaComCarimboUseCase
 {
     /** O nome do download no desenho: `d.nome + ' - com carimbo.pdf'` (dc:384). */
     public const SUFIXO_DO_NOME = ' - com carimbo.pdf';
+    /** O aviso do desenho quando os bytes do original não são achados (dc:383-384), sem o "neste navegador". */
+    public const ORIGINAL_NAO_ENCONTRADO = 'Original não encontrado.';
 
     public function __construct(
         private DocumentoParaAssinarRepository $documentos,
@@ -45,17 +49,27 @@ final readonly class ObterCopiaComCarimboUseCase
     public function executar(Tenant $tenant, int $id): CopiaComCarimbo
     {
         $documento = $this->documentos->doEscritorioMesmoNaLixeira($id, $tenant) ?? throw new DocumentoNaoEncontrado();
-        $versao = $this->ultimaAssinada($documento) ?? throw new DocumentoNaoEncontrado();
+        $versao = $this->ultimaAssinada($documento);
+        if ($versao === null) {
+            return CopiaComCarimbo::semOriginal(self::ORIGINAL_NAO_ENCONTRADO);
+        }
 
-        $resultado = $this->carimbo->carimbar(
-            $this->conteudo($versao),
-            CarimboVisivelAssinatura::dosSignatarios($documento->getSignatarios()),
-            // Só documento enviado tem assinatura BlueJus, e todo enviado tem código: sem assinatura, o carimbo
-            // recusa antes de usar o código.
-            (string) $documento->getCodigo(),
-        );
+        $assinaturas = CarimboVisivelAssinatura::dosSignatarios($documento->getSignatarios());
+        if ($assinaturas === []) {
+            return CopiaComCarimbo::semAssinatura(CarimboVisivel::SEM_ASSINATURA);
+        }
 
-        return new CopiaComCarimbo($documento->getNome() . self::SUFIXO_DO_NOME, $resultado->pdf, self::motivo($resultado->recusa));
+        $pdf = $this->conteudo($versao);
+        if ($pdf === null) {
+            return CopiaComCarimbo::semOriginal(self::ORIGINAL_NAO_ENCONTRADO);
+        }
+
+        // Com assinatura BlueJus o documento foi enviado, e todo enviado tem código.
+        $resultado = $this->carimbo->carimbar($pdf, $assinaturas, (string) $documento->getCodigo());
+
+        return $resultado->pdf !== null
+            ? CopiaComCarimbo::carimbada($documento->getNome() . self::SUFIXO_DO_NOME, $resultado->pdf)
+            : CopiaComCarimbo::recusada(self::motivo((string) $resultado->recusa));
     }
 
     /**
@@ -63,9 +77,9 @@ final readonly class ObterCopiaComCarimboUseCase
      * botão do Detalhe, bloco 5A) acrescenta o final, como o `presCarimbo` do desenho (dc:384). O motivo em si vai como
      * o carimbo o escreveu.
      */
-    private static function motivo(?string $recusa): ?string
+    private static function motivo(string $recusa): string
     {
-        if ($recusa === null || !str_ends_with($recusa, CarimboVisivel::USE_O_ORIGINAL)) {
+        if (!str_ends_with($recusa, CarimboVisivel::USE_O_ORIGINAL)) {
             return $recusa;
         }
 
@@ -89,14 +103,14 @@ final readonly class ObterCopiaComCarimboUseCase
 
     /**
      * Os bytes da versão, até um byte além do teto do motor (20 MB): acima dele o carimbo recusa como estrutura não
-     * reconhecida, sem a versão inteira em memória. Arquivo ausente é 404 (D10); pane do armazenamento sobe.
+     * reconhecida, sem a versão inteira em memória. Nulo com o arquivo ausente (D10); pane do armazenamento sobe.
      */
-    private function conteudo(VersaoDoPdf $versao): string
+    private function conteudo(VersaoDoPdf $versao): ?string
     {
         try {
             $recurso = $this->armazenamento->abrir(ChavesDeAssinaturaEletronica::versao($versao));
         } catch (ArquivoNaoEncontrado) {
-            throw new DocumentoNaoEncontrado();
+            return null;
         }
 
         try {

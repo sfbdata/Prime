@@ -61,8 +61,7 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
 
         $copia = $this->useCase()->executar($this->tenant, 1);
 
-        self::assertNull($copia->recusa);
-        self::assertSame('Contrato de honorários - com carimbo.pdf', $copia->nome);
+        self::assertSame(['Contrato de honorários - com carimbo.pdf', null, false, false], [$copia->nome, $copia->erro, $copia->semOriginal, $copia->semAssinatura]);
         self::assertStringStartsWith($devolvida, (string) $copia->pdf, 'o acréscimo é feito sobre a devolvida, intacta no começo');
         self::assertStringContainsString('/Name/BlueJus', substr((string) $copia->pdf, \strlen($devolvida)));
         self::assertStringContainsString(self::CODIGO, substr((string) $copia->pdf, \strlen($devolvida)));
@@ -79,21 +78,20 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
 
         $copia = $this->useCase()->executar($this->tenant, 1);
 
-        self::assertNull($copia->recusa);
+        self::assertNull($copia->erro);
         self::assertStringStartsWith($original, (string) $copia->pdf);
         self::assertGreaterThan(\strlen($original), \strlen((string) $copia->pdf));
     }
 
-    #[TestDox('nenhuma assinatura eletrônica do BlueJus: a recusa do carimbo, com o texto do desenho e sem PDF')]
+    #[TestDox('nenhuma assinatura eletrônica do BlueJus: "sem assinatura" com o texto do desenho, antes de ler o arquivo')]
     public function testSemAssinaturaBlueJus(): void
     {
         $this->documentoComOriginal(OficinaDePdfAssinado::pdfAssinado());
 
         $copia = $this->useCase()->executar($this->tenant, 1);
 
-        self::assertNull($copia->pdf);
-        self::assertSame('Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.', $copia->recusa);
-        self::assertSame('Contrato de honorários - com carimbo.pdf', $copia->nome);
+        self::assertDesfecho(['erro' => 'Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.', 'semOriginal' => false, 'semAssinatura' => true], $copia);
+        self::assertSame([], $this->disco->lidas, 'decidido pela lista de assinaturas, sem ler o arquivo nem chamar o carimbo');
     }
 
     #[TestDox('PDF que o motor recusa (cifrado): só o motivo, sem o " Use o original." que a tela acrescenta')]
@@ -104,8 +102,7 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
 
         $copia = $this->useCase()->executar($this->tenant, 1);
 
-        self::assertNull($copia->pdf);
-        self::assertSame('Arquivo protegido por senha.', $copia->recusa);
+        self::assertDesfecho(['erro' => 'Arquivo protegido por senha.', 'semOriginal' => false, 'semAssinatura' => false], $copia);
     }
 
     #[TestDox('versão acima do teto do motor (20 MB): lida só até um byte além dele e recusada como estrutura não reconhecida')]
@@ -116,8 +113,7 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
 
         $copia = $this->useCase()->executar($this->tenant, 1);
 
-        self::assertNull($copia->pdf);
-        self::assertSame('Estrutura do PDF não reconhecida.', $copia->recusa);
+        self::assertDesfecho(['erro' => 'Estrutura do PDF não reconhecida.', 'semOriginal' => false, 'semAssinatura' => false], $copia);
     }
 
     #[TestDox('documento de outro escritório ou inexistente: não encontrado, sem ler arquivo')]
@@ -132,35 +128,53 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
         self::assertSame([], $this->disco->lidas);
     }
 
-    #[TestDox('sem versão guardada ou só com o PDF para assinar: não encontrado')]
+    #[TestDox('sem versão guardada ou só com o PDF para assinar: "sem original", mesmo sem assinatura BlueJus')]
     public function testSemVersaoAssinada(): void
     {
         $documento = $this->rascunho();
-        $this->assertNaoEncontrado(fn () => $this->useCase()->executar($this->tenant, 1));
+        $semOriginal = ['erro' => 'Original não encontrado.', 'semOriginal' => true, 'semAssinatura' => false];
+        self::assertDesfecho($semOriginal, $this->useCase()->executar($this->tenant, 1));
 
         $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable());
+        $documento->definirCodigo(self::CODIGO);
+        $this->assinarAna($documento);
         $this->versao(VersaoDoPdf::paraAssinar($documento, 1, 'para.pdf', 'para.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable()), OficinaDePdfAssinado::pdfParaAssinar());
-        $this->assertNaoEncontrado(fn () => $this->useCase()->executar($this->tenant, 1));
+        self::assertDesfecho($semOriginal, $this->useCase()->executar($this->tenant, 1));
         self::assertSame([], $this->disco->lidas);
     }
 
-    #[TestDox('versão guardada sem o arquivo: não encontrado (D10)')]
+    #[TestDox('versão guardada sem o arquivo: "sem original" (D10)')]
     public function testArquivoAusente(): void
     {
         $documento = $this->rascunho();
         $this->versoesNaBase[] = VersaoDoPdf::original($documento, 1, 'sumiu.pdf', 'Contrato.pdf', self::SHA, 1, ['v' => 1], new \DateTimeImmutable());
+        $documento->enviar(str_repeat('f', 64), new \DateTimeImmutable());
+        $documento->definirCodigo(self::CODIGO);
+        $this->assinarAna($documento);
 
-        $this->assertNaoEncontrado(fn () => $this->useCase()->executar($this->tenant, 1));
+        $copia = $this->useCase()->executar($this->tenant, 1);
+
+        self::assertDesfecho(['erro' => 'Original não encontrado.', 'semOriginal' => true, 'semAssinatura' => false], $copia);
     }
 
     #[TestDox('pane do armazenamento não vira 404: sobe (D10)')]
     public function testPaneDoArmazenamento(): void
     {
-        $this->documentoComOriginal(OficinaDePdfAssinado::pdfAssinado());
+        $this->assinarAna($this->documentoComOriginal(OficinaDePdfAssinado::pdfAssinado()));
         $this->disco->falhaAoAbrir = new FalhaDeArmazenamento('disco fora');
 
         $this->expectExceptionObject(new FalhaDeArmazenamento('disco fora'));
         $this->useCase()->executar($this->tenant, 1);
+    }
+
+    /**
+     * O desfecho inteiro de quem não foi carimbado: sem nome, sem PDF, e o texto e as marcas dadas.
+     *
+     * @param array{erro: string, semOriginal: bool, semAssinatura: bool} $esperado
+     */
+    private static function assertDesfecho(array $esperado, CopiaComCarimbo $copia): void
+    {
+        self::assertSame(['nome' => null, 'pdf' => null] + $esperado, get_object_vars($copia));
     }
 
     private function useCase(): ObterCopiaComCarimboUseCase

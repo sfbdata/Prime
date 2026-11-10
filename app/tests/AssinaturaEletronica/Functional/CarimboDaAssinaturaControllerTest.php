@@ -70,18 +70,32 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString((string) $documento->getCodigo(), $acrescimo);
     }
 
-    #[TestDox('404: documento de outro escritório, inexistente ou sem PDF assinado guardado')]
+    #[TestDox('404 comum: documento de outro escritório ou inexistente, sem ler arquivo')]
     public function testNaoEncontrado(): void
     {
-        [, $tenant] = $this->entrar(true);
+        $this->entrar(true);
         $alheio = $this->documento($this->outroEscritorio(), 'Contrato alheio', OficinaDePdfAssinado::pdfAssinado());
-        $semVersao = $this->documento($tenant, 'Contrato sem original', null);
 
-        foreach ([$alheio->getId(), $semVersao->getId(), 999999999] as $id) {
+        foreach ([$alheio->getId(), 999999999] as $id) {
             $this->client->request('GET', '/assinatura/documentos/' . $id . '/carimbo');
             self::assertResponseStatusCodeSame(404, 'documento ' . $id);
+            self::assertStringNotContainsString('Original não encontrado', (string) $this->client->getResponse()->getContent(), 'o 404 comum não diz se o documento existe');
         }
         self::assertSame([], $this->disco->memoria->lidas, 'nenhum arquivo é lido');
+    }
+
+    #[TestDox('404 "Original não encontrado.": documento sem PDF assinado guardado ou com o arquivo ausente')]
+    public function testSemOriginal(): void
+    {
+        [, $tenant] = $this->entrar(true);
+        $semVersao = $this->documento($tenant, 'Contrato sem original', null);
+        $semArquivo = $this->documento($tenant, 'Contrato sem arquivo', OficinaDePdfAssinado::pdfAssinado(), comArquivo: false);
+
+        foreach ([$semVersao->getId(), $semArquivo->getId()] as $id) {
+            $this->client->request('GET', '/assinatura/documentos/' . $id . '/carimbo');
+            self::assertResponseStatusCodeSame(404, 'documento ' . $id);
+            self::assertSame(['erro' => 'Original não encontrado.'], $this->json());
+        }
     }
 
     #[TestDox('403: usuário sem acesso à Assinatura, mesmo com o documento do próprio escritório')]
@@ -96,8 +110,8 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->disco->memoria->lidas);
     }
 
-    #[TestDox('422: o carimbo recusa (nenhuma assinatura eletrônica do BlueJus) e a mensagem é só o motivo, com o texto do desenho')]
-    public function testRecusa(): void
+    #[TestDox('422 sem nenhuma assinatura eletrônica do BlueJus: o texto do desenho e a marca semAssinatura, sem ler o arquivo')]
+    public function testSemAssinatura(): void
     {
         [, $tenant] = $this->entrar(true);
         $documento = $this->documento($tenant, 'Contrato', OficinaDePdfAssinado::pdfAssinado(), anaAssina: false);
@@ -105,10 +119,11 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/assinatura/documentos/' . $documento->getId() . '/carimbo');
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(['message' => 'Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.'], $this->json());
+        self::assertSame(['erro' => 'Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.', 'semAssinatura' => true], $this->json());
+        self::assertSame([], $this->disco->memoria->lidas);
     }
 
-    #[TestDox('nada é gravado: o documento, as versões, a trilha e o armazenamento ficam iguais, com cópia ou recusa')]
+    #[TestDox('422 recusa do carimbo, e nada é gravado: o documento, as versões, a trilha e o armazenamento ficam iguais')]
     public function testNadaGravado(): void
     {
         [, $tenant] = $this->entrar(true);
@@ -120,7 +135,7 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(200);
         $this->client->request('GET', '/assinatura/documentos/' . $recusado->getId() . '/carimbo');
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(['message' => 'Arquivo protegido por senha.'], $this->json(), 'só o motivo: o " Use o original." é da tela');
+        self::assertSame(['erro' => 'Arquivo protegido por senha.'], $this->json(), 'só o motivo, sem semAssinatura: o " Use o original." é da tela');
 
         self::assertSame($antes, $this->retrato([(int) $carimbado->getId(), (int) $recusado->getId()]));
         self::assertSame([], $this->disco->memoria->gravadas, 'nenhum arquivo novo');
@@ -128,10 +143,10 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Um documento enviado com Ana e Bia (Simples), o original guardado (se houver PDF) e a assinatura da Ana, montado
-     * direto pelas entidades: o salvar do rascunho que guarda o original é do bloco 5A.
+     * Um documento enviado com Ana e Bia (Simples), o original guardado (se houver PDF; o arquivo só com `$comArquivo`) e
+     * a assinatura da Ana, montado direto pelas entidades: o salvar do rascunho que guarda o original é do bloco 5A.
      */
-    private function documento(Tenant $tenant, string $nome, ?string $pdf, bool $anaAssina = true): DocumentoParaAssinar
+    private function documento(Tenant $tenant, string $nome, ?string $pdf, bool $anaAssina = true, bool $comArquivo = true): DocumentoParaAssinar
     {
         $agora = new \DateTimeImmutable();
         // O `clear()` do documento anterior soltou o escritório: o documento novo leva o da base.
@@ -148,7 +163,9 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $documentos->salvar($documento);
         if ($pdf !== null) {
             $versao = VersaoDoPdf::original($documento, 1, bin2hex(random_bytes(16)) . '.pdf', $nome . '.pdf', hash('sha256', $pdf), \strlen($pdf), ['v' => 1], $agora);
-            $this->disco->memoria->semear(ChavesDeAssinaturaEletronica::versao($versao), $pdf);
+            if ($comArquivo) {
+                $this->disco->memoria->semear(ChavesDeAssinaturaEletronica::versao($versao), $pdf);
+            }
             static::getContainer()->get(VersaoDoPdfRepository::class)->salvar($versao);
         }
         $documento->enviar(hash('sha256', $nome . uniqid()), $agora);
