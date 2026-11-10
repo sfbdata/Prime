@@ -15,7 +15,8 @@ namespace App\AssinaturaEletronica\Service;
 final readonly class CarimboVisivelPagina
 {
     /**
-     * @param array{float, float, float, float} $caixa              o /MediaBox normalizado: x0, y0, x1, y1
+     * @param array{float, float, float, float} $caixa              a área visível (`page.view` do pdf.js: o /CropBox
+     *                                                              recortado pelo /MediaBox), normalizada: x0, y0, x1, y1
      * @param array{int, int}|null              $trechoDasAnotacoes início do nome `/Annots` e fim do valor, no corpo
      * @param array{int, int}|null              $referenciaDasAnotacoes número e geração do vetor indireto
      */

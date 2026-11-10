@@ -102,6 +102,34 @@ final class LocalizadorDaUltimaPaginaTest extends TestCase
         self::assertSame($esperada, $pagina->caixa);
     }
 
+    /** @return iterable<string, array{string, string, list<float>}> */
+    public static function cortes(): iterable
+    {
+        yield 'menor e deslocado: vale o /CropBox' => ['', '/MediaBox[0 0 595 842]/CropBox[50 60 400 500]', [50.0, 60.0, 400.0, 500.0]];
+        yield 'herdado do nó: recortado pelo /MediaBox da página' => ['/CropBox[100 200 700 900]', '/MediaBox[0 0 595 842]', [100.0, 200.0, 595.0, 842.0]];
+        yield 'maior que o /MediaBox: fica recortado' => ['', '/MediaBox[0 0 300 400]/CropBox[-50 -50 1000 1000]', [0.0, 0.0, 300.0, 400.0]];
+        yield 'em parte fora do /MediaBox: só a área em comum' => ['', '/MediaBox[0 0 300 400]/CropBox[100 150 1000 1000]', [100.0, 150.0, 300.0, 400.0]];
+        yield 'sem área em comum: o /MediaBox' => ['', '/MediaBox[0 0 300 400]/CropBox[400 500 600 700]', [0.0, 0.0, 300.0, 400.0]];
+        yield 'só encostando no /MediaBox: o /MediaBox' => ['', '/MediaBox[0 0 300 400]/CropBox[300 0 600 400]', [0.0, 0.0, 300.0, 400.0]];
+        yield 'inválido: o /MediaBox, sem procurar no nó' => ['/CropBox[10 10 50 50]', '/MediaBox[0 0 300 400]/CropBox[1 2 3]', [0.0, 0.0, 300.0, 400.0]];
+        yield 'sem /MediaBox: recortado pelo tamanho carta' => ['', '/CropBox[500 700 900 900]', [500.0, 700.0, 612.0, 792.0]];
+    }
+
+    /** @param list<float> $esperada */
+    #[DataProvider('cortes')]
+    #[TestDox('/CropBox $_dataName (page.view do pdf.js)')]
+    public function testCorte(string $no, string $pagina, array $esperada): void
+    {
+        $localizada = self::localizar(MontadorDePdfDoCarimbo::classico([
+            1 => self::CATALOGO,
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1' . $no . '>>',
+            3 => '<</Type/Page/Parent 2 0 R' . $pagina . '>>',
+        ]));
+
+        self::assertNotNull($localizada);
+        self::assertSame($esperada, $localizada->caixa);
+    }
+
     #[TestDox('/Annots direto: o miolo do vetor e o trecho "/Annots [...]" no corpo')]
     public function testAnotacoesDiretas(): void
     {
