@@ -46,6 +46,7 @@ use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\JustificativasAAnalisarDaEquipe;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -74,6 +75,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Twig\Environment;
 
@@ -88,6 +90,12 @@ final class PontoController extends AbstractController
         ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA => Response::HTTP_FORBIDDEN,
         ExclusaoDeJustificativaRecusadaException::JA_ANALISADA    => Response::HTTP_UNPROCESSABLE_ENTITY,
     ];
+
+    /**
+     * Abas que o endereço abre (`?aba=`). As de gestão entram para todos aqui; quem não vê a aba cai em Pendências no
+     * `_abas.html.twig`, a mesma regra que decide se ela aparece.
+     */
+    private const ABAS_PELO_ENDERECO = ['justificativas', 'equipe', 'auditoria', 'configuracoes'];
 
     public function __construct(
         private readonly VerificadorAlertaPonto $verificadorAlerta,
@@ -127,6 +135,7 @@ final class PontoController extends AbstractController
         AnaliseDaPropriaJustificativa $analiseDaPropria,
         FuncoesDoPonto $funcoes,
         GestaoDoPonto $gestao,
+        JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -266,10 +275,28 @@ final class PontoController extends AbstractController
             'proximaViradaMs'          => (int) $agora->modify('tomorrow')->format('Uv'),
             'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
             // Cartão de abas (E3): Pendências abre ao entrar (P37); a volta da análise e da exclusão reabre a das justificativas.
-            'abaAberta'                => \in_array($request->query->get('aba'), ['justificativas', 'auditoria'], true) ? (string) $request->query->get('aba') : 'pendencias',
-            'veAuditoria'              => $gestao->veAuditoria($user, $tenant),   // aba Auditoria (E9, P64); sem ela, o endereço cai em Pendências
+            'abaAberta'                => \in_array($request->query->get('aba'), self::ABAS_PELO_ENDERECO, true) ? (string) $request->query->get('aba') : 'pendencias',
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
-        ]);
+        ] + $this->abasDeGestao($user, $tenant, $gestao, $aAnalisarDaEquipe));
+    }
+
+    /**
+     * Abas de gestão do cartão (E5, E6 e E9; P58 e P64): cada uma só para quem a vê (`GestaoDoPonto`). Sem ela, o
+     * `_abas.html.twig` não a mostra e o endereço dela cai em Pendências. O número da Equipe (as justificativas a
+     * analisar) só é contado para quem vê a Equipe: para os outros, 0 sem consulta.
+     *
+     * @return array{veEquipe: bool, veConfiguracoes: bool, veAuditoria: bool, equipeAAnalisar: int}
+     */
+    private function abasDeGestao(User $user, Tenant $tenant, GestaoDoPonto $gestao, JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe): array
+    {
+        $veEquipe = $gestao->veEquipe($user, $tenant);
+
+        return [
+            'veEquipe'        => $veEquipe,
+            'veConfiguracoes' => $gestao->veConfiguracoes($user, $tenant),
+            'veAuditoria'     => $gestao->veAuditoria($user, $tenant),
+            'equipeAAnalisar' => $veEquipe ? $aAnalisarDaEquipe->contarAAnalisar($user, $tenant) : 0,
+        ];
     }
 
     #[Route('/justificativa/nova', name: 'ponto_justificativa_nova', methods: ['GET', 'POST'])]
@@ -671,8 +698,12 @@ final class PontoController extends AbstractController
 
     /**
      * P41 (desenho do Ponto, E3): o colaborador exclui a própria justificativa ainda em análise, depois de
-     * confirmar na janela. JSON para o `fetch` da aba: 404 de outro escritório, 403 de outra pessoa ou sem
-     * token, 422 já analisada. O sucesso deixa a mensagem para a tela que a aba abre em seguida.
+     * confirmar na janela. Dois caminhos, separados como no `EspacoEsgotadoListener` (`pedidoDaTela`):
+     *  - o pedido da tela (o `fetch` da aba, com o X-CSRF-Token da página): JSON, sem flash e sem redirecionar,
+     *    porque a tela tira a linha na hora (um flash aqui sobraria para a próxima página). 404 de outro
+     *    escritório, 403 de outra pessoa ou sem token, 422 já analisada, sempre com a frase em `mensagem`;
+     *  - o formulário comum, sem JavaScript (`_token` de `excluir_justificativa_<id>`): a frase vira flash e a
+     *    página volta para a aba das justificativas. Outro escritório e outra pessoa continuam 404 e 403.
      *
      * Ponto único da exclusão: só a aba nova chama esta rota. Com o Ponto antigo de volta, tirar o atributo da rota
      * (a linha abaixo) desliga a exclusão inteira no servidor.
@@ -682,23 +713,70 @@ final class PontoController extends AbstractController
         int $id,
         Request $request,
         ExcluirJustificativaEmAnaliseUseCase $excluir,
-    ): JsonResponse {
+    ): Response {
         /** @var User $user */
         $user   = $this->getUser();
         $tenant = $this->assertAccess($user);
+        $daTela = self::pedidoDaTela($request);
 
         // CSRF depois da autorização, como na batida: a falha de acesso tem prioridade.
-        $this->validarCsrfAjax($request);
+        $this->validarTokenDaExclusao($request, $id, $daTela);
 
         try {
             $dia = $excluir->executar($id, $user, $tenant);
         } catch (ExclusaoDeJustificativaRecusadaException $e) {
-            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
+            return $daTela
+                ? $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo])
+                : $this->recusaDaExclusaoSemTela($e, (string) $request->request->get('competencia', ''));
         }
 
-        $this->addFlash('success', sprintf('Justificativa de %s excluída.', $dia->format('d/m/Y')));
+        if ($daTela) {
+            return $this->json(['ok' => true]);
+        }
 
-        return $this->json(['ok' => true]);
+        return $this->voltarParaAsJustificativas('success', sprintf('Justificativa de %s excluída.', $dia->format('d/m/Y')), $dia->format('Y-m'));
+    }
+
+    /**
+     * O `fetch` da tela leva o X-CSRF-Token que o `base.html.twig` põe em todo POST same-origin (o formulário comum
+     * não leva), além do `X-Requested-With` e do `Accept` de JSON que a aba manda.
+     */
+    private static function pedidoDaTela(Request $request): bool
+    {
+        return $request->isXmlHttpRequest()
+            || $request->headers->has('X-CSRF-Token')
+            || str_contains((string) $request->headers->get('Accept'), 'application/json');
+    }
+
+    private function validarTokenDaExclusao(Request $request, int $id, bool $daTela): void
+    {
+        if ($daTela) {
+            $this->validarCsrfAjax($request);
+
+            return;
+        }
+        if (!$this->isCsrfTokenValid('excluir_justificativa_' . $id, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+    }
+
+    /** Sem JavaScript: a já analisada vira o aviso na aba; outro escritório e outra pessoa ficam no 404 e no 403. */
+    private function recusaDaExclusaoSemTela(ExclusaoDeJustificativaRecusadaException $recusa, string $competencia): Response
+    {
+        $status = self::RESPOSTA_DA_RECUSA[$recusa->motivo];
+        if ($status !== Response::HTTP_UNPROCESSABLE_ENTITY) {
+            throw new HttpException($status, $recusa->getMessage());
+        }
+
+        return $this->voltarParaAsJustificativas('danger', $recusa->getMessage(), $competencia);
+    }
+
+    /** A aba das justificativas no mês pedido (o index confere o mês e cai no atual se não for um dos dele). */
+    private function voltarParaAsJustificativas(string $tipo, string $mensagem, string $competencia): Response
+    {
+        $this->addFlash($tipo, $mensagem);
+
+        return $this->redirectToRoute('ponto_index', array_filter(['competencia' => $competencia, 'aba' => 'justificativas']));
     }
 
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]
