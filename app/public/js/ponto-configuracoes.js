@@ -16,6 +16,13 @@
  * a caixa grava por POST em `data-url` com `{permitir}`, do jeito da chave "Escritório" (token `ajax` do interceptador).
  * Deu certo: a caixa fica como o servidor devolveu (`permitir`). Recusa (403, 422) ou falta de resposta: a caixa volta
  * como estava e a frase do servidor (`erro`) aparece embaixo.
+ *
+ * Limite e prazo do banco (E17 e P73, templates/ponto/_config_banco.html.twig; desenho 16 L250 e L251): cada campo
+ * grava ao sair dele (`change`, não a cada tecla) por POST em `data-url` com `{limiteHoras}` ou `{prazoMeses}`, do
+ * jeito da caixa do trabalho externo (token `ajax` do interceptador). Campo vazio vai como `null` e o servidor recusa.
+ * Deu certo: o campo fica com o que o servidor devolveu, que vira o valor gravado (`data-gravado`). Recusa (403, 422)
+ * ou falta de resposta: o campo volta ao valor gravado e a frase do servidor (`erro`) aparece embaixo dele. Enquanto
+ * grava, o campo fica só de leitura (e não `disabled`, que tiraria o foco de quem usa as setas do campo).
  */
 (function () {
     'use strict';
@@ -185,10 +192,59 @@
         caixa.checked = resultado.dados.permitir === true;
     }
 
+    // Limite e prazo do banco (E17, P73). A frase de erro é a do rótulo do próprio campo.
+    function mostrarErroDoBanco(campo, texto) {
+        if (texto) {
+            campo.setAttribute('aria-invalid', 'true');
+        } else {
+            campo.removeAttribute('aria-invalid');
+        }
+        const rotulo = campo.closest('label');
+        const erro = rotulo ? rotulo.querySelector('[data-config-banco-erro]') : null;
+        if (!erro) {
+            return;
+        }
+        erro.textContent = texto || '';
+        erro.hidden = !texto;
+    }
+
+    async function gravarLimiteDoBanco(campo) {
+        const grade = campo.closest('[data-config-banco]');
+        const nome = campo.dataset.configBancoCampo;
+        if (!grade || !nome) {
+            return;
+        }
+        const corpo = {};
+        corpo[nome] = campo.value === '' ? null : Number(campo.value);
+        campo.readOnly = true;
+        campo.setAttribute('aria-busy', 'true');
+        mostrarErroDoBanco(campo, '');
+        const resultado = await enviar(grade.dataset.url, corpo, null);
+        campo.readOnly = false;
+        campo.removeAttribute('aria-busy');
+        if (!resultado.ok) {
+            campo.value = campo.dataset.gravado || '';
+            mostrarErroDoBanco(campo, resultado.erro);
+
+            return;
+        }
+        const gravado = resultado.dados[nome];
+        if (typeof gravado === 'number') {
+            campo.dataset.gravado = String(gravado);
+            campo.value = String(gravado);
+        }
+    }
+
     document.addEventListener('change', function (evento) {
         const caixa = elemento(evento.target, '[data-config-externo-caixa]');
         if (caixa) {
             alternarTrabalhoExterno(caixa);
+
+            return;
+        }
+        const campo = elemento(evento.target, '[data-config-banco-campo]');
+        if (campo && campo.getAttribute('aria-busy') !== 'true') {
+            gravarLimiteDoBanco(campo);
         }
     });
 })();

@@ -40,7 +40,8 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
 
     private const FUNDO = '.pe-page > div.pe-janela-fundo#ponto-janela-externo[hidden]';
     private const JANELA = self::FUNDO . ' > div.pe-janela[role="dialog"][aria-modal="true"][aria-label="Trabalho externo"]';
-    private const SECAO = '.pe-config > .pe-config-funcoes[data-config-funcoes] + div.pe-config-externo[data-config-externo]';
+    // Depois das funções vem a grade do limite e do prazo do banco (E17, L245), e só então a caixa, como no desenho.
+    private const SECAO = '.pe-config > .pe-config-funcoes[data-config-funcoes] + div.pe-config-grade[data-config-banco] + div.pe-config-externo[data-config-externo]';
 
     private KernelBrowser $client;
     private Tenant $escritorio;
@@ -107,7 +108,7 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $secao = $painel->filter(self::SECAO);
-        self::assertCount(1, $secao, 'seção própria, filha direta do painel, depois das funções (a E6 a leva às sedes)');
+        self::assertCount(1, $secao, 'seção própria, filha direta do painel, depois das funções e da grade do banco (a E6 a leva às sedes)');
         self::assertSame('/ponto/configuracoes/trabalho-externo', $secao->attr('data-url'), 'a rota ponto_configuracao_trabalho_externo');
         self::assertCount(1, $secao->filter('div.pe-config-externo > label.pe-config-externo-marca:first-child + span.pe-config-externo-erro[role="alert"][data-config-externo-erro][hidden]:last-child'));
         self::assertCount(1, $secao->filter('label.pe-config-externo-marca > input[type="checkbox"][data-config-externo-caixa]:first-child'));

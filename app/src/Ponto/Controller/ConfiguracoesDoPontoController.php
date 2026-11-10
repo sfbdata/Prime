@@ -11,6 +11,7 @@ use App\Ponto\DTO\FeriadoDoPontoInput;
 use App\Ponto\DTO\SedeDoPontoInput;
 use App\Ponto\Exception\ConfiguracaoDoPontoRecusadaException;
 use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\LimitesDoBancoDeHoras;
 use App\Ponto\Service\SedesEFeriadosDoPonto;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\CadastrarFeriadoDoPontoUseCase;
@@ -54,6 +55,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         private readonly SedesEFeriadosDoPonto $sedesEFeriados,
         private readonly TranslatorInterface $tradutor,
         private readonly TrabalhoExternoDaBatida $trabalhoExterno,
+        private readonly LimitesDoBancoDeHoras $limitesDoBanco,
     ) {
     }
 
@@ -78,6 +80,9 @@ final class ConfiguracoesDoPontoController extends AbstractController
             'feriadosDoPonto' => $feriados['feriadosDoPonto'],
             // E12 (P74): a caixa "Permitir trabalho externo"; quem muda é a rota ponto_configuracao_trabalho_externo.
             'permite_trabalho_externo' => $this->trabalhoExterno->permitido($escritorio),
+            // E17 (P73): o limite e o prazo do banco que valem no escritório; quem muda é a rota ponto_configuracao_banco_de_horas.
+            'banco_limite_horas' => intdiv($this->limitesDoBanco->limiteEmMinutos($escritorio), 60),
+            'banco_prazo_meses' => $this->limitesDoBanco->prazoEmMeses($escritorio),
         ]);
     }
 
