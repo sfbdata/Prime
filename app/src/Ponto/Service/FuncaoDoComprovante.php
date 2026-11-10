@@ -35,8 +35,16 @@ final class FuncaoDoComprovante
      */
     public function abaVisivel(Tenant $escritorio): bool
     {
-        return $this->selo->disponivel()
-            && $this->recursos->visivel(self::RECURSO)
-            && $this->funcoes->ligadaNoEscritorio(self::RECURSO, $escritorio);
+        return $this->baixaOsEmitidos() && $this->funcoes->ligadaNoEscritorio(self::RECURSO, $escritorio);
+    }
+
+    /**
+     * A pessoa baixa os comprovantes já emitidos: o selo pronto e a função visível no Master. O escritório que desliga
+     * a função para de emitir novos, mas não tira da pessoa os que já são dela (decisão do Coordenador de 09/11/2026,
+     * pela Portaria MTP 671/2021; a página de validação também continua).
+     */
+    public function baixaOsEmitidos(): bool
+    {
+        return $this->selo->disponivel() && $this->recursos->visivel(self::RECURSO);
     }
 }

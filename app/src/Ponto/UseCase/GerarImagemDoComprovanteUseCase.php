@@ -14,8 +14,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * A imagem do comprovante para o botão "Baixar" da aba Comprovantes (E15, P49). Só a própria pessoa, no escritório
- * em que está, baixa o comprovante dela: de outra pessoa, de outro escritório, que não existe ou com a função
- * desligada, devolve null (o controller responde 404 sem dizer qual).
+ * em que está, baixa o comprovante dela: de outra pessoa, de outro escritório, que não existe, sem o selo ou com a
+ * função desligada pelo Master, devolve null (o controller responde 404 sem dizer qual). O escritório que desliga a
+ * função não tira da pessoa os comprovantes já emitidos ({@see FuncaoDoComprovante::baixaOsEmitidos()}).
  *
  * O QR leva o endereço absoluto da validação no próprio sistema (D20): as rotas públicas sem o prefixo `ponto_`
  * (ver {@see \App\Ponto\Controller\ValidacaoDoComprovanteController}).
@@ -33,7 +34,7 @@ final class GerarImagemDoComprovanteUseCase
     /** @return array{nome: string, jpeg: string}|null */
     public function executar(int $id, User $pessoa, Tenant $escritorio): ?array
     {
-        $comprovante = $this->funcao->abaVisivel($escritorio) ? $this->comprovantes->daPessoaPorId($id, $pessoa, $escritorio) : null;
+        $comprovante = $this->funcao->baixaOsEmitidos() ? $this->comprovantes->daPessoaPorId($id, $pessoa, $escritorio) : null;
         if ($comprovante === null) {
             return null;
         }

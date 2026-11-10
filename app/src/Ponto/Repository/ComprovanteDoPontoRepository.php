@@ -66,6 +66,20 @@ class ComprovanteDoPontoRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Se a pessoa já tem algum comprovante NESTE escritório (a aba continua com o escritório desligado, se tiver). */
+    public function existeDaPessoaNoEscritorio(User $pessoa, Tenant $escritorio): bool
+    {
+        return $this->createQueryBuilder('c')
+            ->select('c.id')
+            ->andWhere('c.tenant = :escritorio')
+            ->andWhere('c.user = :pessoa')
+            ->setParameter('escritorio', $escritorio)
+            ->setParameter('pessoa', $pessoa)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult() !== null;
+    }
+
     /**
      * O comprovante pelo id, só se for da pessoa e deste escritório (guarda de posse do download: senão, null). Também
      * o da batida que o gestor apagou.

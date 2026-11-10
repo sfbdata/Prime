@@ -97,7 +97,7 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('.pe-abas-barra > button#ponto-aba-pendencias[aria-selected="true"]'), 'o endereço da aba escondida abre Pendências');
     }
 
-    #[TestDox('Desligado no escritório depois de emitir: o "Baixar" do comprovante que já existe dá 404, e o código continua autêntico na validação pública')]
+    #[TestDox('Desligado no escritório depois de emitir: quem já tem comprovante continua com a aba e o "Baixar", e o código continua autêntico na validação pública')]
     public function testDesligadoDepoisDeEmitir(): void
     {
         $this->seloPronto();
@@ -111,7 +111,11 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         $this->client->request('GET', '/ponto/comprovantes/' . $comprovante->getId() . '/baixar');
-        self::assertResponseStatusCodeSame(404, 'a função desligada no escritório esconde o download (P49)');
+        self::assertResponseIsSuccessful('o comprovante já emitido é da pessoa: o download continua (decisão do Coordenador, Portaria 671)');
+        $tela = $this->tela('?aba=comprovantes');
+        self::assertCount(1, $tela->filter('.pe-abas-barra > button#ponto-aba-comprovantes[aria-selected="true"]'), 'a aba fica para quem já tem comprovante');
+        self::assertCount(1, $tela->filter(self::LINHAS), 'com a lista');
+        self::assertCount(1, $tela->filter('[data-validar-abrir]'), 'e o "Validar código"');
 
         $this->sair($this->client);
         $tela = $this->client->request('GET', '/ponto/validar/' . $comprovante->getCodigo());

@@ -988,8 +988,12 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - Dois limites de tentativas: `ponto_validacao` na página pública e `ponto_comprovante_imagem` no download da imagem.
   - Fase B (bluejus-2f, pela conferência ✓/✗ e pela re-revisão):
     - O comprovante tem a camada Escritório (P95, desenho L417, L447 e L757), no cartão "Comprovante em imagem" das
-      Configurações, antes da Geolocalização. Desligado no escritório, nada é emitido e a aba e o "Validar código"
-      somem. O NSR continua, e os comprovantes já emitidos continuam válidos na página pública.
+      Configurações, antes da Geolocalização. Desligado no escritório, nada novo é emitido; o NSR continua, e os
+      comprovantes já emitidos continuam válidos na página pública. Sem o selo pronto, o cartão não aparece.
+    - Escritório desligado x comprovantes já emitidos (Coordenador, 09/11/2026, pela Portaria MTP 671/2021): o
+      comprovante é da pessoa. Quem já tem comprovante naquele escritório continua com a aba, a lista, o "Baixar" e o
+      "Validar código", sem emissão nova; para quem não tem nenhum, a aba some, como no desenho (L757). Com o Global
+      desligado pelo Master, tudo some para todos, como antes.
     - Na batida da fila sem internet (E14), a data e a hora seladas são as do momento da batida (o "Emitido em" do
       desenho, L587). A chegada ao servidor fica no registro, fora do selo; o selo guarda só a marca `sem_internet`.
     - A pessoa fica gravada no comprovante (`user_id`): a aba e o download continuam depois de o gestor apagar a batida.
@@ -1109,7 +1113,7 @@ escritório.
 | `ponto` (tela) | Ponto Eletrônico | A tela inteira | Quem não é Master vê "Ponto Eletrônico em preparação"; o Master vê a faixa vermelha | A tela está em uso pelos clientes | Ligada |
 | `ponto-animacao` | Ponto: validação em tela cheia | "Relógio completando a volta e confirmação ocupando toda a tela." | Resultado vira aviso flutuante (a batida facial sempre usa a tela cheia) | Novo | Ligada depois do E8 |
 | `ponto-sons` | Ponto: sons | "Plim no registro e alerta diferente quando o ponto falha." | Some o botão de som; sem plim, sem som de erro, sem som do lembrete | Hoje só há som na janela de alerta de horário | Ligada |
-| `ponto-comprovante` | Ponto: comprovante em imagem | "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança." | Some a aba Comprovantes, o código e "Baixar comprovante" | Novo | Desligada até o E15 e o jurídico |
+| `ponto-comprovante` | Ponto: comprovante em imagem | "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança." | Some a aba Comprovantes, o código e "Baixar comprovante" (no escritório desligado, a aba fica para quem já tem comprovante, sem emissão nova; ver E15 fase B) | Novo | Desligada até o E15 e o jurídico |
 | `ponto-geo` | Ponto: geolocalização | "Exige que o registro seja feito dentro do raio de uma sede." | Sem caixa de localização e sem checagem de raio | Hoje a cerca vale sempre; desligar num escritório é mudança de regra (ligada ao P18) | Ligada |
 | `ponto-facial` | Ponto: reconhecimento facial | "Confirma a identidade pela câmera, com cadastro e autorização prévios." | Some o botão facial e o modo obrigatório | Novo | Desligada até o E18 |
 | `ponto-lembrete` | Ponto: lembrete de saída | "Avisa quando passar do horário previsto e a saída não foi registrada." | Some "Saída prevista"; sem aviso, som e notificação do lembrete | Diferente da janela de alerta de horário de hoje (P84), que continua com a sua própria chave na jornada | Ligada |

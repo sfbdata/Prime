@@ -13,7 +13,10 @@ use App\Ponto\Repository\ComprovanteDoPontoRepository;
 /**
  * A aba "Comprovantes" da /ponto (E15, P48): se aparece e o que lista.
  *
- * Aparece com a função `ponto-comprovante` visível no Master, ligada no escritório e o selo pronto. Lista os comprovantes da própria pessoa, só deste
+ * Aparece com a função `ponto-comprovante` visível no Master, ligada no escritório e o selo pronto. Com o escritório
+ * desligado, continua só para quem já tem comprovante (lista, Baixar e Validar código, sem emissão nova); para quem
+ * não tem nenhum, some, como no desenho (decisão do Coordenador de 09/11/2026, pela Portaria MTP 671/2021). Com o
+ * Global desligado pelo Master, some para todos. Lista os comprovantes da própria pessoa, só deste
  * escritório, a batida mais nova primeiro, até 120 (o mesmo teto que o desenho guarda, L542), sem recorte por mês:
  * o desenho mostra a lista inteira, independente da competência escolhida na Folha.
  */
@@ -27,15 +30,19 @@ final class AbaDosComprovantes
     ) {
     }
 
-    public function visivel(Tenant $escritorio): bool
+    public function visivel(Tenant $escritorio, User $pessoa): bool
     {
-        return $this->funcao->abaVisivel($escritorio);
+        if ($this->funcao->abaVisivel($escritorio)) {
+            return true;
+        }
+
+        return $this->funcao->baixaOsEmitidos() && $this->comprovantes->existeDaPessoaNoEscritorio($pessoa, $escritorio);
     }
 
-    /** @return list<ComprovanteNaListaOutput> vazia quando a aba não aparece */
+    /** @return list<ComprovanteNaListaOutput> vazia quando a pessoa não pode ver os comprovantes */
     public function linhas(User $pessoa, Tenant $escritorio): array
     {
-        if (!$this->visivel($escritorio)) {
+        if (!$this->funcao->baixaOsEmitidos()) {
             return [];
         }
 
