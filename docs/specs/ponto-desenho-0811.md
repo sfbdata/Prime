@@ -986,6 +986,13 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - O NSR vai só para a batida que a própria pessoa registra, inclusive a da fila sem internet (E14). A lançada pelo
     gestor e a criada pelo abono ficam sem NSR. O mesmo envio repetido (E13) não consome número.
   - Dois limites de tentativas: `ponto_validacao` na página pública e `ponto_comprovante_imagem` no download da imagem.
+  - Fase B (bluejus-2f, pela conferência ✓/✗ e pela re-revisão):
+    - O comprovante tem a camada Escritório (P95, desenho L417, L447 e L757), no cartão "Comprovante em imagem" das
+      Configurações, antes da Geolocalização. Desligado no escritório, nada é emitido e a aba e o "Validar código"
+      somem. O NSR continua, e os comprovantes já emitidos continuam válidos na página pública.
+    - Na batida da fila sem internet (E14), a data e a hora seladas são as do momento da batida (o "Emitido em" do
+      desenho, L587). A chegada ao servidor fica no registro, fora do selo; o selo guarda só a marca `sem_internet`.
+    - A pessoa fica gravada no comprovante (`user_id`): a aba e o download continuam depois de o gestor apagar a batida.
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
 - Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em

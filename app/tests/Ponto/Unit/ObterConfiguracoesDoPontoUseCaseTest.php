@@ -41,15 +41,21 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertNull($this->casoDeUso(false, null, true)->executar(new User(), new Tenant()));
     }
 
-    #[TestDox('Sem linha e sem registro do Master: a geolocalização aparece ligada nas duas camadas')]
+    #[TestDox('Sem linha e sem registro do Master: o comprovante e a geolocalização aparecem ligados nas duas camadas')]
     public function testNasceLigada(): void
     {
         $saida = $this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_USER']), new Tenant());
 
         self::assertNotNull($saida);
         self::assertFalse($saida->ehMaster);
-        self::assertCount(1, $saida->funcoes);
-        $geo = $saida->funcoes[0];
+        self::assertCount(2, $saida->funcoes);
+        $comprovante = $saida->funcoes[0];
+        self::assertSame(
+            ['ponto-comprovante', 'Comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança."],
+            [$comprovante->chave, $comprovante->titulo, $comprovante->icone, $comprovante->ajuda],
+        );
+        self::assertTrue($comprovante->escritorioEfetivo());
+        $geo = $saida->funcoes[1];
         self::assertSame(['ponto-geo', 'Geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.'], [$geo->chave, $geo->titulo, $geo->icone, $geo->ajuda]);
         self::assertTrue($geo->global);
         self::assertTrue($geo->escritorio);
@@ -64,7 +70,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         $configuracao = new ConfiguracaoDoPonto($tenant);
         $configuracao->definir('ponto-geo', true, new User(), new \DateTimeImmutable());
 
-        $geo = $this->casoDeUso(true, $configuracao, false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), $tenant)?->funcoes[0];
+        $geo = $this->casoDeUso(true, $configuracao, false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), $tenant)?->funcoes[1];
 
         self::assertNotNull($geo);
         self::assertFalse($geo->global);

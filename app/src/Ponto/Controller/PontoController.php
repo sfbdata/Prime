@@ -288,7 +288,7 @@ final class PontoController extends AbstractController
             'veAuditoria'              => $gestao->veAuditoria($user, $tenant),   // aba Auditoria (E9, P64); sem ela, o endereço cai em Pendências
             'podeAnalisarAPropria'     => $analiseDaPropria->permite($user, $user, $tenant),   // P43 a: o botão segue o servidor
             // Aba "Comprovantes" (E15): só com o comprovante ligado; a lista é da pessoa, neste escritório.
-            'comprovantesVisiveis'     => $abaDosComprovantes->visivel(),
+            'comprovantesVisiveis'     => $abaDosComprovantes->visivel($tenant),
             'comprovantes'             => $abaDosComprovantes->linhas($user, $tenant),
             // Aba "Banco de Horas" (E17): nulo esconde a aba.
             'bancoDeHoras'             => $bancoDeHoras,

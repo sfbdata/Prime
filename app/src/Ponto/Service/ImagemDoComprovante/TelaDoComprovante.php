@@ -155,6 +155,30 @@ final class TelaDoComprovante
     }
 
     /**
+     * Degradê entre dois pontos, como o `createLinearGradient(x0, y0, x1, y1)` do canvas, pintado só no retângulo do
+     * `fillRect`: cada ponto do retângulo leva a cor da sua projeção na reta do degradê, presa entre 0 e 1 (antes do
+     * começo, a primeira cor; depois do fim, a última). Pixel a pixel: serve para áreas pequenas, como a faixa vertical.
+     *
+     * @param array{float, float, float, float} $reta      x0, y0, x1, y1
+     * @param array{float, float, float, float} $retangulo x, y, largura, altura
+     * @param list<string>                      $paradas   cores igualmente espaçadas (`addColorStop(i / n)`)
+     */
+    public function degradeEntrePontos(array $reta, array $retangulo, array $paradas): void
+    {
+        [$x0, $y0, $x1, $y1] = $reta;
+        [$x, $y, $largura, $altura] = $retangulo;
+        [$dx, $dy] = [$x1 - $x0, $y1 - $y0];
+        $norma = max(1e-9, $dx ** 2 + $dy ** 2);
+        for ($py = $this->px($y); $py < $this->px($y + $altura); ++$py) {
+            for ($px = $this->px($x); $px < $this->px($x + $largura); ++$px) {
+                $t = ((($px + 0.5) / $this->escala - $x0) * $dx + (($py + 0.5) / $this->escala - $y0) * $dy) / $norma;
+                [$r, $g, $b] = Degrade::cor($paradas, max(0.0, min(1.0, $t)));
+                imagesetpixel($this->imagem, $px, $py, $this->corRgb($r, $g, $b));
+            }
+        }
+    }
+
+    /**
      * Fundo inteiro em degradê na diagonal (do canto de cima à esquerda ao de baixo à direita, L555): desenhado numa
      * imagem pequena e ampliado com suavização, o que no GD sai bem mais barato que pixel a pixel.
      *

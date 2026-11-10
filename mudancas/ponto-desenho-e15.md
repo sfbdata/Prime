@@ -10,5 +10,6 @@ tipo: alteracao
 ## Para o cliente
 - Cada registro de ponto feito pela própria pessoa, inclusive o guardado sem internet, recebe um número sequencial do escritório, dado pelo sistema na ordem em que os registros são gravados. O mesmo número nunca é dado a dois registros do escritório.
 - O Ponto passa a emitir o comprovante de registro: uma imagem com os dados da batida, um código de validação e um QR Code, que a pessoa baixa na aba "Comprovantes".
-- O comprovante só começa a ser emitido quando o escritório estiver com o selo de segurança configurado. Até lá, a aba "Comprovantes" não aparece e o registro de ponto segue normal, já com o número sequencial.
+- O comprovante só começa a ser emitido quando o BlueJus ligar o selo de segurança. Até lá, a aba "Comprovantes" não aparece e o registro de ponto segue normal, já com o número sequencial.
+- O administrador do ponto pode desligar o comprovante só no seu escritório, em Configurações do Ponto. Desligado, a aba "Comprovantes" some e os comprovantes já emitidos continuam válidos.
 - Quem tem o código pode conferir se um comprovante é verdadeiro, pelo QR Code ou digitando o código, sem precisar entrar no sistema. A página mostra só o nome do trabalhador e os dados da batida, sem CPF nem localização.

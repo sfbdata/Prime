@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\ComprovanteDoPontoController;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ComprovanteDoPonto;
+use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
@@ -71,6 +72,29 @@ final class ComprovanteDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter('#ponto-aba-comprovantes, #ponto-painel-comprovantes, #ponto-janela-validar, [data-validar-abrir]'));
         self::assertStringNotContainsString('Validar código', $tela->html());
         self::assertStringNotContainsString('ponto-comprovantes.js', $tela->html());
+    }
+
+    #[TestDox('Comprovante desligado no escritório (selo pronto): a batida grava com NSR, nada é emitido e a aba some')]
+    public function testDesligadoNoEscritorio(): void
+    {
+        $this->seloPronto();
+        $configuracao = new ConfiguracaoDoPonto($this->escritorio);
+        $configuracao->definir('ponto-comprovante', false, $this->eu, new \DateTimeImmutable());
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+
+        $resposta = $this->bater();
+
+        self::assertSame('Ponto (home office) registrado com sucesso!', $resposta['message'], 'sem o aviso do comprovante');
+        self::assertArrayNotHasKey('comprovante', $resposta['data']);
+        $batidas = $this->emSemFiltro()->getRepository(RegistroPonto::class)->findBy(['user' => $this->eu->getId()]);
+        self::assertCount(1, $batidas);
+        self::assertSame(1, $batidas[0]->getNsr(), 'o NSR não depende da função');
+        self::assertSame(0, $this->emSemFiltro()->getRepository(ComprovanteDoPonto::class)->count(['tenant' => $this->escritorio->getId()]));
+
+        $tela = $this->tela('?aba=comprovantes');
+        self::assertCount(0, $tela->filter('#ponto-aba-comprovantes, #ponto-painel-comprovantes, #ponto-janela-validar, [data-validar-abrir]'), 'desenho L447 e L757');
+        self::assertCount(1, $tela->filter('.pe-abas-barra > button#ponto-aba-pendencias[aria-selected="true"]'), 'o endereço da aba escondida abre Pendências');
     }
 
     #[TestDox('Com o selo pronto: o aviso da batida aponta a aba, e a aba lista data e hora, tipo, método, código e "Baixar"')]

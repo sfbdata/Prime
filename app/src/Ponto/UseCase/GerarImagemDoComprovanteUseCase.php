@@ -33,7 +33,7 @@ final class GerarImagemDoComprovanteUseCase
     /** @return array{nome: string, jpeg: string}|null */
     public function executar(int $id, User $pessoa, Tenant $escritorio): ?array
     {
-        $comprovante = $this->funcao->abaVisivel() ? $this->comprovantes->daPessoaPorId($id, $pessoa, $escritorio) : null;
+        $comprovante = $this->funcao->abaVisivel($escritorio) ? $this->comprovantes->daPessoaPorId($id, $pessoa, $escritorio) : null;
         if ($comprovante === null) {
             return null;
         }

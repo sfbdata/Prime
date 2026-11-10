@@ -27,7 +27,8 @@ final class EmissaoDoComprovante
 
     public function emitir(RegistroPonto $batida): ?ComprovanteDoPonto
     {
-        if (!$this->funcao->emite()) {
+        $escritorio = $batida->getTenant() ?? throw new \LogicException('Batida sem escritório.');
+        if (!$this->funcao->emite($escritorio)) {
             return null;
         }
 
@@ -35,7 +36,7 @@ final class EmissaoDoComprovante
         $canonico = $dados->canonico();
         $selo = $this->selo->selar($canonico);
         $comprovante = new ComprovanteDoPonto(
-            $batida->getTenant() ?? throw new \LogicException('Batida sem escritório.'),
+            $escritorio,
             $batida,
             $dados->nsr,
             $dados->codigo,

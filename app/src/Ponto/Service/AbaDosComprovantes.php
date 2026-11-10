@@ -13,7 +13,7 @@ use App\Ponto\Repository\ComprovanteDoPontoRepository;
 /**
  * A aba "Comprovantes" da /ponto (E15, P48): se aparece e o que lista.
  *
- * Aparece com a função `ponto-comprovante` visível e o selo pronto. Lista os comprovantes da própria pessoa, só deste
+ * Aparece com a função `ponto-comprovante` visível no Master, ligada no escritório e o selo pronto. Lista os comprovantes da própria pessoa, só deste
  * escritório, a batida mais nova primeiro, até 120 (o mesmo teto que o desenho guarda, L542), sem recorte por mês:
  * o desenho mostra a lista inteira, independente da competência escolhida na Folha.
  */
@@ -27,15 +27,15 @@ final class AbaDosComprovantes
     ) {
     }
 
-    public function visivel(): bool
+    public function visivel(Tenant $escritorio): bool
     {
-        return $this->funcao->abaVisivel();
+        return $this->funcao->abaVisivel($escritorio);
     }
 
     /** @return list<ComprovanteNaListaOutput> vazia quando a aba não aparece */
     public function linhas(User $pessoa, Tenant $escritorio): array
     {
-        if (!$this->visivel()) {
+        if (!$this->visivel($escritorio)) {
             return [];
         }
 

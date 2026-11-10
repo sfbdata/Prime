@@ -129,6 +129,22 @@ final class ValidacaoDoComprovanteControllerTest extends JusPrimeWebTestCase
         self::assertTrue(json_decode($this->json($comprovante->getCodigo()), true)['autentico']);
     }
 
+    #[TestDox('Logado em OUTRO escritório (filtro do escritório ligado): o código de um escritório vale na validação do outro')]
+    public function testLogadoEmOutroEscritorio(): void
+    {
+        $this->seloPronto();
+        $comprovante = $this->emitir();
+        $visitante = $this->pessoa('de_outro_escritorio');
+        $outro = $this->escritorio('Escritório do visitante');
+        $this->vincularColaborador($visitante, $outro);
+
+        $this->logarComTenant($this->client, $visitante, $outro);   // a janela "Validar código" da /ponto do outro escritório
+        $tela = $this->client->request('GET', '/ponto/validar/' . $comprovante->getCodigo());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Comprovante autêntico.', $tela->filter('main .pv-ok[role="status"] b')->text());
+        self::assertTrue(json_decode($this->json($comprovante->getCodigo()), true)['autentico']);
+    }
+
     #[TestDox('Selo que não confere e código que não existe recebem a mesma resposta, byte a byte (página e JSON)')]
     public function testErradoEInexistenteIguais(): void
     {

@@ -117,7 +117,9 @@ final class PadroesDeSeguranca
     {
         $cor = $this->tela->cor(self::AZUL_ESCURO);
         for ($y = 0; $y + 84 < self::H - 108; $y += 112) {
-            $this->tela->degrade(910, 54 + $y + 12, 16, 72, self::HOLOGRAFICO, false);
+            // O degradê vai de (0, y) a (16, y + 72) e o bloco é pintado de y + 12 a y + 84 (L569): diagonal, começando
+            // perto de 16% e com os últimos 12 na cor final.
+            $this->tela->degradeEntrePontos([910, 54 + $y, 926, 54 + $y + 72], [910, 54 + $y + 12, 16, 72], self::HOLOGRAFICO);
             $this->tela->texto('BLUEJUS PONTO', 'negrito', 8, 921, 54 + $y + 80, $cor, 90.0);
         }
     }

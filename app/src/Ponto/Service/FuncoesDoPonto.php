@@ -16,12 +16,13 @@ use App\Service\PermissionChecker;
  * no seu escritório, em `ponto_config_escritorio`). A função vale quando as duas estão ligadas; o Global desligado
  * trava a do escritório. Chave sem registro em qualquer das camadas vale ligada (P96).
  *
- * Nesta etapa (E7) só a geolocalização tem a camada Escritório: as outras chaves entram nas etapas das suas funções
- * (E8, E11, E15, E16, E18), para ninguém ligar função que ainda não existe.
+ * A geolocalização (E7) e o comprovante em imagem (E15) têm a camada Escritório: as outras chaves entram nas etapas das
+ * suas funções (E8, E11, E16, E18), para ninguém ligar função que ainda não existe.
  */
 final class FuncoesDoPonto
 {
     public const GEO = 'ponto-geo';
+    public const COMPROVANTE = 'ponto-comprovante';
 
     /** Quem decide a camada Escritório: a permissão de gerir o ponto, além do primário e do Master (P67; P58 não). */
     public const PERMISSAO_DE_CONFIGURAR = 'admin.ponto.manage';
@@ -33,6 +34,11 @@ final class FuncoesDoPonto
      * @var array<string, array{titulo: string, icone: string, ajuda: string}>
      */
     public const COM_CAMADA_ESCRITORIO = [
+        self::COMPROVANTE => [
+            'titulo' => 'Comprovante em imagem',
+            'icone'  => 'bi-receipt',
+            'ajuda'  => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.",
+        ],
         self::GEO => [
             'titulo' => 'Geolocalização',
             'icone'  => 'bi-geo-alt',
