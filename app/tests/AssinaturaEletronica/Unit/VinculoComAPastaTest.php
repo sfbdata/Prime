@@ -24,17 +24,17 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Lock\LockFactory;
-use Symfony\Component\Lock\Store\InMemoryStore;
 
 /**
  * A aplicação do vínculo pendente (spec assinatura-documentos-etapa-3, E3-11 e E3-12): tudo conferido de novo com quem
  * vinculou; na recusa nada vai para a pasta, a trilha diz o motivo e o vínculo pendente se desfaz (o "Vincular à pasta"
  * volta), salvo quando outro processo já o aplicou ou trocou no meio. O PDF final nunca é gerado aqui: sem ele guardado,
- * o pedido vai ao worker e o vínculo segue pendente até o evento do PDF guardado.
+ * o pedido vai ao worker (salvo com a cadeia do selo pendente, que já está nele) e o vínculo segue pendente até o evento
+ * do PDF guardado.
  */
 #[CoversClass(VinculoComAPasta::class)]
 #[CoversClass(ArquivoAssinadoNaPasta::class)]
+#[CoversClass(CadeiaDoSeloPendente::class)]
 final class VinculoComAPastaTest extends TestCase
 {
     use OficinaDoVinculo;
@@ -284,17 +284,7 @@ final class VinculoComAPastaTest extends TestCase
         self::assertFalse($this->vinculo()->aplicar($documento));
         $pedido = $this->despachadas[0] ?? null;
         self::assertInstanceOf(GerarPdfFinalDoDocumento::class, $pedido);
-
-        $this->documentos->method('find')->willReturnCallback(fn (mixed $id): ?DocumentoParaAssinar => $this->achar(
-            static fn (DocumentoParaAssinar $d): bool => $d->getId() === $id,
-        ));
-        $ouvinte = new VinculoPendenteListener($this->documentos, new AcessoALixeira($this->createStub(EntityManagerInterface::class)), $this->vinculo(), $this->logger);
-        $this->aoGarantir = static function (DocumentoParaAssinar $d) use ($ouvinte): void {
-            $ouvinte->aoGuardarPdfFinal(new PdfFinalGuardado((int) $d->getId()));
-        };
-        $tenants = $this->createStub(TenantRepository::class);
-        $tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === 9 ? $this->tenant : null);
-        $worker = new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal(), $this->barramento(), new CadeiaDoSeloPendente(new LockFactory(new InMemoryStore())));
+        $worker = $this->workerQueAvisaOVinculo();
 
         $worker($pedido);
         $worker($pedido); // a mesma mensagem entregue de novo: o PDF já está guardado e nada muda
@@ -306,6 +296,31 @@ final class VinculoComAPastaTest extends TestCase
         self::assertSame(['vinculo_definido', 'vinculo_feito'], $this->tiposGravados());
         self::assertCount(2, $this->disco->chavesGravadas, 'o PDF final e uma cópia só');
         self::assertSame([], $this->logger->doNivel('error'));
+    }
+
+    #[TestDox('cadeia do selo pendente: o vínculo não pede o PDF de novo e segue pendente, sem "não aplicado"; quando o worker guarda, o evento aplica')]
+    public function testCadeiaDoSeloPendenteNaoPedeDeNovo(): void
+    {
+        $documento = $this->pendenteQueConcluiu(comPdf: false);
+        self::assertNotNull($this->cadeiaDoSelo()->marcar((int) $documento->getId()), 'o worker já tenta o selo deste documento');
+        $antes = $this->tiposGravados();
+
+        self::assertFalse($this->vinculo()->aplicar($documento));
+
+        self::assertSame([], $this->despachadas, 'não abre outra série de tentativas');
+        self::assertSame(0, $this->pdfsGarantidos);
+        self::assertTrue($documento->isVinculoPendente());
+        self::assertSame(42, $documento->getPasta()?->getId());
+        self::assertSame($antes, $this->tiposGravados(), 'sem "vínculo não aplicado"');
+        self::assertSame([], $this->naPasta);
+
+        // A cadeia do worker guarda o PDF numa tentativa seguinte: o PdfFinalGuardado aplica o vínculo pendente.
+        ($this->workerQueAvisaOVinculo())(new GerarPdfFinalDoDocumento((int) $documento->getId(), 9, 2));
+
+        self::assertFalse($documento->isVinculoPendente());
+        self::assertCount(1, $this->naPasta);
+        self::assertSame(['vinculo_definido', 'vinculo_feito'], $this->tiposGravados());
+        self::assertSame([], $this->despachadas, 'o evento achou a chave no documento: não pediu o PDF');
     }
 
     #[TestDox('falha ao gravar a cópia na pasta: não aplica, a trilha diz o motivo e o vínculo se desfaz')]
@@ -396,5 +411,21 @@ final class VinculoComAPastaTest extends TestCase
         $evento = $this->ultimoGravado(TipoDeEvento::VinculoNaoAplicado);
         self::assertSame(['nup' => 'P-0042', 'motivo' => 'assinatura_eletronica.vinculo_motivo.' . $motivo, 'chave' => 1], $evento->getDados());
         self::assertSame(7, $evento->getUsuario()?->getId(), 'em nome de quem vinculou, lido antes de desfazer');
+    }
+
+    /** O worker do PDF final, com o ouvinte do PdfFinalGuardado ligado ao vínculo da oficina, e a mesma cadeia do selo. */
+    private function workerQueAvisaOVinculo(): GerarPdfFinalDoDocumentoHandler
+    {
+        $this->documentos->method('find')->willReturnCallback(fn (mixed $id): ?DocumentoParaAssinar => $this->achar(
+            static fn (DocumentoParaAssinar $d): bool => $d->getId() === $id,
+        ));
+        $ouvinte = new VinculoPendenteListener($this->documentos, new AcessoALixeira($this->createStub(EntityManagerInterface::class)), $this->vinculo(), $this->logger);
+        $this->aoGarantir = static function (DocumentoParaAssinar $d) use ($ouvinte): void {
+            $ouvinte->aoGuardarPdfFinal(new PdfFinalGuardado((int) $d->getId()));
+        };
+        $tenants = $this->createStub(TenantRepository::class);
+        $tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === 9 ? $this->tenant : null);
+
+        return new GerarPdfFinalDoDocumentoHandler($tenants, $this->documentos, $this->pdfFinal(), $this->barramento(), $this->cadeiaDoSelo());
     }
 }

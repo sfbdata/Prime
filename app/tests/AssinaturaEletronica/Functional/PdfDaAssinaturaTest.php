@@ -48,7 +48,8 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
  *
  * O selo (etapa 8, E8-4) com o {@see SeladorDePdf} dublado no container: o download guarda e entrega o selado; a falha
  * do selo que tenta de novo responde o 429 do documento sendo gerado, passa o pedido ao worker e não guarda nada; com a
- * cadeia do selo pendente, os cliques seguintes dão o mesmo 429 sem gerar.
+ * cadeia do selo pendente, os cliques seguintes dão o mesmo 429 sem gerar. A fila que falha nesse pedido solta a marca
+ * nova e a falha sobe.
  */
 #[CoversClass(ArquivosDaAssinaturaController::class)]
 #[CoversClass(AssinaturaPublicaController::class)]
@@ -388,6 +389,56 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
         self::assertTrue($travas->createLock('assinatura_pdf_vaga_0')->acquire(false), 'a vaga foi devolvida');
         self::assertFalse($travas->createLock('assinatura_pdf_selo_pendente_' . $id)->acquire(false), 'a cadeia do selo segue marcada');
+    }
+
+    #[TestDox('selo com falha que tenta de novo e a fila fora do ar no download: a falha da fila sobe (500), a cadeia do selo fica livre e o clique seguinte tenta de novo')]
+    public function testFalhaNoSeloComAFilaCaida(): void
+    {
+        $fila = new class () implements TransportInterface {
+            public int $tentativas = 0;
+
+            public function get(): iterable
+            {
+                return [];
+            }
+
+            public function ack(Envelope $envelope): void
+            {
+            }
+
+            public function reject(Envelope $envelope): void
+            {
+            }
+
+            public function send(Envelope $envelope): Envelope
+            {
+                ++$this->tentativas;
+
+                throw new TransportException('fila fora do ar');
+            }
+        };
+        static::getContainer()->set('messenger.transport.async', $fila);
+        $pedidosDeSelo = 0;
+        $this->dublarSelador(static function () use (&$pedidosDeSelo): never {
+            ++$pedidosDeSelo;
+
+            throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        });
+        $this->entrarComDisco();
+        [$id] = $this->concluido();
+        $naConclusao = $fila->tentativas;
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+
+        foreach ([1, 2] as $clique) {
+            $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+            self::assertResponseStatusCodeSame(500, 'clique ' . $clique . ': a falha da fila sobe');
+            self::assertSame($naConclusao + $clique, $fila->tentativas, 'clique ' . $clique . ': tentou passar o pedido ao worker');
+            self::assertSame($clique, $pedidosDeSelo, 'clique ' . $clique . ': com a cadeia livre, gera e pede o selo');
+            self::assertTrue($travas->createLock('assinatura_pdf_selo_pendente_' . $id)->acquire(false), 'clique ' . $clique . ': a marca nova foi solta');
+        }
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertSame([], $this->eventosDoSelo($id));
     }
 
     #[TestDox('as travas são renovadas a cada pedaço: a vaga no PDF gerado na hora; a vaga e a do documento no concluído')]

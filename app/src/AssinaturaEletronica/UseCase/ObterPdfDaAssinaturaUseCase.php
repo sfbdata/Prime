@@ -53,7 +53,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * documento ({@see CadeiaDoSeloPendente}), passa o pedido ao worker ({@see GerarPdfFinalDoDocumento}, que tenta mais
  * vezes) só se a marca é nova, e responde {@see PdfDoDocumentoSendoGerado}. Assim a web nunca deixa um documento sem o
  * selo por uma falha passageira. Com a cadeia marcada, o clique seguinte responde o mesmo antes da trava do documento,
- * da vaga e da cota: não gera, não pede o selo e não abre outra cadeia.
+ * da vaga e da cota: não gera, não pede o selo e não abre outra cadeia. A fila que falha ao receber o pedido solta a
+ * marca nova e a falha sobe (o clique seguinte tenta de novo).
  */
 final readonly class ObterPdfDaAssinaturaUseCase
 {
@@ -165,9 +166,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
                     VagasDeGeracaoDoPdf::renovar($vaga, $doDocumento);
                 }, false);
             } catch (FalhaNoSelo) {
-                if ($this->cadeiaDoSelo->marcar($id)) {
-                    $this->mensagens->dispatch(new GerarPdfFinalDoDocumento($id, (int) $documento->getTenant()->getId()));
-                }
+                $this->passarAoWorker($documento);
 
                 throw new PdfDoDocumentoSendoGerado();
             } finally {
@@ -175,6 +174,28 @@ final readonly class ObterPdfDaAssinaturaUseCase
             }
         } finally {
             $doDocumento->release();
+        }
+    }
+
+    /**
+     * O selo falhou e tenta de novo: o pedido vai ao worker uma vez por cadeia, só quando a marca é nova. A fila que
+     * falha solta a marca nova (senão o download ficaria no 429 por até 30 min sem ninguém tentar o selo) e a falha
+     * sobe.
+     */
+    private function passarAoWorker(DocumentoParaAssinar $documento): void
+    {
+        $id = (int) $documento->getId();
+        $marca = $this->cadeiaDoSelo->marcar($id);
+        if ($marca === null) {
+            return;
+        }
+
+        try {
+            $this->mensagens->dispatch(new GerarPdfFinalDoDocumento($id, (int) $documento->getTenant()->getId()));
+        } catch (\Throwable $e) {
+            $marca->release();
+
+            throw $e;
         }
     }
 

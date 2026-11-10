@@ -13,8 +13,8 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  * - A geração ({@see gravar()}): os pedaços, um por vez, medindo o sha256 no caminho; o PDF inteiro nunca fica na
  *   memória.
  * - O selo (etapa 8, E8-4) manda o PDF inteiro ao validador e recebe o selado: {@see tamanho()}, {@see ler()} (até
- *   20 MB na memória, o teto do validador) e {@see regravar()}, só sobre um arquivo comum direto na área, como o que o
- *   {@see gravar()} cria.
+ *   19 MiB na memória, o {@see PdfDaAssinatura::TETO_PARA_O_MOTOR}) e {@see regravar()}, só sobre um arquivo comum
+ *   direto na área, como o que o {@see gravar()} cria.
  */
 final class PdfNoTemporario
 {

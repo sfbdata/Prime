@@ -60,7 +60,8 @@ final readonly class GerarPdfFinalDoDocumentoHandler
             $this->pdfFinal->garantir($documento, null, $mensagem->tentativa >= self::ULTIMA_TENTATIVA);
         } catch (FalhaNoSelo $falha) {
             $espera = self::ESPERA_EM_MS[$mensagem->tentativa] ?? throw $falha;
-            // Já marcada (pela web, ou numa tentativa anterior), a marca segue valendo: volta à fila do mesmo jeito.
+            // Já marcada (pela web, ou numa tentativa anterior), a marca segue valendo: volta à fila do mesmo jeito. A
+            // fila que falha aqui não solta a marca: a falha sobe e o Messenger entrega esta mesma mensagem de novo.
             $this->cadeiaDoSelo->marcar($mensagem->documentoId);
             $this->mensagens->dispatch(
                 new GerarPdfFinalDoDocumento($mensagem->documentoId, $mensagem->tenantId, $mensagem->tentativa + 1),

@@ -14,12 +14,13 @@ use Symfony\Component\Lock\LockInterface;
  * cadeia de 4 tentativas.
  *
  * Uma trava por documento na mesma loja das vagas da geração (`lock.assinatura_pdf.factory`, no banco: vale para a web
- * e para o worker), com {@see TTL_EM_SEGUNDOS} fixo e sem soltar no fim do processo. Ninguém solta: a marca expira
- * sozinha, depois do tempo das 4 tentativas.
+ * e para o worker), com {@see TTL_EM_SEGUNDOS} fixo e sem soltar no fim do processo. A marca expira sozinha, depois do
+ * tempo das 4 tentativas; só a solta quem acabou de marcar e não conseguiu passar o pedido ao worker.
  *
  * - O worker marca quando o selo falha e a mensagem volta à fila.
  * - A web, antes de gerar, pergunta {@see estaPendente()}: pendente, responde que o PDF está sendo gerado sem gerar. Na
- *   falha do selo, só passa o pedido ao worker se {@see marcar()} marcou agora.
+ *   falha do selo, só passa o pedido ao worker se {@see marcar()} marcou agora, e solta a marca nova se a fila falhar.
+ * - O vínculo à pasta, com a cadeia pendente, não pede o PDF ao worker: o vínculo segue pendente até o PDF guardado.
  */
 final readonly class CadeiaDoSeloPendente
 {
@@ -34,10 +35,15 @@ final readonly class CadeiaDoSeloPendente
     ) {
     }
 
-    /** Verdadeiro quando marcou agora; falso quando a cadeia deste documento já estava marcada. */
-    public function marcar(int $documentoId): bool
+    /**
+     * A marca posta agora, ou nulo quando a cadeia deste documento já estava marcada. Quem marcou e não conseguiu passar
+     * o pedido ao worker solta a marca nova ({@see LockInterface::release()}); fora isso, ninguém solta.
+     */
+    public function marcar(int $documentoId): ?LockInterface
     {
-        return $this->trava($documentoId)->acquire(false);
+        $trava = $this->trava($documentoId);
+
+        return $trava->acquire(false) ? $trava : null;
     }
 
     /** Sonda a marca sem deixar nenhuma: se a trava estava livre, solta na hora. */

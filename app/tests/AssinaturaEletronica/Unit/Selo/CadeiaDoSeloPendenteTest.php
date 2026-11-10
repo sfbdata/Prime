@@ -16,7 +16,7 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 /**
  * A marca da cadeia do selo por documento (spec assinatura-documentos-etapa-8, E8-4), sobre uma loja de travas em
  * memória que guarda o TTL pedido para cada trava (`$ttls`): marca uma vez, a sonda não deixa marca, a marca vale para
- * o documento dela e fica depois de quem marcou (sem soltar no fim), com o TTL fixo de 30 min.
+ * o documento dela e fica depois de quem marcou (sem soltar no fim), com o TTL fixo de 30 min; só quem marcou a solta.
  */
 #[CoversClass(CadeiaDoSeloPendente::class)]
 final class CadeiaDoSeloPendenteTest extends TestCase
@@ -63,12 +63,24 @@ final class CadeiaDoSeloPendenteTest extends TestCase
         $this->cadeia = new CadeiaDoSeloPendente(new LockFactory($loja));
     }
 
-    #[TestDox('marcar: verdadeiro só na primeira vez; depois, o documento está pendente')]
+    #[TestDox('marcar: devolve a marca só na primeira vez (nulo depois); o documento fica pendente')]
     public function testMarcaUmaVez(): void
     {
-        self::assertTrue($this->cadeia->marcar(31));
-        self::assertFalse($this->cadeia->marcar(31), 'já estava marcada');
+        self::assertNotNull($this->cadeia->marcar(31));
+        self::assertNull($this->cadeia->marcar(31), 'já estava marcada');
         self::assertTrue($this->cadeia->estaPendente(31));
+    }
+
+    #[TestDox('quem marcou e não passou o pedido ao worker solta a marca nova: o documento volta a ficar livre')]
+    public function testSoltaAMarcaNova(): void
+    {
+        $marca = $this->cadeia->marcar(31);
+        self::assertNotNull($marca);
+
+        $marca->release();
+
+        self::assertFalse($this->cadeia->estaPendente(31));
+        self::assertNotNull($this->cadeia->marcar(31));
     }
 
     #[TestDox('a sonda não deixa marca: sem cadeia, não está pendente, e marcar depois ainda marca')]
@@ -76,7 +88,7 @@ final class CadeiaDoSeloPendenteTest extends TestCase
     {
         self::assertFalse($this->cadeia->estaPendente(31));
         self::assertFalse($this->cadeia->estaPendente(31));
-        self::assertTrue($this->cadeia->marcar(31));
+        self::assertNotNull($this->cadeia->marcar(31));
     }
 
     #[TestDox('a sonda não solta a marca de quem marcou')]
@@ -86,7 +98,7 @@ final class CadeiaDoSeloPendenteTest extends TestCase
 
         self::assertTrue($this->cadeia->estaPendente(31));
         self::assertTrue($this->cadeia->estaPendente(31));
-        self::assertFalse($this->cadeia->marcar(31));
+        self::assertNull($this->cadeia->marcar(31));
     }
 
     #[TestDox('a marca é por documento')]
@@ -95,7 +107,7 @@ final class CadeiaDoSeloPendenteTest extends TestCase
         $this->cadeia->marcar(31);
 
         self::assertFalse($this->cadeia->estaPendente(32));
-        self::assertTrue($this->cadeia->marcar(32));
+        self::assertNotNull($this->cadeia->marcar(32));
     }
 
     #[TestDox('a marca fica depois de quem marcou (sem soltar no fim) e expira sozinha em 30 min')]
@@ -111,6 +123,6 @@ final class CadeiaDoSeloPendenteTest extends TestCase
 
     private function marcarEmOutroEscopo(int $documentoId): void
     {
-        self::assertTrue($this->cadeia->marcar($documentoId));
+        self::assertNotNull($this->cadeia->marcar($documentoId));
     }
 }

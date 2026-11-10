@@ -11,6 +11,7 @@ use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Service\ArquivoAssinadoNaPasta;
 use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\Selo\CadeiaDoSeloPendente;
 use App\AssinaturaEletronica\Service\VinculoComAPasta;
 use App\AssinaturaEletronica\UseCase\VincularAPastaUseCase;
 use App\Entity\Auth\User;
@@ -31,13 +32,16 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\Translation\IdentityTranslator;
 
 /**
  * O vínculo à pasta nos testes de unidade (spec assinatura-documentos-etapa-3, E3-10 a E3-12), por cima da
  * {@see OficinaDosUseCasesDaAssinatura}: pastas do escritório, a permissão de cada pasta (ver e editar, o cadeado
  * incluído, como o `canAccessResource`), o PDF final dublado no disco em memória, o contador de páginas dublado e o que
- * foi para a pasta. O pedido do PDF final ao worker vai para o barramento da oficina (`$despachadas`).
+ * foi para a pasta. O pedido do PDF final ao worker vai para o barramento da oficina (`$despachadas`); a cadeia do selo
+ * pendente é uma só por teste, numa loja de travas em memória ({@see cadeiaDoSelo()}).
  *
  * O EntityManager só entra pelos serviços finais da Pasta (`RegistroDoSistemaNaPasta` e o do contrato), como nos testes
  * deles; o domínio da assinatura grava pelo repositório dublado (`guardarNaPasta`).
@@ -76,6 +80,7 @@ trait OficinaDoVinculo
     /** Chamado quando o PDF final dublado é gerado e guardado (o evento `PdfFinalGuardado` do gerador real). */
     private ?\Closure $aoGarantir = null;
     private ?VinculoComAPasta $vinculoAtual = null;
+    private ?CadeiaDoSeloPendente $cadeiaDoSeloAtual = null;
 
     private function montarVinculo(): void
     {
@@ -119,10 +124,17 @@ trait OficinaDoVinculo
             $this->permissoes,
             $this->pdfFinal(),
             $this->barramento(),
+            $this->cadeiaDoSelo(),
             $this->arquivosNaPasta(),
             new IdentityTranslator(),
             $this->logger,
         );
+    }
+
+    /** A mesma marca da cadeia do selo para o vínculo e o worker do teste. */
+    private function cadeiaDoSelo(): CadeiaDoSeloPendente
+    {
+        return $this->cadeiaDoSeloAtual ??= new CadeiaDoSeloPendente(new LockFactory(new InMemoryStore()));
     }
 
     private function arquivosNaPasta(): ArquivoAssinadoNaPasta
