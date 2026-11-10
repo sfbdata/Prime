@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Ponto\Entity\AceiteDaFolhaDoPonto;
+use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
@@ -186,6 +188,39 @@ final class DetalheDaTrilhaDoPonto
         return self::colaborador($pessoa) + ['registro_ids' => $registroIds, 'quantidade' => \count($registroIds)];
     }
 
+    /**
+     * A folha emitida com código BJF (E16, decisão 18): a pessoa da folha, a competência e o código. Quem emitiu (a
+     * própria pessoa ou o gestor) é o autor do evento.
+     *
+     * @return array<string, mixed>
+     */
+    public static function daFolhaEmitida(FolhaEmitidaDoPonto $folha): array
+    {
+        return self::colaborador($folha->getUser()) + [
+            'folha_emitida_id' => $folha->getId(),
+            'ano'              => $folha->getAno(),
+            'mes'              => $folha->getMes(),
+            'codigo'           => $folha->getCodigo(),
+        ];
+    }
+
+    /**
+     * O aceite da folha (E16, decisões 1 e 14): a pessoa, a competência, o número do aceite e o código da folha vista.
+     * Sem o texto da ressalva, que fica só no aceite selado.
+     *
+     * @return array<string, mixed>
+     */
+    public static function doAceiteDaFolha(AceiteDaFolhaDoPonto $aceite): array
+    {
+        return self::colaborador($aceite->getUser()) + [
+            'aceite_id' => $aceite->getId(),
+            'ano'       => $aceite->getAno(),
+            'mes'       => $aceite->getMes(),
+            'numero'    => $aceite->getNumero(),
+            'codigo'    => $aceite->getFolhaVista()->getCodigo(),
+        ];
+    }
+
     /** @param array<string, mixed> $detalhe */
     public static function texto(string $acao, array $detalhe): string
     {
@@ -215,6 +250,9 @@ final class DetalheDaTrilhaDoPonto
             AcaoDaTrilhaDoPonto::BatidaAjustada       => self::textoDaMarcacao($detalhe, 'anterior') . ' passou para ' . self::textoDaMarcacao($detalhe, 'novo'),
             AcaoDaTrilhaDoPonto::BatidaDesconsiderada => self::textoDaMarcacao($detalhe, 'anterior') . ' desconsiderada',
             AcaoDaTrilhaDoPonto::AjusteDesfeito       => self::textoDoAjusteDesfeito($detalhe),
+            AcaoDaTrilhaDoPonto::FolhaEmitida         => self::textoDaFolhaEmitida($detalhe),
+            AcaoDaTrilhaDoPonto::FolhaAssinada,
+            AcaoDaTrilhaDoPonto::FolhaAssinadaComRessalva => self::textoDaCompetencia($detalhe),
             default                                   => self::textoDaJustificativa($detalhe),
         };
     }
@@ -382,6 +420,31 @@ final class DetalheDaTrilhaDoPonto
             'escala_limpa'    => 'jornada personalizada limpa (volta a do escritório)',
             default           => 'escala alterada',
         };
+    }
+
+    /**
+     * "11/2026 · BJF-ABCD-EFGH-JK23", como o desenho (L727: a folha e o código).
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaFolhaEmitida(array $detalhe): string
+    {
+        $codigo = self::textoDe($detalhe, 'codigo');
+
+        return self::textoDaCompetencia($detalhe) . ($codigo !== null ? ' · ' . $codigo : '');
+    }
+
+    /**
+     * "11/2026", a competência da folha (desenho L727 e L809).
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaCompetencia(array $detalhe): string
+    {
+        $ano = $detalhe['ano'] ?? null;
+        $mes = $detalhe['mes'] ?? null;
+
+        return is_int($ano) && is_int($mes) ? sprintf('%02d/%04d', $mes, $ano) : 'competência não informada';
     }
 
     /** @param array<string, mixed> $detalhe */

@@ -33,6 +33,10 @@ enum AcaoDaTrilhaDoPonto: string
     case BatidaAjustada        = 'batida_ajustada';
     case BatidaDesconsiderada  = 'batida_desconsiderada';
     case AjusteDesfeito        = 'ajuste_desfeito';
+    // Folha com código BJF e aceite mensal (E16, decisões 14 e 18; desenho 16 L727 e L809).
+    case FolhaEmitida          = 'folha_emitida';
+    case FolhaAssinada         = 'folha_assinada';
+    case FolhaAssinadaComRessalva = 'folha_assinada_com_ressalva';
 
     public function rotulo(): string
     {
@@ -54,6 +58,9 @@ enum AcaoDaTrilhaDoPonto: string
             self::BatidaAjustada        => 'Batida ajustada',
             self::BatidaDesconsiderada  => 'Batida desconsiderada',
             self::AjusteDesfeito        => 'Ajuste desfeito',
+            self::FolhaEmitida          => 'Folha emitida',
+            self::FolhaAssinada         => 'Folha assinada',
+            self::FolhaAssinadaComRessalva => 'Folha assinada com ressalva',
         };
     }
 
