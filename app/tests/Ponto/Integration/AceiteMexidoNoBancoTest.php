@@ -84,6 +84,8 @@ final class AceiteMexidoNoBancoTest extends KernelTestCase
     public static function provasMexidas(): iterable
     {
         yield 'situação do aceite trocada de ressalva para concordo' => ["UPDATE ponto_folha_aceite SET situacao = 'concordo', ressalva = NULL WHERE id = :aceite"];
+        // Só a coluna `situacao`: a ressalva fica, então só a comparação da situação pega este.
+        yield 'só a situação trocada de ressalva para concordo, com o texto da ressalva mantido' => ["UPDATE ponto_folha_aceite SET situacao = 'concordo' WHERE id = :aceite"];
         yield 'texto da ressalva trocado' => ["UPDATE ponto_folha_aceite SET ressalva = 'Concordo com tudo.' WHERE id = :aceite"];
         yield 'aceito_em trocado' => ["UPDATE ponto_folha_aceite SET aceito_em = aceito_em - INTERVAL '1 day' WHERE id = :aceite"];
         yield 'IP do aceite trocado' => ["UPDATE ponto_folha_aceite SET ip = '10.0.0.1' WHERE id = :aceite"];
