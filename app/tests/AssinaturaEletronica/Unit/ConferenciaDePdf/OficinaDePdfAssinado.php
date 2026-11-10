@@ -127,8 +127,9 @@ final class OficinaDePdfAssinado
     /**
      * Assinador com CMS montado à mão (RSA ou ECDSA): PSS ou PKCS#1, com ou sem atributos assinados, resumo à escolha,
      * identificação por número de série ou pela chave e certificados extras antes do signatário. `$atributosExtras` entra
-     * no fim dos atributos assinados, `$lcrs` vira o campo crls ([1]) do SignedData e `$naoAssinados` os atributos não
-     * assinados ([1]) do SignerInfo, todos já em DER.
+     * no fim dos atributos assinados, `$lcrs` vira o campo crls ([1]) do SignedData, `$naoAssinados` os atributos não
+     * assinados ([1]) do SignerInfo e `$outrosSignatarios` entra no conjunto dos SignerInfos depois do signatário,
+     * todos já em DER.
      *
      * @param list<\OpenSSLCertificate> $certificadosAntes
      *
@@ -145,8 +146,9 @@ final class OficinaDePdfAssinado
         string $atributosExtras = '',
         string $lcrs = '',
         string $naoAssinados = '',
+        string $outrosSignatarios = '',
     ): callable {
-        return static function (string $conteudo) use ($chave, $certificado, $pss, $atributos, $oidDoResumo, $pelaChave, $certificadosAntes, $atributosExtras, $lcrs, $naoAssinados): string {
+        return static function (string $conteudo) use ($chave, $certificado, $pss, $atributos, $oidDoResumo, $pelaChave, $certificadosAntes, $atributosExtras, $lcrs, $naoAssinados, $outrosSignatarios): string {
             $d = MontadorDeDer::class;
             $doCertificado = self::der($certificado);
             $campos = $d::partes($d::partes($doCertificado)[0]);
@@ -195,7 +197,7 @@ final class OficinaDePdfAssinado
                 $d::sequencia($d::oid($d::OID_DADOS)),
                 $d::contexto(0, $certificados),
                 $lcrs === '' ? '' : $d::contexto(1, $lcrs),
-                $d::conjunto($signatario),
+                $d::conjunto($signatario . $outrosSignatarios),
             );
 
             return $d::sequencia($d::oid($d::OID_DADOS_ASSINADOS), $d::contexto(0, $dadosAssinados));

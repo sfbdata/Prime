@@ -150,6 +150,20 @@ final class LeitorDeObjetosDoPdfTest extends TestCase
         self::assertSame('<</V 2>>', $this->leitor->objeto("%PDF-1.7\n" . $objeto(30, (string) gzcompress('10 0 <</V 2>>')) . $objeto(31, $bomba), 10, 0));
     }
 
+    #[TestDox('15 marcadores /Type/ObjStm no dicionário de um fluxo de 9 MB inflados: lido uma vez (15 leituras dariam 141 MB, acima do teto de trabalho)')]
+    public function testFluxoComVariosMarcadoresContaOTrabalhoUmaVez(): void
+    {
+        $dados = '20 0 ' . str_repeat(' ', 9 * 1024 * 1024);
+        $marcadores = 15;
+        self::assertGreaterThan(LimitesDaConferencia::TRABALHO_MAXIMO_EM_BYTES, $marcadores * \strlen($dados), 'o teste só prova algo se as leituras repetidas passarem do teto');
+        $comOObjeto = "5 0 obj\n<</Type/ObjStm/N 1/First 5/Filter/FlateDecode>>\nstream\n" . gzcompress('10 0 <</V 2>>') . "\nendstream\nendobj\n";
+        // O fluxo com o objeto 10 é o último a ser lido: só é achado se o fluxo grande somou trabalho uma vez.
+        $pdf = "%PDF-1.7\n" . $comOObjeto . '6 0 obj' . "\n<<" . str_repeat('/Type/ObjStm', $marcadores) . "/N 1/First 5/Filter/FlateDecode>>\nstream\n"
+            . gzcompress($dados, 9) . "\nendstream\nendobj\n";
+
+        self::assertSame('<</V 2>>', $this->leitor->objeto($pdf, 10, 0));
+    }
+
     #[TestDox('número negativo e PDF acima de 20 MB devolvem null')]
     public function testEntradasForaDoLimite(): void
     {

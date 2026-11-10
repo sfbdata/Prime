@@ -733,6 +733,28 @@ final class ConferenciaDePdfTest extends TestCase
         self::assertTrue($a->chaveConfere);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function outrosSignatarios(): iterable
+    {
+        $d = MontadorDeDer::class;
+        yield 'com 60 mil elementos' => [$d::sequencia($d::inteiro(1), $d::sequencia(str_repeat($d::nulo(), 60_000)))];
+        yield 'com a estrutura de dentro quebrada' => [$d::sequencia($d::inteiro(1), $d::tlv(0x30, "\x02\x09\x01"))];
+    }
+
+    #[DataProvider('outrosSignatarios')]
+    #[TestDox('SignerInfo a mais no CMS ($_dataName): o motor não desce nele, e a assinatura do primeiro confere')]
+    public function testOutrosSignatariosNaoSaoLidos(string $outro): void
+    {
+        $chave = OficinaDePdfAssinado::chave();
+        $assinador = OficinaDePdfAssinado::cmsManual($chave, OficinaDePdfAssinado::certificado($chave), outrosSignatarios: $outro);
+        $tamanho = \strlen($assinador('x'));
+        $pdf = OficinaDePdfAssinado::assinar(OficinaDePdfAssinado::pdfParaAssinar('', $tamanho + 1024), $assinador);
+
+        $a = $this->motor->conferir($pdf)->assinaturas[0];
+
+        self::assertSame(VereditoDaAssinatura::Integra, $a->veredito, $a->motivo);
+    }
+
     #[TestDox('o limite de elementos continua valendo no que o motor lê: atributo assinado com 50 mil elementos')]
     public function testLimiteDeElementosNoQueELido(): void
     {

@@ -95,6 +95,22 @@ final class AnalisadorDeAcrescimoTest extends TestCase
             [8 => '<</S/JavaScript/JS(this.print())>>'],
             'cria o objeto 8, uma ação',
         ];
+        yield 'cria uma página' => [
+            [8 => self::PAGINA . '/Contents 9 0 R>>'],
+            'cria o objeto 8, uma página',
+        ];
+        yield 'cria uma árvore de páginas' => [
+            [8 => '<</Type/Pages/Kids[3 0 R]/Count 1>>'],
+            'cria o objeto 8, a árvore de páginas',
+        ];
+        yield 'cria um catálogo' => [
+            [8 => '<</Type/Catalog/Pages 2 0 R>>'],
+            'cria o objeto 8, o catálogo do documento',
+        ];
+        yield 'troca o /V do campo de assinatura de antes' => [
+            [4 => '<</Type/Annot/Subtype/Widget/FT/Sig/T(Assinatura1)/V 7 0 R/Rect[0 0 0 0]/F 132/P 3 0 R>>'],
+            'muda o objeto 4, um campo de assinatura (/V)',
+        ];
         yield 'muda a árvore de páginas' => [
             [2 => '<</Type/Pages/Kids[3 0 R]/Count 1/Rotate 90>>'],
             'muda o objeto 2, a árvore de páginas (/Rotate)',
@@ -138,6 +154,76 @@ final class AnalisadorDeAcrescimoTest extends TestCase
         self::assertSame(SituacaoDaConferencia::NaoConferido, $resultado->situacao);
         self::assertSame(ConferenciaDoAcrescimo::MudaConteudo, $resultado->assinaturas[1]->acrescimo);
         self::assertSame('O acréscimo da assinatura 2 ' . $motivo, $resultado->motivo);
+    }
+
+    #[TestDox('campo de assinatura de antes: mudar a posição com o mesmo /V e preencher o /V do campo vazio são aceitos')]
+    public function testCampoDeAssinaturaDeAntesAceito(): void
+    {
+        $primeira = OficinaDePdfAssinado::pdfAssinado('rsa');
+        $mesmoV = self::segunda($primeira, [4 => '<</Type/Annot/Subtype/Widget/FT/Sig/T(Assinatura1)/V 5 0 R/Rect[10 10 90 40]/F 132/P 3 0 R>>']);
+
+        $vazio = '<</Type/Annot/Subtype/Widget/FT/Sig/T(Vazio)/Rect[0 0 0 0]/F 132/P 3 0 R';
+        $catalogo = '<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R 8 0 R]/SigFlags 3>>>>';
+        $pagina = self::PAGINA . '/Annots[4 0 R 8 0 R]>>';
+        $comCampoVazio = OficinaDePdfAssinado::assinar(
+            OficinaDePdfAssinado::acrescimoSemAssinatura(OficinaDePdfAssinado::pdfParaAssinar(), [1 => $catalogo, 3 => $pagina, 8 => $vazio . '>>']),
+            OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('rsa')),
+        );
+        $preenchido = self::assinarAcrescimo($comCampoVazio, [9 => null, 1 => $catalogo, 3 => $pagina, 8 => $vazio . '/V 10 0 R>>'], widget: 9);
+
+        foreach (['mesmo /V' => $mesmoV, 'campo vazio preenchido' => $preenchido] as $caso => $pdf) {
+            $resultado = $this->motor->conferir($pdf);
+            self::assertSame(SituacaoDaConferencia::Integro, $resultado->situacao, $caso . ': ' . $resultado->motivo);
+            self::assertSame(ConferenciaDoAcrescimo::SoAssinatura, $resultado->assinaturas[1]->acrescimo, $caso);
+        }
+    }
+
+    /** @return iterable<string, array{int, int, ?string}> */
+    public static function entradasEmFluxoDeObjetos(): iterable
+    {
+        yield 'para o fluxo de objetos do acréscimo que tem o objeto' => [9, 8, null];
+        yield 'para o fluxo de objetos do acréscimo que não tem o objeto' => [11, 8, 'o índice do acréscimo aponta o objeto 11 para onde ele não está'];
+        yield 'para um fluxo de objetos que não existe' => [9, 99, 'o índice do acréscimo aponta o objeto 9 para onde ele não está'];
+    }
+
+    #[DataProvider('entradasEmFluxoDeObjetos')]
+    #[TestDox('entrada tipo 2 do fluxo de índice $_dataName')]
+    public function testEntradaDeIndiceEmFluxoDeObjetos(int $numero, int $fluxo, ?string $razao): void
+    {
+        $primeira = OficinaDePdfAssinado::pdfAssinado('rsa');
+        $segunda = self::segunda($primeira, [
+            8 => self::fluxoDeObjetos([9 => '<</Nada(aqui)>>']),
+            10 => self::corpoDoFluxoDeIndice($numero, "\x02" . pack('N', $fluxo) . pack('n', 0)),
+        ]);
+
+        $resultado = $this->motor->conferir($segunda);
+
+        if ($razao === null) {
+            self::assertSame(SituacaoDaConferencia::Integro, $resultado->situacao, $resultado->motivo);
+            self::assertSame(ConferenciaDoAcrescimo::SoAssinatura, $resultado->assinaturas[1]->acrescimo);
+
+            return;
+        }
+        self::assertSame(SituacaoDaConferencia::NaoConferido, $resultado->situacao);
+        self::assertSame(ConferenciaDoAcrescimo::NaoConferido, $resultado->assinaturas[1]->acrescimo);
+        self::assertSame('O acréscimo da assinatura 2 não foi conferido: ' . $razao, $resultado->motivo);
+    }
+
+    #[TestDox('entrada tipo 2 do fluxo de índice para o fluxo de objetos de antes que tem a versão mais nova: aceita')]
+    public function testEntradaDeIndiceParaFluxoDeObjetosDeAntes(): void
+    {
+        $editado = OficinaDePdfAssinado::acrescimoSemAssinatura(OficinaDePdfAssinado::pdfParaAssinar(), [8 => self::fluxoDeObjetos([9 => '<</Nada(antes)>>'])], 10);
+        $primeira = OficinaDePdfAssinado::assinar($editado, OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('rsa')));
+        $segunda = self::assinarAcrescimo($primeira, [
+            1 => '<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R 10 0 R]/SigFlags 3>>>>',
+            3 => self::PAGINA . '/Annots[4 0 R 10 0 R]>>',
+            12 => self::corpoDoFluxoDeIndice(9, "\x02" . pack('N', 8) . pack('n', 0)),
+        ], widget: 10);
+
+        $resultado = $this->motor->conferir($segunda);
+
+        self::assertSame(SituacaoDaConferencia::Integro, $resultado->situacao, $resultado->motivo);
+        self::assertSame(ConferenciaDoAcrescimo::SoAssinatura, $resultado->assinaturas[1]->acrescimo);
     }
 
     #[TestDox('acréscimo de validação de longo prazo (DSS, certificado, fonte e aparência novos): íntegro')]
@@ -387,6 +473,12 @@ final class AnalisadorDeAcrescimoTest extends TestCase
     /** Objeto 8 cru: fluxo de índice com uma subseção de um número e /W [1 4 2]. */
     private static function fluxoDeIndice(int $numero, string $entrada): string
     {
-        return "8 0 obj\n<</Type/XRef/W[1 4 2]/Index[" . $numero . ' 1]/Size 9/Length ' . \strlen($entrada) . ">>\nstream\n" . $entrada . "\nendstream\nendobj\n";
+        return "8 0 obj\n" . self::corpoDoFluxoDeIndice($numero, $entrada) . "\nendobj\n";
+    }
+
+    /** Corpo de um fluxo de índice (/Type /XRef) com uma subseção de um número e /W [1 4 2]. */
+    private static function corpoDoFluxoDeIndice(int $numero, string $entrada): string
+    {
+        return '<</Type/XRef/W[1 4 2]/Index[' . $numero . ' 1]/Size 13/Length ' . \strlen($entrada) . ">>\nstream\n" . $entrada . "\nendstream";
     }
 }
