@@ -79,6 +79,28 @@ final class ConferirSegredosCommandTest extends KernelTestCase
         self::assertFalse(str_contains($tester->getDisplay(), $selo), 'O valor do segredo não pode aparecer na saída.');
     }
 
+    #[TestDox('confere o token do validador de PDF do ambiente: vazio (o .env.test) aponta o runbook; igual ao modelo é recusado; nunca mostra o valor')]
+    public function testValidadorConfereOTokenDoAmbienteSemMostrarOValor(): void
+    {
+        // O .env.test deixa o token vazio; no contêiner de dev ele pode chegar pelo .env da raiz (runbook, seção Dev).
+        $token = (string) ($_SERVER['ASSINATURA_VALIDADOR_TOKEN'] ?? '');
+
+        $tester = $this->tester();
+        $tester->setInputs(["ASSINATURA_VALIDADOR_TOKEN={$token}"]);
+        $codigo = $tester->execute(['--modelo' => '-']);
+
+        self::assertSame(Command::FAILURE, $codigo);
+        $saida = (string) preg_replace('/\s+/', ' ', $tester->getDisplay());
+        self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN', $saida);
+        if (trim($token) === '') {
+            self::assertStringContainsString('ASSINATURA_VALIDADOR_TOKEN não está definido', $saida);
+            self::assertStringContainsString('assinatura-validador-em-producao.md', $saida);
+
+            return;
+        }
+        self::assertFalse(str_contains($tester->getDisplay(), trim($token)), 'O valor do token não pode aparecer na saída.');
+    }
+
     private function tester(): CommandTester
     {
         self::bootKernel();

@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 #[AsCommand(
     name: 'app:conferir-segredos',
-    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE e ASSINATURA_SELO_SEGREDO sem mostrar os valores',
+    description: 'Confere APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE, ASSINATURA_SELO_SEGREDO e ASSINATURA_VALIDADOR_TOKEN sem mostrar os valores',
 )]
 final class ConferirSegredosCommand extends Command
 {
@@ -42,6 +42,10 @@ final class ConferirSegredosCommand extends Command
         #[Autowire(param: 'assinatura.selo_segredo')]
         #[\SensitiveParameter]
         private readonly string $segredoDoSelo,
+        // Token do validador de PDF (etapa 6): o mesmo valor que o php manda no cabeçalho e o validador_pdf confere.
+        #[Autowire('%env(string:default::ASSINATURA_VALIDADOR_TOKEN)%')]
+        #[\SensitiveParameter]
+        private readonly string $tokenDoValidador,
         #[Autowire('%kernel.project_dir%/../.env.prod.example')]
         private readonly string $caminhoDoModelo,
     ) {
@@ -78,6 +82,7 @@ final class ConferirSegredosCommand extends Command
             ),
             $this->conferente->conferirAssinatura($this->segredoDaAssinatura, $this->chaveDaSelfie, $modelo),
             $this->conferente->conferirSelo($this->segredoDoSelo, $this->segredoDaAssinatura, $this->segredoDaAplicacao, $modelo),
+            $this->conferente->conferirValidador($this->tokenDoValidador, $this->segredoDaAplicacao, $this->segredoDaAssinatura, $this->segredoDoSelo, $modelo),
         );
 
         if ($problemas !== []) {
@@ -87,7 +92,7 @@ final class ConferirSegredosCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE e ASSINATURA_SELO_SEGREDO conferidos.');
+        $io->success('APP_SECRET, SYNC_CRYPTO_KEY, CONTRIBUA_CRYPTO_KEY, ASSINATURA_SEGREDO, ASSINATURA_SELFIE_CHAVE, ASSINATURA_SELO_SEGREDO e ASSINATURA_VALIDADOR_TOKEN conferidos.');
 
         return Command::SUCCESS;
     }
