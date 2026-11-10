@@ -164,6 +164,18 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(0);
     }
 
+    #[TestDox('página recusada pelo limitador (429): o cabeçalho do desenho (L234) com logo, separador e nome vazio')]
+    public function testPaginaDoLimiteComOCabecalhoDoDesenho(): void
+    {
+        static::getContainer()->set('limiter.assinatura_publica', new RateLimiterFactoryEspiao(false));
+
+        $crawler = $this->client->request('GET', '/assinar/' . str_repeat('c', 64));
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertCount(1, $crawler->filter('body > .bjaPub > header.bjaPubCab[data-bjt-cabecalho] > img.bjaPubMarca + span.bjaOc.bjaPubSep + span.bjaPubNome'));
+        self::assertSame('', $crawler->filter('header.bjaPubCab > .bjaPubNome')->text(''));
+    }
+
     #[TestDox('arquivos: o par de limitadores próprio (IP e sha256 do token); a cota da página e dos POST não é gasta')]
     public function testLimitadoresDosArquivos(): void
     {

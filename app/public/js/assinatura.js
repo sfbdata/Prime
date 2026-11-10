@@ -909,7 +909,7 @@
                 } else if (t === 'd' && s.det) {
                     const d = s.det;
                     F.pintar(pv, {
-                        blocos: d.blocos || [], sign: (d.signatarios || []).map(x => Object.assign({}, x, { nome: nomeDoSignatario(x) })), logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
+                        blocos: d.blocos || [], sign: d.signatarios || [] /* sob a linha, o nome cadastrado (desenho L352: b.r || s.nome); o digitado fica na lista */, logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
                         limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hashEnviado || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
                     });
                 } else if (t === 'm' && s.m) {
