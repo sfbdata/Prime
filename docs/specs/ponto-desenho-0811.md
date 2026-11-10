@@ -1223,6 +1223,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   do campo, e o campo volta ao valor gravado.
   - ⚠ Desvio aprovado: o campo do limite aceita 0 no navegador, como no desenho (L250, `min="0" step="10"`), e o servidor
     recusa 0 porque o limite zero acenderia o aviso para todo mundo. Decisão do Coordenador, 10/11/2026.
+  - ⚠ Desvio aprovado: o desenho grava a cada tecla (`onInput`, L250 e L251); aqui cada campo grava ao sair dele
+    (`change`), para não gravar "1" e "12" no caminho de "120". Sem aviso de "salvo", como no desenho e na caixa do
+    trabalho externo; a recusa (0, vazio, fora da faixa, falha de rede) aparece embaixo do campo e o valor anterior
+    volta. Decisão do Coordenador, 10/11/2026.
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
   necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
