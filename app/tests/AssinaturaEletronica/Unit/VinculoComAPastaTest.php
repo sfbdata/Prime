@@ -153,6 +153,30 @@ final class VinculoComAPastaTest extends TestCase
         self::assertSame([], $this->naPasta);
     }
 
+    #[TestDox('páginas: a cópia na pasta leva o número de páginas do PDF final, contado do arquivo como no upload comum')]
+    public function testContaAsPaginas(): void
+    {
+        $documento = $this->pendenteQueConcluiu();
+        $this->paginasDoPdf = 4;
+
+        self::assertTrue($this->vinculo()->aplicar($documento));
+
+        self::assertSame(4, $this->naPasta[0]->getPaginas());
+        self::assertSame([self::PDF_FINAL], $this->pdfsContados, 'o contador leu a cópia, por um caminho local');
+    }
+
+    #[TestDox('páginas: a contagem falhou, o vínculo vai para a pasta e as páginas ficam sem contagem (como no upload)')]
+    public function testContagemDePaginasFalhou(): void
+    {
+        $documento = $this->pendenteQueConcluiu();
+        $this->paginasDoPdf = null;
+
+        self::assertTrue($this->vinculo()->aplicar($documento));
+
+        self::assertCount(1, $this->naPasta);
+        self::assertNull($this->naPasta[0]->getPaginas());
+    }
+
     #[TestDox('modelo de contrato: categoria Contrato e a situação do contrato da pasta vira Assinado (regular)')]
     public function testContratoMarcaAPasta(): void
     {

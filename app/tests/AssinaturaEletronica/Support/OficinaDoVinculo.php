@@ -21,6 +21,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Repository\ArquivoArmazenadoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\MarcarContratoAssinadoPeloArquivoUseCase;
@@ -35,7 +36,8 @@ use Symfony\Component\Translation\IdentityTranslator;
 /**
  * O vínculo à pasta nos testes de unidade (spec assinatura-documentos-etapa-3, E3-10 a E3-12), por cima da
  * {@see OficinaDosUseCasesDaAssinatura}: pastas do escritório, a permissão de cada pasta (ver e editar, o cadeado
- * incluído, como o `canAccessResource`), o PDF final dublado no disco em memória e o que foi para a pasta.
+ * incluído, como o `canAccessResource`), o PDF final dublado no disco em memória, o contador de páginas dublado e o que
+ * foi para a pasta.
  *
  * O EntityManager só entra pelos serviços finais da Pasta (`RegistroDoSistemaNaPasta` e o do contrato), como nos testes
  * deles; o domínio da assinatura grava pelo repositório dublado (`guardarNaPasta`).
@@ -67,6 +69,12 @@ trait OficinaDoVinculo
     private array $pdfsGuardados = [];
 
     private bool $pdfFalha = false;
+
+    /** O que o contador de páginas dublado devolve (nulo: não conseguiu contar). */
+    private ?int $paginasDoPdf = 2;
+
+    /** @var list<string> o conteúdo de cada PDF que o contador de páginas leu do caminho local */
+    private array $pdfsContados = [];
     private ?\Closure $aoGarantir = null;
     private ?VinculoComAPasta $vinculoAtual = null;
 
@@ -138,7 +146,27 @@ trait OficinaDoVinculo
             new IdentityTranslator(),
             $this->relogio,
             $this->logger,
+            $this->contadorDePaginas(),
         );
+    }
+
+    /** O contador de páginas dublado: lê o caminho local que recebe (como o Ghostscript) e devolve `$paginasDoPdf`. */
+    private function contadorDePaginas(): ContadorDePaginasDePdf
+    {
+        return new class (function (string $caminho): ?int {
+            $this->pdfsContados[] = (string) file_get_contents($caminho);
+
+            return $this->paginasDoPdf;
+        }) implements ContadorDePaginasDePdf {
+            public function __construct(private readonly \Closure $contar)
+            {
+            }
+
+            public function contar(string $caminhoLocal): ?int
+            {
+                return ($this->contar)($caminhoLocal);
+            }
+        };
     }
 
     /** O PDF final dublado: grava no disco em memória na primeira vez, como o gerador do bloco 1. */

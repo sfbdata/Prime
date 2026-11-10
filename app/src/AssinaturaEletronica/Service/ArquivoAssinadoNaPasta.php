@@ -13,8 +13,10 @@ use App\Pasta\Entity\ArquivoArmazenado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Service\AvisoDePastaAcompanhada;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Pasta\UseCase\MarcarContratoAssinadoPeloArquivoUseCase;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -27,8 +29,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * O PDF final com selo virando documento da pasta (spec assinatura-documentos-etapa-3, E3-12), nos passos do upload
- * comum da pasta (`UploadPecaUseCase`): cópia por chave para uma chave nova da pasta, código DOC da Central, registro no
- * histórico da pasta, contrato marcado quando couber, aviso de pasta acompanhada e sincronização com o Drive.
+ * comum da pasta (`UploadPecaUseCase`): cópia por chave para uma chave nova da pasta, código DOC da Central, número de
+ * páginas, registro no histórico da pasta, contrato marcado quando couber, aviso de pasta acompanhada e sincronização com
+ * o Drive.
  *
  * Quem decide se o vínculo pode ser aplicado e abre a transação é o {@see VinculoComAPasta}; aqui só o arquivo e o que
  * a pasta registra dele. A cópia é feita FORA da transação (uma falha do storage não fecha o EntityManager).
@@ -47,6 +50,7 @@ final readonly class ArquivoAssinadoNaPasta
         private TranslatorInterface $tradutor,
         private ClockInterface $relogio,
         private LoggerInterface $logger,
+        private ContadorDePaginasDePdf $contadorDePaginas,
         private ?AvisoDePastaAcompanhada $aviso = null,
         private ?SincronizacaoPastaDispatcher $drive = null,
     ) {
@@ -81,6 +85,7 @@ final readonly class ArquivoAssinadoNaPasta
             ->setMimeType('application/pdf')
             ->setTamanhoBytes($gravado->tamanhoBytes)
             ->setSha256($sha256)
+            ->setPaginas($this->paginas($gravado->chave))
             ->setEnviadoPor($autor)
             ->setArquivo(new ArquivoArmazenado($tenant, $codigo, $gravado->chave->nome, $gravado->tamanhoBytes, $sha256));
         $arquivo->marcarAssinadoEletronicamente(\DateTimeImmutable::createFromInterface($this->relogio->now()), $autor);
@@ -161,6 +166,30 @@ final readonly class ArquivoAssinadoNaPasta
             $modelo === 'resid' => PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA,
             default => PastaDocumento::CATEGORIA_DEMAIS,
         };
+    }
+
+    /**
+     * As páginas da cópia, pelo mesmo contador do upload comum (`UploadPecaUseCase`). O contador lê de um caminho local:
+     * a cópia é materializada pela chave numa área temporária privada, apagada no fim. Como no upload, a contagem é
+     * opcional: falha vira nulo com aviso no log, e o `app:documentos:calcular-hash --paginas` preenche depois.
+     */
+    private function paginas(ChaveDeArquivo $chave): ?int
+    {
+        $area = null;
+        try {
+            $area = AreaTemporariaPrivada::criar('vinculoassinatura');
+
+            return $this->contadorDePaginas->contar($area->gravar($this->armazenamento->ler($chave), 'pdf'));
+        } catch (\Exception $e) {
+            $this->logger->warning('Vínculo da assinatura: páginas da cópia não contadas; o documento fica sem contagem até o app:documentos:calcular-hash --paginas.', [
+                'chave' => $chave->comoTexto(),
+                'erro' => $e->getMessage(),
+            ]);
+
+            return null;
+        } finally {
+            $area?->liberar();
+        }
     }
 
     private function chaveDe(PastaDocumento $arquivo): ?ChaveDeArquivo
