@@ -1091,7 +1091,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     no audit_log, não na trilha do Ponto (o desenho não a registra). A tela aberta só vê a mudança depois de
     recarregar: quem decide é o servidor;
   - a caixa P74 mora no cabeçalho "Sedes e raio de registro", entre o título e os botões (L253). Para quem não vê
-    as sedes, fica sozinha logo abaixo das funções, para a função não sumir de ninguém;
+    as sedes, fica sozinha logo abaixo das funções, para a função não sumir de ninguém. Hoje esse caminho é só
+    proteção: a caixa e as sedes pedem a mesma permissão (`admin.ponto.manage`, `FuncoesDoPonto` e `GestaoDoPonto`),
+    então quem vê a caixa sempre vê as sedes;
   - a etiqueta "Trabalho externo" da folha é o texto do desenho no comprovante (L584, "· Trabalho externo" ao lado
     de "· Sem internet"), como a "Sem internet" da E14. A folha do desenho não tem a etiqueta; ela entra pela
     mesma regra da E14, para a batida sem sede aparecer no dia;
