@@ -105,6 +105,7 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $detalhe = $this->json()['documento'];
         self::assertSame('aguardando', $detalhe['situacao']);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $detalhe['hashEnviado']);
+        self::assertContains('Enviado para assinatura. Hash ' . substr((string) $detalhe['hashEnviado'], 0, 16) . '...', array_column($detalhe['eventos'], 'texto'), 'o texto do desenho, L375');
         self::assertNotNull($detalhe['enviadoEm']);
         self::assertNull($detalhe['concluidoEm']);
         $tokens = self::tokens($detalhe);
@@ -242,7 +243,7 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $detalhe = $this->json()['documento'];
         self::assertSame('cancelado', $detalhe['situacao']);
         self::assertSame([null, null], array_column($detalhe['signatarios'], 'link'));
-        self::assertSame('Envio cancelado', $detalhe['eventos'][0]['texto']);
+        self::assertSame('Envio cancelado. Documento e evidências preservados', $detalhe['eventos'][0]['texto']);
         self::assertSame('cancelado', $this->abrir((string) $tokens[0])['estado']);
 
         $this->client->request('POST', '/assinatura/documentos/' . $id . '/cancelar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);

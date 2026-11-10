@@ -83,7 +83,7 @@ final class AssinaturaReforcadaTest extends JusPrimeWebTestCase
         self::assertSame('reforcada', $ana['metodo']);
         self::assertFalse($bia['selfie']);
         self::assertNull($bia['localizacao']);
-        self::assertContains('Ana Lima assinou (Reforçada): selfie e localização -15.79388, -47.88278', array_column($detalhe['eventos'], 'texto'));
+        self::assertContains('Assinado por Ana Maria Lima · E-mail e código, selfie, localização -15.79388, -47.88278', array_column($detalhe['eventos'], 'texto'));
         self::assertStringNotContainsString('cifrado', (string) json_encode($detalhe), 'o detalhe não diz onde a selfie está');
     }
 

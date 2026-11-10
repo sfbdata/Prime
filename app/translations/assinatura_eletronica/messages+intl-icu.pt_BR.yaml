@@ -11,17 +11,17 @@ assinatura_eletronica:
         movido_para_lixeira: Movido para a Lixeira. Evidências preservadas
         restaurado: Restaurado da Lixeira
         envio_cancelado_pela_exclusao: Envio cancelado pela exclusão. Links desativados
-        documento_enviado: Documento enviado para assinatura
+        documento_enviado: Enviado para assinatura. Hash {hash_inicio}...
         convite_enviado: Convite enviado por e-mail a {nome}
         email_nao_enviado: E-mail não enviado a {nome}
         link_aberto: '{nome} abriu o link'
         codigo_enviado: Código de verificação enviado a {nome}
         codigo_errado: Código incorreto informado por {nome}
-        assinado: '{metodo, select, reforcada {{nome} assinou (Reforçada): selfie e localização {local}} other {{nome} assinou (Simples)}}'
-        recusado: '{nome} recusou: {motivo}'
-        documento_concluido: 'Documento concluído: todas as assinaturas registradas'
+        assinado: '{metodo, select, reforcada {Assinado por {nome} · E-mail e código, selfie, localização {local}} other {Assinado por {nome} · E-mail e código}}'
+        recusado: 'Recusado por {nome}: {motivo}'
+        documento_concluido: Documento concluído
         lembrete_enviado: Lembrete enviado a {nome}
-        envio_cancelado: Envio cancelado
+        envio_cancelado: Envio cancelado. Documento e evidências preservados
         # Etapa 3: o vínculo à pasta (contrato da etapa 3, seção 2, item 9).
         vinculo_definido: 'Definido o vínculo à pasta {nup} ao concluir'
         vinculo_feito: 'Documento assinado vinculado à pasta {nup}'
@@ -104,7 +104,7 @@ assinatura_eletronica:
         recusa_sem_motivo: Informe o motivo.
         recusa_motivo_longo: O motivo pode ter até 500 caracteres.
     publica:
-        titulo: Assinatura de documento
+        titulo: Assinatura
         limite: Aguarde um pouco
         estado:
             pronto: Pronto para assinar.
