@@ -97,5 +97,6 @@ assinatura_eletronica_publica:
                 ilegivel: 'Não foi possível ler este arquivo.'
                 sem_cpf: 'O certificado deste arquivo não traz CPF.'
                 cpf_diferente: 'O CPF do certificado não corresponde ao cadastrado para este signatário.'
+                cpf_nao_lido: 'Não foi possível ler o CPF do certificado deste arquivo.'
                 cadeia_indisponivel: 'Não foi possível conferir a assinatura agora. Tente de novo em alguns minutos.'
                 cadeia_recusada: 'O certificado desta assinatura não foi confirmado pela cadeia oficial.'

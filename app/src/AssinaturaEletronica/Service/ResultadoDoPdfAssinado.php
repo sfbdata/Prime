@@ -27,6 +27,7 @@ final readonly class ResultadoDoPdfAssinado
     public const ILEGIVEL = 'ilegivel';
     public const SEM_CPF = 'sem_cpf';
     public const CPF_DIFERENTE = 'cpf_diferente';
+    public const CPF_NAO_LIDO = 'cpf_nao_lido';
     public const CADEIA_INDISPONIVEL = 'cadeia_indisponivel';
     public const CADEIA_RECUSADA = 'cadeia_recusada';
 

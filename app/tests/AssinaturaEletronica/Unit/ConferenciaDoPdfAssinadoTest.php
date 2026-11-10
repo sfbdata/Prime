@@ -150,8 +150,10 @@ final class ConferenciaDoPdfAssinadoTest extends TestCase
 
         yield 'certificado sem CPF' => [$semCpf, OficinaDePdfAssinado::CPF, ResultadoDoPdfAssinado::SEM_CPF];
         yield 'CPF do certificado diferente do cadastrado' => [$vinculado, OficinaDePdfAssinado::CPF_2, ResultadoDoPdfAssinado::CPF_DIFERENTE];
-        yield 'CPF que o motor não confere (certificado não vinculado à assinatura)' => [$semVinculo, OficinaDePdfAssinado::CPF, ResultadoDoPdfAssinado::CADEIA_RECUSADA];
-        yield 'sem CPF esperado: o motor não confere o CPF' => [$semCpf, null, null];
+        yield 'CPF que o motor não lê (certificado não vinculado à assinatura)' => [$semVinculo, OficinaDePdfAssinado::CPF, ResultadoDoPdfAssinado::CPF_NAO_LIDO];
+        yield 'sem CPF cadastrado e certificado sem CPF' => [$semCpf, null, ResultadoDoPdfAssinado::SEM_CPF];
+        yield 'sem CPF cadastrado e certificado com CPF' => [$vinculado, null, null];
+        yield 'sem CPF cadastrado, nova com CPF seguida do carimbo de documento (sem CPF)' => [self::novaComCarimbo(...), null, null];
     }
 
     /** @param \Closure(string): string $devolvido */
@@ -164,7 +166,21 @@ final class ConferenciaDoPdfAssinadoTest extends TestCase
 
         $resultado = $this->conferencia()->conferir($this->documento, $devolvido($base), $cpfEsperado);
 
-        self::assertSame($erro, $resultado->erro);
+        self::assertSame($erro, $resultado->erro, (string) $resultado->motor?->motivo);
+    }
+
+    #[TestDox('o carimbo de documento depois da nova é a última assinatura do arquivo, e o CPF que vale é o da nova')]
+    public function testCarimboDepoisDaNovaEAUltima(): void
+    {
+        $base = OficinaDePdfAssinado::pdfAssinado();
+        $this->comBase($base);
+
+        $resultado = $this->conferencia()->conferir($this->documento, self::novaComCarimbo($base), null);
+
+        self::assertNull($resultado->motor?->ultimaAssinatura()?->cpf, 'o carimbo não traz CPF');
+        self::assertTrue($resultado->motor?->ultimaAssinatura()?->carimboDoTempo());
+        self::assertTrue($resultado->aceitou());
+        self::assertSame(3, $resultado->assinaturas());
     }
 
     #[TestDox('o arquivo da versão base sumiu: a falha sobe, não vira recusa do arquivo enviado')]
@@ -180,6 +196,7 @@ final class ConferenciaDoPdfAssinadoTest extends TestCase
     public function testChaveDoCatalogo(): void
     {
         self::assertSame('assinatura_eletronica_publica.js.certificado.erro.prefixo', ResultadoDoPdfAssinado::chave(ResultadoDoPdfAssinado::PREFIXO));
+        self::assertSame('assinatura_eletronica_publica.js.certificado.erro.cpf_nao_lido', ResultadoDoPdfAssinado::chave(ResultadoDoPdfAssinado::CPF_NAO_LIDO));
     }
 
     /** A conferência sobre o disco em memória e o repositório de versões que só sabe a `ultima` (nunca grava). */
@@ -213,6 +230,23 @@ final class ConferenciaDoPdfAssinadoTest extends TestCase
                 3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[6 0 R]>>',
             ]),
             OficinaDePdfAssinado::cmsManual($chave, $certificado, atributosExtras: OficinaDePdfAssinado::vinculo($certificado)),
+        );
+    }
+
+    /**
+     * A assinatura nova (certificado com CPF, sem o vínculo) e, depois dela, o carimbo de documento (`ETSI.RFC3161`,
+     * certificado da ACT sem CPF), como em {@see RegraDaCadeiaComOMotorTest}: a última assinatura do arquivo é o carimbo.
+     */
+    private static function novaComCarimbo(string $base): string
+    {
+        $comNova = OficinaDePdfAssinado::assinar(OficinaDePdfAssinado::acrescimoParaAssinar($base), OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('ec')));
+
+        return OficinaDePdfAssinado::assinar(
+            OficinaDePdfAssinado::acrescimoParaAssinar($comNova, '', 'ETSI.RFC3161', [
+                1 => '<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[4 0 R 6 0 R 8 0 R]/SigFlags 3>>>>',
+                3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Annots[4 0 R 6 0 R 8 0 R]>>',
+            ], widget: 8),
+            OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('ec'), OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave('ec'), 'ACT DE TESTE')),
         );
     }
 

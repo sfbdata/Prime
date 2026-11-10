@@ -70,6 +70,7 @@ final class PdfAssinadoPublicoTest extends JusPrimeWebTestCase
         self::assertSame($versoes, $this->versoes($id), 'nenhuma versão nova');
         self::assertSame($trilha, $this->trilha($id), 'nenhum evento na trilha');
         self::assertCount($gravadas, $this->disco->memoria->gravadas, 'nenhum arquivo gravado');
+        self::assertContains(\sprintf('tenant:%d/assinatura_documento/%s', $this->tenantDoDocumento($id), $versoes[0]['arquivo_chave']), $this->disco->memoria->lidas, 'a versão base foi lida');
         self::assertSame(0, $this->validador->conferencias, 'o validador de cadeia não é chamado');
         self::assertSame('pendente', $this->conexao()->fetchOne('SELECT situacao FROM assinatura_eletronica_signatario WHERE documento_id = ?', [$id]));
     }
@@ -139,17 +140,20 @@ final class PdfAssinadoPublicoTest extends JusPrimeWebTestCase
         self::assertSame([hash('sha256', $token)], $espiao->chavesConsumidas);
     }
 
-    #[TestDox('limitador próprio estourado: 429 com o texto, sem conferir o arquivo')]
+    #[TestDox('limitador próprio estourado: 429 com o texto, sem ler a versão base nem conferir o arquivo')]
     public function testLimiteEstourado(): void
     {
         static::getContainer()->set('limiter.assinatura_publica_pdf_assinado', new RateLimiterFactoryEspiao(false));
         [, $token, $base] = $this->documentoComGovbr();
+        $lidas = $this->disco->memoria->lidas;
 
         $this->enviarPdf($token, $this->temporario('a.pdf', OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', null, $base)));
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame(['erro' => 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'], $this->json());
         self::assertCabecalhosPublicos($this->client->getResponse());
+        self::assertSame($lidas, $this->disco->memoria->lidas, 'a versão base não foi lida');
+        self::assertSame(0, $this->validador->conferencias);
     }
 
     /**
@@ -221,6 +225,11 @@ final class PdfAssinadoPublicoTest extends JusPrimeWebTestCase
         clearstatcache(true, $arquivo->getPathname());
 
         return new UploadedFile($arquivo->getPathname(), 'grande.pdf', null, null, true);
+    }
+
+    private function tenantDoDocumento(int $documento): int
+    {
+        return (int) $this->conexao()->fetchOne('SELECT tenant_id FROM assinatura_eletronica_documento WHERE id = ?', [$documento]);
     }
 
     /** @return list<array<string, mixed>> */

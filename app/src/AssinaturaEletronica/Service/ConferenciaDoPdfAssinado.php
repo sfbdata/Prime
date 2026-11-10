@@ -12,6 +12,7 @@ use App\AssinaturaEletronica\Service\Cadeia\RegraDaCadeia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDePdf;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoCpf;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
@@ -29,8 +30,10 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * Os códigos da regra viram os do catálogo público: motor ilegível `ilegivel`; sem assinatura `sem_assinatura`;
  * assinatura alterada e acréscimo que muda o conteúdo ou que não foi conferido `alterada` (quem muda a página no
  * próprio acréscimo assina outro conteúdo, M27); prefixo que não confere ou não pedido `prefixo`; nenhuma assinatura
- * nova `sem_assinatura_nova`. O CPF: certificado sem CPF `sem_cpf`; CPF diferente `cpf_diferente`; CPF que o motor não
- * pôde conferir (assinatura não íntegra ou certificado não vinculado, M26) `cadeia_recusada`.
+ * nova `sem_assinatura_nova`. O CPF: certificado sem CPF `sem_cpf`, com ou sem CPF cadastrado (E5-3 é incondicional);
+ * CPF diferente do cadastrado `cpf_diferente`; CPF que o motor não pôde conferir (assinatura não íntegra ou certificado
+ * não vinculado, M26) `cpf_nao_lido`. Sem CPF cadastrado o motor não confere o CPF: aqui só se exige que o certificado
+ * da assinatura nova traga um.
  *
  * O arquivo da versão base é lido até um byte além do teto do motor (20 MB, E5-8): o PDF devolvido começa por ela e
  * também não pode passar do teto. Arquivo da versão ausente ou pane do armazenamento sobem: é falha nossa, não do
@@ -61,7 +64,7 @@ final readonly class ConferenciaDoPdfAssinado
         }
 
         $motor = $this->motor->conferir($pdf, $this->conteudo($base), $cpfEsperado);
-        $erro = self::erroDaRegra($this->regra->antesDoValidador($motor)) ?? self::erroDoCpf($motor->cpf);
+        $erro = self::erroDaRegra($this->regra->antesDoValidador($motor)) ?? self::erroDoCpf($motor);
 
         return $erro === null ? ResultadoDoPdfAssinado::aceito($motor) : ResultadoDoPdfAssinado::recusado($erro, $motor);
     }
@@ -86,15 +89,28 @@ final readonly class ConferenciaDoPdfAssinado
      * Depois da regra há assinatura nova, e o alvo do CPF do motor (a última que não é carimbo) é uma delas: o "sem
      * assinatura" do CPF não acontece aqui, e se acontecer é o mesmo que nenhuma assinatura nova.
      */
-    private static function erroDoCpf(ConferenciaDoCpf $cpf): ?string
+    private static function erroDoCpf(ResultadoDaConferencia $motor): ?string
     {
-        return match ($cpf) {
-            ConferenciaDoCpf::NaoPedida, ConferenciaDoCpf::Confere => null,
+        return match ($motor->cpf) {
+            ConferenciaDoCpf::NaoPedida => self::semCpfNaNova($motor) ? ResultadoDoPdfAssinado::SEM_CPF : null,
+            ConferenciaDoCpf::Confere => null,
             ConferenciaDoCpf::SemCpfNoCertificado => ResultadoDoPdfAssinado::SEM_CPF,
             ConferenciaDoCpf::NaoConfere => ResultadoDoPdfAssinado::CPF_DIFERENTE,
-            ConferenciaDoCpf::NaoConferido => ResultadoDoPdfAssinado::CADEIA_RECUSADA,
+            ConferenciaDoCpf::NaoConferido => ResultadoDoPdfAssinado::CPF_NAO_LIDO,
             ConferenciaDoCpf::SemAssinatura => ResultadoDoPdfAssinado::SEM_ASSINATURA_NOVA,
         };
+    }
+
+    /**
+     * Sem CPF cadastrado: o certificado da assinatura nova mais recente não traz CPF. É a mesma assinatura que o motor
+     * confere quando há CPF esperado (a última que não é carimbo do tempo): o carimbo de documento que vem depois dela
+     * não tem CPF e não conta.
+     */
+    private static function semCpfNaNova(ResultadoDaConferencia $motor): bool
+    {
+        $novas = RegraDaCadeia::novas($motor);
+
+        return ($novas[\count($novas) - 1] ?? null)?->cpf === null;
     }
 
     /** Os bytes da versão base, até um byte além do teto do motor. */

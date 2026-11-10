@@ -24,8 +24,10 @@ use App\Tests\AssinaturaEletronica\Support\OficinaDosUseCasesDaAssinatura;
 use App\Tests\AssinaturaEletronica\Support\ValidadorDeCadeiaContado;
 use App\Tests\AssinaturaEletronica\Unit\ConferenciaDePdf\OficinaDePdfAssinado;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -118,6 +120,55 @@ final class ConferirPdfAssinadoUseCaseTest extends TestCase
         $this->assertRecusa('assinatura_eletronica.publica.estado.aguardando_anterior', $bia, OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', null, $base));
     }
 
+    /** @return iterable<string, array{\Closure(DocumentoParaAssinar, Signatario, MockClock): void, string}> */
+    public static function foraDoPronto(): iterable
+    {
+        yield 'link vencido (prazo de 7 dias passado)' => [
+            static function (DocumentoParaAssinar $documento, Signatario $bia, MockClock $relogio): void {
+                $relogio->modify('2026-11-16 09:00:01');
+            },
+            'prazo_encerrado',
+        ];
+        yield 'documento cancelado' => [
+            static function (DocumentoParaAssinar $documento): void {
+                $documento->cancelarEnvio();
+            },
+            'cancelado',
+        ];
+        yield 'documento na Lixeira' => [
+            static function (DocumentoParaAssinar $documento): void {
+                $documento->moverParaLixeira(null, new \DateTimeImmutable('2026-11-09 09:30:00'));
+            },
+            'cancelado',
+        ];
+        yield 'signatário que já assinou' => [
+            static function (DocumentoParaAssinar $documento, Signatario $bia): void {
+                $documento->assinarComCertificado($bia, 'Bia Souza', OficinaDePdfAssinado::CPF, null, null, new \DateTimeImmutable('2026-11-09 09:30:00'));
+            },
+            'ja_assinado',
+        ];
+    }
+
+    /** @param \Closure(DocumentoParaAssinar, Signatario, MockClock): void $situacao */
+    #[DataProvider('foraDoPronto')]
+    #[TestDox('fora do "pronto": $_dataName recusa com o texto do estado, sem ler a versão base nem consultar o arquivo')]
+    public function testForaDoPronto(\Closure $situacao, string $estado): void
+    {
+        [$bia, $base] = $this->enviadoComGovbr();
+        $situacao($this->naBase[0], $bia, $this->relogio);
+
+        try {
+            $this->useCase()->executar($this->chave->token($bia), $this->upload('a.pdf', OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', null, $base)));
+            self::fail('esperava a recusa do estado ' . $estado);
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.publica.estado.' . $estado, $e->getMessage());
+        }
+        self::assertSame([], $this->disco->lidas, 'a versão base não foi lida');
+        self::assertSame([], $this->gravados);
+        self::assertSame([], $this->disco->gravadas);
+        self::assertSame(0, $this->validador->conferencias);
+    }
+
     #[TestDox('validador de cadeia não configurado: "cadeia_indisponivel" antes de ler o arquivo')]
     public function testValidadorNaoConfigurado(): void
     {
@@ -182,14 +233,27 @@ final class ConferirPdfAssinadoUseCaseTest extends TestCase
         self::assertSame(0, $this->validador->conferencias);
     }
 
-    #[TestDox('sem CPF cadastrado: o motor não confere o CPF do certificado (fica para a assinatura com certificado)')]
-    public function testSemCpfCadastrado(): void
+    #[TestDox('sem CPF cadastrado e certificado sem CPF: "sem_cpf" (E5-3 vale sem cadastro)')]
+    public function testSemCpfCadastradoECertificadoSemCpf(): void
     {
         [$bia, $base] = $this->enviadoComGovbr(cpf: null);
+        $semCpf = OficinaDePdfAssinado::assinar(
+            OficinaDePdfAssinado::acrescimoParaAssinar($base),
+            OficinaDePdfAssinado::cmsDoOpenssl(OficinaDePdfAssinado::chave('ec'), OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave('ec'), 'SEM DOCUMENTO')),
+        );
 
-        $conferido = $this->useCase()->executar($this->chave->token($bia), $this->upload('a.pdf', OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave('ec'), 'BELTRANA:' . OficinaDePdfAssinado::CPF_2), $base)));
+        $this->assertRecusa(ResultadoDoPdfAssinado::chave(ResultadoDoPdfAssinado::SEM_CPF), $bia, $semCpf);
+    }
 
-        self::assertSame(2, $conferido->n);
+    #[TestDox('sem CPF cadastrado e certificado com CPF: passa, sem nada com que comparar')]
+    public function testSemCpfCadastradoECertificadoComCpf(): void
+    {
+        [$bia, $base] = $this->enviadoComGovbr(cpf: null);
+        $comCpf = OficinaDePdfAssinado::pdfAssinadoComVinculo('ec', OficinaDePdfAssinado::certificado(OficinaDePdfAssinado::chave('ec'), 'BELTRANA:' . OficinaDePdfAssinado::CPF_2), $base);
+
+        $conferido = $this->useCase()->executar($this->chave->token($bia), $this->upload('a.pdf', $comCpf));
+
+        self::assertSame(['n' => 2, 'arquivo' => 'a.pdf', 'preservadas' => true], $conferido->paraJson());
     }
 
     private function useCase(): ConferirPdfAssinadoUseCase
