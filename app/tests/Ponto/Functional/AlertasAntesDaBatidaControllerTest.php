@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\DTO\IntervalosDaFolha;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\JornadaColaborador;
@@ -15,17 +16,18 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Ponto\Service\ConteudoDaFolhaDoMes;
 use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\InicioContagemResolver;
+use App\Ponto\Service\LinhasDaFolhaImpressa;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Twig\Environment;
 
 /**
  * E11 do desenho do Ponto (spec docs/specs/ponto-desenho-0811.md, P21; risco ALTO): o intervalo curto, a interjornada
@@ -33,7 +35,9 @@ use Twig\Environment;
  * 8 horas de interjornada). A primeira tentativa devolve o alerta sem gravar; "Registrar assim mesmo" manda de novo com
  * a confirmação e o mesmo `idEnvio`, a batida grava e a folha marca o não conforme. Com a chave `ponto-alertas`
  * desligada nada avisa e nada recusa: a batida grava direto e a folha continua marcando (desenho L498). O "Descanso
- * Semanal Remunerado" da folha sai da maior sequência de dias com registro (desenho L693). A batida da fila e a saída de
+ * Semanal Remunerado" da folha sai da maior sequência de dias com registro (desenho L693). A folha se lê nos dois
+ * documentos: o XLSX pelos dados da folha exportada e a folha em PDF (E16) pelo quadro "CONTROLE DE INTERVALOS" do
+ * conteúdo que o desenho recebe ({@see IntervalosDaFolha}). A batida da fila e a saída de
  * esquecimento ficam em BatidaSemInternet*Test e InterjornadaDeEsquecimentoTest.
  *
  * A pessoa tem home office liberado todo dia (a batida passa sem GPS).
@@ -41,6 +45,8 @@ use Twig\Environment;
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
 #[CoversClass(AlertasAntesDaBatida::class)]
+#[CoversClass(ConteudoDaFolhaDoMes::class)]
+#[CoversClass(LinhasDaFolhaImpressa::class)]
 final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
 {
     use CenarioDeJornadaPorEscritorioTrait;
@@ -95,9 +101,11 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->batidas('retorno'));
         self::assertSame(self::ID_DO_ENVIO, $this->em()->getConnection()->fetchOne("SELECT id_envio FROM registro_ponto WHERE user_id = ? AND tipo = 'retorno'", [$this->pessoa->getId()]));
         $this->saidaLogoDepois();
-        $folha = $this->dadosDaFolha(new \DateTimeImmutable());
-        self::assertFalse($folha['intrajornadaConforme'], 'a folha reflete o horário real');
-        self::assertStringContainsString('Intervalo Intrajornada (m&#237;n. ', $this->pdf($folha));
+        self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['intrajornadaConforme'], 'o XLSX reflete o horário real');
+        $intervalos = $this->intervalosDaFolhaEmPdf(new \DateTimeImmutable());
+        self::assertFalse($intervalos->intrajornadaConforme(), 'a folha em PDF reflete o horário real: "Não conforme"');
+        self::assertSame('Dias ' . (new \DateTimeImmutable())->format('d'), IntervalosDaFolha::textoDosDias($intervalos->diasIntrajornada));
+        self::assertSame(30, $intervalos->minimoIntrajornada, 'o rótulo mostra o mínimo da Jornada do escritório (decisão 26)');
     }
 
     #[TestDox('Entrada antes das 8 horas de interjornada do escritório: o alerta volta sem gravar; com a confirmação, grava, e a folha marca a interjornada não conforme')]
@@ -124,7 +132,8 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->bater('entrada', true)['success']);
         self::assertSame(2, $this->batidas('entrada'));
         if ((int) $ontem->format('n') === (int) date('n')) {   // a folha do mês não vê a saída do mês anterior
-            self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['interjornadaConforme']);
+            self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['interjornadaConforme'], 'o XLSX');
+            self::assertFalse($this->intervalosDaFolhaEmPdf(new \DateTimeImmutable())->interjornadaConforme(), 'a folha em PDF');
         }
     }
 
@@ -232,9 +241,8 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('alerta', $resposta);
         self::assertSame(1, $this->batidas('retorno'));
         $this->saidaLogoDepois();
-        $folha = $this->dadosDaFolha(new \DateTimeImmutable());
-        self::assertFalse($folha['intrajornadaConforme'], 'a folha continua marcando com a chave desligada');
-        $this->pdf($folha);
+        self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['intrajornadaConforme'], 'o XLSX continua marcando com a chave desligada');
+        self::assertFalse($this->intervalosDaFolhaEmPdf(new \DateTimeImmutable())->intrajornadaConforme(), 'e a folha em PDF também');
         self::assertSame('0', $this->minimoDoAvisoNoCartao());
     }
 
@@ -255,11 +263,12 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('alerta', $resposta);
         self::assertSame(2, $this->batidas('entrada'));
         if ((int) $ontem->format('n') === (int) date('n')) {   // a folha do mês não vê a saída do mês anterior
-            self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['interjornadaConforme']);
+            self::assertFalse($this->dadosDaFolha(new \DateTimeImmutable())['interjornadaConforme'], 'o XLSX');
+            self::assertFalse($this->intervalosDaFolhaEmPdf(new \DateTimeImmutable())->interjornadaConforme(), 'a folha em PDF');
         }
     }
 
-    #[TestDox('Folha: 7 dias seguidos com registro no mês marcam o Descanso Semanal Remunerado não conforme no PDF; 6 dias, conforme')]
+    #[TestDox('Folha: 7 dias seguidos com registro no mês marcam o Descanso Semanal Remunerado não conforme no XLSX e no PDF; 6 dias, conforme')]
     public function testDescansoSemanalDaFolha(): void
     {
         $outubro = new \DateTimeImmutable('2026-10-05');
@@ -267,7 +276,10 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
             $this->registrarBatida($this->pessoa, $this->escritorio, 'entrada', $outubro->modify(sprintf('+%d days', $d))->setTime(8, 0));
             $this->registrarBatida($this->pessoa, $this->escritorio, 'saida', $outubro->modify(sprintf('+%d days', $d))->setTime(17, 0));
         }
-        self::assertTrue($this->dadosDaFolha($outubro)['descansoSemanalConforme'], '6 dias seguidos: conforme');
+        self::assertTrue($this->dadosDaFolha($outubro)['descansoSemanalConforme'], '6 dias seguidos: conforme no XLSX');
+        $seis = $this->intervalosDaFolhaEmPdf($outubro);
+        self::assertSame([6, true], [$seis->maiorSequencia, $seis->descansoSemanalConforme()], '6 dias seguidos: conforme no PDF');
+        self::assertStringNotContainsString('dias seguidos', $seis->textoDaContagem());
 
         $this->registrarBatida(
             $this->em()->getReference(User::class, (int) $this->pessoa->getId()),
@@ -276,10 +288,11 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
             $outubro->modify('+6 days')->setTime(8, 0),
         );   // o 7º dia seguido (a leitura da folha limpou o EntityManager)
         $folha = $this->dadosDaFolha($outubro);
+        $sete = $this->intervalosDaFolhaEmPdf($outubro);
 
-        self::assertFalse($folha['descansoSemanalConforme']);
-        $html = static::getContainer()->get(Environment::class)->render('ponto/folha_pdf.html.twig', $folha);
-        self::assertMatchesRegularExpression('/Descanso Semanal Remunerado:\s*<span class="nao-conforme">&#10007; N&#227;o Conforme<\/span>/', $html);
+        self::assertFalse($folha['descansoSemanalConforme'], 'o XLSX');
+        self::assertSame([7, false], [$sete->maiorSequencia, $sete->descansoSemanalConforme()], 'a folha em PDF: "Não conforme"');
+        self::assertStringEndsWith(' · 7 dias seguidos', $sete->textoDaContagem());
     }
 
     #[TestDox('Chave ponto-alertas desligada: o 7º dia seguido não é olhado, a entrada grava')]
@@ -386,8 +399,8 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Os dados que o PDF da folha recebe, com os passos de `PontoController::exportarFolhaPdf` (o Dompdf comprime o
-     * texto; o que dá para ler é o que ele recebe, como no FolhaExportacaoMesmaEscolhaTest).
+     * Os dados da folha exportada que o XLSX recebe: as linhas do `FolhaPontoBuilder` do mês e o mesmo
+     * `DadosDaFolhaExportada::montar` da rota `ponto_exportar_xlsx`.
      *
      * @return array<string, mixed>
      */
@@ -426,12 +439,20 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         return $dados;
     }
 
-    /** @param array<string, mixed> $dados */
-    private function pdf(array $dados): string
+    /**
+     * O quadro "CONTROLE DE INTERVALOS" da folha em PDF (E16): o conteúdo que a rota `ponto_exportar_pdf` manda desenhar,
+     * pelo mesmo {@see ConteudoDaFolhaDoMes}, com o EntityManager limpo como numa requisição.
+     */
+    private function intervalosDaFolhaEmPdf(\DateTimeImmutable $dia): IntervalosDaFolha
     {
-        $html = static::getContainer()->get(Environment::class)->render('ponto/folha_pdf.html.twig', $dados);
-        self::assertStringContainsString('<span class="nao-conforme">&#10007; N&#227;o Conforme</span>', $html);
+        $this->em()->clear();
+        $pessoa = $this->em()->find(User::class, $this->pessoa->getId());
+        $escritorio = $this->em()->find(Tenant::class, $this->escritorio->getId());
+        self::assertNotNull($pessoa);
+        self::assertNotNull($escritorio);
 
-        return $html;
+        return static::getContainer()->get(ConteudoDaFolhaDoMes::class)
+            ->montar($escritorio, $pessoa, (int) $dia->format('Y'), (int) $dia->format('n'), new \DateTimeImmutable())
+            ->intervalos;
     }
 }
