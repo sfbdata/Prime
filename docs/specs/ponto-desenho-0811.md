@@ -910,8 +910,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Limites conhecidos da E8: o lembrete de saída e o alerta de horário de saída podem tocar e notificar quase juntos;
   com um modal antigo aberto por baixo, o foco vai a ele quando a janela do alerta fecha. A saída que fica sem
   confirmação (o servidor não respondeu a tempo) não segura o lembrete: ele ainda toca (uma vez no dia), e a caixa de
-  hoje já manda conferir. Ao fechar a janela "Antes de registrar" sem registrar, o foco volta ao "Bater Ponto" (a
-  origem da E11).
+  hoje já manda conferir. Ao fechar a janela "Antes de registrar" sem registrar, o foco vai ao título do cartão, como
+  na janela do trabalho externo: no "Bater Ponto", um Enter bateria o tipo sugerido.
 
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,

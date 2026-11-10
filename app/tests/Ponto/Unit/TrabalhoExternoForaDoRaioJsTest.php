@@ -517,7 +517,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('abrirJanelaDoTrabalhoExterno(origemDaJanelaExterna(), payload.tipo, porque);', self::corpo($tela, 'function reabrirTrabalhoExterno(payload, porque) {'));
         self::assertStringContainsString('abrirJanelaDoTrabalhoExterno(origemDaJanelaExterna(), tipo);', self::corpo($tela, 'function abrirJanelaExternaDaTelaCheia(tipo, segurar) {'));
         self::assertStringNotContainsString('abrirJanelaDoTrabalhoExterno(btnPonto', $tela, 'nenhuma janela externa volta o foco ao "Bater Ponto"');
-        self::assertSame(3, substr_count($tela, 'origemDaJanelaExterna('), 'a declaração e as duas aberturas no lugar da tela cheia');
+        self::assertSame(4, substr_count($tela, 'origemDaJanelaExterna('), 'a declaração, as duas aberturas no lugar da tela cheia e a janela "Antes de registrar" (E11)');
         // O título recebe foco sem acionar nada (tabindex -1); o PontoAbas devolve o foco à origem ao fechar.
         self::assertMatchesRegularExpression('/id="ponto-registrar-titulo"[^>]*tabindex="-1"|tabindex="-1"[^>]*id="ponto-registrar-titulo"/', $tela);
         self::assertMatchesRegularExpression('/if \(focoAntes && document\.contains\(focoAntes\)\) \{\s*focoAntes\.focus\(\);/', self::arquivo('public/js/ponto-abas.js'));

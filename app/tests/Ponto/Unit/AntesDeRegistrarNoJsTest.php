@@ -61,7 +61,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     {
         $abrir = $this->corpoDaFuncao($this->tela(), 'function abrirAntesDeRegistrar(texto, payload)');
 
-        self::assertStringContainsString("window.PontoAbas.abrirJanela('ponto-janela-alerta', btnPonto)", $abrir);
+        // E8: o foco volta ao título do cartão, nunca ao "Bater Ponto" (um Enter bateria o tipo sugerido).
+        self::assertStringContainsString("window.PontoAbas.abrirJanela('ponto-janela-alerta', origemDaJanelaExterna())", $abrir);
         self::assertStringContainsString("fundo.querySelector('[data-alerta-texto]').textContent = String(texto);", $abrir);
         self::assertStringContainsString("fundo.querySelector('.pe-janela-cancelar').focus();", $abrir);
         self::assertStringContainsString('alertaEmEspera = { tipo: payload.tipo, idEnvio: payload.idEnvio };', $abrir);

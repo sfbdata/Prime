@@ -1451,7 +1451,8 @@
     }
 
     // E8: a janela "Trabalho externo" aberta no lugar da tela cheia (pelo botão da tela vermelha ou pela batida externa
-    // que volta) devolve o foco ao título do cartão quando fecha: no "Bater Ponto", um Enter bateria o tipo sugerido.
+    // que volta) e a "Antes de registrar" (E11) devolvem o foco ao título do cartão quando fecham: no "Bater Ponto", um
+    // Enter bateria o tipo sugerido.
     function origemDaJanelaExterna() {
         return document.getElementById('ponto-registrar-titulo') || btnPonto;
     }
@@ -2489,7 +2490,7 @@
     let confirmacaoDoAlerta = null;
 
     function abrirAntesDeRegistrar(texto, payload) {
-        const fundo = janelaDoAlerta && window.PontoAbas ? window.PontoAbas.abrirJanela('ponto-janela-alerta', btnPonto) : null;
+        const fundo = janelaDoAlerta && window.PontoAbas ? window.PontoAbas.abrirJanela('ponto-janela-alerta', origemDaJanelaExterna()) : null;
         if (!fundo) {
             mostrarAvisoBatida(texto, 'warning');   // sem a moldura (script fora), ao menos o alerta; nada foi gravado
             return;
