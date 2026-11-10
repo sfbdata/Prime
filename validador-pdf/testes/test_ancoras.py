@@ -275,10 +275,47 @@ def test_raiz_do_pacote_fora_da_lista_fixada_nao_vira_ancora(cadeias, caplog):
         conferir_pacote_icp(sozinha, hash_de(sozinha), so_a_boa)
 
 
+# Raízes ICP-Brasil vigentes que ficam fora por confiança mínima: v10 (SSL) e v11 (assinatura de código).
+RAIZES_RETIRADAS = {
+    '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6',
+    '1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7',
+}
+
+
+def test_cadeia_sob_raiz_retirada_sai_nao_confiavel(cadeias):
+    # Simula o pacote real: a raiz de documento fixada e uma raiz vigente retirada da lista (como a v10 de SSL),
+    # cada uma com a sua AC. As duas ACs chegam como intermediárias; só a cadeia de documento fecha.
+    raiz_ssl = pki.criar_raiz('AC Raiz Teste SSL')
+    ac_ssl = raiz_ssl.emitir_ac('AC Teste SSL')
+    pacote = zip_de({
+        'ICP-Brasilv5.crt': cadeias['raiz'].pem,
+        'ICP-Brasilv10.crt': raiz_ssl.pem,
+        'AC-Teste.crt': cadeias['ac'].pem,
+        'AC-SSL.crt': ac_ssl.pem,
+    })
+    raizes, intermediarias = conferir_pacote_icp(pacote, hash_de(pacote), frozenset({sha256_hex(cadeias['raiz'].der)}))
+    conjunto = ConjuntoDeAncoras(icp_raizes=raizes, icp_intermediarias=intermediarias)
+    assert sha256_hex(ac_ssl.der) in {sha256_hex(d) for d in intermediarias}
+
+    def conferir(ac):
+        folha = ac.emitir_folha('FULANO DE TAL:12345678909', cpf='12345678909')
+        pdf = pdfs.assinar(pdfs.pdf_simples(), folha, cadeia=[ac])
+        revogacao = Revogacao(buscar_na_rede=False, lcrs=(ac.lcr(),))
+        return conferencia.conferir(pdf, 'qualquer', conjunto, revogacao)['assinaturas'][0]
+
+    documento, ssl = conferir(cadeias['ac']), conferir(ac_ssl)
+
+    assert (documento['valida'], documento['confiavel'], documento['ancora']) == (True, True, 'icp')
+    assert (ssl['intacta'], ssl['valida'], ssl['confiavel']) == (True, True, False)
+    assert ssl['ancora'] is None
+    assert ssl['motivo'] == 'cadeia_nao_confiavel'
+
+
 def test_raizes_fixadas_no_codigo_sao_sha256_e_valem_por_padrao():
     for impressao in ICP_RAIZES_SHA256 + GOVBR_RAIZES_SHA256:
         assert re.fullmatch(r'[0-9a-f]{64}', impressao)
-    assert len(set(ICP_RAIZES_SHA256)) == len(ICP_RAIZES_SHA256) == 8
+    assert len(set(ICP_RAIZES_SHA256)) == len(ICP_RAIZES_SHA256) == 6
+    assert not RAIZES_RETIRADAS & set(ICP_RAIZES_SHA256)
     assert len(GOVBR_RAIZES_SHA256) == 1
     padrao = Configuracao()
     assert padrao.icp_raizes_sha256 == frozenset(ICP_RAIZES_SHA256)

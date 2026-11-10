@@ -32,13 +32,19 @@ GOVBR_URL_DA_CADEIA = 'http://repo.iti.br/docs/Cadeia_GovBr-der.p7b'
 # a primeira, a v1 e a v2 (vencidas), a v3, a v8 e a v9 (revogadas). A v4, a v7 e a v13 não entram no conjunto
 # hoje (a v4 e a v13 não estão no pacote e a v7 usa um algoritmo que a biblioteca não lê), mas ficam fixadas para
 # quando estiverem.
+#
+# Confiança mínima: só as hierarquias de assinatura de documento. A v10 (raiz de certificados SSL de servidor) e a
+# v11 (raiz de certificados de assinatura de código) estão vigentes, mas ficam FORA: um certificado de site ou de
+# código não serve para assinar documento, e aceitar essas raízes deixaria qualquer certificado delas, com uso de
+# chave de assinatura, sair "confiável" num PDF. As ACs delas continuam vindo no pacote, mas sem raiz não fecham
+# cadeia. Não acrescentar de volta (nem pela env):
+#   v10 6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6
+#   v11 1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7
 ICP_RAIZES_SHA256: tuple[str, ...] = (
     'f0c15afd258fb674e7a96e1a50ff873149364b9ec70d4d93c7a9f1eb6060d020',  # Raiz Brasileira v4, até 2035
     'caa53fc6091c6951887c976e378f6ef89aa6377c55d97b6475422b71ed7e9b17',  # Raiz Brasileira v5, até 2029
     '3bdb9b509352f1d3d71c2bf64d9a38a4e6cebda27809d77f7ac476cbde6e314a',  # Raiz Brasileira v6, até 2038
     '5657e70580eb678983f3ed7dfce091d84cae6549389a47fccda8d0e4dc2cf576',  # Raiz Brasileira v7, até 2038
-    '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6',  # Raiz Brasileira v10 (SSL), até 2032
-    '1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7',  # Raiz Brasileira v11 (código), até 2032
     'd8478e37ce19c690cf657381e68fe600e4e1a042536830f06847e03e554c4b01',  # Raiz Brasileira v12, até 2037
     '2b07d0bc02c4a6e0478ed22d0d99e8f97e1827b269097696a7feb6aad30c3ac8',  # Raiz Brasileira v13, até 2045
 )
