@@ -8,7 +8,8 @@ namespace App\AssinaturaEletronica\Pdf;
  * Tudo o que o `pdf(d, modo)` do desenho lê (dc:392-427), já resolvido por quem chama: o montador não abre banco
  * nem armazenamento.
  *
- * - `codigo` nulo = rascunho: a folha imprime "RASCUNHO" no rodapé, na marca d'água e no selo.
+ * - `codigo` nulo = rascunho: a folha imprime "RASCUNHO" (o {@see TextosDaFolha::$rascunho}) no rodapé, na marca
+ *   d'água e no selo.
  * - `hash` é o SHA-256 em hexadecimal (o do envio; no rascunho, o provisório): semente do fundo e texto do rodapé.
  * - `blocos` no formato de `DocumentoParaAssinar::getBlocos()` ({@see \App\AssinaturaEletronica\Service\ValidadorDeBlocos}):
  *   `t`, `s`, `h`, `l`, `p`, `d`, `n` com `x` e `full`; `a` com `i` (índice em `signatarios`) e `r`; `pg` com `n`.
@@ -20,6 +21,8 @@ namespace App\AssinaturaEletronica\Pdf;
  *   leva manifesto (`if (!(d.limpa && !d.cod))`, dc:417): nesse caso quem monta a folha passa
  *   {@see SemPaginasDepoisDoConteudo}. Só folha branca, ou só rascunho, leva o manifesto: nas outras folhas o
  *   construtor recusa o {@see SemPaginasDepoisDoConteudo}, para o manifesto não sumir sem aviso.
+ * - `textos` são os textos impressos, do catálogo de traduções ({@see TextosDaFolha}): as classes de desenho só leem
+ *   daqui.
  */
 final readonly class FolhaParaMontar
 {
@@ -43,6 +46,7 @@ final readonly class FolhaParaMontar
         public \DateTimeImmutable $emitidoEm,
         public string $urlDeValidacao,
         public PaginasDepoisDoConteudo $paginasDepois,
+        public TextosDaFolha $textos,
         public ?string $pdfEnviado = null,
     ) {
         if (preg_match('/^[0-9a-f]{64}$/', $hash) !== 1) {
@@ -56,7 +60,7 @@ final readonly class FolhaParaMontar
     /** `cod = d.cod || 'RASCUNHO'` (dc:392). */
     public function codigoImpresso(): string
     {
-        return $this->codigo ?? TextosDaFolha::RASCUNHO;
+        return $this->codigo ?? $this->textos->rascunho;
     }
 
     public function duasColunas(): bool

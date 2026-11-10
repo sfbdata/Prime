@@ -20,7 +20,8 @@ final class Selo
     private const INICIO_DO_CONICO = 1.2;
     private const FATIAS_POR_PONTA = 4;
 
-    public function desenhar(Tela $pagina, float $cx, float $cy, float $sr, string $codigo, bool $concluido): void
+    /** O selo da folha: o código impresso nos anéis e o visto só no documento concluído. */
+    public function desenhar(Tela $pagina, float $cx, float $cy, float $sr, FolhaParaMontar $folha): void
     {
         $tela = $pagina->ampliar($cx - $sr - 2, $cy - $sr - 2, 2 * $sr + 4, 2 * $sr + 4, self::FATOR);
 
@@ -28,12 +29,12 @@ final class Selo
             $this->estrela($tela, $cx, $cy, $sr);
             $this->elipses($tela, $cx, $cy, $sr);
             $tela->poligono(self::circulo($cx, $cy, $sr * .55), Cor::hex('#ffffff', .85));
-            if ($concluido) {
+            if ($folha->concluido) {
                 $this->visto($tela, $cx, $cy, $sr);
             } else {
-                $tela->texto(TextosDaFolha::PENDENTE, $cx, $cy + $sr * .04, Fonte::SansNegrito, $sr * .112, Cor::hex('#8a6200'), Alinhamento::Centro);
+                $tela->texto($folha->textos->pendente, $cx, $cy + $sr * .04, Fonte::SansNegrito, $sr * .112, Cor::hex('#8a6200'), Alinhamento::Centro);
             }
-            $this->aneis($tela, $cx, $cy, $sr, $codigo);
+            $this->aneis($tela, $cx, $cy, $sr, $folha->codigoImpresso(), $folha->textos);
         } finally {
             $tela->recolher();
         }
@@ -115,7 +116,7 @@ final class Selo
     }
 
     /** `seloAneis`: anel branco de 0,72 a 0,83 sr e os dois textos circulares. */
-    private function aneis(Tela $tela, float $cx, float $cy, float $sr, string $codigo): void
+    private function aneis(Tela $tela, float $cx, float $cy, float $sr, string $codigo, TextosDaFolha $textos): void
     {
         $tela->poligono(array_merge(self::circulo($cx, $cy, $sr * .83), array_reverse(self::circulo($cx, $cy, $sr * .72))), Cor::hex('#ffffff', .76));
 
@@ -124,8 +125,8 @@ final class Selo
             $semente += mb_ord($letra) * ($i + 3);
         }
 
-        $this->anelDeTexto($tela, $cx, $cy, sprintf(TextosDaFolha::ANEL, $codigo), $sr * .745, Fonte::Sans, $sr * .088, $semente * .137);
-        $this->anelDeTexto($tela, $cx, $cy, TextosDaFolha::ANEL_INTERNO, $sr * .405, Fonte::SansNegrito, $sr * .15, null);
+        $this->anelDeTexto($tela, $cx, $cy, $textos->anel($codigo), $sr * .745, Fonte::Sans, $sr * .088, $semente * .137);
+        $this->anelDeTexto($tela, $cx, $cy, $textos->anelInterno, $sr * .405, Fonte::SansNegrito, $sr * .15, null);
     }
 
     /**

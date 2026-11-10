@@ -350,7 +350,7 @@ trait OficinaDosUseCasesDaAssinatura
         };
     }
 
-    /** Etapa 3: o tradutor com os catálogos de verdade da Assinatura (os textos do manifesto e dos eventos). */
+    /** Etapa 3: o tradutor com os catálogos de verdade da Assinatura (os textos da folha, do manifesto e dos eventos). */
     private static function tradutorDaAssinatura(): TranslatorInterface
     {
         $tradutor = new Translator('pt_BR');
@@ -366,7 +366,7 @@ trait OficinaDosUseCasesDaAssinatura
     private function pdfDaAssinatura(): PdfDaAssinatura
     {
         $tradutor = self::tradutorDaAssinatura();
-        $folha = new FolhaDoDocumento($this->disco, new LogoDaBluejusNoPdf(\dirname(__DIR__, 3)), new ManifestoDoDocumento($tradutor, $this->eventosDaTrilha), self::urls(), $this->relogio);
+        $folha = new FolhaDoDocumento($this->disco, new LogoDaBluejusNoPdf(\dirname(__DIR__, 3)), new ManifestoDoDocumento($tradutor, $this->eventosDaTrilha), self::urls(), $this->relogio, $tradutor);
 
         return new PdfDaAssinatura(new MontadorDoPdf(ghostscriptBin: GhostscriptDeTeste::binario()), $folha, $tradutor);
     }

@@ -38,7 +38,7 @@ final class MolduraDaFolha
     {
         $folha = $recursos->folha;
         if (!$branca) {
-            $this->fundo->desenhar($tela, $folha->hash, $pagina, $folha->codigoImpresso());
+            $this->fundo->desenhar($tela, $folha, $pagina);
         }
 
         if (!$semCabecalho) {
@@ -49,6 +49,7 @@ final class MolduraDaFolha
     public function rodape(Tela $tela, RecursosDaFolha $recursos, int $pagina, int $total, bool $mini): void
     {
         $folha = $recursos->folha;
+        $textos = $folha->textos;
         $k = $mini ? .8 : 1.0;
         $lado = 116 * $k;
         $y0 = $mini ? Tela::H - 142 : Tela::H - 172;
@@ -57,31 +58,31 @@ final class MolduraDaFolha
         $direita = $mini ? self::XR : self::X + self::L;
 
         $this->qr->desenhar($tela, $x0 + 4, $y0 + 4, $lado, $folha->urlDeValidacao);
-        $tela->texto(sprintf(TextosDaFolha::ROTULO_DO_RODAPE, $pagina, $total), $xt, $y0 + 14 * $k, Fonte::SansNegrito, 11 * $k, Cor::hex('#4a6373'));
+        $tela->texto($textos->rotuloDoRodape($pagina, $total), $xt, $y0 + 14 * $k, Fonte::SansNegrito, 11 * $k, Cor::hex('#4a6373'));
         $this->codigo($tela, $folha->codigoImpresso(), $xt, $y0 + 42 * $k, $k);
 
         $hash = Cor::hex('#34505f');
-        $tela->texto(TextosDaFolha::PREFIXO_DO_HASH . substr($folha->hash, 0, 32), $xt, $y0 + 60 * $k, Fonte::Mono, 10.5 * $k, $hash);
-        $tela->texto(TextosDaFolha::RECUO_DO_HASH . substr($folha->hash, 32), $xt, $y0 + 73 * $k, Fonte::Mono, 10.5 * $k, $hash);
+        $tela->texto($textos->prefixoDoHash . substr($folha->hash, 0, 32), $xt, $y0 + 60 * $k, Fonte::Mono, 10.5 * $k, $hash);
+        $tela->texto($textos->recuoDoHash . substr($folha->hash, 32), $xt, $y0 + 73 * $k, Fonte::Mono, 10.5 * $k, $hash);
 
         $texto = Cor::hex('#243845');
-        $tela->texto(TextosDaFolha::CONFIRA, $xt, $y0 + 94 * $k, Fonte::Sans, 11 * $k, $texto);
-        $emitido = sprintf(TextosDaFolha::EMITIDO_EM, TextosDaFolha::dataHora($folha->emitidoEm));
-        $tela->texto($emitido, $xt, $y0 + 110 * $k, Fonte::Sans, 10 * $k, $texto);
+        $tela->texto($textos->confira, $xt, $y0 + 94 * $k, Fonte::Sans, 11 * $k, $texto);
+        $tela->texto($textos->emitido($folha->emitidoEm), $xt, $y0 + 110 * $k, Fonte::Sans, 10 * $k, $texto);
 
-        $this->selo->desenhar($tela, $direita - 62 * $k, $y0 + 60 * $k, 58 * $k, $folha->codigoImpresso(), $folha->concluido);
+        $this->selo->desenhar($tela, $direita - 62 * $k, $y0 + 60 * $k, 58 * $k, $folha);
     }
 
     /** Logo em (92, 60) com altura 64 e largura até 280; sem logo, "Blue" azul-marinho e "Jus" azul em negrito 34. */
     private function cabecalho(Tela $tela, FolhaParaMontar $folha, ?\GdImage $logo): void
     {
         $azul = Cor::hex(self::NV);
+        $textos = $folha->textos;
         if ($logo !== null) {
             $tela->imagem($logo, self::X, 60, min(280, imagesx($logo) * 64 / imagesy($logo)), 64);
         } else {
-            $tela->texto(TextosDaFolha::MARCA_AZUL, self::X, 102, Fonte::SansNegrito, 34, $azul);
-            $recuo = $tela->largura(TextosDaFolha::MARCA_AZUL, Fonte::SansNegrito, 34);
-            $tela->texto(TextosDaFolha::MARCA_CLARA, self::X + $recuo, 102, Fonte::SansNegrito, 34, Cor::hex('#0a6fa0'));
+            $tela->texto($textos->marcaAzul, self::X, 102, Fonte::SansNegrito, 34, $azul);
+            $recuo = $tela->largura($textos->marcaAzul, Fonte::SansNegrito, 34);
+            $tela->texto($textos->marcaClara, self::X + $recuo, 102, Fonte::SansNegrito, 34, Cor::hex('#0a6fa0'));
         }
 
         $escritorio = $folha->escritorio;

@@ -265,13 +265,16 @@ assinatura_eletronica_tela:
             metodo_sem_local: 'E-mail e código, selfie'
         # Etapa 3 (docs/specs/assinatura-documentos-etapa-3.md, seção 2, item 10; inventário A1 a A9): os blocos do PDF
         # com selo, do manifesto, da aba Validar e do vínculo à pasta. Cada bloco da etapa só acrescenta chaves no seu.
-        # PDF final com selo (A1, A3 e A5): rodapé, fundo, selo, arquivo e botões de baixar.
+        # PDF final com selo (A1, A3 e A5): rodapé, fundo, selo, arquivo e botões de baixar. O que a folha imprime e o
+        # título e o produtor do arquivo são lidos por App\AssinaturaEletronica\Pdf\TextosDaFolha.
         pdf:
             rotulo_rodape: 'CÓDIGO DE VALIDAÇÃO · PÁGINA {pagina} DE {total}'
             sha256: 'SHA-256'
             confira: 'Confira em bluejus.com.br/assinar/validar ou leia o QR Code.'
             emitido: 'Emitido em {data}. Vale somente com registro correspondente no BlueJus.'
             assinado_em: 'Assinado em {data}'
+            # O nome do lugar de assinatura sem rótulo e sem signatário.
+            assinatura: 'Assinatura'
             rascunho: 'RASCUNHO'
             pendente: 'PENDENTE'
             marca_dagua: 'BLUEJUS · {codigo} · '

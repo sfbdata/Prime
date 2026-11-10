@@ -69,8 +69,12 @@ final class EscritorDePdf
         return $saida . $this->objeto($pagina + 2, sprintf("<< /Length %d >>\nstream\n%s\nendstream", \strlen($desenho), $desenho));
     }
 
-    /** @throws FalhaAoMontarPdf sem nenhuma página */
-    public function fim(string $titulo): string
+    /**
+     * O título e o produtor vão nas informações do PDF (`/Title` e `/Producer`).
+     *
+     * @throws FalhaAoMontarPdf sem nenhuma página
+     */
+    public function fim(string $titulo, string $produtor): string
     {
         if ($this->paginas === 0) {
             throw new FalhaAoMontarPdf('O PDF precisa de pelo menos uma página.');
@@ -83,7 +87,7 @@ final class EscritorDePdf
         $saida = $this->objeto(2, sprintf('<< /Type /Pages /Kids [%s] /Count %d >>', implode(' ', $filhas), $this->paginas));
 
         $informacoes = self::PRIMEIRO_OBJETO_DE_PAGINA + $this->paginas * 3;
-        $saida .= $this->objeto($informacoes, sprintf('<< /Title (%s) /Producer (BlueJus) >>', self::textoDoPdf($titulo)));
+        $saida .= $this->objeto($informacoes, sprintf('<< /Title (%s) /Producer (%s) >>', self::textoDoPdf($titulo), self::textoDoPdf($produtor)));
 
         $referencias = $this->tamanho;
         $tabela = sprintf("xref\n0 %d\n0000000000 65535 f \n", $informacoes + 1);
