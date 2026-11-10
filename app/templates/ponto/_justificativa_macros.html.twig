@@ -7,11 +7,16 @@
     esquecimento diz qual batida e a hora; o abono parcial, o horário. Sem nada, vazio (''), para quem usa testar se
     veio algo. Todas as tags tiram os espaços das pontas, e quem usa imprime a saída como veio: ela já sai escapada, e
     uma concatenação com `~` (ou um filtro que devolva texto comum) faria o `{{ }}` escapá-la de novo.
+
+    E12 (P18; desenho L545, `sub` "TIPO às HH:MM"): o trabalho externo diz a batida ligada a ele (`registroPonto`, que o
+    servidor da etapa acrescenta). Sem a batida ligada (as de antes da E12, ou o objeto não tem o campo), vazio.
 #}
 {%- macro subtitulo(j) -%}
     {%- set nomesDoRegistro = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} -%}
     {%- if j.tipo == 'esquecimento_registro' and j.tipoRegistroEsquecido -%}
         {{- nomesDoRegistro[j.tipoRegistroEsquecido] ~ (j.horaRegistroEsquecido ? ' às ' ~ j.horaRegistroEsquecido|date('H:i') : '') -}}
+    {%- elseif j.tipo == 'trabalho_externo' and j.registroPonto is defined and j.registroPonto and j.registroPonto.dataHora and j.registroPonto.tipo in nomesDoRegistro|keys -%}
+        {{- nomesDoRegistro[j.registroPonto.tipo] ~ ' às ' ~ j.registroPonto.dataHora|date('H:i') -}}
     {%- elseif j.abonoParcial -%}
         {{- 'Parcial' ~ (j.horaInicioAbono and j.horaFimAbono ? ': ' ~ j.horaInicioAbono|date('H:i') ~ ' às ' ~ j.horaFimAbono|date('H:i') : '') -}}
     {%- endif -%}

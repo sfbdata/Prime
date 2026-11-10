@@ -269,6 +269,33 @@
 .pe-aviso-link { margin-left: 4px; font-weight: bold; color: inherit; text-decoration: underline; }
 .pe-page a.pe-aviso-link:not(.btn) { color: inherit; }
 
+/* Fora do raio (E12, P18) na caixa de hoje, até a tela vermelha da E8: o título em negrito numa linha e o detalhe
+   embaixo, como a caixa vermelha "Código não localizado." do desenho (L300 e L301). O botão "Registrar como trabalho
+   externo" (L385: `bi-briefcase`, negrito, ícone ao lado) tem na tela cheia o contorno branco sobre o vermelho; numa
+   caixa clara o desenho é omisso, e vale o botão de contorno do próprio desenho (L249 e L253: 30px, `0 11px`, 12.5px,
+   `gap:6px`, canto de 3px) na cor da caixa, com o fundo branco que vai a #fdecee no hover, como o "Tentar novamente"
+   (L384). */
+.pe-fora-titulo,
+.pe-fora-detalhe { display: block; }
+.pe-fora-externo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: inherit;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: bold;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.pe-fora-externo:hover { background: var(--pe-erro-bg); }
+
 /* Fila sem internet (L127, E14): borda #9fc3d8 com a faixa esquerda #0a6fa0, fundo #e5f1f7, texto #0b4f75 e o
    `bi-wifi-off` de 15px. Some com a fila vazia (`d-none`). A segunda linha (guardadas em outro escritório) não está no
    desenho: decisão do Coordenador, no mesmo molde. */
@@ -1055,6 +1082,28 @@
 .pe-config-erro { flex-basis: 100%; font-size: 12px; color: var(--pe-perigo); padding-left: 30px; }
 .pe-config-trava[hidden],
 .pe-config-erro[hidden] { display: none; }
+
+/* Trabalho externo (E12, P74; desenho L253): a caixa "Permitir trabalho externo, com motivo e análise" na seção do
+   desenho (`padding:12px 16px; border-top:1px solid #e6edf2`). A E6 a leva ao cabeçalho "Sedes e raio de registro";
+   até lá fica sozinha, e logo abaixo das funções a borda de cima sai para não dobrar a linha. O rótulo é o do desenho
+   (12.5px, #34505f, `gap:7px`, caixa de 16px); `inline-flex` porque no desenho ele é item de uma linha flex e mede só
+   o texto: em bloco, o clique no vazio à direita marcaria a caixa. A frase de erro (sistema) é a da E7. */
+.pe-config-externo { padding: 12px 16px; border-top: 1px solid var(--pe-div); }
+.pe-config-funcoes + .pe-config-externo { border-top: none; }
+.pe-config-externo-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: normal;
+    color: var(--pe-texto-2);
+}
+.pe-config-externo-marca > input { width: 16px; height: 16px; margin: 0; }
+/* Gravando (sistema): a caixa espera a resposta e não aceita outro clique. */
+.pe-config-externo-marca > input:disabled { cursor: progress; }
+.pe-config-externo-erro { display: block; margin-top: 6px; font-size: 12px; color: var(--pe-perigo); }
+.pe-config-externo-erro[hidden] { display: none; }
 /* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
    Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
    valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os

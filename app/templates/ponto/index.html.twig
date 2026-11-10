@@ -144,10 +144,14 @@
                        vazia. A primeira linha conta as batidas guardadas neste aparelho para esta pessoa neste escritório;
                        a segunda, as dela guardadas em outro escritório (decisão do Coordenador: fila retida não fica sem
                        ninguém saber). A pessoa e o escritório vêm da sessão, e a fila nunca mostra nem envia batida de
-                       outra pessoa. #}
+                       outra pessoa.
+                       E12 (P18 e P74): `data-trabalho-externo` diz se o escritório permite o trabalho externo, para a tela
+                       oferecer "Registrar como trabalho externo" quando a avaliação LOCAL dá fora do raio; na recusa do
+                       servidor vale o `foraDoRaio` dele. #}
                     <div id="ponto-fila" class="pe-fila d-none" role="status" aria-live="polite"
                          data-usuario-id="{{ app.user.id|e('html_attr') }}"
-                         data-escritorio-id="{{ current_tenant() ? current_tenant().id|e('html_attr') : '' }}">
+                         data-escritorio-id="{{ current_tenant() ? current_tenant().id|e('html_attr') : '' }}"
+                         data-trabalho-externo="{{ trabalho_externo_permitido|default(false) ? '1' : '0' }}">
                         <i class="bi bi-wifi-off" aria-hidden="true"></i>
                         <span class="pe-fila-texto">
                             <span id="ponto-fila-pendentes" class="pe-fila-linha d-none"></span>
@@ -279,6 +283,11 @@
         dataHoje: dataHoje
     } only %}
     {% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
+
+    {# E12 (P18): janela "Trabalho externo" na moldura do desenho (L766 e L289), aberta pelo botão "Registrar como
+       trabalho externo" da resposta fora do raio. Sempre presente: a recusa do servidor pode oferecer o botão mesmo com
+       a página carregada antes de o escritório ligar a opção. Comportamento no script desta página. #}
+    {% include 'ponto/_janela_trabalho_externo.html.twig' only %}
 
     {# Janela "Editar justificativa" (P47, fica): o lápis da aba Minhas Justificativas a abre com os dados da linha. Não
        existe no desenho; ganha a moldura dele e os campos de hoje, mais o "Motivo" (E4). O horário do esquecimento segue
@@ -718,6 +727,9 @@
 
     // Sedes do escritório ativo, para a tela saber dizer "fora da área" ANTES do toque.
     const SEDES = JSON.parse('{{ sedesDaTela|json_encode|e('js') }}');
+    // E12 (P74): o escritório permite o trabalho externo (`data-trabalho-externo` da caixa da fila). Aqui em cima porque
+    // a caixa da localização (`mostrarForaDaArea`) o usa, e ela é chamada do retorno do GPS.
+    const TRABALHO_EXTERNO_PERMITIDO = (document.getElementById('ponto-fila') || { dataset: {} }).dataset.trabalhoExterno === '1';
 
     // Declarados AQUI, e não junto do resto do fluxo de envio, porque `guardarPosicao` os usa e é
     // chamada de callback de GPS. `const` não é içado: a ordem só não quebrava por acidente de o
@@ -902,7 +914,8 @@
 
     // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor. A mensagem é
     // montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`. O texto é o de hoje, na caixa do
-    // desenho; o trabalho externo do desenho é da etapa E12.
+    // desenho. E12 (P18): com o trabalho externo permitido no escritório, a segunda frase é a do desenho (L528), porque
+    // o caminho agora é registrar como trabalho externo; sem ele, fica o pedido de liberação do dia.
     function mostrarForaDaArea(onde) {
         const nomeDaSede = document.createElement('strong');
         nomeDaSede.textContent = onde.sede.nome;
@@ -912,7 +925,9 @@
             nomeDaSede,
             ', fora da área permitida para bater o ponto.',
             document.createElement('br'),
-            'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
+            TRABALHO_EXTERNO_PERMITIDO
+                ? 'Aproxime-se ou informe o trabalho externo.'
+                : 'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
         );
         mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
     }
@@ -1198,6 +1213,103 @@
         avisoBatida.className = 'pe-caixa pe-aviso-batida d-none';
         avisoBatida.dataset.origem = '';
         btnAtualizarPagina.classList.add('d-none');
+    }
+
+    // E12 (P18; desenho L381, L382, L385 e L528): o bloco "fora do raio" (título, detalhe e, com `trabalhoExterno`
+    // true, o botão "Registrar como trabalho externo"), escrito DENTRO de `alvo`. Hoje o alvo é `#batida-aviso`; a tela
+    // vermelha da E8 reaproveita este bloco mudando só o alvo. `foraDoRaio` é `{ titulo, detalhe, trabalhoExterno }`, a
+    // forma da resposta do servidor e a de `PontoBatida.textosDoForaDoRaio`. Todo texto entra por `textContent`: o
+    // detalhe traz o nome da sede, que é digitado por alguém.
+    function mostrarForaDoRaio(alvo, foraDoRaio) {
+        const titulo = document.createElement('b');
+        titulo.className = 'pe-fora-titulo';
+        titulo.textContent = foraDoRaio.titulo;
+        const detalhe = document.createElement('span');
+        detalhe.className = 'pe-fora-detalhe';
+        detalhe.textContent = foraDoRaio.detalhe;
+        const partes = [titulo, detalhe];
+        if (foraDoRaio.trabalhoExterno === true) {
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'pe-fora-externo';
+            botao.setAttribute('data-trabalho-externo', '');
+            const icone = document.createElement('i');
+            icone.className = 'bi bi-briefcase';
+            icone.setAttribute('aria-hidden', 'true');
+            botao.append(icone, 'Registrar como trabalho externo');
+            botao.addEventListener('click', () => abrirJanelaDoTrabalhoExterno(botao));
+            partes.push(botao);
+        }
+        alvo.replaceChildren(...partes);
+    }
+
+    // A avaliação local de `fora` nos textos do desenho. As funções vêm do módulo; sem elas (módulo antigo no cache do
+    // navegador), sai só o título, sem o botão, em vez de lançar no meio do toque.
+    function foraDoRaioDaTela(onde) {
+        if (typeof PontoBatida.textosDoForaDoRaio === 'function') {
+            return PontoBatida.textosDoForaDoRaio(onde, TRABALHO_EXTERNO_PERMITIDO);
+        }
+
+        return { titulo: 'Você está fora do raio permitido', detalhe: '', trabalhoExterno: false };
+    }
+
+    function foraDoRaioDaResposta(data) {
+        return typeof PontoBatida.foraDoRaioDaResposta === 'function' ? PontoBatida.foraDoRaioDaResposta(data) : null;
+    }
+
+    // Janela "Trabalho externo" (E12, desenho L766, L289 e L808) na moldura das janelas do Ponto (`PontoAbas`): abre
+    // com o campo vazio e o foco nele. Esc, o "x" e "Cancelar" fecham pela moldura.
+    const JANELA_DO_TRABALHO_EXTERNO = 'ponto-janela-externo';
+
+    function abrirJanelaDoTrabalhoExterno(origem) {
+        if (!window.PontoAbas) {
+            mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
+            return;
+        }
+        const fundo = window.PontoAbas.abrirJanela(JANELA_DO_TRABALHO_EXTERNO, origem);
+        if (!fundo) {
+            return;
+        }
+        const campo = fundo.querySelector('[data-externo-motivo]');
+        campo.value = '';
+        campo.focus();
+    }
+
+    // "Registrar": sem o local e o motivo, a frase do desenho fica na janela; com eles, a janela fecha e a batida do
+    // tipo da vez sai como trabalho externo (`registrarComoTrabalhoExterno`).
+    const botaoRegistrarExterno = document.querySelector('#' + JANELA_DO_TRABALHO_EXTERNO + ' [data-externo-registrar]');
+    if (botaoRegistrarExterno) {
+        botaoRegistrarExterno.addEventListener('click', function () {
+            const fundo = document.getElementById(JANELA_DO_TRABALHO_EXTERNO);
+            const campo = fundo.querySelector('[data-externo-motivo]');
+            const motivo = campo.value.trim();
+            if (motivo === '') {
+                window.PontoAbas.mostrarErro(fundo, 'Informe o local e o motivo.');
+                campo.focus();
+                return;
+            }
+            window.PontoAbas.fecharJanela();
+            registrarComoTrabalhoExterno(motivo);
+        });
+    }
+
+    // O envio do trabalho externo é o MESMO do botão de bater (fila sem internet, prazo, avisos, atualização da tela):
+    // o motivo fica aqui só durante o clique no botão, que o handler lê antes do primeiro `await`, e sai logo depois.
+    // É um toque novo: o handler faz outro `idEnvio`. Botão desabilitado (envio em andamento ou o dia completo) não
+    // emite clique, e o próprio botão mostra o estado.
+    let motivoDoTrabalhoExterno = null;
+
+    function registrarComoTrabalhoExterno(motivo) {
+        if (btnPonto.disabled) {
+            return;
+        }
+        motivoDoTrabalhoExterno = motivo;
+        try {
+            btnPonto.focus();
+            btnPonto.click();
+        } finally {
+            motivoDoTrabalhoExterno = null;
+        }
     }
 
     function liberarBotaoBatida() {
@@ -1908,6 +2020,9 @@
             mostrarAvisoBatida(AVISO_PAGINA_INCOMPLETA, 'danger', true);
             return;
         }
+        // E12: o local e o motivo do trabalho externo, quando o toque veio da janela (`registrarComoTrabalhoExterno`).
+        // Lido aqui, antes de qualquer `await`, porque a janela o apaga assim que o clique volta. Null no toque comum.
+        const motivoExterno = motivoDoTrabalhoExterno;
         // Ainda no gesto, antes de qualquer `await`: a janelinha do alerta do ponto (navegador minimizado) precisa da
         // permissão, e o Chrome esconde o pedido feito sem clique.
         window.PontoBatida.pedirPermissaoDeNotificacao();
@@ -1927,15 +2042,12 @@
         // ANTES do toque; este responde AO toque.
         if (!dispensaLocalizacao) {
             const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
-            if (onde.situacao === 'fora') {
-                // Curto de propósito: a caixa acima do botão já está dizendo de qual sede, a que
-                // distância e o que fazer. Repetir o texto inteiro aqui vira parede de texto na
-                // tela do celular. O que esta precisa dar é a resposta ao toque — que a batida
-                // NÃO foi registrada —, e a distância só para amarrar as duas mensagens.
-                mostrarAvisoBatida(
-                    `Não registrou: você está a ${Math.round(onde.distancia)}m, fora da área permitida. Veja o aviso acima.`,
-                    'danger'
-                );
+            // E12 (P18): o toque de trabalho externo não para aqui; o servidor decide.
+            if (motivoExterno === null && onde.situacao === 'fora') {
+                // E12 (P18, desenho L528): o título, o detalhe e, com a opção do escritório, o botão do trabalho externo.
+                // Nada é enviado.
+                mostrarAvisoBatida('', 'danger');
+                mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(onde));
                 return;
             }
         }
@@ -1954,6 +2066,11 @@
         // tentativa desta batida, e o servidor não grava duas vezes o mesmo.
         const horaAparelho = Date.now();
         const payload = { tipo: tipoRegistro.value, idEnvio: idDoEnvio(), horaAparelho };
+        // E12: o corpo de sempre mais a marca e o motivo. Sem internet, vai para a fila com eles.
+        if (motivoExterno !== null) {
+            payload.trabalhoExterno = true;
+            payload.motivoTrabalhoExterno = motivoExterno;
+        }
         aplicarConfirmacaoDoAlerta(payload);   // E11: "Registrar assim mesmo" refaz a batida do alerta
 
         if (!dispensaLocalizacao) {
@@ -2033,6 +2150,11 @@
                 atualizarDepoisDaBatida(avisos.length === 0);
             } else if (resultado.tipo === 'recusa') {
                 mostrarAvisoBatida(resultado.mensagem, 'danger');
+                // E12: fora do raio (403) ou GPS impreciso (422) trazem `foraDoRaio`, mostrado como o da avaliação local.
+                const foraDoRaio = foraDoRaioDaResposta(resultado.data);
+                if (foraDoRaio) {
+                    mostrarForaDoRaio(avisoBatida, foraDoRaio);
+                }
             } else if (resultado.tipo === 'nao_entrou') {
                 mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
             } else if (resultado.tipo === 'sem_rede') {

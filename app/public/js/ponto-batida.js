@@ -141,6 +141,55 @@
         };
     }
 
+    // E12 (P18; desenho L528): o título do "fora do raio", o mesmo do servidor.
+    const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';
+
+    /**
+     * Os textos de "fora do raio" quando a avaliação LOCAL (`avaliarPosicao`) dá `fora`, na mesma forma do
+     * `foraDoRaio` que o servidor devolve na recusa (`{ titulo, detalhe, trabalhoExterno }`): a tela mostra os dois
+     * pelo mesmo caminho. Textos do desenho (L528), iguais aos do servidor: "A sede mais próxima é NOME, a N m. O raio
+     * permitido é de R m."; sem sede, "O registro exige estar dentro do raio de uma sede do escritório."; com o trabalho
+     * externo permitido no escritório (P74), mais " Aproxime-se ou informe o trabalho externo.".
+     *
+     * A sede citada é a que `avaliarPosicao` devolve (a decisiva, a do menor excedente), com a distância dela. Puro:
+     * o nome da sede volta dentro de uma string, e quem mostra põe por `textContent`.
+     */
+    function textosDoForaDoRaio(onde, trabalhoExternoPermitido) {
+        const sede = onde && onde.sede ? onde.sede : null;
+        // `Number(null)` é 0: distância e raio ausentes não podem virar "a 0 m".
+        const distancia = onde && typeof onde.distancia === 'number' ? onde.distancia : NaN;
+        const raio = sede && sede.raio !== null && sede.raio !== undefined && sede.raio !== '' ? Number(sede.raio) : NaN;
+        let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
+        if (sede && Number.isFinite(distancia) && Number.isFinite(raio)) {
+            detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')
+                + ' m. O raio permitido é de ' + Math.round(raio) + ' m.';
+        }
+        const permitido = trabalhoExternoPermitido === true;
+        if (permitido) {
+            detalhe += ' Aproxime-se ou informe o trabalho externo.';
+        }
+
+        return { titulo: TITULO_FORA_DO_RAIO, detalhe, trabalhoExterno: permitido };
+    }
+
+    /**
+     * O `foraDoRaio` da resposta do servidor (403 fora do raio, 422 GPS impreciso), conferido: `{ titulo, detalhe,
+     * trabalhoExterno }` com o título em texto, ou `null` quando a resposta não traz (as outras recusas). O botão do
+     * trabalho externo só com `trabalhoExterno === true`.
+     */
+    function foraDoRaioDaResposta(data) {
+        const fora = data && typeof data === 'object' ? data.foraDoRaio : null;
+        if (!fora || typeof fora !== 'object' || typeof fora.titulo !== 'string' || fora.titulo === '') {
+            return null;
+        }
+
+        return {
+            titulo: fora.titulo,
+            detalhe: typeof fora.detalhe === 'string' ? fora.detalhe : '',
+            trabalhoExterno: fora.trabalhoExterno === true,
+        };
+    }
+
     /**
      * Pede uma posição nova com prazo próprio. Responde com a `position` do navegador ou com
      * `null`; nunca rejeita (ver o comentário de `GPS_PRAZO_ATUALIZACAO_MS`).
@@ -409,6 +458,8 @@
         TELA_PRAZO_MS,
         distanciaEmMetros,
         avaliarPosicao,
+        textosDoForaDoRaio,
+        foraDoRaioDaResposta,
         lerPosicaoComPrazo,
         novoIdDeEnvio,
         enviarBatida,

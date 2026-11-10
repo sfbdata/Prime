@@ -11,6 +11,11 @@
  *   flutuante do Ponto (`window.PontoAvisoFlutuante`, da E8; L266 e `avisar` L468). Sem ele na página, o aviso do
  *   sistema (`window.bjAviso`) fica de reserva para o texto não se perder.
  * O servidor decide: a tela só redesenha o que a resposta trouxe. Falha vira a frase da linha, nunca silêncio.
+ *
+ * Trabalho externo (E12 e P74, templates/ponto/_config_trabalho_externo.html.twig; desenho 16 L253, `tgExt` na L820):
+ * a caixa grava por POST em `data-url` com `{permitir}`, do jeito da chave "Escritório" (token `ajax` do interceptador).
+ * Deu certo: a caixa fica como o servidor devolveu (`permitir`). Recusa (403, 422) ou falta de resposta: a caixa volta
+ * como estava e a frase do servidor (`erro`) aparece embaixo.
  */
 (function () {
     'use strict';
@@ -149,5 +154,41 @@
             return;
         }
         alternarGlobal(global, linha);
+    });
+
+    // Trabalho externo (E12, P74). A caixa já mudou quando o `change` chega: o estado de antes é o contrário.
+    function mostrarErroDoExterno(secao, texto) {
+        const erro = secao.querySelector('[data-config-externo-erro]');
+        if (!erro) {
+            return;
+        }
+        erro.textContent = texto || '';
+        erro.hidden = !texto;
+    }
+
+    async function alternarTrabalhoExterno(caixa) {
+        const secao = caixa.closest('[data-config-externo]');
+        if (!secao) {
+            return;
+        }
+        const antes = !caixa.checked;
+        caixa.disabled = true;
+        mostrarErroDoExterno(secao, '');
+        const resultado = await enviar(secao.dataset.url, { permitir: caixa.checked }, null);
+        caixa.disabled = false;
+        if (!resultado.ok) {
+            caixa.checked = antes;
+            mostrarErroDoExterno(secao, resultado.erro);
+
+            return;
+        }
+        caixa.checked = resultado.dados.permitir === true;
+    }
+
+    document.addEventListener('change', function (evento) {
+        const caixa = elemento(evento.target, '[data-config-externo-caixa]');
+        if (caixa) {
+            alternarTrabalhoExterno(caixa);
+        }
     });
 })();

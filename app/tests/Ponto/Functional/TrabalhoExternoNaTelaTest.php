@@ -1,0 +1,204 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Ponto\Functional;
+
+use App\Entity\Tenant\Tenant;
+use App\Ponto\Controller\ConfiguracoesDoPontoController;
+use App\Ponto\Controller\PontoController;
+use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Service\GestaoDoPonto;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
+use Twig\Environment;
+
+/**
+ * E12 do desenho do Ponto (spec docs/specs/ponto-desenho-0811.md, P18 e P74; desenho 16 L253, L289, L545 e L766): a
+ * janela "Trabalho externo" na moldura do desenho, o `data-trabalho-externo` da tela, a caixa "Permitir trabalho
+ * externo, com motivo e análise" da aba Configurações e o "TIPO às HH:MM" da justificativa de trabalho externo.
+ *
+ * O comportamento (o bloco fora do raio, o envio com o motivo) é JavaScript e fica travado em
+ * `App\Tests\Ponto\Unit\TrabalhoExternoForaDoRaioJsTest`. Aqui fica o HTML de que ele depende, conferido por filho
+ * direto (`>`). As variáveis do servidor da etapa (`trabalho_externo_permitido`, `permite_trabalho_externo`) podem
+ * faltar: o render não quebra, e o estado marcado é conferido renderizando o parcial com cada valor.
+ */
+#[Group('ponto')]
+#[CoversClass(PontoController::class)]
+#[CoversClass(ConfiguracoesDoPontoController::class)]
+final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
+{
+    use CenarioDeJustificativaTrait;
+
+    private const FUNDO = '.pe-page > div.pe-janela-fundo#ponto-janela-externo[hidden]';
+    private const JANELA = self::FUNDO . ' > div.pe-janela[role="dialog"][aria-modal="true"][aria-label="Trabalho externo"]';
+    private const SECAO = '.pe-config > .pe-config-funcoes[data-config-funcoes] + div.pe-config-externo[data-config-externo]';
+
+    private KernelBrowser $client;
+    private Tenant $escritorio;
+
+    protected function setUp(): void
+    {
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->escritorio = $this->escritorio('Escritório Externo');
+    }
+
+    #[TestDox('Janela "Trabalho externo" na moldura do desenho (L766, L289): topo com bi-briefcase, texto, "Local e motivo" (3 linhas, até 500), Cancelar e Registrar')]
+    public function testJanelaNaMolduraDoDesenho(): void
+    {
+        $tela = $this->tela();
+        $janela = $tela->filter(self::JANELA);
+        self::assertCount(1, $janela, 'dentro da página (herda os tokens --pe-*), escondida, role="dialog" e aria-modal');
+
+        self::assertCount(1, $janela->filter('div.pe-janela > div.pe-janela-topo:first-child + div.pe-janela-corpo + div.pe-janela-erro[data-janela-erro][hidden] + div.pe-janela-rodape:last-child'), 'topo, corpo, a linha de erro e o rodapé');
+
+        $topo = $janela->filter('div.pe-janela > div.pe-janela-topo');
+        self::assertCount(1, $topo->filter('div.pe-janela-topo > i.bi.bi-briefcase[aria-hidden="true"]:first-child + b.pe-janela-titulo + button.pe-janela-fechar[type="button"][aria-label="Fechar"][data-janela-fechar]:last-child'));
+        self::assertSame('Trabalho externo', trim($topo->filter('b.pe-janela-titulo')->text()));
+
+        $corpo = $janela->filter('div.pe-janela > div.pe-janela-corpo');
+        self::assertCount(1, $corpo->filter('div.pe-janela-corpo > div.pe-janela-info:first-child + label.pe-janela-rotulo:last-child'));
+        self::assertSame('O registro será feito fora do raio e seguirá para análise do gestor.', trim($corpo->filter('div.pe-janela-info')->text()));
+        self::assertNull($corpo->filter('div.pe-janela-info')->attr('data-janela-info'), 'o texto é fixo: a moldura não o troca');
+        self::assertSame('Local e motivo', trim((string) $corpo->filter('label.pe-janela-rotulo')->getNode(0)?->firstChild?->textContent));
+        self::assertCount(1, $corpo->filter('label.pe-janela-rotulo > textarea.pe-janela-campo[rows="3"][maxlength="500"][data-externo-motivo]'));
+
+        $rodape = $janela->filter('div.pe-janela > div.pe-janela-rodape');
+        self::assertCount(1, $rodape->filter('div.pe-janela-rodape > button.pe-janela-cancelar[type="button"][data-janela-fechar]:first-child + button.pe-janela-acao[type="button"][data-externo-registrar]:last-child'));
+        self::assertSame(['Cancelar', 'Registrar'], $rodape->filter('button')->each(static fn (Crawler $b): string => trim($b->text())));
+
+        self::assertCount(0, $tela->filter('#ponto-janela-externo .modal, #ponto-janela-externo .modal-dialog, #ponto-janela-externo .btn, #ponto-janela-externo .form-control, #ponto-janela-externo .alert, #ponto-janela-externo [data-bs-dismiss], #ponto-janela-externo [data-bs-toggle]'), 'componentes do desenho, nada do Bootstrap');
+        self::assertCount(0, $tela->filter('#ponto-janela-externo.modal'));
+        self::assertCount(1, $tela->filter('#ponto-janela-externo'), 'uma janela só');
+    }
+
+    #[TestDox('A tela diz se o escritório permite o trabalho externo, junto dos data-atributos da fila (E14), sem quebrar sem a variável')]
+    public function testDataAtributoDaTela(): void
+    {
+        $tela = $this->tela();
+        $fila = $tela->filter('.pe-page > .pe-grade > .pe-esq > section.pe-registrar > .pe-corpo > div#ponto-fila.pe-fila');
+        self::assertCount(1, $fila);
+        self::assertContains($fila->attr('data-trabalho-externo'), ['0', '1'], 'só 0 ou 1: o script compara com "1"');
+        self::assertNotEmpty($fila->attr('data-usuario-id'), 'os da E14 continuam');
+        self::assertNotEmpty($fila->attr('data-escritorio-id'));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString("const TRABALHO_EXTERNO_PERMITIDO = (document.getElementById('ponto-fila') || { dataset: {} }).dataset.trabalhoExterno === '1';", $html);
+        self::assertCount(0, $tela->filter('.pe-fora-externo'), 'o botão só nasce na resposta fora do raio, pelo script');
+    }
+
+    #[TestDox('Configurações: quem administra o ponto vê a caixa "Permitir trabalho externo, com motivo e análise" logo abaixo das funções')]
+    public function testCaixaParaQuemAdministra(): void
+    {
+        $primario = $this->pessoa('primario');
+        $this->vincularPrimario($primario, $this->escritorio);
+        $this->logarComTenant($this->client, $primario, $this->escritorio);
+
+        $painel = $this->client->request('GET', '/ponto/configuracoes');
+        self::assertResponseIsSuccessful();
+
+        $secao = $painel->filter(self::SECAO);
+        self::assertCount(1, $secao, 'seção própria, filha direta do painel, depois das funções (a E6 a leva às sedes)');
+        self::assertSame('/ponto/configuracoes/trabalho-externo', $secao->attr('data-url'), 'a rota ponto_configuracao_trabalho_externo');
+        self::assertCount(1, $secao->filter('div.pe-config-externo > label.pe-config-externo-marca:first-child + span.pe-config-externo-erro[role="alert"][data-config-externo-erro][hidden]:last-child'));
+        self::assertCount(1, $secao->filter('label.pe-config-externo-marca > input[type="checkbox"][data-config-externo-caixa]:first-child'));
+        self::assertSame('Permitir trabalho externo, com motivo e análise', trim($secao->filter('label.pe-config-externo-marca')->text()));
+        self::assertCount(0, $secao->filter('.form-check, .form-switch, .form-check-input, .btn'), 'a caixa do desenho, nada do Bootstrap');
+    }
+
+    #[TestDox('Configurações: quem só cuida dos feriados vê a aba sem a caixa, como sem as chaves das funções')]
+    public function testSemACaixaParaQuemNaoAdministra(): void
+    {
+        $feriados = $this->pessoa('feriados');
+        $this->vincular($feriados, $this->escritorio, ['modules.ponto.view', GestaoDoPonto::FERIADOS], false);
+        $this->logarComTenant($this->client, $feriados, $this->escritorio);
+
+        $painel = $this->client->request('GET', '/ponto/configuracoes');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $painel->filter('[data-config-externo]'));
+    }
+
+    #[TestDox('A caixa vem marcada pelo permite_trabalho_externo do servidor; sem a variável, desmarcada e sem erro')]
+    public function testCaixaMarcadaPeloServidor(): void
+    {
+        $marcada = new Crawler($this->twig()->render('ponto/_config_trabalho_externo.html.twig', ['funcoesDoPonto' => true, 'permite_trabalho_externo' => true]));
+        self::assertNotNull($marcada->filter('input[data-config-externo-caixa]')->attr('checked'));
+
+        $desmarcada = new Crawler($this->twig()->render('ponto/_config_trabalho_externo.html.twig', ['funcoesDoPonto' => true, 'permite_trabalho_externo' => false]));
+        self::assertNull($desmarcada->filter('input[data-config-externo-caixa]')->attr('checked'));
+
+        $semVariavel = new Crawler($this->twig()->render('ponto/_config_trabalho_externo.html.twig', ['funcoesDoPonto' => true]));
+        self::assertCount(1, $semVariavel->filter('input[data-config-externo-caixa]'));
+        self::assertNull($semVariavel->filter('input[data-config-externo-caixa]')->attr('checked'));
+
+        self::assertSame('', trim($this->twig()->render('ponto/_config_trabalho_externo.html.twig', ['funcoesDoPonto' => null, 'permite_trabalho_externo' => true])), 'sem quem administre, nada');
+    }
+
+    #[TestDox('Trabalho externo na lista: "Entrada às HH:MM" da batida ligada (L545); sem a batida ligada, sem subtítulo')]
+    public function testSubtituloDaJustificativaDeTrabalhoExterno(): void
+    {
+        $fuso = new \DateTimeZone(date_default_timezone_get());
+        $ligada = ['tipo' => 'trabalho_externo', 'abonoParcial' => false, 'registroPonto' => ['tipo' => 'entrada', 'dataHora' => new \DateTimeImmutable('2026-11-09 08:05:41', $fuso)]];
+        self::assertSame('Entrada às 08:05', $this->subtitulo($ligada));
+        $ligada['registroPonto']['tipo'] = 'saida';
+        self::assertSame('Saída às 08:05', $this->subtitulo($ligada));
+
+        self::assertSame('', $this->subtitulo(['tipo' => 'trabalho_externo', 'abonoParcial' => false, 'registroPonto' => null]), 'as de antes da E12');
+        self::assertSame('', $this->subtitulo(['tipo' => 'trabalho_externo', 'abonoParcial' => false]), 'objeto sem o campo');
+
+        // A justificativa de verdade: sem a batida ligada (ou sem o campo, antes do servidor da etapa), vazio e sem erro.
+        $eu = $this->pessoa('lista');
+        $this->vincularColaborador($eu, $this->escritorio);
+        $justificativa = $this->justificativa($eu, $this->escritorio, new \DateTimeImmutable('today'), 'pendente', ['tipo' => 'trabalho_externo']);
+        self::assertInstanceOf(JustificativaPonto::class, $justificativa);
+        self::assertSame('', $this->subtitulo($justificativa));
+
+        $esquecimento = ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'retorno', 'horaRegistroEsquecido' => new \DateTimeImmutable('1970-01-01 13:10:00', $fuso), 'abonoParcial' => false];
+        self::assertSame('Retorno às 13:10', $this->subtitulo($esquecimento), 'o esquecimento continua como antes');
+    }
+
+    #[TestDox('Minhas Justificativas renderiza a de trabalho externo sem a batida ligada, sem subtítulo')]
+    public function testListaComTrabalhoExterno(): void
+    {
+        $eu = $this->pessoa('aba');
+        $this->vincularColaborador($eu, $this->escritorio);
+        $this->justificativa($eu, $this->escritorio, new \DateTimeImmutable('today'), 'pendente', ['tipo' => 'trabalho_externo', 'motivo' => 'Audiência no fórum']);
+
+        $this->logarComTenant($this->client, $eu, $this->escritorio);
+        $tela = $this->client->request('GET', '/ponto/?aba=justificativas');
+        self::assertResponseIsSuccessful();
+
+        $celula = $tela->filter('tr.pe-just-lin > td.pe-just-celtipo');
+        self::assertCount(1, $celula);
+        self::assertCount(0, $celula->filter('.pe-just-sub'));
+        self::assertSame('Audiência no fórum', trim($celula->filter('.pe-just-mot')->text()));
+    }
+
+    private function tela(): Crawler
+    {
+        $eu = $this->pessoa('externo');
+        $this->vincularColaborador($eu, $this->escritorio);
+        $this->logarComTenant($this->client, $eu, $this->escritorio);
+        $tela = $this->client->request('GET', '/ponto/');
+        self::assertResponseIsSuccessful();
+
+        return $tela;
+    }
+
+    private function twig(): Environment
+    {
+        return static::getContainer()->get('twig');
+    }
+
+    private function subtitulo(mixed $justificativa): string
+    {
+        $modelo = $this->twig()->createTemplate("{% import 'ponto/_justificativa_macros.html.twig' as jm %}{{ jm.subtitulo(j)|trim }}");
+
+        return $modelo->render(['j' => $justificativa]);
+    }
+}
