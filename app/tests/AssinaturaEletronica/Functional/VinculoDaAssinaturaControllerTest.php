@@ -17,6 +17,7 @@ use App\AssinaturaEletronica\UseCase\VincularAPastaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Armazenamento\ChavesDePasta;
@@ -128,6 +129,34 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->criarPasta($mesmo, 'MARIA VINCULO DA SILVA');
         $this->client->request('GET', '/assinatura/pastas?q=maria');
         self::assertSame(['pastas' => []], $this->json(), 'sem editar pasta: nem número nem cliente');
+    }
+
+    #[TestDox('busca de quem só edita pasta item a item: o filtro vem antes do limite, e a pasta antiga liberada aparece mesmo com mais de 60 recentes')]
+    public function testBuscaComPermissaoItemAItem(): void
+    {
+        [$eu, $tenant] = $this->entrar(true);
+        $liberada = $this->criarPasta($tenant, 'LIBERADA ITEM A ITEM');
+        $soVer = $this->criarPasta($tenant, 'SO VER ITEM A ITEM');
+        $this->liberarItem($eu, $tenant, $liberada, editar: true);
+        $this->liberarItem($eu, $tenant, $soVer, editar: false);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $escritorio = $em->find(Tenant::class, $tenant->getId()) ?? self::fail('escritório');
+        for ($i = 0; $i <= BuscarPastasParaVincularUseCase::LIMITE; ++$i) {
+            $recente = new Pasta();
+            $recente->setNup('REC' . $i . strtoupper(substr(uniqid(), -5)));
+            $recente->setNomeCliente('RECENTE ' . $i);
+            $recente->setTenant($escritorio);
+            $em->persist($recente);
+        }
+        $em->flush();
+
+        $this->client->request('GET', '/assinatura/pastas?q=');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([(int) $liberada->getId()], array_column($this->json()['pastas'], 'id'), 'só a liberada para editar, mesmo fora das 60 mais recentes');
+
+        $this->client->request('GET', '/assinatura/pastas?q=' . rawurlencode('item a item'));
+        self::assertSame([(int) $liberada->getId()], array_column($this->json()['pastas'], 'id'));
     }
 
     #[TestDox('aguardando: 200, aplicado falso, a trilha diz "ao concluir" e a lista mostra "Irá para a pasta"')]
@@ -331,6 +360,21 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
             $em->persist($concessao);
             $perfil->getTenantRolePermissions()->add($concessao);
         }
+        $em->flush();
+    }
+
+    /** A permissão item a item (`resource_access`) de ver e, quando pedido, editar a pasta. */
+    private function liberarItem(User $user, Tenant $tenant, Pasta $pasta, bool $editar): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $acesso = new ResourceAccess();
+        $acesso->setUser($em->find(User::class, $user->getId()) ?? self::fail('usuário'));
+        $acesso->setTenant($em->find(Tenant::class, $tenant->getId()) ?? self::fail('escritório'));
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $pasta->getId());
+        $acesso->setCanView(true);
+        $acesso->setCanEdit($editar);
+        $em->persist($acesso);
         $em->flush();
     }
 

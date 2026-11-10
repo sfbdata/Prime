@@ -460,11 +460,24 @@ class PastaRepository extends ServiceEntityRepository
      * cadeado; número, cliente e ação sem acento nem caixa), com os campos separados para a lista do
      * desenho (número, cliente e ação). Termo vazio: as mais recentes.
      *
+     * `$somenteIds` é a permissão item a item de quem não edita toda pasta pelo perfil: o filtro entra na consulta,
+     * antes do limite (filtrar depois do limite devolvia a lista vazia a quem só tem pastas antigas liberadas).
+     * Nulo: sem restrição por item; lista vazia: nenhuma pasta.
+     *
+     * @param list<int>|null $somenteIds
+     *
      * @return list<array{id: int, nup: string, cliente: string, acao: string}>
      */
-    public function buscarParaVinculoEmCampos(string $termo, Tenant $tenant, User $quemBusca, int $limite = 60): array
+    public function buscarParaVinculoEmCampos(string $termo, Tenant $tenant, User $quemBusca, int $limite = 60, ?array $somenteIds = null): array
     {
-        $linhas = $this->consultaParaVinculo($termo, $tenant, $limite, [], $quemBusca)->getQuery()->getArrayResult();
+        if ($somenteIds === []) {
+            return [];
+        }
+        $qb = $this->consultaParaVinculo($termo, $tenant, $limite, [], $quemBusca);
+        if ($somenteIds !== null) {
+            $qb->andWhere('p.id IN (:somenteIds)')->setParameter('somenteIds', $somenteIds);
+        }
+        $linhas = $qb->getQuery()->getArrayResult();
 
         return array_map(static fn (array $linha): array => [
             'id'      => (int) $linha['id'],

@@ -74,4 +74,20 @@ final class BuscaParaVinculoEmCamposTest extends JusPrimeWebTestCase
         self::assertSame([(int) $nova->getId()], array_column($repo->buscarParaVinculoEmCampos('pedro', $tenant, $ana, 1), 'id'));
         self::assertCount(2, $repo->buscarParaVinculoEmCampos('pedro', $tenant, $ana));
     }
+
+    #[TestDox('só os ids dados (permissão item a item): o filtro vem antes do limite; lista vazia não traz nada')]
+    public function testSomenteIdsAntesDoLimite(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana = $this->criarColaborador($tenant);
+        $antiga = $this->criarPasta($tenant, 'TERESA ANTIGA');
+        $this->criarPasta($tenant, 'TERESA NOVA');
+        [, $outro] = $this->criarEscritorio();
+        $deOutro = $this->criarPasta($outro, 'TERESA DE OUTRO');
+        $repo = static::getContainer()->get(PastaRepository::class);
+
+        self::assertSame([(int) $antiga->getId()], array_column($repo->buscarParaVinculoEmCampos('teresa', $tenant, $ana, 1, [(int) $antiga->getId()]), 'id'));
+        self::assertSame([(int) $antiga->getId()], array_column($repo->buscarParaVinculoEmCampos('', $tenant, $ana, 1, [(int) $antiga->getId(), (int) $deOutro->getId()]), 'id'), 'id de outro escritório não entra');
+        self::assertSame([], $repo->buscarParaVinculoEmCampos('teresa', $tenant, $ana, 60, []));
+    }
 }
