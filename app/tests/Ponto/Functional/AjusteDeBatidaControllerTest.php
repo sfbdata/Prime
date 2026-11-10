@@ -325,12 +325,15 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
 
     // --------------------------------------------------------------------------------------------------- P43
 
-    #[TestDox('P43: o gestor pelo perfil (não primário) recebe 403 ao corrigir a própria batida, nas quatro portas, e nada é gravado')]
+    #[TestDox('P43: o gestor pelo perfil (não primário) recebe 403 ao corrigir a própria batida, nas quatro portas (e na página de ajuste), e nada é gravado')]
     public function testGestorNaoCorrigeAPropriaBatida(): void
     {
         $gestor = $this->pessoa('gestor_ajuste');
         $this->vincularGestor($gestor, $this->escritorio);
         $propria = $this->batida($gestor, 'saida', '2026-10-21 18:00:00');
+        // A batida que o primário tirou da conta: o gestor também não a restaura pela própria ficha.
+        $this->desconsiderar($gestor, 'b' . $this->batida($gestor, 'entrada', '2026-10-21 08:00:00'), 'Batida em dobro.');
+        $desconsideracao = (int) $this->banco()->fetchOne("SELECT id FROM ponto_ajuste WHERE tipo = 'desconsideracao' AND user_id = ?", [$gestor->getId()]);
         $this->logarComTenant($this->client, $gestor, $this->escritorio);
 
         $this->incluir($gestor, ['data' => '2026-10-21', 'hora' => '08:00:00', 'tipo' => 'entrada', 'motivo' => 'Esqueci.']);
@@ -341,8 +344,10 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403, 'ajustar');
         $this->desconsiderar($gestor, "b{$propria}", 'Em dobro.');
         self::assertResponseStatusCodeSame(403, 'desconsiderar');
+        $this->client->request('POST', $this->ficha($gestor) . "/ponto/ajuste/{$desconsideracao}/restaurar", ['_token' => "TOKEN_ponto_restaurar_{$desconsideracao}", 'motivo' => 'Era minha.', 'competencia' => self::COMPETENCIA]);
+        self::assertResponseStatusCodeSame(403, 'restaurar');
 
-        self::assertSame([], $this->ajustes($gestor));
+        self::assertSame(['desconsideracao'], array_column($this->ajustes($gestor), 'tipo'), 'só a desconsideração do primário');
     }
 
     #[TestDox('P43: o mesmo gestor corrige a batida do colaborador (a guarda é só da própria)')]

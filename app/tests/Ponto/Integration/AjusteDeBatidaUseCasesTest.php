@@ -394,15 +394,18 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertSame([$ajustes, $eventos], [$this->quantosAjustes(), $this->quantosEventos()]);
     }
 
-    #[TestDox('Restaurar a própria batida, sem ser primário nem Master, é recusado (P43)')]
+    #[TestDox('Restaurar a própria batida, sem ser primário nem Master, é recusado (P43) e nada é gravado')]
     public function testRestaurarAPropria(): void
     {
         $batida = $this->batida('saida', '2026-10-21 18:00:00');
         $desconsideracao = $this->desconsiderarPelaTela($batida);
+        [$ajustes, $eventos] = [$this->quantosAjustes(), $this->quantosEventos()];
 
         $motivo = $this->motivoDaRecusa(fn () => $this->restaurar()->executar(new RestaurarBatidaInput($this->escritorio, $this->pessoa, (int) $desconsideracao->getId(), 'Era minha.', $this->pessoa)));
 
         self::assertSame(AjusteDeBatidaRecusadoException::DA_PROPRIA_BATIDA, $motivo);
+        self::assertSame([$ajustes, $eventos], [$this->quantosAjustes(), $this->quantosEventos()], 'nada gravado em ponto_ajuste nem na trilha');
+        self::assertTrue($this->alvo('b' . $batida->getId())->desconsiderada(), 'a batida continua fora da conta');
     }
 
     // ------------------------------------------------------------------------------------------------- apoio
