@@ -39,6 +39,7 @@ final class SedesEFeriadosDoDesenhoCssTest extends TestCase
     public static function regras(): iterable
     {
         yield 'seção (L253, L256)' => ['.pe-sf-secao', ['padding' => '12px 16px', 'border-top' => '1px solid var(--pe-div)']];
+        yield 'sem linha dupla no topo da aba e depois das funções' => ['.pe-config > .pe-sf-secao:first-child,.pe-config-funcoes + .pe-sf-secao', ['border-top' => '0']];
         yield 'botão de contorno (L253, L254)' => ['.pe-sf-contorno', ['height' => '30px', 'padding' => '0 11px', 'border' => '1px solid var(--pe-azul)', 'border-radius' => '3px', 'background' => 'var(--pe-card)', 'color' => 'var(--pe-link)', 'font' => 'inherit', 'font-size' => '12.5px', 'cursor' => 'pointer', 'display' => 'inline-flex', 'align-items' => 'center', 'gap' => '6px', 'white-space' => 'nowrap']];
         yield 'campo (L254, L257)' => ['.pe-sf-campo', ['height' => '34px', 'border' => '1px solid var(--pe-borda)', 'border-radius' => '3px', 'padding' => '0 8px', 'font' => 'inherit', 'font-size' => '13.5px', 'font-weight' => 'normal', 'color' => 'var(--pe-texto)', 'background' => 'var(--pe-card)', 'box-sizing' => 'border-box', 'width' => '100%']];
         yield 'cabeça das sedes (L253)' => ['.pe-sedes-cabeca', ['display' => 'flex', 'align-items' => 'center', 'gap' => '10px', 'flex-wrap' => 'wrap', 'margin-bottom' => '8px']];
@@ -82,7 +83,11 @@ final class SedesEFeriadosDoDesenhoCssTest extends TestCase
         $inicio = strpos($css, self::CABECALHO);
         self::assertIsInt($inicio, 'o bloco da E6 tem o cabeçalho combinado');
 
-        return substr($css, (int) strrpos(substr($css, 0, $inicio), '/*'));
+        $comeco = (int) strrpos(substr($css, 0, $inicio), '/*');
+        // até o cabeçalho do bloco seguinte (o Bloco 3 das outras etapas vem depois), ou o fim do arquivo
+        $seguinte = preg_match('#\n/\* (──|---|=====)#u', $css, $achado, PREG_OFFSET_CAPTURE, $inicio) === 1 ? $achado[0][1] : strlen($css);
+
+        return substr($css, $comeco, $seguinte - $comeco);
     }
 
     private static function semComentarios(string $css): string
