@@ -20,3 +20,4 @@ tipo: alteracao
 - O botão "Ver PDF" abre a folha numa janela no mesmo estilo do resto do Ponto, e o "Baixar PDF" mostra um aviso enquanto a folha é preparada e outro quando ela foi baixada, com o código.
 - Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
 - A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
+- No Painel do Master, o catálogo de recursos ganhou a chave "Ponto: aceite da folha", que liga ou desliga a assinatura mensal da folha para todos os escritórios de uma vez. Ela já vem ligada.
