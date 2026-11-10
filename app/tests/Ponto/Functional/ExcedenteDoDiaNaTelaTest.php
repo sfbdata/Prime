@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\BlocoJornadaColaborador;
@@ -120,6 +122,56 @@ final class ExcedenteDoDiaNaTelaTest extends JusPrimeWebTestCase
         $tela = $this->tela($ana, $tenant);
 
         self::assertSame('0', $tela->filter(self::EXCEDENTE)->attr('data-meta-dia-minutos'));
+    }
+
+    #[TestDox('Feriado só de outra lotação hoje (E6): não vale para a pessoa, a meta continua a do bloco')]
+    public function testFeriadoDeOutraLotacao(): void
+    {
+        [$ana, $tenant] = $this->colaboradorComBloco([1, 2, 3, 4, 5, 6, 7], 480);
+        $this->lotar($ana, $tenant, $this->lotacao('Maceió', $tenant));
+        $this->feriadoDeHoje($tenant, $this->lotacao('Brasília', $tenant));
+
+        $tela = $this->tela($ana, $tenant);
+
+        self::assertSame('480', $tela->filter(self::EXCEDENTE)->attr('data-meta-dia-minutos'), 'o feriado de Brasília não é de quem está em Maceió');
+    }
+
+    #[TestDox('Feriado da lotação da pessoa hoje (E6): meta 0, como na folha')]
+    public function testFeriadoDaPropriaLotacao(): void
+    {
+        [$ana, $tenant] = $this->colaboradorComBloco([1, 2, 3, 4, 5, 6, 7], 480);
+        $maceio = $this->lotacao('Maceió', $tenant);
+        $this->lotar($ana, $tenant, $maceio);
+        $this->feriadoDeHoje($tenant, $maceio);
+
+        $tela = $this->tela($ana, $tenant);
+
+        self::assertSame('0', $tela->filter(self::EXCEDENTE)->attr('data-meta-dia-minutos'));
+    }
+
+    private function lotacao(string $nome, Tenant $tenant): Lotacao
+    {
+        $lotacao = (new Lotacao())->setNome($nome)->setTenant($tenant);
+        $this->em()->persist($lotacao);
+        $this->em()->flush();
+
+        return $lotacao;
+    }
+
+    private function lotar(User $pessoa, Tenant $tenant, Lotacao $lotacao): void
+    {
+        $vinculo = $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $pessoa, 'tenant' => $tenant]);
+        self::assertNotNull($vinculo);
+        $vinculo->setLotacao($lotacao);
+        $this->em()->flush();
+    }
+
+    private function feriadoDeHoje(Tenant $tenant, Lotacao $lotacao): void
+    {
+        $feriado = (new Feriado())->setNome('Feriado de ' . $lotacao->getNome())->setData(new \DateTime('today'))
+            ->setRecorrente(false)->setTenant($tenant)->setLotacao($lotacao);
+        $this->em()->persist($feriado);
+        $this->em()->flush();
     }
 
     #[TestDox('O JS conta trabalhado (como na folha) menos meta, só com meta positiva, e mostra +HH:MM em verde')]

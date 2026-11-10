@@ -68,6 +68,7 @@ use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\VerificadorAlertaPonto;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -152,6 +153,7 @@ final class PontoController extends AbstractController
         GestaoDoPonto $gestao,
         JustificativasAAnalisarDaEquipe $aAnalisarDaEquipe,
         PontoAjusteRepository $ajustes,
+        FeriadosDaPessoa $feriadosDaPessoa,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -226,9 +228,10 @@ final class PontoController extends AbstractController
         $jornadaInfo = $this->resolverJornadaInfo($jornadaDoEscritorio, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($jornadaDoEscritorio, $agora, $jornadaTenant);
         // Contador de horas excedentes (05/11/2026): a meta do dia é a do alerta de "hora de ir embora",
-        // já sem o almoço. Feriado zera, como na folha (`CalculadoraJornada::calcularSaldoDiaDaEscolha`).
+        // já sem o almoço. Feriado zera, como na folha (`CalculadoraJornada::calcularSaldoDiaDaEscolha`): só o que
+        // vale para a pessoa hoje (E6, `FeriadosDaPessoa`), o do escritório todo ou o da lotação dela no dia.
         // Meta 0 (feriado ou dia fora da escala): a tela não mostra contador.
-        $metaDiaMinutos = $calculadoraJornada->getFeriadoDoDia($agora, $feriados) !== null
+        $metaDiaMinutos = $calculadoraJornada->getFeriadoDoDia($agora, $feriadosDaPessoa->filtrar($feriados, $user, $agora)) !== null
             ? 0
             : $this->jornadaResolver->resolverMetaDia($jornadaDoEscritorio, $agora, $jornadaTenant);
 
