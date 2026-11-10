@@ -40,7 +40,7 @@ class FolhaPontoBuilder
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
      * @param ?\DateTimeImmutable $hoje         O dia de hoje da folha (dia futuro e hoje sem saída). Omitido, o de
      *                                            agora; o banco passa o dia de referência dos lotes (E17).
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, tipo: string, hora: string}>}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -330,18 +330,21 @@ class FolhaPontoBuilder
     }
 
     /**
-     * As batidas do dia que ficaram fora da escolha, com o alvo do ajuste de cada uma (E10).
+     * As batidas do dia que ficaram fora da escolha, com o alvo do ajuste de cada uma e a cabeça da linhagem (E10): o "x"
+     * do "Fora da conta" manda a cabeça de volta, como o das células, e sem ela a inclusão e a batida ajustada voltariam
+     * com o aviso "mudou".
      *
-     * @return list<array{id: ?int, alvo: ?string, tipo: ?string, hora: string}>
+     * @return list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>
      */
     private static function foraDaConta(BatidasEscolhidas $escolha): array
     {
         return array_map(
             static fn (MarcacaoDoPonto $batida): array => [
-                'id'   => $batida->getId(),
-                'alvo' => self::alvoDe($batida),
-                'tipo' => $batida->getTipo(),
-                'hora' => $batida->getDataHora()->format('H:i:s'),
+                'id'     => $batida->getId(),
+                'alvo'   => self::alvoDe($batida),
+                'cabeca' => $batida->cabeca(),
+                'tipo'   => $batida->getTipo(),
+                'hora'   => $batida->getDataHora()->format('H:i:s'),
             ],
             $escolha->desconsideradas,
         );

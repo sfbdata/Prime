@@ -10,6 +10,9 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Enum\TipoDoAjuste;
+use App\Ponto\Model\AjusteDaMarcacao;
+use App\Ponto\Model\BatidaAjustada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
@@ -606,7 +609,7 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $linha['aConferir']);
         self::assertSame(
-            [['id' => 12, 'alvo' => 'b12', 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
+            [['id' => 12, 'alvo' => 'b12', 'cabeca' => null, 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
             $linha['batidasDesconsideradas']
         );
     }
@@ -621,7 +624,28 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame(10, $linha['entradaId']);
         self::assertSame([], $linha['aConferir'], 'repetir o mesmo toque não torna o dia ambíguo');
-        self::assertSame([['id' => 15, 'alvo' => 'b15', 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+        self::assertSame([['id' => 15, 'alvo' => 'b15', 'cabeca' => null, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+    }
+
+    public function testBatidaAjustadaForaDaContaLevaACabecaDaLinhagem(): void
+    {
+        // E10: o "x" do "Fora da conta" manda a cabeça de volta; sem ela, a inclusão e a batida ajustada voltavam "mudou".
+        $ajuste = new AjusteDaMarcacao(TipoDoAjuste::Alteracao, 'Gestora', new \DateTimeImmutable('2026-04-08 10:00:00'), null);
+        $inclusao = new BatidaAjustada(null, 40, 40, 5, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-04-07 10:00:00'), $ajuste);
+        $ajustada = new BatidaAjustada(16, null, 44, 5, RegistroPonto::TIPO_ENTRADA, new \DateTimeImmutable('2026-04-07 11:00:00'), $ajuste);
+
+        $linha = $this->linhaDoDia7([
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '08:00', '2026-04-07', 10),
+            $inclusao,
+            $ajustada,
+            $this->batidaComId(RegistroPonto::TIPO_SAIDA, '17:00', '2026-04-07', 14),
+        ], []);
+
+        self::assertSame(10, $linha['entradaId']);
+        self::assertSame([
+            ['id' => null, 'alvo' => 'a40', 'cabeca' => 40, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '10:00:00'],
+            ['id' => 16, 'alvo' => 'b16', 'cabeca' => 44, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '11:00:00'],
+        ], $linha['batidasDesconsideradas']);
     }
 
     public function testDiaSemBatidaNaoTemMarcaNemBatidaDesconsiderada(): void

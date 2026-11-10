@@ -97,7 +97,7 @@ final class FolhaDoAjusteRenderTest extends KernelTestCase
         self::assertSame('', (string) $linha->filter('td[data-r="Entrada"] button.pe-mais--excluir')->attr('data-cabeca'), 'batida nunca ajustada: sem cabeça');
     }
 
-    #[TestDox('Ficha: a batida fora da conta leva ao ajuste pelo alvo e tem o "x" da janela')]
+    #[TestDox('Ficha: a batida fora da conta leva ao ajuste pelo alvo e tem o "x" da janela, com a cabeça')]
     public function testForaDaConta(): void
     {
         $fora = $this->linha($this->render(true))->filter('.batidas-desconsideradas');
@@ -106,6 +106,7 @@ final class FolhaDoAjusteRenderTest extends KernelTestCase
         $link = $fora->filter('a.batida-desconsiderada[data-registro-id="13"][data-alvo="b13"]');
         self::assertStringEndsWith('/tenant/7/user/9/ponto/b13/ajustar?competencia=2026-10', (string) $link->attr('href'));
         self::assertStringEndsWith('/tenant/7/user/9/ponto/b13/desconsiderar', (string) $fora->filter('button.pe-mais--excluir')->attr('data-acao'));
+        self::assertSame('52', $fora->filter('button.pe-mais--excluir')->attr('data-cabeca'), 'a cabeça da batida fora da conta volta com a janela');
     }
 
     #[TestDox('Ficha: a linha "Desconsideradas" traz o Restaurar na desconsideração da tela e não na da análise (decisão A), com o porquê na dica')]
@@ -174,7 +175,7 @@ final class FolhaDoAjusteRenderTest extends KernelTestCase
             'entradaAjuste' => null, 'repousoAjuste' => null, 'retornoAjuste' => null,
             'saidaAjuste' => ['tipo' => 'alteracao', 'por' => 'Gestora do Ajuste', 'em' => '21/10/2026'],
             'aConferir' => [],
-            'batidasDesconsideradas' => [['id' => 13, 'alvo' => 'b13', 'tipo' => 'repouso', 'hora' => '12:05:00']],
+            'batidasDesconsideradas' => [['id' => 13, 'alvo' => 'b13', 'cabeca' => 52, 'tipo' => 'repouso', 'hora' => '12:05:00']],
             'fimSemana' => false, 'domingo' => false, 'antesDoPrimeiroRegistro' => false, 'registroIncompleto' => false,
             'minutosTrabalhadosDia' => 570, 'saldoDia' => 90, 'saldoAcumulado' => 90, 'saldoAcumuladoAteOntem' => 0,
             'justificadoDia' => false, 'justificativa' => null, 'homeOffice' => false, 'semInternet' => false,

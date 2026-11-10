@@ -193,6 +193,34 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->ajustes($this->colaborador));
     }
 
+    #[TestDox('Fora da conta: o "x" da inclusão (a{id}) e o da batida ajustada mandam a cabeça da linhagem e desconsideram de verdade')]
+    public function testDesconsiderarPeloForaDaConta(): void
+    {
+        $this->batida($this->colaborador, 'entrada', '2026-10-21 08:00:00');
+        $segunda = $this->batida($this->colaborador, 'entrada', '2026-10-21 10:00:00');
+        $this->ajustar($this->colaborador, "b{$segunda}", '', '10:30:00', tipo: 'entrada');
+        $this->incluir($this->colaborador, ['data' => '2026-10-21', 'hora' => '11:00:00', 'tipo' => 'entrada', 'motivo' => 'Entrada lançada em dobro.']);
+        $alteracao = (int) $this->banco()->fetchOne("SELECT id FROM ponto_ajuste WHERE tipo = 'alteracao' AND user_id = ?", [$this->colaborador->getId()]);
+        $inclusao = (int) $this->banco()->fetchOne("SELECT id FROM ponto_ajuste WHERE tipo = 'inclusao' AND user_id = ?", [$this->colaborador->getId()]);
+
+        $botoes = $this->linhaDoDia('2026-10-21')->filter('.batidas-desconsideradas button.pe-mais--excluir');
+        self::assertSame(
+            [["b{$segunda}", (string) $alteracao], ["a{$inclusao}", (string) $inclusao]],
+            $botoes->each(static fn (Crawler $b): array => [basename(\dirname((string) $b->attr('data-acao'))), (string) $b->attr('data-cabeca')]),
+            'cada "x" do Fora da conta leva a cabeça da própria linhagem',
+        );
+
+        foreach ($botoes->each(static fn (Crawler $b): array => [(string) $b->attr('data-acao'), (string) $b->attr('data-token'), (string) $b->attr('data-cabeca')]) as [$acao, $token, $cabeca]) {
+            $this->client->request('POST', $acao, ['_token' => $token, 'cabeca' => $cabeca, 'motivo' => 'Entrada em dobro.', 'competencia' => self::COMPETENCIA]);
+            $this->assertVoltouParaAFicha($this->colaborador);
+        }
+
+        self::assertSame([], $this->avisos('danger'), 'nenhum "mudou"');
+        self::assertSame(array_fill(0, 2, 'Batida desconsiderada. O registro original fica guardado.'), $this->avisos('success'));
+        self::assertSame(['alteracao', 'inclusao', 'desconsideracao', 'desconsideracao'], array_column($this->ajustes($this->colaborador), 'tipo'));
+        self::assertCount(0, $this->linhaDoDia('2026-10-21')->filter('.batidas-desconsideradas'), 'as duas saíram do Fora da conta');
+    }
+
     // ----------------------------------------------------------------------------------------------- Restaurar
 
     #[TestDox('Restaurar pela linha "Desconsideradas" da ficha: a batida volta, o aviso confirma e a linha some')]
@@ -335,10 +363,10 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         ]);
     }
 
-    private function ajustar(User $pessoa, string $alvo, string $cabeca, string $hora, string $motivo = 'Bateu atrasado.'): void
+    private function ajustar(User $pessoa, string $alvo, string $cabeca, string $hora, string $motivo = 'Bateu atrasado.', string $tipo = 'saida'): void
     {
         $this->client->request('POST', $this->ficha($pessoa) . "/ponto/{$alvo}/ajustar", [
-            'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => $hora, 'tipo' => 'saida', 'motivo' => $motivo],
+            'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => $hora, 'tipo' => $tipo, 'motivo' => $motivo],
             'cabeca' => $cabeca,
             'competencia' => self::COMPETENCIA,
             '_token' => 'TOKEN_ponto_ajustar',
