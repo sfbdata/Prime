@@ -74,7 +74,8 @@ assinatura_eletronica:
         envio_email: Informe o e-mail de {nome} para enviar o código de assinatura.
         envio_reforcada_menor: 'A assinatura Reforçada colhe selfie e não é usada para menor ({nome}). Escolha outra forma de assinatura.'
         reforcada_sem_chave: Assinatura reforçada sem chave configurada. Fale com o suporte.
-        certificado_sem_validador: 'A assinatura de {nome} (gov.br ou ICP-Brasil) precisa do validador de certificados, que não está configurado. Fale com o suporte.'
+        # gov.br e ICP sem o validador de cadeia (E5-2): o texto da etapa 1, sem "fale com o suporte" até o validador ser ligado.
+        certificado_sem_validador: 'A assinatura de {nome} ainda não está disponível. Use a assinatura Simples.'
         selo_sem_chave: Código de validação sem chave configurada. Fale com o suporte.
         vinculo_ja_definido: Este documento já está vinculado a uma pasta.
         vinculo_fora_do_envio: Só documentos aguardando assinatura ou concluídos, fora da Lixeira, podem ser vinculados a uma pasta.

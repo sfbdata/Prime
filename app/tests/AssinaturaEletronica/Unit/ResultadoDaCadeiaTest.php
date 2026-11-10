@@ -106,6 +106,30 @@ final class ResultadoDaCadeiaTest extends TestCase
         self::assertNull($resultado->daFaixa([0, 840, 960, 1201]));
     }
 
+    #[TestDox('assinatura sem /ByteRange (faixa nula, o item assinatura_ilegivel do validador): a resposta vale, o item é não íntegro e não casa com nenhuma faixa')]
+    public function testFaixaNula(): void
+    {
+        $json = self::exemplo();
+        $legivel = $json['assinaturas'][0];
+        $json['assinaturas'][0] = ['campo' => null, 'faixa' => null, 'intacta' => true, 'valida' => false, 'confiavel' => false, 'ancora' => null,
+            'titular' => ['cn' => null, 'cpf' => null, 'cnpj' => null], 'cadeia' => [], 'revogacao' => 'desconhecida',
+            'carimbo' => ['presente' => false, 'valido' => false, 'hora' => null], 'cobertura' => 'parcial',
+            'nivel_de_modificacao' => 'outra', 'docmdp_ok' => null, 'motivo' => 'assinatura_ilegivel'];
+        $json['assinaturas'][] = $legivel;
+
+        $resultado = ResultadoDaCadeia::deJson(self::peloFio($json));
+
+        $ilegivel = $resultado->assinaturas[0];
+        self::assertNull($ilegivel->faixa);
+        self::assertFalse($ilegivel->intacta, 'sem a faixa, nunca íntegra (mesmo que venha verdadeiro)');
+        self::assertSame('assinatura_ilegivel', $ilegivel->motivo);
+        self::assertFalse($ilegivel->temAFaixa([0, 840, 960, 1200]));
+        self::assertSame('Signature1', $resultado->daFaixa([0, 840, 960, 1200])?->campo);
+        self::assertTrue($resultado->assinaturas[1]->intacta);
+        self::assertNull($resultado->paraJson()['assinaturas'][0]['faixa']);
+        self::assertEquals($resultado, ResultadoDaCadeia::deJson(self::peloFio($resultado->paraJson())));
+    }
+
     /** @return iterable<string, array{\Closure(array<string, mixed>): array<string, mixed>, string}> */
     public static function respostasInvalidas(): iterable
     {
@@ -119,6 +143,11 @@ final class ResultadoDaCadeiaTest extends TestCase
         yield 'CNPJ curto' => [self::trocaNo('titular', 'cnpj', '1122233300018'), 'O cnpj do titular não tem 14 dígitos.'];
         yield 'faixa com três números' => [self::troca('faixa', [0, 840, 960]), 'A faixa da assinatura não tem quatro números não negativos.'];
         yield 'faixa negativa' => [self::troca('faixa', [0, -1, 960, 1200]), 'A faixa da assinatura não tem quatro números não negativos.'];
+        yield 'sem o campo faixa (nula vale, ausente não)' => [static function (array $j): array {
+            unset($j['assinaturas'][0]['faixa']);
+
+            return $j;
+        }, 'JSON sem o campo "faixa".'];
         yield 'sha256 da cadeia maiúsculo' => [self::troca('cadeia', [['cn' => 'AC', 'sha256' => strtoupper(self::SHA)]]), 'Impressão digital da cadeia fora do formato (64 hexadecimais minúsculos).'];
         yield 'item da cadeia que não é objeto' => [self::troca('cadeia', ['AC']), 'Item da cadeia que não é objeto.'];
         yield 'revogação desconhecida' => [self::troca('revogacao', 'talvez'), 'O campo "revogacao" do JSON não é um dos valores de ' . RevogacaoDaCadeia::class . '.'];

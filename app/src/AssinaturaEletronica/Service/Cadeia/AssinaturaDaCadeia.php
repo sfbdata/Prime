@@ -15,17 +15,25 @@ use App\AssinaturaEletronica\Service\LeitorDeJsonEstrito;
  * Sem carimbo do tempo, o validador manda `{"presente":false,"valido":false,"hora":null}`. O `motivo` é um código do
  * validador (nulo quando nada falhou), nunca texto para a tela. A `hora` do carimbo fica como veio (ISO 8601), para a
  * volta ao JSON gravar o mesmo texto; {@see horaDoCarimbo()} a lê como data.
+ *
+ * A `faixa` vem nula quando o validador não leu o `/ByteRange` da assinatura (o item `assinatura_ilegivel`): o item fica
+ * na resposta, nunca casa com uma assinatura do motor e é sempre não íntegro (`intacta` falso, mesmo que venha
+ * verdadeiro).
  */
 final readonly class AssinaturaDaCadeia
 {
+    /** Íntegra para o validador; sempre falso sem a faixa. */
+    public bool $intacta;
+
     /**
-     * @param list<int>                               $faixa  os quatro números do `/ByteRange`
+     * @param list<int>|null                           $faixa  os quatro números do `/ByteRange`; nula se o validador não
+     *                                                         o leu
      * @param list<array{cn: ?string, sha256: string}> $cadeia do signatário até a raiz
      */
     public function __construct(
         public ?string $campo,
-        public array $faixa,
-        public bool $intacta,
+        public ?array $faixa,
+        bool $intacta,
         public bool $valida,
         public bool $confiavel,
         /** `icp` ou `govbr` quando a cadeia chegou a uma âncora; nulo sem âncora */
@@ -45,6 +53,7 @@ final readonly class AssinaturaDaCadeia
         public ?bool $docmdpOk,
         public ?string $motivo,
     ) {
+        $this->intacta = $faixa !== null && $intacta;
     }
 
     /**
@@ -114,10 +123,13 @@ final readonly class AssinaturaDaCadeia
     /**
      * @param array<mixed> $json
      *
-     * @return list<int>
+     * @return list<int>|null
      */
-    private static function faixa(array $json): array
+    private static function faixa(array $json): ?array
     {
+        if (\array_key_exists('faixa', $json) && $json['faixa'] === null) {
+            return null;
+        }
         $faixa = LeitorDeJsonEstrito::listaDeInteiros($json, 'faixa');
         if (\count($faixa) !== 4 || min($faixa) < 0) {
             throw new \UnexpectedValueException('A faixa da assinatura não tem quatro números não negativos.');
