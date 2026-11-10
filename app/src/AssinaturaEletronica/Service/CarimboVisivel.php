@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Service;
 
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDePdf;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoPrefixo;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\SituacaoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
@@ -20,8 +21,12 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
  * motor conferir o resultado: o original é o começo dele, o número de assinaturas é o mesmo e cada assinatura íntegra
  * continua íntegra. Nunca grava nada: recebe e devolve bytes. Nenhuma exceção sai daqui.
  *
- * A recusa leva só o motivo, sem o " Use o original." do aviso: quem o acrescenta é o JS da tela (o `presCarimbo` do
- * desenho, dc:384: `r.motivo + ' Use o original.'`).
+ * O resultado também precisa caber no teto do motor (`LimitesDaConferencia::PDF_MAXIMO_EM_BYTES`), senão a verificação
+ * final não o lê: o carimbo não sai para PDFs a menos de um acréscimo do teto, que recusam com `GRANDE_DEMAIS`.
+ *
+ * A recusa leva só o motivo. O JS da tela (o `presCarimbo` do desenho, dc:384: `r.motivo + ' Use o original.'`)
+ * acrescenta " Use o original." às recusas do `carimbar`, menos à de `SEM_ASSINATURA`: no desenho, esse caso sai
+ * antes do `carimbar`, com o texto sem o final, e a rota o marca com `"semAssinatura": true`.
  */
 final class CarimboVisivel
 {
@@ -32,7 +37,12 @@ final class CarimboVisivel
     public const PAGINA_NAO_LOCALIZADA = 'Página não localizada no PDF.';
     public const ANOTACOES_NAO_LOCALIZADAS = 'Anotações não localizadas.';
     public const PRESERVACAO_NAO_CONFIRMADA = 'Verificação final não confirmou a preservação.';
-    /** O motivo de uma falha inesperada (o JS da tela acrescenta " Use o original.", como em toda recusa). */
+    /**
+     * O PDF com o carimbo passaria do teto do motor: o motivo do motor para PDF grande demais, com o ponto das outras
+     * recusas (o JS da tela acrescenta " Use o original.").
+     */
+    public const GRANDE_DEMAIS = ConferenciaDePdf::MOTIVO_GRANDE . '.';
+    /** O motivo de uma falha inesperada (o JS da tela acrescenta " Use o original.", como nas outras recusas). */
     public const FALHA = 'Não foi possível carimbar.';
 
     /** Assinaturas no carimbo, como o `slice(0, 6)` do desenho; a linha do código vem depois delas. */
@@ -91,6 +101,10 @@ final class CarimboVisivel
             ?? throw new CarimboVisivelRecusa(self::PAGINA_NAO_LOCALIZADA);
 
         $carimbado = $pdf . CarimboVisivelAcrescimo::escrever($pdf, self::objetos($pagina, $indice->primeiroLivre, $linhas), $indice, $indice->primeiroLivre + 3);
+        // Acima do teto, o motor declararia o resultado ilegível e a recusa diria que não preservou.
+        if (\strlen($carimbado) > LimitesDaConferencia::PDF_MAXIMO_EM_BYTES) {
+            throw new CarimboVisivelRecusa(self::GRANDE_DEMAIS);
+        }
         if (!self::preservou($antes, $this->conferencia->conferir($carimbado, $pdf))) {
             throw new CarimboVisivelRecusa(self::PRESERVACAO_NAO_CONFIRMADA);
         }

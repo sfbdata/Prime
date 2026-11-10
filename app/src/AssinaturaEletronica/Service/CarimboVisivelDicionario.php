@@ -93,8 +93,8 @@ final class CarimboVisivelDicionario
     {
         $fim = $i + strcspn($texto, self::DELIMITADORES, $i);
         if (ctype_digit(substr($texto, $i, $fim - $i))
-            && preg_match('/\G\s+\d+\s+R(?![^\s\/\[\]<>(){}%])/', $texto, $p, 0, $fim) === 1) {
-            return $fim + \strlen($p[0]);
+            && ($p = CarimboVisivelExpressao::casar('/\G\s++\d++\s++R(?![^\s\/\[\]<>(){}%])/', $texto, 0, $fim)) !== null) {
+            return $fim + \strlen((string) $p[0]);
         }
 
         return $fim;

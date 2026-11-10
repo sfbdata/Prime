@@ -28,7 +28,10 @@ final class LocalizadorDaUltimaPagina
     public const FILHOS_MAXIMOS = LimitesDaConferencia::OBJETOS_MAXIMOS;
 
     private const ESPACOS = " \t\r\n\f\0";
-    private const NUMERO = '([+-]?(?:\d+\.?\d*|\.\d+))';
+    /** Número do PDF, sem ambiguidade (possessivo): a expressão não retrocede. */
+    private const NUMERO = '([+-]?+(?:\d++(?:\.\d*+)?+|\.\d++))';
+    /** Texto de uma caixa (`[x0 y0 x1 y1]`): acima disso, a caixa é ilegível, sem passar pela expressão. */
+    public const CAIXA_MAXIMA_EM_BYTES = 256;
 
     public function localizar(string $pdf, int $numeroDaRaiz, int $geracaoDaRaiz): ?CarimboVisivelPagina
     {
@@ -115,7 +118,7 @@ final class LocalizadorDaUltimaPagina
             throw new \OverflowException('Filhos demais num /Kids.');
         }
         $objetos->gastar(\strlen($vetor));
-        preg_match_all('/(?<![\d.])(\d{1,10})\s+(\d{1,5})\s+R(?![^\s\/\[\]<>(){}%])/', $vetor, $partes, \PREG_SET_ORDER);
+        $partes = CarimboVisivelExpressao::todas('/(?<![\d.])(\d{1,10}+)\s++(\d{1,5}+)\s++R(?![^\s\/\[\]<>(){}%])/', $vetor);
 
         return array_map(static fn (array $parte): array => [(int) $parte[1], (int) $parte[2]], $partes);
     }
@@ -197,7 +200,9 @@ final class LocalizadorDaUltimaPagina
     }
 
     /**
-     * Os quatro números normalizados (cantos em qualquer ordem, como o `normalizeRect` do pdf.js); null sem área.
+     * Os quatro números normalizados (cantos em qualquer ordem, como o `normalizeRect` do pdf.js); null sem área ou
+     * ilegível (texto acima de `CAIXA_MAXIMA_EM_BYTES` ou fora do formato), e a regra do pdf.js para caixa ilegível
+     * vale a partir daí. Uma falha da expressão lança: nunca vira caixa ilegível.
      *
      * @return array{float, float, float, float}|null
      */
@@ -205,8 +210,12 @@ final class LocalizadorDaUltimaPagina
     {
         $referencia = self::referencia($valor);
         $vetor = trim($referencia === null ? $valor : (string) $objetos->objeto($referencia[0], $referencia[1]));
+        if (\strlen($vetor) > self::CAIXA_MAXIMA_EM_BYTES) {
+            return null;
+        }
         $n = self::NUMERO;
-        if (preg_match('/^\[\s*' . $n . '\s+' . $n . '\s+' . $n . '\s+' . $n . '\s*\]$/', $vetor, $p) !== 1) {
+        $p = CarimboVisivelExpressao::casar('/^\[\s*+' . $n . '\s++' . $n . '\s++' . $n . '\s++' . $n . '\s*+\]$/', $vetor);
+        if ($p === null) {
             return null;
         }
         [$xa, $ya, $xb, $yb] = [(float) $p[1], (float) $p[2], (float) $p[3], (float) $p[4]];
@@ -218,6 +227,8 @@ final class LocalizadorDaUltimaPagina
     /** @return array{int, int}|null */
     private static function referencia(string $valor): ?array
     {
-        return preg_match('/^\s*(\d{1,10})\s+(\d{1,5})\s+R\s*$/', $valor, $p) === 1 ? [(int) $p[1], (int) $p[2]] : null;
+        $p = CarimboVisivelExpressao::casar('/^\s*+(\d{1,10}+)\s++(\d{1,5}+)\s++R\s*+$/', $valor);
+
+        return $p === null ? null : [(int) $p[1], (int) $p[2]];
     }
 }
