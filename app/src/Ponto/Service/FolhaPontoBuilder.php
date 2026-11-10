@@ -132,9 +132,7 @@ class FolhaPontoBuilder
                 'saldoAcumuladoAteOntem' => null,   // E17: o "Saldo mês" do dia em andamento (desenho L157)
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
-                'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
-                'semInternet'    => $this->diaTeveBatidaSemInternet($escolha->escolhidas()),
-                'trabalhoExterno' => $this->diaTeveTrabalhoExterno($escolha->escolhidas()),
+                ...$this->marcasDoDia($escolha->escolhidas()),   // homeOffice, semInternet e trabalhoExterno
             ];
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
@@ -282,6 +280,22 @@ class FolhaPontoBuilder
         }
 
         return null;
+    }
+
+    /**
+     * Os selos do dia no espelho, tirados das batidas escolhidas: home office, sem internet e trabalho externo (E12).
+     *
+     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia
+     *
+     * @return array{homeOffice: bool, semInternet: bool, trabalhoExterno: bool}
+     */
+    private function marcasDoDia(array $batidasDoDia): array
+    {
+        return [
+            'homeOffice'      => $this->diaTeveHomeOffice($batidasDoDia),
+            'semInternet'     => $this->diaTeveBatidaSemInternet($batidasDoDia),
+            'trabalhoExterno' => $this->diaTeveTrabalhoExterno($batidasDoDia),
+        ];
     }
 
     /**
