@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\AssinaturaEletronica\Unit\Pdf;
 
 use App\AssinaturaEletronica\Pdf\MedidasDoPdfEnviado;
+use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -12,47 +13,31 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A leitura do `-dPDFINFO`: as linhas abaixo são a saída do Ghostscript 10.05 do contêiner para PDFs de teste (as
- * medidas conferidas contra a imagem que o próprio Ghostscript desenha com `-dUseCropBox`).
+ * A leitura das medidas pelo nosso programa PostScript: só as linhas com a marca da leitura valem, só números, e a
+ * conta da página (recorte, giro, UserUnit) é a do desenho do Ghostscript com `-dUseCropBox`.
  */
 #[CoversClass(MedidasDoPdfEnviado::class)]
 final class MedidasDoPdfEnviadoTest extends TestCase
 {
-    private const SAIDA = <<<'TXT'
+    private const MARCA = '0123456789abcdef0123456789abcdef';
+    private const TETO = ValidadorDeBlocos::PAGINAS_SEM_CONTAGEM;
 
-                File has 7 pages
-
-        Title: Teste
-        Page 1 MediaBox: [0 0 1 1]
-        Producer: GPL Ghostscript 10.05.1
-
-        Page 1 MediaBox: [0 0 612 792]    Rotate = 180
-            Fonts used:
-                Helvetica                       Type1           Not embedded    Has ToUnicode
-
-        Page 2 MediaBox: [0 0 612 792] CropBox: [-100 -100 300 400]    Rotate = 180
-        Page 3 MediaBox: [600 800 0 0]    Rotate = 180
-        Page 4 MediaBox: [0 0 600 800] CropBox: [50 50 350 650]    Rotate = 270
-        Page 5 UserUnit: 2.000000  MediaBox: [0 0 600 800] CropBox: [0 0 300 400]    Rotate = 180
-        Page 6 MediaBox: [-300 -400 300 400]    Rotate = -90
-        Page 7 MediaBox: [0 0 600 800] CropBox: [700 900 800 1000]
-        TXT;
-
-    /** Uma fonte de nome `A#0APage#201#20MediaBox:...` sai depois da linha verdadeira, já com a linha falsa. */
-    private const FONTE_FALSA = <<<'TXT'
-        Page 1 MediaBox: [0 0 595 842]
-            Fonts used:
-                A
-        Page 1 MediaBox: [0 0 1 1]    Type1           Not embedded    No ToUnicode
-        TXT;
-
-    /** Nome da fonte que, no `-dPDFINFO`, vira uma linha `Page 1 MediaBox: [0 0 1 1]` depois da verdadeira. */
-    private const FONTE_COM_LINHA_FALSA = '/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /A#0APage#201#20MediaBox:#20#5B0#200#201#201#5D >> >> >>';
-
-    #[TestDox('Recorte pela MediaBox, caixa invertida, giro e UserUnit; a linha falsa do título, antes, não vale')]
+    #[TestDox('Recorte pela MediaBox, caixa invertida, giro como o Ghostscript gira e UserUnit')]
     public function testInterpretar(): void
     {
-        $medidas = MedidasDoPdfEnviado::interpretar(self::SAIDA);
+        $saida = self::linhas(
+            '1 0 0 612 792 0 0 612 792 180 1',
+            '2 0 0 612 792 -100 -100 300 400 180 1',
+            '3 600 800 0 0 600 800 0 0 180 1',
+            '4 0 0 600 800 50 50 350 650 270 1',
+            '5 0 0 600 800 0 0 300 400 180 2.0',
+            '6 -300 -400 300 400 -300 -400 300 400 -90 1',
+            '7 0 0 600 800 700 900 800 1000 0 1',
+            '8 0 0 600 800 0 0 600 800 100 1',
+            '9 0 0 600 800 0 0 600 800 45 1',
+            '10 0 0 595.5 842.25 0 0 595.5 842.25 -181 1',
+            '11 0 0 1.0e+3 1e3 0 0 1000 1000 0 .5',
+        );
 
         self::assertSame([
             1 => [612.0, 792.0],
@@ -61,57 +46,124 @@ final class MedidasDoPdfEnviadoTest extends TestCase
             4 => [600.0, 300.0],
             5 => [600.0, 800.0],
             6 => [800.0, 600.0],
-        ], $medidas, 'A página 7, com o recorte fora da MediaBox, fica de fora (sem medida).');
+            8 => [800.0, 600.0],
+            9 => [600.0, 800.0],
+            10 => [595.5, 842.25],
+            11 => [500.0, 500.0],
+        ], MedidasDoPdfEnviado::interpretar($saida, self::MARCA), 'A página 7, com o recorte fora da MediaBox, fica sem medida.');
     }
 
-    #[TestDox('Vale a maior área de cada página: a linha falsa, antes ou depois da verdadeira, só aumenta a página')]
-    public function testMaiorArea(): void
+    #[TestDox('Linha sem a marca, com outra marca, com algo que não é número, com campo a mais ou a menos, ou cortada, não vale')]
+    public function testLinhasRecusadas(): void
     {
-        $antes = "Page 1 MediaBox: [0 0 1 1]\nPage 1 MediaBox: [0 0 595 842]\n";
-        $maior = "Page 1 MediaBox: [0 0 595 842]\nPage 1 MediaBox: [0 0 9000 9000]\n";
+        $saida = "1 0 0 1 1 0 0 1 1 0 1\n"
+            . 'ffffffffffffffffffffffffffffffff 1 0 0 1 1 0 0 1 1 0 1' . "\n"
+            . 'Aviso: ' . self::MARCA . " 1 0 0 1 1 0 0 1 1 0 1\n"
+            . self::linhas(
+                '2 0 0 x 792 0 0 612 792 0 1',
+                '3 0 0 612 792 0 0 612 792 0',
+                '4 0 0 612 792 0 0 612 792 0 1 1',
+                '5 0 0 612 792 0 0 612 792 0 1',
+                '5 0 0 9000 9000 0 0 9000 9000 0 1',
+            )
+            . self::MARCA . ' 6 0 0 612 792 0 0 612 792 0 1';
 
-        self::assertSame([1 => [595.0, 842.0]], MedidasDoPdfEnviado::interpretar(self::FONTE_FALSA), 'Falsa depois.');
-        self::assertSame([1 => [595.0, 842.0]], MedidasDoPdfEnviado::interpretar($antes), 'Falsa antes.');
-        self::assertSame([1 => [9000.0, 9000.0]], MedidasDoPdfEnviado::interpretar($maior), 'A maior ganha.');
+        self::assertSame([5 => [612.0, 792.0]], MedidasDoPdfEnviado::interpretar($saida, self::MARCA), 'A página repetida fica com a primeira linha; a 6, sem quebra no fim, fica de fora.');
     }
 
-    #[TestDox('Saída sem páginas não dá medida nenhuma')]
-    public function testSemPaginas(): void
+    #[TestDox('No Ghostscript de verdade, as medidas batem com as caixas e a leitura termina bem')]
+    public function testGhostscriptDeVerdade(): void
     {
-        self::assertSame([], MedidasDoPdfEnviado::interpretar("**** Error: Cannot find a 'startxref'\n"));
+        $pdf = PdfDeCaixas::gerar(
+            '/MediaBox [0 0 612 792]',
+            '/MediaBox [0 0 600 800] /CropBox [-100 -100 300 400] /Rotate 90 /UserUnit 2',
+            '/MediaBox [0 0 595.5 842.25] /Rotate -90',
+        );
+
+        self::assertSame([[1 => [612.0, 792.0], 2 => [800.0, 600.0], 3 => [842.25, 595.5]], null], self::ler($pdf, 1, self::TETO));
+        self::assertSame([[2 => [800.0, 600.0]], null], self::ler($pdf, 2, 2), 'Só a página pedida.');
     }
 
-    #[TestDox('No Ghostscript de verdade, a fonte com a linha falsa depois da verdadeira não diminui a página')]
-    public function testFonteComLinhaFalsa(): void
+    #[TestDox('Linha falsa no nome de uma fonte e no título, com quebra de linha, não muda a medida')]
+    public function testInjecaoPeloPdf(): void
     {
-        $medidas = self::ler(PdfDeCaixas::gerar('/MediaBox [0 0 595 842] ' . self::FONTE_COM_LINHA_FALSA), new AvisosDeTeste());
+        $titulo = "Contrato\n" . self::MARCA . " 1 0 0 1 1 0 0 1 1 0 1\nPage 1 MediaBox: [0 0 1 1]\n";
+        $pdf = PdfDeCaixas::comTitulo($titulo, '/MediaBox [0 0 595 842] ' . PdfDeCaixas::FONTE_COM_LINHA_FALSA);
 
-        self::assertSame([1 => [595.0, 842.0]], $medidas);
+        self::assertSame([[1 => [595.0, 842.0]], null], self::ler($pdf, 1, self::TETO));
     }
 
-    #[TestDox('Saída de mais de 100 MB para no teto de 1 MB: memória baixa, sem Fatal, e o motivo vai para o log')]
-    public function testSaidaGiganteParaNoTeto(): void
+    #[TestDox('PDF de 120 páginas com 150 fontes cada: todas as páginas são medidas')]
+    public function testMuitasFontes(): void
+    {
+        [$medidas, $motivo] = self::ler(PdfDeCaixas::comFontes(120, 150), 1, self::TETO);
+
+        self::assertNull($motivo);
+        self::assertSame(array_fill(1, 120, [595.0, 842.0]), $medidas);
+    }
+
+    #[TestDox('PDF hostil de 3000 páginas: mede até o teto de páginas, com pouca memória e rápido; a de depois do teto é medida sozinha')]
+    public function testPdfHostil(): void
     {
         $pdf = PdfDeCaixas::comSaidaGigante();
-        $avisos = new AvisosDeTeste();
 
         $inicio = microtime(true);
         memory_reset_peak_usage();
         $base = memory_get_usage();
-        $medidas = self::ler($pdf, $avisos);
+        [$medidas, $motivo] = self::ler($pdf, 1, self::TETO);
         $pico = memory_get_peak_usage() - $base;
+        $tempo = microtime(true) - $inicio;
 
-        self::assertLessThan(8 * 1024 * 1024, $pico, sprintf('Pico de %.1f MB.', $pico / 1048576));
-        // Medido: 0,3 s. Se o Ghostscript herdar o SIGPIPE ignorado do PHP, ele lê o PDF até o fim (25 s).
-        self::assertLessThan(10.0, microtime(true) - $inicio, 'O Ghostscript para no teto, sem ler o resto.');
-        self::assertSame([595.0, 842.0], $medidas[1]);
-        self::assertArrayNotHasKey(2999, $medidas, 'A página depois do teto fica sem medida.');
-        self::assertSame([100.0, 100.0], $medidas[3000], 'Só a linha falsa chegou antes do teto (o -g limita o custo).');
-        self::assertSame([['warning', 'O tamanho das páginas do PDF enviado foi lido só até o teto.', ['motivo' => 'teto', 'teto' => MedidasDoPdfEnviado::TETO_DA_SAIDA]]], $avisos->registros);
+        self::assertNull($motivo);
+        self::assertCount(self::TETO, $medidas);
+        self::assertSame([595.0, 842.0], $medidas[self::TETO]);
+        self::assertArrayNotHasKey(self::TETO + 1, $medidas);
+        // Medido no contêiner: uns 300 KB e 1 s.
+        self::assertLessThan(4 * 1024 * 1024, $pico, sprintf('Pico de %.1f MB.', $pico / 1048576));
+        self::assertLessThan(10.0, $tempo);
+        self::assertSame([[3000 => [595.0, 842.0]], null], self::ler($pdf, 3000, 3000), 'A linha falsa da fonte não chega à medida.');
     }
 
-    /** @return array<int, array{float, float}> */
-    private static function ler(string $pdf, AvisosDeTeste $avisos): array
+    #[TestDox('Arquivo que não é PDF não dá medida e diz o código de saída do Ghostscript')]
+    public function testNaoEPdf(): void
+    {
+        self::assertSame([[], 'codigo 1'], self::ler("isto não é PDF\n", 1, self::TETO));
+    }
+
+    #[TestDox('Binário que não existe não dá medida e diz o código 127, sem exceção')]
+    public function testBinarioInexistente(): void
+    {
+        self::assertSame([[], 'codigo 127'], MedidasDoPdfEnviado::ler('/nao/existe/gs', '/nao/existe.pdf', 1, self::TETO));
+    }
+
+    #[TestDox('Ghostscript parado no tempo ou no teto volta com o motivo e não sobra vivo')]
+    public function testSemOrfao(): void
+    {
+        $dir = sys_get_temp_dir() . '/medidas-orfao-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0o700);
+
+        try {
+            $inicio = microtime(true);
+            self::assertSame([[], 'tempo'], MedidasDoPdfEnviado::ler(self::falso($dir, 'exec sleep 30'), '/nao/existe.pdf', 1, self::TETO, 0.5));
+            self::assertLessThan(5.0, microtime(true) - $inicio);
+            self::assertProcessoTerminou($dir);
+
+            self::assertSame([[], 'teto'], MedidasDoPdfEnviado::ler(self::falso($dir, 'exec yes 0123456789'), '/nao/existe.pdf', 1, self::TETO));
+            self::assertProcessoTerminou($dir);
+        } finally {
+            exec('rm -rf ' . escapeshellarg($dir));
+        }
+    }
+
+    private static function linhas(string ...$linhas): string
+    {
+        return implode('', array_map(static fn (string $linha): string => self::MARCA . ' ' . $linha . "\n", $linhas));
+    }
+
+    /**
+     * @return array{array<int, array{float, float}>, ?string}
+     */
+    private static function ler(string $pdf, int $primeira, int $ultima): array
     {
         if (!GhostscriptDeTeste::disponivel()) {
             self::markTestSkipped('Ghostscript ausente.');
@@ -119,9 +171,27 @@ final class MedidasDoPdfEnviadoTest extends TestCase
 
         $area = AreaTemporariaPrivada::criar('testemedidas');
         try {
-            return MedidasDoPdfEnviado::ler(GhostscriptDeTeste::binario(), $area->gravar($pdf, 'pdf'), $avisos);
+            return MedidasDoPdfEnviado::ler(GhostscriptDeTeste::binario(), $area->gravar($pdf, 'pdf'), $primeira, $ultima);
         } finally {
             $area->liberar();
         }
+    }
+
+    /** Um "Ghostscript" que grava o próprio PID e troca de corpo com `exec`: o PID gravado é o do processo até o fim. */
+    private static function falso(string $dir, string $corpo): string
+    {
+        $caminho = $dir . '/gs-falso';
+        file_put_contents($caminho, sprintf("#!/bin/sh\necho \$\$ > %s\n%s\n", escapeshellarg($dir . '/pid'), $corpo));
+        chmod($caminho, 0o700);
+
+        return $caminho;
+    }
+
+    private static function assertProcessoTerminou(string $dir): void
+    {
+        $pid = (int) trim((string) file_get_contents($dir . '/pid'));
+
+        self::assertGreaterThan(0, $pid);
+        self::assertDirectoryDoesNotExist('/proc/' . $pid, 'O Ghostscript sobrou (vivo ou zumbi).');
     }
 }

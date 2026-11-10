@@ -48,7 +48,7 @@ final class MontadorDoPdf
      */
     public function emPedacos(FolhaParaMontar $folha): \Generator
     {
-        $recursos = new RecursosDaFolha($folha, new RasterDoPdfEnviado($this->ghostscriptBin, $folha->pdfEnviado, $this->logger));
+        $recursos = new RecursosDaFolha($folha, new RasterDoPdfEnviado($this->ghostscriptBin, $folha->pdfEnviado, $this->logger, $folha->hash));
         $escritor = new EscritorDePdf();
 
         try {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Pdf;
 
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
+use App\AssinaturaEletronica\Service\ValidadorDeBlocos;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Service\ExecucaoDoGhostscript;
 use App\Shared\Service\OrcamentoDeMemoriaDeImagem;
@@ -20,9 +21,16 @@ use Psr\Log\LoggerInterface;
  * uma página de 200 x 200 pol seria rasterizada inteira a 225 dpi e estouraria o tempo antes de qualquer redução.
  *
  * O teto de pixels não depende do que o PDF diz: a imagem sai com `-dFIXEDMEDIA -g<largura>x<altura>`, o tamanho
- * esperado da página na resolução escolhida, e nunca maior que a caixa com a folga. Se a medida mentir, a página
- * sai cortada, mas o custo fica limitado. Página sem medida vai a 225 dpi numa imagem do tamanho da caixa com a
- * folga. O `-dFIXEDMEDIA` não muda o giro: com Rotate de 90, 180, 270 e -90, a imagem sai igual pixel a pixel.
+ * esperado da página na resolução escolhida, e nunca maior que a caixa com a folga. Se as caixas do PDF mentirem, a
+ * página dele sai cortada, mas o custo fica limitado. O `-dFIXEDMEDIA` não muda o giro: com Rotate de 90, 180, 270 e
+ * -90 a imagem sai igual pixel a pixel quando a página dá número inteiro de pixels. Com medida fracionária numa página
+ * girada, o Ghostscript pode arredondar o meio pixel para o outro lado: sai uma linha ou coluna de pixel a mais (em
+ * branco) ou a menos na borda.
+ *
+ * Página que a leitura de todas deixou sem medida (teto, tempo, linha recusada) é medida de novo, sozinha, com o mesmo
+ * programa e os mesmos tetos. Se ainda assim ficar sem medida, vai inteira com `-dPDFFitPage`: o Ghostscript encaixa
+ * a página, sem cortar, numa imagem do tamanho da caixa com a folga, e o log registra o documento, a página e o
+ * motivo. Nesse último caso o Ghostscript ignora o Rotate: a página deitada pelo Rotate fica de lado na folha.
  */
 final class RasterDoPdfEnviado
 {
@@ -46,6 +54,8 @@ final class RasterDoPdfEnviado
         private readonly string $ghostscriptBin,
         private readonly ?string $bytes,
         private readonly LoggerInterface $logger,
+        /** Quem é o documento no log: o hash da folha (o SHA-256 do envio), nunca o conteúdo. */
+        private readonly string $documento,
     ) {
     }
 
@@ -83,7 +93,11 @@ final class RasterDoPdfEnviado
     /** @throws FalhaAoMontarPdf */
     private function decodificar(int $numero, string $saida): \GdImage
     {
-        [$largura, $altura] = $this->rasterizar($numero, $saida, ...$this->resolucao($numero));
+        $medida = $this->medida($numero);
+        $opcoes = $medida === null
+            ? [...$this->opcoes(self::DPI, ...self::ENCAIXE_PX), '-dPDFFitPage']
+            : $this->opcoes(...$this->resolucao($numero, $medida));
+        [$largura, $altura] = $this->rasterizar($numero, $saida, $opcoes);
 
         if (!OrcamentoDeMemoriaDeImagem::cabe($largura, $altura)) {
             throw new FalhaAoMontarPdf(sprintf('Sem memória para a página %d do PDF enviado.', $numero));
@@ -98,22 +112,47 @@ final class RasterDoPdfEnviado
     }
 
     /**
+     * Largura e altura da página em pontos: da leitura de todas (feita uma vez, na primeira página pedida) ou, se ela
+     * não trouxe esta página, de uma leitura só dela. Nula quando nem a segunda leitura mediu.
+     *
+     * @return array{float, float}|null
+     */
+    private function medida(int $numero): ?array
+    {
+        if ($this->medidas === null) {
+            [$this->medidas, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, 1, ValidadorDeBlocos::PAGINAS_SEM_CONTAGEM);
+            if ($motivo !== null) {
+                $this->logger->warning('O tamanho das páginas do PDF enviado não foi lido até o fim.', ['documento' => $this->documento, 'pagina' => $numero, 'motivo' => $motivo]);
+            }
+        }
+        if (isset($this->medidas[$numero])) {
+            return $this->medidas[$numero];
+        }
+
+        [$daPagina, $motivo] = MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, $numero, $numero);
+        if (isset($daPagina[$numero])) {
+            return $this->medidas[$numero] = $daPagina[$numero];
+        }
+
+        $this->logger->warning('A página do PDF enviado ficou sem medida e vai inteira, encaixada.', ['documento' => $this->documento, 'pagina' => $numero, 'motivo' => $motivo ?? 'sem medida']);
+
+        return null;
+    }
+
+    /**
      * A resolução e o tamanho da imagem. 225 dpi, ou menos quando a página passaria da caixa com a folga (a mesma
      * conta de antes, feita com o tamanho lido da página em vez da imagem já rasterizada); o tamanho é o da página
      * nessa resolução, arredondado como o Ghostscript arredonda, e nunca maior que a caixa com a folga.
+     *
+     * @param array{float, float} $medida largura e altura em pontos
      *
      * @return array{int, int, int} dpi, largura e altura em px
      *
      * @throws FalhaAoMontarPdf página tão grande que nem a 2 dpi caberia na caixa
      */
-    private function resolucao(int $numero): array
+    private function resolucao(int $numero, array $medida): array
     {
-        $this->medidas ??= MedidasDoPdfEnviado::ler($this->ghostscriptBin, (string) $this->pdf, $this->logger);
-        if (!isset($this->medidas[$numero])) {
-            return [self::DPI, ...self::ENCAIXE_PX];
-        }
-
-        [$largura, $altura] = $this->medidas[$numero];
+        [$largura, $altura] = $medida;
         $porPonto = self::DPI / self::PONTOS_POR_POLEGADA;
         $reducao = min(1.0, self::CAIXA_PX[0] * self::FOLGA_DA_CAIXA / ($largura * $porPonto), self::CAIXA_PX[1] * self::FOLGA_DA_CAIXA / ($altura * $porPonto));
         $dpi = (int) floor(self::DPI * $reducao);
@@ -129,22 +168,28 @@ final class RasterDoPdfEnviado
     }
 
     /**
+     * Roda com o mesmo teto de saída da leitura das medidas: o que o Ghostscript escreve na tela não interessa, e um
+     * PDF cheio de avisos não acumula nada.
+     *
+     * @param list<string> $opcoes
+     *
      * @return array{int, int} largura e altura da imagem gerada
      *
      * @throws FalhaAoMontarPdf
      */
-    private function rasterizar(int $numero, string $saida, int $dpi, int $larguraPx, int $alturaPx): array
+    private function rasterizar(int $numero, string $saida, array $opcoes): array
     {
         try {
-            $processo = ExecucaoDoGhostscript::rodar(
-                [...$this->opcoes($dpi, $larguraPx, $alturaPx), '-dFirstPage=' . $numero, '-dLastPage=' . $numero, '-sOutputFile=' . $saida, (string) $this->pdf],
+            $execucao = ExecucaoDoGhostscript::rodarComTeto(
+                [...$opcoes, '-dFirstPage=' . $numero, '-dLastPage=' . $numero, '-sOutputFile=' . $saida, (string) $this->pdf],
                 self::TEMPO_POR_PAGINA,
+                MedidasDoPdfEnviado::TETO_DA_SAIDA,
             );
         } catch (\RuntimeException $e) {
             throw new FalhaAoMontarPdf(sprintf('O Ghostscript não rasterizou a página %d: %s', $numero, $e->getMessage()), 0, $e);
         }
 
-        $medidas = $processo->isSuccessful() ? @getimagesize($saida) : false;
+        $medidas = $execucao->terminouBem() ? @getimagesize($saida) : false;
         if ($medidas === false || $medidas[0] < 1 || $medidas[1] < 1) {
             throw new FalhaAoMontarPdf(sprintf('O Ghostscript não rasterizou a página %d do PDF enviado.', $numero));
         }

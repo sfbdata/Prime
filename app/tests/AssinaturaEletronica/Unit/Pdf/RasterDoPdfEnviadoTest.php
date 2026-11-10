@@ -7,16 +7,18 @@ namespace App\Tests\AssinaturaEletronica\Unit\Pdf;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Pdf\MedidasDoPdfEnviado;
 use App\AssinaturaEletronica\Pdf\RasterDoPdfEnviado;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Process\Process;
 
 /**
  * As páginas do PDF enviado em imagem: a A4 sai a 225 dpi, como sempre; a página maior que a caixa (1959 x 2604 px,
  * com a folga de 1,25: até 2449 x 3255) já sai do Ghostscript reduzida, numa passada só. A imagem nunca passa do
- * `-g` calculado, nem quando a medida lida do PDF mente.
+ * `-g` calculado; a página sem medida sai inteira, encaixada na caixa com a folga.
  */
 #[CoversClass(RasterDoPdfEnviado::class)]
 #[CoversClass(MedidasDoPdfEnviado::class)]
@@ -24,6 +26,7 @@ final class RasterDoPdfEnviadoTest extends TestCase
 {
     /** Antes, a página de 200 x 200 pol ia inteira a 225 dpi (45000 x 45000 px) e só parava no tempo de 60 s. */
     private const RAPIDO_SEGUNDOS = 20.0;
+    private const DOCUMENTO = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
     protected function setUp(): void
     {
@@ -61,7 +64,7 @@ final class RasterDoPdfEnviadoTest extends TestCase
             // CropBox de 300 x 400 pt dentro de uma MediaBox enorme, vezes 2: 600 x 800 pt a 225 dpi.
             '/MediaBox [0 0 14400 14400] /CropBox [0 0 300 400] /UserUnit 2',
         );
-        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger());
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger(), self::DOCUMENTO);
 
         try {
             self::assertSame([1860, 2631], self::tamanho($raster->pagina(1)));
@@ -87,28 +90,124 @@ final class RasterDoPdfEnviadoTest extends TestCase
         self::assertLessThan(self::RAPIDO_SEGUNDOS, microtime(true) - $inicio);
     }
 
-    #[TestDox('Página sem medida vai a 225 dpi na caixa com a folga; medida falsa corta a página, sem custar mais')]
-    public function testTetoDePixelsSemDependerDaMedida(): void
+    #[TestDox('Página depois do teto de páginas é medida sozinha: o PDF hostil sai inteiro, sem aviso')]
+    public function testPaginaDepoisDoTetoDePaginas(): void
     {
-        // O -dPDFINFO deste PDF para no teto lá pela página 23: a 2999 fica sem medida, e a 3000 só tem a linha falsa
-        // (100 x 100 pt) que o nome de uma fonte põe na lista de fontes de cada página.
-        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), PdfDeCaixas::comSaidaGigante(), new NullLogger());
+        $avisos = new AvisosDeTeste();
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), PdfDeCaixas::comSaidaGigante(), $avisos, self::DOCUMENTO);
 
         try {
             // 595 x 842 pt a 225 dpi = 1859,4 x 2631,3 px.
             self::assertSame([1859, 2631], self::tamanho($raster->pagina(1)));
-            self::assertSame([2449, 3255], self::tamanho($raster->pagina(2999)));
-            // 100 pt a 225 dpi = 312,5 px: a A4 sai cortada em 313 x 313.
-            self::assertSame([313, 313], self::tamanho($raster->pagina(3000)));
+            self::assertSame([1859, 2631], self::tamanho($raster->pagina(2999)));
+            self::assertSame([1859, 2631], self::tamanho($raster->pagina(3000)), 'A linha falsa da fonte (100 x 100 pt) não corta mais a página.');
         } finally {
             $raster->liberar();
+        }
+        self::assertSame([], $avisos->registros);
+    }
+
+    #[TestDox('Página que nem a segunda leitura mede sai inteira, encaixada na caixa com a folga, e o log diz documento, página e motivo')]
+    public function testPaginaSemMedidaSaiInteira(): void
+    {
+        $avisos = new AvisosDeTeste();
+        $imagem = self::semMedida(PdfDeCaixas::comCantos(1200, 1600), $avisos);
+
+        // 1200 x 1600 pt a 225 dpi seriam 3750 x 5000 px: cortada no -g, a página perderia o canto azul.
+        self::assertSame([2449, 3255], [imagesx($imagem), imagesy($imagem)]);
+        self::assertSame(0xFF0000, imagecolorat($imagem, 30, 3225), 'Canto de baixo à esquerda.');
+        self::assertSame(0x0000FF, imagecolorat($imagem, 2419, 30), 'Canto de cima à direita: a página veio inteira.');
+        imagedestroy($imagem);
+
+        $contexto = ['documento' => self::DOCUMENTO, 'pagina' => 1, 'motivo' => 'codigo 1'];
+        self::assertSame([
+            ['warning', 'O tamanho das páginas do PDF enviado não foi lido até o fim.', $contexto],
+            ['warning', 'A página do PDF enviado ficou sem medida e vai inteira, encaixada.', $contexto],
+        ], $avisos->registros);
+    }
+
+    #[TestDox('Sem medida, a página deitada pelo Rotate fica de lado: o -dPDFFitPage ignora o Rotate')]
+    public function testPaginaGiradaSemMedidaFicaDeLado(): void
+    {
+        $imagem = self::semMedida(PdfDeCaixas::comCantos(1200, 1600, '/Rotate 90'), new AvisosDeTeste());
+
+        self::assertSame([2449, 3255], [imagesx($imagem), imagesy($imagem)]);
+        self::assertSame(0xFF0000, imagecolorat($imagem, 30, 3225), 'Igual à página sem Rotate.');
+        self::assertSame(0x0000FF, imagecolorat($imagem, 2419, 30), 'Igual à página sem Rotate.');
+        imagedestroy($imagem);
+    }
+
+    #[TestDox('Sem o Ghostscript, a falta da medida vai para o log e a página falha com a exceção da montagem')]
+    public function testBinarioInexistente(): void
+    {
+        $avisos = new AvisosDeTeste();
+        $raster = new RasterDoPdfEnviado('/nao/existe/gs', PdfDeCaixas::gerar('/MediaBox [0 0 595 842]'), $avisos, self::DOCUMENTO);
+
+        try {
+            $raster->pagina(1);
+            self::fail('Sem o Ghostscript a página não sai.');
+        } catch (FalhaAoMontarPdf $e) {
+            self::assertStringContainsString('não rasterizou a página 1', $e->getMessage());
+        } finally {
+            $raster->liberar();
+        }
+
+        self::assertSame(['codigo 127', 'codigo 127'], array_map(static fn (array $registro): mixed => $registro[2]['motivo'], $avisos->registros));
+    }
+
+    #[TestDox('PDF hostil com memory_limit de 128 MB: as páginas 1, 2000 e 3000 saem, com pouca memória')]
+    public function testPdfHostilEm128Mb(): void
+    {
+        $area = AreaTemporariaPrivada::criar('testeraster');
+
+        try {
+            $script = $area->gravar(<<<'PHP'
+                <?php
+                require $argv[1];
+                $raster = new App\AssinaturaEletronica\Pdf\RasterDoPdfEnviado($argv[2], App\Tests\AssinaturaEletronica\Unit\Pdf\PdfDeCaixas::comSaidaGigante(), new Psr\Log\NullLogger(), str_repeat('a', 64));
+                $inicio = microtime(true);
+                foreach ([1, 2000, 3000] as $numero) {
+                    $imagem = $raster->pagina($numero);
+                    echo imagesx($imagem), 'x', imagesy($imagem), ' ';
+                    imagedestroy($imagem);
+                }
+                $raster->liberar();
+                printf('%.1f %.1f', memory_get_peak_usage() / 1048576, microtime(true) - $inicio);
+                PHP, 'php');
+            $processo = new Process([\PHP_BINARY, '-d', 'memory_limit=128M', $script, \dirname(__DIR__, 4) . '/vendor/autoload.php', GhostscriptDeTeste::binario()]);
+            $processo->setTimeout(120);
+            $processo->run();
+        } finally {
+            $area->liberar();
+        }
+
+        self::assertSame(0, $processo->getExitCode(), $processo->getErrorOutput() . $processo->getOutput());
+        self::assertStringStartsWith('1859x2631 1859x2631 1859x2631 ', $processo->getOutput());
+        [$pico, $segundos] = array_map(floatval(...), \array_slice(explode(' ', $processo->getOutput()), 3));
+        // Medido no contêiner: 59 MB e 4,6 s (a leitura das 2000 medidas leva 1,1 s). Passar de 128 MB seria Fatal.
+        self::assertLessThan(96.0, $pico, sprintf('Pico de %.1f MB em %.1f s.', $pico, $segundos));
+    }
+
+    /** A página 1 com um Ghostscript que falha na leitura das medidas e desenha com o binário de verdade. */
+    private static function semMedida(string $pdf, AvisosDeTeste $avisos): \GdImage
+    {
+        $area = AreaTemporariaPrivada::criar('testeraster');
+        $gs = $area->gravar(sprintf("#!/bin/sh\nfor a in \"\$@\"; do [ \"\$a\" = -dNODISPLAY ] && exit 1; done\nexec %s \"\$@\"\n", escapeshellarg(GhostscriptDeTeste::binario())), 'sh');
+        chmod($gs, 0o700);
+        $raster = new RasterDoPdfEnviado($gs, $pdf, $avisos, self::DOCUMENTO);
+
+        try {
+            return $raster->pagina(1);
+        } finally {
+            $raster->liberar();
+            $area->liberar();
         }
     }
 
     /** @return array{int, int} */
     private static function medidas(string $pdf, int $pagina): array
     {
-        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger());
+        $raster = new RasterDoPdfEnviado(GhostscriptDeTeste::binario(), $pdf, new NullLogger(), self::DOCUMENTO);
 
         try {
             return self::tamanho($raster->pagina($pagina));
