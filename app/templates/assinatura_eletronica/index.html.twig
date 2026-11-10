@@ -33,6 +33,12 @@
     previa: path('assinatura_eletronica_previa', {id: 0, ordem: 0}),
     rubrica: path('assinatura_eletronica_rubrica', {id: 0, ordem: 0})
 }) %}
+{# Etapa 5, bloco 5A: a conferência do PDF do passo 1 (sem gravar) e a "Cópia com carimbo visível" do bloco 5B. A rota
+   do carimbo chega com o 5B: até lá o caminho fica escrito aqui, com o mesmo marcador 0 no lugar do {id}. #}
+{%- set urls = urls|merge({
+    pdf_conferir: path('assinatura_eletronica_pdf_conferir'),
+    carimbo: '/assinatura/documentos/0/carimbo'
+}) %}
 <div class="bja" id="bjaPagina"
      data-eu="{{ eu|json_encode|e('html_attr') }}"
      data-padrao="{{ padrao|json_encode|e('html_attr') }}"
@@ -125,5 +131,6 @@
 {# Etapa 3, bloco 2: a aba Validar (leitura do QR Code pelo jsQR 1.4.0 servido do sistema quando não há BarcodeDetector). #}
 <script src="{{ asset('js/vendor/jsqr/jsQR.js') }}" defer></script>
 <script src="{{ asset('js/assinatura-validar.js') }}" defer></script>
+<script src="{{ asset('js/assinatura-ja-assinado.js') }}" defer></script>
 <script src="{{ asset('js/assinatura.js') }}" defer></script>
 {% endblock %}

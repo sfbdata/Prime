@@ -380,6 +380,8 @@ assinatura_eletronica_tela:
             aviso_bloqueado: 'O primeiro signatário bloqueou alterações neste PDF: use o original e o manifesto com selo.'
             nome_original: '{nome} - original.pdf'
             nome_carimbo: '{nome} - com carimbo.pdf'
+            # O "Original não encontrado neste navegador." do desenho (dc:383): aqui o original fica no servidor.
+            original_nao_encontrado: 'Original não encontrado.'
             carimbo:
                 linha: 'Assinatura eletrônica BlueJus: {nome}, CPF ***.{meio}.***-**, em {data}'
                 codigo: 'Código {codigo}. Confira em bluejus.com.br.'
