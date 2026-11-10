@@ -1348,6 +1348,12 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   26. Desvios pequenos no PDF (⚠), pela fonte DejaVu, mais larga que a Arial do desenho: texto que não cabe encolhe até
       um mínimo antes do "..." (o `cap` do desenho só corta); os rótulos do controle de intervalos mostram os mínimos da
       jornada, os mesmos do quadro "REGIME DE JORNADA"; nome sem letras vira "USUARIO" no nome do arquivo.
+  27. Observação do dia que não cabe na coluna (P35 a, P34; desenho L622 e L673): a fonte encolhe de 10 até 8 (o
+      mínimo da decisão 26), um ponto por vez, até caber. Se nem em 8 couber, só os ajustes ("<Batida> ajustada em
+      ...", que vêm primeiro) se cortam com "..."; o feriado, a pendência e as justificativas ficam inteiros, na ordem
+      da L622, unidos por " · ". Se nem eles sozinhos couberem, corta o texto todo, como antes. A linha não cresce
+      (página única, altura de linha fixa) e a impressão dos registros (decisão 3) continua com a observação inteira
+      (Coordenador, 10/11/2026).
   28. O Master só exporta a folha (PDF e XLSX) de quem tem algum vínculo, ativo ou não, com o escritório da sessão (o
       ex-colaborador também); sem vínculo nenhum, 404 com a mesma mensagem dos outros (Coordenador, 10/11/2026). Antes
       ele passava direto, e o PDF gravava a folha selada com o cabeçalho e a trilha deste escritório para quem não é dele.

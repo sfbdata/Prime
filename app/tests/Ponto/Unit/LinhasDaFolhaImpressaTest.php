@@ -73,6 +73,8 @@ final class LinhasDaFolhaImpressaTest extends TestCase
         ]), []);
 
         self::assertSame('Entrada ajustada em 13/10/2026 · Saída ajustada em 14/10/2026 · Feriado: Nossa Senhora Aparecida', $linha->observacao);
+        self::assertSame('Entrada ajustada em 13/10/2026 · Saída ajustada em 14/10/2026', $linha->ajustes, 'os ajustes à parte, para o desenho cortar primeiro (decisão 27)');
+        self::assertArrayNotHasKey('ajustes', $linha->paraAImpressao(), 'fora da impressão dos registros, que já tem a observação inteira');
         self::assertSame(['13:03', '', '', '18:37'], $linha->batidas, 'as horas efetivas, as do motor');
     }
 
@@ -87,6 +89,7 @@ final class LinhasDaFolhaImpressaTest extends TestCase
 
         self::assertSame('Feriado: Nossa Senhora Aparecida · Registro incompleto', $nulas->observacao);
         self::assertStringNotContainsString('ajustada em', $nulas->observacao);
+        self::assertSame(['', ''], [$nulas->ajustes, $ausentes->ajustes]);
         self::assertSame('', $ausentes->observacao);
     }
 

@@ -69,6 +69,7 @@ final class LinhasDaFolhaImpressa
         $batidas = self::batidas($linha);
         $feriado = $feriadoDoDia ?? (empty($linha['isFeriado']) ? null : (string) ($linha['nomeFeriado'] ?? ''));
         $semBatida = $feriado !== null && !self::temBatida($linha);
+        $ajustes = $this->ajustesDoDia($linha);
 
         return new LinhaDaFolhaImpressa(
             (string) $linha['chaveDia'],
@@ -80,11 +81,12 @@ final class LinhasDaFolhaImpressa
             self::extras($linha['saldoDia'] ?? null),
             self::saldo($linha['saldoAcumulado'] ?? null),
             ($linha['saldoAcumulado'] ?? 0) < 0,
-            $this->observacao($linha, $fora, $feriado, $justificativasDoDia),
+            $this->observacao($ajustes, $linha, $fora, $feriado, $justificativasDoDia),
             $fora,
             !$fora && !empty($linha['registroIncompleto']),
             $feriado,
             array_map(static fn (JustificativaPonto $justificativa): string => (string) $justificativa->getStatus(), $justificativasDoDia),
+            implode(self::SEPARADOR, $ajustes),
         );
     }
 
@@ -131,12 +133,13 @@ final class LinhasDaFolhaImpressa
     }
 
     /**
+     * @param list<string>             $ajustes             os do dia ({@see ajustesDoDia()}), que vêm primeiro
      * @param array<string, mixed>     $linha
      * @param list<JustificativaPonto> $justificativasDoDia
      */
-    private function observacao(array $linha, bool $fora, ?string $feriado, array $justificativasDoDia): string
+    private function observacao(array $ajustes, array $linha, bool $fora, ?string $feriado, array $justificativasDoDia): string
     {
-        $partes = $this->ajustesDoDia($linha);
+        $partes = $ajustes;
         if ($feriado !== null) {
             $partes[] = 'Feriado: ' . $feriado;
         }

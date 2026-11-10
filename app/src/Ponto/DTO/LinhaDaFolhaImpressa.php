@@ -11,7 +11,8 @@ namespace App\Ponto\DTO;
  * observações do dia unidas por " · ".
  *
  * As marcas dizem a cor: fora de sequência (batidas e observação em vermelho) e registro incompleto (observação em
- * ocre). Montada por {@see \App\Ponto\Service\LinhasDaFolhaImpressa}.
+ * ocre). Os ajustes do dia ficam também à parte, só para o desenho (decisão 27): é a parte da observação que se corta
+ * primeiro quando ela não cabe na coluna. Montada por {@see \App\Ponto\Service\LinhasDaFolhaImpressa}.
  */
 final readonly class LinhaDaFolhaImpressa
 {
@@ -20,6 +21,9 @@ final readonly class LinhaDaFolhaImpressa
      * @param list<string> $batidas       entrada, início do intervalo, fim do intervalo e saída, em HH:MM ou vazias
      * @param ?string      $feriado       o nome do feriado do dia, ou null
      * @param list<string> $justificativas a situação de cada justificativa do dia (abonado, pendente, rejeitado)
+     * @param string       $ajustes        os ajustes do dia ("<Batida> ajustada em dd/mm/aaaa", unidos por " · "), o
+     *                                     começo da observação; vazio no dia sem ajuste. Só para o desenho: fica fora
+     *                                     da impressão dos registros, que já tem a observação inteira
      */
     public function __construct(
         public string $data,
@@ -36,6 +40,7 @@ final readonly class LinhaDaFolhaImpressa
         public bool $incompleto,
         public ?string $feriado,
         public array $justificativas,
+        public string $ajustes = '',
     ) {
     }
 

@@ -15,7 +15,8 @@ use App\Ponto\Service\LinhasDaFolhaImpressa;
  * O texto de cada célula já vem pronto em {@see LinhaDaFolhaImpressa}: a batida que falta e as horas do dia futuro vêm
  * vazias e a célula fica vazia (spec ponto-desenho-0811, seção 8; o desenho põe um traço). As cores são as do desenho:
  * fora de sequência em `#a3232b` (batidas e observação), registro incompleto em `#7a5200` na observação, saldo negativo
- * em `#a3232b` e "FERIADO" em vermelho negrito no feriado sem batida.
+ * em `#a3232b` e "FERIADO" em vermelho negrito no feriado sem batida. A observação que não cabe na coluna encolhe e,
+ * se preciso, corta primeiro os ajustes (decisão 27; {@see self::observacaoQueCabe()}).
  */
 final class TabelaDaFolha
 {
@@ -27,6 +28,11 @@ final class TabelaDaFolha
     private const OCRE = '#7a5200';
     private const OBSERVACAO = '#243845';
     private const TAMANHO_DO_TITULO = 10.5;
+    /** A observação começa em 10 e encolhe até 8, o mínimo da decisão 26 (como no pé e nos quadros da folha). */
+    private const OBSERVACAO_MAIOR = 10;
+    private const OBSERVACAO_MENOR = 8;
+    /** A marca do corte, a mesma do {@see PaginaDaFolha::caber()}. */
+    private const RETICENCIAS = '...';
 
     /** @var list<float> o x de cada coluna e o do fim da última */
     private readonly array $xs;
@@ -117,12 +123,72 @@ final class TabelaDaFolha
         }
     }
 
-    /** As observações do dia em 10, cortadas com "..." na coluna (L683). */
+    /** As observações do dia numa linha só, na coluna (L683; decisão 27). */
     private function observacao(LinhaDaFolhaImpressa $linha, float $base): void
     {
         $cor = $linha->foraDeSequencia ? self::VERMELHO : ($linha->incompleto ? self::OCRE : self::OBSERVACAO);
-        $maximo = self::COLUNAS[9] - 12;
-        $this->pagina->texto($this->pagina->caber($linha->observacao, 'normal', 10, $maximo), 'normal', 10, $this->xs[9] + 6, $base, $cor);
+        [$texto, $tamanho] = $this->observacaoQueCabe($linha, self::COLUNAS[9] - 12);
+        $this->pagina->texto($texto, 'normal', $tamanho, $this->xs[9] + 6, $base, $cor);
+    }
+
+    /**
+     * A observação que cabe na coluna (decisão 27; P35 a, P34; desenho L622 e L673): a fonte encolhe de 10 até 8, um
+     * ponto por vez, até o texto inteiro caber. Se nem em 8 couber, só os ajustes ("<Batida> ajustada em ...", que vêm
+     * primeiro) se cortam com "...": o feriado, a pendência e as justificativas ficam inteiros, na ordem da L622. Se nem
+     * eles sozinhos couberem depois do "...", corta o texto todo, como antes. A linha não cresce (página única, altura
+     * de linha fixa): nunca quebra.
+     *
+     * @return array{string, int} o texto e o tamanho da fonte
+     */
+    private function observacaoQueCabe(LinhaDaFolhaImpressa $linha, float $maximo): array
+    {
+        for ($tamanho = self::OBSERVACAO_MAIOR; $tamanho >= self::OBSERVACAO_MENOR; --$tamanho) {
+            if ($this->pagina->largura($linha->observacao, 'normal', $tamanho) <= $maximo) {
+                return [$linha->observacao, $tamanho];
+            }
+        }
+        $resto = self::depoisDosAjustes($linha);
+        $cortada = $resto === null ? null : $this->ajustesCortados($linha->ajustes, LinhasDaFolhaImpressa::SEPARADOR . $resto, $maximo);
+
+        return [$cortada ?? $this->pagina->caber($linha->observacao, 'normal', self::OBSERVACAO_MENOR, $maximo), self::OBSERVACAO_MENOR];
+    }
+
+    /**
+     * O que vem depois dos ajustes na observação (o feriado, a pendência e as justificativas), ou null no dia sem ajuste
+     * ou só com ajustes.
+     */
+    private static function depoisDosAjustes(LinhaDaFolhaImpressa $linha): ?string
+    {
+        $comeco = $linha->ajustes . LinhasDaFolhaImpressa::SEPARADOR;
+        if ($linha->ajustes === '' || !str_starts_with($linha->observacao, $comeco)) {
+            return null;
+        }
+
+        return substr($linha->observacao, strlen($comeco));
+    }
+
+    /**
+     * O maior começo dos ajustes que, com "..." e o resto inteiro (`$fim`, já com o separador), cabe em 8; o começo sai
+     * sem o espaço e o " · " soltos antes do "...". Null se nem "..." com o resto cabe.
+     */
+    private function ajustesCortados(string $ajustes, string $fim, float $maximo): ?string
+    {
+        $comOResto = fn (int $letras): string => preg_replace('/[\s·]+$/u', '', mb_substr($ajustes, 0, $letras)) . self::RETICENCIAS . $fim;
+        $cabe = fn (int $letras): bool => $this->pagina->largura($comOResto($letras), 'normal', self::OBSERVACAO_MENOR) <= $maximo;
+        if (!$cabe(0)) {
+            return null;
+        }
+        [$menor, $maior] = [0, mb_strlen($ajustes)];
+        while ($menor < $maior) {
+            $meio = intdiv($menor + $maior + 1, 2);
+            if ($cabe($meio)) {
+                $menor = $meio;
+                continue;
+            }
+            $maior = $meio - 1;
+        }
+
+        return $comOResto($menor);
     }
 
     private function celula(string $texto, int $coluna, float $base, string $cor = PaginaDaFolha::TEXTO): void
