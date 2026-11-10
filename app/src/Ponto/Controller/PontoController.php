@@ -90,9 +90,10 @@ final class PontoController extends AbstractController
 
     /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
     private const RESPOSTA_DA_RECUSA = [
-        ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA  => Response::HTTP_NOT_FOUND,
-        ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA => Response::HTTP_FORBIDDEN,
-        ExclusaoDeJustificativaRecusadaException::JA_ANALISADA    => Response::HTTP_UNPROCESSABLE_ENTITY,
+        ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA    => Response::HTTP_NOT_FOUND,
+        ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA   => Response::HTTP_FORBIDDEN,
+        ExclusaoDeJustificativaRecusadaException::JA_ANALISADA      => Response::HTTP_UNPROCESSABLE_ENTITY,
+        ExclusaoDeJustificativaRecusadaException::DA_BATIDA_EXTERNA => Response::HTTP_UNPROCESSABLE_ENTITY,
     ];
 
     public function __construct(
@@ -509,6 +510,12 @@ final class PontoController extends AbstractController
         // uma análise simultânea é a do ConfirmarEdicaoDeJustificativaUseCase, com a linha travada.
         if ($justificativa->getStatus() !== 'pendente') {
             $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
+
+            return $this->voltaDaEdicao($justificativa);
+        }
+        // E12: a da batida de trabalho externo é a análise daquela batida; o colaborador não a muda.
+        if ($justificativa->analisaUmaBatida()) {
+            $this->addFlash('warning', TrabalhoExternoDaBatida::MENSAGEM_EDICAO_RECUSADA);
 
             return $this->voltaDaEdicao($justificativa);
         }

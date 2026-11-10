@@ -31,6 +31,9 @@ final class TrabalhoExternoDaBatida
     public const MENSAGEM_MOTIVO_LONGO = 'O local e o motivo podem ter até 500 caracteres.';
     public const MENSAGEM_REGISTRADA = 'Ponto registrado como trabalho externo. Ele segue para a análise do gestor.';
 
+    /** A justificativa ligada à batida é só do gestor: o colaborador não a edita (nem exclui, ver a recusa da exclusão). */
+    public const MENSAGEM_EDICAO_RECUSADA = 'A justificativa da batida de trabalho externo não pode ser editada. Ela segue para a análise do gestor.';
+
     public function __construct(
         private readonly ConfiguracaoDoPontoRepository $configuracoes,
         private readonly NotificacaoService $notificacoes,

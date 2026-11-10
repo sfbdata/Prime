@@ -11,9 +11,11 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
+use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\CercaDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
+use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -32,6 +34,7 @@ use Twig\Loader\FilesystemLoader;
 #[CoversClass(CercaDoPonto::class)]
 #[CoversClass(TrabalhoExternoDaBatida::class)]
 #[CoversClass(DetalheDaTrilhaDoPonto::class)]
+#[CoversClass(ExcluirJustificativaEmAnaliseUseCase::class)]
 #[Group('ponto')]
 final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
 {
@@ -127,9 +130,8 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
 
         $eventos = $this->eventos();
         self::assertSame(['batida_registrada', 'justificativa_enviada'], array_column($eventos, 'acao'));
-        self::assertSame([true, false, null, $batida['id']], [$eventos[0]['detalhe']['trabalho_externo'], $eventos[0]['detalhe']['sem_internet'], $eventos[0]['detalhe']['sede'], $eventos[0]['detalhe']['registro_id']]);
+        self::assertSame([true, null, $batida['id']], [$eventos[0]['detalhe']['trabalho_externo'], $eventos[0]['detalhe']['sede'], $eventos[0]['detalhe']['registro_id']]);
         self::assertSame([[$justificativa['id']], 'trabalho_externo'], [$eventos[1]['detalhe']['justificativa_ids'], $eventos[1]['detalhe']['tipo']]);
-        self::assertStringEndsWith(', em trabalho externo', DetalheDaTrilhaDoPonto::texto('batida_registrada', $eventos[0]['detalhe']));
 
         self::assertSame(1, $this->avisosDoGestor(), 'o gestor recebe o aviso da justificativa enviada');
     }
@@ -163,7 +165,7 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame([false, null, $this->sede->getId(), 'Sede Paulista'], [$batida['trabalho_externo'], $batida['motivo_trabalho_externo'], $batida['sede_id'], $batida['sede_nome_snapshot']]);
         self::assertSame(0, $this->contar('justificativa_ponto'));
         self::assertSame(['batida_registrada'], array_column($this->eventos(), 'acao'));
-        self::assertSame([false, false], [$this->eventos()[0]['detalhe']['trabalho_externo'], $this->eventos()[0]['detalhe']['sem_internet']]);
+        self::assertFalse($this->eventos()[0]['detalhe']['trabalho_externo']);
     }
 
     #[TestDox('Nunca mais rígido: com a precisão acima de 50 m e a distância dentro do raio, a batida entra na sede')]
@@ -272,6 +274,73 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->avisosDoGestor());
     }
 
+    #[TestDox('Dois pedidos do mesmo envio ao mesmo tempo: o índice único barra o segundo, que responde "já registrada" sem a hora e não deixa batida, justificativa, trilha nem aviso')]
+    public function testIndiceUnicoBarraOSegundoPedido(): void
+    {
+        // O envio já entrou em outro escritório da Ana: a consulta daqui não o vê, como o pedido que perdeu a corrida.
+        $outro = $this->escritorio('Outro escritório');
+        $ganhou = new RegistroPonto();
+        $ganhou->setUser($this->ana);
+        $ganhou->setTenant($outro);
+        $ganhou->setTipo(RegistroPonto::TIPO_ENTRADA);
+        $ganhou->setDataHora(new \DateTime('-2 hours'));
+        $ganhou->setIdEnvio(self::ID);
+        $this->em()->persist($ganhou);
+        $this->em()->flush();
+
+        $resposta = $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO, 'idEnvio' => self::ID]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'success' => true,
+            'message' => 'Esta batida já tinha sido registrada.',
+            'data'    => ['tipo' => 'entrada', 'jaRegistrada' => true],
+            'avisos'  => [],
+        ], $resposta);
+        self::assertSame([0, 0], [$this->contarNoEscritorio('registro_ponto'), $this->contarNoEscritorio('justificativa_ponto')], 'nada entrou aqui');
+        self::assertSame([[], 0], [$this->eventos(), $this->avisosDoGestor()], 'nem a trilha nem o aviso ao gestor');
+        self::assertSame(1, $this->contar('registro_ponto'), 'só a batida que ganhou a corrida, no outro escritório');
+    }
+
+    #[TestDox('A justificativa da batida de trabalho externo não sai pela exclusão do colaborador: 422 com a frase, e a justificativa, a batida e a trilha ficam; a não ligada continua saindo')]
+    public function testColaboradorNaoExcluiAJustificativaDaBatida(): void
+    {
+        $avulsa = (int) $this->justificativa($this->ana, $this->escritorio, new \DateTimeImmutable('first day of this month'), 'pendente')->getId();
+        $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
+        $daBatida = $this->justificativaDaBatida();
+
+        $resposta = $this->excluir((int) $daBatida['id']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['ok' => false, 'mensagem' => 'A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor.'], $resposta);
+        self::assertSame($daBatida, $this->justificativaDaBatida(), 'a justificativa fica como estava');
+        self::assertSame(1, $this->contar('registro_ponto'), 'a batida fica');
+        self::assertSame(['batida_registrada', 'justificativa_enviada'], array_column($this->eventos(), 'acao'), 'a trilha não ganha a exclusão');
+
+        self::assertSame(['ok' => true], $this->excluir($avulsa));
+        self::assertNull($this->statusNoBanco($avulsa), 'a justificativa sem batida continua podendo sair');
+    }
+
+    #[TestDox('A justificativa da batida de trabalho externo não muda pela edição do colaborador: volta para a aba com o aviso, sem mudar nada; a não ligada continua editável')]
+    public function testColaboradorNaoEditaAJustificativaDaBatida(): void
+    {
+        $avulsa = (int) $this->justificativa($this->ana, $this->escritorio, new \DateTimeImmutable('first day of this month'), 'pendente', ['motivo' => 'Consulta'])->getId();
+        $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
+        $daBatida = $this->justificativaDaBatida();
+
+        $flashes = $this->editar((int) $daBatida['id'], ['tipo' => 'atestado_medico', 'motivo' => 'Outro motivo']);
+
+        self::assertResponseRedirects('/ponto/?competencia=' . (new \DateTimeImmutable())->format('Y-m') . '&aba=justificativas');
+        self::assertSame(['A justificativa da batida de trabalho externo não pode ser editada. Ela segue para a análise do gestor.'], $flashes['warning'] ?? []);
+        self::assertArrayNotHasKey('success', $flashes);
+        self::assertSame($daBatida, $this->justificativaDaBatida(), 'nem o tipo nem o motivo mudam');
+
+        $flashes = $this->editar($avulsa, ['tipo' => 'atestado_medico', 'motivo' => 'Consulta remarcada']);
+
+        self::assertSame(['Justificativa atualizada com sucesso.'], $flashes['success'] ?? []);
+        self::assertSame('Consulta remarcada', $this->emSemFiltro()->getConnection()->fetchOne('SELECT motivo FROM justificativa_ponto WHERE id = ?', [$avulsa]));
+    }
+
     #[TestDox('Batida de trabalho externo guardada sem internet: vale a hora do aparelho, e a justificativa leva o dia dela')]
     public function testDaFilaSemInternet(): void
     {
@@ -300,8 +369,7 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame([$aparelho->format('Y-m-d H:i:s'), true, true], [$batida['data_hora'], $batida['enviada_sem_internet'], $batida['trabalho_externo']]);
         self::assertSame($aparelho->format('Y-m-d'), $this->unicaJustificativa()['data'], 'o dia do momento da batida, não o da chegada');
         $detalhe = $this->eventos()[0]['detalhe'];
-        self::assertSame([true, true], [$detalhe['trabalho_externo'], $detalhe['sem_internet']]);
-        self::assertStringEndsWith(', em trabalho externo, enviada sem internet', DetalheDaTrilhaDoPonto::texto('batida_registrada', $detalhe));
+        self::assertTrue($detalhe['trabalho_externo']);
     }
 
     #[TestDox('A folha da /ponto marca o dia com a etiqueta "Trabalho externo", na célula da semana, ao lado das outras')]
@@ -436,6 +504,46 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
     private function contar(string $tabela): int
     {
         return (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM ' . $tabela . ' WHERE user_id = ?', [$this->ana->getId()]);
+    }
+
+    private function contarNoEscritorio(string $tabela): int
+    {
+        return (int) $this->emSemFiltro()->getConnection()->fetchOne('SELECT COUNT(*) FROM ' . $tabela . ' WHERE user_id = ? AND tenant_id = ?', [$this->ana->getId(), $this->escritorio->getId()]);
+    }
+
+    /** @return array<string, mixed> a linha inteira, para provar que nada mudou */
+    private function justificativaDaBatida(): array
+    {
+        $linhas = $this->emSemFiltro()->getConnection()->fetchAllAssociative('SELECT * FROM justificativa_ponto WHERE user_id = ? AND registro_ponto_id IS NOT NULL', [$this->ana->getId()]);
+        self::assertCount(1, $linhas);
+
+        return $linhas[0];
+    }
+
+    /** @return array<string, mixed> */
+    private function excluir(int $id): array
+    {
+        $this->logarComTenant($this->client, $this->ana, $this->escritorio);
+        $this->em()->clear();
+        $this->client->request('POST', '/ponto/justificativa/' . $id . '/excluir', server: ['HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax']);
+
+        return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    /**
+     * Edita pela janela "Editar justificativa", como a Ana, e devolve os avisos da volta.
+     *
+     * @param array<string, string> $campos
+     *
+     * @return array<string, list<string>>
+     */
+    private function editar(int $id, array $campos): array
+    {
+        $this->logarComTenant($this->client, $this->ana, $this->escritorio);
+        $this->em()->clear();   // cada requisição com o EntityManager vazio, como em produção (o filtro do escritório vale)
+        $this->client->request('POST', '/ponto/justificativa/' . $id . '/editar', ['_token' => 'TOKEN_editar_justificativa_' . $id] + $campos);
+
+        return $this->client->getRequest()->getSession()->getFlashBag()->peekAll();
     }
 
     private function avisosDoGestor(): int

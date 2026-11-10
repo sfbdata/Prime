@@ -19,6 +19,9 @@ final class ExclusaoDeJustificativaRecusadaException extends \DomainException
     /** O gestor já analisou: 422, a exclusão não vale mais. */
     public const JA_ANALISADA = 'ja_analisada';
 
+    /** E12: é a justificativa de uma batida de trabalho externo; só o gestor decide sobre ela. 422. */
+    public const DA_BATIDA_EXTERNA = 'da_batida_externa';
+
     private function __construct(public readonly string $motivo, string $mensagem)
     {
         parent::__construct($mensagem);
@@ -37,5 +40,10 @@ final class ExclusaoDeJustificativaRecusadaException extends \DomainException
     public static function jaAnalisada(): self
     {
         return new self(self::JA_ANALISADA, 'Esta justificativa não está mais em análise e não pode ser excluída.');
+    }
+
+    public static function daBatidaExterna(): self
+    {
+        return new self(self::DA_BATIDA_EXTERNA, 'A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor.');
     }
 }

@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
  * Pré-condição: a justificativa é deste escritório, é de quem pede e está `pendente` no banco no
  * instante em que sai.
  * Recusas (`ExclusaoDeJustificativaRecusadaException`, nada muda): não existe neste escritório,
- * é de outra pessoa ou já foi analisada.
+ * é de outra pessoa, é a de uma batida de trabalho externo (E12) ou já foi analisada.
  * Depois: o registro saiu do banco; o atestado sai do disco só depois do COMMIT e só se nenhum
  * outro dia do lote ainda apontar para ele.
  *
@@ -60,6 +60,11 @@ final class ExcluirJustificativaEmAnaliseUseCase
     public function executar(int $justificativaId, User $dono, Tenant $tenant): \DateTimeInterface
     {
         $justificativa = $this->carregarDoDono($justificativaId, $dono, $tenant);
+        // E12: a da batida de trabalho externo é a análise daquela batida, e a batida fica. A ligação nasce com a
+        // justificativa e não muda depois (só some se a batida sair), então a recusa não precisa da trava.
+        if ($justificativa->analisaUmaBatida()) {
+            throw ExclusaoDeJustificativaRecusadaException::daBatidaExterna();
+        }
         $dia           = \DateTimeImmutable::createFromInterface(
             $justificativa->getData() ?? throw new \LogicException('Justificativa sem data no banco.'),
         );
