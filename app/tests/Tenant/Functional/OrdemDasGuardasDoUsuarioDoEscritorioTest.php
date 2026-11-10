@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Tenant\Controller\TenantUserProfileController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,16 +24,18 @@ use PHPUnit\Framework\Attributes\TestDox;
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(TenantUserProfileController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class OrdemDasGuardasDoUsuarioDoEscritorioTest extends JusPrimeWebTestCase
 {
     /** @return iterable<string, array{string, string}> método e caminho depois de /tenant/{A}/user/{U} */
     public static function rotas(): iterable
     {
         yield 'editar nome' => ['POST', '/edit-name'];
-        yield 'lançar batida' => ['POST', '/ponto/add'];
-        yield 'editar batida (GET)' => ['GET', '/ponto/1/edit'];
-        yield 'editar batida (POST)' => ['POST', '/ponto/1/edit'];
-        yield 'excluir batida' => ['POST', '/ponto/1/delete'];
+        yield 'incluir batida' => ['POST', '/ponto/add'];
+        yield 'ajustar batida (GET)' => ['GET', '/ponto/b1/ajustar'];
+        yield 'ajustar batida (POST)' => ['POST', '/ponto/b1/ajustar'];
+        yield 'desconsiderar batida' => ['POST', '/ponto/b1/desconsiderar'];
+        yield 'restaurar batida' => ['POST', '/ponto/ajuste/1/restaurar'];
         yield 'abonar justificativa' => ['POST', '/justificativa/1/aprovar'];
         yield 'rejeitar justificativa' => ['POST', '/justificativa/1/rejeitar'];
         yield 'abonar todas' => ['POST', '/justificativa/batch/lote/aprovar-todos'];

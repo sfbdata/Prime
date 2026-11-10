@@ -20,8 +20,13 @@
 {% set mostrarJustificativas = mostrarJustificativas|default(false) %}
 {% set editarBatidasHabilitado = editarBatidasHabilitado|default(false) %}
 {% set editarBatidasRotaAdd = editarBatidasRotaAdd|default('') %}
-{% set editarBatidasRotaEdit = editarBatidasRotaEdit|default('') %}
-{% set editarBatidasRotaDelete = editarBatidasRotaDelete|default('') %}
+{# E10 (plano-e10-ponto §4): na ficha, a hora leva à página "Ajustar batida", o "x" abre a janela "Desconsiderar batida"
+   (#modalDesconsiderarBatida, da ficha) e a linha "Desconsideradas:" traz o "Restaurar" (#modalRestaurarBatida). #}
+{% set editarBatidasRotaAjustar = editarBatidasRotaAjustar|default('') %}
+{% set editarBatidasRotaDesconsiderar = editarBatidasRotaDesconsiderar|default('') %}
+{% set editarBatidasRotaRestaurar = editarBatidasRotaRestaurar|default('') %}
+{# As batidas que o gestor tirou da conta, por dia ('Y-m-d'): só a ficha passa. #}
+{% set desconsideradasPorDia = desconsideradasPorDia|default({}) %}
 {% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 {% set jornadaInfo = jornadaInfo|default(null) %}
 {# Ficha do admin: dias em que a pessoa bateu em OUTRO escritório com o ponto daqui aberto (spec
@@ -124,10 +129,11 @@
             </thead>
             <tbody>
                 {% for linha in linhasDaFolha %}
-                    {% set diaTemBatida = (linha.entradaId ?? null) is not null
-                        or (linha.repousoId ?? null) is not null
-                        or (linha.retornoId ?? null) is not null
-                        or (linha.saidaId   ?? null) is not null %}
+                    {# Pelo alvo, não pelo id do registro: a batida incluída pelo gestor (E10) não tem registro. #}
+                    {% set diaTemBatida = (linha.entradaAlvo ?? null) is not null
+                        or (linha.repousoAlvo ?? null) is not null
+                        or (linha.retornoAlvo ?? null) is not null
+                        or (linha.saidaAlvo   ?? null) is not null %}
                     {% set ehFeriado = linha.isFeriado|default(false) %}
                     <tr class="pe-lin" data-chave-dia="{{ linha.chaveDia }}">
                         <td class="pe-larga"><b>{{ linha.diaMes }}</b></td>
@@ -160,54 +166,68 @@
                                 <span class="pe-folha-sub batidas-desconsideradas">
                                     Fora da conta:
                                     {% for desconsiderada in linha.batidasDesconsideradas %}
-                                        {% if desconsiderada.id %}
+                                        {% if desconsiderada.alvo|default(null) %}
+                                            {% set rotuloForaDaConta = rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo %}
                                             <span class="pe-folha-celula">
-                                                <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: desconsiderada.id, competencia: competenciaSelecionada})) }}"
-                                                   class="pe-folha-hora batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" title="Editar batida">
-                                                    {{ rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo }} {{ desconsiderada.hora }}
+                                                <a href="{{ path(editarBatidasRotaAjustar, editarBatidasParametros|merge({alvo: desconsiderada.alvo, competencia: competenciaSelecionada})) }}"
+                                                   class="pe-folha-hora batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" data-alvo="{{ desconsiderada.alvo }}" title="Ajustar batida">
+                                                    {{ rotuloForaDaConta }} {{ desconsiderada.hora }}
                                                 </a>
-                                                <form method="post"
-                                                      action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: desconsiderada.id})) }}"
-                                                      class="pe-folha-form"
-                                                      onsubmit="return confirm('Excluir esta batida?')">
-                                                    <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ desconsiderada.id) }}">
-                                                    <button type="submit" class="pe-mais pe-mais--excluir" title="Excluir batida" aria-label="Excluir batida"><i class="bi bi-x-circle" aria-hidden="true"></i></button>
-                                                </form>
+                                                {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, desconsiderada.alvo, desconsiderada.cabeca|default(null), rotuloForaDaConta ~ ' ' ~ desconsiderada.hora ~ ' de ' ~ linha.chaveDia|date('d/m/Y')) }}
                                             </span>
                                         {% endif %}
+                                    {% endfor %}
+                                </span>
+                            {% endif %}
+                            {# E10: as batidas que o gestor tirou da conta neste dia, com o "Restaurar". A que saiu pela análise
+                               da justificativa não se restaura pela ficha (decisão A): fica sem o botão, com o porquê na dica. #}
+                            {% if editarBatidasHabilitado and desconsideradasPorDia[linha.chaveDia] is defined %}
+                                <span class="pe-folha-sub batidas-fora-por-ajuste">
+                                    Desconsideradas:
+                                    {% for fora in desconsideradasPorDia[linha.chaveDia] %}
+                                        {% set rotuloFora = rotulosBatida[fora.tipo] ?? fora.tipo %}
+                                        <span class="pe-folha-celula batida-fora-por-ajuste" data-ajuste-id="{{ fora.ajusteId }}"
+                                              title="{{ fora.pelaAnalise ? 'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.' : 'Desconsiderada por ' ~ fora.por ~ ' em ' ~ fora.em ~ '. Registro original preservado.' }}">
+                                            {{ rotuloFora }} {{ fora.hora }}
+                                            {% if not fora.pelaAnalise %}
+                                                <button type="button" class="pe-mais pe-mais--restaurar" title="Restaurar batida" aria-label="Restaurar batida"
+                                                        data-bs-toggle="modal" data-bs-target="#modalRestaurarBatida"
+                                                        data-acao="{{ path(editarBatidasRotaRestaurar, editarBatidasParametros|merge({ajusteId: fora.ajusteId})) }}"
+                                                        data-token="{{ csrf_token('ponto_restaurar_' ~ fora.ajusteId) }}"
+                                                        data-batida="{{ rotuloFora }} {{ fora.hora }} de {{ fora.dia|date('d/m/Y') }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+                                            {% endif %}
+                                        </span>
                                     {% endfor %}
                                 </span>
                             {% endif %}
                         </td>
 
                         {% for tipoInfo in [
-                            {campo: 'entrada', id: linha.entradaId ?? null},
-                            {campo: 'repouso', id: linha.repousoId ?? null},
-                            {campo: 'retorno', id: linha.retornoId ?? null},
-                            {campo: 'saida',   id: linha.saidaId   ?? null}
+                            {campo: 'entrada', alvo: linha.entradaAlvo ?? null, cabeca: linha.entradaCabeca ?? null, ajuste: linha.entradaAjuste ?? null},
+                            {campo: 'repouso', alvo: linha.repousoAlvo ?? null, cabeca: linha.repousoCabeca ?? null, ajuste: linha.repousoAjuste ?? null},
+                            {campo: 'retorno', alvo: linha.retornoAlvo ?? null, cabeca: linha.retornoCabeca ?? null, ajuste: linha.retornoAjuste ?? null},
+                            {campo: 'saida',   alvo: linha.saidaAlvo   ?? null, cabeca: linha.saidaCabeca   ?? null, ajuste: linha.saidaAjuste   ?? null}
                         ] %}
                             {% set horario = attribute(linha, tipoInfo.campo) %}
                             {% set rotulo = rotulosBatida[tipoInfo.campo] %}
+                            {# E10 (desenho L154 e L749): a batida ajustada leva a marca "aj" depois da hora, com quem ajustou e quando. #}
+                            {% set dicaDoAjuste = tipoInfo.ajuste ? 'Ajustado por ' ~ tipoInfo.ajuste.por ~ ' em ' ~ tipoInfo.ajuste.em ~ '. Registro original preservado.' : null %}
                             <td data-r="{{ rotulo }}">
                                 {%- if editarBatidasHabilitado -%}
-                                    {%- if tipoInfo.id -%}
+                                    {%- if tipoInfo.alvo -%}
                                         <span class="pe-folha-celula">
-                                            <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: tipoInfo.id, competencia: competenciaSelecionada})) }}"
-                                               class="pe-folha-hora" title="Editar batida">{{ horario }}</a>
-                                            <form method="post"
-                                                  action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: tipoInfo.id})) }}"
-                                                  class="pe-folha-form"
-                                                  onsubmit="return confirm('Excluir esta batida?')">
-                                                <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ tipoInfo.id) }}">
-                                                <button type="submit" class="pe-mais pe-mais--excluir" title="Excluir batida" aria-label="Excluir batida"><i class="bi bi-x-circle" aria-hidden="true"></i></button>
-                                            </form>
+                                            <a href="{{ path(editarBatidasRotaAjustar, editarBatidasParametros|merge({alvo: tipoInfo.alvo, competencia: competenciaSelecionada})) }}"
+                                               class="pe-folha-hora" title="Ajustar batida">{{ horario }}</a>
+                                            {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">aj</span>{% endif %}
+                                            {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, tipoInfo.alvo, tipoInfo.cabeca, rotulo ~ ' ' ~ horario ~ ' de ' ~ linha.chaveDia|date('d/m/Y')) }}
                                         </span>
                                     {%- else -%}
                                         <button type="button" class="pe-mais" title="Adicionar {{ tipoInfo.campo }}" aria-label="Adicionar {{ tipoInfo.campo }}"
                                                 onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
                                     {%- endif -%}
-                                {%- elseif tipoInfo.id is not null -%}
+                                {%- elseif tipoInfo.alvo is not null -%}
                                     {{ horario }}
+                                    {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">aj</span>{% endif %}
                                 {#- P30 (a), decisão de 09/11/2026: "+" em qualquer dia passado da folha; feriado fica sem ele (no
                                     desenho, um traço; aqui, a célula vazia). Hoje também tem o "+": função do sistema que volta
                                     (regra 2; spec ponto-atalho-esquecimento-registro: "esqueci de bater a entrada hoje de manhã" é
@@ -366,3 +386,14 @@
 }());
 </script>
 {% endif %}
+
+{# O "x" da batida na ficha (E10): abre a janela "Desconsiderar batida" da ficha com o endereço, o token por intenção e
+   a cabeça que a folha mostrou (vazia na batida nunca ajustada); o motivo é digitado lá. #}
+{% macro desconsiderar(rota, parametros, alvo, cabeca, batida) %}
+    <button type="button" class="pe-mais pe-mais--excluir" title="Desconsiderar batida" aria-label="Desconsiderar batida"
+            data-bs-toggle="modal" data-bs-target="#modalDesconsiderarBatida"
+            data-acao="{{ path(rota, parametros|merge({alvo: alvo})) }}"
+            data-token="{{ csrf_token('ponto_desconsiderar_' ~ alvo) }}"
+            data-cabeca="{{ cabeca }}"
+            data-batida="{{ batida }}"><i class="bi bi-x-circle" aria-hidden="true"></i></button>
+{% endmacro %}

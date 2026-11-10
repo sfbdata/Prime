@@ -265,13 +265,13 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $hoje = new \DateTimeImmutable();
         $this->client->request('POST', sprintf('/tenant/%d/user/%d/ponto/add', $this->x->getId(), $this->user->getId()), [
-            'registro_ponto_manual' => ['data' => $hoje->format('Y-m-d'), 'hora' => '00:01:00', 'tipo' => 'entrada'],
+            'registro_ponto_manual' => ['data' => $hoje->format('Y-m-d'), 'hora' => '00:01:00', 'tipo' => 'entrada', 'motivo' => 'Esqueceu de bater.'],
             'competencia' => $hoje->format('Y-m'),
             '_token' => 'TOKEN_ponto_manual_add',
         ]);
 
         self::assertResponseRedirects();
-        self::assertSame(1, $this->batidasEm($this->x));
+        self::assertSame(1, $this->inclusoesEm($this->x), 'a correção entra como inclusão em X (E10)');
     }
 
     #[TestDox('A tela do ponto em X depois da entrada não mostra nada de Y (o ponto aberto de hoje em Y não é pendência da lista)')]
@@ -359,6 +359,15 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $registro->setDataHora($quando);
         $this->em()->persist($registro);
         $this->em()->flush();
+    }
+
+    /** As batidas que o gestor incluiu na folha do escritório (E10: a correção entra em ponto_ajuste). */
+    private function inclusoesEm(Tenant $tenant): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ? AND tenant_id = ? AND tipo = 'inclusao'",
+            [$this->user->getId(), $tenant->getId()],
+        );
     }
 
     private function batidasEm(Tenant $tenant): int

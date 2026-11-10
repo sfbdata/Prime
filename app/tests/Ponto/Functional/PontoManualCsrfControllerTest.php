@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
-use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,15 +18,15 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * A2 — lançamento/edição MANUAL de ponto (domínio ALTO) passa a exigir token CSRF por-intenção
- * stateful, validado explicitamente no controller ('ponto_manual_add'/'ponto_manual_edit'; o form
- * tem csrf_protection=>false). Sem token → 403, sem gravar; com token válido → grava. Antes do A2
- * esses dois POSTs não tinham CSRF NEM cobertura functional.
+ * A2: o lançamento e o ajuste MANUAL de batida (domínio ALTO) exigem token CSRF por intenção, stateful, validado
+ * explicitamente no controller ('ponto_manual_add'/'ponto_ajustar'; o form tem csrf_protection=>false). Sem token,
+ * 403 e nada gravado; com token válido, grava. Desde a E10 (plano-e10-ponto §3) as duas portas moram no
+ * AjusteDeBatidaController: a inclusão entra em `ponto_ajuste` e o ajuste também, com o registro original intacto.
  */
-#[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
 {
-    #[TestDox('pontoAdd POST sem token CSRF retorna 403 e não cria batida')]
+    #[TestDox('Incluir batida (POST) sem token CSRF retorna 403 e não grava nada')]
     public function testAddSemTokenRetorna403(): void
     {
         $client = static::createClient();
@@ -37,11 +37,11 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $admin, $tenant);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/add", $this->payloadBatida());
 
-        self::assertResponseStatusCodeSame(403, 'add de batida sem CSRF deveria ser barrado');
-        self::assertSame(0, $this->contarBatidas($alvo), 'nenhuma batida pode ter sido criada sem CSRF');
+        self::assertResponseStatusCodeSame(403, 'inclusão de batida sem CSRF deveria ser barrada');
+        self::assertSame(0, $this->contarAjustes($alvo), 'nada pode ter sido gravado sem CSRF');
     }
 
-    #[TestDox('pontoAdd POST com token CSRF válido cria a batida')]
+    #[TestDox('Incluir batida (POST) com token CSRF válido grava a inclusão')]
     public function testAddComTokenCriaBatida(): void
     {
         $client = static::createClient();
@@ -54,10 +54,10 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/add", $this->payloadBatida('TOKEN_ponto_manual_add'));
 
         self::assertResponseRedirects();
-        self::assertSame(1, $this->contarBatidas($alvo), 'a batida deveria ter sido criada com CSRF válido');
+        self::assertSame(1, $this->contarAjustes($alvo, 'inclusao'), 'a inclusão deveria ter sido gravada com CSRF válido');
     }
 
-    #[TestDox('pontoEdit POST sem token CSRF retorna 403 e não altera a batida')]
+    #[TestDox('Ajustar batida (POST) sem token CSRF retorna 403 e não grava ajuste')]
     public function testEditSemTokenRetorna403(): void
     {
         $client = static::createClient();
@@ -68,13 +68,14 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
         $registroId = (int) $registro->getId();
 
         $this->logarComTenant($client, $admin, $tenant);
-        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/{$registroId}/edit", $this->payloadBatida(null, 'saida'));
+        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/b{$registroId}/ajustar", $this->payloadBatida(null, 'saida'));
 
-        self::assertResponseStatusCodeSame(403, 'edit de batida sem CSRF deveria ser barrado');
-        self::assertSame(RegistroPonto::TIPO_ENTRADA, $this->recarregarBatida($registroId)->getTipo(), 'a batida não pode ter sido alterada sem CSRF');
+        self::assertResponseStatusCodeSame(403, 'ajuste de batida sem CSRF deveria ser barrado');
+        self::assertSame(0, $this->contarAjustes($alvo), 'nenhum ajuste pode ter sido gravado sem CSRF');
+        self::assertSame(RegistroPonto::TIPO_ENTRADA, $this->recarregarBatida($registroId)->getTipo());
     }
 
-    #[TestDox('pontoEdit POST com token CSRF válido atualiza a batida')]
+    #[TestDox('Ajustar batida (POST) com token CSRF válido grava a alteração e deixa o registro original intacto')]
     public function testEditComTokenAtualizaBatida(): void
     {
         $client = static::createClient();
@@ -86,10 +87,11 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
         $registroId = (int) $registro->getId();
 
         $this->logarComTenant($client, $admin, $tenant);
-        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/{$registroId}/edit", $this->payloadBatida('TOKEN_ponto_manual_edit', 'saida'));
+        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/b{$registroId}/ajustar", $this->payloadBatida('TOKEN_ponto_ajustar', 'saida'));
 
         self::assertResponseRedirects();
-        self::assertSame(RegistroPonto::TIPO_SAIDA, $this->recarregarBatida($registroId)->getTipo(), 'a batida deveria ter sido atualizada com CSRF válido');
+        self::assertSame(1, $this->contarAjustes($alvo, 'alteracao'), 'a alteração deveria ter sido gravada com CSRF válido');
+        self::assertSame(RegistroPonto::TIPO_ENTRADA, $this->recarregarBatida($registroId)->getTipo(), 'o registro original fica guardado');
     }
 
     // ----------------------------------------------------------------- helpers
@@ -98,7 +100,7 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
     private function payloadBatida(?string $token = null, string $tipo = 'entrada'): array
     {
         $payload = [
-            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '08:00', 'tipo' => $tipo],
+            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '08:00', 'tipo' => $tipo, 'motivo' => 'Correção do teste.'],
             'competencia'           => '2026-03',
         ];
         if ($token !== null) {
@@ -108,9 +110,12 @@ final class PontoManualCsrfControllerTest extends JusPrimeWebTestCase
         return $payload;
     }
 
-    private function contarBatidas(User $user): int
+    /** Ajustes da pessoa em `ponto_ajuste` (de um tipo, ou todos). */
+    private function contarAjustes(User $user, ?string $tipo = null): int
     {
-        return count($this->emSemFiltro()->getRepository(RegistroPonto::class)->findBy(['user' => $user->getId()]));
+        $sql = 'SELECT COUNT(*) FROM ponto_ajuste WHERE user_id = ?' . ($tipo !== null ? ' AND tipo = ?' : '');
+
+        return (int) $this->emSemFiltro()->getConnection()->fetchOne($sql, array_values(array_filter([$user->getId(), $tipo], static fn ($v) => $v !== null)));
     }
 
     private function recarregarBatida(int $id): RegistroPonto

@@ -1439,3 +1439,15 @@
 .pe-comp-erro { border: 1px solid var(--pe-erro-bd); border-left: 4px solid var(--pe-erro-esq); background: var(--pe-erro-bg); color: var(--pe-erro-cor); }
 .pe-comp-ok[hidden],
 .pe-comp-erro[hidden] { display: none; }
+
+/* --- E10: marca "aj" da batida ajustada (L154, dica L749) e as ações do gestor na ficha. --- */
+/* Depois da hora, um espaço e o "aj" (L154): 10.5px, negrito, azul do desenho (#0a6fa0 no tema claro), com a dica.
+   Ao passar o mouse, fica branco pela regra da linha (L39, `.pe-lin:hover .pe-pl`, que vence por ser mais específica). */
+.pe-aj {
+    font-size: 10.5px;
+    font-weight: bold;
+    color: var(--pe-link);
+    cursor: help;
+}
+/* "Restaurar" da linha "Desconsideradas" da ficha (sistema; o desenho não mostra a ficha, P60): o molde do "+". */
+.pe-mais--restaurar { color: var(--pe-link); }

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
-use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Controller\AjusteDeBatidaController;
+use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,12 +22,13 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * O lançamento manual de ponto ignorava os segundos digitados: a feature flag
  * `deveMostrarSegundosBatida()` (removida) só liberava `with_seconds` para um único e-mail de
  * teste, e mesmo nesse caso `pontoAdd()` não repassava a opção ao form. Estes testes provam que
- * os segundos são aceitos e persistidos para QUALQUER usuário, nos dois fluxos.
+ * os segundos são aceitos e persistidos para QUALQUER usuário, nos dois fluxos. Desde a E10 os dois fluxos
+ * (incluir e ajustar, AjusteDeBatidaController) gravam em `ponto_ajuste`: os segundos ficam na data e hora nova.
  */
-#[CoversClass(TenantController::class)]
+#[CoversClass(AjusteDeBatidaController::class)]
 final class PontoManualSegundosControllerTest extends JusPrimeWebTestCase
 {
-    #[TestDox('pontoAdd com hora contendo segundos grava a batida com os segundos exatos')]
+    #[TestDox('Incluir batida com hora contendo segundos grava a inclusão com os segundos exatos')]
     public function testAddComSegundosPreservaSegundos(): void
     {
         $client = static::createClient();
@@ -37,17 +39,17 @@ final class PontoManualSegundosControllerTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $admin, $tenant);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/add", [
-            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '08:15:37', 'tipo' => 'entrada'],
+            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '08:15:37', 'tipo' => 'entrada', 'motivo' => 'Esqueceu de bater.'],
             'competencia'           => '2026-03',
             '_token'                => 'TOKEN_ponto_manual_add',
         ]);
 
         self::assertResponseRedirects();
-        $registro = $this->recarregarUnicaBatida($alvo);
-        self::assertSame('08:15:37', $registro->getDataHora()?->format('H:i:s'), 'os segundos digitados deveriam ter sido preservados');
+        $inclusao = $this->recarregarUnicoAjuste($alvo);
+        self::assertSame('08:15:37', $inclusao->getDataHoraNova()?->format('H:i:s'), 'os segundos digitados deveriam ter sido preservados');
     }
 
-    #[TestDox('pontoEdit com hora contendo segundos atualiza a batida com os segundos exatos')]
+    #[TestDox('Ajustar batida com hora contendo segundos grava a alteração com os segundos exatos')]
     public function testEditComSegundosPreservaSegundos(): void
     {
         $client = static::createClient();
@@ -59,24 +61,25 @@ final class PontoManualSegundosControllerTest extends JusPrimeWebTestCase
         $registroId = (int) $registro->getId();
 
         $this->logarComTenant($client, $admin, $tenant);
-        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/{$registroId}/edit", [
-            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '14:42:09', 'tipo' => 'saida'],
+        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/ponto/b{$registroId}/ajustar", [
+            'registro_ponto_manual' => ['data' => '2026-03-10', 'hora' => '14:42:09', 'tipo' => 'saida', 'motivo' => 'Bateu errado.'],
             'competencia'           => '2026-03',
-            '_token'                => 'TOKEN_ponto_manual_edit',
+            '_token'                => 'TOKEN_ponto_ajustar',
         ]);
 
         self::assertResponseRedirects();
-        self::assertSame('14:42:09', $this->recarregarBatida($registroId)->getDataHora()?->format('H:i:s'), 'os segundos digitados deveriam ter sido preservados na edição');
+        self::assertSame('14:42:09', $this->recarregarUnicoAjuste($alvo)->getDataHoraNova()?->format('H:i:s'), 'os segundos digitados deveriam ter sido preservados no ajuste');
+        self::assertSame('08:00:00', $this->recarregarBatida($registroId)->getDataHora()?->format('H:i:s'), 'o registro original fica guardado');
     }
 
     // ----------------------------------------------------------------- helpers
 
-    private function recarregarUnicaBatida(User $user): RegistroPonto
+    private function recarregarUnicoAjuste(User $user): PontoAjuste
     {
-        $registros = $this->emSemFiltro()->getRepository(RegistroPonto::class)->findBy(['user' => $user->getId()]);
-        self::assertCount(1, $registros, 'deveria existir exatamente uma batida criada');
+        $ajustes = $this->emSemFiltro()->getRepository(PontoAjuste::class)->findBy(['user' => $user->getId()]);
+        self::assertCount(1, $ajustes, 'deveria existir exatamente um ajuste gravado');
 
-        return $registros[0];
+        return $ajustes[0];
     }
 
     private function recarregarBatida(int $id): RegistroPonto

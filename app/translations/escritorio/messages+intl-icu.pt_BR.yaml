@@ -136,9 +136,18 @@ escritorio:
         batida_repouso: Repouso
         batida_retorno: Retorno
         batida_saida: Saída
-        batida_observacao: Observação
+        # E10: toda correção de batida diz por quê (incluir, desconsiderar, restaurar).
+        batida_motivo: Motivo
         opcional: (opcional)
-        batida_observacao_dica: Motivo do lançamento manual
+        batida_motivo_dica: Por que a batida entra na folha
+        desconsiderar_titulo: Desconsiderar batida
+        desconsiderar_texto: A batida sai da conta da folha. O registro original fica guardado.
+        desconsiderar_motivo_dica: Por que a batida sai da conta
+        desconsiderar_botao: Desconsiderar
+        restaurar_titulo: Restaurar batida
+        restaurar_texto: A batida volta para a conta da folha como estava antes de ser desconsiderada.
+        restaurar_motivo_dica: Por que a batida volta para a conta
+        restaurar_botao: Restaurar
         cancelar: Cancelar
         nome_completo: Nome completo
         # "Ao remover <strong>nome</strong>, ela perde...": o nome em <strong> entre as duas partes (sem |raw).
