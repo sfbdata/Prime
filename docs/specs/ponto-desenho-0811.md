@@ -891,13 +891,27 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     `ponto-alerta-janela.css`, escopado em `.pe-alerta-ponto`. Ao fechar, ela dispara `hidden.bs.modal`, e os avisos
     globais (espaço, gênero, prêmio do Contribua, revisão do perfil) esperam por `.modal.show, #modalAlertaPonto.show`;
   - o aviso flutuante, a janela do alerta, o som e o aviso do lembrete e a recarga de segurança esperam a tela cheia
-    fechar, e também a janela do trabalho externo aberta pela tela vermelha;
+    fechar, e também a janela aberta no lugar dela: a do trabalho externo (pela tela vermelha ou quando a batida externa
+    volta sozinha) e a "Antes de registrar" da E11. Essa janela abre depois de a validação fechar (o foco fica no
+    "Aguardar"); "Registrar assim mesmo" e "Registrar" soltam a espera antes de refazer o toque, que abre a validação
+    nova, e "Aguardar", "Cancelar", o "x" e o Esc a soltam ao fechar. O lembrete que esperou confere de novo se a saída
+    ainda falta; na hora, ele já olha a saída marcada na página (a guardada na fila, ou a confirmada com a busca da tela
+    falhando);
   - ligação com a E12: fora do raio (local ou recusa do servidor, inclusive o GPS impreciso) vai para a tela vermelha,
     com "Registrar como trabalho externo" quando o escritório permite. A batida externa que com certeza não entrou
     (atrasada, sessão vencida, texto recusado) reabre a janela do trabalho externo, sem tela vermelha, e o "Tentar
-    novamente" de uma batida externa refaz a externa, nunca uma comum. Sem a tela cheia, o fora do raio fica na caixa.
+    novamente" de uma batida externa refaz a externa, nunca uma comum. Sem a tela cheia, o fora do raio fica na caixa;
+  - ligação com a E15 (10/11/2026): com o comprovante na resposta (`data.comprovante`), o sucesso em tela cheia mostra o
+    código e "Baixar comprovante" antes do "Concluir" (desenho L365 e L368), com os valores do CSS do desenho. O botão
+    baixa como o "Baixar" da aba Comprovantes (o mesmo download, o erro abaixo dos botões) e para o fechamento sozinho,
+    escondendo a barra dos 10 s (`limparAuto`, L832). O desenho mostra ainda o aviso "Comprovante baixado em imagem.";
+    ele não entra, como na aba (a E15 não o tem). Sem a tela cheia, o aviso do sucesso termina com "Comprovante na aba
+    Comprovantes." (L533). Sem o comprovante na resposta, nada muda.
 - Limites conhecidos da E8: o lembrete de saída e o alerta de horário de saída podem tocar e notificar quase juntos;
-  com um modal antigo aberto por baixo, o foco vai a ele quando a janela do alerta fecha.
+  com um modal antigo aberto por baixo, o foco vai a ele quando a janela do alerta fecha. A saída que fica sem
+  confirmação (o servidor não respondeu a tempo) não segura o lembrete: ele ainda toca (uma vez no dia), e a caixa de
+  hoje já manda conferir. Ao fechar a janela "Antes de registrar" sem registrar, o foco volta ao "Bater Ponto" (a
+  origem da E11).
 
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,

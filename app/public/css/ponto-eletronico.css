@@ -1263,6 +1263,17 @@
 .pe-tc-ok-hora { font-size: clamp(48px, 9vw, 76px); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pe-tc-ok-tipo { font-size: clamp(15px, 2.4vw, 18px); }
 .pe-tc-ok-met { font-size: 13.5px; margin-top: 8px; opacity: .95; }
+/* O código do comprovante (L365, `okCod`), só com o comprovante na resposta. */
+.pe-tc-ok-cod {
+    margin-top: 12px;
+    display: inline-block;
+    padding: 7px 12px;
+    border: 1px solid rgba(255, 255, 255, .55);
+    border-radius: 3px;
+    font: bold 15px monospace;
+    letter-spacing: 1px;
+}
+.pe-tc-ok-cod[hidden] { display: none; }
 .pe-tc-tempo {
     position: fixed;
     left: 0;
@@ -1317,6 +1328,14 @@
 .pe-tc-btn--externo { border: 1px solid #fff; background: transparent; color: #fff; font-weight: bold; }
 .pe-tc-btn--externo:hover { background: rgba(255, 255, 255, .14); }
 .pe-tc-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.pe-tc-btn[hidden] { display: none; }
+/* "Baixar comprovante" (L368): um link com a cara do botão do desenho, sem o sublinhado nem a cor de link do sistema. */
+.pe-tc-btn--baixar { border: none; background: #fff; color: #145a32; font-weight: bold; text-decoration: none; }
+.pe-tc-btn--baixar:hover { background: #e8f5ee; color: #145a32; text-decoration: none; }
+.pe-tc-btn--baixar:focus { color: #145a32; text-decoration: none; }
+/* O erro do download (omissão do desenho; a frase é a da aba Comprovantes), na linha de baixo dos botões. */
+.pe-tc-falha { flex-basis: 100%; font-size: 13.5px; }
+.pe-tc-falha[hidden] { display: none; }
 
 @keyframes pe-tc-bar-on { 0% { opacity: .18; transform: scaleY(.6); } 60% { opacity: 1; transform: scaleY(1.22); } 100% { opacity: 1; transform: scaleY(1); } }
 @keyframes pe-tc-bar-ok { from { opacity: 0; transform: translateY(calc(var(--r) * .42)) scaleY(.3); } to { opacity: 1; transform: none; } }

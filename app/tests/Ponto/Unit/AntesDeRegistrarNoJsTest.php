@@ -45,7 +45,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     {
         $toque = $this->toque();
         $fila = strpos($toque, 'if (resultado.falhaDeRede && await guardarNaFila(payload)) {');
-        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                abrirAntesDeRegistrar(resultado.data.alerta, payload);\n                return;\n            }");
+        // E8: pelo `mostrarAntesDeRegistrar`, que fecha a validação em tela cheia antes (testAlertaNoLugarDaTelaCheia).
+        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                mostrarAntesDeRegistrar(resultado.data.alerta, payload);\n                return;\n            }");
         $atraso = strpos($toque, "if (resultado.tipo === 'atrasado') {");
 
         self::assertIsInt($fila);
@@ -75,9 +76,47 @@ final class AntesDeRegistrarNoJsTest extends TestCase
 
         self::assertStringContainsString("janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {", $tela);
         self::assertMatchesRegularExpression(
-            '/window\.PontoAbas\.fecharJanela\(\);\s*if \(!batida\) \{\s*return;\s*\}\s*if \(btnPonto\.disabled\) \{[^}]*\}\s*confirmacaoDoAlerta = batida;\s*trabalhoExternoDoToque = batida\.externo \|\| null;[^\n]*\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;\s*trabalhoExternoDoToque = null;/',
+            '/window\.PontoAbas\.fecharJanela\(\);\s*soltarAEsperaDaJanela\(\);[^\n]*\s*if \(!batida\) \{\s*return;\s*\}\s*if \(btnPonto\.disabled\) \{[^}]*\}\s*confirmacaoDoAlerta = batida;\s*trabalhoExternoDoToque = batida\.externo \|\| null;[^\n]*\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;\s*trabalhoExternoDoToque = null;/',
             $tela,
         );
+    }
+
+    #[TestDox('E8: a janela abre no lugar da validação em tela cheia, que fecha antes (o foco fica no "Aguardar"); as esperas da tela cheia seguem presas até a janela fechar')]
+    public function testAlertaNoLugarDaTelaCheia(): void
+    {
+        $tela = $this->tela();
+
+        // Segura antes de fechar a validação (o alerta de horário, o aviso flutuante, o lembrete e a recarga não saem no
+        // meio), fecha a validação ANTES de abrir a janela (o fechamento leva o foco ao título do cartão; a janela o leva
+        // ao "Aguardar") e entrega a espera à janela, que a solta ao fechar. Sem a moldura, `abrirAntesDeRegistrar` cai
+        // na caixa e a janela segue escondida: a espera sai já.
+        self::assertMatchesRegularExpression(
+            "/^\{\s+const tela = window\.PontoTelaCheia;\s+const soltar = tela && typeof tela\.segurar === 'function' \? tela\.segurar\(\) : null;\s+try \{\s+"
+            . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+abrirAntesDeRegistrar\(texto, payload\);\s+"
+            . "\} finally \{\s+soltarQuandoAJanelaFechar\('ponto-janela-alerta', soltar\);\s+\}\s+\}$/",
+            $this->corpoDaFuncao($tela, 'function mostrarAntesDeRegistrar(texto, payload)'),
+        );
+        self::assertSame(2, substr_count($tela, 'mostrarAntesDeRegistrar('), 'a declaração e a resposta com alerta');
+        self::assertSame(2, substr_count($tela, 'abrirAntesDeRegistrar('), 'a declaração e o `mostrarAntesDeRegistrar`: nenhuma abertura sem fechar a validação antes');
+        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning');   // sem a moldura", $this->corpoDaFuncao($tela, 'function abrirAntesDeRegistrar(texto, payload)'));
+        self::assertMatchesRegularExpression(
+            "/const fundo = document\.getElementById\(id\);\s+if \(!fundo \|\| fundo\.hidden \|\| typeof MutationObserver !== 'function'\) \{\s+soltar\(\);\s+return;\s+\}/",
+            $this->corpoDaFuncao($tela, 'function soltarQuandoAJanelaFechar(id, soltar)'),
+            'sem a janela aberta, solta na hora',
+        );
+        self::assertStringContainsString('<div class="pe-janela-fundo" id="ponto-janela-alerta" hidden>', (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_janela_antes_de_registrar.html.twig'), 'escondida até abrir: sem a moldura, a espera sai já');
+
+        // "Registrar assim mesmo" solta antes do toque refeito, que abre a validação nova (a espera segue nela); as
+        // saídas sem toque (`!batida`, botão cinza) já acham a espera solta.
+        $registrar = $this->corpoDaFuncao($tela, "janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function ()");
+        $soltura = strpos($registrar, 'soltarAEsperaDaJanela();');
+        self::assertIsInt($soltura);
+        self::assertLessThan($soltura, (int) strpos($registrar, 'window.PontoAbas.fecharJanela();'));
+        self::assertLessThan((int) strpos($registrar, 'if (!batida) {'), $soltura);
+        self::assertLessThan((int) strpos($registrar, 'btnPonto.click();'), $soltura);
+        // O toque abre a validação antes da primeira espera, então a soltura (conferida depois, no `segurar()`) já a acha.
+        $toque = $this->toque();
+        self::assertStringNotContainsString('await ', substr($toque, 0, (int) strpos($toque, 'iniciarValidacaoDoToque(payload.tipo);')));
     }
 
     #[TestDox('"Registrar assim mesmo" com o botão cinza (outro envio no meio ou o dia completo) não some calado: o aviso da batida diz que não saiu')]

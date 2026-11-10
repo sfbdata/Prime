@@ -5,7 +5,9 @@
  *
  * As fases:
  * - `val`: o anel de 24 barras acende em volta da hora, com "Validando {Tipo}", a data por extenso e as etapas;
- * - `ok`: a cortina verde, "Ponto registrado", a hora devolvida pelo servidor e "Concluir"; fecha sozinha em 10 s;
+ * - `ok`: a cortina verde, "Ponto registrado", a hora devolvida pelo servidor e "Concluir"; fecha sozinha em 10 s. Com
+ *   o comprovante da batida (E15), o código e "Baixar comprovante" (desenho L365 e L368, `temCod`, `okCod`): o link
+ *   baixa o arquivo, e o fechamento automático para, com a barra (`baixarAtual` e `limparAuto`, L829 e L832);
  * - `erro`: a cortina vermelha, "Ponto não registrado", o título e o detalhe do erro, "Tentar novamente" e "Fechar".
  *
  * Os tempos são os do desenho: a validação dura `VAL_T` (2.800 ms); o erro aparece em 55% dela (1.540 ms) e o sucesso no
@@ -26,8 +28,10 @@
  *
  * Exposto em `window.PontoTelaCheia`:
  * - `validar({ rotulo, hora, dataExt })`: abre a validação;
- * - `ok({ rotulo, hora, dataExt, met })`: o sucesso, no tempo do desenho. `met` troca a linha de baixo ("Registrado no
- *   sistema", a do template) por outro texto (a batida que já tinha entrado: "Esta batida já tinha sido registrada.");
+ * - `ok({ rotulo, hora, dataExt, met, comprovante })`: o sucesso, no tempo do desenho. `met` troca a linha de baixo
+ *   ("Registrado no sistema", a do template) por outro texto (a batida que já tinha entrado: "Esta batida já tinha
+ *   sido registrada."). `comprovante` é o `{ codigo, url }` da resposta (`data.comprovante`); sem ele, ou com a url fora
+ *   deste site, o código e o botão não aparecem;
  * - `erro({ titulo, detalhe, botoes, aoTentar })`: o erro, no tempo do desenho. `botoes` são os botões a mais da tela
  *   vermelha, entre "Tentar novamente" e "Fechar" (a E12 põe "Registrar como trabalho externo"):
  *   `[{ texto, icone, classe, aoClicar }]`; `icone` é um `bi-*`, `classe` vem por padrão `pe-tc-btn--externo` (o botão
@@ -37,8 +41,8 @@
  * - `quandoFechar(fn)`: roda `fn` quando a tela fechar (já, se ela está fechada). Para quem não pode aparecer por cima
  *   dela: o aviso flutuante, a janela do alerta de horário, a recarga do plano B;
  * - `segurar()`: o mesmo que o botão a mais recebe, para quem fecha a validação e abre uma janela no lugar dela (a
- *   batida externa que volta para a janela): chamado ANTES de fechar, o fechamento não solta quem espera, e a função
- *   devolvida solta quando a janela fechar;
+ *   batida externa que volta para a janela, a janela "Antes de registrar" da E11): chamado ANTES de fechar, o
+ *   fechamento não solta quem espera, e a função devolvida solta quando a janela fechar;
  * - `configurar({ focoAoFechar })`: `focoAoFechar()` devolve o elemento que recebe o foco quando a tela fecha;
  * - `fecharSeValidando()`, `fechar()`, `fase()` (`val`, `ok`, `erro`, `tentar` nos 60 ms entre o "Tentar novamente" e
  *   o toque refeito, `janela` com a janela aberta por um botão a mais segurando a espera, ou vazio com a tela fechada)
@@ -59,7 +63,8 @@
     const FECHA_OK_MS = 10000;
     // "Tentar novamente": a tela fecha e o toque é refeito logo depois (`setTimeout(..., 60)` do desenho).
     const TENTAR_DEPOIS_MS = 60;
-    const FOCAVEIS = 'button:not([disabled])';
+    // O "Baixar comprovante" é um link (como o "Baixar" da aba Comprovantes): sem `href`, ele não está na tela.
+    const FOCAVEIS = 'button:not([disabled]), a[href]';
 
     let fase = '';
     let inicio = 0;
@@ -197,12 +202,64 @@
             raiz().querySelectorAll('[data-tc-ok-met]').forEach(function (no) {
                 no.textContent = dados.met ? String(dados.met) : String(no.getAttribute('data-padrao') || '');
             });
+            mostrarComprovante(comprovanteValido(dados.comprovante));
+            raiz().querySelectorAll('[data-tc-tempo]').forEach(function (barra) {
+                barra.hidden = false;
+            });
             tocar('ok');
             focar('[data-tc-concluir]');
             tempoDoFechamento = setTimeout(fechar, FECHA_OK_MS);
         });
 
         return true;
+    }
+
+    // O comprovante da batida (E15, `data.comprovante`): o código não vazio e a url um caminho deste site (nem outro
+    // endereço, nem `javascript:`). Senão, null: o sucesso fica como sem comprovante.
+    function comprovanteValido(comprovante) {
+        if (!comprovante || typeof comprovante.codigo !== 'string' || comprovante.codigo === '' || typeof comprovante.url !== 'string') {
+            return null;
+        }
+        const url = comprovante.url;
+        if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\') {
+            return null;
+        }
+
+        return { codigo: comprovante.codigo, url: url };
+    }
+
+    // O código (`okCod`, L365) e o "Baixar comprovante" (L368) só com o comprovante; o texto entra por `textContent`. A
+    // linha de erro do download (a da aba, js/ponto-comprovantes.js) começa vazia a cada sucesso.
+    function mostrarComprovante(comprovante) {
+        const el = raiz();
+        el.querySelectorAll('[data-tc-ok-cod]').forEach(function (no) {
+            no.textContent = comprovante ? comprovante.codigo : '';
+            no.hidden = !comprovante;
+        });
+        el.querySelectorAll('[data-tc-baixar]').forEach(function (link) {
+            link.hidden = !comprovante;
+            if (comprovante) {
+                link.setAttribute('href', comprovante.url);
+                link.setAttribute('aria-label', 'Baixar comprovante ' + comprovante.codigo);
+            } else {
+                link.removeAttribute('href');
+                link.removeAttribute('aria-label');
+            }
+        });
+        el.querySelectorAll('[data-tc-fase="ok"] [data-baixar-falha]').forEach(function (falha) {
+            falha.textContent = '';
+            falha.hidden = true;
+        });
+    }
+
+    // "Baixar comprovante" (`baixarAtual` e `limparAuto`, L829 e L832): o fechamento automático para e a barra some; a
+    // tela fica até o "Concluir" (ou o Esc).
+    function pararFechamentoAutomatico() {
+        clearTimeout(tempoDoFechamento);
+        tempoDoFechamento = null;
+        raiz().querySelectorAll('[data-tc-tempo]').forEach(function (barra) {
+            barra.hidden = true;
+        });
     }
 
     function botaoAMais(botao) {
@@ -422,6 +479,12 @@
 
     document.addEventListener('click', function (evento) {
         const el = raiz();
+        // O download é do próprio link (e, com js/ponto-comprovantes.js, do fetch dele); aqui só para o fechamento.
+        const baixar = evento.target.closest ? evento.target.closest('[data-tc-baixar]') : null;
+        if (el && baixar && el.contains(baixar)) {
+            pararFechamentoAutomatico();
+            return;
+        }
         const alvo = evento.target.closest ? evento.target.closest('[data-tc-concluir], [data-tc-fechar], [data-tc-tentar]') : null;
         if (!el || !alvo || !el.contains(alvo)) {
             return;

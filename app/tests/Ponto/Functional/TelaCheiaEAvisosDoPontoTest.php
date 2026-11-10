@@ -114,7 +114,15 @@ final class TelaCheiaEAvisosDoPontoTest extends JusPrimeWebTestCase
         self::assertSame('-1', $tela->filter('.pe-registrar-barra > #ponto-registrar-titulo.pe-registrar-titulo')->attr('tabindex'));
         self::assertSame('Concluir', trim($tela->filter($corpo . ' > .pe-tc-ok-textos + .pe-tc-botoes > button.pe-tc-btn.pe-tc-btn--contorno[data-tc-concluir]')->text()));
         self::assertCount(1, $tela->filter(self::OK . ' > .pe-tc-ok + span.pe-tc-tempo.pe-tc-mov:last-child'));
-        self::assertCount(0, $tela->filter('#ponto-tela-cheia [data-tc-fase="ok"] .bi-download'), 'o comprovante é da E15');
+        // E15: o código abaixo da linha do sistema e "Baixar comprovante" antes do "Concluir", escondidos e sem endereço
+        // até o JS pôr o comprovante da resposta (TelaCheiaEAvisosDoPontoJsTest::testComprovanteNoSucesso).
+        self::assertSame('', trim($tela->filter($textos . ' > .pe-tc-ok-met + .pe-tc-ok-cod[data-tc-ok-cod][hidden]:last-child')->text()));
+        $baixar = $tela->filter($corpo . ' > .pe-tc-botoes > a.pe-tc-btn.pe-tc-btn--baixar[data-baixar][data-tc-baixar][download][hidden]:first-child');
+        self::assertSame('Baixar comprovante', trim($baixar->text()));
+        self::assertNull($baixar->attr('href'));
+        self::assertCount(1, $baixar->filter('i.bi.bi-download[aria-hidden="true"]'));
+        self::assertCount(1, $tela->filter($corpo . ' > .pe-tc-botoes > [data-tc-baixar] + [data-tc-concluir] + .pe-tc-falha[data-baixar-falha][role="alert"][hidden]:last-child'));
+        self::assertCount(1, $tela->filter('#ponto-tela-cheia [data-tc-fase="ok"] .bi-download'), 'só o do "Baixar comprovante"');
 
         // Ponto não registrado: cortina vermelha, o X, os textos e "Tentar novamente" antes de "Fechar".
         self::assertCount(1, $tela->filter(self::ERRO . ' > .pe-tc-cortina.pe-tc-cortina--erro.pe-tc-mov:first-child'));

@@ -290,7 +290,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         );
         // E8: entre o fechar e o envio, solta a espera que a janela aberta pela tela vermelha segurava (o toque refeito
         // abre a validação nova antes de a soltura conferir; ver testJanelaExternaSeguraOAlertaDeHorario).
-        self::assertMatchesRegularExpression('/window\.PontoAbas\.fecharJanela\(\);\s+soltarAJanelaExterna\(\);\s+registrarComoTrabalhoExterno\(motivo, tipoDoTrabalhoExterno\);/', $registrar, 'com texto: fecha e envia a batida que falhou');
+        self::assertMatchesRegularExpression('/window\.PontoAbas\.fecharJanela\(\);\s+soltarAEsperaDaJanela\(\);\s+registrarComoTrabalhoExterno\(motivo, tipoDoTrabalhoExterno\);/', $registrar, 'com texto: fecha e envia a batida que falhou');
 
         // A marcação, sem o comentário do parcial (que cita o modal do Bootstrap para dizer que ele não entra).
         $janela = (string) preg_replace('/\{#.*?#\}/s', '', self::arquivo('templates/ponto/_janela_trabalho_externo.html.twig'));
@@ -468,33 +468,37 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $tela = self::tela();
         $abrir = self::corpo($tela, 'function abrirJanelaExternaDaTelaCheia(tipo, segurar) {');
         self::assertMatchesRegularExpression(
-            "/abrirJanelaDoTrabalhoExterno\(origemDaJanelaExterna\(\), tipo\);\s+if \(typeof segurar === 'function'\) \{\s+soltarQuandoAJanelaExternaFechar\(segurar\(\)\);\s+\}/",
+            "/abrirJanelaDoTrabalhoExterno\(origemDaJanelaExterna\(\), tipo\);\s+if \(typeof segurar === 'function'\) \{\s+soltarQuandoAJanelaFechar\(JANELA_DO_TRABALHO_EXTERNO, segurar\(\)\);\s+\}/",
             $abrir
         );
 
-        // Só segura com a janela de fato aberta (sem o PontoAbas ela não abre, e a espera sai já).
-        $vigiar = self::corpo($tela, 'function soltarQuandoAJanelaExternaFechar(soltar) {');
+        // Só segura com a janela de fato aberta (sem o PontoAbas ela não abre, e a espera sai já). E8 + E11: a mesma
+        // conferência vale para a "Antes de registrar" (AntesDeRegistrarNoJsTest), pelo `id` da janela.
+        $vigiar = self::corpo($tela, 'function soltarQuandoAJanelaFechar(id, soltar) {');
         self::assertMatchesRegularExpression(
-            "/if \(typeof soltar !== 'function'\) \{\s+return;\s+\}\s+const fundo = document\.getElementById\(JANELA_DO_TRABALHO_EXTERNO\);\s+"
+            "/if \(typeof soltar !== 'function'\) \{\s+return;\s+\}\s+const fundo = document\.getElementById\(id\);\s+"
             . "if \(!fundo \|\| fundo\.hidden \|\| typeof MutationObserver !== 'function'\) \{\s+soltar\(\);\s+return;\s+\}/",
             $vigiar
         );
-        // "Cancelar", o "x" e Esc: o `hidden` volta e a espera sai. O observador sai junto, a soltura vale uma vez, e uma
-        // espera anterior ainda presa sai junto (nunca fica presa para sempre).
+        // "Cancelar", o "x" e Esc: o `hidden` volta e a espera desta janela sai (o observador sai junto). O "Registrar"
+        // solta a espera presa e, com ela, uma anterior ainda presa (nunca fica presa para sempre); a soltura do
+        // `segurar()` vale uma vez (testTentarDeNovoNaoSoltaQuemEspera, no TelaCheiaEAvisosDoPontoJsTest).
         self::assertMatchesRegularExpression(
-            "/const anterior = soltarAJanelaExterna;\s+const vigia = new MutationObserver\(function \(\) \{\s+if \(fundo\.hidden\) \{\s+soltarAJanelaExterna\(\);\s+\}\s+\}\);\s+"
-            . "soltarAJanelaExterna = function \(\) \{\s+vigia\.disconnect\(\);\s+soltarAJanelaExterna = function \(\) \{\};\s+anterior\(\);\s+soltar\(\);\s+\};\s+"
+            "/const anterior = soltarAEsperaDaJanela;\s+const vigia = new MutationObserver\(function \(\) \{\s+if \(fundo\.hidden\) \{\s+vigia\.disconnect\(\);\s+soltar\(\);\s+\}\s+\}\);\s+"
+            . "soltarAEsperaDaJanela = function \(\) \{\s+vigia\.disconnect\(\);\s+soltarAEsperaDaJanela = function \(\) \{\};\s+anterior\(\);\s+soltar\(\);\s+\};\s+"
             . "vigia\.observe\(fundo, \{ attributes: true, attributeFilter: \['hidden'\] \}\);/",
             $vigiar
         );
-        self::assertStringContainsString('let soltarAJanelaExterna = function () {};', $tela, 'sem janela segurando, não faz nada');
+        self::assertStringContainsString('let soltarAEsperaDaJanela = function () {};', $tela, 'sem janela segurando, não faz nada');
+        self::assertStringNotContainsString('soltarAJanelaExterna', $tela, 'o nome antigo saiu: a espera vale para as duas janelas');
         self::assertSame(2, substr_count($tela, 'abrirJanelaExternaDaTelaCheia('), 'a declaração e a tela vermelha');
-        self::assertSame(3, substr_count($tela, 'soltarQuandoAJanelaExternaFechar('), 'a declaração, a tela vermelha e a batida externa que volta');
+        self::assertSame(2, substr_count($tela, 'soltarQuandoAJanelaFechar(JANELA_DO_TRABALHO_EXTERNO, '), 'a tela vermelha e a batida externa que volta');
+        self::assertSame(4, substr_count($tela, 'soltarQuandoAJanelaFechar('), 'a declaração, as duas da janela externa e a "Antes de registrar"');
         // O "Registrar" solta ANTES de refazer o toque: a validação nova abre com `fase()` vazio (o `mostrarFalhaDoToque`
         // a abre antes da tela vermelha), e a soltura confere depois, com ela já aberta.
         $registrar = self::corpo($tela, "botaoRegistrarExterno.addEventListener('click', function () {");
-        self::assertLessThan(strpos($registrar, 'registrarComoTrabalhoExterno('), strpos($registrar, 'soltarAJanelaExterna();'));
-        self::assertLessThan(strpos($registrar, 'soltarAJanelaExterna();'), strpos($registrar, 'window.PontoAbas.fecharJanela();'));
+        self::assertLessThan(strpos($registrar, 'registrarComoTrabalhoExterno('), strpos($registrar, 'soltarAEsperaDaJanela();'));
+        self::assertLessThan(strpos($registrar, 'soltarAEsperaDaJanela();'), strpos($registrar, 'window.PontoAbas.fecharJanela();'));
         self::assertStringContainsString("if (window.PontoTelaCheia.fase() === '') {", self::corpo($tela, 'function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {'));
         // O fechar da janela é o `hidden` do PontoAbas, por qualquer caminho.
         self::assertMatchesRegularExpression('/janelaAberta\.hidden = true;\s*janelaAberta = null;/', self::arquivo('public/js/ponto-abas.js'));
@@ -532,7 +536,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             "/\{\s+const tela = window\.PontoTelaCheia;\s+const soltar = tela && typeof tela\.segurar === 'function' \? tela\.segurar\(\) : null;\s+try \{\s+"
             . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+"
             . "mostrarAvisoBatida\(porque, 'danger', oferecerAtualizar\);\s+reabrirTrabalhoExterno\(payload, porque\);\s+"
-            . "\} finally \{\s+soltarQuandoAJanelaExternaFechar\(soltar\);\s+\}\s+\}$/",
+            . "\} finally \{\s+soltarQuandoAJanelaFechar\(JANELA_DO_TRABALHO_EXTERNO, soltar\);\s+\}\s+\}$/",
             $devolver
         );
         $telaCheia = self::arquivo('public/js/ponto-tela-cheia.js');

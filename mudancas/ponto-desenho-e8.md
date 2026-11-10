@@ -9,6 +9,8 @@ tipo: alteracao
 - Lembrete de saída: depois do horário previsto sem a saída batida, uma vez por dia, com som, aviso e notificação do navegador quando já permitida.
 - Chaves novas no catálogo do Master, ligadas por padrão: `ponto-animacao`, `ponto-sons` e `ponto-lembrete`.
 - A janela do alerta de horário passa para a moldura de janela do desenho, em toda página (`css/ponto-alerta-janela.css`), com os mesmos textos, som e notificação. Os outros avisos globais continuam esperando por ela.
+- Com o comprovante da batida (E15), a confirmação em tela cheia mostra o código e o botão "Baixar comprovante"; sem a tela cheia, o aviso do sucesso diz "Comprovante na aba Comprovantes.".
+- A janela "Antes de registrar" (E11) abre depois de a validação fechar, e o alerta de horário, os avisos e o lembrete esperam ela fechar. O lembrete de saída não toca com a saída já marcada na tela.
 
 ## Para o cliente
 - Ao bater o ponto, a tela mostra a validação e depois a confirmação em verde, ou o motivo em vermelho com o botão para tentar de novo.
@@ -16,4 +18,6 @@ tipo: alteracao
 - O Ponto toca um som curto na confirmação e outro no erro, e o celular vibra. O botão de som no cartão silencia os sons.
 - Passou do horário de saída e você não registrou? O Ponto lembra uma vez por dia.
 - Os avisos de envio, abono e recusa de justificativa aparecem num aviso flutuante na parte de baixo da tela.
+- A confirmação da batida mostra o código do comprovante e um botão para baixá-lo na hora.
+- Quando o Ponto pergunta "Antes de registrar", os outros avisos esperam você responder, sem aparecer por cima.
 - O escritório pode desligar cada uma dessas funções.

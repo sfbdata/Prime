@@ -93,7 +93,7 @@ final class AbonoEmLoteLigadoAFichaTest extends JusPrimeWebTestCase
 
         $this->abonar([$daAna->getId(), $daGestora->getId(), $doBruno->getId()]);
 
-        self::assertSame(['3 justificativas abonadas.'], $this->flashes('success'));
+        self::assertSame(['3 justificativas abonadas.'], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE));
         $eventos = $this->eventos();
         self::assertSame(['justificativa_abonada', 'abono_em_lote'], array_column($eventos, 'acao'));
         self::assertSame([(int) $this->gestora->getId(), (int) $this->gestora->getId()], array_column($eventos, 'autor_id'));

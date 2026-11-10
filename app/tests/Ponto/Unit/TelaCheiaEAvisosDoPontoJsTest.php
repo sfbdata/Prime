@@ -189,20 +189,22 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
 
         self::assertStringContainsString('const TIPO_MASCULINO = { repouso: true, retorno: true };', $tela, 'Entrada e Saída registradas; Repouso e Retorno registrados');
         self::assertStringContainsString("return TIPO_MASCULINO[tipo] === true ? 'registrado' : 'registrada';", $tela);
-        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + '.';", $tela);
+        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $tela);
         self::assertStringContainsString("const texto = rotuloDoTipo(tipo) + ' não ' + registradoDoTipo(tipo) + ': ' + String(titulo || '').replace(/[.\\s]+$/, '') + '.';", $tela);
         self::assertStringContainsString("const TITULO_SEM_LOCALIZACAO = 'Não foi possível obter a sua localização';", $tela);
         self::assertStringContainsString("const DETALHE_SEM_LOCALIZACAO = 'Ative o GPS do aparelho, permita a localização no navegador e tente de novo.';", $tela);
 
         // Com a chave valendo e a tela cheia na página, a validação abre no toque e o resultado sai nela.
         self::assertStringContainsString('return ANIMACAO_LIGADA && !!window.PontoTelaCheia && window.PontoTelaCheia.disponivel();', $tela);
-        // E12 + E8: entre os dois, só o tipo e os campos da batida externa (a validação mostra o tipo que vai ser enviado).
-        self::assertMatchesRegularExpression('/const payload = \{ tipo: tipoRegistro\.value, idEnvio: idDoEnvio\(\), horaAparelho \};\s*(?:\/\/[^\n]*\n\s*)*if \(externo !== null\) \{[^{}]*\}\s*(?:\/\/[^\n]*\n\s*)*iniciarValidacaoDoToque\(payload\.tipo\);/', $tela);
+        // E12 + E11 + E8: entre os dois, na ordem, só os campos da batida externa e a confirmação do "Registrar assim mesmo"
+        // (a validação mostra o tipo que vai ser enviado, já com a troca da confirmação).
+        self::assertMatchesRegularExpression('/const payload = \{ tipo: tipoRegistro\.value, idEnvio: idDoEnvio\(\), horaAparelho \};\s*(?:\/\/[^\n]*\n\s*)*if \(externo !== null\) \{[^{}]*\}\s*aplicarConfirmacaoDoAlerta\(payload\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*iniciarValidacaoDoToque\(payload\.tipo\);/', $tela);
         $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
-        // O texto do sucesso sai de `data.tipo` e `data.hora` do servidor, sem o comprovante (E15).
+        // O texto do sucesso sai de `data.tipo` e `data.hora` do servidor; o comprovante (E15), de `data.comprovante`
+        // (testComprovanteNoSucesso).
         self::assertStringContainsString("const tipo = typeof gravada.tipo === 'string' && Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, gravada.tipo) ? gravada.tipo : tipoDoToque;", $registrada);
         self::assertStringContainsString("const horaDaBatida = typeof gravada.hora === 'string' && gravada.hora ? gravada.hora : horaOficialAgora();", $registrada);
-        self::assertStringNotContainsString('Comprovante', $registrada);
+        self::assertStringContainsString('const comprovante = comprovanteDaBatida(gravada);', $registrada);
         self::assertMatchesRegularExpression('/if \(telaCheiaVale\(\)\) \{\s*window\.PontoTelaCheia\.ok\(/', $registrada);
         self::assertStringContainsString("tocarResultado('ok');", $registrada);
         self::assertStringContainsString("if (!avisarFlutuante(texto, 'ok')) {", $registrada);
@@ -413,7 +415,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
 
         self::assertMatchesRegularExpression(
-            "/depoisDaTelaCheia\(\(\) => \{\s*if \(!naHora && !saidaAindaPendente\(\)\) \{\s*return;\s*\}\s*"
+            "/depoisDaTelaCheia\(\(\) => \{\s*if \(!saidaAindaPendente\(\)\) \{\s*return;\s*\}\s*"
             . "if \(window\.PontoSons\) \{\s*window\.PontoSons\.liberar\(\);\s*window\.PontoSons\.ok\(\);\s*\}\s*avisarFlutuante\(AVISO_LEMBRETE_DE_SAIDA, 'lembrete'\);\s*\}\);/",
             $lembrete,
             'o plim e o aviso saem juntos, depois da tela cheia (testLembreteQueEsperouConfereASaida)'
@@ -434,11 +436,10 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $tela = self::tela();
         $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
 
-        // `naHora` diz se o `depoisDaTelaCheia` rodou já (sem a tela cheia aberta: o relógio acabou de conferir, e na
-        // carga `confirmadasDaPagina` ainda nem foi declarada) ou depois de ela fechar (aí confere).
-        self::assertMatchesRegularExpression('/let naHora = true;\s*(?:\/\/[^\n]*\n\s*)*depoisDaTelaCheia\(\(\) => \{/', $lembrete);
-        self::assertMatchesRegularExpression("/avisarFlutuante\(AVISO_LEMBRETE_DE_SAIDA, 'lembrete'\);\s*\}\);\s*naHora = false;/", $lembrete);
-        self::assertSame(1, substr_count($lembrete, 'naHora = false;'));
+        // Re-revisão: confere sempre, na hora e depois da espera (a tela cheia e a janela aberta no lugar dela); na carga,
+        // `saidaBatidaNaPagina` só olha o botão (testLembreteNaHoraOlhaASaidaDaPagina).
+        self::assertStringNotContainsString('naHora', $tela);
+        self::assertSame(1, substr_count($lembrete, 'if (!saidaAindaPendente()) {'));
 
         // A conferência: a do relógio (a entrada, sem a saída) mais a saída que a página já tem antes do relógio.
         self::assertStringContainsString('let saidaAindaPendente = function () { return true; };', $tela);
@@ -452,12 +453,39 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         self::assertLessThan(strpos($tela, 'setInterval(updateClock, 1000);'), strpos($tela, 'return LEMBRETE_LIGADO && !!tEntrada && !tSaida && !saidaBatidaNaPagina();'));
 
         $naPagina = self::corpo($tela, 'function saidaBatidaNaPagina() {');
-        self::assertStringContainsString("if (confirmadasDaPagina.some((confirmada) => confirmada.tipo === 'saida' && confirmada.dia === dia)) {", $naPagina, 'a confirmada pelo servidor nessa validação, antes da busca da tela voltar');
+        self::assertStringContainsString("return confirmadasDaPagina.some((confirmada) => confirmada.tipo === 'saida' && confirmada.dia === dia);", $naPagina, 'a confirmada pelo servidor nessa validação, antes da busca da tela voltar');
         self::assertStringContainsString("const botao = document.querySelector('#ponto-tipos > button[role=\"radio\"][data-tipo=\"saida\"]');", $naPagina);
-        self::assertStringContainsString("return !!botao && botao.dataset.registrada === '1';", $naPagina, 'a da tela e a guardada na fila (marcadas no botão)');
+        self::assertStringContainsString("if (botao && botao.dataset.registrada === '1') {", $naPagina, 'a da tela e a guardada na fila (marcadas no botão)');
         self::assertStringContainsString("botao.dataset.registrada = '1';", self::corpo($tela, 'function marcarTipoComoBatido(botao, horaTexto) {'));
-        // `confirmadasDaPagina` vem depois do relógio: só a conferência que esperou a lê.
+        // `confirmadasDaPagina` vem depois do relógio: só é lida com a página montada.
         self::assertLessThan(strpos($tela, 'let confirmadasDaPagina = [];'), strpos($tela, 'setInterval(updateClock, 1000);'));
+    }
+
+    #[TestDox('Re-revisão (b): o lembrete na hora também olha a saída já marcada na página, sem ler `confirmadasDaPagina` antes de ela existir')]
+    public function testLembreteNaHoraOlhaASaidaDaPagina(): void
+    {
+        $tela = self::tela();
+        $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
+
+        // A saída já na página (guardada na fila, ou confirmada com a busca da tela falhando): nem lembrete, nem o dia
+        // marcado (ele volta a valer se a saída sair da página).
+        self::assertMatchesRegularExpression('/if \(lembreteDadoNoDia === dia\) \{\s*return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(saidaBatidaNaPagina\(\)\) \{\s*return;\s*\}\s*lembreteDadoNoDia = dia;/', $lembrete);
+        self::assertLessThan(strpos($lembrete, "localStorage.setItem(chave, dia);"), strpos($lembrete, 'if (saidaBatidaNaPagina()) {'));
+
+        // A ordem de `saidaBatidaNaPagina`: o botão; antes de a página montar, para; depois, a confirmada pelo servidor.
+        $naPagina = self::corpo($tela, 'function saidaBatidaNaPagina() {');
+        self::assertMatchesRegularExpression(
+            "/if \(botao && botao\.dataset\.registrada === '1'\) \{\s*return true;\s*\}\s*if \(!paginaMontada\) \{\s*return false;\s*\}\s*const dia = diaDaTelaAgora\(\);\s*return confirmadasDaPagina\.some\(/",
+            $naPagina
+        );
+        // `paginaMontada` nasce antes do relógio (que chama o lembrete na carga) e vira verdadeira só no fim do script,
+        // depois de `confirmadasDaPagina`.
+        self::assertStringContainsString('let paginaMontada = false;', $tela);
+        self::assertSame(1, substr_count($tela, 'paginaMontada = true;'));
+        self::assertLessThan(strpos($tela, 'function dispararLembreteDeSaida() {'), strpos($tela, 'let paginaMontada = false;'));
+        self::assertLessThan(strpos($tela, 'setInterval(updateClock, 1000);'), strpos($tela, 'let paginaMontada = false;'));
+        self::assertLessThan(strpos($tela, 'paginaMontada = true;'), strpos($tela, 'let confirmadasDaPagina = [];'));
+        self::assertMatchesRegularExpression('/paginaMontada = true;\s*(?:\/\/[^\n]*\n\s*)*iniciarFila\(\);/', $tela);
     }
 
     #[TestDox('Revisão 8: fechada a tela cheia, o foco vai ao título do cartão (tabindex -1), não ao "Bater Ponto"')]
@@ -514,12 +542,59 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
         self::assertStringContainsString('const jaRegistrada = gravada.jaRegistrada === true;', $registrada);
         self::assertStringContainsString("met: jaRegistrada ? AVISO_JA_REGISTRADA : ''", $registrada);
-        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + '.';", $registrada);
+        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $registrada);
 
         $tc = self::arquivo('public/js/ponto-tela-cheia.js');
         self::assertStringContainsString("no.textContent = dados.met ? String(dados.met) : String(no.getAttribute('data-padrao') || '');", $tc);
         $marcacao = self::arquivo('templates/ponto/_tela_cheia.html.twig');
         self::assertStringContainsString('<div class="pe-tc-ok-met" data-tc-ok-met data-padrao="{{ metPadrao }}">{{ metPadrao }}</div>', $marcacao);
+    }
+
+    #[TestDox('E8 + E15: com o comprovante na resposta, o sucesso mostra o código e "Baixar comprovante" (só textContent; link só para o próprio sistema); sem tela cheia, o aviso diz onde ele está')]
+    public function testComprovanteNoSucesso(): void
+    {
+        $tela = self::tela();
+        $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
+
+        self::assertStringContainsString("met: jaRegistrada ? AVISO_JA_REGISTRADA : '', comprovante: comprovante });", $registrada);
+        self::assertStringContainsString("const AVISO_COMPROVANTE_NA_ABA = 'Comprovante na aba Comprovantes.';", $tela, 'o desenho, L533');
+        self::assertStringNotContainsString('Sem o comprovante', $tela);
+        $daBatida = self::corpo($tela, 'function comprovanteDaBatida(gravada) {');
+        self::assertStringContainsString("typeof comprovante.codigo !== 'string' || comprovante.codigo === '' || typeof comprovante.url !== 'string' || comprovante.url === ''", $daBatida);
+        self::assertStringContainsString('return { codigo: comprovante.codigo, url: comprovante.url };', $daBatida);
+
+        $tc = self::arquivo('public/js/ponto-tela-cheia.js');
+        self::assertMatchesRegularExpression("/mostrarComprovante\(comprovanteValido\(dados\.comprovante\)\);\s*raiz\(\)\.querySelectorAll\('\[data-tc-tempo\]'\)\.forEach\(function \(barra\) \{\s*barra\.hidden = false;/", $tc, 'cada sucesso refaz o comprovante e a barra dos 10 s');
+        // A url só do próprio sistema (caminho com uma barra), nunca de outro endereço.
+        $valido = self::corpo($tc, 'function comprovanteValido(comprovante) {');
+        self::assertStringContainsString("if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\\\') {", $valido);
+        $mostrar = self::corpo($tc, 'function mostrarComprovante(comprovante) {');
+        self::assertStringContainsString("no.textContent = comprovante ? comprovante.codigo : '';", $mostrar);
+        self::assertStringContainsString('no.hidden = !comprovante;', $mostrar);
+        self::assertStringContainsString('link.hidden = !comprovante;', $mostrar);
+        self::assertStringContainsString("link.setAttribute('href', comprovante.url);", $mostrar);
+        self::assertStringContainsString("link.setAttribute('aria-label', 'Baixar comprovante ' + comprovante.codigo);", $mostrar);
+        self::assertStringContainsString("link.removeAttribute('href');", $mostrar, 'sem comprovante, o link escondido nem recebe foco');
+        self::assertStringNotContainsString('innerHTML', $tc);
+        // Baixar para o fechamento sozinho e esconde a barra (desenho L829 e L832, `limparAuto`); o download é do link.
+        self::assertMatchesRegularExpression("/const baixar = evento\.target\.closest \? evento\.target\.closest\('\[data-tc-baixar\]'\) : null;\s*if \(el && baixar && el\.contains\(baixar\)\) \{\s*pararFechamentoAutomatico\(\);\s*return;\s*\}/", $tc);
+        self::assertMatchesRegularExpression("/clearTimeout\(tempoDoFechamento\);\s*tempoDoFechamento = null;\s*raiz\(\)\.querySelectorAll\('\[data-tc-tempo\]'\)\.forEach\(function \(barra\) \{\s*barra\.hidden = true;/", self::corpo($tc, 'function pararFechamentoAutomatico() {'));
+        self::assertStringContainsString("const FOCAVEIS = 'button:not([disabled]), a[href]';", $tc, 'o link entra no foco preso da tela cheia');
+
+        // A marcação: o código abaixo da linha do sistema; "Baixar comprovante" antes do "Concluir", como o da aba
+        // (`data-baixar`, o erro em `data-baixar-falha`); os dois escondidos até o JS pôr o comprovante.
+        $marcacao = self::arquivo('templates/ponto/_tela_cheia.html.twig');
+        self::assertStringContainsString("<div class=\"pe-tc-ok-met\" data-tc-ok-met data-padrao=\"{{ metPadrao }}\">{{ metPadrao }}</div>\n                    <div class=\"pe-tc-ok-cod\" data-tc-ok-cod hidden></div>", $marcacao);
+        self::assertStringContainsString("<a class=\"pe-tc-btn pe-tc-btn--baixar\" download data-baixar data-tc-baixar hidden><i class=\"bi bi-download\" aria-hidden=\"true\"></i>Baixar comprovante</a>\n                    <button type=\"button\" class=\"pe-tc-btn pe-tc-btn--contorno\" data-tc-concluir>Concluir</button>\n                    <div class=\"pe-tc-falha\" role=\"alert\" data-baixar-falha hidden></div>", $marcacao);
+        self::assertStringContainsString("link.parentElement.querySelector('[data-baixar-falha]')", self::arquivo('public/js/ponto-comprovantes.js'), 'o erro do download vai ao irmão do link');
+
+        // O CSS do desenho (L365 e L368).
+        $css = self::arquivo('public/css/ponto-eletronico.css');
+        self::assertMatchesRegularExpression('/\.pe-tc-ok-cod \{\s*margin-top: 12px;\s*display: inline-block;\s*padding: 7px 12px;\s*border: 1px solid rgba\(255, 255, 255, \.55\);\s*border-radius: 3px;\s*font: bold 15px monospace;\s*letter-spacing: 1px;\s*\}/', $css);
+        self::assertStringContainsString('.pe-tc-ok-cod[hidden] { display: none; }', $css);
+        self::assertStringContainsString('.pe-tc-btn[hidden] { display: none; }', $css);
+        self::assertStringContainsString('.pe-tc-btn--baixar { border: none; background: #fff; color: #145a32; font-weight: bold; text-decoration: none; }', $css);
+        self::assertStringContainsString('.pe-tc-btn--baixar:hover { background: #e8f5ee; color: #145a32; text-decoration: none; }', $css);
     }
 
     #[TestDox('Revisão 13: o comentário do GPS negado fala da falha do toque de agora, não do texto velho na caixa')]

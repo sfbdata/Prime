@@ -6,7 +6,10 @@
     em public/js/ponto-tela-cheia.js (`window.PontoTelaCheia`). O texto de cada toque entra pelo JS, só por `textContent`.
 
     As etapas da validação são as do desenho (L762 a L764): "Localização validada" só com a cerca valendo (geolocalização
-    ligada e sem Home Office hoje). A etapa do facial e o código e o comprovante do sucesso são da E18 e da E15 (fora).
+    ligada e sem Home Office hoje). A etapa do facial é da E18 (fora). O código e o "Baixar comprovante" do sucesso
+    (L365 e L368, E15) ficam escondidos e só aparecem com o comprovante na resposta da batida (JS, `ok`). O "Baixar" é
+    um link para o arquivo, como o da aba Comprovantes (`data-baixar`: com js/ponto-comprovantes.js, o erro do download
+    aparece na linha `data-baixar-falha`, logo abaixo dos botões).
     A última ("Registro selado", `data-tc-selo`) não tem o atraso no `style`: o JS a marca no tempo dela
     (`data-tc-selo-em`) só depois de o servidor confirmar.
 
@@ -61,13 +64,16 @@
                     {% set metPadrao = 'Registrado no sistema' ~ (cercaValendo ? ' · localização validada' : '') %}
                     {# A batida que já tinha entrado (mesmo envio) troca esta linha pelo texto do sistema (JS, `met`). #}
                     <div class="pe-tc-ok-met" data-tc-ok-met data-padrao="{{ metPadrao }}">{{ metPadrao }}</div>
+                    <div class="pe-tc-ok-cod" data-tc-ok-cod hidden></div>
                 </div>
                 <div class="pe-tc-botoes pe-tc-botoes--ok pe-tc-mov">
+                    <a class="pe-tc-btn pe-tc-btn--baixar" download data-baixar data-tc-baixar hidden><i class="bi bi-download" aria-hidden="true"></i>Baixar comprovante</a>
                     <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-concluir>Concluir</button>
+                    <div class="pe-tc-falha" role="alert" data-baixar-falha hidden></div>
                 </div>
             </div>
         </div>
-        <span class="pe-tc-tempo pe-tc-mov" aria-hidden="true"></span>
+        <span class="pe-tc-tempo pe-tc-mov" aria-hidden="true" data-tc-tempo></span>
     </div>
 
     <div class="pe-tc-fase" data-tc-fase="erro" hidden>
