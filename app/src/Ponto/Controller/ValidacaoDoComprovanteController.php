@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ponto\Controller;
 
-use App\Ponto\DTO\DadosDoComprovante;
-use App\Ponto\UseCase\ValidarComprovanteUseCase;
+use App\Ponto\UseCase\ValidarCodigoDoPontoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,9 +13,11 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Validação pública do comprovante do ponto (E15, P50 e D20): `/ponto/validar/{codigo}`, SEM login (`access_control`
- * PUBLIC_ACCESS só neste caminho). É o endereço do QR Code da imagem e o que a janela "Validar código" da /ponto
- * consulta (com `Accept: application/json`).
+ * Validação pública do comprovante do ponto (E15, P50 e D20) e da folha emitida em PDF (E16, decisão 17):
+ * `/ponto/validar/{codigo}`, SEM login (`access_control` PUBLIC_ACCESS só neste caminho). É o endereço do QR Code da
+ * imagem do comprovante e do PDF da folha, e o que a janela "Validar código" da /ponto consulta (com `Accept:
+ * application/json`). O prefixo do código (`BJP` ou `BJF`) escolhe o que conferir ({@see ValidarCodigoDoPontoUseCase});
+ * a resposta autêntica é a mesma caixa "Comprovante autêntico." com o texto de cada um.
  *
  * Só leitura, por GET e sem CSRF: o código é a única entrada e nada é gravado. A resposta de quem não é autêntico é
  * a mesma para todos (código que não existe, selo que não confere, formato errado, selo indisponível): "Código não
@@ -35,7 +36,7 @@ final class ValidacaoDoComprovanteController extends AbstractController
     public const ROTA_DO_CODIGO = 'validacao_comprovante_ponto_codigo';
 
     public function __construct(
-        private readonly ValidarComprovanteUseCase $validar,
+        private readonly ValidarCodigoDoPontoUseCase $validar,
         private readonly RateLimiterFactoryInterface $pontoValidacaoLimiter,
     ) {
     }
@@ -50,19 +51,19 @@ final class ValidacaoDoComprovanteController extends AbstractController
         }
 
         $codigo = trim($codigo !== '' ? $codigo : (string) $request->query->get('codigo', ''));
-        $dados = $codigo === '' ? null : $this->validar->executar($codigo);
+        $texto = $codigo === '' ? null : $this->validar->executar($codigo);
 
-        return $this->resposta($json, $codigo, $dados, false, Response::HTTP_OK);
+        return $this->resposta($json, $codigo, $texto, false, Response::HTTP_OK);
     }
 
-    private function resposta(bool $json, ?string $codigo, ?DadosDoComprovante $dados, bool $limite, int $status): Response
+    private function resposta(bool $json, ?string $codigo, ?string $texto, bool $limite, int $status): Response
     {
         $resposta = $json
-            ? new JsonResponse($limite ? ['autentico' => false, 'erro' => self::MUITAS_TENTATIVAS] : ['autentico' => $dados !== null, 'texto' => $dados?->textoDaValidacao()], $status)
+            ? new JsonResponse($limite ? ['autentico' => false, 'erro' => self::MUITAS_TENTATIVAS] : ['autentico' => $texto !== null, 'texto' => $texto], $status)
             : $this->render('ponto/validar_comprovante.html.twig', [
                 'codigo'    => (string) $codigo,
                 'consultou' => $codigo !== null && $codigo !== '',
-                'texto'     => $dados?->textoDaValidacao(),
+                'texto'     => $texto,
                 'limite'    => $limite ? self::MUITAS_TENTATIVAS : null,
             ], new Response('', $status));
         $resposta->headers->set('X-Robots-Tag', 'noindex, nofollow');
