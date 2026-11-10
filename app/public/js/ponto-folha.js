@@ -4,10 +4,12 @@
  *
  * - "Baixar PDF" (`baixarPdf`, L717 a L730): o aviso azul "Gerando a folha em PDF...", o PDF pedido ao servidor (cada
  *   pedido é uma emissão nova, com código próprio: decisão 2) e salvo com o nome que a resposta dá; depois, o aviso
- *   verde com o código lido do cabeçalho `X-Codigo-Folha` (sem o segredo não há código) ou o vermelho na falha. Um
- *   pedido por vez, como o desenho.
+ *   verde com o código lido do cabeçalho `X-Codigo-Folha` (sem o segredo não há código) ou o vermelho na falha.
  * - "Ver PDF" (P89, fica; decisão 12): a janela do desenho com o PDF (`inline=1`) num quadro. O "Baixar" de dentro
- *   salva o MESMO arquivo, sem nova emissão (decisão 2), fecha a janela e avisa como o "Baixar PDF".
+ *   salva o MESMO arquivo, sem nova emissão (decisão 2), fecha a janela e avisa como o "Baixar PDF". Fechar a janela
+ *   com o pedido em curso cancela o pedido, sem aviso de erro.
+ * - Uma emissão por vez: "Baixar PDF" e "Ver PDF" dividem a mesma trava (`comecarEmissao`). Enquanto um gera, o outro
+ *   não faz outro pedido, que seria outro código que ninguém recebeu.
  * - "Baixar XLSX" (P88, fica): a resposta vem como anexo, então ir até ela baixa sem sair da tela.
  * - "Assinar folha" (P33, só na /ponto): abre a janela do aceite na moldura das janelas do Ponto (`window.PontoAbas`,
  *   js/ponto-abas.js: Esc, foco preso, linha de erro que some ao editar) em "Concordo" e com a ressalva vazia (L816).
@@ -36,10 +38,11 @@
 
     let aviso = null;
     let avisoPrazo = null;
-    let gerandoPdf = false;
-    // Janela "Ver PDF": o número do pedido que vale (resposta de pedido anterior é descartada), quem a abriu, o PDF
-    // recebido e o endereço dele no quadro.
-    const ver = { pedido: 0, origem: null, pdf: null, endereco: '' };
+    // A emissão em curso (o AbortController do pedido), do "Baixar PDF" ou do "Ver PDF": é a trava única dos dois.
+    let emissao = null;
+    // Janela "Ver PDF": o pedido em curso dela (fechar o cancela; resposta de outro pedido é descartada), quem a
+    // abriu, o PDF recebido e o endereço dele no quadro.
+    const ver = { aborto: null, origem: null, pdf: null, endereco: '' };
 
     function avisar(texto, tom) {
         if (aviso) {
@@ -85,11 +88,29 @@
         setTimeout(function () { URL.revokeObjectURL(endereco); }, 1000);
     }
 
-    // O PDF da rota: `{ blob, nome, codigo }`, ou `{ erro }` com a frase do aviso. Resposta que não é PDF (a sessão
-    // que caiu e voltou na tela de entrar, por exemplo) é falha, e não um arquivo salvo com o nome errado.
-    async function pedirPdf(url) {
-        const aborto = new AbortController();
-        const prazo = setTimeout(function () { aborto.abort(); }, PRAZO_PDF_MS);
+    // Pega a trava da emissão: o AbortController do pedido, ou null quando outro pedido de PDF ainda está em curso.
+    function comecarEmissao() {
+        if (emissao) {
+            return null;
+        }
+        emissao = new AbortController();
+
+        return emissao;
+    }
+
+    // Solta a trava só se ela ainda for deste pedido (fechar o "Ver PDF" já a soltou, e outro pode tê-la pego).
+    function terminarEmissao(aborto) {
+        if (emissao === aborto) {
+            emissao = null;
+        }
+    }
+
+    // O PDF da rota: `{ blob, nome, codigo }`, `{ erro }` com a frase do aviso, ou `{ cancelado: true }` quando quem
+    // pediu cancelou (fechou o "Ver PDF"). Resposta que não é PDF (a sessão que caiu e voltou na tela de entrar, por
+    // exemplo) é falha, e não um arquivo salvo com o nome errado.
+    async function pedirPdf(url, aborto) {
+        let venceu = false;
+        const prazo = setTimeout(function () { venceu = true; aborto.abort(); }, PRAZO_PDF_MS);
         try {
             const resposta = await fetch(url, { credentials: 'same-origin', signal: aborto.signal });
             if (resposta.status === 429) {
@@ -102,7 +123,7 @@
 
             return { blob: blob, nome: nomeDoArquivo(resposta), codigo: (resposta.headers.get('X-Codigo-Folha') || '').trim() };
         } catch (erro) {
-            return { erro: FALHOU };
+            return aborto.signal.aborted && !venceu ? { cancelado: true } : { erro: FALHOU };
         } finally {
             clearTimeout(prazo);
         }
@@ -111,13 +132,16 @@
     // ---- Baixar PDF (L717 a L730) ----
 
     async function baixarPdf(botao) {
-        if (gerandoPdf) {
+        const aborto = comecarEmissao();
+        if (!aborto) {
             return;
         }
-        gerandoPdf = true;
         avisar(GERANDO, 'info');
-        const pdf = await pedirPdf(botao.dataset.folhaPdf);
-        gerandoPdf = false;
+        const pdf = await pedirPdf(botao.dataset.folhaPdf, aborto);
+        terminarEmissao(aborto);
+        if (pdf.cancelado) {
+            return;
+        }
         if (pdf.erro) {
             avisar(pdf.erro, 'erro');
             return;
@@ -174,17 +198,23 @@
         if (!fundo) {
             return;
         }
-        const esta = ++ver.pedido;
+        const aborto = comecarEmissao();
+        if (!aborto) {
+            return;
+        }
         soltarArquivo();
+        ver.aborto = aborto;
         ver.origem = botao;
         aguardando(fundo);
         fundo.hidden = false;
         fundo.querySelector('.pe-janela-fechar').focus();
 
-        const pdf = await pedirPdf(botao.dataset.folhaVer);
-        if (esta !== ver.pedido || fundo.hidden) {
+        const pdf = await pedirPdf(botao.dataset.folhaVer, aborto);
+        terminarEmissao(aborto);
+        if (pdf.cancelado || aborto !== ver.aborto || fundo.hidden) {
             return;
         }
+        ver.aborto = null;
         if (pdf.erro) {
             fundo.querySelector('[data-folha-ver-corpo]').replaceChildren();
             erroDaJanela(fundo, pdf.erro);
@@ -193,13 +223,19 @@
         mostrarPdf(fundo, pdf);
     }
 
-    // Esc, o "x" e "Fechar" fecham; clicar fora não fecha (o desenho não fecha). A resposta que chega depois é descartada.
+    // Esc, o "x" e "Fechar" fecham; clicar fora não fecha (o desenho não fecha). Com o pedido em curso, fechar o
+    // cancela (o navegador para de esperar; o servidor pode já ter gravado a emissão) e solta a trava, e o
+    // cancelamento não vira aviso de erro.
     function fecharVer() {
         const fundo = janelaVer();
         if (!fundo || fundo.hidden) {
             return;
         }
-        ver.pedido++;
+        if (ver.aborto) {
+            ver.aborto.abort();
+            terminarEmissao(ver.aborto);
+            ver.aborto = null;
+        }
         fundo.hidden = true;
         fundo.querySelector('[data-folha-ver-corpo]').replaceChildren();
         soltarArquivo();
