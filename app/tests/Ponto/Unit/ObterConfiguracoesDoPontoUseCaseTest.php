@@ -104,6 +104,18 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($saida->funcoes[2]->escritorioEfetivo(), 'a geolocalização não muda');
     }
 
+    #[TestDox('Cada cartão olha o próprio selo: só o do comprovante pronto mostra o comprovante sem o aceite; só o da folha, o aceite sem o comprovante')]
+    public function testCadaCartaoComOSeuSelo(): void
+    {
+        $chaves = fn (bool $comprovante, bool $folha): array => array_map(
+            static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave,
+            $this->casoDeUso(true, null, true, $comprovante, $folha)->executar($this->pessoa(['ROLE_USER']), new Tenant())?->funcoes ?? [],
+        );
+
+        self::assertSame(['ponto-comprovante', 'ponto-geo'], $chaves(true, false));
+        self::assertSame(['ponto-geo', 'ponto-aceite'], $chaves(false, true));
+    }
+
     /** @param list<string> $papeis */
     private function pessoa(array $papeis): User
     {
@@ -113,7 +125,8 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         return $user;
     }
 
-    private function casoDeUso(bool $podeConfigurar, ?ConfiguracaoDoPonto $configuracao, bool $globalLigado, bool $seloDisponivel = true): ObterConfiguracoesDoPontoUseCase
+    /** @param ?bool $seloDaFolhaDisponivel nulo: o mesmo do selo do comprovante (os dois saem do mesmo segredo) */
+    private function casoDeUso(bool $podeConfigurar, ?ConfiguracaoDoPonto $configuracao, bool $globalLigado, bool $seloDisponivel = true, ?bool $seloDaFolhaDisponivel = null): ObterConfiguracoesDoPontoUseCase
     {
         $estados = $this->createStub(RecursoEstadoRepository::class);
         $gravados = [];
@@ -131,7 +144,7 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         $selo = $this->createStub(SeloDoComprovante::class);
         $selo->method('disponivel')->willReturn($seloDisponivel);
         $seloDaFolha = $this->createStub(SeloDaFolha::class);
-        $seloDaFolha->method('disponivel')->willReturn($seloDisponivel);
+        $seloDaFolha->method('disponivel')->willReturn($seloDaFolhaDisponivel ?? $seloDisponivel);
 
         return new ObterConfiguracoesDoPontoUseCase(new FuncoesDoPonto($recursos, $configuracoes, $permissoes), $configuracoes, $regra, $selo, $seloDaFolha);
     }

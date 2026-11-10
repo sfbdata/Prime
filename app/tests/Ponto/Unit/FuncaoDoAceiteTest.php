@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * O aceite mensal vale com as duas camadas ligadas (Global E Escritório) e o selo da folha pronto (spec
- * ponto-desenho-0811, E16, decisões 16 e 19).
+ * ponto-desenho-0811, E16, decisões 13 e 16).
  */
 #[Group('ponto')]
 #[CoversClass(FuncaoDoAceite::class)]

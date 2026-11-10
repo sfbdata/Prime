@@ -97,11 +97,14 @@ final readonly class CabecalhoDaFolha
         return sprintf('***.%s.%s-**', substr($digitos, 3, 3), substr($digitos, 6, 3));
     }
 
-    /** "***2329" (decisão 8): só os quatro últimos caracteres à vista. */
+    /**
+     * "***2329" (decisão 8): só os quatro últimos caracteres à vista. Com quatro caracteres ou menos, a máscara
+     * mostraria a CTPS inteira: a célula fica vazia, como a do CPF fora do formato.
+     */
     public static function ctpsMascarada(string $ctps): string
     {
         $ctps = trim($ctps);
 
-        return $ctps === '' ? '' : '***' . mb_substr($ctps, -4);
+        return mb_strlen($ctps) <= 4 ? '' : '***' . mb_substr($ctps, -4);
     }
 }

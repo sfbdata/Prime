@@ -42,17 +42,22 @@ final class ConteudoDaFolhaTest extends TestCase
         self::assertSame('FOLHA DE PONTO · 03/2026', $this->conteudo(2026, 3)->titulo());
     }
 
-    #[TestDox('Decisão 3: os mesmos registros dão sempre a mesma impressão (sha256), e o carimbo e a validação ficam fora dela')]
+    #[TestDox('Decisão 3: a impressão (sha256) não muda com os segundos das batidas, os ids, a hora da emissão, o código nem o carimbo')]
     public function testImpressaoEstavel(): void
     {
         $conteudo = $this->conteudo();
-        $carimbado = $conteudo->comCarimbo(new CarimboDoAceiteNaFolha(SituacaoDoAceiteDaFolha::Concordo, new \DateTimeImmutable('2026-11-03 09:05:00'), null))
-            ->comValidacao(new ValidacaoDaFolha('BJF-ABCD-EFGH-JK23', str_repeat('a', 64), new \DateTimeImmutable('2026-11-03 09:05:00')));
+        $outrosSegundosEIds = $this->conteudo(dia: ['entrada' => '08:00:59', 'repouso' => '12:00:31', 'saida' => '17:00:42', 'entradaId' => 901, 'repousoId' => 902, 'saidaId' => 903]);
+        $emitida = static fn (string $codigo, string $emitidaEm): ValidacaoDaFolha => new ValidacaoDaFolha($codigo, hash('sha256', $codigo), new \DateTimeImmutable($emitidaEm));
+        $carimbado = $conteudo->comCarimbo(new CarimboDoAceiteNaFolha(SituacaoDoAceiteDaFolha::Concordo, new \DateTimeImmutable('2026-11-03 09:05:00'), null));
+        $daPrimeira = $carimbado->comValidacao($emitida('BJF-ABCD-EFGH-JK23', '2026-11-03 09:05:00'));
+        $daSegunda = $conteudo->comValidacao($emitida('BJF-WXYZ-MNPQ-RS45', '2026-11-10 18:42:17'));
 
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $conteudo->impressaoDosRegistros());
-        self::assertSame($conteudo->impressaoDosRegistros(), $this->conteudo()->impressaoDosRegistros());
-        self::assertSame($conteudo->impressaoDosRegistros(), $carimbado->impressaoDosRegistros());
-        self::assertNotNull($carimbado->carimbo);
+        self::assertSame($conteudo->impressaoDosRegistros(), $this->conteudo()->impressaoDosRegistros(), 'os mesmos registros');
+        self::assertSame($conteudo->impressaoDosRegistros(), $outrosSegundosEIds->impressaoDosRegistros(), 'outros segundos e outros ids');
+        self::assertSame($conteudo->impressaoDosRegistros(), $daPrimeira->impressaoDosRegistros(), 'com carimbo e validação');
+        self::assertSame($daPrimeira->impressaoDosRegistros(), $daSegunda->impressaoDosRegistros(), 'outro código e outra hora da emissão');
+        self::assertNotEquals($daPrimeira->validacao, $daSegunda->validacao);
         self::assertNull($conteudo->validacao);
     }
 
@@ -89,14 +94,16 @@ final class ConteudoDaFolhaTest extends TestCase
         self::assertSame('0h45 (mínimo)', CabecalhoDaFolha::daFolhaExportada([], '', 45, 660)->intervaloIntrajornada);
     }
 
-    #[TestDox('Máscaras: CPF só com 11 dígitos; a CTPS mostra só os quatro últimos caracteres')]
+    #[TestDox('Máscaras: CPF só com 11 dígitos; a CTPS mostra só os quatro últimos caracteres, e a curta (até 4) fica vazia')]
     public function testMascaras(): void
     {
         self::assertSame('***.456.789-**', CabecalhoDaFolha::cpfMascarado('12345678901'));
         self::assertSame('', CabecalhoDaFolha::cpfMascarado('1234567890'));
         self::assertSame('', CabecalhoDaFolha::cpfMascarado(''));
         self::assertSame('***2329', CabecalhoDaFolha::ctpsMascarada(' 0012329 '));
-        self::assertSame('***12', CabecalhoDaFolha::ctpsMascarada('12'));
+        self::assertSame('***2345', CabecalhoDaFolha::ctpsMascarada('12345'));
+        self::assertSame('', CabecalhoDaFolha::ctpsMascarada('12'), 'mascarar mostraria a CTPS inteira');
+        self::assertSame('', CabecalhoDaFolha::ctpsMascarada(' 1234 '));
         self::assertSame('', CabecalhoDaFolha::ctpsMascarada('  '));
     }
 

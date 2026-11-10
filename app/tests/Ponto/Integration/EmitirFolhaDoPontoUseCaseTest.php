@@ -96,6 +96,23 @@ final class EmitirFolhaDoPontoUseCaseTest extends KernelTestCase
         self::assertSame($maria->getId(), $this->trilhaNoBanco($escritorio)[0]['detalhe']['colaborador_id'] ?? null);
     }
 
+    #[TestDox('Decisão 3: outro emissor, outra hora e outro código, a mesma impressão dos registros gravada')]
+    public function testImpressaoNaoDependeDaEmissao(): void
+    {
+        $this->segredo('segredo-de-teste-da-folha');
+        $escritorio = $this->escritorio('Escritório da folha');
+        $maria = $this->pessoaComOutubro($escritorio);
+        $gestor = $this->pessoa('Gestora');
+
+        $this->emitir()->executar($escritorio, $maria, 2026, 10, $maria);
+        self::mockTime(new \DateTimeImmutable('2026-11-10 16:40:05', new \DateTimeZone(date_default_timezone_get())));
+        $this->emitir()->executar($escritorio, $maria, 2026, 10, $gestor);
+
+        [$primeira, $segunda] = $this->folhasNoBanco($escritorio, $maria);
+        self::assertNotSame([$primeira['codigo'], $primeira['emitida_em'], $primeira['emitida_por_id']], [$segunda['codigo'], $segunda['emitida_em'], $segunda['emitida_por_id']]);
+        self::assertSame($primeira['impressao_registros'], $segunda['impressao_registros']);
+    }
+
     #[TestDox('Decisão 16: sem o segredo do HMAC, devolve o conteúdo sem validação e não grava folha nem evento')]
     public function testSemOSegredoNaoGrava(): void
     {
