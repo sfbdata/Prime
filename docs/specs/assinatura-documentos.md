@@ -299,8 +299,9 @@ Cada etapa sai num PR, com teste antes e arquivo em `mudancas/`. A tela fica atr
 
 ### Etapa 3: PDF com selo, manifesto, Validar e vínculo à pasta
 
-- PDF final no servidor: páginas renderizadas pelo Dompdf com o fundo de segurança desenhado em GD (mesmas funções do
-  protótipo, semente pelo hash) e depois rasterizadas pelo Ghostscript (`pdfimage24`), como a ESPEC pede ("em imagem");
+- PDF final no servidor, em imagem como a ESPEC pede: a GD compõe cada página inteira com o fundo de segurança (mesmas
+  funções do protótipo, semente pelo hash) e um escritor próprio monta uma JPEG por página, como o desenho (troca do
+  Dompdf + `pdfimage24` registrada na E3-1 de `assinatura-documentos-etapa-3.md`);
   rodapé com QR, código, SHA-256 e "Emitido em"; Manifesto de assinaturas; formato em duas colunas; folha branca.
   Pré-requisito: `symfony/process` em `require` (PR `fix-symfony-process-producao`).
 - Código `BJA-XXXX-XXXX-XXXX` derivado por HMAC com o segredo do selo, único no banco.
