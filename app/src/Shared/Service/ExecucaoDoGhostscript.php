@@ -57,11 +57,12 @@ final class ExecucaoDoGhostscript
      * Como {@see rodar()}, mas lê a saída padrão em fluxo e para o gs quando ela passa do teto.
      *
      * Serve quando a saída depende do documento e não tem tamanho previsível: nada dela fica inteiro
-     * na memória (o buffer do Process é esvaziado a cada pedaço) e o gs não continua trabalhando
-     * depois que a saída deixou de interessar. A saída de erro é lida e descartada, sem acumular.
+     * na memória e o gs não continua trabalhando depois que a saída deixou de interessar. A saída
+     * de erro é descartada pelo descritor, sem acumular. A leitura direta é intencional: o iterador
+     * do Process pode acumular um produtor rápido em UnixPipes antes de entregar o primeiro pedaço.
      *
      * Ao voltar, o processo já terminou: sozinho, parado no teto ou parado no tempo. Nenhum dos três
-     * deixa filho vivo, porque o Process roda o binário com `exec` e o `stop()` espera o fim.
+     * deixa filho vivo: o comando é executado diretamente e seu PID é encerrado e recolhido antes do retorno.
      *
      * @param list<string> $comando o binário e os argumentos, já montados
      *
@@ -74,41 +75,87 @@ final class ExecucaoDoGhostscript
         $meu  = $area->caminho();
 
         try {
-            $processo = new Process($comando, null, ['TMPDIR' => $meu, 'TMP' => $meu, 'TEMP' => $meu]);
-            $processo->setTimeout($tempo);
+            // PHP 8.3 pode recusar proc_open antes de criar o processo quando o binário não existe.
+            if (str_contains($comando[0], '/') && !file_exists($comando[0])) {
+                return new SaidaDoGhostscript('', 127, false, false);
+            }
+            [$processo, $canal] = self::abrirComSaidaLimitada($comando, $meu);
+            try {
+                $saida = self::lerAteOTeto($processo, $canal, $tempo, $tetoDeBytes);
+            } finally {
+                $codigo = self::encerrar($processo, $canal);
+            }
 
-            return self::lerAteOTeto($processo, $tetoDeBytes);
+            return new SaidaDoGhostscript($saida->saida, $saida->codigo ?? $codigo, $saida->tempoEstourado, $saida->tetoEstourado);
         } finally {
             $area->liberar();
         }
     }
 
-    private static function lerAteOTeto(Process $processo, int $teto): SaidaDoGhostscript
+    /**
+     * @param list<string> $comando
+     *
+     * @return array{resource, resource}
+     */
+    private static function abrirComSaidaLimitada(array $comando, string $temporario): array
     {
-        $saida          = '';
-        $tetoEstourado  = false;
-        $tempoEstourado = false;
+        $ambiente = array_merge(getenv(), ['TMPDIR' => $temporario, 'TMP' => $temporario, 'TEMP' => $temporario]);
+        $descritores = [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']];
+        // Array de argumentos: execução direta, sem shell nem interpolação do caminho do PDF.
+        $processo = @proc_open($comando, $descritores, $canais, null, $ambiente);
+        if (!\is_resource($processo)) {
+            throw new \RuntimeException('Não foi possível iniciar o Ghostscript.');
+        }
+        stream_set_blocking($canais[1], false);
 
-        try {
-            $processo->start();
-            foreach ($processo as $tipo => $pedaco) {
-                if (Process::OUT !== $tipo) {
-                    continue;
-                }
-                $saida .= $pedaco;
-                if (\strlen($saida) > $teto) {
-                    $tetoEstourado = true;
-                    $saida         = substr($saida, 0, $teto);
-                    break;
+        return [$processo, $canais[1]];
+    }
+
+    /**
+     * @param resource $processo
+     * @param resource $canal
+     */
+    private static function lerAteOTeto(mixed $processo, mixed $canal, float $tempo, int $teto): SaidaDoGhostscript
+    {
+        $saida = '';
+        $inicio = hrtime(true);
+        while (true) {
+            if ((hrtime(true) - $inicio) / 1e9 >= $tempo) {
+                return new SaidaDoGhostscript($saida, null, true, false);
+            }
+            $pedaco = fread($canal, 8192);
+            if ($pedaco === false) {
+                throw new \RuntimeException('Não foi possível ler a saída do Ghostscript.');
+            }
+            $saida .= $pedaco;
+            if (\strlen($saida) > $teto) {
+                return new SaidaDoGhostscript(substr($saida, 0, $teto), null, false, true);
+            }
+            if (feof($canal)) {
+                $estado = proc_get_status($processo);
+                if (!$estado['running']) {
+                    $codigo = $estado['signaled'] ? 128 + $estado['termsig'] : $estado['exitcode'];
+
+                    return new SaidaDoGhostscript($saida, $codigo >= 0 ? $codigo : null, false, false);
                 }
             }
-        } catch (ProcessTimedOutException) {
-            $tempoEstourado = true;
-        } finally {
-            // Parado no teto, no tempo ou por exceção no meio da leitura: o gs não segue sozinho.
-            $processo->stop(0);
+            if ($pedaco === '') {
+                usleep(1000);
+            }
         }
+    }
 
-        return new SaidaDoGhostscript($saida, $processo->getExitCode(), $tempoEstourado, $tetoEstourado);
+    /**
+     * @param resource $processo
+     * @param resource $canal
+     */
+    private static function encerrar(mixed $processo, mixed $canal): ?int
+    {
+        $estado = proc_get_status($processo);
+        $parado = $estado['running'] && proc_terminate($processo, 9);
+        fclose($canal);
+        $codigo = proc_close($processo);
+
+        return $parado ? 137 : ($codigo >= 0 ? $codigo : null);
     }
 }

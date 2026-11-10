@@ -10,6 +10,7 @@ use App\Shared\Service\SaidaDoGhostscript;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 
 /**
  * `rodarComTeto`: a saída fica no teto, o tempo para o processo, o código de saída volta, e em
@@ -60,6 +61,27 @@ final class ExecucaoDoGhostscriptComTetoTest extends TestCase
         self::assertStringStartsWith("0123456789\n0123456789\n", $saida->saida);
         self::assertLessThan(5.0, microtime(true) - $inicio, 'o teto não esperou o tempo acabar');
         $this->assertSemFilhoVivo();
+    }
+
+    #[TestDox('Produtor rápido sem fim respeita o teto sem acumular a saída na memória do leitor')]
+    public function testProdutorRapidoComPoucaMemoria(): void
+    {
+        $autoload = var_export(\dirname(__DIR__, 3) . '/vendor/autoload.php', true);
+        $programa = 'require ' . $autoload . '; ' . <<<'PHP'
+            for ($i = 0; $i < 50; ++$i) {
+                $saida = App\Shared\Service\ExecucaoDoGhostscript::rodarComTeto(['/usr/bin/yes', '0123456789'], 10.0, 5000);
+                if (!$saida->tetoEstourado || strlen($saida->saida) !== 5000) {
+                    exit(2);
+                }
+            }
+            echo memory_get_peak_usage(true);
+            PHP;
+        $processo = new Process([PHP_BINARY, '-d', 'memory_limit=32M', '-r', $programa]);
+        $processo->setTimeout(15.0);
+        $processo->run();
+
+        self::assertSame(0, $processo->getExitCode(), $processo->getErrorOutput());
+        self::assertLessThan(8 * 1024 * 1024, (int) $processo->getOutput(), 'Inclui o autoload e os temporários das 50 execuções.');
     }
 
     #[TestDox('Processo parado no tempo volta com a marca de tempo e não sobra')]
