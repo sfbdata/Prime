@@ -29,12 +29,36 @@ ligado o deploy inteiro falha junto).
 
 A imagem ocupa cerca de 250 MB. Confira o disco com `df -h /`.
 
+Confira também a memória e as CPUs da VPS:
+
+```bash
+# Execute manualmente no terminal externo (na VPS)
+free -g
+nproc
+```
+
+O `docker-compose.prod.yml` dá ao validador um teto de 3584 MB de memória (`mem_limit: 3584m`) e de 1,5 CPU
+(`cpus: 1.5`). **É teto, não reserva**: parado ele usa pouco, e só chega perto disso conferindo dois PDFs pesados ao
+mesmo tempo. Cada conferência já para sozinha em 1536 MB; o teto do contêiner é a segunda barreira, para um PDF hostil
+não levar a VPS junto.
+
+- Na linha `Mem:` do `free -g`, a coluna `available` (o que sobra com tudo no ar) com 4 ou mais, e o `nproc` com 2 ou
+  mais: siga.
+- `nproc` igual a 1: **pare aqui**. O Docker recusa criar o contêiner com 1,5 CPU numa VPS de 1 CPU
+  (`range of CPUs is from 0.01 to 1.00`).
+- `available` menor que 4: **pare aqui**. No pior caso, o validador tomaria a memória do banco e do php.
+
+Nos dois casos, o desenvolvimento reduz o teto num PR (a memória junto com o limite de cada conferência,
+`ASSINATURA_VALIDADOR_MEMORIA_MB`). Vale o mesmo mais tarde, se o `available` cair abaixo de 4 com o validador no ar.
+Não edite o `docker-compose.prod.yml` na VPS: o deploy automático recusa o checkout com arquivo versionado alterado.
+
 ## 1. Criar os dois arquivos do selo, vazios (obrigatório antes de ligar)
 
 O compose monta no validador a chave do selo (`/opt/jusprime/secrets/selo_pkcs12` e `selo_pkcs12_senha`). **Se esses
-arquivos não existirem, o contêiner nem é criado** ("bind source path does not exist"), o `up -d` falha e todo deploy
-volta para a versão anterior. Vazios, o validador entende "selo não configurado" e o PDF final sai sem selo, que é o
-estado certo até a compra do e-CNPJ (`docs/runbooks/assinatura-selo-ecnpj-em-producao.md`).
+arquivos não existirem, o contêiner nem é criado** ("bind source path does not exist"): o `up` do validador no passo 4
+falha e, depois de ligado o profile, todo deploy automático falha e volta para a versão anterior. Vazios, o validador
+entende "selo não configurado" e o PDF final sai sem selo, que é o estado certo até a compra do e-CNPJ
+(`docs/runbooks/assinatura-selo-ecnpj-em-producao.md`).
 
 Medido em 10/11/2026 com o Docker Compose 2.40.3, os arquivos ausentes:
 
@@ -64,7 +88,7 @@ contêineres. A URL é fixa.
 # Execute manualmente no terminal externo (na VPS)
 cd /opt/jusprime && cp -p .env.prod ".env.prod.antes-do-validador.$(date +%Y%m%d%H%M%S)"
 grep -q '^ASSINATURA_VALIDADOR_TOKEN=.' .env.prod && echo 'TOKEN JA EXISTE: nao troque sem necessidade' || { sed -i '/^ASSINATURA_VALIDADOR_TOKEN=/d' .env.prod && printf '\nASSINATURA_VALIDADOR_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env.prod; }
-grep -q '^ASSINATURA_VALIDADOR_URL=.' .env.prod || { sed -i '/^ASSINATURA_VALIDADOR_URL=/d' .env.prod && printf 'ASSINATURA_VALIDADOR_URL=http://validador_pdf:8080\n' >> .env.prod; }
+grep -q '^ASSINATURA_VALIDADOR_URL=.' .env.prod || { sed -i '/^ASSINATURA_VALIDADOR_URL=/d' .env.prod && printf '\nASSINATURA_VALIDADOR_URL=http://validador_pdf:8080\n' >> .env.prod; }
 grep -o '^ASSINATURA_VALIDADOR_[A-Z]*=' .env.prod
 ```
 
@@ -79,7 +103,7 @@ Se o Voto já estiver ligado, a linha `COMPOSE_PROFILES=voto` existe e ganha `,a
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && { grep -q '^COMPOSE_PROFILES=' .env.prod && sed -i '/^COMPOSE_PROFILES=/{/assinatura/!s/$/,assinatura/}' .env.prod || printf 'COMPOSE_PROFILES=assinatura\n' >> .env.prod; }
+cd /opt/jusprime && { grep -q '^COMPOSE_PROFILES=' .env.prod && sed -i '/^COMPOSE_PROFILES=/{/assinatura/!s/$/,assinatura/}' .env.prod || printf '\nCOMPOSE_PROFILES=assinatura\n' >> .env.prod; }
 grep '^COMPOSE_PROFILES=' .env.prod
 docker compose -f docker-compose.prod.yml --env-file .env.prod config --services
 ```
@@ -89,15 +113,57 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod config --services
 
 ## 4. Subir
 
+Um comando por vez, **sem** o `scripts/deploy-prod-tls.sh`: ele reconstruiria tudo e ligaria a manutenção sem volta
+automática e sem a trava contra o deploy automático. Aqui só o validador é construído; o php e o worker são recriados
+com a imagem que já está no ar.
+
+**a) Construir e subir só o validador.** O site segue no ar. A primeira vez leva alguns minutos (baixa as dependências
+Python).
+
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && docker compose -f docker-compose.prod.yml --env-file .env.prod build validador_pdf
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps validador_pdf
 ```
 
-O script constrói a imagem do validador (a primeira vez leva alguns minutos: baixa as dependências Python), liga a
-manutenção por poucos segundos e recria o php e o worker, que precisam ler a URL e o token novos. O `PULAR_GIT_PULL=1`
-mantém a versão publicada (sem ele, o script puxa o master). Não use `docker compose restart`: ele não relê o
-`.env.prod`. Não use `debug:container --env-vars` nem `docker inspect` para conferir: mostram o token.
+O `--no-deps` é de propósito: sobe só o validador e não recria o php, o worker nem o banco (o `.env.prod` acabou de
+mudar).
+
+**b) Conferir o `/saude`.** Espere uns 2 minutos (na primeira subida ele baixa as raízes do ITI). O healthcheck do
+contêiner chama o `/saude`:
+
+```bash
+# Execute manualmente no terminal externo (na VPS)
+docker inspect -f '{{.State.Health.Status}}' jusprime_validador_pdf_prod
+```
+
+**Esperado:** `healthy`. Com `starting`, espere mais 1 minuto e repita. Com `unhealthy`, veja o passo 6 antes de seguir.
+Até o item c, o php nem sabe do validador: ninguém é afetado.
+
+**c) Recriar o php e o worker e recarregar o nginx.** Os dois precisam ler a URL e o token novos e entrar na
+`assinatura_net`. Recarregue o nginx logo depois: sem o reload, ele segue procurando o php antigo e o site dá 502.
+
+```bash
+# Execute manualmente no terminal externo (na VPS)
+cd /opt/jusprime && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps --no-build php worker
+docker exec jusprime_nginx_prod nginx -t && docker exec jusprime_nginx_prod nginx -s reload
+docker inspect -f '{{.State.Health.Status}}' jusprime_php_prod
+```
+
+**Esperado:** `test is successful` no `nginx -t` e, no último comando, `healthy` em até 3 minutos (repita o comando; o
+php refaz o cache ao subir e, nesse meio-tempo, o site pode responder com erro). O `--no-build` garante a mesma imagem.
+
+Não use `docker compose restart`: ele não relê o `.env.prod`. Não use `debug:container --env-vars` nem `docker inspect`
+sem o `-f` dos comandos acima: mostram o token.
+
+**Se der errado:**
+
+- **Falhou o item a** (o build ou o `up` do validador deu erro): o php e o worker não mudaram. Leia o erro (build
+  quebrado: passo 7; `bind source path does not exist`: passo 1). Para desistir por agora, faça só os itens 1 e 3 do
+  passo 8.
+- **Falhou o item c** (o `up` do php e do worker deu erro, ou o php não ficou `healthy` em 3 minutos): desligue pelo
+  passo 8 inteiro, que devolve o php e o worker sem o validador. Depois, `docker logs --tail 50 jusprime_php_prod` e
+  fale com o desenvolvimento.
 
 ## 5. Conferir
 
@@ -128,7 +194,8 @@ docker exec jusprime_php_prod sh -c 'printf "Authorization: Bearer %s\n" "$ASSIN
 ```
 
 **Esperado:** `{"v":1,"erro":"pdf_ilegivel"}` e `400`: o token foi aceito. Com `nao_autorizado` e `401`, o php e o
-validador estão com tokens diferentes (quase sempre um contêiner que não foi recriado): repita o passo 4.
+validador estão com tokens diferentes (quase sempre um contêiner que não foi recriado): repita o `up` do item a do
+passo 4 e o item c inteiro.
 
 O worker também chega ao validador, e o nginx (rede de fora) não chega:
 
@@ -143,6 +210,18 @@ docker port jusprime_validador_pdf_prod
 sem nenhuma linha. Se o nginx mostrar o JSON do `/saude`, o validador entrou numa rede errada: pare e fale com o
 desenvolvimento.
 
+A rede interna não tira do php a saída para a internet (o sistema chama serviços de fora, como o DataJud). Medido em
+10/11/2026 com o Docker 29.1.3: um contêiner numa rede comum e numa `internal: true` sai normalmente; só quem está
+apenas na rede interna fica sem saída. Confira de dentro do php (mostra só o código HTTP):
+
+```bash
+# Execute manualmente no terminal externo (na VPS)
+docker exec jusprime_php_prod curl -sS -o /dev/null -m 10 -w "%{http_code}\n" https://www.google.com
+```
+
+**Esperado:** `200`. Com `000` e `Could not resolve host`, o php perdeu a saída: desligue pelo passo 8 e fale com o
+desenvolvimento.
+
 Por fim, o `app:conferir-segredos` passa a conferir também o `ASSINATURA_VALIDADOR_TOKEN` (sem mostrar o valor):
 
 ```bash
@@ -150,7 +229,9 @@ Por fim, o `app:conferir-segredos` passa a conferir também o `ASSINATURA_VALIDA
 cd /opt/jusprime && docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T php php /var/www/app/bin/console app:conferir-segredos --modelo=- --no-interaction < .env.prod.example
 ```
 
-**Esperado:** nenhuma linha com `ASSINATURA_VALIDADOR_TOKEN` na lista de problemas.
+**Esperado:** nenhuma linha com `ASSINATURA_VALIDADOR_TOKEN`, nem na lista de problemas nem no aviso. Sem o token (o
+validador desligado), o comando só avisa `ASSINATURA_VALIDADOR_TOKEN não está definido` e não falha: é um estado
+válido.
 
 ## 6. O `/saude` dá 503 (âncoras)
 
@@ -193,8 +274,30 @@ primeira atualização certa, um ITI fora do ar não derruba mais o validador. *
 
 ## 7. O que muda nos deploys seguintes
 
-- Com o profile ligado, todo deploy também reconstrói e recria o validador. Um build quebrado do validador (PyPI fora
-  do ar, por exemplo) **para o deploy inteiro**, com o site no ar na versão anterior.
+- Com o profile ligado, todo deploy também reconstrói o validador e o recria se a imagem mudou. Um build quebrado do
+  validador **para o deploy inteiro** antes de trocar qualquer contêiner: o site segue no ar na versão anterior, e a
+  versão nova não entra.
+
+  **Como reconhecer.** No log do Deploy (no GitHub, Actions, Deploy; na VPS, o arquivo mais novo de
+  `ls -t /var/log/jusprime-deploy/ | head`), perto do fim:
+
+  - linhas que começam com `> [validador_pdf` (o passo que quebrou) e uma linha
+    `target validador_pdf: failed to solve: ...`;
+  - logo depois, `Build falhou. Nenhum container foi tocado e o site continua no ar na versão anterior.` e
+    `o build de vX.Y.Z falhou; nenhum container foi trocado e o site seguiu no ar.`
+
+  Se o `target` da linha `failed to solve` for outro (`php`, por exemplo), o problema não é do validador.
+
+  **O que fazer.**
+
+  - Erro de rede ou de fora (`Temporary failure in name resolution`, `Read timed out`, `Could not find a version`,
+    `toomanyrequests`, `failed to resolve source metadata`): o PyPI ou o Docker Hub estava fora. Espere uns 30 minutos
+    e rode o Deploy de novo: no GitHub, Actions, Deploy, botão **Run workflow**; em "Versão oficial", a mesma versão;
+    desmarque "Simulação"; em "Só para deploy real: digite a tag de novo", a versão de novo; **Run workflow**.
+  - Continuou quebrando, ou o erro é outro (por exemplo `THESE PACKAGES DO NOT MATCH THE HASHES`): fale com o
+    desenvolvimento. Se a versão precisa sair antes do conserto, desligue o validador (passo 8), rode o Deploy de novo
+    como acima e, com a versão no ar, religue (passos 3 e 4). Enquanto isso, gov.br e ICP-Brasil ficam recusados como
+    "não configurado".
 - **O rollback automático do deploy só cobre `php`, `worker` e `scheduler`.** Se um deploy falhar e voltar, o
   validador fica com a imagem da versão que falhou. Para alinhá-lo com a versão que voltou:
 
@@ -222,13 +325,28 @@ primeira atualização certa, um ITI fora do ar não derruba mais o validador. *
    **Esperado:** `COMPOSE_PROFILES=voto` se o Voto estiver ligado (ou nenhuma linha), e nenhuma linha no segundo
    `grep` (a URL ficou vazia).
 
-2. Recrie o php e o worker com o `.env.prod` novo e pare o validador:
+2. Recrie o php e o worker com o `.env.prod` novo e recarregue o nginx logo depois (sem o reload, o site dá 502):
 
    ```bash
    # Execute manualmente no terminal externo (na VPS)
-   cd /opt/jusprime && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
-   docker stop jusprime_validador_pdf_prod && docker rm jusprime_validador_pdf_prod
+   cd /opt/jusprime && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-deps --no-build php worker
+   docker exec jusprime_nginx_prod nginx -t && docker exec jusprime_nginx_prod nginx -s reload
+   docker inspect -f '{{.State.Health.Status}}' jusprime_php_prod
    ```
+
+   **Esperado:** `test is successful` e, no último comando, `healthy` em até 3 minutos (repita o comando).
+
+3. Tire o contêiner do validador. Desligar o profile não basta: o `up -d --remove-orphans` do deploy **não** tira o
+   contêiner de um serviço cujo profile foi desligado, ele segue rodando (medido em 10/11/2026 com o Docker Compose
+   2.40.3). O `rm` com o nome do serviço tira, mesmo com o profile desligado:
+
+   ```bash
+   # Execute manualmente no terminal externo (na VPS)
+   cd /opt/jusprime && docker compose -f docker-compose.prod.yml --env-file .env.prod rm -s -f validador_pdf
+   docker ps -a --filter name=jusprime_validador_pdf_prod --format '{{.Names}}'
+   ```
+
+   **Esperado:** `Removed` no primeiro comando e nenhuma linha no segundo.
 
 O token, os arquivos do selo e o volume `validador_ancoras` podem ficar: sem o contêiner, ninguém os usa, e religar
 fica mais rápido (as âncoras já estão no volume).
@@ -242,7 +360,7 @@ O validador também está no `docker-compose.yml`, com o mesmo profile e sem os 
 # Execute manualmente no terminal externo
 cd /home/samuel-bluejus/projetos/bluejus && TOKEN="$(openssl rand -hex 32)" && printf '\nASSINATURA_VALIDADOR_TOKEN=%s\n' "$TOKEN" >> .env && printf '\nASSINATURA_VALIDADOR_URL=http://validador_pdf:8080\nASSINATURA_VALIDADOR_TOKEN=%s\n' "$TOKEN" >> app/.env.local && unset TOKEN
 docker compose --profile assinatura up -d validador_pdf
-docker compose up -d php
+docker compose up -d php worker
 ```
 
 O `.env` da raiz é o que o compose lê para o validador (e repassa o mesmo token ao php e ao worker); o `app/.env.local`

@@ -24,10 +24,11 @@ uma VPS nova com outro valor deixa os documentos em andamento sem Copiar link, s
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && PULAR_GIT_PULL=1 ./scripts/deploy-prod-tls.sh
 ```
 
-Não use `docker compose restart`: ele não relê o `.env.prod`. Não use `debug:container --env-vars` para conferir:
+O `PULAR_GIT_PULL=1` mantém a versão publicada (sem ele, o script puxa o master). Não use `docker compose restart`:
+ele não relê o `.env.prod`. Não use `debug:container --env-vars` para conferir:
 imprime o segredo em claro.
 
 ## 3. Conferir

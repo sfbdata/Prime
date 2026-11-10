@@ -24,8 +24,11 @@ Cuidados que valem sempre, com o profile `assinatura` ligado:
 
 - **Nunca apague os dois arquivos.** Sem eles o contêiner do validador nem é criado e todo deploy falha e volta. Para
   desligar o selo, esvazie (passo 5).
-- O validador roda como o usuário 10001: os arquivos têm de ser dele (`chown 10001:10001`, `chmod 400`). Arquivo que ele
-  não consegue ler conta como "sem e-CNPJ" e o PDF sai sem selo, sem erro nenhum na tela. Por isso o passo 3 confere.
+- O validador roda como o usuário 10001: os arquivos têm de ser dele (`chown 10001:10001`, `chmod 400`). Arquivo que
+  existe mas ele não consegue ler (sem permissão, como `root` com `0600`, ou um diretório no lugar do arquivo) **não**
+  conta como "sem e-CNPJ": o validador responde `503 selo_certificado_invalido`, o sistema tenta de novo e, esgotadas as
+  tentativas, guarda o PDF sem selo e registra `selo_nao_aplicado` na trilha do documento. Só o PKCS#12 vazio é "sem
+  e-CNPJ" (`selo_nao_configurado`). Por isso o passo 3 confere.
 
 ## 1. Levar o certificado para a VPS
 
@@ -106,9 +109,9 @@ docker exec jusprime_php_prod sh -c 'printf "Authorization: Bearer %s\n" "$ASSIN
 
 | O que aparece | O que quer dizer |
 |---|---|
-| `{"v":1,"erro":"pdf_ilegivel"}` e `400` | Certo: os dois arquivos chegaram e não estão vazios (o corpo vazio é recusado de propósito) |
-| `selo_nao_configurado` e `503` | Arquivos vazios, sem permissão para o usuário 10001, ou o contêiner não foi recriado. Volte ao item a |
-| `selo_certificado_invalido` e `503` | O arquivo passou de 1 MB ou a senha passou de 4 KB: arquivo errado |
+| `{"v":1,"erro":"pdf_ilegivel"}` e `400` | Certo: os dois arquivos chegaram, o validador consegue lê-los e o PKCS#12 não está vazio (o corpo vazio é recusado de propósito) |
+| `selo_nao_configurado` e `503` | O PKCS#12 está vazio, ou o contêiner não foi recriado depois do passo 2 (ele segue vendo o arquivo vazio antigo). Volte ao item a |
+| `selo_certificado_invalido` e `503` | Os arquivos existem, mas o validador não consegue usá-los: sem permissão de leitura para o usuário 10001 (por exemplo `root` com `0600`), um diretório no lugar do arquivo ou outro erro de leitura (volte ao item a); ou o arquivo passou de 1 MB, ou a senha passou de 4 KB (arquivo errado: refaça o passo 1 ou 2) |
 | `nao_autorizado` e `401` | Token diferente entre o php e o validador: veja o runbook do validador, passo 5 |
 
 **d) Um documento de verdade.** O item c não confere a cadeia do e-CNPJ. Conclua um documento de teste (assinatura
