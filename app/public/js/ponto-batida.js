@@ -145,6 +145,31 @@
     const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';
 
     /**
+     * A sede que a tela CITA quando a pessoa está fora: a válida mais próxima em metros (desenho L528, `maisProx`), a
+     * mesma do servidor (`CercaDoPonto`). Não é a decisiva de `avaliarPosicao` (a do menor excedente), que continua
+     * decidindo o `fora`. Válida: a distância é número e o raio é positivo (as sedes da tela já chegam só com as
+     * válidas, `SedesDaCercaDoPonto`). Na mesma distância, a primeira, como no servidor. Devolve `{ sede, distancia }`,
+     * ou `null` sem posição ou sem sede válida. Usada pelo bloco do toque (`textosDoForaDoRaio`) e pela caixa da
+     * localização da tela: as duas citam a mesma sede.
+     */
+    function sedeMaisProxima(posicao, sedes) {
+        let maisProxima = null;
+        if (!posicao || !Array.isArray(sedes)) {
+            return maisProxima;
+        }
+        for (const candidata of sedes) {
+            const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);
+            // `Number(null)` é 0 e `NaN > 0` é falso: raio ausente ou inválido não entra (nem vira "0 m").
+            const raio = Number(candidata.raio);
+            if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && (maisProxima === null || medida < maisProxima.distancia)) {
+                maisProxima = { sede: candidata, distancia: medida };
+            }
+        }
+
+        return maisProxima;
+    }
+
+    /**
      * Os textos de "fora do raio" quando a avaliação LOCAL (`avaliarPosicao`) dá `fora`, na mesma forma do
      * `foraDoRaio` que o servidor devolve na recusa (`{ titulo, detalhe, trabalhoExterno }`): a tela mostra os dois
      * pelo mesmo caminho. Textos do desenho (L528), iguais aos do servidor: "A sede mais próxima é NOME, a N m. O raio
@@ -154,30 +179,16 @@
      * Distância e raio saem com o ponto de milhar do pt-BR, como no servidor (`PosicaoNaCerca`, `number_format`); abaixo
      * de 1000 m, o texto é o do desenho.
      *
-     * A sede citada é a válida MAIS PRÓXIMA em metros (desenho L528, `maisProx`), a mesma do servidor (`CercaDoPonto`),
-     * e não a decisiva de `avaliarPosicao` (a do menor excedente), que continua decidindo o `fora` da tela. Válida: a
-     * distância é número e o raio é positivo (as sedes da tela já chegam só com as válidas, `SedesDaCercaDoPonto`). Na
-     * mesma distância, a primeira, como no servidor. Puro: o nome da sede volta dentro de uma string, e quem mostra põe
-     * por `textContent`.
+     * A sede citada é a de `sedeMaisProxima` (a válida mais próxima em metros, como o servidor), e não a decisiva de
+     * `avaliarPosicao`, que continua decidindo o `fora` da tela. Puro: o nome da sede volta dentro de uma string, e quem
+     * mostra põe por `textContent`.
      */
     function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {
-        let sede = null;
-        let distancia = Infinity;
-        if (posicao && Array.isArray(sedes)) {
-            for (const candidata of sedes) {
-                const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);
-                // `Number(null)` é 0 e `NaN > 0` é falso: raio ausente ou inválido não entra (nem vira "0 m").
-                const raio = Number(candidata.raio);
-                if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && medida < distancia) {
-                    sede = candidata;
-                    distancia = medida;
-                }
-            }
-        }
+        const maisProxima = sedeMaisProxima(posicao, sedes);
         let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
-        if (sede) {
-            detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')
-                + ' m. O raio permitido é de ' + Math.round(Number(sede.raio)).toLocaleString('pt-BR') + ' m.';
+        if (maisProxima) {
+            detalhe = 'A sede mais próxima é ' + String(maisProxima.sede.nome) + ', a ' + Math.round(maisProxima.distancia).toLocaleString('pt-BR')
+                + ' m. O raio permitido é de ' + Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR') + ' m.';
         }
         const permitido = trabalhoExternoPermitido === true;
         if (permitido) {
@@ -473,6 +484,7 @@
         TELA_PRAZO_MS,
         distanciaEmMetros,
         avaliarPosicao,
+        sedeMaisProxima,
         textosDoForaDoRaio,
         foraDoRaioDaResposta,
         lerPosicaoComPrazo,

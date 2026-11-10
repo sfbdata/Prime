@@ -889,7 +889,8 @@
         const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
 
         if (onde.situacao === 'fora') {
-            mostrarForaDaArea(onde);
+            // E12: o "fora" é o de hoje (`avaliarPosicao`); a caixa cita a sede mais próxima, a mesma do bloco do toque.
+            mostrarForaDaArea(sedeCitadaNaTela(currentLocation) || onde);
             // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
             // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
             // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
@@ -916,6 +917,10 @@
     // montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`. O texto é o de hoje, na caixa do
     // desenho. E12 (P18): com o trabalho externo permitido no escritório, a segunda frase é a do desenho (L528), porque
     // o caminho agora é registrar como trabalho externo; sem ele, fica o pedido de liberação do dia.
+    //
+    // E12 (revisão): `onde` é `{ sede, distancia }` da sede CITADA, a mais próxima em metros (`sedeCitadaNaTela`), a
+    // mesma de `textosDoForaDoRaio` no bloco do toque e a do servidor. Com o módulo antigo no cache (sem
+    // `sedeMaisProxima`), a de `avaliarPosicao`, como antes.
     function mostrarForaDaArea(onde) {
         const nomeDaSede = document.createElement('strong');
         nomeDaSede.textContent = onde.sede.nome;
@@ -930,6 +935,10 @@
                 : 'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
         );
         mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
+    }
+
+    function sedeCitadaNaTela(posicao) {
+        return typeof PontoBatida.sedeMaisProxima === 'function' ? PontoBatida.sedeMaisProxima(posicao, SEDES) : null;
     }
 
     function aplicarPosicao(position) {
@@ -1294,8 +1303,9 @@
         campo.focus();
     }
 
-    // A batida externa não se completou (atrasada, sem confirmação, não entrou, sem rede e sem fila, ou o servidor
-    // recusou o texto): a janela volta com o texto guardado, o tipo da batida e o porquê. Toque comum: nada.
+    // A batida externa não se completou e com certeza não entrou (atrasada, não entrou, sem rede e sem fila, ou o
+    // servidor recusou o texto): a janela volta com o texto guardado, o tipo da batida e o porquê. Sem confirmação, não
+    // volta (a batida pode ter entrado). Toque comum: nada.
     function reabrirTrabalhoExterno(payload, porque) {
         if (payload.trabalhoExterno !== true) {
             return;
@@ -2223,8 +2233,10 @@
                 reabrirTrabalhoExterno(payload, AVISO_SEM_REDE);
             } else {
                 // `sem_confirmacao`: a batida PODE ter entrado, então nunca se afirma que não entrou.
+                // E12: a janela do trabalho externo NÃO volta sozinha: um "Registrar" novo sairia com outro `idEnvio` e
+                // poderia duplicar a batida. Fica o "Conferir" desta caixa (P11 b); o texto continua guardado na página,
+                // e a janela aberta pelo botão vem com ele.
                 mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
-                reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO);
             }
         } catch (erro) {
             // O `catch` que o envio tinha antes da extração: erro da própria tela nunca vira silêncio, e o aviso

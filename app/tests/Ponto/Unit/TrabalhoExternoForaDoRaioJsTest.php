@@ -67,8 +67,8 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString("const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';", self::modulo());
         self::assertStringContainsString("let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';", $textos, 'sem sede, a frase do desenho');
         self::assertStringContainsString(
-            "detalhe = 'A sede mais próxima é ' + String(sede.nome) + ', a ' + Math.round(distancia).toLocaleString('pt-BR')\n"
-            . "                + ' m. O raio permitido é de ' + Math.round(Number(sede.raio)).toLocaleString('pt-BR') + ' m.';",
+            "detalhe = 'A sede mais próxima é ' + String(maisProxima.sede.nome) + ', a ' + Math.round(maisProxima.distancia).toLocaleString('pt-BR')\n"
+            . "                + ' m. O raio permitido é de ' + Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR') + ' m.';",
             $textos,
             'a sede, a distância e o raio com o milhar em pt-BR, como o servidor (PosicaoNaCerca)'
         );
@@ -90,20 +90,51 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         // Caso da revisão: A a 2.002 m com raio 100 e B a 3.002 m com raio 2.500. A cerca decide pela B (excedente 502
         // contra 1.902), e o texto cita a A, "a 2.002 m", raio 100. O container não tem node: o caso roda no node do
         // host fora da suíte; aqui fica travada a regra de cada lado.
-        $textos = self::corpo(self::modulo(), 'function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {');
-        self::assertStringContainsString('const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);', $textos, 'mede cada sede, com a conta da cerca');
-        self::assertStringContainsString('const raio = Number(candidata.raio);', $textos);
+        $maisProxima = self::corpo(self::modulo(), 'function sedeMaisProxima(posicao, sedes) {');
+        self::assertStringContainsString('const medida = distanciaEmMetros(posicao.latitude, posicao.longitude, candidata.latitude, candidata.longitude);', $maisProxima, 'mede cada sede, com a conta da cerca');
+        self::assertStringContainsString('const raio = Number(candidata.raio);', $maisProxima);
         self::assertStringContainsString(
-            'if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && medida < distancia) {',
-            $textos,
+            'if (Number.isFinite(medida) && Number.isFinite(raio) && raio > 0 && (maisProxima === null || medida < maisProxima.distancia)) {',
+            $maisProxima,
             'escolhe só pela distância, entre as válidas (raio positivo); no empate fica a primeira, como no servidor'
         );
-        self::assertMatchesRegularExpression('/sede = candidata;\s+distancia = medida;/', $textos);
-        self::assertDoesNotMatchRegularExpression('/medida\s*-|-\s*raio|excedente|avaliarPosicao\(|onde\./', $textos, 'nada do menor excedente no texto');
+        self::assertStringContainsString('maisProxima = { sede: candidata, distancia: medida };', $maisProxima);
+        self::assertDoesNotMatchRegularExpression('/medida\s*-|-\s*raio|excedente|avaliarPosicao\(|onde\./', $maisProxima, 'nada do menor excedente na sede citada');
+
+        $textos = self::corpo(self::modulo(), 'function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {');
+        self::assertStringContainsString('const maisProxima = sedeMaisProxima(posicao, sedes);', $textos, 'o bloco do toque cita a sede de sedeMaisProxima');
+        self::assertDoesNotMatchRegularExpression('/excedente|avaliarPosicao\(|onde\.|distanciaEmMetros/', $textos, 'uma escolha só, a de sedeMaisProxima');
+        self::assertMatchesRegularExpression('/window\.PontoBatida = Object\.freeze\(\{[^}]*\bsedeMaisProxima,\s+textosDoForaDoRaio,/', self::modulo(), 'exportada para a caixa da tela');
 
         $cerca = self::corpo(self::modulo(), 'function avaliarPosicao(posicao, sedes) {');
         self::assertStringContainsString('if ((distancia - sede.raio) < menorExcedente) {', $cerca, 'a cerca da tela continua pela decisiva');
         self::assertMatchesRegularExpression("/situacao: certamenteFora \? 'fora' : 'indeterminado',\s+distancia: distanciaDecisiva,\s+sede: decisiva,/", $cerca);
+    }
+
+    #[TestDox('A caixa da localização e o bloco do toque citam a mesma sede (a mais próxima, da mesma posição e das mesmas sedes); o "fora" segue o de hoje')]
+    public function testCaixaEBlocoCitamAMesmaSede(): void
+    {
+        $tela = self::tela();
+
+        // A caixa: o "fora" vem de avaliarPosicao, e a sede citada de sedeMaisProxima (com o módulo antigo, a de antes).
+        self::assertMatchesRegularExpression(
+            "/const onde = PontoBatida\.avaliarPosicao\(currentLocation, SEDES\);\s+if \(onde\.situacao === 'fora'\) \{\s+(?:\/\/[^\n]*\n\s+)*mostrarForaDaArea\(sedeCitadaNaTela\(currentLocation\) \|\| onde\);/",
+            $tela
+        );
+        self::assertSame(1, substr_count($tela, 'mostrarForaDaArea(sedeCitadaNaTela('), 'a caixa nasce num lugar só');
+        self::assertSame(2, substr_count($tela, 'mostrarForaDaArea('), 'a declaração e a chamada');
+        self::assertStringContainsString(
+            "return typeof PontoBatida.sedeMaisProxima === 'function' ? PontoBatida.sedeMaisProxima(posicao, SEDES) : null;",
+            self::corpo($tela, 'function sedeCitadaNaTela(posicao) {')
+        );
+        $caixa = self::corpo($tela, 'function mostrarForaDaArea(onde) {');
+        self::assertStringContainsString('nomeDaSede.textContent = onde.sede.nome;', $caixa);
+        self::assertStringContainsString('`Você está a ${Math.round(onde.distancia)}m de `,', $caixa, 'a distância é a da sede citada');
+
+        // O bloco: a mesma posição e as mesmas sedes, pela mesma função do módulo (textosDoForaDoRaio usa sedeMaisProxima).
+        self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(currentLocation), tipoRegistro.value);', $tela);
+        self::assertStringContainsString('return PontoBatida.textosDoForaDoRaio(posicao, SEDES, TRABALHO_EXTERNO_PERMITIDO);', self::corpo($tela, 'function foraDoRaioDaTela(posicao) {'));
+        self::assertStringContainsString('const maisProxima = sedeMaisProxima(posicao, sedes);', self::corpo(self::modulo(), 'function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {'));
     }
 
     #[TestDox('A resposta do servidor é conferida: sem foraDoRaio com título, null; o botão só com trabalhoExterno === true')]
@@ -275,7 +306,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('batidaAceita = { tipo: payload.tipo, resposta: resultado.data };', $clique);
     }
 
-    #[TestDox('O local e o motivo ficam guardados na página até a batida externa entrar ou ir para a fila; a janela volta com eles nas respostas que não confirmam')]
+    #[TestDox('O local e o motivo ficam guardados na página até a batida externa entrar ou ir para a fila; a janela volta com eles quando a batida certamente não entrou, nunca na sem confirmação')]
     public function testTextoGuardadoNasBordas(): void
     {
         $tela = self::tela();
@@ -313,16 +344,17 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             $clique
         );
         self::assertMatchesRegularExpression(
-            "/mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+reabrirTrabalhoExterno\\(payload, AVISO_SEM_CONFIRMACAO\\);\\s+\\}\\s+\\} catch/",
+            "/mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+\\}\\s+\\} catch/",
             $clique,
-            'sem confirmação (o else da classificação)'
+            'sem confirmação (o else da classificação): só o aviso com o Conferir (P11 b), a janela não volta'
         );
         self::assertMatchesRegularExpression(
             "/if \\(resultado\\.tipo === 'atrasado'\\) \\{\\s+mostrarAvisoBatida\\(\\s+'Demorou demais para enviar e a hora da batida ficaria errada\\. Aperte de novo com a tela ligada\\.',\\s+'danger'\\s+\\);\\s+"
             . "reabrirTrabalhoExterno\\(payload, 'Demorou demais para enviar e a hora da batida ficaria errada\\. Aperte de novo com a tela ligada\\.'\\);/",
             $clique
         );
-        self::assertSame(6, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e as cinco respostas');
+        self::assertSame(5, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e as quatro respostas');
+        self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO)', $tela, 'sem confirmação a batida pode ter entrado: um Registrar novo, com outro idEnvio, duplicaria');
         self::assertStringContainsString(
             "const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];",
             $tela,
