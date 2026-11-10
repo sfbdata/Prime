@@ -93,7 +93,9 @@ final class VinculoComAPasta
         if (!$this->gravar($documento, $arquivo, $autor)) {
             $this->arquivos->descartar($arquivo);
 
-            return !$documento->isVinculoPendente();
+            // Outro processo resolveu antes: aplicado só se o vínculo ficou feito (com pasta). Se ele falhou e desfez
+            // o vínculo, a pasta é nula e o documento não está na pasta.
+            return !$documento->isVinculoPendente() && $documento->getPasta() !== null;
         }
         $this->arquivos->depoisDeGuardar($arquivo, $documento, $autor);
 
