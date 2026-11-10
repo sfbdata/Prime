@@ -210,7 +210,7 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         }
     }
 
-    #[TestDox('decide com a linha relida: o que outra aba já enviou não é enviado de novo')]
+    #[TestDox('decide com a linha relida: o que outra aba já enviou não é enviado de novo, e a trilha não muda')]
     public function testDecideComALinhaRelida(): void
     {
         $this->rascunho();
@@ -218,8 +218,13 @@ final class EnviarDocumentoUseCaseTest extends TestCase
             (new \ReflectionProperty($d, 'situacao'))->setValue($d, SituacaoDoDocumento::Aguardando);
         };
 
-        $this->expectExceptionObject(new AcaoRecusada('assinatura_eletronica.erro.envio_ja_feito'));
-        $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+        try {
+            $this->enviarDocumento()->executar($this->advogada, $this->tenant, 1);
+            self::fail('deveria recusar');
+        } catch (AcaoRecusada $e) {
+            self::assertSame('assinatura_eletronica.erro.envio_ja_feito', $e->getMessage());
+        }
+        self::assertSame([], $this->tiposGravados(), 'o envio já feito (o duplo envio) não grava nem "Rascunho salvo" nem "Documento criado"');
     }
 
     #[TestDox('signatário Simples sem e-mail: recusa com o nome dele, o documento continua rascunho e a trilha ganha "Rascunho salvo"')]

@@ -129,6 +129,7 @@ final class EnvioDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/assinatura/documentos/' . $id . '/enviar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Este documento já foi enviado.', $this->json()['erro']);
+        self::assertSame(['rascunho_salvo', 'documento_criado', 'documento_enviado', 'convite_enviado', 'convite_enviado'], $this->trilha($id), 'o envio repetido não mexe na trilha');
     }
 
     #[TestDox('gravação do "Gerar links e enviar" (envio=1): não registra "Rascunho salvo"; o envio registra "Documento criado" (desenho L374)')]

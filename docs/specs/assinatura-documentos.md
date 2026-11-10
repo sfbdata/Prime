@@ -449,7 +449,10 @@ Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `blueju
     registra "Rascunho salvo" no caminho da recusa, para o documento novo não ficar com a trilha vazia. ⚠ Os "Rascunho
     salvo" que o usuário gravou antes ficam: a trilha só acrescenta (no desenho, o `salvarDoc` troca o `ev` inteiro).
     A recusa por falta de configuração do servidor (sem a chave da assinatura ou do selo) sai antes da transação e
-    não grava nada.
+    não grava nada. ⚠ Aceitos (revisão da bluejus-fa, 10/11): a falha do `/enviar` fora da conferência do envio
+    (rede, erro 5xx, documento já enviado, configuração, ou um pedido montado à mão que grava com `envio=1` e não
+    envia) deixa o rascunho sem evento daquela gravação; e o `envio=1` vem do cliente, que pode pulá-lo ou mandá-lo
+    num salvar comum. Os dois só mudam qual "Rascunho salvo" aparece: o conteúdo só congela, com o hash, no envio.
   - **Busca da aba Modelos.** A aba segue sem filtrar: ⚠ defeito do desenho, registrado na etapa 4 (decisão 10).
 
 ## 8. Pendências do Samuel (ação, não decisão)
