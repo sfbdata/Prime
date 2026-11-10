@@ -438,6 +438,19 @@ Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `blueju
   Desenho omisso, vale a convenção do sistema (⚠): foco visível em campos (`.bjaF`: borda #0a6fa0 e contorno 2px
   #e5f1f7) e botões (contorno 2px #0a6fa0). O desenho não define foco (o navegador mostraria o dele), e sem foco
   visível quem usa o teclado não vê onde está.
+- **D7. Segunda conferência ✓/✗, sobre o commit bc30041ae** (bluejus-5f e Coordenador, 10/11/2026; 718 itens, lista em
+  `bluejus-coordenacao/conferencia-assinatura-bc30041ae.md`). Ficou como o desenho: a página de espera do link (429)
+  com o cabeçalho de logo, separador e nome (L234); a prévia do detalhe com o nome cadastrado sob a linha (L352,
+  `b.r || s.nome`); o editor vazio em duas colunas mostra a folha inteira (L322, o layout mora no primeiro bloco).
+  Decisões do Coordenador:
+  - **Trilha do envio (L374).** O "Gerar links e enviar" registra "Documento criado" no servidor, na transação do
+    envio, logo antes de "Enviado para assinatura" (não depende do JS). A gravação que o JS faz antes do envio vai com
+    `envio=1` e não registra "Rascunho salvo"; se a conferência do envio recusar (`ConferenciaDoEnvio`), o envio
+    registra "Rascunho salvo" no caminho da recusa, para o documento novo não ficar com a trilha vazia. ⚠ Os "Rascunho
+    salvo" que o usuário gravou antes ficam: a trilha só acrescenta (no desenho, o `salvarDoc` troca o `ev` inteiro).
+    A recusa por falta de configuração do servidor (sem a chave da assinatura ou do selo) sai antes da transação e
+    não grava nada.
+  - **Busca da aba Modelos.** A aba segue sem filtrar: ⚠ defeito do desenho, registrado na etapa 4 (decisão 10).
 
 ## 8. Pendências do Samuel (ação, não decisão)
 

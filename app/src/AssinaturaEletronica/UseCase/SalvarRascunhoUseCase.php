@@ -78,7 +78,11 @@ final readonly class SalvarRascunhoUseCase
                 if ($blocos['mudaOriginal']) {
                     $this->arquivos->trocarOriginal($documento, $blocos['original'], $troca, $agora);
                 }
-                $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
+                // Na gravação do envio a trilha fica para o EnviarDocumento: "Documento criado" se ele passar, "Rascunho
+                // salvo" se a conferência do envio recusar (desenho L374; decisão de 10/11/2026).
+                if (!$entrada->doEnvio) {
+                    $this->trilha->acrescentar($documento, TipoDeEvento::RascunhoSalvo, [], $ator);
+                }
 
                 return (int) $documento->getId();
             },

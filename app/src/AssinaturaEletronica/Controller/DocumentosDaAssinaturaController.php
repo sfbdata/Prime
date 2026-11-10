@@ -204,6 +204,7 @@ final class DocumentosDaAssinaturaController extends AbstractController
             DadosDoRascunho::deJson($dados),
             $arquivo instanceof UploadedFile ? $arquivo : null,
             $logo instanceof UploadedFile ? $logo : null,
+            $request->request->getBoolean('envio'),
         );
     }
 }

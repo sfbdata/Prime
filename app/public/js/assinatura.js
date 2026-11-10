@@ -769,12 +769,15 @@
         return fd;
     }
 
-    async function gravar(destino, botao, depois) {
+    async function gravar(destino, botao, depois, doEnvio) {
         const w = s.w;
         if (w.sign.some(x => { const n = String(x.cpf || '').replace(/\D/g, ''); return n !== '' && n.length !== 11; })) { erroW(T('p3.cpf_invalido')); return; }
         if (botao) { botao.disabled = true; }
         try {
-            const r = await pedir(destino, { method: 'POST', body: await formDoRascunho() });
+            const corpo = await formDoRascunho();
+            /* A gravação do envio não registra "Rascunho salvo": o servidor registra "Documento criado" no envio. */
+            if (doEnvio) { corpo.append('envio', '1'); }
+            const r = await pedir(destino, { method: 'POST', body: corpo });
             await depois(r);
         } catch (e) {
             if (e && !e.texto) { console.error(e); }
@@ -810,7 +813,7 @@
             mostrarDetalhe(e.documento);
             avisar(T('toast.pronto'));
             await carregar();
-        });
+        }, true);
     }
 
     /* ── Detalhe do documento ───────────────────────────────────────────── */
