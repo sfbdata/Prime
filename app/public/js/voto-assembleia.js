@@ -128,6 +128,7 @@
     var gravando = false;
     var saindo = false;
     var erroDe = null;
+    var relogioDaSaida = null;
     var TEMPO_DA_SAIDA = 8000;
 
     function formsDePauta() {
@@ -181,7 +182,7 @@
 
     /* Grava uma pauta por fetch. Resolve com {ok, recusada, mensagem, enviado}: a mensagem do servidor, a do login
        vencido (401 com `erro`) ou, sem resposta legível, o texto de falha. `recusada` só na recusa de validação
-       (422); rede, sessão e erro do servidor não descartam a pauta. Só marca como gravado o que foi enviado (o que
+       (422) e na pauta que não existe mais (404); rede, sessão e erro do servidor não descartam a pauta. Só marca como gravado o que foi enviado (o que
        for digitado durante o envio continua pendente). */
     function gravar(form) {
         var enviado = retrato(form, false);
@@ -203,7 +204,7 @@
             if (ok) {
                 form.setAttribute('data-voto-retrato', enviado);
             }
-            return { ok: ok, recusada: !ok && resposta.status === 422, mensagem: mensagem, enviado: enviado };
+            return { ok: ok, recusada: !ok && (resposta.status === 422 || resposta.status === 404), mensagem: mensagem, enviado: enviado };
         }).catch(function () {
             return { ok: false, recusada: false, mensagem: texto('data-voto-falha'), enviado: enviado };
         }).then(function (resultado) {
@@ -247,7 +248,8 @@
 
     function marcarSaida() {
         saindo = true;
-        window.setTimeout(function () { saindo = false; }, TEMPO_DA_SAIDA);
+        window.clearTimeout(relogioDaSaida);
+        relogioDaSaida = window.setTimeout(function () { saindo = false; }, TEMPO_DA_SAIDA);
     }
 
     function sair(acao) {

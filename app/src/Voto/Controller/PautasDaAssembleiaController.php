@@ -28,8 +28,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * No desenho, as pautas abertas na etapa 4 ficam em edição juntas e nada se perde entre elas. Por isso a tela grava por
  * fetch (public/js/voto-assembleia.js): o "Salvar" de uma pauta não recarrega a página, e as pautas alteradas são
  * gravadas antes de qualquer ação que recarrega. O pedido por fetch (X-Requested-With) recebe JSON com `ok` e
- * `mensagem` (o texto do toast): 200, 422 na recusa de validação (a tela deixa seguir sem a pauta recusada) ou 403
- * na sessão expirada (a tela tenta de novo); o envio comum segue com o toast na sessão e o redirecionamento.
+ * `mensagem` (o texto do toast): 200, 422 na recusa de validação e 404 na pauta que não existe mais (a tela deixa
+ * seguir sem ela) ou 403 na sessão expirada (a tela tenta de novo); o envio comum segue com o toast na sessão e o redirecionamento.
  */
 #[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
 final class PautasDaAssembleiaController extends AbstractController
@@ -96,7 +96,7 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     /**
-     * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200, 422 ou 403, sem aviso na sessão) ou o
+     * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200, 422, 404 ou 403, sem aviso na sessão) ou o
      * toast na sessão e o redirecionamento para as pautas.
      *
      * @param array<string, int|string> $voltar parâmetros da rota das pautas no envio comum
@@ -117,7 +117,10 @@ final class PautasDaAssembleiaController extends AbstractController
         return $this->redirectToRoute('voto_assembleia_pautas', $voltar);
     }
 
-    /** @return array{int, string} o status HTTP (200, 422 na recusa, 403 na sessão expirada) e o texto do toast */
+    /**
+     * @return array{int, string} o status HTTP (200; 422 na recusa; 404 na pauta ou assembleia que não existe, só no
+     *                            fetch; 403 na sessão expirada) e o texto do toast
+     */
     private function executar(Request $request, int $id, callable $acao, string $avisoOk): array
     {
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
@@ -130,7 +133,11 @@ final class PautasDaAssembleiaController extends AbstractController
         } catch (OperacaoInvalidaNaAssembleiaException $e) {
             return [Response::HTTP_UNPROCESSABLE_ENTITY, $e->getMessage()];
         } catch (AssembleiaNaoEncontradaException) {
-            throw $this->createNotFoundException();
+            if (!$request->isXmlHttpRequest()) {
+                throw $this->createNotFoundException();
+            }
+
+            return [Response::HTTP_NOT_FOUND, $this->tradutor->trans('voto.assembleia.gestor.aviso.pauta_nao_encontrada')];
         }
     }
 

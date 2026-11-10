@@ -540,6 +540,26 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame([(int) $fica->getId()], $this->pautasDa((int) $assembleia->getId()));
     }
 
+    #[TestDox('Pauta que não existe mais (ou de outro escritório) no salvar por fetch: 404 em JSON, sem mexer na alheia')]
+    public function testSalvarPorFetchPautaInexistenteDa404EmJson(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $alheia = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-nova input[name="_token"]')->attr('value');
+        $dados = ['_token' => $token, 'titulo' => 'Invasora', 'opcao_numero' => ['1'], 'opcao_rotulo' => ['Sim']];
+        $esperado = ['ok' => false, 'mensagem' => 'Esta pauta não existe mais. Recarregue a página.'];
+
+        foreach ([999999999, (int) $alheia->getId()] as $pautaId) {
+            $this->client->xmlHttpRequest('POST', $url . '/' . $pautaId . '/editar', $dados);
+            self::assertResponseStatusCodeSame(404);
+            self::assertSame($esperado, json_decode((string) $this->client->getResponse()->getContent(), true));
+        }
+        self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$alheia->getId()]));
+    }
+
     #[TestDox('Sessão expirada no salvar por fetch: 403 com o aviso (a tela tenta de novo, não descarta), e a pauta não muda')]
     public function testSalvarPorFetchComTokenVencido(): void
     {

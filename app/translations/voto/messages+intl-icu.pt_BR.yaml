@@ -136,6 +136,7 @@ voto:
                 pauta_incluida: Pauta incluída.
                 pauta_salva: Pauta salva.
                 pauta_removida: Pauta removida.
+                pauta_nao_encontrada: Esta pauta não existe mais. Recarregue a página.
                 unidade_removida: Unidade removida.
                 novo_link: Novo link gerado. O anterior deixou de valer.
                 sessao_expirada: A sessão expirou. Recarregue a página e tente de novo.
