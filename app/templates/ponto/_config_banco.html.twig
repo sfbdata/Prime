@@ -12,7 +12,8 @@
     servidor, com a frase embaixo do campo. Cada campo grava ao sair dele (change) por POST JSON na rota
     `ponto_configuracao_banco_de_horas`, com o token `ajax` que o interceptador do base.html.twig põe no X-CSRF-Token.
     `data-gravado` guarda o valor do servidor, para o campo voltar a ele na recusa. O nome do campo é só o rótulo do
-    desenho (`aria-labelledby`); a frase de erro fica como descrição (`aria-describedby`), como na E6. O comportamento mora em
+    desenho (`aria-labelledby`); a frase de erro fica como descrição (`aria-describedby`). Na E6 a frase fica fora do
+    rótulo; aqui fica dentro dele porque cada rótulo é uma célula da grade do desenho. O comportamento mora em
     js/ponto-configuracoes.js (o painel chega por innerHTML e script dentro dele não roda).
 #}
 {% if funcoesDoPonto|default(null) %}
