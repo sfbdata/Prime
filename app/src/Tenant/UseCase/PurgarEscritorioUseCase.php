@@ -387,6 +387,10 @@ final class PurgarEscritorioUseCase
         // (SET NULL): a linha sai aqui, antes das batidas. O contador de NSR não é referenciado por ninguém.
         ['ponto_comprovante', 'tenant_id = :tenant'],
         ['ponto_contador_nsr', 'tenant_id = :tenant'],
+        // Folha emitida e aceite da folha (E16): FKs de tenant e pessoa sem cascata. O aceite aponta para a folha
+        // emitida vista (NO ACTION), então sai antes dela; nada aponta para o aceite.
+        ['ponto_folha_aceite', 'tenant_id = :tenant'],
+        ['ponto_folha_emitida', 'tenant_id = :tenant'],
         // A batida gravada só sai na purga: o gatilho `registro_ponto_so_insercao` deixa o DELETE passar só com
         // `bluejus.purga_do_escritorio` igual ao escritório da linha (ver escapeDaBatidaDoPonto()).
         ['registro_ponto', 'tenant_id = :tenant'],
