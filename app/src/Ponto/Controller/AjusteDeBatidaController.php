@@ -116,9 +116,12 @@ final class AjusteDeBatidaController extends AbstractController
             }
         }
 
+        // A página que volta com erro mantém a cabeça da tela: se outro ajuste entrou no meio, o próximo envio é "mudou".
+        $cabeca = $request->isMethod('POST') ? self::cabecaDaTela($request) : $batida->cabecaId();
+
         return $this->render('tenant/ponto_edit.html.twig', [
             'form' => $form->createView(), 'user' => $user, 'tenantId' => $tenantId, 'competencia' => $competencia,
-            'alvo' => $alvo, 'cabeca' => $batida->cabecaId(), 'tipoAtual' => $batida->tipoAtual, 'dataHoraAtual' => $batida->dataHoraAtual,
+            'alvo' => $alvo, 'cabeca' => $cabeca, 'tipoAtual' => $batida->tipoAtual, 'dataHoraAtual' => $batida->dataHoraAtual,
         ]);
     }
 

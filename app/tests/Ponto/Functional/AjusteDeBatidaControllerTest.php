@@ -134,6 +134,28 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->ajustes($this->colaborador));
     }
 
+    #[TestDox('A página que volta com erro mantém a cabeça que a tela mandou: com outro ajuste no meio, o envio seguinte é "mudou"')]
+    public function testErroDoFormularioMantemACabecaDaTela(): void
+    {
+        $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
+        $this->ajustar($this->colaborador, "b{$id}", '', '18:30:00');   // outro ajuste entra depois que a tela abriu
+
+        $crawler = $this->client->request('POST', $this->ficha($this->colaborador) . "/ponto/b{$id}/ajustar", [
+            'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => '19:00:00', 'tipo' => 'saida', 'motivo' => ''],
+            'cabeca' => '',
+            'competencia' => self::COMPETENCIA,
+            '_token' => 'TOKEN_ponto_ajustar',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('', $crawler->filter('input[name="cabeca"]')->attr('value'), 'a cabeça da tela, não a lida agora');
+
+        $this->ajustar($this->colaborador, "b{$id}", (string) $crawler->filter('input[name="cabeca"]')->attr('value'), '19:00:00');
+
+        self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_MUDOU], $this->avisos('danger'));
+        self::assertCount(1, $this->ajustes($this->colaborador));
+    }
+
     #[TestDox('Ajustar a inclusão de outro escritório da mesma pessoa: 404 e nada é gravado')]
     public function testAjustarInclusaoDeOutroEscritorio(): void
     {
