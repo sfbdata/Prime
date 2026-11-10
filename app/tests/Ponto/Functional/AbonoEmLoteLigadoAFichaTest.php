@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Notificacao;
+use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Service\AbonoPelaAnaliseDaJustificativa;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
@@ -62,7 +63,7 @@ final class AbonoEmLoteLigadoAFichaTest extends JusPrimeWebTestCase
         $this->abonar([$daAna->getId()]);
 
         self::assertResponseRedirects('/ponto/?aba=equipe');
-        self::assertSame(['1 justificativa abonada.'], $this->flashes('success'));
+        self::assertSame(['1 justificativa abonada.'], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE), 'E8: no aviso flutuante da /ponto');
         self::assertSame([], $this->flashes('warning'));
         self::assertSame(['abonado', (string) $this->gestora->getId()], $this->noBanco($daAna));
     }
@@ -75,7 +76,7 @@ final class AbonoEmLoteLigadoAFichaTest extends JusPrimeWebTestCase
 
         $this->abonar([$daAna->getId(), $doBruno->getId()]);
 
-        self::assertSame(['1 justificativa abonada.'], $this->flashes('success'));
+        self::assertSame(['1 justificativa abonada.'], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE), 'E8: no aviso flutuante da /ponto');
         $avisos = $this->flashes('warning');
         self::assertCount(1, $avisos);
         self::assertStringStartsWith(sprintf('Ana Lima (%s): ', $this->hoje->modify('-2 days')->format('d/m/Y')), $avisos[0]);

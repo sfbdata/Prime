@@ -159,6 +159,8 @@
 .pe-registrar-barra { display: flex; align-items: center; gap: 9px; padding: 11px 16px; background: var(--pe-azul); color: var(--pe-sobre-azul); }
 .pe-registrar-barra > .bi { font-size: 18px; }
 .pe-registrar-titulo { flex: 1; font-size: 16px; font-weight: bold; }
+/* E8: o foco volta ao título (tabindex -1) quando a tela cheia fecha; ele não aciona nada e não ganha a moldura. */
+.pe-registrar-titulo:focus { outline: none; }
 .pe-banco { text-align: right; line-height: 1.15; }
 .pe-banco-rotulo { display: block; font-size: 10.5px; opacity: .9; }
 .pe-banco-valor { font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -1106,6 +1108,231 @@
 .pe-config-externo-marca > input:disabled { cursor: progress; }
 .pe-config-externo-erro { display: block; margin-top: 6px; font-size: 12px; color: var(--pe-perigo); }
 .pe-config-externo-erro[hidden] { display: none; }
+
+/* ======================================================================
+   Tela cheia, aviso flutuante e botão de som (E8, P79 a P81; desenho 16: CSS L40 a L59 e L72 a L75, tela cheia
+   L323 a L391, aviso flutuante L266 e botão de som L136). Valores dos `style=` do desenho; os keyframes `bjp*` viram
+   `pe-tc-*`. A tela cheia e o aviso flutuante têm as cores fixas do desenho (azul-marinho, cortina verde ou vermelha,
+   texto branco) nos dois temas, como no desenho; o botão de som segue os tokens do cartão.
+   ============================================================================= */
+
+/* Botão de som do rodapé do cartão (L136): 36x36, entre "Justificar falta" e a jornada semanal. */
+.pe-som {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border: 1px solid var(--pe-borda);
+    border-radius: 3px;
+    background: var(--pe-card);
+    color: var(--pe-texto-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.pe-som:hover { background: var(--pe-hover-sec); }
+.pe-som svg[hidden] { display: none; }
+
+/* Aviso flutuante (L266, `avisar` L468): um por vez, some em 3,4 s (js/ponto-aviso-flutuante.js). */
+.pe-flutuante {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 2147483000;
+    max-width: calc(100vw - 28px);
+    background: #1e7b45;
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(18, 36, 47, .25);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: normal;
+    animation: pe-tc-up .2s ease both;
+}
+.pe-flutuante[hidden] { display: none; }
+.pe-flutuante--ok { background: #1e7b45; }
+.pe-flutuante--erro { background: #a3232b; }
+.pe-flutuante--lembrete { background: #8a6200; }
+.pe-flutuante--gerando { background: #0a6fa0; }
+
+/* A tela cheia (L324): por cima de tudo, inclusive das janelas (2147483100) e do aviso flutuante. */
+.pe-tc {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    overflow-y: auto;
+    background: #0b3550;
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: normal;
+    text-align: left;
+}
+.pe-tc[hidden] { display: none; }
+.pe-tc:focus { outline: none; }
+/* A fase é só o invólucro: o conteúdo dela se mede pela tela (o `min-height: 100%` do desenho). */
+.pe-tc-fase { display: contents; }
+.pe-tc-fase[hidden] { display: none; }
+
+/* Anel de 24 barras (L42 a L47). */
+.pe-tc-anel { --r: min(31vmin, 168px); position: relative; width: calc(var(--r) * 2.3); height: calc(var(--r) * 2.3); flex: none; }
+.pe-tc-anel--mini { --r: min(19vmin, 96px); }
+.pe-tc-raio { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.pe-tc-barra {
+    position: absolute;
+    left: calc(var(--r) * -.0375);
+    top: calc(var(--r) * -1.13);
+    width: calc(var(--r) * .075);
+    height: calc(var(--r) * .26);
+    background: #fff;
+    opacity: .18;
+    transform: scaleY(.6);
+}
+.pe-tc-barra--on { animation: pe-tc-bar-on .28s ease-out forwards; }
+.pe-tc-barra--ok { opacity: 1; transform: none; animation: pe-tc-bar-ok .5s cubic-bezier(.2, .8, .3, 1.25) both; }
+.pe-tc-anel-hora {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--r) * .29);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Validando (L339 a L350). */
+.pe-tc-val {
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 4vh, 34px);
+    padding: 24px 16px;
+    text-align: center;
+}
+.pe-tc-validando { font-size: clamp(22px, 4vw, 32px); }
+.pe-tc-data { font-size: 15px; color: #c7dce9; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pe-tc-etapas { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 26px; }
+.pe-tc-etapa { display: flex; align-items: center; gap: 7px; font-size: 14px; opacity: .35; animation: pe-tc-etapa .2s linear forwards; }
+.pe-tc-etapa .bi { color: #59d98e; }
+/* "Registro selado" só acende depois de o servidor confirmar: o JS põe `--selada` no tempo dela (ponto-tela-cheia.js). */
+.pe-tc-etapa--selo { animation: none; }
+.pe-tc-etapa--selo.pe-tc-etapa--selada { animation: pe-tc-etapa .2s linear forwards; }
+
+/* Cortina do resultado (L353 e L377). */
+.pe-tc-cortina { position: fixed; inset: 0; }
+.pe-tc-cortina--ok { background: #1e7b45; animation: pe-tc-wipe .6s ease-out both; }
+.pe-tc-cortina--erro { background: #a3232b; animation: pe-tc-wipe .45s ease-out both; }
+
+/* Traço desenhado do check e do X (L358, L379). */
+.pe-tc-traco { fill: none; stroke: #fff; stroke-width: 7; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.pe-tc-traco--check { animation: pe-tc-draw .4s ease-out .25s forwards; }
+.pe-tc-traco--x1 { animation: pe-tc-draw .22s ease-out .15s forwards; }
+.pe-tc-traco--x2 { animation: pe-tc-draw .22s ease-out .34s forwards; }
+.pe-tc-check { position: absolute; inset: 22%; width: 56%; height: 56%; }
+
+/* Ponto registrado (L352 a L374). */
+.pe-tc-ok {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(20px, 5vw, 76px);
+    padding: clamp(20px, 5vh, 56px) clamp(16px, 5vw, 56px) 40px;
+}
+.pe-tc-ok-corpo {
+    flex: 0 1 560px;
+    min-width: 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.pe-tc-ok-textos { animation: pe-tc-in .4s ease .2s both; }
+.pe-tc-titulo { font-size: clamp(28px, 5vw, 42px); font-weight: bold; }
+.pe-tc-ok-hora { font-size: clamp(48px, 9vw, 76px); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pe-tc-ok-tipo { font-size: clamp(15px, 2.4vw, 18px); }
+.pe-tc-ok-met { font-size: 13.5px; margin-top: 8px; opacity: .95; }
+.pe-tc-tempo {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: #fff;
+    transform-origin: left;
+    animation: pe-tc-barra 10s linear both;
+}
+
+/* Ponto não registrado (L376 a L388). */
+.pe-tc-erro {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px 16px;
+    text-align: center;
+    animation: pe-tc-treme .45s ease .15s;
+}
+.pe-tc-erro-titulo { font-size: clamp(16px, 2.6vw, 20px); }
+.pe-tc-erro-detalhe { font-size: 14.5px; max-width: 520px; line-height: 1.5; }
+.pe-tc-erro-detalhe[hidden] { display: none; }
+
+/* Botões do resultado (L369, L370, L384 a L386). */
+.pe-tc-botoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.pe-tc-botoes--ok { animation: pe-tc-in .4s ease .35s both; }
+.pe-tc-btn {
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* "Concluir" e "Fechar". */
+.pe-tc-btn--contorno { border: 1px solid rgba(255, 255, 255, .7); background: transparent; color: #fff; }
+.pe-tc-btn--contorno:hover { background: rgba(255, 255, 255, .14); }
+/* "Tentar novamente". */
+.pe-tc-btn--tentar { border: none; background: #fff; color: #7f1c23; font-weight: bold; }
+.pe-tc-btn--tentar:hover { background: #fdecee; }
+/* "Registrar como trabalho externo" (E12, `bi-briefcase`): borda branca, negrito. */
+.pe-tc-btn--externo { border: 1px solid #fff; background: transparent; color: #fff; font-weight: bold; }
+.pe-tc-btn--externo:hover { background: rgba(255, 255, 255, .14); }
+.pe-tc-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+@keyframes pe-tc-bar-on { 0% { opacity: .18; transform: scaleY(.6); } 60% { opacity: 1; transform: scaleY(1.22); } 100% { opacity: 1; transform: scaleY(1); } }
+@keyframes pe-tc-bar-ok { from { opacity: 0; transform: translateY(calc(var(--r) * .42)) scaleY(.3); } to { opacity: 1; transform: none; } }
+@keyframes pe-tc-draw { to { stroke-dashoffset: 0; } }
+@keyframes pe-tc-wipe { from { clip-path: circle(0 at 50% 42%); } to { clip-path: circle(150vmax at 50% 42%); } }
+@keyframes pe-tc-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pe-tc-barra { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes pe-tc-treme { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-9px); } 40%, 80% { transform: translateX(9px); } }
+@keyframes pe-tc-etapa { to { opacity: 1; } }
+@keyframes pe-tc-up { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* Movimento reduzido (L72 a L75): as animações da tela cheia acabam na hora, sem atraso. */
+@media (prefers-reduced-motion: reduce) {
+    .pe-tc-barra--on, .pe-tc-barra--ok, .pe-tc-mov { animation-duration: .01ms !important; animation-delay: 0s !important; }
+}
+
 /* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
    Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
    valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os

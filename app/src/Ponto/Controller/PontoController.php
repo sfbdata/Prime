@@ -85,6 +85,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Twig\Environment;
@@ -108,6 +109,30 @@ final class PontoController extends AbstractController
         ExclusaoDeJustificativaRecusadaException::DA_BATIDA_EXTERNA => Response::HTTP_UNPROCESSABLE_ENTITY,
         ExclusaoDeJustificativaRecusadaException::MEXEU_NA_FOLHA    => Response::HTTP_UNPROCESSABLE_ENTITY,
     ];
+
+    /**
+     * Flash de tipo próprio do aviso flutuante da /ponto (E8, P80; desenho L266 e `avisar` L468), no tom verde do
+     * desenho. O `index` o lê antes de montar a página, e por isso o laço de flashes do topo do layout (base.html.twig)
+     * não o encontra mais: o texto sai uma vez só, no aviso flutuante. Só vale para quem volta à /ponto: fora dela não há
+     * aviso flutuante, e o flash de sempre continua.
+     */
+    public const FLASH_AVISO_FLUTUANTE = 'ponto_aviso_flutuante';
+
+    /** O mesmo aviso, no tom vermelho do desenho (#a3232b). */
+    public const FLASH_AVISO_FLUTUANTE_ERRO = 'ponto_aviso_flutuante_erro';
+
+    /** O tom de cada flash do aviso flutuante (js/ponto-aviso-flutuante.js). */
+    private const TOM_DO_AVISO_FLUTUANTE = [
+        self::FLASH_AVISO_FLUTUANTE      => 'ok',
+        self::FLASH_AVISO_FLUTUANTE_ERRO => 'erro',
+    ];
+
+    /** O aviso flutuante do envio da justificativa (desenho L768, `addJ`). */
+    public const AVISO_ENVIADO_AO_GESTOR = 'Enviado para aprovação do gestor.';
+
+    /** Os avisos flutuantes da análise de uma justificativa (desenho L601, `analisar`): verde e vermelho. */
+    public const AVISO_JUSTIFICATIVA_ABONADA = 'Justificativa abonada.';
+    public const AVISO_JUSTIFICATIVA_RECUSADA = 'Justificativa recusada.';
 
     public function __construct(
         private readonly VerificadorAlertaPonto $verificadorAlerta,
@@ -253,6 +278,11 @@ final class PontoController extends AbstractController
         $geoLigado = $funcoes->vale(FuncoesDoPonto::GEO, $tenant);
         $sedesDaTela = $geoLigado ? $sedesDaCerca->doEscritorio($tenant) : [];
 
+        // E8 (P79 a P83, P96): o valor efetivo (Global E Escritório) das funções da tela, como o `geoLigado` acima.
+        // O aviso flutuante que um envio deixou (`FLASH_AVISO_FLUTUANTE`) é lido aqui, antes do layout, para não sair
+        // também no topo da página.
+        $avisoFlutuante = $this->avisoFlutuanteDaSessao($request);
+
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
@@ -263,6 +293,10 @@ final class PontoController extends AbstractController
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
             'geoLigado'      => $geoLigado,
+            'animacaoLigada' => $funcoes->vale(FuncoesDoPonto::ANIMACAO, $tenant),
+            'sonsLigados'    => $funcoes->vale(FuncoesDoPonto::SONS, $tenant),
+            'lembreteLigado' => $funcoes->vale(FuncoesDoPonto::LEMBRETE, $tenant),
+            'avisoFlutuante' => $avisoFlutuante,
             'sedesDaTela'    => $sedesDaTela,
             // E12 (P18, P74): a cerca vale hoje para a pessoa (sem home office e com a geolocalização) e o escritório
             // permite o trabalho externo. Como a cerca da tela, é cortesia: quem decide é a `batida()`.
@@ -481,10 +515,8 @@ final class PontoController extends AbstractController
                     count($datasValidas)
                 ));
             } else {
-                $this->addFlash('success', sprintf(
-                    'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
-                    count($datasValidas)
-                ));
+                // E8 (P80, decisão do Coordenador de 09/11/2026): o aviso flutuante do desenho no lugar do flash do topo.
+                $this->addFlash(self::FLASH_AVISO_FLUTUANTE, self::AVISO_ENVIADO_AO_GESTOR);
             }
         } elseif ($form->isSubmitted() && !$form->isValid()) {
             foreach ($form->getErrors(true) as $error) {
@@ -1125,6 +1157,28 @@ final class PontoController extends AbstractController
         }
 
         return $dados;
+    }
+
+    /**
+     * O aviso flutuante que um envio deixou para a /ponto (`FLASH_AVISO_FLUTUANTE` e `FLASH_AVISO_FLUTUANTE_ERRO`), lido
+     * e consumido antes do layout. Um por vez, como no desenho: o último.
+     *
+     * @return array{texto: string, tom: string}|null
+     */
+    private function avisoFlutuanteDaSessao(Request $request): ?array
+    {
+        $sessao = $request->getSession();
+        if (!$sessao instanceof FlashBagAwareSessionInterface) {
+            return null;
+        }
+        $aviso = null;
+        foreach (self::TOM_DO_AVISO_FLUTUANTE as $tipo => $tom) {
+            foreach ($sessao->getFlashBag()->get($tipo) as $texto) {
+                $aviso = ['texto' => (string) $texto, 'tom' => $tom];
+            }
+        }
+
+        return $aviso;
     }
 
     /** A resposta da batida que já tinha entrado com o mesmo envio; sem a hora quando quem barrou foi o índice único. */

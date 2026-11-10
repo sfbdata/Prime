@@ -89,8 +89,9 @@ final class EquipeDoPontoController extends AbstractController
         $ids = array_map('intval', array_filter($request->request->all('ids'), 'is_numeric'));
 
         $resultado = $abonar->executar($this->eu(), $escritorio, array_values($ids));
+        // E8 (P80): as abonadas no aviso flutuante da /ponto; as recusas, uma por pessoa e dia, ficam no flash do topo.
         if (($abonadas = $resultado->mensagemDasAbonadas()) !== null) {
-            $this->addFlash('success', $abonadas);
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $abonadas);
         }
         foreach ($resultado->recusas as $recusa) {
             $this->addFlash('warning', $recusa);

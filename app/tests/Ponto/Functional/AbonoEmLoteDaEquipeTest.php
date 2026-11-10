@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\EquipeDoPontoController;
+use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Service\AbonoDeJustificativa;
@@ -71,7 +72,7 @@ final class AbonoEmLoteDaEquipeTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects('/ponto/?aba=equipe');
         self::assertSame([$daAna->getId(), $doBruno->getId()], $this->abono->recebidas);
-        self::assertSame(['2 justificativas abonadas.'], $this->flashes('success'));
+        self::assertSame(['2 justificativas abonadas.'], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE), 'E8: no aviso flutuante da /ponto');
         self::assertSame([], $this->flashes('warning'));
     }
 
@@ -84,7 +85,7 @@ final class AbonoEmLoteDaEquipeTest extends JusPrimeWebTestCase
 
         $this->abonar($this->gestora, [$daAna->getId(), $doBruno->getId()]);
 
-        self::assertSame(['1 justificativa abonada.'], $this->flashes('success'));
+        self::assertSame(['1 justificativa abonada.'], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE), 'E8: no aviso flutuante da /ponto');
         self::assertSame([sprintf('Ana Lima (%s): Esta batida já foi registrada.', $this->dia(-2))], $this->flashes('warning'));
     }
 
@@ -104,6 +105,7 @@ final class AbonoEmLoteDaEquipeTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects('/ponto/?aba=equipe');
         self::assertSame([], $this->abono->recebidas);
+        self::assertSame([], $this->flashes(PontoController::FLASH_AVISO_FLUTUANTE));
         self::assertSame([], $this->flashes('success'));
         self::assertSame(array_fill(0, 3, AbonarJustificativasDaEquipeUseCase::NAO_ENCONTRADA), $this->flashes('warning'));
         self::assertSame(['pendente', 'pendente'], [$this->statusNoBanco($doGil), $this->statusNoBanco($doFred)]);

@@ -45,7 +45,8 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
 
         $depois = self::trecho($tela, 'async function atualizarDepoisDaBatida(recarregarSeFalhar) {', "btnPonto.addEventListener('click'");
         self::assertMatchesRegularExpression(
-            '/\} catch \(erro\) \{.*if \(recarregarSeFalhar\) \{\s+setTimeout\(\(\) => window\.location\.reload\(\), 1500\);\s+\}\s+return;\s+\}\s+liberarBotaoBatida\(\);/s',
+            // E8: a recarga espera a tela cheia fechar (`depoisDaTelaCheia`), sem cortar a confirmação do toque.
+            '/\} catch \(erro\) \{.*if \(recarregarSeFalhar\) \{\s+(?:\/\/[^\n]*\n\s+)*setTimeout\(\(\) => depoisDaTelaCheia\(\(\) => window\.location\.reload\(\)\), 1500\);\s+\}\s+return;\s+\}\s+liberarBotaoBatida\(\);/s',
             $depois,
             'recarrega só quando a atualização falhou; o botão só volta com a tela já atualizada'
         );

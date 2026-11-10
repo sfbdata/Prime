@@ -6,8 +6,11 @@
     Etapa E1: grade de duas colunas e o cartão "Registrar Ponto" no molde do desenho, sobre o motor de hoje. Etapa E2:
     a Folha de Ponto no molde (ponto/_folha_table.html.twig). Etapa E3: o cartão de abas Pendências e Minhas Justificativas
     (ponto/_abas.html.twig, js/ponto-abas.js). Etapa E4: as janelas "Justificar falta", "Registro de esquecimento" e
-    "Editar justificativa" na moldura do desenho, sem modal do Bootstrap (js/ponto-janelas.js). O cabeçalho e o menu do
-    topo do desenho são a moldura do sistema (base.html.twig). CSS da tela: public/css/ponto-eletronico.css.
+    "Editar justificativa" na moldura do desenho, sem modal do Bootstrap (js/ponto-janelas.js). Etapa E8: a tela cheia
+    do registro (ponto/_tela_cheia.html.twig, js/ponto-tela-cheia.js), o aviso flutuante (js/ponto-aviso-flutuante.js),
+    os sons e o botão de som (js/ponto-sons.js) e o lembrete de saída, cada um com a sua função (`ponto-animacao`,
+    `ponto-sons`, `ponto-lembrete`). O cabeçalho e o menu do topo do desenho são a moldura do sistema (base.html.twig).
+    CSS da tela: public/css/ponto-eletronico.css.
 #}
 
 {% block body_class %}pe-body{% endblock %}
@@ -29,7 +32,8 @@
             <section class="pe-registrar" data-screen-label="Registrar Ponto">
                 <div class="pe-registrar-barra">
                     <i class="bi bi-fingerprint" aria-hidden="true"></i>
-                    <span class="pe-registrar-titulo">Registrar Ponto</span>
+                    {# E8: tabindex -1, para receber o foco quando a tela cheia fecha (o "Bater Ponto" não: um Enter registraria o próximo tipo). #}
+                    <span class="pe-registrar-titulo" id="ponto-registrar-titulo" tabindex="-1">Registrar Ponto</span>
                     {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar).
                        P2 (E17): o saldo atual dos lotes (P51 a, não zera em janeiro), em branco, sem verde nem vermelho;
                        formato do desenho: "0h" no zero, senão sinal e XhYYm. O triângulo amarelo (L106) só acima do
@@ -191,8 +195,11 @@
                         <svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.06 6.5a.5.5 0 0 1 .5.5v.776a11.5 11.5 0 0 1-.552 3.519l-1.331 4.14a.5.5 0 0 1-.952-.305l1.33-4.141a10.5 10.5 0 0 0 .504-3.213V7a.5.5 0 0 1 .5-.5Z"></path><path d="M6.06 7a2 2 0 1 1 4 0 .5.5 0 1 1-1 0 1 1 0 1 0-2 0v.332q0 .613-.066 1.221A.5.5 0 0 1 6 8.447q.06-.555.06-1.115zm3.509 1a.5.5 0 0 1 .487.513 11.5 11.5 0 0 1-.587 3.339l-1.266 3.8a.5.5 0 0 1-.949-.317l1.267-3.8a10.5 10.5 0 0 0 .535-3.048A.5.5 0 0 1 9.569 8m-3.356 2.115a.5.5 0 0 1 .33.626L5.24 14.939a.5.5 0 1 1-.955-.296l1.303-4.199a.5.5 0 0 1 .625-.329"></path><path d="M4.759 5.833A3.501 3.501 0 0 1 11.559 7a.5.5 0 0 1-1 0 2.5 2.5 0 0 0-4.857-.833.5.5 0 1 1-.943-.334m.3 1.67a.5.5 0 0 1 .449.546 10.7 10.7 0 0 1-.4 2.031l-1.222 4.072a.5.5 0 1 1-.958-.287L4.15 9.793a9.7 9.7 0 0 0 .363-1.842.5.5 0 0 1 .546-.449Zm6 .647a.5.5 0 0 1 .5.5c0 1.28-.213 2.552-.632 3.762l-1.09 3.145a.5.5 0 0 1-.944-.327l1.089-3.145c.382-1.105.578-2.266.578-3.435a.5.5 0 0 1 .5-.5Z"></path><path d="M3.902 4.222a5 5 0 0 1 5.202-2.113.5.5 0 0 1-.208.979 4 4 0 0 0-4.163 1.69.5.5 0 0 1-.831-.556m6.72-.955a.5.5 0 0 1 .705-.052A4.99 4.99 0 0 1 13.059 7v1.5a.5.5 0 1 1-1 0V7a3.99 3.99 0 0 0-1.386-3.028.5.5 0 0 1-.051-.705M3.68 5.842a.5.5 0 0 1 .422.568q-.044.289-.044.59c0 .71-.1 1.417-.298 2.1l-1.14 3.923a.5.5 0 1 1-.96-.279L2.8 8.821A6.5 6.5 0 0 0 3.058 7q0-.375.054-.736a.5.5 0 0 1 .568-.422m8.882 3.66a.5.5 0 0 1 .456.54c-.084 1-.298 1.986-.64 2.934l-.744 2.068a.5.5 0 0 1-.941-.338l.745-2.07a10.5 10.5 0 0 0 .584-2.678.5.5 0 0 1 .54-.456"></path><path d="M4.81 1.37A6.5 6.5 0 0 1 14.56 7a.5.5 0 1 1-1 0 5.5 5.5 0 0 0-8.25-4.765.5.5 0 0 1-.5-.865m-.89 1.257a.5.5 0 0 1 .04.706A5.48 5.48 0 0 0 2.56 7a.5.5 0 0 1-1 0c0-1.664.626-3.184 1.655-4.333a.5.5 0 0 1 .706-.04ZM1.915 8.02a.5.5 0 0 1 .346.616l-.779 2.767a.5.5 0 1 1-.962-.27l.778-2.767a.5.5 0 0 1 .617-.346m12.15.481a.5.5 0 0 1 .49.51c-.03 1.499-.161 3.025-.727 4.533l-.07.187a.5.5 0 0 1-.936-.351l.07-.187c.506-1.35.634-2.74.663-4.202a.5.5 0 0 1 .51-.49"></path></svg>{{ jornadaConcluida ? 'Jornada de hoje concluída' : 'Bater Ponto: ' ~ rotulosDosTipos[tipoSugerido] }}
                     </button>
 
-                    {# Resultado da última tentativa (P11 b: fica até a tela cheia e o aviso flutuante da E8). Fica na
-                       tela até a próxima: o `alert` do navegador some quando a pessoa toca em OK. #}
+                    {# Resultado da última tentativa que NÃO tem tela cheia nem aviso flutuante (P11 b, E8): sem rede,
+                       sem confirmação, batida guardada sem internet, recusas da fila, servidor que recusou antes de
+                       gravar, tipo não escolhido e os avisos do sucesso. O resultado do toque (registrado ou não) vai à
+                       tela cheia (`ponto-animacao`) ou ao aviso flutuante. Fica na tela até a próxima: o `alert` do
+                       navegador some quando a pessoa toca em OK. #}
                     <div id="batida-aviso" class="pe-caixa pe-aviso-batida d-none" role="alert" aria-live="polite"></div>
 
                     {# Quando a resposta do servidor não volta, mandar conferir as batidas SEM atualizá-las é pior do
@@ -203,13 +210,21 @@
                     </button>
 
                     {# P16: rodapé do cartão. A jornada semanal é a carga da jornada que vale hoje para a pessoa (D1),
-                       nunca o "44h00m" do protótipo; sem jornada, o trecho não aparece. P17 (fica): o selo da fonte. O
-                       botão de som (P81) entra com os sons, na E8. "Justificar falta" abre a janela do desenho (E4,
-                       ponto/_justificativa_form.html.twig, js/ponto-janelas.js). #}
+                       nunca o "44h00m" do protótipo; sem jornada, o trecho não aparece. P17 (fica): o selo da fonte.
+                       "Justificar falta" abre a janela do desenho (E4, ponto/_justificativa_form.html.twig,
+                       js/ponto-janelas.js). O botão de som (P81, L136) só existe com a função `ponto-sons` valendo: troca
+                       o mudo deste aparelho (js/ponto-sons.js), e o ícone e a dica dizem o estado. A dica é o `title`,
+                       como no botão da localização. #}
                     <div class="pe-rodape">
                         <button type="button" id="btn-justificar-falta" class="pe-btn-sec pe-justificar" data-janela-justificar>
                             <i class="bi bi-calendar-check" aria-hidden="true"></i>Justificar falta
                         </button>
+                        {% if sonsLigados %}
+                            <button type="button" id="btn-som-ponto" class="pe-som" aria-label="Silenciar sons" title="Silenciar sons">
+                                <svg data-som-ligado viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M11.536 14.01A8.47 8.47 0 0 0 14.026 8a8.47 8.47 0 0 0-2.49-6.01l-.708.707A7.48 7.48 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303z"></path><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.48 5.48 0 0 1 11.025 8a5.48 5.48 0 0 1-1.61 3.89z"></path><path d="M10.025 8a4.5 4.5 0 0 1-1.318 3.182L8 10.475A3.5 3.5 0 0 0 9.025 8c0-.966-.392-1.841-1.025-2.475l.707-.707A4.5 4.5 0 0 1 10.025 8M7 4a.5.5 0 0 0-.812-.39L3.825 5.5H1.5A.5.5 0 0 0 1 6v4a.5.5 0 0 0 .5.5h2.325l2.363 1.89A.5.5 0 0 0 7 12zM4.312 6.39 6 5.04v5.92L4.312 9.61A.5.5 0 0 0 4 9.5H2v-3h2a.5.5 0 0 0 .312-.11"></path></svg>
+                                <svg data-som-mudo hidden viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06M6 5.04 4.312 6.39A.5.5 0 0 1 4 6.5H2v3h2a.5.5 0 0 1 .312.11L6 10.96zm7.854.606a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0"></path></svg>
+                            </button>
+                        {% endif %}
                         {% if jornadaInfo is not null %}
                             {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
                             {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
@@ -370,9 +385,27 @@
             </div>
         </form>
     </div>
+
+    {# E8: tela cheia do registro (P79), só com a função `ponto-animacao` valendo; a localização entra nas etapas e no
+       "localização validada" só quando a cerca vale (geolocalização ligada e sem Home Office hoje). #}
+    {% if animacaoLigada %}
+        {% include 'ponto/_tela_cheia.html.twig' with {cercaValendo: geoLigado and not homeOfficeHoje} only %}
+    {% endif %}
+
+    {# E8: aviso flutuante (P80, L266), já no documento para o leitor de tela anunciar a troca. `data-aviso-na-carga` é o
+       aviso que o servidor deixou para esta tela, com o tom (`data-aviso-na-carga-tom`): "Enviado para aprovação do
+       gestor." depois do envio da justificativa, "Justificativa abonada." ou "Justificativa recusada." depois da análise
+       e o resultado do abono em lote da Equipe. O `PontoController::index` o lê antes do layout para não aparecer também
+       no topo da página. #}
+    <div id="ponto-aviso-flutuante" class="pe-flutuante" role="status" hidden
+         {%- if avisoFlutuante %} data-aviso-na-carga="{{ avisoFlutuante.texto|e('html_attr') }}" data-aviso-na-carga-tom="{{ avisoFlutuante.tom|e('html_attr') }}"{% endif %}></div>
 </div>
 
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
+{# E8: o aviso flutuante, os sons e a tela cheia vêm antes do script da tela, que os usa. #}
+<script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
+<script src="{{ asset('js/ponto-sons.js') }}"></script>
+<script src="{{ asset('js/ponto-tela-cheia.js') }}"></script>
 {# Abas de gestão (E5 e E6): o carregador do painel ouve a aba antes de o js/ponto-abas.js avisar que ela abriu. #}
 <script src="{{ asset('js/ponto-paineis.js') }}"></script>
 <script src="{{ asset('js/ponto-equipe.js') }}"></script>
@@ -436,6 +469,78 @@
 
     const FORMATO_HORA_OFICIAL = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
     const FORMATO_DATA_OFICIAL = formatoNoFusoDoServidor({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // E8: as funções da tela, cada uma Global E Escritório (`PontoController::index`). `ponto-animacao`: o resultado do
+    // toque na tela cheia (desligada, no aviso flutuante); `ponto-sons`: o som do resultado e o botão de som;
+    // `ponto-lembrete`: a saída prevista e o lembrete quando ela passa. Declaradas antes do relógio, que usa o lembrete
+    // já na carga.
+    const ANIMACAO_LIGADA = {{ animacaoLigada ? 'true' : 'false' }};
+    const SONS_LIGADOS = {{ sonsLigados ? 'true' : 'false' }};
+    const LEMBRETE_LIGADO = {{ lembreteLigado ? 'true' : 'false' }};
+    if (window.PontoSons) {
+        window.PontoSons.configurar({ ligados: SONS_LIGADOS });
+    }
+    // Fechada a tela cheia (Concluir, Esc, 10 s), o foco vai ao título do cartão, e não ao "Bater Ponto" já liberado:
+    // um Enter logo depois registraria o próximo tipo.
+    if (window.PontoTelaCheia) {
+        window.PontoTelaCheia.configurar({ focoAoFechar: () => document.getElementById('ponto-registrar-titulo') });
+    }
+
+    // Aviso flutuante (P80): devolve false sem o módulo (arquivo que não carregou), e quem chama decide o que fazer.
+    function avisarFlutuante(texto, tom) {
+        if (!window.PontoAvisoFlutuante) {
+            return false;
+        }
+        window.PontoAvisoFlutuante.mostrar(texto, tom);
+
+        return true;
+    }
+
+    // E8 (P83; desenho L454 e `checarLembrete` L437 e L454): uma vez por dia, quando passa da saída prevista sem a saída
+    // batida, o lembrete toca o "plim" (com os sons valendo e sem o mudo), mostra o aviso âmbar e manda a notificação do
+    // navegador, se ela já foi permitida (o pedido é feito no toque, `PontoBatida.pedirPermissaoDeNotificacao`). "Uma vez
+    // por dia" é por aparelho: fica no `localStorage` (por pessoa, escritório e dia do servidor), para recarregar a
+    // página não repetir o lembrete; sem armazenamento, vale enquanto a página está aberta.
+    const AVISO_LEMBRETE_DE_SAIDA = 'Passou do horário previsto. Não esqueça de registrar a saída.';
+    const FORMATO_DIA_DO_LEMBRETE = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
+    let lembreteDadoNoDia = '';
+
+    function dispararLembreteDeSaida() {
+        if (!LEMBRETE_LIGADO) {
+            return;
+        }
+        const agoraMs = agoraNoServidorMs();
+        const dia = FORMATO_DIA_DO_LEMBRETE.format(new Date(agoraMs === null ? Date.now() : agoraMs));
+        const caixaDaPessoa = document.getElementById('ponto-fila');
+        const chave = 'bj-ponto-lembrete:' + (caixaDaPessoa ? caixaDaPessoa.dataset.usuarioId + ':' + caixaDaPessoa.dataset.escritorioId : '');
+        if (lembreteDadoNoDia === dia) {
+            return;
+        }
+        lembreteDadoNoDia = dia;
+        try {
+            if (localStorage.getItem(chave) === dia) {
+                return;
+            }
+            localStorage.setItem(chave, dia);
+        } catch (erro) {
+            /* Sem armazenamento: o lembrete vale enquanto a página está aberta. */
+        }
+        // O plim e o aviso âmbar esperam a tela cheia do registro fechar e saem juntos (o plim não toca por cima dela).
+        depoisDaTelaCheia(() => {
+            if (window.PontoSons) {
+                window.PontoSons.liberar();
+                window.PontoSons.ok();
+            }
+            avisarFlutuante(AVISO_LEMBRETE_DE_SAIDA, 'lembrete');
+        });
+        try {
+            if (window.Notification && Notification.permission === 'granted') {
+                new Notification('BlueJus Ponto', { body: 'Não esqueça de registrar a saída.' });
+            }
+        } catch (erro) {
+            /* Navegador que só notifica pelo service worker (Chrome do Android): fica o aviso na tela. */
+        }
+    }
 
     function desenharHoraOficial() {
         const horaEl = document.getElementById('ponto-hora-oficial-hora');
@@ -657,6 +762,12 @@
                 mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida);
                 return;
             }
+            // E8 (P83): com a função `ponto-lembrete` desligada, sem "Saída prevista" e sem o lembrete (aviso, som e
+            // notificação).
+            if (!LEMBRETE_LIGADO) {
+                mostrarAvisoDoDia('', '', '');
+                return;
+            }
             const previsao = tSaida ? null : saidaPrevista();
             if (!previsao) {
                 mostrarAvisoDoDia('', '', '');
@@ -668,6 +779,16 @@
                 return;
             }
             mostrarAvisoDoDia('info', 'bi-bell', 'Saída prevista às ' + hora + '.');
+        }
+
+        // E8 (desenho L437 e L454, `checarLembrete`): o lembrete de saída é conferido pelo relógio, a cada segundo, fora
+        // da escolha do aviso do dia: dispara também em repouso sem retorno, quando a caixa mostra o intervalo.
+        function checarLembreteDeSaida(agora) {
+            if (!LEMBRETE_LIGADO || !tEntrada || tSaida) return;
+            const previsao = saidaPrevista();
+            if (previsao && agora > previsao) {
+                dispararLembreteDeSaida();
+            }
         }
 
         function updateClock() {
@@ -693,6 +814,7 @@
 
             labelEl.textContent = label;
             atualizarAvisoDoDia(agora);
+            checarLembreteDeSaida(agora);
             updateExcedente(agora);
         }
 
@@ -1116,8 +1238,9 @@
         const codigo = error && error.code;
         console.log('GPS não disponível:', error && error.message);
         // O botão NÃO é desabilitado aqui: ele precisa continuar respondendo ao toque. Quem
-        // aperta sem posição recebe "A localização é obrigatória para registrar o ponto." no
-        // handler, em `#batida-aviso`. Desabilitar aqui devolvia o botão morto por outra porta.
+        // aperta sem posição recebe no handler a falha "sem localização" (`mostrarFalhaDoToque`: a
+        // tela cheia vermelha ou, sem ela, o aviso flutuante). Desabilitar aqui devolvia o botão
+        // morto por outra porta.
         if (codigo === GPS_PERMISSAO_NEGADA) {
             explicarPermissaoNegada();
 
@@ -1315,6 +1438,44 @@
         abrirJanelaDoTrabalhoExterno(btnPonto, payload.tipo, porque);
     }
 
+    // E12 + E8: o fora do raio do toque (o local, pela avaliação da tela, ou a recusa do servidor com `foraDoRaio`,
+    // inclusive o GPS impreciso). Com a tela cheia, a tela vermelha com o título e o detalhe e, com `trabalhoExterno`
+    // true, o botão "Registrar como trabalho externo" do desenho (L385: maleta, borda branca, entre "Tentar novamente" e
+    // "Fechar"); ele fecha a tela cheia e abre a janela para o tipo que falhou. Sem a tela cheia (função
+    // `ponto-animacao` desligada), o bloco da E12 na caixa de hoje: o aviso flutuante não leva botão. `externo` é o do
+    // toque (a batida externa recusada de novo fora do raio), para o "Tentar novamente".
+    function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {
+        if (!telaCheiaVale()) {
+            tocarResultado('erro');
+            mostrarAvisoBatida('', 'danger');
+            mostrarForaDoRaio(avisoBatida, foraDoRaio, tipo);
+            return;
+        }
+        const botoes = [];
+        if (foraDoRaio.trabalhoExterno === true) {
+            botoes.push({
+                texto: 'Registrar como trabalho externo',
+                icone: 'bi-briefcase',
+                classe: 'pe-tc-btn--externo',
+                // O foco volta ao título do cartão quando a janela fecha (não ao "Bater Ponto", revisão da E8).
+                aoClicar: () => abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo),
+            });
+        }
+        mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);
+    }
+
+    // E12 + E8: a batida externa que com certeza não entrou (atrasada, recusada antes de gravar ou com o texto recusado)
+    // não vai para a tela vermelha: a validação fecha sem resultado, a caixa diz o porquê (com o "Atualizar" quando ele
+    // ajuda) e a janela reabre com o texto guardado, como na E12. A ordem importa: a tela cheia fecha ANTES de a janela
+    // abrir, senão o fechamento dela levaria o foco para fora da janela.
+    function devolverExternoParaAJanela(payload, porque, oferecerAtualizar) {
+        if (window.PontoTelaCheia) {
+            window.PontoTelaCheia.fecharSeValidando();
+        }
+        mostrarAvisoBatida(porque, 'danger', oferecerAtualizar);
+        reabrirTrabalhoExterno(payload, porque);
+    }
+
     // A janela aberta pelo `PontoAbas` (o `janelaAberta` de js/ponto-abas.js, que o módulo não expõe) é a única
     // `.pe-janela-fundo` sem `hidden`: ele tira o `hidden` ao abrir e o põe ao fechar.
     function haJanelaDoPontoAberta() {
@@ -1371,6 +1532,132 @@
         } finally {
             trabalhoExternoDoToque = null;
         }
+    }
+
+    // E8 (P79, P80): o resultado do toque. Com a função `ponto-animacao` valendo, a validação em tela cheia abre no toque
+    // e o resultado sai nela, no tempo do desenho (js/ponto-tela-cheia.js); desligada, o resultado é o aviso flutuante,
+    // com o som e a vibração. O que não tem resultado certo (sem rede, sem confirmação, batida guardada, servidor que
+    // recusou antes de gravar) fecha a validação e fica na caixa de hoje, com o botão de conferir (P11 b). O gênero segue
+    // o tipo (decisão do dono, corrige o desenho): "Entrada registrada", "Repouso registrado".
+    const TIPO_MASCULINO = { repouso: true, retorno: true };
+    const TITULO_SEM_LOCALIZACAO = 'Não foi possível obter a sua localização';
+    const DETALHE_SEM_LOCALIZACAO = 'Ative o GPS do aparelho, permita a localização no navegador e tente de novo.';
+    const AVISO_ATRASADO = 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.';
+    // A batida que já tinha entrado com o mesmo envio (`data.jaRegistrada`): o texto do sistema (`EnvioDaBatida`).
+    const AVISO_JA_REGISTRADA = '{{ constant('App\\Ponto\\Service\\EnvioDaBatida::MENSAGEM_JA_REGISTRADA')|e('js') }}';
+
+    function rotuloDoTipo(tipo) {
+        return Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, tipo) ? ROTULOS_TIPO[tipo] : String(tipo);
+    }
+
+    function registradoDoTipo(tipo) {
+        return TIPO_MASCULINO[tipo] === true ? 'registrado' : 'registrada';
+    }
+
+    function horaOficialAgora() {
+        const agoraMs = agoraNoServidorMs();
+
+        return FORMATO_HORA_OFICIAL.format(new Date(agoraMs === null ? Date.now() : agoraMs));
+    }
+
+    function dataExtensoAgora() {
+        const agoraMs = agoraNoServidorMs();
+
+        return FORMATO_DATA_OFICIAL.format(new Date(agoraMs === null ? Date.now() : agoraMs));
+    }
+
+    function telaCheiaVale() {
+        return ANIMACAO_LIGADA && !!window.PontoTelaCheia && window.PontoTelaCheia.disponivel();
+    }
+
+    // Roda `fn` quando a tela cheia fechar; já, com ela fechada ou sem ela.
+    function depoisDaTelaCheia(fn) {
+        if (window.PontoTelaCheia && typeof window.PontoTelaCheia.quandoFechar === 'function') {
+            window.PontoTelaCheia.quandoFechar(fn);
+            return;
+        }
+        fn();
+    }
+
+    function tocarResultado(resultado) {
+        if (window.PontoSons) {
+            window.PontoSons.resultado(resultado);
+        }
+    }
+
+    // "Validando {Tipo}", com a hora oficial e a data por extenso.
+    function iniciarValidacaoDoToque(tipo) {
+        if (telaCheiaVale()) {
+            window.PontoTelaCheia.validar({ rotulo: rotuloDoTipo(tipo), hora: horaOficialAgora(), dataExt: dataExtensoAgora() });
+        }
+    }
+
+    // A batida entrou. O texto sai do que o servidor gravou (`data.tipo` e `data.hora`); sem eles, o tipo do toque e a
+    // hora oficial de agora. Sem o comprovante (E15). Os avisos do servidor que vêm com o sucesso (pendência em outro
+    // escritório, interjornada) continuam na caixa de hoje, com o link de cada um (`mostrarSucessoComAvisos`, no toque).
+    // A que já tinha entrado com o mesmo envio (`data.jaRegistrada`) traz o texto do sistema na linha de baixo da tela
+    // cheia, no lugar de "Registrado no sistema" (sem a tela cheia, no aviso flutuante).
+    function mostrarBatidaRegistrada(tipoDoToque, dados) {
+        const gravada = dados || {};
+        const tipo = typeof gravada.tipo === 'string' && Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, gravada.tipo) ? gravada.tipo : tipoDoToque;
+        const horaDaBatida = typeof gravada.hora === 'string' && gravada.hora ? gravada.hora : horaOficialAgora();
+        const jaRegistrada = gravada.jaRegistrada === true;
+        if (telaCheiaVale()) {
+            window.PontoTelaCheia.ok({ rotulo: rotuloDoTipo(tipo), hora: horaDaBatida, dataExt: dataExtensoAgora(), met: jaRegistrada ? AVISO_JA_REGISTRADA : '' });
+            return;
+        }
+        tocarResultado('ok');
+        const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + '.';
+        if (!avisarFlutuante(texto, 'ok')) {
+            mostrarAvisoBatida(texto, 'success');
+        }
+    }
+
+    // A batida NÃO entrou e dá para afirmar isso (recusa do servidor, envio atrasado, sem localização): a tela vermelha,
+    // com "Tentar novamente" (refaz o toque do mesmo tipo) e "Fechar". `botoes` são os botões a mais da tela vermelha
+    // (o "Registrar como trabalho externo" do fora do raio, `mostrarForaDoRaioDoToque`: `[{ texto, icone, classe,
+    // aoClicar }]`, ver js/ponto-tela-cheia.js). `externo` é o `{ tipo, motivo }` do toque de trabalho externo (E12), ou
+    // null: com ele, o "Tentar novamente" refaz a batida EXTERNA, nunca uma comum no lugar dela. Sem a tela cheia:
+    // "{Tipo} não registrada: {título}." no aviso flutuante vermelho.
+    function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {
+        if (telaCheiaVale()) {
+            if (window.PontoTelaCheia.fase() === '') {
+                iniciarValidacaoDoToque(tipo);
+            }
+            window.PontoTelaCheia.erro({
+                titulo: titulo,
+                detalhe: detalhe || '',
+                botoes: Array.isArray(botoes) ? botoes : [],
+                aoTentar: () => tentarDeNovo(tipo, externo || null),
+            });
+            return;
+        }
+        tocarResultado('erro');
+        const texto = rotuloDoTipo(tipo) + ' não ' + registradoDoTipo(tipo) + ': ' + String(titulo || '').replace(/[.\s]+$/, '') + '.';
+        if (!avisarFlutuante(texto, 'erro')) {
+            mostrarAvisoBatida(String(titulo || '') + (detalhe ? ' ' + detalhe : ''), 'danger');
+        }
+    }
+
+    // "Tentar novamente": o mesmo tipo e o toque de novo (com todas as checagens do toque). O tipo que falhou e já não
+    // está livre (entrou por outra via: outra aba, a fila, o atalho do cabeçalho) não é enviado: a tela cheia já fechou e
+    // o aviso flutuante diz "{Tipo} já registrado(a).". Mandar o toque aqui bateria o PRÓXIMO tipo, sugerido no botão.
+    // E12: a batida externa (`externo`) volta como externa, com o mesmo local e motivo, num toque novo (outro `idEnvio`:
+    // ela certamente não entrou). Nunca vira uma batida comum.
+    function tentarDeNovo(tipo, externo) {
+        const botao = document.querySelector('#ponto-tipos > button[role="radio"][data-tipo="' + tipo + '"]');
+        if (!botao || botao.disabled) {
+            avisarFlutuante(rotuloDoTipo(tipo) + ' já ' + registradoDoTipo(tipo) + '.', 'ok');
+            return;
+        }
+        if (externo) {
+            registrarComoTrabalhoExterno(externo.motivo, tipo);
+            return;
+        }
+        if (tipoRegistro.value !== tipo) {
+            escolherTipo(botao);
+        }
+        btnPonto.click();
     }
 
     function liberarBotaoBatida() {
@@ -1562,6 +1849,9 @@
         // A busca mora no módulo, com prazo próprio: a tela não tem `fetch` sem prazo (BatidaNaoTravaNoGpsTest).
         const novo = await window.PontoBatida.buscarTelaDoPonto(window.location.href);
         if (estaBusca < ultimaBuscaDaTela) {
+            // Descartada, a tela fica como está; a batida que o servidor confirmou nesta página continua marcada
+            // (`confirmadasDaPagina`), mesmo que a busca mais nova falhe depois.
+            aplicarGuardadasNaTela();
             return;
         }
 
@@ -1588,6 +1878,8 @@
         const pontoDoDia = JSON.parse(pontoDoDiaNovo);
 
         trocas.forEach(([atual, nova]) => atual.replaceWith(document.importNode(nova, true)));
+        // A tela do servidor volta a mandar: as batidas confirmadas antes desta busca começar já estão nela.
+        confirmadasDaPagina = confirmadasDaPagina.filter((confirmada) => confirmada.depoisDaBusca >= estaBusca);
         relogio.dataset.pontoDoDia = pontoDoDiaNovo;
         aplicarPontoDoDia(pontoDoDia);
         tipoRegistro.value = tipoNovo.value;
@@ -1628,7 +1920,8 @@
                 liberarBotaoBatida();
             }
             if (recarregarSeFalhar) {
-                setTimeout(() => window.location.reload(), 1500);
+                // E8: a recarga espera a tela cheia fechar; não corta a confirmação do toque.
+                setTimeout(() => depoisDaTelaCheia(() => window.location.reload()), 1500);
             }
             return;
         }
@@ -1664,6 +1957,12 @@
     // As guardadas desta pessoa neste escritório (pendentes e retidas por 409), da última leitura da fila. Só
     // `lerEstadoDaFila` troca a lista; é dela que a tela remarca os tipos depois de cada troca.
     let guardadasDaPagina = [];
+    // E8: as batidas do toque que o servidor confirmou nesta página (o tipo e a hora de `data.tipo` e `data.hora`, o dia
+    // da tela e o número da última busca da tela no aceite). A tela as remarca em todo desenho dos tipos, como as
+    // guardadas (`aplicarGuardadasNaTela`): uma busca descartada (outra mais nova passou à frente) ou que falhou não
+    // devolve livre o tipo recém-batido, e o próximo toque não vira batida em dobro. Cada uma sai quando uma busca
+    // iniciada DEPOIS do aceite é aplicada: aí a tela do servidor já a tem e volta a mandar no estado.
+    let confirmadasDaPagina = [];
     // As leituras do estado da fila andam uma depois da outra (ver `lerEstadoDaFila`).
     let leituraDaFila = Promise.resolve();
     // O que a fila tem a dizer e ainda não foi mostrado: as enviadas de uma rodada (`rodadaDaFila`) e as recusas de uma
@@ -1791,7 +2090,27 @@
                 console.error('Falha ao marcar a batida guardada na tela:', erro);
             }
         });
+        // E8: as confirmadas pelo servidor que a tela ainda não mostra (busca descartada ou que falhou). Só as do dia.
+        confirmadasDaPagina.forEach((confirmada) => {
+            const botao = botoes.find((b) => b.dataset.tipo === confirmada.tipo);
+            if (botao && !botao.disabled && dia !== null && confirmada.dia === dia) {
+                marcarTipoComoBatido(botao, confirmada.hora);
+            }
+        });
         acertarSugestaoDoBotao();
+    }
+
+    // E8: registra a batida que o servidor confirmou (ver `confirmadasDaPagina`). Uma por tipo: a nova troca a velha.
+    function registrarBatidaConfirmada(tipoDoToque, dados) {
+        const gravada = dados || {};
+        const tipo = typeof gravada.tipo === 'string' && Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, gravada.tipo) ? gravada.tipo : tipoDoToque;
+        const confirmada = {
+            tipo: tipo,
+            hora: typeof gravada.hora === 'string' && gravada.hora !== '' ? gravada.hora : horaOficialAgora(),
+            dia: diaDaTelaAgora(),
+            depoisDaBusca: ultimaBuscaDaTela,
+        };
+        confirmadasDaPagina = confirmadasDaPagina.filter((outra) => outra.tipo !== tipo).concat([confirmada]);
     }
 
     // Guarda a batida do toque na fila, com o MESMO identificador e a MESMA hora do toque. Devolve false quando não
@@ -1909,8 +2228,14 @@
     // recarga antes disto as mostra na carga seguinte, em vez de perdê-las.
     function avisarResultadoDaFila(parte) {
         const linhas = [];
+        // E8: "Batidas sem internet enviadas." é o aviso flutuante do desenho (L438); sem o módulo, vai à caixa. Com a caixa
+        // mostrando a batida guardada do toque, a linha entra também nela, abaixo do aviso (E14: nunca troca, só
+        // acrescenta), para a caixa não seguir dizendo "guardada" de uma batida que já foi. As recusas ficam na caixa (P11 b).
         if (parte.enviadas > 0 && !filaTemPendentes) {
-            linhas.push(AVISO_FILA_ENVIADA);
+            const flutuou = avisarFlutuante(AVISO_FILA_ENVIADA, 'ok');
+            if (!flutuou || avisoBatida.dataset.origem === 'guardada') {
+                linhas.push(AVISO_FILA_ENVIADA);
+            }
         }
         parte.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));
         const tom = parte.recusadas.length === 0 ? 'success' : (parte.enviadas > 0 ? 'warning' : 'danger');
@@ -2115,13 +2440,20 @@
         // Ainda no gesto, antes de qualquer `await`: a janelinha do alerta do ponto (navegador minimizado) precisa da
         // permissão, e o Chrome esconde o pedido feito sem clique.
         window.PontoBatida.pedirPermissaoDeNotificacao();
+        // E8: o som do resultado também precisa do gesto (o `AudioContext` nasce ou volta aqui). O do alerta de horário
+        // (js/ponto-alerta-som.js) é outro e continua liberado pela primeira interação com a página.
+        if (window.PontoSons) {
+            window.PontoSons.liberar();
+        }
         if (!tipoRegistro.value) {
             mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
             return;
         }
 
+        // P10 (b): sem a posição, a tela vermelha do desenho; a caixa da localização, acima, continua com o passo a passo.
+        // E12: no toque do trabalho externo, o tipo é o da batida que falhou, e o "Tentar novamente" a refaz externa.
         if (!dispensaLocalizacao && !currentLocation) {
-            mostrarAvisoBatida('A localização é obrigatória para registrar o ponto.', 'warning');
+            mostrarFalhaDoToque(externo !== null ? externo.tipo : tipoRegistro.value, TITULO_SEM_LOCALIZACAO, DETALHE_SEM_LOCALIZACAO, [], externo);
             return;
         }
 
@@ -2134,9 +2466,8 @@
             // E12 (P18): o toque de trabalho externo não para aqui; o servidor decide.
             if (externo === null && onde.situacao === 'fora') {
                 // E12 (P18, desenho L528): o título, o detalhe (a sede mais próxima) e, com a opção do escritório, o botão
-                // do trabalho externo para o tipo deste toque. Nada é enviado.
-                mostrarAvisoBatida('', 'danger');
-                mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(currentLocation), tipoRegistro.value);
+                // do trabalho externo para o tipo deste toque, na tela vermelha da E8 (sem ela, na caixa). Nada é enviado.
+                mostrarForaDoRaioDoToque(foraDoRaioDaTela(currentLocation), tipoRegistro.value, null);
                 return;
             }
         }
@@ -2162,6 +2493,9 @@
             payload.motivoTrabalhoExterno = externo.motivo;
         }
         aplicarConfirmacaoDoAlerta(payload);   // E11: "Registrar assim mesmo" refaz a batida do alerta
+        // E8 (P79): a validação em tela cheia abre já no toque, antes da posição e do envio, com o tipo que vale (o do
+        // alerta confirmado, quando é o "Registrar assim mesmo").
+        iniciarValidacaoDoToque(payload.tipo);
 
         if (!dispensaLocalizacao) {
             let latitude = currentLocation.latitude;
@@ -2231,19 +2565,22 @@
             }
 
             if (resultado.tipo === 'atrasado') {
-                mostrarAvisoBatida(
-                    'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.',
-                    'danger'
-                );
-                reabrirTrabalhoExterno(payload, 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.');
+                // Nada foi enviado: dá para afirmar que não entrou. E12 + E8: a batida externa volta para a janela, com o
+                // texto guardado e o porquê, sem a tela vermelha; a comum vai para a tela vermelha.
+                if (payload.trabalhoExterno === true) {
+                    devolverExternoParaAJanela(payload, AVISO_ATRASADO, false);
+                } else {
+                    mostrarFalhaDoToque(payload.tipo, AVISO_ATRASADO, '');
+                }
             } else if (resultado.tipo === 'sucesso') {
                 sucesso = true;
                 batidaAceita = { tipo: payload.tipo, resposta: resultado.data };
+                registrarBatidaConfirmada(payload.tipo, resultado.data && resultado.data.data);
                 const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];
+                const dadosDaBatida = (resultado.data && resultado.data.data) || {};
+                mostrarBatidaRegistrada(payload.tipo, dadosDaBatida);
                 if (avisos.length > 0) {
                     mostrarSucessoComAvisos(resultado.mensagem, avisos);
-                } else {
-                    mostrarAvisoBatida(resultado.mensagem, 'success');
                 }
                 // Sem `await`: um erro da atualização não pode cair no `catch` abaixo, que diria "sem confirmação"
                 // de uma batida que o servidor confirmou.
@@ -2253,19 +2590,25 @@
                     textoDoTrabalhoExterno = '';
                 }
             } else if (resultado.tipo === 'recusa') {
-                mostrarAvisoBatida(resultado.mensagem, 'danger');
-                // E12: fora do raio (403) ou GPS impreciso (422) trazem `foraDoRaio`, mostrado como o da avaliação local.
-                // O botão do bloco abre a janela para o tipo deste envio.
+                // E12 + E8: fora do raio (403) ou GPS impreciso (422) trazem `foraDoRaio`: a tela vermelha com o título, o
+                // detalhe e, com `trabalhoExterno` true, o botão do trabalho externo para o tipo deste envio (sem a tela
+                // cheia, o bloco da E12 na caixa). A recusa do local e do motivo devolve a batida externa à janela, com a
+                // frase do servidor. As outras recusas: a mensagem do servidor é o título da tela vermelha, sem detalhe.
                 const foraDoRaio = foraDoRaioDaResposta(resultado.data);
                 if (foraDoRaio) {
-                    mostrarForaDoRaio(avisoBatida, foraDoRaio, payload.tipo);
-                } else if (resultado.status === 422 && RECUSAS_DO_TEXTO_EXTERNO.includes(resultado.mensagem)) {
-                    // E12: o servidor recusou o local e o motivo: a janela volta com o texto e a frase dele.
-                    reabrirTrabalhoExterno(payload, resultado.mensagem);
+                    mostrarForaDoRaioDoToque(foraDoRaio, payload.tipo, externo);
+                } else if (payload.trabalhoExterno === true && resultado.status === 422 && RECUSAS_DO_TEXTO_EXTERNO.includes(resultado.mensagem)) {
+                    devolverExternoParaAJanela(payload, resultado.mensagem, false);
+                } else {
+                    mostrarFalhaDoToque(payload.tipo, resultado.mensagem, '', [], externo);
                 }
             } else if (resultado.tipo === 'nao_entrou') {
-                mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
-                reabrirTrabalhoExterno(payload, AVISO_NAO_ENTROU);
+                // E8: fica na caixa, com o "Atualizar" (a sessão pode ter vencido). E12: a externa volta também para a janela.
+                if (payload.trabalhoExterno === true) {
+                    devolverExternoParaAJanela(payload, AVISO_NAO_ENTROU, true);
+                } else {
+                    mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
+                }
             } else if (resultado.tipo === 'sem_rede') {
                 // Sem rede, o botão de atualizar NÃO aparece (ver `AVISO_SEM_REDE`). Chega aqui só sem fila: com ela, a
                 // batida já teria sido guardada acima. E12: a janela do trabalho externo NÃO volta sozinha (a batida pode
@@ -2284,6 +2627,11 @@
             console.error('Falha ao tratar a resposta da batida:', erro);
             mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
         } finally {
+            // E8: sem resultado para a tela cheia (sem rede, sem confirmação, guardada, recusa antes de gravar), a
+            // validação fecha e a resposta fica na caixa de hoje.
+            if (window.PontoTelaCheia) {
+                window.PontoTelaCheia.fecharSeValidando();
+            }
             if (!sucesso) {
                 liberarBotaoBatida();
             }

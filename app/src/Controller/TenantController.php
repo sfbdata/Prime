@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Ponto\UseCase\ApagarLotacoesQueSairamUseCase;
 use App\Ponto\UseCase\RegistrarTrocaDeLotacaoUseCase;
+use App\Ponto\Controller\PontoController;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
@@ -1187,7 +1188,12 @@ final class TenantController extends AbstractController
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
 
-        $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
+        // E8 (P80): de volta à /ponto, o aviso flutuante do desenho; na ficha, o flash de sempre.
+        if ($request->request->get('volta') === 'ponto') {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, PontoController::AVISO_JUSTIFICATIVA_ABONADA);
+        } else {
+            $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
+        }
 
         return $this->voltaDaAnalise($request, $tenantId, $user);
     }
@@ -1264,7 +1270,12 @@ final class TenantController extends AbstractController
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
 
-        $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
+        // E8 (P80): de volta à /ponto, o aviso flutuante vermelho do desenho; na ficha, o flash de sempre.
+        if ($request->request->get('volta') === 'ponto') {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE_ERRO, PontoController::AVISO_JUSTIFICATIVA_RECUSADA);
+        } else {
+            $this->addFlash('success', NomesDasSituacoesDaJustificativa::texto('analise.recusada', (string) $justificativa->getData()?->format('d/m/Y')));
+        }
 
         return $this->voltaDaAnalise($request, $tenantId, $user);
     }

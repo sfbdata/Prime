@@ -121,7 +121,11 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("aviso.link.startsWith('/') && !aviso.link.startsWith('//')", $tela, 'só link interno');
         self::assertStringContainsString('link.textContent = String(aviso.rotulo);', $tela, 'DOM só com textContent');
         $sucesso = substr($tela, (int) strpos($tela, "} else if (resultado.tipo === 'sucesso') {"), 900);
-        self::assertMatchesRegularExpression('/if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\} else \{\s+mostrarAvisoBatida\(resultado\.mensagem, \'success\'\);\s+\}/', $sucesso);
+        // E8: a confirmação vai à tela cheia (ou ao aviso flutuante, com ela desligada) pelo `mostrarBatidaRegistrada`,
+        // com o tipo e a hora gravados pelo servidor (`data`); os avisos do servidor continuam na caixa, com o link.
+        self::assertStringContainsString('const dadosDaBatida = (resultado.data && resultado.data.data) || {};', $sucesso);
+        self::assertMatchesRegularExpression('/mostrarBatidaRegistrada\(payload\.tipo, dadosDaBatida\);\s+if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\}/', $sucesso);
+        self::assertStringNotContainsString("mostrarAvisoBatida(resultado.mensagem, 'success');", $tela, 'o sucesso sem aviso não volta para a caixa');
         // A tela se atualiza sem recarregar (spec ponto-atualiza-sem-recarregar); se a atualização falhar, o plano B
         // (recarregar sozinho) é só do caminho sem aviso.
         self::assertStringContainsString('atualizarDepoisDaBatida(avisos.length === 0);', $sucesso, 'o recarregamento de plano B só sem aviso');

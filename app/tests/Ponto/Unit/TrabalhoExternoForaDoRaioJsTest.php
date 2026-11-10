@@ -131,8 +131,9 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('nomeDaSede.textContent = onde.sede.nome;', $caixa);
         self::assertStringContainsString('`Você está a ${Math.round(onde.distancia)}m de `,', $caixa, 'a distância é a da sede citada');
 
-        // O bloco: a mesma posição e as mesmas sedes, pela mesma função do módulo (textosDoForaDoRaio usa sedeMaisProxima).
-        self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(currentLocation), tipoRegistro.value);', $tela);
+        // O bloco (na tela vermelha da E8 ou, sem ela, na caixa): a mesma posição e as mesmas sedes, pela mesma função do
+        // módulo (textosDoForaDoRaio usa sedeMaisProxima).
+        self::assertStringContainsString('mostrarForaDoRaioDoToque(foraDoRaioDaTela(currentLocation), tipoRegistro.value, null);', $tela);
         self::assertStringContainsString('return PontoBatida.textosDoForaDoRaio(posicao, SEDES, TRABALHO_EXTERNO_PERMITIDO);', self::corpo($tela, 'function foraDoRaioDaTela(posicao) {'));
         self::assertStringContainsString('const maisProxima = sedeMaisProxima(posicao, sedes);', self::corpo(self::modulo(), 'function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {'));
     }
@@ -168,7 +169,13 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString("botao.className = 'pe-fora-externo';", $botao);
         self::assertStringContainsString("botao.type = 'button';", $botao);
         self::assertStringContainsString('abrirJanelaDoTrabalhoExterno(botao, tipo)', $botao, 'abre a janela "Trabalho externo" para o tipo que falhou');
-        self::assertSame(1, substr_count(self::tela(), "'Registrar como trabalho externo'"), 'o botão nasce num lugar só');
+        // Dois lugares: o bloco da caixa (função `ponto-animacao` desligada) e o botão da tela vermelha da E8, os dois só
+        // com `trabalhoExterno` true (ver testBotaoExternoNaTelaVermelha).
+        self::assertSame(2, substr_count(self::tela(), "'Registrar como trabalho externo'"), 'o bloco da caixa e a tela vermelha');
+        self::assertStringContainsString(
+            "'Registrar como trabalho externo'",
+            self::corpo(self::corpo(self::tela(), 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {'), 'if (foraDoRaio.trabalhoExterno === true) {')
+        );
 
         // Nenhum innerHTML da tela recebe o bloco, o motivo ou a resposta do servidor.
         preg_match_all('/\.innerHTML\s*=\s*(.*?);[ \t]*$/ms', self::tela(), $atribuicoes);
@@ -180,7 +187,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         }
     }
 
-    #[TestDox('O "fora" local não envia: escreve o bloco na caixa de hoje e sai antes da fila e do envio; o toque do trabalho externo passa')]
+    #[TestDox('O "fora" local não envia: mostra o bloco (na tela vermelha da E8 ou, sem ela, na caixa de hoje) e sai antes da fila e do envio; o toque do trabalho externo passa')]
     public function testForaLocalNaoEnvia(): void
     {
         $clique = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
@@ -188,10 +195,13 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $ramo = strpos($clique, "if (externo === null && onde.situacao === 'fora') {");
         self::assertIsInt($ramo, 'o toque de trabalho externo não para no "fora" local');
         $corpoDoRamo = self::corpo(substr($clique, $ramo), "if (externo === null && onde.situacao === 'fora') {");
+        // E8: a mesma porta do fora do raio do servidor (`mostrarForaDoRaioDoToque`): a tela vermelha ou, com a função
+        // `ponto-animacao` desligada, o bloco na caixa de hoje (testChaveDesligadaMantemOBlocoNaCaixa). Sem `externo`: este
+        // toque é comum (o externo não passa por aqui).
         self::assertMatchesRegularExpression(
-            "/mostrarAvisoBatida\('', 'danger'\);\s+mostrarForaDoRaio\(avisoBatida, foraDoRaioDaTela\(currentLocation\), tipoRegistro\.value\);\s+return;\s+\}$/",
+            "/\{\s+(?:\/\/[^\n]*\n\s+)*mostrarForaDoRaioDoToque\(foraDoRaioDaTela\(currentLocation\), tipoRegistro\.value, null\);\s+return;\s+\}$/",
             $corpoDoRamo,
-            'o bloco na caixa de hoje (o tom de erro e o botão de atualizar escondido vêm do mostrarAvisoBatida), e sai'
+            'o bloco do fora do raio para o tipo deste toque, e sai'
         );
         self::assertLessThan(strpos($clique, 'PontoBatida.enviarBatida('), $ramo, 'decide antes do envio');
         self::assertLessThan(strpos($clique, 'guardarNaFila(payload)'), $ramo, 'e antes da fila sem internet');
@@ -203,17 +213,21 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('trabalhoExterno: false', $local, 'sem o módulo novo, sem o botão');
     }
 
-    #[TestDox('A recusa do servidor com foraDoRaio (403 fora, 422 GPS impreciso) mostra o mesmo bloco, no ramo da recusa')]
+    #[TestDox('A recusa do servidor com foraDoRaio (403 fora, 422 GPS impreciso) vai à mesma porta do bloco, no ramo da recusa; a recusa do texto externo devolve à janela')]
     public function testRecusaDoServidorMostraOBloco(): void
     {
         $clique = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
 
+        // E8: com foraDoRaio, a tela vermelha (ou o bloco na caixa) do tipo deste envio; a externa recusada de novo fora do
+        // raio leva o `externo` para o "Tentar novamente". A recusa do texto da batida EXTERNA volta para a janela, sem a
+        // tela vermelha. As outras recusas: a frase do servidor como título da tela vermelha.
         self::assertMatchesRegularExpression(
-            "/\} else if \(resultado\.tipo === 'recusa'\) \{\s+mostrarAvisoBatida\(resultado\.mensagem, 'danger'\);\s+(?:\/\/[^\n]*\n\s+)*"
-            . "const foraDoRaio = foraDoRaioDaResposta\(resultado\.data\);\s+if \(foraDoRaio\) \{\s+mostrarForaDoRaio\(avisoBatida, foraDoRaio, payload\.tipo\);\s+\}"
-            . " else if \(resultado\.status === 422 && RECUSAS_DO_TEXTO_EXTERNO\.includes\(resultado\.mensagem\)\) \{\s+(?:\/\/[^\n]*\n\s+)*reabrirTrabalhoExterno\(payload, resultado\.mensagem\);\s+\}\s+\} else if/",
+            "/\} else if \(resultado\.tipo === 'recusa'\) \{\s+(?:\/\/[^\n]*\n\s+)*"
+            . "const foraDoRaio = foraDoRaioDaResposta\(resultado\.data\);\s+if \(foraDoRaio\) \{\s+mostrarForaDoRaioDoToque\(foraDoRaio, payload\.tipo, externo\);\s+\}"
+            . " else if \(payload\.trabalhoExterno === true && resultado\.status === 422 && RECUSAS_DO_TEXTO_EXTERNO\.includes\(resultado\.mensagem\)\) \{\s+devolverExternoParaAJanela\(payload, resultado\.mensagem, false\);\s+\}"
+            . " else \{\s+mostrarFalhaDoToque\(payload\.tipo, resultado\.mensagem, '', \[\], externo\);\s+\}\s+\} else if/",
             $clique,
-            'sem foraDoRaio, a frase do servidor como sempre; com ele, o bloco do tipo deste envio; a recusa do texto reabre a janela'
+            'sem foraDoRaio, a frase do servidor; com ele, o bloco do tipo deste envio; a recusa do texto externo reabre a janela'
         );
         self::assertStringContainsString(
             "return typeof PontoBatida.foraDoRaioDaResposta === 'function' ? PontoBatida.foraDoRaioDaResposta(data) : null;",
@@ -292,9 +306,15 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $clique = self::corpo($tela, "btnPonto.addEventListener('click', async function() {");
 
         // O bloco recebe o tipo do toque que falhou: o local (o escolhido no toque) e o do servidor (o do corpo enviado).
-        self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaioDaTela(currentLocation), tipoRegistro.value);', $clique);
-        self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaio, payload.tipo);', $clique);
-        self::assertSame(2, substr_count($tela, 'mostrarForaDoRaio(avisoBatida,'), 'as duas portas do bloco passam o tipo');
+        // E8: as duas portas vão à mesma função, que leva o tipo à caixa e ao botão da tela vermelha.
+        self::assertStringContainsString('mostrarForaDoRaioDoToque(foraDoRaioDaTela(currentLocation), tipoRegistro.value, null);', $clique);
+        self::assertStringContainsString('mostrarForaDoRaioDoToque(foraDoRaio, payload.tipo, externo);', $clique);
+        self::assertSame(3, substr_count($tela, 'mostrarForaDoRaioDoToque('), 'a declaração e as duas portas');
+        $porta = self::corpo($tela, 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {');
+        self::assertSame(1, substr_count($tela, 'mostrarForaDoRaio(avisoBatida,'), 'a caixa nasce num lugar só');
+        self::assertStringContainsString('mostrarForaDoRaio(avisoBatida, foraDoRaio, tipo);', $porta, 'a caixa com o tipo que falhou');
+        self::assertStringContainsString("abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo)", $porta, 'a tela vermelha com o tipo que falhou');
+        self::assertStringContainsString('mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);', $porta);
 
         // A janela guarda o tipo ao abrir, e o "Registrar" o leva ao toque.
         self::assertStringContainsString('let tipoDoTrabalhoExterno = null;', $tela);
@@ -336,8 +356,11 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
 
         // A janela volta com o texto e o porquê só quando a batida certamente não entrou: atrasado, não entrou e a recusa
         // do texto. Sem rede e sem confirmação, a batida pode ter entrado: fica só o aviso de hoje.
+        // E8: a externa que não entrou não vai para a tela vermelha; `devolverExternoParaAJanela` fecha a validação, diz o
+        // porquê na caixa e reabre a janela (testExternoQueNaoEntrouVoltaParaAJanela). O "não entrou" mantém o "Atualizar".
         self::assertMatchesRegularExpression(
-            "/\\} else if \\(resultado\\.tipo === 'nao_entrou'\\) \\{\\s+mostrarAvisoBatida\\(AVISO_NAO_ENTROU, 'danger', true\\);\\s+reabrirTrabalhoExterno\\(payload, AVISO_NAO_ENTROU\\);\\s+\\}/",
+            "/\\} else if \\(resultado\\.tipo === 'nao_entrou'\\) \\{\\s+(?:\\/\\/[^\\n]*\\n\\s+)*if \\(payload\\.trabalhoExterno === true\\) \\{\\s+devolverExternoParaAJanela\\(payload, AVISO_NAO_ENTROU, true\\);\\s+\\}"
+            . " else \\{\\s+mostrarAvisoBatida\\(AVISO_NAO_ENTROU, 'danger', true\\);\\s+\\}\\s+\\} else if/",
             $clique
         );
         self::assertMatchesRegularExpression(
@@ -351,11 +374,20 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             'sem confirmação (o else da classificação): só o aviso com o Conferir (P11 b), a janela não volta'
         );
         self::assertMatchesRegularExpression(
-            "/if \\(resultado\\.tipo === 'atrasado'\\) \\{\\s+mostrarAvisoBatida\\(\\s+'Demorou demais para enviar e a hora da batida ficaria errada\\. Aperte de novo com a tela ligada\\.',\\s+'danger'\\s+\\);\\s+"
-            . "reabrirTrabalhoExterno\\(payload, 'Demorou demais para enviar e a hora da batida ficaria errada\\. Aperte de novo com a tela ligada\\.'\\);/",
+            "/if \\(resultado\\.tipo === 'atrasado'\\) \\{\\s+(?:\\/\\/[^\\n]*\\n\\s+)*if \\(payload\\.trabalhoExterno === true\\) \\{\\s+devolverExternoParaAJanela\\(payload, AVISO_ATRASADO, false\\);\\s+\\}"
+            . " else \\{\\s+mostrarFalhaDoToque\\(payload\\.tipo, AVISO_ATRASADO, ''\\);\\s+\\}\\s+\\} else if/",
             $clique
         );
-        self::assertSame(4, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e as três respostas');
+        self::assertStringContainsString(
+            "const AVISO_ATRASADO = 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.';",
+            $tela,
+            'o porquê do atraso é o mesmo texto da E12'
+        );
+        self::assertSame(4, substr_count($tela, 'devolverExternoParaAJanela('), 'a função e as três respostas');
+        self::assertSame(2, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e a volta à janela, num lugar só');
+        self::assertStringContainsString('reabrirTrabalhoExterno(payload, porque);', self::corpo($tela, 'function devolverExternoParaAJanela(payload, porque, oferecerAtualizar) {'));
+        self::assertStringNotContainsString('devolverExternoParaAJanela(payload, AVISO_SEM_CONFIRMACAO', $tela, 'sem confirmação a batida pode ter entrado');
+        self::assertStringNotContainsString('devolverExternoParaAJanela(payload, AVISO_SEM_REDE', $tela, 'sem rede também');
         self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO)', $tela, 'sem confirmação a batida pode ter entrado: um Registrar novo, com outro idEnvio, duplicaria');
         self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_REDE)', $tela, 'sem rede também: a batida pode ter entrado');
         self::assertStringContainsString(
@@ -378,6 +410,130 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $abas = self::arquivo('public/js/ponto-abas.js');
         self::assertMatchesRegularExpression('/fundo\\.hidden = false;\\s+janelaAberta = fundo;/', self::corpo($abas, 'function abrirJanela(id, origem) {'), 'abrir tira o hidden');
         self::assertMatchesRegularExpression('/janelaAberta\\.hidden = true;\\s+janelaAberta = null;/', self::corpo($abas, 'function fecharJanela() {'), 'fechar põe o hidden');
+    }
+
+    #[TestDox('E8: fora do raio com trabalhoExterno true, a tela vermelha leva o botão do desenho (L385), que fecha a tela cheia e abre a janela para o tipo que falhou')]
+    public function testBotaoExternoNaTelaVermelha(): void
+    {
+        $tela = self::tela();
+        $porta = self::corpo($tela, 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {');
+
+        self::assertMatchesRegularExpression(
+            '/const botoes = \[\];\s+if \(foraDoRaio\.trabalhoExterno === true\) \{\s+botoes\.push\(\{/',
+            $porta,
+            'o botão só com trabalhoExterno true (o do servidor ou o da opção do escritório, no local)'
+        );
+        $botao = self::corpo($porta, 'if (foraDoRaio.trabalhoExterno === true) {');
+        self::assertStringContainsString("texto: 'Registrar como trabalho externo',", $botao, 'o rótulo do desenho');
+        self::assertStringContainsString("icone: 'bi-briefcase',", $botao, 'a maleta do desenho (L385)');
+        self::assertStringContainsString("classe: 'pe-tc-btn--externo',", $botao, 'o botão de borda branca do desenho');
+        self::assertStringContainsString(
+            "aoClicar: () => abrirJanelaDoTrabalhoExterno(document.getElementById('ponto-registrar-titulo') || btnPonto, tipo),",
+            $botao,
+            'abre a janela "Trabalho externo" com o tipo que falhou; ao fechar, o foco volta ao título do cartão'
+        );
+        self::assertMatchesRegularExpression(
+            '/\}\s+mostrarFalhaDoToque\(tipo, foraDoRaio\.titulo, foraDoRaio\.detalhe, botoes, externo\);\s+\}$/',
+            $porta,
+            'o título e o detalhe do desenho (L528) na tela vermelha, com os botões a mais'
+        );
+        self::assertStringContainsString('botoes: Array.isArray(botoes) ? botoes : [],', self::corpo($tela, 'function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {'));
+
+        // A tela vermelha põe o botão entre o "Tentar novamente" e o "Fechar", com o ícone e a classe dados, e fecha
+        // antes de chamar o `aoClicar` (a janela abre com a tela cheia já fechada).
+        $telaCheia = self::arquivo('public/js/ponto-tela-cheia.js');
+        $aMais = self::corpo($telaCheia, 'function botaoAMais(botao) {');
+        self::assertStringContainsString("el.className = 'pe-tc-btn ' + (botao.classe || 'pe-tc-btn--externo');", $aMais);
+        self::assertStringContainsString("icone.className = 'bi ' + botao.icone;", $aMais);
+        self::assertStringContainsString('el.appendChild(document.createTextNode(String(botao.texto || \'\')));', $aMais, 'o rótulo por texto, nunca por innerHTML');
+        self::assertMatchesRegularExpression("/fechar\(\);\s+if \(typeof botao\.aoClicar === 'function'\) \{\s+botao\.aoClicar\(evento\);/", $aMais);
+        self::assertStringContainsString('fecharBotao.parentNode.insertBefore(botaoAMais(botao), fecharBotao);', self::corpo($telaCheia, 'function erro(dados) {'));
+        self::assertStringContainsString('.pe-tc-btn--externo { border: 1px solid #fff; background: transparent; color: #fff; font-weight: bold; }', self::arquivo('public/css/ponto-eletronico.css'));
+    }
+
+    #[TestDox('E8: a batida externa que com certeza não entrou (atrasada, não entrou, texto recusado) fecha a validação sem resultado e volta para a janela, sem a tela vermelha')]
+    public function testExternoQueNaoEntrouVoltaParaAJanela(): void
+    {
+        $tela = self::tela();
+        $devolver = self::corpo($tela, 'function devolverExternoParaAJanela(payload, porque, oferecerAtualizar) {');
+
+        self::assertMatchesRegularExpression(
+            "/\{\s+if \(window\.PontoTelaCheia\) \{\s+window\.PontoTelaCheia\.fecharSeValidando\(\);\s+\}\s+"
+            . "mostrarAvisoBatida\(porque, 'danger', oferecerAtualizar\);\s+reabrirTrabalhoExterno\(payload, porque\);\s+\}$/",
+            $devolver,
+            'a tela cheia fecha ANTES de a janela abrir (o fechamento levaria o foco para fora dela); a caixa diz o porquê'
+        );
+        foreach (['mostrarFalhaDoToque', '.erro(', 'tocarResultado'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $devolver, 'a externa que não entrou não vai para a tela vermelha: ' . $proibido);
+        }
+
+        // As três respostas, cada uma só para a batida externa; o "Atualizar" só no "não entrou" (a sessão pode ter vencido).
+        $clique = self::corpo($tela, "btnPonto.addEventListener('click', async function() {");
+        self::assertStringContainsString('devolverExternoParaAJanela(payload, AVISO_ATRASADO, false);', $clique);
+        self::assertStringContainsString('devolverExternoParaAJanela(payload, AVISO_NAO_ENTROU, true);', $clique);
+        self::assertStringContainsString('devolverExternoParaAJanela(payload, resultado.mensagem, false);', $clique);
+        self::assertSame(3, preg_match_all('/payload\.trabalhoExterno === true(?: &&[^{]*)?\) \{\s+devolverExternoParaAJanela\(/', $clique), 'só a batida externa volta para a janela');
+
+        // A validação fecha só se ainda estiver na fase de validação, sem resultado na fila (a tela vermelha ou a verde
+        // agendadas seguem).
+        self::assertMatchesRegularExpression(
+            "/if \(fase === 'val' && !resultadoAgendado\) \{\s+fechar\(\);\s+\}/",
+            self::corpo(self::arquivo('public/js/ponto-tela-cheia.js'), 'function fecharSeValidando() {')
+        );
+    }
+
+    #[TestDox('E8: o "Tentar novamente" da batida externa refaz a batida externa, com o mesmo motivo e um envio novo; nunca manda uma batida comum no lugar')]
+    public function testTentarDeNovoDoExternoNuncaViraComum(): void
+    {
+        $tela = self::tela();
+
+        self::assertStringContainsString('aoTentar: () => tentarDeNovo(tipo, externo || null),', self::corpo($tela, 'function mostrarFalhaDoToque(tipo, titulo, detalhe, botoes, externo) {'));
+
+        $tentar = self::corpo($tela, 'function tentarDeNovo(tipo, externo) {');
+        $ramoExterno = strpos($tentar, 'if (externo) {');
+        self::assertIsInt($ramoExterno, 'o "Tentar novamente" sabe que a batida era externa');
+        self::assertMatchesRegularExpression(
+            '/if \(externo\) \{\s+registrarComoTrabalhoExterno\(externo\.motivo, tipo\);\s+return;\s+\}/',
+            $tentar,
+            'refaz pelo mesmo caminho do "Registrar" da janela: o tipo que falhou, o mesmo motivo e um idEnvio novo'
+        );
+        self::assertLessThan(strpos($tentar, 'btnPonto.click();'), $ramoExterno, 'sai antes do toque comum');
+        self::assertLessThan($ramoExterno, strpos($tentar, 'if (!botao || botao.disabled) {'), 'o tipo já batido por outra via continua não sendo enviado');
+
+        // As portas da tela vermelha no toque: as que podem ser de uma batida externa levam o `externo`; a do atraso sem
+        // ele é só a da batida comum (a externa atrasada volta para a janela).
+        $clique = self::corpo($tela, "btnPonto.addEventListener('click', async function() {");
+        preg_match_all('/mostrarFalhaDoToque\([^;]*\);/', $clique, $chamadas);
+        self::assertSame([
+            'mostrarFalhaDoToque(externo !== null ? externo.tipo : tipoRegistro.value, TITULO_SEM_LOCALIZACAO, DETALHE_SEM_LOCALIZACAO, [], externo);',
+            "mostrarFalhaDoToque(payload.tipo, AVISO_ATRASADO, '');",
+            "mostrarFalhaDoToque(payload.tipo, resultado.mensagem, '', [], externo);",
+        ], $chamadas[0]);
+        self::assertMatchesRegularExpression(
+            "/if \(payload\.trabalhoExterno === true\) \{\s+devolverExternoParaAJanela\(payload, AVISO_ATRASADO, false\);\s+\} else \{\s+mostrarFalhaDoToque\(payload\.tipo, AVISO_ATRASADO, ''\);/",
+            $clique
+        );
+        self::assertStringContainsString('mostrarFalhaDoToque(tipo, foraDoRaio.titulo, foraDoRaio.detalhe, botoes, externo);', self::corpo($tela, 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {'));
+    }
+
+    #[TestDox('E8: com a função ponto-animacao desligada (sem a tela cheia), o fora do raio continua no bloco da E12 na caixa de hoje, com o botão do trabalho externo')]
+    public function testChaveDesligadaMantemOBlocoNaCaixa(): void
+    {
+        $tela = self::tela();
+        $porta = self::corpo($tela, 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {');
+
+        self::assertMatchesRegularExpression(
+            "/^function mostrarForaDoRaioDoToque\(foraDoRaio, tipo, externo\) \{\s+if \(!telaCheiaVale\(\)\) \{\s+"
+            . "tocarResultado\('erro'\);\s+mostrarAvisoBatida\('', 'danger'\);\s+mostrarForaDoRaio\(avisoBatida, foraDoRaio, tipo\);\s+return;\s+\}/",
+            $porta,
+            'o bloco (com o botão dele) na caixa de hoje; o aviso flutuante não leva botão, então não é usado aqui'
+        );
+        self::assertStringContainsString(
+            'return ANIMACAO_LIGADA && !!window.PontoTelaCheia && window.PontoTelaCheia.disponivel();',
+            self::corpo($tela, 'function telaCheiaVale() {'),
+            'a chave da função e o módulo carregado'
+        );
+        self::assertStringContainsString('abrirJanelaDoTrabalhoExterno(botao, tipo)', self::corpo($tela, 'function mostrarForaDoRaio(alvo, foraDoRaio, tipo) {'), 'o botão do bloco abre a mesma janela');
     }
 
     #[TestDox('Fila antiga no cache (sem LEVA_TRABALHO_EXTERNO): sem internet antes do envio, não guarda e diz por quê; envio sem resposta, o aviso de sem confirmação')]

@@ -1,0 +1,87 @@
+{#
+    Tela cheia do registro do ponto (E8, P79; desenho 16, L323 a L391, spec docs/specs/ponto-desenho-0811.md). Só existe
+    com a função `ponto-animacao` valendo (Global E Escritório); desligada, o resultado vira o aviso flutuante (P80).
+    Componentes do desenho, sem modal do Bootstrap: anel de 24 barras, cortina verde ou vermelha, os textos e os botões.
+    Medidas, cores e animações em public/css/ponto-eletronico.css (`.pe-tc`); a troca das fases, os tempos, o Esc e o foco
+    em public/js/ponto-tela-cheia.js (`window.PontoTelaCheia`). O texto de cada toque entra pelo JS, só por `textContent`.
+
+    As etapas da validação são as do desenho (L762 a L764): "Localização validada" só com a cerca valendo (geolocalização
+    ligada e sem Home Office hoje). A etapa do facial e o código e o comprovante do sucesso são da E18 e da E15 (fora).
+    A última ("Registro selado", `data-tc-selo`) não tem o atraso no `style`: o JS a marca no tempo dela
+    (`data-tc-selo-em`) só depois de o servidor confirmar.
+
+    Variáveis: `cercaValendo` (bool).
+#}
+{% set etapas = ['Horário oficial confirmado'] %}
+{% if cercaValendo %}
+    {% set etapas = etapas|merge(['Localização validada']) %}
+{% endif %}
+{% set etapas = etapas|merge(['Registro selado']) %}
+{# `VAL_T` do desenho (2.800 ms): as barras acendem em 94% dele, e cada etapa no seu trecho (L760 e L764). #}
+{% set valT = 2800 %}
+<div id="ponto-tela-cheia" class="pe-tc" role="dialog" aria-modal="true" aria-label="Registro de ponto" tabindex="-1" hidden>
+    <div class="pe-tc-fase" data-tc-fase="val" hidden>
+        <div class="pe-tc-val">
+            <div class="pe-tc-anel">
+                {% for i in 0..23 %}
+                    <span class="pe-tc-raio" style="transform: rotate({{ i * 15 }}deg);"><span class="pe-tc-barra pe-tc-barra--on" style="animation-delay: {{ (i / 24 * valT * 0.94)|round }}ms;"></span></span>
+                {% endfor %}
+                <div class="pe-tc-anel-hora" data-tc-hora-val></div>
+            </div>
+            <div aria-live="assertive">
+                <div class="pe-tc-validando">Validando <span data-tc-tipo></span></div>
+                <div class="pe-tc-data" data-tc-data></div>
+            </div>
+            <div class="pe-tc-etapas">
+                {% for etapa in etapas %}
+                    {% if loop.last %}
+                        <span class="pe-tc-etapa pe-tc-etapa--selo pe-tc-mov" data-tc-selo data-tc-selo-em="{{ (valT * 0.94)|round }}"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ etapa }}</span>
+                    {% else %}
+                        <span class="pe-tc-etapa pe-tc-mov" style="animation-delay: {{ (loop.index / etapas|length * valT * 0.94)|round }}ms;"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ etapa }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-tc-fase" data-tc-fase="ok" hidden>
+        <div class="pe-tc-cortina pe-tc-cortina--ok pe-tc-mov"></div>
+        <div class="pe-tc-ok">
+            <div class="pe-tc-ok-corpo">
+                <div class="pe-tc-anel pe-tc-anel--mini">
+                    {% for i in 0..23 %}
+                        <span class="pe-tc-raio" style="transform: rotate({{ i * 15 }}deg);"><span class="pe-tc-barra pe-tc-barra--ok" style="animation-delay: {{ 100 + i * 14 }}ms;"></span></span>
+                    {% endfor %}
+                    <svg class="pe-tc-check" viewBox="0 0 64 64" aria-hidden="true"><path class="pe-tc-traco pe-tc-traco--check pe-tc-mov" d="M12 34 L27 49 L54 17" pathLength="1"></path></svg>
+                </div>
+                <div class="pe-tc-ok-textos pe-tc-mov">
+                    <div class="pe-tc-titulo">Ponto registrado</div>
+                    <div class="pe-tc-ok-hora" data-tc-hora-ok></div>
+                    <div class="pe-tc-ok-tipo"><span data-tc-tipo></span> · <span data-tc-data></span></div>
+                    {% set metPadrao = 'Registrado no sistema' ~ (cercaValendo ? ' · localização validada' : '') %}
+                    {# A batida que já tinha entrado (mesmo envio) troca esta linha pelo texto do sistema (JS, `met`). #}
+                    <div class="pe-tc-ok-met" data-tc-ok-met data-padrao="{{ metPadrao }}">{{ metPadrao }}</div>
+                </div>
+                <div class="pe-tc-botoes pe-tc-botoes--ok pe-tc-mov">
+                    <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-concluir>Concluir</button>
+                </div>
+            </div>
+        </div>
+        <span class="pe-tc-tempo pe-tc-mov" aria-hidden="true"></span>
+    </div>
+
+    <div class="pe-tc-fase" data-tc-fase="erro" hidden>
+        <div class="pe-tc-cortina pe-tc-cortina--erro pe-tc-mov"></div>
+        <div class="pe-tc-erro pe-tc-mov">
+            <svg class="pe-tc-x" viewBox="0 0 64 64" width="110" height="110" aria-hidden="true"><path class="pe-tc-traco pe-tc-traco--x1 pe-tc-mov" d="M14 14 L50 50" pathLength="1"></path><path class="pe-tc-traco pe-tc-traco--x2 pe-tc-mov" d="M50 14 L14 50" pathLength="1"></path></svg>
+            <div class="pe-tc-titulo">Ponto não registrado</div>
+            <div class="pe-tc-erro-titulo" data-tc-erro-titulo></div>
+            <div class="pe-tc-erro-detalhe" data-tc-erro-detalhe></div>
+            {# Os botões a mais (a E12 põe "Registrar como trabalho externo", `.pe-tc-btn--externo`) entram antes do "Fechar". #}
+            <div class="pe-tc-botoes">
+                <button type="button" class="pe-tc-btn pe-tc-btn--tentar" data-tc-tentar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Tentar novamente</button>
+                <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-fechar>Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>

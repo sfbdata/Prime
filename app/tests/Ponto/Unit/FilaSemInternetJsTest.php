@@ -304,7 +304,8 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertStringContainsString("const AVISO_FILA_ENVIADA = 'Batidas sem internet enviadas.';", $tela);
 
         $avisar = self::corpo($tela, 'function avisarResultadoDaFila(parte) {');
-        self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 && !filaTemPendentes\) \{\s+linhas\.push\(AVISO_FILA_ENVIADA\);/', $avisar, 'enviadas só quando esvaziou (pelo estado lido de novo)');
+        // E8: "Batidas sem internet enviadas." é o aviso flutuante do desenho (L438); vai à caixa só sem o módulo dele.
+        self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 && !filaTemPendentes\) \{\s+const flutuou = avisarFlutuante\(AVISO_FILA_ENVIADA, \'ok\'\);\s+if \(!flutuou \|\| avisoBatida\.dataset\.origem === \'guardada\'\) \{\s+linhas\.push\(AVISO_FILA_ENVIADA\);/', $avisar, 'enviadas só quando esvaziou (pelo estado lido de novo)');
         self::assertStringContainsString('parte.recusadas.forEach((recusa) => linhas.push(linhaDaRecusaDaFila(recusa)));', $avisar);
         self::assertMatchesRegularExpression('/if \(parte\.enviadas > 0 \|\| parte\.recusadas\.length > 0\) \{\s+atualizarDepoisDaFila\(\);/', self::corpo($tela, 'function concluirResultadoDaFila(parte) {'), 'a tela se atualiza sem recarregar');
         $escrever = self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {');
@@ -563,7 +564,9 @@ final class FilaSemInternetJsTest extends TestCase
         self::assertSame(1, substr_count($tela, ", 'rodada');"), 'só a rodada marca o aviso como dela');
         self::assertStringContainsString("avisoBatida.dataset.origem === 'rodada'", self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {'));
         self::assertStringNotContainsString("'fila')", $tela);
-        self::assertStringNotContainsString("=== 'guardada'", $tela, 'nada troca o aviso do toque guardado');
+        // Nada troca o aviso do toque guardado. A E8 só o lê para ACRESCENTAR, abaixo dele, a linha das enviadas.
+        self::assertSame(1, substr_count($tela, "=== 'guardada'"), 'nada troca o aviso do toque guardado');
+        self::assertStringContainsString("avisoBatida.dataset.origem === 'guardada'", self::corpo($tela, 'function avisarResultadoDaFila(parte) {'));
     }
 
     #[TestDox('3ª revisão, 3: a limpeza mede a idade pelo relógio do servidor; sem ele, só apaga as que não abrem')]
@@ -708,7 +711,9 @@ final class FilaSemInternetJsTest extends TestCase
         $atualizar = self::corpo($tela, 'async function atualizarTelaDoPonto() {');
 
         self::assertMatchesRegularExpression('/^async function atualizarTelaDoPonto\(\) \{\s+const estaBusca = \+\+ultimaBuscaDaTela;/', $atualizar, 'numerada antes de qualquer espera');
-        $descarta = strpos($atualizar, "if (estaBusca < ultimaBuscaDaTela) {\n            return;\n        }");
+        // E8: a descartada remarca as batidas confirmadas da página antes de sair (o tipo recém-batido não volta livre).
+        self::assertSame(1, preg_match('/if \(estaBusca < ultimaBuscaDaTela\) \{\s+(?:\/\/[^\n]*\n\s+)*aplicarGuardadasNaTela\(\);\s+return;\s+\}/', $atualizar, $achado, \PREG_OFFSET_CAPTURE));
+        $descarta = $achado[0][1];
         $troca = strpos($atualizar, '.replaceWith(');
         self::assertIsInt($descarta, 'descarta toda resposta mais velha que a última busca iniciada');
         self::assertIsInt($troca);
