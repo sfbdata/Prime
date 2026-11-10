@@ -577,7 +577,10 @@
         // que o servidor aplica (o da Jornada do escritório com a validação do repouso ligada; 0 desligada) e o almoço da
         // escala (duração menos meta), com ou sem almoço. Escala 08-12/14-18 (meta 480, mínimo 60): 18:00 antes e no
         // começo do repouso, 18:10 com 2h10 de repouso. Escala de 8h sem almoço e mínimo 60 ligado: 17:00 até 1h de
-        // repouso. Quem chama no repouso passa `agora`, a cada tique do relógio.
+        // repouso. Quem chama no repouso passa `agora`, a cada tique do relógio. No repouso com a meta já coberta até
+        // ele (decisão do Coordenador de 09/11/2026), nenhuma: o aviso mostra só o intervalo (dc L771), em vez de uma
+        // hora já passada que andava com o relógio. Depois do retorno, a conta do intervalo batido dá uma hora fixa e o
+        // aviso segue "Passou da saída prevista".
         function saidaPrevista(agora) {
             if (!tEntrada || metaDiaMinutos <= 0) return null;
             if (!tRepouso) {
@@ -586,6 +589,7 @@
             if (tRetorno && tRetorno > tRepouso) {
                 return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + (tRetorno - tRepouso));
             }
+            if (tRepouso - tEntrada >= metaDiaMinutos * 60000) return null;
             if (duracaoMinutos === null) return null;
             const almocoDaEscalaMs = Math.max(0, duracaoMinutos - metaDiaMinutos) * 60000;
             const pisoMs = Math.max(minimoRepousoMinutos * 60000, almocoDaEscalaMs);

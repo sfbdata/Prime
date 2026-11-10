@@ -296,6 +296,22 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertStringContainsString('saidaPrevista(agora)', $this->corpoDaFuncao('function atualizarAvisoDoDia('));
     }
 
+    #[TestDox('Repouso com a meta já coberta (entrada 08:00, escala 08-12/14-18, repouso 17:30): às 18:30 o aviso não traz "Saída prevista"; depois do retorno a hora é fixa')]
+    public function testSemSaidaPrevistaNoRepousoComAMetaCoberta(): void
+    {
+        $prevista = $this->corpoDaFuncao('function saidaPrevista(agora)');
+        $guarda   = strpos($prevista, 'if (tRepouso - tEntrada >= metaDiaMinutos * 60000) return null;');
+
+        // Sem a guarda, às 18:30 saía "Saída prevista às 18:00." e às 19:45 "18:15.": uma hora passada que andava com
+        // o relógio. Com ela, `saidaPrevista` devolve nulo e os três textos do repouso saem sem a parte da saída.
+        self::assertIsInt($guarda, 'no repouso com a meta coberta, a saída prevista voltou a andar com o relógio');
+        // Depois do retorno, vale a conta do intervalo batido (hora fixa, e o aviso diz "Passou da saída prevista"):
+        // a guarda vem depois desse ramo, e antes do intervalo feito até agora.
+        self::assertGreaterThan((int) strpos($prevista, 'if (tRetorno && tRetorno > tRepouso) {'), $guarda, 'a guarda tirou a previsão de depois do retorno');
+        self::assertLessThan((int) strpos($prevista, 'const feitoMs'), $guarda);
+        self::assertStringContainsString("const saida = previstaNoRepouso ? ' Saída prevista às '", $this->corpoDaFuncao('function atualizarAvisoDoDia('));
+    }
+
     #[TestDox('"se completa em" arredonda para cima, no minuto: 17min50s dá 00:18; os últimos 59 s dão 00:01, nunca 00:00')]
     public function testFaltaDoMinimoArredondaParaCima(): void
     {
