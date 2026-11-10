@@ -57,7 +57,7 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
 
     public const MENSAGEM_DA_PROPRIA_BATIDA = 'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.';
 
-    public const MENSAGEM_EM_ANALISE = 'Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de ajustar ou desconsiderar a batida.';
+    public const MENSAGEM_EM_ANALISE = 'Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de corrigir a batida.';
 
     private function __construct(public readonly string $motivo, string $mensagem)
     {

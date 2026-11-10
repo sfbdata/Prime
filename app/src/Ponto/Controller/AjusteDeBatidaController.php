@@ -13,6 +13,7 @@ use App\Ponto\DTO\RestaurarBatidaInput;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Form\RegistroPontoManualType;
 use App\Ponto\Model\AlvoDoAjuste;
+use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\UseCase\AjustarBatidaUseCase;
@@ -40,8 +41,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * intenção, depois o escopo do filtro no escritório da URL.
  *
  * Recusa do ajuste ({@see AjusteDeBatidaRecusadoException}): batida fora desta folha responde 404; a própria batida de
- * quem não é primário nem Master responde 403 (P43); as outras voltam à ficha com o aviso. Na página "Ajustar batida",
- * o erro de campo (horário futuro, nada a mudar, motivo vazio) volta na própria página, com o que foi digitado.
+ * quem não é primário nem Master responde 403 (P43); as outras voltam à ficha com o aviso. A página "Ajustar batida"
+ * nem abre para a batida desconsiderada ou com a justificativa em análise (C5). Nela, o erro de campo (horário futuro, nada a mudar, motivo vazio) volta na própria página, com o que foi digitado.
  */
 #[Route('/tenant/{tenantId}/user/{id}/ponto', requirements: ['tenantId' => '\d+', 'id' => '\d+'])]
 final class AjusteDeBatidaController extends AbstractController
@@ -64,6 +65,7 @@ final class AjusteDeBatidaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly RegistroPontoRepository $registros,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
+        private readonly JustificativaPontoRepository $justificativas,
     ) {
     }
 
@@ -101,8 +103,9 @@ final class AjusteDeBatidaController extends AbstractController
         $batida = $this->registros->alvoDoAjuste($user, $tenant, $alvo)
             ?? throw $this->createNotFoundException(AjusteDeBatidaRecusadoException::MENSAGEM_NAO_ENCONTRADA);
         $competencia = self::competenciaDaTela($request) ?? $batida->dataHoraAtual?->format('Y-m');
-        if ($batida->desconsiderada()) {
-            $this->addFlash('danger', AjusteDeBatidaRecusadoException::MENSAGEM_MUDOU);
+        $recusa = $this->recusaDaPagina($batida);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
 
             return $this->voltarParaFicha($tenantId, $user, $competencia);
         }
@@ -208,6 +211,16 @@ final class AjusteDeBatidaController extends AbstractController
     }
 
     /** O formulário da página de ajuste, preenchido com a forma que a folha conta agora. */
+    /** O que não deixa a página abrir: a batida fora da conta, ou com a justificativa em análise (C5, já no GET). */
+    private function recusaDaPagina(AlvoDoAjuste $batida): ?string
+    {
+        return match (true) {
+            $batida->desconsiderada() => AjusteDeBatidaRecusadoException::MENSAGEM_MUDOU,
+            $this->justificativas->temEmAnaliseLigadaA($batida) => AjusteDeBatidaRecusadoException::MENSAGEM_EM_ANALISE,
+            default => null,
+        };
+    }
+
     private function formDoAjuste(AlvoDoAjuste $batida, Request $request): FormInterface
     {
         $form = $this->createForm(RegistroPontoManualType::class);

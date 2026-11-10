@@ -469,7 +469,7 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertTrue($this->alvo($alvo)->desconsiderada());
     }
 
-    #[TestDox('C5: a inclusão ligada a um esquecimento em análise (o gestor a restaurou depois que a justificativa voltou para análise) não se ajusta nem se desconsidera pela tela')]
+    #[TestDox('C5: a inclusão ligada a um esquecimento em análise não se ajusta nem se desconsidera pela tela')]
     public function testInclusaoComJustificativaEmAnalise(): void
     {
         $inclusao = $this->inclusaoLigada('pendente');
@@ -495,6 +495,51 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
         self::assertTrue($this->alvo($alvo)->desconsiderada());
     }
 
+    #[TestDox('C5: a batida que o gestor desconsiderou não se restaura enquanto o trabalho externo dela está em análise, e nada é gravado')]
+    public function testRestaurarComTrabalhoExternoEmAnalise(): void
+    {
+        $batida = $this->batida('saida', '2026-10-21 18:00:00');
+        $desconsideracao = $this->desconsiderarPelaTela($batida);
+        $this->justificativaLigada($batida, 'pendente');
+        $antes = [$this->quantosAjustes(), $this->quantosEventos()];
+
+        $motivo = $this->motivoDaRecusa(fn () => $this->restaurarPelaTela($desconsideracao));
+
+        self::assertSame(AjusteDeBatidaRecusadoException::EM_ANALISE, $motivo);
+        self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
+        self::assertTrue($this->alvo('b' . $batida->getId())->desconsiderada(), 'a batida segue fora da conta');
+    }
+
+    #[TestDox('C5: a inclusão que o gestor desconsiderou não se restaura enquanto o esquecimento dela voltou para análise, e nada é gravado')]
+    public function testRestaurarInclusaoComEsquecimentoEmAnalise(): void
+    {
+        $inclusao = $this->inclusaoLigada('abonado');
+        $alvo = 'a' . $inclusao->getId();
+        $desconsideracao = $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, $alvo, $inclusao->getId(), 'Batida em dobro.', $this->gestora));
+        $inclusao->getJustificativa()?->setStatus('pendente');
+        $this->em->flush();
+        $antes = [$this->quantosAjustes(), $this->quantosEventos()];
+
+        $motivo = $this->motivoDaRecusa(fn () => $this->restaurarPelaTela($desconsideracao));
+
+        self::assertSame(AjusteDeBatidaRecusadoException::EM_ANALISE, $motivo);
+        self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
+        self::assertTrue($this->alvo($alvo)->desconsiderada(), 'a inclusão segue fora da conta');
+    }
+
+    #[DataProvider('decididas')]
+    #[TestDox('C5: decidida a justificativa ($_dataName), o Restaurar devolve à conta a batida que o gestor desconsiderou')]
+    public function testDecididaRestaura(string $status): void
+    {
+        $batida = $this->batida('saida', '2026-10-21 18:00:00');
+        $desconsideracao = $this->desconsiderarPelaTela($batida);
+        $this->justificativaLigada($batida, $status);
+
+        $this->restaurarPelaTela($desconsideracao);
+
+        self::assertFalse($this->alvo('b' . $batida->getId())->desconsiderada());
+    }
+
     // ------------------------------------------------------------------------------------------------- apoio
 
     private function incluir(): IncluirBatidaUseCase
@@ -514,7 +559,7 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
 
     private function restaurar(): RestaurarBatidaUseCase
     {
-        return new RestaurarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, static::getContainer()->get(PontoAjusteRepository::class), $this->analiseDaPropria);
+        return new RestaurarBatidaUseCase($this->trilha, $this->gravacao, $this->registros, static::getContainer()->get(PontoAjusteRepository::class), $this->analiseDaPropria, static::getContainer()->get(JustificativaPontoRepository::class));
     }
 
     private function ajustar(string $alvo, ?int $cabeca, string $tipo, string $quando): PontoAjuste
@@ -525,6 +570,11 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
     private function desconsiderarPelaTela(RegistroPonto $batida): PontoAjuste
     {
         return $this->desconsiderar()->executar(DesconsiderarBatidaInput::daTela($this->escritorio, $this->pessoa, 'b' . $batida->getId(), null, 'Batida em dobro.', $this->gestora));
+    }
+
+    private function restaurarPelaTela(PontoAjuste $desconsideracao): PontoAjuste
+    {
+        return $this->restaurar()->executar(new RestaurarBatidaInput($this->escritorio, $this->pessoa, (int) $desconsideracao->getId(), 'Era válida.', $this->gestora));
     }
 
     private function alvo(string $alvo): AlvoDoAjuste
