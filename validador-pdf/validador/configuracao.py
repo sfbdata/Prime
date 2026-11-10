@@ -5,8 +5,11 @@ Tudo que muda entre produção e teste passa por aqui: os testes montam a `Confi
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
+
+log = logging.getLogger('validador.configuracao')
 
 # Teto do corpo (413 acima disso), tempo máximo de uma conferência e fila (seção 2 da spec da etapa 6).
 TETO_DO_PDF = 20 * 1024 * 1024
@@ -24,7 +27,8 @@ GOVBR_URL_DA_CADEIA = 'http://repo.iti.br/docs/Cadeia_GovBr-der.p7b'
 # Raízes aceitas: impressão digital SHA-256 (hexadecimal minúsculo, sem separador) fixada no código (E6-5).
 # Raiz autoassinada que vier no download e não estiver aqui é ignorada; as intermediárias continuam vindo do
 # download, porque o pyHanko confere a cadeia até uma destas raízes. As envs ASSINATURA_VALIDADOR_ICP_SHA256 e
-# ASSINATURA_VALIDADOR_GOVBR_SHA256 acrescentam impressões digitais sem mudar o código (raiz nova do ITI).
+# ASSINATURA_VALIDADOR_GOVBR_SHA256 acrescentam impressões digitais sem mudar o código (raiz nova do ITI), mas
+# nunca recolocam uma das RAIZES_RECUSADAS_SHA256 abaixo.
 #
 # ICP-Brasil: as raízes vigentes listadas em https://www.gov.br/iti/pt-br/assuntos/repositorio/repositorio-ac-raiz,
 # baixadas em 09/11/2026 dos links dessa página (https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv*.crt)
@@ -37,9 +41,7 @@ GOVBR_URL_DA_CADEIA = 'http://repo.iti.br/docs/Cadeia_GovBr-der.p7b'
 # v11 (raiz de certificados de assinatura de código) estão vigentes, mas ficam FORA: um certificado de site ou de
 # código não serve para assinar documento, e aceitar essas raízes deixaria qualquer certificado delas, com uso de
 # chave de assinatura, sair "confiável" num PDF. As ACs delas continuam vindo no pacote, mas sem raiz não fecham
-# cadeia. Não acrescentar de volta (nem pela env):
-#   v10 6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6
-#   v11 1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7
+# cadeia. Ficam em RAIZES_RECUSADAS_SHA256: a env não as recoloca e o pacote nunca as transforma em raiz.
 ICP_RAIZES_SHA256: tuple[str, ...] = (
     'f0c15afd258fb674e7a96e1a50ff873149364b9ec70d4d93c7a9f1eb6060d020',  # Raiz Brasileira v4, até 2035
     'caa53fc6091c6951887c976e378f6ef89aa6377c55d97b6475422b71ed7e9b17',  # Raiz Brasileira v5, até 2029
@@ -57,6 +59,12 @@ GOVBR_RAIZES_SHA256: tuple[str, ...] = (
     '163bd003bc0df2beab88174b6d5b450b6e1dc973a64b2dc2a33218544f49ef4e',  # Raiz do Governo Federal v1, até 2033
 )
 
+# Recusadas no código, nas duas famílias: nem a env nem a lista fixada fazem delas uma raiz (E6-5).
+RAIZES_RECUSADAS_SHA256: frozenset[str] = frozenset({
+    '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6',  # Raiz Brasileira v10 (SSL de servidor)
+    '1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7',  # Raiz Brasileira v11 (assinatura de código)
+})
+
 SELO_PKCS12 = '/run/secrets/selo_pkcs12'
 SELO_SENHA = '/run/secrets/selo_pkcs12_senha'
 
@@ -68,10 +76,12 @@ def _normalizar_impressao_digital(valor: str) -> str:
     return ''.join(c for c in valor.lower() if c in '0123456789abcdef')
 
 
-def _impressoes_digitais(fixadas: tuple[str, ...], da_env: str) -> frozenset[str]:
-    """As fixadas no código mais as da env (lista separada por vírgula, aceita ':' e maiúsculas)."""
-    extras = {_normalizar_impressao_digital(v) for v in da_env.split(',')}
-    return frozenset({_normalizar_impressao_digital(v) for v in fixadas} | extras) - {''}
+def _impressoes_digitais(fixadas: tuple[str, ...], da_env: str, nome_da_env: str) -> frozenset[str]:
+    """As fixadas no código mais as da env (lista separada por vírgula, aceita ':' e maiúsculas), menos as recusadas."""
+    extras = {_normalizar_impressao_digital(v) for v in da_env.split(',')} - {''}
+    for recusada in sorted(extras & RAIZES_RECUSADAS_SHA256):
+        log.warning('%s traz uma raiz recusada no codigo, ignorada: %s', nome_da_env, recusada)
+    return frozenset({_normalizar_impressao_digital(v) for v in fixadas} | extras) - RAIZES_RECUSADAS_SHA256
 
 
 @dataclass(frozen=True)
@@ -87,7 +97,8 @@ class Revogacao:
 
 @dataclass(frozen=True)
 class Configuracao:
-    token: bytes = b''
+    # Fora do repr: a configuração pode aparecer num traceback ou num log de depuração.
+    token: bytes = field(default=b'', repr=False)
     endereco: str = '0.0.0.0'
     porta: int = 8080
     teto_do_pdf: int = TETO_DO_PDF
@@ -117,9 +128,12 @@ class Configuracao:
             icp_url_do_pacote=env.get('ASSINATURA_VALIDADOR_ICP_URL', ICP_URL_DO_PACOTE),
             icp_url_do_hash=env.get('ASSINATURA_VALIDADOR_ICP_HASH_URL', ICP_URL_DO_HASH),
             govbr_url_da_cadeia=env.get('ASSINATURA_VALIDADOR_GOVBR_URL', GOVBR_URL_DA_CADEIA),
-            icp_raizes_sha256=_impressoes_digitais(ICP_RAIZES_SHA256, env.get('ASSINATURA_VALIDADOR_ICP_SHA256', '')),
+            icp_raizes_sha256=_impressoes_digitais(
+                ICP_RAIZES_SHA256, env.get('ASSINATURA_VALIDADOR_ICP_SHA256', ''), 'ASSINATURA_VALIDADOR_ICP_SHA256'
+            ),
             govbr_raizes_sha256=_impressoes_digitais(
-                GOVBR_RAIZES_SHA256, env.get('ASSINATURA_VALIDADOR_GOVBR_SHA256', '')
+                GOVBR_RAIZES_SHA256, env.get('ASSINATURA_VALIDADOR_GOVBR_SHA256', ''),
+                'ASSINATURA_VALIDADOR_GOVBR_SHA256',
             ),
             selo_pkcs12=env.get('ASSINATURA_SELO_PKCS12_CAMINHO', SELO_PKCS12),
             selo_senha=env.get('ASSINATURA_SELO_SENHA_CAMINHO', SELO_SENHA),

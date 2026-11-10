@@ -2,9 +2,10 @@
 
 - ICP-Brasil: `ACcompactado.zip`, conferido pelo `hashsha512.txt` publicado ao lado ANTES de abrir o zip (isso só
   pega corrupção: o hash vem pela mesma conexão HTTP). Só vira raiz o certificado autoassinado (assinatura própria
-  conferida) cuja impressão digital SHA-256 está na lista fixada (`Configuracao.icp_raizes_sha256`); autoassinado
-  fora da lista é ignorado com aviso no log. Os de emissor diferente são intermediárias (o pyHanko confere a cadeia
-  até uma raiz fixada); emissor igual ao titular sem a assinatura própria conferir fica de fora.
+  conferida) cuja impressão digital SHA-256 está na lista fixada (`Configuracao.icp_raizes_sha256`) e fora das
+  recusadas no código (`RAIZES_RECUSADAS_SHA256`, v10 e v11); autoassinado fora da lista é ignorado com aviso no log.
+  Os de emissor diferente são intermediárias (o pyHanko confere a cadeia até uma raiz fixada); emissor igual ao
+  titular sem a assinatura própria conferir fica de fora.
 - gov.br: a cadeia publicada pelo ITI (PKCS#7). Só vira raiz o certificado autoassinado cuja impressão digital
   SHA-256 está na lista fixada (`Configuracao.govbr_raizes_sha256`); lista vazia = nenhuma raiz gov.br e nenhum
   download.
@@ -33,7 +34,12 @@ from asn1crypto import pem as asn1_pem
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding
 
-from .configuracao import INTERVALO_DE_ATUALIZACAO, INTERVALO_DEPOIS_DE_FALHA, Configuracao
+from .configuracao import (
+    INTERVALO_DE_ATUALIZACAO,
+    INTERVALO_DEPOIS_DE_FALHA,
+    RAIZES_RECUSADAS_SHA256,
+    Configuracao,
+)
 
 log = logging.getLogger('validador.ancoras')
 
@@ -107,11 +113,15 @@ def _der(certificado: x509.Certificate) -> bytes:
 
 
 def conferir_pacote_icp(
-    pacote: bytes, conteudo_do_hash: bytes, fixadas: frozenset[str]
+    pacote: bytes,
+    conteudo_do_hash: bytes,
+    fixadas: frozenset[str],
+    recusadas: frozenset[str] = RAIZES_RECUSADAS_SHA256,
 ) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
     """Confere o SHA-512 publicado e separa raízes (autoassinadas e fixadas) de intermediárias.
 
-    Devolve (raízes, intermediárias). Raiz autoassinada fora de `fixadas` não entra nem como intermediária.
+    Devolve (raízes, intermediárias). Raiz autoassinada fora de `fixadas`, ou em `recusadas` (mesmo que esteja em
+    `fixadas`), não entra nem como intermediária.
     """
     try:
         esperado = conteudo_do_hash.decode('ascii').split()[0].lower()
@@ -151,6 +161,10 @@ def conferir_pacote_icp(
                     impressao = sha256_hex(der)
                     if classe == INTERMEDIARIA:
                         intermediarias[impressao] = der
+                    elif impressao in recusadas:
+                        if impressao not in ignoradas:
+                            ignoradas.add(impressao)
+                            log.info('raiz icp recusada no codigo ignorada: %s', impressao)
                     elif impressao in fixadas:
                         raizes[impressao] = der
                     elif impressao not in ignoradas:
@@ -166,8 +180,11 @@ def conferir_pacote_icp(
     return tuple(raizes.values()), tuple(intermediarias.values())
 
 
-def conferir_cadeia_govbr(cadeia: bytes, fixadas: frozenset[str]) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
-    """Raiz só com impressão digital fixada e assinatura própria conferida; o resto vira intermediária."""
+def conferir_cadeia_govbr(
+    cadeia: bytes, fixadas: frozenset[str], recusadas: frozenset[str] = RAIZES_RECUSADAS_SHA256
+) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
+    """Raiz só com impressão digital fixada (e não recusada) e assinatura própria conferida; os de emissor
+    diferente viram intermediárias."""
     # O p7b do ITI não é DER estrito (ordem do SET): lido pelo asn1crypto, que aceita BER.
     try:
         if cadeia.lstrip().startswith(b'-----BEGIN'):
@@ -186,7 +203,7 @@ def conferir_cadeia_govbr(cadeia: bytes, fixadas: frozenset[str]) -> tuple[tuple
         classe = _classificar(certificado)
         der = _der(certificado)
         impressao = sha256_hex(der)
-        if classe == RAIZ and impressao in fixadas:
+        if classe == RAIZ and impressao in fixadas and impressao not in recusadas:
             raizes[impressao] = der
         elif classe == INTERMEDIARIA:
             intermediarias[impressao] = der

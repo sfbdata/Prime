@@ -24,7 +24,13 @@ from validador.ancoras import (
     conferir_pacote_icp,
     sha256_hex,
 )
-from validador.configuracao import GOVBR_RAIZES_SHA256, ICP_RAIZES_SHA256, Configuracao, Revogacao
+from validador.configuracao import (
+    GOVBR_RAIZES_SHA256,
+    ICP_RAIZES_SHA256,
+    RAIZES_RECUSADAS_SHA256,
+    Configuracao,
+    Revogacao,
+)
 
 from . import pdfs, pki
 
@@ -276,10 +282,8 @@ def test_raiz_do_pacote_fora_da_lista_fixada_nao_vira_ancora(cadeias, caplog):
 
 
 # Raízes ICP-Brasil vigentes que ficam fora por confiança mínima: v10 (SSL) e v11 (assinatura de código).
-RAIZES_RETIRADAS = {
-    '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6',
-    '1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7',
-}
+V10 = '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6'
+V11 = '1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7'
 
 
 def test_cadeia_sob_raiz_retirada_sai_nao_confiavel(cadeias):
@@ -315,7 +319,8 @@ def test_raizes_fixadas_no_codigo_sao_sha256_e_valem_por_padrao():
     for impressao in ICP_RAIZES_SHA256 + GOVBR_RAIZES_SHA256:
         assert re.fullmatch(r'[0-9a-f]{64}', impressao)
     assert len(set(ICP_RAIZES_SHA256)) == len(ICP_RAIZES_SHA256) == 6
-    assert not RAIZES_RETIRADAS & set(ICP_RAIZES_SHA256)
+    assert RAIZES_RECUSADAS_SHA256 == {V10, V11}
+    assert not RAIZES_RECUSADAS_SHA256 & set(ICP_RAIZES_SHA256 + GOVBR_RAIZES_SHA256)
     assert len(GOVBR_RAIZES_SHA256) == 1
     padrao = Configuracao()
     assert padrao.icp_raizes_sha256 == frozenset(ICP_RAIZES_SHA256)
@@ -333,3 +338,43 @@ def test_impressoes_digitais_extras_pela_env():
     assert configuracao_do_ambiente.token == b'abc'
     assert configuracao_do_ambiente.govbr_raizes_sha256 == frozenset(GOVBR_RAIZES_SHA256) | {'aabb' + 'cc' * 30}
     assert configuracao_do_ambiente.icp_raizes_sha256 == frozenset(ICP_RAIZES_SHA256) | {'dd' * 32}
+
+
+def test_env_nao_recoloca_raiz_recusada_no_codigo(caplog):
+    with caplog.at_level(logging.WARNING, logger='validador.configuracao'):
+        configuracao_do_ambiente = Configuracao.do_ambiente({
+            'ASSINATURA_VALIDADOR_ICP_SHA256': f'{V10.upper()},{V11}',
+            'ASSINATURA_VALIDADOR_GOVBR_SHA256': ':'.join(V10[i:i + 2] for i in range(0, 64, 2)),
+        })
+
+    assert configuracao_do_ambiente.icp_raizes_sha256 == frozenset(ICP_RAIZES_SHA256)
+    assert configuracao_do_ambiente.govbr_raizes_sha256 == frozenset(GOVBR_RAIZES_SHA256)
+    assert f'ASSINATURA_VALIDADOR_ICP_SHA256 traz uma raiz recusada no codigo, ignorada: {V10}' in caplog.text
+    assert f'ASSINATURA_VALIDADOR_ICP_SHA256 traz uma raiz recusada no codigo, ignorada: {V11}' in caplog.text
+    assert f'ASSINATURA_VALIDADOR_GOVBR_SHA256 traz uma raiz recusada no codigo, ignorada: {V10}' in caplog.text
+
+
+def test_raiz_recusada_nao_vira_raiz_nem_estando_na_lista_fixada(cadeias):
+    # Não dá para fabricar um certificado com a impressão digital da v10; a raiz de teste faz o papel dela.
+    raiz_ssl = pki.criar_raiz('AC Raiz Teste SSL')
+    recusada = sha256_hex(raiz_ssl.der)
+    pacote = zip_de({'ICP-Brasilv5.crt': cadeias['raiz'].pem, 'ICP-Brasilv10.crt': raiz_ssl.pem})
+    fixadas = frozenset({sha256_hex(cadeias['raiz'].der), recusada})
+
+    raizes, intermediarias = conferir_pacote_icp(pacote, hash_de(pacote), fixadas, recusadas=frozenset({recusada}))
+
+    assert [sha256_hex(d) for d in raizes] == [sha256_hex(cadeias['raiz'].der)]
+    assert intermediarias == ()
+    sozinha = zip_de({'ICP-Brasilv10.crt': raiz_ssl.pem})
+    with pytest.raises(AncoraRecusada, match='pacote_sem_raiz_fixada'):
+        conferir_pacote_icp(sozinha, hash_de(sozinha), fixadas, recusadas=frozenset({recusada}))
+    with pytest.raises(AncoraRecusada, match='cadeia_govbr_sem_raiz_fixada'):
+        conferir_cadeia_govbr(p7b_de(raiz_ssl), frozenset({recusada}), recusadas=frozenset({recusada}))
+
+
+def test_token_fora_do_repr_da_configuracao():
+    configuracao = Configuracao(token=b'token-secreto-do-validador')
+
+    assert 'token-secreto-do-validador' not in repr(configuracao)
+    assert 'token=' not in repr(configuracao)
+    assert configuracao.token == b'token-secreto-do-validador'
