@@ -1287,7 +1287,10 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
      nova emissão.
   3. "Alterada depois do aceite": compara o resumo gravado na emissão vista no aceite com a folha de agora, dia a dia
      (data, batidas, trabalhado, extra, saldo, observações com ajuste, feriado, sequência, incompleto e situação da
-     justificativa) e os totais. Ficam fora a hora da emissão, o código, o emissor e o próprio aceite.
+     justificativa) e os totais do mês (horas trabalhadas, extras, dias incompletos e a revisar). Ficam fora a hora da
+     emissão, o código, o emissor e o próprio aceite, e também o saldo do banco anterior e o atual, as horas a compensar
+     e o controle de intervalos, que mudam com outro mês ou com a configuração do escritório: o aceite é sobre os
+     registros do mês (anotado no pacote jurídico).
   4. A alteração aparece como um selo "Alterada depois do aceite" no molde do selo da barra, fundo `#a3232b`, no lugar
      do "Assinada em"; o "Assinar folha" volta (decisão 1).
   5. PDF em imagem: a página é desenhada com GD e as peças da imagem da E15 e embrulhada num PDF de uma página escrito
@@ -1295,7 +1298,8 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   6. O XLSX não leva código BJF (planilha editável): só troca "(pendente)" por "(em análise)" pela tabela de nomes
      (P40, chave `folha.pendente`).
   7. Abono parcial no PDF mantém o horário (função do sistema): "Tipo (parcial: 09:00 às 12:00)".
-  8. CPF e CTPS mascarados como no desenho (`***.547.725-**`). Vai ao pacote jurídico.
+  8. CPF e CTPS mascarados como no desenho (`***.547.725-**`). Vai ao pacote jurídico. CPF fora do formato e CTPS com
+     4 caracteres ou menos ficam vazios (mascarar mostraria o que a máscara esconde).
   9. Pessoa sem código de funcionário: a célula fica vazia no PDF selado (hoje sai o próximo código livre do
      escritório, que não é da pessoa).
   10. Ficha do gestor (mesmo parcial da folha): mostra só o selo do aceite, sem o botão.
@@ -1306,7 +1310,10 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
       o código da folha vista: a trilha não guarda o texto da ressalva. O texto selado fica guardado na linha
       (`dados_assinados`, `DadosDoAceiteDaFolha`, formato 1), como na folha e no comprovante. A folha e o aceite usam a
       mesma chave `ponto-folha`; o campo `tipo` do texto (`folha` ou `aceite-folha`) separa um do outro, e o texto de
-      um não passa no leitor do outro. A folha também sela o id do escritório.
+      um não passa no leitor do outro. A folha também sela o id do escritório. Com o segredo, o aceite só vale (selo da
+      barra, carimbo, "não alterado" e selado na folha nova) se o HMAC dele conferir, o código da folha vista selado nele
+      for o da folha ligada e as colunas forem iguais ao texto selado; qualquer falha conta como "alterada depois do
+      aceite" e o "Assinar folha" volta. Sem o segredo, o aceite já gravado aparece sem conferência.
   15. Aviso flutuante (L266): a E16 cria o molde para o "Baixar PDF" (o JS lê o código da resposta) e o aceite usa o
       envio normal com o aviso do topo, como a E4. Se a E8 já tiver o aviso flutuante, usa-se o dela.
   16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
@@ -1320,6 +1327,14 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
   20. "ajustada em dd/mm" (L622) depende da E10: a E16 deixa o gancho e liga quando a E10 entrar.
   21. Rótulo do selo no PDF: "HMAC-SHA256", igual ao comprovante (o desenho diz "SHA-256", L700).
+  22. Resumo do PDF (L626): "incompletos" conta os dias cuja linha mostra "Registro incompleto" e "a revisar" os que
+      mostram "Horário fora de sequência: revisar"; nunca os dois no mesmo dia. Desvio do desenho (⚠): o dia de duas
+      batidas sem intervalo continua apurado como hoje (jornada sem intervalo, função do sistema); o desenho o conta como
+      incompleto.
+  23. Feriado no PDF: aparece em todo dia de feriado do mês ("Feriado: nome" e "FERIADO", L612, L622, L678), também em
+      dia futuro, antes do início da contagem ou sem jornada, sem mudar o cálculo das horas.
+  24. Aceite com competência fora do calendário é recusado com "Este mês não está na sua folha de ponto.". O número do
+      aceite sai da mesma leitura que decide se a pessoa pode assinar, e o índice único segura o duplo envio.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
