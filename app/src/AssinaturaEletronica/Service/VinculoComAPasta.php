@@ -195,11 +195,32 @@ final class VinculoComAPasta
         }, fn (): array => $this->arquivos->chavesNovas($arquivo), ArquivoAssinadoNaPasta::CONTEXTO);
     }
 
+    /**
+     * O erro vai para o log depois da decisão tomada na trava: como erro só quando o vínculo foi mesmo desfeito; relido
+     * já aplicado, com o PDF final guardado ou noutra pasta, como aviso, para o log não dizer que ele não foi para a pasta.
+     */
     private function falharComErro(DocumentoParaAssinar $documento, ?Pasta $pasta, string $motivo, \Throwable $erro, bool $semPdfGuardado = false): bool
     {
-        $this->logger->error('Vínculo da assinatura: documento {id} não foi para a pasta ({motivo}): {erro}', ['id' => $documento->getId(), 'motivo' => $motivo, 'erro' => $erro->getMessage()]);
+        $contexto = ['id' => $documento->getId(), 'motivo' => $motivo, 'erro' => $erro->getMessage()];
+        if ($this->desfazer($documento, $pasta, $motivo, $semPdfGuardado)) {
+            $this->logger->error('Vínculo da assinatura: documento {id} não foi para a pasta ({motivo}): {erro}', $contexto);
+        } else {
+            $this->logger->warning('Vínculo da assinatura: documento {id} com erro ({motivo}), mas o vínculo não foi desfeito (relido na trava): {erro}', $contexto);
+        }
 
-        return $this->falhar($documento, $pasta, $motivo, $semPdfGuardado);
+        return !$documento->isVinculoPendente() && $documento->getPasta() !== null;
+    }
+
+    /**
+     * @param Pasta|null $pastaDaTentativa a pasta lida no começo da tentativa (nula quando já tinha sido apagada)
+     *
+     * @return bool verdadeiro só quando, relido, o documento já está na pasta (aplicado por outro processo)
+     */
+    private function falhar(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo): bool
+    {
+        $this->desfazer($documento, $pastaDaTentativa, $motivo);
+
+        return !$documento->isVinculoPendente() && $documento->getPasta() !== null;
     }
 
     /**
@@ -210,25 +231,26 @@ final class VinculoComAPasta
      * @param Pasta|null $pastaDaTentativa a pasta lida no começo da tentativa (nula quando já tinha sido apagada)
      * @param bool       $semPdfGuardado   a falha é a falta do PDF final: relido já com ele guardado, nada é desfeito
      *
-     * @return bool verdadeiro só quando, relido, o documento já está na pasta (aplicado por outro processo)
+     * @return bool verdadeiro só quando gravou o "não aplicado" e desfez o vínculo
      */
-    private function falhar(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo, bool $semPdfGuardado = false): bool
+    private function desfazer(DocumentoParaAssinar $documento, ?Pasta $pastaDaTentativa, string $motivo, bool $semPdfGuardado = false): bool
     {
         $texto = $this->tradutor->trans('assinatura_eletronica.vinculo_motivo.' . $motivo);
-        $this->documentos->emTransacao(function () use ($documento, $pastaDaTentativa, $texto, $semPdfGuardado): void {
+
+        return (bool) $this->documentos->emTransacao(function () use ($documento, $pastaDaTentativa, $texto, $semPdfGuardado): bool {
             if (!$this->documentos->travarERecarregar($documento, $documento->getTenant())
                 || !$documento->isVinculoPendente()
                 || $documento->getPasta()?->getId() !== $pastaDaTentativa?->getId()
                 || ($semPdfGuardado && ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null)) {
-                return;
+                return false;
             }
             $nup = $documento->getPasta()?->getNup() ?? $this->nupDaTrilha($documento);
             $quemVinculou = $documento->getVinculadoPor();
             $this->trilha->acrescentar($documento, TipoDeEvento::VinculoNaoAplicado, ['nup' => $nup, 'motivo' => $texto], $quemVinculou);
             $documento->descartarVinculoNaoAplicado();
-        });
 
-        return !$documento->isVinculoPendente() && $documento->getPasta() !== null;
+            return true;
+        });
     }
 
     /** A pasta apagada de vez (SET NULL) não tem mais número: vale o do último evento de vínculo. */

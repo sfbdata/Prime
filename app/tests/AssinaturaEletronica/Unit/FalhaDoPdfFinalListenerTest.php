@@ -85,7 +85,7 @@ final class FalhaDoPdfFinalListenerTest extends TestCase
         self::assertSame([], $this->logger->doNivel('error'), 'sem erro falso de PDF indisponível no log');
     }
 
-    #[TestDox('PDF final guardado só na trava da falha: nada é desfeito, o vínculo segue pendente para o evento do PDF guardado')]
+    #[TestDox('PDF final guardado só na trava da falha: nada é desfeito, o vínculo segue pendente para o evento do PDF guardado, e o log só avisa')]
     public function testPdfGuardadoNaTravaDaFalha(): void
     {
         $documento = $this->pendenteQueConcluiu();
@@ -104,6 +104,10 @@ final class FalhaDoPdfFinalListenerTest extends TestCase
         self::assertSame(42, $documento->getPasta()?->getId());
         self::assertSame($antes, $this->tiposGravados(), 'sem "vínculo não aplicado"');
         self::assertSame([], $this->naPasta);
+        self::assertSame([], $this->logger->doNivel('error'), 'sem "não foi para a pasta" no log: o vínculo segue');
+        $avisos = $this->logger->doNivel('warning');
+        self::assertCount(1, $avisos, 'o erro do worker fica no log como aviso');
+        self::assertSame('a gravação do worker falhou', $avisos[0]['contexto']['erro'] ?? null);
     }
 
     #[TestDox('vínculo pendente de documento ainda aguardando: nada muda')]
