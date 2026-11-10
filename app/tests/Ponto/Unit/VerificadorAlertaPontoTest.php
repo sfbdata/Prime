@@ -127,6 +127,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testAlertaAviso6hCltApos6HorasContínuasSemRepouso(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();   // dia da escala, fora da janela de ±5 min do repouso: vale o das 6 horas
         $this->registroRepository->method('findBatidasDoDia')->willReturn([
             $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
         ]);
