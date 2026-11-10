@@ -16,6 +16,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * O PDF final com selo do documento concluído (contrato da etapa 3, seção 2, item 7; E3-4): guardado uma vez, em
@@ -26,7 +27,12 @@ use Psr\EventDispatcher\EventDispatcherInterface;
  * Falha antes do COMMIT: a {@see \App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo} apaga o arquivo novo. Dois
  * pedidos ao mesmo tempo (o worker e o primeiro download): o segundo encontra a chave do primeiro depois da trava,
  * apaga o próprio arquivo pela {@see RemocaoAposTransacao} (que registra no log o que não sair) e devolve a chave
- * guardada. Depois do COMMIT de quem guardou, {@see PdfFinalGuardado} é despachado (o vínculo à pasta ouve).
+ * guardada. Depois do COMMIT de quem guardou, {@see PdfFinalGuardado} é despachado (o vínculo à pasta ouve); a falha
+ * de quem ouve vai para o log e não impede de devolver o PDF já guardado.
+ *
+ * Tempo: o PDF é gerado inteiro e guardado antes de entregar (os bytes entregues são os guardados: o hash final e o
+ * selo assinam o arquivo inteiro). Acima de umas 100 páginas (cerca de 1,2 s por página), o primeiro clique pode dar
+ * 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o guardado.
  */
 final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
 {
@@ -38,6 +44,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
         private DocumentoParaAssinarRepository $documentos,
         private RemocaoAposTransacao $remocao,
         private EventDispatcherInterface $eventos,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -63,9 +70,22 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
             return ChavesDeAssinaturaEletronica::pdfFinal($doc) ?? throw new \LogicException('PDF final guardado sem chave.');
         }
 
-        $this->eventos->dispatch(new PdfFinalGuardado((int) $doc->getId()));
+        $this->avisarQueGuardou($doc);
 
         return $nova;
+    }
+
+    /** Depois do COMMIT: o PDF já está guardado, então a falha de quem ouve só vai para o log. */
+    private function avisarQueGuardou(DocumentoParaAssinar $doc): void
+    {
+        try {
+            $this->eventos->dispatch(new PdfFinalGuardado((int) $doc->getId()));
+        } catch (\Throwable $e) {
+            $this->logger->error('Falha de quem ouve o PDF final guardado do documento {documento}: {erro}', [
+                'documento' => $doc->getId(),
+                'erro' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** @return array{ChaveDeArquivo, string} a chave gravada e o sha256 do arquivo */

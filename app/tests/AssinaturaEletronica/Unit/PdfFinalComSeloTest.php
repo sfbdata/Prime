@@ -45,6 +45,8 @@ final class PdfFinalComSeloTest extends TestCase
     /** @var list<object> */
     private array $ouvidos = [];
 
+    private bool $ouvinteQueFalha = false;
+
     protected function setUp(): void
     {
         FolhaDeTeste::exigirFontes($this);
@@ -68,6 +70,21 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertEquals($chave, $this->servico()->garantir($documento));
         self::assertCount(1, $this->disco->gravadas, 'gerado uma vez só');
         self::assertCount(1, $this->ouvidos);
+    }
+
+    #[TestDox('quem ouve PdfFinalGuardado falha depois do COMMIT: o PDF continua guardado e a chave volta; a falha vai para o log')]
+    public function testOuvinteQueFalhaNaoImpedeAEntrega(): void
+    {
+        $documento = $this->concluido();
+        $this->ouvinteQueFalha = true;
+
+        $chave = $this->servico()->garantir($documento);
+
+        self::assertSame($chave->nome, $documento->getArquivoFinalChave());
+        self::assertTrue($this->disco->existe($chave));
+        $erros = $this->logger->doNivel('error');
+        self::assertCount(1, $erros);
+        self::assertSame(['documento' => 1, 'erro' => 'ouvinte quebrado'], $erros[0]['contexto']);
     }
 
     #[TestDox('já guardado: devolve a chave guardada sem gerar nem avisar')]
@@ -158,7 +175,13 @@ final class PdfFinalComSeloTest extends TestCase
             $this->ouvidos[] = $evento;
         });
 
-        return new PdfFinalComSelo($this->pdfDaAssinatura(), $this->disco, $this->documentos, new RemocaoAposTransacao($this->disco, $this->logger), $eventos);
+        if ($this->ouvinteQueFalha) {
+            $eventos->addListener(PdfFinalGuardado::class, static function (): void {
+                throw new \RuntimeException('ouvinte quebrado');
+            });
+        }
+
+        return new PdfFinalComSelo($this->pdfDaAssinatura(), $this->disco, $this->documentos, new RemocaoAposTransacao($this->disco, $this->logger), $eventos, $this->logger);
     }
 
     /** O documento enviado, com código e as duas assinaturas (rubricas no disco): concluído. */
