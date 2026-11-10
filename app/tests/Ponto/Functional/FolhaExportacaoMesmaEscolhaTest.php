@@ -13,19 +13,13 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
-use App\Ponto\Repository\FeriadoRepository;
-use App\Ponto\Repository\JornadaColaboradorRepository;
-use App\Ponto\Repository\JustificativaPontoRepository;
-use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\DadosDaFolhaExportada;
-use App\Ponto\Service\FolhaPontoBuilder;
-use App\Ponto\Service\InicioContagemResolver;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Ponto\Support\DesenhoDaFolhaEspiao;
 use Doctrine\ORM\EntityManagerInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Twig\Environment;
 
 /**
  * O PDF e o XLSX imprimem a MESMA batida e os MESMOS minutos que a folha da tela — e não anunciam
@@ -84,6 +78,9 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
     public function testPdfRecebeAMesmaEscolhaDaFolha(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        // O PDF é a página desenhada em imagem (E16): o que ele mostra é o conteúdo que chega ao desenho.
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
         [$tenant, $colaborador, $dia] = $this->cenario();
 
         $this->logarComTenant($client, $colaborador, $tenant);
@@ -91,49 +88,17 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/pdf');
 
-        // O Dompdf comprime o texto e codifica por glifo; o que dá para ler é o HTML que ele recebe.
-        // Ele é montado aqui com EXATAMENTE os passos de `PontoController::exportarFolhaPdf` (mesmos
-        // repositórios, resolvedor do início da contagem, jornada do escritório, feriados e
-        // justificativas) e o mesmo `DadosDaFolhaExportada::montar` (pelo contêiner, como no HorasPagasTotalAssinadoTest).
-        $container = static::getContainer();
-        $builder = $container->get(FolhaPontoBuilder::class);
-        $ano = (int) $dia->format('Y');
-        $mes = (int) $dia->format('n');
-        $jornada = $container->get(JornadaColaboradorRepository::class)->findByUserETenant($colaborador, $tenant);
-        $feriados = $container->get(FeriadoRepository::class)->findByTenant($tenant);
-        $justificativas = $container->get(JustificativaPontoRepository::class)->findByUserAndCompetenciaIndexed($colaborador, $tenant, $ano, $mes);
-        $jornadaTenant = $tenant->getJornadaTenant();
-        $inicioContagem = $container->get(InicioContagemResolver::class)->resolver($colaborador, $tenant);
-        $inicio = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
-        $rows = $builder->buildRows(
-            $inicio,
-            $inicio->modify('last day of this month')->setTime(23, 59, 59),
-            $container->get(RegistroPontoRepository::class)->findByUserAndCompetencia($colaborador, $tenant, $ano, $mes),
-            true,
-            false,
-            $jornada,
-            $feriados,
-            $justificativas,
-            $jornadaTenant,
-            $inicioContagem,
-        );
-        $dados = $container->get(DadosDaFolhaExportada::class)
-            ->montar($colaborador, $tenant, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $inicioContagem);
-
         $linha = null;
-        foreach ($dados['folhaRows'] as $row) {
-            if ($row['chaveDia'] === $dia->format('Y-m-d')) {
-                $linha = $row;
+        foreach ($desenho->ultimo()->linhas as $candidata) {
+            if ($candidata->data === $dia->format('Y-m-d')) {
+                $linha = $candidata;
             }
         }
         self::assertNotNull($linha);
-        self::assertSame('09:07:00', $linha['repouso']);
-        self::assertSame('6:07', $linha['horasTrabalhadas']);
-
-        $html = $container->get(Environment::class)->render('ponto/folha_pdf.html.twig', $dados);
-        self::assertStringContainsString('<td>09:07</td>', $html, 'o PDF imprime o repouso escolhido');
-        self::assertStringNotContainsString('12:13', $html, 'e não imprime o que ficou fora da conta');
-        self::assertStringNotContainsStringIgnoringCase('a conferir', $html, 'o PDF assinado não anuncia a marca');
+        self::assertSame('09:07', $linha->batidas[1], 'o PDF imprime o repouso escolhido');
+        self::assertSame('6:07', $linha->trabalhadas);
+        self::assertStringNotContainsString('12:13', $desenho->textoDoUltimo(), 'e não imprime o que ficou fora da conta');
+        self::assertStringNotContainsStringIgnoringCase('a conferir', $desenho->textoDoUltimo(), 'o PDF assinado não anuncia a marca');
     }
 
     /** @return array{0: Tenant, 1: User, 2: \DateTimeImmutable} */

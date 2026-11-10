@@ -11,6 +11,7 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Ponto\Support\DesenhoDaFolhaEspiao;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -83,6 +84,8 @@ final class FolhaMesmaJornadaEmTodaParteTest extends JusPrimeWebTestCase
     #[TestDox('Sem jornada pessoal: o PDF assinado traz o mesmo banco do XLSX, com as faltas')]
     public function testPdfTrazOMesmoBanco(): void
     {
+        // O PDF é a página desenhada em imagem (E16): o que ele mostra é o conteúdo que chega ao desenho.
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
         $this->logarComTenant($this->client, $this->eu, $this->escritorio);
         [, , $atualXlsx] = $this->xlsx();
         $this->client->request('GET', sprintf('/ponto/exportar-folha-pdf?mes=%d&ano=%d', (int) $this->mes->format('n'), (int) $this->mes->format('Y')));
@@ -91,11 +94,7 @@ final class FolhaMesmaJornadaEmTodaParteTest extends JusPrimeWebTestCase
         self::assertLessThan(0, $atualXlsx, 'controle');
         $absoluto = abs($atualXlsx);
         $valor = sprintf('%s%d:%02d', $atualXlsx < 0 ? '-' : '+', intdiv($absoluto, 60), $absoluto % 60);
-        self::assertMatchesRegularExpression(
-            sprintf('/\(Saldo do Banco de Horas Atual:\)\] TJ ET\s+BT [^\[]*\[\(\s*%s\)\] TJ/', preg_quote($valor, '/')),
-            $this->textoDoPdf((string) $this->client->getInternalResponse()->getContent()),
-            'o valor logo depois do rótulo',
-        );
+        self::assertSame($valor, $desenho->ultimo()->resumo->saldoAtual, 'o "Saldo do Banco de Horas Atual" do PDF');
     }
 
     /**
@@ -161,18 +160,6 @@ final class FolhaMesmaJornadaEmTodaParteTest extends JusPrimeWebTestCase
         $minutos = (int) $partes[2] * 60 + (int) (($partes[3] ?? '') . ($partes[4] ?? ''));
 
         return $partes[1] === '-' ? -$minutos : $minutos;
-    }
-
-    /** O texto das páginas do PDF: o Dompdf comprime cada uma (FlateDecode), e a Helvetica deixa o texto legível. */
-    private function textoDoPdf(string $pdf): string
-    {
-        preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $pdf, $blocos);
-        $texto = '';
-        foreach ($blocos[1] as $bloco) {
-            $texto .= (string) @gzuncompress($bloco);
-        }
-
-        return $texto;
     }
 
     private function horasPagas(int $minutos): void

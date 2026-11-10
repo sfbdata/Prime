@@ -71,11 +71,11 @@ use App\Service\Tenant\TenantContext;
 use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\DadosDaFolhaExportada;
+use App\Ponto\DTO\PdfDaFolhaOutput;
+use App\Ponto\UseCase\GerarPdfDaFolhaUseCase;
 use App\Ponto\Service\VerificadorAlertaPonto;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -88,8 +88,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Twig\Environment;
 
 #[Route('/ponto')]
 final class PontoController extends AbstractController
@@ -98,6 +99,9 @@ final class PontoController extends AbstractController
 
     /** Abas do cartão da direita, na ordem do desenho (L758); a primeira abre ao entrar (P37). As das etapas seguintes vêm depois. */
     private const ABAS_DO_CARTAO = ['pendencias', 'justificativas', 'comprovantes', 'banco', 'equipe', 'auditoria', 'configuracoes'];
+
+    /** O limite `ponto_folha_pdf` estourado (429). */
+    public const MUITOS_PEDIDOS_DE_FOLHA = 'Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.';
 
     /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
     private const RESPOSTA_DA_RECUSA = [
@@ -1439,90 +1443,74 @@ final class PontoController extends AbstractController
         return ($hSai * 60 + $mSai) - ($hEnt * 60 + $mEnt);
     }
 
+    /**
+     * A folha do mês em PDF (E16): o "Ver PDF" (`inline=1`, P89) e o "Baixar PDF". Cada PDF é uma emissão com código BJF
+     * próprio (decisão 2), devolvido no cabeçalho `X-Codigo-Folha` para o aviso da tela; sem o segredo do HMAC, sai sem
+     * código e sem o cabeçalho. Quem pode: a pessoa; a folha de outro colaborador, quem tem vínculo ativo com ele e
+     * `admin.users.manage`, ou o Master. O desenho custa CPU e memória: 10 PDFs por minuto por usuário (`ponto_folha_pdf`).
+     */
     #[Route('/exportar-folha-pdf', name: 'ponto_exportar_pdf')]
     public function exportarFolhaPdf(
         Request $request,
-        RegistroPontoRepository $repository,
-        FeriadoRepository $feriadoRepository,
-        JustificativaPontoRepository $justificativaRepository,
-        FolhaPontoBuilder $folhaPontoBuilder,
-        DadosDaFolhaExportada $dadosDaFolha,
+        GerarPdfDaFolhaUseCase $gerarPdf,
         UserRepository $userRepository,
-        Environment $twig
+        RateLimiterFactoryInterface $pontoFolhaPdfLimiter,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
-
-        $targetUser = $user;
-        $targetUserId = (int) $request->query->get('userId', 0);
-
-        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
-            $targetUser = $userRepository->find($targetUserId);
-            if ($targetUser === null) {
-                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
-            }
-
-            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-
-            if (!$isSuperAdmin && !(
-                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
-                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
-            )) {
-                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
-            }
+        $pessoa = $this->pessoaDaFolhaExportada($request, $user, $tenant, $userRepository);
+        if (!$pontoFolhaPdfLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            return new Response(self::MUITOS_PEDIDOS_DE_FOLHA, Response::HTTP_TOO_MANY_REQUESTS, ['Content-Type' => 'text/plain; charset=UTF-8']);
         }
 
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
-
-        /** @var list<MarcacaoDoPonto> $batidas as efetivas (E10) */
-        $batidas = $repository->findByUserAndCompetencia($targetUser, $tenant, $ano, $mes);
-        $feriados = $feriadoRepository->findByTenant($tenant);
-        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $tenant, $ano, $mes);
-        $jornadaTenantPdf = $tenant->getJornadaTenant();
-
-        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
-        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        // Cada dia usa a versão da jornada que valia nele; o cabeçalho, a do último dia do mês (spec ponto-jornada-vigencia §3.2).
-        // As linhas usam a jornada da folha da /ponto e do banco (E17): sem versão no dia, a do escritório.
-        $jornada   = $this->jornadas->historicoDe($targetUser, $tenant)?->vigenteEm($fimMes);
-        $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $folhaPontoBuilder->jornadaDaFolha($targetUser, $tenant), $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
-
-        $nomeUsuario = trim((string) $targetUser->getFullName());
-        if ($nomeUsuario === '') {
-            $nomeUsuario = (string) $targetUser->getUserIdentifier();
+        try {
+            $folha = $gerarPdf->executar($tenant, $pessoa, $ano, $mes, $user);
+        } catch (\InvalidArgumentException) {
+            throw new BadRequestHttpException('Competência inválida.');
         }
 
-        $dados = $dadosDaFolha->montar($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $inicioContagemPdf);
+        return new Response($folha->pdf, Response::HTTP_OK, $this->cabecalhosDoPdf($folha, $request->query->getBoolean('inline', false)));
+    }
 
-        $html = $twig->render('ponto/folha_pdf.html.twig', $dados);
+    /** A pessoa da folha: quem pede, ou o `userId` de outro colaborador, com a mesma permissão de hoje (P89). */
+    private function pessoaDaFolhaExportada(Request $request, User $user, Tenant $tenant, UserRepository $userRepository): User
+    {
+        $targetUserId = (int) $request->query->get('userId', 0);
+        if ($targetUserId <= 0 || $targetUserId === (int) $user->getId()) {
+            return $user;
+        }
+        $targetUser = $userRepository->find($targetUserId);
+        if ($targetUser === null) {
+            throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+        }
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        if (!$isSuperAdmin && !(
+            $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
+            && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
+        )) {
+            throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
+        }
 
-        $options = new Options();
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('isRemoteEnabled', false);
+        return $targetUser;
+    }
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
+    /** @return array<string, string> */
+    private function cabecalhosDoPdf(PdfDaFolhaOutput $folha, bool $inline): array
+    {
+        $cabecalhos = [
+            'Content-Type'           => 'application/pdf',
+            'Content-Disposition'    => sprintf('%s; filename="%s"', $inline ? 'inline' : 'attachment', $folha->nomeDoArquivo),
+            'Cache-Control'          => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+        if ($folha->codigo !== null) {
+            $cabecalhos['X-Codigo-Folha'] = $folha->codigo;
+        }
 
-        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', NomeDoArquivoDaFolha::doPdf((string) $dados['nomeUsuario']), $mes, $ano);
-
-        $inline = $request->query->getBoolean('inline', false);
-        $disposition = $inline
-            ? sprintf('inline; filename="%s"', $nomeArquivo)
-            : sprintf('attachment; filename="%s"', $nomeArquivo);
-
-        return new Response(
-            $dompdf->output(),
-            200,
-            [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => $disposition,
-            ]
-        );
+        return $cabecalhos;
     }
 
     #[Route('/exportar-folha-xlsx', name: 'ponto_exportar_xlsx')]

@@ -51,6 +51,13 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Folha do ponto em PDF (GET /ponto/exportar-folha-pdf, "Ver PDF" e "Baixar PDF"): chave = usuário. Cada PDF
+        # desenha a página no GD (cerca de 1 s de CPU e 50 MB de memória) e, com o segredo do HMAC, grava uma folha
+        # emitida com código próprio (E16, decisão 2); 10 por minuto cobre ver e baixar de novo e põe teto no laço.
+        ponto_folha_pdf:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10
