@@ -610,8 +610,9 @@
     function entrarSign() {
         const w = s.w, m = modelo(w.mod);
         if (w.sign.length) { return w.sign; }
-        // Campo vazio vira texto vazio (e não a linha "____________" do desenho): o e-mail é conferido no servidor.
-        const sign = m ? m.sign.filter(x => cond(x.se, w.c)).map(x => ({ nome: res(x.nome, w.c, 'vazio').trim(), email: res(x.email, w.c, 'vazio').trim(), cpf: '', papel: x.papel, nivel: 'simples' })) : [sigVazio()];
+        // Campo do cliente vazio: o nome vem com a linha "____________" do desenho (L372), para ser preenchido; o e-mail
+        // fica vazio, porque o servidor só aceita e-mail válido, até no "Salvar rascunho" (decisão de 09/11/2026).
+        const sign = m ? m.sign.filter(x => cond(x.se, w.c)).map(x => ({ nome: res(x.nome, w.c).trim(), email: res(x.email, w.c, 'vazio').trim(), cpf: '', papel: x.papel, nivel: 'simples' })) : [sigVazio()];
         if (m && w.c.cpf && sign[0]) { sign[0].cpf = w.c.cpf; }
         return sign;
     }
@@ -779,7 +780,8 @@
        aparece na linha de erro do assistente. Se o envio for recusado, o rascunho já salvo continua sendo o mesmo. */
     function enviar(botao) {
         const w = s.w, destino = w.rasc ? comId(url.salvar, w.rasc) : url.criar;
-        if (w.sign.some(x => !String(x.nome || '').trim())) { erroW(T('p3.nomes')); return; }
+        // Nome só de sublinhados (a linha que o modelo põe no campo vazio) conta como vazio.
+        if (w.sign.some(x => !String(x.nome || '').replace(/_/g, '').trim())) { erroW(T('p3.nomes')); return; }
         if (w.sign.some(x => x.cpf && !cpfOk(x.cpf))) { erroW(T('p3.cpf_invalido')); return; }
         if (!destino || !url.enviar) { return; }
         gravar(destino, botao, async r => {

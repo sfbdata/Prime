@@ -62,6 +62,20 @@ final class AssistenteDaAssinaturaJsTest extends TestCase
         self::assertStringContainsString("if (!manterAba) { s.aba = 'docs'; }", $this->funcao('irParaLista'));
     }
 
+    #[TestDox('Signatário do modelo com o campo vazio: nome "____________" (L372), e-mail vazio; nome só de sublinhados conta como vazio')]
+    public function testSignatarioDoModeloComCampoVazio(): void
+    {
+        $entrar = $this->funcao('entrarSign');
+        self::assertStringContainsString('nome: res(x.nome, w.c).trim()', $entrar, 'a linha do desenho no nome');
+        self::assertStringContainsString("email: res(x.email, w.c, 'vazio').trim()", $entrar, 'o e-mail inválido travaria até o rascunho');
+        self::assertStringContainsString("return modo === 'vazio' ? '' : modo ? '\\u0001____________\\u0002' : '____________';", $this->funcao('res'));
+
+        self::assertStringContainsString(
+            "if (w.sign.some(x => !String(x.nome || '').replace(/_/g, '').trim())) { erroW(T('p3.nomes')); return; }",
+            $this->js(),
+        );
+    }
+
     #[TestDox('"Alterar logo" aceita qualquer imagem (desenho L180); o canvas a converte em PNG')]
     public function testLogoAceitaQualquerImagem(): void
     {
