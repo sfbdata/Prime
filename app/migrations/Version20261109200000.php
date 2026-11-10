@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * `feriado.lotacao_id` opcional. Vazia (todos os feriados que já existem), o feriado vale para todo o escritório, como
  * antes: nenhuma folha muda. Com uma lotação, vale só para quem tem aquela lotação no escritório do feriado.
  *
- * ON DELETE NO ACTION (decisão do Coordenador de 09/11/2026): a lotação com feriado ou com histórico não é apagada.
+ * ON DELETE NO ACTION (decisão do Coordenador de 09/11/2026): a lotação com feriado não é apagada.
  * CASCADE apagaria os feriados dela e mudaria os meses passados (quem não bateu no feriado passaria a ter falta); SET
  * NULL os faria valer para todo o escritório. A tela recusa antes (`ApagarLotacoesQueSairamUseCase`); a chave é a
  * segunda defesa. NO ACTION, e não RESTRICT: confere no fim do comando, então uma exclusão em cascata que leve a
@@ -24,8 +24,9 @@ use Doctrine\Migrations\AbstractMigration;
  * valer no dia para quem tinha aquela lotação NAQUELE dia (a E16 terá aceite mensal: a folha do passado não muda por
  * troca de cadastro). A migration cria uma versão inicial por `user_tenant`, com a lotação de hoje e
  * `vale_a_partir_de` nulo (vale desde sempre). Como nenhum feriado tem lotação antes desta migration, nada muda no
- * passado na virada. `user_tenant.lotacao_id` continua sendo a lotação de hoje. A chave da versão para a lotação também
- * é NO ACTION: a lotação que alguém já teve no histórico não é apagada.
+ * passado na virada. `user_tenant.lotacao_id` continua sendo a lotação de hoje. Apagar uma lotação (só a sem feriado se
+ * apaga) deixa as versões dela sem lotação (ON DELETE SET NULL): no Ponto, lotação sem feriado e "sem lotação" dão o
+ * mesmo resultado, então a folha do passado continua igual.
  *
  * **Aditiva:** uma coluna e uma tabela novas. O down recusa quando alguma pessoa já trocou de lotação (há versão com
  * data), para não apagar o histórico em silêncio, e quando há feriado de uma lotação (sem a coluna ele passaria a valer
@@ -36,7 +37,7 @@ final class Version20261109200000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Ponto: abrangência do feriado por lotação (feriado.lotacao_id; a lotação com feriado ou histórico não se apaga) e lotação com vigência (lotacao_vigencia)';
+        return 'Ponto: abrangência do feriado por lotação (feriado.lotacao_id; a lotação com feriado não se apaga) e lotação com vigência (lotacao_vigencia)';
     }
 
     public function up(Schema $schema): void
@@ -52,7 +53,7 @@ final class Version20261109200000 extends AbstractMigration
         $this->addSql('CREATE INDEX idx_lotacao_vigencia_vinculo ON lotacao_vigencia (user_id, tenant_id)');
         $this->addSql('CREATE UNIQUE INDEX uq_lotacao_vigencia_dia ON lotacao_vigencia (user_id, tenant_id, vale_a_partir_de) WHERE (vale_a_partir_de IS NOT NULL)');
         $this->addSql('CREATE UNIQUE INDEX uq_lotacao_vigencia_inicial ON lotacao_vigencia (user_id, tenant_id) WHERE (vale_a_partir_de IS NULL)');
-        $this->addSql('ALTER TABLE lotacao_vigencia ADD CONSTRAINT FK_2889A82C7E27C2B8 FOREIGN KEY (lotacao_id) REFERENCES lotacao (id) NOT DEFERRABLE');
+        $this->addSql('ALTER TABLE lotacao_vigencia ADD CONSTRAINT FK_2889A82C7E27C2B8 FOREIGN KEY (lotacao_id) REFERENCES lotacao (id) ON DELETE SET NULL NOT DEFERRABLE');
         $this->addSql('ALTER TABLE lotacao_vigencia ADD CONSTRAINT FK_2889A82CA76ED395 FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE lotacao_vigencia ADD CONSTRAINT FK_2889A82C9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) ON DELETE CASCADE NOT DEFERRABLE');
         // A versão inicial de cada vínculo: a lotação de hoje, valendo desde sempre.

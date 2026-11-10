@@ -177,6 +177,33 @@ final class LotacaoComVigenciaTest extends KernelTestCase
         self::assertSame('Emancipação de Alagoas', $this->linhaDoDia($this->diaDeMaceio)['nomeFeriado'] ?? null, 'o feriado de Maceió continua valendo lá');
     }
 
+    #[TestDox('(g) Apagar a lotação sem feriado que a pessoa tinha no mês passado: a versão fica sem lotação e o mês passado fica igual')]
+    public function testApagarLotacaoSemFeriadoDoHistorico(): void
+    {
+        $this->semOFeriadoDeBrasilia();
+        $recife = $this->lotacao('RECIFE/PE', $this->escritorio);
+        $hoje = new \DateTimeImmutable('today');
+        // Ana era de Recife (sem feriado) até ontem; hoje é de Maceió. Um feriado de "Todas as sedes" pesa no saldo.
+        $this->feriado('Padroeira', $this->diaDeBrasilia, null);
+        $ana = $this->em()->find(User::class, $this->ana->getId());
+        $escritorio = $this->em()->find(Tenant::class, $this->escritorio->getId());
+        $this->em()->persist(LotacaoComVigencia::inicial($ana, $escritorio, $this->em()->find(Lotacao::class, $recife->getId())));
+        $this->em()->persist(LotacaoComVigencia::aPartirDe($ana, $escritorio, $this->em()->find(Lotacao::class, $this->maceio->getId()), $hoje));
+        $this->em()->flush();
+        $saldoAntes = $this->saldoDoMesPassado();
+        self::assertNotSame($saldoAntes, $this->saldoDoMesPassado([]), 'o feriado de todas as sedes pesa no saldo');
+        self::assertFalse($this->linhaDoDia($this->diaDeMaceio)['isFeriado'] ?? false, 'no mês passado ela era de Recife');
+
+        $this->em()->getConnection()->executeStatement('DELETE FROM lotacao WHERE id = ?', [$recife->getId()]);
+        $this->em()->clear();
+        static::getContainer()->get(FeriadosDaPessoa::class)->reset();
+
+        self::assertSame([[null, null], [$hoje->format('Y-m-d'), $this->maceio->getId()]], $this->versoes($this->ana, $this->escritorio), 'a versão de Recife fica sem lotação');
+        self::assertSame($saldoAntes, $this->saldoDoMesPassado(), 'o banco do mês passado fica igual');
+        self::assertFalse($this->linhaDoDia($this->diaDeMaceio)['isFeriado'] ?? false, 'o feriado de Maceió continua sem valer no mês passado');
+        self::assertSame('Padroeira', $this->linhaDoDia($this->diaDeBrasilia)['nomeFeriado'] ?? null, 'o de todas as sedes continua valendo');
+    }
+
     // ----------------------------------------------------------------- apoio
 
     /** Tira o feriado de Brasília: com ele, a vigência quebrada só trocaria o feriado de dia e o saldo sairia igual. */
@@ -229,11 +256,12 @@ final class LotacaoComVigenciaTest extends KernelTestCase
         return $lotacao;
     }
 
-    private function feriado(string $nome, \DateTimeImmutable $dia, Lotacao $lotacao, ?Tenant $escritorio = null): Feriado
+    /** @param ?Lotacao $lotacao nula: "Todas as sedes" */
+    private function feriado(string $nome, \DateTimeImmutable $dia, ?Lotacao $lotacao, ?Tenant $escritorio = null): Feriado
     {
         $feriado = (new Feriado())->setNome($nome)->setData(\DateTime::createFromImmutable($dia))->setRecorrente(false)
             ->setTenant($this->em()->find(Tenant::class, ($escritorio ?? $this->escritorio)->getId()))
-            ->setLotacao($this->em()->find(Lotacao::class, $lotacao->getId()));
+            ->setLotacao($lotacao !== null ? $this->em()->find(Lotacao::class, $lotacao->getId()) : null);
         $this->em()->persist($feriado);
         $this->em()->flush();
 

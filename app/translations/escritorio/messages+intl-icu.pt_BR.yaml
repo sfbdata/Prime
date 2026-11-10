@@ -202,8 +202,8 @@ escritorio:
         nome_atualizado: Nome do Tenant atualizado com sucesso!
         cargos_atualizados: Cargos atualizados com sucesso!
         lotacoes_atualizadas: Lotações atualizadas com sucesso!
-        # E6 do Ponto: a lotação com feriado ou com histórico de lotação não se apaga (o passado não muda).
-        lotacao_com_historico: Esta lotação tem feriados ou histórico no Ponto e não pode ser apagada.
+        # E6 do Ponto: a lotação com feriado não se apaga (os meses passados continuam com o feriado dela).
+        lotacao_com_feriado: Esta lotação tem feriados no Ponto e não pode ser apagada.
         escritorio_criado: Escritório criado com sucesso. Você já está dentro dele.
         escritorio_excluido: Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.
         confirmacao_nao_confere: A confirmação não confere com o nome do escritório.

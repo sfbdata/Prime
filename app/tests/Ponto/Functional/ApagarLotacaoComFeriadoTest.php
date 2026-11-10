@@ -20,22 +20,24 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
  * Apagar lotação na aba "Lotações" da edição do escritório (spec `docs/specs/ponto-desenho-0811.md`, E6: decisão do
- * Coordenador de 09/11/2026). A lotação com feriado ou com versão no histórico de lotações do Ponto não é apagada,
- * porque os meses passados mudariam; a tela avisa com a frase da recusa e o resto do envio continua valendo. A lotação
- * sem nada apaga como antes.
+ * Coordenador de 09/11/2026). A lotação com feriado não é apagada, porque os meses passados mudariam; a tela avisa
+ * com a frase da recusa e o resto do envio continua valendo. A sem feriado apaga como antes, mesmo se estiver no
+ * histórico de lotações: a versão fica sem lotação (lotação sem feriado e "sem lotação" dão o mesmo resultado no Ponto;
+ * o banco do mês passado igual está em `LotacaoComVigenciaTest`).
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(ApagarLotacoesQueSairamUseCase::class)]
 #[Group('ponto')]
-final class ApagarLotacaoComHistoricoTest extends JusPrimeWebTestCase
+final class ApagarLotacaoComFeriadoTest extends JusPrimeWebTestCase
 {
     use CriaEscritorioSemProcessoTrait;
 
-    private const RECUSA = 'Esta lotação tem feriados ou histórico no Ponto e não pode ser apagada.';
+    private const RECUSA = 'Esta lotação tem feriados no Ponto e não pode ser apagada.';
 
     private KernelBrowser $client;
     private Tenant $tenant;
     private User $paula;
+    private User $carla;
     private Lotacao $maceio;
     private Lotacao $brasilia;
     private Lotacao $recife;
@@ -45,7 +47,7 @@ final class ApagarLotacaoComHistoricoTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->tenant = $this->novoEscritorio();
         $this->paula = $this->novaPessoa($this->tenant, 'Paula Primária', $this->novoPerfil($this->tenant, true));
-        $carla = $this->novaPessoa($this->tenant, 'Carla', $this->novoPerfil($this->tenant, false));
+        $this->carla = $this->novaPessoa($this->tenant, 'Carla', $this->novoPerfil($this->tenant, false));
         $this->maceio = $this->novaLotacao('MACEIÓ/AL');
         $this->brasilia = $this->novaLotacao('BRASÍLIA/DF');
         $this->recife = $this->novaLotacao('RECIFE/PE');
@@ -53,8 +55,8 @@ final class ApagarLotacaoComHistoricoTest extends JusPrimeWebTestCase
         // Maceió tem um feriado. Brasília está só no histórico: era a lotação de Carla, que hoje ficou sem lotação.
         $this->em()->persist((new Feriado())->setNome('Emancipação de Alagoas')->setData(new \DateTime('2026-09-16'))
             ->setRecorrente(true)->setTenant($this->tenant)->setLotacao($this->maceio));
-        $this->em()->persist(LotacaoComVigencia::inicial($carla, $this->tenant, $this->brasilia));
-        $this->em()->persist(LotacaoComVigencia::aPartirDe($carla, $this->tenant, null, new \DateTimeImmutable('today')));
+        $this->em()->persist(LotacaoComVigencia::inicial($this->carla, $this->tenant, $this->brasilia));
+        $this->em()->persist(LotacaoComVigencia::aPartirDe($this->carla, $this->tenant, null, new \DateTimeImmutable('today')));
         $this->em()->flush();
     }
 
@@ -68,14 +70,23 @@ final class ApagarLotacaoComHistoricoTest extends JusPrimeWebTestCase
         self::assertSame([$this->maceio->getId()], $this->lotacoesDoFeriado(), 'o feriado continua com a lotação');
     }
 
-    #[TestDox('Apagar a lotação que está no histórico de alguém é recusado com a frase; a lotação e o histórico ficam')]
-    public function testComHistoricoERecusada(): void
+    #[TestDox('A lotação sem feriado que está no histórico de alguém apaga; as versões dela ficam sem lotação')]
+    public function testComHistoricoSemFeriadoApaga(): void
     {
         $this->salvarSem(['BRASÍLIA/DF']);
 
-        $this->assertRecusada();
-        self::assertSame(['BRASÍLIA/DF', 'MACEIÓ/AL', 'RECIFE/PE'], $this->nomesNoBanco());
-        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM lotacao_vigencia WHERE lotacao_id = ?', [$this->brasilia->getId()]));
+        self::assertResponseRedirects();
+        $this->client->followRedirect();
+        self::assertSelectorTextNotContains('body', self::RECUSA);
+        self::assertSame(['MACEIÓ/AL', 'RECIFE/PE'], $this->nomesNoBanco());
+        self::assertSame(
+            [[null, null], [(new \DateTimeImmutable('today'))->format('Y-m-d'), null]],
+            array_map(static fn (array $v): array => [$v['vale_a_partir_de'], $v['lotacao_id']], $this->em()->getConnection()->fetchAllAssociative(
+                'SELECT vale_a_partir_de, lotacao_id FROM lotacao_vigencia WHERE user_id = ? AND tenant_id = ? ORDER BY vale_a_partir_de NULLS FIRST',
+                [$this->carla->getId(), $this->tenant->getId()],
+            )),
+            'as duas versões de Carla ficam; a de Brasília passa a sem lotação',
+        );
     }
 
     #[TestDox('A lotação sem feriado nem histórico apaga como antes, sem a frase da recusa')]
@@ -112,13 +123,11 @@ final class ApagarLotacaoComHistoricoTest extends JusPrimeWebTestCase
         $this->client->followRedirect();
         self::assertSelectorTextContains('body', self::RECUSA);
         $this->em()->clear();
-        foreach ([$this->maceio, $this->brasilia] as $lotacao) {
-            self::assertSame(
-                $this->tenant->getId(),
-                (int) $this->em()->getConnection()->fetchOne('SELECT tenant_id FROM lotacao WHERE id = ?', [$lotacao->getId()]),
-                'a lotação com feriado ou histórico continua no escritório',
-            );
-        }
+        self::assertSame(
+            $this->tenant->getId(),
+            (int) $this->em()->getConnection()->fetchOne('SELECT tenant_id FROM lotacao WHERE id = ?', [$this->maceio->getId()]),
+            'a lotação com feriado continua no escritório',
+        );
     }
 
     /**
