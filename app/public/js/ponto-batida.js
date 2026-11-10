@@ -109,9 +109,9 @@
             // tem raio grande o bastante para a pessoa estar dentro. Olhar só a mais próxima
             // bloquearia quem o servidor aceitaria — a tela ficaria mais rígida que a regra.
             //
-            // A sede CITADA na mensagem e a decisiva, nao a mais perto em metros: mandar a
-            // pessoa olhar para a sede errada e conselho ruim, e com raios diferentes elas
-            // divergem. Medido por fuzz: aconteceria em 10% dos bloqueios.
+            // A sede DEVOLVIDA aqui é a decisiva (com raios diferentes, ela e a mais perto em metros
+            // divergem). Ela decide o `fora` e é a que o atalho do cabeçalho cita. A tela do ponto, desde a
+            // E12, CITA a mais próxima em metros (`sedeMaisProxima`), como o servidor e o desenho (L528).
             if ((distancia - sede.raio) < menorExcedente) {
                 menorExcedente = distancia - sede.raio;
                 decisiva = sede;

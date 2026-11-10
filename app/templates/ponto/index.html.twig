@@ -1303,14 +1303,27 @@
         campo.focus();
     }
 
-    // A batida externa não se completou e com certeza não entrou (atrasada, não entrou, sem rede e sem fila, ou o
-    // servidor recusou o texto): a janela volta com o texto guardado, o tipo da batida e o porquê. Sem confirmação, não
-    // volta (a batida pode ter entrado). Toque comum: nada.
+    // A batida externa com certeza não entrou (atrasada, que nem saiu; recusada antes de gravar; ou o servidor recusou o
+    // texto): a janela volta com o texto guardado, o tipo da batida e o porquê. Sem confirmação e sem rede, não volta: a
+    // batida pode ter entrado, e um "Registrar" novo, com outro `idEnvio`, a duplicaria. Também não volta por cima de
+    // outra janela do Ponto aberta. Nos dois casos o texto fica guardado, e a janela aberta pelo botão vem com ele.
     function reabrirTrabalhoExterno(payload, porque) {
-        if (payload.trabalhoExterno !== true) {
+        if (payload.trabalhoExterno !== true || haJanelaDoPontoAberta()) {
             return;
         }
         abrirJanelaDoTrabalhoExterno(btnPonto, payload.tipo, porque);
+    }
+
+    // A janela aberta pelo `PontoAbas` (o `janelaAberta` de js/ponto-abas.js, que o módulo não expõe) é a única
+    // `.pe-janela-fundo` sem `hidden`: ele tira o `hidden` ao abrir e o põe ao fechar.
+    function haJanelaDoPontoAberta() {
+        return document.querySelector('.pe-janela-fundo:not([hidden])') !== null;
+    }
+
+    // E12: a fila antiga (ponto-fila.js de antes da E12, no cache do navegador) guardaria a batida externa sem a marca e
+    // sem o texto, e ela sairia depois como batida comum.
+    function filaAntigaParaOExterno(payload) {
+        return payload.trabalhoExterno === true && filaDisponivel() && window.PontoFila.LEVA_TRABALHO_EXTERNO !== true;
     }
 
     const campoDoTrabalhoExterno = document.querySelector('#' + JANELA_DO_TRABALHO_EXTERNO + ' [data-externo-motivo]');
@@ -1784,13 +1797,14 @@
     // deu (sem fila, sem identificador, erro do IndexedDB): quem chama segue o caminho de antes.
     //
     // E12: a batida externa só vai para a fila que leva a marca e o texto (`PontoFila.LEVA_TRABALHO_EXTERNO`). Com a fila
-    // antiga no cache do navegador, ela sairia depois como batida comum: não guarda, avisa e devolve true (nada mais é
-    // tentado neste toque; o texto fica na página). Guardada, o texto guardado na página sai.
+    // antiga, sem internet ANTES do envio: não guarda, avisa e devolve true (nada mais é tentado neste toque; o texto
+    // fica na página). Depois de um envio sem resposta, o toque nem chega aqui (`filaAntigaParaOExterno` no handler).
+    // Guardada, o texto guardado na página sai.
     async function guardarNaFila(payload) {
         if (!payload.idEnvio || !filaDisponivel()) {
             return false;
         }
-        if (payload.trabalhoExterno === true && window.PontoFila.LEVA_TRABALHO_EXTERNO !== true) {
+        if (filaAntigaParaOExterno(payload)) {
             mostrarAvisoBatida(AVISO_EXTERNO_SEM_FILA, 'danger');
             return true;
         }
@@ -2178,6 +2192,13 @@
             // classificação vira o aviso desta tela; o porquê de cada caso está em `enviarBatida`.
             const resultado = await PontoBatida.enviarBatida('{{ path('ponto_batida') }}', payload, momentoDoToque);
 
+            // E12: a batida externa saiu e ficou sem resposta, e a fila antiga não a guardaria inteira. Ela pode ter
+            // entrado: o aviso é o de sem confirmação, com o "Conferir" (P11 b), sem convite a repetir.
+            if (resultado.falhaDeRede && filaAntigaParaOExterno(payload)) {
+                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
+                return;
+            }
+
             // E14: o envio falhou sem resposta (a rede caiu no meio, o prazo estourou). A batida vai para a fila com o
             // MESMO identificador e a MESMA hora do toque: se ela tiver entrado, o servidor responde que já estava.
             if (resultado.falhaDeRede && await guardarNaFila(payload)) {
@@ -2228,9 +2249,9 @@
                 reabrirTrabalhoExterno(payload, AVISO_NAO_ENTROU);
             } else if (resultado.tipo === 'sem_rede') {
                 // Sem rede, o botão de atualizar NÃO aparece (ver `AVISO_SEM_REDE`). Chega aqui só sem fila: com ela, a
-                // batida já teria sido guardada acima.
+                // batida já teria sido guardada acima. E12: a janela do trabalho externo NÃO volta sozinha (a batida pode
+                // ter entrado); o texto fica guardado na página.
                 mostrarAvisoBatida(AVISO_SEM_REDE, 'danger', false);
-                reabrirTrabalhoExterno(payload, AVISO_SEM_REDE);
             } else {
                 // `sem_confirmacao`: a batida PODE ter entrado, então nunca se afirma que não entrou.
                 // E12: a janela do trabalho externo NÃO volta sozinha: um "Registrar" novo sairia com outro `idEnvio` e

@@ -206,6 +206,12 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
             self::assertCount(0, $acoes->filter('.pe-just-segue'), $caso);
         }
 
+        // Quem analisa a própria (o primário, o Master): só "Abonar" e "Recusar", sem a linha e sem lápis nem lixeira.
+        $propria = $this->linhaDaLista(['registroPonto' => $batida], true);
+        self::assertCount(1, $propria->filter('td.pe-just-acoes > span.pe-just-analise > button[data-analisar="abonar"] + button[data-analisar="recusar"]'));
+        self::assertCount(0, $propria->filter('.pe-just-segue, [data-justificativa-da-batida]'), 'sem "Segue para a análise do gestor." para quem é o gestor');
+        self::assertCount(0, $propria->filter('[data-justificativa-editar], [data-excluir-url]'));
+
         // Analisada, a trava de sempre (a linha é só da que está em análise).
         $analisada = $this->linhaDaLista(['registroPonto' => $batida, 'status' => 'abonado', 'dataAnalise' => new \DateTimeImmutable('2026-11-10')]);
         self::assertCount(1, $analisada->filter('td.pe-just-acoes > span.pe-just-trava[data-justificativa-bloqueada]'));
@@ -243,9 +249,9 @@ final class TrabalhoExternoNaTelaTest extends JusPrimeWebTestCase
      *
      * @param array<string, mixed> $campos
      */
-    private function linhaDaLista(array $campos): Crawler
+    private function linhaDaLista(array $campos, bool $podeAnalisarAPropria = false): Crawler
     {
-        $html = $this->renderComSessao('ponto/_abas_justificativas.html.twig', ['justificativas' => [$this->justificativaEmArray($campos)], 'podeAnalisarAPropria' => false]);
+        $html = $this->renderComSessao('ponto/_abas_justificativas.html.twig', ['justificativas' => [$this->justificativaEmArray($campos)], 'podeAnalisarAPropria' => $podeAnalisarAPropria]);
 
         return (new Crawler($html))->filter('table.pe-just-tab > tbody > tr.pe-just-lin > td.pe-just-acoes');
     }

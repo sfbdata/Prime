@@ -306,7 +306,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString('batidaAceita = { tipo: payload.tipo, resposta: resultado.data };', $clique);
     }
 
-    #[TestDox('O local e o motivo ficam guardados na página até a batida externa entrar ou ir para a fila; a janela volta com eles quando a batida certamente não entrou, nunca na sem confirmação')]
+    #[TestDox('O local e o motivo ficam guardados na página até a batida externa entrar ou ir para a fila; a janela volta com eles só quando a batida certamente não entrou (nunca sem confirmação nem sem rede) e nunca por cima de outra janela')]
     public function testTextoGuardadoNasBordas(): void
     {
         $tela = self::tela();
@@ -334,14 +334,16 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             'só depois de a fila confirmar que guardou'
         );
 
-        // A janela volta com o texto e o porquê: atrasado, não entrou, sem rede (sem fila), sem confirmação e a recusa do texto.
+        // A janela volta com o texto e o porquê só quando a batida certamente não entrou: atrasado, não entrou e a recusa
+        // do texto. Sem rede e sem confirmação, a batida pode ter entrado: fica só o aviso de hoje.
         self::assertMatchesRegularExpression(
             "/\\} else if \\(resultado\\.tipo === 'nao_entrou'\\) \\{\\s+mostrarAvisoBatida\\(AVISO_NAO_ENTROU, 'danger', true\\);\\s+reabrirTrabalhoExterno\\(payload, AVISO_NAO_ENTROU\\);\\s+\\}/",
             $clique
         );
         self::assertMatchesRegularExpression(
-            "/\\} else if \\(resultado\\.tipo === 'sem_rede'\\) \\{\\s+(?:\\/\\/[^\\n]*\\n\\s+)*mostrarAvisoBatida\\(AVISO_SEM_REDE, 'danger', false\\);\\s+reabrirTrabalhoExterno\\(payload, AVISO_SEM_REDE\\);\\s+\\}/",
-            $clique
+            "/\\} else if \\(resultado\\.tipo === 'sem_rede'\\) \\{\\s+(?:\\/\\/[^\\n]*\\n\\s+)*mostrarAvisoBatida\\(AVISO_SEM_REDE, 'danger', false\\);\\s+\\} else \\{/",
+            $clique,
+            'sem rede: só o aviso de hoje, sem convite a repetir (a batida pode ter entrado)'
         );
         self::assertMatchesRegularExpression(
             "/mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+\\}\\s+\\} catch/",
@@ -353,8 +355,9 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             . "reabrirTrabalhoExterno\\(payload, 'Demorou demais para enviar e a hora da batida ficaria errada\\. Aperte de novo com a tela ligada\\.'\\);/",
             $clique
         );
-        self::assertSame(5, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e as quatro respostas');
+        self::assertSame(4, substr_count($tela, 'reabrirTrabalhoExterno('), 'a função e as três respostas');
         self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO)', $tela, 'sem confirmação a batida pode ter entrado: um Registrar novo, com outro idEnvio, duplicaria');
+        self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_REDE)', $tela, 'sem rede também: a batida pode ter entrado');
         self::assertStringContainsString(
             "const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];",
             $tela,
@@ -363,13 +366,21 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
 
         $reabrir = self::corpo($tela, 'function reabrirTrabalhoExterno(payload, porque) {');
         self::assertMatchesRegularExpression(
-            '/if \\(payload\\.trabalhoExterno !== true\\) \\{\\s+return;\\s+\\}\\s+abrirJanelaDoTrabalhoExterno\\(btnPonto, payload\\.tipo, porque\\);/',
+            '/if \\(payload\\.trabalhoExterno !== true \\|\\| haJanelaDoPontoAberta\\(\\)\\) \\{\\s+return;\\s+\\}\\s+abrirJanelaDoTrabalhoExterno\\(btnPonto, payload\\.tipo, porque\\);/',
             $reabrir,
-            'só a batida externa; com o tipo dela e o porquê na linha de erro'
+            'só a batida externa e só sem outra janela do Ponto aberta; com o tipo dela e o porquê na linha de erro'
         );
+        // Outra janela aberta: a do PontoAbas é a .pe-janela-fundo sem hidden (o módulo não expõe o janelaAberta).
+        self::assertStringContainsString(
+            "return document.querySelector('.pe-janela-fundo:not([hidden])') !== null;",
+            self::corpo($tela, 'function haJanelaDoPontoAberta() {')
+        );
+        $abas = self::arquivo('public/js/ponto-abas.js');
+        self::assertMatchesRegularExpression('/fundo\\.hidden = false;\\s+janelaAberta = fundo;/', self::corpo($abas, 'function abrirJanela(id, origem) {'), 'abrir tira o hidden');
+        self::assertMatchesRegularExpression('/janelaAberta\\.hidden = true;\\s+janelaAberta = null;/', self::corpo($abas, 'function fecharJanela() {'), 'fechar põe o hidden');
     }
 
-    #[TestDox('Fila antiga no cache (sem LEVA_TRABALHO_EXTERNO): a batida externa não é guardada e a caixa diz por quê')]
+    #[TestDox('Fila antiga no cache (sem LEVA_TRABALHO_EXTERNO): sem internet antes do envio, não guarda e diz por quê; envio sem resposta, o aviso de sem confirmação')]
     public function testFilaAntigaNaoGuardaOExterno(): void
     {
         self::assertMatchesRegularExpression(
@@ -381,14 +392,39 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $guardar = self::corpo(self::tela(), 'async function guardarNaFila(payload) {');
         self::assertMatchesRegularExpression(
             "/if \\(!payload\\.idEnvio \\|\\| !filaDisponivel\\(\\)\\) \\{\\s+return false;\\s+\\}\\s+"
-            . "if \\(payload\\.trabalhoExterno === true && window\\.PontoFila\\.LEVA_TRABALHO_EXTERNO !== true\\) \\{\\s+"
+            . "if \\(filaAntigaParaOExterno\\(payload\\)\\) \\{\\s+"
             . "mostrarAvisoBatida\\(AVISO_EXTERNO_SEM_FILA, 'danger'\\);\\s+return true;\\s+\\}\\s+const entrada = /",
             $guardar,
             'antes de guardar; true encerra o toque (nada é enviado), e o texto fica na página'
         );
         self::assertStringContainsString(
+            'return payload.trabalhoExterno === true && filaDisponivel() && window.PontoFila.LEVA_TRABALHO_EXTERNO !== true;',
+            self::corpo(self::tela(), 'function filaAntigaParaOExterno(payload) {')
+        );
+        self::assertStringContainsString(
             "const AVISO_EXTERNO_SEM_FILA = 'Sem internet, o trabalho externo não pôde ser guardado. Tente de novo quando a conexão voltar.';",
             self::tela()
+        );
+        self::assertSame(2, substr_count(self::tela(), 'AVISO_EXTERNO_SEM_FILA'), 'a declaração e o uso no guardarNaFila');
+
+        // O "Sem internet ... tente de novo" só vale ANTES do envio (o caminho offline do toque, antes de enviarBatida).
+        // Depois de um envio sem resposta, a batida pode ter entrado: o aviso de sem confirmação com o Conferir (P11 b),
+        // e o toque para antes de chegar à fila.
+        $clique = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
+        self::assertMatchesRegularExpression(
+            "/if \\(resultado\\.falhaDeRede && filaAntigaParaOExterno\\(payload\\)\\) \\{\\s+mostrarAvisoBatida\\(AVISO_SEM_CONFIRMACAO, 'danger', true\\);\\s+return;\\s+\\}\\s+"
+            . "(?:\\/\\/[^\\n]*\\n\\s+)*if \\(resultado\\.falhaDeRede && await guardarNaFila\\(payload\\)\\) \\{/",
+            $clique
+        );
+        self::assertLessThan(
+            strpos($clique, 'if (resultado.falhaDeRede && filaAntigaParaOExterno(payload)) {'),
+            strpos($clique, 'PontoBatida.enviarBatida('),
+            'depois do envio'
+        );
+        self::assertLessThan(
+            strpos($clique, 'PontoBatida.enviarBatida('),
+            strpos($clique, 'if (navigator.onLine === false && await guardarNaFila(payload)) {'),
+            'o caminho que chega ao AVISO_EXTERNO_SEM_FILA é o de antes do envio'
         );
     }
 
