@@ -13,6 +13,13 @@ services:
       TZ: ${TZ:-America/Sao_Paulo}
       APP_ENV: prod
       APP_DEBUG: 0
+      # Validador de PDF da Assinatura (serviço validador_pdf, profile `assinatura`). Vazios = não configurado: o envio
+      # recusa os níveis gov.br e ICP-Brasil e o PDF final sai sem selo. Sem `:?` de propósito (vale o mesmo motivo do
+      # serviço voto). Runbook: docs/runbooks/assinatura-validador-em-producao.md.
+      ASSINATURA_VALIDADOR_URL: ${ASSINATURA_VALIDADOR_URL:-}
+      ASSINATURA_VALIDADOR_TOKEN: ${ASSINATURA_VALIDADOR_TOKEN:-}
+    # Sem depends_on do validador_pdf de propósito: ele fica "unhealthy" enquanto as âncoras não chegam (ITI fora do
+    # ar, volume perdido), e o php não pode deixar de subir por isso (spec da etapa 6, seção 6).
     depends_on:
       db:
         condition: service_healthy
@@ -30,6 +37,7 @@ services:
       start_period: 10s
     networks:
       - saas_net
+      - assinatura_net
 
   # Worker da Fase 2 do sync: consome a fila `async` (Messenger/doctrine) e sincroniza no Drive,
   # em segundos, a pasta de cada evento. Lê as credenciais do banco (TenantDriveConexao), não do
@@ -50,6 +58,9 @@ services:
       APP_ENV: prod
       APP_DEBUG: 0
       PUBLICACAO_BLOGS_DIR: /var/publicacao-blogs
+      # O selo do PDF final (etapa 8) roda numa mensagem assíncrona: o worker também fala com o validador_pdf.
+      ASSINATURA_VALIDADOR_URL: ${ASSINATURA_VALIDADOR_URL:-}
+      ASSINATURA_VALIDADOR_TOKEN: ${ASSINATURA_VALIDADOR_TOKEN:-}
     working_dir: /var/www/app
     entrypoint: []
     # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
@@ -68,6 +79,7 @@ services:
       # Pedidos de geração dos blogs (spec painel-artigos-blogs, seção 6.1): o worker monta o pacote aqui e o
       # blog_builder o lê em /pedidos.
       - publicacao_blogs:/var/publicacao-blogs
+    # Sem depends_on do validador_pdf, pelo mesmo motivo do php.
     depends_on:
       db:
         condition: service_healthy
@@ -75,6 +87,7 @@ services:
         condition: service_healthy
     networks:
       - saas_net
+      - assinatura_net
 
   # Agendador de tarefas (Symfony Scheduler; docs/specs/scheduler-tarefas-agendadas.md): roda as tarefas que
   # antes estavam no crontab do host (purga, DJEN, resumos, relatórios, foto do Dashboard, envio ao Drive...),
@@ -212,6 +225,54 @@ services:
     networks:
       - saas_net
 
+  # Validador de PDF assinado da Assinatura de documentos (spec docs/specs/assinatura-documentos-etapa-6.md, E6-1 a
+  # E6-3, e etapa 8 para o selo): Python com pyHanko, imagem construída aqui mesmo a partir de validador-pdf/ (alvo
+  # `producao`). Confere a cadeia gov.br e ICP-Brasil do PDF assinado e sela o PDF final com o e-CNPJ.
+  # DESLIGADO por padrão: só existe com o profile `assinatura` (COMPOSE_PROFILES no .env.prod), que o Samuel liga pelo
+  # docs/runbooks/assinatura-validador-em-producao.md. O rollback automático do deploy NÃO cobre este serviço.
+  # Redes (E6-2): `assinatura_net` (interna, só php, worker e ele) para receber os pedidos; `validador_saida` só para
+  # baixar LCR, OCSP e as cadeias do ITI. Nunca na saas_net (lá roda o blog_builder com npm de terceiros). Sem ports.
+  # Só amd64: os hashes dos requirements são das wheels linux x86_64 (seção 6 da spec).
+  # Healthcheck: o do Dockerfile (/saude). Ele fica "unhealthy" enquanto faltar raiz de uma família (503), e por
+  # isso ninguém depende dele com service_healthy.
+  validador_pdf:
+    build:
+      context: ./validador-pdf
+      target: producao
+    container_name: jusprime_validador_pdf_prod
+    profiles: ["assinatura"]
+    platform: linux/amd64
+    restart: unless-stopped
+    # Raiz só de leitura; o forkserver do Python precisa de /tmp (socket) e as âncoras moram no volume.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # SEM env_file de propósito: o .env.prod inteiro traria ao validador as senhas e chaves do BlueJus. Só o que o
+    # validador-pdf/validador/configuracao.py lê, e só as variáveis cujo vazio quer dizer "não configurado". As de
+    # caminho, porta, memória e URL do ITI ficam de fora: vazias, derrubariam o contêiner ou apagariam o endereço.
+    environment:
+      ASSINATURA_VALIDADOR_TOKEN: ${ASSINATURA_VALIDADOR_TOKEN:-}
+      # Impressões digitais SHA-256 de raiz nova do ITI, separadas por vírgula (só acrescentam; vazio = só as do código).
+      ASSINATURA_VALIDADOR_ICP_SHA256: ${ASSINATURA_VALIDADOR_ICP_SHA256:-}
+      ASSINATURA_VALIDADOR_GOVBR_SHA256: ${ASSINATURA_VALIDADOR_GOVBR_SHA256:-}
+      # Carimbo do tempo de uma ACT ICP-Brasil (E8-3). Vazio: o selo sai sem carimbo (PAdES B-B).
+      ASSINATURA_SELO_TSA_URL: ${ASSINATURA_SELO_TSA_URL:-}
+    volumes:
+      # Última cópia boa das âncoras (E6-5), conferida de novo ao subir. O caminho é o padrão do configuracao.py.
+      - validador_ancoras:/dados
+    # Chave do selo (E8-2): PKCS#12 do e-CNPJ e a senha, montados só aqui, em /run/secrets. O PHP nunca vê a chave.
+    # Runbook: docs/runbooks/assinatura-selo-ecnpj-em-producao.md.
+    secrets:
+      - selo_pkcs12
+      - selo_pkcs12_senha
+    networks:
+      - assinatura_net
+      - validador_saida
+
   nginx:
     image: nginx:alpine
     container_name: jusprime_nginx_prod
@@ -264,6 +325,11 @@ services:
 
 networks:
   saas_net:
+  # Assinatura (E6-2): interna, sem saída para a internet; só php, worker e validador_pdf.
+  assinatura_net:
+    internal: true
+  # Saída do validador_pdf para o ITI (LCR, OCSP e cadeias); ninguém mais entra nela.
+  validador_saida:
 
 volumes:
   db_data_prod:
@@ -271,6 +337,7 @@ volumes:
   static_prod:
   publicacao_blogs:
   blog_builder_cache:
+  validador_ancoras:
 
 # Credencial usada SÓ durante o build (composer install), nunca em runtime.
 # O arquivo mora na VPS, fora do git — ver .composer-auth.json.example.
@@ -279,3 +346,11 @@ volumes:
 secrets:
   composer_auth:
     file: ./.composer-auth.json
+  # Selo da Assinatura (etapa 8, E8-2): fora do git, só na VPS, lidos só pelo validador_pdf (usuário 10001, dono dos
+  # arquivos). Vazios = selo não configurado: o PDF final sai sem selo. Com o profile `assinatura` ligado os dois
+  # PRECISAM existir: ausentes, o Docker não cria o contêiner e o deploy falha. Com o profile desligado o compose os
+  # ignora. Runbooks: assinatura-validador-em-producao.md (cria vazios) e assinatura-selo-ecnpj-em-producao.md.
+  selo_pkcs12:
+    file: /opt/jusprime/secrets/selo_pkcs12
+  selo_pkcs12_senha:
+    file: /opt/jusprime/secrets/selo_pkcs12_senha

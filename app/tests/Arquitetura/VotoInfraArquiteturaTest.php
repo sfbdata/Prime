@@ -17,7 +17,8 @@ use Symfony\Component\Yaml\Yaml;
  *
  * Trava aqui:
  *  - o serviço `voto` do docker-compose.prod.yml só existe com o profile `voto`, sem porta publicada, com o papel do
- *    container e o banco do usuário próprio do Voto; nenhum outro serviço ganha profile (sairia do deploy);
+ *    container e o banco do usuário próprio do Voto; nenhum outro serviço ganha profile (sairia do deploy), fora o
+ *    `validador_pdf` da Assinatura, travado no ValidadorPdfInfraArquiteturaTest;
  *  - o DATABASE_URL do `voto` não usa `:?`: o compose interpola até serviço de profile desligado, e a falta da
  *    variável derrubaria todo deploy do BlueJus;
  *  - o `voto` não recebe o .env.prod inteiro (sem env_file): nada de senha do banco do dono, APP_SECRET do BlueJus
@@ -77,12 +78,13 @@ final class VotoInfraArquiteturaTest extends TestCase
         self::assertSame([], $faltando, 'Sem ela o container do Voto não sobe: acrescente ao environment do serviço voto no docker-compose.prod.yml (valor inofensivo se o Voto não a usa).');
     }
 
-    #[TestDox('nenhum outro serviço do docker-compose.prod.yml tem profile (sairia do deploy sem aviso)')]
+    #[TestDox('nenhum outro serviço do docker-compose.prod.yml tem profile (sairia do deploy sem aviso), fora o validador_pdf')]
     public function testNenhumOutroServicoTemProfile(): void
     {
         $comProfile = [];
         foreach ($this->servicos() as $nome => $servico) {
-            if ($nome !== 'voto' && \is_array($servico) && \array_key_exists('profiles', $servico)) {
+            // O validador_pdf da Assinatura também é opcional (profile `assinatura`): ValidadorPdfInfraArquiteturaTest.
+            if (!\in_array($nome, ['voto', 'validador_pdf'], true) && \is_array($servico) && \array_key_exists('profiles', $servico)) {
                 $comProfile[] = $nome;
             }
         }
