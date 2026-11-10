@@ -1485,10 +1485,12 @@ final class PontoController extends AbstractController
 
     /**
      * A pessoa da folha exportada em PDF ou XLSX: quem pede, ou o `userId` de outro colaborador (P89). O Master exporta
-     * a de qualquer um, como antes. Para os outros, quem não tem vínculo ativo NESTE escritório responde 404, igual ao
-     * `userId` que não existe (recurso de outro escritório é 404, nunca 403, para não revelar que existe; decisão 25), e
-     * a pessoa daqui só sai para quem tem `admin.users.manage` (sem a permissão, 403). Nada é gasto antes: nem cota, nem
-     * emissão, nem desenho.
+     * a de quem tem algum vínculo com ESTE escritório, ativo ou não (o ex-colaborador também); sem vínculo nenhum, 404
+     * com a mesma mensagem (decisão 28): a folha selada sairia com o cabeçalho e a trilha deste escritório para quem
+     * não é dele. Para os outros, quem não tem vínculo ativo NESTE escritório responde 404, igual ao `userId` que não
+     * existe (recurso de outro escritório é 404, nunca 403, para não revelar que existe; decisão 25), e a pessoa daqui
+     * só sai para quem tem `admin.users.manage` (sem a permissão, 403). Nada é gasto antes: nem cota, nem emissão, nem
+     * desenho.
      */
     private function pessoaDaFolhaExportada(Request $request, User $user, Tenant $tenant, UserRepository $userRepository): User
     {
@@ -1501,6 +1503,10 @@ final class PontoController extends AbstractController
             throw $this->createNotFoundException('Usuário para exportação não encontrado.');
         }
         if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            if ($this->userTenantRepository->findPorUserETenant($targetUser, $tenant) === null) {
+                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+            }
+
             return $targetUser;
         }
         if (!$this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)) {

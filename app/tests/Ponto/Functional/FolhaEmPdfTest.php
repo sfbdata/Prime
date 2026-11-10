@@ -203,20 +203,66 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         yield 'colaborador sem a permissão, pessoa de outro escritório' => [false, 'de outro escritório'];
     }
 
-    #[TestDox('Master (ROLE_SUPER_ADMIN): exporta a folha de quem não tem vínculo neste escritório, como antes')]
-    public function testMasterExportaAFolhaDeQuemNaoTemVinculoAqui(): void
+    #[TestDox('Master (ROLE_SUPER_ADMIN): exporta a folha do ex-colaborador (vínculo suspenso aqui), emitida neste escritório, em nome do Master e com o evento na trilha (decisão 28)')]
+    public function testMasterExportaAFolhaDoExColaborador(): void
     {
-        DesenhoDaFolhaEspiao::instalar(static::getContainer());
-        $master = $this->pessoa('Master do BlueJus', ['ROLE_SUPER_ADMIN']);
-        $this->vincular($master, $this->escritorio);
-        $joao = $this->pessoaComOutubro($this->escritorio('Outro escritório'), 'João Souza');
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
+        $master = $this->master();
+        $joaoId = $this->suspensaNesteEscritorio();
 
-        $this->pedir($master, self::OUTUBRO . '&userId=' . $joao->getId());
+        $this->pedir($master, self::OUTUBRO . '&userId=' . $joaoId);
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/pdf');
         self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename="folha_ponto_JOAOSOUZA-10-2026.pdf"');
+        $folhas = $this->em()->getConnection()->fetchAllAssociative('SELECT tenant_id, user_id, emitida_por_id, codigo FROM ponto_folha_emitida');
+        self::assertCount(1, $folhas, 'uma folha emitida, e só uma');
+        self::assertSame(
+            [$this->escritorio->getId(), $joaoId, $master->getId()],
+            [(int) $folhas[0]['tenant_id'], (int) $folhas[0]['user_id'], (int) $folhas[0]['emitida_por_id']],
+            'a folha do ex-colaborador, no escritório da sessão, emitida pelo Master',
+        );
+        self::assertSame('JOÃO SOUZA', mb_strtoupper($desenho->ultimo()->cabecalho->nome));
+        self::assertSame(mb_strtoupper((string) $this->escritorio->getName()), $desenho->ultimo()->cabecalho->empregador, 'o cabeçalho é o do escritório da sessão');
+        $trilha = $this->trilhaNoBanco($this->escritorio);
+        self::assertCount(1, $trilha);
+        self::assertSame(
+            ['folha_emitida', $master->getId(), $joaoId, $folhas[0]['codigo']],
+            [$trilha[0]['acao'], $trilha[0]['autor_id'], $trilha[0]['detalhe']['colaborador_id'], $trilha[0]['detalhe']['codigo']],
+            'o evento na trilha deste escritório: o Master emitiu a folha do ex-colaborador',
+        );
         self::assertSame([(string) $master->getId()], $this->cota->chavesConsumidas);
+    }
+
+    /** @param 'de outro escritório'|'sem escritório nenhum' $alvo */
+    #[DataProvider('pessoasSemVinculoAqui')]
+    #[TestDox('Master (ROLE_SUPER_ADMIN) e pessoa sem vínculo nenhum neste escritório ($_dataName): 404 com a mesma mensagem, sem gastar a cota, sem emitir, sem desenhar e sem evento (decisão 28)')]
+    public function testMasterNaoExportaAFolhaDeQuemNaoTemVinculoAqui(string $alvo): void
+    {
+        $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
+        $master = $this->master();
+        $outro = $this->escritorio('Outro escritório');
+        $alvoId = (int) match ($alvo) {
+            'de outro escritório'   => $this->pessoaComOutubro($outro, 'João Souza')->getId(),
+            'sem escritório nenhum' => $this->pessoa('João Souza')->getId(),
+        };
+
+        $this->pedir($master, self::OUTUBRO . '&userId=' . $alvoId);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertStringContainsString('Usuário para exportação não encontrado.', html_entity_decode((string) $this->client->getResponse()->getContent()));
+        self::assertSame([], $desenho->desenhados);
+        self::assertSame([], $this->cota->chavesConsumidas, 'o limitador não foi consumido');
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_folha_emitida'), 'nenhuma folha emitida');
+        self::assertSame([], $this->trilhaNoBanco($this->escritorio));
+        self::assertSame([], $this->trilhaNoBanco($outro));
+    }
+
+    /** @return iterable<string, array{'de outro escritório'|'sem escritório nenhum'}> */
+    public static function pessoasSemVinculoAqui(): iterable
+    {
+        yield 'pessoa de outro escritório' => ['de outro escritório'];
+        yield 'pessoa sem vínculo com escritório nenhum' => ['sem escritório nenhum'];
     }
 
     /** @param 'no desenho'|'no embrulho' $onde */
@@ -320,6 +366,15 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         $this->vincular($gestora, $this->escritorio, ['modules.ponto.view', 'admin.users.manage']);
 
         return $gestora;
+    }
+
+    /** O Master do BlueJus, com vínculo neste escritório (o escritório da sessão). */
+    private function master(): User
+    {
+        $master = $this->pessoa('Master do BlueJus', ['ROLE_SUPER_ADMIN']);
+        $this->vincular($master, $this->escritorio);
+
+        return $master;
     }
 
     /** O João com a folha de outubro neste escritório e o vínculo suspenso (inativo): o id dele. */

@@ -1343,6 +1343,9 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   26. Desvios pequenos no PDF (⚠), pela fonte DejaVu, mais larga que a Arial do desenho: texto que não cabe encolhe até
       um mínimo antes do "..." (o `cap` do desenho só corta); os rótulos do controle de intervalos mostram os mínimos da
       jornada, os mesmos do quadro "REGIME DE JORNADA"; nome sem letras vira "USUARIO" no nome do arquivo.
+  28. O Master só exporta a folha (PDF e XLSX) de quem tem algum vínculo, ativo ou não, com o escritório da sessão (o
+      ex-colaborador também); sem vínculo nenhum, 404 com a mesma mensagem dos outros (Coordenador, 10/11/2026). Antes
+      ele passava direto, e o PDF gravava a folha selada com o cabeçalho e a trilha deste escritório para quem não é dele.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).
