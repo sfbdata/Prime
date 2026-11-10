@@ -13,9 +13,9 @@ use App\Ponto\Entity\JustificativaPonto;
  * desenho 16 L606 a L630 e L667 a L693). Só formata e conta o que o motor da folha já decidiu: nenhuma regra de saldo
  * mora aqui.
  *
- * As observações do dia seguem a ordem do desenho (L622), unidas por " · ": os ajustes da batida (E10, gancho vazio até
- * ela entrar, decisão 20), "Feriado: <nome>", "Horário fora de sequência: revisar" OU "Registro incompleto", e cada
- * justificativa do dia: "<Tipo>" (abonada, com o horário do abono parcial, decisão 7), "<Tipo>: em análise" e
+ * As observações do dia seguem a ordem do desenho (L622), unidas por " · ": os ajustes da batida (E10, decisão 20:
+ * "<Batida> ajustada em dd/mm/aaaa", na ordem Entrada, Repouso, Retorno e Saída), "Feriado: <nome>", "Horário fora de
+ * sequência: revisar" OU "Registro incompleto", e cada justificativa do dia: "<Tipo>" (abonada, com o horário do abono parcial, decisão 7), "<Tipo>: em análise" e
  * "<Tipo>: recusada". Ficam fora, como o desenho: "a conferir", "registro em outro escritório" e as marcas de home
  * office, sem internet e trabalho externo.
  *
@@ -36,6 +36,8 @@ final class LinhasDaFolhaImpressa
     public const FERIADO_SEM_BATIDA = 'FERIADO';
 
     private const BATIDAS = ['entrada', 'repouso', 'retorno', 'saida'];
+    /** Os rótulos das batidas do desenho (`TIPOS`, L400), na ordem em que os ajustes aparecem na observação. */
+    private const NOMES_DAS_BATIDAS = ['entrada' => 'Entrada', 'repouso' => 'Repouso', 'retorno' => 'Retorno', 'saida' => 'Saída'];
     private const SEMANA = [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta', 5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
     private const UM_DIA = 86400;
 
@@ -151,8 +153,10 @@ final class LinhasDaFolhaImpressa
     }
 
     /**
-     * Gancho da E10 (decisão 20 da E16): "<Batida> ajustada em dd/mm/aaaa" de cada ajuste do dia, a primeira das
-     * observações (L622). Vazio até a E10 entrar.
+     * Os ajustes do dia (E10; decisão 20 da E16): "<Batida> ajustada em dd/mm/aaaa" de cada batida efetiva ajustada,
+     * a primeira das observações (L622), na ordem Entrada, Repouso, Retorno e Saída. A data é a do ajuste, a mesma da
+     * marca "aj" da tela; lida das chaves `{tipo}Ajuste` da linha (`FolhaPontoBuilder::ajusteDe`), nula na batida como
+     * foi batida.
      *
      * @param array<string, mixed> $linha
      *
@@ -160,7 +164,15 @@ final class LinhasDaFolhaImpressa
      */
     private function ajustesDoDia(array $linha): array
     {
-        return [];
+        $ajustes = [];
+        foreach (self::NOMES_DAS_BATIDAS as $campo => $nome) {
+            $ajuste = $linha[$campo . 'Ajuste'] ?? null;
+            if (is_array($ajuste) && isset($ajuste['em'])) {
+                $ajustes[] = $nome . ' ajustada em ' . $ajuste['em'];
+            }
+        }
+
+        return $ajustes;
     }
 
     private static function textoDaJustificativa(JustificativaPonto $justificativa): string

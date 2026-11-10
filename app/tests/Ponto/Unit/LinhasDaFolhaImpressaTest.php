@@ -62,6 +62,34 @@ final class LinhasDaFolhaImpressaTest extends TestCase
         self::assertSame(['abonado', 'pendente'], $linha->justificativas);
     }
 
+    #[TestDox('Decisão 20 (L622): cada batida ajustada do dia vira "<Batida> ajustada em dd/mm/aaaa", na ordem Entrada, Repouso, Retorno e Saída, antes do feriado')]
+    public function testAjustesDoDiaAntesDoFeriado(): void
+    {
+        $linha = $this->impressao->linha($this->dia('2026-10-12', [
+            'entrada' => '13:03:00', 'saida' => '18:37:00', 'isFeriado' => true, 'nomeFeriado' => 'Nossa Senhora Aparecida',
+            'saidaAjuste' => ['tipo' => 'ajuste', 'por' => 'Gestora Ana', 'em' => '14/10/2026'],
+            'entradaAjuste' => ['tipo' => 'ajuste', 'por' => 'Gestora Ana', 'em' => '13/10/2026'],
+            'repousoAjuste' => null, 'retornoAjuste' => null,
+        ]), []);
+
+        self::assertSame('Entrada ajustada em 13/10/2026 · Saída ajustada em 14/10/2026 · Feriado: Nossa Senhora Aparecida', $linha->observacao);
+        self::assertSame(['13:03', '', '', '18:37'], $linha->batidas, 'as horas efetivas, as do motor');
+    }
+
+    #[TestDox('Decisão 20: dia sem ajuste (as quatro chaves nulas, ou ausentes) não tem "ajustada em"')]
+    public function testDiaSemAjuste(): void
+    {
+        $nulas = $this->impressao->linha($this->dia('2026-10-12', [
+            'entrada' => '08:00:00', 'isFeriado' => true, 'nomeFeriado' => 'Nossa Senhora Aparecida', 'registroIncompleto' => true,
+            'entradaAjuste' => null, 'repousoAjuste' => null, 'retornoAjuste' => null, 'saidaAjuste' => null,
+        ]), []);
+        $ausentes = $this->impressao->linha($this->dia('2026-10-13', ['entrada' => '08:00:00']), []);
+
+        self::assertSame('Feriado: Nossa Senhora Aparecida · Registro incompleto', $nulas->observacao);
+        self::assertStringNotContainsString('ajustada em', $nulas->observacao);
+        self::assertSame('', $ausentes->observacao);
+    }
+
     #[TestDox('Ficam fora: "a conferir", "registro em outro escritório" e as marcas de home office, sem internet e trabalho externo (o desenho não mostra)')]
     public function testSemOQueODesenhoNaoMostra(): void
     {

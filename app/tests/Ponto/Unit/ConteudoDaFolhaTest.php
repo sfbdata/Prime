@@ -61,7 +61,7 @@ final class ConteudoDaFolhaTest extends TestCase
         self::assertNull($conteudo->validacao);
     }
 
-    #[TestDox('Decisão 3: a impressão muda com uma batida, com a situação de uma justificativa e com um feriado novo')]
+    #[TestDox('Decisão 3: a impressão muda com uma batida, com a situação de uma justificativa, com um feriado novo e com um ajuste novo (mesma hora)')]
     public function testImpressaoMudaComOsRegistros(): void
     {
         $base = $this->conteudo()->impressaoDosRegistros();
@@ -69,8 +69,10 @@ final class ConteudoDaFolhaTest extends TestCase
         $justificada = $this->conteudo(justificativas: [$this->justificativa('pendente')])->impressaoDosRegistros();
         $abonada = $this->conteudo(justificativas: [$this->justificativa('abonado')])->impressaoDosRegistros();
         $feriado = $this->conteudo(dia: ['isFeriado' => true, 'nomeFeriado' => 'Aniversário da cidade'])->impressaoDosRegistros();
+        // A batida ajustada para a mesma hora: só a observação "Saída ajustada em ..." muda (decisão 20).
+        $ajustada = $this->conteudo(dia: ['saidaAjuste' => ['tipo' => 'ajuste', 'por' => 'Gestora Ana', 'em' => '06/10/2026']])->impressaoDosRegistros();
 
-        self::assertCount(5, array_unique([$base, $outraBatida, $justificada, $abonada, $feriado]));
+        self::assertCount(6, array_unique([$base, $outraBatida, $justificada, $abonada, $feriado, $ajustada]));
     }
 
     #[TestDox('O resumo dos registros: cada dia como a folha imprime e os totais do mês (sem banco anterior e atual)')]
