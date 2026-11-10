@@ -1025,7 +1025,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     análise (o trabalho externo da E12; ou o esquecimento em análise ligado a uma inclusão que conta, o que só acontece
     quando o gestor restaura a inclusão que ele mesmo desconsiderou), a ficha recusa Ajustar e Desconsiderar com o aviso
     `em_analise`; decidida, a ficha ajusta e desconsidera como qualquer batida (P65). O caminho da análise
-    (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 liga à recusa do trabalho externo) não passa por essa recusa,
+    (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 vai ligar à recusa do trabalho externo) não passa por essa recusa,
     e o Restaurar segue recusando a desconsideração feita por ela (decisão A). O limite 1 continua: a inclusão do
     esquecimento abonado se ajusta;
   - a hora ajustada leva "aj" na folha, no PDF e no XLSX, também depois de uma restauração (é ajuste);
