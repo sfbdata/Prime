@@ -25,8 +25,11 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     /** A alteração repete o tipo, a data e a hora que a batida já tem. */
     public const NADA_MUDOU = 'nada_mudou';
 
-    /** Motivo vazio (só espaços) ou acima de 2000 caracteres. */
+    /** Motivo vazio (só espaços). */
     public const SEM_MOTIVO = 'sem_motivo';
+
+    /** Motivo acima de 2000 caracteres (o limite do CHECK `chk_ponto_ajuste_motivo`). */
+    public const MOTIVO_LONGO = 'motivo_longo';
 
     /** Restaurar a desconsideração feita pela análise da justificativa (decisão A do plano). */
     public const LIGADA_A_JUSTIFICATIVA = 'ligada_a_justificativa';
@@ -41,6 +44,8 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     public const MENSAGEM_NADA_MUDOU = 'O ajuste não muda nada: a batida já tem este tipo, esta data e esta hora.';
 
     public const MENSAGEM_SEM_MOTIVO = 'Informe o motivo da correção.';
+
+    public const MENSAGEM_MOTIVO_LONGO = 'O motivo da correção passa de 2000 caracteres. Resuma o texto.';
 
     public const MENSAGEM_LIGADA_A_JUSTIFICATIVA = 'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.';
 
@@ -74,6 +79,11 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     public static function semMotivo(): self
     {
         return new self(self::SEM_MOTIVO, self::MENSAGEM_SEM_MOTIVO);
+    }
+
+    public static function motivoLongo(): self
+    {
+        return new self(self::MOTIVO_LONGO, self::MENSAGEM_MOTIVO_LONGO);
     }
 
     public static function ligadaAJustificativa(): self

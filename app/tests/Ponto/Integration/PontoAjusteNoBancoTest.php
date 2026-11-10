@@ -85,6 +85,7 @@ final class PontoAjusteNoBancoTest extends KernelTestCase
         yield 'desconsideração com a nova' => [['tipo' => 'desconsideracao', 'registro_ponto_id' => '@registro'] + self::ANTERIOR + self::NOVA, $forma];
         yield 'desconsideração sem a anterior' => [['tipo' => 'desconsideracao', 'registro_ponto_id' => '@registro'], $forma];
         yield 'restauração sem o que desfaz' => [['tipo' => 'restauracao', 'inclusao_id' => '@outraInclusao', 'anterior_id' => '@desconsideracao'] + self::NOVA, $forma];
+        yield 'linha depois da inclusão sem anterior (segunda primeira linha)' => [['tipo' => 'alteracao', 'inclusao_id' => '@inclusao'] + self::ANTERIOR + self::NOVA, 'chk_ponto_ajuste_linhagem_da_inclusao'];
         yield 'restauração sem a nova' => [['tipo' => 'restauracao', 'inclusao_id' => '@outraInclusao', 'anterior_id' => '@desconsideracao', 'desfaz_id' => '@desconsideracao'], $forma];
     }
 

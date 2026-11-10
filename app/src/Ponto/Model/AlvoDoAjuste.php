@@ -32,6 +32,9 @@ final readonly class AlvoDoAjuste
         if (($raizBatida === null) === ($raizInclusao === null)) {
             throw new \LogicException('O alvo do ajuste tem uma raiz só: o registro original ou a inclusão.');
         }
+        if ($raizInclusao !== null && $cabeca === null) {
+            throw new \LogicException('Na inclusão, a cabeça é no mínimo a própria inclusão: sem ela, a linhagem ganharia uma segunda primeira linha.');
+        }
     }
 
     /** O id da cabeça atual (o que a tela compara com a cabeça que ela abriu); nulo no registro nunca ajustado. */

@@ -87,17 +87,17 @@ final class PontoAjusteTest extends TestCase
         $fora = new AlvoDoAjuste($this->escritorio, $this->pessoa, 'b31', $alvo->raizBatida, null, $alteracao, null, null);
 
         $casos = [
-            'restaurar alteração'    => fn () => PontoAjuste::restauracao($alteracao, 'm', $this->gestora, 'Gestora', $this->agora),
-            'alterar fora da conta'  => fn () => PontoAjuste::alteracao($fora, 'saida', new \DateTimeImmutable(), 'm', $this->gestora, 'Gestora', $this->agora),
-            'desconsiderar de novo'  => fn () => PontoAjuste::desconsideracao($fora, 'm', $this->gestora, 'Gestora', $this->agora),
-            'tipo de batida inválido' => fn () => PontoAjuste::inclusao($this->escritorio, $this->pessoa, 'almoco', new \DateTimeImmutable(), 'm', $this->gestora, 'Gestora', $this->agora),
+            'restaurar alteração'    => [fn () => PontoAjuste::restauracao($alteracao, 'm', $this->gestora, 'Gestora', $this->agora), 'Só a desconsideração se restaura.'],
+            'alterar fora da conta'  => [fn () => PontoAjuste::alteracao($fora, 'saida', new \DateTimeImmutable(), 'm', $this->gestora, 'Gestora', $this->agora), 'A batida está fora da conta: só a restauração a traz de volta.'],
+            'desconsiderar de novo'  => [fn () => PontoAjuste::desconsideracao($fora, 'm', $this->gestora, 'Gestora', $this->agora), 'A batida está fora da conta: só a restauração a traz de volta.'],
+            'tipo de batida inválido' => [fn () => PontoAjuste::inclusao($this->escritorio, $this->pessoa, 'almoco', new \DateTimeImmutable(), 'm', $this->gestora, 'Gestora', $this->agora), 'Tipo de batida inválido.'],
         ];
-        foreach ($casos as $caso => $operacao) {
+        foreach ($casos as $caso => [$operacao, $mensagem]) {
             try {
                 $operacao();
                 self::fail('Aceitou: ' . $caso);
             } catch (\LogicException $erro) {   // \InvalidArgumentException também é LogicException
-                self::assertNotSame('', $erro->getMessage(), $caso);
+                self::assertSame($mensagem, $erro->getMessage(), $caso);
             }
         }
     }
@@ -106,7 +106,18 @@ final class PontoAjusteTest extends TestCase
     public function testAlvoComUmaRaizSo(): void
     {
         $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('O alvo do ajuste tem uma raiz só');
         new AlvoDoAjuste($this->escritorio, $this->pessoa, 'b31', null, null, null, 'saida', new \DateTimeImmutable());
+    }
+
+    #[TestDox('AlvoDoAjuste na inclusão exige a cabeça (no mínimo a própria inclusão)')]
+    public function testAlvoDaInclusaoSemCabeca(): void
+    {
+        $inclusao = PontoAjuste::inclusao($this->escritorio, $this->pessoa, 'saida', new \DateTimeImmutable('2026-10-21 18:00:00'), 'm', $this->gestora, 'Gestora', $this->agora);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Na inclusão, a cabeça é no mínimo a própria inclusão');
+        new AlvoDoAjuste($this->escritorio, $this->pessoa, 'a1', null, $inclusao, null, 'saida', new \DateTimeImmutable('2026-10-21 18:00:00'));
     }
 
     #[TestDox('Recusas: o motivo de cada uma e os textos do plano, sem travessão')]
@@ -118,12 +129,13 @@ final class PontoAjusteTest extends TestCase
             AjusteDeBatidaRecusadoException::futuro(),
             AjusteDeBatidaRecusadoException::nadaMudou(),
             AjusteDeBatidaRecusadoException::semMotivo(),
+            AjusteDeBatidaRecusadoException::motivoLongo(),
             AjusteDeBatidaRecusadoException::ligadaAJustificativa(),
             AjusteDeBatidaRecusadoException::daPropriaBatida(),
         ];
 
         self::assertSame(
-            ['mudou', 'nao_encontrada', 'futuro', 'nada_mudou', 'sem_motivo', 'ligada_a_justificativa', 'da_propria_batida'],
+            ['mudou', 'nao_encontrada', 'futuro', 'nada_mudou', 'sem_motivo', 'motivo_longo', 'ligada_a_justificativa', 'da_propria_batida'],
             array_map(static fn (AjusteDeBatidaRecusadoException $r): string => $r->motivo, $recusas),
         );
         self::assertSame([
@@ -132,6 +144,7 @@ final class PontoAjusteTest extends TestCase
             HorarioFuturoDaBatida::MENSAGEM,
             'O ajuste não muda nada: a batida já tem este tipo, esta data e esta hora.',
             'Informe o motivo da correção.',
+            'O motivo da correção passa de 2000 caracteres. Resuma o texto.',
             'Esta batida saiu da conta pela análise da justificativa e só volta com um novo abono.',
             'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.',
         ], array_map(static fn (AjusteDeBatidaRecusadoException $r): string => $r->getMessage(), $recusas));

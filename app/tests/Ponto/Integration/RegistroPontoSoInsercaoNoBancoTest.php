@@ -133,6 +133,20 @@ final class RegistroPontoSoInsercaoNoBancoTest extends KernelTestCase
         self::assertSame(0, $restantes);
     }
 
+    #[TestDox('O escape da purga libera só o DELETE: o UPDATE continua recusado com ele ligado')]
+    public function testEscapeDaPurgaNaoLiberaUpdate(): void
+    {
+        $this->conexao->beginTransaction();
+        try {
+            $this->conexao->executeQuery("SELECT set_config('bluejus.purga_do_escritorio', ?, true)", [(string) $this->escritorio->getId()]);
+            $erro = $this->recusado("UPDATE registro_ponto SET observacao = 'nota' WHERE id = ?", [$this->batida->getId()]);
+        } finally {
+            $this->conexao->rollBack();
+        }
+
+        self::assertStringContainsString('A batida gravada do ponto não muda', $erro);
+    }
+
     #[TestDox('DELETE com o escape da purga de OUTRO escritório é recusado; com o escape vazio também')]
     public function testDeleteComEscapeDeOutroEscritorioRecusado(): void
     {

@@ -98,10 +98,13 @@ final class LinhagemDoAjusteNoBancoTest extends KernelTestCase
         $batidaEmB = $this->batida($this->b, $this->pessoa, 'entrada', '2026-10-21 08:00:00');
         $inclusaoEmB = $this->incluir($this->b, $this->pessoa, '2026-10-21 18:00:00');
         $batidaDaOutra = $this->batida($this->a, $this->outra, 'entrada', '2026-10-21 08:00:00');
+        $inclusaoDaOutra = $this->incluir($this->a, $this->outra, '2026-10-21 18:00:00');
 
         self::assertNull($this->registros->alvoDoAjuste($this->pessoa, $this->a, 'b' . $batidaEmB->getId()), 'batida de B pedida em A');
         self::assertNull($this->registros->alvoDoAjuste($this->pessoa, $this->a, 'a' . $inclusaoEmB->getId()), 'inclusão de B pedida em A');
         self::assertNull($this->registros->alvoDoAjuste($this->pessoa, $this->a, 'b' . $batidaDaOutra->getId()), 'batida de outra pessoa');
+        self::assertNull($this->registros->alvoDoAjuste($this->pessoa, $this->a, 'a' . $inclusaoDaOutra->getId()), 'inclusão de outra pessoa, no mesmo escritório');
+        self::assertNotNull($this->registros->alvoDoAjuste($this->outra, $this->a, 'a' . $inclusaoDaOutra->getId()), 'controle: para a outra pessoa, existe');
         self::assertNotNull($this->registros->alvoDoAjuste($this->pessoa, $this->b, 'b' . $batidaEmB->getId()), 'controle: em B, existe');
         self::assertNotNull($this->registros->alvoDoAjuste($this->pessoa, $this->b, 'a' . $inclusaoEmB->getId()), 'controle: em B, existe');
     }

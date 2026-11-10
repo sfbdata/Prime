@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Enum\TipoDoAjuste;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
 use App\Ponto\Model\AlvoDoAjuste;
 use Doctrine\ORM\EntityManagerInterface;
@@ -49,7 +50,13 @@ final class GravacaoDoAjusteDoPonto
     ) {
     }
 
-    /** Trava a linhagem das batidas da pessoa até o fim da transação; sem transação ativa, a trava não valeria nada. */
+    /**
+     * Trava a linhagem das batidas da pessoa até o fim da transação; sem transação ativa, a trava não valeria nada.
+     *
+     * Ordem: quem chama trava a pessoa (4210) antes de qualquer gravação na trilha (4203), como a tela de ajuste. Com a
+     * ordem invertida, duas transações podem se travar uma à outra (o PostgreSQL aborta uma delas com erro). Não há
+     * guarda aqui: olhar `pg_locks` acusaria à toa num lote de várias pessoas e nos testes (DAMA, transação única).
+     */
     public function travar(User $pessoa): void
     {
         $conexao = $this->entityManager->getConnection();
@@ -121,6 +128,7 @@ final class GravacaoDoAjusteDoPonto
         $motivo = self::motivoValido($motivo);
         self::exigirNaConta($alvo);
         self::exigirDaMesmaFolha($justificativa, $alvo->escritorio, $alvo->pessoa);
+        self::exigirQueDesfacaARaiz($alvo, $justificativa, $desfaz);
         $this->travar($alvo->pessoa);
 
         $desconsideracao = PontoAjuste::desconsideracao($alvo, $motivo, $autor, self::nomeDe($autor), $this->relogio->now(), $justificativa, $desfaz);
@@ -151,9 +159,11 @@ final class GravacaoDoAjusteDoPonto
     private static function motivoValido(string $motivo): string
     {
         $motivo = trim($motivo);
-        $tamanho = mb_strlen($motivo);
-        if ($tamanho === 0 || $tamanho > self::MOTIVO_MAXIMO) {
+        if ($motivo === '') {
             throw AjusteDeBatidaRecusadoException::semMotivo();
+        }
+        if (mb_strlen($motivo) > self::MOTIVO_MAXIMO) {
+            throw AjusteDeBatidaRecusadoException::motivoLongo();
         }
 
         return $motivo;
@@ -179,6 +189,22 @@ final class GravacaoDoAjusteDoPonto
     {
         if ($alvo->tipoAtual === $tipo && $alvo->dataHoraAtual?->format('Y-m-d H:i:s') === $dataHora->format('Y-m-d H:i:s')) {
             throw AjusteDeBatidaRecusadoException::nadaMudou();
+        }
+    }
+
+    /**
+     * O `$desfaz` da desconsideração é a inclusão do esquecimento que é a raiz do próprio alvo, e vem com a justificativa
+     * dela: outro ajuste gravaria um `desfaz_id` de outra linhagem e um evento com o texto do esquecimento errado.
+     */
+    private static function exigirQueDesfacaARaiz(AlvoDoAjuste $alvo, ?JustificativaPonto $justificativa, ?PontoAjuste $desfaz): void
+    {
+        if ($desfaz === null) {
+            return;
+        }
+        $daRaiz = $alvo->raizInclusao !== null && $desfaz->getId() !== null && $desfaz->getId() === $alvo->raizInclusao->getId();
+        $daMesmaJustificativa = $justificativa !== null && $desfaz->getJustificativa()?->getId() === $justificativa->getId();
+        if (!$daRaiz || !$daMesmaJustificativa || $desfaz->getTipo() !== TipoDoAjuste::Inclusao) {
+            throw new \LogicException('A desconsideração só desfaz a inclusão do esquecimento que é a raiz do alvo, com a mesma justificativa.');
         }
     }
 

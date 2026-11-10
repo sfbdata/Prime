@@ -13,8 +13,9 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * `ponto_ajuste`: cada linha presa à anterior da mesma batida (`anterior_id`); a raiz é o registro original
  * (`registro_ponto_id`) ou uma inclusão (`inclusao_id`), repetida em toda linha depois dela. Os CHECKs garantem a forma
- * de cada tipo, e os índices únicos parciais garantem a linhagem sem bifurcação: um sucessor por linha, uma primeira
- * linha por registro. Os índices sem nome próprio (IDX_...) são os das FKs, que o Doctrine cria e cobra no mapeamento.
+ * de cada tipo, e os índices únicos parciais com o CHECK da linhagem garantem a linhagem sem bifurcação: um sucessor
+ * por linha, uma primeira linha por registro, e depois da inclusão toda linha tem anterior (a inclusão é a única
+ * primeira linha dela). Os índices sem nome próprio (IDX_...) são os das FKs, que o Doctrine cria e cobra no mapeamento.
  * Só `autor_id` tem SET NULL (o nome fica em `autor_nome`); as outras FKs são NO ACTION: nada some por baixo de um ajuste.
  *
  * Gatilho `registro_ponto_so_insercao`: em `registro_ponto`, UPDATE não muda coluna nenhuma (sem exceção: observação,
@@ -86,6 +87,7 @@ final class Version20261109280000 extends AbstractMigration
         $this->addSql("ALTER TABLE ponto_ajuste ADD CONSTRAINT chk_ponto_ajuste_marcacao CHECK ((tipo_marcacao_anterior IS NULL OR tipo_marcacao_anterior IN ('entrada', 'repouso', 'retorno', 'saida')) AND (tipo_marcacao_nova IS NULL OR tipo_marcacao_nova IN ('entrada', 'repouso', 'retorno', 'saida')))");
         $this->addSql('ALTER TABLE ponto_ajuste ADD CONSTRAINT chk_ponto_ajuste_pares CHECK ((tipo_marcacao_anterior IS NULL) = (data_hora_anterior IS NULL) AND (tipo_marcacao_nova IS NULL) = (data_hora_nova IS NULL))');
         $this->addSql('ALTER TABLE ponto_ajuste ADD CONSTRAINT chk_ponto_ajuste_motivo CHECK (char_length(btrim(motivo)) BETWEEN 1 AND 2000)');
+        $this->addSql('ALTER TABLE ponto_ajuste ADD CONSTRAINT chk_ponto_ajuste_linhagem_da_inclusao CHECK (inclusao_id IS NULL OR anterior_id IS NOT NULL)');
         $this->addSql(<<<'SQL'
 ALTER TABLE ponto_ajuste ADD CONSTRAINT chk_ponto_ajuste_forma CHECK (
     (tipo = 'inclusao'

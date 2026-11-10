@@ -188,6 +188,31 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertSame('Ana Colaboradora: Saída às 18:00 de 21/10/2026, do esquecimento abonado, desconsiderada ao voltar a justificativa para análise', $this->textoDoUltimoEvento());
     }
 
+    #[TestDox('Desconsiderar com um desfaz que não é a inclusão da raiz do alvo (outra inclusão, ou sem a justificativa dela) lança LogicException e não grava')]
+    public function testDesfazQueNaoEARaizRecusa(): void
+    {
+        $justificativa = $this->justificativa();
+        $inclusao = $this->emTransacao(fn (): PontoAjuste => $this->gravacao->incluir($this->escritorio, $this->pessoa, 'saida', new \DateTimeImmutable('2026-10-21 18:00:00'), 'Abono.', $this->gestora, $justificativa));
+        $outra = $this->emTransacao(fn (): PontoAjuste => $this->gravacao->incluir($this->escritorio, $this->pessoa, 'entrada', new \DateTimeImmutable('2026-10-20 08:00:00'), 'Outra.', $this->gestora, null));
+        $batida = $this->batida('saida', '2026-10-19 18:00:00');
+        $antes = [$this->quantosAjustes(), $this->quantosEventos()];
+
+        $casos = [
+            'outra inclusão'        => fn () => $this->gravacao->desconsiderar($this->alvo('a' . $inclusao->getId()), 'Voltou.', $this->gestora, $justificativa, $outra),
+            'sem a justificativa'   => fn () => $this->gravacao->desconsiderar($this->alvo('a' . $inclusao->getId()), 'Voltou.', $this->gestora, null, $inclusao),
+            'alvo é batida gravada' => fn () => $this->gravacao->desconsiderar($this->alvo('b' . $batida->getId()), 'Voltou.', $this->gestora, $justificativa, $inclusao),
+        ];
+        foreach ($casos as $caso => $operacao) {
+            try {
+                $this->emTransacao($operacao);
+                self::fail('Aceitou: ' . $caso);
+            } catch (\LogicException $erro) {
+                self::assertStringContainsString('só desfaz a inclusão do esquecimento', $erro->getMessage(), $caso);
+            }
+        }
+        self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
+    }
+
     #[TestDox('Recusas não gravam nada (nem na trilha): motivo vazio, motivo acima de 2000, horário futuro, alteração igual, ajuste em batida fora da conta')]
     public function testRecusasNaoGravam(): void
     {
@@ -209,7 +234,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
 
         self::assertSame([
             AjusteDeBatidaRecusadoException::SEM_MOTIVO => AjusteDeBatidaRecusadoException::SEM_MOTIVO,
-            'motivo longo'                              => AjusteDeBatidaRecusadoException::SEM_MOTIVO,
+            'motivo longo'                              => AjusteDeBatidaRecusadoException::MOTIVO_LONGO,
             AjusteDeBatidaRecusadoException::FUTURO     => AjusteDeBatidaRecusadoException::FUTURO,
             'futuro na alteração'                       => AjusteDeBatidaRecusadoException::FUTURO,
             AjusteDeBatidaRecusadoException::NADA_MUDOU => AjusteDeBatidaRecusadoException::NADA_MUDOU,
