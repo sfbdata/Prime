@@ -946,12 +946,31 @@ final class TenantController extends AbstractController
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
             'podeAnalisarJustificativas' => $this->podeAnalisar($currentUser, $user, $tenant),   // P43 a
             'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
-            // E10: as batidas que o gestor tirou da conta no mês, por dia, para a linha "Desconsideradas" (Restaurar).
-            'desconsideradasPorDia'  => \App\Ponto\DTO\BatidaDesconsideradaOutput::porDia($registroPontoRepository->desconsideradasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado)),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
-            'aceiteDaFolhaPonto'     => $competenciaSelecionada < $competenciaAtualPonto ? $estadoDoAceite->daCompetencia($tenant, $user, $anoSelecionado, $mesSelecionado) : null,   // E16, decisão 10: só o selo
-        ]);
+        ] + $this->desconsideradasEAceiteDaFolhaNaFicha($user, $tenant, $anoSelecionado, $mesSelecionado, $competenciaSelecionada < $competenciaAtualPonto, $registroPontoRepository, $estadoDoAceite));
+    }
+
+    /**
+     * O que a folha do Ponto da ficha ganhou na E10 e na E16, fora de `editUserRole` para o método legado não crescer:
+     * as batidas que o gestor tirou da conta no mês, por dia, para a linha "Desconsideradas" (Restaurar, E10), e o
+     * selo do aceite da folha do mês já fechado (E16, decisão 10: só o selo, sem o botão).
+     *
+     * @return array{desconsideradasPorDia: array<string, list<\App\Ponto\DTO\BatidaDesconsideradaOutput>>, aceiteDaFolhaPonto: ?\App\Ponto\DTO\AceiteDaFolhaOutput}
+     */
+    private function desconsideradasEAceiteDaFolhaNaFicha(
+        User $user,
+        Tenant $tenant,
+        int $ano,
+        int $mes,
+        bool $mesFechado,
+        RegistroPontoRepository $registros,
+        EstadoDoAceiteDaFolha $estadoDoAceite,
+    ): array {
+        return [
+            'desconsideradasPorDia' => \App\Ponto\DTO\BatidaDesconsideradaOutput::porDia($registros->desconsideradasDaCompetencia($user, $tenant, $ano, $mes)),
+            'aceiteDaFolhaPonto'    => $mesFechado ? $estadoDoAceite->daCompetencia($tenant, $user, $ano, $mes) : null,
+        ];
     }
 
     #[Route('/{tenantId}/user/{id}/edit-name', name: 'app_tenant_user_edit_name', methods: ['POST'])]
