@@ -48,8 +48,8 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
  *
  * O selo (etapa 8, E8-4) com o {@see SeladorDePdf} dublado no container: o download guarda e entrega o selado; a falha
  * do selo que tenta de novo responde o 429 do documento sendo gerado, passa o pedido ao worker e não guarda nada; com a
- * cadeia do selo pendente, os cliques seguintes dão o mesmo 429 sem gerar. A fila que falha nesse pedido solta a marca
- * nova e a falha sobe.
+ * cadeia do selo pendente, os cliques seguintes dão o mesmo 429 sem gerar, antes até da vaga. A fila que falha nesse
+ * pedido solta a marca nova e a falha sobe; a marca posta por outro pedido no meio da falha não pede o worker de novo.
  */
 #[CoversClass(ArquivosDaAssinaturaController::class)]
 #[CoversClass(AssinaturaPublicaController::class)]
@@ -324,7 +324,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
     }
 
-    #[TestDox('selo: o primeiro download do concluído guarda e entrega o selado, com o hash_final dele e "PDF final selado" na trilha')]
+    #[TestDox('selo: o primeiro download do concluído guarda e entrega o selado, com o hash_final dele, o mesmo hash_enviado e "PDF final selado pelo BlueJus" na trilha do detalhe')]
     public function testDownloadGuardaOSelado(): void
     {
         $recebidos = [];
@@ -335,13 +335,19 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         });
         $this->entrarComDisco();
         [$id, $tokens] = $this->concluido();
+        $hashEnviado = $this->conexao()->fetchOne('SELECT hash_enviado FROM assinatura_eletronica_documento WHERE id = ?', [$id]);
+        self::assertIsString($hashEnviado);
 
         $daTela = $this->baixar('/assinatura/documentos/' . $id . '/pdf');
 
         self::assertCount(1, $recebidos);
         self::assertSame($recebidos[0] . self::SELO, $daTela, 'entregue o selado');
         self::assertSame(hash('sha256', $daTela), $this->conexao()->fetchOne('SELECT hash_final FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertSame($hashEnviado, $this->conexao()->fetchOne('SELECT hash_enviado FROM assinatura_eletronica_documento WHERE id = ?', [$id]), 'o selo não muda o hash_enviado');
         self::assertSame(['pdf_selado'], $this->eventosDoSelo($id));
+        $detalhe = $this->detalhe($id);
+        self::assertSame($hashEnviado, $detalhe['hashEnviado'], 'o hash que a tela e a validação mostram');
+        self::assertContains('PDF final selado pelo BlueJus', array_column($detalhe['eventos'], 'texto'));
         self::assertSame($daTela, $this->baixar('/assinar/' . $tokens[0] . '/pdf'), 'o guardado, sem selar de novo');
         self::assertCount(1, $recebidos);
         self::assertCount(1, $this->pdfsGuardados());
@@ -389,6 +395,66 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
         self::assertTrue($travas->createLock('assinatura_pdf_vaga_0')->acquire(false), 'a vaga foi devolvida');
         self::assertFalse($travas->createLock('assinatura_pdf_selo_pendente_' . $id)->acquire(false), 'a cadeia do selo segue marcada');
+    }
+
+    #[TestDox('com a cadeia do selo marcada, o 429 do documento sendo gerado vem antes da vaga: as duas vagas ocupadas dão "Muitos PDFs" sem a marca e "O PDF deste documento está sendo gerado" com ela, sem cota')]
+    public function testCadeiaPendenteAntesDaVaga(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: true, ip: true, token: true);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $vagas = [$travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($vagas[0]->acquire(false) && $vagas[1]->acquire(false));
+
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => self::MUITOS], $this->json(), 'sem a marca, a falta de vaga');
+
+        $marca = $travas->createLock('assinatura_pdf_selo_pendente_' . $id, CadeiaDoSeloPendente::TTL_EM_SEGUNDOS, false);
+        self::assertTrue($marca->acquire(false));
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $tokens[0] . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url . ': a marca da cadeia antes da vaga');
+        }
+        self::assertSame([[], [], []], [$porUsuario->chavesConsumidas, $porIp->chavesConsumidas, $porToken->chavesConsumidas]);
+        self::assertSame([], $this->pdfsGuardados());
+
+        $marca->release();
+        foreach ($vagas as $vaga) {
+            $vaga->release();
+        }
+    }
+
+    #[TestDox('selo com falha que tenta de novo quando outro pedido marcou a cadeia depois da sonda: o mesmo 429, sem um segundo pedido ao worker e nada guardado')]
+    public function testFalhaNoSeloComACadeiaMarcadaNoMeio(): void
+    {
+        $marcaDeOutro = null;
+        $marcou = null;
+        $this->dublarSelador(static function () use (&$marcaDeOutro, &$marcou): never {
+            $marcou = $marcaDeOutro?->acquire(false);
+
+            throw new FalhaNoSelo('ocupado', ClasseDaFalhaNoSelo::Passageira, 503);
+        });
+        $this->entrarComDisco();
+        [$id] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $marcaDeOutro = $travas->createLock('assinatura_pdf_selo_pendente_' . $id, CadeiaDoSeloPendente::TTL_EM_SEGUNDOS, false);
+        $transporte = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transporte);
+
+        $this->client->request('GET', '/assinatura/documentos/' . $id . '/pdf');
+
+        self::assertTrue($marcou, 'a cadeia estava livre na sonda e o outro pedido a marcou durante o selo');
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json());
+        self::assertSame([], $transporte->getSent(), 'a marca não é nova: o pedido ao worker é de quem marcou');
+        self::assertSame([], $this->pdfsGuardados());
+        self::assertSame([], $this->eventosDoSelo($id));
+        $marcaDeOutro->release();
     }
 
     #[TestDox('selo com falha que tenta de novo e a fila fora do ar no download: a falha da fila sobe (500), a cadeia do selo fica livre e o clique seguinte tenta de novo')]

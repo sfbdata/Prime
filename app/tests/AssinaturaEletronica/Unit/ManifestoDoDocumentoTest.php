@@ -87,6 +87,18 @@ final class ManifestoDoDocumentoTest extends TestCase
         self::assertSame('Tipo: Eletrônica simples', $duda->tipo, 'quem recusou não tem método');
     }
 
+    #[TestDox('trilha do selo (etapa 8): os dois textos do catálogo, sem o motivo nem a versão da chave que vão nos dados')]
+    public function testTextoDosEventosDoSelo(): void
+    {
+        $documento = $this->documento([['nome' => 'Eva Rocha', 'papel' => 'Testemunha']]);
+        $em = new \DateTimeImmutable('2026-11-09 10:00:00');
+        $naoAplicado = new EventoDaTrilha($documento, TipoDeEvento::SeloNaoAplicado, ['motivo' => 'pdf_grande_demais', 'chave' => 1], $em, null);
+        $selado = new EventoDaTrilha($documento, TipoDeEvento::PdfSelado, ['chave' => 1], $em, null);
+
+        self::assertSame('PDF final guardado sem o selo do BlueJus', TextoDoEvento::de(self::tradutorDaAssinatura(), $naoAplicado));
+        self::assertSame('PDF final selado pelo BlueJus', TextoDoEvento::de(self::tradutorDaAssinatura(), $selado));
+    }
+
     #[TestDox('recusa sem o evento na trilha: a data vira "não informado"')]
     public function testRecusaSemEvento(): void
     {

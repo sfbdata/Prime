@@ -36,6 +36,12 @@ final class HttpSeladorDePdf implements SeladorDePdf
     public const PDF_MAXIMO_EM_BYTES = 20 * 1024 * 1024;
     public const TEMPO_MAXIMO_EM_SEGUNDOS = 45.0;
 
+    /**
+     * Os espaços das pontas que saem da URL e do token: os do `trim()` padrão e o `\x0C` (avanço de página), como o
+     * cliente da cadeia da etapa 6 (`HttpValidadorDeCadeia`), que lê as mesmas variáveis.
+     */
+    public const ESPACOS = " \t\n\r\0\x0B\x0C";
+
     // Códigos locais, para o que não é resposta do validador.
     public const PDF_GRANDE_DEMAIS = 'pdf_grande_demais';
     public const TEMPO_ESGOTADO_NO_CLIENTE = 'tempo_esgotado_no_cliente';
@@ -76,8 +82,8 @@ final class HttpSeladorDePdf implements SeladorDePdf
         string $url,
         string $token,
     ) {
-        $this->url = rtrim(trim($url), '/');
-        $this->token = trim($token);
+        $this->url = rtrim(trim($url, self::ESPACOS), '/');
+        $this->token = trim($token, self::ESPACOS);
     }
 
     public function selar(string $pdf): ?string
