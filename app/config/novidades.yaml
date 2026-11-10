@@ -1,6 +1,30 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.47.0"
+  data: "2026-11-10"
+  itens:
+    - "Na assinatura de documentos, o PDF que já chega assinado fica guardado como original mesmo quando você não coloca as páginas dele no documento, e o botão \"Baixar original com as assinaturas\" continua funcionando."
+    - "Na assinatura de documentos, quando o PDF final não pode ser gerado, o documento deixa de esperar a pasta para sempre: o histórico mostra que o vínculo não foi aplicado e o botão \"Vincular à pasta\" volta para tentar de novo."
+    - "Na Assinatura de documentos, o documento com prazo vencido que vai para a Lixeira continua aparecendo como Expirado, em vez de Cancelado, e o envio de um documento que está na Lixeira não pode mais ser cancelado."
+    - "O histórico de cada documento ficou com os textos combinados: mostra a impressão digital do arquivo enviado, o nome que a pessoa digitou ao assinar e as frases de recusa, conclusão e cancelamento."
+    - "Ao criar um documento, um prazo fora de 1 a 90 dias agora mostra o aviso com a regra, em vez de ser trocado sem avisar, e o nome do signatário que falta no cadastro aparece como uma linha em branco para preencher."
+    - "As janelas de confirmação e os avisos da Assinatura ficaram com o tamanho do desenho."
+    - "Na prévia do documento, sob a linha de assinatura, aparece o nome cadastrado de quem assina, e a página que pede para esperar alguns minutos ganhou o mesmo cabeçalho da tela de assinar."
+    - "No histórico do documento, o envio agora mostra \"Documento criado\" logo antes de \"Enviado para assinatura\". Quem cria e envia de uma vez vê o histórico começar por aí; quem salvou o rascunho antes continua vendo esse \"Rascunho salvo\" no começo. Se o envio for recusado por falta de algum dado, o histórico mostra \"Rascunho salvo\"."
+    - "Depois da assinatura, baixe o documento com o histórico de quem assinou e um código para consultar seu registro. A consulta também pode ser aberta pelo QR Code do PDF."
+    - "Vincule o documento a uma pasta para guardar nela a cópia final quando a assinatura for concluída."
+    - "Documentos que já chegam assinados preservam o arquivo original. Os métodos gov.br e ICP-Brasil ficam disponíveis quando a conferência de certificados estiver configurada."
+    - "A assinatura Simples permite enviar o link, confirmar o acesso ao e-mail com um código e assinar sem comprar certificado digital. Para mandar o convite novamente ao primeiro signatário pendente, use Enviar lembrete na lista."
+    - "A Assinatura de documentos ganhou o envio: o escritório manda o link por e-mail ou WhatsApp e o cliente assina pelo celular, sem criar conta, com um código que chega no e-mail dele. A tela continua desligada e só aparece para a equipe do BlueJus; avisaremos quando estiver liberada."
+    - "Na Assinatura de documentos, o escritório pode criar os próprios modelos: escrever o texto, marcar os campos que mudam em cada documento (nome do cliente, CPF, data) e onde cada pessoa assina, ou partir de um modelo pronto ou de um arquivo do Word. Os modelos ficam disponíveis para toda a equipe do escritório. A tela continua desligada e só aparece para a equipe do BlueJus; avisaremos quando estiver liberada."
+    - "A Assinatura de documentos ganhou, por dentro, a conferência de PDF que já chega assinado com certificado digital (gov.br ou ICP-Brasil): o sistema confere se o arquivo mudou depois de cada assinatura, se quem assinou depois mexeu no que já estava no documento (uma página, um texto, uma anotação) e se o certificado guardado no arquivo é o mesmo que foi usado para assinar. O nome e o CPF mostrados são os que o certificado declara; a confirmação de que o certificado foi emitido por uma autoridade da ICP-Brasil vem numa próxima etapa. A tela continua desligada e só aparece para a equipe do BlueJus; avisaremos quando estiver liberada."
+    - "A Assinatura de documentos ganhou a forma Reforçada: além do código no e-mail, quem assina tira uma selfie com documento e informa a localização do celular. A foto fica guardada protegida, só para comprovar a assinatura. Menores de idade continuam assinando pela forma Simples. A tela continua desligada e só aparece para a equipe do BlueJus; avisaremos quando estiver liberada."
+    - "Documento assinado muito grande (acima de 19 MB) passa a sair com as páginas em imagem um pouco mais leve, para caber no selo e na conferência do BlueJus."
+    - "O PDF final do documento assinado passa a sair com o selo digital do BlueJus, que permite conferir que o arquivo não foi alterado depois de concluído. O selo entra em uso quando o certificado digital do BlueJus for instalado; até lá, o PDF final sai como hoje. A Assinatura de documentos continua desligada e só aparece para a equipe do BlueJus."
+    - "Com o selo em uso, a trilha de eventos do documento passa a mostrar se o PDF final saiu com o selo do BlueJus (\"PDF final selado pelo BlueJus\") ou sem ele (\"PDF final guardado sem o selo do BlueJus\")."
+    - "Se o serviço do selo estiver fora do ar no momento em que o PDF final é gerado, o sistema tenta de novo sozinho (em 1, 5 e 15 minutos) antes de entregar o PDF sem o selo. Quem clicar em \"Baixar PDF com selo\" nesse intervalo vê \"O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.\"."
+    - "A conferência de PDFs recebeu uma proteção para interromper arquivos que geram informação demais, evitando consumo excessivo de memória durante a leitura."
 - versao: "2.46.0"
   data: "2026-11-10"
   itens:
