@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\ConteudoDaFolha;
 use App\Ponto\DTO\PdfDaFolhaOutput;
 use App\Ponto\Service\ImagemDaFolha\DesenhoDaFolha;
+use App\Ponto\Service\NomeDoArquivoDaFolha;
 use App\Ponto\Service\PdfDeUmaImagem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -51,13 +52,10 @@ final class GerarPdfDaFolhaUseCase
         );
     }
 
-    /** "folha_ponto_MARIADASILVA-10-2026.pdf": o nome sem acento e só com letras, em maiúsculas (L726). */
+    /** "folha_ponto_MARIADASILVA-10-2026.pdf": o nome sem acento e só com letras, em maiúsculas (L726, P87). */
     public static function nomeDoArquivo(ConteudoDaFolha $conteudo): string
     {
-        $semAcento = (string) \Normalizer::normalize($conteudo->cabecalho->nome, \Normalizer::FORM_D);
-        $letras = strtoupper((string) preg_replace('/[^A-Za-z]/', '', $semAcento));
-
-        return sprintf('folha_ponto_%s-%02d-%04d.pdf', $letras === '' ? 'USUARIO' : $letras, $conteudo->mes, $conteudo->ano);
+        return sprintf('folha_ponto_%s-%02d-%04d.pdf', NomeDoArquivoDaFolha::doPdf($conteudo->cabecalho->nome), $conteudo->mes, $conteudo->ano);
     }
 
     /** O endereço absoluto da validação pública do código (a mesma rota do comprovante, D20). */
