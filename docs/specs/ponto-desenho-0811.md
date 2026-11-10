@@ -1305,6 +1305,8 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   10. Ficha do gestor (mesmo parcial da folha): mostra só o selo do aceite, sem o botão.
   11. Ordem da barra: "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF".
   12. "Ver PDF" sai do modal Bootstrap para a janela do desenho, na moldura `.pe-janela` (decisão do Coordenador).
+      O desenho não tem esta janela: a largura e a altura do quadro são as do modal que ela substitui (1140px e 78vh),
+      e o "Baixar" de dentro salva o mesmo arquivo, sem nova emissão (decisão 2).
   13. Liga e desliga: a camada Escritório da função `ponto-aceite` entra na E16, como a E7 previu.
   14. O próprio aceite é selado com HMAC (chave `ponto-folha`) sobre a situação, a ressalva, a data, o IP, o navegador e
       o código da folha vista: a trilha não guarda o texto da ressalva. O texto selado fica guardado na linha
