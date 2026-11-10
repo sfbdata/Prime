@@ -15,7 +15,7 @@ namespace App\Master\Service;
  * "Ponto Eletrônico" e a função "Ponto: geolocalização" (spec ponto-desenho-0811.md, E7 e P95): 23 linhas e 22 chaves.
  * Depois, as funções "Ponto: comprovante em imagem" (E15) e "Ponto: alertas de intervalo" (E11): 25 linhas e 24 chaves.
  * Depois, as funções "Ponto: validação em tela cheia", "Ponto: sons" e "Ponto: lembrete de saída" (E8): 28 linhas e
- * 27 chaves.
+ * 27 chaves. Depois, a função "Ponto: aceite da folha" (E16): 29 linhas e 28 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -77,6 +77,10 @@ final class CatalogoDeRecursos
         // A camada "Global" dos alertas de intervalo do Ponto (E11, P21 e P96): nasce ligada, sem linha em recurso_estado.
         // Sem rota: age na batida e no aviso do intervalo do cartão.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-alertas', 't' => 'Ponto: alertas de intervalo', 'ic' => 'bi-exclamation-triangle', 'd' => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', 'tela' => false, 'base' => false],
+        // O aceite mensal da folha (spec ponto-desenho-0811, E16, P33): nasce ligado, como o comprovante, e só aparece
+        // com o selo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoAceite}). Camada "Global"; a "Escritório"
+        // mora em ponto_config_escritorio. Sem rota própria: a assinatura (`ponto_folha_assinar`) segue a tela do Ponto.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-aceite', 't' => 'Ponto: aceite da folha', 'ic' => 'bi-pen', 'd' => 'O colaborador confirma ou registra ressalva na folha fechada.', 'tela' => false, 'base' => false],
     ];
 
     /**
@@ -131,7 +135,7 @@ final class CatalogoDeRecursos
         'ponto_pendencia_do_dia',
     ];
 
-    /** @return list<string> as 27 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 28 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

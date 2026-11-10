@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('28 linhas, 27 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('29 linhas, 28 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(28, CatalogoDeRecursos::LINHAS);
-        self::assertCount(27, CatalogoDeRecursos::chaves());
+        self::assertCount(29, CatalogoDeRecursos::LINHAS);
+        self::assertCount(28, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -31,17 +31,18 @@ final class CatalogoDeRecursosTest extends TestCase
         foreach (['ponto-animacao', 'ponto-sons', 'ponto-lembrete'] as $funcaoDaE8) {
             self::assertFalse(CatalogoDeRecursos::ehEssencial($funcaoDaE8), $funcaoDaE8 . ' desliga (E8)');
         }
+        self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-aceite'), 'o aceite da folha desliga (E16)');
         self::assertSame(['contribua', 'contribua'], array_values(array_map(
             static fn (array $l): string => $l['chave'],
             array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => str_starts_with($l['t'], 'Contribua')),
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas e a E8 do Ponto: 13 Telas, 7 Menu do usuário, 8 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas, a E8 e o aceite do Ponto: 13 Telas, 7 Menu do usuário, 9 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 8], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 9], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
@@ -50,7 +51,8 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
         // As funções do Ponto na ordem do bj-recursos.js do desenho 16: a tela cheia e os sons (E8), o comprovante (E15)
-        // antes da geolocalização (E7), e o lembrete antes dos alertas de intervalo, como no FEATS (E8 e E11).
+        // antes da geolocalização (E7), o lembrete antes dos alertas de intervalo, e o aceite da folha (E16) por último,
+        // como no FEATS (E8, E11 e E16).
         self::assertSame(
             [
                 ['Funções', 'ponto-animacao', 'Ponto: validação em tela cheia', 'bi-clock-history', 'Relógio completando a volta e confirmação ocupando toda a tela.', false, false],
@@ -59,10 +61,11 @@ final class CatalogoDeRecursosTest extends TestCase
                 ['Funções', 'ponto-geo', 'Ponto: geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.', false, false],
                 ['Funções', 'ponto-lembrete', 'Ponto: lembrete de saída', 'bi-bell', 'Avisa quando passar do horário previsto e a saída não foi registrada.', false, false],
                 ['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false],
+                ['Funções', 'ponto-aceite', 'Ponto: aceite da folha', 'bi-pen', 'O colaborador confirma ou registra ressalva na folha fechada.', false, false],
             ],
             array_map(
                 static fn (array $l): array => [$l['g'], $l['chave'], $l['t'], $l['ic'], $l['d'], $l['tela'], $l['base']],
-                array_slice(CatalogoDeRecursos::LINHAS, 22, 6),
+                array_slice(CatalogoDeRecursos::LINHAS, 22, 7),
             ),
         );
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');

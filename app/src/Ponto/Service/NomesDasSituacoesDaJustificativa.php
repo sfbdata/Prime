@@ -45,6 +45,7 @@ final class NomesDasSituacoesDaJustificativa
         'reverter.feito_restaurada' => 'Justificativa de %s voltou para análise e a batida do trabalho externo voltou para a conta.',
         // Folha exportada (PDF e XLSX), entre parênteses depois do tipo: no feminino, como a Folha do desenho (D22).
         'folha.recusada'         => 'recusada',
+        'folha.pendente'         => 'em análise',
     ];
 
     /** Os nomes de antes do desenho, guardados para a volta do Ponto antigo. */
@@ -77,6 +78,7 @@ final class NomesDasSituacoesDaJustificativa
         'reverter.feito_restaurada' => 'Justificativa de %s revertida para pendente e a batida do trabalho externo voltou '
             . 'para a conta.',
         'folha.recusada'         => 'rejeitada',
+        'folha.pendente'         => 'pendente',
     ];
 
     /** A linha da troca do P40. */

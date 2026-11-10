@@ -332,7 +332,7 @@ final class FolhaPontoXlsxExporter
                         $justText .= sprintf(' (Parcial: %s às %s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
                     }
                 } elseif ($j->getStatus() === 'pendente') {
-                    $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
+                    $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('folha.pendente') . ')';
                 } else {
                     $justText = ($j->getLabelTipo() ?? '') . ' (' . NomesDasSituacoesDaJustificativa::texto('folha.recusada') . ')';
                 }
