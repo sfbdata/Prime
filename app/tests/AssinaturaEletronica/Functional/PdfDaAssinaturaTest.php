@@ -18,6 +18,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Tests\AssinaturaEletronica\Support\NaAssinaturaEnviada;
 use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
+use App\Tests\AssinaturaEletronica\Support\TravasContadas;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\FolhaDeTeste;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\PdfLido;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
@@ -53,6 +54,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
 
     private const MUITOS = 'Muitos PDFs sendo gerados agora. Tente de novo em instantes.';
     private const LIMITE = 'Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.';
+    private const DOCUMENTO_GERANDO = 'O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.';
 
     private ?string $diretorioDoEscritorio = null;
 
@@ -282,6 +284,52 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->pdfsGuardados());
     }
 
+    #[TestDox('concluído sem PDF guardado que outro pedido já gera: 429 "O PDF deste documento está sendo gerado", sem vaga nem cota')]
+    public function testDocumentoSendoGerado(): void
+    {
+        [$porUsuario, $porIp, $porToken] = $this->espiarLimitadores(usuario: true, ip: true, token: true);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->concluido();
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $outroPedido = [$travas->createLock('assinatura_pdf_documento_' . $id), $travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($outroPedido[0]->acquire(false) && $outroPedido[1]->acquire(false) && $outroPedido[2]->acquire(false));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $tokens[0] . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::DOCUMENTO_GERANDO], $this->json(), $url . ': a trava do documento antes da vaga');
+        }
+        self::assertSame([[], [], []], [$porUsuario->chavesConsumidas, $porIp->chavesConsumidas, $porToken->chavesConsumidas]);
+
+        foreach ($outroPedido as $trava) {
+            $trava->release();
+        }
+        $this->baixar('/assinatura/documentos/' . $id . '/pdf');
+        self::assertCount(1, $this->pdfsGuardados());
+        self::assertCount(1, $porUsuario->chavesConsumidas, 'quem gerou gastou a cota');
+        self::assertTrue($travas->createLock('assinatura_pdf_documento_' . $id)->acquire(false), 'a trava do documento foi liberada');
+    }
+
+    #[TestDox('as travas são renovadas a cada pedaço: a vaga no PDF gerado na hora; a vaga e a do documento no concluído')]
+    public function testRenovaAsTravasACadaPedaco(): void
+    {
+        $loja = new TravasContadas();
+        static::getContainer()->set('lock.assinatura_pdf.factory', new LockFactory($loja));
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+
+        $naHora = (new PdfLido($this->baixar('/assinar/' . $tokens[0] . '/pdf')))->paginas() + 2;
+        self::assertSame(1 + $naHora, $loja->renovacoesDe('assinatura_pdf_vaga_0'), 'o acquire e um por pedaço');
+        self::assertSame(0, $loja->renovacoesDe('assinatura_pdf_documento_' . $id), 'na hora, sem trava do documento');
+
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        $final = (new PdfLido($this->baixar('/assinatura/documentos/' . $id . '/pdf')))->paginas() + 2;
+        self::assertSame(1 + $naHora + 1 + $final, $loja->renovacoesDe('assinatura_pdf_vaga_0'));
+        self::assertSame(1 + $final, $loja->renovacoesDe('assinatura_pdf_documento_' . $id));
+    }
+
     #[TestDox('as telas recebem a URL do PDF e carregam o assinatura-pdf.js antes do script da tela; o link traz os textos do PDF')]
     public function testLigacaoNasTelas(): void
     {
@@ -300,6 +348,7 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         $catalogo = implode('', $publica->filter('script[type="application/json"][data-bj-t]')->each(static fn (Crawler $s): string => $s->text()));
         self::assertStringContainsString('assinatura_eletronica_tela.js.pdf.baixar', $catalogo);
         self::assertStringContainsString('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $catalogo, 'o texto do limitador chega ao assinatura-publica.js');
+        self::assertStringContainsString(self::DOCUMENTO_GERANDO, $catalogo);
     }
 
     /** @return array{User, Tenant} */
@@ -339,6 +388,21 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         static::getContainer()->set('limiter.assinatura_pdf_publico_token', $espioes[2]);
 
         return $espioes;
+    }
+
+    /**
+     * Ana e Bia assinam: o documento concluído, sem o PDF guardado (o worker não roda no teste).
+     *
+     * @return array{int, list<string|null>}
+     */
+    private function concluido(): array
+    {
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+
+        return [$id, $tokens];
     }
 
     /** Lixeira e cancelar pela tela do escritório; a recusa pelo link do outro signatário. */

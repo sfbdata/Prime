@@ -19,7 +19,8 @@ use Symfony\Component\Lock\LockInterface;
  * em fluxo, página a página (revisão do 1a). O primeiro pedaço é tirado antes da resposta: a diagramação roda ali, e a
  * falha nele vira erro antes de o cabeçalho sair. Falha num pedaço seguinte, com o 200 já enviado: vai para o log e a
  * escrita para ali, sem o fim do PDF (`%%EOF`); a tela confere o fim do arquivo antes de salvar e avisa a falha. A vaga
- * de geração é liberada quando o último pedaço sai ou a geração falha.
+ * de geração é renovada a cada pedaço ({@see VagasDeGeracaoDoPdf::renovar()}) e liberada quando o último pedaço sai ou
+ * a geração falha.
  *
  * {@see limitar()} vale só nas ações do PDF: `set_time_limit(300)` (fora da CLI, como o ChatIa: na CLI o limite vale
  * para o processo inteiro do ParaTest) e `memory_limit` de 256M, como o worker (o FPM tem 128M e 30 s).
@@ -80,6 +81,7 @@ final readonly class EntregaDoPdfDaAssinatura
             for (; $pedacos->valid(); $pedacos->next()) {
                 echo $pedacos->current();
                 flush();
+                VagasDeGeracaoDoPdf::renovar($vaga);
             }
         } catch (\Throwable $e) {
             $this->logger->error('PDF com selo cortado: a geração falhou depois do início da resposta: {erro}', [

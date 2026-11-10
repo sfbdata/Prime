@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\DTO\PdfParaEntregar;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Tests\AssinaturaEletronica\Support\TravasContadas;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -16,25 +17,26 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\LockInterface;
-use Symfony\Component\Lock\Store\InMemoryStore;
 
 /**
  * O PDF gerado na hora, em fluxo: a falha no primeiro pedaço vira erro antes da resposta; a falha num pedaço seguinte
  * (com o 200 já enviado) vai para o log e a escrita para sem o `%%EOF`, que a tela confere antes de salvar. Nos três
- * casos a vaga de geração é liberada.
+ * casos a vaga de geração é liberada; enquanto gera, ela é renovada a cada pedaço.
  */
 #[CoversClass(EntregaDoPdfDaAssinatura::class)]
 #[CoversClass(PdfParaEntregar::class)]
 final class EntregaDoPdfDaAssinaturaTest extends TestCase
 {
     private LoggerEmMemoria $logger;
+    private TravasContadas $loja;
     private LockFactory $travas;
     private LockInterface $vaga;
 
     protected function setUp(): void
     {
         $this->logger = new LoggerEmMemoria();
-        $this->travas = new LockFactory(new InMemoryStore());
+        $this->loja = new TravasContadas();
+        $this->travas = new LockFactory($this->loja);
         $this->vaga = $this->travas->createLock('assinatura_pdf_vaga_0');
         $this->vaga->acquire(false);
     }
@@ -50,6 +52,16 @@ final class EntregaDoPdfDaAssinaturaTest extends TestCase
         self::assertStringStartsWith('attachment;', (string) $resposta->headers->get('Content-Disposition'));
         $this->assertVagaLivre();
         self::assertSame([], $this->logger->doNivel('error'));
+    }
+
+    #[TestDox('a vaga é renovada a cada pedaço escrito: o TTL não vence numa geração longa')]
+    public function testRenovaAVagaACadaPedaco(): void
+    {
+        $antes = $this->loja->renovacoesDe('assinatura_pdf_vaga_0');
+
+        self::enviar($this->entrega()->resposta(PdfParaEntregar::naHora(self::pedacos(['%PDF-1.7 ', 'p1 ', 'p2 ', "%%EOF\n"]), 'assinado_x.pdf', $this->vaga)));
+
+        self::assertSame($antes + 4, $this->loja->renovacoesDe('assinatura_pdf_vaga_0'));
     }
 
     #[TestDox('falha depois do início: log, a escrita para sem o %%EOF e a vaga é liberada')]

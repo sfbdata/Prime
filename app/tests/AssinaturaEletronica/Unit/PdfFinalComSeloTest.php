@@ -87,6 +87,23 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertSame(['documento' => 1, 'erro' => 'ouvinte quebrado'], $erros[0]['contexto']);
     }
 
+    #[TestDox('quem chama pela web é avisado a cada pedaço gerado (para renovar as travas); o guardado não gera nem avisa')]
+    public function testAvisaACadaPedacoGerado(): void
+    {
+        $documento = $this->concluido();
+        $pedacos = 0;
+        $aCadaPedaco = static function () use (&$pedacos): void {
+            ++$pedacos;
+        };
+
+        $chave = $this->servico()->garantir($documento, $aCadaPedaco);
+
+        $paginas = (new PdfLido($this->disco->ler($chave)))->paginas();
+        self::assertSame($paginas + 2, $pedacos, 'o início, uma por página e o fim');
+        $this->servico()->garantir($documento, $aCadaPedaco);
+        self::assertSame($paginas + 2, $pedacos, 'já guardado: nenhum pedaço');
+    }
+
     #[TestDox('já guardado: devolve a chave guardada sem gerar nem avisar')]
     public function testJaGuardado(): void
     {

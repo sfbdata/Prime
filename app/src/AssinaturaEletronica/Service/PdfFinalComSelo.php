@@ -32,7 +32,9 @@ use Psr\Log\LoggerInterface;
  *
  * Tempo: o PDF é gerado inteiro e guardado antes de entregar (os bytes entregues são os guardados: o hash final e o
  * selo assinam o arquivo inteiro). Acima de umas 100 páginas (cerca de 1,2 s por página), o primeiro clique pode dar
- * 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o guardado.
+ * 504 do nginx (120 s); o PHP termina e guarda, e o clique seguinte entrega o guardado. Quem chama pela web passa
+ * `$aCadaPedaco`, chamado a cada pedaço gerado, para renovar as travas da geração
+ * ({@see VagasDeGeracaoDoPdf::renovar()}).
  */
 final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
 {
@@ -48,7 +50,8 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     ) {
     }
 
-    public function garantir(DocumentoParaAssinar $doc): ChaveDeArquivo
+    /** @param (\Closure(): void)|null $aCadaPedaco chamado a cada pedaço gerado (só quando gera) */
+    public function garantir(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco = null): ChaveDeArquivo
     {
         if ($doc->getSituacao() !== SituacaoDoDocumento::Concluido) {
             throw new \LogicException('Só o documento concluído tem PDF final com selo.');
@@ -58,7 +61,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
             return $guardada;
         }
 
-        [$nova, $sha256] = $this->gerarEGravar($doc);
+        [$nova, $sha256] = $this->gerarEGravar($doc, $aCadaPedaco);
         $guardou = $this->documentos->emTransacaoComArquivoNovo(
             fn (): bool => $this->guardar($doc, $nova, $sha256),
             static fn (): array => [$nova],
@@ -88,18 +91,40 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
         }
     }
 
-    /** @return array{ChaveDeArquivo, string} a chave gravada e o sha256 do arquivo */
-    private function gerarEGravar(DocumentoParaAssinar $doc): array
+    /**
+     * @param (\Closure(): void)|null $aCadaPedaco
+     *
+     * @return array{ChaveDeArquivo, string} a chave gravada e o sha256 do arquivo
+     */
+    private function gerarEGravar(DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco): array
     {
         $area = AreaTemporariaPrivada::criar('assinaturapdf');
         try {
-            [$caminho, $sha256] = PdfNoTemporario::gravar($area, $this->pdf->pedacos($doc));
+            [$caminho, $sha256] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc), $aCadaPedaco));
             $gravado = $this->armazenamento->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deArquivoLocal($caminho));
         } finally {
             $area->liberar();
         }
 
         return [$gravado->chave, $sha256];
+    }
+
+    /**
+     * Os mesmos pedaços, chamando `$aCadaPedaco` depois de gerar cada um.
+     *
+     * @param \Generator<int, string> $pedacos
+     * @param (\Closure(): void)|null $aCadaPedaco
+     *
+     * @return \Generator<int, string>
+     */
+    private static function avisando(\Generator $pedacos, ?\Closure $aCadaPedaco): \Generator
+    {
+        foreach ($pedacos as $pedaco) {
+            if ($aCadaPedaco !== null) {
+                $aCadaPedaco();
+            }
+            yield $pedaco;
+        }
     }
 
     /**

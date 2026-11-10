@@ -14,13 +14,15 @@ use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
 use App\AssinaturaEletronica\Exception\MuitosPdfsGerados;
 use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
+use App\AssinaturaEletronica\Exception\PdfDoDocumentoSendoGerado;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\PdfDaAssinatura;
-use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\PdfFinalComSelo;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
 use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Lock\LockInterface;
 
@@ -34,7 +36,11 @@ use Symfony\Component\Lock\LockInterface;
  *
  * Gerar ocupa uma das vagas da web ({@see VagasDeGeracaoDoPdf}); sem vaga, {@see MuitosPdfsSendoGerados}. Com a vaga,
  * consome a cota do limitador de quem pede (`$cabeNaCota`, do controller); estourada, {@see MuitosPdfsGerados}. O
- * guardado não gera: não ocupa vaga nem gasta cota. O concluído sem PDF guardado é gerado inteiro e guardado antes de entregar (os bytes
+ * guardado não gera: não ocupa vaga nem gasta cota.
+ *
+ * O concluído sem PDF guardado trava o documento antes da vaga: se outro pedido da web já gera o PDF dele,
+ * {@see PdfDoDocumentoSendoGerado}, sem ocupar vaga nem gastar cota. Quem gera renova a vaga e a trava do documento a
+ * cada pedaço (o TTL não vence com o gs em subprocesso). O PDF é gerado inteiro e guardado antes de entregar (os bytes
  * entregues são os guardados); acima de umas 100 páginas, o primeiro clique pode dar 504 do nginx (120 s), o PHP
  * termina e guarda, e o clique seguinte entrega o guardado.
  */
@@ -44,7 +50,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
         private DocumentoParaAssinarRepository $documentos,
         private SignatarioDoLink $link,
         private PdfDaAssinatura $pdf,
-        private PdfFinalDoDocumento $pdfFinal,
+        private PdfFinalComSelo $pdfFinal,
         private ClockInterface $relogio,
         private VagasDeGeracaoDoPdf $vagas,
     ) {
@@ -54,6 +60,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
      * @param \Closure(): bool $cabeNaCota consome a cota do limitador da geração; falso quando estourou
      *
      * @throws DocumentoNaoEncontrado
+     * @throws PdfDoDocumentoSendoGerado
      * @throws MuitosPdfsSendoGerados
      * @throws MuitosPdfsGerados
      * @throws FalhaAoMontarPdf
@@ -69,6 +76,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
      * @param \Closure(): bool $cabeNaCota consome a cota do limitador da geração; falso quando estourou
      *
      * @throws LinkInvalido
+     * @throws PdfDoDocumentoSendoGerado
      * @throws MuitosPdfsSendoGerados
      * @throws MuitosPdfsGerados
      * @throws FalhaAoMontarPdf
@@ -99,26 +107,48 @@ final readonly class ObterPdfDaAssinaturaUseCase
     private function entregar(DocumentoParaAssinar $documento, \Closure $cabeNaCota): PdfParaEntregar
     {
         $nome = $this->pdf->nomeDoArquivo($documento);
-        $concluido = $documento->getSituacao() === SituacaoDoDocumento::Concluido;
-        if ($concluido && ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null) {
-            return PdfParaEntregar::guardado($this->pdfFinal->garantir($documento), $nome);
+        if ($documento->getSituacao() === SituacaoDoDocumento::Concluido) {
+            $guardado = ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null
+                ? $this->pdfFinal->garantir($documento)
+                : $this->gerarEGuardar($documento, $cabeNaCota);
+
+            return PdfParaEntregar::guardado($guardado, $nome);
         }
 
         $vaga = $this->ocuparVaga($cabeNaCota);
-        if ($concluido) {
-            try {
-                return PdfParaEntregar::guardado($this->pdfFinal->garantir($documento), $nome);
-            } finally {
-                $vaga->release();
-            }
-        }
-
         try {
             return PdfParaEntregar::naHora($this->pdf->pedacos($documento), $nome, $vaga);
         } catch (\Throwable $e) {
             $vaga->release();
 
             throw $e;
+        }
+    }
+
+    /**
+     * O concluído sem PDF guardado: a trava do documento, a vaga e a cota, nessa ordem; as duas travas renovadas a cada
+     * pedaço e liberadas no fim.
+     *
+     * @param \Closure(): bool $cabeNaCota
+     *
+     * @throws PdfDoDocumentoSendoGerado
+     * @throws MuitosPdfsSendoGerados
+     * @throws MuitosPdfsGerados
+     */
+    private function gerarEGuardar(DocumentoParaAssinar $documento, \Closure $cabeNaCota): ChaveDeArquivo
+    {
+        $doDocumento = $this->vagas->travarDocumento((int) $documento->getId());
+        try {
+            $vaga = $this->ocuparVaga($cabeNaCota);
+            try {
+                return $this->pdfFinal->garantir($documento, static function () use ($vaga, $doDocumento): void {
+                    VagasDeGeracaoDoPdf::renovar($vaga, $doDocumento);
+                });
+            } finally {
+                $vaga->release();
+            }
+        } finally {
+            $doDocumento->release();
         }
     }
 

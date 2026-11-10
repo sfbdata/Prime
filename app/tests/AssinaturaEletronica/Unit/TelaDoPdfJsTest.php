@@ -92,6 +92,7 @@ final class TelaDoPdfJsTest extends TestCase
         self::assertSame('Gerando o PDF...', $pdf['gerando'] ?? null);
         self::assertSame('Muitos PDFs sendo gerados agora. Tente de novo em instantes.', $pdf['muitos'] ?? null);
         self::assertSame('Muitos PDFs gerados nos últimos minutos. Tente de novo em alguns minutos.', $pdf['limite'] ?? null);
+        self::assertSame('O PDF deste documento está sendo gerado. Tente de novo em alguns minutos.', $pdf['documento_gerando'] ?? null);
         self::assertSame('Não foi possível gerar o PDF. Tente de novo.', $pdf['falhou'] ?? null);
     }
 
