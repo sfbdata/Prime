@@ -34,6 +34,8 @@ final class RegistroDoSistemaNaPasta
         'carteira' => 'Carteira',
         // Rotina de segunda-feira da Controladoria (spec central-documentos-controladoria.md, "Rotina de segunda").
         'controladoria' => 'Controladoria',
+        // Documento assinado salvo pelo vínculo da Assinatura de documentos (spec assinatura-documentos-etapa-3, E3-11).
+        'assinatura' => 'Assinatura',
     ];
 
     /**

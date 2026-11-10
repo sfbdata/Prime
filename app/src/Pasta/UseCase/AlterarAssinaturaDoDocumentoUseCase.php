@@ -58,6 +58,10 @@ final class AlterarAssinaturaDoDocumentoUseCase
             throw new AssinaturaDoDocumentoRecusadaException('A assinatura digital é do próprio arquivo e não se desmarca.');
         }
 
+        if ($documento->getAssinaturaOrigem() === OrigemDaAssinatura::Eletronica) {
+            throw new AssinaturaDoDocumentoRecusadaException('A assinatura eletrônica veio da Assinatura de documentos e não se desmarca.');
+        }
+
         if (!$documento->estaAssinado()) {
             throw new AssinaturaDoDocumentoRecusadaException('Este arquivo não está marcado como assinado.');
         }
