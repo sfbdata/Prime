@@ -31,8 +31,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * ajuste mais a cabeça de cada linhagem que ainda está na conta. A alteração aparece com a hora nova e a original fica
  * gravada; a desconsiderada some de todo leitor; a inclusão entra sem id de registro, pelo alvo `a{id}`.
  *
- * Os ajustes nascem pela `GravacaoDoAjusteDoPonto`, dentro da transação; só a alteração forjada entre escritórios
- * entra por SQL cru, para provar que a leitura não confia na gravação.
+ * Os ajustes nascem pela `GravacaoDoAjusteDoPonto`, dentro da transação; só as alterações forjadas entre escritórios
+ * e entre pessoas entram por SQL cru, para provar que a leitura não confia na gravação.
  */
 #[CoversClass(RegistroPontoRepository::class)]
 #[CoversClass(BatidaAjustada::class)]
@@ -314,6 +314,41 @@ final class LeituraDaBatidaEfetivaNoBancoTest extends KernelTestCase
         self::assertSame(['b' . $deB->getId(), '19:00'], [$emB[1]->alvo(), $emB[1]->getDataHora()->format('H:i')]);
     }
 
+    #[TestDox('Ajuste forjado de outra pessoa, preso ao registro de alguém: não esconde o registro nem entra na conta de ninguém')]
+    public function testAjusteDeOutraPessoaNoRegistroNaoVale(): void
+    {
+        $daPessoa = $this->batida($this->a, $this->pessoa, 'entrada', '2026-10-21 08:00:00');
+        $this->forjarAjuste($this->a, $this->outra, $daPessoa, null);
+
+        self::assertSame([$daPessoa], $this->registros->findBatidasDoDia($this->pessoa, $this->a, $this->dia('2026-10-21')), 'o registro continua na conta da pessoa');
+        self::assertSame([], $this->registros->findBatidasDoDia($this->outra, $this->a, $this->dia('2026-10-21')), 'o ajuste forjado não entra na conta da outra');
+        self::assertSame(
+            ['b' . $daPessoa->getId()],
+            array_map(static fn (MarcacaoDoPonto $b): string => $b->alvo(), $this->registros->batidasDoDiaDaEquipe($this->a, $this->dia('2026-10-21'))),
+        );
+    }
+
+    #[TestDox('Sucessor forjado em outro escritório ou de outra pessoa: não tira a cabeça da conta nem aparece')]
+    public function testSucessorDeOutroEscritorioOuDeOutraPessoaNaoTiraACabeca(): void
+    {
+        $entrada = $this->batida($this->a, $this->pessoa, 'entrada', '2026-10-21 08:00:00');
+        $saida = $this->batida($this->a, $this->pessoa, 'saida', '2026-10-21 17:00:00');
+        $daEntrada = $this->alterar($this->a, $this->pessoa, 'b' . $entrada->getId(), 'entrada', '2026-10-21 08:10:00');
+        $daSaida = $this->alterar($this->a, $this->pessoa, 'b' . $saida->getId(), 'saida', '2026-10-21 17:10:00');
+        $this->forjarAjuste($this->b, $this->pessoa, $entrada, $daEntrada);   // outro escritório
+        $this->forjarAjuste($this->a, $this->outra, $saida, $daSaida);        // outra pessoa
+
+        self::assertSame(
+            [['b' . $entrada->getId(), $daEntrada->getId(), '08:10'], ['b' . $saida->getId(), $daSaida->getId(), '17:10']],
+            array_map(
+                static fn (MarcacaoDoPonto $b): array => [$b->alvo(), $b->cabeca(), $b->getDataHora()?->format('H:i')],
+                $this->registros->findBatidasDoDia($this->pessoa, $this->a, $this->dia('2026-10-21')),
+            ),
+        );
+        self::assertSame([], $this->registros->findBatidasDoDia($this->pessoa, $this->b, $this->dia('2026-10-21')));
+        self::assertSame([], $this->registros->findBatidasDoDia($this->outra, $this->a, $this->dia('2026-10-21')));
+    }
+
     #[TestDox('O envio da batida sem internet acha a original, mesmo desconsiderada (é o recibo do que foi batido)')]
     public function testDoEnvioDevolveAOriginal(): void
     {
@@ -360,6 +395,28 @@ final class LeituraDaBatidaEfetivaNoBancoTest extends KernelTestCase
             "INSERT INTO ponto_ajuste (tenant_id, user_id, tipo, registro_ponto_id, tipo_marcacao_anterior, data_hora_anterior, tipo_marcacao_nova, data_hora_nova, motivo, autor_nome, criado_em)
              VALUES (?, ?, 'alteracao', ?, 'entrada', '2026-10-21 08:00:00', 'entrada', '2026-10-21 06:00:00', 'Forjada.', 'Ninguém', '2026-10-22 09:00:00')",
             [$this->a->getId(), $this->pessoa->getId(), $deB->getId()],
+        );
+    }
+
+    /**
+     * Uma alteração forjada por SQL cru (a gravação recusaria): no escritório e na pessoa dados, presa ao registro dado
+     * e, com `$anterior`, sucessora dele. A hora nova é 06:00 do dia do registro.
+     */
+    private function forjarAjuste(Tenant $escritorio, User $pessoa, RegistroPonto $registro, ?PontoAjuste $anterior): void
+    {
+        $this->em->getConnection()->executeStatement(
+            "INSERT INTO ponto_ajuste (tenant_id, user_id, tipo, registro_ponto_id, anterior_id, tipo_marcacao_anterior, data_hora_anterior, tipo_marcacao_nova, data_hora_nova, motivo, autor_nome, criado_em)
+             VALUES (?, ?, 'alteracao', ?, ?, ?, ?, ?, ?, 'Forjada.', 'Ninguém', '2026-10-22 09:00:00')",
+            [
+                $escritorio->getId(),
+                $pessoa->getId(),
+                $registro->getId(),
+                $anterior?->getId(),
+                $registro->getTipo(),
+                $registro->getDataHora()?->format('Y-m-d H:i:s'),
+                $registro->getTipo(),
+                $registro->getDataHora()?->format('Y-m-d') . ' 06:00:00',
+            ],
         );
     }
 

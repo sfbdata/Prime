@@ -44,7 +44,11 @@ class RegistroPontoRepository extends ServiceEntityRepository
      * - `efetiva_*`: a forma que a folha conta. `ajuste_*`: a cabeça, nula na batida sem ajuste; `ajuste_inclusao` é a
      *   raiz da inclusão (o alvo 'a{id}'), nula na linhagem de um registro.
      *
-     * O ajuste preso a um registro de outro escritório (só por SQL cru) não esconde o registro nem entra na conta.
+     * Contra o ajuste forjado por SQL cru (a gravação não cria nenhum destes), um ajuste só mexe na conta da pessoa e do
+     * escritório dele: preso ao registro de outro escritório ou de outra pessoa, não esconde o registro nem entra na
+     * conta; o sucessor de outro escritório ou de outra pessoa não tira a cabeça da conta. A raiz da linhagem de uma
+     * inclusão (`inclusao_id`) não é conferida: o ajuste forjado nela só aparece na conta da própria pessoa e do próprio
+     * escritório, como uma inclusão forjada direto.
      */
     private const SQL_EFETIVAS = <<<'SQL'
 SELECT {colunas}, o.data_hora AS efetiva_quando, o.tipo AS efetiva_tipo, o.user_id AS efetiva_pessoa,
@@ -53,16 +57,18 @@ SELECT {colunas}, o.data_hora AS efetiva_quando, o.tipo AS efetiva_tipo, o.user_
        NULL::int AS ajuste_justificativa
 FROM registro_ponto o
 WHERE {escopo_o} AND o.data_hora BETWEEN :inicio AND :fim
-  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste l WHERE l.registro_ponto_id = o.id AND l.tenant_id = o.tenant_id)
+  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste l
+                  WHERE l.registro_ponto_id = o.id AND l.tenant_id = o.tenant_id AND l.user_id = o.user_id)
 UNION ALL
 SELECT {colunas}, a.data_hora_nova, a.tipo_marcacao_nova, a.user_id, a.tenant_id, a.id,
        CASE WHEN a.registro_ponto_id IS NULL THEN COALESCE(a.inclusao_id, a.id) END,
        a.tipo, a.autor_nome, a.criado_em, a.justificativa_id
 FROM ponto_ajuste a
-LEFT JOIN registro_ponto o ON o.id = a.registro_ponto_id AND o.tenant_id = a.tenant_id
+LEFT JOIN registro_ponto o ON o.id = a.registro_ponto_id AND o.tenant_id = a.tenant_id AND o.user_id = a.user_id
 WHERE {escopo_a} AND a.data_hora_nova BETWEEN :inicio AND :fim
   AND (a.registro_ponto_id IS NULL OR o.id IS NOT NULL)
-  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste s WHERE s.anterior_id = a.id)
+  AND NOT EXISTS (SELECT 1 FROM ponto_ajuste s
+                  WHERE s.anterior_id = a.id AND s.tenant_id = a.tenant_id AND s.user_id = a.user_id)
 SQL;
 
     /** O recorte das efetivas: a pessoa NESTE escritório. `{x}` vira o alias do registro e o do ajuste. */
