@@ -6,12 +6,18 @@ namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\LotacaoComVigenciaRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Service\VerificadorAlertaPonto;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +26,7 @@ final class VerificadorAlertaPontoTest extends TestCase
 {
     private MockObject $jornadaResolver;
     private MockObject $registroRepository;
+    private MockObject $feriadoRepository;
     private MockObject $user;
     private Tenant $tenant;
     private VerificadorAlertaPonto $sut;
@@ -28,9 +35,24 @@ final class VerificadorAlertaPontoTest extends TestCase
     {
         $this->jornadaResolver    = $this->createMock(JornadaResolver::class);
         $this->registroRepository = $this->createMock(RegistroPontoRepository::class);
+        $this->feriadoRepository  = $this->createMock(FeriadoRepository::class);
         $this->user               = $this->createMock(User::class);
         $this->tenant             = new Tenant();
-        $this->sut = new VerificadorAlertaPonto($this->jornadaResolver, $this->registroRepository);
+        $this->sut = new VerificadorAlertaPonto(
+            $this->jornadaResolver,
+            $this->registroRepository,
+            $this->feriadoRepository,
+            new FeriadosDaPessoa($this->createStub(LotacaoComVigenciaRepository::class)),
+            new CalculadoraJornada($this->jornadaResolver),
+        );
+    }
+
+    /** Feriado de todas as sedes (sem lotação): vale para todos. O da lotação se prova no funcional. */
+    private function feriadoEm(string $data): void
+    {
+        $feriado = (new Feriado())->setNome('Feriado de teste')->setData(new \DateTime($data))->setRecorrente(false)
+            ->setTenant($this->tenant);
+        $this->feriadoRepository->method('doEscritorio')->willReturn([$feriado]);
     }
 
     private function criarBatida(string $tipo, string $horario, string $data = '2026-04-30'): RegistroPonto
@@ -285,5 +307,77 @@ final class VerificadorAlertaPontoTest extends TestCase
         $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:05:00'), null);
 
         self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Feriado de hoje para a pessoa: sem aviso de entrada')]
+    public function testFeriadoSemAvisoDeEntrada(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-30');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 09:00:00'), null);
+
+        self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Feriado de outro dia não muda nada: o aviso de entrada continua')]
+    public function testFeriadoDeOutroDiaMantemOAvisoDeEntrada(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-29');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 09:00:00'), null);
+
+        self::assertSame('entrada', $resultado['tipo']);
+    }
+
+    #[TestDox('Feriado de hoje: sem "Jornada concluída", mesmo com a meta do bloco cumprida')]
+    public function testFeriadoSemJornadaConcluida(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-30');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_RETORNO, '13:00:00'),
+        ]);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 17:30:00'), $this->createMock(JornadaTenant::class));
+
+        self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Feriado de hoje: sem aviso de repouso no horário da escala')]
+    public function testFeriadoSemRepousoNoHorarioDaEscala(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-30');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+        ]);
+        $this->jornadaResolver->method('resolverBatidasEsperadasHoje')->willReturn([
+            ['tipo' => RegistroPonto::TIPO_REPOUSO, 'horario' => '12:00', 'mensagem' => 'Hora do repouso!'],
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 12:00:00'), null);
+
+        self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Feriado de hoje com trabalho: o aviso de 6 horas sem repouso continua, ele vem das batidas')]
+    public function testFeriadoMantemOAvisoDe6HorasSemRepouso(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->feriadoEm('2026-04-30');
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 14:05:00'), null);
+
+        self::assertSame('aviso_repouso_6h', $resultado['tipo']);
     }
 }
