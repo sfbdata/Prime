@@ -14,12 +14,17 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * com o token da etapa 6 e o PDF no corpo. A classe de cada resposta é a da tabela 2.1 da etapa 6:
  *
  * - `200` com `application/pdf`: o PDF selado, que precisa começar com os bytes do original e ser maior que ele (o selo
- *   é acréscimo incremental, E8-1). Se não for assim, falha passageira e `logger->error`;
+ *   é acréscimo incremental, E8-1). Se não for assim, ou se o `200` não for PDF, falha passageira e `logger->error`;
  * - `503 selo_nao_configurado` (só ele): nulo, como sem configuração;
  * - `503 selo_certificado_invalido`: classe própria (E8-4);
  * - os demais códigos do protocolo, pela tabela {@see RESPOSTAS}; as respostas HTML da biblioteca padrão do validador
  *   (`400`, `414`, `431`, `505`) são erro de cliente; qualquer outra resposta sem `{"v":1}`, erro de transporte e
  *   tempo esgotado (45 s) são passageiros.
+ *
+ * Tempo: os 45 s da etapa 6 (seção 2.1) são o teto do pedido inteiro (`max_duration`). No cliente curl, o estouro
+ * desse teto chega como erro de transporte e vira `falha_de_transporte`, igual ao validador fora do ar; só a espera
+ * sem nenhum byte (`timeout`, que conta depois do envio) chega como tempo esgotado (`tempo_esgotado_no_cliente`). A
+ * classe é passageira nos dois casos.
  *
  * PDF acima de 20 MB é falha definitiva sem pedido. Sem redirecionamento (o token não segue para outro endereço). O
  * token com caractere fora do visível ASCII nunca vai para o cabeçalho: o cliente HTTP recusaria citando o valor. O
@@ -133,6 +138,10 @@ final class HttpSeladorDePdf implements SeladorDePdf
     private function conferirSelado(string $original, string $tipo, string $selado): string
     {
         if (strtolower(trim(explode(';', $tipo)[0])) !== 'application/pdf') {
+            $this->logger->error('Selo do PDF final: o validador respondeu 200 sem PDF ({tipo}); confira a URL do validador.', [
+                'tipo' => mb_substr($tipo, 0, 100),
+            ]);
+
             throw new FalhaNoSelo(self::FORA_DO_PROTOCOLO, ClasseDaFalhaNoSelo::Passageira, 200);
         }
         if (\strlen($selado) <= \strlen($original) || !str_starts_with($selado, $original)) {

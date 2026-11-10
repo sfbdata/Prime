@@ -14,12 +14,11 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Qual selador vale (spec assinatura-documentos-etapa-8, seção 2): sem a URL ou sem o token do validador (vazios = não
- * configurado, etapa 6, seção 2), o nulo, e nenhum pedido sai; com os dois, o HTTP. E a fiação em `services.yaml`,
- * com o padrão vazio das duas variáveis (o contêiner sobe sem elas).
+ * configurado, etapa 6, seção 2), o nulo, e nenhum pedido sai; com os dois, o HTTP. A fiação no contêiner:
+ * {@see \App\Tests\AssinaturaEletronica\Functional\FiacaoDoSeladorDePdfTest}.
  */
 #[CoversClass(EscolhaDoSeladorDePdf::class)]
 #[CoversClass(SeladorDePdfNaoConfigurado::class)]
@@ -59,21 +58,6 @@ final class EscolhaDoSeladorDePdfTest extends TestCase
         self::assertInstanceOf(HttpSeladorDePdf::class, $selador);
         self::assertNull($selador->selar("%PDF-1.7\n%%EOF\n"), 'o validador respondeu 503 selo_nao_configurado');
         self::assertSame(1, $this->pedidos);
-    }
-
-    #[TestDox('services.yaml: o SeladorDePdf sai da fábrica, com a URL e o token do ambiente e padrão vazio')]
-    public function testFiacao(): void
-    {
-        $servicos = Yaml::parseFile(\dirname(__DIR__, 4) . '/config/services.yaml')['services'] ?? [];
-
-        self::assertSame(
-            ['@' . EscolhaDoSeladorDePdf::class, 'selador'],
-            $servicos[SeladorDePdf::class]['factory'] ?? null,
-        );
-        self::assertSame([
-            '$url' => '%env(string:default::ASSINATURA_VALIDADOR_URL)%',
-            '$token' => '%env(string:default::ASSINATURA_VALIDADOR_TOKEN)%',
-        ], $servicos[EscolhaDoSeladorDePdf::class]['arguments'] ?? null);
     }
 
     private function escolha(string $url, string $token): EscolhaDoSeladorDePdf
