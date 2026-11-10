@@ -59,13 +59,13 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_MENU, 'chave' => 'contribua', 't' => 'Contribua (atalho)', 'ic' => 'bi-heart', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'chat', 't' => 'Chat I.A', 'ic' => 'bi-chat-dots', 'd' => 'Botão flutuante de conversas e assistente', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'assistente', 't' => 'Assistente de pastas', 'ic' => 'bi-stars', 'd' => 'Agente que lê e organiza pastas', 'tela' => false, 'base' => false],
+        // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo, descrição e ordem do bj-recursos.js (o comprovante vem antes
+        // da geolocalização). Nasce ligada (sem linha em `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
+        // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
         // A camada "Global" da geolocalização do Ponto (E7, P95): a camada "Escritório" mora em ponto_config_escritorio,
         // e a função vale com as duas ligadas (App\Ponto\Service\FuncoesDoPonto). Sem rota: age na batida.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-geo', 't' => 'Ponto: geolocalização', 'ic' => 'bi-geo-alt', 'd' => 'Exige que o registro seja feito dentro do raio de uma sede.', 'tela' => false, 'base' => false],
-        // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo e descrição do bj-recursos.js. Nasce ligada (sem linha em
-        // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
-        // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
-        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
         // A camada "Global" dos alertas de intervalo do Ponto (E11, P21 e P96): nasce ligada, sem linha em recurso_estado.
         // Sem rota: age na batida e no aviso do intervalo do cartão.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-alertas', 't' => 'Ponto: alertas de intervalo', 'ic' => 'bi-exclamation-triangle', 'd' => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', 'tela' => false, 'base' => false],

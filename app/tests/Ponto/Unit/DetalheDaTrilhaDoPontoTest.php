@@ -56,6 +56,12 @@ final class DetalheDaTrilhaDoPontoTest extends TestCase
         yield 'abono parcial com horário' => ['justificativa_abonada', ['parcial' => true, 'parcial_de' => '14:00', 'parcial_ate' => '16:00'] + $atestado, 'Ana: 07/11/2026 · Atestado Médico · Parcial: 14:00 às 16:00'];
         yield 'abono parcial sem horário' => ['justificativa_enviada', ['parcial' => true] + $lote, 'Ana: 07/11/2026 · Atestado Médico · Parcial'];
         yield 'detalhe sem data' => ['justificativa_excluida', ['colaborador' => 'Ana', 'tipo' => 'atestado_medico'], 'Ana: Atestado Médico'];
+
+        $escala = ['colaborador' => 'Ana', 'operacao' => 'versao_salva', 'vale_a_partir_de' => '2026-11-10'];
+
+        yield 'escala trocada na aba Equipe (desenho L778)' => ['escala_alterada', ['escala' => '44h · seg a sáb (7h20)'] + $escala, 'Ana · 44h · seg a sáb (7h20)'];
+        yield 'versão salva na ficha, sem o rótulo' => ['escala_alterada', $escala, 'Ana: versão da jornada a partir de 10/11/2026 salva'];
+        yield 'escala pessoal limpa' => ['escala_alterada', ['operacao' => 'escala_limpa', 'vale_a_partir_de' => null] + $escala, 'Ana: jornada personalizada limpa (volta a do escritório)'];
     }
 
     /** @param array<string, mixed> $detalhe */

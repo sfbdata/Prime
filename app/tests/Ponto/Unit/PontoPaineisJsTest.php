@@ -59,6 +59,32 @@ final class PontoPaineisJsTest extends TestCase
         self::assertStringContainsString('avisarAbaAberta(escolhida.dataset.aba);', self::trecho($abas, 'function iniciar() {', "document.readyState === 'loading'"));
     }
 
+    #[TestDox('A Auditoria aberta mostra o evento novo: busca de novo a cada abertura e depois da batida, as outras abas não (E9, desenho L452)')]
+    public function testAuditoriaNaoFicaVelha(): void
+    {
+        $paineis = self::js('ponto-paineis.js');
+        $abas    = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_abas.html.twig');
+        $tela    = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
+
+        self::assertSame(1, substr_count($abas, '" data-recarregar-ao-abrir'), 'só a Auditoria; a Equipe calcula o saldo de cada pessoa e só busca na primeira vez');
+        self::assertStringContainsString("data-carregar=\"{{ path('ponto_auditoria') }}\" data-recarregar-ao-abrir", $abas);
+
+        $aoAbrir = self::trecho($paineis, "document.addEventListener('ponto:aba-aberta', function (evento) {", '});');
+        self::assertStringContainsString("carregar(painel, Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir')));", $aoAbrir);
+
+        $abertos = self::trecho($paineis, 'function recarregarAbertos() {', 'window.PontoPaineis');
+        self::assertStringContainsString("document.querySelectorAll('section.pe-abas [data-recarregar-ao-abrir]:not([hidden])')", $abertos, 'fechado, a próxima abertura busca');
+        self::assertStringContainsString("if (painel.dataset.estado === 'pronto') {", $abertos, 'carregando ou com falha, fica como está');
+        self::assertStringContainsString('recarregarAbertos,', self::trecho($paineis, 'window.PontoPaineis = {', '};'));
+
+        $depoisDaBatida = self::trecho($tela, 'async function atualizarTelaDoPonto() {', 'let batidaAceita = null;');
+        self::assertGreaterThan(
+            (int) strpos($depoisDaBatida, 'trocas.forEach(([atual, nova]) => atual.replaceWith('),
+            (int) strpos($depoisDaBatida, 'window.PontoPaineis.recarregarAbertos();'),
+            'depois de trocar as regiões: a busca da tela deu certo',
+        );
+    }
+
     #[TestDox('Na tela, o carregador entra antes do js/ponto-abas.js (ouve antes de a aba avisar)')]
     public function testOrdemDosScripts(): void
     {

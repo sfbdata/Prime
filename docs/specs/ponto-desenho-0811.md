@@ -1354,6 +1354,16 @@ São 15 ocorrências (11 de "travessão longo" e 4 de "travessão médio"), toda
 - E10 implementada na branch `ponto-e10b` (blocos A, B, C e D e as correções das revisões), com a migration
   `Version20261109280000`. Decisões e limites registrados na E10 (seção 5). Integra na `ponto-desenho` e vai ao ar
   junto com a E9, no PR único do fim.
+- Conferência ✓/✗ da `ca6ef6498` (10/11/2026), grupo A (os mecânicos), na branch `ponto-conferencia-4`, sem migration:
+  a ordem das Funções no catálogo do Master (comprovante antes da geolocalização, como o `bj-recursos.js`); o nome do
+  arquivo da folha sem acento (`NomeDoArquivoDaFolha`, dc L726); as janelas do esquecimento e da justificativa voltam
+  para a aba aberta (campo `aba`, que o `ponto-abas.js` acompanha); o subtítulo da justificativa sempre presente,
+  vazio quando não há; a Auditoria busca de novo a cada vez que abre e, aberta, depois da batida
+  (`data-recarregar-ao-abrir`, dc L452); a troca de escala da aba Equipe grava o rótulo da escala na trilha e mostra
+  "Ana · 44h · seg a sáb (7h20)" (dc L778; a ficha, sem rótulo do catálogo, segue com o texto da versão); e o nome
+  "Ponto Eletrônico" na barra do topo para as rotas `ponto_` (decisão C2 do Coordenador, dc L83 e L84). O feriado por
+  lotação na meta do dia (item 7) já estava na base (`bb3bf6376`). C1 foi para o 9f e C5 para o f3; C3 e C4 ficam
+  como desvio aceito.
 - Migrations: `Version20261109180000` (E7, `ponto_config_escritorio`), `Version20261109190000` (E9, tabela
   `ponto_auditoria`), `Version20261109210000` (E4), `Version20261109220000` (E13), `Version20261109230000` (E12) e
   `Version20261109280000` (E10).

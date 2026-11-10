@@ -148,6 +148,16 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $janela->filter('input[type="file"][name="justificativa_ponto[anexo]"][accept=".pdf,.jpg,.jpeg,.png"]'), 'o que o servidor aceita');
     }
 
+    #[TestDox('As duas janelas levam a aba aberta ao enviar, para a tela voltar nela (desenho L768)')]
+    public function testJanelasLevamAAbaAberta(): void
+    {
+        $tela = $this->tela('?aba=justificativas');
+        foreach (['ponto-janela-esquecimento' => ['Registro de esquecimento', 'esquecimento'], 'ponto-janela-justificar' => ['Justificar falta', 'justificar']] as $id => [$titulo, $form]) {
+            $janela = $tela->filter(sprintf(self::JANELA, $id, $titulo, $form));
+            self::assertSame('justificativas', $janela->filter('form > input[type="hidden"][name="aba"][data-aba-da-volta]')->attr('value'), $id);
+        }
+    }
+
     #[TestDox('Registro de esquecimento: a data e a batida do "+", o Horário com segundos e o Motivo; a dica antiga saiu')]
     public function testCamposDoEsquecimento(): void
     {
@@ -157,6 +167,7 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $janela->filter('form > input[type="hidden"][name="justificativa_ponto[tipo]"][value="esquecimento_registro"]'));
         self::assertCount(1, $janela->filter('form > input[type="hidden"]#esquecimentoData[name="justificativa_ponto[datas]"]'));
         self::assertCount(1, $janela->filter('form > input[type="hidden"]#esquecimentoCampo[name="justificativa_ponto[tipoRegistroEsquecido]"]'));
+        self::assertSame('pendencias', $janela->filter('form > input[type="hidden"][name="aba"][data-aba-da-volta]')->attr('value'), 'volta para a aba aberta (L768)');
 
         $ordem = 'form > div.pe-janela-corpo > div.pe-janela-info#esquecimentoResumo[data-janela-info]:first-child'
             . ' + label.pe-janela-rotulo > input[type="time"][step="1"]#esquecimentoHora.pe-janela-entrada[name="justificativa_ponto[horaRegistroEsquecido]"]';
@@ -196,7 +207,7 @@ final class JanelasDoPontoTelaTest extends JusPrimeWebTestCase
         $linhas = '#ponto-painel-justificativas tr.pe-just-lin[data-justificativa="%d"]';
 
         $celula = $tela->filter(sprintf($linhas, $com->getId()) . ' > td.pe-just-celtipo');
-        self::assertCount(1, $celula->filter('td > span.pe-just-tipo:first-child + div.pe-just-mot:last-child'));
+        self::assertCount(1, $celula->filter('td > span.pe-just-tipo:first-child + div.pe-just-sub + div.pe-just-mot:last-child'));
         self::assertSame('Consulta no posto de saúde.', trim($celula->filter('.pe-just-mot')->text()));
         self::assertCount(0, $tela->filter(sprintf($linhas, $sem->getId()) . ' .pe-just-mot'));
 

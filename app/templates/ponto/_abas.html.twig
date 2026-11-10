@@ -15,7 +15,8 @@
     depois de cada batida. Sem permissão, a aba não aparece e o endereço `?aba=equipe` cai em Pendências.
 
     Aba "Auditoria" (E9, P64; desenho L758, entre Equipe e Configurações): a trilha de auditoria do Ponto, no mesmo
-    molde das de gestão (painel buscado em `ponto_auditoria`), para quem tem `GestaoDoPonto::veAuditoria`.
+    molde das de gestão (painel buscado em `ponto_auditoria`), para quem tem `GestaoDoPonto::veAuditoria`. Ela é
+    buscada de novo a cada vez que abre e, aberta, depois da batida (`data-recarregar-ao-abrir`): o evento novo aparece.
 
     Recebe: pendencias, justificativas, abaAberta (uma de PontoController::ABAS_DO_CARTAO), podeAnalisarAPropria,
     justificativasComAjuste (E10: as em análise que já mexeram na folha, sem o "Excluir"), competenciaSelecionada (o
@@ -104,7 +105,7 @@
     {% endif %}
     {% if veAuditoria %}
         <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-auditoria" aria-labelledby="ponto-aba-auditoria"
-             data-carregar="{{ path('ponto_auditoria') }}"{{ aberta == 'auditoria' ? '' : ' hidden' }}></div>
+             data-carregar="{{ path('ponto_auditoria') }}" data-recarregar-ao-abrir{{ aberta == 'auditoria' ? '' : ' hidden' }}></div>
     {% endif %}
     {% if veConfiguracoes %}
         <div class="pe-abas-painel" role="tabpanel" id="ponto-painel-configuracoes" aria-labelledby="ponto-aba-configuracoes"

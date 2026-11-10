@@ -12,7 +12,7 @@
     Só a /ponto usa esta janela. A ficha do colaborador continua com _justificativa_calendario e _justificativa_campos.
 
     Recebe: tiposJustificativa (['Grupo' => ['Rótulo' => 'valor']], TipoJustificativa::asGroupedChoices),
-    competenciaSelecionada e dataHoje (AAAA-MM-DD, do servidor).
+    competenciaSelecionada, dataHoje (AAAA-MM-DD, do servidor) e abaAberta (a aba para onde a janela volta).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-justificar" hidden>
     <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Justificar falta" id="form-justificativa"
@@ -20,6 +20,8 @@
           data-janela-form="justificar" novalidate>
         <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
         <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+        {# A aba aberta (o ponto-abas.js a acompanha): ao enviar, a tela volta nela (L768). #}
+        <input type="hidden" name="aba" value="{{ abaAberta|default('pendencias') }}" data-aba-da-volta>
         <input type="hidden" name="justificativa_ponto[datas]" id="just-datas" data-just-datas>
 
         <div class="pe-janela-topo">

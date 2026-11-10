@@ -73,17 +73,17 @@ final class SalvarVersaoDaJornadaUseCase
             $versao->setAlertaHabilitado($input->alertaHabilitado);
         }
 
-        $this->gravarComOEvento($pessoa, $escritorio, $input->valeAPartirDe);
+        $this->gravarComOEvento($pessoa, $escritorio, $input);
 
         return $alvo;
     }
 
-    /** Trilha do Ponto (E9): a troca de escala comita junto com o evento "Escala alterada". */
-    private function gravarComOEvento(User $pessoa, Tenant $escritorio, \DateTimeImmutable $valeAPartirDe): void
+    /** Trilha do Ponto (E9): a troca de escala comita junto com o evento "Escala alterada" (com o rótulo, se veio da Equipe). */
+    private function gravarComOEvento(User $pessoa, Tenant $escritorio, VersaoDaJornadaInput $input): void
     {
-        $this->trilha->emTransacao(function () use ($pessoa, $escritorio, $valeAPartirDe): void {
+        $this->trilha->emTransacao(function () use ($pessoa, $escritorio, $input): void {
             $this->jornadas->gravar();
-            $this->trilha->registrar($escritorio, $this->trilha->autorDaSessao(), AcaoDaTrilhaDoPonto::EscalaAlterada->value, DetalheDaTrilhaDoPonto::daEscala($pessoa, 'versao_salva', $valeAPartirDe));
+            $this->trilha->registrar($escritorio, $this->trilha->autorDaSessao(), AcaoDaTrilhaDoPonto::EscalaAlterada->value, DetalheDaTrilhaDoPonto::daEscala($pessoa, 'versao_salva', $input->valeAPartirDe, $input->escala));
         });
     }
 

@@ -85,6 +85,6 @@ final class TrocarEscalaNaEquipeUseCase
     /** @param list<BlocoJornadaColaborador> $blocos */
     private function versaoDeHoje(EscalaDoCatalogo $escala, \DateTimeImmutable $hoje, ?JornadaColaborador $atual, array $blocos): VersaoDaJornadaInput
     {
-        return new VersaoDaJornadaInput($hoje, $escala->cargaSemanal, $atual?->isAlertaHabilitado() ?? true, $blocos);
+        return new VersaoDaJornadaInput($hoje, $escala->cargaSemanal, $atual?->isAlertaHabilitado() ?? true, $blocos, escala: $escala->rotulo);
     }
 }

@@ -281,9 +281,10 @@
     {% include 'ponto/_justificativa_form.html.twig' with {
         tiposJustificativa: tiposJustificativa,
         competenciaSelecionada: competenciaSelecionada,
-        dataHoje: dataHoje
+        dataHoje: dataHoje,
+        abaAberta: abaAberta
     } only %}
-    {% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
+    {% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada, abaAberta: abaAberta} only %}
 
     {# E12 (P18): janela "Trabalho externo" na moldura do desenho (L766 e L289), aberta pelo botão "Registrar como
        trabalho externo" da resposta fora do raio. Sempre presente: a recusa do servidor pode oferecer o botão mesmo com
@@ -1590,6 +1591,10 @@
         trocas.forEach(([atual, nova]) => atual.replaceWith(document.importNode(nova, true)));
         relogio.dataset.pontoDoDia = pontoDoDiaNovo;
         aplicarPontoDoDia(pontoDoDia);
+        // E9: a Auditoria aberta mostra o evento novo (a batida, a justificativa excluída), como o `reg` do desenho (L452).
+        if (window.PontoPaineis && window.PontoPaineis.recarregarAbertos) {
+            window.PontoPaineis.recarregarAbertos();
+        }
         tipoRegistro.value = tipoNovo.value;
         // E14: a tela do servidor não conhece a fila deste aparelho. Sem esta remarcação, o tipo guardado voltaria livre
         // e poderia virar a sugestão do botão (batida em dobro). Mora aqui, e não em cada chamador.

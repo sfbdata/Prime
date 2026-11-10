@@ -46,9 +46,9 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertSame('ponto', CatalogoDeRecursos::LINHAS[8]['chave'], 'Ponto entra nas Telas, antes do Voto');
         self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
-        $geo = CatalogoDeRecursos::LINHAS[22];
+        self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[22]['chave'], 'comprovante do Ponto (E15) nas Funções, antes da geolocalização, como o bj-recursos.js');
+        $geo = CatalogoDeRecursos::LINHAS[23];
         self::assertSame(['Funções', 'ponto-geo', 'Ponto: geolocalização', 'Exige que o registro seja feito dentro do raio de uma sede.', false], [$geo['g'], $geo['chave'], $geo['t'], $geo['d'], $geo['tela']]);
-        self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[23]['chave'], 'comprovante do Ponto (E15) nas Funções, depois da geolocalização');
         $alertas = CatalogoDeRecursos::LINHAS[24];
         self::assertSame(['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false], [$alertas['g'], $alertas['chave'], $alertas['t'], $alertas['ic'], $alertas['d'], $alertas['tela'], $alertas['base']]);
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');

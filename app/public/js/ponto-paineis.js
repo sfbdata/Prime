@@ -9,7 +9,8 @@
  * painel mora no arquivo dele (js/ponto-equipe.js, js/ponto-configuracoes.js), por delegação no documento, e ouve
  * `ponto:painel-carregado` quando precisa preparar algo depois que o painel chega.
  *
- * Exposto em `window.PontoPaineis` (`recarregar` busca o painel de novo, por exemplo depois de uma gravação).
+ * Exposto em `window.PontoPaineis` (`recarregar` busca o painel de novo, por exemplo depois de uma gravação;
+ * `recarregarAbertos` busca de novo o painel `data-recarregar-ao-abrir` aberto, depois da batida).
  */
 (function () {
     'use strict';
@@ -78,9 +79,22 @@
         }
     }
 
+    // O painel com `data-recarregar-ao-abrir` (a Auditoria, E9) é buscado de novo cada vez que a aba abre: o evento de
+    // uma ação feita em outra aba (escala, chave, sede, justificativa excluída) aparece, como o `reg` do desenho (L452).
     document.addEventListener('ponto:aba-aberta', function (evento) {
-        carregar(evento.detail && evento.detail.painel, false);
+        const painel = evento.detail && evento.detail.painel;
+        carregar(painel, Boolean(painel && painel.hasAttribute('data-recarregar-ao-abrir')));
     });
+
+    // Depois da batida (index.html.twig, `atualizarTelaDoPonto`): o painel desses que está aberto e já carregado é
+    // buscado de novo, sem o "Carregando..." (o conteúdo fica até a resposta chegar). Fechado, a próxima abertura busca.
+    function recarregarAbertos() {
+        document.querySelectorAll('section.pe-abas [data-recarregar-ao-abrir]:not([hidden])').forEach(function (painel) {
+            if (painel.dataset.estado === 'pronto') {
+                carregar(painel, true);
+            }
+        });
+    }
 
     document.addEventListener('click', function (evento) {
         const botao = evento.target instanceof Element ? evento.target.closest('[data-painel-tentar]') : null;
@@ -105,5 +119,6 @@
     window.PontoPaineis = {
         CARREGAR_PRAZO_MS,
         recarregar: function (painel) { return carregar(painel, true); },
+        recarregarAbertos,
     };
 })();

@@ -7,7 +7,7 @@
     O aviso "Enviado para aprovação do gestor." é o aviso flutuante do desenho, depois do envio (P80, E8); a dica que
     ficava dentro da janela antiga saiu.
 
-    Recebe `competenciaSelecionada`.
+    Recebe `competenciaSelecionada` e `abaAberta` (a aba para onde a janela volta).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-esquecimento" hidden>
     <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Registro de esquecimento"
@@ -17,6 +17,8 @@
         <input type="hidden" name="justificativa_ponto[datas]" id="esquecimentoData">
         <input type="hidden" name="justificativa_ponto[tipoRegistroEsquecido]" id="esquecimentoCampo">
         <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+        {# A aba aberta (o ponto-abas.js a acompanha): ao enviar, a tela volta nela (L768). #}
+        <input type="hidden" name="aba" value="{{ abaAberta|default('pendencias') }}" data-aba-da-volta>
 
         <div class="pe-janela-topo">
             <i class="bi bi-plus-circle" aria-hidden="true"></i><b class="pe-janela-titulo">Registro de esquecimento</b>

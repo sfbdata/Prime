@@ -46,6 +46,8 @@
             url.searchParams.set('aba', nome);
         }
         window.history.replaceState(window.history.state, '', url.toString());
+        /* As janelas de esquecimento e de justificativa voltam para a aba aberta (desenho L768). */
+        document.querySelectorAll('input[data-aba-da-volta]').forEach(function (campo) { campo.value = nome; });
 
         const form = document.getElementById('competencia-ponto-index-form');
         if (!form) {
