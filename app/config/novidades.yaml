@@ -1,6 +1,13 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.45.1"
+  data: "2026-11-10"
+  itens:
+    - "Mais uma conferência automática garante que toda cópia de arquivo guardada na nuvem seja verificada."
+    - "Ajuste nas instruções internas de manutenção do servidor: ao ligar ou desligar a inteligência artificial, o sistema continua exatamente na versão publicada, sem receber por engano partes ainda não lançadas."
+    - "No Voto, o número de cada opção da pauta agora aceita só algarismos."
+    - "No Voto, salvar uma pauta não apaga mais o que você está escrevendo nas outras pautas, e um erro ao salvar não apaga o que foi digitado. Ao trocar de etapa ou incluir outra pauta, as alterações são salvas antes."
 - versao: "2.45.0"
   data: "2026-11-09"
   itens:
