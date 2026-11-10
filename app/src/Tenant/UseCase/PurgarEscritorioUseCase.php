@@ -388,7 +388,7 @@ final class PurgarEscritorioUseCase
         ['ponto_comprovante', 'tenant_id = :tenant'],
         ['ponto_contador_nsr', 'tenant_id = :tenant'],
         // A batida gravada só sai na purga: o gatilho `registro_ponto_so_insercao` deixa o DELETE passar só com
-        // `bluejus.purga_do_escritorio` igual ao escritório da linha (ver executar()).
+        // `bluejus.purga_do_escritorio` igual ao escritório da linha (ver escapeDaBatidaDoPonto()).
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
         // ON DELETE CASCADE (NO ACTION) — deleção explícita, no mesmo bloco das outras tabelas de
@@ -609,10 +609,7 @@ final class PurgarEscritorioUseCase
 
             $linhas = [];
 
-            // A batida gravada do Ponto só sai com a purga deste escritório (gatilho `registro_ponto_so_insercao`, E10):
-            // o escape vale só dentro desta transação (is_local) e volta a vazio logo depois do laço.
-            $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', :tenant, true)", ['tenant' => (string) $tenantId]);
-
+            $this->escapeDaBatidaDoPonto($conn, (string) $tenantId);
             foreach (self::ORDEM_DELECAO as [$tabela, $where]) {
                 $n = (int) $conn->executeStatement(
                     sprintf('DELETE FROM %s WHERE %s', $tabela, $where),
@@ -623,8 +620,7 @@ final class PurgarEscritorioUseCase
                     $linhas[$tabela] = $n;
                 }
             }
-
-            $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', '', true)");
+            $this->escapeDaBatidaDoPonto($conn, '');
 
             // Fase 3.5 — verificação de integridade (guard anti-drift): nada tenant-scoped pode sobrar.
             $this->garantirTenantVazio($conn, $tenantId);
@@ -775,6 +771,15 @@ final class PurgarEscritorioUseCase
         } catch (\Throwable) {
             // Sem onde registrar; o desfecho segue o que o banco decidiu.
         }
+    }
+
+    /**
+     * A batida gravada do Ponto só sai com a purga deste escritório (gatilho `registro_ponto_so_insercao`, E10).
+     * O escape vale só dentro desta transação (is_local) e volta a vazio logo depois do laço de deleção.
+     */
+    private function escapeDaBatidaDoPonto(Connection $conn, string $tenant): void
+    {
+        $conn->executeStatement("SELECT set_config('bluejus.purga_do_escritorio', :tenant, true)", ['tenant' => $tenant]);
     }
 
     /** Desfaz só o nível que a purga abriu; uma falha aqui não troca a exceção original. */
