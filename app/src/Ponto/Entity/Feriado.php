@@ -31,11 +31,12 @@ class Feriado implements Auditavel, TenantAware
 
     /**
      * Abrangência (spec `ponto-desenho-0811.md`, P71 com o desvio da E6): vazia, o feriado vale para todo o escritório;
-     * com uma lotação, só para quem tem aquela lotação no escritório do feriado (`FeriadosDaPessoa`). Apagar a lotação
-     * apaga os feriados só dela (ON DELETE CASCADE): com SET NULL eles passariam a valer para todos.
+     * com uma lotação, só para quem tem aquela lotação no escritório do feriado (`FeriadosDaPessoa`). A lotação com
+     * feriado não é apagada (`ApagarLotacoesQueSairamUseCase`; no banco, ON DELETE NO ACTION): CASCADE apagaria o
+     * feriado e mudaria os meses passados, SET NULL o faria valer para todos.
      */
     #[ORM\ManyToOne(targetEntity: Lotacao::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Lotacao $lotacao = null;
 
     public function getId(): ?int

@@ -64,4 +64,27 @@ class LotacaoComVigenciaRepository extends ServiceEntityRepository
 
         return HistoricoDeLotacoes::doVinculo($linhas[0]['hoje'] !== null ? (int) $linhas[0]['hoje'] : null, $versoes);
     }
+
+    /**
+     * As lotações DO escritório que têm feriado ou estão em alguma versão do histórico: apagá-las mudaria o passado
+     * (`ApagarLotacoesQueSairamUseCase`). O feriado e a versão contam venham de onde vierem: a chave do banco recusaria
+     * do mesmo jeito.
+     *
+     * @return list<int>
+     */
+    public function idsDasLotacoesComHistorico(Tenant $escritorio): array
+    {
+        if ($escritorio->getId() === null) {
+            return [];
+        }
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT l.id FROM lotacao l
+              WHERE l.tenant_id = :escritorio
+                AND (EXISTS (SELECT 1 FROM feriado f WHERE f.lotacao_id = l.id)
+                     OR EXISTS (SELECT 1 FROM lotacao_vigencia v WHERE v.lotacao_id = l.id))',
+            ['escritorio' => $escritorio->getId()],
+        );
+
+        return array_map('intval', $ids);
+    }
 }

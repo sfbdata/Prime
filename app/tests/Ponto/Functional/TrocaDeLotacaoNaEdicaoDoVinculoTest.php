@@ -20,7 +20,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
  * A troca de lotação pela edição do vínculo grava a versão que vale de hoje (spec `docs/specs/ponto-desenho-0811.md`,
- * E6: lotação com vigência). A lotação de outro escritório não é aceita: nada muda.
+ * E6: lotação com vigência). A lotação de outro escritório não é aceita: nada muda. Com o formulário recusado, a lotação
+ * escrita no vínculo em memória não chega ao banco pelo flush de outro caso de uso (sem versão gravada).
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(RegistrarTrocaDeLotacaoUseCase::class)]
@@ -76,19 +77,38 @@ final class TrocaDeLotacaoNaEdicaoDoVinculoTest extends JusPrimeWebTestCase
         self::assertSame([], $this->versoes());
     }
 
+    #[TestDox('Formulário recusado (senhas diferentes): a lotação nova não vai ao banco pelo flush do perfil, nem grava versão')]
+    public function testFormularioRecusadoNaoGravaALotacao(): void
+    {
+        self::assertSame(0, $this->perfisDeCarla(), 'sem perfil, a tela cria um e dá flush');
+        $this->logarComTenant($this->client, $this->paula, $this->tenant);
+        $this->postar((string) $this->brasilia->getId(), ['first' => 'SenhaNova123!', 'second' => 'OutraSenha456!']);
+
+        self::assertResponseIsSuccessful();   // a tela volta com o erro
+        self::assertSame(1, $this->perfisDeCarla(), 'o flush do perfil aconteceu');
+        self::assertSame($this->maceio->getId(), $this->lotacaoNoVinculo());
+        self::assertSame([], $this->versoes());
+    }
+
+    private function perfisDeCarla(): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM user_profiles WHERE user_id = ?', [$this->carla->getId()]);
+    }
+
     private function url(): string
     {
         return sprintf('/tenant/%d/user/%d/edit-role', $this->tenant->getId(), $this->carla->getId());
     }
 
     /** POST direto: o CSRF do form é stateless (valor "csrf-token" + Referer da mesma origem). */
-    private function postar(string $lotacao): void
+    /** @param array{first: string, second: string} $senha */
+    private function postar(string $lotacao, array $senha = ['first' => '', 'second' => '']): void
     {
         $campos = [
             'codigoFuncionario' => '',
             'tenantRole'        => (string) $this->secundario->getId(),
             'lotacao'           => $lotacao,
-            'newPassword'       => ['first' => '', 'second' => ''],
+            'newPassword'       => $senha,
             '_token'            => 'csrf-token',
         ];
         $this->client->request('POST', $this->url(), ['edit_user_tenant_role' => $campos], [], ['HTTP_REFERER' => 'http://localhost' . $this->url()]);

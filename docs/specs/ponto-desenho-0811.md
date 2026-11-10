@@ -463,9 +463,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - **Desvio necessário do P71 (decidido pelo Coordenador, 09/11/2026):** a abrangência do feriado é "Todas as sedes" ou
     uma LOTAÇÃO do escritório, não uma sede. O desenho casa a sede do feriado com a lotação da pessoa (inventário 6.2,
     "casado com a lotação da pessoa em caixa alta"); no sistema a pessoa não tem sede, tem lotação (`user_tenant`).
-    Migration `Version20261109200000`: `feriado.lotacao_id` opcional, ON DELETE CASCADE (apagar a lotação apaga os
-    feriados só dela; SET NULL os faria valer para todos e mudaria o saldo de quem nunca os teve). Os feriados que já
-    existem ficam sem lotação: nenhuma folha muda;
+    Migration `Version20261109200000`: `feriado.lotacao_id` opcional, ON DELETE NO ACTION (a lotação com feriado não
+    se apaga, abaixo; CASCADE apagaria o feriado e mudaria os meses passados, SET NULL o faria valer para todos). Os
+    feriados que já existem ficam sem lotação: nenhuma folha muda;
   - a regra mora num ponto só, `FeriadosDaPessoa`: sem lotação vale para todos; com lotação, só para quem tinha aquela
     lotação no escritório DO FERIADO NAQUELE DIA (vínculo ativo ou não: a folha de quem saiu continua contando o
     feriado que valia para ela). Sem N+1: nenhuma consulta sem feriado por lotação; com ele, uma por pessoa e escritório
@@ -481,8 +481,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     que vale de HOJE (e, na primeira troca de um vínculo sem versões, a inicial com a lotação de antes); trocar de novo
     no mesmo dia substitui a versão de hoje. Não há outro caminho que grave `UserTenant::lotacao` (grep de
     `setLotacao(`: só o formulário; a lotação do convite nunca é copiada para o vínculo; o desfazer da auditoria não
-    reverte o vínculo). Apagar a lotação deixa as versões dela sem lotação (SET NULL, como em `user_tenant`). O down
-    da migration recusa quando já há troca gravada. Purga do escritório: `lotacao_vigencia` na lista. A Agenda segue a
+    reverte o vínculo). A lotação que está em alguma versão não se apaga (abaixo; chave NO ACTION). O down da
+    migration recusa quando já há troca gravada ou feriado de uma lotação (sem a coluna ele valeria para todo o
+    escritório). Purga do escritório: `lotacao_vigencia` na lista, antes de `lotacao`. A Agenda segue a
     lotação de hoje do vínculo (é tela do dia, não folha). Aplicada no `FolhaPontoBuilder::buildRows` (folha na
     tela, ficha do colaborador, PDF, XLSX, saldo até o mês e do ano, horas pagas, "Regularizar ponto de ontem", tudo
     passa por ele) e em `ListarPendenciasDeRegistroUseCase` (lê o feriado sem a folha). O comando dos nacionais (D21)
@@ -497,8 +498,20 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`, que hoje lê todos os feriados do escritório:
     o feriado de outra lotação zera a meta do dia na tela, não o saldo) entra no commit do orquestrador que mexe no
     `PontoController`, que não é desta etapa;
-  - limite conhecido: o feriado apagado pela cascata da lotação (ON DELETE CASCADE) não vai ao `audit_log`, porque
-    quem apaga é o banco, sem passar pelo Doctrine. Só a remoção da lotação fica registrada;
+  - **apagar lotação com feriado ou histórico é recusado (decisão do Coordenador, 09/11/2026):** apagar a lotação
+    apagava em cascata os feriados dela, e os meses passados mudavam (quem não bateu no feriado passava a ter falta).
+    Na aba "Lotações" da edição do escritório (`TenantController::edit`, o único caminho que apaga lotação: a purga
+    apaga o escritório inteiro e o desfazer da auditoria só reverte alteração), a lotação que sumiu da tela e tem
+    feriado ou versão em `lotacao_vigencia` fica, com o aviso "Esta lotação tem feriados ou histórico no Ponto e não
+    pode ser apagada."; o resto do envio (renomear, criar, apagar as outras) continua valendo. A regra mora em
+    `ApagarLotacoesQueSairamUseCase` (no lugar do laço de `remove()` do controller: o formulário não escreve a coleção
+    do escritório, então era aquele laço que apagava; agora o caso de uso tira da coleção e o `orphanRemoval` apaga).
+    Defesa no banco: as chaves de `feriado.lotacao_id` e de `lotacao_vigencia.lotacao_id` são NO ACTION (não
+    RESTRICT, que confere na hora e quebraria uma exclusão em cascata num comando só). Consequência: depois da
+    migration, toda lotação que alguém tem fica com a versão inicial e não se apaga mais pela tela; dá para renomear;
+  - lotação recusada na edição do vínculo: com o formulário inválido, a lotação escrita no vínculo em memória voltava
+    ao banco pelo flush do `ObterOuCriarPerfilUseCase` (perfil pessoal ausente), sem versão. O `editUserRole` guarda a
+    lotação de antes do submit, junto com o perfil, e a devolve ao vínculo quando o formulário não grava;
   - seções por permissão: "Sedes e raio de registro" só com `admin.ponto.manage`, "Feriados do escritório" só com
     `admin.tenant.settings.manage` (as mesmas das páginas de hoje). Rotas novas no domínio Ponto
     (`ponto_configuracoes_sede_criar`, `_sede_salvar`, `_sede_remover`, `_feriado_criar`, `_feriado_remover`), JSON:
@@ -535,17 +548,25 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   `DatasDaAgendaParaOGoogle`, `DiaUtilDoEscritorio` (feriado da lotação na Agenda), `FeriadoController::index` e
   `feriado/index.html.twig` (coluna "Abrangência" na página "Feriados e Folgas"). Lotação com vigência:
   `LotacaoComVigencia`, `LotacaoComVigenciaRepository`, `HistoricoDeLotacoes`, `RegistrarTrocaDeLotacaoUseCase`, a
-  chamada em `TenantController::editUserRole` (um parâmetro e uma linha) e `PurgarEscritorioUseCase` (a tabela nova).
+  chamada em `TenantController::editUserRole` (um parâmetro e uma linha; mais a lotação de antes, devolvida quando o
+  formulário não grava) e `PurgarEscritorioUseCase` (a tabela nova). Apagar lotação: `ApagarLotacoesQueSairamUseCase`,
+  `LotacaoComVigenciaRepository::idsDasLotacoesComHistorico`, a chamada em `TenantController::edit` e a frase
+  `escritorio.flash.lotacao_com_historico`.
   Atributos do JS próprios da etapa: `data-pc-sede-*`, `data-pc-feriado-*` e `data-pc-sf-*` (as janelas); o
   `data-config-*` fica livre para a E7. Raio vazio na sede que já existe mantém o raio dela; a nova nasce com 150 m.
 - Testes da etapa: `FeriadosDaPessoaTest`, `FeriadoPorLotacaoTest` (folha, saldo e pendências de duas pessoas em
   lotações diferentes; "Todas as sedes"; feriado recorrente da lotação; lotação de outro escritório com o mesmo nome),
   `ListarDatasDoSistemaUseCaseTest`, `DatasDoSistemaControllerTest`, `SincronizacaoDeDatasComGoogleTest` e
   `DiaUtilDoEscritorioTest` (a regra na Agenda, no Google e no dia útil), `FeriadoAbrangenciaNaPaginaAntigaTest`,
-  `HistoricoDeLotacoesTest`, `LotacaoComVigenciaTest` (trocar não muda o feriado, a folha nem o banco do mês passado;
-  de hoje em diante vale a nova; duas trocas no dia, uma versão; outro escritório isolado),
-  `TrocaDeLotacaoNaEdicaoDoVinculoTest` (a troca pela tela grava a versão; lotação de outro escritório recusada),
-  `MigracaoDoFeriadoPorLotacaoTest` (também a versão inicial por vínculo e o down que recusa com troca),
+  `HistoricoDeLotacoesTest`, `LotacaoComVigenciaTest` (trocar não muda o feriado nem a folha do mês passado; o banco
+  do mês passado num cenário assimétrico, só com o feriado de Maceió, e no vínculo que só tem a versão inicial da
+  migration; de hoje em diante vale a nova; duas trocas no dia, uma versão; outro escritório isolado),
+  `TrocaDeLotacaoNaEdicaoDoVinculoTest` (a troca pela tela grava a versão; lotação de outro escritório recusada;
+  formulário recusado não leva a lotação ao banco), `ApagarLotacaoComHistoricoTest` e
+  `ApagarLotacoesQueSairamUseCaseTest` (com feriado ou histórico, recusa com a frase; sem nada, apaga; o resto do envio
+  vale), `MigracaoDoFeriadoPorLotacaoTest` (também a versão inicial por vínculo, o banco que recusa apagar a lotação com
+  feriado ou histórico e o down que recusa com troca ou com feriado de lotação), `PurgarEscritorioUseCaseTest` (o
+  feriado da lotação e a versão saem antes da lotação),
   `SeedDosNacionaisComFeriadoPorLotacaoTest`, `ConfiguracoesDoPontoSedesEFeriadosTest` (arranjo por filho direto e
   textos, seções por permissão, 150 m na nova e na página antiga, raio das existentes, validações, remover com as
   batidas desvinculadas, 403 por seção, sem token e com permissão só em outro escritório, 404 entre escritórios,

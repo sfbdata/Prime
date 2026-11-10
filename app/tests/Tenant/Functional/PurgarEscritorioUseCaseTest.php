@@ -412,7 +412,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Estruturais
         $this->ins('sede', ['nome' => 'Sede', 'latitude' => 0, 'longitude' => 0, 'raio_permitido' => 100, 'timezone' => 'America/Sao_Paulo', 'tenant_id' => $t]);
         $this->ins('cargo', ['nome' => 'Cargo', 'tenant_id' => $t]);
-        $this->ins('lotacao', ['nome' => 'Lotacao', 'tenant_id' => $t]);
+        $lot = $this->ins('lotacao', ['nome' => 'Lotacao', 'tenant_id' => $t]);
 
         // Jornada + bloco (bloqueador intermediário)
         $jt = $this->ins('jornada_tenant', ['carga_horaria_semanal' => 40, 'alerta_habilitado' => true, 'tenant_id' => $t, 'validacao_repouso_habilitada' => false, 'minimo_minutos_repouso' => 0, 'validacao_interjornada_habilitada' => false, 'minimo_minutos_interjornada' => 0]);
@@ -503,6 +503,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('marcador', ['nome' => 'M', 'ordem' => 0, 'criado_at' => $ts, 'tenant_id' => $t, 'criado_por_id' => $u]);
         $this->ins('legenda_cor', ['nome' => 'L', 'cor' => '#000', 'criado_at' => $ts, 'tenant_id' => $t]);
         $this->ins('feriado', ['nome' => 'F', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t]);
+        // E6 do Ponto: o feriado da lotação e a versão do histórico seguram a lotação (chave NO ACTION): saem antes dela.
+        $this->ins('feriado', ['nome' => 'FL', 'data' => $d, 'recorrente' => false, 'tenant_id' => $t, 'lotacao_id' => $lot]);
+        $this->ins('lotacao_vigencia', ['user_id' => $u, 'tenant_id' => $t, 'lotacao_id' => $lot]);
         $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
         $this->ins('aceite_termo', ['versao' => 'v-' . $uid, 'aceito_em' => $ts, 'ip' => '127.0.0.1', 'user_id' => $u, 'tenant_id' => $t]);

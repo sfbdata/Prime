@@ -28,6 +28,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * da jornada), com o banco e os serviços reais. Ana é de Maceió e tem 8 h batidas em dois dias úteis do mês passado; o
  * primeiro é feriado de Maceió, o segundo é feriado de Brasília. Hoje ela passa para Brasília: o mês passado não muda
  * (o feriado de Maceió continua valendo para ela lá, o de Brasília não), e de hoje em diante vale a lotação nova.
+ *
+ * O banco de horas se prova sem o feriado de Brasília (cenário assimétrico): com os dois feriados, a vigência quebrada
+ * só trocaria o feriado de dia, e o saldo sairia igual.
  */
 #[CoversClass(RegistrarTrocaDeLotacaoUseCase::class)]
 #[CoversClass(LotacaoComVigenciaRepository::class)]
@@ -68,10 +71,9 @@ final class LotacaoComVigenciaTest extends KernelTestCase
         $this->feriado('Aniversário de Brasília', $this->diaDeBrasilia, $this->brasilia);
     }
 
-    #[TestDox('(a) Trocar a lotação hoje não muda o feriado, a folha nem o banco do mês passado')]
+    #[TestDox('(a) Trocar a lotação hoje não muda o feriado nem a folha do mês passado')]
     public function testTrocarNaoMudaOPassado(): void
     {
-        $saldoAntes = $this->saldoDoMesPassado();
         self::assertSame('Emancipação de Alagoas', $this->linhaDoDia($this->diaDeMaceio)['nomeFeriado'] ?? null);
         self::assertFalse($this->linhaDoDia($this->diaDeBrasilia)['isFeriado'] ?? false);
 
@@ -79,7 +81,6 @@ final class LotacaoComVigenciaTest extends KernelTestCase
 
         self::assertSame('Emancipação de Alagoas', $this->linhaDoDia($this->diaDeMaceio)['nomeFeriado'] ?? null, 'o feriado de Maceió continua valendo lá');
         self::assertFalse($this->linhaDoDia($this->diaDeBrasilia)['isFeriado'] ?? false, 'o de Brasília não vale para trás');
-        self::assertSame($saldoAntes, $this->saldoDoMesPassado(), 'o banco do mês passado não muda');
         self::assertSame($this->brasilia->getId(), $this->vinculo($this->ana, $this->escritorio)->getLotacao()?->getId(), 'o vínculo guarda a lotação de hoje');
     }
 
@@ -139,7 +140,51 @@ final class LotacaoComVigenciaTest extends KernelTestCase
         self::assertSame([$this->escritorio->getId()], array_map('intval', $escritorios));
     }
 
+    #[TestDox('(e) O banco do mês passado não muda com a troca (só o feriado de Maceió, que pesa no saldo)')]
+    public function testTrocarNaoMudaOBancoDoMesPassado(): void
+    {
+        $this->semOFeriadoDeBrasilia();
+        $saldoAntes = $this->saldoDoMesPassado();
+        self::assertNotSame($saldoAntes, $this->saldoDoMesPassado([]), 'o feriado de Maceió pesa no saldo: sem ele, o saldo seria outro');
+
+        $this->trocar($this->ana, $this->escritorio, $this->brasilia);
+
+        self::assertSame($saldoAntes, $this->saldoDoMesPassado(), 'o feriado de Maceió continua contando no mês passado');
+    }
+
+    #[TestDox('(f) Vínculo só com a versão inicial da migration (desde sempre) que troca hoje: o mês passado não muda')]
+    public function testSoAVersaoInicialDaMigracaoETrocaHoje(): void
+    {
+        $this->semOFeriadoDeBrasilia();
+        // Como a migration deixou o vínculo: uma versão inicial, com a lotação de hoje e sem data.
+        $this->em()->persist(LotacaoComVigencia::inicial(
+            $this->em()->find(User::class, $this->ana->getId()),
+            $this->em()->find(Tenant::class, $this->escritorio->getId()),
+            $this->em()->find(Lotacao::class, $this->maceio->getId()),
+        ));
+        $this->em()->flush();
+        $saldoAntes = $this->saldoDoMesPassado();
+        self::assertNotSame($saldoAntes, $this->saldoDoMesPassado([]), 'o feriado de Maceió pesa no saldo');
+
+        $this->trocar($this->ana, $this->escritorio, $this->brasilia);
+
+        self::assertSame(
+            [[null, $this->maceio->getId()], [(new \DateTimeImmutable('today'))->format('Y-m-d'), $this->brasilia->getId()]],
+            $this->versoes($this->ana, $this->escritorio),
+            'a inicial da migration fica; a troca grava só a de hoje',
+        );
+        self::assertSame($saldoAntes, $this->saldoDoMesPassado(), 'o banco do mês passado não muda');
+        self::assertSame('Emancipação de Alagoas', $this->linhaDoDia($this->diaDeMaceio)['nomeFeriado'] ?? null, 'o feriado de Maceió continua valendo lá');
+    }
+
     // ----------------------------------------------------------------- apoio
+
+    /** Tira o feriado de Brasília: com ele, a vigência quebrada só trocaria o feriado de dia e o saldo sairia igual. */
+    private function semOFeriadoDeBrasilia(): void
+    {
+        $this->em()->getConnection()->executeStatement('DELETE FROM feriado WHERE lotacao_id = ?', [$this->brasilia->getId()]);
+        $this->em()->clear();
+    }
 
     /** Troca como a edição do vínculo: o formulário escreve a lotação, o caso de uso registra e o flush grava. */
     private function trocar(User $pessoa, Tenant $escritorio, Lotacao $para): void
@@ -214,13 +259,14 @@ final class LotacaoComVigenciaTest extends KernelTestCase
         return $linhas[0];
     }
 
-    private function saldoDoMesPassado(): int
+    /** @param ?list<Feriado> $feriados os do escritório quando nulo */
+    private function saldoDoMesPassado(?array $feriados = null): int
     {
         return static::getContainer()->get(FolhaPontoBuilder::class)->calcularSaldoAteMes(
             $this->em()->find(User::class, $this->ana->getId()),
             (int) $this->diaDeMaceio->format('Y'),
             (int) $this->diaDeMaceio->format('n'),
-            $this->feriadosDoEscritorio(),
+            $feriados ?? $this->feriadosDoEscritorio(),
             null,
             $this->diaDeMaceio,
             $this->em()->find(Tenant::class, $this->escritorio->getId()),
