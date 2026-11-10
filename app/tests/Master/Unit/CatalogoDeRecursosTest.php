@@ -98,6 +98,7 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'tela do Ponto' => ['ponto_index', 'ponto'];
         yield 'batida do Ponto cai com a tela' => ['ponto_batida', 'ponto'];
         yield 'chave Escritório do Ponto cai com a tela' => ['ponto_configuracao_funcao', 'ponto'];
+        yield 'limite e prazo do banco do Ponto caem com a tela' => ['ponto_configuracao_banco_de_horas', 'ponto'];
         yield 'estado do dia do Ponto (atalho do avatar) fica aberto' => ['ponto_estado_do_dia', null];
         yield 'alerta de horário do Ponto fica aberto' => ['ponto_alerta_horario', null];
         yield 'pendência do dia do Ponto fica aberta' => ['ponto_pendencia_do_dia', null];
