@@ -232,8 +232,10 @@
         if (s.tela !== 'modelo') { el.telaMod.innerHTML = ''; s.m = null; edAtual = null; edRng = null; }
     }
 
-    function irParaLista() {
-        s.tela = 'lista'; s.w = null; s.det = null; s.aba = 'docs';
+    /* Volta à lista na aba Documentos (`voltarLista` do desenho); `manterAba` fica na aba em que estava (`wSalvar`, L461). */
+    function irParaLista(manterAba) {
+        s.tela = 'lista'; s.w = null; s.det = null;
+        if (!manterAba) { s.aba = 'docs'; }
         mostrarTela();
         desenharLista();
     }
@@ -457,10 +459,11 @@
         desenharNovo();
     }
 
+    /* Escolher um modelo começa um documento novo, mesmo vindo de um rascunho retomado (`usar` do desenho, L370): o
+       rascunho antigo fica como estava e o salvar cria outro. */
     function usar(m) {
         if (!m) { return; }
-        const rasc = s.tela === 'novo' && s.w ? s.w.rasc : null;
-        s.w = novoW({ passo: 2, mod: m.id, nome: m.t, c: Object.assign(padrao(), m.def), limpa: !!m.limpa, layout: m.layout || '', lateral: m.lateral || '', categoria: m.cat, modelo: m.id, rasc: rasc });
+        s.w = novoW({ passo: 2, mod: m.id, nome: m.t, c: Object.assign(padrao(), m.def), limpa: !!m.limpa, layout: m.layout || '', lateral: m.lateral || '', categoria: m.cat, modelo: m.id });
         s.tela = 'novo'; s.wErro = '';
         mostrarTela();
         desenharNovo();
@@ -553,7 +556,7 @@
         const logoBts = [['bluejus', T('p2.logo_bluejus')]].concat(logos.escritorio ? [['escritorio', T('p2.logo_escritorio')]] : []);
         let h = '<div class="bjaGrid bjaCorpo"><div class="bjaLat">'
             + '<div class="bjaQuadro"><div class="bjaQuadroTit">' + esc(T('p2.logo')) + '</div><div class="bjaLogoLin"><span class="bjaLogoMini"><img alt="' + esc(T('p2.logo_atual')) + '" src="' + esc(w.logo.url || '') + '"></span>'
-            + '<div class="bjaLogoBts"><label class="bjaB"><i class="bi bi-upload"></i>' + esc(T('p2.alterar_logo')) + '<input type="file" accept="image/png,image/jpeg" data-bja-logo hidden></label>'
+            + '<div class="bjaLogoBts"><label class="bjaB"><i class="bi bi-upload"></i>' + esc(T('p2.alterar_logo')) + '<input type="file" accept="image/*" data-bja-logo hidden></label>'
             + logoBts.map(([k, r]) => '<button type="button" class="bjaB bjaN" data-bja-logo-tipo="' + k + '" data-bja-foco="logo-' + k + '">' + esc(r) + '</button>').join('') + '</div></div>'
             + '<label class="bjaLogoFix"><input type="checkbox" data-bja-wchk="logoFix" data-bja-foco="logoFix"' + (w.logoFix ? ' checked' : '') + '>' + esc(T('p2.usar_logo')) + '</label></div>'
             + '<label class="bjaL">' + esc(T('p2.nome')) + '<input class="bjaF" type="text" data-bja-w="nome" data-bja-foco="w-nome" value="' + esc(w.nome) + '"></label>'
@@ -718,7 +721,9 @@
     }
 
     function dadosDoRascunho() {
-        const w = s.w, dias = Math.min(90, Math.max(1, parseInt(w.dias, 10) || 7));
+        // Vazio vale o padrão do desenho (7); o resto vai como foi digitado, e o servidor recusa fora de 1 a 90 com a
+        // regra escrita ("O prazo para assinar deve ser de 1 a 90 dias."), em vez de a tela cortar em silêncio.
+        const w = s.w, bruto = String(w.dias ?? '').trim(), dias = bruto === '' ? 7 : Number(bruto);
         return {
             nome: String(w.nome || '').trim(),
             pasta: String(w.pasta || '').trim(),
@@ -767,7 +772,7 @@
         const w = s.w, destino = w.rasc ? comId(url.salvar, w.rasc) : url.criar;
         if (!destino) { return; }
         gravar(destino, botao, async () => {
-            irParaLista();
+            irParaLista(true);
             avisar(T('toast.rascunho_salvo'));
             await carregar();
         });
