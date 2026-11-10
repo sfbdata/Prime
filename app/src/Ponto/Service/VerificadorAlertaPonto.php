@@ -43,11 +43,7 @@ class VerificadorAlertaPonto
             return $this->semAlerta();
         }
 
-        // Os feriados DESTE escritório, com o escritório escrito na consulta (como as batidas, logo abaixo).
-        $feriadoHoje = $this->calculadora->getFeriadoDoDia(
-            $agora,
-            $this->feriadosDaPessoa->filtrar($this->feriadoRepository->doEscritorio($tenant), $user, $agora),
-        ) !== null;
+        $feriadoHoje = $this->feriadoDaPessoaHoje($user, $tenant, $agora);
 
         // As batidas de hoje NESTE escritório (auditoria 1.13): a de outro escritório da pessoa não muda o aviso daqui.
         $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $tenant, $agora);
@@ -67,11 +63,7 @@ class VerificadorAlertaPonto
         $saidaRegistrada   = isset($porTipo[RegistroPonto::TIPO_SAIDA]);
 
         if (!$entradaRegistrada) {
-            if ($feriadoHoje) {
-                return $this->semAlerta();
-            }
-
-            return [
+            return $feriadoHoje ? $this->semAlerta() : [
                 'alertar'  => true,
                 'tipo'     => 'entrada',
                 'mensagem' => 'Você ainda não registrou sua entrada hoje!',
@@ -148,6 +140,14 @@ class VerificadorAlertaPonto
         }
 
         return $this->semAlerta();
+    }
+
+    /** Os feriados DESTE escritório, com o escritório escrito na consulta (como as batidas), filtrados para a pessoa. */
+    private function feriadoDaPessoaHoje(User $user, Tenant $tenant, \DateTimeImmutable $agora): bool
+    {
+        $feriados = $this->feriadosDaPessoa->filtrar($this->feriadoRepository->doEscritorio($tenant), $user, $agora);
+
+        return $this->calculadora->getFeriadoDoDia($agora, $feriados) !== null;
     }
 
     /**
