@@ -30,7 +30,11 @@ class AceiteDaFolhaDoPontoRepository extends ServiceEntityRepository
         $this->getEntityManager()->persist($aceite);
     }
 
-    /** O aceite que vale (o de maior número) da pessoa NESTE escritório e nesta competência; null se não assinou. */
+    /**
+     * O aceite que vale (o de maior número) da pessoa NESTE escritório e nesta competência; null se não assinou. O número
+     * do aceite novo é o deste mais um, tirado da mesma leitura que decide se a pessoa pode assinar (o índice único
+     * segura dois envios ao mesmo tempo).
+     */
     public function ultimoDaCompetencia(Tenant $escritorio, User $pessoa, int $ano, int $mes): ?AceiteDaFolhaDoPonto
     {
         return $this->daCompetencia($escritorio, $pessoa, $ano, $mes)
@@ -38,20 +42,6 @@ class AceiteDaFolhaDoPontoRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
-    }
-
-    /**
-     * O número do próximo aceite da competência: 1 na primeira assinatura, o último mais um nas seguintes. Dois
-     * pedidos ao mesmo tempo recebem o mesmo número e o índice único recusa o segundo.
-     */
-    public function proximoNumero(Tenant $escritorio, User $pessoa, int $ano, int $mes): int
-    {
-        $ultimo = $this->daCompetencia($escritorio, $pessoa, $ano, $mes)
-            ->select('MAX(a.numero)')
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return (int) $ultimo + 1;
     }
 
     private function daCompetencia(Tenant $escritorio, User $pessoa, int $ano, int $mes): QueryBuilder

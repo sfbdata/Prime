@@ -32,16 +32,18 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Quem: a própria pessoa, na /ponto, no escritório da sessão (nunca a folha de outro, nunca outro escritório).
  * Para quê: confirmar que os registros do mês fechado representam a jornada dela, ou assinar com ressalva.
- * Pré-condições: a função `ponto-aceite` vale e o selo da folha está pronto; o mês está fechado pelo relógio do
- * servidor; a competência está na lista da folha dela (início da contagem neste escritório); não há aceite que valha
- * (sem aceite, ou a folha mudou depois do último); na ressalva, texto com até 1.000 caracteres.
+ * Pré-condições: competência válida (mês de 1 a 12, ano com quatro dígitos); a função `ponto-aceite` vale e o selo da
+ * folha está pronto; o mês está fechado pelo relógio do servidor; a competência está na lista da folha dela (início da
+ * contagem neste escritório); não há aceite que valha (sem aceite, ou a folha mudou depois do último); na ressalva,
+ * texto com até 1.000 caracteres.
  * Fluxo principal: monta a folha de agora; confere as pré-condições ({@see EstadoDoAceiteDaFolha}); numa transação,
- * emite a folha vista (código BJF, decisão 18), grava o aceite com o número seguinte e selado com HMAC (decisão 14),
- * dá o flush único e só então grava na trilha "Folha emitida" e "Folha assinada" ou "Folha assinada com ressalva" (a
- * trilha guarda os ids; a ressalva não entra nela).
- * Fluxos alternativos: cada pré-condição que falha é uma {@see AssinaturaDaFolhaRecusadaException} e nada é gravado;
- * dois envios ao mesmo tempo recebem o mesmo número e o índice único recusa o segundo ("Esta folha já foi assinada.");
- * a trilha que falha desfaz a folha vista e o aceite.
+ * emite a folha vista (código BJF, decisão 18), grava o aceite com o número seguinte ao do último aceite lido na
+ * conferência e selado com HMAC (decisão 14), dá o flush único e só então grava na trilha "Folha emitida" e "Folha
+ * assinada" ou "Folha assinada com ressalva" (a trilha guarda os ids; a ressalva não entra nela).
+ * Fluxos alternativos: cada pré-condição que falha é uma {@see AssinaturaDaFolhaRecusadaException} e nada é gravado (a
+ * competência fora do calendário recebe a mesma recusa do mês fora da folha); dois envios ao mesmo tempo leem o mesmo
+ * último aceite, recebem o mesmo número e o índice único recusa o segundo ("Esta folha já foi assinada."); a trilha que
+ * falha desfaz a folha vista e o aceite.
  * Pós-condições: uma folha emitida nova (a vista), um aceite novo que passa a valer e os dois eventos na trilha do
  * escritório. Não há desfazer (P33): uma nova assinatura só depois de a folha mudar (decisão 1).
  * Regras: o mesmo instante ({@see RelogioDaFolha}) no texto selado e nas colunas da folha vista e do aceite; o navegador
@@ -64,15 +66,14 @@ final class AssinarFolhaDoPontoUseCase
     /** @throws AssinaturaDaFolhaRecusadaException */
     public function executar(AssinarFolhaInput $pedido, User $pessoa, Tenant $escritorio): AceiteDaFolhaOutput
     {
+        self::exigirCompetencia($pedido);
         $agora = $this->relogio->agora();
         $folhaDeAgora = $this->conteudos->montar($escritorio, $pessoa, $pedido->ano, $pedido->mes, $agora);
-        $this->exigirQuePodeAssinar($escritorio, $pessoa, $folhaDeAgora, $agora);
-        $situacao = $pedido->situacao();
-        $ressalva = $pedido->ressalvaParaGravar();
-        $this->exigirRessalvaCoerente($situacao, $ressalva);
+        $numero = $this->numeroSePodeAssinar($escritorio, $pessoa, $folhaDeAgora, $agora);
+        $this->exigirRessalvaCoerente($pedido->situacao(), $pedido->ressalvaParaGravar());
 
         try {
-            $aceite = $this->trilha->emTransacao(fn (): AceiteDaFolhaDoPonto => $this->gravar($folhaDeAgora, $pessoa, $escritorio, $pedido, $agora));
+            $aceite = $this->trilha->emTransacao(fn (): AceiteDaFolhaDoPonto => $this->gravar($folhaDeAgora, $pessoa, $escritorio, $pedido, $numero, $agora));
         } catch (UniqueConstraintViolationException $corrida) {
             throw AssinaturaDaFolhaRecusadaException::jaAssinada($corrida);
         }
@@ -80,13 +81,37 @@ final class AssinarFolhaDoPontoUseCase
         return AceiteDaFolhaOutput::doAceiteGravado($aceite);
     }
 
-    /** @throws AssinaturaDaFolhaRecusadaException */
-    private function exigirQuePodeAssinar(Tenant $escritorio, User $pessoa, ConteudoDaFolha $folhaDeAgora, \DateTimeImmutable $agora): void
+    /**
+     * Mês fora de 1 a 12 ou ano fora de quatro dígitos: a mesma recusa do mês que não está na folha, antes de montar a
+     * folha (que não existe para esse mês).
+     *
+     * @throws AssinaturaDaFolhaRecusadaException
+     */
+    private static function exigirCompetencia(AssinarFolhaInput $pedido): void
     {
-        $impedimento = $this->estado->avaliar($escritorio, $pessoa, $folhaDeAgora, $agora)->impedimento;
-        if ($impedimento !== null) {
-            throw AssinaturaDaFolhaRecusadaException::por($impedimento);
+        try {
+            FolhaEmitidaDoPonto::exigirCompetencia($pedido->ano, $pedido->mes);
+        } catch (\InvalidArgumentException) {
+            throw AssinaturaDaFolhaRecusadaException::por(AssinaturaDaFolhaRecusadaException::FORA_DA_FOLHA);
         }
+    }
+
+    /**
+     * O número do aceite novo sai da MESMA leitura que decidiu "pode assinar": o número do último aceite lido mais um,
+     * ou 1 sem aceite. Dois envios que leram o mesmo último aceite gravam o mesmo número, e o índice único
+     * `(tenant, user, ano, mes, numero)` recusa o segundo, mesmo que o primeiro já tenha gravado antes de ele chegar à
+     * gravação (um número relido dentro da transação daria o seguinte e deixaria passar os dois).
+     *
+     * @throws AssinaturaDaFolhaRecusadaException
+     */
+    private function numeroSePodeAssinar(Tenant $escritorio, User $pessoa, ConteudoDaFolha $folhaDeAgora, \DateTimeImmutable $agora): int
+    {
+        $estado = $this->estado->avaliar($escritorio, $pessoa, $folhaDeAgora, $agora);
+        if ($estado->impedimento !== null) {
+            throw AssinaturaDaFolhaRecusadaException::por($estado->impedimento);
+        }
+
+        return ($estado->numero ?? 0) + 1;
     }
 
     /** @throws AssinaturaDaFolhaRecusadaException */
@@ -99,10 +124,9 @@ final class AssinarFolhaDoPontoUseCase
         }
     }
 
-    private function gravar(ConteudoDaFolha $folhaDeAgora, User $pessoa, Tenant $escritorio, AssinarFolhaInput $pedido, \DateTimeImmutable $agora): AceiteDaFolhaDoPonto
+    private function gravar(ConteudoDaFolha $folhaDeAgora, User $pessoa, Tenant $escritorio, AssinarFolhaInput $pedido, int $numero, \DateTimeImmutable $agora): AceiteDaFolhaDoPonto
     {
         $vista = $this->emissao->emitir($folhaDeAgora, $escritorio, $pessoa, $pessoa, $agora, null);
-        $numero = $this->aceites->proximoNumero($escritorio, $pessoa, $folhaDeAgora->ano, $folhaDeAgora->mes);
         $aceite = $this->aceiteSelado($vista, $numero, $pedido, $agora);
         $this->aceites->adicionar($aceite);
         $this->em->flush();

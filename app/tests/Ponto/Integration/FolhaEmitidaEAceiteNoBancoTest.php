@@ -89,25 +89,23 @@ final class FolhaEmitidaEAceiteNoBancoTest extends KernelTestCase
         self::assertNull($this->folhas->ultimaDaCompetencia($b, $maria, 2026, 9), 'o mês 9 é só de A');
     }
 
-    #[TestDox('Aceite: histórico numerado 1, 2...; vale o último; outro escritório, outra pessoa e outro mês começam do 1')]
+    #[TestDox('Aceite: histórico numerado 1, 2...; vale o último; outro escritório, outra pessoa e outro mês não têm aceite (o próximo é o 1)')]
     public function testAceiteNumeradoEUltimo(): void
     {
         [$a, $b] = [$this->escritorio(), $this->escritorio()];
         [$maria, $joao] = [$this->pessoa(), $this->pessoa()];
         self::assertNull($this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10));
-        self::assertSame(1, $this->aceites->proximoNumero($a, $maria, 2026, 10));
 
         $primeiro = $this->assinar($this->emitir($a, $maria, 2026, 10), 1, SituacaoDoAceiteDaFolha::Concordo, null);
-        self::assertSame(2, $this->aceites->proximoNumero($a, $maria, 2026, 10));
+        self::assertSame(1, $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getNumero());
         $segundo = $this->assinar($this->emitir($a, $maria, 2026, 10), 2, SituacaoDoAceiteDaFolha::Ressalva, 'Faltou o dia 3.');
 
         self::assertSame($segundo->getId(), $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getId());
+        self::assertSame(2, $this->aceites->ultimoDaCompetencia($a, $maria, 2026, 10)?->getNumero());
         self::assertNotSame($primeiro->getId(), $segundo->getId());
-        self::assertSame(3, $this->aceites->proximoNumero($a, $maria, 2026, 10));
         self::assertNull($this->aceites->ultimoDaCompetencia($b, $maria, 2026, 10), 'outro escritório');
-        self::assertSame(1, $this->aceites->proximoNumero($b, $maria, 2026, 10));
         self::assertNull($this->aceites->ultimoDaCompetencia($a, $joao, 2026, 10), 'outra pessoa');
-        self::assertSame(1, $this->aceites->proximoNumero($a, $maria, 2026, 11), 'outro mês');
+        self::assertNull($this->aceites->ultimoDaCompetencia($a, $maria, 2026, 11), 'outro mês');
     }
 
     #[TestDox('Gravado e lido do banco: situação, ressalva, data, IP, navegador, selo e a folha vista voltam iguais')]

@@ -19,6 +19,7 @@ use App\Ponto\UseCase\AssinarFolhaDoPontoUseCase;
 use App\Tests\Ponto\Support\CenarioDaFolhaDoMesTrait;
 use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -101,6 +102,27 @@ final class AssinarFolhaDoPontoUseCaseTest extends KernelTestCase
         $this->assertNadaGravado();
     }
 
+    /** @param array{int, int} $competencia */
+    #[DataProvider('competenciasForaDoCalendario')]
+    #[TestDox('Competência fora do calendário ($_dataName): "Este mês não está na sua folha de ponto." (nunca 500) e nada gravado')]
+    public function testCompetenciaForaDoCalendario(array $competencia): void
+    {
+        $recusa = $this->recusa(new AssinarFolhaInput($competencia[0], $competencia[1], 'concordo'));
+
+        self::assertSame([AssinaturaDaFolhaRecusadaException::FORA_DA_FOLHA, 'Este mês não está na sua folha de ponto.'], [$recusa->motivo, $recusa->getMessage()]);
+        $this->assertNadaGravado();
+    }
+
+    /** @return iterable<string, array{array{int, int}}> */
+    public static function competenciasForaDoCalendario(): iterable
+    {
+        yield 'mês 0' => [[2026, 0]];
+        yield 'mês 13' => [[2026, 13]];
+        yield 'mês negativo' => [[2026, -1]];
+        yield 'ano com três dígitos' => [[999, 10]];
+        yield 'ano com cinco dígitos' => [[10000, 10]];
+    }
+
     #[TestDox('Ressalva vazia: "Descreva a ressalva." e nada gravado (a regra vale também sem o formulário)')]
     public function testRessalvaVazia(): void
     {
@@ -138,19 +160,16 @@ final class AssinarFolhaDoPontoUseCaseTest extends KernelTestCase
         self::assertSame([1, 2], array_map('intval', array_column($this->aceitesNoBanco($this->escritorio, $this->maria), 'numero')));
     }
 
-    #[TestDox('Corrida: dois envios leem "sem aceite" e o número 1; o índice único segura o segundo e só um aceite fica')]
+    #[TestDox('Corrida: o segundo envio leu "sem aceite" antes de o primeiro gravar; o número sai dessa mesma leitura (1) e o índice único o segura')]
     public function testCorridaPeloMesmoNumero(): void
     {
         $this->assinarFolha()->executar(new AssinarFolhaInput(2026, 10, 'concordo'), $this->maria, $this->escritorio);
+        // Só a leitura do último aceite atrasada (o cenário real): o primeiro envio já gravou o número 1 quando o
+        // segundo chega à gravação, mas o segundo decidiu "pode assinar" sobre a leitura de antes.
         $atrasado = new class (static::getContainer()->get(ManagerRegistry::class)) extends AceiteDaFolhaDoPontoRepository {
             public function ultimoDaCompetencia(Tenant $escritorio, User $pessoa, int $ano, int $mes): ?AceiteDaFolhaDoPonto
             {
                 return null;
-            }
-
-            public function proximoNumero(Tenant $escritorio, User $pessoa, int $ano, int $mes): int
-            {
-                return 1;
             }
         };
 
@@ -174,7 +193,7 @@ final class AssinarFolhaDoPontoUseCaseTest extends KernelTestCase
         $this->assertNadaGravado();
     }
 
-    #[TestDox('Decisão 19: a função desligada no escritório recusa e esconde o "pode assinar"')]
+    #[TestDox('Decisão 13: a função desligada no escritório recusa e esconde o "pode assinar"')]
     public function testDesligadaNoEscritorio(): void
     {
         $this->desligarNoEscritorio($this->escritorio, $this->maria);
@@ -184,7 +203,7 @@ final class AssinarFolhaDoPontoUseCaseTest extends KernelTestCase
         $this->assertNadaGravado();
     }
 
-    #[TestDox('Decisão 19: a função desligada pelo Master no Global recusa em todos os escritórios')]
+    #[TestDox('Decisão 13: a função desligada pelo Master no Global recusa em todos os escritórios')]
     public function testDesligadaNoGlobal(): void
     {
         $this->desligarNoGlobal();
