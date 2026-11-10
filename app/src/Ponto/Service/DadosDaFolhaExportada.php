@@ -15,8 +15,9 @@ use App\Tenant\UseCase\GerarCodigoFuncionario;
 /**
  * Dados da folha de ponto exportada (PDF e XLSX): empregador, empregado, jornada, linhas do mês
  * formatadas, resumo do banco de horas e controle de intervalos. Saiu do `PontoController` (E16,
- * bloco A) sem mudar o que monta: o array de saída é o mesmo que o `folha_pdf.html.twig` e o
- * `FolhaPontoXlsxExporter` já recebiam.
+ * bloco A) sem mudar o que monta. O array de saída alimenta hoje o `FolhaPontoXlsxExporter` (o
+ * XLSX, pela rota do controller) e o {@see ConteudoDaFolhaDoMes}, que tira dele o cabeçalho e o
+ * resumo da folha em PDF desenhada em imagem (o PDF em HTML saiu na E16).
  */
 final class DadosDaFolhaExportada
 {
