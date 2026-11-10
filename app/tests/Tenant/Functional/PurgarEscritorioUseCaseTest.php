@@ -585,7 +585,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Folha emitida e aceite da folha (E16): o aceite aponta para a folha vista (NO ACTION), então a ordem da purga
         // tem que apagar o aceite antes da folha.
         $folha = $this->ins('ponto_folha_emitida', ['ano' => 2020, 'mes' => 1, 'codigo' => 'BJF-' . strtoupper(substr(md5($uid . $t), 0, 14)), 'hmac' => str_repeat('f', 64), 'versao_chave' => 1, 'emitida_em' => $ts, 'impressao_registros' => str_repeat('a', 64), 'dados_assinados' => '{}', 'user_id' => $u, 'emitida_por_id' => $u, 'tenant_id' => $t]);
-        $this->ins('ponto_folha_aceite', ['ano' => 2020, 'mes' => 1, 'numero' => 1, 'situacao' => 'concordo', 'aceito_em' => $ts, 'hmac' => str_repeat('e', 64), 'versao_chave' => 1, 'user_id' => $u, 'folha_emitida_id' => $folha, 'tenant_id' => $t]);
+        $this->ins('ponto_folha_aceite', ['ano' => 2020, 'mes' => 1, 'numero' => 1, 'situacao' => 'concordo', 'aceito_em' => $ts, 'hmac' => str_repeat('e', 64), 'versao_chave' => 1, 'dados_assinados' => '{}', 'user_id' => $u, 'folha_emitida_id' => $folha, 'tenant_id' => $t]);
         $this->ins('aceite_termo', ['versao' => 'v-' . $uid, 'aceito_em' => $ts, 'ip' => '127.0.0.1', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token_hash' => hash('sha256', 'tok-' . $uid), 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
         $this->ins('access_request', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'action' => 'view', 'requested_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);

@@ -54,8 +54,8 @@ final class TrilhaDaFolhaDoPontoTest extends TestCase
     public function testFolhaAssinada(): void
     {
         $folha = $this->folha();
-        $concordo = DetalheDaTrilhaDoPonto::doAceiteDaFolha(new AceiteDaFolhaDoPonto($folha, 1, SituacaoDoAceiteDaFolha::Concordo, null, new \DateTimeImmutable(), null, null, str_repeat('e', 64), 1));
-        $ressalva = DetalheDaTrilhaDoPonto::doAceiteDaFolha(new AceiteDaFolhaDoPonto($folha, 2, SituacaoDoAceiteDaFolha::Ressalva, 'Texto sigiloso da ressalva', new \DateTimeImmutable(), null, null, str_repeat('e', 64), 1));
+        $concordo = DetalheDaTrilhaDoPonto::doAceiteDaFolha(new AceiteDaFolhaDoPonto($folha, 1, SituacaoDoAceiteDaFolha::Concordo, null, new \DateTimeImmutable(), null, null, str_repeat('e', 64), 1, '{}'));
+        $ressalva = DetalheDaTrilhaDoPonto::doAceiteDaFolha(new AceiteDaFolhaDoPonto($folha, 2, SituacaoDoAceiteDaFolha::Ressalva, 'Texto sigiloso da ressalva', new \DateTimeImmutable(), null, null, str_repeat('e', 64), 1, '{}'));
 
         self::assertSame(
             ['colaborador_id' => 11, 'colaborador' => 'Maria da Silva Pereira', 'aceite_id' => null, 'ano' => 2026, 'mes' => 11, 'numero' => 2, 'codigo' => 'BJF-ABCD-EFGH-JK23'],

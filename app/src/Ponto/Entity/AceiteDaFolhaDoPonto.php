@@ -21,9 +21,11 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * O escritório, a pessoa e a competência saem da folha vista: o aceite nunca fica preso a uma folha de outra pessoa,
  * de outro escritório ou de outro mês. O próprio aceite é selado (decisão 14, chave `ponto-folha`) sobre a situação, a
- * ressalva, a data, o IP, o navegador e o código da folha vista; a trilha não guarda o texto da ressalva. A entidade
- * guarda os valores como chegam (sem cortar nem aparar), para que o selo feito antes confira com o que foi gravado:
- * quem grava corta o navegador e apara a ressalva antes de selar.
+ * ressalva, a data, o IP, o navegador e o código da folha vista; a trilha não guarda o texto da ressalva. Como a folha
+ * emitida e o comprovante, a linha guarda o texto que o HMAC selou (`dados_assinados`, JSON canônico de
+ * {@see \App\Ponto\DTO\DadosDoAceiteDaFolha}): a conferência recalcula o selo sobre esse texto, sem remontá-lo das
+ * colunas. A entidade guarda os valores como chegam (sem cortar nem aparar), para que o selo feito antes confira com o
+ * que foi gravado: quem grava corta o navegador e apara a ressalva antes de selar.
  *
  * Escritório e pessoa sem cascata, como em `ponto_comprovante`; a folha vista também (a purga apaga o aceite antes da
  * folha emitida). IP e navegador são dado pessoal guardado como prova do aceite e saem com a purga do escritório.
@@ -85,6 +87,8 @@ class AceiteDaFolhaDoPonto implements TenantAware
         private string $hmac,
         #[ORM\Column(name: 'versao_chave', type: 'integer')]
         private int $versaoChave,
+        #[ORM\Column(name: 'dados_assinados', type: 'text')]
+        private string $dadosAssinados,
     ) {
         if ($numero < 1) {
             throw new \InvalidArgumentException('O número do aceite começa em 1.');
@@ -198,5 +202,11 @@ class AceiteDaFolhaDoPonto implements TenantAware
     public function getVersaoChave(): int
     {
         return $this->versaoChave;
+    }
+
+    /** O texto que o HMAC selou (JSON canônico de {@see \App\Ponto\DTO\DadosDoAceiteDaFolha}). */
+    public function getDadosAssinados(): string
+    {
+        return $this->dadosAssinados;
     }
 }

@@ -25,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(FolhaEmitidaDoPonto::class)]
 final class AceiteDaFolhaDoPontoTest extends TestCase
 {
+    private const DADOS_ASSINADOS = '{"formato":1,"tipo":"aceite-folha"}';
+
     #[TestDox('Concordo sem ressalva: o aceite herda escritório, pessoa e competência da folha vista')]
     public function testConcordoHerdaDaFolhaVista(): void
     {
@@ -39,6 +41,7 @@ final class AceiteDaFolhaDoPontoTest extends TestCase
         self::assertNull($aceite->getRessalva());
         self::assertSame(1, $aceite->getNumero());
         self::assertSame(['189.6.10.2', 'Mozilla/5.0'], [$aceite->getIp(), $aceite->getNavegador()]);
+        self::assertSame([str_repeat('e', 64), 1, self::DADOS_ASSINADOS], [$aceite->getHmac(), $aceite->getVersaoChave(), $aceite->getDadosAssinados()], 'o selo e o texto selado, como chegaram');
     }
 
     #[TestDox('Ressalva com texto (até 1.000 caracteres, contados como letras e não bytes): aceita, guardada como veio')]
@@ -138,6 +141,6 @@ final class AceiteDaFolhaDoPontoTest extends TestCase
 
     private function aceite(FolhaEmitidaDoPonto $folha, SituacaoDoAceiteDaFolha $situacao, ?string $ressalva, int $numero = 1, ?string $ip = '189.6.10.2', ?string $navegador = 'Mozilla/5.0'): AceiteDaFolhaDoPonto
     {
-        return new AceiteDaFolhaDoPonto($folha, $numero, $situacao, $ressalva, new \DateTimeImmutable('2026-11-03 09:05:00'), $ip, $navegador, str_repeat('e', 64), 1);
+        return new AceiteDaFolhaDoPonto($folha, $numero, $situacao, $ressalva, new \DateTimeImmutable('2026-11-03 09:05:00'), $ip, $navegador, str_repeat('e', 64), 1, self::DADOS_ASSINADOS);
     }
 }

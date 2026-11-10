@@ -11,7 +11,7 @@ use App\Ponto\Enum\SituacaoDoAceiteDaFolha;
 
 /**
  * O que a folha emitida atesta, na forma canônica que o HMAC sela (spec ponto-desenho-0811, E16, decisões 2, 3, 17 e
- * 21): o código BJF, a competência, a pessoa (id e nome inteiro), o escritório (nome e CNPJ), quando e por quem foi
+ * 21): o código BJF, a competência, o escritório (id, nome e CNPJ), a pessoa (id e nome inteiro), quando e por quem foi
  * emitida, a impressão dos registros (sha256 do resumo dia a dia e dos totais, decisão 3), o próprio resumo (dias e
  * totais, montado por quem emite e guardado aqui como está) e o aceite impresso no PDF (situação, data e ressalva) ou
  * nulo. Sem CPF.
@@ -24,11 +24,15 @@ use App\Ponto\Enum\SituacaoDoAceiteDaFolha;
  * sempre o mesmo texto, então o HMAC gravado confere enquanto nada mudar. O número do formato vai junto: o leitor só
  * aceita o formato que conhece, e o resto não vira folha autêntica ("Código não localizado." na validação). O resumo
  * entra no JSON como chegou: listas e mapas de texto, inteiros e booleanos (sem mapa vazio, que volta como lista).
+ *
+ * A folha e o aceite dela ({@see DadosDoAceiteDaFolha}) são selados com a mesma chave (finalidade `ponto-folha`): o
+ * marcador `tipo` é o que separa um do outro, e o leitor de cada um recusa o texto do outro.
  */
 final readonly class DadosDaFolhaEmitida
 {
     public const FORMATO = 1;
-    private const CHAVES = ['formato', 'codigo', 'competencia', 'pessoa_id', 'pessoa', 'escritorio', 'cnpj', 'emitida_em', 'emitida_por_id', 'emitida_por', 'impressao_registros', 'resumo', 'aceite'];
+    public const TIPO = 'folha';
+    private const CHAVES = ['formato', 'tipo', 'codigo', 'competencia', 'escritorio_id', 'pessoa_id', 'pessoa', 'escritorio', 'cnpj', 'emitida_em', 'emitida_por_id', 'emitida_por', 'impressao_registros', 'resumo', 'aceite'];
     private const CHAVES_DO_ACEITE = ['situacao', 'em', 'ressalva'];
     private const IMPRESSAO = '/^[0-9a-f]{64}$/';
 
@@ -41,6 +45,7 @@ final readonly class DadosDaFolhaEmitida
         public string $codigo,
         public int $ano,
         public int $mes,
+        public int $escritorioId,
         public int $pessoaId,
         public string $pessoa,
         public string $escritorio,
@@ -64,10 +69,11 @@ final readonly class DadosDaFolhaEmitida
      *
      * @param array<mixed> $resumo
      *
-     * @throws \LogicException pessoa ainda sem id, ou aceite de outra pessoa, escritório ou competência
+     * @throws \LogicException escritório ou pessoa ainda sem id, ou aceite de outra pessoa, escritório ou competência
      */
     public static function daEmissao(string $codigo, Tenant $escritorio, User $pessoa, int $ano, int $mes, \DateTimeImmutable $emitidaEm, ?User $emitidaPor, string $impressaoRegistros, array $resumo, ?AceiteDaFolhaDoPonto $aceite = null): self
     {
+        $escritorioId = $escritorio->getId() ?? throw new \LogicException('A folha emitida sai de um escritório já gravado.');
         $pessoaId = $pessoa->getId() ?? throw new \LogicException('A folha emitida sai de uma pessoa já gravada.');
         if ($aceite !== null && ($aceite->getTenant() !== $escritorio || $aceite->getUser() !== $pessoa || $aceite->getAno() !== $ano || $aceite->getMes() !== $mes)) {
             throw new \LogicException('O aceite impresso é da mesma pessoa, escritório e competência da folha.');
@@ -77,6 +83,7 @@ final readonly class DadosDaFolhaEmitida
             $codigo,
             $ano,
             $mes,
+            $escritorioId,
             $pessoaId,
             self::nomeDe($pessoa),
             trim((string) $escritorio->getName()),
@@ -95,17 +102,17 @@ final readonly class DadosDaFolhaEmitida
     public function canonico(): string
     {
         return json_encode(array_combine(self::CHAVES, [
-            self::FORMATO, $this->codigo, sprintf('%04d-%02d', $this->ano, $this->mes), $this->pessoaId, $this->pessoa,
-            $this->escritorio, $this->cnpj, $this->emitidaEm->format(\DATE_ATOM), $this->emitidaPorId, $this->emitidaPor,
-            $this->impressaoRegistros, $this->resumo, $this->aceiteCanonico(),
+            self::FORMATO, self::TIPO, $this->codigo, sprintf('%04d-%02d', $this->ano, $this->mes), $this->escritorioId,
+            $this->pessoaId, $this->pessoa, $this->escritorio, $this->cnpj, $this->emitidaEm->format(\DATE_ATOM),
+            $this->emitidaPorId, $this->emitidaPor, $this->impressaoRegistros, $this->resumo, $this->aceiteCanonico(),
         ]), \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR);
     }
 
-    /** @throws \UnexpectedValueException quando o texto não é a forma canônica deste formato (outro número, outras chaves, tipos trocados) */
+    /** @throws \UnexpectedValueException quando o texto não é a forma canônica deste formato e deste tipo (outro número, outro tipo, outras chaves, tipos trocados) */
     public static function deCanonico(string $canonico): self
     {
         $dados = json_decode($canonico, true);
-        if (!is_array($dados) || array_keys($dados) !== self::CHAVES || $dados['formato'] !== self::FORMATO) {
+        if (!is_array($dados) || array_keys($dados) !== self::CHAVES || $dados['formato'] !== self::FORMATO || $dados['tipo'] !== self::TIPO) {
             throw new \UnexpectedValueException('Dados da folha fora do formato canônico.');
         }
         self::exigirTipos($dados);
@@ -116,6 +123,7 @@ final readonly class DadosDaFolhaEmitida
             $dados['codigo'],
             $ano,
             $mes,
+            $dados['escritorio_id'],
             $dados['pessoa_id'],
             $dados['pessoa'],
             $dados['escritorio'],
@@ -165,7 +173,7 @@ final readonly class DadosDaFolhaEmitida
      */
     private static function exigirTipos(array $dados): void
     {
-        $certos = is_string($dados['codigo']) && is_int($dados['pessoa_id']) && is_string($dados['pessoa'])
+        $certos = is_string($dados['codigo']) && is_int($dados['escritorio_id']) && is_int($dados['pessoa_id']) && is_string($dados['pessoa'])
             && is_string($dados['escritorio']) && ($dados['cnpj'] === null || is_string($dados['cnpj']))
             && ($dados['emitida_por_id'] === null || is_int($dados['emitida_por_id']))
             && ($dados['emitida_por'] === null || is_string($dados['emitida_por']))

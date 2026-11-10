@@ -6,12 +6,17 @@ namespace App\Tests\Ponto\Integration;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\DTO\DadosDaFolhaEmitida;
+use App\Ponto\DTO\DadosDoAceiteDaFolha;
 use App\Ponto\Entity\AceiteDaFolhaDoPonto;
 use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Enum\SituacaoDoAceiteDaFolha;
 use App\Ponto\Repository\AceiteDaFolhaDoPontoRepository;
 use App\Ponto\Repository\FolhaEmitidaDoPontoRepository;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\CodigoDaFolha;
+use App\Ponto\Service\SeloDaFolha;
+use App\Ponto\Service\SeloDaFolhaHmac;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,13 +28,15 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 /**
  * A folha emitida e o aceite no banco (E16): as consultas levam o escritório escrito (outro escritório, outra pessoa
  * ou outro mês não acham nada), a consulta por código atravessa os escritórios de propósito (validação pública), o
- * histórico numerado do aceite vale pelo último, e os índices únicos seguram código repetido e aceite de mesmo número.
+ * histórico numerado do aceite vale pelo último, os índices únicos seguram código repetido e aceite de mesmo número, e
+ * o selo da folha e o do aceite conferem sobre os dados assinados relidos do banco.
  */
 #[Group('ponto')]
 #[CoversClass(FolhaEmitidaDoPontoRepository::class)]
 #[CoversClass(AceiteDaFolhaDoPontoRepository::class)]
 #[CoversClass(FolhaEmitidaDoPonto::class)]
 #[CoversClass(AceiteDaFolhaDoPonto::class)]
+#[CoversClass(DadosDoAceiteDaFolha::class)]
 final class FolhaEmitidaEAceiteNoBancoTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
@@ -122,6 +129,28 @@ final class FolhaEmitidaEAceiteNoBancoTest extends KernelTestCase
         self::assertSame([$escritorio->getId(), $maria->getId(), 2026, 10], [$lido->getTenant()?->getId(), $lido->getUser()->getId(), $lido->getAno(), $lido->getMes()]);
     }
 
+    #[TestDox('Folha e aceite gravados com o selo e relidos do banco (EntityManager limpo): o selo confere sobre dados_assinados, que bate com as colunas')]
+    public function testSeloConfereSobreOsDadosAssinadosRelidos(): void
+    {
+        $selo = new SeloDaFolhaHmac(new ChavesDoHmacDoPonto('segredo-de-teste'));
+        [$escritorio, $maria] = [$this->escritorio(), $this->pessoa()];
+        $folha = $this->emitir($escritorio, $maria, 2026, 10, codigo: (new CodigoDaFolha($this->folhas))->novo(), selo: $selo);
+        $ids = [$folha->getId(), $this->assinar($folha, 1, SituacaoDoAceiteDaFolha::Ressalva, 'Dia 3/10: saída às 18h.', $selo)->getId()];
+        $this->em->clear();
+
+        $folhaLida = $this->em->find(FolhaEmitidaDoPonto::class, $ids[0]) ?? self::fail('folha não relida');
+        $lido = $this->em->find(AceiteDaFolhaDoPonto::class, $ids[1]) ?? self::fail('aceite não relido');
+        self::assertTrue($selo->conferir($folhaLida->getDadosAssinados(), $folhaLida->getHmac(), $folhaLida->getVersaoChave()), 'selo da folha');
+        self::assertTrue($selo->conferir($lido->getDadosAssinados(), $lido->getHmac(), $lido->getVersaoChave()), 'selo do aceite');
+        self::assertSame($escritorio->getId(), DadosDaFolhaEmitida::deCanonico($folhaLida->getDadosAssinados())->escritorioId);
+
+        $dados = DadosDoAceiteDaFolha::deCanonico($lido->getDadosAssinados());
+        self::assertSame([$escritorio->getId(), $maria->getId(), 2026, 10, 1, $folhaLida->getCodigo()], [$dados->escritorioId, $dados->pessoaId, $dados->ano, $dados->mes, $dados->numero, $dados->codigoDaFolhaVista]);
+        self::assertSame([$lido->getSituacao(), $lido->getRessalva(), $lido->getIp(), $lido->getNavegador()], [$dados->situacao, $dados->ressalva, $dados->ip, $dados->navegador]);
+        self::assertSame($lido->getAceitoEm()->getTimestamp(), $dados->aceitoEm->getTimestamp());
+        self::assertFalse($selo->conferir(str_replace('saída', 'entrada', $lido->getDadosAssinados()), $lido->getHmac(), $lido->getVersaoChave()), 'texto mexido não confere');
+    }
+
     #[TestDox('Quem emitiu sai do banco: a folha fica, com a ligação nula (SET NULL)')]
     public function testEmissorQueSaiFicaNulo(): void
     {
@@ -167,30 +196,27 @@ final class FolhaEmitidaEAceiteNoBancoTest extends KernelTestCase
         }
     }
 
-    private function emitir(Tenant $escritorio, User $pessoa, int $ano, int $mes, string $em = '2026-11-03 09:00:00', ?User $emitidaPor = null, ?string $codigo = null): FolhaEmitidaDoPonto
+    /** Os dados assinados são os de verdade; sem selo, o HMAC é de mentira (só as consultas importam). */
+    private function emitir(Tenant $escritorio, User $pessoa, int $ano, int $mes, string $em = '2026-11-03 09:00:00', ?User $emitidaPor = null, ?string $codigo = null, ?SeloDaFolha $selo = null): FolhaEmitidaDoPonto
     {
-        $folha = new FolhaEmitidaDoPonto(
-            $escritorio,
-            $pessoa,
-            $emitidaPor ?? $pessoa,
-            $ano,
-            $mes,
-            $codigo ?? sprintf('BJF-TEST-%04d-%s', ++$this->codigos, substr(strtoupper(bin2hex(random_bytes(2))), 0, 4)),
-            str_repeat('f', 64),
-            1,
-            new \DateTimeImmutable($em),
-            hash('sha256', 'resumo'),
-            '{"formato":1}',
-        );
+        $codigo ??= sprintf('BJF-TEST-%04d-%s', ++$this->codigos, substr(strtoupper(bin2hex(random_bytes(2))), 0, 4));
+        [$emitidaEm, $emitidaPor, $impressao] = [new \DateTimeImmutable($em), $emitidaPor ?? $pessoa, hash('sha256', 'resumo')];
+        $dados = DadosDaFolhaEmitida::daEmissao($codigo, $escritorio, $pessoa, $ano, $mes, $emitidaEm, $emitidaPor, $impressao, ['totais' => ['trabalhado' => 0]])->canonico();
+        $selado = $selo?->selar($dados) ?? ['hmac' => str_repeat('f', 64), 'versao' => 1];
+        $folha = new FolhaEmitidaDoPonto($escritorio, $pessoa, $emitidaPor, $ano, $mes, $codigo, $selado['hmac'], $selado['versao'], $emitidaEm, $impressao, $dados);
         $this->folhas->adicionar($folha);
         $this->em->flush();
 
         return $folha;
     }
 
-    private function assinar(FolhaEmitidaDoPonto $folha, int $numero, SituacaoDoAceiteDaFolha $situacao, ?string $ressalva): AceiteDaFolhaDoPonto
+    /** Os dados assinados são os de verdade; sem selo, o HMAC é de mentira (só as consultas importam). */
+    private function assinar(FolhaEmitidaDoPonto $folha, int $numero, SituacaoDoAceiteDaFolha $situacao, ?string $ressalva, ?SeloDaFolha $selo = null): AceiteDaFolhaDoPonto
     {
-        $aceite = new AceiteDaFolhaDoPonto($folha, $numero, $situacao, $ressalva, new \DateTimeImmutable('2026-11-03 09:05:00'), '189.6.10.2', 'Mozilla/5.0', str_repeat('e', 64), 1);
+        $em = new \DateTimeImmutable('2026-11-03 09:05:00');
+        $dados = DadosDoAceiteDaFolha::daAssinatura($folha, $numero, $situacao, $ressalva, $em, '189.6.10.2', 'Mozilla/5.0')->canonico();
+        $selado = $selo?->selar($dados) ?? ['hmac' => str_repeat('e', 64), 'versao' => 1];
+        $aceite = new AceiteDaFolhaDoPonto($folha, $numero, $situacao, $ressalva, $em, '189.6.10.2', 'Mozilla/5.0', $selado['hmac'], $selado['versao'], $dados);
         $this->aceites->adicionar($aceite);
         $this->em->flush();
 

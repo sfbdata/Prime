@@ -16,9 +16,10 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Os dados que o HMAC da folha emitida sela (E16, decisões 2, 3 e 17): código, competência, pessoa, escritório e CNPJ,
- * emitida em e por quem, a impressão dos registros, o resumo (como quem emite montou) e o aceite impresso. A forma
- * canônica é estável (ida e volta iguais) e o leitor recusa o que não é o formato 1. Nunca CPF nem e-mail.
+ * Os dados que o HMAC da folha emitida sela (E16, decisões 2, 3 e 17): o tipo "folha", código, competência, escritório
+ * (id, nome e CNPJ), pessoa, emitida em e por quem, a impressão dos registros, o resumo (como quem emite montou) e o
+ * aceite impresso. A forma canônica é estável (ida e volta iguais) e o leitor recusa o que não é o formato 1 do tipo
+ * "folha". Nunca CPF nem e-mail.
  */
 #[Group('ponto')]
 #[CoversClass(DadosDaFolhaEmitida::class)]
@@ -35,18 +36,19 @@ final class DadosDaFolhaEmitidaTest extends TestCase
         $this->escritorio = new Tenant();
         $this->escritorio->setName('Escritório Modelo');
         $this->escritorio->setCnpj('12345678000190');
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->escritorio, 7);
         $this->pessoa = $this->usuario(11, 'Maria da Silva Pereira', 'maria@teste.com');
         $this->gestor = $this->usuario(12, 'Gestor Souza', 'gestor@teste.com');
     }
 
-    #[TestDox('Da emissão: a forma canônica com as chaves em ordem, o resumo como veio e o aceite nulo; sem CPF nem e-mail')]
+    #[TestDox('Da emissão: a forma canônica com o tipo "folha", o id do escritório e as chaves em ordem, o resumo como veio e o aceite nulo; sem CPF nem e-mail')]
     public function testCanonicoDaEmissao(): void
     {
         $canonico = $this->dados()->canonico();
 
         self::assertSame(
-            '{"formato":1,"codigo":"BJF-ABCD-EFGH-JK23","competencia":"2026-10","pessoa_id":11,"pessoa":"Maria da Silva Pereira",'
-            . '"escritorio":"Escritório Modelo","cnpj":"12345678000190","emitida_em":"2026-11-03T09:00:00-03:00",'
+            '{"formato":1,"tipo":"folha","codigo":"BJF-ABCD-EFGH-JK23","competencia":"2026-10","escritorio_id":7,"pessoa_id":11,'
+            . '"pessoa":"Maria da Silva Pereira","escritorio":"Escritório Modelo","cnpj":"12345678000190","emitida_em":"2026-11-03T09:00:00-03:00",'
             . '"emitida_por_id":12,"emitida_por":"Gestor Souza","impressao_registros":"' . $this->impressao() . '",'
             . '"resumo":{"dias":[{"data":"2026-10-01","batidas":["08:00","12:00"],"trabalhado":480,"incompleto":false}],'
             . '"totais":{"trabalhado":480,"extra":0,"saldo":-15}},"aceite":null}',
@@ -98,14 +100,17 @@ final class DadosDaFolhaEmitidaTest extends TestCase
         self::assertSame($dados->canonico(), DadosDaFolhaEmitida::deCanonico($dados->canonico())->canonico());
     }
 
-    #[TestDox('Aceite de outra pessoa ou de outra competência não entra na folha; pessoa sem id não emite')]
+    #[TestDox('Aceite de outra pessoa, escritório ou competência não entra na folha; escritório ou pessoa sem id não emite')]
     public function testAceiteDeOutraFolhaRecusado(): void
     {
         $outraPessoa = $this->usuario(14, 'Outra Pessoa', 'outra@teste.com');
+        $outroEscritorio = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($outroEscritorio, 8);
         $casos = [
             'outra pessoa'      => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, $this->escritorio, $outraPessoa, 2026, 10, $this->emitidaEm(), null, $this->impressao(), [], $this->aceite(SituacaoDoAceiteDaFolha::Concordo, null)),
             'outro mês'         => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, $this->escritorio, $this->pessoa, 2026, 9, $this->emitidaEm(), null, $this->impressao(), [], $this->aceite(SituacaoDoAceiteDaFolha::Concordo, null)),
-            'outro escritório'  => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, new Tenant(), $this->pessoa, 2026, 10, $this->emitidaEm(), null, $this->impressao(), [], $this->aceite(SituacaoDoAceiteDaFolha::Concordo, null)),
+            'outro escritório'  => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, $outroEscritorio, $this->pessoa, 2026, 10, $this->emitidaEm(), null, $this->impressao(), [], $this->aceite(SituacaoDoAceiteDaFolha::Concordo, null)),
+            'escritório sem id' => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, new Tenant(), $this->pessoa, 2026, 10, $this->emitidaEm(), null, $this->impressao(), []),
             'pessoa sem id'     => fn () => DadosDaFolhaEmitida::daEmissao(self::CODIGO, $this->escritorio, new User(), 2026, 10, $this->emitidaEm(), null, $this->impressao(), []),
         ];
         foreach ($casos as $caso => $emitir) {
@@ -123,7 +128,7 @@ final class DadosDaFolhaEmitidaTest extends TestCase
     {
         foreach ([[SituacaoDoAceiteDaFolha::Concordo, null, null], [null, $this->emitidaEm(), null], [null, null, 'texto']] as [$situacao, $em, $ressalva]) {
             try {
-                new DadosDaFolhaEmitida(self::CODIGO, 2026, 10, 11, 'Maria', 'Escritório', null, $this->emitidaEm(), 12, 'Gestor', $this->impressao(), [], $situacao, $em, $ressalva);
+                new DadosDaFolhaEmitida(self::CODIGO, 2026, 10, 7, 11, 'Maria', 'Escritório', null, $this->emitidaEm(), 12, 'Gestor', $this->impressao(), [], $situacao, $em, $ressalva);
                 self::fail('deveria recusar o aceite pela metade');
             } catch (\InvalidArgumentException) {
                 self::assertTrue(true);
@@ -131,7 +136,7 @@ final class DadosDaFolhaEmitidaTest extends TestCase
         }
     }
 
-    #[TestDox('Texto fora da forma canônica (chaves, ordem, formato, competência, data, tipos, impressão, aceite) é recusado')]
+    #[TestDox('Texto fora da forma canônica (chaves, ordem, formato, tipo, competência, data, tipos, impressão, aceite) é recusado')]
     public function testRecusaForaDoFormato(): void
     {
         $dados = json_decode($this->dados($this->aceite(SituacaoDoAceiteDaFolha::Concordo, null))->canonico(), true);
@@ -144,6 +149,11 @@ final class DadosDaFolhaEmitidaTest extends TestCase
             'fora de ordem'          => json_encode(['codigo' => $dados['codigo']] + $dados),
             'outro formato'          => $trocar(['formato' => 2]),
             'formato em texto'       => $trocar(['formato' => '1']),
+            'tipo do aceite'         => $trocar(['tipo' => 'aceite-folha']),
+            'tipo nulo'              => $trocar(['tipo' => null]),
+            'sem tipo'               => json_encode(array_diff_key($dados, ['tipo' => 0])),
+            'escritorio_id em texto' => $trocar(['escritorio_id' => '7']),
+            'escritorio_id nulo'     => $trocar(['escritorio_id' => null]),
             'competência mês 13'     => $trocar(['competencia' => '2026-13']),
             'competência sem traço'  => $trocar(['competencia' => '202610']),
             'data inválida'          => $trocar(['emitida_em' => '03/11/2026 09:00']),
@@ -179,7 +189,7 @@ final class DadosDaFolhaEmitidaTest extends TestCase
     {
         $vista = new FolhaEmitidaDoPonto($this->escritorio, $this->pessoa, $this->pessoa, 2026, 10, 'BJF-ZZZZ-ZZZZ-ZZZZ', str_repeat('f', 64), 1, new \DateTimeImmutable('2026-11-02 18:29:00'), $this->impressao(), '{}');
 
-        return new AceiteDaFolhaDoPonto($vista, 1, $situacao, $ressalva, new \DateTimeImmutable('2026-11-02 18:30:00', new \DateTimeZone('America/Sao_Paulo')), '189.6.10.2', 'Mozilla/5.0', str_repeat('e', 64), 1);
+        return new AceiteDaFolhaDoPonto($vista, 1, $situacao, $ressalva, new \DateTimeImmutable('2026-11-02 18:30:00', new \DateTimeZone('America/Sao_Paulo')), '189.6.10.2', 'Mozilla/5.0', str_repeat('e', 64), 1, '{}');
     }
 
     private function emitidaEm(): \DateTimeImmutable
