@@ -20,13 +20,19 @@ use Symfony\Component\Routing\Attribute\Route;
  * Contrato da rota, para o botão "Cópia com carimbo visível" (bloco 5A), que a chama por `fetch`:
  *
  * - 200: o PDF carimbado, `application/pdf`, como anexo "{nome do documento} - com carimbo.pdf", sem cache;
- * - 422: o carimbo recusou; corpo JSON `{"message": "<motivo>"}`, só o motivo do carimbo, sem o " Use o original."
- *   (por exemplo "Arquivo protegido por senha."). O botão mostra o aviso vermelho com o motivo e acrescenta
- *   " Use o original.", como o `presCarimbo` do desenho (dc:384);
- * - 404: documento de outro escritório, inexistente, sem PDF assinado guardado ou com o arquivo ausente;
+ * - 422 sem nenhuma assinatura eletrônica do BlueJus: JSON
+ *   `{"erro": "Ainda não há assinatura eletrônica feita pelo BlueJus para carimbar.", "semAssinatura": true}`; o botão
+ *   mostra o texto como veio (no desenho este aviso não leva " Use o original.", dc:384);
+ * - 422 recusa do carimbo: JSON `{"erro": "<motivo>"}`, só o motivo, sem `semAssinatura` e sem o " Use o original."
+ *   (por exemplo "Arquivo protegido por senha."); o botão acrescenta " Use o original.", como o `presCarimbo` do
+ *   desenho (dc:384);
+ * - 404 sem PDF assinado guardado (só o PDF para assinar não conta) ou com o arquivo ausente: JSON
+ *   `{"erro": "Original não encontrado."}`;
+ * - 404 comum (sem JSON): documento de outro escritório ou inexistente;
  * - 403: sem acesso à Assinatura.
  *
- * 404, 500 ou falha de rede o botão mostra como "Não foi possível carimbar. Use o original." (o `catch` do desenho).
+ * A chave `erro` é a que o `pedir()` do `assinatura.js` lê. Outra falha (404 comum, 500, rede) o botão mostra como
+ * "Não foi possível carimbar. Use o original." (o `catch` do desenho).
  */
 final class CarimboDaAssinaturaController extends AbstractController
 {
@@ -59,10 +65,12 @@ final class CarimboDaAssinaturaController extends AbstractController
         }
 
         if ($copia->pdf === null) {
-            return $this->json(['message' => $copia->recusa], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $status = $copia->semOriginal ? Response::HTTP_NOT_FOUND : Response::HTTP_UNPROCESSABLE_ENTITY;
+
+            return $this->json(['erro' => $copia->erro] + ($copia->semAssinatura ? ['semAssinatura' => true] : []), $status);
         }
 
-        $nome = NomeSeguroDeArquivo::paraDownload($copia->nome);
+        $nome = NomeSeguroDeArquivo::paraDownload((string) $copia->nome);
 
         return new Response($copia->pdf, Response::HTTP_OK, [
             'Content-Type' => 'application/pdf',
