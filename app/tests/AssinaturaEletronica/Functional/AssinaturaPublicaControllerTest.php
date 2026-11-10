@@ -67,6 +67,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         }
 
         self::assertCount(1, array_unique($paginas), 'a página é a mesma para qualquer token ruim');
+        self::assertStringContainsString('<title>Assinatura</title>', $paginas[0], 'o título da aba do desenho, L6');
         $publico = $this->publicoDaPagina();
         self::assertSame('invalido', $publico['estado']);
         self::assertNull($publico['documento']);
@@ -254,7 +255,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
     #[TestDox('assinar: código por e-mail (sem link), rubrica guardada, conclusão e os e-mails ao remetente')]
     public function testAssinarAteConcluir(): void
     {
-        [$advogada] = $this->entrar(true);
+        [$advogada, $escritorio] = $this->entrar(true);
         [$id, $tokens] = $this->documentoEnviado();
         $this->sair($this->client);
 
@@ -289,6 +290,9 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         $trilha = $this->trilha($id);
         self::assertSame(2, array_count_values($trilha)['assinado']);
         self::assertSame('documento_concluido', end($trilha));
+        // Depois das páginas públicas, o detalhe pede o login de novo.
+        $this->logarComTenant($this->client, $advogada, $escritorio);
+        self::assertSame('Documento concluído', $this->detalhe($id)['eventos'][0]['texto'], 'o texto do desenho, L390');
         $dados = json_decode((string) $this->conexao()->fetchOne("SELECT dados FROM assinatura_eletronica_evento WHERE documento_id = ? AND tipo = 'assinado' ORDER BY id LIMIT 1", [$id]), true);
         self::assertSame(['aceite', 'chave', 'cpf_confere', 'metodo', 'modo', 'rubrica_sha256'], self::ordenadas($dados));
         self::assertSame('simples', $dados['metodo']);
@@ -442,7 +446,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         $detalhe = $this->detalhe($id);
         self::assertSame('recusado', $detalhe['situacao']);
         self::assertSame('Valor errado', $detalhe['signatarios'][0]['recusadoMotivo']);
-        self::assertContains('Ana Lima recusou: Valor errado', array_column($detalhe['eventos'], 'texto'));
+        self::assertContains('Recusado por Ana Lima: Valor errado', array_column($detalhe['eventos'], 'texto'));
     }
 
     #[TestDox('o detalhe traz o nome digitado e a rubrica de quem assinou')]
@@ -460,7 +464,7 @@ final class AssinaturaPublicaControllerTest extends JusPrimeWebTestCase
         self::assertNull($ana['link']);
         self::assertStringEndsWith('/assinatura/documentos/' . $id . '/rubrica/0', (string) $ana['rubrica']);
         self::assertSame(base64_decode(self::PNG_1X1, true), $this->rubricaGuardada($id, 0));
-        self::assertContains('Ana Lima assinou (Simples)', array_column($this->detalhe($id)['eventos'], 'texto'));
+        self::assertContains('Assinado por Ana Maria Lima · E-mail e código', array_column($this->detalhe($id)['eventos'], 'texto'));
     }
 
     /** O PNG guardado como rubrica do signatário (o dublê em memória confere escopo e categoria da chave). */
