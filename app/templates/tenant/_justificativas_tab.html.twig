@@ -16,10 +16,12 @@
         {% if justificativas is empty %}
             <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada por este usuário.</p>
         {% else %}
-            {# Agrupar por batchId #}
+            {# Agrupar por batchId. A chave leva o prefixo "lote_": um batchId só de dígitos que cabe num inteiro viraria
+               chave numérica, e o merge do Twig a renumeraria (batches[batchKey] sumiria). O batchKey só vai para os ids
+               do DOM; a rota usa primeiraJust.batchId. #}
             {% set batches = {} %}
             {% for j in justificativas %}
-                {% set batchKey = j.batchId ?? ('id_' ~ j.id) %}
+                {% set batchKey = j.batchId is not null ? 'lote_' ~ j.batchId : 'id_' ~ j.id %}
                 {% if batches[batchKey] is not defined %}
                     {% set batches = batches|merge({(batchKey): []}) %}
                 {% endif %}
