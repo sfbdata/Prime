@@ -100,7 +100,7 @@ Coberto em A1 (linhas "Duas colunas"). Particularidades: sem cabeçalho do escri
 |---|---|---|---|
 | Lista (linha) | botão ícone | `bi-file-earmark-pdf`, aria-label "Baixar PDF", dica "Baixar PDF com selo" (dc:149) | em todas as linhas, inclusive rascunho e Lixeira |
 | Menu de contexto | item | "Baixar PDF com selo" `bi-file-earmark-pdf` (dc:443) | sempre, seleção única |
-| Detalhe | botão primário `.bjaP` | `bi-file-earmark-pdf`; rótulo `dBaixarR` (dc:462): "Baixar manifesto com selo" (presencial/gov.br/ICP, etapa 5), "Baixar PDF" (folha branca), senão "Baixar PDF com selo" (dc:216-224) | sempre |
+| Detalhe | botão primário `.bjaP` | `bi-file-earmark-pdf`; rótulo `dBaixarR` (dc:462): "Baixar manifesto com selo" (documento já assinado ou que recebeu assinatura gov.br/ICP, etapa 5; `pres` no desenho é o PDF que chega com assinaturas digitais, não existe nível presencial), "Baixar PDF" (folha branca), senão "Baixar PDF com selo" (dc:216-224) | sempre |
 | Tela verde do signatário | botão | "Baixar PDF com selo", altura 44, fundo `#fff`, cor `#145a32`, 15px bold, `bi-file-earmark-pdf` (dc:267-273) | depois de assinar |
 | Tela verde | "Concluir" | transparente, borda `rgba(255,255,255,.7)` | |
 | Tela verde | caixa do código | bold 15 monospace, letter-spacing 1px, padding 7px 12px, borda 1px `rgba(255,255,255,.55)`, margin-top 6 | |
