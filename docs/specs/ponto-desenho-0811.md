@@ -322,7 +322,11 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     mínimo de 1h ligado mostra 17:00, não a saída antes do retorno mais cedo possível). Sem escala (duração nula), a saída prevista não aparece no repouso, como antes dele. Escala 08-12/14-18 (meta
     480, mínimo 60): às 11:00 mostra 18:00, às 12:00 no repouso continua 18:00 e com 2h10 de repouso mostra 18:10. Com
     o retorno batido, vale o intervalo batido, como já era. Antes da E1 não era assim: a "Previsão de saída" era fixa, entrada
-    mais a duração da escala, calculada só na carga e sem contar o intervalo real.
+    mais a duração da escala, calculada só na carga e sem contar o intervalo real. No repouso com a meta já coberta até
+    ele, nenhuma saída prevista: o aviso mostra só o intervalo (dc L771). Antes, a hora era passada e andava com o
+    relógio (entrada 08:00, escala 08-12/14-18, repouso 17:30: às 18:30 "18:00", às 19:45 "18:15"). Depois do retorno,
+    a conta do intervalo batido dá hora fixa e o aviso segue "Passou da saída prevista" (decisão do Coordenador de
+    09/11/2026, na conferência ✓/✗);
 - Depende de: nada técnico.
 - Migration: não.
 - Arquivos: `templates/ponto/index.html.twig`, CSS novo da tela (`public/css/ponto-eletronico.css`, prefixo `.pe-`);
@@ -344,7 +348,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     (parâmetro `somenteDiasComBatida`). A ficha carrega o CSS da folha pelo próprio partial;
   - ficam do sistema, no estilo do desenho: o selo da jornada na barra da ficha ("40h00m/sem (Personalizada)"), o sinal
     de registro em outro escritório, a dica do "Registro incompleto", "A conferir", "Home Office", as batidas fora da
-    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16/E4) e "Baixar XLSX" (P88, agora baixa direto);
+    conta do gestor, "Ver PDF" (P89, ainda no modal do sistema até a E16) e "Baixar XLSX" (P88, agora baixa direto);
   - o "+" (P30 a) vale em qualquer dia passado com batida, inclusive fim de semana, e no dia de hoje; feriado e dia
     antes do início da contagem ficam sem ele. A batida que já tem esquecimento pendente ou abonado também fica sem "+"
     (condição 8 do sistema, para não criar duplicata, hoje inclusive); o "Em análise" aparece na coluna Justificativa.
@@ -925,6 +929,15 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     recente primeiro), parcial `_abas_auditoria.html.twig`, botões de página por `js/ponto-auditoria.js`; CSS no bloco
     "Auditoria (E9)";
   - purga: `ponto_auditoria` na ordem de deleção do `PurgarEscritorioUseCase`;
+  - texto da coluna "Detalhe" no formato do desenho (conferência ✓/✗ de 09/11/2026; dc L544, L601, L768): partes com
+    " · ", a batida com os segundos e " · sem internet" (chave `sem_internet` no detalhe dos eventos novos), a
+    justificativa "dd/mm/aaaa · Tipo · subtítulo". Extras necessários que ficam: o nome do colaborador na frente, a
+    data da batida (a da fila e a do esquecimento não são do dia do evento), " · home office" e o período do lote; a
+    sede saiu do texto e continua no detalhe gravado;
+  - desvio do desenho (dc L601, decisão do Coordenador de 09/11/2026): a observação da análise não entra no detalhe de
+    "Justificativa abonada" e "recusada". Ela já aparece na coluna "Obs. da Análise" (lida da justificativa), é texto
+    livre, que a trilha não grava (pode trazer dado pessoal, e a trilha fica mesmo depois da exclusão da conta) e o
+    "voltar para análise" a apaga, o que a trilha selada não faria;
   - ficam para depois: a chave do Escritório (E7, entra na trilha quando a E7 chegar), os ajustes de batida (E10), a
     fila sem internet, a folha e a facial (cada etapa chama a trilha nos eventos dela). A chave Global do Master fica só
     no `audit_log`, como hoje (`RecursoEstado` é auditável no escopo da plataforma, sem escritório para a cadeia).
@@ -1078,7 +1091,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Migration: sim (folha emitida e aceite).
 - Arquivos: `folha_pdf.html.twig`, exportação do PDF no `PontoController.php`, `FolhaPontoXlsxExporter.php` se o código
   for também no XLSX. Frente: é a pendência 2 dela ("Jornada alterada em dd/mm" no cabeçalho). Combinar quem entra primeiro.
-  A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje.
+  A forma de gerar a imagem no servidor se escolhe na E16, de preferência com o que já gera o PDF de hoje. A janela do
+  "Ver PDF" (P89) troca o modal do Bootstrap pela moldura `.pe-janela` das janelas do Ponto (E4), aqui na E16
+  (decisão do Coordenador de 09/11/2026, na conferência ✓/✗).
 - Testes: código da folha validado pela página pública; aceite só de mês fechado; ressalva sem texto recusada; PDF com
   as pendências do dia e sem "registro em outro escritório"; as três frases no PDF; com `PONTO_HMAC_SECRET` vazia o PDF
   sai sem código e "Assinar folha" some; `FolhaExportacaoMesmaEscolhaTest` verde.
