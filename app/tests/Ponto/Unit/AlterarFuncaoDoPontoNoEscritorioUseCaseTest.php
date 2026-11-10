@@ -38,6 +38,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
 #[Group('ponto')]
 final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
 {
+    use TrilhaDoPontoDeTesteTrait;
+
     private Tenant $tenant;
     private User $quem;
     private ConfiguracaoDoPontoRepository&MockObject $configuracoes;
@@ -45,6 +47,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 7);   // a trilha (E9) é por escritório gravado
         $this->quem = new User();
         $this->configuracoes = $this->createMock(ConfiguracaoDoPontoRepository::class);
     }
@@ -97,6 +100,9 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         self::assertSame('2026-11-09 10:00:00', $garantida->getAtualizadoEm()->format('Y-m-d H:i:s'));
         self::assertSame(['ponto-geo', true, false], [$saida->chave, $saida->global, $saida->escritorio]);
         self::assertSame('Geolocalização', $saida->titulo);
+        self::assertCount(1, $this->eventosDaTrilha);
+        self::assertSame(['configuracao_do_escritorio', 7], [$this->eventosDaTrilha[0]['acao'], $this->eventosDaTrilha[0]['tenant_id']]);
+        self::assertSame(['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => false], $this->eventosDaTrilha[0]['detalhe']);
     }
 
     #[TestDox('Linha que já existe: muda só a chave pedida, na linha travada')]
@@ -113,6 +119,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         self::assertSame(['ponto-geo' => true], $existente->getChaves());
         self::assertSame($this->quem, $existente->getAtualizadoPor());
         self::assertTrue($saida->escritorio);
+        self::assertSame([true], array_map(static fn (array $evento): mixed => $evento['detalhe']['ligada'], $this->eventosDaTrilha));
     }
 
     #[TestDox('Ligar o que já vale ligado (linha recém-garantida, vazia) ou repetir o valor guardado: nada grava')]
@@ -129,6 +136,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         self::assertFalse($this->casoDeUso()->executar($this->pedido('ponto-geo', false))->escritorio);
         self::assertSame([[], null], [$vazia->getChaves(), $vazia->getAtualizadoPor()], 'a linha vazia continua vazia');
         self::assertSame('2026-11-01', $existente->getAtualizadoEm()->format('Y-m-d'), 'quem e quando não mudam');
+        self::assertSame([], $this->eventosDaTrilha, 'a trilha não ganha uma mudança que não mudou');
     }
 
     #[TestDox('O corpo JSON precisa de `ligada` booleano')]
@@ -174,7 +182,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCaseTest extends TestCase
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAdminister')->willReturn($podeConfigurar);
 
-        return new AlterarFuncaoDoPontoNoEscritorioUseCase(new FuncoesDoPonto($recursos, $this->configuracoes, $permissoes), $this->configuracoes, $relogio);
+        return new AlterarFuncaoDoPontoNoEscritorioUseCase(new FuncoesDoPonto($recursos, $this->configuracoes, $permissoes), $this->configuracoes, $relogio, $this->trilhaDeTeste());
     }
 
     private function recusa(string $motivo, \Closure $acao): void

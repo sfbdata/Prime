@@ -15,6 +15,7 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
 use App\Ponto\Service\ChavesDoHmacDoPonto;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\GestaoDoPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -166,7 +167,7 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertNull($this->configuracao($this->escritorio));
     }
 
-    #[TestDox('O primário desliga e religa a geolocalização do escritório: a linha nasce no primeiro salvamento e a mudança vai para o audit_log')]
+    #[TestDox('O primário desliga e religa a geolocalização do escritório: a linha nasce no primeiro salvamento, a mudança vai para o audit_log e para a trilha do Ponto ("Configuração do escritório")')]
     public function testPrimarioDesligaEReliga(): void
     {
         $this->entrar($this->primario);
@@ -190,6 +191,18 @@ final class LigaEDesligaDoPontoTest extends JusPrimeWebTestCase
         self::assertTrue($this->json()['escritorio']);
         self::assertSame(['ponto-geo' => true], $this->configuracao($this->escritorio)['chaves']);
         self::assertCount(2, $this->emSemFiltro()->getRepository(AuditLog::class)->findBy(['entityClass' => ConfiguracaoDoPonto::class, 'tenantId' => $this->escritorio->getId()]));
+
+        // A trilha do Ponto (E9), com o texto do desenho (dc L761) e o primário como autor.
+        $eventos = $this->emSemFiltro()->getConnection()->fetchAllAssociative(
+            'SELECT acao, autor_id, detalhe FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia',
+            [$this->escritorio->getId()],
+        );
+        self::assertSame(['configuracao_do_escritorio', 'configuracao_do_escritorio'], array_column($eventos, 'acao'));
+        self::assertSame([$this->primario->getId(), $this->primario->getId()], array_map('intval', array_column($eventos, 'autor_id')));
+        self::assertSame(
+            ['Geolocalização desativado', 'Geolocalização ativado'],
+            array_map(static fn (array $e): string => DetalheDaTrilhaDoPonto::texto($e['acao'], json_decode((string) $e['detalhe'], true)), $eventos),
+        );
     }
 
     #[TestDox('Sem linha, o repositório cria a do escritório com os padrões e a trava (SELECT ... FOR UPDATE); de novo, devolve a mesma, sem duplicar nem sobrescrever')]

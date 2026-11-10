@@ -6,9 +6,12 @@ namespace App\Ponto\UseCase;
 
 use App\Ponto\DTO\AlterarFuncaoDoPontoInput;
 use App\Ponto\DTO\FuncaoDoPontoOutput;
+use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\FuncaoDoPontoRecusadaException;
 use App\Ponto\Repository\ConfiguracaoDoPontoRepository;
+use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\FuncoesDoPonto;
+use App\Ponto\Service\TrilhaDoPonto;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -26,8 +29,10 @@ use Psr\Clock\ClockInterface;
  * Master (422). As recusas saem ANTES da transação: uma exceção dentro dela fecharia o EntityManager.
  * Religar o que já vale ligado não grava mudança: a linha pode nascer vazia no primeiro salvamento (vale o mesmo que
  * não ter linha), mas a chave, quem e quando não mudam, e a trilha não ganha uma mudança que não mudou.
- * Auditoria: ConfiguracaoDoPonto é Auditavel; o AuditLogSubscriber grava a mudança no flush, no escritório dela. A
- * trilha encadeada do Ponto é da E9.
+ * Auditoria: ConfiguracaoDoPonto é Auditavel; o AuditLogSubscriber grava a mudança no flush, no escritório dela. E a
+ * trilha encadeada do Ponto (E9) ganha "Configuração do escritório" ("Geolocalização desativado", dc L761) na mesma
+ * transação, com quem mudou como autor: se a trilha falha, a chave não muda. A chave Global do Master fica só no
+ * `audit_log`.
  */
 final class AlterarFuncaoDoPontoNoEscritorioUseCase
 {
@@ -35,6 +40,7 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCase
         private readonly FuncoesDoPonto $funcoes,
         private readonly ConfiguracaoDoPontoRepository $configuracoes,
         private readonly ClockInterface $relogio,
+        private readonly TrilhaDoPonto $trilha,
     ) {
     }
 
@@ -70,5 +76,11 @@ final class AlterarFuncaoDoPontoNoEscritorioUseCase
 
         $configuracao->definir($input->chave, $input->ligada, $input->quem, $agora);
         $this->configuracoes->salvar($configuracao, flush: true);
+        $this->trilha->registrar(
+            $input->tenant,
+            $input->quem,
+            AcaoDaTrilhaDoPonto::ConfiguracaoDoEscritorio->value,
+            DetalheDaTrilhaDoPonto::daConfiguracao($input->chave, FuncoesDoPonto::COM_CAMADA_ESCRITORIO[$input->chave]['titulo'], $input->ligada),
+        );
     }
 }

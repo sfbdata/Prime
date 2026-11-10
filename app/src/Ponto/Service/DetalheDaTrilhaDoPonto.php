@@ -132,10 +132,24 @@ final class DetalheDaTrilhaDoPonto
         ];
     }
 
+    /**
+     * A chave "Escritório" de uma função do Ponto (E7), ligada ou desligada pelo administrador do ponto. O título é o da
+     * função no momento, como a linha da aba Configurações o mostra.
+     *
+     * @return array{chave: string, titulo: string, ligada: bool}
+     */
+    public static function daConfiguracao(string $chave, string $titulo, bool $ligada): array
+    {
+        return ['chave' => $chave, 'titulo' => $titulo, 'ligada' => $ligada];
+    }
+
     /** @param array<string, mixed> $detalhe */
     public static function texto(string $acao, array $detalhe): string
     {
         $evento = AcaoDaTrilhaDoPonto::tryFrom($acao);
+        if ($evento === AcaoDaTrilhaDoPonto::ConfiguracaoDoEscritorio) {
+            return self::textoDaConfiguracao($detalhe);
+        }
         if ($evento === AcaoDaTrilhaDoPonto::AbonoEmLote && \is_array($detalhe[self::DA_EQUIPE] ?? null)) {
             return self::textoDaEquipe($detalhe);   // várias pessoas: sem o "Nome: " na frente (desenho L818)
         }
@@ -216,6 +230,19 @@ final class DetalheDaTrilhaDoPonto
         $quantidade = \is_int($detalhe['quantidade'] ?? null) ? $detalhe['quantidade'] : \count((array) $detalhe[self::DA_EQUIPE]);
 
         return $quantidade === 1 ? '1 justificativa da equipe' : sprintf('%d justificativas da equipe', $quantidade);
+    }
+
+    /**
+     * Como o desenho (dc L761): "Geolocalização desativado", sem o nome de um colaborador na frente (a chave é do
+     * escritório; quem mudou está na coluna "Autor").
+     *
+     * @param array<string, mixed> $detalhe
+     */
+    private static function textoDaConfiguracao(array $detalhe): string
+    {
+        $titulo = self::textoDe($detalhe, 'titulo') ?? self::textoDe($detalhe, 'chave') ?? 'Função';
+
+        return $titulo . (($detalhe['ligada'] ?? null) === true ? ' ativado' : ' desativado');
     }
 
     /** @param array<string, mixed> $detalhe */

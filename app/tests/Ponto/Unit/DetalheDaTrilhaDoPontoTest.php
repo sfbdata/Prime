@@ -50,6 +50,8 @@ final class DetalheDaTrilhaDoPontoTest extends TestCase
         yield 'envio de um dia' => ['justificativa_enviada', $lote, 'Ana: 07/11/2026 · Atestado Médico'];
         yield 'envio de vários dias' => ['justificativa_enviada', ['de' => '2026-11-03', 'quantidade' => 5, 'justificativa_ids' => [1, 2, 3, 4, 5]] + $lote, 'Ana: 03/11/2026 a 07/11/2026 (5 dias) · Atestado Médico'];
         yield 'envio do esquecimento com subtítulo' => ['justificativa_enviada', ['tipo' => 'esquecimento_registro', 'batida_esquecida' => 'saida', 'hora_esquecida' => '18:00'] + $lote, 'Ana: 07/11/2026 · Esquecimento de Registro · Saída às 18:00'];
+        yield 'chave do escritório desligada, sem nome na frente' => ['configuracao_do_escritorio', ['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => false], 'Geolocalização desativado'];
+        yield 'chave do escritório ligada' => ['configuracao_do_escritorio', ['chave' => 'ponto-geo', 'titulo' => 'Geolocalização', 'ligada' => true], 'Geolocalização ativado'];
         yield 'detalhe sem data' => ['justificativa_excluida', ['colaborador' => 'Ana', 'tipo' => 'atestado_medico'], 'Ana: Atestado Médico'];
     }
 

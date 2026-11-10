@@ -10,7 +10,7 @@ namespace App\Ponto\Enum;
  * Auditoria e pode mudar à vontade.
  *
  * Fora da trilha, no `audit_log` como sempre: sede, feriado, limites, prazos, modo facial, foto e a chave Global do
- * Master. A chave do Escritório é da E7, e os ajustes de batida da E10.
+ * Master. A chave do Escritório (E7) entra como "Configuração do escritório"; os ajustes de batida são da E10.
  */
 enum AcaoDaTrilhaDoPonto: string
 {
@@ -25,6 +25,7 @@ enum AcaoDaTrilhaDoPonto: string
     case AbonoEmLote           = 'abono_em_lote';
     case JustificativaLancada  = 'justificativa_lancada';
     case EscalaAlterada        = 'escala_alterada';
+    case ConfiguracaoDoEscritorio = 'configuracao_do_escritorio';
 
     public function rotulo(): string
     {
@@ -40,6 +41,7 @@ enum AcaoDaTrilhaDoPonto: string
             self::AbonoEmLote           => 'Abono em lote',
             self::JustificativaLancada  => 'Justificativa lançada já abonada',
             self::EscalaAlterada        => 'Escala alterada',
+            self::ConfiguracaoDoEscritorio => 'Configuração do escritório',
         };
     }
 
