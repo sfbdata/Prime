@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\UseCase\ApagarLotacoesQueSairamUseCase;
 use App\Ponto\UseCase\RegistrarTrocaDeLotacaoUseCase;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
@@ -339,7 +340,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         UserTenantRepository $userTenantRepository,
         GuardaDaEdicaoDoEscritorio $guardaDaEdicao,
-        RegistroDeAcessoNegadoAoEscritorio $acessoNegado
+        RegistroDeAcessoNegadoAoEscritorio $acessoNegado,
+        ApagarLotacoesQueSairamUseCase $apagarLotacoes
     ): Response {
         $user = $this->getUser();
 
@@ -387,13 +389,12 @@ final class TenantController extends AbstractController
                     $lotacoesNoForm[] = $lotacao->getId();
                 }
             }
-            foreach ($tenant->getLotacoes() as $lotacaoExistente) {
-                if (!in_array($lotacaoExistente->getId(), $lotacoesNoForm, true)) {
-                    $entityManager->remove($lotacaoExistente);
-                }
-            }
+            $recusadas = $apagarLotacoes->executar($tenant, $lotacoesNoForm); // com feriado ou histórico no Ponto, fica (E6)
             $entityManager->flush();
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.lotacoes_atualizadas'));
+            if ($recusadas !== []) {
+                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.lotacao_com_historico'));
+            }
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }
 
@@ -698,9 +699,9 @@ final class TenantController extends AbstractController
             $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
         }
 
-        // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
+        // Perfil e lotação ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
         // precisa saber se a troca põe ou tira alguém do perfil de sistema.
-        $perfilAnterior = $userTenant->getTenantRole();
+        [$perfilAnterior, $lotacaoAnterior] = [$userTenant->getTenantRole(), $userTenant->getLotacao()];
 
         // Spec perfis-master D4 (RegraDosPrimarios): só primário ou Master dá ou tira o perfil de
         // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
@@ -778,6 +779,7 @@ final class TenantController extends AbstractController
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.usuario_atualizado'));
             return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
         }
+        $userTenant->setLotacao($lotacaoAnterior); // recusado: a lotação nova não vai ao banco sem versão pelo flush do perfil (E6)
 
         $jornada                  = $jornadaColaboradorRepository->findByUserETenant($user, $tenant);
         $userHasCustomEscala      = $jornada !== null && !$jornada->getBlocos()->isEmpty();
