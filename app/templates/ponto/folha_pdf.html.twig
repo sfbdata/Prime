@@ -90,6 +90,8 @@
 
         tr.fim-semana td, tr.feriado td { background-color: #e8e8e8; }
         td.feriado-text { color: #cc0000; font-weight: bold; font-size: 8px; }
+        /* E10: a marca da batida ajustada pelo gestor (desenho L154), explicada na legenda das observações. */
+        .aj { font-size: 6.5px; font-weight: bold; color: #0a6fa0; }
 
         /* ── RESUMO / INTERVALOS / OBSERVAÇÕES ──────────────── */
         .bloco-inferior { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
@@ -238,10 +240,11 @@
                 {% if linha.isFeriado %}
                     <td colspan="4" class="feriado-text">FERIADO</td>
                 {% else %}
-                    <td>{{ linha.entrada ? linha.entrada|slice(0,5) : '&#8211;' }}</td>
-                    <td>{{ linha.repouso ? linha.repouso|slice(0,5) : '&#8211;' }}</td>
-                    <td>{{ linha.retorno ? linha.retorno|slice(0,5) : '&#8211;' }}</td>
-                    <td>{{ linha.saida ? linha.saida|slice(0,5) : '&#8211;' }}</td>
+                    {# E10 (decisão 5): "aj" depois da hora que o gestor ajustou ou incluiu; a legenda está nas observações. #}
+                    <td>{{ linha.entrada ? linha.entrada|slice(0,5) : '&#8211;' }}{% if linha.entradaAjuste ?? null %} <span class="aj">aj</span>{% endif %}</td>
+                    <td>{{ linha.repouso ? linha.repouso|slice(0,5) : '&#8211;' }}{% if linha.repousoAjuste ?? null %} <span class="aj">aj</span>{% endif %}</td>
+                    <td>{{ linha.retorno ? linha.retorno|slice(0,5) : '&#8211;' }}{% if linha.retornoAjuste ?? null %} <span class="aj">aj</span>{% endif %}</td>
+                    <td>{{ linha.saida ? linha.saida|slice(0,5) : '&#8211;' }}{% if linha.saidaAjuste ?? null %} <span class="aj">aj</span>{% endif %}</td>
                 {% endif %}
                 <td>{{ linha.horasTrabalhadas }}</td>
                 <td>{{ linha.horasExtras }}</td>
@@ -325,6 +328,10 @@
                     <span class="bi-linha">&#8226; As horas extras foram autorizadas previamente pela gest&#227;o e ser&#227;o compensadas conforme acordo de banco de horas.</span>
                     <span class="bi-linha">&#8226; Feriados trabalhados ser&#227;o compensados.</span>
                     <span class="bi-linha">&#8226; Registros realizados por sistema eletr&#244;nico de ponto em conformidade com a Portaria MTP n&#186; 671/2021.</span>
+                    {# A legenda do "aj" só no mês em que alguma hora impressa foi ajustada (no feriado a hora não sai). #}
+                    {% if folhaRows|filter(l => not l.isFeriado and ((l.entradaAjuste ?? null) or (l.repousoAjuste ?? null) or (l.retornoAjuste ?? null) or (l.saidaAjuste ?? null)))|length > 0 %}
+                        <span class="bi-linha">&#8226; aj: hor&#225;rio ajustado pelo gestor; o registro original fica guardado.</span>
+                    {% endif %}
                 </div>
             </td>
         </tr>
