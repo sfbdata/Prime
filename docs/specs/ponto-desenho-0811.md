@@ -1014,6 +1014,7 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
 - Migration: sim (tabela de ajuste).
 - Arquivos: `TenantController.php` (editar e excluir batida), `RegistrarBatidaDoEsquecimentoUseCase`, reverter abono,
   `EscolhaDasBatidasDoDia`, `FolhaPontoBuilder.php`, `folha_pdf.html.twig` e `FolhaPontoXlsxExporter.php` (marca "aj").
+  O PDF da E16, em imagem, não leva o "aj": o ajuste vai às observações do dia (decisão 20 da E16).
   Frente: `FolhaPontoBuilder.php`, `TenantController.php`, `folha_pdf.html.twig` e o XLSX. Combinar antes.
 - Testes: folha antes e depois igual quando não há ajuste; ajuste muda a folha e guarda o valor antigo; reverter desfaz;
   ninguém consegue apagar batida pela tela nem pelo "desfazer" da auditoria; mês com ajuste no PDF e no XLSX.
@@ -1040,7 +1041,9 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
     caminho da análise (`DesconsiderarBatidaInput::pelaAnalise`, que a E12 vai ligar à recusa do trabalho externo) não
     passa por essa recusa, e o Restaurar segue recusando a desconsideração feita por ela (decisão A). O limite 1
     continua: a inclusão do esquecimento abonado se ajusta;
-  - a hora ajustada leva "aj" na folha, no PDF e no XLSX, também depois de uma restauração (é ajuste);
+  - a hora ajustada leva "aj" na folha da tela e no XLSX (com a legenda nas observações da planilha), também depois de
+    uma restauração (é ajuste). O PDF da E16, em imagem, não leva o "aj" nem a legenda: as observações do dia dizem
+    "<Batida> ajustada em dd/mm/aaaa" (desenho L622; decisão 20 da E16);
   - o esquecimento abonado grava uma inclusão ligada à justificativa; voltar para análise desconsidera essa inclusão; a
     justificativa que já mexeu na folha não se exclui;
   - travas: a da pessoa (4210) sempre antes da trilha (4203);
@@ -1327,7 +1330,9 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
       da folha.
   18. Toda emissão nova grava "Folha emitida" na trilha, inclusive a que o aceite cria para a folha vista.
   19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
-  20. "ajustada em dd/mm" (L622) depende da E10: a E16 deixa o gancho e liga quando a E10 entrar.
+  20. Ajuste da E10 no PDF (L622): as observações do dia começam com "<Batida> ajustada em dd/mm/aaaa" de cada batida
+      ajustada (Entrada, Repouso, Retorno e Saída, nessa ordem; a data é a do ajuste), antes do resto. O PDF não leva a
+      marca "aj" nem a legenda dela; a tela e o XLSX continuam com o "aj" (no XLSX, com a legenda nas observações).
   21. Rótulo do selo no PDF: "HMAC-SHA256", igual ao comprovante (o desenho diz "SHA-256", L700).
   22. Resumo do PDF (L626): "incompletos" conta os dias cuja linha mostra "Registro incompleto" e "a revisar" os que
       mostram "Horário fora de sequência: revisar"; nunca os dois no mesmo dia. Desvio do desenho (⚠): o dia de duas
