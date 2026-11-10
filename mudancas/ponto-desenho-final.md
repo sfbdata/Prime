@@ -3,7 +3,7 @@ tipo: novidade
 ---
 ## Changelog
 - Ponto Eletrônico, abas de gestão na /ponto (E5, E6 e E9): o `PontoController::index` passa `veEquipe`, `veConfiguracoes` e `veAuditoria` (`GestaoDoPonto`) e o número da aba Equipe (`JustificativasAAnalisarDaEquipe::contarAAnalisar`, contado só para quem vê a Equipe). O endereço abre `?aba=equipe` e `?aba=configuracoes`; quem não vê a aba pedida cai em Pendências.
-- Excluir a justificativa sem recarregar (E3, P41): a rota `ponto_justificativa_excluir` responde ao pedido da tela com JSON, sem flash e sem redirecionar; o formulário comum, sem JavaScript (`_token` de `excluir_justificativa_<id>`), continua com o flash e a volta para a aba das justificativas. Outra pessoa, outro escritório e a já analisada continuam recusadas nos dois caminhos.
+- Excluir a justificativa sem recarregar (E3, P41): a rota `ponto_justificativa_excluir` responde com JSON, sem flash e sem redirecionar. Outra pessoa, outro escritório e a já analisada continuam recusadas (403, 404 e 422, com a frase).
 - Na tela (`ponto-abas.js`): a linha sai na hora, o número de "Minhas Justificativas" acompanha (e o da Equipe, quando a justificativa contava lá) e a Folha e as pendências são buscadas de novo pelo caminho de depois da batida (`atualizarTelaDoPonto`), sem recarregar a página.
 
 ## Para o cliente

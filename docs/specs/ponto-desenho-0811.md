@@ -423,13 +423,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
       recarregar pegar só o cartão. Sem efeito visual: o espaço de 16px fica entre o invólucro e o cartão;
     - excluir a justificativa tira a linha na hora, sem recarregar, e o número da aba acompanha (o desenho só tira a
       linha). Feito em 09/11/2026 (branch `ponto-desenho-final`, com a mudança do PontoController depois da E4):
-      - a rota `ponto_justificativa_excluir` tem dois caminhos. O pedido da tela (com o X-CSRF-Token, o
-        X-Requested-With ou o Accept de JSON, como no `EspacoEsgotadoListener`) responde JSON sem flash e sem
-        redirecionar, com a frase em `mensagem` na recusa (404, 403 e 422, como antes). O formulário comum, sem
-        JavaScript (`_token` de `excluir_justificativa_<id>`), deixa o flash ("Justificativa de dd/mm/aaaa excluída."
-        ou a frase da já analisada) e volta para `?competencia=AAAA-MM&aba=justificativas`; outra pessoa, outro
-        escritório e o token errado continuam 403, 404 e 403. A tela não tem esse formulário (a lixeira abre a janela):
-        o caminho fica para o envio sem JavaScript;
+      - a rota `ponto_justificativa_excluir` responde só ao pedido da tela (token de cabeçalho, como antes): JSON sem
+        flash e sem redirecionar, com a frase em `mensagem` na recusa (404, 403 e 422, como antes). Sem caminho de
+        formulário comum: a tela não tem esse formulário (a lixeira abre a janela), e extra só entra se for necessário
+        (decisão do Coordenador, 09/11/2026);
       - na tela (`ponto-abas.js`): a janela fecha, a linha sai e o foco volta para a aba. O número de "Minhas
         Justificativas" acompanha a lista e some no zero; sem nenhuma linha, a frase da lista vazia do servidor. O
         número da Equipe baixa um quando a linha contava lá (a própria em análise de quem pode analisá-la, P43 a), e o
@@ -438,7 +435,7 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
       - excluir mexe na Folha (sai o selo do dia e o "+" do esquecimento volta) e nas pendências (a que o esquecimento
         cobria volta): o index ouve `ponto:justificativa-excluida` e chama `atualizarTelaDoPonto`, o caminho de depois
         da batida (REGIOES_TROCADAS e o cartão da Folha, tudo ou nada). Falhou: fica como está, sem recarregar.
-      - testes: `ExcluirJustificativaControllerTest` (os dois caminhos e as recusas em cada um) e `PontoAbasJsTest`
+      - testes: `ExcluirJustificativaControllerTest` (JSON sem flash e as recusas) e `PontoAbasJsTest`
         (a linha sai, os números acompanham, a lista vazia, sem HTML montado com dado, o index atualiza sem recarregar).
 - Arquivos: `templates/ponto/_abas*.html.twig`, `_janelas_justificativa.html.twig`, `index.html.twig` (coluna da
   direita e REGIOES_TROCADAS), `public/js/ponto-abas.js`, `public/css/ponto-eletronico.css` (seção do cartão de abas e
