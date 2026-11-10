@@ -215,13 +215,14 @@
     }
 
     // O comprovante da batida (E15, `data.comprovante`): o código não vazio e a url um caminho deste site (nem outro
-    // endereço, nem `javascript:`). Senão, null: o sucesso fica como sem comprovante.
+    // endereço, nem `javascript:`). Tab e quebra de linha também saem: o navegador os tira da url, e "/<tab>/outro.site"
+    // viraria outro endereço. Senão, null: o sucesso fica como sem comprovante.
     function comprovanteValido(comprovante) {
         if (!comprovante || typeof comprovante.codigo !== 'string' || comprovante.codigo === '' || typeof comprovante.url !== 'string') {
             return null;
         }
         const url = comprovante.url;
-        if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\') {
+        if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\' || /[\t\n\r]/.test(url)) {
             return null;
         }
 

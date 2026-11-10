@@ -912,6 +912,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   confirmação (o servidor não respondeu a tempo) não segura o lembrete: ele ainda toca (uma vez no dia), e a caixa de
   hoje já manda conferir. Ao fechar a janela "Antes de registrar" sem registrar, o foco vai ao título do cartão, como
   na janela do trabalho externo: no "Bater Ponto", um Enter bateria o tipo sugerido.
+  O envio repetido (mesmo `idEnvio`, `jaRegistrada`) responde sem o comprovante: a tela cheia sai sem o código e o
+  "Baixar comprovante", e o comprovante continua na aba Comprovantes. A url do comprovante só entra se for caminho
+  deste site, sem tab nem quebra de linha (o navegador os tira e "/<tab>/outro.site" viraria outro endereço).
 
 **E9. Trilha de auditoria encadeada.**
 - Entra: P64, P66 (fica). D5 (não): a trilha leva o que o desenho grava (inventário §2.11): batidas, ajustes,

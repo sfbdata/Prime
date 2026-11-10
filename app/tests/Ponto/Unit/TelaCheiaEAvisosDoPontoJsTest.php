@@ -567,7 +567,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         self::assertMatchesRegularExpression("/mostrarComprovante\(comprovanteValido\(dados\.comprovante\)\);\s*raiz\(\)\.querySelectorAll\('\[data-tc-tempo\]'\)\.forEach\(function \(barra\) \{\s*barra\.hidden = false;/", $tc, 'cada sucesso refaz o comprovante e a barra dos 10 s');
         // A url só do próprio sistema (caminho com uma barra), nunca de outro endereço.
         $valido = self::corpo($tc, 'function comprovanteValido(comprovante) {');
-        self::assertStringContainsString("if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\\\') {", $valido);
+        self::assertStringContainsString("if (url.charAt(0) !== '/' || url.charAt(1) === '/' || url.charAt(1) === '\\\\' || /[\\t\\n\\r]/.test(url)) {", $valido, 'tab e quebra de linha saem: o navegador os tira e "/<tab>/outro.site" viraria outro endereço');
         $mostrar = self::corpo($tc, 'function mostrarComprovante(comprovante) {');
         self::assertStringContainsString("no.textContent = comprovante ? comprovante.codigo : '';", $mostrar);
         self::assertStringContainsString('no.hidden = !comprovante;', $mostrar);

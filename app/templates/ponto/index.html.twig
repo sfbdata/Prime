@@ -1462,8 +1462,9 @@
     // de registrar"), até ela fechar por qualquer caminho. `soltar` é a função do `segurar()` de js/ponto-tela-cheia.js
     // (null: nada a segurar). O "Registrar" e o "Registrar assim mesmo" soltam antes de refazer o toque (a validação nova
     // abre, e a espera segue até ela fechar); "Cancelar", "Aguardar", o "x" e Esc soltam pelo `hidden` da janela. Sem a
-    // janela aberta ou sem o observador, solta já. Uma espera anterior ainda presa sai junto com esta (nunca fica presa
-    // para sempre); a soltura vale uma vez.
+    // janela aberta ou sem o observador, solta já. Pelos dois caminhos, uma espera anterior ainda presa sai junto com
+    // esta (nunca fica presa para sempre) e a guardada volta a vazia, se ainda for esta (a corrente não cresce no dia); a
+    // soltura vale uma vez.
     function soltarQuandoAJanelaFechar(id, soltar) {
         if (typeof soltar !== 'function') {
             return;
@@ -1474,18 +1475,20 @@
             return;
         }
         const anterior = soltarAEsperaDaJanela;
-        const vigia = new MutationObserver(function () {
-            if (fundo.hidden) {
-                vigia.disconnect();
-                soltar();
-            }
-        });
-        soltarAEsperaDaJanela = function () {
+        const soltarEsta = function () {
             vigia.disconnect();
-            soltarAEsperaDaJanela = function () {};
+            if (soltarAEsperaDaJanela === soltarEsta) {
+                soltarAEsperaDaJanela = function () {};
+            }
             anterior();
             soltar();
         };
+        const vigia = new MutationObserver(function () {
+            if (fundo.hidden) {
+                soltarEsta();
+            }
+        });
+        soltarAEsperaDaJanela = soltarEsta;
         vigia.observe(fundo, { attributes: true, attributeFilter: ['hidden'] });
     }
 

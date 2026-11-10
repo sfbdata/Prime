@@ -480,13 +480,15 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             . "if \(!fundo \|\| fundo\.hidden \|\| typeof MutationObserver !== 'function'\) \{\s+soltar\(\);\s+return;\s+\}/",
             $vigiar
         );
-        // "Cancelar", o "x" e Esc: o `hidden` volta e a espera desta janela sai (o observador sai junto). O "Registrar"
-        // solta a espera presa e, com ela, uma anterior ainda presa (nunca fica presa para sempre); a soltura do
-        // `segurar()` vale uma vez (testTentarDeNovoNaoSoltaQuemEspera, no TelaCheiaEAvisosDoPontoJsTest).
+        // "Cancelar", o "x" e Esc (o `hidden` volta) e o "Registrar" passam pela mesma soltura: o observador sai, uma
+        // anterior ainda presa sai junto (nunca fica presa para sempre) e a guardada volta a vazia se ainda for esta (a
+        // corrente não cresce no dia); a soltura do `segurar()` vale uma vez (testTentarDeNovoNaoSoltaQuemEspera, no
+        // TelaCheiaEAvisosDoPontoJsTest).
         self::assertMatchesRegularExpression(
-            "/const anterior = soltarAEsperaDaJanela;\s+const vigia = new MutationObserver\(function \(\) \{\s+if \(fundo\.hidden\) \{\s+vigia\.disconnect\(\);\s+soltar\(\);\s+\}\s+\}\);\s+"
-            . "soltarAEsperaDaJanela = function \(\) \{\s+vigia\.disconnect\(\);\s+soltarAEsperaDaJanela = function \(\) \{\};\s+anterior\(\);\s+soltar\(\);\s+\};\s+"
-            . "vigia\.observe\(fundo, \{ attributes: true, attributeFilter: \['hidden'\] \}\);/",
+            "/const anterior = soltarAEsperaDaJanela;\s+const soltarEsta = function \(\) \{\s+vigia\.disconnect\(\);\s+"
+            . "if \(soltarAEsperaDaJanela === soltarEsta\) \{\s+soltarAEsperaDaJanela = function \(\) \{\};\s+\}\s+anterior\(\);\s+soltar\(\);\s+\};\s+"
+            . "const vigia = new MutationObserver\(function \(\) \{\s+if \(fundo\.hidden\) \{\s+soltarEsta\(\);\s+\}\s+\}\);\s+"
+            . "soltarAEsperaDaJanela = soltarEsta;\s+vigia\.observe\(fundo, \{ attributes: true, attributeFilter: \['hidden'\] \}\);/",
             $vigiar
         );
         self::assertStringContainsString('let soltarAEsperaDaJanela = function () {};', $tela, 'sem janela segurando, não faz nada');
