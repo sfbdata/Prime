@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
+use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -140,6 +141,39 @@ final class ExcluirJustificativaEmAnaliseUseCaseTest extends KernelTestCase
         self::assertFileExists($this->caminho($anexo));
     }
 
+    #[TestDox('E10: em análise, mas um ajuste de batida aponta para ela (abonada e devolvida para análise): recusa antes de escrever, a justificativa, o atestado e os ajustes ficam, e a trilha não ganha "excluída"')]
+    public function testComAjusteLigadoNaoSai(): void
+    {
+        self::bootKernel();
+        [$tenant, $dono] = $this->cenario();
+        $gestor          = $this->criarUsuario($tenant);
+        $anexo           = $this->gravarAnexo();
+        [$justificativa] = $this->criarLote($tenant, $dono, $anexo, 1);
+        $justificativa->setTipo('esquecimento_registro');
+        $justificativa->setTipoRegistroEsquecido('entrada');
+        $justificativa->setHoraRegistroEsquecido(new \DateTime('1970-01-01 08:00:00'));
+        $this->em()->flush();
+        $analisar = static::getContainer()->get(AnalisarJustificativaUseCase::class);
+        $analisar->abonar($justificativa, $tenant, $gestor, '');
+        $analisar->reverter($justificativa, $tenant, $gestor);
+        $id      = (int) $justificativa->getId();
+        $eventos = $this->eventosDaTrilha($tenant);
+
+        try {
+            $this->useCase()->executar($id, $dono, $tenant);
+            self::fail('a exclusão devia ser recusada');
+        } catch (ExclusaoDeJustificativaRecusadaException $e) {
+            self::assertSame(ExclusaoDeJustificativaRecusadaException::MEXEU_NA_FOLHA, $e->motivo);
+            self::assertSame('Esta justificativa já mexeu na folha e não pode ser excluída. Volte-a para análise.', $e->getMessage());
+        }
+
+        self::assertTrue($this->em()->isOpen(), 'a recusa não fecha o EntityManager');
+        self::assertTrue($this->existeNoBanco($id), 'a justificativa fica');
+        self::assertFileExists($this->caminho($anexo), 'o atestado fica');
+        self::assertSame(2, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM ponto_ajuste WHERE justificativa_id = ?', [$id]));
+        self::assertSame($eventos, $this->eventosDaTrilha($tenant), 'nenhum evento novo na trilha');
+    }
+
     #[TestDox('Sem atestado: a justificativa sai e nada é procurado no disco')]
     public function testSemAnexoExcluiSoORegistro(): void
     {
@@ -174,6 +208,15 @@ final class ExcluirJustificativaEmAnaliseUseCaseTest extends KernelTestCase
             'SELECT 1 FROM justificativa_ponto WHERE id = ?',
             [$id],
         ) !== false;
+    }
+
+    /** @return list<string> */
+    private function eventosDaTrilha(Tenant $tenant): array
+    {
+        return array_map('strval', $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT acao FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia',
+            [$tenant->getId()],
+        ));
     }
 
     private function useCase(): ExcluirJustificativaEmAnaliseUseCase

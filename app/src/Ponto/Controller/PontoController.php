@@ -104,6 +104,7 @@ final class PontoController extends AbstractController
         ExclusaoDeJustificativaRecusadaException::DE_OUTRA_PESSOA   => Response::HTTP_FORBIDDEN,
         ExclusaoDeJustificativaRecusadaException::JA_ANALISADA      => Response::HTTP_UNPROCESSABLE_ENTITY,
         ExclusaoDeJustificativaRecusadaException::DA_BATIDA_EXTERNA => Response::HTTP_UNPROCESSABLE_ENTITY,
+        ExclusaoDeJustificativaRecusadaException::MEXEU_NA_FOLHA    => Response::HTTP_UNPROCESSABLE_ENTITY,
     ];
 
     public function __construct(

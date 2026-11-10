@@ -22,6 +22,12 @@ final class ExclusaoDeJustificativaRecusadaException extends \DomainException
     /** E12: é a justificativa de uma batida de trabalho externo; só o gestor decide sobre ela. 422. */
     public const DA_BATIDA_EXTERNA = 'da_batida_externa';
 
+    /**
+     * Em análise, mas um ajuste de batida aponta para ela (a inclusão do esquecimento que um abono gravou, a
+     * desconsideração que a volta para análise gravou; E10): a linha fica, para o ajuste não perder a origem. 422.
+     */
+    public const MEXEU_NA_FOLHA = 'mexeu_na_folha';
+
     private function __construct(public readonly string $motivo, string $mensagem)
     {
         parent::__construct($mensagem);
@@ -45,5 +51,10 @@ final class ExclusaoDeJustificativaRecusadaException extends \DomainException
     public static function daBatidaExterna(): self
     {
         return new self(self::DA_BATIDA_EXTERNA, 'A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor.');
+    }
+
+    public static function mexeuNaFolha(): self
+    {
+        return new self(self::MEXEU_NA_FOLHA, 'Esta justificativa já mexeu na folha e não pode ser excluída. Volte-a para análise.');
     }
 }

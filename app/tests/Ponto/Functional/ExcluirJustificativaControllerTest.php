@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -101,6 +102,27 @@ final class ExcluirJustificativaControllerTest extends JusPrimeWebTestCase
             );
             self::assertSame($status, $this->statusNoBanco($id));
         }
+    }
+
+    #[TestDox('E10: em análise, mas já mexeu na folha (abonada e devolvida para análise): 422 com a frase, e nada sai')]
+    public function testQueJaMexeuNaFolhaRecusaCom422(): void
+    {
+        $gestor = $this->pessoa('gestor');
+        $this->vincularGestor($gestor, $this->escritorio);
+        $dia = new \DateTimeImmutable('-3 days');
+        $j   = $this->justificativa($this->dono, $this->escritorio, $dia, 'pendente', ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'entrada', 'horaRegistroEsquecido' => '08:00']);
+        $analisar = static::getContainer()->get(AnalisarJustificativaUseCase::class);
+        $analisar->abonar($j, $this->escritorio, $gestor, '');
+        $analisar->reverter($j, $this->escritorio, $gestor);
+
+        $this->excluir($this->dono, $this->escritorio, (int) $j->getId());
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(
+            'Esta justificativa já mexeu na folha e não pode ser excluída. Volte-a para análise.',
+            json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? null,
+        );
+        self::assertSame('pendente', $this->statusNoBanco((int) $j->getId()));
     }
 
     #[TestDox('Do próprio dono, mas de outro escritório: 404 pelo escritório da sessão, e nada sai')]

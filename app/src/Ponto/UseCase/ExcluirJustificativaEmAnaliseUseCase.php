@@ -11,6 +11,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -27,7 +28,9 @@ use Psr\Log\LoggerInterface;
  * Pré-condição: a justificativa é deste escritório, é de quem pede e está `pendente` no banco no
  * instante em que sai.
  * Recusas (`ExclusaoDeJustificativaRecusadaException`, nada muda): não existe neste escritório,
- * é de outra pessoa, é a de uma batida de trabalho externo (E12) ou já foi analisada.
+ * é de outra pessoa, é a de uma batida de trabalho externo (E12), já foi analisada ou já mexeu na folha (um ajuste
+ * de batida aponta para ela, E10: a inclusão que um abono gravou e a desconsideração da volta para análise; a FK de
+ * `ponto_ajuste` não deixaria a linha sair, e o ajuste perderia a origem).
  * Depois: o registro saiu do banco; o atestado sai do disco só depois do COMMIT e só se nenhum
  * outro dia do lote ainda apontar para ele.
  *
@@ -49,6 +52,7 @@ final class ExcluirJustificativaEmAnaliseUseCase
         private readonly RemocaoAposTransacao $remocao,
         private readonly LoggerInterface $logger,
         private readonly TrilhaDoPonto $trilha,
+        private readonly RegistroPontoRepository $batidas,
     ) {
     }
 
@@ -72,11 +76,14 @@ final class ExcluirJustificativaEmAnaliseUseCase
 
         // `wrapInTransaction`: trava, exclusão, flush e COMMIT. A recusa não muda nada: a transação comita vazia
         // (solta a trava) e a recusa sobe depois, com o EntityManager aberto para o resto da requisição.
-        [$status, $anexo] = $this->em->wrapInTransaction(
+        [$status, $anexo, $mexeuNaFolha] = $this->em->wrapInTransaction(
             fn (): array => $this->excluirSeAindaEmAnalise($justificativa, $tenant),
         );
 
         $this->exigirQueEstavaEmAnalise($status);
+        if ($mexeuNaFolha) {
+            throw ExclusaoDeJustificativaRecusadaException::mexeuNaFolha();
+        }
         $this->apagarAnexoSeOrfao($anexo, $justificativa, $tenant);
 
         return $dia;
@@ -99,11 +106,11 @@ final class ExcluirJustificativaEmAnaliseUseCase
     }
 
     /**
-     * Roda dentro da transação, com a linha travada. Só exclui o que ainda está em análise; devolve o status lido
-     * sob a trava e o nome do atestado COMO ESTÁ NO BANCO (o getter pode estar velho, ver `anexoNoBancoPorId`),
-     * lido antes de a linha sair.
+     * Roda dentro da transação, com a linha travada. Só exclui o que ainda está em análise e nenhum ajuste de batida
+     * aponta; devolve o status lido sob a trava, o nome do atestado COMO ESTÁ NO BANCO (o getter pode estar velho, ver
+     * `anexoNoBancoPorId`), lido antes de a linha sair, e se a recusa é porque ela já mexeu na folha.
      *
-     * @return array{0: string|null, 1: string|null}
+     * @return array{0: string|null, 1: string|null, 2: bool}
      */
     private function excluirSeAindaEmAnalise(JustificativaPonto $justificativa, Tenant $tenant): array
     {
@@ -111,7 +118,11 @@ final class ExcluirJustificativaEmAnaliseUseCase
         $status = $this->repositorio->statusNoBancoTravadoPorId($id, $tenant);
 
         if ($status !== self::STATUS_EXCLUIVEL) {
-            return [$status, null];
+            return [$status, null, false];
+        }
+        // E10: com um ajuste ligado, recusa antes de escrever (nem trilha nem remove).
+        if ($this->batidas->existeAjusteDaJustificativa($id)) {
+            return [$status, null, true];
         }
 
         $anexo = $this->repositorio->anexoNoBancoPorId($id, $tenant);
@@ -119,7 +130,7 @@ final class ExcluirJustificativaEmAnaliseUseCase
         $this->trilha->registrar($tenant, $justificativa->getUser(), AcaoDaTrilhaDoPonto::JustificativaExcluida->value, DetalheDaTrilhaDoPonto::daJustificativa($justificativa));
         $this->em->remove($justificativa);
 
-        return [$status, $anexo];
+        return [$status, $anexo, false];
     }
 
     /** Sumir sob a trava é "não encontrada"; qualquer status além de "pendente" já foi analisado. */
