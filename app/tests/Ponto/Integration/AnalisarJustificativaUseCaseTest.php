@@ -23,6 +23,7 @@ use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
+use App\Tests\Ponto\Support\TrilhaQueAnotaAsTravasDasPessoas;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -301,43 +302,49 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         self::assertSame([], $this->ajustesDoColaborador());
     }
 
-    #[TestDox('E10, ordem das travas: abonar, voltar para análise e "aprovar todos" seguram a linhagem da pessoa (4210) antes de a trilha travar o escritório (4203)')]
-    public function testTravaDaPessoaVemAntesDaTrilha(): void
+    #[TestDox('E10, ordem das travas, abonar: a linhagem da pessoa, ainda livre antes, já está travada (4210) no primeiro evento da trilha (4203)')]
+    public function testAbonarTravaAPessoaAntesDaTrilha(): void
     {
-        $container = static::getContainer();
-        $pessoaId  = (int) $this->colaborador->getId();
-        $espiao    = new class ($container->get(ManagerRegistry::class), $pessoaId) extends TrilhaDoPontoRepository {
-            /** @var list<bool> a trava da pessoa estava segura a cada trava da trilha */
-            public array $comAPessoa = [];
+        $justificativa = $this->esquecimento('08:00');
+        [$espiao, $analisar] = $this->analisarEspiando([$this->colaborador]);
+        self::assertSame([], $this->travadas([$this->colaborador]), 'a pessoa ainda não foi travada neste teste');
 
-            public function __construct(ManagerRegistry $registry, private readonly int $pessoaId)
-            {
-                parent::__construct($registry);
-            }
+        $analisar->abonar($justificativa, $this->tenant, $this->gestor, '');
 
-            public function travar(int $tenantId): void
-            {
-                $this->comAPessoa[] = (int) $this->getEntityManager()->getConnection()->fetchOne(
-                    "SELECT COUNT(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ? AND objsubid = 2 AND pid = pg_backend_pid() AND granted",
-                    [GravacaoDoAjusteDoPonto::CLASSE_TRAVA, $this->pessoaId],
-                ) > 0;
-                parent::travar($tenantId);
-            }
-        };
-        $analisar = $this->analisarCom(new TrilhaDoPonto($espiao, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()));
+        self::assertSame(['justificativa_abonada', 'batida_do_esquecimento'], $this->eventosDaTrilha());
+        self::assertSame([(int) $this->colaborador->getId()], $espiao->travadasPorEvento[0], 'no primeiro evento a pessoa já estava travada');
+        self::assertCount(2, $espiao->travadasPorEvento);
+    }
 
-        $sozinha = $this->esquecimento('08:00');
-        $analisar->abonar($sozinha, $this->tenant, $this->gestor, '');
-        $analisar->reverter($sozinha, $this->tenant, $this->gestor);
-        $lote = [$this->esquecimento('12:00', 'pendente', 'repouso'), $this->esquecimento('18:00', 'pendente', 'saida')];
-        $analisar->abonarLote($lote, $this->tenant, $this->gestor);
+    #[TestDox('E10, ordem das travas, voltar para análise: a linhagem da pessoa, ainda livre antes, já está travada (4210) no primeiro evento da trilha (4203)')]
+    public function testReverterTravaAPessoaAntesDaTrilha(): void
+    {
+        $justificativa = $this->esquecimento('08:00', 'abonado');
+        [$espiao, $analisar] = $this->analisarEspiando([$this->colaborador]);
+        self::assertSame([], $this->travadas([$this->colaborador]), 'a pessoa ainda não foi travada neste teste');
 
-        self::assertNotSame([], $espiao->comAPessoa);
-        self::assertNotContains(false, $espiao->comAPessoa, 'nenhum evento da trilha travou o escritório antes da pessoa');
-        self::assertSame(
-            ['justificativa_abonada', 'batida_do_esquecimento', 'justificativa_reaberta', 'ajuste_desfeito', 'abono_em_lote', 'batida_do_esquecimento', 'batida_do_esquecimento'],
-            $this->eventosDaTrilha(),
-        );
+        $analisar->reverter($justificativa, $this->tenant, $this->gestor);
+
+        self::assertSame(['justificativa_reaberta'], $this->eventosDaTrilha());
+        self::assertSame([[(int) $this->colaborador->getId()]], $espiao->travadasPorEvento, 'no evento a pessoa já estava travada');
+    }
+
+    #[TestDox('E10, ordem das travas, "aprovar todos" com duas pessoas: as duas, ainda livres antes, já estão travadas (4210) no evento do lote, o primeiro da trilha (4203)')]
+    public function testAbonarLoteTravaTodasAsPessoasAntesDaTrilha(): void
+    {
+        $outra = $this->pessoa('outra');
+        $this->em->flush();
+        $lote = [$this->esquecimento('08:00', 'pendente', 'entrada', $outra), $this->esquecimento('12:00', 'pendente', 'repouso')];
+        [$espiao, $analisar] = $this->analisarEspiando([$this->colaborador, $outra]);
+        self::assertSame([], $this->travadas([$this->colaborador, $outra]), 'nenhuma das duas foi travada neste teste');
+
+        $abono = $analisar->abonarLote($lote, $this->tenant, $this->gestor);
+
+        self::assertCount(2, $abono->abonadas);
+        self::assertSame(['abono_em_lote', 'batida_do_esquecimento', 'batida_do_esquecimento'], $this->eventosDaTrilha());
+        $ids = [(int) $this->colaborador->getId(), (int) $outra->getId()];
+        sort($ids);
+        self::assertSame($ids, $espiao->travadasPorEvento[0], 'no evento do lote as duas pessoas já estavam travadas, não só a primeira');
     }
 
     #[TestDox('"Aprovar todos": a excluída fica de fora e entra no aviso; as outras são abonadas com a batida delas')]
@@ -543,11 +550,11 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
         $this->em->getConnection()->executeStatement('DELETE FROM justificativa_ponto WHERE id = ?', [$justificativa->getId()]);
     }
 
-    private function esquecimento(string $hora, string $status = 'pendente', string $tipo = 'entrada'): JustificativaPonto
+    private function esquecimento(string $hora, string $status = 'pendente', string $tipo = 'entrada', ?User $pessoa = null): JustificativaPonto
     {
         $justificativa = new JustificativaPonto();
         $justificativa->setTenant($this->tenant);
-        $justificativa->setUser($this->colaborador);
+        $justificativa->setUser($pessoa ?? $this->colaborador);
         $justificativa->setData(new \DateTime('2026-03-10'));
         $justificativa->setStatus($status);
         $justificativa->setTipo('esquecimento_registro');
@@ -641,6 +648,41 @@ final class AnalisarJustificativaUseCaseTest extends KernelTestCase
             $gravacao,
             $this->repositorioDasBatidas(),
         );
+    }
+
+    /**
+     * A análise com a trilha que anota as travas das pessoas a cada evento ({@see TrilhaQueAnotaAsTravasDasPessoas}).
+     *
+     * @param list<User> $pessoas
+     *
+     * @return array{TrilhaQueAnotaAsTravasDasPessoas, AnalisarJustificativaUseCase}
+     */
+    private function analisarEspiando(array $pessoas): array
+    {
+        $container = static::getContainer();
+        $espiao    = new TrilhaQueAnotaAsTravasDasPessoas($container->get(ManagerRegistry::class), self::ids($pessoas));
+
+        return [$espiao, $this->analisarCom(new TrilhaDoPonto($espiao, new ChavesDoHmacDoPonto(null), $container->get(ClockInterface::class), new TokenStorage()))];
+    }
+
+    /**
+     * @param list<User> $pessoas
+     *
+     * @return list<int> as que estão com a linhagem travada (4210) nesta conexão agora
+     */
+    private function travadas(array $pessoas): array
+    {
+        return TrilhaQueAnotaAsTravasDasPessoas::travadas($this->em->getConnection(), self::ids($pessoas));
+    }
+
+    /**
+     * @param list<User> $pessoas
+     *
+     * @return list<int>
+     */
+    private static function ids(array $pessoas): array
+    {
+        return array_map(static fn (User $pessoa): int => (int) $pessoa->getId(), $pessoas);
     }
 
     private function pessoa(string $papel): User

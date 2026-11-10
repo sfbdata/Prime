@@ -9,11 +9,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Ponto\Support\TrilhaQueAnotaAsTravasDasPessoas;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -104,15 +107,7 @@ final class EsquecimentoViraInclusaoControllerTest extends JusPrimeWebTestCase
     {
         $dias = [$this->dia, $this->dia->modify('-1 day')];
 
-        $this->logarComTenant($this->client, $this->gestor, $this->escritorio);
-        $this->em()->clear();
-        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/nova', $this->escritorio->getId(), $this->colaborador->getId()), [
-            '_token'                => 'TOKEN_admin_nova_justificativa_' . $this->colaborador->getId(),
-            'tipo'                  => 'esquecimento_registro',
-            'tipoRegistroEsquecido' => 'saida',
-            'horaRegistroEsquecido' => '18:10',
-            'datas'                 => $dias[0]->format('Y-m-d') . ',' . $dias[1]->format('Y-m-d'),
-        ]);
+        $this->lancarEsquecimento($dias);
 
         self::assertResponseRedirects();
         $conexao = $this->emSemFiltro()->getConnection();
@@ -141,6 +136,25 @@ final class EsquecimentoViraInclusaoControllerTest extends JusPrimeWebTestCase
         self::assertSame([NomesDasSituacoesDaJustificativa::texto('reverter.feito_desconsiderada', $dias[0]->format('d/m/Y'))], $this->flashes('success'));
     }
 
+    #[TestDox('E10, ordem das travas, lançamento já abonado (confirmarLancamento): a linhagem da pessoa, ainda livre antes, já está travada (4210) no primeiro evento da trilha (4203)')]
+    public function testLancamentoTravaAPessoaAntesDaTrilha(): void
+    {
+        $container = static::getContainer();
+        $pessoa    = [(int) $this->colaborador->getId()];
+        $espiao    = new TrilhaQueAnotaAsTravasDasPessoas($container->get(ManagerRegistry::class), $pessoa);
+        $container->set(TrilhaDoPontoRepository::class, $espiao);
+        self::assertSame([], TrilhaQueAnotaAsTravasDasPessoas::travadas($this->em()->getConnection(), $pessoa), 'a pessoa ainda não foi travada neste teste');
+
+        $this->lancarEsquecimento([$this->dia]);
+
+        self::assertResponseRedirects();
+        self::assertSame(['justificativa_lancada', 'batida_do_esquecimento'], array_map('strval', $this->emSemFiltro()->getConnection()->fetchFirstColumn(
+            'SELECT acao FROM ponto_auditoria WHERE tenant_id = ? ORDER BY sequencia',
+            [$this->escritorio->getId()],
+        )));
+        self::assertSame([$pessoa, $pessoa], $espiao->travadasPorEvento, 'no primeiro evento (o lançamento) a pessoa já estava travada');
+    }
+
     #[TestDox('Voltar para análise pela URL de outro escritório: 404, a justificativa de lá segue abonada e a inclusão dela na conta')]
     public function testReverterDeOutroEscritorioNaoMexeNaFolhaDeLa(): void
     {
@@ -167,6 +181,24 @@ final class EsquecimentoViraInclusaoControllerTest extends JusPrimeWebTestCase
             'tipo'                  => 'esquecimento_registro',
             'tipoRegistroEsquecido' => 'saida',
             'horaRegistroEsquecido' => '18:00',
+        ]);
+    }
+
+    /**
+     * O gestor lança o esquecimento de saída às 18:10, já abonado, nos dias informados (novaJustificativaAdmin).
+     *
+     * @param list<\DateTimeImmutable> $dias
+     */
+    private function lancarEsquecimento(array $dias): void
+    {
+        $this->logarComTenant($this->client, $this->gestor, $this->escritorio);
+        $this->em()->clear();
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/nova', $this->escritorio->getId(), $this->colaborador->getId()), [
+            '_token'                => 'TOKEN_admin_nova_justificativa_' . $this->colaborador->getId(),
+            'tipo'                  => 'esquecimento_registro',
+            'tipoRegistroEsquecido' => 'saida',
+            'horaRegistroEsquecido' => '18:10',
+            'datas'                 => implode(',', array_map(static fn (\DateTimeImmutable $dia): string => $dia->format('Y-m-d'), $dias)),
         ]);
     }
 
