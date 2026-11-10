@@ -293,17 +293,7 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
             return [];
         }
 
-        /** @var array<int, Pasta> $pastas */
-        $pastas = $this->getEntityManager()->createQueryBuilder()
-            ->select('p')
-            ->from(Pasta::class, 'p', 'p.id')
-            ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.id IN (:pastas)')
-            ->setParameter('tenant', $tenant)
-            ->setParameter('pastas', array_values(array_unique(array_map(static fn (array $l): int => (int) $l['pastaId'], $linhas))))
-            ->getQuery()
-            ->getResult();
-
+        $pastas = $this->pastasDoEscritorio($tenant, array_values(array_unique(array_map(static fn (array $l): int => (int) $l['pastaId'], $linhas))));
         $vinculos = [];
         foreach ($linhas as $linha) {
             $pasta = $pastas[(int) $linha['pastaId']] ?? null;
@@ -313,6 +303,26 @@ class DocumentoParaAssinarRepository extends ServiceEntityRepository
         }
 
         return $vinculos;
+    }
+
+    /**
+     * As pastas dos vínculos da lista, deste escritório, por id.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, Pasta>
+     */
+    private function pastasDoEscritorio(Tenant $tenant, array $ids): array
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('p')
+            ->from(Pasta::class, 'p', 'p.id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
     }
 
     /**
