@@ -55,6 +55,6 @@ final class ExclusaoDeJustificativaRecusadaException extends \DomainException
 
     public static function mexeuNaFolha(): self
     {
-        return new self(self::MEXEU_NA_FOLHA, 'Esta justificativa já foi abonada uma vez e mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.');
+        return new self(self::MEXEU_NA_FOLHA, 'Esta justificativa já mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.');
     }
 }

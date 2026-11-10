@@ -119,7 +119,7 @@ final class ExcluirJustificativaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(
-            'Esta justificativa já foi abonada uma vez e mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.',
+            'Esta justificativa já mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor.',
             json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? null,
         );
         self::assertSame('pendente', $this->statusNoBanco((int) $j->getId()));
