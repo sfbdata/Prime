@@ -920,6 +920,8 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     aberta, depois de cada ação gravada na tela (batida, fila, justificativa excluída), então a conferência roda mais
     vezes; aceito pelo mesmo critério (separar a conferência da lista se ficar lenta). A recarga sai quando a busca da
     tela termina, nunca antes: o PHP atende uma sessão por vez, e a conferência seguraria a tela e o botão da batida.
+    Pelo mesmo motivo, o painel grava e solta a sessão antes da conferência (`AuditoriaDoPontoController::painel`): a
+    batida tocada logo depois não espera por ela nem sai carimbada atrasada.
     Um pedido no meio de outra busca fica guardado e roda depois dela; abrir com a busca em andamento não guarda outro.
     Limite aceito: a "Sincronização" sai sem esperar e pode entrar depois da recarga; aparece na próxima abertura ou
     ação. A recarga busca a página que está aberta: na página 2, o
