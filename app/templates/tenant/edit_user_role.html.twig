@@ -532,10 +532,12 @@
         });
 
 
-        // Abre a janela "Incluir batida" com o dia e o tipo do "+"; o motivo começa vazio a cada abertura.
+        // Abre a janela "Incluir batida" com o dia e o tipo do "+"; a hora e o motivo começam vazios a cada abertura
+        // (a hora de uma janela cancelada levaria a incluir no horário errado).
         window.abrirModalAddBatida = function (tipo, chaveDia) {
             document.getElementById('modalAddData').value = chaveDia;
             document.getElementById('modalAddTipo').value = tipo;
+            document.getElementById('modalAddHora').value = '';
             document.getElementById('modalAddMotivo').value = '';
             document.getElementById('modalAddCompetencia').value = chaveDia.substring(0, 7);
             var modal = new bootstrap.Modal(document.getElementById('modalAddBatida'));
