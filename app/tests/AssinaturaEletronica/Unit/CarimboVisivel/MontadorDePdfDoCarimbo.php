@@ -122,6 +122,25 @@ final class MontadorDePdfDoCarimbo
     }
 
     /**
+     * O corpo de um objeto /ObjStm comprimido com os objetos (número => corpo), para pôr como objeto solto do
+     * `classico`. O enchimento (espaços depois dos objetos) faz o fluxo inflado ficar grande e o comprimido pequeno.
+     *
+     * @param array<int, string> $objetos
+     */
+    public static function fluxoDeObjetos(array $objetos, int $enchimento = 0): string
+    {
+        [$cabecalho, $dados] = ['', ''];
+        foreach ($objetos as $numero => $corpo) {
+            $cabecalho .= $numero . ' ' . \strlen($dados) . ' ';
+            $dados .= $corpo . "\n";
+        }
+        $comprimido = self::comprimir($cabecalho . $dados . str_repeat(' ', $enchimento));
+
+        return '<</Type/ObjStm/N ' . \count($objetos) . '/First ' . \strlen($cabecalho) . '/Filter/FlateDecode/Length '
+            . \strlen($comprimido) . ">>\nstream\n" . $comprimido . "\nendstream";
+    }
+
+    /**
      * zlib do conteúdo. O leitor do motor (como o protótipo) tira CR e LF do fim dos dados antes de inflar: se o
      * comprimido terminar num deles, um espaço a mais no fim do conteúdo muda a soma de conferência.
      */

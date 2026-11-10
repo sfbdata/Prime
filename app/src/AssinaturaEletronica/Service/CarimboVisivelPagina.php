@@ -19,6 +19,8 @@ final readonly class CarimboVisivelPagina
      *                                                              recortado pelo /MediaBox), normalizada: x0, y0, x1, y1
      * @param array{int, int}|null              $trechoDasAnotacoes início do nome `/Annots` e fim do valor, no corpo
      * @param array{int, int}|null              $referenciaDasAnotacoes número e geração do vetor indireto
+     * @param int                               $aberturaDoDicionario   onde está o `<<` do dicionário no corpo, depois de
+     *                                                                  espaços e comentários
      */
     public function __construct(
         public int $numero,
@@ -29,6 +31,7 @@ final readonly class CarimboVisivelPagina
         public ?string $anotacoesDiretas = null,
         public ?array $referenciaDasAnotacoes = null,
         public ?string $vetorDasAnotacoes = null,
+        public int $aberturaDoDicionario = 0,
     ) {
     }
 }
