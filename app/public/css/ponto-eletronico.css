@@ -767,8 +767,10 @@
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
 }
+/* Molde dos botões claros do desenho (L194, L196): gap 6px e `style-hover` com o fundo #e5f1f7. */
+.pe-audit-pag:hover:not(:disabled) { background: var(--pe-info-bg); }
 .pe-audit-pag:disabled { border-color: var(--pe-borda); color: var(--pe-mudo); cursor: default; }
 
 /* ── Janela (moldura do desenho, L269 a L318): fundo, barra azul, corpo, erro e rodapé ─────────────

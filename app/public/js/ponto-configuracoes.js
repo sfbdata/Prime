@@ -7,7 +7,9 @@
  *   interceptador do base.html.twig). Travada (Global desligado), não responde. Recusada porque o Master desligou o
  *   Global depois que a aba carregou (422 com `global: false`), a chave trava na hora, com a frase da trava;
  * - a chave "Global", só do Master, chama a rota do catálogo do Master com `{ativo}` e o token `master_recursos`; ao
- *   voltar, trava ou destrava a do escritório e avisa como o desenho ("liberado/desativado para todos").
+ *   voltar, trava ou destrava a do escritório e avisa como o desenho ("liberado/desativado para todos"), no aviso
+ *   flutuante do Ponto (`window.PontoAvisoFlutuante`, da E8; L266 e `avisar` L468). Sem ele na página, o aviso do
+ *   sistema (`window.bjAviso`) fica de reserva para o texto não se perder.
  * O servidor decide: a tela só redesenha o que a resposta trouxe. Falha vira a frase da linha, nunca silêncio.
  */
 (function () {
@@ -122,8 +124,11 @@
         const ativo = resultado.dados.ativo === true;
         botao.setAttribute('aria-checked', ativo ? 'true' : 'false');
         desenharEscritorio(linha, ativo);
-        if (window.bjAviso) {
-            window.bjAviso((linha.dataset.titulo || '') + (ativo ? ' liberado para todos os escritórios.' : ' desativado para todos os escritórios.'));
+        const aviso = (linha.dataset.titulo || '') + (ativo ? ' liberado para todos os escritórios.' : ' desativado para todos os escritórios.');
+        if (window.PontoAvisoFlutuante) {
+            window.PontoAvisoFlutuante.mostrar(aviso, 'ok');
+        } else if (window.bjAviso) {
+            window.bjAviso(aviso);
         }
     }
 

@@ -192,6 +192,18 @@ final class AbaAuditoriaDoPontoTest extends JusPrimeWebTestCase
         self::assertCount(1, $segunda->filter('table > tbody > tr'));
     }
 
+    #[TestDox('Botões de página no molde dos botões claros do desenho (L194, L196): gap 6px e fundo #e5f1f7 no hover, só quando ativos')]
+    public function testBotaoDePaginaNoMoldeDoDesenho(): void
+    {
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/ponto-eletronico.css');
+        $regra = substr($css, (int) strpos($css, '.pe-audit-pag {'));
+        $regra = substr($regra, 0, (int) strpos($regra, '}'));
+
+        self::assertStringContainsString('gap: 6px;', $regra);
+        self::assertStringContainsString('.pe-audit-pag:hover:not(:disabled) { background: var(--pe-info-bg); }', $css);
+        self::assertMatchesRegularExpression('/--pe-info-bg:\s+#e5f1f7;/', $css);
+    }
+
     /** @return array<string, array{User, bool}> */
     private function papeis(): array
     {

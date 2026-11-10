@@ -41,4 +41,17 @@ final class ChaveDoEscritorioTravaNaRecusaJsTest extends TestCase
             $js,
         );
     }
+
+    #[TestDox('O aviso do Global ("liberado/desativado para todos os escritórios") sai no aviso flutuante do Ponto (E8, L266), não no do sistema; o do sistema só de reserva')]
+    public function testAvisoDoGlobalNoFlutuanteDoPonto(): void
+    {
+        $js = (string) file_get_contents(self::JS);
+
+        self::assertMatchesRegularExpression(
+            "/if \\(window\\.PontoAvisoFlutuante\\) \\{\\s*window\\.PontoAvisoFlutuante\\.mostrar\\(aviso, 'ok'\\);\\s*\\} else if \\(window\\.bjAviso\\) \\{\\s*window\\.bjAviso\\(aviso\\);\\s*\\}/",
+            $js,
+            'o aviso do Global voltou para o componente do sistema',
+        );
+        self::assertSame(1, substr_count($js, 'window.bjAviso('), 'o aviso do sistema só na reserva');
+    }
 }
