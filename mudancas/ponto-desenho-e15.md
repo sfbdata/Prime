@@ -12,4 +12,5 @@ tipo: alteracao
 - O Ponto passa a emitir o comprovante de registro: uma imagem com os dados da batida, um código de validação e um QR Code, que a pessoa baixa na aba "Comprovantes".
 - O comprovante só começa a ser emitido quando o BlueJus ligar o selo de segurança. Até lá, a aba "Comprovantes" não aparece e o registro de ponto segue normal, já com o número sequencial.
 - O administrador do ponto pode desligar o comprovante só no seu escritório, em Configurações do Ponto. Desligado, nenhum comprovante novo é emitido. Quem já tem comprovante continua vendo a aba "Comprovantes" para baixar e validar os seus; para quem não tem nenhum, a aba some. Os comprovantes já emitidos continuam válidos.
+- O comprovante do registro feito como trabalho externo (fora do raio da sede) mostra a marca "Trabalho externo" junto do método.
 - Quem tem o código pode conferir se um comprovante é verdadeiro, pelo QR Code ou digitando o código, sem precisar entrar no sistema. A página mostra só o nome do trabalhador e os dados da batida, sem CPF nem localização.

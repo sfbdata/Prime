@@ -9,10 +9,12 @@ use App\Entity\Notificacao;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\DTO\DadosDoComprovante;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\CercaDoPonto;
+use App\Ponto\Service\ChavesDoHmacDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
@@ -134,6 +136,20 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertSame([[$justificativa['id']], 'trabalho_externo'], [$eventos[1]['detalhe']['justificativa_ids'], $eventos[1]['detalhe']['tipo']]);
 
         self::assertSame(1, $this->avisosDoGestor(), 'o gestor recebe o aviso da justificativa enviada');
+    }
+
+    #[TestDox('Com o selo pronto, o comprovante da batida externa leva a marca "Trabalho externo" no texto selado (E15)')]
+    public function testComprovanteDaBatidaExterna(): void
+    {
+        static::getContainer()->set(ChavesDoHmacDoPonto::class, new ChavesDoHmacDoPonto('segredo-de-teste-do-comprovante'));
+
+        $resposta = $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 12.5, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
+
+        self::assertSame('Ponto registrado como trabalho externo. Ele segue para a análise do gestor. Comprovante na aba Comprovantes.', $resposta['message']);
+        $canonico = $this->emSemFiltro()->getConnection()->fetchOne('SELECT dados_assinados FROM ponto_comprovante WHERE user_id = ?', [$this->ana->getId()]);
+        self::assertIsString($canonico);
+        self::assertTrue(DadosDoComprovante::deCanonico($canonico)->trabalhoExterno);
+        self::assertSame(1, $this->contarNoEscritorio('justificativa_ponto'), 'a justificativa ligada entra no mesmo COMMIT');
     }
 
     #[TestDox('Pedido de trabalho externo com o motivo vazio ou com mais de 500 caracteres: 422 e nada grava')]

@@ -56,14 +56,15 @@ final class DadosDoComprovanteTest extends TestCase
         self::assertTrue(DadosDoComprovante::deCanonico($dados->canonico())->semInternet);
     }
 
-    #[TestDox('Trabalho externo: hoje sempre falso na batida (a E12 liga), e o leitor guarda o verdadeiro quando vier')]
+    #[TestDox('Trabalho externo (E12): vem da marca da batida e volta igual do texto selado')]
     public function testTrabalhoExterno(): void
     {
-        $dados = DadosDoComprovante::daBatida($this->batida(), 'BJP-ABCD-EFGH-JK23');
-        self::assertFalse($dados->trabalhoExterno);
+        self::assertFalse(DadosDoComprovante::daBatida($this->batida(), 'BJP-ABCD-EFGH-JK23')->trabalhoExterno);
 
-        $externo = str_replace('"trabalho_externo":false}', '"trabalho_externo":true}', $dados->canonico());
-        self::assertTrue(DadosDoComprovante::deCanonico($externo)->trabalhoExterno);
+        $externa = $this->batida()->setTrabalhoExterno(true);
+        $dados = DadosDoComprovante::daBatida($externa, 'BJP-ABCD-EFGH-JK23');
+        self::assertTrue($dados->trabalhoExterno);
+        self::assertTrue(DadosDoComprovante::deCanonico($dados->canonico())->trabalhoExterno);
     }
 
     #[TestDox('Pessoa sem nome: o nome fica vazio, nunca o e-mail')]

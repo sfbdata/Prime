@@ -72,7 +72,7 @@ final readonly class DadosDoComprovante
             self::METODO_SISTEMA,
             self::localDaBatida($batida),
             $batida->isEnviadaSemInternet(),
-            false,   // a E12 liga com RegistroPonto::isTrabalhoExterno()
+            $batida->isTrabalhoExterno(),   // E12: a batida fora do raio registrada como trabalho externo
         );
     }
 
