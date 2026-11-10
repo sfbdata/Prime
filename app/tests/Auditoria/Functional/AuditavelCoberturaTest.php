@@ -424,6 +424,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Ponto (spec ponto-desenho-0811, E9): o evento da trilha encadeada É o rastro do Ponto (selado por HMAC, só se
         // acrescenta, gravado por DBAL); a entidade é só leitura (`readOnly`) e serve à aba Auditoria.
         \App\Ponto\Entity\EventoDaTrilhaDoPonto::class,
+        // Assembleia de condomínio do Voto (spec voto-assembleia-condominio, seção 2, sigilo): a opção guarda o contador
+        // de votos e a participação guarda quem votou e quando; no audit_log a hora de uma coincidiria com a da outra e
+        // ligaria a unidade ao voto. A unidade guarda responsável, e-mail e a semente do link pessoal, que não vão para
+        // o audit_log lido por quem administra. A assembleia e a pauta são Auditavel.
+        \App\Voto\Entity\OpcaoDaPauta::class,
+        \App\Voto\Entity\ParticipacaoNaPauta::class,
+        \App\Voto\Entity\UnidadeDaAssembleia::class,
     ];
 
     private EntityManagerInterface $em;

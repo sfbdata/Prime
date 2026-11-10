@@ -1,0 +1,10 @@
+{#
+    Toast do desenho (L281): embaixo no meio, verde (#1e7b45) no sucesso e vermelho (#a3232b) no erro, some em
+    3600 ms (public/js/voto-assembleia.js). Lê os avisos de App\Voto\Service\AvisosDoVoto (fora do flash bag, que o
+    base.html.twig desenha como alerta); o JS usa o mesmo elemento para "Link copiado." e "Mensagem copiada.".
+#}
+<div class="voto-toasts" data-voto-toasts>
+    {% for aviso in voto_avisos() %}
+        <div class="voto-toast {{ aviso.tipo == 'erro' ? 'voto-toast-erro' : '' }}" role="status">{{ aviso.texto }}</div>
+    {% endfor %}
+</div>

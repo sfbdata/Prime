@@ -1,0 +1,154 @@
+{#
+    Ata / Relatório consolidado da assembleia (desenho §5, L355), em HTML imprimível no lugar do PDF em canvas (spec
+    voto-assembleia-condominio, Gestor item 10). Seções que têm dado neste mínimo: resumo, identificação, por pauta
+    (em ordem de abertura) abertura, eleitorado e participação por bloco, encerramento, apuração e relação de
+    votantes; termo de encerramento e assinaturas. Sem código BJR, QR, hashes, responsáveis designados e incidentes
+    (não existem neste mínimo). Tipografia do PDF do desenho em public/css/voto.css (.voto-ata).
+    Contexto: `ata` (AtaDaAssembleia).
+#}
+{% set a = ata.assembleia %}
+{% set abertas = a.pautas|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
+{% set pautas = abertas|merge(a.pautas|filter(p => p.abertaEm is null)) %}
+{% set dh = 'd/m/Y H:i:s' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ 'voto.assembleia.gestor.ata.titulo'|trans }}: {{ a.titulo }}</title>
+    <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+    <script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
+</head>
+<body class="voto-ata">
+<div class="voto-ata-folha">
+    <div class="voto-ata-barra"><button type="button" class="voto-ata-imprimir" data-voto-imprimir>{{ 'voto.assembleia.gestor.ata.imprimir'|trans }}</button></div>
+    <h1>{{ 'voto.assembleia.gestor.ata.titulo'|trans }}</h1>
+    <div class="voto-ata-evento">{{ a.titulo }}</div>
+
+    <h2>{{ 'voto.assembleia.gestor.ata.resumo'|trans }}</h2>
+    {% for p in pautas %}
+        <p>{{ 'voto.assembleia.gestor.ata.resumo_pauta'|trans({pauta: p.titulo, n: p.votantes, aptos: p.unidadesAptas, pc: p.pctUnidades}) }}</p>
+        {% if p.resultado is not null %}
+            {% set r = p.resultado %}
+            <p>{{ 'voto.assembleia.gestor.ata.resumo_resultado'|trans({
+                pauta: p.titulo,
+                resultado: r.decidido ? r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo : r.situacao,
+                quorum: (not p.exigeQuorum ? 'voto.assembleia.gestor.ata.quorum_nao_exigido' : (r.quorumOk ? 'voto.assembleia.gestor.ata.quorum_atingido' : 'voto.assembleia.gestor.ata.quorum_nao_atingido'))|trans,
+            }) }}</p>
+        {% else %}
+            <p>{{ p.titulo }}: {{ 'voto.assembleia.gestor.ata.nao_apurada'|trans }}</p>
+        {% endif %}
+    {% endfor %}
+
+    <h2>{{ 'voto.assembleia.gestor.ata.identificacao'|trans }}</h2>
+    <dl class="voto-ata-campos">
+        <div><dt>{{ 'voto.assembleia.gestor.ata.evento'|trans }}</dt><dd>{{ a.titulo }}</dd></div>
+        <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ a.pautas|length }}</dd></div>
+        <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_em'|trans }}</dt><dd>{{ ata.emitidaEm|date(dh) }}</dd></div>
+        <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_por'|trans }}</dt><dd>{{ ata.emitidaPor }}</dd></div>
+    </dl>
+
+    {% for p in pautas %}
+        {% set n = loop.index %}
+        {% set r = p.resultado %}
+        <section class="voto-ata-pauta" id="pauta-{{ p.id }}">
+            <h2>{{ n }}. {{ p.titulo }}</h2>
+            <dl class="voto-ata-campos">
+                <div><dt>{{ 'voto.assembleia.gestor.ata.modalidade'|trans }}</dt><dd>{{ 'voto.assembleia.gestor.ata.modalidade_valor'|trans }}</dd></div>
+                <div><dt>{{ 'voto.assembleia.gestor.ata.peso'|trans }}</dt><dd>{{ (a.porFracao ? 'voto.assembleia.gestor.form.peso_fracao' : 'voto.assembleia.gestor.form.peso_unidade')|trans }}</dd></div>
+            </dl>
+            {% if p.abertaEm is null %}
+                <dl class="voto-ata-campos">
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.situacao'|trans }}</dt><dd>{{ 'voto.assembleia.gestor.ata.nao_aberta'|trans }}</dd></div>
+                </dl>
+            {% else %}
+                <table class="voto-ata-tabela">
+                    <caption>{{ 'voto.assembleia.gestor.ata.criterios'|trans }}</caption>
+                    <thead><tr><th>{{ 'voto.assembleia.gestor.ata.item'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.regra'|trans }}</th></tr></thead>
+                    <tbody><tr><td>{{ p.titulo }}</td><td>{{ 'voto.assembleia.gestor.ata.criterio'|trans({q: p.quorumTexto}) }}</td></tr></tbody>
+                </table>
+
+                <h3>{{ n }}.1 {{ 'voto.assembleia.gestor.ata.abertura'|trans }}</h3>
+                <dl class="voto-ata-campos">
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.conducao'|trans }}</dt><dd>{{ 'voto.assembleia.gestor.ata.conducao_valor'|trans({c: p.convocacao}) }}</dd></div>
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.aberta_em'|trans }}</dt><dd>{{ p.abertaEm|date(dh) }}</dd></div>
+                    {% if p.abertaPorNome is not null %}<div><dt>{{ 'voto.assembleia.gestor.ata.aberta_por'|trans }}</dt><dd>{{ p.abertaPorNome }}</dd></div>{% endif %}
+                </dl>
+
+                <h3>{{ n }}.2 {{ 'voto.assembleia.gestor.ata.eleitorado'|trans }}</h3>
+                <dl class="voto-ata-campos">
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.aptos'|trans }}</dt><dd>{{ p.unidadesAptas }}</dd></div>
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.comparecimento'|trans }}</dt><dd>{{ p.votantes }}</dd></div>
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.faltosos'|trans }}</dt><dd>{{ max(0, p.unidadesAptas - p.votantes) }}</dd></div>
+                    <div><dt>{{ 'voto.assembleia.gestor.ata.inaptos'|trans }}</dt><dd>{{ a.unidadesInaptas }}</dd></div>
+                    {% if a.porFracao %}<div><dt>{{ 'voto.assembleia.gestor.ata.peso_apto'|trans }}</dt><dd>{{ p.pesoApto|voto_fracao }}</dd></div>{% endif %}
+                </dl>
+                <table class="voto-ata-tabela">
+                    <caption>{{ 'voto.assembleia.gestor.ata.por_bloco'|trans }}</caption>
+                    <thead><tr><th>{{ 'voto.assembleia.gestor.ata.bloco'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.eleitores'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.peso_coluna'|trans }}</th></tr></thead>
+                    <tbody>
+                    {% for b in ata.blocos[p.id] ?? [] %}
+                        <tr><td>{{ b.bloco is same as('') ? 'voto.assembleia.gestor.ata.sem_bloco'|trans : b.bloco }}</td><td>{{ b.unidades }}</td><td>{{ b.peso|voto_fracao }}</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">{{ 'voto.assembleia.gestor.ata.sem_votantes'|trans }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+
+                {% if p.encerrada %}
+                    <h3>{{ n }}.3 {{ 'voto.assembleia.gestor.ata.encerramento'|trans }}</h3>
+                    <dl class="voto-ata-campos">
+                        <div><dt>{{ 'voto.assembleia.gestor.ata.encerrada_em'|trans }}</dt><dd>{{ p.encerradaEm ? p.encerradaEm|date(dh) : '' }}</dd></div>
+                        {# Encerrada pelo prazo não tem quem encerrou: o motivo registrado, logo abaixo, diz que foi o prazo. #}
+                        {% if p.encerradaPorNome is not null %}<div><dt>{{ 'voto.assembleia.gestor.ata.encerrada_por'|trans }}</dt><dd>{{ p.encerradaPorNome }}</dd></div>{% endif %}
+                        <div><dt>{{ 'voto.assembleia.gestor.ata.cedulas'|trans }}</dt><dd>{{ r ? r.votantes : p.votantes }}</dd></div>
+                        <div><dt>{{ 'voto.assembleia.gestor.ata.motivo'|trans }}</dt><dd>{{ p.motivoEncerramento }}</dd></div>
+                    </dl>
+                {% endif %}
+
+                <h3>{{ n }}.4 {{ 'voto.assembleia.gestor.ata.apuracao'|trans }}</h3>
+                {% if r is not null %}
+                    <table class="voto-ata-tabela">
+                        <thead><tr><th>{{ 'voto.assembleia.gestor.ata.opcao'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.votos'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.peso_coluna'|trans }}</th></tr></thead>
+                        <tbody>
+                        {% for o in r.opcoes %}
+                            <tr><td>{{ o.numero }} {{ o.rotulo }}</td><td>{{ o.unidades }}</td><td>{{ o.peso|voto_fracao }}</td></tr>
+                        {% endfor %}
+                        <tr><td>{{ 'voto.assembleia.gestor.ata.abstencoes'|trans }}</td><td>{{ r.abstencoesUnidades }}</td><td>{{ r.abstencoesPeso|voto_fracao }}</td></tr>
+                        <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>0</td><td>0</td></tr>
+                        <tr><td><b>{{ 'voto.assembleia.gestor.ata.total'|trans }}</b></td><td><b>{{ r.votantes }}</b></td><td><b>{{ r.pesoPresente|voto_fracao }}</b></td></tr>
+                        <tr><td colspan="2">{{ 'voto.assembleia.gestor.ata.quorum_linha'|trans({pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</td><td>{{ (r.quorumOk ? 'voto.assembleia.gestor.ata.atingido' : 'voto.assembleia.gestor.ata.nao_atingido')|trans }}</td></tr>
+                        <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ r.decidido ? r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo : r.situacao }}</b></td></tr>
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>{{ 'voto.assembleia.gestor.ata.nao_apurada_data'|trans }}</p>
+                {% endif %}
+
+                <h3>{{ n }}.5 {{ 'voto.assembleia.gestor.ata.votantes'|trans }}</h3>
+                <p>{{ 'voto.assembleia.gestor.ata.votantes_texto'|trans }}</p>
+                <table class="voto-ata-tabela">
+                    <thead><tr><th>{{ 'voto.assembleia.gestor.ata.unidade'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.responsavel'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.hora'|trans }}</th></tr></thead>
+                    <tbody>
+                    {% for v in ata.votantes[p.id] ?? [] %}
+                        <tr><td>{{ v.bloco is same as('') ? v.identificacao : v.bloco ~ ' · ' ~ v.identificacao }}</td><td>{{ v.responsavel }}</td><td>{{ v.em|date(dh) }}</td></tr>
+                    {% else %}
+                        <tr><td colspan="3">{{ 'voto.assembleia.gestor.ata.sem_votantes'|trans }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </section>
+    {% endfor %}
+
+    <h2>{{ 'voto.assembleia.gestor.ata.termo'|trans }}</h2>
+    <p>{{ 'voto.assembleia.gestor.ata.termo_1'|trans }}</p>
+    <p>{{ 'voto.assembleia.gestor.ata.termo_2'|trans }}</p>
+    <div class="voto-ata-assinaturas">
+        <div><span></span>{{ 'voto.assembleia.gestor.ata.presidencia'|trans }}</div>
+        <div><span></span>{{ 'voto.assembleia.gestor.ata.secretaria'|trans }}</div>
+    </div>
+</div>
+</body>
+</html>

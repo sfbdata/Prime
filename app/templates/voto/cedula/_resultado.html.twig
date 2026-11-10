@@ -1,0 +1,27 @@
+{#
+    Resultado da pauta encerrada, como na aba "Resultados" do desenho 18 (L177 e L184; insumo §5): a faixa de resumo
+    "{pauta}: {nº nome | situação}", uma linha por opção (nome, barra no % do peso válido, valor), "Abstenções {n} ·
+    Nulos {n}" e a decisão (verde com vencedor, vermelho com a situação). Na cédula não há voto nulo: o morador só
+    escolhe entre as opções e a abstenção, então "Nulos" é sempre 0.
+
+    Recebe `pauta` (PautaNaCedulaOutput), `resultado` (ResultadoDaPauta, já ordenado por peso) e `porFracao`
+    (valor "{n} un · {fração}", com a fração em até 6 casas e vírgula decimal, como o `fp` do desenho).
+#}
+{%- set decisao = resultado.vencedor is not null
+    ? 'voto.assembleia.cedula.resultado.decidido'|trans({numero: resultado.vencedor.numero ~ '', rotulo: resultado.vencedor.rotulo})
+    : resultado.situacao -%}
+<div class="vcResultado" data-vc-resultado>
+    <div class="vcResumo">{{ pauta.titulo }}: {{ resultado.vencedor is not null ? resultado.vencedor.numero ~ ' ' ~ resultado.vencedor.rotulo : resultado.situacao }}</div>
+    <div>
+        {% for opcao in resultado.opcoes %}
+            {%- set fracao = opcao.peso|number_format(6, ',', '.')|trim('0', 'right')|trim(',', 'right') -%}
+            <div class="vcItem" data-vc-opcao="{{ opcao.numero }}">
+                <span class="vcItemNome"><b>{{ opcao.numero }}</b> {{ opcao.rotulo }}</span>
+                <span class="vcBarra"><span style="width:{{ opcao.percentual|round }}%"></span></span>
+                <b class="vcItemValor">{{ porFracao ? 'voto.assembleia.cedula.resultado.un'|trans({unidades: opcao.unidades ~ '', peso: fracao}) : opcao.unidades }}</b>
+            </div>
+        {% endfor %}
+        <div class="vcAbstencoes">{{ 'voto.assembleia.cedula.resultado.abstencoes'|trans({abstencoes: resultado.abstencoesUnidades ~ ''}) }}</div>
+        <div class="vcDecisao {{ resultado.vencedor is not null ? 'vcMsgVerde' : 'vcMsgVermelho' }}" data-vc-decisao>{{ decisao }}</div>
+    </div>
+</div>

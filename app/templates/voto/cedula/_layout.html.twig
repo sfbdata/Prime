@@ -1,0 +1,37 @@
+{#
+    Moldura da cédula pública da assembleia de condomínio (/votar/{token}): o portal do eleitor do desenho 18
+    (docs/specs/voto-assembleia-desenho.md §4, L116 do .dc.html): cabeçalho branco com o logo, o divisor e
+    "Portal do Eleitor", e o `main` do desenho. Standalone de propósito (não estende base.html.twig): sem menu,
+    sem sessão de escritório, sem nada do sistema. Estilos em css/voto-cedula.css, comportamento em js/voto-cedula.js.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>{% block titulo %}{{ 'voto.assembleia.cedula.titulo_pagina'|trans }}{% endblock %} · BlueJus</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/voto-cedula.css">
+</head>
+<body{% block corpo_atributos %}{% endblock %}>
+{# Master abrindo a cédula com o Voto desligado: a mesma faixa vermelha das telas internas. #}
+{% include '_recurso_faixa_master.html.twig' %}
+<div class="vcPagina">
+    <header class="vcCab">
+        <img class="vcLogo" src="/images/voto/bj-voto-logo.png" alt="BlueJus">
+        <span class="vcDivisor"></span>
+        <b class="vcPortal">{{ 'voto.assembleia.cedula.portal'|trans }}</b>
+    </header>
+    <main class="vcMain">
+        <h1>{{ 'voto.assembleia.cedula.titulo'|trans }}</h1>
+        {% block conteudo %}{% endblock %}
+    </main>
+</div>
+{% block depois %}{% endblock %}
+<script src="/js/voto-cedula.js" defer></script>
+</body>
+</html>

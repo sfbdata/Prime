@@ -1,0 +1,29 @@
+{#
+    Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
+    assembleia), a linha de botões do desenho (Editar, Pautas, Unidades e links, Publicar, Resultados, Relatório
+    consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
+#}
+<div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
+    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.situacao.' ~ (a.publicada ? 'publicada' : 'rascunho'))|trans }}</span></div>
+    <div class="vLin voto-acoes">
+        {% if a.podeAlterarPautas %}
+            <a class="vB" href="{{ path('voto_assembleia_editar', {id: a.id}) }}"><i class="bi bi-pencil"></i>{{ 'voto.assembleia.gestor.painel.editar'|trans }}</a>
+        {% endif %}
+        <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-list-ol"></i>{{ 'voto.assembleia.gestor.painel.pautas'|trans }}</a>
+        <a class="vB" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}"><i class="bi bi-list-check"></i>{{ 'voto.assembleia.gestor.painel.unidades'|trans }}</a>
+        {% if not a.publicada %}
+            <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" class="voto-form-linha">
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
+                <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.painel.publicar'|trans }}</button>
+            </form>
+        {% else %}
+            <a class="vB" href="{{ path('voto_index', {aba: 'tra'}) }}#assembleia-{{ a.id }}"><i class="bi bi-shield-check"></i>{{ 'voto.assembleia.gestor.painel.resultados'|trans }}</a>
+            <a class="vB vP" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</a>
+        {% endif %}
+    </div>
+    {% for p in a.pautas %}
+        {% include 'voto/assembleia/_pauta_linha.html.twig' with {a: a, p: p, voltar: 'painel', agora: agora} only %}
+    {% else %}
+        <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.painel.sem_pautas'|trans }}</div>
+    {% endfor %}
+</div>

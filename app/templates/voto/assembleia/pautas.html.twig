@@ -1,0 +1,61 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Pautas da assembleia. Em rascunho (desenho §2, etapa 4 "Cargos e candidaturas"): atalhos "Cargos e pautas
+    frequentes:", uma caixa por pauta (_pauta_form) com "Remover cargo", "Outro cargo ou pauta" e o rodapé
+    "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
+    uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
+    Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `opcoes_padrao`, `agora`.
+#}
+
+{% set sub = 'pautas' %}
+
+{% block conteudo %}
+{% set a = assembleia %}
+{% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+{% if a.podeAlterarPautas %}
+<div class="vC voto-assistente" data-voto-pautas data-voto-falha="{{ 'voto.assembleia.gestor.aviso.falha_ao_salvar'|trans }}"
+     data-voto-repetir="{{ 'voto.assembleia.gestor.aviso.repetir_sem_a_pauta'|trans }}" data-voto-incluida="{{ 'voto.assembleia.gestor.aviso.pauta_incluida'|trans }}">
+    <div class="vH"><i class="bi bi-plus-square"></i>{{ 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
+    <div class="voto-assistente-corpo">
+        <div><b class="voto-etapa-titulo">{{ 'voto.assembleia.gestor.pautas.titulo'|trans }}</b><div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.pautas.subtitulo'|trans }}</div></div>
+        <div class="voto-atalhos">
+            <span>{{ 'voto.assembleia.gestor.pautas.frequentes'|trans }}</span>
+            {% for atalho in atalhos %}
+                <form method="post" action="{{ path('voto_assembleia_pauta_criar', {id: a.id}) }}" class="voto-form-linha">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <button type="submit" class="vB" name="atalho" value="{{ atalho }}"><i class="bi bi-plus"></i>{{ atalho }}</button>
+                </form>
+            {% endfor %}
+        </div>
+        {% for p in a.pautas %}
+            <div class="voto-pauta-bloco">
+                {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: p, opcoes: p.opcoes, token: token} only %}
+                <form method="post" action="{{ path('voto_assembleia_pauta_remover', {id: a.id, pauta: p.id}) }}" class="voto-pauta-remover">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}" title="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        {% endfor %}
+        {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: null, opcoes: opcoes_padrao, token: token} only %}
+        {% if a.pautas is not empty %}
+            <div><button type="button" class="vB" data-voto-mostrar="pauta-nova"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.pautas.outra'|trans }}</button></div>
+        {% endif %}
+        <div class="voto-erro" data-voto-erro role="alert" hidden></div>
+        <div class="voto-rodape">
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
+            <span class="voto-espaco"></span>
+            <a class="vB" href="{{ path('voto_assembleia_editar', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB vP" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
+    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ 'voto.assembleia.gestor.situacao.publicada'|trans }}</span></div>
+    {% for p in a.pautas %}
+        {% include 'voto/assembleia/_pauta_linha.html.twig' with {a: a, p: p, voltar: 'pautas', agora: agora} only %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
