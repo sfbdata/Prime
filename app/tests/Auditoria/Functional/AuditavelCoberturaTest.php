@@ -410,6 +410,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\AssinaturaEletronica\Entity\EventoDaTrilha::class,
         \App\AssinaturaEletronica\Entity\Signatario::class,
         \App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura::class,
+        // Ponto, comprovante da batida (E15): a linha é ela mesma o rastro selado (HMAC sobre o texto guardado), só se
+        // acrescenta e nunca se altera; o ato entra na trilha encadeada do Ponto (batida_registrada). Auditavel
+        // duplicaria o rastro e levaria nome e local ao audit_log lido por quem administra. O contador de NSR é estado
+        // operacional (o último número entregue), gravado só por SQL, como a NumeracaoDeMetas: o número que vale fica
+        // na batida e no comprovante.
+        \App\Ponto\Entity\ComprovanteDoPonto::class,
+        \App\Ponto\Entity\ContadorDeNsr::class,
         // Ponto (spec ponto-desenho-0811, E9): o evento da trilha encadeada É o rastro do Ponto (selado por HMAC, só se
         // acrescenta, gravado por DBAL); a entidade é só leitura (`readOnly`) e serve à aba Auditoria.
         \App\Ponto\Entity\EventoDaTrilhaDoPonto::class,
