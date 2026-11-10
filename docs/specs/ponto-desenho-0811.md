@@ -993,6 +993,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     - Na batida da fila sem internet (E14), a data e a hora seladas são as do momento da batida (o "Emitido em" do
       desenho, L587). A chegada ao servidor fica no registro, fora do selo; o selo guarda só a marca `sem_internet`.
     - A pessoa fica gravada no comprovante (`user_id`): a aba e o download continuam depois de o gestor apagar a batida.
+    - Correção de texto do desenho (Coordenador, 09/11/2026): a frase da aba diz "gerados para o próprio registro" no
+      lugar de "gerados a partir do próprio registro" (L194), porque o código é sorteado; o resto da frase fica igual.
+      O sistema não promete o que não faz (mesmo critério do Voto).
 
 **E16. Folha com código BJF, PDF novo e aceite mensal.**
 - Entra: P22 ("Assinar folha"), P33 (o texto do aceite vai ao pacote jurídico, sem travar), P34 e D17 (PDF novo em
