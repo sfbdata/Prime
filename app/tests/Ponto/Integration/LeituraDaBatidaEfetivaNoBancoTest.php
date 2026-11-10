@@ -347,6 +347,9 @@ final class LeituraDaBatidaEfetivaNoBancoTest extends KernelTestCase
         );
         self::assertSame([], $this->registros->findBatidasDoDia($this->pessoa, $this->b, $this->dia('2026-10-21')));
         self::assertSame([], $this->registros->findBatidasDoDia($this->outra, $this->a, $this->dia('2026-10-21')));
+        // A gravação vê a mesma cabeça que a folha: o "x" da tela não responde "mudou" por causa do sucessor forjado.
+        self::assertSame($daEntrada->getId(), $this->registros->alvoDoAjuste($this->pessoa, $this->a, 'b' . $entrada->getId())?->cabecaId());
+        self::assertSame($daSaida->getId(), $this->registros->alvoDoAjuste($this->pessoa, $this->a, 'b' . $saida->getId())?->cabecaId());
     }
 
     #[TestDox('O envio da batida sem internet acha a original, mesmo desconsiderada (é o recibo do que foi batido)')]

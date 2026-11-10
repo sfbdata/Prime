@@ -693,6 +693,7 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
             ->join('a.justificativa', 'j')
             ->andWhere('j.id = :justificativa')
             ->andWhere('a.tenant = j.tenant')
+            ->andWhere('a.user = j.user')
             ->andWhere('a.tipo = :tipo')
             ->setParameter('justificativa', $justificativaId)
             ->setParameter('tipo', TipoDoAjuste::Desconsideracao->value)
@@ -727,14 +728,19 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
         return new AlvoDoAjuste($tenant, $pessoa, 'b' . $registroId, $batida, null, $cabeca, $tipo, $dataHora);
     }
 
-    /** A última linha da linhagem do registro original, ou nula se ele nunca foi ajustado. */
+    /**
+     * A última linha da linhagem do registro original, ou nula se ele nunca foi ajustado. Só a linha do mesmo escritório
+     * e da mesma pessoa do registro (a de outra, só por SQL cru, não conta, como em `SQL_EFETIVAS`).
+     */
     private function cabecaDaBatida(RegistroPonto $batida, Tenant $tenant): ?PontoAjuste
     {
         $cabeca = $this->cabecasDeLinhagem()
             ->andWhere('a.registroPonto = :raiz')
             ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.user = :pessoa')
             ->setParameter('raiz', $batida)
             ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $batida->getUser())
             ->orderBy('a.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
@@ -768,8 +774,10 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
         $cabeca = $this->cabecasDeLinhagem()
             ->andWhere('a.inclusao = :raiz OR a.id = :raiz')
             ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.user = :pessoa')
             ->setParameter('raiz', $inclusao->getId())
             ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
             ->orderBy('a.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
@@ -788,12 +796,19 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
         );
     }
 
-    /** Os ajustes que ninguém sucedeu (nenhuma linha tem `anterior` apontando para eles): as cabeças de linhagem. */
+    /**
+     * Os ajustes que ninguém sucedeu (nenhuma linha do mesmo escritório e da mesma pessoa tem `anterior` apontando para
+     * eles): as cabeças de linhagem. O sucessor de outro escritório ou de outra pessoa (só por SQL cru) não tira a
+     * cabeça, como em `SQL_EFETIVAS`: a gravação e a folha veem a mesma cabeça.
+     */
     private function cabecasDeLinhagem(): QueryBuilder
     {
         return $this->getEntityManager()->createQueryBuilder()
             ->select('a')
             ->from(PontoAjuste::class, 'a')
-            ->andWhere(sprintf('NOT EXISTS (SELECT s.id FROM %s s WHERE s.anterior = a)', PontoAjuste::class));
+            ->andWhere(sprintf(
+                'NOT EXISTS (SELECT s.id FROM %s s WHERE s.anterior = a AND s.tenant = a.tenant AND s.user = a.user)',
+                PontoAjuste::class,
+            ));
     }
 }

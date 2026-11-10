@@ -155,9 +155,9 @@ final class EscolhaDasBatidasDoDia
 
     /**
      * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A
-     * aprovação de esquecimento grava observação fixa; o lançamento e a edição do admin gravam o
-     * snapshot `Lançamento manual`. A ajustada pelo gestor (E10) nunca é do colaborador: quem deu a
-     * forma atual foi o gestor. A regra mora na batida ({@see MarcacaoDoPonto::feitaPeloColaborador}).
+     * aprovação de esquecimento antiga gravava observação fixa; o lançamento manual antigo gravava o
+     * snapshot `Lançamento manual` (desde a E10 a correção do gestor é ajuste, não batida nova). A
+     * ajustada ou incluída pelo gestor (E10) nunca é do colaborador: quem deu a forma atual foi o gestor. A regra mora na batida ({@see MarcacaoDoPonto::feitaPeloColaborador}).
      */
     private function ehDoColaborador(MarcacaoDoPonto $batida): bool
     {
