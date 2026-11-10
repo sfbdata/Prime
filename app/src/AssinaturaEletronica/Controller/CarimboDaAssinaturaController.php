@@ -46,17 +46,7 @@ final class CarimboDaAssinaturaController extends AbstractController
     public function carimbo(int $id): Response
     {
         [, $tenant] = $this->acesso->quemPode() ?? throw $this->createAccessDeniedException();
-
-        // O PDF de até 20 MB (teto do motor) passa pela memória mais de uma vez. Precedente: o "Baixar PDF com selo" do
-        // bloco 1a da etapa 3 (`EntregaDoPdfDaAssinatura::limitar()`): só nesta ação, 300 s fora da CLI (na CLI o limite
-        // valeria para o processo inteiro do ParaTest) e `memory_limit` de 256M, como o worker (o FPM tem 128M e 30 s).
-        if (\PHP_SAPI !== 'cli') {
-            set_time_limit(300);
-        }
-        $memoria = ini_parse_quantity((string) ini_get('memory_limit'));
-        if ($memoria !== -1 && $memoria < 256 * 1024 * 1024) {
-            ini_set('memory_limit', '256M');
-        }
+        self::limitarRecursos();
 
         try {
             $copia = $this->copia->executar($tenant, $id);
@@ -79,5 +69,22 @@ final class CarimboDaAssinaturaController extends AbstractController
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * O PDF de até 20 MB (teto do motor) passa pela memória mais de uma vez: só nesta ação, 300 s fora da CLI (na CLI o
+     * limite valeria para o processo inteiro do ParaTest) e `memory_limit` de 256M, como o worker (o FPM tem 128M e
+     * 30 s). Precedente do bloco 1a (EntregaDoPdfDaAssinatura::limitar, branch assinatura-e3-manifesto); na integração
+     * fica uma versão só.
+     */
+    private static function limitarRecursos(): void
+    {
+        if (\PHP_SAPI !== 'cli') {
+            set_time_limit(300);
+        }
+        $memoria = ini_parse_quantity((string) ini_get('memory_limit'));
+        if ($memoria !== -1 && $memoria < 256 * 1024 * 1024) {
+            ini_set('memory_limit', '256M');
+        }
     }
 }

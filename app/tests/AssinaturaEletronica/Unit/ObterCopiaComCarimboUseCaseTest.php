@@ -17,7 +17,13 @@ use App\AssinaturaEletronica\Service\CarimboVisivel;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
 use App\AssinaturaEletronica\UseCase\ObterCopiaComCarimboUseCase;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MetadadosDeArquivo;
+use App\Shared\Armazenamento\NovoArquivo;
 use App\Tests\AssinaturaEletronica\Unit\ConferenciaDePdf\OficinaDePdfAssinado;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -48,6 +54,11 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
         $this->documentos->method('doEscritorioMesmoNaLixeira')->willReturnCallback(
             fn (int $id, Tenant $tenant): ?DocumentoParaAssinar => $this->naBase !== null && $this->naBase->getId() === $id && $this->naBase->getTenant() === $tenant ? $this->naBase : null,
         );
+    }
+
+    protected function tearDown(): void
+    {
+        FluxoQueContaALeitura::desregistrar();
     }
 
     #[TestDox('carimba a última versão assinada (a devolvida, não o original nem o PDF para assinar) e nada é gravado')]
@@ -108,12 +119,25 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
     #[TestDox('versão acima do teto do motor (20 MB): lida só até um byte além dele e recusada como estrutura não reconhecida')]
     public function testAcimaDoTeto(): void
     {
-        $documento = $this->documentoComOriginal(str_repeat('%', LimitesDaConferencia::PDF_MAXIMO_EM_BYTES + 1024));
-        $this->assinarAna($documento);
+        $this->assinarAna($this->documentoComOriginal(OficinaDePdfAssinado::pdfAssinado()));
+        $grande = str_repeat('%', LimitesDaConferencia::PDF_MAXIMO_EM_BYTES + 1024 * 1024);
 
-        $copia = $this->useCase()->executar($this->tenant, 1);
+        $copia = $this->useCase(self::discoQueConta($grande))->executar($this->tenant, 1);
 
+        self::assertSame(LimitesDaConferencia::PDF_MAXIMO_EM_BYTES + 1, FluxoQueContaALeitura::lidos(), 'lê o teto e mais um byte, nunca o arquivo inteiro');
         self::assertDesfecho(['erro' => 'Estrutura do PDF não reconhecida.', 'semOriginal' => false, 'semAssinatura' => false], $copia);
+    }
+
+    #[TestDox('versão dentro do teto: lida inteira e carimbada')]
+    public function testDentroDoTeto(): void
+    {
+        $original = OficinaDePdfAssinado::pdfAssinado();
+        $this->assinarAna($this->documentoComOriginal($original));
+
+        $copia = $this->useCase(self::discoQueConta($original))->executar($this->tenant, 1);
+
+        self::assertSame(\strlen($original), FluxoQueContaALeitura::lidos());
+        self::assertStringStartsWith($original, (string) $copia->pdf);
     }
 
     #[TestDox('documento de outro escritório ou inexistente: não encontrado, sem ler arquivo')]
@@ -177,7 +201,7 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
         self::assertSame(['nome' => null, 'pdf' => null] + $esperado, get_object_vars($copia));
     }
 
-    private function useCase(): ObterCopiaComCarimboUseCase
+    private function useCase(?ArmazenamentoDeArquivos $armazenamento = null): ObterCopiaComCarimboUseCase
     {
         $versoes = $this->createMock(VersaoDoPdfRepository::class);
         $versoes->method('doDocumento')->willReturnCallback(fn (DocumentoParaAssinar $documento): array => array_values(array_filter(
@@ -185,7 +209,48 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
             static fn (VersaoDoPdf $versao): bool => $versao->getDocumento() === $documento,
         )));
 
-        return new ObterCopiaComCarimboUseCase($this->documentos, $versoes, $this->disco, new CarimboVisivel());
+        return new ObterCopiaComCarimboUseCase($this->documentos, $versoes, $armazenamento ?? $this->disco, new CarimboVisivel());
+    }
+
+    /** Armazenamento que abre qualquer chave pelo {@see FluxoQueContaALeitura}; o carimbo não usa os outros verbos. */
+    private static function discoQueConta(string $conteudo): ArmazenamentoDeArquivos
+    {
+        return new class ($conteudo) implements ArmazenamentoDeArquivos {
+            public function __construct(
+                private readonly string $conteudo,
+            ) {
+            }
+
+            public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
+            {
+                throw new \LogicException('O carimbo não grava.');
+            }
+
+            public function abrir(ChaveDeArquivo $chave): mixed
+            {
+                return FluxoQueContaALeitura::abrir($this->conteudo);
+            }
+
+            public function ler(ChaveDeArquivo $chave): string
+            {
+                throw new \LogicException('O carimbo lê pelo fluxo.');
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                throw new \LogicException('O carimbo não pergunta se existe.');
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                throw new \LogicException('O carimbo não apaga.');
+            }
+
+            public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
+            {
+                throw new \LogicException('O carimbo não mede.');
+            }
+        };
     }
 
     /** Rascunho (id 1) com Ana (Simples) e Bia (gov.br). */
@@ -238,5 +303,77 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
         } catch (DocumentoNaoEncontrado) {
             $this->addToAssertionCount(1);
         }
+    }
+}
+
+/**
+ * Fluxo de leitura (stream wrapper) que conta os bytes entregues a quem lê. Com o pedaço de leitura em 1 byte
+ * (`stream_set_chunk_size`), o PHP lê direto do fluxo, sem leitura antecipada para o buffer: o contador é o que quem
+ * leu consumiu, e prova o limite passado ao `stream_get_contents`. Mesmo molde do `StreamSemSeek` da Pasta.
+ */
+final class FluxoQueContaALeitura
+{
+    private const PROTOCOLO = 'carimbo-conta-leitura';
+
+    /** @var resource|null */
+    public $context;
+
+    private static string $conteudo = '';
+    private static int $lidos = 0;
+
+    private int $posicao = 0;
+
+    /** @return resource */
+    public static function abrir(string $conteudo): mixed
+    {
+        if (!\in_array(self::PROTOCOLO, stream_get_wrappers(), true)) {
+            stream_wrapper_register(self::PROTOCOLO, self::class);
+        }
+        self::$conteudo = $conteudo;
+        self::$lidos = 0;
+        $recurso = fopen(self::PROTOCOLO . '://versao', 'rb') ?: throw new \LogicException('Fluxo de teste não abriu.');
+        stream_set_chunk_size($recurso, 1);
+
+        return $recurso;
+    }
+
+    public static function lidos(): int
+    {
+        return self::$lidos;
+    }
+
+    public static function desregistrar(): void
+    {
+        if (\in_array(self::PROTOCOLO, stream_get_wrappers(), true)) {
+            stream_wrapper_unregister(self::PROTOCOLO);
+        }
+        self::$conteudo = '';
+    }
+
+    public function stream_open(string $caminho, string $modo, int $opcoes, ?string &$aberto): bool
+    {
+        $this->posicao = 0;
+
+        return true;
+    }
+
+    public function stream_read(int $quantos): string
+    {
+        $bloco = substr(self::$conteudo, $this->posicao, $quantos);
+        $this->posicao += \strlen($bloco);
+        self::$lidos += \strlen($bloco);
+
+        return $bloco;
+    }
+
+    public function stream_eof(): bool
+    {
+        return $this->posicao >= \strlen(self::$conteudo);
+    }
+
+    /** @return false sem tamanho: quem lê não pode saber o tamanho antes */
+    public function stream_stat(): bool
+    {
+        return false;
     }
 }

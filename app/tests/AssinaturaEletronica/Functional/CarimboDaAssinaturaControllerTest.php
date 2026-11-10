@@ -70,6 +70,21 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString((string) $documento->getCodigo(), $acrescimo);
     }
 
+    #[TestDox('documento do escritório na Lixeira, com o original e a assinatura: 200, como o Detalhe, que abre mesmo na Lixeira')]
+    public function testNaLixeira(): void
+    {
+        [, $tenant] = $this->entrar(true);
+        $original = OficinaDePdfAssinado::pdfAssinado();
+        $documento = $this->documento($tenant, 'Contrato na Lixeira', $original, naLixeira: true);
+        self::assertNotNull($this->conexao()->fetchOne('SELECT excluido_em FROM assinatura_eletronica_documento WHERE id = ?', [$documento->getId()]), 'o documento está na Lixeira');
+
+        $this->client->request('GET', '/assinatura/documentos/' . $documento->getId() . '/carimbo');
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertStringStartsWith($original, (string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('/Name/BlueJus', substr((string) $this->client->getResponse()->getContent(), \strlen($original)));
+    }
+
     #[TestDox('404 comum: documento de outro escritório ou inexistente, sem ler arquivo')]
     public function testNaoEncontrado(): void
     {
@@ -144,9 +159,10 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
 
     /**
      * Um documento enviado com Ana e Bia (Simples), o original guardado (se houver PDF; o arquivo só com `$comArquivo`) e
-     * a assinatura da Ana, montado direto pelas entidades: o salvar do rascunho que guarda o original é do bloco 5A.
+     * a assinatura da Ana, e na Lixeira com `$naLixeira`, montado direto pelas entidades: o salvar do rascunho que guarda
+     * o original é do bloco 5A.
      */
-    private function documento(Tenant $tenant, string $nome, ?string $pdf, bool $anaAssina = true, bool $comArquivo = true): DocumentoParaAssinar
+    private function documento(Tenant $tenant, string $nome, ?string $pdf, bool $anaAssina = true, bool $comArquivo = true, bool $naLixeira = false): DocumentoParaAssinar
     {
         $agora = new \DateTimeImmutable();
         // O `clear()` do documento anterior soltou o escritório: o documento novo leva o da base.
@@ -172,6 +188,9 @@ final class CarimboDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $documento->definirCodigo(strtoupper(\sprintf('BJA-%s-%s-%s', bin2hex(random_bytes(2)), bin2hex(random_bytes(2)), bin2hex(random_bytes(2)))));
         if ($anaAssina) {
             $documento->assinar($documento->getSignatarios()[0], 'Ana Maria Lima', self::CPF_ANA, 'rubrica.png', 'Assinatura desenhada', null, null, $agora);
+        }
+        if ($naLixeira) {
+            $documento->moverParaLixeira(null, $agora);
         }
         $documentos->salvar($documento);
         static::getContainer()->get(EntityManagerInterface::class)->clear();
