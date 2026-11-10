@@ -5,20 +5,16 @@ from __future__ import annotations
 import http.client
 import json
 import logging
-import threading
-from contextlib import contextmanager
 from dataclasses import replace
 
 import pytest
 
 from validador import execucao
-from validador.ancoras import ConjuntoDeAncoras, RepositorioDeAncoras
+from validador.ancoras import ConjuntoDeAncoras
 from validador.configuracao import TETO_DO_PDF, Configuracao, Revogacao
-from validador.servidor import ServidorDoValidador
 
 from . import pdfs, pki
-
-TOKEN = 'token-de-teste-com-tamanho-razoavel'
+from .cliente import TOKEN, pedir, pedir_json, servidor_no_ar
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -47,21 +43,6 @@ def configuracao_base(icp, tmp_path_factory):
     )
 
 
-@contextmanager
-def servidor_no_ar(configuracao: Configuracao, conjunto: ConjuntoDeAncoras | None = None):
-    ancoras = RepositorioDeAncoras(configuracao)  # sem iniciar(): nada é baixado no teste
-    if conjunto is not None:
-        ancoras.definir(conjunto)
-    servidor = ServidorDoValidador(configuracao, ancoras)
-    fio = threading.Thread(target=servidor.serve_forever, daemon=True)
-    fio.start()
-    try:
-        yield servidor
-    finally:
-        servidor.shutdown()
-        servidor.server_close()
-
-
 @pytest.fixture(scope='module')
 def servidor(configuracao_base, icp):
     raiz, ac, _ = icp
@@ -70,24 +51,6 @@ def servidor(configuracao_base, icp):
     )
     with servidor_no_ar(configuracao_base, conjunto) as rodando:
         yield rodando
-
-
-def pedir(servidor, metodo, caminho, corpo=None, token=TOKEN, cabecalhos=None):
-    conexao = http.client.HTTPConnection('127.0.0.1', servidor.server_address[1], timeout=60)
-    todos = {'Content-Type': 'application/pdf'}
-    if token is not None:
-        todos['Authorization'] = f'Bearer {token}'
-    todos.update(cabecalhos or {})
-    conexao.request(metodo, caminho, body=corpo, headers=todos)
-    resposta = conexao.getresponse()
-    dados = resposta.read()
-    conexao.close()
-    return resposta, dados
-
-
-def pedir_json(servidor, metodo, caminho, corpo=None, **kwargs):
-    resposta, dados = pedir(servidor, metodo, caminho, corpo, **kwargs)
-    return resposta.status, json.loads(dados), resposta
 
 
 def test_saude_sem_token(servidor):

@@ -18,7 +18,7 @@ from typing import Any
 log = logging.getLogger('validador.execucao')
 
 _contexto = multiprocessing.get_context('forkserver')
-_MODULOS_PRE_CARREGADOS = ['validador.conferencia']
+_MODULOS_PRE_CARREGADOS = ['validador.conferencia', 'validador.selo']
 
 # Teto de memória de cada filho (espaço de endereçamento). Configurável porque depende da máquina.
 MEMORIA_DO_FILHO = int(os.environ.get('ASSINATURA_VALIDADOR_MEMORIA_MB', '1536')) * 1024 * 1024

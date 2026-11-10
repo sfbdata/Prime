@@ -153,7 +153,10 @@ def _confianca(ancora: str, conjunto: ConjuntoDeAncoras) -> tuple[tuple[bytes, .
 
 
 def criar_contexto(
-    raizes: tuple[bytes, ...], intermediarias: tuple[bytes, ...], revogacao: Revogacao
+    raizes: tuple[bytes, ...],
+    intermediarias: tuple[bytes, ...],
+    revogacao: Revogacao,
+    politica: CertRevTrustPolicy = POLITICA_DE_REVOGACAO,
 ) -> tuple[ValidationContext, AIOHttpFetcherBackend | None]:
     """Contexto do pyHanko: raízes só as âncoras dadas (lista vazia = nenhuma, nunca as do sistema)."""
     backend = None
@@ -174,7 +177,7 @@ def criar_contexto(
         allow_fetching=revogacao.buscar_na_rede,
         crls=list(revogacao.lcrs),
         ocsps=list(revogacao.ocsps),
-        revinfo_policy=POLITICA_DE_REVOGACAO,
+        revinfo_policy=politica,
         fetcher_backend=backend,
     )
     return contexto, backend

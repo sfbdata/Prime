@@ -2,6 +2,7 @@
 
 - `GET /saude` (sem token): situação e quantidade de âncoras.
 - `POST /v1/conferir?ancora=icp|govbr|qualquer` (com token): corpo = bytes do PDF.
+- `POST /v1/selar` (com token, etapa 8): corpo = PDF final do BlueJus; devolve o PDF selado.
 Token Bearer comparado em tempo constante; corpo até 20 MB (413); até 2 operações ao mesmo tempo, fila de 10 s
 (503 `ocupado`); 30 s por operação, num processo filho que é morto se passar disso (503 `tempo_esgotado`).
 O PDF só existe em memória (e no pipe para o filho): nunca vai para o disco nem para o log. O log tem só rota,
@@ -19,7 +20,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import conferencia, execucao
+from . import conferencia, execucao, selo
 from .ancoras import RepositorioDeAncoras
 from .configuracao import Configuracao
 
@@ -43,7 +44,7 @@ class ServidorDoValidador(ThreadingHTTPServer):
         self.configuracao = configuracao
         self.ancoras = ancoras
         self.vagas = threading.BoundedSemaphore(configuracao.simultaneas)
-        self.rotas_post = {'/v1/conferir': atender_conferir}
+        self.rotas_post = {'/v1/conferir': atender_conferir, '/v1/selar': atender_selar}
         super().__init__((configuracao.endereco, configuracao.porta), Manipulador)
 
 
@@ -207,3 +208,35 @@ def atender_conferir(manipulador: Manipulador, corpo: bytes, consulta: dict[str,
     manipulador._enviar_json(HTTPStatus.OK, resultado)
     confiaveis = sum(1 for a in resultado['assinaturas'] if a['confiavel'])
     return HTTPStatus.OK, f'assinaturas={len(resultado["assinaturas"])} confiaveis={confiaveis}'
+
+
+# Situação HTTP de cada código que o selo devolve (protocolo da seção 2 da spec da etapa 8).
+SITUACAO_DO_SELO = {
+    'nao_selavel': HTTPStatus.UNPROCESSABLE_ENTITY,
+    'selo_nao_configurado': HTTPStatus.SERVICE_UNAVAILABLE,
+    'carimbo_indisponivel': HTTPStatus.BAD_GATEWAY,
+    'pdf_ilegivel': HTTPStatus.BAD_REQUEST,
+}
+
+
+def atender_selar(manipulador: Manipulador, corpo: bytes, consulta: dict[str, list[str]]) -> tuple[int, str]:
+    configuracao = manipulador.server.configuracao
+    credencial = selo.ler_credencial(configuracao)
+    if credencial is None:
+        raise Resposta(HTTPStatus.SERVICE_UNAVAILABLE, 'selo_nao_configurado')
+    if not corpo:
+        raise Resposta(HTTPStatus.BAD_REQUEST, 'pdf_ilegivel')
+    pkcs12, senha = credencial
+    try:
+        selado = manipulador.executar_na_fila(
+            selo.selar,
+            (corpo, pkcs12, senha, configuracao.selo_url_da_act, manipulador.server.ancoras.conjunto,
+             configuracao.revogacao),
+        )
+    except execucao.ErroConhecido as erro:
+        codigo = str(erro)
+        if codigo == 'memoria_esgotada':
+            codigo = 'pdf_ilegivel'
+        raise Resposta(SITUACAO_DO_SELO.get(codigo, HTTPStatus.INTERNAL_SERVER_ERROR), codigo) from None
+    manipulador._enviar(HTTPStatus.OK, selado, 'application/pdf')
+    return HTTPStatus.OK, f'selado saida={len(selado)}'

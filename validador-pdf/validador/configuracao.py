@@ -27,6 +27,9 @@ GOVBR_URL_DA_CADEIA = 'http://repo.iti.br/docs/Cadeia_GovBr-der.p7b'
 # acrescenta impressões digitais sem mudar o código).
 GOVBR_RAIZES_SHA256: tuple[str, ...] = ()
 
+SELO_PKCS12 = '/run/secrets/selo_pkcs12'
+SELO_SENHA = '/run/secrets/selo_pkcs12_senha'
+
 INTERVALO_DE_ATUALIZACAO = 24 * 60 * 60
 INTERVALO_DEPOIS_DE_FALHA = 60 * 60
 
@@ -62,6 +65,10 @@ class Configuracao:
     govbr_raizes_sha256: frozenset[str] = field(default_factory=lambda: frozenset(GOVBR_RAIZES_SHA256))
     atualizar_ancoras: bool = True
     revogacao: Revogacao = field(default_factory=Revogacao)
+    # Selo PAdES (etapa 8, E8-2 e E8-3): secrets do compose e ACT opcional (vazia = PAdES B-B).
+    selo_pkcs12: str = SELO_PKCS12
+    selo_senha: str = SELO_SENHA
+    selo_url_da_act: str = ''
 
     @staticmethod
     def do_ambiente(ambiente: dict[str, str] | None = None) -> Configuracao:
@@ -81,4 +88,7 @@ class Configuracao:
             govbr_raizes_sha256=frozenset(
                 {_normalizar_impressao_digital(v) for v in GOVBR_RAIZES_SHA256} | extras
             ),
+            selo_pkcs12=env.get('ASSINATURA_SELO_PKCS12_CAMINHO', SELO_PKCS12),
+            selo_senha=env.get('ASSINATURA_SELO_SENHA_CAMINHO', SELO_SENHA),
+            selo_url_da_act=env.get('ASSINATURA_SELO_TSA_URL', '').strip(),
         )

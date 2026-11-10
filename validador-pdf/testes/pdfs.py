@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import re
 
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.sign import signers
 from pyhanko.sign.fields import SigSeedSubFilter
-from pyhanko_certvalidator.registry import SimpleCertificateStore
 from pyhanko.sign.timestamps.dummy_client import DummyTimeStamper
+from pyhanko_certvalidator.registry import SimpleCertificateStore
 
 from .pki import Entidade
 
@@ -102,3 +103,37 @@ def assinar(
         output=saida,
     )
     return saida.getvalue()
+
+
+# JPEG de 1 x 1 pixel (cinza), o bastante para imitar o PDF final da etapa 3 (E3-1).
+JPEG_MINIMO = base64.b64decode(
+    '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5'
+    'PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+)
+
+
+def pdf_em_imagem(codigo: str = 'BJA-TESTE-0000-0000', *, producer: str | None = 'BlueJus') -> bytes:
+    """Como o escritor da etapa 3 (E3-1): página A4 com uma imagem DCTDecode, /Title e /Producer (BlueJus)."""
+    desenho = b'q 595.28 0 0 841.89 0 0 cm /Im1 Do Q'
+    imagem = (
+        b'<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray '
+        b'/BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n' % len(JPEG_MINIMO)
+        + JPEG_MINIMO
+        + b'\nendstream'
+    )
+    objetos = {
+        1: b'<< /Type /Catalog /Pages 2 0 R >>',
+        2: b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        3: (
+            b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] '
+            b'/Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>'
+        ),
+        4: fluxo(desenho),
+        5: imagem,
+        6: (
+            b'<< /Title (Documento BlueJus ' + codigo.encode('ascii') + b')'
+            + (b' /Producer (' + producer.encode('latin-1') + b')' if producer is not None else b'')
+            + b' >>'
+        ),
+    }
+    return montar(objetos, raiz=1, info=6)
