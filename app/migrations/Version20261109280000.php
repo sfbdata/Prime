@@ -17,9 +17,13 @@ use Doctrine\Migrations\AbstractMigration;
  * linha por registro. Os índices sem nome próprio (IDX_...) são os das FKs, que o Doctrine cria e cobra no mapeamento.
  * Só `autor_id` tem SET NULL (o nome fica em `autor_nome`); as outras FKs são NO ACTION: nada some por baixo de um ajuste.
  *
- * Gatilho `registro_ponto_so_insercao`: em `registro_ponto`, UPDATE não muda data e hora, tipo, pessoa nem escritório
- * (sede, snapshot e as demais colunas seguem livres: `desvincularSede` continua passando), e DELETE só passa na purga
- * do escritório, com `set_config('bluejus.purga_do_escritorio', <id do escritório>, true)` na mesma transação.
+ * Gatilho `registro_ponto_so_insercao`: em `registro_ponto`, UPDATE não muda coluna nenhuma (sem exceção: observação,
+ * sede e snapshot também decidem a conta), e DELETE só passa na purga do escritório, com
+ * `set_config('bluejus.purga_do_escritorio', <id do escritório>, true)` na mesma transação. Por isso a FK
+ * `registro_ponto.sede_id` (ON DELETE SET NULL) passa a recusar apagar a sede que tem batida.
+ *
+ * `sede.removida_em`: a sede com batida não é apagada, é encerrada (some das listas e da cerca, não vale para batida
+ * nova) e as batidas antigas mantêm o `sede_id` (decisão do Coordenador, 09/11).
  */
 final class Version20261109280000 extends AbstractMigration
 {
@@ -32,6 +36,7 @@ final class Version20261109280000 extends AbstractMigration
     {
         $this->criarTabelaDosAjustes();
         $this->criarGatilhoSoInsercao();
+        $this->addSql('ALTER TABLE sede ADD removida_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
@@ -39,6 +44,7 @@ final class Version20261109280000 extends AbstractMigration
         $this->addSql('DROP TRIGGER IF EXISTS registro_ponto_so_insercao ON registro_ponto');
         $this->addSql('DROP FUNCTION IF EXISTS registro_ponto_so_insercao()');
         $this->addSql('DROP TABLE ponto_ajuste');
+        $this->addSql('ALTER TABLE sede DROP removida_em');
     }
 
     private function criarTabelaDosAjustes(): void
@@ -105,11 +111,8 @@ BEGIN
         END IF;
         RAISE EXCEPTION 'A batida gravada do ponto não pode ser apagada (registro %). Para tirá-la da conta, desconsidere-a com um ajuste.', OLD.id;
     END IF;
-    IF NEW.data_hora IS DISTINCT FROM OLD.data_hora
-        OR NEW.tipo IS DISTINCT FROM OLD.tipo
-        OR NEW.user_id IS DISTINCT FROM OLD.user_id
-        OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id THEN
-        RAISE EXCEPTION 'A batida gravada do ponto não muda data e hora, tipo, pessoa nem escritório (registro %). Para corrigi-la, use um ajuste.', OLD.id;
+    IF NEW IS DISTINCT FROM OLD THEN
+        RAISE EXCEPTION 'A batida gravada do ponto não muda (registro %). Para corrigi-la, use um ajuste.', OLD.id;
     END IF;
     RETURN NEW;
 END;

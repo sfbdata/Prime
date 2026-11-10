@@ -170,6 +170,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setLatitude(?string $latitude): static
     {
+        $this->exigirAindaNaoGravada();
         $this->latitude = $latitude;
         return $this;
     }
@@ -181,6 +182,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setLongitude(?string $longitude): static
     {
+        $this->exigirAindaNaoGravada();
         $this->longitude = $longitude;
         return $this;
     }
@@ -192,6 +194,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setPrecisaoGps(?string $precisaoGps): static
     {
+        $this->exigirAindaNaoGravada();
         $this->precisaoGps = $precisaoGps;
         return $this;
     }
@@ -203,6 +206,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setSede(?Sede $sede): static
     {
+        $this->exigirAindaNaoGravada();
         $this->sede = $sede;
         return $this;
     }
@@ -214,6 +218,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setSedeNomeSnapshot(?string $sedeNomeSnapshot): static
     {
+        $this->exigirAindaNaoGravada();
         $this->sedeNomeSnapshot = $sedeNomeSnapshot;
         return $this;
     }
@@ -241,6 +246,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setObservacao(?string $observacao): static
     {
+        $this->exigirAindaNaoGravada();
         $this->observacao = $observacao;
         return $this;
     }
@@ -252,6 +258,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setHomeOffice(bool $homeOffice): static
     {
+        $this->exigirAindaNaoGravada();
         $this->homeOffice = $homeOffice;
         return $this;
     }
@@ -263,6 +270,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setHoraAparelho(?\DateTimeImmutable $horaAparelho): static
     {
+        $this->exigirAindaNaoGravada();
         $this->horaAparelho = $horaAparelho;
         return $this;
     }
@@ -274,6 +282,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setHoraChegada(?\DateTimeImmutable $horaChegada): static
     {
+        $this->exigirAindaNaoGravada();
         $this->horaChegada = $horaChegada;
         return $this;
     }
@@ -285,6 +294,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setEnviadaSemInternet(bool $enviadaSemInternet): static
     {
+        $this->exigirAindaNaoGravada();
         $this->enviadaSemInternet = $enviadaSemInternet;
         return $this;
     }
@@ -296,6 +306,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setIdEnvio(?string $idEnvio): static
     {
+        $this->exigirAindaNaoGravada();
         $this->idEnvio = $idEnvio;
 
         return $this;
@@ -308,6 +319,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setNsr(int $nsr): static
     {
+        $this->exigirAindaNaoGravada();
         $this->nsr = $nsr;
 
         return $this;
@@ -320,6 +332,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setTrabalhoExterno(bool $trabalhoExterno): static
     {
+        $this->exigirAindaNaoGravada();
         $this->trabalhoExterno = $trabalhoExterno;
         return $this;
     }
@@ -331,6 +344,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 
     public function setMotivoTrabalhoExterno(?string $motivoTrabalhoExterno): static
     {
+        $this->exigirAindaNaoGravada();
         $this->motivoTrabalhoExterno = $motivoTrabalhoExterno;
         return $this;
     }
@@ -368,7 +382,7 @@ class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
         return null;
     }
 
-    /** E10: depois do id, data e hora, tipo, pessoa e escritório não mudam (o banco recusa o UPDATE pelo gatilho). */
+    /** E10: depois do id, nenhum campo da batida muda (o banco recusa qualquer UPDATE pelo gatilho). */
     private function exigirAindaNaoGravada(): void
     {
         if ($this->id !== null) {

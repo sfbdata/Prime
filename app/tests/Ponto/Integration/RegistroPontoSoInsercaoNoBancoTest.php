@@ -19,9 +19,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * O gatilho `registro_ponto_so_insercao` (E10, migration Version20261109280000), direto no banco: a batida gravada não
- * muda data e hora, tipo, pessoa nem escritório, e só se apaga na purga do próprio escritório
- * (`set_config('bluejus.purga_do_escritorio', id, true)`). As demais colunas seguem livres (a sede, que
- * `desvincularSede` limpa).
+ * muda coluna nenhuma (sem exceção) e só se apaga na purga do próprio escritório
+ * (`set_config('bluejus.purga_do_escritorio', id, true)`). Por isso apagar a sede que tem batida também é recusado:
+ * a FK ON DELETE SET NULL tentaria mudar a batida.
  *
  * Cada comando recusado roda num ponto de salvamento (transação aninhada da DBAL sobre a do DAMA): o erro do banco
  * aborta só ele, e o `set_config` local some junto no rollback.
@@ -52,6 +52,12 @@ final class RegistroPontoSoInsercaoNoBancoTest extends KernelTestCase
         yield 'tipo' => ["UPDATE registro_ponto SET tipo = 'saida' WHERE id = ?", 0];
         yield 'pessoa' => ['UPDATE registro_ponto SET user_id = ? WHERE id = ?', 'outra pessoa'];
         yield 'escritório' => ['UPDATE registro_ponto SET tenant_id = ? WHERE id = ?', 'outro escritório'];
+        yield 'observação' => ["UPDATE registro_ponto SET observacao = 'nota' WHERE id = ?", 0];
+        yield 'nome da sede' => ["UPDATE registro_ponto SET sede_nome_snapshot = 'Centro' WHERE id = ?", 0];
+        yield 'sede' => ['UPDATE registro_ponto SET sede_id = ? WHERE id = ?', 'uma sede'];
+        yield 'home office' => ['UPDATE registro_ponto SET home_office = true WHERE id = ?', 0];
+        yield 'sem internet' => ['UPDATE registro_ponto SET enviada_sem_internet = true WHERE id = ?', 0];
+        yield 'posição' => ["UPDATE registro_ponto SET latitude = '-23.5', longitude = '-46.6' WHERE id = ?", 0];
     }
 
     #[DataProvider('colunasTravadas')]
@@ -61,38 +67,45 @@ final class RegistroPontoSoInsercaoNoBancoTest extends KernelTestCase
         $parametros = match ($novo) {
             'outra pessoa'     => [$this->pessoa('Outra pessoa')->getId(), $this->batida->getId()],
             'outro escritório' => [$this->escritorio('B')->getId(), $this->batida->getId()],
+            'uma sede'         => [$this->sede()->getId(), $this->batida->getId()],
             default            => [$this->batida->getId()],
         };
 
         $erro = $this->recusado($sql, $parametros);
 
-        self::assertStringContainsString('não muda data e hora, tipo, pessoa nem escritório', $erro);
+        self::assertStringContainsString('A batida gravada do ponto não muda', $erro);
         self::assertSame('2026-10-21 08:00:00', $this->conexao->fetchOne('SELECT data_hora FROM registro_ponto WHERE id = ?', [$this->batida->getId()]));
     }
 
-    #[TestDox('UPDATE que repete os mesmos valores passa (IS DISTINCT FROM), e o das colunas livres também')]
+    #[TestDox('UPDATE que repete os mesmos valores passa (IS DISTINCT FROM na linha inteira)')]
     public function testUpdateSemMudarColunaTravadaPassa(): void
     {
-        $this->conexao->executeStatement(
-            "UPDATE registro_ponto SET data_hora = data_hora, tipo = tipo, observacao = 'nota', sede_nome_snapshot = 'Centro' WHERE id = ?",
+        $alteradas = $this->conexao->executeStatement(
+            'UPDATE registro_ponto SET data_hora = data_hora, tipo = tipo, observacao = observacao, sede_id = sede_id WHERE id = ?',
             [$this->batida->getId()],
         );
 
-        self::assertSame('nota', $this->conexao->fetchOne('SELECT observacao FROM registro_ponto WHERE id = ?', [$this->batida->getId()]));
+        self::assertSame(1, $alteradas);
+        self::assertNull($this->conexao->fetchOne('SELECT observacao FROM registro_ponto WHERE id = ?', [$this->batida->getId()]));
     }
 
-    #[TestDox('desvincularSede (UPDATE de sede e snapshot) continua passando')]
-    public function testDesvincularSedePassa(): void
+    #[TestDox('Apagar a sede que tem batida é recusado: a FK ON DELETE SET NULL esbarra no gatilho')]
+    public function testApagarSedeComBatidaRecusado(): void
     {
-        $sede = (new Sede())->setTenant($this->escritorio)->setNome('Sede do gatilho')->setLatitude('-23.55')->setLongitude('-46.63');
-        $this->em->persist($sede);
+        $sede = $this->sede();
+        $comSede = (new RegistroPonto())
+            ->setTenant($this->escritorio)
+            ->setUser($this->pessoa)
+            ->setSede($sede)
+            ->setTipo(RegistroPonto::TIPO_SAIDA)
+            ->setDataHora(new \DateTime('2026-10-21 18:00:00'));
+        $this->em->persist($comSede);
         $this->em->flush();
-        $this->conexao->executeStatement('UPDATE registro_ponto SET sede_id = ? WHERE id = ?', [$sede->getId(), $this->batida->getId()]);
 
-        $alteradas = static::getContainer()->get(RegistroPontoRepository::class)->desvincularSede($sede);
+        $erro = $this->recusado('DELETE FROM sede WHERE id = ?', [$sede->getId()]);
 
-        self::assertSame(1, $alteradas);
-        self::assertNull($this->conexao->fetchOne('SELECT sede_id FROM registro_ponto WHERE id = ?', [$this->batida->getId()]));
+        self::assertStringContainsString('A batida gravada do ponto não muda', $erro);
+        self::assertSame($sede->getId(), (int) $this->conexao->fetchOne('SELECT sede_id FROM registro_ponto WHERE id = ?', [$comSede->getId()]));
     }
 
     #[TestDox('DELETE da batida gravada é recusado')]
@@ -160,6 +173,15 @@ final class RegistroPontoSoInsercaoNoBancoTest extends KernelTestCase
     private function quantasDoEscritorio(Tenant $escritorio): int
     {
         return (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM registro_ponto WHERE tenant_id = ?', [$escritorio->getId()]);
+    }
+
+    private function sede(): Sede
+    {
+        $sede = (new Sede())->setTenant($this->escritorio)->setNome('Sede do gatilho')->setLatitude('-23.55')->setLongitude('-46.63');
+        $this->em->persist($sede);
+        $this->em->flush();
+
+        return $sede;
     }
 
     private function batida(Tenant $escritorio, User $pessoa): RegistroPonto

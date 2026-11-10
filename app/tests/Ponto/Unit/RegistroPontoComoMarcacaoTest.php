@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Model\MarcacaoDoPonto;
@@ -16,8 +17,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A batida gravada como `MarcacaoDoPonto` (E10, plano-e10-ponto §6): o alvo 'b{id}', sem cabeça nem ajuste, a mesma
- * regra de "feita pelo colaborador" da `EscolhaDasBatidasDoDia`, e os setters de data e hora, tipo, pessoa e escritório
- * travados depois do id (decisão 4: a batida gravada só se insere).
+ * regra de "feita pelo colaborador" da `EscolhaDasBatidasDoDia`, e todos os setters travados depois do id (decisão 4: a
+ * batida gravada só se insere; o gatilho do banco recusa qualquer UPDATE, decisão do Coordenador de 09/11).
  */
 #[CoversClass(RegistroPonto::class)]
 final class RegistroPontoComoMarcacaoTest extends TestCase
@@ -31,13 +32,27 @@ final class RegistroPontoComoMarcacaoTest extends TestCase
         self::assertSame('2026-10-21 18:00:00', $batida->getDataHora()?->format('Y-m-d H:i:s'));
     }
 
-    /** @return iterable<string, array{\Closure(RegistroPonto): mixed}> */
+    /** @return iterable<string, array{\Closure(RegistroPonto): mixed}> a chave é o nome do setter */
     public static function settersTravados(): iterable
     {
-        yield 'data e hora' => [static fn (RegistroPonto $b): RegistroPonto => $b->setDataHora(new \DateTime('2026-10-21 19:00:00'))];
-        yield 'tipo' => [static fn (RegistroPonto $b): RegistroPonto => $b->setTipo('entrada')];
-        yield 'pessoa' => [static fn (RegistroPonto $b): RegistroPonto => $b->setUser(new User())];
-        yield 'escritório' => [static fn (RegistroPonto $b): RegistroPonto => $b->setTenant(new Tenant())];
+        yield 'setDataHora' => [static fn (RegistroPonto $b): RegistroPonto => $b->setDataHora(new \DateTime('2026-10-21 19:00:00'))];
+        yield 'setTipo' => [static fn (RegistroPonto $b): RegistroPonto => $b->setTipo('entrada')];
+        yield 'setUser' => [static fn (RegistroPonto $b): RegistroPonto => $b->setUser(new User())];
+        yield 'setTenant' => [static fn (RegistroPonto $b): RegistroPonto => $b->setTenant(new Tenant())];
+        yield 'setLatitude' => [static fn (RegistroPonto $b): RegistroPonto => $b->setLatitude('-23.5')];
+        yield 'setLongitude' => [static fn (RegistroPonto $b): RegistroPonto => $b->setLongitude('-46.6')];
+        yield 'setPrecisaoGps' => [static fn (RegistroPonto $b): RegistroPonto => $b->setPrecisaoGps('10')];
+        yield 'setSede' => [static fn (RegistroPonto $b): RegistroPonto => $b->setSede(new Sede())];
+        yield 'setSedeNomeSnapshot' => [static fn (RegistroPonto $b): RegistroPonto => $b->setSedeNomeSnapshot('Centro')];
+        yield 'setObservacao' => [static fn (RegistroPonto $b): RegistroPonto => $b->setObservacao('nota')];
+        yield 'setHomeOffice' => [static fn (RegistroPonto $b): RegistroPonto => $b->setHomeOffice(true)];
+        yield 'setHoraAparelho' => [static fn (RegistroPonto $b): RegistroPonto => $b->setHoraAparelho(new \DateTimeImmutable('2026-10-21 18:00:00'))];
+        yield 'setHoraChegada' => [static fn (RegistroPonto $b): RegistroPonto => $b->setHoraChegada(new \DateTimeImmutable('2026-10-21 18:00:00'))];
+        yield 'setEnviadaSemInternet' => [static fn (RegistroPonto $b): RegistroPonto => $b->setEnviadaSemInternet(true)];
+        yield 'setIdEnvio' => [static fn (RegistroPonto $b): RegistroPonto => $b->setIdEnvio('envio-1')];
+        yield 'setNsr' => [static fn (RegistroPonto $b): RegistroPonto => $b->setNsr(7)];
+        yield 'setTrabalhoExterno' => [static fn (RegistroPonto $b): RegistroPonto => $b->setTrabalhoExterno(true)];
+        yield 'setMotivoTrabalhoExterno' => [static fn (RegistroPonto $b): RegistroPonto => $b->setMotivoTrabalhoExterno('Cliente')];
     }
 
     /** @param \Closure(RegistroPonto): mixed $mudar */
@@ -46,7 +61,7 @@ final class RegistroPontoComoMarcacaoTest extends TestCase
     public function testSetterTravadoDepoisDoId(\Closure $mudar): void
     {
         $batida = $this->batidaGravada(31);
-        $antes = [$batida->getTipo(), $batida->getDataHora()?->format('Y-m-d H:i:s'), $batida->getUser(), $batida->getTenant()];
+        $antes = $this->retrato($batida);
 
         try {
             $mudar($batida);
@@ -55,17 +70,23 @@ final class RegistroPontoComoMarcacaoTest extends TestCase
             self::assertStringContainsString('Batida já gravada não muda', $erro->getMessage());
         }
 
-        self::assertSame($antes, [$batida->getTipo(), $batida->getDataHora()?->format('Y-m-d H:i:s'), $batida->getUser(), $batida->getTenant()]);
+        self::assertSame($antes, $this->retrato($batida));
     }
 
-    #[TestDox('Depois do id, as colunas livres (sede, snapshot, observação) seguem mudando')]
-    public function testColunasLivresDepoisDoId(): void
+    #[TestDox('Todo setter da batida está na lista dos travados: setter novo (o setNsr da E15) entra travado')]
+    public function testTodoSetterEstaNaListaDosTravados(): void
     {
-        $batida = $this->batidaGravada(31);
+        $setters = [];
+        foreach ((new \ReflectionClass(RegistroPonto::class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $metodo) {
+            if (str_starts_with($metodo->getName(), 'set')) {
+                $setters[] = $metodo->getName();
+            }
+        }
+        $travados = array_keys(iterator_to_array(self::settersTravados()));
+        sort($setters);
+        sort($travados);
 
-        $batida->setSede(null)->setSedeNomeSnapshot('Centro')->setObservacao('nota');
-
-        self::assertSame(['Centro', 'nota'], [$batida->getSedeNomeSnapshot(), $batida->getObservacao()]);
+        self::assertSame($setters, $travados);
     }
 
     #[TestDox('Como marcação: alvo b{id}, pessoa, sem cabeça e sem ajuste')]
@@ -116,6 +137,28 @@ final class RegistroPontoComoMarcacaoTest extends TestCase
     private function batidaNova(): RegistroPonto
     {
         return (new RegistroPonto())->setTipo('saida')->setDataHora(new \DateTime('2026-10-21 18:00:00'));
+    }
+
+    /** @return array<string, mixed> */
+    private function retrato(RegistroPonto $batida): array
+    {
+        return [
+            'tipo' => $batida->getTipo(),
+            'dataHora' => $batida->getDataHora()?->format('Y-m-d H:i:s'),
+            'user' => $batida->getUser(),
+            'tenant' => $batida->getTenant(),
+            'latitude' => $batida->getLatitude(),
+            'longitude' => $batida->getLongitude(),
+            'precisaoGps' => $batida->getPrecisaoGps(),
+            'sede' => $batida->getSede(),
+            'snapshot' => $batida->getSedeNomeSnapshot(),
+            'observacao' => $batida->getObservacao(),
+            'homeOffice' => $batida->isHomeOffice(),
+            'horaAparelho' => $batida->getHoraAparelho(),
+            'horaChegada' => $batida->getHoraChegada(),
+            'semInternet' => $batida->isEnviadaSemInternet(),
+            'idEnvio' => $batida->getIdEnvio(),
+        ];
     }
 
     private function batidaGravada(int $id): RegistroPonto

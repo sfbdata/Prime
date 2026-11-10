@@ -36,6 +36,10 @@ class Sede implements Auditavel
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    /** Ponto E10: a sede com batida não é apagada, é encerrada; some das listas e da cerca e as batidas ficam com ela. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $removidaEm = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -108,5 +112,24 @@ class Sede implements Auditavel
     {
         $this->tenant = $tenant;
         return $this;
+    }
+
+    public function getRemovidaEm(): ?\DateTimeImmutable
+    {
+        return $this->removidaEm;
+    }
+
+    public function estaRemovida(): bool
+    {
+        return $this->removidaEm !== null;
+    }
+
+    public function encerrar(\DateTimeImmutable $em): void
+    {
+        if ($this->removidaEm !== null) {
+            throw new \LogicException('A sede já foi removida.');
+        }
+
+        $this->removidaEm = $em;
     }
 }

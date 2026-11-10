@@ -636,14 +636,12 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         // Como sempre foi: o selo olha as batidas que a folha mostra, não as que ficaram fora da conta.
         $entradaNaSede = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
-        $repeticaoEmCasa = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
-        $repeticaoEmCasa->setHomeOffice(true);
+        $repeticaoEmCasa = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $r) => $r->setHomeOffice(true));
 
         $linha = $this->linhaDoDia7([$entradaNaSede, $repeticaoEmCasa, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
         self::assertFalse($linha['homeOffice'], 'a repetição fora da conta não acende o selo');
 
-        $saidaEmCasa = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
-        $saidaEmCasa->setHomeOffice(true);
+        $saidaEmCasa = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $r) => $r->setHomeOffice(true));
         $linha = $this->linhaDoDia7([$entradaNaSede, $saidaEmCasa], []);
         self::assertTrue($linha['homeOffice'], 'a batida escolhida em home office acende o selo');
     }
@@ -652,14 +650,12 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         // E14 (spec ponto-desenho-0811): como o home office, o selo olha só as batidas que a folha mostra.
         $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
-        $repeticaoDaFila = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
-        $repeticaoDaFila->setEnviadaSemInternet(true);
+        $repeticaoDaFila = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $r) => $r->setEnviadaSemInternet(true));
 
         $linha = $this->linhaDoDia7([$entrada, $repeticaoDaFila, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
         self::assertFalse($linha['semInternet'], 'a repetição fora da conta não acende o selo');
 
-        $saidaDaFila = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
-        $saidaDaFila->setEnviadaSemInternet(true);
+        $saidaDaFila = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $r) => $r->setEnviadaSemInternet(true));
         $linha = $this->linhaDoDia7([$entrada, $saidaDaFila], []);
         self::assertTrue($linha['semInternet'], 'a batida escolhida que veio da fila acende o selo');
     }
@@ -668,14 +664,12 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         // E12 (spec ponto-desenho-0811): como o "Sem internet", o selo olha só as batidas que a folha mostra.
         $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
-        $repeticaoExterna = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
-        $repeticaoExterna->setTrabalhoExterno(true);
+        $repeticaoExterna = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $b) => $b->setTrabalhoExterno(true));
 
         $linha = $this->linhaDoDia7([$entrada, $repeticaoExterna, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
         self::assertFalse($linha['trabalhoExterno'], 'a repetição fora da conta não acende o selo');
 
-        $saidaExterna = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
-        $saidaExterna->setTrabalhoExterno(true);
+        $saidaExterna = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $b) => $b->setTrabalhoExterno(true));
         $linha = $this->linhaDoDia7([$entrada, $saidaExterna], []);
         self::assertTrue($linha['trabalhoExterno'], 'a batida escolhida de trabalho externo acende o selo');
         self::assertFalse($linha['semInternet']);
@@ -697,9 +691,13 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertSame(0, $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $this->justificativaAbonada('trabalho_externo')])['saldoDia']);
     }
 
-    private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
+    /** @param (callable(RegistroPonto): mixed)|null $antesDeGravar E10: depois do id a batida não muda mais. */
+    private function batidaComId(string $tipo, string $hora, string $data, int $id, ?callable $antesDeGravar = null): RegistroPonto
     {
         $registro = $this->batida($tipo, $hora, $data);
+        if ($antesDeGravar !== null) {
+            $antesDeGravar($registro);
+        }
         (new \ReflectionProperty(RegistroPonto::class, 'id'))->setValue($registro, $id);
 
         return $registro;

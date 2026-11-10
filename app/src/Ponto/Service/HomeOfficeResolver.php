@@ -64,6 +64,9 @@ final class HomeOfficeResolver
     private function timezoneDoTenant(Tenant $tenant): string
     {
         foreach ($tenant->getSedes() as $sede) {
+            if ($sede->estaRemovida()) {
+                continue;
+            }
             $tz = $sede->getTimezone();
             if ($tz !== null && $tz !== '') {
                 return $tz;

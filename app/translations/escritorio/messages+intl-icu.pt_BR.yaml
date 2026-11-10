@@ -220,5 +220,5 @@ escritorio:
         sede_cadastrada: Sede cadastrada com sucesso!
         sede_atualizada: Sede atualizada com sucesso!
         sede_removida: Sede removida com sucesso.
-        sede_registros_desvinculados: '{qtd} registro(s) de ponto foram desvinculados automaticamente da sede removida.'
+        sede_batidas_mantidas: As batidas já feitas nesta sede continuam no histórico com o nome dela.
         sede_nao_removida: Não foi possível remover a sede neste momento. Tente novamente.

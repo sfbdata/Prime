@@ -44,6 +44,7 @@ use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
+use App\Ponto\Service\RemocaoDaSedeDoPonto;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -2082,7 +2083,7 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenant->getId()]);
         }
 
-        $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
+        $sedes = $sedeRepository->ativasDoEscritorio($tenant);
 
         return $this->render('tenant/sedes.html.twig', [
             'tenant' => $tenant,
@@ -2122,9 +2123,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para editar sedes.');
         }
 
-        $sede = $sedeRepository->find($sedeId);
+        $sede = $sedeRepository->ativaDoEscritorio($sedeId, $tenant);
 
-        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+        if ($sede === null) {
             throw $this->createNotFoundException('Sede não encontrada.');
         }
 
@@ -2146,7 +2147,7 @@ final class TenantController extends AbstractController
         }
         $newSede  = new Sede();
         $form     = $this->createForm(SedeType::class, $newSede);
-        $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
+        $sedes    = $sedeRepository->ativasDoEscritorio($tenant);
 
         return $this->render('tenant/sedes.html.twig', [
             'tenant'   => $tenant,
@@ -2164,7 +2165,7 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
-        RegistroPontoRepository $registroPontoRepository,
+        RemocaoDaSedeDoPonto $remocaoDaSede,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository
@@ -2193,24 +2194,23 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para excluir sedes.');
         }
 
-        $sede = $sedeRepository->find($sedeId);
+        $sede = $sedeRepository->ativaDoEscritorio($sedeId, $tenant);
 
-        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+        if ($sede === null) {
             throw $this->createNotFoundException();
         }
 
+        // Ponto E10: a sede com batida é encerrada (some da lista e da cerca; as batidas ficam com ela); a sem batida sai.
         $connection = $entityManager->getConnection();
         try {
             $connection->beginTransaction();
-            $totalDesvinculados = $registroPontoRepository->desvincularSede($sede);
-            $entityManager->remove($sede);
-            $entityManager->flush();
+            $encerrada = $remocaoDaSede->remover($sede);
             $connection->commit();
 
             $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_removida'));
 
-            if ($totalDesvinculados > 0) {
-                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_registros_desvinculados', ['qtd' => (string) $totalDesvinculados]));
+            if ($encerrada) {
+                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_batidas_mantidas'));
             }
         } catch (\Throwable) {
             if ($connection->isTransactionActive()) {

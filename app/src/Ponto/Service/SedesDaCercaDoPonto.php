@@ -25,7 +25,7 @@ final class SedesDaCercaDoPonto
     public function doEscritorio(Tenant $tenant): array
     {
         $daTela = [];
-        foreach ($this->sedes->findBy(['tenant' => $tenant]) as $sede) {
+        foreach ($this->sedes->ativasDoEscritorio($tenant) as $sede) {
             if ($sede->getLatitude() === null || $sede->getLongitude() === null || (int) $sede->getRaioPermitido() <= 0) {
                 continue;
             }

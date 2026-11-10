@@ -973,8 +973,9 @@ final class PontoController extends AbstractController
                 ], 422);
             }
 
-            // E12: a cerca com a precisão (CercaDoPonto); o escritório sem sede válida fica fora do raio.
-            $posicao = $this->cerca->avaliar($sedeRepository->findBy(['tenant' => $tenant]), $latitudeFloat, $longitudeFloat, $precisaoGpsFloat);
+            // E12: a cerca com a precisão (CercaDoPonto); o escritório sem sede válida fica fora do raio. E10: só as sedes
+            // ativas (a encerrada, removida com batida, não vale para batida nova).
+            $posicao = $this->cerca->avaliar($sedeRepository->ativasDoEscritorio($tenant), $latitudeFloat, $longitudeFloat, $precisaoGpsFloat);
             if (!$posicao->estaDentro()) {
                 $permitido = $this->trabalhoExterno->permitido($tenant);
                 if (!$permitido || !TrabalhoExternoDaBatida::foiPedido($data)) {

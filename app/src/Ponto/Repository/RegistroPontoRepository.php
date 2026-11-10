@@ -6,7 +6,6 @@ use App\Entity\Auth\User;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
-use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Enum\TipoDoAjuste;
 use App\Ponto\Model\AjusteDaMarcacao;
@@ -441,25 +440,6 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
             'tenantId' => (int) $l['tenant_id'],
             'nome' => (string) $l['nome'],
         ], $linhas);
-    }
-
-    public function desvincularSede(Sede $sede): int
-    {
-        $nomeSede = $sede->getNome();
-
-        // UPDATE em massa (DQL) NÃO aplica o TenantFilter: escopo de tenant manual via a
-        // própria sede (defesa em profundidade — a sede já delimita o tenant).
-        return $this->createQueryBuilder('r')
-            ->update()
-            ->set('r.sede', 'NULL')
-            ->set('r.sedeNomeSnapshot', 'COALESCE(r.sedeNomeSnapshot, :nomeSede)')
-            ->where('r.sede = :sede')
-            ->andWhere('r.tenant = :tenant')
-            ->setParameter('nomeSede', $nomeSede)
-            ->setParameter('sede', $sede)
-            ->setParameter('tenant', $sede->getTenant())
-            ->getQuery()
-            ->execute();
     }
 
     // ---------------------------------------------------------------------------------------------------------------
