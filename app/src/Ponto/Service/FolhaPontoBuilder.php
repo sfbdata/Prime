@@ -79,7 +79,6 @@ class FolhaPontoBuilder
         $rows = [];
         $saldoAcumulado = null;
         $hoje = $hoje?->setTime(0, 0) ?? new \DateTimeImmutable('today');
-
         $inicioContagemNorm = $inicioContagem !== null
             ? \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0)
             : null;
@@ -139,9 +138,7 @@ class FolhaPontoBuilder
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
             if ($jornadaDoDia !== null) {
-                // Os que valem para a pessoa da jornada NO DIA (abrangência pela lotação que ela tinha no dia, E6).
-                $feriadosDaPessoa = $this->feriadosDaPessoa->filtrar($feriados, $jornadaDoDia->getUser(), $dia);
-                $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriadosDaPessoa);
+                [$feriadosDaPessoa, $feriadoDoDia] = $this->feriadosDaPessoaNoDia($feriados, $jornadaDoDia->getUser(), $dia);
                 if ($diaFuturo || $diaForaDaContagem) {
                     // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco
                     $row['minutosTrabalhadosDia'] = null;
@@ -243,6 +240,21 @@ class FolhaPontoBuilder
         }
 
         return $rows;
+    }
+
+    /**
+     * Os feriados que valem para a pessoa da jornada NO DIA (abrangência pela lotação que ela tinha no dia, E6) e o
+     * feriado do dia entre eles, se houver. A lista volta junto porque o saldo do dia usa a mesma.
+     *
+     * @param Feriado[] $feriados
+     *
+     * @return array{0: list<Feriado>, 1: ?Feriado}
+     */
+    private function feriadosDaPessoaNoDia(array $feriados, ?User $pessoa, \DateTimeImmutable $dia): array
+    {
+        $daPessoa = $this->feriadosDaPessoa->filtrar($feriados, $pessoa, $dia);
+
+        return [$daPessoa, $this->calculadora->getFeriadoDoDia($dia, $daPessoa)];
     }
 
     /**
