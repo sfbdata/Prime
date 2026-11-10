@@ -6,6 +6,8 @@ namespace App\Tests\AssinaturaEletronica\Support;
 
 use App\AssinaturaEletronica\Service\Cadeia\ResultadoDaCadeia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\AssinaturaConferida;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDePdf;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoAcrescimo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoCpf;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoPrefixo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
@@ -20,6 +22,7 @@ final class CadeiaDeExemplo
 {
     public const FAIXA = [0, 840, 960, 1200];
     public const FAIXA_ANTIGA = [0, 100, 200, 300];
+    public const FAIXA_DO_CARIMBO = [0, 1300, 1400, 600];
     public const SHA = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
     /**
@@ -91,9 +94,24 @@ final class CadeiaDeExemplo
         );
     }
 
-    /** @param list<int> $faixa */
-    public static function assinaturaDoMotor(array $faixa = self::FAIXA, VereditoDaAssinatura $veredito = VereditoDaAssinatura::Integra, int $ordem = 1): AssinaturaConferida
+    /**
+     * O carimbo de documento (`/DocTimeStamp`) do motor, na faixa dada.
+     *
+     * @param list<int> $faixa
+     */
+    public static function carimboDoMotor(array $faixa = self::FAIXA_DO_CARIMBO, int $ordem = 2): AssinaturaConferida
     {
+        return self::assinaturaDoMotor($faixa, ordem: $ordem, tipo: ConferenciaDePdf::TIPO_CARIMBO_DO_TEMPO);
+    }
+
+    /** @param list<int> $faixa */
+    public static function assinaturaDoMotor(
+        array $faixa = self::FAIXA,
+        VereditoDaAssinatura $veredito = VereditoDaAssinatura::Integra,
+        int $ordem = 1,
+        string $tipo = 'PAdES',
+        ConferenciaDoAcrescimo $acrescimo = ConferenciaDoAcrescimo::NaoSeAplica,
+    ): AssinaturaConferida {
         return new AssinaturaConferida(
             ordem: $ordem,
             faixaDeBytes: $faixa,
@@ -101,7 +119,7 @@ final class CadeiaDeExemplo
             fim: $faixa[2] + $faixa[3],
             cobreODocumento: true,
             bytesDepois: 0,
-            tipo: 'PAdES',
+            tipo: $tipo,
             algoritmoDoResumo: 'SHA-256',
             resumoConfere: $veredito === VereditoDaAssinatura::Integra,
             chaveConfere: $veredito === VereditoDaAssinatura::Integra,
@@ -118,6 +136,8 @@ final class CadeiaDeExemplo
             docMdp: null,
             veredito: $veredito,
             motivo: 'exemplo',
+            acrescimo: $acrescimo,
+            motivoDoAcrescimo: $acrescimo === ConferenciaDoAcrescimo::NaoSeAplica ? null : 'exemplo',
         );
     }
 }

@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Service\Cadeia;
 
 use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\AssinaturaConferida;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoAcrescimo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoPrefixo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\SituacaoDaConferencia;
@@ -15,15 +16,21 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\VereditoDaAssinatura;
  * A regra de combinação do motor com o validador de cadeia (E6-6, spec `docs/specs/assinatura-documentos-etapa-6.md`).
  *
  * Antes do validador ({@see antesDoValidador()}): motor `ilegivel` ou `sem_assinatura`, alguma assinatura `alterada`,
- * prefixo que não confere ou nenhuma assinatura nova recusam sem chamá-lo.
+ * prefixo que não confere ou não pedido (E5-1), nenhuma assinatura nova, ou assinatura nova com acréscimo
+ * `muda_conteudo` ou motor `nao_conferido` (M27: quem muda a página no próprio acréscimo assina o conteúdo mudado, e o
+ * pyHanko não vê) recusam sem chamá-lo. O carimbo de documento (`/DocTimeStamp`,
+ * {@see AssinaturaConferida::carimboDoTempo()}) não conta como assinatura nova: não vai ao validador nem dá CPF.
  *
- * Depois ({@see decidir()}): cada assinatura nova do motor (as últimas `assinaturasNovas`) tem de casar pela faixa com
- * um item do validador `intacta`, `valida`, `confiavel` com a âncora do nível (ICP também vale para quem é gov.br),
- * revogação `boa`, nível de modificação até `formulario`, cobertura do arquivo inteiro e `docmdp_ok` não falso. O
- * `motivo` do validador nunca decide (nulo não quer dizer aceito): ele fica no item gravado, para o log.
+ * Depois ({@see decidir()}): cada assinatura nova do motor (as últimas `assinaturasNovas`, sem o carimbo) tem de casar
+ * pela faixa com um item do validador `intacta`, `valida`, `confiavel` com a âncora do nível (ICP também vale para quem
+ * é gov.br), revogação `boa` e `docmdp_ok` não falso. E o que veio depois dela: a última assinatura nova cobre o
+ * `arquivo_inteiro` ou a `revisao_inteira` com `nivel_de_modificacao` `ltv` (DSS e carimbo de documento depois); a
+ * assinatura nova seguida de outra nova também pode cobrir a `revisao_inteira` com `formulario`. O `arquivo_inteiro`
+ * só vale com `nenhuma` (nada veio depois): outra combinação é contraditória e recusa. O `motivo` do validador nunca
+ * decide (nulo não quer dizer aceito): ele fica no item gravado, para o log.
  *
- * Os códigos de recusa seguem a ordem do validador (integridade, assinatura, confiança, revogação, modificação,
- * cobertura, DocMDP).
+ * Os códigos de recusa seguem a ordem do validador (integridade, assinatura, confiança, revogação, DocMDP, e o que veio
+ * depois: cobertura e modificação).
  */
 final class RegraDaCadeia
 {
@@ -31,19 +38,25 @@ final class RegraDaCadeia
     public const SEM_ASSINATURA = 'sem_assinatura';
     public const ASSINATURA_ALTERADA = 'assinatura_alterada';
     public const PREFIXO_NAO_CONFERE = 'prefixo_nao_confere';
+    public const PREFIXO_NAO_PEDIDO = 'prefixo_nao_pedido';
     public const SEM_ASSINATURA_NOVA = 'sem_assinatura_nova';
+    public const ACRESCIMO_MUDA_CONTEUDO = 'acrescimo_muda_conteudo';
+    public const MOTOR_NAO_CONFERIDO = 'motor_nao_conferido';
     public const NAO_CONFERIDA = 'assinatura_nao_conferida';
     public const NAO_INTACTA = 'assinatura_nao_intacta';
     public const INVALIDA = 'assinatura_invalida';
     public const NAO_CONFIAVEL = 'cadeia_nao_confiavel';
     public const ANCORA_DE_OUTRO_NIVEL = 'ancora_de_outro_nivel';
     public const REVOGACAO_NAO_BOA = 'revogacao_nao_boa';
-    public const MODIFICACAO_NAO_PERMITIDA = 'modificacao_nao_permitida';
-    public const COBERTURA_PARCIAL = 'cobertura_parcial';
     public const DOCMDP_VIOLADO = 'docmdp_violado';
+    public const COBERTURA_PARCIAL = 'cobertura_parcial';
+    public const MODIFICACAO_NAO_PERMITIDA = 'modificacao_nao_permitida';
 
-    /** Até onde a modificação depois da assinatura é aceita. */
-    private const MODIFICACOES_ACEITAS = [ModificacaoDaCadeia::Nenhuma, ModificacaoDaCadeia::Ltv, ModificacaoDaCadeia::Formulario];
+    /** O que pode vir depois da última assinatura nova, cobrindo a revisão inteira: só DSS e carimbo de documento. */
+    private const DEPOIS_DA_ULTIMA = [ModificacaoDaCadeia::Ltv];
+
+    /** O que pode vir depois da assinatura nova seguida de outra nova: também o preenchimento e a assinatura do campo. */
+    private const DEPOIS_DE_OUTRA_NOVA = [ModificacaoDaCadeia::Ltv, ModificacaoDaCadeia::Formulario];
 
     /**
      * A âncora que se pede ao validador para o nível: ICP só a ICP-Brasil; gov.br a gov.br ou a ICP-Brasil.
@@ -59,15 +72,38 @@ final class RegraDaCadeia
         };
     }
 
+    /**
+     * As assinaturas novas que o validador decide: as últimas `assinaturasNovas` do motor (ele as ordena da mais antiga
+     * para a mais nova), sem o carimbo de documento.
+     *
+     * @return list<AssinaturaConferida>
+     */
+    public static function novas(ResultadoDaConferencia $motor): array
+    {
+        if ($motor->assinaturasNovas < 1) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            \array_slice($motor->assinaturas, -$motor->assinaturasNovas),
+            static fn (AssinaturaConferida $assinatura): bool => !$assinatura->carimboDoTempo(),
+        ));
+    }
+
     /** O motivo de recusar sem chamar o validador; nulo quando o validador decide. */
     public function antesDoValidador(ResultadoDaConferencia $motor): ?string
     {
+        $novas = self::novas($motor);
+
         return match (true) {
             $motor->situacao === SituacaoDaConferencia::Ilegivel => self::MOTOR_ILEGIVEL,
             $motor->situacao === SituacaoDaConferencia::SemAssinatura, !$motor->temAssinatura() => self::SEM_ASSINATURA,
             $motor->situacao === SituacaoDaConferencia::Alterado, self::algumaAlterada($motor) => self::ASSINATURA_ALTERADA,
             $motor->prefixo === ConferenciaDoPrefixo::NaoConfere => self::PREFIXO_NAO_CONFERE,
-            $motor->assinaturasNovas < 1 => self::SEM_ASSINATURA_NOVA,
+            $motor->prefixo === ConferenciaDoPrefixo::NaoPedida => self::PREFIXO_NAO_PEDIDO,
+            $novas === [] => self::SEM_ASSINATURA_NOVA,
+            self::algumaMudaConteudo($novas) => self::ACRESCIMO_MUDA_CONTEUDO,
+            $motor->situacao === SituacaoDaConferencia::NaoConferido => self::MOTOR_NAO_CONFERIDO,
             default => null,
         };
     }
@@ -83,12 +119,14 @@ final class RegraDaCadeia
             return DecisaoDaCadeia::recusada($cadeia->erro, $cadeia);
         }
         $ancoras = self::ancorasAceitas($nivel);
-        foreach (self::novas($motor) as $nova) {
+        $novas = self::novas($motor);
+        $ultima = \count($novas) - 1;
+        foreach ($novas as $posicao => $nova) {
             $conferida = $cadeia->daFaixa($nova->faixaDeBytes);
             if ($conferida === null) {
                 return DecisaoDaCadeia::recusada(self::NAO_CONFERIDA, $cadeia);
             }
-            $motivo = self::problema($conferida, $ancoras);
+            $motivo = self::problema($conferida, $ancoras) ?? self::depois($conferida, $posicao === $ultima);
             if ($motivo !== null) {
                 return DecisaoDaCadeia::recusada($motivo, $cadeia, $conferida);
             }
@@ -106,10 +144,20 @@ final class RegraDaCadeia
             !$assinatura->confiavel => self::NAO_CONFIAVEL,
             !\in_array($assinatura->ancora, $ancoras, true) => self::ANCORA_DE_OUTRO_NIVEL,
             $assinatura->revogacao !== RevogacaoDaCadeia::Boa => self::REVOGACAO_NAO_BOA,
-            !\in_array($assinatura->nivelDeModificacao, self::MODIFICACOES_ACEITAS, true) => self::MODIFICACAO_NAO_PERMITIDA,
-            $assinatura->cobertura !== CoberturaDaCadeia::ArquivoInteiro => self::COBERTURA_PARCIAL,
             $assinatura->docmdpOk === false => self::DOCMDP_VIOLADO,
             default => null,
+        };
+    }
+
+    /** O que veio depois da assinatura: a cobertura e o nível de modificação aceitos para a posição dela. */
+    private static function depois(AssinaturaDaCadeia $assinatura, bool $ultima): ?string
+    {
+        return match ($assinatura->cobertura) {
+            CoberturaDaCadeia::ArquivoInteiro => $assinatura->nivelDeModificacao === ModificacaoDaCadeia::Nenhuma ? null : self::MODIFICACAO_NAO_PERMITIDA,
+            CoberturaDaCadeia::RevisaoInteira => \in_array($assinatura->nivelDeModificacao, $ultima ? self::DEPOIS_DA_ULTIMA : self::DEPOIS_DE_OUTRA_NOVA, true)
+                ? null
+                : self::MODIFICACAO_NAO_PERMITIDA,
+            CoberturaDaCadeia::Parcial => self::COBERTURA_PARCIAL,
         };
     }
 
@@ -121,16 +169,22 @@ final class RegraDaCadeia
             : [ValidadorDeCadeia::ANCORA_GOVBR, ValidadorDeCadeia::ANCORA_ICP];
     }
 
-    /** @return list<AssinaturaConferida> as últimas `assinaturasNovas` (o motor as ordena da mais antiga para a mais nova) */
-    private static function novas(ResultadoDaConferencia $motor): array
-    {
-        return \array_slice($motor->assinaturas, -$motor->assinaturasNovas);
-    }
-
     private static function algumaAlterada(ResultadoDaConferencia $motor): bool
     {
         foreach ($motor->assinaturas as $assinatura) {
             if ($assinatura->veredito === VereditoDaAssinatura::Alterada) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<AssinaturaConferida> $novas */
+    private static function algumaMudaConteudo(array $novas): bool
+    {
+        foreach ($novas as $nova) {
+            if ($nova->acrescimo === ConferenciaDoAcrescimo::MudaConteudo) {
                 return true;
             }
         }

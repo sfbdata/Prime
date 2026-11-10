@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
 use App\AssinaturaEletronica\Enum\SituacaoDaCadeia;
 use App\AssinaturaEletronica\Service\Cadeia\RegraDaCadeia;
 use App\AssinaturaEletronica\Service\Cadeia\ResultadoDaCadeia;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoAcrescimo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ConferenciaDoPrefixo;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\ResultadoDaConferencia;
 use App\AssinaturaEletronica\Service\ConferenciaDePdf\SituacaoDaConferencia;
@@ -21,7 +22,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A regra da E6-6 (etapa 6, bloco 6B): o que recusa antes do validador e a combinação do motor com a resposta dele,
- * por nível.
+ * por nível e pela posição da assinatura nova.
  */
 #[CoversClass(RegraDaCadeia::class)]
 #[Group('assinatura')]
@@ -60,18 +61,25 @@ final class RegraDaCadeiaTest extends TestCase
     public static function antes(): iterable
     {
         $boa = CadeiaDeExemplo::assinaturaDoMotor();
+        $antiga = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA);
         $alterada = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, VereditoDaAssinatura::Alterada);
+        $mudaConteudo = CadeiaDeExemplo::assinaturaDoMotor(ordem: 2, acrescimo: ConferenciaDoAcrescimo::MudaConteudo);
 
         yield 'íntegro com uma nova: o validador decide' => [CadeiaDeExemplo::motor([$boa]), null];
-        yield 'não conferido pelo motor: o validador decide' => [CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor(veredito: VereditoDaAssinatura::NaoConferida)], situacao: SituacaoDaConferencia::NaoConferido), null];
-        yield 'prefixo não pedido: o validador decide' => [CadeiaDeExemplo::motor([$boa], prefixo: ConferenciaDoPrefixo::NaoPedida), null];
+        yield 'nova com acréscimo só da assinatura: o validador decide' => [CadeiaDeExemplo::motor([$antiga, CadeiaDeExemplo::assinaturaDoMotor(ordem: 2, acrescimo: ConferenciaDoAcrescimo::SoAssinatura)]), null];
+        yield 'nova seguida do carimbo de documento: o validador decide' => [CadeiaDeExemplo::motor([$boa, CadeiaDeExemplo::carimboDoMotor()], novas: 2), null];
         yield 'ilegível' => [CadeiaDeExemplo::motor([], situacao: SituacaoDaConferencia::Ilegivel), RegraDaCadeia::MOTOR_ILEGIVEL];
         yield 'sem assinatura' => [CadeiaDeExemplo::motor([], situacao: SituacaoDaConferencia::SemAssinatura), RegraDaCadeia::SEM_ASSINATURA];
         yield 'íntegro sem assinatura nenhuma' => [CadeiaDeExemplo::motor([]), RegraDaCadeia::SEM_ASSINATURA];
         yield 'alterado' => [CadeiaDeExemplo::motor([$boa], situacao: SituacaoDaConferencia::Alterado), RegraDaCadeia::ASSINATURA_ALTERADA];
         yield 'uma antiga alterada, mesmo com a situação íntegra' => [CadeiaDeExemplo::motor([$alterada, $boa]), RegraDaCadeia::ASSINATURA_ALTERADA];
         yield 'prefixo que não confere' => [CadeiaDeExemplo::motor([$boa], prefixo: ConferenciaDoPrefixo::NaoConfere), RegraDaCadeia::PREFIXO_NAO_CONFERE];
+        yield 'prefixo não pedido (E5-1)' => [CadeiaDeExemplo::motor([$boa], prefixo: ConferenciaDoPrefixo::NaoPedida), RegraDaCadeia::PREFIXO_NAO_PEDIDO];
         yield 'nenhuma assinatura nova' => [CadeiaDeExemplo::motor([$boa], novas: 0), RegraDaCadeia::SEM_ASSINATURA_NOVA];
+        yield 'só o carimbo de documento é novo' => [CadeiaDeExemplo::motor([$antiga, CadeiaDeExemplo::carimboDoMotor()]), RegraDaCadeia::SEM_ASSINATURA_NOVA];
+        yield 'nova com acréscimo que muda o conteúdo (M27)' => [CadeiaDeExemplo::motor([$antiga, $mudaConteudo]), RegraDaCadeia::ACRESCIMO_MUDA_CONTEUDO];
+        yield 'acréscimo que muda o conteúdo vem antes do motor não conferido' => [CadeiaDeExemplo::motor([$antiga, $mudaConteudo], situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::ACRESCIMO_MUDA_CONTEUDO];
+        yield 'motor não conferido' => [CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor(veredito: VereditoDaAssinatura::NaoConferida)], situacao: SituacaoDaConferencia::NaoConferido), RegraDaCadeia::MOTOR_NAO_CONFERIDO];
     }
 
     #[DataProvider('antes')]
@@ -79,6 +87,16 @@ final class RegraDaCadeiaTest extends TestCase
     public function testAntesDoValidador(ResultadoDaConferencia $motor, ?string $esperado): void
     {
         self::assertSame($esperado, $this->regra->antesDoValidador($motor));
+    }
+
+    #[TestDox('as novas são as últimas assinaturasNovas do motor, sem o carimbo de documento')]
+    public function testNovasSemOCarimbo(): void
+    {
+        $antiga = CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA);
+        $nova = CadeiaDeExemplo::assinaturaDoMotor(ordem: 2);
+
+        self::assertSame([$nova], RegraDaCadeia::novas(CadeiaDeExemplo::motor([$antiga, $nova, CadeiaDeExemplo::carimboDoMotor(ordem: 3)], novas: 2)));
+        self::assertSame([], RegraDaCadeia::novas(CadeiaDeExemplo::motor([$antiga], novas: 0)));
     }
 
     #[TestDox('decidir() repete a recusa do motor, mas guarda a resposta do validador para a E6-7')]
@@ -125,12 +143,10 @@ final class RegraDaCadeiaTest extends TestCase
         yield 'âncora govbr para ICP' => [['ancora' => 'govbr'], RegraDaCadeia::ANCORA_DE_OUTRO_NIVEL];
         yield 'revogada' => [['revogacao' => 'revogada'], RegraDaCadeia::REVOGACAO_NAO_BOA];
         yield 'revogação desconhecida' => [['revogacao' => 'desconhecida'], RegraDaCadeia::REVOGACAO_NAO_BOA];
-        yield 'anotações depois' => [['nivel_de_modificacao' => 'anotacoes'], RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
-        yield 'outra modificação' => [['nivel_de_modificacao' => 'outra'], RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
-        yield 'cobre só a revisão' => [['cobertura' => 'revisao_inteira'], RegraDaCadeia::COBERTURA_PARCIAL];
-        yield 'cobertura parcial' => [['cobertura' => 'parcial'], RegraDaCadeia::COBERTURA_PARCIAL];
         yield 'DocMDP violado' => [['docmdp_ok' => false], RegraDaCadeia::DOCMDP_VIOLADO];
+        yield 'cobertura parcial' => [['cobertura' => 'parcial'], RegraDaCadeia::COBERTURA_PARCIAL];
         yield 'a primeira falha vale (integridade antes da revogação)' => [['intacta' => false, 'revogacao' => 'revogada'], RegraDaCadeia::NAO_INTACTA];
+        yield 'DocMDP antes do que veio depois' => [['docmdp_ok' => false, 'cobertura' => 'parcial'], RegraDaCadeia::DOCMDP_VIOLADO];
     }
 
     #[DataProvider('itensRecusados')]
@@ -150,17 +166,96 @@ final class RegraDaCadeiaTest extends TestCase
         self::assertSame(CadeiaDeExemplo::FAIXA, $decisao->recusada->faixa);
     }
 
-    #[TestDox('modificação ltv e formulário e docmdp_ok verdadeiro passam')]
-    public function testModificacoesAceitas(): void
+    /** @return iterable<string, array{string, string, ?string}> */
+    public static function depoisDaUltima(): iterable
     {
-        foreach ([['nivel_de_modificacao' => 'ltv'], ['nivel_de_modificacao' => 'formulario'], ['docmdp_ok' => true]] as $troca) {
-            $decisao = $this->regra->decidir(
-                CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor()]),
-                NivelDeAssinatura::Icp,
-                CadeiaDeExemplo::resultado([CadeiaDeExemplo::item($troca)]),
-            );
-            self::assertTrue($decisao->confirmou(), (string) json_encode($troca));
-        }
+        yield 'arquivo inteiro, nada depois' => ['arquivo_inteiro', 'nenhuma', null];
+        yield 'revisão inteira com DSS e carimbo depois (ltv)' => ['revisao_inteira', 'ltv', null];
+        yield 'revisão inteira com formulário depois' => ['revisao_inteira', 'formulario', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'revisão inteira com anotações depois' => ['revisao_inteira', 'anotacoes', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'revisão inteira com outra mudança depois' => ['revisao_inteira', 'outra', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'revisão inteira sem nada depois (contraditório)' => ['revisao_inteira', 'nenhuma', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'arquivo inteiro com mudança depois (contraditório)' => ['arquivo_inteiro', 'ltv', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'parcial com ltv' => ['parcial', 'ltv', RegraDaCadeia::COBERTURA_PARCIAL];
+    }
+
+    #[DataProvider('depoisDaUltima')]
+    #[TestDox('o que veio depois da última assinatura nova ($_dataName)')]
+    public function testDepoisDaUltima(string $cobertura, string $modificacao, ?string $motivo): void
+    {
+        $decisao = $this->regra->decidir(
+            CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor()]),
+            NivelDeAssinatura::Icp,
+            CadeiaDeExemplo::resultado([CadeiaDeExemplo::item(['cobertura' => $cobertura, 'nivel_de_modificacao' => $modificacao])]),
+        );
+
+        self::assertSame($motivo, $decisao->motivo);
+        self::assertSame($motivo === null, $decisao->confirmou());
+    }
+
+    /** @return iterable<string, array{string, string, ?string}> */
+    public static function depoisDeOutraNova(): iterable
+    {
+        yield 'revisão inteira com o campo da outra assinada depois (formulário)' => ['revisao_inteira', 'formulario', null];
+        yield 'revisão inteira com ltv' => ['revisao_inteira', 'ltv', null];
+        yield 'revisão inteira com anotações depois' => ['revisao_inteira', 'anotacoes', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'revisão inteira com outra mudança depois' => ['revisao_inteira', 'outra', RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA];
+        yield 'parcial' => ['parcial', 'formulario', RegraDaCadeia::COBERTURA_PARCIAL];
+    }
+
+    #[DataProvider('depoisDeOutraNova')]
+    #[TestDox('duas novas: o que veio depois da primeira, seguida da outra nova ($_dataName)')]
+    public function testDepoisDeOutraNova(string $cobertura, string $modificacao, ?string $motivo): void
+    {
+        $motor = CadeiaDeExemplo::motor([
+            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, ordem: 1),
+            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA, ordem: 2),
+        ], novas: 2);
+        $cadeia = CadeiaDeExemplo::resultado([
+            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'cobertura' => $cobertura, 'nivel_de_modificacao' => $modificacao]),
+            CadeiaDeExemplo::item(),
+        ]);
+
+        $decisao = $this->regra->decidir($motor, NivelDeAssinatura::Icp, $cadeia);
+
+        self::assertSame($motivo, $decisao->motivo);
+        self::assertSame($motivo === null ? null : CadeiaDeExemplo::FAIXA_ANTIGA, $decisao->recusada?->faixa);
+    }
+
+    #[TestDox('duas novas: a última segue com a regra da última (formulário depois dela recusa)')]
+    public function testDuasNovasAUltimaSegueARegraDaUltima(): void
+    {
+        $motor = CadeiaDeExemplo::motor([
+            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, ordem: 1),
+            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA, ordem: 2),
+        ], novas: 2);
+        $cadeia = CadeiaDeExemplo::resultado([
+            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'cobertura' => 'revisao_inteira', 'nivel_de_modificacao' => 'formulario']),
+            CadeiaDeExemplo::item(['cobertura' => 'revisao_inteira', 'nivel_de_modificacao' => 'formulario']),
+        ]);
+
+        $decisao = $this->regra->decidir($motor, NivelDeAssinatura::Icp, $cadeia);
+
+        self::assertSame(RegraDaCadeia::MODIFICACAO_NAO_PERMITIDA, $decisao->motivo);
+        self::assertSame(CadeiaDeExemplo::FAIXA, $decisao->recusada?->faixa);
+    }
+
+    #[TestDox('o carimbo de documento novo não vai ao validador: sem item para ele, a nova antes dele confirma com ltv')]
+    public function testCarimboDeDocumentoNaoEConferido(): void
+    {
+        $motor = CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor(), CadeiaDeExemplo::carimboDoMotor()], novas: 2);
+        $cadeia = CadeiaDeExemplo::resultado([CadeiaDeExemplo::item(['cobertura' => 'revisao_inteira', 'nivel_de_modificacao' => 'ltv'])]);
+
+        self::assertTrue($this->regra->decidir($motor, NivelDeAssinatura::Icp, $cadeia)->confirmou());
+    }
+
+    #[TestDox('docmdp_ok verdadeiro ou nulo passa')]
+    public function testDocMdp(): void
+    {
+        $motor = CadeiaDeExemplo::motor([CadeiaDeExemplo::assinaturaDoMotor()]);
+
+        self::assertTrue($this->regra->decidir($motor, NivelDeAssinatura::Icp, CadeiaDeExemplo::resultado([CadeiaDeExemplo::item(['docmdp_ok' => true])]))->confirmou());
+        self::assertTrue($this->regra->decidir($motor, NivelDeAssinatura::Icp, CadeiaDeExemplo::resultado([CadeiaDeExemplo::item(['docmdp_ok' => null])]))->confirmou());
     }
 
     #[TestDox('o motivo do validador não decide: item que passa com motivo preenchido confirma; item que falha com motivo nulo recusa')]
@@ -198,25 +293,25 @@ final class RegraDaCadeiaTest extends TestCase
     {
         $motor = CadeiaDeExemplo::motor([
             CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, ordem: 1),
-            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA, ordem: 2),
+            CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA, ordem: 2, acrescimo: ConferenciaDoAcrescimo::SoAssinatura),
         ]);
         $cadeia = CadeiaDeExemplo::resultado([
-            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'confiavel' => false, 'ancora' => null, 'cobertura' => 'revisao_inteira']),
+            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'confiavel' => false, 'ancora' => null, 'cobertura' => 'revisao_inteira', 'nivel_de_modificacao' => 'anotacoes']),
             CadeiaDeExemplo::item(),
         ]);
 
         self::assertTrue($this->regra->decidir($motor, NivelDeAssinatura::Icp, $cadeia)->confirmou());
     }
 
-    #[TestDox('duas novas: as duas precisam passar')]
-    public function testDuasNovas(): void
+    #[TestDox('duas novas: a primeira reprovada pelo validador recusa, com a faixa dela')]
+    public function testDuasNovasAsDuasPrecisamPassar(): void
     {
         $motor = CadeiaDeExemplo::motor([
             CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA_ANTIGA, ordem: 1),
             CadeiaDeExemplo::assinaturaDoMotor(CadeiaDeExemplo::FAIXA, ordem: 2),
         ], novas: 2);
         $cadeia = CadeiaDeExemplo::resultado([
-            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'revogacao' => 'revogada']),
+            CadeiaDeExemplo::item(['faixa' => CadeiaDeExemplo::FAIXA_ANTIGA, 'revogacao' => 'revogada', 'cobertura' => 'revisao_inteira', 'nivel_de_modificacao' => 'formulario']),
             CadeiaDeExemplo::item(),
         ]);
 

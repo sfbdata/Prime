@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Service\Cadeia;
 
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpClient\Exception\InvalidArgumentException as PedidoInvalido;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -15,8 +16,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * `docs/specs/assinatura-documentos-etapa-6.md`). Cliente HTTP nomeado `assinatura_validador.client`
  * (`config/packages/assinatura_eletronica.yaml`): 45 s de teto e nenhum redirecionamento.
  *
- * Configuração (E6-4): `ASSINATURA_VALIDADOR_URL` e `ASSINATURA_VALIDADOR_TOKEN`, sem os espaços das pontas; vazia ou
- * só com espaços = não configurado, e o envio recusa gov.br e ICP.
+ * Configuração (E6-4): `ASSINATURA_VALIDADOR_URL` e `ASSINATURA_VALIDADOR_TOKEN`, sem os espaços das pontas (também
+ * o `\x0C`); vazia ou só com espaços = não configurado, e o envio recusa gov.br e ICP. A URL que o cliente HTTP não
+ * aceita (sem `http://`, por exemplo) é erro de configuração.
  *
  * As respostas seguem as classes da seção 2.1:
  * - **resultado**: `200` com as assinaturas conferidas;
@@ -25,8 +27,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * - **passageiro**: `500 erro_interno`, `503 ocupado`, `503 tempo_esgotado`, `503 ancoras_indisponiveis`, falha de
  *   transporte e tempo do cliente esgotado viram {@see CadeiaIndisponivel}, com aviso no log;
  * - **cliente ou configuração**: o resto (`401`, `404`, `405`, `411`, `400 parametro_invalido`, a resposta em HTML da
- *   biblioteca do validador, um redirecionamento, o `200` fora do protocolo) também vira {@see CadeiaIndisponivel},
- *   com erro no log: é um problema do nosso lado.
+ *   biblioteca do validador, um redirecionamento, o `200` fora do protocolo, a URL que o cliente HTTP recusa) também
+ *   vira {@see CadeiaIndisponivel}, com erro no log: é um problema do nosso lado.
  *
  * O log leva só rota, âncora, situação, código do erro, tamanho e tempo; nunca o PDF, o token ou o corpo da resposta.
  */
@@ -40,6 +42,9 @@ final class HttpValidadorDeCadeia implements ValidadorDeCadeia
     private const ROTA = '/v1/conferir';
 
     private const ANCORAS = [self::ANCORA_ICP, self::ANCORA_GOVBR, self::ANCORA_QUALQUER];
+
+    /** Os espaços das pontas que saem da URL e do token: os do `trim()` padrão e o `\x0C` (avanço de página). */
+    private const ESPACOS = " \t\n\r\0\x0B\x0C";
 
     /** @var array<int, list<string>> situação => códigos que não mudam se o mesmo PDF for mandado de novo */
     private const DEFINITIVOS = [
@@ -66,8 +71,8 @@ final class HttpValidadorDeCadeia implements ValidadorDeCadeia
         #[Autowire(env: 'ASSINATURA_VALIDADOR_TOKEN')]
         string $token,
     ) {
-        $this->url = rtrim(trim($url), '/');
-        $this->token = trim($token);
+        $this->url = rtrim(trim($url, self::ESPACOS), '/');
+        $this->token = trim($token, self::ESPACOS);
     }
 
     public function configurado(): bool
@@ -98,7 +103,8 @@ final class HttpValidadorDeCadeia implements ValidadorDeCadeia
     }
 
     /**
-     * O `POST` do protocolo; falha de transporte ou tempo do cliente esgotado é passageiro.
+     * O `POST` do protocolo; falha de transporte ou tempo do cliente esgotado é passageiro. O pedido que o cliente HTTP
+     * recusa antes de enviar (a URL sem esquema) é configuração: a exceção dele também é de transporte, então vem antes.
      *
      * @param array<string, mixed> $contexto
      *
@@ -116,6 +122,10 @@ final class HttpValidadorDeCadeia implements ValidadorDeCadeia
             ]);
 
             return [$resposta->getStatusCode(), $resposta->getContent(false), $resposta->getHeaders(false)['content-type'][0] ?? ''];
+        } catch (PedidoInvalido $falha) {
+            $this->logger->error('Validador de cadeia: o cliente HTTP recusou o pedido (configuração).', $contexto + ['falha' => $falha::class]);
+
+            throw new CadeiaIndisponivel('O validador de cadeia está mal configurado.', 0, $falha);
         } catch (TransportExceptionInterface $falha) {
             $this->logger->warning('Validador de cadeia fora do ar ou sem resposta a tempo.', $contexto + [
                 'ms' => self::ms($inicio),

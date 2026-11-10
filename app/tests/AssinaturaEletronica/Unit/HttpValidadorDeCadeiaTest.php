@@ -45,6 +45,8 @@ final class HttpValidadorDeCadeiaTest extends TestCase
         yield 'as duas vazias' => ['', '', false];
         yield 'sem token' => [self::URL, '', false];
         yield 'token só com espaços (trim)' => [self::URL, "  \t ", false];
+        yield 'token só com avanço de página (\x0C)' => [self::URL, "\x0C \x0C", false];
+        yield 'token e URL com avanço de página nas pontas' => ["\x0C" . self::URL . "\x0C", "\x0C" . self::TOKEN . "\x0C\n", true];
         yield 'URL só com espaços' => ['   ', self::TOKEN, false];
         yield 'sem URL' => ['', self::TOKEN, false];
     }
@@ -86,6 +88,35 @@ final class HttpValidadorDeCadeiaTest extends TestCase
         self::assertCount(1, $resultado->assinaturas);
         self::assertSame('Signature1', $resultado->assinaturas[0]->campo);
         self::assertSame(CadeiaDeExemplo::corpo([CadeiaDeExemplo::item()]), $resultado->paraJson(), 'o JSON volta igual (vai para a coluna cadeia)');
+    }
+
+    #[TestDox('o token sem o \x0C das pontas vai no Bearer')]
+    public function testTokenSemAvancoDePagina(): void
+    {
+        $cabecalhos = [];
+        $http = new MockHttpClient(static function (string $metodo, string $url, array $opcoes) use (&$cabecalhos): MockResponse {
+            $cabecalhos = $opcoes['headers'];
+
+            return self::json(200, CadeiaDeExemplo::corpo([]));
+        });
+
+        $this->validador($http, self::URL, "\x0C" . self::TOKEN . "\x0C")->conferir(self::PDF, 'icp');
+
+        self::assertContains('Authorization: Bearer ' . self::TOKEN, $cabecalhos);
+    }
+
+    #[TestDox('URL que o cliente HTTP recusa (sem http://): CadeiaIndisponivel com erro no log (configuração), não aviso de passageiro')]
+    public function testUrlSemEsquema(): void
+    {
+        try {
+            // Sem a base padrão do MockHttpClient (https://example.com): a URL relativa falha como no cliente real.
+            $this->validador(new MockHttpClient(self::json(200, CadeiaDeExemplo::corpo([])), null), 'validador_pdf')->conferir(self::PDF, 'icp');
+            self::fail('Devia lançar CadeiaIndisponivel.');
+        } catch (CadeiaIndisponivel) {
+        }
+
+        self::assertTrue($this->log->hasErrorRecords());
+        self::assertFalse($this->log->hasWarningRecords());
     }
 
     #[TestDox('âncora fora de icp, govbr e qualquer: InvalidArgumentException, sem pedido')]
