@@ -94,6 +94,9 @@ final class PontoController extends AbstractController
     /** Abas do cartão da direita, na ordem do desenho (L758); a primeira abre ao entrar (P37). As das etapas seguintes vêm depois. */
     private const ABAS_DO_CARTAO = ['pendencias', 'justificativas', 'comprovantes', 'banco', 'equipe', 'auditoria', 'configuracoes'];
 
+    /** Dias seguidos com registro que o descanso semanal da folha aceita (desenho L693: `maxRun <= 6`). */
+    private const DIAS_SEGUIDOS_SEM_DESCANSO = 6;
+
     /** Recusa da exclusão (P41) para a resposta HTTP: outro escritório não existe para quem pede. */
     private const RESPOSTA_DA_RECUSA = [
         ExclusaoDeJustificativaRecusadaException::NAO_ENCONTRADA    => Response::HTTP_NOT_FOUND,
@@ -1202,18 +1205,15 @@ final class PontoController extends AbstractController
     }
 
     /**
-     * A resposta das regras de intervalo antes de gravar (spec ponto-desenho-0811 P21 e E11). Com a chave `ponto-alertas`
-     * desligada, a recusa de antes (422). Com ela ligada, o alerta volta sem gravar (200, `success: false`, `alerta`) para
-     * a tela abrir a janela "Antes de registrar"; o "Registrar assim mesmo" manda de novo com `confirmarAlerta`. A batida
-     * da fila sem internet grava sem a janela, que não há como mostrar no toque, e nunca fica presa no alerta.
+     * A resposta das regras de intervalo antes de gravar (spec ponto-desenho-0811 P21 e E11). Nada recusa: o alerta volta
+     * sem gravar (200, `success: false`, `alerta`) para a tela abrir a janela "Antes de registrar", e o "Registrar assim
+     * mesmo" manda de novo com `confirmarAlerta`. Com a chave `ponto-alertas` desligada não há alerta, e a batida grava
+     * direto. A batida da fila sem internet grava sem a janela, que não há como mostrar no toque, e nunca fica presa.
      *
      * @param array<mixed> $dados o JSON da batida
      */
     private function respostaDoIntervalo(IntervaloDaBatida $intervalo, EnvioLidoDaBatida $envio, array $dados): ?JsonResponse
     {
-        if ($intervalo->recusa !== null) {
-            return $this->json(['success' => false, 'message' => $intervalo->recusa], 422);
-        }
         if ($intervalo->alerta === null || $envio->semInternet || AlertasAntesDaBatida::confirmou($dados)) {
             return null;
         }
@@ -1703,6 +1703,8 @@ final class PontoController extends AbstractController
             'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
             'intrajornadaConforme'    => $intrajornadaConforme,
             'interjornadaConforme'    => $interjornadaConforme,
+            // E11 (desenho L693): conforme até 6 dias seguidos com registro no mês; antes era "Conforme" fixo.
+            'descansoSemanalConforme' => self::maiorSequenciaDeDiasComRegistro($folhaRows) <= self::DIAS_SEGUIDOS_SEM_DESCANSO,
             'responsavelAssinatura'   => $tenant?->getResponsavelAssinatura() ?? '',
             // retrocompatibilidade com campos usados pela visualização da folha na tela
             'numeroTrabalhador' => $userTenant?->getCodigoFuncionario()
@@ -1713,6 +1715,25 @@ final class PontoController extends AbstractController
             'horaRetorno'   => $horarios['retorno'] . ' h',
             'horaSaida'     => $horarios['saida'] . ' h',
         ];
+    }
+
+    /**
+     * A maior sequência de dias seguidos com algum registro na folha do mês (desenho L626: `run = algum ? run + 1 : 0`),
+     * para o "Descanso Semanal Remunerado" do PDF e do XLSX.
+     *
+     * @param array<int, array<string, mixed>> $linhas as linhas da folha, um dia por linha
+     */
+    private static function maiorSequenciaDeDiasComRegistro(array $linhas): int
+    {
+        $maior = 0;
+        $seguidos = 0;
+        foreach ($linhas as $linha) {
+            $algum = array_filter([$linha['entrada'] ?? '', $linha['repouso'] ?? '', $linha['retorno'] ?? '', $linha['saida'] ?? ''], static fn ($h): bool => $h !== '') !== [];
+            $seguidos = $algum ? $seguidos + 1 : 0;
+            $maior = max($maior, $seguidos);
+        }
+
+        return $maior;
     }
 
     private function assertAccess(User $user): Tenant

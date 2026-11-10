@@ -73,7 +73,7 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         self::assertSame(3, $this->batidasEm($this->a));
     }
 
-    #[TestDox('Com a chave ponto-alertas desligada, a interjornada continua valendo no momento: a saída anterior à entrada da fila, a 8 h dela, recusa')]
+    #[TestDox('E11: com a chave ponto-alertas desligada, a entrada da fila 8 h depois da saída anterior grava (nada recusa)')]
     public function testInterjornadaValeNoMomento(): void
     {
         $this->desligarOsAlertas();
@@ -83,9 +83,9 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
 
         $resposta = $this->daFila('entrada', $this->ontem->setTime(6, 0));
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Interjornada mínima é de 11h. Aguarde mais 3h00m.', $resposta['message']);
-        self::assertSame(2, $this->batidasEm($this->a));
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertArrayNotHasKey('alerta', $resposta);
+        self::assertSame(3, $this->batidasEm($this->a));
     }
 
     #[TestDox('E11: com os alertas ligados, a entrada da fila antes da interjornada grava na hora do aparelho, sem a janela (a fila não fica presa)')]
@@ -257,7 +257,7 @@ final class BatidaSemInternetNoMomentoTest extends JusPrimeWebTestCase
         $this->em()->flush();
     }
 
-    /** A chave `ponto-alertas` desligada pelo Master (camada Global): vale a recusa de antes da E11. */
+    /** A chave `ponto-alertas` desligada pelo Master (camada Global): sem alerta nem recusa, a batida grava (E11). */
     private function desligarOsAlertas(): void
     {
         $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => FuncoesDoPonto::ALERTAS]) ?? new RecursoEstado(FuncoesDoPonto::ALERTAS);

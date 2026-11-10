@@ -7,7 +7,9 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
+use App\Ponto\Entity\ConfiguracaoDoPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -163,6 +165,20 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         $jornada->setValidacaoInterjornadaHabilitada(false);
         $this->em->flush();
         self::assertNull($this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
+    }
+
+    #[TestDox('E11: o estado diz se os alertas de intervalo valem no escritório (ligados sem registro; desligados pela camada Escritório)')]
+    public function testAlertasLigados(): void
+    {
+        [$user, $tenant] = $this->pessoa();
+        self::assertTrue($this->casoDeUso()->executar($user, $tenant)->alertasLigados, 'P96: nasce ligada');
+
+        $configuracao = new ConfiguracaoDoPonto($tenant);
+        $configuracao->definir(FuncoesDoPonto::ALERTAS, false, $user, new \DateTimeImmutable());
+        $this->em->persist($configuracao);
+        $this->em->flush();
+
+        self::assertFalse($this->casoDeUso()->executar($user, $tenant)->alertasLigados);
     }
 
     #[TestDox('Regularizar ontem, as demais condições do "+": feriado e abonado bloqueiam; esquecimento de outra batida não; hoje em jornada continua no estado')]

@@ -74,6 +74,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
             ontemSemSaida: $ontemSemSaida,
             interjornadaMinimaMin: self::interjornadaMinima($tenant),
             aviso: $ontemSemSaida !== null ? EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM : null,
+            // E11: o texto da confirmação da saída no atalho muda com a chave dos alertas de intervalo.
+            alertasLigados: $this->funcoes->vale(FuncoesDoPonto::ALERTAS, $tenant),
         );
     }
 
@@ -131,8 +133,9 @@ final class ObterEstadoDoPontoDoDiaUseCase
     }
 
     /**
-     * O descanso mínimo que o servidor vai cobrar na próxima entrada, para o aviso da saída (decisão do dono, 19/10):
-     * os mesmos padrões de `PontoController::batida()` (sem configuração, a validação vale e são 660 min).
+     * O descanso mínimo da próxima entrada, para o aviso da saída (decisão do dono, 19/10): os mesmos padrões de
+     * `AlertasAntesDaBatida` (sem configuração, a validação vale e são 660 min). Desde a E11 nada recusa: com os alertas
+     * ligados a entrada antes dele avisa antes de registrar.
      */
     private static function interjornadaMinima(Tenant $tenant): ?int
     {

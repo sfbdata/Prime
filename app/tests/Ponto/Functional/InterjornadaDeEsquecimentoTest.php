@@ -31,8 +31,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 /**
  * A interjornada não recusa por saída vinda de esquecimento (spec `docs/specs/ponto-esquecimento-nao-trava.md` R4,
  * risco ALTO), com o EntityManager real e a aprovação de verdade pela rota do admin. A saída batida continua barrando a
- * entrada: desde a E11 (spec ponto-desenho-0811, P21) com o alerta "Antes de registrar", sem gravar até a confirmação; a
- * recusa de antes fica para a chave `ponto-alertas` desligada (AlertasAntesDaBatidaControllerTest).
+ * entrada: desde a E11 (spec ponto-desenho-0811, P21) com o alerta "Antes de registrar", sem gravar até a confirmação;
+ * com a chave `ponto-alertas` desligada nada avisa nem recusa (AlertasAntesDaBatidaControllerTest).
  * O escritório tem home office liberado todo dia para a pessoa (a batida passa sem GPS).
  */
 #[CoversClass(PontoController::class)]
@@ -315,8 +315,8 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
     // ----------------------------------------------------------------- apoio
 
     /**
-     * O alerta da interjornada (E11): 200 com `success: false`, sem gravar. O dia da saída varia com a hora da execução
-     * ("de hoje" ou "de ontem"), e o texto inteiro é conferido no AlertasAntesDaBatidaControllerTest.
+     * O alerta da interjornada (E11): 200 com `success: false`, sem gravar. O dia da saída varia com a hora da execução:
+     * a de hoje avisa sem a frase da folha (que só compara com a saída do dia anterior); a de ontem, com ela.
      *
      * @param array<string, mixed> $resposta
      */
@@ -324,8 +324,10 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
     {
         self::assertResponseIsSuccessful();
         self::assertFalse($resposta['success']);
-        self::assertStringStartsWith(sprintf('Faltam %s para completar 11h de descanso desde a saída de ', $faltam), (string) $resposta['alerta']);
-        self::assertStringEndsWith('Se registrar agora, a folha marcará a interjornada como não conforme.', (string) $resposta['alerta']);
+        self::assertMatchesRegularExpression(
+            sprintf('/^Faltam %s para completar 11h de descanso desde a saída (de hoje\.|de ontem\. Se registrar agora, a folha marcará a interjornada como não conforme\.)$/u', preg_quote($faltam, '/')),
+            (string) $resposta['alerta'],
+        );
     }
 
     private function aprovar(JustificativaPonto $pedido): void

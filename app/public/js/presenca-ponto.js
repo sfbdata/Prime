@@ -109,17 +109,24 @@
         return hora ? String(hora).slice(0, 5) : '';
     }
 
-    /* A frase do dc e, com a validação de interjornada ligada no escritório, o descanso que o servidor vai cobrar na
-       próxima entrada, com o valor configurado (decisão do dono, 19/10). */
+    /* A frase do dc e, com a validação de interjornada ligada no escritório, o descanso mínimo da próxima entrada, com
+       o valor configurado (decisão do dono, 19/10), no formato dos alertas da E11 ("11h", "6h30", "45min"). Desde a
+       E11 nada recusa a entrada: com os alertas ligados ela avisa antes de registrar; desligados, só se informa o
+       mínimo. Estado sem `alertasLigados` (servidor antigo) fica com a frase dos alertas ligados, o padrão (P96). */
     function descanso(min) {
         var h = Math.floor(min / 60);
         var m = min % 60;
+        if (!h) { return m + 'min'; }
 
-        return (h ? h + ' h' : '') + (h && m ? ' ' : '') + (m ? m + ' min' : '');
+        return h + 'h' + (m ? (m < 10 ? '0' : '') + m : '');
     }
     function confirmarSaida(base) {
         var texto = 'Registrar a saída agora (' + new Date().toTimeString().slice(0, 5) + ')?';
-        if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }
+        if (base.interjornadaMinimaMin) {
+            texto += base.alertasLigados === false
+                ? ' O descanso mínimo até a próxima entrada é de ' + descanso(base.interjornadaMinimaMin) + '.'
+                : ' Se a próxima entrada vier antes de ' + descanso(base.interjornadaMinimaMin) + ' de descanso, o sistema vai avisar antes de registrar.';
+        }
 
         return window.confirm(texto);
     }
@@ -163,37 +170,44 @@
             // há aqui: é só da tela do ponto (E14); o atalho sem rede segue com o aviso de sempre.
             var horaAparelho = Date.now();
             var payload = { tipo: atual.acao, idEnvio: typeof PB.novoIdDeEnvio === 'function' ? PB.novoIdDeEnvio() : undefined, horaAparelho: horaAparelho };
-            // E7: com a geolocalização desligada (Master ou escritório) não pede a posição nem avalia a cerca, como
-            // o servidor. `!== false`: um estado sem o campo continua pedindo a posição.
-            if (!base.homeOffice && base.geoLigado !== false) {
-                var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
-                if (!position) { avisar(AVISO_SEM_POSICAO); return; }
-                payload.latitude = position.coords.latitude;
-                payload.longitude = position.coords.longitude;
-                payload.precisaoGps = position.coords.accuracy;
-                var onde = PB.avaliarPosicao(                                                    // (5)
-                    { latitude: payload.latitude, longitude: payload.longitude, precisaoGps: payload.precisaoGps },
-                    base.sedes || []
-                );
-                if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
-            }
-            var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
-            if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
-            if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
-                estado = conferido;
-                aoMudar();
-                avisar(AVISO_MUDOU);
-                return;
-            }
-            var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
-            // E11: o alerta não impede o registro. O atalho pergunta como já pergunta na saída e, confirmado, manda de
-            // novo a MESMA batida (o mesmo `idEnvio`, nada foi gravado) com a confirmação; a hora é a da confirmação.
-            var alerta = alertaDe(resultado);
-            if (alerta !== null) {
+            // E11: a volta do laço é a do "Registrar assim mesmo". A batida com alerta não gravou; confirmada, passa de
+            // novo pela posição, pela cerca e pela releitura do estado (comparada com `base`, o retrato do clique)
+            // antes do segundo envio, com a hora da confirmação. Se o estado mudou nesse meio, não envia.
+            var confirmouAlerta = false;
+            var resultado;
+            for (;;) {
+                // E7: com a geolocalização desligada (Master ou escritório) não pede a posição nem avalia a cerca,
+                // como o servidor. `!== false`: um estado sem o campo continua pedindo a posição.
+                if (!base.homeOffice && base.geoLigado !== false) {
+                    var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
+                    if (!position) { avisar(AVISO_SEM_POSICAO); return; }
+                    payload.latitude = position.coords.latitude;
+                    payload.longitude = position.coords.longitude;
+                    payload.precisaoGps = position.coords.accuracy;
+                    var onde = PB.avaliarPosicao(                                                    // (5)
+                        { latitude: payload.latitude, longitude: payload.longitude, precisaoGps: payload.precisaoGps },
+                        base.sedes || []
+                    );
+                    if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
+                }
+                var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
+                if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
+                if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
+                    estado = conferido;
+                    aoMudar();
+                    avisar(AVISO_MUDOU);
+                    return;
+                }
+                resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
+                // E11: o alerta não impede o registro. O atalho pergunta como já pergunta na saída e, confirmado, refaz
+                // a MESMA batida (o mesmo `idEnvio`, nada foi gravado) com a confirmação.
+                var alerta = confirmouAlerta ? null : alertaDe(resultado);
+                if (alerta === null) { break; }
                 if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }
+                confirmouAlerta = true;
+                momentoDoToque = performance.now();
                 payload.horaAparelho = Date.now();
                 payload.confirmarAlerta = true;
-                resultado = await PB.enviarBatida(urlBatida, payload, performance.now());
             }
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;

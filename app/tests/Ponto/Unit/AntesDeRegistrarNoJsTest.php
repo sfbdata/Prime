@@ -79,29 +79,40 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         );
     }
 
-    #[TestDox('Atalho do cabeçalho: com o alerta pergunta (a frase fixa da janela) e, confirmado, manda de novo a mesma batida com a confirmação')]
+    #[TestDox('Atalho do cabeçalho: com o alerta pergunta (a frase fixa da janela); confirmado, refaz a posição, a cerca e a releitura do estado comparada com o retrato do clique antes do segundo envio')]
     public function testAtalhoPergunta(): void
     {
         $js = (string) file_get_contents(self::CAMINHO_ATALHO);
-
         self::assertStringContainsString("var NOTA_DO_ALERTA = '" . AlertasAntesDaBatida::NOTA . "';", $js);
+        self::assertStringContainsString("return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;", $js);
+
+        $bater = $this->corpoDaFuncao($js, 'async function bater()');
+        self::assertSame(1, substr_count($bater, 'PB.enviarBatida('), 'um caminho só de envio: o segundo é a volta do laço');
+        $laco = $this->corpoDaFuncao($bater, 'for (;;)');
         $marcos = [
-            'var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
-            'var alerta = alertaDe(resultado);',
+            'await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS',
+            "if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }",
+            'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
+            "if (conferido.estado !== base.estado || conferido.dia !== base.dia) {\n                    estado = conferido;\n                    aoMudar();\n                    avisar(AVISO_MUDOU);\n                    return;\n                }",
+            'resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
+            'var alerta = confirmouAlerta ? null : alertaDe(resultado);',
+            'if (alerta === null) { break; }',
             "if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }",
+            'confirmouAlerta = true;',
+            'momentoDoToque = performance.now();',
             'payload.horaAparelho = Date.now();',
             'payload.' . AlertasAntesDaBatida::CAMPO_DA_CONFIRMACAO . ' = true;',
-            'resultado = await PB.enviarBatida(urlBatida, payload, performance.now());',
-            "if (resultado.tipo === 'sucesso') {",
         ];
         $ultima = -1;
         foreach ($marcos as $marco) {
-            $pos = strpos($js, $marco);
-            self::assertNotFalse($pos, 'faltou: ' . $marco);
+            $pos = strpos($laco, $marco);
+            self::assertNotFalse($pos, 'faltou no laço: ' . $marco);
             self::assertGreaterThan($ultima, $pos, 'fora de ordem: ' . $marco);
             $ultima = $pos;
         }
-        self::assertStringContainsString("return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;", $js);
+        $depois = strpos($bater, "if (resultado.tipo === 'sucesso') {");
+        self::assertIsInt($depois);
+        self::assertGreaterThan((int) strpos($bater, 'for (;;)') + strlen($laco), $depois, 'a classificação fica fora do laço');
     }
 
     #[TestDox('CSS da janela: o corpo do alerta e a nota abaixo dele, com os tokens da tela')]

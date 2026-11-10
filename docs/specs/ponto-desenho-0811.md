@@ -948,6 +948,15 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
 - Arquivos: `PontoController.php` (batida), textos da `_modal_jornada_tenant.html.twig` (frente, PR 3: avisar).
 - Testes: retorno com repouso curto entra e a folha marca "não conforme"; entrada antes da interjornada entra com aviso;
   7º dia seguido avisa; o esquecimento continua sem travar (R1 a R4).
+- Como ficou (09/11, revisão): nada recusa. Com a chave `ponto-alertas` ligada, a primeira tentativa volta com o alerta
+  sem gravar, e "Registrar assim mesmo" refaz a mesma batida com a confirmação. Com a chave desligada, a batida segue
+  sem aviso e sem recusa (desenho L498, `if (!forcar && this.ef('alertas'))`), e a folha continua marcando "não
+  conforme". O intervalo e a interjornada seguem as validações da Jornada do escritório; o 7º dia segue só a chave e
+  conta só o escritório da batida. A saída do mesmo dia (dois turnos) avisa sem a frase da folha, que só compara a
+  entrada com a saída do dia anterior. A batida da fila sem internet grava sem a janela. O "Descanso Semanal Remunerado"
+  do PDF e do XLSX passa a ser calculado: conforme até 6 dias seguidos com registro no mês (desenho L693). O atalho do
+  cabeçalho pergunta com o confirm do navegador e, confirmado, relê o estado e a posição antes do segundo envio; a frase
+  da saída diz que a próxima entrada antes do descanso avisa (ligados) ou só informa o mínimo (desligados).
 
 **E12. Fora do raio vira trabalho externo; raio com a precisão.**
 - Entra: P18 (a: fora do raio, "Registrar como trabalho externo" com local e motivo, para a análise do gestor), P74
@@ -1166,7 +1175,7 @@ escritório.
 | `ponto-geo` | Ponto: geolocalização | "Exige que o registro seja feito dentro do raio de uma sede." | Sem caixa de localização e sem checagem de raio | Hoje a cerca vale sempre; desligar num escritório é mudança de regra (ligada ao P18) | Ligada |
 | `ponto-facial` | Ponto: reconhecimento facial | "Confirma a identidade pela câmera, com cadastro e autorização prévios." | Some o botão facial e o modo obrigatório | Novo | Desligada até o E18 |
 | `ponto-lembrete` | Ponto: lembrete de saída | "Avisa quando passar do horário previsto e a saída não foi registrada." | Some "Saída prevista"; sem aviso, som e notificação do lembrete | Diferente da janela de alerta de horário de hoje (P84), que continua com a sua própria chave na jornada | Ligada |
-| `ponto-alertas` | Ponto: alertas de intervalo | "Avisa antes da batida sobre intervalo, interjornada e descanso semanal." | Sem a janela "Antes de registrar" e sem o aviso de intervalo | Hoje as validações da Jornada do escritório recusam (P21) | Ligada, depois do E11 |
+| `ponto-alertas` | Ponto: alertas de intervalo | "Avisa antes da batida sobre intervalo, interjornada e descanso semanal." | Sem a janela "Antes de registrar" e sem o aviso de intervalo: a batida segue sem aviso e sem recusa, e a folha continua marcando "não conforme" | Antes do E11 as validações da Jornada do escritório recusavam (P21); desde o E11 nada recusa | Ligada, depois do E11 |
 | `ponto-aceite` | Ponto: aceite da folha | "O colaborador confirma ou registra ressalva na folha fechada." | Some "Assinar folha" (o selo já gravado continua) | Novo | Desligada até o E16 |
 
 Cuidados: a chave da tela não pode derrubar as consultas globais do Ponto (atalho do avatar, alerta de horário, cartão

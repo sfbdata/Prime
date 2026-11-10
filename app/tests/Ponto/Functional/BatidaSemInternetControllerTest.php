@@ -139,19 +139,20 @@ final class BatidaSemInternetControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->batidasDoUsuario());
     }
 
-    #[TestDox('Com a chave ponto-alertas desligada, o repouso mínimo vale na hora do aparelho: o retorno guardado 20 min depois do repouso é recusado')]
+    #[TestDox('E11: com a chave ponto-alertas desligada, o retorno da fila 20 min depois do repouso grava na hora do aparelho (nada recusa)')]
     public function testRepousoMinimoNaHoraDoAparelho(): void
     {
         $this->desligarOsAlertas();
-        // Ontem, longe da meia-noite: o retorno chega horas depois, e pela hora da chegada o intervalo estaria cumprido.
+        // Ontem, longe da meia-noite: o retorno chega horas depois e vale a hora do aparelho.
         $ontem = new \DateTimeImmutable('yesterday');
         $this->criarBatida(RegistroPonto::TIPO_REPOUSO, $ontem->setTime(12, 0), null);
 
         $resposta = $this->postarDaFila('retorno', $ontem->setTime(12, 20));
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Intervalo mínimo de repouso é de 60 minuto(s). Aguarde mais 40 minuto(s).', $resposta['message']);
-        self::assertCount(1, $this->batidasDoUsuario(), 'só o repouso');
+        self::assertResponseIsSuccessful();
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertSame('12:20:00', $resposta['data']['hora']);
+        self::assertCount(2, $this->batidasDoUsuario());
     }
 
     #[TestDox('E11: com os alertas ligados, o retorno da fila com o repouso curto grava na hora do aparelho, sem a janela (a fila não fica presa no alerta)')]
@@ -421,7 +422,7 @@ final class BatidaSemInternetControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
     }
 
-    /** A chave `ponto-alertas` desligada pelo Master (camada Global): vale a recusa de antes da E11. */
+    /** A chave `ponto-alertas` desligada pelo Master (camada Global): sem alerta nem recusa, a batida grava (E11). */
     private function desligarOsAlertas(): void
     {
         $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => FuncoesDoPonto::ALERTAS]) ?? new RecursoEstado(FuncoesDoPonto::ALERTAS);

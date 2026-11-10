@@ -307,7 +307,11 @@
                     </span>
                     <span class="bi-linha">
                         Descanso Semanal Remunerado:
-                        <span class="conforme">&#10003; Conforme</span>
+                        {% if descansoSemanalConforme %}
+                            <span class="conforme">&#10003; Conforme</span>
+                        {% else %}
+                            <span class="nao-conforme">&#10007; N&#227;o Conforme</span>
+                        {% endif %}
                     </span>
                     <span class="bi-linha"><span class="bi-label">Trabalho em Feriados:</span> {{ feriadosTrabalhados }} dia{{ feriadosTrabalhados != 1 ? 's' : '' }}</span>
                     <span class="bi-linha"><span class="bi-label">Trabalho em Finais de Semana:</span> {{ finaisSemanasTrabalhados }} dia{{ finaisSemanasTrabalhados != 1 ? 's' : '' }}</span>
