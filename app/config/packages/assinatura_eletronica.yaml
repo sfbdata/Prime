@@ -59,7 +59,29 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '10 minutes'
+        # Etapa 6 (docs/specs/assinatura-documentos-etapa-6.md, seção 2.1, bloco 6B): cada conferência no validador_pdf ocupa
+        # uma das 2 vagas por até 30 s (tempo_esgotado é passageiro). Por signatário ou, sem ele, por IP; só a chamada
+        # ao validador conta (a recusa do motor antes dela não).
+        assinatura_validador_conferencia:
+            policy: sliding_window
+            limit: 6
+            interval: '10 minutes'
     # As vagas de geração do PDF (no máximo 2 ao mesmo tempo na web, App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf):
     # uma trava com nome, na conexão padrão (tabela `lock_keys`), como as do lock.yaml; vale entre contêineres.
     lock:
         assinatura_pdf: 'doctrine.dbal.default_connection'
+    # Etapa 6, bloco 6B: o cliente do contêiner validador_pdf (rede interna assinatura_net). Sem base_uri: a URL vem da
+    # env e pode estar vazia (não configurado, E6-4). 45 s de teto (10 s de fila, 30 s no filho, mais envio e leitura) e
+    # nenhum redirecionamento: a resposta só vale do próprio validador.
+    http_client:
+        scoped_clients:
+            assinatura_validador.client:
+                scope: '^https?://'
+                timeout: 45
+                max_duration: 45
+                max_redirects: 0
+
+# Vazias = validador não configurado (E6-4): o envio recusa gov.br e ICP. Os valores vêm do ambiente (runbook da 6C).
+parameters:
+    env(ASSINATURA_VALIDADOR_URL): ''
+    env(ASSINATURA_VALIDADOR_TOKEN): ''

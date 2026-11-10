@@ -8,8 +8,10 @@ use App\AssinaturaEletronica\Service\LeitorDeJsonEstrito;
 
 /**
  * A resposta do validador de cadeia (contrato da etapa 6, seção 2, protocolo `v1`), imutável: as assinaturas
- * conferidas (`200 {"v":1,"assinaturas":[...]}`) ou o erro do PDF (`400 {"v":1,"erro":"pdf_ilegivel"}`). Os demais
- * erros do protocolo (`401`, `413`, `503`) viram {@see CadeiaIndisponivel} no cliente, não resultado.
+ * conferidas (`200 {"v":1,"assinaturas":[...]}`) ou o erro definitivo do PDF (`400 pdf_ilegivel`, `413
+ * pdf_grande_demais`: o mesmo arquivo dá o mesmo resultado, seção 2.1). Os erros passageiros e os de cliente ou
+ * configuração (`401`, `404`, `5xx`...) viram {@see CadeiaIndisponivel} no cliente ({@see HttpValidadorDeCadeia}), não
+ * resultado.
  *
  * {@see paraJson()} é o que vai para a coluna `cadeia` da versão (E6-7) e volta igual por {@see deJson()}.
  */

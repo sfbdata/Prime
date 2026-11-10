@@ -300,9 +300,10 @@ services:
     # Assinatura, etapa 3: o PDF final com selo do documento concluído, gerado e guardado uma vez (E3-4).
     App\AssinaturaEletronica\Service\PdfFinalDoDocumento: '@App\AssinaturaEletronica\Service\PdfFinalComSelo'
 
-    # Assinatura, etapa 5 (E5-2): o validador de cadeia gov.br e ICP. "Não configurado" até o bloco 6B trocar pelo cliente
-    # HTTP do contêiner validador_pdf; sem ele, o envio recusa gov.br e ICP.
-    App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia: '@App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeiaNaoConfigurado'
+    # Assinatura, etapas 5 (E5-2) e 6 (bloco 6B): o validador de cadeia gov.br e ICP é o cliente HTTP do contêiner
+    # validador_pdf. Com ASSINATURA_VALIDADOR_URL ou ASSINATURA_VALIDADOR_TOKEN vazia, ele fica "não configurado" e o
+    # envio recusa gov.br e ICP (E6-4).
+    App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia: '@App\AssinaturaEletronica\Service\Cadeia\HttpValidadorDeCadeia'
 
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
     # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.

@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Service\Cadeia;
 
 /**
- * O validador enquanto o cliente HTTP da etapa 6 (bloco 6B) não entra: nunca configurado. O envio recusa gov.br e ICP
- * (E5-2) e, se alguém pedir uma conferência, ela fica indisponível em vez de aceitar sem cadeia.
+ * Um validador que nunca está configurado: o envio recusa gov.br e ICP (E5-2) e a conferência fica indisponível em vez
+ * de aceitar sem cadeia. Fora do container desde o bloco 6B (o alias aponta o {@see HttpValidadorDeCadeia}, que fica
+ * assim com as envs vazias); serve de dublê nos testes de quem consulta {@see ValidadorDeCadeia::configurado()}.
  */
 final class ValidadorDeCadeiaNaoConfigurado implements ValidadorDeCadeia
 {
