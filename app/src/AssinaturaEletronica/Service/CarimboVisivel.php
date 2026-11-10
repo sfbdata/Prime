@@ -88,7 +88,7 @@ final class CarimboVisivel
         $pagina = $this->localizador->localizar($pdf, $indice->numeroDaRaiz, $indice->geracaoDaRaiz)
             ?? throw new CarimboVisivelRecusa(self::PAGINA_NAO_LOCALIZADA);
 
-        $carimbado = $pdf . CarimboVisivelAcrescimo::escrever($pdf, self::objetos($pagina, $indice->tamanho, $linhas), $indice, $indice->tamanho + 3);
+        $carimbado = $pdf . CarimboVisivelAcrescimo::escrever($pdf, self::objetos($pagina, $indice->primeiroLivre, $linhas), $indice, $indice->primeiroLivre + 3);
         if (!self::preservou($antes, $this->conferencia->conferir($carimbado, $pdf))) {
             throw new CarimboVisivelRecusa(self::PRESERVACAO_NAO_CONFIRMADA);
         }
@@ -128,7 +128,8 @@ final class CarimboVisivel
     }
 
     /**
-     * Anotação, aparência, fonte e página (e o vetor do /Annots indireto), com os números livres a partir do /Size.
+     * Anotação, aparência, fonte e página (e o vetor do /Annots indireto), com os números livres a partir do primeiro
+     * livre do índice.
      * Geometria do protótipo: canto em (x0 + 20, y0 + 10) da caixa, largura min(380, largura da caixa - 40), altura
      * 12 + 10 por linha.
      *
@@ -136,9 +137,9 @@ final class CarimboVisivel
      *
      * @return list<array{int, int, string}>
      */
-    private static function objetos(CarimboVisivelPagina $pagina, int $tamanho, array $linhas): array
+    private static function objetos(CarimboVisivelPagina $pagina, int $primeiroLivre, array $linhas): array
     {
-        [$anotacao, $aparencia, $fonte] = [$tamanho, $tamanho + 1, $tamanho + 2];
+        [$anotacao, $aparencia, $fonte] = [$primeiroLivre, $primeiroLivre + 1, $primeiroLivre + 2];
         [$caixaX0, $caixaY0, $caixaX1] = $pagina->caixa;
         $largura = min(380, $caixaX1 - $caixaX0 - 40);
         $altura = 12 + \count($linhas) * 10;
@@ -181,7 +182,8 @@ final class CarimboVisivel
     /**
      * A página com a referência da anotação no /Annots, na ordem do protótipo: vetor direto ganha a referência no fim;
      * referência a um vetor reescreve o vetor (a página vai igual); sem /Annots, entra `/Annots [ref]` logo depois do
-     * `<<`. Outro valor no /Annots, ou vetor indireto que não foi achado, recusa.
+     * `<<` que abre o dicionário (o de um comentário antes dele não conta). Outro valor no /Annots, ou vetor indireto
+     * que não foi achado, recusa.
      *
      * @return array{string, array{int, int, string}|null} o corpo da página e o vetor reescrito, se houver
      */
@@ -200,7 +202,7 @@ final class CarimboVisivel
             throw new CarimboVisivelRecusa(self::ANOTACOES_NAO_LOCALIZADAS);
         }
 
-        return [substr_replace($corpo, '<</Annots [' . $referencia . ']', (int) strpos($corpo, '<<'), 2), null];
+        return [substr_replace($corpo, '<</Annots [' . $referencia . ']', $pagina->aberturaDoDicionario, 2), null];
     }
 
     /**

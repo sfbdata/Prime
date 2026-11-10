@@ -274,6 +274,11 @@ final class CarimboVisivelTest extends TestCase
             '<</Annots [5 0 R]/Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>',
             null,
         ];
+        yield 'sem /Annots, com << num comentário antes: entra depois do << que abre o dicionário' => [
+            "% a << b\n<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>",
+            "% a << b\n<</Annots [5 0 R]/Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>",
+            null,
+        ];
         yield 'vetor direto: ganha a referência no fim' => [
             '<</Type/Page/Parent 2 0 R/Annots[ 9 0 R ]/MediaBox[0 0 595 842]>>',
             '<</Type/Page/Parent 2 0 R/Annots [ 9 0 R  5 0 R]/MediaBox[0 0 595 842]>>',
@@ -305,6 +310,27 @@ final class CarimboVisivelTest extends TestCase
         self::assertSame($vetorNovo === null ? [3, 5, 6, 7] : [3, 4, 5, 6, 7], self::conferirIndice($original . $acrescimo, $acrescimo));
     }
 
+    #[TestDox('/Size menor que os objetos em uso (1 a 4 com /Size 4): o carimbo começa no 5 e o /Size novo segue')]
+    public function testSizeMenorQueOsObjetos(): void
+    {
+        $original = str_replace('/Size 5', '/Size 4', MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R>>',
+            4 => "<</Length 0>>\nstream\n\nendstream",
+        ]));
+        self::assertStringContainsString('/Size 4/', $original);
+        $carimbado = self::carimbado($original);
+        $acrescimo = substr($carimbado, \strlen($original));
+
+        self::assertStringContainsString("5 0 obj\n<</Type/Annot/Subtype/Stamp", $acrescimo);
+        self::assertStringContainsString("3 0 obj\n<</Annots [5 0 R]/Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R>>\nendobj\n", $acrescimo);
+        self::assertStringNotContainsString('4 0 obj', $acrescimo);
+        self::assertStringContainsString("trailer\n<</Size 8/Root 1 0 R", $acrescimo);
+        self::assertSame([3, 5, 6, 7], self::conferirIndice($carimbado, $acrescimo));
+        self::assertPreservado($original, $carimbado, 0);
+    }
+
     #[TestDox('carimba PDF sem assinatura digital e com DocMDP 3 (anotação permitida)')]
     public function testCarimbaSemAssinaturaDigitalEComDocMdp3(): void
     {
@@ -319,6 +345,11 @@ final class CarimboVisivelTest extends TestCase
     public static function recusas(): iterable
     {
         $semPaginas = static fn (): string => MontadorDePdfDoCarimbo::classico([1 => '<</Type/Catalog>>']);
+        $kidsDemais = static fn (): string => MontadorDePdfDoCarimbo::classico([
+            1 => '<</Type/Catalog/Pages 2 0 R>>',
+            2 => '<</Type/Pages/Kids[' . str_repeat('3 0 R ', LocalizadorDaUltimaPagina::FILHOS_MAXIMOS + 1) . ']/Count 1>>',
+            3 => '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>',
+        ]);
         $semVetor = static fn (): string => MontadorDePdfDoCarimbo::classico([
             1 => '<</Type/Catalog/Pages 2 0 R>>',
             2 => '<</Type/Pages/Kids[3 0 R]/Count 1>>',
@@ -341,6 +372,7 @@ final class CarimboVisivelTest extends TestCase
         yield 'trailer sem /Root' => [static fn (): string => str_replace('/Root 1 0 R', '', OficinaDePdfAssinado::pdfSemAssinatura()), 'Estrutura do PDF não reconhecida. Use o original.'];
         yield 'fluxo /XRef sem /Size' => [static fn (): string => (string) preg_replace('/\/Size \d+/', '', MontadorDePdfDoCarimbo::comFluxoDeXref([1 => '<</Type/Catalog/Pages 2 0 R>>'])), 'Estrutura do PDF não reconhecida. Use o original.'];
         yield 'catálogo sem /Pages' => [$semPaginas, 'Página não localizada no PDF. Use o original.'];
+        yield '/Kids com referências demais' => [$kidsDemais, 'Página não localizada no PDF. Use o original.'];
         yield '/Annots indireto ausente' => [$semVetor, 'Anotações não localizadas. Use o original.'];
         yield '/Annots indireto que não é vetor' => [$outroValor, 'Anotações não localizadas. Use o original.'];
     }

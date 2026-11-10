@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Service;
 
-use App\AssinaturaEletronica\Service\ConferenciaDePdf\LeitorDeObjetosDoPdf;
+use App\AssinaturaEletronica\Service\ConferenciaDePdf\LimitesDaConferencia;
 
 /**
  * Acha a última página do PDF para o carimbo visível (etapa 5, bloco 5B), no lugar do `getPage(numPages)` do pdf.js
@@ -14,104 +14,85 @@ use App\AssinaturaEletronica\Service\ConferenciaDePdf\LeitorDeObjetosDoPdf;
  * /MediaBox, cada um da página ou herdado do nó mais próximo que tenha um; sem /MediaBox válido, o tamanho carta) e o
  * /Annots: vetor direto ou referência a um vetor.
  *
- * Os objetos vêm do `LeitorDeObjetosDoPdf` do motor (a versão mais nova de cada um) e só o primeiro nível de cada
- * dicionário é lido. Sem estado e sem disco. Nunca lança: árvore quebrada, ciclo ou teto de leituras devolvem null.
+ * Os objetos vêm do `CarimboVisivelObjetos`, com a regra de versão do leitor do motor (um objeto solto antigo vence a
+ * cópia mais nova em /ObjStm, como no protótipo) e com o orçamento da procura inteira: cada objeto é lido e analisado
+ * uma vez, e o /Kids tem teto de filhos. Só o primeiro nível de cada dicionário é lido. Sem estado e sem disco. Nunca
+ * lança: árvore quebrada, ciclo ou orçamento estourado devolvem null.
  */
 final class LocalizadorDaUltimaPagina
 {
-    /** Teto de objetos lidos numa procura: catálogo, nós, filhos vazios pulados, página, caixa e anotações. */
-    public const LEITURAS_MAXIMAS = 64;
     /** Tamanho carta: a caixa do pdf.js quando não há /MediaBox válido. */
     public const CAIXA_CARTA = [0.0, 0.0, 612.0, 792.0];
+    /** Referências num /Kids (o teto de objetos de um /ObjStm do motor). */
+    public const FILHOS_MAXIMOS = LimitesDaConferencia::OBJETOS_MAXIMOS;
 
     private const ESPACOS = " \t\r\n\f\0";
     private const DELIMITADORES = " \t\r\n\f\0()<>[]{}/%";
+    /** O que muda a leitura dentro de um vetor ou dicionário: o resto é pulado de uma vez. */
+    private const ESPECIAIS_DO_GRUPO = '()<>[]%';
     private const NUMERO = '([+-]?(?:\d+\.?\d*|\.\d+))';
-
-    public function __construct(
-        private readonly LeitorDeObjetosDoPdf $leitor = new LeitorDeObjetosDoPdf(),
-    ) {
-    }
 
     public function localizar(string $pdf, int $numeroDaRaiz, int $geracaoDaRaiz): ?CarimboVisivelPagina
     {
-        $leituras = 0;
-        $ler = function (array $referencia) use ($pdf, &$leituras): ?string {
-            if (++$leituras > self::LEITURAS_MAXIMAS) {
-                throw new \RuntimeException('Teto de leituras da árvore de páginas.');
-            }
-
-            return $this->leitor->objeto($pdf, $referencia[0], $referencia[1]);
-        };
-
         try {
-            return self::procurar($ler, [$numeroDaRaiz, $geracaoDaRaiz]);
+            return self::procurar(new CarimboVisivelObjetos($pdf), [$numeroDaRaiz, $geracaoDaRaiz]);
         } catch (\Throwable) {
             return null;
         }
     }
 
-    /**
-     * @param \Closure(array{int, int}): ?string $ler
-     * @param array{int, int}                    $raiz
-     */
-    private static function procurar(\Closure $ler, array $raiz): ?CarimboVisivelPagina
+    /** @param array{int, int} $raiz */
+    private static function procurar(CarimboVisivelObjetos $objetos, array $raiz): ?CarimboVisivelPagina
     {
-        $catalogo = self::entradas($ler($raiz) ?? '');
-        $paginas = $catalogo === null ? null : self::referencia($catalogo['/Pages'][0] ?? '');
-        $no = $paginas === null ? null : self::no($ler, $paginas);
+        $catalogo = self::dicionario($objetos, $raiz);
+        $no = $catalogo === null ? null : self::referencia($catalogo['/Pages'][0] ?? '');
         $ancestrais = [];
         $vistos = [];
         while ($no !== null) {
-            [$referencia, $corpo, $entradas] = $no;
-            if (isset($vistos[$referencia[0]])) {
+            $entradas = self::dicionario($objetos, $no);
+            if ($entradas === null || isset($vistos[$no[0]])) {
                 return null;
             }
-            $vistos[$referencia[0]] = true;
+            $vistos[$no[0]] = true;
             if (!self::ehNoDePaginas($entradas)) {
-                return self::pagina($ler, $referencia, $corpo, $entradas, $ancestrais);
+                return self::pagina($objetos, $no, $entradas, $ancestrais);
             }
             $ancestrais[] = $entradas;
-            $no = self::ultimoFilho($ler, $entradas);
+            $no = self::ultimoFilho($objetos, $entradas);
         }
 
         return null;
     }
 
     /**
-     * O objeto lido: a referência, o corpo e as entradas do dicionário. Null se não foi achado ou não é dicionário.
+     * As entradas do dicionário do objeto, lido e analisado uma vez na procura. Null se não há ou não é dicionário.
      *
-     * @param \Closure(array{int, int}): ?string $ler
-     * @param array{int, int}                    $referencia
+     * @param array{int, int} $referencia
      *
-     * @return array{array{int, int}, string, array<string, array{string, int, int}>}|null
+     * @return array<string, array{string, int, int}>|null
      */
-    private static function no(\Closure $ler, array $referencia): ?array
+    private static function dicionario(CarimboVisivelObjetos $objetos, array $referencia): ?array
     {
-        $corpo = $ler($referencia);
-        if ($corpo === null) {
-            return null;
-        }
-        $entradas = self::entradas($corpo);
-
-        return $entradas === null ? null : [$referencia, $corpo, $entradas];
+        return $objetos->analisado($referencia[0], $referencia[1], static fn (string $corpo): ?array => self::entradas($corpo));
     }
 
     /**
      * O último filho que não é nó vazio; null se não há nenhum ou se um deles não dá para ler.
      *
-     * @param \Closure(array{int, int}): ?string    $ler
      * @param array<string, array{string, int, int}> $entradas
      *
-     * @return array{array{int, int}, string, array<string, array{string, int, int}>}|null
+     * @return array{int, int}|null
      */
-    private static function ultimoFilho(\Closure $ler, array $entradas): ?array
+    private static function ultimoFilho(CarimboVisivelObjetos $objetos, array $entradas): ?array
     {
-        $filhos = self::filhos($ler, $entradas['/Kids'][0] ?? '');
+        $filhos = self::filhos($objetos, $entradas['/Kids'][0] ?? '');
         for ($i = \count($filhos) - 1; $i >= 0; --$i) {
-            $filho = self::no($ler, $filhos[$i]);
-            if ($filho === null || !self::ehNoVazio($filho[2])) {
-                return $filho;
+            $filho = self::dicionario($objetos, $filhos[$i]);
+            if ($filho === null) {
+                return null;
+            }
+            if (!self::ehNoVazio($filho)) {
+                return $filhos[$i];
             }
         }
 
@@ -119,19 +100,21 @@ final class LocalizadorDaUltimaPagina
     }
 
     /**
-     * As referências do /Kids, vetor direto ou referência a um vetor.
-     *
-     * @param \Closure(array{int, int}): ?string $ler
+     * As referências do /Kids, vetor direto ou referência a um vetor, até `FILHOS_MAXIMOS`; acima disso, lança.
      *
      * @return list<array{int, int}>
      */
-    private static function filhos(\Closure $ler, string $valor): array
+    private static function filhos(CarimboVisivelObjetos $objetos, string $valor): array
     {
         $referencia = self::referencia($valor);
-        $vetor = $referencia === null ? $valor : (string) $ler($referencia);
-        if (!str_starts_with(trim($vetor), '[')) {
+        $vetor = $referencia === null ? $valor : (string) $objetos->objeto($referencia[0], $referencia[1]);
+        if (($vetor[strspn($vetor, self::ESPACOS)] ?? '') !== '[') {
             return [];
         }
+        if (substr_count($vetor, 'R') > self::FILHOS_MAXIMOS) {
+            throw new \OverflowException('Filhos demais num /Kids.');
+        }
+        $objetos->gastar(\strlen($vetor));
         preg_match_all('/(?<![\d.])(\d{1,10})\s+(\d{1,5})\s+R(?![^\s\/\[\]<>(){}%])/', $vetor, $partes, \PREG_SET_ORDER);
 
         return array_map(static fn (array $parte): array => [(int) $parte[1], (int) $parte[2]], $partes);
@@ -150,13 +133,13 @@ final class LocalizadorDaUltimaPagina
     }
 
     /**
-     * @param \Closure(array{int, int}): ?string           $ler
      * @param array{int, int}                              $referencia
      * @param array<string, array{string, int, int}>       $entradas
      * @param list<array<string, array{string, int, int}>> $ancestrais do mais alto ao mais próximo
      */
-    private static function pagina(\Closure $ler, array $referencia, string $corpo, array $entradas, array $ancestrais): CarimboVisivelPagina
+    private static function pagina(CarimboVisivelObjetos $objetos, array $referencia, array $entradas, array $ancestrais): CarimboVisivelPagina
     {
+        $corpo = (string) $objetos->objeto($referencia[0], $referencia[1]);
         $anotacoes = $entradas['/Annots'] ?? null;
         $valor = $anotacoes === null ? null : $anotacoes[0];
         $referenciaDasAnotacoes = $valor === null ? null : self::referencia($valor);
@@ -165,11 +148,12 @@ final class LocalizadorDaUltimaPagina
             numero: $referencia[0],
             geracao: $referencia[1],
             corpo: $corpo,
-            caixa: self::caixa($ler, [$entradas, ...array_reverse($ancestrais)]),
+            caixa: self::caixa($objetos, [$entradas, ...array_reverse($ancestrais)]),
             trechoDasAnotacoes: $anotacoes === null ? null : [$anotacoes[1], $anotacoes[2]],
             anotacoesDiretas: $valor !== null && str_starts_with($valor, '[') ? substr($valor, 1, -1) : null,
             referenciaDasAnotacoes: $referenciaDasAnotacoes,
-            vetorDasAnotacoes: $referenciaDasAnotacoes === null ? null : $ler($referenciaDasAnotacoes),
+            vetorDasAnotacoes: $referenciaDasAnotacoes === null ? null : $objetos->objeto($referenciaDasAnotacoes[0], $referenciaDasAnotacoes[1]),
+            aberturaDoDicionario: self::depoisDosEspacos($corpo, 0),
         );
     }
 
@@ -177,15 +161,14 @@ final class LocalizadorDaUltimaPagina
      * A área visível, como o `page.view` do pdf.js: o /CropBox recortado pelo /MediaBox; sem /CropBox válido, ou sem
      * área em comum com o /MediaBox, o /MediaBox. Sem /MediaBox válido, o tamanho carta.
      *
-     * @param \Closure(array{int, int}): ?string           $ler
      * @param list<array<string, array{string, int, int}>> $dicionarios da página para cima
      *
      * @return array{float, float, float, float}
      */
-    private static function caixa(\Closure $ler, array $dicionarios): array
+    private static function caixa(CarimboVisivelObjetos $objetos, array $dicionarios): array
     {
-        $midia = self::caixaHerdada($ler, $dicionarios, '/MediaBox') ?? self::CAIXA_CARTA;
-        $corte = self::caixaHerdada($ler, $dicionarios, '/CropBox');
+        $midia = self::caixaHerdada($objetos, $dicionarios, '/MediaBox') ?? self::CAIXA_CARTA;
+        $corte = self::caixaHerdada($objetos, $dicionarios, '/CropBox');
         if ($corte === null) {
             return $midia;
         }
@@ -198,16 +181,15 @@ final class LocalizadorDaUltimaPagina
      * A caixa do dicionário mais próximo que tem a chave, como o `_getInheritableProperty` do pdf.js: inválida ou sem
      * área vira null, sem procurar mais acima.
      *
-     * @param \Closure(array{int, int}): ?string           $ler
      * @param list<array<string, array{string, int, int}>> $dicionarios da página para cima
      *
      * @return array{float, float, float, float}|null
      */
-    private static function caixaHerdada(\Closure $ler, array $dicionarios, string $chave): ?array
+    private static function caixaHerdada(CarimboVisivelObjetos $objetos, array $dicionarios, string $chave): ?array
     {
         foreach ($dicionarios as $entradas) {
             if (isset($entradas[$chave])) {
-                return self::retangulo($ler, $entradas[$chave][0]);
+                return self::retangulo($objetos, $entradas[$chave][0]);
             }
         }
 
@@ -217,14 +199,12 @@ final class LocalizadorDaUltimaPagina
     /**
      * Os quatro números normalizados (cantos em qualquer ordem, como o `normalizeRect` do pdf.js); null sem área.
      *
-     * @param \Closure(array{int, int}): ?string $ler
-     *
      * @return array{float, float, float, float}|null
      */
-    private static function retangulo(\Closure $ler, string $valor): ?array
+    private static function retangulo(CarimboVisivelObjetos $objetos, string $valor): ?array
     {
         $referencia = self::referencia($valor);
-        $vetor = trim($referencia === null ? $valor : (string) $ler($referencia));
+        $vetor = trim($referencia === null ? $valor : (string) $objetos->objeto($referencia[0], $referencia[1]));
         $n = self::NUMERO;
         if (preg_match('/^\[\s*' . $n . '\s+' . $n . '\s+' . $n . '\s+' . $n . '\s*\]$/', $vetor, $p) !== 1) {
             return null;
@@ -337,40 +317,36 @@ final class LocalizadorDaUltimaPagina
     {
         $dois = substr($texto, $i, 2);
         $c = $texto[$i];
-        $fimDoPedaco = match (true) {
+        $fim = match (true) {
+            $dois === '<<' || $dois === '>>' => $i + 2,
+            $c === '[' || $c === ']' => $i + 1,
+            $c === '%' => $i + strcspn($texto, "\r\n", $i),
             $c === '(' => self::fimDoTexto($texto, $i),
-            $c === '<' && $dois !== '<<' => self::fimDoHexadecimal($texto, $i),
-            default => $i + 1,
+            $c === '<' => self::fimDoHexadecimal($texto, $i),
+            default => $i + 1 + strcspn($texto, self::ESPECIAIS_DO_GRUPO, $i + 1),
+        };
+        $mudanca = match (true) {
+            $dois === '<<' || $c === '[' => 1,
+            $dois === '>>' || $c === ']' => -1,
+            default => 0,
         };
 
-        return match (true) {
-            $dois === '<<' => [$i + 2, 1],
-            $dois === '>>' => [$i + 2, -1],
-            $c === '[' => [$i + 1, 1],
-            $c === ']' => [$i + 1, -1],
-            $c === '%' => [$i + strcspn($texto, "\r\n", $i), 0],
-            $fimDoPedaco === null => null,
-            default => [$fimDoPedaco, 0],
-        };
+        return $fim === null ? null : [$fim, $mudanca];
     }
 
-    /** Texto entre parênteses, com parênteses aninhados e escapes. */
+    /** Texto entre parênteses, com parênteses aninhados e escapes; pula de uma vez o que não é `\\`, `(` ou `)`. */
     private static function fimDoTexto(string $texto, int $i): ?int
     {
         $profundidade = 0;
-        for ($tamanho = \strlen($texto); $i < $tamanho; ++$i) {
+        $tamanho = \strlen($texto);
+        while ($i < $tamanho) {
             $c = $texto[$i];
-            if ($c === '\\') {
-                ++$i;
-                continue;
-            }
-            if ($c === '(') {
-                ++$profundidade;
-                continue;
-            }
             if ($c === ')' && --$profundidade === 0) {
                 return $i + 1;
             }
+            $profundidade += $c === '(' ? 1 : 0;
+            $i = min($tamanho, $i + ($c === '\\' ? 2 : 1));
+            $i += strcspn($texto, '\\()', $i);
         }
 
         return null;
