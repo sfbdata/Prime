@@ -469,7 +469,9 @@ final class ObterPdfParaAssinarUseCaseTest extends TestCase
 
     private function folha(): FolhaDoDocumento
     {
-        return new FolhaDoDocumento($this->disco, new LogoDaBluejusNoPdf(\dirname(__DIR__, 3)), new ManifestoDoDocumento(self::tradutorDaAssinatura(), $this->eventosDaTrilha), self::urls(), $this->relogio);
+        $tradutor = self::tradutorDaAssinatura();
+
+        return new FolhaDoDocumento($this->disco, new LogoDaBluejusNoPdf(\dirname(__DIR__, 3)), new ManifestoDoDocumento($tradutor, $this->eventosDaTrilha), self::urls(), $this->relogio, $tradutor);
     }
 
     /**

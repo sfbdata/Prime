@@ -46,8 +46,7 @@ final readonly class PdfDaAssinatura
         DocumentoParaAssinar $documento,
         ?ModoDaFolha $modo = null,
         PerfilDoPdf $perfil = PerfilDoPdf::Desenho,
-    ): \Generator
-    {
+    ): \Generator {
         return $this->montador->emPedacos($this->folha->de($documento, $modo), $perfil);
     }
 
