@@ -217,8 +217,10 @@ final class CartaoDoPontoNoJsTest extends TestCase
     {
         $tela = $this->tela();
 
-        // Os três relógios da tela, cada um uma vez: a hora oficial, o tempo do dia (que redesenha o aviso) e a virada.
-        self::assertSame(3, substr_count($tela, 'setInterval('), 'um setInterval novo apareceu na tela do ponto');
+        // Os quatro relógios da tela, cada um uma vez: a hora oficial, o tempo do dia (que redesenha o aviso), a virada e
+        // o reenvio da fila sem internet (E14).
+        self::assertSame(4, substr_count($tela, 'setInterval('), 'um setInterval novo apareceu na tela do ponto');
+        self::assertSame(1, substr_count($tela, 'setInterval(() => { if (filaTemPendentes) { enviarFila(); } }, FILA_INTERVALO_MS);'), 'o reenvio da fila tem um tique só');
         self::assertSame(1, substr_count($tela, 'setInterval(updateClock, 1000);'), 'o relógio do dia tem um tique só');
         self::assertStringContainsString('atualizarAvisoDoDia(agora);', $this->corpoDaFuncao('function updateClock('), 'o aviso anda com o relógio');
 
@@ -229,11 +231,10 @@ final class CartaoDoPontoNoJsTest extends TestCase
             self::assertStringNotContainsString('setInterval(', $trecho, 'tique empilhado a cada troca da tela');
             self::assertStringNotContainsString('setTimeout(', $trecho, 'tique empilhado a cada troca da tela');
         }
-        self::assertStringContainsString(
-            "const REGIOES_TROCADAS = ['ponto-tipos', 'ponto-banco-horas', 'ponto-aba-pendencias', 'ponto-regiao-pendencias'];",
-            $tela,
-            'o aviso do dia e o relógio não entram na troca: o script não roda de novo'
-        );
+        // A lista cresce com as etapas (a E17 pôs o painel do banco); o que importa é o aviso e o script ficarem fora.
+        self::assertSame(1, preg_match('/const REGIOES_TROCADAS = \[([^\]]*)\];/', $tela, $regioes), 'a lista das regiões trocadas sumiu');
+        self::assertStringContainsString("'ponto-regiao-pendencias'", $regioes[1]);
+        self::assertStringNotContainsString('ponto-aviso-dia', $regioes[1], 'o aviso do dia e o relógio não entram na troca: o script não roda de novo');
     }
 
     #[TestDox('Saída prevista também durante o intervalo, nos três textos, só quando há previsão')]
