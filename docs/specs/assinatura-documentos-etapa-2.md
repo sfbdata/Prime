@@ -107,17 +107,17 @@ novos em `TipoDeEvento` (valor = nome em snake_case) e o texto no detalhe, no es
 
 | Tipo | Texto | `dados` (além de `chave`) |
 |---|---|---|
-| `documento_enviado` | Documento enviado para assinatura | `{hash}` |
+| `documento_enviado` | Enviado para assinatura. Hash {16 primeiros caracteres}... (desenho L375; D6) | `{hash}` |
 | `convite_enviado` | Convite enviado por e-mail a {nome} | `{para: e-mail mascarado}` |
 | `email_nao_enviado` | E-mail não enviado a {nome} | `{motivo: 'falha_no_envio'}` |
 | `link_aberto` | {nome} abriu o link | (uma vez por signatário) |
 | `codigo_enviado` | Código de verificação enviado a {nome} | `{para: e-mail mascarado}` |
 | `codigo_errado` | Código incorreto informado por {nome} | `{tentativa}` |
-| `assinado` | {nome} assinou (Simples) | `{metodo: 'simples', modo: 'desenhada'|'digitada', rubrica_sha256, aceite: {versao, sha256}, cpf_confere: true}` |
-| `recusado` | {nome} recusou: {motivo} | `{motivo}` |
-| `documento_concluido` | Documento concluído: todas as assinaturas registradas | |
+| `assinado` | Assinado por {nome digitado} · E-mail e código (desenho L387, L390; D6) | `{metodo: 'simples', modo: 'desenhada'|'digitada', rubrica_sha256, aceite: {versao, sha256}, cpf_confere: true}` |
+| `recusado` | Recusado por {nome}: {motivo} (desenho L467; D6) | `{motivo}` |
+| `documento_concluido` | Documento concluído (desenho L390; D6) | |
 | `lembrete_enviado` | Lembrete enviado a {nome} | `{para}` |
-| `envio_cancelado` | Envio cancelado | |
+| `envio_cancelado` | Envio cancelado. Documento e evidências preservados (desenho L462; D6) | |
 
 O código, o token e o link nunca entram em `dados`.
 

@@ -416,6 +416,28 @@ Decisões do Coordenador em 09/11/2026, pela recomendação (registro em `blueju
   - confirmação antes de excluir modelo (etapa 4): **entra**, porque o modelo se perde de vez, sem Lixeira;
   - as duas confirmações usam o modal do próprio desenho, o mesmo do Excluir.
 
+- **D6. Conferência ✓/✗ das etapas 1, 2, 4 e 7 contra o desenho** (bluejus-5f e Coordenador, 09/11/2026; lista em
+  `bluejus-coordenacao/conferencia-assinatura-4d83f8b29.md`). O que ficou como o desenho: a Lixeira mantém Expirado o
+  documento vencido (L364); escolher um modelo depois de retomar um rascunho começa outro documento (L370); o prazo vai
+  como foi digitado e o servidor recusa fora de 1 a 90 com a regra escrita, sem a tela cortar em silêncio; "Salvar
+  rascunho" volta à aba em que estava (L461); "Alterar logo" aceita qualquer imagem (L180, o canvas a converte em PNG);
+  o título da tela pública e os textos da trilha (envio com o hash, "Assinado por {nome digitado} · E-mail e código",
+  "Recusado por", "Documento concluído", "Envio cancelado. Documento e evidências preservados"); sem mãozinha nos
+  rótulos da logo e da ordem; a seleção com 30px também no celular. Desvios registrados (⚠), cada um pelo defeito do
+  desenho que corrige:
+  - signatário vindo do modelo com o campo do cliente vazio: o nome vem com a linha "____________" do desenho (L372) e
+    o e-mail fica vazio, porque o servidor só aceita e-mail válido, até no "Salvar rascunho" (no desenho, o e-mail
+    "____________" travaria o rascunho); nome só de sublinhados conta como vazio no "Informe o nome de todos os
+    signatários.";
+  - aviso (toast) e janelas com `box-sizing: border-box` (lista, assistente e tela pública): no desenho (L281, L283,
+    L285, content-box) o aviso passa 4px da largura da tela no celular e as janelas medem 2px a mais que o
+    `max-width` declarado;
+  - movimento reduzido também para a animação do aviso: no desenho (L110) só `.bjaBar` e `.bjaMov` param, e o aviso
+    continua subindo para quem pediu menos movimento;
+  - animação `bjaToastUp` no lugar de `bjaUp`: a do desenho termina em `transform: none` e tira o aviso do centro;
+  - foco visível em campos (`.bjaF`: borda #0a6fa0 e contorno 2px #e5f1f7) e botões (contorno 2px #0a6fa0): o desenho
+    não define foco, e sem ele quem usa o teclado não vê onde está.
+
 ## 8. Pendências do Samuel (ação, não decisão)
 
 - Etapa 3: criar a variável do segredo do selo em produção; publicar a correção do `symfony/process` (PR separado
