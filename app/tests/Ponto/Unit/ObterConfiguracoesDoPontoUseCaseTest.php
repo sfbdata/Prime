@@ -112,8 +112,8 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
             $this->casoDeUso(true, null, true, $comprovante, $folha)->executar($this->pessoa(['ROLE_USER']), new Tenant())->funcoes ?? [],
         );
 
-        self::assertSame(['ponto-comprovante', 'ponto-geo'], $chaves(true, false));
-        self::assertSame(['ponto-geo', 'ponto-aceite'], $chaves(false, true));
+        self::assertSame(['ponto-comprovante', 'ponto-geo', 'ponto-alertas'], $chaves(true, false), 'os alertas (E11) não dependem de selo');
+        self::assertSame(['ponto-geo', 'ponto-alertas', 'ponto-aceite'], $chaves(false, true));
     }
 
     /** @param list<string> $papeis */
