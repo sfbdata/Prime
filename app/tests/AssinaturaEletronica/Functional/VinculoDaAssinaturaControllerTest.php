@@ -9,6 +9,8 @@ use App\AssinaturaEletronica\Controller\VinculoDaAssinaturaController;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Event\PdfFinalGuardado;
 use App\AssinaturaEletronica\EventListener\VinculoPendenteListener;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
+use App\AssinaturaEletronica\MessageHandler\GerarPdfFinalDoDocumentoHandler;
 use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
 use App\AssinaturaEletronica\Service\PdfFinalProvisorio;
 use App\AssinaturaEletronica\Service\VinculoNaTela;
@@ -35,15 +37,18 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * "Vincular à pasta de Expediente" pela HTTP (spec assinatura-documentos-etapa-3, E3-10 a E3-12): a busca da janela e o
  * vínculo. Porta do módulo, CSRF, a pasta do escritório que a pessoa edita (404 sem dizer qual, 403 de quem só vê),
- * aguardando fica pendente, concluído vai na hora para a pasta e o PDF final guardado aplica o pendente.
+ * aguardando fica pendente, concluído com o PDF final guardado vai na hora para a pasta, concluído sem ele espera o
+ * worker, e o PDF final guardado aplica o pendente.
  *
- * O PDF final com selo é do bloco 1: aqui ele é dublado no serviço por trás de {@see PdfFinalDoDocumento}, grava no
- * disco em memória como o gerador real.
+ * O PDF final com selo é do bloco 1: aqui ele é dublado no serviço por trás de {@see PdfFinalDoDocumento}, com o contrato
+ * do gerador real (o guardado volta como está; senão grava no disco em memória, guarda a chave e avisa
+ * {@see PdfFinalGuardado}).
  */
 #[CoversClass(VinculoDaAssinaturaController::class)]
 #[CoversClass(VincularAPastaUseCase::class)]
@@ -234,6 +239,7 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->conceder($eu, $tenant, 'resources.pasta.view', 'resources.pasta.edit');
         [$id] = $this->documentoEnviado();
         $this->situacao($id, 'concluido');
+        $this->guardarPdfFinal($id);
         $pasta = $this->criarPasta($tenant, 'CARLOS CONCLUIDO');
 
         $this->vincular($id, (int) $pasta->getId());
@@ -241,6 +247,8 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $json = $this->json();
         self::assertTrue($json['aplicado']);
+        self::assertFalse($json['pendente']);
+        self::assertSame([], $this->pedidosDoPdfFinal(), 'com o PDF final guardado, nada vai para a fila');
         self::assertTrue($json['documento']['vinculo']['feito']);
         $arquivos = $this->arquivosDaPasta($pasta);
         self::assertCount(1, $arquivos);
@@ -265,6 +273,7 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $this->conceder($eu, $tenant, 'resources.pasta.view', 'resources.pasta.edit');
         [$id] = $this->documentoEnviado();
         $this->situacao($id, 'concluido');
+        $this->guardarPdfFinal($id);
         $primeira = $this->criarPasta($tenant, 'PRIMEIRA FALHOU');
         $segunda = $this->criarPasta($tenant, 'SEGUNDA DEU CERTO');
         $this->pdfFalha = true;
@@ -274,6 +283,7 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $json = $this->json();
         self::assertFalse($json['aplicado']);
+        self::assertFalse($json['pendente']);
         self::assertFalse($json['documento']['vinculado'], 'sem vínculo: o "Vincular à pasta" volta');
         self::assertNull($json['documento']['vinculo']);
         self::assertContains('Vínculo à pasta ' . $primeira->getNup() . ' não aplicado: o PDF assinado não pôde ser gerado', array_column($json['documento']['eventos'], 'texto'));
@@ -322,7 +332,9 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         $pasta = $this->criarPasta($tenant);
         $this->vincular($id, (int) $pasta->getId());
         self::assertFalse($this->json()['aplicado']);
+        self::assertFalse($this->json()['pendente'], 'aguardando: a tela diz "quando concluído"');
         $this->situacao($id, 'concluido');
+        $this->guardarPdfFinal($id);
 
         static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new PdfFinalGuardado($id));
 
@@ -331,9 +343,75 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->linha($id)['vinculo']['feito']);
     }
 
+    #[TestDox('concluído sem o PDF final guardado: 200 com pendente, o PDF vai para o worker e, guardado por ele, o vínculo vai para a pasta uma vez só')]
+    public function testConcluidoSemPdfEsperaOWorker(): void
+    {
+        [$eu, $tenant] = $this->entrar(true);
+        $this->conceder($eu, $tenant, 'resources.pasta.view', 'resources.pasta.edit');
+        [$id] = $this->documentoEnviado();
+        $this->situacao($id, 'concluido');
+        $pasta = $this->criarPasta($tenant, 'PEDRO ESPERA O PDF');
+
+        $this->vincular($id, (int) $pasta->getId());
+
+        self::assertResponseIsSuccessful();
+        $json = $this->json();
+        self::assertFalse($json['aplicado']);
+        self::assertTrue($json['pendente']);
+        self::assertTrue($json['documento']['vinculado'], 'o vínculo fica: o "Vincular à pasta" não volta');
+        self::assertFalse($json['documento']['vinculo']['feito']);
+        self::assertSame((int) $pasta->getId(), $json['documento']['vinculo']['pasta']);
+        $pedidos = $this->pedidosDoPdfFinal();
+        self::assertEquals([new GerarPdfFinalDoDocumento($id, (int) $tenant->getId())], $pedidos);
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]), 'nada gerado na requisição');
+        self::assertSame([], $this->vinculosDaTrilha($id), 'sem "não aplicado": o vínculo segue pendente');
+        self::assertSame([], $this->arquivosDaPasta($pasta));
+
+        static::getContainer()->get(GerarPdfFinalDoDocumentoHandler::class)($pedidos[0]);
+
+        self::assertCount(1, $this->pedidosDoPdfFinal(), 'o evento achou a chave no documento: não pediu o PDF de novo');
+        self::assertNotNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertCount(1, $this->arquivosDaPasta($pasta));
+        self::assertSame(['vinculo_feito'], $this->vinculosDaTrilha($id));
+        self::assertTrue($this->linha($id)['vinculo']['feito']);
+    }
+
     private function vincular(int $id, int $pasta): void
     {
         $this->postarJson('/assinatura/documentos/' . $id . '/vincular', ['pasta' => $pasta]);
+    }
+
+    /** O PDF final já guardado pelo worker: no disco em memória e com a chave no documento, sem o evento. */
+    private function guardarPdfFinal(int $id): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $documento = $em->find(DocumentoParaAssinar::class, $id) ?? self::fail('documento');
+        $chave = $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($documento), FonteDeConteudo::deTexto(self::PDF_FINAL))->chave;
+        $documento->guardarArquivoFinal($chave->nome, hash('sha256', self::PDF_FINAL));
+        $em->flush();
+        $em->clear();
+    }
+
+    /** @return list<GerarPdfFinalDoDocumento> os pedidos do PDF final ao worker, na fila em memória */
+    private function pedidosDoPdfFinal(): array
+    {
+        $fila = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $fila);
+        $pedidos = [];
+        foreach ($fila->getSent() as $envelope) {
+            $mensagem = $envelope->getMessage();
+            if ($mensagem instanceof GerarPdfFinalDoDocumento) {
+                $pedidos[] = $mensagem;
+            }
+        }
+
+        return $pedidos;
+    }
+
+    /** @return list<string> os tipos de vínculo da trilha do documento, do mais antigo para o mais recente */
+    private function vinculosDaTrilha(int $id): array
+    {
+        return array_values(array_filter($this->trilha($id), static fn (string $t): bool => str_starts_with($t, 'vinculo_')));
     }
 
     /** @return array<string, mixed> */
@@ -411,7 +489,8 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
 
     /**
      * Troca o serviço por trás de {@see PdfFinalDoDocumento} (o provisório, ou o gerador real quando o bloco 1 entrar;
-     * o alvo sai do mapa do container) por um que grava o PDF final no disco em memória uma vez por documento.
+     * o alvo sai do mapa do container) por um com o contrato do gerador real: o guardado volta como está; senão grava no
+     * disco em memória, guarda a chave no documento e, depois do flush, avisa {@see PdfFinalGuardado}.
      */
     private function dublarPdfFinal(): void
     {
@@ -423,11 +502,10 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
             $alvo = (string) $no['alias'];
         }
 
-        $container->set($alvo, new class ($this->disco, self::PDF_FINAL, fn (): bool => $this->pdfFalha) implements PdfFinalDoDocumento {
-            /** @var array<int, ChaveDeArquivo> */
-            private array $guardados = [];
-
-            public function __construct(private readonly ArmazenamentoEmMemoriaNoContainer $disco, private readonly string $conteudo, private readonly \Closure $falha)
+        $servicos = static fn (): array => [static::getContainer()->get(EntityManagerInterface::class), static::getContainer()->get(EventDispatcherInterface::class)];
+        $container->set($alvo, new class ($this->disco, self::PDF_FINAL, fn (): bool => $this->pdfFalha, $servicos) implements PdfFinalDoDocumento {
+            /** @param \Closure(): array{EntityManagerInterface, EventDispatcherInterface} $servicos */
+            public function __construct(private readonly ArmazenamentoEmMemoriaNoContainer $disco, private readonly string $conteudo, private readonly \Closure $falha, private readonly \Closure $servicos)
             {
             }
 
@@ -436,8 +514,18 @@ final class VinculoDaAssinaturaControllerTest extends JusPrimeWebTestCase
                 if (($this->falha)() === true) {
                     throw new \RuntimeException('PDF final indisponível no teste.');
                 }
+                $guardada = ChavesDeAssinaturaEletronica::pdfFinal($doc);
+                if ($guardada !== null) {
+                    return $guardada;
+                }
 
-                return $this->guardados[(int) $doc->getId()] ??= $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deTexto($this->conteudo))->chave;
+                [$em, $eventos] = ($this->servicos)();
+                $nova = $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deTexto($this->conteudo))->chave;
+                $doc->guardarArquivoFinal($nova->nome, hash('sha256', $this->conteudo));
+                $em->flush();
+                $eventos->dispatch(new PdfFinalGuardado((int) $doc->getId()));
+
+                return $nova;
             }
         });
     }

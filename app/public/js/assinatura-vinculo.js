@@ -106,7 +106,8 @@
             desenhar();
         }
 
-        /* vincExec: fecha a janela e avisa como o desenho; o servidor diz se o arquivo já foi para a pasta. */
+        /* vincExec: fecha a janela e avisa como o desenho; o servidor diz se o arquivo já foi para a pasta ou se o
+           concluído espera o PDF com selo (o worker gera e o vínculo vai depois). */
         async function vincular(pastaId) {
             if (!v || v.enviando) { return; }
             const p = v.pastas.find(x => String(x.id) === String(pastaId));
@@ -121,7 +122,7 @@
             }
             fechar();
             const concluido = !!(r && r.documento && r.documento.situacao === 'concluido');
-            if (!concluido) { ctx.avisar(T('sera_salvo', { nup: p.nup })); } else if (r.aplicado) { ctx.avisar(T('salvo', { nup: p.nup })); } else { ctx.avisar(T('erro'), 'erro'); }
+            if (!concluido) { ctx.avisar(T('sera_salvo', { nup: p.nup })); } else if (r.aplicado) { ctx.avisar(T('salvo', { nup: p.nup })); } else if (r.pendente) { ctx.avisar(T('sera_salvo_pdf', { nup: p.nup })); } else { ctx.avisar(T('erro'), 'erro'); }
             if (ctx.depois) { await ctx.depois(r && r.documento); }
         }
 

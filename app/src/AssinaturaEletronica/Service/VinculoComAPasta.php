@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Service;
 
+use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
+use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\Entity\Auth\User;
@@ -15,6 +17,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Service\PermissionChecker;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -22,14 +25,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * vai para a pasta escolhida. Chamado pelo "Vincular à pasta" de um documento já concluído e pelo
  * `VinculoPendenteListener` quando o PDF final é guardado.
  *
+ * O PDF final nunca é gerado aqui (pesa, e esta requisição não passa pelas vagas nem pelo limitador do download): sem
+ * ele guardado, o pedido vai ao worker ({@see GerarPdfFinalDoDocumento}) e o vínculo segue pendente, aplicado pelo
+ * listener quando o worker guardar. Fila fora do ar: "vínculo não aplicado" com o motivo do PDF indisponível.
+ *
  * Tudo é conferido de novo com QUEM VINCULOU (não com quem está na tela): pasta que sumiu, pasta na lápide, usuário
  * removido, sem permissão de editar a pasta ou fora do cadeado. Na recusa (e na falha do PDF final ou da cópia) nada é
  * gravado na pasta, a trilha ganha "vínculo não aplicado" com o motivo e o vínculo pendente se desfaz: o "Vincular à
  * pasta" volta, como no desenho (`vincExec` não grava o vínculo na falha). Não é "desvincular" (E3-10): o vínculo feito
  * nunca é desfeito.
  *
- * Idempotente: vínculo já feito não grava de novo; duas chamadas ao mesmo tempo (o `garantir` do PDF final dispara o
- * evento que chama de volta) não duplicam o arquivo, pela trava da linha e pela marca de "em andamento".
+ * Idempotente: vínculo já feito não grava de novo; duas chamadas ao mesmo tempo não duplicam o arquivo, pela trava da
+ * linha (entre processos) e pela marca de "em andamento" (na mesma requisição).
  */
 final class VinculoComAPasta
 {
@@ -42,6 +49,7 @@ final class VinculoComAPasta
         private readonly TrilhaDoDocumento $trilha,
         private readonly PermissionChecker $permissoes,
         private readonly PdfFinalDoDocumento $pdfFinal,
+        private readonly MessageBusInterface $mensagens,
         private readonly ArquivoAssinadoNaPasta $arquivos,
         private readonly TranslatorInterface $tradutor,
         private readonly LoggerInterface $logger,
@@ -50,7 +58,8 @@ final class VinculoComAPasta
 
     /**
      * Verdadeiro quando o documento está na pasta (agora ou antes); falso quando não há vínculo, quando ele segue
-     * pendente (documento ainda aguardando) ou quando a aplicação falhou e o vínculo se desfez.
+     * pendente (documento ainda aguardando, ou o PDF final ainda não guardado) ou quando a aplicação falhou e o vínculo
+     * se desfez.
      */
     public function aplicar(DocumentoParaAssinar $documento): bool
     {
@@ -79,6 +88,18 @@ final class VinculoComAPasta
             return $this->falhar($documento, $pasta, $motivo ?? 'pasta_apagada');
         }
 
+        // Sem o PDF final guardado: o worker gera e guarda, e o evento traz o vínculo de volta para cá.
+        if (ChavesDeAssinaturaEletronica::pdfFinal($documento) === null) {
+            try {
+                $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+            } catch (\Throwable $e) {
+                return $this->falharComErro($documento, $pasta, 'pdf_indisponivel', $e);
+            }
+
+            return false;
+        }
+
+        // Com ele guardado, o `garantir` só devolve a chave.
         try {
             $pdf = $this->pdfFinal->garantir($documento);
         } catch (\Throwable $e) {

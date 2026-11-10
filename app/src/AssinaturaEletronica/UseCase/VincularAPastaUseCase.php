@@ -33,6 +33,7 @@ use Psr\Log\LoggerInterface;
  * vínculo é aplicado na hora pelo {@see VinculoComAPasta}, que escreve "Documento assinado vinculado à pasta {nup}" ou,
  * na falha, "Vínculo à pasta {nup} não aplicado: {motivo}" (um evento só por vínculo, como no desenho). Na falha o
  * vínculo se desfaz: o JSON volta com `vinculado: false` e o "Vincular à pasta" reaparece (desenho, `vincExec`).
+ * Concluído sem o PDF final guardado ainda: o vínculo segue pendente até o worker guardar o PDF (`pendente: true`).
  */
 final readonly class VincularAPastaUseCase
 {
@@ -50,7 +51,10 @@ final readonly class VincularAPastaUseCase
     }
 
     /**
-     * @return array{documento: array<string, mixed>, aplicado: bool} o `Detalhe` e se o arquivo já foi para a pasta
+     * O `Detalhe`, se o arquivo já foi para a pasta (`aplicado`) e se o concluído ainda espera o PDF final para ir
+     * (`pendente`).
+     *
+     * @return array{documento: array<string, mixed>, aplicado: bool, pendente: bool}
      *
      * @throws DocumentoNaoEncontrado
      * @throws PastaRecusadaNoVinculo
@@ -71,8 +75,11 @@ final readonly class VincularAPastaUseCase
             }
         });
 
+        $aplicado = $this->aplicarSeConcluido($documento);
+
         return [
-            'aplicado' => $this->aplicarSeConcluido($documento),
+            'aplicado' => $aplicado,
+            'pendente' => $documento->getSituacao() === SituacaoDoDocumento::Concluido && $documento->isVinculoPendente(),
             'documento' => $this->apresentacao->detalhe($documento, $this->eventos->doDocumento($documento)),
         ];
     }

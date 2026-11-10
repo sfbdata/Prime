@@ -78,7 +78,7 @@ final class AssinaturaVinculoJsTest extends TestCase
         }
     }
 
-    #[TestDox('vincExec: a pasta pelo id, avisos do desenho (salvo, será salvo e o erro em vermelho)')]
+    #[TestDox('vincExec: a pasta pelo id, avisos do desenho (salvo, será salvo e o erro em vermelho) e o concluído que espera o PDF com selo')]
     public function testVincular(): void
     {
         $corpo = self::corpo(self::ler(self::VINCULO), 'vincular');
@@ -88,6 +88,11 @@ final class AssinaturaVinculoJsTest extends TestCase
         self::assertStringContainsString("ctx.avisar(T('salvo', { nup: p.nup }))", $corpo);
         self::assertStringContainsString("ctx.avisar(T('erro'), 'erro')", $corpo);
         self::assertStringContainsString("ctx.avisar((e && e.texto) || T('erro'), 'erro')", $corpo);
+        self::assertStringContainsString(
+            "} else if (r.aplicado) { ctx.avisar(T('salvo', { nup: p.nup })); } else if (r.pendente) { ctx.avisar(T('sera_salvo_pdf', { nup: p.nup })); } else { ctx.avisar(T('erro'), 'erro'); }",
+            $corpo,
+            'concluído e não aplicado: pendente avisa normal (o PDF com selo ainda está na fila), o resto é o erro em vermelho',
+        );
     }
 
     #[TestDox('costura no assinatura.js na ordem do desenho: texto depois do sub, botão antes de Abrir, menu antes de Duplicar')]
@@ -181,6 +186,7 @@ final class AssinaturaVinculoJsTest extends TestCase
         self::assertSame('Fechar', $textos['fechar']);
         self::assertSame('Documento salvo na pasta {nup}.', $textos['salvo']);
         self::assertSame('Será salvo na pasta {nup} quando concluído.', $textos['sera_salvo']);
+        self::assertSame('Será salvo na pasta {nup} quando o PDF com selo ficar pronto.', $textos['sera_salvo_pdf']);
         self::assertSame('Não foi possível vincular o arquivo.', $textos['erro']);
 
         $js = self::ler(self::VINCULO);

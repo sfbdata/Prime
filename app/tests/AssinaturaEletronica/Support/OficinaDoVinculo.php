@@ -37,7 +37,7 @@ use Symfony\Component\Translation\IdentityTranslator;
  * O vínculo à pasta nos testes de unidade (spec assinatura-documentos-etapa-3, E3-10 a E3-12), por cima da
  * {@see OficinaDosUseCasesDaAssinatura}: pastas do escritório, a permissão de cada pasta (ver e editar, o cadeado
  * incluído, como o `canAccessResource`), o PDF final dublado no disco em memória, o contador de páginas dublado e o que
- * foi para a pasta.
+ * foi para a pasta. O pedido do PDF final ao worker vai para o barramento da oficina (`$despachadas`).
  *
  * O EntityManager só entra pelos serviços finais da Pasta (`RegistroDoSistemaNaPasta` e o do contrato), como nos testes
  * deles; o domínio da assinatura grava pelo repositório dublado (`guardarNaPasta`).
@@ -65,9 +65,6 @@ trait OficinaDoVinculo
 
     private int $pdfsGarantidos = 0;
 
-    /** @var array<int, ChaveDeArquivo> o PDF final já guardado, por id do documento */
-    private array $pdfsGuardados = [];
-
     private bool $pdfFalha = false;
 
     /** O que o contador de páginas dublado devolve (nulo: não conseguiu contar). */
@@ -75,6 +72,8 @@ trait OficinaDoVinculo
 
     /** @var list<string> o conteúdo de cada PDF que o contador de páginas leu do caminho local */
     private array $pdfsContados = [];
+
+    /** Chamado quando o PDF final dublado é gerado e guardado (o evento `PdfFinalGuardado` do gerador real). */
     private ?\Closure $aoGarantir = null;
     private ?VinculoComAPasta $vinculoAtual = null;
 
@@ -119,6 +118,7 @@ trait OficinaDoVinculo
             $this->trilha(),
             $this->permissoes,
             $this->pdfFinal(),
+            $this->barramento(),
             $this->arquivosNaPasta(),
             new IdentityTranslator(),
             $this->logger,
@@ -169,7 +169,7 @@ trait OficinaDoVinculo
         };
     }
 
-    /** O PDF final dublado: grava no disco em memória na primeira vez, como o gerador do bloco 1. */
+    /** O PDF final dublado, com o contrato do {@see \App\AssinaturaEletronica\Service\PdfFinalComSelo}. */
     private function pdfFinal(): PdfFinalDoDocumento
     {
         return new class (fn (DocumentoParaAssinar $d): ChaveDeArquivo => $this->garantirPdf($d)) implements PdfFinalDoDocumento {
@@ -184,21 +184,35 @@ trait OficinaDoVinculo
         };
     }
 
+    /**
+     * Como o gerador real: o guardado volta como está; senão grava no disco em memória, guarda a chave no documento e só
+     * então avisa (`$aoGarantir`, o evento depois do COMMIT).
+     */
     private function garantirPdf(DocumentoParaAssinar $doc): ChaveDeArquivo
     {
         ++$this->pdfsGarantidos;
         if ($this->pdfFalha) {
             throw new \LogicException('O PDF final com selo ainda não é gerado.');
         }
-        $id = (int) $doc->getId();
-        if (!isset($this->pdfsGuardados[$id])) {
-            $this->pdfsGuardados[$id] = $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deTexto(self::PDF_FINAL))->chave;
-            if ($this->aoGarantir !== null) {
-                ($this->aoGarantir)($doc);
-            }
+        $guardada = ChavesDeAssinaturaEletronica::pdfFinal($doc);
+        if ($guardada !== null) {
+            return $guardada;
+        }
+        $nova = $this->guardarPdfFinal($doc);
+        if ($this->aoGarantir !== null) {
+            ($this->aoGarantir)($doc);
         }
 
-        return $this->pdfsGuardados[$id];
+        return $nova;
+    }
+
+    /** O PDF final já guardado (pelo worker ou pelo primeiro download): no disco em memória e com a chave no documento. */
+    private function guardarPdfFinal(DocumentoParaAssinar $doc): ChaveDeArquivo
+    {
+        $chave = $this->disco->gravar(ChavesDeAssinaturaEletronica::novoPdfFinal($doc), FonteDeConteudo::deTexto(self::PDF_FINAL))->chave;
+        $doc->guardarArquivoFinal($chave->nome, hash('sha256', self::PDF_FINAL));
+
+        return $chave;
     }
 
     private function pasta(int $id = 42, string $nup = 'P-0042', string $cliente = 'MARIA DA SILVA', bool $ver = true, bool $editar = true): Pasta
@@ -222,14 +236,20 @@ trait OficinaDoVinculo
         return $ator;
     }
 
-    /** Documento concluído (os dois signatários assinaram), com o modelo dado. */
-    private function concluido(?string $modelo = null): DocumentoParaAssinar
+    /**
+     * Documento concluído (os dois signatários assinaram), com o modelo dado e o PDF final já guardado pelo worker (sem
+     * ele quando `$comPdf` é falso: o worker ainda não guardou).
+     */
+    private function concluido(?string $modelo = null, bool $comPdf = true): DocumentoParaAssinar
     {
         $documento = $modelo === null ? $this->documentoEnviado() : $this->enviadoDoModelo($modelo);
         foreach ($documento->getSignatarios() as $s) {
             $documento->assinar($s, $s->getNome(), self::CPF_ANA, 'rubrica.png', 'simples', null, null, new \DateTimeImmutable('2026-11-09 09:30:00'));
         }
         self::assertSame(SituacaoDoDocumento::Concluido, $documento->getSituacao());
+        if ($comPdf) {
+            $this->guardarPdfFinal($documento);
+        }
 
         return $documento;
     }

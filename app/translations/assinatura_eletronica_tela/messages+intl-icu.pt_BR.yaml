@@ -362,6 +362,8 @@ assinatura_eletronica_tela:
             fechar: 'Fechar'
             salvo: 'Documento salvo na pasta {nup}.'
             sera_salvo: 'Será salvo na pasta {nup} quando concluído.'
+            # Concluído, mas o PDF com selo ainda está na fila do worker: o vínculo vai quando ele ficar pronto.
+            sera_salvo_pdf: 'Será salvo na pasta {nup} quando o PDF com selo ficar pronto.'
             erro: 'Não foi possível vincular o arquivo.'
             historico: 'vinculou documento assinado: {nome} ({codigo})'
         # Documento já assinado (etapa 5, bloco 5A: quadro do passo 3 e do detalhe; 5B: carimbo visível). Sem plural do
