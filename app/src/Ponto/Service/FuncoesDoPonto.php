@@ -16,12 +16,15 @@ use App\Service\PermissionChecker;
  * no seu escritório, em `ponto_config_escritorio`). A função vale quando as duas estão ligadas; o Global desligado
  * trava a do escritório. Chave sem registro em qualquer das camadas vale ligada (P96).
  *
- * Nesta etapa (E7) só a geolocalização tem a camada Escritório: as outras chaves entram nas etapas das suas funções
- * (E8, E11, E15, E16, E18), para ninguém ligar função que ainda não existe.
+ * Na E7 só a geolocalização tinha a camada Escritório; a E11 pôs os alertas de intervalo. As outras chaves entram nas
+ * etapas das suas funções (E8, E15, E16, E18), para ninguém ligar função que ainda não existe.
  */
 final class FuncoesDoPonto
 {
     public const GEO = 'ponto-geo';
+
+    /** Alertas de intervalo (E11, P21): a janela "Antes de registrar" e o aviso do intervalo no cartão. */
+    public const ALERTAS = 'ponto-alertas';
 
     /** Quem decide a camada Escritório: a permissão de gerir o ponto, além do primário e do Master (P67; P58 não). */
     public const PERMISSAO_DE_CONFIGURAR = 'admin.ponto.manage';
@@ -37,6 +40,11 @@ final class FuncoesDoPonto
             'titulo' => 'Geolocalização',
             'icone'  => 'bi-geo-alt',
             'ajuda'  => 'Exige que o registro seja feito dentro do raio de uma sede.',
+        ],
+        self::ALERTAS => [
+            'titulo' => 'Alertas de intervalo',
+            'icone'  => 'bi-exclamation-triangle',
+            'ajuda'  => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.',
         ],
     ];
 

@@ -79,13 +79,14 @@ final class FuncoesDoPontoTest extends TestCase
         self::assertTrue($this->funcoes([], $configuracao)->vale(FuncoesDoPonto::GEO, $tenant));
     }
 
-    #[TestDox('Só a geolocalização tem a camada Escritório na E7, e quem configura é admin.ponto.manage no escritório')]
+    #[TestDox('A geolocalização (E7) e os alertas de intervalo (E11) têm a camada Escritório, e quem configura é admin.ponto.manage no escritório')]
     public function testCamadaEPermissao(): void
     {
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-geo'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto-facial'));
-        self::assertSame(['ponto-geo'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO));
+        self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-alertas'));
+        self::assertSame(['ponto-geo', 'ponto-alertas'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO));
 
         $quem = new User();
         $tenant = new Tenant();

@@ -41,20 +41,23 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertNull($this->casoDeUso(false, null, true)->executar(new User(), new Tenant()));
     }
 
-    #[TestDox('Sem linha e sem registro do Master: a geolocalização aparece ligada nas duas camadas')]
+    #[TestDox('Sem linha e sem registro do Master: a geolocalização e os alertas de intervalo aparecem ligados nas duas camadas')]
     public function testNasceLigada(): void
     {
         $saida = $this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_USER']), new Tenant());
 
         self::assertNotNull($saida);
         self::assertFalse($saida->ehMaster);
-        self::assertCount(1, $saida->funcoes);
+        self::assertCount(2, $saida->funcoes);
         $geo = $saida->funcoes[0];
         self::assertSame(['ponto-geo', 'Geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.'], [$geo->chave, $geo->titulo, $geo->icone, $geo->ajuda]);
         self::assertTrue($geo->global);
         self::assertTrue($geo->escritorio);
         self::assertFalse($geo->travada());
         self::assertTrue($geo->escritorioEfetivo());
+        $alertas = $saida->funcoes[1];
+        self::assertSame(['ponto-alertas', 'Alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.'], [$alertas->chave, $alertas->titulo, $alertas->icone, $alertas->ajuda]);
+        self::assertTrue($alertas->escritorioEfetivo(), 'os alertas nascem ligados (P96)');
     }
 
     #[TestDox('Global desligado: travada, a do escritório aparece desligada e o valor guardado continua')]

@@ -16,6 +16,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Service\AlertasAntesDaBatida;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
@@ -29,11 +30,14 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * A interjornada não recusa por saída vinda de esquecimento (spec `docs/specs/ponto-esquecimento-nao-trava.md` R4,
- * risco ALTO), com o EntityManager real e a aprovação de verdade pela rota do admin. A saída batida continua recusando.
+ * risco ALTO), com o EntityManager real e a aprovação de verdade pela rota do admin. A saída batida continua barrando a
+ * entrada: desde a E11 (spec ponto-desenho-0811, P21) com o alerta "Antes de registrar", sem gravar até a confirmação; a
+ * recusa de antes fica para a chave `ponto-alertas` desligada (AlertasAntesDaBatidaControllerTest).
  * O escritório tem home office liberado todo dia para a pessoa (a batida passa sem GPS).
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(SaidaDeEsquecimento::class)]
+#[CoversClass(AlertasAntesDaBatida::class)]
 final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -121,7 +125,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertSame(2, $this->batidasDoTipo('entrada'));
     }
 
-    #[TestDox('R4: a saída batida há 3 horas continua recusando a entrada pela interjornada, sem gravar')]
+    #[TestDox('R4: a saída batida há 3 horas continua barrando a entrada pela interjornada: o alerta volta e nada grava')]
     public function testSaidaBatidaContinuaRecusando(): void
     {
         $this->batida('entrada', new \DateTimeImmutable('-3 hours -1 minute'));
@@ -129,12 +133,11 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
 
         $resposta = $this->bater('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima é de 11h.', (string) $resposta['message']);
+        $this->assertAlertaDaInterjornada($resposta, '8h00');
         self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
-    #[TestDox('R4: a observação fixa sem o esquecimento abonado do mesmo dia, batida e hora não basta: continua recusando')]
+    #[TestDox('R4: a observação fixa sem o esquecimento abonado do mesmo dia, batida e hora não basta: continua barrando (alerta, sem gravar)')]
     public function testObservacaoSemJustificativaNaoBasta(): void
     {
         $saida = new \DateTimeImmutable('-3 hours');
@@ -144,13 +147,11 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $outraHora->setStatus('abonado');
         $this->em()->flush();
 
-        $this->bater('entrada');
-
-        self::assertResponseStatusCodeSame(422);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '8h00');
         self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
-    #[TestDox('R4: o esquecimento abonado sem a observação fixa na saída (lançamento manual) não basta: continua recusando')]
+    #[TestDox('R4: o esquecimento abonado sem a observação fixa na saída (lançamento manual) não basta: continua barrando (alerta, sem gravar)')]
     public function testJustificativaSemObservacaoNaoBasta(): void
     {
         $saida = new \DateTimeImmutable('-3 hours');
@@ -159,13 +160,11 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->esquecimentoDaSaida($saida)->setStatus('abonado');
         $this->em()->flush();
 
-        $this->bater('entrada');
-
-        self::assertResponseStatusCodeSame(422);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '8h00');
         self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
-    #[TestDox('A aprovação confere: pedido de saída de uma hora antes da saída batida no mesmo dia é recusado na aprovação, fica pendente, nenhuma saída nova entra e a interjornada segue recusando')]
+    #[TestDox('A aprovação confere: pedido de saída de uma hora antes da saída batida no mesmo dia é recusado na aprovação, fica pendente, nenhuma saída nova entra e a interjornada segue barrando (alerta, sem gravar)')]
     public function testAprovacaoRecusadaComSaidaJaBatida(): void
     {
         if ((int) (new \DateTimeImmutable())->format('Hi') < 510) {
@@ -184,8 +183,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->client->followRedirect();
         self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
 
-        $this->bater('entrada');
-        self::assertResponseStatusCodeSame(422);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '8h00');
         self::assertSame(1, $this->batidasDoTipo('entrada'), 'interjornada intacta: só a de antes');
     }
 
@@ -279,20 +277,18 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertSame([], $resposta['avisos']);
     }
 
-    #[TestDox('Saída normal: entrada, saída às 22:00 de ontem e nova entrada às 07:00 de hoje (9 h depois) continua recusada pela interjornada')]
+    #[TestDox('Saída normal: entrada, saída às 22:00 de ontem e nova entrada às 07:00 de hoje (9 h depois) continua barrada pela interjornada (alerta, sem gravar)')]
     public function testSaidaNormalContinuaRecusando(): void
     {
         $saida = new \DateTimeImmutable('-9 hours');
         $this->batida('entrada', $saida->modify('-8 hours'));
         $this->batida('saida', $saida);
 
-        $resposta = $this->bater('entrada');
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima é de 11h.', (string) $resposta['message']);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '2h00');
+        self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
-    #[TestDox('R4, caso central: entrada, saída real há 9 h e uma saída solta mais nova; a entrada é recusada, com a interjornada medida da saída real (faltam 2 h, não 10 h)')]
+    #[TestDox('R4, caso central: entrada, saída real há 9 h e uma saída solta mais nova; a entrada é barrada pelo alerta, com a interjornada medida da saída real (faltam 2 h, não 10 h)')]
     public function testInterjornadaMedeDaSaidaRealMesmoComSaidaSoltaMaisNova(): void
     {
         $real = new \DateTimeImmutable('-9 hours');
@@ -300,10 +296,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->batida('saida', $real);
         $this->batida('saida', new \DateTimeImmutable('-1 hour'));   // solta: a última batida antes dela é a saída real
 
-        $resposta = $this->bater('entrada');
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Interjornada mínima é de 11h. Aguarde mais 2h00m.', $resposta['message']);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '2h00');
     }
 
     #[TestDox('R4, sem limite: entrada, saída real há 9 h e 11 saídas soltas depois dela; a interjornada ainda mede da saída real')]
@@ -316,13 +309,24 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
             $this->batida('saida', $real->modify(sprintf('+%d minutes', 30 * $i)));
         }
 
-        $resposta = $this->bater('entrada');
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('Interjornada mínima é de 11h. Aguarde mais 2h00m.', $resposta['message']);
+        $this->assertAlertaDaInterjornada($this->bater('entrada'), '2h00');
     }
 
     // ----------------------------------------------------------------- apoio
+
+    /**
+     * O alerta da interjornada (E11): 200 com `success: false`, sem gravar. O dia da saída varia com a hora da execução
+     * ("de hoje" ou "de ontem"), e o texto inteiro é conferido no AlertasAntesDaBatidaControllerTest.
+     *
+     * @param array<string, mixed> $resposta
+     */
+    private function assertAlertaDaInterjornada(array $resposta, string $faltam): void
+    {
+        self::assertResponseIsSuccessful();
+        self::assertFalse($resposta['success']);
+        self::assertStringStartsWith(sprintf('Faltam %s para completar 11h de descanso desde a saída de ', $faltam), (string) $resposta['alerta']);
+        self::assertStringEndsWith('Se registrar agora, a folha marcará a interjornada como não conforme.', (string) $resposta['alerta']);
+    }
 
     private function aprovar(JustificativaPonto $pedido): void
     {

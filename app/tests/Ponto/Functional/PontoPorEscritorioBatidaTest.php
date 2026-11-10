@@ -186,11 +186,12 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->batida($this->x, 'entrada', $this->entradaRecente());   // a saída de X fecha uma entrada: conta (R4)
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $resposta = $this->baterEmX('entrada');
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($resposta['success']);
+        self::assertStringContainsString('de descanso desde a saída', (string) ($resposta['alerta'] ?? ''), 'o alerta da interjornada (E11)');
     }
 
-    #[TestDox('Y aberto e a interjornada de uma saída batida em X: a recusa é a da interjornada, e o ponto aberto em Y não recusa')]
+    #[TestDox('Y aberto e a interjornada de uma saída batida em X: o que barra é o alerta da interjornada (E11), e o ponto aberto em Y não recusa')]
     public function testYAbertoNaoRecusaMasAInterjornadaSim(): void
     {
         $this->batida($this->x, 'entrada', $this->entradaRecente());   // a saída de X fecha uma entrada: conta (R4)
@@ -199,8 +200,9 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $resposta = $this->baterEmX('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($resposta['success']);
+        self::assertStringContainsString('de descanso desde a saída', (string) ($resposta['alerta'] ?? ''), 'o alerta da interjornada (E11)');
     }
 
     #[TestDox('Sem home office em X e sem GPS: Y aberto não recusa; a recusa é a da geolocalização de sempre')]
