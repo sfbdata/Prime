@@ -18,8 +18,8 @@ use Doctrine\ORM\Mapping as ORM;
 // NSR único por escritório (D2). As batidas sem NSR (antigas, do gestor, do abono) ficam nulas: no PostgreSQL o
 // nulo não colide no índice único, o mesmo que um índice parcial `WHERE nsr IS NOT NULL`.
 #[ORM\UniqueConstraint(name: 'uniq_registro_ponto_tenant_nsr', columns: ['tenant_id', 'nsr'])]
-// E10: a batida gravada só se insere (gatilho registro_ponto_so_insercao). Data e hora, tipo, pessoa e escritório não
-// mudam depois do id: a correção vai para ponto_ajuste (PontoAjuste), e os setters desses campos recusam a batida gravada.
+// E10: a batida gravada só se insere (gatilho registro_ponto_so_insercao). Nenhum campo muda depois do id: a correção vai
+// para ponto_ajuste (PontoAjuste), e todos os setters recusam a batida gravada.
 class RegistroPonto implements Auditavel, TenantAware, MarcacaoDoPonto
 {
     /** O índice único do envio: a batida reconhece pela mensagem do banco a violação que é dele. */

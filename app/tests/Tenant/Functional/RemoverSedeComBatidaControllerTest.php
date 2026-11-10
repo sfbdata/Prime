@@ -83,6 +83,24 @@ final class RemoverSedeComBatidaControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($this->conexao()->fetchOne('SELECT removida_em FROM sede WHERE id = ?', [$sedeId]));
     }
 
+    #[TestDox('Sede de outro escritório pedida pela URL do escritório do admin: editar e remover dão 404 e nada muda')]
+    public function testSedeDeOutroEscritorioDa404(): void
+    {
+        [$client, $tenant] = $this->entrarComoAdmin();
+        $outro = new Tenant();
+        $outro->setName('Outro escritório ' . uniqid());
+        static::getContainer()->get(EntityManagerInterface::class)->persist($outro);
+        $deOutro = $this->criarSede($outro, 'Sede Alheia');
+        $sedeId = (int) $deOutro->getId();
+
+        $client->request('POST', "/tenant/{$tenant->getId()}/sedes/{$sedeId}/edit", ['sede' => ['nome' => 'Tomada']], [], ['HTTP_ORIGIN' => 'http://localhost']);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->remover($client, $tenant, $sedeId);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(['Sede Alheia', null], array_values((array) $this->conexao()->fetchAssociative('SELECT nome, removida_em FROM sede WHERE id = ?', [$sedeId])));
+    }
+
     #[TestDox('Sede encerrada sai da cerca do ponto; a ativa continua')]
     public function testSedeEncerradaSaiDaCerca(): void
     {

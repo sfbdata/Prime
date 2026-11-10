@@ -23,6 +23,9 @@ use Doctrine\Migrations\AbstractMigration;
  * `set_config('bluejus.purga_do_escritorio', <id do escritório>, true)` na mesma transação. Por isso a FK
  * `registro_ponto.sede_id` (ON DELETE SET NULL) passa a recusar apagar a sede que tem batida.
  *
+ * Migration de dado futura que precise mudar batida gravada desliga o gatilho dentro dela mesma
+ * (`ALTER TABLE registro_ponto DISABLE TRIGGER registro_ponto_so_insercao`, depois `ENABLE`) e diz no docblock por quê.
+ *
  * `sede.removida_em`: a sede com batida não é apagada, é encerrada (some das listas e da cerca, não vale para batida
  * nova) e as batidas antigas mantêm o `sede_id` (decisão do Coordenador, 09/11).
  */

@@ -629,7 +629,7 @@
                                     <form method="post"
                                           action="{{ path('app_tenant_sede_delete', {'tenantId': tenant.id, 'sedeId': sede.id}) }}"
                                           class="d-inline-block"
-                                          onsubmit="return confirm('Excluir a sede \'{{ sede.nome|e('js') }}\' permanentemente?');">
+                                          onsubmit="return confirm('Remover a sede \'{{ sede.nome|e('js') }}\'? Se já houver batida nela, a sede sai da lista e da cerca, e as batidas continuam no histórico.');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
                                         <button type="submit" class="btn btn-sede-del" title="{{ 'escritorio.sedes.excluir_dica'|trans }}">
                                             <i class="bi bi-trash"></i>

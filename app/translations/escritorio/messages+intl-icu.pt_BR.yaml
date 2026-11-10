@@ -216,7 +216,7 @@ escritorio:
         nome_do_usuario_atualizado: Nome atualizado com sucesso!
         colaborador_removido: '{nome} foi removido do escritório.'
         acesso_removido: Acesso específico removido com sucesso.
-        # T4: as ações das sedes do TenantController. {qtd} é o número já como texto (sem separador de milhar).
+        # T4: as ações das sedes do TenantController.
         sede_cadastrada: Sede cadastrada com sucesso!
         sede_atualizada: Sede atualizada com sucesso!
         sede_removida: Sede removida com sucesso.

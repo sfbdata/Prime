@@ -14,9 +14,13 @@ use Psr\Clock\ClockInterface;
  * batida não é apagada. Ela é encerrada (`removidaEm`): some das listas e da cerca, não vale para batida nova, e as
  * batidas antigas continuam apontando para ela. A sede sem batida é apagada como antes.
  *
- * Grava com flush; quem chama abre a transação. Se uma batida nova entrar na sede entre a conferência e o DELETE, a FK
- * (ON DELETE SET NULL) tenta mudar a batida, o gatilho `registro_ponto_so_insercao` recusa e a remoção falha inteira:
- * quem perde é o administrador (tenta de novo), nunca a batida.
+ * Grava com flush; quem chama abre a transação. Corridas com uma batida na mesma sede (limites aceitos, janela de
+ * milissegundos e a pessoa estava na área):
+ * - batida grava antes do DELETE da sede sem batida: a FK (ON DELETE SET NULL) tenta mudar a batida, o gatilho
+ *   `registro_ponto_so_insercao` recusa e a remoção falha inteira (o administrador tenta de novo);
+ * - DELETE trava a sede antes do INSERT da batida: a batida espera a FK e, com a sede apagada, falha (erro na tela,
+ *   a pessoa bate de novo), como já era antes da E10;
+ * - batida que já leu a sede como ativa grava depois do encerramento: entra apontando para a sede encerrada.
  */
 final class RemocaoDaSedeDoPonto
 {
