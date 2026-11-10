@@ -287,7 +287,8 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
     }
 
     /**
-     * Leva o documento para a Lixeira. Se ele aguardava assinatura, o envio é cancelado (os links param).
+     * Leva o documento para a Lixeira. Se ele aguardava assinatura dentro do prazo, o envio é cancelado (os links param);
+     * o vencido continua Expirado, como o desenho (L364: só cancela o que `stAtual` diz "aguardando").
      *
      * @return bool se havia envio em andamento que foi cancelado
      */
@@ -297,7 +298,7 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
             throw new \LogicException('O documento já está na Lixeira.');
         }
 
-        $cancelou = $this->situacao === SituacaoDoDocumento::Aguardando;
+        $cancelou = $this->situacao === SituacaoDoDocumento::Aguardando && !$this->estaVencido($agora);
         if ($cancelou) {
             $this->situacao = SituacaoDoDocumento::Cancelado;
         }
