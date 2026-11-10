@@ -126,12 +126,12 @@ final class DadosDaFolhaExportada
         // do dono de 2026-07-31). O "anterior" é o banco até o fim do mês passado, atravessando o ano: em janeiro, até
         // dezembro do ano anterior. `calcularSaldoAteMes` soma as mesmas competências dos lotes da aba "Banco de Horas",
         // então o papel assinado e a tela dão o mesmo número.
-        // Guarda própria, não herdada: hoje os dois chamadores (`:789` e `:873`) já fazem
+        // Guarda própria, não herdada: hoje os dois chamadores (as exportações do PDF e do XLSX no PontoController) já fazem
         // `max(1, min(12, ...))`, mas o mês anterior abaixo depende disso silenciosamente. Um chamador
         // novo que esquecesse o clamp levaria `mes = 0` a somar período vazio e devolver ZERO SEM
         // BARULHO — número errado num documento assinado —, e `mes = 13` a estourar 500 lá dentro.
         if ($mes < 1 || $mes > 12) {
-            throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
+            throw new \InvalidArgumentException(sprintf('DadosDaFolhaExportada::montar: mês fora de 1..12 (%d)', $mes));
         }
 
         // NÃO condiciona em $jornada de propósito: `calcularSaldoAteMes` monta a jornada sozinho, a mesma da
