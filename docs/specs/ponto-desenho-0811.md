@@ -737,9 +737,9 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     escritório, na conta dela) e aplica a mesma regra de quem vê. O dia útil do escritório (`DiaUtilDoEscritorio`:
     cobrança do checklist e resumo diário) é a regra do escritório inteiro e só considera os feriados sem lotação: um
     feriado de Maceió não pula o dia do escritório;
-  - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`, que hoje lê todos os feriados do escritório:
-    o feriado de outra lotação zera a meta do dia na tela, não o saldo) entra no commit do orquestrador que mexe no
-    `PontoController`, que não é desta etapa;
+  - a meta do dia no cartão "Registrar Ponto" (`PontoController::index`: contador de horas excedentes, saída prevista
+    e lembrete de saída) usa a mesma regra, pelo `FeriadosDaPessoa` (commit do orquestrador, 10/11/2026); o alerta de
+    "hora de ir embora" (`VerificadorAlertaPonto`) não olha feriado nenhum, como antes da E6;
   - **apagar lotação com feriado é recusado (decisões do Coordenador, 09/11/2026):** apagar a lotação apagava em
     cascata os feriados dela, e os meses passados mudavam (quem não bateu no feriado passava a ter falta). Na aba
     "Lotações" da edição do escritório (`TenantController::edit`, o único caminho que apaga lotação: a purga apaga o
