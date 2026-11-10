@@ -610,6 +610,28 @@ final class TenantController extends AbstractController
         );
     }
 
+    /**
+     * Os meses da folha na ficha: os com batida efetiva e, desde a E10, os que só têm batida desconsiderada. O mês que
+     * perdeu a última batida efetiva continua com folha, para a linha "Desconsideradas" do dia trazer o Restaurar; sem
+     * ela, a batida tirada da conta ficava sem volta pela tela.
+     *
+     * @return list<array{valor: string, label: string, ano: int, mes: int}> do mais novo para o mais antigo
+     */
+    private function competenciasDaFolhaNaFicha(User $user, Tenant $tenant, RegistroPontoRepository $registros): array
+    {
+        $competencias = [];
+        foreach ($registros->findCompetenciasComRegistroPorUsuario($user, $tenant) as $competencia) {
+            $competencias[$competencia['valor']] = $competencia;
+        }
+        foreach ($registros->competenciasComDesconsideracao($user, $tenant) as $valor) {
+            [$ano, $mes] = array_map('intval', explode('-', $valor));
+            $competencias[$valor] ??= ['valor' => $valor, 'label' => sprintf('%02d/%04d', $mes, $ano), 'ano' => $ano, 'mes' => $mes];
+        }
+        krsort($competencias, SORT_STRING);
+
+        return array_values($competencias);
+    }
+
     private function resolverJornadaInfoAdmin(?JornadaColaborador $jornada, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
     {
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
@@ -793,9 +815,9 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
-        $competenciasComRegistro = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
-        // Lista de competências que REALMENTE têm batida — decide, mais abaixo, se a tabela é
-        // montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
+        $competenciasComRegistro = $this->competenciasDaFolhaNaFicha($user, $tenant, $registroPontoRepository);
+        // Lista de competências que REALMENTE têm batida (ou batida desconsiderada, E10) — decide, mais abaixo, se a
+        // tabela é montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
         $competenciasComBatida = array_column($competenciasComRegistro, 'valor');
 
         // O seletor só listava meses com BATIDA. Dois lançamentos de horas pagas ficavam

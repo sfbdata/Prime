@@ -62,8 +62,9 @@
     saidas_distintas: 'mais de uma saída',
     retorno_antes_do_repouso: 'retorno antes do repouso'
 } %}
+{# E10: o dia que só tem batida desconsiderada também fica, para a linha "Desconsideradas" trazer o Restaurar. #}
 {% set linhasDaFolha = somenteDiasComBatida
-    ? folhaRows|filter(l => (l.entrada ~ l.repouso ~ l.retorno ~ l.saida) != '' or (l.isFeriado|default(false) and (l.minutosTrabalhadosDia ?? 0) > 0))
+    ? folhaRows|filter(l => (l.entrada ~ l.repouso ~ l.retorno ~ l.saida) != '' or (l.isFeriado|default(false) and (l.minutosTrabalhadosDia ?? 0) > 0) or desconsideradasPorDia[l.chaveDia] is defined)
     : folhaRows %}
 
 {% if carregarCssDaFolha %}

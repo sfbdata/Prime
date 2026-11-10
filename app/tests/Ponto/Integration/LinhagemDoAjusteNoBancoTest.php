@@ -150,6 +150,21 @@ final class LinhagemDoAjusteNoBancoTest extends KernelTestCase
         self::assertSame([], $this->registros->desconsideradasDaCompetencia($this->pessoa, $this->a, 2026, 9));
     }
 
+    #[TestDox('Competências com desconsideração: os meses das que ainda são cabeça, da pessoa e do escritório, do mais novo ao mais antigo')]
+    public function testCompetenciasComDesconsideracao(): void
+    {
+        $this->desconsiderar($this->a, $this->batida($this->a, $this->pessoa, 'entrada', '2026-09-02 08:00:00'));
+        $this->desconsiderar($this->a, $this->batida($this->a, $this->pessoa, 'saida', '2026-10-21 18:00:00'));
+        $this->desconsiderar($this->a, $this->batida($this->a, $this->pessoa, 'entrada', '2026-10-02 08:00:00'));
+        $restaurada = $this->desconsiderar($this->a, $this->batida($this->a, $this->pessoa, 'entrada', '2026-08-10 08:00:00'));
+        $this->emTransacao(fn (): PontoAjuste => $this->gravacao->restaurar($restaurada, 'Volta.', $this->gestora));
+        $this->desconsiderar($this->a, $this->batida($this->a, $this->outra, 'entrada', '2026-07-15 08:00:00'));    // outra pessoa
+        $this->desconsiderar($this->b, $this->batida($this->b, $this->pessoa, 'entrada', '2026-06-15 08:00:00'));   // outro escritório
+
+        self::assertSame(['2026-10', '2026-09'], $this->registros->competenciasComDesconsideracao($this->pessoa, $this->a));
+        self::assertSame([], $this->registros->competenciasComDesconsideracao($this->gestora, $this->a));
+    }
+
     #[TestDox('Inclusão do esquecimento: a mais nova da justificativa, como alvo; sem inclusão, nula')]
     public function testInclusaoDoEsquecimento(): void
     {

@@ -240,6 +240,21 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $this->linhaDoDia('2026-10-21')->filter('.batidas-fora-por-ajuste'), 'a batida voltou para a conta');
     }
 
+    #[TestDox('O mês que só tem a batida desconsiderada entra na lista da ficha e abre com a linha do dia e o Restaurar')]
+    public function testMesSoComDesconsideracaoContinuaNaFicha(): void
+    {
+        $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
+        $this->desconsiderar($this->colaborador, "b{$id}", 'Batida em dobro.');
+
+        $crawler = $this->client->request('GET', $this->ficha($this->colaborador) . '/edit-role?tab=ponto');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(self::COMPETENCIA, $crawler->filter('#competencia-ponto-user option[selected]')->attr('value'), 'a ficha abre no mês da desconsideração');
+        $linha = $crawler->filter('tr[data-chave-dia="2026-10-21"]');
+        self::assertCount(1, $linha, 'a linha do dia existe sem nenhuma batida efetiva');
+        self::assertCount(1, $linha->filter('.batidas-fora-por-ajuste .batida-fora-por-ajuste button.pe-mais--restaurar'));
+    }
+
     #[TestDox('Decisão A: a desconsideração da análise aparece sem o Restaurar, com o porquê na dica, e a rota recusa com o aviso')]
     public function testDesconsideracaoDaAnaliseNaoSeRestaura(): void
     {

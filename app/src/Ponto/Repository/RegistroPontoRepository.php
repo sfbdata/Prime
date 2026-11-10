@@ -594,6 +594,38 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
     }
 
     /**
+     * Os meses em que a pessoa tem batida fora da conta por desconsideração NESTE escritório, pela data da batida
+     * desconsiderada (o mesmo recorte de `desconsideradasDaCompetencia`). A ficha monta a folha desses meses mesmo sem
+     * batida efetiva: o mês que perdeu a última batida para uma desconsideração continua com a linha "Desconsideradas" e
+     * o Restaurar.
+     *
+     * @return list<string> 'AAAA-MM', do mais novo para o mais antigo
+     */
+    public function competenciasComDesconsideracao(User $pessoa, Tenant $tenant): array
+    {
+        // A coluna volta como texto do banco ('AAAA-MM-DD HH:MM:SS'): a leitura de uma coluna só não converte o tipo.
+        $batidas = $this->cabecasDeLinhagem()
+            ->select('a.dataHoraAnterior')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.user = :pessoa')
+            ->andWhere('a.tipo = :tipo')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('tipo', TipoDoAjuste::Desconsideracao->value)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        $competencias = [];
+        foreach ($batidas as $batida) {
+            $quando = $batida instanceof \DateTimeInterface ? $batida : new \DateTimeImmutable((string) $batida);
+            $competencias[$quando->format('Y-m')] = true;
+        }
+        krsort($competencias, SORT_STRING);
+
+        return array_map('strval', array_keys($competencias));
+    }
+
+    /**
      * A inclusão que o abono deste esquecimento criou, como alvo de ajuste (para a volta à análise desconsiderá-la).
      * Do escritório e da pessoa da justificativa; se a justificativa foi abonada mais de uma vez, a inclusão mais nova.
      */
