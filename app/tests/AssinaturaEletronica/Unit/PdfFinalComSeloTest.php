@@ -63,6 +63,9 @@ final class PdfFinalComSeloTest extends TestCase
 
     private bool $ouvinteQueFalha = false;
 
+    /** O teto para gerar de novo no perfil leve: o de produção, salvo no teste que o baixa. */
+    private int $teto = PdfDaAssinatura::TETO_PARA_O_MOTOR;
+
     private SeladorDePdf $selador;
 
     /** @var list<string> os bytes que o selador dublado recebeu, um por pedido */
@@ -124,6 +127,26 @@ final class PdfFinalComSeloTest extends TestCase
         self::assertSame($paginas + 2, $pedacos, 'o início, uma por página e o fim');
         $this->servico()->garantir($documento, $aCadaPedaco);
         self::assertSame($paginas + 2, $pedacos, 'já guardado: nenhum pedaço');
+    }
+
+    #[TestDox('gerado acima do teto do motor: gera uma vez de novo no perfil leve, antes do selo, e guarda o leve (mesmo que ainda passe do teto)')]
+    public function testAcimaDoTetoGeraDeNovoNoPerfilLeve(): void
+    {
+        $documento = $this->concluido();
+        $noDesenho = \strlen(implode('', iterator_to_array($this->pdfDaAssinatura()->pedacos($documento), false)));
+        $pedacos = 0;
+        $aCadaPedaco = static function () use (&$pedacos): void {
+            ++$pedacos;
+        };
+        $this->teto = 1;
+
+        $chave = $this->servico()->garantir($documento, $aCadaPedaco);
+
+        $guardado = $this->disco->ler($chave);
+        $paginas = (new PdfLido($guardado))->paginas();
+        self::assertSame(2 * ($paginas + 2), $pedacos, 'gerou duas vezes: no perfil do desenho e no leve, e parou');
+        self::assertLessThan($noDesenho, \strlen($guardado), 'o guardado é o leve (metade dos pixels, JPEG 70)');
+        self::assertSame(hash('sha256', $guardado), $documento->getHashFinal());
     }
 
     #[TestDox('já guardado: devolve a chave guardada sem gerar nem avisar')]
@@ -401,7 +424,7 @@ final class PdfFinalComSeloTest extends TestCase
 
         $selo = new SeloDoPdfFinal($this->selador, $this->trilha(), $this->logger);
 
-        return new PdfFinalComSelo($this->pdfDaAssinatura(), $selo, $this->disco, $this->documentos, new RemocaoAposTransacao($this->disco, $this->logger), $eventos, $this->logger);
+        return new PdfFinalComSelo($this->pdfDaAssinatura(), $selo, $this->disco, $this->documentos, new RemocaoAposTransacao($this->disco, $this->logger), $eventos, $this->logger, $this->teto);
     }
 
     /** O documento enviado, com código e as duas assinaturas (rubricas no disco): concluído. */

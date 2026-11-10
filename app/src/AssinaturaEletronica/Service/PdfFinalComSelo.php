@@ -9,6 +9,7 @@ use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Event\PdfFinalGuardado;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
+use App\AssinaturaEletronica\Pdf\PerfilDoPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\Selo\FalhaNoSelo;
 use App\AssinaturaEletronica\Service\Selo\ResultadoDoSelo;
@@ -26,7 +27,8 @@ use Psr\Log\LoggerInterface;
  * O PDF final com selo do documento concluído (contrato da etapa 3, seção 2, item 7; E3-4): guardado uma vez, em
  * `arquivo_final_chave` e `hash_final`.
  *
- * Já guardado: devolve a chave. Senão, em passos: gera os pedaços num arquivo da área temporária, sela esse arquivo
+ * Já guardado: devolve a chave. Senão, em passos: gera os pedaços num arquivo da área temporária (acima do
+ * {@see PdfDaAssinatura::TETO_PARA_O_MOTOR}, gera de novo no perfil leve, metade dos pixels e JPEG 70), sela esse arquivo
  * ({@see SeloDoPdfFinal::aplicar()}, etapa 8, E8-4), mede o sha256 do que vai ao armazenamento (o selado, quando selou)
  * e grava. Depois, com a linha do documento travada e relida, leva o selo à trilha ({@see SeloDoPdfFinal::registrar()})
  * e guarda a chave e o sha256 ({@see DocumentoParaAssinar::guardarArquivoFinal()}), na mesma transação.
@@ -60,6 +62,7 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
         private RemocaoAposTransacao $remocao,
         private EventDispatcherInterface $eventos,
         private LoggerInterface $logger,
+        private int $tetoParaOMotor = PdfDaAssinatura::TETO_PARA_O_MOTOR,
     ) {
     }
 
@@ -125,7 +128,11 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     {
         $area = AreaTemporariaPrivada::criar('assinaturapdf');
         try {
-            $caminho = $this->gerar($area, $doc, $aCadaPedaco);
+            $caminho = $this->gerar($area, $doc, $aCadaPedaco, PerfilDoPdf::Desenho);
+            if (PdfNoTemporario::tamanho($area, $caminho) > $this->tetoParaOMotor) {
+                // Acima do teto do motor e do validador: de novo no perfil leve, antes do selo (decisão de 10/11).
+                $caminho = $this->gerar($area, $doc, $aCadaPedaco, PerfilDoPdf::Leve);
+            }
             $selo = $this->selo->aplicar($doc, $area, $caminho, $ultimaTentativa);
             // O sha256 do arquivo que vai ao armazenamento: o selado, quando selou.
             $sha256 = Sha256DeArquivo::deArquivoLocal($caminho);
@@ -138,15 +145,15 @@ final readonly class PdfFinalComSelo implements PdfFinalDoDocumento
     }
 
     /**
-     * Os pedaços do PDF final num arquivo novo da área temporária.
+     * Os pedaços do PDF final, no perfil pedido, num arquivo novo da área temporária.
      *
      * @param (\Closure(): void)|null $aCadaPedaco
      *
      * @return string o caminho do arquivo
      */
-    private function gerar(AreaTemporariaPrivada $area, DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco): string
+    private function gerar(AreaTemporariaPrivada $area, DocumentoParaAssinar $doc, ?\Closure $aCadaPedaco, PerfilDoPdf $perfil): string
     {
-        [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc), $aCadaPedaco));
+        [$caminho] = PdfNoTemporario::gravar($area, self::avisando($this->pdf->pedacos($doc, $perfil), $aCadaPedaco));
 
         return $caminho;
     }
