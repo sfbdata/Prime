@@ -1312,7 +1312,10 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
   16. Sem o segredo: o PDF sai com o fundo de segurança (semente do conteúdo), sem o código na marca d'água e no
       microtexto, sem a palavra "AUTENTICA", sem a faixa do QR e sem o selo holográfico; a "Base Legal" sobe. Nenhuma
       folha emitida é gravada e o "Assinar folha" não aparece.
-  17. A página de validação diz "Comprovante autêntico." também para a folha (desenho L300).
+  17. A página de validação diz "Comprovante autêntico." também para a folha (desenho L300). O título e a frase
+      da página também seguem os da janela "Validar comprovante" (L297 a L302). O `ValidarCodigoDoPontoUseCase`
+      devolve só o texto que a página mostra (`?string`), porque a página não mostra mais nada do comprovante nem
+      da folha.
   18. Toda emissão nova grava "Folha emitida" na trilha, inclusive a que o aceite cria para a folha vista.
   19. Ressalva com até 1.000 caracteres; o PDF mostra uma linha cortada (L697). Ressalva sem texto é recusada.
   20. "ajustada em dd/mm" (L622) depende da E10: a E16 deixa o gancho e liga quando a E10 entrar.

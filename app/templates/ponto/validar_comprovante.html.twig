@@ -1,8 +1,8 @@
-{# Validação pública do comprovante do ponto (E15, P50 e D20): o endereço do QR Code da imagem. Página avulsa, sem o
+{# Validação pública do comprovante (E15, P50 e D20) e da folha (E16, decisão 17) do ponto: o endereço do QR Code. Página avulsa, sem o
    layout do sistema (quem confere pode não ter conta), no mesmo cartão central da verificação do Cálculo. As caixas de
    resultado e o campo do código têm as medidas e cores da janela "Validar comprovante" do desenho 16 (L297 a L302).
    Mostra o nome inteiro; nunca CPF nem localização.
-   Contexto: `codigo` (digitado), `consultou` (bool), `texto` (string|null: o comprovante autêntico), `limite` (string|null). #}
+   Contexto: `codigo` (digitado), `consultou` (bool), `texto` (string|null: o comprovante ou a folha autêntica, já em texto), `limite` (string|null). #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
