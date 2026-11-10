@@ -513,6 +513,34 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         );
     }
 
+    #[TestDox('"Registrar assim mesmo" (E11) de uma batida de trabalho externo refaz o toque externo, com o tipo e o motivo, e não deixa a marca para o próximo toque')]
+    public function testAlertaDaBatidaExternaMantemOTrabalhoExterno(): void
+    {
+        $abrir = self::corpo(self::tela(), 'function abrirAntesDeRegistrar(texto, payload) {');
+        self::assertMatchesRegularExpression(
+            '/if \(payload\.trabalhoExterno === true\) \{\s*alertaEmEspera\.externo = \{ tipo: payload\.tipo, motivo: payload\.motivoTrabalhoExterno \};\s*\}/',
+            $abrir,
+            'a janela do alerta guarda a marca e o motivo da batida externa'
+        );
+
+        $registrar = self::corpo(self::tela(), "janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {");
+        $marca = strpos($registrar, 'trabalhoExternoDoToque = batida.externo || null;');
+        self::assertIsInt($marca, 'a confirmação refaz o toque como externo');
+        self::assertGreaterThan($marca, strpos($registrar, 'btnPonto.click();'), 'a marca vem antes do toque');
+        self::assertGreaterThan(
+            strpos($registrar, 'btnPonto.click();'),
+            strrpos($registrar, 'trabalhoExternoDoToque = null;'),
+            'e sai logo depois, para o próximo toque ser comum'
+        );
+
+        // O toque lê a marca antes da cerca da tela e aplica a confirmação depois de montar o corpo externo.
+        $toque = self::corpo(self::tela(), "btnPonto.addEventListener('click', async function() {");
+        self::assertGreaterThan(
+            strpos($toque, 'payload.motivoTrabalhoExterno = externo.motivo;'),
+            strpos($toque, 'aplicarConfirmacaoDoAlerta(payload);')
+        );
+    }
+
     #[TestDox('Sem travessão nos textos novos que a pessoa vê')]
     public function testSemTravessao(): void
     {

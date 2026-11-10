@@ -2058,6 +2058,11 @@
             return;
         }
         alertaEmEspera = { tipo: payload.tipo, idEnvio: payload.idEnvio };
+        // E12: a batida de trabalho externo volta externa, com o mesmo motivo. Sem isso, o "Registrar assim mesmo" fora
+        // do raio pararia na cerca da tela, e dentro dele sairia como batida comum, sem a análise do gestor.
+        if (payload.trabalhoExterno === true) {
+            alertaEmEspera.externo = { tipo: payload.tipo, motivo: payload.motivoTrabalhoExterno };
+        }
         fundo.querySelector('[data-alerta-texto]').textContent = String(texto);
         fundo.querySelector('.pe-janela-cancelar').focus();   // o foco na saída segura: Enter não registra sem querer
     }
@@ -2082,8 +2087,10 @@
                 return;
             }
             confirmacaoDoAlerta = batida;
+            trabalhoExternoDoToque = batida.externo || null;   // E12: lido pelo toque como o da janela do trabalho externo
             btnPonto.click();
             confirmacaoDoAlerta = null;
+            trabalhoExternoDoToque = null;
         });
     }
 

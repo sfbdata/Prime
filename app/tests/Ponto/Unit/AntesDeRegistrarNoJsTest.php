@@ -26,7 +26,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         $toque = $this->toque();
 
         self::assertMatchesRegularExpression(
-            '/const payload = \{ tipo: tipoRegistro\.value, idEnvio: idDoEnvio\(\), horaAparelho \};\s*aplicarConfirmacaoDoAlerta\(payload\);/',
+            // No meio, só o corpo do trabalho externo da E12 (o tipo, a marca e o motivo), que a confirmação não desfaz.
+            '/const payload = \{ tipo: tipoRegistro\.value, idEnvio: idDoEnvio\(\), horaAparelho \};\s*(?:\/\/[^\n]*\s*)*if \(externo !== null\) \{[^{}]*\}\s*aplicarConfirmacaoDoAlerta\(payload\);/',
             $toque,
         );
         $leitura = (int) strpos($toque, 'aplicarConfirmacaoDoAlerta(payload);');
@@ -74,7 +75,7 @@ final class AntesDeRegistrarNoJsTest extends TestCase
 
         self::assertStringContainsString("janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {", $tela);
         self::assertMatchesRegularExpression(
-            '/window\.PontoAbas\.fecharJanela\(\);\s*if \(!batida\) \{\s*return;\s*\}\s*confirmacaoDoAlerta = batida;\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;/',
+            '/window\.PontoAbas\.fecharJanela\(\);\s*if \(!batida\) \{\s*return;\s*\}\s*confirmacaoDoAlerta = batida;\s*trabalhoExternoDoToque = batida\.externo \|\| null;[^\n]*\s*btnPonto\.click\(\);\s*confirmacaoDoAlerta = null;\s*trabalhoExternoDoToque = null;/',
             $tela,
         );
     }
