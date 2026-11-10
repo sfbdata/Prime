@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\Pdf\Diagramacao;
 
 /**
- * O cursor da página inteira (`nova`, `garante` e `TX` do `pdf()`, dc:396): páginas de elementos e a altura `y` onde
+ * O cursor da página inteira (`nova`, `garante` e `TX` do `pdf()`, dc:395): páginas de elementos e a altura `y` onde
  * entra o próximo.
  */
 final class Paginacao

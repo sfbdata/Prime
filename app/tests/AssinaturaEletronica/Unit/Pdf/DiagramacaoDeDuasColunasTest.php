@@ -9,6 +9,7 @@ use App\AssinaturaEletronica\Pdf\Diagramacao\ElementoDaPagina;
 use App\AssinaturaEletronica\Pdf\Diagramacao\LinhaDeTexto;
 use App\AssinaturaEletronica\Pdf\Diagramacao\LugarDeAssinatura;
 use App\AssinaturaEletronica\Pdf\Diagramacao\PaginaDoPdfEnviado;
+use App\AssinaturaEletronica\Pdf\Diagramacao\Palavra;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -92,7 +93,7 @@ final class DiagramacaoDeDuasColunasTest extends TestCase
         self::assertEquals([new PaginaDoPdfEnviado(1)], $paginas[1]);
         self::assertEquals([new PaginaDoPdfEnviado(2)], $paginas[2]);
         foreach (self::linhas($paginas[0]) as $linha) {
-            self::assertNotContains('CONTRATO', array_map(static fn ($p): string => $p->texto, $linha->palavras));
+            self::assertNotContains('CONTRATO', array_map(static fn (Palavra $p): string => $p->texto, $linha->palavras));
         }
     }
 

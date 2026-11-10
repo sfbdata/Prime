@@ -10,7 +10,7 @@ use App\AssinaturaEletronica\Pdf\MedidorDeTexto;
 use App\AssinaturaEletronica\Pdf\MolduraDaFolha;
 
 /**
- * A página inteira do `pdf()` (dc:396-397): margens X = 92, L = 790, de 170 a 1220; título negrito 26 centrado
+ * A página inteira do `pdf()` (dc:395-397): margens X = 92, L = 790, de 170 a 1220; título negrito 26 centrado
  * (entrelinha 36), subtítulo, cabeçalho e rótulo negrito 20, o resto 19 com entrelinha 28,5. Parágrafo justificado
  * com a última linha à esquerda, data à direita, linha de base 18 abaixo do topo da linha. Assinatura ocupa 112.
  * Página do PDF enviado vai sozinha numa página.
