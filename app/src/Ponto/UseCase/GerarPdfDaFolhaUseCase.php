@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\DTO\ConteudoDaFolha;
 use App\Ponto\DTO\PdfDaFolhaOutput;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
+use App\Ponto\Service\EmissorDaFolha;
 use App\Ponto\Service\ImagemDaFolha\DesenhoDaFolha;
 use App\Ponto\Service\NomeDoArquivoDaFolha;
 use App\Ponto\Service\PdfDeUmaImagem;
@@ -24,21 +26,23 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * o evento "Folha emitida"); desenha a página com o QR para a validação pública do código (D20); embrulha o JPEG num PDF
  * de uma página; devolve os bytes, o nome do arquivo e o código.
  * Fluxos alternativos: sem o segredo, a folha sai sem código, sem QR e sem nada gravado; competência inválida lança
- * `\InvalidArgumentException` antes de qualquer gravação.
+ * {@see CompetenciaDaFolhaInvalidaException} antes de qualquer gravação. A emissão é gravada antes do desenho: se o
+ * desenho ou o PDF falharem, a folha emitida e o evento ficam (decisão 25), e a falha sobe como está.
  * Pós-condições: com o segredo, uma folha emitida a mais por PDF gerado (decisão 2: cada PDF, um código).
- * Regras: o nome do arquivo é o do desenho (L726): o nome sem acento, só letras, em maiúsculas.
+ * Regras: o nome do arquivo é o do desenho (L726): o nome sem acento, só letras, em maiúsculas; sem letras, "USUARIO"
+ * (decisão 26).
  */
 final class GerarPdfDaFolhaUseCase
 {
     public function __construct(
-        private readonly EmitirFolhaDoPontoUseCase $emitir,
+        private readonly EmissorDaFolha $emitir,
         private readonly DesenhoDaFolha $desenho,
         private readonly PdfDeUmaImagem $pdf,
         private readonly UrlGeneratorInterface $rotas,
     ) {
     }
 
-    /** @throws \InvalidArgumentException competência fora do calendário */
+    /** @throws CompetenciaDaFolhaInvalidaException competência fora do calendário */
     public function executar(Tenant $escritorio, User $pessoa, int $ano, int $mes, User $emissor): PdfDaFolhaOutput
     {
         $conteudo = $this->emitir->executar($escritorio, $pessoa, $ano, $mes, $emissor);

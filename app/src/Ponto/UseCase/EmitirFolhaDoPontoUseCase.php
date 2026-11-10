@@ -12,8 +12,10 @@ use App\Ponto\DTO\ValidacaoDaFolha;
 use App\Ponto\Entity\AceiteDaFolhaDoPonto;
 use App\Ponto\Entity\FolhaEmitidaDoPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
+use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\Service\ConteudoDaFolhaDoMes;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use App\Ponto\Service\EmissorDaFolha;
 use App\Ponto\Service\EmissaoDaFolha;
 use App\Ponto\Service\EstadoDoAceiteDaFolha;
 use App\Ponto\Service\RelogioDaFolha;
@@ -38,7 +40,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * escritório, por emissão. Cada PDF gerado é uma emissão nova, com código próprio (decisão 2): nada é reaproveitado.
  * Regras: o instante da emissão é um só para o texto selado e a coluna ({@see RelogioDaFolha}).
  */
-final class EmitirFolhaDoPontoUseCase
+final class EmitirFolhaDoPontoUseCase implements EmissorDaFolha
 {
     public function __construct(
         private readonly ConteudoDaFolhaDoMes $conteudos,
@@ -54,7 +56,7 @@ final class EmitirFolhaDoPontoUseCase
     /**
      * @param ?User $emissor quem gera o PDF (a pessoa ou o gestor); autor do evento na trilha
      *
-     * @throws \InvalidArgumentException competência fora do calendário
+     * @throws CompetenciaDaFolhaInvalidaException competência fora do calendário
      */
     public function executar(Tenant $escritorio, User $pessoa, int $ano, int $mes, ?User $emissor): ConteudoDaFolha
     {
