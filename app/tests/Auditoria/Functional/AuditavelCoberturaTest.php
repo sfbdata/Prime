@@ -431,6 +431,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Voto\Entity\OpcaoDaPauta::class,
         \App\Voto\Entity\ParticipacaoNaPauta::class,
         \App\Voto\Entity\UnidadeDaAssembleia::class,
+        // Folha emitida e aceite da folha (E16): como o comprovante, cada linha é o próprio rastro selado e só se
+        // acrescenta; o ato entra na trilha do Ponto (folha_emitida, folha_assinada). Auditavel levaria nome, IP e
+        // ressalva ao audit_log lido por quem administra.
+        \App\Ponto\Entity\FolhaEmitidaDoPonto::class,
+        \App\Ponto\Entity\AceiteDaFolhaDoPonto::class,
     ];
 
     private EntityManagerInterface $em;
