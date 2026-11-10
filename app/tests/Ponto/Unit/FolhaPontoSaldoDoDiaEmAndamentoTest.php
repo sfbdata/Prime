@@ -13,8 +13,10 @@ use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\FeriadosDaPessoa;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\JornadaResolver;
+use App\Repository\UserTenantRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -142,6 +144,7 @@ final class FolhaPontoSaldoDoDiaEmAndamentoTest extends TestCase
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
             $this->createStub(JornadaColaboradorRepository::class),
+            new FeriadosDaPessoa($this->createStub(UserTenantRepository::class)),
         ];
     }
 
