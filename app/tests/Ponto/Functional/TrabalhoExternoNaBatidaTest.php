@@ -416,8 +416,8 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         self::assertTrue($detalhe['trabalho_externo']);
     }
 
-    #[TestDox('A folha da /ponto marca o dia com a etiqueta "Trabalho externo", na célula da semana, ao lado das outras')]
-    public function testFolhaMarcaOTrabalhoExterno(): void
+    #[TestDox('Decisão C1 (10/11/2026): a folha da /ponto não marca o dia com selo de trabalho externo na célula da semana (desenho L153)')]
+    public function testFolhaSemSeloDoTrabalhoExterno(): void
     {
         $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => self::MOTIVO]);
         self::assertResponseIsSuccessful();
@@ -428,10 +428,10 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
 
         $linha = $tela->filter(sprintf('table.pe-tab.pe-resp > tbody > tr.pe-lin[data-chave-dia="%s"]', (new \DateTimeImmutable())->format('Y-m-d')));
         self::assertCount(1, $linha);
-        $etiqueta = $linha->filter('td.pe-larga:nth-child(2) > span.pe-tag.pe-tag--info.pe-tag--extra[title="Batida registrada como trabalho externo, fora do raio das sedes."]');
-        self::assertCount(1, $etiqueta);
-        self::assertCount(1, $etiqueta->filter('i.bi.bi-briefcase[aria-hidden="true"]'));
-        self::assertSame('Trabalho externo', trim($etiqueta->text()));
+        // Decisão C1 de 10/11/2026: sem selo na coluna da semana (desenho L153); a batida aparece na folha.
+        self::assertCount(0, $linha->filter('td.pe-larga:nth-child(2) > span.pe-tag--extra'));
+        self::assertCount(0, $linha->filter('i.bi-briefcase'));
+        self::assertStringNotContainsString('Trabalho externo', $linha->filter('td.pe-larga:nth-child(2)')->text());
     }
 
     #[TestDox('Equipe (E12, desenho L545): a justificativa da batida externa mostra "TIPO às HH:MM" da batida ligada em "Justificativas a analisar"')]

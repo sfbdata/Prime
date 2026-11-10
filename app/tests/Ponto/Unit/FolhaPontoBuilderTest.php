@@ -684,19 +684,16 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($linha['semInternet'], 'a batida escolhida que veio da fila acende o selo');
     }
 
-    public function testSeloTrabalhoExternoSaiSoDasBatidasEscolhidas(): void
+    public function testTrabalhoExternoSemSeloNaFolha(): void
     {
-        // E12 (spec ponto-desenho-0811): como o "Sem internet", o selo olha só as batidas que a folha mostra.
+        // E12, decisão C1 de 10/11/2026: o trabalho externo não tem selo na folha (o desenho, L153, só mostra o dia da
+        // semana); a batida conta e aparece "Em análise" na coluna Justificativa.
         $entrada = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
-        $repeticaoExterna = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11, static fn (RegistroPonto $b) => $b->setTrabalhoExterno(true));
-
-        $linha = $this->linhaDoDia7([$entrada, $repeticaoExterna, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
-        self::assertFalse($linha['trabalhoExterno'], 'a repetição fora da conta não acende o selo');
-
         $saidaExterna = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13, static fn (RegistroPonto $b) => $b->setTrabalhoExterno(true));
+
         $linha = $this->linhaDoDia7([$entrada, $saidaExterna], []);
-        self::assertTrue($linha['trabalhoExterno'], 'a batida escolhida de trabalho externo acende o selo');
-        self::assertFalse($linha['semInternet']);
+        self::assertArrayNotHasKey('trabalhoExterno', $linha);
+        self::assertSame(['16:00:00', false, false], [$linha['saida'], $linha['homeOffice'], $linha['semInternet']]);
     }
 
     public function testJustificativaLigadaABatidaNaoAbonaSaldoMesmoAbonada(): void

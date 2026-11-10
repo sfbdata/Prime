@@ -1106,9 +1106,10 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
     as sedes, fica sozinha logo abaixo das funções, para a função não sumir de ninguém. Hoje esse caminho é só
     proteção: a caixa e as sedes pedem a mesma permissão (`admin.ponto.manage`, `FuncoesDoPonto` e `GestaoDoPonto`),
     então quem vê a caixa sempre vê as sedes;
-  - a etiqueta "Trabalho externo" da folha é o texto do desenho no comprovante (L584, "· Trabalho externo" ao lado
-    de "· Sem internet"), como a "Sem internet" da E14. A folha do desenho não tem a etiqueta; ela entra pela
-    mesma regra da E14, para a batida sem sede aparecer no dia;
+  - a folha não tem selo de trabalho externo (decisão C1 do Coordenador, 10/11/2026, conferência ca6ef6498): o
+    desenho (L153) só mostra o dia da semana, e a batida externa aparece "Em análise" na coluna Justificativa (L743,
+    L751), na trilha e no comprovante (L584). O selo "Sem internet" da E14 fica (⚠): é a marca para o gestor da
+    decisão P20 (a) do dono;
   - a batida externa passa pela janela "Antes de registrar" da E11, como a comum (o desenho, L808, pula o
     `alertaPre`): a regra de intervalo vale para qualquer batida, e o "Registrar assim mesmo" mantém a marca e o
     motivo;

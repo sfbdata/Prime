@@ -154,10 +154,9 @@
                             {%- if linha.semInternet|default(false) %}
                                 <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida enviada sem internet: vale a hora do aparelho."><i class="bi bi-wifi-off" aria-hidden="true"></i>Sem internet</span>
                             {%- endif %}
-                            {# E12: alguma batida do dia entrou como trabalho externo, fora do raio das sedes (vai para a análise do gestor). #}
-                            {%- if linha.trabalhoExterno|default(false) %}
-                                <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida registrada como trabalho externo, fora do raio das sedes."><i class="bi bi-briefcase" aria-hidden="true"></i>Trabalho externo</span>
-                            {%- endif %}
+                            {# E12 (decisão C1 de 10/11/2026): o trabalho externo não tem selo aqui. O desenho (L153) só mostra o dia
+                               da semana, e a batida externa aparece "Em análise" na coluna Justificativa (L743, L751), na trilha e no
+                               comprovante. O "Sem internet" acima fica pela P20 (a). #}
                             {# Dia ambíguo: a conta segue a escolha de sempre (a primeira de cada tipo, a última saída) e NÃO é
                                reinterpretada; quem resolve é um humano corrigindo a batida. Só aqui, na tela do colaborador e
                                na ficha do admin; o PDF e o XLSX assinados não anunciam pendência. #}

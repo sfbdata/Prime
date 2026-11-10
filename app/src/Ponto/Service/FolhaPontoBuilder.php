@@ -40,7 +40,7 @@ class FolhaPontoBuilder
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
      * @param ?\DateTimeImmutable $hoje         O dia de hoje da folha (dia futuro e hoje sem saída). Omitido, o de
      *                                            agora; o banco passa o dia de referência dos lotes (E17).
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, trabalhoExterno: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, saldoAcumuladoAteOntem: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, semInternet: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, alvo: ?string, cabeca: ?int, tipo: ?string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -127,7 +127,7 @@ class FolhaPontoBuilder
                 'saldoAcumuladoAteOntem' => null,   // E17: o "Saldo mês" do dia em andamento (desenho L157)
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
-                ...$this->marcasDoDia($escolha->escolhidas()),   // homeOffice, semInternet e trabalhoExterno
+                ...$this->marcasDoDia($escolha->escolhidas()),   // homeOffice e semInternet
             ];
 
             $jornadaDoDia = $historico?->vigenteEm($dia);
@@ -278,18 +278,18 @@ class FolhaPontoBuilder
     }
 
     /**
-     * Os selos do dia no espelho, tirados das batidas escolhidas: home office, sem internet e trabalho externo (E12).
+     * Os selos do dia no espelho, tirados das batidas escolhidas: home office e sem internet. O trabalho externo (E12)
+     * não tem selo (decisão C1 de 10/11/2026): ele aparece "Em análise" na coluna Justificativa.
      *
      * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
      *
-     * @return array{homeOffice: bool, semInternet: bool, trabalhoExterno: bool}
+     * @return array{homeOffice: bool, semInternet: bool}
      */
     private function marcasDoDia(array $batidasDoDia): array
     {
         return [
-            'homeOffice'      => $this->diaTeveHomeOffice($batidasDoDia),
-            'semInternet'     => $this->diaTeveBatidaSemInternet($batidasDoDia),
-            'trabalhoExterno' => $this->diaTeveTrabalhoExterno($batidasDoDia),
+            'homeOffice'  => $this->diaTeveHomeOffice($batidasDoDia),
+            'semInternet' => $this->diaTeveBatidaSemInternet($batidasDoDia),
         ];
     }
 
@@ -403,23 +403,6 @@ class FolhaPontoBuilder
     private function naoPerdoaAJornada(JustificativaPonto $justificativa, ?TipoJustificativa $tipo): bool
     {
         return $justificativa->analisaUmaBatida() || ($tipo !== null && !$tipo->abonaSaldo());
-    }
-
-    /**
-     * Indica se alguma batida escolhida do dia foi registrada como trabalho externo, fora do raio das sedes (selo
-     * "Trabalho externo", spec ponto-desenho-0811 E12). Como o "Sem internet": as batidas fora da conta não acendem.
-     *
-     * @param list<MarcacaoDoPonto> $batidasDoDia as escolhidas do dia
-     */
-    private function diaTeveTrabalhoExterno(array $batidasDoDia): bool
-    {
-        foreach ($batidasDoDia as $batida) {
-            if ($batida->isTrabalhoExterno()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
