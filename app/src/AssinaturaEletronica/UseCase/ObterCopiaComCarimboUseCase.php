@@ -8,7 +8,6 @@ use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\DTO\CopiaComCarimbo;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\VersaoDoPdf;
-use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
@@ -79,18 +78,12 @@ final readonly class ObterCopiaComCarimboUseCase
      * ICP ou, sem ele, o original que já chegou assinado. O PDF para assinar (E5-1) é gerado pelo BlueJus e fica de
      * fora: sozinho, ele não é um "documento já assinado".
      *
-     * Único ponto da busca da versão carimbada: nenhum outro lugar a refaz, e o repositório não ganha método para ela
-     * aqui. Na integração, o corpo deste método passa a ser
-     * `VersaoDoPdfRepository::ultimaQueNaoEParaAssinar($documento)`, que outra frente está criando.
+     * A mesma regra do quadro "Documento já assinado" e do "Baixar original com as assinaturas" (5A), num ponto só:
+     * `VersaoDoPdfRepository::ultimaQueNaoEParaAssinar`.
      */
     private function ultimaAssinada(DocumentoParaAssinar $documento): ?VersaoDoPdf
     {
-        $assinadas = array_filter(
-            $this->versoes->doDocumento($documento),
-            static fn (VersaoDoPdf $versao): bool => $versao->getOrigem() !== OrigemDaVersao::ParaAssinar,
-        );
-
-        return array_pop($assinadas);
+        return $this->versoes->ultimaQueNaoEParaAssinar($documento);
     }
 
     /**

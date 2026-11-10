@@ -10,6 +10,7 @@ use App\AssinaturaEletronica\DTO\DadosDoRascunho;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Entity\VersaoDoPdf;
+use App\AssinaturaEletronica\Enum\OrigemDaVersao;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
@@ -204,10 +205,16 @@ final class ObterCopiaComCarimboUseCaseTest extends TestCase
     private function useCase(?ArmazenamentoDeArquivos $armazenamento = null): ObterCopiaComCarimboUseCase
     {
         $versoes = $this->createMock(VersaoDoPdfRepository::class);
-        $versoes->method('doDocumento')->willReturnCallback(fn (DocumentoParaAssinar $documento): array => array_values(array_filter(
-            $this->versoesNaBase,
-            static fn (VersaoDoPdf $versao): bool => $versao->getDocumento() === $documento,
-        )));
+        // A regra do repositório (a de maior ordem fora o PDF para assinar), que o teste de integração dele prova.
+        $versoes->method('ultimaQueNaoEParaAssinar')->willReturnCallback(function (DocumentoParaAssinar $documento): ?VersaoDoPdf {
+            $assinadas = array_filter(
+                $this->versoesNaBase,
+                static fn (VersaoDoPdf $versao): bool => $versao->getDocumento() === $documento
+                    && $versao->getOrigem() !== OrigemDaVersao::ParaAssinar,
+            );
+
+            return array_pop($assinadas);
+        });
 
         return new ObterCopiaComCarimboUseCase($this->documentos, $versoes, $armazenamento ?? $this->disco, new CarimboVisivel());
     }
