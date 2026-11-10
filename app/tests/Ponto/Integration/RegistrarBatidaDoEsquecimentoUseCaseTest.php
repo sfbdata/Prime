@@ -11,7 +11,9 @@ use App\Ponto\Entity\PontoAjuste;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoDoAjuste;
 use App\Ponto\Exception\BatidaEmHorarioFuturoException;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -23,8 +25,12 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * Regras do UseCase que grava a batida do esquecimento abonado. Desde a E10 (D18) ela entra como INCLUSÃO em
  * `ponto_ajuste`, ligada à justificativa e com quem abonou como autor; `registro_ponto` fica só com o que a pessoa
  * bateu. Usa o EntityManager real e escritórios gravados, porque a guarda de tenant compara ids.
+ *
+ * A regra da batida que falta (R1, `BatidaJaRegistrada`) lê as batidas EFETIVAS do dia (plano-e10-ponto §2): a
+ * inclusão conta como batida feita, e a batida ou a inclusão desconsiderada deixa de contar.
  */
 #[CoversClass(RegistrarBatidaDoEsquecimentoUseCase::class)]
+#[CoversClass(BatidaJaRegistrada::class)]
 final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
 {
     use ClockSensitiveTrait;
@@ -132,6 +138,79 @@ final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
         self::assertNull(($this->useCase)($justificativa, $tenant, $this->pessoa('gestor')));
         self::assertSame(1, $this->registrosDe($pessoa, $tenant), 'só a batida que já existia');
         self::assertSame(0, $this->ajustesDoEscritorio($tenant), 'nenhuma inclusão');
+    }
+
+    #[TestDox('R1 com a leitura efetiva (E10): a inclusão de entrada do primeiro esquecimento abonado conta como batida feita; o segundo esquecimento de entrada no mesmo dia é recusado e não grava outra inclusão')]
+    public function testInclusaoNoDiaContaComoBatidaFeita(): void
+    {
+        $tenant   = $this->criarTenant();
+        $pessoa   = $this->pessoa('duas_entradas');
+        $gestor   = $this->pessoa('gestor');
+        $primeira = $this->justificativa($tenant, 'esquecimento_registro', 'entrada', '08:00', $pessoa);
+        $segunda  = $this->justificativa($tenant, 'esquecimento_registro', 'entrada', '08:30', $pessoa);
+        self::assertInstanceOf(PontoAjuste::class, ($this->useCase)($primeira, $tenant, $gestor));
+
+        self::assertSame(sprintf(BatidaJaRegistrada::MENSAGEM, 'entrada'), $this->useCase->recusa($segunda, $tenant), 'a inclusão é a entrada do dia');
+        self::assertNull(($this->useCase)($segunda, $tenant, $gestor));
+        self::assertSame(1, $this->ajustesDoEscritorio($tenant), 'só a inclusão do primeiro');
+        self::assertSame(0, $this->inclusoesDaJustificativa($segunda));
+        self::assertSame(0, $this->registrosDe($pessoa, $tenant));
+    }
+
+    #[TestDox('R1 com a leitura efetiva (E10): a batida de entrada que o gestor desconsiderou deixa de bloquear, e o abono do esquecimento de entrada grava a inclusão')]
+    public function testBatidaDesconsideradaDeixaDeBloquear(): void
+    {
+        $tenant = $this->criarTenant();
+        $pessoa = $this->pessoa('batida_fora');
+        $gestor = $this->pessoa('gestor');
+        $batida = new RegistroPonto();
+        $batida->setUser($pessoa);
+        $batida->setTenant($tenant);
+        $batida->setTipo('entrada');
+        $batida->setDataHora(new \DateTime('2026-03-10 08:05:00'));
+        $this->em->persist($batida);
+        $this->em->flush();
+        $justificativa = $this->justificativa($tenant, 'esquecimento_registro', 'entrada', '08:00', $pessoa);
+        self::assertNotNull($this->useCase->recusa($justificativa, $tenant), 'controle: com a batida na conta, bloqueia');
+
+        $this->desconsiderar($pessoa, $tenant, 'b' . $batida->getId(), $gestor);
+
+        self::assertNull($this->useCase->recusa($justificativa, $tenant), 'fora da conta, não bloqueia');
+        self::assertInstanceOf(PontoAjuste::class, ($this->useCase)($justificativa, $tenant, $gestor));
+        self::assertSame(1, $this->inclusoesDaJustificativa($justificativa));
+        self::assertSame(1, $this->registrosDe($pessoa, $tenant), 'a batida desconsiderada fica guardada');
+    }
+
+    #[TestDox('R1 com a leitura efetiva (E10): a inclusão de entrada desconsiderada deixa de bloquear, e o abono do novo esquecimento de entrada no mesmo dia grava outra inclusão')]
+    public function testInclusaoDesconsideradaDeixaDeBloquear(): void
+    {
+        $tenant   = $this->criarTenant();
+        $pessoa   = $this->pessoa('inclusao_fora');
+        $gestor   = $this->pessoa('gestor');
+        $primeira = $this->justificativa($tenant, 'esquecimento_registro', 'entrada', '08:00', $pessoa);
+        $segunda  = $this->justificativa($tenant, 'esquecimento_registro', 'entrada', '08:30', $pessoa);
+        $inclusao = ($this->useCase)($primeira, $tenant, $gestor);
+        self::assertInstanceOf(PontoAjuste::class, $inclusao);
+        self::assertNotNull($this->useCase->recusa($segunda, $tenant), 'controle: com a inclusão na conta, bloqueia');
+
+        $this->desconsiderar($pessoa, $tenant, 'a' . $inclusao->getId(), $gestor);
+
+        self::assertNull($this->useCase->recusa($segunda, $tenant), 'fora da conta, não bloqueia');
+        self::assertInstanceOf(PontoAjuste::class, ($this->useCase)($segunda, $tenant, $gestor));
+        self::assertSame(1, $this->inclusoesDaJustificativa($segunda));
+        self::assertSame(1, $this->inclusoesDaJustificativa($primeira), 'a primeira inclusão fica guardada');
+    }
+
+    /** O gestor tira a batida do alvo da conta ('b{id}' o registro, 'a{id}' a inclusão), como na ficha. */
+    private function desconsiderar(User $pessoa, Tenant $tenant, string $alvo, User $gestor): void
+    {
+        $gravacao = static::getContainer()->get(GravacaoDoAjusteDoPonto::class);
+        $this->em->wrapInTransaction(function () use ($gravacao, $pessoa, $tenant, $alvo, $gestor): void {
+            $gravacao->travar($pessoa);
+            $naConta = static::getContainer()->get(RegistroPontoRepository::class)->alvoDoAjuste($pessoa, $tenant, $alvo);
+            self::assertNotNull($naConta);
+            $gravacao->desconsiderar($naConta, 'Batida errada.', $gestor, null, null);
+        });
     }
 
     private function criarTenant(): Tenant
