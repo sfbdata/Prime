@@ -36,6 +36,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * - Cabeçalho: nome, endereço ("logradouro, número, complemento, bairro, Cidade/UF") e telefone de Meu Escritório.
  * - QR: URL absoluta da validação pública, montada pelo roteador (E3-14).
  * - Manifesto em toda folha, menos na folha branca sem código (E3-3, `!(d.limpa && !d.cod)`).
+ * - Modo: sem ele, rascunho no rascunho e final nos demais; quem pede o modo (o PDF para assinar da etapa 5, bloco 5C,
+ *   `pdf(dA, 'assinar')` de dc:466) recebe a folha nele. O modo só muda o nome do arquivo, nunca a folha.
  */
 final readonly class FolhaDoDocumento
 {
@@ -50,12 +52,12 @@ final readonly class FolhaDoDocumento
     ) {
     }
 
-    public function de(DocumentoParaAssinar $documento): FolhaParaMontar
+    public function de(DocumentoParaAssinar $documento, ?ModoDaFolha $modo = null): FolhaParaMontar
     {
         $rascunho = $documento->getSituacao() === SituacaoDoDocumento::Rascunho;
 
         return new FolhaParaMontar(
-            modo: $rascunho ? ModoDaFolha::Rascunho : ModoDaFolha::Final,
+            modo: $modo ?? ($rascunho ? ModoDaFolha::Rascunho : ModoDaFolha::Final),
             codigo: $documento->getCodigo(),
             hash: self::hash($documento),
             nome: $documento->getNome(),

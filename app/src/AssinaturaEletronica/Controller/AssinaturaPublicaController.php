@@ -22,6 +22,7 @@ use App\AssinaturaEletronica\UseCase\AssinarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\ConferirPdfAssinadoUseCase;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDoSignatarioUseCase;
 use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
+use App\AssinaturaEletronica\UseCase\ObterPdfParaAssinarUseCase;
 use App\AssinaturaEletronica\UseCase\RecusarAssinaturaUseCase;
 use App\AssinaturaEletronica\UseCase\SolicitarCodigoUseCase;
 use App\Shared\Http\EntregaDeArquivo;
@@ -59,6 +60,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * porta dos POST, passa pelo limitador próprio `assinatura_publica_pdf_assinado` (pelo sha256 do token, gasto só depois
  * do CSRF) e pela regra de tempo e memória do motor ({@see EntregaDoPdfDaAssinatura::limitar()}). Responde
  * `{ok, n, arquivo, preservadas}` ou 422 `{erro}` com o texto do catálogo público.
+ *
+ * Etapa 5 (bloco 5C): `GET /assinar/{token}/para-assinar`, o "Baixar PDF para assinar" do signatário gov.br ou ICP na
+ * vez dele ({@see ObterPdfParaAssinarUseCase}): a última versão guardada ou, sem ela, o PDF do documento no modo assinar,
+ * congelado na primeira vez. Os mesmos limitadores e a mesma regra de tempo e memória do `GET /assinar/{token}/pdf`; o
+ * excesso responde 429 `{"erro": ...}` e o PDF acima do teto responde 422 `{"erro": ...}`, com o texto que a página
+ * mostra.
  */
 final class AssinaturaPublicaController extends AbstractController
 {
@@ -170,6 +177,26 @@ final class AssinaturaPublicaController extends AbstractController
         }
     }
 
+    #[Route('/assinar/{token}/para-assinar', name: 'assinatura_eletronica_publica_para_assinar', requirements: ['token' => self::TOKEN], methods: ['GET'])]
+    public function paraAssinar(string $token, Request $request, ObterPdfParaAssinarUseCase $obter, EntregaDoPdfDaAssinatura $entrega): Response
+    {
+        if (!$this->dentroDoLimite($request, $token)) {
+            return $this->erro(MuitasTentativas::CHAVE, [], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+        $cabeNaCota = fn (): bool => self::cabe($this->assinaturaPdfPublicoLimiter, $this->assinaturaPdfPublicoTokenLimiter, $request, $token);
+        EntregaDoPdfDaAssinatura::limitar();
+
+        try {
+            return $entrega->resposta($obter->executar($token, $cabeNaCota));
+        } catch (LinkInvalido) {
+            return $this->paginaInvalida();
+        } catch (GeracaoDoPdfRecusada $e) {
+            return $this->erro($e->chave(), [], Response::HTTP_TOO_MANY_REQUESTS);
+        } catch (AcaoRecusada $e) {
+            return $this->erro($e->getMessage(), $e->parametros, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+    }
+
     #[Route('/assinar/{token}/pdf-assinado', name: 'assinatura_eletronica_publica_pdf_assinado', requirements: ['token' => self::TOKEN], methods: ['POST'])]
     public function pdfAssinado(string $token, Request $request, ConferirPdfAssinadoUseCase $conferir): JsonResponse
     {
@@ -267,7 +294,7 @@ final class AssinaturaPublicaController extends AbstractController
     private function urls(string $token): array
     {
         $urls = [];
-        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo', 'pdf', 'pdf_assinado'] as $nome) {
+        foreach (['codigo', 'assinar', 'recusa', 'arquivo', 'logo', 'pdf', 'pdf_assinado', 'para_assinar'] as $nome) {
             $urls[$nome] = $this->generateUrl('assinatura_eletronica_publica_' . $nome, ['token' => $token]);
         }
         $urls['rubrica'] = $this->generateUrl('assinatura_eletronica_publica_rubrica', ['token' => $token, 'ordem' => 0]);

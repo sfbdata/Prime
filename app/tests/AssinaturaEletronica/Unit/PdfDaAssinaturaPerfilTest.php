@@ -35,7 +35,7 @@ final class PdfDaAssinaturaPerfilTest extends TestCase
         $documento = $this->documentoEnviado();
         $pdf = $this->pdfDaAssinatura();
 
-        $leve = PdfLido::dosPedacos($pdf->pedacos($documento, PerfilDoPdf::Leve));
+        $leve = PdfLido::dosPedacos($pdf->pedacos($documento, perfil: PerfilDoPdf::Leve));
         $padrao = PdfLido::dosPedacos($pdf->pedacos($documento));
 
         // O documento da oficina não tem blocos: o PDF sai só com o manifesto (dc:406).
