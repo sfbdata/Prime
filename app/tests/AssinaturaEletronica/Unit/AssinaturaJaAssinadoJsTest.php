@@ -159,6 +159,11 @@ final class AssinaturaJaAssinadoJsTest extends TestCase
         self::assertStringContainsString("case 'ja-original': if (J && s.det) { J.baixarOriginal(s.det, pedir, avisar); } break;", $acao);
         self::assertStringContainsString("case 'ja-carimbo': if (J && s.det && url.carimbo) { J.baixarCarimbo(s.det, comId(url.carimbo, s.det.id), pedir, avisar); } break;", $acao);
         self::assertStringNotContainsString('pres', self::funcao($tela, 'retomar'), 'o retomar do desenho não leva o pres');
+        self::assertStringContainsString(
+            "if (w.arquivo && (w.pres || dados.blocos.some(b => b.k === 'pg'))) { fd.append('arquivo', w.arquivo, w.arquivo.name); }",
+            self::funcao($tela, 'formDoRascunho'),
+            'o PDF assinado vai mesmo sem página no conteúdo: o original fica, como o pres do desenho (dc:373-374)',
+        );
     }
 
     #[TestDox('toda chave do catálogo usada no módulo existe, e o módulo não tem travessão')]

@@ -359,7 +359,7 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Este documento já continha', (string) $blocos[\count($blocos) - 2]['x']);
     }
 
-    #[TestDox('rascunho que perde a página do PDF perde também o original e o parágrafo')]
+    #[TestDox('rascunho que perde a página do PDF, sem PDF novo (reaberto: o desenho perde o pres no retomar), perde também o original e o parágrafo')]
     public function testSemPaginaSaiOOriginal(): void
     {
         $disco = $this->emMemoria();
@@ -376,17 +376,32 @@ final class DocumentoJaAssinadoTest extends JusPrimeWebTestCase
         self::assertSame(['a'], array_column($this->detalhe($id)['blocos'], 'k'));
     }
 
-    #[TestDox('PDF assinado sem página dele no conteúdo: nem original nem parágrafo')]
+    #[TestDox('PDF assinado sem página dele no conteúdo: o original fica (e o PDF não), com o parágrafo antes do lugar de assinatura; salvar de novo com o PDF mantém um só')]
     public function testAssinadoSemPagina(): void
     {
-        $this->emMemoria();
+        $disco = $this->emMemoria();
         $this->entrar(true);
+        $bytes = OficinaDePdfAssinado::pdfAssinado();
+        $semPagina = [['k' => 'a', 'i' => 0, 'r' => '']];
 
-        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => [['k' => 'a', 'i' => 0, 'r' => '']]], $this->assinado());
+        $id = $this->salvar(null, ['nome' => 'Contrato', 'blocos' => $semPagina], $this->temporario('contrato.pdf', $bytes));
         self::assertResponseStatusCodeSame(201);
 
-        self::assertSame([], $this->versoes($id));
-        self::assertSame(['a'], array_column($this->detalhe($id)['blocos'], 'k'));
+        $versoes = $this->versoes($id);
+        self::assertCount(1, $versoes);
+        self::assertSame(['original', hash('sha256', $bytes)], [$versoes[0]['origem'], $versoes[0]['sha256']]);
+        self::assertSame($bytes, $disco->memoria->ler($this->chave($disco, $versoes[0]['arquivo_chave'])));
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_enviado_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]), 'sem página, o PDF não fica no documento');
+        $detalhe = $this->detalhe($id);
+        self::assertSame(['p', 'a'], array_column($detalhe['blocos'], 'k'));
+        self::assertSame($this->paragrafo($bytes), $detalhe['blocos'][0]['x']);
+        self::assertSame('/assinatura/documentos/' . $id . '/original', $detalhe['jaAssinado']['original']);
+
+        // A tela manda o PDF de novo a cada salvar enquanto o pres existe: continua um original e um parágrafo.
+        $this->salvar($id, ['nome' => 'Contrato', 'blocos' => $detalhe['blocos']], $this->temporario('contrato.pdf', $bytes));
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->versoes($id));
+        self::assertSame(['p', 'a'], array_column($this->detalhe($id)['blocos'], 'k'));
     }
 
     #[TestDox('duplicar copia só o original, num arquivo da cópia, com a mesma análise; apagar o documento de origem não apaga o da cópia')]
