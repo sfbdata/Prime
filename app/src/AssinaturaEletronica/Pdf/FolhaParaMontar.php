@@ -18,7 +18,8 @@ namespace App\AssinaturaEletronica\Pdf;
  * - `paginasDepois` são as páginas depois do conteúdo (o manifesto), sempre passadas por quem monta a folha: sem
  *   valor padrão, esquecer o manifesto não passa calado. Folha branca que também é rascunho (sem `codigo`) não
  *   leva manifesto (`if (!(d.limpa && !d.cod))`, dc:417): nesse caso quem monta a folha passa
- *   {@see SemPaginasDepoisDoConteudo}. Só folha branca, ou só rascunho, leva o manifesto.
+ *   {@see SemPaginasDepoisDoConteudo}. Só folha branca, ou só rascunho, leva o manifesto: nas outras folhas o
+ *   construtor recusa o {@see SemPaginasDepoisDoConteudo}, para o manifesto não sumir sem aviso.
  */
 final readonly class FolhaParaMontar
 {
@@ -46,6 +47,9 @@ final readonly class FolhaParaMontar
     ) {
         if (preg_match('/^[0-9a-f]{64}$/', $hash) !== 1) {
             throw new \InvalidArgumentException('O hash da folha precisa ser o SHA-256 em hexadecimal minúsculo.');
+        }
+        if ($paginasDepois instanceof SemPaginasDepoisDoConteudo && !($folhaBranca && $codigo === null)) {
+            throw new \InvalidArgumentException('Só a folha branca de rascunho sai sem o manifesto.');
         }
     }
 

@@ -8,8 +8,11 @@ use App\AssinaturaEletronica\Pdf\EscritorioDaFolha;
 use App\AssinaturaEletronica\Pdf\FolhaParaMontar;
 use App\AssinaturaEletronica\Pdf\LayoutDaFolha;
 use App\AssinaturaEletronica\Pdf\ModoDaFolha;
+use App\AssinaturaEletronica\Pdf\PaginasDepoisDoConteudo;
+use App\AssinaturaEletronica\Pdf\RecursosDaFolha;
 use App\AssinaturaEletronica\Pdf\SemPaginasDepoisDoConteudo;
 use App\AssinaturaEletronica\Pdf\SignatarioDaFolha;
+use App\AssinaturaEletronica\Pdf\Tela;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -55,10 +58,30 @@ final class FolhaDeTeste
             'concluido' => false,
             'emitidoEm' => $quando,
             'urlDeValidacao' => 'https://www.bluejus.com.br/assinar/validar/' . self::CODIGO,
-            'paginasDepois' => new SemPaginasDepoisDoConteudo(),
         ], $mudancas);
+        $argumentos['paginasDepois'] ??= $argumentos['folhaBranca'] === true && $argumentos['codigo'] === null
+            ? new SemPaginasDepoisDoConteudo()
+            : self::manifestoSemPaginas();
 
         return new FolhaParaMontar(...$argumentos);
+    }
+
+    /**
+     * Um manifesto que não acrescenta página: os testes de diagramação contam só as páginas do conteúdo. Em produção,
+     * toda folha que não é branca de rascunho leva o manifesto do bloco 1b, com página.
+     */
+    public static function manifestoSemPaginas(): PaginasDepoisDoConteudo
+    {
+        return new class () implements PaginasDepoisDoConteudo {
+            public function quantas(): int
+            {
+                return 0;
+            }
+
+            public function desenhar(int $indice, Tela $tela, RecursosDaFolha $recursos): void
+            {
+            }
+        };
     }
 
     /** @return list<array<string, int|string>> */
