@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace App\AssinaturaEletronica\UseCase;
 
 use App\AssinaturaEletronica\DTO\PdfParaEntregar;
+use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\SituacaoDoSignatario;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Exception\LinkInvalido;
+use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
 use App\AssinaturaEletronica\Pdf\Exception\FalhaAoMontarPdf;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Service\PdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalDoDocumento;
 use App\AssinaturaEletronica\Service\SignatarioDoLink;
+use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\Entity\Tenant\Tenant;
 use Psr\Clock\ClockInterface;
 
@@ -26,6 +29,11 @@ use Psr\Clock\ClockInterface;
  * - Escritório: o documento do escritório logado, mesmo na Lixeira; de outro escritório, o mesmo 404 dos arquivos.
  * - Signatário (pelo token): só quem já assinou e enquanto o link vale, isto é, documento fora da Lixeira e concluído
  *   ou aguardando dentro do prazo. Fora disso, o mesmo "Link inválido." de qualquer token ruim.
+ *
+ * Gerar ocupa uma das vagas da web ({@see VagasDeGeracaoDoPdf}); sem vaga, {@see MuitosPdfsSendoGerados}. O guardado
+ * não gera e não ocupa vaga. O concluído sem PDF guardado é gerado inteiro e guardado antes de entregar (os bytes
+ * entregues são os guardados); acima de umas 100 páginas, o primeiro clique pode dar 504 do nginx (120 s), o PHP
+ * termina e guarda, e o clique seguinte entrega o guardado.
  */
 final readonly class ObterPdfDaAssinaturaUseCase
 {
@@ -35,11 +43,13 @@ final readonly class ObterPdfDaAssinaturaUseCase
         private PdfDaAssinatura $pdf,
         private PdfFinalDoDocumento $pdfFinal,
         private ClockInterface $relogio,
+        private VagasDeGeracaoDoPdf $vagas,
     ) {
     }
 
     /**
      * @throws DocumentoNaoEncontrado
+     * @throws MuitosPdfsSendoGerados
      * @throws FalhaAoMontarPdf
      */
     public function doEscritorio(Tenant $tenant, int $id): PdfParaEntregar
@@ -51,6 +61,7 @@ final readonly class ObterPdfDaAssinaturaUseCase
 
     /**
      * @throws LinkInvalido
+     * @throws MuitosPdfsSendoGerados
      * @throws FalhaAoMontarPdf
      */
     public function doSignatario(#[\SensitiveParameter] string $token): PdfParaEntregar
@@ -78,9 +89,26 @@ final readonly class ObterPdfDaAssinaturaUseCase
     private function entregar(DocumentoParaAssinar $documento): PdfParaEntregar
     {
         $nome = $this->pdf->nomeDoArquivo($documento);
+        $concluido = $documento->getSituacao() === SituacaoDoDocumento::Concluido;
+        if ($concluido && ChavesDeAssinaturaEletronica::pdfFinal($documento) !== null) {
+            return PdfParaEntregar::guardado($this->pdfFinal->garantir($documento), $nome);
+        }
 
-        return $documento->getSituacao() === SituacaoDoDocumento::Concluido
-            ? PdfParaEntregar::guardado($this->pdfFinal->garantir($documento), $nome)
-            : PdfParaEntregar::naHora($this->pdf->pedacos($documento), $nome);
+        $vaga = $this->vagas->ocupar();
+        if ($concluido) {
+            try {
+                return PdfParaEntregar::guardado($this->pdfFinal->garantir($documento), $nome);
+            } finally {
+                $vaga->release();
+            }
+        }
+
+        try {
+            return PdfParaEntregar::naHora($this->pdf->pedacos($documento), $nome, $vaga);
+        } catch (\Throwable $e) {
+            $vaga->release();
+
+            throw $e;
+        }
     }
 }

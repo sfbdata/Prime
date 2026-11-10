@@ -43,3 +43,23 @@ framework:
             policy: sliding_window
             limit: 6
             interval: '1 minute'
+        # Etapa 3 (E3-4 e E3-5): "Baixar PDF com selo". Gerar pesa (cerca de 1,2 s por página, 5 filhos no FPM): limite
+        # próprio, que conta todo pedido do PDF (o guardado do concluído também, folgado para isso). Na tela, por usuário.
+        assinatura_pdf:
+            policy: sliding_window
+            limit: 20
+            interval: '10 minutes'
+        # No link do signatário, por IP.
+        assinatura_pdf_publico:
+            policy: sliding_window
+            limit: 20
+            interval: '10 minutes'
+        # No link do signatário, pelo sha256 do token.
+        assinatura_pdf_publico_token:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'
+    # As vagas de geração do PDF (no máximo 2 ao mesmo tempo na web, App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf):
+    # uma trava com nome, na conexão padrão (tabela `lock_keys`), como as do lock.yaml; vale entre contêineres.
+    lock:
+        assinatura_pdf: 'doctrine.dbal.default_connection'

@@ -7,8 +7,10 @@ namespace App\Tests\AssinaturaEletronica\Functional;
 use App\AssinaturaEletronica\Controller\ArquivosDaAssinaturaController;
 use App\AssinaturaEletronica\Controller\AssinaturaPublicaController;
 use App\AssinaturaEletronica\Message\GerarPdfFinalDoDocumento;
+use App\AssinaturaEletronica\Service\ChaveDaAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\Service\PdfFinalComSelo;
+use App\AssinaturaEletronica\Service\VagasDeGeracaoDoPdf;
 use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -16,11 +18,14 @@ use App\Tests\AssinaturaEletronica\Support\NaAssinaturaEnviada;
 use App\Tests\AssinaturaEletronica\Support\NaTelaDeAssinatura;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\FolhaDeTeste;
 use App\Tests\AssinaturaEletronica\Unit\Pdf\PdfLido;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -29,17 +34,21 @@ use Symfony\Component\Messenger\Transport\TransportInterface;
 /**
  * "Baixar PDF com selo" pela HTTP (etapa 3, E3-4 e E3-5), contra o disco real (a entrega do guardado lê o arquivo): a
  * rota da tela (sem permissão 403; outro escritório 404), a do signatário (só quem já assinou e com o link valendo), o
- * gerado na hora sem guardar e o concluído guardado uma vez só, com o pedido ao worker na conclusão.
+ * gerado na hora sem guardar e o concluído guardado uma vez só, com o pedido ao worker na conclusão. Gerar pesa: as
+ * duas vagas ocupadas e os limitadores respondem 429 com o texto que a tela mostra.
  */
 #[CoversClass(ArquivosDaAssinaturaController::class)]
 #[CoversClass(AssinaturaPublicaController::class)]
 #[CoversClass(ObterPdfDaAssinaturaUseCase::class)]
 #[CoversClass(EntregaDoPdfDaAssinatura::class)]
 #[CoversClass(PdfFinalComSelo::class)]
+#[CoversClass(VagasDeGeracaoDoPdf::class)]
 final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
 {
     use NaTelaDeAssinatura;
     use NaAssinaturaEnviada;
+
+    private const MUITOS = 'Muitos PDFs sendo gerados agora. Tente de novo em instantes.';
 
     private ?string $diretorioDoEscritorio = null;
 
@@ -176,6 +185,83 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->pdfsGuardados(), 'gerado e guardado no primeiro download');
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function fimDoEnvio(): iterable
+    {
+        yield 'documento na Lixeira' => ['lixeira'];
+        yield 'envio cancelado' => ['cancelado'];
+        yield 'recusado pelo outro signatário' => ['recusado'];
+    }
+
+    #[DataProvider('fimDoEnvio')]
+    #[TestDox('link de quem já assinou: documento na Lixeira, cancelado ou recusado depois disso dá "Link inválido." (404)')]
+    public function testLinkDepoisDoFimDoEnvio(string $fim): void
+    {
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+        self::assertStringStartsWith('%PDF-', $this->baixar('/assinar/' . $ana . '/pdf'), 'antes, Ana baixa');
+
+        $this->encerrarEnvio($fim, $id, (string) $tokens[1]);
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+        $this->esquecer();
+
+        $this->client->request('GET', '/assinar/' . $ana . '/pdf');
+        self::assertResponseStatusCodeSame(404, $fim);
+        self::assertSame([], $this->pdfsGuardados());
+    }
+
+    #[TestDox('as duas vagas ocupadas: 429 {"erro": "Muitos PDFs..."} na tela e no link; com uma vaga livre, 200, e a geração devolve a vaga')]
+    public function testVagasOcupadas(): void
+    {
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+        $travas = static::getContainer()->get('lock.assinatura_pdf.factory');
+        self::assertInstanceOf(LockFactory::class, $travas);
+        $ocupadas = [$travas->createLock('assinatura_pdf_vaga_0'), $travas->createLock('assinatura_pdf_vaga_1')];
+        self::assertTrue($ocupadas[0]->acquire(false) && $ocupadas[1]->acquire(false));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $ana . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::MUITOS], $this->json(), $url);
+        }
+
+        $ocupadas[1]->release();
+        $this->baixar('/assinar/' . $ana . '/pdf');
+        self::assertTrue($travas->createLock('assinatura_pdf_vaga_1')->acquire(false), 'a geração devolveu a vaga');
+    }
+
+    #[TestDox('limitador da geração estourado: 429 com o mesmo texto, na tela (por usuário) e no link (por token)')]
+    public function testLimitadorDaGeracao(): void
+    {
+        $porUsuario = new RateLimiterFactoryEspiao(false);
+        $porIp = new RateLimiterFactoryEspiao();
+        $porToken = new RateLimiterFactoryEspiao(false);
+        // Antes da primeira requisição: o controller do link recebe os limitadores no construtor.
+        static::getContainer()->set('limiter.assinatura_pdf', $porUsuario);
+        static::getContainer()->set('limiter.assinatura_pdf_publico', $porIp);
+        static::getContainer()->set('limiter.assinatura_pdf_publico_token', $porToken);
+        [$usuario] = $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $ana = (string) $tokens[0];
+        $this->assinarNoLink($ana, $this->pedirCodigo($ana));
+
+        foreach (['/assinatura/documentos/' . $id . '/pdf', '/assinar/' . $ana . '/pdf'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(429, $url);
+            self::assertSame(['erro' => self::MUITOS], $this->json(), $url);
+        }
+
+        self::assertSame(['usuario-' . $usuario->getId()], $porUsuario->chavesConsumidas);
+        self::assertCount(1, $porIp->chavesConsumidas);
+        self::assertSame([ChaveDaAssinatura::hashDoToken($ana)], $porToken->chavesConsumidas);
+        self::assertSame([], $this->pdfsGuardados());
+    }
+
     #[TestDox('as telas recebem a URL do PDF e carregam o assinatura-pdf.js antes do script da tela; o link traz os textos do PDF')]
     public function testLigacaoNasTelas(): void
     {
@@ -216,6 +302,22 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('%PDF-', $corpo);
 
         return $corpo;
+    }
+
+    /** Lixeira e cancelar pela tela do escritório; a recusa pelo link do outro signatário. */
+    private function encerrarEnvio(string $fim, int $id, string $outroToken): void
+    {
+        if ($fim === 'lixeira') {
+            $this->postarJson('/assinatura/documentos/lixeira', ['ids' => [$id]]);
+
+            return;
+        }
+        if ($fim === 'cancelado') {
+            $this->client->request('POST', '/assinatura/documentos/' . $id . '/cancelar', [], [], ['HTTP_X_CSRF_TOKEN' => self::CSRF]);
+
+            return;
+        }
+        $this->postarNoLink('/assinar/' . $outroToken . '/recusa', $outroToken, ['motivo' => 'Valor errado']);
     }
 
     /** @return list<string> os PDF no diretório do escritório (rubricas são PNG) */

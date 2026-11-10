@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Controller;
 
 use App\AssinaturaEletronica\DTO\ArquivoParaEntregar;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
+use App\AssinaturaEletronica\Exception\MuitosPdfsSendoGerados;
 use App\AssinaturaEletronica\Service\AcessoAAssinatura;
 use App\AssinaturaEletronica\Service\EntregaDoPdfDaAssinatura;
 use App\AssinaturaEletronica\UseCase\ObterArquivoDaAssinaturaUseCase;
@@ -14,8 +15,11 @@ use App\AssinaturaEletronica\UseCase\ObterPdfDaAssinaturaUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Os arquivos da tela Assinatura, abertos no navegador: o PDF enviado (a prévia do pdf.js), a logo própria do
@@ -23,6 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Etapa 5, bloco 5A: "Baixar original com as assinaturas" sai como anexo (download), não aberto no navegador.
  * Etapa 3 (A5): o "Baixar PDF com selo", como download, em qualquer situação ({@see ObterPdfDaAssinaturaUseCase}).
+ * Gerar o PDF pesa (cerca de 1,2 s por página): o limitador `assinatura_pdf` (por usuário) e as vagas de geração
+ * respondem 429 `{"erro": ...}` com o texto que a tela mostra.
  */
 final class ArquivosDaAssinaturaController extends AbstractController
 {
@@ -58,15 +64,26 @@ final class ArquivosDaAssinaturaController extends AbstractController
     }
 
     #[Route('/assinatura/documentos/{id}/pdf', name: 'assinatura_eletronica_pdf', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function pdf(int $id, ObterPdfDaAssinaturaUseCase $obter, EntregaDoPdfDaAssinatura $entrega): Response
-    {
-        [, $tenant] = $this->acesso->quemPode() ?? throw $this->createAccessDeniedException();
+    public function pdf(
+        int $id,
+        ObterPdfDaAssinaturaUseCase $obter,
+        EntregaDoPdfDaAssinatura $entrega,
+        RateLimiterFactoryInterface $assinaturaPdfLimiter,
+        TranslatorInterface $tradutor,
+    ): Response {
+        [$usuario, $tenant] = $this->acesso->quemPode() ?? throw $this->createAccessDeniedException();
+        $muitos = new JsonResponse(['erro' => $tradutor->trans(MuitosPdfsSendoGerados::CHAVE)], Response::HTTP_TOO_MANY_REQUESTS);
+        if (!$assinaturaPdfLimiter->create('usuario-' . $usuario->getId())->consume()->isAccepted()) {
+            return $muitos;
+        }
         EntregaDoPdfDaAssinatura::limitar();
 
         try {
             return $entrega->resposta($obter->doEscritorio($tenant, $id));
         } catch (DocumentoNaoEncontrado $e) {
             throw $this->createNotFoundException($e->getMessage(), $e);
+        } catch (MuitosPdfsSendoGerados) {
+            return $muitos;
         }
     }
 
