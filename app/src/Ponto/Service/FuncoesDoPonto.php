@@ -16,8 +16,9 @@ use App\Service\PermissionChecker;
  * no seu escritório, em `ponto_config_escritorio`). A função vale quando as duas estão ligadas; o Global desligado
  * trava a do escritório. Chave sem registro em qualquer das camadas vale ligada (P96).
  *
- * A geolocalização (E7), o comprovante em imagem (E15) e os alertas de intervalo (E11) têm a camada Escritório: as
- * outras chaves entram nas etapas das suas funções (E8, E16, E18), para ninguém ligar função que ainda não existe.
+ * A geolocalização (E7), a tela cheia, os sons e o lembrete de saída (E8), o comprovante em imagem (E15) e os alertas
+ * de intervalo (E11) têm a camada Escritório: as outras chaves entram nas etapas das suas funções (E16, E18), para
+ * ninguém ligar função que ainda não existe.
  */
 final class FuncoesDoPonto
 {
@@ -26,6 +27,12 @@ final class FuncoesDoPonto
 
     /** Alertas de intervalo (E11, P21): a janela "Antes de registrar" e o aviso do intervalo no cartão. */
     public const ALERTAS = 'ponto-alertas';
+    /** A validação em tela cheia (P79). Desligada, o resultado da batida vira aviso flutuante (P80). */
+    public const ANIMACAO = 'ponto-animacao';
+    /** Os sons de confirmação e de erro (P81). Desligada, some o botão de som e nada toca. */
+    public const SONS = 'ponto-sons';
+    /** O lembrete de saída (P83). Desligada, some "Saída prevista" e não há aviso, som nem notificação do lembrete. */
+    public const LEMBRETE = 'ponto-lembrete';
 
     /** Quem decide a camada Escritório: a permissão de gerir o ponto, além do primário e do Master (P67; P58 não). */
     public const PERMISSAO_DE_CONFIGURAR = 'admin.ponto.manage';
@@ -37,6 +44,16 @@ final class FuncoesDoPonto
      * @var array<string, array{titulo: string, icone: string, ajuda: string}>
      */
     public const COM_CAMADA_ESCRITORIO = [
+        self::ANIMACAO => [
+            'titulo' => 'Validação em tela cheia',
+            'icone'  => 'bi-clock-history',
+            'ajuda'  => 'Relógio completando a volta e confirmação ocupando toda a tela.',
+        ],
+        self::SONS => [
+            'titulo' => 'Sons de confirmação e erro',
+            'icone'  => 'bi-volume-up',
+            'ajuda'  => 'Plim no registro e alerta diferente quando o ponto falha.',
+        ],
         self::COMPROVANTE => [
             'titulo' => 'Comprovante em imagem',
             'icone'  => 'bi-receipt',
@@ -46,6 +63,11 @@ final class FuncoesDoPonto
             'titulo' => 'Geolocalização',
             'icone'  => 'bi-geo-alt',
             'ajuda'  => 'Exige que o registro seja feito dentro do raio de uma sede.',
+        ],
+        self::LEMBRETE => [
+            'titulo' => 'Lembrete de saída',
+            'icone'  => 'bi-bell',
+            'ajuda'  => 'Avisa quando passar do horário previsto e a saída não foi registrada.',
         ],
         self::ALERTAS => [
             'titulo' => 'Alertas de intervalo',

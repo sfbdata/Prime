@@ -13,7 +13,9 @@ namespace App\Master\Service;
  * "Contribua (atalho)" dividem a chave `contribua` e mudam juntas. Depois do desenho entrou a tela
  * "Assinatura de documentos" (spec assinatura-documentos-etapa-1.md, seção 5): 21 linhas e 20 chaves. Depois, a tela
  * "Ponto Eletrônico" e a função "Ponto: geolocalização" (spec ponto-desenho-0811.md, E7 e P95): 23 linhas e 22 chaves.
- * Depois, a função "Ponto: alertas de intervalo" (E11): 24 linhas e 23 chaves.
+ * Depois, as funções "Ponto: comprovante em imagem" (E15) e "Ponto: alertas de intervalo" (E11): 25 linhas e 24 chaves.
+ * Depois, as funções "Ponto: validação em tela cheia", "Ponto: sons" e "Ponto: lembrete de saída" (E8): 28 linhas e
+ * 27 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -59,13 +61,19 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_MENU, 'chave' => 'contribua', 't' => 'Contribua (atalho)', 'ic' => 'bi-heart', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'chat', 't' => 'Chat I.A', 'ic' => 'bi-chat-dots', 'd' => 'Botão flutuante de conversas e assistente', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'assistente', 't' => 'Assistente de pastas', 'ic' => 'bi-stars', 'd' => 'Agente que lê e organiza pastas', 'tela' => false, 'base' => false],
-        // A camada "Global" da geolocalização do Ponto (E7, P95): a camada "Escritório" mora em ponto_config_escritorio,
-        // e a função vale com as duas ligadas (App\Ponto\Service\FuncoesDoPonto). Sem rota: age na batida.
+        // As funções do Ponto (P95), na ordem do bj-recursos.js do desenho 16: a tela cheia e os sons (E8), a
+        // geolocalização (E7) e o lembrete de saída (E8). Cada uma tem a camada "Global" aqui e a camada "Escritório" em
+        // ponto_config_escritorio, e vale com as duas ligadas (App\Ponto\Service\FuncoesDoPonto). Sem rota: agem na
+        // tela e na batida. Nascem ligadas, sem linha em recurso_estado (P96). A descrição é a da aba Configurações
+        // do desenho (`FEATS`, L414 a L423).
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-animacao', 't' => 'Ponto: validação em tela cheia', 'ic' => 'bi-clock-history', 'd' => 'Relógio completando a volta e confirmação ocupando toda a tela.', 'tela' => false, 'base' => false],
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-sons', 't' => 'Ponto: sons', 'ic' => 'bi-volume-up', 'd' => 'Plim no registro e alerta diferente quando o ponto falha.', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-geo', 't' => 'Ponto: geolocalização', 'ic' => 'bi-geo-alt', 'd' => 'Exige que o registro seja feito dentro do raio de uma sede.', 'tela' => false, 'base' => false],
         // Ponto (spec ponto-desenho-0811 §7 e E15): rótulo e descrição do bj-recursos.js. Nasce ligada (sem linha em
         // `recurso_estado`); só emite com o segredo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoComprovante}).
         // Esta é a camada "Global": como a geolocalização, tem também a camada "Escritório" em ponto_config_escritorio.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-comprovante', 't' => 'Ponto: comprovante em imagem', 'ic' => 'bi-receipt', 'd' => "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", 'tela' => false, 'base' => false],
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-lembrete', 't' => 'Ponto: lembrete de saída', 'ic' => 'bi-bell', 'd' => 'Avisa quando passar do horário previsto e a saída não foi registrada.', 'tela' => false, 'base' => false],
         // A camada "Global" dos alertas de intervalo do Ponto (E11, P21 e P96): nasce ligada, sem linha em recurso_estado.
         // Sem rota: age na batida e no aviso do intervalo do cartão.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-alertas', 't' => 'Ponto: alertas de intervalo', 'ic' => 'bi-exclamation-triangle', 'd' => 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', 'tela' => false, 'base' => false],
@@ -123,7 +131,7 @@ final class CatalogoDeRecursos
         'ponto_pendencia_do_dia',
     ];
 
-    /** @return list<string> as 23 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 27 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

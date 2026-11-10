@@ -43,29 +43,30 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertNull($this->casoDeUso(false, null, true)->executar(new User(), new Tenant()));
     }
 
-    #[TestDox('Sem linha e sem registro do Master: o comprovante, a geolocalização e os alertas de intervalo aparecem ligados nas duas camadas')]
+    #[TestDox('Sem linha e sem registro do Master: as seis funções (E7, E8, E11 e E15) aparecem ligadas nas duas camadas, na ordem do desenho')]
     public function testNasceLigada(): void
     {
         $saida = $this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_USER']), new Tenant());
 
         self::assertNotNull($saida);
         self::assertFalse($saida->ehMaster);
-        self::assertCount(3, $saida->funcoes);
-        $comprovante = $saida->funcoes[0];
         self::assertSame(
-            ['ponto-comprovante', 'Comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança."],
-            [$comprovante->chave, $comprovante->titulo, $comprovante->icone, $comprovante->ajuda],
+            [
+                ['ponto-animacao', 'Validação em tela cheia', 'bi-clock-history', 'Relógio completando a volta e confirmação ocupando toda a tela.'],
+                ['ponto-sons', 'Sons de confirmação e erro', 'bi-volume-up', 'Plim no registro e alerta diferente quando o ponto falha.'],
+                ['ponto-comprovante', 'Comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança."],
+                ['ponto-geo', 'Geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.'],
+                ['ponto-lembrete', 'Lembrete de saída', 'bi-bell', 'Avisa quando passar do horário previsto e a saída não foi registrada.'],
+                ['ponto-alertas', 'Alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.'],
+            ],
+            array_map(static fn (FuncaoDoPontoOutput $f): array => [$f->chave, $f->titulo, $f->icone, $f->ajuda], $saida->funcoes),
         );
-        self::assertTrue($comprovante->escritorioEfetivo());
-        $geo = $saida->funcoes[1];
-        self::assertSame(['ponto-geo', 'Geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.'], [$geo->chave, $geo->titulo, $geo->icone, $geo->ajuda]);
-        self::assertTrue($geo->global);
-        self::assertTrue($geo->escritorio);
-        self::assertFalse($geo->travada());
-        self::assertTrue($geo->escritorioEfetivo());
-        $alertas = $saida->funcoes[2];
-        self::assertSame(['ponto-alertas', 'Alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.'], [$alertas->chave, $alertas->titulo, $alertas->icone, $alertas->ajuda]);
-        self::assertTrue($alertas->escritorioEfetivo(), 'os alertas nascem ligados (P96)');
+        foreach ($saida->funcoes as $funcao) {
+            self::assertTrue($funcao->global, $funcao->chave);
+            self::assertTrue($funcao->escritorio, $funcao->chave);
+            self::assertFalse($funcao->travada(), $funcao->chave);
+            self::assertTrue($funcao->escritorioEfetivo(), $funcao->chave);
+        }
     }
 
     #[TestDox('Global desligado: travada, a do escritório aparece desligada e o valor guardado continua')]
@@ -75,7 +76,8 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         $configuracao = new ConfiguracaoDoPonto($tenant);
         $configuracao->definir('ponto-geo', true, new User(), new \DateTimeImmutable());
 
-        $geo = $this->casoDeUso(true, $configuracao, false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), $tenant)?->funcoes[1];
+        $funcoes = $this->casoDeUso(true, $configuracao, false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), $tenant)?->funcoes ?? [];
+        $geo = array_values(array_filter($funcoes, static fn (FuncaoDoPontoOutput $f): bool => $f->chave === 'ponto-geo'))[0] ?? null;
 
         self::assertNotNull($geo);
         self::assertFalse($geo->global);
@@ -90,14 +92,14 @@ final class ObterConfiguracoesDoPontoUseCaseTest extends TestCase
         self::assertTrue($this->casoDeUso(true, null, true)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant())?->ehMaster);
     }
 
-    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): a geolocalização e os alertas, sem o cartão do comprovante')]
+    #[TestDox('Sem o selo do comprovante (segredo do HMAC ausente): as outras cinco funções, sem o cartão do comprovante')]
     public function testSemSeloSoAGeolocalizacao(): void
     {
         $saida = $this->casoDeUso(true, null, true, seloDisponivel: false)->executar($this->pessoa(['ROLE_SUPER_ADMIN']), new Tenant());
 
         self::assertNotNull($saida);
-        self::assertSame(['ponto-geo', 'ponto-alertas'], array_map(static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave, $saida->funcoes));
-        self::assertTrue($saida->funcoes[0]->escritorioEfetivo(), 'a geolocalização não muda');
+        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], array_map(static fn (FuncaoDoPontoOutput $funcao): string => $funcao->chave, $saida->funcoes));
+        self::assertTrue($saida->funcoes[2]->escritorioEfetivo(), 'a geolocalização não muda');
     }
 
     /** @param list<string> $papeis */

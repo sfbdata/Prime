@@ -20,10 +20,11 @@ use App\Ponto\Service\SeloDoComprovante;
  * Para quê: mostrar, a quem administra o ponto do escritório, cada função com as suas duas chaves.
  * Pré-condição: a permissão de gerir o ponto no escritório da sessão (o primário e o Master passam, P58 não entra).
  * Sem ela, null: a aba não aparece.
- * Saída: uma linha por função com a camada Escritório (o comprovante em imagem da E15 e a geolocalização da E7, na
- * ordem do desenho), o Global de cada uma e se quem vê é o Master (que ganha a chave "Global" e o outro texto de ajuda).
- * Sem o selo do comprovante (o segredo `PONTO_HMAC_SECRET` ausente), o cartão do comprovante não aparece, como a aba
- * Comprovantes: a chave não teria efeito nenhum.
+ * Saída: uma linha por função com a camada Escritório (a tela cheia, os sons e o lembrete de saída da E8, o comprovante
+ * em imagem da E15, a geolocalização da E7 e os alertas de intervalo da E11, na ordem do desenho), o Global de cada uma e
+ * se quem vê é o Master (que ganha a chave "Global" e o outro texto de ajuda). Sem o selo do comprovante (o segredo
+ * `PONTO_HMAC_SECRET` ausente), o cartão do comprovante não aparece, como a aba Comprovantes: a chave não teria efeito
+ * nenhum.
  */
 final class ObterConfiguracoesDoPontoUseCase
 {

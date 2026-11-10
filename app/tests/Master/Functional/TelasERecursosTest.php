@@ -290,7 +290,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(25, $linhas, 'as 25 linhas do catálogo, com o comprovante (E15) e os alertas de intervalo (E11) do Ponto');
+        self::assertCount(28, $linhas, 'as 28 linhas do catálogo, com o comprovante (E15), os alertas de intervalo (E11) e a tela cheia, os sons e o lembrete de saída (E8) do Ponto');
         $contribua = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'contribua'));
         self::assertCount(2, $contribua);
         self::assertFalse($contribua[0]['ativo']);

@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('24 linhas, 23 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('28 linhas, 27 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(25, CatalogoDeRecursos::LINHAS);
-        self::assertCount(24, CatalogoDeRecursos::chaves());
+        self::assertCount(28, CatalogoDeRecursos::LINHAS);
+        self::assertCount(27, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -28,17 +28,20 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto'), 'a tela do Ponto desliga (E7)');
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-geo'));
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-alertas'));
+        foreach (['ponto-animacao', 'ponto-sons', 'ponto-lembrete'] as $funcaoDaE8) {
+            self::assertFalse(CatalogoDeRecursos::ehEssencial($funcaoDaE8), $funcaoDaE8 . ' desliga (E8)');
+        }
         self::assertSame(['contribua', 'contribua'], array_values(array_map(
             static fn (array $l): string => $l['chave'],
             array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => str_starts_with($l['t'], 'Contribua')),
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante e os alertas do Ponto: 13 Telas, 7 Menu do usuário, 5 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas e a E8 do Ponto: 13 Telas, 7 Menu do usuário, 8 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 5], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 8], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
@@ -46,11 +49,22 @@ final class CatalogoDeRecursosTest extends TestCase
         self::assertSame('ponto', CatalogoDeRecursos::LINHAS[8]['chave'], 'Ponto entra nas Telas, antes do Voto');
         self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
-        $geo = CatalogoDeRecursos::LINHAS[22];
-        self::assertSame(['Funções', 'ponto-geo', 'Ponto: geolocalização', 'Exige que o registro seja feito dentro do raio de uma sede.', false], [$geo['g'], $geo['chave'], $geo['t'], $geo['d'], $geo['tela']]);
-        self::assertSame('ponto-comprovante', CatalogoDeRecursos::LINHAS[23]['chave'], 'comprovante do Ponto (E15) nas Funções, depois da geolocalização');
-        $alertas = CatalogoDeRecursos::LINHAS[24];
-        self::assertSame(['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false], [$alertas['g'], $alertas['chave'], $alertas['t'], $alertas['ic'], $alertas['d'], $alertas['tela'], $alertas['base']]);
+        // As funções do Ponto: a tela cheia, os sons e a geolocalização na ordem do bj-recursos.js do desenho 16 (E7 e E8),
+        // o comprovante depois da geolocalização (E15) e o lembrete antes dos alertas de intervalo, como no FEATS (E8 e E11).
+        self::assertSame(
+            [
+                ['Funções', 'ponto-animacao', 'Ponto: validação em tela cheia', 'bi-clock-history', 'Relógio completando a volta e confirmação ocupando toda a tela.', false, false],
+                ['Funções', 'ponto-sons', 'Ponto: sons', 'bi-volume-up', 'Plim no registro e alerta diferente quando o ponto falha.', false, false],
+                ['Funções', 'ponto-geo', 'Ponto: geolocalização', 'bi-geo-alt', 'Exige que o registro seja feito dentro do raio de uma sede.', false, false],
+                ['Funções', 'ponto-comprovante', 'Ponto: comprovante em imagem', 'bi-receipt', "Imagem em alta definição com código de validação, QR Code, marca d'água e padrões de segurança.", false, false],
+                ['Funções', 'ponto-lembrete', 'Ponto: lembrete de saída', 'bi-bell', 'Avisa quando passar do horário previsto e a saída não foi registrada.', false, false],
+                ['Funções', 'ponto-alertas', 'Ponto: alertas de intervalo', 'bi-exclamation-triangle', 'Avisa antes da batida sobre intervalo, interjornada e descanso semanal.', false, false],
+            ],
+            array_map(
+                static fn (array $l): array => [$l['g'], $l['chave'], $l['t'], $l['ic'], $l['d'], $l['tela'], $l['base']],
+                array_slice(CatalogoDeRecursos::LINHAS, 22, 6),
+            ),
+        );
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
         self::assertNull(CatalogoDeRecursos::titulo('inexistente'));

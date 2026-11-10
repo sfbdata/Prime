@@ -69,6 +69,20 @@ final class FuncoesDoPontoTest extends TestCase
         self::assertFalse($funcoes->vale(FuncoesDoPonto::GEO, $tenant));
     }
 
+    #[TestDox('E8: a tela cheia, os sons e o lembrete nascem ligados (P96) e seguem as duas camadas')]
+    public function testFuncoesDaE8NascemLigadas(): void
+    {
+        $tenant = new Tenant();
+        $configuracao = new ConfiguracaoDoPonto($tenant);
+        $configuracao->definir(FuncoesDoPonto::SONS, false, new User(), new \DateTimeImmutable());
+        $funcoes = $this->funcoes([FuncoesDoPonto::LEMBRETE => $this->desligada(FuncoesDoPonto::LEMBRETE)], $configuracao);
+
+        self::assertTrue($funcoes->vale(FuncoesDoPonto::ANIMACAO, $tenant), 'sem registro: ligada');
+        self::assertFalse($funcoes->vale(FuncoesDoPonto::SONS, $tenant), 'desligada no escritório');
+        self::assertFalse($funcoes->vale(FuncoesDoPonto::LEMBRETE, $tenant), 'desligada pelo Master');
+        self::assertTrue($funcoes->ligadaNoEscritorio(FuncoesDoPonto::LEMBRETE, $tenant), 'o valor do escritório fica guardado');
+    }
+
     #[TestDox('Linha do escritório sem a chave no mapa: ligada')]
     public function testLinhaSemAChave(): void
     {
@@ -79,15 +93,19 @@ final class FuncoesDoPontoTest extends TestCase
         self::assertTrue($this->funcoes([], $configuracao)->vale(FuncoesDoPonto::GEO, $tenant));
     }
 
-    #[TestDox('O comprovante (E15), a geolocalização (E7) e os alertas de intervalo (E11) têm a camada Escritório, nessa ordem; quem configura é admin.ponto.manage')]
+    #[TestDox('A camada Escritório: a tela cheia e os sons (E8), o comprovante (E15), a geolocalização (E7), o lembrete (E8) e os alertas de intervalo (E11), na ordem do desenho; quem configura é admin.ponto.manage no escritório')]
     public function testCamadaEPermissao(): void
     {
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-geo'));
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-comprovante'));
         self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto'));
-        self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto-facial'));
+        self::assertFalse($this->funcoes([], null)->temCamadaEscritorio('ponto-facial'), 'a facial é da E18');
         self::assertTrue($this->funcoes([], null)->temCamadaEscritorio('ponto-alertas'));
-        self::assertSame(['ponto-comprovante', 'ponto-geo', 'ponto-alertas'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
+        self::assertSame(['ponto-animacao', 'ponto-sons', 'ponto-comprovante', 'ponto-geo', 'ponto-lembrete', 'ponto-alertas'], array_keys(FuncoesDoPonto::COM_CAMADA_ESCRITORIO), 'a ordem do FEATS do desenho (L414 a L423)');
+        self::assertSame(
+            [FuncoesDoPonto::ANIMACAO, FuncoesDoPonto::SONS, FuncoesDoPonto::LEMBRETE],
+            ['ponto-animacao', 'ponto-sons', 'ponto-lembrete'],
+        );
 
         $quem = new User();
         $tenant = new Tenant();
