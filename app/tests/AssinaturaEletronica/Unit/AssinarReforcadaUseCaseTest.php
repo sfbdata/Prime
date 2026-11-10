@@ -250,6 +250,7 @@ final class AssinarReforcadaUseCaseTest extends TestCase
             new IdentityTranslator(),
             $this->relogio,
             $this->barramento(),
+            $this->logger,
         );
     }
 }

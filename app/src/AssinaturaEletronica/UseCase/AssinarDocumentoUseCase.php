@@ -31,6 +31,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -75,6 +76,7 @@ final readonly class AssinarDocumentoUseCase
         private TranslatorInterface $tradutor,
         private ClockInterface $relogio,
         private MessageBusInterface $mensagens,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -121,14 +123,24 @@ final readonly class AssinarDocumentoUseCase
     }
 
     /**
-     * Depois do COMMIT e dos e-mails (uma fila fora do ar não segura a conclusão), só quando esta assinatura concluiu o
-     * documento: a recusa já lançou antes, e o documento concluído por outra assinatura recusa a vez desta.
+     * Depois do COMMIT e dos e-mails, só quando esta assinatura concluiu o documento: a recusa já lançou antes, e o
+     * documento concluído por outra assinatura recusa a vez desta. A assinatura já está gravada: fila fora do ar só vai
+     * para o log (como o SincronizacaoPastaDispatcher), sem erro para o signatário; o PDF final sai no primeiro download.
      */
     private function pedirPdfFinalSeConcluiu(Signatario $signatario): void
     {
         $documento = $signatario->getDocumento();
-        if ($documento->getSituacao() === SituacaoDoDocumento::Concluido) {
+        if ($documento->getSituacao() !== SituacaoDoDocumento::Concluido) {
+            return;
+        }
+
+        try {
             $this->mensagens->dispatch(new GerarPdfFinalDoDocumento((int) $documento->getId(), (int) $documento->getTenant()->getId()));
+        } catch (\Throwable $e) {
+            $this->logger->error('Falha ao enfileirar o PDF final do documento {documento}: {erro}', [
+                'documento' => $documento->getId(),
+                'erro' => $e->getMessage(),
+            ]);
         }
     }
 

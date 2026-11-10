@@ -80,6 +80,24 @@ final class AssinarDocumentoUseCaseTest extends TestCase
         self::assertEquals([new GerarPdfFinalDoDocumento(1, 9)], $this->despachadas, 'a conclusão pede o PDF final ao worker');
     }
 
+    #[TestDox('fila fora do ar na conclusão: a assinatura vale, o remetente recebe a conclusão e a falha só vai para o log')]
+    public function testFilaCaidaNaoDerrubaAConclusao(): void
+    {
+        [$ana, $bia] = $this->documentoEnviado()->getSignatarios();
+        $bia->registrarAssinatura('Bia Souza', '11144477735', 'r.png', 'simples', null, null, new \DateTimeImmutable('2026-11-09 09:30:00'));
+        $this->comCodigo($ana);
+        $this->filaCaida = new \RuntimeException('transporte fora do ar');
+
+        $publico = $this->assinar()->executar($this->chave->token($ana), self::entrada(), self::evidencia());
+
+        self::assertSame('concluido', $publico['estado']);
+        self::assertSame(SituacaoDoDocumento::Concluido, $ana->getDocumento()->getSituacao());
+        self::assertSame('criadora@escritorio.test', $this->unicoEmail()->getTo()[0]->getAddress());
+        $erros = $this->logger->doNivel('error');
+        self::assertCount(1, $erros);
+        self::assertSame(['documento' => 1, 'erro' => 'transporte fora do ar'], $erros[0]['contexto']);
+    }
+
     #[TestDox('segredo trocado depois do envio: a assinatura vale, mas a vez do próximo não sai (sem link) e vira "email_nao_enviado"')]
     public function testVezSemLink(): void
     {
@@ -205,6 +223,7 @@ final class AssinarDocumentoUseCaseTest extends TestCase
             new IdentityTranslator(),
             $this->relogio,
             $this->barramento(),
+            $this->logger,
         );
     }
 }

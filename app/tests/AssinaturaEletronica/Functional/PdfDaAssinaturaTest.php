@@ -22,7 +22,9 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\TransportException;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\Messenger\Transport\TransportInterface;
 
 /**
  * "Baixar PDF com selo" pela HTTP (etapa 3, E3-4 e E3-5), contra o disco real (a entrega do guardado lê o arquivo): a
@@ -130,6 +132,48 @@ final class PdfDaAssinaturaTest extends JusPrimeWebTestCase
         self::assertSame($daTela, $this->baixar('/assinatura/documentos/' . $id . '/pdf'));
         self::assertCount(1, $this->pdfsGuardados(), 'guardado uma vez só');
         self::assertSame($chave['arquivo_final_chave'], $this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('fila fora do ar na conclusão: a última assinatura responde concluído e o PDF sai no primeiro download')]
+    public function testFilaCaida(): void
+    {
+        $fila = new class () implements TransportInterface {
+            public int $tentativas = 0;
+
+            public function get(): iterable
+            {
+                return [];
+            }
+
+            public function ack(Envelope $envelope): void
+            {
+            }
+
+            public function reject(Envelope $envelope): void
+            {
+            }
+
+            public function send(Envelope $envelope): Envelope
+            {
+                ++$this->tentativas;
+
+                throw new TransportException('fila fora do ar');
+            }
+        };
+        static::getContainer()->set('messenger.transport.async', $fila);
+        $this->entrarComDisco();
+        [$id, $tokens] = $this->documentoEnviado();
+        $this->assinarNoLink((string) $tokens[0], $this->pedirCodigo((string) $tokens[0]));
+        $this->assinarNoLink((string) $tokens[1], $this->pedirCodigo((string) $tokens[1]), ['nome' => 'Bia Souza', 'cpf' => '11144477735']);
+
+        self::assertResponseIsSuccessful((string) $this->client->getResponse()->getContent());
+        self::assertSame('concluido', $this->json()['estado']['estado']);
+        self::assertSame(1, $fila->tentativas, 'a conclusão tentou enfileirar e a fila recusou');
+        self::assertSame('concluido', $this->conexao()->fetchOne('SELECT situacao FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+        self::assertNull($this->conexao()->fetchOne('SELECT arquivo_final_chave FROM assinatura_eletronica_documento WHERE id = ?', [$id]));
+
+        $this->baixar('/assinar/' . $tokens[1] . '/pdf');
+        self::assertCount(1, $this->pdfsGuardados(), 'gerado e guardado no primeiro download');
     }
 
     #[TestDox('as telas recebem a URL do PDF e carregam o assinatura-pdf.js antes do script da tela; o link traz os textos do PDF')]

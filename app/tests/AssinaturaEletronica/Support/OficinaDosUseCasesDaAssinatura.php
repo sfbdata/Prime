@@ -104,6 +104,9 @@ trait OficinaDosUseCasesDaAssinatura
     /** @var list<object> as mensagens despachadas pelo {@see barramento()} (etapa 3: o PDF final no worker) */
     private array $despachadas = [];
 
+    /** Quando preenchida, o {@see barramento()} lança esta falha (a fila fora do ar) em vez de guardar a mensagem. */
+    private ?\Throwable $filaCaida = null;
+
     private function montarOficina(): void
     {
         $this->tenant = (new Tenant())->setName("Silva & D'Ávila Advogados");
@@ -323,10 +326,13 @@ trait OficinaDosUseCasesDaAssinatura
         return $this->mailer->enviados[0];
     }
 
-    /** Etapa 3: o barramento que só guarda o que foi despachado, em `$despachadas`. */
+    /** Etapa 3: o barramento que só guarda o que foi despachado, em `$despachadas` (ou lança a `$filaCaida`). */
     private function barramento(): MessageBusInterface
     {
         $guardar = function (object $mensagem): void {
+            if ($this->filaCaida !== null) {
+                throw $this->filaCaida;
+            }
             $this->despachadas[] = $mensagem;
         };
 
