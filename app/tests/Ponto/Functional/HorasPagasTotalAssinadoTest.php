@@ -8,9 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
-use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\LancamentoHorasPagas;
-use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -39,7 +38,7 @@ use PHPUnit\Framework\Attributes\TestDox;
  * Sem contagem dupla: `calcularSaldoAteMes` cobre as competências ANTERIORES e
  * `somarHorasPagasDaCompetencia` cobre a ATUAL — faixas que não se sobrepõem.
  */
-#[CoversClass(PontoController::class)]
+#[CoversClass(DadosDaFolhaExportada::class)]
 final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 {
     #[TestDox('desconto no lancamento entra no saldo atual acumulado e cria a compensacao correspondente')]
@@ -268,7 +267,7 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 
     /**
      * Folha de um único dia, com o `saldoAcumulado` da última (única) linha controlado por quem
-     * chama — é exatamente o valor que o loop de `montarDadosFolha` usa como `saldoBancoAtualMinutos`.
+     * chama — é exatamente o valor que o loop de `DadosDaFolhaExportada::montar` usa como `saldoBancoAtualMinutos`.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -294,21 +293,16 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Chama o `montarDadosFolha` privado do controller — é ele que o PDF e o XLSX consomem.
+     * Chama o `DadosDaFolhaExportada::montar` — é ele que o PDF e o XLSX consomem.
      *
      * @param array<int, array<string, mixed>> $folhaRows
      * @return array<string, mixed>
      */
     private function montarDadosFolha(User $colaborador, Tenant $tenant, int $ano, int $mes, array $folhaRows): array
     {
-        $container  = static::getContainer();
-        $controller = $container->get(PontoController::class);
-        $builder    = $container->get(FolhaPontoBuilder::class);
-
-        $metodo = new \ReflectionMethod($controller, 'montarDadosFolha');
-
         /** @var array<string, mixed> $dados */
-        $dados = $metodo->invoke($controller, $colaborador, $tenant, $ano, $mes, $folhaRows, [], null, null, $builder, null);
+        $dados = static::getContainer()->get(DadosDaFolhaExportada::class)
+            ->montar($colaborador, $tenant, $ano, $mes, $folhaRows, [], null, null, null);
 
         return $dados;
     }

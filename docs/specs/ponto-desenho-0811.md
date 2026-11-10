@@ -274,7 +274,7 @@ casa (ponto); no bloco 1 a mudança é só de aparência, o rigor da revisão é
 **Arquivos da frente jornada-vigencia** (nenhum PR aberto dela em 09/11; pendentes dela: trava nas versões, cabeçalho
 "Jornada alterada em dd/mm" no PDF e XLSX, padrão do escritório com vigência): `JornadaColaboradorController.php`,
 `_jornada_colaborador_tab.html.twig`, `HistoricoDeJornadas.php`, `JornadaColaboradorRepository.php`, os 3 UseCases de
-versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pdf.html.twig`, `FolhaPontoXlsxExporter.php`,
+versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.html.twig`, `FolhaPontoXlsxExporter.php`,
 `JornadaTenant` e `_modal_jornada_tenant.html.twig`. Também foram tocados por ela: `PontoController.php` e
 `TenantController.php`.
 

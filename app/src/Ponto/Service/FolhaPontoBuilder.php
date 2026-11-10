@@ -262,7 +262,7 @@ class FolhaPontoBuilder
      * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
      *
      * O banco (`saldosDaFolhaPorCompetencia`) soma este número mês a mês. A /ponto e a ficha do admin tiram o total do
-     * mês do próprio banco (E17), e o PDF e o XLSX fazem a mesma conta sobre as linhas em `montarDadosFolha`.
+     * mês do próprio banco (E17), e o PDF e o XLSX fazem a mesma conta sobre as linhas em `DadosDaFolhaExportada::montar`.
      *
      * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
      */

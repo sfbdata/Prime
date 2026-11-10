@@ -15,6 +15,7 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\FuncoesDoPonto;
 use App\Ponto\Service\InicioContagemResolver;
@@ -418,10 +419,11 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
             $jornadaTenant,
             $inicioContagem,
         );
-        $controller = $container->get(PontoController::class);
+        /** @var array<string, mixed> $dados */
+        $dados = $container->get(DadosDaFolhaExportada::class)
+            ->montar($pessoa, $escritorio, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $inicioContagem);
 
-        return (new \ReflectionMethod($controller, 'montarDadosFolha'))
-            ->invoke($controller, $pessoa, $escritorio, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $builder, $inicioContagem);
+        return $dados;
     }
 
     /** @param array<string, mixed> $dados */

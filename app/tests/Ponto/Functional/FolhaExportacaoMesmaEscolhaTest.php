@@ -17,6 +17,7 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\DadosDaFolhaExportada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -36,6 +37,7 @@ use Twig\Environment;
  * ficou fora da conta.
  */
 #[CoversClass(PontoController::class)]
+#[CoversClass(DadosDaFolhaExportada::class)]
 final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
 {
     #[TestDox('o XLSX traz o repouso e as horas que a folha conta, sem a marca a conferir')]
@@ -92,7 +94,7 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         // O Dompdf comprime o texto e codifica por glifo; o que dá para ler é o HTML que ele recebe.
         // Ele é montado aqui com EXATAMENTE os passos de `PontoController::exportarFolhaPdf` (mesmos
         // repositórios, resolvedor do início da contagem, jornada do escritório, feriados e
-        // justificativas) e o mesmo `montarDadosFolha` (por reflexão, como no HorasPagasTotalAssinadoTest).
+        // justificativas) e o mesmo `DadosDaFolhaExportada::montar` (pelo contêiner, como no HorasPagasTotalAssinadoTest).
         $container = static::getContainer();
         $builder = $container->get(FolhaPontoBuilder::class);
         $ano = (int) $dia->format('Y');
@@ -115,9 +117,8 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
             $jornadaTenant,
             $inicioContagem,
         );
-        $controller = $container->get(PontoController::class);
-        $dados = (new \ReflectionMethod($controller, 'montarDadosFolha'))
-            ->invoke($controller, $colaborador, $tenant, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $builder, $inicioContagem);
+        $dados = $container->get(DadosDaFolhaExportada::class)
+            ->montar($colaborador, $tenant, $ano, $mes, $rows, $feriados, $jornada, $jornadaTenant, $inicioContagem);
 
         $linha = null;
         foreach ($dados['folhaRows'] as $row) {
