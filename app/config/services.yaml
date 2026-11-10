@@ -305,6 +305,15 @@ services:
     # envio recusa gov.br e ICP (E6-4).
     App\AssinaturaEletronica\Service\Cadeia\ValidadorDeCadeia: '@App\AssinaturaEletronica\Service\Cadeia\HttpValidadorDeCadeia'
 
+    # Assinatura, etapa 8 (E8-4): o selo PAdES do BlueJus no PDF final, pelo POST /v1/selar do validador_pdf. Sem a URL ou
+    # sem o token (vazios = não configurado, etapa 6, seção 2), vale o selador nulo e nenhum pedido sai.
+    App\AssinaturaEletronica\Service\Selo\EscolhaDoSeladorDePdf:
+        arguments:
+            $url: '%env(string:default::ASSINATURA_VALIDADOR_URL)%'
+            $token: '%env(string:default::ASSINATURA_VALIDADOR_TOKEN)%'
+    App\AssinaturaEletronica\Service\Selo\SeladorDePdf:
+        factory: ['@App\AssinaturaEletronica\Service\Selo\EscolhaDoSeladorDePdf', 'selador']
+
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
     # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.
     # O processor `string:` garante STRING (nunca null): `$dsn` do construtor é
