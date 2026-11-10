@@ -15,10 +15,13 @@ use App\Ponto\Repository\RegistroPontoRepository;
 /**
  * O aviso de ponto da pessoa agora (modal global, consulta a cada 60 s em /ponto/alerta-horario).
  *
- * Feriado que vale para a pessoa hoje (o de todas as sedes ou o da lotação dela no dia, `FeriadosDaPessoa`, a mesma
- * regra da folha e da meta do dia na tela): a escala não vale, então saem os avisos que vêm dela (entrada, repouso no
- * horário da escala e "Jornada concluída", que já pedia meta positiva). Ficam os que vêm das batidas de quem trabalhou
- * no feriado: 6 horas sem repouso e intervalo mínimo concluído.
+ * Dia sem escala para a pessoa, isto é, meta do dia 0, como na folha e na tela: o feriado que vale para ela (o de
+ * todas as sedes ou o da lotação dela no dia, `FeriadosDaPessoa`) e o dia que a escala não cobre (folga, domingo).
+ * Nele saem os avisos que vêm da escala (entrada, repouso no horário da escala e "Jornada concluída"). Ficam os que
+ * vêm das batidas de quem trabalhou mesmo assim: 6 horas sem repouso e intervalo mínimo concluído.
+ *
+ * Sem escala nenhuma (nem a da pessoa, nem a do escritório) a meta é 0 todo dia e os avisos da escala não saem; com o
+ * aviso ligado, isso não existia em produção em 10/11/2026.
  */
 class VerificadorAlertaPonto
 {
@@ -43,7 +46,10 @@ class VerificadorAlertaPonto
             return $this->semAlerta();
         }
 
-        $feriadoHoje = $this->feriadoDaPessoaHoje($user, $tenant, $agora);
+        $metaDiaMinutos = $this->feriadoDaPessoaHoje($user, $tenant, $agora)
+            ? 0
+            : $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
+        $diaDaEscala = $metaDiaMinutos > 0;
 
         // As batidas de hoje NESTE escritório (auditoria 1.13): a de outro escritório da pessoa não muda o aviso daqui.
         $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $tenant, $agora);
@@ -63,7 +69,7 @@ class VerificadorAlertaPonto
         $saidaRegistrada   = isset($porTipo[RegistroPonto::TIPO_SAIDA]);
 
         if (!$entradaRegistrada) {
-            return $feriadoHoje ? $this->semAlerta() : [
+            return !$diaDaEscala ? $this->semAlerta() : [
                 'alertar'  => true,
                 'tipo'     => 'entrada',
                 'mensagem' => 'Você ainda não registrou sua entrada hoje!',
@@ -73,7 +79,7 @@ class VerificadorAlertaPonto
 
         if (!$repousoRegistrado) {
             // Verifica horário configurado (±5 min) — tem prioridade sobre CLT
-            $alertaRepouso = $feriadoHoje ? null : $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant);
+            $alertaRepouso = $diaDaEscala ? $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant) : null;
             if ($alertaRepouso !== null) {
                 return $alertaRepouso;
             }
@@ -110,9 +116,7 @@ class VerificadorAlertaPonto
         }
 
         if ($retornoRegistrado && !$saidaRegistrada) {
-            // Feriado zera a meta, como na folha: sem "Jornada concluída".
-            $metaDiaMinutos = $feriadoHoje ? 0 : $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
-            if ($metaDiaMinutos > 0) {
+            if ($diaDaEscala) {
                 $entrada = $porTipo[RegistroPonto::TIPO_ENTRADA];
 
                 if ($escolha->temIntervalo()) {

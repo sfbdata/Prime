@@ -47,6 +47,12 @@ final class VerificadorAlertaPontoTest extends TestCase
         );
     }
 
+    /** Dia que a escala cobre: meta do bloco positiva (sem ela, a meta 0 é dia fora da escala). */
+    private function diaDaEscala(): void
+    {
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
+    }
+
     /** Feriado de todas as sedes (sem lotação): vale para todos. O da lotação se prova no funcional. */
     private function feriadoEm(string $data): void
     {
@@ -77,6 +83,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     {
         // Auditoria 1.13: o escritório vai explícito para a consulta, sem depender do filtro `tenant`.
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $agora = new \DateTimeImmutable('2026-04-30 14:00:00');
         $this->registroRepository->expects(self::once())
             ->method('findBatidasDoDia')
@@ -89,6 +96,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testAlertaEntradaQuandoNaoRegistradaHoje(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
 
         $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 14:00:00'), null);
@@ -100,6 +108,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testAlertaRepousoPorHorarioConfiguradoDentroDeTolerancia(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->registroRepository->method('findBatidasDoDia')->willReturn([
             $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
         ]);
@@ -137,6 +146,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     {
         // Repouso configurado às 14:00; usuário entrou às 08:00 → exatamente 6h às 14:00
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->registroRepository->method('findBatidasDoDia')->willReturn([
             $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
         ]);
@@ -313,6 +323,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testFeriadoSemAvisoDeEntrada(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->feriadoEm('2026-04-30');
         $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
 
@@ -325,6 +336,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testFeriadoDeOutroDiaMantemOAvisoDeEntrada(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->feriadoEm('2026-04-29');
         $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
 
@@ -354,6 +366,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testFeriadoSemRepousoNoHorarioDaEscala(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->feriadoEm('2026-04-30');
         $this->registroRepository->method('findBatidasDoDia')->willReturn([
             $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
@@ -402,6 +415,7 @@ final class VerificadorAlertaPontoTest extends TestCase
     public function testConsultaOsFeriadosSoNoEscritorioDoAviso(): void
     {
         $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->diaDaEscala();
         $this->feriadoRepository->expects(self::once())
             ->method('doEscritorio')
             ->with(self::identicalTo($this->tenant))
@@ -411,5 +425,65 @@ final class VerificadorAlertaPontoTest extends TestCase
         $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-04-30 09:00:00'), null);
 
         self::assertSame('entrada', $resultado['tipo']);
+    }
+
+    #[TestDox('Dia fora da escala (folga, domingo; meta 0): sem aviso de entrada')]
+    public function testForaDaEscalaSemAvisoDeEntrada(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(0);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-05-03 09:00:00'), null);
+
+        self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Dia fora da escala: sem aviso de repouso no horário da escala')]
+    public function testForaDaEscalaSemRepousoNoHorarioDaEscala(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(0);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00', '2026-05-03'),
+        ]);
+        $this->jornadaResolver->method('resolverBatidasEsperadasHoje')->willReturn([
+            ['tipo' => RegistroPonto::TIPO_REPOUSO, 'horario' => '12:00', 'mensagem' => 'Hora do repouso!'],
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-05-03 12:00:00'), null);
+
+        self::assertFalse($resultado['alertar']);
+    }
+
+    #[TestDox('Dia fora da escala com trabalho: o aviso de 6 horas sem repouso continua')]
+    public function testForaDaEscalaMantemOAvisoDe6HorasSemRepouso(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(0);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00', '2026-05-03'),
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-05-03 14:05:00'), null);
+
+        self::assertSame('aviso_repouso_6h', $resultado['tipo']);
+    }
+
+    #[TestDox('Dia fora da escala com trabalho: o aviso de intervalo mínimo concluído continua')]
+    public function testForaDaEscalaMantemOAvisoDeRetorno(): void
+    {
+        $jornadaTenant = $this->createMock(JornadaTenant::class);
+        $jornadaTenant->method('getMinimoMinutosRepouso')->willReturn(60);
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(0);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00', '2026-05-03'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00', '2026-05-03'),
+        ]);
+
+        $resultado = $this->sut->verificar($this->user, $this->tenant, new \DateTimeImmutable('2026-05-03 13:05:00'), $jornadaTenant);
+
+        self::assertSame('retorno', $resultado['tipo']);
     }
 }

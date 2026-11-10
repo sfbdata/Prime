@@ -23,8 +23,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
  * O aviso de ponto (/ponto/alerta-horario) segue o feriado de quem está vendo (E6, `FeriadosDaPessoa`): o de todas as
- * sedes e o da lotação da pessoa calam o aviso de entrada; o de outra lotação não. O resto da regra (o que sai e o que
- * fica no feriado) está no teste de unidade do `VerificadorAlertaPonto`.
+ * sedes e o da lotação da pessoa calam o aviso de entrada; o de outra lotação não. O dia que a escala não cobre
+ * (folga, domingo) também o cala. O resto da regra (o que sai e o que fica no dia sem escala) está no teste de unidade
+ * do `VerificadorAlertaPonto`.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -80,13 +81,26 @@ final class AlertaDeHorarioNoFeriadoTest extends JusPrimeWebTestCase
         self::assertSame('entrada', $this->aviso($ana, $tenant)['tipo'], 'o feriado de Brasília não é de quem está em Maceió');
     }
 
-    /** @return array{0: User, 1: Tenant} */
-    private function colaboradoraComAviso(): array
+    #[TestDox('Dia fora da escala (a escala cobre os outros dias da semana): sem aviso')]
+    public function testDiaForaDaEscala(): void
+    {
+        $hoje = (int) (new \DateTimeImmutable())->format('N');
+        [$ana, $tenant] = $this->colaboradoraComAviso(array_values(array_diff([1, 2, 3, 4, 5, 6, 7], [$hoje])));
+
+        self::assertFalse($this->aviso($ana, $tenant)['alertar']);
+    }
+
+    /**
+     * @param list<int> $dias os dias da semana da escala (1 = segunda)
+     *
+     * @return array{0: User, 1: Tenant}
+     */
+    private function colaboradoraComAviso(array $dias = [1, 2, 3, 4, 5, 6, 7]): array
     {
         [, $tenant] = $this->criarAdmin();
         $ana = $this->criarUsuarioComPermissoes($tenant, ['modules.ponto.view'], 'ana');
         $jornada = (new JornadaColaborador())->setUser($ana)->setTenant($tenant)->setAlertaHabilitado(true);
-        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana($dias)->setEntrada('08:00')
             ->setRepouso('12:00')->setRetorno('13:00')->setSaida('17:00')->setMinutosBloco(480));
         $this->em()->persist($jornada);
         $this->em()->flush();
