@@ -8,6 +8,7 @@ tipo: alteracao
 - A mesma jornada em todo lugar (spec jornada §10.4, `FolhaPontoBuilder::jornadaDaFolha`): a pessoal ou, sem ela e nos dias antes da primeira versão, a do escritório. Vale para o banco, o saldo anterior, as linhas da folha na /ponto, no PDF, no XLSX e na ficha do gestor; antes o banco, a ficha e as exportações contavam zero nesses dias. O total "Saldo do mês" da /ponto e da ficha passa a ser a conta do banco para a competência, sem as horas pagas: inclui os dias sem batida depois da última batida do mês e, na ficha, também o mês sem batida nenhuma.
 - Coluna "Saldo mês" do dia em andamento mostra o acumulado até ontem (campo novo `saldoAcumuladoAteOntem` da linha de hoje).
 - Comando só de leitura `app:ponto:banco:comparar-virada`: saldo de cada pessoa antes (ano corrente) e depois (lotes), só com ids. Sem migration.
+- Aba Configurações do Ponto: campos "Limite do banco (horas)" e "Prazo de compensação (meses)" na grade do desenho (L245, L250 e L251), gravados por escritório ao sair do campo (`AlterarLimitesDoBancoDoEscritorioUseCase`, rota `ponto_configuracao_banco_de_horas`, só para quem administra o ponto). Limite de 1 a 9999 horas (o campo aceita 0 como o desenho e o servidor recusa) e prazo de 1 a 24 meses; a mudança vai para o `audit_log`. Sem migration.
 
 ## Para o cliente
 - O banco de horas do Ponto não zera mais na virada do ano: o saldo continua de um ano para o outro.
@@ -19,4 +20,5 @@ tipo: alteracao
 - O total "Saldo do mês" da folha passa a contar também os dias sem registro de ponto depois do último registro do mês. Assim, a soma dos meses da folha é igual ao banco de horas.
 - Na ficha do colaborador vista pelo gestor, o mês sem nenhum registro de ponto e com horas pagas passa a mostrar as faltas do mês no "Saldo do mês" (antes mostrava 0h), e o "Total do mês" muda junto.
 - O limite e o prazo do banco de horas são os que o escritório salvou nas Configurações do Ponto. Sem configuração, valem 120 horas e 6 meses.
+- Quem administra o Ponto do escritório pode mudar o limite do banco de horas e o prazo de compensação na aba Configurações. O valor é salvo assim que a pessoa sai do campo.
 - Quem não tem uma jornada própria cadastrada no Ponto passa a ter as faltas contadas pela jornada do escritório, em todas as telas do Ponto e na folha de ponto (PDF e planilha). Antes, esses dias não contavam no banco de horas. Por isso, o saldo de algumas pessoas pode ficar negativo.

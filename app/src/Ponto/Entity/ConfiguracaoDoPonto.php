@@ -100,6 +100,18 @@ class ConfiguracaoDoPonto implements TenantAware, Auditavel
         $this->atualizadoEm = $em;
     }
 
+    /**
+     * P73 (E17): o limite e o prazo do banco de horas do escritório, com quem e quando. A faixa (limite de 1 a 9999
+     * horas, prazo de 1 a 24 meses) é conferida antes, no caso de uso.
+     */
+    public function definirLimitesDoBanco(int $limiteHoras, int $prazoMeses, User $por, \DateTimeImmutable $em): void
+    {
+        $this->bancoLimiteHoras = $limiteHoras;
+        $this->bancoPrazoMeses = $prazoMeses;
+        $this->atualizadoPor = $por;
+        $this->atualizadoEm = $em;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

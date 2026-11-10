@@ -1355,6 +1355,23 @@
     .pe-tc-barra--on, .pe-tc-barra--ok, .pe-tc-mov { animation-duration: .01ms !important; animation-delay: 0s !important; }
 }
 
+/* ── Limite e prazo do banco (etapa E17, P73; desenho L245, L250 e L251) ─────────────────────────
+   A grade de campos do desenho, logo depois das funções (`repeat(auto-fit, minmax(200px, 1fr)); gap:12px;
+   padding:12px 16px; background:#f7f9fb`, o mesmo fundo do rodapé do cartão). O rótulo é o do desenho (12px bold
+   #4a6373, coluna com `gap:5px`); o campo é o `pe-sf-campo` da E6, que já tem os valores das L250 e L251. A frase de
+   erro (sistema; o desenho não tem) é a da E7, embaixo do campo, sem o negrito do rótulo. */
+.pe-config-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--pe-rodape-bg);
+}
+.pe-config-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
+.pe-config-banco-erro { font-size: 12px; font-weight: normal; color: var(--pe-perigo); }
+.pe-config-banco-erro[hidden] { display: none; }
+/* Gravando (sistema): o campo fica só de leitura até a resposta e não aceita outra mudança. */
+.pe-config-rotulo > .pe-sf-campo[aria-busy="true"] { cursor: progress; }
 /* ── Aba Equipe (etapa E5, L210 a L219 do desenho) ───────────────────────────────────────────────
    Classes do desenho com o prefixo da tela: bjpT = pe-tab; a linha bjpJ (sem regra no desenho) = pe-eq-lin. Os
    valores são os do estilo em linha do desenho, com os tokens da tela no lugar dos hex (o tema escuro troca os

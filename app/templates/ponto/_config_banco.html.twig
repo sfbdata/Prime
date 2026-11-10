@@ -1,0 +1,24 @@
+{#
+    Grade de campos da aba Configurações do Ponto (spec docs/specs/ponto-desenho-0811.md, E17 e P73; desenho 16 L245,
+    L250 e L251; inventário §2.12): "Limite do banco (horas)" (padrão 120) e "Prazo de compensação (meses)" (padrão 6,
+    de 1 a 24). No desenho a grade vem logo depois das funções e antes de "Sedes e raio de registro". Os campos da facial
+    da mesma grade (L246 a L249) chegam com a E18.
+
+    Recebe (do painel): banco_limite_horas e banco_prazo_meses (o que vale no escritório; sem linha salva, os padrões) e
+    funcoesDoPonto (o gate das funções da E7). Só quem administra o ponto do escritório vê a grade, como as chaves das
+    funções e a caixa do trabalho externo: para os outros a gravação seria recusada.
+
+    O limite fica com `min="0" step="10"`, como o desenho (com `min="1"` o navegador recusaria 120); o 0 é recusado no
+    servidor, com a frase embaixo do campo. Cada campo grava ao sair dele (change) por POST JSON na rota
+    `ponto_configuracao_banco_de_horas`, com o token `ajax` que o interceptador do base.html.twig põe no X-CSRF-Token.
+    `data-gravado` guarda o valor do servidor, para o campo voltar a ele na recusa. O comportamento mora em
+    js/ponto-configuracoes.js (o painel chega por innerHTML e script dentro dele não roda).
+#}
+{% if funcoesDoPonto|default(null) %}
+    {%- set limite = banco_limite_horas|default(constant('App\\Ponto\\Service\\LimitesPadraoDoBancoDeHoras::LIMITE_EM_HORAS')) -%}
+    {%- set prazo = banco_prazo_meses|default(constant('App\\Ponto\\Service\\LimitesPadraoDoBancoDeHoras::PRAZO_EM_MESES')) -%}
+    <div class="pe-config-grade" data-config-banco data-url="{{ path('ponto_configuracao_banco_de_horas') }}">
+        <label class="pe-config-rotulo">Limite do banco (horas)<input class="pe-sf-campo" type="number" min="0" step="10" value="{{ limite }}" data-config-banco-campo="limiteHoras" data-gravado="{{ limite }}"><span class="pe-config-banco-erro" role="alert" data-config-banco-erro hidden></span></label>
+        <label class="pe-config-rotulo">Prazo de compensação (meses)<input class="pe-sf-campo" type="number" min="1" max="24" value="{{ prazo }}" data-config-banco-campo="prazoMeses" data-gravado="{{ prazo }}"><span class="pe-config-banco-erro" role="alert" data-config-banco-erro hidden></span></label>
+    </div>
+{% endif %}

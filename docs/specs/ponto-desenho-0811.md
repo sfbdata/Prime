@@ -1284,6 +1284,13 @@ versão, `FolhaPontoBuilder.php`, `PontoController::montarDadosFolha`, `folha_pd
   - Os dias contam corridos.
   - Sem lotes, a tabela mostra "Nenhum lote no banco de horas.".
   - O compensado zerado mostra "0h", e o lote sem vencimento mostra "Sem prazo".
+- Campos na aba Configurações (P73; desenho L245, L250 e L251): "Limite do banco (horas)" e "Prazo de compensação
+  (meses)" na grade do desenho, logo depois das funções, só para quem administra o ponto do escritório. Cada um grava ao
+  sair do campo pela rota `ponto_configuracao_banco_de_horas` (molde da caixa do trabalho externo, E12; a mudança fica
+  só no `audit_log`, D5). Limite inteiro de 1 a 9999 horas, prazo de 1 a 24 meses; fora disso, 422 com a frase embaixo
+  do campo, e o campo volta ao valor gravado.
+  - ⚠ Desvio aprovado: o campo do limite aceita 0 no navegador, como no desenho (L250, `min="0" step="10"`), e o servidor
+    recusa 0 porque o limite zero acenderia o aviso para todo mundo. Decisão do Coordenador, 10/11/2026.
 - Migration: não; os lotes são calculados a partir da folha. Tabela `ponto_banco_lote` só se o cálculo se mostrar
   necessário.
 - Arquivos: `FolhaPontoBuilder.php` (`calcularSaldoAnual`; frente: avisar), serviço novo de lotes.
