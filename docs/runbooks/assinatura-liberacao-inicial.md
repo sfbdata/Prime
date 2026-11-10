@@ -11,7 +11,7 @@ Criar e guardar no cofre os valores próprios da Assinatura, sem substituir valo
 |---|---|---|
 | `ASSINATURA_SEGREDO` | Link e código por e-mail, inclusive Simples | [Criar o segredo](assinatura-segredo-em-producao.md) |
 | `ASSINATURA_SELO_SEGREDO` | Código BJA para consultar o documento | [Criar o segredo do código](assinatura-selo-segredo-em-producao.md) |
-| `ASSINATURA_SELFIE_CHAVE` | Somente para usar a Reforçada | [Preparar a chave da selfie](assinatura-selfie-chave-em-producao.md) |
+| `ASSINATURA_SELFIE_CHAVE` | Usada pela Reforçada; exigida pelo conferente geral da publicação | [Preparar a chave da selfie](assinatura-selfie-chave-em-producao.md) |
 
 Os runbooks individuais incluem um redeploy. Se os valores forem preparados antes da nova versão, o deploy normal
 da release os carrega: não repetir o deploy de cada runbook. Nunca imprimir valores nem usar
@@ -24,8 +24,10 @@ Os nomes `ASSINATURA_VALIDADOR_URL` e `ASSINATURA_VALIDADOR_TOKEN` podem continu
 ## 2. Publicar pelo fluxo normal
 
 Com os checks do PR verdes, o Samuel faz o merge e publica a release pelo processo do projeto.
-A chave geral `assinatura` deve permanecer desligada para os escritórios até concluir o teste em produção.
+A chave geral `assinatura` deve permanecer desligada para os escritórios durante a primeira conferência do Master.
 O Master consegue conferir a tela com essa chave desligada; isso não cria uma segunda chave exclusiva do Master.
+As páginas públicas também são bloqueadas enquanto a chave estiver desligada. Nesse primeiro teste, abrir o convite
+e Validar no mesmo navegador com a sessão Master autenticada. Outro navegador ou uma janela anônima recebe 503.
 
 Esta entrega acrescenta quatro migrations, nesta ordem numérica:
 
@@ -47,17 +49,21 @@ docker exec -w /var/www/app jusprime_php_prod php bin/console doctrine:migration
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T php php /var/www/app/bin/console app:conferir-segredos --modelo=- --no-interaction < .env.prod.example
 ```
 
-O conferente também verifica recursos opcionais. Ausência da chave de selfie impede a Reforçada; ausência do
-validador impede gov.br e ICP-Brasil. Para a Simples, os dois segredos das primeiras linhas da tabela precisam estar
-válidos. Conferir os hosts permitidos conforme o runbook do link e manter o worker saudável para o PDF final.
+Preparar os três segredos da tabela: embora a Simples use apenas os dois primeiros, o conferente geral e o
+`go-live-check.sh` reprovam quando falta a chave de selfie. Ausência do validador mantém gov.br e ICP-Brasil desligados
+e é tratada como aviso. Conferir os hosts permitidos conforme o runbook do link e manter o worker saudável para o PDF final.
 
 ## 4. Testar no domínio real, com a conta Master
 
-1. Criar um documento fictício, escolher Simples e enviar somente ao próprio e-mail.
+1. Criar um documento fictício, escolher Simples e enviar somente ao próprio e-mail. Manter a sessão Master no navegador.
 2. Abrir o convite no Gmail, pedir o código, concluir a assinatura e baixar o PDF.
 3. Consultar o código BJA em `/assinar/validar` e conferir documento concluído e signatário.
 4. Criar outro documento fictício, deixar pendente e usar Enviar lembrete na lista. Conferir a nova mensagem.
-5. Com esse teste aprovado, ligar a chave Assinatura no Master para os escritórios autorizados pelo módulo.
+5. Com esse teste aprovado, ligar a chave Assinatura no Master e repetir o fluxo em janela anônima, incluindo convite,
+   código e consulta. A chave é global: ao ligar, os escritórios autorizados pelo módulo também ganham acesso.
+
+Se a conferência anônima falhar, desligar a chave novamente no Master e investigar antes de anunciar a disponibilidade.
+Com a chave desligada, os links dos signatários também ficam indisponíveis.
 
 O botão E-mail do detalhe abre o aplicativo de e-mail para compartilhamento manual. O reenvio feito pelo sistema
 é Enviar lembrete, na lista, para o primeiro signatário pendente, limitado a um por hora.
