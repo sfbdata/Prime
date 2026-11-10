@@ -265,7 +265,7 @@
 .bja .bjaLogoMini img { max-width: 94px; max-height: 52px; display: block; }
 .bja .bjaLogoBts { display: flex; gap: 5px; flex-wrap: wrap; }
 .bja label.bjaB { cursor: pointer; }
-.bja .bjaLogoFix { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 12.5px; color: var(--bja-t2); cursor: pointer; }
+.bja .bjaLogoFix { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 12.5px; color: var(--bja-t2); }
 .bja .bjaLogoFix input { width: 15px; height: 15px; }
 .bja .bjaNota { font-size: 11.5px; color: var(--bja-mudo); margin-top: 5px; }
 .bja .bjaOpcoes { padding: 10px 12px; border: 1px solid var(--bja-borda); border-left: 4px solid #0a6fa0; border-radius: 3px; background: var(--bja-sutil); display: flex; flex-direction: column; gap: 10px; }
@@ -276,7 +276,7 @@
 .bja .bjaP3 { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .bja .bjaP3Cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bja .bjaP3Cab > b { flex: 1 1 200px; font-size: 15px; }
-.bja .bjaOrdem { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--bja-t2); cursor: pointer; margin: 0; }
+.bja .bjaOrdem { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--bja-t2); margin: 0; }
 .bja .bjaOrdem input { width: 16px; height: 16px; }
 .bja .bjaSigCx { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: end; padding: 10px 12px; border: 1px solid var(--bja-borda); border-left: 4px solid #0a6fa0; border-radius: 3px; }
 
@@ -420,7 +420,6 @@
     .bja .bjaT.resp tr { display: block; }
     .bja .bjaT.resp tr { padding: 10px 12px; border-bottom: 1px solid var(--bja-div); }
     .bja .bjaT.resp td { display: block; padding: 3px 0; border: none; }
-    .bja .bjaT.resp td.bjaTdSel { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
     .bja .bjaToast { animation-duration: .01ms !important; animation-delay: 0s !important; }
