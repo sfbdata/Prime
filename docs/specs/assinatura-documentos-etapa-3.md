@@ -26,6 +26,7 @@ Migration M2 = `Version20261109290000` (reservada pelo Coordenador).
 | E3-14 | URL do QR | Montada pelo roteador com URL absoluta (`DEFAULT_URI`), para valer em dev e em produção. O texto impresso segue o desenho ("bluejus.com.br/assinar/validar"). |
 | E3-15 | Fontes | Arial do desenho = NimbusSans (Regular e Bold); Courier = NimbusMonoPS, do pacote `fonts-urw-base35`, declarado no `Dockerfile` para não sumir num rebuild. |
 | E3-16 | Travessão | O travessão de dado ausente do desenho vira "não informado". |
+| E3-17 | Validar de outro escritório | A aba Validar acha o código de qualquer escritório, como a página pública: as duas usam a mesma consulta (`porCodigo`, sem filtro de escritório) e a mesma projeção pública (sem CPF nem e-mail), então a aba não mostra nada além do que o QR já mostra a qualquer pessoa. Código fora do formato `BJA-` com o alfabeto do selo responde "não localizado" sem ir ao banco. |
 
 ## 2. Contrato comum (bloco 0, integrado antes dos blocos 2 e 3)
 
