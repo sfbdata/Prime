@@ -11,10 +11,12 @@ assinatura_eletronica:
         movido_para_lixeira: Movido para a Lixeira. Evidências preservadas
         restaurado: Restaurado da Lixeira
         envio_cancelado_pela_exclusao: Envio cancelado pela exclusão. Links desativados
+        assinado_em_papel: 'Assinado em papel, confirmado por {nome} em {data}'
     erro:
         sem_permissao: Você não tem acesso à Assinatura de documentos.
         nao_encontrado: Documento não encontrado.
         so_rascunho: Só rascunho pode ser alterado.
+        papel_situacao: Só um documento em rascunho ou aguardando assinatura, fora da Lixeira, pode ser marcado como assinado em papel.
         excluir_enviado: Documentos enviados permanecem na Lixeira para preservar as evidências.
         excluir_fora_da_lixeira: Só documentos na Lixeira podem ser excluídos definitivamente.
         dados_invalidos: Os dados do documento não puderam ser lidos. Recarregue a página e tente de novo.

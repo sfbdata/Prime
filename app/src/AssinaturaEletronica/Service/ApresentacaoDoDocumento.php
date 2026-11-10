@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\DTO\ResumoDoDocumento;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
 use App\AssinaturaEletronica\Entity\Signatario;
+use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Asset\Packages;
@@ -63,6 +64,7 @@ final readonly class ApresentacaoDoDocumento
     public function detalhe(DocumentoParaAssinar $documento, array $eventos): array
     {
         return array_merge($this->resumo(ResumoDoDocumento::deDocumento($documento)), [
+            'emPapel' => array_filter($eventos, static fn (EventoDaTrilha $e): bool => $e->getTipo() === TipoDeEvento::AssinadoEmPapel) !== [],
             'modelo' => $documento->getModeloChave(),
             'blocos' => $documento->getBlocos(),
             'layout' => $documento->getLayout(),

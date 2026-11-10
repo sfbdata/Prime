@@ -33,6 +33,8 @@ final class AssinaturaEletronicaController extends AbstractController
         'arquivo' => true,
         'logo' => true,
         'logo_padrao' => false,
+        'imprimir' => true,
+        'assinado_em_papel' => true,
     ];
 
     public function __construct(

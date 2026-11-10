@@ -35,6 +35,8 @@
         cor: ds.urlCor || '',
         logo: ds.urlLogo || '',
         enviar: ds.urlEnviar || '',
+        imprimir: ds.urlImprimir || '',
+        papel: ds.urlAssinadoEmPapel || '',
     };
     /* Troca o marcador 0 (último trecho "0" do caminho) pelo id real, como a Agenda 1A. */
     const comId = (modelo, id) => {
@@ -52,7 +54,7 @@
 
     /* ── Tabelas do desenho (static ST, CORES, NIV) ─────────────────────── */
     const FILTROS = ['todos', 'aguardando', 'concluido', 'rascunho', 'recusado', 'expirado', 'lixeira'];
-    const ST_ICONE = { rascunho: 'bi-pencil', aguardando: 'bi-hourglass-split', concluido: 'bi-check-circle', recusado: 'bi-x-circle', expirado: 'bi-clock', cancelado: 'bi-slash-circle' };
+    const ST_ICONE = { rascunho: 'bi-pencil', aguardando: 'bi-hourglass-split', concluido: 'bi-check-circle', recusado: 'bi-x-circle', expirado: 'bi-clock', cancelado: 'bi-slash-circle', papel: 'bi-printer' };
     const CORES = [['', ''], ['azul', '#dcecf9'], ['verde', '#dff3e5'], ['amarelo', '#fff1c4'], ['laranja', '#fde3cc'], ['vermelho', '#fbdfe2'], ['roxo', '#ebe1fa'], ['cinza', '#e3e8ec']];
     const NIVEIS = ['simples', 'reforcada', 'govbr', 'icp'];
     const PASSOS = [['documento', 'bi-file-earmark'], ['dados', 'bi-input-cursor-text'], ['signatarios', 'bi-people'], ['enviar', 'bi-send']];
@@ -93,6 +95,7 @@
         sel: {},
         ctx: null,
         exc: null,
+        papel: false,
         w: null,
         wErro: '',
         arqSt: '',
@@ -263,7 +266,8 @@
         el.vazio.hidden = !s.carregado || vis.length > 0;
     }
 
-    function seloHtml(st) {
+    function seloHtml(st, emPapel) {
+        if (emPapel && st === 'concluido') { st = 'papel'; }
         return '<span class="bjaSelo st-' + esc(st) + '"><i class="bi ' + (ST_ICONE[st] || 'bi-circle') + '"></i>' + esc(T('situacao.' + st)) + '</span>';
     }
 
@@ -275,7 +279,7 @@
             + '<td class="bjaTdSig"><div class="bjaQuem">' + esc(T('assinaram', { n: n, total: tot })) + '</div><div class="bjaBarra"><div style="width:' + pct + '%"></div></div></td>'
             + '<td class="bjaNw">' + esc(data(d.criadoEm)) + '</td>'
             + '<td class="bjaNw">' + (d.stA === 'aguardando' ? esc(data(d.venceEm)) : '') + '</td>'
-            + '<td>' + seloHtml(d.stA) + '</td>'
+            + '<td>' + seloHtml(d.stA, d.emPapel) + '</td>'
             + '<td class="bjaTdAc"><button type="button" class="bjaB" data-bja-acao="abrir">' + esc(T('abrir')) + '</button> '
             + '<button type="button" class="bjaB bjaI bjaN" data-bja-acao="ctx" aria-label="' + esc(T('mais_opcoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></td></tr>';
     }
@@ -733,13 +737,14 @@
         const sigs = (d.signatarios || []).map(x => {
             const sg = x.situacao === 'assinado' ? 'assinado' : x.situacao === 'recusado' ? 'recusado' : 'pendente';
             const info = sg === 'assinado' ? dataHora(x.assinadoEm) + (x.metodo ? ' · ' + x.metodo : '') : (x.email || T('det.sem_email'));
+            if (d.emPapel) { return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b></div><div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(T('det.papel_sig_sem_conferencia')) + '</div></div>'; }
             return '<div class="bjaSigLin"><div class="bjaSigTop"><b>' + esc(x.nome) + '</b><span class="bjaSeloSig sg-' + sg + '">' + esc(T('sig.' + sg)) + '</span></div>'
                 + '<div class="bjaSigPapel">' + esc(x.papel) + ' · ' + esc(nivelRotulo(x.nivel)) + '</div><div class="bjaSigInfo">' + esc(info) + '</div></div>';
         }).join('');
-        const bts = st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '';
+        const bts = (st === 'rascunho' && !d.naLixeira ? '<button type="button" class="bjaP" data-bja-acao="det-retomar"><i class="bi bi-pencil"></i>' + esc(T('det.continuar')) + '</button>' : '') + botoesDoPapel(d, st);
         const evs = (d.eventos || []).map(e => '<div class="bjaEv"><b>' + esc(e.texto) + '</b><div>' + esc(dataHora(e.em)) + '</div></div>').join('');
         el.telaDet.innerHTML = '<div class="bjaTopoDet"><button type="button" class="bjaB bjaN" data-bja-acao="voltar-lista"><i class="bi bi-arrow-left"></i>' + esc(T('voltar_documentos')) + '</button>'
-            + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(st) + '">' + esc(T('situacao.' + st)) + '</span></div>'
+            + '<h1 class="bjaH1Det">' + esc(d.nome) + '</h1><span class="bjaSeloDet st-' + esc(d.emPapel && st === 'concluido' ? 'papel' : st) + '">' + esc(T('situacao.' + (d.emPapel && st === 'concluido' ? 'papel' : st))) + '</span></div>' + avisoDoPapel(d)
             + '<div class="bjaGrid"><div class="bjaLat">'
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-people"></i>' + esc(T('det.signatarios')) + '</div>' + sigs + '</section>'
             + '<section class="bjaCard bjaCodCard"><div class="bjaCodRot">' + esc(T('det.codigo')) + '</div><div class="bjaCodVal">' + esc(d.codigo || T('det.gerado_no_envio')) + '</div>'
@@ -747,6 +752,35 @@
             + '<section class="bjaCard bjaOculto"><div class="bjaHd"><i class="bi bi-clock-history"></i>' + esc(T('det.trilha')) + '</div><div class="bjaTrilha">' + evs + '</div></section>'
             + '</div><div class="bjaCent"><div class="bjaPv" data-folha="d"></div></div></div>';
         pintarPrevias();
+    }
+
+    /* ── Função provisória: baixar para imprimir e marcar como assinado em papel (sai com a Assinatura completa) ── */
+    function botoesDoPapel(d, st) {
+        const podeMarcar = url.papel && !d.naLixeira && (st === 'rascunho' || st === 'aguardando');
+        return (url.imprimir ? '<a class="bjaB" href="' + esc(comId(url.imprimir, d.id)) + '" data-bja-papel="imprimir"><i class="bi bi-printer"></i>' + esc(T('det.imprimir')) + '</a>' : '')
+            + (podeMarcar ? '<button type="button" class="bjaB" data-bja-acao="papel-pedir"><i class="bi bi-pen"></i>' + esc(T('det.marcar_papel')) + '</button>' : '');
+    }
+
+    function avisoDoPapel(d) {
+        return d.emPapel ? '<div class="bjaAvisoPapel" role="note"><b>' + esc(T('det.papel_titulo')) + '</b><div>' + esc(T('det.papel_aviso')) + '</div></div>' : '';
+    }
+
+    function papelHtml() {
+        return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('papel.rotulo')) + '">'
+            + '<div class="bjaHd"><i class="bi bi-pen"></i>' + esc(T('papel.titulo')) + '</div>'
+            + '<div class="bjaModalTx">' + esc(T('papel.texto')) + '</div>'
+            + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="papel-nao">' + esc(T('papel.voltar')) + '</button>'
+            + '<button type="button" class="bjaB bjaP" data-bja-acao="papel-sim">' + esc(T('papel.confirmar')) + '</button></div></div></div>';
+    }
+
+    async function marcarEmPapel() {
+        const id = s.det && s.det.id;
+        if (!id || !url.papel) { return; }
+        try { await postJson(comId(url.papel, id), {}); } catch (e) { s.papel = false; desenharCamadas(); falha(e); return; }
+        s.papel = false;
+        desenharCamadas();
+        avisar(T('papel.pronto'));
+        await abrirDetalhe(id);
     }
 
     /* ── Prévia A4 (assistente e detalhe) ───────────────────────────────── */
@@ -763,7 +797,7 @@
                     const d = s.det;
                     F.pintar(pv, {
                         blocos: d.blocos || [], sign: d.signatarios || [], logo: logoDoDocumento(d.logo, d.id).url, layout: d.layout || '', lateral: d.lateral || '',
-                        limpa: !!d.folhaBranca, cod: d.codigo || '', hash: d.hash || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
+                        limpa: !!d.folhaBranca || !!d.emPapel, cod: d.codigo || '', hash: d.hash || '', fonte: d.arquivo && d.arquivo.url ? F.fonteDaUrl(d.arquivo.url) : null,
                     });
                 }
             });
@@ -793,7 +827,7 @@
 
     function desenharCamadas() {
         el.ctx.innerHTML = s.ctx ? ctxHtml() : '';
-        el.modal.innerHTML = s.exc ? excHtml() : '';
+        el.modal.innerHTML = s.papel ? papelHtml() : (s.exc ? excHtml() : '');
     }
 
     function ctxHtml() {
@@ -910,6 +944,9 @@
             case 'add-eu': s.w.sign = s.w.sign.concat([{ nome: eu.nome || '', email: eu.email || '', cpf: '', papel: T('p3.papel_eu'), nivel: 'simples' }]); erroW(''); redesenharCorpo(); break;
             case 'add-sig': s.w.sign = s.w.sign.concat([sigVazio()]); erroW(''); redesenharCorpo(); break;
             case 'tira-sig': { const cx = alvo.closest('[data-bja-i]'); if (cx) { const i = +cx.getAttribute('data-bja-i'); s.w.sign = s.w.sign.filter((_, j) => j !== i); erroW(''); redesenharCorpo(); } break; }
+            case 'papel-pedir': s.papel = true; desenharCamadas(); break;
+            case 'papel-nao': s.papel = false; desenharCamadas(); break;
+            case 'papel-sim': marcarEmPapel(); break;
             case 'det-retomar': if (s.det) { retomar(s.det); } break;
             default: break;
         }

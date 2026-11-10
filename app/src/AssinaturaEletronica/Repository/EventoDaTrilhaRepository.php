@@ -6,6 +6,7 @@ namespace App\AssinaturaEletronica\Repository;
 
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\EventoDaTrilha;
+use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
@@ -63,5 +64,31 @@ class EventoDaTrilhaRepository extends ServiceEntityRepository
             ->orderBy('e.id', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Função provisória "assinado em papel": dos ids dados (já filtrados pelo escritório), os que têm o evento.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<int>
+     */
+    public function idsAssinadosEmPapel(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<array{documento: int|string}> $linhas */
+        $linhas = $this->createQueryBuilder('e')
+            ->select('DISTINCT IDENTITY(e.documento) AS documento')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('IDENTITY(e.documento) IN (:ids)')
+            ->setParameter('tipo', TipoDeEvento::AssinadoEmPapel)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $l): int => (int) $l['documento'], $linhas);
     }
 }

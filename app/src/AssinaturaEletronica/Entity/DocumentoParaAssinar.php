@@ -255,6 +255,23 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         return $cancelou;
     }
 
+    /**
+     * Função provisória "Marcar como assinado em papel": conclui o documento sem nenhuma assinatura digital. Quem
+     * confirmou e quando ficam na trilha (evento `AssinadoEmPapel`); aqui só a situação e a data.
+     *
+     * @throws AcaoRecusada na Lixeira ou fora de rascunho e aguardando
+     */
+    public function concluirEmPapel(\DateTimeImmutable $agora): void
+    {
+        if ($this->estaNaLixeira() || !\in_array($this->situacao, [SituacaoDoDocumento::Rascunho, SituacaoDoDocumento::Aguardando], true)) {
+            throw new AcaoRecusada('assinatura_eletronica.erro.papel_situacao');
+        }
+
+        $this->situacao = SituacaoDoDocumento::Concluido;
+        $this->concluidoEm = $agora;
+        $this->alteradoEm = $agora;
+    }
+
     /** Tira da Lixeira. A situação fica como está: o envio cancelado não volta. */
     public function restaurar(): void
     {

@@ -33,6 +33,7 @@ assinatura_eletronica_tela:
             recusado: 'Recusado'
             expirado: 'Expirado'
             cancelado: 'Cancelado'
+            papel: 'Assinado em papel'
         sig:
             assinado: 'Assinado'
             recusado: 'Recusado'
@@ -164,6 +165,18 @@ assinatura_eletronica_tela:
             continuar: 'Continuar e enviar'
             trilha: 'Trilha de auditoria'
             sem_email: 'Sem e-mail: envie o link'
+            imprimir: 'Baixar para imprimir'
+            marcar_papel: 'Marcar como assinado em papel'
+            papel_titulo: 'Assinado em papel (confirmado pelo escritório)'
+            papel_aviso: 'O sistema não confere a assinatura: só registra a confirmação do escritório. Não é assinatura digital e não tem código de validação.'
+            papel_sig_sem_conferencia: 'Assinatura em papel, não conferida pelo sistema'
+        papel:
+            rotulo: 'Marcar como assinado em papel'
+            titulo: 'Marcar como assinado em papel'
+            texto: 'Confirme que os signatários já assinaram a versão impressa deste documento. O sistema não confere a assinatura: só registra que o escritório confirmou, com o seu nome e a data. Depois de marcado, o documento não pode mais ser alterado.'
+            voltar: 'Voltar'
+            confirmar: 'Confirmar: assinado em papel'
+            pronto: 'Documento marcado como assinado em papel.'
         folha:
             logo: 'Logo'
             logo_escritorio: 'Logo do escritório'

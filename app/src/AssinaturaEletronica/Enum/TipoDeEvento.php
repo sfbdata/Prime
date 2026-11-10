@@ -16,6 +16,8 @@ enum TipoDeEvento: string
     case MovidoParaLixeira = 'movido_para_lixeira';
     case Restaurado = 'restaurado';
     case EnvioCanceladoPelaExclusao = 'envio_cancelado_pela_exclusao';
+    /** Função provisória: o escritório confirma que o documento foi assinado em papel (sem conferência do sistema). */
+    case AssinadoEmPapel = 'assinado_em_papel';
 
     /** A chave do texto do evento no catálogo de idioma. */
     public function chaveDoTexto(): string

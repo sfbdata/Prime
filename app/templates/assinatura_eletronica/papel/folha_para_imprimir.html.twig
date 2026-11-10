@@ -1,0 +1,60 @@
+{#
+    Função PROVISÓRIA "Baixar para imprimir": o documento inteiro, sem fundo de segurança, selo nem código, com espaço
+    e linha de assinatura à mão. HTML para o Dompdf (A4, sem recurso remoto); o conteúdo do usuário já vem escapado.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+    @page { margin: 56px 56px 60px 56px; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
+    .logo { height: 28px; margin-bottom: 10px; }
+    .t { font-size: 17pt; font-weight: bold; text-align: center; margin: 6px 0 4px; }
+    .s { font-size: 12pt; text-align: center; color: #444; margin: 0 0 10px; }
+    .h { font-size: 12pt; font-weight: bold; margin: 14px 0 4px; }
+    .l { font-size: 10pt; color: #444; margin: 2px 0; }
+    .n { font-size: 10pt; text-align: right; color: #444; margin: 2px 0; }
+    p { margin: 0 0 8px; text-align: justify; }
+    .lateral { font-size: 10pt; color: #333; border: 1px solid #bbb; padding: 8px 10px; margin: 8px 0 12px; }
+    .pagina { border: 1px dashed #999; padding: 10px; margin: 8px 0; font-size: 10pt; color: #555; text-align: center; }
+    .assinaturas { margin-top: 30px; page-break-inside: avoid; }
+    .assinaturas h2 { font-size: 11pt; margin: 0 0 6px; }
+    .ass { margin-top: 46px; width: 62%; page-break-inside: avoid; }
+    .ass .linha { border-top: 1px solid #000; padding-top: 3px; font-size: 10pt; }
+    .ass .papel { font-size: 9pt; color: #555; }
+    .data { font-size: 9pt; color: #555; margin-top: 4px; }
+</style>
+</head>
+<body>
+{% if logo %}<img class="logo" src="{{ logo }}" alt="">{% endif %}
+{% if folha.lateral is not empty %}<div class="lateral">{{ folha.lateral|raw }}</div>{% endif %}
+
+{% macro lugar(nome, papel) %}
+    <div class="ass">
+        <div class="linha">{{ nome|default('Assinatura') }}</div>
+        {% if papel is not empty %}<div class="papel">{{ papel }}</div>{% endif %}
+        <div class="data">Data: ____ / ____ / ________</div>
+    </div>
+{% endmacro %}
+
+{% for item in folha.itens %}
+    {% if item.tipo == 'a' %}
+        {{ _self.lugar(item.nome, item.papel) }}
+    {% elseif item.tipo == 'pg' %}
+        <div class="pagina">Página {{ item.pagina }} do arquivo enviado: imprima também o arquivo original.</div>
+    {% else %}
+        {% set classe = item.tipo in ['t', 's', 'h', 'l', 'n'] ? item.tipo : '' %}
+        {% if classe == '' %}<p>{{ item.html|raw }}</p>{% else %}<div class="{{ classe }}">{{ item.html|raw }}</div>{% endif %}
+    {% endif %}
+{% endfor %}
+
+{% if folha.sobraram is not empty or folha.semNinguem %}
+    <div class="assinaturas">
+        <h2>Assinaturas</h2>
+        {% for s in folha.sobraram %}{{ _self.lugar(s.nome, s.papel) }}{% endfor %}
+        {% if folha.semNinguem %}{{ _self.lugar('', '') }}{% endif %}
+    </div>
+{% endif %}
+</body>
+</html>

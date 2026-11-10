@@ -214,6 +214,7 @@
 .bja .st-recusado { background: #a3232b; }
 .bja .st-expirado { background: #8a6200; }
 .bja .st-cancelado { background: #7a8e9b; }
+.bja .st-papel { background: #5b6b3a; }
 .bja .sg-assinado { background: #1e7b45; }
 .bja .sg-recusado { background: #a3232b; }
 .bja .sg-pendente { background: #8a6200; }
@@ -390,3 +391,7 @@
 @media (prefers-reduced-motion: reduce) {
     .bja .bjaToast { animation-duration: .01ms !important; animation-delay: 0s !important; }
 }
+
+/* Função provisória: aviso do documento assinado em papel (confirmado pelo escritório, sem conferência do sistema). */
+.bja .bjaAvisoPapel { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #c9d3a6; border-left: 4px solid #5b6b3a; background: #f4f7e6; font-size: 13px; line-height: 1.45; color: var(--bja-corpo); }
+.bja .bjaAvisoPapel b { display: block; margin-bottom: 2px; }
