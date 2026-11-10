@@ -72,8 +72,9 @@ final class MontadorDoPdf
      * As páginas do conteúdo, sem as vazias do fim (`while (!ops[ops.length - 1].length) ops.pop()`, dc:406).
      *
      * Sem conteúdo nenhum, o desenho fica com `ops` vazio e `total = 1`: com páginas depois do conteúdo (o
-     * manifesto), o PDF sai só com elas. Sem páginas depois, o desenho sairia sem página nenhuma; aqui fica uma
-     * página com moldura e rodapé (desvio aceito), para o PDF nunca sair vazio.
+     * manifesto), o PDF sai só com elas. Sem páginas depois só acontece na folha branca de rascunho (contrato em
+     * {@see FolhaParaMontar}); ali o desenho sairia sem página nenhuma, e aqui fica uma página da folha branca, com
+     * fundo branco, só o cabeçalho e sem rodapé (desvio aceito), para o PDF nunca sair vazio.
      *
      * @return list<list<ElementoDaPagina>>
      */

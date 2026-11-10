@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\Pdf\EscritorioDaFolha;
 use App\AssinaturaEletronica\Pdf\FolhaParaMontar;
 use App\AssinaturaEletronica\Pdf\LayoutDaFolha;
 use App\AssinaturaEletronica\Pdf\ModoDaFolha;
+use App\AssinaturaEletronica\Pdf\SemPaginasDepoisDoConteudo;
 use App\AssinaturaEletronica\Pdf\SignatarioDaFolha;
 use PHPUnit\Framework\TestCase;
 
@@ -54,6 +55,7 @@ final class FolhaDeTeste
             'concluido' => false,
             'emitidoEm' => $quando,
             'urlDeValidacao' => 'https://www.bluejus.com.br/assinar/validar/' . self::CODIGO,
+            'paginasDepois' => new SemPaginasDepoisDoConteudo(),
         ], $mudancas);
 
         return new FolhaParaMontar(...$argumentos);

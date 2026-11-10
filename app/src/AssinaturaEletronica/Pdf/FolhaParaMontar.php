@@ -15,8 +15,9 @@ namespace App\AssinaturaEletronica\Pdf;
  * - `logo` e `rubrica` em bytes (PNG, JPEG ou GIF); logo nula ou ilegível cai na marca "BlueJus" em texto.
  * - `urlDeValidacao` é o endereço absoluto que vai no QR (E3-14), já com o código.
  * - `pdfEnviado` são os bytes do PDF do documento por upload (as páginas dos blocos `pg`).
- * - `paginasDepois` são as páginas depois do conteúdo (o manifesto). Folha branca que também é rascunho (sem
- *   `codigo`) não leva manifesto (`if (!(d.limpa && !d.cod))`, dc:417): nesse caso quem monta a folha passa
+ * - `paginasDepois` são as páginas depois do conteúdo (o manifesto), sempre passadas por quem monta a folha: sem
+ *   valor padrão, esquecer o manifesto não passa calado. Folha branca que também é rascunho (sem `codigo`) não
+ *   leva manifesto (`if (!(d.limpa && !d.cod))`, dc:417): nesse caso quem monta a folha passa
  *   {@see SemPaginasDepoisDoConteudo}. Só folha branca, ou só rascunho, leva o manifesto.
  */
 final readonly class FolhaParaMontar
@@ -40,8 +41,8 @@ final readonly class FolhaParaMontar
         public bool $concluido,
         public \DateTimeImmutable $emitidoEm,
         public string $urlDeValidacao,
+        public PaginasDepoisDoConteudo $paginasDepois,
         public ?string $pdfEnviado = null,
-        public PaginasDepoisDoConteudo $paginasDepois = new SemPaginasDepoisDoConteudo(),
     ) {
         if (preg_match('/^[0-9a-f]{64}$/', $hash) !== 1) {
             throw new \InvalidArgumentException('O hash da folha precisa ser o SHA-256 em hexadecimal minúsculo.');

@@ -133,16 +133,16 @@ final class MontadorDoPdfTest extends TestCase
         imagedestroy($pagina);
     }
 
-    #[TestDox('Sem conteúdo e sem manifesto, fica uma página com moldura e rodapé (o PDF nunca sai vazio)')]
+    #[TestDox('Folha branca de rascunho sem conteúdo (sem manifesto): uma página branca, só com o cabeçalho')]
     public function testSemConteudoSemPaginaDepois(): void
     {
-        $pdf = self::montar(FolhaDeTeste::folha([]));
+        $pdf = self::montar(FolhaDeTeste::folha([], ['folhaBranca' => true, 'modo' => ModoDaFolha::Rascunho, 'codigo' => null]));
 
         self::assertSame(1, $pdf->paginas());
         $pagina = $pdf->imagem(1);
-        [$r, $g, $b] = PdfLido::media($pagina, 300, 400, 200, 200);
-        self::assertLessThan(20, $r - min($g, $b), 'O miolo é só o fundo.');
-        self::assertLessThan(60, PdfLido::maisEscuro($pagina, ...self::AREA_DO_QR), 'Com moldura e rodapé.');
+        self::assertGreaterThan(250, PdfLido::maisEscuro($pagina, ...self::AREA_SEM_TEXTO), 'Fundo branco.');
+        self::assertLessThan(90, PdfLido::maisEscuro($pagina, 300, 135, 200, 3), 'O cabeçalho fica (régua em 136).');
+        self::assertGreaterThan(250, PdfLido::maisEscuro($pagina, ...self::AREA_DO_RODAPE), 'Sem rodapé.');
         imagedestroy($pagina);
     }
 

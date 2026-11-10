@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\AssinaturaEletronica\Pdf;
 
-/** Nenhuma página depois do conteúdo (o padrão da {@see FolhaParaMontar}). */
+/** Nenhuma página depois do conteúdo: a folha branca de rascunho, que não leva manifesto ({@see FolhaParaMontar}). */
 final class SemPaginasDepoisDoConteudo implements PaginasDepoisDoConteudo
 {
     public function quantas(): int

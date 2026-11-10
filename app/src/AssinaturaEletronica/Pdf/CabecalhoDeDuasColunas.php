@@ -14,11 +14,11 @@ use App\AssinaturaEletronica\Pdf\Diagramacao\TextoComNegrito;
  */
 final class CabecalhoDeDuasColunas
 {
-    public const LATERAL_MAIOR = 40.0;
-    public const LATERAL_MENOR = 18.0;
-    public const LATERAL_CABE_EM = 1180.0;
-    public const TITULO_MAIOR = 17.5;
-    public const TITULO_MENOR = 12.0;
+    private const LATERAL_MAIOR = 40.0;
+    private const LATERAL_MENOR = 18.0;
+    private const LATERAL_CABE_EM = 1180.0;
+    private const TITULO_MAIOR = 17.5;
+    private const TITULO_MENOR = 12.0;
     private const CINZA = '#44546a';
 
     public function desenhar(Tela $tela, RecursosDaFolha $recursos): void

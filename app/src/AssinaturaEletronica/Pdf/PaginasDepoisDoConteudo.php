@@ -6,7 +6,7 @@ namespace App\AssinaturaEletronica\Pdf;
 
 /**
  * Ponto de extensão: páginas que vêm depois do conteúdo (o manifesto do bloco 1b). Viaja dentro da
- * {@see FolhaParaMontar}, com os dados que precisar; o padrão é {@see SemPaginasDepoisDoConteudo}.
+ * {@see FolhaParaMontar}, com os dados que precisar; sem manifesto, é {@see SemPaginasDepoisDoConteudo}.
  *
  * Para cada página o montador pinta a moldura completa (fundo de segurança, mesmo na folha branca, e cabeçalho do
  * escritório), chama {@see desenhar()} e depois pinta o rodapé completo (QR, código, hash e selo) por cima. As páginas
