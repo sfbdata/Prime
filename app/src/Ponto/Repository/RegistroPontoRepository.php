@@ -663,6 +663,20 @@ SQL, self::sqlDasEfetivas(self::ESCOPO_DA_PESSOA, self::SO_O_ID));
         return $inclusao instanceof PontoAjuste ? $this->alvoDaInclusao($pessoa, $tenant, $inclusao) : null;
     }
 
+    /** A pessoa já bateu ponto neste escritório: alguma batida gravada, desconsiderada ou não. */
+    public function existeDoUsuarioNoEscritorio(User $user, Tenant $tenant): bool
+    {
+        return $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult() !== null;
+    }
+
     /**
      * A justificativa já mexeu na folha: algum ajuste (inclusão do esquecimento, desconsideração da análise) aponta para
      * ela. O escritório do ajuste tem de ser o da justificativa.

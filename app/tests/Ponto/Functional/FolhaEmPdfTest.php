@@ -203,12 +203,18 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         yield 'colaborador sem a permissão, pessoa de outro escritório' => [false, 'de outro escritório'];
     }
 
-    #[TestDox('Master (ROLE_SUPER_ADMIN): exporta a folha do ex-colaborador (vínculo suspenso aqui), emitida neste escritório, em nome do Master e com o evento na trilha (decisão 28)')]
-    public function testMasterExportaAFolhaDoExColaborador(): void
+    /** @param 'com o vínculo suspenso'|'que saiu da equipe'|'que saiu antes de a saída ser gravada' $como */
+    #[DataProvider('exColaboradores')]
+    #[TestDox('Master (ROLE_SUPER_ADMIN), pessoa $_dataName: exporta a folha, emitida neste escritório, em nome do Master e com o evento na trilha (decisão 28)')]
+    public function testMasterExportaAFolhaDoExColaborador(string $como): void
     {
         $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());
         $master = $this->master();
-        $joaoId = $this->suspensaNesteEscritorio();
+        $joaoId = match ($como) {
+            'com o vínculo suspenso'                 => $this->suspensaNesteEscritorio(),
+            'que saiu da equipe'                     => $this->quemSaiuDaEquipe($this->escritorio, true),
+            'que saiu antes de a saída ser gravada'  => $this->quemSaiuDaEquipe($this->escritorio, false),
+        };
 
         $this->pedir($master, self::OUTUBRO . '&userId=' . $joaoId);
 
@@ -234,9 +240,17 @@ final class FolhaEmPdfTest extends JusPrimeWebTestCase
         self::assertSame([(string) $master->getId()], $this->cota->chavesConsumidas);
     }
 
+    /** @return iterable<string, array{'com o vínculo suspenso'|'que saiu da equipe'|'que saiu antes de a saída ser gravada'}> */
+    public static function exColaboradores(): iterable
+    {
+        yield 'com o vínculo suspenso aqui' => ['com o vínculo suspenso'];
+        yield 'que saiu da equipe (vínculo apagado, saída gravada)' => ['que saiu da equipe'];
+        yield 'que saiu antes de 19/10/2026 (vínculo apagado, sem a saída gravada, com as batidas daqui)' => ['que saiu antes de a saída ser gravada'];
+    }
+
     /** @param 'de outro escritório'|'sem escritório nenhum' $alvo */
     #[DataProvider('pessoasSemVinculoAqui')]
-    #[TestDox('Master (ROLE_SUPER_ADMIN) e pessoa sem vínculo nenhum neste escritório ($_dataName): 404 com a mesma mensagem, sem gastar a cota, sem emitir, sem desenhar e sem evento (decisão 28)')]
+    #[TestDox('Master (ROLE_SUPER_ADMIN) e pessoa que nunca foi deste escritório ($_dataName): 404 com a mesma mensagem, sem gastar a cota, sem emitir, sem desenhar e sem evento (decisão 28)')]
     public function testMasterNaoExportaAFolhaDeQuemNaoTemVinculoAqui(string $alvo): void
     {
         $desenho = DesenhoDaFolhaEspiao::instalar(static::getContainer());

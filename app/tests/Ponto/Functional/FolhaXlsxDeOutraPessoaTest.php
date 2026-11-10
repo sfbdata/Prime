@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
-use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\PontoController;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -22,8 +22,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
  * Quem exporta a folha de outra pessoa em XLSX pela rota `ponto_exportar_xlsx` (spec ponto-desenho-0811, E16, P88 e
  * P89; decisão 25): a mesma regra do PDF. A pessoa sem vínculo ativo neste escritório responde 404, como o `userId` que
  * não existe (recurso de outro escritório é 404, nunca 403); a pessoa daqui só sai para quem tem `admin.users.manage`
- * (sem a permissão, 403); o Master exporta a de quem tem algum vínculo com este escritório, ativo ou não, e a de quem
- * não tem vínculo nenhum aqui responde 404 (decisão 28). A competência fora do calendário responde 400, como no PDF.
+ * (sem a permissão, 403); o Master exporta a de quem é ou foi deste escritório (o vínculo, ativo ou não, ou a saída da
+ * equipe), e a de quem nunca foi daqui responde 404 (decisão 28). A competência fora do calendário responde 400, como no PDF.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -50,7 +50,7 @@ final class FolhaXlsxDeOutraPessoaTest extends JusPrimeWebTestCase
 
     /**
      * @param 'gestora'|'colaborador'|'master'                                         $quem
-     * @param 'daqui'|'com o vínculo suspenso aqui'|'de outro escritório'|'que não existe' $alvo
+     * @param 'daqui'|'com o vínculo suspenso aqui'|'que saiu da equipe'|'de outro escritório'|'que não existe' $alvo
      */
     #[DataProvider('pedidos')]
     #[TestDox('$_dataName')]
@@ -59,6 +59,7 @@ final class FolhaXlsxDeOutraPessoaTest extends JusPrimeWebTestCase
         $alvoId = match ($alvo) {
             'daqui'                       => (int) $this->pessoaComOutubro($this->escritorio, 'João Souza')->getId(),
             'com o vínculo suspenso aqui' => $this->suspensaNesteEscritorio(),
+            'que saiu da equipe'          => $this->quemSaiuDaEquipe($this->escritorio, true),
             'de outro escritório'         => (int) $this->pessoaComOutubro($this->escritorio('Outro escritório'), 'João Souza')->getId(),
             'que não existe'              => 999999999,
         };
@@ -74,7 +75,7 @@ final class FolhaXlsxDeOutraPessoaTest extends JusPrimeWebTestCase
         }
     }
 
-    /** @return iterable<string, array{'gestora'|'colaborador'|'master', 'daqui'|'com o vínculo suspenso aqui'|'de outro escritório'|'que não existe', int}> */
+    /** @return iterable<string, array{'gestora'|'colaborador'|'master', 'daqui'|'com o vínculo suspenso aqui'|'que saiu da equipe'|'de outro escritório'|'que não existe', int}> */
     public static function pedidos(): iterable
     {
         yield 'Gestor com admin.users.manage, pessoa de outro escritório: 404' => ['gestora', 'de outro escritório', 404];
@@ -83,9 +84,11 @@ final class FolhaXlsxDeOutraPessoaTest extends JusPrimeWebTestCase
         yield 'Colaborador sem a permissão, pessoa deste escritório: 403' => ['colaborador', 'daqui', 403];
         yield 'Gestor com admin.users.manage, pessoa deste escritório: 200' => ['gestora', 'daqui', 200];
         yield 'Gestor com admin.users.manage, pessoa com o vínculo suspenso aqui: 404' => ['gestora', 'com o vínculo suspenso aqui', 404];
-        // O Master exporta a folha de quem tem algum vínculo com este escritório, ativo ou não (decisão 28).
+        yield 'Gestor com admin.users.manage, pessoa que saiu da equipe: 404' => ['gestora', 'que saiu da equipe', 404];
+        // O Master exporta a folha de quem é ou foi deste escritório (decisão 28): o vínculo, ativo ou não, ou a saída.
         yield 'Master (ROLE_SUPER_ADMIN), pessoa deste escritório: 200' => ['master', 'daqui', 200];
         yield 'Master (ROLE_SUPER_ADMIN), ex-colaborador com o vínculo suspenso aqui: 200' => ['master', 'com o vínculo suspenso aqui', 200];
+        yield 'Master (ROLE_SUPER_ADMIN), ex-colaborador que saiu da equipe: 200' => ['master', 'que saiu da equipe', 200];
         yield 'Master (ROLE_SUPER_ADMIN), pessoa de outro escritório: 404, como a que não existe' => ['master', 'de outro escritório', 404];
         yield 'Master (ROLE_SUPER_ADMIN), userId que não existe: 404' => ['master', 'que não existe', 404];
     }

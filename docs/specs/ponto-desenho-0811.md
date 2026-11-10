@@ -1354,9 +1354,12 @@ versão, `FolhaPontoBuilder.php`, `DadosDaFolhaExportada::montar`, `folha_pdf.ht
       da L622, unidos por " · ". Se nem eles sozinhos couberem, corta o texto todo, como antes. A linha não cresce
       (página única, altura de linha fixa) e a impressão dos registros (decisão 3) continua com a observação inteira
       (Coordenador, 10/11/2026).
-  28. O Master só exporta a folha (PDF e XLSX) de quem tem algum vínculo, ativo ou não, com o escritório da sessão (o
-      ex-colaborador também); sem vínculo nenhum, 404 com a mesma mensagem dos outros (Coordenador, 10/11/2026). Antes
-      ele passava direto, e o PDF gravava a folha selada com o cabeçalho e a trilha deste escritório para quem não é dele.
+  28. O Master só exporta a folha (PDF e XLSX) de quem é ou foi do escritório da sessão (o ex-colaborador também); de
+      quem nunca foi, 404 com a mesma mensagem dos outros (Coordenador, 10/11/2026). Antes ele passava direto, e o PDF
+      gravava a folha selada com o cabeçalho e a trilha deste escritório para quem não é dele. "É ou foi" vale por
+      qualquer um de três rastros (`PassagemPeloEscritorio`): o vínculo, ativo ou não (suspenso, em análise); a saída
+      da equipe gravada (quem sai perde o vínculo: `RemoverColaboradorDoEscritorioUseCase` o apaga); ou uma batida
+      gravada neste escritório (quem saiu antes de 19/10/2026 não tem a saída gravada). Re-revisão de 10/11/2026.
 
 **E17. Banco de horas por lotes.**
 - Obrigatória (P51 a).

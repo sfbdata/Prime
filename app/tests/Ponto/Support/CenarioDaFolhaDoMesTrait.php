@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Support;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Master\Entity\RecursoEstado;
 use App\Ponto\Entity\ConfiguracaoDoPonto;
@@ -35,6 +36,8 @@ use App\Ponto\Service\TrilhaDoPonto;
 use App\Ponto\UseCase\AssinarFolhaDoPontoUseCase;
 use App\Ponto\UseCase\EmitirFolhaDoPontoUseCase;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Entity\SaidaDaEquipe;
+use App\Tenant\Enum\MotivoDaSaida;
 use Doctrine\Persistence\ManagerRegistry;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
@@ -140,6 +143,24 @@ trait CenarioDaFolhaDoMesTrait
         }
 
         return $pessoa;
+    }
+
+    /**
+     * O João com a folha de outubro no escritório, que saiu da equipe: o vínculo apagado, como na remoção
+     * (`RemoverColaboradorDoEscritorioUseCase`), com a saída gravada ou sem ela (quem saiu antes de 19/10/2026). O id dele.
+     */
+    private function quemSaiuDaEquipe(Tenant $escritorio, bool $comASaidaGravada): int
+    {
+        $joao = $this->pessoaComOutubro($escritorio, 'João Souza');
+        $vinculo = $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $joao, 'tenant' => $escritorio]);
+        self::assertNotNull($vinculo);
+        $this->em()->remove($vinculo);
+        if ($comASaidaGravada) {
+            $this->em()->persist(new SaidaDaEquipe($escritorio, $joao, MotivoDaSaida::Saiu, false));
+        }
+        $this->em()->flush();
+
+        return (int) $joao->getId();
     }
 
     private function diaCompleto(User $pessoa, Tenant $escritorio, string $dia): void

@@ -10,6 +10,7 @@ tipo: alteracao
 - Barra da folha na ordem "Ver PDF", "Baixar XLSX", "Assinar folha", "Baixar PDF". "Ver PDF" sai do modal do Bootstrap para a janela do desenho (o "Baixar" de dentro salva o mesmo arquivo, sem nova emissão); "Baixar PDF" mostra o aviso flutuante "Gerando a folha em PDF..." e depois "Folha baixada em PDF. Código ..." (`X-Codigo-Folha`), ou o aviso de falha. Comportamento em `js/ponto-folha.js`.
 - XLSX: a justificativa em análise sai como "(em análise)" pela tabela de nomes (chave `folha.pendente`), sem código BJF.
 - Chave `ponto-aceite` ("Ponto: aceite da folha") no catálogo de recursos do Master, ligada, e na camada Escritório da aba Configurações do Ponto (só com o selo pronto). Migration `Version20261109250000`.
+- Folha de outra pessoa (PDF e XLSX): o Master só exporta a de quem é ou foi do escritório da sessão (vínculo ativo ou não, saída da equipe gravada ou batida nele, `Ponto\Service\PassagemPeloEscritorio`, decisão 28); de quem nunca foi, 404 com a mensagem de sempre.
 
 ## Para o cliente
 - A folha de ponto em PDF ganhou um novo visual, igual ao modelo aprovado. Com o selo de segurança do BlueJus ligado, cada folha baixada recebe o seu próprio código de validação e um QR Code.
@@ -23,3 +24,4 @@ tipo: alteracao
 - Na planilha (XLSX), a justificativa ainda não analisada aparece como "em análise", o mesmo nome usado na tela.
 - A assinatura da folha só aparece quando o BlueJus ligar o selo de segurança. O administrador do ponto pode desligá-la só no seu escritório, em Configurações do Ponto; as assinaturas já feitas continuam aparecendo.
 - No Painel do Master, o catálogo de recursos ganhou a chave "Ponto: aceite da folha", que liga ou desliga a assinatura mensal da folha para todos os escritórios de uma vez. Ela já vem ligada.
+- A equipe do BlueJus só consegue baixar a folha de ponto de quem é ou já foi do escritório, inclusive de quem já saiu da equipe. A folha de uma pessoa que nunca trabalhou no escritório não sai mais com o nome dele.
