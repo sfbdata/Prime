@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.48.0"
+  data: "2026-11-11"
+  itens:
+    - "Assembleias publicadas agora têm um link público próprio e QR Code para divulgar no edital, com imagem PNG, versão SVG e cartaz para impressão."
+    - "O participante informa nome, unidade e bloco, recebe um código de seis números no e-mail cadastrado e confirma o acesso à votação. O código vale por dez minutos, tem limite de tentativas e só funciona uma vez no navegador que o solicitou."
+    - "O terminal presencial permite encerrar um atendimento e receber o próximo participante. Os links individuais já enviados continuam funcionando."
 - versao: "2.47.0"
   data: "2026-11-10"
   itens:
