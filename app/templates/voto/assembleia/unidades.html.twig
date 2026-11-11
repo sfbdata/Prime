@@ -49,6 +49,7 @@
     <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.links.texto'|trans }}</div>
     {% if a.publicada %}
         <div class="vLin voto-acoes">
+            <a class="vB" href="{{ path('voto_assembleia_divulgacao', {id: a.id}) }}"><i class="bi bi-qr-code"></i>Link e QR Code</a>
             <form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-form-linha">
                 <input type="hidden" name="_token" value="{{ token }}">
                 <button type="submit" class="vB vP" {{ tela.faltamEnvio == 0 ? 'disabled' }}><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.enviar'|trans }}</button>

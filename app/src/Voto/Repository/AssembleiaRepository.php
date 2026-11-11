@@ -6,6 +6,7 @@ namespace App\Voto\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Voto\Entity\Assembleia;
+use App\Voto\Enum\EstadoDaAssembleia;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -62,5 +63,25 @@ class AssembleiaRepository extends ServiceEntityRepository
     public function buscarDoEscritorio(int $id, Tenant $tenant): ?Assembleia
     {
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /** O código é público e globalmente único; suspende e restaura o filtro da sessão de outro escritório. */
+    public function buscarPublicadaPeloCodigo(string $codigo): ?Assembleia
+    {
+        if (1 !== preg_match('/^[a-f0-9]{32}$/', $codigo)) {
+            return null;
+        }
+        $filtros = $this->getEntityManager()->getFilters();
+        $ligado = $filtros->isEnabled('tenant');
+        if ($ligado) {
+            $filtros->suspend('tenant');
+        }
+        try {
+            return $this->findOneBy(['codigoPublico' => $codigo, 'estado' => EstadoDaAssembleia::Publicada]);
+        } finally {
+            if ($ligado) {
+                $filtros->restore('tenant');
+            }
+        }
     }
 }

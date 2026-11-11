@@ -101,3 +101,23 @@ a.vB { text-decoration:none; }
 /* Celular: o @media (max-width:760px) do desenho só mexe na cabine (.uGr, .uFen, .uTela), na grade .vG2 e no
    cabeçalho do sistema (.vOc), que não estão nesta página. O portal se ajusta como no desenho: flex-wrap no
    cabeçalho, nos cartões e nas opções, padding com clamp() e a janela com width:min(520px,100%). */
+
+/* Entrada por código: medidas e cores das regiões csTem, vTokTem e vPasTem do desenho 18. */
+.vL { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:bold; color:#4a6373; min-width:0; }
+.vF { height:36px; width:100%; box-sizing:border-box; border:1px solid #d3dde4; border-radius:3px; padding:0 9px; font:inherit; font-size:14px; color:#12242f; background:#fff; }
+.vF:focus-visible { outline:3px solid #3b8fc2; outline-offset:1px; }
+.vMono { font-family:monospace; }
+.vpPassos { padding:9px 12px; display:flex; flex-wrap:wrap; gap:5px; }
+.vPas { font-size:13px; padding:5px 10px; background:#eef3f6; border-radius:3px; color:#5b7383; }
+.vpAtivo { background:#0a6fa0; color:#fff; font-weight:bold; }
+.vpContexto { padding:13px 16px; display:flex; gap:12px; align-items:center; border-left:4px solid #0a6fa0; font-size:13.5px; color:#34505f; line-height:1.4; }
+.vpContexto > i { font-size:20px; color:#0a6fa0; }
+.vpCartao { padding:15px 16px; display:flex; flex-direction:column; gap:11px; }
+.vpTitulo { font-size:17px; color:#0b3550; }
+.vpTexto { font-size:13.5px; color:#34505f; line-height:1.4; }
+.vpCampos { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:9px; }
+.vpFormulario { display:flex; flex-direction:column; gap:10px; }
+.vpIdentidade { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:14px; }
+.vpIdentidade > span { flex:1 1 200px; }
+.vpCodigo { max-width:240px; }
+.vpAcoes { display:flex; gap:8px; flex-wrap:wrap; }
