@@ -24,6 +24,14 @@
     <header class="vcCab">
         <img class="vcLogo" src="/images/voto/bj-voto-logo.png" alt="BlueJus">
         <span class="vcDivisor"></span>
+        {% set codigoTerminal = app.request.hasSession ? app.session.get('voto_terminal_codigo') : null %}
+        {% if codigoTerminal %}
+            <span class="vChip" style="background:#0a6fa0">Terminal presencial</span>
+            <form method="post" action="{{ path('voto_assembleia_portal_sair_terminal', {codigo: codigoTerminal}) }}"><input type="hidden" name="_token" value="{{ csrf_token('voto_portal_' ~ codigoTerminal) }}"><button class="vB" type="submit">Sair do terminal</button></form>
+        {% endif %}
+        {% if codigoTerminal and app.request.attributes.get('_route') in ['voto_assembleia_cedula', 'voto_assembleia_cedula_votar'] %}
+            <form method="post" action="{{ path('voto_assembleia_portal_reiniciar', {codigo: codigoTerminal}) }}"><input type="hidden" name="_token" value="{{ csrf_token('voto_portal_' ~ codigoTerminal) }}"><button class="vB" type="submit">Próximo participante</button></form>
+        {% endif %}
         <b class="vcPortal">{{ 'voto.assembleia.cedula.portal'|trans }}</b>
     </header>
     <main class="vcMain">

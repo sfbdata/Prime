@@ -1,0 +1,23 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+{% block conteudo %}
+<div class="vMod vqModal"><div class="vModC vqJanela" role="dialog" aria-modal="true" aria-labelledby="vqTitulo">
+    <div class="vH"><i class="bi bi-qr-code"></i><span id="vqTitulo">Link e QR Code</span><span style="flex:1"></span><a class="vB" href="{{ path('voto_assembleia_unidades', {id: tela.id}) }}">Fechar</a></div>
+    <div class="vqCorpo">
+        <b class="vqNome">{{ tela.titulo }}</b>
+        <div class="vqTexto">Cada pessoa vota do próprio celular, sem conta no BlueJus: aponta a câmera, localiza o nome e confirma a identidade.</div>
+        <img class="vqQr" alt="QR Code de acesso à eleição" src="{{ path('voto_assembleia_divulgacao_arquivo', {id: tela.id, formato: 'png'}) }}">
+        <label class="vL">Link de acesso<input class="vF vMono" readonly value="{{ tela.link }}"></label>
+        <div class="vqTexto">Código de conferência do acesso: <b class="vMono">{{ tela.codigoDeConferencia }}</b></div>
+        <div class="vqAcoes">
+            <button class="vB vP" type="button" data-voto-copiar="{{ tela.link }}" data-voto-copiado="Link copiado."><i class="bi bi-link-45deg"></i>Copiar link</button>
+            <a class="vB" download href="{{ path('voto_assembleia_divulgacao_arquivo', {id: tela.id, formato: 'cartaz'}) }}"><i class="bi bi-download"></i>Baixar cartaz com QR Code</a>
+            <a class="vB" href="{{ tela.link }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-in-right"></i>Testar acesso</a>
+            <a class="vB" href="{{ tela.link }}?presencial=1" target="_blank" rel="noopener"><i class="bi bi-pc-display"></i>Abrir terminal presencial</a>
+            <a class="vB" href="https://wa.me/?text={{ ('Votação: ' ~ tela.titulo ~ '. Acesse pelo link ' ~ tela.link ~ ' . Não precisa ter conta no BlueJus.')|url_encode }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i>Enviar pelo WhatsApp</a>
+        </div>
+        <div class="vqAcoes"><a class="vB" download href="{{ path('voto_assembleia_divulgacao_arquivo', {id: tela.id, formato: 'png'}) }}">Baixar QR Code PNG</a><a class="vB" download href="{{ path('voto_assembleia_divulgacao_arquivo', {id: tela.id, formato: 'svg'}) }}">Baixar QR Code SVG</a></div>
+        <div class="vqTexto">Para receber o código, cada unidade precisa ter responsável e e-mail cadastrados na lista.</div>
+        <div class="vAviso">O QR Code leva à votação, mas não libera o voto: a identificação continua exigida.</div>
+    </div>
+</div></div>
+{% endblock %}

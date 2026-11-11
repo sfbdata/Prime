@@ -185,3 +185,12 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
     .voto-ata h2, .voto-ata h3, .voto-ata .voto-ata-tabela th, .voto-ata .voto-ata-tabela tbody tr:nth-child(even) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .voto-ata .voto-ata-pauta { break-inside: auto; }
 }
+
+/* Janela de divulgação: lnkTem do desenho 18. */
+.vqModal { position:fixed; inset:0; z-index:4000; background:rgba(11,53,80,.55); display:flex; align-items:center; justify-content:center; padding:14px; }
+.vqJanela { width:min(520px,100%); max-height:88vh; display:flex; flex-direction:column; background:#fff; border-radius:3px; overflow:hidden; }
+.vqCorpo { overflow:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.vqNome { font-size:15.5px; color:#0b3550; }
+.vqTexto { font-size:13.5px; color:#34505f; }
+.vqQr { width:min(280px,100%); aspect-ratio:1; align-self:center; display:block; }
+.vqAcoes { display:flex; gap:8px; flex-wrap:wrap; }

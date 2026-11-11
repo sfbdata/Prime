@@ -157,6 +157,32 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
             ->addOrderBy('u.id', 'ASC');
     }
 
+    /** Não enumera moradores: só encontra uma correspondência completa, apta e com e-mail cadastrado. */
+    public function localizarParaCodigo(Assembleia $assembleia, \App\Voto\DTO\SolicitarCodigoDaAssembleiaInput $input): ?UnidadeDaAssembleia
+    {
+        $linhas = $this->createQueryBuilder('u')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
+            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND LOWER(TRIM(u.identificacao)) = :unidade')
+            ->andWhere('LOWER(TRIM(u.bloco)) = :bloco AND LOWER(TRIM(u.email)) = :email')
+            ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
+            ->setParameter('nome', mb_strtolower(trim($input->nome)))->setParameter('unidade', mb_strtolower(trim($input->unidade)))
+            ->setParameter('bloco', mb_strtolower(trim($input->bloco)))->setParameter('email', mb_strtolower(trim($input->email)))
+            ->setMaxResults(2)->getQuery()->getResult();
+
+        return \count($linhas) === 1 ? $linhas[0] : null;
+    }
+
+    /** A trava serializa tentativas simultâneas e pedidos, inclusive com a purga da unidade. */
+    public function buscarDaAssembleiaTravada(int $id, Assembleia $assembleia): ?UnidadeDaAssembleia
+    {
+        $unidade = $this->buscarDaAssembleia($id, $assembleia);
+        if ($unidade !== null) {
+            $this->getEntityManager()->refresh($unidade, \Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE);
+        }
+
+        return $unidade;
+    }
+
     private function semLinkEnviado(QueryBuilder $qb): QueryBuilder
     {
         return $qb->andWhere('u.apta = true')

@@ -1,0 +1,46 @@
+{% extends 'voto/cedula/_layout.html.twig' %}
+{% block titulo %}Portal do Eleitor{% endblock %}
+{% block conteudo %}
+{% set token = csrf_token('voto_portal_' ~ portal.codigo) %}
+<div class="vC vpPassos" aria-label="Etapas para votar">
+    <span class="vPas {{ estado.nome is not defined ? 'vpAtivo' : '' }}">1. Localizar seu nome</span>
+    <span class="vPas {{ estado.nome is defined ? 'vpAtivo' : '' }}">2. Confirmar identidade</span>
+    <span class="vPas">3. Votar</span><span class="vPas">4. Comprovante</span>
+</div>
+<div class="vC vpContexto"><i class="bi bi-shield-check"></i><div><b>{{ portal.titulo }}</b><br>Confira se o endereço é {{ hostPublico }} e se o código de conferência do acesso é <b class="vMono">{{ portal.codigoDeConferencia }}</b>.</div></div>
+{% if estado.nome is not defined %}
+<form method="post" action="{{ path('voto_assembleia_portal_localizar', {codigo: portal.codigo}) }}" class="vC vpCartao">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <b class="vpTitulo">Localize seu nome para votar</b>
+    <div class="vpTexto">Informe seus dados como constam na lista da votação.</div>
+    <div class="vpCampos">
+        <label class="vL">Nome completo<input class="vF" name="nome" autocomplete="name" maxlength="160" required></label>
+        <label class="vL">Unidade<input class="vF" name="unidade" maxlength="80" required></label>
+        <label class="vL">Bloco<input class="vF" name="bloco" maxlength="40"></label>
+    </div>
+    {% if erro %}<div class="vcErro" role="alert">{{ erro }}</div>{% endif %}
+    <div><button class="vB vP" type="submit"><i class="bi bi-arrow-right"></i>Continuar</button></div>
+</form>
+{% else %}
+<div class="vC vpCartao">
+    <b class="vpTitulo">Confirme sua identidade</b>
+    <div class="vpIdentidade"><span><b>{{ estado.nome }}</b></span><form method="post" action="{{ path('voto_assembleia_portal_reiniciar', {codigo: portal.codigo}) }}"><input type="hidden" name="_token" value="{{ token }}"><button class="vB" type="submit">Não sou eu</button></form></div>
+    {% if estado.desafio is not defined %}
+    <form method="post" action="{{ path('voto_assembleia_portal_solicitar', {codigo: portal.codigo}) }}" class="vpFormulario">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <label class="vL">E-mail cadastrado<input class="vF" type="email" name="email" autocomplete="email" maxlength="180" required></label>
+        <div><button class="vB vP" type="submit"><i class="bi bi-envelope-check"></i>Receber código por e-mail</button></div>
+    </form>
+    {% else %}
+    <div class="vpTexto">Se os dados informados correspondem ao cadastro, o código de 6 números foi enviado para {{ estado.email }}. Ele vale por 10 minutos.</div>
+    <form method="post" action="{{ path('voto_assembleia_portal_confirmar', {codigo: portal.codigo}) }}" class="vpFormulario">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <label class="vL vpCodigo">Código<input class="vF vMono" name="codigo_acesso" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+        <div class="vpAcoes"><button class="vB vP" type="submit"><i class="bi bi-shield-check"></i>Confirmar código</button></div>
+    </form>
+    <form method="post" action="{{ path('voto_assembleia_portal_solicitar', {codigo: portal.codigo}) }}"><input type="hidden" name="_token" value="{{ token }}"><input type="hidden" name="email" value="{{ estado.email }}"><button class="vB" type="submit">Receber novo código</button></form>
+    {% endif %}
+    {% if erro %}<div class="vcErro" role="alert">{{ erro }}</div>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

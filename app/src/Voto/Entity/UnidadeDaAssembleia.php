@@ -49,6 +49,63 @@ class UnidadeDaAssembleia implements TenantAware
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $linkEnviadoEm = null;
 
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $codigoHash = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $codigoDesafioHash = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $codigoExpiraEm = null;
+
+    #[ORM\Column(type: 'smallint', options: ['default' => 0])]
+    private int $codigoTentativas = 0;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $codigoJanelaEm = null;
+
+    #[ORM\Column(type: 'smallint', options: ['default' => 0])]
+    private int $codigoPedidos = 0;
+
+    /** Chamado com a unidade travada. O sexto pedido na mesma hora não substitui o código vigente. */
+    public function emitirCodigo(string $hash, string $desafioHash, \DateTimeImmutable $agora): bool
+    {
+        if ($this->codigoJanelaEm === null || $agora >= $this->codigoJanelaEm->modify('+1 hour')) {
+            $this->codigoJanelaEm = $agora;
+            $this->codigoPedidos = 0;
+        }
+        if ($this->codigoPedidos >= 5) {
+            return false;
+        }
+        ++$this->codigoPedidos;
+        $this->codigoHash = $hash;
+        $this->codigoDesafioHash = $desafioHash;
+        $this->codigoExpiraEm = $agora->modify('+10 minutes');
+        $this->codigoTentativas = 0;
+
+        return true;
+    }
+
+    /** Recusa retorna false para confirmar a transação com a contagem de erros; acerto consome o código. */
+    public function confirmarCodigo(string $hash, string $desafioHash, \DateTimeImmutable $agora): bool
+    {
+        if ($this->codigoHash === null || $this->codigoExpiraEm === null || $agora >= $this->codigoExpiraEm || $this->codigoTentativas >= 5) {
+            return false;
+        }
+        if (!hash_equals((string) $this->codigoDesafioHash, $desafioHash)) {
+            return false;
+        }
+        ++$this->codigoTentativas;
+        if (!hash_equals($this->codigoHash, $hash)) {
+            return false;
+        }
+        $this->codigoHash = null;
+        $this->codigoDesafioHash = null;
+        $this->codigoExpiraEm = null;
+
+        return true;
+    }
+
     /**
      * @param string      $semente   32 hex (TokenDaUnidade::novaSemente())
      * @param string      $tokenHash 64 hex (TokenDaUnidade::hash(TokenDaUnidade::token($semente)))
@@ -94,6 +151,9 @@ class UnidadeDaAssembleia implements TenantAware
         $this->semente = $semente;
         $this->tokenHash = $tokenHash;
         $this->linkEnviadoEm = null;
+        $this->codigoHash = null;
+        $this->codigoDesafioHash = null;
+        $this->codigoExpiraEm = null;
     }
 
     public function registrarEnvioDoLink(?\DateTimeImmutable $em = null): void

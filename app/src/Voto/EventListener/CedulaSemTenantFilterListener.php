@@ -25,7 +25,15 @@ final class CedulaSemTenantFilterListener
      * Nomes exatos, não prefixo: uma rota da equipe que começasse com o mesmo nome (uma prévia da cédula, por exemplo)
      * rodaria logada com o filtro de escritório desligado.
      */
-    public const ROTAS = ['voto_assembleia_cedula', 'voto_assembleia_cedula_votar'];
+    public const ROTAS = [
+        'voto_assembleia_cedula', 'voto_assembleia_cedula_votar',
+        'voto_assembleia_portal',
+        'voto_assembleia_portal_localizar',
+        'voto_assembleia_portal_solicitar',
+        'voto_assembleia_portal_confirmar',
+        'voto_assembleia_portal_reiniciar',
+        'voto_assembleia_portal_sair_terminal',
+    ];
 
     public function __construct(
         private readonly EntityManagerInterface $em,

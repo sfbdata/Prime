@@ -31,6 +31,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: AssembleiaRepository::class)]
 #[ORM\Table(name: 'assembleia', schema: 'voto')]
+#[ORM\UniqueConstraint(name: 'uniq_voto_assembleia_codigo_publico', columns: ['codigo_publico'])]
 class Assembleia implements TenantAware, Auditavel
 {
     /** Quantas unidades sem fração a recusa nomeia; as demais viram "e mais N". */
@@ -40,6 +41,9 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
+
+    #[ORM\Column(length: 32)]
+    private string $codigoPublico;
 
     #[ORM\Column(length: 12, enumType: EstadoDaAssembleia::class)]
     private EstadoDaAssembleia $estado = EstadoDaAssembleia::Rascunho;
@@ -72,6 +76,7 @@ class Assembleia implements TenantAware, Auditavel
         private string $criadaPorNome,
     ) {
         $this->titulo = self::tituloValido($titulo);
+        $this->codigoPublico = bin2hex(random_bytes(16));
         $this->criadaEm = new \DateTimeImmutable();
         $this->pautas = new ArrayCollection();
         $this->unidades = new ArrayCollection();
@@ -111,6 +116,11 @@ class Assembleia implements TenantAware, Auditavel
     public function podeAlterarPautas(): bool
     {
         return EstadoDaAssembleia::Rascunho === $this->estado;
+    }
+
+    public function getCodigoPublico(): string
+    {
+        return $this->codigoPublico;
     }
 
     /** A lista de unidades muda até a primeira pauta ser aberta. */

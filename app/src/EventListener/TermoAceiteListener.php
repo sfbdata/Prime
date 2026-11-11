@@ -89,6 +89,12 @@ final class TermoAceiteListener
         'assinatura_eletronica_publica_validar_codigo',
         'assinatura_eletronica_publica_validar_consulta',
         // Cédula da assembleia de condomínio (Voto): página pública do morador, não depende de termo nem de escritório.
+        'voto_assembleia_portal',
+        'voto_assembleia_portal_localizar',
+        'voto_assembleia_portal_solicitar',
+        'voto_assembleia_portal_confirmar',
+        'voto_assembleia_portal_reiniciar',
+        'voto_assembleia_portal_sair_terminal',
         'voto_assembleia_cedula',
         'voto_assembleia_cedula_votar',
         // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
