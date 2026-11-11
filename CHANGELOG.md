@@ -8,6 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.48.0] - 2026-11-11
+
+### Adicionado
+
+- Migration Version20261111132746: código público único nas assembleias existentes e novas; campos de controle do código por e-mail nas unidades. Não altera votos ou resultados já registrados.
+- O QR Code usa o endereço público configurado em DEFAULT_URI. O Voto continua dependendo da ativação global e da liberação do escritório pelo Master.
+
 ## [2.47.0] - 2026-11-10
 
 ### Adicionado
@@ -1953,7 +1960,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.47.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.48.0...HEAD
+[2.48.0]: https://github.com/sfbdata/Prime/compare/v2.47.0...v2.48.0
 [2.47.0]: https://github.com/sfbdata/Prime/compare/v2.46.0...v2.47.0
 [2.46.0]: https://github.com/sfbdata/Prime/compare/v2.45.1...v2.46.0
 [2.45.1]: https://github.com/sfbdata/Prime/compare/v2.45.0...v2.45.1
