@@ -8,6 +8,22 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.49.0] - 2026-11-12
+
+### Adicionado
+
+- Voto: cabine de votação (urna virtual) do desenho na cédula da assembleia, com teclado de tela e físico, BRANCO como abstenção, simulação, "Conhecer candidaturas", sons, LEDs e telas de gravação, FIM e erro. O voto continua gravado pela mesma rota da cédula, agora com resposta JSON para a cabine.
+- Voto: comprovante de votação (código BJV, imagem e conferência pública no portal da assembleia) e aviso de número inválido na cabine no lugar do voto nulo.
+
+### Alterado
+
+- Ponto eletrônico: o motivo do ajuste de batida (incluir, ajustar, desconsiderar e restaurar) deixa de ser obrigatório na ficha do colaborador. Em branco, o registro guarda "Motivo não informado."
+- Ponto eletrônico: a barra da Folha de Ponto fica só com "Baixar PDF". Saem "Ver PDF" e "Baixar XLSX".
+- Voto: a apuração da pauta passa a seguir o critério (mais votos, maioria absoluta, dois terços ou unanimidade) e a base de cálculo (votos válidos, presentes ou total de aptos) definidos na pauta, e a eleger mais de um nome quando a pauta tem várias vagas. O quórum e a contagem de votantes passam a vir das unidades que participaram, cada uma uma vez.
+- Voto: a cédula e a cabine passam a aceitar o voto em até N nomes nas pautas de várias vagas. O voto vira uma só participação, com o mesmo peso somado em cada nome escolhido. O servidor confere a lista inteira antes de gravar (limite de vagas, nome repetido, abstenção só sozinha). A cabine mostra "Escolha k de N" e os números com zeros à esquerda. A tela do gestor para definir as vagas chega na próxima etapa.
+- Voto: cada pauta da assembleia passa a guardar suas regras (critério de decisão, base de cálculo, dígitos do número, vagas e quórum de cada convocação). Esta etapa prepara o cadastro; a tela de edição e a votação em vários nomes chegam nas próximas.
+- Voto: resultados, decisão do painel, cédula e ata apresentam todos os eleitos nas pautas de várias vagas. Empate na última vaga mantém a situação sem proclamar eleitos. A ata informa o critério e a base configurados, inclusive na pauta aberta, e totaliza escolhas e pesos sem confundir com a quantidade de participantes.
+
 ## [2.48.0] - 2026-11-11
 
 ### Adicionado
@@ -1960,7 +1976,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.48.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.49.0...HEAD
+[2.49.0]: https://github.com/sfbdata/Prime/compare/v2.48.0...v2.49.0
 [2.48.0]: https://github.com/sfbdata/Prime/compare/v2.47.0...v2.48.0
 [2.47.0]: https://github.com/sfbdata/Prime/compare/v2.46.0...v2.47.0
 [2.46.0]: https://github.com/sfbdata/Prime/compare/v2.45.1...v2.46.0
