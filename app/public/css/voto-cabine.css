@@ -56,6 +56,8 @@ body.uAberta { overflow:hidden; }
 .uCol { flex:1; min-width:0; display:flex; flex-direction:column; gap:clamp(9px, 1.6vh, 16px); }
 .uSeuVoto { font-size:clamp(14px, 1.8vw, 17px); font-weight:bold; }
 .uCargo { font-size:clamp(23px, 3.4vw, 35px); font-weight:bold; line-height:1.05; }
+.uEscolhaDe { font-size:clamp(13px, 1.8vw, 17px); font-weight:bold; margin-top:4px; }
+.uEscolhido { font-size:clamp(12px, 1.6vw, 15px); opacity:.85; }
 .uNums { display:flex; align-items:center; gap:clamp(7px, 1vw, 12px); flex-wrap:wrap; }
 .uNumRot { font-size:clamp(14px, 1.7vw, 17px); }
 .uGrande { font-size:clamp(30px, 5vw, 52px); font-weight:bold; }
