@@ -1,9 +1,10 @@
+{% from 'voto/_texto_do_resultado.html.twig' import resumo %}
 {#
     A decisão da pauta encerrada (desenho, aba Resultados L183): "Resultado: {nº} {nome}" em verde, ou a situação
     ("Quórum não atingido", "Empate", "Critério não atingido") em vermelho. Contexto: `r` (ResultadoDaPauta).
 #}
 {% if r.decidido %}
-    <div class="voto-decisao voto-decisao-ok">{{ 'voto.assembleia.gestor.resultados.resultado'|trans({numero: r.vencedor.numero, rotulo: r.vencedor.rotulo}) }}</div>
+    <div class="voto-decisao voto-decisao-ok">{{ r.vagas > 1 ? resumo(r) : 'voto.assembleia.gestor.resultados.resultado'|trans({numero: r.vencedor.numero, rotulo: r.vencedor.rotulo}) }}</div>
 {% else %}
     <div class="voto-decisao">{{ r.situacao }}</div>
 {% endif %}

@@ -89,6 +89,8 @@ final class LeituraDaAssembleia
             unidadesAptas: $totais['unidadesAptas'],
             pesoApto: $totais['pesoApto'],
             resultado: $this->resultado($pauta, $totais, $contagem),
+            criterio: $pauta->getCriterio(),
+            base: $pauta->getBase(),
         );
     }
 

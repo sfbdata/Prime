@@ -246,6 +246,7 @@ voto:
                 participacoes: Participações registradas
                 abstencoes: 'Abstenções {n} · Nulos {nulos}'
                 resultado: 'Resultado: {numero} {rotulo}'
+                eleitos: 'Eleitos: {nomes}'
                 valor_peso: '{votos} un · {peso}'
             ata:
                 titulo: RELATÓRIO CONSOLIDADO DA VOTAÇÃO
@@ -268,7 +269,7 @@ voto:
                 criterios: Critérios
                 item: Item
                 regra: Regra
-                criterio: 'Mais votos sobre votos válidos, quórum {q}%'
+                criterio: '{criterio} sobre {base}, quórum {q}%'
                 abertura: Boletim de abertura
                 conducao: Condução
                 conducao_valor: 'Pela mesa, {c}ª convocação'

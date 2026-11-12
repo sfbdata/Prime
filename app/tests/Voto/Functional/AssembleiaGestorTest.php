@@ -26,8 +26,10 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
@@ -640,6 +642,77 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('Aprovação das contas', $this->em->getConnection()->fetchOne('SELECT titulo FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
     }
 
+    #[TestDox('Duas vagas: resultados e ata mostram todos os eleitos e distinguem escolhas de participantes')]
+    public function testResultadosEAtaComTodosOsEleitos(): void
+    {
+        [$assembleia, $pauta] = $this->cenarioDeVariasVagas();
+        $cartao = $this->client->request('GET', '/voto?aba=tra')->filter('#assembleia-' . $assembleia->getId());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Conselho: Eleitos: 1 Ana & <Cia>, 2 Bia', $cartao->filter('.voto-resultado-corpo > .voto-resultado-faixa')->text());
+        self::assertSame('Eleitos: 1 Ana & <Cia>, 2 Bia', $cartao->filter('.voto-resultado-grupo > .voto-decisao-ok')->text());
+        self::assertSame(['3', '3'], $cartao->filter('.vKpis > .vKpi > b')->each(static fn (Crawler $c): string => $c->text()));
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+        self::assertSame('Eleitos: 1 Ana & <Cia>, 2 Bia', $painel->filter('#pauta-' . $pauta->getId() . ' .voto-decisao-ok')->text());
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        self::assertStringContainsString('Resultado de Conselho: Eleitos: 1 Ana & <Cia>, 2 Bia.', $ata->filter('body')->text());
+        $secao = $ata->filter('#pauta-' . $pauta->getId());
+        self::assertStringContainsString('Mais votos sobre votos válidos, quórum 50%', $secao->text());
+        self::assertStringContainsString('Eleitos: 1 Ana & <Cia>, 2 Bia', $secao->text());
+        $total = $secao->filter('table tbody > tr')->reduce(static fn (Crawler $c): bool => 'Total' === $c->filter('td')->first()->text());
+        self::assertSame(['Total', '5', '1,7'], $total->filter('td')->each(static fn (Crawler $c): string => $c->text()));
+        self::assertSame('3', $this->camposDaAta($ata, (int) $pauta->getId())['Comparecimento']);
+    }
+
+    #[TestDox('Empate na última vaga: resultados e ata não proclamam eleitos')]
+    public function testResultadosEAtaComEmpateNaUltimaVaga(): void
+    {
+        [$assembleia, $pauta] = $this->cenarioDeVariasVagas(true);
+        $cartao = $this->client->request('GET', '/voto?aba=tra')->filter('#assembleia-' . $assembleia->getId());
+        self::assertSame('Conselho: Empate na última vaga', $cartao->filter('.voto-resultado-faixa')->text());
+        self::assertSame('Empate na última vaga', $cartao->filter('.voto-decisao')->text());
+        self::assertCount(0, $cartao->filter('.voto-decisao-ok'));
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        self::assertStringContainsString('Resultado de Conselho: Empate na última vaga.', $ata->filter('body')->text());
+        self::assertStringNotContainsString('Eleitos:', $ata->filter('body')->text());
+        self::assertStringContainsString('Empate na última vaga', $ata->filter('#pauta-' . $pauta->getId())->text());
+    }
+
+    #[TestDox('Ata de pauta aberta informa o critério e a base configurados sem antecipar o resultado')]
+    public function testAtaAbertaMostraOCriterioDaPauta(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new()->publicada()->create(['tenant' => $this->escritorio]);
+        PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->aberta()->create([
+            'assembleia' => $assembleia, 'criterio' => RegraDeDecisao::DoisTercos, 'base' => BaseDaDecisao::Aptos,
+        ]);
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Dois terços sobre total de aptos, quórum 50%', $ata->filter('body')->text());
+        self::assertStringContainsString('Votação ainda não apurada', $ata->filter('body')->text());
+    }
+
+    /** @return array{Assembleia, PautaDaAssembleia} */
+    private function cenarioDeVariasVagas(bool $empate = false): array
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new()->porFracao()->publicada()->create(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new()->encerrada()->create([
+            'assembleia' => $assembleia, 'titulo' => 'Conselho', 'vagas' => 2,
+        ])->_real();
+        foreach ([1 => 'Ana & <Cia>', 2 => 'Bia', 3 => 'Caio'] as $numero => $nome) {
+            OpcaoDaPautaFactory::createOne(['pauta' => $pauta, 'numero' => $numero, 'rotulo' => $nome]);
+        }
+        OpcaoDaPautaFactory::new()->abstencao()->create(['pauta' => $pauta]);
+        foreach (['101' => '0.400000', '102' => $empate ? '0.400000' : '0.300000', '103' => '0.300000'] as $id => $fracao) {
+            UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => (string) $id, 'fracao' => $fracao]);
+        }
+        $this->votar((int) $pauta->getId(), ['101' => [1, 2], '102' => [1, 3], '103' => 0]);
+
+        return [$assembleia, $pauta];
+    }
+
     /** @return list<array{int, string}> número e nome de cada opção da pauta, pelo número */
     private function opcoesNoBanco(int $pautaId): array
     {
@@ -652,7 +725,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
     /**
      * Grava os votos como a cédula grava: a participação da unidade e a soma no contador da opção.
      *
-     * @param array<string, int> $votos identificação da unidade => número da opção
+     * @param array<string, int|list<int>> $votos identificação da unidade => número da opção
      */
     private function votar(int $pautaId, array $votos): void
     {
@@ -662,9 +735,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         foreach ($votos as $identificacao => $numero) {
             $unidade = $this->em->getRepository(UnidadeDaAssembleia::class)->findOneBy(['assembleia' => $pauta->getAssembleia(), 'identificacao' => (string) $identificacao]);
             self::assertNotNull($unidade);
-            $opcao = array_values(array_filter($pauta->getOpcoes()->toArray(), static fn (OpcaoDaPauta $o): bool => $o->getNumero() === $numero))[0];
+            $numeros = is_array($numero) ? $numero : [$numero];
+            $escolhidas = array_values(array_filter($pauta->getOpcoes()->toArray(), static fn (OpcaoDaPauta $o): bool => in_array($o->getNumero(), $numeros, true)));
             $this->em->persist(new ParticipacaoNaPauta($unidade, $pauta));
-            $opcoes->somarVoto($opcao, $unidade->pesoDoVoto());
+            $opcoes->somarVotos($escolhidas, $unidade->pesoDoVoto());
         }
         $this->em->flush();
     }
