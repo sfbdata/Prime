@@ -10,6 +10,7 @@ use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\UseCase\MontarCedulaUseCase;
 use App\Voto\UseCase\RegistrarVotoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
@@ -60,21 +61,39 @@ final class CedulaController extends AbstractController
     #[Route('/pauta/{pauta}', name: 'voto_assembleia_cedula_votar', requirements: ['pauta' => '\d+'], methods: ['POST'])]
     public function votar(Request $request, string $token, int $pauta): Response
     {
+        $json = str_contains((string) $request->headers->get('Accept'), 'application/json');
+
         if (!$this->isCsrfTokenValid(self::CSRF_PREFIXO . $token, (string) $request->request->get('_token'))) {
+            if ($json) {
+                return $this->respostaJson(false, $this->tradutor->trans('voto.assembleia.cedula.toast.expirada'), Response::HTTP_BAD_REQUEST);
+            }
             $this->addFlash(self::FLASH_ERRO, $this->tradutor->trans('voto.assembleia.cedula.toast.expirada'));
 
             return $this->deVoltaACedula($token);
         }
+
         try {
             $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $request->request->getInt('opcao')));
+            if ($json) {
+                return $this->respostaJson(true, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'));
+            }
             $this->addFlash(self::FLASH_OK, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'));
         } catch (CedulaNaoEncontradaException) {
             return $this->naoEncontrada($request);
         } catch (OperacaoInvalidaNaAssembleiaException $recusa) {
+            if ($json) {
+                return $this->respostaJson(false, $recusa->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
             $this->addFlash(self::FLASH_ERRO, $recusa->getMessage());
         }
 
         return $this->deVoltaACedula($token);
+    }
+
+    /** Resposta da cabine (js/voto-cabine.js): o voto vai por fetch e a tela decide o que mostrar. */
+    private function respostaJson(bool $ok, string $mensagem, int $status = Response::HTTP_OK): Response
+    {
+        return $this->protegida(new JsonResponse(['ok' => $ok, 'mensagem' => $mensagem], $status));
     }
 
     /** 404 que consome o limitador por IP; estourou, 429. Mesma página nos dois casos. */

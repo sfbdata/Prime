@@ -1,0 +1,90 @@
+/*
+ * Cabine de votação (urna virtual) da cédula da assembleia (/votar/{token}).
+ * Valores copiados do CSS do desenho 18 (docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html, L71-111) e
+ * dos estilos inline da cabine (L257-280). Os seletores `.u*` são os do desenho; o que o desenho escreve inline nos
+ * elementos virou classe (`uCentro`, `uCargo`, ...) com os mesmos valores.
+ */
+
+.uBg { position:fixed; inset:0; z-index:2147483000; background:radial-gradient(circle at 50% 30%, #2d3640 0, #161b21 72%); display:flex; align-items:center; justify-content:center; padding:clamp(6px, 2vw, 22px); overflow:auto; animation:uEntra .45s ease both; }
+.uBg[hidden] { display:none; }
+@keyframes uEntra { from { opacity:0; } to { opacity:1; } }
+body.uAberta { overflow:hidden; }
+.uBody { position:relative; width:min(1060px, 100%); background:linear-gradient(180deg, #e3e7ec 0, #d5dae1 60%, #c6ccd4 100%); border-radius:14px 14px 10px 10px; padding:clamp(10px, 2vw, 22px) clamp(10px, 2vw, 24px) 10px; box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.8), inset 0 -3px 0 rgba(90,100,112,.25); box-sizing:border-box; animation:uSobe .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes uSobe { from { transform:translateY(26px) scale(.98); } to { transform:none; } }
+.uGr { display:grid; grid-template-columns:minmax(0,1.62fr) minmax(260px,1fr); gap:clamp(12px, 3vw, 44px); align-items:stretch; }
+.uMold { background:#cdd3da; padding:clamp(5px, .9vw, 10px); border-radius:3px; box-shadow:inset 0 1px 3px rgba(40,50,60,.55), 0 1px 0 rgba(255,255,255,.7); display:flex; }
+.uTela { position:relative; flex:1; background:#fff; min-height:clamp(330px, 56vh, 470px); padding:clamp(14px, 2.4vw, 26px); box-sizing:border-box; display:flex; flex-direction:column; color:#111; font-family:Arial, Helvetica, sans-serif; overflow:hidden; box-shadow:inset 0 0 16px rgba(40,60,80,.14); }
+.uDir { display:flex; flex-direction:column; gap:8px; }
+.uPlaca { display:flex; align-items:center; gap:10px; padding:7px 14px; background:#eef1f4; border:1px solid #b9c0c9; box-shadow:0 1px 0 rgba(255,255,255,.8); }
+.uPlaca img { height:clamp(38px, 5vw, 50px); mix-blend-mode:multiply; }
+.uPlaca b { flex:1; text-align:right; font-size:clamp(16px, 2vw, 22px); line-height:1.05; color:#14181c; }
+.uPlaca button { background:none; border:0; cursor:pointer; color:#3a4148; font-size:19px; padding:0; }
+.uTec { flex:1; background:#15171a; border-radius:2px; padding:clamp(12px, 1.9vw, 22px) clamp(14px, 2.4vw, 30px); display:grid; grid-template-columns:repeat(3, 1fr); gap:clamp(7px, 1.2vw, 14px) clamp(14px, 2.4vw, 30px); align-content:center; box-shadow:inset 0 2px 8px rgba(0,0,0,.6); }
+.uT { min-height:clamp(40px, 6.2vh, 54px); border:0; border-radius:3px; background:linear-gradient(180deg, #2b2e32, #0c0d0f); color:#f4f4f4; font:bold clamp(19px, 2.6vw, 24px) Arial; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; box-shadow:0 3px 0 #000, 0 0 0 1px #33373c; transition:transform .06s, box-shadow .06s; }
+.uT:active, .uPr { transform:translateY(3px); box-shadow:0 0 0 #000, 0 0 0 1px #33373c; }
+.uT:focus-visible { outline:3px solid #3b8fc2; outline-offset:2px; }
+.uB6 { font-size:.82em; color:#8b9198; font-weight:normal; }
+.uT0 { grid-column:2; }
+.uAc { grid-column:span 3; display:grid; grid-template-columns:repeat(3,1fr); gap:clamp(8px, 1.2vw, 14px); margin-top:clamp(4px, 1vw, 10px); align-items:center; }
+.uAc .uT { font-size:clamp(11px, 1.35vw, 13px); color:#16181a; min-height:clamp(42px, 6.4vh, 52px); box-shadow:0 2px 0 rgba(0,0,0,.65); }
+.uBr { background:linear-gradient(180deg,#fff,#e2e2e2); } .uCo { background:linear-gradient(180deg,#f0853a,#dd6a18); } .uCf { background:linear-gradient(180deg,#25b65b,#149345); min-height:clamp(52px, 8vh, 64px) !important; }
+.uFen { display:flex; justify-content:space-between; padding:clamp(8px, 1.2vw, 14px) 6% 2px; } .uFen i { width:7px; height:18px; background:#6f7780; border-radius:1px; box-shadow:inset 0 2px 2px rgba(0,0,0,.5); transition:background .2s, box-shadow .2s; } .uFen i.uLed { background:#3dff8f; box-shadow:0 0 12px 4px rgba(61,255,143,.85); transition:none; }
+.uFaixa { margin-bottom:9px; padding:6px 12px; background:#8a6200; color:#fff; text-align:center; font-size:13px; font-weight:bold; border-radius:2px; letter-spacing:.3px; }
+.uFaixa[hidden] { display:none; }
+.uCard { display:flex; gap:12px; padding:10px 0; border-top:1px solid #d6dee5; }
+.uNum { display:inline-flex; width:clamp(42px, 6vw, 56px); height:clamp(54px, 8vw, 72px); border:2px solid #111; align-items:center; justify-content:center; font:bold clamp(30px, 5vw, 44px) Arial; background:#fff; animation:uDig .16s ease; }
+@keyframes uDig { from { transform:scale(.8); background:#dfe9ef; } to { transform:none; } }
+.uCur { animation:uPisca 1s steps(2) infinite; background:#d7e6ef; } @keyframes uPisca { 50% { background:#fff; } }
+.uFade { animation:uSur .24s ease both; } @keyframes uSur { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.uRod { margin-top:auto; border-top:2px solid #111; padding-top:8px; font-size:clamp(12.5px, 1.6vw, 15px); line-height:1.5; }
+.uFim { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:#fff; padding:16px; box-sizing:border-box; animation:uSur .3s ease both; }
+.uAnel { width:clamp(112px, 18vw, 156px); height:clamp(112px, 18vw, 156px); } .uAnel circle { fill:none; stroke:#1e7b45; stroke-width:7; stroke-dasharray:302; stroke-dashoffset:302; transform:rotate(-90deg); transform-origin:50% 50%; animation:uRing .9s ease-out forwards; } .uAnel path { fill:none; stroke:#1e7b45; stroke-width:9; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:90; stroke-dashoffset:90; animation:uRing .4s .75s ease-out forwards; }
+@keyframes uRing { to { stroke-dashoffset:0; } }
+.uProg { width:64%; height:9px; background:#d5d2c6; border-radius:2px; overflow:hidden; } .uProg div { height:100%; background:#1e7b45; animation:uBarra 1.1s ease-in-out infinite; width:40%; } @keyframes uBarra { from { margin-left:-40%; } to { margin-left:100%; } }
+.uDemo { margin-top:9px; text-align:center; font-size:11.5px; color:#51575a; }
+.uSr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+
+/* Estilos que o desenho escreve inline nos elementos da cabine (L258-272). */
+.uCentro { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:clamp(9px, 1.8vh, 16px); }
+.uLogo { width:min(68%, 400px); mix-blend-mode:multiply; }
+.uInicioNome { font-size:clamp(19px, 2.8vw, 27px); line-height:1.1; }
+.uInicioDica { font-size:clamp(14px, 1.8vw, 17px); }
+.uVerde { color:#149345; }
+.uLaranja { color:#c75e12; }
+.uVotando { display:flex; flex-direction:column; flex:1; }
+.uLinha { display:flex; gap:14px; flex:1; }
+.uCol { flex:1; min-width:0; display:flex; flex-direction:column; gap:clamp(9px, 1.6vh, 16px); }
+.uSeuVoto { font-size:clamp(14px, 1.8vw, 17px); font-weight:bold; }
+.uCargo { font-size:clamp(23px, 3.4vw, 35px); font-weight:bold; line-height:1.05; }
+.uNums { display:flex; align-items:center; gap:clamp(7px, 1vw, 12px); flex-wrap:wrap; }
+.uNumRot { font-size:clamp(14px, 1.7vw, 17px); }
+.uGrande { font-size:clamp(30px, 5vw, 52px); font-weight:bold; }
+.uCol > .uGrande { margin:auto 0; }
+.uNuloT { font-size:clamp(20px, 3vw, 28px); font-weight:bold; }
+.uAchou { font-size:clamp(16px, 2.2vw, 22px); line-height:1.3; }
+.uAchouNome { font-size:clamp(19px, 2.8vw, 28px); }
+.uRodDica { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.uRodTx { flex:1 1 220px; }
+.uOpcT { display:block; margin-bottom:3px; }
+.uFimTitulo { font-size:clamp(19px, 2.8vw, 26px); font-weight:bold; margin-bottom:14px; }
+.uFimSub { margin-top:12px; font-size:14px; }
+.uFimGrande { font-size:clamp(54px, 10vw, 92px); font-weight:bold; line-height:1; margin-top:6px; }
+.uFimT { font-size:clamp(17px, 2.4vw, 22px); font-weight:bold; color:#1e7b45; margin-top:6px; }
+.uFimAcoes { display:flex; gap:8px; margin-top:14px; }
+.uErroIc { font-size:54px; color:#a3232b; }
+.uErroT { font-size:21px; font-weight:bold; margin-top:8px; }
+.uErroTx { font-size:14.5px; margin:8px 0 14px; }
+.uVer { justify-content:flex-start; align-items:stretch; text-align:left; overflow:auto; }
+.uVerTopo { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.uVerTit { flex:1; font-size:clamp(18px, 2.4vw, 23px); }
+.uVerGrupo { margin-bottom:10px; }
+.uVerNome { font-size:15px; color:#0b3550; }
+.uCardTx { min-width:0; font-size:13.5px; line-height:1.3; }
+.uCardNome { font-size:15px; }
+.vAv { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:#e5f1f7; color:#0a6fa0; font-weight:bold; font-size:19px; border-radius:3px; overflow:hidden; }
+
+/* Botões da cédula que abrem a cabine (L153: "Conhecer candidaturas", "Simular votação" e "Votar"). */
+.vcAcoes { display:flex; gap:8px; flex-wrap:wrap; }
+
+@media (max-width:760px) { .uGr { grid-template-columns:1fr; } .uFen { display:none; } .uTela { min-height:300px; } }
+@media (prefers-reduced-motion: reduce) { .uBg, .uBody, .uNum, .uFade, .uFim, .uCur { animation:none !important; } .uAnel circle, .uAnel path { animation-duration:.01s !important; animation-delay:0s !important; } }

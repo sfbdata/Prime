@@ -4,7 +4,7 @@
     Cédula da unidade na assembleia de condomínio (spec docs/specs/voto-assembleia-condominio.md, seção 1, Morador).
     Recebe `cedula` (App\Voto\DTO\CedulaOutput) e `token` (o do link, para as rotas e o CSRF).
     Desenho 18, portal do eleitor (insumo §4): cartão da pessoa identificada (L144), o aviso `.vAviso`, um `.vC` por
-    pauta (L147-153) e a janela `.vMod` de confirmação. Sem "cifrado", sem código de conferência e sem a faixa de
+    pauta (L147-153) e a cabine de votação (urna virtual, L257-280, partial _cabine). Sem "cifrado", sem código de conferência e sem a faixa de
     demonstração: não há criptografia nem é demonstração (contrato, seção 1, item 4).
 #}
 
@@ -24,31 +24,79 @@
 
     <div class="vAviso" data-vc-sigilo>{{ 'voto.assembleia.cedula.aviso_sigilo'|trans }}</div>
 
+    {# Pautas abertas com opções: `todas` alimenta a simulação e as candidaturas; `votaveis` são as que esta unidade ainda pode votar. #}
+    {% set todas = [] %}
+    {% set votaveis = [] %}
+    {% for pauta in cedula.pautas %}
+        {% if cedula.assembleiaPublicada and pauta.aberta() and pauta.opcoes is not empty %}
+            {% set opcoes = [] %}
+            {% for o in pauta.opcoes %}
+                {% set opcoes = opcoes|merge([{id: o.id, numero: o.numero, rotulo: (o.abstencao ? 'voto.assembleia.cedula.abstencao'|trans : o.rotulo), abstencao: o.abstencao}]) %}
+            {% endfor %}
+            {% set item = {id: pauta.id, titulo: pauta.titulo, opcoes: opcoes} %}
+            {% set todas = todas|merge([item]) %}
+            {% if cedula.apta and pauta.votouEm is null %}
+                {% set votaveis = votaveis|merge([item]) %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+    {% if todas is not empty %}
+        <div class="vcAcoes" data-vc-acoes>
+            <button type="button" class="vB" data-vc-abrir-candidaturas><i class="bi bi-person-lines-fill" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.cabine.conhecer'|trans }}</button>
+            <button type="button" class="vB" data-vc-abrir-simulacao><i class="bi bi-play-circle" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.cabine.simular'|trans }}</button>
+            <button type="button" class="vB vP" data-vc-abrir-cabine{{ votaveis is empty ? ' disabled' : '' }}><i class="bi bi-check2-square" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.cabine.votar'|trans }}</button>
+        </div>
+    {% endif %}
+
     {% for pauta in cedula.pautas %}
         {% include 'voto/cedula/_pauta.html.twig' with {pauta: pauta, cedula: cedula, token: token} only %}
     {% else %}
         <div class="vAviso" data-vc-vazio>{{ 'voto.assembleia.cedula.vazio'|trans }}</div>
     {% endfor %}
+
+    {# A cabine é fixa na tela; fica no mesmo bloco por causa de `todas` e `votaveis`, que só existem aqui. #}
+    {% if todas is not empty %}
+        {% include 'voto/cedula/_cabine.html.twig' with {cedula: cedula, token: token, votaveis: votaveis, todas: todas} only %}
+        {# Guarda da cabine: se js/voto-cabine.js não subir (rede ruim, bloqueador), insiste no arquivo duas vezes, recarrega
+           a página uma vez e só então mostra a reserva (o voto simples). A cabine, ao subir, desfaz tudo (window.__vcCabine). #}
+        <script>
+        (function () {
+            var chave = 'vc_recarregou';
+            function pronta() { return window.__vcCabine === true; }
+            function insistir() {
+                var s = document.createElement('script');
+                s.src = '/js/voto-cabine.js?r=' + Date.now();
+                document.body.appendChild(s);
+            }
+            function reserva() {
+                document.querySelectorAll('[data-vc-reserva]').forEach(function (e) { e.hidden = false; });
+                document.querySelectorAll('[data-vc-acoes]').forEach(function (e) { e.hidden = true; });
+            }
+            function recarregouAntes() {
+                try { return sessionStorage.getItem(chave) === '1'; } catch (e) { return true; }
+            }
+            function fim() {
+                if (pronta()) { return; }
+                if (!recarregouAntes()) {
+                    try { sessionStorage.setItem(chave, '1'); } catch (e) { return reserva(); }
+                    window.location.reload();
+                    return;
+                }
+                reserva();
+            }
+            function tentar(n) {
+                if (pronta()) { return; }
+                if (n === 0) { return fim(); }
+                insistir();
+                setTimeout(function () { tentar(n - 1); }, 2500);
+            }
+            window.addEventListener('load', function () { setTimeout(function () { tentar(2); }, 800); });
+        })();
+        </script>
+    {% endif %}
 {% endblock %}
 
 {% block depois %}
-    {# Janela de confirmação do desenho (.vMod > .vModC com .vH e "Fechar"): clique no fundo fecha; o conteúdo para
-       a propagação. O js/voto-cedula.js preenche a pauta e a escolha e envia o formulário da pauta. #}
-    <div class="vMod" data-vc-janela hidden>
-        <div class="vModC vcJanela" role="dialog" aria-modal="true" aria-labelledby="vcJanelaTitulo">
-            <div class="vH"><i class="bi bi-check2-square" aria-hidden="true"></i><span id="vcJanelaTitulo">{{ 'voto.assembleia.cedula.confirmar.titulo'|trans }}</span><span class="vcMola"></span><button type="button" class="vB" data-vc-fechar>{{ 'voto.assembleia.cedula.confirmar.fechar'|trans }}</button></div>
-            <div class="vcJanelaCorpo">
-                <div class="vcJanelaRotulo">{{ 'voto.assembleia.cedula.confirmar.rotulo'|trans }}</div>
-                <b class="vcJanelaPauta" data-vc-janela-pauta></b>
-                <div class="vcJanelaEscolha" data-vc-janela-escolha></div>
-                <div class="vcJanelaAcoes">
-                    <button type="button" class="vB" data-vc-fechar><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.confirmar.corrigir'|trans }}</button>
-                    <button type="button" class="vB vP" data-vc-confirmar><i class="bi bi-check2-square" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.confirmar.confirmar'|trans }}</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {# Toast do desenho (L281): verde no sucesso, vermelho no erro; some em 3600 ms. #}
     {% for mensagem in app.flashes('voto_cedula_ok') %}
         <div class="vcToast" role="status" data-vc-toast>{{ mensagem }}</div>

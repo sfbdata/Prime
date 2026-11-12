@@ -22,10 +22,6 @@ a.vB { text-decoration:none; }
 .vB:focus-visible { outline:3px solid #3b8fc2; outline-offset:1px; }
 .vChip { display:inline-block; padding:3px 9px; color:#fff; font-size:12px; font-weight:bold; border-radius:3px; white-space:nowrap; }
 .vAviso { padding:10px 14px; background:#fff8e6; border:1px solid #e6c56a; color:#6b4e00; font-size:13px; border-radius:3px; line-height:1.4; }
-.vMod { position:fixed; inset:0; z-index:4000; background:rgba(11,53,80,.55); display:flex; align-items:center; justify-content:center; padding:14px; }
-.vMod[hidden] { display:none; }
-.vModC { width:min(720px,100%); max-height:88vh; display:flex; flex-direction:column; background:#fff; border-radius:3px; overflow:hidden; }
-
 /* Status (L287, Component.ST): o fundo do chip é a cor do estado. */
 .vcChip-rascunho { background:#5b7383; }
 .vcChip-publicada { background:#0a6fa0; }
@@ -65,6 +61,9 @@ a.vB { text-decoration:none; }
 .vcMsgAmbar { color:#8a6200; }
 .vcMsgVermelho { color:#a3232b; }
 .vcHora { font-weight:normal; color:#34505f; }
+
+/* Reserva do voto sem a cabine (só aparece se o JavaScript da cabine falhar ou estiver desligado). */
+.vcReserva[hidden] { display:none; }
 .vcVotar { margin:0; display:flex; flex-direction:column; gap:8px; }
 .vcDica { font-size:13px; color:#34505f; }
 .vcOpcoes { display:flex; gap:8px; flex-wrap:wrap; }
@@ -79,15 +78,6 @@ a.vB { text-decoration:none; }
 .vcItemValor { width:128px; text-align:right; }
 .vcAbstencoes { font-size:12.5px; color:#5b7383; margin-top:5px; }
 .vcDecisao { font-size:13.5px; font-weight:bold; margin-top:4px; }
-
-/* ---- Janela de confirmação (.vMod > .vModC com .vH e "Fechar", L253-255) ---- */
-.vcJanela { width:min(520px,100%); }
-.vcMola { flex:1; }
-.vcJanelaCorpo { overflow:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-.vcJanelaRotulo { font-size:13.5px; color:#34505f; }
-.vcJanelaPauta { font-size:15.5px; color:#0b3550; }
-.vcJanelaEscolha { font-size:19px; font-weight:bold; color:#0b3550; }
-.vcJanelaAcoes { display:flex; gap:8px; flex-wrap:wrap; }
 
 /* ---- Toast (L281): verde no sucesso, vermelho no erro ---- */
 .vcToast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:6000; background:#1e7b45; color:#fff; padding:11px 18px; border-radius:3px; font-size:14px; font-weight:bold; box-shadow:0 8px 22px rgba(0,0,0,.25); max-width:90vw; }
