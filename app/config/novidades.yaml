@@ -1,6 +1,18 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.49.0"
+  data: "2026-11-12"
+  itens:
+    - "Na ficha do colaborador, ao corrigir uma batida de ponto, o campo \"Motivo\" agora é opcional. O administrador pode salvar sem escrever nada, e o histórico mostra \"Motivo não informado.\". Quem quiser explicar a correção continua podendo."
+    - "Na Folha de Ponto, sobrou só o botão \"Baixar PDF\". Os botões \"Ver PDF\" e \"Baixar XLSX\" foram retirados para a tela ficar mais simples e limpa. O PDF baixado é o mesmo de antes."
+    - "O resultado de cada pauta agora respeita as regras que ela tem: por exemplo, dois terços do total de unidades aptas, ou os 3 mais votados para o conselho fiscal. Se houver empate na última vaga, o sistema avisa \"Empate na última vaga\" e não proclama ninguém. Nas pautas de uma vaga só com as regras de sempre, o resultado continua igual ao de hoje."
+    - "Na votação da assembleia, o morador agora vota numa urna na tela, parecida com a urna eletrônica: digita o número da opção, confere e aperta CONFIRMA. Há também \"Simular votação\" para treinar sem registrar nada e \"Conhecer candidaturas\" para ver as opções antes."
+    - "Nas votações que elegem mais de um nome (por exemplo, três conselheiros), o morador poderá escolher até o número de vagas, um nome por vez, e terminar antes se quiser. Ele pode também se abster, mas a abstenção não se mistura com nomes. O sigilo continua o mesmo: nada liga o morador aos nomes que escolheu. Nas votações de uma vaga, o morador continua escolhendo um nome só, e agora o número aparece com os zeros à esquerda quando a votação usa mais de um dígito."
+    - "Depois de votar, o morador recebe um código de comprovante (e pode baixar em imagem). Ele prova que a unidade votou e não revela o voto. Qualquer pessoa pode conferir o código na página da assembleia, no campo \"Confira seu comprovante\"."
+    - "Na urna, se o morador digitar um número que não existe, a tela avisa \"Número inválido\" e pede para corrigir, em vez de aceitar um voto nulo."
+    - "As pautas de uma assembleia ganham regras próprias, que o escritório poderá definir antes de publicar: quantas vagas a pauta elege, quantos dígitos têm os números dos candidatos e o quórum de cada convocação. As assembleias já criadas seguem com as regras de sempre. Ao publicar, o sistema avisa se uma pauta tiver mais vagas do que candidaturas."
+    - "Quando uma pauta elege vários nomes, todos os eleitos aparecem no resultado e na ata. Um empate que afete a última vaga é informado sem declarar vencedores. A ata mostra a regra usada na votação e separa a contagem de escolhas da participação: quem escolhe dois nomes continua sendo um participante."
 - versao: "2.48.0"
   data: "2026-11-11"
   itens:
