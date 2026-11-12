@@ -59,15 +59,15 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         $this->maria = $this->pessoaComOutubro($this->escritorio);
     }
 
-    #[TestDox('Mês fechado sem aceite: a barra tem "Ver PDF", "Baixar XLSX", "Assinar folha" e "Baixar PDF", nesta ordem, e nenhum selo')]
+    #[TestDox('Mês fechado sem aceite: a barra tem "Assinar folha" e "Baixar PDF", nesta ordem, e nenhum selo')]
     public function testBarraComAssinarFolha(): void
     {
         $tela = $this->tela();
 
         self::assertSame(
-            ['Ver PDF', 'Baixar XLSX', 'Assinar folha', 'Baixar PDF'],
+            ['Assinar folha', 'Baixar PDF'],
             $tela->filter(self::BARRA . ' > button.pe-folha-btn')->each(static fn (Crawler $no): string => trim($no->text())),
-            'a ordem da decisão 11',
+            'o "Baixar PDF" fica por último',
         );
         self::assertCount(1, $tela->filter(self::BARRA . ' > button.pe-folha-btn[data-folha-assinar]:nth-last-child(2) > i.bi.bi-pen'));
         self::assertCount(0, $tela->filter(self::BARRA . ' .pe-folha-aceite'), 'sem aceite, sem selo');
@@ -216,9 +216,9 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $barra = '#tab-ponto > section.pe-folha[data-screen-label="Folha de Ponto"] > div.pe-folha-barra';
         self::assertSame('Assinada em 09/11/2026', trim($ficha->filter($barra . ' > span.pe-folha-aceite')->text()));
-        self::assertSame(['Ver PDF', 'Baixar XLSX', 'Baixar PDF'], $ficha->filter($barra . ' > button.pe-folha-btn')->each(static fn (Crawler $no): string => trim($no->text())));
+        self::assertSame(['Baixar PDF'], $ficha->filter($barra . ' > button.pe-folha-btn')->each(static fn (Crawler $no): string => trim($no->text())));
         $this->assertSemAssinar($ficha);
-        self::assertCount(1, $ficha->filter('#tab-ponto > div.pe-folha.pe-folha-janelas > #ponto-janela-ver-pdf'), 'o "Ver PDF" da ficha usa a mesma janela');
+        self::assertCount(0, $ficha->filter('#ponto-janela-ver-pdf'), 'sem "Ver PDF" na ficha');
         self::assertCount(1, $ficha->filter('script[src*="js/ponto-aviso-flutuante.js"]'), 'o aviso do "Baixar PDF" é o da E8 (decisão 15)');
     }
 
