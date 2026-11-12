@@ -10,6 +10,7 @@ use App\Ponto\Controller\AjusteDeBatidaController;
 use App\Ponto\DTO\DesconsiderarBatidaInput;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
+use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\UseCase\DesconsiderarBatidaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
@@ -69,14 +70,14 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame('batida_incluida', $this->ultimaAcaoNaTrilha());
     }
 
-    #[TestDox('Incluir sem motivo: o aviso pede o motivo e nada é gravado')]
+    #[TestDox('Incluir sem motivo: o motivo é opcional, a batida entra com o texto padrão')]
     public function testIncluirSemMotivo(): void
     {
         $this->incluir($this->colaborador, ['data' => '2026-10-21', 'hora' => '18:00:00', 'tipo' => 'saida', 'motivo' => '']);
 
         self::assertResponseRedirects();
-        self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO], $this->avisos('danger'));
-        self::assertSame([], $this->ajustes($this->colaborador));
+        self::assertSame(['Batida incluída na folha.'], $this->avisos('success'));
+        self::assertSame([['tipo' => 'inclusao', 'motivo' => GravacaoDoAjusteDoPonto::MOTIVO_NAO_INFORMADO, 'data_hora_nova' => '2026-10-21 18:00:00']], $this->ajustes($this->colaborador));
     }
 
     // ------------------------------------------------------------------------------------------------- Ajustar
@@ -92,7 +93,8 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('h1', 'Ajustar batida');
         self::assertSame('2026-10-21', $crawler->filter('#registro_ponto_manual_data')->attr('value'));
         self::assertSame('', $crawler->filter('input[name="cabeca"]')->attr('value'));
-        self::assertCount(1, $crawler->filter('textarea[name="registro_ponto_manual[motivo]"][required]'));
+        self::assertCount(1, $crawler->filter('textarea[name="registro_ponto_manual[motivo]"]'));
+        self::assertCount(0, $crawler->filter('textarea[name="registro_ponto_manual[motivo]"][required]'), 'o motivo é opcional');
     }
 
     #[TestDox('Ajustar: a alteração entra com o evento na trilha, o registro original continua no banco e o aviso confirma')]
@@ -155,16 +157,14 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_EM_ANALISE], $this->avisos('danger'));
     }
 
-    #[TestDox('Ajustar sem motivo: a página volta com o erro no campo e nada é gravado')]
+    #[TestDox('Ajustar sem motivo: o motivo é opcional, o ajuste entra com o texto padrão')]
     public function testAjustarSemMotivo(): void
     {
         $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
 
         $this->ajustar($this->colaborador, "b{$id}", '', '18:30:00', motivo: '');
 
-        self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('body', AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO);
-        self::assertSame([], $this->ajustes($this->colaborador));
+        self::assertSame([['tipo' => 'alteracao', 'motivo' => GravacaoDoAjusteDoPonto::MOTIVO_NAO_INFORMADO, 'data_hora_nova' => '2026-10-21 18:30:00']], $this->ajustes($this->colaborador));
     }
 
     #[TestDox('A página que volta com erro mantém a cabeça que a tela mandou: com outro ajuste no meio, o envio seguinte é "mudou"')]
@@ -174,7 +174,7 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         $this->ajustar($this->colaborador, "b{$id}", '', '18:30:00');   // outro ajuste entra depois que a tela abriu
 
         $crawler = $this->client->request('POST', $this->ficha($this->colaborador) . "/ponto/b{$id}/ajustar", [
-            'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => '19:00:00', 'tipo' => 'saida', 'motivo' => ''],
+            'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => '', 'tipo' => 'saida', 'motivo' => 'Teste.'],
             'cabeca' => '',
             'competencia' => self::COMPETENCIA,
             '_token' => 'TOKEN_ponto_ajustar',
@@ -237,15 +237,14 @@ final class AjusteDeBatidaControllerTest extends JusPrimeWebTestCase
         self::assertSame('batida_desconsiderada', $this->ultimaAcaoNaTrilha());
     }
 
-    #[TestDox('Desconsiderar sem motivo: o aviso pede o motivo e nada é gravado')]
+    #[TestDox('Desconsiderar sem motivo: o motivo é opcional, a batida sai da conta com o texto padrão')]
     public function testDesconsiderarSemMotivo(): void
     {
         $id = $this->batida($this->colaborador, 'saida', '2026-10-21 18:00:00');
 
         $this->desconsiderar($this->colaborador, "b{$id}", '   ');
 
-        self::assertSame([AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO], $this->avisos('danger'));
-        self::assertSame([], $this->ajustes($this->colaborador));
+        self::assertSame([['tipo' => 'desconsideracao', 'motivo' => GravacaoDoAjusteDoPonto::MOTIVO_NAO_INFORMADO, 'data_hora_nova' => null]], $this->ajustes($this->colaborador));
     }
 
     #[TestDox('Fora da conta: o "x" da inclusão (a{id}) e o da batida ajustada mandam a cabeça da linhagem e desconsideram de verdade')]

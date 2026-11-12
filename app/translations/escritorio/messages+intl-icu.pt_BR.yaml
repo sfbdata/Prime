@@ -138,7 +138,7 @@ escritorio:
         batida_repouso: Repouso
         batida_retorno: Retorno
         batida_saida: Saída
-        # E10: toda correção de batida diz por quê (incluir, desconsiderar, restaurar).
+        # E10: o motivo da correção de batida é opcional (incluir, ajustar, desconsiderar, restaurar).
         batida_motivo: Motivo
         opcional: (opcional)
         batida_motivo_dica: Por que a batida entra na folha

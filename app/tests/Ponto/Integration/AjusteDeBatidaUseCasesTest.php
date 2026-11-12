@@ -143,17 +143,16 @@ final class AjusteDeBatidaUseCasesTest extends KernelTestCase
     #[TestDox('Incluir sem motivo é recusado e nada é gravado')]
     public function testIncluirSemMotivo(): void
     {
-        $motivo = $this->motivoDaRecusa(fn () => $this->incluir()->executar(new IncluirBatidaInput(
+        $ajuste = $this->incluir()->executar(new IncluirBatidaInput(
             $this->escritorio,
             $this->pessoa,
             'saida',
             new \DateTimeImmutable('2026-10-21 18:00:00'),
             '   ',
             $this->gestora,
-        )));
+        ));
 
-        self::assertSame(AjusteDeBatidaRecusadoException::SEM_MOTIVO, $motivo);
-        $this->assertNadaGravado();
+        self::assertSame(GravacaoDoAjusteDoPonto::MOTIVO_NAO_INFORMADO, $ajuste->getMotivo());
     }
 
     // ------------------------------------------------------------------------------------------------- Ajustar

@@ -42,6 +42,9 @@ final class GravacaoDoAjusteDoPonto
     /** O mesmo limite do CHECK `chk_ponto_ajuste_motivo`. */
     private const MOTIVO_MAXIMO = 2000;
 
+    /** O motivo é opcional na tela; em branco, o ajuste grava este texto (o CHECK exige ao menos 1 caractere). */
+    public const MOTIVO_NAO_INFORMADO = 'Motivo não informado.';
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly TrilhaDoPonto $trilha,
@@ -155,12 +158,12 @@ final class GravacaoDoAjusteDoPonto
         return $restauracao;
     }
 
-    /** O motivo sem os espaços das pontas, de 1 a 2000 caracteres (o CHECK do banco mede igual). */
+    /** O motivo sem os espaços das pontas, até 2000 caracteres; em branco vira o texto padrão (o CHECK do banco exige de 1 a 2000). */
     private static function motivoValido(string $motivo): string
     {
         $motivo = trim($motivo);
         if ($motivo === '') {
-            throw AjusteDeBatidaRecusadoException::semMotivo();
+            return self::MOTIVO_NAO_INFORMADO;
         }
         if (mb_strlen($motivo) > self::MOTIVO_MAXIMO) {
             throw AjusteDeBatidaRecusadoException::motivoLongo();

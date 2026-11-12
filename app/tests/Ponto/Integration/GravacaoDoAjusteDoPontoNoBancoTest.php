@@ -213,7 +213,7 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         self::assertSame($antes, [$this->quantosAjustes(), $this->quantosEventos()]);
     }
 
-    #[TestDox('Recusas não gravam nada (nem na trilha): motivo vazio, motivo acima de 2000, horário futuro, alteração igual, ajuste em batida fora da conta')]
+    #[TestDox('Recusas não gravam nada (nem na trilha): motivo acima de 2000, horário futuro, alteração igual, ajuste em batida fora da conta')]
     public function testRecusasNaoGravam(): void
     {
         $batida = $this->batida('saida', '2026-10-21 18:00:00');
@@ -221,7 +221,6 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         $antes = [$this->quantosAjustes(), $this->quantosEventos()];
 
         $casos = [
-            AjusteDeBatidaRecusadoException::SEM_MOTIVO => fn () => $this->gravacao->alterar($alvo, 'saida', new \DateTimeImmutable('2026-10-21 18:30:00'), "  \n ", $this->gestora),
             'motivo longo'                              => fn () => $this->gravacao->incluir($this->escritorio, $this->pessoa, 'saida', new \DateTimeImmutable('2026-10-21 18:30:00'), str_repeat('a', 2001), $this->gestora, null),
             AjusteDeBatidaRecusadoException::FUTURO     => fn () => $this->gravacao->incluir($this->escritorio, $this->pessoa, 'saida', new \DateTimeImmutable('2026-10-22 12:00:01'), 'Futuro.', $this->gestora, null),
             'futuro na alteração'                       => fn () => $this->gravacao->alterar($alvo, 'saida', new \DateTimeImmutable('2026-10-23 08:00:00'), 'Futuro.', $this->gestora),
@@ -233,7 +232,6 @@ final class GravacaoDoAjusteDoPontoNoBancoTest extends KernelTestCase
         }
 
         self::assertSame([
-            AjusteDeBatidaRecusadoException::SEM_MOTIVO => AjusteDeBatidaRecusadoException::SEM_MOTIVO,
             'motivo longo'                              => AjusteDeBatidaRecusadoException::MOTIVO_LONGO,
             AjusteDeBatidaRecusadoException::FUTURO     => AjusteDeBatidaRecusadoException::FUTURO,
             'futuro na alteração'                       => AjusteDeBatidaRecusadoException::FUTURO,
