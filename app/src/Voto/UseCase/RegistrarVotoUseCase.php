@@ -133,6 +133,9 @@ final class RegistrarVotoUseCase
         if ([] === $opcoesIds) {
             throw new OperacaoInvalidaNaAssembleiaException(self::OPCAO_INVALIDA);
         }
+        if ([] !== array_filter($opcoesIds, static fn (int $id): bool => $id < 1)) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::OPCAO_INVALIDA);
+        }
         if (\count($opcoesIds) !== \count(array_unique($opcoesIds))) {
             throw new OperacaoInvalidaNaAssembleiaException(self::NOME_REPETIDO);
         }

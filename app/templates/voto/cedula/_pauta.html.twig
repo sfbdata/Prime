@@ -54,7 +54,7 @@
                                 {% if opcao.abstencao %}
                                     <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao vcOpcaoAbstencao">{{ 'voto.assembleia.cedula.abstencao'|trans }}</button>
                                 {% else %}
-                                    <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao"><b>{{ opcao.numero }}</b> {{ opcao.rotulo }}</button>
+                                    <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao"><b>{{ ('%0' ~ pauta.digitos ~ 'd')|format(opcao.numero) }}</b> {{ opcao.rotulo }}</button>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}

@@ -532,7 +532,9 @@
         }
         marcaTecla('c');
         tocar([[294, 0.09]], 0.06);
-        definir({dig: '', branco: false, escolhas: []});
+        // Com número digitado ou abstenção, limpa só isso; sem nada digitado, desfaz o último nome escolhido.
+        var restantes = (c.dig || c.branco) ? c.escolhas : c.escolhas.slice(0, -1);
+        definir({dig: '', branco: false, escolhas: restantes});
     }
 
     function confirma() {
