@@ -164,7 +164,23 @@
         return pautas()[c.i];
     }
 
+    function vagasDa(p) {
+        return p.vagas > 1 ? p.vagas : 1;
+    }
+
+    /* Número da opção com zeros à esquerda, pelos dígitos da pauta (a coluna é inteira). */
+    function numeroDe(p, o) {
+        var t = String(o.numero);
+        while (t.length < digitosDa(p)) {
+            t = '0' + t;
+        }
+        return t;
+    }
+
     function digitosDa(p) {
+        if (p.digitos > 0) {
+            return p.digitos;
+        }
         var n = 1;
         p.opcoes.forEach(function (o) {
             if (!o.abstencao) {
@@ -176,7 +192,7 @@
 
     function opcaoPorNumero(p, numero) {
         for (var k = 0; k < p.opcoes.length; k++) {
-            if (!p.opcoes[k].abstencao && String(p.opcoes[k].numero) === numero) {
+            if (!p.opcoes[k].abstencao && numeroDe(p, p.opcoes[k]) === numero) {
                 return p.opcoes[k];
             }
         }
@@ -190,6 +206,10 @@
             }
         }
         return null;
+    }
+
+    function jaEscolhida(o) {
+        return c.escolhas.some(function (e) { return e.id === o.id; });
     }
 
     function podeTeclar() {
@@ -234,6 +254,12 @@
         var col = el('div', 'uCol');
         col.appendChild(el('div', 'uSeuVoto', texto('seu_voto_para')));
         col.appendChild(el('div', 'uCargo', p.titulo));
+        if (vagasDa(p) > 1) {
+            col.appendChild(el('div', 'uEscolhaDe', texto('escolha_de', {k: String(c.escolhas.length + 1), n: String(vagasDa(p))})));
+            c.escolhas.forEach(function (o) {
+                col.appendChild(el('div', 'uEscolhido', numeroDe(p, o) + ' · ' + o.rotulo));
+            });
+        }
         if (!c.branco) {
             var nums = el('div', 'uNums');
             nums.appendChild(el('span', 'uNumRot', texto('numero')));
@@ -244,6 +270,11 @@
         }
         if (c.branco) {
             col.appendChild(el('div', 'uFade uGrande', texto('abstencao')));
+        } else if (achou && jaEscolhida(achou)) {
+            var rep = el('div', 'uFade');
+            rep.appendChild(el('div', 'uGrande', texto('nome_repetido')));
+            rep.appendChild(el('div', 'uInvalidoDica', texto('numero_invalido_dica')));
+            col.appendChild(rep);
         } else if (invalido) {
             var n = el('div', 'uFade');
             n.appendChild(el('div', 'uGrande', texto('numero_invalido')));
@@ -256,7 +287,7 @@
         }
         linha.appendChild(col);
         wrap.appendChild(linha);
-        if (achou || c.branco) {
+        if ((achou && !jaEscolhida(achou)) || c.branco || (c.escolhas.length > 0 && !c.dig)) {
             var rod = el('div', 'uRod uFade');
             rod.appendChild(document.createTextNode(texto('rodape_titulo')));
             rod.appendChild(document.createElement('br'));
@@ -270,9 +301,9 @@
             var dica = el('div', 'uRod uRodDica');
             var s = el('span', 'uRodTx');
             s.appendChild(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
-                return o.numero + ' = ' + o.rotulo;
+                return numeroDe(p, o) + ' = ' + o.rotulo;
             }).join('     ')));
-            s.appendChild(document.createTextNode(texto('dica')));
+            s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto('dica')));
             dica.appendChild(s);
             dica.appendChild(botao(texto('conhecer'), 'bi-person-lines-fill', '', function () { definir({ver: true}); }));
             wrap.appendChild(dica);
@@ -408,7 +439,7 @@
                 var card = el('div', 'uCard');
                 card.appendChild(el('span', 'vAv', iniciais(o.rotulo)));
                 var tx = el('div', 'uCardTx');
-                tx.appendChild(el('b', 'uCardNome', o.abstencao ? o.rotulo : o.numero + ' · ' + o.rotulo));
+                tx.appendChild(el('b', 'uCardNome', o.abstencao ? o.rotulo : numeroDe(p, o) + ' · ' + o.rotulo));
                 card.appendChild(tx);
                 g.appendChild(card);
             });
@@ -487,7 +518,7 @@
             return;
         }
         marcaTecla('b');
-        if (c.dig || !opcaoAbstencao(pautaAtual())) {
+        if (c.dig || c.escolhas.length > 0 || !opcaoAbstencao(pautaAtual())) {
             tocar(SOM_RECUSA, 0.05);
             return;
         }
@@ -501,7 +532,9 @@
         }
         marcaTecla('c');
         tocar([[294, 0.09]], 0.06);
-        definir({dig: '', branco: false});
+        // Com número digitado ou abstenção, limpa só isso; sem nada digitado, desfaz o último nome escolhido.
+        var restantes = (c.dig || c.branco) ? c.escolhas : c.escolhas.slice(0, -1);
+        definir({dig: '', branco: false, escolhas: restantes});
     }
 
     function confirma() {
@@ -517,17 +550,33 @@
         }
         marcaTecla('o');
         var p = pautaAtual();
+        // Várias vagas: sem número digitado, CONFIRMA fecha a pauta com os nomes já escolhidos (se houver algum).
+        if (!c.branco && !c.dig && c.escolhas.length > 0) {
+            avancar(p, c.escolhas);
+            return;
+        }
         var escolhida = c.branco ? opcaoAbstencao(p) : opcaoPorNumero(p, c.dig);
-        // Número incompleto ou sem opção: a urna recusa e não grava (o eleitor corrige; voto nulo não existe aqui).
-        if (!escolhida) {
+        // Número incompleto ou sem opção, ou nome já escolhido: a urna recusa e não grava (o eleitor corrige; voto nulo não existe aqui).
+        if (!escolhida || (!c.branco && jaEscolhida(escolhida))) {
             tocar(SOM_RECUSA, 0.05);
             return;
         }
         piscaLeds();
-        var votos = c.votos.concat([{pauta: p.id, opcao: escolhida.id}]);
+        var escolhas = c.branco ? [escolhida] : c.escolhas.concat([escolhida]);
+        if (!c.branco && escolhas.length < vagasDa(p)) {
+            tocar(SOM_OK);
+            definir({escolhas: escolhas, dig: ''});
+            return;
+        }
+        avancar(p, escolhas);
+    }
+
+    /* Fecha a pauta com as opções escolhidas e vai à próxima, ou grava se era a última. */
+    function avancar(p, escolhas) {
+        var votos = c.votos.concat([{pauta: p.id, opcoes: escolhas.map(function (o) { return o.id; })}]);
         if (c.i + 1 < pautas().length) {
             tocar(SOM_OK);
-            definir({votos: votos, i: c.i + 1, dig: '', branco: false});
+            definir({votos: votos, i: c.i + 1, dig: '', branco: false, escolhas: []});
             return;
         }
         definir({votos: votos, fase: 'grava'});
@@ -550,7 +599,7 @@
     function enviarUm(voto) {
         var corpo = new URLSearchParams();
         corpo.set('_token', D.csrf);
-        corpo.set('opcao', String(voto.opcao));
+        voto.opcoes.forEach(function (id) { corpo.append('opcao[]', String(id)); });
         return fetch(D.urlVotar.replace('__PAUTA__', String(voto.pauta)), {
             method: 'POST',
             body: corpo,
@@ -608,7 +657,7 @@
         if (!c) {
             ultimoFoco = document.activeElement;
         }
-        c = {fase: 'inicio', sim: !!simulacao, soVer: !!soVer, i: 0, dig: '', branco: false, votos: [], ver: !!soVer, erro: '', comprovantes: []};
+        c = {fase: 'inicio', sim: !!simulacao, soVer: !!soVer, i: 0, dig: '', branco: false, escolhas: [], votos: [], ver: !!soVer, erro: '', comprovantes: []};
         raiz.hidden = false;
         document.body.classList.add('uAberta');
         desenhar();

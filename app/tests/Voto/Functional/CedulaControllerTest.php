@@ -13,6 +13,7 @@ use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Factory\Voto\AssembleiaFactory;
 use App\Tests\Factory\Voto\OpcaoDaPautaFactory;
+use App\Tests\Factory\Voto\ParticipacaoNaPautaFactory;
 use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -297,6 +298,44 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame($corpo['comprovante'], $this->codigoDaParticipacao(), 'o código sai da participação gravada (hora em segundos)');
     }
 
+    #[TestDox('Pauta de 2 vagas: a reserva mostra caixas (opcao[]) com o número em zeros à esquerda e o POST com dois nomes grava os dois contadores')]
+    public function testVotarComDoisNomes(): void
+    {
+        (new \ReflectionProperty($this->pauta, 'vagas'))->setValue($this->pauta, 2);
+        (new \ReflectionProperty($this->pauta, 'digitos'))->setValue($this->pauta, 2);
+        $this->em->flush();
+        $pagina = $this->client->request('GET', $this->link());
+        self::assertGreaterThanOrEqual(3, $pagina->filter('input[type=checkbox][name="opcao[]"]')->count(), 'duas opções de voto e a abstenção');
+        self::assertStringContainsString('<b>01</b>', (string) $this->client->getResponse()->getContent());
+        $dados = $this->dadosDaCabine($pagina);
+        [$sim, $nao] = [$this->opcao(1), $this->opcao(2)];
+
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => [(string) $sim->getId(), (string) $nao->getId()],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([1, '0.025000'], $this->contador($sim));
+        self::assertSame([1, '0.025000'], $this->contador($nao));
+    }
+
+    #[TestDox('Pauta de uma vaga: dois nomes no POST são recusados em JSON (422) e nada é gravado')]
+    public function testDoisNomesNaVagaUnica(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        [$sim, $nao] = [$this->opcao(1), $this->opcao(2)];
+
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => [(string) $sim->getId(), (string) $nao->getId()],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame([0, '0.000000'], $this->contador($sim));
+        self::assertSame([0, '0.000000'], $this->contador($nao));
+    }
+
     #[TestDox('Comprovante: o código não traz a opção (votos diferentes na mesma pauta e hora têm códigos de unidades diferentes) e a conferência pública acha a pauta')]
     public function testConferenciaPublicaDoComprovante(): void
     {
@@ -421,7 +460,9 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         OpcaoDaPautaFactory::new()->comVotos(3, '0.600000')->create(['pauta' => $encerrada, 'numero' => 1, 'rotulo' => 'Sim']);
         OpcaoDaPautaFactory::new()->comVotos(1, '0.100000')->create(['pauta' => $encerrada, 'numero' => 2, 'rotulo' => 'Não']);
         OpcaoDaPautaFactory::new()->abstencao()->comVotos(1, '0.050000')->create(['pauta' => $encerrada]);
-        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        // A presença do quórum vem das participações (uma por unidade), não da soma dos contadores das opções.
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $encerrada]);
         $this->em->clear();
 
         $crawler = $this->client->request('GET', $this->link());
@@ -464,6 +505,44 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('/^Encerra em 0[45]:\d{2}\.$/', $prazo->filter('[data-vc-prazo-texto]')->text());
         self::assertGreaterThan(200, (int) $prazo->attr('data-vc-prazo'));
         self::assertSame('Encerra em {t}.', $prazo->attr('data-vc-modelo'));
+    }
+
+    #[TestDox('Resultado de duas vagas na cédula mostra todos os eleitos na faixa e na decisão verde')]
+    public function testResultadoComTodosOsEleitos(): void
+    {
+        $this->pautaEncerradaComVariasVagas();
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertResponseIsSuccessful();
+        $resultado = $crawler->filter('.vcMain > .vcPauta')->eq(1)->filter('.vcResultado');
+        self::assertSame('Conselho: Eleitos: 1 Ana, 2 Bia', $resultado->filter('div.vcResumo')->text());
+        self::assertSame('Eleitos: 1 Ana, 2 Bia', $resultado->filter('.vcDecisao.vcMsgVerde')->text());
+        self::assertCount(3, $resultado->filter('.vcItem > .vcItemNome'));
+    }
+
+    #[TestDox('Empate na última vaga na cédula: situação na faixa e decisão vermelha, sem eleitos')]
+    public function testResultadoComEmpateNaUltimaVaga(): void
+    {
+        $this->pautaEncerradaComVariasVagas(true);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertResponseIsSuccessful();
+        $resultado = $crawler->filter('.vcMain > .vcPauta')->eq(1)->filter('.vcResultado');
+        self::assertSame('Conselho: Empate na última vaga', $resultado->filter('div.vcResumo')->text());
+        self::assertSame('Empate na última vaga', $resultado->filter('.vcDecisao.vcMsgVermelho')->text());
+        self::assertCount(0, $resultado->filter('.vcMsgVerde'));
+        self::assertStringNotContainsString('Eleitos:', $resultado->text());
+    }
+
+    private function pautaEncerradaComVariasVagas(bool $empate = false): void
+    {
+        $pauta = PautaDaAssembleiaFactory::new()->encerrada()->create([
+            'assembleia' => $this->assembleia, 'ordem' => 2, 'titulo' => 'Conselho', 'vagas' => 2,
+        ])->_real();
+        foreach ([1 => ['Ana', 2, '0.700000'], 2 => ['Bia', 1, '0.400000'], 3 => ['Caio', 1, $empate ? '0.400000' : '0.300000']] as $numero => [$nome, $unidades, $peso]) {
+            OpcaoDaPautaFactory::new()->comVotos($unidades, $peso)->create(['pauta' => $pauta, 'numero' => $numero, 'rotulo' => $nome]);
+        }
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $pauta]);
+        $this->em->clear();
     }
 
     private function link(): string

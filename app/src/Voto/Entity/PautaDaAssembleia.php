@@ -7,8 +7,10 @@ namespace App\Voto\Entity;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -19,7 +21,9 @@ use Doctrine\ORM\Mapping as ORM;
  * Pauta da assembleia de condomínio (spec docs/specs/voto-assembleia-condominio.md, seções 1 e 3): cada pauta é uma
  * votação com estado próprio, aberta e encerrada pela mesa (aguardando, aberta, encerrada).
  *
- * Abrir grava a convocação e o quórum exigido (50% na 1ª, 0% na 2ª). O prazo é opcional; vencido, a pauta deixa de
+ * As regras da pauta (critério, base, dígitos, vagas e quórum de cada convocação) ficam definidas no rascunho e param
+ * de mudar quando a assembleia é publicada; o padrão é o de sempre (mais votos, válidos, 1 dígito, 1 vaga, quórum
+ * 50% na 1ª e 0% na 2ª). Abrir grava a convocação e o quórum exigido dela. O prazo é opcional; vencido, a pauta deixa de
  * aceitar voto e é encerrada na primeira leitura depois dele com o motivo "Prazo definido pela mesa"
  * ({@see encerrarSePrazoVenceu()}).
  *
@@ -35,8 +39,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     /** Motivo do encerramento pelo prazo vencido. */
     public const MOTIVO_DO_PRAZO = 'Prazo definido pela mesa';
 
-    /** Quórum exigido (% do peso apto) por convocação. */
-    private const QUORUM_POR_CONVOCACAO = [1 => '50.00', 2 => '0.00'];
+    public const VAGAS_MAXIMO = 9;
+    public const DIGITOS_MAXIMO = 5;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -49,6 +53,26 @@ class PautaDaAssembleia implements TenantAware, Auditavel
 
     #[ORM\Column(length: 12, enumType: EstadoDaPauta::class)]
     private EstadoDaPauta $estado = EstadoDaPauta::Aguardando;
+
+    #[ORM\Column(length: 12, enumType: RegraDeDecisao::class, options: ['default' => 'mais'])]
+    private RegraDeDecisao $criterio = RegraDeDecisao::Mais;
+
+    #[ORM\Column(length: 12, enumType: BaseDaDecisao::class, options: ['default' => 'validos'])]
+    private BaseDaDecisao $base = BaseDaDecisao::Validos;
+
+    #[ORM\Column(type: 'smallint', options: ['default' => 1])]
+    private int $digitos = 1;
+
+    #[ORM\Column(type: 'smallint', options: ['default' => 1])]
+    private int $vagas = 1;
+
+    /** Quórum da 1ª convocação (% do peso apto). */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, options: ['default' => 50])]
+    private string $quorumPrimeira = '50.00';
+
+    /** Quórum da 2ª convocação; nulo repete o da 1ª (como o desenho). */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true, options: ['default' => 0])]
+    private ?string $quorumSegunda = '0.00';
 
     #[ORM\Column(type: 'smallint', nullable: true)]
     private ?int $convocacao = null;
@@ -105,7 +129,34 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     }
 
     /**
-     * A mesa abre a pauta: assembleia publicada e pauta aguardando. Convocação 1 ou 2 (quórum 50% ou 0%); prazo
+     * Define as regras da pauta (só em rascunho): critério, base, dígitos dos números (1 a 5), vagas (1 a 9) e quórum
+     * de 0 a 100% na 1ª e, opcional, na 2ª convocação (nulo: repete o da 1ª).
+     */
+    public function configurar(
+        RegraDeDecisao $criterio,
+        BaseDaDecisao $base,
+        int $digitos,
+        int $vagas,
+        int $quorumPrimeira,
+        ?int $quorumSegunda,
+    ): void {
+        $this->assembleia->exigirPautasAlteraveis();
+        self::exigirEntre($digitos, 1, self::DIGITOS_MAXIMO, 'Os dígitos do número vão de 1 a ' . self::DIGITOS_MAXIMO . '.');
+        self::exigirEntre($vagas, 1, self::VAGAS_MAXIMO, 'As vagas vão de 1 a ' . self::VAGAS_MAXIMO . '.');
+        self::exigirEntre($quorumPrimeira, 0, 100, 'O quórum vai de 0 a 100%.');
+        if (null !== $quorumSegunda) {
+            self::exigirEntre($quorumSegunda, 0, 100, 'O quórum vai de 0 a 100%.');
+        }
+        $this->criterio = $criterio;
+        $this->base = $base;
+        $this->digitos = $digitos;
+        $this->vagas = $vagas;
+        $this->quorumPrimeira = self::percentual($quorumPrimeira);
+        $this->quorumSegunda = null === $quorumSegunda ? null : self::percentual($quorumSegunda);
+    }
+
+    /**
+     * A mesa abre a pauta: assembleia publicada e pauta aguardando. Convocação 1 ou 2 (o quórum é o da pauta para ela); prazo
      * opcional, sempre no futuro.
      */
     public function abrir(string $nome, int $convocacao, ?\DateTimeImmutable $prazoAte, ?\DateTimeImmutable $agora = null): void
@@ -116,7 +167,7 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         }
         $this->exigirEstado(EstadoDaPauta::Aguardando, 'Esta pauta já foi aberta.');
         $this->exigirPrazoNoFuturo($prazoAte, $agora);
-        $this->quorumExigido = self::quorumDaConvocacao($convocacao);
+        $this->quorumExigido = $this->quorumDaConvocacao($convocacao);
         $this->convocacao = $convocacao;
         $this->estado = EstadoDaPauta::Aberta;
         $this->abertaEm = $agora;
@@ -226,6 +277,39 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         return $this->convocacao;
     }
 
+    public function getCriterio(): RegraDeDecisao
+    {
+        return $this->criterio;
+    }
+
+    public function getBase(): BaseDaDecisao
+    {
+        return $this->base;
+    }
+
+    /** Quantos dígitos tem o número de cada opção (1 a 5). */
+    public function getDigitos(): int
+    {
+        return $this->digitos;
+    }
+
+    /** Quantos nomes a pauta elege (1 a 9); com mais de um, o eleitor escolhe até esse tanto. */
+    public function getVagas(): int
+    {
+        return $this->vagas;
+    }
+
+    public function getQuorumPrimeira(): string
+    {
+        return $this->quorumPrimeira;
+    }
+
+    /** Nulo quando a 2ª convocação repete o quórum da 1ª. */
+    public function getQuorumSegunda(): ?string
+    {
+        return $this->quorumSegunda;
+    }
+
     /** Percentual do peso apto com duas casas ("50.00", "0.00"); null enquanto aguardando. */
     public function getQuorumExigido(): ?string
     {
@@ -312,10 +396,25 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         }
     }
 
-    private static function quorumDaConvocacao(int $convocacao): string
+    private function quorumDaConvocacao(int $convocacao): string
     {
-        return self::QUORUM_POR_CONVOCACAO[$convocacao]
-            ?? throw new OperacaoInvalidaNaAssembleiaException('Escolha a 1ª ou a 2ª convocação.');
+        return match ($convocacao) {
+            1 => $this->quorumPrimeira,
+            2 => $this->quorumSegunda ?? $this->quorumPrimeira,
+            default => throw new OperacaoInvalidaNaAssembleiaException('Escolha a 1ª ou a 2ª convocação.'),
+        };
+    }
+
+    private static function exigirEntre(int $valor, int $minimo, int $maximo, string $mensagem): void
+    {
+        if ($valor < $minimo || $valor > $maximo) {
+            throw new OperacaoInvalidaNaAssembleiaException($mensagem);
+        }
+    }
+
+    private static function percentual(int $valor): string
+    {
+        return sprintf('%d.00', $valor);
     }
 
     private static function tituloValido(string $titulo): string

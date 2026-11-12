@@ -40,13 +40,24 @@
                     <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
                     <div class="vcDica">{{ 'voto.assembleia.cedula.dica'|trans }}</div>
                     <div class="vcOpcoes" role="group" aria-label="{{ 'voto.assembleia.cedula.opcoes'|trans }}">
-                        {% for opcao in pauta.opcoes %}
-                            {% if opcao.abstencao %}
-                                <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao vcOpcaoAbstencao">{{ 'voto.assembleia.cedula.abstencao'|trans }}</button>
-                            {% else %}
-                                <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao"><b>{{ opcao.numero }}</b> {{ opcao.rotulo }}</button>
-                            {% endif %}
-                        {% endfor %}
+                        {% if pauta.variasVagas() %}
+                            {# Várias vagas: caixas de marcar (até as vagas, conferido no servidor) e um botão só. A abstenção vale sozinha. #}
+                            {% for opcao in pauta.opcoes %}
+                                <label class="vcOpcao{{ opcao.abstencao ? ' vcOpcaoAbstencao' : '' }}">
+                                    <input type="checkbox" name="opcao[]" value="{{ opcao.id }}">
+                                    {% if opcao.abstencao %}{{ 'voto.assembleia.cedula.abstencao'|trans }}{% else %}<b>{{ ('%0' ~ pauta.digitos ~ 'd')|format(opcao.numero) }}</b> {{ opcao.rotulo }}{% endif %}
+                                </label>
+                            {% endfor %}
+                            <button type="submit" class="vB vP">{{ 'voto.assembleia.cedula.cabine.votar'|trans }}</button>
+                        {% else %}
+                            {% for opcao in pauta.opcoes %}
+                                {% if opcao.abstencao %}
+                                    <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao vcOpcaoAbstencao">{{ 'voto.assembleia.cedula.abstencao'|trans }}</button>
+                                {% else %}
+                                    <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao"><b>{{ ('%0' ~ pauta.digitos ~ 'd')|format(opcao.numero) }}</b> {{ opcao.rotulo }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
                     </div>
                 </form>
             </div>

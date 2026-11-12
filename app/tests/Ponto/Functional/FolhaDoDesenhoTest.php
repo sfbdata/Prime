@@ -74,9 +74,9 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $tela->filter(self::FOLHA), 'a folha é a primeira coisa da coluna da direita');
         self::assertSame(
-            ['i', 'span.pe-folha-titulo', 'select.pe-folha-mes', 'span.pe-folha-espaco', 'button', 'button', 'button'],
+            ['i', 'span.pe-folha-titulo', 'select.pe-folha-mes', 'span.pe-folha-espaco', 'button'],
             $tela->filter(self::BARRA . ' > *')->each(static fn (Crawler $no): string => $no->nodeName() . (in_array($no->nodeName(), ['span', 'select'], true) ? '.' . explode(' ', (string) $no->attr('class'))[0] : '')),
-            'a barra na ordem do desenho; os botões que o desenho não tem (P88 e P89, ficam) antes do Baixar PDF (decisão 11)'
+            'a barra na ordem do desenho, só com o Baixar PDF (sem Ver PDF nem Baixar XLSX)'
         );
         self::assertCount(1, $tela->filter(self::BARRA . ' > i.bi.bi-table:first-child'));
         self::assertSame('Folha de Ponto', trim($tela->filter(self::BARRA . ' > span.pe-folha-titulo')->text()));
@@ -89,37 +89,26 @@ final class FolhaDoDesenhoTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter(sprintf('form#%s[method="get"]', $mes->attr('form'))), 'o formulário do mês mora fora da barra');
 
         self::assertSame(
-            ['Ver PDF', 'Baixar XLSX', 'Baixar PDF'],
+            ['Baixar PDF'],
             $tela->filter(self::BARRA . ' > button.pe-folha-btn')->each(static fn (Crawler $no): string => trim($no->text()))
         );
         $baixar = $tela->filter(self::BARRA . ' > button:last-child');
         self::assertCount(1, $baixar->filter('i.bi-file-earmark-pdf'), 'Baixar PDF é o último da barra');
         self::assertStringContainsString('/ponto/exportar-folha-pdf?ano=', (string) $baixar->attr('data-folha-pdf'), 'P87: baixa direto, com o aviso flutuante (E16)');
         self::assertStringNotContainsString('inline', (string) $baixar->attr('data-folha-pdf'));
-        self::assertStringContainsString('/ponto/exportar-folha-xlsx?ano=', (string) $tela->filter(self::BARRA . ' > button.pe-folha-btn')->eq(1)->attr('data-folha-baixar'), 'P88: o XLSX fica');
-        $ver = $tela->filter(self::BARRA . ' > button.pe-folha-btn:first-of-type');
-        self::assertStringContainsString('inline=1', (string) $ver->attr('data-folha-ver'), 'P89: ver antes de baixar fica, na janela do desenho (E16)');
+        self::assertCount(0, $tela->filter(self::BARRA . ' [data-folha-ver], ' . self::BARRA . ' [data-folha-baixar]'), 'sem "Ver PDF" nem "Baixar XLSX"');
         self::assertCount(0, $tela->filter(self::BARRA . ' [data-folha-assinar]'), 'o mês aberto não tem "Assinar folha" (E16)');
     }
 
-    #[TestDox('O "Ver PDF" abre a janela do desenho (E16, decisão 12): o modal do Bootstrap não volta')]
-    public function testVerPdfNaJanelaDoDesenho(): void
+    #[TestDox('Sem "Ver PDF": a janela dele saiu e o modal do Bootstrap não volta')]
+    public function testSemVerPdf(): void
     {
         $tela = $this->tela();
 
         self::assertCount(0, $tela->filter('#modalPreviewFolhaPonto'), 'o modal do Bootstrap saiu');
         self::assertCount(0, $tela->filter('[data-bs-target="#modalPreviewFolhaPonto"]'));
         self::assertCount(0, $tela->filter(self::BARRA . ' [data-bs-toggle]'), 'nenhum botão da barra abre componente do Bootstrap');
-
-        $janela = $tela->filter(self::REGIAO . ' > div.pe-folha.pe-folha-janelas > div.pe-janela-fundo#ponto-janela-ver-pdf[hidden] > div.pe-janela[role="dialog"][aria-modal="true"]');
-        self::assertCount(1, $janela, 'a janela fica fora do cartão da folha, que a batida troca');
-        self::assertSame(
-            ['div.pe-janela-topo', 'div.pe-janela-corpo', 'div.pe-janela-erro', 'div.pe-janela-rodape'],
-            $janela->children()->each(static fn (Crawler $no): string => $no->nodeName() . '.' . explode(' ', (string) $no->attr('class'))[0]),
-        );
-        self::assertMatchesRegularExpression('#^Folha de Ponto \d{2}/\d{4}$#', trim($janela->filter('.pe-janela-topo > b.pe-janela-titulo')->text()));
-        self::assertSame(['Fechar', 'Baixar'], $janela->filter('.pe-janela-rodape > button')->each(static fn (Crawler $no): string => trim($no->text())));
-        self::assertNotNull($janela->filter('.pe-janela-rodape > button[data-folha-ver-baixar]')->attr('disabled'), 'o Baixar espera o PDF chegar');
+        self::assertCount(0, $tela->filter('#ponto-janela-ver-pdf'), 'a janela do "Ver PDF" saiu');
         self::assertCount(1, $tela->filter('script[src*="js/ponto-folha.js"]'));
     }
 

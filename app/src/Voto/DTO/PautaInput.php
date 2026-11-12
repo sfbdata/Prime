@@ -6,7 +6,7 @@ namespace App\Voto\DTO;
 
 /**
  * Uma pauta da assembleia como a tela envia: título, descrição e as linhas de opção (número e nome, como digitados).
- * A abstenção não vem daqui: é criada sozinha. Linha com número e nome vazios é ignorada.
+ * `regras` nulo mantém as regras da pauta (nova: as padrão). A abstenção não vem daqui: é criada sozinha. Linha com número e nome vazios é ignorada.
  */
 final readonly class PautaInput
 {
@@ -20,6 +20,7 @@ final readonly class PautaInput
         public string $titulo,
         public ?string $descricao,
         public array $opcoes,
+        public ?RegrasDaPautaInput $regras = null,
     ) {
     }
 

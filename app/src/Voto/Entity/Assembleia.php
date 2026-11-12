@@ -226,6 +226,9 @@ class Assembleia implements TenantAware, Auditavel
             if (\count($pauta->getOpcoesDeVoto()) < 2) {
                 throw new OperacaoInvalidaNaAssembleiaException(sprintf('A pauta "%s" precisa de ao menos duas opções.', $pauta->getTitulo()));
             }
+            if ($pauta->getVagas() > \count($pauta->getOpcoesDeVoto())) {
+                throw new OperacaoInvalidaNaAssembleiaException(sprintf('A pauta "%s" tem mais vagas (%d) do que candidaturas.', $pauta->getTitulo(), $pauta->getVagas()));
+            }
         }
     }
 

@@ -53,4 +53,43 @@ final class OpcoesDaPautaTest extends TestCase
 
         (new OpcoesDaPauta())->validar('Obra', $linhas);
     }
+
+    #[TestDox('Com 2 dígitos o número tem exatamente 2 dígitos, com zero à esquerda se precisar')]
+    public function testDoisDigitos(): void
+    {
+        $opcoes = (new OpcoesDaPauta())->validar('Conselho', [
+            ['numero' => '12', 'rotulo' => 'Ana'],
+            ['numero' => '01', 'rotulo' => 'Bia'],
+        ], 2);
+
+        self::assertSame([['numero' => 1, 'rotulo' => 'Bia'], ['numero' => 12, 'rotulo' => 'Ana']], $opcoes);
+    }
+
+    /** @return iterable<string, array{string, int, string}> */
+    public static function numerosForaDosDigitos(): iterable
+    {
+        yield '1 dígito onde pede 2' => ['1', 2, 'Número 1 deve ter 2 dígito(s).'];
+        yield '3 dígitos onde pede 2' => ['123', 2, 'Número 123 deve ter 2 dígito(s).'];
+        yield '2 dígitos onde pede 1' => ['10', 1, 'Número 10 deve ter 1 dígito(s).'];
+        yield 'zeros são da abstenção' => ['00', 2, 'O número 0 é da abstenção.'];
+        yield '6 dígitos onde pede 5' => ['123456', 5, 'Número 123456 deve ter 5 dígito(s).'];
+    }
+
+    #[DataProvider('numerosForaDosDigitos')]
+    #[TestDox('Recusa número que não tem os dígitos da pauta: $_dataName')]
+    public function testNumeroForaDosDigitos(string $numero, int $digitos, string $mensagem): void
+    {
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage($mensagem);
+
+        (new OpcoesDaPauta())->validar('Obra', [['numero' => $numero, 'rotulo' => 'Sim']], $digitos);
+    }
+
+    #[TestDox('Com 5 dígitos o maior número (99999) vale')]
+    public function testCincoDigitos(): void
+    {
+        $opcoes = (new OpcoesDaPauta())->validar('Obra', [['numero' => '99999', 'rotulo' => 'Sim']], 5);
+
+        self::assertSame([['numero' => 99999, 'rotulo' => 'Sim']], $opcoes);
+    }
 }

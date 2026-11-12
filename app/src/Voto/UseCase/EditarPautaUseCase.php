@@ -15,7 +15,7 @@ use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\OpcoesDaPauta;
 
 /**
- * Altera título, descrição e opções de uma pauta da assembleia em rascunho. As opções de voto são trocadas pelas
+ * Altera título, descrição, regras (se a tela manda) e opções de uma pauta da assembleia em rascunho. As opções de voto são trocadas pelas
  * novas (em rascunho não há voto nenhum); a abstenção fica.
  */
 final class EditarPautaUseCase
@@ -34,8 +34,13 @@ final class EditarPautaUseCase
             ?? throw new AssembleiaNaoEncontradaException();
         $pauta = $this->pautas->buscarDaAssembleia($pautaId, $assembleia) ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
-        $novas = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes);
+        $digitos = $input->regras->digitos ?? $pauta->getDigitos();
+        $novas = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $digitos);
         $pauta->editar($input->titulo, $input->descricaoLimpa());
+        if (null !== $input->regras) {
+            $r = $input->regras;
+            $pauta->configurar($r->criterio, $r->base, $r->digitos, $r->vagas, $r->quorumPrimeira, $r->quorumSegunda);
+        }
         $this->trocarOpcoes($pauta, $novas);
         $this->pautas->salvar($pauta, flush: true);
     }

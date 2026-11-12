@@ -59,7 +59,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
 
     /** @var list<string> o que aconteceu, na ordem: begin, insert, gravar, somar, flush, commit, rollback */
     private array $passos = [];
-    /** @var list<array{OpcaoDaPauta, string}> */
+    /** @var list<array{list<OpcaoDaPauta>, string}> */
     private array $somados = [];
     /** @var list<ParticipacaoNaPauta> */
     private array $participacoesSalvas = [];
@@ -78,9 +78,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
             $this->passos[] = 'insert';
             $this->participacoesSalvas[] = $p;
         });
-        $this->opcoes->method('somarVoto')->willReturnCallback(function (OpcaoDaPauta $o, string $peso): void {
+        $this->opcoes->method('somarVotos')->willReturnCallback(function (array $escolhidas, string $peso): void {
             $this->passos[] = 'somar';
-            $this->somados[] = [$o, $peso];
+            $this->somados[] = [$escolhidas, $peso];
         });
         $this->opcoes->method('buscarDaPauta')->willReturnCallback(
             static function (int $id, PautaDaAssembleia $pauta): ?OpcaoDaPauta {
@@ -102,10 +102,10 @@ final class RegistrarVotoUseCaseTest extends TestCase
         [$unidade, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
         $sim = $this->opcao($pauta, 1);
 
-        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, (int) $sim->getId()));
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $sim->getId()));
 
         self::assertSame(['begin', 'insert', 'gravar', 'somar', 'flush', 'commit'], $this->passos);
-        self::assertSame([[$sim, '0.025000']], $this->somados);
+        self::assertSame([[[$sim], '0.025000']], $this->somados);
         self::assertCount(1, $this->participacoesSalvas);
         self::assertSame($unidade, $this->participacoesSalvas[0]->getUnidade());
         self::assertSame($pauta, $this->participacoesSalvas[0]->getPauta());
@@ -118,9 +118,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
         [, $pauta] = $this->cenario(PesoDoVoto::Unidade, '0.025000');
         $nao = $this->opcao($pauta, 2);
 
-        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, (int) $nao->getId()));
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $nao->getId()));
 
-        self::assertSame([[$nao, '1.000000']], $this->somados);
+        self::assertSame([[[$nao], '1.000000']], $this->somados);
     }
 
     #[TestDox('Abstenção é uma opção da pauta: soma no contador dela, com o peso da unidade')]
@@ -130,9 +130,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $abstencao = $pauta->getAbstencao();
         self::assertNotNull($abstencao);
 
-        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, (int) $abstencao->getId()));
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $abstencao->getId()));
 
-        self::assertSame([[$abstencao, '0.031000']], $this->somados);
+        self::assertSame([[[$abstencao], '0.031000']], $this->somados);
     }
 
     #[TestDox('Voto duplo: "Você já votou nesta pauta.", nada gravado nem somado, transação desfeita')]
@@ -153,7 +153,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $this->falhaAoGravar = new UniqueConstraintViolationException($this->createStub(ExcecaoDoDriver::class), null);
 
         try {
-            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
+            $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
             self::fail('O segundo voto devia parar no UNIQUE.');
         } catch (OperacaoInvalidaNaAssembleiaException $recusa) {
             self::assertSame(RegistrarVotoUseCase::JA_VOTOU, $recusa->getMessage());
@@ -221,7 +221,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
         [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
 
         $this->expectExceptionObject(new OperacaoInvalidaNaAssembleiaException(RegistrarVotoUseCase::PAUTA_NAO_ENCONTRADA));
-        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 777, (int) $this->opcao($pauta, 1)->getId()));
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 777, (int) $this->opcao($pauta, 1)->getId()));
     }
 
     #[TestDox('Token inexistente: CedulaNaoEncontrada (404), sem transação')]
@@ -231,7 +231,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
 
         $this->expectException(CedulaNaoEncontradaException::class);
         try {
-            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, 1));
+            $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, 1));
         } finally {
             self::assertSame([], $this->passos);
         }
@@ -244,7 +244,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $this->liberarOEscritorio(false);
 
         $this->expectException(CedulaNaoEncontradaException::class);
-        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
     }
 
     #[TestDox('A participação não tem nenhum campo que aponte para a opção (o voto só existe no contador)')]
@@ -258,6 +258,121 @@ final class RegistrarVotoUseCaseTest extends TestCase
 
         self::assertNotContains(OpcaoDaPauta::class, $tipos);
         self::assertSame([], array_filter(array_keys($tipos), static fn (string $n): bool => str_contains(strtolower($n), 'opcao')));
+    }
+
+    #[TestDox('Pauta de 3 vagas: até 3 nomes numa só participação, o mesmo peso somado em cada um e nada gravado antes de validar')]
+    public function testVariosNomes(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(3);
+        [$a, $b, $c] = [$this->opcao($pauta, 1), $this->opcao($pauta, 2), $this->opcao($pauta, 3)];
+
+        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [(int) $a->getId(), (int) $c->getId()]));
+
+        self::assertSame(['begin', 'insert', 'gravar', 'somar', 'flush', 'commit'], $this->passos);
+        self::assertCount(1, $this->participacoesSalvas, 'uma participação só, não uma por nome');
+        self::assertSame([[[$a, $c], '0.025000']], $this->somados);
+        self::assertNotContains($b, $this->somados[0][0]);
+    }
+
+    #[TestDox('Mais nomes do que vagas: recusa sem gravar')]
+    public function testMaisNomesQueVagas(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(2);
+
+        $this->assertRecusaDaLista(RegistrarVotoUseCase::NOMES_DEMAIS, [1, 2, 3], $pauta);
+    }
+
+    #[TestDox('Pauta de vaga única recusa dois nomes')]
+    public function testVagaUnicaRecusaDois(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+
+        $this->assertRecusaDaLista(RegistrarVotoUseCase::NOMES_DEMAIS, [1, 2], $pauta);
+    }
+
+    #[TestDox('Opção repetida na lista: recusa sem gravar')]
+    public function testOpcaoRepetida(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(3);
+
+        $this->assertRecusaDaLista(RegistrarVotoUseCase::NOME_REPETIDO, [1, 1], $pauta);
+    }
+
+    #[TestDox('Abstenção junto com nome: recusa; a abstenção vale sozinha')]
+    public function testAbstencaoEExclusiva(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(3);
+
+        $this->assertRecusaDaLista(RegistrarVotoUseCase::ABSTENCAO_EXCLUSIVA, [1, 0], $pauta);
+    }
+
+    #[TestDox('Abstenção sozinha numa pauta de várias vagas: registra')]
+    public function testAbstencaoSozinhaComVariasVagas(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(3);
+        $abstencao = $pauta->getAbstencao();
+        self::assertNotNull($abstencao);
+
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $abstencao->getId()));
+
+        self::assertSame([[[$abstencao], '0.025000']], $this->somados);
+    }
+
+    #[TestDox('Lista vazia: "Escolha ..." sem gravar')]
+    public function testListaVazia(): void
+    {
+        $this->cenario(PesoDoVoto::Fracao, '0.025000');
+
+        $this->expectExceptionObject(new OperacaoInvalidaNaAssembleiaException(RegistrarVotoUseCase::OPCAO_INVALIDA));
+        try {
+            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, []));
+        } finally {
+            self::assertSame([], $this->somados);
+            self::assertSame([], $this->participacoesSalvas);
+        }
+    }
+
+    #[TestDox('Uma opção de outra pauta no meio da lista invalida tudo: nada é gravado')]
+    public function testUmaAlheiaInvalidaTudo(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(3);
+        $outra = new PautaDaAssembleia($pauta->getAssembleia(), 2, 'Orçamento');
+        $this->definirId(new OpcaoDaPauta($outra, 1, 'Sim'), 99);
+
+        $this->expectExceptionObject(new OperacaoInvalidaNaAssembleiaException(RegistrarVotoUseCase::OPCAO_INVALIDA));
+        try {
+            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [(int) $this->opcao($pauta, 1)->getId(), 99]));
+        } finally {
+            self::assertSame([], $this->somados);
+            self::assertSame([], $this->participacoesSalvas);
+        }
+    }
+
+    /** @param list<int> $numeros números das opções (0 = abstenção) */
+    private function assertRecusaDaLista(string $mensagem, array $numeros, PautaDaAssembleia $pauta): void
+    {
+        $ids = array_map(
+            fn (int $n): int => (int) (0 === $n ? $pauta->getAbstencao() : $this->opcao($pauta, $n))?->getId(),
+            $numeros,
+        );
+        try {
+            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, $ids));
+            self::fail('O voto devia ser recusado: ' . $mensagem);
+        } catch (OperacaoInvalidaNaAssembleiaException $recusa) {
+            self::assertSame($mensagem, $recusa->getMessage());
+        }
+        self::assertSame([], $this->somados, 'recusa nunca soma no contador');
+        self::assertSame([], $this->participacoesSalvas, 'recusa nunca grava participação');
+    }
+
+    /** Pauta 10 com N vagas, opções 1, 2, 3 e abstenção; abre a pauta. @return array{UnidadeDaAssembleia, PautaDaAssembleia} */
+    private function cenarioComVagas(int $vagas): array
+    {
+        $cenario = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+        (new \ReflectionProperty($cenario[1], 'vagas'))->setValue($cenario[1], $vagas);
+        $this->definirId(new OpcaoDaPauta($cenario[1], 3, 'Talvez'), 4);
+
+        return $cenario;
     }
 
     private function caso(): RegistrarVotoUseCase
@@ -309,7 +424,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
     private function assertRecusa(string $mensagem, int $opcaoId): void
     {
         try {
-            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, $opcaoId));
+            $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, $opcaoId));
             self::fail('O voto devia ser recusado: ' . $mensagem);
         } catch (OperacaoInvalidaNaAssembleiaException $recusa) {
             self::assertSame($mensagem, $recusa->getMessage());

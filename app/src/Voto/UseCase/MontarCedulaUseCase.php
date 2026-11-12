@@ -80,6 +80,7 @@ final class MontarCedulaUseCase
     {
         $votouEm = $this->participacoes->horariosDaUnidade($unidade);
         $aptos = $this->unidades->totaisAptos($unidade->getAssembleia());
+        $presencas = $this->participacoes->contarPorPauta($unidade->getAssembleia());
         $pautas = [];
         foreach ($unidade->getAssembleia()->getPautas() as $pauta) {
             $pautas[] = new PautaNaCedulaOutput(
@@ -90,7 +91,9 @@ final class MontarCedulaUseCase
                 votouEm: $votouEm[(int) $pauta->getId()] ?? null,
                 segundosAtePrazo: self::segundosAtePrazo($pauta, $agora),
                 opcoes: $pauta->aceitaVotoEm($agora) ? self::opcoes($pauta) : [],
-                resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas']) : null,
+                resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
+                vagas: $pauta->getVagas(),
+                digitos: $pauta->getDigitos(),
             );
         }
 

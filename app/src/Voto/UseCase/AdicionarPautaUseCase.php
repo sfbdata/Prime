@@ -6,6 +6,7 @@ namespace App\Voto\UseCase;
 
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\PautaInput;
+use App\Voto\DTO\RegrasDaPautaInput;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
@@ -16,7 +17,7 @@ use App\Voto\Service\OpcoesDaPauta;
 
 /**
  * Inclui uma pauta na assembleia em rascunho, no fim da ordem, com as opções numeradas (padrão do condomínio: 1 Sim,
- * 2 Não) e a ABSTENÇÃO criada sozinha (número 0, não conta como voto válido).
+ * 2 Não; regras padrão se a tela não manda) e a ABSTENÇÃO criada sozinha (número 0, não conta como voto válido).
  */
 final class AdicionarPautaUseCase
 {
@@ -34,8 +35,10 @@ final class AdicionarPautaUseCase
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
-        $opcoes = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes);
+        $regras = $input->regras ?? new RegrasDaPautaInput();
+        $opcoes = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $regras->digitos);
         $pauta = new PautaDaAssembleia($assembleia, self::proximaOrdem($assembleia), $input->titulo, $input->descricaoLimpa());
+        $pauta->configurar($regras->criterio, $regras->base, $regras->digitos, $regras->vagas, $regras->quorumPrimeira, $regras->quorumSegunda);
         foreach ($opcoes as $opcao) {
             new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']);
         }
