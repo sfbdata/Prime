@@ -28,6 +28,7 @@ final class PortalDaAssembleiaController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly RateLimiterFactoryInterface $votoPortalConfirmacaoLimiter,
         private readonly \App\Voto\Service\EnderecoPublicoDaAssembleia $endereco,
+        private readonly \App\Voto\UseCase\ConferirComprovanteUseCase $conferirComprovante,
     ) {
     }
 
@@ -115,6 +116,22 @@ final class PortalDaAssembleiaController extends AbstractController
         return $this->protegida($this->redirectToRoute('voto_assembleia_cedula', ['token' => $token], 303));
     }
 
+    #[Route('/comprovante', name: 'voto_assembleia_portal_comprovante', methods: ['POST'])]
+    public function comprovante(Request $request, string $codigo): Response
+    {
+        $a = $this->acesso->exigir($codigo);
+        if (!$this->csrfValido($request, $codigo)) {
+            return $this->pagina($request, $codigo, 'A página expirou. Tente novamente.', 400);
+        }
+        if (!$this->votoPortalConfirmacaoLimiter->create($request->getClientIp())->consume()->isAccepted()) {
+            return $this->pagina($request, $codigo, 'Muitas tentativas. Aguarde alguns minutos e tente novamente.', 429);
+        }
+        $texto = trim($request->request->getString('comprovante'));
+        $conferido = $this->conferirComprovante->executar($a, $texto);
+
+        return $this->pagina($request, $codigo, null, 200, ['texto' => $texto, 'conferido' => $conferido]);
+    }
+
     #[Route('/reiniciar', name: 'voto_assembleia_portal_reiniciar', methods: ['POST'])]
     public function reiniciar(Request $request, string $codigo): Response
     {
@@ -142,7 +159,8 @@ final class PortalDaAssembleiaController extends AbstractController
         return $this->voltar($codigo);
     }
 
-    private function pagina(Request $request, string $codigo, ?string $erro = null, int $status = 200): Response
+    /** @param array{texto: string, conferido: \App\Voto\DTO\ComprovanteConferido|null}|null $comprovante resultado da conferência pública */
+    private function pagina(Request $request, string $codigo, ?string $erro = null, int $status = 200, ?array $comprovante = null): Response
     {
         $portal = $this->montar->executar($codigo);
         if ($portal === null) {
@@ -151,7 +169,7 @@ final class PortalDaAssembleiaController extends AbstractController
 
         return $this->protegida($this->render('voto/portal/entrada.html.twig', [
             'hostPublico' => parse_url($this->endereco->gerar($codigo), PHP_URL_HOST),
-            'portal' => $portal, 'estado' => $this->estado($request, $codigo), 'erro' => $erro,
+            'portal' => $portal, 'estado' => $this->estado($request, $codigo), 'erro' => $erro, 'comprovante' => $comprovante,
         ], new Response('', $status)));
     }
 

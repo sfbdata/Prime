@@ -228,7 +228,7 @@
         var dig = digitosDa(p);
         var achou = (!c.branco && c.dig.length === dig) ? opcaoPorNumero(p, c.dig) : null;
         var completo = c.dig.length === dig;
-        var nulo = !c.branco && completo && !achou;
+        var invalido = !c.branco && completo && !achou;
         var wrap = el('div', 'uVotando');
         var linha = el('div', 'uFade uLinha');
         var col = el('div', 'uCol');
@@ -244,10 +244,10 @@
         }
         if (c.branco) {
             col.appendChild(el('div', 'uFade uGrande', texto('abstencao')));
-        } else if (nulo) {
+        } else if (invalido) {
             var n = el('div', 'uFade');
-            n.appendChild(el('div', 'uNuloT', texto('numero_errado')));
-            n.appendChild(el('div', 'uGrande', texto('voto_nulo')));
+            n.appendChild(el('div', 'uGrande', texto('numero_invalido')));
+            n.appendChild(el('div', 'uInvalidoDica', texto('numero_invalido_dica')));
             col.appendChild(n);
         } else if (achou) {
             var a = el('div', 'uFade uAchou');
@@ -308,6 +308,20 @@
         d.appendChild(svg);
         d.appendChild(el('div', 'uFimGrande', texto('fim')));
         d.appendChild(el('div', 'uFimT', c.sim ? texto('fim_simulacao') : texto('fim_voto')));
+        if (!c.sim && c.comprovantes.length > 0) {
+            var cp = el('div', 'uComp');
+            cp.appendChild(el('div', 'uCompRot', texto('comprovante_titulo')));
+            c.comprovantes.forEach(function (x) {
+                var l = el('div', 'uCompLinha');
+                l.appendChild(el('span', 'uCompPauta', x.pauta));
+                l.appendChild(el('b', 'uCompCodigo', x.codigo));
+                cp.appendChild(l);
+            });
+            d.appendChild(cp);
+            var cb = el('div', 'uFimAcoes');
+            cb.appendChild(botao(texto('comprovante_imagem'), 'bi-image', '', baixarImagem));
+            d.appendChild(cb);
+        }
         var acoes = el('div', 'uFimAcoes');
         if (c.sim) {
             acoes.appendChild(botao(texto('simular_de_novo'), 'bi-arrow-repeat', '', function () { abrir(true); }));
@@ -315,6 +329,53 @@
         acoes.appendChild(botao(texto('concluir'), '', 'vP', fechar));
         d.appendChild(acoes);
         return d;
+    }
+
+    /* ---- Comprovante em imagem (PNG gerado no aparelho; nada sobe para o servidor) ---- */
+    function baixarImagem() {
+        var lista = c.comprovantes;
+        var cv = document.createElement('canvas');
+        cv.width = 900;
+        cv.height = 230 + lista.length * 74;
+        var g = cv.getContext('2d');
+        g.fillStyle = '#ffffff';
+        g.fillRect(0, 0, cv.width, cv.height);
+        g.fillStyle = '#0a6fa0';
+        g.fillRect(0, 0, cv.width, 10);
+        g.fillStyle = '#0b3550';
+        g.font = 'bold 34px Arial, Helvetica, sans-serif';
+        g.fillText(texto('imagem_titulo'), 40, 70);
+        g.fillStyle = '#12242f';
+        g.font = '24px Arial, Helvetica, sans-serif';
+        g.fillText(D.assembleia, 40, 112);
+        g.fillStyle = '#34505f';
+        g.font = '20px Arial, Helvetica, sans-serif';
+        g.fillText(new Date().toLocaleString('pt-BR'), 40, 146);
+        lista.forEach(function (x, i) {
+            var y = 200 + i * 74;
+            g.fillStyle = '#12242f';
+            g.font = '22px Arial, Helvetica, sans-serif';
+            g.fillText(x.pauta, 40, y);
+            g.fillStyle = '#1e7b45';
+            g.font = 'bold 30px Consolas, Menlo, monospace';
+            g.fillText(x.codigo, 40, y + 36);
+        });
+        g.fillStyle = '#34505f';
+        g.font = '17px Arial, Helvetica, sans-serif';
+        g.fillText(texto('imagem_rodape'), 40, cv.height - 28);
+        cv.toBlob(function (blob) {
+            if (!blob) {
+                return;
+            }
+            var u = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = u;
+            a.download = texto('imagem_arquivo') || 'comprovante.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(u); }, 3000);
+        }, 'image/png');
     }
 
     function telaErro() {
@@ -373,7 +434,7 @@
         }
         if (c.dig.length === dig) {
             var o = opcaoPorNumero(p, c.dig);
-            return o ? texto('fala_opcao', {opcao: o.rotulo}) : texto('fala_nulo');
+            return o ? texto('fala_opcao', {opcao: o.rotulo}) : texto('fala_invalido');
         }
         return texto('fala_digite', {pauta: p.titulo});
     }
@@ -457,7 +518,7 @@
         marcaTecla('o');
         var p = pautaAtual();
         var escolhida = c.branco ? opcaoAbstencao(p) : opcaoPorNumero(p, c.dig);
-        // Número incompleto, ou número sem opção (voto nulo não existe na assembleia): a urna recusa e não grava.
+        // Número incompleto ou sem opção: a urna recusa e não grava (o eleitor corrige; voto nulo não existe aqui).
         if (!escolhida) {
             tocar(SOM_RECUSA, 0.05);
             return;
@@ -477,6 +538,15 @@
         return new Promise(function (ok) { setTimeout(ok, ms); });
     }
 
+    function tituloDaPauta(id) {
+        for (var k = 0; k < D.pautas.length; k++) {
+            if (D.pautas[k].id === id) {
+                return D.pautas[k].titulo;
+            }
+        }
+        return '';
+    }
+
     function enviarUm(voto) {
         var corpo = new URLSearchParams();
         corpo.set('_token', D.csrf);
@@ -493,6 +563,7 @@
                 if (!r.ok || !j.ok) {
                     throw new Error(j.mensagem || texto('erro_generico'));
                 }
+                return j.comprovante || '';
             });
         });
     }
@@ -503,7 +574,13 @@
         var trabalho = Promise.resolve();
         if (!sessao.sim) {
             votos.forEach(function (v) {
-                trabalho = trabalho.then(function () { return enviarUm(v); });
+                trabalho = trabalho.then(function () {
+                    return enviarUm(v).then(function (codigo) {
+                        if (codigo) {
+                            sessao.comprovantes.push({pauta: tituloDaPauta(v.pauta), codigo: codigo});
+                        }
+                    });
+                });
             });
         }
         trabalho.then(function () {
@@ -531,7 +608,7 @@
         if (!c) {
             ultimoFoco = document.activeElement;
         }
-        c = {fase: 'inicio', sim: !!simulacao, soVer: !!soVer, i: 0, dig: '', branco: false, votos: [], ver: !!soVer, erro: ''};
+        c = {fase: 'inicio', sim: !!simulacao, soVer: !!soVer, i: 0, dig: '', branco: false, votos: [], ver: !!soVer, erro: '', comprovantes: []};
         raiz.hidden = false;
         document.body.classList.add('uAberta');
         desenhar();

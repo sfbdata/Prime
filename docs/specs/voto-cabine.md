@@ -30,12 +30,25 @@ Risco: MÉDIO (tela do voto; a gravação continua no mesmo UseCase e na mesma r
 | Item do desenho | Cabine entregue | Motivo |
 |---|---|---|
 | Tela "Confirme sua identidade" com PIN (`fase:'auth'`) | não entra | `/votar/{token}` só abre depois da identificação; o sistema não tem PIN nem pedido de código nesta rota |
-| Voto nulo (número sem opção) | mostra "NÚMERO ERRADO / VOTO NULO" e a tecla CONFIRMA recusa | a assembleia não tem voto nulo |
-| Comprovante de depósito, imagem e e-mail (`uReal`) | não entra | o sistema não gera comprovante (frente "comprovante" do panorama) |
+| Voto nulo (número sem opção) | mostra "NÚMERO INVÁLIDO. Aperte CORRIGE e informe um número válido." e CONFIRMA recusa até o número ser válido | decisão do Samuel (12/11): número errado não é voto nulo, o eleitor é avisado |
+| Comprovante de depósito e imagem (`uReal`) | entra (seção "Comprovante") | pedido do Samuel (12/11) |
+| Comprovante por e-mail, "Verificar urna", "Pacote público", boletins | não entram | e-mail do comprovante, urna cifrada e boletins são de outras frentes |
 | Rodapé "Demonstração, sem vínculo..." | sem a palavra "Demonstração" | contrato da cédula: não é demonstração |
 | "Protegendo seu voto / Cifrando a cédula" | "Registrando seu voto / Enviando seu voto e separando-o da sua identidade" | não há criptografia (contrato da cédula) |
 | Foto, descrição e chapa da candidatura; vagas múltiplas; "Próxima votação" | não existem | a pauta é Sim/Não/Abstenção; sem esses dados |
 | "Conhecer candidaturas" | lista as opções das pautas abertas (iniciais no `.vAv`) | sem foto nem descrição |
+
+## Comprovante (12/11)
+
+- Cada voto registrado devolve um código `BJV-XXXX-XXXX-XXXX` (HMAC da unidade, da pauta e da hora da participação em
+  segundos, com o segredo da aplicação; `ComprovanteDoVoto`). Prova que a unidade votou e quando, nunca em quê: a
+  participação não guarda a opção. Sem migration: o código é refeito a partir de `voto.assembleia_participacao`.
+- `RegistrarVotoUseCase::executar` devolve o código; o ramo JSON de `CedulaController::votar` o inclui em `comprovante`.
+- Tela FIM da cabine: "Comprovante de depósito da cédula (não revela seu voto)" com um código por pauta e o botão
+  "Comprovante em imagem" (PNG gerado no aparelho, sem subir nada).
+- Conferência pública no portal (`/voto/v/{codigo}`): "Confira seu comprovante" + "Conferir"
+  (`POST /voto/v/{codigo}/comprovante`, CSRF do portal e o mesmo limitador de tentativas da confirmação do código).
+  Aceita minúsculas e sem traços. Mostra só a pauta, a data e a hora; nunca a unidade nem a opção.
 
 ## Arquivos
 

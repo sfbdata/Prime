@@ -14,6 +14,7 @@ use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
+use App\Voto\Service\ComprovanteDoVoto;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\Service\UnidadeDoLink;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -34,6 +35,8 @@ use Psr\Clock\ClockInterface;
  * SIGILO (seção 2): nenhuma linha liga a unidade à opção. A participação não guarda a opção, e o contador só muda por
  * UPDATE direto, fora da unidade de trabalho do Doctrine (sem audit_log com a hora da mudança).
  *
+ * Devolve o código de comprovante da participação ({@see ComprovanteDoVoto}): prova que a unidade votou, nunca em quê.
+ *
  * A transação é a {@see TransacaoDoVoto}: uma recusa de negócio desfaz sem fechar o EntityManager.
  */
 final class RegistrarVotoUseCase
@@ -52,6 +55,7 @@ final class RegistrarVotoUseCase
         private readonly ParticipacaoNaPautaRepository $participacoes,
         private readonly TransacaoDoVoto $transacao,
         private readonly ClockInterface $relogio,
+        private readonly ComprovanteDoVoto $comprovante,
     ) {
     }
 
@@ -59,34 +63,44 @@ final class RegistrarVotoUseCase
      * @throws CedulaNaoEncontradaException          link inexistente ou escritório sem o Voto liberado (404)
      * @throws OperacaoInvalidaNaAssembleiaException voto recusado; a mensagem vai para a tela
      */
-    public function executar(RegistrarVotoInput $input): void
+    public function executar(RegistrarVotoInput $input): string
     {
         $unidade = $this->link->localizar($input->token) ?? throw new CedulaNaoEncontradaException();
         $this->exigirUnidadeApta($unidade);
-        $recusa = $this->votarNumaTransacao($unidade, $input, $this->relogio->now());
-        if (null !== $recusa) {
-            throw new OperacaoInvalidaNaAssembleiaException($recusa);
+        [$recusa, $codigo] = $this->votarNumaTransacao($unidade, $input, $this->relogio->now());
+        if (null !== $recusa || null === $codigo) {
+            throw new OperacaoInvalidaNaAssembleiaException($recusa ?? self::PAUTA_NAO_ABERTA);
         }
+
+        return $codigo;
     }
 
-    /** @return string|null o motivo da recusa que precisou gravar algo (o encerramento pelo prazo); null = voto registrado */
-    private function votarNumaTransacao(UnidadeDaAssembleia $unidade, RegistrarVotoInput $input, \DateTimeImmutable $agora): ?string
+    /** @return array{0: string|null, 1: string|null} [motivo da recusa que precisou gravar algo (o encerramento pelo prazo), código do comprovante]; recusa nula = voto registrado */
+    private function votarNumaTransacao(UnidadeDaAssembleia $unidade, RegistrarVotoInput $input, \DateTimeImmutable $agora): array
     {
+        $codigo = null;
         try {
-            return $this->transacao->executar(fn (): ?string => $this->votarNaPautaTravada($unidade, $input, $agora));
+            $recusa = $this->transacao->executar(function () use ($unidade, $input, $agora, &$codigo): ?string {
+                [$motivo, $codigo] = $this->votarNaPautaTravada($unidade, $input, $agora);
+
+                return $motivo;
+            });
+
+            return [$recusa, $codigo];
         } catch (UniqueConstraintViolationException $repetido) {
             // Corrida que escapou da conferência: o UNIQUE(unidade, pauta) decide.
             throw new OperacaoInvalidaNaAssembleiaException(self::JA_VOTOU, 0, $repetido);
         }
     }
 
-    private function votarNaPautaTravada(UnidadeDaAssembleia $unidade, RegistrarVotoInput $input, \DateTimeImmutable $agora): ?string
+    /** @return array{0: string|null, 1: string|null} */
+    private function votarNaPautaTravada(UnidadeDaAssembleia $unidade, RegistrarVotoInput $input, \DateTimeImmutable $agora): array
     {
         $pauta = $this->pautas->buscarTravadaDaAssembleia($input->pautaId, $unidade->getAssembleia())
             ?? throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_NAO_ENCONTRADA);
         if ($pauta->encerrarSePrazoVenceu($agora)) {
             // A transação grava o encerramento e confirma; a recusa sai depois dela.
-            return self::PRAZO_ENCERRADO;
+            return [self::PRAZO_ENCERRADO, null];
         }
         $opcao = $this->opcaoQueAceitaVoto($pauta, $input->opcaoId, $agora);
         $this->exigirPrimeiroVoto($unidade, $pauta);
@@ -95,7 +109,8 @@ final class RegistrarVotoUseCase
         $this->transacao->gravar();
         $this->opcoes->somarVoto($opcao, $unidade->pesoDoVoto());
 
-        return null;
+        // O código usa a hora em segundos, como o banco a guarda: a conferência o refaz a partir da participação gravada.
+        return [null, $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $agora)];
     }
 
     private function opcaoQueAceitaVoto(PautaDaAssembleia $pauta, int $opcaoId, \DateTimeImmutable $agora): OpcaoDaPauta

@@ -264,7 +264,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
     {
         $link = new UnidadeDoLink(new TokenDaUnidade(self::SEGREDO), $this->unidades, $this->liberacoes);
 
-        return new RegistrarVotoUseCase($link, $this->pautas, $this->opcoes, $this->participacoes, $this->transacaoFalsa(), $this->relogio);
+        return new RegistrarVotoUseCase($link, $this->pautas, $this->opcoes, $this->participacoes, $this->transacaoFalsa(), $this->relogio, new \App\Voto\Service\ComprovanteDoVoto('segredo-de-teste'));
     }
 
     /** Transação de mentira que anota begin/gravar/flush/commit/rollback em $this->passos. */
