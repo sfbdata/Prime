@@ -76,6 +76,9 @@ voto:
             rodape_confirma: 'CONFIRMA para CONFIRMAR este voto'
             rodape_corrige: 'CORRIGE para REINICIAR este voto'
             dica: 'Digite o número no teclado ou aperte BRANCO para se abster.'
+            dica_varios: 'Digite o número de cada nome e aperte CONFIRMA. Você pode escolher até {n} nomes; para terminar antes, aperte CONFIRMA sem número.'
+            escolha_de: 'Escolha {k} de {n}'
+            nome_repetido: 'Você já escolheu este nome.'
             grava_titulo: Registrando seu voto
             grava_subtitulo: Enviando seu voto e separando-o da sua identidade
             grava_titulo_simulacao: Simulando o registro

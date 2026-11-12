@@ -73,7 +73,7 @@ final class CedulaController extends AbstractController
         }
 
         try {
-            $comprovante = $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $request->request->getInt('opcao')));
+            $comprovante = $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $this->opcoesDoPedido($request)));
             if ($json) {
                 return $this->respostaJson(true, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'), Response::HTTP_OK, $comprovante);
             }
@@ -88,6 +88,22 @@ final class CedulaController extends AbstractController
         }
 
         return $this->deVoltaACedula($token);
+    }
+
+    /**
+     * As opções do pedido: `opcao=7` (uma só, como a cédula sempre mandou) ou `opcao[]=7&opcao[]=9` (pauta de várias
+     * vagas). Valor que não é número vira 0, que o UseCase recusa como opção inválida. Sem nada, lista vazia.
+     *
+     * @return list<int>
+     */
+    private function opcoesDoPedido(Request $request): array
+    {
+        $bruto = $request->request->all()['opcao'] ?? [];
+        if (!\is_array($bruto)) {
+            $bruto = '' === $bruto ? [] : [$bruto];
+        }
+
+        return array_values(array_map(static fn (mixed $v): int => \is_scalar($v) ? (int) $v : 0, $bruto));
     }
 
     /** Resposta da cabine (js/voto-cabine.js): o voto vai por fetch e a tela decide o que mostrar. */

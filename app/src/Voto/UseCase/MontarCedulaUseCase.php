@@ -92,6 +92,8 @@ final class MontarCedulaUseCase
                 segundosAtePrazo: self::segundosAtePrazo($pauta, $agora),
                 opcoes: $pauta->aceitaVotoEm($agora) ? self::opcoes($pauta) : [],
                 resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
+                vagas: $pauta->getVagas(),
+                digitos: $pauta->getDigitos(),
             );
         }
 

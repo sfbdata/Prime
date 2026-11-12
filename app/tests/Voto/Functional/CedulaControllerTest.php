@@ -298,6 +298,44 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame($corpo['comprovante'], $this->codigoDaParticipacao(), 'o código sai da participação gravada (hora em segundos)');
     }
 
+    #[TestDox('Pauta de 2 vagas: a reserva mostra caixas (opcao[]) com o número em zeros à esquerda e o POST com dois nomes grava os dois contadores')]
+    public function testVotarComDoisNomes(): void
+    {
+        (new \ReflectionProperty($this->pauta, 'vagas'))->setValue($this->pauta, 2);
+        (new \ReflectionProperty($this->pauta, 'digitos'))->setValue($this->pauta, 2);
+        $this->em->flush();
+        $pagina = $this->client->request('GET', $this->link());
+        self::assertGreaterThanOrEqual(3, $pagina->filter('input[type=checkbox][name="opcao[]"]')->count(), 'duas opções de voto e a abstenção');
+        self::assertStringContainsString('<b>01</b>', (string) $this->client->getResponse()->getContent());
+        $dados = $this->dadosDaCabine($pagina);
+        [$sim, $nao] = [$this->opcao(1), $this->opcao(2)];
+
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => [(string) $sim->getId(), (string) $nao->getId()],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([1, '0.025000'], $this->contador($sim));
+        self::assertSame([1, '0.025000'], $this->contador($nao));
+    }
+
+    #[TestDox('Pauta de uma vaga: dois nomes no POST são recusados em JSON (422) e nada é gravado')]
+    public function testDoisNomesNaVagaUnica(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        [$sim, $nao] = [$this->opcao(1), $this->opcao(2)];
+
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => [(string) $sim->getId(), (string) $nao->getId()],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame([0, '0.000000'], $this->contador($sim));
+        self::assertSame([0, '0.000000'], $this->contador($nao));
+    }
+
     #[TestDox('Comprovante: o código não traz a opção (votos diferentes na mesma pauta e hora têm códigos de unidades diferentes) e a conferência pública acha a pauta')]
     public function testConferenciaPublicaDoComprovante(): void
     {

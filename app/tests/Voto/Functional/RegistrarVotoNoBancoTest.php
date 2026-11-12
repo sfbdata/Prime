@@ -71,6 +71,27 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
         self::assertSame(4, $this->participacoes($pauta));
     }
 
+    #[TestDox('Pauta de 2 vagas: dois nomes somam o peso em cada contador, a terceira opção fica zerada e há uma participação só')]
+    public function testVariosNomesNoBanco(): void
+    {
+        [$assembleia, $pauta] = $this->assembleiaComPautaAberta();
+        (new \ReflectionProperty($pauta, 'vagas'))->setValue($pauta, 2);
+        $this->em->flush();
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'fracao' => '0.025000'])->_real();
+        $ids = array_map(static fn (OpcaoDaPauta $o): int => (int) $o->getId(), $pauta->getOpcoesDeVoto());
+        self::assertGreaterThanOrEqual(2, \count($ids));
+
+        static::getContainer()->get(RegistrarVotoUseCase::class)->executar(
+            new RegistrarVotoInput(UnidadeDaAssembleiaFactory::tokenDe($unidade), (int) $pauta->getId(), [$ids[0], $ids[1]]),
+        );
+
+        $contadores = $this->contadores($pauta);
+        self::assertSame([1, '0.025000'], $contadores[1]);
+        self::assertSame([1, '0.025000'], $contadores[2]);
+        self::assertSame([0, '0.000000'], $contadores[0], 'a abstenção não soma');
+        self::assertSame(1, $this->participacoes($pauta));
+    }
+
     #[TestDox('Uma unidade, um voto: o contador soma 1 por unidade')]
     public function testPesoPorUnidade(): void
     {
@@ -174,7 +195,7 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
         $token = UnidadeDaAssembleiaFactory::tokenDe($unidade);
 
         static::getContainer()->get(RegistrarVotoUseCase::class)
-            ->executar(new RegistrarVotoInput($token, (int) $pauta->getId(), (int) $opcao->getId()));
+            ->executar(RegistrarVotoInput::deUma($token, (int) $pauta->getId(), (int) $opcao->getId()));
     }
 
     /** @return array<int, array{int, string}> número da opção (0 = abstenção) => [unidades, peso], relidos do banco */

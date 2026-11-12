@@ -71,7 +71,7 @@ final class DashboardNaoVazaTotalComCadeadoTest extends JusPrimeWebTestCase
 
         foreach (['página' => $pagina, 'fragmento' => $fragmento] as $onde => $html) {
             foreach ([self::META, self::META - 1, self::META - 2] as $numero) {
-                self::assertDoesNotMatchRegularExpression('/(?<![\d.])' . $numero . '(?![\d])/', $html, $onde . ': ' . $numero . ' vazou');
+                self::assertDoesNotMatchRegularExpression('/(?<![\p{L}\d.])' . $numero . '(?![\p{L}\d])/u', $html, $onde . ': ' . $numero . ' vazou');
             }
             self::assertStringNotContainsString('Faltam', $html, $onde);
             self::assertStringNotContainsString('db-meta-trilho', $html, $onde . ': bloco da meta');

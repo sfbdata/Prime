@@ -9,7 +9,7 @@
     'rodape_titulo', 'rodape_confirma', 'rodape_corrige', 'dica', 'grava_titulo', 'grava_subtitulo', 'grava_titulo_simulacao',
     'grava_subtitulo_simulacao', 'fim', 'fim_voto', 'fim_simulacao', 'erro_titulo', 'erro_generico', 'erro_rede', 'voltar', 'concluir',
     'simular_de_novo', 'candidaturas', 'som_desligar', 'som_ligar', 'fala_digite', 'fala_abstencao', 'fala_invalido', 'comprovante_titulo', 'comprovante_imagem', 'imagem_titulo', 'imagem_rodape', 'imagem_arquivo', 'fala_opcao',
-    'fala_fim', 'fala_fim_simulacao', 'confirma'] -%}
+    'fala_fim', 'fala_fim_simulacao', 'confirma', 'escolha_de', 'nome_repetido', 'dica_varios'] -%}
     {%- set textos = textos|merge({(chave): ('voto.assembleia.cedula.cabine.' ~ chave)|trans}) -%}
 {%- endfor -%}
 {%- set dados = {
