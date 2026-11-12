@@ -44,10 +44,7 @@ final class ApuracaoDaPauta
      */
     public function apurar(PautaDaAssembleia $pauta, string $pesoApto, int $unidadesAptas, ?array $presenca = null): ResultadoDaPauta
     {
-        if (null === $presenca && $pauta->getVagas() > 1) {
-            // Sem as participações, somar as escolhas contaria a mesma unidade várias vezes.
-            throw new \LogicException('Pauta com várias vagas só se apura com a presença vinda das participações.');
-        }
+        self::exigirPresencaSeVariasVagas($pauta, $presenca);
         $pesoApto = self::normalizar($pesoApto);
         $opcoes = self::ordenar($pauta->getOpcoesDeVoto());
         $pesoValido = self::somarPesos($opcoes);
@@ -84,6 +81,18 @@ final class ApuracaoDaPauta
             base: $pauta->getBase(),
             vagas: $vagas,
         );
+    }
+
+    /**
+     * Sem as participações, somar as escolhas contaria a mesma unidade várias vezes.
+     *
+     * @param array{unidades: int, peso: string}|null $presenca
+     */
+    private static function exigirPresencaSeVariasVagas(PautaDaAssembleia $pauta, ?array $presenca): void
+    {
+        if (null === $presenca && $pauta->getVagas() > 1) {
+            throw new \LogicException('Pauta com várias vagas só se apura com a presença vinda das participações.');
+        }
     }
 
     private static function valorDaBase(BaseDaDecisao $base, string $pesoValido, string $pesoPresente, string $pesoApto): string
