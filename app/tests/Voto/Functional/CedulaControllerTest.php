@@ -13,6 +13,7 @@ use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Factory\Voto\AssembleiaFactory;
 use App\Tests\Factory\Voto\OpcaoDaPautaFactory;
+use App\Tests\Factory\Voto\ParticipacaoNaPautaFactory;
 use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -421,7 +422,9 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         OpcaoDaPautaFactory::new()->comVotos(3, '0.600000')->create(['pauta' => $encerrada, 'numero' => 1, 'rotulo' => 'Sim']);
         OpcaoDaPautaFactory::new()->comVotos(1, '0.100000')->create(['pauta' => $encerrada, 'numero' => 2, 'rotulo' => 'Não']);
         OpcaoDaPautaFactory::new()->abstencao()->comVotos(1, '0.050000')->create(['pauta' => $encerrada]);
-        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        // A presença do quórum vem das participações (uma por unidade), não da soma dos contadores das opções.
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $encerrada]);
         $this->em->clear();
 
         $crawler = $this->client->request('GET', $this->link());
