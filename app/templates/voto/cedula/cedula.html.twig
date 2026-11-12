@@ -33,7 +33,7 @@
             {% for o in pauta.opcoes %}
                 {% set opcoes = opcoes|merge([{id: o.id, numero: o.numero, rotulo: (o.abstencao ? 'voto.assembleia.cedula.abstencao'|trans : o.rotulo), abstencao: o.abstencao}]) %}
             {% endfor %}
-            {% set item = {id: pauta.id, titulo: pauta.titulo, opcoes: opcoes} %}
+            {% set item = {id: pauta.id, titulo: pauta.titulo, vagas: pauta.vagas, digitos: pauta.digitos, opcoes: opcoes} %}
             {% set todas = todas|merge([item]) %}
             {% if cedula.apta and pauta.votouEm is null %}
                 {% set votaveis = votaveis|merge([item]) %}
