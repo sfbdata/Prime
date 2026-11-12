@@ -40,12 +40,13 @@ class RegistroPontoManualType extends AbstractType
                 ],
                 'constraints' => [new NotBlank(message: 'Selecione o tipo.')],
             ])
-            // E10: a correção do gestor sempre diz por quê (o CHECK de `ponto_ajuste.motivo` exige de 1 a 2000).
+            // O motivo da correção é opcional (menos burocracia para o gestor); em branco, o serviço grava o texto padrão
+            // (o CHECK de `ponto_ajuste.motivo` exige de 1 a 2000 caracteres).
             ->add('motivo', TextareaType::class, [
-                'label'       => 'Motivo',
+                'label'       => 'Motivo (opcional)',
+                'required'    => false,
                 'attr'        => ['rows' => 2, 'maxlength' => 2000, 'placeholder' => 'Por que a batida muda na folha'],
                 'constraints' => [
-                    new NotBlank(message: 'Informe o motivo da correção.'),
                     new Length(max: 2000, maxMessage: 'O motivo tem no máximo 2000 caracteres.'),
                 ],
             ])

@@ -345,7 +345,7 @@
     </div>
 </section>
 
-{# Modal: Incluir batida (E10, P65 a): o "+" da folha abre com o dia e o tipo; o motivo é obrigatório. #}
+{# Modal: Incluir batida (E10, P65 a): o "+" da folha abre com o dia e o tipo; o motivo é opcional. #}
 <div class="modal fade" id="modalAddBatida" tabindex="-1" aria-labelledby="modalAddBatidaLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -375,8 +375,8 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="modalAddMotivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }}</label>
-                        <textarea name="registro_ponto_manual[motivo]" id="modalAddMotivo" class="form-control" rows="2" required maxlength="2000" placeholder="{{ 'escritorio.editar_usuario.batida_motivo_dica'|trans }}"></textarea>
+                        <label class="form-label" for="modalAddMotivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }} <span class="text-muted">{{ 'escritorio.editar_usuario.opcional'|trans }}</span></label>
+                        <textarea name="registro_ponto_manual[motivo]" id="modalAddMotivo" class="form-control" rows="2" maxlength="2000" placeholder="{{ 'escritorio.editar_usuario.batida_motivo_dica'|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -389,7 +389,7 @@
 </div>
 
 {# Janelas do ajuste de batida (E10). O "x" da batida e o "Restaurar" da folha as abrem com o endereço, o token por
-   intenção e a batida (atributos data-*); o motivo é obrigatório. O desenho não mostra a ficha (P60): o molde é o modalAddBatida. #}
+   intenção e a batida (atributos data-*); o motivo é opcional. O desenho não mostra a ficha (P60): o molde é o modalAddBatida. #}
 {% for janela in [
     {id: 'modalDesconsiderarBatida', chave: 'desconsiderar', icone: 'bi-x-circle', botao: 'btn-danger', cabeca: true},
     {id: 'modalRestaurarBatida', chave: 'restaurar', icone: 'bi-arrow-counterclockwise', botao: 'btn-primary', cabeca: false}
@@ -409,8 +409,8 @@
                     <p class="fw-bold mb-1" data-batida-da-janela></p>
                     <p class="text-muted small">{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_texto')|trans }}</p>
                     <div class="mb-3">
-                        <label class="form-label" for="{{ janela.id }}Motivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }}</label>
-                        <textarea name="motivo" id="{{ janela.id }}Motivo" class="form-control" rows="2" required maxlength="2000" placeholder="{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_motivo_dica')|trans }}"></textarea>
+                        <label class="form-label" for="{{ janela.id }}Motivo">{{ 'escritorio.editar_usuario.batida_motivo'|trans }} <span class="text-muted">{{ 'escritorio.editar_usuario.opcional'|trans }}</span></label>
+                        <textarea name="motivo" id="{{ janela.id }}Motivo" class="form-control" rows="2" maxlength="2000" placeholder="{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_motivo_dica')|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
