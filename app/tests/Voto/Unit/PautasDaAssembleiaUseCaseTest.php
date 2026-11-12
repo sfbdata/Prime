@@ -6,11 +6,14 @@ namespace App\Tests\Voto\Unit;
 
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\PautaInput;
+use App\Voto\DTO\RegrasDaPautaInput;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\AssembleiaRepository;
@@ -146,6 +149,125 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $this->expectExceptionMessage('As pautas só mudam enquanto a assembleia está em rascunho.');
 
         (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta()))->executar($tenant, 7, 9, PautaInput::padrao('Outra'));
+    }
+
+    #[TestDox('Incluir com regras: grava critério, base, vagas, quórum e aceita números do tamanho dos dígitos')]
+    public function testIncluiComRegras(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $salva = null;
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salva): void {
+            $salva = $p;
+        });
+
+        $this->adicionar($tenant, $assembleia, $pautas)->executar($tenant, 7, new PautaInput(
+            'Conselho fiscal',
+            null,
+            [['numero' => '01', 'rotulo' => 'Ana'], ['numero' => '02', 'rotulo' => 'Bia'], ['numero' => '03', 'rotulo' => 'Caio']],
+            new RegrasDaPautaInput(RegraDeDecisao::Mais, BaseDaDecisao::Presentes, 2, 2, 50, null),
+        ));
+
+        self::assertInstanceOf(PautaDaAssembleia::class, $salva);
+        self::assertSame([RegraDeDecisao::Mais, BaseDaDecisao::Presentes, 2, 2, '50.00', null], [
+            $salva->getCriterio(), $salva->getBase(), $salva->getDigitos(), $salva->getVagas(), $salva->getQuorumPrimeira(), $salva->getQuorumSegunda(),
+        ]);
+        self::assertSame([1, 2, 3], array_map(static fn (OpcaoDaPauta $o): int => $o->getNumero(), $salva->getOpcoesDeVoto()));
+    }
+
+    #[TestDox('Incluir com regra fora do limite não cria a pauta')]
+    public function testIncluiComRegraInvalidaNaoCria(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->expects(self::never())->method('salvar');
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage('As vagas vão de 1 a 9.');
+
+        $this->adicionar($tenant, $assembleia, $pautas)->executar($tenant, 7, new PautaInput(
+            'Obra', null, PautaInput::OPCOES_PADRAO, new RegrasDaPautaInput(vagas: 10),
+        ));
+    }
+
+    #[TestDox('Editar sem mandar regras mantém as da pauta e confere os números pelos dígitos dela')]
+    public function testEditarSemRegrasMantem(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Conselho');
+        new OpcaoDaPauta($pauta, 11, 'Ana');
+        new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
+        $pauta->configurar(RegraDeDecisao::Absoluta, BaseDaDecisao::Aptos, 2, 3, 40, 10);
+        $assembleias = $this->createMock(AssembleiaRepository::class);
+        $assembleias->method('buscarDoEscritorio')->willReturn($assembleia);
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->method('buscarDaAssembleia')->willReturn($pauta);
+        $opcoes = $this->createMock(OpcaoDaPautaRepository::class);
+
+        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta()))->executar($tenant, 7, 9, new PautaInput(
+            'Conselho', null, [['numero' => '21', 'rotulo' => 'Bia'], ['numero' => '22', 'rotulo' => 'Caio']],
+        ));
+
+        self::assertSame([RegraDeDecisao::Absoluta, BaseDaDecisao::Aptos, 2, 3, '40.00', '10.00'], [
+            $pauta->getCriterio(), $pauta->getBase(), $pauta->getDigitos(), $pauta->getVagas(), $pauta->getQuorumPrimeira(), $pauta->getQuorumSegunda(),
+        ]);
+        self::assertSame([21, 22], array_map(static fn (OpcaoDaPauta $o): int => $o->getNumero(), $pauta->getOpcoesDeVoto()));
+    }
+
+    #[TestDox('Editar mandando regras troca as regras da pauta')]
+    public function testEditarComRegrasTroca(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Obra');
+        new OpcaoDaPauta($pauta, 1, 'Sim');
+        $assembleias = $this->createMock(AssembleiaRepository::class);
+        $assembleias->method('buscarDoEscritorio')->willReturn($assembleia);
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->method('buscarDaAssembleia')->willReturn($pauta);
+
+        (new EditarPautaUseCase($assembleias, $pautas, $this->createMock(OpcaoDaPautaRepository::class), new OpcoesDaPauta()))->executar($tenant, 7, 9, new PautaInput(
+            'Obra', null, PautaInput::OPCOES_PADRAO, new RegrasDaPautaInput(RegraDeDecisao::DoisTercos, BaseDaDecisao::Aptos, 1, 1, 0, null),
+        ));
+
+        self::assertSame([RegraDeDecisao::DoisTercos, BaseDaDecisao::Aptos, '0.00', null], [$pauta->getCriterio(), $pauta->getBase(), $pauta->getQuorumPrimeira(), $pauta->getQuorumSegunda()]);
+    }
+
+    #[TestDox('Publicar com mais vagas do que candidaturas é recusado e a assembleia segue em rascunho')]
+    public function testPublicarComMaisVagasQueCandidaturas(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Conselho');
+        new OpcaoDaPauta($pauta, 1, 'Ana');
+        new OpcaoDaPauta($pauta, 2, 'Bia');
+        $pauta->configurar(RegraDeDecisao::Mais, BaseDaDecisao::Validos, 1, 3, 50, 0);
+        new UnidadeDaAssembleia($assembleia, '101', 'semente', 'hash');
+
+        try {
+            $assembleia->publicar();
+            self::fail('Devia recusar.');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame('A pauta "Conselho" tem mais vagas (3) do que candidaturas.', $e->getMessage());
+        }
+        self::assertTrue($assembleia->podeAlterarPautas());
+    }
+
+    #[TestDox('Publicar com vagas iguais às candidaturas vale')]
+    public function testPublicarComVagasIguaisAsCandidaturas(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Conselho');
+        new OpcaoDaPauta($pauta, 1, 'Ana');
+        new OpcaoDaPauta($pauta, 2, 'Bia');
+        $pauta->configurar(RegraDeDecisao::Mais, BaseDaDecisao::Validos, 1, 2, 50, 0);
+        new UnidadeDaAssembleia($assembleia, '101', 'semente', 'hash');
+
+        $assembleia->publicar();
+
+        self::assertFalse($assembleia->podeAlterarPautas());
     }
 
     private function adicionar(Tenant $tenant, Assembleia $assembleia, PautaDaAssembleiaRepository $pautas): AdicionarPautaUseCase

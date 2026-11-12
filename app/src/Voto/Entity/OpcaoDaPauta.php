@@ -44,7 +44,7 @@ class OpcaoDaPauta implements TenantAware
         #[ORM\ManyToOne(targetEntity: PautaDaAssembleia::class, inversedBy: 'opcoes')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         private PautaDaAssembleia $pauta,
-        #[ORM\Column(type: 'smallint')]
+        #[ORM\Column(type: 'integer')]
         private int $numero,
         #[ORM\Column(length: 120)]
         private string $rotulo,

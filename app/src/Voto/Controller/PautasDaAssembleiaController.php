@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Voto\Controller;
 
 use App\Voto\DTO\PautaInput;
+use App\Voto\DTO\RegrasDaPautaInput;
+use App\Voto\Enum\BaseDaDecisao;
+use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
@@ -150,6 +153,31 @@ final class PautasDaAssembleiaController extends AbstractController
             $opcoes[] = ['numero' => \is_string($numero) ? $numero : '', 'rotulo' => \is_string($rotulos[$i] ?? null) ? $rotulos[$i] : ''];
         }
 
-        return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes);
+        return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes, self::regras($request));
+    }
+
+    /** As regras só vêm quando a tela manda o critério; sem ele, a pauta mantém as que tem. */
+    private static function regras(Request $request): ?RegrasDaPautaInput
+    {
+        $criterio = RegraDeDecisao::tryFrom((string) $request->request->get('criterio', ''));
+        if (null === $criterio) {
+            return null;
+        }
+        $segunda = trim((string) $request->request->get('quorum_segunda', ''));
+
+        return new RegrasDaPautaInput(
+            $criterio,
+            BaseDaDecisao::tryFrom((string) $request->request->get('base', '')) ?? BaseDaDecisao::Validos,
+            self::inteiro((string) $request->request->get('digitos', '1')),
+            self::inteiro((string) $request->request->get('vagas', '1')),
+            self::inteiro((string) $request->request->get('quorum_primeira', '50')),
+            '' === $segunda ? null : self::inteiro($segunda),
+        );
+    }
+
+    /** Só algarismos valem; o resto vira -1, que a pauta recusa como fora do limite (nada de lixo virando 0). */
+    private static function inteiro(string $valor): int
+    {
+        return 1 === preg_match('/^\d{1,6}$/', trim($valor)) ? (int) $valor : -1;
     }
 }
