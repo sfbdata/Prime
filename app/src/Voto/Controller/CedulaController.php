@@ -73,9 +73,9 @@ final class CedulaController extends AbstractController
         }
 
         try {
-            $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $request->request->getInt('opcao')));
+            $comprovante = $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $request->request->getInt('opcao')));
             if ($json) {
-                return $this->respostaJson(true, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'));
+                return $this->respostaJson(true, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'), Response::HTTP_OK, $comprovante);
             }
             $this->addFlash(self::FLASH_OK, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'));
         } catch (CedulaNaoEncontradaException) {
@@ -91,9 +91,14 @@ final class CedulaController extends AbstractController
     }
 
     /** Resposta da cabine (js/voto-cabine.js): o voto vai por fetch e a tela decide o que mostrar. */
-    private function respostaJson(bool $ok, string $mensagem, int $status = Response::HTTP_OK): Response
+    private function respostaJson(bool $ok, string $mensagem, int $status = Response::HTTP_OK, ?string $comprovante = null): Response
     {
-        return $this->protegida(new JsonResponse(['ok' => $ok, 'mensagem' => $mensagem], $status));
+        $corpo = ['ok' => $ok, 'mensagem' => $mensagem];
+        if (null !== $comprovante) {
+            $corpo['comprovante'] = $comprovante;
+        }
+
+        return $this->protegida(new JsonResponse($corpo, $status));
     }
 
     /** 404 que consome o limitador por IP; estourou, 429. Mesma página nos dois casos. */

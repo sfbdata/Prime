@@ -33,6 +33,7 @@ final class CedulaSemTenantFilterListener
         'voto_assembleia_portal_confirmar',
         'voto_assembleia_portal_reiniciar',
         'voto_assembleia_portal_sair_terminal',
+        'voto_assembleia_portal_comprovante',
     ];
 
     public function __construct(

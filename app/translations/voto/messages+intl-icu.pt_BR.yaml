@@ -22,6 +22,13 @@ voto:
     # ---- Cédula da assembleia de condomínio (frente F3, /votar/{token}): portal do eleitor do desenho 18 (§4 do
     # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
     # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
+    assembleia.portal:
+        comprovante:
+            titulo: Comprovante de votação
+            campo: Confira seu comprovante
+            conferir: Conferir
+            valido: 'Comprovante válido: a unidade votou na pauta "{pauta}" em {data} às {hora}. O comprovante não revela o voto.'
+            invalido: Comprovante não encontrado. Confira o código e tente de novo.
     assembleia.cedula:
         titulo_pagina: Votação da assembleia
         portal: Portal do Eleitor
@@ -62,8 +69,8 @@ voto:
             inicio_aperte: 'Aperte {confirma} para iniciar'
             seu_voto_para: SEU VOTO PARA
             numero: 'Número:'
-            numero_errado: NÚMERO ERRADO
-            voto_nulo: VOTO NULO
+            numero_invalido: NÚMERO INVÁLIDO
+            numero_invalido_dica: 'Aperte CORRIGE e informe um número válido.'
             abstencao: ABSTENÇÃO
             rodape_titulo: 'Aperte a tecla:'
             rodape_confirma: 'CONFIRMA para CONFIRMAR este voto'
@@ -89,7 +96,12 @@ voto:
             numero_tecla: 'Número {n}'
             fala_digite: 'Voto para {pauta}. Digite o número.'
             fala_abstencao: Abstenção. Confirme ou corrija.
-            fala_nulo: Número errado, voto nulo. Confirme ou corrija.
+            fala_invalido: 'Número inválido. Aperte CORRIGE e informe um número válido.'
+            comprovante_titulo: 'Comprovante de depósito da cédula (não revela seu voto)'
+            comprovante_imagem: Comprovante em imagem
+            imagem_titulo: Comprovante de votação
+            imagem_rodape: 'Este comprovante prova que a unidade votou. Ele não revela o voto.'
+            imagem_arquivo: comprovante-de-votacao.png
             fala_opcao: '{opcao}. Confirme ou corrija.'
             fala_fim: Voto registrado. Fim.
             fala_fim_simulacao: Simulação concluída. Nenhum voto foi registrado.

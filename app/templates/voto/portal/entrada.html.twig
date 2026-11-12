@@ -43,4 +43,19 @@
     {% if erro %}<div class="vcErro" role="alert">{{ erro }}</div>{% endif %}
 </div>
 {% endif %}
+<form method="post" action="{{ path('voto_assembleia_portal_comprovante', {codigo: portal.codigo}) }}" class="vC vpCartao" data-vp-comprovante>
+    <input type="hidden" name="_token" value="{{ token }}">
+    <b class="vpTitulo">{{ 'voto.assembleia.portal.comprovante.titulo'|trans }}</b>
+    <div class="vpConferir">
+        <label class="vL vpConferirCampo">{{ 'voto.assembleia.portal.comprovante.campo'|trans }}<input class="vF vMono" name="comprovante" autocomplete="off" placeholder="BJV-XXXX-XXXX-XXXX" value="{{ comprovante.texto|default('') }}" maxlength="40"></label>
+        <button class="vB" type="submit"><i class="bi bi-search" aria-hidden="true"></i>{{ 'voto.assembleia.portal.comprovante.conferir'|trans }}</button>
+    </div>
+    {% if comprovante is not null %}
+        {% if comprovante.conferido is not null %}
+            <div class="vcMsg vcMsgVerde" data-vp-comprovante-ok><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ 'voto.assembleia.portal.comprovante.valido'|trans({pauta: comprovante.conferido.pauta, data: comprovante.conferido.registradaEm|date('d/m/Y'), hora: comprovante.conferido.registradaEm|date('H:i')}) }}</div>
+        {% else %}
+            <div class="vcErro vpComprovanteErro" role="alert" data-vp-comprovante-erro>{{ 'voto.assembleia.portal.comprovante.invalido'|trans }}</div>
+        {% endif %}
+    {% endif %}
+</form>
 {% endblock %}

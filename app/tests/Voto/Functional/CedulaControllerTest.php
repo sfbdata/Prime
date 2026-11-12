@@ -23,6 +23,7 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\EventListener\CedulaSemTenantFilterListener;
+use App\Voto\Service\ComprovanteDoVoto;
 use App\Voto\UseCase\MontarCedulaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -150,7 +151,7 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame($this->link() . '/pauta/__PAUTA__', $dados['urlVotar']);
         self::assertNotSame('', $dados['csrf']);
         self::assertSame('/images/voto/bj-voto-logo.png', $dados['logo']);
-        foreach (['inicio_aperte', 'candidaturas', 'fim_voto', 'erro_generico', 'dica', 'fala_nulo'] as $chave) {
+        foreach (['inicio_aperte', 'candidaturas', 'fim_voto', 'erro_generico', 'dica', 'fala_invalido'] as $chave) {
             self::assertNotSame('', $dados['textos'][$chave] ?? '', 'texto da cabine ausente: ' . $chave);
         }
     }
@@ -287,9 +288,49 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         ], [], ['HTTP_ACCEPT' => 'application/json']);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertSame(['ok' => true, 'mensagem' => 'Voto registrado.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        $corpo = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertTrue($corpo['ok']);
+        self::assertSame('Voto registrado.', $corpo['mensagem']);
+        self::assertMatchesRegularExpression('/^BJV-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/', $corpo['comprovante']);
         self::assertStringContainsString('no-store', (string) $this->client->getResponse()->headers->get('Cache-Control'));
         self::assertSame([1, '0.025000'], $this->contador($sim));
+        self::assertSame($corpo['comprovante'], $this->codigoDaParticipacao(), 'o código sai da participação gravada (hora em segundos)');
+    }
+
+    #[TestDox('Comprovante: o código não traz a opção (votos diferentes na mesma pauta e hora têm códigos de unidades diferentes) e a conferência pública acha a pauta')]
+    public function testConferenciaPublicaDoComprovante(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => (string) $this->opcao(2)->getId(),
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+        $codigo = json_decode((string) $this->client->getResponse()->getContent(), true)['comprovante'];
+        $portal = '/voto/v/' . $this->assembleia->getCodigoPublico();
+
+        $pagina = $this->client->request('GET', $portal);
+        self::assertCount(1, $pagina->filter('form[data-vp-comprovante] input[name="comprovante"]'));
+        self::assertSame('Confira seu comprovante', trim($pagina->filter('form[data-vp-comprovante] label')->text()));
+        $csrf = (string) $pagina->filter('form[data-vp-comprovante] input[name="_token"]')->attr('value');
+
+        // Minúsculas e sem traços também valem.
+        $achou = $this->client->request('POST', $portal . '/comprovante', ['_token' => $csrf, 'comprovante' => strtolower(str_replace('-', ' ', $codigo))]);
+        self::assertResponseStatusCodeSame(200);
+        $texto = $achou->filter('[data-vp-comprovante-ok]')->text();
+        self::assertStringContainsString('Comprovante válido', $texto);
+        self::assertStringContainsString('Aprovação das contas', $texto);
+        self::assertMatchesRegularExpression('/\d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}/', $texto);
+        self::assertStringContainsString('não revela o voto', $texto);
+        self::assertStringNotContainsString('A-101', (string) $this->client->getResponse()->getContent(), 'não revela a unidade');
+        self::assertStringNotContainsString('Não', $achou->filter('[data-vp-comprovante-ok]')->text(), 'não revela a opção');
+
+        $errado = $this->client->request('POST', $portal . '/comprovante', ['_token' => $csrf, 'comprovante' => 'BJV-0000-0000-0000']);
+        self::assertSame('Comprovante não encontrado. Confira o código e tente de novo.', $errado->filter('[data-vp-comprovante-erro]')->text());
+        $lixo = $this->client->request('POST', $portal . '/comprovante', ['_token' => $csrf, 'comprovante' => 'qualquer coisa']);
+        self::assertCount(1, $lixo->filter('[data-vp-comprovante-erro]'));
+
+        $this->client->request('POST', $portal . '/comprovante', ['_token' => 'x', 'comprovante' => $codigo]);
+        self::assertResponseStatusCodeSame(400);
     }
 
     #[TestDox('Votar pela cabine sem CSRF válido, ou a mesma pauta de novo: JSON com ok falso e a mensagem, nada gravado a mais')]
@@ -428,6 +469,19 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
     private function link(): string
     {
         return '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade);
+    }
+
+    /** O código que o servidor refaz a partir da participação gravada (unidade, pauta e hora em segundos). */
+    private function codigoDaParticipacao(): string
+    {
+        $linha = $this->em->getConnection()->fetchAssociative(
+            'SELECT registrada_em FROM voto.assembleia_participacao WHERE unidade_id = :u AND pauta_id = :p',
+            ['u' => $this->unidade->getId(), 'p' => $this->pauta->getId()],
+        );
+        self::assertIsArray($linha);
+
+        return (new ComprovanteDoVoto((string) static::getContainer()->getParameter('kernel.secret')))
+            ->codigo((int) $this->unidade->getId(), (int) $this->pauta->getId(), new \DateTimeImmutable((string) $linha['registrada_em']));
     }
 
     private function opcao(int $numero): OpcaoDaPauta

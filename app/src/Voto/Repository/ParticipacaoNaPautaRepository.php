@@ -89,6 +89,31 @@ class ParticipacaoNaPautaRepository extends ServiceEntityRepository
         return $participacoes;
     }
 
+    /**
+     * Participações da assembleia para conferir um comprovante: unidade, pauta, título da pauta e hora (nunca a opção,
+     * que a participação não guarda).
+     *
+     * @return list<array{unidadeId: int, pautaId: int, pauta: string, registradaEm: \DateTimeImmutable}>
+     */
+    public function paraConferencia(Assembleia $assembleia): array
+    {
+        /** @var list<array{unidadeId: int|string, pautaId: int|string, pauta: string, registradaEm: \DateTimeImmutable}> $linhas */
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.unidade) AS unidadeId', 'pa.id AS pautaId', 'pa.titulo AS pauta', 'p.registradaEm AS registradaEm')
+            ->join('p.pauta', 'pa')
+            ->where('pa.assembleia = :assembleia')
+            ->setParameter('assembleia', $assembleia)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'unidadeId' => (int) $l['unidadeId'],
+            'pautaId' => (int) $l['pautaId'],
+            'pauta' => $l['pauta'],
+            'registradaEm' => $l['registradaEm'],
+        ], $linhas);
+    }
+
     public function jaVotou(UnidadeDaAssembleia $unidade, PautaDaAssembleia $pauta): bool
     {
         return null !== $this->findOneBy(['unidade' => $unidade, 'pauta' => $pauta, 'tenant' => $unidade->getTenant()]);
