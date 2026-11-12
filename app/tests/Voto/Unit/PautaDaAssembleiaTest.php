@@ -9,10 +9,13 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -229,6 +232,103 @@ final class PautaDaAssembleiaTest extends TestCase
         self::assertSame([$sim, $nao], $pauta->getOpcoesDeVoto());
         self::assertSame($abstencao, $pauta->getAbstencao());
         self::assertSame($pauta->getTenant(), $sim->getTenant());
+    }
+
+    #[TestDox('Sem configurar, a pauta tem as regras de sempre: mais votos, válidos, 1 dígito, 1 vaga, quórum 50% e 0%')]
+    public function testRegrasPadrao(): void
+    {
+        $pauta = new PautaDaAssembleia(new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'G'), 1, 'Contas');
+
+        self::assertSame(RegraDeDecisao::Mais, $pauta->getCriterio());
+        self::assertSame(BaseDaDecisao::Validos, $pauta->getBase());
+        self::assertSame(1, $pauta->getDigitos());
+        self::assertSame(1, $pauta->getVagas());
+        self::assertSame('50.00', $pauta->getQuorumPrimeira());
+        self::assertSame('0.00', $pauta->getQuorumSegunda());
+    }
+
+    #[TestDox('Configurar em rascunho grava as regras e o quórum da convocação vale ao abrir')]
+    public function testConfigurarEAbrir(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'G');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Conselho');
+        new OpcaoDaPauta($pauta, 11, 'A');
+        new OpcaoDaPauta($pauta, 22, 'B');
+        $pauta->configurar(RegraDeDecisao::DoisTercos, BaseDaDecisao::Aptos, 2, 2, 40, 20);
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+        $assembleia->publicar();
+
+        self::assertSame(RegraDeDecisao::DoisTercos, $pauta->getCriterio());
+        self::assertSame(BaseDaDecisao::Aptos, $pauta->getBase());
+        self::assertSame([2, 2, '40.00', '20.00'], [$pauta->getDigitos(), $pauta->getVagas(), $pauta->getQuorumPrimeira(), $pauta->getQuorumSegunda()]);
+
+        $pauta->abrir('Mesa', 2, null, $this->agora);
+
+        self::assertSame('20.00', $pauta->getQuorumExigido());
+    }
+
+    #[TestDox('Quórum da 2ª convocação em branco repete o da 1ª')]
+    public function testSegundaConvocacaoRepeteAPrimeira(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'G');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Contas');
+        new OpcaoDaPauta($pauta, 1, 'Sim');
+        new OpcaoDaPauta($pauta, 2, 'Não');
+        $pauta->configurar(RegraDeDecisao::Absoluta, BaseDaDecisao::Aptos, 1, 1, 30, null);
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+        $assembleia->publicar();
+
+        $pauta->abrir('Mesa', 2, null, $this->agora);
+
+        self::assertNull($pauta->getQuorumSegunda());
+        self::assertSame('30.00', $pauta->getQuorumExigido());
+    }
+
+    /** @return iterable<string, array{int, int, int, ?int, string}> */
+    public static function regrasForaDosLimites(): iterable
+    {
+        yield 'zero dígitos' => [0, 1, 50, 0, 'Os dígitos do número vão de 1 a 5.'];
+        yield 'seis dígitos' => [6, 1, 50, 0, 'Os dígitos do número vão de 1 a 5.'];
+        yield 'zero vagas' => [1, 0, 50, 0, 'As vagas vão de 1 a 9.'];
+        yield 'dez vagas' => [1, 10, 50, 0, 'As vagas vão de 1 a 9.'];
+        yield 'quórum negativo' => [1, 1, -1, 0, 'O quórum vai de 0 a 100%.'];
+        yield 'quórum acima de 100' => [1, 1, 101, 0, 'O quórum vai de 0 a 100%.'];
+        yield 'quórum da 2ª acima de 100' => [1, 1, 50, 101, 'O quórum vai de 0 a 100%.'];
+    }
+
+    #[DataProvider('regrasForaDosLimites')]
+    #[TestDox('Recusa regra fora dos limites e não muda nada: $_dataName')]
+    public function testRegrasForaDosLimites(int $digitos, int $vagas, int $quorum, ?int $segunda, string $mensagem): void
+    {
+        $pauta = new PautaDaAssembleia(new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'G'), 1, 'Contas');
+
+        try {
+            $pauta->configurar(RegraDeDecisao::Unanimidade, BaseDaDecisao::Presentes, $digitos, $vagas, $quorum, $segunda);
+            self::fail('Devia recusar.');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame($mensagem, $e->getMessage());
+        }
+        self::assertSame(RegraDeDecisao::Mais, $pauta->getCriterio(), 'nada foi gravado pela metade');
+    }
+
+    #[TestDox('Limites exatos valem: 5 dígitos, 9 vagas, quórum 0 e 100')]
+    public function testLimitesExatos(): void
+    {
+        $pauta = new PautaDaAssembleia(new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'G'), 1, 'Contas');
+
+        $pauta->configurar(RegraDeDecisao::Mais, BaseDaDecisao::Validos, 5, 9, 100, 0);
+
+        self::assertSame([5, 9, '100.00', '0.00'], [$pauta->getDigitos(), $pauta->getVagas(), $pauta->getQuorumPrimeira(), $pauta->getQuorumSegunda()]);
+    }
+
+    #[TestDox('Depois de publicada, as regras não mudam')]
+    public function testConfigurarSoEmRascunho(): void
+    {
+        $pauta = $this->pautaDeAssembleiaPublicada();
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+
+        $pauta->configurar(RegraDeDecisao::Unanimidade, BaseDaDecisao::Aptos, 1, 1, 100, 100);
     }
 
     private function pautaDeAssembleiaPublicada(): PautaDaAssembleia

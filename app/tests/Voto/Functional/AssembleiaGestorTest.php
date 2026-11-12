@@ -477,6 +477,69 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter('.voto-toast'), 'o aviso foi no JSON, não na sessão');
     }
 
+    #[TestDox('Salvar a pauta com as regras grava critério, base, dígitos, vagas e quórum; sem mandar o critério, as regras ficam')]
+    public function testSalvarPautaComRegras(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-' . $pauta->getId() . ' input[name="_token"]')->attr('value');
+        $consulta = 'SELECT criterio, base, digitos, vagas, quorum_primeira, quorum_segunda FROM voto.assembleia_pauta WHERE id = ?';
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', [
+            '_token' => $token, 'titulo' => 'Conselho fiscal', 'descricao' => '',
+            'opcao_numero' => ['01', '02', '03'], 'opcao_rotulo' => ['Ana', 'Bia', 'Caio'],
+            'criterio' => 'mais', 'base' => 'presentes', 'digitos' => '2', 'vagas' => '2', 'quorum_primeira' => '40', 'quorum_segunda' => '',
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(
+            ['criterio' => 'mais', 'base' => 'presentes', 'digitos' => 2, 'vagas' => 2, 'quorum_primeira' => '40.00', 'quorum_segunda' => null],
+            $this->em->getConnection()->fetchAssociative($consulta, [$pauta->getId()]),
+        );
+        self::assertSame([[0, 'Abstenção'], [1, 'Ana'], [2, 'Bia'], [3, 'Caio']], $this->opcoesNoBanco((int) $pauta->getId()));
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', [
+            '_token' => $token, 'titulo' => 'Conselho fiscal', 'descricao' => '',
+            'opcao_numero' => ['01', '02', '03'], 'opcao_rotulo' => ['Ana', 'Bia', 'Caio'],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(2, (int) $this->em->getConnection()->fetchOne('SELECT digitos FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]), 'sem o critério no envio, as regras ficam');
+    }
+
+    #[TestDox('Regra fora do limite por fetch: 422 com a mensagem e as regras não mudam')]
+    public function testRegraForaDoLimiteERecusada(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('#pauta-' . $pauta->getId() . ' input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', [
+            '_token' => $token, 'titulo' => 'Obra', 'descricao' => '',
+            'opcao_numero' => ['1', '2'], 'opcao_rotulo' => ['Sim', 'Não'],
+            'criterio' => 'unanime', 'base' => 'aptos', 'digitos' => '1', 'vagas' => '10', 'quorum_primeira' => '50', 'quorum_segunda' => '0',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['ok' => false, 'mensagem' => 'As vagas vão de 1 a 9.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame('mais', $this->em->getConnection()->fetchOne('SELECT criterio FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
+
+        $this->client->xmlHttpRequest('POST', $url . '/' . $pauta->getId() . '/editar', [
+            '_token' => $token, 'titulo' => 'Obra', 'descricao' => '',
+            'opcao_numero' => ['1', '2'], 'opcao_rotulo' => ['Sim', 'Não'],
+            'criterio' => 'mais', 'base' => 'validos', 'digitos' => '1', 'vagas' => '1', 'quorum_primeira' => '50', 'quorum_segunda' => 'abc',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['ok' => false, 'mensagem' => 'O quórum vai de 0 a 100%.'], json_decode((string) $this->client->getResponse()->getContent(), true), 'lixo no quórum não vira 0%');
+    }
+
     #[TestDox('Nº com letra é recusado: por fetch, 422 com a mensagem; no envio comum, toast de erro; nada muda')]
     public function testNumeroComLetraERecusado(): void
     {
