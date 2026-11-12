@@ -91,7 +91,18 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao);
         self::assertSame('Aprovação das contas', $cartao->filter('.vcPautaNome > b')->text());
         self::assertSame('Votação aberta', $cartao->filter('.vcPautaTopo > .vChip')->text());
-        self::assertCount(0, $cartao->filter('form, .vcOpcao'), 'o voto é na cabine: o cartão não leva mais as opções');
+        // Reserva (JavaScript que não sobe): o voto simples de antes, escondido, com as mesmas 3 opções.
+        $reserva = $cartao->filter('.vcPautaIn > .vcReserva[data-vc-reserva][hidden]');
+        self::assertCount(1, $reserva);
+        self::assertSame(['1 Sim', '2 Não', 'ABSTENÇÃO'], $reserva->filter('form[data-vc-votar] .vcOpcoes > button.vB[name="opcao"]')->each(
+            static fn (Crawler $b): string => trim(preg_replace('/\s+/', ' ', $b->text()) ?? ''),
+        ));
+        self::assertSame($this->link() . '/pauta/' . $this->pauta->getId(), $reserva->filter('form')->attr('action'));
+        self::assertNotSame('', (string) $reserva->filter('input[name="_token"]')->attr('value'));
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('<noscript><style>.vcReserva[hidden] { display:block; } .vcAcoes { display:none; }</style></noscript>', $html);
+        self::assertStringContainsString("window.__vcCabine === true", $html, 'guarda que insiste na cabine antes da reserva');
+        self::assertStringContainsString("sessionStorage.setItem(chave, '1')", $html);
         self::assertCount(0, $crawler->filter('.vMod'), 'a janela de confirmação antiga saiu, a cabine confirma');
 
         // Botões do desenho (L153), em ordem: Conhecer candidaturas, Simular votação e Votar.
@@ -259,6 +270,7 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Você já votou nesta pauta.', $depois->filter('.vcPauta [data-vc-votou]')->text());
         self::assertMatchesRegularExpression('/Registrado às \d{2}:\d{2}\./', $depois->filter('.vcPauta [data-vc-votou] .vcHora')->text());
         self::assertSame([], $this->dadosDaCabine($depois)['pautas'], 'quem votou não tem mais o que votar na cabine');
+        self::assertCount(0, $depois->filter('[data-vc-reserva], form[data-vc-votar]'), 'quem votou também não tem reserva');
         self::assertCount(1, $depois->filter('.vcAcoes > button[data-vc-abrir-cabine][disabled]'), 'o botão Votar fica desabilitado');
         self::assertSame([1, '0.025000'], $this->contador($sim));
     }
@@ -356,6 +368,7 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Não apto(a)', $crawler->filter('.vcUnidade > .vChip')->text());
         self::assertSame('Sua unidade não está apta a votar nesta assembleia.', trim($crawler->filter('.vcPauta [data-vc-inapta]')->text()));
         self::assertSame([], $this->dadosDaCabine($crawler)['pautas'], 'inapta não tem o que votar na cabine');
+        self::assertCount(0, $crawler->filter('[data-vc-reserva], form[data-vc-votar]'));
         self::assertCount(1, $crawler->filter('.vcAcoes > button[data-vc-abrir-cabine][disabled]'));
     }
 

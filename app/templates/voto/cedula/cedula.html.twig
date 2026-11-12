@@ -57,6 +57,42 @@
     {# A cabine é fixa na tela; fica no mesmo bloco por causa de `todas` e `votaveis`, que só existem aqui. #}
     {% if todas is not empty %}
         {% include 'voto/cedula/_cabine.html.twig' with {cedula: cedula, token: token, votaveis: votaveis, todas: todas} only %}
+        {# Guarda da cabine: se js/voto-cabine.js não subir (rede ruim, bloqueador), insiste no arquivo duas vezes, recarrega
+           a página uma vez e só então mostra a reserva (o voto simples). A cabine, ao subir, desfaz tudo (window.__vcCabine). #}
+        <script>
+        (function () {
+            var chave = 'vc_recarregou';
+            function pronta() { return window.__vcCabine === true; }
+            function insistir() {
+                var s = document.createElement('script');
+                s.src = '/js/voto-cabine.js?r=' + Date.now();
+                document.body.appendChild(s);
+            }
+            function reserva() {
+                document.querySelectorAll('[data-vc-reserva]').forEach(function (e) { e.hidden = false; });
+                document.querySelectorAll('[data-vc-acoes]').forEach(function (e) { e.hidden = true; });
+            }
+            function recarregouAntes() {
+                try { return sessionStorage.getItem(chave) === '1'; } catch (e) { return true; }
+            }
+            function fim() {
+                if (pronta()) { return; }
+                if (!recarregouAntes()) {
+                    try { sessionStorage.setItem(chave, '1'); } catch (e) { return reserva(); }
+                    window.location.reload();
+                    return;
+                }
+                reserva();
+            }
+            function tentar(n) {
+                if (pronta()) { return; }
+                if (n === 0) { return fim(); }
+                insistir();
+                setTimeout(function () { tentar(n - 1); }, 2500);
+            }
+            window.addEventListener('load', function () { setTimeout(function () { tentar(2); }, 800); });
+        })();
+        </script>
     {% endif %}
 {% endblock %}
 

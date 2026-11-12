@@ -12,11 +12,20 @@
 (function () {
     'use strict';
 
+    if (window.__vcCabine === true) {
+        return; // o guarda da cédula carregou o arquivo de novo e a cabine já tinha subido
+    }
     var raiz = document.querySelector('[data-vc-cabine]');
     var dadosEl = document.querySelector('[data-vc-cabine-dados]');
     if (!raiz || !dadosEl) {
         return;
     }
+
+    // Avisa o guarda da cédula que a cabine subiu: some a reserva e a próxima falha volta a ser tratada.
+    window.__vcCabine = true;
+    document.querySelectorAll('[data-vc-reserva]').forEach(function (e) { e.hidden = true; });
+    document.querySelectorAll('[data-vc-acoes]').forEach(function (e) { e.hidden = false; });
+    try { sessionStorage.removeItem('vc_recarregou'); } catch (e) { /* sem armazenamento: o guarda só mostra a reserva */ }
 
     var D;
     try {

@@ -1,10 +1,11 @@
 {#
     Cartão de uma pauta na cédula (desenho 18, L147-153): nome 19px, descrição, chip do status, linha de detalhes, a
-    mensagem do estado (13.5px bold, cor e ícone do desenho) e, encerrada, o resultado. O voto é na cabine (_cabine). Recebe `pauta` (PautaNaCedulaOutput), `cedula` (CedulaOutput) e `token`.
+    mensagem do estado (13.5px bold, cor e ícone do desenho) e, encerrada, o resultado. O voto é na cabine (_cabine); a reserva sem JavaScript fica aqui. Recebe `pauta` (PautaNaCedulaOutput), `cedula` (CedulaOutput) e `token`.
 
     Mensagem, na ordem do desenho: já votou (verde, check) > prazo correndo (âmbar) > inapta (vermelho) > aguardando
     (azul). Pauta encerrada sem voto da unidade não tem mensagem: o resultado fala por ela.
 #}
+{%- set podeVotar = pauta.aberta() and cedula.apta and pauta.votouEm is null and pauta.opcoes is not empty -%}
 {%- set status = not cedula.assembleiaPublicada ? 'rascunho' : (pauta.aguardando() ? 'publicada' : (pauta.aberta() ? 'aberta' : 'encerrada')) -%}
 <div class="vC vcPauta" data-vc-pauta="{{ pauta.id }}" data-vc-estado="{{ status }}">
     <div class="vcPautaIn">
@@ -29,6 +30,26 @@
             <div class="vcMsg vcMsgVermelho" data-vc-inapta><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.inapta'|trans }}</div>
         {% elseif pauta.aguardando() %}
             <div class="vcMsg vcMsgAzul" data-vc-aguardando><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.aguardando'|trans }}</div>
+        {% endif %}
+
+        {# Reserva: o voto simples de antes, escondido enquanto a cabine funciona. Só aparece se o JavaScript da cabine não
+           carregar (js/voto-cabine.js desfaz o `hidden`; o guarda da cédula o mostra depois das tentativas) ou sem JavaScript. #}
+        {% if podeVotar %}
+            <div class="vcReserva" data-vc-reserva hidden>
+                <form class="vcVotar" method="post" action="{{ path('voto_assembleia_cedula_votar', {token: token, pauta: pauta.id}) }}" data-vc-votar>
+                    <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
+                    <div class="vcDica">{{ 'voto.assembleia.cedula.dica'|trans }}</div>
+                    <div class="vcOpcoes" role="group" aria-label="{{ 'voto.assembleia.cedula.opcoes'|trans }}">
+                        {% for opcao in pauta.opcoes %}
+                            {% if opcao.abstencao %}
+                                <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao vcOpcaoAbstencao">{{ 'voto.assembleia.cedula.abstencao'|trans }}</button>
+                            {% else %}
+                                <button type="submit" name="opcao" value="{{ opcao.id }}" class="vB vcOpcao"><b>{{ opcao.numero }}</b> {{ opcao.rotulo }}</button>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
         {% endif %}
 
         {% if pauta.resultado is not null %}

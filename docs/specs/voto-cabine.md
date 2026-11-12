@@ -16,6 +16,11 @@ Risco: MÉDIO (tela do voto; a gravação continua no mesmo UseCase e na mesma r
   as já gravadas ficam gravadas ("Você já votou nesta pauta" ao recarregar).
 - Botões na cédula (L153): "Conhecer candidaturas", "Simular votação" e "Votar" (desabilitado sem pauta a votar). Saíram as
   opções dentro do cartão da pauta e a janela de confirmação antiga (o desenho confirma na tecla CONFIRMA).
+- Reserva sem a cabine (extra, pedido do Samuel): o voto simples de antes (um botão por opção, envio direto) fica no
+  cartão da pauta, escondido (`.vcReserva[hidden]`). Se `js/voto-cabine.js` não subir, o guarda da cédula (script inline)
+  insiste no arquivo 2 vezes (a cada 2,5 s), recarrega a página 1 vez (`sessionStorage vc_recarregou`) e só então mostra a
+  reserva e esconde os botões da cabine. Com JavaScript desligado, o `<noscript>` mostra a reserva. A cabine, ao subir,
+  esconde a reserva. A reserva envia sem a confirmação (como a cédula antiga sem JavaScript).
 - Simulação: mesma cabine com a faixa "SIMULAÇÃO: nenhum voto é registrado"; nada é enviado.
 - Teclado físico (números, B, Backspace, Enter), sons (WebAudio, botão liga e desliga), LEDs, braile, `aria-live`,
   `prefers-reduced-motion`, responsivo (760px): como no desenho.

@@ -43,6 +43,7 @@ voto:
             ja_votou: Você já votou nesta pauta.
             hora: 'Registrado às {hora}.'
             encerra_em: 'Encerra em {tempo}.'
+        dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
         abstencao: ABSTENÇÃO
         opcoes: Opções da pauta
         resultado:
