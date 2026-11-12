@@ -88,12 +88,15 @@ final class LeituraDaAssembleia
             pesoVotante: $contagem['peso'],
             unidadesAptas: $totais['unidadesAptas'],
             pesoApto: $totais['pesoApto'],
-            resultado: $this->resultado($pauta, $totais),
+            resultado: $this->resultado($pauta, $totais, $contagem),
         );
     }
 
-    /** @param array{pesoApto: string, unidadesAptas: int} $totais */
-    private function resultado(PautaDaAssembleia $pauta, array $totais): ?ResultadoDaPauta
+    /**
+     * @param array{pesoApto: string, unidadesAptas: int} $totais
+     * @param array{unidades: int, peso: string}          $contagem quem participou da pauta (cada unidade uma vez)
+     */
+    private function resultado(PautaDaAssembleia $pauta, array $totais, array $contagem): ?ResultadoDaPauta
     {
         if (EstadoDaPauta::Encerrada !== $pauta->getEstado()) {
             return null;
@@ -102,6 +105,6 @@ final class LeituraDaAssembleia
             $this->em->refresh($opcao);
         }
 
-        return $this->apuracao->apurar($pauta, $totais['pesoApto'], $totais['unidadesAptas']);
+        return $this->apuracao->apurar($pauta, $totais['pesoApto'], $totais['unidadesAptas'], $contagem);
     }
 }
