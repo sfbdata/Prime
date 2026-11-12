@@ -7,7 +7,7 @@
 {%- set textos = {} -%}
 {%- for chave in ['aria', 'conhecer', 'faixa_simulacao', 'inicio_aperte', 'seu_voto_para', 'numero', 'numero_errado', 'voto_nulo', 'abstencao',
     'rodape_titulo', 'rodape_confirma', 'rodape_corrige', 'dica', 'grava_titulo', 'grava_subtitulo', 'grava_titulo_simulacao',
-    'grava_subtitulo_simulacao', 'fim', 'fim_voto', 'fim_simulacao', 'erro_titulo', 'erro_generico', 'voltar', 'concluir',
+    'grava_subtitulo_simulacao', 'fim', 'fim_voto', 'fim_simulacao', 'erro_titulo', 'erro_generico', 'erro_rede', 'voltar', 'concluir',
     'simular_de_novo', 'candidaturas', 'som_desligar', 'som_ligar', 'fala_digite', 'fala_abstencao', 'fala_nulo', 'fala_opcao',
     'fala_fim', 'fala_fim_simulacao', 'confirma'] -%}
     {%- set textos = textos|merge({(chave): ('voto.assembleia.cedula.cabine.' ~ chave)|trans}) -%}

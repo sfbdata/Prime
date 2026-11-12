@@ -477,6 +477,8 @@
             body: corpo,
             credentials: 'same-origin',
             headers: {'Accept': 'application/json'}
+        }, function () {
+            throw new Error(texto('erro_rede'));
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) {
                 if (!r.ok || !j.ok) {
@@ -574,10 +576,10 @@
         } else if (evento.key === 'b' || evento.key === 'B') {
             evento.preventDefault();
             branco();
-        } else if (evento.key === 'Backspace') {
+        } else if (evento.key === 'Backspace' || evento.key === 'Delete') {
             evento.preventDefault();
             corrige();
-        } else if (evento.key === 'Enter' && !naBotao) {
+        } else if (evento.key === 'Enter' && (!naBotao || evento.target.hasAttribute('data-u-tecla'))) {
             evento.preventDefault();
             confirma();
         }

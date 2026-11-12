@@ -43,15 +43,8 @@ voto:
             ja_votou: Você já votou nesta pauta.
             hora: 'Registrado às {hora}.'
             encerra_em: 'Encerra em {tempo}.'
-        dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
         abstencao: ABSTENÇÃO
         opcoes: Opções da pauta
-        confirmar:
-            titulo: Confirme seu voto
-            rotulo: SEU VOTO PARA
-            fechar: Fechar
-            corrigir: Corrigir
-            confirmar: Confirmar voto
         resultado:
             un: '{unidades} un · {peso}'
             abstencoes: 'Abstenções {abstencoes} · Nulos 0'
@@ -84,6 +77,7 @@ voto:
             fim_simulacao: Simulação concluída
             erro_titulo: Voto não registrado
             erro_generico: Não foi possível registrar o voto. Tente de novo.
+            erro_rede: 'Sem resposta do servidor. Parte dos votos pode já ter sido registrada: recarregue a página para conferir.'
             voltar: Voltar
             concluir: Concluir
             simular_de_novo: Simular novamente
