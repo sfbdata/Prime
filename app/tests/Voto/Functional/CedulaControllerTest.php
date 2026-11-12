@@ -91,10 +91,57 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao);
         self::assertSame('Aprovação das contas', $cartao->filter('.vcPautaNome > b')->text());
         self::assertSame('Votação aberta', $cartao->filter('.vcPautaTopo > .vChip')->text());
-        self::assertSame(['1 Sim', '2 Não', 'ABSTENÇÃO'], $cartao->filter('form[data-vc-votar] .vcOpcoes > button.vB')->each(
-            static fn (Crawler $b): string => (string) $b->attr('data-vc-escolha'),
+        self::assertCount(0, $cartao->filter('form, .vcOpcao'), 'o voto é na cabine: o cartão não leva mais as opções');
+        self::assertCount(0, $crawler->filter('.vMod'), 'a janela de confirmação antiga saiu, a cabine confirma');
+
+        // Botões do desenho (L153), em ordem: Conhecer candidaturas, Simular votação e Votar.
+        self::assertSame(
+            ['Conhecer candidaturas', 'Simular votação', 'Votar'],
+            $crawler->filter('.vcMain > .vcAcoes > button.vB')->each(static fn (Crawler $b): string => trim($b->text())),
+        );
+        self::assertCount(0, $crawler->filter('.vcAcoes > button[disabled]'));
+
+        // Cabine (L257-280): arranjo por filho direto, 10 números, 3 teclas de ação e 8 LEDs.
+        $cabine = $crawler->filter('.vcMain > .uBg[data-vc-cabine][hidden][role="application"]');
+        self::assertCount(1, $cabine);
+        self::assertCount(1, $cabine->filter('.uBody > .uGr > .uMold > .uTela[data-u-tela]'));
+        self::assertCount(1, $cabine->filter('.uBody > .uGr > .uDir > .uPlaca > button[data-u-som]'));
+        self::assertCount(10, $cabine->filter('.uBody > .uGr > .uDir > .uTec > button.uT[data-u-tecla], .uBody > .uGr > .uDir > .uTec > button.uT0'));
+        self::assertSame(['BRANCO', 'CORRIGE', 'CONFIRMA'], $cabine->filter('.uTec > .uAc > button.uT')->each(
+            static fn (Crawler $b): string => trim($b->text()),
         ));
-        self::assertCount(1, $crawler->filter('body > .vMod[data-vc-janela][hidden] > .vModC > .vH [data-vc-fechar]'));
+        self::assertCount(8, $cabine->filter('.uBody > .uFen > i'));
+        self::assertStringContainsString('Sem vínculo com a Justiça Eleitoral', $cabine->filter('.uBody > .uDemo')->text());
+
+        $dados = $this->dadosDaCabine($crawler);
+        self::assertSame('AGO Residencial Ipê', $dados['assembleia']);
+        self::assertCount(1, $dados['pautas']);
+        self::assertSame($dados['pautas'], $dados['simulacao']);
+        self::assertSame('Aprovação das contas', $dados['pautas'][0]['titulo']);
+        self::assertSame(
+            ['1 Sim', '2 Não', 'ABSTENÇÃO'],
+            array_map(static fn (array $o): string => $o['abstencao'] ? $o['rotulo'] : $o['numero'] . ' ' . $o['rotulo'], $dados['pautas'][0]['opcoes']),
+        );
+        self::assertSame([false, false, true], array_column($dados['pautas'][0]['opcoes'], 'abstencao'));
+    }
+
+    /** @return array<string, mixed> */
+    private function dadosDaCabine(Crawler $crawler): array
+    {
+        return json_decode((string) $crawler->filter('[data-vc-cabine-dados]')->attr('data-vc-cabine-dados'), true, 512, \JSON_THROW_ON_ERROR);
+    }
+
+    #[TestDox('Cabine: o endereço do voto e o CSRF da página vão nos dados, com os textos da cabine')]
+    public function testDadosDaCabineApontamParaOVoto(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+
+        self::assertSame($this->link() . '/pauta/__PAUTA__', $dados['urlVotar']);
+        self::assertNotSame('', $dados['csrf']);
+        self::assertSame('/images/voto/bj-voto-logo.png', $dados['logo']);
+        foreach (['inicio_aperte', 'candidaturas', 'fim_voto', 'erro_generico', 'dica', 'fala_nulo'] as $chave) {
+            self::assertNotSame('', $dados['textos'][$chave] ?? '', 'texto da cabine ausente: ' . $chave);
+        }
     }
 
     #[TestDox('Página própria: sem a moldura do sistema, sem Bootstrap e sem os textos proibidos (cifra, demonstração, BJV)')]
@@ -125,7 +172,7 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(200);
         self::assertSame('Aprovação das contas', $crawler->filter('.vcPauta .vcPautaNome > b')->text());
-        self::assertCount(3, $crawler->filter('form[data-vc-votar] button[name="opcao"]'));
+        self::assertCount(3, $this->dadosDaCabine($crawler)['pautas'][0]['opcoes']);
     }
 
     #[TestDox('Token errado: 404 "Link inválido ou eleição indisponível." e consome o limitador com o IP')]
@@ -197,12 +244,11 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
     #[TestDox('Votar: POST com o CSRF da página grava o voto e volta à cédula com "Voto registrado." e "Você já votou nesta pauta."')]
     public function testVotarComCsrf(): void
     {
-        $crawler = $this->client->request('GET', $this->link());
-        $form = $crawler->filter('form[data-vc-votar]');
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
         $sim = $this->opcao(1);
 
-        $this->client->request('POST', (string) $form->attr('action'), [
-            '_token' => $form->filter('input[name="_token"]')->attr('value'),
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
             'opcao' => (string) $sim->getId(),
         ]);
 
@@ -212,8 +258,49 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Voto registrado.', $depois->filter('body > .vcToast[data-vc-toast]')->text());
         self::assertStringStartsWith('Você já votou nesta pauta.', $depois->filter('.vcPauta [data-vc-votou]')->text());
         self::assertMatchesRegularExpression('/Registrado às \d{2}:\d{2}\./', $depois->filter('.vcPauta [data-vc-votou] .vcHora')->text());
-        self::assertCount(0, $depois->filter('form[data-vc-votar]'), 'quem votou não vê mais as opções');
+        self::assertSame([], $this->dadosDaCabine($depois)['pautas'], 'quem votou não tem mais o que votar na cabine');
+        self::assertCount(1, $depois->filter('.vcAcoes > button[data-vc-abrir-cabine][disabled]'), 'o botão Votar fica desabilitado');
         self::assertSame([1, '0.025000'], $this->contador($sim));
+    }
+
+    #[TestDox('Votar pela cabine (Accept: application/json): grava o voto e responde JSON {ok, mensagem}, sem redirecionar')]
+    public function testVotarPelaCabineResponderJson(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        $sim = $this->opcao(1);
+
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'],
+            'opcao' => (string) $sim->getId(),
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Voto registrado.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertStringContainsString('no-store', (string) $this->client->getResponse()->headers->get('Cache-Control'));
+        self::assertSame([1, '0.025000'], $this->contador($sim));
+    }
+
+    #[TestDox('Votar pela cabine sem CSRF válido, ou a mesma pauta de novo: JSON com ok falso e a mensagem, nada gravado a mais')]
+    public function testVotarPelaCabineRecusaEmJson(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        $sim = $this->opcao(1);
+        $url = str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']);
+
+        $this->client->request('POST', $url, ['_token' => 'x', 'opcao' => (string) $sim->getId()], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(400);
+        self::assertFalse(json_decode((string) $this->client->getResponse()->getContent(), true)['ok']);
+        self::assertSame([0, '0.000000'], $this->contador($sim));
+
+        $voto = ['_token' => $dados['csrf'], 'opcao' => (string) $sim->getId()];
+        $this->client->request('POST', $url, $voto, [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(200);
+        $this->client->request('POST', $url, $voto, [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(422);
+        $segunda = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertFalse($segunda['ok']);
+        self::assertNotSame('', $segunda['mensagem']);
+        self::assertSame([1, '0.025000'], $this->contador($sim), 'a segunda tentativa não soma');
     }
 
     #[TestDox('Votar sem CSRF válido: nada é gravado e a cédula volta com o aviso de página expirada')]
@@ -227,7 +314,7 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         $depois = $this->client->followRedirect();
         self::assertSame('A página expirou. Escolha de novo e confirme o voto.', $depois->filter('body > .vcToast.vcToastErro')->text());
         self::assertSame([0, '0.000000'], $this->contador($sim));
-        self::assertCount(1, $depois->filter('form[data-vc-votar]'));
+        self::assertCount(1, $this->dadosDaCabine($depois)['pautas']);
     }
 
     #[TestDox('POST com token errado: 404 e consome o limitador')]
@@ -268,7 +355,8 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(200);
         self::assertSame('Não apto(a)', $crawler->filter('.vcUnidade > .vChip')->text());
         self::assertSame('Sua unidade não está apta a votar nesta assembleia.', trim($crawler->filter('.vcPauta [data-vc-inapta]')->text()));
-        self::assertCount(0, $crawler->filter('form[data-vc-votar]'));
+        self::assertSame([], $this->dadosDaCabine($crawler)['pautas'], 'inapta não tem o que votar na cabine');
+        self::assertCount(1, $crawler->filter('.vcAcoes > button[data-vc-abrir-cabine][disabled]'));
     }
 
     #[TestDox('Pauta encerrada: o resultado do desenho (faixa, barras, abstenções e decisão), sem opções')]

@@ -59,6 +59,48 @@ voto:
         toast:
             registrado: Voto registrado.
             expirada: A página expirou. Escolha de novo e confirme o voto.
+        cabine:
+            aria: Cabine de votação
+            votar: Votar
+            simular: Simular votação
+            conhecer: Conhecer candidaturas
+            faixa_simulacao: 'SIMULAÇÃO: nenhum voto é registrado'
+            inicio_aperte: 'Aperte {confirma} para iniciar'
+            seu_voto_para: SEU VOTO PARA
+            numero: 'Número:'
+            numero_errado: NÚMERO ERRADO
+            voto_nulo: VOTO NULO
+            abstencao: ABSTENÇÃO
+            rodape_titulo: 'Aperte a tecla:'
+            rodape_confirma: 'CONFIRMA para CONFIRMAR este voto'
+            rodape_corrige: 'CORRIGE para REINICIAR este voto'
+            dica: 'Digite o número no teclado ou aperte BRANCO para se abster.'
+            grava_titulo: Registrando seu voto
+            grava_subtitulo: Enviando seu voto e separando-o da sua identidade
+            grava_titulo_simulacao: Simulando o registro
+            grava_subtitulo_simulacao: Nada é enviado nesta simulação
+            fim: FIM
+            fim_voto: Voto registrado
+            fim_simulacao: Simulação concluída
+            erro_titulo: Voto não registrado
+            erro_generico: Não foi possível registrar o voto. Tente de novo.
+            voltar: Voltar
+            concluir: Concluir
+            simular_de_novo: Simular novamente
+            candidaturas: Candidaturas
+            rodape_demo: 'Equipamento virtual BlueJus, inspirado na familiaridade da urna brasileira. Sem vínculo com a Justiça Eleitoral. Teclado físico: números, B, Backspace e Enter.'
+            som_desligar: Desligar sons
+            som_ligar: Ligar sons
+            numero_tecla: 'Número {n}'
+            fala_digite: 'Voto para {pauta}. Digite o número.'
+            fala_abstencao: Abstenção. Confirme ou corrija.
+            fala_nulo: Número errado, voto nulo. Confirme ou corrija.
+            fala_opcao: '{opcao}. Confirme ou corrija.'
+            fala_fim: Voto registrado. Fim.
+            fala_fim_simulacao: Simulação concluída. Nenhum voto foi registrado.
+            branco: BRANCO
+            corrige: CORRIGE
+            confirma: CONFIRMA
         indisponivel: Link inválido ou eleição indisponível.
         limite: Muitas consultas. Tente novamente em alguns minutos.
     # ---- Assembleia de condomínio, telas do gestor (frente F2). Spec docs/specs/voto-assembleia-condominio.md;
