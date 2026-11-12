@@ -1,0 +1,11 @@
+{# Compõe o texto antes de escapar, inclusive quando ele integra o resumo traduzido da ata. #}
+{% macro resumo(r, traducao = null, parametros = {}) -%}
+    {%- if not r.decidido -%}
+        {%- set texto = r.situacao -%}
+    {%- elseif r.vagas > 1 -%}
+        {%- set texto = 'voto.assembleia.gestor.resultados.eleitos'|trans({nomes: r.vencedores|map(o => o.numero ~ ' ' ~ o.rotulo)|join(', ')}) -%}
+    {%- else -%}
+        {%- set texto = r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo -%}
+    {%- endif -%}
+    {{- traducao ? traducao|trans(parametros|merge({resultado: texto})) : texto -}}
+{%- endmacro %}

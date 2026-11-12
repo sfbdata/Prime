@@ -1,3 +1,4 @@
+{% from 'voto/_texto_do_resultado.html.twig' import resumo %}
 {#
     Ata / Relatório consolidado da assembleia (desenho §5, L355), em HTML imprimível no lugar do PDF em canvas (spec
     voto-assembleia-condominio, Gestor item 10). Seções que têm dado neste mínimo: resumo, identificação, por pauta
@@ -31,9 +32,8 @@
         <p>{{ 'voto.assembleia.gestor.ata.resumo_pauta'|trans({pauta: p.titulo, n: p.votantes, aptos: p.unidadesAptas, pc: p.pctUnidades}) }}</p>
         {% if p.resultado is not null %}
             {% set r = p.resultado %}
-            <p>{{ 'voto.assembleia.gestor.ata.resumo_resultado'|trans({
+            <p>{{ resumo(r, 'voto.assembleia.gestor.ata.resumo_resultado', {
                 pauta: p.titulo,
-                resultado: r.decidido ? r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo : r.situacao,
                 quorum: (not p.exigeQuorum ? 'voto.assembleia.gestor.ata.quorum_nao_exigido' : (r.quorumOk ? 'voto.assembleia.gestor.ata.quorum_atingido' : 'voto.assembleia.gestor.ata.quorum_nao_atingido'))|trans,
             }) }}</p>
         {% else %}
@@ -66,7 +66,7 @@
                 <table class="voto-ata-tabela">
                     <caption>{{ 'voto.assembleia.gestor.ata.criterios'|trans }}</caption>
                     <thead><tr><th>{{ 'voto.assembleia.gestor.ata.item'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.regra'|trans }}</th></tr></thead>
-                    <tbody><tr><td>{{ p.titulo }}</td><td>{{ 'voto.assembleia.gestor.ata.criterio'|trans({q: p.quorumTexto}) }}</td></tr></tbody>
+                    <tbody><tr><td>{{ p.titulo }}</td><td>{{ 'voto.assembleia.gestor.ata.criterio'|trans({criterio: p.criterio.rotulo, base: p.base.rotulo|lower, q: p.quorumTexto}) }}</td></tr></tbody>
                 </table>
 
                 <h3>{{ n }}.1 {{ 'voto.assembleia.gestor.ata.abertura'|trans }}</h3>
@@ -117,9 +117,9 @@
                         {% endfor %}
                         <tr><td>{{ 'voto.assembleia.gestor.ata.abstencoes'|trans }}</td><td>{{ r.abstencoesUnidades }}</td><td>{{ r.abstencoesPeso|voto_fracao }}</td></tr>
                         <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>0</td><td>0</td></tr>
-                        <tr><td><b>{{ 'voto.assembleia.gestor.ata.total'|trans }}</b></td><td><b>{{ r.votantes }}</b></td><td><b>{{ r.pesoPresente|voto_fracao }}</b></td></tr>
+                        <tr><td><b>{{ 'voto.assembleia.gestor.ata.total'|trans }}</b></td><td><b>{{ r.totalDeEscolhas }}</b></td><td><b>{{ r.pesoDasEscolhas|voto_fracao }}</b></td></tr>
                         <tr><td colspan="2">{{ 'voto.assembleia.gestor.ata.quorum_linha'|trans({pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</td><td>{{ (r.quorumOk ? 'voto.assembleia.gestor.ata.atingido' : 'voto.assembleia.gestor.ata.nao_atingido')|trans }}</td></tr>
-                        <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ r.decidido ? r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo : r.situacao }}</b></td></tr>
+                        <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ resumo(r) }}</b></td></tr>
                         </tbody>
                     </table>
                 {% else %}

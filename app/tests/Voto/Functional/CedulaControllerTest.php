@@ -507,6 +507,44 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Encerra em {t}.', $prazo->attr('data-vc-modelo'));
     }
 
+    #[TestDox('Resultado de duas vagas na cédula mostra todos os eleitos na faixa e na decisão verde')]
+    public function testResultadoComTodosOsEleitos(): void
+    {
+        $this->pautaEncerradaComVariasVagas();
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertResponseIsSuccessful();
+        $resultado = $crawler->filter('.vcMain > .vcPauta')->eq(1)->filter('.vcResultado');
+        self::assertSame('Conselho: Eleitos: 1 Ana, 2 Bia', $resultado->filter('div.vcResumo')->text());
+        self::assertSame('Eleitos: 1 Ana, 2 Bia', $resultado->filter('.vcDecisao.vcMsgVerde')->text());
+        self::assertCount(3, $resultado->filter('.vcItem > .vcItemNome'));
+    }
+
+    #[TestDox('Empate na última vaga na cédula: situação na faixa e decisão vermelha, sem eleitos')]
+    public function testResultadoComEmpateNaUltimaVaga(): void
+    {
+        $this->pautaEncerradaComVariasVagas(true);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertResponseIsSuccessful();
+        $resultado = $crawler->filter('.vcMain > .vcPauta')->eq(1)->filter('.vcResultado');
+        self::assertSame('Conselho: Empate na última vaga', $resultado->filter('div.vcResumo')->text());
+        self::assertSame('Empate na última vaga', $resultado->filter('.vcDecisao.vcMsgVermelho')->text());
+        self::assertCount(0, $resultado->filter('.vcMsgVerde'));
+        self::assertStringNotContainsString('Eleitos:', $resultado->text());
+    }
+
+    private function pautaEncerradaComVariasVagas(bool $empate = false): void
+    {
+        $pauta = PautaDaAssembleiaFactory::new()->encerrada()->create([
+            'assembleia' => $this->assembleia, 'ordem' => 2, 'titulo' => 'Conselho', 'vagas' => 2,
+        ])->_real();
+        foreach ([1 => ['Ana', 2, '0.700000'], 2 => ['Bia', 1, '0.400000'], 3 => ['Caio', 1, $empate ? '0.400000' : '0.300000']] as $numero => [$nome, $unidades, $peso]) {
+            OpcaoDaPautaFactory::new()->comVotos($unidades, $peso)->create(['pauta' => $pauta, 'numero' => $numero, 'rotulo' => $nome]);
+        }
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'fracao' => '0.975000']);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $pauta]);
+        $this->em->clear();
+    }
+
     private function link(): string
     {
         return '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade);

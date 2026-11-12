@@ -1,3 +1,4 @@
+{% from 'voto/_texto_do_resultado.html.twig' import resumo %}
 {#
     Aba "Resultados" de /voto (desenho L174-184, embutida por AssembleiaController::resultados): um cartão por pauta
     ENCERRADA (cada pauta é uma votação), com a faixa do resultado, os KPIs "Cédulas na urna" e "Participações
@@ -21,7 +22,7 @@
         <div class="vC voto-resultado" id="{{ primeira_da_assembleia ? 'assembleia-' ~ a.id : 'assembleia-' ~ a.id ~ '-pauta-' ~ p.id }}" data-pauta="{{ p.id }}">
             <div class="vH"><i class="bi bi-shield-check"></i>{{ p.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ 'voto.assembleia.gestor.situacao.encerrada'|trans }}</span></div>
             <div class="voto-resultado-corpo">
-                <div class="voto-resultado-faixa">{{ p.titulo }}: {{ r.decidido ? (r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo) : r.situacao }}</div>
+                <div class="voto-resultado-faixa">{{ p.titulo }}: {{ resumo(r) }}</div>
                 <div class="vKpis">
                     <div class="vKpi"><b>{{ r.votantes }}</b><span>{{ 'voto.assembleia.gestor.resultados.cedulas'|trans }}</span></div>
                     <div class="vKpi"><b>{{ p.votantes }}</b><span>{{ 'voto.assembleia.gestor.resultados.participacoes'|trans }}</span></div>

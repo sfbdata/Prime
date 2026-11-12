@@ -51,6 +51,17 @@ final readonly class ResultadoDaPauta
     ) {
     }
 
+    /** Total da tabela de apuração: escolhas em candidatos e abstenções, não participantes. */
+    public function totalDeEscolhas(): int
+    {
+        return array_sum(array_map(static fn (ResultadoDaOpcao $opcao): int => $opcao->unidades, $this->opcoes)) + $this->abstencoesUnidades;
+    }
+
+    public function pesoDasEscolhas(): string
+    {
+        return bcadd($this->pesoValido, $this->abstencoesPeso, 6);
+    }
+
     public function decidido(): bool
     {
         return [] !== $this->vencedores || null !== $this->vencedor;

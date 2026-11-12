@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\RegraDeDecisao;
 
 /**
  * Uma pauta como o gestor a vê (painel, mesa, acompanhar, resultados e ata). Participação só em números (quem votou
@@ -41,6 +43,8 @@ final readonly class PautaNoPainel
         public int $unidadesAptas,
         public string $pesoApto,
         public ?ResultadoDaPauta $resultado,
+        public RegraDeDecisao $criterio = RegraDeDecisao::Mais,
+        public BaseDaDecisao $base = BaseDaDecisao::Validos,
     ) {
     }
 
