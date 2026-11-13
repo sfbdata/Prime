@@ -6,19 +6,45 @@
     existe grava sem recarregar; `data-voto-pauta-form` marca a caixa para o JS gravar as alteradas antes de sair.
     Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel ou null para a nova), `opcoes`, `token`.
 #}
+{% set digitos = p.digitos ?? 1 %}
+{% set criterio = p.criterio.value ?? 'mais' %}
+{% set base = p.base.value ?? 'validos' %}
+{% set primeira = p.quorumPrimeira ?? '50.00' %}
+{% set segunda = p is null ? '0.00' : p.quorumSegunda %}
+{% set presets = {simples: ['mais', 'validos', 50], absoluta: ['absoluta', 'aptos', 0], dois: ['dois', 'aptos', 0], unanime: ['unanime', 'aptos', 0]} %}
+{% set preset = '' %}
+{% for chave, regra in presets %}
+    {% if criterio == regra[0] and base == regra[1] and primeira == regra[2] %}{% set preset = chave %}{% endif %}
+{% endfor %}
 <form method="post" class="voto-pauta-caixa" id="{{ p is null ? 'pauta-nova' : 'pauta-' ~ p.id }}" data-voto-pauta-form="{{ p is null ? 'nova' : 'existente' }}"
       action="{{ p is null ? path('voto_assembleia_pauta_criar', {id: a.id}) : path('voto_assembleia_pauta_editar', {id: a.id, pauta: p.id}) }}"
       {% if p is null and a.pautas is not empty %}hidden{% endif %}>
     <input type="hidden" name="_token" value="{{ token }}">
     <div class="voto-pauta-campos">
         <label class="vL voto-pauta-titulo">{{ 'voto.assembleia.gestor.pautas.pauta'|trans }}<input class="vF" name="titulo" maxlength="200" required value="{{ p.titulo ?? '' }}"></label>
+        <label class="vL voto-pauta-regra">{{ 'voto.assembleia.gestor.pautas.regra_pronta'|trans }}<select class="vF" name="regra_pronta" data-voto-regra-pronta>
+            {% for chave in ['', 'simples', 'absoluta', 'dois', 'unanime'] %}<option value="{{ chave }}"{% if preset == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.preset_' ~ (chave ?: 'personalizada'))|trans }}</option>{% endfor %}
+        </select></label>
+        <label class="vL voto-pauta-vagas">{{ 'voto.assembleia.gestor.pautas.vagas'|trans }}<input class="vF" name="vagas" inputmode="numeric" data-voto-limite="vagas" value="{{ p.vagas ?? 1 }}"></label>
+        <label class="vL voto-pauta-digitos">{{ 'voto.assembleia.gestor.pautas.digitos'|trans }}<select class="vF" name="digitos" data-voto-digitos>
+            {% for n in 1..5 %}<option value="{{ n }}"{% if digitos == n %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select></label>
+        <label class="vL voto-pauta-criterio">{{ 'voto.assembleia.gestor.pautas.criterio'|trans }}<select class="vF" name="criterio" data-voto-regra>
+            {% for chave in ['mais', 'absoluta', 'dois', 'unanime'] %}<option value="{{ chave }}"{% if criterio == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.criterio_' ~ chave)|trans }}</option>{% endfor %}
+        </select></label>
+        <label class="vL voto-pauta-base">{{ 'voto.assembleia.gestor.pautas.base'|trans }}<select class="vF" name="base" data-voto-regra>
+            {% for chave in ['validos', 'presentes', 'aptos'] %}<option value="{{ chave }}"{% if base == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.base_' ~ chave)|trans }}</option>{% endfor %}
+        </select></label>
+        <label class="vL voto-pauta-quorum">{{ 'voto.assembleia.gestor.pautas.quorum_primeira'|trans }}<input class="vF" name="quorum_primeira" inputmode="numeric" data-voto-limite="primeira" value="{{ primeira + 0 }}"></label>
+        <label class="vL voto-pauta-quorum-segunda">{{ 'voto.assembleia.gestor.pautas.quorum_segunda'|trans }}<input class="vF" name="quorum_segunda" inputmode="numeric" data-voto-limite="segunda" value="{{ segunda is null ? '' : segunda + 0 }}"></label>
         <button type="button" class="vB" data-voto-opcao-nova><i class="bi bi-person-plus"></i>{{ 'voto.assembleia.gestor.pautas.candidatura'|trans }}</button>
+        <button type="button" class="vB" data-voto-numerar title="{{ 'voto.assembleia.gestor.pautas.numerar_titulo'|trans }}"><i class="bi bi-123"></i>{{ 'voto.assembleia.gestor.pautas.numerar'|trans }}</button>
     </div>
     <label class="vL">{{ 'voto.assembleia.gestor.pautas.descricao'|trans }}<textarea class="vF" name="descricao">{{ p.descricao ?? '' }}</textarea></label>
     <div class="voto-opcoes" data-voto-opcoes>
         {% for o in opcoes %}
             <div class="voto-opcao" data-voto-opcao>
-                <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="1" data-voto-numero value="{{ o.numero }}">
+                <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="{{ digitos }}" data-voto-numero value="{{ ('00000' ~ o.numero)|slice(-digitos) }}">
                 <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.nome_ph'|trans }}" maxlength="120" value="{{ o.rotulo }}">
                 <button type="button" class="vB vD" data-voto-opcao-remover aria-label="{{ 'voto.assembleia.gestor.pautas.remover_opcao'|trans }}"><i class="bi bi-trash"></i></button>
             </div>

@@ -151,6 +151,27 @@ voto:
                 continuar: Continuar
                 voltar: Voltar
             pautas:
+                regra_pronta: 'Regra pronta'
+                preset_personalizada: 'Personalizada'
+                preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'
+                preset_absoluta: 'Maioria absoluta de todos os aptos (ex.: destituição)'
+                preset_dois: 'Dois terços dos votos dos condôminos (ex.: convenção)'
+                preset_unanime: 'Unanimidade'
+                vagas: 'Vagas'
+                digitos: 'Dígitos'
+                criterio: 'Critério'
+                criterio_mais: 'Mais votos'
+                criterio_absoluta: 'Maioria absoluta'
+                criterio_dois: 'Dois terços'
+                criterio_unanime: 'Unanimidade'
+                base: 'Calculado sobre'
+                base_validos: 'Votos válidos'
+                base_presentes: 'Presentes'
+                base_aptos: 'Total de aptos'
+                quorum_primeira: 'Quórum (%)'
+                quorum_segunda: 'Quórum 2ª conv.'
+                numerar: 'Numerar'
+                numerar_titulo: 'Numerar as opções em sequência'
                 titulo: Cargos e candidaturas
                 subtitulo: Inclua cargos, pautas ou perguntas e suas opções.
                 frequentes: 'Cargos e pautas frequentes:'

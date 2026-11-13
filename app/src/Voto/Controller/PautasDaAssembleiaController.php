@@ -169,10 +169,15 @@ final class PautasDaAssembleiaController extends AbstractController
             $criterio,
             BaseDaDecisao::tryFrom((string) $request->request->get('base', '')) ?? BaseDaDecisao::Validos,
             self::inteiro((string) $request->request->get('digitos', '1')),
-            self::inteiro((string) $request->request->get('vagas', '1')),
-            self::inteiro((string) $request->request->get('quorum_primeira', '50')),
+            self::inteiroOuPadrao((string) $request->request->get('vagas', '1'), 1),
+            self::inteiroOuPadrao((string) $request->request->get('quorum_primeira', '50'), 0),
             '' === $segunda ? null : self::inteiro($segunda),
         );
+    }
+
+    private static function inteiroOuPadrao(string $valor, int $padrao): int
+    {
+        return '' === trim($valor) ? $padrao : self::inteiro($valor);
     }
 
     /** Só algarismos valem; o resto vira -1, que a pauta recusa como fora do limite (nada de lixo virando 0). */
