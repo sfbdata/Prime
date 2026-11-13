@@ -62,6 +62,10 @@ voto:
             expirada: A página expirou. Escolha de novo e confirme o voto.
         nulo_numero: 'Número inexistente para voto nulo'
         nulo_confirmar: 'Confirmar voto nulo'
+        comprovante:
+            campo: E-mail para receber o comprovante
+            enviar: Enviar por e-mail
+            erro: Não foi possível enviar o comprovante. Tente novamente.
         cabine:
             aria: Cabine de votação
             votar: Votar

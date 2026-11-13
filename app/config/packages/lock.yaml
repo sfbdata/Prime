@@ -13,3 +13,5 @@ framework:
         # Teto da conta na senha por código (auditoria 3.14): sem trava, pedidos em paralelo leriam o mesmo contador
         # do limitador e o teto contaria 1 por rajada. Só o POST /senha/codigo/confirmar paga a escrita da trava.
         recuperacao_codigo: 'doctrine.dbal.default_connection'
+        # Serializa as tentativas de comprovante por unidade antes de gerar e enviar o PDF.
+        voto_comprovante: 'doctrine.dbal.default_connection'

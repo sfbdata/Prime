@@ -32,6 +32,18 @@
             <div class="vcMsg vcMsgAzul" data-vc-aguardando><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.aguardando'|trans }}</div>
         {% endif %}
 
+        {% if pauta.comprovante is not null and cedula.apta %}
+            <div class="vcComprovante">
+                <button type="button" class="vB" data-vc-comprovante-imagem="{{ {assembleia: cedula.assembleia, lista: [{pauta: pauta.titulo, codigo: pauta.comprovante}], data: pauta.votouEm|date('d/m/Y H:i:s'), titulo: 'voto.assembleia.cedula.cabine.imagem_titulo'|trans, rodape: 'voto.assembleia.cedula.cabine.imagem_rodape'|trans, arquivo: 'comprovante.png'}|json_encode|e('html_attr') }}"><i class="bi bi-image" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.cabine.comprovante_imagem'|trans }}</button>
+                <form method="post" action="{{ path('voto_assembleia_cedula_comprovante_email', {token: token, pauta: pauta.id}) }}" data-vc-comprovante-email data-vc-erro="{{ 'voto.assembleia.cedula.comprovante.erro'|trans }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
+                    <input class="vF" type="email" name="email" value="{{ cedula.email }}" maxlength="180" required autocomplete="email" placeholder="{{ 'voto.assembleia.cedula.comprovante.campo'|trans }}" aria-label="{{ 'voto.assembleia.cedula.comprovante.campo'|trans }}">
+                    <button class="vB" type="submit"><i class="bi bi-envelope" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.comprovante.enviar'|trans }}</button>
+                </form>
+                <span class="vcComprovanteResposta" role="status" aria-live="polite" data-vc-comprovante-resposta></span>
+            </div>
+        {% endif %}
+
         {# Reserva: o voto simples de antes, escondido enquanto a cabine funciona. Só aparece se o JavaScript da cabine não
            carregar (js/voto-cabine.js desfaz o `hidden`; o guarda da cédula o mostra depois das tentativas) ou sem JavaScript. #}
         {% if podeVotar %}

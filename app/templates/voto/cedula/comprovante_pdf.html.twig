@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>Comprovante de participação</title>
+    <style>
+        body { font-family:DejaVu Sans,sans-serif; color:#12242f; font-size:12px; margin:28px; }
+        h1 { color:#0b3550; font-size:22px; border-top:6px solid #0a6fa0; padding-top:20px; }
+        p { line-height:1.6; overflow-wrap:break-word; }
+        .codigo { color:#1e7b45; font-family:DejaVu Sans Mono,monospace; font-size:22px; font-weight:bold; margin:24px 0; }
+        .sigilo { color:#34505f; border-top:1px solid #d3dde4; padding-top:16px; margin-top:28px; }
+    </style>
+</head>
+<body>
+    <h1>Comprovante de participação</h1>
+    <p><strong>Votação</strong><br>{{ comprovante.assembleia }}</p>
+    <p><strong>Pauta</strong><br>{{ comprovante.pauta }}</p>
+    <p><strong>Unidade</strong><br>{{ comprovante.unidade }}</p>
+    <p><strong>Data e hora</strong><br>{{ comprovante.registradaEm|date('d/m/Y H:i:s') }}</p>
+    <p class="codigo">{{ comprovante.codigo }}</p>
+    <p class="sigilo">Este comprovante confirma somente a participação. O voto é secreto e não é informado aqui.</p>
+</body>
+</html>

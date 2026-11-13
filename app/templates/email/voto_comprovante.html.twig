@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#12242f">
+<h1>Comprovante de participação</h1>
+<p>Seu comprovante de participação está anexado em PDF.</p>
+<p>Votação: {{ comprovante.assembleia }}<br>Pauta: {{ comprovante.pauta }}<br>Unidade: {{ comprovante.unidade }}<br>Data e hora: {{ comprovante.registradaEm|date('d/m/Y H:i:s') }}</p>
+<p>Código: <strong>{{ comprovante.codigo }}</strong></p>
+<p>Este comprovante confirma somente a participação. O voto é secreto e não é informado aqui.</p>
+</body></html>

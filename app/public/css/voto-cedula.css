@@ -55,6 +55,11 @@ a.vB { text-decoration:none; }
 .vcPautaNome > b { font-size:19px; color:#0b3550; }
 .vcPautaDesc { font-size:13.5px; color:#34505f; margin-top:3px; }
 .vcInfo { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#34505f; }
+.vcComprovante { display:flex; gap:8px; flex-wrap:wrap; }
+.vcComprovante > form { display:flex; gap:8px; flex-wrap:wrap; flex:1 1 200px; }
+.vcComprovante > form > input[type="email"] { flex:1 1 200px; width:auto; min-width:0; }
+.vcComprovanteResposta { flex-basis:100%; font-size:13.5px; }
+.vcComprovanteResposta:empty { display:none; }
 .vcMsg { font-size:13.5px; font-weight:bold; }
 .vcMsgAzul { color:#0a6fa0; }
 .vcMsgVerde { color:#1e7b45; }

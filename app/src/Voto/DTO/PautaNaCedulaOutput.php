@@ -29,6 +29,7 @@ final readonly class PautaNaCedulaOutput
         public int $vagas = 1,
         /** Dígitos do número de cada opção (o número se mostra com zeros à esquerda). */
         public int $digitos = 1,
+        public ?string $comprovante = null,
     ) {
     }
 
