@@ -48,6 +48,9 @@
                                     {% if opcao.abstencao %}{{ 'voto.assembleia.cedula.abstencao'|trans }}{% else %}<b>{{ ('%0' ~ pauta.digitos ~ 'd')|format(opcao.numero) }}</b> {{ opcao.rotulo }}{% endif %}
                                 </label>
                             {% endfor %}
+                            {% for n in 1..pauta.vagas %}
+                                <label class="vL">{{ 'voto.assembleia.cedula.nulo_numero'|trans }}<input class="vF" name="numero_nulo[]" inputmode="numeric" maxlength="{{ pauta.digitos }}" pattern="[0-9]{ {{- pauta.digitos -}} }"></label>
+                            {% endfor %}
                             <button type="submit" class="vB vP">{{ 'voto.assembleia.cedula.cabine.votar'|trans }}</button>
                         {% else %}
                             {% for opcao in pauta.opcoes %}
@@ -60,6 +63,13 @@
                         {% endif %}
                     </div>
                 </form>
+                {% if not pauta.variasVagas() %}
+                    <form class="vcVotar" method="post" action="{{ path('voto_assembleia_cedula_votar', {token: token, pauta: pauta.id}) }}" data-vc-votar>
+                        <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
+                        <label class="vL">{{ 'voto.assembleia.cedula.nulo_numero'|trans }}<input class="vF" name="numero_nulo[]" inputmode="numeric" maxlength="{{ pauta.digitos }}" pattern="[0-9]{ {{- pauta.digitos -}} }" required></label>
+                        <button class="vB" type="submit">{{ 'voto.assembleia.cedula.nulo_confirmar'|trans }}</button>
+                    </form>
+                {% endif %}
             </div>
         {% endif %}
 

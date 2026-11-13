@@ -3,7 +3,7 @@
     Aba "Resultados" de /voto (desenho L174-184, embutida por AssembleiaController::resultados): um cartão por pauta
     ENCERRADA (cada pauta é uma votação), com a faixa do resultado, os KPIs "Cédulas na urna" e "Participações
     registradas", uma linha por opção (barra sobre o peso válido; com peso, "{votos} un · {fração}"),
-    "Abstenções {n} · Nulos 0" e a decisão. Sem guardiões, o resultado sai no encerramento.
+    "Abstenções {n} · Nulos {n}" e a decisão. Sem guardiões, o resultado sai no encerramento.
     Contexto: `assembleias` (list<AssembleiaNoPainel>).
 #}
 {% set encerradas = [] %}
@@ -36,7 +36,7 @@
                             <b class="voto-resultado-valor">{{ a.porFracao ? 'voto.assembleia.gestor.resultados.valor_peso'|trans({votos: o.unidades, peso: o.peso|voto_fracao}) : o.unidades }}</b>
                         </div>
                     {% endfor %}
-                    <div class="voto-resultado-abst">{{ 'voto.assembleia.gestor.resultados.abstencoes'|trans({n: r.abstencoesUnidades, nulos: 0}) }}</div>
+                    <div class="voto-resultado-abst">{{ 'voto.assembleia.gestor.resultados.abstencoes'|trans({n: r.abstencoesUnidades, nulos: r.nulosUnidades}) }}</div>
                     {% include 'voto/assembleia/_decisao.html.twig' with {r: r} only %}
                 </div>
             </div>

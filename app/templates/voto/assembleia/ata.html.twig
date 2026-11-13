@@ -116,7 +116,7 @@
                             <tr><td>{{ o.numero }} {{ o.rotulo }}</td><td>{{ o.unidades }}</td><td>{{ o.peso|voto_fracao }}</td></tr>
                         {% endfor %}
                         <tr><td>{{ 'voto.assembleia.gestor.ata.abstencoes'|trans }}</td><td>{{ r.abstencoesUnidades }}</td><td>{{ r.abstencoesPeso|voto_fracao }}</td></tr>
-                        <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>0</td><td>0</td></tr>
+                        <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>{{ r.nulosUnidades }}</td><td>{{ r.nulosPeso|voto_fracao }}</td></tr>
                         <tr><td><b>{{ 'voto.assembleia.gestor.ata.total'|trans }}</b></td><td><b>{{ r.totalDeEscolhas }}</b></td><td><b>{{ r.pesoDasEscolhas|voto_fracao }}</b></td></tr>
                         <tr><td colspan="2">{{ 'voto.assembleia.gestor.ata.quorum_linha'|trans({pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</td><td>{{ (r.quorumOk ? 'voto.assembleia.gestor.ata.atingido' : 'voto.assembleia.gestor.ata.nao_atingido')|trans }}</td></tr>
                         <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ resumo(r) }}</b></td></tr>

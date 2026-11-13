@@ -209,7 +209,7 @@
     }
 
     function jaEscolhida(o) {
-        return c.escolhas.some(function (e) { return e.id === o.id; });
+        return c.escolhas.some(function (e) { return o.nulo ? e.nulo && e.numero === o.numero : !e.nulo && e.id === o.id; });
     }
 
     function podeTeclar() {
@@ -249,6 +249,7 @@
         var achou = (!c.branco && c.dig.length === dig) ? opcaoPorNumero(p, c.dig) : null;
         var completo = c.dig.length === dig;
         var invalido = !c.branco && completo && !achou;
+        var repetido = !c.branco && completo && jaEscolhida(achou || {nulo: true, numero: c.dig});
         var wrap = el('div', 'uVotando');
         var linha = el('div', 'uFade uLinha');
         var col = el('div', 'uCol');
@@ -270,15 +271,15 @@
         }
         if (c.branco) {
             col.appendChild(el('div', 'uFade uGrande', texto('abstencao')));
-        } else if (achou && jaEscolhida(achou)) {
+        } else if (repetido) {
             var rep = el('div', 'uFade');
-            rep.appendChild(el('div', 'uGrande', texto('nome_repetido')));
+            rep.appendChild(el('div', 'uGrande', texto(achou ? 'nome_repetido' : 'numero_repetido')));
             rep.appendChild(el('div', 'uInvalidoDica', texto('numero_invalido_dica')));
             col.appendChild(rep);
         } else if (invalido) {
             var n = el('div', 'uFade');
-            n.appendChild(el('div', 'uGrande', texto('numero_invalido')));
-            n.appendChild(el('div', 'uInvalidoDica', texto('numero_invalido_dica')));
+            n.appendChild(el('div', 'uNumeroErrado', texto('numero_invalido')));
+            n.appendChild(el('div', 'uGrande', texto('voto_nulo')));
             col.appendChild(n);
         } else if (achou) {
             var a = el('div', 'uFade uAchou');
@@ -287,7 +288,7 @@
         }
         linha.appendChild(col);
         wrap.appendChild(linha);
-        if ((achou && !jaEscolhida(achou)) || c.branco || (c.escolhas.length > 0 && !c.dig)) {
+        if ((completo && !repetido) || c.branco || (c.escolhas.length > 0 && !c.dig)) {
             var rod = el('div', 'uRod uFade');
             rod.appendChild(document.createTextNode(texto('rodape_titulo')));
             rod.appendChild(document.createElement('br'));
@@ -465,6 +466,9 @@
         }
         if (c.dig.length === dig) {
             var o = opcaoPorNumero(p, c.dig);
+            if (jaEscolhida(o || {nulo: true, numero: c.dig})) {
+                return texto(o ? 'nome_repetido' : 'numero_repetido');
+            }
             return o ? texto('fala_opcao', {opcao: o.rotulo}) : texto('fala_invalido');
         }
         return texto('fala_digite', {pauta: p.titulo});
@@ -556,7 +560,10 @@
             return;
         }
         var escolhida = c.branco ? opcaoAbstencao(p) : opcaoPorNumero(p, c.dig);
-        // Número incompleto ou sem opção, ou nome já escolhido: a urna recusa e não grava (o eleitor corrige; voto nulo não existe aqui).
+        if (!c.branco && c.dig.length === digitosDa(p) && !escolhida) {
+            escolhida = {nulo: true, numero: c.dig, rotulo: texto('voto_nulo')};
+        }
+        // Número incompleto e escolha repetida não avançam; número inexistente completo vale como nulo.
         if (!escolhida || (!c.branco && jaEscolhida(escolhida))) {
             tocar(SOM_RECUSA, 0.05);
             return;
@@ -573,7 +580,7 @@
 
     /* Fecha a pauta com as opções escolhidas e vai à próxima, ou grava se era a última. */
     function avancar(p, escolhas) {
-        var votos = c.votos.concat([{pauta: p.id, opcoes: escolhas.map(function (o) { return o.id; })}]);
+        var votos = c.votos.concat([{pauta: p.id, opcoes: escolhas.filter(function (o) { return !o.nulo; }).map(function (o) { return o.id; }), nulos: escolhas.filter(function (o) { return o.nulo; }).map(function (o) { return o.numero; })}]);
         if (c.i + 1 < pautas().length) {
             tocar(SOM_OK);
             definir({votos: votos, i: c.i + 1, dig: '', branco: false, escolhas: []});
@@ -600,6 +607,7 @@
         var corpo = new URLSearchParams();
         corpo.set('_token', D.csrf);
         voto.opcoes.forEach(function (id) { corpo.append('opcao[]', String(id)); });
+        (voto.nulos || []).forEach(function (numero) { corpo.append('numero_nulo[]', numero); });
         return fetch(D.urlVotar.replace('__PAUTA__', String(voto.pauta)), {
             method: 'POST',
             body: corpo,

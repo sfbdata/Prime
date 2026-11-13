@@ -39,6 +39,13 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     /** Motivo do encerramento pelo prazo vencido. */
     public const MOTIVO_DO_PRAZO = 'Prazo definido pela mesa';
 
+    // Contadores agregados mudam só por SQL direto, sem auditoria ou vínculo com a unidade.
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $nulosUnidades = 0;
+
+    #[ORM\Column(type: 'decimal', precision: 14, scale: 6, options: ['default' => 0])]
+    private string $nulosPeso = '0.000000';
+
     public const VAGAS_MAXIMO = 9;
     public const DIGITOS_MAXIMO = 5;
 
@@ -361,6 +368,16 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         usort($opcoes, static fn (OpcaoDaPauta $a, OpcaoDaPauta $b): int => $a->getNumero() <=> $b->getNumero());
 
         return $opcoes;
+    }
+
+    public function getNulosUnidades(): int
+    {
+        return $this->nulosUnidades;
+    }
+
+    public function getNulosPeso(): string
+    {
+        return $this->nulosPeso;
     }
 
     public function getAbstencao(): ?OpcaoDaPauta

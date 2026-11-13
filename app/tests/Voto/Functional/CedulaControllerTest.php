@@ -320,6 +320,52 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame([1, '0.025000'], $this->contador($nao));
     }
 
+    #[TestDox('Nulo puro pela cabine grava participação, devolve comprovante e aparece no resultado')]
+    public function testVotarNuloPelaCabine(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        $url = str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']);
+        $this->client->request('POST', $url, ['_token' => $dados['csrf'], 'numero_nulo' => ['9']], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(200);
+        $corpo = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame($this->codigoDaParticipacao(), $corpo['comprovante']);
+        self::assertSame([0, '0.000000'], $this->contador($this->opcao(1)));
+        $pauta = $this->em->find(PautaDaAssembleia::class, $this->pauta->getId());
+        $this->em->refresh($pauta);
+        self::assertSame(1, $pauta->getNulosUnidades());
+        $pauta->encerrar('Mesa', '', new \DateTimeImmutable());
+        $this->em->flush();
+        $tela = $this->client->request('GET', $this->link());
+        self::assertSame('Abstenções 0 · Nulos 1', $tela->filter('.vcAbstencoes')->text());
+    }
+
+    #[TestDox('Alternativa sem JavaScript envia nulo por formulário com CSRF e retorna o aviso de participação')]
+    public function testVotoNuloSemJavascript(): void
+    {
+        $pagina = $this->client->request('GET', $this->link());
+        $form = $pagina->filter('.vcReserva form')->last()->form();
+        self::assertSame('[0-9]{1}', $pagina->filter('input[name="numero_nulo[]"]')->attr('pattern'));
+        $this->client->submit($form, ['numero_nulo' => ['9']]);
+        self::assertResponseRedirects($this->link());
+        $pagina = $this->client->followRedirect();
+        self::assertStringStartsWith('Você já votou nesta pauta.', $pagina->filter('[data-vc-votou]')->text());
+        $pauta = $this->em->find(PautaDaAssembleia::class, $this->pauta->getId());
+        $this->em->refresh($pauta);
+        self::assertSame(1, $pauta->getNulosUnidades());
+        self::assertSame('0.025000', $pauta->getNulosPeso());
+    }
+
+    #[TestDox('Número de candidatura enviado como nulo é recusado sem gravar voto')]
+    public function testCandidaturaNaoPodeSerEnviadaComoNulo(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        $this->client->request('POST', str_replace('__PAUTA__', (string) $this->pauta->getId(), $dados['urlVotar']), [
+            '_token' => $dados['csrf'], 'numero_nulo' => ['1'],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM voto.assembleia_participacao WHERE pauta_id = ?', [$this->pauta->getId()]));
+    }
+
     #[TestDox('Pauta de uma vaga: dois nomes no POST são recusados em JSON (422) e nada é gravado')]
     public function testDoisNomesNaVagaUnica(): void
     {

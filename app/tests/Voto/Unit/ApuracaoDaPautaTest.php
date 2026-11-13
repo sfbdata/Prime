@@ -378,6 +378,37 @@ final class ApuracaoDaPautaTest extends TestCase
         $this->apuracao->apurar($pauta, '10', 10);
     }
 
+    public function testNulosContamPresencaMasNaoVotosValidos(): void
+    {
+        $pauta = $this->pauta(PesoDoVoto::Unidade, 1, ['Sim' => [2, '2'], 'Não' => [0, '0']], [0, '0']);
+        (new \ReflectionProperty($pauta, 'nulosUnidades'))->setValue($pauta, 3);
+        (new \ReflectionProperty($pauta, 'nulosPeso'))->setValue($pauta, '3.000000');
+        $r = $this->apuracao->apurar($pauta, '10', 10);
+        self::assertSame('2.000000', $r->pesoValido);
+        self::assertSame('5.000000', $r->pesoPresente);
+        self::assertSame('50.00', $r->quorumPct);
+        self::assertTrue($r->quorumOk);
+        self::assertSame(5, $r->votantes);
+        self::assertSame(3, $r->nulosUnidades);
+        self::assertSame(5, $r->totalDeEscolhas());
+        self::assertSame('5.000000', $r->pesoDasEscolhas());
+    }
+
+    public function testVariasVagasComDoisNulosNaoMultiplicamPresenca(): void
+    {
+        $pauta = $this->pauta(PesoDoVoto::Fracao, 2, ['Ana' => [1, '0.25'], 'Bia' => [0, '0']], [0, '0']);
+        (new \ReflectionProperty($pauta, 'vagas'))->setValue($pauta, 3);
+        (new \ReflectionProperty($pauta, 'nulosUnidades'))->setValue($pauta, 2);
+        (new \ReflectionProperty($pauta, 'nulosPeso'))->setValue($pauta, '0.500000');
+        $r = $this->apuracao->apurar($pauta, '1', 4, ['unidades' => 1, 'peso' => '0.250000']);
+        self::assertSame(1, $r->votantes);
+        self::assertSame('0.250000', $r->pesoPresente);
+        self::assertSame('25.00', $r->quorumPct);
+        self::assertSame(3, $r->totalDeEscolhas());
+        self::assertSame('0.750000', $r->pesoDasEscolhas());
+        self::assertCount(1, $r->vencedores);
+    }
+
     /**
      * Pauta aberta na convocação dada, com as opções numeradas na ordem do array e os contadores gravados.
      *

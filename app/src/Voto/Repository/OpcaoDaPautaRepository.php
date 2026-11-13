@@ -65,15 +65,15 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
      * @param list<OpcaoDaPauta> $opcoes
      * @param string             $peso   decimal não negativo com ponto (UnidadeDaAssembleia::pesoDoVoto())
      */
-    public function somarVotos(array $opcoes, string $peso): void
+    public function somarVotos(array $opcoes, string $peso, ?PautaDaAssembleia $pauta = null): void
     {
         if (1 !== preg_match('/^\d{1,8}(\.\d{1,6})?$/', $peso)) {
             throw new \InvalidArgumentException('Peso do voto inválido.');
         }
-        if ([] === $opcoes) {
+        if ([] === $opcoes && null === $pauta) {
             throw new \InvalidArgumentException('Nenhuma opção para somar.');
         }
-        $pauta = $opcoes[0]->getPauta();
+        $pauta ??= $opcoes[0]->getPauta();
         $ids = [];
         foreach ($opcoes as $opcao) {
             if ($opcao->getPauta() !== $pauta) {
@@ -81,6 +81,12 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
             }
             $ids[] = (int) $opcao->getId();
         }
+        $this->somarNosContadores($pauta, $ids, $peso);
+    }
+
+    /** @param list<int> $ids vazia no nulo puro: todas as opções somam zero */
+    private function somarNosContadores(PautaDaAssembleia $pauta, array $ids, string $peso): void
+    {
         $afetadas = $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE voto.assembleia_opcao
                 SET total_unidades = total_unidades + CASE WHEN id IN (:escolhidas) THEN 1 ELSE 0 END,
@@ -92,7 +98,7 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
                 ) = :quantas',
             [
                 'peso' => $peso,
-                'escolhidas' => $ids,
+                'escolhidas' => $ids ?: [-1],
                 'quantas' => \count($ids),
                 'pauta' => $pauta->getId(),
                 'tenant' => $pauta->getTenant()->getId(),

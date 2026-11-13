@@ -5,6 +5,13 @@ Fonte: `bluejus-coordenacao/copia-desenhos-08-11-26/18 - Voto - VS 08.11.26.dc.h
 Inventário bruto do script: `voto-inventario-bruto.md` (mesma pasta deste arquivo).
 Números `L123` = linha do `.dc.html`; `N123` = linha do `bj-voto-nucleo.js`.
 
+## Voto nulo: entrega de 13/11/2026
+
+Cabine e alternativa sem JavaScript aceitam confirmação de número inexistente. Nulos são apurados separadamente,
+com quantidade e peso na cédula, nos resultados e na ata. Cada nulo ocupa uma escolha em várias vagas e a presença
+conta uma vez. Contrato e inventário em [voto-nulo-1311.md](voto-nulo-1311.md). Esta nota descreve a entrega da branch;
+publicação e conferência visual são etapas separadas.
+
 ## Atualização de 13/11/2026: PR 5 das Pautas
 
 Os controles da etapa 4 estão implementados nesta entrega: regra pronta, vagas, dígitos, critério, base,

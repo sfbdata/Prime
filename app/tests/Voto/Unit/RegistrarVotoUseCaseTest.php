@@ -375,6 +375,76 @@ final class RegistrarVotoUseCaseTest extends TestCase
         return $cenario;
     }
 
+    #[TestDox('Número inexistente soma nulo sem perder a escolha válida ou multiplicar participação')]
+    public function testNomeENuloNaMesmaParticipacao(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(2);
+        $nome = $pauta->getOpcoesDeVoto()[0];
+        $this->pautas->expects(self::once())->method('somarNulos')->with($pauta, 1, '0.025000');
+        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [(int) $nome->getId()], ['9']));
+        self::assertCount(1, $this->participacoesSalvas);
+        self::assertSame([[[$nome], '0.025000']], $this->somados);
+    }
+
+    #[TestDox('Nulo puro é uma participação e não escolhe candidatura nem abstenção')]
+    public function testNuloPuro(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(1);
+        $this->pautas->expects(self::once())->method('somarNulos')->with($pauta, 1, '0.025000');
+        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [], ['9']));
+        self::assertCount(1, $this->participacoesSalvas);
+        self::assertSame([[[], '0.025000']], $this->somados);
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('nulosInvalidos')]
+    public function testNuloInvalidoNaoGrava(array $numeros): void
+    {
+        $this->cenarioComVagas(2);
+        $this->pautas->expects(self::never())->method('somarNulos');
+        try {
+            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [], $numeros));
+            self::fail('A lista inválida devia ser recusada.');
+        } catch (OperacaoInvalidaNaAssembleiaException) {
+            self::assertSame([], $this->participacoesSalvas);
+            self::assertSame([], $this->somados);
+        }
+    }
+
+    public function testNuloComAbstencaoNaoGrava(): void
+    {
+        [, $pauta] = $this->cenarioComVagas(2);
+        $this->pautas->expects(self::never())->method('somarNulos');
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage(RegistrarVotoUseCase::ABSTENCAO_EXCLUSIVA);
+        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [(int) $pauta->getAbstencao()->getId()], ['9']));
+    }
+
+    public function testFalhaNoContadorNuloDesfazTransacao(): void
+    {
+        $this->cenarioComVagas(1);
+        $this->pautas->method('somarNulos')->willThrowException(new \RuntimeException('Falha do contador'));
+        try {
+            $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [], ['9']));
+            self::fail('A falha devia desfazer a transação.');
+        } catch (\RuntimeException $erro) {
+            self::assertSame('Falha do contador', $erro->getMessage());
+            self::assertSame('rollback', $this->passos[array_key_last($this->passos)]);
+            self::assertNotContains('commit', $this->passos);
+        }
+    }
+
+    public static function nulosInvalidos(): iterable
+    {
+        yield 'repetido' => [['9', '9']];
+        yield 'candidatura existente' => [['1']];
+        yield 'dígitos insuficientes' => [['']];
+        yield 'dígitos demais' => [['99']];
+        yield 'letra' => [['x']];
+        yield 'excesso de vagas' => [['7', '8', '9']];
+        yield 'tipo incorreto' => [[9]];
+        yield 'lista aninhada' => [[['9']]];
+    }
+
     private function caso(): RegistrarVotoUseCase
     {
         $link = new UnidadeDoLink(new TokenDaUnidade(self::SEGREDO), $this->unidades, $this->liberacoes);

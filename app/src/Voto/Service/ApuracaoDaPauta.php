@@ -46,11 +46,7 @@ final class ApuracaoDaPauta
     {
         self::exigirPresencaSeVariasVagas($pauta, $presenca);
         $pesoApto = self::normalizar($pesoApto);
-        $opcoes = self::ordenar($pauta->getOpcoesDeVoto());
-        $pesoValido = self::somarPesos($opcoes);
-        $abstencao = $pauta->getAbstencao();
-        $abstencoesPeso = self::normalizar($abstencao?->getTotalPeso() ?? '0');
-        $pesoPresente = null === $presenca ? bcadd($pesoValido, $abstencoesPeso, self::ESCALA) : self::normalizar($presenca['peso']);
+        [$opcoes, $pesoValido, $abstencoesPeso, $pesoPresente] = self::pesosDaPauta($pauta, $presenca);
         $quorumExigido = $pauta->getQuorumExigido() ?? '0';
         $quorumOk = self::quorumAtingido($pesoPresente, $pesoApto, $quorumExigido);
         $resultados = array_map(static fn (OpcaoDaPauta $o): ResultadoDaOpcao => self::resultadoDaOpcao($o, $pesoValido), $opcoes);
@@ -66,7 +62,7 @@ final class ApuracaoDaPauta
             vencedor: $vencedores[0] ?? null,
             opcoes: $resultados,
             empate: $empate,
-            abstencoesUnidades: $abstencao?->getTotalUnidades() ?? 0,
+            abstencoesUnidades: $pauta->getAbstencao()?->getTotalUnidades() ?? 0,
             abstencoesPeso: $abstencoesPeso,
             votantes: $presenca['unidades'] ?? self::votantes($pauta),
             pesoValido: $pesoValido,
@@ -80,7 +76,24 @@ final class ApuracaoDaPauta
             criterio: $pauta->getCriterio(),
             base: $pauta->getBase(),
             vagas: $vagas,
+            nulosUnidades: $pauta->getNulosUnidades(),
+            nulosPeso: $pauta->getNulosPeso(),
         );
+    }
+
+    /**
+     * @param array{unidades: int, peso: string}|null $presenca
+     * @return array{list<OpcaoDaPauta>, string, string, string}
+     */
+    private static function pesosDaPauta(PautaDaAssembleia $pauta, ?array $presenca): array
+    {
+        $opcoes = self::ordenar($pauta->getOpcoesDeVoto());
+        $pesoValido = self::somarPesos($opcoes);
+        $abstencao = $pauta->getAbstencao();
+        $abstencoesPeso = self::normalizar($abstencao?->getTotalPeso() ?? '0');
+        $pesoPresente = null === $presenca ? bcadd(bcadd($pesoValido, $abstencoesPeso, self::ESCALA), $pauta->getNulosPeso(), self::ESCALA) : self::normalizar($presenca['peso']);
+
+        return [$opcoes, $pesoValido, $abstencoesPeso, $pesoPresente];
     }
 
     /**
@@ -218,7 +231,7 @@ final class ApuracaoDaPauta
 
     private static function votantes(PautaDaAssembleia $pauta): int
     {
-        $total = 0;
+        $total = $pauta->getNulosUnidades();
         foreach ($pauta->getOpcoes() as $opcao) {
             $total += $opcao->getTotalUnidades();
         }

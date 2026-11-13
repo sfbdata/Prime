@@ -16,6 +16,8 @@ final readonly class RegistrarVotoInput
         public int $pautaId,
         /** @var list<int> */
         public array $opcoesIds,
+        /** @var list<string> números inexistentes, sem persistir os números */
+        public array $numerosNulos = [],
     ) {
     }
 

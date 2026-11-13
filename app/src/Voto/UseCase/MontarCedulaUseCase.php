@@ -83,6 +83,7 @@ final class MontarCedulaUseCase
         $presencas = $this->participacoes->contarPorPauta($unidade->getAssembleia());
         $pautas = [];
         foreach ($unidade->getAssembleia()->getPautas() as $pauta) {
+            if (self::encerrada($pauta)) { $this->pautas->relerContadores($pauta); }
             $pautas[] = new PautaNaCedulaOutput(
                 id: (int) $pauta->getId(),
                 titulo: $pauta->getTitulo(),
