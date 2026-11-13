@@ -12,15 +12,16 @@ use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
+use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\LeitorDaListaDeUnidades;
-use App\Voto\Service\TokenDaUnidade;
 use App\Voto\Service\SerializacaoDaConfiguracao;
+use App\Voto\Service\TokenDaUnidade;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
- * O gestor cola a lista de unidades (`unidade; bloco; situação; fração; responsável; e-mail`), enquanto nenhuma pauta
- * foi aberta ("a lista bloqueia na abertura"). As linhas válidas ENTRAM na lista (cada uma com o seu link); quem já
- * estava fica como está, e a linha que repete uma unidade já cadastrada conta como duplicada. Devolve o relatório
- * das inválidas e das duplicadas.
+ * O gestor cola a lista ou envia XLSX/CSV enquanto nenhuma pauta foi aberta ("a lista bloqueia na abertura"). As linhas
+ * válidas ENTRAM na lista (cada uma com o seu link); quem já estava fica como está, e a linha que repete uma unidade
+ * já cadastrada conta como duplicada. Devolve o relatório das inválidas e das duplicadas.
  *
  * Não substitui a lista: os links já enviados continuam valendo. Para corrigir uma unidade, remova e importe de novo.
  */
@@ -31,21 +32,47 @@ final class ImportarUnidadesUseCase
         private readonly UnidadeDaAssembleiaRepository $unidades,
         private readonly LeitorDaListaDeUnidades $leitor,
         private readonly TokenDaUnidade $tokens,
+        private readonly ArquivoDeUnidades $arquivos,
         private readonly SerializacaoDaConfiguracao $serializacao,
     ) {
     }
 
     public function executar(Tenant $tenant, int $assembleiaId, string $texto): ResultadoDaImportacao
     {
-        return $this->serializacao->executar($tenant, $assembleiaId, fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $texto));
+        return $this->serializacao->executar(
+            $tenant,
+            $assembleiaId,
+            fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $texto),
+        );
     }
 
-    private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, string $texto): ResultadoDaImportacao
+    public function executarArquivo(Tenant $tenant, int $assembleiaId, UploadedFile $arquivo): ResultadoDaImportacao
     {
+        return $this->serializacao->executar(
+            $tenant,
+            $assembleiaId,
+            fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $arquivo),
+        );
+    }
+
+    private function executarComConfiguracaoReservada(
+        Tenant $tenant,
+        int $assembleiaId,
+        string|UploadedFile $entrada,
+    ): ResultadoDaImportacao {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirUnidadesAlteraveis();
-        $lidas = $this->leitor->ler($texto, $assembleia->getPeso());
+        $lidas = $entrada instanceof UploadedFile
+            ? $this->leitor->lerTabela($this->arquivos->ler($entrada), $assembleia->getPeso())
+            : $this->leitor->ler($entrada, $assembleia->getPeso());
+
+        return $this->importarLinhas($assembleia, $lidas);
+    }
+
+    /** @param array{validas: list<LinhaDeUnidade>, invalidas: list<array{linha: int, motivo: string}>, duplicadas: list<int>} $lidas */
+    private function importarLinhas(Assembleia $assembleia, array $lidas): ResultadoDaImportacao
+    {
         $jaNaLista = self::chavesDaLista($assembleia);
         $duplicadas = $lidas['duplicadas'];
         $importadas = 0;

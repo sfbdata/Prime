@@ -34,14 +34,39 @@ final class LeitorDaListaDeUnidades
         if (\count($linhas) > self::LIMITE_DE_LINHAS) {
             throw new OperacaoInvalidaNaAssembleiaException(sprintf('Cole no máximo %d linhas por vez.', self::LIMITE_DE_LINHAS));
         }
-        $lidas = ['validas' => [], 'invalidas' => [], 'duplicadas' => []];
-        $vistas = [];
-        foreach ($linhas as $indice => $bruta) {
-            $colunas = self::colunas($bruta);
-            if (null === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
+        $tabela = [];
+        foreach ($linhas as $bruta) {
+            if ('' === trim($bruta)) {
+                $tabela[] = [];
                 continue;
             }
-            $this->classificar($indice + 1, $colunas, $peso, $lidas, $vistas);
+            $separador = str_contains($bruta, ';') ? ';' : "\t";
+            $tabela[] = array_map(static fn (string $coluna): string => trim($coluna), str_getcsv($bruta, $separador));
+        }
+
+        return $this->lerTabela($tabela, $peso);
+    }
+
+    /** @param list<list<string>> $linhas */
+    public function lerTabela(array $linhas, PesoDoVoto $peso): array
+    {
+        if (\count($linhas) > self::LIMITE_DE_LINHAS) {
+            throw new OperacaoInvalidaNaAssembleiaException(sprintf('Envie no máximo %d linhas por vez.', self::LIMITE_DE_LINHAS));
+        }
+        $lidas = ['validas' => [], 'invalidas' => [], 'duplicadas' => []];
+        $vistas = [];
+        foreach ($linhas as $indice => $colunas) {
+            if ([] === array_filter($colunas, static fn (string $coluna): bool => '' !== trim($coluna))) {
+                continue;
+            }
+            if (isset($colunas[0])) {
+                $colunas[0] = preg_replace('/^\xEF\xBB\xBF/', '', $colunas[0]) ?? $colunas[0];
+            }
+            if ([] === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
+                continue;
+            }
+            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 6, '')),
+                $peso, $lidas, $vistas);
         }
 
         return $lidas;
@@ -68,17 +93,6 @@ final class LeitorDaListaDeUnidades
         }
         $vistas[$linha->chave()] = true;
         $lidas['validas'][] = $linha;
-    }
-
-    /** @return list<string>|null null para linha vazia */
-    private static function colunas(string $linha): ?array
-    {
-        if ('' === trim($linha)) {
-            return null;
-        }
-        $separador = str_contains($linha, ';') ? ';' : "\t";
-
-        return array_map(static fn (string $c): string => trim($c), array_pad(explode($separador, $linha), 6, ''));
     }
 
     /** @param list<string> $colunas */

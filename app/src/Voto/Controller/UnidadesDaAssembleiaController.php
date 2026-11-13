@@ -7,6 +7,7 @@ namespace App\Voto\Controller;
 use App\Voto\DTO\ResultadoDoEnvioDeLinks;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
+use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\UseCase\EnviarLinksPorEmailUseCase;
@@ -15,6 +16,7 @@ use App\Voto\UseCase\ImportarUnidadesUseCase;
 use App\Voto\UseCase\ObterUnidadesDaAssembleiaUseCase;
 use App\Voto\UseCase\RemoverUnidadeUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,8 +60,14 @@ final class UnidadesDaAssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         $texto = (string) $request->request->get('lista', '');
-        $this->executar($request, $id, function () use ($importar, $tenant, $id, $texto): void {
-            $resultado = $importar->executar($tenant, $id, $texto);
+        $arquivo = $request->files->get('arquivo');
+        $this->executar($request, $id, function () use ($importar, $tenant, $id, $texto, $arquivo): void {
+            if (null !== $arquivo && !$arquivo instanceof UploadedFile) {
+                throw new OperacaoInvalidaNaAssembleiaException('Selecione um arquivo .xlsx ou .csv.');
+            }
+            $resultado = $arquivo instanceof UploadedFile
+                ? $importar->executarArquivo($tenant, $id, $arquivo)
+                : $importar->executar($tenant, $id, $texto);
             $this->avisos->guardarRelatorio(['invalidas' => $resultado->invalidas, 'duplicadas' => $resultado->duplicadas]);
             if (0 === $resultado->importadas) {
                 $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.unidades.nenhuma_valida'));
@@ -72,6 +80,14 @@ final class UnidadesDaAssembleiaController extends AbstractController
         });
 
         return $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]);
+    }
+
+    #[Route('/modelo.xlsx', name: 'voto_assembleia_unidades_modelo', methods: ['GET'])]
+    public function modelo(ArquivoDeUnidades $arquivos): Response
+    {
+        $this->guarda->exigir();
+
+        return $arquivos->modelo();
     }
 
     #[Route('/{unidade}/remover', name: 'voto_assembleia_unidade_remover', methods: ['POST'])]

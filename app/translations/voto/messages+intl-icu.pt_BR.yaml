@@ -252,6 +252,10 @@ voto:
             unidades:
                 titulo: Unidades e links
                 texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail. Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
+                arquivo: Arquivo XLSX ou CSV (até 10 MB)
+                baixar_modelo: Baixar planilha modelo
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: Unidade, Bloco, Situação, Fração, Responsável e E-mail.'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
