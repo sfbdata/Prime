@@ -8,6 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.50.0] - 2026-11-13
+
+### Adicionado
+
+- Implementa voto nulo na cabine e na alternativa sem JavaScript, com contadores agregados e exibição na apuração, cédula, resultados e ata.
+- Expõe presets, vagas, dígitos, critério, base e quóruns na edição das pautas, com numeração sequencial e autosave dos selects.
+
 ## [2.49.0] - 2026-11-12
 
 ### Adicionado
@@ -1976,7 +1983,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.49.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.50.0...HEAD
+[2.50.0]: https://github.com/sfbdata/Prime/compare/v2.49.0...v2.50.0
 [2.49.0]: https://github.com/sfbdata/Prime/compare/v2.48.0...v2.49.0
 [2.48.0]: https://github.com/sfbdata/Prime/compare/v2.47.0...v2.48.0
 [2.47.0]: https://github.com/sfbdata/Prime/compare/v2.46.0...v2.47.0
