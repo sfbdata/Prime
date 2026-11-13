@@ -18,9 +18,13 @@
     <div class="voto-assistente-corpo">
         <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans }}</div>
         {% if a.podeAlterarUnidades %}
-            <form method="post" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
+            <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
                 <input type="hidden" name="_token" value="{{ token }}">
-                <label class="vL">{{ 'voto.assembleia.gestor.unidades.lista'|trans }}<textarea class="vF vMono voto-lista" name="lista" rows="6" required></textarea></label>
+                <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.importacao_arquivo'|trans }}</p>
+                <label class="vL">{{ 'voto.assembleia.gestor.unidades.arquivo'|trans }}<input class="vF" type="file" name="arquivo" accept=".xlsx,.csv"></label>
+                <a class="vB" href="{{ path('voto_assembleia_unidades_modelo', {id: a.id}) }}"><i class="bi bi-download"></i>{{ 'voto.assembleia.gestor.unidades.baixar_modelo'|trans }}</a>
+                <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.primeira_aba'|trans }}</p>
+                <label class="vL">{{ 'voto.assembleia.gestor.unidades.lista'|trans }}<textarea class="vF vMono voto-lista" name="lista" rows="6"></textarea></label>
                 <div><button type="submit" class="vB vP"><i class="bi bi-upload"></i>{{ 'voto.assembleia.gestor.unidades.importar'|trans }}</button></div>
             </form>
         {% else %}
