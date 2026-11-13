@@ -92,6 +92,28 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
         self::assertSame(1, $this->participacoes($pauta));
     }
 
+    #[TestDox('Dois nulos somam duas escolhas, uma presença e igualam xmin de pauta e opções')]
+    public function testNulosNoBancoSemRastroDaEscolha(): void
+    {
+        [$assembleia, $pauta] = $this->assembleiaComPautaAberta();
+        (new \ReflectionProperty($pauta, 'vagas'))->setValue($pauta, 2);
+        $this->em->flush();
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'fracao' => '0.025000'])->_real();
+        $antes = $this->rastrosNoAuditLog([PautaDaAssembleia::class]);
+        static::getContainer()->get(RegistrarVotoUseCase::class)->executar(
+            new RegistrarVotoInput(UnidadeDaAssembleiaFactory::tokenDe($unidade), (int) $pauta->getId(), [], ['8', '9']),
+        );
+        $this->em->refresh($pauta);
+        self::assertSame(2, $pauta->getNulosUnidades());
+        self::assertSame('0.050000', $pauta->getNulosPeso());
+        self::assertSame(1, $this->participacoes($pauta));
+        foreach ($this->contadores($pauta) as $contador) { self::assertSame([0, '0.000000'], $contador); }
+        $conexao = $this->em->getConnection();
+        $marcas = $conexao->fetchFirstColumn('SELECT xmin::text FROM voto.assembleia_opcao WHERE pauta_id = ? UNION SELECT xmin::text FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId(), $pauta->getId()]);
+        self::assertCount(1, $marcas);
+        self::assertSame($antes, $this->rastrosNoAuditLog([PautaDaAssembleia::class]));
+    }
+
     #[TestDox('Uma unidade, um voto: o contador soma 1 por unidade')]
     public function testPesoPorUnidade(): void
     {

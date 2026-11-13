@@ -743,6 +743,24 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Votação ainda não apurada', $ata->filter('body')->text());
     }
 
+    #[TestDox('Resultados e ata mostram nulos com seu peso sem multiplicar cédulas ou comparecimento')]
+    public function testResultadosEAtaMostramNulos(): void
+    {
+        [$assembleia, $pauta] = $this->cenarioDeVariasVagas();
+        (new \ReflectionProperty($pauta, 'nulosUnidades'))->setValue($pauta, 2);
+        (new \ReflectionProperty($pauta, 'nulosPeso'))->setValue($pauta, '0.700000');
+        $this->em->flush();
+        $tela = $this->client->request('GET', '/voto?aba=tra');
+        self::assertSame('Abstenções 1 · Nulos 2', $tela->filter('#assembleia-' . $assembleia->getId() . ' .voto-resultado-abst')->text());
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        $secao = $ata->filter('#pauta-' . $pauta->getId());
+        $linha = $secao->filter('table tbody > tr')->reduce(static fn (Crawler $c): bool => 'Nulos' === $c->filter('td')->first()->text());
+        self::assertSame(['Nulos', '2', '0,7'], $linha->filter('td')->each(static fn (Crawler $c): string => $c->text()));
+        $total = $secao->filter('table tbody > tr')->reduce(static fn (Crawler $c): bool => 'Total' === $c->filter('td')->first()->text());
+        self::assertSame(['Total', '7', '2,4'], $total->filter('td')->each(static fn (Crawler $c): string => $c->text()));
+        self::assertSame('3', $this->camposDaAta($ata, (int) $pauta->getId())['Comparecimento']);
+    }
+
     /** @return array{Assembleia, PautaDaAssembleia} */
     private function cenarioDeVariasVagas(bool $empate = false): array
     {

@@ -49,6 +49,7 @@ final class RegistrarVotoUseCase
     public const PRAZO_ENCERRADO = 'O prazo desta votação terminou. A pauta foi encerrada.';
     public const OPCAO_INVALIDA = 'Escolha uma das opções desta pauta.';
     public const NOMES_DEMAIS = 'Você escolheu mais nomes do que as vagas desta pauta.';
+    public const NUMERO_REPETIDO = 'Você escolheu o mesmo número mais de uma vez.';
     public const NOME_REPETIDO = 'Você escolheu o mesmo nome mais de uma vez.';
     public const ABSTENCAO_EXCLUSIVA = 'A abstenção não pode ser escolhida junto com um nome.';
 
@@ -106,12 +107,14 @@ final class RegistrarVotoUseCase
             // A transação grava o encerramento e confirma; a recusa sai depois dela.
             return [self::PRAZO_ENCERRADO, null];
         }
-        $escolhidas = $this->opcoesQueAceitamVoto($pauta, $input->opcoesIds, $agora);
+        $escolhidas = $this->opcoesQueAceitamVoto($pauta, $input->opcoesIds, $agora, [] !== $input->numerosNulos);
+        $this->exigirNulosPermitidos($pauta, $escolhidas, $input->numerosNulos);
         $this->exigirPrimeiroVoto($unidade, $pauta);
         $this->participacoes->salvar(new ParticipacaoNaPauta($unidade, $pauta, $agora));
         // O INSERT vai antes do contador: um segundo voto para no UNIQUE sem ter somado nada.
         $this->transacao->gravar();
-        $this->opcoes->somarVotos($escolhidas, $unidade->pesoDoVoto());
+        $this->opcoes->somarVotos($escolhidas, $unidade->pesoDoVoto(), $pauta);
+        $this->pautas->somarNulos($pauta, \count($input->numerosNulos), $unidade->pesoDoVoto());
 
         // O código usa a hora em segundos, como o banco a guarda: a conferência o refaz a partir da participação gravada.
         return [null, $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $agora)];
@@ -125,12 +128,12 @@ final class RegistrarVotoUseCase
      *
      * @return list<OpcaoDaPauta>
      */
-    private function opcoesQueAceitamVoto(PautaDaAssembleia $pauta, array $opcoesIds, \DateTimeImmutable $agora): array
+    private function opcoesQueAceitamVoto(PautaDaAssembleia $pauta, array $opcoesIds, \DateTimeImmutable $agora, bool $temNulos = false): array
     {
         if (!$pauta->aceitaVotoEm($agora)) {
             throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_NAO_ABERTA);
         }
-        if ([] === $opcoesIds) {
+        if ([] === $opcoesIds && !$temNulos) {
             throw new OperacaoInvalidaNaAssembleiaException(self::OPCAO_INVALIDA);
         }
         if ([] !== array_filter($opcoesIds, static fn (int $id): bool => $id < 1)) {
@@ -157,6 +160,38 @@ final class RegistrarVotoUseCase
         }
         if (\count($escolhidas) > $pauta->getVagas()) {
             throw new OperacaoInvalidaNaAssembleiaException(self::NOMES_DEMAIS);
+        }
+    }
+
+    /** @param list<OpcaoDaPauta> $escolhidas @param list<string> $numeros */
+    private function exigirNulosPermitidos(PautaDaAssembleia $pauta, array $escolhidas, array $numeros): void
+    {
+        if ([] === $numeros) {
+            return;
+        }
+        if (\count($numeros) !== \count(array_unique($numeros, SORT_REGULAR))) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::NUMERO_REPETIDO);
+        }
+        foreach ($numeros as $numero) {
+            $this->exigirNumeroNulo($pauta, $numero);
+        }
+        if (array_filter($escolhidas, static fn (OpcaoDaPauta $o): bool => $o->isAbstencao()) !== []) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::ABSTENCAO_EXCLUSIVA);
+        }
+        if (\count($escolhidas) + \count($numeros) > $pauta->getVagas()) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::NOMES_DEMAIS);
+        }
+    }
+
+    private function exigirNumeroNulo(PautaDaAssembleia $pauta, mixed $numero): void
+    {
+        if (!\is_string($numero) || 1 !== preg_match('/^[0-9]{' . $pauta->getDigitos() . '}$/D', $numero)) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::OPCAO_INVALIDA);
+        }
+        foreach ($pauta->getOpcoesDeVoto() as $opcao) {
+            if ($opcao->getNumero() === (int) $numero) {
+                throw new OperacaoInvalidaNaAssembleiaException(self::OPCAO_INVALIDA);
+            }
         }
     }
 

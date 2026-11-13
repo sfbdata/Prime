@@ -60,6 +60,7 @@ body.uAberta { overflow:hidden; }
 .uEscolhido { font-size:clamp(12px, 1.6vw, 15px); opacity:.85; }
 .uNums { display:flex; align-items:center; gap:clamp(7px, 1vw, 12px); flex-wrap:wrap; }
 .uNumRot { font-size:clamp(14px, 1.7vw, 17px); }
+.uNumeroErrado { font-size:clamp(20px, 3vw, 28px); font-weight:bold; }
 .uGrande { font-size:clamp(30px, 5vw, 52px); font-weight:bold; }
 .uCol > .uGrande { margin:auto 0; }
 .uInvalidoDica { font-size:clamp(14px, 1.8vw, 17px); margin-top:6px; }

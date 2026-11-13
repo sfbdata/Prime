@@ -55,11 +55,13 @@ voto:
         opcoes: Opções da pauta
         resultado:
             un: '{unidades} un · {peso}'
-            abstencoes: 'Abstenções {abstencoes} · Nulos 0'
+            abstencoes: 'Abstenções {abstencoes} · Nulos {nulos}'
             decidido: 'Resultado: {numero} {rotulo}'
         toast:
             registrado: Voto registrado.
             expirada: A página expirou. Escolha de novo e confirme o voto.
+        nulo_numero: 'Número inexistente para voto nulo'
+        nulo_confirmar: 'Confirmar voto nulo'
         cabine:
             aria: Cabine de votação
             votar: Votar
@@ -69,7 +71,8 @@ voto:
             inicio_aperte: 'Aperte {confirma} para iniciar'
             seu_voto_para: SEU VOTO PARA
             numero: 'Número:'
-            numero_invalido: NÚMERO INVÁLIDO
+            numero_invalido: NÚMERO ERRADO
+            voto_nulo: VOTO NULO
             numero_invalido_dica: 'Aperte CORRIGE e informe um número válido.'
             abstencao: ABSTENÇÃO
             rodape_titulo: 'Aperte a tecla:'
@@ -79,6 +82,7 @@ voto:
             dica_varios: 'Digite o número de cada nome e aperte CONFIRMA. Você pode escolher até {n} nomes; para terminar antes, aperte CONFIRMA sem número.'
             escolha_de: 'Escolha {k} de {n}'
             nome_repetido: 'Você já escolheu este nome.'
+            numero_repetido: 'Você já escolheu este número.'
             grava_titulo: Registrando seu voto
             grava_subtitulo: Enviando seu voto e separando-o da sua identidade
             grava_titulo_simulacao: Simulando o registro
@@ -99,7 +103,7 @@ voto:
             numero_tecla: 'Número {n}'
             fala_digite: 'Voto para {pauta}. Digite o número.'
             fala_abstencao: Abstenção. Confirme ou corrija.
-            fala_invalido: 'Número inválido. Aperte CORRIGE e informe um número válido.'
+            fala_invalido: 'Número errado, voto nulo. Confirme ou corrija.'
             comprovante_titulo: 'Comprovante de depósito da cédula (não revela seu voto)'
             comprovante_imagem: Comprovante em imagem
             imagem_titulo: Comprovante de votação

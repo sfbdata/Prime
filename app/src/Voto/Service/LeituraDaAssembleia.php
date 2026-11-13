@@ -107,6 +107,7 @@ final class LeituraDaAssembleia
         if (EstadoDaPauta::Encerrada !== $pauta->getEstado()) {
             return null;
         }
+        $this->em->refresh($pauta);
         foreach ($pauta->getOpcoes() as $opcao) {
             $this->em->refresh($opcao);
         }

@@ -70,4 +70,30 @@ class PautaDaAssembleiaRepository extends ServiceEntityRepository
 
         return $pauta;
     }
+
+    /** Relê os agregados atualizados por SQL antes de mostrar um resultado final. */
+    public function relerContadores(PautaDaAssembleia $pauta): void
+    {
+        $this->getEntityManager()->refresh($pauta);
+        foreach ($pauta->getOpcoes() as $opcao) {
+            $this->getEntityManager()->refresh($opcao);
+        }
+    }
+
+    /** Toda participação toca esta linha, mesmo com zero nulos, para não revelar o tipo pelo xmin. */
+    public function somarNulos(PautaDaAssembleia $pauta, int $quantidade, string $peso): void
+    {
+        if ($quantidade < 0 || $quantidade > $pauta->getVagas() || 1 !== preg_match('/^\d{1,8}(\.\d{1,6})?$/', $peso)) {
+            throw new \InvalidArgumentException('Contagem de votos nulos inválida.');
+        }
+        $afetadas = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE voto.assembleia_pauta SET nulos_unidades = nulos_unidades + :quantidade,
+                 nulos_peso = nulos_peso + CAST(:peso AS NUMERIC) * :quantidade
+             WHERE id = :pauta AND tenant_id = :tenant',
+            ['quantidade' => $quantidade, 'peso' => $peso, 'pauta' => $pauta->getId(), 'tenant' => $pauta->getTenant()->getId()],
+        );
+        if (1 !== $afetadas) {
+            throw new \RuntimeException('A pauta do voto não foi encontrada.');
+        }
+    }
 }

@@ -48,18 +48,20 @@ final readonly class ResultadoDaPauta
         public RegraDeDecisao $criterio = RegraDeDecisao::Mais,
         public BaseDaDecisao $base = BaseDaDecisao::Validos,
         public int $vagas = 1,
+        public int $nulosUnidades = 0,
+        public string $nulosPeso = '0.000000',
     ) {
     }
 
-    /** Total da tabela de apuração: escolhas em candidatos e abstenções, não participantes. */
+    /** Total da tabela de apuração: escolhas em candidatos, abstenções e nulos, não participantes. */
     public function totalDeEscolhas(): int
     {
-        return array_sum(array_map(static fn (ResultadoDaOpcao $opcao): int => $opcao->unidades, $this->opcoes)) + $this->abstencoesUnidades;
+        return array_sum(array_map(static fn (ResultadoDaOpcao $opcao): int => $opcao->unidades, $this->opcoes)) + $this->abstencoesUnidades + $this->nulosUnidades;
     }
 
     public function pesoDasEscolhas(): string
     {
-        return bcadd($this->pesoValido, $this->abstencoesPeso, 6);
+        return bcadd(bcadd($this->pesoValido, $this->abstencoesPeso, 6), $this->nulosPeso, 6);
     }
 
     public function decidido(): bool

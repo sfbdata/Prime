@@ -73,7 +73,7 @@ final class CedulaController extends AbstractController
         }
 
         try {
-            $comprovante = $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $this->opcoesDoPedido($request)));
+            $comprovante = $this->registrar->executar(new RegistrarVotoInput($token, $pauta, $this->opcoesDoPedido($request), $this->nulosDoPedido($request)));
             if ($json) {
                 return $this->respostaJson(true, $this->tradutor->trans('voto.assembleia.cedula.toast.registrado'), Response::HTTP_OK, $comprovante);
             }
@@ -104,6 +104,17 @@ final class CedulaController extends AbstractController
         }
 
         return array_values(array_map(static fn (mixed $v): int => \is_scalar($v) ? (int) $v : 0, $bruto));
+    }
+
+    /** @return list<mixed> preserva entradas inválidas para recusa pelo UseCase */
+    private function nulosDoPedido(Request $request): array
+    {
+        $bruto = $request->request->all()['numero_nulo'] ?? [];
+        if (!\is_array($bruto)) {
+            return [$bruto];
+        }
+
+        return array_values(array_filter($bruto, static fn (mixed $valor): bool => '' !== $valor));
     }
 
     /** Resposta da cabine (js/voto-cabine.js): o voto vai por fetch e a tela decide o que mostrar. */
