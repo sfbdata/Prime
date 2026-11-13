@@ -13,6 +13,7 @@ use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\OpcoesDaPauta;
+use App\Voto\Service\SerializacaoDaConfiguracao;
 
 /**
  * Altera título, descrição, regras (se a tela manda) e opções de uma pauta da assembleia em rascunho. As opções de voto são trocadas pelas
@@ -25,10 +26,18 @@ final class EditarPautaUseCase
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly OpcaoDaPautaRepository $opcoes,
         private readonly OpcoesDaPauta $opcoesDaPauta,
+        private readonly SerializacaoDaConfiguracao $serializacao,
     ) {
     }
 
     public function executar(Tenant $tenant, int $assembleiaId, int $pautaId, PautaInput $input): void
+    {
+        $this->serializacao->executar($tenant, $assembleiaId, function () use ($tenant, $assembleiaId, $pautaId, $input): void {
+            $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $pautaId, $input);
+        });
+    }
+
+    private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, int $pautaId, PautaInput $input): void
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();

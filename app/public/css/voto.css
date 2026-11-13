@@ -90,6 +90,14 @@
 .voto-tela .voto-rodape { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e3ecf2; padding-top: 12px; }
 .voto-tela .vLin.voto-rodape { padding: 12px 15px; }
 .voto-tela .voto-erro { color: #a3232b; font-size: 13.5px; font-weight: bold; }
+.voto-tela .voto-etapas { display:flex; flex-wrap:wrap; gap:5px; list-style:none; margin:0; padding:0; }
+.voto-tela .vPas { font-size:12px; padding:3px 8px; background:#eef3f6; color:#5b7383; border-radius:3px; }
+.voto-tela .vPasAt { background:#0a6fa0; color:#fff; font-weight:bold; }
+.voto-tela .voto-revisao-quadro { border:1px solid #d3dde4; }
+.voto-tela .voto-revisao-linha { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13.5px; }
+.voto-tela .voto-revisao-linha > span { flex:0 0 150px; color:#5b7383; }
+.voto-tela .voto-revisao-linha > b { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.voto-tela .voto-revisao-opcoes { font-size:13.5px; }
 
 /* Etapa 4: atalhos e caixa da pauta (L215-222) */
 .voto-tela .voto-atalhos { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; color: #34505f; }

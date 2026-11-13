@@ -1,0 +1,9 @@
+{% set atual = a.situacao() %}
+{% set etapas = ['rascunho', 'publicada', 'aberta', 'encerrada'] %}
+<div class="vLin">
+    <ol class="voto-etapas" aria-label="{{ 'voto.assembleia.gestor.sub.rotulo'|trans }}">
+        {% for etapa in etapas %}
+            <li class="vPas{{ etapa == atual ? ' vPasAt' : '' }}"{% if etapa == atual %} aria-current="step"{% endif %}>{{ ('voto.assembleia.gestor.andamento.' ~ etapa)|trans }}</li>
+        {% endfor %}
+    </ol>
+</div>

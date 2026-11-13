@@ -104,8 +104,7 @@
         <div class="vLin voto-rodape">
             <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
             <span class="voto-espaco"></span>
-            <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" class="voto-form-linha">
-                <input type="hidden" name="_token" value="{{ token }}">
+            <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
                 <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.unidades.publicar'|trans }}</button>
             </form>
         </div>

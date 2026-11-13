@@ -14,6 +14,7 @@ use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\LeitorDaListaDeUnidades;
+use App\Voto\Service\SerializacaoDaConfiguracao;
 use App\Voto\Service\TokenDaUnidade;
 use Symfony\Component\HttpFoundation\UploadedFile;
 
@@ -32,32 +33,41 @@ final class ImportarUnidadesUseCase
         private readonly LeitorDaListaDeUnidades $leitor,
         private readonly TokenDaUnidade $tokens,
         private readonly ArquivoDeUnidades $arquivos,
+        private readonly SerializacaoDaConfiguracao $serializacao,
     ) {
     }
 
     public function executar(Tenant $tenant, int $assembleiaId, string $texto): ResultadoDaImportacao
     {
-        $assembleia = $this->carregarAssembleia($tenant, $assembleiaId);
-        $assembleia->exigirUnidadesAlteraveis();
-
-        return $this->importarLinhas($assembleia, $this->leitor->ler($texto, $assembleia->getPeso()));
+        return $this->serializacao->executar(
+            $tenant,
+            $assembleiaId,
+            fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $texto),
+        );
     }
 
     public function executarArquivo(Tenant $tenant, int $assembleiaId, UploadedFile $arquivo): ResultadoDaImportacao
     {
-        $assembleia = $this->carregarAssembleia($tenant, $assembleiaId);
-        $assembleia->exigirUnidadesAlteraveis();
-        $linhas = $this->arquivos->ler($arquivo);
-
-        return $this->importarLinhas($assembleia, $this->leitor->lerTabela($linhas, $assembleia->getPeso()));
+        return $this->serializacao->executar(
+            $tenant,
+            $assembleiaId,
+            fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $arquivo),
+        );
     }
 
-    private function carregarAssembleia(Tenant $tenant, int $assembleiaId): Assembleia
-    {
+    private function executarComConfiguracaoReservada(
+        Tenant $tenant,
+        int $assembleiaId,
+        string|UploadedFile $entrada,
+    ): ResultadoDaImportacao {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
+        $assembleia->exigirUnidadesAlteraveis();
+        $lidas = $entrada instanceof UploadedFile
+            ? $this->leitor->lerTabela($this->arquivos->ler($entrada), $assembleia->getPeso())
+            : $this->leitor->ler($entrada, $assembleia->getPeso());
 
-        return $assembleia;
+        return $this->importarLinhas($assembleia, $lidas);
     }
 
     /** @param array{validas: list<LinhaDeUnidade>, invalidas: list<array{linha: int, motivo: string}>, duplicadas: list<int>} $lidas */

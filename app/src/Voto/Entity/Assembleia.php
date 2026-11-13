@@ -101,6 +101,14 @@ class Assembleia implements TenantAware, Auditavel
      */
     public function publicar(?\DateTimeImmutable $agora = null): void
     {
+        $this->exigirPublicacaoPossivel();
+        $this->estado = EstadoDaAssembleia::Publicada;
+        $this->publicadaEm = $agora ?? new \DateTimeImmutable();
+    }
+
+    /** A revisão e a confirmação usam a mesma regra, sem mudar o estado durante a consulta. */
+    public function exigirPublicacaoPossivel(): void
+    {
         if (EstadoDaAssembleia::Rascunho !== $this->estado) {
             throw new OperacaoInvalidaNaAssembleiaException('A assembleia já foi publicada.');
         }
@@ -109,8 +117,6 @@ class Assembleia implements TenantAware, Auditavel
             throw new OperacaoInvalidaNaAssembleiaException('Inclua ao menos uma unidade apta a votar.');
         }
         $this->exigirFracaoNasAptas($this->peso);
-        $this->estado = EstadoDaAssembleia::Publicada;
-        $this->publicadaEm = $agora ?? new \DateTimeImmutable();
     }
 
     public function podeAlterarPautas(): bool
