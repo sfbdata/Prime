@@ -1,3 +1,8 @@
-## Voto: importar unidades por planilha
+---
+tipo: novidade
+---
+## Changelog
+- Acrescente a importação de unidades por XLSX e CSV, com planilha modelo para baixar.
 
-Agora o gestor pode baixar uma planilha modelo e importar unidades por arquivo XLSX ou CSV, além de colar a lista. A importação acrescenta as novas unidades, preserva as existentes e informa quando uma linha é inválida ou duplicada.
+## Para o cliente
+- Baixe a planilha modelo ou envie um arquivo XLSX ou CSV para cadastrar unidades. A lista existente será mantida e as unidades repetidas serão ignoradas.

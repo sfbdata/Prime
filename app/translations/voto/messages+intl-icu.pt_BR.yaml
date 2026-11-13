@@ -255,7 +255,7 @@ voto:
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
-                primeira_aba: O XLSX usa a primeira aba. Colunas: Unidade, Bloco, Situação, Fração, Responsável e E-mail.
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: Unidade, Bloco, Situação, Fração, Responsável e E-mail.'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
