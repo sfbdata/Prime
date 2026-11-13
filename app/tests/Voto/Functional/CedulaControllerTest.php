@@ -591,6 +591,80 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         $this->em->clear();
     }
 
+    public function testComprovantePorEmailSoApareceDepoisDeVotar(): void
+    {
+        $pagina = $this->client->request('GET', $this->link());
+        self::assertCount(0, $pagina->filter('[data-vc-comprovante-email]'));
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $this->unidade, 'pauta' => $this->pauta]);
+        $pagina = $this->client->request('GET', $this->link());
+        $form = $pagina->filter('.vcPauta > .vcPautaIn > .vcComprovante > form[data-vc-comprovante-email]');
+        self::assertCount(1, $form);
+        self::assertSame($this->unidade->getEmail(), $form->filter('input[type="email"]')->attr('value'));
+        self::assertSame('E-mail para receber o comprovante', $form->filter('input[type="email"]')->attr('aria-label'));
+        self::assertCount(1, $pagina->filter('.vcComprovante > button[data-vc-comprovante-imagem]'));
+    }
+
+    public function testEnviaComprovantePorEmailComCsrfEDestinatarioEditado(): void
+    {
+        $correio = $this->createMock(\App\Voto\Service\CorreioDoComprovante::class);
+        $correio->expects(self::once())->method('enviar')->with('editado@example.invalid', self::callback(
+            fn (\App\Voto\DTO\ComprovanteDeParticipacao $c): bool => $c->pauta === $this->pauta->getTitulo() && str_starts_with($c->codigo, 'BJV-'),
+        ));
+        static::getContainer()->set(\App\Voto\Service\CorreioDoComprovante::class, $correio);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $this->unidade, 'pauta' => $this->pauta]);
+        $pagina = $this->client->request('GET', $this->link());
+        $this->client->submit($pagina->filter('form[data-vc-comprovante-email]')->form(), ['email' => 'editado@example.invalid']);
+        self::assertResponseRedirects($this->link());
+        self::assertStringContainsString('Comprovante enviado por e-mail.', $this->client->followRedirect()->text());
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM voto.assembleia_participacao WHERE pauta_id = ?', [$this->pauta->getId()]));
+    }
+
+    public function testEmailSemCsrfRecusaSemChamarCorreio(): void
+    {
+        $correio = $this->createMock(\App\Voto\Service\CorreioDoComprovante::class);
+        $correio->expects(self::never())->method('enviar');
+        static::getContainer()->set(\App\Voto\Service\CorreioDoComprovante::class, $correio);
+        $this->client->request('POST', $this->link() . '/pauta/' . $this->pauta->getId() . '/comprovante/email', ['_token' => 'invalido', 'email' => 'teste@example.invalid'], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('no-store', (string) $this->client->getResponse()->headers->get('Cache-Control'));
+    }
+
+    public function testEnvioPublicoLogadoSemEscritorioESemAceite(): void
+    {
+        $this->client->loginUser(UserFactory::createOne(['roles' => ['ROLE_USER']])->_real());
+        $correio = $this->createMock(\App\Voto\Service\CorreioDoComprovante::class);
+        $correio->expects(self::once())->method('enviar');
+        static::getContainer()->set(\App\Voto\Service\CorreioDoComprovante::class, $correio);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $this->unidade, 'pauta' => $this->pauta]);
+        $pagina = $this->client->request('GET', $this->link());
+        $this->client->submit($pagina->filter('form[data-vc-comprovante-email]')->form(), ['email' => 'teste@example.invalid']);
+        self::assertResponseRedirects($this->link());
+        self::assertStringContainsString('Comprovante enviado por e-mail.', $this->client->followRedirect()->text());
+    }
+
+    public function testFalhaDoCorreioResponde503SemExporDadosInternos(): void
+    {
+        $correio = $this->createMock(\App\Voto\Service\CorreioDoComprovante::class);
+        $correio->method('enviar')->willThrowException(new \Symfony\Component\Mailer\Exception\TransportException('Detalhe interno de teste'));
+        static::getContainer()->set(\App\Voto\Service\CorreioDoComprovante::class, $correio);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $this->unidade, 'pauta' => $this->pauta]);
+        $pagina = $this->client->request('GET', $this->link());
+        $csrf = $pagina->filter('form[data-vc-comprovante-email] input[name="_token"]')->attr('value');
+        $this->client->request('POST', $this->link() . '/pauta/' . $this->pauta->getId() . '/comprovante/email', ['_token' => $csrf, 'email' => 'teste@example.invalid'], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(503);
+        self::assertStringNotContainsString('Detalhe interno', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testPautaDeOutraAssembleiaNaoPodeSerUsadaNoEnvio(): void
+    {
+        $outra = PautaDaAssembleiaFactory::createOne()->_real();
+        $pagina = $this->client->request('GET', $this->link());
+        $csrf = $this->dadosDaCabine($pagina)['csrf'];
+        $this->client->request('POST', $this->link() . '/pauta/' . $outra->getId() . '/comprovante/email', ['_token' => $csrf, 'email' => 'teste@example.invalid'], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('no-referrer', $this->client->getResponse()->headers->get('Referrer-Policy'));
+    }
+
     private function link(): string
     {
         return '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade);

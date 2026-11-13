@@ -365,49 +365,13 @@
 
     /* ---- Comprovante em imagem (PNG gerado no aparelho; nada sobe para o servidor) ---- */
     function baixarImagem() {
-        var lista = c.comprovantes;
-        var cv = document.createElement('canvas');
-        cv.width = 900;
-        cv.height = 230 + lista.length * 74;
-        var g = cv.getContext('2d');
-        g.fillStyle = '#ffffff';
-        g.fillRect(0, 0, cv.width, cv.height);
-        g.fillStyle = '#0a6fa0';
-        g.fillRect(0, 0, cv.width, 10);
-        g.fillStyle = '#0b3550';
-        g.font = 'bold 34px Arial, Helvetica, sans-serif';
-        g.fillText(texto('imagem_titulo'), 40, 70);
-        g.fillStyle = '#12242f';
-        g.font = '24px Arial, Helvetica, sans-serif';
-        g.fillText(D.assembleia, 40, 112);
-        g.fillStyle = '#34505f';
-        g.font = '20px Arial, Helvetica, sans-serif';
-        g.fillText(new Date().toLocaleString('pt-BR'), 40, 146);
-        lista.forEach(function (x, i) {
-            var y = 200 + i * 74;
-            g.fillStyle = '#12242f';
-            g.font = '22px Arial, Helvetica, sans-serif';
-            g.fillText(x.pauta, 40, y);
-            g.fillStyle = '#1e7b45';
-            g.font = 'bold 30px Consolas, Menlo, monospace';
-            g.fillText(x.codigo, 40, y + 36);
+        window.VotoComprovante.baixar({
+            lista: c.comprovantes,
+            assembleia: D.assembleia,
+            titulo: texto('imagem_titulo'),
+            rodape: texto('imagem_rodape'),
+            arquivo: texto('imagem_arquivo')
         });
-        g.fillStyle = '#34505f';
-        g.font = '17px Arial, Helvetica, sans-serif';
-        g.fillText(texto('imagem_rodape'), 40, cv.height - 28);
-        cv.toBlob(function (blob) {
-            if (!blob) {
-                return;
-            }
-            var u = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = u;
-            a.download = texto('imagem_arquivo') || 'comprovante.png';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(function () { URL.revokeObjectURL(u); }, 3000);
-        }, 'image/png');
     }
 
     function telaErro() {

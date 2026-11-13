@@ -24,7 +24,7 @@ final class TerminalDaAssembleiaListener
         if (!$evento->isMainRequest() || !$request->hasPreviousSession()) {
             return;
         }
-        if (!in_array($request->attributes->get('_route'), ['voto_assembleia_cedula', 'voto_assembleia_cedula_votar'], true)) {
+        if (!in_array($request->attributes->get('_route'), ['voto_assembleia_cedula', 'voto_assembleia_cedula_votar', 'voto_assembleia_cedula_comprovante_email'], true)) {
             return;
         }
         $codigo = $request->getSession()->get('voto_terminal_codigo');

@@ -18,6 +18,7 @@ use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ApuracaoDaPauta;
+use App\Voto\Service\ComprovanteDoVoto;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\Service\UnidadeDoLink;
 use Psr\Clock\ClockInterface;
@@ -42,6 +43,7 @@ final class MontarCedulaUseCase
         private readonly ApuracaoDaPauta $apuracao,
         private readonly TransacaoDoVoto $transacao,
         private readonly ClockInterface $relogio,
+        private readonly ComprovanteDoVoto $comprovante,
     ) {
     }
 
@@ -95,6 +97,7 @@ final class MontarCedulaUseCase
                 resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
                 vagas: $pauta->getVagas(),
                 digitos: $pauta->getDigitos(),
+                comprovante: isset($votouEm[(int) $pauta->getId()]) ? $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm[(int) $pauta->getId()]) : null,
             );
         }
 
@@ -114,6 +117,7 @@ final class MontarCedulaUseCase
             apta: $unidade->isApta(),
             porFracao: PesoDoVoto::Fracao === $assembleia->getPeso(),
             pautas: $pautas,
+            email: $unidade->getEmail() ?? '',
         );
     }
 

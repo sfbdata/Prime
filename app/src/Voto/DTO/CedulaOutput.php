@@ -22,6 +22,7 @@ final readonly class CedulaOutput
         public bool $apta,
         public bool $porFracao,
         public array $pautas,
+        public string $email = '',
     ) {
     }
 
