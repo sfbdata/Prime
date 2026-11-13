@@ -91,6 +91,10 @@ final class LeituraDaAssembleia
             resultado: $this->resultado($pauta, $totais, $contagem),
             criterio: $pauta->getCriterio(),
             base: $pauta->getBase(),
+            digitos: $pauta->getDigitos(),
+            vagas: $pauta->getVagas(),
+            quorumPrimeira: $pauta->getQuorumPrimeira(),
+            quorumSegunda: $pauta->getQuorumSegunda(),
         );
     }
 

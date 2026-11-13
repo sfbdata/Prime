@@ -45,6 +45,10 @@ final readonly class PautaNoPainel
         public ?ResultadoDaPauta $resultado,
         public RegraDeDecisao $criterio = RegraDeDecisao::Mais,
         public BaseDaDecisao $base = BaseDaDecisao::Validos,
+        public int $digitos = 1,
+        public int $vagas = 1,
+        public string $quorumPrimeira = '50.00',
+        public ?string $quorumSegunda = '0.00',
     ) {
     }
 

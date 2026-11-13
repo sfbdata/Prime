@@ -5,6 +5,13 @@ Fonte: `bluejus-coordenacao/copia-desenhos-08-11-26/18 - Voto - VS 08.11.26.dc.h
 Inventário bruto do script: `voto-inventario-bruto.md` (mesma pasta deste arquivo).
 Números `L123` = linha do `.dc.html`; `N123` = linha do `bj-voto-nucleo.js`.
 
+## Atualização de 13/11/2026: PR 5 das Pautas
+
+Os controles da etapa 4 estão implementados nesta entrega: regra pronta, vagas, dígitos, critério, base,
+dois quóruns e Numerar. Inventário, contrato e validação em [voto-pautas-controles-1311.md](voto-pautas-controles-1311.md).
+A apuração por regra e várias vagas já foi publicada na v2.49.0; esta entrega libera sua configuração pela tela.
+As demais tabelas abaixo conservam o inventário histórico de 10/11 e não representam o estado completo atual.
+
 ## Estado em 10/11/2026 e etapas até o desenho completo
 
 O desenho novo do Voto (`docs/design/redesign-08-11-26/18 - Voto - VS 08.11.26.dc.html`, com `ESPEC_VOTO.md` e `bj-voto-*.js`) é mais novo que o lido nesta spec e traz a mais:
@@ -80,11 +87,12 @@ Uma migration por vez entre PRs abertos: 1, 2, 5, 8 entram em fila.
 | 3 Acesso: PIN / código por e-mail | ✗ | (desvio decidido: link da unidade); "Localizar nome", código de 6 números, 5 tentativas, foto e art. 299 não existem |
 | 4 Atalhos "Cargos e pautas frequentes" | ✓ | `pautas.html.twig:22-30` |
 | 4 Cargo/pauta + opções Nº e nome, "Candidatura", remover, "Outro cargo ou pauta", validações de texto | ✓ | `_pauta_form.html.twig`, `OpcoesDaPauta.php:35-39` |
-| 4 Dígitos (1 a 5) | ✗ | fixo 1 dígito |
-| 4 Critério (Mais votos / Maioria absoluta / Dois terços / Unanimidade) | ✗ | só "Mais votos" (`ApuracaoDaPauta.php:6-14`) |
-| 4 "Calculado sobre" (válidos / presentes / total de aptos) | ✗ | só votos válidos |
-| 4 Quórum (%) e Quórum 2ª conv. por pauta | ⚠ | fixo: 50% na 1ª, 0% na 2ª, gravado na abertura (`PautaDaAssembleia::abrir`); não editável por pauta |
-| 4 Regra pronta, Vagas (várias vagas), "Numerar", Unidade do candidato, ↑↓ reordenar, descrição/propostas/composição/foto da opção | ✗ | |
+| 4 Dígitos (1 a 5) | ✓ | PR 5: select e maxlength por pauta; trocar não renumera |
+| 4 Critério (Mais votos / Maioria absoluta / Dois terços / Unanimidade) | ✓ | PR 5: select; apuração publicada na v2.49.0 |
+| 4 "Calculado sobre" (válidos / presentes / total de aptos) | ✓ | PR 5: select com as três bases |
+| 4 Quórum (%) e Quórum 2ª conv. por pauta | ✓ | PR 5: editáveis em rascunho; segunda vazia herda primeira |
+| 4 Regra pronta, Vagas (várias vagas), "Numerar" | ✓ | PR 5: presets, 1 a 9 vagas e sequência com zeros |
+| 4 Unidade do candidato, ↑↓ reordenar, descrição/propostas/composição/foto da opção | ✗ | frente posterior ao PR 5 |
 | 5 Lista de aptos: importar planilha XLSX/CSV, "Baixar modelo", contagem aptos/não aptos | ⚠ | só colar texto em textarea (`unidades.html.twig:23`, `LeitorDaListaDeUnidades.php`); sem upload de arquivo, sem XLSX, sem modelo; resumo "N aptos, N inaptos" ✓ (`:30`) |
 | 5 Cabeçalhos aceitos (unidade, bloco, fração, situação...), apto só se apto/adimplente/regular/quite, peso em vírgula, duplicadas/inválidas, bloqueio após abertura | ✓ | `LeitorDaListaDeUnidades.php`, `ImportarUnidadesUseCase.php`, `unidades.html.twig:27,37-40` |
 | 5 Hash da lista, data da importação, lista por nome/e-mail do eleitor | ✗ | hash só serve à urna; "Importada em" ✗ |

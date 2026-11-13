@@ -456,6 +456,57 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame(4, $caixa->filter('input[name="opcao_numero[]"][data-voto-numero][inputmode="numeric"][maxlength="1"]')->count(), 'todo Nº só aceita um algarismo');
     }
 
+    #[TestDox('Controles da pauta ficam na mesma linha flex e retornam os valores gravados')]
+    public function testControlesDaPautaNaRecarga(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $tela = $this->client->request('GET', $url);
+        $form = $tela->filter('#pauta-' . $pauta->getId())->form();
+        self::assertSame('1', $form['vagas']->getValue());
+        self::assertSame('50', $form['quorum_primeira']->getValue());
+        self::assertSame('0', $form['quorum_segunda']->getValue());
+        $this->client->submit($form, ['digitos' => '3', 'vagas' => '2', 'criterio' => 'dois', 'base' => 'aptos', 'quorum_primeira' => '60', 'quorum_segunda' => '', 'opcao_numero' => ['001', '002']]);
+        self::assertResponseRedirects($url . '#pauta-' . $pauta->getId());
+        $tela = $this->client->followRedirect();
+        self::assertSame('Pauta salva.', $tela->filter('.voto-toast')->text());
+        $linha = $tela->filter('#pauta-' . $pauta->getId() . ' > .voto-pauta-campos');
+        foreach (['titulo', 'regra_pronta', 'vagas', 'digitos', 'criterio', 'base', 'quorum_primeira', 'quorum_segunda'] as $nome) {
+            self::assertCount(1, $linha->filter('.voto-pauta-campos > label > [name="' . $nome . '"]'));
+        }
+        self::assertCount(1, $linha->filter('.voto-pauta-campos > button[data-voto-numerar][title="Numerar as opções em sequência"] > .bi-123'));
+        $form = $tela->filter('#pauta-' . $pauta->getId())->form();
+        foreach (['digitos' => '3', 'vagas' => '2', 'criterio' => 'dois', 'base' => 'aptos', 'quorum_primeira' => '60', 'quorum_segunda' => ''] as $nome => $valor) {
+            self::assertSame($valor, $form[$nome]->getValue(), $nome);
+        }
+        self::assertSame('001', $tela->filter('#pauta-' . $pauta->getId() . ' [data-voto-numero]')->first()->attr('value'));
+        self::assertSame('3', $tela->filter('#pauta-' . $pauta->getId() . ' [data-voto-numero]')->first()->attr('maxlength'));
+    }
+
+    #[TestDox('Campos vazios usam uma vaga, primeiro quórum zero e segunda convocação herdada')]
+    public function testCriarPautaComLimitesVazios(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $tela = $this->client->request('GET', $url);
+        $this->client->submit($tela->filter('#pauta-nova')->form(), [
+            'titulo' => 'Conselho', 'vagas' => '', 'quorum_primeira' => '', 'quorum_segunda' => '',
+        ]);
+        self::assertResponseRedirects($url);
+        $id = $this->pautasDa((int) $assembleia->getId())[0];
+        self::assertSame(
+            ['vagas' => 1, 'quorum_primeira' => '0.00', 'quorum_segunda' => null],
+            $this->em->getConnection()->fetchAssociative('SELECT vagas, quorum_primeira, quorum_segunda FROM voto.assembleia_pauta WHERE id = ?', [$id]),
+        );
+        $tela = $this->client->followRedirect();
+        self::assertSame('', $tela->filter('#pauta-' . $id)->form()['quorum_segunda']->getValue());
+    }
+
     #[TestDox('Salvar a pauta por fetch responde JSON, grava e não deixa toast para a próxima tela')]
     public function testSalvarPautaPorFetchRespondeJson(): void
     {

@@ -99,6 +99,13 @@
 .voto-tela .voto-pauta-campos { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding-right: 44px; }
 .voto-tela .voto-pauta-caixa#pauta-nova .voto-pauta-campos { padding-right: 0; }
 .voto-tela .voto-pauta-titulo { flex: 1 1 220px; }
+.voto-tela .voto-pauta-regra { flex: 1 1 230px; }
+.voto-tela .voto-pauta-vagas { width: 80px; }
+.voto-tela .voto-pauta-digitos { width: 96px; }
+.voto-tela .voto-pauta-criterio { flex: 1 1 170px; }
+.voto-tela .voto-pauta-base { flex: 1 1 150px; }
+.voto-tela .voto-pauta-quorum { width: 100px; }
+.voto-tela .voto-pauta-quorum-segunda { width: 112px; }
 .voto-tela .voto-pauta-remover { position: absolute; top: 12px; right: 12px; margin: 0; }
 .voto-tela .voto-opcoes { display: flex; flex-direction: column; gap: 10px; }
 .voto-tela .voto-opcao { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 7px; padding: 9px; background: #f7f9fb; }

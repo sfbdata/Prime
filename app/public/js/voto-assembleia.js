@@ -95,6 +95,68 @@
         return ok;
     }
 
+    var REGRAS_PRONTAS = {
+        simples: ['mais', 'validos', 50, 0],
+        absoluta: ['absoluta', 'aptos', 0, null],
+        dois: ['dois', 'aptos', 0, null],
+        unanime: ['unanime', 'aptos', 0, null]
+    };
+
+    function campoDaPauta(form, nome) {
+        return form.querySelector('[name="' + nome + '"]');
+    }
+
+    function digitosDaPauta(form) {
+        var campo = campoDaPauta(form, 'digitos');
+        return campo ? parseInt(campo.value, 10) || 1 : 1;
+    }
+
+    function reconhecerRegra(form) {
+        var campo = campoDaPauta(form, 'regra_pronta');
+        if (!campo) {
+            return;
+        }
+        campo.value = Object.keys(REGRAS_PRONTAS).find(function (chave) {
+            var regra = REGRAS_PRONTAS[chave];
+            return regra[0] === campoDaPauta(form, 'criterio').value &&
+                regra[1] === campoDaPauta(form, 'base').value &&
+                regra[2] === Number(campoDaPauta(form, 'quorum_primeira').value);
+        }) || '';
+    }
+
+    function aplicarRegra(form, chave) {
+        var regra = REGRAS_PRONTAS[chave];
+        if (!regra) {
+            return;
+        }
+        ['criterio', 'base', 'quorum_primeira', 'quorum_segunda'].forEach(function (nome, i) {
+            campoDaPauta(form, nome).value = regra[i] === null ? '' : String(regra[i]);
+        });
+    }
+
+    function numerarOpcoes(form) {
+        var digitos = digitosDaPauta(form);
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-numero]'), function (campo, i) {
+            campo.value = String(i + 1).padStart(digitos, '0');
+        });
+    }
+
+    function atualizarLimites(form) {
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-numero]'), function (numero) {
+            numero.maxLength = digitosDaPauta(form);
+        });
+    }
+
+    function proximoNumero(form) {
+        var maior = 0;
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-numero]'), function (campo) {
+            maior = Math.max(maior, Number(campo.value) || 0);
+        });
+        var numero = String(maior + 1);
+        var digitos = digitosDaPauta(form);
+        return numero.length <= digitos ? numero.padStart(digitos, '0') : '';
+    }
+
     function novaOpcao(botao) {
         var form = botao.closest('form');
         var lista = form ? form.querySelector('[data-voto-opcoes]') : null;
@@ -104,6 +166,7 @@
         }
         var linha = modelo.cloneNode(true);
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
+        linha.querySelector('[data-voto-numero]').value = proximoNumero(form);
         lista.appendChild(linha);
         linha.querySelector('input').focus();
     }
@@ -135,13 +198,22 @@
         return Array.prototype.slice.call(document.querySelectorAll('form[data-voto-pauta-form]'));
     }
 
-    /* O que está na pauta (título, descrição e as linhas de opção, na ordem), sem o token. Com `doServidor`, usa o
-       valor que veio na página (defaultValue), não o que o navegador possa ter restaurado no F5. */
+    /* Origem no HTML, preservada mesmo quando o navegador restaura outra seleção no F5. */
+    function valorOriginal(campo) {
+        if (campo.tagName !== 'SELECT') {
+            return campo.defaultValue;
+        }
+        var opcoes = Array.prototype.slice.call(campo.options);
+        var original = opcoes.find(function (opcao) { return opcao.defaultSelected; }) || opcoes[0];
+        return original ? original.value : '';
+    }
+
+    /* Título, descrição, regras e opções na ordem, sem o token. */
     function retrato(form, doServidor) {
         var partes = [];
         Array.prototype.forEach.call(form.elements, function (campo) {
-            if (campo.name && campo.name !== '_token' && (campo.tagName === 'INPUT' || campo.tagName === 'TEXTAREA')) {
-                partes.push([campo.name, doServidor ? campo.defaultValue : campo.value]);
+            if (campo.name && campo.name !== '_token' && (campo.tagName === 'INPUT' || campo.tagName === 'TEXTAREA' || campo.tagName === 'SELECT')) {
+                partes.push([campo.name, doServidor ? valorOriginal(campo) : campo.value]);
             }
         });
         return JSON.stringify(partes);
@@ -341,8 +413,35 @@
         return campo.maxLength > 0 ? limpo.slice(0, campo.maxLength) : limpo;
     }
 
+    document.addEventListener('change', function (evento) {
+        var campo = evento.target;
+        var form = campo.closest ? campo.closest('form[data-voto-pauta-form]') : null;
+        if (!form) {
+            return;
+        }
+        if (campo.hasAttribute('data-voto-regra-pronta')) {
+            aplicarRegra(form, campo.value);
+        } else if (campo.hasAttribute('data-voto-regra')) {
+            reconhecerRegra(form);
+        } else if (campo.hasAttribute('data-voto-digitos')) {
+            atualizarLimites(form);
+        }
+    });
+
+    function limitarConfiguracao(campo) {
+        var tipo = campo.getAttribute('data-voto-limite');
+        var limpo = campo.value.replace(/\D/g, '');
+        campo.value = tipo === 'segunda' && limpo === '' ? '' : String(
+            tipo === 'vagas' ? Math.max(1, Math.min(9, Number(limpo) || 1)) : Math.min(100, Number(limpo))
+        );
+        reconhecerRegra(campo.closest('form'));
+    }
+
     document.addEventListener('input', function (evento) {
         var campo = evento.target;
+        if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-limite')) {
+            limitarConfiguracao(campo);
+        }
         if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-numero')) {
             var limpo = soAlgarismos(campo, campo.value);
             if (limpo !== campo.value) {
@@ -453,15 +552,18 @@
     /* Voltar pelo histórico com a página guardada (bfcache): a tela volta a aceitar ações. */
     window.addEventListener('pageshow', function () {
         saindo = false;
+        formsDePauta().forEach(atualizarLimites);
     });
 
     document.addEventListener('click', function (evento) {
-        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
+        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
         if (!alvo) {
             return;
         }
         if (alvo.hasAttribute('data-voto-copiar')) {
             copiar(alvo.getAttribute('data-voto-copiar'), alvo.getAttribute('data-voto-copiado') || '');
+        } else if (alvo.hasAttribute('data-voto-numerar')) {
+            numerarOpcoes(alvo.closest('form'));
         } else if (alvo.hasAttribute('data-voto-opcao-nova')) {
             novaOpcao(alvo);
         } else if (alvo.hasAttribute('data-voto-opcao-remover')) {
@@ -491,7 +593,10 @@
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-prazo]'), iniciarCronometro);
         telaDePautas = document.querySelector('[data-voto-pautas]');
         if (telaDePautas) {
-            formsDePauta().forEach(function (form) { form.setAttribute('data-voto-retrato', retrato(form, true)); });
+            formsDePauta().forEach(function (form) {
+                form.setAttribute('data-voto-retrato', retrato(form, true));
+                atualizarLimites(form);
+            });
             var aviso = avisoGuardado();
             if (aviso) {
                 avisar(aviso, false);
