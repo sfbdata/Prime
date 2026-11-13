@@ -8,6 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.52.0] - 2026-11-13
+
+### Adicionado
+
+- Acrescente a importação de unidades por XLSX e CSV, com planilha modelo para baixar.
+- Acrescente a conferência antes da publicação, o andamento geral pelas pautas e a oferta de abertura pela mesa, com proteção contra alterações simultâneas na configuração.
+
 ## [2.51.0] - 2026-11-13
 
 ### Adicionado
@@ -1989,7 +1996,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.51.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.52.0...HEAD
+[2.52.0]: https://github.com/sfbdata/Prime/compare/v2.51.0...v2.52.0
 [2.51.0]: https://github.com/sfbdata/Prime/compare/v2.50.0...v2.51.0
 [2.50.0]: https://github.com/sfbdata/Prime/compare/v2.49.0...v2.50.0
 [2.49.0]: https://github.com/sfbdata/Prime/compare/v2.48.0...v2.49.0
