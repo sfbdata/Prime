@@ -85,3 +85,6 @@ f1067afb967b75cc4363c1852b938a89864bdd91:app/tests/Shared/Unit/Service/Conferent
 # Não libera o caminho inteiro: só a ocorrência histórica exata de cada variável.
 dec1ad624157d3a0ef467d4970f42c4f4f81b078:app/.env.test:segredo-em-variavel-pt:16
 853ce3a99e38b2b84de560ab31c19bb0f5265991:app/.env.test:segredo-em-variavel-pt:14
+
+# Comprovante do Voto (13/11/2026): token fictício sequencial do teste unitário, igual ao cenário de registro do voto.
+13734e54c378b1d367c175020eef60ea06a4c35c:app/tests/Voto/Unit/EnviarComprovantePorEmailUseCaseTest.php:generic-api-key:42
