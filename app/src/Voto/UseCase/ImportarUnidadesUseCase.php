@@ -16,7 +16,7 @@ use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\LeitorDaListaDeUnidades;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 use App\Voto\Service\TokenDaUnidade;
-use Symfony\Component\HttpFoundation\UploadedFile;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * O gestor cola a lista ou envia XLSX/CSV enquanto nenhuma pauta foi aberta ("a lista bloqueia na abertura"). As linhas
