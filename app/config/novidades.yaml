@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.52.0"
+  data: "2026-11-13"
+  itens:
+    - "Baixe a planilha modelo ou envie um arquivo XLSX ou CSV para cadastrar unidades. A lista existente será mantida e as unidades repetidas serão ignoradas."
+    - "Antes de publicar uma votação, confira pautas, opções, regras, quóruns e unidades aptas. Depois de confirmar, escolha a pauta que deseja abrir. As etapas e o selo mostram quando a votação está aguardando abertura, aberta ou encerrada."
 - versao: "2.51.0"
   data: "2026-11-13"
   itens:
