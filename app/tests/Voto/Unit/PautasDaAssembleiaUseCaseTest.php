@@ -98,7 +98,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
 
         $this->expectException(AssembleiaNaoEncontradaException::class);
 
-        (new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta()))->executar(new Tenant(), 7, PautaInput::padrao('Obra'));
+        (new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()))->executar(new Tenant(), 7, PautaInput::padrao('Obra'));
     }
 
     #[TestDox('Editar troca título, descrição e opções; a abstenção fica, as opções antigas saem pelo repositório')]
@@ -118,7 +118,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $opcoes = $this->createMock(OpcaoDaPautaRepository::class);
         $opcoes->expects(self::exactly(2))->method('remover');
 
-        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta()))->executar($tenant, 7, 9, new PautaInput(
+        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, new PautaInput(
             'Eleição de síndico(a)',
             '  Mandato de 2 anos  ',
             [['numero' => '1', 'rotulo' => 'Chapa Verde'], ['numero' => '2', 'rotulo' => 'Chapa Azul'], ['numero' => '3', 'rotulo' => 'Chapa Branca']],
@@ -148,7 +148,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
         $this->expectExceptionMessage('As pautas só mudam enquanto a assembleia está em rascunho.');
 
-        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta()))->executar($tenant, 7, 9, PautaInput::padrao('Outra'));
+        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, PautaInput::padrao('Outra'));
     }
 
     #[TestDox('Incluir com regras: grava critério, base, vagas, quórum e aceita números do tamanho dos dígitos')]
@@ -207,7 +207,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $pautas->method('buscarDaAssembleia')->willReturn($pauta);
         $opcoes = $this->createMock(OpcaoDaPautaRepository::class);
 
-        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta()))->executar($tenant, 7, 9, new PautaInput(
+        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, new PautaInput(
             'Conselho', null, [['numero' => '21', 'rotulo' => 'Bia'], ['numero' => '22', 'rotulo' => 'Caio']],
         ));
 
@@ -229,7 +229,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
         $pautas->method('buscarDaAssembleia')->willReturn($pauta);
 
-        (new EditarPautaUseCase($assembleias, $pautas, $this->createMock(OpcaoDaPautaRepository::class), new OpcoesDaPauta()))->executar($tenant, 7, 9, new PautaInput(
+        (new EditarPautaUseCase($assembleias, $pautas, $this->createMock(OpcaoDaPautaRepository::class), new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, new PautaInput(
             'Obra', null, PautaInput::OPCOES_PADRAO, new RegrasDaPautaInput(RegraDeDecisao::DoisTercos, BaseDaDecisao::Aptos, 1, 1, 0, null),
         ));
 
@@ -275,7 +275,7 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         $assembleias = $this->createMock(AssembleiaRepository::class);
         $assembleias->method('buscarDoEscritorio')->with(7, $tenant)->willReturn($assembleia);
 
-        return new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta());
+        return new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao());
     }
 
     private static function publicada(Tenant $tenant): Assembleia
@@ -290,4 +290,9 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
 
         return $assembleia;
     }
+    private static function serializacao(): \App\Voto\Service\SerializacaoDaConfiguracao
+    {
+        return new \App\Voto\Service\SerializacaoDaConfiguracao(new \Symfony\Component\Lock\LockFactory(new \Symfony\Component\Lock\Store\InMemoryStore()));
+    }
+
 }

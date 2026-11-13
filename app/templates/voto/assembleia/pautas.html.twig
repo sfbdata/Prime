@@ -52,7 +52,16 @@
 </div>
 {% else %}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
-    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ 'voto.assembleia.gestor.situacao.publicada'|trans }}</span></div>
+    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span></div>
+    {% if app.request.query.get('publicada') == '1' %}
+        <div class="vLin" data-voto-oferta-abertura>
+            <b>{{ 'voto.assembleia.gestor.conferencia.abrir_agora'|trans }}</b>
+            <p>{{ 'voto.assembleia.gestor.conferencia.escolher_pauta'|trans }}</p>
+            <a class="vB vP" href="#voto-pautas-para-abrir">{{ 'voto.assembleia.gestor.conferencia.escolher'|trans }}</a>
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}">{{ 'voto.assembleia.gestor.conferencia.agora_nao'|trans }}</a>
+        </div>
+    {% endif %}
+    <div id="voto-pautas-para-abrir"></div>
     {% for p in a.pautas %}
         {% include 'voto/assembleia/_pauta_linha.html.twig' with {a: a, p: p, voltar: 'pautas', agora: agora} only %}
     {% endfor %}

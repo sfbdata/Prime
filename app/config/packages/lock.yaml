@@ -15,3 +15,5 @@ framework:
         recuperacao_codigo: 'doctrine.dbal.default_connection'
         # Serializa as tentativas de comprovante por unidade antes de gerar e enviar o PDF.
         voto_comprovante: 'doctrine.dbal.default_connection'
+        # Revisão, publicação e edição do mesmo evento compartilham a trava até o flush terminar.
+        voto_configuracao: 'doctrine.dbal.default_connection'

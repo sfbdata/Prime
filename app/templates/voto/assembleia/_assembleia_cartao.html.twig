@@ -4,7 +4,8 @@
     consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
 #}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
-    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.situacao.' ~ (a.publicada ? 'publicada' : 'rascunho'))|trans }}</span></div>
+    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span></div>
+    {% include 'voto/assembleia/_etapas.html.twig' with {a: a} only %}
     <div class="vLin voto-acoes">
         {% if a.podeAlterarPautas %}
             <a class="vB" href="{{ path('voto_assembleia_editar', {id: a.id}) }}"><i class="bi bi-pencil"></i>{{ 'voto.assembleia.gestor.painel.editar'|trans }}</a>
@@ -12,8 +13,7 @@
         <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-list-ol"></i>{{ 'voto.assembleia.gestor.painel.pautas'|trans }}</a>
         <a class="vB" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}"><i class="bi bi-list-check"></i>{{ 'voto.assembleia.gestor.painel.unidades'|trans }}</a>
         {% if not a.publicada %}
-            <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" class="voto-form-linha">
-                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
+            <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
                 <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.painel.publicar'|trans }}</button>
             </form>
         {% else %}

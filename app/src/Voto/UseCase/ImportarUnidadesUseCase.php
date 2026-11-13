@@ -14,6 +14,7 @@ use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\LeitorDaListaDeUnidades;
 use App\Voto\Service\TokenDaUnidade;
+use App\Voto\Service\SerializacaoDaConfiguracao;
 
 /**
  * O gestor cola a lista de unidades (`unidade; bloco; situação; fração; responsável; e-mail`), enquanto nenhuma pauta
@@ -30,10 +31,16 @@ final class ImportarUnidadesUseCase
         private readonly UnidadeDaAssembleiaRepository $unidades,
         private readonly LeitorDaListaDeUnidades $leitor,
         private readonly TokenDaUnidade $tokens,
+        private readonly SerializacaoDaConfiguracao $serializacao,
     ) {
     }
 
     public function executar(Tenant $tenant, int $assembleiaId, string $texto): ResultadoDaImportacao
+    {
+        return $this->serializacao->executar($tenant, $assembleiaId, fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $texto));
+    }
+
+    private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, string $texto): ResultadoDaImportacao
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();

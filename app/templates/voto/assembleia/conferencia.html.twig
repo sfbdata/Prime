@@ -1,0 +1,51 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+{% set sub = 'conferencia' %}
+
+{% macro linha(rotulo, valor, href) %}
+    <div class="vLin voto-revisao-linha">
+        <span>{{ rotulo }}</span><b>{{ valor }}</b>
+        <a class="vB" href="{{ href }}" aria-label="{{ 'voto.assembleia.gestor.conferencia.alterar_campo'|trans({campo: rotulo}) }}">{{ 'voto.assembleia.gestor.conferencia.alterar'|trans }}</a>
+    </div>
+{% endmacro %}
+
+{% block conteudo %}
+{% set a = assembleia %}
+<div class="vC voto-assistente" data-voto-conferencia>
+    <div class="vH"><i class="bi bi-check2-square"></i>{{ 'voto.assembleia.gestor.conferencia.titulo'|trans }}</div>
+    <div class="voto-assistente-corpo">
+        <div class="vAviso">{{ 'voto.assembleia.gestor.conferencia.aviso'|trans }}</div>
+        <div class="voto-revisao-quadro">
+            {{ _self.linha('voto.assembleia.gestor.sub.assembleia'|trans, a.titulo, path('voto_assembleia_editar', {id: a.id})) }}
+            {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, path('voto_assembleia_editar', {id: a.id})) }}
+            {{ _self.linha('voto.assembleia.gestor.conferencia.aptos'|trans, a.unidadesAptas, path('voto_assembleia_unidades', {id: a.id})) }}
+            {{ _self.linha('voto.assembleia.gestor.conferencia.inaptos'|trans, a.unidadesInaptas, path('voto_assembleia_unidades', {id: a.id})) }}
+            {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), path('voto_assembleia_unidades', {id: a.id})) }}{% endif %}
+        </div>
+        {% for p in a.pautas %}
+            <div class="voto-revisao-quadro" data-voto-revisao-pauta>
+                {{ _self.linha('voto.assembleia.gestor.conferencia.pauta'|trans, p.titulo, path('voto_assembleia_pautas', {id: a.id}) ~ '#pauta-' ~ p.id) }}
+                <div class="vLin voto-revisao-opcoes">
+                    {% for opcao in p.opcoes %}<div><b>{{ ('%0' ~ p.digitos ~ 'd')|format(opcao.numero) }}</b> {{ opcao.rotulo }}</div>{% endfor %}
+                </div>
+                {{ _self.linha('voto.assembleia.gestor.pautas.vagas'|trans, p.vagas, path('voto_assembleia_pautas', {id: a.id})) }}
+                {{ _self.linha('voto.assembleia.gestor.pautas.digitos'|trans, p.digitos, path('voto_assembleia_pautas', {id: a.id})) }}
+                {{ _self.linha('voto.assembleia.gestor.pautas.criterio'|trans, p.criterio.rotulo(), path('voto_assembleia_pautas', {id: a.id})) }}
+                {{ _self.linha('voto.assembleia.gestor.pautas.base'|trans, p.base.rotulo(), path('voto_assembleia_pautas', {id: a.id})) }}
+                {{ _self.linha('voto.assembleia.gestor.conferencia.primeira'|trans, p.quorumPrimeira ~ '%', path('voto_assembleia_pautas', {id: a.id})) }}
+                {{ _self.linha('voto.assembleia.gestor.conferencia.segunda'|trans, (p.quorumSegunda ?? p.quorumPrimeira) ~ '%', path('voto_assembleia_pautas', {id: a.id})) }}
+            </div>
+        {% endfor %}
+        <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.conferencia.convocacao'|trans }}</div>
+        {% if conferencia.pendencia %}<div class="voto-erro" role="alert" data-voto-pendencia>{{ conferencia.pendencia }}</div>{% endif %}
+        <div class="voto-rodape">
+            <a class="vB" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}">{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <span class="voto-espaco"></span>
+            <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" data-voto-confirmar-publicacao>
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
+                <input type="hidden" name="conferencia" value="{{ conferencia.codigo }}">
+                <button type="submit" class="vB vP"{{ conferencia.pendencia ? ' disabled' : '' }}><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.conferencia.confirmar'|trans }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

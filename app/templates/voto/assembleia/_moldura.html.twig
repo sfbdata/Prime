@@ -35,6 +35,7 @@
 
     <div class="voto-painel" data-aba="ges">
         {% include 'voto/assembleia/_sub_abas.html.twig' %}
+        {% if assembleia is not null %}{% include 'voto/assembleia/_etapas.html.twig' with {a: assembleia} only %}{% endif %}
         {% block conteudo %}{% endblock %}
     </div>
 </div>

@@ -133,6 +133,30 @@ voto:
                 assembleia: Assembleia
                 pautas: Pautas
                 unidades: Unidades e links
+                conferencia: Conferência
+            andamento:
+                rascunho: Rascunho
+                publicada: Publicada, aguardando abertura
+                aberta: Votação aberta
+                encerrada: Encerrada
+            conferencia:
+                titulo: Confira antes de publicar
+                aviso: Ao confirmar, as pautas e suas regras ficam bloqueadas. Os votos serão recebidos depois que você abrir cada pauta.
+                peso: Peso do voto
+                aptos: Unidades aptas
+                inaptos: Unidades não aptas
+                fracoes: Soma das frações aptas
+                pauta: Pauta e candidaturas
+                primeira: Quórum da 1ª convocação
+                segunda: Quórum da 2ª convocação
+                convocacao: A convocação e o prazo são escolhidos ao abrir cada pauta.
+                alterar: Alterar
+                alterar_campo: 'Alterar {campo}'
+                confirmar: Confirmar e publicar votação
+                abrir_agora: Deseja abrir a votação agora?
+                escolher_pauta: Escolha abaixo a pauta, a convocação e o prazo para começar a receber votos.
+                escolher: Escolher pauta
+                agora_nao: Agora não
             situacao:
                 rascunho: Rascunho
                 publicada: Publicada
