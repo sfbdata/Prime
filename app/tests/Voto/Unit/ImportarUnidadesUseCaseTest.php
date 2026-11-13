@@ -46,7 +46,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         $assembleias = $this->assembleias($tenant, $assembleia);
         $assembleias->expects(self::once())->method('salvar')->with($assembleia, true);
 
-        $resultado = (new ImportarUnidadesUseCase($assembleias, $unidades, new LeitorDaListaDeUnidades(), $tokens))
+        $resultado = (new ImportarUnidadesUseCase($assembleias, $unidades, new LeitorDaListaDeUnidades(), $tokens, self::serializacao()))
             ->executar($tenant, 7, "101; A\n102; A; quite; ; Ana; ana@exemplo.com\n103; A; inadimplente\n; B\n102; A\n");
 
         self::assertSame(2, $resultado->importadas);
@@ -79,7 +79,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
         $this->expectExceptionMessage('A lista fica bloqueada depois da abertura da votação.');
 
-        (new ImportarUnidadesUseCase($this->assembleias($tenant, $assembleia), $unidades, new LeitorDaListaDeUnidades(), new TokenDaUnidade('segredo')))
+        (new ImportarUnidadesUseCase($this->assembleias($tenant, $assembleia), $unidades, new LeitorDaListaDeUnidades(), new TokenDaUnidade('segredo'), self::serializacao()))
             ->executar($tenant, 7, '102; A');
     }
 
@@ -90,4 +90,9 @@ final class ImportarUnidadesUseCaseTest extends TestCase
 
         return $assembleias;
     }
+    private static function serializacao(): \App\Voto\Service\SerializacaoDaConfiguracao
+    {
+        return new \App\Voto\Service\SerializacaoDaConfiguracao(new \Symfony\Component\Lock\LockFactory(new \Symfony\Component\Lock\Store\InMemoryStore()));
+    }
+
 }

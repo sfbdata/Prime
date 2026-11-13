@@ -11,6 +11,7 @@ use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
+use App\Voto\UseCase\ConferirPublicacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
@@ -98,19 +99,40 @@ final class AssembleiaController extends AbstractController
     public function editar(int $id, Request $request, EditarAssembleiaUseCase $editar): Response
     {
         $tenant = $this->guarda->exigir();
-        $assembleia = $this->lida($tenant, $id);
-        $input = $request->isMethod('POST') ? self::input($request) : new AssembleiaInput($assembleia->titulo, $assembleia->peso->value);
-        if ($request->isMethod('POST') && $this->tokenValido($request, 'voto_assembleia_' . $id)) {
+        $input = $request->isMethod('POST') ? self::input($request) : null;
+        if ($input !== null && $this->tokenValido($request, 'voto_assembleia_' . $id)) {
             try {
                 $editar->executar($tenant, $id, $input);
 
                 return $this->depoisDeSalvar($request, $id);
+            } catch (AssembleiaNaoEncontradaException) {
+                throw $this->createNotFoundException();
             } catch (OperacaoInvalidaNaAssembleiaException $e) {
                 $erro = $e->getMessage();
             }
         }
 
+        $assembleia = $this->lida($tenant, $id);
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value);
+
         return $this->render('voto/assembleia/form.html.twig', ['assembleia' => $assembleia, 'input' => $input, 'erro' => $erro ?? null]);
+    }
+
+    #[Route('/{id}/publicar', name: 'voto_assembleia_conferir_publicacao', methods: ['GET'])]
+    public function conferirPublicacao(int $id, ConferirPublicacaoDaAssembleiaUseCase $conferir): Response
+    {
+        $tenant = $this->guarda->exigir();
+        try {
+            $conferencia = $conferir->executar($tenant, $id);
+        } catch (AssembleiaNaoEncontradaException) {
+            throw $this->createNotFoundException();
+        }
+
+        if ($conferencia->assembleia->publicada()) {
+            return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        }
+
+        return $this->render('voto/assembleia/conferencia.html.twig', ['assembleia' => $conferencia->assembleia, 'conferencia' => $conferencia]);
     }
 
     #[Route('/{id}/publicar', name: 'voto_assembleia_publicar', methods: ['POST'])]
@@ -119,8 +141,10 @@ final class AssembleiaController extends AbstractController
         $tenant = $this->guarda->exigir();
         if ($this->tokenValido($request, 'voto_assembleia_' . $id)) {
             try {
-                $publicar->executar($tenant, $id);
+                $publicar->executar($tenant, $id, conferencia: $request->request->getString('conferencia'));
                 $this->avisos->ok($this->tradutor->trans('voto.assembleia.gestor.aviso.publicada'));
+
+                return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id, 'publicada' => 1]);
             } catch (OperacaoInvalidaNaAssembleiaException $e) {
                 $this->avisos->erro($e->getMessage());
             } catch (AssembleiaNaoEncontradaException) {
@@ -128,7 +152,7 @@ final class AssembleiaController extends AbstractController
             }
         }
 
-        return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
+        return $this->redirectToRoute('voto_assembleia_conferir_publicacao', ['id' => $id]);
     }
 
     #[Route('/{id}/ata', name: 'voto_assembleia_ata', methods: ['GET'])]

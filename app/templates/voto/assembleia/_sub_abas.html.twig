@@ -14,6 +14,9 @@
         {id: 'pautas', icone: 'bi-list-ol', href: path('voto_assembleia_pautas', {id: assembleia.id})},
         {id: 'unidades', icone: 'bi-list-check', href: path('voto_assembleia_unidades', {id: assembleia.id})},
     ]) %}
+    {% if not assembleia.publicada %}
+        {% set itens = itens|merge([{id: 'conferencia', icone: 'bi-check2-square', href: path('voto_assembleia_conferir_publicacao', {id: assembleia.id})}]) %}
+    {% endif %}
 {% endif %}
 <nav class="vC voto-sub-abas" aria-label="{{ 'voto.assembleia.gestor.sub.rotulo'|trans }}">
     {% for item in itens %}

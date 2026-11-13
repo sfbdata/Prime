@@ -108,7 +108,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $token = $this->tokenValido('voto_assembleia_' . $a);
         $u = $unidade->getId();
         $acoes = [
-            '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
+            '/editar', '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
             '/pautas', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
             '/unidades/enviar-links', '/unidades/' . $u . '/reenviar', '/pautas/' . $p . '/remover', '/unidades/' . $u . '/remover',
         ];
@@ -176,12 +176,9 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertCount(0, $unidades->filter('[data-voto-copiar]'), 'os links só aparecem depois de publicar');
 
         // Publicar
-        $this->client->submit($unidades->selectButton('Publicar votação')->form());
-        self::assertResponseRedirects('/voto?aba=ges#assembleia-' . $id);
-        $painel = $this->client->followRedirect();
-        self::assertSame('Votação publicada. A configuração ficou bloqueada.', trim($painel->filter('.voto-toast')->text()));
+        $painel = $this->publicarPelaConferencia($unidades, $id);
         $cartao = $painel->filter('#assembleia-' . $id);
-        self::assertSame('Publicada', trim($cartao->filter('.vH .vChip')->text()));
+        self::assertSame('Publicada, aguardando abertura', trim($cartao->filter('.vH .vChip')->text()));
         self::assertCount(2, $cartao->filter('.voto-pauta[data-situacao="publicada"] form[data-mesa="abrir"]'));
         $links = $this->client->request('GET', '/voto/assembleias/' . $id . '/unidades');
         self::assertCount(3 * 2, $links->filter('[data-voto-copiar]'), 'Copiar link e Copiar mensagem por unidade apta');
@@ -193,6 +190,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="abrir"] button[value="minutos"]')->form(['convocacao' => '1', 'minutos' => '5']));
         $painel = $this->client->followRedirect();
         self::assertSame('Votação aberta pela mesa.', trim($painel->filter('.voto-toast')->text()));
+        self::assertSame('Votação aberta', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
         $cron = $painel->filter('#pauta-' . $contas . ' .voto-cron');
         self::assertGreaterThan(290, (int) $cron->attr('data-voto-prazo'));
         self::assertStringStartsWith('Encerra em 0', trim($cron->text()));
@@ -218,6 +216,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="encerrar"]')->form());
         $painel = $this->client->followRedirect();
         self::assertSame('Votação encerrada.', trim($painel->filter('.voto-toast')->text()));
+        self::assertSame('Publicada, aguardando abertura', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
         self::assertSame('Resultado: 1 Sim', trim($painel->filter('#pauta-' . $contas . ' .voto-decisao.voto-decisao-ok')->text()));
         $resultados = $this->client->request('GET', '/voto?aba=tra');
         $cartao = $resultados->filter('.voto-tela > .voto-painel[data-aba="tra"] > #assembleia-' . $id);
@@ -233,6 +232,8 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->client->submit($painel->filter('#pauta-' . $obra . ' form[data-mesa="encerrar"]')->form(['motivo' => 'Pauta esgotada pela mesa']));
         $painel = $this->client->followRedirect();
         self::assertSame('Quórum não atingido', trim($painel->filter('#pauta-' . $obra . ' .voto-decisao')->text()));
+
+        self::assertSame('Encerrada', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
 
         // Ata
         $ata = $this->client->request('GET', '/voto/assembleias/' . $id . '/ata');
@@ -421,10 +422,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
 
         $painel = $this->client->request('GET', '/voto?aba=ges');
-        $this->client->submit($painel->filter('#assembleia-' . $assembleia->getId())->selectButton('Publicar')->form());
-        $painel = $this->client->followRedirect();
-
-        self::assertSame('Inclua ao menos uma unidade apta a votar.', trim($painel->filter('.voto-toast.voto-toast-erro')->text()));
+        $revisao = $this->client->submit($painel->filter('#assembleia-' . $assembleia->getId())->selectButton('Publicar')->form());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Inclua ao menos uma unidade apta a votar.', trim($revisao->filter('[data-voto-pendencia]')->text()));
+        self::assertCount(1, $revisao->filter('form[data-voto-confirmar-publicacao] button[disabled]'));
         $this->em->clear();
         self::assertSame(EstadoDaAssembleia::Rascunho, $this->em->find(Assembleia::class, $assembleia->getId())?->getEstado());
     }
@@ -854,6 +855,46 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $sessao->save();
 
         return 'token-de-teste-' . $id;
+    }
+
+    public function testConferenciaDeOutroEscritorioDa404(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $outra = AssembleiaFactory::createOne()->_real();
+        $this->client->request('GET', '/voto/assembleias/' . $outra->getId() . '/publicar');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testPostSemConferenciaNaoPublica(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia]);
+        $revisao = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/publicar');
+        $form = $revisao->filter('form[data-voto-confirmar-publicacao]')->form();
+        $valores = $form->getPhpValues();
+        unset($valores['conferencia']);
+        $this->client->request('POST', $form->getUri(), $valores);
+        self::assertResponseRedirects('/voto/assembleias/' . $assembleia->getId() . '/publicar');
+        $this->em->clear();
+        self::assertSame(EstadoDaAssembleia::Rascunho, $this->em->find(Assembleia::class, $assembleia->getId())->getEstado());
+    }
+
+    private function publicarPelaConferencia(Crawler $unidades, int $id): Crawler
+    {
+        $revisao = $this->client->submit($unidades->selectButton('Publicar votação')->form());
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('0,900000', $revisao->filter('[data-voto-conferencia]')->text());
+        self::assertCount(2, $revisao->filter('[data-voto-revisao-pauta]'));
+        $this->client->submit($revisao->filter('form[data-voto-confirmar-publicacao]')->form());
+        self::assertResponseRedirects('/voto/assembleias/' . $id . '/pautas?publicada=1');
+        $oferta = $this->client->followRedirect();
+        self::assertStringContainsString('Deseja abrir a votação agora?', $oferta->filter('[data-voto-oferta-abertura]')->text());
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+        return $painel;
     }
 
     private function liberar(): void

@@ -36,6 +36,23 @@ final readonly class AssembleiaNoPainel
         return EstadoDaAssembleia::Publicada === $this->estado;
     }
 
+    /** Andamento exibido, derivado das pautas, sem alterar o estado persistido da assembleia. */
+    public function situacao(): string
+    {
+        if (!$this->publicada()) {
+            return 'rascunho';
+        }
+        $encerradas = 0;
+        foreach ($this->pautas as $pauta) {
+            if ($pauta->aberta()) {
+                return 'aberta';
+            }
+            $encerradas += $pauta->encerrada() ? 1 : 0;
+        }
+
+        return $encerradas > 0 && $encerradas === \count($this->pautas) ? 'encerrada' : 'publicada';
+    }
+
     public function porFracao(): bool
     {
         return PesoDoVoto::Fracao === $this->peso;

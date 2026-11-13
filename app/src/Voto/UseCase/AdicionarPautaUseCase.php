@@ -14,6 +14,7 @@ use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\OpcoesDaPauta;
+use App\Voto\Service\SerializacaoDaConfiguracao;
 
 /**
  * Inclui uma pauta na assembleia em rascunho, no fim da ordem, com as opções numeradas (padrão do condomínio: 1 Sim,
@@ -27,10 +28,16 @@ final class AdicionarPautaUseCase
         private readonly AssembleiaRepository $assembleias,
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly OpcoesDaPauta $opcoesDaPauta,
+        private readonly SerializacaoDaConfiguracao $serializacao,
     ) {
     }
 
     public function executar(Tenant $tenant, int $assembleiaId, PautaInput $input): int
+    {
+        return $this->serializacao->executar($tenant, $assembleiaId, fn (): int => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $input));
+    }
+
+    private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, PautaInput $input): int
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
