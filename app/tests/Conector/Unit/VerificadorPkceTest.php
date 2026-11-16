@@ -42,6 +42,14 @@ final class VerificadorPkceTest extends TestCase
         self::assertFalse((new VerificadorPkce())->confere($verifier, self::CHALLENGE));
     }
 
+    #[TestDox('Quebra de linha no fim do verifier recusa, mesmo com o desafio calculado dele (o \z, não o $, fecha a regra)')]
+    public function testQuebraDeLinhaNoFimRecusa(): void
+    {
+        $verifier = self::VERIFIER . "\n";
+
+        self::assertFalse((new VerificadorPkce())->confere($verifier, VerificadorPkce::desafioDe($verifier)));
+    }
+
     #[TestDox('Aceita de 43 a 128 caracteres de [A-Za-z0-9-._~]')]
     public function testLimitesDoFormato(): void
     {

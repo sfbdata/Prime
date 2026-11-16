@@ -13,7 +13,7 @@ namespace App\Conector\Service;
  */
 final class VerificadorPkce
 {
-    private const FORMATO_DO_VERIFIER = '/^[A-Za-z0-9\-._~]{43,128}$/';
+    private const FORMATO_DO_VERIFIER = '/^[A-Za-z0-9\-._~]{43,128}\z/';
 
     public function confere(string $codeVerifier, string $codeChallenge): bool
     {

@@ -19,7 +19,8 @@ use Psr\Clock\ClockInterface;
  * 1. concessões vencidas ou revogadas há mais de 30 dias (a cascata leva os códigos e os tokens delas);
  * 2. tokens (acesso e renovação) vencidos há mais de 1 dia;
  * 3. códigos de autorização vencidos há mais de 1 dia;
- * 4. propostas decididas, ou vencidas sem decisão (os dados delas já foram zerados, 6.7, item 6).
+ * 4. propostas decididas há mais de 1 dia (folga para a `confirmar_acao` repetida, PR 5) e pendentes vencidas (os dados
+ *    delas já foram zerados, 6.7, item 6).
  *
  * Nada em uso sai: token de acesso dentro da 1 hora, renovação de cadeia viva (vale até o fim da concessão), concessão
  * dentro dos 7 dias e não revogada, proposta pendente no prazo. Consentimento e cliente nunca saem daqui. Tudo numa
@@ -51,7 +52,7 @@ final class FaxinarConectorUseCase
             'concessoes' => $this->concessoes->apagarEncerradasAntesDe($trintaDiasAtras),
             'tokens' => $this->tokens->apagarVencidosAntesDe($umDiaAtras),
             'codigos' => $this->codigos->apagarVencidosAntesDe($umDiaAtras),
-            'propostas' => $this->propostas->apagarDecididasOuVencidas($agora),
+            'propostas' => $this->propostas->apagarDecididasOuVencidas($agora, $umDiaAtras),
         ]);
     }
 }

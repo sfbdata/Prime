@@ -26,7 +26,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * A faxina do conector (spec mcp-remoto-oauth 9.9, 12.28 e 13.2): apaga o que venceu além do prazo, em todos os
  * escritórios, e não toca o que está em uso (token de acesso dentro do prazo, renovação de cadeia viva, a já girada que
- * a janela consulta, proposta pendente no prazo).
+ * a janela consulta, proposta pendente no prazo, proposta decidida há menos de 1 dia).
  */
 #[CoversClass(FaxinarConectorUseCase::class)]
 #[CoversClass(FaxinarConectorCommand::class)]
@@ -119,7 +119,7 @@ final class FaxinarConectorTest extends KernelTestCase
         return $existem;
     }
 
-    #[TestDox('Apaga código e token vencidos há mais de 1 dia, concessão vencida ou revogada há mais de 30 dias (com a cascata) e proposta decidida ou vencida, em todos os escritórios; o que está em uso fica')]
+    #[TestDox('Apaga código e token vencidos há mais de 1 dia, concessão vencida ou revogada há mais de 30 dias (com a cascata) e proposta decidida há mais de 1 dia ou vencida, em todos os escritórios; o que está em uso fica')]
     public function testFaxinaApagaSoOQueVenceu(): void
     {
         [$a, $b] = [$this->escritorio(), $this->escritorio()];
@@ -147,7 +147,8 @@ final class FaxinarConectorTest extends KernelTestCase
 
         $pendente = $this->proposta($doA, $this->antes('5 minutes'));
         $vencida = $this->proposta($doA, $this->antes('11 minutes'));
-        $confirmada = $this->proposta($doB, $this->antes('2 minutes'), confirmada: true);
+        $confirmadaAgora = $this->proposta($doB, $this->antes('2 minutes'), confirmada: true);
+        $confirmadaHa2Dias = $this->proposta($doB, $this->antes('2 days'), confirmada: true);
         $this->em()->flush();
 
         $tester = new CommandTester((new Application(self::$kernel))->find('app:conector:faxinar'));
@@ -156,9 +157,9 @@ final class FaxinarConectorTest extends KernelTestCase
 
         self::assertSame([
             'viva' => true, 'acessoRecente' => true, 'renovacaoViva' => true, 'renovacaoGirada' => true, 'acessoEmUso' => true,
-            'codigoRecente' => true, 'vencidaHa20' => true, 'revogadaHa29' => true, 'pendente' => true,
+            'codigoRecente' => true, 'vencidaHa20' => true, 'revogadaHa29' => true, 'pendente' => true, 'confirmadaAgora' => true,
             'codigoVelho' => false, 'acessoVelho' => false, 'vencidaHa33' => false, 'tokenDaVencida' => false,
-            'revogadaHa31' => false, 'renovacaoDaVencidaHa20' => false, 'vencida' => false, 'confirmada' => false,
+            'revogadaHa31' => false, 'renovacaoDaVencidaHa20' => false, 'vencida' => false, 'confirmadaHa2Dias' => false,
         ], $this->existem(compact(
             'viva',
             'acessoRecente',
@@ -169,6 +170,7 @@ final class FaxinarConectorTest extends KernelTestCase
             'vencidaHa20',
             'revogadaHa29',
             'pendente',
+            'confirmadaAgora',
             'codigoVelho',
             'acessoVelho',
             'vencidaHa33',
@@ -176,7 +178,7 @@ final class FaxinarConectorTest extends KernelTestCase
             'revogadaHa31',
             'renovacaoDaVencidaHa20',
             'vencida',
-            'confirmada',
+            'confirmadaHa2Dias',
         )));
         self::assertNotNull($this->em()->find(ConsentimentoDoConector::class, $doB->getId()), 'o consentimento fica');
         $filha = $this->em()->find(TokenDoConector::class, $renovacaoViva->getId());

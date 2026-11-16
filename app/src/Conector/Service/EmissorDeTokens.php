@@ -41,7 +41,7 @@ final class EmissorDeTokens
         return new RespostaDeTokenOutput(
             $acesso['valor'],
             $renovacao['valor'],
-            self::segundosAte(min($tokenDeAcesso->getExpiraEm(), $concessao->getExpiraEm()), $agora),
+            self::segundosAte($tokenDeAcesso->getExpiraEm(), $agora),
             implode(' ', $concessao->getEscopos()),
         );
     }

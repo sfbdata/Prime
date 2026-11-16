@@ -20,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * RFC 6749 3.2, 4.1.3, 5 e 6). Chamado pelo app de I.A., de servidor para servidor, sem sessão (`PUBLIC_ACCESS` no
  * `security.yaml`).
  *
- * - Corpo só `application/x-www-form-urlencoded`; outro formato é `invalid_request`.
+ * - Corpo só `application/x-www-form-urlencoded`; outro formato, ou campo repetido, é `invalid_request` (RFC 6749 3.2).
  * - Cliente público: o `client_id` vem no corpo, sem segredo (`token_endpoint_auth_methods_supported: ["none"]`).
  * - Limite `conector_token` por `client_id` e IP (8); estourado, 429 com `Retry-After`.
  * - Toda resposta, de sucesso e de erro, é JSON com `Cache-Control: no-store` (RFC 6749 5.1). A de sucesso traz sempre
@@ -71,6 +71,8 @@ final class TokenController extends AbstractController
         if ($tipo !== self::FORMATO_DO_CORPO) {
             throw ErroOAuth::invalidRequest();
         }
+
+        PedidoDeTokenInput::exigirCamposUnicos((string) $request->getContent());
 
         return PedidoDeTokenInput::deFormulario($request->request->all());
     }

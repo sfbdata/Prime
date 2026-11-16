@@ -136,6 +136,28 @@ final class TokenControllerTest extends WebTestCase
         self::assertSame('unsupported_grant_type', $this->json($this->postar(['grant_type' => 'password', 'client_id' => 'x']))['error']);
     }
 
+    #[TestDox('Campo repetido no corpo (refresh_token=a&refresh_token=b, ou com a chave codificada): invalid_request, mesmo que o PHP tenha ficado só com o último valor')]
+    public function testCampoRepetidoRecusa(): void
+    {
+        $conexao = $this->conexaoAutorizada();
+        $clientId = $conexao['cliente']->getIdentificador();
+        // O formulário decodificado (o que o PHP entrega) só tem o último valor; o corpo cru tem os dois.
+        $decodificado = ['grant_type' => 'refresh_token', 'refresh_token' => 'b', 'client_id' => $clientId];
+
+        foreach (['refresh_token=a&refresh_token=b', 'refresh_token=a&%72efresh_token=b'] as $repetido) {
+            $corpo = 'grant_type=refresh_token&' . $repetido . '&client_id=' . rawurlencode($clientId);
+            $this->client->request('POST', '/oauth/token', $decodificado, [], ['CONTENT_TYPE' => 'application/x-www-form-urlencoded'], $corpo);
+
+            self::assertSame(400, $this->client->getResponse()->getStatusCode());
+            self::assertSame('invalid_request', $this->json($this->client->getResponse())['error'], $repetido);
+        }
+
+        // O mesmo pedido sem a repetição passa da leitura e só cai na renovação desconhecida.
+        $corpo = 'grant_type=refresh_token&refresh_token=b&client_id=' . rawurlencode($clientId);
+        $this->client->request('POST', '/oauth/token', $decodificado, [], ['CONTENT_TYPE' => 'application/x-www-form-urlencoded'], $corpo);
+        self::assertSame('invalid_grant', $this->json($this->client->getResponse())['error']);
+    }
+
     #[TestDox('GET no /oauth/token: 405')]
     public function testSoPost(): void
     {

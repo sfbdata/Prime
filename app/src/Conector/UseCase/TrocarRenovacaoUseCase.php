@@ -10,12 +10,14 @@ use App\Conector\Entity\ClienteDoConector;
 use App\Conector\Entity\TokenDoConector;
 use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Enum\RotacaoDaRenovacao;
+use App\Conector\Enum\TipoDoTokenDoConector;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Exception\ConcessaoRecusada;
 use App\Conector\Exception\ErroOAuth;
 use App\Conector\Exception\RecusaGravada;
 use App\Conector\Exception\RenovacaoRecusada;
 use App\Conector\Repository\ClienteDoConectorRepository;
+use App\Conector\Repository\ConcessaoDoConectorRepository;
 use App\Conector\Repository\TokenDoConectorRepository;
 use App\Conector\Service\ConferenciaDaConcessao;
 use App\Conector\Service\EmissorDeTokens;
@@ -31,7 +33,8 @@ use Psr\Log\LoggerInterface;
  *
  * Quem chama: o app de I.A., de servidor para servidor, quando o token de acesso de 1 hora vence ou está para vencer.
  *
- * Na transação, com a linha da renovação travada (`FOR UPDATE`; duas renovações simultâneas saem uma depois da outra):
+ * Na transação, com a linha da concessão travada e depois a da renovação (`FOR UPDATE`, nessa ordem): duas rotações da
+ * mesma cadeia saem uma depois da outra, inclusive a da mãe reapresentada na janela e a da filha ao mesmo tempo.
  * 1. renovação desconhecida (ou um token de acesso no lugar dela): `invalid_grant`;
  * 2. `client_id` que não é de app registrado: é outro app, a concessão cai (`renovacao_reutilizada`);
  * 3. {@see TokenDoConector::girar()} com a filha (a renovação mais recente gerada por esta): outro app, renovação
@@ -50,6 +53,7 @@ final class TrocarRenovacaoUseCase
     public function __construct(
         private readonly TokenDoConectorRepository $tokens,
         private readonly ClienteDoConectorRepository $clientes,
+        private readonly ConcessaoDoConectorRepository $concessoes,
         private readonly SegredoOpaco $segredos,
         private readonly ConferenciaDaConcessao $conferencia,
         private readonly EmissorDeTokens $emissor,
@@ -89,10 +93,22 @@ final class TrocarRenovacaoUseCase
         }
     }
 
-    /** @throws ErroOAuth */
+    /**
+     * Trava primeiro a concessão e depois a renovação, sempre nessa ordem (a mesma de qualquer rotação, sem impasse). A
+     * primeira leitura, sem trava, só serve para achar a concessão; a renovação que decide é a relida com a trava.
+     *
+     * @throws ErroOAuth
+     */
     private function carregarRenovacao(string $valor): TokenDoConector
     {
-        $renovacao = $this->tokens->buscarRenovacaoParaGirar($this->segredos->hashDe($valor));
+        $hash = $this->segredos->hashDe($valor);
+        $previa = $this->tokens->buscarPorIdentificadorHash($hash);
+        if (!$previa instanceof TokenDoConector || $previa->getTipo() !== TipoDoTokenDoConector::Renovacao) {
+            throw ErroOAuth::invalidGrant();
+        }
+
+        $this->concessoes->travarParaGirar($previa->getConcessao());
+        $renovacao = $this->tokens->buscarRenovacaoParaGirar($hash);
         if (!$renovacao instanceof TokenDoConector) {
             throw ErroOAuth::invalidGrant();
         }

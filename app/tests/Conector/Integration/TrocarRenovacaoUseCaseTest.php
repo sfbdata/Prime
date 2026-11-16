@@ -124,6 +124,7 @@ final class TrocarRenovacaoUseCaseTest extends KernelTestCase
             self::assertSame('2026-11-23 10:00:00', $this->em()->getConnection()->fetchOne('SELECT expira_em FROM conector_ia_token WHERE identificador_hash = ?', [hash('sha256', $renovacao)]), 'a renovação vale até o fim da concessão, nunca mais');
         }
         self::assertSame(1800, $novo->expiresIn, 'o acesso emitido a 30 minutos do fim vale só até o fim da concessão');
+        self::assertSame('2026-11-23 10:00:00', $this->em()->getConnection()->fetchOne('SELECT expira_em FROM conector_ia_token WHERE identificador_hash = ?', [hash('sha256', $novo->accessToken)]), 'no banco o acesso também vence junto com a concessão');
 
         self::mockTime('2026-11-23 10:00:00');
         $this->assertRenovacaoRecusadaEDerrubada($renovacao, $conexao['cliente'], (int) $conexao['concessao']->getId(), MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao);
@@ -281,6 +282,34 @@ final class TrocarRenovacaoUseCaseTest extends KernelTestCase
         $cadeia = $this->cadeiaConfirmadaPorFora();
 
         $this->assertEsperaATrava($cadeia, 'conector_ia_token', hash('sha256', $cadeia['renovacao']), fn () => $this->renovar($cadeia['renovacao'], $cadeia['cliente']));
+    }
+
+    #[TestDox('Mãe repetida na janela enquanto a filha gira: espera a trava da concessão, relê a filha usada e a concessão cai')]
+    public function testRepeticaoDaMaeEsperaARotacaoDaFilha(): void
+    {
+        $cadeia = $this->cadeiaConfirmadaPorFora(jaGirada: true);
+        $fora = $cadeia['conexao'];
+        $doTeste = $this->em()->getConnection();
+        try {
+            // A rotação da filha, por fora: trava a concessão (a mesma ordem do UseCase) e marca a filha usada, sem confirmar.
+            $fora->beginTransaction();
+            self::assertNotFalse($fora->fetchOne('SELECT id FROM conector_ia_concessao WHERE id = ? FOR UPDATE', [$cadeia['concessaoId']]));
+            $fora->executeStatement('UPDATE conector_ia_token SET usado_em = criado_em WHERE identificador_hash = ?', [hash('sha256', (string) $cadeia['filha'])]);
+            $doTeste->executeStatement("SET LOCAL lock_timeout = '400ms'");
+
+            // A mãe reapresentada na janela, ao mesmo tempo: espera a concessão, antes de ler a filha.
+            $this->assertEsperouNaLeituraTravada('conector_ia_concessao', fn () => $this->renovar($cadeia['renovacao'], $cadeia['cliente']));
+
+            // A rotação da filha termina; a mãe segue, relê a filha já usada e derruba a concessão.
+            $fora->commit();
+            $this->assertRenovacaoRecusadaEDerrubada($cadeia['renovacao'], $cadeia['cliente'], $cadeia['concessaoId'], MotivoDaRevogacaoDaConcessao::RenovacaoReutilizada);
+        } finally {
+            // A queda gravada pela conexão do teste segura as linhas até o fim da transação do DAMA: solta antes de apagar
+            // a cadeia por fora (senão o DELETE esperaria para sempre) e abre outra para o DAMA desfazer no fim.
+            $doTeste->executeStatement('ROLLBACK');
+            $doTeste->executeStatement('BEGIN');
+            $this->apagarCadeiaPorFora($cadeia);
+        }
     }
 
     /** @param array<string, mixed> $conexao */

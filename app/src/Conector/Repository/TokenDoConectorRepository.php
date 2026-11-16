@@ -7,6 +7,7 @@ namespace App\Conector\Repository;
 use App\Conector\Entity\TokenDoConector;
 use App\Conector\Enum\TipoDoTokenDoConector;
 use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -46,7 +47,9 @@ class TokenDoConectorRepository extends ServiceEntityRepository
      * A renovação a girar, com a linha travada (`SELECT ... FOR UPDATE`) até o fim da transação: duas rotações
      * simultâneas da mesma renovação não passam as duas pelo `usado_em` nulo (9.1). Só funciona dentro de uma transação
      * aberta (sem ela o Doctrine lança `TransactionRequiredException`). Sem escritório pelo mesmo motivo de
-     * {@see buscarPorIdentificadorHash()}; só devolve token do tipo renovação.
+     * {@see buscarPorIdentificadorHash()}; só devolve token do tipo renovação. Relê a linha mesmo se o token já estiver
+     * carregado (`HINT_REFRESH`): o `TrocarRenovacaoUseCase` o lê antes, sem trava, para achar a concessão e travá-la
+     * primeiro, e a decisão tem de usar o dado de depois da trava.
      */
     public function buscarRenovacaoParaGirar(string $identificadorHash): ?TokenDoConector
     {
@@ -57,6 +60,7 @@ class TokenDoConectorRepository extends ServiceEntityRepository
             ->setParameter('tipo', TipoDoTokenDoConector::Renovacao->value)
             ->getQuery()
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
             ->getOneOrNullResult();
 
         return $renovacao instanceof TokenDoConector ? $renovacao : null;
@@ -64,7 +68,8 @@ class TokenDoConectorRepository extends ServiceEntityRepository
 
     /**
      * A renovação mais recente gerada por esta (a "filha" que {@see TokenDoConector::girar()} recebe), presa ao
-     * escritório dela; nula se esta nunca girou.
+     * escritório dela; nula se esta nunca girou. Relida do banco mesmo se já carregada (`HINT_REFRESH`): outra rotação
+     * pode tê-la usado enquanto esta esperava a trava da concessão.
      */
     public function buscarRenovacaoGeradaPor(TokenDoConector $renovacao): ?TokenDoConector
     {
@@ -78,6 +83,7 @@ class TokenDoConectorRepository extends ServiceEntityRepository
             ->orderBy('t.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
             ->getOneOrNullResult();
 
         return $filha instanceof TokenDoConector ? $filha : null;
