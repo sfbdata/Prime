@@ -437,8 +437,6 @@ voto:
                 pauta_duplicada: Pauta duplicada.
                 pauta_nao_encontrada: Esta pauta não existe mais. Recarregue a página.
                 unidade_removida: Unidade removida.
-                unidade_adicionada: Unidade adicionada à lista.
-                unidade_editada: Unidade atualizada.
                 novo_link: Novo link gerado. O anterior deixou de valer.
                 sessao_expirada: A sessão expirou. Recarregue a página e tente de novo.
                 copia_criada: Cópia criada como rascunho, sem votos. Confira nome, evento e datas.
@@ -470,25 +468,7 @@ voto:
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
                 publicar: Publicar votação
-                previa_titulo: Prévia da lista
-                previa_resumo: 'Nada foi gravado ainda. {validas, plural, =0 {Nenhuma unidade nova} one {1 unidade nova} other {# unidades novas}}. Linhas inválidas: {invalidas}. Duplicadas: {duplicadas}.'
-                previa_linha: 'Linha {linha}'
-                previa_mais: 'E mais {n} unidades.'
-                previa_confirmar: '{n, plural, one {Confirmar 1 unidade} other {Confirmar # unidades}}'
-                previa_cancelar: Cancelar
                 soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
-                adicionar_titulo: Adicionar unidade
-                adicionar: Adicionar unidade
-                editar: Editar
-                editar_titulo: Editar unidade
-                salvar: Salvar
-                cancelar: Cancelar
-                campo_unidade: Unidade
-                campo_bloco: Bloco
-                campo_situacao: Situação
-                campo_fracao: Fração
-                campo_responsavel: Responsável
-                campo_email: E-mail
             links:
                 titulo: Links das unidades
                 texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'

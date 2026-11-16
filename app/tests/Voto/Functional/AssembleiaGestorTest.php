@@ -205,7 +205,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Unidades: 3 aptas, 1 não apta, 1 inválida, 1 duplicada
         $unidades = $this->client->request('GET', '/voto/assembleias/' . $id . '/unidades');
         self::assertSame('Lista obrigatória nesta votação.', trim($unidades->filter('.voto-estado')->text()));
-        $previa = $this->client->submit($unidades->selectButton('Importar lista')->form(['lista' => implode("\n", [
+        $this->client->submit($unidades->selectButton('Importar lista')->form(['lista' => implode("\n", [
             'unidade;bloco;situacao;fracao;responsavel;email',
             '101;A;;0,50;Ana Souza;ana@exemplo.com',
             '102;A;quite;0,20;Bruno Lima;',
@@ -214,12 +214,9 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
             ';C;;0,1;;',
             '101;A;;0,5;;',
         ])]));
-        self::assertSame(['Linha 6: Linha sem a unidade.', 'Duplicadas: linhas 7.'], $previa->filter('[data-voto-previa-erros] > div')->each(static fn (Crawler $c): string => trim($c->text())), 'a prévia mostra os erros por linha');
-        self::assertCount(4, $previa->filter('[data-voto-previa-linha]'));
-        self::assertSame('Lista obrigatória nesta votação.', trim($previa->filter('.voto-estado')->text()), 'nada foi gravado ainda');
-        $this->client->submit($previa->selectButton('Confirmar 4 unidades')->form());
         $unidades = $this->client->followRedirect();
-        self::assertSame('4 registros importados. Inválidas: 0. Duplicadas: 0.', trim($unidades->filter('.voto-toast')->text()));
+        self::assertSame('4 registros importados. Inválidas: 1. Duplicadas: 1.', trim($unidades->filter('.voto-toast')->text()));
+        self::assertSame(['Linha 6: Linha sem a unidade.', 'Duplicadas: linhas 7.'], $unidades->filter('.voto-relatorio > div')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertSame('3 aptos e 1 não aptos importados.', trim($unidades->filter('.voto-estado')->text()));
         self::assertCount(0, $unidades->filter('[data-voto-copiar]'), 'os links só aparecem depois de publicar');
 
