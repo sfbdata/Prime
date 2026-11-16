@@ -8,6 +8,22 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.55.0] - 2026-11-16
+
+### Adicionado
+
+- Voto: painel da Gestão eleitoral agrupado por entidade (nome e CNPJ opcional na assembleia), com filtros (busca, entidade, situação), indicadores clicáveis de votações abertas e cédulas depositadas, e etapas de 1 a 6 no cartão.
+- Voto: menu de três pontos no cartão da assembleia, na pauta, no cargo e na candidatura (editar, pautas, unidades, link e QR Code, resultados, telão, lembrar, duplicar, mover, numerar, remover).
+- Voto: ciclo de vida da votação: suspender, retomar, cancelar e retirar de pauta (com motivo), arquivar e desarquivar a assembleia, excluir rascunho, "Mostrar arquivadas" e seleção em lote para arquivar ou excluir.
+- Voto: telão para conduzir a assembleia em tela cheia, com QR, ordem do dia, participação, barra de quórum, resultado, abrir, encerrar, suspender e retomar.
+- Voto: janela "Relatório" com o completo e os resumos para divulgar em imagem (PNG) e PDF, só com votações encerradas e sem dado pessoal; o PDF leva hash SHA-256, data de emissão e linhas de assinatura.
+- Voto: duplicar assembleia como rascunho (pautas, candidaturas, fotos e lista de aptos, sem os e-mails) e duplicar pauta.
+- Voto: lembrar quem não votou, com mensagem pronta, envio pelo WhatsApp e lista em CSV; telefone opcional na lista de unidades.
+- Voto: foto 3x4 da candidatura (reduzida no navegador, guardada no armazenamento de arquivos) exibida na urna, com silhueta quando não há foto.
+- Voto: regras e textos do resultado do desenho novo (Aprovada/Rejeitada, Abstenções/Brancos), dados da candidatura (unidade, descrição, propostas, composição) e modelos prontos de pautas.
+- Voto: a ata registra a pauta retirada da ordem do dia e a votação cancelada.
+- Identifique pautas de eleição de cargo e confira se há candidaturas antes de publicar a votação.
+
 ## [2.54.0] - 2026-11-16
 
 ### Alterado
@@ -2020,7 +2036,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.54.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.55.0...HEAD
+[2.55.0]: https://github.com/sfbdata/Prime/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/sfbdata/Prime/compare/v2.53.0...v2.54.0
 [2.53.0]: https://github.com/sfbdata/Prime/compare/v2.52.1...v2.53.0
 [2.52.1]: https://github.com/sfbdata/Prime/compare/v2.52.0...v2.52.1
