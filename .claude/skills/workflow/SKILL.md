@@ -98,6 +98,20 @@ O agente implementador não pode:
 - modificar arquivos pertencentes a outro agente;
 - fazer merge, push ou integrar trabalho de terceiros.
 
+### Economia de tokens (decisão do Samuel, 16/11/2026)
+
+Medição de 06 a 16/11: 73% do gasto foi de subagentes, todos em Opus (implementador 55%,
+revisor 24%, uso geral 19%), e dois dias com 5 sessões em paralelo gastaram a semana inteira.
+
+- **Modelo:** `feature-implementer` e `feature-review-agent` rodam em **Sonnet** (frontmatter).
+  Em tarefa de risco **ALTO** (ponto eletrônico, identidade User/Tenant), o orquestrador abre o
+  implementador com `model: "opus"`. A sessão principal segue no modelo dela e confere o que integra.
+- **Ritmo da semana:** antes de abrir frente paralela, `python3 -I ~/.claude/ritmo/ritmo.py ver`.
+  Acima da linha de ritmo, sem paralelo; acima da linha + 10 pontos, o hook nega subagente novo.
+- **Paralelo:** no máximo 3 sessões de trabalho na máquina e 2 implementadores ao mesmo tempo por sessão.
+- **Revisão:** uma revisão por entrega; re-revisão só em ALTO ou quando a correção mexeu em lógica.
+  Achado pequeno o orquestrador corrige e confere sem abrir outro revisor.
+
 ### Ciclo de execução paralela (fan-out)
 
 **Pré-requisito (worktree × baseRef).** Os implementadores paralelos rodam em

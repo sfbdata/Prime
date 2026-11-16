@@ -2,7 +2,7 @@
 name: feature-implementer
 description: Implementa uma tarefa isolada e previamente delimitada pelo orquestrador — escopo exclusivo, contratos fixos, testes próprios. Use ao delegar a escrita de um bloco independente (idealmente em paralelo). Não decide arquitetura, não expande escopo, não integra (merge/push/rebase).
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: inherit
+model: sonnet
 permissionMode: acceptEdits
 color: green
 hooks:
