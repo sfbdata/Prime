@@ -3,3 +3,9 @@
 contribua:
     espaco:
         bonus_ate: 'Inclui {gb} GB de bônus até {data}'
+        inclui_liberados: '(inclui +{gb} GB liberados)'
+        liberada_auto: 'Opções liberadas automaticamente porque o uso passou de {limiar}%. O BlueJus continua gratuito; o pacote é opcional.'
+        liberada_master: 'Opções liberadas pela equipe BlueJus a seu pedido. O BlueJus continua gratuito; o pacote é opcional.'
+        previa_master: 'Visível só para você, como Master. O escritório vê estas opções quando você liberar ou quando o uso passar de {limiar}%.'
+        pedido_pendente_titulo: 'Seu pedido de +{gb} GB está em análise'
+        pedido_pendente_sub: 'Enviado em {data}. A equipe BlueJus libera e avisa por e-mail. Enquanto isso, tudo continua funcionando.'

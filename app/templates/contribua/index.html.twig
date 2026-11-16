@@ -91,9 +91,11 @@
         </div>
     </section>
 
-    {# Comprar espaço #}
+    {# Meu espaço (desenho de 14 e 15/11, VS 03.11.26): cabeçalho, uso, corpo com a caixa do pedido (N4), os pacotes só liberados (N5), as garantias (A5) e o painel de pedidos do Master (N7). #}
     {% set e = p.espaco %}
-    <section id="espaco" class="ct-cartao ct-espaco" style="--ct-espaco-cor: {{ e.cor }}">
+    {% set ped = pedidoDeEspaco %}
+    {% set liberada = e.comLiberacao %}
+    <section id="espaco" class="ct-cartao ct-espaco" data-screen-label="Meu espaço" style="--ct-espaco-cor: {{ e.cor }}">
         <div class="ct-espaco-topo" style="background: {{ e.fundo }}">
             <span class="ct-espaco-icone"><i class="bi {{ e.icone }}"></i></span>
             <div class="ct-espaco-titulos"><b>{{ e.titulo }}</b><span>{{ e.subtitulo }}</span></div>
@@ -104,49 +106,89 @@
         <div class="ct-espaco-uso">
             {% if e.largura is not null %}
                 <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
-                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} no plano {{ e.plano }}</span><b>{{ e.percentual }}% ocupado</b></div>
+                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} usados{% if e.extraGb is not null %} {{ 'contribua.espaco.inclui_liberados'|trans({gb: e.extraGb}) }}{% endif %}</span><b>{{ e.percentual }}% ocupado</b></div>
             {% else %}
-                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> em uso no plano {{ e.plano }}</span></div>
+                <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> em uso</span></div>
             {% endif %}
             {% if e.bonusAte is not null %}<div class="ct-espaco-bonus" data-ct-bonus><i class="bi bi-gift"></i> {{ 'contribua.espaco.bonus_ate'|trans({gb: e.bonusGb, data: e.bonusAte}) }}</div>{% endif %}
         </div>
-        <div class="ct-pacotes">
-            {% for pac in p.pacotes %}
-                <div class="ct-pacote{{ pac.recomendado ? ' ct-pacote--recomendado' }}{{ pac.atual ? ' ct-pacote--atual' }}">
-                    {% if pac.recomendado %}<span class="ct-pacote-selo"><i class="bi bi-check2-circle"></i>RECOMENDADO PARA VOCÊ</span>{% endif %}
-                    <div class="ct-pacote-cabeca"><b>{{ pac.rotulo }}</b><span class="ct-pacote-cabeca-selos">{% if pac.temGanho %}<span class="ct-pacote-ganho">{{ pac.ganho }}</span>{% endif %}</span></div>
-                    <b class="ct-pacote-gb">{{ pac.gb }}</b>
-                    <div class="ct-pacote-preco"><b>{{ pac.preco }}</b><span>{{ pac.periodo }}</span></div>
-                    <div class="ct-pacote-dia">{{ pac.porDia }}</div>
-                    <div class="ct-pacote-desc">{{ pac.descricao }}</div>
-                    {% if pac.oab %}
-                        <button type="button" class="ct-oab-selo" data-abrir-oab title="Ver os benefícios do convênio">
-                            <img src="{{ asset('images/logo/oab-logo.png') }}" alt="OAB">
-                            <span class="ct-oab-selo-texto"><b>CONVÊNIO OAB</b><span>Gratuito para advogados</span><span class="ct-oab-selo-ver">ver benefícios</span></span>
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
-                    {% endif %}
-                    {% if pac.temNuvem %}
-                        <div class="ct-nuvem{{ pac.nuvemRecomendada ? ' ct-nuvem--recomendada' }}">
-                            <span class="ct-nuvem-rotulo">+ Espaço</span>
-                            <span class="ct-nuvem-icone"><i class="bi bi-cloud-fill"></i><i class="bi bi-arrow-up"></i></span>
-                        </div>
-                    {% endif %}
-                    <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
-                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}" data-plano-maior="{{ (pac.maior ?? false) ? '1' : '0' }}"
-                            {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
+        <div class="ct-espaco-corpo">
+            {# N4: caixa do pedido de espaço. "Solicitar mais espaço" e "Ver pedido" abrem o modal global da etapa 5. #}
+            {% if liberada %}
+                <div class="ct-pedido" data-espaco-pedido="liberado">
+                    <i class="bi bi-gift ct-pedido-icone"></i>
+                    <div class="ct-pedido-texto"><b>Opções de espaço extra liberadas</b><span>Escolha abaixo um pacote, se precisar. Sem fidelidade; nada do que você guardou é apagado.</span></div>
+                    <button type="button" class="ct-pedido-botao" data-espaco-ver-opcoes><i class="bi bi-plus-circle"></i> Ver opções</button>
                 </div>
-            {% endfor %}
-        </div>
-        <div class="ct-garantias">
-            {% for g in [
-                ['bi-lightning-charge', 'Liberado na hora', 'O espaço é ampliado assim que o pagamento é confirmado.'],
-                ['bi-shield-check', 'Seus arquivos seguros', 'Nada é apagado, mesmo se cancelar.'],
+            {% elseif ped.pendente %}
+                <div class="ct-pedido ct-pedido--pendente" data-espaco-pedido="pendente">
+                    <i class="bi bi-hourglass-split ct-pedido-icone"></i>
+                    <div class="ct-pedido-texto"><b>{{ 'contribua.espaco.pedido_pendente_titulo'|trans({gb: ped.gbDesejado}) }}</b><span>{{ 'contribua.espaco.pedido_pendente_sub'|trans({data: ped.pedidoEm|date('d/m/Y H:i')}) }}</span></div>
+                    <button type="button" class="ct-pedido-botao" data-espaco-ver-pedido><i class="bi bi-hourglass-split"></i> Ver pedido</button>
+                </div>
+            {% else %}
+                <div class="ct-pedido" data-espaco-pedido="padrao">
+                    <i class="bi bi-gift ct-pedido-icone"></i>
+                    <div class="ct-pedido-texto"><b>{{ e.pausado ? 'Solicite mais espaço para voltar a enviar arquivos' : 'Precisa de mais espaço?' }}</b><span>Solicite e a equipe BlueJus libera as opções de espaço extra para o seu escritório. O espaço extra é um serviço opcional; solicitar não gera cobrança.</span></div>
+                    <button type="button" class="ct-pedido-botao" data-espaco-solicitar><i class="bi bi-plus-circle"></i> Solicitar mais espaço</button>
+                </div>
+            {% endif %}
+
+            {# N5: os cartões só existem na tela liberados (ou com plano pago, D2); o Master os vê em "prévia", só no navegador. #}
+            {% if p.pacotesVisiveis or p.previaDoMaster %}
+                {% set oculto = not p.pacotesVisiveis %}
+                {% if p.liberadaPor == 'auto' or p.liberadaPor == 'master' or p.previaDoMaster %}
+                    <div class="ct-liberacao" data-espaco-planos{{ oculto ? ' hidden' }}><i class="bi bi-unlock"></i><span>{{ ('contribua.espaco.' ~ (p.liberadaPor == 'auto' ? 'liberada_auto' : (p.liberadaPor == 'master' ? 'liberada_master' : 'previa_master')))|trans({limiar: p.limiarDaLiberacao}) }}</span></div>
+                {% endif %}
+                <div class="ct-pacotes" data-espaco-planos{{ oculto ? ' hidden' }}>
+                    {% for pac in p.pacotes %}
+                        <div class="ct-pacote{{ pac.recomendado ? ' ct-pacote--recomendado' }}{{ pac.atual ? ' ct-pacote--atual' }}">
+                            {% if pac.recomendado %}<span class="ct-pacote-selo"><i class="bi bi-check2-circle"></i>RECOMENDADO PARA VOCÊ</span>{% endif %}
+                            <div class="ct-pacote-cabeca"><b>{{ pac.rotulo }}</b><span class="ct-pacote-cabeca-selos">{% if pac.temGanho %}<span class="ct-pacote-ganho">{{ pac.ganho }}</span>{% endif %}</span></div>
+                            <b class="ct-pacote-gb">{{ pac.gb }}</b>
+                            <div class="ct-pacote-preco"><b>{{ pac.preco }}</b><span>{{ pac.periodo }}</span></div>
+                            <div class="ct-pacote-dia">{{ pac.porDia }}</div>
+                            <div class="ct-pacote-desc">{{ pac.descricao }}</div>
+                            {% if pac.oab %}
+                                <button type="button" class="ct-oab-selo" data-abrir-oab title="Ver os benefícios do convênio">
+                                    <img src="{{ asset('images/logo/oab-logo.png') }}" alt="OAB">
+                                    <span class="ct-oab-selo-texto"><b>CONVÊNIO OAB</b><span>Gratuito para advogados</span><span class="ct-oab-selo-ver">ver benefícios</span></span>
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            {% endif %}
+                            {% if pac.temNuvem %}
+                                <div class="ct-nuvem{{ pac.nuvemRecomendada ? ' ct-nuvem--recomendada' }}">
+                                    <span class="ct-nuvem-rotulo">+ Espaço</span>
+                                    <span class="ct-nuvem-icone"><i class="bi bi-cloud-fill"></i><i class="bi bi-arrow-up"></i></span>
+                                </div>
+                            {% endif %}
+                            <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
+                                    data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}" data-plano-maior="{{ (pac.maior ?? false) ? '1' : '0' }}"
+                                    {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {# A5: garantias em duas versões (com e sem liberação). #}
+            {% set garantias = liberada ? [
+                ['bi-gift', 'Sistema gratuito', 'Todos os recursos do BlueJus continuam sem custo; o pacote é só espaço.'],
+                ['bi-shield-check', 'Seus arquivos seguros', 'Nada é apagado, mesmo se cancelar o pacote.'],
                 ['bi-arrow-counterclockwise', 'Sem fidelidade', 'Cancele quando quiser, em um clique.'],
                 ['bi-file-earmark-text', 'Nota fiscal', 'Enviada por e-mail todo mês.'],
+            ] : [
+                ['bi-gift', 'Gratuito', 'Todos os recursos do BlueJus sem custo para o advogado.'],
+                ['bi-shield-check', 'Seus arquivos seguros', 'Nada é apagado por falta de espaço.'],
+                ['bi-eye', 'Consulta sempre liberada', 'Mesmo com o espaço cheio, você abre e baixa tudo.'],
+                ['bi-person-check', 'Liberação pela equipe', 'Solicite em um clique; avisamos por e-mail.'],
             ] %}
-                <div class="ct-garantia"><i class="bi {{ g[0] }}"></i><span><b>{{ g[1] }}</b>{{ g[2] }}</span></div>
-            {% endfor %}
+            <div class="ct-garantias" data-garantias="{{ liberada ? 'com' : 'sem' }}">
+                {% for g in garantias %}
+                    <div class="ct-garantia"><i class="bi {{ g[0] }}"></i><span><b>{{ g[1] }}</b>{{ g[2] }}</span></div>
+                {% endfor %}
+            </div>
+
+            {% if painelDePedidos is not null %}{% include 'contribua/_pedidos_de_espaco.html.twig' with {painel: painelDePedidos, previa: p.previaDoMaster} only %}{% endif %}
         </div>
     </section>
 

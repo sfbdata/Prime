@@ -59,6 +59,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
     #[TestDox('A página abre com os textos do desenho e o PIX do escritório')]
     public function testPaginaAbre(): void
     {
+        $this->liberarOpcoes($this->escritorio);
         $html = $this->abrir($this->primario);
 
         self::assertResponseIsSuccessful();
@@ -307,6 +308,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
     #[TestDox('O pacote Free mostra o selo do convênio OAB, que abre o modal; os pagos mostram "+ Espaço"')]
     public function testConvenioOabEMaisEspaco(): void
     {
+        $this->liberarOpcoes($this->escritorio);
         $this->abrir($this->primario);
 
         self::assertSelectorCount(1, '.ct-pacote > .ct-oab-selo[data-abrir-oab]');

@@ -68,20 +68,49 @@ final class PacotesDaPaginaTest extends TestCase
     {
         $pagina = $this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB);
 
-        self::assertSame('Mais espaço quando o escritório crescer', $pagina['espaco']['titulo']);
+        self::assertSame('Seu espaço de armazenamento', $pagina['espaco']['titulo']);
         self::assertSame('#0a6fa0', $pagina['espaco']['cor']);
         self::assertSame(['essencial'], array_column(array_filter($pagina['pacotes'], static fn (array $p): bool => $p['recomendado']), 'codigo'));
     }
 
-    #[TestDox('Acima de 100% com o bloqueio desligado: vermelho do desenho com o texto de uso alto, sem "pausados"')]
+    #[TestDox('Acima de 100% com o bloqueio desligado (D6): vermelho do desenho e "Seu espaço está cheio", sem "pausados"')]
     public function testAcimaDeCemSemBloqueio(): void
     {
         $pagina = $this->pagina((int) (24.3 * RetratoDoEspaco::BYTES_POR_GB));
 
-        self::assertSame('Seu escritório está com 243% do espaço ocupado', $pagina['espaco']['titulo']);
+        self::assertSame('Seu espaço está cheio', $pagina['espaco']['titulo']);
+        self::assertFalse($pagina['espaco']['pausado']);
         self::assertSame('#b02a37', $pagina['espaco']['cor']);
         self::assertSame('#fdf1f2', $pagina['espaco']['fundo']);
         self::assertSame('100%', $pagina['espaco']['largura']);
+    }
+
+    #[TestDox('N5/D2: sem liberação os cartões ficam ocultos; liberado pelo uso (97%) ou com plano pago eles aparecem; o Master só tem a prévia')]
+    public function testVisibilidadeDosPacotes(): void
+    {
+        $baixo = $this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB);
+        self::assertFalse($baixo['pacotesVisiveis']);
+        self::assertFalse($baixo['previaDoMaster'], 'o escritório comum não tem prévia');
+        self::assertNull($baixo['liberadaPor']);
+        self::assertFalse($baixo['espaco']['comLiberacao']);
+        self::assertSame(97, $baixo['limiarDaLiberacao']);
+
+        $noLimiar = $this->pagina((int) (9.8 * RetratoDoEspaco::BYTES_POR_GB));
+        self::assertTrue($noLimiar['pacotesVisiveis']);
+        self::assertSame('auto', $noLimiar['liberadaPor']);
+        self::assertTrue($noLimiar['espaco']['comLiberacao']);
+
+        $pago = $this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB, 'essencial');
+        self::assertTrue($pago['pacotesVisiveis'], 'D2: quem já paga continua vendo o plano');
+        self::assertNull($pago['liberadaPor']);
+    }
+
+    #[TestDox('D5: "+N GB liberados" soma o bônus vigente e o limite próprio do Master acima da cota do plano; sem extra, nulo')]
+    public function testExtraLiberado(): void
+    {
+        self::assertNull($this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB)['espaco']['extraGb']);
+        self::assertSame('8', $this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB, limiteDoMaster: 18)['espaco']['extraGb']);
+        self::assertSame('5', $this->pagina(2 * RetratoDoEspaco::BYTES_POR_GB, comBonus: true)['espaco']['extraGb']);
     }
 
     #[TestDox('Selo do convênio OAB só no plano gratuito')]
@@ -138,7 +167,7 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame('10 GB', $pagina['espaco']['limite']);
         self::assertSame(145, $pagina['espaco']['percentual']);
         self::assertSame('100%', $pagina['espaco']['largura']);
-        self::assertSame('Seu escritório está com 145% do espaço ocupado', $pagina['espaco']['titulo']);
+        self::assertSame('Seu espaço está cheio', $pagina['espaco']['titulo']);
         self::assertSame('#fdf1f2', $pagina['espaco']['fundo']);
         self::assertSame('#b02a37', $pagina['espaco']['cor']);
         self::assertSame(['Seu plano atual', 'Incluído', 'Incluído', 'Incluído'], array_column($pagina['pacotes'], 'botao'));

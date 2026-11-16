@@ -12,6 +12,7 @@ use App\Contribua\Service\SolicitanteDaSessao;
 use App\Contribua\UseCase\AtenderSugestaoUseCase;
 use App\Contribua\UseCase\DecidirPedidoDeEspacoUseCase;
 use App\Contribua\UseCase\EnviarSugestaoUseCase;
+use App\Contribua\UseCase\ListarPedidosDeEspacoParaOMasterUseCase;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
 use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\PedirEspacoUseCase;
@@ -19,6 +20,7 @@ use App\Contribua\UseCase\RegistrarApoioUseCase;
 use App\Contribua\UseCase\RegistrarMotivoDeNaoApoiarUseCase;
 use App\Contribua\UseCase\RegistrarRetornoDoPagamentoUseCase;
 use App\Contribua\UseCase\SolicitarMaisEspacoUseCase;
+use App\Contribua\UseCase\VerPedidoDeEspacoDoEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Recompensa\UseCase\ObterMeuSaldoDeRecompensaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -46,7 +48,7 @@ final class ContribuaController extends AbstractController
 
     /** `?assinatura=ok` é a página de retorno colada no gateway: abre o "Pagamento enviado" do checkout. */
     #[Route('', name: 'contribua_index', methods: ['GET'])]
-    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno, ObterMeuSaldoDeRecompensaUseCase $recompensa): Response
+    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno, ObterMeuSaldoDeRecompensaUseCase $recompensa, VerPedidoDeEspacoDoEscritorioUseCase $pedidoDeEspaco, ListarPedidosDeEspacoParaOMasterUseCase $pedidosDoMaster): Response
     {
         $quem = $this->solicitante();
         $voltou = $request->query->get('assinatura') === 'ok' ? $retorno->executar($quem) : null;
@@ -54,6 +56,9 @@ final class ContribuaController extends AbstractController
         return $this->render('contribua/index.html.twig', [
             'pagina' => $montar->executar($quem), 'pagamento' => $pagamento->executar($quem), 'retorno' => $voltou,
             'recompensa' => $recompensa->executar($quem->usuario),
+            // N4 (caixa do pedido) para todos; N7 (painel de pedidos) só é montado para o Master.
+            'pedidoDeEspaco' => $pedidoDeEspaco->executar($quem),
+            'painelDePedidos' => $quem->ehMaster ? $pedidosDoMaster->executar($quem) : null,
         ]);
     }
 

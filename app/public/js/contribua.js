@@ -332,6 +332,34 @@
         enviar(raiz.dataset.urlPedido, { plano: b.dataset.pedirPlano }).then((d) => avisar(d.mensagem || d.erro));
     }));
 
+    /* Meu espaço: "Ver opções" rola até a seção; a prévia do Master só mostra/oculta os cartões (nada é gravado); "Liberar"/"Recusar" do painel do Master. */
+    const secaoEspaco = $('#espaco');
+    $$('[data-espaco-ver-opcoes]').forEach((b) => b.addEventListener('click', () => {
+        if (secaoEspaco) { secaoEspaco.scrollIntoView({ behavior: 'smooth' }); }
+    }));
+    const botaoPrevia = $('[data-espaco-previa]');
+    if (botaoPrevia) {
+        botaoPrevia.addEventListener('click', () => {
+            const mostrar = $$('[data-espaco-planos]')[0].hidden;
+            $$('[data-espaco-planos]').forEach((el) => { el.hidden = !mostrar; });
+            $('span', botaoPrevia).textContent = mostrar ? botaoPrevia.dataset.rotuloOcultar : botaoPrevia.dataset.rotuloVer;
+        });
+    }
+    $$('[data-pedido-decidir]').forEach((b) => b.addEventListener('click', () => {
+        $$('[data-pedido-decidir]').forEach((x) => { x.disabled = true; });
+        enviar(b.dataset.url).then((d) => {
+            if (!d.ok) {
+                $$('[data-pedido-decidir]').forEach((x) => { x.disabled = false; });
+                avisar(d.erro || 'Não foi possível concluir. Tente de novo.');
+
+                return;
+            }
+            sessionStorage.setItem('ct-toast', d.mensagem);
+            location.hash = 'espaco';
+            location.reload();
+        });
+    }));
+
     /* Modal do convênio OAB: abre pelo selo do plano gratuito; fecha pelo fundo, pelo X, por "Vamos crescer juntos" e por ESC */
     const modalOab = $('[data-modal-oab]');
     if (modalOab) {

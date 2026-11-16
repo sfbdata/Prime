@@ -10,12 +10,14 @@ use App\Contribua\Entity\MotivoDeNaoApoiar;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Entity\Sugestao;
 use App\Contribua\Enum\FaixaDoEspaco;
+use App\Contribua\Enum\OrigemDoLimite;
 use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Repository\SugestaoRepository;
 use App\Contribua\Service\CodigoPixDaConta;
+use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\Service\VisaoDoMaster;
 
@@ -49,13 +51,20 @@ final class MontarPaginaDoContribuaUseCase
         $faz30Dias = new \DateTimeImmutable('-30 days');
         $apoiou = $this->apoios->apoiouDesde($quem->tenantId(), $faz30Dias);
         $respondeu = $this->motivos->respondeuDesde($quem->tenantId(), $faz30Dias);
+        // D2: quem já paga um plano continua vendo e gerindo o próprio plano; os demais só com as opções liberadas.
+        $pagaPlano = $retrato->planoCodigo !== $this->planos->free()->getCodigo();
 
         return [
             'escritorio' => $quem->escritorio->getName(),
             'ehMaster' => $quem->ehMaster,
             'podePedirEspaco' => $quem->ehPrimario || $quem->ehMaster,
-            'espaco' => self::cabecalhoDoEspaco($retrato, $planos = $this->planos->ativosEmOrdem()),
+            'espaco' => self::cabecalhoDoEspaco($retrato, $planos = $this->planos->ativosEmOrdem(), $retrato->opcoesLiberadas || $pagaPlano),
             'pacotes' => self::pacotes($planos, $retrato),
+            // N5: os cartões só existem na tela com as opções liberadas (ou plano pago); o Master os vê em "prévia".
+            'pacotesVisiveis' => $retrato->opcoesLiberadas || $pagaPlano,
+            'liberadaPor' => $retrato->liberadaPor?->value,
+            'previaDoMaster' => $quem->ehMaster && !$retrato->opcoesLiberadas && !$pagaPlano,
+            'limiarDaLiberacao' => LiberacaoDasOpcoesDeEspaco::LIMIAR_EM_PERCENTUAL,
             'pix' => ['conta' => $quem->numeroDaConta(), ...$this->codigoPix->para($quem, self::VALOR_PADRAO_CENTAVOS)],
             'apoiouNoMes' => $apoiou,
             'perguntarMotivo' => !$apoiou && !$respondeu,
@@ -75,7 +84,7 @@ final class MontarPaginaDoContribuaUseCase
      *
      * @return array<string, mixed>
      */
-    private static function cabecalhoDoEspaco(RetratoDoEspaco $r, array $planos): array
+    private static function cabecalhoDoEspaco(RetratoDoEspaco $r, array $planos, bool $comLiberacao): array
     {
         $limite = $r->bytesLimite;
         $pct = $r->percentual;
@@ -84,14 +93,20 @@ final class MontarPaginaDoContribuaUseCase
             $limite = $cotas === [] || reset($cotas) <= 0 ? null : reset($cotas) * RetratoDoEspaco::BYTES_POR_GB;
             $pct = $limite === null ? null : (int) round($r->bytesUsados / $limite * 100);
         }
-        // "Seu espaço acabou: novos envios estão pausados" só quando é verdade: bloqueio ligado e faixa
-        // Bloqueio atingida. Com o bloqueio desligado, acima de 100% os envios continuam passando.
+        // "Novos envios estão pausados" só quando é verdade (D6): bloqueio ligado e faixa Bloqueio atingida. Com o
+        // bloqueio desligado, a partir de 100% o texto diz só que o espaço está cheio, sem prometer pausa.
         $cheio = !$r->semLimite() && $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio;
         $alto = ($pct ?? 0) >= 80;
+        $lotado = ($pct ?? 0) >= 100;
 
         return [
-            'titulo' => $cheio ? 'Seu espaço acabou: novos envios estão pausados' : ($alto ? 'Seu escritório está com ' . $pct . '% do espaço ocupado' : 'Mais espaço quando o escritório crescer'),
-            'subtitulo' => $alto ? 'Amplie agora e continue anexando documentos sem interrupção. Nada do que você já guardou é apagado.' : 'O BlueJus continua gratuito. Amplie o espaço só quando precisar, mês a mês.',
+            'titulo' => $cheio ? 'Seu espaço está cheio: novos envios estão pausados' : ($lotado ? 'Seu espaço está cheio' : ($alto ? 'Seu escritório está com ' . $pct . '% do espaço ocupado' : 'Seu espaço de armazenamento')),
+            'subtitulo' => $comLiberacao
+                ? 'O BlueJus continua gratuito. O espaço extra é opcional: escolha um pacote só se precisar. Nada do que você guardou é apagado.'
+                : 'O BlueJus é gratuito. Se o espaço ficar pequeno, solicite mais espaço. Nada do que você guardou é apagado.',
+            'pausado' => $cheio,
+            'lotado' => $lotado,
+            'comLiberacao' => $comLiberacao,
             'icone' => $alto ? 'bi-exclamation-triangle' : 'bi-hdd-stack',
             // Cores pelos limiares literais do desenho (100 vermelho, 90 âmbar). Acima de 100% com o bloqueio
             // desligado o texto é o de uso alto (decisão da coordenação, 19/10).
@@ -101,12 +116,36 @@ final class MontarPaginaDoContribuaUseCase
             // Nulo só no sem limite com plano fora do catálogo: a tela mostra o uso sem barra.
             'limite' => $limite === null ? null : RetratoDoEspaco::formatarGb($limite),
             'plano' => $r->planoNome,
+            'extraGb' => self::extraLiberadoEmGb($r, $planos),
             // "Inclui 5 GB de bônus até dd/mm/aaaa": só com bônus vigente (o texto vem por tradução).
             'bonusGb' => $r->bytesBonus > 0 ? intdiv($r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB) : null,
             'bonusAte' => $r->bytesBonus > 0 ? $r->bonusAte?->format('d/m/Y') : null,
             'percentual' => $pct,
             'largura' => $pct === null ? null : min(100, $pct) . '%',
         ];
+    }
+
+    /**
+     * D5: o "+N GB liberados" é o extra que o sistema já tem: bônus de indicação vigente mais o que o limite próprio dado
+     * pelo Master passa da cota do plano. Nulo sem extra (e sem limite, que ignora o bônus).
+     *
+     * @param list<Plano> $planos
+     */
+    private static function extraLiberadoEmGb(RetratoDoEspaco $r, array $planos): ?string
+    {
+        if ($r->semLimite()) {
+            return null;
+        }
+        $extra = $r->bytesBonus;
+        if ($r->origemDoLimite === OrigemDoLimite::Master) {
+            foreach ($planos as $plano) {
+                if ($plano->getCodigo() === $r->planoCodigo) {
+                    $extra += max(0, (int) $r->bytesLimite - $r->bytesBonus - $plano->getCotaGb() * RetratoDoEspaco::BYTES_POR_GB);
+                }
+            }
+        }
+
+        return $extra > 0 ? substr(RetratoDoEspaco::formatarGb($extra), 0, -3) : null;
     }
 
     /**
