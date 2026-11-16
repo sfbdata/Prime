@@ -59,9 +59,9 @@ final readonly class VotacaoParaVotar
         return $this->pauta->encerradaEm ?? $this->pauta->prazoAte;
     }
 
-    /** Nome do tipo da votação (desenho: "Pautas de assembleia" e "Eleição individual"). */
+    /** Chave da modalidade (desenho: `MODR`): pauta, consulta, individual ou chapa, conforme o cenário e o tipo da pauta. */
     public function modalidade(): string
     {
-        return $this->pauta->tipo->eleitoral() ? 'eleicao' : 'pauta';
+        return $this->assembleia->cenario->modalidade($this->pauta->tipo);
     }
 }

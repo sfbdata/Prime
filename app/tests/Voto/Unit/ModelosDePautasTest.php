@@ -112,6 +112,41 @@ final class ModelosDePautasTest extends TestCase
         }
     }
 
+    #[TestDox('Os modelos seguem o cenário: condomínio 4, cooperativa 1, associação 1 e os demais nenhum')]
+    public function testModelosPorCenario(): void
+    {
+        self::assertCount(4, ModelosDePautas::modelos('condominio'));
+        self::assertSame(['AGO completa'], array_values(array_map(static fn (array $m): string => $m['rotulo'], ModelosDePautas::modelos('cooperativa'))));
+        self::assertSame(['associacao_eleicao'], array_keys(ModelosDePautas::modelos('associacao')));
+        foreach (['classe', 'sindicato', 'ensino', 'consulta', 'livre'] as $cenario) {
+            self::assertSame([], ModelosDePautas::modelos($cenario), $cenario);
+        }
+    }
+
+    #[TestDox('Os atalhos de cargos e pautas frequentes seguem o cenário, como o CG do desenho')]
+    public function testAtalhosPorCenario(): void
+    {
+        self::assertCount(7, ModelosDePautas::atalhos('condominio'));
+        self::assertSame(['Diretoria', 'Conselho', 'Delegados', 'Caixa de assistência'], ModelosDePautas::atalhos('classe'));
+        self::assertSame(['Pergunta da consulta'], ModelosDePautas::atalhos('consulta'));
+        self::assertSame([], ModelosDePautas::atalhos('livre'));
+        self::assertSame([], ModelosDePautas::atalhos('inexistente'));
+    }
+
+    #[TestDox('Classe, sindicato, ensino e livre elegem pessoas (2 dígitos); consulta é só Sim/Não')]
+    public function testRegrasDosDemaisCenarios(): void
+    {
+        foreach (['classe' => 'Diretoria', 'sindicato' => 'Diretoria executiva', 'ensino' => 'Reitoria ou direção'] as $cenario => $nome) {
+            $p = ModelosDePautas::pauta($cenario, $nome);
+            self::assertSame(TipoDaPauta::EleicaoDeCargo, $p->tipo, $cenario);
+            self::assertSame(2, $p->regras?->digitos, $cenario);
+        }
+        $consulta = ModelosDePautas::pauta('consulta', 'Pergunta da consulta');
+        self::assertSame(TipoDaPauta::Deliberacao, $consulta->tipo);
+        self::assertSame(1, $consulta->regras?->digitos);
+        self::assertSame(0, $consulta->regras->quorumPrimeira);
+    }
+
     #[TestDox('Modelo desconhecido é recusado')]
     public function testModeloDesconhecido(): void
     {

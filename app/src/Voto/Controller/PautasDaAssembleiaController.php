@@ -7,6 +7,7 @@ namespace App\Voto\Controller;
 use App\Voto\DTO\PautaInput;
 use App\Voto\DTO\RegrasDaPautaInput;
 use App\Voto\Enum\BaseDaDecisao;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\OrdemDasCandidaturas;
 use App\Voto\Enum\RegraDeDecisao;
 use App\Voto\Enum\SigiloDoVoto;
@@ -45,9 +46,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+', 'direcao' => 'cima|baixo'])]
 final class PautasDaAssembleiaController extends AbstractController
 {
-    /** "Cargos e pautas frequentes" do desenho: cada um cria a pauta padrão com esse nome. */
-    public const ATALHOS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal', 'Aprovação de contas', 'Previsão orçamentária', 'Obra ou benfeitoria', 'Alteração da convenção'];
-
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
         private readonly AvisosDoVoto $avisos,
@@ -67,8 +65,8 @@ final class PautasDaAssembleiaController extends AbstractController
 
         return $this->render('voto/assembleia/pautas.html.twig', [
             'assembleia' => $assembleia,
-            'atalhos' => self::ATALHOS,
-            'modelos' => ModelosDePautas::modelos(),
+            'atalhos' => ModelosDePautas::atalhos($assembleia->cenario->value),
+            'modelos' => ModelosDePautas::modelos($assembleia->cenario->value),
             'opcoes_padrao' => PautaInput::OPCOES_PADRAO,
             'opcoes_padrao_eleicao' => [['numero' => '1', 'rotulo' => ''], ['numero' => '2', 'rotulo' => '']],
             'agora' => new \DateTimeImmutable(),
@@ -76,14 +74,15 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     #[Route('', name: 'voto_assembleia_pauta_criar', methods: ['POST'])]
-    public function criar(int $id, Request $request, AdicionarPautaUseCase $adicionar): Response
+    public function criar(int $id, Request $request, AdicionarPautaUseCase $adicionar, ObterAssembleiaUseCase $obter): Response
     {
         $tenant = $this->guarda->exigir();
         $atalho = (string) $request->request->get('atalho', '');
 
         // A leitura do formulário fica dentro da ação: data inválida vira recusa (422), não erro.
-        return $this->responder($request, $id, static function () use ($adicionar, $id, $request, $atalho, $tenant): void {
-            $adicionar->executar($tenant, $id, self::inputOuAtalho($request, $atalho));
+        return $this->responder($request, $id, static function () use ($adicionar, $obter, $id, $request, $atalho, $tenant): void {
+            $cenario = '' === $atalho ? null : $obter->executar($tenant, $id)->cenario;
+            $adicionar->executar($tenant, $id, self::inputOuAtalho($request, $atalho, $cenario));
         }, 'voto.assembleia.gestor.aviso.pauta_incluida', ['id' => $id]);
     }
 
@@ -217,14 +216,14 @@ final class PautasDaAssembleiaController extends AbstractController
         return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes, self::regras($request), $tipo);
     }
 
-    private static function inputOuAtalho(Request $request, string $atalho): PautaInput
+    private static function inputOuAtalho(Request $request, string $atalho, ?CenarioDaAssembleia $cenario): PautaInput
     {
-        if (!\in_array($atalho, self::ATALHOS, true)) {
+        if (null === $cenario || !\in_array($atalho, ModelosDePautas::atalhos($cenario->value), true)) {
             return self::input($request);
         }
 
-        // As regras do atalho vêm do cenário condomínio do desenho (pessoas com 2 dígitos; convenção com dois terços).
-        return ModelosDePautas::pauta('condominio', $atalho);
+        // As regras do atalho vêm do cenário da assembleia, como no desenho (pessoas com 2 dígitos; convenção com dois terços).
+        return ModelosDePautas::pauta($cenario->value, $atalho);
     }
 
     /** As regras só vêm quando a tela manda o critério; sem ele, a pauta mantém as que tem. */

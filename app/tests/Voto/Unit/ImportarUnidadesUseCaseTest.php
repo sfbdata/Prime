@@ -113,6 +113,23 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone'], $linha);
     }
 
+    #[TestDox('O modelo do cenário abre com o rótulo da identificação e do grupo do cenário')]
+    public function testModeloComRotulosDoCenario(): void
+    {
+        ob_start();
+        (new ArquivoDeUnidades())->modelo(\App\Voto\Enum\CenarioDaAssembleia::Cooperativa)->sendContent();
+        $bytes = (string) ob_get_clean();
+        $caminho = tempnam(sys_get_temp_dir(), 'modelo');
+        file_put_contents($caminho, $bytes);
+        try {
+            $linha = \PhpOffice\PhpSpreadsheet\IOFactory::load($caminho)->getSheet(0)->toArray()[0];
+        } finally {
+            unlink($caminho);
+        }
+
+        self::assertSame(['Matrícula de cooperado', 'Núcleo'], \array_slice($linha, 0, 2));
+    }
+
     #[TestDox('Depois da abertura da primeira pauta a lista fica bloqueada')]
     public function testBloqueadaDepoisDaAbertura(): void
     {

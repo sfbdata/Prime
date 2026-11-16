@@ -19,9 +19,12 @@ voto:
         periodo_aberto: 'Aberta em {inicio}'
         codigo: 'Código de conferência {codigo}'
         gerenciar: Gerenciar no Painel
+        todos_os_grupos: Todos os grupos
         modalidade:
             pauta: Pautas de assembleia
-            eleicao: Eleição individual
+            individual: Eleição individual
+            chapa: Eleição por chapa
+            consulta: Consulta
         aviso:
             suspensa: Votação suspensa pela mesa. Aguarde a retomada.
             cancelada: Votação cancelada pela comissão.
@@ -49,7 +52,6 @@ voto:
         portal: Portal do Eleitor
         titulo: Voto
         aviso_sigilo: 'Seu voto é secreto: o sistema registra que a unidade votou, mas não em quê.'
-        unidade: Unidade
         nao_apto: Não apto(a)
         vazio: Nenhuma votação disponível para o seu cadastro. Se você deveria constar na lista, procure a comissão responsável.
         status:
@@ -59,7 +61,6 @@ voto:
             encerrada: Encerrada
             suspensa: Suspensa
             cancelada: Cancelada
-        modalidade: Condomínio · Pautas de assembleia
         grupos: Todos os grupos
         grupos_da_pauta: 'Grupos: {grupos}'
         aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
@@ -359,10 +360,6 @@ voto:
             modelos:
                 prontos: 'Modelos prontos:'
                 aplicado: 'Modelo aplicado: {pautas}. Ajuste o que precisar.'
-                condominio: Condomínio
-                cooperativa: Cooperativa
-                sociedade: Sociedade
-                associacao: Associação
             # Texto do resultado e rótulo de abstenção/branco por tipo de pauta (desenho: resTx e BR).
             resultado_por_tipo:
                 aprovada: Aprovada
@@ -522,11 +519,11 @@ voto:
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
-                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
-                primeira_aba: 'O XLSX usa a primeira aba. Colunas: Unidade, Bloco, Situação, Fração, Responsável e E-mail.'
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável e E-mail.'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
@@ -581,7 +578,6 @@ voto:
                 titulo: 'Voto aberto: quem votou em quê'
                 texto: 'Esta votação foi configurada como voto aberto antes de publicar. A relação mostra o nome da unidade, o voto e a hora, em segundos.'
                 ao_vivo: 'Voto aberto em tempo real: a relação já mostra os votos dados até agora.'
-                unidade: Unidade
                 responsavel: Responsável
                 voto: Voto
                 peso: Peso

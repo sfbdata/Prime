@@ -20,7 +20,7 @@
             <span class="vChip vcChip-{{ status }}">{{ ('voto.assembleia.cedula.status.' ~ status)|trans }}</span>
         </div>
         <div class="vcInfo">
-            <span><i class="bi bi-tags" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.modalidade'|trans }}</span>
+            <span><i class="bi bi-tags" aria-hidden="true"></i> {{ [cedula.entidade, ('voto.votar.modalidade.' ~ cedula.cenario.modalidade(pauta.tipo))|trans]|filter(x => x)|join(' · ') }}</span>
             <span><i class="bi bi-geo" aria-hidden="true"></i> {{ pauta.grupos is empty ? 'voto.assembleia.cedula.grupos'|trans : 'voto.assembleia.cedula.grupos_da_pauta'|trans({grupos: pauta.grupos|join(', ')}) }}</span>
         </div>
         {% if pauta.votoAberto and not pauta.encerrada() and not pauta.cancelada() %}

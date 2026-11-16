@@ -20,6 +20,7 @@ use App\Voto\DTO\ResumoDoResultado;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Enum\CenarioDaAssembleia;
+use App\Voto\Enum\TipoDaPauta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -153,6 +154,81 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Responsável pela consulta', $html);
         self::assertStringContainsString('Auditoria', $html);
         self::assertStringNotContainsString('Presidência da assembleia', $html);
+    }
+
+    #[TestDox('Pautas: modelos e atalhos seguem o cenário; classe só tem os cargos dela, e o atalho cria a pauta com as regras do cenário')]
+    public function testPautasSeguemOCenario(): void
+    {
+        $classe = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Classe])->create()->_real();
+        $url = '/voto/assembleias/' . $classe->getId() . '/pautas';
+        $tela = $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $tela->filter('.voto-atalhos button[name="modelo"]'));
+        self::assertSame(
+            ['Diretoria', 'Conselho', 'Delegados', 'Caixa de assistência'],
+            $tela->filter('.voto-atalhos button[name="atalho"]')->each(static fn (Crawler $c): string => trim($c->text())),
+        );
+
+        $this->client->submit($tela->filter('.voto-atalhos button[value="Diretoria"]')->form());
+        self::assertResponseRedirects($url);
+        $linha = $this->em->getConnection()->fetchAssociative('SELECT tipo, digitos FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$classe->getId()]);
+        self::assertSame(['eleicao_cargo', 2], [$linha['tipo'] ?? null, (int) ($linha['digitos'] ?? 0)]);
+
+        $associacao = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $associacao->getId() . '/pautas');
+        self::assertSame(['Eleição da diretoria'], $tela->filter('.voto-atalhos button[name="modelo"]')->each(static fn (Crawler $c): string => trim($c->text())));
+
+        $livre = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Livre])->create()->_real();
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $livre->getId() . '/pautas');
+        self::assertCount(0, $tela->filter('.voto-atalhos'), 'personalizado não tem modelo nem atalho: as duas linhas somem');
+    }
+
+    #[TestDox('Pautas e modelo de unidades de outro escritório: 404, sem vazar o cenário')]
+    public function testOutroEscritorioNaoVe(): void
+    {
+        $outro = TenantFactory::createOne(['name' => 'Outro Escritório ' . uniqid()])->_real();
+        $alheia = AssembleiaFactory::new(['tenant' => $outro, 'cenario' => CenarioDaAssembleia::Classe])->create()->_real();
+
+        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/pautas');
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/unidades/modelo.xlsx');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Lista de aptos: o texto da importação e as colunas do XLSX usam a identificação e o grupo do cenário')]
+    public function testUnidadesComRotulosDoCenario(): void
+    {
+        $cooperativa = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Cooperativa])->create()->_real();
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $cooperativa->getId() . '/unidades');
+        self::assertResponseIsSuccessful();
+        $texto = $tela->filter('.voto-assistente-corpo')->text();
+        self::assertStringContainsString('matrícula de cooperado; núcleo; situação', $texto);
+        self::assertStringContainsString('Colunas: Matrícula de cooperado, Núcleo, Situação', $texto);
+
+        $this->client->request('GET', '/voto/assembleias/' . $cooperativa->getId() . '/unidades/modelo.xlsx');
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Cédula: a unidade usa o rótulo do cenário e a pauta mostra "entidade · modalidade"')]
+    public function testCedulaComRotulosDoCenario(): void
+    {
+        $classe = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Classe, 'entidadeNome' => 'Conselho Regional'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $classe, 'ordem' => 1, 'titulo' => 'Diretoria', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2])->comOpcoesPadrao()->aberta()->create();
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $classe, 'bloco' => 'Norte', 'identificacao' => '4521'])->_real();
+        $this->em->flush();
+        $this->em->refresh($classe);
+
+        $cedula = $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Número de inscrição Norte · 4521', $cedula->filter('.vcUnidade')->text());
+        self::assertSame('Conselho Regional · Eleição por chapa', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
+
+        $condominio = $this->publicadaComPauta(CenarioDaAssembleia::Condominio, null);
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $condominio, 'bloco' => 'A', 'identificacao' => '101'])->_real();
+        $cedula = $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($outra));
+        self::assertStringContainsString('Unidade A · 101', $cedula->filter('.vcUnidade')->text());
+        self::assertSame('Pautas de assembleia', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
     }
 
     private function publicadaComPauta(CenarioDaAssembleia $cenario, ?string $entidade): Assembleia

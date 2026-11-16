@@ -92,6 +92,51 @@ enum CenarioDaAssembleia: string
         };
     }
 
+    /** Rótulo da identificação da unidade ou do eleitor na lista de aptos (desenho: `rot.id`). */
+    public function identificacao(): string
+    {
+        return match ($this) {
+            self::Condominio => 'Unidade',
+            self::Classe => 'Número de inscrição',
+            self::Associacao => 'CPF',
+            self::Sindicato => 'Matrícula sindical',
+            self::Cooperativa => 'Matrícula de cooperado',
+            self::Sociedade => 'Identificação do sócio',
+            self::Ensino, self::Consulta => 'Matrícula',
+            self::Livre => 'Identificação',
+        };
+    }
+
+    /** Rótulo do agrupamento da lista de aptos (desenho: `rot.gr`). */
+    public function grupo(): string
+    {
+        return match ($this) {
+            self::Condominio => 'Bloco ou torre',
+            self::Classe => 'Regional',
+            self::Associacao => 'Categoria',
+            self::Sindicato => 'Base ou categoria',
+            self::Cooperativa => 'Núcleo',
+            self::Sociedade => 'Classe',
+            self::Ensino => 'Curso',
+            self::Consulta => 'Setor',
+            self::Livre => 'Grupo',
+        };
+    }
+
+    /**
+     * Modalidade da votação (desenho: `modalidade` do cenário e `MODR`), a partir do tipo da pauta: chapa nos cenários de
+     * chapa (classe e sindicato) e eleição individual nos demais; pauta de assembleia, ou consulta no cenário de consulta.
+     * Não grava nada: é só o texto "entidade · modalidade" da cédula e da aba Votar.
+     */
+    public function modalidade(TipoDaPauta $tipo): string
+    {
+        if ($tipo->eleitoral()) {
+            return \in_array($this, [self::Classe, self::Sindicato], true) ? 'chapa' : 'individual';
+        }
+
+        return self::Consulta === $this ? 'consulta' : 'pauta';
+    }
+
     /** Ícone Bootstrap Icons do botão da categoria (mapa `edCens` do desenho). */
     public function icone(): string
     {

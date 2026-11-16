@@ -10,6 +10,7 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Service\CnpjDaEntidade;
@@ -56,12 +57,46 @@ final class CenarioDaAssembleiaTest extends TestCase
         self::assertSame($a2, $cenario->assinatura2());
     }
 
+    /** @return iterable<string, array{CenarioDaAssembleia, string, string}> */
+    public static function identificacaoEGrupoDoDesenho(): iterable
+    {
+        yield 'condomínio' => [CenarioDaAssembleia::Condominio, 'Unidade', 'Bloco ou torre'];
+        yield 'classe' => [CenarioDaAssembleia::Classe, 'Número de inscrição', 'Regional'];
+        yield 'associação' => [CenarioDaAssembleia::Associacao, 'CPF', 'Categoria'];
+        yield 'sindicato' => [CenarioDaAssembleia::Sindicato, 'Matrícula sindical', 'Base ou categoria'];
+        yield 'cooperativa' => [CenarioDaAssembleia::Cooperativa, 'Matrícula de cooperado', 'Núcleo'];
+        yield 'sociedade' => [CenarioDaAssembleia::Sociedade, 'Identificação do sócio', 'Classe'];
+        yield 'ensino' => [CenarioDaAssembleia::Ensino, 'Matrícula', 'Curso'];
+        yield 'consulta' => [CenarioDaAssembleia::Consulta, 'Matrícula', 'Setor'];
+        yield 'livre' => [CenarioDaAssembleia::Livre, 'Identificação', 'Grupo'];
+    }
+
+    #[DataProvider('identificacaoEGrupoDoDesenho')]
+    #[TestDox('Rótulos da lista de aptos: identificação (rot.id) e grupo (rot.gr) como o desenho')]
+    public function testIdentificacaoEGrupo(CenarioDaAssembleia $cenario, string $identificacao, string $grupo): void
+    {
+        self::assertSame($identificacao, $cenario->identificacao());
+        self::assertSame($grupo, $cenario->grupo());
+    }
+
+    #[TestDox('Modalidade: chapa em classe e sindicato, eleição individual nos demais, consulta e pauta de assembleia')]
+    public function testModalidadePeloCenarioEPeloTipo(): void
+    {
+        self::assertSame('chapa', CenarioDaAssembleia::Classe->modalidade(TipoDaPauta::EleicaoDeCargo));
+        self::assertSame('chapa', CenarioDaAssembleia::Sindicato->modalidade(TipoDaPauta::EleicaoDeCargo));
+        self::assertSame('individual', CenarioDaAssembleia::Associacao->modalidade(TipoDaPauta::EleicaoDeCargo));
+        self::assertSame('individual', CenarioDaAssembleia::Condominio->modalidade(TipoDaPauta::EleicaoDeCargo));
+        self::assertSame('consulta', CenarioDaAssembleia::Consulta->modalidade(TipoDaPauta::Deliberacao));
+        self::assertSame('pauta', CenarioDaAssembleia::Condominio->modalidade(TipoDaPauta::Deliberacao));
+        self::assertSame('pauta', CenarioDaAssembleia::Classe->modalidade(TipoDaPauta::Deliberacao));
+    }
+
     #[TestDox('São os 9 cenários do desenho, cada um com rótulo, aviso e ícone, e nenhum texto com travessão')]
     public function testCatalogoCompletoSemTravessao(): void
     {
         self::assertCount(9, CenarioDaAssembleia::cases());
         foreach (CenarioDaAssembleia::cases() as $cenario) {
-            foreach ([$cenario->rotulo(), $cenario->ajuda(), $cenario->entidade(), $cenario->assinatura1(), $cenario->assinatura2()] as $texto) {
+            foreach ([$cenario->rotulo(), $cenario->ajuda(), $cenario->entidade(), $cenario->assinatura1(), $cenario->assinatura2(), $cenario->identificacao(), $cenario->grupo()] as $texto) {
                 self::assertNotSame('', $texto);
                 self::assertDoesNotMatchRegularExpression('/[—–]/u', $texto);
             }

@@ -25,6 +25,24 @@ final class ModelosDePautas
         'cooperativa' => ['pauta' => true, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => ['Conselho de administração', 'Conselho fiscal']],
         'sociedade' => ['pauta' => true, 'criterio' => 'absoluta', 'base' => 'aptos', 'quorum' => 0, 'pessoas' => ['Eleição de administradores']],
         'associacao' => ['pauta' => false, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+        'classe' => ['pauta' => false, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+        'sindicato' => ['pauta' => false, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+        'ensino' => ['pauta' => false, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+        'consulta' => ['pauta' => true, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+        'livre' => ['pauta' => false, 'criterio' => 'mais', 'base' => 'validos', 'quorum' => 0, 'pessoas' => []],
+    ];
+
+    /** "Cargos e pautas frequentes" por cenário (desenho: `CG`). @var array<string, list<string>> */
+    private const ATALHOS = [
+        'condominio' => ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal', 'Aprovação de contas', 'Previsão orçamentária', 'Obra ou benfeitoria', 'Alteração da convenção'],
+        'classe' => ['Diretoria', 'Conselho', 'Delegados', 'Caixa de assistência'],
+        'associacao' => ['Presidência', 'Vice-presidência', 'Diretoria', 'Conselho fiscal', 'Conselho deliberativo'],
+        'sindicato' => ['Diretoria executiva', 'Conselho fiscal', 'Delegados sindicais'],
+        'cooperativa' => ['Conselho de administração', 'Conselho fiscal', 'Destinação das sobras', 'Prestação de contas'],
+        'sociedade' => ['Aprovação das contas', 'Destinação dos lucros', 'Eleição de administradores', 'Alteração do contrato social'],
+        'ensino' => ['Reitoria ou direção', 'Vice-direção', 'Coordenação de curso', 'Representação estudantil'],
+        'consulta' => ['Pergunta da consulta'],
+        'livre' => [],
     ];
 
     /** @var array<string, array{cenario: string, rotulo: string, pautas: list<string>}> */
@@ -38,10 +56,20 @@ final class ModelosDePautas
         'associacao_eleicao' => ['cenario' => 'associacao', 'rotulo' => 'Eleição da diretoria', 'pautas' => ['Presidência', 'Vice-presidência', 'Conselho fiscal']],
     ];
 
-    /** @return array<string, array{cenario: string, rotulo: string, pautas: list<string>}> pela chave do modelo */
-    public static function modelos(): array
+    /**
+     * @param string|null $cenario só os modelos desse cenário (desenho: `modelos(id)`); null traz todos
+     *
+     * @return array<string, array{cenario: string, rotulo: string, pautas: list<string>}> pela chave do modelo
+     */
+    public static function modelos(?string $cenario = null): array
     {
-        return self::MODELOS;
+        return null === $cenario ? self::MODELOS : array_filter(self::MODELOS, static fn (array $m): bool => $m['cenario'] === $cenario);
+    }
+
+    /** @return list<string> os "Cargos e pautas frequentes" do cenário (desenho: `CG`) */
+    public static function atalhos(string $cenario): array
+    {
+        return self::ATALHOS[$cenario] ?? [];
     }
 
     /** @return list<PautaInput> as pautas do modelo, na ordem do desenho */

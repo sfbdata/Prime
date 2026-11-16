@@ -87,7 +87,8 @@ final class EnviarComprovantePorEmailUseCaseTest extends TestCase
         self::assertSame('Assembleia de teste', $comprovante->assembleia);
         self::assertSame('Contas', $comprovante->pauta);
         self::assertSame((new ComprovanteDoVoto('teste'))->codigo(7, 10, new \DateTimeImmutable('2026-11-13 12:00:00')), $comprovante->codigo);
-        self::assertSame(['assembleia', 'pauta', 'unidade', 'registradaEm', 'codigo'], array_keys(get_object_vars($comprovante)));
+        self::assertSame('Unidade', $comprovante->identificacao, 'só o rótulo do cenário (condomínio no padrão), nunca token');
+        self::assertSame(['assembleia', 'pauta', 'unidade', 'registradaEm', 'codigo', 'identificacao'], array_keys(get_object_vars($comprovante)));
     }
 
     public function testSemParticipacaoRecusaAntesDeConsumirCota(): void

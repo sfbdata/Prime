@@ -849,7 +849,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('3', $this->camposDaAta($ata, (int) $pauta->getId())['Comparecimento']);
     }
 
-    #[TestDox('Modelos prontos: o botão cria as pautas do modelo em rascunho, com regras do desenho, e avisa o que aplicou')]
+    #[TestDox('Modelos prontos (os do cenário da assembleia, condomínio no padrão): o botão cria as pautas do modelo em rascunho, com regras do desenho, e avisa o que aplicou')]
     public function testModeloProntoCriaAsPautas(): void
     {
         $this->liberar();
@@ -859,10 +859,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $tela = $this->client->request('GET', $url);
         self::assertSame('Modelos prontos:', trim($tela->filter('.voto-atalhos')->first()->filter('span')->first()->text()));
         self::assertSame(
-            ['Condomínio: AGO completa', 'Condomínio: Eleição de síndico e conselho', 'Condomínio: AGE: alteração da convenção', 'Condomínio: AGE: obra ou benfeitoria', 'Cooperativa: AGO completa', 'Sociedade: AGO de sócios', 'Associação: Eleição da diretoria'],
+            ['AGO completa', 'Eleição de síndico e conselho', 'AGE: alteração da convenção', 'AGE: obra ou benfeitoria'],
             $tela->filter('.voto-atalhos button.vP[name="modelo"]')->each(static fn (Crawler $c): string => trim($c->text())),
         );
-        self::assertCount(7, $tela->filter('.voto-atalhos button.vP[name="modelo"] > .bi-magic'));
+        self::assertCount(4, $tela->filter('.voto-atalhos button.vP[name="modelo"] > .bi-magic'));
         self::assertCount(7, $tela->filter('.voto-atalhos button[name="atalho"]'), 'os atalhos de cargos frequentes continuam');
 
         $this->client->submit($tela->filter('.voto-atalhos button[value="condominio_ago"]')->form());

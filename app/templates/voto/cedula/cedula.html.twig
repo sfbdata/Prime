@@ -17,7 +17,7 @@
         {% if cedula.apta %}<i class="bi bi-person-check-fill" aria-hidden="true"></i>{% endif %}
         <div class="vcUnidadeTx">
             <b>{{ cedula.assembleia }}</b>
-            <div>{{ 'voto.assembleia.cedula.unidade'|trans }} {% if cedula.bloco != '' %}{{ cedula.bloco }} · {% endif %}{{ cedula.unidade }}</div>
+            <div>{{ cedula.cenario.identificacao }} {% if cedula.bloco != '' %}{{ cedula.bloco }} · {% endif %}{{ cedula.unidade }}</div>
         </div>
         {% if not cedula.apta %}<span class="vChip vcChipNaoApto">{{ 'voto.assembleia.cedula.nao_apto'|trans }}</span>{% endif %}
     </div>

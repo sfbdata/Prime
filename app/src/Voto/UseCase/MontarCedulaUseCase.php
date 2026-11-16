@@ -145,6 +145,8 @@ final class MontarCedulaUseCase
             porFracao: PesoDoVoto::Fracao === $assembleia->getPeso(),
             pautas: $pautas,
             email: $unidade->getEmail() ?? '',
+            entidade: $assembleia->getEntidadeNome() ?? '',
+            cenario: $assembleia->getCenario(),
         );
     }
 

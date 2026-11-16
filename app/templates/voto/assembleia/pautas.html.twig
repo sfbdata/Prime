@@ -5,7 +5,8 @@
     frequentes:", uma caixa por pauta (_pauta_form, com o menu de três pontos: Numerar, Duplicar, Mover, Remover), "Outro cargo ou pauta" e o rodapé
     "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
     uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
-    Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `modelos` ("Modelos prontos"), `opcoes_padrao`, `agora`.
+    Contexto: `assembleia` (AssembleiaNoPainel), `atalhos` e `modelos` (os do cenário da assembleia, como `CG` e `modelos(id)` do
+    desenho; sem nenhum, a linha some), `opcoes_padrao`, `agora`.
 #}
 
 {% set sub = 'pautas' %}
@@ -19,15 +20,18 @@
     <div class="vH"><i class="bi bi-plus-square"></i>{{ 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
     <div class="voto-assistente-corpo">
         <div><b class="voto-etapa-titulo">{{ 'voto.assembleia.gestor.pautas.titulo'|trans }}</b><div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.pautas.subtitulo'|trans }}</div></div>
+        {% if modelos is not empty %}
         <div class="voto-atalhos">
             <span><b>{{ 'voto.assembleia.gestor.modelos.prontos'|trans }}</b></span>
             {% for chave, modelo in modelos %}
                 <form method="post" action="{{ path('voto_assembleia_pauta_modelo', {id: a.id}) }}" class="voto-form-linha">
                     <input type="hidden" name="_token" value="{{ token }}">
-                    <button type="submit" class="vB vP" name="modelo" value="{{ chave }}" title="{{ modelo.pautas|join(', ') }}"><i class="bi bi-magic"></i>{{ ('voto.assembleia.gestor.modelos.' ~ modelo.cenario)|trans }}: {{ modelo.rotulo }}</button>
+                    <button type="submit" class="vB vP" name="modelo" value="{{ chave }}" title="{{ modelo.pautas|join(', ') }}"><i class="bi bi-magic"></i>{{ modelo.rotulo }}</button>
                 </form>
             {% endfor %}
         </div>
+        {% endif %}
+        {% if atalhos is not empty %}
         <div class="voto-atalhos">
             <span>{{ 'voto.assembleia.gestor.pautas.frequentes'|trans }}</span>
             {% for atalho in atalhos %}
@@ -37,6 +41,7 @@
                 </form>
             {% endfor %}
         </div>
+        {% endif %}
         {% for p in a.pautas %}
             <div class="voto-pauta-bloco">
                 {% set opcoesDaPauta = p.opcoes %}
