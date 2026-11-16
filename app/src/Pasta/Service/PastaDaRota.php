@@ -96,8 +96,13 @@ final class PastaDaRota
     private function filhaDeclarada(ControllerArgumentsEvent $event): ?object
     {
         $declaracoes = $event->getAttributes(PastaPelaFilha::class);
-        $tenant      = $this->tenantContext->getCurrentTenant();
-        if ($declaracoes === [] || $tenant === null) {
+        // As declarações antes do escritório: sem elas não há o que buscar, e ler o escritório abriria a sessão numa
+        // rota sem sessão (o /mcp do conector de I.A., spec mcp-remoto-oauth 12.18).
+        if ($declaracoes === []) {
+            return null;
+        }
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
             return null;
         }
 
@@ -119,8 +124,13 @@ final class PastaDaRota
     private function pastaPorIdDeclarado(ControllerArgumentsEvent $event): ?Pasta
     {
         $declaracoes = $event->getAttributes(PastaPorId::class);
-        $tenant      = $this->tenantContext->getCurrentTenant();
-        if ($declaracoes === [] || $tenant === null) {
+        // As declarações antes do escritório: sem elas não há o que buscar, e ler o escritório abriria a sessão numa
+        // rota sem sessão (o /mcp do conector de I.A., spec mcp-remoto-oauth 12.18).
+        if ($declaracoes === []) {
+            return null;
+        }
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
             return null;
         }
 
