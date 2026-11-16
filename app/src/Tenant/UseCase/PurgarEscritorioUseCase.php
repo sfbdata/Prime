@@ -310,6 +310,15 @@ final class PurgarEscritorioUseCase
         ['chat_ia_anexo', 'tenant_id = :tenant'],
         ['chat_ia_mensagem', 'tenant_id = :tenant'],
         ['chat_ia_conversa', 'tenant_id = :tenant'],
+        // Conector de I.A. (spec mcp-remoto-oauth, 13.2): as FKs para o escritório, a pessoa e a tabela pai são CASCADE, mas a
+        // purga é explícita, de baixo para cima (proposta e token, depois código, concessão, consentimento). O cliente
+        // OAuth é global (sem tenant_id: o mesmo ChatGPT serve a todos os escritórios) e fica.
+        ['conector_ia_proposta', 'tenant_id = :tenant'],
+        ['conector_ia_token', 'tenant_id = :tenant'],
+        ['conector_ia_codigo', 'tenant_id = :tenant'],
+        ['conector_ia_concessao', 'tenant_id = :tenant'],
+        ['conector_ia_consentimento', 'tenant_id = :tenant'],
+        ['conector_ia_escritorio', 'tenant_id = :tenant'],
         // PDFs do Cálculo emitidos (código de verificação): a FK de tenant cascateia, mas a purga é explícita.
         ['calculo_emitido', 'tenant_id = :tenant'],
         // Assinatura de documentos (etapa 1): signatários e eventos caem pela CASCADE do documento. Os arquivos (PDF e
