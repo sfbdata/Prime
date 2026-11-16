@@ -95,6 +95,7 @@ final class LeituraDaAssembleia
             vagas: $pauta->getVagas(),
             quorumPrimeira: $pauta->getQuorumPrimeira(),
             quorumSegunda: $pauta->getQuorumSegunda(),
+            tipo: $pauta->getTipo(),
         );
     }
 
