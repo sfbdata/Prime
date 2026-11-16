@@ -278,4 +278,54 @@ final class ServidorMcpDoConectorTest extends TestCase
         self::assertSame(503, $contexto['status']);
         self::assertSame('consentimento_revogado', $contexto['recusa']);
     }
+
+    #[TestDox('requisição aberta e depois recusada (o último uso não gravou): a linha tem 503, os ids e recusa=erro, nunca resultado=ok')]
+    public function testAbertaERecusadaNaoEhSucesso(): void
+    {
+        $registros = new TestHandler();
+        $requisicao = new RequisicaoDoConector();
+        $portao = $this->portaoQueRecusa($requisicao, 'erro', self::chamada());
+
+        $resposta = $this->servidor(['mcp:leitura'], [], $requisicao, new Logger('mcp', [$registros]), portao: $portao)
+            ->responder(self::post('tools/list'));
+
+        self::assertSame(503, $resposta->getStatusCode());
+        self::assertSame(0, $this->passouNoLimite);
+        $contexto = $registros->getRecords()[0]->context;
+        self::assertSame(503, $contexto['status']);
+        self::assertSame('erro', $contexto['recusa']);
+        self::assertSame(41, $contexto['concessao']);
+        self::assertArrayNotHasKey('resultado', $contexto);
+        self::assertArrayNotHasKey('ferramenta', $contexto);
+    }
+
+    #[TestDox('o mesmo servidor atende chamadas seguidas sem guardar nada entre elas: recusado, aceito, sem token e step-up, cada um com a sua resposta e a sua linha')]
+    public function testSemEstadoEntreChamadas(): void
+    {
+        $registros = new TestHandler();
+        $requisicao = new RequisicaoDoConector();
+        $ler = self::ferramenta('ler_clientes', new RespostaDaFerramenta(['clientes' => []], contagens: ['clientes' => 0]));
+        $servidor = $this->servidor(['mcp:leitura'], [$ler], $requisicao, new Logger('mcp', [$registros]));
+
+        $status = [];
+        foreach ([
+            self::post('tools/list', token: 'recusado'),
+            self::post('tools/call', ['name' => 'ler_clientes', 'arguments' => new \stdClass()]),
+            self::post('tools/list', token: null),
+            self::post('tools/call', ['name' => 'atualizar_cliente', 'arguments' => new \stdClass()]),
+        ] as $pedido) {
+            $status[] = $servidor->responder($pedido)->getStatusCode();
+            $requisicao->reset();
+        }
+
+        self::assertSame([401, 200, 401, 403], $status);
+        $linhas = array_map(static fn ($r) => $r->context, $registros->getRecords());
+        self::assertCount(4, $linhas);
+        self::assertSame('ok', $linhas[1]['resultado']);
+        foreach ([0, 2, 3] as $i) {
+            self::assertArrayNotHasKey('resultado', $linhas[$i], 'a anotação da chamada aceita não passa para a seguinte');
+            self::assertArrayNotHasKey('pessoa', $linhas[$i]);
+        }
+        self::assertSame(1, $this->passouNoPortao);
+    }
 }

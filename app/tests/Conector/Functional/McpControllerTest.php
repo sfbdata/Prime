@@ -8,11 +8,13 @@ use App\Conector\Controller\McpController;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -24,6 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[CoversClass(McpController::class)]
 final class McpControllerTest extends WebTestCase
 {
+    use CenarioDoConectorTrait;
     use DublesDoMcpTrait;
 
     private const CPF = '529.982.247-25';
@@ -97,6 +100,30 @@ final class McpControllerTest extends WebTestCase
         foreach (['52998224725', '529.982.247-25', '529982', '24725'] as $pedaco) {
             self::assertStringNotContainsString($pedaco, $log);
         }
+    }
+
+    #[TestDox('com bearer aceito e um cookie de sessão de outro escritório: nada liga o filtro da sessão nem toca na sessão (debug ligado: o Symfony lança se a sessão for usada)')]
+    public function testNadaTocaNaSessaoNemLigaOFiltro(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $daSessao = $this->escritorio('Escritório da sessão');
+        $sessao = static::getContainer()->get('session.factory')->createSession();
+        $sessao->set('current_tenant_id', (int) $daSessao->getId());
+        $sessao->save();
+        $client->getCookieJar()->set(new Cookie($sessao->getName(), $sessao->getId()));
+        $this->trocarServidor(['mcp:leitura']);
+
+        $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 9, 'method' => 'tools/list'], self::TOKEN);
+
+        self::assertFalse($this->em()->getFilters()->isEnabled('tenant'), 'o filtro do escritório da sessão não liga no /mcp');
+        self::assertSame(
+            200,
+            $resposta->getStatusCode(),
+            'a sessão foi usada no /mcp (hoje: PastaDaRota lê o escritório da sessão antes de olhar a declaração da rota): '
+            . mb_substr((string) $resposta->getContent(), 0, 300),
+        );
+        self::assertSemSessao($resposta);
     }
 
     /** @param list<string> $escopos */

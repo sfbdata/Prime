@@ -107,18 +107,22 @@ trait DublesDoMcpTrait
 
     /**
      * Um portão que recusa como o do bloco A: anota o motivo em `recusa` (`PortaoNoMcpMiddleware::ANOTACAO_RECUSA`) e
-     * responde 503 sem chamar o resto da cadeia.
+     * responde 503 sem chamar o resto da cadeia. Com `$abertaAntes`, abre a requisição antes de recusar, como o portão
+     * de verdade quando a gravação do último uso falha (motivo `erro`, `PortaoNoMcpMiddleware::MOTIVO_ERRO`).
      */
-    private function portaoQueRecusa(RequisicaoDoConector $requisicao, string $motivo): MiddlewareInterface
+    private function portaoQueRecusa(RequisicaoDoConector $requisicao, string $motivo, ?ChamadaDoConector $abertaAntes = null): MiddlewareInterface
     {
-        return new class ($this, $requisicao, $motivo) implements MiddlewareInterface {
-            public function __construct(private readonly object $teste, private readonly RequisicaoDoConector $requisicao, private readonly string $motivo)
+        return new class ($this, $requisicao, $motivo, $abertaAntes) implements MiddlewareInterface {
+            public function __construct(private readonly object $teste, private readonly RequisicaoDoConector $requisicao, private readonly string $motivo, private readonly ?ChamadaDoConector $abertaAntes)
             {
             }
 
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 ++$this->teste->passouNoPortao;
+                if ($this->abertaAntes !== null) {
+                    $this->requisicao->abrir($this->abertaAntes);
+                }
                 $this->requisicao->anotar('recusa', $this->motivo);
 
                 return (new Psr17Factory())->createResponse(503);

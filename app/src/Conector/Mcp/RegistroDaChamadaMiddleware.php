@@ -24,7 +24,12 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * {@see RequisicaoDoConector} (ferramenta, resultado, contagens, ids). Nunca o corpo, os argumentos, o resultado da
  * ferramenta nem cabeçalho: nada de texto de busca, nome, valor de campo ou CPF (12.15).
  *
- * Escrever o log nunca muda a resposta: uma falha ao montar a linha vira uma linha mínima com o nome da falha.
+ * Requisição aberta não quer dizer sucesso: o portão abre a requisição antes de gravar o último uso e, se essa
+ * gravação falha, responde 503 com a requisição aberta e a anotação `recusa`. Quem diz que a chamada deu certo é o
+ * status e a anotação `resultado` do despacho; a linha leva os três e nunca deduz nada da abertura.
+ *
+ * Escrever o log nunca muda a resposta: uma falha ao ler os ids ou o motivo vira o campo `falha_no_registro`, e o
+ * resto da linha (status, duração e anotações, inclusive `recusa`) continua.
  */
 final class RegistroDaChamadaMiddleware implements MiddlewareInterface
 {
@@ -54,12 +59,18 @@ final class RegistroDaChamadaMiddleware implements MiddlewareInterface
 
     private function registrar(int $status, int $duracaoMs): void
     {
+        $linha = ['status' => $status, 'duracao_ms' => $duracaoMs];
         try {
-            $linha = ['status' => $status, 'duracao_ms' => $duracaoMs] + $this->idsDaChamada() + ['motivo' => $this->motivoDaRecusa()];
-            $linha += $this->requisicao->anotacoes();
+            $linha += $this->idsDaChamada();
         } catch (\Throwable $falha) {
-            $linha = ['status' => $status, 'duracao_ms' => $duracaoMs, 'falha_no_registro' => $falha::class];
+            $linha['falha_no_registro'] = $falha::class;
         }
+        try {
+            $linha['motivo'] = $this->motivoDaRecusa();
+        } catch (\Throwable $falha) {
+            $linha['falha_no_registro'] ??= $falha::class;
+        }
+        $linha += $this->requisicao->anotacoes();
 
         $this->mcpLogger->info(self::MENSAGEM, $linha);
     }
