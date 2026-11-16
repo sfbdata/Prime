@@ -112,6 +112,16 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('main', $mensagem);
     }
 
+    /** O escritório ou a pessoa recusado no POST volta ao app como "não autorizado", com state e iss. */
+    private function exigirRecusaNoApp(): void
+    {
+        $parametros = $this->voltaAoApp();
+        self::assertSame('access_denied', $parametros['error']);
+        self::assertSame(AutorizacaoController::ACESSO_RECUSADO, $parametros['error_description']);
+        self::assertSame('estado-do-app-123', $parametros['state']);
+        self::assertArrayNotHasKey('code', $parametros);
+    }
+
     private function concessoesDe(User $pessoa): int
     {
         return $this->em()->getRepository(ConcessaoDoConector::class)->count(['user' => $pessoa->getId()]);
@@ -261,7 +271,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->concessoesDe($pessoa));
     }
 
-    #[TestDox('12.27: escritório forjado no formulário, sem vínculo da pessoa (mesmo liberado), recusa e não grava')]
+    #[TestDox('12.27: escritório forjado no formulário, sem vínculo da pessoa (mesmo liberado), volta ao app com access_denied e não grava')]
     public function testEscritorioForjadoRecusa(): void
     {
         [, $pessoa] = $this->cenario();
@@ -270,7 +280,50 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
 
         $this->enviar($this->campos($this->abrir(), (int) $alheio->getId()));
 
-        $this->exigirPaginaDeErro(403, AcessoDoConectorRecusado::ACESSO_INDISPONIVEL);
+        $this->exigirRecusaNoApp();
+        self::assertSame(0, $this->concessoesDe($pessoa));
+    }
+
+    #[TestDox('autorizar sem escolher o escritório (dois disponíveis): volta à tela com o aviso, sem gastar o pedido')]
+    public function testAutorizarSemEscolherVoltaATela(): void
+    {
+        $this->clienteValido();
+        $a = $this->escritorio('A');
+        $b = $this->escritorio('B');
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $a);
+        $this->vinculo($pessoa, $b);
+        $this->liberarConector($a);
+        $this->liberarConector($b);
+        $this->logarComTenant($this->client, $pessoa, $a);
+        $tela = $this->abrir();
+        self::assertCount(0, $tela->filter('input[name="' . self::FORM . '[tenantId]"]:checked'), 'com dois disponíveis, nenhum vem marcado');
+        $campos = $this->campos($tela, null);
+
+        $novaTela = $this->client->request('POST', '/oauth/authorize', [self::FORM => $campos]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('main [role="alert"]', AutorizacaoController::ESCOLHA_O_ESCRITORIO);
+        self::assertSame($campos['pedido'], $novaTela->filter('input[name="' . self::FORM . '[pedido]"]')->attr('value'), 'o mesmo pedido');
+        self::assertSame(0, $this->concessoesDe($pessoa));
+
+        $this->enviar($this->campos($novaTela, (int) $b->getId()));
+
+        $parametros = $this->voltaAoApp();
+        self::assertArrayHasKey('code', $parametros);
+        self::assertSame('estado-do-app-123', $parametros['state']);
+    }
+
+    #[TestDox('autorizar sem escolher o escritório com CSRF errado: o CSRF vem antes, recusa e gasta o pedido')]
+    public function testSemEscolherComCsrfErradoRecusa(): void
+    {
+        [, $pessoa] = $this->cenario();
+        $campos = $this->campos($this->abrir(), null);
+        $campos['_token'] = 'token-errado';
+
+        $this->enviar($campos);
+
+        $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
         self::assertSame(0, $this->concessoesDe($pessoa));
     }
 
@@ -352,7 +405,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertArrayHasKey('code', $this->voltaAoApp());
     }
 
-    #[TestDox('12.3: o primário de conta suspensa a pedido vê o motivo na tela e é recusado no POST com a mensagem do pedido de exclusão')]
+    #[TestDox('12.3: o primário de conta suspensa a pedido vê o motivo (a mensagem do pedido de exclusão) na tela, e o POST volta ao app com access_denied')]
     public function testPrimarioSuspensoAPedido(): void
     {
         $this->clienteValido();
@@ -371,7 +424,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
 
         $this->enviar($this->campos($tela, (int) $tenant->getId()));
 
-        $this->exigirPaginaDeErro(403, BloqueioPorPedidoDeExclusao::MENSAGEM);
+        $this->exigirRecusaNoApp();
         self::assertSame(0, $this->concessoesDe($primario));
     }
 
@@ -385,7 +438,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('semLiberacao')]
-    #[TestDox('12.24 no authorize ($_dataName): a tela mostra o escritório desabilitado e o POST recusa')]
+    #[TestDox('12.24 no authorize ($_dataName): a tela mostra o escritório desabilitado e o POST volta ao app com access_denied')]
     public function testSemLiberacaoRecusa(string $caso): void
     {
         $this->clienteValido();
@@ -405,7 +458,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString(AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO, $tela->filter('main')->text());
         $this->enviar($this->campos($tela, (int) $tenant->getId()));
 
-        $this->exigirPaginaDeErro(403, AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO);
+        $this->exigirRecusaNoApp();
         self::assertSame(0, $this->concessoesDe($pessoa));
     }
 }

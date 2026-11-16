@@ -39,6 +39,17 @@ final class PedidoDeAutorizacaoNaSessao
         return $id;
     }
 
+    /**
+     * O pedido do id SEM tirá-lo da sessão: para voltar à tela quando falta uma escolha (o escritório) e o pedido
+     * continua valendo. Nulo se não existe, venceu ou já foi usado.
+     */
+    public function ler(?string $id): ?PedidoDeAutorizacao
+    {
+        $guardado = $id !== null && $id !== '' ? ($this->vigentes()[$id] ?? null) : null;
+
+        return $guardado === null ? null : PedidoDeAutorizacao::daSessao($guardado['pedido']);
+    }
+
     /** O pedido do id, tirado da sessão (uso único); nulo se não existe, venceu ou já foi usado. */
     public function retirar(?string $id): ?PedidoDeAutorizacao
     {

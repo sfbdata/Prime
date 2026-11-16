@@ -25,6 +25,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -46,6 +47,10 @@ use Psr\Clock\ClockInterface;
  *
  * Gravação numa transação, dentro do escopo de auditoria do escritório ESCOLHIDO: o `audit_log` do consentimento cai
  * na trilha dele, não na do escritório que está na sessão do navegador.
+ *
+ * Duas autorizações da mesma pessoa ao mesmo tempo (dois navegadores na primeira conexão) se enfileiram pela trava da
+ * linha da pessoa (`SELECT ... FOR UPDATE`), pedida no começo da transação: a segunda espera a primeira confirmar e
+ * então encontra o consentimento ativo e o reaproveita, em vez de esbarrar no índice único do consentimento ativo.
  */
 final class AutorizarConexaoUseCase
 {
@@ -108,6 +113,10 @@ final class AutorizarConexaoUseCase
      */
     private function gravar(User $pessoa, Tenant $tenant, ClienteDoConector $cliente, PedidoDeAutorizacao $pedido, array $escopos): string
     {
+        // Antes de qualquer leitura: quem chega em segundo espera aqui e já lê o que o primeiro confirmou. O `lock()`
+        // trava só a linha (o `find()` com trava recarregaria a pessoa com JOIN, e o PostgreSQL recusa o FOR UPDATE no
+        // lado opcional de um LEFT JOIN).
+        $this->em->lock($this->em->contains($pessoa) ? $pessoa : $this->em->getReference(User::class, $pessoa->getId()), LockMode::PESSIMISTIC_WRITE);
         $this->portao->conferir((int) $pessoa->getId(), (int) $tenant->getId());
         $this->liberacao->exigir($tenant);
 

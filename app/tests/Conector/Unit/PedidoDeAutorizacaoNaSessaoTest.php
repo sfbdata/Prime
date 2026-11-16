@@ -58,6 +58,24 @@ final class PedidoDeAutorizacaoNaSessaoTest extends TestCase
         self::assertNull($sut->retirar($id));
     }
 
+    #[TestDox('ler devolve o pedido sem tirá-lo da sessão; vencido ou desconhecido não devolve nada')]
+    public function testLerNaoGasta(): void
+    {
+        $sut = $this->sut();
+        $id = $sut->guardar(self::pedido());
+
+        self::assertEquals(self::pedido(), $sut->ler($id));
+        self::assertEquals(self::pedido(), $sut->ler($id));
+        self::assertNull($sut->ler('outro'));
+        self::assertNull($sut->ler(null));
+        self::assertEquals(self::pedido(), $sut->retirar($id));
+        self::assertNull($sut->ler($id));
+
+        $vencido = $sut->guardar(self::pedido());
+        $this->relogio->sleep(1800);
+        self::assertNull($sut->ler($vencido));
+    }
+
     #[TestDox('id desconhecido, vazio ou nulo não devolve pedido e não tira os outros')]
     public function testIdDesconhecido(): void
     {

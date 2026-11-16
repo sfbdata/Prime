@@ -42,6 +42,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class AutorizacaoController extends AbstractController
 {
     public const PEDIDO_INVALIDO = 'Este pedido de conexão não vale mais. Volte ao aplicativo de I.A. e conecte de novo.';
+    public const ESCOLHA_O_ESCRITORIO = 'Escolha o escritório que o aplicativo vai acessar.';
+    /** O `error_description` que volta ao app quando o escritório ou a pessoa foi recusado no POST. */
+    public const ACESSO_RECUSADO = 'O acesso a este escritório não está disponível.';
 
     public function __construct(
         private readonly ValidarPedidoDeAutorizacaoUseCase $validar,
@@ -86,8 +89,19 @@ final class AutorizacaoController extends AbstractController
         $input = new AutorizarConexaoInput();
         $form = $this->createForm(AutorizarConexaoType::class, $input);
         $form->handleRequest($request);
+        $valido = $form->isSubmitted() && $form->isValid();
+
+        // Autorizar sem escolher o escritório (o CSRF já foi conferido acima): volta à tela com o aviso, e o pedido
+        // fica na sessão para a segunda tentativa.
+        if ($valido && $input->tenantId === null && self::clicou($form, 'autorizar')) {
+            $pendente = $this->pedidos->ler($input->pedido);
+            if ($pendente !== null) {
+                return $this->tela($pendente, $form, $pessoa, self::ESCOLHA_O_ESCRITORIO, Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         $pedido = $this->pedidos->retirar($input->pedido);
-        if ($pedido === null || !$form->isSubmitted() || !$form->isValid()) {
+        if ($pedido === null || !$valido) {
             return $this->recusa(self::PEDIDO_INVALIDO, Response::HTTP_BAD_REQUEST);
         }
         if (!self::clicou($form, 'autorizar')) {
@@ -96,16 +110,19 @@ final class AutorizacaoController extends AbstractController
 
         try {
             $codigo = $this->autorizar->executar($input, $pedido, $pessoa);
-        } catch (AcessoDoConectorRecusado $recusa) {
-            return $this->recusa($recusa->getMessage(), Response::HTTP_FORBIDDEN);
+        } catch (AcessoDoConectorRecusado) {
+            // O pedido já passou pelo registro, então o retorno é seguro: o app recebe a recusa em vez de ficar
+            // esperando. O motivo detalhado não sai do BlueJus (a tela do GET já o mostrou ao lado do escritório).
+            return RespostaDeAutorizacao::erro($pedido->redirectUri, ErroOAuth::accessDenied(self::ACESSO_RECUSADO), $pedido->state);
         } catch (ClienteRecusado) {
+            // Cliente ou retorno que deixou de valer: nunca redireciona.
             return $this->recusa(ClienteRecusado::MENSAGEM, Response::HTTP_BAD_REQUEST);
         }
 
         return RespostaDeAutorizacao::sucesso($pedido->redirectUri, $codigo, $pedido->state);
     }
 
-    private function tela(PedidoDeAutorizacao $pedido, FormInterface $form, User $pessoa): Response
+    private function tela(PedidoDeAutorizacao $pedido, FormInterface $form, User $pessoa, ?string $aviso = null, int $status = Response::HTTP_OK): Response
     {
         return $this->semMoldura($this->render('conector/autorizar.html.twig', [
             'form' => $form->createView(),
@@ -115,7 +132,8 @@ final class AutorizacaoController extends AbstractController
             'pediuEscrita' => $pedido->pediuEscrita(),
             'escritorios' => $this->listarEscritorios->executar($pessoa),
             'email' => (string) $pessoa->getEmail(),
-        ]));
+            'aviso' => $aviso,
+        ], new Response('', $status)));
     }
 
     private function recusa(string $mensagem, int $status): Response

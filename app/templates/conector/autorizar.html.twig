@@ -42,6 +42,9 @@
         {{ form_widget(form.pedido) }}
 
         <p class="cj-secao">Escritório da conexão</p>
+        {% if aviso|default(null) %}
+            <p class="cj-aviso" role="alert">{{ aviso }}</p>
+        {% endif %}
         {% for escritorio in escritorios %}
             <label class="cj-escritorio{{ escritorio.disponivel ? '' : ' cj-escritorio--off' }}">
                 <input type="radio" name="{{ field_name(form.tenantId) }}" value="{{ escritorio.tenantId }}"{{ escritorio.disponivel ? '' : ' disabled' }}{{ escritorio.disponivel and disponiveis|length == 1 ? ' checked' : '' }}>
