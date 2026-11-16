@@ -12,10 +12,20 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Contracts\Service\ResetInterface;
 
-final class TenantContext
+final class TenantContext implements ResetInterface
 {
     private const SESSION_KEY = 'current_tenant_id';
+
+    /**
+     * Escritório fixado sem sessão pelo conector de I.A. (spec mcp-remoto-oauth 4.1; revisão de 16/11/2026, achado 3),
+     * só para a requisição: vale antes da sessão em {@see getCurrentTenant()}, {@see getCurrentUserTenant()} e
+     * {@see hasCurrentTenant()}, e zera no {@see reset()}. Guarda os ids e relê pelo EntityManager, como o caminho da
+     * sessão: a entidade devolvida é sempre a gerenciada, mesmo depois de um `clear()`.
+     */
+    private ?int $tenantFixoId = null;
+    private ?int $vinculoFixoId = null;
 
     public function __construct(
         private readonly RequestStack $requestStack,
@@ -26,6 +36,10 @@ final class TenantContext
 
     public function getCurrentTenant(): ?Tenant
     {
+        if ($this->tenantFixoId !== null) {
+            return $this->em->find(Tenant::class, $this->tenantFixoId);
+        }
+
         $tenantId = $this->tenantIdFromSession();
         if ($tenantId === null) {
             return null;
@@ -36,6 +50,10 @@ final class TenantContext
 
     public function getCurrentUserTenant(): ?UserTenant
     {
+        if ($this->vinculoFixoId !== null) {
+            return $this->em->find(UserTenant::class, $this->vinculoFixoId);
+        }
+
         $user = $this->security->getUser();
         if (!$user instanceof User) {
             return null;
@@ -77,12 +95,42 @@ final class TenantContext
 
     public function hasCurrentTenant(): bool
     {
-        return $this->tenantIdFromSession() !== null;
+        return $this->tenantFixoId !== null || $this->tenantIdFromSession() !== null;
     }
 
     public function clearCurrentTenant(): void
     {
         $this->requestStack->getSession()->remove(self::SESSION_KEY);
+    }
+
+    /**
+     * Fixa o escritório da requisição SEM sessão: o do token do conector de I.A. Só o PortaoDoConector chama, depois de
+     * conferir pessoa, vínculo, escritório e barreiras (`PortaoDoConectorArquiteturaTest`). Assim os serviços que leem
+     * o escritório daqui (auditoria, cadeado, notificações) veem o escritório do token, e não nulo. Vale até o
+     * {@see reset()} do fim da requisição; a sessão não é tocada.
+     */
+    public function fixarSemSessao(Tenant $tenant, UserTenant $vinculo): void
+    {
+        $tenantId = $tenant->getId();
+        $vinculoId = $vinculo->getId();
+        if ($tenantId === null || $vinculoId === null || $vinculo->getTenant()->getId() !== $tenantId) {
+            throw new \LogicException('O escritório e o vínculo fixados têm de estar gravados, e o vínculo tem de ser do escritório.');
+        }
+
+        $this->tenantFixoId = $tenantId;
+        $this->vinculoFixoId = $vinculoId;
+    }
+
+    /** Já há escritório fixado sem sessão nesta requisição (o portão recusa abrir de novo). */
+    public function estaFixadoSemSessao(): bool
+    {
+        return $this->tenantFixoId !== null;
+    }
+
+    public function reset(): void
+    {
+        $this->tenantFixoId = null;
+        $this->vinculoFixoId = null;
     }
 
     private function tenantIdFromSession(): ?int

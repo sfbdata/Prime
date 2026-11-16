@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Conector\Service\ModoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
@@ -27,6 +28,10 @@ class PermissionChecker implements ResetInterface
         private readonly ResourceAccessRepository $resourceAccessRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly NivelNoCadeado $nivelNoCadeado,
+        // Teto do conector de I.A. (spec mcp-remoto-oauth 6.3, item 2): ligado, a pessoa do token perde os passes do
+        // Master e do perfil de sistema e as permissões `admin.*`. Nulo (testes antigos que montam o checker à mão):
+        // como desligado.
+        private readonly ?ModoDoConector $modoDoConector = null,
     ) {}
 
     public function canAccessModule(User $user, ?Tenant $tenant, string $module): bool
@@ -41,7 +46,7 @@ class PermissionChecker implements ResetInterface
 
         $userTenant = $this->resolveUserTenant($user, $tenant);
 
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return true;
         }
 
@@ -54,6 +59,9 @@ class PermissionChecker implements ResetInterface
 
     public function canAdminister(User $user, ?Tenant $tenant, string $permission): bool
     {
+        if ($this->modoDoConector?->valePara($user) === true) {
+            return false; // teto do conector: nenhuma função de administrador para a pessoa do token
+        }
         if ($this->isGlobalSuperAdmin($user)) {
             return true;
         }
@@ -64,7 +72,7 @@ class PermissionChecker implements ResetInterface
 
         $userTenant = $this->resolveUserTenant($user, $tenant);
 
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return true;
         }
 
@@ -110,7 +118,7 @@ class PermissionChecker implements ResetInterface
             return false;
         }
 
-        if ($userTenant->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return true;
         }
 
@@ -141,7 +149,7 @@ class PermissionChecker implements ResetInterface
         if ($userTenant === null || !$userTenant->isActive() || !self::mesmoUsuario($userTenant->getUser(), $user)) {
             return [];
         }
-        if ($userTenant->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return $resourceIds;
         }
 
@@ -174,7 +182,7 @@ class PermissionChecker implements ResetInterface
 
         $userTenant = $this->resolveUserTenant($user, $tenant);
 
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return true;
         }
 
@@ -197,6 +205,9 @@ class PermissionChecker implements ResetInterface
 
     public function hasPermission(User $user, ?Tenant $tenant, string $permission): bool
     {
+        if (str_starts_with($permission, 'admin.') && $this->modoDoConector?->valePara($user) === true) {
+            return false; // teto do conector: `admin.*` nunca, nem pelo perfil do vínculo
+        }
         if ($this->isGlobalSuperAdmin($user)) {
             return true;
         }
@@ -207,7 +218,7 @@ class PermissionChecker implements ResetInterface
 
         $userTenant = $this->resolveUserTenant($user, $tenant);
 
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+        if ($this->passeDoPerfilDeSistema($user, $userTenant)) {
             return true;
         }
 
@@ -250,6 +261,9 @@ class PermissionChecker implements ResetInterface
      */
     public function isAdministradorDoEscritorio(User $user, ?Tenant $tenant): bool
     {
+        if ($this->modoDoConector?->valePara($user) === true) {
+            return false; // teto do conector
+        }
         if ($this->isGlobalSuperAdmin($user)) {
             return true;
         }
@@ -258,12 +272,29 @@ class PermissionChecker implements ResetInterface
             return false;
         }
 
-        return $this->resolveUserTenant($user, $tenant)?->getTenantRole()?->isSystem() === true;
+        return $this->passeDoPerfilDeSistema($user, $this->resolveUserTenant($user, $tenant));
     }
 
     private function isGlobalSuperAdmin(User $user): bool
     {
+        if ($this->modoDoConector?->valePara($user) === true) {
+            return false; // teto do conector: o Master conta pelo perfil do vínculo, como qualquer colega
+        }
+
         return in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+    }
+
+    /**
+     * O passe do perfil de sistema (o primário passa por toda checagem). Pelo conector, para a pessoa do token, não
+     * vale: ela conta pelo perfil do vínculo e pelas regras de item (spec mcp-remoto-oauth 6.3).
+     */
+    private function passeDoPerfilDeSistema(User $user, ?UserTenant $userTenant): bool
+    {
+        if ($this->modoDoConector?->valePara($user) === true) {
+            return false;
+        }
+
+        return $userTenant?->getTenantRole()?->isSystem() === true;
     }
 
     private function resolveUserTenant(User $user, Tenant $tenant): ?UserTenant
@@ -296,6 +327,13 @@ class PermissionChecker implements ResetInterface
 
         if ($tenantRole === null) {
             return false;
+        }
+
+        // Teto do conector (6.3, item 3): sem o passe, o perfil de sistema tem toda permissão que não é `admin.*`; o
+        // cadeado e o acesso item a item já foram conferidos antes, como para qualquer colega.
+        if ($tenantRole->isSystem() && $this->modoDoConector?->valePara($userTenant->getUser()) === true
+            && $this->modoDoConector->perfilDeSistemaTem($permission)) {
+            return true;
         }
 
         foreach ($tenantRole->getTenantRolePermissions() as $tenantRolePermission) {
