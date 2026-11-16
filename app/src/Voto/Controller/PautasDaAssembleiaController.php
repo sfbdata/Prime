@@ -54,7 +54,7 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     #[Route('', name: 'voto_assembleia_pautas', methods: ['GET'])]
-    public function pautas(int $id, ObterAssembleiaUseCase $obter): Response
+    public function pautas(int $id, Request $request, ObterAssembleiaUseCase $obter): Response
     {
         $tenant = $this->guarda->exigir();
         try {
@@ -65,6 +65,7 @@ final class PautasDaAssembleiaController extends AbstractController
 
         return $this->render('voto/assembleia/pautas.html.twig', [
             'assembleia' => $assembleia,
+            'urna' => $request->query->getBoolean('urna'),
             'atalhos' => ModelosDePautas::atalhos($assembleia->cenario->value),
             'modelos' => ModelosDePautas::modelos($assembleia->cenario->value),
             'opcoes_padrao' => PautaInput::OPCOES_PADRAO,

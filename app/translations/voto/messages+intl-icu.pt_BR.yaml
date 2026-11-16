@@ -164,7 +164,50 @@ voto:
                 assembleia: Assembleia
                 pautas: Pautas
                 unidades: Unidades e links
-                conferencia: Conferência
+            # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
+            assistente:
+                rotulo: Passos do cadastro da assembleia
+                nao_salvas: Alterações ainda não salvas
+                passo_1: Categoria
+                passo_2: Regras e prazo
+                passo_3: Acesso
+                passo_4: Cargos
+                passo_5: Lista de aptos
+                passo_6: Equipe
+                passo_7: Revisar
+                titulo_1: Que tipo de votação você vai criar?
+                titulo_2: Regras e prazo
+                titulo_3: Como o votante entra
+                titulo_4: Cargos e candidaturas
+                titulo_5: Quem pode votar
+                titulo_6: Quem conduz a votação
+                titulo_7: Confira e publique
+                descricao_1: A categoria já traz regras, documentos e cargos prontos. Tudo pode ser ajustado.
+                descricao_2: Defina como o voto funciona e quando a votação acontece.
+                descricao_3: A configuração sugerida atende à maioria dos casos.
+                descricao_4: Inclua cargos, pautas ou perguntas e suas opções.
+                descricao_5: Importe a relação de quem está apto.
+                descricao_6: Quem opera a votação é a equipe do escritório com acesso ao Voto.
+                descricao_7: Depois de publicada, a configuração fica bloqueada.
+                acesso_texto: 'Cada unidade entra pelo próprio link ou QR Code, sem conta no BlueJus. Os links são gerados quando a assembleia é publicada.'
+                equipe_texto: 'A mesa (equipe do escritório com acesso ao Voto) abre, suspende e encerra cada pauta depois de publicar. A convocação e o prazo são escolhidos ao abrir cada pauta.'
+                regras_das_pautas: Regras de cada pauta
+                regras_das_pautas_dica: 'Sigilo, horário de abertura e encerramento, grupos e ordem das candidaturas são definidos em cada pauta, no passo Cargos.'
+                sem_pautas: Nenhuma pauta incluída ainda.
+                pauta_programada: 'Programada: {abre} até {encerra}'
+                ver_na_urna: Ver na urna
+                sem_urna: Inclua ao menos uma pauta com opções para ver na urna.
+                ver_na_urna_dica: 'Ver na urna salva o rascunho e abre a urna em modo de simulação: nenhum voto é registrado.'
+                revisao_entidade: Entidade
+                revisao_votacao: Votação
+                revisao_cargos: Cargos
+                revisao_lista: Lista de aptos
+                revisao_sem_cargos: Nenhum
+                revisao_lista_resumo: '{aptos} aptos, {inaptos} não aptos'
+                revisao_sem_lista: Sem lista
+                revisao_soma: Soma das frações
+                pronto: Tudo pronto para publicar.
+                publicar: Publicar votação
             andamento:
                 rascunho: Rascunho
                 publicada: Publicada, aguardando abertura
@@ -221,7 +264,6 @@ voto:
                     encerrada: Encerrada
                     cancelada: Cancelada
             conferencia:
-                titulo: Confira antes de publicar
                 aviso: Ao confirmar, as pautas e suas regras ficam bloqueadas. Os votos serão recebidos depois que você abrir cada pauta.
                 peso: Peso do voto
                 aptos: Unidades aptas
@@ -235,7 +277,6 @@ voto:
                 tipo_simulacao: Simulação (pode ser apagada)
                 alterar: Alterar
                 alterar_campo: 'Alterar {campo}'
-                confirmar: Confirmar e publicar votação
                 abrir_agora: Deseja abrir a votação agora?
                 escolher_pauta: Escolha abaixo a pauta, a convocação e o prazo para começar a receber votos.
                 escolher: Escolher pauta

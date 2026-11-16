@@ -191,11 +191,11 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $form = $this->client->request('GET', '/voto/assembleias/nova')->selectButton('Continuar')->form(['titulo' => 'AGO Residencial Jardim 2026', 'peso' => 'fracao']);
         $this->client->submit($form);
         self::assertResponseRedirects();
-        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/pautas$#', (string) $this->client->getResponse()->headers->get('Location'), $m));
+        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/passo/2$#', (string) $this->client->getResponse()->headers->get('Location'), $m), 'Continuar leva ao passo 2 do assistente');
         $id = (int) $m[1];
 
         // Pautas pelos atalhos (pauta padrão 1 Sim, 2 Não, mais a abstenção)
-        $pautas = $this->client->followRedirect();
+        $pautas = $this->client->request('GET', '/voto/assembleias/' . $id . '/pautas');
         $this->client->submit($pautas->filter('.voto-atalhos button[value="Aprovação de contas"]')->form());
         $pautas = $this->client->followRedirect();
         $this->client->submit($pautas->filter('.voto-atalhos button[value="Obra ou benfeitoria"]')->form());
@@ -1111,7 +1111,8 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
 
     private function publicarPelaConferencia(Crawler $unidades, int $id): Crawler
     {
-        $revisao = $this->client->submit($unidades->selectButton('Publicar votação')->form());
+        self::assertSame('/voto/assembleias/' . $id . '/passo/6', $unidades->selectLink('Continuar')->attr('href'), 'a lista leva à Equipe, e esta à revisão');
+        $revisao = $this->client->request('GET', '/voto/assembleias/' . $id . '/publicar');
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('0,900000', $revisao->filter('[data-voto-conferencia]')->text());
         self::assertCount(2, $revisao->filter('[data-voto-revisao-pauta]'));

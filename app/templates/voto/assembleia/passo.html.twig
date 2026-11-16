@@ -1,0 +1,27 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Passos 3 (Acesso, "Como o votante entra") e 6 (Equipe, "Quem conduz a votação") do assistente de 7 passos (desenho 18,
+    L254-258). O sistema não tem campo a gravar nestes dois passos (o acesso é o link pessoal de cada unidade e quem conduz é
+    a mesa do escritório): mostram o título do desenho e o que vale hoje, com o rodapé "Salvar e sair" | "Voltar" | "Continuar".
+    Contexto: `assembleia` (AssembleiaNoPainel) e `passo` (3 ou 6).
+#}
+
+{% set sub = 'assembleia' %}
+
+{% block conteudo %}
+{% set a = assembleia %}
+<div class="vC voto-assistente" data-voto-assistente>
+    {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a} only %}
+    <div class="voto-assistente-corpo">
+        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: passo, em_form: false} only %}
+        <div class="vAviso" data-voto-passo-texto>{{ (passo == 3 ? 'voto.assembleia.gestor.assistente.acesso_texto' : 'voto.assembleia.gestor.assistente.equipe_texto')|trans }}</div>
+        <div class="voto-rodape">
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
+            <span class="voto-espaco"></span>
+            <a class="vB" href="{{ passo == 3 ? path('voto_assembleia_passo', {id: a.id, passo: 2}) : path('voto_assembleia_unidades', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB vP" href="{{ passo == 3 ? path('voto_assembleia_pautas', {id: a.id}) : path('voto_assembleia_conferir_publicacao', {id: a.id}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
+        </div>
+    </div>
+</div>
+{% endblock %}

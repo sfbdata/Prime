@@ -553,6 +553,7 @@
             return { ok: false, recusada: false, mensagem: texto('data-voto-falha'), enviado: enviado };
         }).then(function (resultado) {
             gravando = false;
+            marcarSujo();
             return resultado;
         });
     }
@@ -913,6 +914,18 @@
             }
         }
     });
+
+    /* "Alterações ainda não salvas" na faixa do assistente (desenho 18, L254): aparece enquanto alguma pauta difere do gravado. */
+    function marcarSujo() {
+        var faixa = document.querySelector('[data-voto-sujo]');
+        if (telaDePautas && faixa) {
+            faixa.hidden = formsDePauta().filter(alterada).length === 0;
+        }
+    }
+    ['input', 'change'].forEach(function (nome) {
+        document.addEventListener(nome, function () { window.setTimeout(marcarSujo, 0); });
+    });
+    document.addEventListener('click', function () { window.setTimeout(marcarSujo, 0); });
 
     function iniciar() {
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-toasts] .voto-toast'), sumirDepois);

@@ -1,7 +1,8 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
 
 {#
-    Unidades e links (desenho §2, etapa 5 "unidades com fração", e §3, link e "Copiar link"). A lista é colada
+    Passo 5 do assistente de 7 passos, "Lista de aptos" (trilho + título: _assistente_trilho), e a mesa de links depois de
+    publicar. Unidades e links (desenho §2, etapa 5 "unidades com fração", e §3, link e "Copiar link"). A lista é colada
     (`unidade; bloco; situação; fração; responsável; e-mail`) e só acrescenta: quem já está na lista conta como
     duplicada, para os links já enviados continuarem valendo. Os links aparecem depois de publicar.
     Contexto: `tela` (UnidadesDaAssembleia), `assembleia`, `relatorio` (linhas inválidas e duplicadas da última
@@ -14,8 +15,13 @@
 {% set a = assembleia %}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
 <div class="vC voto-assistente">
-    <div class="vH"><i class="bi bi-list-check"></i>{{ a.publicada ? 'voto.assembleia.gestor.unidades.titulo'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
+    {% if a.publicada %}
+        <div class="vH"><i class="bi bi-list-check"></i>{{ 'voto.assembleia.gestor.unidades.titulo'|trans }}</div>
+    {% else %}
+        {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a, icone: 'bi-list-check'} only %}
+    {% endif %}
     <div class="voto-assistente-corpo">
+        {% if not a.publicada %}{% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 5, em_form: false} only %}{% endif %}
         <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans({identificacao: a.cenario.identificacao|lower, grupo: a.cenario.grupo|lower}) }}</div>
         {% if a.podeAlterarUnidades %}
             <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
@@ -105,11 +111,10 @@
     {% endfor %}
     {% if not a.publicada %}
         <div class="vLin voto-rodape">
-            <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
-            <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
-                <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.unidades.publicar'|trans }}</button>
-            </form>
+            <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB vP" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 6}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
         </div>
     {% endif %}
 </div>

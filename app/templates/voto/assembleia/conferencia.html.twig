@@ -1,4 +1,13 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Passo 7 do assistente de 7 passos, "Revisar" (desenho 18, L267: "Confira e publique"): o trilho, o quadro de revisão (cada
+    linha com "Alterar", que leva ao passo), as pendências (✗ bloqueia a publicação: vermelho #a3232b; aviso: âmbar #8a6200;
+    sem nenhuma, "Tudo pronto para publicar." em verde #1e7b45) e o rodapé "Salvar e sair" | "Voltar" | "Publicar votação".
+    As pendências vêm da MESMA validação da publicação (ConferirPublicacaoDaAssembleiaUseCase): a recusa da publicação e a
+    soma das frações fora do esperado. O detalhe de cada pauta (regras e candidaturas) segue abaixo do quadro.
+    Contexto: `assembleia` (AssembleiaNoPainel) e `conferencia` (ConferenciaDaPublicacaoOutput).
+#}
 {% set sub = 'conferencia' %}
 
 {% macro linha(rotulo, valor, href) %}
@@ -10,21 +19,25 @@
 
 {% block conteudo %}
 {% set a = assembleia %}
-<div class="vC voto-assistente" data-voto-conferencia>
-    <div class="vH"><i class="bi bi-check2-square"></i>{{ 'voto.assembleia.gestor.conferencia.titulo'|trans }}</div>
+{% set passo1 = path('voto_assembleia_editar', {id: a.id}) %}
+{% set passo2 = path('voto_assembleia_passo', {id: a.id, passo: 2}) %}
+{% set passo4 = path('voto_assembleia_pautas', {id: a.id}) %}
+{% set passo5 = path('voto_assembleia_unidades', {id: a.id}) %}
+<div class="vC voto-assistente" data-voto-conferencia data-voto-assistente>
+    {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a, icone: 'bi-check2-square'} only %}
     <div class="voto-assistente-corpo">
+        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 7, em_form: false} only %}
         <div class="vAviso">{{ 'voto.assembleia.gestor.conferencia.aviso'|trans }}</div>
         <div class="voto-revisao-quadro">
-            {{ _self.linha('voto.assembleia.gestor.sub.assembleia'|trans, a.titulo, path('voto_assembleia_editar', {id: a.id})) }}
-            {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, path('voto_assembleia_editar', {id: a.id})) }}
-            {{ _self.linha('voto.assembleia.gestor.conferencia.aptos'|trans, a.unidadesAptas, path('voto_assembleia_unidades', {id: a.id})) }}
-            {{ _self.linha('voto.assembleia.gestor.conferencia.inaptos'|trans, a.unidadesInaptas, path('voto_assembleia_unidades', {id: a.id})) }}
-            {% if a.simulacao %}{{ _self.linha('voto.assembleia.gestor.conferencia.tipo'|trans, 'voto.assembleia.gestor.conferencia.tipo_simulacao'|trans, path('voto_assembleia_editar', {id: a.id})) }}{% endif %}
-            {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), path('voto_assembleia_unidades', {id: a.id})) }}{% endif %}
+            {{ _self.linha('voto.assembleia.gestor.assistente.passo_1'|trans, a.cenario.rotulo, passo1) }}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_entidade'|trans, a.entidade ?: '-', passo1) }}
+            {{ _self.linha('voto.assembleia.gestor.form.evento'|trans, a.titulo, passo1) }}
+            {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, passo2) }}
+            {% if a.simulacao %}{{ _self.linha('voto.assembleia.gestor.conferencia.tipo'|trans, 'voto.assembleia.gestor.conferencia.tipo_simulacao'|trans, passo1) }}{% endif %}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_cargos'|trans, a.pautas|map(p => p.titulo ~ ' (' ~ p.opcoes|length ~ ')')|join(', ') ?: 'voto.assembleia.gestor.assistente.revisao_sem_cargos'|trans, passo4) }}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_lista'|trans, (a.unidadesAptas + a.unidadesInaptas > 0) ? 'voto.assembleia.gestor.assistente.revisao_lista_resumo'|trans({aptos: a.unidadesAptas, inaptos: a.unidadesInaptas}) : 'voto.assembleia.gestor.assistente.revisao_sem_lista'|trans, passo5) }}
+            {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), passo5) }}{% endif %}
         </div>
-        {% if conferencia.somaForaDoEsperado %}
-            <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: conferencia.somaDasFracoes|voto_fracao}) }}</div>
-        {% endif %}
         {% for p in a.pautas %}
             <div class="voto-revisao-quadro" data-voto-revisao-pauta>
                 {{ _self.linha('voto.assembleia.gestor.conferencia.pauta'|trans, p.titulo, path('voto_assembleia_pautas', {id: a.id}) ~ '#pauta-' ~ p.id) }}
@@ -40,14 +53,19 @@
             </div>
         {% endfor %}
         <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.conferencia.convocacao'|trans }}</div>
-        {% if conferencia.pendencia %}<div class="voto-erro" role="alert" data-voto-pendencia>{{ conferencia.pendencia }}</div>{% endif %}
+        <div class="voto-pendencias" data-voto-pendencias>
+            {% if conferencia.pendencia %}<div class="voto-pendencia voto-pendencia-bloqueio" role="alert" data-voto-pendencia><i class="bi bi-x-circle-fill"></i> {{ conferencia.pendencia }}</div>{% endif %}
+            {% if conferencia.somaForaDoEsperado %}<div class="voto-pendencia voto-pendencia-aviso" data-voto-soma-fracoes><i class="bi bi-exclamation-triangle-fill"></i> {{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: conferencia.somaDasFracoes|voto_fracao}) }}</div>{% endif %}
+            {% if not conferencia.pendencia %}<div class="voto-pendencia voto-pendencia-pronto" data-voto-pronto><i class="bi bi-check-circle-fill"></i> {{ 'voto.assembleia.gestor.assistente.pronto'|trans }}</div>{% endif %}
+        </div>
         <div class="voto-rodape">
-            <a class="vB" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}">{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
+            <a class="vB" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 6}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
             <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" data-voto-confirmar-publicacao>
                 <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
                 <input type="hidden" name="conferencia" value="{{ conferencia.codigo }}">
-                <button type="submit" class="vB vP"{{ conferencia.pendencia ? ' disabled' : '' }}><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.conferencia.confirmar'|trans }}</button>
+                <button type="submit" class="vB vP"{{ conferencia.pendencia ? ' disabled' : '' }}><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.assistente.publicar'|trans }}</button>
             </form>
         </div>
     </div>

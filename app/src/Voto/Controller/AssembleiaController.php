@@ -139,7 +139,7 @@ final class AssembleiaController extends AbstractController
             }
         }
 
-        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null));
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null, self::passoDoForm($request)));
     }
 
     #[Route('/{id}/editar', name: 'voto_assembleia_editar', methods: ['GET', 'POST'])]
@@ -162,7 +162,28 @@ final class AssembleiaController extends AbstractController
         $assembleia = $this->lida($tenant, $id);
         $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao);
 
-        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null));
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null, self::passoDoForm($request)));
+    }
+
+    /**
+     * Passos 2 (Regras e prazo), 3 (Acesso) e 6 (Equipe) do assistente de 7 passos (desenho 18). O 2 reabre o formulário
+     * da assembleia (grava por `editar`); o 3 e o 6 só informam. Os passos 1, 4, 5 e 7 são `editar`, `pautas`, `unidades` e a
+     * conferência. Publicada não tem assistente: vai para a mesa.
+     */
+    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '[236]'], methods: ['GET'])]
+    public function passo(int $id, int $passo): Response
+    {
+        $assembleia = $this->lida($this->guarda->exigir(), $id);
+        if (!$assembleia->podeAlterarPautas) {
+            return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        }
+        if (2 === $passo) {
+            $input = new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao);
+
+            return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, null, 2));
+        }
+
+        return $this->render('voto/assembleia/passo.html.twig', ['assembleia' => $assembleia, 'passo' => $passo]);
     }
 
     #[Route('/{id}/publicar', name: 'voto_assembleia_conferir_publicacao', methods: ['GET'])]
@@ -238,14 +259,25 @@ final class AssembleiaController extends AbstractController
         }
     }
 
-    /** "Salvar e sair" volta ao painel; "Continuar" segue para as pautas. */
+    /**
+     * "Salvar e sair" volta ao painel; o trilho e "Continuar"/"Voltar" levam ao passo (`passo-N`); sem valor (formulário
+     * antigo guardado) segue para as pautas, como antes do assistente.
+     */
     private function depoisDeSalvar(Request $request, int $id): Response
     {
-        if ('sair' === $request->request->get('depois')) {
+        $depois = (string) $request->request->get('depois', '');
+        if ('sair' === $depois) {
             return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
         }
+        $passo = 1 === preg_match('/^passo-([1-7])$/', $depois, $achou) ? (int) $achou[1] : 4;
 
-        return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        return match ($passo) {
+            1 => $this->redirectToRoute('voto_assembleia_editar', ['id' => $id]),
+            4 => $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]),
+            5 => $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]),
+            7 => $this->redirectToRoute('voto_assembleia_conferir_publicacao', ['id' => $id]),
+            default => $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => $passo]),
+        };
     }
 
     private function tokenValido(Request $request, string $id): bool
@@ -259,19 +291,26 @@ final class AssembleiaController extends AbstractController
     }
 
     /**
-     * Contexto do formulário: os cenários do passo 1 e o escolhido (valor desconhecido volta ao padrão, condomínio).
+     * Contexto do formulário dos passos 1 e 2: os cenários e o escolhido (valor desconhecido volta ao padrão, condomínio).
      *
      * @return array<string, mixed>
      */
-    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro): array
+    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro, int $passo): array
     {
         return [
+            'passo' => $passo,
             'assembleia' => $assembleia,
             'input' => $input,
             'erro' => $erro,
             'cenarios' => CenarioDaAssembleia::cases(),
             'cenario' => CenarioDaAssembleia::tryFrom($input->cenario) ?? CenarioDaAssembleia::Condominio,
         ];
+    }
+
+    /** O passo do formulário que enviou (campo `passo`): 2 ou, em qualquer outro caso, 1. */
+    private static function passoDoForm(Request $request): int
+    {
+        return 2 === (int) $request->request->get('passo', 1) ? 2 : 1;
     }
 
     private static function input(Request $request): AssembleiaInput
