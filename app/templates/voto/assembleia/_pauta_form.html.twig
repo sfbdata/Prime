@@ -52,7 +52,7 @@
             {% set sugestaoCandidato = loop.index == 1 ? 'voto.assembleia.gestor.pautas.candidato_1_ph' : (loop.index == 2 ? 'voto.assembleia.gestor.pautas.candidato_2_ph' : 'voto.assembleia.gestor.pautas.candidato_ph') %}
             <div class="voto-opcao" data-voto-opcao>
                 <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="{{ digitos }}" data-voto-numero value="{{ ('00000' ~ o.numero)|slice(-digitos) }}">
-                <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ (tipo == 'eleicao_cargo' ? sugestaoCandidato : 'voto.assembleia.gestor.pautas.nome_ph')|trans }}" data-voto-nome-candidatura data-voto-ph-padrao="{{ 'voto.assembleia.gestor.pautas.nome_ph'|trans }}" data-voto-ph-eleitoral="{{ sugestaoCandidato|trans }}" maxlength="120" value="{{ o.rotulo }}">
+                <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ (tipo == 'eleicao_cargo' ? sugestaoCandidato : 'voto.assembleia.gestor.pautas.nome_ph')|trans }}" data-voto-nome-candidatura data-voto-ph-padrao="{{ 'voto.assembleia.gestor.pautas.nome_ph'|trans }}" data-voto-ph-eleitoral="{{ sugestaoCandidato|trans }}" data-voto-ph-outro="{{ 'voto.assembleia.gestor.pautas.candidato_ph'|trans }}" maxlength="120" value="{{ o.rotulo }}">
                 <button type="button" class="vB vD" data-voto-opcao-remover aria-label="{{ 'voto.assembleia.gestor.pautas.remover_opcao'|trans }}"><i class="bi bi-trash"></i></button>
             </div>
         {% endfor %}

@@ -183,6 +183,11 @@
         var linha = modelo.cloneNode(true);
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
         linha.querySelector('[data-voto-numero]').value = proximoNumero(form);
+        // A linha clonada é a 1ª: na eleição, a nova sugere "Outro candidato", não "Candidato 1".
+        var nome = linha.querySelector('[data-voto-nome-candidatura]');
+        if (nome && nome.getAttribute('data-voto-ph-outro')) {
+            nome.setAttribute('data-voto-ph-eleitoral', nome.getAttribute('data-voto-ph-outro'));
+        }
         lista.appendChild(linha);
         atualizarTipoDaPauta(form, false);
         linha.querySelector('input').focus();

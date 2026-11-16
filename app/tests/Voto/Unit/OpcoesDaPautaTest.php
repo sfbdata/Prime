@@ -92,4 +92,17 @@ final class OpcoesDaPautaTest extends TestCase
 
         self::assertSame([['numero' => 99999, 'rotulo' => 'Sim']], $opcoes);
     }
+
+    #[TestDox('Pauta eleitoral em rascunho: linhas só com o número sugerido ou com Sim/Não ficam de fora, sem erro')]
+    public function testEleitoralEmRascunhoIgnoraLinhasSemNome(): void
+    {
+        $opcoes = (new OpcoesDaPauta())->validar('Síndico(a)', [
+            ['numero' => '1', 'rotulo' => ''],
+            ['numero' => '2', 'rotulo' => ' '],
+            ['numero' => '3', 'rotulo' => 'Sim'],
+            ['numero' => '4', 'rotulo' => 'Ana Souza'],
+        ], 1, true);
+
+        self::assertSame([['numero' => 4, 'rotulo' => 'Ana Souza']], $opcoes);
+    }
 }

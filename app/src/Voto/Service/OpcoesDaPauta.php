@@ -29,7 +29,9 @@ final class OpcoesDaPauta
             if ('' === $numero && '' === $rotulo) {
                 continue;
             }
-            if ($permitirVazio && \in_array(mb_strtolower($rotulo), ['sim', 'não', 'nao'], true)) {
+            // Pauta eleitoral em rascunho: a linha sem nome (só o número sugerido) ou com o Sim/Não do modelo de
+            // deliberação fica de fora; a publicação é que exige as candidaturas com nome.
+            if ($permitirVazio && ('' === $rotulo || \in_array(mb_strtolower($rotulo), ['sim', 'não', 'nao'], true))) {
                 continue;
             }
             $valor = self::numero($numero, $digitos);
