@@ -18,7 +18,8 @@ use Doctrine\ORM\Mapping as ORM;
  * Token opaco do conector, de acesso ou de renovação (`docs/specs/mcp-remoto-oauth.md`, 3.2, 9.1, 13.2 e decisão 14.c).
  * São 256 bits aleatórios entregues ao app; o banco guarda só o SHA-256 em `identificador_hash`.
  *
- * - **Acesso** vale 1 hora. **Renovação** vale até o `expira_em` da concessão (7 dias da autorização) e gira a cada uso.
+ * - **Acesso** vale 1 hora, sem passar do `expira_em` da concessão. **Renovação** vale até o `expira_em` da concessão
+ *   (7 dias da autorização) e gira a cada uso.
  * - `gerado_por` é a renovação que gerou este par (nulo no primeiro par, que sai do código).
  * - **Rotação** ({@see girar()}): renovação nunca usada grava `usado_em` e o servidor emite um par novo. Já usada e
  *   reapresentada pelo MESMO app em até {@see JANELA_DE_TOLERANCIA} segundos do `usado_em`, com a renovação filha
@@ -38,7 +39,7 @@ class TokenDoConector implements TenantAware
 {
     use ConfereHash;
 
-    /** O token de acesso vale 1 hora (decisão 14.c). */
+    /** O token de acesso vale 1 hora (decisão 14.c), nunca além do fim da concessão. */
     public const VALIDADE_DO_ACESSO = 'PT1H';
 
     /** Segundos, contados do `usado_em`, em que a mesma renovação reapresentada pelo mesmo app ainda gira (9.1). */
@@ -93,7 +94,7 @@ class TokenDoConector implements TenantAware
         $this->tenant = $concessao->getTenant() ?? throw new \LogicException('Concessão sem escritório.');
         $this->escopos = $concessao->getEscopos();
         $this->expiraEm = $tipo === TipoDoTokenDoConector::Acesso
-            ? $criadoEm->add(new \DateInterval(self::VALIDADE_DO_ACESSO))
+            ? min($criadoEm->add(new \DateInterval(self::VALIDADE_DO_ACESSO)), $concessao->getExpiraEm())
             : $concessao->getExpiraEm();
     }
 

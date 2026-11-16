@@ -37,6 +37,17 @@ final class TokenDoConectorTest extends TestCase
         self::assertTrue($acesso->venceuEm(self::em('2026-11-18 11:00:00')));
     }
 
+    #[TestDox('O acesso emitido perto do fim da concessão vence junto com ela, nunca depois')]
+    public function testAcessoNaoPassaDoFimDaConcessao(): void
+    {
+        $concessao = self::concessao(self::consentimento(new Tenant()));
+
+        $acesso = TokenDoConector::deAcesso(self::hash('fim'), $concessao, self::em('2026-11-23 09:30:00'));
+
+        self::assertEquals($concessao->getExpiraEm(), $acesso->getExpiraEm());
+        self::assertEquals(self::em('2026-11-23 10:00:00'), $acesso->getExpiraEm());
+    }
+
     #[TestDox('Concessão revogada ou vencida não emite token, e o token guarda só hash')]
     public function testRecusasNaEmissao(): void
     {

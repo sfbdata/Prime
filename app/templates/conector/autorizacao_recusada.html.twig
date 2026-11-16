@@ -1,0 +1,18 @@
+{% extends 'recurso/_layout_simples.html.twig' %}
+
+{#
+    Recusa da tela de autorização do conector de I.A. (spec mcp-remoto-oauth 3.4 e 9.4): app ou retorno não
+    reconhecido (RFC 6749 4.1.2.1: nunca redireciona), pedido vencido ou adulterado, ou escritório recusado no POST.
+    Recebe só `mensagem`, um texto fixo do servidor; nada do pedido aparece aqui.
+#}
+
+{% block title %}Não foi possível conectar{% endblock %}
+
+{% block body %}
+<main class="bj-recurso-preparo" role="main">
+    <div class="bj-recurso-preparo-icone" aria-hidden="true"><i class="bi bi-plug"></i></div>
+    <h1 class="bj-recurso-preparo-titulo">Não foi possível conectar</h1>
+    <div class="bj-recurso-preparo-texto">{{ mensagem }}</div>
+    <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">Ir para o BlueJus</a>
+</main>
+{% endblock %}

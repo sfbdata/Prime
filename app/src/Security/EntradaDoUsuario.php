@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Security;
 
 use App\Auth\Service\DestinoPosLogin;
+use App\Conector\Service\ServidorDeAutorizacao;
 use App\Entity\Auth\User;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
@@ -45,6 +46,13 @@ final class EntradaDoUsuario
             ? $this->destinoDoUsuario($user, $alvo)
             : ($alvo ?? $this->router->generate('expediente_index'));
 
+        // A tela de autorização do conector de I.A. não passa pelo véu: com vários escritórios e nenhum na sessão, o
+        // véu é desviado para a seleção (TenantContextValidatorListener) e o pedido do app se perderia. O destino já
+        // passou pelo DestinoPosLogin (caminho relativo deste site, rota da lista).
+        if ($this->ehAutorizacaoDoConector($destino)) {
+            return new RedirectResponse($destino);
+        }
+
         return new RedirectResponse($this->router->generate('app_login_entrando', ['para' => $destino]));
     }
 
@@ -84,8 +92,19 @@ final class EntradaDoUsuario
             return $alvo ?? $this->router->generate('admin_platform_dashboard');
         }
 
+        // Conector de I.A. (spec mcp-remoto-oauth, decisão 3 de 16/11): a tela de autorização escolhe o escritório da
+        // conexão ela mesma e não usa o da sessão. Mandar à seleção perderia o pedido do app (a query do authorize).
+        if ($alvo !== null && count($tenants) > 1 && $this->ehAutorizacaoDoConector($alvo)) {
+            return $alvo;
+        }
+
         // Vários escritórios (ou nenhum, sem ser Master): a escolha do escritório vem antes e o
         // alvo se perde, como já era antes do véu. Levar o alvo pela seleção é decisão à parte.
         return $this->router->generate('tenant_selecionar');
+    }
+
+    private function ehAutorizacaoDoConector(string $caminho): bool
+    {
+        return parse_url($caminho, PHP_URL_PATH) === $this->router->generate(ServidorDeAutorizacao::ROTA_AUTORIZAR);
     }
 }

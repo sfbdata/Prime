@@ -82,6 +82,22 @@ class ConsentimentoDoConector implements TenantAware, Auditavel
         return $this->revogadoEm === null;
     }
 
+    /**
+     * A pessoa autorizou de novo o mesmo app no mesmo escritório (consentimento ativo) com outros escopos: vale a
+     * escolha mais recente, na conexão que ela vê. As concessões já abertas guardam os escopos delas e não mudam;
+     * a nova concessão nasce com estes. Consentimento revogado não volta: a reautorização abre outro.
+     *
+     * @param list<string> $escopos
+     */
+    public function trocarEscopos(array $escopos): void
+    {
+        if ($this->revogadoEm !== null) {
+            throw new \DomainException('Consentimento revogado não muda de escopo.');
+        }
+
+        $this->escopos = Escopos::exigir($escopos);
+    }
+
     /** Grava o último uso no máximo uma vez por minuto (13.2): não vira um UPDATE a cada chamada. */
     public function registrarUso(\DateTimeImmutable $agora): void
     {

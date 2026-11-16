@@ -165,6 +165,11 @@ parameters:
     default_comercial_campanhas_ligadas: false
     comercial.teto_diario_campanhas: '%env(int:default:default_comercial_teto_diario_campanhas:COMERCIAL_TETO_DIARIO_CAMPANHAS)%'
     default_comercial_teto_diario_campanhas: 1600
+    # Conector de I.A. (spec mcp-remoto-oauth 3.4 e 14.d): hosts de onde o client_id (URL do documento CIMD) pode vir.
+    # Só a busca a host desta lista acontece, o que já fecha o SSRF. Muda sem deploy de código: CONECTOR_CIMD_HOSTS com
+    # os hosts separados por vírgula. O padrão mora AQUI porque o build de produção faz `rm .env`.
+    conector.cimd_hosts: '%env(csv:default:default_conector_cimd_hosts:CONECTOR_CIMD_HOSTS)%'
+    default_conector_cimd_hosts: 'claude.ai,chatgpt.com'
 
 services:
     # default configuration for services in *this* file

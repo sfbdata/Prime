@@ -108,6 +108,11 @@ final class TermoAceiteListener
         // está logado sem escritório na sessão como a quem não tem conta.
         'validacao_comprovante_ponto',
         'validacao_comprovante_ponto_codigo',
+        // Token e metadado do conector de I.A. (spec mcp-remoto-oauth 8): servidor para servidor, sem sessão; um 302
+        // para termo_aceite quebraria a conexão. O /oauth/authorize NÃO entra: quem não aceitou os Termos aceita antes de
+        // conectar.
+        'conector_oauth_token',
+        'conector_oauth_metadado',
     ];
 
     public function __construct(

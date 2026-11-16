@@ -39,4 +39,42 @@ final class ConsentimentoDoConectorTest extends TestCase
         $consentimento->registrarUso(self::em('2026-11-16 12:01:00'));
         self::assertEquals(self::em('2026-11-16 12:01:00'), $consentimento->getUltimoUsoEm());
     }
+
+    #[TestDox('Reautorizar no consentimento ativo troca os escopos (vale a escolha mais recente); concessão aberta guarda os dela')]
+    public function testTrocarEscopos(): void
+    {
+        $consentimento = self::consentimento();
+        $concessaoAntiga = self::concessao($consentimento);
+
+        $consentimento->trocarEscopos(['mcp:leitura', 'mcp:escrita', 'offline_access']);
+
+        self::assertSame(['mcp:leitura', 'mcp:escrita', 'offline_access'], $consentimento->getEscopos());
+        self::assertSame(['mcp:leitura', 'offline_access'], $concessaoAntiga->getEscopos(), 'a concessão já aberta não muda');
+    }
+
+    #[TestDox('Trocar escopos passa pela mesma forma do construtor: lista vazia ou repetida é recusada')]
+    public function testTrocarEscoposConfereAForma(): void
+    {
+        $consentimento = self::consentimento();
+
+        try {
+            $consentimento->trocarEscopos([]);
+            self::fail('lista vazia passou');
+        } catch (\InvalidArgumentException) {
+        }
+        self::assertSame(['mcp:leitura', 'offline_access'], $consentimento->getEscopos(), 'a recusa não muda nada');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $consentimento->trocarEscopos(['mcp:leitura', 'mcp:leitura']);
+    }
+
+    #[TestDox('Consentimento revogado não muda de escopo: a reautorização abre outro')]
+    public function testRevogadoNaoTrocaEscopos(): void
+    {
+        $consentimento = self::consentimento();
+        $consentimento->revogar(self::em('2026-11-16 12:00:00'));
+
+        $this->expectException(\DomainException::class);
+        $consentimento->trocarEscopos(['mcp:leitura']);
+    }
 }
