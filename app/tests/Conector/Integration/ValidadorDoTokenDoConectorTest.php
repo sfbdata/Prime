@@ -95,8 +95,8 @@ final class ValidadorDoTokenDoConectorTest extends KernelTestCase
         self::assertFalse($resultado->isAllowed());
     }
 
-    #[TestDox('recusa do portão que não é de pessoa, escritório, termos nem liberação (filtro, já aberto): 503, não 401')]
-    public function testRecusaDoPortaoQueNaoPedeLoginDa503(): void
+    #[TestDox('recusa do portão (filtro, já aberto) lançada fora da conferência cai na falha geral: 503, não 401')]
+    public function testRecusaDoPortaoForaDaConferenciaCaiNaFalhaGeral(): void
     {
         foreach ([AcessoDoConectorRecusado::filtro(), AcessoDoConectorRecusado::jaAberto()] as $recusa) {
             $tokens = $this->createStub(TokenDoConectorRepository::class);

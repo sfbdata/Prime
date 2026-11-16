@@ -29,7 +29,7 @@ final class AutenticadorDoConectorTest extends KernelTestCase
 
     private function sut(): AutenticadorDoConector
     {
-        // Com o validador do teste: no container o autenticador é embutido no firewall.
+        // Com o validador do teste (o do trait), o mesmo que o teste consulta depois: um juiz só.
         return new AutenticadorDoConector($this->validador());
     }
 

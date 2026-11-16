@@ -72,7 +72,7 @@ final class PortaoNoMcpMiddleware implements MiddlewareInterface
         }
 
         $concessao = $token->getConcessao();
-        $escritorio = $token->getTenant() ?? throw new \LogicException('Token sem escritório.');
+        $escritorio = $concessao->getTenant() ?? throw new \LogicException('Concessão sem escritório.');
         $contexto = $this->portao->abrir((int) $concessao->getUser()->getId(), (int) $escritorio->getId());
 
         $host = parse_url($concessao->getCliente()->getIdentificador(), \PHP_URL_HOST);

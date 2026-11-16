@@ -32,7 +32,7 @@ use Symfony\Contracts\Service\ResetInterface;
  *    liberação nos três níveis.
  *
  * As recusas (decisão 3 do PR 5): token, concessão e acesso recusados por pessoa, escritório, termos ou liberação dão
- * 401 `invalid_token` com a mensagem fixa da recusa; qualquer outro erro (filtro, requisição já aberta, banco fora do
+ * 401 `invalid_token` com uma descrição ASCII fixa por categoria; qualquer outro erro (filtro, requisição já aberta, banco fora do
  * ar, erro de programação) dá 503 sem desafio, e nunca deixa passar.
  *
  * O resultado fica guardado até o `reset()` (fim da requisição, mensagem seguinte do worker): o mesmo token
@@ -47,15 +47,22 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
     public const MOTIVO_RESOURCE = 'resource';
     public const MOTIVO_INDISPONIVEL = 'indisponivel';
 
-    /** A mensagem fixa do token que não vale (desconhecido, de renovação, vencido, revogado ou de outro recurso). */
-    public const TOKEN_NAO_VALE = 'O token de acesso não vale mais. Conecte de novo.';
+    /**
+     * O `error_description` do 401: ASCII e fixo por categoria (RFC 6750, 3: só %x20-21 / %x23-5B / %x5D-7E), sem
+     * nome de escritório nem de pessoa. O motivo detalhado fica só no log `mcp`, pelo {@see motivoDaRecusa()}.
+     */
+    public const DESCRICAO_TOKEN = 'The access token is invalid or expired.';
+    public const DESCRICAO_AUTORIZACAO = 'The authorization was revoked.';
+    public const DESCRICAO_ESCRITORIO = 'Access to this office is not available.';
+    public const DESCRICAO_TERMOS = 'The Terms of Use must be accepted in BlueJus.';
+    public const DESCRICAO_LIBERACAO = 'The connector is not enabled for this office.';
 
-    /** As recusas do portão que pedem um login novo (401); as demais são falha do servidor (503). */
+    /** As recusas do portão que pedem um login novo (401), com a descrição de cada uma; as demais dão 503. */
     private const RECUSAS_DO_PORTAO_COM_DESAFIO = [
-        AcessoDoConectorRecusado::MOTIVO_PESSOA,
-        AcessoDoConectorRecusado::MOTIVO_ESCRITORIO,
-        AcessoDoConectorRecusado::MOTIVO_TERMOS,
-        AcessoDoConectorRecusado::MOTIVO_LIBERACAO,
+        AcessoDoConectorRecusado::MOTIVO_PESSOA => self::DESCRICAO_ESCRITORIO,
+        AcessoDoConectorRecusado::MOTIVO_ESCRITORIO => self::DESCRICAO_ESCRITORIO,
+        AcessoDoConectorRecusado::MOTIVO_TERMOS => self::DESCRICAO_TERMOS,
+        AcessoDoConectorRecusado::MOTIVO_LIBERACAO => self::DESCRICAO_LIBERACAO,
     ];
 
     private ?string $hashJulgado = null;
@@ -120,20 +127,20 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
     {
         $token = $this->tokens->buscarPorIdentificadorHash($hash);
         if (!$token instanceof TokenDoConector) {
-            return $this->recusar(self::MOTIVO_TOKEN_DESCONHECIDO, self::TOKEN_NAO_VALE);
+            return $this->recusar(self::MOTIVO_TOKEN_DESCONHECIDO, self::DESCRICAO_TOKEN);
         }
         if ($token->getTipo() !== TipoDoTokenDoConector::Acesso) {
-            return $this->recusar(self::MOTIVO_NAO_E_ACESSO, self::TOKEN_NAO_VALE);
+            return $this->recusar(self::MOTIVO_NAO_E_ACESSO, self::DESCRICAO_TOKEN);
         }
 
         $agora = $this->relogio->now();
         if ($token->getRevogadoEm() !== null || $token->venceuEm($agora)) {
-            return $this->recusar(self::MOTIVO_TOKEN_VENCIDO_OU_REVOGADO, self::TOKEN_NAO_VALE);
+            return $this->recusar(self::MOTIVO_TOKEN_VENCIDO_OU_REVOGADO, self::DESCRICAO_TOKEN);
         }
 
         $concessao = $token->getConcessao();
         if ($concessao->getResource() !== ServidorDeAutorizacao::RESOURCE) {
-            return $this->recusar(self::MOTIVO_RESOURCE, self::TOKEN_NAO_VALE);
+            return $this->recusar(self::MOTIVO_RESOURCE, self::DESCRICAO_TOKEN);
         }
 
         $recusa = $this->conferirConcessao($concessao, $agora);
@@ -155,15 +162,19 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
         try {
             $this->conferencia->exigir($concessao, $agora);
         } catch (ConcessaoRecusada $recusa) {
-            return $this->recusar($recusa->motivo, $recusa->getMessage());
+            return $this->recusar($recusa->motivo, self::DESCRICAO_AUTORIZACAO);
         } catch (AcessoDoConectorRecusado $recusa) {
-            if (!\in_array($recusa->motivo, self::RECUSAS_DO_PORTAO_COM_DESAFIO, true)) {
+            $descricao = self::RECUSAS_DO_PORTAO_COM_DESAFIO[$recusa->motivo] ?? null;
+            if ($descricao === null) {
+                // Defensivo, hoje inalcançável: a conferência só lança pessoa, escritório, termos e liberação (o
+                // `conferir` do portão não liga filtro nem abre a requisição). Se um dia lançar outro motivo, é falha
+                // do servidor, nunca um pedido de login novo.
                 $this->motivo = $recusa->motivo;
 
                 return AuthorizationResult::unavailable();
             }
 
-            return $this->recusar($recusa->motivo, $recusa->getMessage());
+            return $this->recusar($recusa->motivo, $descricao);
         }
 
         return null;

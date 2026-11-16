@@ -41,9 +41,10 @@ trait CadeiaDoMcpTrait
     private int $despachos = 0;
 
     /**
-     * Um validador e uma requisição por teste, montados com as peças do container: até o controller do `/mcp` (bloco
-     * B) usá-los, o Symfony tira do container compilado os serviços privados sem uso (ou os embute no autenticador). O
-     * mesmo objeto vai ao `AuthorizationMiddleware` e ao portão, como no container de verdade (um juiz só).
+     * Um validador e uma requisição por teste, montados com as peças do container. O validador é um serviço privado
+     * compartilhado; o teste monta o seu para usar a MESMA instância no `AuthorizationMiddleware`, no portão e no
+     * autenticador (um juiz só). A `RequisicaoDoConector`, sem uso até o controller do `/mcp` (bloco B), é tirada do
+     * container compilado.
      */
     private ?ValidadorDoTokenDoConector $validadorDoTeste = null;
     private ?RequisicaoDoConector $requisicaoDoTeste = null;

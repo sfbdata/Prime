@@ -28,7 +28,6 @@ use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\SituacaoNaEquipe;
-use App\Tenant\Service\AvisoDeContaSuspensa;
 use App\Tenant\Service\BarreirasDoEscritorio;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -46,7 +45,7 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 /**
  * O `/mcp` pela cadeia PSR-15, sem o controller (bloco A do PR 5): o `AuthorizationMiddleware` do SDK com o validador
  * do token, o portão e o limite. Cada barreira recusa o token na requisição seguinte com 401 `invalid_token` e a
- * mensagem fixa (spec mcp-remoto-oauth 12.3, 12.6, 12.16, 12.18 e 12.24); o portão que não abre dá 503 sem desafio e
+ * descrição ASCII fixa (spec mcp-remoto-oauth 12.3, 12.6, 12.16, 12.18 e 12.24); o portão que não abre dá 503 sem desafio e
  * nada é despachado (12.2 e decisão 4 do PR 1).
  */
 #[CoversClass(PortaoNoMcpMiddleware::class)]
@@ -98,33 +97,33 @@ final class PortaoNoMcpTest extends KernelTestCase
         self::assertFalse($this->requisicao()->estaAberta());
     }
 
-    /** @return iterable<string, array{string, string}> barreira e motivo esperado */
+    /** @return iterable<string, array{string, string, string}> barreira, motivo no log e descrição no desafio */
     public static function barreiras(): iterable
     {
         // 12.3
-        yield 'pessoa desativada' => ['pessoa_desativada', AcessoDoConectorRecusado::MOTIVO_PESSOA];
-        yield 'escritório suspenso' => ['escritorio_suspenso', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'escritório em quarentena' => ['escritorio_em_quarentena', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'vínculo suspenso pela equipe' => ['vinculo_suspenso', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'vínculo removido' => ['vinculo_removido', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'pedido de exclusão (equipe)' => ['pedido_de_exclusao', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'primário de escritório suspenso a pedido' => ['primario_suspenso_a_pedido', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
-        yield 'Master com vínculo em análise' => ['master_em_analise', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO];
+        yield 'pessoa desativada' => ['pessoa_desativada', AcessoDoConectorRecusado::MOTIVO_PESSOA, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'escritório suspenso' => ['escritorio_suspenso', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'escritório em quarentena' => ['escritorio_em_quarentena', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'vínculo suspenso pela equipe' => ['vinculo_suspenso', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'vínculo removido' => ['vinculo_removido', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'pedido de exclusão (equipe)' => ['pedido_de_exclusao', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'primário de escritório suspenso a pedido' => ['primario_suspenso_a_pedido', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
+        yield 'Master com vínculo em análise' => ['master_em_analise', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
         // 12.18
-        yield 'termos de uso não aceitos' => ['termos', AcessoDoConectorRecusado::MOTIVO_TERMOS];
+        yield 'termos de uso não aceitos' => ['termos', AcessoDoConectorRecusado::MOTIVO_TERMOS, ValidadorDoTokenDoConector::DESCRICAO_TERMOS];
         // 12.24
-        yield 'escritório bloqueado pelo Master' => ['liberacao_bloqueada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO];
-        yield 'conector desligado no escritório' => ['liberacao_desligada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO];
+        yield 'escritório bloqueado pelo Master' => ['liberacao_bloqueada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO, ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO];
+        yield 'conector desligado no escritório' => ['liberacao_desligada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO, ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO];
         // 12.6 e 12.16
-        yield 'consentimento revogado' => ['consentimento_revogado', ConcessaoRecusada::MOTIVO_CONCESSAO_INVALIDA];
-        yield 'app de I.A. desativado' => ['cliente_inativo', ConcessaoRecusada::MOTIVO_CLIENTE_INATIVO];
-        yield 'Sair de todos os aparelhos' => ['sessoes_encerradas', ConcessaoRecusada::MOTIVO_SESSOES_ENCERRADAS];
-        yield 'senha trocada' => ['senha_trocada', ConcessaoRecusada::MOTIVO_SENHA_TROCADA];
+        yield 'consentimento revogado' => ['consentimento_revogado', ConcessaoRecusada::MOTIVO_CONCESSAO_INVALIDA, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
+        yield 'app de I.A. desativado' => ['cliente_inativo', ConcessaoRecusada::MOTIVO_CLIENTE_INATIVO, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
+        yield 'Sair de todos os aparelhos' => ['sessoes_encerradas', ConcessaoRecusada::MOTIVO_SESSOES_ENCERRADAS, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
+        yield 'senha trocada' => ['senha_trocada', ConcessaoRecusada::MOTIVO_SENHA_TROCADA, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
     }
 
     #[DataProvider('barreiras')]
-    #[TestDox('barreira $barreira depois de conectar: 401 invalid_token com a mensagem fixa, sem despacho e sem abrir o escritório')]
-    public function testBarreiraRecusaNaRequisicaoSeguinte(string $barreira, string $motivo): void
+    #[TestDox('barreira $barreira depois de conectar: 401 invalid_token com a descrição ASCII fixa, sem despacho e sem abrir o escritório')]
+    public function testBarreiraRecusaNaRequisicaoSeguinte(string $barreira, string $motivo, string $descricao): void
     {
         $conexao = $this->conexaoAutorizada();
         $bearer = $this->tokenDeAcesso($conexao['concessao']);
@@ -132,10 +131,10 @@ final class PortaoNoMcpTest extends KernelTestCase
         $this->fimDaRequisicao();
         $this->despachos = 0;
 
-        $mensagem = $this->aplicar($barreira, $this->recarregar($conexao));
+        $this->aplicar($barreira, $this->recarregar($conexao));
         $resposta = $this->chamarMcp($bearer);
 
-        $this->assertRecusaComDesafio($resposta, $mensagem);
+        $this->assertRecusaComDesafio($resposta, $descricao);
         self::assertSame($motivo, $this->validador()->motivoDaRecusa());
         self::assertFalse(static::getContainer()->get(TenantContext::class)->hasCurrentTenant());
     }
@@ -174,7 +173,7 @@ final class PortaoNoMcpTest extends KernelTestCase
 
         $resposta = $this->chamarMcp($bearer);
 
-        $this->assertRecusaComDesafio($resposta, ValidadorDoTokenDoConector::TOKEN_NAO_VALE);
+        $this->assertRecusaComDesafio($resposta, ValidadorDoTokenDoConector::DESCRICAO_TOKEN);
         self::assertSame($motivo, $this->validador()->motivoDaRecusa());
     }
 
@@ -274,108 +273,88 @@ final class PortaoNoMcpTest extends KernelTestCase
     }
 
     /**
-     * Aplica a barreira e devolve a mensagem fixa que o app de I.A. deve receber.
+     * Aplica a barreira e grava.
      *
      * @param array<string, mixed> $conexao
      */
-    private function aplicar(string $barreira, array $conexao): string
+    private function aplicar(string $barreira, array $conexao): void
     {
         /** @var User $pessoa */
         $pessoa = $conexao['pessoa'];
         /** @var Tenant $escritorio */
         $escritorio = $conexao['escritorio'];
         $vinculo = static::getContainer()->get(UserTenantRepository::class)->findPorUserETenant($pessoa, $escritorio) ?? throw new \LogicException('sem vínculo');
-        $nome = (string) $escritorio->getName();
-        $mensagem = match ($barreira) {
-            'pessoa_desativada' => (static function () use ($pessoa): string {
+        switch ($barreira) {
+            case 'pessoa_desativada':
                 $pessoa->setIsActive(false);
-
-                return AcessoDoConectorRecusado::PESSOA_INDISPONIVEL;
-            })(),
-            'escritorio_suspenso' => (static function () use ($escritorio, $nome): string {
+                break;
+            case 'escritorio_suspenso':
                 $escritorio->setIsActive(false);
-
-                return AvisoDeContaSuspensa::para($nome);
-            })(),
-            'escritorio_em_quarentena' => (static function () use ($escritorio, $nome): string {
+                break;
+            case 'escritorio_em_quarentena':
                 $escritorio->setIsActive(false)->setExcluidoEm(new \DateTimeImmutable());
-
-                return AvisoDeContaSuspensa::paraExcluida($nome);
-            })(),
-            'vinculo_suspenso' => (static function () use ($vinculo, $nome): string {
+                break;
+            case 'vinculo_suspenso':
                 $vinculo->alterarSituacao(SituacaoNaEquipe::Suspenso);
-
-                return SituacaoNaEquipe::Suspenso->mensagemDeAcesso($nome);
-            })(),
-            'vinculo_removido' => (function () use ($vinculo): string {
+                break;
+            case 'vinculo_removido':
                 $this->em()->remove($vinculo);
-
-                return AcessoDoConectorRecusado::ACESSO_INDISPONIVEL;
-            })(),
-            'pedido_de_exclusao' => (function () use ($escritorio, $pessoa): string {
+                break;
+            case 'pedido_de_exclusao':
                 $this->em()->persist(new PedidoDeExclusaoDeConta($escritorio, $pessoa, 'Não uso mais', new \DateTimeImmutable()));
-
-                return BloqueioPorPedidoDeExclusao::MENSAGEM;
-            })(),
-            'primario_suspenso_a_pedido' => (function () use ($escritorio, $pessoa, $vinculo): string {
+                break;
+            case 'primario_suspenso_a_pedido':
                 $vinculo->getTenantRole()?->setIsSystem(true);
                 $this->em()->persist(new PedidoDeExclusaoDeConta($escritorio, $pessoa, 'Não uso mais', new \DateTimeImmutable()));
-
-                return BloqueioPorPedidoDeExclusao::MENSAGEM;
-            })(),
-            'master_em_analise' => (static function () use ($pessoa, $vinculo, $nome): string {
+                break;
+            case 'master_em_analise':
                 $pessoa->setRoles(['ROLE_SUPER_ADMIN']);
                 $vinculo->alterarSituacao(SituacaoNaEquipe::EmAnalise);
-
-                return SituacaoNaEquipe::EmAnalise->mensagemDeAcesso($nome);
-            })(),
-            'termos' => (function () use ($pessoa): string {
+                break;
+            case 'termos':
                 $this->em()->createQuery('DELETE FROM ' . AceiteTermo::class . ' a WHERE a.user = :pessoa')->setParameter('pessoa', $pessoa)->execute();
-
-                return AcessoDoConectorRecusado::TERMOS_NAO_ACEITOS;
-            })(),
-            'liberacao_bloqueada' => (static function () use ($conexao): string {
+                break;
+            case 'liberacao_bloqueada':
                 $conexao['liberacao']->bloquearPeloMaster();
-
-                return AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO;
-            })(),
-            'liberacao_desligada' => (static function () use ($conexao): string {
+                break;
+            case 'liberacao_desligada':
                 $conexao['liberacao']->desligar();
-
-                return AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO;
-            })(),
-            'consentimento_revogado' => (function () use ($conexao): string {
+                break;
+            case 'consentimento_revogado':
                 $conexao['consentimento']->revogar($this->agora());
-
-                return ConcessaoRecusada::MENSAGEM;
-            })(),
-            'cliente_inativo' => (static function () use ($conexao): string {
+                break;
+            case 'cliente_inativo':
                 $conexao['cliente']->desativar();
-
-                return ConcessaoRecusada::MENSAGEM;
-            })(),
-            'sessoes_encerradas' => (function () use ($pessoa): string {
+                break;
+            case 'sessoes_encerradas':
                 $pessoa->encerrarSessoes($this->agora()->modify('+1 second'));
-
-                return ConcessaoRecusada::MENSAGEM;
-            })(),
-            'senha_trocada' => (static function () use ($pessoa): string {
+                break;
+            case 'senha_trocada':
                 $pessoa->setPassword('outro-hash-de-senha');
-
-                return ConcessaoRecusada::MENSAGEM;
-            })(),
-        };
+                break;
+            default:
+                throw new \LogicException('Barreira desconhecida: ' . $barreira);
+        }
         $this->em()->flush();
-
-        return $mensagem;
     }
 
-    private function assertRecusaComDesafio(ResponseInterface $resposta, string $mensagem): void
+    /**
+     * O 401 com a descrição fixa. RFC 6750, 3: `error` e `error_description` só com %x20-21 / %x23-5B / %x5D-7E (sem
+     * aspas, sem barra invertida e sem acento); o resto de cada cabeçalho, só ASCII visível.
+     */
+    private function assertRecusaComDesafio(ResponseInterface $resposta, string $descricao): void
     {
         self::assertSame(401, $resposta->getStatusCode());
         $desafio = $resposta->getHeaderLine('WWW-Authenticate');
         self::assertStringContainsString('error="invalid_token"', $desafio);
-        self::assertStringContainsString('error_description="' . addcslashes($mensagem, '"\\') . '"', $desafio);
+        self::assertStringContainsString('error_description="' . $descricao . '"', $desafio);
+        self::assertSame(1, preg_match('/error_description="([^"]*)"/', $desafio, $partes));
+        self::assertSame(1, preg_match('/^[\x20-\x21\x23-\x5B\x5D-\x7E]+$/', $partes[1]), 'error_description fora da RFC 6750: ' . $partes[1]);
+        foreach ($resposta->getHeaders() as $nome => $valores) {
+            foreach ($valores as $valor) {
+                self::assertSame(1, preg_match('/^[\x20-\x7E]*$/', $valor), 'cabeçalho ' . $nome . ' com byte fora do ASCII visível');
+            }
+        }
         self::assertSame(0, $this->despachos, 'nada é despachado');
         self::assertFalse($this->requisicao()->estaAberta(), 'a requisição não é aberta');
         self::assertNull($this->validador()->tokenValidado());
