@@ -423,8 +423,10 @@ final class CicloNasTelasTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/voto/assembleias/' . $arquivada->getId() . '/pautas/' . $pautaArquivada->getId() . '/assistir');
         self::assertResponseStatusCodeSame(404);
-        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/pautas/' . $suspensa->getId() . '/assistir');
+        $assistir = $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/pautas/' . $suspensa->getId() . '/assistir');
         self::assertResponseIsSuccessful();
+        self::assertSame('Suspensa', trim($assistir->filter('.vv > .h > i')->text()));
+        self::assertCount(0, $assistir->filter('.voto-assistir-cron'), 'suspensa não corre o prazo');
     }
 
     // ---- telão ---------------------------------------------------------------------------------------------

@@ -46,7 +46,8 @@ final class ArquivarAssembleiasEmLoteUseCase
             try {
                 $this->arquivar->executar($tenant, $id, $motivo, $por, $agora);
                 ++$feitas;
-            } catch (OperacaoInvalidaNaAssembleiaException) {
+            } catch (OperacaoInvalidaNaAssembleiaException|AssembleiaNaoEncontradaException) {
+                // Excluída por outra pessoa no meio do lote: conta como mantida, sem desfazer as já feitas.
                 ++$mantidas;
             }
         }

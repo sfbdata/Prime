@@ -22,7 +22,7 @@
 <div class="vv">
     <div class="h">
         <div><b>{{ p.titulo }}</b><span>{{ assembleia.titulo }}</span></div>
-        <i>{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</i>
+        <i>{{ p.cancelada ? 'voto.assembleia.gestor.chip_ciclo.cancelada'|trans : (p.suspensa ? 'voto.assembleia.gestor.chip_ciclo.suspensa'|trans : ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans) }}</i>
     </div>
     <div class="g">
         <div><strong>{{ p.votantes }}</strong><span>{{ 'voto.assembleia.gestor.assistir.votaram'|trans }}</span></div>
@@ -40,7 +40,7 @@
             <p>{{ 'voto.assembleia.gestor.assistir.quorum_exigido'|trans({q: p.quorumTexto}) }}</p>
         {% endif %}
     {% endif %}
-    {% if p.aberta %}
+    {% if p.aberta and not p.suspensa %}
         <p class="ok voto-assistir-cron">{{ segundos is null ? 'voto.assembleia.gestor.mesa.sem_prazo_definido'|trans : 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '%02d:%02d'|format(segundos // 60, segundos % 60)}) }}</p>
     {% endif %}
     <small>{{ 'voto.assembleia.gestor.assistir.atualizado'|trans({hora: agora|date('H:i:s')}) }}</small>

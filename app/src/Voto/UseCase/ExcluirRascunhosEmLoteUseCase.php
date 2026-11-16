@@ -37,7 +37,8 @@ final class ExcluirRascunhosEmLoteUseCase
             try {
                 $this->excluir->executar($tenant, $id);
                 ++$feitas;
-            } catch (OperacaoInvalidaNaAssembleiaException) {
+            } catch (OperacaoInvalidaNaAssembleiaException|AssembleiaNaoEncontradaException) {
+                // Excluída por outra pessoa no meio do lote: conta como mantida, sem desfazer as já feitas.
                 ++$mantidas;
             }
         }
