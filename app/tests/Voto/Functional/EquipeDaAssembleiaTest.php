@@ -21,6 +21,7 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\MembroDaEquipe;
 use App\Voto\EventListener\BarreiraDaEquipeListener;
+use App\Voto\Enum\NivelNaAssembleia;
 use App\Voto\Enum\PapelNaEquipe;
 use App\Voto\Service\AcessoAAssembleia;
 use Doctrine\ORM\EntityManagerInterface;
@@ -304,6 +305,57 @@ final class EquipeDaAssembleiaTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/voto/equipe/' . $alheia->getId() . '/designar', ['_token' => $this->token('voto_equipe'), 'nome' => 'Maria', 'papel' => 'comissao']);
         self::assertResponseStatusCodeSame(404);
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM voto.membro_da_equipe WHERE assembleia_id = ?', [$alheia->getId()]));
+    }
+
+    #[TestDox('Linha cuja conta perdeu o vínculo ativo no escritório vira Oculto (mesma consulta das equipes)')]
+    public function testVinculoPerdidoViraOculto(): void
+    {
+        $a = $this->assembleia();
+        $comissao = $this->colega();
+        $this->membro($a, PapelNaEquipe::Comissao, $comissao);
+        $acesso = static::getContainer()->get(AcessoAAssembleia::class);
+        self::assertSame(NivelNaAssembleia::Editar, $acesso->nivel($comissao, $a));
+
+        $this->em->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$comissao->getId(), $this->escritorio->getId()]);
+
+        self::assertSame(NivelNaAssembleia::Oculto, $acesso->nivel($comissao, $a));
+    }
+
+    #[TestDox('Quem só lê (auditoria) não vê o Publicar nem a seleção em lote; a comissão vê')]
+    public function testVisualizarNaoVeOsBotoesDeEscrita(): void
+    {
+        $a = $this->assembleia('Evento dos botões');
+        $auditoria = $this->colega();
+        $comissao = $this->colega();
+        $this->membro($a, PapelNaEquipe::Auditoria, $auditoria);
+        $this->membro($a, PapelNaEquipe::Comissao, $comissao);
+
+        $this->entrar($comissao);
+        $this->client->request('GET', '/voto?aba=ges');
+        self::assertSelectorExists('#assembleia-' . $a->getId() . ' a[href*="/publicar"], #assembleia-' . $a->getId() . ' form[action*="/publicar"]');
+        self::assertSelectorExists('#assembleia-' . $a->getId() . ' input[data-voto-lote-item]');
+
+        $this->entrar($auditoria);
+        $this->client->request('GET', '/voto?aba=ges');
+        self::assertSelectorExists('#assembleia-' . $a->getId());
+        self::assertSelectorNotExists('#assembleia-' . $a->getId() . ' form[action*="/publicar"]');
+        self::assertSelectorNotExists('#assembleia-' . $a->getId() . ' input[data-voto-lote-item]');
+        self::assertSelectorNotExists('#assembleia-' . $a->getId() . ' [data-voto-revelar]');
+        self::assertSelectorNotExists('#assembleia-' . $a->getId() . ' form[action*="/duplicar"]');
+    }
+
+    #[TestDox('Perfis traz o campo Votação do desenho, com a equipe padrão e uma opção por assembleia')]
+    public function testPerfisTemOCampoVotacao(): void
+    {
+        $a = $this->assembleia('Evento do campo');
+        $this->entrar($this->primario());
+
+        $this->client->request('GET', '/voto/equipe?grupo=' . $a->getId());
+        self::assertSelectorTextContains('.voto-equipe-votacao label', 'Votação');
+        self::assertCount(2, $this->client->getCrawler()->filter('.voto-equipe-votacao option'));
+        self::assertSelectorExists('.voto-equipe-votacao option[selected][value="' . $a->getId() . '"]');
+        $this->client->request('GET', '/voto/equipe?grupo=padrao');
+        self::assertSelectorTextContains('.voto-equipe', 'escolha a votação no campo acima.');
     }
 
     private function assembleia(string $titulo = 'Assembleia da equipe', bool $publicada = false): Assembleia

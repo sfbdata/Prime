@@ -44,7 +44,9 @@ voto:
         titulo: Perfis por assembleia ou votação
         texto: Cada votação pode ter a sua própria equipe, com os cargos da entidade. Em cada votação, a pessoa tem um único perfil. A administração designa os perfis, mas não opera a eleição.
         grupo_padrao: Equipe padrão (votações sem equipe própria)
-        padrao_aviso: Equipe padrão. Para montar a equipe própria, abra a votação na lista abaixo.
+        padrao_aviso: Equipe padrão. Para montar a equipe própria, escolha a votação no campo acima.
+        votacao: Votação
+        abrir: Abrir
         qtd: '{n, plural, one {# representante} other {# representantes}}'
         sem_equipe: Sem equipe própria
         sem_assembleias: Nenhuma votação ainda. Use Nova assembleia.

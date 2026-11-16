@@ -22,7 +22,8 @@ use App\Voto\Repository\MembroDaEquipeRepository;
  *     Designa a equipe e nunca é restringida;
  *  2. assembleia sem equipe própria → `Editar` (vale o módulo `voto`, como sempre);
  *  3. com equipe própria: `comissao` → `Editar`; `auditoria`, `fiscal` e `conselho` → `Visualizar`; quem não está na
- *     lista, ou está só como linha sem `user_id` (sem conta), → `Oculto`.
+ *     lista, ou está só como linha sem `user_id` (sem conta) ou cuja conta perdeu o vínculo ativo no escritório, → `Oculto`
+ *     (o vínculo é conferido na mesma consulta das equipes, `MembroDaEquipeRepository::linhasDoLote`).
  *
  * É TETO, nunca permissão: o nível não olha o módulo `voto` nem a liberação do escritório. Quem a guarda atual recusa
  * ({@see GuardaDaEquipeDoVoto::exigir()}, chamada pelas actions) continua recusado, seja qual for o nível aqui.

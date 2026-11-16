@@ -33,8 +33,13 @@
         {# Arquivada não se conduz no telão (o desenho esconde o item; o telão responde 404). #}
         {% set itens = itens|filter(i => i.href is not defined or i.href != path('voto_assembleia_telao', {id: a.id})) %}
     {% endif %}
-    {% set podeArquivar = a.publicada and not a.arquivada and not a.simulacao and a.pautas|filter(x => x.aberta)|length == 0 %}
-    {% if a.podeExcluir and not a.arquivada %}
+    {# Teto da equipe: quem só lê (auditoria, fiscal, conselho) não vê o que escreve (voto_edita, EquipeExtension). #}
+    {% set edita = voto_edita(a.id) %}
+    {% if not edita %}
+        {% set itens = itens|filter(i => i.acao is not defined and i.revelar is not defined and (i.href is not defined or i.href != path('voto_assembleia_editar', {id: a.id}))) %}
+    {% endif %}
+    {% set podeArquivar = voto_edita(a.id) and a.publicada and not a.arquivada and not a.simulacao and a.pautas|filter(x => x.aberta)|length == 0 %}
+    {% if edita and a.podeExcluir and not a.arquivada %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.excluir_rascunho'|trans, icone: 'bi-trash', revelar: '#excluir-' ~ a.id, destrutivo: true}]) %}
     {% endif %}
     {# Simulação (desenho 18, kMenu): Reiniciar simulação (sem confirmação) e Apagar simulação (vermelho, abre a faixa). #}
@@ -87,7 +92,7 @@
         </div>
     {% endif %}
     <div class="vLin voto-acoes">
-        {% if selecao is defined and selecao %}
+        {% if selecao is defined and selecao and edita %}
             <input type="checkbox" class="vSel" value="{{ a.id }}" aria-label="{{ 'voto.assembleia.gestor.arquivar.selecionar'|trans({titulo: a.titulo}) }}" data-voto-lote-item data-aberta="{{ a.pautas|filter(x => x.aberta)|length > 0 ? '1' : '0' }}" data-arquivar="{{ podeArquivar ? '1' : '0' }}" data-excluir="{{ a.podeExcluirEmLote and not a.arquivada ? '1' : '0' }}">
         {% endif %}
         {% if a.arquivada %}
@@ -97,9 +102,9 @@
                 {% if a.pautasEncerradas|length > 0 %}{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a} only %}{% endif %}
             {% endif %}
         {% elseif not a.publicada %}
-            <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
+            {% if edita %}<form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
                 <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.painel.publicar'|trans }}</button>
-            </form>
+            </form>{% endif %}
         {% else %}
             <button type="button" class="vB vP" data-voto-janela="#janela-relatorio-{{ a.id }}"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</button>
             {% include 'voto/assembleia/_janela_relatorio.html.twig' with {a: a} only %}

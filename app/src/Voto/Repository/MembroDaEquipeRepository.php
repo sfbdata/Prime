@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\MembroDaEquipe;
@@ -87,7 +88,9 @@ class MembroDaEquipeRepository extends ServiceEntityRepository
 
     /**
      * As equipes de um lote de assembleias do escritório, numa consulta só: uma linha por membro, com o id da
-     * assembleia, o id do usuário (nulo = sem conta) e o papel. Para as listas e os KPIs (sem N+1).
+     * assembleia, o id do usuário e o papel. O usuário só vale com vínculo ATIVO no escritório (LEFT JOIN em
+     * `UserTenant`): quem perdeu o vínculo volta como `user = null`, isto é, linha sem conta, que não dá acesso. Para as
+     * listas, a barreira e os KPIs (sem N+1).
      *
      * @param list<int> $assembleiaIds
      *
@@ -98,9 +101,10 @@ class MembroDaEquipeRepository extends ServiceEntityRepository
         if ([] === $assembleiaIds) {
             return [];
         }
-        /** @var list<array{assembleia: int|string, user: int|string|null, papel: string|\BackedEnum}> $linhas */
+        /** @var list<array{assembleia: int|string, user: int|string|null, papel: string|\BackedEnum, vinculo: int|string|null}> $linhas */
         $linhas = $this->createQueryBuilder('m')
-            ->select('IDENTITY(m.assembleia) AS assembleia', 'IDENTITY(m.user) AS user', 'm.papel AS papel')
+            ->select('IDENTITY(m.assembleia) AS assembleia', 'IDENTITY(m.user) AS user', 'm.papel AS papel', 'ut.id AS vinculo')
+            ->leftJoin(UserTenant::class, 'ut', 'WITH', 'ut.user = m.user AND ut.tenant = m.tenant AND ut.isActive = true')
             ->andWhere('m.tenant = :tenant')
             ->andWhere('m.assembleia IN (:ids)')
             ->setParameter('tenant', $tenant)
@@ -110,7 +114,7 @@ class MembroDaEquipeRepository extends ServiceEntityRepository
 
         return array_map(static fn (array $l): array => [
             'assembleia' => (int) $l['assembleia'],
-            'user' => null === $l['user'] ? null : (int) $l['user'],
+            'user' => null === $l['user'] || null === $l['vinculo'] ? null : (int) $l['user'],
             'papel' => $l['papel'] instanceof \BackedEnum ? (string) $l['papel']->value : (string) $l['papel'],
         ], $linhas);
     }

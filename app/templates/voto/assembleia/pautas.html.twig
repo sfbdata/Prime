@@ -28,7 +28,7 @@
 {% block conteudo %}
 {% set a = assembleia %}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
-{% if a.podeAlterarPautas %}
+{% if a.podeAlterarPautas and voto_edita(a.id) %}
 <div class="vC voto-assistente" data-voto-assistente data-voto-pautas data-voto-falha="{{ 'voto.assembleia.gestor.aviso.falha_ao_salvar'|trans }}"
      data-voto-repetir="{{ 'voto.assembleia.gestor.aviso.repetir_sem_a_pauta'|trans }}" data-voto-incluida="{{ 'voto.assembleia.gestor.aviso.pauta_incluida'|trans }}">
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a} only %}

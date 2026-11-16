@@ -23,7 +23,7 @@
     <div class="voto-assistente-corpo">
         {% if not a.publicada %}{% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 5, em_form: false} only %}{% endif %}
         <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans({identificacao: a.cenario.identificacao|lower, grupo: a.cenario.grupo|lower}) }}</div>
-        {% if a.podeAlterarUnidades %}
+        {% if a.podeAlterarUnidades and voto_edita(a.id) %}
             <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
                 <input type="hidden" name="_token" value="{{ token }}">
                 <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.importacao_arquivo'|trans }}</p>
@@ -63,10 +63,10 @@
     {% if a.publicada %}
         <div class="vLin voto-acoes">
             <a class="vB" href="{{ path('voto_assembleia_divulgacao', {id: a.id}) }}"><i class="bi bi-qr-code"></i>Link e QR Code</a>
-            <form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-form-linha">
+            {% if voto_edita(a.id) %}<form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-form-linha">
                 <input type="hidden" name="_token" value="{{ token }}">
                 <button type="submit" class="vB vP" {{ tela.faltamEnvio == 0 ? 'disabled' }}><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.enviar'|trans }}</button>
-            </form>
+            </form>{% endif %}
             <span class="voto-participacao">{{ 'voto.assembleia.gestor.links.faltam'|trans({n: tela.faltamEnvio}) }}</span>
         </div>
     {% else %}
@@ -84,7 +84,7 @@
                 {% if u.linkEnviadoEm %}<span class="voto-participacao">{{ 'voto.assembleia.gestor.links.enviado_em'|trans({data: u.linkEnviadoEm|date('d/m/Y H:i')}) }}</span>{% endif %}
             </div>
             <div class="voto-unidade-acoes">
-                {% if a.publicada and u.apta %}
+                {% if a.publicada and u.apta and voto_edita(a.id) %}
                     <button type="button" class="vB vP" data-voto-copiar="{{ link }}" data-voto-copiado="{{ 'voto.assembleia.gestor.aviso.link_copiado'|trans }}"><i class="bi bi-link-45deg"></i>{{ 'voto.assembleia.gestor.links.copiar_link'|trans }}</button>
                     <button type="button" class="vB" data-voto-copiar="{{ 'voto.assembleia.gestor.links.mensagem'|trans({assembleia: a.titulo, unidade: u.rotulo, link: link}) }}" data-voto-copiado="{{ 'voto.assembleia.gestor.aviso.mensagem_copiada'|trans }}"><i class="bi bi-chat-text"></i>{{ 'voto.assembleia.gestor.links.copiar_mensagem'|trans }}</button>
                     {% if u.email %}
@@ -98,7 +98,7 @@
                         <button type="submit" class="vB"><i class="bi bi-arrow-repeat"></i>{{ 'voto.assembleia.gestor.links.novo_link'|trans }}</button>
                     </form>
                 {% endif %}
-                {% if a.podeAlterarUnidades %}
+                {% if a.podeAlterarUnidades and voto_edita(a.id) %}
                     <form method="post" action="{{ path('voto_assembleia_unidade_remover', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
                         <input type="hidden" name="_token" value="{{ token }}">
                         <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}" title="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}"><i class="bi bi-trash"></i></button>
@@ -109,7 +109,7 @@
     {% else %}
         <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.unidades.vazio'|trans }}</div>
     {% endfor %}
-    {% if not a.publicada %}
+    {% if not a.publicada and voto_edita(a.id) %}
         <div class="vLin voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>

@@ -16,8 +16,23 @@
 <link rel="stylesheet" href="{{ asset('css/voto-equipe.css') }}">
 {% endblock %}
 
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-equipe.js') }}" defer></script>
+{% endblock %}
+
 {% block conteudo %}
 {% set token = csrf_token('voto_equipe') %}
+{# Campo "Votação" do desenho (H236, `ctxOp`): trocar abre o grupo dela. O "Atuando como" do desenho não entra: a pessoa é quem está logada. #}
+<form class="vC voto-equipe-votacao" method="get" action="{{ path('voto_equipe_index') }}" data-voto-equipe-votacao>
+    <label class="vL voto-equipe-campo-largo">{{ 'voto.equipe.votacao'|trans }}
+        <select class="vF" name="grupo">
+            <option value="padrao"{{ grupo in ['', 'padrao'] ? ' selected' : '' }}>{{ 'voto.equipe.grupo_padrao'|trans }}</option>
+            {% for g in grupos %}<option value="{{ g.assembleiaId }}"{{ grupo == g.assembleiaId ? ' selected' : '' }}>{{ g.titulo }}</option>{% endfor %}
+        </select>
+    </label>
+    <noscript><button type="submit" class="vB">{{ 'voto.equipe.abrir'|trans }}</button></noscript>
+</form>
 <div class="vC voto-equipe">
     <div class="vH"><i class="bi bi-people"></i>{{ 'voto.equipe.titulo'|trans }}</div>
     <div class="vLin voto-equipe-texto">{{ 'voto.equipe.texto'|trans }}</div>
