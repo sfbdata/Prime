@@ -49,6 +49,9 @@
     {% endif %}
     <div class="vC voto-barra">
         <a class="vB vP" href="{{ path('voto_assembleia_nova') }}"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.nova'|trans }}</a>
+        {% if voto_gere_equipe() %}
+            <a class="vB" href="{{ path('voto_equipe_index') }}"><i class="bi bi-people"></i>{{ 'voto.assembleia.gestor.sub.perfis'|trans }}</a>
+        {% endif %}
         <span class="voto-espaco"></span>
         {% if totalArquivadas > 0 or arquivadas %}
             <a class="vB" data-voto-arquivadas aria-pressed="{{ arquivadas ? 'true' : 'false' }}" href="{{ path('voto_index', arquivadas ? {aba: 'ges'} : {aba: 'ges', arquivadas: 1}) }}"><i class="bi {{ arquivadas ? 'bi-eye-slash' : 'bi-archive' }}"></i>{{ arquivadas ? 'voto.assembleia.gestor.arquivar.ocultar'|trans : 'voto.assembleia.gestor.arquivar.mostrar'|trans({n: totalArquivadas}) }}</a>

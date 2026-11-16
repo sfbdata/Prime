@@ -1,9 +1,14 @@
 {#
-    Sub-abas da Gestão eleitoral (componente .vTab do desenho, L387-388). Em rascunho o assistente de 7 passos é uma aba só
-    ("Assembleia"; os passos estão no trilho, _assistente_trilho): Painel e Assembleia. Publicada: Painel, Pautas e
-    Unidades e links. Contexto: `assembleia` (AssembleiaNoPainel ou null, na criação) e `sub`.
+    Sub-abas da Gestão eleitoral (componente .vTab do desenho, L387-388). Perfis aparece só para a Administração.
+    Em rascunho o assistente de 7 passos é uma aba só ("Assembleia"; os passos estão no trilho, _assistente_trilho):
+    Perfis, Painel e Assembleia. Publicada: Perfis, Painel, Pautas e Unidades e links.
+    Contexto: `assembleia` (AssembleiaNoPainel ou null, na criação) e `sub`.
 #}
 {% set itens = [{id: 'painel', icone: 'bi-speedometer2', href: path('voto_index', {aba: 'ges'})}] %}
+{# Perfis (desenho 18, L447): só a Administração, e antes do Painel, como o desenho ordena. #}
+{% if voto_gere_equipe() %}
+    {% set itens = [{id: 'perfis', icone: 'bi-people', href: path('voto_equipe_index')}]|merge(itens) %}
+{% endif %}
 {% if assembleia is null %}
     {% set itens = itens|merge([{id: 'assembleia', icone: 'bi-plus-square', href: path('voto_assembleia_nova')}]) %}
 {% elseif assembleia.podeAlterarPautas %}

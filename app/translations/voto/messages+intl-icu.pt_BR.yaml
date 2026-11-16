@@ -38,6 +38,42 @@ voto:
         vazio: Nenhuma votação publicada.
     recusa:
         nao_liberado: O BlueJus Voto ainda não foi liberado para este escritório.
+    # ---- Equipe por assembleia (W2-7, bloco A): tela Perfis (desenho 18, H247 e H463-464) e a barreira do teto.
+    # Spec docs/specs/voto-equipe-e-master-1611.md. Chave `equipe`, e não "indicações" (o nome já existe no Master).
+    equipe:
+        titulo: Perfis por assembleia ou votação
+        texto: Cada votação pode ter a sua própria equipe, com os cargos da entidade. Em cada votação, a pessoa tem um único perfil. A administração designa os perfis, mas não opera a eleição.
+        grupo_padrao: Equipe padrão (votações sem equipe própria)
+        padrao_aviso: Equipe padrão. Para montar a equipe própria, abra a votação na lista abaixo.
+        qtd: '{n, plural, one {# representante} other {# representantes}}'
+        sem_equipe: Sem equipe própria
+        sem_assembleias: Nenhuma votação ainda. Use Nova assembleia.
+        categoria: Categoria com cargos prontos
+        aplicar: Aplicar cargos da categoria
+        nome: Nome
+        email: E-mail
+        cargo: Cargo
+        cargo_exemplo: 'Ex.: Presidência da mesa'
+        permissoes: Permissões
+        designar: Designar
+        editar: Editar
+        remover: Remover
+        salvar: Salvar
+        cancelar: Cancelar
+        a_designar: A designar
+        sem_conta: Sem conta neste escritório (não dá acesso)
+        acesso_por_email: O acesso vale para quem tem conta neste escritório com o mesmo e-mail.
+        bloqueada: A equipe só muda enquanto a assembleia está em rascunho.
+        aviso:
+            designado: Perfil designado.
+            alterado: Perfil alterado.
+            removido: Perfil removido.
+            cargos_aplicados: Cargos da categoria aplicados.
+            padrao: A votação voltou a usar a equipe padrão.
+        recusa:
+            oculto: Seu perfil não atua nesta votação.
+            somente_leitura: Seu perfil não tem permissão para esta ação.
+            so_administracao: Seu perfil não tem permissão para esta ação.
     # ---- Cédula da assembleia de condomínio (frente F3, /votar/{token}): portal do eleitor do desenho 18 (§4 do
     # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
     # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
@@ -164,6 +200,8 @@ voto:
                 assembleia: Assembleia
                 pautas: Pautas
                 unidades: Unidades e links
+                conferencia: Conferência
+                perfis: Perfis
             # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
             assistente:
                 rotulo: Passos do cadastro da assembleia
