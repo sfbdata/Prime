@@ -28,6 +28,8 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 #[CoversClass(AplicarModeloDePautasUseCase::class)]
 final class AplicarModeloDePautasUseCaseTest extends TestCase
 {
+    use ComFotosDasCandidaturas;
+
     #[TestDox('AGO completa cria as 4 pautas em sequência, com tipo e regras do desenho, e devolve os títulos')]
     public function testCriaAsPautasDoModelo(): void
     {
@@ -118,7 +120,7 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleias->method('buscarDoEscritorio')->willReturn(null);
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
         $pautas->expects(self::never())->method('salvar');
-        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()), $pautas, self::serializacao(), new TransacaoFalsa());
+        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $pautas, self::serializacao(), new TransacaoFalsa());
 
         $this->expectException(AssembleiaNaoEncontradaException::class);
 
@@ -130,7 +132,7 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleias = $this->createMock(AssembleiaRepository::class);
         $assembleias->method('buscarDoEscritorio')->with(7, $tenant)->willReturn($assembleia);
 
-        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()), $pautas, self::serializacao(), $transacao ?? new TransacaoFalsa());
+        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $pautas, self::serializacao(), $transacao ?? new TransacaoFalsa());
     }
 
     private static function serializacao(): SerializacaoDaConfiguracao

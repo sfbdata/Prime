@@ -204,6 +204,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::CHAT_IA_ANEXO => $this->raiz($this->uploadsDir) . '/chat-ia',
             // Subpasta da mesma raiz: as imagens dos artigos dos blogs (globais) não se misturam com os documentos da pasta.
             CategoriaDeArquivo::BLOG_IMAGEM => $this->raiz($this->uploadsDir) . '/blog-imagens',
+            // Subpasta da mesma raiz: as fotos das candidaturas do Voto não se misturam com os documentos da pasta.
+            CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA => $this->raiz($this->uploadsDir) . '/voto-fotos',
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO,

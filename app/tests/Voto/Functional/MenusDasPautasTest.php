@@ -158,13 +158,12 @@ final class MenusDasPautasTest extends JusPrimeWebTestCase
         self::assertSame('Composição da chapa (um cargo por linha, ex.: Presidente: Nome)', $composicao->attr('placeholder'));
         self::assertSame("Presidente: Ana\nVice: Bia", trim((string) $composicao->getNode(0)?->textContent));
 
-        // Menu à direita do .vCandF; Subir some na primeira linha e Descer na última; "Remover foto" é de outra etapa.
-        self::assertSame(['Subir', 'Descer', 'Remover candidatura'], self::rotulos($ana->filter('.vCandR > .vKw > .vKm > button')));
+        // Menu à direita do .vCandF; Subir some na primeira linha e Descer na última.
+        self::assertSame(['Subir', 'Descer', 'Remover foto', 'Remover candidatura'], self::rotulos($ana->filter('.vCandR > .vKw > .vKm > button')));
         self::assertNotNull($ana->filter('.vKm > button[data-voto-opcao-mover="-1"]')->attr('hidden'));
         self::assertNull($ana->filter('.vKm > button[data-voto-opcao-mover="1"]')->attr('hidden'));
         self::assertNotNull($ana->filter('.vKm > button.vKd[data-voto-opcao-remover]')->attr('data-voto-opcao-remover'));
         self::assertNotNull($linhas->eq(1)->filter('.vKm > button[data-voto-opcao-mover="1"]')->attr('hidden'));
-        self::assertStringNotContainsString('Remover foto', $tela->html());
     }
 
     #[TestDox('Pauta de deliberação: só a descrição da opção; unidade, propostas e composição ficam escondidas')]
@@ -174,9 +173,9 @@ final class MenusDasPautasTest extends JusPrimeWebTestCase
         $linha = $tela->filter('form#pauta-' . $this->contas->getId() . ' > .voto-opcoes > .voto-opcao')->first();
 
         self::assertSame('Descrição da opção', trim($linha->filter('.vCandF > details.vDet > summary')->text()));
-        self::assertCount(3, $linha->filter('[data-voto-so-pessoa][hidden]'), 'unidade, propostas e composição');
+        self::assertCount(4, $linha->filter('[data-voto-so-pessoa][hidden]'), 'foto, unidade, propostas e composição');
         self::assertCount(1, $linha->filter('input[name="opcao_descricao[]"]:not([hidden])'));
-        self::assertSame(['Subir', 'Descer', 'Remover opção'], self::rotulos($linha->filter('.vCandR > .vKw > .vKm > button')));
+        self::assertSame(['Subir', 'Descer', 'Remover foto', 'Remover opção'], self::rotulos($linha->filter('.vCandR > .vKw > .vKm > button')));
     }
 
     #[TestDox('Responsivo abaixo de 560px: o campo vai para a linha cheia e o menu fica à direita (CSS do desenho)')]

@@ -48,4 +48,22 @@ final class ConfiguracaoDaPublicacaoDadosDaCandidaturaTest extends TestCase
 
         self::assertCount(5, array_unique($codigos), 'descrição, propostas, composição e unidade entram no hash');
     }
+
+    #[TestDox('A foto 3x4 fica FORA do hash: enviar, trocar ou tirar a foto não muda o código da conferência')]
+    public function testAFotoNaoMudaOCodigo(): void
+    {
+        $opcao = self::opcao();
+        $assembleia = self::$assembleia;
+        $opcao->detalhar('Descrição', 'Propostas');
+        $semFoto = ConfiguracaoDaPublicacao::codigo($assembleia);
+
+        $opcao->definirFoto('a1b2c3d4e5f60718293a4b5c6d7e8f90.jpg');
+        self::assertSame($semFoto, ConfiguracaoDaPublicacao::codigo($assembleia), 'com foto');
+
+        $opcao->definirFoto('0123456789abcdef0123456789abcdef.png');
+        self::assertSame($semFoto, ConfiguracaoDaPublicacao::codigo($assembleia), 'foto trocada');
+
+        $opcao->definirFoto(null);
+        self::assertSame($semFoto, ConfiguracaoDaPublicacao::codigo($assembleia), 'foto tirada');
+    }
 }

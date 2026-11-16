@@ -52,6 +52,8 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 #[CoversClass(PautaNoPainel::class)]
 final class CicloDosUseCasesTest extends TestCase
 {
+    use ComFotosDasCandidaturas;
+
     private AssembleiaRepository&MockObject $assembleias;
     private PautaDaAssembleiaRepository&MockObject $pautas;
     private TransacaoDoVoto $transacao;
@@ -192,7 +194,7 @@ final class CicloDosUseCasesTest extends TestCase
             fn (int $id, Tenant $t): ?Assembleia => $t !== $this->tenant ? null : (1 === $id ? $rascunho : $this->assembleia),
         );
         $repositorio->expects(self::once())->method('remover')->with($rascunho, true);
-        $caso = new ExcluirRascunhoDaAssembleiaUseCase($repositorio, $serializacao);
+        $caso = new ExcluirRascunhoDaAssembleiaUseCase($repositorio, $serializacao, $this->fotosDasCandidaturas());
 
         $caso->executar($this->tenant, 1);
 

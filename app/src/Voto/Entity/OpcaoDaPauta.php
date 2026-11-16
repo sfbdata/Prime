@@ -56,6 +56,13 @@ class OpcaoDaPauta implements TenantAware
     #[ORM\Column(length: 60, nullable: true)]
     private ?string $unidadeCandidato = null;
 
+    /**
+     * Chave (nome) da foto 3x4 da candidatura no armazenamento do sistema, ou null. Só o nome: o caminho e o escritório
+     * saem de `ChavesDoVoto`. Fica FORA da configuração publicada (o código de conferência não a lê).
+     */
+    #[ORM\Column(length: 80, nullable: true)]
+    private ?string $foto = null;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: PautaDaAssembleia::class, inversedBy: 'opcoes')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -129,6 +136,17 @@ class OpcaoDaPauta implements TenantAware
     public function getUnidadeCandidato(): ?string
     {
         return $this->unidadeCandidato;
+    }
+
+    public function getFoto(): ?string
+    {
+        return $this->foto;
+    }
+
+    /** Aponta para a foto (ou tira, com null). Quem chama cuida do arquivo: o novo antes, o antigo só depois do COMMIT. */
+    public function definirFoto(?string $foto): void
+    {
+        $this->foto = null === $foto || '' === $foto ? null : $foto;
     }
 
     private static function limpar(?string $texto, int $limite): ?string

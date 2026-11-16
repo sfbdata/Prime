@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\DTO;
 
 use App\Voto\Enum\TipoDaPauta;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Uma pauta da assembleia como a tela envia: título, descrição e as linhas de opção (número e nome, como digitados).
@@ -16,7 +17,7 @@ final readonly class PautaInput
     public const OPCOES_PADRAO = [['numero' => '1', 'rotulo' => 'Sim'], ['numero' => '2', 'rotulo' => 'Não']];
 
     /**
-     * @param list<array{numero: string, rotulo: string, descricao?: string, propostas?: string, composicao?: string, unidade?: string}> $opcoes
+     * @param list<array{numero: string, rotulo: string, descricao?: string, propostas?: string, composicao?: string, unidade?: string, foto?: string, arquivo?: ?UploadedFile}> $opcoes `foto`: nome da foto que a linha já tinha; `arquivo`: a foto nova enviada
      */
     public function __construct(
         public string $titulo,

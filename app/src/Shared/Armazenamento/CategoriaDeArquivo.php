@@ -67,6 +67,10 @@ enum CategoriaDeArquivo: string
     // ISOLADA por escritório em disco (`uploads/pastas/assinatura/<tenantId>/`), como as imagens do editor: está no
     // enum restrito `CategoriaComIsolamentoFisico`, e a purga leva o diretório inteiro do escritório.
     case ASSINATURA_DOCUMENTO = 'assinatura_documento';
+    // A foto 3x4 da candidatura do Voto (desenho 18 VS 08.11.26, `.vFotoU`). Plana, numa subpasta da raiz dos documentos de
+    // pasta; o escopo é o escritório dono da assembleia (`ChavesDoVoto::fotoDaCandidatura`), e a purga a leva pelos
+    // registros de `voto.assembleia_opcao`. Entregue ao gestor (equipe) e à urna (link da unidade), nunca por caminho.
+    case VOTO_FOTO_CANDIDATURA = 'voto_foto_candidatura';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

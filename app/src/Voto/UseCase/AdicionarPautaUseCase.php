@@ -13,6 +13,7 @@ use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
+use App\Voto\Service\FotosDasCandidaturas;
 use App\Voto\Service\OpcoesDaPauta;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 
@@ -29,6 +30,7 @@ final class AdicionarPautaUseCase
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly OpcoesDaPauta $opcoesDaPauta,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly FotosDasCandidaturas $fotos,
     ) {
     }
 
@@ -40,7 +42,17 @@ final class AdicionarPautaUseCase
     private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, PautaInput $input): int
     {
         $pauta = $this->montar($tenant, $assembleiaId, $input);
-        $this->pautas->salvar($pauta, flush: true);
+        // A foto 3x4 das candidaturas (só na eleição de pessoas) entra junto com a pauta nova.
+        $plano = $this->fotos->planejar($pauta, $input->opcoes, array_map(
+            static fn (OpcaoDaPauta $o): array => ['numero' => $o->getNumero(), 'rotulo' => $o->getRotulo()],
+            $pauta->getOpcoesDeVoto(),
+        ), $input->tipo->eleitoral());
+        $this->fotos->gravar($pauta, $plano);
+        $this->fotos->confirmar($plano, static function () use ($pauta, $plano): void {
+            foreach ($pauta->getOpcoesDeVoto() as $opcao) {
+                $opcao->definirFoto($plano->nomeDe($opcao->getNumero()));
+            }
+        }, fn (bool $flush) => $this->pautas->salvar($pauta, $flush));
 
         return (int) $pauta->getId();
     }

@@ -54,4 +54,17 @@ final class OpcaoDaPautaTest extends TestCase
             mb_strlen((string) $opcao->getComposicao()), mb_strlen((string) $opcao->getUnidadeCandidato()),
         ]);
     }
+
+    #[TestDox('Foto: nasce sem, guarda o nome, e vazio ou nulo tira')]
+    public function testFoto(): void
+    {
+        $opcao = self::opcao();
+        self::assertNull($opcao->getFoto());
+
+        $opcao->definirFoto('a1b2c3d4e5f60718293a4b5c6d7e8f90.jpg');
+        self::assertSame('a1b2c3d4e5f60718293a4b5c6d7e8f90.jpg', $opcao->getFoto());
+
+        $opcao->definirFoto('');
+        self::assertNull($opcao->getFoto());
+    }
 }

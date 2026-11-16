@@ -93,6 +93,7 @@ final class LeituraDaAssembleia
                 'propostas' => $o->getPropostas(),
                 'composicao' => $o->getComposicao(),
                 'unidade' => $o->getUnidadeCandidato(),
+                'foto' => $o->getFoto(),
             ], $pauta->getOpcoesDeVoto()),
             votantes: $contagem['unidades'],
             pesoVotante: $contagem['peso'],

@@ -22,6 +22,7 @@ use App\Voto\UseCase\MoverPautaUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\RemoverPautaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -194,12 +195,19 @@ final class PautasDaAssembleiaController extends AbstractController
         $rotulos = $request->request->all('opcao_rotulo');
         $detalhes = ['descricao' => 'opcao_descricao', 'propostas' => 'opcao_propostas', 'composicao' => 'opcao_composicao', 'unidade' => 'opcao_unidade'];
         $campos = array_map(static fn (string $nome): array => $request->request->all($nome), $detalhes);
+        // Foto 3x4 da candidatura: o nome da que a linha já tem (`opcao_foto[]`, vazio se o gestor a tirou) e o arquivo novo
+        // (`opcao_foto_arquivo[]`). O servidor só aceita o nome que a própria pauta já guarda.
+        $fotos = $request->request->all('opcao_foto');
+        $arquivos = $request->files->get('opcao_foto_arquivo');
+        $arquivos = \is_array($arquivos) ? $arquivos : [];
         $opcoes = [];
         foreach (array_values($numeros) as $i => $numero) {
             $linha = ['numero' => \is_string($numero) ? $numero : '', 'rotulo' => \is_string($rotulos[$i] ?? null) ? $rotulos[$i] : ''];
             foreach ($campos as $chave => $valores) {
                 $linha[$chave] = \is_string($valores[$i] ?? null) ? $valores[$i] : '';
             }
+            $linha['foto'] = \is_string($fotos[$i] ?? null) ? $fotos[$i] : '';
+            $linha['arquivo'] = ($arquivos[$i] ?? null) instanceof UploadedFile ? $arquivos[$i] : null;
             $opcoes[] = $linha;
         }
 

@@ -10,6 +10,8 @@
      depois de gravada); antes de uma ação que recarrega ou sai da tela (atalho, remover, rodapé, abas), grava as
      pautas alteradas e, se uma falhar, mostra o erro acima do rodapé e fica na tela com tudo o que foi digitado
      (repetir a ação segue sem a pauta recusada); fora da tela, o aviso do navegador;
+   - foto 3x4 da candidatura (`.vFotoU`): escolher mostra a prévia, "Remover foto" (menu da candidatura) tira; vale ao
+     "Salvar" da pauta (o arquivo vai junto, por multipart) e a tela recarrega depois de gravar uma mudança de foto;
    - "Assistir" abre a página própria num pop-up de 620x560 (se o navegador bloquear, segue o link em outra aba);
    - "Imprimir" na ata. */
 (function () {
@@ -196,6 +198,7 @@
         }
         /* Unidade, propostas e composição só na eleição de pessoas; rótulos do menu e do <details> seguem o tipo. */
         Array.prototype.forEach.call(form.querySelectorAll('[data-voto-so-pessoa]'), function (campo) { campo.hidden = !eleitoral; });
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-opcao]'), sincronizarFoto);
         Array.prototype.forEach.call(form.querySelectorAll('[data-voto-detalhe-pessoa]'), function (resumo) {
             resumo.textContent = resumo.getAttribute(eleitoral ? 'data-voto-detalhe-pessoa' : 'data-voto-detalhe-pauta') || '';
         });
@@ -274,6 +277,84 @@
     function limparLinha(linha) {
         Array.prototype.forEach.call(linha.querySelectorAll('input, textarea'), function (campo) { campo.value = ''; });
         Array.prototype.forEach.call(linha.querySelectorAll('details'), function (detalhes) { detalhes.open = false; });
+        limparFoto(linha);
+    }
+
+    /* Foto 3x4 da candidatura (.vFotoU). A linha tem o arquivo novo (`[data-voto-foto-arquivo]`), o nome da foto que ela
+       já tem (`[data-voto-foto-nome]`, vazio = sem foto) e a imagem; o que aparece segue o que ela tem agora. */
+    function sincronizarFoto(linha) {
+        var caixa = linha.querySelector('[data-voto-foto]');
+        var form = linha.closest('form');
+        if (!caixa) {
+            return;
+        }
+        var arquivo = caixa.querySelector('[data-voto-foto-arquivo]');
+        var nome = caixa.querySelector('[data-voto-foto-nome]');
+        var img = caixa.querySelector('[data-voto-foto-img]');
+        var tem = (arquivo.files && arquivo.files.length > 0) || nome.value !== '';
+        img.hidden = !tem;
+        Array.prototype.forEach.call(caixa.querySelectorAll('[data-voto-foto-com]'), function (e) { e.hidden = !tem; });
+        Array.prototype.forEach.call(caixa.querySelectorAll('[data-voto-foto-sem]'), function (e) { e.hidden = tem; });
+        var pessoa = linha.querySelector('[data-voto-nome-candidatura]');
+        img.alt = (img.getAttribute('data-voto-foto-alt') || '').split('{nome}').join(pessoa ? pessoa.value.trim() : '');
+        var remover = linha.querySelector('[data-voto-foto-remover]');
+        if (remover && form) {
+            remover.hidden = !(tem && campoDaPauta(form, 'tipo').value === 'eleicao_cargo');
+        }
+    }
+
+    function soltarPrevia(caixa) {
+        if (caixa.votoPrevia) {
+            window.URL.revokeObjectURL(caixa.votoPrevia);
+            caixa.votoPrevia = null;
+        }
+    }
+
+    /* Linha em branco ou foto tirada: sem arquivo, sem nome, sem imagem. */
+    function limparFoto(linha) {
+        var caixa = linha.querySelector('[data-voto-foto]');
+        if (!caixa) {
+            return;
+        }
+        soltarPrevia(caixa);
+        caixa.querySelector('[data-voto-foto-arquivo]').value = '';
+        caixa.querySelector('[data-voto-foto-nome]').value = '';
+        var img = caixa.querySelector('[data-voto-foto-img]');
+        img.removeAttribute('src');
+        img.removeAttribute('data-voto-foto-url');
+        sincronizarFoto(linha);
+    }
+
+    /* Escolheu (ou cancelou) o arquivo: prévia local; sem arquivo, volta a foto que a linha já tinha. */
+    function escolherFoto(campo) {
+        var linha = campo.closest('[data-voto-opcao]');
+        var caixa = campo.closest('[data-voto-foto]');
+        if (!linha || !caixa) {
+            return;
+        }
+        var img = caixa.querySelector('[data-voto-foto-img]');
+        if (!img.hasAttribute('data-voto-foto-url') && img.getAttribute('src')) {
+            img.setAttribute('data-voto-foto-url', img.getAttribute('src'));
+        }
+        soltarPrevia(caixa);
+        if (campo.files && campo.files.length > 0) {
+            caixa.votoPrevia = window.URL.createObjectURL(campo.files[0]);
+            img.src = caixa.votoPrevia;
+        } else if (caixa.querySelector('[data-voto-foto-nome]').value !== '' && img.getAttribute('data-voto-foto-url')) {
+            img.src = img.getAttribute('data-voto-foto-url');
+        } else {
+            img.removeAttribute('src');
+        }
+        sincronizarFoto(linha);
+    }
+
+    /* A pauta tem foto nova ou tirada ainda não gravada? (a tela recarrega depois de gravar, para mostrar a foto salva) */
+    function fotoMudou(form) {
+        return Array.prototype.some.call(form.querySelectorAll('[data-voto-foto]'), function (caixa) {
+            var arquivo = caixa.querySelector('[data-voto-foto-arquivo]');
+            var nome = caixa.querySelector('[data-voto-foto-nome]');
+            return (arquivo.files && arquivo.files.length > 0) || nome.value !== nome.defaultValue;
+        });
     }
 
     /* Subir e Descer escondem na ponta da lista (no desenho o item nem existe ali). */
@@ -501,9 +582,15 @@
         if (botao) {
             botao.disabled = true;
         }
+        var comFoto = fotoMudou(form);
         gravar(form).then(function (dados) {
             if (botao) {
                 botao.disabled = false;
+            }
+            if (dados.ok && comFoto) {
+                guardarAviso(dados.mensagem);
+                sair(function () { window.location.reload(); });
+                return;
             }
             if (dados.ok && erroDe === form) {
                 mostrarErro('');
@@ -706,7 +793,7 @@
     });
 
     document.addEventListener('click', function (evento) {
-        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-opcao-mover], [data-voto-envia], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
+        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-opcao-mover], [data-voto-foto-remover], [data-voto-envia], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
         if (!alvo) {
             return;
         }
@@ -720,6 +807,8 @@
             removerOpcao(alvo);
         } else if (alvo.hasAttribute('data-voto-opcao-mover')) {
             moverOpcao(alvo);
+        } else if (alvo.hasAttribute('data-voto-foto-remover')) {
+            limparFoto(alvo.closest('[data-voto-opcao]'));
         } else if (alvo.hasAttribute('data-voto-envia')) {
             enviarPelaPauta(alvo);
         } else if (alvo.hasAttribute('data-voto-mostrar')) {
@@ -739,6 +828,21 @@
             }
         } else if (alvo.hasAttribute('data-voto-imprimir')) {
             window.print();
+        }
+    });
+
+    document.addEventListener('change', function (evento) {
+        if (evento.target.matches && evento.target.matches('[data-voto-foto-arquivo]')) {
+            escolherFoto(evento.target);
+        }
+    });
+
+    document.addEventListener('input', function (evento) {
+        if (evento.target.matches && evento.target.matches('[data-voto-nome-candidatura]')) {
+            var linha = evento.target.closest('[data-voto-opcao]');
+            if (linha) {
+                sincronizarFoto(linha);
+            }
         }
     });
 

@@ -95,6 +95,7 @@ final class TenantContextValidatorListener
         'voto_assembleia_cedula',
         'voto_assembleia_cedula_votar',
         'voto_assembleia_cedula_comprovante_email',
+        'voto_assembleia_cedula_foto',
         // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',

@@ -144,6 +144,7 @@ final class MontarCedulaUseCase
             $o->isAbstencao(),
             $o->getDescricao(),
             $o->getComposicao(),
+            null !== $o->getFoto(),
         ), $opcoes);
     }
 

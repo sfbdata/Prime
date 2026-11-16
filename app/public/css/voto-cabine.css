@@ -35,6 +35,7 @@ body.uAberta { overflow:hidden; }
 .uNum { display:inline-flex; width:clamp(42px, 6vw, 56px); height:clamp(54px, 8vw, 72px); border:2px solid #111; align-items:center; justify-content:center; font:bold clamp(30px, 5vw, 44px) Arial; background:#fff; animation:uDig .16s ease; }
 @keyframes uDig { from { transform:scale(.8); background:#dfe9ef; } to { transform:none; } }
 .uCur { animation:uPisca 1s steps(2) infinite; background:#d7e6ef; } @keyframes uPisca { 50% { background:#fff; } }
+.uFoto { align-self:flex-start; width:clamp(104px, 17vw, 168px); aspect-ratio:3/4; background:#dfe3e2; border:1px solid #666; display:flex; align-items:center; justify-content:center; font:bold 34px Arial; color:#4b5a63; overflow:hidden; flex:none; } .uFoto img { width:100%; height:100%; object-fit:cover; } .uSilhueta { width:74%; height:auto; margin-top:22%; }
 .uFade { animation:uSur .24s ease both; } @keyframes uSur { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 .uRod { margin-top:auto; border-top:2px solid #111; padding-top:8px; font-size:clamp(12.5px, 1.6vw, 15px); line-height:1.5; }
 .uFim { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:#fff; padding:16px; box-sizing:border-box; animation:uSur .3s ease both; }
@@ -91,6 +92,7 @@ body.uAberta { overflow:hidden; }
 .uVerNome { font-size:15px; color:#0b3550; }
 .uCardTx { min-width:0; font-size:13.5px; line-height:1.3; }
 .uCardNome { font-size:15px; }
+.vAv img { width:100%; height:100%; object-fit:cover; }
 .vAv { width:56px; height:56px; flex:none; display:flex; align-items:center; justify-content:center; background:#e5f1f7; color:#0a6fa0; font-weight:bold; font-size:19px; border-radius:3px; overflow:hidden; }
 
 /* Botões da cédula que abrem a cabine (L153: "Conhecer candidaturas", "Simular votação" e "Votar"). */
