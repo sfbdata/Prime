@@ -52,10 +52,13 @@ final class RotasDoConectorNosListenersTest extends TestCase
         self::assertNotContains(ServidorDeAutorizacao::ROTA_AUTORIZAR, $lista);
     }
 
-    #[TestDox('só o authorize roda sem o filtro de escritório da sessão')]
+    #[TestDox('só o authorize e o token rodam sem o filtro de escritório da sessão')]
     public function testFiltroDaSessao(): void
     {
-        self::assertSame([ServidorDeAutorizacao::ROTA_AUTORIZAR], self::lista(TenantFilterListener::class, 'ROTAS_SEM_FILTRO'));
+        self::assertSame(
+            [ServidorDeAutorizacao::ROTA_AUTORIZAR, ServidorDeAutorizacao::ROTA_TOKEN],
+            self::lista(TenantFilterListener::class, 'ROTAS_SEM_FILTRO'),
+        );
     }
 
     #[TestDox('o authorize é destino válido do login')]

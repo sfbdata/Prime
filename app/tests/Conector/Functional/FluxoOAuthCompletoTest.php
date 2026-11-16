@@ -271,8 +271,8 @@ final class FluxoOAuthCompletoTest extends JusPrimeWebTestCase
 
     /**
      * O `/oauth/token` não usa sessão (spec 3.3 e 8): o resultado não pode depender de um cookie de sessão que chegue
-     * junto. Hoje depende: o {@see \App\Shared\EventListener\TenantFilterListener} liga o filtro do escritório da
-     * SESSÃO (A) também na rota do token, e a concessão do B some das consultas da conferência.
+     * junto. Sem o token em `ROTAS_SEM_FILTRO` do {@see \App\Shared\EventListener\TenantFilterListener}, o filtro do
+     * escritório da SESSÃO (A) ligava na rota do token e a concessão do B sumia das consultas da conferência.
      */
     #[TestDox('Pessoa com 2 escritórios, sessão no A, autoriza o B; a troca do código com o cookie da sessão no pedido também sai presa ao B')]
     public function testTrocaComCookieDaSessaoNoutroEscritorio(): void
@@ -281,14 +281,6 @@ final class FluxoOAuthCompletoTest extends JusPrimeWebTestCase
 
         $resposta = $this->trocarCodigo($retorno['code']);
 
-        if ($resposta->getStatusCode() === 400) {
-            self::markTestIncomplete(
-                'Defeito no código de produção: com o cookie da sessão (escritório A) no POST /oauth/token, a troca do código'
-                . ' do escritório B dá invalid_grant. O TenantFilterListener (src/Shared/EventListener/TenantFilterListener.php:27)'
-                . ' só tira o filtro da sessão do conector_oauth_autorizar; o conector_oauth_token recebe o filtro do escritório'
-                . ' da sessão. Na renovação o mesmo caminho derrubaria a concessão com falha_na_renovacao.',
-            );
-        }
         $par = $this->exigirPar($resposta);
         $this->exigirTokensNoEscritorio($par, (int) $b->getId(), $pessoa);
     }

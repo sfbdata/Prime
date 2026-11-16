@@ -19,13 +19,15 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Rotas em ROTAS_SEM_FILTRO não recebem o filtro do escritório da SESSÃO: a tela de autorização do conector de I.A.
  * (`/oauth/authorize`, spec mcp-remoto-oauth 4 e 9.4) escolhe um escritório que pode não ser o da sessão, e lista os
  * escritórios da pessoa; com o filtro da sessão ligado, o escritório escolhido sumiria das consultas. Ali toda
- * consulta passa o escritório explícito.
+ * consulta passa o escritório explícito. O `/oauth/token` também: ele não usa sessão, e o escritório vem da concessão;
+ * um cookie de sessão que chegue junto não pode prender a troca ao escritório da sessão.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 5)]
 final class TenantFilterListener
 {
     private const ROTAS_SEM_FILTRO = [
         'conector_oauth_autorizar',
+        'conector_oauth_token',
     ];
 
     public function __construct(
