@@ -1,0 +1,87 @@
+{#
+    Componente global do espaço (desenho Contribua 14 e 15/11, bj-plano.js), em toda tela logada, inclusive a Contribua:
+    modal "Solicitar mais espaço", modal "Pedido de mais espaço" (já pendente) e pop-up dos 97%. Fica fora do
+    contêiner .ae-avisos (o transform dele prenderia o overlay). Quem tem `data-espaco-solicitar` abre o modal certo
+    para o estado do escritório (nenhum: solicitar; pendente: em análise; liberado: vai à seção #espaco da Contribua);
+    `data-espaco-ver-pedido` abre "Pedido de mais espaço". Só o primário e o Master; o pop-up, só o primário.
+    O JS é public/js/aviso-espaco.js, carregado por aviso_espaco.html.twig.
+#}
+{% set espaco = espaco_para_solicitar() %}
+{% if espaco %}
+    <div class="es-raiz" data-espaco-raiz data-estado="{{ espaco.estado }}"
+         data-url-solicitar="{{ path('contribua_espaco_solicitar') }}"
+         data-url-opcoes="{{ path('contribua_index') }}#espaco"
+         data-token="{{ csrf_token('contribua') }}"
+         data-erro-generico="{{ 'moldura.aviso_espaco.modal.erro_generico'|trans }}">
+
+        <div class="es-ov" data-es-modal="solicitar" role="dialog" aria-modal="true" hidden>
+            <div class="es-caixa">
+                <div class="es-topo"><b>{{ 'moldura.aviso_espaco.modal.titulo'|trans }}</b><button type="button" class="es-x" data-es-fechar aria-label="{{ 'moldura.aviso_espaco.fechar'|trans }}">×</button></div>
+                <div data-es-etapa="form">
+                    <form class="es-corpo" data-es-form novalidate>
+                        <div class="es-verde"><b>{{ 'moldura.aviso_espaco.modal.gratis_negrito'|trans }}</b> {{ 'moldura.aviso_espaco.modal.gratis_resto'|trans }}</div>
+                        <div>{{ 'moldura.aviso_espaco.modal.hoje_usa'|trans }} <b>{{ 'moldura.aviso_espaco.modal.uso_de_limite'|trans({uso: espaco.uso, limite: espaco.limite}) }}</b> {{ 'moldura.aviso_espaco.modal.hoje_usa_percentual'|trans({percentual: espaco.percentual ~ ''}) }}</div>
+                        <div>
+                            <b class="es-rotulo">{{ 'moldura.aviso_espaco.modal.quanto'|trans }}</b>
+                            <div class="es-opcoes">
+                                {% for gb in [20, 50, 100] %}
+                                    <label class="es-opcao"><input type="radio" name="gb" value="{{ gb }}"{{ loop.first ? ' checked' }}>{{ ('moldura.aviso_espaco.modal.opcao_' ~ gb)|trans }}</label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <label class="es-campo">{{ 'moldura.aviso_espaco.modal.motivo'|trans }}<textarea name="motivo" rows="2" maxlength="300" placeholder="{{ 'moldura.aviso_espaco.modal.motivo_exemplo'|trans }}"></textarea></label>
+                        <div class="es-nota">{{ 'moldura.aviso_espaco.modal.sem_cobranca'|trans }}</div>
+                        <div class="es-erro" data-es-erro role="alert" hidden></div>
+                        <div class="es-botoes">
+                            <button type="button" class="es-btn es-btn--contorno" data-es-fechar>{{ 'moldura.aviso_espaco.modal.cancelar'|trans }}</button>
+                            <button type="submit" class="es-btn" data-es-enviar>{{ 'moldura.aviso_espaco.modal.enviar'|trans }}</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="es-centro es-centro--sucesso" data-es-etapa="sucesso" hidden>
+                    <div class="es-icone es-icone--verde" aria-hidden="true">✓</div>
+                    <div class="es-titulo es-titulo--grande">{{ 'moldura.aviso_espaco.modal.enviado_titulo'|trans }}</div>
+                    <div class="es-texto">{{ 'moldura.aviso_espaco.modal.enviado_texto'|trans({escritorio: espaco.escritorio}) }}</div>
+                    <button type="button" class="es-btn es-btn--topo" data-es-fechar>{{ 'moldura.aviso_espaco.fechar'|trans }}</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="es-ov" data-es-modal="pedido" role="dialog" aria-modal="true" hidden>
+            <div class="es-caixa">
+                <div class="es-topo"><b>{{ 'moldura.aviso_espaco.modal.pedido_titulo'|trans }}</b><button type="button" class="es-x" data-es-fechar aria-label="{{ 'moldura.aviso_espaco.fechar'|trans }}">×</button></div>
+                <div class="es-centro">
+                    <div class="es-icone" aria-hidden="true">⏳</div>
+                    <div class="es-titulo">{{ 'moldura.aviso_espaco.modal.em_analise'|trans }}</div>
+                    <div class="es-texto"><span data-es-enviado data-modelo="{{ 'moldura.aviso_espaco.enviado_em'|trans({quando: '{quando}'}) }}">{{ espaco.quando ? 'moldura.aviso_espaco.enviado_em'|trans({quando: espaco.quando}) }}</span> {{ 'moldura.aviso_espaco.modal.em_analise_texto'|trans }}</div>
+                    <button type="button" class="es-btn es-btn--topo" data-es-fechar>{{ 'moldura.aviso_espaco.fechar'|trans }}</button>
+                </div>
+            </div>
+        </div>
+
+        {% if espaco.popup %}
+            {% set cheio = espaco.cheio %}
+            <div class="es-ov" data-es-modal="popup" data-percentual="{{ espaco.percentual }}" role="dialog" aria-modal="true" hidden>
+                <div class="es-caixa">
+                    <div class="es-topo{{ cheio ? ' es-topo--cheio' : ' es-topo--atencao' }}"><b>{{ cheio ? 'moldura.aviso_espaco.popup.titulo_cheio'|trans : 'moldura.aviso_espaco.popup.titulo_atencao'|trans({percentual: espaco.percentual ~ ''}) }}</b><button type="button" class="es-x" data-es-fechar aria-label="{{ 'moldura.aviso_espaco.fechar'|trans }}">×</button></div>
+                    <div class="es-corpo es-corpo--popup">
+                        <div class="es-linha">
+                            <span class="es-icone-popup" aria-hidden="true">{{ cheio ? '⛔' : '⚠️' }}</span>
+                            <div>
+                                <b class="es-destaque">{{ 'moldura.aviso_espaco.popup.usados'|trans({uso: espaco.uso, limite: espaco.limite}) }}</b>
+                                {% if cheio %}{{ (espaco.pausados ? 'moldura.aviso_espaco.popup.pausados' : 'moldura.aviso_espaco.popup.sem_espaco')|trans }}
+                                {% else %}{{ 'moldura.aviso_espaco.popup.faltam'|trans({faltam: espaco.faltam}) }}{% if espaco.vaiPausar %} {{ 'moldura.aviso_espaco.popup.vai_pausar'|trans }}{% endif %}{% endif %}
+                            </div>
+                        </div>
+                        <div class="es-trilho"><div class="es-trilho-cheio{{ cheio ? ' es-trilho-cheio--vermelho' }}" style="width: {{ espaco.largura }}"></div></div>
+                        <div class="es-verde">{{ 'moldura.aviso_espaco.popup.liberamos_antes'|trans }} <b>{{ 'moldura.aviso_espaco.popup.liberamos_negrito'|trans }}</b> {{ 'moldura.aviso_espaco.popup.liberamos_depois'|trans }}</div>
+                        <div class="es-botoes">
+                            <button type="button" class="es-btn es-btn--contorno" data-es-fechar>{{ 'moldura.aviso_espaco.popup.agora_nao'|trans }}</button>
+                            <a class="es-btn" href="{{ path('contribua_index') }}#espaco" data-es-fechar>{{ 'moldura.aviso_espaco.popup.ver_opcoes'|trans }}</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}

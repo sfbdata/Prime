@@ -458,17 +458,18 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('BJ' . str_pad((string) $this->escritorio->getId(), 6, '0', \STR_PAD_LEFT), $dados['codigo']);
     }
 
-    #[TestDox('Aviso de espaço a partir de 90%: aparece para o primário, não para o secundário')]
+    #[TestDox('Aviso de espaço a partir de 90%: barra para o primário nas outras telas, nunca para o secundário nem na Contribua')]
     public function testAvisoDeEspaco(): void
     {
         $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
         $consumo->method('bytesDoEscritorio')->willReturn((int) (0.93 * 10 * RetratoDoEspaco::BYTES_POR_GB));
         static::getContainer()->set(ConsumoDeArmazenamentoRepository::class, $consumo);
 
-        $doPrimario = $this->abrir($this->primario);
+        $doPrimario = $this->abrir($this->primario, '/novidades');
         self::assertStringContainsString('Seu espaço está 93% ocupado', $doPrimario);
-        self::assertStringContainsString('9,3 GB de 10 GB no plano Free. Faltam 0,7 GB.', $doPrimario);
-        self::assertStringNotContainsString('Seu espaço está 93% ocupado', $this->abrir($this->secundario));
+        self::assertStringContainsString('9,3 GB de 10 GB. Faltam 0,7 GB. Se precisar, solicite mais espaço.', $this->client->getCrawler()->filter('[data-aviso-espaco]')->text());
+        self::assertStringNotContainsString('Seu espaço está 93% ocupado', $this->abrir($this->secundario, '/novidades'));
+        self::assertStringNotContainsString('Seu espaço está 93% ocupado', $this->abrir($this->primario), 'a Contribua já mostra o mesmo conteúdo');
     }
 
     #[TestDox('Menu do avatar tem o item Contribua · PIX')]
@@ -496,10 +497,10 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         $this->em->flush();
     }
 
-    private function abrir(User $quem): string
+    private function abrir(User $quem, string $url = '/contribua'): string
     {
         $this->logarComTenant($this->client, $quem, $this->escritorio);
-        $this->client->request('GET', '/contribua');
+        $this->client->request('GET', $url);
 
         return (string) $this->client->getResponse()->getContent();
     }
