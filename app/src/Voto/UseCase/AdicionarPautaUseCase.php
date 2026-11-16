@@ -39,6 +39,18 @@ final class AdicionarPautaUseCase
 
     private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, PautaInput $input): int
     {
+        $pauta = $this->montar($tenant, $assembleiaId, $input);
+        $this->pautas->salvar($pauta, flush: true);
+
+        return (int) $pauta->getId();
+    }
+
+    /**
+     * Monta a pauta (validação, ordem, opções e abstenção) e a deixa pendente na assembleia, sem trava e sem gravar.
+     * Quem chama é dono da trava de configuração e da transação (AplicarModeloDePautasUseCase grava o modelo inteiro de uma vez).
+     */
+    public function montar(Tenant $tenant, int $assembleiaId, PautaInput $input): PautaDaAssembleia
+    {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
@@ -50,9 +62,8 @@ final class AdicionarPautaUseCase
             new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']);
         }
         new OpcaoDaPauta($pauta, 0, self::ROTULO_DA_ABSTENCAO, true);
-        $this->pautas->salvar($pauta, flush: true);
 
-        return (int) $pauta->getId();
+        return $pauta;
     }
 
     private static function proximaOrdem(Assembleia $assembleia): int

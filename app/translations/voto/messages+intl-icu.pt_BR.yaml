@@ -255,6 +255,8 @@ voto:
                 aprovada: Aprovada
                 rejeitada: Rejeitada
                 rejeitada_criterio: 'Rejeitada: não atingiu o critério exigido'
+                sem_vencedor: 'Sem vencedor: critério não atingido'
+                nao_deliberada: 'Não deliberada: quórum não atingido'
                 opcao_vencedora: 'Opção vencedora: {numero} {rotulo}'
                 eleito: 'Eleito: {numero} {rotulo}'
                 abstencoes: Abstenções

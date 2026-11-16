@@ -15,6 +15,7 @@ use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\OpcoesDaPauta;
 use App\Voto\Service\SerializacaoDaConfiguracao;
+use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\UseCase\AdicionarPautaUseCase;
 use App\Voto\UseCase\AplicarModeloDePautasUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -34,7 +35,8 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
         $salvas = [];
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
-        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salvas): void {
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p, bool $flush = false) use (&$salvas): void {
+            self::assertFalse($flush, 'o modelo grava de uma vez, na transação');
             $salvas[] = $p;
         });
 
@@ -58,7 +60,7 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleia = new Assembleia($tenant, 'AGE', PesoDoVoto::Fracao, 'Gestora');
         $salva = null;
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
-        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salva): void {
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p, bool $flush = false) use (&$salva): void {
             $salva = $p;
         });
 
@@ -67,6 +69,33 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         self::assertInstanceOf(PautaDaAssembleia::class, $salva);
         self::assertSame('dois', $salva->getCriterio()->value);
         self::assertSame('aptos', $salva->getBase()->value);
+    }
+
+    #[TestDox('Falha na 3ª pauta do modelo: nada é confirmado (a transação só fecha no fim) e nenhum salvar grava na hora')]
+    public function testFalhaNaTerceiraPautaNaoConfirmaNada(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO', PesoDoVoto::Fracao, 'Gestora');
+        $chamadas = 0;
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p, bool $flush = false) use (&$chamadas): void {
+            self::assertFalse($flush, 'nenhum flush antes do fim');
+            if (3 === ++$chamadas) {
+                throw new \RuntimeException('falhou na 3ª');
+            }
+        });
+        $transacao = new TransacaoFalsa();
+
+        try {
+            $this->aplicar($tenant, $assembleia, $pautas, $transacao)->executar($tenant, 7, 'condominio_ago');
+            self::fail('Era para falhar.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('falhou na 3ª', $e->getMessage());
+        }
+
+        self::assertSame(3, $chamadas);
+        self::assertSame(0, $transacao->confirmadas, 'a transação não foi confirmada');
+        self::assertSame(1, $transacao->desfeitas);
     }
 
     #[TestDox('Modelo desconhecido é recusado sem gravar nada')]
@@ -89,23 +118,47 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleias->method('buscarDoEscritorio')->willReturn(null);
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
         $pautas->expects(self::never())->method('salvar');
-        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()));
+        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()), $pautas, self::serializacao(), new TransacaoFalsa());
 
         $this->expectException(AssembleiaNaoEncontradaException::class);
 
         $sut->executar($tenant, 99, 'condominio_ago');
     }
 
-    private function aplicar(Tenant $tenant, Assembleia $assembleia, PautaDaAssembleiaRepository $pautas): AplicarModeloDePautasUseCase
+    private function aplicar(Tenant $tenant, Assembleia $assembleia, PautaDaAssembleiaRepository $pautas, ?TransacaoFalsa $transacao = null): AplicarModeloDePautasUseCase
     {
         $assembleias = $this->createMock(AssembleiaRepository::class);
         $assembleias->method('buscarDoEscritorio')->with(7, $tenant)->willReturn($assembleia);
 
-        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()));
+        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao()), $pautas, self::serializacao(), $transacao ?? new TransacaoFalsa());
     }
 
     private static function serializacao(): SerializacaoDaConfiguracao
     {
         return new SerializacaoDaConfiguracao(new LockFactory(new InMemoryStore()));
+    }
+}
+
+/** Transação de teste: conta se o trabalho terminou (confirma) ou falhou (desfaz). */
+final class TransacaoFalsa implements TransacaoDoVoto
+{
+    public int $confirmadas = 0;
+    public int $desfeitas = 0;
+
+    public function executar(callable $trabalho): mixed
+    {
+        try {
+            $resultado = $trabalho();
+            ++$this->confirmadas;
+
+            return $resultado;
+        } catch (\Throwable $e) {
+            ++$this->desfeitas;
+            throw $e;
+        }
+    }
+
+    public function gravar(): void
+    {
     }
 }

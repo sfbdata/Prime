@@ -276,7 +276,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->votar($obra, ['102' => 1]);
         $this->client->submit($painel->filter('#pauta-' . $obra . ' form[data-mesa="encerrar"]')->form(['motivo' => 'Pauta esgotada pela mesa']));
         $painel = $this->client->followRedirect();
-        self::assertSame('Quórum não atingido', trim($painel->filter('#pauta-' . $obra . ' .voto-decisao')->text()));
+        self::assertSame('Não deliberada: quórum não atingido', trim($painel->filter('#pauta-' . $obra . ' .voto-decisao')->text()));
 
         self::assertSame('Encerrada', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
 
@@ -287,7 +287,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $texto = $ata->filter('body')->text();
         self::assertStringContainsString('Aprovação de contas: 3 de 3 aptos votaram (100%).', $texto);
         self::assertStringContainsString('Resultado de Aprovação de contas: Aprovada. Quórum: atingido.', $texto);
-        self::assertStringContainsString('Resultado de Obra ou benfeitoria: Quórum não atingido. Quórum: não atingido.', $texto);
+        self::assertStringContainsString('Resultado de Obra ou benfeitoria: Não deliberada: quórum não atingido. Quórum: não atingido.', $texto);
         self::assertStringContainsString('Pela mesa, 1ª convocação', $texto);
         self::assertStringContainsString('Determinação da mesa', $texto);
         self::assertStringContainsString('Pauta esgotada pela mesa', $texto);

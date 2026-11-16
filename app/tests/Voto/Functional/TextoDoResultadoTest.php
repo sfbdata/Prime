@@ -25,9 +25,10 @@ final class TextoDoResultadoTest extends KernelTestCase
         yield 'eleição mostra o eleito' => [self::decidido(TipoDaPauta::EleicaoDeCargo, 'Ana'), 'Eleito: 1 Ana'];
         yield 'eleição chamada Sim não vira aprovada' => [self::decidido(TipoDaPauta::EleicaoDeCargo, 'Sim'), 'Eleito: 1 Sim'];
         yield 'critério não atingido na pauta' => [self::semDecisao(TipoDaPauta::Deliberacao, ResultadoDaPauta::CRITERIO_NAO_ATINGIDO), 'Rejeitada: não atingiu o critério exigido'];
-        yield 'critério não atingido na eleição' => [self::semDecisao(TipoDaPauta::EleicaoDeCargo, ResultadoDaPauta::CRITERIO_NAO_ATINGIDO), 'Critério não atingido'];
+        yield 'critério não atingido na eleição' => [self::semDecisao(TipoDaPauta::EleicaoDeCargo, ResultadoDaPauta::CRITERIO_NAO_ATINGIDO), 'Sem vencedor: critério não atingido'];
         yield 'empate' => [self::semDecisao(TipoDaPauta::Deliberacao, ResultadoDaPauta::EMPATE), 'Empate'];
-        yield 'quórum' => [self::semDecisao(TipoDaPauta::Deliberacao, ResultadoDaPauta::QUORUM_NAO_ATINGIDO), 'Quórum não atingido'];
+        yield 'quórum na eleição' => [self::semDecisao(TipoDaPauta::EleicaoDeCargo, ResultadoDaPauta::QUORUM_NAO_ATINGIDO), 'Não deliberada: quórum não atingido'];
+        yield 'quórum' => [self::semDecisao(TipoDaPauta::Deliberacao, ResultadoDaPauta::QUORUM_NAO_ATINGIDO), 'Não deliberada: quórum não atingido'];
     }
 
     #[DataProvider('resultados')]
@@ -62,6 +63,6 @@ final class TextoDoResultadoTest extends KernelTestCase
 
     private static function semDecisao(TipoDaPauta $tipo, string $situacao): ResultadoDaPauta
     {
-        return new ResultadoDaPauta($situacao, null, [], false, 0, '0.000000', 0, '0.000000', '0.000000', '4.000000', 4, '0.00', '50.00', false, tipo: $tipo);
+        return new ResultadoDaPauta($situacao, null, [], ResultadoDaPauta::EMPATE === $situacao, 0, '0.000000', 0, '0.000000', '0.000000', '4.000000', 4, '0.00', '50.00', false, tipo: $tipo);
     }
 }
