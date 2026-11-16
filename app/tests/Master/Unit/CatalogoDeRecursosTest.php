@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('30 linhas, 29 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('31 linhas, 30 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(30, CatalogoDeRecursos::LINHAS);
-        self::assertCount(29, CatalogoDeRecursos::chaves());
+        self::assertCount(31, CatalogoDeRecursos::LINHAS);
+        self::assertCount(30, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -32,17 +32,18 @@ final class CatalogoDeRecursosTest extends TestCase
             self::assertFalse(CatalogoDeRecursos::ehEssencial($funcaoDaE8), $funcaoDaE8 . ' desliga (E8)');
         }
         self::assertFalse(CatalogoDeRecursos::ehEssencial('ponto-aceite'), 'o aceite da folha desliga (E16)');
+        self::assertFalse(CatalogoDeRecursos::ehEssencial('conector_ia'), 'o Master desliga o conector de todos (14.a)');
         self::assertSame(['contribua', 'contribua'], array_values(array_map(
             static fn (array $l): string => $l['chave'],
             array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => str_starts_with($l['t'], 'Contribua')),
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas, a E8 e o aceite do Ponto: 13 Telas, 7 Menu do usuário, 10 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas, a E8, o aceite do Ponto e o conector de I.A.: 13 Telas, 7 Menu do usuário, 11 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 10], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 11], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
@@ -68,6 +69,11 @@ final class CatalogoDeRecursosTest extends TestCase
                 static fn (array $l): array => [$l['g'], $l['chave'], $l['t'], $l['ic'], $l['d'], $l['tela'], $l['base']],
                 array_slice(CatalogoDeRecursos::LINHAS, 23, 7),
             ),
+        );
+        self::assertSame(
+            ['Funções', 'conector_ia', 'Conector de I.A.', false, false],
+            [CatalogoDeRecursos::LINHAS[30]['g'], CatalogoDeRecursos::LINHAS[30]['chave'], CatalogoDeRecursos::LINHAS[30]['t'], CatalogoDeRecursos::LINHAS[30]['tela'], CatalogoDeRecursos::LINHAS[30]['base']],
+            'o conector de I.A. entra por último nas Funções, depois do Ponto (spec mcp-remoto-oauth, 14.a)',
         );
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');
         self::assertSame('Voto', CatalogoDeRecursos::titulo('voto'), 'Voto entra nas Telas, depois do Contribua (bj-recursos.js do desenho 18)');
@@ -125,6 +131,8 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'lista de pastas (essencial) não é mapeada' => ['expediente_index', null];
         yield 'política de privacidade continua aberta' => ['legal_politica_privacidade', null];
         yield 'painel do Master' => ['master_painel', null];
+        yield 'o /oauth/authorize do conector não é mapeado (a liberação é conferida no código)' => ['conector_oauth_autorizar', null];
+        yield 'o /oauth/token do conector não é mapeado' => ['conector_oauth_token', null];
         yield 'sem rota' => ['', null];
     }
 }

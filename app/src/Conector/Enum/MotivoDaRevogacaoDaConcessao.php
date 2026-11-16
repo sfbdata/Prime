@@ -12,6 +12,9 @@ namespace App\Conector\Enum;
  * - {@see FalhaNaRenovacao}: a troca da renovação falhou numa barreira (vínculo, escritório, senha, corte, liberação).
  * - {@see RevogadaPelaPessoa}: a pessoa revogou a conexão (o consentimento).
  * - {@see ContaOuVinculoEncerrado}: a conta ou o vínculo com o escritório foi excluído ou desativado.
+ * - {@see CodigoReutilizado}: o código de autorização foi reapresentado depois de usado (RFC 6749 4.1.2: o servidor
+ *   deve revogar o que foi emitido a partir dele). Aprovado pelo Coordenador em 16/11/2026; a coluna `motivo` é
+ *   VARCHAR(40) sem CHECK, então não pede migration.
  */
 enum MotivoDaRevogacaoDaConcessao: string
 {
@@ -19,4 +22,5 @@ enum MotivoDaRevogacaoDaConcessao: string
     case FalhaNaRenovacao = 'falha_na_renovacao';
     case RevogadaPelaPessoa = 'revogada_pela_pessoa';
     case ContaOuVinculoEncerrado = 'conta_ou_vinculo_encerrado';
+    case CodigoReutilizado = 'codigo_reutilizado';
 }

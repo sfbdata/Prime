@@ -27,7 +27,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class RecursosDoSistemaController extends AbstractController
 {
-    #[Route('/master/recursos/{chave}', name: 'master_recurso_alternar', requirements: ['chave' => '[a-z][a-z-]{0,39}'], methods: ['POST'])]
+    // Hífen (ponto-geo) e sublinhado (conector_ia, spec mcp-remoto-oauth 14.a) nas chaves; chave fora do catálogo dá 422.
+    #[Route('/master/recursos/{chave}', name: 'master_recurso_alternar', requirements: ['chave' => '[a-z][a-z_-]{0,39}'], methods: ['POST'])]
     public function alternar(string $chave, Request $request, AlternarRecursoUseCase $alternar, ClockInterface $relogio): JsonResponse
     {
         if (!$this->isCsrfTokenValid('master_recursos', (string) $request->headers->get('X-CSRF-Token', ''))) {

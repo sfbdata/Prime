@@ -81,6 +81,11 @@ security:
         - { path: ^/saude-do-voto$,   roles: PUBLIC_ACCESS }  # BlueJus Voto: saúde do container voto (só "ok"; no BlueJus é 404 pelo PapelDoContainer)
         - { path: ^/voto/v/, roles: PUBLIC_ACCESS } # Portal da assembleia; não libera rotas de gestão
         - { path: ^/votar/,           roles: PUBLIC_ACCESS }  # Voto: cédula da assembleia de condomínio pelo link pessoal da unidade (sem login; 404 sem link válido)
+        # Conector de I.A. (spec mcp-remoto-oauth 3.3 e 8): o token e o metadado do servidor de autorização são chamados pelo
+        # app de I.A., de servidor para servidor, sem login. Só esses dois, com âncora no fim. O /oauth/authorize fica no
+        # ROLE_USER abaixo: é onde a pessoa faz login e escolhe o escritório.
+        - { path: ^/oauth/token$,     roles: PUBLIC_ACCESS }
+        - { path: ^/\.well-known/oauth-authorization-server$, roles: PUBLIC_ACCESS }
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

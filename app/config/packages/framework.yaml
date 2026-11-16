@@ -223,6 +223,21 @@ framework:
             policy: sliding_window
             limit: 60
             interval: '1 minute'
+        # Conector de I.A., /oauth/token (spec mcp-remoto-oauth 8): chave = client_id + IP. O tráfego do Claude sai de
+        # 160.79.104.0/21 e o de cada app vem de poucos IPs, então o par divide a cota entre as pessoas do mesmo app.
+        # 60 por minuto cobre a troca do código e as renovações do piloto (uma por hora por conexão, mais as repetições
+        # do próprio app) e põe teto no chute de código e de renovação. Revisar depois do smoke com os clientes reais.
+        conector_token:
+            policy: sliding_window
+            limit: 60
+            interval: '1 minute'
+        # Conector de I.A., busca do documento CIMD (spec mcp-remoto-oauth 3.4 e 8): chave = host do client_id. O cache
+        # pelos cabeçalhos HTTP (piso de 5 minutos) segura a maioria; este limite segura o client_id que muda a cada
+        # pedido para forçar buscas. 10 por minuto por domínio.
+        conector_cimd:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     # gc_maxlifetime = app.sessao_gc_segundos (padrão 1 dia): o arquivo da sessão não some antes do

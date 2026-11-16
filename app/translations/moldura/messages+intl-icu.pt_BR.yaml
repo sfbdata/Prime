@@ -162,6 +162,7 @@ moldura:
             armazenamento_reconciliar_espelho: Conferência da cópia no R2
             armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2
             blog_conferir_publicacoes: Publicação dos artigos dos blogs
+            conector_faxinar: Limpeza das conexões vencidas do conector de I.A.
             outra: Tarefa agendada
         dispensar: Dispensar
     # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)

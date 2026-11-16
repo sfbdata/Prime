@@ -73,6 +73,13 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:documentos:purgar-lixeira --no-interaction',
             'cron'    => '50 0 * * *',
         ],
+        // 1h10: faxina do conector de I.A. (docs/specs/mcp-remoto-oauth.md, 13.2). Apaga código e token vencidos há
+        // mais de 1 dia, concessão vencida ou revogada há mais de 30 dias (a cascata leva o resto) e proposta decidida ou
+        // vencida. Nada em uso sai. Depois das purgas da 0h.
+        'app:conector:faxinar' => [
+            'comando' => 'app:conector:faxinar --no-interaction',
+            'cron'    => '10 1 * * *',
+        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [

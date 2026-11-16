@@ -194,7 +194,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertSame(['Plataforma (sem conta)'], array_values(array_unique($contas)));
     }
 
-    #[TestDox('a rota aceita chave com hífen (ponto-geo, E7) e as chaves sem hífen continuam alternando')]
+    #[TestDox('a rota aceita chave com hífen (ponto-geo, E7) e com sublinhado (conector_ia, 14.a) e as chaves sem hífen continuam alternando')]
     public function testRotaAceitaChaveComHifen(): void
     {
         $this->religarTodos();
@@ -208,7 +208,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertTrue($this->estado('ponto-geo')?->isAtivo());
 
-        foreach (['voto', 'peticionar', 'ponto', 'chat'] as $chave) {
+        foreach (['voto', 'peticionar', 'ponto', 'chat', 'conector_ia'] as $chave) {
             $this->alternar($chave, ['ativo' => false]);
             self::assertResponseIsSuccessful($chave);
             self::assertSame(['chave' => $chave, 'ativo' => false, 'motivo' => null, 'ate' => null], $this->json());
@@ -290,7 +290,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
         self::assertNotEmpty($painel->attr('data-token'));
 
         $linhas = json_decode((string) $painel->attr('data-recursos'), true);
-        self::assertCount(30, $linhas, 'as 30 linhas do catálogo, com o Indique e ganhe, com o comprovante (E15), os alertas de intervalo (E11), a tela cheia, os sons e o lembrete de saída (E8) e o aceite da folha (E16) do Ponto');
+        self::assertCount(31, $linhas, 'as 31 linhas do catálogo, com o Indique e ganhe, com o comprovante (E15), os alertas de intervalo (E11), a tela cheia, os sons e o lembrete de saída (E8) e o aceite da folha (E16) do Ponto, e o conector de I.A.');
         $aceite = array_values(array_filter($linhas, static fn (array $l): bool => $l['chave'] === 'ponto-aceite'));
         self::assertCount(1, $aceite);
         self::assertTrue($aceite[0]['ativo'], 'o aceite da folha nasce ligado (sem linha em recurso_estado)');
