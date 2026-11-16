@@ -37,7 +37,7 @@ final class McpControllerTest extends WebTestCase
         $client = self::cliente();
         $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list']);
 
-        self::assertSame(401, $resposta->getStatusCode());
+        self::assertSame(401, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
         self::assertSame(
             'Bearer resource_metadata="https://bluejus.com.br/.well-known/oauth-protected-resource/mcp", scope="mcp:leitura mcp:escrita"',
             $resposta->headers->get('WWW-Authenticate'),
@@ -120,7 +120,7 @@ final class McpControllerTest extends WebTestCase
         self::assertSame(
             200,
             $resposta->getStatusCode(),
-            'a sessão foi usada no /mcp (hoje: PastaDaRota lê o escritório da sessão antes de olhar a declaração da rota): '
+            'a sessão foi usada no /mcp (algum listener de kernel.request não respeita o _stateless): '
             . mb_substr((string) $resposta->getContent(), 0, 300),
         );
         self::assertSemSessao($resposta);
@@ -150,16 +150,9 @@ final class McpControllerTest extends WebTestCase
         return $client->getResponse();
     }
 
-    /**
-     * Cliente com `debug` desligado, como em produção. Com `debug` ligado o Symfony lança
-     * `UnexpectedSessionUsageException` porque `PastaDaRota` (listeners do cadeado e da pasta só de leitura) lê o
-     * escritório da sessão antes de ver que a rota não declara pasta. Sem `debug` o uso só é registrado e a resposta
-     * segue sem cookie, que é o que estes testes conferem. Voltar ao cliente padrão quando `PastaDaRota` olhar a
-     * declaração antes do escritório.
-     */
     private static function cliente(): KernelBrowser
     {
-        return static::createClient(['debug' => false]);
+        return static::createClient();
     }
 
     private static function assertSemSessao(Response $resposta): void
