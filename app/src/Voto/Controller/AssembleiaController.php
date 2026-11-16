@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Controller;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AssembleiaInput;
 use App\Voto\DTO\AssembleiaNoPainel;
@@ -65,7 +66,7 @@ final class AssembleiaController extends AbstractController
     public function painel(Request $request): Response
     {
         $tenant = $this->guarda->exigir();
-        $todas = $this->obterPainel->executar($tenant);
+        $todas = $this->obterPainel->executar($tenant, null, $this->pessoa());
         $arquivadas = $request->query->getBoolean('arquivadas');
         $agora = new \DateTimeImmutable();
         $totalArquivadas = 0;
@@ -91,7 +92,7 @@ final class AssembleiaController extends AbstractController
     public function resultados(): Response
     {
         return $this->render('voto/assembleia/_resultados.html.twig', [
-            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir(), null, $this->pessoa())),
         ]);
     }
 
@@ -99,7 +100,7 @@ final class AssembleiaController extends AbstractController
     public function acompanhar(): Response
     {
         return $this->render('voto/assembleia/_acompanhar.html.twig', [
-            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir(), null, $this->pessoa())),
         ]);
     }
 
@@ -110,8 +111,16 @@ final class AssembleiaController extends AbstractController
     public function votar(): Response
     {
         return $this->render('voto/assembleia/_votar.html.twig', [
-            'votacoes' => $this->listarVotacoes->executar($this->guarda->exigir()),
+            'votacoes' => $this->listarVotacoes->executar($this->guarda->exigir(), null, $this->pessoa()),
         ]);
+    }
+
+    /** Quem está logada (a guarda já garantiu): as listas escondem o que o teto da equipe deixa `Oculto` para ela. */
+    private function pessoa(): User
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof User ? $usuario : throw $this->createAccessDeniedException();
     }
 
     /**
