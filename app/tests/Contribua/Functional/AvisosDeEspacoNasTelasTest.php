@@ -230,11 +230,21 @@ final class AvisosDeEspacoNasTelasTest extends JusPrimeWebTestCase
         self::assertGreaterThan(strpos($js, 'mostrar(popup'), strpos($js, 'mostrar(barra)'), 'o pop-up vem antes da barra do escritório');
     }
 
+    /** Bytes em uso que o stub devolve; o stub entra uma vez só (o container recusa trocar serviço já usado). */
+    private int $bytesEmUso = 0;
+
+    private bool $consumoTrocado = false;
+
     private function usar(float $fracao): void
     {
+        $this->bytesEmUso = (int) round($fracao * 10 * RetratoDoEspaco::BYTES_POR_GB);
+        if ($this->consumoTrocado) {
+            return;
+        }
         $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
-        $consumo->method('bytesDoEscritorio')->willReturn((int) round($fracao * 10 * RetratoDoEspaco::BYTES_POR_GB));
+        $consumo->method('bytesDoEscritorio')->willReturnCallback(fn (): int => $this->bytesEmUso);
         static::getContainer()->set(ConsumoDeArmazenamentoRepository::class, $consumo);
+        $this->consumoTrocado = true;
     }
 
     private function marca(): ?OrigemDaLiberacao

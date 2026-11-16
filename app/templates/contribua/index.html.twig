@@ -124,13 +124,13 @@
                 <div class="ct-pedido ct-pedido--pendente" data-espaco-pedido="pendente">
                     <i class="bi bi-hourglass-split ct-pedido-icone"></i>
                     <div class="ct-pedido-texto"><b>{{ 'contribua.espaco.pedido_pendente_titulo'|trans({gb: ped.gbDesejado}) }}</b><span>{{ 'contribua.espaco.pedido_pendente_sub'|trans({data: ped.pedidoEm|date('d/m/Y H:i')}) }}</span></div>
-                    <button type="button" class="ct-pedido-botao" data-espaco-ver-pedido><i class="bi bi-hourglass-split"></i> Ver pedido</button>
+                    <button type="button" class="ct-pedido-botao" data-espaco-ver-pedido{{ p.podePedirEspaco ? "" : " disabled" }}><i class="bi bi-hourglass-split"></i> Ver pedido</button>
                 </div>
             {% else %}
                 <div class="ct-pedido" data-espaco-pedido="padrao">
                     <i class="bi bi-gift ct-pedido-icone"></i>
                     <div class="ct-pedido-texto"><b>{{ e.pausado ? 'Solicite mais espaço para voltar a enviar arquivos' : 'Precisa de mais espaço?' }}</b><span>Solicite e a equipe BlueJus libera as opções de espaço extra para o seu escritório. O espaço extra é um serviço opcional; solicitar não gera cobrança.</span></div>
-                    <button type="button" class="ct-pedido-botao" data-espaco-solicitar><i class="bi bi-plus-circle"></i> Solicitar mais espaço</button>
+                    <button type="button" class="ct-pedido-botao" data-espaco-solicitar{{ p.podePedirEspaco ? "" : " disabled" }}><i class="bi bi-plus-circle"></i> Solicitar mais espaço</button>
                 </div>
             {% endif %}
 

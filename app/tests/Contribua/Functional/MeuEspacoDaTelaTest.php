@@ -68,6 +68,15 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('#espaco [data-pedidos-espaco]');
         self::assertSelectorNotExists('#espaco [data-abrir-master]');
         self::assertStringNotContainsString('Liberado na hora', (string) $this->client->getResponse()->getContent());
+        self::assertSelectorNotExists('#espaco .ct-pedido > button[data-espaco-solicitar][disabled]');
+    }
+
+    #[TestDox('Quem não é primário vê a caixa, mas o "Solicitar mais espaço" sai desabilitado (só o primário pede, D4)')]
+    public function testSecundarioNaoSolicita(): void
+    {
+        $this->abrir($this->pessoa('secundario', $this->escritorio, false));
+
+        self::assertSelectorCount(1, '#espaco .ct-pedido > button[data-espaco-solicitar][disabled]');
     }
 
     #[TestDox('Liberação do Master: cartões, linha "liberadas pela equipe", caixa "liberadas" com "Ver opções" e garantias "com liberação"')]
