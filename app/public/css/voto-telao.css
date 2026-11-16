@@ -1,0 +1,63 @@
+/* BlueJus Voto: Telão (modo assembleia). Valores copiados do CSS do desenho 18 (VS 08.11.26, .vAo*, L51-67).
+   A raiz .vAo também leva .voto-tela (voto.css) para herdar os botões .vB/.vP, o chip e os campos da janela
+   "Abrir votação"; por isso os ajustes abaixo repetem a raiz (.vAo .vAoB) e vencem pela ordem de carga.
+   Template: templates/voto/assembleia/telao.html.twig. JS: public/js/voto-telao.js. */
+body.voto-telao { margin: 0; background: #0b3550; }
+.vAo { position: fixed; inset: 0; z-index: 5000; background: #0b3550; color: #fff; display: flex; flex-direction: column; font-family: Arial, sans-serif; max-width: none; margin: 0; padding: 0; gap: 0; }
+.vAoTop { display: flex; align-items: center; gap: 14px; padding: 12px 22px; background: #082a40; flex-wrap: wrap; }
+.vAoSimbolo { height: 38px; }
+.vAoTitulo { min-width: 0; }
+.vAoTitulo b { display: block; font-size: clamp(16px, 2vw, 22px); }
+.vAoHora { font-size: 20px; font-weight: bold; }
+.vAo .vAoB { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .55); }
+.vAo .vAoB:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
+.vAo .vAoP { background: #1e7b45; border-color: #1e7b45; color: #fff; min-height: 48px; font-size: 16px; padding: 0 22px; }
+.vAo .vAoP:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
+.vAo .vAoD { background: #a3232b; border-color: #a3232b; color: #fff; min-height: 48px; font-size: 16px; padding: 0 22px; }
+.vAo .vAoD:hover { background: #c23a42; border-color: #c23a42; color: #fff; }
+.vAoG { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); }
+.vAoL { padding: 18px; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, .04); overflow: auto; }
+.vAoRotulo { font-size: 12px; font-weight: bold; letter-spacing: .06em; opacity: .75; }
+.vAo .vAoI { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12); border-radius: 3px; color: #fff; font: inherit; font-size: 14.5px; cursor: pointer; text-decoration: none; }
+.vAo .vAoOn { background: #0a6fa0; border-color: #3b8fc2; }
+.vAo .vAoI:hover { background: rgba(59, 143, 194, .35); }
+.vAoNome { flex: 1; min-width: 0; text-align: left; }
+.vAoN { width: 26px; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, .18); font-weight: bold; font-size: 13px; }
+.vAoQr { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; background: #fff; color: #0b3550; border-radius: 3px; text-align: center; }
+.vAoQr img { width: 100%; max-width: 220px; }
+.vAoQr span { font-size: 12.5px; color: #34505f; }
+.vAoM { padding: 26px clamp(18px, 3vw, 44px); display: flex; flex-direction: column; gap: 16px; overflow: auto; }
+.vAoM[hidden] { display: none; }
+.vAo .vAoChip { font-size: 14px; }
+.vAoH1 { margin: 0; font-size: clamp(26px, 4vw, 48px); line-height: 1.1; }
+.vAoNums { display: flex; gap: clamp(18px, 4vw, 60px); flex-wrap: wrap; }
+.vAoNums b { display: block; font-size: clamp(40px, 7vw, 86px); line-height: 1; }
+.vAoNums b * { font-size: inherit; }
+.vAoNums small { display: block; font-size: 16px; opacity: .8; }
+.vAoBar { position: relative; height: 22px; background: rgba(255, 255, 255, .15); border-radius: 3px; }
+.vAoBar u { display: block; height: 100%; background: #2fb36b; border-radius: 3px; transition: width .6s; }
+.vAoBar em { position: absolute; top: -6px; bottom: -6px; width: 3px; background: #f5c542; }
+.vAoBar em[hidden] { display: none; }
+.vAoLinha { display: flex; gap: 16px; flex-wrap: wrap; font-size: 17px; }
+.vAoRes { display: flex; flex-direction: column; gap: 18px; background: rgba(255, 255, 255, .06); padding: 16px; border-radius: 3px; }
+.vAoResTopo { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.vAoResTopo b { font-size: 20px; }
+.vAoDecisao { font-size: 17px; color: #9fe3b8; font-weight: bold; }
+.vAoIt { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 60px; gap: 12px; align-items: center; font-size: 17px; margin-top: 8px; }
+.vAoIt div { height: 16px; background: rgba(255, 255, 255, .12); border-radius: 3px; }
+.vAoIt u { display: block; height: 100%; background: #3b8fc2; border-radius: 3px; }
+.vAoIt b { text-align: right; font-size: 20px; }
+.vAoMesa { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+.vAoEncerrar { display: contents; }
+.vAoPergunta { display: contents; }
+.vAoPergunta[hidden] { display: none; }
+.vAoPergunta b { font-size: 16px; align-self: center; }
+.vAo .voto-espaco { flex: 1; }
+.vAo [hidden] { display: none !important; }
+/* A janela "Abrir votação" é a mesma do painel: texto escuro sobre o fundo branco dela, dentro do telão azul. */
+.voto-telao-janela { display: contents; }
+.vAo .vModAbrir, .vAo .vModCiclo { color: #12242f; }
+/* Suspender e Retomar votação (desenho 18, aoPodeSus/aoPodeRet): botões de 48px/16px como os outros da mesa. */
+.vAo .vAoSuspender { min-height: 48px; font-size: 16px; }
+.vAoRetomar { display: contents; }
+@media (max-width: 760px) { .vAoG { grid-template-columns: 1fr; } .vAoL { order: 2; } }

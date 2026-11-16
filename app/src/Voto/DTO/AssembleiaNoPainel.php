@@ -6,6 +6,7 @@ namespace App\Voto\DTO;
 
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Service\CnpjDaEntidade;
 
 /** A assembleia como o gestor a vê, com as pautas em ordem e os totais da lista de unidades. */
 final readonly class AssembleiaNoPainel
@@ -28,6 +29,11 @@ final readonly class AssembleiaNoPainel
         public int $unidadesInaptas,
         public string $pesoApto,
         public array $pautas,
+        public ?\DateTimeImmutable $arquivadaEm = null,
+        public ?string $arquivadaMotivo = null,
+        public ?string $arquivadaPorNome = null,
+        public ?string $entidade = null,
+        public ?string $cnpj = null,
     ) {
     }
 
@@ -43,14 +49,51 @@ final readonly class AssembleiaNoPainel
             return 'rascunho';
         }
         $encerradas = 0;
+        $naOrdemDoDia = 0;
         foreach ($this->pautas as $pauta) {
+            if ($pauta->retirada()) {
+                continue;
+            }
+            ++$naOrdemDoDia;
             if ($pauta->aberta()) {
                 return 'aberta';
             }
             $encerradas += $pauta->encerrada() ? 1 : 0;
         }
 
-        return $encerradas > 0 && $encerradas === \count($this->pautas) ? 'encerrada' : 'publicada';
+        return $encerradas > 0 && $encerradas === $naOrdemDoDia ? 'encerrada' : 'publicada';
+    }
+
+    /**
+     * Etapa atual das 6 do desenho (Criar, Lista de aptos, Publicar, Votação, Apuração, Relatório), de 0 a 6: as de
+     * número menor estão concluídas, a de mesmo número é a atual e 6 quer dizer tudo concluído. Rascunho sem lista de
+     * aptos está em "Lista de aptos" (1); com lista, em "Publicar" (2); publicada ou aberta, em "Votação" (3). O sistema
+     * apura ao encerrar, então encerrada conclui até o Relatório, como a votação apurada do desenho.
+     */
+    public function etapaAtual(): int
+    {
+        return match ($this->situacao()) {
+            'rascunho' => $this->unidadesAptas + $this->unidadesInaptas > 0 ? 2 : 1,
+            'encerrada' => 6,
+            default => 3,
+        };
+    }
+
+    /** CNPJ com a máscara ("00.000.000/0000-00"); vazio sem CNPJ. */
+    public function cnpjFormatado(): string
+    {
+        return null === $this->cnpj ? '' : CnpjDaEntidade::formatar($this->cnpj);
+    }
+
+    public function arquivada(): bool
+    {
+        return null !== $this->arquivadaEm;
+    }
+
+    /** Só rascunho nunca publicado pode ser excluído. */
+    public function podeExcluir(): bool
+    {
+        return !$this->publicada() && null === $this->publicadaEm;
     }
 
     public function porFracao(): bool
@@ -62,7 +105,7 @@ final readonly class AssembleiaNoPainel
     public function temPautaQueSaiuDaEspera(): bool
     {
         foreach ($this->pautas as $pauta) {
-            if ($pauta->aberta() || $pauta->encerrada()) {
+            if (!$pauta->retirada() && ($pauta->aberta() || $pauta->encerrada())) {
                 return true;
             }
         }
@@ -70,9 +113,21 @@ final readonly class AssembleiaNoPainel
         return false;
     }
 
-    /** @return list<PautaNoPainel> */
+    /** @return list<PautaNoPainel> as encerradas COM resultado (a cancelada fica de fora: não é apurada) */
     public function pautasEncerradas(): array
     {
-        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->encerrada()));
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->encerrada() && !$p->cancelada()));
+    }
+
+    /** @return list<PautaNoPainel> as canceladas (cédulas lacradas, sem resultado) */
+    public function pautasCanceladas(): array
+    {
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->cancelada()));
+    }
+
+    /** @return list<PautaNoPainel> as retiradas da ordem do dia */
+    public function pautasRetiradas(): array
+    {
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->retirada()));
     }
 }

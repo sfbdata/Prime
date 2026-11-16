@@ -2,12 +2,14 @@
 
 {#
     Criar ou editar a assembleia (desenho §2, assistente "Criar eleição", etapa 1 e o peso da etapa 2): faixa
-    "Nova assembleia" / "Rascunho: {nome}", o aviso do cenário condomínio, "Evento" e "Peso do voto" ("Fração ideal" ou
+    "Nova assembleia" / "Rascunho: {nome}", o aviso do cenário condomínio, "Condomínio" (nome da entidade) e "CNPJ (opcional,
+    separa entidades com nome parecido)", com a máscara na exibição; "Evento" e "Peso do voto" ("Fração ideal" ou
     "Uma unidade, um voto"), o erro da etapa e o rodapé "Salvar e sair" | "Continuar". Sem data (modo mesa).
     Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`.
 #}
 
 {% set sub = 'assembleia' %}
+{% set cnpj_formatado = input.cnpj|voto_cnpj %}
 
 {% block conteudo %}
 <div class="vC voto-assistente">
@@ -15,6 +17,10 @@
     <form method="post" class="voto-assistente-corpo" action="{{ assembleia is null ? path('voto_assembleia_nova') : path('voto_assembleia_editar', {id: assembleia.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token(assembleia is null ? 'voto_assembleia_nova' : 'voto_assembleia_' ~ assembleia.id) }}">
         <div class="vAviso">{{ 'voto.assembleia.gestor.form.ajuda'|trans }}</div>
+        <div class="vG2">
+            <label class="vL">{{ 'voto.assembleia.gestor.form.entidade'|trans }}<input class="vF" name="entidade" maxlength="160" value="{{ input.entidade }}"></label>
+            <label class="vL">{{ 'voto.assembleia.gestor.form.cnpj'|trans }}<input class="vF" name="cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="{{ cnpj_formatado }}"></label>
+        </div>
         <div class="vG2">
             <label class="vL">{{ 'voto.assembleia.gestor.form.evento'|trans }}<input class="vF" name="titulo" maxlength="160" required value="{{ input.titulo }}"></label>
             <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso">

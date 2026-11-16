@@ -20,6 +20,10 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-menu.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-janela.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-ciclo.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-painel.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -44,7 +48,7 @@
             <div class="vAviso">{{ 'voto.votar.vazio_gestao'|trans }}</div>
         </div>
     {% elseif aba == 'ges' %}
-        {{ render(voto_assembleia_aba('painel')) }}
+        {{ render(voto_assembleia_aba('painel', {arquivadas: app.request.query.getBoolean('arquivadas') ? 1 : 0, q: app.request.query.get('q', ''), entidade: app.request.query.get('entidade', ''), situacao: app.request.query.get('situacao', ''), kpi: app.request.query.get('kpi', '')})) }}
     {% elseif aba == 'tra' %}
         {{ render(voto_assembleia_aba('resultados')) }}
     {% elseif aba == 'aco' %}
@@ -57,4 +61,10 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
+<script src="{{ asset('js/voto-menu.js') }}" defer></script>
+<script src="{{ asset('js/voto-janela.js') }}" defer></script>
+<script src="{{ asset('js/voto-lembrete.js') }}" defer></script>
+<script src="{{ asset('js/voto-relatorio.js') }}" defer></script>
+<script src="{{ asset('js/voto-ciclo.js') }}" defer></script>
+<script src="{{ asset('js/voto-painel.js') }}" defer></script>
 {% endblock %}

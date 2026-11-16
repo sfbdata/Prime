@@ -69,6 +69,50 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         self::assertNotSame($salvas[0]->getSemente(), $salvas[1]->getSemente());
     }
 
+    #[TestDox('Telefone opcional (7ª coluna): fica só com os dígitos; vazio ou sem dígito vira nulo')]
+    public function testImportaComTelefone(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $salvas = [];
+        $unidades = $this->createMock(UnidadeDaAssembleiaRepository::class);
+        $unidades->method('salvar')->willReturnCallback(static function (UnidadeDaAssembleia $u) use (&$salvas): void {
+            $salvas[$u->getIdentificacao()] = $u;
+        });
+
+        (new ImportarUnidadesUseCase(
+            $this->assembleias($tenant, $assembleia),
+            $unidades,
+            new LeitorDaListaDeUnidades(),
+            new TokenDaUnidade('segredo-de-teste'),
+            new ArquivoDeUnidades(),
+            self::serializacao(),
+        ))
+            ->executar($tenant, 7, "Unidade;Bloco;Situação;Fração;Responsável;E-mail;Telefone\n101;A;;;Ana;;(61) 99999-0001\n102;A;;;;;\n103;A;;;;;sem telefone\n104;A\n");
+
+        self::assertSame('61999990001', $salvas['101']->getTelefone());
+        self::assertNull($salvas['102']->getTelefone());
+        self::assertNull($salvas['103']->getTelefone());
+        self::assertNull($salvas['104']->getTelefone());
+    }
+
+    #[TestDox('O modelo para baixar traz a coluna Telefone depois de E-mail')]
+    public function testModeloTrazTelefone(): void
+    {
+        ob_start();
+        (new ArquivoDeUnidades())->modelo()->sendContent();
+        $bytes = (string) ob_get_clean();
+        $caminho = tempnam(sys_get_temp_dir(), 'modelo');
+        file_put_contents($caminho, $bytes);
+        try {
+            $linha = \PhpOffice\PhpSpreadsheet\IOFactory::load($caminho)->getSheet(0)->toArray()[0];
+        } finally {
+            unlink($caminho);
+        }
+
+        self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone'], $linha);
+    }
+
     #[TestDox('Depois da abertura da primeira pauta a lista fica bloqueada')]
     public function testBloqueadaDepoisDaAbertura(): void
     {

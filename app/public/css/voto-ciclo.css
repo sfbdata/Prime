@@ -1,0 +1,20 @@
+/* BlueJus Voto: ciclo de vida da votação (F1-2b e F1-3), valores copiados do CSS e do markup do desenho 18 (VS 08.11.26):
+   faixa arquivada, linha "próximo passo", faixas de confirmação (arquivar, excluir), barra de seleção em lote
+   (.vSel, .vSelBar) e as faixas do lote. Templates: _painel, _assembleia_cartao e _pauta_linha. JS: voto-ciclo.js. */
+.voto-tela .vSel { width: 19px; height: 19px; flex: none; accent-color: #0a6fa0; cursor: pointer; margin: 0; }
+.voto-tela .vSelBar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 9px 15px; background: #eef4f8; border-bottom: 1px solid #d3dde4; }
+.voto-tela .voto-lote-todas { display: flex; gap: 8px; align-items: center; font-size: 13.5px; font-weight: bold; color: #0b3550; cursor: pointer; }
+.voto-tela .voto-lote-acoes { display: contents; }
+.voto-tela .voto-lote-acoes[hidden], .voto-tela [data-voto-revelavel][hidden], .voto-tela .voto-faixa-pergunta[hidden] { display: none; }
+.voto-tela .voto-faixa-arquivada { font-size: 13px; color: #34505f; background: #eef2f5; padding: 7px 10px; border-left: 3px solid #5b7383; }
+.voto-tela .voto-proximo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13.5px; color: #0b3550; }
+.voto-tela .voto-faixa-pergunta { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.voto-tela form.voto-faixa-arquivar { padding: 9px 10px; background: #f2f6f9; border-left: 3px solid #0a6fa0; }
+.voto-tela form.voto-faixa-excluir { align-items: center; padding: 9px 10px; background: #fbeeee; border-left: 3px solid #a3232b; }
+.voto-tela .voto-faixa-excluir > b { flex: 1 1 260px; font-size: 13.5px; color: #a3232b; }
+.voto-tela .voto-faixa-titulo { flex: 1 1 100%; font-size: 13.5px; font-weight: bold; color: #0b3550; }
+.voto-tela .voto-faixa-motivo { flex: 1 1 260px; }
+.voto-tela .voto-lote-arquivar { background: #f2f6f9; border-left: 3px solid #0a6fa0; }
+.voto-tela .voto-lote-arquivar .voto-faixa-titulo { font-weight: normal; }
+.voto-tela .voto-lote-excluir { align-items: center; background: #fbeeee; border-left: 3px solid #a3232b; }
+.voto-tela .voto-lote-excluir .voto-lote-texto { flex: 1 1 300px; font-size: 13.5px; color: #a3232b; }

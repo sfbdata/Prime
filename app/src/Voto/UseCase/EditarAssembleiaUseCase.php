@@ -8,14 +8,16 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AssembleiaInput;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Service\CnpjDaEntidade;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 
-/** Título e peso do voto da assembleia, só em rascunho (a entidade recusa depois de publicada). */
+/** Título, peso do voto, entidade e CNPJ da assembleia, só em rascunho (a entidade recusa depois de publicada). */
 final class EditarAssembleiaUseCase
 {
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly CnpjDaEntidade $cnpjs,
     ) {
     }
 
@@ -30,7 +32,9 @@ final class EditarAssembleiaUseCase
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
+        $cnpj = $this->cnpjs->normalizar($input->cnpj);
         $assembleia->editar($input->titulo, $input->pesoDoVoto());
+        $assembleia->identificarEntidade($input->entidade, $cnpj);
         $this->assembleias->salvar($assembleia, flush: true);
     }
 }

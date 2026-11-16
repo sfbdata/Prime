@@ -55,6 +55,24 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $publicadaEm = null;
 
+    /** Arquivada: sai das listas (Votar, Resultados, Acompanhar, telão), mas dados e cédulas ficam, sem prazo de purga. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $arquivadaEm = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $arquivadaMotivo = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $arquivadaPorNome = null;
+
+    /** Nome da entidade (o condomínio) que o painel usa para agrupar as assembleias. Opcional; fora das regras e do hash. */
+    #[ORM\Column(length: 160, nullable: true)]
+    private ?string $entidadeNome = null;
+
+    /** CNPJ da entidade, só os 14 dígitos (a máscara é da exibição). Opcional: separa entidades com nome parecido. */
+    #[ORM\Column(length: 14, nullable: true)]
+    private ?string $cnpj = null;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -97,6 +115,22 @@ class Assembleia implements TenantAware, Auditavel
     }
 
     /**
+     * Nome da entidade e CNPJ (só dígitos, 14), ambos opcionais; só em rascunho, como o título. A validação dos dígitos
+     * verificadores é do UseCase; aqui só o formato, para a coluna nunca guardar máscara.
+     */
+    public function identificarEntidade(?string $nome, ?string $cnpj): void
+    {
+        $this->exigirPautasAlteraveis();
+        $nome = null === $nome ? '' : trim($nome);
+        $cnpj = null === $cnpj ? '' : $cnpj;
+        if ('' !== $cnpj && 1 !== preg_match('/^\d{14}$/', $cnpj)) {
+            throw new OperacaoInvalidaNaAssembleiaException('O CNPJ tem 14 dígitos.');
+        }
+        $this->entidadeNome = '' === $nome ? null : mb_substr($nome, 0, 160);
+        $this->cnpj = '' === $cnpj ? null : $cnpj;
+    }
+
+    /**
      * Rascunho vira publicada e as pautas travam. Exige ao menos uma pauta, cada pauta com duas opções de voto (a
      * abstenção não conta), ao menos uma unidade apta e, com peso por fração ideal, a fração de toda unidade apta.
      */
@@ -118,6 +152,80 @@ class Assembleia implements TenantAware, Auditavel
             throw new OperacaoInvalidaNaAssembleiaException('Inclua ao menos uma unidade apta a votar.');
         }
         $this->exigirFracaoNasAptas($this->peso);
+    }
+
+    /**
+     * Guarda a assembleia publicada fora das listas. Só sem pauta aberta (suspensa também conta como aberta): a mesa
+     * encerra antes. Pauta encerrada já está apurada (o resultado sai no encerramento, sem guardiões), cancelada ou
+     * não. Rascunho não se arquiva: pode ser excluído. Motivo com 5 ou mais caracteres.
+     */
+    public function arquivar(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        if ($this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação já arquivada.');
+        }
+        if (EstadoDaAssembleia::Publicada !== $this->estado) {
+            throw new OperacaoInvalidaNaAssembleiaException('Rascunho não se arquiva: pode ser excluído.');
+        }
+        foreach ($this->pautas as $pauta) {
+            if (EstadoDaPauta::Aberta === $pauta->getEstado()) {
+                throw new OperacaoInvalidaNaAssembleiaException('Encerre a votação antes de arquivar.');
+            }
+        }
+        $motivo = trim($motivo);
+        if (mb_strlen($motivo) < PautaDaAssembleia::MOTIVO_MINIMO) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe o motivo do arquivamento.');
+        }
+        $this->arquivadaEm = $agora ?? new \DateTimeImmutable();
+        $this->arquivadaMotivo = mb_substr($motivo, 0, 200);
+        $this->arquivadaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /** Volta a assembleia arquivada para as listas (quem desarquivou fica na trilha de auditoria). */
+    public function desarquivar(string $por): void
+    {
+        if (!$this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação não está arquivada.');
+        }
+        $this->arquivadaEm = null;
+        $this->arquivadaMotivo = null;
+        $this->arquivadaPorNome = null;
+    }
+
+    public function arquivada(): bool
+    {
+        return null !== $this->arquivadaEm;
+    }
+
+    /** @internal Usada pelas regras da pauta: assembleia arquivada não abre nem retira pauta. */
+    public function exigirNaoArquivada(string $mensagem): void
+    {
+        if ($this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException($mensagem);
+        }
+    }
+
+    /** Só o rascunho nunca publicado pode ser excluído; a publicada pode ser arquivada. */
+    public function exigirExclusaoPossivel(): void
+    {
+        if (EstadoDaAssembleia::Rascunho !== $this->estado || null !== $this->publicadaEm) {
+            throw new OperacaoInvalidaNaAssembleiaException('Só rascunho nunca publicado pode ser excluído. Votação publicada pode ser arquivada.');
+        }
+    }
+
+    public function getArquivadaEm(): ?\DateTimeImmutable
+    {
+        return $this->arquivadaEm;
+    }
+
+    public function getArquivadaMotivo(): ?string
+    {
+        return $this->arquivadaMotivo;
+    }
+
+    public function getArquivadaPorNome(): ?string
+    {
+        return $this->arquivadaPorNome;
     }
 
     public function podeAlterarPautas(): bool
@@ -195,6 +303,16 @@ class Assembleia implements TenantAware, Auditavel
     public function getEstado(): EstadoDaAssembleia
     {
         return $this->estado;
+    }
+
+    public function getEntidadeNome(): ?string
+    {
+        return $this->entidadeNome;
+    }
+
+    public function getCnpj(): ?string
+    {
+        return $this->cnpj;
     }
 
     public function getCriadaPorNome(): string

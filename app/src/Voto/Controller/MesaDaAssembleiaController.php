@@ -20,7 +20,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * A mesa, por pauta (spec voto-assembleia-condominio, seção 1.7; insumo do desenho §5): abrir por minutos ou sem
  * prazo (1ª ou 2ª convocação), definir ou retirar o prazo e encerrar com motivo. Volta para onde a mesa estava (o
- * painel da Gestão eleitoral ou a tela de pautas da assembleia).
+ * painel da Gestão eleitoral, a tela de pautas ou o telão).
  */
 #[Route('/voto/assembleias/{id}/pautas/{pauta}', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
 final class MesaDaAssembleiaController extends AbstractController
@@ -72,10 +72,13 @@ final class MesaDaAssembleiaController extends AbstractController
         return $this->voltar($request, $id, $pauta);
     }
 
-    /** "Abrir sem prazo" e "Sem prazo" mandam modo=sem; os outros botões mandam os minutos digitados. */
+    /**
+     * "Sem prazo" (modo=sem) e a janela "Abrir votação" com Duração "Sem prazo" (duracao=sem) não têm prazo; os outros
+     * envios mandam os minutos digitados.
+     */
     private static function minutos(Request $request): ?int
     {
-        if ('sem' === $request->request->get('modo')) {
+        if ('sem' === $request->request->get('modo') || 'sem' === $request->request->get('duracao')) {
             return null;
         }
         $minutos = trim((string) $request->request->get('minutos', ''));
@@ -102,6 +105,9 @@ final class MesaDaAssembleiaController extends AbstractController
 
     private function voltar(Request $request, int $id, int $pauta): RedirectResponse
     {
+        if ('telao' === $request->request->get('voltar')) {
+            return $this->redirectToRoute('voto_assembleia_telao', ['id' => $id, 'pauta' => $pauta]);
+        }
         if ('pautas' === $request->request->get('voltar')) {
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
         }

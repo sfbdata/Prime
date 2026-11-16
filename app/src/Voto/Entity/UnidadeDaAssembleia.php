@@ -22,7 +22,7 @@ use function Symfony\Component\String\u;
  * O link: o banco guarda a semente e o hash do token, nunca o token (App\Voto\Service\TokenDaUnidade). "Gerar novo
  * link" troca a semente ({@see trocarSemente()}) e o link anterior deixa de valer.
  *
- * Não é `Auditavel`: o cadastro da unidade (responsável, e-mail, semente) não vai para o audit_log. O tenant vem da
+ * Não é `Auditavel`: o cadastro da unidade (responsável, e-mail, telefone, semente) não vai para o audit_log. O tenant vem da
  * assembleia (nunca de fora).
  */
 #[ORM\Entity(repositoryClass: UnidadeDaAssembleiaRepository::class)]
@@ -131,6 +131,8 @@ class UnidadeDaAssembleia implements TenantAware
         private ?string $responsavel = null,
         #[ORM\Column(length: 180, nullable: true)]
         private ?string $email = null,
+        #[ORM\Column(length: 20, nullable: true)]
+        private ?string $telefone = null,
     ) {
         $this->tenant = $assembleia->getTenant();
         $this->apta = self::situacaoPermiteVotar($situacao);
@@ -222,6 +224,12 @@ class UnidadeDaAssembleia implements TenantAware
     public function getEmail(): ?string
     {
         return $this->email;
+    }
+
+    /** Só dígitos (com DDD, e DDI se vier), para o link do WhatsApp do "Lembrar quem não votou". */
+    public function getTelefone(): ?string
+    {
+        return $this->telefone;
     }
 
     public function getSemente(): string

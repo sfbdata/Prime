@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Repository;
 
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -43,6 +44,38 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
     public function buscarDaPauta(int $id, PautaDaAssembleia $pauta): ?OpcaoDaPauta
     {
         return $this->findOneBy(['id' => $id, 'pauta' => $pauta, 'tenant' => $pauta->getTenant()]);
+    }
+
+    /** Guarda de posse da foto: a opção da assembleia (e do escritório dela) que tem esta foto, ou null. */
+    public function buscarComFotoDaAssembleia(Assembleia $assembleia, string $nomeDaFoto): ?OpcaoDaPauta
+    {
+        return $this->createQueryBuilder('o')
+            ->join('o.pauta', 'p')
+            ->where('p.assembleia = :assembleia')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('o.foto = :foto')
+            ->setParameter('assembleia', $assembleia)
+            ->setParameter('tenant', $assembleia->getTenant())
+            ->setParameter('foto', $nomeDaFoto)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** Guarda de posse da urna: a opção pelo id, só se for de uma pauta da assembleia (e do escritório dela). */
+    public function buscarDaAssembleia(int $id, Assembleia $assembleia): ?OpcaoDaPauta
+    {
+        return $this->createQueryBuilder('o')
+            ->join('o.pauta', 'p')
+            ->where('o.id = :id')
+            ->andWhere('p.assembleia = :assembleia')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('assembleia', $assembleia)
+            ->setParameter('tenant', $assembleia->getTenant())
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /** Soma um voto numa opção só: o caso de uma escolha de {@see somarVotos()}. */

@@ -1,0 +1,39 @@
+{#
+    Janela única "Retirar de pauta / Suspender votação / Cancelar votação" do desenho 18 (retTem, L496: .vMod > .vModC de
+    min(560px,100%)), nunca modal do Bootstrap. Cabeçalho .vH #a3232b (retirar e cancelar) ou #8a6200 (suspender),
+    "O que acontece:" com a lista do tipo, o rodapé verde sobre as outras pautas do evento e o campo Motivo (5 ou
+    mais caracteres; o servidor também valida). CSS public/css/voto-janela.css (.vModCiclo), JS voto-janela.js (abre e
+    fecha) e voto-ciclo.js (valida o motivo). Abre pelo botão ou item de menu com data-voto-janela="#janela-ciclo-{p.id}-{tipo}".
+    CONTRATO: `a` (AssembleiaNoPainel), `p` (PautaNoPainel), `tipo` (ret | sus | can), `token` (CSRF
+    'voto_assembleia_{a.id}') e `telao` (bool, opcional: no telão o envio é por fetch, sem sair da tela).
+    Envia POST (campo motivo) para voto_assembleia_pauta_retirar | _suspender | _cancelar.
+#}
+{% set rota = {ret: 'voto_assembleia_pauta_retirar', sus: 'voto_assembleia_pauta_suspender', can: 'voto_assembleia_pauta_cancelar'}[tipo] %}
+{% set icone = {ret: 'bi-x-octagon', sus: 'bi-pause-circle', can: 'bi-x-circle'}[tipo] %}
+{% set cor = tipo == 'sus' ? '#8a6200' : '#a3232b' %}
+{% set base = 'voto.assembleia.gestor.janela_ciclo.' ~ tipo ~ '.' %}
+{% set outras = a.pautas|filter(x => x.id != p.id and not x.retirada)|length %}
+{% set id = 'janela-ciclo-' ~ p.id ~ '-' ~ tipo %}
+<div class="vModCiclo" data-voto-janela-raiz id="{{ id }}" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-titulo">
+        <div class="vH" style="background:{{ cor }};"><i class="bi {{ icone }}"></i><span id="{{ id }}-titulo">{{ (base ~ 'titulo')|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.fechar'|trans }}</button></div>
+        <form method="post" action="{{ path(rota, {id: a.id, pauta: p.id}) }}" class="vModCorpo" data-mesa="ciclo-{{ tipo }}" data-voto-exige-motivo="{{ 'voto.assembleia.gestor.janela_ciclo.motivo_curto'|trans }}"{% if telao is defined and telao %} data-telao-ciclo{% endif %}>
+            <input type="hidden" name="_token" value="{{ token }}">
+            <b>{{ p.titulo }}</b>
+            <div>{{ 'voto.assembleia.gestor.janela_ciclo.o_que_acontece'|trans }}</div>
+            <ul class="vModEfeitos">
+                {% for n in 1..5 %}
+                    <li>{{ (base ~ 'efeito_' ~ n)|trans }}</li>
+                {% endfor %}
+            </ul>
+            <div class="vModOutras">{{ outras > 0 ? 'voto.assembleia.gestor.janela_ciclo.outras'|trans({n: outras}) : 'voto.assembleia.gestor.janela_ciclo.unica'|trans }}</div>
+            <label class="vL">{{ 'voto.assembleia.gestor.janela_ciclo.motivo'|trans }}
+                <input class="vF" name="motivo" maxlength="200" autocomplete="off" placeholder="{{ (base ~ 'exemplo')|trans }}">
+            </label>
+            <div class="vModRodape">
+                <button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.cancelar'|trans }}</button>
+                <button type="submit" class="vB vD"><i class="bi {{ icone }}"></i>{{ (base ~ 'titulo')|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>

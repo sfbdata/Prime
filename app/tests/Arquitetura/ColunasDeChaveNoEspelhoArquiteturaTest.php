@@ -223,7 +223,7 @@ final class ColunasDeChaveNoEspelhoArquiteturaTest extends KernelTestCase
             $partes   = preg_split('/\b(?:WHERE|GROUP\s+BY|ORDER\s+BY)\b/i', $semTexto);
             $leitura  = \is_array($partes) ? $partes[0] : '';
 
-            preg_match_all('/\b(?:FROM|JOIN)\s+(?!LATERAL\b)(\w+)(?:\s+(?!ON\b|JOIN\b|CROSS\b|LEFT\b|INNER\b)(\w+))?/i', $leitura, $tabelas, \PREG_SET_ORDER);
+            preg_match_all('/\b(?:FROM|JOIN)\s+(?!LATERAL\b)(?:\w+\.)?(\w+)(?:\s+(?!ON\b|JOIN\b|CROSS\b|LEFT\b|INNER\b)(\w+))?/i', $leitura, $tabelas, \PREG_SET_ORDER);
             if ($tabelas === []) {
                 continue;
             }

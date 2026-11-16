@@ -10,6 +10,7 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 
 /**
  * Apura uma pauta pelos contadores das opções (spec docs/specs/voto-assembleia-condominio.md, seção 1 item 9, e
@@ -44,7 +45,7 @@ final class ApuracaoDaPauta
      */
     public function apurar(PautaDaAssembleia $pauta, string $pesoApto, int $unidadesAptas, ?array $presenca = null): ResultadoDaPauta
     {
-        self::exigirPresencaSeVariasVagas($pauta, $presenca);
+        self::exigirApuravel($pauta, $presenca);
         $pesoApto = self::normalizar($pesoApto);
         [$opcoes, $pesoValido, $abstencoesPeso, $pesoPresente] = self::pesosDaPauta($pauta, $presenca);
         $quorumExigido = $pauta->getQuorumExigido() ?? '0';
@@ -78,7 +79,21 @@ final class ApuracaoDaPauta
             vagas: $vagas,
             nulosUnidades: $pauta->getNulosUnidades(),
             nulosPeso: $pauta->getNulosPeso(),
+            tipo: $pauta->getTipo(),
         );
+    }
+
+    /**
+     * Pauta cancelada não se apura (cédulas lacradas); várias vagas exigem a presença informada.
+     *
+     * @param array{unidades: int, peso: string}|null $presenca
+     */
+    private static function exigirApuravel(PautaDaAssembleia $pauta, ?array $presenca): void
+    {
+        if ($pauta->cancelada()) {
+            throw new OperacaoInvalidaNaAssembleiaException(PautaDaAssembleia::MENSAGEM_CANCELADA_SEM_APURACAO);
+        }
+        self::exigirPresencaSeVariasVagas($pauta, $presenca);
     }
 
     /**

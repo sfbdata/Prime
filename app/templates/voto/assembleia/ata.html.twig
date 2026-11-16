@@ -1,15 +1,21 @@
-{% from 'voto/_texto_do_resultado.html.twig' import resumo %}
+{% from 'voto/_texto_do_resultado.html.twig' import resumo, rotulo_do_branco %}
 {#
     Ata / Relatório consolidado da assembleia (desenho §5, L355), em HTML imprimível no lugar do PDF em canvas (spec
     voto-assembleia-condominio, Gestor item 10). Seções que têm dado neste mínimo: resumo, identificação, por pauta
     (em ordem de abertura) abertura, eleitorado e participação por bloco, encerramento, apuração e relação de
     votantes; termo de encerramento e assinaturas. Sem código BJR, QR, hashes, responsáveis designados e incidentes
     (não existem neste mínimo). Tipografia do PDF do desenho em public/css/voto.css (.voto-ata).
+    Ciclo de vida (F1-2b, desenho 18, ataDocx L409): a pauta RETIRADA da ordem do dia não vira seção de votação: entra em
+    "Ordem do dia" como "Retirada da ordem do dia: ..., por decisão registrada em ... Motivo: ... Não houve deliberação
+    sobre essa matéria."; a CANCELADA diz "Votação cancelada pela mesa em ... Motivo: ... Os votos recebidos ficaram
+    lacrados e não foram apurados." no lugar da apuração.
     Contexto: `ata` (AtaDaAssembleia).
 #}
 {% set a = ata.assembleia %}
-{% set abertas = a.pautas|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
-{% set pautas = abertas|merge(a.pautas|filter(p => p.abertaEm is null)) %}
+{% set retiradas = a.pautas|filter(p => p.retirada) %}
+{% set naOrdem = a.pautas|filter(p => not p.retirada) %}
+{% set abertas = naOrdem|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
+{% set pautas = abertas|merge(naOrdem|filter(p => p.abertaEm is null)) %}
 {% set dh = 'd/m/Y H:i:s' %}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -30,7 +36,9 @@
     <h2>{{ 'voto.assembleia.gestor.ata.resumo'|trans }}</h2>
     {% for p in pautas %}
         <p>{{ 'voto.assembleia.gestor.ata.resumo_pauta'|trans({pauta: p.titulo, n: p.votantes, aptos: p.unidadesAptas, pc: p.pctUnidades}) }}</p>
-        {% if p.resultado is not null %}
+        {% if p.cancelada %}
+            <p>{{ p.titulo }}: {{ 'voto.assembleia.gestor.ata_ciclo.cancelada'|trans({em: p.canceladaEm|date(dh), motivo: p.canceladaMotivo}) }}</p>
+        {% elseif p.resultado is not null %}
             {% set r = p.resultado %}
             <p>{{ resumo(r, 'voto.assembleia.gestor.ata.resumo_resultado', {
                 pauta: p.titulo,
@@ -44,10 +52,17 @@
     <h2>{{ 'voto.assembleia.gestor.ata.identificacao'|trans }}</h2>
     <dl class="voto-ata-campos">
         <div><dt>{{ 'voto.assembleia.gestor.ata.evento'|trans }}</dt><dd>{{ a.titulo }}</dd></div>
-        <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ a.pautas|length }}</dd></div>
+        <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ naOrdem|length }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_em'|trans }}</dt><dd>{{ ata.emitidaEm|date(dh) }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_por'|trans }}</dt><dd>{{ ata.emitidaPor }}</dd></div>
     </dl>
+
+    {% if retiradas|length > 0 %}
+        <h2>{{ 'voto.assembleia.gestor.ata_ciclo.ordem_do_dia'|trans }}</h2>
+        {% for p in retiradas %}
+            <p class="voto-ata-retirada">{{ 'voto.assembleia.gestor.ata_ciclo.retirada'|trans({pauta: p.titulo, em: p.retiradaEm|date(dh), motivo: p.retiradaMotivo}) }}</p>
+        {% endfor %}
+    {% endif %}
 
     {% for p in pautas %}
         {% set n = loop.index %}
@@ -115,13 +130,15 @@
                         {% for o in r.opcoes %}
                             <tr><td>{{ o.numero }} {{ o.rotulo }}</td><td>{{ o.unidades }}</td><td>{{ o.peso|voto_fracao }}</td></tr>
                         {% endfor %}
-                        <tr><td>{{ 'voto.assembleia.gestor.ata.abstencoes'|trans }}</td><td>{{ r.abstencoesUnidades }}</td><td>{{ r.abstencoesPeso|voto_fracao }}</td></tr>
+                        <tr><td>{{ rotulo_do_branco(r) }}</td><td>{{ r.abstencoesUnidades }}</td><td>{{ r.abstencoesPeso|voto_fracao }}</td></tr>
                         <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>{{ r.nulosUnidades }}</td><td>{{ r.nulosPeso|voto_fracao }}</td></tr>
                         <tr><td><b>{{ 'voto.assembleia.gestor.ata.total'|trans }}</b></td><td><b>{{ r.totalDeEscolhas }}</b></td><td><b>{{ r.pesoDasEscolhas|voto_fracao }}</b></td></tr>
                         <tr><td colspan="2">{{ 'voto.assembleia.gestor.ata.quorum_linha'|trans({pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</td><td>{{ (r.quorumOk ? 'voto.assembleia.gestor.ata.atingido' : 'voto.assembleia.gestor.ata.nao_atingido')|trans }}</td></tr>
                         <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ resumo(r) }}</b></td></tr>
                         </tbody>
                     </table>
+                {% elseif p.cancelada %}
+                    <p class="voto-ata-cancelada">{{ 'voto.assembleia.gestor.ata_ciclo.cancelada'|trans({em: p.canceladaEm|date(dh), motivo: p.canceladaMotivo}) }}</p>
                 {% else %}
                     <p>{{ 'voto.assembleia.gestor.ata.nao_apurada_data'|trans }}</p>
                 {% endif %}

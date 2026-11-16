@@ -27,7 +27,7 @@ final class OpcoesDaPautaTest extends TestCase
             ['numero' => '1', 'rotulo' => 'Chapa Verde'],
         ]);
 
-        self::assertSame([['numero' => 1, 'rotulo' => 'Chapa Verde'], ['numero' => 2, 'rotulo' => 'Chapa Azul']], $opcoes);
+        self::assertSame([['numero' => 1, 'rotulo' => 'Chapa Verde'], ['numero' => 2, 'rotulo' => 'Chapa Azul']], self::numerosENomes($opcoes));
     }
 
     /** @return iterable<string, array{list<array{numero: string, rotulo: string}>, string}> */
@@ -62,7 +62,7 @@ final class OpcoesDaPautaTest extends TestCase
             ['numero' => '01', 'rotulo' => 'Bia'],
         ], 2);
 
-        self::assertSame([['numero' => 1, 'rotulo' => 'Bia'], ['numero' => 12, 'rotulo' => 'Ana']], $opcoes);
+        self::assertSame([['numero' => 1, 'rotulo' => 'Bia'], ['numero' => 12, 'rotulo' => 'Ana']], self::numerosENomes($opcoes));
     }
 
     /** @return iterable<string, array{string, int, string}> */
@@ -90,7 +90,7 @@ final class OpcoesDaPautaTest extends TestCase
     {
         $opcoes = (new OpcoesDaPauta())->validar('Obra', [['numero' => '99999', 'rotulo' => 'Sim']], 5);
 
-        self::assertSame([['numero' => 99999, 'rotulo' => 'Sim']], $opcoes);
+        self::assertSame([['numero' => 99999, 'rotulo' => 'Sim']], self::numerosENomes($opcoes));
     }
 
     #[TestDox('Pauta eleitoral em rascunho: linhas só com o número sugerido ou com Sim/Não ficam de fora, sem erro')]
@@ -103,6 +103,41 @@ final class OpcoesDaPautaTest extends TestCase
             ['numero' => '4', 'rotulo' => 'Ana Souza'],
         ], 1, true);
 
-        self::assertSame([['numero' => 4, 'rotulo' => 'Ana Souza']], $opcoes);
+        self::assertSame([['numero' => 4, 'rotulo' => 'Ana Souza']], self::numerosENomes($opcoes));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $opcoes
+     *
+     * @return list<array{numero: mixed, rotulo: mixed}>
+     */
+    private static function numerosENomes(array $opcoes): array
+    {
+        return array_map(static fn (array $o): array => ['numero' => $o['numero'], 'rotulo' => $o['rotulo']], $opcoes);
+    }
+
+    #[TestDox('Eleição de pessoas guarda descrição, propostas, composição e unidade do candidato; vazio vira nulo')]
+    public function testDadosDaCandidaturaNaEleicao(): void
+    {
+        $opcoes = (new OpcoesDaPauta())->validar('Síndico(a)', [
+            ['numero' => '01', 'rotulo' => 'Ana', 'descricao' => ' Moradora do 101 ', 'propostas' => 'Mais jardim', 'composicao' => "Presidente: Ana\nVice: Bia", 'unidade' => ' 101 '],
+            ['numero' => '02', 'rotulo' => 'Bia', 'descricao' => '  ', 'unidade' => ''],
+        ], 2, true);
+
+        self::assertSame('Moradora do 101', $opcoes[0]['descricao']);
+        self::assertSame('Mais jardim', $opcoes[0]['propostas']);
+        self::assertSame("Presidente: Ana\nVice: Bia", $opcoes[0]['composicao']);
+        self::assertSame('101', $opcoes[0]['unidade']);
+        self::assertSame([null, null, null, null], [$opcoes[1]['descricao'], $opcoes[1]['propostas'], $opcoes[1]['composicao'], $opcoes[1]['unidade']]);
+    }
+
+    #[TestDox('Pauta de deliberação só guarda a descrição da opção: propostas, composição e unidade são descartadas')]
+    public function testDeliberacaoSoGuardaADescricao(): void
+    {
+        $opcoes = (new OpcoesDaPauta())->validar('Obra', [
+            ['numero' => '1', 'rotulo' => 'Sim', 'descricao' => 'Aprova a obra', 'propostas' => 'x', 'composicao' => 'y', 'unidade' => 'z'],
+        ]);
+
+        self::assertSame(['Aprova a obra', null, null, null], [$opcoes[0]['descricao'], $opcoes[0]['propostas'], $opcoes[0]['composicao'], $opcoes[0]['unidade']]);
     }
 }

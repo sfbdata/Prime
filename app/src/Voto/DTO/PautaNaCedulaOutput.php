@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\DTO;
 
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\TipoDaPauta;
 
 /**
  * Uma pauta na cédula do morador (spec docs/specs/voto-assembleia-condominio.md, seção 1, Morador): o estado, quando a
@@ -30,12 +31,27 @@ final readonly class PautaNaCedulaOutput
         /** Dígitos do número de cada opção (o número se mostra com zeros à esquerda). */
         public int $digitos = 1,
         public ?string $comprovante = null,
+        public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
+        /** A mesa suspendeu: a pauta segue aberta, mas não aceita voto até a retomada. */
+        public bool $suspensa = false,
+        /** A comissão cancelou: encerrada, cédulas lacradas, sem resultado. */
+        public bool $cancelada = false,
     ) {
     }
 
     public function variasVagas(): bool
     {
         return $this->vagas > 1;
+    }
+
+    public function suspensa(): bool
+    {
+        return $this->suspensa;
+    }
+
+    public function cancelada(): bool
+    {
+        return $this->cancelada;
     }
 
     public function aguardando(): bool
