@@ -282,7 +282,8 @@ final class FotosDasCandidaturasUseCaseTest extends TestCase
         });
 
         (new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()))->executar($this->tenant, 7, new PautaInput(
-            'Conselho', null,
+            'Conselho',
+            null,
             [$this->linha('1', 'Ana Souza', arquivo: $this->upload($this->jpeg())), $this->linha('2', 'Caio Lima')],
             null,
             TipoDaPauta::EleicaoDeCargo,
