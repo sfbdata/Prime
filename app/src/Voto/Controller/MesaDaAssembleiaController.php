@@ -72,10 +72,13 @@ final class MesaDaAssembleiaController extends AbstractController
         return $this->voltar($request, $id, $pauta);
     }
 
-    /** "Abrir sem prazo" e "Sem prazo" mandam modo=sem; os outros botões mandam os minutos digitados. */
+    /**
+     * "Sem prazo" (modo=sem) e a janela "Abrir votação" com Duração "Sem prazo" (duracao=sem) não têm prazo; os outros
+     * envios mandam os minutos digitados.
+     */
     private static function minutos(Request $request): ?int
     {
-        if ('sem' === $request->request->get('modo')) {
+        if ('sem' === $request->request->get('modo') || 'sem' === $request->request->get('duracao')) {
             return null;
         }
         $minutos = trim((string) $request->request->get('minutos', ''));

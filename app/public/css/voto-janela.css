@@ -1,0 +1,13 @@
+/* BlueJus Voto: janela do desenho 18 (.vMod/.vModC), nunca modal do Bootstrap. A de "Abrir votação" tem largura
+   min(480px,100%) e z-index 5600 (inline no desenho). Partial: _janela_abrir_votacao.html.twig. JS: voto-janela.js. */
+.vMod { position: fixed; inset: 0; z-index: 4000; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.vMod[hidden] { display: none; }
+.vModC { width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 3px; overflow: hidden; }
+.vMod.vModAbrir { z-index: 5600; }
+.vMod.vModAbrir .vModC { width: min(480px, 100%); }
+.vMod.vModConfirma .vModC { width: min(440px, 100%); }
+.vModCorpo { padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.vModCorpo > b { font-size: 15.5px; color: #0b3550; }
+.vModRodape { display: flex; gap: 8px; justify-content: flex-end; }
+.vModCampoMin { width: 160px; }
+.vModCampoMin[hidden] { display: none; }

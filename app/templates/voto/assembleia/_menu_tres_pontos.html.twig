@@ -1,0 +1,32 @@
+{#
+    Menu de três pontos do desenho 18 (.vKw > botão .vB.vK + .vKm), criado UMA vez e reutilizado pelas telas do Voto.
+    CSS public/css/voto-menu.css, JS public/js/voto-menu.js (fecha ao clicar fora e com Esc; setas movem o foco).
+    CONTRATO (as outras etapas usam, não mude): `itens` é uma lista de objetos com
+      rotulo (texto), icone (classe bi-*), destrutivo (bool, vermelho .vKd), confirmar (texto opcional: pede
+      confirmação numa janela do desenho antes de enviar) e UM entre:
+        href  (link) ou
+        acao  (URL de POST) com token (CSRF) e campos (mapa nome => valor, opcional): vira <form method="post">.
+    Opcionais do item de formulário: confirmar_titulo, confirmar_sim, confirmar_nao (rótulos da janela).
+    Lista vazia não desenha nada.
+#}
+{% if itens|length > 0 %}
+<div class="vKw" data-voto-menu>
+    <button type="button" class="vB vK" aria-label="{{ 'voto.assembleia.gestor.menu.mais_opcoes'|trans }}" aria-haspopup="menu" aria-expanded="false" data-voto-menu-botao><i class="bi bi-three-dots-vertical"></i></button>
+    <div class="vKm" role="menu" hidden>
+        {% for item in itens %}
+            {% set classe = item.destrutivo|default(false) ? 'vKd' : '' %}
+            {% if item.acao is defined and item.acao %}
+                <form method="post" action="{{ item.acao }}"{% if item.confirmar|default(null) %} data-voto-confirmar="{{ item.confirmar }}"{% if item.confirmar_titulo is defined %} data-voto-confirmar-titulo="{{ item.confirmar_titulo }}"{% endif %}{% if item.confirmar_sim is defined %} data-voto-confirmar-sim="{{ item.confirmar_sim }}"{% endif %}{% if item.confirmar_nao is defined %} data-voto-confirmar-nao="{{ item.confirmar_nao }}"{% endif %}{% endif %}>
+                    <input type="hidden" name="_token" value="{{ item.token|default('') }}">
+                    {% for nome, valor in item.campos|default({}) %}
+                        <input type="hidden" name="{{ nome }}" value="{{ valor }}">
+                    {% endfor %}
+                    <button type="submit" role="menuitem" class="{{ classe }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+                </form>
+            {% else %}
+                <a role="menuitem" class="{{ classe }}" href="{{ item.href|default('#') }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

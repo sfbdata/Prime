@@ -132,6 +132,39 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_unidade WHERE assembleia_id = ?', [$a]), 'nada importado nem removido');
     }
 
+    /**
+     * Cartão enxuto do Painel (A2) e janela "Abrir votação" (A3) da assembleia publicada: a linha visível só tem
+     * Relatório consolidado e o menu de três pontos; Pautas, Unidades e links, Link e QR Code e Resultados ficam
+     * só dentro do menu; a abertura mora na janela do desenho, não mais na linha da pauta.
+     */
+    private function conferirCartaoEnxutoEJanelaDeAbrir(Crawler $cartao, int $id): void
+    {
+        $linha = $cartao->filter('.voto-acoes');
+        self::assertCount(1, $linha->filter('.vKw > button.vK[aria-label="Mais opções"]'));
+        self::assertSame(
+            ['Pautas', 'Unidades e links', 'Link e QR Code', 'Resultados'],
+            $linha->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())),
+            'publicada: a configuração está bloqueada, então "Editar configuração" não entra',
+        );
+        self::assertSame(['Relatório consolidado'], $linha->filter('a.vB')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertCount(0, $cartao->filter('.voto-pauta select.voto-mesa-conv, .voto-pauta .voto-mesa-min, .voto-pauta button[name="modo"][value="minutos"]'), 'a convocação e os minutos saíram da linha da pauta');
+
+        $pauta = $cartao->filter('.voto-pauta[data-situacao="publicada"]')->first();
+        self::assertSame('Abrir votação', trim($pauta->filter('.voto-pauta-acoes > button[data-voto-janela]')->text()));
+        $janela = $pauta->filter('.voto-pauta-acoes > .vMod.vModAbrir[hidden] > .vModC[role="dialog"]');
+        self::assertCount(1, $janela);
+        self::assertStringContainsString('/voto/assembleias/' . $id . '/pautas/', (string) $janela->filter('form')->attr('action'));
+        self::assertSame(['1ª convocação', '2ª convocação'], $janela->filter('select[name="convocacao"] > option')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(
+            ['Sem prazo: a mesa encerra quando decidir', 'Por tempo definido'],
+            $janela->filter('select[name="duracao"] > option')->each(static fn (Crawler $c): string => trim($c->text())),
+        );
+        self::assertCount(1, $janela->filter('label[data-voto-minutos] > input[name="minutos"]'));
+        self::assertSame('Cancelar', trim($janela->filter('.vModRodape > button[type="button"]')->text()));
+        self::assertSame('Abrir votação', trim($janela->filter('.vModRodape > button[type="submit"]')->text()));
+        self::assertStringNotContainsString('—', $janela->html());
+    }
+
     #[TestDox('Fluxo do gestor: criar, pautas, unidades, publicar, abrir, votar, encerrar, resultado por fração e ata')]
     public function testFluxoDoGestor(): void
     {
@@ -180,6 +213,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $cartao = $painel->filter('#assembleia-' . $id);
         self::assertSame('Publicada, aguardando abertura', trim($cartao->filter('.vH .vChip')->text()));
         self::assertCount(2, $cartao->filter('.voto-pauta[data-situacao="publicada"] form[data-mesa="abrir"]'));
+        $this->conferirCartaoEnxutoEJanelaDeAbrir($cartao, $id);
         $links = $this->client->request('GET', '/voto/assembleias/' . $id . '/unidades');
         self::assertCount(3 * 2, $links->filter('[data-voto-copiar]'), 'Copiar link e Copiar mensagem por unidade apta');
         self::assertStringContainsString('/votar/', (string) $links->filter('[data-voto-copiar]')->first()->attr('data-voto-copiar'));
@@ -187,7 +221,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Abrir a 1ª pauta por 5 minutos e votar: unidades 2 x 1 para o Não, fração 0,5 x 0,4 para o Sim
         [$contas, $obra] = $this->pautasDa($id);
         $painel = $this->client->request('GET', '/voto?aba=ges');
-        $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="abrir"] button[value="minutos"]')->form(['convocacao' => '1', 'minutos' => '5']));
+        $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="abrir"]')->form(['convocacao' => '1', 'duracao' => 'min', 'minutos' => '5']));
         $painel = $this->client->followRedirect();
         self::assertSame('Votação aberta pela mesa.', trim($painel->filter('.voto-toast')->text()));
         self::assertSame('Votação aberta', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
@@ -225,7 +259,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('Abstenções 0 · Nulos 0', trim($cartao->filter('.voto-resultado-abst')->text()));
 
         // 2ª pauta sem prazo: só uma unidade vota (0,2 de 0,9) e o quórum de 50% não é atingido
-        $this->client->submit($painel->filter('#pauta-' . $obra . ' form[data-mesa="abrir"] button[value="sem"]')->form(['convocacao' => '1']));
+        $this->client->submit($painel->filter('#pauta-' . $obra . ' form[data-mesa="abrir"]')->form(['convocacao' => '1', 'duracao' => 'sem']));
         $painel = $this->client->followRedirect();
         self::assertSame('Aberta, sem prazo definido', trim($painel->filter('#pauta-' . $obra . ' .voto-cron')->text()));
         $this->votar($obra, ['102' => 1]);
@@ -422,6 +456,11 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
 
         $painel = $this->client->request('GET', '/voto?aba=ges');
+        // Rascunho: Publicar fica visível; Editar configuração, Pautas e Unidades e links moram só no menu (A2)
+        $linha = $painel->filter('#assembleia-' . $assembleia->getId() . ' .voto-acoes');
+        self::assertCount(1, $linha->filter('button.vB.vP'));
+        self::assertSame(['Editar configuração', 'Pautas', 'Unidades e links'], $linha->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertCount(0, $linha->filter('a.vB'), 'nenhum link de navegação fora do menu');
         $revisao = $this->client->submit($painel->filter('#assembleia-' . $assembleia->getId())->selectButton('Publicar')->form());
         self::assertResponseIsSuccessful();
         self::assertSame('Inclua ao menos uma unidade apta a votar.', trim($revisao->filter('[data-voto-pendencia]')->text()));

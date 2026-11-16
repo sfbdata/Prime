@@ -239,6 +239,19 @@ voto:
                 sem_prazo: Sem prazo
                 motivo: Motivo do encerramento antecipado
                 encerrar: Encerrar
+            # ---- Voto redesign F1-1: menu de três pontos e janela "Abrir votação" (desenho 18, 16/11).
+            menu:
+                mais_opcoes: Mais opções
+                editar_config: Editar configuração
+                link_qr: Link e QR Code
+            janela_abrir:
+                titulo: Abrir votação
+                fechar: Fechar
+                cancelar: Cancelar
+                abrir: Abrir votação
+                duracao: Duração
+                sem_prazo: 'Sem prazo: a mesa encerra quando decidir'
+                por_tempo: Por tempo definido
             aviso:
                 publicada: Votação publicada. A configuração ficou bloqueada.
                 aberta: Votação aberta pela mesa.

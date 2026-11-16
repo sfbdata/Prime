@@ -20,6 +20,8 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-menu.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-janela.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -57,4 +59,6 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
+<script src="{{ asset('js/voto-menu.js') }}" defer></script>
+<script src="{{ asset('js/voto-janela.js') }}" defer></script>
 {% endblock %}
