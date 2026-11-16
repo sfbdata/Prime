@@ -249,7 +249,6 @@
     "Djen/UseCase/SincronizarPublicacoesDjenUseCase.php::consultarProcessos": 81,
     "Djen/UseCase/SincronizarPublicacoesDjenUseCase.php::executar": 46,
     "Djen/UseCase/SincronizarPublicacoesDjenUseCase.php::processarItens": 48,
-    "EventListener/TenantContextValidatorListener.php::__invoke": 52,
     "Expediente/Controller/ExpedienteController.php::criarMarcador": 42,
     "Expediente/Controller/ExpedienteController.php::editarMarcador": 43,
     "Expediente/Controller/ExpedienteController.php::pastasPorMarcador": 53,

@@ -4,14 +4,11 @@ declare(strict_types=1);
 namespace App\EventListener;
 
 use App\Entity\Auth\User;
-use App\Entity\Auth\UserTenant;
 use App\Repository\UserTenantRepository;
 use App\Security\PedidoDeNavegacao;
 use App\Service\Tenant\TenantContext;
-use App\Tenant\Enum\SituacaoNaEquipe;
-use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BarreirasDoEscritorio;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
-use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -132,14 +129,12 @@ final class TenantContextValidatorListener
     /** Rotas do painel do Master: funcionam sem escritório na sessão. */
     private const PREFIXOS_DO_PAINEL_DO_MASTER = ['admin_', 'master_', 'inteligencia_admin_', 'auth_suporte_'];
 
-    private const ACESSO_INDISPONIVEL = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
-
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly RouterInterface $router,
         private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
-        private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly BarreirasDoEscritorio $barreiras,
         private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
@@ -176,18 +171,29 @@ final class TenantContextValidatorListener
             return;
         }
 
+        $this->aplicarBarreiras($event, $user);
+    }
+
+    private function aplicarBarreiras(RequestEvent $event, User $user): void
+    {
         // Barreiras de acesso ao escritório da sessão, nesta ordem (spec perfis-1.2-contas C13). Vale a
         // mensagem da primeira que falhar. Derrubam a sessão a cada request: fecham num ponto só os 40+
-        // consumidores de getCurrentTenant() que não rechecam isActive (RS06/RS07).
+        // consumidores de getCurrentTenant() que não rechecam isActive (RS06/RS07). A regra mora no
+        // BarreirasDoEscritorio, que o conector de I.A. também usa (spec mcp-remoto-oauth 4.1).
         $userTenant = $this->tenantContext->getCurrentUserTenant();
-        $recusa = $this->barreiraDaConta($userTenant);
+        $resultado = $this->barreiras->conferir(
+            $userTenant,
+            $userTenant?->getTenant() ?? $this->tenantContext->getCurrentTenant(),
+            $user,
+            passeDoMaster: true,
+        );
         // (b) pedido de exclusão pendente (PR 5): o primário fica no Meu Perfil; a equipe sai.
-        if ($recusa === null && $this->primarioNaContaSuspensaAPedido($userTenant, $event)) {
+        if ($resultado->ePrimarioNaContaSuspensaAPedido()) {
+            $this->prenderAoMeuPerfil($event);
+
             return;
         }
-        $recusa ??= $this->barreiraDoPedidoDeExclusao($userTenant);
-        $recusa ??= $this->barreiraDoVinculo($userTenant);
-        $recusa ??= $this->barreiraDaSituacao($userTenant, $user);
+        $recusa = $resultado->recusa();
 
         if ($recusa === null) {
             return;
@@ -199,54 +205,13 @@ final class TenantContextValidatorListener
     }
 
     /**
-     * (a) A conta: escritório suspenso pelo Master (isActive=false, excluidoEm nulo, aviso da C9) ou
-     * excluído, em quarentena (aviso da C9b). Sem bypass para o Master (spec perfis-1.2-contas C12).
+     * O primário de uma conta "suspensa a pedido" ({@see BarreirasDoEscritorio}) continua no escritório, mas só no Meu
+     * Perfil (onde desiste) e no sair: qualquer outra rota volta ao Meu Perfil.
      */
-    private function barreiraDaConta(?UserTenant $userTenant): ?string
+    private function prenderAoMeuPerfil(RequestEvent $event): void
     {
-        $conta = $userTenant?->getTenant() ?? $this->tenantContext->getCurrentTenant();
-        if ($conta !== null && $conta->isActive() === true) {
-            return null;
-        }
-
-        if ($conta === null) {
-            return self::ACESSO_INDISPONIVEL; // já purgada: não há mais nome a dizer
-        }
-
-        return $conta->getExcluidoEm() === null
-            ? AvisoDeContaSuspensa::para((string) $conta->getName())
-            : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
-    }
-
-    /**
-     * (b) Pedido de exclusão pendente ("suspensa a pedido", PR 5): quem não é primário não entra
-     * ({@see BloqueioPorPedidoDeExclusao}). O primário é tratado antes, em
-     * {@see primarioNaContaSuspensaAPedido()}.
-     */
-    private function barreiraDoPedidoDeExclusao(?UserTenant $userTenant): ?string
-    {
-        return $userTenant !== null && $userTenant->isActive() && $this->bloqueioPorPedido->bloqueia($userTenant)
-            ? BloqueioPorPedidoDeExclusao::MENSAGEM
-            : null;
-    }
-
-    /**
-     * O primário de uma conta "suspensa a pedido" continua no escritório, mas só no Meu Perfil (onde
-     * desiste) e no sair: qualquer outra rota volta ao Meu Perfil. Devolve true quando a requisição já foi
-     * resolvida aqui (liberada ou redirecionada). Só vale com o vínculo ATIVO: o primário em análise ou suspenso
-     * pela equipe (vínculo inativo) segue para a (c) e a (d), como qualquer pessoa.
-     */
-    private function primarioNaContaSuspensaAPedido(?UserTenant $userTenant, RequestEvent $event): bool
-    {
-        if ($userTenant === null || !$userTenant->isActive() || !$this->regraDosPrimarios->ehPrimario($userTenant)) {
-            return false;
-        }
-        $tenantId = $userTenant->getTenant()->getId();
-        if ($tenantId === null || !$this->bloqueioPorPedido->suspensaAPedido($tenantId)) {
-            return false;
-        }
         if (str_starts_with($event->getRequest()->getPathInfo(), '/perfil')) {
-            return true;
+            return;
         }
 
         // Chamada de fundo (sino, contadores, polling sem o cabeçalho XHR): recusa curta, sem flash acumulando
@@ -255,38 +220,13 @@ final class TenantContextValidatorListener
         if ($requisicao->isXmlHttpRequest() || !str_contains((string) $requisicao->headers->get('Accept'), 'text/html')) {
             $event->setResponse(new JsonResponse(['erro' => BloqueioPorPedidoDeExclusao::MENSAGEM], Response::HTTP_FORBIDDEN));
 
-            return true;
+            return;
         }
         $sessao = $event->getRequest()->getSession();
         if ($sessao instanceof FlashBagAwareSessionInterface) {
             $sessao->getFlashBag()->add('warning', BloqueioPorPedidoDeExclusao::MENSAGEM);
         }
         $event->setResponse(new RedirectResponse($this->router->generate('app_profile')));
-
-        return true;
-    }
-
-    /** (c) O vínculo: removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
-    private function barreiraDoVinculo(?UserTenant $userTenant): ?string
-    {
-        if ($userTenant === null) {
-            return self::ACESSO_INDISPONIVEL;
-        }
-
-        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::ACESSO_INDISPONIVEL : null;
-    }
-
-    /**
-     * (d) Situação na equipe: em análise ou suspenso pelo primário (spec docs/specs/equipe-da-conta.md §3). O Master
-     * não passa por esta barreira.
-     */
-    private function barreiraDaSituacao(?UserTenant $userTenant, User $user): ?string
-    {
-        if ($userTenant === null || $userTenant->isActive() || in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
-            return null;
-        }
-
-        return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
     }
 
     /**
