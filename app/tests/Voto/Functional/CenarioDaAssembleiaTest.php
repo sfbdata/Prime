@@ -228,7 +228,7 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $condominio, 'bloco' => 'A', 'identificacao' => '101'])->_real();
         $cedula = $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($outra));
         self::assertStringContainsString('Unidade A · 101', $cedula->filter('.vcUnidade')->text());
-        self::assertSame('Pautas de assembleia', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
+        self::assertSame('Condomínio · Pautas de assembleia', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
     }
 
     private function publicadaComPauta(CenarioDaAssembleia $cenario, ?string $entidade): Assembleia

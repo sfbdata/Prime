@@ -97,10 +97,10 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
         $dados = $cartao->filter('.voto-votar-corpo > .voto-votar-meta > span');
         self::assertCount(4, $dados);
         self::assertMatchesRegularExpression('/^\d\d\/\d\d\/\d{4} \d\d:\d\d até|^Aberta em \d\d\/\d\d\/\d{4} \d\d:\d\d$/', trim($dados->eq(0)->text()));
-        self::assertSame('Pautas de assembleia', trim($dados->eq(1)->text()));
+        self::assertSame('Condomínio · Pautas de assembleia', trim($dados->eq(1)->text()));
         self::assertSame('Todos os grupos', trim($dados->eq(2)->text()));
         self::assertCount(1, $dados->eq(2)->filter('i.bi-geo'));
-        self::assertSame('Bloco ou torre', $dados->eq(2)->attr('title'));
+        self::assertNull($dados->eq(2)->attr('title'), 'o desenho não tem title na linha de grupos');
         self::assertMatchesRegularExpression('/^Código de conferência [A-F0-9]{4}-[A-F0-9]{4}$/', trim($dados->eq(3)->text()));
         self::assertSame('Votação aberta. Clique em Votar para abrir a tela do eleitor, a mesma do link e do QR Code.', trim($cartao->filter('.voto-votar-corpo > .voto-votar-aviso')->text()));
         $votar = $cartao->filter('.voto-votar-corpo > .voto-votar-acoes > a.vB.vP[data-voto-votar]');
@@ -220,11 +220,9 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
         $dadosChapa = $tela->filter(self::CARTAO . '[data-pauta="' . $chapa->getId() . '"] .voto-votar-meta > span');
         self::assertSame('Conselho Regional · Eleição por chapa', trim($dadosChapa->eq(1)->text()));
         self::assertSame('Norte, Sul', trim($dadosChapa->eq(2)->text()));
-        self::assertSame('Regional', $dadosChapa->eq(2)->attr('title'));
         $dadosConsulta = $tela->filter(self::CARTAO . '[data-pauta="' . $pergunta->getId() . '"] .voto-votar-meta > span');
-        self::assertSame('Consulta', trim($dadosConsulta->eq(1)->text()), 'sem entidade informada, só a modalidade');
+        self::assertSame('Organização · Consulta', trim($dadosConsulta->eq(1)->text()), 'sem entidade informada, o rótulo da entidade do cenário');
         self::assertSame('Todos os grupos', trim($dadosConsulta->eq(2)->text()));
-        self::assertSame('Setor', $dadosConsulta->eq(2)->attr('title'));
     }
 
     #[TestDox('Conhecer candidaturas em todo cartão: eleição mostra as candidaturas (sem a unidade); assembleia mostra as opções da pauta')]
