@@ -6,7 +6,7 @@ namespace App\Mcp\Command;
 
 use App\Mcp\Tool\ConsultarSqlTool;
 use App\Mcp\Tool\DescreverEsquemaTool;
-use Mcp\Server;
+use Mcp\Server\Server;
 use Mcp\Server\Transport\StdioTransport;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
