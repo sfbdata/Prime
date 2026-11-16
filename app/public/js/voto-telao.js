@@ -1,7 +1,7 @@
 /* BlueJus Voto: Telão (modo assembleia, desenho 18). Troca a pauta sem recarregar (para não sair da tela cheia),
    atualiza os números pelo JSON voto_assembleia_telao_dados a cada 5 s, conta o cronômetro no navegador, mostra a
    confirmação de "Encerrar votação" e alterna a tela cheia. Se a situação de uma pauta mudou (aberta ou encerrada
-   por outra pessoa, ou pelo prazo), recarrega a tela na pauta que está em foco, que traz os botões certos. */
+   por outra pessoa, ou pelo prazo), busca o HTML do telão e troca o conteúdo no lugar (sem navegar, a tela cheia continua). */
 (function () {
     'use strict';
 
@@ -59,12 +59,56 @@
         var hora = raiz.querySelector('[data-telao-hora]');
         if (hora) { hora.textContent = new Date().toLocaleTimeString('pt-BR'); }
         if (zerou) { consultar(); }
+        else if (!document.hidden && Date.now() - ultimaConsulta >= 5000) { consultar(); }
     }
 
-    function recarregar() {
+    var pendente = false;
+    var ultimaConsulta = 0;
+    var temporizador = null;
+
+    function janelaAberta() { return !!raiz.querySelector('[data-voto-janela-raiz]:not([hidden])'); }
+
+    /* Troca o conteúdo do telão pelo do HTML recebido, no mesmo documento (a tela cheia continua). */
+    function trocar(html, urlFinal) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var novaRaiz = doc.querySelector('[data-telao]');
+        if (!novaRaiz) { return false; }
+        raiz.innerHTML = novaRaiz.innerHTML;
+        var toasts = document.querySelector('[data-voto-toasts]');
+        var novos = doc.querySelector('[data-voto-toasts]');
+        if (toasts && novos) {
+            toasts.innerHTML = novos.innerHTML;
+            apagarToasts();
+        }
+        if (urlFinal && window.history && history.replaceState) { history.replaceState(null, '', urlFinal); }
+        selecionada = atual();
+        pintarCronometros();
+        return true;
+    }
+
+    function apagarToasts() {
+        var caixa = document.querySelector('[data-voto-toasts]');
+        if (!caixa) { return; }
+        setTimeout(function () {
+            Array.prototype.forEach.call(caixa.querySelectorAll('.voto-toast'), function (t) { t.remove(); });
+        }, 3600);
+    }
+
+    function urlDoTelao() {
         var url = new URL(window.location.href);
         url.searchParams.set('pauta', atual() || '');
-        window.location.assign(url.toString());
+        return url.toString();
+    }
+
+    /* Mudou a situação de uma pauta: busca o HTML do telão e troca no lugar, sem navegar. */
+    function atualizarTela() {
+        if (pendente) { return; }
+        pendente = true;
+        fetch(urlDoTelao(), { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.text().then(function (t) { return { texto: t, url: r.url }; }) : null; })
+            .then(function (r) { if (r && !janelaAberta()) { trocar(r.texto, r.url); } })
+            .catch(function () { /* tenta de novo no próximo intervalo */ })
+            .then(function () { pendente = false; });
     }
 
     function aplicar(dados) {
@@ -85,15 +129,53 @@
             if (cron && d.segundos !== null) { cron.setAttribute('data-segundos', d.segundos); }
         });
         pintarCronometros();
-        if (mudou) { recarregar(); }
+        if (mudou) { atualizarTela(); }
     }
 
+    /* Nunca com outra consulta pendente; sem consulta com a aba escondida; no máximo uma a cada 5 s. */
     function consultar() {
+        if (pendente || document.hidden) { return; }
+        var agora = Date.now();
+        if (agora - ultimaConsulta < 4800) { return; }
+        ultimaConsulta = agora;
+        pendente = true;
         fetch(urlDados, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (dados) { if (dados) { aplicar(dados); } })
-            .catch(function () { /* sem rede: tenta de novo no próximo intervalo */ });
+            .then(function (dados) { pendente = false; if (dados) { aplicar(dados); } })
+            .catch(function () { pendente = false; /* sem rede: tenta no próximo intervalo */ });
     }
+
+    function iniciarRelogio() {
+        if (temporizador === null) { temporizador = setInterval(contar, 1000); }
+    }
+
+    /* Aba escondida: relógio e consultas param; ao voltar, consulta já e retoma. */
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            if (temporizador !== null) { clearInterval(temporizador); temporizador = null; }
+            return;
+        }
+        iniciarRelogio();
+        ultimaConsulta = 0;
+        consultar();
+    });
+
+    /* Abrir (janela) e encerrar (confirmação) por fetch: o redirect devolve o HTML do telão, trocado no lugar. Sem
+       JS, ou se algo falhar, o POST normal continua valendo. */
+    document.addEventListener('submit', function (ev) {
+        var form = ev.target;
+        if (!(form instanceof HTMLFormElement) || !raiz.contains(form) || !form.matches('[data-telao-encerrar], [data-mesa="abrir"]')) { return; }
+        ev.preventDefault();
+        if (pendente) { return; }
+        pendente = true;
+        fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.text().then(function (t) { return { texto: t, url: r.url }; }) : null; })
+            .then(function (r) {
+                if (!r || !trocar(r.texto, r.url)) { HTMLFormElement.prototype.submit.call(form); }
+            })
+            .catch(function () { HTMLFormElement.prototype.submit.call(form); })
+            .then(function () { pendente = false; });
+    });
 
     raiz.addEventListener('click', function (ev) {
         var ir = ev.target.closest('[data-telao-ir]');
@@ -123,15 +205,8 @@
         }
     });
 
-    var caixa = document.querySelector('[data-voto-toasts]');
-    if (caixa) {
-        setTimeout(function () {
-            Array.prototype.forEach.call(caixa.querySelectorAll('.voto-toast'), function (t) { t.remove(); });
-        }, 3600);
-    }
-
+    apagarToasts();
     selecionada = atual();
     pintarCronometros();
-    setInterval(contar, 1000);
-    setInterval(consultar, 5000);
+    iniciarRelogio();
 }());

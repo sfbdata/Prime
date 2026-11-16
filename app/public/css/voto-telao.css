@@ -15,13 +15,12 @@ body.voto-telao { margin: 0; background: #0b3550; }
 .vAo .vAoP:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
 .vAo .vAoD { background: #a3232b; border-color: #a3232b; color: #fff; min-height: 48px; font-size: 16px; padding: 0 22px; }
 .vAo .vAoD:hover { background: #c23a42; border-color: #c23a42; color: #fff; }
-.vAo .vAoMesa .vAoB { min-height: 48px; font-size: 16px; }
 .vAoG { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); }
 .vAoL { padding: 18px; display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, .04); overflow: auto; }
 .vAoRotulo { font-size: 12px; font-weight: bold; letter-spacing: .06em; opacity: .75; }
 .vAo .vAoI { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12); border-radius: 3px; color: #fff; font: inherit; font-size: 14.5px; cursor: pointer; text-decoration: none; }
+.vAo .vAoOn { background: #0a6fa0; border-color: #3b8fc2; }
 .vAo .vAoI:hover { background: rgba(59, 143, 194, .35); }
-.vAo .vAoOn, .vAo .vAoOn:hover { background: #0a6fa0; border-color: #3b8fc2; }
 .vAoNome { flex: 1; min-width: 0; text-align: left; }
 .vAoN { width: 26px; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, .18); font-weight: bold; font-size: 13px; }
 .vAoQr { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; background: #fff; color: #0b3550; border-radius: 3px; text-align: center; }
@@ -33,6 +32,7 @@ body.voto-telao { margin: 0; background: #0b3550; }
 .vAoH1 { margin: 0; font-size: clamp(26px, 4vw, 48px); line-height: 1.1; }
 .vAoNums { display: flex; gap: clamp(18px, 4vw, 60px); flex-wrap: wrap; }
 .vAoNums b { display: block; font-size: clamp(40px, 7vw, 86px); line-height: 1; }
+.vAoNums b * { font-size: inherit; }
 .vAoNums small { display: block; font-size: 16px; opacity: .8; }
 .vAoBar { position: relative; height: 22px; background: rgba(255, 255, 255, .15); border-radius: 3px; }
 .vAoBar u { display: block; height: 100%; background: #2fb36b; border-radius: 3px; transition: width .6s; }
