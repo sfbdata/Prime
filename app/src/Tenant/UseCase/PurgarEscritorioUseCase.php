@@ -505,6 +505,15 @@ final class PurgarEscritorioUseCase
              WHERE d.id = :tenant AND d.logo_chave IS NOT NULL
              GROUP BY d.logo_chave',
         ],
+        // A foto da candidatura do Voto: a linha é a própria opção (coluna `foto`), com escritório próprio.
+        'voto_assembleia_opcao' => [
+            CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA,
+            'SELECT d.foto AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM voto.assembleia_opcao d
+             LEFT JOIN voto.assembleia_opcao o ON o.foto = d.foto AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant AND d.foto IS NOT NULL
+             GROUP BY d.foto',
+        ],
         // Os anexos do Chat I.A: a linha é o próprio anexo (coluna `chave`), com escritório próprio.
         'chat_ia_anexo' => [
             CategoriaDeArquivo::CHAT_IA_ANEXO,

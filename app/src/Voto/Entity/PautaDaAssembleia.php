@@ -39,6 +39,9 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     public const MOTIVO_DA_MESA = 'Determinação da mesa';
     /** Motivo do encerramento pelo prazo vencido. */
     public const MOTIVO_DO_PRAZO = 'Prazo definido pela mesa';
+    /** Mínimo de caracteres do motivo de suspender, cancelar, retirar e arquivar (regra do núcleo do desenho). */
+    public const MOTIVO_MINIMO = 5;
+    public const MENSAGEM_CANCELADA_SEM_APURACAO = 'Votação cancelada: as cédulas ficam lacradas e não são apuradas.';
 
     // Contadores agregados mudam só por SQL direto, sem auditoria ou vínculo com a unidade.
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
@@ -106,6 +109,36 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 200, nullable: true)]
     private ?string $motivoEncerramento = null;
 
+    /** Suspensão em andamento (a pauta segue aberta, mas sem aceitar voto e com o prazo congelado). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $suspensaEm = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $suspensaMotivo = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $suspensaPorNome = null;
+
+    /** Cancelamento (irreversível): a pauta fica encerrada, as cédulas lacradas e sem apuração. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $canceladaEm = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $canceladaMotivo = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $canceladaPorNome = null;
+
+    /** Retirada de pauta: a pauta publicada, ainda não aberta, sai da ordem do dia e nunca mais abre. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $retiradaEm = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $retiradaMotivo = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $retiradaPorNome = null;
+
     /** @var Collection<int, OpcaoDaPauta> */
     #[ORM\OneToMany(mappedBy: 'pauta', targetEntity: OpcaoDaPauta::class, cascade: ['persist'])]
     #[ORM\OrderBy(['abstencao' => 'ASC', 'numero' => 'ASC', 'id' => 'ASC'])]
@@ -137,6 +170,13 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         $this->titulo = self::tituloValido($titulo);
         $this->descricao = $descricao;
         $this->tipo = $tipo ?? $this->tipo;
+    }
+
+    /** Posição da pauta na assembleia (só em rascunho): quem move ou duplica renumera a lista inteira de 1 em diante. */
+    public function reposicionar(int $ordem): void
+    {
+        $this->assembleia->exigirPautasAlteraveis();
+        $this->ordem = $ordem;
     }
 
     /**
@@ -176,6 +216,10 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         if (EstadoDaAssembleia::Publicada !== $this->assembleia->getEstado()) {
             throw new OperacaoInvalidaNaAssembleiaException('Publique a assembleia antes de abrir a votação.');
         }
+        $this->assembleia->exigirNaoArquivada('Votação arquivada: desarquive antes de abrir.');
+        if ($this->retirada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Pauta retirada: não pode mais ser aberta.');
+        }
         $this->exigirEstado(EstadoDaPauta::Aguardando, 'Esta pauta já foi aberta.');
         $this->exigirPrazoNoFuturo($prazoAte, $agora);
         $this->quorumExigido = $this->quorumDaConvocacao($convocacao);
@@ -190,6 +234,9 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     public function definirPrazo(?\DateTimeImmutable $prazoAte, ?\DateTimeImmutable $agora = null): void
     {
         $this->exigirEstado(EstadoDaPauta::Aberta, 'Só a pauta aberta tem prazo.');
+        if ($this->suspensa()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Retome a votação antes de mudar o prazo.');
+        }
         $this->exigirPrazoNoFuturo($prazoAte, $agora ?? new \DateTimeImmutable());
         $this->prazoAte = $prazoAte;
     }
@@ -225,19 +272,190 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         return true;
     }
 
-    /** Aberta e (sem prazo ou antes do prazo). */
+    /** Aberta, não suspensa e (sem prazo ou antes do prazo). */
     public function aceitaVotoEm(\DateTimeImmutable $agora): bool
     {
         return EstadoDaPauta::Aberta === $this->estado
+            && !$this->suspensa()
             && (null === $this->prazoAte || $agora < $this->prazoAte);
     }
 
-    /** Aberta, com prazo, e o prazo já passou (o instante do prazo conta como vencido). */
+    /**
+     * Aberta, com prazo, e o prazo já passou (o instante do prazo conta como vencido). Suspensa não vence: o prazo
+     * fica congelado até a retomada.
+     */
     public function prazoVencidoEm(\DateTimeImmutable $agora): bool
     {
         return EstadoDaPauta::Aberta === $this->estado
+            && !$this->suspensa()
             && null !== $this->prazoAte
             && $agora >= $this->prazoAte;
+    }
+
+    /**
+     * A mesa suspende a pauta aberta: ela para de aceitar voto e o prazo congela até a retomada. Os votos já dados
+     * ficam intactos. Motivo com 5 ou mais caracteres.
+     */
+    public function suspender(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        $agora ??= new \DateTimeImmutable();
+        if (EstadoDaPauta::Aberta !== $this->estado || $this->prazoVencidoEm($agora)) {
+            throw new OperacaoInvalidaNaAssembleiaException('Só votação aberta pode ser suspensa.');
+        }
+        if ($this->suspensa()) {
+            throw new OperacaoInvalidaNaAssembleiaException('A votação já está suspensa.');
+        }
+        $motivo = self::motivoValido($motivo, 'Informe o motivo da suspensão.');
+        $this->suspensaEm = $agora;
+        $this->suspensaMotivo = $motivo;
+        $this->suspensaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /**
+     * Volta a aceitar voto. O prazo anda o tempo que a pauta ficou suspensa (quem retomou fica na trilha de
+     * auditoria, pelo usuário logado).
+     */
+    public function retomar(string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        $agora ??= new \DateTimeImmutable();
+        if (!$this->suspensa()) {
+            throw new OperacaoInvalidaNaAssembleiaException('A votação não está suspensa.');
+        }
+        \assert(null !== $this->suspensaEm);
+        if (null !== $this->prazoAte && $agora > $this->suspensaEm) {
+            // Soma por segundos (timestamp), não por DateInterval: atravessar horário de verão não muda o tempo parado.
+            $this->prazoAte = $this->prazoAte->modify(sprintf('+%d seconds', $agora->getTimestamp() - $this->suspensaEm->getTimestamp()));
+        }
+        $this->limparSuspensao();
+    }
+
+    /**
+     * Cancelamento, sem volta: a pauta aberta é encerrada com o motivo "Votação cancelada: ..." e as cédulas ficam
+     * lacradas, sem apuração. Pauta já encerrada já está apurada e não se cancela. Antes de abrir, cancelar equivale
+     * a retirar de pauta.
+     */
+    public function cancelar(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        $agora ??= new \DateTimeImmutable();
+        if ($this->cancelada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação já cancelada.');
+        }
+        $motivo = self::motivoValido($motivo, 'Informe o motivo do cancelamento.');
+        if (EstadoDaAssembleia::Publicada !== $this->assembleia->getEstado()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Rascunho não se cancela: pode ser excluído.');
+        }
+        $this->encerrarSePrazoVenceu($agora);
+        if (EstadoDaPauta::Aguardando === $this->estado) {
+            $this->retirarDePauta('Cancelada antes da abertura: ' . $motivo, $por, $agora);
+
+            return;
+        }
+        if (EstadoDaPauta::Encerrada === $this->estado) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação já apurada não pode ser cancelada: arquive se quiser tirá-la das listas.');
+        }
+        $this->fechar($agora, $por, 'Votação cancelada: ' . $motivo);
+        $this->canceladaEm = $agora;
+        $this->canceladaMotivo = $motivo;
+        $this->canceladaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /**
+     * Tira da ordem do dia a pauta de assembleia publicada que ainda não foi aberta: some da cédula, não abre e não
+     * recebe voto. Configuração e lista de aptos ficam guardadas.
+     */
+    public function retirarDePauta(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        if (EstadoDaAssembleia::Publicada !== $this->assembleia->getEstado()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Rascunho não se retira de pauta: a pauta pode ser removida.');
+        }
+        if ($this->retirada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Pauta já retirada.');
+        }
+        if (EstadoDaPauta::Aguardando !== $this->estado) {
+            throw new OperacaoInvalidaNaAssembleiaException(
+                EstadoDaPauta::Aberta === $this->estado ? 'A votação já está aberta: suspenda ou cancele.' : 'Só pauta publicada e ainda não aberta pode ser retirada.',
+            );
+        }
+        $this->assembleia->exigirNaoArquivada('Votação arquivada: desarquive antes de retirar a pauta.');
+        $motivo = self::motivoValido($motivo, 'Informe o motivo da retirada.');
+        $this->retiradaEm = $agora ?? new \DateTimeImmutable();
+        $this->retiradaMotivo = $motivo;
+        $this->retiradaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /** Desfaz a retirada de pauta: a pauta volta a aguardando a abertura (a assembleia não pode estar arquivada). */
+    public function devolverAPauta(string $por): void
+    {
+        if (!$this->retirada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('A pauta não está retirada.');
+        }
+        $this->assembleia->exigirNaoArquivada('Votação arquivada: desarquive antes de devolver a pauta.');
+        $this->retiradaEm = null;
+        $this->retiradaMotivo = null;
+        $this->retiradaPorNome = null;
+    }
+
+    /** Aberta e suspensa pela mesa. */
+    public function suspensa(): bool
+    {
+        return EstadoDaPauta::Aberta === $this->estado && null !== $this->suspensaEm;
+    }
+
+    /** Cancelada pela comissão (encerrada, com as cédulas lacradas). */
+    public function cancelada(): bool
+    {
+        return null !== $this->canceladaEm;
+    }
+
+    /** Retirada da ordem do dia (nunca foi aberta). */
+    public function retirada(): bool
+    {
+        return null !== $this->retiradaEm;
+    }
+
+    public function getSuspensaEm(): ?\DateTimeImmutable
+    {
+        return $this->suspensa() ? $this->suspensaEm : null;
+    }
+
+    public function getSuspensaMotivo(): ?string
+    {
+        return $this->suspensa() ? $this->suspensaMotivo : null;
+    }
+
+    public function getSuspensaPorNome(): ?string
+    {
+        return $this->suspensa() ? $this->suspensaPorNome : null;
+    }
+
+    public function getCanceladaEm(): ?\DateTimeImmutable
+    {
+        return $this->canceladaEm;
+    }
+
+    public function getCanceladaMotivo(): ?string
+    {
+        return $this->canceladaMotivo;
+    }
+
+    public function getCanceladaPorNome(): ?string
+    {
+        return $this->canceladaPorNome;
+    }
+
+    public function getRetiradaEm(): ?\DateTimeImmutable
+    {
+        return $this->retiradaEm;
+    }
+
+    public function getRetiradaMotivo(): ?string
+    {
+        return $this->retiradaMotivo;
+    }
+
+    public function getRetiradaPorNome(): ?string
+    {
+        return $this->retiradaPorNome;
     }
 
     /** @internal Chamado só pelo construtor da OpcaoDaPauta, para a coleção em memória acompanhar o banco. */
@@ -416,10 +634,28 @@ class PautaDaAssembleia implements TenantAware, Auditavel
 
     private function fechar(\DateTimeImmutable $quando, ?string $nome, string $motivo): void
     {
+        $this->limparSuspensao();
         $this->estado = EstadoDaPauta::Encerrada;
         $this->encerradaEm = $quando;
         $this->encerradaPorNome = $nome;
         $this->motivoEncerramento = mb_substr($motivo, 0, 200);
+    }
+
+    private function limparSuspensao(): void
+    {
+        $this->suspensaEm = null;
+        $this->suspensaMotivo = null;
+        $this->suspensaPorNome = null;
+    }
+
+    private static function motivoValido(string $motivo, string $mensagem): string
+    {
+        $motivo = trim($motivo);
+        if (mb_strlen($motivo) < self::MOTIVO_MINIMO) {
+            throw new OperacaoInvalidaNaAssembleiaException($mensagem);
+        }
+
+        return mb_substr($motivo, 0, 200);
     }
 
     private function exigirEstado(EstadoDaPauta $esperado, string $mensagem): void

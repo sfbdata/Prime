@@ -1,11 +1,39 @@
-{# Compõe o texto antes de escapar, inclusive quando ele integra o resumo traduzido da ata. #}
+{#
+    Compõe o texto antes de escapar, inclusive quando ele integra o resumo traduzido da ata. Segue os ramos do resTx do
+    desenho 18; o `sn` do desenho (pauta/consulta) é, aqui, o tipo "deliberação":
+    quórum não atingido, "Não deliberada: quórum não atingido"; várias vagas, "Eleitos: ..." (ou a situação);
+    vencedor Sim/Não na deliberação, "Aprovada"/"Rejeitada"; outro vencedor, "Opção vencedora: nº nome" (deliberação)
+    ou "Eleito: nº nome"; "Empate"; sem vencedor, "Rejeitada: não atingiu o critério exigido" (deliberação) ou
+    "Sem vencedor: critério não atingido".
+#}
 {% macro resumo(r, traducao = null, parametros = {}) -%}
-    {%- if not r.decidido -%}
-        {%- set texto = r.situacao -%}
+    {%- set deliberacao = r.tipo.value == 'deliberacao' -%}
+    {%- set base = 'voto.assembleia.gestor.resultado_por_tipo.' -%}
+    {%- if r.situacao == constant('App\\Voto\\DTO\\ResultadoDaPauta::QUORUM_NAO_ATINGIDO') -%}
+        {%- set texto = (base ~ 'nao_deliberada')|trans -%}
     {%- elseif r.vagas > 1 -%}
-        {%- set texto = 'voto.assembleia.gestor.resultados.eleitos'|trans({nomes: r.vencedores|map(o => o.numero ~ ' ' ~ o.rotulo)|join(', ')}) -%}
+        {%- set texto = r.vencedores is not empty ? 'voto.assembleia.gestor.resultados.eleitos'|trans({nomes: r.vencedores|map(o => o.numero ~ ' ' ~ o.rotulo)|join(', ')}) : r.situacao -%}
+    {%- elseif r.decidido -%}
+        {%- if deliberacao and (r.vencedor.rotulo|trim|lower) == 'sim' -%}
+            {%- set texto = (base ~ 'aprovada')|trans -%}
+        {%- elseif deliberacao and (r.vencedor.rotulo|trim|lower) in ['não', 'nao'] -%}
+            {%- set texto = (base ~ 'rejeitada')|trans -%}
+        {%- else -%}
+            {%- set texto = (base ~ (deliberacao ? 'opcao_vencedora' : 'eleito'))|trans({numero: r.vencedor.numero ~ '', rotulo: r.vencedor.rotulo}) -%}
+        {%- endif -%}
+    {%- elseif r.empate -%}
+        {%- set texto = r.situacao -%}
     {%- else -%}
-        {%- set texto = r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo -%}
+        {%- set texto = (base ~ (deliberacao ? 'rejeitada_criterio' : 'sem_vencedor'))|trans -%}
     {%- endif -%}
     {{- traducao ? traducao|trans(parametros|merge({resultado: texto})) : texto -}}
+{%- endmacro %}
+
+{# Rótulo do que não é voto em candidato: "Abstenções" na deliberação, "Votos em branco" na eleição (relatório do desenho). #}
+{% macro rotulo_do_branco(r) -%}
+    {%- if r.tipo.value == 'deliberacao' -%}
+        {{- 'voto.assembleia.gestor.resultado_por_tipo.abstencoes'|trans -}}
+    {%- else -%}
+        {{- 'voto.assembleia.gestor.resultado_por_tipo.brancos'|trans -}}
+    {%- endif -%}
 {%- endmacro %}

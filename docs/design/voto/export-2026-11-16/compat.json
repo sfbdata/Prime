@@ -1,0 +1,516 @@
+{
+  "v": 1,
+  "mode": "omelette",
+  "root": "project/",
+  "title": "Redesign de pasta jurídica",
+  "entry": "08 - Contribua -  VS 03.11.26.dc.html",
+  "pages": [
+    {
+      "path": "08 - Contribua -  VS 03.11.26.dc.html",
+      "title": "08 - Contribua -  VS 03.11.26",
+      "kind": "page"
+    },
+    {
+      "path": "05 - Perfis 1.2 - VS 03.11.26.dc.html",
+      "title": "05 - Perfis 1.2 - VS 03.11.26",
+      "kind": "page"
+    },
+    {
+      "path": "04 - Minhas Metas - VS 29.10.26.dc.html",
+      "title": "04 - Minhas Metas - VS 29.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "02 - EXPEDIENTES - VS 31.10.26.dc.html",
+      "title": "02 - EXPEDIENTES - VS 31.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "14 - Calculo - VS 30.10.26.dc.html",
+      "title": "14 - Calculo - VS 30.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "03 - EXPEDIENTE - VS 30.10.26.dc.html",
+      "title": "03 - EXPEDIENTE - VS 30.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "15 - Demandas - VS 30.10.26.dc.html",
+      "title": "15 - Demandas - VS 30.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "01 - Dashboard - VS 29.10.26.dc.html",
+      "title": "01 - Dashboard - VS 29.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "09 - Agenda - VS 18.10.26.dc.html",
+      "title": "09 - Agenda - VS 18.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "13 - Meu Escritorio - VS 28.10.26.dc.html",
+      "title": "13 - Meu Escritorio - VS 28.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "12 - Service Desk - VS 25.10.26.dc.html",
+      "title": "12 - Service Desk - VS 25.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "mapa-brasil.html",
+      "title": "mapa-brasil",
+      "kind": "plain"
+    },
+    {
+      "path": "10 - Login - VS 25.10.26.dc.html",
+      "title": "10 - Login - VS 25.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "11 - Push Processual - VS 25.10.26.dc.html",
+      "title": "11 - Push Processual - VS 25.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "07 - Peticionar 1.0.dc.html",
+      "title": "07 - Peticionar 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "07 - Meu Perfil - VS 18.10.26.dc.html",
+      "title": "07 - Meu Perfil - VS 18.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "06 - Trabalho Externo -25.10.26.dc.html",
+      "title": "06 - Trabalho Externo -25.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "04B - Meta 22.10.26.dc.html",
+      "title": "04B - Meta 22.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "09 - Agenda 1A (restaurada).dc.html",
+      "title": "09 - Agenda 1A (restaurada)",
+      "kind": "page"
+    },
+    {
+      "path": "Vagas Publicas - VS 22.10.26.dc.html",
+      "title": "Vagas Publicas - VS 22.10.26",
+      "kind": "page"
+    },
+    {
+      "path": "Push Compartilhado.dc.html",
+      "title": "Push Compartilhado",
+      "kind": "page"
+    },
+    {
+      "path": "mapa-mundo.html",
+      "title": "mapa-mundo",
+      "kind": "plain"
+    },
+    {
+      "path": "Objeto 1A.dc.html",
+      "title": "Objeto 1A",
+      "kind": "page"
+    },
+    {
+      "path": "Guia visual BlueJus.dc.html",
+      "title": "Guia visual BlueJus",
+      "kind": "page"
+    },
+    {
+      "path": "Carteira 1B.dc.html",
+      "title": "Carteira 1B",
+      "kind": "page"
+    },
+    {
+      "path": "Objeto - 2 direções.dc.html",
+      "title": "Objeto - 2 direções",
+      "kind": "page"
+    },
+    {
+      "path": "Carteira - 2 direções.dc.html",
+      "title": "Carteira - 2 direções",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/01 - Dashboard 1.2.2.dc.html",
+      "title": "01 - Dashboard 1.2.2",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/02 - EXPEDIENTES 1.2.3.dc.html",
+      "title": "02 - EXPEDIENTES 1.2.3",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/03 - EXPEDIENTE Lista 1.1.dc.html",
+      "title": "03 - EXPEDIENTE Lista 1.1",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/05 - Perfis 1.0.dc.html",
+      "title": "05 - Perfis 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/mapa-brasil.html",
+      "title": "mapa-brasil",
+      "kind": "plain"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/mapa-mundo.html",
+      "title": "mapa-mundo",
+      "kind": "plain"
+    },
+    {
+      "path": "design_handoff_bluejus_intelligence/Push Compartilhado.dc.html",
+      "title": "Push Compartilhado",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/01 - Dashboard 1.2.2.dc.html",
+      "title": "01 - Dashboard 1.2.2",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/02 - EXPEDIENTES 1.2.3.dc.html",
+      "title": "02 - EXPEDIENTES 1.2.3",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/03 - EXPEDIENTE Lista 1.1.dc.html",
+      "title": "03 - EXPEDIENTE Lista 1.1",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/04 - Minhas Metas 1.0.dc.html",
+      "title": "04 - Minhas Metas 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/05 - Perfis 1.0.dc.html",
+      "title": "05 - Perfis 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/06 - Trabalho Externo 1.0.dc.html",
+      "title": "06 - Trabalho Externo 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/Agenda 1A.dc.html",
+      "title": "Agenda 1A",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/Guia visual BlueJus.dc.html",
+      "title": "Guia visual BlueJus",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/mapa-brasil.html",
+      "title": "mapa-brasil",
+      "kind": "plain"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/mapa-mundo.html",
+      "title": "mapa-mundo",
+      "kind": "plain"
+    },
+    {
+      "path": "design_handoff_bluejus_v2/Push Compartilhado.dc.html",
+      "title": "Push Compartilhado",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_carteira_show/Carteira 1B.dc.html",
+      "title": "Carteira 1B",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_dashboard/Dashboard 1A.dc.html",
+      "title": "Dashboard 1A",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_objeto_show/Objeto 1A.dc.html",
+      "title": "Objeto 1A",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_pasta_show/Pasta - 3 direções.dc.html",
+      "title": "Pasta - 3 direções",
+      "kind": "page"
+    },
+    {
+      "path": "design_handoff_pasta_show/Pasta 1A.dc.html",
+      "title": "Pasta 1A",
+      "kind": "page"
+    },
+    {
+      "path": "publicado/Dashboard BlueJus.html",
+      "title": "Bundled Page",
+      "kind": "plain"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/01 - Dashboard 1.2.2.dc.html",
+      "title": "01 - Dashboard 1.2.2",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/02 - EXPEDIENTES 1.2.3.dc.html",
+      "title": "02 - EXPEDIENTES 1.2.3",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/03 - EXPEDIENTE Lista 1.1.dc.html",
+      "title": "03 - EXPEDIENTE Lista 1.1",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/04 - Minhas Metas 1.0.dc.html",
+      "title": "04 - Minhas Metas 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/05 - Perfis 1.0.dc.html",
+      "title": "05 - Perfis 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/06 - Trabalho Externo 1.0.dc.html",
+      "title": "06 - Trabalho Externo 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/07 - Peticionar 1.0.dc.html",
+      "title": "07 - Peticionar 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/Agenda 1A.dc.html",
+      "title": "Agenda 1A",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/FinBlue - Visao planilha 1.0.dc.html",
+      "title": "FinBlue - Visao planilha 1.0",
+      "kind": "page"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/mapa-brasil.html",
+      "title": "mapa-brasil",
+      "kind": "plain"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/mapa-mundo.html",
+      "title": "mapa-mundo",
+      "kind": "plain"
+    },
+    {
+      "path": "REPOSITORIO_BLUEJUS/prototipo/Push Compartilhado.dc.html",
+      "title": "Push Compartilhado",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/ADVBOX 2.htm",
+      "title": "ADVBOX",
+      "kind": "plain"
+    },
+    {
+      "path": "uploads/ADVBOX 3.htm",
+      "title": "ADVBOX",
+      "kind": "plain"
+    },
+    {
+      "path": "uploads/ADVBOX.htm",
+      "title": "ADVBOX",
+      "kind": "plain"
+    }
+  ],
+  "migratorVersion": "artifact-migrator (claude-design-backend ed667f7ac9c1)",
+  "createdAt": "2026-11-08T14:12:27.833Z",
+  "source": {
+    "v": 1,
+    "app": "claude-design",
+    "url": "https://claude.ai/design/p/4f6a5f61-fa47-40a0-9630-6744f1bb1cac",
+    "projectId": "4f6a5f61-fa47-40a0-9630-6744f1bb1cac",
+    "exportedAt": "2026-11-08T14:12:27.833Z"
+  },
+  "report": {
+    "itemsVersion": 2,
+    "pages": {
+      "total": 66,
+      "ok": 20,
+      "partial": 46,
+      "notMigrated": 0
+    },
+    "items": [
+      {
+        "kind": "needs_capability",
+        "path": "01 - Dashboard - VS 29.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "02 - EXPEDIENTES - VS 31.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "02 - EXPEDIENTES - VS 31.10.26.dc.html",
+        "text": "https://viacep.com.br/ws/"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "03 - EXPEDIENTE - VS 30.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-agente.js”, “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "04 - Minhas Metas - VS 29.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "04B - Meta 22.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "05 - Perfis 1.2 - VS 03.11.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "05 - Perfis 1.2 - VS 03.11.26.dc.html",
+        "text": "https://servicodados.ibge.gov.br/api/v1/localidades/estados/"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "06 - Trabalho Externo -25.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "06 - Trabalho Externo -25.10.26.dc.html",
+        "text": "https://instagram.com/\nhttps://wa.me/?text=\nhttps://www.linkedin.com/sharing/share-offsite/?url=\nhttps://wa.me/"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "07 - Meu Perfil - VS 18.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "07 - Peticionar 1.0.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "08 - Contribua -  VS 03.11.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "09 - Agenda - VS 18.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "09 - Agenda 1A (restaurada).dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "10 - Login - VS 25.10.26.dc.html",
+        "text": "https://www.bluejus.com.br/images/fundo/ceu-hero-1920.avif"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "11 - Push Processual - VS 25.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "12 - Service Desk - VS 25.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "13 - Meu Escritorio - VS 28.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "13 - Meu Escritorio - VS 28.10.26.dc.html",
+        "text": "https://viacep.com.br/ws/\nhttps://brasilapi.com.br/api/cnpj/v1/"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "14 - Calculo - VS 30.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "14 - Calculo - VS 30.10.26.dc.html",
+        "text": "https://api.bcb.gov.br/dados/serie/bcdata.sgs"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "15 - Demandas - VS 30.10.26.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “bj-agente.js”, “bj-idioma.js”, “bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "design_handoff_bluejus_intelligence/01 - Dashboard 1.2.2.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “design_handoff_bluejus_intelligence/bluejus-central.js”)",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "design_handoff_bluejus_intelligence/02 - EXPEDIENTES 1.2.3.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first",
+        "capability": "claude_calls"
+      },
+      {
+        "kind": "external_blocked",
+        "path": "design_handoff_bluejus_intelligence/02 - EXPEDIENTES 1.2.3.dc.html",
+        "text": "https://viacep.com.br/ws/"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "design_handoff_bluejus_intelligence/03 - EXPEDIENTE Lista 1.1.dc.html",
+        "text": "its calls to Claude (window.claude.complete) may not work after the move, or may ask viewers for permission first (made in “design_handoff_bluejus_intelligence/bluejus-central.js”)",
+        "capability": "claude_calls"
+      }
+    ],
+    "truncated": 39,
+    "truncatedLeftOut": 0
+  }
+}

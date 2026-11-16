@@ -6,6 +6,7 @@ namespace App\Voto\DTO;
 
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 
 /**
  * Resultado de uma pauta (ApuracaoDaPauta; regra do desenho, docs/specs/voto-assembleia-desenho.md §5): critério e base
@@ -50,6 +51,8 @@ final readonly class ResultadoDaPauta
         public int $vagas = 1,
         public int $nulosUnidades = 0,
         public string $nulosPeso = '0.000000',
+        /** Deliberação mostra Aprovada/Rejeitada e Abstenções; eleição de cargo mostra os eleitos e Votos em branco. */
+        public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
     ) {
     }
 

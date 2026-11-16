@@ -1,0 +1,41 @@
+/* BlueJus Voto: painel da Gestão eleitoral por entidade (F1-4), valores copiados do CSS do desenho 18 (VS 08.11.26):
+   .vFil, .vGr, .vGrH, .vEvH, .vKpiB, .vKpiOn, .vKpiS e .vPasOk. Template: _painel (e _etapas). JS: voto-painel.js. */
+.voto-tela .vPasOk { background: #dcefe3; color: #1e7b45; }
+
+/* Filtros (.vFil) */
+.voto-tela .vFil { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding: 11px 15px; background: #fff; border-bottom: 1px solid #d3dde4; margin: 0; }
+.voto-tela .voto-fil-busca { flex: 1 1 220px; }
+.voto-tela .voto-fil-situacao { flex: 0 1 200px; }
+.voto-tela .voto-fil-acoes { display: flex; gap: 6px; }
+
+/* Grupos por entidade (.vGr, .vGrH, .vEvH); o desenho usa botão, aqui é <details>/<summary> para abrir sem JavaScript */
+.voto-tela .vGr { border-bottom: 1px solid #d3dde4; }
+.voto-tela .vGrH { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; padding: 12px 15px; background: #f2f7fa; border: 0; border-left: 4px solid #0a6fa0; font: inherit; cursor: pointer; text-align: left; list-style: none; box-sizing: border-box; }
+.voto-tela .vGrH::-webkit-details-marker { display: none; }
+.voto-tela .vGrH:hover { background: #e7f2f9; }
+.voto-tela .vGr[open] .vGrLado, .voto-tela .vGr:not([open]) .vGrBaixo { display: none; }
+.voto-tela .voto-grupo-icone { color: #0a6fa0; }
+.voto-tela .voto-grupo-nome { flex: 1 1 200px; min-width: 0; text-align: left; }
+.voto-tela .voto-grupo-nome b { font-size: 15px; color: #0b3550; }
+.voto-tela .voto-grupo-cnpj { font-size: 12.5px; color: #5b7383; margin-left: 8px; }
+.voto-tela .voto-grupo-resumo { font-size: 12.5px; color: #34505f; }
+.voto-tela .vEvH { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 8px 15px 8px 34px; background: #fafcfd; border-top: 1px solid #e6edf2; font-size: 13px; color: #34505f; }
+.voto-tela .vEvH b { color: #0b3550; font-size: 13.5px; }
+.voto-tela .vEvH i { color: #0a6fa0; }
+.voto-tela .voto-gestao .voto-assembleia { background: #fff; }
+.voto-tela .vEvH .voto-chip-claro { background: #0a6fa0; }
+
+/* KPIs clicáveis (.vKpiB) e o painel de lista */
+.voto-tela .vKpis { margin-bottom: 12px; }
+.voto-tela a.vKpiB { display: block; box-sizing: border-box; color: inherit; text-decoration: none; }
+.voto-tela .vKpiB { position: relative; text-align: left; font: inherit; cursor: pointer; width: 100%; }
+.voto-tela .vKpiB:hover, .voto-tela .vKpiB:focus-visible { border-left-color: #3b8fc2; background: #f2f8fb; outline: none; }
+.voto-tela .vKpiOn { border-left-color: #3b8fc2; background: #e7f2f9; box-shadow: inset 0 -3px 0 #3b8fc2; }
+.voto-tela .vKpiS { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #9fb3c1; font-size: 14px; }
+.voto-tela .vKpiB:hover .vKpiS { color: #3b8fc2; }
+.voto-tela [data-voto-kpi-lista] { margin-bottom: 12px; }
+.voto-tela .voto-kpi-linhas { max-height: 320px; overflow: auto; }
+.voto-tela .voto-kpi-linha { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13.5px; }
+.voto-tela .voto-kpi-linha b { flex: 1 1 240px; }
+.voto-tela .voto-kpi-linha span { color: #5b7383; }
+.voto-tela .voto-kpi-mais { font-size: 12.5px; color: #5b7383; }

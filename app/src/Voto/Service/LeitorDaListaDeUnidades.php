@@ -12,7 +12,7 @@ use function Symfony\Component\String\u;
 
 /**
  * Lê a lista de unidades colada pelo gestor (spec voto-assembleia-condominio, seção 1.4): uma por linha,
- * `unidade; bloco; situação; fração; responsável; e-mail` (ponto e vírgula, ou tabulação quando vem colada de uma
+ * `unidade; bloco; situação; fração; responsável; e-mail; telefone` (ponto e vírgula, ou tabulação quando vem colada de uma
  * planilha). Uma primeira linha de cabeçalho (unidade, identificacao...) é pulada.
  *
  * Regras do desenho (importação, N97): linha sem unidade ou com fração menor ou igual a zero é inválida; a mesma
@@ -65,7 +65,7 @@ final class LeitorDaListaDeUnidades
             if ([] === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
                 continue;
             }
-            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 6, '')),
+            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 7, '')),
                 $peso, $lidas, $vistas);
         }
 
@@ -104,7 +104,7 @@ final class LeitorDaListaDeUnidades
     /** @param list<string> $colunas */
     private static function linha(int $numero, array $colunas, PesoDoVoto $peso): LinhaDeUnidade
     {
-        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email] = $colunas;
+        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email, $telefone] = $colunas;
         if ('' === $identificacao) {
             throw new OperacaoInvalidaNaAssembleiaException('Linha sem a unidade.');
         }
@@ -117,6 +117,7 @@ final class LeitorDaListaDeUnidades
             fracao: self::fracao($fracao, $peso),
             responsavel: '' === $responsavel ? null : mb_substr($responsavel, 0, 160),
             email: self::email($email),
+            telefone: self::telefone($telefone),
         );
     }
 
@@ -138,6 +139,14 @@ final class LeitorDaListaDeUnidades
         }
 
         return $valor;
+    }
+
+    /** Só os dígitos, como o desenho; sem dígito nenhum fica vazio. */
+    private static function telefone(string $telefone): ?string
+    {
+        $digitos = mb_substr(preg_replace('/\D/', '', $telefone) ?? '', 0, 20);
+
+        return '' === $digitos ? null : $digitos;
     }
 
     private static function email(string $email): ?string

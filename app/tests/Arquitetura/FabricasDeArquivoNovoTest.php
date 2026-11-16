@@ -39,6 +39,10 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
+use App\Voto\Armazenamento\ChavesDoVoto;
+use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\Enum\PesoDoVoto;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -77,6 +81,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDeTenant::class . '::novaLogo',
             static fn (?Tenant $t): ?Tenant => $t,
             CategoriaDeArquivo::TENANT_LOGO,
+        ];
+        yield ChavesDoVoto::class . '::novaFotoDaCandidatura' => [
+            ChavesDoVoto::class . '::novaFotoDaCandidatura',
+            static fn (?Tenant $t): object => new PautaDaAssembleia(new Assembleia($t ?? new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora'), 1, 'Síndico(a)'),
+            CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA,
         ];
         yield ChavesDeChatIa::class . '::novoAnexo' => [
             ChavesDeChatIa::class . '::novoAnexo',

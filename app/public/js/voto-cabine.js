@@ -243,6 +243,34 @@
         return d;
     }
 
+    function fotoDaUrna(achou) {
+        var quadro = el('div', 'uFoto');
+        if (achou && achou.foto) {
+            var img = el('img', 'uFade');
+            img.alt = texto('foto_alt', {nome: achou.rotulo});
+            img.src = achou.foto;
+            quadro.appendChild(img);
+            return quadro;
+        }
+        var ns = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('class', 'uSilhueta');
+        svg.setAttribute('viewBox', '0 0 60 80');
+        svg.setAttribute('aria-hidden', 'true');
+        var cabeca = document.createElementNS(ns, 'circle');
+        cabeca.setAttribute('cx', '30');
+        cabeca.setAttribute('cy', '27');
+        cabeca.setAttribute('r', '14');
+        cabeca.setAttribute('fill', '#b4bec4');
+        var ombros = document.createElementNS(ns, 'path');
+        ombros.setAttribute('d', 'M3 80c0-17 12-28 27-28s27 11 27 28z');
+        ombros.setAttribute('fill', '#b4bec4');
+        svg.appendChild(cabeca);
+        svg.appendChild(ombros);
+        quadro.appendChild(svg);
+        return quadro;
+    }
+
     function telaVotando() {
         var p = pautaAtual();
         var dig = digitosDa(p);
@@ -270,7 +298,7 @@
             col.appendChild(nums);
         }
         if (c.branco) {
-            col.appendChild(el('div', 'uFade uGrande', texto('abstencao')));
+            col.appendChild(el('div', 'uFade uGrande', texto(p.eleicao ? 'voto_em_branco' : 'abstencao')));
         } else if (repetido) {
             var rep = el('div', 'uFade');
             rep.appendChild(el('div', 'uGrande', texto(achou ? 'nome_repetido' : 'numero_repetido')));
@@ -284,9 +312,21 @@
         } else if (achou) {
             var a = el('div', 'uFade uAchou');
             a.appendChild(el('b', 'uAchouNome', achou.rotulo));
+            /* Descrição abaixo do nome e, na chapa, os 4 primeiros cargos (desenho 18, L308). */
+            if (achou.descricao) {
+                a.appendChild(el('div', 'uAchouDesc', achou.descricao));
+            }
+            if (achou.composicao) {
+                a.appendChild(el('div', 'uAchouChapa', achou.composicao.split('\n').slice(0, 4).join('\n')));
+            }
             col.appendChild(a);
         }
         linha.appendChild(col);
+        /* Foto 3x4 (.uFoto, desenho 18 L309): aparece na eleição de pessoas enquanto digita, menos no branco e no número
+           errado; com foto a imagem faz o fade, sem foto fica a silhueta. */
+        if (p.eleicao && !c.branco && !invalido) {
+            linha.appendChild(fotoDaUrna(achou));
+        }
         wrap.appendChild(linha);
         if ((completo && !repetido) || c.branco || (c.escolhas.length > 0 && !c.dig)) {
             var rod = el('div', 'uRod uFade');
@@ -304,7 +344,7 @@
             s.appendChild(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
                 return numeroDe(p, o) + ' = ' + o.rotulo;
             }).join('     ')));
-            s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto('dica')));
+            s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto(p.eleicao ? 'dica_branco' : 'dica')));
             dica.appendChild(s);
             dica.appendChild(botao(texto('conhecer'), 'bi-person-lines-fill', '', function () { definir({ver: true}); }));
             wrap.appendChild(dica);
@@ -402,7 +442,14 @@
             g.appendChild(el('b', 'uVerNome', p.titulo));
             p.opcoes.forEach(function (o) {
                 var card = el('div', 'uCard');
-                card.appendChild(el('span', 'vAv', iniciais(o.rotulo)));
+                var avatar = el('span', 'vAv', o.foto ? null : iniciais(o.rotulo));
+                if (o.foto) {
+                    var foto = el('img');
+                    foto.alt = o.rotulo;
+                    foto.src = o.foto;
+                    avatar.appendChild(foto);
+                }
+                card.appendChild(avatar);
                 var tx = el('div', 'uCardTx');
                 tx.appendChild(el('b', 'uCardNome', o.abstencao ? o.rotulo : numeroDe(p, o) + ' · ' + o.rotulo));
                 card.appendChild(tx);
@@ -426,7 +473,7 @@
         var p = pautaAtual();
         var dig = digitosDa(p);
         if (c.branco) {
-            return texto('fala_abstencao');
+            return texto(p.eleicao ? 'fala_branco' : 'fala_abstencao');
         }
         if (c.dig.length === dig) {
             var o = opcaoPorNumero(p, c.dig);

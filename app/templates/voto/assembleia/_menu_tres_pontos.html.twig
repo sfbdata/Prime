@@ -1,0 +1,48 @@
+{#
+    Menu de três pontos do desenho 18 (.vKw > botão .vB.vK + .vKm), criado UMA vez e reutilizado pelas telas do Voto.
+    CSS public/css/voto-menu.css, JS public/js/voto-menu.js (fecha ao clicar fora e com Esc; setas movem o foco).
+    CONTRATO (as outras etapas usam, não mude): `itens` é uma lista de objetos com
+      rotulo (texto), icone (classe bi-*), destrutivo (bool, vermelho .vKd), confirmar (texto opcional: pede
+      confirmação numa janela do desenho antes de enviar) e UM entre:
+        href  (link) ou
+        acao  (URL de POST) com token (CSRF) e campos (mapa nome => valor, opcional): vira <form method="post">.
+    Opcionais do item de formulário: confirmar_titulo, confirmar_sim, confirmar_nao (rótulos da janela).
+    Terceira forma (para o menu DENTRO de um <form>, onde outro <form> não pode ficar aninhado): item sem href nem acao,
+    com `atributos` (mapa nome => valor de atributos HTML, ex.: data-voto-numerar) vira <button type="button"> e quem
+    trata o clique é o JS da tela. `atributos` também vale no item de link e no de formulário.
+    EXTENSÃO (F1-2b/F1-3, não quebra o contrato acima): em vez de href ou acao, o item pode ter
+      janela  (seletor CSS, ex.: '#janela-ciclo-12-sus'): vira <button type="button" data-voto-janela="...">, que abre
+              uma janela do desenho (.vMod*, public/js/voto-janela.js) FORA do menu, ou
+      revelar (seletor CSS): vira <button type="button" data-voto-revelar="...">, que mostra uma faixa escondida do
+              desenho (arquivar, excluir rascunho; public/js/voto-ciclo.js).
+    Nos dois casos o menu se fecha ao clicar (voto-janela.js e voto-ciclo.js).
+    Lista vazia não desenha nada.
+#}
+{% if itens|length > 0 %}
+<div class="vKw" data-voto-menu>
+    <button type="button" class="vB vK" aria-label="{{ 'voto.assembleia.gestor.menu.mais_opcoes'|trans }}" aria-haspopup="menu" aria-expanded="false" data-voto-menu-botao><i class="bi bi-three-dots-vertical"></i></button>
+    <div class="vKm" role="menu" hidden>
+        {% for item in itens %}
+            {% set classe = item.destrutivo|default(false) ? 'vKd' : '' %}
+            {% set atributos %}{% for nome, valor in item.atributos|default({}) %} {{ nome }}="{{ valor }}"{% endfor %}{% endset %}
+            {% if item.acao is defined and item.acao %}
+                <form method="post" action="{{ item.acao }}"{% if item.confirmar|default(null) %} data-voto-confirmar="{{ item.confirmar }}"{% if item.confirmar_titulo is defined %} data-voto-confirmar-titulo="{{ item.confirmar_titulo }}"{% endif %}{% if item.confirmar_sim is defined %} data-voto-confirmar-sim="{{ item.confirmar_sim }}"{% endif %}{% if item.confirmar_nao is defined %} data-voto-confirmar-nao="{{ item.confirmar_nao }}"{% endif %}{% endif %}>
+                    <input type="hidden" name="_token" value="{{ item.token|default('') }}">
+                    {% for nome, valor in item.campos|default({}) %}
+                        <input type="hidden" name="{{ nome }}" value="{{ valor }}">
+                    {% endfor %}
+                    <button type="submit" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+                </form>
+            {% elseif item.janela is defined and item.janela %}
+                <button type="button" role="menuitem" class="{{ classe }}" data-voto-janela="{{ item.janela }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+            {% elseif item.revelar is defined and item.revelar %}
+                <button type="button" role="menuitem" class="{{ classe }}" data-voto-revelar="{{ item.revelar }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+            {% elseif item.href is not defined %}
+                <button type="button" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+            {% else %}
+                <a role="menuitem" class="{{ classe }}"{{ atributos|raw }} href="{{ item.href|default('#') }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

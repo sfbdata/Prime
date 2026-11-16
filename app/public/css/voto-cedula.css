@@ -27,6 +27,7 @@ a.vB { text-decoration:none; }
 .vcChip-publicada { background:#0a6fa0; }
 .vcChip-aberta { background:#1e7b45; }
 .vcChip-encerrada { background:#8a6200; }
+.vcChip-suspensa, .vcChip-cancelada { background:#8a6200; }
 .vcChipNaoApto { background:#a3232b; }
 
 /* ---- Portal do eleitor: cabeçalho branco (L116) e main (L133-134) ---- */

@@ -2,12 +2,13 @@
     Aba "Acompanhar" de /voto (desenho L172, embutida por AssembleiaController::acompanhar): por pauta das
     assembleias publicadas (abertas primeiro), nome, "{assembleia} · {n} de {aptos} votaram", chip e "Assistir"
     (vB vP bi-box-arrow-up-right), que abre a página própria para projetar. Nunca parcial de votos.
+    Retirada e assembleia arquivada não entram; a pauta suspensa ou cancelada leva o chip do ciclo (_chip_da_pauta).
     Contexto: `assembleias` (list<AssembleiaNoPainel>).
 #}
 {% set linhas = [] %}
 {% for primeiro in [true, false] %}
     {% for a in assembleias|filter(a => a.publicada) %}
-        {% for p in a.pautas|filter(p => p.aberta == primeiro) %}
+        {% for p in a.pautas|filter(p => p.aberta == primeiro and not p.retirada) %}
             {% set linhas = linhas|merge([{a: a, p: p}]) %}
         {% endfor %}
     {% endfor %}
@@ -22,7 +23,7 @@
                     <b>{{ linha.p.titulo }}</b>
                     <div class="voto-aco-det">{{ 'voto.assembleia.gestor.acompanhar.detalhe'|trans({assembleia: linha.a.titulo, n: linha.p.votantes, aptos: linha.p.unidadesAptas}) }}</div>
                 </div>
-                <span class="vChip" style="background:{{ linha.p.cor }};">{{ ('voto.assembleia.gestor.situacao.' ~ linha.p.situacao)|trans }}</span>
+                {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: linha.p, a: linha.a} only %}
                 <a class="vB vP" href="{{ path('voto_assembleia_assistir', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-assistir><i class="bi bi-box-arrow-up-right"></i>{{ 'voto.assembleia.gestor.acompanhar.assistir'|trans }}</a>
             </div>
         {% else %}

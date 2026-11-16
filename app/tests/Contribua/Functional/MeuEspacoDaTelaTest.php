@@ -6,6 +6,7 @@ namespace App\Tests\Contribua\Functional;
 
 use App\Contribua\Controller\ContribuaController;
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\PedidoDeEspaco;
 use App\Contribua\Enum\OrigemDaLiberacao;
@@ -15,6 +16,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Indicacao\Entity\Indicacao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -69,6 +71,16 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('#espaco [data-abrir-master]');
         self::assertStringNotContainsString('Liberado na hora', (string) $this->client->getResponse()->getContent());
         self::assertSelectorNotExists('#espaco .ct-pedido > button[data-espaco-solicitar][disabled]');
+    }
+
+    #[TestDox('A linha do bônus de indicação (função do sistema, fora do desenho) aparece sem ícone')]
+    public function testBonusSemIcone(): void
+    {
+        $this->darBonus();
+        $this->abrir($this->primario);
+
+        self::assertSelectorCount(1, '#espaco > .ct-espaco-uso > .ct-espaco-bonus[data-ct-bonus]');
+        self::assertSelectorCount(0, '#espaco [data-ct-bonus] i, #espaco [data-ct-bonus] .bi');
     }
 
     #[TestDox('Quem não é primário vê a caixa, mas o "Solicitar mais espaço" sai desabilitado (só o primário pede, D4)')]
@@ -229,6 +241,16 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
         $consumo->method('bytesDoEscritorio')->willReturn((int) ($gb * RetratoDoEspaco::BYTES_POR_GB));
         static::getContainer()->set(ConsumoDeArmazenamentoRepository::class, $consumo);
+    }
+
+    private function darBonus(): void
+    {
+        $indicador = $this->pessoa('indicador', $this->outro, true);
+        $agora = new \DateTimeImmutable();
+        $indicacao = Indicacao::porCadastroDoLink($indicador, null, $this->primario, $agora);
+        $this->em->persist($indicacao);
+        $this->em->persist(new BonusDeEspaco($this->escritorio, $indicacao, BonusDeEspaco::GIGABYTES_DA_INDICACAO, $agora->modify('-1 day'), $agora->modify('+30 days')));
+        $this->em->flush();
     }
 
     private function liberarPeloMaster(Tenant $escritorio): void

@@ -16,9 +16,11 @@ use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 final class OpcoesDaPauta
 {
     /**
-     * @param list<array{numero: string, rotulo: string}> $linhas como a tela enviou
+     * @param list<array{numero: string, rotulo: string, descricao?: string, propostas?: string, composicao?: string, unidade?: string}> $linhas como a tela enviou
      *
-     * @return list<array{numero: int, rotulo: string}> pelo número
+     * @return list<array{numero: int, rotulo: string, descricao: ?string, propostas: ?string, composicao: ?string, unidade: ?string}> pelo número.
+     *                                                                                                                                  Propostas, composição e unidade só valem na eleição de pessoas
+     *                                                                                                                                  (`$permitirVazio`); na pauta ficam nulas, só a descrição segue.
      */
     public function validar(string $pauta, array $linhas, int $digitos = 1, bool $permitirVazio = false): array
     {
@@ -37,12 +39,26 @@ final class OpcoesDaPauta
             $valor = self::numero($numero, $digitos);
             self::exigir('' !== $rotulo, sprintf('Candidatura sem nome em %s.', $pauta));
             self::exigir(!isset($opcoes[$valor]), sprintf('Número repetido em %s.', $pauta));
-            $opcoes[$valor] = ['numero' => $valor, 'rotulo' => mb_substr($rotulo, 0, 120)];
+            $opcoes[$valor] = [
+                'numero' => $valor,
+                'rotulo' => mb_substr($rotulo, 0, 120),
+                'descricao' => self::texto($linha['descricao'] ?? null),
+                'propostas' => $permitirVazio ? self::texto($linha['propostas'] ?? null) : null,
+                'composicao' => $permitirVazio ? self::texto($linha['composicao'] ?? null) : null,
+                'unidade' => $permitirVazio ? self::texto($linha['unidade'] ?? null) : null,
+            ];
         }
         self::exigir($permitirVazio || [] !== $opcoes, sprintf('Inclua candidaturas em %s.', $pauta));
         ksort($opcoes);
 
         return array_values($opcoes);
+    }
+
+    private static function texto(?string $valor): ?string
+    {
+        $limpo = trim((string) $valor);
+
+        return '' === $limpo ? null : $limpo;
     }
 
     private static function numero(string $numero, int $digitos): int

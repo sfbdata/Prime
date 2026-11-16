@@ -42,6 +42,8 @@ voto:
             publicada: Publicada
             aberta: Votação aberta
             encerrada: Encerrada
+            suspensa: Suspensa
+            cancelada: Cancelada
         modalidade: Condomínio · Pautas de assembleia
         grupos: Todos os grupos
         mensagem:
@@ -50,12 +52,17 @@ voto:
             ja_votou: Você já votou nesta pauta.
             hora: 'Registrado às {hora}.'
             encerra_em: 'Encerra em {tempo}.'
+            suspensa: Votação suspensa pela mesa. Aguarde a retomada.
+            cancelada: Votação cancelada pela comissão.
         dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
         abstencao: ABSTENÇÃO
+        voto_em_branco: VOTO EM BRANCO
+        dica_eleicao: 'Escolha um nome. Para votar em branco, escolha VOTO EM BRANCO.'
         opcoes: Opções da pauta
         resultado:
             un: '{unidades} un · {peso}'
             abstencoes: 'Abstenções {abstencoes} · Nulos {nulos}'
+            brancos: 'Brancos {abstencoes} · Nulos {nulos}'
             decidido: 'Resultado: {numero} {rotulo}'
         toast:
             registrado: Voto registrado.
@@ -79,14 +86,17 @@ voto:
             voto_nulo: VOTO NULO
             numero_invalido_dica: 'Aperte CORRIGE e informe um número válido.'
             abstencao: ABSTENÇÃO
+            voto_em_branco: VOTO EM BRANCO
             rodape_titulo: 'Aperte a tecla:'
             rodape_confirma: 'CONFIRMA para CONFIRMAR este voto'
             rodape_corrige: 'CORRIGE para REINICIAR este voto'
             dica: 'Digite o número no teclado ou aperte BRANCO para se abster.'
+            dica_branco: 'Digite o número no teclado ou aperte BRANCO.'
             dica_varios: 'Digite o número de cada nome e aperte CONFIRMA. Você pode escolher até {n} nomes; para terminar antes, aperte CONFIRMA sem número.'
             escolha_de: 'Escolha {k} de {n}'
             nome_repetido: 'Você já escolheu este nome.'
             numero_repetido: 'Você já escolheu este número.'
+            foto_alt: 'Foto de {nome}'
             grava_titulo: Registrando seu voto
             grava_subtitulo: Enviando seu voto e separando-o da sua identidade
             grava_titulo_simulacao: Simulando o registro
@@ -107,6 +117,7 @@ voto:
             numero_tecla: 'Número {n}'
             fala_digite: 'Voto para {pauta}. Digite o número.'
             fala_abstencao: Abstenção. Confirme ou corrija.
+            fala_branco: Voto em branco. Confirme ou corrija.
             fala_invalido: 'Número errado, voto nulo. Confirme ou corrija.'
             comprovante_titulo: 'Comprovante de depósito da cédula (não revela seu voto)'
             comprovante_imagem: Comprovante em imagem
@@ -139,6 +150,56 @@ voto:
                 publicada: Publicada, aguardando abertura
                 aberta: Votação aberta
                 encerrada: Encerrada
+            # Painel por entidade (F1-4, desenho 18: etapas, .vFil, .vGrH/.vEvH e .vKpiB).
+            etapas:
+                criar: Criar
+                lista_de_aptos: Lista de aptos
+                publicar: Publicar
+                votacao: Votação
+                apuracao: Apuração
+                relatorio: Relatório
+            filtros:
+                buscar: Buscar
+                buscar_dica: 'Nome, entidade, evento ou CNPJ'
+                entidade: Entidade
+                situacao: Situação
+                todas: Todas
+                em_andamento: Em andamento
+                rascunhos: Rascunhos
+                concluidas: Concluídas
+                limpar: Limpar
+                filtrar: Filtrar
+                expandir: Expandir todas as entidades
+                recolher: Recolher todas as entidades
+                vazio_filtros: Nenhuma votação com esses filtros.
+                vazio_inicial: Nenhuma votação ainda. Use Nova assembleia.
+            grupo:
+                sem_entidade: Sem entidade informada
+                cnpj: 'CNPJ {cnpj}'
+                resumo_aberta: '{n} aberta(s)'
+                resumo_publicada: '{n} publicada(s)'
+                resumo_rascunho: '{n} rascunho(s)'
+                resumo_encerrada: '{n} concluída(s)'
+                votacoes: '{n} votação(ões)'
+            kpi:
+                ver_detalhes: Ver detalhes
+                abertas: Votações abertas
+                cedulas: Cédulas depositadas
+                titulo_cedulas: Cédulas depositadas por votação
+                nada: Nada a mostrar no momento.
+                mostrando: 'Mostrando {n} de {total}.'
+                fechar: Fechar detalhes
+                acompanhar: Acompanhar em tempo real
+                resultados: Ver Resultados
+                detalhe_aberta: '{n} de {aptos} votaram · {tempo}'
+                detalhe_cedula: '{n} cédula(s) · {situacao}'
+                em_andamento: em andamento
+                suspensa: suspensa
+                situacao:
+                    aberta: Votação aberta
+                    suspensa: Suspensa
+                    encerrada: Encerrada
+                    cancelada: Cancelada
             conferencia:
                 titulo: Confira antes de publicar
                 aviso: Ao confirmar, as pautas e suas regras ficam bloqueadas. Os votos serão recebidos depois que você abrir cada pauta.
@@ -164,7 +225,6 @@ voto:
                 encerrada: Encerrada
             painel:
                 votacoes: Votações
-                vazio: Nenhuma assembleia criada.
                 sem_pautas: Nenhuma pauta incluída.
                 participacao: 'Participação {n} de {aptos} aptos ({pct}%). Conduzida pela mesa.'
                 editar: Editar
@@ -175,6 +235,8 @@ voto:
                 relatorio: Relatório consolidado
             form:
                 ajuda: Votos por fração ideal, salvo disposição diversa da convenção. Confira na convenção o quórum de cada pauta, a segunda convocação e quem está apto a votar.
+                entidade: Condomínio
+                cnpj: 'CNPJ (opcional, separa entidades com nome parecido)'
                 evento: Evento
                 peso: Peso do voto
                 peso_fracao: Fração ideal
@@ -183,13 +245,10 @@ voto:
                 continuar: Continuar
                 voltar: Voltar
             pautas:
-                tipo: 'Tipo de pauta'
-                tipo_deliberacao: 'Deliberação (Sim ou Não)'
-                tipo_eleicao: 'Eleição de cargo (candidaturas)'
-                dica_eleicao: 'Sugestões de nomes aparecem nos campos. Preencha pelo menos duas candidaturas antes de publicar.'
-                candidato_1_ph: 'Candidato 1'
-                candidato_2_ph: 'Candidato 2'
-                candidato_ph: 'Outro candidato'
+                tipo: 'Tipo'
+                tipo_deliberacao: 'Pauta ou pergunta (Sim / Não)'
+                tipo_eleicao: 'Eleição de pessoas (com foto)'
+                dica_eleicao: 'Preencha pelo menos duas candidaturas antes de publicar.'
                 regra_pronta: 'Regra pronta'
                 preset_personalizada: 'Personalizada'
                 preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'
@@ -219,26 +278,154 @@ voto:
                 numero: Número
                 numero_ph: Nº
                 nome: Nome
-                nome_ph: Nome da chapa ou candidatura
-                candidatura: Candidatura
+                nome_ph_pessoa: Nome da candidatura ou chapa
+                nome_ph_pauta: 'Texto da opção (ex.: Sim)'
+                candidatura: Adicionar candidatura
+                opcao_nova: Adicionar opção
                 remover_opcao: Remover
                 remover_pauta: Remover cargo
                 salvar: Salvar
                 outra: Outro cargo ou pauta
+                menu_numerar: Numerar em sequência
+                menu_duplicar: Duplicar
+                menu_para_cima: Mover para cima
+                menu_para_baixo: Mover para baixo
+                menu_remover_cargo: Remover cargo
+                menu_remover_pauta: Remover pauta
+                menu_subir: Subir
+                menu_descer: Descer
+                menu_remover_foto: Remover foto
+                menu_remover_candidatura: Remover candidatura
+                foto_titulo: Foto exibida na urna ao digitar o número
+                foto_aria: Foto da candidatura para a urna
+                foto_enviar: Foto para a urna
+                foto_formato: formato 3x4
+                foto_trocar: Trocar foto
+                foto_alt: 'Foto de {nome}'
+                menu_remover_opcao: Remover opção
+                detalhe_pessoa: Descrição, propostas e composição da chapa
+                detalhe_opcao: Descrição da opção
+                descricao_candidatura_ph: Descrição (aparece na urna abaixo do nome)
+                descricao_candidatura: Descrição
+                propostas: Propostas
+                composicao_ph: 'Composição da chapa (um cargo por linha, ex.: Presidente: Nome)'
+                composicao: Composição
+                unidade_ph: 'Unidade do candidato (opcional, confere com a lista)'
+                unidade: Unidade do candidato
+            # Regra detalhada recolhida e modelos prontos do passo Cargos e pautas (desenho 18, L262-264).
+            pautas_regra:
+                resumo: 'Regra detalhada: {texto}'
+                sobre: sobre
+                quorum: quórum
+                digitos: dígito(s)
+                criterio_mais: mais votos
+                criterio_absoluta: maioria absoluta
+                criterio_dois: dois terços
+                criterio_unanime: unanimidade
+                base_validos: votos válidos
+                base_presentes: presentes
+                base_aptos: total de aptos
+            modelos:
+                prontos: 'Modelos prontos:'
+                aplicado: 'Modelo aplicado: {pautas}. Ajuste o que precisar.'
+                condominio: Condomínio
+                cooperativa: Cooperativa
+                sociedade: Sociedade
+                associacao: Associação
+            # Texto do resultado e rótulo de abstenção/branco por tipo de pauta (desenho: resTx e BR).
+            resultado_por_tipo:
+                aprovada: Aprovada
+                rejeitada: Rejeitada
+                rejeitada_criterio: 'Rejeitada: não atingiu o critério exigido'
+                sem_vencedor: 'Sem vencedor: critério não atingido'
+                nao_deliberada: 'Não deliberada: quórum não atingido'
+                opcao_vencedora: 'Opção vencedora: {numero} {rotulo}'
+                eleito: 'Eleito: {numero} {rotulo}'
+                abstencoes: Abstenções
+                brancos: Votos em branco
+                abstencoes_e_nulos: 'Abstenções {n} · Nulos {nulos}'
+                brancos_e_nulos: 'Brancos {n} · Nulos {nulos}'
             mesa:
                 convocacao: Convocação
                 conv1: 1ª convocação
                 conv2: 2ª convocação
                 minutos_rotulo: Minutos
                 minutos: minutos
-                abrir_minutos: Abrir por minutos
-                abrir_sem_prazo: Abrir sem prazo
                 encerra_em: 'Encerra em {tempo}'
                 sem_prazo_definido: Aberta, sem prazo definido
                 definir_prazo: Definir prazo
                 sem_prazo: Sem prazo
                 motivo: Motivo do encerramento antecipado
                 encerrar: Encerrar
+            # ---- Voto redesign F1-1: menu de três pontos e janela "Abrir votação" (desenho 18, 16/11).
+            menu:
+                mais_opcoes: Mais opções
+                editar_config: Editar configuração
+                link_qr: Link e QR Code
+                duplicar: Duplicar votação
+            # ---- Voto redesign F3-4: Lembrar quem não votou, desenho 18 (naoVotaram, janela do lembrete).
+            lembrar:
+                menu: Lembrar quem não votou
+                titulo: Lembrar quem não votou
+                fechar: Fechar
+                resumo: '{n} apto(s) ainda não votaram; {tel} com telefone na lista.'
+                todos_votaram: Todos os aptos já votaram.
+                copiar: Copiar mensagem
+                baixar: Baixar lista
+                enviar: Enviar lembrete
+                sem_telefone: Sem telefone na lista
+                sem_nome: Sem nome na lista
+                abertura_com_nome: 'Olá, {nome}. Lembrete: a votação está aberta e você ainda não votou.'
+                abertura: 'Olá. Lembrete: a votação está aberta e você ainda não votou.'
+                copiar_texto: 'Lembrete: a votação está aberta. {mensagem}'
+                mensagem: 'Votação: {titulo}. Acesse pelo link {link} , localize seu nome e confirme sua identidade. Não precisa ter conta no BlueJus. Código de conferência: {codigo}.'
+                rodape: Cada botão abre o WhatsApp com a mensagem pronta; o envio é feito por você. A lista não mostra quem votou em quem.
+            janela_abrir:
+                titulo: Abrir votação
+                fechar: Fechar
+                cancelar: Cancelar
+                abrir: Abrir votação
+                duracao: Duração
+                sem_prazo: 'Sem prazo: a mesa encerra quando decidir'
+                por_tempo: Por tempo definido
+            # ---- Voto redesign F3-2: janela "Relatório" e resumos para divulgar (desenho 18, relEscolha e relResumo).
+            relatorio:
+                titulo: 'Relatório: {titulo}'
+                fechar: Fechar
+                completo_titulo: Completo, para registro em cartório
+                completo_texto: Resultado, participação por bloco e relação de votantes (quem e quando, nunca em quê), em página imprimível para a comissão, a auditoria e o cartório.
+                imagem_titulo: Resumo para divulgar nos grupos (imagem)
+                imagem_texto: Resultado de cada pauta ou cargo, participação e quórum, em imagem pronta para o WhatsApp. Sem dados pessoais, com QR Code para conferência.
+                pdf_titulo: Resumo para divulgar (PDF)
+                pdf_texto: O mesmo resumo em PDF, para e-mail ou mural.
+                aviso: 'O completo contém dados pessoais: entregue só à comissão, à auditoria e ao cartório.'
+                sucesso_completo: Relatório completo gerado.
+                sucesso_imagem: Imagem do resultado gerada para divulgar.
+                sucesso_pdf: Resumo em PDF gerado.
+                sem_apurada: Ainda não há votação apurada para divulgar. O resumo só sai depois que uma votação é encerrada.
+                falhou: Não foi possível gerar o arquivo. Tente de novo.
+                muitas_pautas: 'Muitas votações para caber numa imagem: use o resumo em PDF.'
+                rotulo_a1: Presidência da assembleia
+                rotulo_a2: Secretaria da assembleia
+                imagem_titulo_pagina: Resultado da votação
+                pdf_titulo_pagina: Resultado da votação
+                imagem_qr: Aponte a câmera para conferir
+                codigo_conferencia: 'Código de conferência: {codigo}'
+                pdf_codigo_validacao: Código de conferência
+                participacao: '{n} de {aptos} aptos ({pc}%)'
+                rotulo_participacao: Participação
+                rotulo_situacao: Situação
+                rotulo_resultado: Resultado
+                apurada_em: 'Apurada em {data}'
+                quorum_atingido: Quórum atingido
+                quorum_nao_atingido: Quórum não atingido
+                quorum_nao_exigido: Quórum não exigido
+                nulos: Nulos
+                coluna_opcao: Opção
+                coluna_votos: Votos
+                nota: Resumo para divulgação. Não contém dados pessoais dos votantes nem indica o voto de ninguém. O documento completo, para registro em cartório, fica com a comissão. Confira a autenticidade pelo QR Code ou pelo código de conferência.
+                emitido_em: 'Emitido em {data}. Vale somente com registro correspondente no BlueJus.'
+                rodape_legal: 'Base: Lei 14.063/2020 (assinaturas eletrônicas) · Lei 13.709/2018 (LGPD) · regras de votação da convenção ou do estatuto'
             aviso:
                 publicada: Votação publicada. A configuração ficou bloqueada.
                 aberta: Votação aberta pela mesa.
@@ -248,17 +435,22 @@ voto:
                 pauta_incluida: Pauta incluída.
                 pauta_salva: Pauta salva.
                 pauta_removida: Pauta removida.
+                pauta_movida: Pauta movida.
+                pauta_duplicada: Pauta duplicada.
                 pauta_nao_encontrada: Esta pauta não existe mais. Recarregue a página.
                 unidade_removida: Unidade removida.
                 novo_link: Novo link gerado. O anterior deixou de valer.
                 sessao_expirada: A sessão expirou. Recarregue a página e tente de novo.
+                copia_criada: Cópia criada como rascunho, sem votos. Confira nome, evento e datas.
+                copia_com_lista: Lista de aptos copiada.
+                copia_com_lista_sem_emails: Lista de aptos copiada, sem os e-mails (reimporte a planilha para o acesso por código).
                 falha_ao_salvar: Não foi possível salvar. Confira a conexão e tente de novo.
                 repetir_sem_a_pauta: Corrija a pauta ou repita o clique para seguir sem salvá-la.
                 link_copiado: Link copiado.
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
-                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail. Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
@@ -388,3 +580,137 @@ voto:
                 botao: Votar
                 aviso: 'Não repasse este link: quem o tiver vota pela sua unidade.'
                 nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+            # ---- Voto redesign F3-1: Telão (modo assembleia), desenho 18.
+            telao:
+                titulo: 'Modo assembleia: {assembleia}'
+                rotulo: Modo assembleia
+                conduzir: Conduzir no telão
+                conduzir_menu: Conduzir no telão (modo assembleia)
+                tela_cheia: Tela cheia
+                sair: Sair
+                ordem_do_dia: ORDEM DO DIA
+                qr_alt: QR Code para votar
+                aponte: Aponte a câmera para votar
+                codigo: 'Código de conferência {codigo}'
+                votaram: votaram
+                aptos: aptos
+                de_participacao: de participação
+                das_fracoes: das frações
+                quorum_atingido: 'Quórum {q}%: atingido'
+                quorum_nao_atingido: 'Quórum {q}%: ainda não atingido'
+                aguardando_abertura: Aguardando abertura pela mesa
+                abstencoes: Abstenções
+                brancos: Brancos
+                nulos: Nulos
+                encerrar: Encerrar votação
+                encerrar_pergunta: Encerrar agora? Depois de encerrada não aceita mais votos.
+                continuar: Continuar votação
+                confirmar_encerramento: Confirmar encerramento
+                motivo_padrao: Determinação da mesa
+                ir_apuracao: Ir para a apuração
+                proxima: 'Próxima: {pauta}'
+            ciclo:
+                suspensa: Votação suspensa. Retome quando a mesa decidir.
+                retomada: Votação retomada.
+                cancelada: Votação cancelada. Os votos ficam lacrados, sem apuração.
+                retirada: Pauta retirada. Desfaça em Gestão eleitoral, Mostrar arquivadas.
+                arquivada: Votação arquivada. Use Mostrar arquivadas para vê-la.
+                desarquivada: Votação desarquivada.
+                rascunho_excluido: Rascunho excluído.
+            # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
+            chip_ciclo:
+                arquivada: Arquivada
+                cancelada: Cancelada
+                suspensa: Suspensa
+            menu_ciclo:
+                retirar_ou_cancelar: Retirar de pauta ou cancelar
+                suspender: Suspender votação
+                retomar: Retomar votação
+                cancelar: Cancelar votação
+                excluir_rascunho: Excluir rascunho
+                arquivar: Arquivar
+                desarquivar: Desarquivar
+            janela_ciclo:
+                fechar: Fechar
+                cancelar: Cancelar
+                o_que_acontece: 'O que acontece:'
+                motivo: Motivo (vai para a ata e para a auditoria)
+                motivo_curto: Informe o motivo da retirada.
+                outras: 'As outras {n} pauta(s) do evento continuam normalmente, com o mesmo link e QR Code.'
+                unica: Era a única pauta publicada deste evento.
+                ret:
+                    titulo: Retirar de pauta
+                    exemplo: 'Ex.: matéria adiada para a próxima assembleia'
+                    efeito_1: Sai da tela de votação, do QR Code e do link do evento, de Resultados, de Acompanhar e do telão.
+                    efeito_2: Não pode mais ser aberta nem receber votos.
+                    efeito_3: Na ata do evento, entra como retirada da ordem do dia, com o motivo, sem deliberação.
+                    efeito_4: Configuração, lista de aptos, presenças e trilha de auditoria ficam guardadas.
+                    efeito_5: Pode ser desfeito em Gestão eleitoral, Mostrar arquivadas, Desarquivar.
+                sus:
+                    titulo: Suspender votação
+                    exemplo: 'Ex.: queda de energia no salão'
+                    efeito_1: Para de aceitar votos agora, até a mesa retomar.
+                    efeito_2: Os votos já depositados continuam na urna, intactos.
+                    efeito_3: O prazo definido pela mesa fica congelado durante a suspensão.
+                    efeito_4: Quem tentar votar vê o aviso de votação suspensa.
+                    efeito_5: Retome pelo menu de três pontos ou no telão. Tudo fica na auditoria.
+                can:
+                    titulo: Cancelar votação
+                    exemplo: 'Ex.: convocação irregular'
+                    efeito_1: Para de aceitar votos imediatamente.
+                    efeito_2: 'Os votos já recebidos ficam lacrados na urna e não são apurados: não haverá resultado.'
+                    efeito_3: Na ata, entra como votação cancelada, com o motivo.
+                    efeito_4: Urna, trilha e dados ficam guardados como prova; depois pode ser arquivada.
+                    efeito_5: Não pode ser desfeito. Para repetir, use Duplicar votação.
+            arquivar:
+                titulo_sem_deliberar: 'Arquivar sem deliberar: a votação não poderá ser aberta e sai das listas.'
+                titulo_deliberada: 'Arquivar votação deliberada: resultado, ata, relatório e trilha de auditoria continuam guardados.'
+                motivo: Motivo
+                exemplo: 'Ex.: pauta retirada da ordem do dia'
+                cancelar: Cancelar
+                sim: Arquivar
+                faixa: 'Arquivada em {em}{sem}. Motivo: {motivo}. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar.'
+                sem_deliberacao: ', sem deliberação'
+                retirada_motivo: 'Retirada de pauta: {motivo}'
+                excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
+                excluir_manter: Manter
+                excluir_sim: Excluir rascunho
+                mostrar: 'Mostrar arquivadas ({n})'
+                ocultar: Ocultar arquivadas
+                selecionar: 'Selecionar {titulo}'
+            proximo_passo:
+                cancelada: 'Cancelada em {em}. Motivo: {motivo}. As cédulas ficam lacradas e não serão apuradas.'
+                suspensa: 'Suspensa pela mesa desde {em}. Motivo: {motivo}. Retome pelo menu.'
+            lote:
+                selecionar_todas: Selecionar todas
+                selecionadas: '{n} selecionada(s)'
+                arquivar: 'Arquivar ({n})'
+                excluir: 'Excluir ({n})'
+                limpar: Limpar seleção
+                arquivar_titulo: 'Arquivar {n} votação(ões).'
+                arquivar_texto: Arquivadas saem das listas e ficam guardadas por tempo indeterminado, com resultado, ata, relatório e trilha; podem ser vistas em Mostrar arquivadas e desarquivadas.
+                arquivar_aberta: Votação aberta precisa ser encerrada antes de arquivar.
+                motivo: Motivo (vale para todas)
+                exemplo: 'Ex.: assembleia de 2025 concluída'
+                cancelar: Cancelar
+                arquivar_sim: Arquivar selecionadas
+                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados.'
+                excluir_obs: 'Votação publicada não é excluída, para não apagar prova: use Arquivar.'
+                excluir_sim: Excluir selecionados
+                fora: '{n} selecionada(s) não se encaixam e serão mantidas como estão.'
+                fora_feito: '{n} selecionada(s) não se encaixam e foram mantidas como estão.'
+                arquivadas: '{n} votação(ões) arquivada(s).'
+                excluidas: '{n} item(ns) excluído(s).'
+                nenhuma: Selecione ao menos uma votação.
+                nenhuma_arquivar: 'Nenhuma selecionada pode ser arquivada: só publicadas sem votação aberta.'
+                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados. Use Arquivar.'
+                motivo_curto: Informe o motivo do arquivamento.
+            ata_ciclo:
+                retirada: 'Retirada da ordem do dia: {pauta}, por decisão registrada em {em}. Motivo: {motivo}. Não houve deliberação sobre essa matéria.'
+                cancelada: 'Votação cancelada pela mesa em {em}. Motivo: {motivo}. Os votos recebidos ficaram lacrados e não foram apurados.'
+                ordem_do_dia: Ordem do dia
+            telao_ciclo:
+                suspender: Suspender
+                retomar: Retomar votação
+                suspensa: 'Votação suspensa pela mesa. Aguarde a retomada.'
+                cancelada: Votação cancelada pela comissão.

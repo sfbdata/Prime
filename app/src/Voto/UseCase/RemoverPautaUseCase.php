@@ -8,15 +8,20 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
+use App\Voto\Service\FotosDasCandidaturas;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 
-/** Tira uma pauta da assembleia em rascunho (as opções saem junto, pelo ON DELETE CASCADE do banco). */
+/**
+ * Tira uma pauta da assembleia em rascunho (as opções saem junto, pelo ON DELETE CASCADE do banco). As fotos das
+ * candidaturas só saem do armazenamento depois do COMMIT.
+ */
 final class RemoverPautaUseCase
 {
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly FotosDasCandidaturas $fotos,
     ) {
     }
 
@@ -33,7 +38,9 @@ final class RemoverPautaUseCase
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
         $pauta = $this->pautas->buscarDaAssembleia($pautaId, $assembleia) ?? throw new AssembleiaNaoEncontradaException();
+        $fotosDaPauta = FotosDasCandidaturas::chavesDaPauta($pauta);
         $assembleia->getPautas()->removeElement($pauta);
         $this->pautas->remover($pauta, flush: true);
+        $this->fotos->descartar($fotosDaPauta, 'pauta removida');
     }
 }
