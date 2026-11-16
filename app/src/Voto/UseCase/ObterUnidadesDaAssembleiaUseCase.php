@@ -8,10 +8,12 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\UnidadeNaLista;
 use App\Voto\DTO\UnidadesDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\LeituraDaAssembleia;
+use App\Voto\Service\SomaDasFracoes;
 use App\Voto\Service\TokenDaUnidade;
 
 /**
@@ -33,10 +35,14 @@ final class ObterUnidadesDaAssembleiaUseCase
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
 
+        $soma = PesoDoVoto::Fracao === $assembleia->getPeso() ? $this->unidades->somarFracoes($assembleia) : null;
+
         return new UnidadesDaAssembleia(
             assembleia: $this->leitura->montar($assembleia),
             unidades: array_map($this->naLista(...), $this->unidades->listarDaAssembleia($assembleia)),
             faltamEnvio: $this->unidades->contarParaEnvioDoLink($assembleia),
+            somaDasFracoes: $soma,
+            somaForaDoEsperado: null !== $soma && SomaDasFracoes::foraDoEsperado($soma),
         );
     }
 

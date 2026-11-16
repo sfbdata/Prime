@@ -173,8 +173,22 @@ final class PainelPorEntidadeTest extends TestCase
         self::assertSame('AGO', $kpis->abertas[0]->assembleia);
     }
 
+    #[TestDox('KPIs: a simulação conta, como no protótipo (só o Master a ignora, na W2-7)')]
+    public function testKpisContamSimulacao(): void
+    {
+        $agora = new \DateTimeImmutable('2026-11-16 10:00:00');
+        $real = $this->assembleia('Real', 'Jardim', null, [$this->pauta(EstadoDaPauta::Aberta, 'Contas', votantes: 3)], true);
+        $simulacao = $this->assembleia('Treino', 'Jardim', null, [$this->pauta(EstadoDaPauta::Aberta, 'Treino', votantes: 8)], true, simulacao: true);
+
+        $kpis = (new PainelPorEntidade())->kpis([$real, $simulacao], $agora);
+
+        self::assertSame(2, $kpis->votacoesAbertas());
+        self::assertSame(11, $kpis->totalDeCedulas);
+        self::assertSame(['Contas', 'Treino'], array_map(static fn ($l): string => $l->titulo, $kpis->cedulas));
+    }
+
     /** @param list<PautaNoPainel> $pautas */
-    private function assembleia(string $titulo, ?string $entidade, ?string $cnpj, array $pautas = [], bool $publicada = false, bool $arquivada = false): AssembleiaNoPainel
+    private function assembleia(string $titulo, ?string $entidade, ?string $cnpj, array $pautas = [], bool $publicada = false, bool $arquivada = false, bool $simulacao = false): AssembleiaNoPainel
     {
         return new AssembleiaNoPainel(
             id: $this->proximoId++,
@@ -193,6 +207,7 @@ final class PainelPorEntidadeTest extends TestCase
             arquivadaEm: $arquivada ? new \DateTimeImmutable('2026-11-10') : null,
             entidade: $entidade,
             cnpj: $cnpj,
+            simulacao: $simulacao,
         );
     }
 

@@ -1,0 +1,69 @@
+{#
+    Corpo da minuta de ata (desenho 18, ataDocx L409), em HTML bem formado (XML) com um vocabulário pequeno: h1 (título),
+    h2 (seção), p (parágrafo; .negrito e .pequeno), table > tr > th|td e .assinaturas > p. O mesmo corpo vira o .docx
+    (ConversorDaMinutaParaDocx) e o PDF (minuta_ata_pdf.html.twig): a regra do texto mora só aqui. O que o sistema ainda
+    não tem (presidente, secretário, data sem abertura) sai como campo destacado em amarelo para completar.
+    Mesmos dados e rótulos da ata imprimível (ata.html.twig): pauta retirada da ordem do dia e votação cancelada incluídas.
+    Sem relação nominal de votantes: a minuta traz só o agregado. Contexto: `ata` (AtaDaAssembleia).
+#}
+{% from 'voto/_texto_do_resultado.html.twig' import resumo, rotulo_do_branco %}
+{% set a = ata.assembleia %}
+{% set t = 'voto.assembleia.gestor.minuta.' %}
+{% set dh = 'd/m/Y H:i:s' %}
+{% set pautas = ata.emOrdemDeAbertura %}
+{% set primeira = pautas|first %}
+{% set abertura = primeira ? primeira.abertaEm : null %}
+{% set fins = pautas|filter(p => p.encerradaEm is not null)|map(p => p.encerradaEm.timestamp)|sort %}
+{% set fim = fins is not empty ? fins|last : null %}
+{# `marca` é o marcador sorteado de HtmlDaMinutaDeAta: só o que passa por `m.campo(...)` vira destaque. #}
+{% macro campo(marca, texto) -%}{{- marca ~ '[' ~ texto ~ ']' ~ marca -}}{%- endmacro %}
+{% import _self as m %}
+{% set presidente = (t ~ 'marca_presidente')|trans %}
+{% set secretario = (t ~ 'marca_secretario')|trans %}
+<h1>{{ (t ~ 'titulo')|trans({evento: a.titulo|upper ~ (a.simulacao ? ' ' ~ 'voto.assembleia.gestor.ata.simulacao'|trans : '')}) }}</h1>
+<p class="pequeno">{{ (t ~ 'aviso')|trans }}</p>
+<p>{{ (t ~ 'abertura')|trans({
+    quando: abertura is not null ? (t ~ 'quando_data')|trans({data: abertura|date('d/m/Y'), hora: abertura|date('H:i')}) : m.campo(marca, (t ~ 'marca_data_hora')|trans),
+    entidade: a.entidade is not empty ? a.entidade : m.campo(marca, (t ~ 'marca_entidade')|trans),
+    convocacao: primeira and primeira.convocacao ? primeira.convocacao : 1,
+    presidente: m.campo(marca, (t ~ 'marca_presidente')|trans),
+    secretario: m.campo(marca, (t ~ 'marca_secretario')|trans),
+}) }}</p>
+
+<h2>{{ (t ~ 'ordem_do_dia')|trans }}</h2>
+{% for p in ata.naOrdemDoDia %}
+    <p>{{ (t ~ 'item')|trans({n: loop.index, texto: p.descricao is not empty ? (t ~ 'item_com_descricao')|trans({titulo: p.titulo, descricao: p.descricao}) : p.titulo}) }}</p>
+{% endfor %}
+{% for p in a.pautasRetiradas %}
+    <p>{{ 'voto.assembleia.gestor.ata_ciclo.retirada'|trans({pauta: p.titulo, em: p.retiradaEm|date(dh), motivo: p.retiradaMotivo}) }}</p>
+{% endfor %}
+
+<h2>{{ (t ~ 'deliberacoes')|trans }}</h2>
+{% for p in pautas %}
+    {% set r = p.resultado %}
+    {% if p.cancelada %}
+        <p>{{ (t ~ 'item_cancelado')|trans({n: loop.index, pauta: p.titulo, cancelada: 'voto.assembleia.gestor.ata_ciclo.cancelada'|trans({em: p.canceladaEm|date(dh), motivo: p.canceladaMotivo})}) }}</p>
+    {% elseif r is null %}
+        <p>{{ (t ~ 'item_nao_apurado')|trans({n: loop.index, pauta: p.titulo, marca: m.campo(marca, (t ~ 'marca_nao_apurada')|trans)}) }}</p>
+    {% else %}
+        <p class="negrito">{{ (t ~ 'item')|trans({n: loop.index, texto: p.titulo}) }}</p>
+        <table>
+            <tr><th>{{ (t ~ 'coluna_opcao')|trans }}</th><th>{{ (t ~ 'coluna_votos')|trans }}</th>{% if a.porFracao %}<th>{{ (t ~ 'coluna_fracoes')|trans }}</th>{% endif %}</tr>
+            {% for o in r.opcoes %}
+                <tr><td>{{ o.numero }} {{ o.rotulo }}</td><td>{{ o.unidades }}</td>{% if a.porFracao %}<td>{{ o.peso|voto_fracao }}</td>{% endif %}</tr>
+            {% endfor %}
+            <tr><td>{{ rotulo_do_branco(r) }}</td><td>{{ r.abstencoesUnidades }}</td>{% if a.porFracao %}<td>{{ r.abstencoesPeso|voto_fracao }}</td>{% endif %}</tr>
+            <tr><td>{{ 'voto.assembleia.gestor.ata.nulos'|trans }}</td><td>{{ r.nulosUnidades }}</td>{% if a.porFracao %}<td>{{ r.nulosPeso|voto_fracao }}</td>{% endif %}</tr>
+        </table>
+        <p>{{ resumo(r, t ~ 'comparecimento', {pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</p>
+    {% endif %}
+{% endfor %}
+<p>{{ (t ~ 'sigilo')|trans }}</p>
+<p>{{ (t ~ 'encerramento')|trans({
+    quando: fim is not null ? (t ~ 'encerramento_em')|trans({data: fim|date('d/m/Y'), hora: fim|date('H:i')}) : (t ~ 'encerramento_as')|trans({hora: m.campo(marca, (t ~ 'marca_hora')|trans)}),
+    secretario: m.campo(marca, (t ~ 'marca_secretario')|trans),
+}) }}</p>
+<div class="assinaturas">
+    <p>{{ (t ~ 'assinatura')|trans({nome: presidente, funcao: a.cenario.assinatura1}) }}</p>
+    <p>{{ (t ~ 'assinatura')|trans({nome: secretario, funcao: a.cenario.assinatura2}) }}</p>
+</div>

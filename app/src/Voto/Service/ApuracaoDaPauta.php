@@ -195,6 +195,15 @@ final class ApuracaoDaPauta
         return $temVencedor ? ResultadoDaPauta::DECIDIDO : ResultadoDaPauta::CRITERIO_NAO_ATINGIDO;
     }
 
+    /**
+     * O quórum da pauta pela MESMA conta da apuração, sem apurar nada (não lê opção nem voto): para quem só precisa de
+     * "atingido ou não" em qualquer estado da pauta (as estatísticas do Master). `null` exigido conta como 0.
+     */
+    public static function quorumDaPautaAtingido(string $pesoPresente, string $pesoApto, ?string $quorumExigido): bool
+    {
+        return self::quorumAtingido(self::normalizar($pesoPresente), self::normalizar($pesoApto), $quorumExigido ?? '0');
+    }
+
     /** Sem peso apto o quórum é 0%: só passa se o exigido for 0 (mesma conta do desenho). */
     private static function quorumAtingido(string $pesoPresente, string $pesoApto, string $quorumExigido): bool
     {

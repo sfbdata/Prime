@@ -24,9 +24,9 @@ final readonly class UnidadeNaLista
     ) {
     }
 
-    /** "Bloco A · A-101", ou só a unidade sem bloco. */
+    /** "A-101 · Bloco A" (unidade e depois o bloco, como o desenho), ou só a unidade sem bloco. */
     public function rotulo(): string
     {
-        return '' === $this->bloco ? $this->identificacao : $this->bloco . ' · ' . $this->identificacao;
+        return '' === $this->bloco ? $this->identificacao : $this->identificacao . ' · ' . $this->bloco;
     }
 }

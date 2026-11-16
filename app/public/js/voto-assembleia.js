@@ -553,6 +553,7 @@
             return { ok: false, recusada: false, mensagem: texto('data-voto-falha'), enviado: enviado };
         }).then(function (resultado) {
             gravando = false;
+            marcarSujo();
             return resultado;
         });
     }
@@ -890,6 +891,41 @@
             }
         }
     });
+
+    /* Programação, sigilo e aviso do voto aberto (desenho 18, passo 2): o horário só aparece em "Programados no horário"
+       e o aviso só no voto aberto. Bloco próprio; o envio já leva os campos, escondidos ou não. */
+    document.addEventListener('change', function (evento) {
+        var campo = evento.target;
+        if (!campo || !campo.closest) {
+            return;
+        }
+        var caixa = campo.closest('[data-voto-participacao]');
+        if (!caixa) {
+            return;
+        }
+        if (campo.hasAttribute('data-voto-modo-horario')) {
+            Array.prototype.forEach.call(caixa.querySelectorAll('[data-voto-horario]'), function (rotulo) {
+                rotulo.hidden = campo.value !== 'horario';
+            });
+        } else if (campo.hasAttribute('data-voto-sigilo')) {
+            var aviso = caixa.querySelector('[data-voto-sigilo-aviso]');
+            if (aviso) {
+                aviso.hidden = campo.value === 'secreto';
+            }
+        }
+    });
+
+    /* "Alterações ainda não salvas" na faixa do assistente (desenho 18, L254): aparece enquanto alguma pauta difere do gravado. */
+    function marcarSujo() {
+        var faixa = document.querySelector('[data-voto-sujo]');
+        if (telaDePautas && faixa) {
+            faixa.hidden = formsDePauta().filter(alterada).length === 0;
+        }
+    }
+    ['input', 'change'].forEach(function (nome) {
+        document.addEventListener(nome, function () { window.setTimeout(marcarSujo, 0); });
+    });
+    document.addEventListener('click', function () { window.setTimeout(marcarSujo, 0); });
 
     function iniciar() {
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-toasts] .voto-toast'), sumirDepois);

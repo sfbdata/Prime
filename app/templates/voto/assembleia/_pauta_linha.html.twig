@@ -11,7 +11,8 @@
 #}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
 {% set itensMenu = [] %}
-{% if not a.arquivada %}
+{% set edita = voto_edita(a.id) %}
+{% if edita and not a.arquivada %}
     {% if p.aguardandoAMesa %}
         {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retirar_ou_cancelar'|trans, icone: 'bi-x-octagon', janela: '#janela-ciclo-' ~ p.id ~ '-ret', destrutivo: true}]) %}
     {% endif %}
@@ -44,7 +45,7 @@
     <div class="voto-barra-fina"><div style="width:{{ p.pctUnidades }}%;"></div></div>
     <div class="voto-participacao">{{ 'voto.assembleia.gestor.painel.participacao'|trans({n: p.votantes, aptos: p.unidadesAptas, pct: p.pctUnidades}) }}</div>
 
-    {% if (p.aguardandoAMesa or p.aberta) and not a.arquivada %}
+    {% if (p.aguardandoAMesa or p.aberta) and not a.arquivada and edita %}
         <div class="voto-pauta-acoes">
             {% if p.aguardandoAMesa %}
                 <button type="button" class="vB vP" data-voto-janela="#janela-abrir-{{ p.id }}"><i class="bi bi-unlock"></i>{{ 'voto.assembleia.gestor.janela_abrir.abrir'|trans }}</button>
@@ -73,9 +74,11 @@
         </div>
     {% elseif p.encerrada and p.resultado is not null %}
         {% include 'voto/assembleia/_decisao.html.twig' with {r: p.resultado} only %}
+        <div class="voto-pauta-acoes">{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a, p: p} only %}</div>
     {% endif %}
     {# As janelas ficam fora do menu (o menu é escondido); abrem pelos itens com data-voto-janela. #}
-    {% if not a.arquivada and p.aguardandoAMesa %}
+    {% if not edita %}
+    {% elseif not a.arquivada and p.aguardandoAMesa %}
         {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'ret', token: token} only %}
     {% elseif not a.arquivada and p.aberta %}
         {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token} only %}

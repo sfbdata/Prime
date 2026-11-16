@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace App\Voto\Controller;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AssembleiaInput;
 use App\Voto\DTO\AssembleiaNoPainel;
 use App\Voto\DTO\FiltroDoPainel;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
+use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\Service\PainelPorEntidade;
 use App\Voto\UseCase\ConferirPublicacaoDaAssembleiaUseCase;
+use App\Voto\UseCase\ObterEquipeDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
+use App\Voto\UseCase\ListarVotacoesParaVotarUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\ObterAtaDaAssembleiaUseCase;
 use App\Voto\UseCase\ObterPainelDoVotoUseCase;
@@ -41,7 +46,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class AssembleiaController extends AbstractController
 {
     /** As ações que as abas de /voto embutem (função Twig `voto_assembleia_aba`). */
-    public const ABAS_EMBUTIDAS = ['painel', 'resultados', 'acompanhar'];
+    public const ABAS_EMBUTIDAS = ['painel', 'resultados', 'acompanhar', 'votar'];
 
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
@@ -50,6 +55,7 @@ final class AssembleiaController extends AbstractController
         private readonly ObterAssembleiaUseCase $obterAssembleia,
         private readonly TranslatorInterface $tradutor,
         private readonly PainelPorEntidade $painelPorEntidade,
+        private readonly ListarVotacoesParaVotarUseCase $listarVotacoes,
     ) {
     }
 
@@ -62,7 +68,7 @@ final class AssembleiaController extends AbstractController
     public function painel(Request $request): Response
     {
         $tenant = $this->guarda->exigir();
-        $todas = $this->obterPainel->executar($tenant);
+        $todas = $this->obterPainel->executar($tenant, null, $this->pessoa());
         $arquivadas = $request->query->getBoolean('arquivadas');
         $agora = new \DateTimeImmutable();
         $totalArquivadas = 0;
@@ -88,7 +94,7 @@ final class AssembleiaController extends AbstractController
     public function resultados(): Response
     {
         return $this->render('voto/assembleia/_resultados.html.twig', [
-            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir(), null, $this->pessoa())),
         ]);
     }
 
@@ -96,8 +102,27 @@ final class AssembleiaController extends AbstractController
     public function acompanhar(): Response
     {
         return $this->render('voto/assembleia/_acompanhar.html.twig', [
-            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir(), null, $this->pessoa())),
         ]);
+    }
+
+    /**
+     * Aba "Votar" de /voto (desenho 18): uma votação por cartão, com chip, frase de situação e "Votar", que abre a tela
+     * do eleitor (a mesma do link e do QR Code do evento). Embutida, sem rota.
+     */
+    public function votar(): Response
+    {
+        return $this->render('voto/assembleia/_votar.html.twig', [
+            'votacoes' => $this->listarVotacoes->executar($this->guarda->exigir(), null, $this->pessoa()),
+        ]);
+    }
+
+    /** Quem está logada (a guarda já garantiu): as listas escondem o que o teto da equipe deixa `Oculto` para ela. */
+    private function pessoa(): User
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof User ? $usuario : throw $this->createAccessDeniedException();
     }
 
     /**
@@ -125,7 +150,7 @@ final class AssembleiaController extends AbstractController
             }
         }
 
-        return $this->render('voto/assembleia/form.html.twig', ['assembleia' => null, 'input' => $input, 'erro' => $erro ?? null]);
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null, self::passoDoForm($request)));
     }
 
     #[Route('/{id}/editar', name: 'voto_assembleia_editar', methods: ['GET', 'POST'])]
@@ -146,9 +171,36 @@ final class AssembleiaController extends AbstractController
         }
 
         $assembleia = $this->lida($tenant, $id);
-        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '');
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao);
 
-        return $this->render('voto/assembleia/form.html.twig', ['assembleia' => $assembleia, 'input' => $input, 'erro' => $erro ?? null]);
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null, self::passoDoForm($request)));
+    }
+
+    /**
+     * Passos 2 (Regras e prazo), 3 (Acesso) e 6 (Equipe) do assistente de 7 passos (desenho 18). O 2 reabre o formulário
+     * da assembleia (grava por `editar`); o 3 e o 6 só informam. Os passos 1, 4, 5 e 7 são `editar`, `pautas`, `unidades` e a
+     * conferência. Publicada não tem assistente: vai para a mesa.
+     */
+    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '[236]'], methods: ['GET'])]
+    public function passo(int $id, int $passo, ObterEquipeDaAssembleiaUseCase $obterEquipe, AcessoAAssembleia $acesso): Response
+    {
+        $tenant = $this->guarda->exigir();
+        $assembleia = $this->lida($tenant, $id);
+        if (!$assembleia->podeAlterarPautas) {
+            return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        }
+        if (2 === $passo) {
+            $input = new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao);
+
+            return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, null, 2));
+        }
+
+        return $this->render('voto/assembleia/passo.html.twig', [
+            'assembleia' => $assembleia,
+            'passo' => $passo,
+            'equipe' => 6 === $passo ? $obterEquipe->executar($tenant, $id) : [],
+            'administracao' => 6 === $passo && $acesso->ehAdministracao($this->pessoa(), $tenant),
+        ]);
     }
 
     #[Route('/{id}/publicar', name: 'voto_assembleia_conferir_publicacao', methods: ['GET'])]
@@ -193,7 +245,7 @@ final class AssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         try {
-            $ata = $obterAta->executar($tenant, $id, $this->guarda->nomeDeQuemOpera());
+            $ata = $obterAta->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), ator: $this->getUser() instanceof User ? $this->getUser() : null);
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }
@@ -224,14 +276,25 @@ final class AssembleiaController extends AbstractController
         }
     }
 
-    /** "Salvar e sair" volta ao painel; "Continuar" segue para as pautas. */
+    /**
+     * "Salvar e sair" volta ao painel; o trilho e "Continuar"/"Voltar" levam ao passo (`passo-N`); sem valor (formulário
+     * antigo guardado) segue para as pautas, como antes do assistente.
+     */
     private function depoisDeSalvar(Request $request, int $id): Response
     {
-        if ('sair' === $request->request->get('depois')) {
+        $depois = (string) $request->request->get('depois', '');
+        if ('sair' === $depois) {
             return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
         }
+        $passo = 1 === preg_match('/^passo-([1-7])$/', $depois, $achou) ? (int) $achou[1] : 4;
 
-        return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        return match ($passo) {
+            1 => $this->redirectToRoute('voto_assembleia_editar', ['id' => $id]),
+            4 => $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]),
+            5 => $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]),
+            7 => $this->redirectToRoute('voto_assembleia_conferir_publicacao', ['id' => $id]),
+            default => $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => $passo]),
+        };
     }
 
     private function tokenValido(Request $request, string $id): bool
@@ -244,6 +307,29 @@ final class AssembleiaController extends AbstractController
         return false;
     }
 
+    /**
+     * Contexto do formulário dos passos 1 e 2: os cenários e o escolhido (valor desconhecido volta ao padrão, condomínio).
+     *
+     * @return array<string, mixed>
+     */
+    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro, int $passo): array
+    {
+        return [
+            'passo' => $passo,
+            'assembleia' => $assembleia,
+            'input' => $input,
+            'erro' => $erro,
+            'cenarios' => CenarioDaAssembleia::cases(),
+            'cenario' => CenarioDaAssembleia::tryFrom($input->cenario) ?? CenarioDaAssembleia::Condominio,
+        ];
+    }
+
+    /** O passo do formulário que enviou (campo `passo`): 2 ou, em qualquer outro caso, 1. */
+    private static function passoDoForm(Request $request): int
+    {
+        return 2 === (int) $request->request->get('passo', 1) ? 2 : 1;
+    }
+
     private static function input(Request $request): AssembleiaInput
     {
         return new AssembleiaInput(
@@ -251,6 +337,8 @@ final class AssembleiaController extends AbstractController
             (string) $request->request->get('peso', 'fracao'),
             (string) $request->request->get('entidade', ''),
             (string) $request->request->get('cnpj', ''),
+            (string) $request->request->get('cenario', CenarioDaAssembleia::Condominio->value),
+            '1' === (string) $request->request->get('simulacao', ''),
         );
     }
 }

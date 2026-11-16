@@ -75,7 +75,7 @@ final class PainelPorEntidade
     /**
      * Votações abertas (pauta aberta, suspensa ou não) e cédulas depositadas (pautas que já saíram de "aguardando",
      * canceladas incluídas: as cédulas ficam lacradas). Retirada e assembleia arquivada ficam de fora, como em
-     * Acompanhar e Resultados.
+     * Acompanhar e Resultados. A simulação conta, como no protótipo (só o Master a ignora, na W2-7).
      *
      * @param list<AssembleiaNoPainel> $assembleias
      */

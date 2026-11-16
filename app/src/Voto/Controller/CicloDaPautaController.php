@@ -13,6 +13,8 @@ use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
 use App\Voto\UseCase\DevolverPautaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
+use App\Voto\UseCase\ExcluirSimulacaoDaAssembleiaUseCase;
+use App\Voto\UseCase\ReiniciarSimulacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\RetirarPautaDaOrdemDoDiaUseCase;
 use App\Voto\UseCase\RetomarPautaUseCase;
 use App\Voto\UseCase\SuspenderPautaUseCase;
@@ -128,6 +130,26 @@ final class CicloDaPautaController extends AbstractController
         }, 'voto.assembleia.gestor.ciclo.rascunho_excluido');
     }
 
+    #[Route('/voto/assembleias/{id}/simulacao/reiniciar', name: 'voto_assembleia_reiniciar_simulacao', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function reiniciarSimulacao(int $id, Request $request, ReiniciarSimulacaoDaAssembleiaUseCase $reiniciar): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+
+        return $this->executar($request, $id, static function () use ($reiniciar, $tenant, $id): void {
+            $reiniciar->executar($tenant, $id);
+        }, 'voto.assembleia.gestor.ciclo.simulacao_reiniciada');
+    }
+
+    #[Route('/voto/assembleias/{id}/simulacao/apagar', name: 'voto_assembleia_excluir_simulacao', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function excluirSimulacao(int $id, Request $request, ExcluirSimulacaoDaAssembleiaUseCase $excluir): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+
+        return $this->executar($request, $id, static function () use ($excluir, $tenant, $id): void {
+            $excluir->executar($tenant, $id);
+        }, 'voto.assembleia.gestor.ciclo.simulacao_apagada');
+    }
+
     private static function motivo(Request $request): string
     {
         return (string) $request->request->get('motivo', '');
@@ -138,7 +160,7 @@ final class CicloDaPautaController extends AbstractController
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
             $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada'));
 
-            return $this->voltar($id);
+            return $this->voltar($request, $id);
         }
         try {
             $acao();
@@ -149,11 +171,16 @@ final class CicloDaPautaController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        return $this->voltar($id);
+        return $this->voltar($request, $id);
     }
 
-    private function voltar(int $id): RedirectResponse
+    /** Volta para a Gestão eleitoral; o menu da aba Votar manda `voltar=votar` e volta para a própria aba (valor fixo, nunca URL livre). */
+    private function voltar(Request $request, int $id): RedirectResponse
     {
+        if ('votar' === $request->request->get('voltar')) {
+            return $this->redirectToRoute('voto_index', ['aba' => 'ele']);
+        }
+
         return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
     }
 }

@@ -45,6 +45,7 @@
                     {% endfor %}
                     <div class="voto-resultado-abst">{{ (r.tipo.value == 'deliberacao' ? 'voto.assembleia.gestor.resultado_por_tipo.abstencoes_e_nulos' : 'voto.assembleia.gestor.resultado_por_tipo.brancos_e_nulos')|trans({n: r.abstencoesUnidades, nulos: r.nulosUnidades}) }}</div>
                     {% include 'voto/assembleia/_decisao.html.twig' with {r: r} only %}
+                    {% include 'voto/assembleia/_relacao_nominal.html.twig' with {p: p, a: a} only %}
                 </div>
             </div>
             {% endif %}

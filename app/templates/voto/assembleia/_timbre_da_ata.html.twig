@@ -1,0 +1,12 @@
+{#
+    "Papel timbrado para ata" do desenho 18 (timbTx): <label class="vB"> com o <input type="file" accept=".docx"> escondido
+    e o title do desenho, no cabeçalho do painel. O arquivo escolhido fica no navegador (localStorage, como o desenho;
+    se não couber, só nesta página) e vai junto em cada minuta; o nome aparece no rótulo ("Papel timbrado: nome"), e
+    escolher outro troca. Tratado por public/js/voto-minuta.js.
+#}
+{% set t = 'voto.assembleia.gestor.minuta.' %}
+<label class="vB" title="{{ (t ~ 'timbre_dica')|trans }}">
+    <input type="file" accept=".docx" hidden data-voto-timbre data-voto-timbre-padrao="{{ (t ~ 'timbre')|trans }}" data-voto-timbre-modelo="{{ (t ~ 'timbre_escolhido')|trans({nome: '__NOME__'}) }}"
+           data-voto-grande="{{ (t ~ 'modelo_grande')|trans }}" data-voto-salvo="{{ (t ~ 'timbre_salvo')|trans }}" data-voto-so-pagina="{{ (t ~ 'timbre_so_pagina')|trans }}">
+    <i class="bi bi-file-earmark-word"></i><span data-voto-timbre-texto>{{ (t ~ 'timbre')|trans }}</span>
+</label>

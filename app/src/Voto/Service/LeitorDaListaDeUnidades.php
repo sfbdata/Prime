@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Service;
 
 use App\Voto\DTO\LinhaDeUnidade;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 
@@ -98,7 +99,19 @@ final class LeitorDaListaDeUnidades
     /** @param list<string> $colunas */
     private static function ehCabecalho(array $colunas): bool
     {
-        return \in_array(u($colunas[0])->ascii()->lower()->toString(), self::CABECALHOS, true);
+        $primeira = u($colunas[0])->ascii()->lower()->toString();
+        if (\in_array($primeira, self::CABECALHOS, true)) {
+            return true;
+        }
+
+        // O modelo de cada cenário abre com o rótulo dele ("Matrícula", "CPF"...): a linha de cabeçalho também é pulada.
+        foreach (CenarioDaAssembleia::cases() as $cenario) {
+            if (u($cenario->identificacao())->ascii()->lower()->toString() === $primeira) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<string> $colunas */

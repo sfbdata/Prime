@@ -56,6 +56,7 @@ final class EnviarComprovantePorEmailUseCase
             trim($unidade->getBloco() . ' ' . $unidade->getIdentificacao()),
             $hora,
             $this->codigos->codigo((int) $unidade->getId(), $pautaId, $hora),
+            $unidade->getAssembleia()->getCenario()->identificacao(),
         );
     }
 }

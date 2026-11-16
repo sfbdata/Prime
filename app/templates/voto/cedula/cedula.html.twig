@@ -17,12 +17,15 @@
         {% if cedula.apta %}<i class="bi bi-person-check-fill" aria-hidden="true"></i>{% endif %}
         <div class="vcUnidadeTx">
             <b>{{ cedula.assembleia }}</b>
-            <div>{{ 'voto.assembleia.cedula.unidade'|trans }} {% if cedula.bloco != '' %}{{ cedula.bloco }} · {% endif %}{{ cedula.unidade }}</div>
+            <div>{{ cedula.cenario.identificacao }} {% if cedula.bloco != '' %}{{ cedula.bloco }} · {% endif %}{{ cedula.unidade }}</div>
         </div>
         {% if not cedula.apta %}<span class="vChip vcChipNaoApto">{{ 'voto.assembleia.cedula.nao_apto'|trans }}</span>{% endif %}
     </div>
 
+    {# O aviso de sigilo vale só se alguma pauta da cédula é secreta; a de voto aberto avisa o contrário no próprio cartão. #}
+    {% if cedula.pautas|filter(p => not p.votoAberto) is not empty or cedula.pautas is empty %}
     <div class="vAviso" data-vc-sigilo>{{ 'voto.assembleia.cedula.aviso_sigilo'|trans }}</div>
+    {% endif %}
 
     {# Pautas abertas com opções: `todas` alimenta a simulação e as candidaturas; `votaveis` são as que esta unidade ainda pode votar. #}
     {% set todas = [] %}
@@ -33,7 +36,7 @@
             {% for o in pauta.opcoes %}
                 {% set opcoes = opcoes|merge([{id: o.id, numero: o.numero, rotulo: (o.abstencao ? (pauta.tipo.value == 'eleicao_cargo' ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans : o.rotulo), abstencao: o.abstencao, descricao: o.descricao, composicao: o.composicao, foto: o.temFoto ? path('voto_assembleia_cedula_foto', {token: token, opcao: o.id}) : null}]) %}
             {% endfor %}
-            {% set item = {id: pauta.id, titulo: pauta.titulo, vagas: pauta.vagas, digitos: pauta.digitos, eleicao: pauta.tipo.value == 'eleicao_cargo', opcoes: opcoes} %}
+            {% set item = {id: pauta.id, titulo: pauta.titulo, vagas: pauta.vagas, digitos: pauta.digitos, eleicao: pauta.tipo.value == 'eleicao_cargo', aberto: pauta.votoAberto, opcoes: opcoes} %}
             {% set todas = todas|merge([item]) %}
             {% if cedula.apta and pauta.votouEm is null %}
                 {% set votaveis = votaveis|merge([item]) %}

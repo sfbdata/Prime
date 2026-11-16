@@ -9,11 +9,13 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Entity\VotoNominal;
 use App\Voto\Exception\CedulaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
+use App\Voto\Repository\VotoNominalRepository;
 use App\Voto\Service\ComprovanteDoVoto;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\Service\UnidadeDoLink;
@@ -34,7 +36,11 @@ use Psr\Clock\ClockInterface;
  *     participação, não importa quantos nomes.
  *
  * SIGILO (seção 2): nenhuma linha liga a unidade à opção. A participação não guarda a opção, e o contador só muda por
- * UPDATE direto, fora da unidade de trabalho do Doctrine (sem audit_log com a hora da mudança).
+ * UPDATE direto, fora da unidade de trabalho do Doctrine (sem audit_log com a hora da mudança). Única exceção: a
+ * pauta configurada com VOTO ABERTO antes de publicar (SigiloDoVoto), que grava também o registro nominal
+ * ({@see VotoNominal}) na mesma transação. A pauta secreta nunca grava linha nominal.
+ *
+ * Grupos: a pauta com grupos aptos só aceita a unidade de um deles (comparação do bloco, sem caixa).
  *
  * Devolve o código de comprovante da participação ({@see ComprovanteDoVoto}): prova que a unidade votou, nunca em quê.
  *
@@ -53,6 +59,7 @@ final class RegistrarVotoUseCase
     public const NOMES_DEMAIS = 'Você escolheu mais nomes do que as vagas desta pauta.';
     public const NUMERO_REPETIDO = 'Você escolheu o mesmo número mais de uma vez.';
     public const NOME_REPETIDO = 'Você escolheu o mesmo nome mais de uma vez.';
+    public const UNIDADE_FORA_DO_GRUPO = 'Sua unidade não participa desta votação.';
     public const ABSTENCAO_EXCLUSIVA = 'A abstenção não pode ser escolhida junto com um nome.';
 
     public function __construct(
@@ -63,6 +70,7 @@ final class RegistrarVotoUseCase
         private readonly TransacaoDoVoto $transacao,
         private readonly ClockInterface $relogio,
         private readonly ComprovanteDoVoto $comprovante,
+        private readonly VotoNominalRepository $nominais,
     ) {
     }
 
@@ -109,6 +117,9 @@ final class RegistrarVotoUseCase
             // A transação grava o encerramento e confirma; a recusa sai depois dela.
             return [self::PRAZO_ENCERRADO, null];
         }
+        if (!$pauta->aceitaBloco($unidade->getBloco())) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::UNIDADE_FORA_DO_GRUPO);
+        }
         $escolhidas = $this->opcoesQueAceitamVoto($pauta, $input->opcoesIds, $agora, [] !== $input->numerosNulos);
         $this->exigirNulosPermitidos($pauta, $escolhidas, $input->numerosNulos);
         $this->exigirPrimeiroVoto($unidade, $pauta);
@@ -117,9 +128,29 @@ final class RegistrarVotoUseCase
         $this->transacao->gravar();
         $this->opcoes->somarVotos($escolhidas, $unidade->pesoDoVoto(), $pauta);
         $this->pautas->somarNulos($pauta, \count($input->numerosNulos), $unidade->pesoDoVoto());
+        $this->registrarVotoAberto($pauta, $unidade, $escolhidas, $input->numerosNulos, $agora);
 
         // O código usa a hora em segundos, como o banco a guarda: a conferência o refaz a partir da participação gravada.
         return [null, $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $agora)];
+    }
+
+    /**
+     * Só o voto aberto guarda quem votou em quê (uma linha por escolha); a pauta secreta sai daqui sem tocar em nada.
+     *
+     * @param list<OpcaoDaPauta> $escolhidas
+     * @param list<string>       $numerosNulos
+     */
+    private function registrarVotoAberto(PautaDaAssembleia $pauta, UnidadeDaAssembleia $unidade, array $escolhidas, array $numerosNulos, \DateTimeImmutable $agora): void
+    {
+        if (!$pauta->votoAberto()) {
+            return;
+        }
+        foreach ($escolhidas as $opcao) {
+            $this->nominais->salvar(new VotoNominal($unidade, $pauta, $opcao, null, $unidade->pesoDoVoto(), $agora));
+        }
+        foreach ($numerosNulos as $numero) {
+            $this->nominais->salvar(new VotoNominal($unidade, $pauta, null, $numero, $unidade->pesoDoVoto(), $agora));
+        }
     }
 
     /**

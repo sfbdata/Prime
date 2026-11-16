@@ -1,0 +1,22 @@
+/* Perfis por assembleia ou votação (desenho 18, H247 e CSS L99-101). Valores do CSS do desenho. */
+.voto-tela .vPerG { width: 100%; display: flex; gap: 10px; align-items: center; padding: 13px 16px; background: #fff; border: 0; border-top: 1px solid #e3ecf2; font: inherit; font-size: 14.5px; color: #0b3550; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; }
+.voto-tela .vPerG b { flex: 1 1 auto; min-width: 0; }
+.voto-tela .vPerG span { font-size: 13px; }
+.voto-tela .vPerG:hover { background: #3b8fc2; color: #fff; }
+.voto-tela .vPerGOn { background: #e8f2f8; }
+.voto-tela .vPerG:focus-visible { outline: 3px solid #3b8fc2; outline-offset: -3px; }
+.voto-tela .voto-equipe-corpo { background: #f7fbfd; }
+.voto-tela .voto-equipe-texto { font-size: 13px; color: #34505f; }
+.voto-tela .voto-equipe-aviso { font-size: 13px; color: #8a6200; }
+.voto-tela .voto-equipe-categoria { display: flex; gap: 9px; align-items: flex-end; flex-wrap: wrap; }
+.voto-tela .voto-equipe-campo-largo { flex: 1 1 260px; }
+.voto-tela .voto-equipe-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13.5px; }
+.voto-tela .voto-equipe-nome { flex: 1 1 220px; }
+.voto-tela .voto-equipe-email { flex: 1 1 180px; color: #5b7383; }
+.voto-tela .voto-equipe-chip { background: #0a6fa0; }
+.voto-tela .voto-equipe-semconta { color: #8a6200; }
+.voto-tela .voto-equipe-edicao { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1 1 100%; margin: 0; }
+.voto-tela .voto-equipe-in { flex: 1 1 170px; width: auto; }
+.voto-tela .voto-equipe-in-cargo { flex-basis: 150px; }
+.voto-tela .voto-equipe-novo { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 9px; align-items: end; margin: 0; }
+.voto-tela .voto-equipe-votacao { padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }

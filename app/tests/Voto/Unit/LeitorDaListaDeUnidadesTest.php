@@ -101,6 +101,17 @@ final class LeitorDaListaDeUnidadesTest extends TestCase
         self::assertSame('numero', $lidas['validas'][1]->identificacao);
     }
 
+    #[TestDox('O cabeçalho do modelo de cada cenário (Matrícula, CPF, Número de inscrição...) também é pulado')]
+    public function testCabecalhoDeCadaCenario(): void
+    {
+        foreach (\App\Voto\Enum\CenarioDaAssembleia::cases() as $cenario) {
+            $lidas = (new LeitorDaListaDeUnidades())->ler($cenario->identificacao() . "; " . $cenario->grupo() . "\n77; X\n", PesoDoVoto::Unidade);
+
+            self::assertCount(1, $lidas['validas'], $cenario->value);
+            self::assertSame('77', $lidas['validas'][0]->identificacao);
+        }
+    }
+
     #[TestDox('Mais de 3000 linhas de uma vez são recusadas')]
     public function testLimiteDeLinhas(): void
     {

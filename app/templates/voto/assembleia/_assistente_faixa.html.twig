@@ -1,0 +1,5 @@
+{#
+    Faixa azul do assistente de 7 passos (desenho 18, L254: ícone, título, e à direita "Alterações ainda não salvas",
+    que o JS (public/js/voto-assistente.js) mostra quando algum campo muda). Contexto: `a` (AssembleiaNoPainel ou null) e `icone`.
+#}
+<div class="vH"><i class="bi {{ icone|default('bi-plus-square') }}"></i>{{ a is null ? 'voto.assembleia.gestor.nova'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}<span class="voto-espaco"></span><span class="voto-sujo" data-voto-sujo hidden>{{ 'voto.assembleia.gestor.assistente.nao_salvas'|trans }}</span></div>

@@ -628,6 +628,51 @@ leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois
 da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
 inteira a pasta que a pessoa não pode abrir.
 
+### Equipe da assembleia do Voto: teto por assembleia (spec `docs/specs/voto-equipe-e-master-1611.md`)
+
+Mesmo modelo do cadeado da pasta: a equipe própria de uma assembleia é uma **restrição**. Ela tira acesso de quem
+já teria pelo módulo `voto` e nunca dá acesso a ninguém. O ponto único é `App\Voto\Service\AcessoAAssembleia`:
+
+- `nivel(User, Assembleia)` devolve `Oculto`, `Visualizar` ou `Editar` (`NivelNaAssembleia`): Master ou primário
+  ativo do escritório (`RegraDosPrimarios::podeGerirPrimarios`, "a Administração") → `Editar`; assembleia sem
+  linha em `voto.membro_da_equipe` (equipe padrão) → `Editar`; com equipe própria, o papel da pessoa:
+  `comissao` → `Editar`; `auditoria`, `fiscal` e `conselho` → `Visualizar`; quem não está na lista, ou consta só
+  como linha sem `user_id` (pessoa sem conta, "A designar"), → `Oculto`;
+- o nível **não olha** o módulo nem a liberação do escritório: a guarda atual
+  (`GuardaDaEquipeDoVoto::exigir()`, chamada pelas actions) continua valendo e recusa quem já recusava, mesmo
+  que a pessoa conste na equipe. Teto, nunca concessão;
+- para listas: `niveisEmLote()` e `visiveis()` (uma consulta de equipes para N assembleias, sem N+1) e
+  `idsQueEdita()` (o lote).
+
+**Quem designa a equipe:** só a Administração (a mesma régua do cadeado), só com a assembleia em rascunho. Ela
+nunca fica na tabela (nunca é restringida) e a tela Perfis recusa indicá-la. Uma pessoa tem um único papel por
+assembleia (UNIQUE `assembleia_id` + `user_id`). A linha só ganha `user_id` quando o e-mail é de uma conta com
+vínculo ativo no escritório; sem conta, nome e e-mail ficam como cargo e **não dão acesso**.
+
+**Onde o teto vale:**
+
+1. `BarreiraDaEquipeListener` (`kernel.controller_arguments`), em TODA rota `voto_assembleia_*` que resolve uma
+   assembleia: o argumento `Assembleia` ou o `id` da rota, pelo `App\Voto\Service\AssembleiaDaRota` (id E
+   escritório da sessão). `Oculto` recebe 403 em tudo, com a frase do desenho "Seu perfil não atua nesta
+   votação."; `Visualizar` recebe 403 nos métodos não seguros, menos as leituras por POST de
+   `ROTAS_DO_VISUALIZAR` (as duas minutas de ata, que só geram o arquivo). Assembleia de outro escritório passa
+   reto: a action responde o 404 dela. As rotas sem assembleia na rota (`nova`, o lote, a cédula e o portal
+   públicos) estão em `ROTAS_SEM_ASSEMBLEIA`, cada uma com o motivo. O alcance é travado por
+   `app/tests/Arquitetura/BarreiraDaEquipeRotasArquiteturaTest.php`.
+2. O lote da Gestão eleitoral (`LoteDoVotoController`): os ids vão no corpo, então o controller tira os que a
+   pessoa só lê ou não vê (`AcessoAAssembleia::idsQueEdita`) e os conta como "mantidas". O id de outro escritório
+   fica no lote para o UseCase responder o 404.
+3. Listas: o Painel (KPIs inclusive), a aba Votar, Acompanhar e Resultados escondem a assembleia `Oculto`
+   (`ObterPainelDoVotoUseCase` e `ListarVotacoesParaVotarUseCase`, com a pessoa logada).
+
+**Telas e rotas:** `voto_equipe_*` (`EquipeDoVotoController`), só para a Administração (403 para o resto, 404 para
+assembleia de outro escritório). A tela "Perfis por assembleia ou votação" entra como sub-aba "Perfis" da Gestão
+eleitoral, visível só para a Administração (`voto_gere_equipe()`).
+
+**Ainda não cobre:** o Guardião e a Validação (dependem de C1 e C4); o acesso de membro sem conta no BlueJus;
+o ocultar dos botões de escrita para quem está em `Visualizar` (a barreira recusa o POST, mas a tela ainda os
+mostra); a relação de votantes (bloco B) e as estatísticas do Master (bloco C).
+
 ### Meta aberta por id: ver a pasta ou cuidar da meta (auditoria 3.12, 05/11/2026)
 
 A meta não tem recurso-item próprio: o item que ela protege é a pasta. A guarda única das rotas por id da

@@ -33,9 +33,21 @@
         {# Arquivada não se conduz no telão (o desenho esconde o item; o telão responde 404). #}
         {% set itens = itens|filter(i => i.href is not defined or i.href != path('voto_assembleia_telao', {id: a.id})) %}
     {% endif %}
-    {% set podeArquivar = a.publicada and not a.arquivada and a.pautas|filter(x => x.aberta)|length == 0 %}
-    {% if a.podeExcluir and not a.arquivada %}
+    {# Teto da equipe: quem só lê (auditoria, fiscal, conselho) não vê o que escreve (voto_edita, EquipeExtension). #}
+    {% set edita = voto_edita(a.id) %}
+    {% if not edita %}
+        {% set itens = itens|filter(i => i.acao is not defined and i.revelar is not defined and (i.href is not defined or i.href != path('voto_assembleia_editar', {id: a.id}))) %}
+    {% endif %}
+    {% set podeArquivar = voto_edita(a.id) and a.publicada and not a.arquivada and not a.simulacao and a.pautas|filter(x => x.aberta)|length == 0 %}
+    {% if edita and a.podeExcluir and not a.arquivada %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.excluir_rascunho'|trans, icone: 'bi-trash', revelar: '#excluir-' ~ a.id, destrutivo: true}]) %}
+    {% endif %}
+    {# Simulação (desenho 18, kMenu): Reiniciar simulação (sem confirmação) e Apagar simulação (vermelho, abre a faixa). #}
+    {% if a.simulacao %}
+        {% set itens = itens|merge([
+            {rotulo: 'voto.assembleia.gestor.menu_ciclo.reiniciar_simulacao'|trans, icone: 'bi-arrow-counterclockwise', acao: path('voto_assembleia_reiniciar_simulacao', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)},
+            {rotulo: 'voto.assembleia.gestor.menu_ciclo.apagar_simulacao'|trans, icone: 'bi-trash', revelar: '#apagar-simulacao-' ~ a.id, destrutivo: true},
+        ]) %}
     {% endif %}
     {% if podeArquivar %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.arquivar'|trans, icone: 'bi-archive', revelar: '#arquivar-' ~ a.id}]) %}
@@ -58,6 +70,16 @@
             </form>
         </div>
     {% endif %}
+    {% if a.simulacao %}
+        <div class="vLin" id="apagar-simulacao-{{ a.id }}" data-voto-revelavel hidden>
+            <form method="post" action="{{ path('voto_assembleia_excluir_simulacao', {id: a.id}) }}" class="voto-faixa-pergunta voto-faixa-excluir">
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
+                <b>{{ 'voto.assembleia.gestor.arquivar.simulacao_pergunta'|trans }}</b>
+                <button type="button" class="vB" data-voto-ocultar>{{ 'voto.assembleia.gestor.arquivar.simulacao_manter'|trans }}</button>
+                <button type="submit" class="vB vD"><i class="bi bi-trash"></i>{{ 'voto.assembleia.gestor.arquivar.simulacao_sim'|trans }}</button>
+            </form>
+        </div>
+    {% endif %}
     {% if podeArquivar %}
         <div class="vLin" id="arquivar-{{ a.id }}" data-voto-revelavel hidden>
             <form method="post" action="{{ path('voto_assembleia_arquivar', {id: a.id}) }}" class="voto-faixa-pergunta voto-faixa-arquivar" data-voto-exige-motivo="{{ 'voto.assembleia.gestor.lote.motivo_curto'|trans }}">
@@ -70,21 +92,23 @@
         </div>
     {% endif %}
     <div class="vLin voto-acoes">
-        {% if selecao is defined and selecao %}
-            <input type="checkbox" class="vSel" value="{{ a.id }}" aria-label="{{ 'voto.assembleia.gestor.arquivar.selecionar'|trans({titulo: a.titulo}) }}" data-voto-lote-item data-aberta="{{ a.pautas|filter(x => x.aberta)|length > 0 ? '1' : '0' }}" data-arquivar="{{ podeArquivar ? '1' : '0' }}" data-excluir="{{ a.podeExcluir and not a.arquivada ? '1' : '0' }}">
+        {% if selecao is defined and selecao and edita %}
+            <input type="checkbox" class="vSel" value="{{ a.id }}" aria-label="{{ 'voto.assembleia.gestor.arquivar.selecionar'|trans({titulo: a.titulo}) }}" data-voto-lote-item data-aberta="{{ a.pautas|filter(x => x.aberta)|length > 0 ? '1' : '0' }}" data-arquivar="{{ podeArquivar ? '1' : '0' }}" data-excluir="{{ a.podeExcluirEmLote and not a.arquivada ? '1' : '0' }}">
         {% endif %}
         {% if a.arquivada %}
             {# Arquivada: sem Publicar nem Conduzir no telão (o desenho esconde); fica o relatório, se havia votação. #}
             {% if a.publicada %}
                 <a class="vB vP" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</a>
+                {% if a.pautasEncerradas|length > 0 %}{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a} only %}{% endif %}
             {% endif %}
         {% elseif not a.publicada %}
-            <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
+            {% if edita %}<form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
                 <button type="submit" class="vB vP"><i class="bi bi-megaphone"></i>{{ 'voto.assembleia.gestor.painel.publicar'|trans }}</button>
-            </form>
+            </form>{% endif %}
         {% else %}
             <button type="button" class="vB vP" data-voto-janela="#janela-relatorio-{{ a.id }}"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</button>
             {% include 'voto/assembleia/_janela_relatorio.html.twig' with {a: a} only %}
+            {% if a.pautasEncerradas|length > 0 %}{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a} only %}{% endif %}
             <a class="vB" href="{{ path('voto_assembleia_telao', {id: a.id}) }}"><i class="bi bi-display"></i>{{ 'voto.assembleia.gestor.telao.conduzir'|trans }}</a>
         {% endif %}
     </div>

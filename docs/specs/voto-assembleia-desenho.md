@@ -70,7 +70,7 @@ Uma migration por vez entre PRs abertos: 1, 2, 5, 8 entram em fila.
 | Item do desenho | Estado | Prova / diferença |
 |---|---|---|
 | Título "Voto" e abas Votar / Resultados / Gestão eleitoral / Acompanhar (`.vTab`) | ✓ | `app/templates/voto/index.html.twig:29-50` |
-| Aba Votar do sistema lista votações publicadas | ⚠ | aba mostra só aviso "vazio_gestao" (`index.html.twig:50-53`); o morador entra por link, não por esta aba |
+| Aba Votar do sistema lista votações publicadas | ✓ | um cartão por pauta publicada, com chip, menu, Conhecer candidaturas, Simular votação e Votar (`AssembleiaController::votar`, `assembleia/_votar.html.twig`) |
 | Sub-abas da Gestão: Painel, Criar eleição, Lista de aptos, Apuração | ⚠ | viraram páginas separadas (`/voto/assembleias/nova`, `/{id}/pautas`, `/{id}/unidades`); sem a barra de sub-abas (`_sub_abas.html.twig` existe só como trilho do assistente) |
 | Sub-abas Estatísticas, Perfis, Eleitores, Avaliações, Auditoria, Testes; "Atuando como" | ✗ | nenhuma rota (grep `debug:router`/Controllers) |
 | Barra de contexto/escritório e papéis por votação (Comissão, Auditoria, Fiscal, Guardião...) | ✗ | quem tem o módulo `voto` faz tudo (`GuardaDaEquipeDoVoto.php`) |
