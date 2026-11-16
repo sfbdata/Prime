@@ -6,6 +6,7 @@ namespace App\Voto\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OcorrenciaDaUnidade;
 use App\Voto\Enum\AvaliacaoDaOcorrencia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
@@ -63,19 +64,8 @@ final class DecidirAvaliacaoUseCase
         return $this->transacao->executar(function () use ($tenant, $assembleia, $ocorrenciaId, $decisao, $justificativa, $ator, $porNome, $agora): OcorrenciaDaUnidade {
             $ocorrencia = $this->ocorrencias->buscarTravadaDaAssembleia($ocorrenciaId, $assembleia)
                 ?? throw new AssembleiaNaoEncontradaException();
-            if (!$ocorrencia->pendente()) {
-                throw new OperacaoInvalidaNaAssembleiaException('Não há avaliação pendente.');
-            }
-            if (AvaliacaoDaOcorrencia::Pendente === $decisao) {
-                throw new OperacaoInvalidaNaAssembleiaException('Decisão inválida.');
-            }
-            if ('' === trim($justificativa)) {
-                throw new OperacaoInvalidaNaAssembleiaException('Informe a justificativa.');
-            }
+            $this->validarDecisao($ocorrencia, $assembleia, $decisao, $justificativa, $agora);
             if (AvaliacaoDaOcorrencia::TornadaApta === $decisao) {
-                if ($assembleia->algumaPautaEncerrada($agora)) {
-                    throw new OperacaoInvalidaNaAssembleiaException('Votação encerrada: a aptidão não pode mais ser alterada.');
-                }
                 $ocorrencia->getUnidade()->tornarAptaPeloConselho();
             }
             $ocorrencia->decidir($decisao, $justificativa, $porNome, $agora);
@@ -84,5 +74,21 @@ final class DecidirAvaliacaoUseCase
 
             return $ocorrencia;
         });
+    }
+
+    private function validarDecisao(OcorrenciaDaUnidade $ocorrencia, Assembleia $assembleia, AvaliacaoDaOcorrencia $decisao, string $justificativa, \DateTimeImmutable $agora): void
+    {
+        if (!$ocorrencia->pendente()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Não há avaliação pendente.');
+        }
+        if (AvaliacaoDaOcorrencia::Pendente === $decisao) {
+            throw new OperacaoInvalidaNaAssembleiaException('Decisão inválida.');
+        }
+        if ('' === trim($justificativa)) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe a justificativa.');
+        }
+        if (AvaliacaoDaOcorrencia::TornadaApta === $decisao && $assembleia->algumaPautaEncerrada($agora)) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação encerrada: a aptidão não pode mais ser alterada.');
+        }
     }
 }

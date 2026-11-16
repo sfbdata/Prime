@@ -30,6 +30,10 @@ final readonly class CedulaOutput
         /** O cenário só rotula (identificação da unidade, modalidade): nunca entra no hash. */
         public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
         public bool $simulacao = false,
+        /** A última ocorrência da unidade, mostrada só à unidade não apta (desenho 18, H449); null sem ocorrência. */
+        public ?string $ocorrencia = null,
+        /** A ocorrência tem avaliação pendente: "(em avaliação pelo conselho)". */
+        public bool $ocorrenciaEmAvaliacao = false,
     ) {
     }
 

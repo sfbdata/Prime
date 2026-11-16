@@ -22,7 +22,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * `kernel.controller_arguments`, no molde da `BarreiraDoCadeadoListener` da pasta. Vale para TODA rota `voto_assembleia_*`
  * que resolve uma assembleia (argumento `Assembleia` ou o `id` da rota; ver {@see AssembleiaDaRota}):
  *  - `Oculto`: 403 em tudo, com a frase do desenho "Seu perfil não atua nesta votação.";
- *  - `Visualizar`: 403 nos métodos não seguros, menos as leituras por POST (`ROTAS_DO_VISUALIZAR`);
+ *  - `Visualizar`: 403 nos métodos não seguros, menos as rotas de `ROTAS_DO_VISUALIZAR` (as leituras por POST e a decisão
+ *    do conselho, a única escrita, que o UseCase confere por papel);
  *  - `Editar`: passa.
  *
  * É TETO: a barreira só recusa, nunca libera. A guarda do módulo (`GuardaDaEquipeDoVoto::exigir()`, nas actions) continua
@@ -58,14 +59,16 @@ final class BarreiraDaEquipeListener
     ];
 
     /**
-     * Leituras por POST que quem está em `Visualizar` ainda faz: as duas minutas de ata só GERAM o arquivo para baixar
-     * (POST por causa do modelo .docx enviado a cada geração e do token), sem gravar nada.
+     * POSTs que quem está em `Visualizar` ainda faz. As duas minutas de ata só GERAM o arquivo para baixar (POST por causa
+     * do modelo .docx enviado a cada geração e do token), sem gravar nada. A decisão do conselho sobre uma avaliação é a
+     * única que GRAVA, por isso carrega o motivo e a conferência de papel no UseCase.
      *
      * @var array<string, string>
      */
     public const ROTAS_DO_VISUALIZAR = [
         'voto_assembleia_minuta' => 'gera a minuta da ata para baixar; o POST leva o modelo .docx e não grava nada.',
         'voto_assembleia_pauta_minuta' => 'gera a minuta da ata de uma votação para baixar; o POST leva o modelo .docx e não grava nada.',
+        'voto_assembleia_avaliacao_decidir' => 'A ÚNICA escrita do nível Visualizar (spec voto-avaliacoes-do-conselho-1611): o conselho decide a avaliação de aptidão. A barreira só deixa passar; o papel (conselho ou Administração) é conferido no DecidirAvaliacaoUseCase, que recusa auditoria e fiscal com 403.',
     ];
 
     private const METODOS_DE_LEITURA = ['GET', 'HEAD', 'OPTIONS'];
