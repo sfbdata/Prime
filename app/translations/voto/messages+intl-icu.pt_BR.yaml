@@ -441,3 +441,32 @@ voto:
                 botao: Votar
                 aviso: 'Não repasse este link: quem o tiver vota pela sua unidade.'
                 nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+            # ---- Voto redesign F3-1: Telão (modo assembleia), desenho 18.
+            telao:
+                titulo: 'Modo assembleia: {assembleia}'
+                rotulo: Modo assembleia
+                conduzir: Conduzir no telão
+                conduzir_menu: Conduzir no telão (modo assembleia)
+                tela_cheia: Tela cheia
+                sair: Sair
+                ordem_do_dia: ORDEM DO DIA
+                qr_alt: QR Code para votar
+                aponte: Aponte a câmera para votar
+                codigo: 'Código de conferência {codigo}'
+                votaram: votaram
+                aptos: aptos
+                de_participacao: de participação
+                das_fracoes: das frações
+                quorum_atingido: 'Quórum {q}%: atingido'
+                quorum_nao_atingido: 'Quórum {q}%: ainda não atingido'
+                aguardando_abertura: Aguardando abertura pela mesa
+                abstencoes: Abstenções
+                brancos: Brancos
+                nulos: Nulos
+                encerrar: Encerrar votação
+                encerrar_pergunta: Encerrar agora? Depois de encerrada não aceita mais votos.
+                continuar: Continuar votação
+                confirmar_encerramento: Confirmar encerramento
+                motivo_padrao: Determinação da mesa
+                ir_apuracao: Ir para a apuração
+                proxima: 'Próxima: {pauta}'

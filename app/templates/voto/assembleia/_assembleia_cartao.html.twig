@@ -1,7 +1,7 @@
 {#
     Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
     assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
-    Code, Resultados e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
+    Code, Resultados, Conduzir no telão e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
 #}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
     {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
@@ -17,6 +17,7 @@
         {% set itens = itens|merge([
             {rotulo: 'voto.assembleia.gestor.menu.link_qr'|trans, icone: 'bi-qr-code', href: path('voto_assembleia_divulgacao', {id: a.id})},
             {rotulo: 'voto.assembleia.gestor.painel.resultados'|trans, icone: 'bi-shield-check', href: path('voto_index', {aba: 'tra'}) ~ '#assembleia-' ~ a.id},
+            {rotulo: 'voto.assembleia.gestor.telao.conduzir_menu'|trans, icone: 'bi-display', href: path('voto_assembleia_telao', {id: a.id})},
         ]) %}
     {% endif %}
     {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu.duplicar'|trans, icone: 'bi-copy', acao: path('voto_assembleia_duplicar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}
@@ -29,6 +30,7 @@
             </form>
         {% else %}
             <a class="vB vP" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</a>
+            <a class="vB" href="{{ path('voto_assembleia_telao', {id: a.id}) }}"><i class="bi bi-display"></i>{{ 'voto.assembleia.gestor.telao.conduzir'|trans }}</a>
         {% endif %}
     </div>
     {% for p in a.pautas %}
