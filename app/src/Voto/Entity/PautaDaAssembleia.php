@@ -323,8 +323,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
 
     /**
      * Cancelamento, sem volta: a pauta aberta é encerrada com o motivo "Votação cancelada: ..." e as cédulas ficam
-     * lacradas, sem apuração. Pauta já encerrada também pode ser cancelada. Antes de abrir, cancelar equivale a
-     * retirar de pauta.
+     * lacradas, sem apuração. Pauta já encerrada já está apurada e não se cancela. Antes de abrir, cancelar equivale
+     * a retirar de pauta.
      */
     public function cancelar(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
     {
@@ -342,9 +342,10 @@ class PautaDaAssembleia implements TenantAware, Auditavel
 
             return;
         }
-        if (EstadoDaPauta::Aberta === $this->estado) {
-            $this->fechar($agora, $por, 'Votação cancelada: ' . $motivo);
+        if (EstadoDaPauta::Encerrada === $this->estado) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação já apurada não pode ser cancelada: arquive se quiser tirá-la das listas.');
         }
+        $this->fechar($agora, $por, 'Votação cancelada: ' . $motivo);
         $this->canceladaEm = $agora;
         $this->canceladaMotivo = $motivo;
         $this->canceladaPorNome = mb_substr($por, 0, 180);
@@ -372,6 +373,18 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         $this->retiradaEm = $agora ?? new \DateTimeImmutable();
         $this->retiradaMotivo = $motivo;
         $this->retiradaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /** Desfaz a retirada de pauta: a pauta volta a aguardando a abertura (a assembleia não pode estar arquivada). */
+    public function devolverAPauta(string $por): void
+    {
+        if (!$this->retirada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('A pauta não está retirada.');
+        }
+        $this->assembleia->exigirNaoArquivada('Votação arquivada: desarquive antes de devolver a pauta.');
+        $this->retiradaEm = null;
+        $this->retiradaMotivo = null;
+        $this->retiradaPorNome = null;
     }
 
     /** Aberta e suspensa pela mesa. */

@@ -23,6 +23,7 @@ use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\UseCase\ArquivarAssembleiaUseCase;
 use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
+use App\Voto\UseCase\DevolverPautaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
 use App\Voto\UseCase\RetirarPautaDaOrdemDoDiaUseCase;
 use App\Voto\UseCase\RetomarPautaUseCase;
@@ -41,6 +42,7 @@ use Symfony\Component\Lock\Store\InMemoryStore;
  */
 #[CoversClass(SuspenderPautaUseCase::class)]
 #[CoversClass(RetomarPautaUseCase::class)]
+#[CoversClass(DevolverPautaUseCase::class)]
 #[CoversClass(CancelarPautaUseCase::class)]
 #[CoversClass(RetirarPautaDaOrdemDoDiaUseCase::class)]
 #[CoversClass(ArquivarAssembleiaUseCase::class)]
@@ -110,6 +112,9 @@ final class CicloDosUseCasesTest extends TestCase
 
         self::assertTrue($this->pauta->retirada());
         self::assertSame('Maria', $this->pauta->getRetiradaPorNome());
+
+        (new DevolverPautaUseCase($this->assembleias, $this->pautas, $this->transacao))->executar($this->tenant, 5, 7, 'Maria');
+        self::assertFalse($this->pauta->retirada());
     }
 
     #[TestDox('Outro escritório ou pauta inexistente: AssembleiaNaoEncontradaException em todas as ações da pauta')]
@@ -120,11 +125,12 @@ final class CicloDosUseCasesTest extends TestCase
             new RetomarPautaUseCase($this->assembleias, $this->pautas, $this->transacao),
             new CancelarPautaUseCase($this->assembleias, $this->pautas, $this->transacao),
             new RetirarPautaDaOrdemDoDiaUseCase($this->assembleias, $this->pautas, $this->transacao),
+            new DevolverPautaUseCase($this->assembleias, $this->pautas, $this->transacao),
         ];
         foreach ($casos as $caso) {
             foreach ([[new Tenant(), 5, 7], [$this->tenant, 6, 7], [$this->tenant, 5, 8]] as [$tenant, $assembleia, $pauta]) {
                 try {
-                    $caso instanceof RetomarPautaUseCase
+                    $caso instanceof RetomarPautaUseCase || $caso instanceof DevolverPautaUseCase
                         ? $caso->executar($tenant, $assembleia, $pauta, 'Maria')
                         : $caso->executar($tenant, $assembleia, $pauta, 'Motivo válido', 'Maria');
                     self::fail($caso::class . ' devia dar "não encontrada".');

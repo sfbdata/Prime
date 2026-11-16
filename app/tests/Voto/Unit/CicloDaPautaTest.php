@@ -148,16 +148,47 @@ final class CicloDaPautaTest extends TestCase
         $this->assertRecusa('Votação já cancelada.', fn () => $pauta->cancelar('Outro motivo', 'Mesa', $this->agora));
     }
 
-    #[TestDox('Cancelar a pauta já encerrada também vale (lacra as cédulas)')]
-    public function testCancelarEncerrada(): void
+    #[TestDox('Cancelar a pauta já encerrada (apurada) é recusado e nada muda')]
+    public function testCancelarEncerradaRecusa(): void
     {
         $pauta = $this->pautaAberta();
         $pauta->encerrar('Mesa', '', $this->agora);
 
-        $pauta->cancelar('Ata contestada', 'Comissão', $this->agora->modify('+1 minute'));
+        $this->assertRecusa('Votação já apurada não pode ser cancelada: arquive se quiser tirá-la das listas.', fn () => $pauta->cancelar('Ata contestada', 'Comissão', $this->agora->modify('+1 minute')));
 
-        self::assertTrue($pauta->cancelada());
-        self::assertSame(PautaDaAssembleia::MOTIVO_DA_MESA, $pauta->getMotivoEncerramento(), 'o encerramento original fica');
+        self::assertFalse($pauta->cancelada());
+    }
+
+    #[TestDox('Devolver a pauta retirada: volta a aguardando, limpa a retirada e pode abrir; só retirada e sem arquivar')]
+    public function testDevolver(): void
+    {
+        $pauta = $this->pautaAguardando();
+        $this->assertRecusa('A pauta não está retirada.', fn () => $pauta->devolverAPauta('Mesa'));
+        $pauta->retirarDePauta('Matéria adiada', 'Mesa', $this->agora);
+
+        $pauta->devolverAPauta('Mesa');
+
+        self::assertFalse($pauta->retirada());
+        self::assertNull($pauta->getRetiradaEm());
+        self::assertNull($pauta->getRetiradaMotivo());
+        self::assertNull($pauta->getRetiradaPorNome());
+        self::assertSame(EstadoDaPauta::Aguardando, $pauta->getEstado());
+        $pauta->abrir('Mesa', 1, null, $this->agora);
+        self::assertTrue($pauta->aceitaVotoEm($this->agora));
+    }
+
+    #[TestDox('Devolver com a assembleia arquivada é recusado até desarquivar')]
+    public function testDevolverArquivada(): void
+    {
+        $pauta = $this->pautaAguardando();
+        $pauta->retirarDePauta('Matéria adiada', 'Mesa', $this->agora);
+        $pauta->getAssembleia()->arquivar('Assembleia concluída', 'Mesa', $this->agora);
+
+        $this->assertRecusa('Votação arquivada: desarquive antes de devolver a pauta.', fn () => $pauta->devolverAPauta('Mesa'));
+
+        $pauta->getAssembleia()->desarquivar('Mesa');
+        $pauta->devolverAPauta('Mesa');
+        self::assertFalse($pauta->retirada());
     }
 
     #[TestDox('Cancelar sem motivo de 5 caracteres: "Informe o motivo do cancelamento."')]

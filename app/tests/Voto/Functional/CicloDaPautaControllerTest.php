@@ -126,6 +126,28 @@ final class CicloDaPautaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Matéria adiada', $linha['retirada_motivo']);
         self::assertNotNull($linha['retirada_em']);
         self::assertSame('Pauta retirada. Desfaça em Gestão eleitoral, Mostrar arquivadas.', $this->avisoDoPainel());
+
+        $this->postar('pautas/' . $aguardando->getId() . '/devolver');
+        $linha = $this->em->getConnection()->fetchAssociative('SELECT * FROM voto.assembleia_pauta WHERE id = ?', [$aguardando->getId()]);
+        self::assertIsArray($linha);
+        self::assertNull($linha['retirada_em']);
+        self::assertNull($linha['retirada_motivo']);
+        self::assertNull($linha['retirada_por_nome']);
+        self::assertSame('aguardando', $linha['estado']);
+        self::assertSame('Votação desarquivada.', $this->avisoDoPainel());
+
+        $this->postar('pautas/' . $aguardando->getId() . '/devolver');
+        self::assertSame('A pauta não está retirada.', $this->avisoDoPainel());
+    }
+
+    #[TestDox('Cancelar a pauta encerrada: avisa "Votação já apurada..." e nada muda')]
+    public function testCancelarEncerradaRecusa(): void
+    {
+        $this->postar('pautas/' . $this->pauta->getId() . '/encerrar', ['motivo' => '']);
+        $this->postar('pautas/' . $this->pauta->getId() . '/cancelar', ['motivo' => 'Ata contestada']);
+
+        self::assertSame('Votação já apurada não pode ser cancelada: arquive se quiser tirá-la das listas.', $this->avisoDoPainel());
+        self::assertNull($this->pautaNoBanco()['cancelada_em']);
     }
 
     #[TestDox('Arquivar e desarquivar: a assembleia guarda e devolve; com pauta aberta, avisa "Encerre a votação antes de arquivar."')]
@@ -197,6 +219,7 @@ final class CicloDaPautaControllerTest extends JusPrimeWebTestCase
         $acoes = [
             'pautas/' . $pautaAlheia->getId() . '/suspender', 'pautas/' . $pautaAlheia->getId() . '/retomar',
             'pautas/' . $pautaAlheia->getId() . '/cancelar', 'pautas/' . $pautaAlheia->getId() . '/retirar',
+            'pautas/' . $pautaAlheia->getId() . '/devolver',
             'arquivar', 'desarquivar', 'excluir',
         ];
         foreach ($acoes as $acao) {

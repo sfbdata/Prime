@@ -11,6 +11,7 @@ use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\UseCase\ArquivarAssembleiaUseCase;
 use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
+use App\Voto\UseCase\DevolverPautaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
 use App\Voto\UseCase\RetirarPautaDaOrdemDoDiaUseCase;
 use App\Voto\UseCase\RetomarPautaUseCase;
@@ -81,6 +82,17 @@ final class CicloDaPautaController extends AbstractController
         return $this->executar($request, $id, static function () use ($retirar, $tenant, $id, $pauta, $motivo, $por): void {
             $retirar->executar($tenant, $id, $pauta, $motivo, $por);
         }, 'voto.assembleia.gestor.ciclo.retirada');
+    }
+
+    #[Route('/voto/assembleias/{id}/pautas/{pauta}/devolver', name: 'voto_assembleia_pauta_devolver', requirements: ['id' => '\d+', 'pauta' => '\d+'], methods: ['POST'])]
+    public function devolver(int $id, int $pauta, Request $request, DevolverPautaUseCase $devolver): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+        $por = $this->guarda->nomeDeQuemOpera();
+
+        return $this->executar($request, $id, static function () use ($devolver, $tenant, $id, $pauta, $por): void {
+            $devolver->executar($tenant, $id, $pauta, $por);
+        }, 'voto.assembleia.gestor.ciclo.desarquivada');
     }
 
     #[Route('/voto/assembleias/{id}/arquivar', name: 'voto_assembleia_arquivar', requirements: ['id' => '\d+'], methods: ['POST'])]
