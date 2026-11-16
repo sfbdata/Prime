@@ -111,6 +111,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Profile/Command/ResumoDiarioCommand.php'              => 'lock file do resumo diário',
         'src/Voto/Service/ArquivoDeUnidades.php' => 'lê XLSX/CSV do upload temporário e gera a planilha modelo direto na resposta, sem persistir o arquivo',
         'src/Voto/Service/CartazDaAssembleia.php' => 'PNG em memória (imagepng sem caminho, capturado por buffer), sem arquivo do usuário',
+        'src/Voto/Service/ImagemDoResumoDoResultado.php' => 'PNG em memória (imagepng sem caminho, capturado por buffer) e fontes do sistema, sem arquivo do usuário',
         // Falso positivo do regex: método chamado `link()`, que casa com a função `link(` do PHP. Não tocam o disco.
         'src/Agenda/Service/AvisoDoCompromisso.php'                => 'falso positivo: método link()',
         'src/Auth/Controller/SuporteEntradaController.php'         => 'falso positivo: método link()',

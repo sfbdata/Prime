@@ -45,10 +45,7 @@ final class ApuracaoDaPauta
      */
     public function apurar(PautaDaAssembleia $pauta, string $pesoApto, int $unidadesAptas, ?array $presenca = null): ResultadoDaPauta
     {
-        if ($pauta->cancelada()) {
-            throw new OperacaoInvalidaNaAssembleiaException(PautaDaAssembleia::MENSAGEM_CANCELADA_SEM_APURACAO);
-        }
-        self::exigirPresencaSeVariasVagas($pauta, $presenca);
+        self::exigirApuravel($pauta, $presenca);
         $pesoApto = self::normalizar($pesoApto);
         [$opcoes, $pesoValido, $abstencoesPeso, $pesoPresente] = self::pesosDaPauta($pauta, $presenca);
         $quorumExigido = $pauta->getQuorumExigido() ?? '0';
@@ -84,6 +81,19 @@ final class ApuracaoDaPauta
             nulosPeso: $pauta->getNulosPeso(),
             tipo: $pauta->getTipo(),
         );
+    }
+
+    /**
+     * Pauta cancelada não se apura (cédulas lacradas); várias vagas exigem a presença informada.
+     *
+     * @param array{unidades: int, peso: string}|null $presenca
+     */
+    private static function exigirApuravel(PautaDaAssembleia $pauta, ?array $presenca): void
+    {
+        if ($pauta->cancelada()) {
+            throw new OperacaoInvalidaNaAssembleiaException(PautaDaAssembleia::MENSAGEM_CANCELADA_SEM_APURACAO);
+        }
+        self::exigirPresencaSeVariasVagas($pauta, $presenca);
     }
 
     /**

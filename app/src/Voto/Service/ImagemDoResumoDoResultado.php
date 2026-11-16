@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Service;
 
+use App\Voto\DTO\PautaNoResumo;
 use App\Voto\DTO\ResumoDoResultado;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use BaconQrCode\Common\ErrorCorrectionLevel;
@@ -64,36 +65,44 @@ final class ImagemDoResumoDoResultado
         }
         $y += 24;
         foreach ($r->pautas as $pauta) {
-            if ($imagem !== null) {
-                imagefilledrectangle($imagem, self::MARGEM, $y, self::LARGURA - self::MARGEM, $y + 3, 0xd6e3ec);
-            }
-            $y += 24;
-            foreach ($this->quebrar($pauta->titulo, 32, true, $util) as $linha) {
-                $y += 42;
-                $this->texto($imagem, $linha, self::MARGEM, $y, 32, true, 0x0b3550);
-            }
-            $y += 40;
-            $this->texto($imagem, $this->tradutor->trans('voto.assembleia.gestor.relatorio.rotulo_participacao') . ': ' . $pauta->participacao, self::MARGEM, $y, 26, false, 0x34505f);
-            $y += 38;
-            $this->texto($imagem, $pauta->quorum, self::MARGEM, $y, 26, false, 0x34505f);
-            $y += 20;
-            foreach ($pauta->linhas as $i => $linha) {
-                if ($imagem !== null && $i % 2 === 0) {
-                    imagefilledrectangle($imagem, self::MARGEM, $y, self::LARGURA - self::MARGEM, $y + 44, 0xeaf1f6);
-                }
-                $this->texto($imagem, $this->caber($linha['rotulo'], 28, false, $util - 160), self::MARGEM + 14, $y + 31, 28, false, 0x12242f);
-                $this->direita($imagem, (string) $linha['votos'], self::LARGURA - self::MARGEM - 14, $y + 31, 28, true, 0x12242f);
-                $y += 44;
-            }
-            $y += 18;
-            foreach ($this->quebrar($this->tradutor->trans('voto.assembleia.gestor.relatorio.rotulo_resultado') . ': ' . $pauta->resultado, 32, true, $util) as $linha) {
-                $y += 44;
-                $this->texto($imagem, $linha, self::MARGEM, $y, 32, true, 0x1e7b45);
-            }
-            $y += 36;
+            $y = $this->pauta($imagem, $pauta, $y, $util);
         }
 
         return $this->rodape($imagem, $r, $y);
+    }
+
+    /** Uma votação: título, participação, quórum, linhas de votos e resultado. Devolve o novo y. */
+    private function pauta(?\GdImage $imagem, PautaNoResumo $pauta, int $y, int $util): int
+    {
+        if ($imagem !== null) {
+            imagefilledrectangle($imagem, self::MARGEM, $y, self::LARGURA - self::MARGEM, $y + 3, 0xd6e3ec);
+        }
+        $y += 24;
+        foreach ($this->quebrar($pauta->titulo, 32, true, $util) as $linha) {
+            $y += 42;
+            $this->texto($imagem, $linha, self::MARGEM, $y, 32, true, 0x0b3550);
+        }
+        $y += 40;
+        $this->texto($imagem, $this->tradutor->trans('voto.assembleia.gestor.relatorio.rotulo_participacao') . ': ' . $pauta->participacao, self::MARGEM, $y, 26, false, 0x34505f);
+        $y += 38;
+        $this->texto($imagem, $pauta->quorum, self::MARGEM, $y, 26, false, 0x34505f);
+        $y += 20;
+        foreach ($pauta->linhas as $i => $linha) {
+            if ($imagem !== null && $i % 2 === 0) {
+                imagefilledrectangle($imagem, self::MARGEM, $y, self::LARGURA - self::MARGEM, $y + 44, 0xeaf1f6);
+            }
+            $this->texto($imagem, $this->caber($linha['rotulo'], 28, false, $util - 160), self::MARGEM + 14, $y + 31, 28, false, 0x12242f);
+            $this->direita($imagem, (string) $linha['votos'], self::LARGURA - self::MARGEM - 14, $y + 31, 28, true, 0x12242f);
+            $y += 44;
+        }
+        $y += 18;
+        foreach ($this->quebrar($this->tradutor->trans('voto.assembleia.gestor.relatorio.rotulo_resultado') . ': ' . $pauta->resultado, 32, true, $util) as $linha) {
+            $y += 44;
+            $this->texto($imagem, $linha, self::MARGEM, $y, 32, true, 0x1e7b45);
+        }
+        $y += 36;
+
+        return $y;
     }
 
     private function rodape(?\GdImage $imagem, ResumoDoResultado $r, int $y): int
