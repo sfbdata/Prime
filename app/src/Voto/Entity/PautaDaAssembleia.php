@@ -11,6 +11,7 @@ use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -120,6 +121,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         private string $titulo,
         #[ORM\Column(type: 'text', nullable: true)]
         private ?string $descricao = null,
+        #[ORM\Column(length: 20, enumType: TipoDaPauta::class, options: ['default' => 'deliberacao'])]
+        private TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
     ) {
         $this->tenant = $assembleia->getTenant();
         $this->titulo = self::tituloValido($titulo);
@@ -128,11 +131,12 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     }
 
     /** Título e descrição só mudam com a assembleia em rascunho. */
-    public function editar(string $titulo, ?string $descricao): void
+    public function editar(string $titulo, ?string $descricao, ?TipoDaPauta $tipo = null): void
     {
         $this->assembleia->exigirPautasAlteraveis();
         $this->titulo = self::tituloValido($titulo);
         $this->descricao = $descricao;
+        $this->tipo = $tipo ?? $this->tipo;
     }
 
     /**
@@ -272,6 +276,25 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     public function getDescricao(): ?string
     {
         return $this->descricao;
+    }
+
+    public function getTipo(): TipoDaPauta
+    {
+        return $this->tipo;
+    }
+
+    /** Verifica as candidaturas próprias antes da pauta eleitoral ser publicada. */
+    public function exigirCandidaturasParaPublicacao(): void
+    {
+        $opcoes = $this->getOpcoesDeVoto();
+        if (\count($opcoes) < 2) {
+            throw new OperacaoInvalidaNaAssembleiaException(sprintf('Inclua ao menos duas candidaturas em %s.', $this->titulo));
+        }
+        foreach ($opcoes as $opcao) {
+            if (\in_array(mb_strtolower(trim($opcao->getRotulo())), ['sim', 'não', 'nao'], true)) {
+                throw new OperacaoInvalidaNaAssembleiaException(sprintf('Substitua Sim e Não pelos nomes dos candidatos em %s.', $this->titulo));
+            }
+        }
     }
 
     public function getEstado(): EstadoDaPauta

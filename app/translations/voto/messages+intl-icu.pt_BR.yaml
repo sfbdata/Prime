@@ -183,6 +183,13 @@ voto:
                 continuar: Continuar
                 voltar: Voltar
             pautas:
+                tipo: 'Tipo de pauta'
+                tipo_deliberacao: 'Deliberação (Sim ou Não)'
+                tipo_eleicao: 'Eleição de cargo (candidaturas)'
+                dica_eleicao: 'Sugestões de nomes aparecem nos campos. Preencha pelo menos duas candidaturas antes de publicar.'
+                candidato_1_ph: 'Candidato 1'
+                candidato_2_ph: 'Candidato 2'
+                candidato_ph: 'Outro candidato'
                 regra_pronta: 'Regra pronta'
                 preset_personalizada: 'Personalizada'
                 preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'

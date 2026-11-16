@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Voto\Enum\TipoDaPauta;
+
 /**
  * Uma pauta da assembleia como a tela envia: título, descrição e as linhas de opção (número e nome, como digitados).
  * `regras` nulo mantém as regras da pauta (nova: as padrão). A abstenção não vem daqui: é criada sozinha. Linha com número e nome vazios é ignorada.
@@ -21,6 +23,7 @@ final readonly class PautaInput
         public ?string $descricao,
         public array $opcoes,
         public ?RegrasDaPautaInput $regras = null,
+        public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
     ) {
     }
 
@@ -28,6 +31,12 @@ final readonly class PautaInput
     public static function padrao(string $titulo): self
     {
         return new self($titulo, null, self::OPCOES_PADRAO);
+    }
+
+    /** Atalho de cargo: inicia sem opções fictícias para que o gestor cadastre nomes reais. */
+    public static function eleicao(string $titulo): self
+    {
+        return new self($titulo, null, [], tipo: TipoDaPauta::EleicaoDeCargo);
     }
 
     public function descricaoLimpa(): ?string

@@ -11,6 +11,7 @@ use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -91,6 +92,51 @@ final class AssembleiaTest extends TestCase
         $this->expectExceptionMessage('A pauta "Contas" precisa de ao menos duas opções.');
 
         $assembleia->publicar();
+    }
+
+    #[TestDox('Publicar pauta eleitoral sem candidaturas é recusado e mantém o rascunho')]
+    public function testPublicarEleicaoSemCandidaturas(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Síndico(a)', tipo: TipoDaPauta::EleicaoDeCargo);
+        new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage('Inclua ao menos duas candidaturas em Síndico(a).');
+
+        $assembleia->publicar();
+    }
+
+    #[TestDox('Publicar pauta eleitoral não aceita Sim e Não como candidaturas')]
+    public function testPublicarEleicaoComOpcoesGenericas(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Síndico(a)', tipo: TipoDaPauta::EleicaoDeCargo);
+        new OpcaoDaPauta($pauta, 1, 'Sim');
+        new OpcaoDaPauta($pauta, 2, 'Não');
+        new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage('Substitua Sim e Não pelos nomes dos candidatos em Síndico(a).');
+
+        $assembleia->publicar();
+    }
+
+    #[TestDox('Publicar pauta eleitoral com candidaturas nomeadas é permitido')]
+    public function testPublicarEleicaoComCandidaturas(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Síndico(a)', tipo: TipoDaPauta::EleicaoDeCargo);
+        new OpcaoDaPauta($pauta, 1, 'Ana Souza');
+        new OpcaoDaPauta($pauta, 2, 'Bruno Silva');
+        new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
+        new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), str_repeat('b', 64));
+
+        $assembleia->publicar();
+
+        self::assertSame(EstadoDaAssembleia::Publicada, $assembleia->getEstado());
     }
 
     #[TestDox('Publicar sem unidade apta é recusado (inapta não conta)')]
