@@ -4,11 +4,13 @@
     ENCERRADA (cada pauta é uma votação), com a faixa do resultado, os KPIs "Cédulas na urna" e "Participações
     registradas", uma linha por opção (barra sobre o peso válido; com peso, "{votos} un · {fração}"),
     "Abstenções {n} · Nulos {n}" (eleição de cargo: "Brancos {n} · Nulos {n}") e a decisão. Sem guardiões, o resultado sai no encerramento.
+    A pauta CANCELADA (F1-2b) aparece com o chip Cancelada e a situação, sem KPIs, opções nem decisão: as cédulas ficam
+    lacradas e não são apuradas. Arquivada e retirada não entram (o controlador as tira; a retirada fica de fora aqui).
     Contexto: `assembleias` (list<AssembleiaNoPainel>).
 #}
 {% set encerradas = [] %}
 {% for a in assembleias|filter(a => a.publicada) %}
-    {% for p in a.pautasEncerradas %}
+    {% for p in a.pautas|filter(p => p.encerrada and not p.retirada) %}
         {% set encerradas = encerradas|merge([{a: a, p: p}]) %}
     {% endfor %}
 {% endfor %}
@@ -20,7 +22,12 @@
         {% set r = p.resultado %}
         {% set primeira_da_assembleia = loop.first or encerradas[loop.index0 - 1].a.id != a.id %}
         <div class="vC voto-resultado" id="{{ primeira_da_assembleia ? 'assembleia-' ~ a.id : 'assembleia-' ~ a.id ~ '-pauta-' ~ p.id }}" data-pauta="{{ p.id }}">
-            <div class="vH"><i class="bi bi-shield-check"></i>{{ p.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ 'voto.assembleia.gestor.situacao.encerrada'|trans }}</span></div>
+            <div class="vH"><i class="bi bi-shield-check"></i>{{ p.titulo }}<span class="voto-espaco"></span>{% if p.cancelada %}{% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: p, a: a} only %}{% else %}<span class="vChip voto-chip-claro">{{ 'voto.assembleia.gestor.situacao.encerrada'|trans }}</span>{% endif %}</div>
+            {% if p.cancelada %}
+            <div class="voto-resultado-corpo">
+                <div class="voto-proximo" data-voto-cancelada><b><i class="bi bi-x-circle"></i> {{ 'voto.assembleia.gestor.proximo_passo.cancelada'|trans({em: p.canceladaEm|date('d/m/Y H:i'), motivo: p.canceladaMotivo}) }}</b></div>
+            </div>
+            {% else %}
             <div class="voto-resultado-corpo">
                 <div class="voto-resultado-faixa">{{ p.titulo }}: {{ resumo(r) }}</div>
                 <div class="vKpis">
@@ -40,6 +47,7 @@
                     {% include 'voto/assembleia/_decisao.html.twig' with {r: r} only %}
                 </div>
             </div>
+            {% endif %}
         </div>
     {% endfor %}
 </div>

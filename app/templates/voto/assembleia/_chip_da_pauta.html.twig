@@ -1,0 +1,10 @@
+{#
+    Chip de situação de uma pauta, como o stOf do desenho 18 (L414): arquivada (#5b7383) ganha de cancelada (#6b2a2e),
+    que ganha de suspensa (#8a6200); sem nenhuma, o chip normal (Rascunho, Publicada, Votação aberta, Encerrada).
+    A pauta retirada da ordem do dia aparece como "Arquivada" (no desenho, retirar é arquivar a pauta publicada).
+    Contexto: `p` (PautaNoPainel), `a` (AssembleiaNoPainel, opcional: assembleia arquivada arquiva as pautas),
+    `classe` (classes extras, opcional) e `telao` (bool: leva data-telao-chip).
+#}
+{% set ciclo = p.retirada or (a is defined and a.arquivada) ? 'arquivada' : (p.cancelada ? 'cancelada' : (p.suspensa ? 'suspensa' : null)) %}
+{% set cores = {arquivada: '#5b7383', cancelada: '#6b2a2e', suspensa: '#8a6200'} %}
+<span class="vChip{{ classe is defined ? ' ' ~ classe : '' }}" style="background:{{ ciclo ? cores[ciclo] : p.cor }};"{% if telao is defined and telao %} data-telao-chip{% endif %}>{{ ciclo ? ('voto.assembleia.gestor.chip_ciclo.' ~ ciclo)|trans : ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</span>

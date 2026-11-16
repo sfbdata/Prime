@@ -125,7 +125,8 @@ final class TelaoDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Sim', $painelAberta->text());
         $mesa = $painelAberta->filter('.vAoMesa');
         self::assertSame(['Encerrar votação'], $mesa->filter('button.vAoD[data-telao-pedir-encerrar]')->each(static fn (Crawler $c): string => trim($c->text())));
-        self::assertCount(0, $mesa->filter('[data-voto-janela]'), 'aberta: sem Abrir');
+        self::assertCount(0, $mesa->filter('[data-voto-janela^="#janela-abrir"]'), 'aberta: sem Abrir');
+        self::assertSame(['Suspender'], $mesa->filter('button.vAoSuspender[data-voto-janela="#janela-ciclo-' . $aberta . '-sus"]')->each(static fn (Crawler $c): string => trim($c->text())), 'aberta: Suspender abre a janela do ciclo');
         $form = $mesa->filter('form[data-telao-encerrar]');
         self::assertStringEndsWith('/voto/assembleias/' . $id . '/pautas/' . $aberta . '/encerrar', (string) $form->attr('action'));
         self::assertSame('telao', $form->filter('input[name="voltar"]')->attr('value'));
@@ -194,7 +195,7 @@ final class TelaoDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('/^\d\d:\d\d:\d\d$/', $json['hora']);
         self::assertSame([$aguardando, $aberta, $encerrada], array_column($json['pautas'], 'id'));
         $porId = array_column($json['pautas'], null, 'id');
-        self::assertSame(['id', 'situacao', 'votantes', 'aptos', 'percentual', 'largura', 'quorumMarca', 'quorumTexto', 'segundos'], array_keys($porId[$aberta]));
+        self::assertSame(['id', 'situacao', 'ciclo', 'votantes', 'aptos', 'percentual', 'largura', 'quorumMarca', 'quorumTexto', 'segundos'], array_keys($porId[$aberta]));
         self::assertSame('aberta', $porId[$aberta]['situacao']);
         self::assertSame(2, $porId[$aberta]['votantes']);
         self::assertSame(3, $porId[$aberta]['aptos']);

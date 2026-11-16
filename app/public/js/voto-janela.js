@@ -1,6 +1,7 @@
 /* BlueJus Voto: janelas do desenho 18 (.vModAbrir). Botão com data-voto-janela="#id" abre; data-voto-janela-fechar
    e o clique no fundo fecham, e Esc também. Na janela "Abrir votação": "Por tempo definido" mostra o campo Minutos
-   (160px); "Sem prazo" o esconde. */
+   (160px); "Sem prazo" o esconde. Também abre a janela Retirar/Suspender/Cancelar (.vModCiclo), por item de menu ou
+   botão do telão; o motivo é validado em voto-ciclo.js. */
 (function () {
     'use strict';
 
@@ -17,7 +18,9 @@
     }
 
     function abrir(janela, botao) {
-        origem = botao;
+        /* Aberta por item de menu (o menu se fecha): o foco volta ao botão de três pontos. */
+        var menu = botao.closest ? botao.closest('[data-voto-menu]') : null;
+        origem = menu ? menu.querySelector('[data-voto-menu-botao]') : botao;
         janela.hidden = false;
         sincronizarDuracao(janela);
         var primeiro = janela.querySelector('select, input:not([type=hidden]):not(:disabled), button');

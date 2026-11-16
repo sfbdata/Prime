@@ -558,3 +558,100 @@ voto:
                 arquivada: Votação arquivada. Use Mostrar arquivadas para vê-la.
                 desarquivada: Votação desarquivada.
                 rascunho_excluido: Rascunho excluído.
+            # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
+            chip_ciclo:
+                arquivada: Arquivada
+                cancelada: Cancelada
+                suspensa: Suspensa
+            menu_ciclo:
+                retirar_ou_cancelar: Retirar de pauta ou cancelar
+                suspender: Suspender votação
+                retomar: Retomar votação
+                cancelar: Cancelar votação
+                excluir_rascunho: Excluir rascunho
+                arquivar: Arquivar
+                desarquivar: Desarquivar
+            janela_ciclo:
+                fechar: Fechar
+                cancelar: Cancelar
+                o_que_acontece: 'O que acontece:'
+                motivo: Motivo (vai para a ata e para a auditoria)
+                motivo_curto: Informe o motivo da retirada.
+                outras: 'As outras {n} pauta(s) do evento continuam normalmente, com o mesmo link e QR Code.'
+                unica: Era a única pauta publicada deste evento.
+                ret:
+                    titulo: Retirar de pauta
+                    exemplo: 'Ex.: matéria adiada para a próxima assembleia'
+                    efeito_1: Sai da tela de votação, do QR Code e do link do evento, de Resultados, de Acompanhar e do telão.
+                    efeito_2: Não pode mais ser aberta nem receber votos.
+                    efeito_3: Na ata do evento, entra como retirada da ordem do dia, com o motivo, sem deliberação.
+                    efeito_4: Configuração, lista de aptos, presenças e trilha de auditoria ficam guardadas.
+                    efeito_5: Pode ser desfeito em Gestão eleitoral, Mostrar arquivadas, Desarquivar.
+                sus:
+                    titulo: Suspender votação
+                    exemplo: 'Ex.: queda de energia no salão'
+                    efeito_1: Para de aceitar votos agora, até a mesa retomar.
+                    efeito_2: Os votos já depositados continuam na urna, intactos.
+                    efeito_3: O prazo definido pela mesa fica congelado durante a suspensão.
+                    efeito_4: Quem tentar votar vê o aviso de votação suspensa.
+                    efeito_5: Retome pelo menu de três pontos ou no telão. Tudo fica na auditoria.
+                can:
+                    titulo: Cancelar votação
+                    exemplo: 'Ex.: convocação irregular'
+                    efeito_1: Para de aceitar votos imediatamente.
+                    efeito_2: 'Os votos já recebidos ficam lacrados na urna e não são apurados: não haverá resultado.'
+                    efeito_3: Na ata, entra como votação cancelada, com o motivo.
+                    efeito_4: Urna, trilha e dados ficam guardados como prova; depois pode ser arquivada.
+                    efeito_5: Não pode ser desfeito. Para repetir, use Duplicar votação.
+            arquivar:
+                titulo_sem_deliberar: 'Arquivar sem deliberar: a votação não poderá ser aberta e sai das listas.'
+                titulo_deliberada: 'Arquivar votação deliberada: resultado, ata, relatório e trilha de auditoria continuam guardados.'
+                motivo: Motivo
+                exemplo: 'Ex.: pauta retirada da ordem do dia'
+                cancelar: Cancelar
+                sim: Arquivar
+                faixa: 'Arquivada em {em}{sem}. Motivo: {motivo}. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar.'
+                sem_deliberacao: ', sem deliberação'
+                retirada_motivo: 'Retirada de pauta: {motivo}'
+                excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
+                excluir_manter: Manter
+                excluir_sim: Excluir rascunho
+                mostrar: 'Mostrar arquivadas ({n})'
+                ocultar: Ocultar arquivadas
+                selecionar: 'Selecionar {titulo}'
+            proximo_passo:
+                cancelada: 'Cancelada em {em}. Motivo: {motivo}. As cédulas ficam lacradas e não serão apuradas.'
+                suspensa: 'Suspensa pela mesa desde {em}. Motivo: {motivo}. Retome pelo menu.'
+            lote:
+                selecionar_todas: Selecionar todas
+                selecionadas: '{n} selecionada(s)'
+                arquivar: 'Arquivar ({n})'
+                excluir: 'Excluir ({n})'
+                limpar: Limpar seleção
+                arquivar_titulo: 'Arquivar {n} votação(ões).'
+                arquivar_texto: Arquivadas saem das listas e ficam guardadas por tempo indeterminado, com resultado, ata, relatório e trilha; podem ser vistas em Mostrar arquivadas e desarquivadas.
+                arquivar_aberta: Votação aberta precisa ser encerrada antes de arquivar.
+                motivo: Motivo (vale para todas)
+                exemplo: 'Ex.: assembleia de 2025 concluída'
+                cancelar: Cancelar
+                arquivar_sim: Arquivar selecionadas
+                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados.'
+                excluir_obs: 'Votação publicada não é excluída, para não apagar prova: use Arquivar.'
+                excluir_sim: Excluir selecionados
+                fora: '{n} selecionada(s) não se encaixam e serão mantidas como estão.'
+                fora_feito: '{n} selecionada(s) não se encaixam e foram mantidas como estão.'
+                arquivadas: '{n} votação(ões) arquivada(s).'
+                excluidas: '{n} item(ns) excluído(s).'
+                nenhuma: Selecione ao menos uma votação.
+                nenhuma_arquivar: 'Nenhuma selecionada pode ser arquivada: só publicadas sem votação aberta.'
+                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados. Use Arquivar.'
+                motivo_curto: Informe o motivo do arquivamento.
+            ata_ciclo:
+                retirada: 'Retirada da ordem do dia: {pauta}, por decisão registrada em {em}. Motivo: {motivo}. Não houve deliberação sobre essa matéria.'
+                cancelada: 'Votação cancelada pela mesa em {em}. Motivo: {motivo}. Os votos recebidos ficaram lacrados e não foram apurados.'
+                ordem_do_dia: Ordem do dia
+            telao_ciclo:
+                suspender: Suspender
+                retomar: Retomar votação
+                suspensa: 'Votação suspensa pela mesa. Aguarde a retomada.'
+                cancelada: Votação cancelada pela comissão.

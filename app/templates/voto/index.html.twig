@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
 <link rel="stylesheet" href="{{ asset('css/voto-menu.css') }}">
 <link rel="stylesheet" href="{{ asset('css/voto-janela.css') }}">
+<link rel="stylesheet" href="{{ asset('css/voto-ciclo.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -46,7 +47,7 @@
             <div class="vAviso">{{ 'voto.votar.vazio_gestao'|trans }}</div>
         </div>
     {% elseif aba == 'ges' %}
-        {{ render(voto_assembleia_aba('painel')) }}
+        {{ render(voto_assembleia_aba('painel', {arquivadas: app.request.query.getBoolean('arquivadas') ? 1 : 0})) }}
     {% elseif aba == 'tra' %}
         {{ render(voto_assembleia_aba('resultados')) }}
     {% elseif aba == 'aco' %}
@@ -63,4 +64,5 @@
 <script src="{{ asset('js/voto-janela.js') }}" defer></script>
 <script src="{{ asset('js/voto-lembrete.js') }}" defer></script>
 <script src="{{ asset('js/voto-relatorio.js') }}" defer></script>
+<script src="{{ asset('js/voto-ciclo.js') }}" defer></script>
 {% endblock %}

@@ -1,10 +1,10 @@
 /* BlueJus Voto: janelas novas do desenho 18 (.vMod/.vModC), nunca modal do Bootstrap. Escopo só nas janelas novas
    ("Abrir votação" = .vModAbrir e a confirmação do menu = .vModConfirma): a tela de divulgação tem o seu próprio
-   .vMod/.vModC (.vqModal/.vqJanela em voto.css) e não pode ser afetada. Largura por janela. A de "Abrir votação"
+   .vMod/.vModC (.vqModal/.vqJanela em voto.css) e não pode ser afetada. Largura por janela (.vModCiclo = min(560px,100%)). A de "Abrir votação"
    tem min(480px,100%) e z-index 5600 (inline no desenho). JS: voto-janela.js e voto-menu.js. */
-.vModAbrir, .vModConfirma { position: fixed; inset: 0; z-index: 4000; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
-.vModAbrir[hidden], .vModConfirma[hidden] { display: none; }
-.vModAbrir .vModC, .vModConfirma .vModC { max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 3px; overflow: hidden; }
+.vModAbrir, .vModConfirma, .vModCiclo { position: fixed; inset: 0; z-index: 4000; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.vModAbrir[hidden], .vModConfirma[hidden], .vModCiclo[hidden] { display: none; }
+.vModAbrir .vModC, .vModConfirma .vModC, .vModCiclo .vModC { max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 3px; overflow: hidden; }
 .vModAbrir { z-index: 5600; }
 .vModAbrir .vModC { width: min(480px, 100%); }
 .vModConfirma .vModC { width: min(440px, 100%); }
@@ -13,3 +13,9 @@
 .vModRodape { display: flex; gap: 8px; justify-content: flex-end; }
 .vModCampoMin { width: 160px; }
 .vModCampoMin[hidden] { display: none; }
+/* Janela Retirar de pauta / Suspender / Cancelar (desenho 18, retTem): largura min(560px,100%), corpo 13.5px #243845. */
+.vModCiclo .vModC { width: min(560px, 100%); }
+.vModCiclo .vModCorpo { gap: 11px; font-size: 13.5px; color: #243845; line-height: 1.45; }
+.vModCiclo .vModCorpo > b { font-size: 16px; }
+.vModEfeitos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.vModOutras { font-weight: bold; color: #1e7b45; }

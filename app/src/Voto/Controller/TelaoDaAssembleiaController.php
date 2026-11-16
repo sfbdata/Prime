@@ -22,6 +22,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Ordem do dia = as pautas da assembleia; QR e código de conferência reaproveitam a divulgação. Os números chegam
  * por um JSON sem dado pessoal (só contagens, peso e quórum). Resultado só depois de a pauta ser encerrada e
  * apurada (decisão C12), nunca parcial de votos. Mesma guarda e mesmo escopo de escritório da divulgação.
+ *
+ * Ciclo de vida (F1-3): a pauta retirada da ordem do dia sai do telão (ordem do dia, painéis e JSON); a assembleia
+ * arquivada dá 404, como o desenho, que esconde "Conduzir no telão" nas arquivadas.
  */
 #[Route('/voto/assembleias/{id}/telao', requirements: ['id' => '\d+'])]
 final class TelaoDaAssembleiaController extends AbstractController
@@ -45,15 +48,17 @@ final class TelaoDaAssembleiaController extends AbstractController
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }
-        if (!$assembleia->publicada() || [] === $assembleia->pautas) {
+        $pautas = self::naOrdemDoDia($assembleia);
+        if (!$assembleia->publicada() || $assembleia->arquivada() || [] === $pautas) {
             throw $this->createNotFoundException();
         }
 
         return $this->render('voto/assembleia/telao.html.twig', [
             'a' => $assembleia,
+            'pautas' => $pautas,
             'divulgacao' => $divulgacao,
-            'selecionada' => self::escolher($assembleia, $request->query->getInt('pauta')),
-            'dados' => $this->dados($assembleia, $agora),
+            'selecionada' => self::escolher($pautas, $request->query->getInt('pauta')),
+            'dados' => $this->dados($pautas, $agora),
             'agora' => $agora,
         ]);
     }
@@ -69,46 +74,62 @@ final class TelaoDaAssembleiaController extends AbstractController
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }
-        if (!$assembleia->publicada()) {
+        if (!$assembleia->publicada() || $assembleia->arquivada()) {
             throw $this->createNotFoundException();
         }
 
         return $this->json(
-            ['hora' => $agora->format('H:i:s'), 'pautas' => array_values($this->dados($assembleia, $agora))],
+            ['hora' => $agora->format('H:i:s'), 'pautas' => array_values($this->dados(self::naOrdemDoDia($assembleia), $agora))],
             Response::HTTP_OK,
             ['Cache-Control' => 'no-store, private'],
         );
     }
 
-    /** A pedida, se existir; senão a primeira aberta, a primeira ainda não encerrada ou a última. */
-    private static function escolher(AssembleiaNoPainel $a, int $pedida): int
+    /**
+     * A ordem do dia do telão: as pautas da assembleia sem as retiradas.
+     *
+     * @return list<PautaNoPainel>
+     */
+    private static function naOrdemDoDia(AssembleiaNoPainel $a): array
     {
-        foreach ($a->pautas as $p) {
+        return array_values(array_filter($a->pautas, static fn (PautaNoPainel $p): bool => !$p->retirada()));
+    }
+
+    /**
+     * A pedida, se existir; senão a primeira aberta, a primeira ainda não encerrada ou a última.
+     *
+     * @param non-empty-list<PautaNoPainel> $pautas
+     */
+    private static function escolher(array $pautas, int $pedida): int
+    {
+        foreach ($pautas as $p) {
             if ($p->id === $pedida) {
                 return $p->id;
             }
         }
-        foreach ($a->pautas as $p) {
+        foreach ($pautas as $p) {
             if ($p->aberta()) {
                 return $p->id;
             }
         }
-        foreach ($a->pautas as $p) {
+        foreach ($pautas as $p) {
             if (!$p->encerrada()) {
                 return $p->id;
             }
         }
 
-        return $a->pautas[array_key_last($a->pautas)]->id;
+        return $pautas[array_key_last($pautas)]->id;
     }
 
     /**
+     * @param list<PautaNoPainel> $pautas
+     *
      * @return array<int, array<string, mixed>> por id da pauta
      */
-    private function dados(AssembleiaNoPainel $a, \DateTimeImmutable $agora): array
+    private function dados(array $pautas, \DateTimeImmutable $agora): array
     {
         $mapa = [];
-        foreach ($a->pautas as $p) {
+        foreach ($pautas as $p) {
             $mapa[$p->id] = $this->dadosDaPauta($p, $agora);
         }
 
@@ -123,6 +144,7 @@ final class TelaoDaAssembleiaController extends AbstractController
         return [
             'id' => $p->id,
             'situacao' => $p->situacao(),
+            'ciclo' => $p->ciclo(),
             'votantes' => $p->votantes,
             'aptos' => $p->unidadesAptas,
             'percentual' => $p->pctPesoTexto() . '%',

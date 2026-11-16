@@ -5,11 +5,17 @@
     (em ordem de abertura) abertura, eleitorado e participação por bloco, encerramento, apuração e relação de
     votantes; termo de encerramento e assinaturas. Sem código BJR, QR, hashes, responsáveis designados e incidentes
     (não existem neste mínimo). Tipografia do PDF do desenho em public/css/voto.css (.voto-ata).
+    Ciclo de vida (F1-2b, desenho 18, ataDocx L409): a pauta RETIRADA da ordem do dia não vira seção de votação: entra em
+    "Ordem do dia" como "Retirada da ordem do dia: ..., por decisão registrada em ... Motivo: ... Não houve deliberação
+    sobre essa matéria."; a CANCELADA diz "Votação cancelada pela mesa em ... Motivo: ... Os votos recebidos ficaram
+    lacrados e não foram apurados." no lugar da apuração.
     Contexto: `ata` (AtaDaAssembleia).
 #}
 {% set a = ata.assembleia %}
-{% set abertas = a.pautas|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
-{% set pautas = abertas|merge(a.pautas|filter(p => p.abertaEm is null)) %}
+{% set retiradas = a.pautas|filter(p => p.retirada) %}
+{% set naOrdem = a.pautas|filter(p => not p.retirada) %}
+{% set abertas = naOrdem|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
+{% set pautas = abertas|merge(naOrdem|filter(p => p.abertaEm is null)) %}
 {% set dh = 'd/m/Y H:i:s' %}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -30,7 +36,9 @@
     <h2>{{ 'voto.assembleia.gestor.ata.resumo'|trans }}</h2>
     {% for p in pautas %}
         <p>{{ 'voto.assembleia.gestor.ata.resumo_pauta'|trans({pauta: p.titulo, n: p.votantes, aptos: p.unidadesAptas, pc: p.pctUnidades}) }}</p>
-        {% if p.resultado is not null %}
+        {% if p.cancelada %}
+            <p>{{ p.titulo }}: {{ 'voto.assembleia.gestor.ata_ciclo.cancelada'|trans({em: p.canceladaEm|date(dh), motivo: p.canceladaMotivo}) }}</p>
+        {% elseif p.resultado is not null %}
             {% set r = p.resultado %}
             <p>{{ resumo(r, 'voto.assembleia.gestor.ata.resumo_resultado', {
                 pauta: p.titulo,
@@ -44,10 +52,17 @@
     <h2>{{ 'voto.assembleia.gestor.ata.identificacao'|trans }}</h2>
     <dl class="voto-ata-campos">
         <div><dt>{{ 'voto.assembleia.gestor.ata.evento'|trans }}</dt><dd>{{ a.titulo }}</dd></div>
-        <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ a.pautas|length }}</dd></div>
+        <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ naOrdem|length }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_em'|trans }}</dt><dd>{{ ata.emitidaEm|date(dh) }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_por'|trans }}</dt><dd>{{ ata.emitidaPor }}</dd></div>
     </dl>
+
+    {% if retiradas|length > 0 %}
+        <h2>{{ 'voto.assembleia.gestor.ata_ciclo.ordem_do_dia'|trans }}</h2>
+        {% for p in retiradas %}
+            <p class="voto-ata-retirada">{{ 'voto.assembleia.gestor.ata_ciclo.retirada'|trans({pauta: p.titulo, em: p.retiradaEm|date(dh), motivo: p.retiradaMotivo}) }}</p>
+        {% endfor %}
+    {% endif %}
 
     {% for p in pautas %}
         {% set n = loop.index %}
@@ -122,6 +137,8 @@
                         <tr><td>{{ 'voto.assembleia.gestor.ata.resultado'|trans }}</td><td colspan="2"><b>{{ resumo(r) }}</b></td></tr>
                         </tbody>
                     </table>
+                {% elseif p.cancelada %}
+                    <p class="voto-ata-cancelada">{{ 'voto.assembleia.gestor.ata_ciclo.cancelada'|trans({em: p.canceladaEm|date(dh), motivo: p.canceladaMotivo}) }}</p>
                 {% else %}
                     <p>{{ 'voto.assembleia.gestor.ata.nao_apurada_data'|trans }}</p>
                 {% endif %}

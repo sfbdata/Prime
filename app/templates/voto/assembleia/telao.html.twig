@@ -8,7 +8,12 @@
     Botões da mesa (48px/16px): Abrir votação (janela _janela_abrir_votacao, voltar=telao), Encerrar votação com a
     confirmação do desenho, Ir para a apuração (Resultados) e Próxima. O sistema apura ao encerrar: o estado
     "Aguardando a apuração pelos guardiões" do desenho não existe aqui (guardiões são outra frente) e o resultado já aparece.
-    Contexto: `a` (AssembleiaNoPainel), `divulgacao`, `selecionada` (id da pauta), `dados` (por id da pauta), `agora`.
+    Ciclo de vida (F1-2b, desenho 18, aoPodeSus/aoPodeRet): "Suspender" (abre a janela _janela_ciclo em modo suspensão) e
+    "Retomar votação" (POST direto), ambos enviados por fetch sem sair do telão (voto-telao.js); chip Suspensa ou Cancelada
+    no lugar do chip normal (_chip_da_pauta). O desenho não tem mensagem própria de suspensa no telão: vale o chip. A pauta
+    cancelada não tem "Ir para a apuração" (não é apurada) nem resultado. Retirada da ordem do dia não entra em `pautas`.
+    Contexto: `a` (AssembleiaNoPainel), `pautas` (a ordem do dia, sem as retiradas), `divulgacao`, `selecionada` (id da pauta),
+    `dados` (por id da pauta), `agora`.
 #}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -24,7 +29,6 @@
 </head>
 <body class="voto-telao">
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
-{% set pautas = a.pautas %}
 <div class="vAo voto-tela" role="dialog" aria-modal="true" aria-label="{{ 'voto.assembleia.gestor.telao.rotulo'|trans }}"
      data-telao data-dados="{{ path('voto_assembleia_telao_dados', {id: a.id}) }}" data-assembleia="{{ a.id }}">
     <div class="vAoTop">
@@ -42,7 +46,7 @@
                 <a class="vAoI {{ p.id == selecionada ? 'vAoOn' : '' }}" href="{{ path('voto_assembleia_telao', {id: a.id, pauta: p.id}) }}" data-telao-ir="{{ p.id }}">
                     <span class="vAoN">{{ loop.index }}</span>
                     <span class="vAoNome">{{ p.titulo }}</span>
-                    <span class="vChip" style="background:{{ p.cor }};" data-telao-chip>{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</span>
+                    {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: p, a: a, telao: true} only %}
                 </a>
             {% endfor %}
             <div class="vAoQr">
@@ -54,8 +58,8 @@
         {% for p in pautas %}
             {% set d = dados[p.id] %}
             {% set r = p.encerrada ? p.resultado : null %}
-            <main class="vAoM" data-telao-pauta="{{ p.id }}" data-situacao="{{ p.situacao }}"{% if p.id != selecionada %} hidden{% endif %}>
-                <div><span class="vChip vAoChip" style="background:{{ p.cor }};" data-telao-chip>{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</span></div>
+            <main class="vAoM" data-telao-pauta="{{ p.id }}" data-situacao="{{ p.situacao }}" data-ciclo="{{ p.ciclo }}"{% if p.id != selecionada %} hidden{% endif %}>
+                <div>{% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: p, a: a, telao: true, classe: 'vAoChip'} only %}</div>
                 <h1 class="vAoH1">{{ p.titulo }}</h1>
                 <div class="vAoNums">
                     <div><b data-telao-votantes>{{ d.votantes }}</b><small>{{ 'voto.assembleia.gestor.telao.votaram'|trans }}</small></div>
@@ -95,11 +99,19 @@
                     </div>
                 {% endif %}
                 <div class="vAoMesa">
-                    {# Suspender e Retomar votação entram em outra etapa (as rotas ainda não existem): o lugar dos botões é este. #}
                     {% if p.aguardandoAMesa %}
                         <button type="button" class="vB vAoP" data-voto-janela="#janela-abrir-{{ p.id }}"><i class="bi bi-unlock"></i>{{ 'voto.assembleia.gestor.janela_abrir.abrir'|trans }}</button>
                         <div class="voto-telao-janela">{% include 'voto/assembleia/_janela_abrir_votacao.html.twig' with {a: a, p: p, token: token, voltar: 'telao'} only %}</div>
                     {% elseif p.aberta %}
+                        {% if p.suspensa %}
+                            <form method="post" action="{{ path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}) }}" class="vAoRetomar" data-telao-ciclo>
+                                <input type="hidden" name="_token" value="{{ token }}">
+                                <button type="submit" class="vB vAoP"><i class="bi bi-play-circle"></i>{{ 'voto.assembleia.gestor.telao_ciclo.retomar'|trans }}</button>
+                            </form>
+                        {% else %}
+                            <button type="button" class="vB vAoB vAoSuspender" data-voto-janela="#janela-ciclo-{{ p.id }}-sus"><i class="bi bi-pause-circle"></i>{{ 'voto.assembleia.gestor.telao_ciclo.suspender'|trans }}</button>
+                            <div class="voto-telao-janela">{% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token, telao: true} only %}</div>
+                        {% endif %}
                         <form method="post" action="{{ path('voto_assembleia_pauta_encerrar', {id: a.id, pauta: p.id}) }}" class="vAoEncerrar" data-telao-encerrar>
                             <input type="hidden" name="_token" value="{{ token }}">
                             <input type="hidden" name="voltar" value="telao">
@@ -111,7 +123,7 @@
                                 <button type="submit" class="vB vAoD"><i class="bi bi-lock"></i>{{ 'voto.assembleia.gestor.telao.confirmar_encerramento'|trans }}</button>
                             </span>
                         </form>
-                    {% elseif p.encerrada %}
+                    {% elseif p.encerrada and not p.cancelada %}
                         <a class="vB vAoP" href="{{ path('voto_index', {aba: 'tra', _fragment: 'assembleia-' ~ a.id}) }}"><i class="bi bi-calculator"></i>{{ 'voto.assembleia.gestor.telao.ir_apuracao'|trans }}</a>
                     {% endif %}
                     <span class="voto-espaco"></span>
@@ -126,6 +138,7 @@
 </div>
 {% include 'voto/assembleia/_toast.html.twig' %}
 <script src="{{ asset('js/voto-janela.js') }}"></script>
+<script src="{{ asset('js/voto-ciclo.js') }}"></script>
 <script src="{{ asset('js/voto-telao.js') }}"></script>
 </body>
 </html>

@@ -4,17 +4,47 @@
     publicada (botão "Abrir votação", que abre a janela _janela_abrir_votacao com convocação e duração); aberta (cronômetro, "Definir prazo",
     "Sem prazo", motivo e "Encerrar"); encerrada (o resultado). Nunca parcial de votos com a pauta aberta.
     Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel), `voltar` (painel | pautas) e `agora`.
+    Ciclo de vida (F1-2b, desenho 18, kMenu L381): menu de três pontos da pauta com "Retirar de pauta ou cancelar" (publicada
+    e ainda não aberta), "Suspender votação", "Retomar votação" e "Cancelar votação" (aberta; as de janela abrem
+    _janela_ciclo) e, na pauta retirada, "Desarquivar"; chip Arquivada, Cancelada ou Suspensa (_chip_da_pauta);
+    linha "próximo passo" da pauta cancelada e da suspensa; a retirada leva a faixa de arquivada do desenho.
 #}
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+{% set itensMenu = [] %}
+{% if not a.arquivada %}
+    {% if p.aguardandoAMesa %}
+        {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retirar_ou_cancelar'|trans, icone: 'bi-x-octagon', janela: '#janela-ciclo-' ~ p.id ~ '-ret', destrutivo: true}]) %}
+    {% endif %}
+    {% if p.aberta and not p.suspensa %}
+        {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.suspender'|trans, icone: 'bi-pause-circle', janela: '#janela-ciclo-' ~ p.id ~ '-sus'}]) %}
+    {% endif %}
+    {% if p.aberta and p.suspensa %}
+        {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retomar'|trans, icone: 'bi-play-circle', acao: path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}), token: token}]) %}
+    {% endif %}
+    {% if p.aberta %}
+        {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.cancelar'|trans, icone: 'bi-x-circle', janela: '#janela-ciclo-' ~ p.id ~ '-can', destrutivo: true}]) %}
+    {% endif %}
+    {% if p.retirada %}
+        {% set itensMenu = itensMenu|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.desarquivar'|trans, icone: 'bi-box-arrow-up', acao: path('voto_assembleia_pauta_devolver', {id: a.id, pauta: p.id}), token: token}]) %}
+    {% endif %}
+{% endif %}
 <div class="vLin voto-pauta" id="pauta-{{ p.id }}" data-pauta="{{ p.id }}" data-situacao="{{ p.situacao }}">
     <div class="voto-pauta-topo">
         <b class="voto-pauta-nome">{{ p.ordem }}. {{ p.titulo }}</b>
-        <span class="vChip" style="background:{{ p.cor }};">{{ ('voto.assembleia.gestor.situacao.' ~ p.situacao)|trans }}</span>
+        {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: p, a: a} only %}
+        {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itensMenu} only %}
     </div>
+    {% if p.retirada %}
+        <div class="voto-faixa-arquivada"><i class="bi bi-archive"></i> {{ 'voto.assembleia.gestor.arquivar.faixa'|trans({em: p.retiradaEm|date('d/m/Y H:i'), sem: 'voto.assembleia.gestor.arquivar.sem_deliberacao'|trans, motivo: 'voto.assembleia.gestor.arquivar.retirada_motivo'|trans({motivo: p.retiradaMotivo})}) }}</div>
+    {% elseif not a.arquivada and (p.cancelada or p.suspensa) %}
+        <div class="voto-proximo"><b><i class="bi bi-arrow-right-circle"></i> {{ p.cancelada
+            ? 'voto.assembleia.gestor.proximo_passo.cancelada'|trans({em: p.canceladaEm|date('d/m/Y H:i'), motivo: p.canceladaMotivo})
+            : 'voto.assembleia.gestor.proximo_passo.suspensa'|trans({em: p.suspensaEm|date('d/m/Y H:i'), motivo: p.suspensaMotivo}) }}</b></div>
+    {% endif %}
     <div class="voto-barra-fina"><div style="width:{{ p.pctUnidades }}%;"></div></div>
     <div class="voto-participacao">{{ 'voto.assembleia.gestor.painel.participacao'|trans({n: p.votantes, aptos: p.unidadesAptas, pct: p.pctUnidades}) }}</div>
 
-    {% if p.aguardandoAMesa or p.aberta %}
+    {% if (p.aguardandoAMesa or p.aberta) and not a.arquivada %}
         <div class="voto-pauta-acoes">
             {% if p.aguardandoAMesa %}
                 <button type="button" class="vB vP" data-voto-janela="#janela-abrir-{{ p.id }}"><i class="bi bi-unlock"></i>{{ 'voto.assembleia.gestor.janela_abrir.abrir'|trans }}</button>
@@ -43,5 +73,12 @@
         </div>
     {% elseif p.encerrada and p.resultado is not null %}
         {% include 'voto/assembleia/_decisao.html.twig' with {r: p.resultado} only %}
+    {% endif %}
+    {# As janelas ficam fora do menu (o menu é escondido); abrem pelos itens com data-voto-janela. #}
+    {% if not a.arquivada and p.aguardandoAMesa %}
+        {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'ret', token: token} only %}
+    {% elseif not a.arquivada and p.aberta %}
+        {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token} only %}
+        {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'can', token: token} only %}
     {% endif %}
 </div>

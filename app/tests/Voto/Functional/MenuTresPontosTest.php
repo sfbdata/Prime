@@ -66,6 +66,22 @@ final class MenuTresPontosTest extends KernelTestCase
         self::assertSame('/voto/x?a=1&b=2', $remover->attr('data-voto-envia'), 'o valor é escapado no HTML e volta igual');
     }
 
+    #[TestDox('Extensão do ciclo: item com `janela` abre uma janela e com `revelar` mostra uma faixa, ambos botões fora de formulário')]
+    public function testJanelaERevelar(): void
+    {
+        $html = $this->desenhar([
+            ['rotulo' => 'Suspender votação', 'icone' => 'bi-pause-circle', 'janela' => '#janela-ciclo-5-sus'],
+            ['rotulo' => 'Excluir rascunho', 'icone' => 'bi-trash', 'revelar' => '#excluir-9', 'destrutivo' => true],
+        ]);
+        $menu = (new Crawler($html))->filter('.vKm');
+
+        $janela = $menu->filter('button[type="button"][data-voto-janela="#janela-ciclo-5-sus"]');
+        self::assertSame('Suspender votação', trim($janela->text()));
+        self::assertCount(1, $janela->filter('i.bi-pause-circle'));
+        self::assertCount(1, $menu->filter('button.vKd[type="button"][data-voto-revelar="#excluir-9"]'));
+        self::assertCount(0, $menu->filter('form'));
+    }
+
     #[TestDox('Lista vazia não desenha o menu')]
     public function testListaVazia(): void
     {

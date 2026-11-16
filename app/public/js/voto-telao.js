@@ -1,7 +1,7 @@
 /* BlueJus Voto: Telão (modo assembleia, desenho 18). Troca a pauta sem recarregar (para não sair da tela cheia),
    atualiza os números pelo JSON voto_assembleia_telao_dados a cada 5 s, conta o cronômetro no navegador, mostra a
    confirmação de "Encerrar votação" e alterna a tela cheia. Se a situação de uma pauta mudou (aberta ou encerrada
-   por outra pessoa, ou pelo prazo), busca o HTML do telão e troca o conteúdo no lugar (sem navegar, a tela cheia continua). */
+   por outra pessoa, ou pelo prazo, ou suspensa, retomada ou cancelada), busca o HTML do telão e troca o conteúdo no lugar (sem navegar, a tela cheia continua). */
 (function () {
     'use strict';
 
@@ -116,7 +116,7 @@
         (dados.pautas || []).forEach(function (d) {
             var painel = painelDe(d.id);
             if (!painel) { return; }
-            if (painel.getAttribute('data-situacao') !== d.situacao) { mudou = true; return; }
+            if (painel.getAttribute('data-situacao') !== d.situacao || painel.getAttribute('data-ciclo') !== d.ciclo) { mudou = true; return; }
             painel.querySelector('[data-telao-votantes]').textContent = d.votantes;
             painel.querySelector('[data-telao-aptos]').textContent = d.aptos;
             painel.querySelector('[data-telao-percentual]').textContent = d.percentual;
@@ -160,14 +160,45 @@
         consultar();
     });
 
+    /* Suspender (janela) e Retomar votação: o POST volta ao painel da Gestão eleitoral (rota do ciclo), então o telão
+       lê o aviso (toast) dessa resposta e busca o HTML do telão para trocar no lugar, sem navegar. Se a busca do
+       telão falhar depois de o POST ter dado certo, recarrega a página (nunca repete o POST). */
+    function enviarCiclo(form) {
+        var gravou = false;
+        return fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) {
+                if (!r.ok) { return null; }
+                gravou = true;
+                return r.text();
+            })
+            .then(function (painel) {
+                if (painel === null) { return null; }
+                var avisos = new DOMParser().parseFromString(painel, 'text/html').querySelector('[data-voto-toasts]');
+                return fetch(urlDoTelao(), { credentials: 'same-origin', cache: 'no-store' })
+                    .then(function (r) { return r.ok ? r.text().then(function (t) { return { texto: t, url: r.url, avisos: avisos ? avisos.innerHTML : '' }; }) : null; });
+            })
+            .then(function (r) {
+                if (!r || !trocar(r.texto, r.url)) { throw new Error('telao'); }
+                var caixa = document.querySelector('[data-voto-toasts]');
+                if (caixa && r.avisos) { caixa.innerHTML = r.avisos; apagarToasts(); }
+            })
+            .catch(function () {
+                if (gravou) { window.location.reload(); } else { HTMLFormElement.prototype.submit.call(form); }
+            });
+    }
+
     /* Abrir (janela) e encerrar (confirmação) por fetch: o redirect devolve o HTML do telão, trocado no lugar. Sem
        JS, ou se algo falhar, o POST normal continua valendo. */
     document.addEventListener('submit', function (ev) {
         var form = ev.target;
-        if (!(form instanceof HTMLFormElement) || !raiz.contains(form) || !form.matches('[data-telao-encerrar], [data-mesa="abrir"]')) { return; }
+        if (!(form instanceof HTMLFormElement) || !raiz.contains(form) || !form.matches('[data-telao-encerrar], [data-mesa="abrir"], [data-telao-ciclo]')) { return; }
         ev.preventDefault();
         if (pendente) { return; }
         pendente = true;
+        if (form.matches('[data-telao-ciclo]')) {
+            enviarCiclo(form).then(function () { pendente = false; });
+            return;
+        }
         fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', cache: 'no-store' })
             .then(function (r) { return r.ok ? r.text().then(function (t) { return { texto: t, url: r.url }; }) : null; })
             .then(function (r) {

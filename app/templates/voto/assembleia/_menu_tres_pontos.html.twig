@@ -10,6 +10,12 @@
     Terceira forma (para o menu DENTRO de um <form>, onde outro <form> não pode ficar aninhado): item sem href nem acao,
     com `atributos` (mapa nome => valor de atributos HTML, ex.: data-voto-numerar) vira <button type="button"> e quem
     trata o clique é o JS da tela. `atributos` também vale no item de link e no de formulário.
+    EXTENSÃO (F1-2b/F1-3, não quebra o contrato acima): em vez de href ou acao, o item pode ter
+      janela  (seletor CSS, ex.: '#janela-ciclo-12-sus'): vira <button type="button" data-voto-janela="...">, que abre
+              uma janela do desenho (.vMod*, public/js/voto-janela.js) FORA do menu, ou
+      revelar (seletor CSS): vira <button type="button" data-voto-revelar="...">, que mostra uma faixa escondida do
+              desenho (arquivar, excluir rascunho; public/js/voto-ciclo.js).
+    Nos dois casos o menu se fecha ao clicar (voto-janela.js e voto-ciclo.js).
     Lista vazia não desenha nada.
 #}
 {% if itens|length > 0 %}
@@ -27,6 +33,10 @@
                     {% endfor %}
                     <button type="submit" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
                 </form>
+            {% elseif item.janela is defined and item.janela %}
+                <button type="button" role="menuitem" class="{{ classe }}" data-voto-janela="{{ item.janela }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+            {% elseif item.revelar is defined and item.revelar %}
+                <button type="button" role="menuitem" class="{{ classe }}" data-voto-revelar="{{ item.revelar }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
             {% elseif item.href is not defined %}
                 <button type="button" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
             {% else %}

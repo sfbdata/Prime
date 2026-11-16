@@ -50,31 +50,52 @@ final class AssembleiaController extends AbstractController
     ) {
     }
 
-    /** Aba "Gestão eleitoral" de /voto: as assembleias com as pautas e a mesa. Embutida, sem rota. */
-    public function painel(): Response
+    /**
+     * Aba "Gestão eleitoral" de /voto: as assembleias com as pautas e a mesa. Embutida, sem rota. As arquivadas e as
+     * pautas retiradas ficam fora da lista até o parâmetro `arquivadas=1` ("Mostrar arquivadas", desenho 18).
+     */
+    public function painel(Request $request): Response
     {
         $tenant = $this->guarda->exigir();
+        $todas = $this->obterPainel->executar($tenant);
+        $arquivadas = $request->query->getBoolean('arquivadas');
+        $totalArquivadas = 0;
+        foreach ($todas as $assembleia) {
+            $totalArquivadas += $assembleia->arquivada() ? 1 : \count($assembleia->pautasRetiradas());
+        }
 
         return $this->render('voto/assembleia/_painel.html.twig', [
-            'assembleias' => $this->obterPainel->executar($tenant),
+            'assembleias' => $arquivadas ? $todas : self::semArquivadas($todas),
             'agora' => new \DateTimeImmutable(),
+            'arquivadas' => $arquivadas,
+            'totalArquivadas' => $totalArquivadas,
         ]);
     }
 
-    /** Aba "Resultados" de /voto: as pautas encerradas. Embutida, sem rota. */
+    /** Aba "Resultados" de /voto: as pautas encerradas (arquivada e retirada saem). Embutida, sem rota. */
     public function resultados(): Response
     {
         return $this->render('voto/assembleia/_resultados.html.twig', [
-            'assembleias' => $this->obterPainel->executar($this->guarda->exigir()),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
         ]);
     }
 
-    /** Aba "Acompanhar" de /voto: as pautas publicadas, com "Assistir". Embutida, sem rota. */
+    /** Aba "Acompanhar" de /voto: as pautas publicadas, com "Assistir" (arquivada e retirada saem). Embutida, sem rota. */
     public function acompanhar(): Response
     {
         return $this->render('voto/assembleia/_acompanhar.html.twig', [
-            'assembleias' => $this->obterPainel->executar($this->guarda->exigir()),
+            'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
         ]);
+    }
+
+    /**
+     * @param list<AssembleiaNoPainel> $assembleias
+     *
+     * @return list<AssembleiaNoPainel>
+     */
+    private static function semArquivadas(array $assembleias): array
+    {
+        return array_values(array_filter($assembleias, static fn (AssembleiaNoPainel $a): bool => !$a->arquivada()));
     }
 
     #[Route('/nova', name: 'voto_assembleia_nova', methods: ['GET', 'POST'])]
@@ -174,7 +195,7 @@ final class AssembleiaController extends AbstractController
     {
         $assembleia = $this->lida($this->guarda->exigir(), $id);
         foreach ($assembleia->pautas as $lida) {
-            if ($lida->id === $pauta && $assembleia->publicada()) {
+            if ($lida->id === $pauta && $assembleia->publicada() && !$assembleia->arquivada() && !$lida->retirada()) {
                 return $this->render('voto/assembleia/assistir.html.twig', ['assembleia' => $assembleia, 'pauta' => $lida, 'agora' => new \DateTimeImmutable()]);
             }
         }

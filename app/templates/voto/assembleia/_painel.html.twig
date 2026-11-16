@@ -1,14 +1,48 @@
 {#
     Aba "Gestão eleitoral" de /voto (embutida por render(controller()) de AssembleiaController::painel): a barra
-    com "Nova assembleia" (desenho L189, .vC com o botão vB vP bi-plus-lg) e um cartão por assembleia.
-    Contexto: `assembleias` (list<AssembleiaNoPainel>) e `agora`.
+    com "Nova assembleia" (desenho L189, .vC com o botão vB vP bi-plus-lg) e "Mostrar arquivadas (N)" / "Ocultar arquivadas"
+    (bi-archive / bi-eye-slash, por parâmetro de URL, sem JS), a barra de seleção em lote do desenho (.vSelBar, L241:
+    "Selecionar todas" / "N selecionada(s)", "Arquivar (n)", "Excluir (n)", "Limpar seleção", com as faixas de confirmação
+    de arquivar e de excluir; public/js/voto-ciclo.js) e um cartão por assembleia.
+    Contexto: `assembleias` (list<AssembleiaNoPainel>), `agora`, `arquivadas` (bool: mostra também as arquivadas e as
+    pautas retiradas) e `totalArquivadas` (int: assembleias arquivadas mais pautas retiradas).
 #}
 <div class="voto-painel" data-aba="ges">
     <div class="vC voto-barra">
         <a class="vB vP" href="{{ path('voto_assembleia_nova') }}"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.nova'|trans }}</a>
+        {% if totalArquivadas > 0 or arquivadas %}
+            <span class="voto-espaco"></span>
+            <a class="vB" data-voto-arquivadas aria-pressed="{{ arquivadas ? 'true' : 'false' }}" href="{{ path('voto_index', arquivadas ? {aba: 'ges'} : {aba: 'ges', arquivadas: 1}) }}"><i class="bi {{ arquivadas ? 'bi-eye-slash' : 'bi-archive' }}"></i>{{ arquivadas ? 'voto.assembleia.gestor.arquivar.ocultar'|trans : 'voto.assembleia.gestor.arquivar.mostrar'|trans({n: totalArquivadas}) }}</a>
+        {% endif %}
     </div>
+    {% if assembleias|length > 0 %}
+        <div class="vC voto-lote" data-voto-lote>
+            <div class="vSelBar">
+                <label class="voto-lote-todas"><input type="checkbox" class="vSel" data-voto-lote-todas><span data-voto-lote-tx data-todas="{{ 'voto.assembleia.gestor.lote.selecionar_todas'|trans }}" data-modelo="{{ 'voto.assembleia.gestor.lote.selecionadas'|trans({n: '{n}'}) }}">{{ 'voto.assembleia.gestor.lote.selecionar_todas'|trans }}</span></label>
+                <span class="voto-lote-acoes" data-voto-lote-acoes hidden>
+                    <span class="voto-espaco"></span>
+                    <button type="button" class="vB" data-voto-lote-pedir="arquivar" data-vazio="{{ 'voto.assembleia.gestor.lote.nenhuma_arquivar'|trans }}" data-modelo="{{ 'voto.assembleia.gestor.lote.arquivar'|trans({n: '{n}'}) }}"><i class="bi bi-archive"></i><span></span></button>
+                    <button type="button" class="vB vD" data-voto-lote-pedir="excluir" data-vazio="{{ 'voto.assembleia.gestor.lote.nenhuma_excluir'|trans }}" data-modelo="{{ 'voto.assembleia.gestor.lote.excluir'|trans({n: '{n}'}) }}"><i class="bi bi-trash"></i><span></span></button>
+                    <button type="button" class="vB" data-voto-lote-limpar>{{ 'voto.assembleia.gestor.lote.limpar'|trans }}</button>
+                </span>
+            </div>
+            <form method="post" action="{{ path('voto_assembleia_lote_arquivar') }}" class="vLin voto-faixa-pergunta voto-lote-arquivar" data-voto-lote-form="arquivar" data-voto-exige-motivo="{{ 'voto.assembleia.gestor.lote.motivo_curto'|trans }}" hidden>
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_lote') }}">
+                <div class="voto-faixa-titulo voto-lote-texto"><b data-voto-lote-titulo data-modelo="{{ 'voto.assembleia.gestor.lote.arquivar_titulo'|trans({n: '{n}'}) }}"></b> <span data-voto-lote-obs data-modelo-fora="{{ 'voto.assembleia.gestor.lote.fora'|trans({n: '{n}'}) }}" data-modelo-aberta="{{ 'voto.assembleia.gestor.lote.arquivar_aberta'|trans }}"></span> {{ 'voto.assembleia.gestor.lote.arquivar_texto'|trans }}</div>
+                <label class="vL voto-faixa-motivo">{{ 'voto.assembleia.gestor.lote.motivo'|trans }}<input class="vF" name="motivo" maxlength="200" autocomplete="off" placeholder="{{ 'voto.assembleia.gestor.lote.exemplo'|trans }}"></label>
+                <button type="button" class="vB" data-voto-lote-cancelar>{{ 'voto.assembleia.gestor.lote.cancelar'|trans }}</button>
+                <button type="submit" class="vB vP"><i class="bi bi-archive"></i>{{ 'voto.assembleia.gestor.lote.arquivar_sim'|trans }}</button>
+            </form>
+            <form method="post" action="{{ path('voto_assembleia_lote_excluir') }}" class="vLin voto-faixa-pergunta voto-lote-excluir" data-voto-lote-form="excluir" hidden>
+                <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_lote') }}">
+                <div class="voto-lote-texto"><b data-voto-lote-titulo data-modelo="{{ 'voto.assembleia.gestor.lote.excluir_titulo'|trans({n: '{n}'}) }}"></b> <span data-voto-lote-obs data-modelo-fora="{{ 'voto.assembleia.gestor.lote.fora'|trans({n: '{n}'}) }}"></span> {{ 'voto.assembleia.gestor.lote.excluir_obs'|trans }}</div>
+                <button type="button" class="vB" data-voto-lote-cancelar>{{ 'voto.assembleia.gestor.lote.cancelar'|trans }}</button>
+                <button type="submit" class="vB vD"><i class="bi bi-trash"></i>{{ 'voto.assembleia.gestor.lote.excluir_sim'|trans }}</button>
+            </form>
+        </div>
+    {% endif %}
     {% for a in assembleias %}
-        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora} only %}
+        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora, arquivadas: arquivadas, selecao: true} only %}
     {% else %}
         <div class="vC">
             <div class="vH"><i class="bi bi-activity"></i>{{ 'voto.assembleia.gestor.painel.votacoes'|trans }}</div>

@@ -18,7 +18,8 @@ use Twig\TwigFunction;
  *    L294): até 6 casas, vírgula decimal e sem zeros à direita ("0,025"; "12" quando é inteiro);
  *  - função `voto_avisos()`: os avisos pendentes do toast ({@see AvisosDoVoto}), que saem da sessão ao serem lidos;
  *  - função `voto_assembleia_aba(acao)`: a ação de {@see AssembleiaController} que uma aba de /voto embute por
- *    `render()` (painel, resultados ou acompanhar), sem o nome da classe como texto no template.
+ *    `render()` (painel, resultados ou acompanhar), sem o nome da classe como texto no template; o segundo argumento
+ *    leva parâmetros de URL à sub-requisição (o painel lê `arquivadas`).
  */
 final class AssembleiaExtension extends AbstractExtension
 {
@@ -41,13 +42,14 @@ final class AssembleiaExtension extends AbstractExtension
         ];
     }
 
-    public static function aba(string $acao): ControllerReference
+    /** @param array<string, scalar> $query parâmetros de URL da sub-requisição (ex.: `arquivadas` na Gestão eleitoral) */
+    public static function aba(string $acao, array $query = []): ControllerReference
     {
         if (!\in_array($acao, AssembleiaController::ABAS_EMBUTIDAS, true)) {
             throw new \InvalidArgumentException(sprintf('Aba da assembleia desconhecida: %s.', $acao));
         }
 
-        return new ControllerReference(AssembleiaController::class . '::' . $acao);
+        return new ControllerReference(AssembleiaController::class . '::' . $acao, [], $query);
     }
 
     public static function fracao(?string $decimal): string
