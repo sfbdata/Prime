@@ -62,9 +62,9 @@ final class PontoJanelasJsTest extends TestCase
     public static function conferencias(): iterable
     {
         yield 'Justificar falta' => ['function conferirJustificar(evento, form) {', '// ---- Registro de esquecimento', [
-            'ERRO_DATA_E_MOTIVO', 'ERRO_TIPO', 'ERRO_ESQUECIDO_UMA_DATA', 'ERRO_ESQUECIDO', 'ERRO_ABONO_UMA_DATA', 'ERRO_ABONO_HORARIOS',
+            'ERRO_DATA', 'ERRO_DATA_E_MOTIVO', 'ERRO_TIPO', 'ERRO_ESQUECIDO_UMA_DATA', 'ERRO_ESQUECIDO', 'ERRO_ABONO_UMA_DATA', 'ERRO_ABONO_HORARIOS',
         ]];
-        yield 'Registro de esquecimento' => ['function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa', ['ERRO_HORARIO_E_MOTIVO']];
+        yield 'Registro de esquecimento' => ['function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa', ['ERRO_ESQUECIDO']];
         yield 'Editar justificativa' => ['function conferirEdicao(evento, form) {', '// ---- Delegação', ['ERRO_MOTIVO', 'ERRO_ESQUECIDO', 'ERRO_ABONO_HORARIOS']];
     }
 
@@ -96,8 +96,8 @@ final class PontoJanelasJsTest extends TestCase
         $js = self::janelas();
 
         foreach ([
+            "'Selecione ao menos uma data.'",
             "'Informe a data e o motivo.'",
-            "'Informe o horário e o motivo.'",
             "'Informe o motivo.'",
             "'Selecione o tipo de justificativa.'",
             "'Informe o tipo e o horário do registro esquecido.'",
@@ -108,6 +108,24 @@ final class PontoJanelasJsTest extends TestCase
             self::assertStringContainsString($frase, $js);
         }
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $js, 'sem travessão');
+    }
+
+    #[TestDox('No esquecimento de registro o motivo é livre (pedido do dono, 16/11/2026); nos outros tipos segue pedido')]
+    public function testMotivoLivreSoNoEsquecimento(): void
+    {
+        $js = self::janelas();
+
+        $justificar = self::trecho($js, 'function conferirJustificar(evento, form) {', '// ---- Registro de esquecimento');
+        self::assertStringContainsString('const motivoLivre = tipo.value === TIPO_ESQUECIMENTO;', $justificar);
+        self::assertStringContainsString('if (datas.length === 0 || (!motivoLivre && motivoEmBranco(form))) {', $justificar);
+
+        $esquecimento = self::trecho($js, 'function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa');
+        self::assertStringNotContainsString('motivoEmBranco', $esquecimento, 'a janela do esquecimento não pede o motivo');
+        self::assertStringNotContainsString('data-janela-motivo', $esquecimento);
+        self::assertStringNotContainsString('ERRO_HORARIO_E_MOTIVO', $js);
+
+        $edicao = self::trecho($js, 'function conferirEdicao(evento, form) {', '// ---- Delegação');
+        self::assertStringContainsString("if (!esquecimento && motivo.value.trim() === '') {", $edicao);
     }
 
     #[TestDox('Envio em andamento: o botão trava e a janela não fecha; o "Voltar" do navegador libera')]
