@@ -48,7 +48,7 @@
                         <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
                     {% else %}
                         {# Sem o CPF/CNPJ do titular: a página do gateway já pede (decisão de 07/11/2026, desvio aprovado do desenho 08). #}
-                        <div class="co-hospedado"><i class="bi bi-box-arrow-up-right"></i>Você digita o cartão na página segura do {{ pg.gatewayNome }} e volta para o BlueJus quando terminar.</div>
+                        <div class="co-hospedado">Você digita o cartão na página segura do {{ pg.gatewayNome }} e volta para o BlueJus quando terminar.</div>
                     {% endif %}
                     <div class="co-erro" data-co-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
                     <button type="button" class="co-botao" data-co-pagar><i class="bi bi-lock-fill"></i><span data-co-botao-texto>Assinar por <span data-co-preco></span>/mês</span></button>
