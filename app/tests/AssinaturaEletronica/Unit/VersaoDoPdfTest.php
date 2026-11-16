@@ -62,7 +62,7 @@ final class VersaoDoPdfTest extends TestCase
         $rascunho = self::rascunho();
         self::assertLogica('Só documento enviado tem PDF para assinar ou devolvido.', static fn () => VersaoDoPdf::paraAssinar($rascunho, 1, 'p.pdf', 'p.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable()));
         $cancelado = self::enviado();
-        $cancelado->moverParaLixeira(null, new \DateTimeImmutable());
+        $cancelado->moverParaLixeira(null, new \DateTimeImmutable('2026-11-10 10:00:00'));
         self::assertLogica('O PDF para assinar só é gerado com o documento aguardando assinatura.', static fn () => VersaoDoPdf::paraAssinar($cancelado, 1, 'p.pdf', 'p.pdf', self::SHA, 1, self::ANALISE, new \DateTimeImmutable()));
     }
 
