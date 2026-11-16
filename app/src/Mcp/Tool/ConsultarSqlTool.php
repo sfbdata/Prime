@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Tool;
 
 use App\Mcp\Service\ConexaoLeitura;
-use Mcp\Exception\ToolCallException;
+use Mcp\Server\Exception\ToolCallException;
 use Psr\Log\LoggerInterface;
 
 /**
