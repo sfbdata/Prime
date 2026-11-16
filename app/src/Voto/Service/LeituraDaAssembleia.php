@@ -86,17 +86,8 @@ final class LeituraDaAssembleia
             encerradaEm: $pauta->getEncerradaEm(),
             encerradaPorNome: $pauta->getEncerradaPorNome(),
             motivoEncerramento: $pauta->getMotivoEncerramento(),
-            opcoes: array_map(static fn (OpcaoDaPauta $o): array => [
-                'numero' => $o->getNumero(),
-                'rotulo' => $o->getRotulo(),
-                'descricao' => $o->getDescricao(),
-                'propostas' => $o->getPropostas(),
-                'composicao' => $o->getComposicao(),
-                'unidade' => $o->getUnidadeCandidato(),
-                'foto' => $o->getFoto(),
-            ], $pauta->getOpcoesDeVoto()),
-            votantes: $contagem['unidades'],
-            pesoVotante: $contagem['peso'],
+            opcoes: self::opcoes($pauta),
+            votantes: $contagem['unidades'], pesoVotante: $contagem['peso'],
             unidadesAptas: $totais['unidadesAptas'],
             pesoApto: $totais['pesoApto'],
             resultado: $this->resultado($pauta, $totais, $contagem),
@@ -117,6 +108,20 @@ final class LeituraDaAssembleia
             retiradaMotivo: $pauta->getRetiradaMotivo(),
             retiradaPorNome: $pauta->getRetiradaPorNome(),
         );
+    }
+
+    /** @return list<array{numero: int, rotulo: string, descricao: ?string, propostas: ?string, composicao: ?string, unidade: ?string, foto: ?string}> */
+    private static function opcoes(PautaDaAssembleia $pauta): array
+    {
+        return array_map(static fn (OpcaoDaPauta $o): array => [
+            'numero' => $o->getNumero(),
+            'rotulo' => $o->getRotulo(),
+            'descricao' => $o->getDescricao(),
+            'propostas' => $o->getPropostas(),
+            'composicao' => $o->getComposicao(),
+            'unidade' => $o->getUnidadeCandidato(),
+            'foto' => $o->getFoto(),
+        ], $pauta->getOpcoesDeVoto());
     }
 
     /**

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Voto\Functional;
 
-use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
