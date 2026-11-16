@@ -56,30 +56,6 @@ final class ServidorMcpDoConectorTest extends TestCase
         }
     }
 
-    #[TestDox('sem o portão, o pedido com token que passa pela autorização lança: nada é servido além do 401')]
-    public function testSemPortaoFalhaFechado(): void
-    {
-        $fabrica = new Psr17Factory();
-        $requisicao = new RequisicaoDoConector();
-        $validador = self::validador(['mcp:leitura']);
-        $servidor = new ServidorMcpDoConector(
-            new \App\Conector\Ferramenta\DespachoDasFerramentas([], $requisicao),
-            $validador,
-            new RegistroDaChamadaMiddleware(new Logger('mcp'), $requisicao, $validador),
-            new EscopoQueFaltaMiddleware($fabrica),
-            null,
-            $this->limiteDuble(),
-            ['localhost'],
-            $fabrica,
-            $fabrica,
-        );
-
-        self::assertSame(401, $servidor->responder(self::post('tools/list', token: null))->getStatusCode());
-
-        $this->expectException(\LogicException::class);
-        $servidor->responder(self::post('tools/list'));
-    }
-
     #[TestDox('sem token: 401 com resource_metadata e scope="mcp:leitura mcp:escrita", sem passar pelo portão')]
     public function testSemTokenDa401ComOsDoisEscopos(): void
     {

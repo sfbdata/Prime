@@ -8,6 +8,8 @@ use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\TokenDoConector;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Mcp\LimiteDeChamadasMiddleware;
+use App\Conector\Mcp\PortaoNoMcpMiddleware;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\SegredoOpaco;
@@ -24,10 +26,6 @@ use Symfony\Component\HttpFoundation\Response;
  * (spec mcp-remoto-oauth 12.19 e decisão 2 do PR 5, um juiz só). Sem dublê: o token é gravado no banco sobre o cenário
  * do servidor de autorização.
  *
- * Só roda com o bloco A no container (o portão existe). No commit 0 o validador é esqueleto e lança, então a classe
- * pula com o motivo; depois da integração ela roda inteira.
- *
- * Cliente com `debug` desligado pelo mesmo motivo do {@see McpControllerTest}: `PastaDaRota` lê a sessão no `/mcp`.
  */
 #[CoversClass(McpController::class)]
 #[CoversClass(ServidorMcpDoConector::class)]
@@ -36,18 +34,11 @@ final class McpPeloFirewallTest extends WebTestCase
 {
     use CenarioDoServidorDeAutorizacaoTrait;
 
-    /** O portão do bloco A, pelo nome: no commit 0 a classe não existe. */
-    private const PORTAO = 'App\Conector\Mcp\PortaoNoMcpMiddleware';
-
     private KernelBrowser $client;
 
     protected function setUp(): void
     {
-        if (!class_exists(self::PORTAO)) {
-            self::markTestSkipped('O bloco A (validador, portão e limite) ainda não está no container.');
-        }
-
-        $this->client = static::createClient(['debug' => false]);
+        $this->client = static::createClient();
         $this->client->disableReboot();
     }
 
@@ -71,12 +62,16 @@ final class McpPeloFirewallTest extends WebTestCase
         self::assertStringContainsString('error="invalid_token"', (string) $recusada->headers->get('WWW-Authenticate'));
         self::assertSame([], $recusada->headers->getCookies());
 
-        [$novo] = $this->tokenDeAcesso($conexao['concessao']);
+        // A segunda requisição zerou os serviços (o `services_resetter` roda mesmo sem reboot) e o EntityManager soltou
+        // a concessão: ela volta pelo id antes do token novo.
+        $concessao = $this->em()->find(ConcessaoDoConector::class, $conexao['concessao']->getId());
+        self::assertNotNull($concessao);
+        [$novo] = $this->tokenDeAcesso($concessao);
         $deNovo = $this->postar(['jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/list'], $novo);
         self::assertSame(200, $deNovo->getStatusCode(), 'a recusa anterior não fica guardada');
     }
 
-    #[TestDox('um juiz só: o firewall, o AuthorizationMiddleware e o log usam a mesma instância do validador, que guardou o token aceito da requisição')]
+    #[TestDox('um juiz só: o firewall, o AuthorizationMiddleware e o log usam a mesma instância do validador, que guardou o token aceito da requisição; o servidor recebe o portão e o limite do container')]
     public function testUmJuizSo(): void
     {
         $conexao = $this->conexaoAutorizada();
@@ -88,6 +83,8 @@ final class McpPeloFirewallTest extends WebTestCase
         $validador = $c->get(ValidadorDoTokenDoConector::class);
         self::assertSame($validador, self::propriedade($c->get(ServidorMcpDoConector::class), 'validador'));
         self::assertSame($validador, self::propriedade($c->get(RegistroDaChamadaMiddleware::class), 'validador'));
+        self::assertSame($c->get(PortaoNoMcpMiddleware::class), self::propriedade($c->get(ServidorMcpDoConector::class), 'portao'));
+        self::assertSame($c->get(LimiteDeChamadasMiddleware::class), self::propriedade($c->get(ServidorMcpDoConector::class), 'limite'));
         self::assertSame($conexao['concessao']->getId(), $validador->tokenValidado()?->getConcessao()->getId());
     }
 

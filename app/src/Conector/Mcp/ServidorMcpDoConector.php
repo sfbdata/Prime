@@ -19,7 +19,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -44,8 +43,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * Nunca o `ProtocolVersionMiddleware`: o transporte já o aplica só à era do `initialize`, e na lista ele recusaria a
  * 2026-07-28.
  *
- * O portão e o limite entram pelo nome da classe e nulos quando o serviço não existe: sem um deles, toda requisição que
- * passa pela autorização lança e nada é servido (falha fechada).
+ * O portão e o limite são obrigatórios: o container injeta o {@see PortaoNoMcpMiddleware} e o
+ * {@see LimiteDeChamadasMiddleware} pelo id do serviço (`#[Autowire(service: ...)]`). Nunca `#[Autowire('@?...')]`: o
+ * atributo não entende o `?` do YAML, procura o id `?App\...`, que não existe, e o parâmetro anulável virava null.
  */
 final class ServidorMcpDoConector
 {
@@ -59,10 +59,10 @@ final class ServidorMcpDoConector
         private readonly AuthorizationTokenValidatorInterface $validador,
         private readonly RegistroDaChamadaMiddleware $registro,
         private readonly EscopoQueFaltaMiddleware $escopoQueFalta,
-        #[Autowire('@?App\Conector\Mcp\PortaoNoMcpMiddleware')]
-        private readonly ?MiddlewareInterface $portao,
-        #[Autowire('@?App\Conector\Mcp\LimiteDeChamadasMiddleware')]
-        private readonly ?MiddlewareInterface $limite,
+        #[Autowire(service: PortaoNoMcpMiddleware::class)]
+        private readonly MiddlewareInterface $portao,
+        #[Autowire(service: LimiteDeChamadasMiddleware::class)]
+        private readonly MiddlewareInterface $limite,
         #[Autowire(param: 'conector.mcp_hosts')]
         private readonly array $hostsPermitidos,
         private readonly ResponseFactoryInterface $respostas,
@@ -110,24 +110,9 @@ final class ServidorMcpDoConector
                 logger: new NullLogger(),
             ),
             new PreflightSemPortaoMiddleware($this->respostas),
-            $this->portao ?? self::faltando('O /mcp não atende sem o middleware do portão.'),
-            $this->limite ?? self::faltando('O /mcp não atende sem o limite de chamadas.'),
+            $this->portao,
+            $this->limite,
         ];
-    }
-
-    /** No lugar de uma peça que não existe: toda requisição que chega até ela lança (falha fechada, 500). */
-    private static function faltando(string $motivo): MiddlewareInterface
-    {
-        return new class ($motivo) implements MiddlewareInterface {
-            public function __construct(private readonly string $motivo)
-            {
-            }
-
-            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-            {
-                throw new \LogicException($this->motivo);
-            }
-        };
     }
 
     private function servidor(): Server
