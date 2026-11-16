@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Conector\Repository;
 
 use App\Conector\Entity\PropostaDoConector;
+use App\Conector\Enum\EstadoDaPropostaDoConector;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -39,5 +40,24 @@ class PropostaDoConectorRepository extends ServiceEntityRepository
             ->setParameter('hash', $identificadorHash)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Faxina (13.2): apaga, num DELETE só e em todos os escritórios, as propostas decididas (confirmada, cancelada ou
+     * expirada) antes de `$decididasAntesDe` (quem chama passa "agora menos 1 dia": a `confirmar_acao` repetida logo
+     * depois ainda acha a proposta e responde "já decidida") e as pendentes que venceram até `$agora`. Pendente no prazo
+     * fica. Devolve quantas saíram.
+     */
+    public function apagarDecididasOuVencidas(\DateTimeImmutable $agora, \DateTimeImmutable $decididasAntesDe): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'DELETE FROM ' . PropostaDoConector::class . ' p'
+            . ' WHERE (p.estado <> :pendente AND p.decididaEm < :decididasAntesDe)'
+            . ' OR (p.estado = :pendente AND p.expiraEm <= :agora)'
+        )
+            ->setParameter('pendente', EstadoDaPropostaDoConector::Pendente->value)
+            ->setParameter('decididasAntesDe', $decididasAntesDe, 'datetime_immutable')
+            ->setParameter('agora', $agora, 'datetime_immutable')
+            ->execute();
     }
 }

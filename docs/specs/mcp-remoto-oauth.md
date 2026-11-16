@@ -2028,3 +2028,53 @@ entra num PR próprio depois de testada nos dois clientes.
    O `/mcp` (PR 5) encerra a requisição em **qualquer** exceção do `abrir()`, inclusive `LogicException`, sem tentar de
    novo; a trava contra reabrir só vale depois de uma abertura que deu certo, então é essa regra do PR 5 que fecha o
    caso de uma abertura que falhou no meio. Teste no PR 5.
+5. **Código de autorização reapresentado** derruba a concessão inteira com um quinto motivo, `codigo_reutilizado`
+   (aprovado pelo Coordenador em 16/11/2026; a coluna `motivo` é VARCHAR(40) sem CHECK, então não pede migration). A
+   RFC 6749 (4.1.2) manda o servidor revogar o que foi emitido a partir de um código usado duas vezes: é sinal de que
+   alguém o copiou. A linha do código é lida travada (`FOR UPDATE`) na troca.
+
+**Decidido em 16/11/2026 no planejamento do PR 3 (orquestrador da frente, pela recomendação):**
+
+1. **`security.yaml` e `framework.yaml` entram no PR 3**, e não só no PR 5: `PUBLIC_ACCESS` só para `^/oauth/token$` e
+   `^/\.well-known/oauth-authorization-server$` (o `/oauth/authorize` fica no `ROLE_USER`), e os limites de taxa
+   `conector_token` (por cliente e IP) e `conector_cimd` (por domínio do `client_id`). Os do `/mcp` ficam no PR 5.
+2. **A chave `conector_ia` entra no catálogo no PR 3**, sem rota no mapa de rotas: o guarda de rota não pode
+   redirecionar o `/oauth/*` nem o `/mcp`; quem confere a chave é a liberação nos três níveis, no código. A rota do
+   Master que liga e desliga uma chave passa a aceitar sublinhado, senão o Master não conseguiria desligar esta.
+3. **Depois do login, a pessoa volta ao `/oauth/authorize`** com o pedido inteiro, também quando tem vários
+   escritórios (teste de identidade). Se ela ainda precisar aceitar os Termos de Uso, o pedido se perde depois do
+   aceite: aceito no piloto, porque é raro e o app de I.A. deixa conectar de novo.
+4. **O `/oauth/authorize` roda sem o filtro de escritório da sessão**: a tela escolhe um escritório que pode não ser o
+   da sessão e lista os escritórios da pessoa. Toda consulta dela passa o escritório explícito. O `/oauth/token`
+   também (achado do teste ponta a ponta): ele não usa sessão, e um cookie que chegue junto não pode prender a troca
+   ao escritório da sessão; ali o escritório vem da concessão.
+5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
+   concessões já abertas guardam os escopos delas.
+6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com
+   `codigo_reutilizado` (item 5 do bloco anterior).
+7. **`offline_access`**: a renovação é emitida sempre, peça o app ou não esse escopo.
+8. **O comando `conector:liberar` exige `--master`** com o e-mail de um Master, conferido como Master; quem aparece
+   como autor do aceite é esse Master.
+9. **A conferência da concessão** (pessoa, escritório, corte de "Sair de todos os aparelhos", impressão da senha e
+   liberação) roda também na troca do código, não só na renovação.
+10. **Escopo desconhecido no pedido é ignorado**: o servidor emite só os escopos que conhece entre os pedidos, e a
+    resposta do `/oauth/token` sempre diz quais foram, por interoperabilidade com os apps.
+
+**Decidido em 16/11/2026 na revisão dos blocos do PR 3 (orquestrador da frente, pela recomendação):**
+
+11. **Documento CIMD gravado quando a renovação falha**: se o cache do cliente já gravado venceu e a nova busca falha
+    por rede, status ou limite de buscas, o servidor segue com o documento gravado por até 24 horas depois do
+    vencimento (no estilo da RFC 5861) e registra no log `mcp`. Documento inválido recusa sempre. O limite de buscas
+    continua por domínio: no piloto aceita-se que uma conta logada consiga atrasar o registro de um app NOVO.
+12. **O cache do documento CIMD desconta o cabeçalho `Age`** (RFC 9111, 4.2.3) antes do piso de 5 minutos e do teto
+    de 24 horas.
+13. **As rotações de uma mesma cadeia saem uma de cada vez**: a renovação trava primeiro a linha da concessão e depois
+    a do token, sempre nessa ordem. Sem isso, a renovação mãe reapresentada na janela de 60 s e a filha girando ao
+    mesmo tempo deixavam dois pares válidos. O token de acesso grava a validade já limitada ao fim da concessão; campo
+    repetido no `/oauth/token` dá `invalid_request` (RFC 6749, 3.2); a proposta decidida sai na faxina só depois de 1 dia.
+14. **A volta do login ao `/oauth/authorize` pula a tela de entrada** de quem tem vários escritórios: a tela de
+    autorização é quem escolhe o escritório. Qualquer outra página continua passando pela seleção de escritório.
+15. **Escritório ou pessoa recusados ao autorizar** voltam ao app com `access_denied` (com `state` e `iss`), em vez de
+    uma página de erro que deixaria o app esperando. Autorizar sem escolher o escritório volta à tela com aviso, sem
+    gastar o pedido. Duas autorizações ao mesmo tempo da mesma pessoa saem uma de cada vez (a linha da pessoa é
+    travada), sem erro na primeira conexão.

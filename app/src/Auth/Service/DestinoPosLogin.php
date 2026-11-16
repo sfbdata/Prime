@@ -128,6 +128,9 @@ final class DestinoPosLogin
         'admin_platform_oab_index',
         'inteligencia_admin_config',
         'auth_suporte_mensagens',
+        // Conector de I.A. (spec mcp-remoto-oauth 3.3): o app manda a pessoa ao /oauth/authorize; sem sessão, ela faz login
+        // e precisa voltar à tela de autorização com o pedido inteiro (a query), senão a conexão se perde.
+        'conector_oauth_autorizar',
     ];
 
     public function __construct(

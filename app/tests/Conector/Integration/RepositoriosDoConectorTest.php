@@ -177,6 +177,22 @@ final class RepositoriosDoConectorTest extends KernelTestCase
         $tokens->buscarRenovacaoParaGirar($hash);
     }
 
+    #[TestDox('O código a usar vem com a linha travada (FOR UPDATE): fora de transação o Doctrine recusa; hash desconhecido dá nulo')]
+    public function testBuscarCodigoParaUsarTravaALinha(): void
+    {
+        $deA = $this->semearConector($this->tenantNovo(), UserFactory::createOne()->_real(), $this->clienteGlobal());
+        $codigos = $this->repo(CodigoDoConectorRepository::class);
+        $hash = $deA['codigo']->getIdentificadorHash();
+
+        $achado = $this->em->wrapInTransaction(static fn () => $codigos->buscarParaUsar($hash));
+        $nenhum = $this->em->wrapInTransaction(static fn () => $codigos->buscarParaUsar(hash('sha256', 'nao-existe' . uniqid())));
+
+        self::assertSame($deA['codigo'], $achado);
+        self::assertNull($nenhum);
+        $this->expectException(TransactionRequiredException::class);
+        $codigos->buscarParaUsar($hash);
+    }
+
     #[TestDox('A filha é a renovação mais recente gerada por esta; quem nunca girou não tem filha')]
     public function testBuscarRenovacaoGeradaPor(): void
     {

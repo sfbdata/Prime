@@ -442,6 +442,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('CPF/CNPJ DO TITULAR', $crawler->filter('[data-checkout] [data-co-form]')->text());
         self::assertSame(1, $crawler->filter('[data-co-form] > .co-meio + .co-hospedado')->count(), 'o aviso da página segura fica logo abaixo de "Cartão de crédito"');
         self::assertStringContainsString('página segura do Asaas', $crawler->filter('[data-co-form] > .co-hospedado')->text());
+        self::assertSame(0, $crawler->filter('.co-hospedado i, .co-hospedado .bi')->count(), 'o desenho não tem ícone no aviso da página segura');
     }
 
     #[TestDox('Página hospedada: iniciar sem documento funciona, e o que vier no pedido é ignorado (o gateway não recebe)')]
