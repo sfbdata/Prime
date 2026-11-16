@@ -436,6 +436,8 @@ final class PurgarEscritorioUseCase
         // a conferência (garantirTenantVazio) roda ANTES do DELETE FROM tenant e enxerga o schema `voto`: sem esta linha,
         // acharia a linha que só sairia pela cascata e travaria a purga de todo escritório liberado.
         // Assembleia de condomínio (spec voto-assembleia-condominio, seção 3): mesmo motivo, filhas antes das mães.
+        // Voto aberto (W2-3): a relação nominal é filha da unidade, da pauta e da opção, então sai antes delas.
+        ['voto.assembleia_voto_nominal', 'tenant_id = :tenant'],
         ['voto.assembleia_participacao', 'tenant_id = :tenant'],
         ['voto.assembleia_opcao', 'tenant_id = :tenant'],
         ['voto.assembleia_unidade', 'tenant_id = :tenant'],
