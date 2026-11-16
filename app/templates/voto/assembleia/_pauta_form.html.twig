@@ -84,6 +84,28 @@
             <label class="vL voto-pauta-quorum-segunda">{{ 'voto.assembleia.gestor.pautas.quorum_segunda'|trans }}<input class="vF" name="quorum_segunda" inputmode="numeric" data-voto-limite="segunda" value="{{ segunda is null ? '' : segunda + 0 }}"></label>
         </div>
     </details>
+    {# Programação, grupos, ordem das candidaturas e sigilo (desenho 18, passo 2): sempre à vista e fixos depois de publicar. #}
+    {% set programada = p is not null and p.programada %}
+    {% set sigilo = p.sigilo.value ?? 'secreto' %}
+    <div class="voto-pauta-participacao" data-voto-participacao>
+        <b class="voto-pauta-participacao-titulo">{{ 'voto.assembleia.gestor.pautas.participacao'|trans }}</b>
+        <div class="voto-pauta-detalhe">
+            <label class="vL voto-pauta-sigilo">{{ 'voto.assembleia.gestor.pautas.sigilo'|trans }}<select class="vF" name="sigilo_voto" data-voto-sigilo>
+                {% for chave in ['secreto', 'aberto', 'aberto_vivo'] %}<option value="{{ chave }}"{% if sigilo == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.sigilo_' ~ chave)|trans }}</option>{% endfor %}
+            </select></label>
+            <div class="vAviso voto-pauta-aviso-aberto" data-voto-sigilo-aviso{% if sigilo == 'secreto' %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.sigilo_aviso'|trans }}</div>
+            <label class="vL voto-pauta-modo">{{ 'voto.assembleia.gestor.pautas.modo_horario'|trans }}<select class="vF" name="modo_horario" data-voto-modo-horario>
+                <option value="horario"{% if programada %} selected{% endif %}>{{ 'voto.assembleia.gestor.pautas.modo_horario_programado'|trans }}</option>
+                <option value="mesa"{% if not programada %} selected{% endif %}>{{ 'voto.assembleia.gestor.pautas.modo_horario_mesa'|trans }}</option>
+            </select></label>
+            <label class="vL voto-pauta-horario" data-voto-horario{% if not programada %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.abre_em'|trans }}<input class="vF" type="datetime-local" name="abre_em" value="{{ programada ? p.abreEm|date('Y-m-d\\TH:i') : '' }}"></label>
+            <label class="vL voto-pauta-horario" data-voto-horario{% if not programada %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.encerra_em'|trans }}<input class="vF" type="datetime-local" name="encerra_em" value="{{ programada ? p.encerraEm|date('Y-m-d\\TH:i') : '' }}"></label>
+            <label class="vL voto-pauta-grupos">{{ 'voto.assembleia.gestor.pautas.grupos'|trans }}<input class="vF" name="grupos" maxlength="500" value="{{ (p.grupos ?? [])|join(', ') }}"></label>
+            <label class="vL voto-pauta-ordem">{{ 'voto.assembleia.gestor.pautas.ordem_candidaturas'|trans }}<select class="vF" name="ordem_candidaturas">
+                {% for chave in ['fixa', 'sorteada'] %}<option value="{{ chave }}"{% if (p.ordemDasCandidaturas.value ?? 'fixa') == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.ordem_' ~ chave)|trans }}</option>{% endfor %}
+            </select></label>
+        </div>
+    </div>
     <p class="voto-texto" data-voto-dica-eleicao{% if not eleicao %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.dica_eleicao'|trans }}</p>
     <label class="vL">{{ 'voto.assembleia.gestor.pautas.descricao'|trans }}<textarea class="vF" name="descricao">{{ p.descricao ?? '' }}</textarea></label>
     <div class="voto-opcoes" data-voto-opcoes>

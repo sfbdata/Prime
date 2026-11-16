@@ -12,8 +12,11 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Entity\VotoNominal;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\OrdemDasCandidaturas;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\SigiloDoVoto;
 use App\Voto\Exception\CedulaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
@@ -21,6 +24,7 @@ use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
+use App\Voto\Repository\VotoNominalRepository;
 use App\Voto\Service\TokenDaUnidade;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\Service\UnidadeDoLink;
@@ -53,6 +57,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
     private ParticipacaoNaPautaRepository&MockObject $participacoes;
     private UnidadeDaAssembleiaRepository&MockObject $unidades;
     private LiberacaoDoVotoRepository&MockObject $liberacoes;
+    private VotoNominalRepository&MockObject $nominais;
+    /** @var list<VotoNominal> */
+    private array $nominaisSalvos = [];
     private ?\Throwable $falhaAoGravar = null;
     private MockClock $relogio;
     private Tenant $tenant;
@@ -71,6 +78,10 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $this->participacoes = $this->createMock(ParticipacaoNaPautaRepository::class);
         $this->unidades = $this->createMock(UnidadeDaAssembleiaRepository::class);
         $this->liberacoes = $this->createMock(LiberacaoDoVotoRepository::class);
+        $this->nominais = $this->createMock(VotoNominalRepository::class);
+        $this->nominais->method('salvar')->willReturnCallback(function (VotoNominal $v): void {
+            $this->nominaisSalvos[] = $v;
+        });
         $this->relogio = new MockClock('2026-11-10 19:00:00');
         $this->tenant = new Tenant();
 
@@ -399,9 +410,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
     }
 
     /** Pauta 10 com N vagas, opções 1, 2, 3 e abstenção; abre a pauta. @return array{UnidadeDaAssembleia, PautaDaAssembleia} */
-    private function cenarioComVagas(int $vagas): array
+    private function cenarioComVagas(int $vagas, ?\Closure $configurar = null): array
     {
-        $cenario = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+        $cenario = $this->cenario(PesoDoVoto::Fracao, '0.025000', configurar: $configurar);
         (new \ReflectionProperty($cenario[1], 'vagas'))->setValue($cenario[1], $vagas);
         $this->definirId(new OpcaoDaPauta($cenario[1], 3, 'Talvez'), 4);
 
@@ -478,11 +489,92 @@ final class RegistrarVotoUseCaseTest extends TestCase
         yield 'lista aninhada' => [[['9']]];
     }
 
+    #[TestDox('Voto secreto (padrão): nenhuma linha nominal é gravada, só participação e contador')]
+    public function testVotoSecretoNaoGravaNominal(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
+
+        self::assertFalse($pauta->votoAberto());
+        self::assertSame([], $this->nominaisSalvos, 'o secreto nunca liga a unidade à escolha');
+        self::assertCount(1, $this->participacoesSalvas);
+    }
+
+    #[TestDox('Voto aberto: grava a unidade, a escolha, o peso e a hora, além da participação e do contador')]
+    public function testVotoAbertoGravaNominal(): void
+    {
+        [$unidade, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000', configurar: $this->abrirOVoto(...));
+        $nao = $this->opcao($pauta, 2);
+
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $nao->getId()));
+
+        self::assertCount(1, $this->nominaisSalvos);
+        self::assertSame($unidade, $this->nominaisSalvos[0]->getUnidade());
+        self::assertSame($nao, $this->nominaisSalvos[0]->getOpcao());
+        self::assertSame('0.025000', $this->nominaisSalvos[0]->getPeso());
+        self::assertEquals($this->relogio->now(), $this->nominaisSalvos[0]->getRegistradaEm());
+        self::assertCount(1, $this->participacoesSalvas);
+        self::assertSame([[[$nao], '0.025000']], $this->somados);
+    }
+
+    #[TestDox('Voto aberto com número nulo: uma linha nominal por escolha, a nula com o número digitado')]
+    public function testVotoAbertoComNulo(): void
+    {
+        $this->cenarioComVagas(2, $this->abrirOVoto(...));
+
+        $this->caso()->executar(new RegistrarVotoInput(self::TOKEN, 10, [1], ['9']));
+
+        self::assertCount(2, $this->nominaisSalvos);
+        self::assertSame(1, $this->nominaisSalvos[0]->getOpcao()?->getId());
+        self::assertSame('9', $this->nominaisSalvos[1]->getNumeroNulo());
+        self::assertNull($this->nominaisSalvos[1]->getOpcao());
+    }
+
+    #[TestDox('Voto aberto recusado não deixa linha nominal')]
+    public function testVotoAbertoRecusadoNaoGrava(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000', configurar: $this->abrirOVoto(...));
+        $this->participacoes->method('jaVotou')->willReturn(true);
+
+        $this->assertRecusa(RegistrarVotoUseCase::JA_VOTOU, (int) $this->opcao($pauta, 1)->getId());
+
+        self::assertSame([], $this->nominaisSalvos);
+    }
+
+    #[TestDox('Pauta com grupos: a unidade de outro bloco é recusada sem gravar; a do grupo vota')]
+    public function testGruposDaPauta(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000', configurar: static function (PautaDaAssembleia $p): void {
+            $p->definirParticipacao(null, null, ['Bloco B'], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Secreto);
+        });
+
+        $this->assertRecusa(RegistrarVotoUseCase::UNIDADE_FORA_DO_GRUPO, (int) $this->opcao($pauta, 1)->getId());
+        self::assertSame(['begin', 'rollback'], $this->passos);
+    }
+
+    #[TestDox('Pauta com grupos: a unidade do bloco do grupo vota (caixa e espaços das pontas não contam)')]
+    public function testUnidadeDoGrupoVota(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000', configurar: static function (PautaDaAssembleia $p): void {
+            $p->definirParticipacao(null, null, [' a '], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Secreto);
+        });
+
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
+
+        self::assertCount(1, $this->participacoesSalvas);
+    }
+
+    private function abrirOVoto(PautaDaAssembleia $pauta): void
+    {
+        $pauta->definirParticipacao(null, null, [], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Aberto);
+    }
+
     private function caso(): RegistrarVotoUseCase
     {
         $link = new UnidadeDoLink(new TokenDaUnidade(self::SEGREDO), $this->unidades, $this->liberacoes);
 
-        return new RegistrarVotoUseCase($link, $this->pautas, $this->opcoes, $this->participacoes, $this->transacaoFalsa(), $this->relogio, new \App\Voto\Service\ComprovanteDoVoto('segredo-de-teste'));
+        return new RegistrarVotoUseCase($link, $this->pautas, $this->opcoes, $this->participacoes, $this->transacaoFalsa(), $this->relogio, new \App\Voto\Service\ComprovanteDoVoto('segredo-de-teste'), $this->nominais);
     }
 
     /** Transação de mentira que anota begin/gravar/flush/commit/rollback em $this->passos. */
@@ -542,7 +634,7 @@ final class RegistrarVotoUseCaseTest extends TestCase
      *
      * @return array{UnidadeDaAssembleia, PautaDaAssembleia}
      */
-    private function cenario(PesoDoVoto $peso, string $fracao, bool $abrir = true, ?string $prazo = null, ?string $situacao = null): array
+    private function cenario(PesoDoVoto $peso, string $fracao, bool $abrir = true, ?string $prazo = null, ?string $situacao = null, ?\Closure $configurar = null): array
     {
         $assembleia = new Assembleia($this->tenant, 'AGO 2026', $peso, 'Gestor');
         $pauta = new PautaDaAssembleia($assembleia, 1, 'Aprovação das contas');
@@ -553,6 +645,9 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $tokens = new TokenDaUnidade(self::SEGREDO);
         new UnidadeDaAssembleia($assembleia, '102', str_repeat('b', 32), str_repeat('c', 64), 'A', fracao: '0.010000');
         $unidade = new UnidadeDaAssembleia($assembleia, '101', str_repeat('a', 32), $tokens->hash(self::TOKEN), 'A', $situacao, $fracao);
+        if (null !== $configurar) {
+            $configurar($pauta);
+        }
         $assembleia->publicar($this->relogio->now()->modify('-1 hour'));
         if ($abrir) {
             $agora = $this->relogio->now();

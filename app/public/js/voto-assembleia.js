@@ -891,6 +891,29 @@
         }
     });
 
+    /* Programação, sigilo e aviso do voto aberto (desenho 18, passo 2): o horário só aparece em "Programados no horário"
+       e o aviso só no voto aberto. Bloco próprio; o envio já leva os campos, escondidos ou não. */
+    document.addEventListener('change', function (evento) {
+        var campo = evento.target;
+        if (!campo || !campo.closest) {
+            return;
+        }
+        var caixa = campo.closest('[data-voto-participacao]');
+        if (!caixa) {
+            return;
+        }
+        if (campo.hasAttribute('data-voto-modo-horario')) {
+            Array.prototype.forEach.call(caixa.querySelectorAll('[data-voto-horario]'), function (rotulo) {
+                rotulo.hidden = campo.value !== 'horario';
+            });
+        } else if (campo.hasAttribute('data-voto-sigilo')) {
+            var aviso = caixa.querySelector('[data-voto-sigilo-aviso]');
+            if (aviso) {
+                aviso.hidden = campo.value === 'secreto';
+            }
+        }
+    });
+
     function iniciar() {
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-toasts] .voto-toast'), sumirDepois);
         Array.prototype.forEach.call(document.querySelectorAll('[data-voto-prazo]'), iniciarCronometro);

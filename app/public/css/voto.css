@@ -255,3 +255,15 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .voto-tela .vCatOn i { color: #fff; }
 .voto-tela .vCat .voto-cat-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
 .voto-tela .vCat:focus-within { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+/* Relação nominal do voto aberto (Resultados e ata): tabela simples no mesmo tom da ata. */
+.voto-nominal { margin-top: 12px; }
+.voto-nominal .voto-nominal-titulo { display: block; color: #0b3550; margin-bottom: 4px; }
+.voto-nominal .voto-nominal-texto { margin: 0 0 6px; font-size: 13px; color: #4a6373; }
+.voto-nominal .voto-nominal-tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.voto-nominal .voto-nominal-tabela th { background: #d6e3ec; font-size: 12.5px; font-weight: bold; color: #0b3550; text-align: left; padding: 6px 8px; }
+.voto-nominal .voto-nominal-tabela td { padding: 6px 8px; }
+.voto-nominal .voto-nominal-tabela tbody tr:nth-child(even) { background: #f6f9fb; }
+.voto-tela .voto-pauta-participacao { display: flex; flex-direction: column; gap: 8px; }
+.voto-tela .voto-pauta-participacao-titulo { color: #0b3550; font-size: 13px; }
+.voto-tela .voto-pauta-participacao .voto-pauta-aviso-aberto { flex: 1 1 100%; }
+.voto-tela .voto-pauta-participacao .voto-pauta-grupos { flex: 1 1 280px; }

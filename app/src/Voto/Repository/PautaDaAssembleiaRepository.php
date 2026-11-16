@@ -6,6 +6,8 @@ namespace App\Voto\Repository;
 
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\Enum\EstadoDaAssembleia;
+use App\Voto\Enum\EstadoDaPauta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
@@ -69,6 +71,35 @@ class PautaDaAssembleiaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return $pauta;
+    }
+
+    /**
+     * As pautas que a programação de horário precisa mexer agora, de todos os escritórios (é o agendador do servidor,
+     * sem escritório na sessão; cada pauta carrega o seu): as aguardando com a abertura chegada e o encerramento ainda
+     * por vir, e as abertas, não suspensas, com o prazo vencido. Só assembleia publicada e não arquivada; pauta retirada
+     * não abre. Quem chama relê cada uma TRAVADA e confere de novo.
+     *
+     * @return list<PautaDaAssembleia>
+     */
+    public function aProgramar(\DateTimeImmutable $agora): array
+    {
+        /** @var list<PautaDaAssembleia> $pautas */
+        $pautas = $this->createQueryBuilder('p')
+            ->innerJoin('p.assembleia', 'a')
+            ->andWhere('a.estado = :publicada')
+            ->andWhere('a.arquivadaEm IS NULL')
+            ->andWhere('p.abreEm IS NOT NULL AND p.encerraEm IS NOT NULL')
+            ->andWhere('(p.estado = :aguardando AND p.retiradaEm IS NULL AND p.abreEm <= :agora AND p.encerraEm > :agora)'
+                . ' OR (p.estado = :aberta AND p.suspensaEm IS NULL AND p.prazoAte IS NOT NULL AND p.prazoAte <= :agora)')
+            ->setParameter('publicada', EstadoDaAssembleia::Publicada)
+            ->setParameter('aguardando', EstadoDaPauta::Aguardando)
+            ->setParameter('aberta', EstadoDaPauta::Aberta)
+            ->setParameter('agora', $agora)
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $pautas;
     }
 
     /** Relê os agregados atualizados por SQL antes de mostrar um resultado final. */

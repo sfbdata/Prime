@@ -8,6 +8,8 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\OrdemDasCandidaturas;
+use App\Voto\Enum\SigiloDoVoto;
 
 /** Identifica a configuração conferida. Mudança em pauta, regra ou lista exige outra revisão. */
 final class ConfiguracaoDaPublicacao
@@ -28,7 +30,7 @@ final class ConfiguracaoDaPublicacao
     /** @return array<string, mixed> */
     private static function pauta(PautaDaAssembleia $pauta): array
     {
-        return [
+        $dados = [
             'id' => $pauta->getId(),
             'ordem' => $pauta->getOrdem(),
             'titulo' => $pauta->getTitulo(),
@@ -42,6 +44,34 @@ final class ConfiguracaoDaPublicacao
             'quorumSegunda' => $pauta->getQuorumSegunda(),
             'opcoes' => array_map(self::opcao(...), $pauta->getOpcoesDeVoto()),
         ];
+
+        return $dados + self::regrasDeParticipacao($pauta);
+    }
+
+    /**
+     * Horário programado, grupos, ordem das candidaturas e sigilo só entram quando saem do padrão: a pauta sem essas
+     * regras mantém o código de antes.
+     *
+     * @return array<string, mixed>
+     */
+    private static function regrasDeParticipacao(PautaDaAssembleia $pauta): array
+    {
+        $dados = [];
+        if ($pauta->programada()) {
+            $dados['abreEm'] = $pauta->getAbreEm()?->format(\DATE_ATOM);
+            $dados['encerraEm'] = $pauta->getEncerraEm()?->format(\DATE_ATOM);
+        }
+        if ([] !== $pauta->getGrupos()) {
+            $dados['grupos'] = $pauta->getGrupos();
+        }
+        if (OrdemDasCandidaturas::Fixa !== $pauta->getOrdemDasCandidaturas()) {
+            $dados['ordemDasCandidaturas'] = $pauta->getOrdemDasCandidaturas()->value;
+        }
+        if (SigiloDoVoto::Secreto !== $pauta->getSigilo()) {
+            $dados['sigilo'] = $pauta->getSigilo()->value;
+        }
+
+        return $dados;
     }
 
     /**

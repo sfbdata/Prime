@@ -46,6 +46,8 @@ voto:
             cancelada: Cancelada
         modalidade: Condomínio · Pautas de assembleia
         grupos: Todos os grupos
+        grupos_da_pauta: 'Grupos: {grupos}'
+        aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
         mensagem:
             aguardando: A votação desta pauta ainda não foi aberta.
             inapta: Sua unidade não está apta a votar nesta assembleia.
@@ -267,6 +269,21 @@ voto:
                 base_aptos: 'Total de aptos'
                 quorum_primeira: 'Quórum (%)'
                 quorum_segunda: 'Quórum 2ª conv.'
+                participacao: 'Horário, grupos, ordem e sigilo'
+                sigilo: 'Sigilo do voto'
+                sigilo_secreto: Secreto
+                sigilo_aberto: 'Aberto: nominal, visível após o encerramento'
+                sigilo_aberto_vivo: 'Aberto: nominal, visível em tempo real'
+                sigilo_aviso: 'No voto aberto, o nome e o voto de cada pessoa ficam visíveis. Use somente quando o estatuto, a convenção ou o regulamento permitir. O eleitor é avisado antes de votar.'
+                modo_horario: 'Abertura e encerramento'
+                modo_horario_programado: 'Programados no horário'
+                modo_horario_mesa: 'Conduzidos pela mesa'
+                abre_em: Início
+                encerra_em: Encerramento
+                grupos: 'Grupos aptos (separados por vírgula; vazio para todos)'
+                ordem_candidaturas: 'Ordem na lista de candidaturas'
+                ordem_fixa: 'Ordem de registro'
+                ordem_sorteada: 'Sorteada a cada visualização'
                 numerar: 'Numerar'
                 numerar_titulo: 'Numerar as opções em sequência'
                 titulo: Cargos e candidaturas
@@ -503,6 +520,17 @@ voto:
                 resultado: 'Resultado: {numero} {rotulo}'
                 eleitos: 'Eleitos: {nomes}'
                 valor_peso: '{votos} un · {peso}'
+            nominal:
+                titulo: 'Voto aberto: quem votou em quê'
+                texto: 'Esta votação foi configurada como voto aberto antes de publicar. A relação mostra o nome da unidade, o voto e a hora, em segundos.'
+                ao_vivo: 'Voto aberto em tempo real: a relação já mostra os votos dados até agora.'
+                unidade: Unidade
+                responsavel: Responsável
+                voto: Voto
+                peso: Peso
+                hora: Hora
+                nulo: 'Nulo (nº {numero})'
+                vazia: Nenhum voto registrado.
             ata:
                 titulo: RELATÓRIO CONSOLIDADO DA VOTAÇÃO
                 imprimir: Imprimir
@@ -561,6 +589,7 @@ voto:
                 nao_apurada_data: Votação ainda não apurada na data de emissão deste relatório.
                 votantes: Relação de votantes
                 votantes_texto: Informa quem participou. Não indica em quem cada pessoa votou.
+                votantes_texto_aberto: Informa quem participou. Nesta votação, de voto aberto, o voto de cada pessoa consta na relação nominal abaixo.
                 unidade: Unidade
                 responsavel: Responsável
                 hora: Data e hora

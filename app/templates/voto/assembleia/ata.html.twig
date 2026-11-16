@@ -145,7 +145,7 @@
                 {% endif %}
 
                 <h3>{{ n }}.5 {{ 'voto.assembleia.gestor.ata.votantes'|trans }}</h3>
-                <p>{{ 'voto.assembleia.gestor.ata.votantes_texto'|trans }}</p>
+                <p>{{ (p.votoAberto ? 'voto.assembleia.gestor.ata.votantes_texto_aberto' : 'voto.assembleia.gestor.ata.votantes_texto')|trans }}</p>
                 <table class="voto-ata-tabela">
                     <thead><tr><th>{{ 'voto.assembleia.gestor.ata.unidade'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.responsavel'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.hora'|trans }}</th></tr></thead>
                     <tbody>
@@ -156,6 +156,9 @@
                     {% endfor %}
                     </tbody>
                 </table>
+
+                {# Voto aberto (bloco próprio): a relação nominal só existe na pauta configurada assim antes de publicar. #}
+                {% include 'voto/assembleia/_relacao_nominal.html.twig' with {p: p, a: a} only %}
             {% endif %}
         </section>
     {% endfor %}

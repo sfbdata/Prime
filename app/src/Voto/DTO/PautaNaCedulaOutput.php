@@ -36,6 +36,10 @@ final readonly class PautaNaCedulaOutput
         public bool $suspensa = false,
         /** A comissão cancelou: encerrada, cédulas lacradas, sem resultado. */
         public bool $cancelada = false,
+        /** Voto aberto (configurado antes de publicar): a cédula avisa que o nome e o voto ficam visíveis. */
+        public bool $votoAberto = false,
+        /** @var list<string> grupos aptos da pauta; vazio = todos */
+        public array $grupos = [],
     ) {
     }
 

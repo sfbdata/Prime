@@ -64,6 +64,8 @@ final class AgendaDeTarefasTest extends TestCase
             'armazenamento:replicar-espelho' => ['armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction', '* * * * *', '* * * * *'],
             // Nova (painel de artigos dos blogs, P4): lê o resultado do builder dos blogs a cada minuto.
             'blog:conferir-publicacoes' => ['blog:conferir-publicacoes --no-interaction', '* * * * *', '* * * * *'],
+            // Nova (Voto, horário programado): abre e encerra as pautas programadas, a cada minuto.
+            'voto:executar-programacao' => ['voto:executar-programacao --no-interaction', '* * * * *', '* * * * *'],
             // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
             'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],
         ];

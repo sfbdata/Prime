@@ -16,6 +16,7 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Entity\VotoNominal;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\TransacaoDoVotoDoctrine;
@@ -148,7 +149,7 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
         self::assertSame(0, $this->participacoes($relida));
     }
 
-    #[TestDox('Sigilo no esquema: nenhuma tabela do voto aponta ao mesmo tempo para a unidade e para a opção')]
+    #[TestDox('Sigilo no esquema: só a tabela do voto aberto (assembleia_voto_nominal) aponta ao mesmo tempo para a unidade e para a opção')]
     public function testNenhumaTabelaLigaUnidadeEOpcao(): void
     {
         $referencias = [];
@@ -156,6 +157,11 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
             $referencias[$linha['tabela']][] = $linha['referenciada'];
         }
         self::assertContains('assembleia_unidade', $referencias['assembleia_participacao'] ?? [], 'a consulta enxerga as FKs');
+        // Única exceção: o registro nominal do VOTO ABERTO; o gatilho do banco o recusa para pauta secreta
+        // (ver VotoAbertoNoBancoTest).
+        self::assertContains('assembleia_unidade', $referencias['assembleia_voto_nominal'] ?? []);
+        self::assertContains('assembleia_opcao', $referencias['assembleia_voto_nominal'] ?? []);
+        unset($referencias['assembleia_voto_nominal']);
         foreach ($referencias as $tabela => $alvos) {
             self::assertFalse(
                 \in_array('assembleia_unidade', $alvos, true) && \in_array('assembleia_opcao', $alvos, true),
@@ -165,6 +171,9 @@ final class RegistrarVotoNoBancoTest extends KernelTestCase
         self::assertSame([], $this->colunasQueCitam('assembleia_participacao', 'opcao'));
         self::assertSame([], $this->colunasQueCitam('assembleia_opcao', 'unidade_id'));
         foreach ($this->em->getMetadataFactory()->getAllMetadata() as $metadata) {
+            if (VotoNominal::class === $metadata->getName()) {
+                continue;
+            }
             $alvos = array_column($metadata->getAssociationMappings(), 'targetEntity');
             self::assertFalse(
                 \in_array(UnidadeDaAssembleia::class, $alvos, true) && \in_array(OpcaoDaPauta::class, $alvos, true),

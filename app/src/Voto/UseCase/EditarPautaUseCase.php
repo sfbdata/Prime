@@ -58,6 +58,7 @@ final class EditarPautaUseCase
             if (null !== $input->regras) {
                 $r = $input->regras;
                 $pauta->configurar($r->criterio, $r->base, $r->digitos, $r->vagas, $r->quorumPrimeira, $r->quorumSegunda);
+                $pauta->definirParticipacao($r->abreEm, $r->encerraEm, $r->grupos, $r->ordem, $r->sigilo);
             }
             $this->trocarOpcoes($pauta, $novas, $plano);
         }, fn (bool $flush) => $this->pautas->salvar($pauta, $flush));
