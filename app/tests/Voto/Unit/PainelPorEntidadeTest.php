@@ -173,8 +173,8 @@ final class PainelPorEntidadeTest extends TestCase
         self::assertSame('AGO', $kpis->abertas[0]->assembleia);
     }
 
-    #[TestDox('KPIs: a simulação não entra nas estatísticas (nem aberta, nem cédulas)')]
-    public function testKpisIgnoramSimulacao(): void
+    #[TestDox('KPIs: a simulação conta, como no protótipo (só o Master a ignora, na W2-7)')]
+    public function testKpisContamSimulacao(): void
     {
         $agora = new \DateTimeImmutable('2026-11-16 10:00:00');
         $real = $this->assembleia('Real', 'Jardim', null, [$this->pauta(EstadoDaPauta::Aberta, 'Contas', votantes: 3)], true);
@@ -182,9 +182,9 @@ final class PainelPorEntidadeTest extends TestCase
 
         $kpis = (new PainelPorEntidade())->kpis([$real, $simulacao], $agora);
 
-        self::assertSame(1, $kpis->votacoesAbertas());
-        self::assertSame(3, $kpis->totalDeCedulas);
-        self::assertSame(['Contas'], array_map(static fn ($l): string => $l->titulo, $kpis->cedulas));
+        self::assertSame(2, $kpis->votacoesAbertas());
+        self::assertSame(11, $kpis->totalDeCedulas);
+        self::assertSame(['Contas', 'Treino'], array_map(static fn ($l): string => $l->titulo, $kpis->cedulas));
     }
 
     /** @param list<PautaNoPainel> $pautas */

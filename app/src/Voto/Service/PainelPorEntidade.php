@@ -74,8 +74,8 @@ final class PainelPorEntidade
 
     /**
      * Votações abertas (pauta aberta, suspensa ou não) e cédulas depositadas (pautas que já saíram de "aguardando",
-     * canceladas incluídas: as cédulas ficam lacradas). Retirada, assembleia arquivada e simulação (desenho:
-     * "não entra nas estatísticas") ficam de fora.
+     * canceladas incluídas: as cédulas ficam lacradas). Retirada e assembleia arquivada ficam de fora, como em
+     * Acompanhar e Resultados. A simulação conta, como no protótipo (só o Master a ignora, na W2-7).
      *
      * @param list<AssembleiaNoPainel> $assembleias
      */
@@ -85,7 +85,7 @@ final class PainelPorEntidade
         $cedulas = [];
         $total = 0;
         foreach ($assembleias as $assembleia) {
-            if ($assembleia->simulacao || $assembleia->arquivada() || !$assembleia->publicada()) {
+            if ($assembleia->arquivada() || !$assembleia->publicada()) {
                 continue;
             }
             foreach ($assembleia->pautas as $pauta) {

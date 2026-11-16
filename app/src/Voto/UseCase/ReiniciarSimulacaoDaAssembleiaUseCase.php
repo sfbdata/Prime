@@ -12,11 +12,12 @@ use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Repository\VotoNominalRepository;
 use App\Voto\Service\SerializacaoDaConfiguracao;
+use App\Voto\Service\TokenDaUnidade;
 use App\Voto\Service\TransacaoDoVoto;
 
 /**
  * Reinicia a simulação (desenho 18, "Reiniciar simulação"): apaga votos, participações, registro nominal e contadores e
- * volta a assembleia a rascunho, com as pautas aguardando. Só simulação: a votação real é recusada ANTES de qualquer
+ * volta a assembleia a rascunho, com as pautas aguardando e acesso novo (código público e links das unidades). Só simulação: a votação real é recusada ANTES de qualquer
  * escrita e nunca perde voto. Tudo numa transação, com as pautas relidas TRAVADAS (um voto em andamento termina antes);
  * assembleia de outro escritório é "não encontrada" (404).
  */
@@ -30,6 +31,7 @@ final class ReiniciarSimulacaoDaAssembleiaUseCase
         private readonly OpcaoDaPautaRepository $opcoes,
         private readonly TransacaoDoVoto $transacao,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly TokenDaUnidade $tokens,
     ) {
     }
 
@@ -47,7 +49,11 @@ final class ReiniciarSimulacaoDaAssembleiaUseCase
                 $this->nominais->apagarDaAssembleia($assembleia);
                 $this->opcoes->zerarDaAssembleia($assembleia);
                 $this->pautas->zerarNulosDaAssembleia($assembleia);
-                $assembleia->reiniciarSimulacao();
+                $assembleia->reiniciarSimulacao(function (): array {
+                    $semente = $this->tokens->novaSemente();
+
+                    return [$semente, $this->tokens->hash($this->tokens->token($semente))];
+                });
             });
             foreach ($assembleia->getPautas() as $pauta) {
                 $this->pautas->relerContadores($pauta);

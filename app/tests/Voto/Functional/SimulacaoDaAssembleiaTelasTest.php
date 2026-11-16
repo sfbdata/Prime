@@ -30,7 +30,7 @@ use Zenstruck\Foundry\Test\Factories;
 
 /**
  * Votação de simulação nas telas (W2-4, desenho 18): a marca no formulário, o menu (Reiniciar e Apagar), reiniciar e
- * apagar de verdade no banco, a recusa em votação real, o 404 de outro escritório, os KPIs sem a simulação, a seleção em
+ * apagar de verdade no banco, a recusa em votação real, o 404 de outro escritório, os KPIs (a simulação conta), a seleção em
  * lote e os selos (conferência e cédula).
  */
 #[CoversClass(CicloDaPautaController::class)]
@@ -201,23 +201,55 @@ final class SimulacaoDaAssembleiaTelasTest extends JusPrimeWebTestCase
         self::assertSame('publicada', $this->coluna('voto.assembleia', 'estado', (int) $minha->getId()));
     }
 
-    #[TestDox('KPIs do painel: a simulação aberta não conta em "Votações abertas" nem em "Cédulas depositadas"')]
-    public function testKpisIgnoramSimulacao(): void
+    #[TestDox('KPIs do painel: como no protótipo, a simulação aberta conta (só o Master a ignora, na W2-7)')]
+    public function testKpisContamSimulacao(): void
     {
-        [$simulacao, $pautaSim, $unidadeSim] = $this->simulacaoPublicada();
+        [, $pautaSim, $unidadeSim] = $this->simulacaoPublicada();
         $this->votarNoBanco($pautaSim, $unidadeSim);
         $real = $this->realPublicada();
-        $pautaReal = PautaDaAssembleiaFactory::new(['assembleia' => $real, 'ordem' => 1, 'titulo' => 'Pauta real'])->comOpcoesPadrao()->aberta()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $real, 'ordem' => 1, 'titulo' => 'Pauta real'])->comOpcoesPadrao()->aberta()->create();
         $this->em->refresh($real);
 
-        $tela = $this->painel('&kpi=abe');
+        $kpis = $this->painel()->filter('.voto-painel > .vKpis > a.vKpiB');
 
-        $kpis = $tela->filter('.voto-painel > .vKpis > a.vKpiB');
-        self::assertSame('1', trim($kpis->eq(0)->filter('b')->text()));
-        self::assertSame('0', trim($kpis->eq(1)->filter('b')->text()));
-        self::assertSame(['Pauta real'], $tela->filter('[data-voto-kpi-lista="abe"] .voto-kpi-linha > b')->each(static fn (Crawler $b): string => trim($b->text())));
-        self::assertNotNull($pautaReal->getId());
-        self::assertNotNull($simulacao->getId());
+        self::assertSame('2', trim($kpis->eq(0)->filter('b')->text()));
+        self::assertSame('1', trim($kpis->eq(1)->filter('b')->text()));
+    }
+
+    #[TestDox('Reiniciar gera acesso novo: o token antigo não abre a cédula e o código público muda')]
+    public function testReiniciarTrocaOAcesso(): void
+    {
+        [$simulacao, , $unidade] = $this->simulacaoPublicada();
+        $tokenAntigo = UnidadeDaAssembleiaFactory::tokenDe($unidade);
+        $codigoAntigo = $this->coluna('voto.assembleia', 'codigo_publico', (int) $simulacao->getId());
+        $this->client->request('GET', '/votar/' . $tokenAntigo);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('POST', '/voto/assembleias/' . $simulacao->getId() . '/simulacao/reiniciar', ['_token' => $this->tokenValido('voto_assembleia_' . $simulacao->getId())]);
+
+        self::assertNotSame($codigoAntigo, $this->coluna('voto.assembleia', 'codigo_publico', (int) $simulacao->getId()));
+        $this->client->request('GET', '/votar/' . $tokenAntigo);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Repositórios do reiniciar: assembleia real não é tocada nem chamando o método direto')]
+    public function testRepositoriosNaoTocamEmReal(): void
+    {
+        $real = $this->realPublicada();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $real, 'ordem' => 1])->comOpcoesPadrao()->aberta()->create()->_real();
+        $unidade = UnidadeDaAssembleiaFactory::new(['assembleia' => $real])->create()->_real();
+        $this->votarNoBanco($pauta, $unidade);
+        $this->em->refresh($real);
+
+        $this->em->getRepository(\App\Voto\Entity\ParticipacaoNaPauta::class)->apagarDaAssembleia($real);
+        $this->em->getRepository(\App\Voto\Entity\VotoNominal::class)->apagarDaAssembleia($real);
+        $this->em->getRepository(\App\Voto\Entity\OpcaoDaPauta::class)->zerarDaAssembleia($real);
+        $this->em->getRepository(\App\Voto\Entity\PautaDaAssembleia::class)->zerarNulosDaAssembleia($real);
+
+        $conexao = $this->em->getConnection();
+        self::assertSame(1, (int) $conexao->fetchOne('SELECT COUNT(*) FROM voto.assembleia_participacao WHERE pauta_id = ?', [$pauta->getId()]));
+        self::assertSame(1, (int) $conexao->fetchOne('SELECT SUM(total_unidades) FROM voto.assembleia_opcao WHERE pauta_id = ?', [$pauta->getId()]));
+        self::assertSame(2, (int) $conexao->fetchOne('SELECT nulos_unidades FROM voto.assembleia_pauta WHERE id = ?', [$pauta->getId()]));
     }
 
     #[TestDox('Lote: a simulação publicada é excluída junto do rascunho; a real publicada fica nas mantidas')]

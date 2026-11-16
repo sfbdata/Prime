@@ -148,7 +148,8 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE voto.assembleia_opcao SET total_unidades = 0, total_peso = 0 WHERE tenant_id = :tenant
-                AND pauta_id IN (SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = :assembleia AND tenant_id = :tenant)',
+                AND pauta_id IN (SELECT p.id FROM voto.assembleia_pauta p JOIN voto.assembleia a ON a.id = p.assembleia_id
+                    WHERE p.assembleia_id = :assembleia AND p.tenant_id = :tenant AND a.simulacao = true)',
             ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
         );
     }

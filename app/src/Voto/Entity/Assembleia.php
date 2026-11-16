@@ -171,8 +171,12 @@ class Assembleia implements TenantAware, Auditavel
     /**
      * Volta a simulação ao estado de antes de publicar: rascunho, pautas aguardando e acesso das unidades limpo. Os votos,
      * as participações e os contadores saem por SQL no UseCase (mesma transação). Pautas, opções e lista ficam.
+     * O acesso é novo: código público da assembleia e semente e token de cada unidade mudam, então os links do teste
+     * nunca valem numa votação real, mesmo se a marca for desmarcada depois.
+     *
+     * @param \Closure(): array{string, string} $novoAcesso devolve [semente, tokenHash] (TokenDaUnidade)
      */
-    public function reiniciarSimulacao(): void
+    public function reiniciarSimulacao(\Closure $novoAcesso): void
     {
         $this->exigirSimulacao('Só votação de simulação pode ser reiniciada.');
         $this->estado = EstadoDaAssembleia::Rascunho;
@@ -180,11 +184,13 @@ class Assembleia implements TenantAware, Auditavel
         $this->arquivadaEm = null;
         $this->arquivadaMotivo = null;
         $this->arquivadaPorNome = null;
+        $this->codigoPublico = bin2hex(random_bytes(16));
         foreach ($this->pautas as $pauta) {
             $pauta->reiniciar();
         }
         foreach ($this->unidades as $unidade) {
-            $unidade->reiniciarAcesso();
+            [$semente, $tokenHash] = $novoAcesso();
+            $unidade->reiniciarAcesso($semente, $tokenHash);
         }
     }
 

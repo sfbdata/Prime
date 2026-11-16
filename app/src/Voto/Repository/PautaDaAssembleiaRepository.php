@@ -132,7 +132,8 @@ class PautaDaAssembleiaRepository extends ServiceEntityRepository
     public function zerarNulosDaAssembleia(Assembleia $assembleia): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE voto.assembleia_pauta SET nulos_unidades = 0, nulos_peso = 0 WHERE assembleia_id = :assembleia AND tenant_id = :tenant',
+            'UPDATE voto.assembleia_pauta SET nulos_unidades = 0, nulos_peso = 0 WHERE assembleia_id = :assembleia AND tenant_id = :tenant
+                AND EXISTS (SELECT 1 FROM voto.assembleia a WHERE a.id = :assembleia AND a.simulacao = true)',
             ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
         );
     }

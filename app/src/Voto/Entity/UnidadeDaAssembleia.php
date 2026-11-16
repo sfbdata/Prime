@@ -158,13 +158,10 @@ class UnidadeDaAssembleia implements TenantAware
         $this->codigoExpiraEm = null;
     }
 
-    /** Reiniciar a simulação: a unidade volta a "ainda não recebeu" o link e sem código de acesso pendente (o link em si fica). */
-    public function reiniciarAcesso(): void
+    /** Reiniciar a simulação: link novo (o antigo deixa de valer) e a unidade volta a "ainda não recebeu", sem código pendente. */
+    public function reiniciarAcesso(string $semente, string $tokenHash): void
     {
-        $this->linkEnviadoEm = null;
-        $this->codigoHash = null;
-        $this->codigoDesafioHash = null;
-        $this->codigoExpiraEm = null;
+        $this->trocarSemente($semente, $tokenHash);
         $this->codigoTentativas = 0;
         $this->codigoJanelaEm = null;
         $this->codigoPedidos = 0;

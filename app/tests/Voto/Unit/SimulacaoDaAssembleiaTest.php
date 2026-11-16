@@ -23,6 +23,7 @@ use App\Voto\Repository\VotoNominalRepository;
 use App\Voto\Service\CnpjDaEntidade;
 use App\Voto\Service\ConfiguracaoDaPublicacao;
 use App\Voto\Service\SerializacaoDaConfiguracao;
+use App\Voto\Service\TokenDaUnidade;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\ExcluirSimulacaoDaAssembleiaUseCase;
@@ -107,8 +108,18 @@ final class SimulacaoDaAssembleiaTest extends TestCase
         $unidade->registrarEnvioDoLink();
         $quantidadeDeOpcoes = \count($pauta->getOpcoes());
 
-        $assembleia->reiniciarSimulacao();
+        $codigoAntigo = $assembleia->getCodigoPublico();
+        $sementeAntiga = $unidade->getSemente();
+        $tokens = new TokenDaUnidade('segredo');
 
+        $assembleia->reiniciarSimulacao(static function () use ($tokens): array {
+            $semente = $tokens->novaSemente();
+
+            return [$semente, $tokens->hash($tokens->token($semente))];
+        });
+
+        self::assertNotSame($codigoAntigo, $assembleia->getCodigoPublico(), 'código público novo');
+        self::assertNotSame($sementeAntiga, $unidade->getSemente(), 'semente nova');
         self::assertSame(EstadoDaAssembleia::Rascunho, $assembleia->getEstado());
         self::assertNull($assembleia->getPublicadaEm());
         self::assertTrue($assembleia->podeAlterarPautas());
@@ -128,7 +139,7 @@ final class SimulacaoDaAssembleiaTest extends TestCase
         $real = $this->assembleia();
         $real->publicar();
 
-        foreach ([static fn () => $real->reiniciarSimulacao(), static fn () => $real->exigirSimulacao('Só votação de simulação pode ser apagada.')] as $acao) {
+        foreach ([static fn () => $real->reiniciarSimulacao(static fn (): array => ['', '']), static fn () => $real->exigirSimulacao('Só votação de simulação pode ser apagada.')] as $acao) {
             try {
                 $acao();
                 self::fail('Devia recusar.');
@@ -255,6 +266,6 @@ final class SimulacaoDaAssembleiaTest extends TestCase
             }
         };
 
-        return new ReiniciarSimulacaoDaAssembleiaUseCase($assembleias, $pautas, $participacoes, $nominais, $opcoes, $transacao, new SerializacaoDaConfiguracao(new LockFactory(new InMemoryStore())));
+        return new ReiniciarSimulacaoDaAssembleiaUseCase($assembleias, $pautas, $participacoes, $nominais, $opcoes, $transacao, new SerializacaoDaConfiguracao(new LockFactory(new InMemoryStore())), new TokenDaUnidade('segredo'));
     }
 }
