@@ -243,3 +243,15 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .vRelOp i { font-size: 22px; color: #0a6fa0; flex: none; margin-top: 2px; }
 .vRelOp b { display: block; font-size: 14.5px; color: #0b3550; margin-bottom: 2px; }
 .vRelOp:hover { border-color: #3b8fc2; background: #f2f8fb; color: #34505f; text-decoration: none; }
+
+/* Passo 1 do formulário: botões da categoria (cenário). Valores do desenho 18 (.vCats, .vCat, .vCatOn); o rádio nativo
+   fica escondido, mas continua focável pelo teclado. */
+.voto-tela .vCats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.voto-tela .vCat { position: relative; display: flex; align-items: center; gap: 9px; padding: 13px 12px; background: #fff; border: 1px solid #c9d8e2; border-radius: 3px; font: inherit; font-size: 13.5px; font-weight: bold; color: #0b3550; cursor: pointer; text-align: left; }
+.voto-tela .vCat i { font-size: 19px; color: #0a6fa0; }
+.voto-tela .vCat:hover { background: #3b8fc2; color: #fff; }
+.voto-tela .vCat:hover i { color: #fff; }
+.voto-tela .vCatOn { background: #0a6fa0; color: #fff; border-color: #0a6fa0; }
+.voto-tela .vCatOn i { color: #fff; }
+.voto-tela .vCat .voto-cat-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.voto-tela .vCat:focus-within { outline: 3px solid #3b8fc2; outline-offset: 1px; }

@@ -7,6 +7,7 @@ namespace App\Voto\Entity;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\PesoDoVoto;
@@ -93,6 +94,9 @@ class Assembleia implements TenantAware, Auditavel
         private PesoDoVoto $peso,
         #[ORM\Column(length: 180)]
         private string $criadaPorNome,
+        /** Tipo de entidade (rótulos dos documentos); só em rascunho. Padrão condomínio. */
+        #[ORM\Column(length: 12, enumType: CenarioDaAssembleia::class, options: ['default' => 'condominio'])]
+        private CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
     ) {
         $this->titulo = self::tituloValido($titulo);
         $this->codigoPublico = bin2hex(random_bytes(16));
@@ -128,6 +132,13 @@ class Assembleia implements TenantAware, Auditavel
         }
         $this->entidadeNome = '' === $nome ? null : mb_substr($nome, 0, 160);
         $this->cnpj = '' === $cnpj ? null : $cnpj;
+    }
+
+    /** O cenário só muda em rascunho, como o título; define rótulos e não entra nas regras nem no hash. */
+    public function definirCenario(CenarioDaAssembleia $cenario): void
+    {
+        $this->exigirPautasAlteraveis();
+        $this->cenario = $cenario;
     }
 
     /**
@@ -308,6 +319,11 @@ class Assembleia implements TenantAware, Auditavel
     public function getEntidadeNome(): ?string
     {
         return $this->entidadeNome;
+    }
+
+    public function getCenario(): CenarioDaAssembleia
+    {
+        return $this->cenario;
     }
 
     public function getCnpj(): ?string

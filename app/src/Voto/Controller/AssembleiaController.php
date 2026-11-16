@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AssembleiaInput;
 use App\Voto\DTO\AssembleiaNoPainel;
 use App\Voto\DTO\FiltroDoPainel;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
@@ -125,7 +126,7 @@ final class AssembleiaController extends AbstractController
             }
         }
 
-        return $this->render('voto/assembleia/form.html.twig', ['assembleia' => null, 'input' => $input, 'erro' => $erro ?? null]);
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null));
     }
 
     #[Route('/{id}/editar', name: 'voto_assembleia_editar', methods: ['GET', 'POST'])]
@@ -146,9 +147,9 @@ final class AssembleiaController extends AbstractController
         }
 
         $assembleia = $this->lida($tenant, $id);
-        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '');
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value);
 
-        return $this->render('voto/assembleia/form.html.twig', ['assembleia' => $assembleia, 'input' => $input, 'erro' => $erro ?? null]);
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null));
     }
 
     #[Route('/{id}/publicar', name: 'voto_assembleia_conferir_publicacao', methods: ['GET'])]
@@ -244,6 +245,22 @@ final class AssembleiaController extends AbstractController
         return false;
     }
 
+    /**
+     * Contexto do formulário: os cenários do passo 1 e o escolhido (valor desconhecido volta ao padrão, condomínio).
+     *
+     * @return array<string, mixed>
+     */
+    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro): array
+    {
+        return [
+            'assembleia' => $assembleia,
+            'input' => $input,
+            'erro' => $erro,
+            'cenarios' => CenarioDaAssembleia::cases(),
+            'cenario' => CenarioDaAssembleia::tryFrom($input->cenario) ?? CenarioDaAssembleia::Condominio,
+        ];
+    }
+
     private static function input(Request $request): AssembleiaInput
     {
         return new AssembleiaInput(
@@ -251,6 +268,7 @@ final class AssembleiaController extends AbstractController
             (string) $request->request->get('peso', 'fracao'),
             (string) $request->request->get('entidade', ''),
             (string) $request->request->get('cnpj', ''),
+            (string) $request->request->get('cenario', CenarioDaAssembleia::Condominio->value),
         );
     }
 }

@@ -2,10 +2,13 @@
 
 {#
     Criar ou editar a assembleia (desenho §2, assistente "Criar eleição", etapa 1 e o peso da etapa 2): faixa
-    "Nova assembleia" / "Rascunho: {nome}", o aviso do cenário condomínio, "Condomínio" (nome da entidade) e "CNPJ (opcional,
+    "Nova assembleia" / "Rascunho: {nome}", os botões da categoria (.vCats/.vCat/.vCatOn, 9 cenários), o aviso do cenário
+    (.vAviso), o rótulo da entidade do cenário (condomínio por padrão) e "CNPJ (opcional,
     separa entidades com nome parecido)", com a máscara na exibição; "Evento" e "Peso do voto" ("Fração ideal" ou
     "Uma unidade, um voto"), o erro da etapa e o rodapé "Salvar e sair" | "Continuar". Sem data (modo mesa).
-    Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`.
+    Escolher o cenário troca o rótulo da entidade, o aviso e o peso sugerido (public/js/voto-cenario.js; sem JS o servidor
+    mostra o escolhido). Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`,
+    `cenarios` (CenarioDaAssembleia[]) e `cenario` (o escolhido).
 #}
 
 {% set sub = 'assembleia' %}
@@ -16,14 +19,19 @@
     <div class="vH"><i class="bi bi-plus-square"></i>{{ assembleia is null ? 'voto.assembleia.gestor.nova'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: assembleia.titulo}) }}</div>
     <form method="post" class="voto-assistente-corpo" action="{{ assembleia is null ? path('voto_assembleia_nova') : path('voto_assembleia_editar', {id: assembleia.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token(assembleia is null ? 'voto_assembleia_nova' : 'voto_assembleia_' ~ assembleia.id) }}">
-        <div class="vAviso">{{ 'voto.assembleia.gestor.form.ajuda'|trans }}</div>
+        <div class="vCats" role="radiogroup" aria-label="{{ 'voto.assembleia.gestor.form.cenario'|trans }}" data-voto-cenarios>
+            {% for c in cenarios %}
+                <label class="vCat{{ c == cenario ? ' vCatOn' : '' }}"><input type="radio" class="voto-cat-radio" name="cenario" value="{{ c.value }}"{{ c == cenario ? ' checked' : '' }} data-entidade="{{ c.entidade }}" data-ajuda="{{ c.ajuda }}" data-peso="{{ c.pesoSugerido.value }}"><i class="bi {{ c.icone }}" aria-hidden="true"></i>{{ c.rotulo }}</label>
+            {% endfor %}
+        </div>
+        <div class="vAviso" data-voto-cenario-ajuda>{{ cenario.ajuda }}</div>
         <div class="vG2">
-            <label class="vL">{{ 'voto.assembleia.gestor.form.entidade'|trans }}<input class="vF" name="entidade" maxlength="160" value="{{ input.entidade }}"></label>
+            <label class="vL"><span data-voto-cenario-entidade>{{ cenario.entidade }}</span><input class="vF" name="entidade" maxlength="160" value="{{ input.entidade }}"></label>
             <label class="vL">{{ 'voto.assembleia.gestor.form.cnpj'|trans }}<input class="vF" name="cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="{{ cnpj_formatado }}"></label>
         </div>
         <div class="vG2">
             <label class="vL">{{ 'voto.assembleia.gestor.form.evento'|trans }}<input class="vF" name="titulo" maxlength="160" required value="{{ input.titulo }}"></label>
-            <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso">
+            <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso" data-voto-cenario-peso>
                 <option value="fracao" {{ input.peso == 'fracao' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_fracao'|trans }}</option>
                 <option value="unidade" {{ input.peso == 'unidade' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_unidade'|trans }}</option>
             </select></label>
@@ -36,4 +44,5 @@
         </div>
     </form>
 </div>
+<script src="{{ asset('js/voto-cenario.js') }}" defer></script>
 {% endblock %}

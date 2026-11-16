@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Service\CnpjDaEntidade;
@@ -34,6 +35,7 @@ final readonly class AssembleiaNoPainel
         public ?string $arquivadaPorNome = null,
         public ?string $entidade = null,
         public ?string $cnpj = null,
+        public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
     ) {
     }
 

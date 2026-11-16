@@ -234,8 +234,7 @@ voto:
                 resultados: Resultados
                 relatorio: Relatório consolidado
             form:
-                ajuda: Votos por fração ideal, salvo disposição diversa da convenção. Confira na convenção o quórum de cada pauta, a segunda convocação e quem está apto a votar.
-                entidade: Condomínio
+                cenario: Tipo de entidade
                 cnpj: 'CNPJ (opcional, separa entidades com nome parecido)'
                 evento: Evento
                 peso: Peso do voto
@@ -405,8 +404,7 @@ voto:
                 sem_apurada: Ainda não há votação apurada para divulgar. O resumo só sai depois que uma votação é encerrada.
                 falhou: Não foi possível gerar o arquivo. Tente de novo.
                 muitas_pautas: 'Muitas votações para caber numa imagem: use o resumo em PDF.'
-                rotulo_a1: Presidência da assembleia
-                rotulo_a2: Secretaria da assembleia
+                entidade_nao_informada: Não informado
                 imagem_titulo_pagina: Resultado da votação
                 pdf_titulo_pagina: Resultado da votação
                 imagem_qr: Aponte a câmera para conferir
@@ -569,8 +567,6 @@ voto:
                 termo: Termo de encerramento
                 termo_1: Este relatório consolida os dados extraídos dos registros da votação na data de emissão.
                 termo_2: Os signatários declaram ter examinado o conteúdo deste relatório.
-                presidencia: Presidência da assembleia
-                secretaria: Secretaria da assembleia # segredo:permitido rótulo da assinatura na ata, não é credencial
             email:
                 assunto: 'Seu link para votar: {assembleia}'
                 titulo: Link para votar

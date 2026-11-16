@@ -11,7 +11,7 @@ use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Service\CnpjDaEntidade;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 
-/** Título, peso do voto, entidade e CNPJ da assembleia, só em rascunho (a entidade recusa depois de publicada). */
+/** Título, peso do voto, cenário, entidade e CNPJ da assembleia, só em rascunho (a entidade recusa depois de publicada). */
 final class EditarAssembleiaUseCase
 {
     public function __construct(
@@ -34,6 +34,7 @@ final class EditarAssembleiaUseCase
             ?? throw new AssembleiaNaoEncontradaException();
         $cnpj = $this->cnpjs->normalizar($input->cnpj);
         $assembleia->editar($input->titulo, $input->pesoDoVoto());
+        $assembleia->definirCenario($input->cenarioDaAssembleia());
         $assembleia->identificarEntidade($input->entidade, $cnpj);
         $this->assembleias->salvar($assembleia, flush: true);
     }

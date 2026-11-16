@@ -51,6 +51,7 @@
 
     <h2>{{ 'voto.assembleia.gestor.ata.identificacao'|trans }}</h2>
     <dl class="voto-ata-campos">
+        <div><dt>{{ a.cenario.entidade }}</dt><dd>{{ a.entidade is not empty ? a.entidade : 'voto.assembleia.gestor.relatorio.entidade_nao_informada'|trans }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.evento'|trans }}</dt><dd>{{ a.titulo }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.votacoes'|trans }}</dt><dd>{{ naOrdem|length }}</dd></div>
         <div><dt>{{ 'voto.assembleia.gestor.ata.emitido_em'|trans }}</dt><dd>{{ ata.emitidaEm|date(dh) }}</dd></div>
@@ -163,8 +164,8 @@
     <p>{{ 'voto.assembleia.gestor.ata.termo_1'|trans }}</p>
     <p>{{ 'voto.assembleia.gestor.ata.termo_2'|trans }}</p>
     <div class="voto-ata-assinaturas">
-        <div><span></span>{{ 'voto.assembleia.gestor.ata.presidencia'|trans }}</div>
-        <div><span></span>{{ 'voto.assembleia.gestor.ata.secretaria'|trans }}</div>
+        <div><span></span>{{ a.cenario.assinatura1 }}</div>
+        <div><span></span>{{ a.cenario.assinatura2 }}</div>
     </div>
 </div>
 </body>
