@@ -342,6 +342,18 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('@media (max-width: 560px) { .voto-tela .voto-opcao .vCandF { order: 3; flex-basis: 100%; } .voto-tela .voto-opcao > .vKw { margin-left: auto; } }', $css);
     }
 
+    #[TestDox('Gestor (JS do desenho): a foto escolhida é reduzida no cliente a 480 px, JPEG 0,68, sem ampliar; falha deixa o original')]
+    public function testReducaoNoCliente(): void
+    {
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/voto-assembleia.js');
+
+        self::assertStringContainsString('var LADO_DA_FOTO = 480;', $js);
+        self::assertStringContainsString('Math.min(1, LADO_DA_FOTO / Math.max(imagem.width, imagem.height))', $js);
+        self::assertStringContainsString("'image/jpeg', 0.68", $js);
+        self::assertStringContainsString('reduzirFoto(campo);', $js);
+        self::assertStringContainsString('fica o original', $js);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function url(string $fim = ''): string

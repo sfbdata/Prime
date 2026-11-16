@@ -12,6 +12,7 @@ use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Service\FotosDasCandidaturas;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 use App\Voto\Service\TokenDaUnidade;
 
@@ -36,6 +37,7 @@ final class DuplicarAssembleiaUseCase
         private readonly AssembleiaRepository $assembleias,
         private readonly TokenDaUnidade $tokens,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly FotosDasCandidaturas $fotos,
     ) {
     }
 
@@ -55,20 +57,28 @@ final class DuplicarAssembleiaUseCase
 
         $titulo = mb_substr($origem->getTitulo(), 0, self::TITULO_MAXIMO - mb_strlen(self::SUFIXO_DA_COPIA)) . self::SUFIXO_DA_COPIA;
         $copia = new Assembleia($tenant, $titulo, $origem->getPeso(), $criadaPorNome);
-        foreach ($origem->getPautas() as $pauta) {
-            $this->copiarPauta($copia, $pauta);
-        }
+        $fotos = [];
         $semEmails = false;
-        foreach ($origem->getUnidades() as $unidade) {
-            $this->copiarUnidade($copia, $unidade);
-            $semEmails = $semEmails || null !== $unidade->getEmail();
+        try {
+            foreach ($origem->getPautas() as $pauta) {
+                array_push($fotos, ...$this->copiarPauta($copia, $pauta));
+            }
+            foreach ($origem->getUnidades() as $unidade) {
+                $this->copiarUnidade($copia, $unidade);
+                $semEmails = $semEmails || null !== $unidade->getEmail();
+            }
+        } catch (\Throwable $falha) {
+            $this->fotos->descartar($fotos, 'cópia de foto (duplicação interrompida)');
+
+            throw $falha;
         }
-        $this->assembleias->salvar($copia, flush: true);
+        $this->fotos->persistirComCopias($fotos, fn () => $this->assembleias->salvar($copia, flush: true));
 
         return new ResultadoDaDuplicacao((int) $copia->getId(), $copia->getUnidades()->count(), $semEmails);
     }
 
-    private function copiarPauta(Assembleia $copia, PautaDaAssembleia $origem): void
+    /** @return list<\App\Shared\Armazenamento\ChaveDeArquivo> as fotos copiadas (arquivos novos) */
+    private function copiarPauta(Assembleia $copia, PautaDaAssembleia $origem): array
     {
         $pauta = new PautaDaAssembleia($copia, $origem->getOrdem(), $origem->getTitulo(), $origem->getDescricao(), $origem->getTipo());
         $segunda = $origem->getQuorumSegunda();
@@ -84,6 +94,8 @@ final class DuplicarAssembleiaUseCase
             (new OpcaoDaPauta($pauta, $opcao->getNumero(), $opcao->getRotulo(), $opcao->isAbstencao()))
                 ->detalhar($opcao->getDescricao(), $opcao->getPropostas(), $opcao->getComposicao(), $opcao->getUnidadeCandidato());
         }
+
+        return $this->fotos->copiar($origem, $pauta);
     }
 
     private function copiarUnidade(Assembleia $copia, UnidadeDaAssembleia $origem): void

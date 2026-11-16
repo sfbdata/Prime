@@ -10,11 +10,12 @@ use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
+use App\Voto\Service\FotosDasCandidaturas;
 use App\Voto\Service\SerializacaoDaConfiguracao;
 
 /**
  * "Duplicar" do menu da pauta (desenho 18, etapa 4): copia a pauta, com regras, opções e dados das candidaturas, logo
- * abaixo da original e renumera a lista. Só em rascunho. O contador de votos da cópia nasce zerado.
+ * abaixo da original (com a foto das candidaturas, em arquivo novo) e renumera a lista. Só em rascunho. O contador de votos da cópia nasce zerado.
  */
 final class DuplicarPautaUseCase
 {
@@ -22,6 +23,7 @@ final class DuplicarPautaUseCase
         private readonly AssembleiaRepository $assembleias,
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly FotosDasCandidaturas $fotos,
     ) {
     }
 
@@ -61,7 +63,8 @@ final class DuplicarPautaUseCase
         foreach ($fila as $i => $pauta) {
             $pauta->reposicionar($i + 1);
         }
-        $this->pautas->salvar($copia, flush: true);
+        $copias = $this->fotos->copiar($origem, $copia);
+        $this->fotos->persistirComCopias($copias, fn () => $this->pautas->salvar($copia, flush: true));
 
         return (int) $copia->getId();
     }

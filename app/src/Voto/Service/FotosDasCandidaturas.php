@@ -6,6 +6,8 @@ namespace App\Voto\Service;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Http\FonteDeUploadHttp;
@@ -143,6 +145,71 @@ final class FotosDasCandidaturas
             static fn (OpcaoDaPauta $o): ChaveDeArquivo => ChavesDoVoto::fotoDaCandidatura($o),
             array_values(array_filter($pauta->getOpcoesDeVoto(), static fn (OpcaoDaPauta $o): bool => null !== $o->getFoto())),
         );
+    }
+
+    /**
+     * "Duplicar" leva a foto (desenho 18): cada candidatura da cópia ganha um ARQUIVO NOVO, de chave própria, com o
+     * conteúdo da foto da origem (a mesma chave nas duas faria a remoção ou a purga de uma apagar a outra). Foto da
+     * origem ausente no storage: a cópia sai sem foto, sem erro. Se uma gravação falhar, as cópias já gravadas saem e
+     * a falha sobe. Quem chama confirma o banco por {@see persistirComCopias()}.
+     *
+     * @return list<ChaveDeArquivo> as cópias gravadas
+     */
+    public function copiar(PautaDaAssembleia $origem, PautaDaAssembleia $copia): array
+    {
+        $gravadas = [];
+        try {
+            foreach ($origem->getOpcoesDeVoto() as $opcao) {
+                $nome = $opcao->getFoto();
+                $destino = null === $nome ? null : $this->opcaoDeMesmoNumero($copia, $opcao->getNumero());
+                if (null === $nome || null === $destino) {
+                    continue;
+                }
+                try {
+                    $conteudo = $this->armazenamento->ler(ChavesDoVoto::fotoDaCandidatura($opcao));
+                } catch (ArquivoNaoEncontrado) {
+                    continue;
+                }
+                $extensao = strtolower(pathinfo($nome, \PATHINFO_EXTENSION));
+                $nova = $this->armazenamento->gravar(ChavesDoVoto::novaFotoDaCandidatura($copia, $extensao), FonteDeConteudo::deTexto($conteudo))->chave;
+                $gravadas[] = $nova;
+                $destino->definirFoto($nova->nome);
+            }
+        } catch (\Throwable $falha) {
+            $this->descartar($gravadas, 'cópia de foto (gravação interrompida)');
+
+            throw $falha;
+        }
+
+        return $gravadas;
+    }
+
+    /**
+     * Grava a cópia no banco. Com cópias de foto, a transação decide o destino dos arquivos novos (INV-6): se o COMMIT
+     * comprovadamente não aconteceu, eles saem.
+     *
+     * @param list<ChaveDeArquivo> $copias
+     * @param callable(): void     $persistir
+     */
+    public function persistirComCopias(array $copias, callable $persistir): void
+    {
+        if ([] === $copias) {
+            $persistir();
+
+            return;
+        }
+        $this->transacao->executar($persistir, static fn (): array => $copias, self::CONTEXTO . ': foto copiada');
+    }
+
+    private function opcaoDeMesmoNumero(PautaDaAssembleia $pauta, int $numero): ?OpcaoDaPauta
+    {
+        foreach ($pauta->getOpcoesDeVoto() as $opcao) {
+            if ($opcao->getNumero() === $numero) {
+                return $opcao;
+            }
+        }
+
+        return null;
     }
 
     /** @param list<array<string, mixed>> $linhas */

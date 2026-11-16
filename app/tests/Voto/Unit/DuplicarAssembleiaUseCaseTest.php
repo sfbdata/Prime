@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Voto\Unit;
 
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Voto\Armazenamento\ChavesDoVoto;
 use App\Voto\DTO\ResultadoDaDuplicacao;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
@@ -31,6 +33,8 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 #[CoversClass(DuplicarAssembleiaUseCase::class)]
 final class DuplicarAssembleiaUseCaseTest extends TestCase
 {
+    use ComFotosDasCandidaturas;
+
     #[TestDox('Copia título com sufixo, peso, pautas com regras e opções (com abstenção) e as unidades, como rascunho')]
     public function testCopiaOCadastro(): void
     {
@@ -150,7 +154,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
         $repo->expects(self::never())->method('salvar');
 
         $this->expectException(AssembleiaNaoEncontradaException::class);
-        (new DuplicarAssembleiaUseCase($repo, new TokenDaUnidade('segredo'), self::serializacao()))->executar(new Tenant(), 99, 'Gestora');
+        (new DuplicarAssembleiaUseCase($repo, new TokenDaUnidade('segredo'), self::serializacao(), $this->fotosDasCandidaturas()))->executar(new Tenant(), 99, 'Gestora');
     }
 
     private function executar(Tenant $tenant, Assembleia $origem, ?Assembleia &$salva): ResultadoDaDuplicacao
@@ -162,7 +166,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
             $salva = $a;
         });
 
-        return (new DuplicarAssembleiaUseCase($repo, new TokenDaUnidade('segredo'), self::serializacao()))->executar($tenant, 7, 'Nova gestora');
+        return (new DuplicarAssembleiaUseCase($repo, new TokenDaUnidade('segredo'), self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 'Nova gestora');
     }
 
     private function publicadaComVotos(Tenant $tenant): Assembleia
@@ -185,5 +189,35 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
     private static function serializacao(): SerializacaoDaConfiguracao
     {
         return new SerializacaoDaConfiguracao(new LockFactory(new InMemoryStore()));
+    }
+
+    #[TestDox('Duplicar a assembleia leva a foto das candidaturas: arquivo NOVO de chave própria, origem intacta')]
+    public function testCopiaAFotoDasCandidaturas(): void
+    {
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 5);
+        $origem = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $pauta = new PautaDaAssembleia($origem, 1, 'Síndico(a)', null, TipoDaPauta::EleicaoDeCargo);
+        $ana = new OpcaoDaPauta($pauta, 1, 'Ana');
+        $bia = new OpcaoDaPauta($pauta, 2, 'Bia');
+        $this->fotosDasCandidaturas();
+        $ana->definirFoto('0123456789abcdef0123456789abcdef.jpg');
+        $this->armazenamento->gravar(ChavesDoVoto::fotoDaCandidatura($ana), FonteDeConteudo::deTexto('JPEG-DA-ANA'));
+        $bia->definirFoto('fedcba9876543210fedcba9876543210.png');
+
+        $salva = null;
+        $this->executar($tenant, $origem, $salva);
+
+        self::assertInstanceOf(Assembleia::class, $salva);
+        $copias = $salva->getPautas()->first()->getOpcoesDeVoto();
+        $novaAna = $copias[0];
+        self::assertNotNull($novaAna->getFoto());
+        self::assertNotSame($ana->getFoto(), $novaAna->getFoto());
+        self::assertStringEndsWith('.jpg', (string) $novaAna->getFoto());
+        self::assertSame('JPEG-DA-ANA', $this->armazenamento->ler(ChavesDoVoto::fotoDaCandidatura($novaAna)));
+        self::assertSame('JPEG-DA-ANA', $this->armazenamento->ler(ChavesDoVoto::fotoDaCandidatura($ana)), 'a origem segue intacta');
+        self::assertNull($copias[1]->getFoto(), 'foto da origem ausente no storage: sem foto, sem erro');
+        self::assertSame('0123456789abcdef0123456789abcdef.jpg', $ana->getFoto());
+        self::assertSame(['commit'], $this->ordem);
     }
 }

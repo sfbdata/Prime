@@ -346,6 +346,51 @@
             img.removeAttribute('src');
         }
         sincronizarFoto(linha);
+        reduzirFoto(campo);
+    }
+
+    /* Como o desenho (reduz(a, 480)): o maior lado vai a 480 px (sem ampliar), em JPEG; o servidor ainda valida tipo e
+       tamanho. Qualquer falha (sem canvas, sem DataTransfer, imagem ilegível) deixa o original no campo. */
+    var LADO_DA_FOTO = 480;
+
+    function reduzirFoto(campo) {
+        var original = campo.files && campo.files[0];
+        if (!original || !window.DataTransfer || !window.File || !window.URL) {
+            return;
+        }
+        var url = window.URL.createObjectURL(original);
+        var imagem = new window.Image();
+        imagem.onload = function () {
+            window.URL.revokeObjectURL(url);
+            try {
+                var escala = Math.min(1, LADO_DA_FOTO / Math.max(imagem.width, imagem.height));
+                var tela = document.createElement('canvas');
+                tela.width = Math.max(1, Math.round(imagem.width * escala));
+                tela.height = Math.max(1, Math.round(imagem.height * escala));
+                var contexto = tela.getContext('2d');
+                contexto.fillStyle = '#fff';
+                contexto.fillRect(0, 0, tela.width, tela.height);
+                contexto.drawImage(imagem, 0, 0, tela.width, tela.height);
+                tela.toBlob(function (blob) {
+                    try {
+                        if (!blob || campo.files[0] !== original || (escala === 1 && blob.size >= original.size)) {
+                            return;
+                        }
+                        var troca = new window.DataTransfer();
+                        troca.items.add(new window.File([blob], original.name.replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg' }));
+                        campo.files = troca.files;
+                    } catch (erro) {
+                        /* fica o original */
+                    }
+                }, 'image/jpeg', 0.68);
+            } catch (erro) {
+                /* fica o original */
+            }
+        };
+        imagem.onerror = function () {
+            window.URL.revokeObjectURL(url);
+        };
+        imagem.src = url;
     }
 
     /* A pauta tem foto nova ou tirada ainda não gravada? (a tela recarrega depois de gravar, para mostrar a foto salva) */

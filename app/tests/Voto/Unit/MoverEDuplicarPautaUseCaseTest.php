@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Voto\Unit;
 
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Voto\Armazenamento\ChavesDoVoto;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
@@ -29,6 +31,8 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 #[CoversClass(DuplicarPautaUseCase::class)]
 final class MoverEDuplicarPautaUseCaseTest extends TestCase
 {
+    use ComFotosDasCandidaturas;
+
     /** @return array{Assembleia, PautaDaAssembleia, PautaDaAssembleia, PautaDaAssembleia} */
     private static function assembleiaComTresPautas(Tenant $tenant): array
     {
@@ -122,7 +126,7 @@ final class MoverEDuplicarPautaUseCaseTest extends TestCase
             self::assertSame(['Contas#1'], self::titulos($assembleia));
         }
         $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
-        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), self::repositorio($a), self::serializacao()))->executar($tenant, 7, 1);
+        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), self::repositorio($a), self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 1);
     }
 
     #[TestDox('Assembleia de outro escritório ou pauta que não é dela: não achada, nada muda')]
@@ -138,7 +142,7 @@ final class MoverEDuplicarPautaUseCaseTest extends TestCase
             } catch (AssembleiaNaoEncontradaException) {
             }
             try {
-                (new DuplicarPautaUseCase(self::assembleias($tenant, $achadaA), self::repositorio($achadaP), self::serializacao()))->executar($tenant, 7, 1);
+                (new DuplicarPautaUseCase(self::assembleias($tenant, $achadaA), self::repositorio($achadaP), self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 1);
                 self::fail('Deveria recusar o duplicar');
             } catch (AssembleiaNaoEncontradaException) {
             }
@@ -159,7 +163,7 @@ final class MoverEDuplicarPautaUseCaseTest extends TestCase
             $salva = $p;
         });
 
-        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), $pautas, self::serializacao()))->executar($tenant, 7, 1);
+        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), $pautas, self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 1);
 
         self::assertSame(['Síndico(a)#1', 'Síndico(a)#2', 'Contas#3', 'Obra#4'], self::titulos($assembleia));
         self::assertInstanceOf(PautaDaAssembleia::class, $salva);
@@ -173,5 +177,61 @@ final class MoverEDuplicarPautaUseCaseTest extends TestCase
         ]);
         self::assertNotNull($salva->getAbstencao(), 'a abstenção vai junto');
         self::assertSame(0, $opcoes[0]->getTotalUnidades());
+    }
+
+    #[TestDox('Duplicar leva a foto: arquivo NOVO de chave própria, origem intacta; origem sem arquivo no storage: cópia sem foto')]
+    public function testDuplicaComFoto(): void
+    {
+        $tenant = self::tenantComId();
+        [$assembleia, $a] = self::assembleiaComTresPautas($tenant);
+        $this->fotosDasCandidaturas();
+        $ana = $a->getOpcoesDeVoto()[0];
+        $ana->definirFoto('0123456789abcdef0123456789abcdef.png');
+        $this->armazenamento->gravar(ChavesDoVoto::fotoDaCandidatura($ana), FonteDeConteudo::deTexto('PNG-DA-ANA'));
+        $salva = null;
+        $pautas = self::repositorio($a);
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salva): void {
+            $salva = $p;
+        });
+
+        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), $pautas, self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 1);
+
+        self::assertInstanceOf(PautaDaAssembleia::class, $salva);
+        $foto = $salva->getOpcoesDeVoto()[0]->getFoto();
+        self::assertNotNull($foto);
+        self::assertNotSame('0123456789abcdef0123456789abcdef.png', $foto, 'chave própria, nunca a da origem');
+        self::assertStringEndsWith('.png', $foto);
+        self::assertSame('PNG-DA-ANA', $this->armazenamento->ler(ChavesDoVoto::fotoDaCandidatura($salva->getOpcoesDeVoto()[0])));
+        self::assertSame('PNG-DA-ANA', $this->armazenamento->ler(ChavesDoVoto::fotoDaCandidatura($ana)), 'a origem segue intacta');
+        self::assertSame('0123456789abcdef0123456789abcdef.png', $ana->getFoto());
+        self::assertSame([], $this->armazenamento->excluidas);
+        self::assertSame(['commit'], $this->ordem);
+    }
+
+    #[TestDox('Duplicar com a foto da origem ausente no storage: a cópia sai sem foto e sem erro')]
+    public function testDuplicaComFotoAusente(): void
+    {
+        $tenant = self::tenantComId();
+        [$assembleia, $a] = self::assembleiaComTresPautas($tenant);
+        $this->fotosDasCandidaturas();
+        $a->getOpcoesDeVoto()[0]->definirFoto('0123456789abcdef0123456789abcdef.jpg');
+        $salva = null;
+        $pautas = self::repositorio($a);
+        $pautas->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salva): void {
+            $salva = $p;
+        });
+
+        (new DuplicarPautaUseCase(self::assembleias($tenant, $assembleia), $pautas, self::serializacao(), $this->fotosDasCandidaturas()))->executar($tenant, 7, 1);
+
+        self::assertInstanceOf(PautaDaAssembleia::class, $salva);
+        self::assertNull($salva->getOpcoesDeVoto()[0]->getFoto());
+    }
+
+    private static function tenantComId(): Tenant
+    {
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 5);
+
+        return $tenant;
     }
 }
