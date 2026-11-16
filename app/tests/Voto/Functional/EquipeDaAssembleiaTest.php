@@ -344,6 +344,47 @@ final class EquipeDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('#assembleia-' . $a->getId() . ' form[action*="/duplicar"]');
     }
 
+    #[TestDox('Quem só lê (auditoria) não vê os botões do telão, de /editar e da conferência; a comissão vê')]
+    public function testVisualizarNaoVeBotoesDoTelaoEditarEConferencia(): void
+    {
+        $publicada = $this->assembleia('Evento no telão', true);
+        PautaDaAssembleiaFactory::new(['assembleia' => $publicada, 'titulo' => 'Aberta'])->comOpcoesPadrao()->aberta()->create();
+        $rascunho = $this->assembleia('Evento a publicar');
+        $auditoria = $this->colega();
+        $comissao = $this->colega();
+        foreach ([$publicada, $rascunho] as $a) {
+            $this->membro($a, PapelNaEquipe::Auditoria, $auditoria);
+            $this->membro($a, PapelNaEquipe::Comissao, $comissao);
+        }
+        $telao = '/voto/assembleias/' . $publicada->getId() . '/telao';
+        $editar = '/voto/assembleias/' . $rascunho->getId() . '/editar';
+        $conferir = '/voto/assembleias/' . $rascunho->getId() . '/publicar';
+
+        $this->entrar($comissao);
+        $this->client->request('GET', $telao);
+        self::assertSelectorExists('[data-telao-pedir-encerrar]');
+        self::assertSelectorExists('[data-voto-janela]');
+        $this->client->request('GET', $editar);
+        self::assertSelectorExists('button[name="depois"][value="sair"]');
+        self::assertSelectorNotExists('fieldset[disabled]');
+        $this->client->request('GET', $conferir);
+        self::assertSelectorExists('form[action*="/publicar"] button[type="submit"]');
+
+        $this->entrar($auditoria);
+        $this->client->request('GET', $telao);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-telao] form[method="post"]');
+        self::assertSelectorNotExists('[data-telao-pedir-encerrar]');
+        self::assertSelectorNotExists('[data-voto-janela]');
+        $this->client->request('GET', $editar);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('fieldset[disabled] input[name="titulo"]');
+        self::assertSelectorNotExists('[data-voto-assistente-form] button[type="submit"]');
+        $this->client->request('GET', $conferir);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('form[action*="/publicar"]');
+    }
+
     #[TestDox('Perfis traz o campo Votação do desenho, com a equipe padrão e uma opção por assembleia')]
     public function testPerfisTemOCampoVotacao(): void
     {

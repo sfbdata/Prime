@@ -29,6 +29,8 @@
 </head>
 <body class="voto-telao">
 {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+{# Teto da equipe: quem só lê (Visualizar) vê o telão sem os botões da mesa (abrir, suspender, retomar, encerrar), que dariam 403. #}
+{% set edita = voto_edita(a.id) %}
 <div class="vAo voto-tela" role="dialog" aria-modal="true" aria-label="{{ 'voto.assembleia.gestor.telao.rotulo'|trans }}"
      data-telao data-dados="{{ path('voto_assembleia_telao_dados', {id: a.id}) }}" data-assembleia="{{ a.id }}">
     <div class="vAoTop">
@@ -99,10 +101,10 @@
                     </div>
                 {% endif %}
                 <div class="vAoMesa">
-                    {% if p.aguardandoAMesa %}
+                    {% if edita and p.aguardandoAMesa %}
                         <button type="button" class="vB vAoP" data-voto-janela="#janela-abrir-{{ p.id }}"><i class="bi bi-unlock"></i>{{ 'voto.assembleia.gestor.janela_abrir.abrir'|trans }}</button>
                         <div class="voto-telao-janela">{% include 'voto/assembleia/_janela_abrir_votacao.html.twig' with {a: a, p: p, token: token, voltar: 'telao'} only %}</div>
-                    {% elseif p.aberta %}
+                    {% elseif edita and p.aberta %}
                         {% if p.suspensa %}
                             <form method="post" action="{{ path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}) }}" class="vAoRetomar" data-telao-ciclo>
                                 <input type="hidden" name="_token" value="{{ token }}">

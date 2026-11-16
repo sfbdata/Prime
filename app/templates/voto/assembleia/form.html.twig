@@ -15,12 +15,15 @@
 {% set cnpj_formatado = input.cnpj|voto_cnpj %}
 
 {% block conteudo %}
+{# Teto da equipe: em Visualizar a página abre só leitura (campos desabilitados, trilho por links, sem salvar/continuar). #}
+{% set so_le = assembleia is not null and not voto_edita(assembleia.id) %}
 <div class="vC voto-assistente" data-voto-assistente>
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: assembleia} only %}
     <form method="post" class="voto-assistente-corpo" data-voto-assistente-form action="{{ assembleia is null ? path('voto_assembleia_nova') : path('voto_assembleia_editar', {id: assembleia.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token(assembleia is null ? 'voto_assembleia_nova' : 'voto_assembleia_' ~ assembleia.id) }}">
         <input type="hidden" name="passo" value="{{ passo }}">
-        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: assembleia, passo: passo, em_form: true} only %}
+        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: assembleia, passo: passo, em_form: not so_le} only %}
+        <fieldset class="voto-fieldset-leitura" style="border:0;margin:0;padding:0;min-width:0;"{{ so_le ? ' disabled' : '' }}>
         {% if passo == 1 %}
             <div class="vCats" role="radiogroup" aria-label="{{ 'voto.assembleia.gestor.form.cenario'|trans }}" data-voto-cenarios>
                 {% for c in cenarios %}
@@ -64,13 +67,20 @@
                 </div>
             {% endif %}
         {% endif %}
+        </fieldset>
         {% if erro %}<div class="voto-erro" role="alert">{{ erro }}</div>{% endif %}
+        {% if so_le %}
+        <div class="voto-rodape">
+            <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ assembleia.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
+        </div>
+        {% else %}
         <div class="voto-rodape">
             <button type="submit" class="vB" name="depois" value="sair">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</button>
             <span class="voto-espaco"></span>
             {% if passo > 1 %}<button type="submit" class="vB" name="depois" value="passo-{{ passo - 1 }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</button>{% endif %}
             <button type="submit" class="vB vP" name="depois" value="passo-{{ passo + 1 }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></button>
         </div>
+        {% endif %}
     </form>
 </div>
 <script src="{{ asset('js/voto-cenario.js') }}" defer></script>
