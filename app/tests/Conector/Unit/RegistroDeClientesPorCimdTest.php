@@ -47,9 +47,9 @@ final class RegistroDeClientesPorCimdTest extends TestCase
     }
 
     /** @param list<string> $hosts */
-    private function sut(MockHttpClient $http, array $hosts = ['claude.ai', 'chatgpt.com']): RegistroDeClientesPorCimd
+    private function sut(MockHttpClient $http, array $hosts = ['claude.ai', 'chatgpt.com'], int $limite = 10): RegistroDeClientesPorCimd
     {
-        return new RegistroDeClientesPorCimd($this->clientes, $this->relogio, new HostsDeClientePermitidos($hosts), new ListaDeRedirects(), self::busca($http, $this->relogio), $this->logger);
+        return new RegistroDeClientesPorCimd($this->clientes, $this->relogio, new HostsDeClientePermitidos($hosts), new ListaDeRedirects(), self::busca($http, $this->relogio, limite: $limite), $this->logger);
     }
 
     /** Cliente gravado com o documento do Claude Code (redirects de loopback sem porta). */
@@ -294,5 +294,104 @@ final class RegistroDeClientesPorCimdTest extends TestCase
         $this->recusa($this->sut(new MockHttpClient(self::resposta('', 302, ['Location: https://claude.ai/outro']))), ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL);
         $grande = self::documento(self::URL, extras: ['x' => str_repeat('a', 20000)]);
         $this->recusa($this->sut(new MockHttpClient(self::resposta($grande))), ClienteRecusado::MOTIVO_DOCUMENTO_INVALIDO);
+    }
+
+    /** Cliente gravado com o cache vencido; o repositório nunca salva (a validade não muda). */
+    private function vencidoSemSalvar(string $validoAte = '2026-11-16 11:00:00'): ClienteDoConector
+    {
+        $cliente = self::gravado($validoAte);
+        $this->clientes->method('buscarPorIdentificador')->willReturn($cliente);
+        $this->clientes->expects(self::never())->method('salvar');
+        $this->clientes->expects(self::never())->method('inserirSeAusente');
+
+        return $cliente;
+    }
+
+    /** O log registra que usou o documento gravado, só com motivo e host. */
+    private function assertUsouOGravado(string $motivo, int $vezes = 1): void
+    {
+        $registros = $this->logger->registros ?? [];
+        self::assertCount($vezes, $registros);
+        foreach ($registros as $registro) {
+            self::assertStringContainsString('usado o gravado', $registro['mensagem']);
+        }
+        self::assertSame(['motivo' => $motivo, 'host' => 'claude.ai'], $registros[$vezes - 1]['contexto']);
+    }
+
+    #[TestDox('Renovação que falha por rede (status 503 ou erro de conexão): segue com o documento gravado, sem mexer na validade')]
+    public function testRenovacaoFalhaPorRedeUsaOGravado(): void
+    {
+        $cliente = $this->vencidoSemSalvar();
+        $http = new MockHttpClient([
+            self::resposta('', 503),
+            new MockResponse('', ['error' => 'Could not resolve host']),
+        ]);
+        $sut = $this->sut($http);
+
+        self::assertSame($cliente, $sut->resolver(self::URL, self::RETORNO));
+        self::assertSame($cliente, $sut->resolver(self::URL, 'http://localhost:3000/callback'));
+        self::assertSame(2, $http->getRequestsCount());
+        self::assertEquals(self::em('2026-11-16 11:00:00'), $cliente->getMetadadosValidosAte());
+        $this->assertUsouOGravado(ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL, 2);
+    }
+
+    #[TestDox('Renovação barrada pelo limite de buscas: segue com o documento gravado, sem chegar à rede')]
+    public function testRenovacaoBarradaPeloLimiteUsaOGravado(): void
+    {
+        $cliente = $this->vencidoSemSalvar();
+        $http = new MockHttpClient([self::resposta('', 500)]);
+        $sut = $this->sut($http, limite: 1);
+
+        self::assertSame($cliente, $sut->resolver(self::URL, self::RETORNO));
+        self::assertSame($cliente, $sut->resolver(self::URL, self::RETORNO));
+        self::assertSame(1, $http->getRequestsCount());
+        self::assertEquals(self::em('2026-11-16 11:00:00'), $cliente->getMetadadosValidosAte());
+        $this->assertUsouOGravado(ClienteRecusado::MOTIVO_LIMITE_DE_BUSCA, 2);
+    }
+
+    #[TestDox('O documento gravado só serve até 24 h depois de vencer: no instante exato e depois, recusa')]
+    public function testDepoisDas24HorasRecusa(): void
+    {
+        $this->vencidoSemSalvar('2026-11-15 12:00:00');
+
+        $this->recusa($this->sut(new MockHttpClient(self::resposta('', 503))), ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL);
+        $this->assertLogDaRecusa(ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL, 'claude.ai');
+    }
+
+    #[TestDox('Um segundo antes das 24 h, o documento gravado ainda serve')]
+    public function testUmSegundoAntesDas24HorasUsaOGravado(): void
+    {
+        $cliente = $this->vencidoSemSalvar('2026-11-15 12:00:01');
+
+        self::assertSame($cliente, $this->sut(new MockHttpClient(self::resposta('', 503)))->resolver(self::URL, self::RETORNO));
+    }
+
+    #[TestDox('Renovação com documento inválido (client_id diferente, JSON quebrado ou grande demais) recusa, mesmo com o gravado')]
+    public function testRenovacaoComDocumentoInvalidoRecusa(): void
+    {
+        $this->vencidoSemSalvar();
+        $grande = self::documento(self::URL, extras: ['x' => str_repeat('a', 20000)]);
+
+        foreach ([self::documento('https://claude.ai/oauth/outro'), '{"client_id":', $grande] as $corpo) {
+            $this->recusa($this->sut(new MockHttpClient(self::resposta($corpo))), ClienteRecusado::MOTIVO_DOCUMENTO_INVALIDO);
+        }
+    }
+
+    #[TestDox('Com o documento gravado, o redirect continua conferido: fora do documento ou da lista recusa')]
+    public function testDocumentoGravadoContinuaConferindoORedirect(): void
+    {
+        $this->vencidoSemSalvar();
+        $http = new MockHttpClient(static fn (): MockResponse => self::resposta('', 503));
+
+        $this->recusa($this->sut($http), ClienteRecusado::MOTIVO_REDIRECT_NAO_PERMITIDO, 'https://claude.ai/api/mcp/auth_callback');
+        $this->recusa($this->sut($http), ClienteRecusado::MOTIVO_REDIRECT_NAO_PERMITIDO, 'https://evil.example/callback');
+    }
+
+    #[TestDox('Cliente gravado sem validade (nunca buscado) não tem documento a reaproveitar: a falha recusa')]
+    public function testSemValidadeGravadaRecusa(): void
+    {
+        $this->clientes->method('buscarPorIdentificador')->willReturn(self::clienteCimd(self::URL));
+
+        $this->recusa($this->sut(new MockHttpClient(self::resposta('', 503))), ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL);
     }
 }

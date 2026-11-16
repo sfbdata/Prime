@@ -32,6 +32,13 @@ final class PoliticaDeCacheCimdTest extends TestCase
         yield 'Expires inválido' => [['expires' => ['0']], 300];
         yield 'Expires em uma semana' => [['expires' => ['Mon, 23 Nov 2026 12:00:00 GMT']], 86400];
         yield 'max-age manda sobre Expires' => [['cache-control' => ['max-age=600'], 'expires' => ['Mon, 16 Nov 2026 14:00:00 GMT']], 600];
+        yield 'max-age=3600 com Age 3500 vira o piso' => [['cache-control' => ['max-age=3600'], 'age' => ['3500']], 300];
+        yield 'max-age=7200 com Age 3600 vira 3600 s' => [['cache-control' => ['max-age=7200'], 'age' => ['3600']], 3600];
+        yield 'Age maior que o max-age vira o piso' => [['cache-control' => ['max-age=600'], 'age' => ['9000']], 300];
+        yield 'Age antes do teto: 2 dias menos 1 dia ainda bate no teto' => [['cache-control' => ['max-age=172800'], 'age' => ['86400']], 86400];
+        yield 'Age inválido é ignorado' => [['cache-control' => ['max-age=7200'], 'age' => ['abc']], 7200];
+        yield 'Age negativo é ignorado' => [['cache-control' => ['max-age=7200'], 'age' => ['-3600']], 7200];
+        yield 'Age não mexe no Expires' => [['expires' => ['Mon, 16 Nov 2026 14:00:00 GMT'], 'age' => ['3600']], 7200];
         yield 'Cache-Control sem max-age cai no Expires' => [['cache-control' => ['public'], 'expires' => ['Mon, 16 Nov 2026 13:00:00 GMT']], 3600];
     }
 

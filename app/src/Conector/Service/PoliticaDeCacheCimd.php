@@ -8,7 +8,7 @@ namespace App\Conector\Service;
  * Até quando o documento CIMD buscado vale, pelos cabeçalhos HTTP da resposta (`docs/specs/mcp-remoto-oauth.md`, 3.4:
  * "SHOULD guardar em cache pelos cabeçalhos HTTP").
  *
- * `Cache-Control: max-age` manda; sem ele, `Expires` (RFC 9111, 5.3). O resultado fica entre o piso de 5 minutos e o
+ * `Cache-Control: max-age` manda, descontado o `Age` (RFC 9111, 4.2.3); sem ele, `Expires` (RFC 9111, 5.3). O resultado fica entre o piso de 5 minutos e o
  * teto de 24 horas: o piso segura o app que muda o `client_id` para forçar buscas (junto do limitador
  * `conector_cimd`), e o teto faz um documento trocado pelo app chegar aqui em no máximo um dia. `no-store`, `no-cache`,
  * `Expires` inválido ou cabeçalho ausente dão o piso: o cliente precisa ficar gravado (o consentimento aponta para ele).
@@ -24,7 +24,7 @@ final class PoliticaDeCacheCimd
      */
     public function validoAte(array $cabecalhos, \DateTimeImmutable $agora): \DateTimeImmutable
     {
-        $segundos = $this->segundosPeloCacheControl($cabecalhos['cache-control'] ?? [])
+        $segundos = $this->segundosPeloCacheControl($cabecalhos['cache-control'] ?? [], $this->idade($cabecalhos['age'] ?? []))
             ?? $this->segundosPeloExpires($cabecalhos['expires'] ?? [], $agora)
             ?? self::PISO_SEGUNDOS;
 
@@ -34,11 +34,12 @@ final class PoliticaDeCacheCimd
     }
 
     /**
-     * Os segundos do `max-age`; o piso com `no-store` ou `no-cache`; nulo quando o cabeçalho não decide.
+     * Os segundos do `max-age` menos a idade da resposta; o piso com `no-store` ou `no-cache`; nulo quando o cabeçalho não
+     * decide.
      *
      * @param list<string> $valores
      */
-    private function segundosPeloCacheControl(array $valores): ?int
+    private function segundosPeloCacheControl(array $valores, int $idade): ?int
     {
         $maxAge = null;
         foreach (explode(',', implode(',', $valores)) as $diretiva) {
@@ -51,7 +52,20 @@ final class PoliticaDeCacheCimd
             }
         }
 
-        return $maxAge;
+        return $maxAge === null ? null : $maxAge - $idade;
+    }
+
+    /**
+     * O cabeçalho `Age` em segundos (RFC 9111, 4.2.3: a resposta já passou esse tempo num cache no caminho e o `max-age`
+     * conta a partir da origem). Inválido ou negativo vale zero.
+     *
+     * @param list<string> $valores
+     */
+    private function idade(array $valores): int
+    {
+        $valor = trim($valores[0] ?? '');
+
+        return preg_match('/^[0-9]{1,10}\z/', $valor) === 1 ? (int) $valor : 0;
     }
 
     /** @param list<string> $valores */

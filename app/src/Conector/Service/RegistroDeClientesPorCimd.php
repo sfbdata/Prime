@@ -25,7 +25,8 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
  * 3. `redirect_uri` na lista exata do servidor ({@see ListaDeRedirects}, `redirect_nao_permitido`);
  * 4. cliente gravado e desativado recusa sem buscar (`cliente_inativo`);
  * 5. cache: cliente gravado com metadados no prazo não busca; vencido ou ausente busca ({@see BuscaDoDocumentoCimd}) e
- *    grava. O cliente novo entra por `INSERT ... ON CONFLICT DO NOTHING` e é relido: na corrida de dois pedidos do mesmo
+ *    grava. Se a renovação do gravado falha por rede, status ou limite, o documento gravado segue valendo por até 24 h
+ *    depois de vencer (registrado no log `mcp`); documento inválido recusa sempre. O cliente novo entra por `INSERT ... ON CONFLICT DO NOTHING` e é relido: na corrida de dois pedidos do mesmo
  *    app, o segundo lê o que o primeiro gravou, sem exceção e sem fechar o EntityManager;
  * 6. `redirect_uri` no documento do cliente (byte a byte, menos a porta do loopback).
  *
@@ -35,6 +36,9 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 #[AsAlias(RegistroDeClientes::class)]
 final class RegistroDeClientesPorCimd implements RegistroDeClientes
 {
+    /** Quanto tempo depois de vencer o documento gravado ainda serve quando a renovação falha por rede ou limite. */
+    public const TOLERANCIA_SEM_RENOVAR = '+24 hours';
+
     public function __construct(
         private readonly ClienteDoConectorRepository $clientes,
         private readonly ClockInterface $relogio,
@@ -68,7 +72,7 @@ final class RegistroDeClientesPorCimd implements RegistroDeClientes
             throw new ClienteRecusado(ClienteRecusado::MOTIVO_CLIENTE_INATIVO, $host);
         }
         if (!$cliente instanceof ClienteDoConector || !$this->dentroDoPrazo($cliente)) {
-            $cliente = $this->buscarEGravar($clientId, $host, $cliente);
+            $cliente = $cliente instanceof ClienteDoConector ? $this->renovar($cliente, $host) : $this->buscarEInserir($clientId, $host);
         }
 
         if (!$this->redirects->constaDoDocumento($cliente->getRedirectUris(), $redirectUri)) {
@@ -132,20 +136,45 @@ final class RegistroDeClientesPorCimd implements RegistroDeClientes
         return $validoAte !== null && $validoAte > $this->relogio->now();
     }
 
-    /** Busca o documento e grava: atualiza o cliente vencido, ou insere o novo e relê (corrida de unique). */
-    private function buscarEGravar(string $clientId, string $host, ?ClienteDoConector $cliente): ClienteDoConector
+    /**
+     * Busca de novo o documento do cliente gravado com o cache vencido e grava. Se a busca falha por rede, status ou
+     * limite de buscas, segue com o documento gravado (stale-if-error, no estilo da RFC 5861), sem mexer na validade, até
+     * {@see TOLERANCIA_SEM_RENOVAR} depois dela: o pedido seguinte tenta de novo. Documento inválido recusa sempre.
+     */
+    private function renovar(ClienteDoConector $cliente, string $host): ClienteDoConector
     {
-        $documento = $this->busca->buscar($clientId, $host);
-        $agora = $this->relogio->now();
-
-        if ($cliente instanceof ClienteDoConector) {
-            $cliente->renovarMetadados($documento->clientName, $documento->redirectUris, $agora, $documento->validoAte);
-            $this->clientes->salvar($cliente, true);
+        try {
+            $documento = $this->busca->buscar($cliente->getIdentificador(), $host);
+        } catch (ClienteRecusado $falha) {
+            if (!$this->podeSeguirComOGravado($cliente, $falha)) {
+                throw $falha;
+            }
+            $this->mcpLogger->warning('Documento do cliente do conector não renovado; usado o gravado.', ['motivo' => $falha->motivo, 'host' => $host]);
 
             return $cliente;
         }
 
-        $this->clientes->inserirSeAusente($this->clienteNovo($documento, $agora));
+        $cliente->renovarMetadados($documento->clientName, $documento->redirectUris, $this->relogio->now(), $documento->validoAte);
+        $this->clientes->salvar($cliente, true);
+
+        return $cliente;
+    }
+
+    private function podeSeguirComOGravado(ClienteDoConector $cliente, ClienteRecusado $falha): bool
+    {
+        $validoAte = $cliente->getMetadadosValidosAte();
+
+        return \in_array($falha->motivo, [ClienteRecusado::MOTIVO_DOCUMENTO_INDISPONIVEL, ClienteRecusado::MOTIVO_LIMITE_DE_BUSCA], true)
+            && $validoAte !== null
+            && $this->relogio->now() < $validoAte->modify(self::TOLERANCIA_SEM_RENOVAR);
+    }
+
+    /** Busca o documento do cliente novo, insere e relê (na corrida de unique, a linha do outro pedido). */
+    private function buscarEInserir(string $clientId, string $host): ClienteDoConector
+    {
+        $documento = $this->busca->buscar($clientId, $host);
+
+        $this->clientes->inserirSeAusente($this->clienteNovo($documento, $this->relogio->now()));
         $gravado = $this->clientes->buscarPorIdentificador($clientId);
         if (!$gravado instanceof ClienteDoConector) {
             throw new \LogicException('O cliente do conector não foi gravado nem achado depois da gravação.');
