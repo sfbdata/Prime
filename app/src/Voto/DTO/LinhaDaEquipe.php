@@ -18,6 +18,7 @@ final readonly class LinhaDaEquipe
         public string $papel,
         public string $papelRotulo,
         public bool $comConta,
+        public bool $aDesignar = false,
     ) {
     }
 
@@ -32,6 +33,7 @@ final readonly class LinhaDaEquipe
             $membro->getPapel()->value,
             $membro->getPapel()->rotulo(),
             null !== $membro->getUser(),
+            $membro->aDesignar(),
         );
     }
 }

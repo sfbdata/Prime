@@ -110,7 +110,7 @@ final class EquipeDoVotoController extends AbstractController
         if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->request->get('_token'))) {
             $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada'));
 
-            return $this->voltar($id);
+            return $this->voltar($id, $request);
         }
         try {
             $acao($tenant);
@@ -123,11 +123,16 @@ final class EquipeDoVotoController extends AbstractController
             $this->avisos->erro($e->getMessage());
         }
 
-        return $this->voltar($id);
+        return $this->voltar($id, $request);
     }
 
-    private function voltar(int $id): RedirectResponse
+    /** Volta à tela Perfis; se a ação veio do passo 6 do assistente (`depois=passo-6`), volta ao passo 6. */
+    private function voltar(int $id, Request $request): RedirectResponse
     {
+        if ('passo-6' === $request->request->get('depois')) {
+            return $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => 6]);
+        }
+
         return $this->redirectToRoute('voto_equipe_index', ['grupo' => $id, '_fragment' => 'equipe-' . $id]);
     }
 

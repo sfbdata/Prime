@@ -12,10 +12,12 @@ use App\Voto\DTO\FiltroDoPainel;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
+use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\Service\PainelPorEntidade;
 use App\Voto\UseCase\ConferirPublicacaoDaAssembleiaUseCase;
+use App\Voto\UseCase\ObterEquipeDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
 use App\Voto\UseCase\ListarVotacoesParaVotarUseCase;
@@ -180,9 +182,10 @@ final class AssembleiaController extends AbstractController
      * conferência. Publicada não tem assistente: vai para a mesa.
      */
     #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '[236]'], methods: ['GET'])]
-    public function passo(int $id, int $passo): Response
+    public function passo(int $id, int $passo, ObterEquipeDaAssembleiaUseCase $obterEquipe, AcessoAAssembleia $acesso): Response
     {
-        $assembleia = $this->lida($this->guarda->exigir(), $id);
+        $tenant = $this->guarda->exigir();
+        $assembleia = $this->lida($tenant, $id);
         if (!$assembleia->podeAlterarPautas) {
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
         }
@@ -192,7 +195,12 @@ final class AssembleiaController extends AbstractController
             return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, null, 2));
         }
 
-        return $this->render('voto/assembleia/passo.html.twig', ['assembleia' => $assembleia, 'passo' => $passo]);
+        return $this->render('voto/assembleia/passo.html.twig', [
+            'assembleia' => $assembleia,
+            'passo' => $passo,
+            'equipe' => 6 === $passo ? $obterEquipe->executar($tenant, $id) : [],
+            'administracao' => 6 === $passo && $acesso->ehAdministracao($this->pessoa(), $tenant),
+        ]);
     }
 
     #[Route('/{id}/publicar', name: 'voto_assembleia_conferir_publicacao', methods: ['GET'])]

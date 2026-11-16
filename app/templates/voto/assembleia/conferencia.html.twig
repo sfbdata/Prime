@@ -3,7 +3,7 @@
 {#
     Passo 7 do assistente de 7 passos, "Revisar" (desenho 18, L267: "Confira e publique"): o trilho, o quadro de revisão (cada
     linha com "Alterar", que leva ao passo), as pendências (✗ bloqueia a publicação: vermelho #a3232b; aviso: âmbar #8a6200;
-    sem nenhuma, "Tudo pronto para publicar." em verde #1e7b45) e o rodapé "Salvar e sair" | "Voltar" | "Publicar votação".
+    cargo da equipe sem pessoa indicada também é aviso; sem nenhuma, "Tudo pronto para publicar." em verde #1e7b45) e o rodapé "Salvar e sair" | "Voltar" | "Publicar votação".
     As pendências vêm da MESMA validação da publicação (ConferirPublicacaoDaAssembleiaUseCase): a recusa da publicação e a
     soma das frações fora do esperado. O detalhe de cada pauta (regras e candidaturas) segue abaixo do quadro.
     Contexto: `assembleia` (AssembleiaNoPainel) e `conferencia` (ConferenciaDaPublicacaoOutput).
@@ -35,6 +35,7 @@
             {% if a.simulacao %}{{ _self.linha('voto.assembleia.gestor.conferencia.tipo'|trans, 'voto.assembleia.gestor.conferencia.tipo_simulacao'|trans, passo1) }}{% endif %}
             {{ _self.linha('voto.assembleia.gestor.assistente.revisao_cargos'|trans, a.pautas|map(p => p.titulo ~ ' (' ~ p.opcoes|length ~ ')')|join(', ') ?: 'voto.assembleia.gestor.assistente.revisao_sem_cargos'|trans, passo4) }}
             {{ _self.linha('voto.assembleia.gestor.assistente.revisao_lista'|trans, (a.unidadesAptas + a.unidadesInaptas > 0) ? 'voto.assembleia.gestor.assistente.revisao_lista_resumo'|trans({aptos: a.unidadesAptas, inaptos: a.unidadesInaptas}) : 'voto.assembleia.gestor.assistente.revisao_sem_lista'|trans, passo5) }}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_equipe'|trans, conferencia.cargosDaEquipe > 0 ? 'voto.assembleia.gestor.assistente.revisao_equipe_propria'|trans({n: conferencia.cargosDaEquipe}) : 'voto.assembleia.gestor.assistente.revisao_equipe_padrao'|trans, path('voto_assembleia_passo', {id: a.id, passo: 6})) }}
             {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), passo5) }}{% endif %}
         </div>
         {% for p in a.pautas %}
@@ -55,7 +56,8 @@
         <div class="voto-pendencias" data-voto-pendencias>
             {% if conferencia.pendencia %}<div class="voto-pendencia voto-pendencia-bloqueio" role="alert" data-voto-pendencia><i class="bi bi-x-circle-fill"></i> {{ conferencia.pendencia }}</div>{% endif %}
             {% if conferencia.somaForaDoEsperado %}<div class="voto-pendencia voto-pendencia-aviso" data-voto-soma-fracoes><i class="bi bi-exclamation-triangle-fill"></i> {{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: conferencia.somaDasFracoes|voto_fracao}) }}</div>{% endif %}
-            {% if not conferencia.pendencia %}<div class="voto-pendencia voto-pendencia-pronto" data-voto-pronto><i class="bi bi-check-circle-fill"></i> {{ 'voto.assembleia.gestor.assistente.pronto'|trans }}</div>{% endif %}
+            {% if conferencia.cargosSemPessoa > 0 %}<div class="voto-pendencia voto-pendencia-aviso" data-voto-cargos-sem-pessoa><i class="bi bi-exclamation-triangle-fill"></i> {{ 'voto.assembleia.gestor.assistente.cargos_sem_pessoa'|trans({n: conferencia.cargosSemPessoa}) }}</div>{% endif %}
+            {% if not conferencia.pendencia and conferencia.cargosSemPessoa == 0 %}<div class="voto-pendencia voto-pendencia-pronto" data-voto-pronto><i class="bi bi-check-circle-fill"></i> {{ 'voto.assembleia.gestor.assistente.pronto'|trans }}</div>{% endif %}
         </div>
         <div class="voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>

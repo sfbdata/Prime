@@ -12,6 +12,8 @@ final readonly class ConferenciaDaPublicacaoOutput
         public ?string $pendencia,
         public ?string $somaDasFracoes = null,
         public bool $somaForaDoEsperado = false,
+        public int $cargosDaEquipe = 0,
+        public int $cargosSemPessoa = 0,
     ) {
     }
 }

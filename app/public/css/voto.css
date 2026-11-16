@@ -282,3 +282,17 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .voto-tela .voto-pauta-participacao-titulo { color: #0b3550; font-size: 13px; }
 .voto-tela .voto-pauta-participacao .voto-pauta-aviso-aberto { flex: 1 1 100%; }
 .voto-tela .voto-pauta-participacao .voto-pauta-grupos { flex: 1 1 280px; }
+/* Passo 6 do assistente (desenho 18, H266): escolha da equipe, lista cargo + nome e "Indicar pessoas". Valores do desenho. */
+.voto-tela .voto-equipe-passo { display: flex; flex-direction: column; gap: 12px; }
+.voto-tela .voto-equipe-passo .vCats { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.voto-tela .voto-equipe-passo .vCats form { display: contents; }
+.voto-tela .voto-equipe-passo .vCats .vCat { width: 100%; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled { cursor: default; }
+.voto-tela .voto-equipe-passo-lista { border: 1px solid #d3dde4; }
+.voto-tela .voto-equipe-passo-linha { display: flex; gap: 10px; font-size: 13.5px; flex-wrap: wrap; }
+.voto-tela .voto-equipe-passo-linha > b { flex: 1 1 220px; }
+.voto-tela .voto-equipe-passo-linha > span { flex: 1 1 180px; color: #5b7383; }
+.voto-tela .voto-equipe-passo-indicar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: #8a6200; }
+.voto-tela .voto-equipe-passo-indicar > span { flex: 1 1 300px; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover { background: #fff; color: #0b3550; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover i { color: #0a6fa0; }
