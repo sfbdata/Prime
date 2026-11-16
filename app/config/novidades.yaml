@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.54.0"
+  data: "2026-11-16"
+  itens:
+    - "Preparamos a base de segurança para conectar o BlueJus a assistentes de inteligência artificial: cada conexão vai valer para um escritório só, com as mesmas travas de acesso do sistema, e sem as funções de administrador. Ainda não há tela nova; o uso do BlueJus no navegador continua igual."
+    - "Preparamos a base para ligar o BlueJus ao Claude e ao ChatGPT da sua equipe: o sistema já sabe guardar, com segurança, quais conexões cada pessoa autorizou em cada escritório e por quanto tempo elas valem. Ainda não há tela nem conexão disponível; elas chegam nas próximas versões, primeiro num escritório piloto."
+    - "A página \"Quem somos e contribua\" foi reorganizada para deixar claro que o BlueJus é gratuito: tem um selo de gratuito, a explicação do convênio com a OAB, uma seção de perguntas frequentes e a contribuição voluntária por PIX ficou mais discreta."
+    - "Se o espaço do escritório ficar pequeno, o usuário principal pode pedir mais espaço com um clique. A equipe BlueJus libera as opções de espaço extra e avisa por e-mail; quando o uso passa de 97%, as opções aparecem sozinhas. Pedir não gera cobrança e nenhum arquivo é apagado."
+    - "O aviso de espaço que aparece no topo das telas mostra quanto falta e deixa pedir mais espaço direto dali, sem sair da tela."
+    - "No Painel do Master, a função \"Indique e ganhe\" pode ser ligada ou desligada para todos os escritórios, e a tela Contribua mostra a lista de pedidos de espaço para liberar ou recusar."
+    - "No registro de esquecimento do ponto, escrever o motivo deixou de ser obrigatório. O campo continua na tela para quem quiser explicar. Nas outras justificativas, o motivo segue obrigatório."
 - versao: "2.53.0"
   data: "2026-11-16"
   itens:
