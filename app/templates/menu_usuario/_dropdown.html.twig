@@ -43,7 +43,7 @@
             </a>
         {% endif %}
         {% if recurso_visivel('indique') %}
-        <button type="button" class="dropdown-item mu-item" role="menuitem" data-ind-abrir>
+        <button type="button" class="dropdown-item mu-item {{ recurso_marca('indique') }}" role="menuitem" data-ind-abrir>
             <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.indicar'|trans }}</span></span>
             <span class="mu-item-dir">{{ 'menu.usuario.dropdown.indicar_dir'|trans }}</span>
         </button>
