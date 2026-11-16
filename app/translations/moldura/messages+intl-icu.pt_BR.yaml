@@ -83,14 +83,58 @@ moldura:
         trilha_auditoria: Trilha de Auditoria
         assinatura: Assinatura
     aviso_espaco:
-        titulo_esgotado: 'Espaço esgotado: novos envios estão pausados'
         titulo_ocupado: Seu espaço está {percentual}% ocupado
-        uso_do_plano: '{uso} de {limite} no plano {plano}.'
-        consulta_liberada: Consultar e baixar arquivos continua liberado.
-        faltam: Faltam {faltam}.
-        recomendacao: Recomendamos aumentar o espaço para não interromper o envio de documentos.
-        aumentar: Aumentar espaço
+        titulo_em_analise: Seu pedido de mais espaço está em análise
+        uso_de_limite: '{uso} de {limite}.'
+        enviado_em: 'Enviado em {quando}.'
+        avisaremos: Avisaremos por e-mail.
+        ja_liberadas: As opções de espaço extra já estão liberadas para você.
+        faltam_solicite: 'Faltam {faltam}. Se precisar, solicite mais espaço.'
+        ver_pedido: Ver pedido
+        ver_opcoes: Ver opções
+        solicitar: Solicitar mais espaço
         lembrar_amanha: Lembrar amanhã
+        fechar: Fechar
+        pedidos_titulo: '{quantidade} pedido(s) de espaço aguardando você'
+        pedidos_sub: Escritórios pediram a liberação das opções de espaço extra.
+        pedidos_analisar: Analisar pedidos
+        # Modal "Solicitar mais espaço" e "Pedido de mais espaço" (desenho Contribua 14 e 15/11, bj-plano.js)
+        modal:
+            titulo: Solicitar mais espaço
+            gratis_negrito: O BlueJus é gratuito
+            gratis_resto: e continua assim. Espaço extra de armazenamento é um serviço opcional, contratado à parte só por quem precisar. Ao solicitar, a equipe BlueJus libera as opções para você escolher.
+            hoje_usa: Hoje você usa
+            uso_de_limite: '{uso} de {limite}'
+            hoje_usa_percentual: '({percentual}%).'
+            quanto: Quanto espaço você imagina precisar?
+            opcao_20: Até 20 GB
+            opcao_50: Até 50 GB
+            opcao_100: Mais de 50 GB
+            motivo: Para que vai usar (opcional)
+            motivo_exemplo: 'Ex.: digitalização dos processos antigos do escritório'
+            sem_cobranca: Solicitar não gera cobrança. Enquanto isso, tudo continua funcionando e seus arquivos nunca são apagados por falta de espaço.
+            cancelar: Cancelar
+            enviar: Enviar pedido
+            enviado_titulo: Pedido enviado
+            enviado_texto: 'A equipe BlueJus vai liberar as opções de espaço extra para {escritorio} e avisar por e-mail.'
+            erro_generico: Não foi possível enviar o pedido. Tente de novo.
+            pedido_titulo: Pedido de mais espaço
+            em_analise: Pedido em análise
+            em_analise_texto: A equipe BlueJus vai liberar as opções de espaço extra para o seu escritório e avisar por e-mail.
+        # Pop-up dos 97% (liberação automática)
+        popup:
+            titulo_atencao: 'Atenção: seu espaço chegou a {percentual}%'
+            titulo_cheio: Seu espaço está cheio
+            usados: '{uso} de {limite} usados'
+            faltam: 'Faltam {faltam}.'
+            vai_pausar: Quando o espaço acabar, novos envios ficam pausados.
+            pausados: Novos envios estão pausados. Consultar e baixar arquivos continua liberado.
+            sem_espaco: Não há mais espaço livre. Consultar e baixar arquivos continua liberado.
+            liberamos_antes: Liberamos automaticamente as
+            liberamos_negrito: opções de espaço extra
+            liberamos_depois: para o seu escritório. O BlueJus continua gratuito; o espaço extra é opcional.
+            agora_nao: Agora não
+            ver_opcoes: Ver opções de espaço
     # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
     aviso_falha_agendada:
         titulo: Tarefa agendada falhou

@@ -23,7 +23,7 @@ class MotivoDeNaoApoiar implements TenantAware
     public const MOTIVOS = [
         'Ainda estou conhecendo o sistema',
         'Sem orçamento agora',
-        'Prefiro comprar espaço',
+        'Prefiro apoiar de outra forma',
         'Não sabia que podia contribuir',
         'Outro motivo',
     ];

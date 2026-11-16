@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Contribua\DTO;
 
 use App\Contribua\Enum\FaixaDoEspaco;
+use App\Contribua\Enum\OrigemDaLiberacao;
 use App\Contribua\Enum\OrigemDoLimite;
 
 /**
@@ -38,6 +39,10 @@ final readonly class RetratoDoEspaco
         public ?string $bonusOrigem = null,
         /** Quantas vezes o pacote foi dobrado (desenho 08 VS 03.11.26): o preço do plano vezes ele é o valor mensal. */
         public int $multiplicador = 1,
+        /** As opções de espaço extra estão liberadas: liberação do Master gravada OU uso em 97% ou mais (D3). */
+        public bool $opcoesLiberadas = false,
+        /** Por quem: `Master` (permanente) ou `Auto` (enquanto o uso estiver em 97% ou mais); nulo se não liberadas. */
+        public ?OrigemDaLiberacao $liberadaPor = null,
     ) {
     }
 

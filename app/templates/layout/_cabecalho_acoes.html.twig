@@ -14,10 +14,13 @@
         <i class="bi bi-question-circle"></i>
     </a>
 </div>
+{# Indique e ganhe: some para o usuário comum com a chave desligada; o Master vê sempre (desenho de 14 e 15/11). #}
+{% if recurso_visivel('indique') %}
 <div class="navtop-action">
     <link rel="stylesheet" href="{{ asset('css/cabecalho-indicar.css') }}">
-    <button type="button" class="bj-share" data-bj-share data-ind-abrir
+    <button type="button" class="bj-share {{ recurso_marca('indique') }}" data-bj-share data-ind-abrir
             aria-label="{{ 'moldura.cabecalho.indicar_botao'|trans }}" data-tip="{{ (app.request and (app.request.attributes.get('_route') ?? '') starts with 'contribua_' ? 'moldura.cabecalho.indicar_botao_dica_saldo' : 'moldura.cabecalho.indicar_botao_dica')|trans }}">
         <i class="bi bi-share"></i>
     </button>
 </div>
+{% endif %}
