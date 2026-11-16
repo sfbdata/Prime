@@ -8,6 +8,18 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.54.0] - 2026-11-16
+
+### Alterado
+
+- Contribua igual ao desenho de 14 e 15/11 ("o BlueJus é gratuito"): selo GRATUITO, linha "Sem mensalidade" recolhível, faixa Convênio OAB, Perguntas frequentes, nova ordem das seções e Apoie recolhível (abre com `#apoie`).
+- Meu espaço: caixa "Solicitar mais espaço" em 3 estados, opções de compra ocultas até a liberação (pelo Master ou com uso a partir de 97%), garantias em duas versões, "Não comporta seu uso" no pacote menor que o uso, painel "Pedidos de espaço" do Master com liberar e recusar.
+- Pedidos de espaço: tabela `contribua_pedido_de_espaco` e colunas de liberação em `contribua_espaco_do_escritorio` (migration Version20261116180000); um pedido pendente por escritório, só o primário pede, trava por escritório contra clique duplo; checkout e "Quero +N GB" recusados sem liberação, exceto Master e escritório com plano pago; purga do escritório apaga os pedidos.
+- Avisos em todas as telas: barra de espaço reescrita, pop-up dos 97% (marca `auto` gravada na resposta), barra do Master com pedidos pendentes e modal global de pedido (`data-espaco-solicitar`).
+- Chave "Indique e ganhe" no catálogo de recursos: desligada, some o painel da Contribua, o botão da barra e o item "Indicar" do menu (o Master continua vendo, marcado).
+- E-mails: confirmação do pedido, "Liberamos as opções de espaço extra" na liberação pelo Master, resposta na recusa e novo assunto do aviso de 100%.
+- Ponto: o motivo deixa de ser obrigatório na justificativa "Esquecimento de Registro" (envio pela janela "Registro de esquecimento", pela janela "Justificar falta" e na edição); em branco grava nulo. Os outros tipos continuam exigindo o motivo.
+
 ## [2.53.0] - 2026-11-16
 
 ### Adicionado
@@ -2008,7 +2020,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.53.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.54.0...HEAD
+[2.54.0]: https://github.com/sfbdata/Prime/compare/v2.53.0...v2.54.0
 [2.53.0]: https://github.com/sfbdata/Prime/compare/v2.52.1...v2.53.0
 [2.52.1]: https://github.com/sfbdata/Prime/compare/v2.52.0...v2.52.1
 [2.52.0]: https://github.com/sfbdata/Prime/compare/v2.51.0...v2.52.0
