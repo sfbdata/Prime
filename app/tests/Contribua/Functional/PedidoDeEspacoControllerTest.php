@@ -8,7 +8,6 @@ use App\Contribua\Controller\ContribuaController;
 use App\Contribua\DTO\PedidoDeEspacoDoEscritorioView;
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\PedidoDeEspaco;
-use App\Contribua\Enum\OrigemDaLiberacao;
 use App\Contribua\Enum\SituacaoDoPedidoDeEspaco;
 use App\Contribua\Repository\PedidoDeEspacoRepository;
 use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
