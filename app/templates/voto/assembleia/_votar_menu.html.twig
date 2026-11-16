@@ -1,0 +1,28 @@
+{#
+    Itens do menu de três pontos de um cartão da aba Votar (desenho 18, kMenu L449): Retirar de pauta ou cancelar
+    (publicada, ainda não aberta), Suspender votação, Retomar votação, Cancelar votação (as de janela abrem
+    _janela_ciclo) e, sempre, Gerenciar no Painel (Gestão eleitoral já filtrada pela pauta). Mesmos itens de
+    _pauta_linha, mesmas rotas.
+    Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel), `token` (CSRF 'voto_assembleia_{a.id}').
+#}
+{% set itens = [] %}
+{% if p.aguardandoAMesa %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retirar_ou_cancelar'|trans, icone: 'bi-x-octagon', janela: '#janela-ciclo-' ~ p.id ~ '-ret', destrutivo: true}]) %}
+{% endif %}
+{% if p.aberta and not p.suspensa %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.suspender'|trans, icone: 'bi-pause-circle', janela: '#janela-ciclo-' ~ p.id ~ '-sus'}]) %}
+{% endif %}
+{% if p.aberta and p.suspensa %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retomar'|trans, icone: 'bi-play-circle', acao: path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}), token: token}]) %}
+{% endif %}
+{% if p.aberta %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.cancelar'|trans, icone: 'bi-x-circle', janela: '#janela-ciclo-' ~ p.id ~ '-can', destrutivo: true}]) %}
+{% endif %}
+{% set itens = itens|merge([{rotulo: 'voto.votar.gerenciar'|trans, icone: 'bi-speedometer2', href: path('voto_index', {aba: 'ges', q: p.titulo})}]) %}
+{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}
+{% if p.aguardandoAMesa %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'ret', token: token} only %}
+{% elseif p.aberta %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token} only %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'can', token: token} only %}
+{% endif %}

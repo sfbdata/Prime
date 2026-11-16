@@ -17,6 +17,7 @@ use App\Voto\Service\PainelPorEntidade;
 use App\Voto\UseCase\ConferirPublicacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
+use App\Voto\UseCase\ListarVotacoesParaVotarUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\ObterAtaDaAssembleiaUseCase;
 use App\Voto\UseCase\ObterPainelDoVotoUseCase;
@@ -42,7 +43,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class AssembleiaController extends AbstractController
 {
     /** As ações que as abas de /voto embutem (função Twig `voto_assembleia_aba`). */
-    public const ABAS_EMBUTIDAS = ['painel', 'resultados', 'acompanhar'];
+    public const ABAS_EMBUTIDAS = ['painel', 'resultados', 'acompanhar', 'votar'];
 
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
@@ -51,6 +52,7 @@ final class AssembleiaController extends AbstractController
         private readonly ObterAssembleiaUseCase $obterAssembleia,
         private readonly TranslatorInterface $tradutor,
         private readonly PainelPorEntidade $painelPorEntidade,
+        private readonly ListarVotacoesParaVotarUseCase $listarVotacoes,
     ) {
     }
 
@@ -98,6 +100,17 @@ final class AssembleiaController extends AbstractController
     {
         return $this->render('voto/assembleia/_acompanhar.html.twig', [
             'assembleias' => self::semArquivadas($this->obterPainel->executar($this->guarda->exigir())),
+        ]);
+    }
+
+    /**
+     * Aba "Votar" de /voto (desenho 18): uma votação por cartão, com chip, frase de situação e "Votar", que abre a tela
+     * do eleitor (a mesma do link e do QR Code do evento). Embutida, sem rota.
+     */
+    public function votar(): Response
+    {
+        return $this->render('voto/assembleia/_votar.html.twig', [
+            'votacoes' => $this->listarVotacoes->executar($this->guarda->exigir()),
         ]);
     }
 

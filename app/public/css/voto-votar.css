@@ -1,0 +1,10 @@
+/* BlueJus Voto: aba Votar (B15), valores copiados do CSS do desenho 18 (VS 08.11.26), aba 'ele' (L187-199).
+   Template: assembleia/_votar. O cartão usa .vC, .vChip, .vB e o menu .vKw do desenho (voto.css, voto-menu.css). */
+.voto-tela .voto-votar-corpo { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.voto-tela .voto-votar-topo { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.voto-tela .voto-votar-titulo { flex: 1 1 300px; min-width: 0; }
+.voto-tela .voto-votar-titulo > b { font-size: 19px; color: #0b3550; }
+.voto-tela .voto-votar-desc { font-size: 13.5px; color: #34505f; margin-top: 3px; }
+.voto-tela .voto-votar-meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: #34505f; }
+.voto-tela .voto-votar-aviso { font-size: 13.5px; font-weight: bold; }
+.voto-tela .voto-votar-acoes { display: flex; gap: 8px; flex-wrap: wrap; }

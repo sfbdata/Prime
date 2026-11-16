@@ -12,7 +12,22 @@ voto:
         ges: Gestão eleitoral
         aco: Acompanhar
     votar:
-        vazio_gestao: 'Visão de gestão: aqui aparecem todas as votações. O votante vê somente aquelas em que consta. Clique em Votar para ver a tela do votante.'
+        lista: 'Todas as votações publicadas da organização. Clique em Votar para abrir a tela do eleitor; quem recebe o link ou o QR Code vê só aquelas em que consta.'
+        vazio: 'Nenhuma votação publicada ainda. Crie e publique em Gestão eleitoral.'
+        votar: Votar
+        periodo: '{inicio} até {fim}'
+        periodo_aberto: 'Aberta em {inicio}'
+        codigo: 'Código de conferência {codigo}'
+        gerenciar: Gerenciar no Painel
+        modalidade:
+            pauta: Pautas de assembleia
+            eleicao: Eleição individual
+        aviso:
+            suspensa: Votação suspensa pela mesa. Aguarde a retomada.
+            cancelada: Votação cancelada pela comissão.
+            encerrada: Votação apurada. O resultado está em Resultados.
+            aberta: Votação aberta. Clique em Votar para abrir a tela do eleitor, a mesma do link e do QR Code.
+            aguardando: Aguardando abertura pela mesa.
     acompanhar:
         titulo: Acompanhar em tempo real
         texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado. Lista nominal e Documento de auditoria são restritos à comissão, à auditoria e ao Gestor Master; nunca indicam o voto.'

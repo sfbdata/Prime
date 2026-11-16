@@ -20,7 +20,7 @@ use Twig\TwigFunction;
  *  - filtro `voto_cnpj`: o CNPJ de 14 dígitos com a máscara "00.000.000/0000-00";
  *  - função `voto_avisos()`: os avisos pendentes do toast ({@see AvisosDoVoto}), que saem da sessão ao serem lidos;
  *  - função `voto_assembleia_aba(acao)`: a ação de {@see AssembleiaController} que uma aba de /voto embute por
- *    `render()` (painel, resultados ou acompanhar), sem o nome da classe como texto no template; o segundo argumento
+ *    `render()` (painel, resultados, acompanhar ou votar), sem o nome da classe como texto no template; o segundo argumento
  *    leva parâmetros de URL à sub-requisição (o painel lê `arquivadas`).
  */
 final class AssembleiaExtension extends AbstractExtension

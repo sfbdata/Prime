@@ -172,7 +172,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.voto-tela .card, .voto-tela .btn'), 'componentes do AdminLTE não entram');
     }
 
-    #[TestDox('sem aba na URL abre Votar, com o aviso de visão de gestão')]
+    #[TestDox('sem aba na URL abre Votar, com o aviso de lista vazia do desenho')]
     public function testAbaPadraoEVotar(): void
     {
         $this->ligar();
@@ -184,7 +184,7 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Votar', trim($crawler->filter('.voto-abas > a.vTab.vTabOn[aria-current="page"]')->text()));
         self::assertCount(1, $crawler->filter('.voto-abas > a.vTabOn'));
         self::assertSame(
-            'Visão de gestão: aqui aparecem todas as votações. O votante vê somente aquelas em que consta. Clique em Votar para ver a tela do votante.',
+            'Nenhuma votação publicada ainda. Crie e publique em Gestão eleitoral.',
             $crawler->filter('.voto-tela > .voto-painel[data-aba="ele"] > .vAviso')->text(),
         );
     }

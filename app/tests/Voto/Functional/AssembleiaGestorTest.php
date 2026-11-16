@@ -1071,11 +1071,11 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
     /**
      * Um token CSRF válido para o id pedido, gravado na sessão do navegador como o SessionTokenStorage grava: a tela
      * nunca entrega o token de uma assembleia alheia, e sem ele a ação pararia no CSRF antes da guarda de posse.
-     * Abre a aba Votar, que não lê as assembleias (a leitura encerraria antes da ação a pauta de prazo vencido).
+     * Abre a página de nova assembleia, que não lê as assembleias (a leitura encerraria antes da ação a pauta de prazo vencido).
      */
     private function tokenValido(string $id): string
     {
-        $this->client->request('GET', '/voto?aba=ele');
+        $this->client->request('GET', '/voto/assembleias/nova');
         $sessao = $this->client->getRequest()->getSession();
         $sessao->set('_csrf/' . $id, 'token-de-teste-' . $id);
         $sessao->save();

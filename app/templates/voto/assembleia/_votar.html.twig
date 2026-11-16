@@ -1,0 +1,39 @@
+{#
+    Aba "Votar" de /voto (desenho 18, aba 'ele', L187-199; embutida por AssembleiaController::votar): a frase da lista
+    (ou o vazio) e, para cada votação publicada (cada pauta é uma votação), um cartão .vC com nome e descrição, chip
+    de situação (_chip_da_pauta), menu de três pontos, linha de dados (período, entidade e tipo, código de conferência),
+    frase de situação e o botão "Votar". "Votar" abre a tela do eleitor, a mesma do link e do QR Code do evento
+    (portal público, nunca o token de uma unidade), e só vale com a votação aberta.
+    Contexto: `votacoes` (list<VotacaoParaVotar>).
+#}
+<div class="voto-painel" data-aba="ele">
+    <div class="vAviso" data-voto-votar-aviso>{{ (votacoes is empty ? 'voto.votar.vazio' : 'voto.votar.lista')|trans }}</div>
+    {% for v in votacoes %}
+        {% set a = v.assembleia %}
+        {% set p = v.pauta %}
+        {% set aviso = v.estiloDoAviso %}
+        {% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+        <div class="vC voto-votar-cartao" data-pauta="{{ p.id }}" data-assembleia="{{ a.id }}">
+            <div class="voto-votar-corpo">
+                <div class="voto-votar-topo">
+                    <div class="voto-votar-titulo"><b>{{ p.titulo }}</b>{% if p.descricao %}<div class="voto-votar-desc">{{ p.descricao }}</div>{% endif %}</div>
+                    {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: p, a: a} only %}
+                    {% include 'voto/assembleia/_votar_menu.html.twig' with {a: a, p: p, token: token} only %}
+                </div>
+                <div class="voto-votar-meta">
+                    {% if p.abertaEm %}<span><i class="bi bi-calendar-event"></i> {{ (v.fim ? 'voto.votar.periodo'|trans({inicio: p.abertaEm|date('d/m/Y H:i'), fim: v.fim|date('d/m/Y H:i')}) : 'voto.votar.periodo_aberto'|trans({inicio: p.abertaEm|date('d/m/Y H:i')})) }}</span>{% endif %}
+                    <span><i class="bi bi-tags"></i> {{ [a.entidade, ('voto.votar.modalidade.' ~ v.modalidade)|trans]|filter(x => x)|join(' · ') }}</span>
+                    <span><i class="bi bi-upc"></i> {{ 'voto.votar.codigo'|trans({codigo: v.divulgacao.codigoDeConferencia}) }}</span>
+                </div>
+                <div class="voto-votar-aviso" style="color:{{ aviso.cor }};"><i class="bi {{ aviso.icone }}"></i> {{ ('voto.votar.aviso.' ~ v.aviso)|trans }}</div>
+                <div class="voto-votar-acoes">
+                    {% if v.podeVotar %}
+                        <a class="vB vP" href="{{ v.divulgacao.link }}" target="_blank" rel="noopener" data-voto-votar><i class="bi bi-check2-square"></i>{{ 'voto.votar.votar'|trans }}</a>
+                    {% else %}
+                        <button type="button" class="vB vP" disabled data-voto-votar><i class="bi bi-check2-square"></i>{{ 'voto.votar.votar'|trans }}</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
