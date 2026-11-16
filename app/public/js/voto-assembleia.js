@@ -141,20 +141,75 @@
         });
     }
 
-    function atualizarTipoDaPauta(form, limparPadroes) {
-        var tipo = campoDaPauta(form, 'tipo').value;
-        var eleitoral = tipo === 'eleicao_cargo';
-        var nomes = form.querySelectorAll('[data-voto-nome-candidatura]');
-        Array.prototype.forEach.call(nomes, function (campo, indice) {
-            if (eleitoral && limparPadroes && indice < 2 && /^(sim|não|nao)$/i.test(campo.value.trim())) {
-                campo.value = '';
+    function nomeVazioOuPadrao(campo, padroes) {
+        return padroes.indexOf(campo.value.trim().toLowerCase()) !== -1;
+    }
+
+    /* Troca o tipo como no desenho: eleição de pessoas com só Sim/Não vira 2 dígitos sem nomes; pauta sem nomes
+       volta ao 1 Sim e 2 Não com 1 dígito. Nomes já digitados nunca são apagados. */
+    function ajustarPeloTipo(form, eleitoral) {
+        var linhas = form.querySelectorAll('[data-voto-opcao]');
+        var nomes = Array.prototype.map.call(linhas, function (linha) { return linha.querySelector('[data-voto-nome-candidatura]'); });
+        var campoDigitos = campoDaPauta(form, 'digitos');
+        if (eleitoral && nomes.length > 0 && nomes.every(function (n) { return nomeVazioOuPadrao(n, ['sim', 'não', 'nao']); }) && nomes.some(function (n) { return n.value.trim() !== ''; })) {
+            nomes.forEach(function (n) { n.value = ''; });
+            campoDigitos.value = '2';
+            atualizarLimites(form);
+            numerarOpcoes(form);
+        } else if (!eleitoral && nomes.every(function (n) { return n.value.trim() === ''; })) {
+            var lista = form.querySelector('[data-voto-opcoes]');
+            while (linhas.length > 2) {
+                lista.removeChild(linhas[linhas.length - 1]);
+                linhas = form.querySelectorAll('[data-voto-opcao]');
             }
-            campo.placeholder = campo.getAttribute(eleitoral ? 'data-voto-ph-eleitoral' : 'data-voto-ph-padrao') || '';
+            while (linhas.length < 2 && linhas.length > 0) {
+                var copia = linhas[0].cloneNode(true);
+                Array.prototype.forEach.call(copia.querySelectorAll('input'), function (campo) { campo.value = ''; });
+                lista.appendChild(copia);
+                linhas = form.querySelectorAll('[data-voto-opcao]');
+            }
+            campoDigitos.value = '1';
+            atualizarLimites(form);
+            numerarOpcoes(form);
+            ['Sim', 'Não'].forEach(function (rotulo, i) {
+                if (linhas[i]) { linhas[i].querySelector('[data-voto-nome-candidatura]').value = rotulo; }
+            });
+        }
+    }
+
+    function atualizarTipoDaPauta(form, mudou) {
+        var eleitoral = campoDaPauta(form, 'tipo').value === 'eleicao_cargo';
+        if (mudou) {
+            ajustarPeloTipo(form, eleitoral);
+        }
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-nome-candidatura]'), function (campo) {
+            campo.placeholder = campo.getAttribute(eleitoral ? 'data-voto-ph-pessoa' : 'data-voto-ph-pauta') || '';
         });
+        var botao = form.querySelector('[data-voto-opcao-nova]');
+        var rotulo = botao ? botao.querySelector('[data-voto-rotulo-opcao]') : null;
+        if (rotulo) {
+            rotulo.textContent = botao.getAttribute(eleitoral ? 'data-voto-rotulo-pessoa' : 'data-voto-rotulo-pauta') || '';
+        }
         var dica = form.querySelector('[data-voto-dica-eleicao]');
         if (dica) {
             dica.hidden = !eleitoral;
         }
+        atualizarResumoDaRegra(form);
+    }
+
+    /* "Regra detalhada: {critério} sobre {base}, quórum N%, N dígito(s)" (regraTx do desenho). */
+    function atualizarResumoDaRegra(form) {
+        var detalhes = form ? form.querySelector('[data-voto-regra-detalhada]') : null;
+        var resumo = detalhes ? detalhes.querySelector('[data-voto-regra-resumo]') : null;
+        if (!resumo) {
+            return;
+        }
+        var t = JSON.parse(detalhes.getAttribute('data-voto-regra-textos') || '{}');
+        var quorum = Number(campoDaPauta(form, 'quorum_primeira').value) || 0;
+        var texto = (t.criterio[campoDaPauta(form, 'criterio').value] || '') + ' ' + t.sobre + ' ' +
+            (t.base[campoDaPauta(form, 'base').value] || '') + (quorum ? ', ' + t.quorum + ' ' + quorum + '%' : '') +
+            ', ' + digitosDaPauta(form) + ' ' + t.digitos;
+        resumo.textContent = (detalhes.getAttribute('data-voto-regra-modelo') || '{texto}').split('{texto}').join(texto);
     }
 
     function atualizarLimites(form) {
@@ -183,11 +238,6 @@
         var linha = modelo.cloneNode(true);
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
         linha.querySelector('[data-voto-numero]').value = proximoNumero(form);
-        // A linha clonada é a 1ª: na eleição, a nova sugere "Outro candidato", não "Candidato 1".
-        var nome = linha.querySelector('[data-voto-nome-candidatura]');
-        if (nome && nome.getAttribute('data-voto-ph-outro')) {
-            nome.setAttribute('data-voto-ph-eleitoral', nome.getAttribute('data-voto-ph-outro'));
-        }
         lista.appendChild(linha);
         atualizarTipoDaPauta(form, false);
         linha.querySelector('input').focus();
@@ -452,6 +502,7 @@
         } else if (campo.hasAttribute('data-voto-digitos')) {
             atualizarLimites(form);
         }
+        atualizarResumoDaRegra(form);
     });
 
     function limitarConfiguracao(campo) {
@@ -467,6 +518,7 @@
         var campo = evento.target;
         if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-limite')) {
             limitarConfiguracao(campo);
+            atualizarResumoDaRegra(campo.closest('form'));
         }
         if (campo && campo.hasAttribute && campo.hasAttribute('data-voto-numero')) {
             var limpo = soAlgarismos(campo, campo.value);

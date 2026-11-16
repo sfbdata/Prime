@@ -56,6 +56,17 @@ final class ApuracaoDaPautaTest extends TestCase
         self::assertFalse($r->empate);
     }
 
+    #[TestDox('O resultado leva o tipo da pauta (deliberação por padrão, eleição de cargo quando é o caso)')]
+    public function testResultadoLevaOTipoDaPauta(): void
+    {
+        $pauta = $this->pauta(PesoDoVoto::Unidade, 1, ['Ana' => [2, '2'], 'Bia' => [1, '1']], [0, '0']);
+        self::assertSame(\App\Voto\Enum\TipoDaPauta::Deliberacao, $this->apuracao->apurar($pauta, '10', 10)->tipo);
+
+        (new \ReflectionProperty($pauta, 'tipo'))->setValue($pauta, \App\Voto\Enum\TipoDaPauta::EleicaoDeCargo);
+
+        self::assertSame(\App\Voto\Enum\TipoDaPauta::EleicaoDeCargo, $this->apuracao->apurar($pauta, '10', 10)->tipo);
+    }
+
     #[TestDox('Fração ideal: vence o maior peso, não o maior número de unidades; opções por peso decrescente')]
     public function testDecididoPorFracao(): void
     {

@@ -270,7 +270,7 @@
             col.appendChild(nums);
         }
         if (c.branco) {
-            col.appendChild(el('div', 'uFade uGrande', texto('abstencao')));
+            col.appendChild(el('div', 'uFade uGrande', texto(p.eleicao ? 'voto_em_branco' : 'abstencao')));
         } else if (repetido) {
             var rep = el('div', 'uFade');
             rep.appendChild(el('div', 'uGrande', texto(achou ? 'nome_repetido' : 'numero_repetido')));
@@ -304,7 +304,7 @@
             s.appendChild(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
                 return numeroDe(p, o) + ' = ' + o.rotulo;
             }).join('     ')));
-            s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto('dica')));
+            s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto(p.eleicao ? 'dica_branco' : 'dica')));
             dica.appendChild(s);
             dica.appendChild(botao(texto('conhecer'), 'bi-person-lines-fill', '', function () { definir({ver: true}); }));
             wrap.appendChild(dica);
@@ -426,7 +426,7 @@
         var p = pautaAtual();
         var dig = digitosDa(p);
         if (c.branco) {
-            return texto('fala_abstencao');
+            return texto(p.eleicao ? 'fala_branco' : 'fala_abstencao');
         }
         if (c.dig.length === dig) {
             var o = opcaoPorNumero(p, c.dig);

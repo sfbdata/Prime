@@ -8,8 +8,8 @@
     (valor "{n} un · {fração}", com a fração em até 6 casas e vírgula decimal, como o `fp` do desenho).
 #}
 {%- set decisao = resultado.decidido
-    ? (resultado.vagas > 1 ? resumo(resultado) : 'voto.assembleia.cedula.resultado.decidido'|trans({numero: resultado.vencedor.numero ~ '', rotulo: resultado.vencedor.rotulo}))
-    : resultado.situacao -%}
+    ? ((resultado.vagas > 1 or resultado.tipo.value == 'deliberacao') ? resumo(resultado) : 'voto.assembleia.cedula.resultado.decidido'|trans({numero: resultado.vencedor.numero ~ '', rotulo: resultado.vencedor.rotulo}))
+    : resumo(resultado) -%}
 <div class="vcResultado" data-vc-resultado>
     <div class="vcResumo">{{ pauta.titulo }}: {{ resumo(resultado) }}</div>
     <div>
@@ -21,7 +21,7 @@
                 <b class="vcItemValor">{{ porFracao ? 'voto.assembleia.cedula.resultado.un'|trans({unidades: opcao.unidades ~ '', peso: fracao}) : opcao.unidades }}</b>
             </div>
         {% endfor %}
-        <div class="vcAbstencoes">{{ 'voto.assembleia.cedula.resultado.abstencoes'|trans({abstencoes: resultado.abstencoesUnidades ~ '', nulos: resultado.nulosUnidades ~ ''}) }}</div>
+        <div class="vcAbstencoes">{{ (resultado.tipo.value == 'deliberacao' ? 'voto.assembleia.cedula.resultado.abstencoes' : 'voto.assembleia.cedula.resultado.brancos')|trans({abstencoes: resultado.abstencoesUnidades ~ '', nulos: resultado.nulosUnidades ~ ''}) }}</div>
         <div class="vcDecisao {{ resultado.decidido ? 'vcMsgVerde' : 'vcMsgVermelho' }}" data-vc-decisao>{{ decisao }}</div>
     </div>
 </div>

@@ -78,6 +78,7 @@ final class ApuracaoDaPauta
             vagas: $vagas,
             nulosUnidades: $pauta->getNulosUnidades(),
             nulosPeso: $pauta->getNulosPeso(),
+            tipo: $pauta->getTipo(),
         );
     }
 

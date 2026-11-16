@@ -30,6 +30,7 @@ use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Repository\OpcaoDaPautaRepository;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
@@ -109,12 +110,12 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $u = $unidade->getId();
         $acoes = [
             '/editar', '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
-            '/pautas', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
+            '/pautas', '/pautas/modelo', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
             '/unidades/enviar-links', '/unidades/' . $u . '/reenviar', '/pautas/' . $p . '/remover', '/unidades/' . $u . '/remover',
         ];
         foreach ($acoes as $acao) {
             $this->client->request('POST', '/voto/assembleias/' . $a . $acao, [
-                '_token' => $token, 'lista' => '999;Z', 'minutos' => '5', 'titulo' => 'Pauta invasora',
+                '_token' => $token, 'lista' => '999;Z', 'minutos' => '5', 'titulo' => 'Pauta invasora', 'modelo' => 'condominio_ago',
                 'opcao_numero' => ['1', '2'], 'opcao_rotulo' => ['Sim', 'Não'],
             ]);
             self::assertResponseStatusCodeSame(404, $acao);
@@ -261,10 +262,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $painel = $this->client->followRedirect();
         self::assertSame('Votação encerrada.', trim($painel->filter('.voto-toast')->text()));
         self::assertSame('Publicada, aguardando abertura', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
-        self::assertSame('Resultado: 1 Sim', trim($painel->filter('#pauta-' . $contas . ' .voto-decisao.voto-decisao-ok')->text()));
+        self::assertSame('Aprovada', trim($painel->filter('#pauta-' . $contas . ' .voto-decisao.voto-decisao-ok')->text()));
         $resultados = $this->client->request('GET', '/voto?aba=tra');
         $cartao = $resultados->filter('.voto-tela > .voto-painel[data-aba="tra"] > #assembleia-' . $id);
-        self::assertSame('Aprovação de contas: 1 Sim', trim($cartao->filter('.voto-resultado-faixa')->text()));
+        self::assertSame('Aprovação de contas: Aprovada', trim($cartao->filter('.voto-resultado-faixa')->text()));
         self::assertSame(['1 un · 0,5', '2 un · 0,4'], $cartao->filter('.voto-resultado-valor')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertSame('Abstenções 0 · Nulos 0', trim($cartao->filter('.voto-resultado-abst')->text()));
 
@@ -285,7 +286,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('RELATÓRIO CONSOLIDADO DA VOTAÇÃO', $ata->filter('h1')->text());
         $texto = $ata->filter('body')->text();
         self::assertStringContainsString('Aprovação de contas: 3 de 3 aptos votaram (100%).', $texto);
-        self::assertStringContainsString('Resultado de Aprovação de contas: 1 Sim. Quórum: atingido.', $texto);
+        self::assertStringContainsString('Resultado de Aprovação de contas: Aprovada. Quórum: atingido.', $texto);
         self::assertStringContainsString('Resultado de Obra ou benfeitoria: Quórum não atingido. Quórum: não atingido.', $texto);
         self::assertStringContainsString('Pela mesa, 1ª convocação', $texto);
         self::assertStringContainsString('Determinação da mesa', $texto);
@@ -524,9 +525,16 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $tela = $this->client->followRedirect();
         self::assertSame('Pauta salva.', $tela->filter('.voto-toast')->text());
         $linha = $tela->filter('#pauta-' . $pauta->getId() . ' > .voto-pauta-campos');
-        foreach (['titulo', 'regra_pronta', 'vagas', 'digitos', 'criterio', 'base', 'quorum_primeira', 'quorum_segunda'] as $nome) {
+        foreach (['tipo', 'titulo', 'regra_pronta', 'vagas'] as $nome) {
             self::assertCount(1, $linha->filter('.voto-pauta-campos > label > [name="' . $nome . '"]'));
         }
+        // Dígitos, critério, base e quóruns moram na regra detalhada recolhida (desenho L263).
+        $detalhe = $tela->filter('#pauta-' . $pauta->getId() . ' > details.vDet > .voto-pauta-detalhe');
+        foreach (['digitos', 'criterio', 'base', 'quorum_primeira', 'quorum_segunda'] as $nome) {
+            self::assertCount(1, $detalhe->filter('label > [name="' . $nome . '"]'), $nome);
+        }
+        self::assertCount(0, $tela->filter('#pauta-' . $pauta->getId() . ' > details.vDet[open]'), 'a regra detalhada vem recolhida');
+        self::assertSame('Regra detalhada: dois terços sobre total de aptos, quórum 60%, 3 dígito(s)', trim($tela->filter('#pauta-' . $pauta->getId() . ' > details.vDet > summary')->text()));
         self::assertCount(1, $linha->filter('.voto-pauta-campos > button[data-voto-numerar][title="Numerar as opções em sequência"] > .bi-123'));
         $form = $tela->filter('#pauta-' . $pauta->getId())->form();
         foreach (['digitos' => '3', 'vagas' => '2', 'criterio' => 'dois', 'base' => 'aptos', 'quorum_primeira' => '60', 'quorum_segunda' => ''] as $nome => $valor) {
@@ -573,7 +581,8 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('eleicao_cargo', $form['tipo']->getValue());
 
         $valores = $form->getPhpValues();
-        self::assertSame(['1', '2'], $valores['opcao_numero'], 'a tela sugere os números 1 e 2');
+        self::assertSame(['01', '02'], $valores['opcao_numero'], 'a tela sugere os números 01 e 02 (eleição de pessoas tem 2 dígitos)');
+        self::assertSame('2', $form['digitos']->getValue());
         self::assertSame(['', ''], $valores['opcao_rotulo'], 'sem nomes fictícios');
         $this->client->xmlHttpRequest('POST', $form->getUri(), $valores);
 
@@ -839,14 +848,153 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('3', $this->camposDaAta($ata, (int) $pauta->getId())['Comparecimento']);
     }
 
+    #[TestDox('Modelos prontos: o botão cria as pautas do modelo em rascunho, com regras do desenho, e avisa o que aplicou')]
+    public function testModeloProntoCriaAsPautas(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $tela = $this->client->request('GET', $url);
+        self::assertSame('Modelos prontos:', trim($tela->filter('.voto-atalhos')->first()->filter('span')->first()->text()));
+        self::assertSame(
+            ['Condomínio: AGO completa', 'Condomínio: Eleição de síndico e conselho', 'Condomínio: AGE: alteração da convenção', 'Condomínio: AGE: obra ou benfeitoria', 'Cooperativa: AGO completa', 'Sociedade: AGO de sócios', 'Associação: Eleição da diretoria'],
+            $tela->filter('.voto-atalhos button.vP[name="modelo"]')->each(static fn (Crawler $c): string => trim($c->text())),
+        );
+        self::assertCount(7, $tela->filter('.voto-atalhos button.vP[name="modelo"] > .bi-magic'));
+        self::assertCount(7, $tela->filter('.voto-atalhos button[name="atalho"]'), 'os atalhos de cargos frequentes continuam');
+
+        $this->client->submit($tela->filter('.voto-atalhos button[value="condominio_ago"]')->form());
+
+        self::assertResponseRedirects($url);
+        $tela = $this->client->followRedirect();
+        self::assertSame('Modelo aplicado: Aprovação de contas, Previsão orçamentária, Síndico(a), Conselho fiscal. Ajuste o que precisar.', trim($tela->filter('.voto-toast')->text()));
+        $linhas = $this->em->getConnection()->fetchAllAssociative('SELECT titulo, tipo, digitos, ordem FROM voto.assembleia_pauta WHERE assembleia_id = ? ORDER BY ordem', [$assembleia->getId()]);
+        self::assertSame(
+            [['Aprovação de contas', 'deliberacao', 1], ['Previsão orçamentária', 'deliberacao', 1], ['Síndico(a)', 'eleicao_cargo', 2], ['Conselho fiscal', 'eleicao_cargo', 2]],
+            array_map(static fn (array $l): array => [$l['titulo'], $l['tipo'], (int) $l['digitos']], $linhas),
+        );
+        self::assertSame(
+            ['Texto da opção (ex.: Sim)', 'Nome da candidatura ou chapa'],
+            [$tela->filter('.voto-pauta-bloco')->eq(0)->filter('[data-voto-nome-candidatura]')->first()->attr('placeholder'), $tela->filter('.voto-pauta-bloco')->eq(2)->filter('[data-voto-nome-candidatura]')->first()->attr('placeholder')],
+        );
+    }
+
+    #[TestDox('Modelo de convenção grava dois terços sobre o total de aptos e a pauta mostra a regra detalhada recolhida')]
+    public function testModeloDeConvencaoGravaDoisTercos(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+
+        $this->client->submit($this->client->request('GET', $url)->filter('.voto-atalhos button[value="condominio_age_convencao"]')->form());
+        $tela = $this->client->followRedirect();
+
+        self::assertSame('Modelo aplicado: Alteração da convenção. Ajuste o que precisar.', trim($tela->filter('.voto-toast')->text()));
+        $id = (int) $this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$assembleia->getId()]);
+        self::assertSame(['dois', 'aptos', '0.00', null], array_values($this->em->getConnection()->fetchAssociative('SELECT criterio, base, quorum_primeira, quorum_segunda FROM voto.assembleia_pauta WHERE id = ?', [$id])));
+        $detalhe = $tela->filter('#pauta-' . $id . ' > details.vDet');
+        self::assertCount(1, $detalhe);
+        self::assertNull($detalhe->attr('open'));
+        self::assertSame('Regra detalhada: dois terços sobre total de aptos, 1 dígito(s)', trim($detalhe->filter('summary')->text()));
+        self::assertSame('dois', $tela->filter('#pauta-' . $id)->form()['regra_pronta']->getValue(), 'a regra pronta continua visível fora do recolhido');
+    }
+
+    #[TestDox('Atalho Alteração da convenção usa dois terços; atalhos de cargo usam 2 dígitos')]
+    public function testAtalhosComAsRegrasDoDesenho(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        foreach (['Alteração da convenção', 'Subsíndico(a)'] as $atalho) {
+            $this->client->submit($this->client->request('GET', $url)->filter('.voto-atalhos button[value="' . $atalho . '"]')->form());
+        }
+
+        $linhas = $this->em->getConnection()->fetchAllAssociative('SELECT titulo, criterio, base, digitos FROM voto.assembleia_pauta WHERE assembleia_id = ? ORDER BY ordem', [$assembleia->getId()]);
+        self::assertSame([['Alteração da convenção', 'dois', 'aptos', 1], ['Subsíndico(a)', 'mais', 'validos', 2]], array_map(static fn (array $l): array => [$l['titulo'], $l['criterio'], $l['base'], (int) $l['digitos']], $linhas));
+    }
+
+    #[TestDox('Modelo desconhecido é recusado com aviso e não cria pauta')]
+    public function testModeloDesconhecidoRecusado(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $token = (string) $this->client->request('GET', $url)->filter('input[name="_token"]')->attr('value');
+
+        $this->client->xmlHttpRequest('POST', $url . '/modelo', ['_token' => $token, 'modelo' => 'inventado']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['ok' => false, 'mensagem' => 'Modelo de pautas desconhecido.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$assembleia->getId()]));
+    }
+
+    #[TestDox('Tipo da pauta usa os rótulos do desenho e o botão e o campo de nome acompanham o tipo')]
+    public function testTipoDaPautaComRotulosDoDesenho(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $comum = PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create()->_real();
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $this->client->submit($this->client->request('GET', $url)->filter('.voto-atalhos button[value="Síndico(a)"]')->form());
+        $tela = $this->client->followRedirect();
+        $eleicao = (int) $this->em->getConnection()->fetchOne("SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = ? AND tipo = 'eleicao_cargo'", [$assembleia->getId()]);
+
+        $opcoes = $tela->filter('#pauta-' . $comum->getId() . ' select[name="tipo"] option');
+        self::assertSame(['Eleição de pessoas (com foto)', 'Pauta ou pergunta (Sim / Não)'], $opcoes->each(static fn (Crawler $c): string => $c->text()));
+        self::assertStringStartsWith('Tipo', trim($tela->filter('#pauta-' . $comum->getId() . ' .voto-pauta-tipo')->first()->text()));
+        self::assertSame('Adicionar opção', trim($tela->filter('#pauta-' . $comum->getId() . ' [data-voto-opcao-nova]')->text()));
+        self::assertSame('Texto da opção (ex.: Sim)', $tela->filter('#pauta-' . $comum->getId() . ' [data-voto-nome-candidatura]')->first()->attr('placeholder'));
+        self::assertSame('Adicionar candidatura', trim($tela->filter('#pauta-' . $eleicao . ' [data-voto-opcao-nova]')->text()));
+        self::assertSame('Nome da candidatura ou chapa', $tela->filter('#pauta-' . $eleicao . ' [data-voto-nome-candidatura]')->first()->attr('placeholder'));
+        self::assertStringNotContainsString('Candidato 1', $tela->html());
+    }
+
+    #[TestDox('Deliberação mostra Abstenções; eleição de cargo mostra Brancos nos resultados e Votos em branco na ata')]
+    public function testAbstencoesNaDeliberacaoEBrancosNaEleicao(): void
+    {
+        [$assembleia, $pauta] = $this->cenarioDeVariasVagas(false, TipoDaPauta::EleicaoDeCargo);
+
+        $tela = $this->client->request('GET', '/voto?aba=tra');
+        self::assertSame('Brancos 1 · Nulos 0', $tela->filter('#assembleia-' . $assembleia->getId() . ' .voto-resultado-abst')->text());
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        $primeiras = $ata->filter('#pauta-' . $pauta->getId() . ' table tbody > tr > td:first-child')->each(static fn (Crawler $c): string => $c->text());
+        self::assertContains('Votos em branco', $primeiras);
+        self::assertNotContains('Abstenções', $primeiras);
+        self::assertStringContainsString('Eleitos: 1 Ana & <Cia>, 2 Bia', $ata->filter('body')->text());
+    }
+
+    #[TestDox('Deliberação com vencedor Sim ou Não vira Aprovada ou Rejeitada na faixa, na decisão e na ata; a ata diz Abstenções')]
+    public function testAprovadaERejeitadaNaDeliberacao(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new()->publicada()->create(['tenant' => $this->escritorio])->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => '101']);
+        $pauta = PautaDaAssembleiaFactory::new()->encerrada()->comOpcoesPadrao()->create(['assembleia' => $assembleia, 'titulo' => 'Pintura'])->_real();
+        $this->votar((int) $pauta->getId(), ['101' => 2]);
+
+        $cartao = $this->client->request('GET', '/voto?aba=tra')->filter('#assembleia-' . $assembleia->getId());
+        self::assertSame('Pintura: Rejeitada', trim($cartao->filter('.voto-resultado-faixa')->text()));
+        self::assertSame('Rejeitada', trim($cartao->filter('.voto-decisao-ok')->text()));
+        self::assertSame('Abstenções 0 · Nulos 0', trim($cartao->filter('.voto-resultado-abst')->text()));
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
+        self::assertStringContainsString('Resultado de Pintura: Rejeitada.', $ata->filter('body')->text());
+        self::assertContains('Abstenções', $ata->filter('#pauta-' . $pauta->getId() . ' table tbody > tr > td:first-child')->each(static fn (Crawler $c): string => $c->text()));
+    }
+
     /** @return array{Assembleia, PautaDaAssembleia} */
-    private function cenarioDeVariasVagas(bool $empate = false): array
+    private function cenarioDeVariasVagas(bool $empate = false, TipoDaPauta $tipo = TipoDaPauta::Deliberacao): array
     {
         $this->liberar();
         $this->entrar($this->usuario());
         $assembleia = AssembleiaFactory::new()->porFracao()->publicada()->create(['tenant' => $this->escritorio])->_real();
         $pauta = PautaDaAssembleiaFactory::new()->encerrada()->create([
-            'assembleia' => $assembleia, 'titulo' => 'Conselho', 'vagas' => 2,
+            'assembleia' => $assembleia, 'titulo' => 'Conselho', 'vagas' => 2, 'tipo' => $tipo,
         ])->_real();
         foreach ([1 => 'Ana & <Cia>', 2 => 'Bia', 3 => 'Caio'] as $numero => $nome) {
             OpcaoDaPautaFactory::createOne(['pauta' => $pauta, 'numero' => $numero, 'rotulo' => $nome]);

@@ -1,11 +1,31 @@
-{# Compõe o texto antes de escapar, inclusive quando ele integra o resumo traduzido da ata. #}
+{#
+    Compõe o texto antes de escapar, inclusive quando ele integra o resumo traduzido da ata.
+    Regra do desenho (resTx): deliberação com vencedor Sim ou Não vira "Aprovada" ou "Rejeitada"; outro vencedor é
+    "Opção vencedora: nº nome"; eleição de cargo mostra "Eleito: nº nome" (várias vagas, "Eleitos: ..."). Sem decisão,
+    a situação; na deliberação que não atingiu o critério, "Rejeitada: não atingiu o critério exigido".
+#}
 {% macro resumo(r, traducao = null, parametros = {}) -%}
+    {%- set deliberacao = r.tipo.value == 'deliberacao' -%}
     {%- if not r.decidido -%}
-        {%- set texto = r.situacao -%}
+        {%- set texto = (deliberacao and r.situacao == 'Critério não atingido') ? 'voto.assembleia.gestor.resultado_por_tipo.rejeitada_criterio'|trans : r.situacao -%}
     {%- elseif r.vagas > 1 -%}
         {%- set texto = 'voto.assembleia.gestor.resultados.eleitos'|trans({nomes: r.vencedores|map(o => o.numero ~ ' ' ~ o.rotulo)|join(', ')}) -%}
+    {%- elseif deliberacao and (r.vencedor.rotulo|trim|lower) == 'sim' -%}
+        {%- set texto = 'voto.assembleia.gestor.resultado_por_tipo.aprovada'|trans -%}
+    {%- elseif deliberacao and (r.vencedor.rotulo|trim|lower) in ['não', 'nao'] -%}
+        {%- set texto = 'voto.assembleia.gestor.resultado_por_tipo.rejeitada'|trans -%}
     {%- else -%}
-        {%- set texto = r.vencedor.numero ~ ' ' ~ r.vencedor.rotulo -%}
+        {%- set chave = deliberacao ? 'opcao_vencedora' : 'eleito' -%}
+        {%- set texto = ('voto.assembleia.gestor.resultado_por_tipo.' ~ chave)|trans({numero: r.vencedor.numero ~ '', rotulo: r.vencedor.rotulo}) -%}
     {%- endif -%}
     {{- traducao ? traducao|trans(parametros|merge({resultado: texto})) : texto -}}
+{%- endmacro %}
+
+{# Rótulo do que não é voto em candidato: "Abstenções" na deliberação, "Votos em branco" na eleição (relatório do desenho). #}
+{% macro rotulo_do_branco(r) -%}
+    {%- if r.tipo.value == 'deliberacao' -%}
+        {{- 'voto.assembleia.gestor.resultado_por_tipo.abstencoes'|trans -}}
+    {%- else -%}
+        {{- 'voto.assembleia.gestor.resultado_por_tipo.brancos'|trans -}}
+    {%- endif -%}
 {%- endmacro %}

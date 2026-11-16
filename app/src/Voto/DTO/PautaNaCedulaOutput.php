@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\DTO;
 
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\TipoDaPauta;
 
 /**
  * Uma pauta na cédula do morador (spec docs/specs/voto-assembleia-condominio.md, seção 1, Morador): o estado, quando a
@@ -30,6 +31,7 @@ final readonly class PautaNaCedulaOutput
         /** Dígitos do número de cada opção (o número se mostra com zeros à esquerda). */
         public int $digitos = 1,
         public ?string $comprovante = null,
+        public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
     ) {
     }
 

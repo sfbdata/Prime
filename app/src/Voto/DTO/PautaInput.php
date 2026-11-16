@@ -33,10 +33,10 @@ final readonly class PautaInput
         return new self($titulo, null, self::OPCOES_PADRAO);
     }
 
-    /** Atalho de cargo: inicia sem opções fictícias para que o gestor cadastre nomes reais. */
-    public static function eleicao(string $titulo): self
+    /** Atalho de cargo: inicia sem opções fictícias para que o gestor cadastre nomes reais; números de 2 dígitos (desenho). */
+    public static function eleicao(string $titulo, ?RegrasDaPautaInput $regras = null): self
     {
-        return new self($titulo, null, [], tipo: TipoDaPauta::EleicaoDeCargo);
+        return new self($titulo, null, [], $regras ?? new RegrasDaPautaInput(digitos: 2), TipoDaPauta::EleicaoDeCargo);
     }
 
     public function descricaoLimpa(): ?string

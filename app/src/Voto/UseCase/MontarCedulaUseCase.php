@@ -97,6 +97,7 @@ final class MontarCedulaUseCase
                 resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
                 vagas: $pauta->getVagas(),
                 digitos: $pauta->getDigitos(),
+                tipo: $pauta->getTipo(),
                 comprovante: isset($votouEm[(int) $pauta->getId()]) ? $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm[(int) $pauta->getId()]) : null,
             );
         }

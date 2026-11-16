@@ -515,11 +515,11 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
 
         $cartao = $crawler->filter('.vcMain > .vC.vcPauta')->eq(1);
         self::assertSame('Encerrada', $cartao->filter('.vChip')->text());
-        self::assertSame('Obra da fachada: 1 Sim', $cartao->filter('.vcResultado > .vcResumo')->text());
+        self::assertSame('Obra da fachada: Aprovada', $cartao->filter('.vcResultado > .vcResumo')->text());
         self::assertSame(['1 Sim', '2 Não'], $cartao->filter('.vcResultado .vcItem > .vcItemNome')->each(static fn (Crawler $c): string => $c->text()));
         self::assertSame(['3 un · 0,6', '1 un · 0,1'], $cartao->filter('.vcResultado .vcItem > .vcItemValor')->each(static fn (Crawler $c): string => $c->text()));
         self::assertSame('Abstenções 1 · Nulos 0', $cartao->filter('.vcResultado .vcAbstencoes')->text());
-        self::assertSame('Resultado: 1 Sim', $cartao->filter('.vcResultado .vcDecisao')->text());
+        self::assertSame('Aprovada', $cartao->filter('.vcResultado .vcDecisao')->text());
         self::assertCount(0, $cartao->filter('form'));
     }
 

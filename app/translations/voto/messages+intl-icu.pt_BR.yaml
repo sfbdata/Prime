@@ -52,10 +52,13 @@ voto:
             encerra_em: 'Encerra em {tempo}.'
         dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
         abstencao: ABSTENÇÃO
+        voto_em_branco: VOTO EM BRANCO
+        dica_eleicao: 'Escolha um nome. Para votar em branco, escolha VOTO EM BRANCO.'
         opcoes: Opções da pauta
         resultado:
             un: '{unidades} un · {peso}'
             abstencoes: 'Abstenções {abstencoes} · Nulos {nulos}'
+            brancos: 'Brancos {abstencoes} · Nulos {nulos}'
             decidido: 'Resultado: {numero} {rotulo}'
         toast:
             registrado: Voto registrado.
@@ -79,10 +82,12 @@ voto:
             voto_nulo: VOTO NULO
             numero_invalido_dica: 'Aperte CORRIGE e informe um número válido.'
             abstencao: ABSTENÇÃO
+            voto_em_branco: VOTO EM BRANCO
             rodape_titulo: 'Aperte a tecla:'
             rodape_confirma: 'CONFIRMA para CONFIRMAR este voto'
             rodape_corrige: 'CORRIGE para REINICIAR este voto'
             dica: 'Digite o número no teclado ou aperte BRANCO para se abster.'
+            dica_branco: 'Digite o número no teclado ou aperte BRANCO.'
             dica_varios: 'Digite o número de cada nome e aperte CONFIRMA. Você pode escolher até {n} nomes; para terminar antes, aperte CONFIRMA sem número.'
             escolha_de: 'Escolha {k} de {n}'
             nome_repetido: 'Você já escolheu este nome.'
@@ -107,6 +112,7 @@ voto:
             numero_tecla: 'Número {n}'
             fala_digite: 'Voto para {pauta}. Digite o número.'
             fala_abstencao: Abstenção. Confirme ou corrija.
+            fala_branco: Voto em branco. Confirme ou corrija.
             fala_invalido: 'Número errado, voto nulo. Confirme ou corrija.'
             comprovante_titulo: 'Comprovante de depósito da cédula (não revela seu voto)'
             comprovante_imagem: Comprovante em imagem
@@ -183,13 +189,10 @@ voto:
                 continuar: Continuar
                 voltar: Voltar
             pautas:
-                tipo: 'Tipo de pauta'
-                tipo_deliberacao: 'Deliberação (Sim ou Não)'
-                tipo_eleicao: 'Eleição de cargo (candidaturas)'
-                dica_eleicao: 'Sugestões de nomes aparecem nos campos. Preencha pelo menos duas candidaturas antes de publicar.'
-                candidato_1_ph: 'Candidato 1'
-                candidato_2_ph: 'Candidato 2'
-                candidato_ph: 'Outro candidato'
+                tipo: 'Tipo'
+                tipo_deliberacao: 'Pauta ou pergunta (Sim / Não)'
+                tipo_eleicao: 'Eleição de pessoas (com foto)'
+                dica_eleicao: 'Preencha pelo menos duas candidaturas antes de publicar.'
                 regra_pronta: 'Regra pronta'
                 preset_personalizada: 'Personalizada'
                 preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'
@@ -219,12 +222,45 @@ voto:
                 numero: Número
                 numero_ph: Nº
                 nome: Nome
-                nome_ph: Nome da chapa ou candidatura
-                candidatura: Candidatura
+                nome_ph_pessoa: Nome da candidatura ou chapa
+                nome_ph_pauta: 'Texto da opção (ex.: Sim)'
+                candidatura: Adicionar candidatura
+                opcao_nova: Adicionar opção
                 remover_opcao: Remover
                 remover_pauta: Remover cargo
                 salvar: Salvar
                 outra: Outro cargo ou pauta
+            # Regra detalhada recolhida e modelos prontos do passo Cargos e pautas (desenho 18, L262-264).
+            pautas_regra:
+                resumo: 'Regra detalhada: {texto}'
+                sobre: sobre
+                quorum: quórum
+                digitos: dígito(s)
+                criterio_mais: mais votos
+                criterio_absoluta: maioria absoluta
+                criterio_dois: dois terços
+                criterio_unanime: unanimidade
+                base_validos: votos válidos
+                base_presentes: presentes
+                base_aptos: total de aptos
+            modelos:
+                prontos: 'Modelos prontos:'
+                aplicado: 'Modelo aplicado: {pautas}. Ajuste o que precisar.'
+                condominio: Condomínio
+                cooperativa: Cooperativa
+                sociedade: Sociedade
+                associacao: Associação
+            # Texto do resultado e rótulo de abstenção/branco por tipo de pauta (desenho: resTx e BR).
+            resultado_por_tipo:
+                aprovada: Aprovada
+                rejeitada: Rejeitada
+                rejeitada_criterio: 'Rejeitada: não atingiu o critério exigido'
+                opcao_vencedora: 'Opção vencedora: {numero} {rotulo}'
+                eleito: 'Eleito: {numero} {rotulo}'
+                abstencoes: Abstenções
+                brancos: Votos em branco
+                abstencoes_e_nulos: 'Abstenções {n} · Nulos {nulos}'
+                brancos_e_nulos: 'Brancos {n} · Nulos {nulos}'
             mesa:
                 convocacao: Convocação
                 conv1: 1ª convocação

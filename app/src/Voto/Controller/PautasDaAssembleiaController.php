@@ -13,7 +13,9 @@ use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
+use App\Voto\Service\ModelosDePautas;
 use App\Voto\UseCase\AdicionarPautaUseCase;
+use App\Voto\UseCase\AplicarModeloDePautasUseCase;
 use App\Voto\UseCase\EditarPautaUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\RemoverPautaUseCase;
@@ -40,7 +42,6 @@ final class PautasDaAssembleiaController extends AbstractController
 {
     /** "Cargos e pautas frequentes" do desenho: cada um cria a pauta padrão com esse nome. */
     public const ATALHOS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal', 'Aprovação de contas', 'Previsão orçamentária', 'Obra ou benfeitoria', 'Alteração da convenção'];
-    private const ATALHOS_ELEITORAIS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal'];
 
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
@@ -62,6 +63,7 @@ final class PautasDaAssembleiaController extends AbstractController
         return $this->render('voto/assembleia/pautas.html.twig', [
             'assembleia' => $assembleia,
             'atalhos' => self::ATALHOS,
+            'modelos' => ModelosDePautas::modelos(),
             'opcoes_padrao' => PautaInput::OPCOES_PADRAO,
             'opcoes_padrao_eleicao' => [['numero' => '1', 'rotulo' => ''], ['numero' => '2', 'rotulo' => '']],
             'agora' => new \DateTimeImmutable(),
@@ -78,6 +80,20 @@ final class PautasDaAssembleiaController extends AbstractController
         return $this->responder($request, $id, static function () use ($adicionar, $id, $input, $tenant): void {
             $adicionar->executar($tenant, $id, $input);
         }, 'voto.assembleia.gestor.aviso.pauta_incluida', ['id' => $id]);
+    }
+
+    /** "Modelos prontos" do desenho: cria de uma vez as pautas do modelo, em rascunho. */
+    #[Route('/modelo', name: 'voto_assembleia_pauta_modelo', methods: ['POST'])]
+    public function aplicarModelo(int $id, Request $request, AplicarModeloDePautasUseCase $aplicar): Response
+    {
+        $tenant = $this->guarda->exigir();
+        $modelo = (string) $request->request->get('modelo', '');
+
+        return $this->responder($request, $id, function () use ($aplicar, $id, $modelo, $tenant): string {
+            $titulos = $aplicar->executar($tenant, $id, $modelo);
+
+            return $this->tradutor->trans('voto.assembleia.gestor.modelos.aplicado', ['pautas' => implode(', ', $titulos)]);
+        }, 'voto.assembleia.gestor.modelos.aplicado', ['id' => $id]);
     }
 
     #[Route('/{pauta}/editar', name: 'voto_assembleia_pauta_editar', methods: ['POST'])]
@@ -133,9 +149,9 @@ final class PautasDaAssembleiaController extends AbstractController
             return [Response::HTTP_FORBIDDEN, $this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada')];
         }
         try {
-            $acao();
+            $texto = $acao();
 
-            return [Response::HTTP_OK, $this->tradutor->trans($avisoOk)];
+            return [Response::HTTP_OK, \is_string($texto) ? $texto : $this->tradutor->trans($avisoOk)];
         } catch (OperacaoInvalidaNaAssembleiaException $e) {
             return [Response::HTTP_UNPROCESSABLE_ENTITY, $e->getMessage()];
         } catch (AssembleiaNaoEncontradaException) {
@@ -167,9 +183,8 @@ final class PautasDaAssembleiaController extends AbstractController
             return self::input($request);
         }
 
-        return \in_array($atalho, self::ATALHOS_ELEITORAIS, true)
-            ? PautaInput::eleicao($atalho)
-            : PautaInput::padrao($atalho);
+        // As regras do atalho vêm do cenário condomínio do desenho (pessoas com 2 dígitos; convenção com dois terços).
+        return ModelosDePautas::pauta('condominio', $atalho);
     }
 
     /** As regras só vêm quando a tela manda o critério; sem ele, a pauta mantém as que tem. */

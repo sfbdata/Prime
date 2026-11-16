@@ -1,11 +1,11 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
 
 {#
-    Pautas da assembleia. Em rascunho (desenho §2, etapa 4 "Cargos e candidaturas"): atalhos "Cargos e pautas
+    Pautas da assembleia. Em rascunho (desenho §2, etapa 4 "Cargos e candidaturas"): "Modelos prontos:" e atalhos "Cargos e pautas
     frequentes:", uma caixa por pauta (_pauta_form) com "Remover cargo", "Outro cargo ou pauta" e o rodapé
     "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
     uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
-    Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `opcoes_padrao`, `agora`.
+    Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `modelos` ("Modelos prontos"), `opcoes_padrao`, `agora`.
 #}
 
 {% set sub = 'pautas' %}
@@ -19,6 +19,15 @@
     <div class="vH"><i class="bi bi-plus-square"></i>{{ 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
     <div class="voto-assistente-corpo">
         <div><b class="voto-etapa-titulo">{{ 'voto.assembleia.gestor.pautas.titulo'|trans }}</b><div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.pautas.subtitulo'|trans }}</div></div>
+        <div class="voto-atalhos">
+            <span><b>{{ 'voto.assembleia.gestor.modelos.prontos'|trans }}</b></span>
+            {% for chave, modelo in modelos %}
+                <form method="post" action="{{ path('voto_assembleia_pauta_modelo', {id: a.id}) }}" class="voto-form-linha">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <button type="submit" class="vB vP" name="modelo" value="{{ chave }}" title="{{ modelo.pautas|join(', ') }}"><i class="bi bi-magic"></i>{{ ('voto.assembleia.gestor.modelos.' ~ modelo.cenario)|trans }}: {{ modelo.rotulo }}</button>
+                </form>
+            {% endfor %}
+        </div>
         <div class="voto-atalhos">
             <span>{{ 'voto.assembleia.gestor.pautas.frequentes'|trans }}</span>
             {% for atalho in atalhos %}
