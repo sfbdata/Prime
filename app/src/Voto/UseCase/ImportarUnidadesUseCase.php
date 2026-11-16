@@ -73,7 +73,7 @@ final class ImportarUnidadesUseCase
     /** @param array{validas: list<LinhaDeUnidade>, invalidas: list<array{linha: int, motivo: string}>, duplicadas: list<int>} $lidas */
     private function importarLinhas(Assembleia $assembleia, array $lidas): ResultadoDaImportacao
     {
-        $jaNaLista = self::chavesDaLista($assembleia);
+        $jaNaLista = LeitorDaListaDeUnidades::chavesDaLista($assembleia);
         $duplicadas = $lidas['duplicadas'];
         $importadas = 0;
         foreach ($lidas['validas'] as $linha) {
@@ -107,16 +107,5 @@ final class ImportarUnidadesUseCase
             email: $linha->email,
             telefone: $linha->telefone,
         );
-    }
-
-    /** @return array<string, true> */
-    private static function chavesDaLista(Assembleia $assembleia): array
-    {
-        $chaves = [];
-        foreach ($assembleia->getUnidades() as $unidade) {
-            $chaves[LinhaDeUnidade::chaveDe($unidade->getBloco(), $unidade->getIdentificacao())] = true;
-        }
-
-        return $chaves;
     }
 }

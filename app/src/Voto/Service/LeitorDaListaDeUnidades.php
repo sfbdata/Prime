@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Service;
 
 use App\Voto\DTO\LinhaDeUnidade;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 
@@ -45,6 +46,53 @@ final class LeitorDaListaDeUnidades
         }
 
         return $this->lerTabela($tabela, $peso);
+    }
+
+    /**
+     * Uma unidade digitada (adicionar/editar): a mesma validação da planilha, na ordem das colunas
+     * `unidade, bloco, situação, fração, responsável, e-mail, telefone`. Lança com o motivo se for inválida.
+     *
+     * @param list<string> $colunas
+     */
+    public function lerLinha(array $colunas, PesoDoVoto $peso): LinhaDeUnidade
+    {
+        return self::linha(0, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 7, '')), $peso);
+    }
+
+    /**
+     * O texto que a confirmação da prévia reenvia: cabeçalho e uma linha por unidade, ponto e vírgula, e a leitura de
+     * volta ({@see ler()}) devolve as mesmas linhas.
+     *
+     * @param list<LinhaDeUnidade> $linhas
+     */
+    public function serializar(array $linhas): string
+    {
+        $texto = "unidade;bloco;situacao;fracao;responsavel;email;telefone\n";
+        foreach ($linhas as $l) {
+            $campos = [$l->identificacao, $l->bloco, $l->situacao ?? '', $l->fracao ?? '', $l->responsavel ?? '', $l->email ?? '', $l->telefone ?? ''];
+            $texto .= implode(';', array_map(self::campoCsv(...), $campos)) . "\n";
+        }
+
+        return $texto;
+    }
+
+    /** Campo entre aspas (aspas duplicadas) e sem quebra de linha, para o `str_getcsv` de volta. */
+    private static function campoCsv(string $campo): string
+    {
+        $campo = preg_replace('/\R/u', ' ', $campo) ?? $campo;
+
+        return '"' . str_replace('"', '""', $campo) . '"';
+    }
+
+    /** @return array<string, true> chaves (bloco e unidade) de quem já está na lista da assembleia */
+    public static function chavesDaLista(Assembleia $assembleia): array
+    {
+        $chaves = [];
+        foreach ($assembleia->getUnidades() as $unidade) {
+            $chaves[LinhaDeUnidade::chaveDe($unidade->getBloco(), $unidade->getIdentificacao())] = true;
+        }
+
+        return $chaves;
     }
 
     /** @param list<list<string>> $linhas */

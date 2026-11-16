@@ -131,6 +131,20 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
         return ['pesoApto' => bcadd($peso, '0', 6), 'unidadesAptas' => $unidades];
     }
 
+    /**
+     * Soma das frações da lista inteira (aptas e não aptas), 6 casas em string; null se nenhuma unidade tem fração.
+     * Base do aviso "a soma não fecha 1 nem 100%".
+     */
+    public function somarFracoes(Assembleia $assembleia): ?string
+    {
+        $soma = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT SUM(fracao) FROM voto.assembleia_unidade WHERE assembleia_id = :assembleia AND tenant_id = :tenant',
+            ['assembleia' => $assembleia->getId(), 'tenant' => $assembleia->getTenant()->getId()],
+        );
+
+        return null === $soma || false === $soma ? null : bcadd((string) $soma, '0', 6);
+    }
+
     private function buscarPeloHash(string $tokenHash): ?UnidadeDaAssembleia
     {
         /** @var UnidadeDaAssembleia|null $unidade */

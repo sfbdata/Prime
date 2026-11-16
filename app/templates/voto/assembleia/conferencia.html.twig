@@ -21,6 +21,9 @@
             {{ _self.linha('voto.assembleia.gestor.conferencia.inaptos'|trans, a.unidadesInaptas, path('voto_assembleia_unidades', {id: a.id})) }}
             {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), path('voto_assembleia_unidades', {id: a.id})) }}{% endif %}
         </div>
+        {% if conferencia.somaForaDoEsperado %}
+            <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: conferencia.somaDasFracoes|voto_fracao}) }}</div>
+        {% endif %}
         {% for p in a.pautas %}
             <div class="voto-revisao-quadro" data-voto-revisao-pauta>
                 {{ _self.linha('voto.assembleia.gestor.conferencia.pauta'|trans, p.titulo, path('voto_assembleia_pautas', {id: a.id}) ~ '#pauta-' ~ p.id) }}

@@ -147,6 +147,24 @@ class UnidadeDaAssembleia implements TenantAware
         return '' === $normalizada || \in_array($normalizada, self::SITUACOES_APTAS, true);
     }
 
+    /**
+     * Correção do cadastro pelo gestor (a lista ainda pode mudar). O link e a semente ficam; a aptidão acompanha a
+     * situação; e-mail novo volta a "ainda não recebeu o link". O telefone só muda pela importação.
+     */
+    public function corrigir(string $identificacao, string $bloco, ?string $situacao, ?string $fracao, ?string $responsavel, ?string $email): void
+    {
+        if ($email !== $this->email) {
+            $this->linkEnviadoEm = null;
+        }
+        $this->identificacao = $identificacao;
+        $this->bloco = $bloco;
+        $this->situacao = $situacao;
+        $this->apta = self::situacaoPermiteVotar($situacao);
+        $this->fracao = $fracao;
+        $this->responsavel = $responsavel;
+        $this->email = $email;
+    }
+
     /** "Gerar novo link": o anterior deixa de valer e a unidade volta a "ainda não recebeu" o link por e-mail. */
     public function trocarSemente(string $semente, string $tokenHash): void
     {

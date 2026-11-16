@@ -1,0 +1,12 @@
+{#
+    Campos de uma unidade (adicionar e editar): os da planilha, menos o telefone, que só entra pela importação.
+    Contexto: `dados` (DadosDaUnidadeInput) ou null para o formulário vazio.
+#}
+<div class="vG2">
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_unidade'|trans }}<input class="vF" name="identificacao" maxlength="80" required value="{{ dados ? dados.identificacao }}"></label>
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_bloco'|trans }}<input class="vF" name="bloco" maxlength="40" value="{{ dados ? dados.bloco }}"></label>
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_situacao'|trans }}<input class="vF" name="situacao" maxlength="40" value="{{ dados ? dados.situacao }}"></label>
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_fracao'|trans }}<input class="vF" name="fracao" inputmode="decimal" maxlength="14" value="{{ dados ? dados.fracao }}"></label>
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_responsavel'|trans }}<input class="vF" name="responsavel" maxlength="160" value="{{ dados ? dados.responsavel }}"></label>
+    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_email'|trans }}<input class="vF" type="email" name="email" maxlength="180" value="{{ dados ? dados.email }}"></label>
+</div>

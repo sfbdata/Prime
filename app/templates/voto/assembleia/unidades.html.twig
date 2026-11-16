@@ -5,7 +5,8 @@
     (`unidade; bloco; situação; fração; responsável; e-mail`) e só acrescenta: quem já está na lista conta como
     duplicada, para os links já enviados continuarem valendo. Os links aparecem depois de publicar.
     Contexto: `tela` (UnidadesDaAssembleia), `assembleia`, `relatorio` (linhas inválidas e duplicadas da última
-    importação, ou null).
+    importação, ou null) e `previa` (PreviaDaImportacao, só ao enviar a planilha: mostra o que entraria e os erros por
+    linha; nada é gravado até confirmar).
 #}
 
 {% set sub = 'unidades' %}
@@ -17,6 +18,9 @@
     <div class="vH"><i class="bi bi-list-check"></i>{{ a.publicada ? 'voto.assembleia.gestor.unidades.titulo'|trans : 'voto.assembleia.gestor.rascunho'|trans({titulo: a.titulo}) }}</div>
     <div class="voto-assistente-corpo">
         <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans }}</div>
+        {% if previa is defined and previa %}
+            {% include 'voto/assembleia/_unidades_previa.html.twig' %}
+        {% endif %}
         {% if a.podeAlterarUnidades %}
             <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
                 <input type="hidden" name="_token" value="{{ token }}">
@@ -35,6 +39,9 @@
         {% else %}
             <div class="voto-estado voto-estado-erro">{{ 'voto.assembleia.gestor.unidades.obrigatoria'|trans }}</div>
         {% endif %}
+        {% if tela.somaForaDoEsperado %}
+            <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: tela.somaDasFracoes|voto_fracao}) }}</div>
+        {% endif %}
         {% if relatorio and (relatorio.invalidas is not empty or relatorio.duplicadas is not empty) %}
             <div class="vAviso voto-relatorio">
                 {% for inv in relatorio.invalidas %}
@@ -44,6 +51,14 @@
                     <div>{{ 'voto.assembleia.gestor.unidades.duplicadas'|trans({linhas: relatorio.duplicadas|join(', ')}) }}</div>
                 {% endif %}
             </div>
+        {% endif %}
+        {% if a.podeAlterarUnidades %}
+            <form method="post" action="{{ path('voto_assembleia_unidade_adicionar', {id: a.id}) }}" class="voto-importar" data-voto-adicionar-unidade>
+                <input type="hidden" name="_token" value="{{ token }}">
+                <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.unidades.adicionar_titulo'|trans }}</div>
+                {% include 'voto/assembleia/_unidade_campos.html.twig' with {dados: null} only %}
+                <div><button type="submit" class="vB vP"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.unidades.adicionar'|trans }}</button></div>
+            </form>
         {% endif %}
     </div>
 </div>
@@ -90,6 +105,7 @@
                     </form>
                 {% endif %}
                 {% if a.podeAlterarUnidades %}
+                    <a class="vB" href="{{ path('voto_assembleia_unidade_editar', {id: a.id, unidade: u.id}) }}"><i class="bi bi-pencil"></i>{{ 'voto.assembleia.gestor.unidades.editar'|trans }}</a>
                     <form method="post" action="{{ path('voto_assembleia_unidade_remover', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
                         <input type="hidden" name="_token" value="{{ token }}">
                         <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}" title="{{ 'voto.assembleia.gestor.unidades.remover'|trans }}"><i class="bi bi-trash"></i></button>
