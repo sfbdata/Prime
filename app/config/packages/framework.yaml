@@ -238,6 +238,29 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 minute'
+        # Conector de I.A., /mcp (spec mcp-remoto-oauth 8; números revistos no PR 15, depois do smoke com os apps reais).
+        # conector_chamada: chave = pessoa + escritório do token; 120 chamadas por minuto cobrem um assistente
+        # trabalhando numa pasta e põem teto num laço do modelo.
+        conector_chamada:
+            policy: sliding_window
+            limit: 120
+            interval: '1 minute'
+        # conector_chamada_escritorio: chave = escritório; teto da soma das pessoas e dos apps do mesmo escritório.
+        conector_chamada_escritorio:
+            policy: sliding_window
+            limit: 600
+            interval: '1 minute'
+        # conector_documento: chave = pessoa + escritório; só a leitura de conteúdo de documento, que pode devolver um
+        # PDF de 10 MB por chamada.
+        conector_documento:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
+        # conector_confirmacao: chave = pessoa + escritório; teto próprio da confirmar_acao (6.7).
+        conector_confirmacao:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     # gc_maxlifetime = app.sessao_gc_segundos (padrão 1 dia): o arquivo da sessão não some antes do

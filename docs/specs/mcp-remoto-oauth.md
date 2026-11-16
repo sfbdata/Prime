@@ -2078,3 +2078,31 @@ entra num PR próprio depois de testada nos dois clientes.
     uma página de erro que deixaria o app esperando. Autorizar sem escolher o escritório volta à tela com aviso, sem
     gastar o pedido. Duas autorizações ao mesmo tempo da mesma pessoa saem uma de cada vez (a linha da pessoa é
     travada), sem erro na primeira conexão.
+
+**Decidido em 16/11/2026 no planejamento do PR 5 (orquestrador da frente, pela recomendação; o step-up, aceito pelo
+Coordenador):**
+
+1. **Resolução dupla mantida**: o validador do token confere a concessão inteira (`ConferenciaDaConcessao::exigir`, que
+   já passa pelo `PortaoDoConector::conferir`) e depois o middleware do portão chama `PortaoDoConector::abrir`, que
+   resolve a pessoa e o escritório de novo e tranca a requisição. Teste de arquitetura: só o middleware do portão chama
+   `abrir`.
+2. **Um juiz só**: o validador guarda o resultado da requisição (o autenticador do firewall e o `AuthorizationMiddleware`
+   leem o mesmo), e só o SDK formata o 401 e o 403 com o `WWW-Authenticate`.
+3. **Recusas**: concessão recusada (`ConcessaoRecusada`) e acesso recusado pelo portão por pessoa, escritório, termos
+   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa; filtro de escritório que não
+   ligou, requisição já aberta ou qualquer erro inesperado dão 503 sem desafio.
+4. **O portão roda na cadeia PSR-15**, depois do `AuthorizationMiddleware`: a `ScopePolicy` barra o escopo antes de
+   qualquer abertura.
+5. **`securitySchemes` só no `_meta`** de cada ferramenta (o SDK 0.10 não tem o campo no topo da ferramenta). Item do
+   smoke no ChatGPT.
+6. **Sem assinatura de eventos**: `setSubscriptionLifetime(0)`.
+7. **Os números dos limites** do `/mcp` (`conector_chamada` 120 por minuto por pessoa e escritório,
+   `conector_chamada_escritorio` 600, `conector_documento` 20, `conector_confirmacao` 10) são ajustáveis no PR 15,
+   depois do smoke com os apps reais.
+8. **A rota do `/mcp` é `stateless: true`**, além do firewall sem sessão: o Symfony acusa qualquer uso da sessão nela.
+   O `IdiomaDaRequisicaoListener` não toca a sessão em requisição sem sessão (fica no português).
+9. **Step-up no ChatGPT**: aceito no piloto o 403 com `_meta["mcp/www_authenticate"]` num corpo JSON-RPC, como sai do
+   SDK; conferido no smoke. Plano B, se o ChatGPT não pedir o escopo que falta: a pessoa reconecta marcando a escrita.
+10. **nginx**: a `location ^~ /.well-known/oauth-` entra no `nginx/conf.d/nginx.prod.conf`, que é montado por pasta; o
+    deploy (`scripts/deploy-prod.sh`) roda `nginx -t` e recarrega o nginx sozinho. Sem passo manual, salvo se o deploy
+    avisar "'nginx -t' REPROVOU" (aí `docker exec jusprime_nginx_prod nginx -t` mostra o erro).

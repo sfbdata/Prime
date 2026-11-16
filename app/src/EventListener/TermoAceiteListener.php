@@ -113,6 +113,10 @@ final class TermoAceiteListener
         // conectar.
         'conector_oauth_token',
         'conector_oauth_metadado',
+        // O /mcp (os Termos são conferidos pelo PortaoDoConector a cada requisição, 5.2) e o metadado do recurso.
+        'conector_mcp',
+        'conector_metadado_do_recurso',
+        'conector_metadado_do_recurso_raiz',
     ];
 
     public function __construct(

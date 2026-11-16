@@ -14,6 +14,17 @@ security:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
 
+        # Conector de I.A., /mcp (spec mcp-remoto-oauth 8): bearer, sem sessão, antes do main. Sem user_checker: as
+        # barreiras da pessoa e do escritório são do PortaoDoConector, a cada requisição. O acesso é público no
+        # access_control abaixo porque quem responde 401 e 403 (com o WWW-Authenticate) é o AuthorizationMiddleware do
+        # SDK, pelo mesmo validador do token: um juiz só.
+        conector_mcp:
+            pattern: ^/mcp$
+            stateless: true
+            provider: app_user_provider
+            custom_authenticators:
+                - App\Conector\Security\AutenticadorDoConector
+
         main:
             lazy: true
             provider: app_user_provider
@@ -86,6 +97,10 @@ security:
         # ROLE_USER abaixo: é onde a pessoa faz login e escolhe o escritório.
         - { path: ^/oauth/token$,     roles: PUBLIC_ACCESS }
         - { path: ^/\.well-known/oauth-authorization-server$, roles: PUBLIC_ACCESS }
+        # O /mcp (o token é conferido pelo SDK, firewall conector_mcp acima) e o metadado do recurso (RFC 9728), nas duas
+        # URLs da 3.3. Âncora no fim em todos.
+        - { path: ^/mcp$,             roles: PUBLIC_ACCESS }
+        - { path: ^/\.well-known/oauth-protected-resource(/mcp)?$, roles: PUBLIC_ACCESS }
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

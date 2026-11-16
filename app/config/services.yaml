@@ -170,6 +170,11 @@ parameters:
     # os hosts separados por vírgula. O padrão mora AQUI porque o build de produção faz `rm .env`.
     conector.cimd_hosts: '%env(csv:default:default_conector_cimd_hosts:CONECTOR_CIMD_HOSTS)%'
     default_conector_cimd_hosts: 'claude.ai,chatgpt.com'
+    # Conector de I.A., /mcp (spec mcp-remoto-oauth 8): hosts aceitos pela proteção de rebinding do SDK
+    # (DnsRebindingProtectionMiddleware). CONECTOR_MCP_HOSTS separado por vírgula; o padrão mora aqui pelo mesmo motivo
+    # do de cima. Na suíte, localhost (bloco when@test).
+    conector.mcp_hosts: '%env(csv:default:default_conector_mcp_hosts:CONECTOR_MCP_HOSTS)%'
+    default_conector_mcp_hosts: 'bluejus.com.br'
 
 services:
     # default configuration for services in *this* file
@@ -448,6 +453,8 @@ when@test:
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true
         chat_ia_sse_esvaziar_buffers: false
+        # O host do KernelBrowser: o /mcp da suíte passa pela proteção de rebinding como o de produção.
+        conector.mcp_hosts: ['localhost']
 
     services:
         # Página de erro igual à de PRODUÇÃO (sem depuração); o porquê está na classe.

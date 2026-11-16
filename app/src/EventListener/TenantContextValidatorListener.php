@@ -115,6 +115,12 @@ final class TenantContextValidatorListener
         'conector_oauth_autorizar',
         'conector_oauth_token',
         'conector_oauth_metadado',
+        // O /mcp do conector: sem sessão, o escritório vem do token e as barreiras são do PortaoDoConector a cada
+        // requisição; sem esta linha, o app de I.A. receberia um 302 para tenant_selecionar. O metadado do recurso
+        // (RFC 9728, nas duas URLs) é chamado de servidor para servidor, como o do servidor de autorização.
+        'conector_mcp',
+        'conector_metadado_do_recurso',
+        'conector_metadado_do_recurso_raiz',
     ];
 
     /**
