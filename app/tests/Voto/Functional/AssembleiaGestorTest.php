@@ -533,7 +533,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame([[0, 'Abstenção']], $this->opcoesNoBanco($id));
         $conferencia = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/publicar');
         self::assertSame('Inclua ao menos duas candidaturas em Síndico(a).', trim($conferencia->filter('[data-voto-pendencia]')->text()));
-        self::assertSame('disabled', $conferencia->filter('form[data-voto-confirmar-publicacao] button[type="submit"]')->attr('disabled'));
+        self::assertNotNull($conferencia->filter('form[data-voto-confirmar-publicacao] button[type="submit"]')->attr('disabled'), 'o botão de publicar fica desligado');
     }
 
     #[TestDox('Salvar a pauta por fetch responde JSON, grava e não deixa toast para a próxima tela')]
