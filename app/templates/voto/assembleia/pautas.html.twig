@@ -30,14 +30,16 @@
         </div>
         {% for p in a.pautas %}
             <div class="voto-pauta-bloco">
-                {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: p, opcoes: p.opcoes, token: token} only %}
+                {% set opcoesDaPauta = p.opcoes %}
+                {% if p.tipo.value == 'eleicao_cargo' and opcoesDaPauta is empty %}{% set opcoesDaPauta = opcoes_padrao_eleicao %}{% endif %}
+                {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: p, opcoes: opcoesDaPauta, opcoes_padrao_eleicao: opcoes_padrao_eleicao, token: token} only %}
                 <form method="post" action="{{ path('voto_assembleia_pauta_remover', {id: a.id, pauta: p.id}) }}" class="voto-pauta-remover">
                     <input type="hidden" name="_token" value="{{ token }}">
                     <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}" title="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}"><i class="bi bi-trash"></i></button>
                 </form>
             </div>
         {% endfor %}
-        {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: null, opcoes: opcoes_padrao, token: token} only %}
+        {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: null, opcoes: opcoes_padrao, opcoes_padrao_eleicao: opcoes_padrao_eleicao, token: token} only %}
         {% if a.pautas is not empty %}
             <div><button type="button" class="vB" data-voto-mostrar="pauta-nova"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.pautas.outra'|trans }}</button></div>
         {% endif %}

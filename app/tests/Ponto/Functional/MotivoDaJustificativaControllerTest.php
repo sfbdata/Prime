@@ -21,6 +21,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  * no envio do colaborador e gravado em cada dia do lote; o horário do esquecimento com segundos; e a volta da edição na
  * aba "Minhas Justificativas", no mês da justificativa (achado da revisão da E3). Revisão da E4: a edição guarda os
  * segundos do esquecimento quando o H:i não muda, e o motivo editado vai para os dias em análise do lote.
+ * Pedido do dono (16/11/2026): no "Registro de esquecimento" o motivo deixou de ser obrigatório; os outros tipos seguem.
  */
 #[Group('ponto')]
 #[CoversClass(PontoController::class)]
@@ -93,13 +94,57 @@ final class MotivoDaJustificativaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Esqueci de bater a saída.', 'Esqueci de bater a saída.'], array_column($this->linhas(), 'motivo'));
     }
 
-    #[TestDox('Registro de esquecimento sem motivo: nada nasce')]
-    public function testEsquecimentoSemMotivo(): void
+    /** @return iterable<string, array{string|null}> */
+    public static function esquecimentosSemMotivo(): iterable
     {
-        $this->esquecimento($this->mesPassado->modify('+2 days'), '14:32:10', null);
+        yield 'sem o campo' => [null];
+        yield 'em branco' => ["   \n "];
+    }
+
+    #[TestDox('Registro de esquecimento sem motivo ($_dataName): nasce pendente, com o motivo nulo, e vai ao gestor')]
+    #[DataProvider('esquecimentosSemMotivo')]
+    public function testEsquecimentoSemMotivoEAceito(?string $motivo): void
+    {
+        $this->esquecimento($this->mesPassado->modify('+2 days'), '14:32:10', $motivo);
+
+        $linhas = $this->linhas();
+        self::assertCount(1, $linhas);
+        self::assertSame('esquecimento_registro', $linhas[0]['tipo']);
+        self::assertSame('14:32:10', $linhas[0]['hora_registro_esquecido']);
+        self::assertNull($linhas[0]['motivo'], 'em branco grava nulo, como as justificativas sem motivo');
+        self::assertArrayNotHasKey('danger', $this->flashes());
+    }
+
+    #[TestDox('Outro tipo sem motivo continua recusado: a exceção é só do esquecimento de registro')]
+    public function testOutroTipoSemMotivoSegueRecusado(): void
+    {
+        $this->justificar(['datas' => $this->mesPassado->modify('+2 days')->format('Y-m-d'), 'tipo' => 'falta_nao_justificada', 'motivo' => '  ']);
 
         self::assertSame([], $this->linhas());
         self::assertContains('Informe o motivo.', $this->flashes()['danger'] ?? []);
+    }
+
+    #[TestDox('Registro de esquecimento com motivo longo demais continua recusado')]
+    public function testEsquecimentoComMotivoLongoDemais(): void
+    {
+        $this->esquecimento($this->mesPassado->modify('+2 days'), '14:32:10', str_repeat('a', JustificativaPontoType::MOTIVO_MAXIMO + 1));
+
+        self::assertSame([], $this->linhas());
+        self::assertContains('O motivo pode ter até 2000 caracteres.', $this->flashes()['danger'] ?? []);
+    }
+
+    #[TestDox('Esquecimento sem motivo na aba Minhas Justificativas: a linha aparece, sem a linha do motivo')]
+    public function testEsquecimentoSemMotivoNaTela(): void
+    {
+        // Mês corrente: o vínculo do cenário nasce hoje, e a tela não abre competência anterior a ele.
+        $hoje = new \DateTimeImmutable('today');
+        $this->justificativa($this->eu, $this->escritorio, $hoje, 'pendente', ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'horaRegistroEsquecido' => '08:00']);
+
+        $tela = $this->client->request('GET', '/ponto/?competencia=' . $hoje->format('Y-m') . '&aba=justificativas');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $tela->filter('#ponto-painel-justificativas td.pe-just-celtipo'));
+        self::assertCount(0, $tela->filter('#ponto-painel-justificativas td.pe-just-celtipo > div.pe-just-mot'));
     }
 
     #[TestDox('Editar grava o motivo e volta na aba Minhas Justificativas, no mês da justificativa (não no mês de hoje)')]
@@ -137,6 +182,32 @@ final class MotivoDaJustificativaControllerTest extends JusPrimeWebTestCase
         $linha = $this->linhas()[0];
         self::assertSame('Antigo.', $linha['motivo']);
         self::assertSame('atestado_medico', $linha['tipo'], 'a recusa descarta a edição inteira');
+    }
+
+    #[TestDox('Editar um esquecimento com o motivo em branco: aceito, e o motivo do dia editado vira nulo')]
+    public function testEdicaoDoEsquecimentoComMotivoEmBranco(): void
+    {
+        $j = $this->justificativa($this->eu, $this->escritorio, $this->mesPassado->modify('+4 days'), 'pendente', ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'horaRegistroEsquecido' => '14:32', 'motivo' => 'Antigo.']);
+
+        $this->editar($j, ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'horaRegistroEsquecido' => '14:32', 'motivo' => '  ']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        self::assertNull($this->linhas()[0]['motivo']);
+    }
+
+    #[TestDox('Trocar um dia do lote para esquecimento sem motivo: só o dia editado perde o motivo; os outros guardam o seu')]
+    public function testEsquecimentoSemMotivoNaoApagaOMotivoDoLote(): void
+    {
+        $lote = 'lote-' . uniqid();
+        $dias = $this->loteDeTresDias($lote, ['pendente', 'pendente', 'pendente']);
+
+        $this->editar($dias[0], ['tipo' => 'esquecimento_registro', 'tipoRegistroEsquecido' => 'saida', 'horaRegistroEsquecido' => '14:32', 'motivo' => '']);
+
+        self::assertContains('Justificativa atualizada com sucesso.', $this->flashes()['success'] ?? []);
+        $motivos = $this->motivosDoLote($lote);
+        self::assertNull($motivos[$dias[0]->getId()]);
+        self::assertSame('Antigo.', $motivos[$dias[1]->getId()]);
+        self::assertSame('Antigo.', $motivos[$dias[2]->getId()]);
     }
 
     #[TestDox('Editar sem o campo motivo (pedido de antes da E4) não apaga o motivo gravado')]

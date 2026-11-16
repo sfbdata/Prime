@@ -25,6 +25,10 @@ class AutomacaoDeEmailRepository extends ServiceEntityRepository
 
     public function estado(Automacao $automacao): EstadoDaAutomacao
     {
+        // Aviso fixo (`lib`, `resp`): sem chave de liga/desliga e sem linha no banco, sempre ligado.
+        if (!$automacao->temChave()) {
+            return new EstadoDaAutomacao($automacao, true, null, null);
+        }
         $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
             'SELECT ligada, atraso, ligada_em FROM comercial_automacao WHERE chave = :c',
             ['c' => $automacao->value],
@@ -43,6 +47,6 @@ class AutomacaoDeEmailRepository extends ServiceEntityRepository
     /** @return list<EstadoDaAutomacao> na ordem do desenho */
     public function todas(): array
     {
-        return array_map(fn (Automacao $a): EstadoDaAutomacao => $this->estado($a), Automacao::cases());
+        return array_map(fn (Automacao $a): EstadoDaAutomacao => $this->estado($a), Automacao::comChave());
     }
 }

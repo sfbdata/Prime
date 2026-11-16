@@ -179,6 +179,9 @@ final class PurgarEscritorioUseCase
         // Contribua C3: pedidos e assinaturas de espaço (tenant_id direto; FKs a "user" SET NULL; nada as
         // referencia). A quarentena de 365 dias passa muito do fim de qualquer mês pago.
         ['contribua_assinatura', 'tenant_id = :tenant'],
+        // Contribua (desenho de 14 e 15/11): pedidos de mais espaço (tenant_id direto; FK tenant NO ACTION; FKs a
+        // "user" SET NULL; nada os referencia).
+        ['contribua_pedido_de_espaco', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Contribua\Entity;
 
+use App\Contribua\Enum\OrigemDaLiberacao;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -64,6 +65,13 @@ class EspacoDoEscritorio implements Auditavel
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $ampliacaoAutomatica = false;
 
+    /** Quem liberou as opções de espaço extra: `master` fica gravada; `auto` só vale com o uso em 97% ou mais (D3). */
+    #[ORM\Column(length: 10, nullable: true, enumType: OrigemDaLiberacao::class)]
+    private ?OrigemDaLiberacao $opcoesLiberadasPor = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $opcoesLiberadasEm = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $alteradoPor = null;
@@ -113,6 +121,35 @@ class EspacoDoEscritorio implements Auditavel
         $this->limiteUsuarios = $limite;
         $this->justificativa = $justificativa;
         $this->alteradoPor = $por;
+    }
+
+    /**
+     * Grava a liberação das opções de espaço extra. A do Master vale sobre a automática e nunca é rebaixada por ela.
+     *
+     * @return bool true se gravou algo novo (a automática repetida, ou sobre a do Master, não grava)
+     */
+    public function liberarOpcoes(OrigemDaLiberacao $origem, \DateTimeImmutable $em): bool
+    {
+        if ($this->opcoesLiberadasPor === OrigemDaLiberacao::Master && $origem === OrigemDaLiberacao::Auto) {
+            return false;
+        }
+        if ($this->opcoesLiberadasPor === $origem && $origem === OrigemDaLiberacao::Auto) {
+            return false;
+        }
+        $this->opcoesLiberadasPor = $origem;
+        $this->opcoesLiberadasEm = $em;
+
+        return true;
+    }
+
+    public function getOpcoesLiberadasPor(): ?OrigemDaLiberacao
+    {
+        return $this->opcoesLiberadasPor;
+    }
+
+    public function getOpcoesLiberadasEm(): ?\DateTimeImmutable
+    {
+        return $this->opcoesLiberadasEm;
     }
 
     public function getLimiteUsuarios(): ?int

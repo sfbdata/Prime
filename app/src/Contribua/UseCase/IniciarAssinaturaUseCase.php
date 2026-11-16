@@ -18,6 +18,7 @@ use App\Contribua\Gateway\SituacaoDaAssinatura;
 use App\Contribua\Repository\AssinaturaDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDePagamentoRepository;
 use App\Contribua\Repository\PlanoRepository;
+use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
@@ -53,6 +54,7 @@ final class IniciarAssinaturaUseCase
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
         private readonly Connection $conexao,
+        private readonly LiberacaoDasOpcoesDeEspaco $liberacao,
     ) {
     }
 
@@ -128,6 +130,9 @@ final class IniciarAssinaturaUseCase
         if (!$quem->ehPrimario) {
             throw new \DomainException('Quem amplia o espaço é o usuário primário do escritório.');
         }
+
+        // D2: sem liberação (Master ou 97% de uso) não há checkout, salvo quem já paga um plano.
+        $this->liberacao->exigirParaComprar($quem);
 
         return $this->gateways->configurado() ?? throw new \DomainException('A assinatura por cartão ainda não foi liberada.');
     }

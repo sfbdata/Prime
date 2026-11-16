@@ -33,6 +33,7 @@ final class ConfiguracaoDaPublicacao
             'ordem' => $pauta->getOrdem(),
             'titulo' => $pauta->getTitulo(),
             'descricao' => $pauta->getDescricao(),
+            'tipo' => $pauta->getTipo()->value,
             'criterio' => $pauta->getCriterio()->value,
             'base' => $pauta->getBase()->value,
             'vagas' => $pauta->getVagas(),

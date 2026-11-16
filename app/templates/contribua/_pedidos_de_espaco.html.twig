@@ -1,0 +1,28 @@
+{# N7: painel "Pedidos de espaço · só Master", dentro do Meu espaço, abaixo das garantias (desenho de 14 e 15/11). Até 30 linhas. "Liberar" e "Recusar" fazem POST (contribua.js) e a página recarrega com o aviso. #}
+<div class="ct-pedidos" data-pedidos-espaco>
+    <div class="ct-pedidos-cabeca">
+        <i class="bi bi-star-fill"></i><b>Pedidos de espaço · só Master</b>
+        <span class="ct-pedidos-resumo">{{ painel.resumo }}</span>
+        {% if previa %}
+            <button type="button" class="ct-pedidos-previa" data-espaco-previa data-rotulo-ver="Ver prévia das opções de compra" data-rotulo-ocultar="Ocultar prévia das opções"><i class="bi bi-eye"></i> <span>Ver prévia das opções de compra</span></button>
+        {% endif %}
+    </div>
+    {% if painel.vazio %}
+        <div class="ct-pedidos-vazio">Nenhum pedido de espaço até agora.</div>
+    {% endif %}
+    {% for l in painel.linhas %}
+        {% set situacao = l.situacao.value %}
+        <div class="ct-pedido-linha" data-pedido-espaco="{{ l.id }}" data-situacao="{{ situacao }}">
+            <div class="ct-pedido-linha-texto">
+                <b class="ct-pedido-conta">{{ l.conta }}</b> · estima precisar de <b>{{ l.estimativa }}</b>
+                <div class="ct-pedido-detalhe">{{ [l.usuario, l.email, l.usoTexto, 'pedido em ' ~ (l.pedidoEm|date('d/m/Y H:i')), l.decididoEm ? ((situacao == 'liberado' ? 'opções liberadas' : 'recusado') ~ ' em ' ~ (l.decididoEm|date('d/m/Y H:i'))) : null]|filter(v => v)|join(' · ') }}</div>
+                {% if l.motivo %}<div class="ct-pedido-motivo">"{{ l.motivo }}"</div>{% endif %}
+            </div>
+            <span class="ct-pedido-selo ct-pedido-selo--{{ situacao }}">{{ {pendente: 'Pendente', liberado: 'Liberado', recusado: 'Recusado'}[situacao] }}</span>
+            {% if situacao == 'pendente' %}
+                <button type="button" class="ct-pedido-liberar" data-pedido-decidir data-url="{{ path('contribua_espaco_pedido_liberar', {id: l.id}) }}"><i class="bi bi-unlock"></i> Liberar opções de compra</button>
+                <button type="button" class="ct-pedido-recusar" data-pedido-decidir data-url="{{ path('contribua_espaco_pedido_recusar', {id: l.id}) }}">Recusar</button>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
