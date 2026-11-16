@@ -150,6 +150,56 @@ voto:
                 publicada: Publicada, aguardando abertura
                 aberta: Votação aberta
                 encerrada: Encerrada
+            # Painel por entidade (F1-4, desenho 18: etapas, .vFil, .vGrH/.vEvH e .vKpiB).
+            etapas:
+                criar: Criar
+                lista_de_aptos: Lista de aptos
+                publicar: Publicar
+                votacao: Votação
+                apuracao: Apuração
+                relatorio: Relatório
+            filtros:
+                buscar: Buscar
+                buscar_dica: 'Nome, entidade, evento ou CNPJ'
+                entidade: Entidade
+                situacao: Situação
+                todas: Todas
+                em_andamento: Em andamento
+                rascunhos: Rascunhos
+                concluidas: Concluídas
+                limpar: Limpar
+                filtrar: Filtrar
+                expandir: Expandir todas as entidades
+                recolher: Recolher todas as entidades
+                vazio_filtros: Nenhuma votação com esses filtros.
+                vazio_inicial: Nenhuma votação ainda. Use Nova assembleia.
+            grupo:
+                sem_entidade: Sem entidade informada
+                cnpj: 'CNPJ {cnpj}'
+                resumo_aberta: '{n} aberta(s)'
+                resumo_publicada: '{n} publicada(s)'
+                resumo_rascunho: '{n} rascunho(s)'
+                resumo_encerrada: '{n} concluída(s)'
+                votacoes: '{n} votação(ões)'
+            kpi:
+                ver_detalhes: Ver detalhes
+                abertas: Votações abertas
+                cedulas: Cédulas depositadas
+                titulo_cedulas: Cédulas depositadas por votação
+                nada: Nada a mostrar no momento.
+                mostrando: 'Mostrando {n} de {total}.'
+                fechar: Fechar detalhes
+                acompanhar: Acompanhar em tempo real
+                resultados: Ver Resultados
+                detalhe_aberta: '{n} de {aptos} votaram · {tempo}'
+                detalhe_cedula: '{n} cédula(s) · {situacao}'
+                em_andamento: em andamento
+                suspensa: suspensa
+                situacao:
+                    aberta: Votação aberta
+                    suspensa: Suspensa
+                    encerrada: Encerrada
+                    cancelada: Cancelada
             conferencia:
                 titulo: Confira antes de publicar
                 aviso: Ao confirmar, as pautas e suas regras ficam bloqueadas. Os votos serão recebidos depois que você abrir cada pauta.
@@ -175,7 +225,6 @@ voto:
                 encerrada: Encerrada
             painel:
                 votacoes: Votações
-                vazio: Nenhuma assembleia criada.
                 sem_pautas: Nenhuma pauta incluída.
                 participacao: 'Participação {n} de {aptos} aptos ({pct}%). Conduzida pela mesa.'
                 editar: Editar
@@ -186,6 +235,8 @@ voto:
                 relatorio: Relatório consolidado
             form:
                 ajuda: Votos por fração ideal, salvo disposição diversa da convenção. Confira na convenção o quórum de cada pauta, a segunda convocação e quem está apto a votar.
+                entidade: Condomínio
+                cnpj: 'CNPJ (opcional, separa entidades com nome parecido)'
                 evento: Evento
                 peso: Peso do voto
                 peso_fracao: Fração ideal

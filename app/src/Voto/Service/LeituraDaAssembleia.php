@@ -62,6 +62,8 @@ final class LeituraDaAssembleia
             arquivadaEm: $assembleia->getArquivadaEm(),
             arquivadaMotivo: $assembleia->getArquivadaMotivo(),
             arquivadaPorNome: $assembleia->getArquivadaPorNome(),
+            entidade: $assembleia->getEntidadeNome(),
+            cnpj: $assembleia->getCnpj(),
         );
     }
 

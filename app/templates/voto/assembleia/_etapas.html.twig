@@ -1,9 +1,13 @@
-{% set atual = a.situacao() %}
-{% set etapas = ['rascunho', 'publicada', 'aberta', 'encerrada'] %}
+{#
+    As 6 etapas do desenho (passos): 1. Criar, 2. Lista de aptos, 3. Publicar, 4. Votação, 5. Apuração, 6. Relatório.
+    As concluídas levam vPasOk e a atual vPasAt (AssembleiaNoPainel::etapaAtual). Contexto: `a` (AssembleiaNoPainel).
+#}
+{% set atual = a.etapaAtual() %}
 <div class="vLin">
     <ol class="voto-etapas" aria-label="{{ 'voto.assembleia.gestor.sub.rotulo'|trans }}">
-        {% for etapa in etapas %}
-            <li class="vPas{{ etapa == atual ? ' vPasAt' : '' }}"{% if etapa == atual %} aria-current="step"{% endif %}>{{ ('voto.assembleia.gestor.andamento.' ~ etapa)|trans }}</li>
+        {% for etapa in ['criar', 'lista_de_aptos', 'publicar', 'votacao', 'apuracao', 'relatorio'] %}
+            {% set i = loop.index0 %}
+            <li class="vPas{{ i < atual ? ' vPasOk' : (i == atual ? ' vPasAt' : '') }}"{% if i == atual %} aria-current="step"{% endif %}>{{ loop.index }}. {{ ('voto.assembleia.gestor.etapas.' ~ etapa)|trans }}</li>
         {% endfor %}
     </ol>
 </div>

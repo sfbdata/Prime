@@ -6,6 +6,7 @@ namespace App\Voto\DTO;
 
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Service\CnpjDaEntidade;
 
 /** A assembleia como o gestor a vê, com as pautas em ordem e os totais da lista de unidades. */
 final readonly class AssembleiaNoPainel
@@ -31,6 +32,8 @@ final readonly class AssembleiaNoPainel
         public ?\DateTimeImmutable $arquivadaEm = null,
         public ?string $arquivadaMotivo = null,
         public ?string $arquivadaPorNome = null,
+        public ?string $entidade = null,
+        public ?string $cnpj = null,
     ) {
     }
 
@@ -59,6 +62,27 @@ final readonly class AssembleiaNoPainel
         }
 
         return $encerradas > 0 && $encerradas === $naOrdemDoDia ? 'encerrada' : 'publicada';
+    }
+
+    /**
+     * Etapa atual das 6 do desenho (Criar, Lista de aptos, Publicar, Votação, Apuração, Relatório), de 0 a 6: as de
+     * número menor estão concluídas, a de mesmo número é a atual e 6 quer dizer tudo concluído. Rascunho sem lista de
+     * aptos está em "Lista de aptos" (1); com lista, em "Publicar" (2); publicada ou aberta, em "Votação" (3). O sistema
+     * apura ao encerrar, então encerrada conclui até o Relatório, como a votação apurada do desenho.
+     */
+    public function etapaAtual(): int
+    {
+        return match ($this->situacao()) {
+            'rascunho' => $this->unidadesAptas + $this->unidadesInaptas > 0 ? 2 : 1,
+            'encerrada' => 6,
+            default => 3,
+        };
+    }
+
+    /** CNPJ com a máscara ("00.000.000/0000-00"); vazio sem CNPJ. */
+    public function cnpjFormatado(): string
+    {
+        return null === $this->cnpj ? '' : CnpjDaEntidade::formatar($this->cnpj);
     }
 
     public function arquivada(): bool

@@ -7,10 +7,12 @@ namespace App\Voto\Controller;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AssembleiaInput;
 use App\Voto\DTO\AssembleiaNoPainel;
+use App\Voto\DTO\FiltroDoPainel;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
+use App\Voto\Service\PainelPorEntidade;
 use App\Voto\UseCase\ConferirPublicacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
@@ -47,26 +49,36 @@ final class AssembleiaController extends AbstractController
         private readonly ObterPainelDoVotoUseCase $obterPainel,
         private readonly ObterAssembleiaUseCase $obterAssembleia,
         private readonly TranslatorInterface $tradutor,
+        private readonly PainelPorEntidade $painelPorEntidade,
     ) {
     }
 
     /**
-     * Aba "Gestão eleitoral" de /voto: as assembleias com as pautas e a mesa. Embutida, sem rota. As arquivadas e as
-     * pautas retiradas ficam fora da lista até o parâmetro `arquivadas=1` ("Mostrar arquivadas", desenho 18).
+     * Aba "Gestão eleitoral" de /voto: as assembleias agrupadas por entidade, com as pautas e a mesa. Embutida, sem
+     * rota. As arquivadas e as pautas retiradas ficam fora da lista até o parâmetro `arquivadas=1` ("Mostrar
+     * arquivadas", desenho 18). Filtros por URL (sem JavaScript): `q` (busca), `entidade` (chave do grupo) e `situacao`
+     * (and, ras, con); `kpi` (abe ou ced) abre o painel de lista do KPI. Os KPIs olham todas as assembleias, sem filtro.
      */
     public function painel(Request $request): Response
     {
         $tenant = $this->guarda->exigir();
         $todas = $this->obterPainel->executar($tenant);
         $arquivadas = $request->query->getBoolean('arquivadas');
+        $agora = new \DateTimeImmutable();
         $totalArquivadas = 0;
         foreach ($todas as $assembleia) {
             $totalArquivadas += $assembleia->arquivada() ? 1 : \count($assembleia->pautasRetiradas());
         }
 
+        $filtro = FiltroDoPainel::de((string) $request->query->get('q', ''), (string) $request->query->get('entidade', ''), (string) $request->query->get('situacao', ''));
+        $kpi = (string) $request->query->get('kpi', '');
+
         return $this->render('voto/assembleia/_painel.html.twig', [
-            'assembleias' => $arquivadas ? $todas : self::semArquivadas($todas),
-            'agora' => new \DateTimeImmutable(),
+            'painel' => $this->painelPorEntidade->agrupar($arquivadas ? $todas : self::semArquivadas($todas), $filtro),
+            'kpis' => $this->painelPorEntidade->kpis($todas, $agora),
+            'kpi' => \in_array($kpi, ['abe', 'ced'], true) ? $kpi : '',
+            'filtro' => $filtro,
+            'agora' => $agora,
             'arquivadas' => $arquivadas,
             'totalArquivadas' => $totalArquivadas,
         ]);
@@ -134,7 +146,7 @@ final class AssembleiaController extends AbstractController
         }
 
         $assembleia = $this->lida($tenant, $id);
-        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value);
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '');
 
         return $this->render('voto/assembleia/form.html.twig', ['assembleia' => $assembleia, 'input' => $input, 'erro' => $erro ?? null]);
     }
@@ -237,6 +249,8 @@ final class AssembleiaController extends AbstractController
         return new AssembleiaInput(
             (string) $request->request->get('titulo', ''),
             (string) $request->request->get('peso', 'fracao'),
+            (string) $request->request->get('entidade', ''),
+            (string) $request->request->get('cnpj', ''),
         );
     }
 }

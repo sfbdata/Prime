@@ -49,6 +49,8 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
         self::assertSame($tenant, $salva->getTenant());
         self::assertSame('AGO 2026 (cópia)', $salva->getTitulo());
         self::assertSame(PesoDoVoto::Fracao, $salva->getPeso());
+        self::assertSame('Residencial Jardim', $salva->getEntidadeNome(), 'a cópia fica na mesma entidade');
+        self::assertSame('11222333000181', $salva->getCnpj());
         self::assertSame('Nova gestora', $salva->getCriadaPorNome());
         self::assertSame(EstadoDaAssembleia::Rascunho, $salva->getEstado());
         self::assertNull($salva->getPublicadaEm());
@@ -172,6 +174,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
     private function publicadaComVotos(Tenant $tenant): Assembleia
     {
         $origem = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora antiga');
+        $origem->identificarEntidade('Residencial Jardim', '11222333000181');
         $pauta = new PautaDaAssembleia($origem, 2, 'Síndico(a)', 'Mandato de 2 anos', TipoDaPauta::EleicaoDeCargo);
         $pauta->configurar(RegraDeDecisao::Mais, BaseDaDecisao::Validos, 2, 2, 60, null);
         new OpcaoDaPauta($pauta, 11, 'Ana');

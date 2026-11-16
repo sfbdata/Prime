@@ -186,7 +186,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Painel vazio e criação
         $painel = $this->client->request('GET', '/voto?aba=ges');
         self::assertResponseIsSuccessful();
-        self::assertSame('Nenhuma assembleia criada.', trim($painel->filter('.voto-tela > .voto-painel[data-aba="ges"] .voto-vazio')->text()));
+        self::assertSame('Nenhuma votação ainda. Use Nova assembleia.', trim($painel->filter('.voto-tela > .voto-painel[data-aba="ges"] .voto-vazio')->text()));
         self::assertCount(0, $painel->filter('.voto-demonstracao'), 'a assembleia é votação real: sem a faixa de demonstração');
         $form = $this->client->request('GET', '/voto/assembleias/nova')->selectButton('Continuar')->form(['titulo' => 'AGO Residencial Jardim 2026', 'peso' => 'fracao']);
         $this->client->submit($form);

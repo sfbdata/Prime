@@ -19,7 +19,7 @@ use App\Voto\Service\TokenDaUnidade;
 /**
  * Duplica a assembleia (em qualquer estado) como um NOVO rascunho do mesmo escritório, com " (cópia)" no título.
  *
- * Copia só o que é cadastro: título, peso, as pautas (título, descrição, tipo, regras, quóruns e opções com a
+ * Copia só o que é cadastro: título, peso, entidade (nome e CNPJ), as pautas (título, descrição, tipo, regras, quóruns e opções com a
  * abstenção) e a lista de unidades (identificação, bloco, situação, fração, responsável e telefone). O e-mail fica de fora, como
  * no desenho ("sem os e-mails"): é o canal do código e do link de acesso, e a cópia é outra votação.
  *
@@ -57,6 +57,7 @@ final class DuplicarAssembleiaUseCase
 
         $titulo = mb_substr($origem->getTitulo(), 0, self::TITULO_MAXIMO - mb_strlen(self::SUFIXO_DA_COPIA)) . self::SUFIXO_DA_COPIA;
         $copia = new Assembleia($tenant, $titulo, $origem->getPeso(), $criadaPorNome);
+        $copia->identificarEntidade($origem->getEntidadeNome(), $origem->getCnpj());
         $fotos = [];
         $semEmails = false;
         try {

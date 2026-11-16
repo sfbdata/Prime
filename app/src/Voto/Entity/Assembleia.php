@@ -65,6 +65,14 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 180, nullable: true)]
     private ?string $arquivadaPorNome = null;
 
+    /** Nome da entidade (o condomínio) que o painel usa para agrupar as assembleias. Opcional; fora das regras e do hash. */
+    #[ORM\Column(length: 160, nullable: true)]
+    private ?string $entidadeNome = null;
+
+    /** CNPJ da entidade, só os 14 dígitos (a máscara é da exibição). Opcional: separa entidades com nome parecido. */
+    #[ORM\Column(length: 14, nullable: true)]
+    private ?string $cnpj = null;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -104,6 +112,22 @@ class Assembleia implements TenantAware, Auditavel
         $this->exigirFracaoNasAptas($peso);
         $this->titulo = $titulo;
         $this->peso = $peso;
+    }
+
+    /**
+     * Nome da entidade e CNPJ (só dígitos, 14), ambos opcionais; só em rascunho, como o título. A validação dos dígitos
+     * verificadores é do UseCase; aqui só o formato, para a coluna nunca guardar máscara.
+     */
+    public function identificarEntidade(?string $nome, ?string $cnpj): void
+    {
+        $this->exigirPautasAlteraveis();
+        $nome = null === $nome ? '' : trim($nome);
+        $cnpj = null === $cnpj ? '' : $cnpj;
+        if ('' !== $cnpj && 1 !== preg_match('/^\d{14}$/', $cnpj)) {
+            throw new OperacaoInvalidaNaAssembleiaException('O CNPJ tem 14 dígitos.');
+        }
+        $this->entidadeNome = '' === $nome ? null : mb_substr($nome, 0, 160);
+        $this->cnpj = '' === $cnpj ? null : $cnpj;
     }
 
     /**
@@ -279,6 +303,16 @@ class Assembleia implements TenantAware, Auditavel
     public function getEstado(): EstadoDaAssembleia
     {
         return $this->estado;
+    }
+
+    public function getEntidadeNome(): ?string
+    {
+        return $this->entidadeNome;
+    }
+
+    public function getCnpj(): ?string
+    {
+        return $this->cnpj;
     }
 
     public function getCriadaPorNome(): string

@@ -77,7 +77,9 @@
     var formArquivar = lote.querySelector('[data-voto-lote-form="arquivar"]');
     var formExcluir = lote.querySelector('[data-voto-lote-form="excluir"]');
 
-    function marcados() { return itens.filter(function (i) { return i.checked; }); }
+    /* Só conta o que está na tela: assembleia de grupo recolhido (F1-4) não entra na seleção nem no lote. */
+    function visiveis() { return itens.filter(function (i) { return i.offsetParent !== null; }); }
+    function marcados() { return visiveis().filter(function (i) { return i.checked; }); }
     function que(lista, atributo) { return lista.filter(function (i) { return i.getAttribute(atributo) === '1'; }); }
     function modelo(elemento, n) { return elemento.getAttribute('data-modelo').replace('{n}', n); }
 
@@ -100,7 +102,7 @@
         var arquivaveis = que(s, 'data-arquivar');
         var excluiveis = que(s, 'data-excluir');
         texto.textContent = s.length ? texto.getAttribute('data-modelo').replace('{n}', s.length) : texto.getAttribute('data-todas');
-        todas.checked = itens.length > 0 && s.length === itens.length;
+        todas.checked = visiveis().length > 0 && s.length === visiveis().length;
         acoes.hidden = s.length === 0;
         Array.prototype.forEach.call(acoes.querySelectorAll('[data-voto-lote-pedir]'), function (b) {
             var n = b.getAttribute('data-voto-lote-pedir') === 'arquivar' ? arquivaveis.length : excluiveis.length;
@@ -110,7 +112,7 @@
     }
 
     todas.addEventListener('change', function () {
-        itens.forEach(function (i) { i.checked = todas.checked; });
+        visiveis().forEach(function (i) { i.checked = todas.checked; });
         recolherFaixas();
         atualizar();
     });

@@ -3,11 +3,50 @@
     com "Nova assembleia" (desenho L189, .vC com o botão vB vP bi-plus-lg) e "Mostrar arquivadas (N)" / "Ocultar arquivadas"
     (bi-archive / bi-eye-slash, por parâmetro de URL, sem JS), a barra de seleção em lote do desenho (.vSelBar, L241:
     "Selecionar todas" / "N selecionada(s)", "Arquivar (n)", "Excluir (n)", "Limpar seleção", com as faixas de confirmação
-    de arquivar e de excluir; public/js/voto-ciclo.js) e um cartão por assembleia.
-    Contexto: `assembleias` (list<AssembleiaNoPainel>), `agora`, `arquivadas` (bool: mostra também as arquivadas e as
-    pautas retiradas) e `totalArquivadas` (int: assembleias arquivadas mais pautas retiradas).
+    de arquivar e de excluir; public/js/voto-ciclo.js) e as assembleias agrupadas por entidade (F1-4, desenho 18):
+    KPIs clicáveis (.vKpiB, com o painel de lista), filtros .vFil (formulário GET: funciona sem JavaScript), grupos .vGr
+    com a entidade (.vGrH: nome, CNPJ e resumo) e, em cada assembleia, a linha de evento (.vEvH) e o cartão.
+    Contexto: `painel` (PainelAgrupado), `kpis` (KpisDoPainel), `kpi` (abe | ced | ''), `filtro` (FiltroDoPainel), `agora`,
+    `arquivadas` (bool: mostra também as arquivadas e as pautas retiradas) e `totalArquivadas` (int: assembleias
+    arquivadas mais pautas retiradas).
 #}
+{% set consulta = {aba: 'ges'} %}
+{% if arquivadas %}{% set consulta = consulta|merge({arquivadas: 1}) %}{% endif %}
+{% if filtro.busca != '' %}{% set consulta = consulta|merge({q: filtro.busca}) %}{% endif %}
+{% if filtro.entidade != '' %}{% set consulta = consulta|merge({entidade: filtro.entidade}) %}{% endif %}
+{% if filtro.situacao != '' %}{% set consulta = consulta|merge({situacao: filtro.situacao}) %}{% endif %}
+{% set kpi_tabela = {
+    abe: {titulo: 'voto.assembleia.gestor.kpi.abertas'|trans, linhas: kpis.abertas, atalho: 'voto.assembleia.gestor.kpi.acompanhar'|trans, aba: 'aco'},
+    ced: {titulo: 'voto.assembleia.gestor.kpi.titulo_cedulas'|trans, linhas: kpis.cedulas, atalho: 'voto.assembleia.gestor.kpi.resultados'|trans, aba: 'tra'},
+} %}
 <div class="voto-painel" data-aba="ges">
+    <div class="vKpis" id="voto-kpis">
+        {% for id, rotulo in {abe: 'voto.assembleia.gestor.kpi.abertas'|trans, ced: 'voto.assembleia.gestor.kpi.cedulas'|trans} %}
+            <a class="vKpi vKpiB{{ kpi == id ? ' vKpiOn' : '' }}" data-voto-kpi="{{ id }}"{% if kpi == id %} aria-current="true"{% endif %} title="{{ 'voto.assembleia.gestor.kpi.ver_detalhes'|trans }}" href="{{ path('voto_index', kpi == id ? consulta|merge({_fragment: 'voto-kpis'}) : consulta|merge({kpi: id, _fragment: 'voto-kpis'})) }}"><b>{{ id == 'abe' ? kpis.votacoesAbertas : kpis.totalDeCedulas }}</b><span>{{ rotulo }}</span><i class="bi bi-chevron-right vKpiS" aria-hidden="true"></i></a>
+        {% endfor %}
+    </div>
+    {% if kpi_tabela[kpi] is defined %}
+        {% set k = kpi_tabela[kpi] %}
+        <div class="vC" data-voto-kpi-lista="{{ kpi }}">
+            <div class="vH"><i class="bi bi-list-ul"></i>{{ k.titulo }}<span class="voto-espaco"></span>
+                <a class="vB" href="{{ path('voto_index', {aba: k.aba}) }}">{{ k.atalho }}<i class="bi bi-arrow-right"></i></a>
+                <a class="vB" aria-label="{{ 'voto.assembleia.gestor.kpi.fechar'|trans }}" href="{{ path('voto_index', consulta|merge({_fragment: 'voto-kpis'})) }}"><i class="bi bi-x-lg"></i></a>
+            </div>
+            {% if k.linhas|length == 0 %}<div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.kpi.nada'|trans }}</div>{% endif %}
+            <div class="voto-kpi-linhas">
+                {% for l in k.linhas|slice(0, 60) %}
+                    {% if kpi == 'abe' %}
+                        {% set tempo = l.situacao == 'suspensa' ? 'voto.assembleia.gestor.kpi.suspensa'|trans : (l.segundos is null ? 'voto.assembleia.gestor.kpi.em_andamento'|trans : 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '%02d:%02d'|format(l.segundos // 60, l.segundos % 60)})|lower) %}
+                        {% set detalhe = 'voto.assembleia.gestor.kpi.detalhe_aberta'|trans({n: l.votantes, aptos: l.aptos, tempo: tempo}) %}
+                    {% else %}
+                        {% set detalhe = 'voto.assembleia.gestor.kpi.detalhe_cedula'|trans({n: l.votantes, situacao: ('voto.assembleia.gestor.kpi.situacao.' ~ l.situacao)|trans}) %}
+                    {% endif %}
+                    <div class="vLin voto-kpi-linha"><b>{{ l.titulo }}</b><span>{{ detalhe }}</span></div>
+                {% endfor %}
+            </div>
+            {% if k.linhas|length > 60 %}<div class="vLin voto-kpi-mais">{{ 'voto.assembleia.gestor.kpi.mostrando'|trans({n: 60, total: k.linhas|length}) }}</div>{% endif %}
+        </div>
+    {% endif %}
     <div class="vC voto-barra">
         <a class="vB vP" href="{{ path('voto_assembleia_nova') }}"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.nova'|trans }}</a>
         {% if totalArquivadas > 0 or arquivadas %}
@@ -15,7 +54,7 @@
             <a class="vB" data-voto-arquivadas aria-pressed="{{ arquivadas ? 'true' : 'false' }}" href="{{ path('voto_index', arquivadas ? {aba: 'ges'} : {aba: 'ges', arquivadas: 1}) }}"><i class="bi {{ arquivadas ? 'bi-eye-slash' : 'bi-archive' }}"></i>{{ arquivadas ? 'voto.assembleia.gestor.arquivar.ocultar'|trans : 'voto.assembleia.gestor.arquivar.mostrar'|trans({n: totalArquivadas}) }}</a>
         {% endif %}
     </div>
-    {% if assembleias|length > 0 %}
+    {% if painel.grupos|length > 0 %}
         <div class="vC voto-lote" data-voto-lote>
             <div class="vSelBar">
                 <label class="voto-lote-todas"><input type="checkbox" class="vSel" data-voto-lote-todas><span data-voto-lote-tx data-todas="{{ 'voto.assembleia.gestor.lote.selecionar_todas'|trans }}" data-modelo="{{ 'voto.assembleia.gestor.lote.selecionadas'|trans({n: '{n}'}) }}">{{ 'voto.assembleia.gestor.lote.selecionar_todas'|trans }}</span></label>
@@ -41,12 +80,54 @@
             </form>
         </div>
     {% endif %}
-    {% for a in assembleias %}
-        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora, arquivadas: arquivadas, selecao: true} only %}
-    {% else %}
-        <div class="vC">
-            <div class="vH"><i class="bi bi-activity"></i>{{ 'voto.assembleia.gestor.painel.votacoes'|trans }}</div>
-            <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.painel.vazio'|trans }}</div>
-        </div>
-    {% endfor %}
+    <div class="vC voto-gestao">
+        <form class="vFil" method="get" action="{{ path('voto_index') }}" data-voto-filtros>
+            <input type="hidden" name="aba" value="ges">
+            {% if arquivadas %}<input type="hidden" name="arquivadas" value="1">{% endif %}
+            <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.buscar'|trans }}<input class="vF" type="search" name="q" maxlength="120" autocomplete="off" placeholder="{{ 'voto.assembleia.gestor.filtros.buscar_dica'|trans }}" value="{{ filtro.busca }}"></label>
+            {% if painel.temFiltroDeEntidade %}
+                <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.entidade'|trans }}<select class="vF" name="entidade" data-voto-filtro-auto>
+                    <option value="">{{ 'voto.assembleia.gestor.filtros.todas'|trans }}</option>
+                    {% for e in painel.entidades %}
+                        <option value="{{ e.chave }}"{{ e.chave == filtro.entidade ? ' selected' : '' }}>{{ e.nome != '' ? e.nome : 'voto.assembleia.gestor.grupo.sem_entidade'|trans }}{{ e.cnpj != '' ? ' · ' ~ e.cnpj : '' }}</option>
+                    {% endfor %}
+                </select></label>
+            {% endif %}
+            <label class="vL voto-fil-situacao">{{ 'voto.assembleia.gestor.filtros.situacao'|trans }}<select class="vF" name="situacao" data-voto-filtro-auto>
+                <option value="">{{ 'voto.assembleia.gestor.filtros.todas'|trans }}</option>
+                <option value="and"{{ filtro.situacao == 'and' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.em_andamento'|trans }}</option>
+                <option value="ras"{{ filtro.situacao == 'ras' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.rascunhos'|trans }}</option>
+                <option value="con"{{ filtro.situacao == 'con' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.concluidas'|trans }}</option>
+            </select></label>
+            <div class="voto-fil-acoes">
+                <noscript><button type="submit" class="vB vP">{{ 'voto.assembleia.gestor.filtros.filtrar'|trans }}</button></noscript>
+                {% if filtro.ativo %}<a class="vB" data-voto-filtro-limpar href="{{ path('voto_index', arquivadas ? {aba: 'ges', arquivadas: 1} : {aba: 'ges'}) }}">{{ 'voto.assembleia.gestor.filtros.limpar'|trans }}</a>{% endif %}
+                <button type="button" class="vB" data-voto-grupos="abrir" title="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" hidden><i class="bi bi-arrows-expand"></i></button>
+                <button type="button" class="vB" data-voto-grupos="fechar" title="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" hidden><i class="bi bi-arrows-collapse"></i></button>
+            </div>
+        </form>
+        {% if painel.vazio %}
+            <div class="vLin voto-vazio">{{ (painel.haAssembleias ? 'voto.assembleia.gestor.filtros.vazio_filtros' : 'voto.assembleia.gestor.filtros.vazio_inicial')|trans }}</div>
+        {% endif %}
+        {% for g in painel.grupos %}
+            <details class="vGr"{{ g.aberto ? ' open' : '' }} data-voto-grupo>
+                <summary class="vGrH">
+                    <i class="bi bi-chevron-down vGrBaixo" aria-hidden="true"></i><i class="bi bi-chevron-right vGrLado" aria-hidden="true"></i>
+                    <i class="bi bi-building voto-grupo-icone" aria-hidden="true"></i>
+                    <span class="voto-grupo-nome"><b>{{ g.semNome ? 'voto.assembleia.gestor.grupo.sem_entidade'|trans : g.nome }}</b>{% if g.cnpj != '' %}<span class="vMono voto-grupo-cnpj">{{ 'voto.assembleia.gestor.grupo.cnpj'|trans({cnpj: g.cnpj}) }}</span>{% endif %}</span>
+                    {% set partes = [] %}
+                    {% for situacao in ['aberta', 'publicada', 'rascunho', 'encerrada'] %}
+                        {% if g.resumo[situacao] > 0 %}{% set partes = partes|merge([('voto.assembleia.gestor.grupo.resumo_' ~ situacao)|trans({n: g.resumo[situacao]})]) %}{% endif %}
+                    {% endfor %}
+                    <span class="voto-grupo-resumo">{{ partes|join(' · ') }}</span>
+                </summary>
+                {% for a in g.assembleias %}
+                    <div class="vEvH"><i class="bi bi-calendar-event"></i><b>{{ a.titulo }}</b><span>{{ (a.publicadaEm ?? a.criadaEm)|date('d/m/Y') }}</span><span class="voto-espaco"></span><span>{{ 'voto.assembleia.gestor.grupo.votacoes'|trans({n: a.pautas|filter(x => not x.retirada)|length}) }}</span></div>
+                    <div class="voto-gestao-corpo">
+                        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora, arquivadas: arquivadas, selecao: true} only %}
+                    </div>
+                {% endfor %}
+            </details>
+        {% endfor %}
+    </div>
 </div>
