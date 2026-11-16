@@ -137,7 +137,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
     {
         $this->abrir($this->master);
 
-        self::assertSelectorCount(1, '.ct-pagina > section.ct-suporte + section[data-cc-integracao]:last-child');
+        self::assertSelectorCount(1, '.ct-pagina > section.ct-suporte ~ section[data-cc-integracao]:last-of-type');
     }
 
     #[TestDox('Apresentação: selo GRATUITO, atalhos novos e a linha "Sem mensalidade..." recolhida')]
