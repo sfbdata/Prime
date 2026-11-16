@@ -19,6 +19,10 @@ enum Automacao: string
     case E90 = 'e90';
     case E100 = 'e100';
     case Ped = 'ped';
+    /** Opções de espaço extra liberadas pelo Master: aviso fixo, sem chave de liga/desliga e sem linha em `comercial_automacao`. */
+    case Lib = 'lib';
+    /** Resposta à recusa de um pedido de espaço: aviso fixo, sem chave de liga/desliga. */
+    case Resp = 'resp';
 
     public function titulo(): string
     {
@@ -31,6 +35,8 @@ enum Automacao: string
             self::E90 => 'Conta chegou a 90% do espaço',
             self::E100 => 'Espaço esgotado (100%)',
             self::Ped => 'Pedido de mais espaço',
+            self::Lib => 'Opções de espaço extra liberadas',
+            self::Resp => 'Resposta ao pedido de espaço',
         };
     }
 
@@ -45,6 +51,8 @@ enum Automacao: string
             self::E90 => 'Recomenda aumentar ou solicitar espaço (ao primário)',
             self::E100 => 'Avisa que novos envios estão pausados',
             self::Ped => 'Confirma ao cliente e avisa o Master',
+            self::Lib => 'Avisa que as opções de espaço extra foram liberadas',
+            self::Resp => 'Responde ao cliente quando o pedido de espaço é recusado',
         };
     }
 
@@ -60,6 +68,8 @@ enum Automacao: string
             self::E90 => 'Espaço em 90%',
             self::E100 => 'Espaço esgotado',
             self::Ped => 'Pedido de espaço',
+            self::Lib => 'Opções de espaço liberadas',
+            self::Resp => 'Pedido de espaço respondido',
         };
     }
 
@@ -73,6 +83,8 @@ enum Automacao: string
             self::E90 => 'Espaço em 90%',
             self::E100 => 'Espaço esgotado',
             self::Ped => 'Pedido de espaço recebido',
+            self::Lib => 'Opções de espaço liberadas',
+            self::Resp => 'Resposta ao pedido de espaço',
         };
     }
 
@@ -99,6 +111,18 @@ enum Automacao: string
             self::E90 => '90',
             default => null,
         };
+    }
+
+    /** As automações do painel: as de aviso fixo (`lib`, `resp`) não têm interruptor nem linha no banco. */
+    public function temChave(): bool
+    {
+        return $this !== self::Lib && $this !== self::Resp;
+    }
+
+    /** @return list<self> as que aparecem no painel do Master, na ordem do desenho */
+    public static function comChave(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $a): bool => $a->temChave()));
     }
 
     public function ligadaPorPadrao(): bool

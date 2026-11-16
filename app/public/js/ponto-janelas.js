@@ -18,8 +18,8 @@
     const TIPO_ESQUECIMENTO = 'esquecimento_registro';
     const TIPO_NAO_JUSTIFICADA = 'falta_nao_justificada';
 
+    const ERRO_DATA = 'Selecione ao menos uma data.';
     const ERRO_DATA_E_MOTIVO = 'Informe a data e o motivo.';
-    const ERRO_HORARIO_E_MOTIVO = 'Informe o horário e o motivo.';
     const ERRO_MOTIVO = 'Informe o motivo.';
     const ERRO_TIPO = 'Selecione o tipo de justificativa.';
     const ERRO_ESQUECIDO = 'Informe o tipo e o horário do registro esquecido.';
@@ -201,8 +201,13 @@
         const fim = form.querySelector('[data-just-abono-fim]');
         const esquecido = form.querySelector('[data-just-esquecido-tipo]');
         const hora = form.querySelector('[data-just-esquecido-hora]');
+        // No esquecimento de registro o motivo é livre (pedido do dono, 16/11/2026): só a data é pedida aqui.
+        const motivoLivre = tipo.value === TIPO_ESQUECIMENTO;
 
-        if (datas.length === 0 || motivoEmBranco(form)) {
+        if (datas.length === 0 && motivoLivre) {
+            return recusar(evento, form, ERRO_DATA, null);
+        }
+        if (datas.length === 0 || (!motivoLivre && motivoEmBranco(form))) {
             return recusar(evento, form, ERRO_DATA_E_MOTIVO, datas.length === 0 ? null : form.querySelector('[data-janela-motivo]'));
         }
         if (tipo.value === '') {
@@ -226,7 +231,7 @@
     // ---- Registro de esquecimento (P46) ----
 
     // O "+" da folha (e quem o clica: "Enviar registro de esquecimento" da aba, "Regularizar" da faixa e o
-    // `?esquecimento=` do cabeçalho). Data e batida vêm do "+"; a pessoa escreve o horário e o motivo.
+    // `?esquecimento=` do cabeçalho). Data e batida vêm do "+"; a pessoa escreve o horário e, se quiser, o motivo.
     function abrirEsquecimento(botao) {
         const fundo = moldura().abrirJanela('ponto-janela-esquecimento', botao);
         if (!fundo) {
@@ -244,8 +249,9 @@
 
     function conferirEsquecimento(evento, form) {
         const hora = form.querySelector('#esquecimentoHora');
-        if (hora.value === '' || motivoEmBranco(form)) {
-            return recusar(evento, form, ERRO_HORARIO_E_MOTIVO, hora.value === '' ? hora : form.querySelector('[data-janela-motivo]'));
+        // O motivo é livre aqui (pedido do dono, 16/11/2026); a frase é a do servidor para o horário que falta.
+        if (hora.value === '') {
+            return recusar(evento, form, ERRO_ESQUECIDO, hora);
         }
         enviar(form);
     }
@@ -304,7 +310,8 @@
         const inicio = form.querySelector('#editarHoraInicio');
         const fim = form.querySelector('#editarHoraFim');
 
-        if (motivo.value.trim() === '') {
+        // No esquecimento de registro o motivo é livre (pedido do dono, 16/11/2026).
+        if (!esquecimento && motivo.value.trim() === '') {
             return recusar(evento, form, ERRO_MOTIVO, motivo);
         }
         if (esquecimento && (esquecido.value === '' || hora.value === '')) {

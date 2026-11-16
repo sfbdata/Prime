@@ -10,6 +10,7 @@ use App\Shared\Contract\TenantAware;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\AssembleiaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -229,7 +230,9 @@ class Assembleia implements TenantAware, Auditavel
             throw new OperacaoInvalidaNaAssembleiaException('Inclua ao menos uma pauta.');
         }
         foreach ($this->pautas as $pauta) {
-            if (\count($pauta->getOpcoesDeVoto()) < 2) {
+            if (TipoDaPauta::EleicaoDeCargo === $pauta->getTipo()) {
+                $pauta->exigirCandidaturasParaPublicacao();
+            } elseif (\count($pauta->getOpcoesDeVoto()) < 2) {
                 throw new OperacaoInvalidaNaAssembleiaException(sprintf('A pauta "%s" precisa de ao menos duas opções.', $pauta->getTitulo()));
             }
             if ($pauta->getVagas() > \count($pauta->getOpcoesDeVoto())) {

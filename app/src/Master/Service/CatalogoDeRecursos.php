@@ -15,7 +15,8 @@ namespace App\Master\Service;
  * "Ponto Eletrônico" e a função "Ponto: geolocalização" (spec ponto-desenho-0811.md, E7 e P95): 23 linhas e 22 chaves.
  * Depois, as funções "Ponto: comprovante em imagem" (E15) e "Ponto: alertas de intervalo" (E11): 25 linhas e 24 chaves.
  * Depois, as funções "Ponto: validação em tela cheia", "Ponto: sons" e "Ponto: lembrete de saída" (E8): 28 linhas e
- * 27 chaves. Depois, a função "Ponto: aceite da folha" (E16): 29 linhas e 28 chaves.
+ * 27 chaves. Depois, a função "Ponto: aceite da folha" (E16): 29 linhas e 28 chaves. Depois, a função "Indique e ganhe"
+ * (desenho da Contribua de 14 e 15/11): 30 linhas e 29 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -59,6 +60,9 @@ final class CatalogoDeRecursos
         ['g' => self::GRUPO_MENU, 'chave' => 'ajuda', 't' => 'Ajuda e atalhos', 'ic' => 'bi-question-circle', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_MENU, 'chave' => 'privacidade', 't' => 'Política de Privacidade', 'ic' => 'bi-shield-lock', 'd' => null, 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_MENU, 'chave' => 'contribua', 't' => 'Contribua (atalho)', 'ic' => 'bi-heart', 'd' => null, 'tela' => false, 'base' => false],
+        // Indique e ganhe (desenho de 14 e 15/11, bj-recursos.js): liga e desliga o painel da tela Contribua e o botão de
+        // indicação da barra e do menu. Sem linha em `recurso_estado` vale ativo. Sem rota: age só na marcação.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'indique', 't' => 'Indique e ganhe (recompensa por indicação)', 'ic' => 'bi-share', 'd' => 'Painel de cupom e recompensa na tela Contribua e botão de indicação na barra', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'chat', 't' => 'Chat I.A', 'ic' => 'bi-chat-dots', 'd' => 'Botão flutuante de conversas e assistente', 'tela' => false, 'base' => false],
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'assistente', 't' => 'Assistente de pastas', 'ic' => 'bi-stars', 'd' => 'Agente que lê e organiza pastas', 'tela' => false, 'base' => false],
         // As funções do Ponto (P95), na ordem do bj-recursos.js do desenho 16: a tela cheia e os sons (E8), o
@@ -135,7 +139,7 @@ final class CatalogoDeRecursos
         'ponto_pendencia_do_dia',
     ];
 
-    /** @return list<string> as 28 chaves, na ordem da primeira aparição. */
+    /** @return list<string> as 29 chaves, na ordem da primeira aparição. */
     public static function chaves(): array
     {
         return array_values(array_unique(array_column(self::LINHAS, 'chave')));

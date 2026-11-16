@@ -10,6 +10,25 @@
 
 Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
 
+**16/11/2026, desenho de 14 e 15/11 ("o BlueJus é gratuito")** (cópia, inventário e decisões D1 a D11 em
+`docs/design/contribua-16-11-26/`; pedido do Samuel com fidelidade total). Branch de integração `contribua-gratuito`,
+um PR no fim, migration `Version20261116180000`. Este bloco substitui o §2.1 e o §2.8 onde eles discordam:
+- Página: selo GRATUITO, linha "Sem mensalidade" recolhível, faixa `#convenio` (link do WhatsApp com o endereço do
+  próprio sistema), `#faq`, nova ordem (Apresentação, convênio, FAQ, Quem somos, Meu espaço, Indique, números,
+  Sugestões, Apoie recolhível, Suporte, Integração bancária só do Master). Motivo "Prefiro apoiar de outra forma".
+- Opções de compra ocultas até a liberação: pelo Master (gravada em `opcoes_liberadas_por = master`, permanente) ou
+  pelo uso a partir de 97% (`auto`, gravada uma vez na resposta da primeira tela, mas só vale enquanto o uso estiver
+  em 97% ou mais; `LiberacaoDasOpcoesDeEspaco`). Escritório com plano pago continua vendo e gerindo o próprio plano.
+  O servidor recusa `contribua_espaco_pedido` e o checkout sem liberação (exceto Master e plano pago).
+- Pedido de espaço (`PedidoDeEspaco`): só o primário (ou o Master), um pendente por escritório (trava
+  `pg_advisory_xact_lock(4303, escritório)` no pedir e no decidir), faixas 20, 50 e 100 GB. O Master libera ou recusa
+  no painel da tela; aviso na Central sempre; sem e-mail ao Master (não há caixa configurada, D11).
+- Avisos: barra global reescrita (`aviso_espaco.html.twig`), pop-up dos 97% e modal global
+  (`_globais/espaco_solicitar.html.twig`, gatilhos `data-espaco-solicitar` e `data-espaco-ver-pedido`), barra do Master
+  com pedidos pendentes. D6: "novos envios pausados" só com o bloqueio ligado.
+- "Configurar pagamento" do Master continua onde estava (D1). Seção "Integração bancária" e prêmio do apoiador como
+  estavam (D10). Pendentes do desenho anterior, fora desta entrega: O1 a O4 do inventário.
+
 **04/11/2026, desenho 08 VS 03.11.26** (cópia em `docs/design/contribua/`; Samuel aceitou os itens, Coordenador
 deu o escopo). Branch `contribua-0311`, migration `Version20261104110000` (espera o #611 do Perfis entrar):
 - Convite "Indique o BlueJus": o texto virou balão (`data-tip`/`title`) no título, com "expira em 3 meses". Mantido o

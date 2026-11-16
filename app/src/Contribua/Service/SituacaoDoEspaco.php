@@ -89,6 +89,7 @@ final class SituacaoDoEspaco
         $percentual = $bytesLimite === null ? null : (int) round($bytesUsados / $bytesLimite * 100);
         [$limiteUsuarios, $origemDoLimiteDeUsuarios] = self::limiteDeUsuarios($espaco, $plano);
         $bytesBloqueio = $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100);
+        $liberadaPor = LiberacaoDasOpcoesDeEspaco::origem($espaco, $bytesUsados, $bytesLimite);
 
         return new RetratoDoEspaco(
             $tenantId,
@@ -107,6 +108,8 @@ final class SituacaoDoEspaco
             $bonus === [] ? null : max(array_map(static fn (BonusDeEspaco $b): \DateTimeImmutable => $b->getExpiraEm(), $bonus)),
             $bonus === [] ? null : $bonus[0]->getOrigem(),
             $espaco?->getMultiplicador() ?? 1,
+            $liberadaPor !== null,
+            $liberadaPor,
         );
     }
 

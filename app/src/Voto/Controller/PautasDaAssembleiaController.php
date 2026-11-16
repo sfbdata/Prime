@@ -8,6 +8,7 @@ use App\Voto\DTO\PautaInput;
 use App\Voto\DTO\RegrasDaPautaInput;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Service\AvisosDoVoto;
@@ -39,6 +40,7 @@ final class PautasDaAssembleiaController extends AbstractController
 {
     /** "Cargos e pautas frequentes" do desenho: cada um cria a pauta padrão com esse nome. */
     public const ATALHOS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal', 'Aprovação de contas', 'Previsão orçamentária', 'Obra ou benfeitoria', 'Alteração da convenção'];
+    private const ATALHOS_ELEITORAIS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal'];
 
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
@@ -61,6 +63,7 @@ final class PautasDaAssembleiaController extends AbstractController
             'assembleia' => $assembleia,
             'atalhos' => self::ATALHOS,
             'opcoes_padrao' => PautaInput::OPCOES_PADRAO,
+            'opcoes_padrao_eleicao' => [['numero' => '1', 'rotulo' => ''], ['numero' => '2', 'rotulo' => '']],
             'agora' => new \DateTimeImmutable(),
         ]);
     }
@@ -70,7 +73,7 @@ final class PautasDaAssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         $atalho = (string) $request->request->get('atalho', '');
-        $input = \in_array($atalho, self::ATALHOS, true) ? PautaInput::padrao($atalho) : self::input($request);
+        $input = self::inputOuAtalho($request, $atalho);
 
         return $this->responder($request, $id, static function () use ($adicionar, $id, $input, $tenant): void {
             $adicionar->executar($tenant, $id, $input);
@@ -153,7 +156,20 @@ final class PautasDaAssembleiaController extends AbstractController
             $opcoes[] = ['numero' => \is_string($numero) ? $numero : '', 'rotulo' => \is_string($rotulos[$i] ?? null) ? $rotulos[$i] : ''];
         }
 
-        return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes, self::regras($request));
+        $tipo = TipoDaPauta::tryFrom((string) $request->request->get('tipo', TipoDaPauta::Deliberacao->value)) ?? TipoDaPauta::Deliberacao;
+
+        return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes, self::regras($request), $tipo);
+    }
+
+    private static function inputOuAtalho(Request $request, string $atalho): PautaInput
+    {
+        if (!\in_array($atalho, self::ATALHOS, true)) {
+            return self::input($request);
+        }
+
+        return \in_array($atalho, self::ATALHOS_ELEITORAIS, true)
+            ? PautaInput::eleicao($atalho)
+            : PautaInput::padrao($atalho);
     }
 
     /** As regras só vêm quando a tela manda o critério; sem ele, a pauta mantém as que tem. */

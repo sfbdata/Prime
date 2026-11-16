@@ -20,8 +20,10 @@ final class ModelosDeAutomacao
         'primeiros_passos' => ['Uma semana de BlueJus: dicas para render mais', 'DICAS', '{nome}, veja o que mais o BlueJus faz por você'],
         'lembrete_confirmacao' => ['Confirme seu e-mail para ativar o BlueJus', 'CONFIRMAÇÃO DE E-MAIL', '{nome}, falta só confirmar o seu e-mail'],
         'espaco_90' => ['Seu espaço no BlueJus está quase cheio', 'AVISO DE ESPAÇO', '{nome}, sua conta chegou a {limite}% do espaço'],
-        'espaco_100' => ['Espaço esgotado: novos envios pausados no BlueJus', 'ESPAÇO ESGOTADO', '{nome}, o espaço da sua conta acabou'],
-        'pedido_espaco' => ['Recebemos seu pedido de mais espaço', 'PEDIDO RECEBIDO', 'Obrigado, {nome}! Já estamos cuidando disso'],
+        'espaco_100' => ['Espaço cheio no BlueJus: veja as opções de espaço extra', 'ESPAÇO ESGOTADO', '{nome}, o espaço da sua conta acabou'],
+        'opcoes_liberadas' => ['Liberamos as opções de espaço extra para o seu escritório no BlueJus', 'ESPAÇO EXTRA', '{nome}, as opções de espaço extra foram liberadas'],
+        'pedido_respondido' => ['Resposta ao seu pedido de espaço no BlueJus', 'PEDIDO DE ESPAÇO', '{nome}, veja a resposta ao seu pedido'],
+        'pedido_espaco' => ['Recebemos seu pedido de mais espaço no BlueJus', 'PEDIDO RECEBIDO', 'Obrigado, {nome}! Já estamos cuidando disso'],
     ];
 
     public function __construct(
@@ -64,6 +66,8 @@ final class ModelosDeAutomacao
             Automacao::E90 => 'espaco_90',
             Automacao::E100 => 'espaco_100',
             Automacao::Ped => 'pedido_espaco',
+            Automacao::Lib => 'opcoes_liberadas',
+            Automacao::Resp => 'pedido_respondido',
         };
     }
 }

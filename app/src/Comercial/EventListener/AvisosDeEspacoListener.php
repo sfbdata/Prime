@@ -10,7 +10,11 @@ use App\Comercial\Repository\AvisoDeEspacoRepository;
 use App\Comercial\Service\DisparadorDeAutomacao;
 use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Enum\OrigemDaLiberacao;
+use App\Contribua\Event\EspacoExtraFoiSolicitado;
 use App\Contribua\Event\EspacoFoiPedido;
+use App\Contribua\Event\OpcoesDeEspacoForamLiberadas;
+use App\Contribua\Event\PedidoDeEspacoFoiRecusado;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Enum\FaixaDoEspaco;
 use App\Entity\Auth\User;
@@ -30,7 +34,8 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Os avisos de espaço aos primários ativos do escritório (spec comercial-e-emails.md §4): `e90` ao cruzar o limite
- * escolhido, `e100` no bloqueio ligado (pela faixa ou pela primeira recusa) e `ped` no pedido de mais espaço. Um por
+ * escolhido, `e100` no bloqueio ligado (pela faixa ou pela primeira recusa), `ped` no pedido de mais espaço, `lib` na liberação
+ * das opções de espaço extra pelo Master e `resp` na recusa do pedido (os dois sem chave de liga/desliga). Um por
  * escritório e dia (o `ped`, por plano também), reservado em `comercial_aviso_espaco`. Nunca derruba o fluxo de quem
  * gravou: toda exceção vai ao log só com ids e a chave.
  *
@@ -91,6 +96,31 @@ final class AvisosDeEspacoListener implements ResetInterface
     public function aoPedirEspaco(EspacoFoiPedido $evento): void
     {
         $this->avisar(Automacao::Ped, $evento->tenantId, $evento->codigoDoPlano);
+    }
+
+    /** O pedido do desenho novo (Contribua 14 e 15/11): a mesma confirmação `ped`, uma por escritório e dia. */
+    #[AsEventListener]
+    public function aoSolicitarEspacoExtra(EspacoExtraFoiSolicitado $evento): void
+    {
+        $this->avisar(Automacao::Ped, $evento->tenantId, 'extra');
+    }
+
+    /**
+     * Só quando o Master libera (o desenho 14 e 15/11 só enfileira o e-mail na decisão dele). A liberação automática
+     * (97%) já aparece na tela e no aviso de espaço: não manda este e-mail.
+     */
+    #[AsEventListener]
+    public function aoLiberarOpcoes(OpcoesDeEspacoForamLiberadas $evento): void
+    {
+        if ($evento->origem === OrigemDaLiberacao::Master) {
+            $this->avisar(Automacao::Lib, $evento->tenantId, $evento->origem->value);
+        }
+    }
+
+    #[AsEventListener]
+    public function aoRecusarPedido(PedidoDeEspacoFoiRecusado $evento): void
+    {
+        $this->avisar(Automacao::Resp, $evento->tenantId, 'recusa');
     }
 
     #[AsEventListener(event: KernelEvents::TERMINATE)]

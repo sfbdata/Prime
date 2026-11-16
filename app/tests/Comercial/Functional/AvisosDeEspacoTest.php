@@ -11,7 +11,11 @@ use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Enum\OrigemDoLimite;
 use App\Contribua\Event\EnvioRecusadoPorEspaco;
 use App\Contribua\Event\EspacoAtingiuFaixa;
+use App\Contribua\Enum\OrigemDaLiberacao;
+use App\Contribua\Event\EspacoExtraFoiSolicitado;
 use App\Contribua\Event\EspacoFoiPedido;
+use App\Contribua\Event\OpcoesDeEspacoForamLiberadas;
+use App\Contribua\Event\PedidoDeEspacoFoiRecusado;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Comercial\Support\CriaCampanhas;
@@ -144,6 +148,71 @@ final class AvisosDeEspacoTest extends KernelTestCase
         self::assertSame(1, $this->envios('ped', $prim->getEmail()));
     }
 
+    #[TestDox('Pedido novo (EspacoExtraFoiSolicitado): `ped` com o assunto do desenho, aos primários, uma vez por escritório e dia')]
+    public function testPedidoNovoConfirmaAoEscritorio(): void
+    {
+        [$tenant, $prim, $outroPrim, $sec] = $this->escritorio();
+
+        $this->despachar(new EspacoExtraFoiSolicitado(1, (int) $tenant->getId(), 20, (int) $prim->getId()));
+        $this->despachar(new EspacoExtraFoiSolicitado(2, (int) $tenant->getId(), 50, (int) $prim->getId()));
+
+        self::assertSame(1, $this->envios('ped', $prim->getEmail()), 'o segundo pedido do dia não repete');
+        self::assertSame(1, $this->envios('ped', $outroPrim->getEmail()));
+        self::assertSame(0, $this->envios('ped', $sec->getEmail()));
+        self::assertSame('Recebemos seu pedido de mais espaço no BlueJus', $this->assunto('ped', $prim->getEmail()));
+    }
+
+    #[TestDox('lib: o Master liberou, os primários recebem o assunto do desenho; uma vez por escritório e dia; sem chave de liga/desliga')]
+    public function testLiberacaoPeloMaster(): void
+    {
+        [$tenant, $prim, $outroPrim, $sec] = $this->escritorio();
+        $this->conexao->executeStatement("DELETE FROM comercial_automacao WHERE chave = 'lib'");
+
+        $this->despachar(new OpcoesDeEspacoForamLiberadas((int) $tenant->getId(), OrigemDaLiberacao::Master, 7));
+        $this->despachar(new OpcoesDeEspacoForamLiberadas((int) $tenant->getId(), OrigemDaLiberacao::Master, 8));
+
+        self::assertSame(1, $this->envios('lib', $prim->getEmail()));
+        self::assertSame(1, $this->envios('lib', $outroPrim->getEmail()));
+        self::assertSame(0, $this->envios('lib', $sec->getEmail()));
+        self::assertSame('Liberamos as opções de espaço extra para o seu escritório no BlueJus', $this->assunto('lib', $prim->getEmail()));
+    }
+
+    #[TestDox('lib: a liberação automática (97%) não manda e-mail, como no desenho')]
+    public function testLiberacaoAutomaticaNaoEnvia(): void
+    {
+        [$tenant, $prim] = $this->escritorio();
+
+        $this->despachar(new OpcoesDeEspacoForamLiberadas((int) $tenant->getId(), OrigemDaLiberacao::Auto, null));
+
+        self::assertSame(0, $this->envios('lib', $prim->getEmail()));
+    }
+
+    #[TestDox('resp: a recusa manda "Resposta ao seu pedido de espaço no BlueJus" aos primários, uma vez por escritório e dia')]
+    public function testRecusaDoPedido(): void
+    {
+        [$tenant, $prim, $outroPrim, $sec] = $this->escritorio();
+
+        $this->despachar(new PedidoDeEspacoFoiRecusado(9, (int) $tenant->getId()));
+        $this->despachar(new PedidoDeEspacoFoiRecusado(10, (int) $tenant->getId()));
+
+        self::assertSame(1, $this->envios('resp', $prim->getEmail()));
+        self::assertSame(1, $this->envios('resp', $outroPrim->getEmail()));
+        self::assertSame(0, $this->envios('resp', $sec->getEmail()));
+        self::assertSame('Resposta ao seu pedido de espaço no BlueJus', $this->assunto('resp', $prim->getEmail()));
+    }
+
+    #[TestDox('e100: o assunto novo do desenho, e só com o bloqueio ligado (sem bloqueio, nada sai)')]
+    public function testE100ComAssuntoNovo(): void
+    {
+        [$tenant, $prim] = $this->escritorio();
+
+        $this->despachar(new EspacoAtingiuFaixa((int) $tenant->getId(), FaixaDoEspaco::Bloqueio, FaixaDoEspaco::Critico, $this->retrato($tenant, 100, false)));
+        self::assertSame(0, $this->envios('e100', $prim->getEmail()), 'sem bloqueio não promete envios pausados');
+
+        $this->despachar(new EspacoAtingiuFaixa((int) $tenant->getId(), FaixaDoEspaco::Bloqueio, FaixaDoEspaco::Critico, $this->retrato($tenant, 100, true)));
+        self::assertSame('Espaço cheio no BlueJus: veja as opções de espaço extra', $this->assunto('e100', $prim->getEmail()));
+    }
+
     #[TestDox('Ouvinte nunca derruba quem gravou: escritório inexistente não lança nada')]
     public function testOuvinteProtegido(): void
     {
@@ -224,6 +293,14 @@ final class AvisosDeEspacoTest extends KernelTestCase
         }
 
         return (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_envio WHERE origem = ? AND destinatario = ?', ['automacao:' . $chave, mb_strtolower((string) $para)]);
+    }
+
+    private function assunto(string $chave, ?string $para): string
+    {
+        return (string) $this->conexao->fetchOne(
+            'SELECT assunto FROM comercial_envio WHERE origem = ? AND destinatario = ?',
+            ['automacao:' . $chave, mb_strtolower((string) $para)],
+        );
     }
 
     private function titulo(string $chave, ?string $para): string

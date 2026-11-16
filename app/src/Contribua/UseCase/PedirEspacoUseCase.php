@@ -10,6 +10,7 @@ use App\Contribua\Event\EspacoFoiPedido;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\AvisoAoMaster;
+use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -31,6 +32,7 @@ final class PedirEspacoUseCase
         private readonly AvisoAoMaster $avisoAoMaster,
         private readonly UrlGeneratorInterface $urls,
         private readonly EventosDoEspacoAposConfirmar $eventos,
+        private readonly LiberacaoDasOpcoesDeEspaco $liberacao,
     ) {
     }
 
@@ -39,6 +41,8 @@ final class PedirEspacoUseCase
         if (!$quem->ehPrimario && !$quem->ehMaster) {
             throw new \DomainException('Quem amplia o espaço é o usuário primário do escritório.');
         }
+        // D2: sem liberação (Master ou 97% de uso) não há compra, salvo Master e quem já paga um plano.
+        $this->liberacao->exigirParaComprar($quem);
         $plano = $this->planoQueAmplia($quem->tenantId(), $codigoDoPlano);
 
         $this->avisoAoMaster->avisar(
