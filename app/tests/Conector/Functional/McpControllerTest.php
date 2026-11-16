@@ -83,6 +83,44 @@ final class McpControllerTest extends WebTestCase
         self::assertSemSessao($resposta);
     }
 
+    #[TestDox('3.5, versão 2026-07-28 (sem initialize): tools/call de quem_sou_eu responde 200 com o escritório da chamada, sem Set-Cookie')]
+    public function testQuemSouEuNaVersaoModerna(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $this->trocarServidor(['mcp:leitura']);
+
+        $resposta = $this->postarModerno($client, 11, 'tools/call', ['name' => QuemSouEuFerramenta::NOME, 'arguments' => new \stdClass()], QuemSouEuFerramenta::NOME);
+
+        self::assertSame(200, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertSame(11, $corpo['id']);
+        self::assertFalse($corpo['result']['isError']);
+        self::assertSame('Escritório Dublê', $corpo['result']['structuredContent']['escritorio']['nome']);
+        self::assertSame(['mcp:leitura'], $corpo['result']['structuredContent']['escopos']);
+        self::assertSemSessao($resposta);
+    }
+
+    #[TestDox('3.5 e 12.5, versão 2026-07-28: gravação com o token só de leitura dá 403 insufficient_scope com o _meta do step-up')]
+    public function testStepUpNaVersaoModerna(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $this->trocarServidor(['mcp:leitura']);
+
+        $resposta = $this->postarModerno($client, 12, 'tools/call', ['name' => 'atualizar_pasta', 'arguments' => new \stdClass()], 'atualizar_pasta');
+
+        self::assertSame(403, $resposta->getStatusCode());
+        $desafio = (string) $resposta->headers->get('WWW-Authenticate');
+        self::assertStringContainsString('error="insufficient_scope"', $desafio);
+        self::assertStringContainsString('scope="mcp:leitura mcp:escrita"', $desafio);
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertSame(12, $corpo['id']);
+        self::assertTrue($corpo['result']['isError']);
+        self::assertSame([$desafio], $corpo['result']['_meta']['mcp/www_authenticate']);
+        self::assertSemSessao($resposta);
+    }
+
     #[TestDox('12.15: argumento com CPF não deixa nenhum dígito dele no mcp.log, e a chamada deixa uma linha lá')]
     public function testCpfNaoVaiAoLog(): void
     {
@@ -146,6 +184,32 @@ final class McpControllerTest extends WebTestCase
             $cabecalhos['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
         }
         $client->request('POST', '/mcp', server: $cabecalhos, content: json_encode($mensagem, \JSON_THROW_ON_ERROR));
+
+        return $client->getResponse();
+    }
+
+    /**
+     * Um POST na era sem estado (2026-07-28): versão e capacidades no `_meta`, método e nome nos cabeçalhos.
+     *
+     * @param array<string, mixed> $params
+     */
+    private function postarModerno(KernelBrowser $client, int $id, string $metodo, array $params, ?string $nome = null): Response
+    {
+        $params['_meta'] = [
+            'io.modelcontextprotocol/protocolVersion' => self::MODERNA,
+            'io.modelcontextprotocol/clientCapabilities' => new \stdClass(),
+        ];
+        $cabecalhos = [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json, text/event-stream',
+            'HTTP_MCP_PROTOCOL_VERSION' => self::MODERNA,
+            'HTTP_MCP_METHOD' => $metodo,
+            'HTTP_AUTHORIZATION' => 'Bearer ' . self::TOKEN,
+        ];
+        if ($nome !== null) {
+            $cabecalhos['HTTP_MCP_NAME'] = $nome;
+        }
+        $client->request('POST', '/mcp', server: $cabecalhos, content: json_encode(['jsonrpc' => '2.0', 'id' => $id, 'method' => $metodo, 'params' => $params], \JSON_THROW_ON_ERROR));
 
         return $client->getResponse();
     }
