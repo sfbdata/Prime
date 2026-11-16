@@ -46,6 +46,8 @@ final class RegistrarVotoUseCase
     public const UNIDADE_INAPTA = 'Sua unidade não está apta a votar nesta assembleia.';
     public const PAUTA_NAO_ENCONTRADA = 'Pauta não encontrada nesta assembleia.';
     public const PAUTA_NAO_ABERTA = 'A votação desta pauta não está aberta.';
+    public const PAUTA_SUSPENSA = 'Votação suspensa pela mesa. Aguarde a retomada.';
+    public const PAUTA_CANCELADA = 'Votação cancelada pela comissão.';
     public const PRAZO_ENCERRADO = 'O prazo desta votação terminou. A pauta foi encerrada.';
     public const OPCAO_INVALIDA = 'Escolha uma das opções desta pauta.';
     public const NOMES_DEMAIS = 'Você escolheu mais nomes do que as vagas desta pauta.';
@@ -130,6 +132,15 @@ final class RegistrarVotoUseCase
      */
     private function opcoesQueAceitamVoto(PautaDaAssembleia $pauta, array $opcoesIds, \DateTimeImmutable $agora, bool $temNulos = false): array
     {
+        if ($pauta->retirada()) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_NAO_ENCONTRADA);
+        }
+        if ($pauta->cancelada()) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_CANCELADA);
+        }
+        if ($pauta->suspensa()) {
+            throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_SUSPENSA);
+        }
         if (!$pauta->aceitaVotoEm($agora)) {
             throw new OperacaoInvalidaNaAssembleiaException(self::PAUTA_NAO_ABERTA);
         }

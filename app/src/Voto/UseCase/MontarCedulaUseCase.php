@@ -85,7 +85,11 @@ final class MontarCedulaUseCase
         $presencas = $this->participacoes->contarPorPauta($unidade->getAssembleia());
         $pautas = [];
         foreach ($unidade->getAssembleia()->getPautas() as $pauta) {
-            if (self::encerrada($pauta)) { $this->pautas->relerContadores($pauta); }
+            if ($pauta->retirada()) {
+                // Retirada da ordem do dia: some da cédula.
+                continue;
+            }
+            if (self::apurada($pauta)) { $this->pautas->relerContadores($pauta); }
             $pautas[] = new PautaNaCedulaOutput(
                 id: (int) $pauta->getId(),
                 titulo: $pauta->getTitulo(),
@@ -94,10 +98,12 @@ final class MontarCedulaUseCase
                 votouEm: $votouEm[(int) $pauta->getId()] ?? null,
                 segundosAtePrazo: self::segundosAtePrazo($pauta, $agora),
                 opcoes: $pauta->aceitaVotoEm($agora) ? self::opcoes($pauta) : [],
-                resultado: self::encerrada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
+                resultado: self::apurada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
                 vagas: $pauta->getVagas(),
                 digitos: $pauta->getDigitos(),
                 tipo: $pauta->getTipo(),
+                suspensa: $pauta->suspensa(),
+                cancelada: $pauta->cancelada(),
                 comprovante: isset($votouEm[(int) $pauta->getId()]) ? $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm[(int) $pauta->getId()]) : null,
             );
         }
@@ -149,8 +155,9 @@ final class MontarCedulaUseCase
         return max(0, $prazo->getTimestamp() - $agora->getTimestamp());
     }
 
-    private static function encerrada(PautaDaAssembleia $pauta): bool
+    /** Encerrada e não cancelada: a cancelada tem as cédulas lacradas e não é apurada. */
+    private static function apurada(PautaDaAssembleia $pauta): bool
     {
-        return EstadoDaPauta::Encerrada === $pauta->getEstado();
+        return EstadoDaPauta::Encerrada === $pauta->getEstado() && !$pauta->cancelada();
     }
 }

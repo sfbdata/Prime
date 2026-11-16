@@ -51,6 +51,15 @@ final readonly class PautaNoPainel
         public string $quorumPrimeira = '50.00',
         public ?string $quorumSegunda = '0.00',
         public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
+        public ?\DateTimeImmutable $suspensaEm = null,
+        public ?string $suspensaMotivo = null,
+        public ?string $suspensaPorNome = null,
+        public ?\DateTimeImmutable $canceladaEm = null,
+        public ?string $canceladaMotivo = null,
+        public ?string $canceladaPorNome = null,
+        public ?\DateTimeImmutable $retiradaEm = null,
+        public ?string $retiradaMotivo = null,
+        public ?string $retiradaPorNome = null,
     ) {
     }
 
@@ -65,6 +74,35 @@ final readonly class PautaNoPainel
             EstadoDaPauta::Aguardando => 'publicada',
             EstadoDaPauta::Aberta => 'aberta',
             EstadoDaPauta::Encerrada => 'encerrada',
+        };
+    }
+
+    /** Aberta e suspensa pela mesa (o chip "aberta" continua valendo; a tela soma o aviso de suspensão). */
+    public function suspensa(): bool
+    {
+        return null !== $this->suspensaEm;
+    }
+
+    /** Cancelada pela comissão: encerrada, cédulas lacradas e sem resultado. */
+    public function cancelada(): bool
+    {
+        return null !== $this->canceladaEm;
+    }
+
+    /** Retirada da ordem do dia (some de Votar, Resultados, Acompanhar e telão). */
+    public function retirada(): bool
+    {
+        return null !== $this->retiradaEm;
+    }
+
+    /** normal | suspensa | cancelada | retirada: a situação do ciclo de vida, separada do chip de `situacao()`. */
+    public function ciclo(): string
+    {
+        return match (true) {
+            $this->retirada() => 'retirada',
+            $this->cancelada() => 'cancelada',
+            $this->suspensa() => 'suspensa',
+            default => 'normal',
         };
     }
 
@@ -85,7 +123,7 @@ final readonly class PautaNoPainel
 
     public function aguardandoAMesa(): bool
     {
-        return $this->assembleiaPublicada && EstadoDaPauta::Aguardando === $this->estado;
+        return $this->assembleiaPublicada && EstadoDaPauta::Aguardando === $this->estado && !$this->retirada();
     }
 
     /** Barra do painel: quem votou sobre as unidades aptas, inteiro de 0 a 100 (como o desenho). */

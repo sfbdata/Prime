@@ -181,6 +181,39 @@ final class RegistrarVotoUseCaseTest extends TestCase
         $this->assertRecusa(RegistrarVotoUseCase::PAUTA_NAO_ABERTA, (int) $this->opcao($pauta, 1)->getId());
     }
 
+    #[TestDox('Pauta suspensa pela mesa: recusa com a mensagem da suspensão, sem gravar; depois de retomada, aceita')]
+    public function testPautaSuspensa(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+        $pauta->suspender('Queda de energia no salão', 'Mesa', $this->relogio->now());
+
+        $this->assertRecusa(RegistrarVotoUseCase::PAUTA_SUSPENSA, (int) $this->opcao($pauta, 1)->getId());
+        self::assertSame(['begin', 'rollback'], $this->passos);
+
+        $pauta->retomar('Mesa', $this->relogio->now());
+        $this->passos = [];
+        $this->caso()->executar(RegistrarVotoInput::deUma(self::TOKEN, 10, (int) $this->opcao($pauta, 1)->getId()));
+        self::assertCount(1, $this->participacoesSalvas);
+    }
+
+    #[TestDox('Pauta cancelada: recusa com "Votação cancelada pela comissão."')]
+    public function testPautaCancelada(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000');
+        $pauta->cancelar('Convocação irregular', 'Mesa', $this->relogio->now());
+
+        $this->assertRecusa(RegistrarVotoUseCase::PAUTA_CANCELADA, (int) $this->opcao($pauta, 1)->getId());
+    }
+
+    #[TestDox('Pauta retirada da ordem do dia: recusa como pauta inexistente')]
+    public function testPautaRetirada(): void
+    {
+        [, $pauta] = $this->cenario(PesoDoVoto::Fracao, '0.025000', abrir: false);
+        $pauta->retirarDePauta('Matéria adiada', 'Mesa', $this->relogio->now());
+
+        $this->assertRecusa(RegistrarVotoUseCase::PAUTA_NAO_ENCONTRADA, (int) $this->opcao($pauta, 1)->getId());
+    }
+
     #[TestDox('Prazo vencido: grava o encerramento ("Prazo definido pela mesa"), confirma a transação e recusa o voto')]
     public function testPrazoVencido(): void
     {

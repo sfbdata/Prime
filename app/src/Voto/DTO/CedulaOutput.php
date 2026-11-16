@@ -30,7 +30,7 @@ final readonly class CedulaOutput
     public function esperaAMesa(): bool
     {
         foreach ($this->pautas as $pauta) {
-            if ($pauta->aguardando() || ($pauta->aberta() && (null !== $pauta->votouEm || !$this->apta))) {
+            if ($pauta->aguardando() || $pauta->suspensa() || ($pauta->aberta() && (null !== $pauta->votouEm || !$this->apta))) {
                 return true;
             }
         }

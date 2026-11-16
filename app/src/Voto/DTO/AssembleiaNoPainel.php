@@ -28,6 +28,9 @@ final readonly class AssembleiaNoPainel
         public int $unidadesInaptas,
         public string $pesoApto,
         public array $pautas,
+        public ?\DateTimeImmutable $arquivadaEm = null,
+        public ?string $arquivadaMotivo = null,
+        public ?string $arquivadaPorNome = null,
     ) {
     }
 
@@ -43,14 +46,30 @@ final readonly class AssembleiaNoPainel
             return 'rascunho';
         }
         $encerradas = 0;
+        $naOrdemDoDia = 0;
         foreach ($this->pautas as $pauta) {
+            if ($pauta->retirada()) {
+                continue;
+            }
+            ++$naOrdemDoDia;
             if ($pauta->aberta()) {
                 return 'aberta';
             }
             $encerradas += $pauta->encerrada() ? 1 : 0;
         }
 
-        return $encerradas > 0 && $encerradas === \count($this->pautas) ? 'encerrada' : 'publicada';
+        return $encerradas > 0 && $encerradas === $naOrdemDoDia ? 'encerrada' : 'publicada';
+    }
+
+    public function arquivada(): bool
+    {
+        return null !== $this->arquivadaEm;
+    }
+
+    /** Só rascunho nunca publicado pode ser excluído. */
+    public function podeExcluir(): bool
+    {
+        return !$this->publicada() && null === $this->publicadaEm;
     }
 
     public function porFracao(): bool
@@ -62,7 +81,7 @@ final readonly class AssembleiaNoPainel
     public function temPautaQueSaiuDaEspera(): bool
     {
         foreach ($this->pautas as $pauta) {
-            if ($pauta->aberta() || $pauta->encerrada()) {
+            if (!$pauta->retirada() && ($pauta->aberta() || $pauta->encerrada())) {
                 return true;
             }
         }
@@ -70,9 +89,21 @@ final readonly class AssembleiaNoPainel
         return false;
     }
 
-    /** @return list<PautaNoPainel> */
+    /** @return list<PautaNoPainel> as encerradas COM resultado (a cancelada fica de fora: não é apurada) */
     public function pautasEncerradas(): array
     {
-        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->encerrada()));
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->encerrada() && !$p->cancelada()));
+    }
+
+    /** @return list<PautaNoPainel> as canceladas (cédulas lacradas, sem resultado) */
+    public function pautasCanceladas(): array
+    {
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->cancelada()));
+    }
+
+    /** @return list<PautaNoPainel> as retiradas da ordem do dia */
+    public function pautasRetiradas(): array
+    {
+        return array_values(array_filter($this->pautas, static fn (PautaNoPainel $p): bool => $p->retirada()));
     }
 }

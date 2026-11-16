@@ -42,6 +42,8 @@ voto:
             publicada: Publicada
             aberta: Votação aberta
             encerrada: Encerrada
+            suspensa: Suspensa
+            cancelada: Cancelada
         modalidade: Condomínio · Pautas de assembleia
         grupos: Todos os grupos
         mensagem:
@@ -50,6 +52,8 @@ voto:
             ja_votou: Você já votou nesta pauta.
             hora: 'Registrado às {hora}.'
             encerra_em: 'Encerra em {tempo}.'
+            suspensa: Votação suspensa pela mesa. Aguarde a retomada.
+            cancelada: Votação cancelada pela comissão.
         dica: 'Escolha uma opção. Para se abster, escolha ABSTENÇÃO.'
         abstencao: ABSTENÇÃO
         voto_em_branco: VOTO EM BRANCO
@@ -470,3 +474,11 @@ voto:
                 motivo_padrao: Determinação da mesa
                 ir_apuracao: Ir para a apuração
                 proxima: 'Próxima: {pauta}'
+            ciclo:
+                suspensa: Votação suspensa. Retome quando a mesa decidir.
+                retomada: Votação retomada.
+                cancelada: Votação cancelada. Os votos ficam lacrados, sem apuração.
+                retirada: Pauta retirada. Desfaça em Gestão eleitoral, Mostrar arquivadas.
+                arquivada: Votação arquivada. Use Mostrar arquivadas para vê-la.
+                desarquivada: Votação desarquivada.
+                rascunho_excluido: Rascunho excluído.

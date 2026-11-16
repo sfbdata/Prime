@@ -10,6 +10,7 @@ use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 
 /**
  * Apura uma pauta pelos contadores das opções (spec docs/specs/voto-assembleia-condominio.md, seção 1 item 9, e
@@ -44,6 +45,9 @@ final class ApuracaoDaPauta
      */
     public function apurar(PautaDaAssembleia $pauta, string $pesoApto, int $unidadesAptas, ?array $presenca = null): ResultadoDaPauta
     {
+        if ($pauta->cancelada()) {
+            throw new OperacaoInvalidaNaAssembleiaException(PautaDaAssembleia::MENSAGEM_CANCELADA_SEM_APURACAO);
+        }
         self::exigirPresencaSeVariasVagas($pauta, $presenca);
         $pesoApto = self::normalizar($pesoApto);
         [$opcoes, $pesoValido, $abstencoesPeso, $pesoPresente] = self::pesosDaPauta($pauta, $presenca);

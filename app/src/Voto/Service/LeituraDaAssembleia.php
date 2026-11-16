@@ -59,6 +59,9 @@ final class LeituraDaAssembleia
             unidadesInaptas: max(0, $assembleia->getUnidades()->count() - $totais['unidadesAptas']),
             pesoApto: $totais['pesoApto'],
             pautas: $pautas,
+            arquivadaEm: $assembleia->getArquivadaEm(),
+            arquivadaMotivo: $assembleia->getArquivadaMotivo(),
+            arquivadaPorNome: $assembleia->getArquivadaPorNome(),
         );
     }
 
@@ -96,6 +99,15 @@ final class LeituraDaAssembleia
             quorumPrimeira: $pauta->getQuorumPrimeira(),
             quorumSegunda: $pauta->getQuorumSegunda(),
             tipo: $pauta->getTipo(),
+            suspensaEm: $pauta->getSuspensaEm(),
+            suspensaMotivo: $pauta->getSuspensaMotivo(),
+            suspensaPorNome: $pauta->getSuspensaPorNome(),
+            canceladaEm: $pauta->getCanceladaEm(),
+            canceladaMotivo: $pauta->getCanceladaMotivo(),
+            canceladaPorNome: $pauta->getCanceladaPorNome(),
+            retiradaEm: $pauta->getRetiradaEm(),
+            retiradaMotivo: $pauta->getRetiradaMotivo(),
+            retiradaPorNome: $pauta->getRetiradaPorNome(),
         );
     }
 
@@ -105,7 +117,7 @@ final class LeituraDaAssembleia
      */
     private function resultado(PautaDaAssembleia $pauta, array $totais, array $contagem): ?ResultadoDaPauta
     {
-        if (EstadoDaPauta::Encerrada !== $pauta->getEstado()) {
+        if (EstadoDaPauta::Encerrada !== $pauta->getEstado() || $pauta->cancelada()) {
             return null;
         }
         $this->em->refresh($pauta);

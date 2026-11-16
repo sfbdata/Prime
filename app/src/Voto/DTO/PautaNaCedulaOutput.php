@@ -32,12 +32,26 @@ final readonly class PautaNaCedulaOutput
         public int $digitos = 1,
         public ?string $comprovante = null,
         public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
+        /** A mesa suspendeu: a pauta segue aberta, mas não aceita voto até a retomada. */
+        public bool $suspensa = false,
+        /** A comissão cancelou: encerrada, cédulas lacradas, sem resultado. */
+        public bool $cancelada = false,
     ) {
     }
 
     public function variasVagas(): bool
     {
         return $this->vagas > 1;
+    }
+
+    public function suspensa(): bool
+    {
+        return $this->suspensa;
+    }
+
+    public function cancelada(): bool
+    {
+        return $this->cancelada;
     }
 
     public function aguardando(): bool

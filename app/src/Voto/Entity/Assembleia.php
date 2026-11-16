@@ -55,6 +55,16 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $publicadaEm = null;
 
+    /** Arquivada: sai das listas (Votar, Resultados, Acompanhar, telão), mas dados e cédulas ficam, sem prazo de purga. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $arquivadaEm = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $arquivadaMotivo = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $arquivadaPorNome = null;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -118,6 +128,80 @@ class Assembleia implements TenantAware, Auditavel
             throw new OperacaoInvalidaNaAssembleiaException('Inclua ao menos uma unidade apta a votar.');
         }
         $this->exigirFracaoNasAptas($this->peso);
+    }
+
+    /**
+     * Guarda a assembleia publicada fora das listas. Só sem pauta aberta (suspensa também conta como aberta): a mesa
+     * encerra antes. Pauta encerrada já está apurada (o resultado sai no encerramento, sem guardiões), cancelada ou
+     * não. Rascunho não se arquiva: pode ser excluído. Motivo com 5 ou mais caracteres.
+     */
+    public function arquivar(string $motivo, string $por, ?\DateTimeImmutable $agora = null): void
+    {
+        if ($this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação já arquivada.');
+        }
+        if (EstadoDaAssembleia::Publicada !== $this->estado) {
+            throw new OperacaoInvalidaNaAssembleiaException('Rascunho não se arquiva: pode ser excluído.');
+        }
+        foreach ($this->pautas as $pauta) {
+            if (EstadoDaPauta::Aberta === $pauta->getEstado()) {
+                throw new OperacaoInvalidaNaAssembleiaException('Encerre a votação antes de arquivar.');
+            }
+        }
+        $motivo = trim($motivo);
+        if (mb_strlen($motivo) < PautaDaAssembleia::MOTIVO_MINIMO) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe o motivo do arquivamento.');
+        }
+        $this->arquivadaEm = $agora ?? new \DateTimeImmutable();
+        $this->arquivadaMotivo = mb_substr($motivo, 0, 200);
+        $this->arquivadaPorNome = mb_substr($por, 0, 180);
+    }
+
+    /** Volta a assembleia arquivada para as listas (quem desarquivou fica na trilha de auditoria). */
+    public function desarquivar(string $por): void
+    {
+        if (!$this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação não está arquivada.');
+        }
+        $this->arquivadaEm = null;
+        $this->arquivadaMotivo = null;
+        $this->arquivadaPorNome = null;
+    }
+
+    public function arquivada(): bool
+    {
+        return null !== $this->arquivadaEm;
+    }
+
+    /** @internal Usada pelas regras da pauta: assembleia arquivada não abre nem retira pauta. */
+    public function exigirNaoArquivada(string $mensagem): void
+    {
+        if ($this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException($mensagem);
+        }
+    }
+
+    /** Só o rascunho nunca publicado pode ser excluído; a publicada pode ser arquivada. */
+    public function exigirExclusaoPossivel(): void
+    {
+        if (EstadoDaAssembleia::Rascunho !== $this->estado || null !== $this->publicadaEm) {
+            throw new OperacaoInvalidaNaAssembleiaException('Só rascunho nunca publicado pode ser excluído. Votação publicada pode ser arquivada.');
+        }
+    }
+
+    public function getArquivadaEm(): ?\DateTimeImmutable
+    {
+        return $this->arquivadaEm;
+    }
+
+    public function getArquivadaMotivo(): ?string
+    {
+        return $this->arquivadaMotivo;
+    }
+
+    public function getArquivadaPorNome(): ?string
+    {
+        return $this->arquivadaPorNome;
     }
 
     public function podeAlterarPautas(): bool
