@@ -16,6 +16,8 @@ final readonly class LinhaDeUnidade
         public ?string $responsavel,
         public ?string $email,
         public ?string $telefone = null,
+        /** Coluna 8 (opcional): ocorrência da importação, até 80 caracteres; entra sem avaliação (N97 do desenho). */
+        public ?string $ocorrencia = null,
     ) {
     }
 

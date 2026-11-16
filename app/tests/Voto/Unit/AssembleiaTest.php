@@ -250,6 +250,70 @@ final class AssembleiaTest extends TestCase
         $assembleia->exigirUnidadesAlteraveis();
     }
 
+    #[TestDox('O hash da lista é gravado quando a 1ª pauta sai de aguardando e não muda mais, nem com a decisão do conselho')]
+    public function testHashDaListaNaTrava(): void
+    {
+        $assembleia = $this->assembleiaPronta();
+        $inapta = new UnidadeDaAssembleia($assembleia, '102', str_repeat('c', 32), str_repeat('d', 64), situacao: 'inadimplente');
+        $segunda = new PautaDaAssembleia($assembleia, 2, 'Eleição');
+        new OpcaoDaPauta($segunda, 1, 'Sim');
+        new OpcaoDaPauta($segunda, 2, 'Não');
+        $assembleia->publicar();
+        self::assertNull($assembleia->getHashDaLista(), 'antes da trava, sem hash');
+        self::assertNull($assembleia->getListaTravadaEm());
+
+        $abertura = new \DateTimeImmutable('2026-11-16 19:00:00');
+        $assembleia->getPautas()->first()->abrir('Mesa', 1, null, $abertura);
+
+        $hash = $assembleia->getHashDaLista();
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $hash);
+        self::assertSame($abertura, $assembleia->getListaTravadaEm());
+        self::assertSame($hash, Assembleia::hashDasUnidades($assembleia->getUnidades()->toArray()), 'o hash é o das unidades de agora');
+
+        $inapta->tornarAptaPeloConselho();
+        $segunda->abrir('Mesa', 1, null, new \DateTimeImmutable('2026-11-16 19:30:00'));
+
+        self::assertSame($hash, $assembleia->getHashDaLista(), 'a decisão do conselho e as aberturas seguintes não recalculam');
+        self::assertSame($abertura, $assembleia->getListaTravadaEm());
+        self::assertNotSame($hash, Assembleia::hashDasUnidades($assembleia->getUnidades()->toArray()), 'a aptidão mudou, o cálculo novo seria outro');
+    }
+
+    #[TestDox('O hash não depende da ordem das unidades e muda com a aptidão e a fração')]
+    public function testHashEstavel(): void
+    {
+        $a = new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora');
+        $u1 = new UnidadeDaAssembleia($a, '101', str_repeat('a', 32), str_repeat('b', 64), 'A', fracao: '0.5');
+        $u2 = new UnidadeDaAssembleia($a, '102', str_repeat('c', 32), str_repeat('d', 64), 'A', 'inapto', '0.5');
+
+        $x = Assembleia::hashDasUnidades([$u1, $u2]);
+
+        self::assertSame($x, Assembleia::hashDasUnidades([$u2, $u1]));
+        $u2->tornarAptaPeloConselho();
+        self::assertNotSame($x, Assembleia::hashDasUnidades([$u1, $u2]));
+    }
+
+    #[TestDox('"Alguma pauta encerrada" e "a assembleia acabou": encerrada, prazo vencido e pauta retirada')]
+    public function testEncerramentoEFim(): void
+    {
+        $assembleia = $this->assembleiaPronta();
+        $segunda = new PautaDaAssembleia($assembleia, 2, 'Eleição');
+        new OpcaoDaPauta($segunda, 1, 'Sim');
+        new OpcaoDaPauta($segunda, 2, 'Não');
+        $assembleia->publicar();
+        $agora = new \DateTimeImmutable('2026-11-16 20:00:00');
+        $primeira = $assembleia->getPautas()->first();
+        self::assertFalse($assembleia->algumaPautaEncerrada($agora));
+        self::assertFalse($assembleia->acabou($agora));
+
+        $primeira->abrir('Mesa', 1, $agora->modify('+10 minutes'), $agora);
+        self::assertFalse($assembleia->algumaPautaEncerrada($agora->modify('+9 minutes')));
+        self::assertTrue($assembleia->algumaPautaEncerrada($agora->modify('+11 minutes')), 'prazo vencido vale como encerrada');
+        self::assertFalse($assembleia->acabou($agora->modify('+11 minutes')), 'falta a segunda pauta');
+
+        $segunda->retirarDePauta('Adiada', 'Mesa', $agora);
+        self::assertTrue($assembleia->acabou($agora->modify('+11 minutes')), 'a retirada da ordem do dia não segura o fim');
+    }
+
     #[TestDox('Pautas só mudam em rascunho (exigirPautasAlteraveis)')]
     public function testPautasSoEmRascunho(): void
     {

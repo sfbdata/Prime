@@ -451,6 +451,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // relação de votantes (spec voto-equipe-e-master-1611, seção 2); no audit_log ela chegaria a todo administrador.
         // A emissão da relação já entra na trilha ("Relação de votantes emitida").
         \App\Voto\Entity\VotoNominal::class,
+        // Ocorrências e avaliações do conselho (W2-7b): o rastro é a trilha própria do Voto (`voto_ocorr` e `voto_avali` no
+        // audit_log, só com os ids da assembleia, da unidade e da ocorrência). Auditavel levaria o texto livre da ocorrência
+        // e a justificativa, ligados a uma unidade, ao audit_log lido por quem administra; a linha só acrescenta e a
+        // decisão não se refaz.
+        \App\Voto\Entity\OcorrenciaDaUnidade::class,
         // Folha emitida e aceite da folha (E16): como o comprovante, cada linha é o próprio rastro selado e só se
         // acrescenta; o ato entra na trilha do Ponto (folha_emitida, folha_assinada). Auditavel levaria nome, IP e
         // ressalva ao audit_log lido por quem administra.

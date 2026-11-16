@@ -13,6 +13,9 @@ use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Entity\OcorrenciaDaUnidade;
+use App\Voto\Enum\OrigemDaOcorrencia;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\LeitorDaListaDeUnidades;
@@ -54,6 +57,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
             $tokens,
             new ArquivoDeUnidades(),
             self::serializacao(),
+            $this->createMock(OcorrenciaDaUnidadeRepository::class),
         ))
             ->executar($tenant, 7, "101; A\n102; A; quite; ; Ana; ana@exemplo.com\n103; A; inadimplente\n; B\n102; A\n");
 
@@ -67,6 +71,37 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         self::assertSame('ana@exemplo.com', $salvas[0]->getEmail());
         self::assertSame($tokens->hash($tokens->token($salvas[0]->getSemente())), $salvas[0]->getTokenHash());
         self::assertNotSame($salvas[0]->getSemente(), $salvas[1]->getSemente());
+    }
+
+    #[TestDox('Ocorrência opcional (8ª coluna): entra com origem importação e sem avaliação, mesmo em unidade não apta, e corta em 80')]
+    public function testImportaComOcorrencia(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $ocorrencias = [];
+        $repositorio = $this->createMock(OcorrenciaDaUnidadeRepository::class);
+        $repositorio->method('salvar')->willReturnCallback(static function (OcorrenciaDaUnidade $o) use (&$ocorrencias): void {
+            $ocorrencias[(string) $o->getUnidade()->getIdentificacao()] = $o;
+        });
+
+        (new ImportarUnidadesUseCase(
+            $this->assembleias($tenant, $assembleia),
+            $this->createMock(UnidadeDaAssembleiaRepository::class),
+            new LeitorDaListaDeUnidades(),
+            new TokenDaUnidade('segredo-de-teste'),
+            new ArquivoDeUnidades(),
+            self::serializacao(),
+            $repositorio,
+        ))
+            ->executar($tenant, 7, "101;A;;;;;;Cadastro desatualizado\n102;A;inadimplente;;;;;" . str_repeat('x', 100) . "\n103;A\n");
+
+        self::assertSame(['101', '102'], array_map('strval', array_keys($ocorrencias)), 'sem a coluna, nenhuma ocorrência');
+        self::assertSame('Cadastro desatualizado', $ocorrencias['101']->getTexto());
+        self::assertSame(OrigemDaOcorrencia::Importacao, $ocorrencias['101']->getOrigem());
+        self::assertSame('Importação da lista', $ocorrencias['101']->getRegistradaPorNome());
+        self::assertNull($ocorrencias['101']->getAvaliacao());
+        self::assertNull($ocorrencias['102']->getAvaliacao(), 'a importação nunca abre avaliação, nem em unidade não apta');
+        self::assertSame(80, mb_strlen($ocorrencias['102']->getTexto()));
     }
 
     #[TestDox('Telefone opcional (7ª coluna): fica só com os dígitos; vazio ou sem dígito vira nulo')]
@@ -87,6 +122,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
             new TokenDaUnidade('segredo-de-teste'),
             new ArquivoDeUnidades(),
             self::serializacao(),
+            $this->createMock(OcorrenciaDaUnidadeRepository::class),
         ))
             ->executar($tenant, 7, "Unidade;Bloco;Situação;Fração;Responsável;E-mail;Telefone\n101;A;;;Ana;;(61) 99999-0001\n102;A;;;;;\n103;A;;;;;sem telefone\n104;A\n");
 
@@ -110,7 +146,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
             unlink($caminho);
         }
 
-        self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone'], $linha);
+        self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone', 'Ocorrência'], $linha);
     }
 
     #[TestDox('O modelo do cenário abre com o rótulo da identificação e do grupo do cenário')]
@@ -155,6 +191,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
             new TokenDaUnidade('segredo'),
             new ArquivoDeUnidades(),
             self::serializacao(),
+            $this->createMock(OcorrenciaDaUnidadeRepository::class),
         ))
             ->executar($tenant, 7, '102; A');
     }

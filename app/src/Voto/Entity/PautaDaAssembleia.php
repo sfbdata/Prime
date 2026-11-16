@@ -321,6 +321,7 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         }
         $this->exigirEstado(EstadoDaPauta::Aguardando, 'Esta pauta já foi aberta.');
         $this->exigirPrazoNoFuturo($prazoAte, $agora);
+        $this->assembleia->travarLista($agora);
         $this->quorumExigido = $this->quorumDaConvocacao($convocacao);
         $this->convocacao = $convocacao;
         $this->estado = EstadoDaPauta::Aberta;
