@@ -16,7 +16,7 @@ final readonly class PautaInput
     public const OPCOES_PADRAO = [['numero' => '1', 'rotulo' => 'Sim'], ['numero' => '2', 'rotulo' => 'Não']];
 
     /**
-     * @param list<array{numero: string, rotulo: string}> $opcoes
+     * @param list<array{numero: string, rotulo: string, descricao?: string, propostas?: string, composicao?: string, unidade?: string}> $opcoes
      */
     public function __construct(
         public string $titulo,

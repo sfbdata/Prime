@@ -7,6 +7,9 @@
         href  (link) ou
         acao  (URL de POST) com token (CSRF) e campos (mapa nome => valor, opcional): vira <form method="post">.
     Opcionais do item de formulário: confirmar_titulo, confirmar_sim, confirmar_nao (rótulos da janela).
+    Terceira forma (para o menu DENTRO de um <form>, onde outro <form> não pode ficar aninhado): item sem href nem acao,
+    com `atributos` (mapa nome => valor de atributos HTML, ex.: data-voto-numerar) vira <button type="button"> e quem
+    trata o clique é o JS da tela. `atributos` também vale no item de link e no de formulário.
     Lista vazia não desenha nada.
 #}
 {% if itens|length > 0 %}
@@ -15,16 +18,19 @@
     <div class="vKm" role="menu" hidden>
         {% for item in itens %}
             {% set classe = item.destrutivo|default(false) ? 'vKd' : '' %}
+            {% set atributos %}{% for nome, valor in item.atributos|default({}) %} {{ nome }}="{{ valor }}"{% endfor %}{% endset %}
             {% if item.acao is defined and item.acao %}
                 <form method="post" action="{{ item.acao }}"{% if item.confirmar|default(null) %} data-voto-confirmar="{{ item.confirmar }}"{% if item.confirmar_titulo is defined %} data-voto-confirmar-titulo="{{ item.confirmar_titulo }}"{% endif %}{% if item.confirmar_sim is defined %} data-voto-confirmar-sim="{{ item.confirmar_sim }}"{% endif %}{% if item.confirmar_nao is defined %} data-voto-confirmar-nao="{{ item.confirmar_nao }}"{% endif %}{% endif %}>
                     <input type="hidden" name="_token" value="{{ item.token|default('') }}">
                     {% for nome, valor in item.campos|default({}) %}
                         <input type="hidden" name="{{ nome }}" value="{{ valor }}">
                     {% endfor %}
-                    <button type="submit" role="menuitem" class="{{ classe }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
+                    <button type="submit" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
                 </form>
+            {% elseif item.href is not defined %}
+                <button type="button" role="menuitem" class="{{ classe }}"{{ atributos|raw }}><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</button>
             {% else %}
-                <a role="menuitem" class="{{ classe }}" href="{{ item.href|default('#') }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</a>
+                <a role="menuitem" class="{{ classe }}"{{ atributos|raw }} href="{{ item.href|default('#') }}"><i class="bi {{ item.icone|default('') }}"></i>{{ item.rotulo }}</a>
             {% endif %}
         {% endfor %}
     </div>

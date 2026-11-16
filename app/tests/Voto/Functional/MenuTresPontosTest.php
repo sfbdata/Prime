@@ -48,6 +48,24 @@ final class MenuTresPontosTest extends KernelTestCase
         self::assertCount(1, $menu->filter('.vKm[hidden]'), 'o menu nasce fechado');
     }
 
+    #[TestDox('Item só com atributos vira botão type=button (para o menu dentro de um <form>), sem <form> aninhado')]
+    public function testItemDeBotaoComAtributos(): void
+    {
+        $html = $this->desenhar([
+            ['rotulo' => 'Subir', 'icone' => 'bi-arrow-up', 'atributos' => ['data-voto-opcao-mover' => '-1', 'hidden' => 'hidden']],
+            ['rotulo' => 'Remover', 'icone' => 'bi-trash', 'destrutivo' => true, 'atributos' => ['data-voto-envia' => '/voto/x?a=1&b=2']],
+        ]);
+        $menu = (new Crawler($html))->filter('.vKw > .vKm');
+
+        self::assertCount(0, $menu->filter('form, a'));
+        $subir = $menu->filter('button[type="button"][role="menuitem"]')->eq(0);
+        self::assertSame('-1', $subir->attr('data-voto-opcao-mover'));
+        self::assertNotNull($subir->attr('hidden'));
+        self::assertSame('Subir', trim($subir->text()));
+        $remover = $menu->filter('button.vKd');
+        self::assertSame('/voto/x?a=1&b=2', $remover->attr('data-voto-envia'), 'o valor é escapado no HTML e volta igual');
+    }
+
     #[TestDox('Lista vazia não desenha o menu')]
     public function testListaVazia(): void
     {

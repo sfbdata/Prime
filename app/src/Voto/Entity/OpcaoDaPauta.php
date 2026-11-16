@@ -40,6 +40,22 @@ class OpcaoDaPauta implements TenantAware
     #[ORM\Column(type: 'decimal', precision: 14, scale: 6, options: ['default' => 0])]
     private string $totalPeso = '0.000000';
 
+    /** Descrição que a urna mostra abaixo do nome (uma linha). */
+    #[ORM\Column(length: 280, nullable: true)]
+    private ?string $descricao = null;
+
+    /** Propostas da candidatura (texto livre). */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $propostas = null;
+
+    /** Composição da chapa, um cargo por linha (ex.: "Presidente: Nome"). */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $composicao = null;
+
+    /** Unidade do CANDIDATO (texto livre, opcional). Nunca liga à unidade de quem vota. */
+    #[ORM\Column(length: 60, nullable: true)]
+    private ?string $unidadeCandidato = null;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: PautaDaAssembleia::class, inversedBy: 'opcoes')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -84,6 +100,42 @@ class OpcaoDaPauta implements TenantAware
     public function isAbstencao(): bool
     {
         return $this->abstencao;
+    }
+
+    /** Grava os dados da candidatura; texto vazio vira nulo e cada campo tem o seu limite. */
+    public function detalhar(?string $descricao, ?string $propostas = null, ?string $composicao = null, ?string $unidadeCandidato = null): void
+    {
+        $this->descricao = self::limpar($descricao, 280);
+        $this->propostas = self::limpar($propostas, 2000);
+        $this->composicao = self::limpar($composicao, 1000);
+        $this->unidadeCandidato = self::limpar($unidadeCandidato, 60);
+    }
+
+    public function getDescricao(): ?string
+    {
+        return $this->descricao;
+    }
+
+    public function getPropostas(): ?string
+    {
+        return $this->propostas;
+    }
+
+    public function getComposicao(): ?string
+    {
+        return $this->composicao;
+    }
+
+    public function getUnidadeCandidato(): ?string
+    {
+        return $this->unidadeCandidato;
+    }
+
+    private static function limpar(?string $texto, int $limite): ?string
+    {
+        $texto = trim(str_replace("\r\n", "\n", (string) $texto));
+
+        return '' === $texto ? null : mb_substr($texto, 0, $limite);
     }
 
     /** Unidades que escolheram esta opção (contador; ver o sigilo no cabeçalho). */

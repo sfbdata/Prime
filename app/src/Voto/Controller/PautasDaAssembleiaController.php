@@ -16,7 +16,9 @@ use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\Service\ModelosDePautas;
 use App\Voto\UseCase\AdicionarPautaUseCase;
 use App\Voto\UseCase\AplicarModeloDePautasUseCase;
+use App\Voto\UseCase\DuplicarPautaUseCase;
 use App\Voto\UseCase\EditarPautaUseCase;
+use App\Voto\UseCase\MoverPautaUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\RemoverPautaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,7 +39,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * `mensagem` (o texto do toast): 200, 422 na recusa de validação e 404 na pauta que não existe mais (a tela deixa
  * seguir sem ela) ou 403 na sessão expirada (a tela tenta de novo); o envio comum segue com o toast na sessão e o redirecionamento.
  */
-#[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
+#[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+', 'direcao' => 'cima|baixo'])]
 final class PautasDaAssembleiaController extends AbstractController
 {
     /** "Cargos e pautas frequentes" do desenho: cada um cria a pauta padrão com esse nome. */
@@ -117,6 +119,29 @@ final class PautasDaAssembleiaController extends AbstractController
         }, 'voto.assembleia.gestor.aviso.pauta_removida', ['id' => $id]);
     }
 
+    /** "Mover para cima" e "Mover para baixo" do menu da pauta (desenho 18): troca de lugar com a vizinha, só em rascunho. */
+    #[Route('/{pauta}/mover/{direcao}', name: 'voto_assembleia_pauta_mover', methods: ['POST'])]
+    public function mover(int $id, int $pauta, string $direcao, Request $request, MoverPautaUseCase $mover): Response
+    {
+        $tenant = $this->guarda->exigir();
+        $sentido = 'cima' === $direcao ? MoverPautaUseCase::PARA_CIMA : MoverPautaUseCase::PARA_BAIXO;
+
+        return $this->responder($request, $id, static function () use ($id, $mover, $pauta, $sentido, $tenant): void {
+            $mover->executar($tenant, $id, $pauta, $sentido);
+        }, 'voto.assembleia.gestor.aviso.pauta_movida', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
+    }
+
+    /** "Duplicar" do menu da pauta (desenho 18): a cópia entra logo abaixo da original, só em rascunho. */
+    #[Route('/{pauta}/duplicar', name: 'voto_assembleia_pauta_duplicar', methods: ['POST'])]
+    public function duplicar(int $id, int $pauta, Request $request, DuplicarPautaUseCase $duplicar): Response
+    {
+        $tenant = $this->guarda->exigir();
+
+        return $this->responder($request, $id, static function () use ($duplicar, $id, $pauta, $tenant): void {
+            $duplicar->executar($tenant, $id, $pauta);
+        }, 'voto.assembleia.gestor.aviso.pauta_duplicada', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
+    }
+
     /**
      * Executa a ação e responde: JSON `{ok, mensagem}` ao fetch da tela (200, 422, 404 ou 403, sem aviso na sessão) ou o
      * toast na sessão e o redirecionamento para as pautas.
@@ -167,9 +192,15 @@ final class PautasDaAssembleiaController extends AbstractController
     {
         $numeros = $request->request->all('opcao_numero');
         $rotulos = $request->request->all('opcao_rotulo');
+        $detalhes = ['descricao' => 'opcao_descricao', 'propostas' => 'opcao_propostas', 'composicao' => 'opcao_composicao', 'unidade' => 'opcao_unidade'];
+        $campos = array_map(static fn (string $nome): array => $request->request->all($nome), $detalhes);
         $opcoes = [];
         foreach (array_values($numeros) as $i => $numero) {
-            $opcoes[] = ['numero' => \is_string($numero) ? $numero : '', 'rotulo' => \is_string($rotulos[$i] ?? null) ? $rotulos[$i] : ''];
+            $linha = ['numero' => \is_string($numero) ? $numero : '', 'rotulo' => \is_string($rotulos[$i] ?? null) ? $rotulos[$i] : ''];
+            foreach ($campos as $chave => $valores) {
+                $linha[$chave] = \is_string($valores[$i] ?? null) ? $valores[$i] : '';
+            }
+            $opcoes[] = $linha;
         }
 
         $tipo = TipoDaPauta::tryFrom((string) $request->request->get('tipo', TipoDaPauta::Deliberacao->value)) ?? TipoDaPauta::Deliberacao;

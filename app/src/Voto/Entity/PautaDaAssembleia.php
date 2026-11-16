@@ -172,6 +172,13 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         $this->tipo = $tipo ?? $this->tipo;
     }
 
+    /** Posição da pauta na assembleia (só em rascunho): quem move ou duplica renumera a lista inteira de 1 em diante. */
+    public function reposicionar(int $ordem): void
+    {
+        $this->assembleia->exigirPautasAlteraveis();
+        $this->ordem = $ordem;
+    }
+
     /**
      * Define as regras da pauta (só em rascunho): critério, base, dígitos dos números (1 a 5), vagas (1 a 9) e quórum
      * de 0 a 100% na 1ª e, opcional, na 2ª convocação (nulo: repete o da 1ª).

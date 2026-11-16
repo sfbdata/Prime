@@ -104,8 +104,7 @@
 .voto-tela .voto-pauta-bloco { position: relative; }
 .voto-tela .voto-pauta-caixa { border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin: 0; }
 .voto-tela .voto-pauta-caixa[hidden] { display: none; }
-.voto-tela .voto-pauta-campos { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding-right: 44px; }
-.voto-tela .voto-pauta-caixa#pauta-nova .voto-pauta-campos { padding-right: 0; }
+.voto-tela .voto-pauta-campos { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .voto-tela .voto-pauta-titulo { flex: 1 1 220px; }
 .voto-tela .voto-pauta-tipo { flex: 0 1 230px; }
 .voto-tela .voto-pauta-regra { flex: 1 1 230px; }
@@ -120,9 +119,13 @@
 .voto-tela .vDet > summary:hover { color: #3b8fc2; }
 .voto-tela .vDet[open] > summary { margin-bottom: 8px; }
 .voto-tela .voto-pauta-detalhe { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-.voto-tela .voto-pauta-remover { position: absolute; top: 12px; right: 12px; margin: 0; }
 .voto-tela .voto-opcoes { display: flex; flex-direction: column; gap: 10px; }
-.voto-tela .voto-opcao { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 7px; padding: 9px; background: #f7f9fb; }
+/* Linha de candidatura (.vCandR, L93 do desenho): Nº e nome numa grade, o menu à direita; a foto da etapa seguinte entra antes. */
+.voto-tela .voto-opcao { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 10px; background: #f7f9fb; }
+.voto-tela .voto-opcao .vCandF { flex: 1 1 280px; min-width: 0; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 7px; }
+.voto-tela .voto-opcao .voto-opcao-largura { grid-column: 1 / -1; }
+.voto-tela .voto-opcao-detalhes { display: flex; flex-direction: column; gap: 7px; }
+@media (max-width: 560px) { .voto-tela .voto-opcao .vCandF { order: 3; flex-basis: 100%; } .voto-tela .voto-opcao > .vKw { margin-left: auto; } }
 .voto-tela .voto-pauta-salvar { display: flex; justify-content: flex-end; }
 
 /* Etapa 5: lista de unidades (L223) e links */

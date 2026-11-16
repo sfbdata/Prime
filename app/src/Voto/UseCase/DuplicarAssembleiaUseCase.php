@@ -81,7 +81,8 @@ final class DuplicarAssembleiaUseCase
             null === $segunda ? null : (int) $segunda,
         );
         foreach ($origem->getOpcoes() as $opcao) {
-            new OpcaoDaPauta($pauta, $opcao->getNumero(), $opcao->getRotulo(), $opcao->isAbstencao());
+            (new OpcaoDaPauta($pauta, $opcao->getNumero(), $opcao->getRotulo(), $opcao->isAbstencao()))
+                ->detalhar($opcao->getDescricao(), $opcao->getPropostas(), $opcao->getComposicao(), $opcao->getUnidadeCandidato());
         }
     }
 

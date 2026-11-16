@@ -19,7 +19,7 @@ final readonly class PautaNoPainel
     public const CORES = ['rascunho' => '#5b7383', 'publicada' => '#0a6fa0', 'aberta' => '#1e7b45', 'encerrada' => '#8a6200'];
 
     /**
-     * @param list<array{numero: int, rotulo: string}> $opcoes só as opções de voto, sem a abstenção
+     * @param list<array{numero: int, rotulo: string, descricao?: ?string, propostas?: ?string, composicao?: ?string, unidade?: ?string}> $opcoes só as opções de voto, sem a abstenção
      * @param string                                   $pesoVotante soma do peso de quem votou, 6 casas
      * @param string                                   $pesoApto    soma do peso apto da assembleia, 6 casas
      */

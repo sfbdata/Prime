@@ -6,7 +6,15 @@
     acrescenta uma linha) e "Salvar". A abstenção não aparece aqui: entra sozinha.
     O "Nº" só aceita algarismo (o JS tira o resto, como os campos numéricos do desenho). O "Salvar" de uma pauta que já
     existe grava sem recarregar; `data-voto-pauta-form` marca a caixa para o JS gravar as alteradas antes de sair.
-    Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel ou null para a nova), `opcoes`, `token`.
+    Menu de três pontos (desenho L263, componente _menu_tres_pontos) na linha de cima, no fim, e um por candidatura: ficam
+    DENTRO do <form> da pauta, então os itens são botões tratados pelo JS (public/js/voto-assembleia.js). Cargo:
+    Numerar em sequência (cliente), Duplicar, Mover para cima/baixo e Remover (envio por POST com CSRF, em rascunho);
+    a pauta nova ainda não gravada só tem o Numerar. Candidatura: Subir/Descer (cliente: trocam a linha de lugar e os
+    Nº, porque a ordem gravada é a do número) e Remover; "Remover foto" vem na etapa da foto. Cada linha de
+    candidatura (.vCandR, desenho L93) leva Nº, nome, unidade do candidato (só eleição de pessoas) e o <details>
+    recolhido com descrição, propostas e composição da chapa (pauta: só a descrição). A foto entra antes de `.vCandF`.
+    Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel ou null para a nova), `opcoes`, `token`, `eh_primeira`/`eh_ultima`
+    (posição da pauta na lista, para esconder o Mover que não cabe).
 #}
 {% set digitos = p.digitos ?? 1 %}
 {% set tipo = p.tipo.value ?? 'deliberacao' %}
@@ -24,6 +32,17 @@
 {% set bs = {} %}
 {% for chave in ['validos', 'presentes', 'aptos'] %}{% set bs = bs|merge({(chave): ('voto.assembleia.gestor.pautas_regra.base_' ~ chave)|trans}) %}{% endfor %}
 {% set eleicao = tipo == 'eleicao_cargo' %}
+{% set itensDoCargo = [{rotulo: 'voto.assembleia.gestor.pautas.menu_numerar'|trans, icone: 'bi-123', atributos: {'data-voto-numerar': '', title: 'voto.assembleia.gestor.pautas.numerar_titulo'|trans}}] %}
+{% if p is not null %}
+    {% set itensDoCargo = itensDoCargo|merge([{rotulo: 'voto.assembleia.gestor.pautas.menu_duplicar'|trans, icone: 'bi-copy', atributos: {'data-voto-envia': path('voto_assembleia_pauta_duplicar', {id: a.id, pauta: p.id}), 'data-voto-token': token}}]) %}
+    {% if not (eh_primeira ?? true) %}
+        {% set itensDoCargo = itensDoCargo|merge([{rotulo: 'voto.assembleia.gestor.pautas.menu_para_cima'|trans, icone: 'bi-arrow-up', atributos: {'data-voto-envia': path('voto_assembleia_pauta_mover', {id: a.id, pauta: p.id, direcao: 'cima'}), 'data-voto-token': token}}]) %}
+    {% endif %}
+    {% if not (eh_ultima ?? true) %}
+        {% set itensDoCargo = itensDoCargo|merge([{rotulo: 'voto.assembleia.gestor.pautas.menu_para_baixo'|trans, icone: 'bi-arrow-down', atributos: {'data-voto-envia': path('voto_assembleia_pauta_mover', {id: a.id, pauta: p.id, direcao: 'baixo'}), 'data-voto-token': token}}]) %}
+    {% endif %}
+    {% set itensDoCargo = itensDoCargo|merge([{rotulo: (eleicao ? 'voto.assembleia.gestor.pautas.menu_remover_cargo' : 'voto.assembleia.gestor.pautas.menu_remover_pauta')|trans, icone: 'bi-trash', destrutivo: true, atributos: {'data-voto-envia': path('voto_assembleia_pauta_remover', {id: a.id, pauta: p.id}), 'data-voto-token': token, 'data-voto-descarta': '', 'data-voto-rotulo-pessoa': 'voto.assembleia.gestor.pautas.menu_remover_cargo'|trans, 'data-voto-rotulo-pauta': 'voto.assembleia.gestor.pautas.menu_remover_pauta'|trans}}]) %}
+{% endif %}
 {% set resumoDaRegra = rg[criterio] ~ ' ' ~ 'voto.assembleia.gestor.pautas_regra.sobre'|trans ~ ' ' ~ bs[base] ~ ((primeira + 0) > 0 ? ', ' ~ 'voto.assembleia.gestor.pautas_regra.quorum'|trans ~ ' ' ~ (primeira + 0) ~ '%' : '') ~ ', ' ~ digitos ~ ' ' ~ 'voto.assembleia.gestor.pautas_regra.digitos'|trans %}
 <form method="post" class="voto-pauta-caixa" id="{{ p is null ? 'pauta-nova' : 'pauta-' ~ p.id }}" data-voto-pauta-form="{{ p is null ? 'nova' : 'existente' }}"
       action="{{ p is null ? path('voto_assembleia_pauta_criar', {id: a.id}) : path('voto_assembleia_pauta_editar', {id: a.id, pauta: p.id}) }}"
@@ -39,7 +58,7 @@
             {% for chave in ['', 'simples', 'absoluta', 'dois', 'unanime'] %}<option value="{{ chave }}"{% if preset == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.preset_' ~ (chave ?: 'personalizada'))|trans }}</option>{% endfor %}
         </select></label>
         <label class="vL voto-pauta-vagas">{{ 'voto.assembleia.gestor.pautas.vagas'|trans }}<input class="vF" name="vagas" inputmode="numeric" data-voto-limite="vagas" value="{{ p.vagas ?? 1 }}"></label>
-        <button type="button" class="vB" data-voto-numerar title="{{ 'voto.assembleia.gestor.pautas.numerar_titulo'|trans }}"><i class="bi bi-123"></i>{{ 'voto.assembleia.gestor.pautas.numerar'|trans }}</button>
+        {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itensDoCargo} only %}
     </div>
     <details class="vDet" data-voto-regra-detalhada data-voto-regra-modelo="{{ 'voto.assembleia.gestor.pautas_regra.resumo'|trans({texto: '{texto}'}) }}"
             data-voto-regra-textos="{{ {
@@ -67,10 +86,26 @@
     <label class="vL">{{ 'voto.assembleia.gestor.pautas.descricao'|trans }}<textarea class="vF" name="descricao">{{ p.descricao ?? '' }}</textarea></label>
     <div class="voto-opcoes" data-voto-opcoes>
         {% for o in opcoes %}
-            <div class="voto-opcao" data-voto-opcao>
-                <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="{{ digitos }}" data-voto-numero value="{{ ('00000' ~ o.numero)|slice(-digitos) }}">
-                <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ (eleicao ? 'voto.assembleia.gestor.pautas.nome_ph_pessoa' : 'voto.assembleia.gestor.pautas.nome_ph_pauta')|trans }}" data-voto-nome-candidatura data-voto-ph-pessoa="{{ 'voto.assembleia.gestor.pautas.nome_ph_pessoa'|trans }}" data-voto-ph-pauta="{{ 'voto.assembleia.gestor.pautas.nome_ph_pauta'|trans }}" maxlength="120" value="{{ o.rotulo }}">
-                <button type="button" class="vB vD" data-voto-opcao-remover aria-label="{{ 'voto.assembleia.gestor.pautas.remover_opcao'|trans }}"><i class="bi bi-trash"></i></button>
+            {% set itensDaCandidatura = [
+                {rotulo: 'voto.assembleia.gestor.pautas.menu_subir'|trans, icone: 'bi-arrow-up', atributos: loop.first ? {'data-voto-opcao-mover': '-1', hidden: 'hidden'} : {'data-voto-opcao-mover': '-1'}},
+                {rotulo: 'voto.assembleia.gestor.pautas.menu_descer'|trans, icone: 'bi-arrow-down', atributos: loop.last ? {'data-voto-opcao-mover': '1', hidden: 'hidden'} : {'data-voto-opcao-mover': '1'}},
+                {rotulo: (eleicao ? 'voto.assembleia.gestor.pautas.menu_remover_candidatura' : 'voto.assembleia.gestor.pautas.menu_remover_opcao')|trans, icone: 'bi-trash', destrutivo: true, atributos: {'data-voto-opcao-remover': '', 'data-voto-rotulo-pessoa': 'voto.assembleia.gestor.pautas.menu_remover_candidatura'|trans, 'data-voto-rotulo-pauta': 'voto.assembleia.gestor.pautas.menu_remover_opcao'|trans}},
+            ] %}
+            <div class="voto-opcao vCandR" data-voto-opcao>
+                <div class="vCandF">
+                    <input class="vF voto-opcao-num" name="opcao_numero[]" aria-label="{{ 'voto.assembleia.gestor.pautas.numero'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.numero_ph'|trans }}" inputmode="numeric" maxlength="{{ digitos }}" data-voto-numero value="{{ ('00000' ~ o.numero)|slice(-digitos) }}">
+                    <input class="vF" name="opcao_rotulo[]" aria-label="{{ 'voto.assembleia.gestor.pautas.nome'|trans }}" placeholder="{{ (eleicao ? 'voto.assembleia.gestor.pautas.nome_ph_pessoa' : 'voto.assembleia.gestor.pautas.nome_ph_pauta')|trans }}" data-voto-nome-candidatura data-voto-ph-pessoa="{{ 'voto.assembleia.gestor.pautas.nome_ph_pessoa'|trans }}" data-voto-ph-pauta="{{ 'voto.assembleia.gestor.pautas.nome_ph_pauta'|trans }}" maxlength="120" value="{{ o.rotulo }}">
+                    <input class="vF voto-opcao-largura" name="opcao_unidade[]" aria-label="{{ 'voto.assembleia.gestor.pautas.unidade'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.unidade_ph'|trans }}" maxlength="60" data-voto-so-pessoa{% if not eleicao %} hidden{% endif %} value="{{ o.unidade ?? '' }}">
+                    <details class="vDet voto-opcao-largura">
+                        <summary data-voto-detalhe-pessoa="{{ 'voto.assembleia.gestor.pautas.detalhe_pessoa'|trans }}" data-voto-detalhe-pauta="{{ 'voto.assembleia.gestor.pautas.detalhe_opcao'|trans }}">{{ (eleicao ? 'voto.assembleia.gestor.pautas.detalhe_pessoa' : 'voto.assembleia.gestor.pautas.detalhe_opcao')|trans }}</summary>
+                        <div class="voto-opcao-detalhes">
+                            <input class="vF" name="opcao_descricao[]" aria-label="{{ 'voto.assembleia.gestor.pautas.descricao_candidatura'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.descricao_candidatura_ph'|trans }}" maxlength="280" value="{{ o.descricao ?? '' }}">
+                            <textarea class="vF" name="opcao_propostas[]" aria-label="{{ 'voto.assembleia.gestor.pautas.propostas'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.propostas'|trans }}" maxlength="2000" data-voto-so-pessoa{% if not eleicao %} hidden{% endif %}>{{ o.propostas ?? '' }}</textarea>
+                            <textarea class="vF" name="opcao_composicao[]" aria-label="{{ 'voto.assembleia.gestor.pautas.composicao'|trans }}" placeholder="{{ 'voto.assembleia.gestor.pautas.composicao_ph'|trans }}" maxlength="1000" data-voto-so-pessoa{% if not eleicao %} hidden{% endif %}>{{ o.composicao ?? '' }}</textarea>
+                        </div>
+                    </details>
+                </div>
+                {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itensDaCandidatura} only %}
             </div>
         {% endfor %}
     </div>

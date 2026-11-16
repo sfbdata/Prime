@@ -164,7 +164,7 @@
             }
             while (linhas.length < 2 && linhas.length > 0) {
                 var copia = linhas[0].cloneNode(true);
-                Array.prototype.forEach.call(copia.querySelectorAll('input'), function (campo) { campo.value = ''; });
+                limparLinha(copia);
                 lista.appendChild(copia);
                 linhas = form.querySelectorAll('[data-voto-opcao]');
             }
@@ -194,6 +194,16 @@
         if (dica) {
             dica.hidden = !eleitoral;
         }
+        /* Unidade, propostas e composição só na eleição de pessoas; rótulos do menu e do <details> seguem o tipo. */
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-so-pessoa]'), function (campo) { campo.hidden = !eleitoral; });
+        Array.prototype.forEach.call(form.querySelectorAll('[data-voto-detalhe-pessoa]'), function (resumo) {
+            resumo.textContent = resumo.getAttribute(eleitoral ? 'data-voto-detalhe-pessoa' : 'data-voto-detalhe-pauta') || '';
+        });
+        Array.prototype.forEach.call(form.querySelectorAll('.vKm [data-voto-rotulo-pessoa]'), function (item) {
+            if (item.lastChild) {
+                item.lastChild.textContent = item.getAttribute(eleitoral ? 'data-voto-rotulo-pessoa' : 'data-voto-rotulo-pauta') || '';
+            }
+        });
         atualizarResumoDaRegra(form);
     }
 
@@ -236,10 +246,11 @@
             return;
         }
         var linha = modelo.cloneNode(true);
-        Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
+        limparLinha(linha);
         linha.querySelector('[data-voto-numero]').value = proximoNumero(form);
         lista.appendChild(linha);
         atualizarTipoDaPauta(form, false);
+        atualizarMenusDasOpcoes(form);
         linha.querySelector('input').focus();
     }
 
@@ -252,10 +263,71 @@
         if (lista.querySelectorAll('[data-voto-opcao]').length > 1) {
             lista.removeChild(linha);
             atualizarTipoDaPauta(botao.closest('form'), false);
+            atualizarMenusDasOpcoes(botao.closest('form'));
             return;
         }
-        Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
+        limparLinha(linha);
         atualizarTipoDaPauta(botao.closest('form'), false);
+    }
+
+    /* Linha em branco: campos vazios (inclusive os textos do <details> da candidatura) e o <details> recolhido. */
+    function limparLinha(linha) {
+        Array.prototype.forEach.call(linha.querySelectorAll('input, textarea'), function (campo) { campo.value = ''; });
+        Array.prototype.forEach.call(linha.querySelectorAll('details'), function (detalhes) { detalhes.open = false; });
+    }
+
+    /* Subir e Descer escondem na ponta da lista (no desenho o item nem existe ali). */
+    function atualizarMenusDasOpcoes(form) {
+        var linhas = form ? form.querySelectorAll('[data-voto-opcao]') : [];
+        Array.prototype.forEach.call(linhas, function (linha, i) {
+            var subir = linha.querySelector('[data-voto-opcao-mover="-1"]');
+            var descer = linha.querySelector('[data-voto-opcao-mover="1"]');
+            if (subir) { subir.hidden = i === 0; }
+            if (descer) { descer.hidden = i === linhas.length - 1; }
+        });
+    }
+
+    /* Subir/Descer a candidatura: a linha troca de lugar com a vizinha e os Nº trocam junto (a ordem gravada é a do
+       número, então o Nº fica com a posição e não com a pessoa). Só no formulário: vale ao salvar. */
+    function moverOpcao(botao) {
+        var linha = botao.closest('[data-voto-opcao]');
+        var vizinha = linha ? (Number(botao.getAttribute('data-voto-opcao-mover')) < 0 ? linha.previousElementSibling : linha.nextElementSibling) : null;
+        if (!vizinha || !vizinha.hasAttribute('data-voto-opcao')) {
+            return;
+        }
+        var meu = linha.querySelector('[data-voto-numero]');
+        var dela = vizinha.querySelector('[data-voto-numero]');
+        var troca = meu.value;
+        meu.value = dela.value;
+        dela.value = troca;
+        if (vizinha === linha.previousElementSibling) {
+            linha.parentNode.insertBefore(linha, vizinha);
+        } else {
+            linha.parentNode.insertBefore(vizinha, linha);
+        }
+        atualizarMenusDasOpcoes(linha.closest('form'));
+    }
+
+    /* Duplicar, Mover e Remover o cargo (menu da pauta, dentro do <form> dela): POST com CSRF por um formulário avulso.
+       Só o Remover ("data-voto-descarta") fica dentro do bloco da pauta, para o envio não gravar antes a pauta que vai
+       sair; nos outros, as pautas alteradas (a própria inclusive) são gravadas antes pelo "submit" abaixo. */
+    function enviarPelaPauta(botao) {
+        var bloco = botao.closest('.voto-pauta-bloco');
+        var destino = botao.hasAttribute('data-voto-descarta') && bloco ? bloco : telaDePautas;
+        if (!destino || gravando || saindo) {
+            return;
+        }
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = botao.getAttribute('data-voto-envia');
+        form.hidden = true;
+        var token = document.createElement('input');
+        token.type = 'hidden';
+        token.name = '_token';
+        token.value = botao.getAttribute('data-voto-token') || '';
+        form.appendChild(token);
+        destino.appendChild(form);
+        form.requestSubmit();
     }
 
     /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda.
@@ -634,7 +706,7 @@
     });
 
     document.addEventListener('click', function (evento) {
-        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
+        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-opcao-mover], [data-voto-envia], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
         if (!alvo) {
             return;
         }
@@ -646,6 +718,10 @@
             novaOpcao(alvo);
         } else if (alvo.hasAttribute('data-voto-opcao-remover')) {
             removerOpcao(alvo);
+        } else if (alvo.hasAttribute('data-voto-opcao-mover')) {
+            moverOpcao(alvo);
+        } else if (alvo.hasAttribute('data-voto-envia')) {
+            enviarPelaPauta(alvo);
         } else if (alvo.hasAttribute('data-voto-mostrar')) {
             var caixa = document.getElementById(alvo.getAttribute('data-voto-mostrar'));
             if (caixa) {
@@ -675,6 +751,7 @@
                 form.setAttribute('data-voto-retrato', retrato(form, true));
                 atualizarLimites(form);
                 atualizarTipoDaPauta(form, false);
+                atualizarMenusDasOpcoes(form);
             });
             var aviso = avisoGuardado();
             if (aviso) {

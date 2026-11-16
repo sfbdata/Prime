@@ -54,7 +54,7 @@ final class EditarPautaUseCase
         $this->pautas->salvar($pauta, flush: true);
     }
 
-    /** @param list<array{numero: int, rotulo: string}> $novas */
+    /** @param list<array{numero: int, rotulo: string, descricao: ?string, propostas: ?string, composicao: ?string, unidade: ?string}> $novas */
     private function trocarOpcoes(PautaDaAssembleia $pauta, array $novas): void
     {
         foreach ($pauta->getOpcoesDeVoto() as $antiga) {
@@ -62,7 +62,7 @@ final class EditarPautaUseCase
             $this->opcoes->remover($antiga);
         }
         foreach ($novas as $opcao) {
-            new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']);
+            (new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']))->detalhar($opcao['descricao'], $opcao['propostas'], $opcao['composicao'], $opcao['unidade']);
         }
     }
 }

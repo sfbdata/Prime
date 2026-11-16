@@ -5,7 +5,7 @@
     'use strict';
 
     function menus() { return document.querySelectorAll('[data-voto-menu]'); }
-    function itens(menu) { return Array.prototype.slice.call(menu.querySelectorAll('.vKm a, .vKm button')); }
+    function itens(menu) { return Array.prototype.slice.call(menu.querySelectorAll('.vKm a:not([hidden]), .vKm button:not([hidden])')); }
 
     function fechar(menu, devolverFoco) {
         var caixa = menu.querySelector('.vKm');
@@ -69,6 +69,12 @@
         if (botao) {
             var menu = botao.closest('[data-voto-menu]');
             if (menu.querySelector('.vKm').hidden) { abrir(menu); } else { fechar(menu, true); }
+            return;
+        }
+        /* Item de botão (ação do JS da tela, fora de <form>): faz a ação e o menu fecha. */
+        var acao = ev.target.closest('.vKm button[type="button"]');
+        if (acao) {
+            fechar(acao.closest('[data-voto-menu]'), false);
             return;
         }
         fecharTodos(ev.target.closest('[data-voto-menu]'));

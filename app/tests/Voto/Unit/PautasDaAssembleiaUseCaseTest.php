@@ -174,6 +174,32 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, PautaInput::padrao('Outra'));
     }
 
+    #[TestDox('Editar eleição de pessoas grava descrição, propostas, composição e unidade do candidato em cada opção')]
+    public function testEditarGravaDadosDaCandidatura(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $pauta = new PautaDaAssembleia($assembleia, 1, 'Síndico(a)', null, TipoDaPauta::EleicaoDeCargo);
+        $assembleias = $this->createMock(AssembleiaRepository::class);
+        $assembleias->method('buscarDoEscritorio')->willReturn($assembleia);
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->method('buscarDaAssembleia')->willReturn($pauta);
+        $opcoes = $this->createMock(OpcaoDaPautaRepository::class);
+
+        (new EditarPautaUseCase($assembleias, $pautas, $opcoes, new OpcoesDaPauta(), self::serializacao()))->executar($tenant, 7, 9, new PautaInput(
+            'Síndico(a)', null, [
+                ['numero' => '1', 'rotulo' => 'Ana', 'descricao' => 'Moradora do 101', 'propostas' => 'Mais jardim', 'composicao' => "Presidente: Ana\nVice: Bia", 'unidade' => '101'],
+                ['numero' => '2', 'rotulo' => 'Caio'],
+            ],
+            null,
+            TipoDaPauta::EleicaoDeCargo,
+        ));
+
+        [$ana, $caio] = $pauta->getOpcoesDeVoto();
+        self::assertSame(['Moradora do 101', 'Mais jardim', "Presidente: Ana\nVice: Bia", '101'], [$ana->getDescricao(), $ana->getPropostas(), $ana->getComposicao(), $ana->getUnidadeCandidato()]);
+        self::assertSame([null, null, null, null], [$caio->getDescricao(), $caio->getPropostas(), $caio->getComposicao(), $caio->getUnidadeCandidato()]);
+    }
+
     #[TestDox('Incluir com regras: grava critério, base, vagas, quórum e aceita números do tamanho dos dígitos')]
     public function testIncluiComRegras(): void
     {

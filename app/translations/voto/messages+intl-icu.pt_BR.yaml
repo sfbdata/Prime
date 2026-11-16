@@ -234,6 +234,25 @@ voto:
                 remover_pauta: Remover cargo
                 salvar: Salvar
                 outra: Outro cargo ou pauta
+                menu_numerar: Numerar em sequência
+                menu_duplicar: Duplicar
+                menu_para_cima: Mover para cima
+                menu_para_baixo: Mover para baixo
+                menu_remover_cargo: Remover cargo
+                menu_remover_pauta: Remover pauta
+                menu_subir: Subir
+                menu_descer: Descer
+                menu_remover_candidatura: Remover candidatura
+                menu_remover_opcao: Remover opção
+                detalhe_pessoa: Descrição, propostas e composição da chapa
+                detalhe_opcao: Descrição da opção
+                descricao_candidatura_ph: Descrição (aparece na urna abaixo do nome)
+                descricao_candidatura: Descrição
+                propostas: Propostas
+                composicao_ph: 'Composição da chapa (um cargo por linha, ex.: Presidente: Nome)'
+                composicao: Composição
+                unidade_ph: 'Unidade do candidato (opcional, confere com a lista)'
+                unidade: Unidade do candidato
             # Regra detalhada recolhida e modelos prontos do passo Cargos e pautas (desenho 18, L262-264).
             pautas_regra:
                 resumo: 'Regra detalhada: {texto}'
@@ -302,6 +321,8 @@ voto:
                 pauta_incluida: Pauta incluída.
                 pauta_salva: Pauta salva.
                 pauta_removida: Pauta removida.
+                pauta_movida: Pauta movida.
+                pauta_duplicada: Pauta duplicada.
                 pauta_nao_encontrada: Esta pauta não existe mais. Recarregue a página.
                 unidade_removida: Unidade removida.
                 novo_link: Novo link gerado. O anterior deixou de valer.

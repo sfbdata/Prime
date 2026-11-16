@@ -59,7 +59,7 @@ final class AdicionarPautaUseCase
         $pauta = new PautaDaAssembleia($assembleia, self::proximaOrdem($assembleia), $input->titulo, $input->descricaoLimpa(), $input->tipo);
         $pauta->configurar($regras->criterio, $regras->base, $regras->digitos, $regras->vagas, $regras->quorumPrimeira, $regras->quorumSegunda);
         foreach ($opcoes as $opcao) {
-            new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']);
+            (new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']))->detalhar($opcao['descricao'], $opcao['propostas'], $opcao['composicao'], $opcao['unidade']);
         }
         new OpcaoDaPauta($pauta, 0, self::ROTULO_DA_ABSTENCAO, true);
 

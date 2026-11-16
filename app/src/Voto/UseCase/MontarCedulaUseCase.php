@@ -142,6 +142,8 @@ final class MontarCedulaUseCase
             $o->getNumero(),
             $o->getRotulo(),
             $o->isAbstencao(),
+            $o->getDescricao(),
+            $o->getComposicao(),
         ), $opcoes);
     }
 

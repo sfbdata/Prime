@@ -112,6 +112,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
             '/editar', '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
             '/pautas', '/pautas/modelo', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
             '/unidades/enviar-links', '/unidades/' . $u . '/reenviar', '/pautas/' . $p . '/remover', '/unidades/' . $u . '/remover',
+            '/pautas/' . $p . '/mover/cima', '/pautas/' . $p . '/mover/baixo', '/pautas/' . $p . '/duplicar',
         ];
         foreach ($acoes as $acao) {
             $this->client->request('POST', '/voto/assembleias/' . $a . $acao, [
@@ -502,7 +503,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-erro[data-voto-erro] + .voto-rodape'), 'logo acima do rodapé, como no desenho');
         self::assertCount(1, $caixa->filter('.voto-assistente-corpo > .voto-pauta-bloco > form#pauta-' . $pauta->getId() . '[data-voto-pauta-form="existente"]'), 'a pauta que já existe grava por fetch');
         self::assertCount(1, $caixa->filter('.voto-assistente-corpo > form#pauta-nova[data-voto-pauta-form="nova"]'), 'a pauta nova é gravada antes de sair');
-        $numeros = $caixa->filter('form[data-voto-pauta-form] .voto-opcao > input[name="opcao_numero[]"]');
+        $numeros = $caixa->filter('form[data-voto-pauta-form] .voto-opcao > .vCandF > input[name="opcao_numero[]"]');
         self::assertCount(4, $numeros, '1 Sim e 2 Não na pauta e na pauta nova');
         self::assertSame(4, $caixa->filter('input[name="opcao_numero[]"][data-voto-numero][inputmode="numeric"][maxlength="1"]')->count(), 'todo Nº só aceita um algarismo');
     }
@@ -535,7 +536,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         }
         self::assertCount(0, $tela->filter('#pauta-' . $pauta->getId() . ' > details.vDet[open]'), 'a regra detalhada vem recolhida');
         self::assertSame('Regra detalhada: dois terços sobre total de aptos, quórum 60%, 3 dígito(s)', trim($tela->filter('#pauta-' . $pauta->getId() . ' > details.vDet > summary')->text()));
-        self::assertCount(1, $linha->filter('.voto-pauta-campos > button[data-voto-numerar][title="Numerar as opções em sequência"] > .bi-123'));
+        self::assertCount(1, $linha->filter('.voto-pauta-campos > .vKw > .vKm > button[data-voto-numerar][title="Numerar as opções em sequência"] > .bi-123'));
         $form = $tela->filter('#pauta-' . $pauta->getId())->form();
         foreach (['digitos' => '3', 'vagas' => '2', 'criterio' => 'dois', 'base' => 'aptos', 'quorum_primeira' => '60', 'quorum_segunda' => ''] as $nome => $valor) {
             self::assertSame($valor, $form[$nome]->getValue(), $nome);

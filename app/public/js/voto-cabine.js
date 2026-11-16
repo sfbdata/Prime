@@ -284,6 +284,13 @@
         } else if (achou) {
             var a = el('div', 'uFade uAchou');
             a.appendChild(el('b', 'uAchouNome', achou.rotulo));
+            /* Descrição abaixo do nome e, na chapa, os 4 primeiros cargos (desenho 18, L308). */
+            if (achou.descricao) {
+                a.appendChild(el('div', 'uAchouDesc', achou.descricao));
+            }
+            if (achou.composicao) {
+                a.appendChild(el('div', 'uAchouChapa', achou.composicao.split('\n').slice(0, 4).join('\n')));
+            }
             col.appendChild(a);
         }
         linha.appendChild(col);

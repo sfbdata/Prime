@@ -23,6 +23,8 @@ use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\EventListener\CedulaSemTenantFilterListener;
 use App\Voto\Service\ComprovanteDoVoto;
 use App\Voto\UseCase\MontarCedulaUseCase;
@@ -136,6 +138,39 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
             array_map(static fn (array $o): string => $o['abstencao'] ? $o['rotulo'] : $o['numero'] . ' ' . $o['rotulo'], $dados['pautas'][0]['opcoes']),
         );
         self::assertSame([false, false, true], array_column($dados['pautas'][0]['opcoes'], 'abstencao'));
+    }
+
+    #[TestDox('Candidatura: a descrição e a composição da chapa vão nos dados da urna, que as mostra abaixo do nome')]
+    public function testDescricaoDaCandidaturaVaiParaAUrna(): void
+    {
+        $eleicao = PautaDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'ordem' => 2, 'titulo' => 'Síndico(a)', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2,
+            'estado' => EstadoDaPauta::Aberta, 'convocacao' => 1, 'quorumExigido' => '50.00', 'abertaEm' => new \DateTimeImmutable('-10 minutes'), 'abertaPorNome' => 'Mesa',
+        ])->_real();
+        $ana = OpcaoDaPautaFactory::createOne(['pauta' => $eleicao, 'numero' => 11, 'rotulo' => 'Ana Souza'])->_real();
+        $ana->detalhar('Moradora do 101', 'Mais jardim', "Presidente: Ana\nVice: Bia", '101');
+        OpcaoDaPautaFactory::createOne(['pauta' => $eleicao, 'numero' => 12, 'rotulo' => 'Caio Lima']);
+        OpcaoDaPautaFactory::new(['pauta' => $eleicao])->abstencao()->create();
+        $this->em->flush();
+
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+
+        $opcoes = null;
+        foreach ($dados['pautas'] as $pauta) {
+            if ('Síndico(a)' === $pauta['titulo']) {
+                $opcoes = $pauta['opcoes'];
+            }
+        }
+        self::assertIsArray($opcoes);
+        self::assertSame(['Moradora do 101', "Presidente: Ana\nVice: Bia"], [$opcoes[0]['descricao'], $opcoes[0]['composicao']]);
+        self::assertSame([null, null], [$opcoes[1]['descricao'], $opcoes[1]['composicao']]);
+        self::assertStringNotContainsString('Mais jardim', (string) $this->client->getResponse()->getContent(), 'as propostas não vão para a urna');
+
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/voto-cabine.js');
+        self::assertStringContainsString("el('b', 'uAchouNome', achou.rotulo)", $js);
+        self::assertMatchesRegularExpression("/uAchouNome[^\n]*\n(?:[^\n]*\n){0,2}[^\n]*uAchouDesc/", $js, 'a descrição vem logo abaixo do nome');
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/voto-cabine.css');
+        self::assertStringContainsString('.uAchouDesc { font-size:clamp(13.5px, 1.7vw, 16px); margin-top:3px; }', $css);
     }
 
     /** @return array<string, mixed> */

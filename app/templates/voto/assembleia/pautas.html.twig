@@ -2,7 +2,7 @@
 
 {#
     Pautas da assembleia. Em rascunho (desenho §2, etapa 4 "Cargos e candidaturas"): "Modelos prontos:" e atalhos "Cargos e pautas
-    frequentes:", uma caixa por pauta (_pauta_form) com "Remover cargo", "Outro cargo ou pauta" e o rodapé
+    frequentes:", uma caixa por pauta (_pauta_form, com o menu de três pontos: Numerar, Duplicar, Mover, Remover), "Outro cargo ou pauta" e o rodapé
     "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
     uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
     Contexto: `assembleia` (AssembleiaNoPainel), `atalhos`, `modelos` ("Modelos prontos"), `opcoes_padrao`, `agora`.
@@ -41,11 +41,7 @@
             <div class="voto-pauta-bloco">
                 {% set opcoesDaPauta = p.opcoes %}
                 {% if p.tipo.value == 'eleicao_cargo' and opcoesDaPauta is empty %}{% set opcoesDaPauta = opcoes_padrao_eleicao %}{% endif %}
-                {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: p, opcoes: opcoesDaPauta, opcoes_padrao_eleicao: opcoes_padrao_eleicao, token: token} only %}
-                <form method="post" action="{{ path('voto_assembleia_pauta_remover', {id: a.id, pauta: p.id}) }}" class="voto-pauta-remover">
-                    <input type="hidden" name="_token" value="{{ token }}">
-                    <button type="submit" class="vB vD" aria-label="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}" title="{{ 'voto.assembleia.gestor.pautas.remover_pauta'|trans }}"><i class="bi bi-trash"></i></button>
-                </form>
+                {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: p, opcoes: opcoesDaPauta, opcoes_padrao_eleicao: opcoes_padrao_eleicao, token: token, eh_primeira: loop.first, eh_ultima: loop.last} only %}
             </div>
         {% endfor %}
         {% include 'voto/assembleia/_pauta_form.html.twig' with {a: a, p: null, opcoes: opcoes_padrao, opcoes_padrao_eleicao: opcoes_padrao_eleicao, token: token} only %}

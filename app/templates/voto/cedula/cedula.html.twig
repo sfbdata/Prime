@@ -31,7 +31,7 @@
         {% if cedula.assembleiaPublicada and pauta.aberta() and pauta.opcoes is not empty %}
             {% set opcoes = [] %}
             {% for o in pauta.opcoes %}
-                {% set opcoes = opcoes|merge([{id: o.id, numero: o.numero, rotulo: (o.abstencao ? (pauta.tipo.value == 'eleicao_cargo' ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans : o.rotulo), abstencao: o.abstencao}]) %}
+                {% set opcoes = opcoes|merge([{id: o.id, numero: o.numero, rotulo: (o.abstencao ? (pauta.tipo.value == 'eleicao_cargo' ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans : o.rotulo), abstencao: o.abstencao, descricao: o.descricao, composicao: o.composicao}]) %}
             {% endfor %}
             {% set item = {id: pauta.id, titulo: pauta.titulo, vagas: pauta.vagas, digitos: pauta.digitos, eleicao: pauta.tipo.value == 'eleicao_cargo', opcoes: opcoes} %}
             {% set todas = todas|merge([item]) %}
