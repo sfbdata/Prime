@@ -9,6 +9,7 @@ use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Repository\ClienteDoConectorRepository;
 use App\Conector\Service\HostsDeClientePermitidos;
 use App\Conector\Service\ListaDeRedirects;
+use App\Conector\Service\RegistroDeClientes;
 use App\Conector\Service\RegistroDeClientesPorCimd;
 use App\Tests\Conector\Unit\MontaBuscaCimd;
 use Doctrine\ORM\EntityManagerInterface;
@@ -147,6 +148,12 @@ final class RegistroDeClientesPorCimdNoBancoTest extends KernelTestCase
         self::assertSame(1, $this->linhas());
         self::assertTrue($this->em->isOpen());
         $this->em->flush();
+    }
+
+    #[TestDox('Fiação: o RegistroDeClientes do container é o RegistroDeClientesPorCimd, que busca e guarda o documento CIMD')]
+    public function testContainerEntregaORegistroPorCimd(): void
+    {
+        self::assertInstanceOf(RegistroDeClientesPorCimd::class, static::getContainer()->get(RegistroDeClientes::class));
     }
 
     #[TestDox('A lista de hosts vem de CONECTOR_CIMD_HOSTS, lida em tempo de execução: trocar a variável troca a lista')]

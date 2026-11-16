@@ -44,12 +44,13 @@ final class MetadadoDoServidorDeAutorizacaoTest extends WebTestCase
         self::assertSame([], $resposta->headers->getCookies());
     }
 
-    #[TestDox('O caminho do token_endpoint é o da rota de verdade')]
-    public function testCaminhoDoTokenEDaRota(): void
+    #[TestDox('Os caminhos do authorization_endpoint e do token_endpoint são os das rotas de verdade')]
+    public function testCaminhosSaoOsDasRotas(): void
     {
         self::bootKernel();
         $router = static::getContainer()->get(RouterInterface::class);
 
+        self::assertSame(MetadadoDoServidorDeAutorizacaoController::CAMINHO_AUTORIZAR, $router->generate(ServidorDeAutorizacao::ROTA_AUTORIZAR));
         self::assertSame(MetadadoDoServidorDeAutorizacaoController::CAMINHO_TOKEN, $router->generate(ServidorDeAutorizacao::ROTA_TOKEN));
     }
 }
