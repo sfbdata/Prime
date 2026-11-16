@@ -82,6 +82,16 @@ final class MontadorDoResumoDoResultadoTest extends TestCase
         self::assertNotFalse(imagecreatefromstring($png));
     }
 
+    #[TestDox('Imagem alta demais (muitas votações) é recusada com aviso para usar o PDF')]
+    public function testImagemComMuitasPautasRecusa(): void
+    {
+        $pautas = array_map(static fn (int $i): PautaNoPainel => self::pauta($i, 'Pauta ' . $i, EstadoDaPauta::Encerrada, self::resultado('1', 'Sim', 8, 2)), range(1, 60));
+        $resumo = $this->montador()->montar(self::assembleia($pautas), self::divulgacao(), new \DateTimeImmutable(self::EMITIDO));
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        (new ImagemDoResumoDoResultado($this->tradutor()))->gerar($resumo);
+    }
+
     #[TestDox('O hash SHA-256 acompanha o conteúdo: muda com o resultado e não muda com a data de emissão')]
     public function testHashMudaComOConteudo(): void
     {

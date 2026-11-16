@@ -344,6 +344,10 @@ voto:
                 sucesso_imagem: Imagem do resultado gerada para divulgar.
                 sucesso_pdf: Resumo em PDF gerado.
                 sem_apurada: Ainda não há votação apurada para divulgar. O resumo só sai depois que uma votação é encerrada.
+                falhou: Não foi possível gerar o arquivo. Tente de novo.
+                muitas_pautas: 'Muitas votações para caber numa imagem: use o resumo em PDF.'
+                rotulo_a1: Presidência da assembleia
+                rotulo_a2: Secretaria da assembleia
                 imagem_titulo_pagina: Resultado da votação
                 pdf_titulo_pagina: Resultado da votação
                 imagem_qr: Aponte a câmera para conferir

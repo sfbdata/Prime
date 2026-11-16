@@ -43,6 +43,11 @@
     function baixar(link) {
         fetch(link.href, { credentials: 'same-origin' }).then(function (resposta) {
             var tipo = resposta.headers.get('Content-Type') || '';
+            // O servidor recusa (sem votação apurada, imagem grande demais) devolvendo ao painel com o aviso.
+            if (resposta.ok && resposta.redirected && tipo.indexOf('text/html') === 0) {
+                window.location.href = resposta.url;
+                return undefined;
+            }
             if (!resposta.ok || (tipo.indexOf('image/') !== 0 && tipo.indexOf('application/pdf') !== 0)) {
                 throw new Error('sem arquivo');
             }

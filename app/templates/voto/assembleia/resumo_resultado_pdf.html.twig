@@ -26,6 +26,9 @@
         .hash { font-family:DejaVu Sans Mono,monospace; font-size:9.5px; color:#34505f; word-break:break-all; }
         .nota { color:#34505f; margin-top:12px; line-height:1.5; }
         .base { color:#4a6373; font-size:10px; margin-top:10px; }
+        .assinaturas { margin-top:52px; }
+        .assinaturas td { width:50%; padding:0 24px; text-align:center; vertical-align:top; }
+        .assinaturas .linha { border-top:1px solid #0b3550; padding-top:5px; color:#243845; font-size:12.5px; }
     </style>
 </head>
 <body>
@@ -60,6 +63,13 @@
                 <span class="hash">SHA-256 {{ resumo.hash }}</span><br><br>
                 {{ 'voto.assembleia.gestor.relatorio.emitido_em'|trans({data: resumo.emitidoEm|date('d/m/Y H:i:s')}) }}
             </td>
+        </tr>
+    </table>
+    {# Linhas de assinatura do boletim do desenho (cenário assembleia: rot.a1 e rot.a2). #}
+    <table class="assinaturas">
+        <tr>
+            <td><div class="linha">{{ 'voto.assembleia.gestor.relatorio.rotulo_a1'|trans }}</div></td>
+            <td><div class="linha">{{ 'voto.assembleia.gestor.relatorio.rotulo_a2'|trans }}</div></td>
         </tr>
     </table>
     <p class="base">{{ 'voto.assembleia.gestor.relatorio.rodape_legal'|trans }}</p>

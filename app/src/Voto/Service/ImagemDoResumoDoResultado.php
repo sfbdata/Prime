@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Service;
 
 use App\Voto\DTO\ResumoDoResultado;
+use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use BaconQrCode\Common\ErrorCorrectionLevel;
 use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Writer;
@@ -21,6 +22,7 @@ final class ImagemDoResumoDoResultado
     private const LARGURA = 1000;
     private const MARGEM = 60;
     private const QR = 300;
+    private const ALTURA_MAXIMA = 12000;
 
     public function __construct(private readonly TranslatorInterface $tradutor)
     {
@@ -29,6 +31,10 @@ final class ImagemDoResumoDoResultado
     public function gerar(ResumoDoResultado $resumo): string
     {
         $altura = $this->desenhar(null, $resumo);
+        // 1000 x 12000 px em true color passa de 45 MB de memória: acima disso o resumo vai só em PDF.
+        if ($altura > self::ALTURA_MAXIMA) {
+            throw new OperacaoInvalidaNaAssembleiaException($this->tradutor->trans('voto.assembleia.gestor.relatorio.muitas_pautas'));
+        }
         $imagem = imagecreatetruecolor(self::LARGURA, $altura);
         if ($imagem === false) {
             throw new \RuntimeException('Não foi possível gerar a imagem do resultado.');
