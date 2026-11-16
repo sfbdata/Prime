@@ -4,6 +4,9 @@
    Incluída pelo painel.html.twig dentro de <div class="mp-voto" data-painel-aba="voto">. A grade vem por JSON quando a
    aba abre (public/js/master/voto.js); clicar na chave grava na hora, sem botão Salvar. As regras moram nos UseCases
    do domínio Voto.
+   Estatísticas de todas as votações (W2-7, bloco C): o desenho 18 (H245) manda; os componentes .vC, .vH, .vB, .vL, .vF,
+   .vKpis, .vKpi, .vLin e .vChip são os dele, copiados com o escopo .mp-voto-est em master-voto.css. A lista vem por
+   JSON (master_voto_estatisticas) e o JS a desenha; o CSV é o link do botão. Só números agregados.
    Textos no catálogo (master.voto.*; os do JS em master.js.voto.*, entregues pelo catalogo_js do painel). #}
 <link rel="stylesheet" href="{{ asset('css/master-voto.css') }}">
 <div class="mp-voto-raiz" data-mp-voto
@@ -24,6 +27,21 @@
                 </div>
                 <div data-mp-voto-linhas><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
             </div>
+        </div>
+    </section>
+
+    <section class="mp-voto-est" data-mp-voto-est
+             data-url-dados="{{ path('master_voto_estatisticas') }}"
+             data-url-csv="{{ path('master_voto_estatisticas_csv') }}"
+             aria-labelledby="mp-voto-est-titulo">
+        <div class="vC">
+            <div class="vH"><i class="bi bi-bar-chart-line"></i><span id="mp-voto-est-titulo">{{ 'master.voto.estatisticas.titulo'|trans }}</span><span class="mp-est-esp"></span><a class="vB" href="{{ path('master_voto_estatisticas_csv') }}" data-mp-est-csv><i class="bi bi-download"></i>{{ 'master.voto.estatisticas.exportar'|trans }}</a></div>
+            <div class="vLin mp-est-filtro">
+                <label class="vL mp-est-cat">{{ 'master.voto.estatisticas.categoria'|trans }}<select class="vF" data-mp-est-categoria><option value="">{{ 'master.voto.estatisticas.todas'|trans }}</option></select></label>
+                <div class="mp-est-nota">{{ 'master.voto.estatisticas.nota'|trans }}</div>
+            </div>
+            <div class="vLin"><div class="vKpis" data-mp-est-kpis></div></div>
+            <div data-mp-est-linhas><div class="vLin mp-est-vazio">{{ 'master.painel.carregando'|trans }}</div></div>
         </div>
     </section>
 </div>

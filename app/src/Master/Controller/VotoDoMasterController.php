@@ -6,8 +6,14 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Voto\DTO\EscritorioNaLiberacaoDoVotoOutput;
+use App\Voto\DTO\EstatisticaDaVotacao;
+use App\Voto\DTO\EstatisticasDoVotoOutput;
+use App\Voto\DTO\PautaNoPainel;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\EscritorioNaoEncontradoException;
+use App\Voto\Service\CsvDasEstatisticasDoVoto;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
+use App\Voto\UseCase\ObterEstatisticasDoVotoUseCase;
 use App\Voto\UseCase\ObterLiberacoesDoVotoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +38,8 @@ final class VotoDoMasterController extends AbstractController
 
     public function __construct(
         private readonly ObterLiberacoesDoVotoUseCase $liberacoes,
+        private readonly ObterEstatisticasDoVotoUseCase $estatisticas,
+        private readonly CsvDasEstatisticasDoVoto $csv,
         private readonly TranslatorInterface $tradutor,
     ) {
     }
@@ -60,6 +68,75 @@ final class VotoDoMasterController extends AbstractController
         }
 
         return $this->json($this->estado());
+    }
+
+    /**
+     * "Estatísticas de todas as votações" (W2-7, bloco C): só leitura, só números agregados, de todos os escritórios.
+     * `?categoria=` filtra por cenário (vazio = todas; valor que não existe é 422).
+     */
+    #[Route('/master/voto/estatisticas', name: 'master_voto_estatisticas', methods: ['GET'])]
+    public function estatisticasDados(Request $request): JsonResponse
+    {
+        $categoria = self::categoria($request);
+        if (false === $categoria) {
+            return $this->recusa('master.voto.recusa.categoria_invalida', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json($this->estatisticasEmJson($this->estatisticas->executar($this->master(), $categoria), $categoria));
+    }
+
+    #[Route('/master/voto/estatisticas.csv', name: 'master_voto_estatisticas_csv', methods: ['GET'])]
+    public function estatisticasCsv(Request $request): Response
+    {
+        $categoria = self::categoria($request);
+        if (false === $categoria) {
+            return $this->recusa('master.voto.recusa.categoria_invalida', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return new Response($this->csv->gerar($this->estatisticas->executar($this->master(), $categoria)), Response::HTTP_OK, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="estatisticas-votacoes.csv"',
+        ]);
+    }
+
+    /** @return CenarioDaAssembleia|null|false null = todas; false = valor inválido */
+    private static function categoria(Request $request): CenarioDaAssembleia|null|false
+    {
+        $valor = (string) $request->query->get('categoria', '');
+
+        return '' === $valor ? null : (CenarioDaAssembleia::tryFrom($valor) ?? false);
+    }
+
+    /** @return array<string, mixed> */
+    private function estatisticasEmJson(EstatisticasDoVotoOutput $e, ?CenarioDaAssembleia $categoria): array
+    {
+        return [
+            'categoria' => $categoria->value ?? '',
+            'categorias' => array_map(static fn (CenarioDaAssembleia $c): array => ['id' => $c->value, 'rotulo' => $c->rotulo()], CenarioDaAssembleia::cases()),
+            'kpis' => [
+                'votacoes' => $e->votacoes(),
+                'realizadas' => $e->realizadas(),
+                'emAndamento' => $e->emAndamento(),
+                'aptos' => $e->aptosNasRealizadas(),
+                'votantes' => $e->votantesNasRealizadas(),
+                'participacao' => $e->participacaoNasRealizadas(),
+                'quorumAtingido' => $e->quorumAtingido(),
+                'quorumExigido' => $e->comQuorumExigido(),
+            ],
+            'linhas' => array_map(fn (EstatisticaDaVotacao $l): array => [
+                'escritorio' => $l->escritorio,
+                'entidade' => $l->entidade,
+                'assembleia' => $l->assembleia,
+                'pauta' => $l->pauta,
+                'categoria' => $l->categoria,
+                'situacao' => $this->tradutor->trans('master.voto.estatisticas.situacao.' . $l->estado->value),
+                'cor' => PautaNoPainel::CORES[$l->estado->value === 'aguardando' ? 'publicada' : $l->estado->value],
+                'aptos' => $l->aptos,
+                'votantes' => $l->votantes,
+                'participacao' => $l->participacao(),
+                'quorum' => null === $l->quorum ? null : $this->tradutor->trans('master.voto.estatisticas.quorum.' . $l->quorum),
+            ], $e->linhas),
+        ];
     }
 
     /** @return array{escritorios: list<array{tenantId: int, nome: string, liberado: bool}>} */

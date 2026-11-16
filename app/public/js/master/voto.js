@@ -103,12 +103,73 @@
       .finally(() => travar(false));
   }
 
+  // Estatísticas de todas as votações (W2-7, bloco C): só leitura. Carrega com a aba e de novo ao trocar a categoria;
+  // o CSV é o link do botão, com a mesma categoria. Tudo por textContent (títulos vêm de usuários de escritório).
+  const est = raiz.querySelector('[data-mp-voto-est]');
+  const estSel = est.querySelector('[data-mp-est-categoria]');
+  const estCsv = est.querySelector('[data-mp-est-csv]');
+  const estKpis = est.querySelector('[data-mp-est-kpis]');
+  const estLinhas = est.querySelector('[data-mp-est-linhas]');
+  let estOpcoes = false;
+
+  function estKpi(rotulo, valor) {
+    const k = el('div', 'vKpi');
+    k.appendChild(el('b', '', String(valor)));
+    k.appendChild(el('span', '', rotulo));
+    return k;
+  }
+
+  function estLinha(l) {
+    const lin = el('div', 'vLin mp-est-lin');
+    const nome = el('div', 'mp-est-nome');
+    nome.appendChild(el('b', '', l.pauta));
+    nome.appendChild(el('div', 'mp-est-det', [l.escritorio, l.entidade, l.assembleia, l.categoria].filter(Boolean).join(' · ')));
+    lin.appendChild(nome);
+    const p = { n: l.votantes, m: l.aptos, pc: l.participacao };
+    lin.appendChild(el('div', 'mp-est-num', l.quorum === null
+      ? T('master.js.voto.est_numeros', p)
+      : T('master.js.voto.est_numeros_quorum', Object.assign({ quorum: l.quorum }, p))));
+    const chip = el('span', 'vChip', l.situacao);
+    chip.style.background = l.cor;
+    lin.appendChild(chip);
+    return lin;
+  }
+
+  function estDesenhar(d) {
+    if (!estOpcoes) {
+      d.categorias.forEach(c => { const o = el('option', '', c.rotulo); o.value = c.id; estSel.appendChild(o); });
+      estOpcoes = true;
+    }
+    estSel.value = d.categoria;
+    const k = d.kpis;
+    estKpis.textContent = '';
+    [['est_kpi_votacoes', k.votacoes], ['est_kpi_realizadas', k.realizadas], ['est_kpi_andamento', k.emAndamento],
+      ['est_kpi_aptos', k.aptos], ['est_kpi_votantes', k.votantes], ['est_kpi_participacao', k.participacao],
+      ['est_kpi_quorum', T('master.js.voto.est_kpi_quorum_valor', { x: k.quorumAtingido, y: k.quorumExigido })],
+    ].forEach(x => estKpis.appendChild(estKpi(T('master.js.voto.' + x[0]), x[1])));
+    estLinhas.textContent = '';
+    if (!d.linhas.length) estLinhas.appendChild(el('div', 'vLin mp-est-vazio', T('master.js.voto.est_sem')));
+    d.linhas.forEach(l => estLinhas.appendChild(estLinha(l)));
+  }
+
+  function estCarregar() {
+    const q = estSel.value ? '?categoria=' + encodeURIComponent(estSel.value) : '';
+    estCsv.href = est.dataset.urlCsv + q;
+    fetch(est.dataset.urlDados + q, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(estDesenhar)
+      .catch(() => avisar(T('master.js.voto.est_erro_carregar'), true));
+  }
+  estSel.addEventListener('change', estCarregar);
+
+  function carregarTudo() { carregar(); estCarregar(); }
+
   const aba = document.querySelector('.mp-aba[data-aba="voto"]');
-  if (aba) aba.addEventListener('click', () => { if (!carregado) carregar(); });
+  if (aba) aba.addEventListener('click', () => { if (!carregado) carregarTudo(); });
   // Já aberta pelo endereço: espera o fim da página, onde entram o catálogo e o BJ_T.
   if (/[#&]aba=voto\b/.test(location.hash)) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { if (!carregado) carregar(); });
-    else carregar();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { if (!carregado) carregarTudo(); });
+    else carregarTudo();
   }
-  window.addEventListener('hashchange', () => { if (/[#&]aba=voto\b/.test(location.hash) && !carregado) carregar(); });
+  window.addEventListener('hashchange', () => { if (/[#&]aba=voto\b/.test(location.hash) && !carregado) carregarTudo(); });
 })();

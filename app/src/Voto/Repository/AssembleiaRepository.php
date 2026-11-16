@@ -6,6 +6,7 @@ namespace App\Voto\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Voto\Entity\Assembleia;
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -55,6 +56,28 @@ class AssembleiaRepository extends ServiceEntityRepository
             ->setMaxResults($limite)
             ->getQuery()
             ->getResult();
+
+        return $assembleias;
+    }
+
+    /**
+     * Para as estatísticas do Master: as assembleias PUBLICADAS e que não são simulação, de todos os escritórios
+     * (arquivadas entram), da categoria pedida ou de todas. Sem filtro de escritório: quem chama exigiu o Master e
+     * suspendeu o TenantFilter durante toda a leitura.
+     *
+     * @return list<Assembleia>
+     */
+    public function listarParaEstatisticasDoMaster(?CenarioDaAssembleia $categoria): array
+    {
+        $consulta = $this->createQueryBuilder('a')
+            ->andWhere('a.estado = :publicada')->setParameter('publicada', EstadoDaAssembleia::Publicada)
+            ->andWhere('a.simulacao = false')
+            ->orderBy('a.criadaEm', 'DESC')->addOrderBy('a.id', 'DESC');
+        if (null !== $categoria) {
+            $consulta->andWhere('a.cenario = :categoria')->setParameter('categoria', $categoria);
+        }
+        /** @var list<Assembleia> $assembleias */
+        $assembleias = $consulta->getQuery()->getResult();
 
         return $assembleias;
     }

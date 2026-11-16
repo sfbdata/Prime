@@ -18,3 +18,30 @@
 /* A chave do .mp-rec-item na célula: só o estado e o interruptor, sem a largura do cartão de Telas e recursos. */
 .mp-voto-chave { display: inline-flex; padding: 6px 10px; gap: 10px; }
 .mp-voto-chave:disabled { opacity: .7; }
+
+/* Estatísticas de todas as votações (W2-7, bloco C). Os componentes são os do desenho 18 (BlueJus Voto, H245), copiados
+   com o escopo .mp-voto-est para não vazarem para o resto do painel. Valores do CSS do próprio desenho. */
+.mp-voto-est .vC { background: #fff; border: 1px solid #d3dde4; border-radius: 3px; box-shadow: 0 1px 3px rgba(18, 36, 47, .06); }
+.mp-voto-est .vH { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; background: #0a6fa0; color: #fff; font-size: 15.5px; font-weight: bold; }
+.mp-voto-est .mp-est-esp { flex: 1; }
+.mp-voto-est .vB { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; background: #fff; color: #0a6fa0; border: 1px solid #0a6fa0; border-radius: 3px; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; text-decoration: none; }
+.mp-voto-est .vB:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
+.mp-voto-est .vF:focus, .mp-voto-est .vB:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.mp-voto-est .vL { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: bold; color: #4a6373; min-width: 0; }
+.mp-voto-est .vF { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; background: #fff; box-sizing: border-box; width: 100%; }
+.mp-voto-est .vKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mp-voto-est .vKpi { padding: 13px 15px; background: #fff; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; }
+.mp-voto-est .vKpi b { display: block; font-size: 24px; color: #0b3550; }
+.mp-voto-est .vKpi span { font-size: 12.5px; color: #5b7383; }
+.mp-voto-est .vChip { display: inline-block; padding: 3px 9px; color: #fff; font-size: 12px; font-weight: bold; border-radius: 3px; white-space: nowrap; }
+.mp-voto-est .vLin { padding: 11px 15px; border-top: 1px solid #e6edf2; }
+.mp-voto-est .vLin:nth-child(even) { background: #f6f9fb; }
+.mp-voto-est .mp-est-filtro { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.mp-voto-est .mp-est-cat { flex: 0 1 320px; }
+.mp-voto-est .mp-est-nota { flex: 1 1 260px; font-size: 12.5px; color: #5b7383; line-height: 1.4; }
+.mp-voto-est .mp-est-vazio { font-size: 13.5px; color: #5b7383; }
+.mp-voto-est .mp-est-lin { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13.5px; }
+.mp-voto-est .mp-est-nome { flex: 1 1 280px; min-width: 0; }
+.mp-voto-est .mp-est-nome b { font-size: 14.5px; }
+.mp-voto-est .mp-est-det { font-size: 12.5px; color: #5b7383; }
+.mp-voto-est .mp-est-num { flex: 1 1 260px; color: #34505f; }
