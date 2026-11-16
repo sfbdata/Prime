@@ -2109,3 +2109,19 @@ Coordenador):**
 10. **nginx**: a `location ^~ /.well-known/oauth-` entra no `nginx/conf.d/nginx.prod.conf`, que é montado por pasta; o
     deploy (`scripts/deploy-prod.sh`) roda `nginx -t` e recarrega o nginx sozinho. Sem passo manual, salvo se o deploy
     avisar "'nginx -t' REPROVOU" (aí `docker exec jusprime_nginx_prod nginx -t` mostra o erro).
+
+**Decidido em 16/11/2026 na revisão dos blocos do PR 5 (orquestrador da frente, pela recomendação):**
+
+11. **A descrição do 401 é ASCII e fixa** no `WWW-Authenticate` (RFC 6750, 3), uma por categoria (token, autorização,
+    escritório, termos, liberação), sem nome de escritório nem de pessoa; o motivo detalhado fica só no log `mcp`.
+12. **Preflight (`OPTIONS`) recebe 204 sem passar pelo portão**: o CORS do SDK não encerra o preflight e o portão
+    responderia 503. Origem de fora continua barrada com 403 pela proteção contra DNS rebinding (CORS fechado, 8).
+13. **Rota sem sessão não toca a sessão em nenhum listener**: `ExpiracaoDaSessaoListener`,
+    `SessaoEncerradaEmTodosOsAparelhosListener` e a resolução da pasta da rota (`PastaDaRota`) saem cedo quando a rota
+    é `_stateless`. Sem isso, um cookie de sessão que chegasse ao `/mcp` abria a sessão (12.18).
+14. **Step-up de pedido sem `id`** (notificação ou lote) sai como erro JSON-RPC (`id` nulo, código -32000) com o `_meta`
+    em `error.data`; com `id`, como resultado com `_meta`. O 429 também leva um corpo JSON-RPC com mensagem fixa.
+15. **Aceitos no piloto**: campo fora do esquema da ferramenta é barrado pelo próprio SDK (erro -32602, em inglês);
+    as versões antigas do protocolo que o SDK aceita no handshake ficam aceitas, além das duas da 3.5; o mapa de
+    ferramenta para módulo do `quem_sou_eu` é aproximado até o PR 6 trazer a tabela por ação. **Smoke**: conferir se
+    algum app de I.A. manda `Origin` de servidor a servidor (a proteção contra DNS rebinding daria 403).
