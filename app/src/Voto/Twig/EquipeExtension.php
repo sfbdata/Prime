@@ -87,7 +87,7 @@ final class EquipeExtension extends AbstractExtension implements ResetInterface
         $usuario = $this->security->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
         if (!$usuario instanceof User || null === $tenant) {
-            return true;
+            return false;
         }
         $chave = $usuario->getId() . ':' . $tenant->getId();
         if ($this->chaveRelacao !== $chave || null === $this->relacao) {
@@ -95,7 +95,7 @@ final class EquipeExtension extends AbstractExtension implements ResetInterface
             $this->chaveRelacao = $chave;
         }
 
-        return $this->relacao[$assembleiaId] ?? true;
+        return $this->relacao[$assembleiaId] ?? false;
     }
 
     public function reset(): void

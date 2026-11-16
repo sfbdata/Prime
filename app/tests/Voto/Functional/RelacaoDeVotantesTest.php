@@ -76,6 +76,8 @@ final class RelacaoDeVotantesTest extends JusPrimeWebTestCase
     {
         [$assembleia, $pauta] = $this->assembleiaEncerrada(CenarioDaAssembleia::Condominio);
         $this->unidade($assembleia, 'Zélia', 'Z-1', $pauta, '2026-11-20 10:15:42');
+        $this->unidade($assembleia, 'Álvaro', 'AL-1', bloco: 'B');
+        $this->unidade($assembleia, 'Dora', 'A-1', bloco: 'B');
         $this->unidade($assembleia, 'Ana', 'A-1');
         $this->unidade($assembleia, 'Beto', 'B-1', apta: false);
         $this->unidade($assembleia, 'Carla', 'C-1', $pauta, '2026-11-20 23:59:59');
@@ -87,10 +89,12 @@ final class RelacaoDeVotantesTest extends JusPrimeWebTestCase
         self::assertSame(['Nome', 'Unidade', 'Situação'], $tabela->filter('thead th')->each(static fn (Crawler $c): string => trim($c->text())));
         $linhas = $tabela->filter('tbody tr')->each(static fn (Crawler $l): array => $l->filter('td')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertSame([
+            ['Álvaro', 'AL-1', 'Não votou'],
             ['Ana', 'A · A-1', 'Não votou'],
-            ['Beto', 'A · B-1', 'Inapto'],
-            ['Carla', 'A · C-1', 'Votou 23h às 00h'],
-            ['Zélia', 'A · Z-1', 'Votou 10h às 11h'],
+            ['Beto', 'B-1', 'Inapto'],
+            ['Carla', 'C-1', 'Votou 23h às 00h'],
+            ['Dora', 'B · A-1', 'Não votou'],
+            ['Zélia', 'Z-1', 'Votou 10h às 11h'],
         ], $linhas);
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringNotContainsString('10:15', $html, 'a hora exata não aparece');

@@ -52,16 +52,16 @@ final class AcessoAAssembleia
     /**
      * Quem vê a relação de votantes (spec voto-equipe-e-master-1611, seção 2) e a relação nominal do voto aberto:
      * Administração sempre; assembleia SEM equipe própria, quem tem o módulo (como hoje); COM equipe própria, só
-     * `comissao`, `auditoria` e `fiscal` (o `conselho` não). Como o resto da classe, é teto: o módulo a guarda já conferiu.
+     * `comissao`, `auditoria` e `fiscal` (o `conselho` não). É teto (o módulo a guarda já conferiu) e falha fechado: assembleia fora do lote ou sem id, ninguém a vê.
      */
     public function podeVerRelacao(User $pessoa, Assembleia $assembleia): bool
     {
         $id = $assembleia->getId();
         if (null === $id) {
-            return true;
+            return false;
         }
 
-        return $this->relacaoEmLote($pessoa, [$assembleia])[$id] ?? true;
+        return $this->relacaoEmLote($pessoa, [$assembleia])[$id] ?? false;
     }
 
     /**

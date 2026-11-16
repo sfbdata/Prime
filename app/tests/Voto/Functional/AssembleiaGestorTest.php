@@ -300,10 +300,10 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('Determinação da mesa', $campos['Motivo registrado'] ?? null);
         $relacao = $ata->filter('#pauta-' . $contas . ' table[data-voto-relacao] tbody tr')->each(static fn (Crawler $c): array => array_map(static fn (string $t): string => preg_replace('/ \d{2}h às \d{2}h$/', ' HHh às HHh', $t) ?? $t, $c->filter('td')->each(static fn (Crawler $d): string => trim($d->text()))));
         self::assertSame([
-            ['Ana Souza', 'A · 101', 'Votou HHh às HHh'],
-            ['Bruno Lima', 'A · 102', 'Votou HHh às HHh'],
-            ['Não informado', 'B · 103', 'Votou HHh às HHh'],
-            ['Não informado', 'B · 104', 'Inapto'],
+            ['Ana Souza', '101', 'Votou HHh às HHh'],
+            ['Bruno Lima', '102', 'Votou HHh às HHh'],
+            ['Não informado', '103', 'Votou HHh às HHh'],
+            ['Não informado', '104', 'Inapto'],
         ], $relacao);
         self::assertSame(['Presidência da assembleia', 'Secretaria da assembleia'], $ata->filter('.voto-ata-assinaturas > div')->each(static fn (Crawler $c): string => trim($c->text())));
     }
