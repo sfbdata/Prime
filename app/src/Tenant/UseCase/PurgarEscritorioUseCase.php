@@ -438,6 +438,7 @@ final class PurgarEscritorioUseCase
         // Assembleia de condomínio (spec voto-assembleia-condominio, seção 3): mesmo motivo, filhas antes das mães.
         // Voto aberto (W2-3): a relação nominal é filha da unidade, da pauta e da opção, então sai antes delas.
         ['voto.assembleia_voto_nominal', 'tenant_id = :tenant'],
+        ['voto.membro_da_equipe', 'tenant_id = :tenant'],
         ['voto.assembleia_participacao', 'tenant_id = :tenant'],
         ['voto.assembleia_opcao', 'tenant_id = :tenant'],
         ['voto.assembleia_unidade', 'tenant_id = :tenant'],

@@ -137,6 +137,35 @@ enum CenarioDaAssembleia: string
         return self::Consulta === $this ? 'consulta' : 'pauta';
     }
 
+    /**
+     * Os cargos da equipe própria da categoria (desenho: `EQ` de bj-voto-cenarios.js, C16-27), na ordem do desenho:
+     * comissão, conselho, auditoria e fiscal. Ficam de fora a Validação e o Guardião (dependem de C1 e C4). "Aplicar
+     * cargos da categoria" cria uma linha "A designar" para cada um.
+     *
+     * @return list<array{papel: PapelNaEquipe, cargo: string}>
+     */
+    public function cargosDaEquipe(): array
+    {
+        [$comissao, $conselho, $auditoria, $fiscal] = match ($this) {
+            self::Condominio => ['Presidência da assembleia', 'Conselho consultivo', 'Conselho fiscal', 'Fiscal da votação'],
+            self::Classe => ['Comissão Eleitoral', 'Conselho Eleitoral', 'Auditoria', 'Fiscal de chapa'],
+            self::Associacao => ['Presidência da assembleia', 'Conselho deliberativo', 'Conselho fiscal', 'Fiscal da votação'],
+            self::Sindicato => ['Comissão Eleitoral', 'Conselho Eleitoral', 'Conselho fiscal', 'Fiscal de chapa'],
+            self::Cooperativa => ['Presidência da assembleia', 'Conselho de administração', 'Conselho fiscal', 'Fiscal da votação'],
+            self::Sociedade => ['Presidência da reunião', 'Conselho de sócios', 'Auditoria', 'Fiscal da votação'],
+            self::Ensino => ['Comissão Eleitoral', 'Colegiado', 'Auditoria', 'Fiscal de chapa'],
+            self::Consulta => ['Responsável pela consulta', 'Comitê de avaliação', 'Auditoria', 'Fiscal'],
+            self::Livre => ['Comissão Eleitoral', 'Conselho Eleitoral', 'Auditoria', 'Fiscal'],
+        };
+
+        return [
+            ['papel' => PapelNaEquipe::Comissao, 'cargo' => $comissao],
+            ['papel' => PapelNaEquipe::Conselho, 'cargo' => $conselho],
+            ['papel' => PapelNaEquipe::Auditoria, 'cargo' => $auditoria],
+            ['papel' => PapelNaEquipe::Fiscal, 'cargo' => $fiscal],
+        ];
+    }
+
     /** Ícone Bootstrap Icons do botão da categoria (mapa `edCens` do desenho). */
     public function icone(): string
     {

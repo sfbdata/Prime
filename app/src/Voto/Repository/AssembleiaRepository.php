@@ -88,6 +88,30 @@ class AssembleiaRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
     }
 
+    /**
+     * As assembleias do escritório com estes ids, numa consulta só (id de outro escritório não vem).
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Assembleia>
+     */
+    public function doEscritorioPorIds(Tenant $tenant, array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+        /** @var list<Assembleia> $assembleias */
+        $assembleias = $this->createQueryBuilder('a')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+
+        return $assembleias;
+    }
+
     /** O código é público e globalmente único; suspende e restaura o filtro da sessão de outro escritório. */
     public function buscarPublicadaPeloCodigo(string $codigo): ?Assembleia
     {

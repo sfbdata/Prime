@@ -324,6 +324,14 @@ class Assembleia implements TenantAware, Auditavel
         }
     }
 
+    /** A equipe própria só muda em rascunho (spec voto-equipe-e-master-1611, seção 1.2). */
+    public function exigirEquipeAlteravel(): void
+    {
+        if (!$this->podeAlterarPautas()) {
+            throw new OperacaoInvalidaNaAssembleiaException('A equipe só muda enquanto a assembleia está em rascunho.');
+        }
+    }
+
     public function exigirUnidadesAlteraveis(): void
     {
         if (!$this->podeAlterarUnidades()) {
