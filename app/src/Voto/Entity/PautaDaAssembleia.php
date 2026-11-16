@@ -316,7 +316,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         }
         \assert(null !== $this->suspensaEm);
         if (null !== $this->prazoAte && $agora > $this->suspensaEm) {
-            $this->prazoAte = $this->prazoAte->add($this->suspensaEm->diff($agora));
+            // Soma por segundos (timestamp), não por DateInterval: atravessar horário de verão não muda o tempo parado.
+            $this->prazoAte = $this->prazoAte->modify(sprintf('+%d seconds', $agora->getTimestamp() - $this->suspensaEm->getTimestamp()));
         }
         $this->limparSuspensao();
     }
