@@ -13,9 +13,8 @@
 #}
 {% set a = ata.assembleia %}
 {% set retiradas = a.pautas|filter(p => p.retirada) %}
-{% set naOrdem = a.pautas|filter(p => not p.retirada) %}
-{% set abertas = naOrdem|filter(p => p.abertaEm is not null)|sort((x, y) => x.abertaEm.timestamp <=> y.abertaEm.timestamp) %}
-{% set pautas = abertas|merge(naOrdem|filter(p => p.abertaEm is null)) %}
+{% set naOrdem = ata.naOrdemDoDia %}
+{% set pautas = ata.emOrdemDeAbertura %}
 {% set dh = 'd/m/Y H:i:s' %}
 <!DOCTYPE html>
 <html lang="pt-BR">

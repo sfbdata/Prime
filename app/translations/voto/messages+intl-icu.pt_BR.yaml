@@ -419,6 +419,46 @@ voto:
                 duracao: Duração
                 sem_prazo: 'Sem prazo: a mesa encerra quando decidir'
                 por_tempo: Por tempo definido
+            # ---- Voto W2-6 (desenho 18, ataDocx e papel timbrado): minuta de ata em Word e em PDF.
+            minuta:
+                botao: Minuta de ata
+                botao_pdf: Minuta em PDF
+                timbre: Papel timbrado para ata
+                timbre_dica: Modelo .docx com o papel timbrado para as minutas de ata
+                timbre_escolhido: 'Papel timbrado: {nome}'
+                sucesso: Minuta de ata gerada.
+                sucesso_timbrado: Minuta de ata gerada no papel timbrado.
+                falhou: 'Não foi possível gerar a ata.'
+                sem_votacao: Ainda não há votação apurada para a minuta de ata.
+                modelo_grande: Modelo acima de 2,5 MB.
+                modelo_invalido: Modelo .docx inválido.
+                modelo_sem_documento: Modelo sem word/document.xml.
+                modelo_nao_reconhecido: Modelo .docx não reconhecido.
+                titulo: 'ATA DA {evento}'
+                aviso: Minuta gerada pelo BlueJus Voto. Confira e complete os campos destacados antes de assinar.
+                abertura: 'Em {quando}, em ambiente virtual da plataforma BlueJus Voto, reuniram-se os participantes de {entidade}, em {convocacao}ª convocação, para deliberar sobre a ordem do dia. Os trabalhos foram presididos por {presidente} e secretariados por {secretario}.'
+                quando_data: '{data}, às {hora}'
+                marca_data_hora: '[[data e hora]]'
+                marca_hora: '[[hora]]'
+                marca_entidade: '[[entidade]]'
+                marca_presidente: '[[nome do presidente]]'
+                marca_secretario: '[[nome do secretário]]' # segredo:permitido (secretário da ata, não credencial)
+                marca_nao_apurada: '[[votação não apurada]]'
+                ordem_do_dia: Ordem do dia
+                deliberacoes: Deliberações
+                item: '{n}. {texto}'
+                item_com_descricao: '{titulo}: {descricao}'
+                item_cancelado: '{n}. {pauta}: {cancelada}'
+                item_nao_apurado: '{n}. {pauta}: {marca}'
+                coluna_opcao: Opção
+                coluna_votos: Votos
+                coluna_fracoes: Frações
+                comparecimento: 'Comparecimento sobre a base de aptos: {pc}% (exigido {q}%). Resultado: {resultado}.'
+                sigilo: 'O voto foi secreto: a apuração não identifica o votante.'
+                encerramento: 'Nada mais havendo a tratar, a sessão foi encerrada {quando}, e eu, {secretario}, lavrei a presente ata, que vai assinada por mim e pelo presidente.'
+                encerramento_em: 'em {data}, às {hora}'
+                encerramento_as: 'às {hora}'
+                assinatura: '{nome}, {funcao}'
             # ---- Voto redesign F3-2: janela "Relatório" e resumos para divulgar (desenho 18, relEscolha e relResumo).
             relatorio:
                 titulo: 'Relatório: {titulo}'

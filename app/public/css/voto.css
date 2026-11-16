@@ -58,6 +58,8 @@
 .voto-tela .voto-espaco { flex: 1; }
 .voto-tela .voto-chip-claro { background: rgba(255,255,255,.2); }
 .voto-tela .voto-form-linha { display: inline-flex; margin: 0; }
+/* Minuta de ata (desenho 18): botão, PDF e o rótulo do papel timbrado, na mesma linha do Relatório. */
+.voto-tela .voto-minuta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 0; }
 .voto-tela .voto-vazio { font-size: 13.5px; color: #5b7383; }
 .voto-tela .voto-texto { font-size: 13.5px; color: #34505f; line-height: 1.5; }
 

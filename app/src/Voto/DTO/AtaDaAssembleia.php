@@ -22,4 +22,19 @@ final readonly class AtaDaAssembleia
         public array $blocos,
     ) {
     }
+    /** @return list<PautaNoPainel> as pautas que seguem na ordem do dia (sem as retiradas), na ordem em que foram cadastradas */
+    public function naOrdemDoDia(): array
+    {
+        return array_values(array_filter($this->assembleia->pautas, static fn (PautaNoPainel $p): bool => !$p->retirada()));
+    }
+
+    /** @return list<PautaNoPainel> as da ordem do dia na ordem de abertura; as ainda não abertas ao fim, na ordem original */
+    public function emOrdemDeAbertura(): array
+    {
+        $naOrdem = $this->naOrdemDoDia();
+        $abertas = array_values(array_filter($naOrdem, static fn (PautaNoPainel $p): bool => null !== $p->abertaEm));
+        usort($abertas, static fn (PautaNoPainel $x, PautaNoPainel $y): int => $x->abertaEm?->getTimestamp() <=> $y->abertaEm?->getTimestamp());
+
+        return array_merge($abertas, array_values(array_filter($naOrdem, static fn (PautaNoPainel $p): bool => null === $p->abertaEm)));
+    }
 }

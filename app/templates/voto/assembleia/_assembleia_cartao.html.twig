@@ -77,6 +77,7 @@
             {# Arquivada: sem Publicar nem Conduzir no telão (o desenho esconde); fica o relatório, se havia votação. #}
             {% if a.publicada %}
                 <a class="vB vP" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</a>
+                {% if a.pautasEncerradas|length > 0 %}{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a} only %}{% endif %}
             {% endif %}
         {% elseif not a.publicada %}
             <form method="get" action="{{ path('voto_assembleia_conferir_publicacao', {id: a.id}) }}" class="voto-form-linha">
@@ -85,6 +86,7 @@
         {% else %}
             <button type="button" class="vB vP" data-voto-janela="#janela-relatorio-{{ a.id }}"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</button>
             {% include 'voto/assembleia/_janela_relatorio.html.twig' with {a: a} only %}
+            {% if a.pautasEncerradas|length > 0 %}{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a} only %}{% endif %}
             <a class="vB" href="{{ path('voto_assembleia_telao', {id: a.id}) }}"><i class="bi bi-display"></i>{{ 'voto.assembleia.gestor.telao.conduzir'|trans }}</a>
         {% endif %}
     </div>
