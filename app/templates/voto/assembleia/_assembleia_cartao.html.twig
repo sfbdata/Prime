@@ -1,7 +1,7 @@
 {#
     Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
     assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
-    Code e Resultados), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
+    Code, Resultados e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
 #}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
     {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
@@ -19,6 +19,7 @@
             {rotulo: 'voto.assembleia.gestor.painel.resultados'|trans, icone: 'bi-shield-check', href: path('voto_index', {aba: 'tra'}) ~ '#assembleia-' ~ a.id},
         ]) %}
     {% endif %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu.duplicar'|trans, icone: 'bi-copy', acao: path('voto_assembleia_duplicar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}
     <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>
     {% include 'voto/assembleia/_etapas.html.twig' with {a: a} only %}
     <div class="vLin voto-acoes">

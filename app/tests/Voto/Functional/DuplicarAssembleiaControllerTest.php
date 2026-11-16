@@ -50,6 +50,23 @@ final class DuplicarAssembleiaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $this->usuario(), $this->escritorio);
     }
 
+    #[TestDox('O menu de três pontos do cartão tem "Duplicar votação" e o envio pelo menu cria a cópia')]
+    public function testDuplicaPeloMenuDoPainel(): void
+    {
+        $origem = AssembleiaFactory::createOne(['tenant' => $this->escritorio, 'titulo' => 'AGE Obras'])->_real();
+        $id = $origem->getId();
+
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+        $botao = $painel->filter('#assembleia-' . $id . ' > .vH .vKw > .vKm > form > button')->reduce(static fn ($c): bool => 'Duplicar votação' === trim($c->text()));
+        self::assertCount(1, $botao);
+        $this->client->submit($botao->form());
+
+        $copia = $this->em->getConnection()->fetchAssociative('SELECT id, titulo FROM voto.assembleia WHERE tenant_id = ? AND id <> ?', [$this->escritorio->getId(), $id]);
+        self::assertIsArray($copia);
+        self::assertSame('AGE Obras (cópia)', $copia['titulo']);
+        self::assertResponseRedirects('/voto/assembleias/' . $copia['id'] . '/pautas');
+    }
+
     #[TestDox('POST com CSRF cria um rascunho com " (cópia)", copia pautas e unidades e redireciona para as pautas da cópia')]
     public function testDuplicaERedireciona(): void
     {

@@ -242,6 +242,7 @@ voto:
                 mais_opcoes: Mais opções
                 editar_config: Editar configuração
                 link_qr: Link e QR Code
+                duplicar: Duplicar votação
             janela_abrir:
                 titulo: Abrir votação
                 fechar: Fechar
