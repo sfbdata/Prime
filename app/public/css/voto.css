@@ -107,6 +107,7 @@
 .voto-tela .voto-pauta-campos { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding-right: 44px; }
 .voto-tela .voto-pauta-caixa#pauta-nova .voto-pauta-campos { padding-right: 0; }
 .voto-tela .voto-pauta-titulo { flex: 1 1 220px; }
+.voto-tela .voto-pauta-tipo { flex: 1 1 190px; }
 .voto-tela .voto-pauta-regra { flex: 1 1 230px; }
 .voto-tela .voto-pauta-vagas { width: 80px; }
 .voto-tela .voto-pauta-digitos { width: 96px; }

@@ -20,7 +20,7 @@ final class OpcoesDaPauta
      *
      * @return list<array{numero: int, rotulo: string}> pelo número
      */
-    public function validar(string $pauta, array $linhas, int $digitos = 1): array
+    public function validar(string $pauta, array $linhas, int $digitos = 1, bool $permitirVazio = false): array
     {
         $opcoes = [];
         foreach ($linhas as $linha) {
@@ -29,12 +29,15 @@ final class OpcoesDaPauta
             if ('' === $numero && '' === $rotulo) {
                 continue;
             }
+            if ($permitirVazio && \in_array(mb_strtolower($rotulo), ['sim', 'não', 'nao'], true)) {
+                continue;
+            }
             $valor = self::numero($numero, $digitos);
             self::exigir('' !== $rotulo, sprintf('Candidatura sem nome em %s.', $pauta));
             self::exigir(!isset($opcoes[$valor]), sprintf('Número repetido em %s.', $pauta));
             $opcoes[$valor] = ['numero' => $valor, 'rotulo' => mb_substr($rotulo, 0, 120)];
         }
-        self::exigir([] !== $opcoes, sprintf('Inclua candidaturas em %s.', $pauta));
+        self::exigir($permitirVazio || [] !== $opcoes, sprintf('Inclua candidaturas em %s.', $pauta));
         ksort($opcoes);
 
         return array_values($opcoes);

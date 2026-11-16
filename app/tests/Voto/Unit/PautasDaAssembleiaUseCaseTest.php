@@ -14,6 +14,7 @@ use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\AssembleiaRepository;
@@ -54,10 +55,32 @@ final class PautasDaAssembleiaUseCaseTest extends TestCase
         self::assertInstanceOf(PautaDaAssembleia::class, $salva);
         self::assertSame(4, $salva->getOrdem());
         self::assertSame('Síndico(a)', $salva->getTitulo());
+        self::assertSame(TipoDaPauta::Deliberacao, $salva->getTipo(), 'O título não define o tipo da pauta.');
         self::assertSame(
             [[1, 'Sim', false], [2, 'Não', false], [0, 'Abstenção', true]],
             array_map(static fn (OpcaoDaPauta $o): array => [$o->getNumero(), $o->getRotulo(), $o->isAbstencao()], array_values($salva->getOpcoes()->toArray())),
         );
+    }
+
+    #[TestDox('Atalho de cargo cria pauta eleitoral em rascunho com nomes sugeridos, sem salvar candidatos fictícios')]
+    public function testAdicionaPautaEleitoralSemCandidaturas(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora');
+        $salva = null;
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->expects(self::once())->method('salvar')->willReturnCallback(static function (PautaDaAssembleia $p) use (&$salva): void {
+            $salva = $p;
+        });
+
+        $this->adicionar($tenant, $assembleia, $pautas)->executar($tenant, 7, PautaInput::eleicao('Síndico(a)'));
+
+        self::assertInstanceOf(PautaDaAssembleia::class, $salva);
+        self::assertSame(TipoDaPauta::EleicaoDeCargo, $salva->getTipo());
+        self::assertSame([[0, 'Abstenção', true]], array_map(
+            static fn (OpcaoDaPauta $opcao): array => [$opcao->getNumero(), $opcao->getRotulo(), $opcao->isAbstencao()],
+            array_values($salva->getOpcoes()->toArray()),
+        ));
     }
 
     #[TestDox('Opção inválida não cria a pauta e devolve a mensagem do desenho')]

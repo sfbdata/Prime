@@ -7,6 +7,7 @@ namespace App\Voto\DTO;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\TipoDaPauta;
 
 /**
  * Uma pauta como o gestor a vê (painel, mesa, acompanhar, resultados e ata). Participação só em números (quem votou
@@ -49,6 +50,7 @@ final readonly class PautaNoPainel
         public int $vagas = 1,
         public string $quorumPrimeira = '50.00',
         public ?string $quorumSegunda = '0.00',
+        public TipoDaPauta $tipo = TipoDaPauta::Deliberacao,
     ) {
     }
 

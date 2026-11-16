@@ -44,8 +44,8 @@ final class EditarPautaUseCase
         $pauta = $this->pautas->buscarDaAssembleia($pautaId, $assembleia) ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
         $digitos = $input->regras->digitos ?? $pauta->getDigitos();
-        $novas = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $digitos);
-        $pauta->editar($input->titulo, $input->descricaoLimpa());
+        $novas = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $digitos, $input->tipo->eleitoral());
+        $pauta->editar($input->titulo, $input->descricaoLimpa(), $input->tipo);
         if (null !== $input->regras) {
             $r = $input->regras;
             $pauta->configurar($r->criterio, $r->base, $r->digitos, $r->vagas, $r->quorumPrimeira, $r->quorumSegunda);

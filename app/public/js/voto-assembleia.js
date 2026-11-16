@@ -141,6 +141,22 @@
         });
     }
 
+    function atualizarTipoDaPauta(form, limparPadroes) {
+        var tipo = campoDaPauta(form, 'tipo').value;
+        var eleitoral = tipo === 'eleicao_cargo';
+        var nomes = form.querySelectorAll('[data-voto-nome-candidatura]');
+        Array.prototype.forEach.call(nomes, function (campo, indice) {
+            if (eleitoral && limparPadroes && indice < 2 && /^(sim|não|nao)$/i.test(campo.value.trim())) {
+                campo.value = '';
+            }
+            campo.placeholder = campo.getAttribute(eleitoral ? 'data-voto-ph-eleitoral' : 'data-voto-ph-padrao') || '';
+        });
+        var dica = form.querySelector('[data-voto-dica-eleicao]');
+        if (dica) {
+            dica.hidden = !eleitoral;
+        }
+    }
+
     function atualizarLimites(form) {
         Array.prototype.forEach.call(form.querySelectorAll('[data-voto-numero]'), function (numero) {
             numero.maxLength = digitosDaPauta(form);
@@ -168,6 +184,7 @@
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
         linha.querySelector('[data-voto-numero]').value = proximoNumero(form);
         lista.appendChild(linha);
+        atualizarTipoDaPauta(form, false);
         linha.querySelector('input').focus();
     }
 
@@ -179,9 +196,11 @@
         }
         if (lista.querySelectorAll('[data-voto-opcao]').length > 1) {
             lista.removeChild(linha);
+            atualizarTipoDaPauta(botao.closest('form'), false);
             return;
         }
         Array.prototype.forEach.call(linha.querySelectorAll('input'), function (campo) { campo.value = ''; });
+        atualizarTipoDaPauta(botao.closest('form'), false);
     }
 
     /* Pautas em rascunho. `telaDePautas` é a caixa da etapa 4 ([data-voto-pautas]); fora dela nada disto roda.
@@ -419,7 +438,9 @@
         if (!form) {
             return;
         }
-        if (campo.hasAttribute('data-voto-regra-pronta')) {
+        if (campo.hasAttribute('data-voto-tipo')) {
+            atualizarTipoDaPauta(form, true);
+        } else if (campo.hasAttribute('data-voto-regra-pronta')) {
             aplicarRegra(form, campo.value);
         } else if (campo.hasAttribute('data-voto-regra')) {
             reconhecerRegra(form);
@@ -596,6 +617,7 @@
             formsDePauta().forEach(function (form) {
                 form.setAttribute('data-voto-retrato', retrato(form, true));
                 atualizarLimites(form);
+                atualizarTipoDaPauta(form, false);
             });
             var aviso = avisoGuardado();
             if (aviso) {
