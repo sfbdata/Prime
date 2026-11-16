@@ -104,13 +104,29 @@ final class PacotesDaPaginaTest extends TestCase
     #[TestDox('No Profissional: sem nuvem no atual nem nos menores, nuvem verde no recomendado acima dele')]
     public function testNuvemComPlanoPagoAtual(): void
     {
-        $pacotes = array_column($this->pagina(30 * RetratoDoEspaco::BYTES_POR_GB, 'profissional')['pacotes'], null, 'codigo');
+        $pacotes = array_column($this->pagina(15 * RetratoDoEspaco::BYTES_POR_GB, 'profissional')['pacotes'], null, 'codigo');
 
         self::assertSame(['free' => false, 'essencial' => false, 'profissional' => false, 'avancado' => true], array_column($pacotes, 'temNuvem', 'codigo'));
         self::assertTrue($pacotes['profissional']['atual']);
         self::assertSame('Menor que o atual', $pacotes['essencial']['botao']);
         self::assertTrue($pacotes['avancado']['nuvemRecomendada']);
         self::assertFalse($pacotes['profissional']['nuvemRecomendada']);
+    }
+
+    #[TestDox('A4: o pacote menor que o uso vira "Não comporta seu uso" (desabilitado, sem nuvem); o menor que o limite mas que comporta o uso segue "Menor que o atual"')]
+    public function testPacoteQueNaoComportaOUso(): void
+    {
+        $acima = array_column($this->pagina((int) (24.3 * RetratoDoEspaco::BYTES_POR_GB))['pacotes'], null, 'codigo');
+        self::assertSame('Não comporta seu uso', $acima['essencial']['botao']);
+        self::assertTrue($acima['essencial']['desabilitado']);
+        self::assertFalse($acima['essencial']['temNuvem']);
+        self::assertSame('Quero +40 GB', $acima['profissional']['botao']);
+        self::assertSame('Seu plano atual', $acima['free']['botao'], 'o atual nunca é "menor"');
+
+        $noProfissional = array_column($this->pagina(30 * RetratoDoEspaco::BYTES_POR_GB, 'profissional')['pacotes'], null, 'codigo');
+        self::assertSame('Não comporta seu uso', $noProfissional['essencial']['botao']);
+        $folgado = array_column($this->pagina(15 * RetratoDoEspaco::BYTES_POR_GB, 'profissional')['pacotes'], null, 'codigo');
+        self::assertSame('Menor que o atual', $folgado['essencial']['botao']);
     }
 
     #[TestDox('Sem limite (só o do Master): uso contra a cota do plano com o % real, barra cheia, faixa do desenho, sem "Menor que o atual"')]

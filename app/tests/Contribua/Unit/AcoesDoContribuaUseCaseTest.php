@@ -21,6 +21,9 @@ use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\AvisoAoMaster;
+use App\Contribua\Entity\EspacoDoEscritorio;
+use App\Contribua\Enum\OrigemDaLiberacao;
+use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\UseCase\PedirEspacoUseCase;
 use App\Contribua\UseCase\RegistrarApoioUseCase;
@@ -76,7 +79,7 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
     public function testPedirEspacoComBonusComparaComABase(): void
     {
         $eventos = new EventosDoEspacoAposConfirmar($this->createStub(EventDispatcherInterface::class));
-        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(comBonus: true), $this->aviso(), $this->urls(), $eventos);
+        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(comBonus: true), $this->aviso(), $this->urls(), $eventos, $this->liberacao($this->situacao(comBonus: true)));
 
         self::assertSame(PedirEspacoUseCase::PEDIDO_REGISTRADO, $useCase->executar($this->quem(primario: true), 'essencial'));
     }
@@ -92,7 +95,7 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
             return $e;
         });
         $eventos = new EventosDoEspacoAposConfirmar($despachante);
-        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(), $this->aviso(), $this->urls(), $eventos);
+        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(), $this->aviso(), $this->urls(), $eventos, $this->liberacao($this->situacao()));
 
         self::assertSame(PedirEspacoUseCase::PEDIDO_REGISTRADO, $useCase->executar($this->quem(primario: true), 'essencial'));
         $eventos->aoResponder(new ResponseEvent($this->createStub(HttpKernelInterface::class), Request::create('/'), HttpKernelInterface::MAIN_REQUEST, new Response()));
@@ -140,7 +143,18 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
             $bonus->method('vigentesDosTenants')->willReturn([7 => [new BonusDeEspaco(new Tenant(), (new \ReflectionClass(Indicacao::class))->newInstanceWithoutConstructor(), 15, new \DateTimeImmutable('-1 day'), new \DateTimeImmutable('+29 days'))]]);
         }
 
-        return new SituacaoDoEspaco($consumo, $this->createStub(EspacoDoEscritorioRepository::class), $this->planos(), $configuracoes, $bonus, new MockClock());
+        // Escritório com as opções liberadas pelo Master (a trava D2 tem teste próprio em TravaDasOpcoesDeEspacoTest).
+        $espaco = new EspacoDoEscritorio(new Tenant(), $this->planos()->free());
+        $espaco->liberarOpcoes(OrigemDaLiberacao::Master, new \DateTimeImmutable());
+        $espacos = $this->createStub(EspacoDoEscritorioRepository::class);
+        $espacos->method('doTenant')->willReturn($espaco);
+
+        return new SituacaoDoEspaco($consumo, $espacos, $this->planos(), $configuracoes, $bonus, new MockClock());
+    }
+
+    private function liberacao(SituacaoDoEspaco $situacao): LiberacaoDasOpcoesDeEspaco
+    {
+        return new LiberacaoDasOpcoesDeEspaco($situacao, $this->planos());
     }
 
     private function aviso(): AvisoAoMaster

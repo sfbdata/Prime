@@ -126,7 +126,7 @@ final class MontarPaginaDoContribuaUseCase
         $maior = self::maiorPago($planos);
 
         return array_map(
-            static fn (Plano $p): array => ['maior' => $maior === $p->getCodigo()] + self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo()),
+            static fn (Plano $p): array => ['maior' => $maior === $p->getCodigo()] + self::pacote($p, $r->planoCodigo === $p->getCodigo(), $limiteGb, $recomendado === $p->getCodigo(), $r->bytesUsados),
             $planos,
         );
     }
@@ -162,10 +162,12 @@ final class MontarPaginaDoContribuaUseCase
     }
 
     /** @return array<string, mixed> */
-    private static function pacote(Plano $p, bool $atual, int $limiteGb, bool $recomendado): array
+    private static function pacote(Plano $p, bool $atual, int $limiteGb, bool $recomendado, int $bytesUsados = 0): array
     {
         $gb = $p->getCotaGb();
-        $menor = !$atual && $gb <= $limiteGb;
+        // A4: também é "menor" o pacote que não comporta o uso de hoje.
+        $naoComporta = $gb * RetratoDoEspaco::BYTES_POR_GB < $bytesUsados;
+        $menor = ($gb <= $limiteGb || $naoComporta) && !$atual;
         $desabilitado = $atual || $menor || $p->ehGratuito();
         $topo = $recomendado && !$atual;
         $ganho = $gb - min($limiteGb, $gb);
@@ -192,7 +194,7 @@ final class MontarPaginaDoContribuaUseCase
             // Nuvem "+ Espaço": só nos pagos que ampliam o espaço de hoje; verde no recomendado.
             'temNuvem' => !$p->ehGratuito() && !$atual && !$menor,
             'nuvemRecomendada' => $topo,
-            'botao' => $atual ? 'Seu plano atual' : ($p->ehGratuito() ? 'Incluído' : ($menor ? 'Menor que o atual' : 'Quero +' . $ganho . ' GB')),
+            'botao' => $atual ? 'Seu plano atual' : ($p->ehGratuito() ? 'Incluído' : ($menor ? ($naoComporta ? 'Não comporta seu uso' : 'Menor que o atual') : 'Quero +' . $ganho . ' GB')),
         ];
     }
 

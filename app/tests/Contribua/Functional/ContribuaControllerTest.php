@@ -6,7 +6,10 @@ namespace App\Tests\Contribua\Functional;
 
 use App\Contribua\Controller\ContribuaController;
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Sugestao;
+use App\Contribua\Enum\OrigemDaLiberacao;
+use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Twig\AvisoDeEspacoExtension;
@@ -420,6 +423,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
     #[TestDox('Pedir espaço: só o primário, e só plano maior que o atual')]
     public function testPedirEspaco(): void
     {
+        $this->liberarOpcoes($this->escritorio);
         $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
         $this->post('/contribua/espaco/pedido', ['plano' => 'essencial']);
         self::assertResponseStatusCodeSame(422);
@@ -478,6 +482,15 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         $estado = $this->em->getRepository(RecursoEstado::class)->findOneBy(['chave' => 'indique']) ?? new RecursoEstado('indique');
         $estado->desativar('Desativado pelo Master', null, null, new \DateTimeImmutable());
         $this->em->persist($estado);
+        $this->em->flush();
+    }
+
+    /** D2: o pedido de plano só passa com as opções liberadas (a trava tem teste próprio em PedidoDeEspacoControllerTest). */
+    private function liberarOpcoes(Tenant $escritorio): void
+    {
+        $espaco = new EspacoDoEscritorio($escritorio, static::getContainer()->get(PlanoRepository::class)->free());
+        $espaco->liberarOpcoes(OrigemDaLiberacao::Master, new \DateTimeImmutable());
+        $this->em->persist($espaco);
         $this->em->flush();
     }
 

@@ -10,6 +10,7 @@ use App\Contribua\Enum\TipoDeSugestao;
 use App\Contribua\Service\CodigoPixDaConta;
 use App\Contribua\Service\SolicitanteDaSessao;
 use App\Contribua\UseCase\AtenderSugestaoUseCase;
+use App\Contribua\UseCase\DecidirPedidoDeEspacoUseCase;
 use App\Contribua\UseCase\EnviarSugestaoUseCase;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
 use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
@@ -17,6 +18,7 @@ use App\Contribua\UseCase\PedirEspacoUseCase;
 use App\Contribua\UseCase\RegistrarApoioUseCase;
 use App\Contribua\UseCase\RegistrarMotivoDeNaoApoiarUseCase;
 use App\Contribua\UseCase\RegistrarRetornoDoPagamentoUseCase;
+use App\Contribua\UseCase\SolicitarMaisEspacoUseCase;
 use App\Entity\Auth\User;
 use App\Recompensa\UseCase\ObterMeuSaldoDeRecompensaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -117,6 +119,31 @@ final class ContribuaController extends AbstractController
     public function pedirEspaco(Request $request, PedirEspacoUseCase $pedir): JsonResponse
     {
         return $this->acao($request, fn (): string => $pedir->executar($this->solicitante(), (string) $request->request->get('plano', '')));
+    }
+
+    /** "Solicitar mais espaço" do desenho de 14 e 15/11: faixa de GB (20, 50 ou 100) e motivo opcional. Só o primário (ou o Master). */
+    #[Route('/espaco/solicitar', name: 'contribua_espaco_solicitar', methods: ['POST'])]
+    public function solicitarEspaco(Request $request, SolicitarMaisEspacoUseCase $solicitar): JsonResponse
+    {
+        return $this->acao($request, fn (): string => $solicitar->executar(
+            $this->solicitante(),
+            (int) $request->request->get('gb', 0),
+            $request->request->has('motivo') ? (string) $request->request->get('motivo') : null,
+        ));
+    }
+
+    #[Route('/espaco/pedidos/{id}/liberar', name: 'contribua_espaco_pedido_liberar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_SUPER_ADMIN')]
+    public function liberarPedido(int $id, Request $request, DecidirPedidoDeEspacoUseCase $decidir): JsonResponse
+    {
+        return $this->acao($request, fn (): string => $decidir->liberar($this->solicitante(), $id));
+    }
+
+    #[Route('/espaco/pedidos/{id}/recusar', name: 'contribua_espaco_pedido_recusar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_SUPER_ADMIN')]
+    public function recusarPedido(int $id, Request $request, DecidirPedidoDeEspacoUseCase $decidir): JsonResponse
+    {
+        return $this->acao($request, fn (): string => $decidir->recusar($this->solicitante(), $id));
     }
 
     /** CSRF, a ação e a resposta no formato que o JS da página lê: `{ok, mensagem}` ou `{ok: false, erro}`. */
