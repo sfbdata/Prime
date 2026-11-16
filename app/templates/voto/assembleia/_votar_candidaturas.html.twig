@@ -1,8 +1,9 @@
 {#
     Janela "Conhecer candidaturas" da aba Votar (desenho 18, modTem, L295): .vH com bi-person-lines-fill, o nome da votação e
     "Fechar"; o corpo rola e lista cada candidatura com foto 3x4 (.vAv; sem foto, as iniciais, como o desenho e a urna),
-    "{número} · {nome}", unidade, descrição, propostas e composição. Abre pelo botão com data-voto-janela (voto-janela.js).
-    Só leitura: nada é gravado. Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel de eleição).
+    "{número} · {nome}", descrição, propostas e composição. Em pauta de assembleia (sem candidatura), a mesma janela lista as
+    opções da pauta: rótulo e descrição, se houver. Abre pelo botão com data-voto-janela (voto-janela.js).
+    Só leitura: nada é gravado. Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel).
 #}
 {% set id = 'janela-candidaturas-' ~ p.id %}
 <div class="voto-votar-janela" data-voto-janela-raiz id="{{ id }}" hidden>
@@ -13,13 +14,12 @@
                 <b>{{ p.titulo }}</b>
                 {% for o in p.opcoes %}
                     <div class="voto-votar-cand" data-numero="{{ o.numero }}">
-                        <span class="vAv">{% if o.foto ?? null %}<img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) }}">{% else %}{{ o.rotulo|split(' ')|map(x => x|first)|slice(-2)|join|upper }}{% endif %}</span>
+                        {% if p.tipo.eleitoral %}<span class="vAv">{% if o.foto ?? null %}<img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) }}">{% else %}{{ o.rotulo|split(' ')|map(x => x|first)|slice(-2)|join|upper }}{% endif %}</span>{% endif %}
                         <div class="voto-votar-cand-tx">
-                            <b>{{ ('00000' ~ o.numero)|slice(-p.digitos) }} · {{ o.rotulo }}</b>
-                            {% if o.unidade ?? null %}<div>{{ 'voto.votar.unidade'|trans({unidade: o.unidade}) }}</div>{% endif %}
+                            <b>{{ p.tipo.eleitoral ? ('00000' ~ o.numero)|slice(-p.digitos) ~ ' · ' ~ o.rotulo : o.rotulo }}</b>
                             {% if o.descricao ?? null %}<div>{{ o.descricao }}</div>{% endif %}
-                            {% if o.propostas ?? null %}<div class="voto-votar-cand-prop">{{ o.propostas }}</div>{% endif %}
-                            {% if o.composicao ?? null %}<div class="voto-votar-cand-comp">{{ o.composicao }}</div>{% endif %}
+                            {% if p.tipo.eleitoral and o.propostas ?? null %}<div class="voto-votar-cand-prop">{{ o.propostas }}</div>{% endif %}
+                            {% if p.tipo.eleitoral and o.composicao ?? null %}<div class="voto-votar-cand-comp">{{ o.composicao }}</div>{% endif %}
                         </div>
                     </div>
                 {% endfor %}

@@ -200,7 +200,7 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
         self::assertCount(0, $tela->filter(self::CARTAO . '[data-pauta="' . $antiga->getId() . '"] a[data-voto-votar]'));
     }
 
-    #[TestDox('Conhecer candidaturas: só em pauta de eleição; a janela do desenho traz número, nome, unidade, descrição, propostas e composição')]
+    #[TestDox('Conhecer candidaturas em todo cartão: eleição mostra as candidaturas (sem a unidade); assembleia mostra as opções da pauta')]
     public function testConhecerCandidaturas(): void
     {
         $eleicao = PautaDaAssembleiaFactory::new(['assembleia' => $this->assembleia, 'ordem' => 1, 'titulo' => 'Síndico(a)', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2])->create()->_real();
@@ -216,7 +216,11 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $cartao->filter('.voto-votar-acoes > button.vB[data-voto-janela="#janela-candidaturas-' . $eleicao->getId() . '"]'));
         self::assertSame(['Conhecer candidaturas', 'Simular votação', 'Votar'], $cartao->filter('.voto-votar-acoes > button')->each(static fn (Crawler $c): string => trim($c->text())));
-        self::assertSame(['Simular votação', 'Votar'], $tela->filter(self::CARTAO . '[data-pauta="' . $contas->getId() . '"] .voto-votar-acoes > button')->each(static fn (Crawler $c): string => trim($c->text())), 'pauta comum não tem candidaturas');
+        $comum = $tela->filter(self::CARTAO . '[data-pauta="' . $contas->getId() . '"]');
+        self::assertSame(['Conhecer candidaturas', 'Simular votação', 'Votar'], $comum->filter('.voto-votar-acoes > button')->each(static fn (Crawler $c): string => trim($c->text())));
+        $opcoes = $comum->filter('.voto-votar-janela[hidden] .voto-votar-cand');
+        self::assertSame(['Sim', 'Não'], $opcoes->each(static fn (Crawler $c): string => trim($c->filter('.voto-votar-cand-tx > b')->text())), 'só rótulo, sem a abstenção');
+        self::assertCount(0, $opcoes->filter('.vAv'));
         $janela = $cartao->filter('.voto-votar-janela[hidden][data-voto-janela-raiz] > .vModC');
         self::assertCount(1, $janela);
         self::assertSame('Síndico(a)', trim($janela->filter('.vH > span')->first()->text()));
@@ -225,7 +229,9 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
         self::assertSame('AS', trim($cands->eq(0)->filter('.vAv')->text()), 'sem foto: iniciais');
         self::assertSame('01 · Ana Souza', trim($cands->eq(0)->filter('.voto-votar-cand-tx > b')->text()));
         $texto = $cands->eq(0)->text();
-        foreach (['Unidade Apto 12', 'Moradora do 12', 'Mais segurança', 'Ana e Caio'] as $trecho) {
+        self::assertStringNotContainsString('Apto 12', $texto, 'a unidade não está no desenho');
+        self::assertStringNotContainsString('Unidade', $texto);
+        foreach (['Moradora do 12', 'Mais segurança', 'Ana e Caio'] as $trecho) {
             self::assertStringContainsString($trecho, $texto);
         }
     }

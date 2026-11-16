@@ -19,7 +19,6 @@ voto:
         periodo_aberto: 'Aberta em {inicio}'
         codigo: 'Código de conferência {codigo}'
         gerenciar: Gerenciar no Painel
-        unidade: 'Unidade {unidade}'
         modalidade:
             pauta: Pautas de assembleia
             eleicao: Eleição individual

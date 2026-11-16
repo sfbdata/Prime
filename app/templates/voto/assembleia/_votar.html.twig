@@ -4,8 +4,8 @@
     de situação (_chip_da_pauta), menu de três pontos, linha de dados (período, entidade e tipo, código de conferência),
     frase de situação e o botão "Votar". "Votar" abre a tela do eleitor, a mesma do link e do QR Code do evento
     (portal público, nunca o token de uma unidade), e só vale com a votação aberta.
-    "Conhecer candidaturas" (só pauta de eleição) abre a janela do desenho (.voto-votar-janela, L295) com número, nome,
-    foto, unidade, descrição, propostas e composição. "Simular votação" abre a cabine de treino (_cabine, js/voto-cabine.js)
+    "Conhecer candidaturas" abre a janela do desenho (.voto-votar-janela, L295) (eleição: número, nome,
+    foto, descrição, propostas e composição; assembleia: as opções da pauta). "Simular votação" abre a cabine de treino (_cabine, js/voto-cabine.js)
     só com as opções daquela pauta: sem token, sem CSRF e sem enviar nada (`somente_simulacao`).
     Contexto: `votacoes` (list<VotacaoParaVotar>).
 #}
@@ -41,7 +41,7 @@
                 </div>
                 <div class="voto-votar-aviso" style="color:{{ aviso.cor }};"><i class="bi {{ aviso.icone }}"></i> {{ ('voto.votar.aviso.' ~ v.aviso)|trans }}</div>
                 <div class="voto-votar-acoes">
-                    {% if p.tipo.eleitoral and p.opcoes is not empty %}
+                    {% if p.opcoes is not empty %}
                         <button type="button" class="vB" data-voto-janela="#janela-candidaturas-{{ p.id }}"><i class="bi bi-person-lines-fill"></i>{{ 'voto.assembleia.cedula.cabine.conhecer'|trans }}</button>
                     {% endif %}
                     {% if p.opcoes is not empty %}
@@ -54,7 +54,7 @@
                     {% endif %}
                 </div>
             </div>
-            {% if p.tipo.eleitoral and p.opcoes is not empty %}
+            {% if p.opcoes is not empty %}
                 {% include 'voto/assembleia/_votar_candidaturas.html.twig' with {a: a, p: p} only %}
             {% endif %}
         </div>

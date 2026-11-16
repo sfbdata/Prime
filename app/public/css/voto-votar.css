@@ -21,5 +21,3 @@
 .voto-tela .voto-votar-cand-tx > b { font-size: 14.5px; color: #12242f; }
 .voto-tela .voto-votar-cand-prop { margin-top: 3px; }
 .voto-tela .voto-votar-cand-comp { font-size: 12.5px; color: #12242f; margin-top: 4px; white-space: pre-line; }
-.voto-tela .vAv { width: 56px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center; background: #e5f1f7; color: #0a6fa0; font-weight: bold; font-size: 19px; border-radius: 3px; overflow: hidden; }
-.voto-tela .vAv img { width: 100%; height: 100%; object-fit: cover; }

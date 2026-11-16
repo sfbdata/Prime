@@ -7,6 +7,7 @@ namespace App\Voto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\DivulgacaoDaAssembleiaOutput;
 use App\Voto\DTO\VotacaoParaVotar;
+use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Service\EnderecoPublicoDaAssembleia;
 use App\Voto\Service\LeituraDaAssembleia;
@@ -32,11 +33,11 @@ final class ListarVotacoesParaVotarUseCase
     {
         $votacoes = [];
         foreach ($this->assembleias->listarDoEscritorio($tenant) as $assembleia) {
-            $this->encerrarVencidas->executar($assembleia, $agora);
-            $lida = $this->leitura->montar($assembleia);
-            if (!$lida->publicada() || $lida->arquivada()) {
+            if (EstadoDaAssembleia::Publicada !== $assembleia->getEstado() || null !== $assembleia->getArquivadaEm()) {
                 continue;
             }
+            $this->encerrarVencidas->executar($assembleia, $agora);
+            $lida = $this->leitura->montar($assembleia);
             $codigo = $assembleia->getCodigoPublico();
             $divulgacao = new DivulgacaoDaAssembleiaOutput($lida->id, $lida->titulo, $codigo, $this->endereco->gerar($codigo));
             foreach ($lida->pautas as $pauta) {
