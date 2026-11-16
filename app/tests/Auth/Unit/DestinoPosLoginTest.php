@@ -23,9 +23,7 @@ final class DestinoPosLoginTest extends KernelTestCase
      * Páginas que entram na lista antes da rota existir (o nome é contrato do PR; a rota chega com o bloco que a cria).
      * Só são toleradas enquanto a rota não existe: quando ela chegar, o teste exige o exemplo em paginasDaLista().
      */
-    private const DE_OUTRO_BLOCO = [
-        'conector_oauth_autorizar' => 'PR 3 conector-autorizacao, bloco A (tela de autorização, /oauth/authorize)',
-    ];
+    private const DE_OUTRO_BLOCO = [];
 
     private function sut(): DestinoPosLogin
     {
@@ -122,6 +120,7 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'admin_platform_oab_index' => ['admin_platform_oab_index', '/admin/platform/oab'];
         yield 'inteligencia_admin_config' => ['inteligencia_admin_config', '/admin/inteligencia'];
         yield 'auth_suporte_mensagens' => ['auth_suporte_mensagens', '/suporte/mensagens'];
+        yield 'conector_oauth_autorizar' => ['conector_oauth_autorizar', '/oauth/authorize'];
     }
 
     #[DataProvider('paginasDaLista')]

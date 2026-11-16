@@ -1,0 +1,77 @@
+{% extends 'recurso/_layout_simples.html.twig' %}
+
+{#
+    Tela de autorização do conector de I.A. (spec mcp-remoto-oauth 9.4 e 14.e): pela convenção do sistema, sem desenho,
+    no layout mínimo, sem menu nem escritório da sessão.
+
+    - o app que pede acesso aparece pelo HOST do client_id (hostDoCliente), nunca pelo client_name, que é autodeclarado;
+    - mostra também o host para onde a pessoa volta (hostDoRedirect) e avisa quando o retorno é um endereço do próprio
+      computador (voltaParaLoopback);
+    - os escritórios vêm de ListarEscritoriosParaConectarUseCase: o que não pode ser conectado aparece desabilitado, com
+      o motivo. A escolha é conferida de novo no servidor;
+    - a gravação (mcp:escrita) só aparece se o app a pediu, e nasce desmarcada.
+#}
+
+{% block title %}Conectar um aplicativo de I.A.{% endblock %}
+
+{% block body %}
+<style>
+    .cj-cartao { width: 100%; max-width: 480px; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 28px 26px; font-size: 14px; color: #24343f; line-height: 1.55; }
+    .cj-titulo { font-size: 19px; font-weight: bold; margin: 0 0 10px; line-height: normal; }
+    .cj-host { font-weight: bold; word-break: break-all; }
+    .cj-aviso { margin: 12px 0 0; padding: 10px 12px; border-radius: 4px; background: #fff4e5; color: #7a4b00; }
+    .cj-secao { margin: 18px 0 6px; font-weight: bold; }
+    .cj-escritorio { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; }
+    .cj-escritorio--off { color: #7a8e9b; }
+    .cj-motivo { display: block; font-size: 12.5px; }
+    .cj-nota { margin-top: 14px; font-size: 12.5px; color: #4a6373; }
+    .cj-botoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .cj-botao { height: 38px; padding: 0 16px; border-radius: 3px; border: 1px solid #0a6fa0; background: #fff; color: #0a6fa0; font-weight: bold; cursor: pointer; }
+    .cj-botao--principal { background: #0a6fa0; color: #fff; }
+</style>
+<main class="cj-cartao" role="main">
+    <h1 class="cj-titulo">Conectar um aplicativo de I.A. ao BlueJus</h1>
+    <p>O aplicativo em <span class="cj-host">{{ hostDoCliente }}</span> pede acesso à sua conta do BlueJus ({{ email }}).</p>
+    <p>Depois de responder, você volta para <span class="cj-host">{{ hostDoRedirect }}</span>.</p>
+    {% if voltaParaLoopback %}
+        <p class="cj-aviso">Este aplicativo roda no seu próprio computador. Só continue se foi você quem pediu esta conexão agora.</p>
+    {% endif %}
+
+    {% set disponiveis = escritorios|filter(e => e.disponivel) %}
+    {{ form_start(form, {attr: {class: 'cj-form', novalidate: 'novalidate'}}) }}
+        {{ form_widget(form.pedido) }}
+
+        <p class="cj-secao">Escritório da conexão</p>
+        {% for escritorio in escritorios %}
+            <label class="cj-escritorio{{ escritorio.disponivel ? '' : ' cj-escritorio--off' }}">
+                <input type="radio" name="{{ field_name(form.tenantId) }}" value="{{ escritorio.tenantId }}"{{ escritorio.disponivel ? '' : ' disabled' }}{{ escritorio.disponivel and disponiveis|length == 1 ? ' checked' : '' }}>
+                <span>{{ escritorio.nome }}{% if not escritorio.disponivel %}<span class="cj-motivo">{{ escritorio.motivo }}</span>{% endif %}</span>
+            </label>
+        {% else %}
+            <p>Você não tem nenhum escritório ativo no BlueJus.</p>
+        {% endfor %}
+        {% do form.tenantId.setRendered %}
+
+        {% if disponiveis|length > 0 %}
+            <p class="cj-secao">O que o aplicativo pode fazer</p>
+            <p>Ler os dados do escritório escolhido que o seu perfil já permite ver.</p>
+            {% if pediuEscrita %}
+                <label class="cj-escritorio">{{ form_widget(form.escrita) }}<span>Também criar e alterar dados nesse escritório, dentro do que o seu perfil permite.</span></label>
+            {% endif %}
+            <p class="cj-nota">A conexão vale para um escritório só. Para usar outro, conecte de novo.</p>
+        {% else %}
+            <p class="cj-aviso">Nenhum dos seus escritórios pode ser conectado agora.</p>
+        {% endif %}
+        {% if not pediuEscrita or disponiveis|length == 0 %}{% do form.escrita.setRendered %}{% endif %}
+
+        <div class="cj-botoes">
+            {{ form_widget(form.negar, {label: 'Não autorizar', attr: {class: 'cj-botao'}}) }}
+            {% if disponiveis|length > 0 %}
+                {{ form_widget(form.autorizar, {label: 'Autorizar', attr: {class: 'cj-botao cj-botao--principal'}}) }}
+            {% else %}
+                {% do form.autorizar.setRendered %}
+            {% endif %}
+        </div>
+    {{ form_end(form) }}
+</main>
+{% endblock %}
