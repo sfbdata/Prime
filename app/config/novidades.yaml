@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.52.1"
+  data: "2026-11-16"
+  itens:
+    - "Corrigimos uma verificação automática da Assinatura de documentos que passou a acusar um erro que não existia quando o prazo de 7 dias de um documento de teste acabou. Isso estava atrasando a publicação das novidades do Voto."
 - versao: "2.52.0"
   data: "2026-11-13"
   itens:
