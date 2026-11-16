@@ -6,19 +6,20 @@ namespace App\Voto\DTO;
 
 /**
  * A ata imprimível (relatório consolidado do desenho, em HTML): a assembleia lida, quem emitiu e, por pauta, a
- * relação de votantes (quem e quando, nunca em quê) e a participação por bloco ou torre.
+ * participação por bloco ou torre e, quando cabe (cenário com lista, pauta encerrada, pessoa autorizada), a relação de
+ * votantes (nome, identificação e situação com a faixa horária; nunca em quê).
  */
 final readonly class AtaDaAssembleia
 {
     /**
-     * @param array<int, list<array{bloco: string, identificacao: string, responsavel: ?string, em: \DateTimeImmutable}>> $votantes por id da pauta
-     * @param array<int, list<array{bloco: string, unidades: int, peso: string}>>                                       $blocos   por id da pauta
+     * @param array<int, list<LinhaDaRelacaoDeVotantes>>        $relacao por id da pauta; só as pautas cuja relação foi emitida
+     * @param array<int, list<array{bloco: string, unidades: int, peso: string}>> $blocos  por id da pauta
      */
     public function __construct(
         public AssembleiaNoPainel $assembleia,
         public \DateTimeImmutable $emitidaEm,
         public string $emitidaPor,
-        public array $votantes,
+        public array $relacao,
         public array $blocos,
     ) {
     }
@@ -44,6 +45,6 @@ final readonly class AtaDaAssembleia
     {
         $pautas = array_values(array_filter($this->assembleia->pautas, static fn (PautaNoPainel $p): bool => $p->id === $pautaId || $p->retirada()));
 
-        return new self($this->assembleia->comPautas($pautas), $this->emitidaEm, $this->emitidaPor, $this->votantes, $this->blocos);
+        return new self($this->assembleia->comPautas($pautas), $this->emitidaEm, $this->emitidaPor, $this->relacao, $this->blocos);
     }
 }

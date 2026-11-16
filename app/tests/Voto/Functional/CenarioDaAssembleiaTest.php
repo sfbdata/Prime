@@ -152,7 +152,6 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Participação por categoria', trim($ata->filter('caption')->last()->text()));
         $cabecalhos = $ata->filter('thead')->each(static fn (Crawler $c): string => trim($c->text()));
         self::assertStringContainsString('Categoria', implode('|', $cabecalhos));
-        self::assertStringContainsString('CPF', implode('|', $cabecalhos));
         self::assertStringNotContainsString('Bloco', $ata->text());
         self::assertStringNotContainsString('Unidade', implode('|', $cabecalhos));
 

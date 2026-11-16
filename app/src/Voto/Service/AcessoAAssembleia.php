@@ -49,6 +49,58 @@ final class AcessoAAssembleia
         return $this->niveisEmLote($pessoa, [$assembleia])[$id] ?? NivelNaAssembleia::Editar;
     }
 
+    /**
+     * Quem vê a relação de votantes (spec voto-equipe-e-master-1611, seção 2) e a relação nominal do voto aberto:
+     * Administração sempre; assembleia SEM equipe própria, quem tem o módulo (como hoje); COM equipe própria, só
+     * `comissao`, `auditoria` e `fiscal` (o `conselho` não). Como o resto da classe, é teto: o módulo a guarda já conferiu.
+     */
+    public function podeVerRelacao(User $pessoa, Assembleia $assembleia): bool
+    {
+        $id = $assembleia->getId();
+        if (null === $id) {
+            return true;
+        }
+
+        return $this->relacaoEmLote($pessoa, [$assembleia])[$id] ?? true;
+    }
+
+    /**
+     * {@see podeVerRelacao()} para um lote, por id da assembleia (uma consulta de equipes por escritório).
+     *
+     * @param iterable<Assembleia> $assembleias
+     *
+     * @return array<int, bool>
+     */
+    public function relacaoEmLote(User $pessoa, iterable $assembleias): array
+    {
+        $porEscritorio = [];
+        foreach ($assembleias as $assembleia) {
+            if (null !== $assembleia->getId()) {
+                $porEscritorio[(int) $assembleia->getTenant()->getId()][] = $assembleia;
+            }
+        }
+
+        $podem = [];
+        foreach ($porEscritorio as $doEscritorio) {
+            $tenant = $doEscritorio[0]->getTenant();
+            $ids = array_map(static fn (Assembleia $a): int => (int) $a->getId(), $doEscritorio);
+            if ($this->ehAdministracao($pessoa, $tenant)) {
+                $podem += array_fill_keys($ids, true);
+
+                continue;
+            }
+            $equipes = array_fill_keys($ids, []);
+            foreach ($this->membros->linhasDoLote($tenant, $ids) as $linha) {
+                $equipes[$linha['assembleia']][] = $linha;
+            }
+            foreach ($equipes as $id => $linhas) {
+                $podem[$id] = self::relacaoPelaEquipe($linhas, (int) $pessoa->getId());
+            }
+        }
+
+        return $podem;
+    }
+
     /** A Administração: o Master e o primário ativo do escritório. Designa a equipe e nunca é restringida. */
     public function ehAdministracao(User $pessoa, Tenant $tenant): bool
     {
@@ -165,5 +217,24 @@ final class AcessoAAssembleia
         }
 
         return NivelNaAssembleia::Oculto;
+    }
+
+    /**
+     * A regra da relação de votantes, sem banco: sem equipe vale o módulo; com equipe, só comissão, auditoria e fiscal.
+     *
+     * @param list<array{assembleia: int, user: int|null, papel: string}> $linhas
+     */
+    public static function relacaoPelaEquipe(array $linhas, int $pessoaId): bool
+    {
+        if ([] === $linhas) {
+            return true;
+        }
+        foreach ($linhas as $linha) {
+            if ($linha['user'] === $pessoaId) {
+                return \in_array(PapelNaEquipe::tryFrom($linha['papel']), [PapelNaEquipe::Comissao, PapelNaEquipe::Auditoria, PapelNaEquipe::Fiscal], true);
+            }
+        }
+
+        return false;
     }
 }

@@ -730,8 +730,10 @@ voto:
                 votantes: Relação de votantes
                 votantes_texto: Informa quem participou. Não indica em quem cada pessoa votou.
                 votantes_texto_aberto: Informa quem participou. Nesta votação, de voto aberto, o voto de cada pessoa consta na relação nominal abaixo.
-                responsavel: Responsável
-                hora: Data e hora
+                nome: Nome
+                votou_faixa: 'Votou {de}h às {ate}h'
+                nao_votou: Não votou
+                inapto: Inapto
                 sem_votantes: Nenhuma participação registrada.
                 termo: Termo de encerramento
                 termo_1: Este relatório consolida os dados extraídos dos registros da votação na data de emissão.

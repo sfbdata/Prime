@@ -1,9 +1,9 @@
 {#
     Relação nominal do VOTO ABERTO (desenho 18, "Aberto: nominal"): quem votou em quê e quando. Só entra quando a pauta foi
     configurada como voto aberto antes de publicar e o sigilo já permite mostrar (`p.nominal` não nulo); a pauta secreta
-    nunca chega aqui. Usada na aba Resultados e na ata. Contexto: `p` (PautaNoPainel), `a` (AssembleiaNoPainel).
+    nunca chega aqui. Só quem pode ver a relação de votantes (`voto_ve_relacao`, a mesma regra da W2-7 B11) a vê. Usada na aba Resultados e na ata. Contexto: `p` (PautaNoPainel), `a` (AssembleiaNoPainel).
 #}
-{% if p.nominal is not null %}
+{% if p.nominal is not null and voto_ve_relacao(a.id) %}
     <div class="voto-nominal" data-voto-nominal="{{ p.id }}">
         <b class="voto-nominal-titulo">{{ 'voto.assembleia.gestor.nominal.titulo'|trans }}</b>
         <p class="voto-nominal-texto">{{ (p.sigilo.value == 'aberto_vivo' ? 'voto.assembleia.gestor.nominal.ao_vivo' : 'voto.assembleia.gestor.nominal.texto')|trans }}</p>

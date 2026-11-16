@@ -22,7 +22,8 @@ use Twig\TwigFunction;
  *    vê a entrada "Perfis" (o desenho a mostra só para o perfil `admin`);
  *  - `voto_edita(id)`: a pessoa EDITA esta assembleia? Falso para quem a equipe própria deixa em `Visualizar` (auditoria,
  *    fiscal, conselho): os botões e formulários de escrita, que dariam 403, não aparecem. O ponto único é este; os níveis
- *    de todas as assembleias do escritório saem de UMA consulta de equipes por requisição (sem N+1 nos cartões).
+ *    de todas as assembleias do escritório saem de UMA consulta de equipes por requisição (sem N+1 nos cartões);
+ *  - `voto_ve_relacao(id)`: a pessoa vê a relação nominal do voto aberto (mesma regra da relação de votantes).
  */
 final class EquipeExtension extends AbstractExtension implements ResetInterface
 {
@@ -30,6 +31,11 @@ final class EquipeExtension extends AbstractExtension implements ResetInterface
     private ?array $niveis = null;
 
     private ?string $chave = null;
+
+    /** @var array<int, bool>|null a relação de votantes, por id de assembleia, da pessoa e do escritório da sessão */
+    private ?array $relacao = null;
+
+    private ?string $chaveRelacao = null;
 
     public function __construct(
         private readonly Security $security,
@@ -44,6 +50,7 @@ final class EquipeExtension extends AbstractExtension implements ResetInterface
         return [
             new TwigFunction('voto_gere_equipe', $this->gereEquipe(...)),
             new TwigFunction('voto_edita', $this->edita(...)),
+            new TwigFunction('voto_ve_relacao', $this->veRelacao(...)),
         ];
     }
 
@@ -71,8 +78,30 @@ final class EquipeExtension extends AbstractExtension implements ResetInterface
         return NivelNaAssembleia::Editar === ($this->niveis[$assembleiaId] ?? NivelNaAssembleia::Editar);
     }
 
+    /**
+     * A pessoa vê a relação de votantes e a relação nominal do voto aberto desta assembleia? (comissão, auditoria e
+     * fiscal quando há equipe própria; o conselho não). Só esconde; os dados nem chegam à ata sem a regra.
+     */
+    public function veRelacao(int $assembleiaId): bool
+    {
+        $usuario = $this->security->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$usuario instanceof User || null === $tenant) {
+            return true;
+        }
+        $chave = $usuario->getId() . ':' . $tenant->getId();
+        if ($this->chaveRelacao !== $chave || null === $this->relacao) {
+            $this->relacao = $this->acesso->relacaoEmLote($usuario, $this->assembleias->listarDoEscritorio($tenant));
+            $this->chaveRelacao = $chave;
+        }
+
+        return $this->relacao[$assembleiaId] ?? true;
+    }
+
     public function reset(): void
     {
+        $this->relacao = null;
+        $this->chaveRelacao = null;
         $this->niveis = null;
         $this->chave = null;
     }

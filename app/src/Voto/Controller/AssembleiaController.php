@@ -237,7 +237,7 @@ final class AssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         try {
-            $ata = $obterAta->executar($tenant, $id, $this->guarda->nomeDeQuemOpera());
+            $ata = $obterAta->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), ator: $this->getUser() instanceof User ? $this->getUser() : null);
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         }

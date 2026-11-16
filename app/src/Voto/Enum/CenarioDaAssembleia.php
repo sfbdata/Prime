@@ -107,6 +107,15 @@ enum CenarioDaAssembleia: string
         };
     }
 
+    /**
+     * O cenário prevê a relação nominal de votantes (desenho: `lista` de bj-voto-cenarios.js): condomínio, associação e
+     * sociedade. Nos demais a ata não traz a relação (spec voto-equipe-e-master-1611, seção 2).
+     */
+    public function temListaDeVotantes(): bool
+    {
+        return \in_array($this, [self::Condominio, self::Associacao, self::Sociedade], true);
+    }
+
     /** Rótulo do agrupamento da lista de aptos (desenho: `rot.gr`). */
     public function grupo(): string
     {

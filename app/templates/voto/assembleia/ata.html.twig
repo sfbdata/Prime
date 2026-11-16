@@ -146,18 +146,29 @@
                     <p>{{ 'voto.assembleia.gestor.ata.nao_apurada_data'|trans }}</p>
                 {% endif %}
 
-                <h3>{{ n }}.5 {{ 'voto.assembleia.gestor.ata.votantes'|trans }}</h3>
-                <p>{{ (p.votoAberto ? 'voto.assembleia.gestor.ata.votantes_texto_aberto' : 'voto.assembleia.gestor.ata.votantes_texto')|trans }}</p>
-                <table class="voto-ata-tabela">
-                    <thead><tr><th>{{ a.cenario.identificacao }}</th><th>{{ 'voto.assembleia.gestor.ata.responsavel'|trans }}</th><th>{{ 'voto.assembleia.gestor.ata.hora'|trans }}</th></tr></thead>
-                    <tbody>
-                    {% for v in ata.votantes[p.id] ?? [] %}
-                        <tr><td>{{ v.bloco is same as('') ? v.identificacao : v.bloco ~ ' · ' ~ v.identificacao }}</td><td>{{ v.responsavel }}</td><td>{{ v.em|date(dh) }}</td></tr>
-                    {% else %}
-                        <tr><td colspan="3">{{ 'voto.assembleia.gestor.ata.sem_votantes'|trans }}</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+                {# Relação de votantes (W2-7 B11): só cenário com lista, pauta encerrada e quem pode vê-la; o UseCase só põe aqui a que pode sair. #}
+                {% if ata.relacao[p.id] is defined %}
+                    <h3>{{ n }}.5 {{ 'voto.assembleia.gestor.ata.votantes'|trans }}</h3>
+                    <p>{{ (p.votoAberto ? 'voto.assembleia.gestor.ata.votantes_texto_aberto' : 'voto.assembleia.gestor.ata.votantes_texto')|trans }}</p>
+                    <table class="voto-ata-tabela" data-voto-relacao="{{ p.id }}">
+                        <thead><tr><th>{{ 'voto.assembleia.gestor.ata.nome'|trans }}</th><th>{{ a.cenario.identificacao }}</th><th>{{ 'voto.assembleia.gestor.ata.situacao'|trans }}</th></tr></thead>
+                        <tbody>
+                        {% for v in ata.relacao[p.id] %}
+                            <tr>
+                                <td>{{ v.nome }}</td>
+                                <td>{{ v.identificacao }}</td>
+                                <td>
+                                    {%- if v.situacao == 'votou' -%}{{ 'voto.assembleia.gestor.ata.votou_faixa'|trans({de: '%02d'|format(v.faixa|date('G')), ate: '%02d'|format((v.faixa|date('G') + 1) % 24)}) }}
+                                    {%- elseif v.situacao == 'nao_votou' -%}{{ 'voto.assembleia.gestor.ata.nao_votou'|trans }}
+                                    {%- else -%}{{ 'voto.assembleia.gestor.ata.inapto'|trans }}{%- endif -%}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="3">{{ 'voto.assembleia.gestor.ata.sem_votantes'|trans }}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
 
                 {# Voto aberto (bloco próprio): a relação nominal só existe na pauta configurada assim antes de publicar. #}
                 {% include 'voto/assembleia/_relacao_nominal.html.twig' with {p: p, a: a} only %}
