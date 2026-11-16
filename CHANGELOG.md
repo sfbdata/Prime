@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.53.0] - 2026-11-16
+
+### Adicionado
+
+- Identifique pautas de eleição de cargo e confira se há candidaturas antes de publicar a votação.
+
 ## [2.52.1] - 2026-11-16
 
 ### Corrigido
@@ -2002,7 +2008,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.52.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.53.0...HEAD
+[2.53.0]: https://github.com/sfbdata/Prime/compare/v2.52.1...v2.53.0
 [2.52.1]: https://github.com/sfbdata/Prime/compare/v2.52.0...v2.52.1
 [2.52.0]: https://github.com/sfbdata/Prime/compare/v2.51.0...v2.52.0
 [2.51.0]: https://github.com/sfbdata/Prime/compare/v2.50.0...v2.51.0
