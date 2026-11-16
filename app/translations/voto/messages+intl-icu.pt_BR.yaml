@@ -585,7 +585,6 @@ voto:
                 fracao: 'Fração {fracao}'
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
-                publicar: Publicar votação
                 soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
             links:
                 titulo: Links das unidades
