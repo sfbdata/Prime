@@ -56,9 +56,19 @@ final class SolicitarMaisEspacoUseCase
             $retrato->bytesLimite,
             \DateTimeImmutable::createFromInterface($this->relogio->now()),
         );
-        // Trava do escritório: com clique duplo ou duas abas, o segundo pedido enxerga o primeiro e é recusado.
-        $pedido = $this->pedidos->emTransacaoTravada($quem->tenantId(), function () use ($quem, $novo): ?PedidoDeEspaco {
-            if ($this->pedidos->pendenteDoEscritorio($quem->tenantId()) instanceof PedidoDeEspaco) {
+        $pedido = $this->gravarSeNaoHouverPendente($quem->tenantId(), $novo);
+        $this->avisarOMaster($quem, $gbDesejado, $retrato);
+
+        $this->eventos->adiar(new EspacoExtraFoiSolicitado((int) $pedido->getId(), $quem->tenantId(), $gbDesejado, $quem->usuario->getId()));
+
+        return self::PEDIDO_ENVIADO;
+    }
+
+    /** Trava do escritório: com clique duplo ou duas abas, o segundo pedido enxerga o primeiro e é recusado. */
+    private function gravarSeNaoHouverPendente(int $tenantId, PedidoDeEspaco $novo): PedidoDeEspaco
+    {
+        $pedido = $this->pedidos->emTransacaoTravada($tenantId, function () use ($tenantId, $novo): ?PedidoDeEspaco {
+            if ($this->pedidos->pendenteDoEscritorio($tenantId) instanceof PedidoDeEspaco) {
                 return null;
             }
             $this->pedidos->salvar($novo, flush: true);
@@ -69,6 +79,11 @@ final class SolicitarMaisEspacoUseCase
             throw new \DomainException('Já existe um pedido de espaço em análise para o seu escritório.');
         }
 
+        return $pedido;
+    }
+
+    private function avisarOMaster(Solicitante $quem, int $gbDesejado, RetratoDoEspaco $retrato): void
+    {
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
             AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO,
@@ -81,10 +96,6 @@ final class SolicitarMaisEspacoUseCase
             ),
             $this->urls->generate('contribua_index') . '#espaco',
         );
-
-        $this->eventos->adiar(new EspacoExtraFoiSolicitado((int) $pedido->getId(), $quem->tenantId(), $gbDesejado, $quem->usuario->getId()));
-
-        return self::PEDIDO_ENVIADO;
     }
 
     private static function usoEmTexto(RetratoDoEspaco $retrato): string

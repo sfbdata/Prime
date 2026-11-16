@@ -16,7 +16,7 @@ final class AutomacaoTest extends TestCase
     public function testPadroesDoDesenho(): void
     {
         self::assertSame(['cad', 'lemb', 'val', 'conv', 'dica', 'e90', 'e100', 'ped'], array_map(static fn (Automacao $a): string => $a->value, Automacao::comChave()));
-        self::assertSame(['lib', 'resp'], array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::cases(), static fn (Automacao $a): bool => !$a->temChave())), 'avisos fixos, sem chave de liga/desliga');
+        self::assertSame(['lib', 'resp'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::cases(), static fn (Automacao $a): bool => !$a->temChave()))), 'avisos fixos, sem chave de liga/desliga');
         self::assertSame(['dica'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::comChave(), static fn (Automacao $a): bool => !$a->ligadaPorPadrao()))));
         self::assertSame(['cad'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::comChave(), static fn (Automacao $a): bool => $a->obrigatoria()))));
     }

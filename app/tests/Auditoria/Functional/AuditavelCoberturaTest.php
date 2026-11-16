@@ -59,6 +59,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
         // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
         \App\Contribua\Entity\Sugestao::class,
+        // Contribua: pedido de mais espaço. Mesmo caso da sugestão (o Master decide a partir de outro escritório); o
+        // próprio pedido guarda quem pediu, quem decidiu e quando (pedido_por, decidido_por, decidido_em).
+        \App\Contribua\Entity\PedidoDeEspaco::class,
         // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
         // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
         \App\Contribua\Entity\NotificacaoRecebida::class,

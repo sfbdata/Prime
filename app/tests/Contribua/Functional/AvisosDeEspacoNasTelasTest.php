@@ -126,7 +126,8 @@ final class AvisosDeEspacoNasTelasTest extends JusPrimeWebTestCase
     public function testModalSolicitar(): void
     {
         $this->usar(0.50);
-        $crawler = $this->abrir($this->primario, self::OUTRA_TELA);
+        self::assertCount(0, $this->abrir($this->primario, self::OUTRA_TELA)->filter(self::RAIZ), 'a 50%, fora da Contribua, nenhum botão abre o modal: a página não paga a consulta do pedido');
+        $crawler = $this->abrir($this->primario, '/contribua');
 
         $modal = $crawler->filter('[data-es-modal="solicitar"]');
         self::assertSame(['20', '50', '100'], $modal->filter('input[type="radio"][name="gb"]')->each(static fn ($n): string => (string) $n->attr('value')));

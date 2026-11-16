@@ -17,6 +17,7 @@ use App\Contribua\Service\SolicitanteDaSessao;
 use App\Contribua\Service\VisaoDoMaster;
 use App\Contribua\UseCase\RegistrarLiberacaoAutomaticaUseCase;
 use App\Service\Tenant\TenantContext;
+use App\Twig\TenantContextExtension;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -58,6 +59,7 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
         private readonly SituacaoDoEspaco $situacao,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
         private readonly SolicitanteDaSessao $solicitantes,
+        private readonly TenantContextExtension $vinculos,
         private readonly PedidoDeEspacoRepository $pedidos,
         private readonly EspacoDoEscritorioRepository $espacos,
         private readonly RegistrarLiberacaoAutomaticaUseCase $liberacaoAutomatica,
@@ -173,8 +175,8 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
     private function montarSemDerrubar(int $tenantId): ?array
     {
         try {
-            $quem = $this->solicitantes->atual();
-            if (!$quem->ehPrimario && !$quem->ehMaster) {
+            $quem = $this->quemPodePedir();
+            if ($quem === null) {
                 return null;
             }
             $retrato = $this->situacao->doEscritorio($tenantId);
@@ -185,12 +187,39 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
                 $this->anotarMarcaAutomatica($retrato);
             }
 
-            return $this->montar($retrato, $quem);
+            return $this->precisaDoPedido($retrato) ? $this->montar($retrato, $quem) : null;
         } catch (\Throwable $falha) {
             $this->logger->error('Contribua: aviso de espaço não montado', ['tenant' => $tenantId, 'erro' => $falha->getMessage()]);
 
             return null;
         }
+    }
+
+    /**
+     * Só o primário e o Master. O papel vem dos vínculos que a moldura já carregou (`eh_usuario_primario`, memória por
+     * requisição): o colaborador sai sem nenhuma consulta a mais.
+     */
+    private function quemPodePedir(): ?Solicitante
+    {
+        $escritorio = $this->tenantContext->getCurrentTenant();
+        $ehMaster = $this->security->isGranted('ROLE_SUPER_ADMIN');
+        $ehPrimario = $this->vinculos->ehUsuarioPrimario();
+        if ($escritorio === null || (!$ehPrimario && !$ehMaster)) {
+            return null;
+        }
+
+        return new Solicitante($this->solicitantes->usuario(), $escritorio, $ehMaster, $ehPrimario);
+    }
+
+    /**
+     * O pedido pendente só é procurado onde algo o usa: a tela Contribua, a barra (a partir da faixa Alerta) e o pop-up
+     * dos 97%. Abaixo disso, fora da Contribua, nenhum botão abre o modal e a página não paga a consulta.
+     */
+    private function precisaDoPedido(RetratoDoEspaco $r): bool
+    {
+        return $this->naTelaContribua()
+            || (int) $r->percentual >= $this->configuracoes->atual()->getFaixaAlerta()
+            || LiberacaoDasOpcoesDeEspaco::usoNoLimiar($r->bytesUsados, (int) $r->bytesLimite);
     }
 
     /**
