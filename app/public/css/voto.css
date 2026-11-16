@@ -218,3 +218,13 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .vqTexto { font-size:13.5px; color:#34505f; }
 .vqQr { width:min(280px,100%); aspect-ratio:1; align-self:center; display:block; }
 .vqAcoes { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Lembrar quem não votou (F3-4, desenho 18): .vModC de min(620px,100%) sobre o .vModAbrir; medidas do desenho. */
+.voto-tela .voto-lembrar-topo { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.voto-tela .voto-lembrar-resumo { flex: 1 1 240px; font-size: 13.5px; }
+.voto-tela .voto-lembrar-lista { overflow: auto; }
+.voto-tela .voto-lembrar-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.voto-tela .voto-lembrar-quem { flex: 1 1 220px; min-width: 0; font-size: 13.5px; }
+.voto-tela .voto-lembrar-quem > div { color: #5b7383; }
+.voto-tela .voto-lembrar-sem-tel { font-size: 12.5px; color: #8a6200; }
+.voto-tela .voto-lembrar-rodape { font-size: 12.5px; color: #5b7383; }

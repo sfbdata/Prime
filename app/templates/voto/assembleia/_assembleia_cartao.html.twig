@@ -1,7 +1,7 @@
 {#
     Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
     assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
-    Code, Resultados, Conduzir no telão e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
+    Code, Resultados, Conduzir no telão, Lembrar quem não votou e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
 #}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
     {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
@@ -19,6 +19,10 @@
             {rotulo: 'voto.assembleia.gestor.painel.resultados'|trans, icone: 'bi-shield-check', href: path('voto_index', {aba: 'tra'}) ~ '#assembleia-' ~ a.id},
             {rotulo: 'voto.assembleia.gestor.telao.conduzir_menu'|trans, icone: 'bi-display', href: path('voto_assembleia_telao', {id: a.id})},
         ]) %}
+        {# Como o desenho: só com lista de aptos e votação ainda não encerrada (publicada ou aberta). #}
+        {% if a.unidadesAptas > 0 and a.situacao() in ['publicada', 'aberta'] %}
+            {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.lembrar.menu'|trans, icone: 'bi-whatsapp', href: path('voto_assembleia_lembrete', {id: a.id})}]) %}
+        {% endif %}
     {% endif %}
     {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu.duplicar'|trans, icone: 'bi-copy', acao: path('voto_assembleia_duplicar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}
     <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>

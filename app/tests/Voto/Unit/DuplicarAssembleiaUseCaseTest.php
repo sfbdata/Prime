@@ -105,11 +105,14 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
             self::assertSame($originais[$i]->getFracao(), $copia->getFracao());
             self::assertSame($originais[$i]->getResponsavel(), $copia->getResponsavel());
             self::assertNull($copia->getEmail(), 'a cópia sai sem os e-mails, como o desenho');
+            self::assertSame($originais[$i]->getTelefone(), $copia->getTelefone(), 'o telefone é copiado, como o desenho (tel)');
             self::assertSame($originais[$i]->isApta(), $copia->isApta());
             self::assertNotSame($originais[$i]->getSemente(), $copia->getSemente(), 'o link do original não vale na cópia');
             self::assertNotSame($originais[$i]->getTokenHash(), $copia->getTokenHash());
             self::assertNull($copia->getLinkEnviadoEm());
         }
+        self::assertSame('61999990001', $copias[0]->getTelefone());
+        self::assertNull($copias[1]->getTelefone());
         self::assertNotNull($originais[0]->getLinkEnviadoEm(), 'o original segue intacto');
     }
 
@@ -170,7 +173,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
         new OpcaoDaPauta($pauta, 11, 'Ana');
         new OpcaoDaPauta($pauta, 12, 'Beto');
         new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
-        $u1 = new UnidadeDaAssembleia($origem, '101', str_repeat('a', 32), str_repeat('b', 64), 'A', 'adimplente', '0.050000', 'Maria', 'maria@exemplo.com');
+        $u1 = new UnidadeDaAssembleia($origem, '101', str_repeat('a', 32), str_repeat('b', 64), 'A', 'adimplente', '0.050000', 'Maria', 'maria@exemplo.com', '61999990001');
         new UnidadeDaAssembleia($origem, '102', str_repeat('c', 32), str_repeat('d', 64), 'A', 'inadimplente', '0.050000', null, null);
         $u1->registrarEnvioDoLink(new \DateTimeImmutable('-1 day'));
         $origem->publicar();

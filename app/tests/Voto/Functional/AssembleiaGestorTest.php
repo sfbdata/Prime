@@ -146,7 +146,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertCount(1, $faixa->filter('.vChip + .vKw > button.vK[aria-label="Mais opções"]'), 'menu na faixa do nome, depois do chip');
         self::assertCount(0, $linha->filter('.vKw'));
         self::assertSame(
-            ['Pautas', 'Unidades e links', 'Link e QR Code', 'Resultados', 'Conduzir no telão (modo assembleia)'],
+            ['Pautas', 'Unidades e links', 'Link e QR Code', 'Resultados', 'Conduzir no telão (modo assembleia)', 'Lembrar quem não votou'],
             $faixa->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())),
             'publicada: a configuração está bloqueada, então "Editar configuração" não entra',
         );

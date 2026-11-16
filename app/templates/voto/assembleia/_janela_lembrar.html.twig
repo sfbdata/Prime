@@ -1,0 +1,32 @@
+{#
+    Janela "Lembrar quem não votou" do desenho 18 (.vModC de min(620px,100%) sobre o .vModAbrir de voto-janela.css), nunca
+    modal do Bootstrap. Fragmento servido por voto_assembleia_lembrete e inserido na tela por public/js/voto-lembrete.js;
+    fecha pelo voto-janela.js ([data-voto-janela-fechar], fundo e Esc). Contexto: `tela` (QuemNaoVotouOutput).
+    Só mostra quem não votou e como avisar: nunca o voto de ninguém.
+#}
+{% set mensagem = 'voto.assembleia.gestor.lembrar.mensagem'|trans({titulo: tela.titulo, link: tela.link, codigo: tela.codigoDeConferencia}) %}
+<div class="vModAbrir voto-lembrar" data-voto-janela-raiz id="janela-lembrar-{{ tela.assembleiaId }}">
+    <div class="vModC" style="width:min(620px,100%);" role="dialog" aria-modal="true" aria-labelledby="janela-lembrar-{{ tela.assembleiaId }}-titulo">
+        <div class="vH"><i class="bi bi-whatsapp"></i><span id="janela-lembrar-{{ tela.assembleiaId }}-titulo">{{ 'voto.assembleia.gestor.lembrar.titulo'|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.lembrar.fechar'|trans }}</button></div>
+        <div class="vLin voto-lembrar-topo">
+            <div class="voto-lembrar-resumo"><b>{{ tela.titulo }}</b><br>{{ tela.unidades|length > 0 ? 'voto.assembleia.gestor.lembrar.resumo'|trans({n: tela.unidades|length, tel: tela.comTelefone}) : 'voto.assembleia.gestor.lembrar.todos_votaram'|trans }}</div>
+            <button type="button" class="vB" data-voto-copiar="{{ 'voto.assembleia.gestor.lembrar.copiar_texto'|trans({mensagem: mensagem}) }}" data-voto-copiado="{{ 'voto.assembleia.gestor.aviso.mensagem_copiada'|trans }}"><i class="bi bi-clipboard"></i>{{ 'voto.assembleia.gestor.lembrar.copiar'|trans }}</button>
+            <a class="vB" href="{{ path('voto_assembleia_lembrete_csv', {id: tela.assembleiaId}) }}"><i class="bi bi-download"></i>{{ 'voto.assembleia.gestor.lembrar.baixar'|trans }}</a>
+        </div>
+        <div class="voto-lembrar-lista">
+            {% for u in tela.unidades %}
+                {% set abertura = u.primeiroNome ? 'voto.assembleia.gestor.lembrar.abertura_com_nome'|trans({nome: u.primeiroNome}) : 'voto.assembleia.gestor.lembrar.abertura'|trans %}
+                {% set wa = u.linkDoWhatsapp(abertura ~ ' ' ~ mensagem) %}
+                <div class="vLin voto-lembrar-linha">
+                    <div class="voto-lembrar-quem"><b>{{ u.responsavel ?: 'voto.assembleia.gestor.lembrar.sem_nome'|trans }}</b><div>{{ u.rotulo }}</div></div>
+                    {% if wa %}
+                        <a class="vB" href="{{ wa }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i>{{ 'voto.assembleia.gestor.lembrar.enviar'|trans }}</a>
+                    {% else %}
+                        <span class="voto-lembrar-sem-tel">{{ 'voto.assembleia.gestor.lembrar.sem_telefone'|trans }}</span>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="vLin voto-lembrar-rodape">{{ 'voto.assembleia.gestor.lembrar.rodape'|trans }}</div>
+    </div>
+</div>

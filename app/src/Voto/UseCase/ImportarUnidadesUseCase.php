@@ -105,6 +105,7 @@ final class ImportarUnidadesUseCase
             fracao: $linha->fracao,
             responsavel: $linha->responsavel,
             email: $linha->email,
+            telefone: $linha->telefone,
         );
     }
 

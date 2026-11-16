@@ -304,6 +304,23 @@ voto:
                 editar_config: Editar configuração
                 link_qr: Link e QR Code
                 duplicar: Duplicar votação
+            # ---- Voto redesign F3-4: Lembrar quem não votou, desenho 18 (naoVotaram, janela do lembrete).
+            lembrar:
+                menu: Lembrar quem não votou
+                titulo: Lembrar quem não votou
+                fechar: Fechar
+                resumo: '{n} apto(s) ainda não votaram; {tel} com telefone na lista.'
+                todos_votaram: Todos os aptos já votaram.
+                copiar: Copiar mensagem
+                baixar: Baixar lista
+                enviar: Enviar lembrete
+                sem_telefone: Sem telefone na lista
+                sem_nome: Sem nome na lista
+                abertura_com_nome: 'Olá, {nome}. Lembrete: a votação está aberta e você ainda não votou.'
+                abertura: 'Olá. Lembrete: a votação está aberta e você ainda não votou.'
+                copiar_texto: 'Lembrete: a votação está aberta. {mensagem}'
+                mensagem: 'Votação: {titulo}. Acesse pelo link {link} , localize seu nome e confirme sua identidade. Não precisa ter conta no BlueJus. Código de conferência: {codigo}.'
+                rodape: Cada botão abre o WhatsApp com a mensagem pronta; o envio é feito por você. A lista não mostra quem votou em quem.
             janela_abrir:
                 titulo: Abrir votação
                 fechar: Fechar
@@ -336,7 +353,7 @@ voto:
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
-                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail. Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo

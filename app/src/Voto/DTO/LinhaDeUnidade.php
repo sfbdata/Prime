@@ -15,6 +15,7 @@ final readonly class LinhaDeUnidade
         public ?string $fracao,
         public ?string $responsavel,
         public ?string $email,
+        public ?string $telefone = null,
     ) {
     }
 
