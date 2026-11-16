@@ -146,6 +146,8 @@ final class SolicitarMaisEspacoUseCaseTest extends TestCase
 
     private function useCase(PedidoDeEspacoRepository $pedidos, int $bytes, ?EspacoDoEscritorio $espaco, ?EventosDoEspacoAposConfirmar &$eventos): SolicitarMaisEspacoUseCase
     {
+        // A trava do escritório roda o trabalho na hora (a concorrência se prova no banco, não aqui).
+        $pedidos->method('emTransacaoTravada')->willReturnCallback(static fn (int $tenantId, \Closure $trabalho): mixed => $trabalho());
         $despachante = $this->createStub(EventDispatcherInterface::class);
         $despachante->method('dispatch')->willReturnCallback(function (object $e): object {
             $this->despachados[] = $e;

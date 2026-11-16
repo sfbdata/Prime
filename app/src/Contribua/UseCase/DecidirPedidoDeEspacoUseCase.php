@@ -21,10 +21,13 @@ use Psr\Clock\ClockInterface;
  * (a liberação do Master fica gravada no espaço do escritório) ou recusa. Só pedido pendente. O escritório é avisado por
  * e-mail pelos eventos, depois do trabalho dar certo.
  *
- * A rota já exige `ROLE_SUPER_ADMIN`; a checagem aqui é a segunda trava.
+ * A rota já exige `ROLE_SUPER_ADMIN`; a checagem aqui é a segunda trava. A decisão roda com a trava do escritório e relê
+ * o pedido: dois Masters (ou clique duplo) não decidem o mesmo pedido duas vezes.
  */
 final class DecidirPedidoDeEspacoUseCase
 {
+    private const JA_DECIDIDO = 'Este pedido já foi decidido.';
+
     public function __construct(
         private readonly PedidoDeEspacoRepository $pedidos,
         private readonly EspacoDoEscritorioRepository $espacos,
@@ -41,11 +44,22 @@ final class DecidirPedidoDeEspacoUseCase
         $tenantId = (int) $pedido->getTenant()->getId();
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
-        $pedido->liberar($quem->usuario, $agora);
-        $espaco = $this->espacos->doTenantOuNovo($tenantId, $this->planos->free());
-        $espaco->liberarOpcoes(OrigemDaLiberacao::Master, $agora);
-        $this->espacos->salvar($espaco);
-        $this->pedidos->salvar($pedido, flush: true);
+        $decidiu = $this->pedidos->emTransacaoTravada($tenantId, function () use ($pedido, $quem, $tenantId, $agora): bool {
+            $this->pedidos->recarregar($pedido);
+            if (!$pedido->estaPendente()) {
+                return false;
+            }
+            $pedido->liberar($quem->usuario, $agora);
+            $espaco = $this->espacos->doTenantOuNovo($tenantId, $this->planos->free());
+            $espaco->liberarOpcoes(OrigemDaLiberacao::Master, $agora);
+            $this->espacos->salvar($espaco);
+            $this->pedidos->salvar($pedido, flush: true);
+
+            return true;
+        });
+        if (!$decidiu) {
+            throw new \DomainException(self::JA_DECIDIDO);
+        }
 
         $this->eventos->adiar(new OpcoesDeEspacoForamLiberadas($tenantId, OrigemDaLiberacao::Master, (int) $pedido->getId()));
 
@@ -55,9 +69,21 @@ final class DecidirPedidoDeEspacoUseCase
     public function recusar(Solicitante $quem, int $pedidoId): string
     {
         $pedido = $this->pendente($quem, $pedidoId);
+        $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
-        $pedido->recusar($quem->usuario, \DateTimeImmutable::createFromInterface($this->relogio->now()));
-        $this->pedidos->salvar($pedido, flush: true);
+        $decidiu = $this->pedidos->emTransacaoTravada((int) $pedido->getTenant()->getId(), function () use ($pedido, $quem, $agora): bool {
+            $this->pedidos->recarregar($pedido);
+            if (!$pedido->estaPendente()) {
+                return false;
+            }
+            $pedido->recusar($quem->usuario, $agora);
+            $this->pedidos->salvar($pedido, flush: true);
+
+            return true;
+        });
+        if (!$decidiu) {
+            throw new \DomainException(self::JA_DECIDIDO);
+        }
 
         $this->eventos->adiar(new PedidoDeEspacoFoiRecusado((int) $pedido->getId(), (int) $pedido->getTenant()->getId()));
 
@@ -74,7 +100,7 @@ final class DecidirPedidoDeEspacoUseCase
             throw new \DomainException('Pedido de espaço não encontrado.');
         }
         if (!$pedido->estaPendente()) {
-            throw new \DomainException('Este pedido já foi decidido.');
+            throw new \DomainException(self::JA_DECIDIDO);
         }
 
         return $pedido;

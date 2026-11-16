@@ -46,21 +46,29 @@ final class SolicitarMaisEspacoUseCase
         if ($retrato->opcoesLiberadas) {
             throw new \DomainException('As opções de espaço extra já estão liberadas para o seu escritório.');
         }
-        if ($this->pedidos->pendenteDoEscritorio($quem->tenantId()) instanceof PedidoDeEspaco) {
+        // Trava do escritório: com clique duplo ou duas abas, o segundo pedido enxerga o primeiro e é recusado.
+        $pedido = $this->pedidos->emTransacaoTravada($quem->tenantId(), function () use ($quem, $gbDesejado, $motivo, $retrato): ?PedidoDeEspaco {
+            if ($this->pedidos->pendenteDoEscritorio($quem->tenantId()) instanceof PedidoDeEspaco) {
+                return null;
+            }
+
+            // A entidade valida a faixa (20, 50 ou 100) e o tamanho do motivo.
+            $novo = new PedidoDeEspaco(
+                $quem->escritorio,
+                $quem->usuario,
+                $gbDesejado,
+                $motivo,
+                $retrato->bytesUsados,
+                $retrato->bytesLimite,
+                \DateTimeImmutable::createFromInterface($this->relogio->now()),
+            );
+            $this->pedidos->salvar($novo, flush: true);
+
+            return $novo;
+        });
+        if (!$pedido instanceof PedidoDeEspaco) {
             throw new \DomainException('Já existe um pedido de espaço em análise para o seu escritório.');
         }
-
-        // A entidade valida a faixa (20, 50 ou 100) e o tamanho do motivo.
-        $pedido = new PedidoDeEspaco(
-            $quem->escritorio,
-            $quem->usuario,
-            $gbDesejado,
-            $motivo,
-            $retrato->bytesUsados,
-            $retrato->bytesLimite,
-            \DateTimeImmutable::createFromInterface($this->relogio->now()),
-        );
-        $this->pedidos->salvar($pedido, flush: true);
 
         $this->avisoAoMaster->avisar(
             $quem->escritorio,
