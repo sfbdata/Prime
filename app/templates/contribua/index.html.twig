@@ -110,7 +110,7 @@
             {% else %}
                 <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> em uso</span></div>
             {% endif %}
-            {% if e.bonusAte is not null %}<div class="ct-espaco-bonus" data-ct-bonus><i class="bi bi-gift"></i> {{ 'contribua.espaco.bonus_ate'|trans({gb: e.bonusGb, data: e.bonusAte}) }}</div>{% endif %}
+            {% if e.bonusAte is not null %}<div class="ct-espaco-bonus" data-ct-bonus>{{ 'contribua.espaco.bonus_ate'|trans({gb: e.bonusGb, data: e.bonusAte}) }}</div>{% endif %}
         </div>
         <div class="ct-espaco-corpo">
             {# N4: caixa do pedido de espaço. "Solicitar mais espaço" e "Ver pedido" abrem o modal global da etapa 5. #}
