@@ -1,5 +1,5 @@
 {#
-    Janela "Abrir votação" do desenho 18 (.vMod > .vModC de min(480px,100%), z-index 5600), nunca modal do Bootstrap.
+    Janela "Abrir votação" do desenho 18 (.vModAbrir > .vModC de min(480px,100%), z-index 5600), nunca modal do Bootstrap.
     Troca a convocação, os minutos e os botões "Abrir por minutos" / "Abrir sem prazo" que ficavam na linha da pauta.
     CSS public/css/voto-janela.css, JS public/js/voto-janela.js. Reutilizável (o telão a inclui também).
     CONTRATO: recebe `a` (AssembleiaNoPainel), `p` (PautaNoPainel, publicada e aguardando a mesa), `token` (CSRF
@@ -8,13 +8,13 @@
     A linha "Presentes: N de M aptos" e o quórum de instalação por convocação dependem de decisão de negócio
     pendente (C9) e de um dado de presença que o sistema ainda não tem antes da abertura: ficam de fora.
 #}
-<div class="vMod vModAbrir" id="janela-abrir-{{ p.id }}" hidden>
+<div class="vModAbrir" data-voto-janela-raiz id="janela-abrir-{{ p.id }}" hidden>
     <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="janela-abrir-{{ p.id }}-titulo">
         <div class="vH"><i class="bi bi-unlock"></i><span id="janela-abrir-{{ p.id }}-titulo">{{ 'voto.assembleia.gestor.janela_abrir.titulo'|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_abrir.fechar'|trans }}</button></div>
         <form method="post" action="{{ path('voto_assembleia_pauta_abrir', {id: a.id, pauta: p.id}) }}" class="vModCorpo" data-mesa="abrir">
             <input type="hidden" name="_token" value="{{ token }}">
             <input type="hidden" name="voltar" value="{{ voltar }}">
-            <b>{{ p.ordem }}. {{ p.titulo }}</b>
+            <b>{{ p.titulo }}</b>
             <label class="vL">{{ 'voto.assembleia.gestor.mesa.convocacao'|trans }}
                 <select class="vF" name="convocacao">
                     <option value="1">{{ 'voto.assembleia.gestor.mesa.conv1'|trans }}</option>

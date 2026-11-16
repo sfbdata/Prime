@@ -31,7 +31,9 @@
     function confirmar(form) {
         var raiz = form.closest('.voto-tela') || document.body;
         var fundo = document.createElement('div');
-        fundo.className = 'vMod vModConfirma';
+        fundo.className = 'vModConfirma';
+        var menuDeOrigem = form.closest('[data-voto-menu]');
+        var gatilho = menuDeOrigem ? menuDeOrigem.querySelector('[data-voto-menu-botao]') : null;
         var destrutivo = form.querySelector('.vKd') !== null;
         fundo.innerHTML = '<div class="vModC" role="dialog" aria-modal="true"><div class="vH"></div>' +
             '<div class="vModCorpo"><div data-texto></div><div class="vModRodape">' +
@@ -44,14 +46,20 @@
         sim.textContent = form.getAttribute('data-voto-confirmar-sim') || 'Confirmar';
         nao.textContent = form.getAttribute('data-voto-confirmar-nao') || 'Cancelar';
         sim.className = 'vB ' + (destrutivo ? 'vD' : 'vP');
-        function sair() { document.removeEventListener('keydown', tecla, true); fundo.remove(); }
+        function sair(devolver) { document.removeEventListener('keydown', tecla, true); fundo.remove(); if (devolver !== false && gatilho) { gatilho.focus(); } }
         function tecla(ev) {
-            if (ev.key === 'Escape') { ev.stopPropagation(); sair(); }
+            if (ev.key === 'Escape') { ev.stopPropagation(); sair(); return; }
+            if (ev.key === 'Tab') {
+                /* Prende o Tab entre Cancelar e Confirmar. */
+                var alvo = ev.shiftKey ? (document.activeElement === nao ? sim : nao) : (document.activeElement === sim ? nao : sim);
+                ev.preventDefault();
+                alvo.focus();
+            }
         }
         document.addEventListener('keydown', tecla, true);
         nao.addEventListener('click', sair);
         fundo.addEventListener('click', function (ev) { if (ev.target === fundo) { sair(); } });
-        sim.addEventListener('click', function () { sair(); form.submit(); });
+        sim.addEventListener('click', function () { sair(false); form.submit(); });
         raiz.appendChild(fundo);
         nao.focus();
     }

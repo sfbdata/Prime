@@ -140,10 +140,12 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
     private function conferirCartaoEnxutoEJanelaDeAbrir(Crawler $cartao, int $id): void
     {
         $linha = $cartao->filter('.voto-acoes');
-        self::assertCount(1, $linha->filter('.vKw > button.vK[aria-label="Mais opções"]'));
+        $faixa = $cartao->filter('#assembleia-' . $id . ' > .vH');
+        self::assertCount(1, $faixa->filter('.vChip + .vKw > button.vK[aria-label="Mais opções"]'), 'menu na faixa do nome, depois do chip');
+        self::assertCount(0, $linha->filter('.vKw'));
         self::assertSame(
             ['Pautas', 'Unidades e links', 'Link e QR Code', 'Resultados'],
-            $linha->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())),
+            $faixa->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())),
             'publicada: a configuração está bloqueada, então "Editar configuração" não entra',
         );
         self::assertSame(['Relatório consolidado'], $linha->filter('a.vB')->each(static fn (Crawler $c): string => trim($c->text())));
@@ -151,7 +153,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
 
         $pauta = $cartao->filter('.voto-pauta[data-situacao="publicada"]')->first();
         self::assertSame('Abrir votação', trim($pauta->filter('.voto-pauta-acoes > button[data-voto-janela]')->text()));
-        $janela = $pauta->filter('.voto-pauta-acoes > .vMod.vModAbrir[hidden] > .vModC[role="dialog"]');
+        $janela = $pauta->filter('.voto-pauta-acoes > .vModAbrir[hidden][data-voto-janela-raiz] > .vModC[role="dialog"]');
         self::assertCount(1, $janela);
         self::assertStringContainsString('/voto/assembleias/' . $id . '/pautas/', (string) $janela->filter('form')->attr('action'));
         self::assertSame(['1ª convocação', '2ª convocação'], $janela->filter('select[name="convocacao"] > option')->each(static fn (Crawler $c): string => trim($c->text())));
@@ -162,7 +164,15 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertCount(1, $janela->filter('label[data-voto-minutos] > input[name="minutos"]'));
         self::assertSame('Cancelar', trim($janela->filter('.vModRodape > button[type="button"]')->text()));
         self::assertSame('Abrir votação', trim($janela->filter('.vModRodape > button[type="submit"]')->text()));
+        self::assertSame($pauta->filter('.voto-pauta-nome')->text() === '' ? '' : trim((string) preg_replace('/^\d+\.\s*/', '', $pauta->filter('.voto-pauta-nome')->text())), trim($janela->filter('.vModCorpo > b')->text()), 'título da janela: só o nome da pauta');
         self::assertStringNotContainsString('—', $janela->html());
+
+        // Regressão: a divulgação tem a janela própria (.vqModal) e o JS/CSS novos não podem tocar nela.
+        $divulgacao = $this->client->request('GET', '/voto/assembleias/' . $id . '/divulgacao');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $divulgacao->filter('.vqModal'));
+        self::assertCount(0, $divulgacao->filter('.vqModal[data-voto-janela-raiz], .vqModal.vModAbrir, .vqModal.vModConfirma'));
+        self::assertCount(0, $divulgacao->filter('[data-voto-janela-raiz]'));
     }
 
     #[TestDox('Fluxo do gestor: criar, pautas, unidades, publicar, abrir, votar, encerrar, resultado por fração e ata')]
@@ -459,7 +469,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Rascunho: Publicar fica visível; Editar configuração, Pautas e Unidades e links moram só no menu (A2)
         $linha = $painel->filter('#assembleia-' . $assembleia->getId() . ' .voto-acoes');
         self::assertCount(1, $linha->filter('button.vB.vP'));
-        self::assertSame(['Editar configuração', 'Pautas', 'Unidades e links'], $linha->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Editar configuração', 'Pautas', 'Unidades e links'], $painel->filter('#assembleia-' . $assembleia->getId() . ' > .vH .vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(0, $linha->filter('a.vB'), 'nenhum link de navegação fora do menu');
         $revisao = $this->client->submit($painel->filter('#assembleia-' . $assembleia->getId())->selectButton('Publicar')->form());
         self::assertResponseIsSuccessful();

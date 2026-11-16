@@ -231,8 +231,6 @@ voto:
                 conv2: 2ª convocação
                 minutos_rotulo: Minutos
                 minutos: minutos
-                abrir_minutos: Abrir por minutos
-                abrir_sem_prazo: Abrir sem prazo
                 encerra_em: 'Encerra em {tempo}'
                 sem_prazo_definido: Aberta, sem prazo definido
                 definir_prazo: Definir prazo

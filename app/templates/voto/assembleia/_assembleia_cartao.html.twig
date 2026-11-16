@@ -1,10 +1,25 @@
 {#
     Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
-    assembleia), a linha enxuta do desenho (Publicar ou Relatório consolidado e o menu de três pontos com Editar
-    configuração, Pautas, Unidades e links, Link e QR Code e Resultados) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
+    assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
+    Code e Resultados), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel) e `agora`.
 #}
 <div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
-    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span></div>
+    {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
+    {% set itens = [] %}
+    {% if a.podeAlterarPautas %}
+        {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu.editar_config'|trans, icone: 'bi-pencil', href: path('voto_assembleia_editar', {id: a.id})}]) %}
+    {% endif %}
+    {% set itens = itens|merge([
+        {rotulo: 'voto.assembleia.gestor.painel.pautas'|trans, icone: 'bi-list-ol', href: path('voto_assembleia_pautas', {id: a.id})},
+        {rotulo: 'voto.assembleia.gestor.painel.unidades'|trans, icone: 'bi-list-check', href: path('voto_assembleia_unidades', {id: a.id})},
+    ]) %}
+    {% if a.publicada %}
+        {% set itens = itens|merge([
+            {rotulo: 'voto.assembleia.gestor.menu.link_qr'|trans, icone: 'bi-qr-code', href: path('voto_assembleia_divulgacao', {id: a.id})},
+            {rotulo: 'voto.assembleia.gestor.painel.resultados'|trans, icone: 'bi-shield-check', href: path('voto_index', {aba: 'tra'}) ~ '#assembleia-' ~ a.id},
+        ]) %}
+    {% endif %}
+    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span><span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>
     {% include 'voto/assembleia/_etapas.html.twig' with {a: a} only %}
     <div class="vLin voto-acoes">
         {% if not a.publicada %}
@@ -14,22 +29,6 @@
         {% else %}
             <a class="vB vP" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i>{{ 'voto.assembleia.gestor.painel.relatorio'|trans }}</a>
         {% endif %}
-        {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
-        {% set itens = [] %}
-        {% if a.podeAlterarPautas %}
-            {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu.editar_config'|trans, icone: 'bi-pencil', href: path('voto_assembleia_editar', {id: a.id})}]) %}
-        {% endif %}
-        {% set itens = itens|merge([
-            {rotulo: 'voto.assembleia.gestor.painel.pautas'|trans, icone: 'bi-list-ol', href: path('voto_assembleia_pautas', {id: a.id})},
-            {rotulo: 'voto.assembleia.gestor.painel.unidades'|trans, icone: 'bi-list-check', href: path('voto_assembleia_unidades', {id: a.id})},
-        ]) %}
-        {% if a.publicada %}
-            {% set itens = itens|merge([
-                {rotulo: 'voto.assembleia.gestor.menu.link_qr'|trans, icone: 'bi-qr-code', href: path('voto_assembleia_divulgacao', {id: a.id})},
-                {rotulo: 'voto.assembleia.gestor.painel.resultados'|trans, icone: 'bi-shield-check', href: path('voto_index', {aba: 'tra'}) ~ '#assembleia-' ~ a.id},
-            ]) %}
-        {% endif %}
-        {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}
     </div>
     {% for p in a.pautas %}
         {% include 'voto/assembleia/_pauta_linha.html.twig' with {a: a, p: p, voltar: 'painel', agora: agora} only %}
