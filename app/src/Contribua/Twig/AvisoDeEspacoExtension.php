@@ -19,7 +19,10 @@ use App\Contribua\UseCase\RegistrarLiberacaoAutomaticaUseCase;
 use App\Service\Tenant\TenantContext;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -30,10 +33,13 @@ use Twig\TwigFunction;
  *  - `aviso_de_espaco()`: a barra do topo. Só o primário, a partir da faixa Alerta do Master (padrão 90%), nunca na tela
  *    Contribua (que já mostra o mesmo conteúdo). Null quando não há barra.
  *  - `espaco_para_solicitar()`: o que os modais "Solicitar mais espaço" e "Pedido em análise" e o pop-up dos 97% leem.
- *    Para o primário e para o Master, em qualquer tela, inclusive a Contribua. É aqui que a marca `auto` é gravada.
+ *    Para o primário e para o Master, em qualquer tela, inclusive a Contribua. A marca `auto` fica anotada aqui e só é
+ *    gravada na resposta (`aoResponder`), depois do render e só se a página deu certo: o Twig não grava no banco.
  *  - `aviso_de_pedidos_de_espaco()`: quantos pedidos pendentes o Master tem a analisar (barra N9), fora da Contribua.
  *
  * D6: "novos envios pausados" só aparece com o bloqueio ligado; com ele desligado o texto diz só que o espaço está cheio.
+ *
+ * Custo: quem não é primário nem Master sai antes de qualquer consulta (o retrato soma o uso de várias tabelas).
  */
 final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInterface
 {
@@ -43,6 +49,9 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
     private ?array $daRequisicao = null;
 
     private ?int $pedidosDoMaster = null;
+
+    /** Escritório que chegou a 97% sem a marca `auto`: gravada em `aoResponder`. */
+    private ?int $marcarAuto = null;
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -107,6 +116,27 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
     {
         $this->daRequisicao = null;
         $this->pedidosDoMaster = null;
+        $this->marcarAuto = null;
+    }
+
+    /**
+     * N8: grava a marca `auto` depois do render, antes dos eventos adiados do espaço (prioridade maior que a do
+     * `EventosDoEspacoAposConfirmar`, -1024), para que o evento da liberação saia nesta mesma resposta. Página de erro
+     * não grava. Nunca derruba a resposta: a falha vai ao log e a próxima tela tenta de novo (o UseCase é idempotente).
+     */
+    #[AsEventListener(event: KernelEvents::RESPONSE, priority: 0)]
+    public function aoResponder(ResponseEvent $evento): void
+    {
+        $tenantId = $this->marcarAuto;
+        $this->marcarAuto = null;
+        if ($tenantId === null || !$evento->isMainRequest() || $evento->getResponse()->getStatusCode() >= 400) {
+            return;
+        }
+        try {
+            $this->liberacaoAutomatica->executar($tenantId);
+        } catch (\Throwable $falha) {
+            $this->logger->error('Contribua: marca automática de liberação não gravada', ['tenant' => $tenantId, 'erro' => $falha->getMessage()]);
+        }
     }
 
     private function contarPendentesSemDerrubar(): int
@@ -144,12 +174,15 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
     {
         try {
             $quem = $this->solicitantes->atual();
+            if (!$quem->ehPrimario && !$quem->ehMaster) {
+                return null;
+            }
             $retrato = $this->situacao->doEscritorio($tenantId);
             if ($retrato->percentual === null || $retrato->bytesLimite === null) {
                 return null;
             }
             if ($quem->ehPrimario) {
-                $this->gravarMarcaAutomatica($retrato);
+                $this->anotarMarcaAutomatica($retrato);
             }
 
             return $this->montar($retrato, $quem);
@@ -161,16 +194,16 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
     }
 
     /**
-     * N8: a marca `auto` é gravada na primeira tela aberta com uso a partir de 97%. Só consulta a marca quando o uso está no
-     * limiar e a liberação não é a do Master; o UseCase é idempotente.
+     * N8: a marca `auto` é gravada na primeira tela aberta com uso a partir de 97% (na resposta, ver `aoResponder`). Só
+     * consulta a marca quando o uso está no limiar e a liberação não é a do Master; o UseCase é idempotente.
      */
-    private function gravarMarcaAutomatica(RetratoDoEspaco $r): void
+    private function anotarMarcaAutomatica(RetratoDoEspaco $r): void
     {
         if (!LiberacaoDasOpcoesDeEspaco::usoNoLimiar($r->bytesUsados, $r->bytesLimite) || $r->liberadaPor === OrigemDaLiberacao::Master) {
             return;
         }
         if ($this->espacos->doTenant($r->tenantId)?->getOpcoesLiberadasPor() === null) {
-            $this->liberacaoAutomatica->executar($r->tenantId);
+            $this->marcarAuto = $r->tenantId;
         }
     }
 
@@ -194,7 +227,8 @@ final class AvisoDeEspacoExtension extends AbstractExtension implements ResetInt
             'faltam' => RetratoDoEspaco::formatarGb($faltam),
             // Pop-up dos 97% (N8): só o primário. Vermelho e "cheio" a partir de 100%.
             'popup' => $quem->ehPrimario && LiberacaoDasOpcoesDeEspaco::usoNoLimiar($r->bytesUsados, $r->bytesLimite),
-            'cheio' => (int) $r->percentual >= 100,
+            // Pelos bytes, não pelo percentual arredondado: a 99,5% ainda há espaço livre.
+            'cheio' => $r->bytesUsados >= (int) $r->bytesLimite,
             // D6: só promete pausa com o bloqueio ligado ("estão pausados" só na faixa Bloqueio).
             'pausados' => $r->bloqueioAtivo && $r->faixa === FaixaDoEspaco::Bloqueio,
             'vaiPausar' => $r->bloqueioAtivo,
