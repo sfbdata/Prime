@@ -101,6 +101,7 @@ final class LeituraDaAssembleia
     private function pauta(PautaDaAssembleia $pauta, array $contagem, array $totais, bool $soNumeros = false): PautaNoPainel
     {
         return new PautaNoPainel(
+            ...self::interrupcoes($pauta),
             id: (int) $pauta->getId(),
             ordem: $pauta->getOrdem(),
             titulo: $pauta->getTitulo(),
@@ -128,17 +129,28 @@ final class LeituraDaAssembleia
             quorumPrimeira: $pauta->getQuorumPrimeira(),
             quorumSegunda: $pauta->getQuorumSegunda(),
             tipo: $pauta->getTipo(),
-            suspensaEm: $pauta->getSuspensaEm(),
-            suspensaMotivo: $pauta->getSuspensaMotivo(),
-            suspensaPorNome: $pauta->getSuspensaPorNome(),
-            canceladaEm: $pauta->getCanceladaEm(),
-            canceladaMotivo: $pauta->getCanceladaMotivo(),
-            canceladaPorNome: $pauta->getCanceladaPorNome(),
-            retiradaEm: $pauta->getRetiradaEm(),
-            retiradaMotivo: $pauta->getRetiradaMotivo(),
-            retiradaPorNome: $pauta->getRetiradaPorNome(),
             participacao: $this->participacao($pauta, $soNumeros),
         );
+    }
+
+    /**
+     * Suspensão, cancelamento e retirada da pauta, como argumentos nomeados de PautaNoPainel.
+     *
+     * @return array{suspensaEm: ?\DateTimeImmutable, suspensaMotivo: ?string, suspensaPorNome: ?string, canceladaEm: ?\DateTimeImmutable, canceladaMotivo: ?string, canceladaPorNome: ?string, retiradaEm: ?\DateTimeImmutable, retiradaMotivo: ?string, retiradaPorNome: ?string}
+     */
+    private static function interrupcoes(PautaDaAssembleia $pauta): array
+    {
+        return [
+            'suspensaEm' => $pauta->getSuspensaEm(),
+            'suspensaMotivo' => $pauta->getSuspensaMotivo(),
+            'suspensaPorNome' => $pauta->getSuspensaPorNome(),
+            'canceladaEm' => $pauta->getCanceladaEm(),
+            'canceladaMotivo' => $pauta->getCanceladaMotivo(),
+            'canceladaPorNome' => $pauta->getCanceladaPorNome(),
+            'retiradaEm' => $pauta->getRetiradaEm(),
+            'retiradaMotivo' => $pauta->getRetiradaMotivo(),
+            'retiradaPorNome' => $pauta->getRetiradaPorNome(),
+        ];
     }
 
     private function participacao(PautaDaAssembleia $pauta, bool $soNumeros = false): RegrasDeParticipacaoNoPainel
