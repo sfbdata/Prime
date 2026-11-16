@@ -146,7 +146,7 @@ final class CicloNasTelasTest extends JusPrimeWebTestCase
         $tela = $this->painel();
 
         $cartao = $tela->filter('#assembleia-' . $rascunho->getId());
-        self::assertCount(1, $cartao->filter('.vH > .vKw > .vKm > button.vKd[data-voto-revelar="#excluir-' . $rascunho->getId() . '"]'));
+        self::assertCount(1, $cartao->filter('.vEvH > .vKw > .vKm > button.vKd[data-voto-revelar="#excluir-' . $rascunho->getId() . '"]'));
         self::assertSame('Excluir rascunho', trim($cartao->filter('.vKm button.vKd')->text()));
         $faixa = $cartao->filter('#excluir-' . $rascunho->getId() . '[hidden] > form');
         self::assertStringEndsWith('/voto/assembleias/' . $rascunho->getId() . '/excluir', (string) $faixa->attr('action'));
@@ -234,11 +234,11 @@ final class CicloNasTelasTest extends JusPrimeWebTestCase
         self::assertSame('/voto?aba=ges', $botao->attr('href'));
         $cartao = $ligado->filter('#assembleia-' . $arquivada->getId());
         self::assertCount(1, $cartao);
-        self::assertSame('Arquivada', trim($cartao->filter('.vH > .vChip')->text()));
-        self::assertStringContainsString('background:#5b7383', (string) $cartao->filter('.vH > .vChip')->attr('style'));
+        self::assertSame('Arquivada', trim($cartao->filter('.vEvH > .vChip')->text()));
+        self::assertStringContainsString('background:#5b7383', (string) $cartao->filter('.vEvH > .vChip')->attr('style'));
         self::assertMatchesRegularExpression('/^Arquivada em ' . self::DATA . ', sem deliberação\. Motivo: Assembleia concluída\. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar\.$/', trim($cartao->filter('.voto-faixa-arquivada')->text()));
-        self::assertSame(['Desarquivar'], $cartao->filter('.vH .vKm button')->reduce(static fn (Crawler $c): bool => 'Desarquivar' === trim($c->text()))->each(static fn (Crawler $c): string => trim($c->text())));
-        self::assertStringEndsWith('/voto/assembleias/' . $arquivada->getId() . '/desarquivar', (string) $cartao->filter('.vH .vKm form')->last()->attr('action'));
+        self::assertSame(['Desarquivar'], $cartao->filter('.vEvH .vKm button')->reduce(static fn (Crawler $c): bool => 'Desarquivar' === trim($c->text()))->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertStringEndsWith('/voto/assembleias/' . $arquivada->getId() . '/desarquivar', (string) $cartao->filter('.vEvH .vKm form')->last()->attr('action'));
         self::assertCount(0, $cartao->filter('[data-voto-revelar^="#arquivar"], a[href$="/telao"]'), 'arquivada não arquiva de novo nem vai ao telão');
 
         $linha = $ligado->filter('#pauta-' . $retirada->getId());

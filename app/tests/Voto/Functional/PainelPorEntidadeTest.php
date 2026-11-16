@@ -70,8 +70,8 @@ final class PainelPorEntidadeTest extends JusPrimeWebTestCase
         self::assertCount(1, $jardim);
         self::assertSame('Residencial Jardim', trim($jardim->filter('.vGr > .vGrH .voto-grupo-nome > b')->text()));
         self::assertSame('CNPJ 11.222.333/0001-81', trim($jardim->filter('.vGr > .vGrH .voto-grupo-cnpj')->text()));
-        self::assertCount(2, $jardim->filter('.vGr > .vEvH'));
-        self::assertCount(2, $jardim->filter('.vGr > .voto-gestao-corpo > .voto-assembleia'));
+        self::assertCount(2, $jardim->filter('.vGr > .voto-assembleia > .vEvH'));
+        self::assertCount(2, $jardim->filter('.vGr > .voto-assembleia'));
         self::assertSame('2 rascunho(s)', trim($jardim->filter('.vGr > .vGrH .voto-grupo-resumo')->text()));
         $sol = $tela->filter('.voto-gestao > details.vGr')->reduce(static fn (Crawler $g): bool => str_contains($g->text(), 'Edifício Sol'));
         self::assertCount(0, $sol->filter('.voto-grupo-cnpj'), 'sem CNPJ não mostra a linha de CNPJ');
@@ -273,7 +273,7 @@ final class PainelPorEntidadeTest extends JusPrimeWebTestCase
         PautaDaAssembleiaFactory::new(['assembleia' => $fim])->comOpcoesPadrao()->encerrada()->create();
 
         $tela = $this->painel();
-        $classes = static fn (string $titulo): array => $tela->filter('.voto-assembleia')->reduce(static fn (Crawler $c): bool => str_contains($c->filter('.vH')->text(), $titulo))->filter('.voto-etapas > li')->each(static fn (Crawler $l): string => (string) $l->attr('class'));
+        $classes = static fn (string $titulo): array => $tela->filter('.voto-assembleia')->reduce(static fn (Crawler $c): bool => str_contains($c->filter('.vEvH')->text(), $titulo))->filter('.voto-etapas > li')->each(static fn (Crawler $l): string => (string) $l->attr('class'));
 
         self::assertSame(['vPas vPasOk', 'vPas vPasOk', 'vPas vPasOk', 'vPas vPasAt', 'vPas', 'vPas'], $classes('AGO Aberta'));
         self::assertSame(['vPas vPasOk', 'vPas vPasOk', 'vPas vPasOk', 'vPas vPasOk', 'vPas vPasOk', 'vPas vPasOk'], $classes('AGO Fim'));
@@ -392,7 +392,7 @@ final class PainelPorEntidadeTest extends JusPrimeWebTestCase
     /** @return list<string> os títulos dos cartões de assembleia na tela */
     private function titulos(Crawler $tela, bool $ordenar = false): array
     {
-        $titulos = $tela->filter('.vGr > .vEvH > b')->each(static fn (Crawler $b): string => trim($b->text()));
+        $titulos = $tela->filter('.vGr > .voto-assembleia > .vEvH > b')->each(static fn (Crawler $b): string => trim($b->text()));
         if ($ordenar) {
             sort($titulos);
         }

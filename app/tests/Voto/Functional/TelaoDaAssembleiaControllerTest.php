@@ -246,7 +246,7 @@ final class TelaoDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $painel = $this->client->request('GET', '/voto?aba=ges');
         self::assertResponseIsSuccessful();
         $cartao = $painel->filter('#assembleia-' . $id);
-        $itens = $cartao->filter('.vH .vKm > a, .vH .vKm button')->each(static fn (Crawler $c): string => trim($c->text()));
+        $itens = $cartao->filter('.vEvH .vKm > a, .vEvH .vKm button')->each(static fn (Crawler $c): string => trim($c->text()));
         $posicao = array_search('Conduzir no telão (modo assembleia)', $itens, true);
         self::assertNotFalse($posicao);
         self::assertLessThan(array_search('Duplicar votação', $itens, true), $posicao);

@@ -111,6 +111,16 @@
         atualizarFaixas(s, arquivaveis, excluiveis);
     }
 
+    /* Abrir ou recolher um grupo (ou "Expandir/Recolher todas", que muda o mesmo <details>) muda o que está na tela:
+       recontar para "N selecionada(s)", "Arquivar (n)" e "Excluir (n)" baterem com o que será enviado. O evento
+       toggle não borbulha: escuta na captura. */
+    document.addEventListener('toggle', function (ev) {
+        if (ev.target.matches && ev.target.matches('[data-voto-grupo]')) {
+            recolherFaixas();
+            atualizar();
+        }
+    }, true);
+
     todas.addEventListener('change', function () {
         visiveis().forEach(function (i) { i.checked = todas.checked; });
         recolherFaixas();

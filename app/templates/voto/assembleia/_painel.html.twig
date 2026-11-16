@@ -5,7 +5,7 @@
     "Selecionar todas" / "N selecionada(s)", "Arquivar (n)", "Excluir (n)", "Limpar seleção", com as faixas de confirmação
     de arquivar e de excluir; public/js/voto-ciclo.js) e as assembleias agrupadas por entidade (F1-4, desenho 18):
     KPIs clicáveis (.vKpiB, com o painel de lista), filtros .vFil (formulário GET: funciona sem JavaScript), grupos .vGr
-    com a entidade (.vGrH: nome, CNPJ e resumo) e, em cada assembleia, a linha de evento (.vEvH) e o cartão.
+    com a entidade (.vGrH: nome, CNPJ e resumo) e, em cada assembleia, o evento (.vEvH, que é a faixa do próprio cartão).
     Contexto: `painel` (PainelAgrupado), `kpis` (KpisDoPainel), `kpi` (abe | ced | ''), `filtro` (FiltroDoPainel), `agora`,
     `arquivadas` (bool: mostra também as arquivadas e as pautas retiradas) e `totalArquivadas` (int: assembleias
     arquivadas mais pautas retiradas).
@@ -122,10 +122,7 @@
                     <span class="voto-grupo-resumo">{{ partes|join(' · ') }}</span>
                 </summary>
                 {% for a in g.assembleias %}
-                    <div class="vEvH"><i class="bi bi-calendar-event"></i><b>{{ a.titulo }}</b><span>{{ (a.publicadaEm ?? a.criadaEm)|date('d/m/Y') }}</span><span class="voto-espaco"></span><span>{{ 'voto.assembleia.gestor.grupo.votacoes'|trans({n: a.pautas|filter(x => not x.retirada)|length}) }}</span></div>
-                    <div class="voto-gestao-corpo">
-                        {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora, arquivadas: arquivadas, selecao: true} only %}
-                    </div>
+                    {% include 'voto/assembleia/_assembleia_cartao.html.twig' with {a: a, agora: agora, arquivadas: arquivadas, selecao: true} only %}
                 {% endfor %}
             </details>
         {% endfor %}

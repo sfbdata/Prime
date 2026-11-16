@@ -57,7 +57,7 @@ final class DuplicarAssembleiaControllerTest extends JusPrimeWebTestCase
         $id = $origem->getId();
 
         $painel = $this->client->request('GET', '/voto?aba=ges');
-        $botao = $painel->filter('#assembleia-' . $id . ' > .vH .vKw > .vKm > form > button')->reduce(static fn ($c): bool => 'Duplicar votação' === trim($c->text()));
+        $botao = $painel->filter('#assembleia-' . $id . ' > .vEvH .vKw > .vKm > form > button')->reduce(static fn ($c): bool => 'Duplicar votação' === trim($c->text()));
         self::assertCount(1, $botao);
         $this->client->submit($botao->form());
 

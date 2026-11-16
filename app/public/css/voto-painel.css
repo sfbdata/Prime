@@ -22,7 +22,8 @@
 .voto-tela .vEvH { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 8px 15px 8px 34px; background: #fafcfd; border-top: 1px solid #e6edf2; font-size: 13px; color: #34505f; }
 .voto-tela .vEvH b { color: #0b3550; font-size: 13.5px; }
 .voto-tela .vEvH i { color: #0a6fa0; }
-.voto-tela .voto-gestao-corpo { padding: 4px 15px 14px 34px; background: #fafcfd; }
+.voto-tela .voto-gestao .voto-assembleia { background: #fff; }
+.voto-tela .vEvH .voto-chip-claro { background: #0a6fa0; }
 
 /* KPIs clicáveis (.vKpiB) e o painel de lista */
 .voto-tela .vKpis { margin-bottom: 12px; }

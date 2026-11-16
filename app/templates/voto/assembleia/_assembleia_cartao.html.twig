@@ -1,12 +1,12 @@
 {#
-    Uma assembleia no painel da Gestão eleitoral: cartão .vC com faixa .vH (bi-activity, título e chip da
+    Uma assembleia no painel da Gestão eleitoral: evento .vEvH do desenho (bi-calendar-event, nome, data, "N votação(ões)", chip da
     assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
     Code, Resultados, Conduzir no telão, Lembrar quem não votou e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel), `agora`,
     `arquivadas` (bool: "Mostrar arquivadas" ligado, mostra também as pautas retiradas) e `selecao` (bool: caixa de seleção do lote).
     Ciclo de vida (F1-3, desenho 18): no menu, Excluir rascunho (vermelho, rascunho nunca publicado), Arquivar e Desarquivar;
     faixa da assembleia arquivada (arqTx), confirmações de excluir (exAsk) e de arquivar (arAsk) como faixas escondidas que o menu revela.
 #}
-<div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
+<div class="voto-assembleia" id="assembleia-{{ a.id }}">
     {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
     {% set itens = [] %}
     {% if a.podeAlterarPautas %}
@@ -43,7 +43,7 @@
     {% if a.arquivada %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.desarquivar'|trans, icone: 'bi-box-arrow-up', acao: path('voto_assembleia_desarquivar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}
     {% endif %}
-    <div class="vH"><i class="bi bi-activity"></i>{{ a.titulo }}<span class="voto-espaco"></span>{% if a.arquivada %}<span class="vChip" style="background:#5b7383;">{{ 'voto.assembleia.gestor.chip_ciclo.arquivada'|trans }}</span>{% else %}<span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% endif %}{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>
+    <div class="vEvH"><i class="bi bi-calendar-event"></i><b>{{ a.titulo }}</b><span>{{ (a.publicadaEm ?? a.criadaEm)|date('d/m/Y') }}</span><span class="voto-espaco"></span><span>{{ 'voto.assembleia.gestor.grupo.votacoes'|trans({n: a.pautas|filter(x => not x.retirada)|length}) }}</span>{% if a.arquivada %}<span class="vChip" style="background:#5b7383;">{{ 'voto.assembleia.gestor.chip_ciclo.arquivada'|trans }}</span>{% else %}<span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% endif %}{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>
     {% include 'voto/assembleia/_etapas.html.twig' with {a: a} only %}
     {% if a.arquivada %}
         <div class="vLin"><div class="voto-faixa-arquivada" data-voto-arquivada><i class="bi bi-archive"></i> {{ 'voto.assembleia.gestor.arquivar.faixa'|trans({em: a.arquivadaEm|date('d/m/Y H:i'), sem: a.situacao() == 'encerrada' ? '' : 'voto.assembleia.gestor.arquivar.sem_deliberacao'|trans, motivo: a.arquivadaMotivo}) }}</div></div>

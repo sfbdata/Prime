@@ -142,7 +142,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
     private function conferirCartaoEnxutoEJanelaDeAbrir(Crawler $cartao, int $id): void
     {
         $linha = $cartao->filter('.voto-acoes');
-        $faixa = $cartao->filter('#assembleia-' . $id . ' > .vH');
+        $faixa = $cartao->filter('#assembleia-' . $id . ' > .vEvH');
         self::assertCount(1, $faixa->filter('.vChip + .vKw > button.vK[aria-label="Mais opções"]'), 'menu na faixa do nome, depois do chip');
         self::assertCount(0, $linha->filter('.vKw'));
         self::assertSame(
@@ -223,7 +223,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Publicar
         $painel = $this->publicarPelaConferencia($unidades, $id);
         $cartao = $painel->filter('#assembleia-' . $id);
-        self::assertSame('Publicada, aguardando abertura', trim($cartao->filter('.vH .vChip')->text()));
+        self::assertSame('Publicada, aguardando abertura', trim($cartao->filter('.vEvH .vChip')->text()));
         self::assertCount(2, $cartao->filter('.voto-pauta[data-situacao="publicada"] form[data-mesa="abrir"]'));
         $this->conferirCartaoEnxutoEJanelaDeAbrir($cartao, $id);
         $links = $this->client->request('GET', '/voto/assembleias/' . $id . '/unidades');
@@ -236,7 +236,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="abrir"]')->form(['convocacao' => '1', 'duracao' => 'min', 'minutos' => '5']));
         $painel = $this->client->followRedirect();
         self::assertSame('Votação aberta pela mesa.', trim($painel->filter('.voto-toast')->text()));
-        self::assertSame('Votação aberta', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
+        self::assertSame('Votação aberta', trim($painel->filter('#assembleia-' . $id . ' > .vEvH .vChip')->text()));
         $cron = $painel->filter('#pauta-' . $contas . ' .voto-cron');
         self::assertGreaterThan(290, (int) $cron->attr('data-voto-prazo'));
         self::assertStringStartsWith('Encerra em 0', trim($cron->text()));
@@ -262,7 +262,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $this->client->submit($painel->filter('#pauta-' . $contas . ' form[data-mesa="encerrar"]')->form());
         $painel = $this->client->followRedirect();
         self::assertSame('Votação encerrada.', trim($painel->filter('.voto-toast')->text()));
-        self::assertSame('Publicada, aguardando abertura', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
+        self::assertSame('Publicada, aguardando abertura', trim($painel->filter('#assembleia-' . $id . ' > .vEvH .vChip')->text()));
         self::assertSame('Aprovada', trim($painel->filter('#pauta-' . $contas . ' .voto-decisao.voto-decisao-ok')->text()));
         $resultados = $this->client->request('GET', '/voto?aba=tra');
         $cartao = $resultados->filter('.voto-tela > .voto-painel[data-aba="tra"] > #assembleia-' . $id);
@@ -279,7 +279,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $painel = $this->client->followRedirect();
         self::assertSame('Não deliberada: quórum não atingido', trim($painel->filter('#pauta-' . $obra . ' .voto-decisao')->text()));
 
-        self::assertSame('Encerrada', trim($painel->filter('#assembleia-' . $id . ' > .vH .vChip')->text()));
+        self::assertSame('Encerrada', trim($painel->filter('#assembleia-' . $id . ' > .vEvH .vChip')->text()));
 
         // Ata
         $ata = $this->client->request('GET', '/voto/assembleias/' . $id . '/ata');
@@ -471,7 +471,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         // Rascunho: Publicar fica visível; Editar configuração, Pautas e Unidades e links moram só no menu (A2)
         $linha = $painel->filter('#assembleia-' . $assembleia->getId() . ' .voto-acoes');
         self::assertCount(1, $linha->filter('button.vB.vP'));
-        self::assertSame(['Editar configuração', 'Pautas', 'Unidades e links'], $painel->filter('#assembleia-' . $assembleia->getId() . ' > .vH .vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Editar configuração', 'Pautas', 'Unidades e links'], $painel->filter('#assembleia-' . $assembleia->getId() . ' > .vEvH .vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(0, $linha->filter('a.vB'), 'nenhum link de navegação fora do menu');
         $revisao = $this->client->submit($painel->filter('#assembleia-' . $assembleia->getId())->selectButton('Publicar')->form());
         self::assertResponseIsSuccessful();
