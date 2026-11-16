@@ -163,7 +163,9 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         $grande = str_pad($this->jpeg(), 3 * 1024 * 1024 + 1, "\0");
         $this->salvar([$this->linha('1', 'Ana Souza', $grande, 'foto.jpg', $atual), $this->linha('2', 'Caio Lima')]);
         self::assertResponseStatusCodeSame(422);
-        self::assertStringContainsString('no máximo 3 MB', $this->json()['mensagem']);
+        // No CI o arquivo grande pode parar no limite de upload do PHP antes da validação ("não chegou inteira"):
+        // as duas mensagens citam o limite de 3 MB, e em nenhum caso a foto troca.
+        self::assertStringContainsString('3 MB', $this->json()['mensagem']);
 
         self::assertSame($atual, $this->fotoDe(1));
         self::assertSame($antes, $this->arquivosDaPasta(), 'nenhum arquivo novo ficou no disco');
