@@ -50,6 +50,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
         self::assertNull($salva->getPublicadaEm());
         self::assertNotSame($origem->getCodigoPublico(), $salva->getCodigoPublico());
         self::assertSame(2, $resultado->unidadesCopiadas);
+        self::assertTrue($resultado->emailsDeixados, 'a origem tinha e-mail: o aviso pede para reimportar');
 
         $pautas = $salva->getPautas()->toArray();
         self::assertCount(1, $pautas);
@@ -103,7 +104,7 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
             self::assertSame($originais[$i]->getSituacao(), $copia->getSituacao());
             self::assertSame($originais[$i]->getFracao(), $copia->getFracao());
             self::assertSame($originais[$i]->getResponsavel(), $copia->getResponsavel());
-            self::assertSame($originais[$i]->getEmail(), $copia->getEmail());
+            self::assertNull($copia->getEmail(), 'a cópia sai sem os e-mails, como o desenho');
             self::assertSame($originais[$i]->isApta(), $copia->isApta());
             self::assertNotSame($originais[$i]->getSemente(), $copia->getSemente(), 'o link do original não vale na cópia');
             self::assertNotSame($originais[$i]->getTokenHash(), $copia->getTokenHash());

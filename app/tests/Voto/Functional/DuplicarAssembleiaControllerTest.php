@@ -55,7 +55,7 @@ final class DuplicarAssembleiaControllerTest extends JusPrimeWebTestCase
     {
         $origem = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO 2026'])->publicada()->create()->_real();
         PautaDaAssembleiaFactory::new(['assembleia' => $origem])->comOpcoesPadrao()->create();
-        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $origem]);
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $origem, 'email' => 'sindica@example.com']);
         $id = $origem->getId();
 
         $this->client->request('POST', '/voto/assembleias/' . $id . '/duplicar', ['_token' => $this->tokenValido('voto_assembleia_' . $id)]);
@@ -69,6 +69,11 @@ final class DuplicarAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$copia['id']]));
         self::assertSame(1, (int) $banco->fetchOne('SELECT COUNT(*) FROM voto.assembleia_unidade WHERE assembleia_id = ?', [$copia['id']]));
         self::assertSame('publicada', $banco->fetchOne('SELECT estado FROM voto.assembleia WHERE id = ?', [$id]), 'o original não mudou');
+        self::assertNull($banco->fetchOne('SELECT email FROM voto.assembleia_unidade WHERE assembleia_id = ?', [$copia['id']]));
+        self::assertSame(
+            'Cópia criada como rascunho, sem votos. Confira nome, evento e datas. Lista de aptos copiada, sem os e-mails (reimporte a planilha para o acesso por código).',
+            trim($this->client->followRedirect()->filter('.voto-toast')->text()),
+        );
     }
 
     #[TestDox('Assembleia de outro escritório dá 404 e nada é criado')]

@@ -19,7 +19,8 @@ use App\Voto\Service\TokenDaUnidade;
  * Duplica a assembleia (em qualquer estado) como um NOVO rascunho do mesmo escritório, com " (cópia)" no título.
  *
  * Copia só o que é cadastro: título, peso, as pautas (título, descrição, tipo, regras, quóruns e opções com a
- * abstenção) e a lista de unidades (identificação, bloco, situação, fração, responsável e e-mail).
+ * abstenção) e a lista de unidades (identificação, bloco, situação, fração e responsável). O e-mail fica de fora, como
+ * no desenho ("sem os e-mails"): é o canal do código e do link de acesso, e a cópia é outra votação.
  *
  * Não copia nada de acesso, voto ou andamento: código público, estado, publicação, prazos, convocação, abertura e
  * encerramento das pautas, contadores de votos e nulos, participações, liberações e, nas unidades, o link (cada cópia
@@ -57,12 +58,14 @@ final class DuplicarAssembleiaUseCase
         foreach ($origem->getPautas() as $pauta) {
             $this->copiarPauta($copia, $pauta);
         }
+        $semEmails = false;
         foreach ($origem->getUnidades() as $unidade) {
             $this->copiarUnidade($copia, $unidade);
+            $semEmails = $semEmails || null !== $unidade->getEmail();
         }
         $this->assembleias->salvar($copia, flush: true);
 
-        return new ResultadoDaDuplicacao((int) $copia->getId(), $copia->getUnidades()->count());
+        return new ResultadoDaDuplicacao((int) $copia->getId(), $copia->getUnidades()->count(), $semEmails);
     }
 
     private function copiarPauta(Assembleia $copia, PautaDaAssembleia $origem): void
@@ -94,7 +97,6 @@ final class DuplicarAssembleiaUseCase
             $origem->getSituacao(),
             $origem->getFracao(),
             $origem->getResponsavel(),
-            $origem->getEmail(),
         );
     }
 }

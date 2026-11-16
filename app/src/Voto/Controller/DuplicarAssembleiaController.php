@@ -44,13 +44,14 @@ final class DuplicarAssembleiaController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $this->avisos->ok(
-            $this->tradutor->trans('voto.assembleia.gestor.aviso.copia_criada')
-            . ' '
-            . $this->tradutor->trans($resultado->unidadesCopiadas > 0
-                ? 'voto.assembleia.gestor.aviso.copia_com_lista'
-                : 'voto.assembleia.gestor.aviso.copia_sem_lista'),
-        );
+        // Como o desenho: sem lista, o aviso não ganha complemento; com lista, avisa se os e-mails ficaram de fora.
+        $aviso = $this->tradutor->trans('voto.assembleia.gestor.aviso.copia_criada');
+        if ($resultado->unidadesCopiadas > 0) {
+            $aviso .= ' ' . $this->tradutor->trans($resultado->emailsDeixados
+                ? 'voto.assembleia.gestor.aviso.copia_com_lista_sem_emails'
+                : 'voto.assembleia.gestor.aviso.copia_com_lista');
+        }
+        $this->avisos->ok($aviso);
 
         return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $resultado->assembleiaId]);
     }
