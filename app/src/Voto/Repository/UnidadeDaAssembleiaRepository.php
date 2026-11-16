@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Repository;
 
 use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -129,8 +130,8 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
         $tipos = [];
         $filtroDeGrupos = '';
         if ([] !== $grupos) {
-            $filtroDeGrupos = ' AND LOWER(TRIM(bloco)) IN (:grupos)';
-            $parametros['grupos'] = array_map(static fn (string $g): string => mb_strtolower(trim($g)), $grupos);
+            $filtroDeGrupos = ' AND LOWER(BTRIM(bloco, E\' \\t\\r\\n\')) IN (:grupos)';
+            $parametros['grupos'] = array_map(static fn (string $g): string => mb_strtolower(trim($g, PautaDaAssembleia::ESPACOS)), $grupos);
             $tipos['grupos'] = ArrayParameterType::STRING;
         }
         $linha = $this->getEntityManager()->getConnection()->fetchAssociative(

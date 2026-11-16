@@ -47,6 +47,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     public const MOTIVO_PROGRAMADO = 'Encerramento programado';
     /** Nome de quem abriu a pauta pela programação de horário (ninguém da mesa). */
     public const ABERTA_POR_PROGRAMACAO = 'Programado';
+    /** Os mesmos espaços que o SQL de grupos tira (BTRIM): PHP e banco comparam igual. */
+    public const ESPACOS = " \t\r\n";
     public const GRUPOS_MAXIMO = 50;
     public const MENSAGEM_CANCELADA_SEM_APURACAO = 'Votação cancelada: as cédulas ficam lacradas e não são apuradas.';
 
@@ -257,7 +259,8 @@ class PautaDaAssembleia implements TenantAware, Auditavel
             if ($encerraEm <= $abreEm) {
                 throw new OperacaoInvalidaNaAssembleiaException('Confira a abertura e o encerramento: o encerramento vem depois.');
             }
-            if ($encerraEm <= ($agora ?? new \DateTimeImmutable())) {
+            $mudou = $abreEm != $this->abreEm || $encerraEm != $this->encerraEm;
+            if ($mudou && $encerraEm <= ($agora ?? new \DateTimeImmutable())) {
                 throw new OperacaoInvalidaNaAssembleiaException('O encerramento precisa ser depois de agora.');
             }
         }
@@ -713,7 +716,7 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         if ([] === $this->grupos) {
             return true;
         }
-        $bloco = mb_strtolower(trim($bloco));
+        $bloco = mb_strtolower(trim($bloco, self::ESPACOS));
         foreach ($this->grupos as $grupo) {
             if (mb_strtolower($grupo) === $bloco) {
                 return true;
@@ -801,7 +804,7 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     {
         $vistos = [];
         foreach ($grupos as $grupo) {
-            $grupo = mb_substr(trim($grupo), 0, 40);
+            $grupo = mb_substr(trim($grupo, self::ESPACOS), 0, 40);
             if ('' !== $grupo) {
                 $vistos[mb_strtolower($grupo)] ??= $grupo;
             }

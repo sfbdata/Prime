@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * voto.assembleia_voto_nominal (unidade, escolha, peso e hora); a pauta secreta nunca grava linha ali, então o modelo
  * do voto secreto (participação sem a opção) não muda.
  *
- * Sigilo no banco: o gatilho `voto_nominal_so_em_pauta_aberta` recusa a linha nominal de pauta de voto secreto, então
+ * Sigilo no banco: o gatilho `voto_nominal_so_em_voto_aberto` recusa a linha nominal quando o sigilo da pauta não é de voto aberto (só confere o sigilo, não o estado da pauta), então
  * mesmo um erro de código não consegue ligar a unidade à escolha numa pauta secreta.
  */
 final class Version20261117020000 extends AbstractMigration
@@ -40,7 +40,7 @@ final class Version20261117020000 extends AbstractMigration
         $this->addSql('ALTER TABLE voto.assembleia_voto_nominal ADD CONSTRAINT FK_VOTO_NOMINAL_PAUTA FOREIGN KEY (pauta_id) REFERENCES voto.assembleia_pauta (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE voto.assembleia_voto_nominal ADD CONSTRAINT FK_VOTO_NOMINAL_OPCAO FOREIGN KEY (opcao_id) REFERENCES voto.assembleia_opcao (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql(<<<'SQL'
-CREATE FUNCTION voto.exigir_pauta_de_voto_aberto() RETURNS trigger AS $$
+CREATE FUNCTION voto.exigir_voto_aberto_na_pauta() RETURNS trigger AS $$
 BEGIN
     IF (SELECT sigilo FROM voto.assembleia_pauta WHERE id = NEW.pauta_id) = 'secreto' THEN
         RAISE EXCEPTION 'A pauta de voto secreto nao guarda voto nominal';
@@ -49,13 +49,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql
 SQL);
-        $this->addSql('CREATE TRIGGER voto_nominal_so_em_pauta_aberta BEFORE INSERT OR UPDATE ON voto.assembleia_voto_nominal FOR EACH ROW EXECUTE FUNCTION voto.exigir_pauta_de_voto_aberto()');
+        $this->addSql('CREATE TRIGGER voto_nominal_so_em_voto_aberto BEFORE INSERT OR UPDATE ON voto.assembleia_voto_nominal FOR EACH ROW EXECUTE FUNCTION voto.exigir_voto_aberto_na_pauta()');
     }
 
     public function down(Schema $schema): void
     {
         $this->addSql('DROP TABLE voto.assembleia_voto_nominal');
-        $this->addSql('DROP FUNCTION voto.exigir_pauta_de_voto_aberto()');
+        $this->addSql('DROP FUNCTION voto.exigir_voto_aberto_na_pauta()');
         $this->addSql('ALTER TABLE voto.assembleia_pauta DROP abre_em');
         $this->addSql('ALTER TABLE voto.assembleia_pauta DROP encerra_em');
         $this->addSql('ALTER TABLE voto.assembleia_pauta DROP grupos');

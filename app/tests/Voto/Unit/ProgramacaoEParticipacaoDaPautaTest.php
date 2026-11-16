@@ -69,6 +69,32 @@ final class ProgramacaoEParticipacaoDaPautaTest extends TestCase
         self::assertTrue($pauta->programada());
     }
 
+    #[TestDox('Horário igual ao gravado e já vencido salva (outro campo mudou); horário novo no passado é recusado')]
+    public function testHorarioVencidoSoRecusaQuandoMuda(): void
+    {
+        $pauta = $this->pauta();
+        $abre = $this->agora->modify('+1 hour');
+        $encerra = $this->agora->modify('+2 hours');
+        $pauta->definirParticipacao($abre, $encerra, [], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Secreto, $this->agora);
+
+        $depois = $this->agora->modify('+3 hours');
+        $pauta->definirParticipacao($abre, $encerra, ['Bloco A'], OrdemDasCandidaturas::Sorteada, SigiloDoVoto::Secreto, $depois);
+        self::assertSame(['Bloco A'], $pauta->getGrupos());
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $pauta->definirParticipacao($abre, $this->agora->modify('+150 minutes'), [], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Secreto, $depois);
+    }
+
+    #[TestDox('Grupos: tab e quebra de linha nas pontas do bloco e do grupo são ignorados')]
+    public function testGruposComTab(): void
+    {
+        $pauta = $this->pauta();
+        $pauta->definirParticipacao(null, null, ["\tBloco A\n"], OrdemDasCandidaturas::Fixa, SigiloDoVoto::Secreto);
+
+        self::assertSame(['Bloco A'], $pauta->getGrupos());
+        self::assertTrue($pauta->aceitaBloco("bloco a\t"));
+    }
+
     #[TestDox('As regras só mudam em rascunho: depois de publicar o sigilo, o horário, os grupos e a ordem ficam fixos')]
     public function testFixasDepoisDePublicar(): void
     {
