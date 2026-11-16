@@ -13,7 +13,7 @@
     {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.suspender'|trans, icone: 'bi-pause-circle', janela: '#janela-ciclo-' ~ p.id ~ '-sus'}]) %}
 {% endif %}
 {% if p.aberta and p.suspensa %}
-    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retomar'|trans, icone: 'bi-play-circle', acao: path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}), token: token}]) %}
+    {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.retomar'|trans, icone: 'bi-play-circle', acao: path('voto_assembleia_pauta_retomar', {id: a.id, pauta: p.id}), token: token, campos: {voltar: 'votar'}}]) %}
 {% endif %}
 {% if p.aberta %}
     {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.cancelar'|trans, icone: 'bi-x-circle', janela: '#janela-ciclo-' ~ p.id ~ '-can', destrutivo: true}]) %}
@@ -21,8 +21,8 @@
 {% set itens = itens|merge([{rotulo: 'voto.votar.gerenciar'|trans, icone: 'bi-speedometer2', href: path('voto_index', {aba: 'ges', q: p.titulo})}]) %}
 {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}
 {% if p.aguardandoAMesa %}
-    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'ret', token: token} only %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'ret', token: token, voltar: 'votar'} only %}
 {% elseif p.aberta %}
-    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token} only %}
-    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'can', token: token} only %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'sus', token: token, voltar: 'votar'} only %}
+    {% include 'voto/assembleia/_janela_ciclo.html.twig' with {a: a, p: p, tipo: 'can', token: token, voltar: 'votar'} only %}
 {% endif %}

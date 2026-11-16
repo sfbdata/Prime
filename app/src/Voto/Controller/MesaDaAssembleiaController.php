@@ -108,6 +108,9 @@ final class MesaDaAssembleiaController extends AbstractController
         if ('telao' === $request->request->get('voltar')) {
             return $this->redirectToRoute('voto_assembleia_telao', ['id' => $id, 'pauta' => $pauta]);
         }
+        if ('votar' === $request->request->get('voltar')) {
+            return $this->redirectToRoute('voto_index', ['aba' => 'ele']);
+        }
         if ('pautas' === $request->request->get('voltar')) {
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
         }

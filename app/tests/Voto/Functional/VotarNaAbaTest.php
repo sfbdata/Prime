@@ -12,12 +12,14 @@ use App\Master\Entity\RecursoEstado;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Factory\Voto\AssembleiaFactory;
+use App\Tests\Factory\Voto\OpcaoDaPautaFactory;
 use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Controller\AssembleiaController;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\Enum\TipoDaPauta;
 use App\Voto\UseCase\ListarVotacoesParaVotarUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -196,6 +198,86 @@ final class VotarNaAbaTest extends JusPrimeWebTestCase
         self::assertSame(['Da nova', 'Da antiga'], $tela->filter(self::CARTAO . ' .voto-votar-titulo > b')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertStringEndsWith($nova->getCodigoPublico(), (string) $tela->filter(self::CARTAO . '[data-pauta="' . $daNova->getId() . '"] a[data-voto-votar]')->attr('href'));
         self::assertCount(0, $tela->filter(self::CARTAO . '[data-pauta="' . $antiga->getId() . '"] a[data-voto-votar]'));
+    }
+
+    #[TestDox('Conhecer candidaturas: só em pauta de eleição; a janela do desenho traz número, nome, unidade, descrição, propostas e composição')]
+    public function testConhecerCandidaturas(): void
+    {
+        $eleicao = PautaDaAssembleiaFactory::new(['assembleia' => $this->assembleia, 'ordem' => 1, 'titulo' => 'Síndico(a)', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2])->create()->_real();
+        $ana = OpcaoDaPautaFactory::createOne(['pauta' => $eleicao, 'numero' => 1, 'rotulo' => 'Ana Souza'])->_real();
+        $ana->detalhar('Moradora do 12', 'Mais segurança', 'Ana e Caio', 'Apto 12');
+        OpcaoDaPautaFactory::createOne(['pauta' => $eleicao, 'numero' => 2, 'rotulo' => 'Caio Lima']);
+        $contas = $this->pauta(2, 'Contas');
+        $this->em->flush();
+        $this->em->refresh($this->assembleia);
+
+        $tela = $this->votar();
+        $cartao = $tela->filter(self::CARTAO . '[data-pauta="' . $eleicao->getId() . '"]');
+
+        self::assertCount(1, $cartao->filter('.voto-votar-acoes > button.vB[data-voto-janela="#janela-candidaturas-' . $eleicao->getId() . '"]'));
+        self::assertSame(['Conhecer candidaturas', 'Simular votação', 'Votar'], $cartao->filter('.voto-votar-acoes > button')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Simular votação', 'Votar'], $tela->filter(self::CARTAO . '[data-pauta="' . $contas->getId() . '"] .voto-votar-acoes > button')->each(static fn (Crawler $c): string => trim($c->text())), 'pauta comum não tem candidaturas');
+        $janela = $cartao->filter('.voto-votar-janela[hidden][data-voto-janela-raiz] > .vModC');
+        self::assertCount(1, $janela);
+        self::assertSame('Síndico(a)', trim($janela->filter('.vH > span')->first()->text()));
+        $cands = $janela->filter('.voto-votar-janela-corpo > .voto-votar-janela-grupo > .voto-votar-cand');
+        self::assertCount(2, $cands, 'a abstenção não é candidatura');
+        self::assertSame('AS', trim($cands->eq(0)->filter('.vAv')->text()), 'sem foto: iniciais');
+        self::assertSame('01 · Ana Souza', trim($cands->eq(0)->filter('.voto-votar-cand-tx > b')->text()));
+        $texto = $cands->eq(0)->text();
+        foreach (['Unidade Apto 12', 'Moradora do 12', 'Mais segurança', 'Ana e Caio'] as $trecho) {
+            self::assertStringContainsString($trecho, $texto);
+        }
+    }
+
+    #[TestDox('Simular votação: a cabine de treino leva só dados da pauta, sem token, CSRF nem URL de voto')]
+    public function testSimularNaoLevaCredencial(): void
+    {
+        $pauta = $this->pauta(1, 'Aprovação das contas', true);
+        $tela = $this->votar();
+
+        $botao = $tela->filter(self::CARTAO . ' .voto-votar-acoes > button[data-vc-abrir-simulacao]');
+        self::assertCount(1, $botao);
+        self::assertSame((string) $pauta->getId(), $botao->attr('data-vc-pauta'));
+        $dados = json_decode((string) $tela->filter('[data-vc-cabine-dados]')->attr('data-vc-cabine-dados'), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertSame('', $dados['csrf']);
+        self::assertSame('', $dados['urlVotar']);
+        self::assertSame([], $dados['pautas'], 'nada para votar de verdade');
+        self::assertSame($pauta->getId(), $dados['simulacao'][0]['id']);
+        self::assertSame([1, 2, 0], array_column($dados['simulacao'][0]['opcoes'], 'numero'));
+        self::assertTrue($dados['simulacao'][0]['opcoes'][2]['abstencao']);
+        self::assertCount(1, $tela->filter('[data-vc-cabine][hidden]'));
+        self::assertStringNotContainsString('/votar/', (string) $tela->html());
+    }
+
+    #[TestDox('Menu da aba Votar volta para a aba Votar com voltar=votar; sem o campo ou com valor estranho, volta para a Gestão')]
+    public function testVoltarParaAAbaVotar(): void
+    {
+        $aberta = $this->pauta(1, 'Aberta', true);
+        $id = (int) $this->assembleia->getId();
+        $tela = $this->votar();
+        self::assertSame('votar', $tela->filter('#janela-ciclo-' . $aberta->getId() . '-sus form input[name="voltar"]')->attr('value'));
+
+        $this->postar($id, 'pautas/' . $aberta->getId() . '/suspender', ['motivo' => 'Queda de energia', 'voltar' => 'votar']);
+        self::assertResponseRedirects('/voto?aba=ele');
+        $this->postar($id, 'pautas/' . $aberta->getId() . '/retomar', ['voltar' => 'votar']);
+        self::assertResponseRedirects('/voto?aba=ele');
+        $this->postar($id, 'pautas/' . $aberta->getId() . '/suspender', ['motivo' => 'Queda de energia', 'voltar' => 'https://mal.example']);
+        self::assertResponseRedirects('/voto?aba=ges#assembleia-' . $id);
+        $this->postar($id, 'pautas/' . $aberta->getId() . '/retomar');
+        self::assertResponseRedirects('/voto?aba=ges#assembleia-' . $id);
+        $this->postar($id, 'pautas/' . $aberta->getId() . '/encerrar', ['motivo' => 'Fim', 'voltar' => 'votar']);
+        self::assertResponseRedirects('/voto?aba=ele');
+    }
+
+    /** @param array<string, string> $dados */
+    private function postar(int $id, string $caminho, array $dados = []): void
+    {
+        $this->client->request('GET', '/voto/assembleias/nova');
+        $sessao = $this->client->getRequest()->getSession();
+        $sessao->set('_csrf/voto_assembleia_' . $id, 'token-de-teste');
+        $sessao->save();
+        $this->client->request('POST', '/voto/assembleias/' . $id . '/' . $caminho, ['_token' => 'token-de-teste'] + $dados);
     }
 
     private function pauta(int $ordem, string $titulo, bool $aberta = false, ?string $descricao = null): PautaDaAssembleia

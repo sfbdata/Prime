@@ -5,7 +5,7 @@
     mais caracteres; o servidor também valida). CSS public/css/voto-janela.css (.vModCiclo), JS voto-janela.js (abre e
     fecha) e voto-ciclo.js (valida o motivo). Abre pelo botão ou item de menu com data-voto-janela="#janela-ciclo-{p.id}-{tipo}".
     CONTRATO: `a` (AssembleiaNoPainel), `p` (PautaNoPainel), `tipo` (ret | sus | can), `token` (CSRF
-    'voto_assembleia_{a.id}') e `telao` (bool, opcional: no telão o envio é por fetch, sem sair da tela).
+    'voto_assembleia_{a.id}') e `telao` (bool, opcional: no telão o envio é por fetch, sem sair da tela) e `voltar` (opcional: 'votar' leva de volta à aba Votar).
     Envia POST (campo motivo) para voto_assembleia_pauta_retirar | _suspender | _cancelar.
 #}
 {% set rota = {ret: 'voto_assembleia_pauta_retirar', sus: 'voto_assembleia_pauta_suspender', can: 'voto_assembleia_pauta_cancelar'}[tipo] %}
@@ -19,6 +19,7 @@
         <div class="vH" style="background:{{ cor }};"><i class="bi {{ icone }}"></i><span id="{{ id }}-titulo">{{ (base ~ 'titulo')|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.fechar'|trans }}</button></div>
         <form method="post" action="{{ path(rota, {id: a.id, pauta: p.id}) }}" class="vModCorpo" data-mesa="ciclo-{{ tipo }}" data-voto-exige-motivo="{{ 'voto.assembleia.gestor.janela_ciclo.motivo_curto'|trans }}"{% if telao is defined and telao %} data-telao-ciclo{% endif %}>
             <input type="hidden" name="_token" value="{{ token }}">
+            {% if voltar is defined and voltar %}<input type="hidden" name="voltar" value="{{ voltar }}">{% endif %}
             <b>{{ p.titulo }}</b>
             <div>{{ 'voto.assembleia.gestor.janela_ciclo.o_que_acontece'|trans }}</div>
             <ul class="vModEfeitos">

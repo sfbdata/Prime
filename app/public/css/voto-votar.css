@@ -8,3 +8,18 @@
 .voto-tela .voto-votar-meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: #34505f; }
 .voto-tela .voto-votar-aviso { font-size: 13.5px; font-weight: bold; }
 .voto-tela .voto-votar-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Janela "Conhecer candidaturas" (L155-156 e L295 do desenho): .vMod/.vModC e o corpo com o cartão de cada candidatura */
+.voto-tela .voto-votar-janela { position: fixed; inset: 0; z-index: 4000; background: rgba(11, 53, 80, .55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.voto-tela .voto-votar-janela[hidden] { display: none; }
+.voto-tela .voto-votar-janela .vModC { width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; background: #fff; border-radius: 3px; overflow: hidden; }
+.voto-tela .voto-votar-janela-corpo { overflow: auto; padding: 6px 0; }
+.voto-tela .voto-votar-janela-grupo { padding: 10px 16px; }
+.voto-tela .voto-votar-janela-grupo > b { font-size: 15px; color: #0b3550; }
+.voto-tela .voto-votar-cand { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid #e6edf2; margin-top: 7px; }
+.voto-tela .voto-votar-cand-tx { min-width: 0; font-size: 13px; color: #34505f; }
+.voto-tela .voto-votar-cand-tx > b { font-size: 14.5px; color: #12242f; }
+.voto-tela .voto-votar-cand-prop { margin-top: 3px; }
+.voto-tela .voto-votar-cand-comp { font-size: 12.5px; color: #12242f; margin-top: 4px; white-space: pre-line; }
+.voto-tela .vAv { width: 56px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center; background: #e5f1f7; color: #0a6fa0; font-weight: bold; font-size: 19px; border-radius: 3px; overflow: hidden; }
+.voto-tela .vAv img { width: 100%; height: 100%; object-fit: cover; }

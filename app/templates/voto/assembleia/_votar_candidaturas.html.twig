@@ -1,0 +1,29 @@
+{#
+    Janela "Conhecer candidaturas" da aba Votar (desenho 18, modTem, L295): .vH com bi-person-lines-fill, o nome da votação e
+    "Fechar"; o corpo rola e lista cada candidatura com foto 3x4 (.vAv; sem foto, as iniciais, como o desenho e a urna),
+    "{número} · {nome}", unidade, descrição, propostas e composição. Abre pelo botão com data-voto-janela (voto-janela.js).
+    Só leitura: nada é gravado. Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel de eleição).
+#}
+{% set id = 'janela-candidaturas-' ~ p.id %}
+<div class="voto-votar-janela" data-voto-janela-raiz id="{{ id }}" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-titulo">
+        <div class="vH"><i class="bi bi-person-lines-fill"></i><span id="{{ id }}-titulo">{{ p.titulo }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.fechar'|trans }}</button></div>
+        <div class="voto-votar-janela-corpo">
+            <div class="voto-votar-janela-grupo">
+                <b>{{ p.titulo }}</b>
+                {% for o in p.opcoes %}
+                    <div class="voto-votar-cand" data-numero="{{ o.numero }}">
+                        <span class="vAv">{% if o.foto ?? null %}<img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) }}">{% else %}{{ o.rotulo|split(' ')|map(x => x|first)|slice(-2)|join|upper }}{% endif %}</span>
+                        <div class="voto-votar-cand-tx">
+                            <b>{{ ('00000' ~ o.numero)|slice(-p.digitos) }} · {{ o.rotulo }}</b>
+                            {% if o.unidade ?? null %}<div>{{ 'voto.votar.unidade'|trans({unidade: o.unidade}) }}</div>{% endif %}
+                            {% if o.descricao ?? null %}<div>{{ o.descricao }}</div>{% endif %}
+                            {% if o.propostas ?? null %}<div class="voto-votar-cand-prop">{{ o.propostas }}</div>{% endif %}
+                            {% if o.composicao ?? null %}<div class="voto-votar-cand-comp">{{ o.composicao }}</div>{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

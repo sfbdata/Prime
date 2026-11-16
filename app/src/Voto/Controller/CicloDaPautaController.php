@@ -138,7 +138,7 @@ final class CicloDaPautaController extends AbstractController
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
             $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.aviso.sessao_expirada'));
 
-            return $this->voltar($id);
+            return $this->voltar($request, $id);
         }
         try {
             $acao();
@@ -149,11 +149,16 @@ final class CicloDaPautaController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        return $this->voltar($id);
+        return $this->voltar($request, $id);
     }
 
-    private function voltar(int $id): RedirectResponse
+    /** Volta para a Gestão eleitoral; o menu da aba Votar manda `voltar=votar` e volta para a própria aba (valor fixo, nunca URL livre). */
+    private function voltar(Request $request, int $id): RedirectResponse
     {
+        if ('votar' === $request->request->get('voltar')) {
+            return $this->redirectToRoute('voto_index', ['aba' => 'ele']);
+        }
+
         return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
     }
 }
