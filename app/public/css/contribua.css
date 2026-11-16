@@ -265,3 +265,68 @@
 .ct-indique-contadores { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #5b7383; }
 .ct-indique-contadores b { color: #243845; }
 .ct-indique-contadores b.ct-indique-ok { color: #1e7b45; }
+
+/* Desenho de 14 e 15/11: página "gratuita". Valores do .dc.html de docs/design/contribua-16-11-26. */
+
+/* Apresentação: selo GRATUITO ao lado do título */
+.ct-apresentacao-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ct-selo-gratuito { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 13px; background: #1e7b45; color: #fff; font-size: 12.5px; font-weight: bold; letter-spacing: .4px; }
+
+/* Apresentação: linha recolhível "Sem mensalidade..." (começa recolhida) */
+.ct-gratis-botao { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; padding: 10px 0 0; border: 0; border-top: 1px solid #e6edf2; background: none; font: inherit; font-size: 13px; font-weight: bold; color: #1e7b45; cursor: pointer; text-align: left; }
+.ct-gratis-botao:hover { color: #3b8fc2; }
+.ct-gratis-acao { margin-left: auto; display: flex; align-items: center; gap: 5px; color: #0a6fa0; }
+.ct-gratis-corpo { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; padding-top: 4px; }
+.ct-gratis-corpo[hidden] { display: none; }
+.ct-gratis-item { display: flex; gap: 10px; align-items: flex-start; }
+.ct-gratis-icone { width: 30px; height: 30px; flex: none; border-radius: 50%; background: #e9f6ee; color: #1e7b45; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.ct-gratis-texto { font-size: 12.5px; color: #4a6373; line-height: 1.45; }
+.ct-gratis-texto b { display: block; font-size: 13.5px; color: #12242f; }
+
+/* Faixa Convênio OAB */
+.ct-convenio { background: linear-gradient(135deg, #f5f6fc 0%, #eef6fb 100%); border: 1px solid #d6dbef; border-left: 4px solid #2a2a6e; border-radius: 8px; padding: 18px clamp(12px, 3vw, 22px); display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.ct-convenio-logo { width: 64px; height: 64px; flex: none; box-sizing: border-box; padding: 10px; border-radius: 10px; background: #fff; border: 1px solid #d6dbef; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ct-convenio-logo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.ct-convenio-texto { flex: 1 1 320px; min-width: 0; }
+.ct-convenio-texto b { display: block; font-size: 17px; color: #2a2a6e; }
+.ct-convenio-texto div { font-size: 13.5px; color: #34505f; line-height: 1.55; margin-top: 4px; }
+.ct-convenio-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.ct-pagina a.ct-convenio-whats { height: 38px; padding: 0 14px; border-radius: 3px; background: #2a2a6e; color: #fff; font-size: 13.5px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; }
+.ct-pagina a.ct-convenio-whats:hover { background: #3b8fc2; color: #fff; }
+.ct-convenio-ver { height: 38px; padding: 0 12px; border: none; border-radius: 3px; background: transparent; color: #0a6fa0; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+
+/* Perguntas frequentes */
+.ct-faq-cabeca { display: flex; align-items: center; gap: 10px; padding: 14px clamp(12px, 3vw, 20px); background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+.ct-faq-cabeca i { color: #1e7b45; font-size: 17px; }
+.ct-faq-cabeca b { font-size: 15px; }
+.ct-faq-corpo { padding: 6px clamp(12px, 3vw, 20px) 12px; }
+.ct-faq { border-top: 1px solid #e6edf2; }
+.ct-faq:first-child { border-top: 0; }
+.ct-faq summary { cursor: pointer; padding: 12px 0; font-size: 14px; font-weight: bold; color: #12242f; list-style: none; display: flex; align-items: center; gap: 8px; }
+.ct-faq summary::-webkit-details-marker { display: none; }
+.ct-faq summary::before { content: '+'; width: 20px; height: 20px; flex: none; border-radius: 50%; background: #e9f6ee; color: #1e7b45; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
+.ct-faq[open] summary::before { content: '\2212'; }
+.ct-faq summary:hover { color: #0a6fa0; }
+.ct-faq > div { padding: 0 0 12px 28px; font-size: 13.5px; color: #4a6373; line-height: 1.55; }
+
+/* Apoie recolhível: a cabeça virou botão (começa recolhido; abre com #apoie) */
+.ct-apoie-botao { width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px clamp(12px, 3vw, 20px); background: #f8f9fa; border: 0; border-bottom: 0; font: inherit; color: #12242f; text-align: left; cursor: pointer; }
+.ct-apoie-botao[aria-expanded="true"] { border-bottom: 1px solid #dee2e6; }
+.ct-apoie-botao:hover { background: #eef4f8; }
+.ct-apoie-botao .ct-coracao { font-size: 16px; }
+.ct-apoie-botao > b { font-size: 15px; }
+.ct-apoie-sub { flex: 1; font-size: 12.5px; color: #6c757d; }
+.ct-apoie-acao { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; color: #0a6fa0; }
+.ct-apoie[hidden] { display: none; }
+
+/* Indique e ganhe: faixa "Só Master" com a chave, e o painel desligado (só o Master o vê assim) */
+.ct-indique { position: relative; }
+.ct-indique--off { border-left-color: #9aabb7; opacity: .6; }
+.ct-indique-master { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; margin: -6px -8px 0; background: #fffaf0; border: 1px solid #f1e2bf; border-radius: 3px; font-size: 12.5px; color: #7a5200; }
+.ct-indique-master-texto { flex: 1; }
+.ct-indique-chave { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border: 1px solid #f1e2bf; border-radius: 3px; background: #fff; color: #12242f; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+.ct-indique-chave:disabled { cursor: default; opacity: .7; }
+.ct-indique-trilho { position: relative; width: 34px; height: 18px; border-radius: 9px; background: #c9d3da; }
+.ct-indique-chave[aria-checked="true"] .ct-indique-trilho { background: #1e7b45; }
+.ct-indique-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .15s; }
+.ct-indique-chave[aria-checked="true"] .ct-indique-bola { left: 18px; }

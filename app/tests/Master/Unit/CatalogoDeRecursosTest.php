@@ -16,11 +16,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeRecursos::class)]
 final class CatalogoDeRecursosTest extends TestCase
 {
-    #[TestDox('29 linhas, 28 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
+    #[TestDox('30 linhas, 29 chaves (Contribua e o atalho dividem a chave) e 2 essenciais')]
     public function testTamanhoDoCatalogo(): void
     {
-        self::assertCount(29, CatalogoDeRecursos::LINHAS);
-        self::assertCount(28, CatalogoDeRecursos::chaves());
+        self::assertCount(30, CatalogoDeRecursos::LINHAS);
+        self::assertCount(29, CatalogoDeRecursos::chaves());
         self::assertSame(2, count(array_filter(CatalogoDeRecursos::LINHAS, static fn (array $l): bool => $l['base'])));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('lista'));
         self::assertTrue(CatalogoDeRecursos::ehEssencial('meuperfil'));
@@ -38,15 +38,16 @@ final class CatalogoDeRecursosTest extends TestCase
         )));
     }
 
-    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas, a E8 e o aceite do Ponto: 13 Telas, 7 Menu do usuário, 9 Funções')]
+    #[TestDox('grupos e ordem do bj-recursos.js, mais a Assinatura, o Ponto, o comprovante, os alertas, a E8 e o aceite do Ponto: 13 Telas, 7 Menu do usuário, 10 Funções')]
     public function testGruposEOrdem(): void
     {
         $porGrupo = array_count_values(array_column(CatalogoDeRecursos::LINHAS, 'g'));
-        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 9], $porGrupo);
+        self::assertSame(['Telas' => 13, 'Menu do usuário' => 7, 'Funções' => 10], $porGrupo);
         self::assertSame('dashboard', CatalogoDeRecursos::LINHAS[0]['chave']);
         self::assertSame('assinatura', CatalogoDeRecursos::LINHAS[12]['chave']);
         self::assertSame('Assinatura de documentos', CatalogoDeRecursos::titulo('assinatura'));
-        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[21]['chave']);
+        self::assertSame('assistente', CatalogoDeRecursos::LINHAS[22]['chave']);
+        self::assertSame(['Funções', 'indique', 'Indique e ganhe (recompensa por indicação)', 'bi-share', 'Painel de cupom e recompensa na tela Contribua e botão de indicação na barra', false, false], [CatalogoDeRecursos::LINHAS[20]['g'], CatalogoDeRecursos::LINHAS[20]['chave'], CatalogoDeRecursos::LINHAS[20]['t'], CatalogoDeRecursos::LINHAS[20]['ic'], CatalogoDeRecursos::LINHAS[20]['d'], CatalogoDeRecursos::LINHAS[20]['tela'], CatalogoDeRecursos::LINHAS[20]['base']], 'Indique e ganhe vem antes do Chat I.A, como no bj-recursos.js');
         self::assertSame('ponto', CatalogoDeRecursos::LINHAS[8]['chave'], 'Ponto entra nas Telas, antes do Voto');
         self::assertSame('Ponto Eletrônico', CatalogoDeRecursos::titulo('ponto'));
         self::assertTrue(CatalogoDeRecursos::LINHAS[8]['tela']);
@@ -65,7 +66,7 @@ final class CatalogoDeRecursosTest extends TestCase
             ],
             array_map(
                 static fn (array $l): array => [$l['g'], $l['chave'], $l['t'], $l['ic'], $l['d'], $l['tela'], $l['base']],
-                array_slice(CatalogoDeRecursos::LINHAS, 22, 7),
+                array_slice(CatalogoDeRecursos::LINHAS, 23, 7),
             ),
         );
         self::assertSame('Contribua', CatalogoDeRecursos::titulo('contribua'), 'título da primeira linha da chave');

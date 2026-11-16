@@ -15,6 +15,8 @@ use Twig\TwigFunction;
  *
  *  - `recurso_visivel('chave')`: false só para quem não é Master com o item desligado. Envolve o
  *    item de menu, o botão ou o atalho num `{% if %}`.
+ *  - `recurso_ativo('chave')`: o estado efetivo da chave, igual para todos (o Master vê o item mesmo desligado; a
+ *    chave "Só Master" da tela Contribua precisa saber se está ligado).
  *  - `recurso_marca('chave')`: a classe da marcação vermelha (opaco, contorno tracejado) para o
  *    Master quando o item está desligado; texto vazio nos demais casos.
  *  - `recurso_faixa_master()`: título da tela desligada que o Master está vendo (rota atual mapeada
@@ -32,6 +34,7 @@ final class RecursosExtension extends AbstractExtension
     {
         return [
             new TwigFunction('recurso_visivel', $this->recursos->visivel(...)),
+            new TwigFunction('recurso_ativo', $this->recursos->estaAtivo(...)),
             new TwigFunction('recurso_marca', $this->recursos->marca(...)),
             new TwigFunction('recurso_faixa_master', $this->faixaDoMaster(...)),
         ];

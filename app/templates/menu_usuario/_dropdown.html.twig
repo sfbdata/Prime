@@ -42,10 +42,12 @@
                 <span class="mu-item-dir">{{ 'menu.usuario.dropdown.convites_dir'|trans }}</span>
             </a>
         {% endif %}
+        {% if recurso_visivel('indique') %}
         <button type="button" class="dropdown-item mu-item" role="menuitem" data-ind-abrir>
             <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.indicar'|trans }}</span></span>
             <span class="mu-item-dir">{{ 'menu.usuario.dropdown.indicar_dir'|trans }}</span>
         </button>
+        {% endif %}
         {% if current_tenant() %}
             <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-conta="trocar">
                 <i class="bi bi-arrow-left-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.trocar_conta'|trans }}</span></span>
