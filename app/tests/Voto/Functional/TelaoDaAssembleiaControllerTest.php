@@ -156,7 +156,7 @@ final class TelaoDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $res = $painel->filter('.vAoRes');
         self::assertCount(1, $res);
         self::assertCount(1, $res->filter('.vAoResTopo > .vAoDecisao'));
-        self::assertStringContainsString('1 Sim', $res->filter('.vAoDecisao')->text(), 'frase do partial _texto_do_resultado');
+        self::assertSame('Aprovada', trim($res->filter('.vAoDecisao')->text()), 'frase do resTx do desenho, pelo partial _texto_do_resultado');
         self::assertSame(['1 Sim', '2 Não', 'Abstenções', 'Nulos'], $res->filter('.vAoIt > span')->each(static fn (Crawler $c): string => (string) preg_replace('/[\s\x{a0}]+/u', ' ', trim($c->text()))));
         self::assertSame(['3', '0', '0', '0'], $res->filter('.vAoIt > b')->each(static fn (Crawler $c): string => $c->text()));
         self::assertStringContainsString('width:100%', (string) $res->filter('.vAoIt > div > u')->first()->attr('style'));
