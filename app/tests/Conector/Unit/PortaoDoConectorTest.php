@@ -34,7 +34,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * O portão do conector (spec mcp-remoto-oauth 4, 4.1 e 12, itens 2, 3 e 18): cada barreira recusa; nunca devolve
- * contexto com o filtro de escritório desligado; só depois de tudo conferido liga o modo e o escopo de auditoria.
+ * contexto com o filtro de escritório desligado; só depois de tudo conferido fixa o escritório no TenantContext e liga o
+ * modo; abrir de novo na mesma requisição recusa.
  */
 #[CoversClass(PortaoDoConector::class)]
 #[CoversClass(AcessoDoConectorRecusado::class)]
@@ -108,12 +109,46 @@ final class PortaoDoConectorTest extends TestCase
         $this->assertRecusa(AcessoDoConectorRecusado::PESSOA_INDISPONIVEL, AcessoDoConectorRecusado::MOTIVO_PESSOA, userId: 999);
     }
 
-    #[TestDox('vínculo removido: recusa')]
+    #[TestDox('vínculo removido: recusa com o texto do conector, sem o "Selecione outro escritório" da tela')]
     public function testSemVinculo(): void
     {
         $this->vinculo = null;
 
-        $this->assertRecusa(BarreirasDoEscritorio::ACESSO_INDISPONIVEL);
+        $this->assertRecusa(AcessoDoConectorRecusado::ACESSO_INDISPONIVEL);
+        self::assertSame('Seu acesso a este escritório não está mais disponível.', AcessoDoConectorRecusado::ACESSO_INDISPONIVEL);
+        self::assertStringNotContainsString('Selecione', AcessoDoConectorRecusado::ACESSO_INDISPONIVEL);
+        self::assertStringContainsString('Selecione outro escritório', BarreirasDoEscritorio::ACESSO_INDISPONIVEL, 'o navegador segue com o texto dele');
+    }
+
+    #[TestDox('abrir de novo na mesma requisição: recusa (falha fechada), sem mexer no que a primeira abertura fixou')]
+    public function testAbrirDeNovoRecusa(): void
+    {
+        $filtro = $this->createMock(FiltroDoEscritorio::class);
+        $filtro->expects(self::once())->method('ligar')->with(self::ESCRITORIO);
+        $filtro->method('estaLigadoEm')->willReturn(true);
+        $portao = $this->portao($filtro);
+        $portao->abrir(self::PESSOA, self::ESCRITORIO);
+
+        try {
+            $portao->abrir(self::PESSOA, self::ESCRITORIO);
+            self::fail('O portão abriu duas vezes a mesma requisição.');
+        } catch (AcessoDoConectorRecusado $recusa) {
+            self::assertSame(AcessoDoConectorRecusado::MOTIVO_JA_ABERTO, $recusa->motivo);
+            self::assertSame(AcessoDoConectorRecusado::JA_ABERTO, $recusa->getMessage());
+        }
+        self::assertTrue($this->tenantContext->estaFixadoSemSessao());
+        self::assertTrue($this->modo->valePara($this->pessoa));
+    }
+
+    #[TestDox('modo já ligado (sem escritório fixado): abrir recusa do mesmo jeito')]
+    public function testModoJaLigadoRecusa(): void
+    {
+        $this->modo->ligar($this->vinculo ?? throw new \LogicException());
+        $filtro = $this->createMock(FiltroDoEscritorio::class);
+        $filtro->expects(self::never())->method('ligar');
+
+        $this->assertRecusa(AcessoDoConectorRecusado::JA_ABERTO, AcessoDoConectorRecusado::MOTIVO_JA_ABERTO, filtro: $filtro);
+        self::assertFalse($this->tenantContext->estaFixadoSemSessao());
     }
 
     #[TestDox('vínculo inativo (legado): recusa')]
@@ -121,7 +156,7 @@ final class PortaoDoConectorTest extends TestCase
     {
         (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($this->vinculo, false);
 
-        $this->assertRecusa(BarreirasDoEscritorio::ACESSO_INDISPONIVEL);
+        $this->assertRecusa(AcessoDoConectorRecusado::ACESSO_INDISPONIVEL);
     }
 
     #[TestDox('situação suspensa ou em análise na equipe: recusa com a mensagem da situação')]
@@ -163,7 +198,7 @@ final class PortaoDoConectorTest extends TestCase
         $this->escritorio->setExcluidoEm(new \DateTimeImmutable());
         $this->assertRecusa(AvisoDeContaSuspensa::paraExcluida('Escritório A'));
 
-        $this->assertRecusa(BarreirasDoEscritorio::ACESSO_INDISPONIVEL, tenantId: 999);
+        $this->assertRecusa(AcessoDoConectorRecusado::ACESSO_INDISPONIVEL, tenantId: 999);
     }
 
     #[TestDox('pedido de exclusão pendente: a equipe é recusada com a mensagem do pedido')]

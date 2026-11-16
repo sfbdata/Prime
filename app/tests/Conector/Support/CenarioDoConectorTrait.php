@@ -4,13 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Conector\Support;
 
+use App\Conector\Service\FiltroDoEscritorioDoctrine;
+use App\Conector\Service\ModoDoConector;
+use App\Conector\Service\PortaoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Repository\TenantRepository;
+use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
+use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\BarreirasDoEscritorio;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Termo\Entity\AceiteTermo;
+use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\TermoVigente;
 use Doctrine\ORM\EntityManagerInterface;
@@ -83,5 +94,32 @@ trait CenarioDoConectorTrait
         }
 
         return $permissao;
+    }
+
+    /**
+     * Montado com as peças do container: o portão e o filtro ainda não têm quem os use (o `/mcp` chega no PR 5), e o
+     * Symfony tira do container compilado o serviço privado sem uso. O que importa é que o TenantContext, o modo e o
+     * EntityManager sejam os MESMOS que o resto da aplicação usa.
+     */
+    private function portao(): PortaoDoConector
+    {
+        $c = static::getContainer();
+
+        return new PortaoDoConector(
+            $c->get(UserRepository::class),
+            $c->get(TenantRepository::class),
+            $c->get(UserTenantRepository::class),
+            new BarreirasDoEscritorio($c->get(BloqueioPorPedidoDeExclusao::class), $c->get(RegraDosPrimarios::class)),
+            $c->get(AceiteTermoRepository::class),
+            new TermoVigente(),
+            $this->filtro(),
+            $c->get(ModoDoConector::class),
+            $c->get(TenantContext::class),
+        );
+    }
+
+    private function filtro(): FiltroDoEscritorioDoctrine
+    {
+        return new FiltroDoEscritorioDoctrine($this->em());
     }
 }

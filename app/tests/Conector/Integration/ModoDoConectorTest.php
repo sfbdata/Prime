@@ -9,9 +9,12 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
@@ -29,6 +32,7 @@ use Zenstruck\Foundry\Test\Factories;
 #[CoversClass(ModoDoConector::class)]
 #[CoversClass(PermissionChecker::class)]
 #[CoversClass(RegraDosPrimarios::class)]
+#[CoversClass(VisibilidadeDasAbasDaPasta::class)]
 final class ModoDoConectorTest extends KernelTestCase
 {
     use CenarioDoConectorTrait;
@@ -116,6 +120,25 @@ final class ModoDoConectorTest extends KernelTestCase
 
         self::assertFalse($this->checker()->canAccessResource($this->primario, $this->escritorio, AccessRequest::RESOURCE_PASTA, $id, AccessRequest::ACTION_VIEW));
         self::assertSame([], $this->checker()->idsPermitidosComVinculo($this->primario, $this->vinculoDoPrimario, AccessRequest::RESOURCE_PASTA, [$id], AccessRequest::ACTION_VIEW));
+    }
+
+    #[TestDox('ligado: a aba oculta para todos some também para o primário e o Master (abasOcultasPara), e o colega primário segue vendo')]
+    public function testAbaOcultaParaTodosValeNoModo(): void
+    {
+        $pasta = PastaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $pasta, AbaDaPasta::Financeiro, $this->colegaPrimario, new \DateTimeImmutable()));
+        $this->em()->flush();
+        $abas = static::getContainer()->get(VisibilidadeDasAbasDaPasta::class);
+        self::assertSame([], $abas->abasOcultasPara($pasta, $this->primario), 'no navegador, quem configura não tem aba oculta');
+        self::assertSame([], $abas->abasOcultasPara($pasta, $this->master));
+
+        $this->modo()->ligar($this->vinculoDoPrimario);
+        self::assertSame([AbaDaPasta::Financeiro], $abas->abasOcultasPara($pasta, $this->primario));
+        self::assertSame([], $abas->abasOcultasPara($pasta, $this->colegaPrimario), 'o colega primário não muda');
+
+        static::getContainer()->get('services_resetter')->reset();
+        $this->modo()->ligar($this->vinculoDoMaster);
+        self::assertSame([AbaDaPasta::Financeiro], $abas->abasOcultasPara($pasta, $this->master));
     }
 
     #[TestDox('ligado para uma pessoa: o colega (outra pessoa) continua primário e administrador')]

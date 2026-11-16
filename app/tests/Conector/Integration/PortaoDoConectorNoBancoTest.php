@@ -11,17 +11,10 @@ use App\Conector\Service\PortaoDoConector;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
-use App\Repository\TenantRepository;
-use App\Repository\UserRepository;
-use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\SituacaoNaEquipe;
-use App\Tenant\Service\BarreirasDoEscritorio;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
-use App\Tenant\Service\RegraDosPrimarios;
-use App\Termo\Repository\AceiteTermoRepository;
-use App\Termo\TermoVigente;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Factory\Pasta\PastaFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -84,6 +77,46 @@ final class PortaoDoConectorNoBancoTest extends KernelTestCase
         self::assertTrue($this->em()->contains($contexto->getCurrentTenant()), 'relido pelo EntityManager: gerenciado mesmo depois do clear()');
         self::assertSame($escritorio->getId(), $contexto->getCurrentTenant()?->getId());
         self::assertSame($vinculo->getId(), $contexto->getCurrentUserTenant()?->getId());
+    }
+
+    #[TestDox('abrir de novo com OUTRO escritório: recusa, e o TenantContext e o filtro seguem no primeiro')]
+    public function testAbrirDeNovoNaoTrocaOEscritorio(): void
+    {
+        $escritorio = $this->escritorio();
+        $outro = $this->escritorio('Outro');
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio);
+        $this->vinculo($pessoa, $outro);
+        $portao = $this->portao();
+        $portao->abrir((int) $pessoa->getId(), (int) $escritorio->getId());
+
+        try {
+            $portao->abrir((int) $pessoa->getId(), (int) $outro->getId());
+            self::fail('O portão abriu duas vezes a mesma requisição.');
+        } catch (AcessoDoConectorRecusado $recusa) {
+            self::assertSame(AcessoDoConectorRecusado::MOTIVO_JA_ABERTO, $recusa->motivo);
+        }
+
+        self::assertSame($escritorio->getId(), static::getContainer()->get(TenantContext::class)->getCurrentTenant()?->getId());
+        self::assertTrue($this->filtro()->estaLigadoEm((int) $escritorio->getId()));
+    }
+
+    #[TestDox('reset dos serviços (fim da requisição, mensagem seguinte do worker): o escritório fixado e o modo somem')]
+    public function testResetZeraOEscritorioFixado(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio);
+        $contexto = static::getContainer()->get(TenantContext::class);
+        $this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId());
+        self::assertTrue($contexto->hasCurrentTenant());
+
+        static::getContainer()->get('services_resetter')->reset();
+
+        self::assertFalse($contexto->hasCurrentTenant());
+        self::assertNull($contexto->getCurrentTenant());
+        self::assertNull($contexto->getCurrentUserTenant());
+        self::assertFalse(static::getContainer()->get(ModoDoConector::class)->estaLigado());
     }
 
     #[TestDox('auditoria: gravação depois de abrir o portão entra no audit_log com o escritório e a pessoa do token')]
@@ -153,32 +186,5 @@ final class PortaoDoConectorNoBancoTest extends KernelTestCase
             self::assertSame($mensagem, $recusa->getMessage());
         }
         self::assertFalse(static::getContainer()->get(TenantContext::class)->hasCurrentTenant());
-    }
-
-    /**
-     * Montado com as peças do container: o portão e o filtro ainda não têm quem os use (o `/mcp` chega no PR 5), e o
-     * Symfony tira do container compilado o serviço privado sem uso. O que importa é que o TenantContext, o modo e o
-     * EntityManager sejam os MESMOS que o resto da aplicação usa.
-     */
-    private function portao(): PortaoDoConector
-    {
-        $c = static::getContainer();
-
-        return new PortaoDoConector(
-            $c->get(UserRepository::class),
-            $c->get(TenantRepository::class),
-            $c->get(UserTenantRepository::class),
-            new BarreirasDoEscritorio($c->get(BloqueioPorPedidoDeExclusao::class), $c->get(RegraDosPrimarios::class)),
-            $c->get(AceiteTermoRepository::class),
-            new TermoVigente(),
-            $this->filtro(),
-            $c->get(ModoDoConector::class),
-            $c->get(TenantContext::class),
-        );
-    }
-
-    private function filtro(): FiltroDoEscritorioDoctrine
-    {
-        return new FiltroDoEscritorioDoctrine($this->em());
     }
 }

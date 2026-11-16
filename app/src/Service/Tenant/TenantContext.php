@@ -121,6 +121,12 @@ final class TenantContext implements ResetInterface
         $this->vinculoFixoId = $vinculoId;
     }
 
+    /** Já há escritório fixado sem sessão nesta requisição (o portão recusa abrir de novo). */
+    public function estaFixadoSemSessao(): bool
+    {
+        return $this->tenantFixoId !== null;
+    }
+
     public function reset(): void
     {
         $this->tenantFixoId = null;

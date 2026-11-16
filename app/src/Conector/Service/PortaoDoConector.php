@@ -20,13 +20,14 @@ use App\Termo\TermoVigente;
 /**
  * A porta única do conector de I.A. (spec mcp-remoto-oauth 4 e 4.1). Sem HTTP e sem sessão: recebe a pessoa e o
  * escritório do token e devolve o {@see ContextoDoConector}, ou lança {@see AcessoDoConectorRecusado}. Nunca devolve
- * contexto com o filtro de escritório desligado.
+ * contexto com o filtro de escritório desligado: só {@see abrir()} produz o contexto (`PortaoDoConectorArquiteturaTest`).
  *
  * API pública (os PRs da autorização e do `/mcp` chamam):
- *  - {@see conferir()}: só as conferências, sem efeito colateral. Para a tela de autorização (`/oauth/authorize`), que
- *    roda no navegador e não pode trocar o filtro, o escritório nem o modo da requisição.
+ *  - {@see conferir()}: só as conferências, sem efeito colateral e sem devolver contexto. Para a tela de autorização
+ *    (`/oauth/authorize`), que roda no navegador e não pode trocar o filtro, o escritório nem o modo da requisição.
  *  - {@see abrir()}: as conferências e depois tranca a requisição no escritório do token. Para cada requisição do
- *    `/mcp`, antes de despachar a ferramenta. Uma vez por requisição; o `reset()` dos serviços zera tudo no fim.
+ *    `/mcp`, antes de despachar a ferramenta. Uma vez por requisição: abrir de novo recusa (falha fechada); o
+ *    `reset()` dos serviços zera tudo no fim.
  *
  * O que fica para o PR do `/mcp` (ponto marcado em {@see conferir()}): liberação nos três níveis (14.a), corte de
  * "Sair de todos os aparelhos" (`autorizado_em`) e impressão da senha (seção 4, regra 3). São dados do token, que este
@@ -54,7 +55,36 @@ final class PortaoDoConector
      *
      * @throws AcessoDoConectorRecusado
      */
-    public function conferir(int $userId, int $tenantId): ContextoDoConector
+    public function conferir(int $userId, int $tenantId): void
+    {
+        $this->resolver($userId, $tenantId);
+    }
+
+    /**
+     * {@see conferir()} e depois tranca a requisição no escritório do token: liga o filtro `tenant` e confere que
+     * ficou ligado com este escritório (falha fechada: qualquer erro recusa); fixa o escritório e o vínculo no
+     * TenantContext, sem sessão (quem lê o escritório de lá, como a auditoria, vê o do token); liga o modo do conector
+     * (teto, 6.3). Requisição já aberta (escritório fixado ou modo ligado) recusa antes de tudo.
+     *
+     * @throws AcessoDoConectorRecusado
+     */
+    public function abrir(int $userId, int $tenantId): ContextoDoConector
+    {
+        if ($this->tenantContext->estaFixadoSemSessao() || $this->modo->estaLigado()) {
+            throw AcessoDoConectorRecusado::jaAberto();
+        }
+
+        $contexto = $this->resolver($userId, $tenantId);
+
+        $this->trancarNoEscritorio($tenantId);
+        $this->tenantContext->fixarSemSessao($contexto->escritorio, $contexto->vinculo);
+        $this->modo->ligar($contexto->vinculo);
+
+        return $contexto;
+    }
+
+    /** @throws AcessoDoConectorRecusado */
+    private function resolver(int $userId, int $tenantId): ContextoDoConector
     {
         $pessoa = $this->pessoas->find($userId);
         if (!$pessoa instanceof User || !$pessoa->isActive()) {
@@ -67,6 +97,10 @@ final class PortaoDoConector
         // Sem o passe do Master (seção 4, regra 1): no conector, o Master com vínculo em análise ou suspenso é recusado.
         $resultado = $this->barreiras->conferir($vinculo, $escritorio, $pessoa, passeDoMaster: false);
         $recusa = $resultado->recusa();
+        // Vínculo removido ou escritório inexistente: o texto do conector, sem o "Selecione outro escritório" da tela.
+        if ($recusa === BarreirasDoEscritorio::ACESSO_INDISPONIVEL) {
+            throw AcessoDoConectorRecusado::escritorio();
+        }
         if ($recusa !== null) {
             throw AcessoDoConectorRecusado::escritorio($recusa);
         }
@@ -82,25 +116,6 @@ final class PortaoDoConector
         }
 
         return new ContextoDoConector($pessoa, $escritorio, $vinculo);
-    }
-
-    /**
-     * {@see conferir()} e depois tranca a requisição no escritório do token: liga o filtro `tenant` e confere que
-     * ficou ligado com este escritório (falha fechada: qualquer erro recusa); fixa o escritório e o vínculo no
-     * TenantContext, sem sessão (quem lê o escritório de lá, como a auditoria, vê o do token); liga o modo do conector
-     * (teto, 6.3).
-     *
-     * @throws AcessoDoConectorRecusado
-     */
-    public function abrir(int $userId, int $tenantId): ContextoDoConector
-    {
-        $contexto = $this->conferir($userId, $tenantId);
-
-        $this->trancarNoEscritorio($tenantId);
-        $this->tenantContext->fixarSemSessao($contexto->escritorio, $contexto->vinculo);
-        $this->modo->ligar($contexto->vinculo);
-
-        return $contexto;
     }
 
     /** @throws AcessoDoConectorRecusado */

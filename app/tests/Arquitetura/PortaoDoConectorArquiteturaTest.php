@@ -16,14 +16,16 @@ use Symfony\Component\Finder\Finder;
  * As travas do conector de I.A. que se conferem pelo código (spec mcp-remoto-oauth 4.1 e 6.3; 12.2 e 12.19):
  *  (a) nenhuma classe de `App\Conector\` alcança os UseCases de administrador da 6.1 (teto do conector);
  *  (b) as barreiras do escritório moram num lugar só, que o listener do navegador e o portão usam;
- *  (c) só o PortaoDoConector liga o filtro de escritório, fixa o escritório no TenantContext sem sessão e liga o modo
- *      do conector.
+ *  (c) só o PortaoDoConector liga o filtro de escritório, fixa o escritório no TenantContext sem sessão, liga o modo
+ *      do conector e cria o ContextoDoConector (só o `abrir()` produz contexto).
  */
 #[CoversNothing]
 final class PortaoDoConectorArquiteturaTest extends TestCase
 {
     private const SRC = __DIR__ . '/../../src';
     private const CONECTOR = self::SRC . '/Conector';
+    /** `new ContextoDoConector(`, com ou sem o nome completo da classe. */
+    private const NEW_CONTEXTO = '/new\s+[\w\\\\]*ContextoDoConector\b/';
 
     /** UseCases de administrador que ficam fora do conector (6.1, linha "Administrador"; decisão 14.b). */
     private const USECASES_DE_ADMINISTRADOR = [
@@ -123,11 +125,12 @@ final class PortaoDoConectorArquiteturaTest extends TestCase
         $fixa = [];
         $modo = [];
         foreach (self::arquivos(self::SRC) as $relativo => $codigo) {
-            if (str_contains($codigo, 'fixarSemSessao(') && !in_array($relativo, ['Conector/Service/PortaoDoConector.php', 'Service/Tenant/TenantContext.php'], true)) {
+            // `->` e `?->`: qualquer chamada, de qualquer jeito.
+            if (preg_match('/\??->fixarSemSessao\(|::fixarSemSessao\(/', $codigo) === 1 && !in_array($relativo, ['Conector/Service/PortaoDoConector.php', 'Service/Tenant/TenantContext.php'], true)) {
                 $fixa[] = $relativo;
             }
             $citaOModo = preg_match('/\bModoDoConector\b/', $codigo) === 1;
-            $ligaOModo = preg_match('/modo\w*->ligar\(/i', $codigo) === 1;
+            $ligaOModo = preg_match('/modo\w*\??->ligar\(/i', $codigo) === 1;
             if (($citaOModo || $ligaOModo) && !in_array($relativo, ['Conector/Service/PortaoDoConector.php', 'Conector/Service/ModoDoConector.php', 'Service/PermissionChecker.php', 'Tenant/Service/RegraDosPrimarios.php'], true)) {
                 $modo[] = $relativo . ' cita o ModoDoConector';
             }
@@ -138,6 +141,29 @@ final class PortaoDoConectorArquiteturaTest extends TestCase
 
         self::assertSame([], $fixa, 'Só o PortaoDoConector fixa o escritório sem sessão (spec mcp-remoto-oauth 4.1).');
         self::assertSame([], $modo, 'Só o PortaoDoConector liga o modo; só o PermissionChecker e a RegraDosPrimarios o consultam (6.3).');
+    }
+
+    #[TestDox('(c) só o portão cria o ContextoDoConector')]
+    public function testSoOPortaoCriaOContexto(): void
+    {
+        $violacoes = [];
+        foreach (self::arquivos(self::SRC) as $relativo => $codigo) {
+            if (preg_match(self::NEW_CONTEXTO, $codigo) === 1 && $relativo !== 'Conector/Service/PortaoDoConector.php') {
+                $violacoes[] = $relativo;
+            }
+        }
+
+        self::assertSame([], $violacoes, 'Contexto do conector só sai do PortaoDoConector::abrir, depois das conferências e do filtro.');
+    }
+
+    #[TestDox('o medidor pega `->`, `?->` e o `new` com o nome completo')]
+    public function testMedidorPegaChamadaNulavel(): void
+    {
+        self::assertSame(1, preg_match('/modo\w*\??->ligar\(/i', '$this->modoDoConector?->ligar($v);'));
+        self::assertSame(1, preg_match('/modo\w*\??->ligar\(/i', '$this->modo->ligar($v);'));
+        self::assertSame(1, preg_match('/\??->fixarSemSessao\(|::fixarSemSessao\(/', '$this->tenantContext?->fixarSemSessao($t, $v);'));
+        self::assertSame(1, preg_match(self::NEW_CONTEXTO, 'return new ContextoDoConector($p, $e, $v);'));
+        self::assertSame(1, preg_match(self::NEW_CONTEXTO, 'new \\App\\Conector\\DTO\\ContextoDoConector($p, $e, $v)'));
     }
 
     /** @return array<string, string> conteúdo por caminho relativo a src/Conector */
