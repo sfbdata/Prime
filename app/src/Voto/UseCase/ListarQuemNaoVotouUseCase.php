@@ -80,7 +80,7 @@ final class ListarQuemNaoVotouUseCase
             return $abertas;
         }
 
-        return array_values(array_filter($pautas, static fn (PautaDaAssembleia $p): bool => EstadoDaPauta::Aguardando === $p->getEstado()));
+        return array_values(array_filter($pautas, static fn (PautaDaAssembleia $p): bool => EstadoDaPauta::Aguardando === $p->getEstado() && !$p->retirada()));
     }
 
     /**

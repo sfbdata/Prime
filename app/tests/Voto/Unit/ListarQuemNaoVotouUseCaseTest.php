@@ -72,6 +72,19 @@ final class ListarQuemNaoVotouUseCaseTest extends TestCase
         self::assertCount(0, $this->executar($tenant, $a, [])->unidades, 'só pauta encerrada: nada a lembrar');
     }
 
+    #[TestDox('Pauta retirada da ordem do dia não conta como pauta a votar')]
+    public function testPautaRetiradaNaoConta(): void
+    {
+        $tenant = new Tenant();
+        $a = $this->publicada($tenant);
+        $this->pauta($a, 1);
+        $this->unidade($a, 1, '101', 'A', null, null, null);
+
+        $a->getPautas()->first()->retirarDePauta('Assunto resolvido antes', 'Mesa');
+
+        self::assertCount(0, $this->executar($tenant, $a, [])->unidades);
+    }
+
     #[TestDox('Com duas pautas abertas, entra quem falta em qualquer uma; quem votou nas duas sai')]
     public function testDuasPautasAbertas(): void
     {
