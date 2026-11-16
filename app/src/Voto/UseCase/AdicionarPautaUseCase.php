@@ -43,8 +43,8 @@ final class AdicionarPautaUseCase
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirPautasAlteraveis();
         $regras = $input->regras ?? new RegrasDaPautaInput();
-        $opcoes = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $regras->digitos);
-        $pauta = new PautaDaAssembleia($assembleia, self::proximaOrdem($assembleia), $input->titulo, $input->descricaoLimpa());
+        $opcoes = $this->opcoesDaPauta->validar(trim($input->titulo), $input->opcoes, $regras->digitos, $input->tipo->eleitoral());
+        $pauta = new PautaDaAssembleia($assembleia, self::proximaOrdem($assembleia), $input->titulo, $input->descricaoLimpa(), $input->tipo);
         $pauta->configurar($regras->criterio, $regras->base, $regras->digitos, $regras->vagas, $regras->quorumPrimeira, $regras->quorumSegunda);
         foreach ($opcoes as $opcao) {
             new OpcaoDaPauta($pauta, $opcao['numero'], $opcao['rotulo']);
