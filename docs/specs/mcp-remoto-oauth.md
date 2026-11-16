@@ -2095,7 +2095,10 @@ Coordenador):**
    qualquer abertura.
 5. **`securitySchemes` só no `_meta`** de cada ferramenta (o SDK 0.10 não tem o campo no topo da ferramenta). Item do
    smoke no ChatGPT.
-6. **Sem assinatura de eventos**: `setSubscriptionLifetime(0)`.
+6. **Sem assinatura de eventos** (nenhum barramento de notificações), com `setSubscriptionLifetime(1.0)`. O valor 0
+   do planejamento estava errado: no SDK 0.10 o 0 é assinatura sem fim (`StatelessProtocol::listen`). O escolhido é
+   1 s, para nunca segurar um processo do PHP-FPM se um dia houver notificações; hoje, sem barramento, o
+   `subscriptions/listen` já encerra no reconhecimento.
 7. **Os números dos limites** do `/mcp` (`conector_chamada` 120 por minuto por pessoa e escritório,
    `conector_chamada_escritorio` 600, `conector_documento` 20, `conector_confirmacao` 10) são ajustáveis no PR 15,
    depois do smoke com os apps reais.

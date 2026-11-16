@@ -25,7 +25,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * O servidor MCP do `/mcp` (`docs/specs/mcp-remoto-oauth.md`, 3.1, 3.5, 5.1 e 8), montado a cada requisição com o
  * `StreamableHttpTransport` do SDK: as três versões do protocolo no mesmo endpoint, sem sessão MCP (nenhum
- * `setSession`), sem assinatura de eventos (`setSubscriptionLifetime(0)` e nenhum barramento de notificações) e com o
+ * `setSession`), sem assinatura de eventos (nenhum barramento de notificações; a assinatura vale no máximo
+ * {@see self::VALIDADE_DA_ASSINATURA} segundo, porque no SDK 0.10 o valor 0 é assinatura sem fim) e com o
  * `NullLogger` no construtor, no transporte e nos middlewares, porque o SDK escreveria no log a mensagem inteira, os
  * argumentos e o resultado da ferramenta (6.2, regra 9). O log `mcp` do conector é só o do
  * {@see RegistroDaChamadaMiddleware}.
@@ -51,6 +52,13 @@ final class ServidorMcpDoConector
 {
     public const NOME = 'BlueJus';
     public const VERSAO = '1.0.0';
+
+    /**
+     * Segundos que um `subscriptions/listen` fica aberto. Nunca 0: no SDK 0.10 o 0 é sem fim
+     * (`StatelessProtocol::listen`). Hoje, sem barramento, o fluxo já encerra no reconhecimento; o teto de 1 s é para
+     * nunca segurar um processo do PHP-FPM se um dia houver notificações.
+     */
+    public const VALIDADE_DA_ASSINATURA = 1.0;
 
     /** @param list<string> $hostsPermitidos */
     public function __construct(
@@ -120,7 +128,7 @@ final class ServidorMcpDoConector
         $construtor = Server::builder()
             ->setServerInfo(self::NOME, self::VERSAO)
             ->setLogger(new NullLogger())
-            ->setSubscriptionLifetime(0);
+            ->setSubscriptionLifetime(self::VALIDADE_DA_ASSINATURA);
         $this->ferramentas->registrarNo($construtor);
 
         return $construtor->build();

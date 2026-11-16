@@ -172,6 +172,20 @@ final class ServidorMcpDoConectorTest extends TestCase
         self::assertLessThan(2.0, microtime(true) - $inicio, 'o fluxo não pode esperar notificações');
     }
 
+    #[TestDox('a assinatura do subscriptions/listen tem prazo de 1 s, nunca 0 (no SDK 0.10 o 0 é sem fim)')]
+    public function testAssinaturaTemPrazo(): void
+    {
+        $servidor = $this->servidor(['mcp:leitura'], [], new RequisicaoDoConector());
+        $sdk = (new \ReflectionMethod($servidor, 'servidor'))->invoke($servidor);
+        $protocolo = (new \ReflectionProperty($sdk, 'statelessProtocol'))->getValue($sdk);
+        self::assertNotNull($protocolo);
+        $prazo = (new \ReflectionProperty($protocolo, 'subscriptionLifetime'))->getValue($protocolo);
+
+        self::assertSame(ServidorMcpDoConector::VALIDADE_DA_ASSINATURA, $prazo);
+        self::assertGreaterThan(0.0, $prazo, 'o 0 deixaria o fluxo aberto para sempre');
+        self::assertLessThan(2.0, $prazo);
+    }
+
     #[TestDox('12.15: o log mcp tem uma linha por requisição, com ids, duração e anotações, e nenhum dígito do CPF dos argumentos')]
     public function testLogSemCpf(): void
     {
