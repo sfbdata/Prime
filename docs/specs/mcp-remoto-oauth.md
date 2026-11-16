@@ -2010,3 +2010,17 @@ entra num PR próprio depois de testada nos dois clientes.
    sai do PR 1 (4.1, 4.3, 6.3).
 6. **Linhas de arquivo** corrigidas onde a revisão de código as achou deslocadas (cabeçalho).
 7. **Sem estimativa em dias** no plano: ficam dependências, risco e o caminho crítico como sequência de PRs (13.1).
+
+**Decidido em 16/11/2026 na implementação dos PRs 1 e 2 (orquestrador da frente, ratificado pelo Coordenador):**
+
+1. **Recusa por vínculo no conector**: vínculo removido, fora de "aprovado" ou escritório inexistente recebe a mensagem
+   própria do conector (`AcessoDoConectorRecusado::ACESSO_INDISPONIVEL`), sem a frase "Selecione outro escritório", que só
+   serve ao navegador. O navegador continua com o texto dele.
+2. **Renovação apresentada por outro cliente OAuth** derruba a concessão inteira **mesmo na primeira vez** (mais rígido que
+   a 9.1, que fala de renovação já usada). A tolerância da janela de cerca de 60 s só vale para o mesmo cliente e enquanto a
+   renovação gerada na rotação anterior não foi usada nem revogada; renovação revogada ou vencida que volta também derruba
+   a concessão (9.2).
+3. **Motivo da revogação da concessão**: lista fechada de quatro valores: `renovacao_reutilizada`, `falha_na_renovacao`,
+   `revogada_pela_pessoa` e `conta_ou_vinculo_encerrado`. Valor novo pede ao Coordenador.
+4. **Portão aberto uma vez por requisição**: `PortaoDoConector::abrir` chamado de novo na mesma requisição recusa, sem
+   mexer no estado da primeira; `conferir` (usado no `/oauth/authorize`) não devolve o contexto que as ferramentas recebem.
