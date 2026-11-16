@@ -29,7 +29,7 @@ use App\Termo\TermoVigente;
  *    `/mcp`, antes de despachar a ferramenta. Uma vez por requisição: abrir de novo recusa (falha fechada); o
  *    `reset()` dos serviços zera tudo no fim.
  *
- * O que fica para o PR do `/mcp` (ponto marcado em {@see conferir()}): liberação nos três níveis (14.a), corte de
+ * O que fica para o PR do `/mcp` (ponto marcado em {@see resolver()}): liberação nos três níveis (14.a), corte de
  * "Sair de todos os aparelhos" (`autorizado_em`) e impressão da senha (seção 4, regra 3). São dados do token, que este
  * PR ainda não tem.
  */
