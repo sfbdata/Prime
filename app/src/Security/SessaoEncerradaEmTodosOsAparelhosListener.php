@@ -24,7 +24,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * pedir para entrar de novo. A sessão de quem apertou o botão fica marcada um segundo depois (ProfileController).
  *
  * Roda depois do firewall (prioridade 8; aqui 7, como a expiração). Responde como a expiração: navegação vai ao
- * /login com o aviso; pedido de dados recebe 401 em JSON.
+ * /login com o aviso; pedido de dados recebe 401 em JSON. Rota `_stateless` (o `/mcp` do conector) fica de fora: não
+ * lê nem invalida a sessão.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 7)]
 final class SessaoEncerradaEmTodosOsAparelhosListener
@@ -42,6 +43,11 @@ final class SessaoEncerradaEmTodosOsAparelhosListener
     public function __invoke(RequestEvent $event): void
     {
         $request = $event->getRequest();
+        // Rota sem estado (o `/mcp` do conector): a pessoa vem do token do conector, não da sessão. Sem isto o cookie do
+        // navegador que viesse junto faria o pedido invalidar a sessão do navegador e responder 401 sem desafio.
+        if ($request->attributes->getBoolean('_stateless')) {
+            return;
+        }
         if (!$event->isMainRequest() || !$request->hasPreviousSession()) {
             return;
         }

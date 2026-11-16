@@ -44,6 +44,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * mesmo parâmetro, e o arquivo da sessão some depois dele; acima de 1 dia (padrão) é preciso subir a env
  * `SESSAO_GC_SEGUNDOS`. Custo: sessões anônimas de /login ficam esse tempo em var/sessions.
  *
+ * Rota `_stateless` (o `/mcp` do conector de I.A.) fica de fora antes de tudo: o pedido não usa a sessão, e o cookie do
+ * navegador que venha junto não a abre nem a renova.
+ *
  * Nunca lança por causa da configuração: valor inválido ou leitor que falha valem o padrão do ambiente
  * (`app.sessao_padrao_minutos`).
  */
@@ -80,6 +83,11 @@ final class ExpiracaoDaSessaoListener
     public function __invoke(RequestEvent $event): void
     {
         $request = $event->getRequest();
+        // Rota sem estado (o `/mcp` do conector): nem lê a sessão, ainda que o cookie do navegador venha junto. O router
+        // (prioridade 32) já preencheu o `_stateless`; tocar a sessão ali lança `UnexpectedSessionUsageException`.
+        if ($request->attributes->getBoolean('_stateless')) {
+            return;
+        }
         if (!$event->isMainRequest() || !$request->hasPreviousSession()) {
             return;
         }
