@@ -625,9 +625,10 @@ voto:
                 faltosos: Faltosos
                 inaptos: Inaptos na lista
                 peso_apto: Peso total apto
-                por_bloco: Participação por bloco ou torre
-                bloco: Bloco ou torre
+                por_grupo: 'Participação por {grupo}'
                 sem_bloco: Sem bloco
+                sem_grupo: 'Sem {grupo}'
+                simulacao: (SIMULAÇÃO)
                 eleitores: Eleitores
                 peso_coluna: Peso
                 encerramento: Encerramento
@@ -649,7 +650,6 @@ voto:
                 votantes: Relação de votantes
                 votantes_texto: Informa quem participou. Não indica em quem cada pessoa votou.
                 votantes_texto_aberto: Informa quem participou. Nesta votação, de voto aberto, o voto de cada pessoa consta na relação nominal abaixo.
-                unidade: Unidade
                 responsavel: Responsável
                 hora: Data e hora
                 sem_votantes: Nenhuma participação registrada.

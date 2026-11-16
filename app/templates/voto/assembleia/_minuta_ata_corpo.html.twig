@@ -20,7 +20,7 @@
 {% import _self as m %}
 {% set presidente = (t ~ 'marca_presidente')|trans %}
 {% set secretario = (t ~ 'marca_secretario')|trans %}
-<h1>{{ (t ~ 'titulo')|trans({evento: a.titulo|upper}) }}</h1>
+<h1>{{ (t ~ 'titulo')|trans({evento: a.titulo|upper ~ (a.simulacao ? ' ' ~ 'voto.assembleia.gestor.ata.simulacao'|trans : '')}) }}</h1>
 <p class="pequeno">{{ (t ~ 'aviso')|trans }}</p>
 <p>{{ (t ~ 'abertura')|trans({
     quando: abertura is not null ? (t ~ 'quando_data')|trans({data: abertura|date('d/m/Y'), hora: abertura|date('H:i')}) : m.campo(marca, (t ~ 'marca_data_hora')|trans),

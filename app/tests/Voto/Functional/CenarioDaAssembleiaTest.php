@@ -21,6 +21,8 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\TipoDaPauta;
+use App\Voto\Service\HtmlDaMinutaDeAta;
+use App\Voto\UseCase\ObterAtaDaAssembleiaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -139,6 +141,43 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Não informado', $this->campo($ata, 'Condomínio'));
     }
 
+    #[TestDox('Ata: "(SIMULAÇÃO)" no título só na simulação; rótulos de grupo e de identificação seguem o cenário, condomínio igual a antes')]
+    public function testAtaComSimulacaoEGrupoDoCenario(): void
+    {
+        $simulada = $this->publicadaComPauta(CenarioDaAssembleia::Associacao, null, true, true);
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $simulada->getId() . '/ata');
+        self::assertResponseIsSuccessful();
+        self::assertSame('RELATÓRIO CONSOLIDADO DA VOTAÇÃO (SIMULAÇÃO)', trim($ata->filter('h1')->text()));
+        self::assertStringContainsString('(SIMULAÇÃO)', $ata->filter('title')->text());
+        self::assertSame('Participação por categoria', trim($ata->filter('caption')->last()->text()));
+        $cabecalhos = $ata->filter('thead')->each(static fn (Crawler $c): string => trim($c->text()));
+        self::assertStringContainsString('Categoria', implode('|', $cabecalhos));
+        self::assertStringContainsString('CPF', implode('|', $cabecalhos));
+        self::assertStringNotContainsString('Bloco', $ata->text());
+        self::assertStringNotContainsString('Unidade', implode('|', $cabecalhos));
+
+        $real = $this->publicadaComPauta(CenarioDaAssembleia::Condominio, null, false, true);
+        $ata = $this->client->request('GET', '/voto/assembleias/' . $real->getId() . '/ata');
+        self::assertSame('RELATÓRIO CONSOLIDADO DA VOTAÇÃO', trim($ata->filter('h1')->text()));
+        self::assertStringNotContainsString('SIMULAÇÃO', $ata->text());
+        self::assertSame('Participação por bloco ou torre', trim($ata->filter('caption')->last()->text()));
+        self::assertStringContainsString('Bloco ou torre', implode('|', $ata->filter('thead')->each(static fn (Crawler $c): string => trim($c->text()))));
+    }
+
+    #[TestDox('Minuta (Word e PDF): "(SIMULAÇÃO)" no título só na simulação')]
+    public function testMinutaComSimulacao(): void
+    {
+        $html = static::getContainer()->get(HtmlDaMinutaDeAta::class);
+        $obter = static::getContainer()->get(ObterAtaDaAssembleiaUseCase::class);
+        $simulada = $this->publicadaComPauta(CenarioDaAssembleia::Consulta, null, true);
+        $real = $this->publicadaComPauta(CenarioDaAssembleia::Consulta, null);
+
+        $dela = $obter->executar($this->escritorio, $simulada->getId(), 'Teste');
+        self::assertStringContainsString('(SIMULAÇÃO)</h1>', $html->corpo($dela));
+        self::assertStringContainsString('(SIMULAÇÃO)</h1>', $html->folhaDoPdf($dela));
+        self::assertStringNotContainsString('SIMULAÇÃO', $html->corpo($obter->executar($this->escritorio, $real->getId(), 'Teste')));
+    }
+
     #[TestDox('PDF do resumo: rótulo da entidade e linhas de assinatura do cenário')]
     public function testPdfDoResumoComRotulosDoCenario(): void
     {
@@ -231,11 +270,12 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Condomínio · Pautas de assembleia', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
     }
 
-    private function publicadaComPauta(CenarioDaAssembleia $cenario, ?string $entidade): Assembleia
+    private function publicadaComPauta(CenarioDaAssembleia $cenario, ?string $entidade, bool $simulacao = false, bool $aberta = false): Assembleia
     {
-        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => $cenario, 'entidadeNome' => $entidade])->publicada()->create()->_real();
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => $cenario, 'entidadeNome' => $entidade, 'simulacao' => $simulacao])->publicada()->create()->_real();
         UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => 'U1']);
-        PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Pauta única'])->comOpcoesPadrao()->create();
+        $pauta = PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Pauta única'])->comOpcoesPadrao();
+        ($aberta ? $pauta->aberta() : $pauta)->create();
         $this->em->flush();
         $this->em->refresh($a);
 
