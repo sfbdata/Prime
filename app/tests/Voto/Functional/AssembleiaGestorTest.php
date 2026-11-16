@@ -508,6 +508,34 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertSame('', $tela->filter('#pauta-' . $id)->form()['quorum_segunda']->getValue());
     }
 
+    #[TestDox('Atalho de cargo cria pauta eleitoral; salvar com os números sugeridos e sem nomes grava o rascunho, e a conferência barra a publicação')]
+    public function testPautaEleitoralSalvaRascunhoSemNomesEBarraAPublicacao(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::createOne(['tenant' => $this->escritorio])->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia]);
+        $url = '/voto/assembleias/' . $assembleia->getId() . '/pautas';
+        $this->client->submit($this->client->request('GET', $url)->filter('.voto-atalhos button[value="Síndico(a)"]')->form());
+        $tela = $this->client->followRedirect();
+        $id = (int) $this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = ?', [$assembleia->getId()]);
+        self::assertSame('eleicao_cargo', $this->em->getConnection()->fetchOne('SELECT tipo FROM voto.assembleia_pauta WHERE id = ?', [$id]));
+        $form = $tela->filter('#pauta-' . $id)->form();
+        self::assertSame('eleicao_cargo', $form['tipo']->getValue());
+
+        $valores = $form->getPhpValues();
+        self::assertSame(['1', '2'], $valores['opcao_numero'], 'a tela sugere os números 1 e 2');
+        self::assertSame(['', ''], $valores['opcao_rotulo'], 'sem nomes fictícios');
+        $this->client->xmlHttpRequest('POST', $form->getUri(), $valores);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'mensagem' => 'Pauta salva.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame([[0, 'Abstenção']], $this->opcoesNoBanco($id));
+        $conferencia = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/publicar');
+        self::assertSame('Inclua ao menos duas candidaturas em Síndico(a).', trim($conferencia->filter('[data-voto-pendencia]')->text()));
+        self::assertSame('disabled', $conferencia->filter('form[data-voto-confirmar-publicacao] button[type="submit"]')->attr('disabled'));
+    }
+
     #[TestDox('Salvar a pauta por fetch responde JSON, grava e não deixa toast para a próxima tela')]
     public function testSalvarPautaPorFetchRespondeJson(): void
     {
