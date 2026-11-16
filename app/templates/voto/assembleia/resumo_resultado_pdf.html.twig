@@ -1,0 +1,67 @@
+{#
+    Folha do PDF "Resumo para divulgar" (desenho 18, boletim.js: hash SHA-256 do conteúdo, "Emitido em ..." e rodapé
+    legal). Só resultado, participação e quórum por pauta; nenhum dado pessoal. Contexto: `resumo` (ResumoDoResultado),
+    `qr` (data URI do QR do link público) e `logo` (data URI ou null).
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>{{ 'voto.assembleia.gestor.relatorio.pdf_titulo_pagina'|trans }}</title>
+    <style>
+        body { font-family:DejaVu Sans,sans-serif; color:#12242f; font-size:12px; margin:24px; }
+        h1 { color:#0b3550; font-size:20px; text-align:center; border-top:6px solid #0a6fa0; padding-top:16px; margin:0 0 6px; }
+        .evento { color:#0b3550; font-size:15px; font-weight:bold; text-align:center; margin:0 0 14px; }
+        h2 { background:#0b3550; color:#fff; font-size:13.5px; padding:6px 10px; margin:18px 0 6px; }
+        table { width:100%; border-collapse:collapse; margin:4px 0; }
+        td, th { padding:5px 8px; text-align:left; }
+        th { background:#d6e3ec; color:#0b3550; font-size:11.5px; }
+        td.num, th.num { text-align:right; }
+        tr.par td { background:#eef4f8; }
+        .rotulo { color:#4a6373; font-weight:bold; width:140px; }
+        .resultado { color:#1e7b45; font-weight:bold; font-size:13px; margin:6px 0 0; }
+        .validacao { margin-top:22px; border-top:1px solid #d3dde4; padding-top:12px; }
+        .validacao td { vertical-align:top; padding:0; }
+        .cod { color:#a3232b; font-family:DejaVu Sans Mono,monospace; font-size:18px; font-weight:bold; }
+        .hash { font-family:DejaVu Sans Mono,monospace; font-size:9.5px; color:#34505f; word-break:break-all; }
+        .nota { color:#34505f; margin-top:12px; line-height:1.5; }
+        .base { color:#4a6373; font-size:10px; margin-top:10px; }
+    </style>
+</head>
+<body>
+    {% if logo %}<img src="{{ logo }}" alt="" style="height:34px;">{% endif %}
+    <h1>{{ 'voto.assembleia.gestor.relatorio.pdf_titulo_pagina'|trans|upper }}</h1>
+    <p class="evento">{{ resumo.titulo }}</p>
+
+    {% for p in resumo.pautas %}
+        <h2>{{ p.titulo }}</h2>
+        <table>
+            <tr><td class="rotulo">{{ 'voto.assembleia.gestor.relatorio.rotulo_participacao'|trans }}</td><td>{{ p.participacao }}</td></tr>
+            <tr><td class="rotulo">{{ 'voto.assembleia.gestor.relatorio.rotulo_situacao'|trans }}</td><td>{{ 'voto.assembleia.gestor.relatorio.apurada_em'|trans({data: p.apuradaEm}) }}. {{ p.quorum }}</td></tr>
+        </table>
+        <table>
+            <tr><th>{{ 'voto.assembleia.gestor.relatorio.coluna_opcao'|trans }}</th><th class="num">{{ 'voto.assembleia.gestor.relatorio.coluna_votos'|trans }}</th></tr>
+            {% for l in p.linhas %}
+                <tr class="{{ loop.index is even ? 'par' : '' }}"><td>{{ l.rotulo }}</td><td class="num">{{ l.votos }}</td></tr>
+            {% endfor %}
+        </table>
+        <p class="resultado">{{ 'voto.assembleia.gestor.relatorio.rotulo_resultado'|trans }}: {{ p.resultado }}</p>
+    {% endfor %}
+
+    <p class="nota">{{ 'voto.assembleia.gestor.relatorio.nota'|trans }}</p>
+
+    <table class="validacao">
+        <tr>
+            <td style="width:130px;"><img src="{{ qr }}" alt="" style="width:110px;height:110px;"></td>
+            <td>
+                <b>{{ 'voto.assembleia.gestor.relatorio.pdf_codigo_validacao'|trans }}</b><br>
+                <span class="cod">{{ resumo.codigoDeConferencia }}</span><br>
+                {{ resumo.link }}<br><br>
+                <span class="hash">SHA-256 {{ resumo.hash }}</span><br><br>
+                {{ 'voto.assembleia.gestor.relatorio.emitido_em'|trans({data: resumo.emitidoEm|date('d/m/Y H:i:s')}) }}
+            </td>
+        </tr>
+    </table>
+    <p class="base">{{ 'voto.assembleia.gestor.relatorio.rodape_legal'|trans }}</p>
+</body>
+</html>

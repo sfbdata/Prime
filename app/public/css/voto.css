@@ -228,3 +228,10 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .voto-tela .voto-lembrar-quem > div { color: #5b7383; }
 .voto-tela .voto-lembrar-sem-tel { font-size: 12.5px; color: #8a6200; }
 .voto-tela .voto-lembrar-rodape { font-size: 12.5px; color: #5b7383; }
+
+/* Janela "Relatório" (desenho 18, relEscolha): 560px de largura e as três opções .vRelOp (links GET no sistema). */
+.vModAbrir.vModRelatorio .vModC { width: min(560px, 100%); }
+.vRelOp { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 13px 14px; background: #fff; border: 1px solid #c9d6df; border-left: 4px solid #0a6fa0; border-radius: 3px; font: inherit; font-size: 13px; color: #34505f; line-height: 1.4; cursor: pointer; text-decoration: none; }
+.vRelOp i { font-size: 22px; color: #0a6fa0; flex: none; margin-top: 2px; }
+.vRelOp b { display: block; font-size: 14.5px; color: #0b3550; margin-bottom: 2px; }
+.vRelOp:hover { border-color: #3b8fc2; background: #f2f8fb; color: #34505f; text-decoration: none; }

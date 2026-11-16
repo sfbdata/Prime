@@ -329,6 +329,40 @@ voto:
                 duracao: Duração
                 sem_prazo: 'Sem prazo: a mesa encerra quando decidir'
                 por_tempo: Por tempo definido
+            # ---- Voto redesign F3-2: janela "Relatório" e resumos para divulgar (desenho 18, relEscolha e relResumo).
+            relatorio:
+                titulo: 'Relatório: {titulo}'
+                fechar: Fechar
+                completo_titulo: Completo, para registro em cartório
+                completo_texto: Resultado, participação por bloco e relação de votantes (quem e quando, nunca em quê), em página imprimível para a comissão, a auditoria e o cartório.
+                imagem_titulo: Resumo para divulgar nos grupos (imagem)
+                imagem_texto: Resultado de cada pauta ou cargo, participação e quórum, em imagem pronta para o WhatsApp. Sem dados pessoais, com QR Code para conferência.
+                pdf_titulo: Resumo para divulgar (PDF)
+                pdf_texto: O mesmo resumo em PDF, para e-mail ou mural.
+                aviso: 'O completo contém dados pessoais: entregue só à comissão, à auditoria e ao cartório.'
+                sucesso_completo: Relatório completo gerado.
+                sucesso_imagem: Imagem do resultado gerada para divulgar.
+                sucesso_pdf: Resumo em PDF gerado.
+                sem_apurada: Ainda não há votação apurada para divulgar. O resumo só sai depois que uma votação é encerrada.
+                imagem_titulo_pagina: Resultado da votação
+                pdf_titulo_pagina: Resultado da votação
+                imagem_qr: Aponte a câmera para conferir
+                codigo_conferencia: 'Código de conferência: {codigo}'
+                pdf_codigo_validacao: Código de conferência
+                participacao: '{n} de {aptos} aptos ({pc}%)'
+                rotulo_participacao: Participação
+                rotulo_situacao: Situação
+                rotulo_resultado: Resultado
+                apurada_em: 'Apurada em {data}'
+                quorum_atingido: Quórum atingido
+                quorum_nao_atingido: Quórum não atingido
+                quorum_nao_exigido: Quórum não exigido
+                nulos: Nulos
+                coluna_opcao: Opção
+                coluna_votos: Votos
+                nota: Resumo para divulgação. Não contém dados pessoais dos votantes nem indica o voto de ninguém. O documento completo, para registro em cartório, fica com a comissão. Confira a autenticidade pelo QR Code ou pelo código de conferência.
+                emitido_em: 'Emitido em {data}. Vale somente com registro correspondente no BlueJus.'
+                rodape_legal: 'Base: Lei 14.063/2020 (assinaturas eletrônicas) · Lei 13.709/2018 (LGPD) · regras de votação da convenção ou do estatuto'
             aviso:
                 publicada: Votação publicada. A configuração ficou bloqueada.
                 aberta: Votação aberta pela mesa.

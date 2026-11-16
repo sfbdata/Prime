@@ -150,7 +150,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
             $faixa->filter('.vKw > .vKm > a')->each(static fn (Crawler $c): string => trim($c->text())),
             'publicada: a configuração está bloqueada, então "Editar configuração" não entra',
         );
-        self::assertSame(['Relatório consolidado', 'Conduzir no telão'], $linha->filter('a.vB')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Relatório consolidado', 'Conduzir no telão'], $linha->filter('.voto-acoes > .vB')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(0, $cartao->filter('.voto-pauta select.voto-mesa-conv, .voto-pauta .voto-mesa-min, .voto-pauta button[name="modo"][value="minutos"]'), 'a convocação e os minutos saíram da linha da pauta');
 
         $pauta = $cartao->filter('.voto-pauta[data-situacao="publicada"]')->first();

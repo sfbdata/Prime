@@ -1,0 +1,18 @@
+{#
+    Janela "Relatório" do desenho 18 (relEscolha: .vMod > .vModC de min(560px,100%), três .vRelOp e .vAviso), nunca modal do
+    Bootstrap. Abre pelo botão com data-voto-janela="#janela-relatorio-{a.id}" (voto-janela.js). As opções são links GET:
+    "Completo" abre a ata (voto_assembleia_ata, relatório consolidado) em outra aba; "imagem" e "PDF" baixam o resumo para
+    divulgar (RelatorioDaAssembleiaController). public/js/voto-relatorio.js baixa por fetch, fecha a janela e mostra o
+    toast do desenho (data-voto-sucesso); sem JS o link funciona igual. Contexto: `a` (AssembleiaNoPainel).
+#}
+<div class="vModAbrir vModRelatorio" data-voto-janela-raiz id="janela-relatorio-{{ a.id }}" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="janela-relatorio-{{ a.id }}-titulo">
+        <div class="vH"><i class="bi bi-journal-text"></i><span id="janela-relatorio-{{ a.id }}-titulo">{{ 'voto.assembleia.gestor.relatorio.titulo'|trans({titulo: a.titulo}) }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.relatorio.fechar'|trans }}</button></div>
+        <div class="vModCorpo">
+            <a class="vRelOp" href="{{ path('voto_assembleia_ata', {id: a.id}) }}" target="_blank" rel="noopener" data-voto-relatorio data-voto-sucesso="{{ 'voto.assembleia.gestor.relatorio.sucesso_completo'|trans }}"><i class="bi bi-bank"></i><span><b>{{ 'voto.assembleia.gestor.relatorio.completo_titulo'|trans }}</b>{{ 'voto.assembleia.gestor.relatorio.completo_texto'|trans }}</span></a>
+            <a class="vRelOp" href="{{ path('voto_assembleia_relatorio_imagem', {id: a.id}) }}" data-voto-relatorio data-voto-baixar data-voto-sucesso="{{ 'voto.assembleia.gestor.relatorio.sucesso_imagem'|trans }}" data-voto-erro="{{ 'voto.assembleia.gestor.relatorio.sem_apurada'|trans }}"><i class="bi bi-whatsapp"></i><span><b>{{ 'voto.assembleia.gestor.relatorio.imagem_titulo'|trans }}</b>{{ 'voto.assembleia.gestor.relatorio.imagem_texto'|trans }}</span></a>
+            <a class="vRelOp" href="{{ path('voto_assembleia_relatorio_pdf', {id: a.id}) }}" data-voto-relatorio data-voto-baixar data-voto-sucesso="{{ 'voto.assembleia.gestor.relatorio.sucesso_pdf'|trans }}" data-voto-erro="{{ 'voto.assembleia.gestor.relatorio.sem_apurada'|trans }}"><i class="bi bi-file-earmark-pdf"></i><span><b>{{ 'voto.assembleia.gestor.relatorio.pdf_titulo'|trans }}</b>{{ 'voto.assembleia.gestor.relatorio.pdf_texto'|trans }}</span></a>
+            <div class="vAviso">{{ 'voto.assembleia.gestor.relatorio.aviso'|trans }}</div>
+        </div>
+    </div>
+</div>
