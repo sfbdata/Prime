@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.53.0"
+  data: "2026-11-16"
+  itens:
+    - "Organizamos a forma como a equipe de desenvolvimento usa a inteligência artificial, com um modelo mais econômico nas tarefas de apoio. As novidades continuam saindo no mesmo ritmo, com mais folga para o trabalho da semana inteira."
+    - "Nas pautas eleitorais, os campos sugerem “Candidato 1” e “Candidato 2”. Você pode salvar o rascunho sem preencher os nomes. A publicação fica bloqueada até incluir pelo menos duas candidaturas com nomes válidos."
 - versao: "2.52.1"
   data: "2026-11-16"
   itens:

@@ -7,7 +7,7 @@ namespace App\Tests\Mcp\Functional;
 use App\Mcp\Service\ConexaoLeitura;
 use App\Mcp\Tool\DescreverEsquemaTool;
 use App\Tests\Mcp\BancoDeLeituraDeTeste;
-use Mcp\Exception\ToolCallException;
+use Mcp\Server\Exception\ToolCallException;
 use PHPUnit\Framework\TestCase;
 
 final class DescreverEsquemaToolTest extends TestCase

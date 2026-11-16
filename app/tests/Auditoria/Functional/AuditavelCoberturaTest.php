@@ -59,6 +59,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
         // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
         \App\Contribua\Entity\Sugestao::class,
+        // Contribua: pedido de mais espaço. Mesmo caso da sugestão (o Master decide a partir de outro escritório); o
+        // próprio pedido guarda quem pediu, quem decidiu e quando (pedido_por, decidido_por, decidido_em).
+        \App\Contribua\Entity\PedidoDeEspaco::class,
         // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
         // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
         \App\Contribua\Entity\NotificacaoRecebida::class,
@@ -203,6 +206,15 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // e o AuditLogSubscriber gravaria o estado inteiro no audit_log, lido por quem administra o escritório. O rastro do
         // chat é o da conversa e do anexo (Auditavel, sem título nem nome de arquivo no diff).
         \App\ChatIa\Entity\MensagemDeChat::class,
+        // Conector de I.A. (spec mcp-remoto-oauth, 13.2): só o consentimento e a liberação do escritório são Auditavel.
+        // O cliente OAuth é global (o audit_log é por escritório); concessão, código e token são credenciais emitidas a
+        // cada autorização e a cada hora, que só encheriam a trilha (o rastro da conexão é o consentimento); a proposta
+        // guarda `dados` e `resumo`, que nunca vão para log nem auditoria (6.7, item 6).
+        \App\Conector\Entity\ClienteDoConector::class,
+        \App\Conector\Entity\ConcessaoDoConector::class,
+        \App\Conector\Entity\CodigoDoConector::class,
+        \App\Conector\Entity\TokenDoConector::class,
+        \App\Conector\Entity\PropostaDoConector::class,
         // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
         // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
         \App\Central\Entity\Presenca::class,

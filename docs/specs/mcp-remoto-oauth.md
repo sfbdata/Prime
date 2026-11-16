@@ -3,11 +3,14 @@
 **Data:** 11/08/2026 (desenho original). **Revisão:** 08/11/2026, conferida contra o master `a53a77b1c` (v2.42.0).
 **Escopo e decisões do dono:** 09/11/2026, conferidos contra o master `940e82dfd`, com o inventário
 `bluejus-coordenacao/conector-inventario-tudo.md`. **Correções da revisão do PR #699:** 09/11/2026, no mesmo master.
+**Revisão:** 16/11/2026, conferida contra o `origin/master` atual (`6ba739883`). Motivo: revisão de protocolo (MCP, OAuth,
+Claude, ChatGPT e bibliotecas) e revisão de código (código, multi-tenant e tabelas), com as decisões do Coordenador na
+seção 14 (`bluejus-coordenacao/revisao-spec-mcp-protocolo-1611.md` e `revisao-spec-mcp-codigo-1611.md`).
 **Risco:** **ALTO**. Mexe em identidade (`User`/`Tenant`) e abre um caminho novo de acesso aos dados de todos os
 escritórios, fora do navegador. Pelo ciclo do projeto: spec (este documento), revisão contra a spec e **re-revisão antes de
 seguir** em cada PR de identidade.
-**Status:** pronto para o PR 1 de código (09/11/2026); decisões do dono na seção 14. Não existe código, tabela nem
-migration desta feature.
+**Status:** pronto para o PR 1 de código (09/11/2026, revisto em 16/11/2026); decisões do dono e do Coordenador na seção
+14. Não existe código, tabela nem migration desta feature.
 
 **Predecessor:** [MCP de investigação em produção (v1)](../superpowers/specs/2026-08-10-mcp-investigacao-prod-design.md),
 em produção; a seção 10 dele previa esta etapa.
@@ -17,10 +20,35 @@ em produção; a seção 10 dele previa esta etapa.
 
 Arquivo:linha citados foram conferidos em 08/11/2026 no commit `a53a77b1c` e, nas seções 6, 13 e 14, em 09/11/2026 no
 `940e82dfd`. Páginas da web foram lidas em 07, 08 e 09/11/2026; quando a página mostra data, ela vem ao lado do link.
+Em 16/11/2026, as linhas que a revisão de código achou deslocadas foram atualizadas para o `6ba739883`, e as páginas da
+revisão de protocolo foram lidas nesse dia.
 
 ---
 
 ## 0. O que mudou de 11/08 para cá
+
+**Revisão de 16/11/2026 (protocolo e código), em resumo:**
+
+- **Servidor de autorização próprio**, sem `league/oauth2-server-bundle` e sem `league/oauth2-server`: token de acesso e de
+  renovação **opacos**, guardados só como SHA-256; sem JWT, sem par de chaves, sem `/.well-known/jwks.json` (3.2, 3.3, 8).
+  PKCE só S256 e obrigatório, `resource` obrigatório e conferido, `iss` em toda resposta de autorização,
+  `token_endpoint_auth_methods_supported: ["none"]` (3.4, 9.6).
+- **`mcp/sdk` 0.10.0** no PR 2 (o lock tem 0.7.1): sem sessão MCP por padrão, as três versões do protocolo no mesmo
+  endpoint, `ScopePolicy` para o 403 `insufficient_scope` antes do SDK, `NullLogger` no SDK; a v1 STDIO é ajustada no mesmo
+  PR. Saem o PR próprio da 2026-07-28 e o `Psr16SessionStore` (3.1, 3.5, 5.1, 8).
+- **Piloto só com CIMD**: o registro do cliente entra no PR 3 e o PR 4 some; DCR fora do piloto; regra dura pela lista
+  exata de `redirect_uri`, hosts de `client_id` em configuração (3.4, 13.1).
+- **Elicitation fora do piloto**: a confirmação é a proposta mais `confirmar_acao` (6.7). O registro de ferramentas
+  compartilhado com o chat fica para depois do piloto (6.8).
+- **PR 1**: o portão fixa o escritório no `TenantContext` sem sessão, por um método que só ele chama, e a auditoria sai
+  certa sem escopo próprio (4.1, 4.3); o portão não dá o passe do Master; o modo do conector trata o perfil de sistema
+  como tendo toda permissão menos `admin.*`, sujeito ao cadeado e às abas (6.3).
+- **Tabelas**: sete, com a cadeia (`conector_ia_concessao`) e um token único com `tipo` (acesso ou renovação), janela de
+  cerca de 60 s na rotação, `tenant_id` em toda tabela com dado de escritório, FKs em cascata e comando de faxina agendado
+  (9.1, 13.2).
+- **Telas e ordem**: comando de console do Master para liberar o escritório já no PR 3; CSRF e escritório conferido no
+  servidor na tela de consentimento; ponto de smoke do Samuel depois do PR 5 (9.4, 13.1).
+- **Sem estimativa em dias** no plano: ficam dependências, risco e o caminho crítico como sequência de PRs (13.1).
 
 | Ponto | Em 11/08/2026 | Em 08 e 09/11/2026 |
 |---|---|---|
@@ -34,13 +62,13 @@ Arquivo:linha citados foram conferidos em 08/11/2026 no commit `a53a77b1c` e, na
 | Documentos | PDF e imagem | todos os tipos da aba Documentos, menos áudio e vídeo (6.5) |
 | Cliente e Processo | "legado sem UseCase" | `Processo` está no domínio; Cliente tem 8 UseCases; Tarefa continua legado (7) |
 | nginx | "chega ao Symfony sem mudança" | **errado já em agosto**: o `location ~ /\. { deny all; }` do HTTPS barra `/.well-known/oauth-*` (3.3) |
-| `mcp/sdk` | 0.7.0 | 0.7.1 instalada; o DCR por delegação existe desde a 0.5.0 (`CHANGELOG.md`, "Add OAuth 2.0 Dynamic Client Registration middleware"), e a versão instalada também tem elicitation do lado do servidor e anotações `readOnlyHint`; continua sem servidor de autorização (3.1) |
-| `symfony/mcp-bundle` como servidor de autorização | proposta aberta | PR fechado sem merge em 12/07/2026; segue o `league` (3.2) |
-| `league/oauth2-server-bundle` | "testado até Symfony 8.0" | v2.0.0 (out/2026) pede Symfony `^7.4` ou `^8.1` e PHP `^8.2`: serve (3.2) |
+| `mcp/sdk` | 0.7.0 | 0.7.1 instalada; o DCR por delegação existe desde a 0.5.0 (`CHANGELOG.md`, "Add OAuth 2.0 Dynamic Client Registration middleware"), e a versão instalada também tem elicitation do lado do servidor e anotações `readOnlyHint`; continua sem servidor de autorização (3.1). **16/11:** o PR 2 fixa a 0.10.0 (10/11/2026): 2026-07-28 desde a 0.8.0, sem middleware de registro desde a 0.9.0, `ScopePolicy`, sem sessão por padrão (3.1) |
+| `symfony/mcp-bundle` como servidor de autorização | proposta aberta | PR fechado sem merge em 12/07/2026; segue o `league` (3.2). **16/11:** servidor de autorização próprio (3.2) |
+| `league/oauth2-server-bundle` | "testado até Symfony 8.0" | v2.0.0 (out/2026) pede Symfony `^7.4` ou `^8.1` e PHP `^8.2`: serve (3.2). **16/11:** sai, e a biblioteca `league/oauth2-server` também: o que ela daria são poucas linhas, e quatro padrões dela contrariam a spec (3.2) |
 | Especificação MCP | 2025-06-18, DCR recomendado | a atual é **2026-07-28**: CIMD é o preferido, DCR está **deprecated**, protocolo sem estado (3.4, 3.5) |
 | Clientes | só o Claude em mente | Claude, ChatGPT e Gemini pesquisados; cada um aceita um jeito de registro (3.4); o piloto atende Claude e ChatGPT (14.d) |
-| Auditoria | "usar o domínio Auditoria" | o `AuditLogSubscriber` tira o escritório da sessão: com bearer, grava sem escritório se nada for feito (4.3) |
-| Decisões | 2 tomadas | 12 tomadas (seção 14) |
+| Auditoria | "usar o domínio Auditoria" | o `AuditLogSubscriber` tira o escritório da sessão: com bearer, grava sem escritório se nada for feito (4.3). **16/11:** resolvido pelo portão, que fixa o escritório no `TenantContext` (4.1) |
+| Decisões | 2 tomadas | 12 tomadas (seção 14); **16/11:** mais as do Coordenador sobre a revisão (14, "Decidido em 16/11/2026") |
 
 ---
 
@@ -50,7 +78,7 @@ A v1 está em produção: `app/src/Mcp/` (`Command/McpServerCommand.php`, `Servi
 `Tool/ConsultarSqlTool.php`, `Tool/DescreverEsquemaTool.php`). O comando `mcp:server` (`McpServerCommand.php:30`) fala MCP
 por **STDIO**, lançado por `ssh bluejus 'docker exec -i -w /var/www/app jusprime_php_prod php bin/console mcp:server'`, com
 duas ferramentas: `consultar_sql` (SQL livre) e `descrever_esquema`. O `mcp/sdk` está fixado em `0.7.1`
-(`app/composer.json:32`).
+(`app/composer.json:32`); o PR 2 sobe para a `0.10.0` e ajusta a v1 às quebras de namespace (3.1).
 
 Ela foi desenhada para **um operador: o dono**. Três propriedades a tornam inadequada para outros usuários, e nenhuma é
 acidental:
@@ -63,7 +91,7 @@ acidental:
 Duas portas novas surgiram depois de agosto, e também não servem como estão:
 
 - **Agente de Pastas** (`/api/agente/*`, `app/src/Inteligencia/Controller/AgenteDePastasController.php`, 14/10/2026): JSON de
-  leitura para o Designer. Autentica por **sessão** (firewall `main`, `app/config/packages/security.yaml:83`), tira o
+  leitura para o Designer. Autentica por **sessão** (firewall `main`, `app/config/packages/security.yaml:88`), tira o
   escritório da sessão e exige o módulo `expediente` (`AgenteDePastasController.php:99`). Os UseCases dele já recebem
   `User` e `Tenant` explícitos "porque o conector MCP da Fase 4 roda sem sessão" (`app/src/Inteligencia/CLAUDE.md`, seção
   Agente de Pastas). São reaproveitados aqui (6.4).
@@ -117,102 +145,124 @@ Cliente de I.A. (Claude, ChatGPT, Gemini)
    │ 1. POST /mcp sem token                          → 401 + WWW-Authenticate (resource_metadata, scope)
    │ 2. GET /.well-known/oauth-protected-resource/mcp  (RFC 9728)
    │ 3. GET /.well-known/oauth-authorization-server    (RFC 8414)
-   │ 4. registro: client_id = URL do CIMD | POST /oauth/register (DCR) | pré-registrado
-   │ 5. GET /oauth/authorize (PKCE S256, resource=)  → login + escolha do escritório + consentimento
-   │ 6. POST /oauth/token (form-urlencoded)          → token com aud = https://bluejus.com.br/mcp
+   │ 4. registro: client_id = URL do CIMD (único caminho no piloto; DCR e pré-registrado fora, 3.4)
+   │ 5. GET /oauth/authorize (PKCE S256, resource=)  → login + escolha do escritório + consentimento (+ iss na volta)
+   │ 6. POST /oauth/token (form-urlencoded)          → token opaco preso ao resource https://bluejus.com.br/mcp
    │ 7. POST /mcp (Authorization: Bearer <token>)    → ferramentas
    ▼
 nginx (bluejus.com.br, TLS)                ← precisa de dois ajustes (3.3)
    ▼
 Symfony: a mesma aplicação, dois papéis
-   ├── Servidor de autorização → league/oauth2-server-bundle + extensões nossas (CIMD, DCR, resource, iss, escritório)
-   └── Servidor de recurso (MCP) → mcp/sdk StreamableHttpTransport + validador nosso
+   ├── Servidor de autorização → nosso, sem biblioteca OAuth (CIMD, PKCE, resource, iss, escritório, token opaco)
+   └── Servidor de recurso (MCP) → mcp/sdk 0.10.0 StreamableHttpTransport, sem sessão + validador nosso
    ▼
 Portão do conector: usuário, escritório, vínculo e barreiras conferidos; filtro de tenant ligado e conferido (4.1)
    ▼
 UseCases e serviços existentes, com tenant e permissão explícitos
 ```
 
-### 3.1 O que o `mcp/sdk` 0.7.1 dá, e o que falta
+### 3.1 O que o `mcp/sdk` 0.10.0 dá, e o que falta
 
-Instalado: `mcp/sdk` **0.7.1** (`app/composer.json:32`, `app/composer.lock`). Experimental até a 1.0, segundo os
-mantenedores. Caminhos abaixo em `app/vendor/mcp/sdk/`.
+Instalado hoje: `mcp/sdk` **0.7.1** (`app/composer.json:32`, `app/composer.lock`), três versões atrás. **O PR 2 fixa a
+`0.10.0`** (10/11/2026), versão exata, como hoje. Experimental até a 1.0, segundo os mantenedores. Fontes:
+https://repo.packagist.org/p2/mcp/sdk.json e https://raw.githubusercontent.com/modelcontextprotocol/php-sdk/v0.10.0/CHANGELOG.md
+(lidas em 16/11/2026).
+
+O que mudou desde a 0.7.1 e pesa aqui:
+
+- 0.8.0: a versão `2026-07-28` do protocolo, com o transporte HTTP sem estado, e as duas eras do protocolo servidas no mesmo
+  endpoint.
+- 0.9.0: saem `ClientRegistrationMiddleware`, `ClientRegistrarInterface` e `OAuthProxyMiddleware` (o SDK fica só como
+  servidor de recurso, ADR 0002); o `AuthorizationMiddleware` ganha a `ScopePolicy`, que responde `403 insufficient_scope`
+  por método e por ferramenta antes do despacho (5.1).
+- 0.10.0: clientes da era `initialize` são servidos **sem sessão** por padrão ("a scaled-out server needs no shared session
+  store"), e `GET` e `DELETE` dão 405; exige PHP 8.2 e quebra namespaces (`Mcp\Server` vira `Mcp\Server\Server`, entre
+  outros). A v1 STDIO (`app/src/Mcp/`: `McpServerCommand` e as duas ferramentas) é ajustada no mesmo PR 2.
 
 **O SDK dá:**
 
-- `src/Server/Transport/StreamableHttpTransport.php`: Streamable HTTP sobre PSR-7/PSR-15, com teto de corpo de 4 MiB
-  (`maxBodyBytes`) e recusa de `Mcp-Session-Id` malformado (CHANGELOG 0.7.0).
-- Middleware em `src/Server/Transport/Http/Middleware/`:
-  - `AuthorizationMiddleware`: responde 401/403 com `WWW-Authenticate`; recebe um `AuthorizationTokenValidatorInterface`
-    (`validate(string $accessToken): AuthorizationResult`), que será nosso;
-  - `ProtectedResourceMetadataMiddleware`, que delega ao `OAuth/ProtectedResourceMetadataHandler` (RFC 9728; o handler pode
-    ser montado direto como controller Symfony);
-  - `CorsMiddleware`, `DnsRebindingProtectionMiddleware` e `ProtocolVersionMiddleware`, que formam a pilha padrão e são
-    restritivos por padrão: sem `Access-Control-Allow-Origin`, proteção de rebinding pensada para localhost;
-  - `ClientRegistrationMiddleware`: atende `POST /register` (RFC 7591) repassando a um `ClientRegistrarInterface`
-    (`register(array): array`) que nós implementamos, e acrescenta `registration_endpoint` ao metadado;
-  - `OAuthProxyMiddleware`: só **repassa** `/authorize` e `/token` a um servidor de autorização externo. Não serve para nós.
-- `OAuth/JwtTokenValidator`, `JwksProvider`, `OidcDiscovery`: validam JWT de um servidor externo por JWKS. Para nós é mais
-  simples um validador próprio: o token é nosso, e a conferência no banco a cada requisição é obrigatória (9.2).
-- Sessão MCP em `src/Server/Session/`: `InMemorySessionStore` (padrão), `FileSessionStore`, `Psr16SessionStore`.
-- `src/Schema/ToolAnnotations.php` com `readOnlyHint` e `destructiveHint` (o ChatGPT e o Gemini Enterprise usam para pedir
-  confirmação, 6.7) e `src/Server/ClientGateway.php::elicit()` (pedir confirmação ao usuário pelo protocolo; suporte varia
-  por cliente; usado na 6.7).
-- Versões de protocolo até `2025-11-25` (`src/Schema/Enum/ProtocolVersion.php:21-24`).
+- `StreamableHttpTransport`: Streamable HTTP sobre PSR-7/PSR-15, com teto de corpo (`maxBodyBytes`, 4 MiB na 0.7.1;
+  conferir o valor na 0.10.0 no PR 2).
+- `AuthorizationMiddleware`: responde 401/403 com `WWW-Authenticate`; recebe um validador de token, que será nosso (o token
+  é opaco, 3.2), e a `ScopePolicy` (5.1).
+- `CorsMiddleware`, `DnsRebindingProtectionMiddleware` e `ProtocolVersionMiddleware`, restritivos por padrão: sem
+  `Access-Control-Allow-Origin`, proteção de rebinding pensada para localhost (8).
+- `ProtectedResourceMetadata`, que serve só no caminho derivado do recurso (`/.well-known/oauth-protected-resource/mcp`):
+  por isso o metadado do recurso sai de um controller nosso, nas duas URLs (3.3).
+- `ToolAnnotations` com `readOnlyHint` e `destructiveHint` (o ChatGPT e o Gemini Enterprise usam para pedir confirmação,
+  6.7).
+- As versões `2025-06-18`, `2025-11-25` e `2026-07-28` no mesmo endpoint (3.5).
+- O que o SDK **não** usa no piloto: sessão MCP (nenhum `SessionStore`), elicitation e sampling (sem sessão, os pedidos ao
+  cliente lançam `SessionRequiredException`; 6.7) e os validadores de JWT por JWKS (o token é opaco, 3.2).
 
 **Falta, e é trabalho nosso:**
 
-- **O servidor de autorização inteiro.** O `adr/0001-oauth-authorization-server-out-of-scope.md` (aceito em 15/06/2026)
-  diz que o SDK não emite, assina, guarda nem renova token, não tem login nem consentimento, e que PR nessa direção é
-  recusado.
+- **O servidor de autorização inteiro** (3.2). O `adr/0001-oauth-authorization-server-out-of-scope.md` (aceito em
+  15/06/2026) diz que o SDK não emite, assina, guarda nem renova token, não tem login nem consentimento.
 - CIMD (é papel do servidor de autorização).
-- A versão `2026-07-28` do protocolo (sem estado, `server/discover`): o SDK 0.7.1 não a conhece (3.5).
-- A ponte PSR-7 e HttpFoundation: `symfony/psr-http-message-bridge` não está instalado (o bundle do `league` v2 exige; entra
-  junto). `guzzlehttp/psr7` 2.13.2 e `php-http/discovery` já estão no lock, com fábricas PSR-17 ligadas em
-  `app/config/packages/http_discovery.yaml`.
+- A ponte PSR-7 e HttpFoundation: `symfony/psr-http-message-bridge` não está instalado; entra no PR 2. `guzzlehttp/psr7`
+  2.13.2 e `php-http/discovery` já estão no lock, com fábricas PSR-17 ligadas em `app/config/packages/http_discovery.yaml`.
+- O logger do SDK: na 0.7.1 ele escreve no log a mensagem inteira, os argumentos e o resultado da ferramenta
+  (`src/Server/Protocol.php:111`, `:179`, `:263`; `src/Server/Handler/Request/CallToolHandler.php:63`, `:104`). O SDK
+  recebe um `NullLogger`; o log `mcp` do conector é escrito só pelo portão (6.2, regra 9).
 
 ### 3.2 O servidor de autorização é o próprio BlueJus
 
-**Decisão mantida: `league/oauth2-server-bundle` dentro da aplicação Symfony.**
+**Decisão (16/11/2026, 14): servidor de autorização próprio dentro da aplicação Symfony, sem `league/oauth2-server-bundle`
+e sem `league/oauth2-server`.** Substitui a decisão de 08/11, que era o bundle do `league`.
 
-O motivo é identidade: `User`, `UserTenant` e `Tenant` já vivem no BlueJus, com senha, convite, recuperação, vínculo por
-escritório, suspensão e quarentena. Um IdP externo (Keycloak, Auth0, Entra) exigiria um segundo diretório de usuários e
-federação: mais peças, mais estados inconsistentes, e um lugar novo para o vínculo usuário e escritório divergir.
+O motivo de ficar dentro do BlueJus continua sendo identidade: `User`, `UserTenant` e `Tenant` já vivem aqui, com senha,
+convite, recuperação, vínculo por escritório, suspensão e quarentena. Um IdP externo (Keycloak, Auth0, Entra) exigiria um
+segundo diretório de usuários e federação: mais peças, mais estados inconsistentes, e um lugar novo para o vínculo usuário
+e escritório divergir.
 
-Conferido em 08/11/2026: a **v2.0.0** (outubro/2026) pede `php ^8.2`, `symfony/framework-bundle ^7.4|^8.1`,
-`symfony/security-bundle ^7.4|^8.1`, `symfony/psr-http-message-bridge ^7.4|^8.1` e `league/oauth2-server ^9.2`
-(https://raw.githubusercontent.com/thephpleague/oauth2-server-bundle/v2.0.0/composer.json). Compatível com o Symfony 7.4
-daqui. Nenhum dos dois pacotes está no lock hoje.
+**Por que sem o `league`** (revisões de 16/11/2026; fontes: `src/Grant/AuthCodeGrant.php` e
+`src/Entities/Traits/AccessTokenTrait.php` do `league/oauth2-server` 9.4.1 e `src/DependencyInjection/Configuration.php` do
+bundle v2.0.0):
 
-O que o bundle **não** traz e vira extensão nossa, cada uma com teste:
+- PKCE: o `AuthCodeGrant` registra sempre o `PlainVerifier`, e `code_challenge_method` ausente vira `plain`. Esta spec exige
+  S256 (9.6).
+- Audiência: o token sai com `aud` igual ao `client_id`, não `https://bluejus.com.br/mcp`; `resource` (RFC 8707) e `iss`
+  na resposta de autorização (RFC 9207) não existem lá.
+- Exige par de chaves RSA e chave de cifra, com o código e a renovação viajando cifrados, e traz `lcobucci/jwt`,
+  `nyholm/psr7` (um segundo PSR-7 ao lado do `guzzlehttp/psr7`), `symfony/password-hasher` e `ext-openssl`.
+- O bundle aceita gerenciadores próprios (`persistence.custom`, seis, inclusive `device_code_manager`), mas os modelos dele
+  não têm escritório, consentimento, `autorizado_em` nem impressão da senha.
 
-1. **CIMD**: `client_id` que é URL https vira busca do documento de metadados (3.4). Ponto de extensão: o gerenciador de
-   clientes.
-2. **DCR** (`/oauth/register`): pelo `ClientRegistrationMiddleware` do SDK ou por controller nosso.
-3. **`resource`** (RFC 8707) virando o `aud` do token, e recusa de `resource` diferente de `https://bluejus.com.br/mcp`.
-4. **`iss` na resposta de autorização** (RFC 9207), que o ChatGPT usa para manter estáveis o redirect e o `client_id`.
-5. **Escritório e consentimento**: o token carrega o `tenant_id` escolhido na tela (seção 4) e nasce de um consentimento
-   que a pessoa pode revogar.
+Como a spec já exige conferência no banco a cada requisição (9.2), CIMD, `resource`, `iss`, escritório e consentimento
+próprios, o que sobraria da biblioteca é a troca do código e a rotação da renovação: poucas linhas sobre as tabelas da 13.2.
 
-Conferir no PR 2 se a persistência do bundle aceita gerenciadores próprios (tabelas da seção 13.2) em vez das tabelas
-`oauth2_*` dele, que não têm escritório nem consentimento.
+**Como fica:**
+
+1. **Só cliente público** no piloto (`token_endpoint_auth_methods_supported: ["none"]`, 3.4), registrado por **CIMD** (3.4).
+2. **Token opaco**: token de acesso e de renovação são 256 bits aleatórios; o banco guarda só o SHA-256
+   (`conector_ia_token.identificador_hash`, 13.2). Sem JWT, sem par de chaves, sem `/.well-known/jwks.json`, sem passo de
+   chave do Samuel (8). Quem confere o token é o banco, a cada requisição (9.2).
+3. **PKCE só S256 e obrigatório**: `code_challenge_method` ausente ou diferente de `S256` é recusado (9.6).
+4. **`resource`** (RFC 8707) obrigatório e igual a `https://bluejus.com.br/mcp` no `/oauth/authorize` e no `/oauth/token`;
+   no `/oauth/token`, igual também ao gravado na concessão. Ausente ou diferente dá `invalid_target` (9.3).
+5. **`iss` em toda resposta de autorização** (RFC 9207), de sucesso e de erro, com o texto exato `https://bluejus.com.br`
+   (sem barra no fim), o mesmo do `issuer` e do `authorization_servers` (3.4). O ChatGPT o usa para manter estáveis o
+   redirect e o `client_id`.
+6. **Escritório e consentimento**: a concessão carrega o `tenant_id` escolhido na tela (seção 4) e nasce de um
+   consentimento que a pessoa pode revogar (13.2).
 
 **`symfony/mcp-bundle` como servidor de autorização:** o PR `symfony/ai#2135` foi **fechado sem merge em 12/07/2026**. Em
 19/06/2026 o autor disse que vai refazer o trabalho como servidor de recurso por padrão e servidor de autorização opcional
-sobre o `league/oauth2-server` (https://github.com/symfony/ai/pull/2135). Nada liberado. Reavaliar no PR 2; se tiver saído,
-comparar antes de escrever.
+sobre o `league/oauth2-server` (https://github.com/symfony/ai/pull/2135). Nada liberado. Como ele seria sobre o `league`,
+traria os mesmos padrões acima; não muda a decisão.
 
 ### 3.3 Endpoints
 
 | Endpoint | Norma | Quem serve |
 |---|---|---|
-| `/.well-known/oauth-protected-resource/mcp` e `/.well-known/oauth-protected-resource` | RFC 9728 | `ProtectedResourceMetadataHandler` do SDK, montado como controller |
+| `/.well-known/oauth-protected-resource/mcp` e `/.well-known/oauth-protected-resource` | RFC 9728 | nosso: um controller com o JSON fixo nas duas URLs (o `ProtectedResourceMetadata` do SDK 0.10 serve só a primeira, 3.1) |
 | `/.well-known/oauth-authorization-server` | RFC 8414 | nosso |
 | `/oauth/authorize` | RFC 6749 + 7636 (PKCE S256) + 8707 + 9207 | nosso, no firewall de sessão (é onde a pessoa faz login) |
 | `/oauth/token` | RFC 6749, corpo `application/x-www-form-urlencoded` | nosso |
-| `/oauth/register` | RFC 7591, corpo JSON | nosso (3.4) |
-| `/.well-known/jwks.json` | RFC 7517 | opcional: só se algum cliente validar o token fora daqui |
 | `/mcp` | Streamable HTTP | SDK |
+
+Sem `/oauth/register` no piloto (DCR fora, 3.4) e sem `/.well-known/jwks.json` (token opaco, sem chave pública, 3.2).
 
 **Correção do nginx (a afirmação de agosto estava errada).** O server HTTPS de `bluejus.com.br`
 (`nginx/conf.d/nginx.prod.conf:33-183`) termina com `location ~ /\. { deny all; }` (`:180-182`, presente desde 20/05/2026).
@@ -226,7 +276,7 @@ faz (`app/src/ChatIa/Controller/ChatIaMensagensController.php:87`).
 
 O PR leva a mudança no `nginx.prod.conf`; aplicar na VPS é passo do Samuel no deploy.
 
-### 3.4 Registro do cliente: suportar os três jeitos
+### 3.4 Registro do cliente: CIMD no piloto
 
 **A especificação MCP atual** (2026-07-28,
 https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration):
@@ -246,52 +296,69 @@ https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/cli
 |---|---|---|---|---|---|
 | Claude (claude.ai, Desktop, celular, Cowork) | Streamable HTTP; SSE antigo ainda aceito, em descontinuação | CIMD hospedado pela Anthropic, só se o metadado tiver `client_id_metadata_document_supported: true` **e** `"none"` em `token_endpoint_auth_methods_supported` (senão cai para DCR); DCR (um cliente novo a cada conexão); client ID e segredo opcional digitados nas configurações avançadas | `https://claude.ai/api/mcp/auth_callback` | 401 obrigatório (ignora `WWW-Authenticate` em resposta 200); `resource` igual à URL digitada; usa só o primeiro item de `authorization_servers`; PKCE S256 sempre; `/token` em form-urlencoded; `invalid_grant` na renovação vencida; 10 s para descoberta, registro e token, 30 s para renovação; tráfego sai de `160.79.104.0/21`; cerca de 150 mil caracteres e 240 s por chamada | https://claude.com/docs/connectors/building/authentication e https://claude.com/docs/connectors/building/index.md |
 | Claude Code | HTTP (`claude mcp add --transport http`) | CIMD próprio (`https://claude.ai/oauth/claude-code-client-metadata`), DCR ou `--client-id` | loopback `http://localhost:<porta>/callback` e `http://127.0.0.1:<porta>/callback`, com qualquer porta | 25 mil tokens por resultado (`MAX_MCP_OUTPUT_TOKENS`); elicitation só em terminal interativo | https://code.claude.com/docs/en/mcp |
-| ChatGPT (apps, modo desenvolvedor) | Streamable HTTP e SSE | pré-registrado; CIMD, preferido (`client_id` `https://chatgpt.com/oauth/client.json` se o servidor cumprir a RFC 9207, senão `https://chatgpt.com/oauth/{callback_id}/client.json`; autenticação `none` ou `private_key_jwt`); DCR, um registro por conexão | `https://chatgpt.com/connector_platform_oauth_redirect` (com RFC 9207) ou `https://chatgpt.com/connector/oauth/{callback_id}` | `code_challenge_methods_supported` com `S256`, senão "não suportado"; `issuer` idêntico no metadado e em `authorization_servers`; `iss` em toda resposta de autorização, inclusive erro; `resource` vira `aud`; ferramenta sem `readOnlyHint` é tratada como escrita e pede confirmação; `search`/`fetch` não são mais exigidas | https://developers.openai.com/apps-sdk/build/auth e https://developers.openai.com/api/docs/guides/custom-mcp-server |
+| ChatGPT (apps, modo desenvolvedor) | Streamable HTTP e SSE | pré-registrado; CIMD, preferido (`client_id` `https://chatgpt.com/oauth/client.json` se o servidor cumprir a RFC 9207, senão `https://chatgpt.com/oauth/{callback_id}/client.json`; autenticação `none` ou `private_key_jwt`); DCR, um registro por conexão | `https://chatgpt.com/connector_platform_oauth_redirect` (com RFC 9207) ou `https://chatgpt.com/connector/oauth/{callback_id}` | `code_challenge_methods_supported` com `S256`, senão "não suportado"; `issuer` idêntico no metadado e em `authorization_servers`; `iss` em toda resposta de autorização, inclusive erro; `resource` vira `aud`; ferramenta sem `readOnlyHint` é tratada como escrita e pede confirmação; `search`/`fetch` não são mais exigidas; recusa método de autenticação fora da interseção anunciada; mostra os argumentos antes de mandar a chamada; `securitySchemes` por ferramenta e `_meta["mcp/www_authenticate"]` para pedir escopo (5.1); gravação em conector próprio pode depender do plano (fonte secundária, risco na seção 11) | https://developers.openai.com/apps-sdk/build/auth e https://developers.openai.com/api/docs/guides/custom-mcp-server |
 | Gemini, app (gemini.google.com, "Custom apps") | não informado | DCR; sem DCR, credenciais manuais em "Advanced features" | não encontrado em fonte oficial | só na web, só em inglês, só nos **EUA**, maiores de 18, conta Google pessoal, "Keep Activity" ligado; escrita sempre com confirmação manual | https://support.google.com/gemini/answer/17209137 (sem data) |
 | Gemini Enterprise | só Streamable HTTP (SSE não) | só cliente pré-registrado (client ID e segredo digitados pelo admin; PKCE opcional); DCR e CIMD não citados | `https://vertexaisearch.cloud.google.com/oauth-redirect` | configurado pelo admin no Google Cloud (`roles/discoveryengine.editor`); ações com confirmação, salvo `readOnlyHint`; até 100 ações | https://docs.cloud.google.com/gemini/enterprise/docs/connectors/custom-mcp-server/set-up-custom-mcp-server e https://support.google.com/g/answer/17106276 (15/09/2026; Pre-GA na edição Business) |
 | Gemini CLI e Antigravity | `httpUrl` (Streamable HTTP) | Gemini CLI: DCR ou `oauth.clientId`; Antigravity: manual, CIMD (`https://antigravity.google/oauth/client-metadata.json`) ou DCR | loopback; Antigravity manual: `https://antigravity.google/oauth-callback` | ferramentas de desenvolvedor; Antigravity com 180 s por ferramenta; no plano gratuito o Gemini CLI foi trocado pelo Antigravity em 18/06/2026 | https://geminicli.com/docs/tools/mcp-server/ e https://antigravity.google/docs/mcp/ |
 
-**Recomendação (substitui a de agosto, que era "pré-registrado primeiro, DCR depois"):**
+**Recomendação (revista em 16/11/2026; substitui a de 08/11, que tinha CIMD e DCR no mesmo PR, e a de agosto, que era
+"pré-registrado primeiro, DCR depois"):**
 
-1. **CIMD é o caminho principal.** Cobre Claude, Claude Code, ChatGPT e Antigravity sem tabela de clientes crescendo.
-   Anunciar `client_id_metadata_document_supported: true` **e** `"none"` em `token_endpoint_auth_methods_supported` (sem o
-   `none` o Claude cai para DCR). A busca do documento: só https com caminho, nunca IP privado, loopback ou link-local
-   (SSRF), tempo curto, tamanho máximo, cache pelos cabeçalhos. **Lista de domínios confiáveis** ligada desde o começo:
-   `claude.ai` (cobre o Claude e o Claude Code) e `chatgpt.com` (decisão 14.d); domínio fora dela é recusado. A
-   documentação lida não diz em que domínio fica o `client_id` do CIMD do Claude (claude.ai, Desktop, celular); só o do
-   Claude Code está escrito (`claude.ai`). **Item de conferência do PR 3:** ver o `client_id` real que o Claude manda ao
-   `/oauth/authorize` e, se for outro domínio, ajustar esta lista (e a do DCR, que é a mesma).
-2. **DCR no mesmo PR, apesar de deprecated.** É o fallback do Claude (e o único caminho do Gemini, fora do piloto). Com
-   limite de taxa por IP e expiração em 24 h do cliente que não autorizou ninguém (o Claude registra um cliente por conexão).
-   **`redirect_uris` só de host da mesma lista permitida do CIMD** (uma lista só, num lugar só, para os dois caminhos:
-   `claude.ai` e `chatgpt.com`, 14.d) ou de loopback (`127.0.0.1` e `localhost`,
-   para as ferramentas de linha de comando, RFC 8252). Qualquer outro host é recusado no próprio registro com
-   `invalid_redirect_uri` (RFC 7591). Sem isso, o DCR anula a lista do CIMD: quem quisesse fugir dela registraria um cliente
-   com redirect para o próprio domínio e mandaria o link de autorização para a vítima. A tela de consentimento continua
-   mostrando o host do redirect (9.4).
+1. **CIMD é o único caminho do piloto**, e entra no PR 3. Cobre Claude, Claude Code e ChatGPT (e o Antigravity, fora do
+   piloto) sem tabela de clientes crescendo. Anunciar `client_id_metadata_document_supported: true` **e**
+   `token_endpoint_auth_methods_supported: ["none"]` (sem o `none` o Claude cai para DCR, que não existe aqui).
+   - **Regra dura: a lista exata de `redirect_uri`**: `https://claude.ai/api/mcp/auth_callback`,
+     `https://chatgpt.com/connector_platform_oauth_redirect`, `https://chatgpt.com/connector/oauth/{callback_id}` e loopback
+     com porta livre em `127.0.0.1` e `localhost` (Claude Code, RFC 8252). O `redirect_uri` do pedido tem de estar no
+     documento CIMD **e** nesta lista.
+   - **Hosts de `client_id` em parâmetro de configuração** (muda sem deploy de código), começando com `claude.ai` e
+     `chatgpt.com` (14.d). A busca do documento só vai a host da lista, o que já resolve o SSRF (9.5). Toda recusa grava no
+     log `mcp` só o host recusado. Motivo: o Claude escolhe CIMD olhando o metadado, **antes** do `/authorize`; se o
+     servidor recusa o host do `client_id`, não há volta, e a conexão falha. A documentação do Claude não publica a URL do
+     `client_id` do claude.ai (só a do Claude Code, `https://claude.ai/oauth/claude-code-client-metadata`), e um terceiro
+     (https://docs.strata.io/guides/ai-identity/connect/claude.md, sem data) cita também
+     `https://claude.com/api/mcp/auth_callback`. **Item de conferência do PR 3 e do smoke depois do PR 5:** ver o
+     `client_id` e o `redirect_uri` reais que o Claude e o ChatGPT mandam e, se forem outros, ajustar a configuração (hosts)
+     ou a lista de `redirect_uri` (esta, por PR).
+   - A busca do documento: só https com caminho, nunca IP privado, loopback ou link-local, tempo curto, tamanho máximo,
+     cache pelos cabeçalhos; o `client_id` do documento igual à URL; JSON e campos obrigatórios validados.
+   - Na tela de consentimento, o app que pede acesso é mostrado pelo **host do `client_id`**, e não pelo `client_name`, que
+     é autodeclarado (9.4).
+2. **DCR fora do piloto.** Está deprecated na especificação 2026-07-28 ("New implementations should use Client ID Metadata
+   Documents"), Claude e ChatGPT preferem CIMD quando o metadado tem `client_id_metadata_document_supported: true` e
+   `"none"`, o SDK não traz mais o middleware de registro (3.1), e o DCR é um endpoint aberto a qualquer um. Sem
+   `registration_endpoint` no metadado. Se o smoke mostrar um cliente que não usa CIMD, o DCR entra num PR próprio, com as
+   regras da revisão de 09/11: limite de taxa por IP, expiração em 24 h do cliente que não autorizou ninguém e
+   `redirect_uris` só da lista acima, recusando o resto com `invalid_redirect_uri` (RFC 7591).
 3. **Pré-registrado: fora do piloto** (14.d). Só o Gemini Enterprise precisa dele (client ID e segredo digitados pelo
    admin do escritório). Quando entrar: comando de console, sem tela, cliente confidencial, segredo guardado só como hash,
-   preso ao escritório que pediu. A tabela `conector_ia_cliente` já nasce com o tipo e o `segredo_hash` (13.2).
+   preso ao escritório que pediu; as colunas dele (segredo e escritório do cliente) entram nesse PR, com migration própria
+   (13.2).
 
-**Metadado do servidor de autorização** (mínimo para os três): `issuer`, `authorization_endpoint`, `token_endpoint`,
-`registration_endpoint`, `response_types_supported: ["code"]`, `grant_types_supported` (`authorization_code` e
-`refresh_token`, decisão 14.c), `code_challenge_methods_supported: ["S256"]`,
-`token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"]`,
-`client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true`, `scopes_supported`.
+**Metadado do servidor de autorização:** `issuer: "https://bluejus.com.br"` (texto exato, sem barra no fim, igual ao
+`authorization_servers` e ao `iss`, 3.2), `authorization_endpoint`, `token_endpoint`, `response_types_supported: ["code"]`,
+`grant_types_supported` (`authorization_code` e `refresh_token`, decisão 14.c), `code_challenge_methods_supported:
+["S256"]`, `token_endpoint_auth_methods_supported: ["none"]` (até entrar o pré-registrado),
+`client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true` (só com o `iss` em todo
+redirecionamento, inclusive os de erro) e `scopes_supported: ["mcp:leitura", "mcp:escrita", "offline_access"]` (o Claude
+acrescenta `offline_access` quando este metadado o lista, 5.1). Sem `registration_endpoint`.
 
 **Metadado do recurso:** `resource: "https://bluejus.com.br/mcp"` (igual à URL que a pessoa digita),
-`authorization_servers: ["https://bluejus.com.br"]` (um só), `scopes_supported: ["mcp:leitura", "mcp:escrita",
-"offline_access"]` (5.1).
+`authorization_servers: ["https://bluejus.com.br"]` (um só) e `scopes_supported: ["mcp:leitura", "mcp:escrita"]`, **sem**
+`offline_access` (a especificação 2026-07-28: "MCP Servers SHOULD NOT include `offline_access` in `WWW-Authenticate` scope
+or Protected Resource Metadata `scopes_supported`").
 
 ### 3.5 Versão do protocolo
 
 A versão atual é **2026-07-28** (https://modelcontextprotocol.io/specification/versioning): protocolo sem estado (saem
 `initialize`, `Mcp-Session-Id` e a retomada por `Last-Event-ID`; entra `server/discover`), versão declarada por requisição. A
-documentação do Claude cita as versões 2025-03-26, 2025-06-18 e 2025-11-25; o SDK 0.7.1 negocia até 2025-11-25.
+documentação do Claude cita as versões 2025-03-26, 2025-06-18 e 2025-11-25
+(https://claude.com/docs/connectors/building/index.md), e um terceiro conferido em 31/07/2026 diz que o Claude ainda abre
+com `initialize` (https://zuplo.com/learn/mcp/compatibility/clients/claude-connectors.md).
 
-**Recomendação:** a primeira entrega fala 2025-06-18 e 2025-11-25, o que o SDK e os clientes falam hoje. O `Mcp-Session-Id`
-fica no `Psr16SessionStore` sobre um pool de cache próprio (o projeto não tem Redis; o `cache.app` é em arquivo e atende os
-workers do mesmo container). A 2026-07-28 entra num PR próprio quando o SDK a suportar. A versão do SDK continua fixa.
+**Recomendação (revista em 16/11/2026):** com o SDK 0.10.0 (3.1), o `/mcp` atende **2025-06-18, 2025-11-25 e 2026-07-28 no
+mesmo endpoint, sem sessão MCP**; a spec não precisa escolher. Não há PR próprio para a 2026-07-28 nem
+`Psr16SessionStore` ou pool de cache de sessão. A versão do SDK continua fixa.
 
 ---
 
@@ -318,7 +385,7 @@ a pessoa autoriza outra conexão.
    **O primário de escritório suspenso a pedido é recusado pelo conector**, ao contrário do que o `TenantContext` faz.
    `BloqueioPorPedidoDeExclusao::bloqueia()` (`app/src/Tenant/Service/BloqueioPorPedidoDeExclusao.php:66`, chamado em
    `TenantContext.php:71`) barra só quem **não** é primário: o primário entra porque, no navegador, o
-   `TenantContextValidatorListener` o prende ao Meu Perfil (`:156`, pelo `primarioNaContaSuspensaAPedido`, `:210-230`: só
+   `TenantContextValidatorListener` o prende ao Meu Perfil (`:185`, pelo `primarioNaContaSuspensaAPedido`, `:239-268`: só
    `/perfil` passa; chamada de fundo recebe 403 com a `BloqueioPorPedidoDeExclusao::MENSAGEM`; navegação vai para
    `app_profile`). O conector não tem Meu Perfil: o serviço extraído do listener (4.1) devolve esse caso como **recusa** para
    o portão, com a mesma `MENSAGEM`, na autorização e a cada requisição, e o listener continua mandando o primário ao Meu
@@ -332,15 +399,15 @@ a pessoa autoriza outra conexão.
    - "Sair de todos os aparelhos" (`SairDeTodosOsAparelhosUseCase.php:39`) grava o corte em `User::sessoesEncerradasEm`
      (`User::getSessoesEncerradasEm()`, `app/src/Entity/Auth/User.php:243`). No navegador quem aplica o corte é o
      `SessaoEncerradaEmTodosOsAparelhosListener`, que só age com sessão (`hasPreviousSession`), então não vê o bearer. O
-     conector grava em cada token e renovação o instante da autorização que os originou (`autorizado_em`, que a rotação da
-     renovação **copia**, nunca renova) e recusa, no `/mcp` e no `/oauth/token`, todo token ou renovação com
-     `autorizado_em` menor ou igual ao corte (o mesmo "no mesmo segundo também cai" do listener). O consentimento fica: a
-     pessoa refaz o login e a conexão volta.
+     conector grava o instante da autorização **uma vez, na concessão** (`conector_ia_concessao.autorizado_em`, 13.2), de
+     que todo token e toda renovação da cadeia dependem; a rotação não copia nem renova nada. Recusa, no `/mcp` e no
+     `/oauth/token`, todo token ou renovação cuja concessão tem `autorizado_em` menor ou igual ao corte (o mesmo "no mesmo
+     segundo também cai" do listener). O consentimento fica: a pessoa refaz o login e a conexão volta.
    - Troca de senha: não há data de troca no `User`, e os caminhos que gravam senha são vários (`AlterarSenhaUseCase`,
      `RedefinirSenhaUseCase`, `ConfirmarCodigoSenhaUseCase`, `CriarSenhaPeloLinkUseCase`, `LigarContaAoGoogleUseCase`,
      entre outros). No navegador as outras sessões caem porque o `User` não implementa `EquatableInterface` e o Symfony
-     compara o hash da senha a cada pedido. O conector faz o mesmo: grava no token e na renovação uma **impressão da senha**
-     (HMAC, com o segredo da aplicação, do hash atual) e recusa quando ela não bate com a do hash de agora. Assim nenhum
+     compara o hash da senha a cada pedido. O conector faz o mesmo: grava na concessão uma **impressão da senha** (HMAC,
+     com o segredo da aplicação, do hash atual) e recusa quando ela não bate com a do hash de agora. Assim nenhum
      caminho de troca de senha precisa lembrar do conector. Teste em 12.16.
 
 ### 4.1 🔴 O `TenantFilter` continua falhando ABERTO
@@ -355,7 +422,7 @@ Estado em 08/11/2026, igual ao de agosto no essencial:
   `:88-96`; sem sessão, devolve `null`).
 - Há mais dois listeners que a spec de agosto não citava: o `TenantContextValidatorListener` (prioridade 6,
   `app/src/EventListener/TenantContextValidatorListener.php:28`), que aplica a cada requisição as barreiras de conta suspensa
-  ou excluída, pedido de exclusão, vínculo e situação na equipe (`:150-161`); e o `TenantUrlScopeListener` (prioridade 4,
+  ou excluída, pedido de exclusão, vínculo e situação na equipe (`:182-199`); e o `TenantUrlScopeListener` (prioridade 4,
   `app/src/Shared/EventListener/TenantUrlScopeListener.php:25`), que fixa o filtro pelo `{tenantId}` da rota.
 - **Não existe trava fail-closed.** Os `isEnabled('tenant')` do código servem para **desligar** o filtro por um tempo
   (`app/src/ServiceDesk/Repository/SemFiltroDeTenant.php`, `app/src/Ponto/Repository/ConsultaSemFiltroDeEscritorio.php`,
@@ -372,9 +439,24 @@ a porta nova**:
 - Um **portão do conector** único (nome sugerido `PortaoDoConector`): resolve pessoa, escritório e vínculo do token, aplica
   as barreiras, liga o filtro com o parâmetro e **confere** (`isEnabled('tenant')` e parâmetro igual ao escritório do
   token) antes de despachar a ferramenta. Qualquer falha recusa a requisição; ela nunca segue com o filtro desligado.
+- **O escritório do token vale no `TenantContext`, não só no filtro** (revisão de 16/11/2026). Cerca de 22 serviços fora de
+  controller leem `TenantContext::getCurrentTenant()`, que lê só a sessão (`TenantContext.php:27-35`); com bearer devolvem
+  `null` e degradam em silêncio, sem erro: `PendenciasDoCadastro.php:129-134` (reusado em `ler_clientes`, 6.4: o documento
+  vinculado some porque `DocumentosVisiveisDoCadastro::de` recebe escritório nulo), `NivelNoCadeado.php:223-229` (sem
+  escritório, o Master passa por `ehMaster`), `NotificacaoService.php:59` e `:102`, `ListaDeMetasDaPastaEmJson.php:99-100`,
+  `AuditLogSubscriber.php:423`. Por isso o portão chama um **método novo e único** do `TenantContext` (nome sugerido
+  `fixarSemSessao(Tenant, UserTenant)`), que guarda o escritório e o vínculo como estado da requisição (`ResetInterface`) e
+  que `getCurrentTenant`, `getCurrentUserTenant` e `hasCurrentTenant` respeitam. Teste de arquitetura: só o portão o chama.
+  Com isso a auditoria sai certa sem escopo próprio (4.3), e o `TenantFilterListener` deixa de ser o único caminho. A regra
+  "UseCase recebe `User` e `Tenant` explícitos e filtra à mão" (4.2) continua como segunda camada.
 - As barreiras do `TenantContextValidatorListener` saem para um serviço sem sessão que **o listener e o portão usam**, sem
   mudar o comportamento do navegador (testes do listener antes, mover sem reescrever). Duplicar a lógica no conector é o
   jeito de as duas divergirem.
+- **O serviço extraído recebe se o passe do Master vale.** Hoje o listener deixa o Master passar pela barreira do vínculo em
+  análise ou suspenso pela equipe ("O Master não passa por esta barreira", `TenantContextValidatorListener.php:283-291`,
+  passe em `:285`) e deixa passar o Master sem escritório (`:163-165`). O listener chama o serviço com o passe (o navegador
+  não muda); o **portão chama sem o passe** e exige `UserTenant::isActive()` verdadeiro e a situação na equipe aprovada para
+  todos, sem exceção (decisão 1 da seção 14; 6.3). Teste em 12.3.
 - Teste de arquitetura: toda ferramenta registrada é despachada pelo portão; não existe outro caminho.
 
 ### 4.2 Tenant explícito: o padrão que já existe
@@ -394,19 +476,23 @@ Desde agosto, três frentes passaram a rodar sem sessão e firmaram o padrão qu
   a prova é `app/tests/Inteligencia/Unit/ConsultaDePastasDoAgenteTest.php`.
 
 **Regra para o conector:** toda ferramenta passa o `User` e o `Tenant` do portão ao UseCase, e o UseCase filtra por escritório
-à mão mesmo com o filtro ligado. Ferramenta cujo caminho passe por algo que lê `TenantContext`, `Security` ou a `Request`
+à mão mesmo com o filtro ligado. Ferramenta cujo caminho passe por algo que lê `Security` ou a `Request`, ou por controller
 (ex.: `TarefaController::minhas`, `PastaController::show`, `PastaController::downloadDocumento`, o trait
-`AutorizacaoCobranca`) **não entra** até existir UseCase sem sessão.
+`AutorizacaoCobranca`) **não entra** até existir UseCase sem sessão. Serviço que lê `TenantContext` passa a receber o
+escritório do token pelo `fixarSemSessao` do portão (4.1); a regra antiga ("o que lê `TenantContext` não entra") não era
+verificável, porque a leitura está em serviço de serviço.
 
 ### 4.3 Auditoria sem sessão
 
-O `AuditLogSubscriber` (`app/src/Service/Audit/AuditLogSubscriber.php`) tira o ator de `Security::getUser()` (`:409`) e o
-escritório de `TenantContext` (`:418`, via `tenantDoRegistro`, `:448-458`). Com bearer, `getCurrentTenant()` devolve `null`
-sem exceção e `tenantDoRegistro` devolve `null`: o registro sai **sem escritório**. O ator sai certo se o firewall do `/mcp`
-autenticar a pessoa do token.
+O `AuditLogSubscriber` (`app/src/Service/Audit/AuditLogSubscriber.php`) tira o ator de `Security::getUser()` (`:414`) e o
+escritório de `TenantContext` (`:423`, via `tenantDoRegistro`, `:453-464`). Com bearer e sem nada feito, `getCurrentTenant()`
+devolve `null` sem exceção e `tenantDoRegistro` devolve `null`: o registro sairia **sem escritório**. O ator sai certo se o
+firewall do `/mcp` autenticar a pessoa do token.
 
-Correção: um escopo explícito do conector, no mesmo molde do `escopoDePlataforma` já usado ali (`:416`), que dá ao registro o
-escritório do token. Teste: uma escrita pelo conector grava `audit_log` com o escritório e a pessoa do token.
+**Resolvido pelo portão** (revisão de 16/11/2026): com o escritório fixado no `TenantContext` pelo `fixarSemSessao` (4.1),
+o `tenantDoRegistro` devolve o escritório do token, sem escopo próprio do conector (a proposta antiga, no molde do
+`escopoDePlataforma` de `:421`, sai). Teste: uma escrita pelo conector grava `audit_log` com o escritório e a pessoa do
+token.
 
 ---
 
@@ -435,7 +521,7 @@ com `docs/AUTORIZACAO.md` ao lado:
    (`app/src/Cliente/UseCase/CriarClienteAvulsoUseCase.php:26`), `resources.cobranca.*` e `resources.agenda.ver_prazos`
    (`app/src/Agenda/Service/PermissoesDaAgenda.php:19`).
 4. **A autorização fina mora nos controllers e em listeners**, não no `security.yaml` (que só exige `ROLE_USER` em `^/`,
-   `security.yaml:83`). Uma ferramenta que chame UseCase direto pula essas camadas; a seção 5.2 lista cada uma.
+   `security.yaml:88`). Uma ferramenta que chame UseCase direto pula essas camadas; a seção 5.2 lista cada uma.
 
 ### 5.1 Escopos OAuth e permissões do sistema
 
@@ -446,23 +532,40 @@ São eixos diferentes e **os dois valem**:
 - **Permissão** diz o que *aquela pessoa* pode fazer naquele escritório.
 
 A ferramenta só executa se **ambos** permitirem. Escopo nunca amplia permissão. `mcp:escrita` só entra no token se a pessoa
-marcar a caixa na tela de consentimento (desmarcada por padrão). Ferramenta de gravação ou a `confirmar_acao` chamada sem o
-escopo responde 403 com `error="insufficient_scope"` e `scope="mcp:leitura mcp:escrita"` (step-up da especificação atual).
-`offline_access` é anunciado (decisão 14.c), porque o Claude o pede quando ele é anunciado; ele não amplia nada, só deixa
-o cliente renovar o token dentro dos 7 dias.
+marcar a caixa na tela de consentimento (desmarcada por padrão).
+
+**Pedir escopo a mais (step-up), revisto em 16/11/2026.** No Claude, o 403 só leva a pedir o escopo de novo se vier com
+`WWW-Authenticate: Bearer error="insufficient_scope"`, e "a tool handler can't produce that response: once the MCP SDK is
+running a tool, whatever the handler returns is wrapped in a 200"
+(https://claude.com/docs/connectors/building/lazy-authentication.md). Por isso:
+
+1. O 401 inicial leva `scope="mcp:leitura mcp:escrita"`; a tela mostra `mcp:escrita` desmarcado; a resposta do
+   `/oauth/token` sempre traz o `scope` concedido.
+2. Ferramenta de gravação e `confirmar_acao` chamadas sem `mcp:escrita` recebem **HTTP 403 antes do SDK**, pela `ScopePolicy`
+   do `AuthorizationMiddleware` (3.1), com `WWW-Authenticate: Bearer error="insufficient_scope"`,
+   `scope="mcp:leitura mcp:escrita"` e `resource_metadata`. Nunca um 200 com `isError`.
+3. Para o ChatGPT, que usa outro canal (https://developers.openai.com/apps-sdk/build/auth): cada ferramenta declara
+   `securitySchemes` (`oauth2`, com os escopos que pede) e, quando o escopo falta, o resultado leva também
+   `_meta["mcp/www_authenticate"]`.
+4. As ferramentas de gravação **aparecem** no `tools/list` de quem só tem leitura; escondidas, o modelo nunca as chamaria e o
+   step-up nunca aconteceria.
+
+`offline_access` é anunciado só no metadado do servidor de autorização (3.4, decisão 14.c), porque o Claude o acrescenta
+quando ele está lá; nunca no `WWW-Authenticate` nem no metadado do recurso. Ele não amplia nada, só deixa o cliente renovar o
+token dentro dos 7 dias.
 
 ### 5.2 As guardas que o conector pula, e como refazer cada uma
 
 | Guarda | Onde mora hoje | O que a ferramenta faz |
 |---|---|---|
-| Barreiras do escritório (conta suspensa ou excluída, pedido de exclusão, vínculo, situação na equipe) | `TenantContextValidatorListener` (`kernel.request`) | o portão, pelo serviço extraído (4.1); o primário de escritório suspenso a pedido é **recusado** (regra 1 da seção 4) |
+| Barreiras do escritório (conta suspensa ou excluída, pedido de exclusão, vínculo, situação na equipe) | `TenantContextValidatorListener` (`kernel.request`) | o portão, pelo serviço extraído, **sem o passe do Master** (4.1); o primário de escritório suspenso a pedido é **recusado** (regra 1 da seção 4) |
 | Termos de uso aceitos na versão vigente | `TermoAceiteListener` (prioridade 7, `app/src/EventListener/TermoAceiteListener.php:90-121`), que usa a sessão (`:111`) | o `/oauth/authorize` passa pelo listener como hoje (a pessoa aceita na tela); no `/mcp`, o portão confere `AceiteTermoRepository::existeAceiteVigente` (`app/src/Termo/Repository/AceiteTermoRepository.php:39`) a cada requisição e recusa com "aceite os Termos de Uso no BlueJus" (8) |
-| "Sair de todos os aparelhos" | `SessaoEncerradaEmTodosOsAparelhosListener` (prioridade 7), que só age com sessão | `autorizado_em` do token e da renovação contra `User::getSessoesEncerradasEm()` (regra 3 da seção 4) |
-| Troca de senha | o Symfony, ao reler o `User` da sessão (sem `EquatableInterface`, compara o hash da senha) | impressão da senha no token e na renovação (regra 3 da seção 4) |
+| "Sair de todos os aparelhos" | `SessaoEncerradaEmTodosOsAparelhosListener` (prioridade 7), que só age com sessão | `autorizado_em` da concessão contra `User::getSessoesEncerradasEm()` (regra 3 da seção 4) |
+| Troca de senha | o Symfony, ao reler o `User` da sessão (sem `EquatableInterface`, compara o hash da senha) | impressão da senha na concessão (regra 3 da seção 4) |
 | Cadeado da pasta | `BarreiraDoCadeadoListener` (`kernel.controller_arguments`, `app/src/Pasta/EventListener/BarreiraDoCadeadoListener.php:39`) | `AcessoAPasta::podeVer`/`podeEditar` (`app/src/Pasta/Service/AcessoAPasta.php:42`, `:47`) no item; `idsOcultosPara` (`:118`) e `idsDosProcessosOcultos` em lista. `podeVer` usa o escritório **da pasta**: conferir antes que a pasta é do escritório do token |
 | Aba oculta | `BarreiraDeAbaOcultaListener` (`app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:37`, que lê o escritório da sessão), pelo nome da rota (`MAPA`, `:50-79`) | `VisibilidadeDasAbasDaPasta::abasOcultasPara` (`app/src/Pasta/Service/VisibilidadeDasAbasDaPasta.php:115`), com a aba que a tabela de 6.6 dá para cada ferramenta e ação |
 | Pasta excluída é só leitura | `PastaSomenteLeituraListener` | escrita confere `Pasta::estaExcluida()` (`app/src/Pasta/Entity/Pasta.php:450`) |
-| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por prefixo do nome da rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:59-74`: `peticionar`, `metas`, `expedientes`, `assistente`...); o Master passa (`BloqueioDeRecursoDesativado.php:50`) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave que a tabela de 6.6 dá; no conector a chave desligada vale **também para o Master** (teto, 6.3); chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro (14.a) |
+| Tela ou função desligada pelo Master | `BloqueioDeRecursoDesativado`, por prefixo do nome da rota (`CatalogoDeRecursos::ROTAS`, `app/src/Master/Service/CatalogoDeRecursos.php:91`: `peticionar`, `metas`, `expedientes`, `assistente`...); o Master passa (`BloqueioDeRecursoDesativado.php:50`) | `RecursosDoSistema::estaAtivo(chave)` (`app/src/Master/Service/RecursosDoSistema.php:58`) na ferramenta, com a chave que a tabela de 6.6 dá; no conector a chave desligada vale **também para o Master** (teto, 6.3); chave nova `conector_ia` no catálogo para o Master desligar o conector inteiro (14.a) |
 | Meta aberta por id | `AcessoAMeta::exigir` (`docs/AUTORIZACAO.md`, "Meta aberta por id") | a mesma guarda antes de ler ou escrever meta por id |
 | Só acompanhar meta não basta | `PastasSoAcompanhadasSemVer::ids` (`app/src/Tarefa/Service/PastasSoAcompanhadasSemVer.php:40`) | já vem dentro de `ListaDasMinhasMetasDaTela` |
 | Funções de administrador | o bypass do Master e do primário no `PermissionChecker` e na `RegraDosPrimarios` | teto do conector (6.3): lista fechada de ferramentas, modo do conector sem os dois bypasses e sem `admin.*` para a pessoa do token, ramos de administrador da Agenda fechados pela ferramenta |
@@ -555,7 +658,10 @@ entre ler e gravar).
    `app/src/Inteligencia/Service/`, com `ResetInterface`): responde "mascara" quando o portão do conector o ligou na
    requisição e, fora dela, devolve a preferência do escritório como hoje (sem configuração, mascara). As assinaturas
    públicas (`livre`, `comoDado`, `rotulo`, `para`) não mudam, e o Chat I.A, a BlueJus I.A. e o worker continuam iguais;
-   um teste prova que a requisição seguinte do mesmo processo volta a seguir a preferência. Assim:
+   um teste prova que a requisição seguinte do mesmo processo volta a seguir a preferência (com
+   `$client->disableReboot()`: o `KernelBrowser` reinicia o kernel entre requisições e, sem isso, o teste não prova nada;
+   no PHP-FPM nada sobrevive entre requisições, e o risco real de vazar é o worker do Messenger, onde nenhum handler roda
+   dentro do `/mcp`). Assim:
    - texto de **várias linhas** (anotação, observação, descrição de meta, texto de movimentação, teor de publicação):
      `ProtecaoDoTextoDoChat::comoDado` (`ProtecaoDoTextoDoChat.php:38`), que neutraliza linha a linha e mantém as quebras;
    - valor **de uma linha** (nome de arquivo, nome da pessoa, título de meta): `ProtecaoDoTextoDoChat::rotulo` (`ProtecaoDoTextoDoChat.php:49`), com valor padrão quando
@@ -564,9 +670,14 @@ entre ler e gravar).
      (nunca pelo `comoDado`, que no conector mascara), **sem a máscara**, porque o conteúdo do documento é a exceção da
      regra 4 coberta pelo aceite do conector, e o PDF e a imagem já vão inteiros. Sem isso, o assistente não conseguiria
      cadastrar o cliente a partir de um DOCX (pedido C, 14.b).
-7. **Resposta**: JSON estruturado (`structuredContent`) mais um texto curto. Cabe no menor cliente: até 100 mil caracteres por
-   resultado (o Claude aceita cerca de 150 mil; o Claude Code, 25 mil tokens, o que o guia do usuário avisa), com paginação
-   (`pagina`, `proxima_pagina`). Tempo-alvo abaixo de 10 s (o Claude espera 240 s).
+7. **Resposta** (revista em 16/11/2026): JSON estruturado (`structuredContent`) **e**, no `content`, o mesmo dado
+   serializado (ou um texto que contém todos os campos), nunca só um resumo. Motivo: a especificação pede que "a tool that
+   returns structured content SHOULD also return the serialized JSON in a TextContent block"
+   (https://modelcontextprotocol.io/specification/2026-07-28/server/tools); o Claude Code entrega ao modelo só o
+   `structuredContent` quando ele existe, e no ChatGPT o modelo vê os dois. Sem `outputSchema` no piloto (o SDK 0.10 valida
+   e troca resultado divergente por `isError`). O orçamento de tamanho é a soma dos dois campos: teto prático de 50 mil
+   caracteres **por campo** (o Claude aceita cerca de 150 mil por resultado; o Claude Code, 25 mil tokens, o que o guia do
+   usuário avisa), com paginação (`pagina`, `proxima_pagina`). Tempo-alvo abaixo de 10 s (o Claude espera 240 s).
 8. **Anotações MCP** (`ToolAnnotations` do SDK, `app/vendor/mcp/sdk/src/Schema/ToolAnnotations.php:38-42`), todas com
    valor explícito, porque o padrão da especificação para quem não declara é `destructiveHint: true` e `openWorldHint: true`:
    - leitura: `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false` (salvo `ler_processos`, que consulta o
@@ -575,13 +686,17 @@ entre ler e gravar).
      especificação, `false` quer dizer "só acrescenta"), `idempotentHint: false`, `openWorldHint: false` (salvo
      `gravar_na_agenda`, que sincroniza com o Google: `true`);
    - `confirmar_acao`: como a gravação, mais `_meta["anthropic/requiresUserInteraction"]: true` (6.7);
-   - `title` em português em toda ferramenta (exigência do diretório da Anthropic).
+   - `title` em português em toda ferramenta (exigência do diretório da Anthropic);
+   - `securitySchemes` em toda ferramenta, com o escopo que ela pede (ChatGPT, 5.1).
    As anotações são **dicas**: a especificação diz que o cliente não deve decidir por elas quando o servidor não é confiável
    (https://modelcontextprotocol.io/specification/2025-06-18/schema#toolannotations). Nenhuma regra de segurança depende delas
    (6.7).
 9. **Log** no canal `mcp`, que já existe (`app/config/packages/monolog.yaml`, arquivo `mcp.log`): pessoa, escritório, cliente
    OAuth, ferramenta, ação, ids, contagens, duração e resultado. **Nunca** texto de busca, título, nome, valor de campo ou
-   conteúdo (regra 3 da Inteligencia).
+   conteúdo (regra 3 da Inteligencia). O log `mcp` do conector é escrito **só pelo portão**: o SDK recebe um `NullLogger`
+   (ou um logger que só passa `warning` sem contexto), porque ele escreve no log a mensagem inteira, os argumentos e o
+   resultado da ferramenta (3.1), e o canal `mcp` grava `info` em `mcp.log` na produção (`monolog.yaml:96-100`); sem isso,
+   o CPF de `atualizar_cliente` e o conteúdo de documento iriam para o arquivo.
 10. **Entrada fechada**: JSON Schema plano, com `acao` em lista fechada e os campos opcionais de cada ação, e
     `additionalProperties: false`; o servidor valida por ação e recusa campo que a ação não usa. Sem `oneOf`, para não
     depender de como cada cliente o trata. Valor fora da lista vira erro de ferramenta com mensagem fixa em português, nunca
@@ -592,7 +707,7 @@ entre ler e gravar).
 12. **Lote**: no máximo 50 itens por chamada (mover, copiar, restaurar, excluir documentos; aplicar modelo de checklist;
     cadastrar clientes). Mais que isso é erro com mensagem fixa (inventário, seção 6, item 6).
 13. **Quem fez**: a gravação sai com a pessoa como autora, como na tela (os UseCases não mudam). O `audit_log` já grava o nome
-    da rota da requisição (`AuditLogSubscriber.php:343` e `:429`): com a rota do `/mcp` com nome próprio (sugestão
+    da rota da requisição (`AuditLogSubscriber.php:348` e `:434`): com a rota do `/mcp` com nome próprio (sugestão
     `conector_mcp`), toda alteração auditada fica marcada como feita pelo conector, sem coluna nova; a ferramenta e o cliente
     OAuth vão para o log `mcp`. Selo "pelo conector" no Registro da pasta fica fora do piloto (exigiria coluna nova em
     `pasta_mensagem` e mudança de tela sem desenho).
@@ -626,27 +741,33 @@ quatro partes:
    "Só sobre essa pessoa" importa: `ehPrimario` também escolhe **quem recebe** aviso (ex.:
    `EnviarRelatorioSemProcessoUseCase.php:179`, `EnviarRelatorioPastasParadasUseCase.php:156`), e esses colegas continuam
    recebendo. Fora do `/mcp` nada muda; o modo zera no `reset()` e um teste prova que a requisição seguinte do mesmo processo,
-   no navegador, tem os bypasses de volta.
+   no navegador, tem os bypasses de volta, com `$client->disableReboot()` (sem isso o `KernelBrowser` reinicia o kernel e o
+   teste não prova nada). O risco real de vazar o modo é o worker do Messenger; nenhum handler roda dentro do `/mcp`.
 3. **A pessoa conta pelo perfil do vínculo e pelas regras de item**, como qualquer colega: módulo e recurso pelo perfil;
-   cadeado (pasta trancada só para quem está na lista dela) e abas ocultas como para os outros. O perfil de sistema recebe
-   todas as permissões ao nascer o escritório (`TenantBootstrapService::attachAllPermissions`), então o primário continua
-   vendo e mexendo nas pastas, clientes e processos sem cadeado; o que perde é **toda pasta trancada** e toda função
-   `admin.*`. Master e primário nunca estão na lista de uma pasta trancada: a grade do cadeado os exclui
+   cadeado (pasta trancada só para quem está na lista dela) e abas ocultas como para os outros. **Regra fixa do modo para o
+   perfil de sistema** (revisão de 16/11/2026): ele responde sim a toda permissão que não começa com `admin.`, e passa pelo
+   cadeado (`cabeNoCadeadoDaPasta`) e pelas abas como qualquer colega. Então o primário continua vendo e mexendo nas
+   pastas, clientes e processos sem cadeado; o que perde é **toda pasta trancada** e toda função `admin.*`. Master e
+   primário nunca estão na lista de uma pasta trancada: a grade do cadeado os exclui
    (`EquipeDoCadeado::doEscritorio`, `app/src/Pasta/Service/EquipeDoCadeado.php:28-33`, porque quem configura nunca é
    restringido). Sem o passe, `CadeadoDaPasta::nivelDe` (`app/src/Pasta/Entity/CadeadoDaPasta.php:130`) devolve `Oculto`
    para eles em toda pasta trancada, no modo "Ocultar para todos" e no modo por pessoa. Não há caminho pelo conector para
    abrir uma delas: `pedir_acesso` não resolve, porque um pedido aprovado nunca fura o cadeado
    (`app/src/Service/PermissionChecker.php:226-228`). Isso é aceito por ser o lado seguro; a pasta continua na tela.
-   Como o bypass escondia a falta, permissão criada depois do escritório pode não estar ligada ao
-   perfil de sistema: o PR 1 confere isso na produção (só `SELECT`, pelo MCP `jusprime-prod`) e, se faltar, o modo trata o
-   perfil de sistema como tendo todas as `modules.*` e `resources.*` do catálogo (`PermissionFixture`), nunca as `admin.*`.
+   A regra fixa dispensa a conferência do que está ligado ao perfil de sistema, sem fallback pelo `PermissionFixture`. A
+   conferência na produção já foi feita (16/11/2026, pelo MCP `jusprime-prod`, só contagem): 27 perfis de sistema;
+   `modules.{agenda,clientes,expediente,pastas,processos,tarefas}.view` e todos os `resources.*` estão nos 27; faltam só
+   `modules.inteligencia` (26), `trabalho_externo` (21) e `voto` (1), fora do conector. (A F6 da `docs/AUTORIZACAO.md`, que
+   diz faltar `modules.expediente.view` na produção, está desatualizada.)
    O Master conta pelo perfil do vínculo dele naquele escritório (a decisão 1 já exige o vínculo ativo); existem Masters
    secundários com vínculo comum (`docs/AUTORIZACAO.md`, 2a).
 4. **Ramos de administrador dentro de UseCase reaproveitado ficam fechados pela ferramenta**, para quem tem `admin.*` num
    perfil comum: `ListarCompromissosUseCase` sempre com `administra = false` (`:47`); editar, mover, mudar status e excluir
    compromisso só de quem o criou, conferido pela ferramenta antes do UseCase, porque `SalvarCompromissoUseCase` (`:70`),
    `MoverCompromissoUseCase` (`:49`), `AlterarStatusDoCompromissoUseCase` (`:41`) e `ExcluirCompromissoUseCase` (`:31`)
-   deixam passar quem tem `admin.users.manage`. Nos UseCases e serviços de Pasta, Cliente, Processo, Agenda, Expediente,
+   deixam passar quem tem `admin.users.manage`. Para a pessoa do token essa conferência é redundante de propósito: o modo
+   (item 2) já faz `canAdminister(..., 'admin.users.manage')` responder falso; ela fica na ferramenta como segunda camada.
+   Nos UseCases e serviços de Pasta, Cliente, Processo, Agenda, Expediente,
    Tarefa e Inteligencia, o grep de `canAdminister`, `isAdministradorDoEscritorio`, `ehPrimario`, `ehMaster`,
    `isGlobalSuperAdmin` e `admin.` (09/11/2026) só acha estas checagens, as do item 2 e as de funções que ficam fora
    (cadeado, abas ocultas, envio ao cliente); o PR que trouxer um UseCase novo para o conector repete o grep.
@@ -664,8 +785,8 @@ Testes em 12.19.
 Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 
 **`quem_sou_eu`** (PR 5)
-- Saída: nome da pessoa, escritório, escopos e validade da conexão, as ferramentas e ações que ela pode usar (pelos módulos que
-  tem) e se o cliente de I.A. declarou `elicitation` (para o assistente saber como a confirmação vai acontecer, 6.7).
+- Saída: nome da pessoa, escritório, escopos e validade da conexão e as ferramentas e ações que ela pode usar (pelos módulos
+  que tem). Sem o campo de elicitation (fora do piloto, 6.7).
 - Reusa: o portão e `PermissionChecker::canAccessModule` (`:32`) para cada módulo do catálogo
   (`app/src/DataFixtures/PermissionFixture.php:17-32`).
 
@@ -767,10 +888,10 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   técnicas, números das pastas vinculadas visíveis).
 - Reusa: `ProcessoRepository::findByNumeroProcessoDoTenant(string, Tenant)` (`:212`), `buscarPorTermoDoTenant` (`:255`),
   `findOneByIdDoTenant` (`:53`), `PastaRepository::listarVinculadasAoProcesso(Processo, Tenant, ?User)`
-  (`app/src/Pasta/Repository/PastaRepository.php:495`), `BuscarProcessosParaVincularUseCase::executar(Pasta, string, Tenant,
+  (`app/src/Pasta/Repository/PastaRepository.php:540`), `BuscarProcessosParaVincularUseCase::executar(Pasta, string, Tenant,
   User)` (`app/src/Pasta/UseCase/BuscarProcessosParaVincularUseCase.php:52`).
 - Falta: um UseCase de leitura sem sessão (a regra está no `ProcessoController`); um método paginado de movimentações recentes
-  no `MovimentacaoProcessoRepository` (hoje só `ultimasPorProcesso`, que devolve datas, `:46`); a consulta ao CNJ com UseCase
+  no `MovimentacaoProcessoRepository` (`app/src/Processo/Repository/`; hoje só `ultimasPorProcesso`, que devolve datas, `:46`); a consulta ao CNJ com UseCase
   extraído do controller (`api_datajud_search` e `pasta_processo_buscar_cnj`, 116 linhas no controller, inventário seção 4),
   que manda ao CNJ só o número do processo (consulta pública; é o que a tela já faz).
 - **`cnj` e o segredo:** antes de consultar o DataJud, a ferramenta procura o número no escritório
@@ -1124,7 +1245,7 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 **Aba e chave do Master por ferramenta e ação** (regra 11 da 6.2). A coluna "rota da tela" diz o que a barreira de hoje cobre;
 "nenhuma" quer dizer que a tela também não barra. `BarreiraDeAbaOcultaListener::MAPA` está em
 `app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:49-80`; `CatalogoDeRecursos::ROTAS`, em
-`app/src/Master/Service/CatalogoDeRecursos.php:59-74`. Toda ferramenta exige também a liberação do conector nos três níveis
+`app/src/Master/Service/CatalogoDeRecursos.php:91`. Toda ferramenta exige também a liberação do conector nos três níveis
 (14.a), conferida pelo portão.
 
 | Ferramenta e ação | Rota da tela | Aba (`AbaDaPasta`) | Chave do Master |
@@ -1201,14 +1322,18 @@ confirmação (item 5).
   consentimento e cliente OAuth, uso único, até 10 minutos), e que essa confirmação vale só para aquilo, uma vez. Se o
   cliente mostra esse passo à pessoa depende do cliente e da configuração dela.
 
+**Já respondido (revisão de 16/11/2026):** o ChatGPT mostra os argumentos antes de mandar a chamada ("Users can review the
+tool input before it is sent", https://developers.openai.com/api/docs/guides/custom-mcp-server). No claude.ai, a ferramenta
+de conector personalizado começa "Not set" e pergunta; mas a pessoa pode ligar "Skip approvals" no conector inteiro, e o
+modo "Auto" da conversa roda sem perguntar (https://claude.com/docs/llms-full.txt). Os dois entram no limite abaixo.
+
 **Não confirmado em fonte oficial:** se claude.ai, Desktop e celular suportam elicitation (a palavra não aparece em
 https://claude.com/docs/llms-full.txt; dois terceiros dizem que não: Relativity, atualizada em 06/11/2026,
 https://help.relativity.com/RelativityOne/Content/Relativity/MCP/Anthropic_Claude.htm, e Consilio, sem data,
 https://mcp-docs.ai.consilio.com/docs/integrations/claude-ai/); se o "Always allow" do Claude vale para ferramenta com
-`destructiveHint: true`; se a caixa de aprovação do Claude e do ChatGPT mostra os argumentos da chamada; se o ChatGPT
-clássico na web e no celular mostra a elicitation padrão (a OpenAI documenta formulários no Desktop e na web "Work",
-https://github.com/openai/mcp-extensions/blob/main/docs/spec.md, último commit em 05/11/2026); se o claude.ai respeita
-`anthropic/requiresUserInteraction` (confirmado só no Claude Code).
+`destructiveHint: true`; se a caixa de aprovação do Claude mostra os argumentos da chamada; se o claude.ai respeita
+`anthropic/requiresUserInteraction` (confirmado só no Claude Code). Nenhum deles muda o desenho: elicitation está fora do
+piloto (item 2).
 
 **Desenho:**
 
@@ -1218,19 +1343,20 @@ https://github.com/openai/mcp-extensions/blob/main/docs/spec.md, último commit 
    procuracao.pdf, rg.jpg, contrato.docx"; ou a lista dos clientes com os valores que o assistente mandou), estado
    `pendente`, validade de **10 minutos** e uso único. O identificador é aleatório e só o hash dele é gravado. A resposta
    leva o id, o resumo e a instrução fixa "mostre o resumo à pessoa e só chame `confirmar_acao` se ela disser sim".
-2. **Com elicitation** (o cliente declarou a capacidade `elicitation` ao iniciar a sessão): a própria ferramenta pede a
-   confirmação pelo protocolo antes de responder (`ClientGateway::elicit(string $message, ElicitationSchema, int $timeout)`,
-   `app/vendor/mcp/sdk/src/Server/ClientGateway.php:178`): modo formulário, o resumo na `message` e um único campo booleano
-   "Confirmo". `accept` com `true` executa na mesma chamada; `decline`, `cancel` ou tempo esgotado cancelam a proposta. A
-   elicitation nunca pede dado (só sim ou não). Conferir no PR 9 que o `elicit` do SDK funciona com o transporte HTTP e a
-   sessão em cache (3.5).
-3. **Sem elicitation** (o caso esperado no claude.ai e no ChatGPT clássico): a confirmação é a ferramenta separada
+2. **Elicitation: fora do piloto** (revisão de 16/11/2026). Nem o claude.ai nem o ChatGPT documentam o suporte; no SDK
+   0.10.0, sem sessão, os pedidos ao cliente (elicitation, sampling, roots) lançam `SessionRequiredException`, e na
+   2026-07-28 o `elicit()` vira `input_required` com `requestState` assinado. Na 0.7.1, o `ClientGateway::request` ainda
+   prendia um processo PHP-FPM em laço (`StreamableHttpTransport.php:186-224`, `usleep(100000)`) até a resposta chegar por
+   outro POST, aceita de qualquer POST com o mesmo `Mcp-Session-Id` sem olhar o token (`Protocol.php:263-270`). Volta como
+   reforço (seção 10) quando um dos dois clientes documentar o suporte. O número do item fica para não mudar as
+   referências.
+3. **A confirmação é a ferramenta separada** (o caminho que todo cliente usa)
    `confirmar_acao(proposta_id, resumo)`, anotada `destructiveHint: true` e com `_meta["anthropic/requiresUserInteraction"]:
    true`, que o Claude e o ChatGPT mostram para aprovação antes de chamar, **salvo** se a pessoa marcou "Permitir sempre"
-   ("Always allow", claude.ai) ou "lembrar" (ChatGPT) para ela: aí o próprio modelo pode chamar `confirmar_acao` sem
-   pergunta nenhuma. Ela exige o **resumo exato** além do id: se a caixa de aprovação mostrar os argumentos (não
-   confirmado), a pessoa lê o que vai acontecer, e não só um número; e o modelo não consegue mudar o resumo sem que a
-   confirmação falhe.
+   ("Always allow", claude.ai), ligou "Skip approvals" no conector ou usa o modo "Auto" da conversa (claude.ai), ou marcou
+   "lembrar" (ChatGPT): aí o próprio modelo pode chamar `confirmar_acao` sem pergunta nenhuma. Ela exige o **resumo exato**
+   além do id: onde a caixa de aprovação mostra os argumentos (o ChatGPT mostra; no Claude, não confirmado), a pessoa lê o
+   que vai acontecer, e não só um número; e o modelo não consegue mudar o resumo sem que a confirmação falhe.
 4. **Na confirmação o servidor reconfere tudo**, com trava de linha numa transação, como o
    `ConfirmarPropostaDeCadastroUseCase` do Chat I.A (`app/src/ChatIa/UseCase/ConfirmarPropostaDeCadastroUseCase.php:72`):
    proposta `pendente` e no prazo (vencida vira `expirada`); mesma pessoa, escritório, consentimento e cliente OAuth do token
@@ -1243,23 +1369,25 @@ https://github.com/openai/mcp-extensions/blob/main/docs/spec.md, último commit 
    vai acontecer.
 6. **Dados zerados:** depois de confirmada, cancelada ou vencida, a proposta guarda só estado, datas e ids do resultado; os
    dados (que podem ter CPF) somem, como a `PropostaDeCadastro` do chat (`app/src/ChatIa/Entity/PropostaDeCadastro.php:22`). As
-   vencidas são varridas ao registrar uma proposta nova, como no chat. `dados` e `resumo` nunca vão para log nem auditoria.
-7. **Na versão 2026-07-28** (PR próprio, 3.5): a confirmação vira `input_required`, com o `requestState` assinado por HMAC,
-   preso à pessoa e à proposta, com validade curta e uso único conferido no servidor, como a especificação manda.
+   vencidas são varridas ao registrar uma proposta nova, como no chat, e pela faxina agendada (13.2). `dados` e `resumo` nunca vão para log nem auditoria.
+7. *(Saiu na revisão de 16/11/2026: não há PR próprio da 2026-07-28, 3.5, e a confirmação por `input_required` só
+   voltaria com a elicitation, item 2. Se voltar, o `requestState` é assinado por HMAC, preso à pessoa e à proposta, com
+   validade curta e uso único conferido no servidor, como a especificação manda.)*
 
 **Limite, dito com honestidade:** o servidor garante que só executa com uma confirmação presa à proposta (pessoa,
-escritório, consentimento, cliente OAuth, uso único, 10 minutos). Ele **não** garante que uma pessoa leu o resumo. A
-confirmação mais forte é a elicitation (item 2), onde o cliente tiver; sem ela, com "Permitir sempre" no claude.ai ou
-"lembrar" no ChatGPT, o modelo chama `confirmar_acao` sozinho, e um hook do Claude Code pode responder à elicitation sem
-diálogo. É risco residual aceito (11, 14.g); o guia do usuário pede para não marcar essas opções, e o modo URL fica como
-reforço futuro (alternativas recusadas, abaixo).
+escritório, consentimento, cliente OAuth, uso único, 10 minutos). Ele **não** garante que uma pessoa leu o resumo. Com
+"Permitir sempre" ou "Skip approvals" no conector, ou o modo "Auto" da conversa no claude.ai, ou "lembrar" no ChatGPT, o
+modelo chama `confirmar_acao` sozinho. É risco residual aceito (11, 14.g); o guia do usuário pede para não usar essas
+opções, e a elicitation e o modo URL ficam como reforço futuro (alternativas recusadas, abaixo).
 
 **Alternativas recusadas:** recusar cadastro e exclusão quando o cliente não declara elicitation (na 2026-07-28, erro
-`MissingRequiredClientCapabilityError`, -32021) deixaria o pedido sem efeito no claude.ai; o modo URL (uma página do BlueJus
-onde a pessoa confirma, com conferência da sessão) é a prova mais forte, mas tira a confirmação do chat, contra a decisão, e
-o suporte nos clientes não está confirmado. Fica como reforço futuro, se o piloto mostrar abuso.
+`MissingRequiredClientCapabilityError`, -32021) deixaria o pedido sem efeito no claude.ai; a elicitation em formulário
+(item 2) fica fora do piloto; o modo URL (uma página do BlueJus onde a pessoa confirma, com conferência da sessão) é a
+prova mais forte, mas tira a confirmação do chat, contra a decisão, e o suporte nos clientes não está confirmado. Ficam
+como reforço futuro, se o piloto mostrar abuso.
 
-**O guia do usuário** (PR 15) pede para nunca marcar "sempre permitir" na `confirmar_acao` e explica o que é a proposta.
+**O guia do usuário** (PR 15) pede para nunca marcar "sempre permitir" na `confirmar_acao`, não ligar "Skip approvals" no
+conector nem usar o modo "Auto" com ele, e explica o que é a proposta.
 
 **Injeção indireta:** documento, anotação, publicação ou movimentação pode trazer texto que tenta mandar o assistente gravar
 algo. Não controlamos o prompt do cliente; as defesas são o escopo `mcp:escrita` desmarcado por padrão, a proposta com
@@ -1273,9 +1401,11 @@ Hoje uma ferramenta do chat são quatro peças separadas: a definição (`Ferram
 (`GuardaDasPropostas`, `GuardaDaConsultaDePrazos`), o executor e o despacho por nome dentro do
 `TransmitirRespostaDoChatUseCase`.
 
-**Recomendação:** um registro de ferramentas com `nome`, `schema`, `anotacoes`, `guarda(User, Tenant)` e
-`executar(User, Tenant, array)`, usado pelo chat e pelo conector, para a mesma ferramenta não ter duas regras. Entra no PR 6
-movendo o que existe, sem mudar o comportamento do chat. A proposta do conector (6.7) é parecida com a do chat, mas não
+**Recomendação (revista em 16/11/2026): depois do piloto.** Um registro de ferramentas com `nome`, `schema`, `anotacoes`,
+`guarda(User, Tenant)` e `executar(User, Tenant, array)`, usado pelo chat e pelo conector, evita que a mesma ferramenta
+tenha duas regras; mas mexer no `TransmitirRespostaDoChatUseCase` dentro do primeiro PR de ferramentas soma risco a um PR já
+MÉDIO, e a spec já separa as guardas em duas portas (aceite da I.A. e do conector, 6.4). No piloto, o conector tem o
+registro dele, e o PR 6 não mexe no despacho do chat. A proposta do conector (6.7) é parecida com a do chat, mas não
 reaproveita a `PropostaDeCadastro`, que é presa a uma conversa do chat (`ConversaDeChat` no construtor) e só cadastra; os
 validadores e o conversor do chat (`ValidadorDaProposta`, `ConversorDaProposta`) são reaproveitados no cadastro.
 
@@ -1312,19 +1442,22 @@ extrair UseCase e dizer isso no PR.
 - **Middleware**: CORS continua fechado (os clientes remotos chamam de servidor a servidor); o `Origin`, quando vier, é
   validado; proteção de rebinding com a lista de hosts `bluejus.com.br`; versão do protocolo conforme 3.5. Não copiar o
   exemplo de servidor local do SDK.
-- **Sessão MCP**: `Psr16SessionStore` com pool próprio (3.5); o `InMemorySessionStore` padrão não serve com vários workers.
+- **Sem sessão MCP** (SDK 0.10.0, 3.1 e 3.5): nenhum `SessionStore`, nenhum pool de cache de sessão. Se uma versão futura
+  ligar sessão, o `Mcp-Session-Id` fica gravado com o `consentimento_id`, e pedido com token de outro consentimento recebe
+  404.
+- **Logger do SDK**: `NullLogger` (6.2, regra 9).
 - **Firewall**: um firewall novo para `^/mcp`, sem sessão (`stateless`), com autenticador de bearer, declarado antes do
-  `main`. `/.well-known/oauth-*`, `/oauth/token` e `/oauth/register` com `PUBLIC_ACCESS`, como `^/api/webhooks/`
-  (`security.yaml:71`). `/oauth/authorize` fica no `main` (login, "lembrar de mim").
+  `main`. `/.well-known/oauth-*` e `/oauth/token` com `PUBLIC_ACCESS`, como `^/api/webhooks/` (`security.yaml:72`).
+  `/oauth/authorize` fica no `main` (login, "lembrar de mim").
 - **Listeners de `kernel.request` que precisam deixar as rotas novas passar** (a lista é por nome de rota; os nomes abaixo
   são sugestão):
   - `TenantContextValidatorListener::ROTAS_IGNORADAS` (`app/src/EventListener/TenantContextValidatorListener.php:31`)
-    recebe a rota do `/mcp`, a do `/oauth/authorize`, a do `/oauth/token`, a do `/oauth/register` e as duas do
-    `/.well-known/oauth-*`. **Por quê:** no `/mcp` o firewall de bearer autentica a pessoa, mas não há sessão, então
-    `hasCurrentTenant()` é falso e o listener responde com redirecionamento para `tenant_selecionar` (`:135-145`): o
+    recebe a rota do `/mcp`, a do `/oauth/authorize`, a do `/oauth/token` e as duas do `/.well-known/oauth-*`. **Por
+    quê:** no `/mcp` o firewall de bearer autentica a pessoa, mas não há sessão, então `hasCurrentTenant()` é falso e o
+    listener responde com redirecionamento para `tenant_selecionar` (`:163-176`): o
     cliente de I.A. recebe um 302 para uma página HTML em vez da resposta MCP, e a conexão quebra. As barreiras que o
     listener aplicaria são do portão (4.1), que as aplica com o escritório do token. No `/oauth/authorize`, a pessoa ainda
-    não tem escritório escolhido para o conector, e é a própria tela que o escolhe. Token, registro e metadados são chamados
+    não tem escritório escolhido para o conector, e é a própria tela que o escolhe. Token e metadados são chamados
     de servidor para servidor, sem pessoa logada (o listener já sai cedo sem `User`), mas entram na lista para que uma sessão
     de navegador logada e sem escritório também não seja redirecionada.
   - `TermoAceiteListener::ROTAS_IGNORADAS` (`app/src/EventListener/TermoAceiteListener.php:34`) recebe as mesmas, **menos
@@ -1335,13 +1468,16 @@ extrair UseCase e dizer isso no PR.
     para o validador do token (seção 4, regra 3).
   - Teste funcional (12.18): bearer válido no `/mcp`, sem cookie, recebe a resposta MCP, nunca 302, e a resposta não traz
     `Set-Cookie`.
-- **Limites de taxa** (no `framework.yaml`, junto dos limitadores que já existem): `conector_registro` (DCR, por IP), `conector_token` (por
-  cliente e IP), `conector_chamada` (por pessoa) e `conector_cimd` (buscas de documento, por domínio).
+- **Limites de taxa** (no `framework.yaml`, junto dos limitadores que já existem): `conector_token` (por cliente e IP),
+  `conector_chamada` (por pessoa **e** por escritório), `conector_documento` (teto próprio para `ler_documentos_e_modelos`
+  `ler`, que pode devolver um PDF de 10 MB por chamada), `conector_confirmacao` (teto próprio para `confirmar_acao`) e
+  `conector_cimd` (buscas de documento, por domínio). Sem `conector_registro` (DCR fora do piloto, 3.4).
 - **nginx**: os dois ajustes de 3.3.
 - **Rede**: o Claude sai de `160.79.104.0/21`; ChatGPT e Google têm faixas publicadas. Não há WAF hoje; se entrar um, liberar
   as faixas, inclusive para os endpoints OAuth.
-- **Chaves de assinatura do token**: par gerado e guardado no `.env.prod` pelo Samuel (segredo; nunca lido pelo Claude), com
-  a rotação descrita no guia de deploy.
+- **Sem chave de assinatura do token** (revisão de 16/11/2026): o token é opaco e conferido no banco (3.2), então não há par
+  de chaves no `.env.prod`, rotação de chave pública nem passo do Samuel para isso. A impressão da senha usa o segredo da
+  aplicação que já existe (seção 4, regra 3).
 - **Deploy**: dependência nova só existe em produção depois do deploy da imagem.
 
 ---
@@ -1351,9 +1487,23 @@ extrair UseCase e dizer isso no PR.
 1. **Vida do token: 7 dias. Decidido pelo dono (11/08/2026).** Escolha de comodidade: a pessoa autoriza uma vez por semana,
    não todo dia. Na prática (decisão 14.c, 08/11/2026): token de acesso de 1 hora e renovação com rotação, sem passar de 7
    dias da autorização. Renovação já usada que volta é sinal de roubo: a cadeia inteira é revogada.
-2. **Revogação imediata, e ela é o que torna os 7 dias aceitáveis. Decidido.** O token é um papel assinado: diz "pessoa X,
-   escritório Y" e **não se atualiza** quando a realidade muda. Por isso, **a cada requisição MCP** (não uma vez na conexão),
-   o servidor confere **no banco**, e recusa se qualquer um falhar, mesmo com token dentro da validade:
+
+   **Como a rotação funciona (revisão de 16/11/2026).** A cadeia é uma linha própria, a concessão
+   (`conector_ia_concessao`, 13.2): `autorizado_em`, impressão da senha e o limite absoluto de 7 dias moram nela, e a
+   rotação não copia nada. No `/oauth/token`, a renovação é lida com `SELECT ... FOR UPDATE` numa transação. Renovação nunca
+   usada: grava `usado_em` e emite um par novo (acesso e renovação) ligado à mesma concessão. Renovação já usada que volta:
+   - **dentro da janela de tolerância** (cerca de 60 s depois do `usado_em`) e **pelo mesmo cliente**: emite um par novo e
+     revoga o par emitido antes a partir dela. Motivo: o Claude espera até 30 s pela renovação e renova também de forma
+     reativa num 401 e até cinco minutos antes de vencer (https://claude.com/docs/connectors/building/authentication); se a
+     resposta se perde ou chega tarde, ele repete a renovação antiga, e sem a janela a pessoa teria de reconectar por causa
+     do próprio cliente;
+   - **fora da janela, ou por outro cliente**: sinal de roubo; a concessão é revogada (um `UPDATE` só, com o motivo) e,
+     com ela, todo token e toda renovação da cadeia.
+
+   Teste em 12.7.
+2. **Revogação imediata, e ela é o que torna os 7 dias aceitáveis. Decidido.** O token diz "pessoa X, escritório Y" e o
+   que foi decidido na autorização **não se atualiza** quando a realidade muda. Por isso, **a cada requisição MCP** (não
+   uma vez na conexão), o servidor confere **no banco**, e recusa se qualquer um falhar, mesmo com token dentro da validade:
    - `User::isActive` (`app/src/Entity/Auth/User.php:38`; o `UserChecker` só barra no login);
    - `UserTenant::isActive` e a situação na equipe aprovada (`app/src/Entity/Auth/UserTenant.php:40`, `:44`);
    - `Tenant::isActive` e `excluidoEm` nulo (`app/src/Entity/Tenant/Tenant.php:56`, `:59`);
@@ -1361,42 +1511,58 @@ extrair UseCase e dizer isso no PR.
      **inclusive para o primário**: `bloqueia()` (`:66`) deixa o primário passar porque o navegador o prende ao Meu Perfil,
      e o conector, que não tem Meu Perfil, recusa (seção 4, regra 1);
    - termos de uso aceitos na versão vigente (5.2);
-   - "Sair de todos os aparelhos": token e renovação com `autorizado_em` menor ou igual a `User::getSessoesEncerradasEm()`
-     são recusados (seção 4, regra 3);
-   - troca de senha: impressão da senha gravada no token e na renovação diferente da do hash atual é recusada (seção 4,
-     regra 3);
-   - consentimento e token não revogados;
+   - "Sair de todos os aparelhos": token e renovação cuja concessão tem `autorizado_em` menor ou igual a
+     `User::getSessoesEncerradasEm()` são recusados (seção 4, regra 3);
+   - troca de senha: impressão da senha gravada na concessão diferente da do hash atual é recusada (seção 4, regra 3);
+   - consentimento, concessão e token não revogados, e a concessão dentro dos 7 dias (um `JOIN` token, concessão,
+     consentimento);
    - a liberação do conector nos três níveis (chave geral, escritório liberado pelo Master, ligado com o aceite vigente,
      14.a).
 
-   Tudo isso vale também no `/oauth/token` ao trocar a renovação: renovação que falha em qualquer item é revogada com a
-   cadeia inteira e responde `invalid_grant`, que é o que os clientes esperam para pedir login de novo (3.4).
+   Tudo isso vale também no `/oauth/token` ao trocar a renovação: renovação que falha em qualquer item tem a concessão
+   revogada e responde `invalid_grant`, que é o que os clientes esperam para pedir login de novo (3.4).
 
    São as mesmas barreiras do navegador (4.1); a lista de agosto (só os dois `isActive`) ficou curta. Custa uma leitura dos
    registros que o servidor já carrega para aplicar permissão. **Sem isso, um token de 7 dias significa 7 dias de acesso
    para quem acabou de ser desligado.** Não implemente os 7 dias sem a conferência por requisição: são uma decisão só.
-3. **Audiência (RFC 8707)**: `aud` = `https://bluejus.com.br/mcp`; token com outra audiência é recusado, e o token do
-   conector não vale em nenhuma outra rota do sistema.
-4. **Confused deputy**: consentimento por cliente; nunca reaproveitar consentimento entre `client_id` diferentes. A tela
-   mostra o nome do cliente e o host do redirect, com aviso quando só há redirect de loopback (Claude Code, CLIs).
-5. **CIMD**: proteção de SSRF e lista de domínios confiáveis (3.4).
-6. **Redirect e código**: igualdade exata do `redirect_uri`; loopback com porta livre só para `127.0.0.1` e `localhost`
-   (RFC 8252). No **DCR**, o registro só aceita `redirect_uris` de host da mesma lista permitida do CIMD ou de loopback, e
-   recusa o resto com `invalid_redirect_uri` (3.4, item 2); a tela de consentimento continua mostrando o host (item 4). PKCE S256 obrigatório para todo cliente. Código de uso único, válido por até 10 minutos, preso ao
-   `redirect_uri` e ao `code_challenge`. Renovação com rotação e `invalid_grant` (14.c).
-7. **Auditoria**: escrita registrada pelo `audit_log` com o escritório certo (4.3); chamadas no canal `mcp` sem conteúdo
-   (6.2.9). Correção da spec de agosto: "registrar os argumentos" vira registrar ids e valores de lista, nunca texto
-   (regra 3 da Inteligencia).
+3. **Audiência (RFC 8707)**: o token é opaco e não carrega `aud`; a concessão guarda o `resource` pedido, que tem de ser
+   `https://bluejus.com.br/mcp` no `/oauth/authorize` e no `/oauth/token` (ausente ou diferente dá `invalid_target`; no
+   `/oauth/token`, igual também ao da concessão). O token do conector não vale em nenhuma outra rota do sistema. O guia do
+   usuário diz para colar a URL exata (o Claude exige `resource` igual ao que a pessoa digitou).
+4. **Confused deputy e tela de consentimento**: consentimento por cliente; nunca reaproveitar consentimento entre
+   `client_id` diferentes. A tela mostra como app que pede acesso o **host do `client_id`** (não o `client_name`, que é
+   autodeclarado) e o host do redirect, com aviso quando só há redirect de loopback (Claude Code, CLIs). O formulário
+   (revisão de 16/11/2026):
+   - leva **token CSRF**, conferido no POST;
+   - o escritório escolhido é conferido **no servidor** contra `UserTenantRepository::findActiveByUser` e as barreiras do
+     portão, sem o passe do Master (4.1); nunca é aceito só porque veio no campo;
+   - os parâmetros OAuth do pedido (`client_id`, `redirect_uri`, `state`, `code_challenge`, `resource`, escopos) ficam na
+     sessão entre o GET e o POST, não em campo oculto.
+   (`X-Frame-Options: SAMEORIGIN` já vem do nginx, `nginx.prod.conf:48`.)
+5. **CIMD**: a busca do documento só vai a host da lista em configuração, o que já resolve o SSRF, além das regras de busca
+   segura da 3.4.
+6. **Redirect e código**: `redirect_uri` igual, byte a byte, a um do documento CIMD **e** da lista exata da 3.4; loopback
+   com porta livre só para `127.0.0.1` e `localhost` (RFC 8252). **PKCE S256 obrigatório** para todo cliente:
+   `code_challenge_method` ausente ou diferente de `S256` é recusado. `resource` obrigatório (item 3). Código de uso único,
+   válido por até 10 minutos, preso ao `redirect_uri`, ao `code_challenge` e à concessão. `iss` em todo redirecionamento,
+   inclusive os de erro (3.2). Renovação com rotação, janela de tolerância e `invalid_grant` (item 1, 14.c).
+7. **Auditoria**: escrita registrada pelo `audit_log` com o escritório certo, pelo escritório fixado no `TenantContext` pelo
+   portão (4.1, 4.3); chamadas no canal `mcp` sem conteúdo, e o SDK com `NullLogger` (6.2.9). Correção da spec de agosto:
+   "registrar os argumentos" vira registrar ids e valores de lista, nunca texto (regra 3 da Inteligencia).
 8. **Dado pessoal e provedor do modelo**: decisão 14.a (piloto num escritório, liberação pelo Master, aceite próprio do
    conector) e as regras de saída da 6.2.
-9. **Purga e exclusão**: as tabelas novas com escritório entram no `PurgarEscritorioUseCase`; excluir a conta ou o vínculo
-   revoga consentimentos e tokens.
+9. **Purga, exclusão e faxina**: toda tabela nova com dado de escritório tem `tenant_id` e FKs `ON DELETE CASCADE` para
+   `tenant`, `user` e a tabela pai (13.2). A purga do escritório acha as tabelas pela coluna `tenant_id`
+   (`PurgarEscritorioUseCase.php:441-450`), e a exclusão da conta (quarentena) precisa das FKs de `user_id`;
+   `PurgaCoberturaSchemaTest` verde. Excluir a conta ou o vínculo revoga consentimentos, concessões e tokens. Um comando de
+   faxina no Scheduler (PR 3) apaga o que vence (13.2).
 10. **Injeção indireta pelo conteúdo**: 6.7.
 11. **Teto**: nenhuma função de administrador pelo conector, nem para Master e primário (6.3).
 12. **Confirmação**: cadastro de cliente e toda exclusão, inclusive gravar por cima (substituir um valor que já existe,
     regra geral da 6.6; preencher vazio, acrescentar e marcar ou desmarcar são diretos), só com uma confirmação presa à
     proposta, conferida de novo no servidor; o servidor não confia nas anotações para isso, mas não prova que uma pessoa
-    leu: com "Permitir sempre" ou "lembrar", o modelo pode confirmar sozinho (6.7, limite; 14.g).
+    leu: com "Permitir sempre", "Skip approvals", o modo "Auto" ou "lembrar", o modelo pode confirmar sozinho (6.7, limite;
+    14.g).
 
 ---
 
@@ -1410,8 +1576,12 @@ extrair UseCase e dizer isso no PR.
 - Enviar arquivo e baixar arquivo binário (6.1; decisão 14.j).
 - Áudio e vídeo (14.f).
 - Gemini (app, Enterprise, CLI e Antigravity) e a publicação nos diretórios do Claude e do ChatGPT, no piloto (14.d).
-- A versão 2026-07-28 do protocolo (PR próprio, 3.5), com a confirmação por `input_required` (6.7, item 7).
-- Confirmação pelo modo URL da elicitation (6.7, alternativas recusadas).
+- DCR (`/oauth/register`) e cliente pré-registrado, no piloto (3.4); o DCR entra num PR próprio só se o smoke mostrar um
+  cliente que não usa CIMD.
+- Elicitation, em formulário ou por `input_required`, e o modo URL dela (6.7, item 2 e alternativas recusadas): voltam
+  como reforço quando um dos clientes documentar o suporte ou o piloto mostrar abuso.
+- Registro de ferramentas compartilhado com o Chat I.A (6.8), depois do piloto.
+- `outputSchema` nas ferramentas (6.2, regra 7).
 - Selo "pelo conector" no Registro da pasta (6.2, regra 13).
 - Cliente MCP próprio do BlueJus (aqui somos só servidor).
 
@@ -1423,16 +1593,18 @@ extrair UseCase e dizer isso no PR.
 |---|---|
 | **`TenantFilter` falha aberto** | Rota nova que esqueça de amarrar o escritório devolve tudo, sem erro. Item nº 1 do plano (PR 1). |
 | **Guardas em listeners HTTP** | Cadeado, aba oculta, pasta excluída, função desligada, termos de uso, "Sair de todos os aparelhos" e barreiras do escritório não rodam no conector; cada uma precisa ser refeita e testada (5.2). E dois desses listeners quebram o `/mcp` se não o deixarem passar: redirecionam para `tenant_selecionar` ou `termo_aceite` (8). |
-| **Bypass do Master e do primário** | Sem o teto (6.3), "exceto funções de administrador" não se cumpre: o Master passa por toda checagem e o primário também. O modo do conector mexe em `PermissionChecker` e `RegraDosPrimarios`, código de identidade: se valer para outra pessoa que não a do token, um colega deixa de receber aviso de primário; se vazar para a requisição seguinte do mesmo processo, o Master perde o bypass no navegador. Só para a pessoa do token, zerado no `reset()` e testado (12.19). Perfil de sistema sem alguma permissão criada depois do escritório perderia acesso pelo conector: o PR 1 confere na produção. |
-| **Confirmação depende do cliente** | O servidor garante que nada é excluído, gravado por cima ou cadastrado sem uma confirmação presa à proposta (pessoa, escritório, consentimento, cliente OAuth, uso único, 10 minutos), mas não prova que uma pessoa leu: com "Permitir sempre" ("Always allow") no claude.ai ou "lembrar" no ChatGPT, o próprio modelo pode chamar `confirmar_acao`; um hook do Claude Code responde à elicitation sozinho; e a elicitation, a confirmação mais forte, não está confirmada no claude.ai (6.7, limite; 14.g). Risco residual aceito. |
+| **Bypass do Master e do primário** | Sem o teto (6.3), "exceto funções de administrador" não se cumpre: o Master passa por toda checagem e o primário também. O modo do conector mexe em `PermissionChecker` e `RegraDosPrimarios`, código de identidade: se valer para outra pessoa que não a do token, um colega deixa de receber aviso de primário; se vazar para a requisição seguinte do mesmo processo, o Master perde o bypass no navegador. Só para a pessoa do token, zerado no `reset()` e testado com `disableReboot()` (12.19). O perfil de sistema segue uma regra fixa (tudo menos `admin.*`), e a produção já foi conferida em 16/11/2026 (6.3, item 3). |
+| **Confirmação depende do cliente** | O servidor garante que nada é excluído, gravado por cima ou cadastrado sem uma confirmação presa à proposta (pessoa, escritório, consentimento, cliente OAuth, uso único, 10 minutos), mas não prova que uma pessoa leu: com "Permitir sempre" ("Always allow") ou "Skip approvals" no conector, o modo "Auto" da conversa no claude.ai, ou "lembrar" no ChatGPT, o próprio modelo pode chamar `confirmar_acao` (6.7, limite; 14.g). Elicitation fora do piloto. Risco residual aceito. |
 | **Contrato mexido pela esteira** | Mudar a fase ou arquivar a pasta marca ou reabre o contrato do Financeiro, mesmo para quem não vê o Financeiro (6.6, `mudar_andamento` e `atualizar_pasta`). Voltar e reativar vão por proposta; a resposta só fala do contrato a quem vê o Financeiro. |
 | **Cadastro em massa** | Um erro do assistente se repete em até 50 cadastros de uma vez. Limite, proposta com a lista, duplicados tirados antes e resultado por item (6.7, item 5). |
 | **UseCases extraídos de controller** | Cerca de 50 ações do escopo têm a regra no controller (inventário, seção 6, item 3). Cada extração muda a tela também; mover sem reescrever, com os testes da tela escritos antes. |
-| **Auditoria sem escritório** | Escrita pelo conector gravaria `audit_log` com escritório nulo (4.3). |
+| **Auditoria e serviços sem escritório** | Com bearer, `TenantContext` devolve `null` e cerca de 22 serviços degradam em silêncio, inclusive o `audit_log` com escritório nulo. Resolvido pelo portão, que fixa o escritório no `TenantContext` por um método que só ele chama (4.1, 4.3). |
 | **nginx barra `.well-known`** | Falha silenciosa: o cliente só diz "não consegui conectar" (3.3). |
-| **`mcp/sdk` experimental (0.7.1)** | API muda entre versões menores; a 2026-07-28 vai exigir atualização. Versão fixa, como na v1. A elicitation do SDK com o transporte HTTP precisa de prova no PR 9 (6.7, item 2). |
-| **Servidor de autorização dentro da aplicação** | Uma falha nele é uma falha no sistema inteiro, não num serviço isolado. |
-| **DCR deprecated, mas necessário** | O Claude registra um cliente por conexão; sem expiração, a tabela cresce sem limite. |
+| **`mcp/sdk` experimental (0.10.0)** | API muda entre versões menores (a 0.10.0 quebrou namespaces). Versão fixa, como na v1; o PR 2 sobe a versão e ajusta a v1 junto. O SDK escreve argumento e resultado no log se receber um logger: `NullLogger` (6.2.9). |
+| **Servidor de autorização dentro da aplicação, e nosso** | Uma falha nele é uma falha no sistema inteiro, não num serviço isolado; e o código de OAuth é nosso, sem biblioteca. Por isso o fluxo completo é testado ponta a ponta (12.7) e o PR 3 tem re-revisão. |
+| **Host do `client_id` fora da lista** | O Claude escolhe CIMD antes do `/authorize` e não volta para outro caminho: host não previsto derruba a conexão. Hosts em configuração, recusa com o host no log `mcp`, conferência no PR 3 e no smoke (3.4). |
+| **Rotação derrubada por repetição do cliente** | Se a resposta da renovação se perde, o cliente repete a antiga; sem tolerância, a cadeia cai e a pessoa reconecta. Janela de cerca de 60 s pelo mesmo cliente, com trava de linha (9.1). |
+| **Gravação pelo ChatGPT pode depender do plano** | Fontes secundárias de julho de 2026 (https://hjarni.com/blog/how-to-use-mcp-with-chatgpt) dizem que ações de escrita em conector próprio ficam em Business, Enterprise e Edu, e que Plus e Pro só leem; a página oficial não confirmou. É risco, não regra: conferir o plano do escritório piloto antes de testar gravação no ChatGPT, e o guia do usuário (PR 15) diz o plano exigido se confirmado. |
 | **Clientes mudam rápido** | Nomes, planos e regras de Claude e ChatGPT mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
 | **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
 | **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
@@ -1456,14 +1628,22 @@ erradas do plano, todas invisíveis à leitura):
 3. **Vínculo inativo, situação suspensa, escritório suspenso ou em quarentena, pedido de exclusão, pessoa desativada**: cada
    um recusa o token na requisição seguinte. Caso próprio: o **primário** de escritório suspenso a pedido é recusado no
    `/oauth/authorize` e no `/mcp` com a `BloqueioPorPedidoDeExclusao::MENSAGEM`, enquanto o mesmo primário, no navegador,
-   continua chegando ao Meu Perfil (o teste do listener segue verde).
+   continua chegando ao Meu Perfil (o teste do listener segue verde). Outro caso próprio: **Master com vínculo em análise**
+   (ou suspenso pela equipe) é recusado pelo portão, enquanto o navegador continua deixando-o passar (4.1).
 4. **Permissão**: pessoa sem o módulo recebe negativa mesmo com escopo `mcp:leitura`.
-5. **Escopo**: token só com `mcp:leitura` não executa ferramenta de gravação nem a `confirmar_acao` (403
-   `insufficient_scope`), mesmo que a pessoa tenha a permissão.
+5. **Escopo**: token só com `mcp:leitura` não executa ferramenta de gravação nem a `confirmar_acao`, mesmo que a pessoa tenha
+   a permissão: a resposta é **HTTP 403** com `WWW-Authenticate: Bearer error="insufficient_scope"`,
+   `scope="mcp:leitura mcp:escrita"` e `resource_metadata`, nunca um 200 com `isError` (5.1); o resultado leva também
+   `_meta["mcp/www_authenticate"]` (ChatGPT); as ferramentas de gravação aparecem no `tools/list` de quem só tem leitura;
+   toda ferramenta declara `securitySchemes`.
 6. **Revogação**: revogado o consentimento ou desativado o vínculo, o token para de funcionar.
-7. **Fluxo OAuth completo** ponta a ponta, com PKCE, contra o servidor de verdade: CIMD e DCR. Renovação: o token de acesso
-   vence em 1 hora, a renovação gira (a antiga, reusada, derruba a cadeia inteira) e nenhuma renovação passa dos 7 dias da
-   autorização (14.c).
+7. **Fluxo OAuth completo** ponta a ponta, com PKCE, contra o servidor de verdade, por CIMD. `code_challenge_method`
+   ausente ou `plain` recusado; `resource` ausente ou diferente dá `invalid_target`, no `/oauth/authorize` e no
+   `/oauth/token`; `iss` igual a `https://bluejus.com.br` em todo redirecionamento, de sucesso e de erro; o banco guarda
+   só o SHA-256 do token e da renovação. Renovação: o token de acesso vence em 1 hora, a renovação gira e nenhuma renovação
+   passa dos 7 dias da autorização (14.c). **Tolerância** (9.1): duas renovações seguidas com a mesma renovação, pelo mesmo
+   cliente, dentro da janela, dão um par novo e revogam o par emitido antes; fora da janela, ou por outro cliente,
+   derrubam a concessão inteira; duas renovações ao mesmo tempo não emitem dois pares válidos (trava de linha).
 8. **Gravação** exige o escopo e gera registro de auditoria com o escritório, a pessoa do token e a rota do `/mcp`.
 9. **Cada guarda de 5.2** recusada pelo conector: cadeado, aba oculta, pasta excluída na gravação, função desligada no
    Master (também para o Master), meta por id, termos de uso. Para aba e chave, o teste percorre a **tabela de 6.6 linha por
@@ -1484,20 +1664,24 @@ erradas do plano, todas invisíveis à leitura):
     escritório que desligou a máscara da BlueJus I.A. (`mascararDadosPessoais` falso), CPF, CNPJ, telefone e e-mail escritos
     em anotação, observação, meta, movimentação e publicação saem mascarados pelo conector; o conteúdo de documento lido sai
     como está; e, no mesmo processo, a requisição seguinte do chat volta a seguir a preferência do escritório.
-12. **CIMD**: `client_id` diferente da URL, redirect fora do documento, domínio fora da lista e endereço privado são recusados.
-    **DCR**: registro com `redirect_uris` de host fora da lista permitida recebe `invalid_redirect_uri` e não cria cliente;
-    host da lista e loopback passam; a tela de consentimento de um cliente registrado por DCR mostra o host do redirect.
+12. **CIMD**: `client_id` diferente da URL, `redirect_uri` fora do documento, `redirect_uri` fora da lista exata da 3.4
+    (mesmo que esteja no documento), host de `client_id` fora da configuração e endereço privado são recusados; a recusa de
+    host grava no log `mcp` só o host; trocar a configuração muda a lista sem deploy de código; loopback com qualquer porta
+    em `127.0.0.1` e `localhost` passa; a tela de consentimento mostra o host do `client_id`, não o `client_name`.
 13. **Metadados**: as duas URLs `.well-known` respondem pelo Symfony (funcional) e o `nginx.prod.conf` tem a location
-    `^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos (arquitetura). O metadado anuncia `refresh_token` e
+    `^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos (arquitetura). O metadado do servidor de autorização
+    anuncia `refresh_token`, `offline_access` em `scopes_supported`, `token_endpoint_auth_methods_supported: ["none"]`,
+    `issuer` exato `https://bluejus.com.br` e nenhum `registration_endpoint`; o metadado do recurso **não** traz
     `offline_access`.
 14. **Anotações** (arquitetura): toda ferramenta tem `title` e as quatro dicas com valor explícito; as de leitura têm
     `readOnlyHint: true`; as de gravação e a `confirmar_acao` exigem `mcp:escrita`; a `confirmar_acao` tem
     `_meta["anthropic/requiresUserInteraction"]: true`; nenhuma ferramenta lê e grava.
 15. **Log `mcp`** sem conteúdo: nenhuma linha leva texto de busca, título, nome, valor de campo, resumo de proposta ou
-    conteúdo.
+    conteúdo. Caso próprio: uma chamada de `atualizar_cliente` com CPF nos argumentos não deixa nenhum dígito dele no
+    `mcp.log` (prova o `NullLogger` do SDK, 6.2.9).
 16. **"Sair de todos os aparelhos" e troca de senha**: depois de cada um, o token de acesso é recusado no `/mcp` e a
     renovação recebe `invalid_grant` no `/oauth/token`, inclusive a renovação já rodada uma vez depois da autorização (prova
-    que a rotação copia o `autorizado_em`). Troca de senha testada pelo perfil (`AlterarSenhaUseCase`) e pelo link
+    que a cadeia continua presa ao `autorizado_em` da concessão). Troca de senha testada pelo perfil (`AlterarSenhaUseCase`) e pelo link
     (`RedefinirSenhaUseCase`); autorização feita depois do corte ou da troca funciona.
 17. **Tipos de documento** (6.5): cada linha da tabela com um arquivo de fábrica sai do jeito descrito; áudio e vídeo
     recusados com mensagem fixa; ZIP lista sem abrir; XML com entidade externa não é resolvido; planilha cortada no teto com
@@ -1512,7 +1696,8 @@ erradas do plano, todas invisíveis à leitura):
     alcançável por Master ou primário (teste de arquitetura sobre as dependências das classes do conector); compromisso
     criado por outra pessoa é recusado para quem tem `admin.users.manage`; a agenda nunca sai com `administra`; o relatório
     sem processo pedido pelo conector continua avisando os outros primários; uma requisição do navegador depois de uma do
-    conector, no mesmo processo, tem os bypasses de volta.
+    conector, no mesmo processo, tem os bypasses de volta (com `$client->disableReboot()`, 6.3, item 2); o perfil de sistema
+    no modo responde sim a permissão comum e não a `admin.*`.
 20. **Confirmação** (6.7): cada ação marcada como exclusão, o cadastro e voltar ou reativar a fase devolvem proposta e não
     gravam nada (teste que percorre a lista de ações), inclusive **gravar por cima**, com cada ação da lista da abertura da
     6.6 (`editar_dados`, `nome_do_cliente`, `cadastro_da_pasta`, `marcador` editar, `marcadores_da_pasta` que tira um
@@ -1524,9 +1709,8 @@ erradas do plano, todas invisíveis à leitura):
     executam direto; uma chamada que mistura campo vazio e troca vira uma proposta só, e um lote, uma proposta e uma
     confirmação; a proposta é recusada vencida, já usada, de outra pessoa, de outro escritório, de outro cliente OAuth, de
     consentimento revogado e com resumo diferente; duas confirmações ao mesmo tempo gravam uma vez;
-    na confirmação, permissão retirada, aba ocultada ou pasta excluída nesse meio tempo recusam; com
-    elicitation, `accept` com "Confirmo" executa e `decline`, `cancel` e tempo esgotado não executam; sem a capacidade
-    declarada, o servidor nunca manda `elicitation/create`; depois de decidida ou vencida, a proposta não guarda dados.
+    na confirmação, permissão retirada, aba ocultada ou pasta excluída nesse meio tempo recusam; o servidor nunca manda
+    `elicitation/create` (fora do piloto, 6.7, item 2); depois de decidida ou vencida, a proposta não guarda dados.
 21. **Esteira** (6.6, `mudar_andamento`): fase pelo nome e pelo número, nas duas vias; avançar até Contrato marca o contrato
     e a resposta diz isso só para quem vê o Financeiro; voltar e reativar viram proposta; cadeado em "Visualizar" recusa;
     pasta excluída recusa; nome de etapa com mais de 12 letras recusado e nome vazio vira proposta. Arquivar pela
@@ -1546,13 +1730,21 @@ erradas do plano, todas invisíveis à leitura):
 24. **Liberação** (14.a): chave geral desligada, escritório não liberado pelo Master, conector não ligado no escritório ou
     aceite em versão antiga: cada um recusa no `/oauth/authorize` e no `/mcp`; desligar depois de conectar derruba na
     requisição seguinte; liberar o escritório A não libera o B. Sem registro, a chave geral vale como ligada e o escritório,
-    como não liberado (o nível 2 nasce falso).
+    como não liberado (o nível 2 nasce falso). O comando `conector:liberar` (PR 3) liga a liberação, o "ligado" e o aceite
+    de um escritório, grava auditoria e não toca outro escritório.
 25. **Tela que ganhou UseCase**: cada UseCase extraído de controller (6.4 e 6.6, "Falta") tem os testes funcionais da tela
     escritos antes e verdes depois, sem mudar o comportamento.
 26. **Minhas Metas** (`ler_agenda`, `minhas_metas`, 14.i): só as metas da própria pessoa, na aba e no período pedidos, sem
     as de outro escritório e sem as de pasta em segredo (contadas); sem o módulo `tarefas` recusa; com a chave `metas`
     desligada recusa; escritório com o aceite da BlueJus I.A. e sem a liberação do conector recusa (a porta é a do
     conector), e o chat continua exigindo o aceite da I.A.; nada é gravado (nenhuma meta muda).
+27. **Tela de consentimento** (9.4): POST sem token CSRF, ou com token errado, recusa; escritório trocado no formulário por
+    um em que a pessoa não tem vínculo ativo recusa; parâmetros OAuth alterados entre o GET e o POST não valem (vêm da
+    sessão).
+28. **Tabelas e faxina** (13.2): `PurgaCoberturaSchemaTest` verde com as tabelas novas; purgar o escritório e excluir a conta
+    levam as linhas pela cascata; a faxina apaga o que venceu além do prazo e não toca o que está em uso.
+29. **Resposta** (6.2, regra 7): o `content` de cada ferramenta traz o mesmo dado do `structuredContent`; nenhuma
+    ferramenta declara `outputSchema`; cada campo respeita o teto de 50 mil caracteres, com paginação.
 
 ---
 
@@ -1560,77 +1752,96 @@ erradas do plano, todas invisíveis à leitura):
 
 ### 13.1 PRs
 
-Cada PR entrega software que funciona e é revisável sozinho. Estimativa em dias de trabalho de uma sessão, com testes e
-revisão.
+Cada PR entrega software que funciona e é revisável sozinho. Revisto em 16/11/2026: sem estimativa em dias; o PR 4 entrou
+no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 
-| # | Branch sugerida | Entrega | Depende de | Risco | Estimativa |
-|---|---|---|---|---|---|
-| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão (o listener passa a usá-lo, sem mudar comportamento), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); filtro ligado e conferido (fail-closed); escopo de auditoria do conector; **modo do conector** (6.3, item 2) com o teste de que o navegador não muda; teste de arquitetura | nada | ALTO, com re-revisão | 3 dias |
-| 2 | `conector-tabelas` | `composer` (`league/oauth2-server-bundle` ^2.0, `symfony/psr-http-message-bridge`), entidades e **a única migration** (número dado pelo Coordenador) com as 7 tabelas de 13.2, purga do escritório | nada (paralelo ao 1) | ALTO | 2 dias |
-| 3 | `conector-autorizacao` | `/oauth/authorize` (login, escolha do escritório, consentimento com escopos, tela pela convenção do sistema, 14.e), `/oauth/token` com token de 1 hora e renovação com rotação até 7 dias (14.c), metadado RFC 8414, PKCE S256, `resource` para `aud`, `iss`, regras de redirect, `autorizado_em` e impressão da senha (seção 4, regra 3), liberação nos três níveis conferida na autorização (14.a), rotas nas listas dos dois listeners (8), chaves de assinatura (passo do Samuel); conferência: o `client_id` real que o Claude manda, para ajustar a lista de domínios da 3.4 | 1, 2 | ALTO, com re-revisão | 3 dias |
-| 4 | `conector-registro` | CIMD (busca segura, lista `claude.ai` e `chatgpt.com`, cache) e DCR em `/oauth/register` (limite, expiração, redirect só da lista ou loopback); sem cliente pré-registrado no piloto (14.d) | 3 | ALTO | 1,5 dia |
-| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos", impressão da senha e liberação nos três níveis), metadado RFC 9728 nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport`, sessão MCP, nginx (3.3), limites de taxa, log `mcp`, rota com nome próprio para a auditoria, chave `conector_ia` no catálogo, `quem_sou_eu`, teste de arquitetura da lista fechada e das anotações | 1, 3 (o 4 para cliente real) | ALTO, com re-revisão | 3 dias |
-| 6 | `conector-leitura-pasta` | Registro de ferramentas compartilhado com o chat (6.8); `buscar_pastas`, `ler_pasta` (menos publicações, timeline e controladoria), `ler_agenda` (com `minhas_metas` e a porta do aceite na guarda da consulta de prazos, 14.i); `LerAndamentoDaPastaUseCase`; segredo nas listas; máscara sempre ligada (6.2.6); tabela de aba e chave (6.6) com o teste que a percorre | 5 | MÉDIO | 4,5 dias |
-| 7 | `conector-leitura-documentos` | `ler_documentos_e_modelos` com PDF e imagem (porta do aceite do conector, barreira da aba Documentos); `ler_pasta` parte `publicacoes`, sem marcar lida; `ler_processos` (buscar, detalhar, para vincular), com UseCase de leitura e movimentações paginadas | 6 | MÉDIO | 3,5 dias |
-| 7b | `conector-leitura-texto` | Peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML como texto (6.5): método novo no leitor, `ExtratorDeTextoDocx` num lugar comum | 7 | MÉDIO | 2 dias |
-| 7c | `conector-leitura-formatos` | XLSX, XLS, ODS, PPTX, ODP, EML, ZIP, `.p7s`, TIFF e HEIC (6.5); a extensão de imagem nova é arquivo quente e passo de deploy | 7b | MÉDIO | 2,5 dias |
-| 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); liberar por escritório na aba "Configurações da I.A." do Master; ligar e dar o aceite do conector, para o administrador do escritório | 2, 3 | MÉDIO | 2,5 dias |
-| 9 | `conector-confirmacao` | Proposta (`conector_ia_proposta`), `confirmar_acao`, elicitation pelo `ClientGateway::elicit`, `_meta` de interação, escopo `mcp:escrita`, varredura das vencidas (6.7) | 5 | ALTO, com re-revisão | 2,5 dias |
-| 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO | 4,5 dias |
-| 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO | 4,5 dias |
-| 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO | 4 dias |
-| 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO | 4 dias |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO | 3 dias |
-| 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir"), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 | BAIXO | 1,5 dia |
+| # | Branch sugerida | Entrega | Depende de | Risco |
+|---|---|---|---|---|
+| 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão que recebe se o passe do Master vale (o listener passa a usá-lo com o passe, sem mudar comportamento; o portão, sem o passe, 4.1), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); escritório e vínculo do token fixados no `TenantContext` sem sessão por um método que só o portão chama (`fixarSemSessao`, 4.1), o que resolve a auditoria (4.3); filtro ligado e conferido (fail-closed); **modo do conector** (6.3, item 2) com o perfil de sistema por regra fixa (tudo menos `admin.*`, sujeito a cadeado e abas, 6.3, item 3) e o teste de que o navegador não muda, com `disableReboot()`; teste de arquitetura | nada | ALTO, com re-revisão |
+| 2 | `conector-tabelas` | `composer`: `mcp/sdk` **0.10.0** (versão exata) e `symfony/psr-http-message-bridge`, sem biblioteca OAuth (3.2); ajuste da v1 STDIO (`app/src/Mcp/`) às quebras de namespace da 0.10.0, com o `mcp:server` testado; entidades e **a única migration** (número dado pelo Coordenador) com as 7 tabelas de 13.2, FKs em cascata e purga do escritório coberta | nada (paralelo ao 1) | ALTO |
+| 3 | `conector-autorizacao` | Servidor de autorização próprio: `/oauth/authorize` (login, escolha do escritório conferida no servidor, consentimento com escopos, CSRF e parâmetros na sessão, host do `client_id` na tela, tela pela convenção do sistema, 14.e, 9.4), `/oauth/token` com token opaco de 1 hora e renovação com rotação até 7 dias, janela de tolerância e trava de linha (14.c, 9.1), metadado RFC 8414, PKCE só S256, `resource` obrigatório, `iss` em toda resposta, concessão com `autorizado_em` e impressão da senha (seção 4, regra 3); **registro do cliente por CIMD** (busca segura, hosts de `client_id` em configuração, lista exata de `redirect_uri`, cache, recusa com o host no log; 3.4); liberação nos três níveis conferida na autorização (14.a) e o comando de console do Master `conector:liberar <tenant>` (liga a liberação, o "ligado" e o aceite, auditado), para conectar um cliente real antes do PR 8; comando de faxina no Scheduler (13.2); rotas nas listas dos dois listeners (8); conferência: o `client_id` e o `redirect_uri` reais que Claude e ChatGPT mandam | 1, 2 | ALTO, com re-revisão |
+| 4 | (entrou no PR 3) | CIMD e lista de `redirect_uri` estão no PR 3; DCR fora do piloto (3.4) | | |
+| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token opaco com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos", impressão da senha e liberação nos três níveis), metadado RFC 9728 por controller nosso nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport` do SDK 0.10.0 **sem sessão**, `AuthorizationMiddleware` com `ScopePolicy` (403 `insufficient_scope` antes do SDK), `securitySchemes` e `_meta["mcp/www_authenticate"]` para o ChatGPT (5.1), `NullLogger` no SDK, nginx (3.3), limites de taxa (por pessoa, por escritório, documento e confirmação, 8), log `mcp`, rota com nome próprio para a auditoria, chave `conector_ia` no catálogo, `quem_sou_eu`, teste de arquitetura da lista fechada e das anotações | 1, 3 | ALTO, com re-revisão |
+| 6 | `conector-leitura-pasta` | Registro de ferramentas próprio do conector (o compartilhado com o chat fica para depois do piloto, 6.8; o PR não mexe no despacho do chat); `buscar_pastas`, `ler_pasta` (menos publicações, timeline e controladoria), `ler_agenda` (com `minhas_metas` e a porta do aceite na guarda da consulta de prazos, 14.i); `LerAndamentoDaPastaUseCase`; segredo nas listas; máscara sempre ligada (6.2.6); tabela de aba e chave (6.6) com o teste que a percorre | 5 | MÉDIO |
+| 7 | `conector-leitura-documentos` | `ler_documentos_e_modelos` com PDF e imagem (porta do aceite do conector, barreira da aba Documentos); `ler_pasta` parte `publicacoes`, sem marcar lida; `ler_processos` (buscar, detalhar, para vincular), com UseCase de leitura e movimentações paginadas | 6 | MÉDIO |
+| 7b | `conector-leitura-texto` | Peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML como texto (6.5): método novo no leitor, `ExtratorDeTextoDocx` num lugar comum | 7 | MÉDIO |
+| 7c | `conector-leitura-formatos` | XLSX, XLS, ODS, PPTX, ODP, EML, ZIP, `.p7s`, TIFF e HEIC (6.5); a extensão de imagem nova é arquivo quente e passo de deploy | 7b | MÉDIO |
+| 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); liberar por escritório na aba "Configurações da I.A." do Master; ligar e dar o aceite do conector, para o administrador do escritório. O comando `conector:liberar` do PR 3 continua | 2, 3 | MÉDIO |
+| 9 | `conector-confirmacao` | Proposta (`conector_ia_proposta`), `confirmar_acao`, `_meta` de interação, escopo `mcp:escrita`, varredura das vencidas (6.7); sem elicitation (6.7, item 2) | 5 | ALTO, com re-revisão |
+| 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO |
+| 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
+| 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
+| 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO |
+| 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
-**Total: cerca de 51,5 dias de trabalho** de uma sessão (meio dia no PR 6 pela leitura de Minhas Metas, 14.i, e meio dia
-em cada um dos PRs 10 a 13 pela regra geral de gravar por cima e pelos caminhos do envio automático, 6.6). Com sessões em
-paralelo:
+**Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
+`resource`, redirect, step-up), e o primeiro teste real só viria no PR 15. Com o PR 5 integrado e o escritório piloto
+liberado pelo `conector:liberar` (PR 3), o Samuel conecta e chama `quem_sou_eu` no claude.ai, no Claude Code e no ChatGPT.
+O que falhar volta para o PR 3 ou o 5 antes de seguir.
 
-- **Caminho crítico até a abertura: 1 → 3 → 5 → 6 → 7 → 7b → 7c → 15, cerca de 23 dias.** O PR 2 corre ao lado do 1; o 4
-  e o 8 ao lado do 5; o 9 ao lado do 6; os PRs 10 a 13 terminam até o dia 21. O PR 14 termina perto do dia 24 e não
-  segura a abertura: **a abertura do piloto sai sem o PR 14**, ou seja, sem excluir cliente, excluir processo e os
-  documentos do cliente (lista e exclusão), nem o resto da linha 14 da tabela; essas ações entram depois, quando o PR 14
-  for integrado.
+**Ordem:**
+
+- **Caminho crítico até a abertura:** 1 → 3 → 5 → (smoke) → 6 → 7 → 7b → 7c → 15. O PR 2 corre ao lado do 1 e o 3 espera
+  os dois; o 8 corre ao lado do 5; o 9 ao lado do 6; os PRs 10 a 13 correm ao lado do 7 ao 7c. **A abertura do piloto sai
+  sem o PR 14**, ou seja, sem excluir cliente, excluir processo e os documentos do cliente (lista e exclusão), nem o resto
+  da linha 14 da tabela; essas ações entram depois, quando o PR 14 for integrado.
 - **Piloto com os três pedidos do Samuel** (A: pasta e esteira; B: documentos; C: cliente), no escritório do Farlei: depois
-  dos PRs 1 a 7b, 8, 9, 10 e 11 (sem o PR 14), **cerca de 19 dias** (A e C perto do dia 18; B com PDF e imagem no dia 17
-  e com Word e peça do editor no dia 19). Com uma sessão só, o mesmo piloto leva cerca de 36,5 dias.
-- A versão de 08/11 somava 28 dias e 18 de caminho crítico. A diferença é o escopo novo (14.b): de 17 ferramentas de uma
-  ação cada para as 187 ações do usuário comum nos quatro módulos, menos as que a 6.1 deixa fora; mais a confirmação (PR 9),
-  o teto (PR 1), a liberação (PRs 3, 5 e 8) e os tipos de documento (PRs 7b e 7c).
+  dos PRs 1 a 3, 5 a 7b, 8, 9, 10 e 11 (sem o PR 14). B com PDF e imagem sai com o 7; com Word e peça do editor, com o 7b.
 
 Regras do plano:
 
-- **Uma migration só, no PR 2**, com as 7 tabelas de 13.2 (as decisões 14.a, 14.c e 14.g já estão tomadas). Número dado pelo
-  Coordenador, respeitando a regra de uma migration por vez entre os PRs abertos. Se um PR seguinte descobrir que precisa de
-  coluna nova, pede ao Coordenador antes.
-- Arquivos quentes (avisar o Coordenador no início de cada PR que os toca): `composer.json`/`composer.lock` (PR 2),
-  `security.yaml` (PR 5), `framework.yaml` (PR 5), `nginx.prod.conf` (PR 5), a migration (PR 2), o `Dockerfile` da imagem PHP
-  (PR 7c).
+- **Uma migration só, no PR 2**, com as 7 tabelas de 13.2 (as decisões 14.a, 14.c e 14.g e as de 16/11/2026 já estão
+  tomadas). Número dado pelo Coordenador, respeitando a regra de uma migration por vez entre os PRs abertos. Se um PR
+  seguinte descobrir que precisa de coluna nova, pede ao Coordenador antes.
+- Arquivos quentes (avisar o Coordenador no início de cada PR que os toca): `composer.json`/`composer.lock` (PR 2), a
+  migration (PR 2), a configuração do Scheduler para a faxina (PR 3), `security.yaml` (PR 5), `framework.yaml` (PR 5),
+  `nginx.prod.conf` (PR 5), o `Dockerfile` da imagem PHP (PR 7c).
 - Os PRs 1, 3, 5 e 9 mexem em identidade ou na garantia da confirmação: revisão contra esta spec e re-revisão antes do
   seguinte. Os de gravação (10 a 14) são revisados contra a tabela da 6.6 e a lista de exclusões da 6.7.
 - **Liberação no piloto:** a chave geral `conector_ia` já nasce ligada (14.a, nível 1); o Master libera só o escritório do
-  Farlei (o nível 2, que nasce falso) e o administrador dele liga o conector e dá o aceite. Abrir a outro escritório espera
-  o texto dos advogados (14.a).
+  Farlei (o nível 2, que nasce falso), pelo `conector:liberar` até o PR 8 e pela tela depois, e o administrador dele liga o
+  conector e dá o aceite. Abrir a outro escritório espera o texto dos advogados (14.a).
 
 ### 13.2 Tabelas novas
 
-Sem número de migration: o Coordenador numera. Guardar só o **hash** de código, token e id de proposta, nunca o valor. Os
-nomes finais dependem de o bundle aceitar gerenciadores próprios (3.2); a recomendação é gerenciadores próprios, para ter
-escritório e consentimento.
+Lista final da revisão de 16/11/2026 (decisão 3 da seção 14), numa migration só, no PR 2. Sem número de migration: o
+Coordenador numera. Guardar só o **hash** (SHA-256) de código, token, renovação e id de proposta, nunca o valor.
+
+Regras de todas:
+
+- **`tenant_id` em toda tabela com dado de escritório** (todas menos `conector_ia_cliente`), com FK `ON DELETE CASCADE`
+  para `tenant`; `user_id`, quando existe, com FK `ON DELETE CASCADE` para `user`; a FK para a tabela pai também em
+  cascata. Exceções, para não apagar o que não é da pessoa: `conector_ia_escritorio.aceito_por_user_id` e
+  `conector_ia_token.gerado_por_id` com `ON DELETE SET NULL`. `PurgaCoberturaSchemaTest` verde (9.9).
+- **Faxina** (comando no Scheduler, que existe desde a v2.14.0; PR 3): apaga código e token vencidos há mais de 1 dia,
+  concessão vencida ou revogada há mais de 30 dias (a cascata leva os códigos e tokens dela) e proposta decidida ou vencida
+  (os dados dela já foram zerados, 6.7, item 6).
+- Sem `audiencia` (o `resource` é conferido no código, 9.3), sem `ultimo_uso_em` em cliente e token (três `UPDATE` por
+  chamada), sem as colunas do pré-registrado (`segredo_hash` e `tenant_id` do cliente, que voltam com o Gemini Enterprise,
+  3.4).
 
 | Tabela | Para quê | Colunas principais | Escritório |
 |---|---|---|---|
-| `conector_ia_cliente` | o app de I.A. registrado (CIMD ou DCR) | `identificador` (único; a URL no CIMD), `tipo` (`cimd`, `dcr`, `pre_registrado`; o último fica sem uso no piloto, 14.d), `nome`, `redirect_uris` (JSON), `segredo_hash` (só pré-registrado confidencial), `tenant_id` (nulo, salvo pré-registrado de um escritório), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em`, `ultimo_uso_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
-| `conector_ia_codigo` | código de autorização | `identificador_hash`, `cliente_id`, `user_id`, `tenant_id`, `redirect_uri`, `code_challenge`, `escopos`, `resource`, `expira_em` (até 10 min), `usado_em` | sim |
-| `conector_ia_token` | token de acesso (1 hora, 14.c) | `identificador_hash` (jti), `cliente_id`, `user_id`, `tenant_id`, `consentimento_id`, `escopos`, `audiencia`, `autorizado_em` (instante do login que originou a cadeia), `impressao_da_senha` (HMAC do hash da senha), `criado_em`, `expira_em`, `revogado_em`, `ultimo_uso_em` | sim |
-| `conector_ia_renovacao` | token de renovação, com rotação (14.c) | `identificador_hash`, `token_id`, `autorizado_em` (copiado na rotação), `impressao_da_senha`, `expira_em` (limite absoluto: 7 dias do `autorizado_em`), `revogado_em`, `substituido_por` | sim (pelo token) |
-| `conector_ia_consentimento` | a "conexão" que a pessoa vê e revoga | `user_id`, `tenant_id`, `cliente_id`, `escopos`, `concedido_em`, `revogado_em`, `ultimo_uso_em`; uma ativa por pessoa, escritório e cliente; `Auditavel` (conceder, revogar) | sim |
+| `conector_ia_cliente` | o app de I.A. registrado por CIMD | `identificador` (único; a URL do documento CIMD), `tipo` (`cimd` no piloto; `dcr` e `pre_registrado` ficam reservados para depois, 3.4), `nome` (o `client_name`, autodeclarado; a tela mostra o host do `identificador`, 9.4), `redirect_uris` (JSON, do documento), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
 | `conector_ia_escritorio` | liberação do Master e aceite do escritório (14.a) | `tenant_id` (único), `liberado_pelo_master` (padrão falso), `ligado` (padrão falso), `aceite_em`, `aceite_versao`, `aceito_por_user_id`; `Auditavel` (quem liberou, ligou ou aceitou, e quando, fica no `audit_log`, como na `ConfiguracaoDeInteligencia`) | sim |
+| `conector_ia_consentimento` | a "conexão" que a pessoa vê e revoga | `user_id`, `tenant_id`, `cliente_id`, `escopos`, `concedido_em`, `revogado_em`, `ultimo_uso_em` (gravado no máximo uma vez por minuto); uma ativa por pessoa, escritório e cliente; `Auditavel` (conceder, revogar) | sim |
+| `conector_ia_concessao` | a cadeia: uma por autorização na tela (9.1) | `consentimento_id`, `tenant_id`, `user_id`, `escopos` (concedidos), `resource`, `autorizado_em` (instante da autorização; é o `criado_em`), `impressao_da_senha` (HMAC do hash da senha), `expira_em` (limite absoluto: 7 dias do `autorizado_em`), `revogada_em`, `motivo` (da revogação, de lista fechada) | sim |
+| `conector_ia_codigo` | código de autorização | `identificador_hash` (único), `concessao_id`, `tenant_id`, `redirect_uri`, `code_challenge` (só S256), `criado_em`, `expira_em` (até 10 min), `usado_em` | sim |
+| `conector_ia_token` | token de acesso e de renovação, opacos (14.c) | `identificador_hash` (único), `tipo` (`acesso`, de 1 hora, ou `renovacao`, até o `expira_em` da concessão), `concessao_id`, `tenant_id`, `escopos`, `gerado_por_id` (a renovação que gerou este par; nulo no primeiro par), `criado_em`, `expira_em`, `usado_em` (só renovação: o instante da rotação, que abre a janela de cerca de 60 s, 9.1), `revogado_em` | sim |
 | `conector_ia_proposta` | a ação que espera confirmação (6.7) | `identificador_hash`, `user_id`, `tenant_id`, `consentimento_id`, `cliente_id`, `ferramenta`, `acao`, `dados` (JSON, zerado ao decidir ou vencer), `dados_hash`, `resumo` (zerado junto), `estado` (`pendente`, `confirmada`, `cancelada`, `expirada`), `resultado` (ids, sem texto), `criada_em`, `expira_em` (10 min), `decidida_em` | sim |
 
+Como as tabelas se usam:
+
+- **A cada requisição** (9.2): um `JOIN` token, concessão, consentimento confere o hash, o tipo `acesso`, a validade e as
+  revogações dos três, o `autorizado_em` contra o corte de "Sair de todos os aparelhos", a impressão da senha e o
+  escritório.
+- **Derrubar a cadeia** (reuso fora da janela, falha na renovação, revogação pela pessoa) é um `UPDATE` na concessão; a
+  rotação não copia nada (9.1).
+- O consentimento é a conexão que a pessoa vê; cada nova autorização no mesmo consentimento abre uma concessão nova.
+
 A chave geral `conector_ia` não precisa de tabela: entra no `CatalogoDeRecursos` e usa o registro que o `RecursosDoSistema`
-já tem. Toda tabela com escritório entra no `PurgarEscritorioUseCase`.
+já tem.
 
 ---
 
@@ -1661,7 +1872,7 @@ Como fica, no mesmo molde da BlueJus I.A. (`DisponibilidadeDeInteligencia`, trê
 cada requisição):
 
 1. **Chave geral** do Master: `conector_ia` no `CatalogoDeRecursos`, que desliga o conector de todos de uma vez. **Nasce
-   ligada**: sem registro, `RecursosDoSistema::estado` devolve ativo (`app/src/Master/Service/RecursosDoSistema.php:55`),
+   ligada**: sem registro, `RecursosDoSistema::estado` devolve ativo (`app/src/Master/Service/RecursosDoSistema.php:53`),
    como toda chave do catálogo. O que nasce falso é o nível 2.
 2. **Liberação por escritório, pelo Master**, quando ele quiser, na aba "Configurações da I.A." do painel Master, ao lado da
    liberação da BlueJus I.A. (`master_ia_escritorio`): `conector_ia_escritorio.liberado_pelo_master`, padrão falso, como o campo `liberadaPeloMaster` da
@@ -1688,7 +1899,7 @@ explícito e prioritário de três coisas:
 - **B.** Ler os documentos da pasta: `ler_documentos_e_modelos`, com os tipos da 14.f.
 - **C.** Cadastrar cliente e completar os dados: `ler_clientes` e `atualizar_cliente`.
 
-Como fica: 17 ferramentas (6), plano de 17 PRs (13.1) e teto próprio (6.3), que tira pelo conector os dois bypasses, como
+Como fica: 17 ferramentas (6), o plano de PRs da 13.1 e teto próprio (6.3), que tira pelo conector os dois bypasses, como
 o inventário classifica (seção 5, última linha). Para o Farlei, que é Master, isso quer dizer: pelo conector ele vê o que o
 perfil dele no escritório vê, **sem nenhuma pasta trancada**. Master e primário nunca estão na lista do cadeado (a grade os
 exclui) e o pedido de acesso não fura o cadeado, então pelo conector não há caminho para elas; pela tela, continuam
@@ -1700,11 +1911,13 @@ Financeiro, lista de modelos de checklist), entram depois.
 
 **c) Como os 7 dias funcionam. Decidido em 08/11/2026: opção 2.** Token de acesso de 1 hora, com renovação e rotação até
 completar 7 dias da autorização. A pessoa faz login uma vez por semana, e um token vazado vale 1 hora. O metadado anuncia
-`refresh_token` e `offline_access` (3.4, 5.1); a tabela `conector_ia_renovacao` entra na migration do PR 2.
+`refresh_token` e `offline_access` (3.4, 5.1); a renovação entra na migration do PR 2 como `tipo` `renovacao` de
+`conector_ia_token`, presa à concessão (13.2; revisão de 16/11/2026, que trocou a tabela `conector_ia_renovacao`).
 
 **d) Clientes atendidos. Decidido em 08/11/2026: opção 1.** Claude e ChatGPT como conector personalizado (a pessoa cola a URL
-`https://bluejus.com.br/mcp`). Gemini fica fora no piloto. A lista de domínios do CIMD e dos `redirect_uris` do DCR fica em
-`claude.ai` e `chatgpt.com`, mais loopback para o Claude Code (3.4). Sem cliente pré-registrado e sem diretórios no piloto.
+`https://bluejus.com.br/mcp`). Gemini fica fora no piloto. A lista de hosts do `client_id` do CIMD começa em `claude.ai` e
+`chatgpt.com`, em configuração, e a lista exata de `redirect_uri` é a dos dois clientes mais loopback para o Claude Code
+(3.4; revisão de 16/11/2026, que tirou o DCR do piloto). Sem cliente pré-registrado e sem diretórios no piloto.
 
 **e) Telas sem desenho. Decidido em 08/11/2026: opção 2.** As quatro telas (a de autorização, no PR 3, e as três do PR 8:
 "Conexões de I.A." no Meu Perfil, a liberação por escritório na aba "Configurações da I.A." do Master e a tela em que o
@@ -1721,8 +1934,9 @@ o servidor garante isso e o que não deu para confirmar em fonte oficial: 6.7.
 **Limite, dito com honestidade (revisão de 09/11/2026):** o servidor garante que só executa com uma confirmação presa à
 proposta (mesma pessoa, escritório, consentimento e cliente OAuth, uso único, até 10 minutos). Ele **não prova que uma
 pessoa leu**. Com "Permitir sempre" no claude.ai ou "lembrar" no ChatGPT, o próprio modelo pode chamar `confirmar_acao` sem
-pergunta à pessoa. A confirmação mais forte é a elicitation, onde o cliente tiver (6.7, item 2). Esse risco residual fica
-aceito no piloto, está na seção 11, e o guia do usuário (PR 15) pede para não marcar essas opções; a confirmação não é
+pergunta à pessoa; o mesmo com "Skip approvals" no conector ou o modo "Auto" da conversa no claude.ai (revisão de
+16/11/2026). A elicitation, que seria a confirmação mais forte, ficou fora do piloto (6.7, item 2). Esse risco residual
+fica aceito no piloto, está na seção 11, e o guia do usuário (PR 15) pede para não usar essas opções; a confirmação não é
 absoluta.
 
 **h) Partes da pasta que são de outro módulo (inventário, seção 1.13). Decidido em 09/11/2026.**
@@ -1749,7 +1963,7 @@ prazo) é do módulo Tarefas, fora dos quatro módulos, e a decisão h) só pôs
 tem essa leitura pronta e sem sessão (`ConsultarPrazosEMetasUseCase`, 4.2).
 
 - Opção 1: fica fora. O assistente acha prazos pela agenda (`ler_agenda`, com prazos) e pela pasta.
-- Opção 2: entra só a leitura, como parte `minhas_metas` de `ler_agenda`, pelo UseCase do chat (meio dia no PR 6). Concluir,
+- Opção 2: entra só a leitura, como parte `minhas_metas` de `ler_agenda`, pelo UseCase do chat (no PR 6). Concluir,
   despachar e as demais ações de meta continuam fora.
 
 **Decidido em 09/11/2026: entra** (opção 2, a recomendada). "Acompanhar prazos" estava no pedido original (seção 2), o
@@ -1764,8 +1978,53 @@ conector teria de receber o arquivo dentro do argumento da ferramenta, em base64
 
 - Opção 1: fica fora no piloto. A pessoa envia o arquivo pela tela; o conector lê, organiza, move e renomeia depois. Peça
   redigida pelo assistente já entra como documento (`escrever_peca`).
-- Opção 2: entra com arquivo em base64, até cerca de 3 MB, pelo `UploadPecaUseCase` (1,5 dia no PR 12), sabendo que pode não
+- Opção 2: entra com arquivo em base64, até cerca de 3 MB, pelo `UploadPecaUseCase` (no PR 12), sabendo que pode não
   funcionar nos clientes.
 
 **Decidido em 09/11/2026: fica fora do piloto** (opção 1, a recomendada). O piloto mostra se faz falta; se fizer, a opção 2
 entra num PR próprio depois de testada nos dois clientes.
+
+**Decidido em 16/11/2026 (Coordenador, pela revisão de protocolo e pela revisão de código):**
+
+1. **Servidor de autorização próprio** no BlueJus, sem `league/oauth2-server-bundle` e sem `league/oauth2-server`; token de
+   acesso e de renovação **opacos**, guardados só como SHA-256; sem JWT e sem par de chaves. PKCE só S256 e obrigatório;
+   `resource` (RFC 8707) obrigatório e conferido; `iss` na resposta de autorização;
+   `token_endpoint_auth_methods_supported: ["none"]` no piloto (3.2, 3.4, 9.3, 9.6). O conflito entre token opaco e JWT
+   que a spec tinha (13.2 com hash, 8 com chaves, 3.3 com JWKS) fica resolvido: opaco.
+2. **`mcp/sdk` 0.10.0** (o lock tem 0.7.1): sem sessão por padrão; `ScopePolicy` para o 403 `insufficient_scope` antes do
+   SDK; `NullLogger` no SDK. O PR 2 sobe a versão e ajusta a v1 STDIO (`app/src/Mcp/`). Saem o PR próprio da 2026-07-28 e o
+   `Psr16SessionStore`, que a 0.10.0 tornou desnecessários (3.1, 3.5, 5.1, 6.2.9, 8).
+3. **Tabelas**: sete, com a concessão como cadeia (`autorizado_em`, impressão da senha, validade de 7 dias) e um token
+   único com `tipo` acesso ou renovação; as colunas que faltavam (consentimento, escopos, `resource`, cadeia, `criado_em`,
+   `usado_em` com janela de cerca de 60 s na rotação); `tenant_id` em toda tabela com dado de escritório, FKs em cascata e
+   comando de faxina agendado; sem as colunas que sobravam. Uma migration só, no PR 2 (13.2).
+4. **Piloto mais curto**: o registro do cliente entra no PR 3 e o PR 4 some (CIMD com a lista exata de `redirect_uri` e os
+   hosts de `client_id` em configuração; DCR fora do piloto, 3.4); elicitation fora do piloto, e o PR 9 fica com a proposta e
+   a `confirmar_acao` (6.7); o registro de ferramentas compartilhado com o chat fica para depois (6.8); comando de console
+   para liberar o escritório no PR 3 (13.1); CSRF e conferência do escritório no consentimento (9.4); `content` com o dado
+   completo junto do `structuredContent` (6.2, regra 7); ChatGPT com `_meta["mcp/www_authenticate"]` e `securitySchemes`
+   por ferramenta (5.1); o plano do ChatGPT para gravação fica como risco, não como regra (11).
+5. **PR 1**: o escritório do token fixado no `TenantContext` sem sessão, por um método que só o portão chama; sem o passe do
+   Master no portão; modo do conector com o perfil de sistema tendo tudo menos `admin.*`, sujeito ao cadeado e às abas, sem
+   fallback pelo `PermissionFixture`; teste da requisição seguinte com `disableReboot()`. O escopo de auditoria do conector
+   sai do PR 1 (4.1, 4.3, 6.3).
+6. **Linhas de arquivo** corrigidas onde a revisão de código as achou deslocadas (cabeçalho).
+7. **Sem estimativa em dias** no plano: ficam dependências, risco e o caminho crítico como sequência de PRs (13.1).
+
+**Decidido em 16/11/2026 na implementação dos PRs 1 e 2 (orquestrador da frente, ratificado pelo Coordenador):**
+
+1. **Recusa por vínculo no conector**: vínculo removido, vínculo ativo com situação diferente de "aprovado" ou escritório
+   inexistente recebe a mensagem própria do conector (`AcessoDoConectorRecusado::ACESSO_INDISPONIVEL`), sem a frase
+   "Selecione outro escritório", que só serve ao navegador. Vínculo em análise ou suspenso pela equipe recebe a mensagem
+   da situação, igual à do navegador (ela não manda escolher escritório). O navegador continua com o texto dele.
+2. **Renovação apresentada por outro cliente OAuth** derruba a concessão inteira **mesmo na primeira vez** (mais rígido que
+   a 9.1, que fala de renovação já usada). A tolerância da janela de cerca de 60 s só vale para o mesmo cliente e enquanto a
+   renovação gerada na rotação anterior não foi usada nem revogada; renovação revogada ou vencida que volta também derruba
+   a concessão (9.2).
+3. **Motivo da revogação da concessão**: lista fechada de quatro valores: `renovacao_reutilizada`, `falha_na_renovacao`,
+   `revogada_pela_pessoa` e `conta_ou_vinculo_encerrado`. Valor novo pede ao Coordenador.
+4. **Portão aberto uma vez por requisição**: `PortaoDoConector::abrir` chamado de novo na mesma requisição recusa, sem
+   mexer no estado da primeira; `conferir` (usado no `/oauth/authorize`) não devolve o contexto que as ferramentas recebem.
+   O `/mcp` (PR 5) encerra a requisição em **qualquer** exceção do `abrir()`, inclusive `LogicException`, sem tentar de
+   novo; a trava contra reabrir só vale depois de uma abertura que deu certo, então é essa regra do PR 5 que fecha o
+   caso de uma abertura que falhou no meio. Teste no PR 5.

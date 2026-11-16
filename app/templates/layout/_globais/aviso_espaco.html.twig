@@ -1,22 +1,46 @@
 {#
-    Aviso de espaço no topo de toda tela (desenho 08, bj-plano.js). Só para o usuário primário, a partir
-    da faixa Alerta do Master (padrão 90%), uma vez por dia ("Lembrar amanhã"). Espaço esgotado não tem
-    botão de fechar. Os dados vêm de aviso_de_espaco() (Contribua), que só consulta quando chamado.
+    Barras de aviso de espaço no topo de toda tela (desenho Contribua 14 e 15/11, bj-plano.js), no contêiner .ae-avisos:
+      - a do escritório: só o primário, a partir da faixa Alerta do Master (padrão 90%), uma vez por dia, nunca na tela Contribua;
+      - a do Master com pedidos de espaço pendentes (N9), nunca na tela Contribua, com prioridade sobre a anterior (o JS mostra uma só).
+    Os modais "Solicitar mais espaço" / "Pedido em análise" e o pop-up dos 97% vivem em espaco_solicitar.html.twig, fora
+    do contêiner (o transform dele prenderia o overlay), e valem em todas as telas, inclusive a Contribua.
+    Os dados vêm das funções de AvisoDeEspacoExtension (Contribua), que só consultam quando chamadas.
 #}
-{% if _ehPrimario|default(false) %}
-    {% set aviso = aviso_de_espaco() %}
-    {% if aviso %}
-        <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
-        <div class="ae-aviso{{ aviso.vermelho ? ' ae-aviso--cheio' }}" data-aviso-espaco data-cheio="{{ aviso.cheio ? '1' : '0' }}" data-print="hide" role="status" hidden>
-            <span class="ae-icone" aria-hidden="true">{{ aviso.vermelho ? '⛔' : '⚠️' }}</span>
-            <div class="ae-texto">
-                <b>{{ aviso.cheio ? 'moldura.aviso_espaco.titulo_esgotado'|trans : 'moldura.aviso_espaco.titulo_ocupado'|trans({percentual: aviso.percentual ~ ''}) }}</b>
-                <div>{{ 'moldura.aviso_espaco.uso_do_plano'|trans({uso: aviso.uso, limite: aviso.limite, plano: aviso.plano}) }} {{ aviso.cheio ? 'moldura.aviso_espaco.consulta_liberada'|trans : (aviso.faltam ? 'moldura.aviso_espaco.faltam'|trans({faltam: aviso.faltam}) ~ ' ' : '') ~ 'moldura.aviso_espaco.recomendacao'|trans }}</div>
-                <div class="ae-barra"><div style="width: {{ aviso.largura }}"></div></div>
-            </div>
-            <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">{{ 'moldura.aviso_espaco.aumentar'|trans }}</a>
-            {% if not aviso.cheio %}<button type="button" class="ae-fechar" data-fechar-aviso-espaco title="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}" aria-label="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}">×</button>{% endif %}
+{% set aviso = aviso_de_espaco() %}
+{% set pedidosDoMaster = aviso_de_pedidos_de_espaco() %}
+{% if aviso or pedidosDoMaster or espaco_para_solicitar() %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <script src="{{ asset('js/aviso-espaco.js') }}" defer></script>
+{% endif %}
+{% if aviso %}
+    <div class="ae-aviso" data-aviso-espaco data-print="hide" role="status" hidden>
+        <span class="ae-icone" aria-hidden="true">{{ aviso.estado == 'pendente' ? '⏳' : '⚠️' }}</span>
+        <div class="ae-texto">
+            <b>{{ aviso.estado == 'pendente' ? 'moldura.aviso_espaco.titulo_em_analise'|trans : 'moldura.aviso_espaco.titulo_ocupado'|trans({percentual: aviso.percentual ~ ''}) }}</b>
+            <div>{{ 'moldura.aviso_espaco.uso_de_limite'|trans({uso: aviso.uso, limite: aviso.limite}) }}
+                {% if aviso.estado == 'pendente' %}{{ 'moldura.aviso_espaco.enviado_em'|trans({quando: aviso.quando}) }} {{ 'moldura.aviso_espaco.avisaremos'|trans }}
+                {% elseif aviso.estado == 'liberado' %}{{ 'moldura.aviso_espaco.ja_liberadas'|trans }}
+                {% else %}{{ 'moldura.aviso_espaco.faltam_solicite'|trans({faltam: aviso.faltam}) }}{% endif %}</div>
+            <div class="ae-barra"><div style="width: {{ aviso.largura }}"></div></div>
         </div>
-        <script src="{{ asset('js/aviso-espaco.js') }}" defer></script>
-    {% endif %}
+        {% if aviso.estado == 'pendente' %}
+            <button type="button" class="ae-aumentar" data-espaco-ver-pedido>{{ 'moldura.aviso_espaco.ver_pedido'|trans }}</button>
+        {% elseif aviso.estado == 'liberado' %}
+            <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">{{ 'moldura.aviso_espaco.ver_opcoes'|trans }}</a>
+        {% else %}
+            <button type="button" class="ae-aumentar" data-espaco-solicitar>{{ 'moldura.aviso_espaco.solicitar'|trans }}</button>
+        {% endif %}
+        <button type="button" class="ae-fechar" data-fechar-aviso-espaco title="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}" aria-label="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}">×</button>
+    </div>
+{% endif %}
+{% if pedidosDoMaster %}
+    <div class="ae-aviso ae-aviso--pedidos" data-aviso-pedidos-espaco data-print="hide" role="status" hidden>
+        <span class="ae-icone" aria-hidden="true">📥</span>
+        <div class="ae-texto">
+            <b>{{ 'moldura.aviso_espaco.pedidos_titulo'|trans({quantidade: pedidosDoMaster ~ ''}) }}</b>
+            <div>{{ 'moldura.aviso_espaco.pedidos_sub'|trans }}</div>
+        </div>
+        <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">{{ 'moldura.aviso_espaco.pedidos_analisar'|trans }}</a>
+        <button type="button" class="ae-fechar" data-fechar-aviso-pedidos title="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}" aria-label="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}">×</button>
+    </div>
 {% endif %}

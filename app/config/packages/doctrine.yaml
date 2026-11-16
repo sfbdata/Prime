@@ -250,6 +250,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Voto/Entity'
                 prefix: 'App\Voto\Entity'
                 alias: AppVoto
+            # Conector de I.A. (MCP remoto com OAuth, docs/specs/mcp-remoto-oauth.md, 13.2).
+            AppConector:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Conector/Entity'
+                prefix: 'App\Conector\Entity'
+                alias: AppConector
         controller_resolver:
             auto_mapping: false
         dql:

@@ -494,7 +494,7 @@ final class PontoController extends AbstractController
                 $justificativa->setStatus($statusInicial);
                 $justificativa->setBatchId($batchId);
                 $justificativa->setAbonoParcial($abonoParcial);
-                $justificativa->setMotivo(trim((string) $form->get('motivo')->getData()));
+                $justificativa->setMotivo(self::motivoDoEnvio($form->get('motivo')->getData()));
                 if ($abonoParcial) {
                     $justificativa->setHoraInicioAbono($horaInicio);
                     $justificativa->setHoraFimAbono($horaFim);
@@ -538,6 +538,17 @@ final class PontoController extends AbstractController
         }
 
         return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+    }
+
+    /**
+     * O motivo gravado do envio, sem os espaços das pontas. Em branco só passa no esquecimento de registro
+     * (JustificativaPontoType, pedido do dono de 16/11/2026) e grava nulo, como as justificativas sem motivo.
+     */
+    private static function motivoDoEnvio(mixed $motivo): ?string
+    {
+        $motivo = trim((string) $motivo);
+
+        return $motivo !== '' ? $motivo : null;
     }
 
     /**
@@ -699,6 +710,9 @@ final class PontoController extends AbstractController
      * E4: a janela "Editar justificativa" sempre manda o motivo, e em branco não sai (o desenho o pede ao criar). Sem o
      * campo no pedido, o motivo gravado fica como está. O motivo é do lote (nasce o mesmo em cada dia e a ficha do gestor
      * mostra o do primeiro dia): vai para os dias em análise do lote (`diasEmAnaliseDoLote`). Devolve a recusa, ou null.
+     *
+     * Exceção (pedido do dono, 16/11/2026): no esquecimento de registro (o tipo já trocado pela edição) o motivo é livre;
+     * em branco, sai só do dia editado, para não apagar o motivo de outro dia do lote com tipo que ainda o exige.
      */
     private function aplicarMotivoDaEdicao(Request $request, JustificativaPonto $justificativa, User $user, Tenant $tenant): ?string
     {
@@ -706,6 +720,11 @@ final class PontoController extends AbstractController
             return null;
         }
         $motivo = trim((string) $request->request->get('motivo'));
+        if ($motivo === '' && $justificativa->getTipo() === TipoJustificativa::EsquecimentoRegistro->value) {
+            $justificativa->setMotivo(null);
+
+            return null;
+        }
         if ($motivo === '') {
             return 'Informe o motivo.';
         }

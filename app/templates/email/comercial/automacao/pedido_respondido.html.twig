@@ -1,0 +1,4 @@
+{# Aviso "Resposta ao pedido de espaço" (Contribua 14 e 15/11): `resp`, na recusa, sem chave de liga/desliga. #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.pedido_respondido.texto'|trans) }}
+{{ b.botao('emails.comercial.pedido_respondido.botao'|trans, urlDoEspaco) }}

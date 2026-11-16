@@ -12,9 +12,12 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TimeType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 final class JustificativaPontoType extends AbstractType
 {
@@ -86,8 +89,9 @@ final class JustificativaPontoType extends AbstractType
     }
 
     /**
-     * E4 do desenho (P44 e P46): o motivo é obrigatório nas duas janelas do colaborador ("Justificar falta" e
-     * "Registro de esquecimento"), com teto para não gravar texto sem fim. O mesmo texto vai a cada dia do lote.
+     * E4 do desenho (P44 e P46): o motivo é obrigatório nas janelas do colaborador, com teto para não gravar texto sem
+     * fim. O mesmo texto vai a cada dia do lote. Exceção (pedido do dono, 16/11/2026): no "Registro de esquecimento"
+     * (`esquecimento_registro`) o motivo é livre; o campo continua na tela e, se escrito, é gravado.
      *
      * @return array<string, mixed>
      */
@@ -96,10 +100,23 @@ final class JustificativaPontoType extends AbstractType
         return [
             'mapped'      => false,
             'constraints' => [
-                new NotBlank(message: 'Informe o motivo.', normalizer: 'trim'),
+                new Callback(callback: self::exigirMotivoForaDoEsquecimento(...)),
                 new Length(max: self::MOTIVO_MAXIMO, maxMessage: 'O motivo pode ter até {{ limit }} caracteres.'),
             ],
         ];
+    }
+
+    /** O "Informe o motivo." de antes (motivo em branco, sem contar os espaços), menos no esquecimento de registro. */
+    private static function exigirMotivoForaDoEsquecimento(mixed $motivo, ExecutionContextInterface $contexto): void
+    {
+        if (trim((string) $motivo) !== '') {
+            return;
+        }
+        $formulario = $contexto->getRoot();
+        if ($formulario instanceof FormInterface && $formulario->get('tipo')->getData() === TipoJustificativa::EsquecimentoRegistro->value) {
+            return;
+        }
+        $contexto->buildViolation('Informe o motivo.')->addViolation();
     }
 
     public function configureOptions(OptionsResolver $resolver): void

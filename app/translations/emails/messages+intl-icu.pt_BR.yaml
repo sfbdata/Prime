@@ -179,6 +179,12 @@ emails:
             botao: Confirmar e criar minha senha
             # A linha em branco (\n\n) separa os parágrafos: o macro texto de _blocos parte por ela.
             validade: "O link vale por 7 dias.\n\nSe você não criou esta conta, ignore este e-mail."
+        opcoes_liberadas:
+            texto: "A equipe BlueJus liberou as opções de espaço extra para o seu escritório.\n\nO BlueJus continua gratuito: o espaço extra é opcional e nenhum arquivo é apagado."
+            botao: Ver opções de espaço
+        pedido_respondido:
+            texto: "A equipe BlueJus analisou o seu pedido de mais espaço e não liberou as opções de espaço extra desta vez.\n\nSeus arquivos continuam guardados e disponíveis para consulta e download. Você pode fazer um novo pedido quando precisar."
+            botao: Ver meu espaço
         pedido_espaco:
             texto: Recebemos o seu pedido para ampliar o espaço da conta. A equipe BlueJus vai confirmar o novo plano com você, e nenhum arquivo é apagado enquanto isso.
             botao: Abrir o BlueJus

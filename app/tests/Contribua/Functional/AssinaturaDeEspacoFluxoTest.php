@@ -7,6 +7,9 @@ namespace App\Tests\Contribua\Functional;
 use App\Contribua\Controller\AssinaturaDeEspacoController;
 use App\Contribua\Controller\WebhookDoGatewayController;
 use App\Contribua\Entity\AssinaturaDeEspaco;
+use App\Contribua\Entity\EspacoDoEscritorio;
+use App\Contribua\Enum\OrigemDaLiberacao;
+use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\UseCase\AmpliarEspacoAutomaticamenteUseCase;
@@ -82,6 +85,11 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->secundario = $this->pessoa('secundario', false);
         $this->master = $this->pessoa('master', false, ['ROLE_SUPER_ADMIN']);
         $this->ligarGatewayFalso();
+        // D2: as opções de compra só existem liberadas; estes testes cobrem o checkout em si (a trava tem teste próprio).
+        $espaco = new EspacoDoEscritorio($this->escritorio, static::getContainer()->get(PlanoRepository::class)->free());
+        $espaco->liberarOpcoes(OrigemDaLiberacao::Master, new \DateTimeImmutable());
+        $this->em->persist($espaco);
+        $this->em->flush();
     }
 
     #[TestDox('Sem gateway escolhido pelo Master, o checkout não abre (o botão segue para a lista de espera)')]
@@ -816,6 +824,7 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
             $c->get(UrlGeneratorInterface::class),
             $c->get(LoggerInterface::class),
             $c->get(Connection::class),
+            $c->get(LiberacaoDasOpcoesDeEspaco::class),
         );
     }
 

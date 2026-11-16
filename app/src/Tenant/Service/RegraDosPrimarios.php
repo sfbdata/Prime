@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Tenant\Service;
 
+use App\Conector\Service\ModoDoConector;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -47,11 +48,18 @@ final class RegraDosPrimarios
 
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
+        // Teto do conector de I.A. (spec mcp-remoto-oauth 6.3, item 2): ligado, a pessoa do token não é Master nem
+        // primário. Nulo (testes que montam a regra à mão): como desligado.
+        private readonly ?ModoDoConector $modoDoConector = null,
     ) {}
 
     /** Master = ROLE_SUPER_ADMIN (spec D2). Mesmo critério do PermissionChecker::isGlobalSuperAdmin. */
     public function ehMaster(User $user): bool
     {
+        if ($this->modoDoConector?->valePara($user) === true) {
+            return false;
+        }
+
         return in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
     }
 
@@ -156,6 +164,10 @@ final class RegraDosPrimarios
 
     public function ehPrimario(UserTenant $vinculo): bool
     {
+        if ($this->modoDoConector?->valePara($vinculo->getUser()) === true) {
+            return false; // teto do conector: só para a pessoa do token; o colega primário continua primário
+        }
+
         // Conta desativada não é primário (não loga), mesmo com vínculo ativo: contá-la faria o
         // "último primário" passar com um primário que ninguém consegue usar.
         return $vinculo->isActive()
