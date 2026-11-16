@@ -164,6 +164,23 @@ final class DespachoDasFerramentasTest extends TestCase
         self::assertSame(['ferramenta' => 'ler_agenda', 'resultado' => 'recusado', 'recusa' => 'nao_encontrado'], $requisicao->anotacoes());
     }
 
+    #[TestDox('exceção que não é ErroDaFerramenta segue para o SDK, mas antes anota resultado=erro para a linha do log mcp')]
+    public function testFalhaInesperadaAnotaErro(): void
+    {
+        $requisicao = self::aberta();
+        $falha = new \RuntimeException('banco fora do ar');
+        $ferramenta = self::ferramenta('ler_agenda', $falha);
+
+        try {
+            (new DespachoDasFerramentas([$ferramenta], $requisicao))->executar($ferramenta, []);
+            self::fail('a falha inesperada não pode virar resultado');
+        } catch (\RuntimeException $lancada) {
+            self::assertSame($falha, $lancada);
+        }
+
+        self::assertSame(['ferramenta' => 'ler_agenda', 'resultado' => 'erro'], $requisicao->anotacoes());
+    }
+
     #[TestDox('pelo SDK: tools/call devolve o mesmo dado em content e structuredContent; o erro da ferramenta é um 200 com isError')]
     public function testPeloSdk(): void
     {

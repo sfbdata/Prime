@@ -79,6 +79,7 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
 
     /**
      * Executa a chamada já recebida pelo SDK. Sem a requisição aberta pelo portão, lança (o SDK responde erro interno).
+     * Exceção que não é {@see ErroDaFerramenta} segue para o SDK depois de anotar `resultado=erro`.
      *
      * @param array<string, mixed> $argumentos
      */
@@ -100,6 +101,11 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
             $this->requisicao->anotar('recusa', $erro->motivo);
 
             return CallToolResult::error([new TextContent($erro->getMessage())]);
+        } catch (\Throwable $erro) {
+            // Falha inesperada: a linha do log `mcp` diz que a chamada deu erro, e o SDK responde o erro interno.
+            $this->requisicao->anotar('resultado', 'erro');
+
+            throw $erro;
         }
 
         $this->anotarSucesso($resposta);
