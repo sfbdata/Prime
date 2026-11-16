@@ -15,13 +15,17 @@ use App\Tests\Factory\Voto\ParticipacaoNaPautaFactory;
 use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Voto\DTO\EstatisticaDaVotacao;
+use App\Voto\DTO\EstatisticasDoVotoOutput;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Enum\CenarioDaAssembleia;
+use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Service\CsvDasEstatisticasDoVoto;
 use App\Voto\Service\EstatisticasDasVotacoes;
 use App\Voto\Service\LeituraDaAssembleia;
 use App\Voto\UseCase\ObterEstatisticasDoVotoUseCase;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,13 +68,16 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         $d = $this->dados('ensino');
 
         $linhas = $this->linhasDa($d, 'Assembleia Alfa');
-        self::assertCount(4, $linhas, 'três encerradas e uma aberta; cancelada e retirada ficam fora');
+        self::assertCount(6, $linhas, 'três encerradas, uma aberta, uma cancelada e uma retirada (só rascunho e simulação ficam fora)');
         self::assertSame('3 de 4 votaram (75%) · Quórum: Atingido', $this->numeros($linhas[0]));
         self::assertSame('1 de 4 votaram (25%) · Quórum: Não atingido', $this->numeros($linhas[1]));
         self::assertSame('4 de 4 votaram (100%) · Quórum: Não exigido', $this->numeros($linhas[2]));
-        self::assertSame('2 de 4 votaram (50%)', $this->numeros($linhas[3]), 'aberta: só a participação, nenhum quórum');
-        self::assertSame(['Encerrada', 'Encerrada', 'Encerrada', 'Votação aberta'], array_column($linhas, 'situacao'));
-        self::assertSame(['votacoes' => 4, 'realizadas' => 3, 'emAndamento' => 1, 'aptos' => 12, 'votantes' => 8, 'participacao' => '66,7%', 'quorumAtingido' => 1, 'quorumExigido' => 2], $d['kpis']);
+        self::assertSame('2 de 4 votaram (50%) · Quórum: Atingido', $this->numeros($linhas[3]), 'aberta: quórum calculado pela participação');
+        self::assertSame(['Encerrada', 'Encerrada', 'Encerrada', 'Votação aberta', 'Cancelada', 'Retirada da pauta'], array_column($linhas, 'situacao'));
+        self::assertNull($linhas[4]['quorum']);
+        self::assertNull($linhas[5]['quorum']);
+        self::assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$#', (string) $linhas[0]['ate'], 'o "até" do desenho: o encerramento');
+        self::assertSame(['votacoes' => 6, 'realizadas' => 3, 'emAndamento' => 1, 'aptos' => 12, 'votantes' => 8, 'participacao' => '66,7%', 'quorumAtingido' => 1, 'quorumExigido' => 2], $d['kpis']);
         self::assertSame($a->getTenant()->getName(), $linhas[0]['escritorio']);
         self::assertSame('Cond. do Teste', $linhas[0]['entidade']);
         self::assertSame('Instituição de ensino', $linhas[0]['categoria']);
@@ -85,12 +92,12 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
 
         $linhas = $this->linhasDa($this->dados('ensino'), 'Assembleia Beta');
 
-        foreach (array_values(array_filter($painel->pautas, static fn ($p): bool => null === $p->canceladaEm && null === $p->retiradaEm)) as $i => $pauta) {
+        foreach ($painel->pautas as $i => $pauta) {
             self::assertSame($pauta->votantes, $linhas[$i]['votantes'], $pauta->titulo);
             self::assertSame($pauta->unidadesAptas, $linhas[$i]['aptos'], $pauta->titulo);
             if (null !== $pauta->resultado) {
                 $esperado = bccomp($pauta->resultado->quorumExigido, '0', 2) <= 0 ? 'Não exigido' : ($pauta->resultado->quorumOk ? 'Atingido' : 'Não atingido');
-                self::assertSame($esperado, $linhas[$i]['quorum'], $pauta->titulo);
+                self::assertSame($esperado, $linhas[$i]['quorum'], $pauta->titulo . ': igual ao quórum da apuração (Resultados)');
             }
         }
     }
@@ -155,13 +162,75 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         $corpo = (string) $r->getContent();
         self::assertStringStartsWith("\u{FEFF}escritorio;entidade;assembleia;pauta;categoria;situacao;encerramento;aptos;votantes;participacao;quorum\n", $corpo);
         $linhas = array_values(array_filter(explode("\n", $corpo), static fn (string $l): bool => str_contains($l, 'Épsilon')));
-        self::assertCount(4, $linhas);
+        self::assertCount(6, $linhas);
         self::assertStringContainsString('"' . $t->getName() . '";"Cond. do Teste";"\'=Assembleia Épsilon', $linhas[0], 'fórmula ganha apóstrofo');
         self::assertStringContainsString('"Encerrada"', $linhas[0]);
         self::assertStringEndsWith('"4";"3";"75%";"Atingido"', $linhas[0]);
         self::assertCount(11, str_getcsv($linhas[0], ';'));
         $this->semDadosDePessoa($corpo, $a);
         $this->semDadosDePessoa((string) json_encode($this->dados('ensino')), $a);
+    }
+
+    #[TestDox('o filtro de escritório volta ligado depois da leitura, e também depois de uma exceção no meio dela')]
+    public function testFiltroDeEscritorioVoltaLigado(): void
+    {
+        $tenant = TenantFactory::createOne(['name' => 'Escritório do filtro ' . uniqid()])->_real();
+        $filtros = $this->em->getFilters();
+        $filtros->enable('tenant')->setParameter('tenant', (int) $tenant->getId(), Types::INTEGER);
+        $servico = static::getContainer()->get(EstatisticasDasVotacoes::class);
+
+        $servico->calcular(null);
+        self::assertTrue($filtros->isEnabled('tenant'), 'ligado depois da leitura');
+
+        $quebrado = $this->createMock(AssembleiaRepository::class);
+        $quebrado->method('listarParaEstatisticasDoMaster')->willThrowException(new \RuntimeException('falha no meio'));
+        try {
+            (new EstatisticasDasVotacoes($quebrado, static::getContainer()->get(LeituraDaAssembleia::class), $this->em))->calcular(null);
+            self::fail('a exceção devia subir');
+        } catch (\RuntimeException) {
+        }
+        self::assertTrue($filtros->isEnabled('tenant'), 'ligado depois da exceção');
+    }
+
+    #[TestDox('CSV: texto que começa com "=", "+", "-" ou "@" ganha apóstrofo; aspas são dobradas')]
+    public function testCsvProtegeFormula(): void
+    {
+        $linha = new EstatisticaDaVotacao('=cmd', '+1', '-2', '@x', 'Categoria "q"', 'encerrada', null, 4, 3, null);
+
+        $csv = static::getContainer()->get(CsvDasEstatisticasDoVoto::class)->gerar(new EstatisticasDoVotoOutput([$linha]));
+
+        self::assertStringContainsString('"\'=cmd";"\'+1";"\'-2";"\'@x";"Categoria ""q"""', $csv);
+    }
+
+    #[TestDox('custo: 3 assembleias com 2 pautas cada leem só números e o total de consultas fica abaixo do teto')]
+    public function testCustoEmConsultas(): void
+    {
+        $this->entrarComoMasterNoProprioEscritorio();
+        $t = TenantFactory::createOne(['name' => 'Escritório do custo ' . uniqid()])->_real();
+        for ($i = 1; $i <= 3; ++$i) {
+            $a = AssembleiaFactory::new(['tenant' => $t, 'titulo' => 'Custo ' . $i, 'cenario' => CenarioDaAssembleia::Cooperativa])->publicada()->create()->_real();
+            $unidades = UnidadeDaAssembleiaFactory::createMany(3, ['assembleia' => $a]);
+            $this->pauta($a, 1, $unidades, 2, true, 1);
+            $this->pauta($a, 2, $unidades, 1, false, 1);
+        }
+        $this->em->clear();
+        $this->client->enableProfiler();
+
+        $d = $this->dados('cooperativa');
+
+        self::assertCount(6, $d['linhas']);
+        // O profiler também guarda o que a montagem do teste gravou: conta só o que veio depois do último INSERT.
+        $todas = array_map(static fn (array $q): string => preg_replace('/\s+/', ' ', (string) $q['sql']), $this->client->getProfile()->getCollector('db')->getQueries()['default'] ?? []);
+        $ultimo = 0;
+        foreach ($todas as $k => $q) {
+            if (str_starts_with($q, 'INSERT')) {
+                $ultimo = $k;
+            }
+        }
+        $leitura = array_slice($todas, $ultimo + 1);
+        $n = count($leitura);
+        // Medido: 27 no total (cerca de 11 de login e sessão; a leitura são 1 da lista e 5 por assembleia, sem N+1 por pauta ou unidade).
+        self::assertLessThan(40, $n);
     }
 
     #[TestDox('só o Master: usuário comum de escritório recebe 403 no JSON e no CSV')]

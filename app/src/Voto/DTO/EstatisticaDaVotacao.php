@@ -4,26 +4,31 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
-use App\Voto\Enum\EstadoDaPauta;
-
 /**
  * Uma linha das "Estatísticas de todas as votações" do Master: uma pauta, só em números agregados. Nunca nome de
  * pessoa, unidade ou e-mail (o que existe aqui é escritório, entidade e os títulos escritos pela mesa).
  */
 final readonly class EstatisticaDaVotacao
 {
+    public const SITUACOES = ['aguardando', 'aberta', 'encerrada', 'cancelada', 'retirada'];
+    /** Cor do chip por situação: as da pauta no painel (PautaNoPainel::CORES) e as duas que o desenho não pinta. */
+    public const CORES = ['aguardando' => '#0a6fa0', 'aberta' => '#1e7b45', 'encerrada' => '#8a6200', 'cancelada' => '#a3232b', 'retirada' => '#5b7383'];
     public const QUORUM_ATINGIDO = 'atingido';
     public const QUORUM_NAO_ATINGIDO = 'nao_atingido';
     public const QUORUM_NAO_EXIGIDO = 'nao_exigido';
 
-    /** @param ?string $quorum um dos QUORUM_*; null enquanto a pauta não encerrou (aberta nunca leva parcial) */
+    /**
+     * @param string  $situacao   uma das SITUACOES
+     * @param ?string $quorum     um dos QUORUM_*; null na pauta cancelada ou retirada (não há quórum a medir)
+     * @param ?\DateTimeImmutable $encerramento o fim: o encerramento real, senão o prazo, senão o horário programado
+     */
     public function __construct(
         public string $escritorio,
         public ?string $entidade,
         public string $assembleia,
         public string $pauta,
         public string $categoria,
-        public EstadoDaPauta $estado,
+        public string $situacao,
         public ?\DateTimeImmutable $encerramento,
         public int $aptos,
         public int $votantes,
@@ -33,7 +38,18 @@ final readonly class EstatisticaDaVotacao
 
     public function realizada(): bool
     {
-        return EstadoDaPauta::Encerrada === $this->estado;
+        return 'encerrada' === $this->situacao;
+    }
+
+    public function cor(): string
+    {
+        return self::CORES[$this->situacao];
+    }
+
+    /** "dd/mm/aaaa hh:mm" no horário de São Paulo (o "até" do desenho); null sem fim. */
+    public function fim(): ?string
+    {
+        return $this->encerramento?->setTimezone(new \DateTimeZone('America/Sao_Paulo'))->format('d/m/Y H:i');
     }
 
     /** Participação em % por unidades (votantes ÷ aptos), 1 casa; 0 sem aptos. */

@@ -414,6 +414,8 @@ master:
                 aguardando: Publicada
                 aberta: Votação aberta
                 encerrada: Encerrada
+                cancelada: Cancelada
+                retirada: Retirada da pauta
             quorum:
                 atingido: Atingido
                 nao_atingido: Não atingido
@@ -1198,6 +1200,7 @@ master:
             est_kpi_participacao: Participação nas realizadas
             est_kpi_quorum: Quórum atingido
             est_kpi_quorum_valor: '{x} de {y}'
+            est_ate: 'até {data}'
             est_sem: Nenhuma votação nesta categoria.
             est_numeros: '{n} de {m} votaram ({pc})'
             est_numeros_quorum: '{n} de {m} votaram ({pc}) · Quórum: {quorum}'

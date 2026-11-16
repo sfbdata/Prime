@@ -47,12 +47,27 @@ final class LeituraDaAssembleia
 
     public function montar(Assembleia $assembleia): AssembleiaNoPainel
     {
+        return $this->montarComo($assembleia, false);
+    }
+
+    /**
+     * Só os NÚMEROS (participação e aptos por pauta), para a leitura entre escritórios do Master: não carrega a relação
+     * nominal do voto aberto, não relê pauta nem opção e não apura (`resultado` sempre null). Nunca alimenta tela do
+     * escritório.
+     */
+    public function montarSoNumeros(Assembleia $assembleia): AssembleiaNoPainel
+    {
+        return $this->montarComo($assembleia, true);
+    }
+
+    private function montarComo(Assembleia $assembleia, bool $soNumeros): AssembleiaNoPainel
+    {
         $totais = $this->unidades->totaisAptos($assembleia);
         $contagem = $this->participacoes->contarPorPauta($assembleia);
         $pautas = [];
         foreach ($assembleia->getPautas() as $pauta) {
             $totaisDaPauta = [] === $pauta->getGrupos() ? $totais : $this->unidades->totaisAptos($assembleia, $pauta->getGrupos());
-            $pautas[] = $this->pauta($pauta, $contagem[(int) $pauta->getId()] ?? self::SEM_VOTO, $totaisDaPauta);
+            $pautas[] = $this->pauta($pauta, $contagem[(int) $pauta->getId()] ?? self::SEM_VOTO, $totaisDaPauta, $soNumeros);
         }
 
         return new AssembleiaNoPainel(
@@ -83,7 +98,7 @@ final class LeituraDaAssembleia
      * @param array{unidades: int, peso: string}           $contagem
      * @param array{pesoApto: string, unidadesAptas: int} $totais
      */
-    private function pauta(PautaDaAssembleia $pauta, array $contagem, array $totais): PautaNoPainel
+    private function pauta(PautaDaAssembleia $pauta, array $contagem, array $totais, bool $soNumeros = false): PautaNoPainel
     {
         return new PautaNoPainel(
             id: (int) $pauta->getId(),
@@ -101,15 +116,17 @@ final class LeituraDaAssembleia
             encerradaPorNome: $pauta->getEncerradaPorNome(),
             motivoEncerramento: $pauta->getMotivoEncerramento(),
             opcoes: self::opcoes($pauta),
-            votantes: $contagem['unidades'], pesoVotante: $contagem['peso'],
+            votantes: $contagem['unidades'],
+            pesoVotante: $contagem['peso'],
             unidadesAptas: $totais['unidadesAptas'],
             pesoApto: $totais['pesoApto'],
-            resultado: $this->resultado($pauta, $totais, $contagem),
+            resultado: $soNumeros ? null : $this->resultado($pauta, $totais, $contagem),
             criterio: $pauta->getCriterio(),
             base: $pauta->getBase(),
             digitos: $pauta->getDigitos(),
             vagas: $pauta->getVagas(),
-            quorumPrimeira: $pauta->getQuorumPrimeira(), quorumSegunda: $pauta->getQuorumSegunda(),
+            quorumPrimeira: $pauta->getQuorumPrimeira(),
+            quorumSegunda: $pauta->getQuorumSegunda(),
             tipo: $pauta->getTipo(),
             suspensaEm: $pauta->getSuspensaEm(),
             suspensaMotivo: $pauta->getSuspensaMotivo(),
@@ -120,11 +137,11 @@ final class LeituraDaAssembleia
             retiradaEm: $pauta->getRetiradaEm(),
             retiradaMotivo: $pauta->getRetiradaMotivo(),
             retiradaPorNome: $pauta->getRetiradaPorNome(),
-            participacao: $this->participacao($pauta),
+            participacao: $this->participacao($pauta, $soNumeros),
         );
     }
 
-    private function participacao(PautaDaAssembleia $pauta): RegrasDeParticipacaoNoPainel
+    private function participacao(PautaDaAssembleia $pauta, bool $soNumeros = false): RegrasDeParticipacaoNoPainel
     {
         return new RegrasDeParticipacaoNoPainel(
             $pauta->getAbreEm(),
@@ -132,7 +149,7 @@ final class LeituraDaAssembleia
             $pauta->getGrupos(),
             $pauta->getOrdemDasCandidaturas(),
             $pauta->getSigilo(),
-            $this->nominal($pauta),
+            $soNumeros ? null : $this->nominal($pauta),
         );
     }
 

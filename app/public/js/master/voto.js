@@ -123,7 +123,7 @@
     const lin = el('div', 'vLin mp-est-lin');
     const nome = el('div', 'mp-est-nome');
     nome.appendChild(el('b', '', l.pauta));
-    nome.appendChild(el('div', 'mp-est-det', [l.escritorio, l.entidade, l.assembleia, l.categoria].filter(Boolean).join(' · ')));
+    nome.appendChild(el('div', 'mp-est-det', [l.escritorio, l.entidade, l.assembleia, l.categoria, l.ate ? T('master.js.voto.est_ate', { data: l.ate }) : null].filter(Boolean).join(' · ')));
     lin.appendChild(nome);
     const p = { n: l.votantes, m: l.aptos, pc: l.participacao };
     lin.appendChild(el('div', 'mp-est-num', l.quorum === null

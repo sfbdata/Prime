@@ -8,7 +8,6 @@ use App\Entity\Auth\User;
 use App\Voto\DTO\EscritorioNaLiberacaoDoVotoOutput;
 use App\Voto\DTO\EstatisticaDaVotacao;
 use App\Voto\DTO\EstatisticasDoVotoOutput;
-use App\Voto\DTO\PautaNoPainel;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\EscritorioNaoEncontradoException;
 use App\Voto\Service\CsvDasEstatisticasDoVoto;
@@ -129,8 +128,9 @@ final class VotoDoMasterController extends AbstractController
                 'assembleia' => $l->assembleia,
                 'pauta' => $l->pauta,
                 'categoria' => $l->categoria,
-                'situacao' => $this->tradutor->trans('master.voto.estatisticas.situacao.' . $l->estado->value),
-                'cor' => PautaNoPainel::CORES[$l->estado->value === 'aguardando' ? 'publicada' : $l->estado->value],
+                'situacao' => $this->tradutor->trans('master.voto.estatisticas.situacao.' . $l->situacao),
+                'cor' => $l->cor(),
+                'ate' => $l->fim(),
                 'aptos' => $l->aptos,
                 'votantes' => $l->votantes,
                 'participacao' => $l->participacao(),

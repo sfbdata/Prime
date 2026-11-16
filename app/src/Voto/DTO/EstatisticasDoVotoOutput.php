@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
-use App\Voto\Enum\EstadoDaPauta;
-
 /**
  * A tela "Estatísticas de todas as votações" do Master: os KPIs (sobre as linhas já filtradas por categoria) e uma
  * linha por pauta. KPIs de ocorrências e avaliações esperam a W2-7b e não existem aqui.
@@ -29,7 +27,7 @@ final readonly class EstatisticasDoVotoOutput
 
     public function emAndamento(): int
     {
-        return count(array_filter($this->linhas, static fn (EstatisticaDaVotacao $l): bool => EstadoDaPauta::Aberta === $l->estado));
+        return count(array_filter($this->linhas, static fn (EstatisticaDaVotacao $l): bool => 'aberta' === $l->situacao));
     }
 
     public function aptosNasRealizadas(): int
