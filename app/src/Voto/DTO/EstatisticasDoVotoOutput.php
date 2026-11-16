@@ -6,7 +6,8 @@ namespace App\Voto\DTO;
 
 /**
  * A tela "Estatísticas de todas as votações" do Master: os KPIs (sobre as linhas já filtradas por categoria) e uma
- * linha por pauta. KPIs de ocorrências e avaliações esperam a W2-7b e não existem aqui.
+ * linha por pauta. Os KPIs de ocorrências e avaliações (W2-7b) contam por ASSEMBLEIA: a assembleia com várias pautas tem
+ * várias linhas com os mesmos números, e cada uma entra uma vez na soma.
  */
 final readonly class EstatisticasDoVotoOutput
 {
@@ -57,6 +58,36 @@ final readonly class EstatisticasDoVotoOutput
     public function quorumAtingido(): int
     {
         return count(array_filter($this->comQuorum(), static fn (EstatisticaDaVotacao $l): bool => EstatisticaDaVotacao::QUORUM_ATINGIDO === $l->quorum));
+    }
+
+    /** KPI "Ocorrências": as registradas, por assembleia. */
+    public function ocorrencias(): int
+    {
+        return $this->somarPorAssembleia(static fn (EstatisticaDaVotacao $l): int => $l->ocorrencias);
+    }
+
+    /** KPI "Avaliações pendentes". */
+    public function avaliacoesPendentes(): int
+    {
+        return $this->somarPorAssembleia(static fn (EstatisticaDaVotacao $l): int => $l->pendentes);
+    }
+
+    /** KPI "Inaptidões mantidas". */
+    public function inaptidoesMantidas(): int
+    {
+        return $this->somarPorAssembleia(static fn (EstatisticaDaVotacao $l): int => $l->mantidas);
+    }
+
+    /** KPI "Tornados aptos". */
+    public function tornadosAptos(): int
+    {
+        return $this->somarPorAssembleia(static fn (EstatisticaDaVotacao $l): int => $l->tornadosAptos);
+    }
+
+    /** @param callable(EstatisticaDaVotacao): int $campo */
+    private function somarPorAssembleia(callable $campo): int
+    {
+        return array_sum(array_map($campo, array_filter($this->linhas, static fn (EstatisticaDaVotacao $l): bool => $l->primeiraDaAssembleia)));
     }
 
     /** @return list<EstatisticaDaVotacao> */

@@ -149,13 +149,14 @@ class OcorrenciaDaUnidadeRepository extends ServiceEntityRepository
 
     /**
      * Os números do Master, por assembleia (não por pauta): ocorrências, avaliações pendentes, inaptidões mantidas e
-     * tornados aptos. Uma consulta para o lote; assembleia sem ocorrência não aparece no resultado.
+     * tornados aptos. Uma consulta para o lote; assembleia sem ocorrência não aparece no resultado. Com `$tenant` filtra
+     * pelo escritório; sem ele (a leitura do Master, que cruza escritórios e só devolve números) conta pelos ids.
      *
      * @param list<int> $assembleiaIds
      *
      * @return array<int, array{ocorrencias: int, pendentes: int, mantidas: int, tornados_aptos: int}>
      */
-    public function contagensPorAssembleia(Tenant $tenant, array $assembleiaIds): array
+    public function contagensPorAssembleia(array $assembleiaIds, ?Tenant $tenant = null): array
     {
         if ([] === $assembleiaIds) {
             return [];
@@ -166,9 +167,9 @@ class OcorrenciaDaUnidadeRepository extends ServiceEntityRepository
                     COUNT(*) FILTER (WHERE avaliacao = 'mantida') AS mantidas,
                     COUNT(*) FILTER (WHERE avaliacao = 'tornada_apta') AS tornados_aptos
                FROM voto.ocorrencia_da_unidade
-              WHERE tenant_id = :tenant AND assembleia_id IN (:ids)
-              GROUP BY assembleia_id",
-            ['tenant' => $tenant->getId(), 'ids' => $assembleiaIds],
+              WHERE assembleia_id IN (:ids)" . (null === $tenant ? '' : ' AND tenant_id = :tenant') . '
+              GROUP BY assembleia_id',
+            null === $tenant ? ['ids' => $assembleiaIds] : ['ids' => $assembleiaIds, 'tenant' => $tenant->getId()],
             ['ids' => ArrayParameterType::INTEGER],
         );
         $contagens = [];
