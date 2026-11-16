@@ -58,4 +58,17 @@ class CodigoDoConectorRepository extends ServiceEntityRepository
 
         return $codigo instanceof CodigoDoConector ? $codigo : null;
     }
+
+    /**
+     * Faxina (13.2): apaga, num DELETE só e em todos os escritórios, os códigos que venceram antes de `$limite` (quem
+     * chama passa "agora menos 1 dia"). Usado ou não, código vencido não serve para nada. Devolve quantos saíram.
+     */
+    public function apagarVencidosAntesDe(\DateTimeImmutable $limite): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'DELETE FROM ' . CodigoDoConector::class . ' c WHERE c.expiraEm < :limite'
+        )
+            ->setParameter('limite', $limite, 'datetime_immutable')
+            ->execute();
+    }
 }

@@ -46,4 +46,18 @@ class ConcessaoDoConectorRepository extends ServiceEntityRepository
             ->setParameter('tenant', $consentimento->getTenant())
             ->execute();
     }
+
+    /**
+     * Faxina (13.2): apaga, num DELETE só e em todos os escritórios, as concessões vencidas ou revogadas antes de
+     * `$limite` (quem chama passa "agora menos 30 dias"). O banco leva junto, pela cascata, os códigos e os tokens
+     * delas. O consentimento (a conexão que a pessoa vê) fica. Devolve quantas saíram.
+     */
+    public function apagarEncerradasAntesDe(\DateTimeImmutable $limite): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'DELETE FROM ' . ConcessaoDoConector::class . ' c WHERE c.expiraEm < :limite OR c.revogadaEm < :limite'
+        )
+            ->setParameter('limite', $limite, 'datetime_immutable')
+            ->execute();
+    }
 }

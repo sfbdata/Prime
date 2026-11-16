@@ -98,4 +98,19 @@ class TokenDoConectorRepository extends ServiceEntityRepository
             ->setParameter('tenant', $renovacao->getTenant())
             ->execute();
     }
+
+    /**
+     * Faxina (13.2): apaga, num DELETE só e em todos os escritórios, os tokens (acesso e renovação) que venceram antes de
+     * `$limite` (quem chama passa "agora menos 1 dia"). A renovação vale até o fim da concessão, então nenhuma renovação
+     * de cadeia viva sai daqui, nem a já girada que a janela de tolerância ainda consulta. O `gerado_por_id` de quem
+     * fica aponta para nulo (`ON DELETE SET NULL`). Devolve quantos saíram.
+     */
+    public function apagarVencidosAntesDe(\DateTimeImmutable $limite): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'DELETE FROM ' . TokenDoConector::class . ' t WHERE t.expiraEm < :limite'
+        )
+            ->setParameter('limite', $limite, 'datetime_immutable')
+            ->execute();
+    }
 }
