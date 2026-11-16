@@ -6,7 +6,7 @@ tipo: novidade
 - Registro do cliente por CIMD: interface `RegistroDeClientes` com a recusa `ClienteRecusado` (motivo e host, sem redirecionar) e a implementação `RegistroDeClientesPorCimd`.
 - Chave `conector_ia` nas Funções do catálogo de telas e recursos do Master, sem rota; a rota de ligar e desligar chave do Master passa a aceitar sublinhado.
 - Motivo novo `codigo_reutilizado` na revogação da concessão; troca de escopos no consentimento ao reautorizar; busca do código com a linha travada (`FOR UPDATE`).
-- Rotas do `/oauth/*` nas listas do `TenantContextValidatorListener`, do `TermoAceiteListener` (sem o authorize) e do `TenantFilterListener` (só o authorize, sem o filtro da sessão); `/oauth/authorize` como destino do login.
+- Rotas do `/oauth/*` nas listas do `TenantContextValidatorListener`, do `TermoAceiteListener` (sem o authorize) e do `TenantFilterListener` (o authorize e o token, sem o filtro da sessão); `/oauth/authorize` como destino do login.
 - Tela de autorização `/oauth/authorize`: valida o pedido do app (PKCE S256, `resource`, `redirect_uri` da lista, `iss` em todo retorno), guarda o pedido na sessão para uso único, lista os escritórios da pessoa e grava consentimento, concessão e código; comando `conector:liberar <escritório> --master=<e-mail>` para o escritório piloto.
 - Troca do código e da renovação no `/oauth/token` (rotação com janela de 60 s, renovação reapresentada derruba a concessão, rotações em fila pela concessão) e metadado RFC 8414 em `/.well-known/oauth-authorization-server`.
 - Registro do cliente por CIMD com busca segura (sem rede interna, sem redirecionamento, teto de tamanho e tempo), cache pelos cabeçalhos e uso do documento gravado quando a renovação falha.

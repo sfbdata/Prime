@@ -2045,7 +2045,9 @@ entra num PR próprio depois de testada nos dois clientes.
    escritórios (teste de identidade). Se ela ainda precisar aceitar os Termos de Uso, o pedido se perde depois do
    aceite: aceito no piloto, porque é raro e o app de I.A. deixa conectar de novo.
 4. **O `/oauth/authorize` roda sem o filtro de escritório da sessão**: a tela escolhe um escritório que pode não ser o
-   da sessão e lista os escritórios da pessoa. Toda consulta dela passa o escritório explícito.
+   da sessão e lista os escritórios da pessoa. Toda consulta dela passa o escritório explícito. O `/oauth/token`
+   também (achado do teste ponta a ponta): ele não usa sessão, e um cookie que chegue junto não pode prender a troca
+   ao escritório da sessão; ali o escritório vem da concessão.
 5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
    concessões já abertas guardam os escopos delas.
 6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com

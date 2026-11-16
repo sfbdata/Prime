@@ -50,12 +50,29 @@ final class PedidoDeTokenInput
             if ($par === '') {
                 continue;
             }
-            $chave = urldecode(explode('=', $par, 2)[0]);
+            $chave = self::nomeComoOPhp(urldecode(explode('=', $par, 2)[0]));
             if (isset($vistos[$chave])) {
                 throw ErroOAuth::invalidRequest();
             }
             $vistos[$chave] = true;
         }
+    }
+
+    /**
+     * O nome do campo como o PHP o grava no `$_POST`: sem os espaços do começo, com `.` e espaço trocados por `_`, e o
+     * `[` sem par também; com `[...]`, vale o nome antes dele. Assim `grant.type` e `grant_type` contam como repetição.
+     */
+    private static function nomeComoOPhp(string $nome): string
+    {
+        $nome = ltrim($nome, ' ');
+        $colchete = strpos($nome, '[');
+        if ($colchete !== false) {
+            $nome = str_contains(substr($nome, $colchete), ']')
+                ? substr($nome, 0, $colchete)
+                : substr_replace($nome, '_', $colchete, 1);
+        }
+
+        return strtr($nome, ['.' => '_', ' ' => '_']);
     }
 
     /**
