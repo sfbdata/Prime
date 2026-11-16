@@ -28,7 +28,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'conector_ia_proposta')]
 #[ORM\UniqueConstraint(name: 'uniq_conector_ia_proposta_identificador', columns: ['identificador_hash'])]
 #[ORM\Index(name: 'idx_conector_ia_proposta_dono', columns: ['tenant_id', 'user_id', 'estado'])]
-#[ORM\Index(name: 'idx_conector_ia_proposta_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_conector_ia_proposta_consentimento', columns: ['consentimento_id'])]
 #[ORM\Index(name: 'idx_conector_ia_proposta_cliente', columns: ['cliente_id'])]
 #[ORM\Index(name: 'idx_conector_ia_proposta_user', columns: ['user_id'])]

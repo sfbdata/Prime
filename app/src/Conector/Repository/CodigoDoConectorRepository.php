@@ -29,6 +29,11 @@ class CodigoDoConectorRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * Busca sem escritório de propósito: no `/oauth/token` e no `/mcp` não há sessão, e o escritório só é conhecido
+     * depois de achar a linha (é ela que o revela). O hash é SHA-256 de 256 bits aleatórios, único na tabela, então
+     * não há colisão entre escritórios; quem chama confere tipo, validade e escritório da linha achada.
+     */
     public function buscarPorIdentificadorHash(string $identificadorHash): ?CodigoDoConector
     {
         return $this->findOneBy(['identificadorHash' => $identificadorHash]);

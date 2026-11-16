@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Conector\Repository;
 
 use App\Conector\Entity\TokenDoConector;
+use App\Conector\Enum\TipoDoTokenDoConector;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -30,9 +32,55 @@ class TokenDoConectorRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * Busca sem escritório de propósito: no `/oauth/token` e no `/mcp` não há sessão, e o escritório só é conhecido
+     * depois de achar a linha (é ela que o revela). O hash é SHA-256 de 256 bits aleatórios, único na tabela, então
+     * não há colisão entre escritórios; quem chama confere tipo, validade e escritório da linha achada.
+     */
     public function buscarPorIdentificadorHash(string $identificadorHash): ?TokenDoConector
     {
         return $this->findOneBy(['identificadorHash' => $identificadorHash]);
+    }
+
+    /**
+     * A renovação a girar, com a linha travada (`SELECT ... FOR UPDATE`) até o fim da transação: duas rotações
+     * simultâneas da mesma renovação não passam as duas pelo `usado_em` nulo (9.1). Só funciona dentro de uma transação
+     * aberta (sem ela o Doctrine lança `TransactionRequiredException`). Sem escritório pelo mesmo motivo de
+     * {@see buscarPorIdentificadorHash()}; só devolve token do tipo renovação.
+     */
+    public function buscarRenovacaoParaGirar(string $identificadorHash): ?TokenDoConector
+    {
+        $renovacao = $this->createQueryBuilder('t')
+            ->andWhere('t.identificadorHash = :hash')
+            ->andWhere('t.tipo = :tipo')
+            ->setParameter('hash', $identificadorHash)
+            ->setParameter('tipo', TipoDoTokenDoConector::Renovacao->value)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+
+        return $renovacao instanceof TokenDoConector ? $renovacao : null;
+    }
+
+    /**
+     * A renovação mais recente gerada por esta (a "filha" que {@see TokenDoConector::girar()} recebe), presa ao
+     * escritório dela; nula se esta nunca girou.
+     */
+    public function buscarRenovacaoGeradaPor(TokenDoConector $renovacao): ?TokenDoConector
+    {
+        $filha = $this->createQueryBuilder('t')
+            ->andWhere('t.geradoPor = :renovacao')
+            ->andWhere('t.tenant = :tenant')
+            ->andWhere('t.tipo = :tipo')
+            ->setParameter('renovacao', $renovacao)
+            ->setParameter('tenant', $renovacao->getTenant())
+            ->setParameter('tipo', TipoDoTokenDoConector::Renovacao->value)
+            ->orderBy('t.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $filha instanceof TokenDoConector ? $filha : null;
     }
 
     /**

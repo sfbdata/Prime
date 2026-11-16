@@ -53,7 +53,7 @@ final class ConsultarSqlTool
                 'duracao_ms' => (int) round((microtime(true) - $inicio) * 1000),
             ]);
 
-            // `Mcp\Exception\ToolCallException` é a única exceção que o SDK (mcp/sdk 0.7.0,
+            // `Mcp\Server\Exception\ToolCallException` é a única exceção que o SDK (mcp/sdk 0.10.0,
             // `CallToolHandler::handle()`) converte em erro DE FERRAMENTA (`isError: true`
             // dentro do `result`, sem derrubar a sessão). Um `\RuntimeException` comum cai no
             // catch genérico do SDK e vira erro de PROTOCOLO JSON-RPC — sem `isError` e sem o

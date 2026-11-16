@@ -7,6 +7,7 @@ namespace App\Conector\Entity;
 use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Enum\RotacaoDaRenovacao;
 use App\Conector\Enum\TipoDoTokenDoConector;
+use App\Conector\Exception\RenovacaoRecusada;
 use App\Conector\Exception\RenovacaoReutilizada;
 use App\Conector\Repository\TokenDoConectorRepository;
 use App\Entity\Tenant\Tenant;
@@ -20,9 +21,10 @@ use Doctrine\ORM\Mapping as ORM;
  * - **Acesso** vale 1 hora. **Renovação** vale até o `expira_em` da concessão (7 dias da autorização) e gira a cada uso.
  * - `gerado_por` é a renovação que gerou este par (nulo no primeiro par, que sai do código).
  * - **Rotação** ({@see girar()}): renovação nunca usada grava `usado_em` e o servidor emite um par novo. Já usada e
- *   reapresentada pelo MESMO app em até {@see JANELA_DE_TOLERANCIA} segundos do `usado_em`: o servidor revoga o par
- *   emitido antes a partir dela e emite outro. Fora da janela, ou por outro app: a concessão cai
- *   ({@see RenovacaoReutilizada}).
+ *   reapresentada pelo MESMO app em até {@see JANELA_DE_TOLERANCIA} segundos do `usado_em`, com a renovação filha
+ *   ainda intocada: o servidor revoga o par emitido antes a partir dela e emite outro. Fora da janela, com a filha já
+ *   usada ou revogada, ou por outro app: a concessão cai ({@see RenovacaoReutilizada}). Revogada, vencida ou com a
+ *   concessão inválida: a concessão também cai ({@see RenovacaoRecusada}, `falha_na_renovacao`).
  *
  * Escritório, pessoa, validade de 7 dias, corte de "Sair de todos os aparelhos" e impressão da senha moram na concessão.
  */
@@ -106,25 +108,56 @@ class TokenDoConector implements TenantAware
     }
 
     /**
-     * Usa esta renovação para girar (9.1). Revogada, vencida ou com a concessão inválida: recusa sem mexer em nada.
-     * Outro app, ou repetição fora da janela: revoga a concessão e lança {@see RenovacaoReutilizada}.
+     * Usa esta renovação para girar (9.1 e 9.2). Toda recusa derruba a concessão inteira, já marcada aqui; quem chama
+     * grava e responde `invalid_grant`. A ordem das conferências:
+     *
+     * 1. outro app (mesmo na primeira vez) => {@see RenovacaoReutilizada};
+     * 2. renovação revogada ou vencida, ou concessão inválida => {@see RenovacaoRecusada} com `falha_na_renovacao`
+     *    (a concessão já revogada mantém o primeiro motivo);
+     * 3. nunca usada => grava `usado_em` e devolve {@see RotacaoDaRenovacao::Primeira};
+     * 4. já usada: só é repetição tolerada dentro de {@see JANELA_DE_TOLERANCIA} segundos E com a filha intocada (nem
+     *    usada nem revogada); senão => {@see RenovacaoReutilizada}.
+     *
+     * Contrato de `$filha` (o PR 3 busca pelo repositório, {@see TokenDoConectorRepository::buscarRenovacaoGeradaPor()},
+     * dentro da mesma transação e depois de travar esta linha): a renovação MAIS RECENTE gerada por esta, ou nulo se esta
+     * nunca girou. Esta já usada sem a filha é erro de programação ({@see \LogicException}), não recusa.
      */
-    public function girar(ClienteDoConector $quemApresentou, \DateTimeImmutable $agora): RotacaoDaRenovacao
+    public function girar(ClienteDoConector $quemApresentou, \DateTimeImmutable $agora, ?self $filha = null): RotacaoDaRenovacao
     {
-        $this->exigirRenovacaoUtilizavel($agora);
+        if ($this->tipo !== TipoDoTokenDoConector::Renovacao) {
+            throw new \LogicException('Só a renovação gira.');
+        }
+        if ($filha !== null && ($filha->getTipo() !== TipoDoTokenDoConector::Renovacao || $filha->getGeradoPor() !== $this)) {
+            throw new \LogicException('A filha precisa ser uma renovação gerada por esta.');
+        }
         if (!$this->mesmoApp($quemApresentou)) {
             $this->derrubarCadeia($agora);
+        }
+        if ($this->revogadoEm !== null || $this->venceuEm($agora) || !$this->concessao->estaValidaEm($agora)) {
+            $this->concessao->revogar(MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao, $agora);
+
+            throw new RenovacaoRecusada(MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao);
         }
         if ($this->usadoEm === null) {
             $this->usadoEm = $agora;
 
             return RotacaoDaRenovacao::Primeira;
         }
-        if ($agora->getTimestamp() - $this->usadoEm->getTimestamp() > self::JANELA_DE_TOLERANCIA) {
+        if ($filha === null) {
+            throw new \LogicException('Renovação já girada exige a filha para decidir a repetição.');
+        }
+        $foraDaJanela = $agora->getTimestamp() - $this->usadoEm->getTimestamp() > self::JANELA_DE_TOLERANCIA;
+        if ($foraDaJanela || $filha->getUsadoEm() !== null || $filha->getRevogadoEm() !== null) {
             $this->derrubarCadeia($agora);
         }
 
         return RotacaoDaRenovacao::RepeticaoNaJanela;
+    }
+
+    /** O token serve agora: não revogado, não vencido e com a concessão válida (que confere o consentimento). */
+    public function valeEm(\DateTimeImmutable $agora): bool
+    {
+        return $this->revogadoEm === null && !$this->venceuEm($agora) && $this->concessao->estaValidaEm($agora);
     }
 
     /** Revogar de novo não muda a data da primeira revogação. */
@@ -140,16 +173,6 @@ class TokenDoConector implements TenantAware
     public function venceuEm(\DateTimeImmutable $agora): bool
     {
         return $agora >= $this->expiraEm;
-    }
-
-    private function exigirRenovacaoUtilizavel(\DateTimeImmutable $agora): void
-    {
-        if ($this->tipo !== TipoDoTokenDoConector::Renovacao) {
-            throw new \LogicException('Só a renovação gira.');
-        }
-        if ($this->revogadoEm !== null || $this->venceuEm($agora) || !$this->concessao->estaValidaEm($agora)) {
-            throw new \DomainException('A renovação não vale mais.');
-        }
     }
 
     private function mesmoApp(ClienteDoConector $quemApresentou): bool

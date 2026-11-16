@@ -6,6 +6,7 @@ namespace App\Tests\Conector\Integration;
 
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Entity\TokenDoConector;
 use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Repository\ClienteDoConectorRepository;
 use App\Conector\Repository\CodigoDoConectorRepository;
@@ -17,6 +18,7 @@ use App\Conector\Repository\TokenDoConectorRepository;
 use App\Tests\Factory\Auth\UserFactory;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\TransactionRequiredException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -157,6 +159,37 @@ final class RepositoriosDoConectorTest extends KernelTestCase
         self::assertSame(2, $caidos);
         self::assertSame(2, $abertos($idDaConcessao), 'o primeiro par fica');
         self::assertNotNull($conn->fetchOne('SELECT revogado_em FROM conector_ia_token WHERE id = ?', [$deA['renovacaoNova']->getId()]));
+    }
+
+    #[TestDox('A renovação a girar vem com a linha travada (FOR UPDATE): fora de transação o Doctrine recusa; acesso não serve')]
+    public function testBuscarRenovacaoParaGirarTravaALinha(): void
+    {
+        $deA = $this->semearConector($this->tenantNovo(), UserFactory::createOne()->_real(), $this->clienteGlobal());
+        $tokens = $this->repo(TokenDoConectorRepository::class);
+        $hash = $deA['renovacao']->getIdentificadorHash();
+
+        $achada = $this->em->wrapInTransaction(static fn () => $tokens->buscarRenovacaoParaGirar($hash));
+        $doAcesso = $this->em->wrapInTransaction(static fn () => $tokens->buscarRenovacaoParaGirar($deA['acesso']->getIdentificadorHash()));
+
+        self::assertSame($deA['renovacao'], $achada);
+        self::assertNull($doAcesso, 'token de acesso não é renovação');
+        $this->expectException(TransactionRequiredException::class);
+        $tokens->buscarRenovacaoParaGirar($hash);
+    }
+
+    #[TestDox('A filha é a renovação mais recente gerada por esta; quem nunca girou não tem filha')]
+    public function testBuscarRenovacaoGeradaPor(): void
+    {
+        $deA = $this->semearConector($this->tenantNovo(), UserFactory::createOne()->_real(), $this->clienteGlobal());
+        $tokens = $this->repo(TokenDoConectorRepository::class);
+        self::assertSame($deA['renovacaoNova'], $tokens->buscarRenovacaoGeradaPor($deA['renovacao']));
+        self::assertNull($tokens->buscarRenovacaoGeradaPor($deA['renovacaoNova']));
+
+        $maisNova = TokenDoConector::deRenovacao(hash('sha256', 'repeticao' . uniqid()), $deA['concessao'], new \DateTimeImmutable(), $deA['renovacao']);
+        $this->em->persist($maisNova);
+        $this->em->flush();
+
+        self::assertSame($maisNova, $tokens->buscarRenovacaoGeradaPor($deA['renovacao']));
     }
 
     #[TestDox('As buscas pelo hash acham código, token e cliente, que é quem revela o escritório')]
