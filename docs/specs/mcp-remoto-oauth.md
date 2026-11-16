@@ -2057,3 +2057,22 @@ entra num PR próprio depois de testada nos dois clientes.
    liberação) roda também na troca do código, não só na renovação.
 10. **Escopo desconhecido no pedido é ignorado**: o servidor emite só os escopos que conhece entre os pedidos, e a
     resposta do `/oauth/token` sempre diz quais foram, por interoperabilidade com os apps.
+
+**Decidido em 16/11/2026 na revisão dos blocos do PR 3 (orquestrador da frente, pela recomendação):**
+
+11. **Documento CIMD gravado quando a renovação falha**: se o cache do cliente já gravado venceu e a nova busca falha
+    por rede, status ou limite de buscas, o servidor segue com o documento gravado por até 24 horas depois do
+    vencimento (no estilo da RFC 5861) e registra no log `mcp`. Documento inválido recusa sempre. O limite de buscas
+    continua por domínio: no piloto aceita-se que uma conta logada consiga atrasar o registro de um app NOVO.
+12. **O cache do documento CIMD desconta o cabeçalho `Age`** (RFC 9111, 4.2.3) antes do piso de 5 minutos e do teto
+    de 24 horas.
+13. **As rotações de uma mesma cadeia saem uma de cada vez**: a renovação trava primeiro a linha da concessão e depois
+    a do token, sempre nessa ordem. Sem isso, a renovação mãe reapresentada na janela de 60 s e a filha girando ao
+    mesmo tempo deixavam dois pares válidos. O token de acesso grava a validade já limitada ao fim da concessão; campo
+    repetido no `/oauth/token` dá `invalid_request` (RFC 6749, 3.2); a proposta decidida sai na faxina só depois de 1 dia.
+14. **A volta do login ao `/oauth/authorize` pula a tela de entrada** de quem tem vários escritórios: a tela de
+    autorização é quem escolhe o escritório. Qualquer outra página continua passando pela seleção de escritório.
+15. **Escritório ou pessoa recusados ao autorizar** voltam ao app com `access_denied` (com `state` e `iss`), em vez de
+    uma página de erro que deixaria o app esperando. Autorizar sem escolher o escritório volta à tela com aviso, sem
+    gastar o pedido. Duas autorizações ao mesmo tempo da mesma pessoa saem uma de cada vez (a linha da pessoa é
+    travada), sem erro na primeira conexão.
