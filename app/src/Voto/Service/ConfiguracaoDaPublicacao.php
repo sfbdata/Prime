@@ -23,6 +23,10 @@ final class ConfiguracaoDaPublicacao
             'pautas' => array_map(self::pauta(...), $assembleia->getPautas()->toArray()),
             'unidades' => array_map(self::unidade(...), $assembleia->getUnidades()->toArray()),
         ];
+        // Só quando verdadeira: o código das assembleias já publicadas não muda.
+        if ($assembleia->isSimulacao()) {
+            $dados['simulacao'] = true;
+        }
 
         return hash('sha256', json_encode($dados, \JSON_THROW_ON_ERROR));
     }

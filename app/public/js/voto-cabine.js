@@ -44,6 +44,7 @@
     var tela = raiz.querySelector('[data-u-tela]');
     var faixa = raiz.querySelector('[data-u-faixa]');
     var faixaAberto = raiz.querySelector('[data-u-faixa-aberto]');
+    var faixaTreino = raiz.querySelector('[data-u-faixa-treino]');
     var fala = raiz.querySelector('[data-u-fala]');
     var botaoSom = raiz.querySelector('[data-u-som]');
     var leds = Array.prototype.slice.call(raiz.querySelectorAll('.uFen i'));
@@ -514,6 +515,8 @@
             tela.appendChild(telaErro());
         }
         faixa.hidden = !c.sim || !!c.soVer;
+        // Votação de simulação do evento (desenho 18, uSimula): faixa própria no voto de verdade, nunca junto da simulação da cabine.
+        faixaTreino.hidden = !D.treino || !!c.sim || !!c.soVer;
         // Voto aberto: o eleitor é avisado antes de votar e durante o voto (nunca na simulação nem só olhando candidaturas).
         var atual = c.sim || c.soVer || c.ver ? null : pautaAtual();
         faixaAberto.hidden = !(atual && atual.aberto && (c.fase === 'inicio' || c.fase === 'urna'));

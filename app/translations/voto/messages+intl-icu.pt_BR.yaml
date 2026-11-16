@@ -17,6 +17,7 @@ voto:
         votar: Votar
         periodo: '{inicio} até {fim}'
         periodo_aberto: 'Aberta em {inicio}'
+        simulacao: SIMULAÇÃO
         codigo: 'Código de conferência {codigo}'
         gerenciar: Gerenciar no Painel
         todos_os_grupos: Todos os grupos
@@ -97,6 +98,7 @@ voto:
             simular: Simular votação
             conhecer: Conhecer candidaturas
             faixa_simulacao: 'SIMULAÇÃO: nenhum voto é registrado'
+            faixa_treino: 'SIMULAÇÃO: votação de treino, sem validade'
             inicio_aperte: 'Aperte {confirma} para iniciar'
             seu_voto_para: SEU VOTO PARA
             numero: 'Número:'
@@ -229,6 +231,8 @@ voto:
                 primeira: Quórum da 1ª convocação
                 segunda: Quórum da 2ª convocação
                 convocacao: A convocação e o prazo são escolhidos ao abrir cada pauta.
+                tipo: Tipo
+                tipo_simulacao: Simulação (pode ser apagada)
                 alterar: Alterar
                 alterar_campo: 'Alterar {campo}'
                 confirmar: Confirmar e publicar votação
@@ -258,6 +262,8 @@ voto:
                 peso: Peso do voto
                 peso_fracao: Fração ideal
                 peso_unidade: Uma unidade, um voto
+                simulacao_destaque: Votação de simulação
+                simulacao_texto: ': para treinar a mesa e testar o link. Pode ser reiniciada e apagada depois; não entra nas estatísticas.'
                 salvar_sair: Salvar e sair
                 continuar: Continuar
                 voltar: Voltar
@@ -696,6 +702,8 @@ voto:
                 arquivada: Votação arquivada. Use Mostrar arquivadas para vê-la.
                 desarquivada: Votação desarquivada.
                 rascunho_excluido: Rascunho excluído.
+                simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
+                simulacao_apagada: Simulação apagada.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
                 arquivada: Arquivada
@@ -707,6 +715,8 @@ voto:
                 retomar: Retomar votação
                 cancelar: Cancelar votação
                 excluir_rascunho: Excluir rascunho
+                reiniciar_simulacao: Reiniciar simulação
+                apagar_simulacao: Apagar simulação
                 arquivar: Arquivar
                 desarquivar: Desarquivar
             janela_ciclo:
@@ -754,6 +764,9 @@ voto:
                 excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
                 excluir_manter: Manter
                 excluir_sim: Excluir rascunho
+                simulacao_pergunta: Apagar esta simulação e todos os votos de treino?
+                simulacao_manter: Manter
+                simulacao_sim: Confirmar exclusão
                 mostrar: 'Mostrar arquivadas ({n})'
                 ocultar: Ocultar arquivadas
                 selecionar: 'Selecionar {titulo}'
@@ -773,7 +786,7 @@ voto:
                 exemplo: 'Ex.: assembleia de 2025 concluída'
                 cancelar: Cancelar
                 arquivar_sim: Arquivar selecionadas
-                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados.'
+                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados e simulações.'
                 excluir_obs: 'Votação publicada não é excluída, para não apagar prova: use Arquivar.'
                 excluir_sim: Excluir selecionados
                 fora: '{n} selecionada(s) não se encaixam e serão mantidas como estão.'
@@ -782,7 +795,7 @@ voto:
                 excluidas: '{n} item(ns) excluído(s).'
                 nenhuma: Selecione ao menos uma votação.
                 nenhuma_arquivar: 'Nenhuma selecionada pode ser arquivada: só publicadas sem votação aberta.'
-                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados. Use Arquivar.'
+                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados e simulações. Use Arquivar.'
                 motivo_curto: Informe o motivo do arquivamento.
             ata_ciclo:
                 retirada: 'Retirada da ordem do dia: {pauta}, por decisão registrada em {em}. Motivo: {motivo}. Não houve deliberação sobre essa matéria.'

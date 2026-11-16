@@ -25,6 +25,7 @@ final class CriarAssembleiaUseCase
     public function executar(Tenant $tenant, AssembleiaInput $input, string $criadaPorNome): int
     {
         $assembleia = new Assembleia($tenant, $input->titulo, $input->pesoDoVoto(), $criadaPorNome, $input->cenarioDaAssembleia());
+        $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $this->cnpjs->normalizar($input->cnpj));
         $this->assembleias->salvar($assembleia, flush: true);
 

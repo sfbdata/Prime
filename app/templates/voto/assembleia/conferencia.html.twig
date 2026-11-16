@@ -19,6 +19,7 @@
             {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, path('voto_assembleia_editar', {id: a.id})) }}
             {{ _self.linha('voto.assembleia.gestor.conferencia.aptos'|trans, a.unidadesAptas, path('voto_assembleia_unidades', {id: a.id})) }}
             {{ _self.linha('voto.assembleia.gestor.conferencia.inaptos'|trans, a.unidadesInaptas, path('voto_assembleia_unidades', {id: a.id})) }}
+            {% if a.simulacao %}{{ _self.linha('voto.assembleia.gestor.conferencia.tipo'|trans, 'voto.assembleia.gestor.conferencia.tipo_simulacao'|trans, path('voto_assembleia_editar', {id: a.id})) }}{% endif %}
             {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), path('voto_assembleia_unidades', {id: a.id})) }}{% endif %}
         </div>
         {% if conferencia.somaForaDoEsperado %}

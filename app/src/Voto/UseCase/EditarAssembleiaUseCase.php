@@ -35,6 +35,7 @@ final class EditarAssembleiaUseCase
         $cnpj = $this->cnpjs->normalizar($input->cnpj);
         $assembleia->editar($input->titulo, $input->pesoDoVoto());
         $assembleia->definirCenario($input->cenarioDaAssembleia());
+        $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $cnpj);
         $this->assembleias->salvar($assembleia, flush: true);
     }

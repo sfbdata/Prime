@@ -74,6 +74,13 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 14, nullable: true)]
     private ?string $cnpj = null;
 
+    /**
+     * Simulação (desenho 18, "Votação de simulação"): treino da mesa e teste do link. Marca só em rascunho; pode ser
+     * reiniciada e apagada, não se arquiva e fica fora das estatísticas. Entra no hash da configuração só quando verdadeira.
+     */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $simulacao = false;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -141,6 +148,46 @@ class Assembleia implements TenantAware, Auditavel
         $this->cenario = $cenario;
     }
 
+    /** A marca de simulação só muda em rascunho, como o título: depois de publicada, a votação não vira real nem simulação. */
+    public function definirSimulacao(bool $simulacao): void
+    {
+        $this->exigirPautasAlteraveis();
+        $this->simulacao = $simulacao;
+    }
+
+    public function isSimulacao(): bool
+    {
+        return $this->simulacao;
+    }
+
+    /** Só simulação se reinicia ou se apaga: a votação real nunca perde voto. */
+    public function exigirSimulacao(string $mensagem): void
+    {
+        if (!$this->simulacao) {
+            throw new OperacaoInvalidaNaAssembleiaException($mensagem);
+        }
+    }
+
+    /**
+     * Volta a simulação ao estado de antes de publicar: rascunho, pautas aguardando e acesso das unidades limpo. Os votos,
+     * as participações e os contadores saem por SQL no UseCase (mesma transação). Pautas, opções e lista ficam.
+     */
+    public function reiniciarSimulacao(): void
+    {
+        $this->exigirSimulacao('Só votação de simulação pode ser reiniciada.');
+        $this->estado = EstadoDaAssembleia::Rascunho;
+        $this->publicadaEm = null;
+        $this->arquivadaEm = null;
+        $this->arquivadaMotivo = null;
+        $this->arquivadaPorNome = null;
+        foreach ($this->pautas as $pauta) {
+            $pauta->reiniciar();
+        }
+        foreach ($this->unidades as $unidade) {
+            $unidade->reiniciarAcesso();
+        }
+    }
+
     /**
      * Rascunho vira publicada e as pautas travam. Exige ao menos uma pauta, cada pauta com duas opções de voto (a
      * abstenção não conta), ao menos uma unidade apta e, com peso por fração ideal, a fração de toda unidade apta.
@@ -174,6 +221,9 @@ class Assembleia implements TenantAware, Auditavel
     {
         if ($this->arquivada()) {
             throw new OperacaoInvalidaNaAssembleiaException('Votação já arquivada.');
+        }
+        if ($this->simulacao) {
+            throw new OperacaoInvalidaNaAssembleiaException('Simulação não se arquiva: apague ou reinicie.');
         }
         if (EstadoDaAssembleia::Publicada !== $this->estado) {
             throw new OperacaoInvalidaNaAssembleiaException('Rascunho não se arquiva: pode ser excluído.');

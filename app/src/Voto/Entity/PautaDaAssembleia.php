@@ -779,6 +779,34 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         return null;
     }
 
+    /**
+     * Volta a pauta de uma simulação ao estado de antes de abrir (reiniciar). Configuração, opções e programação ficam;
+     * abertura, prazo, encerramento, suspensão, cancelamento, retirada e os nulos saem. Os contadores das opções e da
+     * pauta são zerados por SQL no UseCase; aqui só o espelho em memória dos nulos.
+     */
+    public function reiniciar(): void
+    {
+        $this->assembleia->exigirSimulacao('Só votação de simulação pode ser reiniciada.');
+        $this->estado = EstadoDaPauta::Aguardando;
+        $this->convocacao = null;
+        $this->quorumExigido = null;
+        $this->abertaEm = null;
+        $this->abertaPorNome = null;
+        $this->prazoAte = null;
+        $this->encerradaEm = null;
+        $this->encerradaPorNome = null;
+        $this->motivoEncerramento = null;
+        $this->limparSuspensao();
+        $this->canceladaEm = null;
+        $this->canceladaMotivo = null;
+        $this->canceladaPorNome = null;
+        $this->retiradaEm = null;
+        $this->retiradaMotivo = null;
+        $this->retiradaPorNome = null;
+        $this->nulosUnidades = 0;
+        $this->nulosPeso = '0.000000';
+    }
+
     private function fechar(\DateTimeImmutable $quando, ?string $nome, string $motivo): void
     {
         $this->limparSuspensao();

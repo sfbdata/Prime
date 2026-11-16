@@ -127,4 +127,13 @@ class PautaDaAssembleiaRepository extends ServiceEntityRepository
             throw new \RuntimeException('A pauta do voto não foi encontrada.');
         }
     }
+
+    /** Reiniciar a simulação: zera os votos nulos das pautas da assembleia do escritório. */
+    public function zerarNulosDaAssembleia(Assembleia $assembleia): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE voto.assembleia_pauta SET nulos_unidades = 0, nulos_peso = 0 WHERE assembleia_id = :assembleia AND tenant_id = :tenant',
+            ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
+        );
+    }
 }

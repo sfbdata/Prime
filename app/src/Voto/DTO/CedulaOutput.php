@@ -8,7 +8,7 @@ use App\Voto\Enum\CenarioDaAssembleia;
 
 /**
  * A cédula da unidade (`/votar/{token}`): a assembleia, a unidade e as pautas na ordem. Nada do escritório além do
- * título da assembleia.
+ * título da assembleia. `simulacao`: a assembleia é de treino, e a cabine mostra a faixa "votação de treino, sem validade".
  */
 final readonly class CedulaOutput
 {
@@ -29,6 +29,7 @@ final readonly class CedulaOutput
         public string $entidade = '',
         /** O cenário só rotula (identificação da unidade, modalidade): nunca entra no hash. */
         public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
+        public bool $simulacao = false,
     ) {
     }
 

@@ -75,6 +75,7 @@ final class LeituraDaAssembleia
             entidade: $assembleia->getEntidadeNome(),
             cnpj: $assembleia->getCnpj(),
             cenario: $assembleia->getCenario(),
+            simulacao: $assembleia->isSimulacao(),
         );
     }
 

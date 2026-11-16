@@ -147,6 +147,7 @@ final class MontarCedulaUseCase
             email: $unidade->getEmail() ?? '',
             entidade: $assembleia->getEntidadeNome() ?? '',
             cenario: $assembleia->getCenario(),
+            simulacao: $assembleia->isSimulacao(),
         );
     }
 

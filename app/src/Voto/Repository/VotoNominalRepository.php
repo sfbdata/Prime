@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Repository;
 
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\VotoNominal;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -59,5 +60,15 @@ class VotoNominalRepository extends ServiceEntityRepository
             ->getResult();
 
         return $votos;
+    }
+
+    /** Reiniciar ou apagar a simulação: apaga o registro nominal do voto aberto da assembleia do escritório. */
+    public function apagarDaAssembleia(Assembleia $assembleia): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM voto.assembleia_voto_nominal WHERE tenant_id = :tenant
+                AND pauta_id IN (SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = :assembleia AND tenant_id = :tenant)',
+            ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
+        );
     }
 }

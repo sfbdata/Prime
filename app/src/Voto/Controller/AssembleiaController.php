@@ -160,7 +160,7 @@ final class AssembleiaController extends AbstractController
         }
 
         $assembleia = $this->lida($tenant, $id);
-        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value);
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao);
 
         return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null));
     }
@@ -282,6 +282,7 @@ final class AssembleiaController extends AbstractController
             (string) $request->request->get('entidade', ''),
             (string) $request->request->get('cnpj', ''),
             (string) $request->request->get('cenario', CenarioDaAssembleia::Condominio->value),
+            '1' === (string) $request->request->get('simulacao', ''),
         );
     }
 }

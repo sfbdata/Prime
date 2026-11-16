@@ -36,6 +36,7 @@ final readonly class AssembleiaNoPainel
         public ?string $entidade = null,
         public ?string $cnpj = null,
         public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
+        public bool $simulacao = false,
     ) {
     }
 
@@ -110,6 +111,12 @@ final readonly class AssembleiaNoPainel
     public function podeExcluir(): bool
     {
         return !$this->publicada() && null === $this->publicadaEm;
+    }
+
+    /** Na seleção em lote: rascunho nunca publicado ou simulação (a simulação se apaga, nunca se arquiva). */
+    public function podeExcluirEmLote(): bool
+    {
+        return $this->simulacao || $this->podeExcluir();
     }
 
     public function porFracao(): bool

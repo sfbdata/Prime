@@ -26,6 +26,8 @@
         </div>
         <div class="vAviso" data-voto-cenario-ajuda>{{ cenario.ajuda }}</div>
         <div class="vG2">
+            {# Votação de simulação (desenho 18, passo 1, primeiro item da grade): só em rascunho, porque o formulário só abre em rascunho. #}
+            <label class="voto-simulacao"><input type="checkbox" name="simulacao" value="1"{{ input.simulacao ? ' checked' }}><span><b>{{ 'voto.assembleia.gestor.form.simulacao_destaque'|trans }}</b>{{ 'voto.assembleia.gestor.form.simulacao_texto'|trans }}</span></label>
             <label class="vL"><span data-voto-cenario-entidade>{{ cenario.entidade }}</span><input class="vF" name="entidade" maxlength="160" value="{{ input.entidade }}"></label>
             <label class="vL">{{ 'voto.assembleia.gestor.form.cnpj'|trans }}<input class="vF" name="cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="{{ cnpj_formatado }}"></label>
         </div>

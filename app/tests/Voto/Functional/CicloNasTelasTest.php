@@ -274,7 +274,7 @@ final class CicloNasTelasTest extends JusPrimeWebTestCase
         self::assertStringEndsWith('/voto/assembleias/lote/excluir', (string) $excluir->attr('action'));
         self::assertSame(['Cancelar', 'Excluir selecionados'], $excluir->filter('button')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertStringContainsString('Votação publicada não é excluída, para não apagar prova: use Arquivar.', $excluir->filter('.voto-lote-texto')->text());
-        self::assertSame('Excluir definitivamente {n} item(ns): rascunhos nunca publicados.', $excluir->filter('[data-voto-lote-titulo]')->attr('data-modelo'));
+        self::assertSame('Excluir definitivamente {n} item(ns): rascunhos nunca publicados e simulações.', $excluir->filter('[data-voto-lote-titulo]')->attr('data-modelo'));
 
         $caixas = $tela->filter('.voto-acoes > input.vSel[data-voto-lote-item]');
         self::assertCount(2, $caixas);
@@ -336,7 +336,7 @@ final class CicloNasTelasTest extends JusPrimeWebTestCase
         self::assertNotFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$this->assembleia->getId()]), 'a publicada nunca é excluída');
 
         $this->postarLote('excluir', [$this->assembleia->getId()]);
-        self::assertSame('Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados. Use Arquivar.', $this->avisoDoPainel());
+        self::assertSame('Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados e simulações. Use Arquivar.', $this->avisoDoPainel());
     }
 
     #[TestDox('Lote: CSRF inválido não faz nada; uma assembleia de outro escritório dá 404 e o lote inteiro fica como estava')]

@@ -15,6 +15,7 @@
 {%- endfor -%}
 {%- set dados = {
     assembleia: cedula.assembleia,
+    treino: cedula.simulacao|default(false),
     logo: '/images/voto/bj-voto-logo.png',
     csrf: somente_simulacao|default(false) ? '' : csrf_token('voto_cedula_' ~ token),
     urlVotar: somente_simulacao|default(false) ? '' : path('voto_assembleia_cedula_votar', {token: token, pauta: 0})|replace({'/pauta/0': '/pauta/__PAUTA__'}),
@@ -26,6 +27,7 @@
 <div class="uBg" role="application" aria-label="{{ 'voto.assembleia.cedula.cabine.aria'|trans }}" data-vc-cabine hidden>
     <div class="uBody">
         <div class="uFaixa" data-u-faixa hidden>{{ 'voto.assembleia.cedula.cabine.faixa_simulacao'|trans }}</div>
+        <div class="uFaixa" data-u-faixa-treino hidden>{{ 'voto.assembleia.cedula.cabine.faixa_treino'|trans }}</div>
         <div class="uFaixa" data-u-faixa-aberto hidden>{{ 'voto.assembleia.cedula.aviso_voto_aberto'|trans }}</div>
         <div class="uGr">
             <div class="uMold"><div class="uTela" data-u-tela></div></div>

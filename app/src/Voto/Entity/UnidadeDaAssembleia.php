@@ -158,6 +158,18 @@ class UnidadeDaAssembleia implements TenantAware
         $this->codigoExpiraEm = null;
     }
 
+    /** Reiniciar a simulação: a unidade volta a "ainda não recebeu" o link e sem código de acesso pendente (o link em si fica). */
+    public function reiniciarAcesso(): void
+    {
+        $this->linkEnviadoEm = null;
+        $this->codigoHash = null;
+        $this->codigoDesafioHash = null;
+        $this->codigoExpiraEm = null;
+        $this->codigoTentativas = 0;
+        $this->codigoJanelaEm = null;
+        $this->codigoPedidos = 0;
+    }
+
     public function registrarEnvioDoLink(?\DateTimeImmutable $em = null): void
     {
         $this->linkEnviadoEm = $em ?? new \DateTimeImmutable();

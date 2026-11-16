@@ -133,4 +133,14 @@ class ParticipacaoNaPautaRepository extends ServiceEntityRepository
 
         return $horarios;
     }
+
+    /** Reiniciar ou apagar a simulação: apaga as participações da assembleia do escritório (SQL direto, na transação do UseCase). */
+    public function apagarDaAssembleia(Assembleia $assembleia): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM voto.assembleia_participacao WHERE tenant_id = :tenant
+                AND pauta_id IN (SELECT id FROM voto.assembleia_pauta WHERE assembleia_id = :assembleia AND tenant_id = :tenant)',
+            ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
+        );
+    }
 }

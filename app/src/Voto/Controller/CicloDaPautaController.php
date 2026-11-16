@@ -13,6 +13,8 @@ use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
 use App\Voto\UseCase\DevolverPautaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
+use App\Voto\UseCase\ExcluirSimulacaoDaAssembleiaUseCase;
+use App\Voto\UseCase\ReiniciarSimulacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\RetirarPautaDaOrdemDoDiaUseCase;
 use App\Voto\UseCase\RetomarPautaUseCase;
 use App\Voto\UseCase\SuspenderPautaUseCase;
@@ -126,6 +128,26 @@ final class CicloDaPautaController extends AbstractController
         return $this->executar($request, $id, static function () use ($excluir, $tenant, $id): void {
             $excluir->executar($tenant, $id);
         }, 'voto.assembleia.gestor.ciclo.rascunho_excluido');
+    }
+
+    #[Route('/voto/assembleias/{id}/simulacao/reiniciar', name: 'voto_assembleia_reiniciar_simulacao', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function reiniciarSimulacao(int $id, Request $request, ReiniciarSimulacaoDaAssembleiaUseCase $reiniciar): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+
+        return $this->executar($request, $id, static function () use ($reiniciar, $tenant, $id): void {
+            $reiniciar->executar($tenant, $id);
+        }, 'voto.assembleia.gestor.ciclo.simulacao_reiniciada');
+    }
+
+    #[Route('/voto/assembleias/{id}/simulacao/apagar', name: 'voto_assembleia_excluir_simulacao', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function excluirSimulacao(int $id, Request $request, ExcluirSimulacaoDaAssembleiaUseCase $excluir): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+
+        return $this->executar($request, $id, static function () use ($excluir, $tenant, $id): void {
+            $excluir->executar($tenant, $id);
+        }, 'voto.assembleia.gestor.ciclo.simulacao_apagada');
     }
 
     private static function motivo(Request $request): string

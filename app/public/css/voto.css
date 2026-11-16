@@ -48,6 +48,8 @@
 .voto-tela .vF { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; background: #fff; box-sizing: border-box; width: 100%; }
 .voto-tela textarea.vF { height: 66px; padding: 7px 9px; resize: vertical; }
 .voto-tela .vF:focus, .voto-tela .vB:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.voto-tela .voto-simulacao { grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: #12242f; line-height: 1.4; }
+.voto-tela .voto-simulacao input { margin-top: 2px; }
 .voto-tela .vG2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .voto-tela .vKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .voto-tela .vKpi { padding: 13px 15px; background: #fff; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; }
