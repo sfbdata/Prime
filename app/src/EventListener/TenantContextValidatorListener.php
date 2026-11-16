@@ -107,6 +107,13 @@ final class TenantContextValidatorListener
         // está logado sem escritório na sessão como a quem não tem conta.
         'validacao_comprovante_ponto',
         'validacao_comprovante_ponto_codigo',
+        // Servidor de autorização do conector de I.A. (spec mcp-remoto-oauth 8). No /oauth/authorize a pessoa ainda não
+        // escolheu o escritório da conexão: a própria tela o escolhe, e as barreiras do escritório escolhido são as do
+        // PortaoDoConector::conferir. Token e metadado são chamados de servidor para servidor; ficam aqui para que uma
+        // sessão logada sem escritório também não seja redirecionada para tenant_selecionar.
+        'conector_oauth_autorizar',
+        'conector_oauth_token',
+        'conector_oauth_metadado',
     ];
 
     /**

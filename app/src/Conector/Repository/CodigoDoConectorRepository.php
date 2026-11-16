@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Conector\Repository;
 
 use App\Conector\Entity\CodigoDoConector;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -37,5 +38,24 @@ class CodigoDoConectorRepository extends ServiceEntityRepository
     public function buscarPorIdentificadorHash(string $identificadorHash): ?CodigoDoConector
     {
         return $this->findOneBy(['identificadorHash' => $identificadorHash]);
+    }
+
+    /**
+     * O código a trocar no `/oauth/token`, com a linha travada (`SELECT ... FOR UPDATE`) até o fim da transação: duas
+     * trocas simultâneas do mesmo código não passam as duas pelo `usado_em` nulo, e o código reapresentado acha a linha
+     * já usada (e derruba a concessão, `codigo_reutilizado`). Só funciona dentro de uma transação aberta (sem ela o
+     * Doctrine lança `TransactionRequiredException`). Sem escritório pelo mesmo motivo de
+     * {@see buscarPorIdentificadorHash()}.
+     */
+    public function buscarParaUsar(string $identificadorHash): ?CodigoDoConector
+    {
+        $codigo = $this->createQueryBuilder('c')
+            ->andWhere('c.identificadorHash = :hash')
+            ->setParameter('hash', $identificadorHash)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+
+        return $codigo instanceof CodigoDoConector ? $codigo : null;
     }
 }

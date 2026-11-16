@@ -19,6 +19,14 @@ use Symfony\Component\Routing\RouterInterface;
 #[CoversClass(DestinoPosLogin::class)]
 final class DestinoPosLoginTest extends KernelTestCase
 {
+    /**
+     * Páginas que entram na lista antes da rota existir (o nome é contrato do PR; a rota chega com o bloco que a cria).
+     * Só são toleradas enquanto a rota não existe: quando ela chegar, o teste exige o exemplo em paginasDaLista().
+     */
+    private const DE_OUTRO_BLOCO = [
+        'conector_oauth_autorizar' => 'PR 3 conector-autorizacao, bloco A (tela de autorização, /oauth/authorize)',
+    ];
+
     private function sut(): DestinoPosLogin
     {
         self::bootKernel();
@@ -130,12 +138,16 @@ final class DestinoPosLoginTest extends KernelTestCase
         self::bootKernel();
         /** @var list<string> $paginas */
         $paginas = (new \ReflectionClassConstant(DestinoPosLogin::class, 'PAGINAS'))->getValue();
+        $rotas = static::getContainer()->get(RouterInterface::class)->getRouteCollection();
+        $paginas = array_values(array_filter(
+            $paginas,
+            static fn (string $nome): bool => !(\array_key_exists($nome, self::DE_OUTRO_BLOCO) && $rotas->get($nome) === null),
+        ));
         $exemplos = array_keys(iterator_to_array(self::paginasDaLista()));
         sort($paginas);
         sort($exemplos);
         self::assertSame($paginas, $exemplos);
 
-        $rotas = static::getContainer()->get(RouterInterface::class)->getRouteCollection();
         foreach ($paginas as $nome) {
             $rota = $rotas->get($nome);
             self::assertNotNull($rota, $nome);

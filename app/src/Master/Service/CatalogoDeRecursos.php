@@ -16,7 +16,8 @@ namespace App\Master\Service;
  * Depois, as funções "Ponto: comprovante em imagem" (E15) e "Ponto: alertas de intervalo" (E11): 25 linhas e 24 chaves.
  * Depois, as funções "Ponto: validação em tela cheia", "Ponto: sons" e "Ponto: lembrete de saída" (E8): 28 linhas e
  * 27 chaves. Depois, a função "Ponto: aceite da folha" (E16): 29 linhas e 28 chaves. Depois, a função "Indique e ganhe"
- * (desenho da Contribua de 14 e 15/11): 30 linhas e 29 chaves.
+ * (desenho da Contribua de 14 e 15/11): 30 linhas e 29 chaves. Depois, a função "Conector de I.A." (spec
+ * mcp-remoto-oauth.md, decisão 14.a, nível 1): 31 linhas e 30 chaves.
  *
  * O mapa de rotas (§4) mora aqui também, para haver uma fonte só: o guarda de rota
  * ({@see \App\Master\EventListener\BloqueioDeRecursoDesativado}) e a faixa do Master perguntam
@@ -85,6 +86,11 @@ final class CatalogoDeRecursos
         // com o selo do HMAC no servidor ({@see \App\Ponto\Service\FuncaoDoAceite}). Camada "Global"; a "Escritório"
         // mora em ponto_config_escritorio. Sem rota própria: a assinatura (`ponto_folha_assinar`) segue a tela do Ponto.
         ['g' => self::GRUPO_FUNCOES, 'chave' => 'ponto-aceite', 't' => 'Ponto: aceite da folha', 'ic' => 'bi-pen', 'd' => 'O colaborador confirma ou registra ressalva na folha fechada.', 'tela' => false, 'base' => false],
+        // Conector de I.A. (spec mcp-remoto-oauth.md, decisão 14.a, nível 1): a chave geral que desliga o conector de todos
+        // os escritórios de uma vez. Nasce ligada (sem linha em recurso_estado); o que nasce falso é a liberação por
+        // escritório (conector_ia_escritorio). Sem rota de propósito: o /oauth/* e o /mcp não podem receber o
+        // redirecionamento do guarda de rota; quem confere é o App\Conector\Service\LiberacaoDoConector.
+        ['g' => self::GRUPO_FUNCOES, 'chave' => 'conector_ia', 't' => 'Conector de I.A.', 'ic' => 'bi-plug', 'd' => 'Conecta o BlueJus ao Claude e ao ChatGPT da conta de cada pessoa', 'tela' => false, 'base' => false],
     ];
 
     /**
