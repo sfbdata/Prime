@@ -3,7 +3,7 @@ name: feature-review-agent
 description: Revisor read-only do jusprime. Confere um diff (mudanças não commitadas, um commit ou uma branch) contra a spec ou a descrição da tarefa e devolve achados com arquivo:linha, severidade e prova. Use no passo "revisar" do ciclo (comando /review) e antes de integrar o commit de um feature-implementer. Só aponta; nunca conserta.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Edit, Write, NotebookEdit
-model: inherit
+model: sonnet
 color: yellow
 hooks:
   PreToolUse:

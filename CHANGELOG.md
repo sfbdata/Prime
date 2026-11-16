@@ -8,6 +8,19 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.52.1] - 2026-11-16
+
+### Corrigido
+
+- Teste `VersaoDoPdfTest::testParaAssinar`: o cancelamento na Lixeira usava a data de hoje, mas o documento do teste foi enviado em 09/11 com prazo de 7 dias. Em 16/11 o prazo venceu, o documento não era mais cancelado e o teste falhava no master (Qualidade vermelha, Release sem tag). A data agora é fixa (10/11), dentro do prazo.
+
+## [2.52.0] - 2026-11-13
+
+### Adicionado
+
+- Acrescente a importação de unidades por XLSX e CSV, com planilha modelo para baixar.
+- Acrescente a conferência antes da publicação, o andamento geral pelas pautas e a oferta de abertura pela mesa, com proteção contra alterações simultâneas na configuração.
+
 ## [2.51.0] - 2026-11-13
 
 ### Adicionado
@@ -1989,7 +2002,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.51.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.52.1...HEAD
+[2.52.1]: https://github.com/sfbdata/Prime/compare/v2.52.0...v2.52.1
+[2.52.0]: https://github.com/sfbdata/Prime/compare/v2.51.0...v2.52.0
 [2.51.0]: https://github.com/sfbdata/Prime/compare/v2.50.0...v2.51.0
 [2.50.0]: https://github.com/sfbdata/Prime/compare/v2.49.0...v2.50.0
 [2.49.0]: https://github.com/sfbdata/Prime/compare/v2.48.0...v2.49.0
