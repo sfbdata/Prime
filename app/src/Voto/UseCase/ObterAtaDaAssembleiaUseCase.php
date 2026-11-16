@@ -16,7 +16,8 @@ use App\Voto\Service\LeituraDaAssembleia;
 
 /**
  * A ata imprimível (relatório consolidado do desenho, em HTML): a assembleia lida e, por pauta que saiu da espera, a
- * relação de votantes (quem e quando; nunca em quê) e a participação por bloco ou torre (unidades e peso).
+ * relação de votantes (quem e quando; nunca em quê) e a participação por bloco ou torre (unidades e peso). Com
+ * `$comVotantes` falso (a minuta) a lista nominal nem é carregada.
  */
 final class ObterAtaDaAssembleiaUseCase
 {
@@ -28,12 +29,12 @@ final class ObterAtaDaAssembleiaUseCase
     ) {
     }
 
-    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?\DateTimeImmutable $agora = null): AtaDaAssembleia
+    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?\DateTimeImmutable $agora = null, bool $comVotantes = true): AtaDaAssembleia
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $this->encerrarVencidas->executar($assembleia, $agora);
-        [$votantes, $blocos] = $this->participacaoPorPauta($assembleia);
+        [$votantes, $blocos] = $comVotantes ? $this->participacaoPorPauta($assembleia) : [[], []];
 
         return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $votantes, $blocos);
     }

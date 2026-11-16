@@ -49,10 +49,11 @@
     {% endif %}
     <div class="vC voto-barra">
         <a class="vB vP" href="{{ path('voto_assembleia_nova') }}"><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.nova'|trans }}</a>
+        <span class="voto-espaco"></span>
         {% if totalArquivadas > 0 or arquivadas %}
-            <span class="voto-espaco"></span>
             <a class="vB" data-voto-arquivadas aria-pressed="{{ arquivadas ? 'true' : 'false' }}" href="{{ path('voto_index', arquivadas ? {aba: 'ges'} : {aba: 'ges', arquivadas: 1}) }}"><i class="bi {{ arquivadas ? 'bi-eye-slash' : 'bi-archive' }}"></i>{{ arquivadas ? 'voto.assembleia.gestor.arquivar.ocultar'|trans : 'voto.assembleia.gestor.arquivar.mostrar'|trans({n: totalArquivadas}) }}</a>
         {% endif %}
+        {% include 'voto/assembleia/_timbre_da_ata.html.twig' only %}
     </div>
     {% if painel.grupos|length > 0 %}
         <div class="vC voto-lote" data-voto-lote>

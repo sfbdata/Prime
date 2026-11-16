@@ -22,6 +22,7 @@ final readonly class AtaDaAssembleia
         public array $blocos,
     ) {
     }
+
     /** @return list<PautaNoPainel> as pautas que seguem na ordem do dia (sem as retiradas), na ordem em que foram cadastradas */
     public function naOrdemDoDia(): array
     {
@@ -36,5 +37,13 @@ final readonly class AtaDaAssembleia
         usort($abertas, static fn (PautaNoPainel $x, PautaNoPainel $y): int => $x->abertaEm?->getTimestamp() <=> $y->abertaEm?->getTimestamp());
 
         return array_merge($abertas, array_values(array_filter($naOrdem, static fn (PautaNoPainel $p): bool => null === $p->abertaEm)));
+    }
+
+    /** A ata só com a pauta pedida (mais as retiradas da ordem do dia, que o desenho mantém na minuta do evento). */
+    public function soComAPauta(int $pautaId): self
+    {
+        $pautas = array_values(array_filter($this->assembleia->pautas, static fn (PautaNoPainel $p): bool => $p->id === $pautaId || $p->retirada()));
+
+        return new self($this->assembleia->comPautas($pautas), $this->emitidaEm, $this->emitidaPor, $this->votantes, $this->blocos);
     }
 }

@@ -426,6 +426,8 @@ voto:
                 timbre: Papel timbrado para ata
                 timbre_dica: Modelo .docx com o papel timbrado para as minutas de ata
                 timbre_escolhido: 'Papel timbrado: {nome}'
+                timbre_salvo: Papel timbrado salvo neste navegador.
+                timbre_so_pagina: Papel timbrado guardado só até fechar esta página.
                 sucesso: Minuta de ata gerada.
                 sucesso_timbrado: Minuta de ata gerada no papel timbrado.
                 falhou: 'Não foi possível gerar a ata.'
@@ -438,12 +440,12 @@ voto:
                 aviso: Minuta gerada pelo BlueJus Voto. Confira e complete os campos destacados antes de assinar.
                 abertura: 'Em {quando}, em ambiente virtual da plataforma BlueJus Voto, reuniram-se os participantes de {entidade}, em {convocacao}ª convocação, para deliberar sobre a ordem do dia. Os trabalhos foram presididos por {presidente} e secretariados por {secretario}.'
                 quando_data: '{data}, às {hora}'
-                marca_data_hora: '[[data e hora]]'
-                marca_hora: '[[hora]]'
-                marca_entidade: '[[entidade]]'
-                marca_presidente: '[[nome do presidente]]'
-                marca_secretario: '[[nome do secretário]]' # segredo:permitido (secretário da ata, não credencial)
-                marca_nao_apurada: '[[votação não apurada]]'
+                marca_data_hora: data e hora
+                marca_hora: hora
+                marca_entidade: entidade
+                marca_presidente: nome do presidente
+                marca_secretario: nome do secretário # segredo:permitido (secretário da ata, não credencial)
+                marca_nao_apurada: votação não apurada
                 ordem_do_dia: Ordem do dia
                 deliberacoes: Deliberações
                 item: '{n}. {texto}'

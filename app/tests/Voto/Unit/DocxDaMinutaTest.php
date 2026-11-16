@@ -84,7 +84,25 @@ final class DocxDaMinutaTest extends TestCase
         yield 'sem sectPr' => [self::zipEstatico(['word/document.xml' => '<w:document ' . $w . '><w:body><w:p/></w:body></w:document>']), 'modelo_nao_reconhecido'];
         yield 'sectPr antes do body' => [self::zipEstatico(['word/document.xml' => '<w:document ' . $w . '><w:sectPr/><w:body></w:body></w:document>']), 'modelo_nao_reconhecido'];
         yield 'com DOCTYPE' => [self::zipEstatico(['word/document.xml' => '<!DOCTYPE x [<!ENTITY e "y">]><w:document ' . $w . '><w:body><w:sectPr/></w:body></w:document>']), 'modelo_nao_reconhecido'];
+        yield 'só sectPrChange, sem sectPr de verdade' => [self::zipEstatico(['word/document.xml' => '<w:document ' . $w . '><w:body><w:p/><w:sectPrChange w:id="1"/></w:body></w:document>']), 'modelo_nao_reconhecido'];
+        yield 'sectPr só dentro de parágrafo, não filho do body' => [self::zipEstatico(['word/document.xml' => '<w:document ' . $w . '><w:body><w:p><w:pPr><w:sectPr><w:pgSz/></w:sectPr></w:pPr></w:p></w:body></w:document>']), 'modelo_nao_reconhecido'];
+        yield 'sem fechar o body' => [self::zipEstatico(['word/document.xml' => '<w:document ' . $w . '><w:body><w:sectPr/></w:document>']), 'modelo_nao_reconhecido'];
         yield 'acima do limite' => [str_repeat('x', DocxDaMinuta::TAMANHO_MAXIMO_DO_MODELO + 1), 'modelo_grande'];
+    }
+
+    #[TestDox('sectPr final com sectPrChange aninhado (ou autofechado): vale o filho direto do body, por inteiro')]
+    public function testSectPrFinalComMudancaAninhada(): void
+    {
+        $w = 'xmlns:w="' . self::W . '"';
+        $final = '<w:sectPr w:rsidR="1"><w:pgSz/><w:sectPrChange w:id="2"><w:sectPr><w:pgSz/></w:sectPr></w:sectPrChange></w:sectPr>';
+        $modelo = $this->zip(['word/document.xml' => '<w:document ' . $w . '><w:body><w:p>velho</w:p>' . $final . '</w:body></w:document>']);
+
+        $documento = $this->ler($this->docx->montar(self::CORPO, $modelo))['word/document.xml'];
+
+        self::assertStringContainsString('<w:body>' . self::CORPO . $final . '</w:body>', $documento);
+
+        $autofechado = $this->zip(['word/document.xml' => '<w:document ' . $w . '><w:body><w:p>velho</w:p><w:sectPr w:rsidR="1"/></w:body></w:document>']);
+        self::assertStringContainsString('<w:body>' . self::CORPO . '<w:sectPr w:rsidR="1"/></w:body>', $this->ler($this->docx->montar(self::CORPO, $autofechado))['word/document.xml']);
     }
 
     #[DataProvider('modelosInvalidos')]

@@ -9,7 +9,7 @@ use Twig\Environment;
 
 /**
  * O corpo da minuta de ata em HTML bem formado (a regra do texto mora em _minuta_ata_corpo.html.twig) e a folha do PDF.
- * Os campos que o sistema não sabe ([[assim]]) viram `<mark>[assim]</mark>`, o destaque amarelo do desenho.
+ * Os campos que o sistema não sabe (marcados no Twig com o marcador sorteado) viram `<mark>[assim]</mark>`, o destaque amarelo do desenho.
  */
 final class HtmlDaMinutaDeAta
 {
@@ -19,11 +19,14 @@ final class HtmlDaMinutaDeAta
 
     public function corpo(AtaDaAssembleia $ata): string
     {
-        $html = $this->twig->render('voto/assembleia/_minuta_ata_corpo.html.twig', ['ata' => $ata]);
+        // O destaque só vale para os campos que o sistema insere: o marcador é sorteado a cada geração, então um
+        // [[texto]] digitado pelo usuário (título, pauta, opção, nome) nunca vira destaque.
+        $marca = bin2hex(random_bytes(8));
+        $html = $this->twig->render('voto/assembleia/_minuta_ata_corpo.html.twig', ['ata' => $ata, 'marca' => $marca]);
         // Caractere que o XML 1.0 não admite (vindo de um título colado) derrubaria a leitura do corpo.
         $html = (string) preg_replace('/[^\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u', '', $html);
 
-        return (string) preg_replace('/\[\[([^\]]*)\]\]/', '<mark>[$1]</mark>', $html);
+        return (string) preg_replace('/' . $marca . '\[([^\]]*)\]' . $marca . '/', '<mark>[$1]</mark>', $html);
     }
 
     public function folhaDoPdf(AtaDaAssembleia $ata): string

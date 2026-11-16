@@ -73,6 +73,7 @@
         </div>
     {% elseif p.encerrada and p.resultado is not null %}
         {% include 'voto/assembleia/_decisao.html.twig' with {r: p.resultado} only %}
+        <div class="voto-pauta-acoes">{% include 'voto/assembleia/_minuta_ata.html.twig' with {a: a, p: p} only %}</div>
     {% endif %}
     {# As janelas ficam fora do menu (o menu é escondido); abrem pelos itens com data-voto-janela. #}
     {% if not a.arquivada and p.aguardandoAMesa %}

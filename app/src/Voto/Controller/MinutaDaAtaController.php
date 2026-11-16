@@ -22,11 +22,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Minuta de ata em Word (com papel timbrado opcional) e em PDF (desenho 18, "Minuta de ata"), gerada na hora e devolvida
- * como download, sem gravar arquivo. POST por causa do modelo .docx enviado a cada geração (campo `timbre`, nunca
- * guardado) e do token da assembleia. Mesma guarda dos vizinhos: sem liberação 403; outro escritório e rascunho 404.
+ * como download, sem gravar arquivo. POST por causa do modelo .docx enviado a cada geração (campo `timbre`, que o navegador guarda e o servidor
+ * nunca guarda) e do token da assembleia. Mesma guarda dos vizinhos: sem liberação 403; outro escritório e rascunho 404.
  * Sem votação apurada ou modelo inválido: volta ao painel com o aviso.
  */
-#[Route('/voto/assembleias/{id}/minuta', requirements: ['id' => '\d+'])]
+#[Route('/voto/assembleias/{id}', requirements: ['id' => '\d+', 'pauta' => '\d+'])]
 final class MinutaDaAtaController extends AbstractController
 {
     public function __construct(
@@ -37,8 +37,20 @@ final class MinutaDaAtaController extends AbstractController
     ) {
     }
 
-    #[Route('/{formato}', name: 'voto_assembleia_minuta', requirements: ['formato' => 'docx|pdf'], methods: ['POST'])]
+    #[Route('/minuta/{formato}', name: 'voto_assembleia_minuta', requirements: ['formato' => 'docx|pdf'], methods: ['POST'])]
     public function baixar(int $id, string $formato, Request $request): Response
+    {
+        return $this->gerarMinuta($id, null, $formato, $request);
+    }
+
+    /** A minuta de uma votação só (o desenho oferece por eleição): mesma guarda, token e regra. */
+    #[Route('/pautas/{pauta}/minuta/{formato}', name: 'voto_assembleia_pauta_minuta', requirements: ['formato' => 'docx|pdf'], methods: ['POST'])]
+    public function baixarDaPauta(int $id, int $pauta, string $formato, Request $request): Response
+    {
+        return $this->gerarMinuta($id, $pauta, $formato, $request);
+    }
+
+    private function gerarMinuta(int $id, ?int $pauta, string $formato, Request $request): Response
     {
         $tenant = $this->guarda->exigir();
         if (!$this->isCsrfTokenValid('voto_assembleia_' . $id, (string) $request->request->get('_token'))) {
@@ -51,7 +63,7 @@ final class MinutaDaAtaController extends AbstractController
         try {
             $modelo = FormatoDaMinuta::Docx === $formato ? $this->modeloEnviado($request) : null;
 
-            return $this->arquivo($this->gerar->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), $formato, $modelo));
+            return $this->arquivo($this->gerar->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), $formato, $modelo, $pauta));
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         } catch (OperacaoInvalidaNaAssembleiaException|ModeloDeAtaInvalidoException $e) {

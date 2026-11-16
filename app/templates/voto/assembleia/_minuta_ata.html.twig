@@ -1,19 +1,17 @@
 {#
-    "Minuta de ata" do desenho 18 (botão .vB.vP com bi-file-earmark-word e o rótulo "Papel timbrado para ata", um
-    <label class="vB"> com o <input type="file" accept=".docx">). No sistema o modelo .docx não fica no navegador: segue
-    com o pedido a cada geração (POST, campo `timbre`) e o servidor não o guarda. O PDF é o mesmo conteúdo, sem timbre.
-    public/js/voto-minuta.js baixa por fetch e mostra o toast do desenho; sem JS o formulário baixa igual.
-    Só aparece com votação encerrada e apurada (ataTem do desenho). Contexto: `a` (AssembleiaNoPainel).
+    "Minuta de ata" do desenho 18: botão .vB.vP com bi-file-earmark-word. Vale para a assembleia toda (cartão) e, com `p`,
+    para uma votação só (linha da pauta, como o desenho faz por eleição). O PDF é o mesmo conteúdo, sem timbre. O papel
+    timbrado não está aqui: é o rótulo do cabeçalho do painel ([data-voto-timbre]), que o navegador guarda (localStorage,
+    como o desenho) e public/js/voto-minuta.js junta a cada geração no campo `timbre`; o servidor não guarda nada.
+    O JS baixa por fetch e mostra o toast do desenho; sem JS o formulário baixa igual (sem timbre).
+    Só aparece com votação encerrada e apurada (ataTem do desenho). Contexto: `a` (AssembleiaNoPainel), `p` (PautaNoPainel, opcional).
 #}
 {% set t = 'voto.assembleia.gestor.minuta.' %}
-<form method="post" enctype="multipart/form-data" class="voto-minuta" action="{{ path('voto_assembleia_minuta', {id: a.id, formato: 'docx'}) }}" data-voto-minuta
+{% set por_pauta = p is defined and p is not null %}
+<form method="post" class="voto-minuta" action="{{ por_pauta ? path('voto_assembleia_pauta_minuta', {id: a.id, pauta: p.id, formato: 'docx'}) : path('voto_assembleia_minuta', {id: a.id, formato: 'docx'}) }}" data-voto-minuta
       data-voto-sucesso="{{ (t ~ 'sucesso')|trans }}" data-voto-sucesso-timbrado="{{ (t ~ 'sucesso_timbrado')|trans }}"
-      data-voto-erro="{{ (t ~ 'falhou')|trans }}" data-voto-grande="{{ (t ~ 'modelo_grande')|trans }}">
+      data-voto-erro="{{ (t ~ 'falhou')|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
     <button type="submit" class="vB vP"><i class="bi bi-file-earmark-word"></i>{{ (t ~ 'botao')|trans }}</button>
-    <button type="submit" class="vB" formaction="{{ path('voto_assembleia_minuta', {id: a.id, formato: 'pdf'}) }}"><i class="bi bi-file-earmark-pdf"></i>{{ (t ~ 'botao_pdf')|trans }}</button>
-    <label class="vB" title="{{ (t ~ 'timbre_dica')|trans }}">
-        <input type="file" name="timbre" accept=".docx" hidden data-voto-timbre data-voto-timbre-padrao="{{ (t ~ 'timbre')|trans }}" data-voto-timbre-modelo="{{ (t ~ 'timbre_escolhido')|trans({nome: '__NOME__'}) }}">
-        <i class="bi bi-file-earmark-word"></i><span data-voto-timbre-texto>{{ (t ~ 'timbre')|trans }}</span>
-    </label>
+    <button type="submit" class="vB" formaction="{{ por_pauta ? path('voto_assembleia_pauta_minuta', {id: a.id, pauta: p.id, formato: 'pdf'}) : path('voto_assembleia_minuta', {id: a.id, formato: 'pdf'}) }}"><i class="bi bi-file-earmark-pdf"></i>{{ (t ~ 'botao_pdf')|trans }}</button>
 </form>

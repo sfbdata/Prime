@@ -204,7 +204,7 @@ final class MinutaDaAtaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
-    #[TestDox('Cartão: com votação apurada tem o formulário com Minuta de ata, PDF e o rótulo do papel timbrado; sem, não tem')]
+    #[TestDox('Cartão: com votação apurada tem o formulário com Minuta de ata e PDF; sem, não tem')]
     public function testBotaoNoCartao(): void
     {
         [$a] = $this->cenario();
@@ -213,24 +213,117 @@ final class MinutaDaAtaControllerTest extends JusPrimeWebTestCase
 
         $painel = $this->client->request('GET', '/voto?aba=ges');
 
-        $form = $painel->filter('#assembleia-' . $a->getId() . ' .voto-acoes > form.voto-minuta[data-voto-minuta][enctype="multipart/form-data"]');
+        $form = $painel->filter('#assembleia-' . $a->getId() . ' .voto-acoes > form.voto-minuta[data-voto-minuta]');
         self::assertCount(1, $form);
         self::assertSame($this->url($a, 'docx'), $form->attr('action'));
         self::assertSame('Minuta de ata', trim($form->filter('button.vB.vP')->text()));
         self::assertCount(1, $form->filter('button.vB.vP > i.bi-file-earmark-word'));
         self::assertSame($this->url($a, 'pdf'), $form->filter('button[formaction]')->attr('formaction'));
-        self::assertSame('Papel timbrado para ata', trim($form->filter('label.vB > span')->text()));
-        self::assertSame('Modelo .docx com o papel timbrado para as minutas de ata', $form->filter('label.vB')->attr('title'));
-        self::assertSame('.docx', $form->filter('label.vB > input[type="file"][name="timbre"]')->attr('accept'));
+        self::assertCount(0, $form->filter('input[type="file"]'), 'o timbre não vai no cartão: é o rótulo do cabeçalho');
         self::assertCount(0, $painel->filter('#assembleia-' . $vazia->getId() . ' form.voto-minuta'));
+    }
+
+
+    #[TestDox('Cabeçalho do painel: rótulo "Papel timbrado para ata" com o title e o input .docx do desenho')]
+    public function testRotuloDoTimbreNoCabecalho(): void
+    {
+        $this->cenario();
+
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+
+        $rotulo = $painel->filter('.voto-barra > label.vB');
+        self::assertCount(1, $rotulo);
+        self::assertSame('Papel timbrado para ata', trim($rotulo->filter('span[data-voto-timbre-texto]')->text()));
+        self::assertSame('Modelo .docx com o papel timbrado para as minutas de ata', $rotulo->attr('title'));
+        self::assertSame('.docx', $rotulo->filter('input[type="file"][data-voto-timbre]')->attr('accept'));
+        self::assertSame('Papel timbrado: __NOME__', $rotulo->filter('input')->attr('data-voto-timbre-modelo'));
+        self::assertSame('Modelo acima de 2,5 MB.', $rotulo->filter('input')->attr('data-voto-grande'));
+        self::assertStringContainsString('voto-minuta.js', (string) $painel->html());
+    }
+
+    #[TestDox('Linha da pauta encerrada: formulário da minuta só dela, apontando para a rota da pauta; pauta aguardando não tem')]
+    public function testBotaoNaLinhaDaPauta(): void
+    {
+        [$a, $encerrada, $cancelada] = $this->cenario();
+
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+
+        $form = $painel->filter('#pauta-' . $encerrada->getId() . ' form.voto-minuta[data-voto-minuta]');
+        self::assertCount(1, $form);
+        self::assertSame($this->urlDaPauta($a, $encerrada, 'docx'), $form->attr('action'));
+        self::assertSame($this->urlDaPauta($a, $encerrada, 'pdf'), $form->filter('button[formaction]')->attr('formaction'));
+        self::assertSame('Minuta de ata', trim($form->filter('button.vB.vP')->text()));
+        self::assertCount(0, $painel->filter('#pauta-' . $cancelada->getId() . ' form.voto-minuta'));
+    }
+
+    #[TestDox('Minuta de uma votação só: traz só ela (e as retiradas), com a mesma guarda e nome próprio')]
+    public function testMinutaDeUmaPauta(): void
+    {
+        [$a, $encerrada] = $this->cenario();
+
+        $this->client->request('POST', $this->urlDaPauta($a, $encerrada, 'docx'), ['_token' => $this->token($a)]);
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', self::DOCX);
+        self::assertStringContainsString('filename="minuta-ata-' . $a->getId() . '-pauta-' . $encerrada->getId() . '.docx"', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        $texto = $this->textoDe($this->arquivosDoZip((string) $this->client->getResponse()->getContent())['word/document.xml']);
+        self::assertStringContainsString('1. Pauta encerrada', $texto);
+        self::assertStringNotContainsString('Pauta cancelada', $texto);
+        self::assertStringContainsString('Retirada da ordem do dia: Pauta retirada', $texto);
+
+        $this->client->request('POST', $this->urlDaPauta($a, $encerrada, 'pdf'), ['_token' => $this->token($a)]);
+        self::assertResponseHeaderSame('Content-Type', 'application/pdf');
+    }
+
+    #[TestDox('Minuta de uma pauta: cancelada volta ao painel com o aviso; retirada, de outra assembleia ou inexistente dão 404')]
+    public function testMinutaDeUmaPautaRegras(): void
+    {
+        [$a, , $cancelada, $retirada] = $this->cenario();
+        $alheia = AssembleiaFactory::new()->publicada()->create()->_real();
+        $pautaAlheia = PautaDaAssembleiaFactory::new(['assembleia' => $alheia])->comOpcoesPadrao()->encerrada()->create()->_real();
+
+        $this->client->request('POST', $this->urlDaPauta($a, $cancelada, 'docx'), ['_token' => $this->token($a)]);
+        self::assertResponseRedirects('/voto?aba=ges#assembleia-' . $a->getId());
+        self::assertStringContainsString('Ainda não há votação apurada para a minuta de ata.', $this->client->followRedirect()->filter('[data-voto-toasts]')->text());
+
+        foreach ([$retirada->getId(), $pautaAlheia->getId(), 999999] as $id) {
+            $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/pautas/' . $id . '/minuta/docx', ['_token' => $this->token($a)]);
+            self::assertResponseStatusCodeSame(404, (string) $id);
+        }
+        $this->client->request('POST', '/voto/assembleias/' . $alheia->getId() . '/pautas/' . $pautaAlheia->getId() . '/minuta/pdf', ['_token' => $this->token($alheia)]);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('[[texto]] digitado pelo usuário (pauta) não vira destaque; só os campos que o sistema insere')]
+    public function testColchetesDoUsuarioNaoViramDestaque(): void
+    {
+        [$a] = $this->cenario('Pauta [[digitada]] do síndico');
+
+        $this->client->request('POST', $this->url($a, 'docx'), ['_token' => $this->token($a)]);
+
+        $documento = $this->arquivosDoZip((string) $this->client->getResponse()->getContent())['word/document.xml'];
+        self::assertStringContainsString('1. Pauta [[digitada]] do síndico', $this->textoDe($documento));
+        $doc = new \DOMDocument();
+        $doc->loadXML($documento);
+        $destacados = [];
+        foreach ($doc->getElementsByTagNameNS(self::W, 'highlight') as $marca) {
+            $destacados[] = $marca->parentNode?->parentNode?->textContent;
+        }
+        self::assertContains('[nome do presidente]', $destacados, 'o campo do sistema continua destacado');
+        foreach ($destacados as $texto) {
+            self::assertStringNotContainsString('digitada', (string) $texto);
+        }
+
+        $this->client->request('POST', $this->url($a, 'pdf'), ['_token' => $this->token($a)]);
+        self::assertResponseIsSuccessful();
     }
 
     /**
      * Assembleia publicada de 3 unidades com: pauta encerrada (3 votaram Sim), pauta cancelada e pauta retirada.
      *
-     * @return array{0: Assembleia}
+     * @return array{0: Assembleia, 1: PautaDaAssembleia, 2: PautaDaAssembleia, 3: PautaDaAssembleia} a assembleia e as pautas encerrada, cancelada e retirada
      */
-    private function cenario(): array
+    private function cenario(string $tituloDaEncerrada = 'Pauta encerrada'): array
     {
         $this->liberar();
         $this->entrar();
@@ -239,7 +332,7 @@ final class MinutaDaAtaControllerTest extends JusPrimeWebTestCase
         foreach (['T101', 'T102', 'T103'] as $identificacao) {
             $unidades[] = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => $identificacao, 'responsavel' => 'Responsável ' . $identificacao, 'email' => strtolower($identificacao) . '@minuta.test'])->_real();
         }
-        $encerrada = PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Pauta encerrada'])->comOpcoesPadrao()->encerrada()->create()->_real();
+        $encerrada = PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => $tituloDaEncerrada])->comOpcoesPadrao()->encerrada()->create()->_real();
         $cancelada = PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 2, 'titulo' => 'Pauta cancelada'])->comOpcoesPadrao()->aberta()->create()->_real();
         $retirada = PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 3, 'titulo' => 'Pauta retirada'])->comOpcoesPadrao()->create()->_real();
         $cancelada->cancelar('Convocação irregular', 'Mesa');
@@ -248,7 +341,7 @@ final class MinutaDaAtaControllerTest extends JusPrimeWebTestCase
         $this->em->refresh($a);
         $this->votar($encerrada, $unidades);
 
-        return [$a];
+        return [$a, $encerrada, $cancelada, $retirada];
     }
 
     private function votar(PautaDaAssembleia $pauta, array $unidades): void
@@ -265,6 +358,11 @@ final class MinutaDaAtaControllerTest extends JusPrimeWebTestCase
     private function url(Assembleia $a, string $formato): string
     {
         return '/voto/assembleias/' . $a->getId() . '/minuta/' . $formato;
+    }
+
+    private function urlDaPauta(Assembleia $a, PautaDaAssembleia $p, string $formato): string
+    {
+        return '/voto/assembleias/' . $a->getId() . '/pautas/' . $p->getId() . '/minuta/' . $formato;
     }
 
     private function baixar(Assembleia $a, string $formato, string $token, ?UploadedFile $timbre = null): void

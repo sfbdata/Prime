@@ -102,18 +102,49 @@ final class DocxDaMinuta
         return $xml;
     }
 
-    /** O corpo no lugar do conteúdo do `<w:body>`, antes do último `<w:sectPr` (que guarda cabeçalho, rodapé e página). */
+    /** O corpo no lugar do conteúdo do `<w:body>`, antes do `<w:sectPr>` final (o que guarda cabeçalho, rodapé e página). */
     private function comOCorpo(string $documento, string $corpo): string
     {
-        $secao = strrpos($documento, '<w:sectPr');
-        if (1 !== preg_match('/<w:body(?:\s[^>]*)?>/', $documento, $m, \PREG_OFFSET_CAPTURE)
-            || false === $secao || $secao < $m[0][1] + \strlen($m[0][0])
+        $fim = strrpos($documento, '</w:body>');
+        if (1 !== preg_match('/<w:body(?:\s[^>]*)?>/', $documento, $m, \PREG_OFFSET_CAPTURE) || false === $fim
             || 1 === preg_match('/<!(?:DOCTYPE|ENTITY)/i', $documento)) {
             throw $this->erro('modelo_nao_reconhecido');
         }
         $inicio = $m[0][1] + \strlen($m[0][0]);
+        $secao = $fim <= $inicio ? null : self::inicioDoSectPrFinal(substr($documento, 0, $fim), $inicio);
+        if (null === $secao) {
+            throw $this->erro('modelo_nao_reconhecido');
+        }
 
         return substr($documento, 0, $inicio) . $corpo . substr($documento, $secao);
+    }
+
+    /**
+     * Onde começa o `<w:sectPr>` filho direto do body: o último elemento antes de `</w:body>`. Casa só `<w:sectPr` seguido
+     * de espaço, `>` ou `/` (nunca `<w:sectPrChange`), acompanha o aninhamento (um sectPr dentro de sectPrChange não conta)
+     * e recusa o sectPr de quebra de seção dentro de parágrafo, que não vem colado no fim do body.
+     */
+    private static function inicioDoSectPrFinal(string $ateOFimDoBody, int $aPartirDe): ?int
+    {
+        $texto = rtrim($ateOFimDoBody);
+        preg_match_all('#<(/?)w:sectPr(?=[\s>/])[^>]*?(/?)>#', $texto, $achados, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE, $aPartirDe);
+        $profundidade = 0;
+        $inicioDoAtual = null;
+        $ultimo = null;
+        foreach ($achados as $a) {
+            $fechando = '/' === $a[1][0];
+            $autoFechado = '/' === $a[2][0];
+            if (!$fechando && 0 === $profundidade) {
+                $inicioDoAtual = $a[0][1];
+            }
+            $profundidade += $fechando ? -1 : ($autoFechado ? 0 : 1);
+            if (0 === $profundidade && null !== $inicioDoAtual) {
+                $ultimo = [$inicioDoAtual, $a[0][1] + \strlen($a[0][0])];
+                $inicioDoAtual = null;
+            }
+        }
+
+        return null !== $ultimo && $ultimo[1] === \strlen($texto) ? $ultimo[0] : null;
     }
 
     private function ler(string $caminho): string

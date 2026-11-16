@@ -39,6 +39,20 @@ final readonly class AssembleiaNoPainel
     ) {
     }
 
+    /**
+     * A mesma assembleia com outro conjunto de pautas (a minuta de uma pauta só).
+     *
+     * @param list<PautaNoPainel> $pautas
+     */
+    public function comPautas(array $pautas): self
+    {
+        return new self(
+            $this->id, $this->titulo, $this->peso, $this->estado, $this->criadaPorNome, $this->criadaEm, $this->publicadaEm,
+            $this->podeAlterarPautas, $this->podeAlterarUnidades, $this->unidadesAptas, $this->unidadesInaptas, $this->pesoApto,
+            $pautas, $this->arquivadaEm, $this->arquivadaMotivo, $this->arquivadaPorNome, $this->entidade, $this->cnpj, $this->cenario,
+        );
+    }
+
     public function publicada(): bool
     {
         return EstadoDaAssembleia::Publicada === $this->estado;
