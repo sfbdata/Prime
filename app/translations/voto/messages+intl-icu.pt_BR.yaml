@@ -231,6 +231,15 @@ voto:
                 descricao_7: Depois de publicada, a configuração fica bloqueada.
                 acesso_texto: 'Cada unidade entra pelo próprio link ou QR Code, sem conta no BlueJus. Os links são gerados quando a assembleia é publicada.'
                 equipe_texto: 'A mesa (equipe do escritório com acesso ao Voto) abre, suspende e encerra cada pauta depois de publicar. A convocação e o prazo são escolhidos ao abrir cada pauta.'
+                equipe_padrao: Usar a equipe padrão
+                equipe_propria: Equipe própria com os cargos desta categoria
+                a_designar: A designar
+                indicar_texto: A Administração indica o nome e o e-mail de cada cargo.
+                indicar_pessoas: Indicar pessoas
+                revisao_equipe: Equipe
+                revisao_equipe_padrao: Equipe padrão
+                revisao_equipe_propria: 'Própria, {n, plural, one {# cargo} other {# cargos}}'
+                cargos_sem_pessoa: '{n} cargo(s) ainda sem pessoa indicada pela Administração.'
                 regras_das_pautas: Regras de cada pauta
                 regras_das_pautas_dica: 'Sigilo, horário de abertura e encerramento, grupos e ordem das candidaturas são definidos em cada pauta, no passo Cargos.'
                 sem_pautas: Nenhuma pauta incluída ainda.

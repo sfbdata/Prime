@@ -5,6 +5,11 @@
     L254-258). O sistema não tem campo a gravar nestes dois passos (o acesso é o link pessoal de cada unidade e quem conduz é
     a mesa do escritório): mostram o título do desenho e o que vale hoje, com o rodapé "Salvar e sair" | "Voltar" | "Continuar".
     Contexto: `assembleia` (AssembleiaNoPainel) e `passo` (3 ou 6).
+
+    Passo 6 (desenho 18, H266, edP6): "Usar a equipe padrão" / "Equipe própria com os cargos desta categoria" (.vCat/.vCatOn),
+    a lista cargo + nome ("A designar"), "A Administração indica o nome e o e-mail de cada cargo." e [Indicar pessoas] (irPerfis:
+    abre a tela Perfis no grupo desta assembleia). Contexto extra do passo 6: `equipe` (list<LinhaDaEquipe>, vazia = equipe
+    padrão) e `administracao` (bool): só a Administração escolhe e indica; os demais veem só leitura.
 #}
 
 {% set sub = 'assembleia' %}
@@ -15,7 +20,45 @@
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a} only %}
     <div class="voto-assistente-corpo">
         {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: passo, em_form: false} only %}
-        <div class="vAviso" data-voto-passo-texto>{{ (passo == 3 ? 'voto.assembleia.gestor.assistente.acesso_texto' : 'voto.assembleia.gestor.assistente.equipe_texto')|trans }}</div>
+        {% if passo == 3 %}
+            <div class="vAviso" data-voto-passo-texto>{{ 'voto.assembleia.gestor.assistente.acesso_texto'|trans }}</div>
+        {% else %}
+            {% set propria = equipe|length > 0 %}
+            {% set token = csrf_token('voto_equipe') %}
+            <div class="voto-equipe-passo" data-voto-equipe-passo>
+                <div class="vCats voto-equipe-passo-cats">
+                    {% if administracao and propria %}
+                        <form method="post" action="{{ path('voto_equipe_padrao', {id: a.id}) }}" data-voto-equipe-padrao>
+                            <input type="hidden" name="_token" value="{{ token }}"><input type="hidden" name="depois" value="passo-6">
+                            <button type="submit" class="vCat"><i class="bi bi-people"></i>{{ 'voto.assembleia.gestor.assistente.equipe_padrao'|trans }}</button>
+                        </form>
+                    {% else %}
+                        <button type="button" class="vCat {{ propria ? '' : 'vCatOn' }}" disabled aria-pressed="{{ propria ? 'false' : 'true' }}" data-voto-equipe-padrao><i class="bi bi-people"></i>{{ 'voto.assembleia.gestor.assistente.equipe_padrao'|trans }}</button>
+                    {% endif %}
+                    {% if administracao and not propria %}
+                        <form method="post" action="{{ path('voto_equipe_categoria', {id: a.id}) }}" data-voto-equipe-propria>
+                            <input type="hidden" name="_token" value="{{ token }}"><input type="hidden" name="depois" value="passo-6"><input type="hidden" name="categoria" value="{{ a.cenario.value }}">
+                            <button type="submit" class="vCat"><i class="bi bi-person-badge"></i>{{ 'voto.assembleia.gestor.assistente.equipe_propria'|trans }}</button>
+                        </form>
+                    {% else %}
+                        <button type="button" class="vCat {{ propria ? 'vCatOn' : '' }}" disabled aria-pressed="{{ propria ? 'true' : 'false' }}" data-voto-equipe-propria><i class="bi bi-person-badge"></i>{{ 'voto.assembleia.gestor.assistente.equipe_propria'|trans }}</button>
+                    {% endif %}
+                </div>
+                {% if propria %}
+                    <div class="voto-equipe-passo-lista" data-voto-equipe-lista>
+                        {% for linha in equipe %}
+                            <div class="vLin voto-equipe-passo-linha"><b>{{ linha.rotulo }}</b><span>{{ linha.aDesignar ? 'voto.assembleia.gestor.assistente.a_designar'|trans : (linha.email ? linha.nome ~ ' · ' ~ linha.email : linha.nome) }}</span></div>
+                        {% endfor %}
+                    </div>
+                    <div class="voto-equipe-passo-indicar">
+                        <span>{{ 'voto.assembleia.gestor.assistente.indicar_texto'|trans }}</span>
+                        {% if administracao %}<a class="vB" href="{{ path('voto_equipe_index', {grupo: a.id}) }}#equipe-{{ a.id }}" data-voto-indicar-pessoas><i class="bi bi-person-gear"></i>{{ 'voto.assembleia.gestor.assistente.indicar_pessoas'|trans }}</a>{% endif %}
+                    </div>
+                {% else %}
+                    <div class="vAviso" data-voto-passo-texto>{{ 'voto.assembleia.gestor.assistente.equipe_texto'|trans }}</div>
+                {% endif %}
+            </div>
+        {% endif %}
         <div class="voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
