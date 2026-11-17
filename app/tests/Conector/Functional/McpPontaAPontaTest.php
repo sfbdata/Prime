@@ -6,8 +6,10 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
@@ -39,7 +41,9 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
     /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
     private const REGISTRADAS = [
+        BuscarPastasFerramenta::NOME,
         LerAgendaFerramenta::NOME,
+        LerPastaFerramenta::NOME,
         QuemSouEuFerramenta::NOME,
     ];
 
@@ -117,7 +121,12 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 
         $dados = $this->resultado($this->chamarQuemSouEu($par['access_token'], self::ERA_DO_INITIALIZE, 1), 1)['structuredContent'];
 
-        self::assertSame([['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true]], $dados['ferramentas']);
+        // A pessoa do cenário não tem módulo: sobram as que não pedem nenhum (a ler_pasta segue a tela da pasta, decisão
+        // 10 do PR 6, e a própria quem_sou_eu).
+        self::assertSame([
+            ['nome' => LerPastaFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[LerPastaFerramenta::NOME], 'liberada_nesta_conexao' => true],
+            ['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true],
+        ], $dados['ferramentas']);
     }
 
     #[TestDox('12.1 e 12.19: sessão no A, autoriza o B, cookie junto; quem_sou_eu mostra só o B e a tela seguinte do navegador continua no A')]
