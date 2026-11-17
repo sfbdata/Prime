@@ -109,4 +109,28 @@ final class EquipeDaAssembleiaRegrasTest extends TestCase
         $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
         new MembroDaEquipe(new Assembleia(new Tenant(), 'AGO', PesoDoVoto::Unidade, 'Teste'), PapelNaEquipe::Fiscal, 'Maria', 'isto-nao-e-email');
     }
+
+    #[TestDox('Decidir a avaliação (a única escrita do Visualizar): só o conselho; sem equipe ou fora dela, ninguém (a Administração é tratada antes)')]
+    public function testQuemDecideAAvaliacao(): void
+    {
+        $linhas = [
+            ['assembleia' => 1, 'user' => 10, 'papel' => 'comissao'],
+            ['assembleia' => 1, 'user' => 11, 'papel' => 'conselho'],
+            ['assembleia' => 1, 'user' => 12, 'papel' => 'auditoria'],
+            ['assembleia' => 1, 'user' => 13, 'papel' => 'fiscal'],
+            ['assembleia' => 1, 'user' => null, 'papel' => 'conselho'],
+        ];
+
+        self::assertTrue(AcessoAAssembleia::avaliacaoPelaEquipe($linhas, 11));
+        foreach ([10, 12, 13, 99] as $id) {
+            self::assertFalse(AcessoAAssembleia::avaliacaoPelaEquipe($linhas, $id), 'pessoa ' . $id);
+        }
+        self::assertFalse(AcessoAAssembleia::avaliacaoPelaEquipe([], 11), 'sem equipe própria só a Administração decide');
+        // Registrar é o nível Editar: o conselho (Visualizar) não registra, a comissão sim.
+        self::assertSame(NivelNaAssembleia::Visualizar, AcessoAAssembleia::nivelPelaEquipe($linhas, 11));
+        self::assertSame(NivelNaAssembleia::Editar, AcessoAAssembleia::nivelPelaEquipe($linhas, 10));
+        self::assertTrue(BarreiraDaEquipeListener::recusaria(NivelNaAssembleia::Oculto, 'POST', 'voto_assembleia_avaliacao_decidir'), 'quem está Oculto nunca decide');
+        self::assertFalse(BarreiraDaEquipeListener::recusaria(NivelNaAssembleia::Visualizar, 'POST', 'voto_assembleia_avaliacao_decidir'));
+        self::assertTrue(BarreiraDaEquipeListener::recusaria(NivelNaAssembleia::Visualizar, 'POST', 'voto_assembleia_unidade_ocorrencia'), 'registrar continua sendo Editar');
+    }
 }

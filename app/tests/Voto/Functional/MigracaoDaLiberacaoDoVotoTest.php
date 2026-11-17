@@ -25,6 +25,8 @@ final class MigracaoDaLiberacaoDoVotoTest extends KernelTestCase
     private const VERSAO = 'DoctrineMigrations\\Version20261109140000';
     /** As tabelas da assembleia de condomínio moram no schema `voto`: saem antes, senão o down do schema para nelas. */
     private const VERSAO_DA_ASSEMBLEIA = 'DoctrineMigrations\\Version20261109170000';
+    /** As ocorrências e avaliações do conselho têm chave estrangeira para a assembleia e a unidade: saem antes de tudo. */
+    private const VERSAO_DAS_AVALIACOES = 'DoctrineMigrations\\Version20261117050000';
     /** A equipe própria da assembleia tem chave estrangeira para a assembleia: sai antes dela. */
     private const VERSAO_DA_EQUIPE = 'DoctrineMigrations\\Version20261117040000';
     /** O registro nominal do voto aberto tem chave estrangeira para as tabelas da assembleia: sai antes delas. */
@@ -33,6 +35,9 @@ final class MigracaoDaLiberacaoDoVotoTest extends KernelTestCase
     #[TestDox('down tira a tabela voto.liberacao e o schema voto; up devolve os dois, com a unicidade por escritório e o padrão não liberado')]
     public function testDownEUp(): void
     {
+        self::bootKernel();
+        self::assertSame(0, $this->executar('--down', self::VERSAO_DAS_AVALIACOES));
+        self::ensureKernelShutdown();
         self::bootKernel();
         self::assertSame(0, $this->executar('--down', self::VERSAO_DA_EQUIPE));
         self::ensureKernelShutdown();

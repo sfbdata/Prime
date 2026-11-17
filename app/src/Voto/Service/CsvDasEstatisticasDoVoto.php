@@ -8,14 +8,14 @@ use App\Voto\DTO\EstatisticasDoVotoOutput;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * CSV `estatisticas-votacoes.csv` do Master (desenho H466, sem as colunas de ocorrências e avaliações que esperam a
- * W2-7b): UTF-8 com BOM (Excel), separador `;`, cada valor entre aspas, cabeçalho na primeira linha. Texto que começa
+ * CSV `estatisticas-votacoes.csv` do Master (desenho H466; as colunas `ocorrencias;pendentes;mantidas;tornados_aptos` são da
+ * ASSEMBLEIA e se repetem em cada linha de pauta dela): UTF-8 com BOM (Excel), separador `;`, cada valor entre aspas, cabeçalho na primeira linha. Texto que começa
  * com `=`, `+`, `-` ou `@` ganha um apóstrofo para a planilha não o executar como fórmula (os títulos são digitados
  * por usuários de escritório).
  */
 final class CsvDasEstatisticasDoVoto
 {
-    public const CABECALHO = 'escritorio;entidade;assembleia;pauta;categoria;situacao;encerramento;aptos;votantes;participacao;quorum';
+    public const CABECALHO = 'escritorio;entidade;assembleia;pauta;categoria;situacao;encerramento;aptos;votantes;participacao;quorum;ocorrencias;pendentes;mantidas;tornados_aptos';
 
     public function __construct(
         private readonly TranslatorInterface $tradutor,
@@ -38,6 +38,10 @@ final class CsvDasEstatisticasDoVoto
                 $l->votantes,
                 $l->participacao(),
                 null === $l->quorum ? '' : $this->tradutor->trans('master.voto.estatisticas.quorum.' . $l->quorum),
+                $l->ocorrencias,
+                $l->pendentes,
+                $l->mantidas,
+                $l->tornadosAptos,
             ]));
         }
 

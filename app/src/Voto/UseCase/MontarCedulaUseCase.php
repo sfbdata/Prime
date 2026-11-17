@@ -15,6 +15,7 @@ use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ApuracaoDaPauta;
@@ -34,6 +35,8 @@ use Psr\Clock\ClockInterface;
  * Pauta com grupos aptos só aparece para a unidade de um deles, e o peso apto dela (base do quórum) é o dos grupos. A
  * ordem das opções segue a pauta (de registro ou sorteada a cada leitura). Pauta de voto aberto leva o aviso.
  *
+ * A unidade não apta vê a última ocorrência dela e, se a avaliação está pendente, "(em avaliação pelo conselho)" (H449).
+ *
  * Mostra quando a unidade votou, nunca em quê. Totais só na pauta encerrada, pelo ApuracaoDaPauta; nunca parcial.
  * Devolve null quando o link não leva a nenhuma cédula (a página responde 404).
  */
@@ -49,6 +52,7 @@ final class MontarCedulaUseCase
         private readonly ClockInterface $relogio,
         private readonly ComprovanteDoVoto $comprovante,
         private readonly OrdemDasCandidaturasNaCedula $ordem,
+        private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
     ) {
     }
 
@@ -135,6 +139,7 @@ final class MontarCedulaUseCase
     private function cedula(UnidadeDaAssembleia $unidade, array $pautas): CedulaOutput
     {
         $assembleia = $unidade->getAssembleia();
+        $ocorrencia = $unidade->isApta() ? null : $this->ocorrencias->ultimaDaUnidade($unidade);
 
         return new CedulaOutput(
             assembleia: $assembleia->getTitulo(),
@@ -148,6 +153,8 @@ final class MontarCedulaUseCase
             entidade: $assembleia->getEntidadeNome() ?? '',
             cenario: $assembleia->getCenario(),
             simulacao: $assembleia->isSimulacao(),
+            ocorrencia: $ocorrencia?->getTexto(),
+            ocorrenciaEmAvaliacao: true === $ocorrencia?->pendente(),
         );
     }
 

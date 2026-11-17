@@ -279,26 +279,26 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertCount(1, $pagina->filter('[data-voto-pronto]'));
     }
 
-    #[TestDox('As sub-abas antigas (Pautas, Unidades e links, Conferência) saíram do rascunho: só Perfis (Administração), Painel e Assembleia')]
+    #[TestDox('As sub-abas antigas (Pautas, Unidades e links, Conferência) saíram do rascunho: só Perfis (Administração), Painel, Assembleia e Avaliações (para quem decide)')]
     public function testSubAbasAntigasSairamDoRascunho(): void
     {
         $id = (int) $this->rascunho()->getId();
         foreach (['/editar', '/pautas', '/unidades', '/publicar', '/passo/3'] as $caminho) {
             $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . $caminho);
-            self::assertSame(['Perfis', 'Painel', 'Assembleia'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())), $caminho);
+            self::assertSame(['Perfis', 'Painel', 'Assembleia', 'Avaliações'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())), $caminho);
             self::assertSame('Assembleia', trim($pagina->filter('.voto-sub-abas > a.vTabOn')->text()), $caminho);
             self::assertCount(0, $pagina->filter('.voto-etapas'), 'as 6 etapas só aparecem depois de publicar');
         }
     }
 
-    #[TestDox('Publicada: não há assistente; os passos 2, 3 e 6 levam para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas e Unidades')]
+    #[TestDox('Publicada: não há assistente; os passos 2, 3 e 6 levam para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas, Unidades e Avaliações')]
     public function testPublicadaSemAssistente(): void
     {
         $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
         $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/passo/3');
         self::assertResponseRedirects('/voto/assembleias/' . $assembleia->getId() . '/pautas');
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/pautas');
-        self::assertSame(['Perfis', 'Painel', 'Pautas', 'Unidades e links'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Perfis', 'Painel', 'Pautas', 'Unidades e links', 'Avaliações'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(0, $pagina->filter('.voto-trilho'));
         self::assertCount(1, $pagina->filter('.voto-etapas'));
     }

@@ -1,0 +1,51 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Sub-aba "Avaliações" (desenho 18, H273 e H469; spec voto-avaliacoes-do-conselho-1611, seção 4): cada ocorrência
+    registrada para pessoa não apta abre uma avaliação, que o conselho decide com a justificativa. Só aparece para quem
+    decide (voto_decide_avaliacao); o servidor confere o papel de novo. Pendentes primeiro.
+    Contexto: `tela` (AvaliacoesDaAssembleia) e `assembleia`.
+#}
+
+{% set sub = 'avaliacoes' %}
+
+{% block conteudo %}
+{% set a = assembleia %}
+{% set token = csrf_token('voto_assembleia_' ~ a.id) %}
+<div class="vC voto-avaliacoes">
+    <div class="vH"><i class="bi bi-clipboard-check"></i>{{ 'voto.assembleia.gestor.avaliacoes.titulo'|trans }}</div>
+    <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.avaliacoes.texto'|trans }}</div>
+    {% for v in tela.avaliacoes %}
+        <div class="vLin voto-avaliacao" id="avaliacao-{{ v.id }}">
+            <div class="voto-avaliacao-topo">
+                <b>{{ v.nome }}</b>
+                <span class="vChip" style="background:{{ v.avaliacao.cor }}">{{ v.avaliacao.rotulo }}</span>
+            </div>
+            <div class="voto-avaliacao-corpo">
+                {{ a.titulo }}<br>
+                {{ 'voto.assembleia.gestor.avaliacoes.ocorrencia'|trans({texto: v.texto, data: v.registradaEm|date('d/m/Y H:i:s'), por: v.registradaPor}) }}<br>
+                {% if v.pendente %}
+                    {{ 'voto.assembleia.gestor.avaliacoes.aberta'|trans({data: v.registradaEm|date('d/m/Y H:i:s')}) }}
+                {% else %}
+                    {{ (v.avaliacao.value == 'tornada_apta' ? 'voto.assembleia.gestor.avaliacoes.concedida' : 'voto.assembleia.gestor.avaliacoes.mantida')|trans({data: v.decididaEm|date('d/m/Y H:i:s'), por: v.decididaPor, justificativa: v.justificativa}) }}
+                {% endif %}
+            </div>
+            {% if v.pendente and voto_decide_avaliacao(a.id) %}
+                <form method="post" class="voto-avaliacao-decisao" action="{{ path('voto_assembleia_avaliacao_decidir', {id: a.id, ocorrencia: v.id}) }}">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <input class="vF" type="text" name="justificativa" maxlength="160" placeholder="{{ 'voto.assembleia.gestor.avaliacoes.justificativa'|trans }}" aria-label="{{ 'voto.assembleia.gestor.avaliacoes.justificativa_rotulo'|trans }}" data-voto-exige-texto>
+                    <button type="submit" class="vB" name="decisao" value="manter" data-voto-exige-botao>{{ 'voto.assembleia.gestor.avaliacoes.manter'|trans }}</button>
+                    <button type="submit" class="vB vP" name="decisao" value="alterar" data-voto-exige-botao {% if not tela.podeTornarApto %}disabled data-voto-sempre-desabilitado title="{{ 'voto.assembleia.gestor.avaliacoes.encerrada'|trans }}"{% endif %}>{{ 'voto.assembleia.gestor.avaliacoes.alterar'|trans }}</button>
+                </form>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.avaliacoes.vazio'|trans }}</div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-avaliacoes.js') }}" defer></script>
+{% endblock %}

@@ -21,6 +21,12 @@ final readonly class EstatisticaDaVotacao
      * @param string  $situacao   uma das SITUACOES
      * @param ?string $quorum     um dos QUORUM_*; null na pauta cancelada ou retirada (não há quórum a medir)
      * @param ?\DateTimeImmutable $encerramento o fim: o encerramento real, senão o prazo, senão o horário programado
+     * @param int  $ocorrencias   as da ASSEMBLEIA (não da pauta): ocorrências registradas
+     * @param int  $pendentes     as da assembleia: avaliações pendentes
+     * @param int  $mantidas      as da assembleia: inaptidões mantidas pelo conselho
+     * @param int  $tornadosAptos as da assembleia: tornados aptos pelo conselho
+     * @param bool $primeiraDaAssembleia a assembleia tem uma linha por pauta e os números acima se repetem em cada uma:
+     *                                   os KPIs somam só a primeira, para contar cada assembleia uma vez
      */
     public function __construct(
         public string $escritorio,
@@ -33,6 +39,11 @@ final readonly class EstatisticaDaVotacao
         public int $aptos,
         public int $votantes,
         public ?string $quorum,
+        public int $ocorrencias = 0,
+        public int $pendentes = 0,
+        public int $mantidas = 0,
+        public int $tornadosAptos = 0,
+        public bool $primeiraDaAssembleia = true,
     ) {
     }
 

@@ -296,3 +296,17 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .voto-tela .voto-equipe-passo-indicar > span { flex: 1 1 300px; }
 .voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover { background: #fff; color: #0b3550; }
 .voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover i { color: #0a6fa0; }
+
+/* Ocorrências na Lista de aptos (H249/H462) e Avaliações do conselho (H273/H469) */
+.voto-tela .voto-busca { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: bold; color: #34505f; }
+.voto-tela .voto-ocorrencia { flex-basis: 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13.5px; }
+.voto-tela .voto-ocorrencia .vF { flex: 2 1 240px; width: auto; }
+.voto-tela .voto-ocorrencia-texto { flex-basis: 100%; font-size: 12.5px; color: #34505f; }
+.voto-tela .voto-ocorrencia[hidden], .voto-tela .voto-unidade[hidden] { display: none; }
+.voto-tela .voto-hash { font-size: 11.5px; color: #7a8e9b; word-break: break-all; }
+.voto-tela .voto-avaliacao { display: flex; flex-direction: column; gap: 7px; font-size: 13.5px; }
+.voto-tela .voto-avaliacao-topo { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+.voto-tela .voto-avaliacao-topo > b { flex: 1 1 240px; }
+.voto-tela .voto-avaliacao-corpo { color: #34505f; line-height: 1.45; }
+.voto-tela .voto-avaliacao-decisao { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; }
+.voto-tela .voto-avaliacao-decisao .vF { flex: 1 1 260px; width: auto; }

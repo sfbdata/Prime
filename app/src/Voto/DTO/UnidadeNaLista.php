@@ -21,6 +21,8 @@ final readonly class UnidadeNaLista
         public ?string $email,
         public string $token,
         public ?\DateTimeImmutable $linkEnviadoEm,
+        /** A última ocorrência registrada para a unidade (o desenho mostra "Registrada em ... por ..."), ou null. */
+        public ?OcorrenciaNaUnidade $ocorrencia = null,
     ) {
     }
 

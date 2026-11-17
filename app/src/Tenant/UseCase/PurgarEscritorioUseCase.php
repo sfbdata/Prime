@@ -439,6 +439,8 @@ final class PurgarEscritorioUseCase
         // Voto aberto (W2-3): a relação nominal é filha da unidade, da pauta e da opção, então sai antes delas.
         ['voto.assembleia_voto_nominal', 'tenant_id = :tenant'],
         ['voto.membro_da_equipe', 'tenant_id = :tenant'],
+        // Ocorrências e avaliações do conselho (W2-7b): filha da assembleia e da unidade, sai antes das duas.
+        ['voto.ocorrencia_da_unidade', 'tenant_id = :tenant'],
         ['voto.assembleia_participacao', 'tenant_id = :tenant'],
         ['voto.assembleia_opcao', 'tenant_id = :tenant'],
         ['voto.assembleia_unidade', 'tenant_id = :tenant'],

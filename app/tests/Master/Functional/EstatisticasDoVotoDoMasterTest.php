@@ -18,9 +18,13 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\DTO\EstatisticaDaVotacao;
 use App\Voto\DTO\EstatisticasDoVotoOutput;
 use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\OcorrenciaDaUnidade;
+use App\Voto\Enum\AvaliacaoDaOcorrencia;
+use App\Voto\Enum\OrigemDaOcorrencia;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Service\CsvDasEstatisticasDoVoto;
 use App\Voto\Service\EstatisticasDasVotacoes;
 use App\Voto\Service\LeituraDaAssembleia;
@@ -77,7 +81,7 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         self::assertNull($linhas[4]['quorum']);
         self::assertNull($linhas[5]['quorum']);
         self::assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$#', (string) $linhas[0]['ate'], 'o "até" do desenho: o encerramento');
-        self::assertSame(['votacoes' => 6, 'realizadas' => 3, 'emAndamento' => 1, 'aptos' => 12, 'votantes' => 8, 'participacao' => '66,7%', 'quorumAtingido' => 1, 'quorumExigido' => 2], $d['kpis']);
+        self::assertSame(['votacoes' => 6, 'realizadas' => 3, 'emAndamento' => 1, 'aptos' => 12, 'votantes' => 8, 'participacao' => '66,7%', 'quorumAtingido' => 1, 'quorumExigido' => 2, 'ocorrencias' => 0, 'avaliacoesPendentes' => 0, 'inaptidoesMantidas' => 0, 'tornadosAptos' => 0], $d['kpis']);
         self::assertSame($a->getTenant()->getName(), $linhas[0]['escritorio']);
         self::assertSame('Cond. do Teste', $linhas[0]['entidade']);
         self::assertSame('Instituição de ensino', $linhas[0]['categoria']);
@@ -160,13 +164,13 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         self::assertStringContainsString('text/csv', (string) $r->headers->get('Content-Type'));
         self::assertStringContainsString('estatisticas-votacoes.csv', (string) $r->headers->get('Content-Disposition'));
         $corpo = (string) $r->getContent();
-        self::assertStringStartsWith("\u{FEFF}escritorio;entidade;assembleia;pauta;categoria;situacao;encerramento;aptos;votantes;participacao;quorum\n", $corpo);
+        self::assertStringStartsWith("\u{FEFF}escritorio;entidade;assembleia;pauta;categoria;situacao;encerramento;aptos;votantes;participacao;quorum;ocorrencias;pendentes;mantidas;tornados_aptos\n", $corpo);
         $linhas = array_values(array_filter(explode("\n", $corpo), static fn (string $l): bool => str_contains($l, 'Épsilon')));
         self::assertCount(6, $linhas);
         self::assertStringContainsString('"' . $t->getName() . '";"Cond. do Teste";"\'=Assembleia Épsilon', $linhas[0], 'fórmula ganha apóstrofo');
         self::assertStringContainsString('"Encerrada"', $linhas[0]);
-        self::assertStringEndsWith('"4";"3";"75%";"Atingido"', $linhas[0]);
-        self::assertCount(11, str_getcsv($linhas[0], ';'));
+        self::assertStringEndsWith('"4";"3";"75%";"Atingido";"0";"0";"0";"0"', $linhas[0]);
+        self::assertCount(15, str_getcsv($linhas[0], ';'));
         $this->semDadosDePessoa($corpo, $a);
         $this->semDadosDePessoa((string) json_encode($this->dados('ensino')), $a);
     }
@@ -185,7 +189,7 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         $quebrado = $this->createMock(AssembleiaRepository::class);
         $quebrado->method('listarParaEstatisticasDoMaster')->willThrowException(new \RuntimeException('falha no meio'));
         try {
-            (new EstatisticasDasVotacoes($quebrado, static::getContainer()->get(LeituraDaAssembleia::class), $this->em))->calcular(null);
+            (new EstatisticasDasVotacoes($quebrado, static::getContainer()->get(LeituraDaAssembleia::class), $this->em, static::getContainer()->get(OcorrenciaDaUnidadeRepository::class)))->calcular(null);
             self::fail('a exceção devia subir');
         } catch (\RuntimeException) {
         }
@@ -200,6 +204,41 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
         $csv = static::getContainer()->get(CsvDasEstatisticasDoVoto::class)->gerar(new EstatisticasDoVotoOutput([$linha]));
 
         self::assertStringContainsString('"\'=cmd";"\'+1";"\'-2";"\'@x";"Categoria ""q"""', $csv);
+    }
+
+    #[TestDox('ocorrências e avaliações: contadas por assembleia (uma vez nos KPIs, repetidas em cada pauta no CSV), só números')]
+    public function testOcorrenciasPorAssembleia(): void
+    {
+        $this->entrarComoMasterNoProprioEscritorio();
+        $t = TenantFactory::createOne(['name' => 'Escritório Ômega ' . uniqid()])->_real();
+        $a = $this->assembleiaComPautas($t, 'Assembleia Ômega ' . uniqid(), CenarioDaAssembleia::Ensino);
+        $u = $a->getUnidades()->toArray();
+        $this->em->persist(new OcorrenciaDaUnidade($a, $u[0], 'Só registro', OrigemDaOcorrencia::Manual, 'Fulano'));
+        $this->em->persist(new OcorrenciaDaUnidade($a, $u[1], 'Pendente', OrigemDaOcorrencia::Manual, 'Fulano', true));
+        $mantida = new OcorrenciaDaUnidade($a, $u[2], '=Mantida', OrigemDaOcorrencia::Manual, 'Fulano', true);
+        $mantida->decidir(AvaliacaoDaOcorrencia::Mantida, 'Sem cadastro', 'Conselho', new \DateTimeImmutable());
+        $this->em->persist($mantida);
+        $apta = new OcorrenciaDaUnidade($a, $u[3], 'Tornada', OrigemDaOcorrencia::Manual, 'Fulano', true);
+        $apta->decidir(AvaliacaoDaOcorrencia::TornadaApta, 'Cadastro ok', 'Conselho', new \DateTimeImmutable());
+        $this->em->persist($apta);
+        $this->em->flush();
+
+        $d = $this->dados('ensino');
+
+        self::assertSame(4, $d['kpis']['ocorrencias'], 'a assembleia com 6 linhas conta uma vez');
+        self::assertSame(1, $d['kpis']['avaliacoesPendentes']);
+        self::assertSame(1, $d['kpis']['inaptidoesMantidas']);
+        self::assertSame(1, $d['kpis']['tornadosAptos']);
+        $linhas = $this->linhasDa($d, 'Assembleia Ômega');
+        self::assertCount(6, $linhas);
+        self::assertSame([4, 4, 4, 4, 4, 4], array_column($linhas, 'ocorrencias'));
+        $this->client->request('GET', '/master/voto/estatisticas.csv?categoria=ensino');
+        $corpo = (string) $this->client->getResponse()->getContent();
+        self::assertStringEndsWith('"4";"1";"1";"1"', array_values(array_filter(explode("\n", $corpo), static fn (string $l): bool => str_contains($l, 'Ômega')))[0]);
+        foreach (['Só registro', 'Sem cadastro', 'Cadastro ok', 'Fulano'] as $texto) {
+            self::assertStringNotContainsString($texto, $corpo);
+            self::assertStringNotContainsString($texto, (string) json_encode($d));
+        }
     }
 
     #[TestDox('custo: 3 assembleias com 2 pautas cada leem só números e o total de consultas fica abaixo do teto')]
@@ -282,7 +321,7 @@ final class EstatisticasDoVotoDoMasterTest extends JusPrimeWebTestCase
     public function testCatalogoDosKpis(): void
     {
         $tradutor = static::getContainer()->get('translator');
-        $esperado = ['est_kpi_votacoes' => 'Votações', 'est_kpi_realizadas' => 'Realizadas', 'est_kpi_andamento' => 'Em andamento', 'est_kpi_aptos' => 'Aptos nas realizadas', 'est_kpi_votantes' => 'Votantes nas realizadas', 'est_kpi_participacao' => 'Participação nas realizadas', 'est_kpi_quorum' => 'Quórum atingido'];
+        $esperado = ['est_kpi_votacoes' => 'Votações', 'est_kpi_realizadas' => 'Realizadas', 'est_kpi_andamento' => 'Em andamento', 'est_kpi_aptos' => 'Aptos nas realizadas', 'est_kpi_votantes' => 'Votantes nas realizadas', 'est_kpi_participacao' => 'Participação nas realizadas', 'est_kpi_quorum' => 'Quórum atingido', 'est_kpi_ocorrencias' => 'Ocorrências', 'est_kpi_pendentes' => 'Avaliações pendentes', 'est_kpi_mantidas' => 'Inaptidões mantidas', 'est_kpi_tornados' => 'Tornados aptos'];
 
         foreach ($esperado as $chave => $texto) {
             self::assertSame($texto, $tradutor->trans('master.js.voto.' . $chave, [], null, 'pt_BR'));
