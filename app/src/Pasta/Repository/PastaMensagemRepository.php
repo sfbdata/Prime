@@ -4,6 +4,7 @@ namespace App\Pasta\Repository;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -162,5 +163,35 @@ class PastaMensagemRepository extends ServiceEntityRepository
         }
 
         return $porPasta;
+    }
+
+    /**
+     * Uma página do Registro da pasta (aba Dados), o mais recente primeiro (empate no `criadaEm`: id maior primeiro), para
+     * quem só lê (o conector de I.A., `ler_pasta` parte `registro`). Traz UM a mais que `$porPagina`: quem chama sabe se
+     * há página seguinte sem contar a pasta inteira. Pasta e escritório explícitos: não depende do filtro de sessão.
+     *
+     * Sem `$comFinanceiro` (Financeiro oculto ou que a pessoa não vê), os cartões do sistema que são dado financeiro
+     * (`RegistroDoSistemaNaPasta::DO_FINANCEIRO`: pró-bono e contrato) ficam de fora, como no contexto da I.A.
+     *
+     * @return list<PastaMensagem>
+     */
+    public function paginaDoRegistro(Pasta $pasta, Tenant $tenant, int $pagina, int $porPagina, bool $comFinanceiro): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->leftJoin('m.autor', 'autor')->addSelect('autor')
+            ->andWhere('m.pasta = :pasta')
+            ->andWhere('m.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('m.criadaEm', 'DESC')
+            ->addOrderBy('m.id', 'DESC')
+            ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
+            ->setMaxResults($porPagina + 1);
+        if (!$comFinanceiro) {
+            $qb->andWhere('m.sistema IS NULL OR m.sistema NOT IN (:doFinanceiro)')
+               ->setParameter('doFinanceiro', RegistroDoSistemaNaPasta::DO_FINANCEIRO);
+        }
+
+        return array_values($qb->getQuery()->getResult());
     }
 }

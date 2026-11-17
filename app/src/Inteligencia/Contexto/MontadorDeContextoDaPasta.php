@@ -17,6 +17,7 @@ use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
+use App\Inteligencia\Service\PoliticaDeMascaramento;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaPagamento;
@@ -80,14 +81,22 @@ final class MontadorDeContextoDaPasta
     public const ORCAMENTO_PASTA_ABERTA_NO_CRUZAMENTO = 30000;
     public const ORCAMENTO_PASTA_ADICIONAL_NO_CRUZAMENTO = 15000;
 
+    private readonly PoliticaDeMascaramento $politica;
+
+    /**
+     * A máscara é decidida pela {@see PoliticaDeMascaramento} (no conector de I.A., sempre; fora dele, a preferência do
+     * escritório). Sem a política (testes antigos que montam à mão), vale só a preferência do escritório, como antes.
+     */
     public function __construct(
         private readonly FonteDeDadosDaPasta $dados,
         private readonly FonteDeMovimentacoesDoPush $fonteDeMovimentacoes,
         private readonly MontadorDeContextoDoPush $movimentacoes,
-        private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
+        ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly MascaradorDeDadosPessoais $mascarador,
         private readonly ClockInterface $relogio,
+        ?PoliticaDeMascaramento $politica = null,
     ) {
+        $this->politica = $politica ?? new PoliticaDeMascaramento($configuracoes);
     }
 
     /**
@@ -114,7 +123,7 @@ final class MontadorDeContextoDaPasta
         // Sigilo primeiro: o montador do Push lança antes de ler qualquer publicação; a lista de
         // processos daqui repete a conferência para o caso de o agente não ler movimentações.
         $processos = $this->processosDaPasta($tenant, $pasta);
-        $mascarar = $this->configuracoes->findDoTenant($tenant)?->isMascararDadosPessoais() ?? true;
+        $mascarar = $this->politica->mascarar($tenant);
 
         $cabecalho = $this->cabecalho($tenant, $pasta, $processos, $mascarar);
         $linhasDeProcessos = array_map(fn (Processo $p): string => $this->linhaDoProcesso($p), $processos);

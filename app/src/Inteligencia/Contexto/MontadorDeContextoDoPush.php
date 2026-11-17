@@ -11,6 +11,7 @@ use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
+use App\Inteligencia\Service\PoliticaDeMascaramento;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 
@@ -37,11 +38,16 @@ final class MontadorDeContextoDoPush
     /** Campos curtos (classe, órgão, nomes…): acima disto é lixo ou ataque, não cabeçalho. */
     public const TAMANHO_MAXIMO_DO_ROTULO = 200;
 
+    private readonly PoliticaDeMascaramento $politica;
+
+    /** Sem a política (testes antigos que montam à mão), vale só a preferência do escritório, como antes. */
     public function __construct(
         private readonly FonteDeMovimentacoesDoPush $fonte,
-        private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
+        ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly MascaradorDeDadosPessoais $mascarador,
+        ?PoliticaDeMascaramento $politica = null,
     ) {
+        $this->politica = $politica ?? new PoliticaDeMascaramento($configuracoes);
     }
 
     /**
@@ -254,10 +260,13 @@ final class MontadorDeContextoDoPush
         return $mascarar ? $this->mascarador->mascarar($valor) : $valor;
     }
 
-    /** Preferência do escritório; sem configuração gravada, mascara (D4). */
+    /**
+     * Pela {@see PoliticaDeMascaramento}: no conector de I.A., sempre; fora dele, a preferência do escritório (sem
+     * configuração gravada, mascara, D4).
+     */
     private function mascararNoTenant(Tenant $tenant): bool
     {
-        return $this->configuracoes->findDoTenant($tenant)?->isMascararDadosPessoais() ?? true;
+        return $this->politica->mascarar($tenant);
     }
 
     /** HTML do DJEN → texto plano (quebras preservadas como espaço, entidades decodificadas). */
