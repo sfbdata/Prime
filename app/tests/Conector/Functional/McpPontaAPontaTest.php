@@ -99,8 +99,8 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
      * do app, e nem a troca do código nem o `/mcp` mudam o escritório da sessão.
      */
     /**
-     * 6.4: a `quem_sou_eu` diz "quais ferramentas registradas a pessoa pode usar", e ela própria é uma delas (o mapa
-     * {@see QuemSouEuFerramenta::MODULO_DA_FERRAMENTA} a põe sem módulo exigido). O teste de integração monta a
+     * 6.4: a `quem_sou_eu` diz "quais ferramentas registradas a pessoa pode usar", e ela própria é uma delas (a tabela
+     * {@see \App\Conector\Ferramenta\TabelaDeAbaEChave} a põe sem módulo exigido). O teste de integração monta a
      * ferramenta à mão com ela na lista; o serviço do container, não.
      */
     #[TestDox('6.4: com o serviço do container, a quem_sou_eu se lista entre as ferramentas que a pessoa pode usar')]

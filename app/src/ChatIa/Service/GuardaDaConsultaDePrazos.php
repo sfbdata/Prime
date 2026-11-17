@@ -19,8 +19,10 @@ use App\Tarefa\Service\AcessoAoModuloTarefas;
  * Pode quem passa na guarda da tela Minhas Metas (módulo `tarefas`, {@see AcessoAoModuloTarefas}) num escritório que deu o
  * aceite de envio de dados à I.A (o mesmo do contexto de metas). As guardas do próprio chat (vínculo, módulo da I.A,
  * disponibilidade, teto) vêm antes, no envio.
+ *
+ * É a implementação do chat da {@see PortaDaConsultaDePrazos}; o conector de I.A. terá a própria (PR 6).
  */
-final class GuardaDaConsultaDePrazos
+final class GuardaDaConsultaDePrazos implements PortaDaConsultaDePrazos
 {
     public function __construct(
         private readonly AcessoAoModuloTarefas $moduloTarefas,
