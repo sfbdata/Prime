@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Service;
 
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as ExcecaoDeLeituraDaPlanilha;
@@ -54,12 +55,12 @@ final class ArquivoDeUnidades
         }
     }
 
-    public function modelo(): StreamedResponse
+    public function modelo(CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio): StreamedResponse
     {
         $planilha = new Spreadsheet();
         $aba = $planilha->getActiveSheet();
         $aba->setTitle('Unidades');
-        $aba->fromArray([['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone']], null, 'A1');
+        $aba->fromArray([[$cenario->identificacao(), CenarioDaAssembleia::Condominio === $cenario ? 'Bloco' : $cenario->grupo(), 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone']], null, 'A1');
         $aba->getColumnDimension('A')->setWidth(18);
         $aba->getColumnDimension('B')->setWidth(18);
         $aba->getColumnDimension('C')->setWidth(20);

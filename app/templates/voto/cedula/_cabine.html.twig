@@ -3,6 +3,7 @@
     placa e o teclado à direita, LEDs na fenda e o rodapé de demonstração. O conteúdo do visor é desenhado por
     js/voto-cabine.js. Recebe `votaveis` (pautas abertas que a unidade ainda não votou), `todas` (pautas abertas com
     opções, para a simulação e as candidaturas), `cedula` e `token`. Spec: docs/specs/voto-cabine.md.
+    `somente_simulacao` (opcional): aba Votar da equipe, sem token, CSRF nem URL de voto (nada pode ser enviado).
 #}
 {%- set textos = {} -%}
 {%- for chave in ['aria', 'conhecer', 'faixa_simulacao', 'inicio_aperte', 'seu_voto_para', 'numero', 'numero_invalido', 'voto_nulo', 'numero_invalido_dica', 'abstencao', 'voto_em_branco', 'dica_branco', 'fala_branco',
@@ -14,9 +15,10 @@
 {%- endfor -%}
 {%- set dados = {
     assembleia: cedula.assembleia,
+    treino: cedula.simulacao|default(false),
     logo: '/images/voto/bj-voto-logo.png',
-    csrf: csrf_token('voto_cedula_' ~ token),
-    urlVotar: path('voto_assembleia_cedula_votar', {token: token, pauta: 0})|replace({'/pauta/0': '/pauta/__PAUTA__'}),
+    csrf: somente_simulacao|default(false) ? '' : csrf_token('voto_cedula_' ~ token),
+    urlVotar: somente_simulacao|default(false) ? '' : path('voto_assembleia_cedula_votar', {token: token, pauta: 0})|replace({'/pauta/0': '/pauta/__PAUTA__'}),
     pautas: votaveis,
     simulacao: todas,
     textos: textos,
@@ -25,6 +27,8 @@
 <div class="uBg" role="application" aria-label="{{ 'voto.assembleia.cedula.cabine.aria'|trans }}" data-vc-cabine hidden>
     <div class="uBody">
         <div class="uFaixa" data-u-faixa hidden>{{ 'voto.assembleia.cedula.cabine.faixa_simulacao'|trans }}</div>
+        <div class="uFaixa" data-u-faixa-treino hidden>{{ 'voto.assembleia.cedula.cabine.faixa_treino'|trans }}</div>
+        <div class="uFaixa" data-u-faixa-aberto hidden>{{ 'voto.assembleia.cedula.aviso_voto_aberto'|trans }}</div>
         <div class="uGr">
             <div class="uMold"><div class="uTela" data-u-tela></div></div>
             <div class="uDir">

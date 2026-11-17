@@ -112,6 +112,21 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $this->aplicar($tenant, new Assembleia($tenant, 'AGO', PesoDoVoto::Fracao, 'Gestora'), $pautas)->executar($tenant, 7, 'nao_existe');
     }
 
+    #[TestDox('Modelo de outro cenário que não o da assembleia é recusado sem gravar nada')]
+    public function testModeloDeOutroCenarioNaoGrava(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'Eleição', PesoDoVoto::Unidade, 'Gestora');
+        $assembleia->definirCenario(\App\Voto\Enum\CenarioDaAssembleia::Classe);
+        $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
+        $pautas->expects(self::never())->method('salvar');
+
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $this->expectExceptionMessage('Modelo de pautas desconhecido.');
+
+        $this->aplicar($tenant, $assembleia, $pautas)->executar($tenant, 7, 'condominio_ago');
+    }
+
     #[TestDox('Assembleia de outro escritório não é achada e nenhuma pauta é gravada')]
     public function testOutroEscritorioNaoGrava(): void
     {
@@ -120,7 +135,7 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleias->method('buscarDoEscritorio')->willReturn(null);
         $pautas = $this->createMock(PautaDaAssembleiaRepository::class);
         $pautas->expects(self::never())->method('salvar');
-        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $pautas, self::serializacao(), new TransacaoFalsa());
+        $sut = new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $assembleias, $pautas, self::serializacao(), new TransacaoFalsa());
 
         $this->expectException(AssembleiaNaoEncontradaException::class);
 
@@ -132,7 +147,7 @@ final class AplicarModeloDePautasUseCaseTest extends TestCase
         $assembleias = $this->createMock(AssembleiaRepository::class);
         $assembleias->method('buscarDoEscritorio')->with(7, $tenant)->willReturn($assembleia);
 
-        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $pautas, self::serializacao(), $transacao ?? new TransacaoFalsa());
+        return new AplicarModeloDePautasUseCase(new AdicionarPautaUseCase($assembleias, $pautas, new OpcoesDaPauta(), self::serializacao(), $this->fotosDasCandidaturas()), $assembleias, $pautas, self::serializacao(), $transacao ?? new TransacaoFalsa());
     }
 
     private static function serializacao(): SerializacaoDaConfiguracao

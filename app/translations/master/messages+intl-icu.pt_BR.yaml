@@ -403,9 +403,27 @@ master:
             nota: O Voto só aparece para o escritório liberado aqui e enquanto estiver ligado em Telas e recursos. Todo escritório começa em modo demonstração.
             col_nome: Escritório
             col_liberado: Liberado
+        # "Estatísticas de todas as votações" (W2-7 bloco C; textos do desenho 18, H245).
+        estatisticas:
+            titulo: Estatísticas de todas as votações
+            exportar: Exportar CSV
+            categoria: Categoria
+            todas: Todas
+            nota: Somente números agregados. O perfil não opera votações e não tem acesso ao voto de nenhuma pessoa.
+            situacao:
+                aguardando: Publicada
+                aberta: Votação aberta
+                encerrada: Encerrada
+                cancelada: Cancelada
+                retirada: Retirada da pauta
+            quorum:
+                atingido: Atingido
+                nao_atingido: Não atingido
+                nao_exigido: Não exigido
         recusa:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_liberado: Informe se o escritório fica liberado ou bloqueado.
+            categoria_invalida: Escolha uma categoria da lista.
             escritorio_nao_encontrado: Escritório não encontrado.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
@@ -1174,6 +1192,19 @@ master:
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar a liberação do Voto. Recarregue a página.
             erro_salvar: Não foi possível salvar.
+            est_kpi_votacoes: Votações
+            est_kpi_realizadas: Realizadas
+            est_kpi_andamento: Em andamento
+            est_kpi_aptos: Aptos nas realizadas
+            est_kpi_votantes: Votantes nas realizadas
+            est_kpi_participacao: Participação nas realizadas
+            est_kpi_quorum: Quórum atingido
+            est_kpi_quorum_valor: '{x} de {y}'
+            est_ate: 'até {data}'
+            est_sem: Nenhuma votação nesta categoria.
+            est_numeros: '{n} de {m} votaram ({pc})'
+            est_numeros_quorum: '{n} de {m} votaram ({pc}) · Quórum: {quorum}'
+            est_erro_carregar: Não foi possível carregar as estatísticas. Recarregue a página.
         # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:

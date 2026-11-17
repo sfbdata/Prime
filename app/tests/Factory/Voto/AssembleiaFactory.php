@@ -48,6 +48,12 @@ final class AssembleiaFactory extends PersistentProxyObjectFactory
         return $this->with(['estado' => EstadoDaAssembleia::Publicada, 'publicadaEm' => new \DateTimeImmutable('-1 hour')]);
     }
 
+    /** Marcada como votação de simulação (treino da mesa). */
+    public function simulacao(): static
+    {
+        return $this->with(['simulacao' => true]);
+    }
+
     protected function initialize(): static
     {
         return $this->instantiateWith(Instantiator::withConstructor()->alwaysForce());

@@ -7,7 +7,10 @@ namespace App\Voto\Controller;
 use App\Voto\DTO\PautaInput;
 use App\Voto\DTO\RegrasDaPautaInput;
 use App\Voto\Enum\BaseDaDecisao;
+use App\Voto\Enum\CenarioDaAssembleia;
+use App\Voto\Enum\OrdemDasCandidaturas;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\SigiloDoVoto;
 use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
@@ -43,9 +46,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Route('/voto/assembleias/{id}/pautas', requirements: ['id' => '\d+', 'pauta' => '\d+', 'direcao' => 'cima|baixo'])]
 final class PautasDaAssembleiaController extends AbstractController
 {
-    /** "Cargos e pautas frequentes" do desenho: cada um cria a pauta padrão com esse nome. */
-    public const ATALHOS = ['Síndico(a)', 'Subsíndico(a)', 'Conselho fiscal', 'Aprovação de contas', 'Previsão orçamentária', 'Obra ou benfeitoria', 'Alteração da convenção'];
-
     public function __construct(
         private readonly GuardaDaEquipeDoVoto $guarda,
         private readonly AvisosDoVoto $avisos,
@@ -54,7 +54,7 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     #[Route('', name: 'voto_assembleia_pautas', methods: ['GET'])]
-    public function pautas(int $id, ObterAssembleiaUseCase $obter): Response
+    public function pautas(int $id, Request $request, ObterAssembleiaUseCase $obter): Response
     {
         $tenant = $this->guarda->exigir();
         try {
@@ -65,8 +65,9 @@ final class PautasDaAssembleiaController extends AbstractController
 
         return $this->render('voto/assembleia/pautas.html.twig', [
             'assembleia' => $assembleia,
-            'atalhos' => self::ATALHOS,
-            'modelos' => ModelosDePautas::modelos(),
+            'urna' => $request->query->getBoolean('urna'),
+            'atalhos' => ModelosDePautas::atalhos($assembleia->cenario->value),
+            'modelos' => ModelosDePautas::modelos($assembleia->cenario->value),
             'opcoes_padrao' => PautaInput::OPCOES_PADRAO,
             'opcoes_padrao_eleicao' => [['numero' => '1', 'rotulo' => ''], ['numero' => '2', 'rotulo' => '']],
             'agora' => new \DateTimeImmutable(),
@@ -74,14 +75,15 @@ final class PautasDaAssembleiaController extends AbstractController
     }
 
     #[Route('', name: 'voto_assembleia_pauta_criar', methods: ['POST'])]
-    public function criar(int $id, Request $request, AdicionarPautaUseCase $adicionar): Response
+    public function criar(int $id, Request $request, AdicionarPautaUseCase $adicionar, ObterAssembleiaUseCase $obter): Response
     {
         $tenant = $this->guarda->exigir();
         $atalho = (string) $request->request->get('atalho', '');
-        $input = self::inputOuAtalho($request, $atalho);
 
-        return $this->responder($request, $id, static function () use ($adicionar, $id, $input, $tenant): void {
-            $adicionar->executar($tenant, $id, $input);
+        // A leitura do formulário fica dentro da ação: data inválida vira recusa (422), não erro.
+        return $this->responder($request, $id, static function () use ($adicionar, $obter, $id, $request, $atalho, $tenant): void {
+            $cenario = '' === $atalho ? null : $obter->executar($tenant, $id)->cenario;
+            $adicionar->executar($tenant, $id, self::inputOuAtalho($request, $atalho, $cenario));
         }, 'voto.assembleia.gestor.aviso.pauta_incluida', ['id' => $id]);
     }
 
@@ -103,10 +105,9 @@ final class PautasDaAssembleiaController extends AbstractController
     public function editar(int $id, int $pauta, Request $request, EditarPautaUseCase $editar): Response
     {
         $tenant = $this->guarda->exigir();
-        $input = self::input($request);
 
-        return $this->responder($request, $id, static function () use ($editar, $id, $input, $pauta, $tenant): void {
-            $editar->executar($tenant, $id, $pauta, $input);
+        return $this->responder($request, $id, static function () use ($editar, $id, $request, $pauta, $tenant): void {
+            $editar->executar($tenant, $id, $pauta, self::input($request));
         }, 'voto.assembleia.gestor.aviso.pauta_salva', ['id' => $id, '_fragment' => 'pauta-' . $pauta]);
     }
 
@@ -216,14 +217,14 @@ final class PautasDaAssembleiaController extends AbstractController
         return new PautaInput((string) $request->request->get('titulo', ''), (string) $request->request->get('descricao', ''), $opcoes, self::regras($request), $tipo);
     }
 
-    private static function inputOuAtalho(Request $request, string $atalho): PautaInput
+    private static function inputOuAtalho(Request $request, string $atalho, ?CenarioDaAssembleia $cenario): PautaInput
     {
-        if (!\in_array($atalho, self::ATALHOS, true)) {
+        if (null === $cenario || !\in_array($atalho, ModelosDePautas::atalhos($cenario->value), true)) {
             return self::input($request);
         }
 
-        // As regras do atalho vêm do cenário condomínio do desenho (pessoas com 2 dígitos; convenção com dois terços).
-        return ModelosDePautas::pauta('condominio', $atalho);
+        // As regras do atalho vêm do cenário da assembleia, como no desenho (pessoas com 2 dígitos; convenção com dois terços).
+        return ModelosDePautas::pauta($cenario->value, $atalho);
     }
 
     /** As regras só vêm quando a tela manda o critério; sem ele, a pauta mantém as que tem. */
@@ -242,7 +243,48 @@ final class PautasDaAssembleiaController extends AbstractController
             self::inteiroOuPadrao((string) $request->request->get('vagas', '1'), 1),
             self::inteiroOuPadrao((string) $request->request->get('quorum_primeira', '50'), 0),
             '' === $segunda ? null : self::inteiro($segunda),
+            ...self::participacao($request),
         );
+    }
+
+    /**
+     * Horário programado, grupos aptos, ordem das candidaturas e sigilo (desenho 18, passo 2). "Conduzidos pela mesa"
+     * (ou sem o campo) deixa o horário vazio; "Programados no horário" exige a abertura e o encerramento. O sigilo e a
+     * ordem desconhecidos viram o padrão (secreto, ordem de registro).
+     *
+     * @return array{abreEm: ?\DateTimeImmutable, encerraEm: ?\DateTimeImmutable, grupos: list<string>, ordem: OrdemDasCandidaturas, sigilo: SigiloDoVoto}
+     */
+    private static function participacao(Request $request): array
+    {
+        $programado = 'horario' === (string) $request->request->get('modo_horario', 'mesa');
+        $abreEm = $programado ? self::dataEHora($request, 'abre_em') : null;
+        $encerraEm = $programado ? self::dataEHora($request, 'encerra_em') : null;
+        if ($programado && (null === $abreEm || null === $encerraEm)) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe a abertura e o encerramento, ou deixe os dois vazios.');
+        }
+
+        return [
+            'abreEm' => $abreEm,
+            'encerraEm' => $encerraEm,
+            'grupos' => array_values(array_filter(array_map('trim', explode(',', (string) $request->request->get('grupos', ''))), static fn (string $g): bool => '' !== $g)),
+            'ordem' => OrdemDasCandidaturas::tryFrom((string) $request->request->get('ordem_candidaturas', '')) ?? OrdemDasCandidaturas::Fixa,
+            'sigilo' => SigiloDoVoto::tryFrom((string) $request->request->get('sigilo_voto', '')) ?? SigiloDoVoto::Secreto,
+        ];
+    }
+
+    /** Campo `datetime-local` (AAAA-MM-DDTHH:MM) no fuso do servidor; vazio é nulo e outro formato é recusa. */
+    private static function dataEHora(Request $request, string $campo): ?\DateTimeImmutable
+    {
+        $valor = trim((string) $request->request->get($campo, ''));
+        if ('' === $valor) {
+            return null;
+        }
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $valor);
+        if (false === $data || $data->format('Y-m-d\TH:i') !== $valor) {
+            throw new OperacaoInvalidaNaAssembleiaException('Confira a data e a hora da programação.');
+        }
+
+        return $data;
     }
 
     private static function inteiroOuPadrao(string $valor, int $padrao): int

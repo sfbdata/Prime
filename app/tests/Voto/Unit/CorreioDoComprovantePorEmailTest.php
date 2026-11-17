@@ -22,13 +22,16 @@ final class CorreioDoComprovantePorEmailTest extends TestCase
 {
     public function testEnviaPdfRealComDadosEscapadosESemLinkPessoal(): void
     {
-        $comprovante = new ComprovanteDeParticipacao('AGO <img src="https://example.invalid/externa">', 'Contas & despesas', 'A 101', new \DateTimeImmutable('2026-11-13 12:00:00'), 'BJV-1234-5678-90AB');
+        $comprovante = new ComprovanteDeParticipacao('AGO <img src="https://example.invalid/externa">', 'Contas & despesas', 'A 101', new \DateTimeImmutable('2026-11-13 12:00:00'), 'BJV-1234-5678-90AB', 'Matrícula');
         $mailer = $this->createMock(MailerInterface::class);
         $mailer->expects(self::once())->method('send')->with(self::callback(function (Email $email): bool {
             self::assertSame('editado@example.invalid', $email->getTo()[0]->getAddress());
             self::assertSame('[BlueJus] Comprovante de participação', $email->getSubject());
             self::assertStringContainsString('&lt;img', (string) $email->getHtmlBody());
             self::assertStringContainsString('BJV-1234-5678-90AB', (string) $email->getTextBody());
+            self::assertStringContainsString('Matrícula: A 101', (string) $email->getTextBody(), 'o rótulo da identificação vem do cenário');
+            self::assertStringContainsString('Matrícula: A 101', (string) $email->getHtmlBody());
+            self::assertStringNotContainsString('Unidade:', (string) $email->getTextBody());
             self::assertStringNotContainsString('/votar/', (string) $email->getHtmlBody());
             self::assertCount(1, $email->getAttachments());
             $anexo = $email->getAttachments()[0];

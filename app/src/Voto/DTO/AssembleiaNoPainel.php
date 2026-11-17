@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Service\CnpjDaEntidade;
@@ -34,7 +35,23 @@ final readonly class AssembleiaNoPainel
         public ?string $arquivadaPorNome = null,
         public ?string $entidade = null,
         public ?string $cnpj = null,
+        public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
+        public bool $simulacao = false,
     ) {
+    }
+
+    /**
+     * A mesma assembleia com outro conjunto de pautas (a minuta de uma pauta só).
+     *
+     * @param list<PautaNoPainel> $pautas
+     */
+    public function comPautas(array $pautas): self
+    {
+        return new self(
+            $this->id, $this->titulo, $this->peso, $this->estado, $this->criadaPorNome, $this->criadaEm, $this->publicadaEm,
+            $this->podeAlterarPautas, $this->podeAlterarUnidades, $this->unidadesAptas, $this->unidadesInaptas, $this->pesoApto,
+            $pautas, $this->arquivadaEm, $this->arquivadaMotivo, $this->arquivadaPorNome, $this->entidade, $this->cnpj, $this->cenario,
+        );
     }
 
     public function publicada(): bool
@@ -94,6 +111,12 @@ final readonly class AssembleiaNoPainel
     public function podeExcluir(): bool
     {
         return !$this->publicada() && null === $this->publicadaEm;
+    }
+
+    /** Na seleção em lote: rascunho nunca publicado ou simulação (a simulação se apaga, nunca se arquiva). */
+    public function podeExcluirEmLote(): bool
+    {
+        return $this->simulacao || $this->podeExcluir();
     }
 
     public function porFracao(): bool

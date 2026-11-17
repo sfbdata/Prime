@@ -10,7 +10,9 @@ use App\Shared\Contract\TenantAware;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\OrdemDasCandidaturas;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\SigiloDoVoto;
 use App\Voto\Enum\TipoDaPauta;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
@@ -41,6 +43,13 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     public const MOTIVO_DO_PRAZO = 'Prazo definido pela mesa';
     /** Mínimo de caracteres do motivo de suspender, cancelar, retirar e arquivar (regra do núcleo do desenho). */
     public const MOTIVO_MINIMO = 5;
+    /** Motivo do encerramento de quem foi aberta pela programação, quando o horário de encerrar chega. */
+    public const MOTIVO_PROGRAMADO = 'Encerramento programado';
+    /** Nome de quem abriu a pauta pela programação de horário (ninguém da mesa). */
+    public const ABERTA_POR_PROGRAMACAO = 'Programado';
+    /** Os mesmos espaços que o SQL de grupos tira (BTRIM): PHP e banco comparam igual. */
+    public const ESPACOS = " \t\r\n";
+    public const GRUPOS_MAXIMO = 50;
     public const MENSAGEM_CANCELADA_SEM_APURACAO = 'Votação cancelada: as cédulas ficam lacradas e não são apuradas.';
 
     // Contadores agregados mudam só por SQL direto, sem auditoria ou vínculo com a unidade.
@@ -139,6 +148,27 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 180, nullable: true)]
     private ?string $retiradaPorNome = null;
 
+    /** Programação (desenho 18, "Programados no horário"): a pauta abre e encerra sozinha. Os dois ou nenhum. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $abreEm = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $encerraEm = null;
+
+    /**
+     * Grupos (blocos) das unidades aptas a votar nesta pauta; vazio vale para todos (desenho 18, "Grupos aptos").
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(type: 'json', options: ['default' => '[]'])]
+    private array $grupos = [];
+
+    #[ORM\Column(length: 10, enumType: OrdemDasCandidaturas::class, options: ['default' => 'fixa'])]
+    private OrdemDasCandidaturas $ordemDasCandidaturas = OrdemDasCandidaturas::Fixa;
+
+    #[ORM\Column(length: 12, enumType: SigiloDoVoto::class, options: ['default' => 'secreto'])]
+    private SigiloDoVoto $sigilo = SigiloDoVoto::Secreto;
+
     /** @var Collection<int, OpcaoDaPauta> */
     #[ORM\OneToMany(mappedBy: 'pauta', targetEntity: OpcaoDaPauta::class, cascade: ['persist'])]
     #[ORM\OrderBy(['abstencao' => 'ASC', 'numero' => 'ASC', 'id' => 'ASC'])]
@@ -207,6 +237,75 @@ class PautaDaAssembleia implements TenantAware, Auditavel
     }
 
     /**
+     * Define a programação, os grupos aptos, a ordem das candidaturas e o sigilo (só em rascunho; depois de publicar
+     * ficam fixos). Horário: os dois ou nenhum (nenhum = conduzida pela mesa), encerramento depois da abertura e no
+     * futuro. Grupos: até 50, sem repetir (maiúsculas e minúsculas contam igual); vazio = todos.
+     *
+     * @param list<string> $grupos
+     */
+    public function definirParticipacao(
+        ?\DateTimeImmutable $abreEm,
+        ?\DateTimeImmutable $encerraEm,
+        array $grupos,
+        OrdemDasCandidaturas $ordem,
+        SigiloDoVoto $sigilo,
+        ?\DateTimeImmutable $agora = null,
+    ): void {
+        $this->assembleia->exigirPautasAlteraveis();
+        if ((null === $abreEm) !== (null === $encerraEm)) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe a abertura e o encerramento, ou deixe os dois vazios.');
+        }
+        if (null !== $abreEm && null !== $encerraEm) {
+            if ($encerraEm <= $abreEm) {
+                throw new OperacaoInvalidaNaAssembleiaException('Confira a abertura e o encerramento: o encerramento vem depois.');
+            }
+            $mudou = $abreEm != $this->abreEm || $encerraEm != $this->encerraEm;
+            if ($mudou && $encerraEm <= ($agora ?? new \DateTimeImmutable())) {
+                throw new OperacaoInvalidaNaAssembleiaException('O encerramento precisa ser depois de agora.');
+            }
+        }
+        $this->abreEm = $abreEm;
+        $this->encerraEm = $encerraEm;
+        $this->grupos = self::gruposValidos($grupos);
+        $this->ordemDasCandidaturas = $ordem;
+        $this->sigilo = $sigilo;
+    }
+
+    /** Programada para abrir e encerrar sozinha no horário. */
+    public function programada(): bool
+    {
+        return null !== $this->abreEm && null !== $this->encerraEm;
+    }
+
+    /**
+     * A programação abre a pauta no horário: publicada, aguardando, não retirada, não arquivada e dentro da janela
+     * (abertura chegou e o encerramento não). Convocação 1. Quem abriu fica como "Programado".
+     */
+    public function abrirPorProgramacao(\DateTimeImmutable $agora): void
+    {
+        if (!$this->programada() || null === $this->abreEm || null === $this->encerraEm) {
+            throw new OperacaoInvalidaNaAssembleiaException('Esta pauta não tem horário programado.');
+        }
+        if ($agora < $this->abreEm || $agora >= $this->encerraEm) {
+            throw new OperacaoInvalidaNaAssembleiaException('Fora do horário programado desta pauta.');
+        }
+        $this->abrir(self::ABERTA_POR_PROGRAMACAO, 1, $this->encerraEm, $agora);
+    }
+
+    /** A programação deve abrir esta pauta agora (as mesmas condições de {@see abrirPorProgramacao()}, sem lançar). */
+    public function deveAbrirPorProgramacaoEm(\DateTimeImmutable $agora): bool
+    {
+        return $this->programada()
+            && null !== $this->abreEm && null !== $this->encerraEm
+            && EstadoDaAssembleia::Publicada === $this->assembleia->getEstado()
+            && !$this->assembleia->arquivada()
+            && !$this->retirada()
+            && EstadoDaPauta::Aguardando === $this->estado
+            && $agora >= $this->abreEm
+            && $agora < $this->encerraEm;
+    }
+
+    /**
      * A mesa abre a pauta: assembleia publicada e pauta aguardando. Convocação 1 ou 2 (o quórum é o da pauta para ela); prazo
      * opcional, sempre no futuro.
      */
@@ -267,7 +366,7 @@ class PautaDaAssembleia implements TenantAware, Auditavel
             return false;
         }
         \assert(null !== $this->prazoAte);
-        $this->fechar($this->prazoAte, null, self::MOTIVO_DO_PRAZO);
+        $this->fechar($this->prazoAte, null, self::ABERTA_POR_PROGRAMACAO === $this->abertaPorNome ? self::MOTIVO_PROGRAMADO : self::MOTIVO_DO_PRAZO);
 
         return true;
     }
@@ -595,6 +694,54 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         return $this->motivoEncerramento;
     }
 
+    public function getAbreEm(): ?\DateTimeImmutable
+    {
+        return $this->abreEm;
+    }
+
+    public function getEncerraEm(): ?\DateTimeImmutable
+    {
+        return $this->encerraEm;
+    }
+
+    /** @return list<string> os grupos aptos como foram digitados; vazio = todos */
+    public function getGrupos(): array
+    {
+        return $this->grupos;
+    }
+
+    /** A unidade do bloco pode votar nesta pauta (sem grupos, todas podem; a comparação ignora caixa e espaços das pontas). */
+    public function aceitaBloco(string $bloco): bool
+    {
+        if ([] === $this->grupos) {
+            return true;
+        }
+        $bloco = mb_strtolower(trim($bloco, self::ESPACOS));
+        foreach ($this->grupos as $grupo) {
+            if (mb_strtolower($grupo) === $bloco) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function getOrdemDasCandidaturas(): OrdemDasCandidaturas
+    {
+        return $this->ordemDasCandidaturas;
+    }
+
+    public function getSigilo(): SigiloDoVoto
+    {
+        return $this->sigilo;
+    }
+
+    /** Voto aberto: a pauta guarda o registro nominal (e só ela). */
+    public function votoAberto(): bool
+    {
+        return $this->sigilo->aberto();
+    }
+
     /** @return Collection<int, OpcaoDaPauta> as opções de voto pelo número e, por último, a abstenção */
     public function getOpcoes(): Collection
     {
@@ -632,6 +779,34 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         return null;
     }
 
+    /**
+     * Volta a pauta de uma simulação ao estado de antes de abrir (reiniciar). Configuração, opções e programação ficam;
+     * abertura, prazo, encerramento, suspensão, cancelamento, retirada e os nulos saem. Os contadores das opções e da
+     * pauta são zerados por SQL no UseCase; aqui só o espelho em memória dos nulos.
+     */
+    public function reiniciar(): void
+    {
+        $this->assembleia->exigirSimulacao('Só votação de simulação pode ser reiniciada.');
+        $this->estado = EstadoDaPauta::Aguardando;
+        $this->convocacao = null;
+        $this->quorumExigido = null;
+        $this->abertaEm = null;
+        $this->abertaPorNome = null;
+        $this->prazoAte = null;
+        $this->encerradaEm = null;
+        $this->encerradaPorNome = null;
+        $this->motivoEncerramento = null;
+        $this->limparSuspensao();
+        $this->canceladaEm = null;
+        $this->canceladaMotivo = null;
+        $this->canceladaPorNome = null;
+        $this->retiradaEm = null;
+        $this->retiradaMotivo = null;
+        $this->retiradaPorNome = null;
+        $this->nulosUnidades = 0;
+        $this->nulosPeso = '0.000000';
+    }
+
     private function fechar(\DateTimeImmutable $quando, ?string $nome, string $motivo): void
     {
         $this->limparSuspensao();
@@ -646,6 +821,27 @@ class PautaDaAssembleia implements TenantAware, Auditavel
         $this->suspensaEm = null;
         $this->suspensaMotivo = null;
         $this->suspensaPorNome = null;
+    }
+
+    /**
+     * @param list<string> $grupos
+     *
+     * @return list<string>
+     */
+    private static function gruposValidos(array $grupos): array
+    {
+        $vistos = [];
+        foreach ($grupos as $grupo) {
+            $grupo = mb_substr(trim($grupo, self::ESPACOS), 0, 40);
+            if ('' !== $grupo) {
+                $vistos[mb_strtolower($grupo)] ??= $grupo;
+            }
+        }
+        if (\count($vistos) > self::GRUPOS_MAXIMO) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe no máximo ' . self::GRUPOS_MAXIMO . ' grupos.');
+        }
+
+        return array_values($vistos);
     }
 
     private static function motivoValido(string $motivo, string $mensagem): string

@@ -1,0 +1,23 @@
+{#
+    "Ver na urna" do passo Cargos (desenho 18, L277): a cabine de treino com as pautas do rascunho, a mesma da aba Votar
+    (_votar, `somente_simulacao`): sem token, sem CSRF e sem URL de voto, nada é enviado nem registrado. Entram só as pautas com
+    ao menos uma opção com nome. O botão escondido (`data-voto-abrir-urna`) é clicado por js/voto-assistente.js ao carregar.
+    Contexto: `a` (AssembleiaNoPainel).
+#}
+{% set simulacao = [] %}
+{% for p in a.pautas %}
+    {% set opcoes = [] %}
+    {% for o in p.opcoes|filter(o => o.rotulo is not empty) %}
+        {% set opcoes = opcoes|merge([{id: 0, numero: o.numero, rotulo: o.rotulo, abstencao: false, descricao: o.descricao ?? null, composicao: o.composicao ?? null, foto: (o.foto ?? null) ? path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) : null}]) %}
+    {% endfor %}
+    {% if opcoes is not empty %}
+        {% set opcoes = opcoes|merge([{id: 0, numero: 0, rotulo: (p.tipo.eleitoral ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans, abstencao: true, descricao: null, composicao: null, foto: null}]) %}
+        {% set simulacao = simulacao|merge([{id: p.id, titulo: p.titulo, vagas: p.vagas, digitos: p.digitos, eleicao: p.tipo.eleitoral, opcoes: opcoes}]) %}
+    {% endif %}
+{% endfor %}
+{% if simulacao is not empty %}
+    <button type="button" hidden data-vc-abrir-simulacao data-voto-abrir-urna></button>
+    {% include 'voto/cedula/_cabine.html.twig' with {cedula: {assembleia: ''}, token: '', votaveis: [], todas: simulacao, somente_simulacao: true} only %}
+{% else %}
+    <div class="vAviso" data-voto-sem-urna>{{ 'voto.assembleia.gestor.assistente.sem_urna'|trans }}</div>
+{% endif %}

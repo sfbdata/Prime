@@ -20,9 +20,12 @@
             <span class="vChip vcChip-{{ status }}">{{ ('voto.assembleia.cedula.status.' ~ status)|trans }}</span>
         </div>
         <div class="vcInfo">
-            <span><i class="bi bi-tags" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.modalidade'|trans }}</span>
-            <span><i class="bi bi-geo" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.grupos'|trans }}</span>
+            <span><i class="bi bi-tags" aria-hidden="true"></i> {{ [cedula.entidade is not empty ? cedula.entidade : cedula.cenario.entidade, ('voto.votar.modalidade.' ~ cedula.cenario.modalidade(pauta.tipo))|trans]|filter(x => x)|join(' · ') }}</span>
+            <span><i class="bi bi-geo" aria-hidden="true"></i> {{ pauta.grupos is empty ? 'voto.assembleia.cedula.grupos'|trans : 'voto.assembleia.cedula.grupos_da_pauta'|trans({grupos: pauta.grupos|join(', ')}) }}</span>
         </div>
+        {% if pauta.votoAberto and not pauta.encerrada() and not pauta.cancelada() %}
+            <div class="vcMsg vcMsgAmbar" data-vc-voto-aberto><i class="bi bi-eye" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.aviso_voto_aberto'|trans }}</div>
+        {% endif %}
 
         {% if pauta.suspensa() %}
             <div class="vcMsg vcMsgAmbar" data-vc-suspensa><i class="bi bi-pause-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.suspensa'|trans }}</div>

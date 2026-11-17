@@ -12,6 +12,8 @@ final readonly class UnidadesDaAssembleia
         public AssembleiaNoPainel $assembleia,
         public array $unidades,
         public int $faltamEnvio,
+        public ?string $somaDasFracoes = null,
+        public bool $somaForaDoEsperado = false,
     ) {
     }
 }

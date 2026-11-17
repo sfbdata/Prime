@@ -13,6 +13,8 @@ final readonly class ComprovanteDeParticipacao
         public string $unidade,
         public \DateTimeImmutable $registradaEm,
         public string $codigo,
+        /** Rótulo da identificação no cenário da assembleia ("Unidade", "Matrícula"...). */
+        public string $identificacao = 'Unidade',
     ) {
     }
 }

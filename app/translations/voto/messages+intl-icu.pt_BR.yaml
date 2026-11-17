@@ -12,13 +12,70 @@ voto:
         ges: Gestão eleitoral
         aco: Acompanhar
     votar:
-        vazio_gestao: 'Visão de gestão: aqui aparecem todas as votações. O votante vê somente aquelas em que consta. Clique em Votar para ver a tela do votante.'
+        lista: 'Todas as votações publicadas da organização. Clique em Votar para abrir a tela do eleitor; quem recebe o link ou o QR Code vê só aquelas em que consta.'
+        vazio: 'Nenhuma votação publicada ainda. Crie e publique em Gestão eleitoral.'
+        votar: Votar
+        periodo: '{inicio} até {fim}'
+        periodo_aberto: 'Aberta em {inicio}'
+        simulacao: SIMULAÇÃO
+        codigo: 'Código de conferência {codigo}'
+        gerenciar: Gerenciar no Painel
+        todos_os_grupos: Todos os grupos
+        modalidade:
+            pauta: Pautas de assembleia
+            individual: Eleição individual
+            chapa: Eleição por chapa
+            consulta: Consulta
+        aviso:
+            suspensa: Votação suspensa pela mesa. Aguarde a retomada.
+            cancelada: Votação cancelada pela comissão.
+            encerrada: Votação apurada. O resultado está em Resultados.
+            aberta: Votação aberta. Clique em Votar para abrir a tela do eleitor, a mesma do link e do QR Code.
+            aguardando: Aguardando abertura pela mesa.
     acompanhar:
         titulo: Acompanhar em tempo real
         texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado. Lista nominal e Documento de auditoria são restritos à comissão, à auditoria e ao Gestor Master; nunca indicam o voto.'
         vazio: Nenhuma votação publicada.
     recusa:
         nao_liberado: O BlueJus Voto ainda não foi liberado para este escritório.
+    # ---- Equipe por assembleia (W2-7, bloco A): tela Perfis (desenho 18, H247 e H463-464) e a barreira do teto.
+    # Spec docs/specs/voto-equipe-e-master-1611.md. Chave `equipe`, e não "indicações" (o nome já existe no Master).
+    equipe:
+        titulo: Perfis por assembleia ou votação
+        texto: Cada votação pode ter a sua própria equipe, com os cargos da entidade. Em cada votação, a pessoa tem um único perfil. A administração designa os perfis, mas não opera a eleição.
+        grupo_padrao: Equipe padrão (votações sem equipe própria)
+        padrao_aviso: Equipe padrão. Para montar a equipe própria, escolha a votação no campo acima.
+        votacao: Votação
+        abrir: Abrir
+        qtd: '{n, plural, one {# representante} other {# representantes}}'
+        sem_equipe: Sem equipe própria
+        sem_assembleias: Nenhuma votação ainda. Use Nova assembleia.
+        categoria: Categoria com cargos prontos
+        aplicar: Aplicar cargos da categoria
+        nome: Nome
+        email: E-mail
+        cargo: Cargo
+        cargo_exemplo: 'Ex.: Presidência da mesa'
+        permissoes: Permissões
+        designar: Designar
+        editar: Editar
+        remover: Remover
+        salvar: Salvar
+        cancelar: Cancelar
+        a_designar: A designar
+        sem_conta: Sem conta neste escritório (não dá acesso)
+        acesso_por_email: O acesso vale para quem tem conta neste escritório com o mesmo e-mail.
+        bloqueada: A equipe só muda enquanto a assembleia está em rascunho.
+        aviso:
+            designado: Perfil designado.
+            alterado: Perfil alterado.
+            removido: Perfil removido.
+            cargos_aplicados: Cargos da categoria aplicados.
+            padrao: A votação voltou a usar a equipe padrão.
+        recusa:
+            oculto: Seu perfil não atua nesta votação.
+            somente_leitura: Seu perfil não tem permissão para esta ação.
+            so_administracao: Seu perfil não tem permissão para esta ação.
     # ---- Cédula da assembleia de condomínio (frente F3, /votar/{token}): portal do eleitor do desenho 18 (§4 do
     # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
     # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
@@ -34,7 +91,6 @@ voto:
         portal: Portal do Eleitor
         titulo: Voto
         aviso_sigilo: 'Seu voto é secreto: o sistema registra que a unidade votou, mas não em quê.'
-        unidade: Unidade
         nao_apto: Não apto(a)
         vazio: Nenhuma votação disponível para o seu cadastro. Se você deveria constar na lista, procure a comissão responsável.
         status:
@@ -44,8 +100,9 @@ voto:
             encerrada: Encerrada
             suspensa: Suspensa
             cancelada: Cancelada
-        modalidade: Condomínio · Pautas de assembleia
         grupos: Todos os grupos
+        grupos_da_pauta: 'Grupos: {grupos}'
+        aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
         mensagem:
             aguardando: A votação desta pauta ainda não foi aberta.
             inapta: Sua unidade não está apta a votar nesta assembleia.
@@ -79,6 +136,7 @@ voto:
             simular: Simular votação
             conhecer: Conhecer candidaturas
             faixa_simulacao: 'SIMULAÇÃO: nenhum voto é registrado'
+            faixa_treino: 'SIMULAÇÃO: votação de treino, sem validade'
             inicio_aperte: 'Aperte {confirma} para iniciar'
             seu_voto_para: SEU VOTO PARA
             numero: 'Número:'
@@ -145,6 +203,60 @@ voto:
                 pautas: Pautas
                 unidades: Unidades e links
                 conferencia: Conferência
+                perfis: Perfis
+            # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
+            assistente:
+                rotulo: Passos do cadastro da assembleia
+                nao_salvas: Alterações ainda não salvas
+                passo_1: Categoria
+                passo_2: Regras e prazo
+                passo_3: Acesso
+                passo_4: Cargos
+                passo_5: Lista de aptos
+                passo_6: Equipe
+                passo_7: Revisar
+                titulo_1: Que tipo de votação você vai criar?
+                titulo_2: Regras e prazo
+                titulo_3: Como o votante entra
+                titulo_4: Cargos e candidaturas
+                titulo_5: Quem pode votar
+                titulo_6: Quem conduz a votação
+                titulo_7: Confira e publique
+                descricao_1: A categoria já traz regras, documentos e cargos prontos. Tudo pode ser ajustado.
+                descricao_2: Defina como o voto funciona e quando a votação acontece.
+                descricao_3: A configuração sugerida atende à maioria dos casos.
+                descricao_4: Inclua cargos, pautas ou perguntas e suas opções.
+                descricao_5: Importe a relação de quem está apto.
+                descricao_6: Quem opera a votação é a equipe do escritório com acesso ao Voto.
+                descricao_7: Depois de publicada, a configuração fica bloqueada.
+                acesso_texto: 'Cada unidade entra pelo próprio link ou QR Code, sem conta no BlueJus. Os links são gerados quando a assembleia é publicada.'
+                equipe_texto: 'A mesa (equipe do escritório com acesso ao Voto) abre, suspende e encerra cada pauta depois de publicar. A convocação e o prazo são escolhidos ao abrir cada pauta.'
+                equipe_padrao: Usar a equipe padrão
+                equipe_propria: Equipe própria com os cargos desta categoria
+                a_designar: A designar
+                indicar_texto: A Administração indica o nome e o e-mail de cada cargo.
+                indicar_pessoas: Indicar pessoas
+                revisao_equipe: Equipe
+                revisao_equipe_padrao: Equipe padrão
+                revisao_equipe_propria: 'Própria, {n, plural, one {# cargo} other {# cargos}}'
+                cargos_sem_pessoa: '{n} cargo(s) ainda sem pessoa indicada pela Administração.'
+                regras_das_pautas: Regras de cada pauta
+                regras_das_pautas_dica: 'Sigilo, horário de abertura e encerramento, grupos e ordem das candidaturas são definidos em cada pauta, no passo Cargos.'
+                sem_pautas: Nenhuma pauta incluída ainda.
+                pauta_programada: 'Programada: {abre} até {encerra}'
+                ver_na_urna: Ver na urna
+                sem_urna: Inclua ao menos uma pauta com opções para ver na urna.
+                ver_na_urna_dica: 'Ver na urna salva o rascunho e abre a urna em modo de simulação: nenhum voto é registrado.'
+                revisao_entidade: Entidade
+                revisao_votacao: Votação
+                revisao_cargos: Cargos
+                revisao_lista: Lista de aptos
+                revisao_sem_cargos: Nenhum
+                revisao_lista_resumo: '{aptos} aptos, {inaptos} não aptos'
+                revisao_sem_lista: Sem lista
+                revisao_soma: Soma das frações
+                pronto: Tudo pronto para publicar.
+                publicar: Publicar votação
             andamento:
                 rascunho: Rascunho
                 publicada: Publicada, aguardando abertura
@@ -201,7 +313,6 @@ voto:
                     encerrada: Encerrada
                     cancelada: Cancelada
             conferencia:
-                titulo: Confira antes de publicar
                 aviso: Ao confirmar, as pautas e suas regras ficam bloqueadas. Os votos serão recebidos depois que você abrir cada pauta.
                 peso: Peso do voto
                 aptos: Unidades aptas
@@ -211,9 +322,10 @@ voto:
                 primeira: Quórum da 1ª convocação
                 segunda: Quórum da 2ª convocação
                 convocacao: A convocação e o prazo são escolhidos ao abrir cada pauta.
+                tipo: Tipo
+                tipo_simulacao: Simulação (pode ser apagada)
                 alterar: Alterar
                 alterar_campo: 'Alterar {campo}'
-                confirmar: Confirmar e publicar votação
                 abrir_agora: Deseja abrir a votação agora?
                 escolher_pauta: Escolha abaixo a pauta, a convocação e o prazo para começar a receber votos.
                 escolher: Escolher pauta
@@ -234,13 +346,14 @@ voto:
                 resultados: Resultados
                 relatorio: Relatório consolidado
             form:
-                ajuda: Votos por fração ideal, salvo disposição diversa da convenção. Confira na convenção o quórum de cada pauta, a segunda convocação e quem está apto a votar.
-                entidade: Condomínio
+                cenario: Tipo de entidade
                 cnpj: 'CNPJ (opcional, separa entidades com nome parecido)'
                 evento: Evento
                 peso: Peso do voto
                 peso_fracao: Fração ideal
                 peso_unidade: Uma unidade, um voto
+                simulacao_destaque: Votação de simulação
+                simulacao_texto: ': para treinar a mesa e testar o link. Pode ser reiniciada e apagada depois; não entra nas estatísticas.'
                 salvar_sair: Salvar e sair
                 continuar: Continuar
                 voltar: Voltar
@@ -268,6 +381,21 @@ voto:
                 base_aptos: 'Total de aptos'
                 quorum_primeira: 'Quórum (%)'
                 quorum_segunda: 'Quórum 2ª conv.'
+                participacao: 'Horário, grupos, ordem e sigilo'
+                sigilo: 'Sigilo do voto'
+                sigilo_secreto: Secreto
+                sigilo_aberto: 'Aberto: nominal, visível após o encerramento'
+                sigilo_aberto_vivo: 'Aberto: nominal, visível em tempo real'
+                sigilo_aviso: 'No voto aberto, o nome e o voto de cada pessoa ficam visíveis. Use somente quando o estatuto, a convenção ou o regulamento permitir. O eleitor é avisado antes de votar.'
+                modo_horario: 'Abertura e encerramento'
+                modo_horario_programado: 'Programados no horário'
+                modo_horario_mesa: 'Conduzidos pela mesa'
+                abre_em: Início
+                encerra_em: Encerramento
+                grupos: 'Grupos aptos (separados por vírgula; vazio para todos)'
+                ordem_candidaturas: 'Ordem na lista de candidaturas'
+                ordem_fixa: 'Ordem de registro'
+                ordem_sorteada: 'Sorteada a cada visualização'
                 numerar: 'Numerar'
                 numerar_titulo: 'Numerar as opções em sequência'
                 titulo: Cargos e candidaturas
@@ -328,10 +456,6 @@ voto:
             modelos:
                 prontos: 'Modelos prontos:'
                 aplicado: 'Modelo aplicado: {pautas}. Ajuste o que precisar.'
-                condominio: Condomínio
-                cooperativa: Cooperativa
-                sociedade: Sociedade
-                associacao: Associação
             # Texto do resultado e rótulo de abstenção/branco por tipo de pauta (desenho: resTx e BR).
             resultado_por_tipo:
                 aprovada: Aprovada
@@ -388,6 +512,48 @@ voto:
                 duracao: Duração
                 sem_prazo: 'Sem prazo: a mesa encerra quando decidir'
                 por_tempo: Por tempo definido
+            # ---- Voto W2-6 (desenho 18, ataDocx e papel timbrado): minuta de ata em Word e em PDF.
+            minuta:
+                botao: Minuta de ata
+                botao_pdf: Minuta em PDF
+                timbre: Papel timbrado para ata
+                timbre_dica: Modelo .docx com o papel timbrado para as minutas de ata
+                timbre_escolhido: 'Papel timbrado: {nome}'
+                timbre_salvo: Papel timbrado salvo neste navegador.
+                timbre_so_pagina: Papel timbrado guardado só até fechar esta página.
+                sucesso: Minuta de ata gerada.
+                sucesso_timbrado: Minuta de ata gerada no papel timbrado.
+                falhou: 'Não foi possível gerar a ata.'
+                sem_votacao: Ainda não há votação apurada para a minuta de ata.
+                modelo_grande: Modelo acima de 2,5 MB.
+                modelo_invalido: Modelo .docx inválido.
+                modelo_sem_documento: Modelo sem word/document.xml.
+                modelo_nao_reconhecido: Modelo .docx não reconhecido.
+                titulo: 'ATA DA {evento}'
+                aviso: Minuta gerada pelo BlueJus Voto. Confira e complete os campos destacados antes de assinar.
+                abertura: 'Em {quando}, em ambiente virtual da plataforma BlueJus Voto, reuniram-se os participantes de {entidade}, em {convocacao}ª convocação, para deliberar sobre a ordem do dia. Os trabalhos foram presididos por {presidente} e secretariados por {secretario}.'
+                quando_data: '{data}, às {hora}'
+                marca_data_hora: data e hora
+                marca_hora: hora
+                marca_entidade: entidade
+                marca_presidente: nome do presidente
+                marca_secretario: nome do secretário # segredo:permitido (secretário da ata, não credencial)
+                marca_nao_apurada: votação não apurada
+                ordem_do_dia: Ordem do dia
+                deliberacoes: Deliberações
+                item: '{n}. {texto}'
+                item_com_descricao: '{titulo}: {descricao}'
+                item_cancelado: '{n}. {pauta}: {cancelada}'
+                item_nao_apurado: '{n}. {pauta}: {marca}'
+                coluna_opcao: Opção
+                coluna_votos: Votos
+                coluna_fracoes: Frações
+                comparecimento: 'Comparecimento sobre a base de aptos: {pc}% (exigido {q}%). Resultado: {resultado}.'
+                sigilo: 'O voto foi secreto: a apuração não identifica o votante.'
+                encerramento: 'Nada mais havendo a tratar, a sessão foi encerrada {quando}, e eu, {secretario}, lavrei a presente ata, que vai assinada por mim e pelo presidente.'
+                encerramento_em: 'em {data}, às {hora}'
+                encerramento_as: 'às {hora}'
+                assinatura: '{nome}, {funcao}'
             # ---- Voto redesign F3-2: janela "Relatório" e resumos para divulgar (desenho 18, relEscolha e relResumo).
             relatorio:
                 titulo: 'Relatório: {titulo}'
@@ -405,8 +571,7 @@ voto:
                 sem_apurada: Ainda não há votação apurada para divulgar. O resumo só sai depois que uma votação é encerrada.
                 falhou: Não foi possível gerar o arquivo. Tente de novo.
                 muitas_pautas: 'Muitas votações para caber numa imagem: use o resumo em PDF.'
-                rotulo_a1: Presidência da assembleia
-                rotulo_a2: Secretaria da assembleia
+                entidade_nao_informada: Não informado
                 imagem_titulo_pagina: Resultado da votação
                 pdf_titulo_pagina: Resultado da votação
                 imagem_qr: Aponte a câmera para conferir
@@ -450,11 +615,11 @@ voto:
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
-                texto: 'Cole a lista, uma unidade por linha: unidade; bloco; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, a unidade fica apta; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
-                primeira_aba: 'O XLSX usa a primeira aba. Colunas: Unidade, Bloco, Situação, Fração, Responsável e E-mail.'
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável e E-mail.'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
@@ -469,7 +634,7 @@ voto:
                 fracao: 'Fração {fracao}'
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
-                publicar: Publicar votação
+                soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
             links:
                 titulo: Links das unidades
                 texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'
@@ -504,6 +669,16 @@ voto:
                 resultado: 'Resultado: {numero} {rotulo}'
                 eleitos: 'Eleitos: {nomes}'
                 valor_peso: '{votos} un · {peso}'
+            nominal:
+                titulo: 'Voto aberto: quem votou em quê'
+                texto: 'Esta votação foi configurada como voto aberto antes de publicar. A relação mostra o nome da unidade, o voto e a hora, em segundos.'
+                ao_vivo: 'Voto aberto em tempo real: a relação já mostra os votos dados até agora.'
+                responsavel: Responsável
+                voto: Voto
+                peso: Peso
+                hora: Hora
+                nulo: 'Nulo (nº {numero})'
+                vazia: Nenhum voto registrado.
             ata:
                 titulo: RELATÓRIO CONSOLIDADO DA VOTAÇÃO
                 imprimir: Imprimir
@@ -539,9 +714,10 @@ voto:
                 faltosos: Faltosos
                 inaptos: Inaptos na lista
                 peso_apto: Peso total apto
-                por_bloco: Participação por bloco ou torre
-                bloco: Bloco ou torre
+                por_grupo: 'Participação por {grupo}'
                 sem_bloco: Sem bloco
+                sem_grupo: 'Sem {grupo}'
+                simulacao: (SIMULAÇÃO)
                 eleitores: Eleitores
                 peso_coluna: Peso
                 encerramento: Encerramento
@@ -562,15 +738,15 @@ voto:
                 nao_apurada_data: Votação ainda não apurada na data de emissão deste relatório.
                 votantes: Relação de votantes
                 votantes_texto: Informa quem participou. Não indica em quem cada pessoa votou.
-                unidade: Unidade
-                responsavel: Responsável
-                hora: Data e hora
+                votantes_texto_aberto: Informa quem participou. Nesta votação, de voto aberto, o voto de cada pessoa consta na relação nominal abaixo.
+                nome: Nome
+                votou_faixa: 'Votou {de}h às {ate}h'
+                nao_votou: Não votou
+                inapto: Inapto
                 sem_votantes: Nenhuma participação registrada.
                 termo: Termo de encerramento
                 termo_1: Este relatório consolida os dados extraídos dos registros da votação na data de emissão.
                 termo_2: Os signatários declaram ter examinado o conteúdo deste relatório.
-                presidencia: Presidência da assembleia
-                secretaria: Secretaria da assembleia # segredo:permitido rótulo da assinatura na ata, não é credencial
             email:
                 assunto: 'Seu link para votar: {assembleia}'
                 titulo: Link para votar
@@ -617,6 +793,8 @@ voto:
                 arquivada: Votação arquivada. Use Mostrar arquivadas para vê-la.
                 desarquivada: Votação desarquivada.
                 rascunho_excluido: Rascunho excluído.
+                simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
+                simulacao_apagada: Simulação apagada.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
                 arquivada: Arquivada
@@ -628,6 +806,8 @@ voto:
                 retomar: Retomar votação
                 cancelar: Cancelar votação
                 excluir_rascunho: Excluir rascunho
+                reiniciar_simulacao: Reiniciar simulação
+                apagar_simulacao: Apagar simulação
                 arquivar: Arquivar
                 desarquivar: Desarquivar
             janela_ciclo:
@@ -675,6 +855,9 @@ voto:
                 excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
                 excluir_manter: Manter
                 excluir_sim: Excluir rascunho
+                simulacao_pergunta: Apagar esta simulação e todos os votos de treino?
+                simulacao_manter: Manter
+                simulacao_sim: Confirmar exclusão
                 mostrar: 'Mostrar arquivadas ({n})'
                 ocultar: Ocultar arquivadas
                 selecionar: 'Selecionar {titulo}'
@@ -694,7 +877,7 @@ voto:
                 exemplo: 'Ex.: assembleia de 2025 concluída'
                 cancelar: Cancelar
                 arquivar_sim: Arquivar selecionadas
-                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados.'
+                excluir_titulo: 'Excluir definitivamente {n} item(ns): rascunhos nunca publicados e simulações.'
                 excluir_obs: 'Votação publicada não é excluída, para não apagar prova: use Arquivar.'
                 excluir_sim: Excluir selecionados
                 fora: '{n} selecionada(s) não se encaixam e serão mantidas como estão.'
@@ -703,7 +886,7 @@ voto:
                 excluidas: '{n} item(ns) excluído(s).'
                 nenhuma: Selecione ao menos uma votação.
                 nenhuma_arquivar: 'Nenhuma selecionada pode ser arquivada: só publicadas sem votação aberta.'
-                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados. Use Arquivar.'
+                nenhuma_excluir: 'Nenhuma selecionada pode ser excluída: só rascunhos nunca publicados e simulações. Use Arquivar.'
                 motivo_curto: Informe o motivo do arquivamento.
             ata_ciclo:
                 retirada: 'Retirada da ordem do dia: {pauta}, por decisão registrada em {em}. Motivo: {motivo}. Não houve deliberação sobre essa matéria.'

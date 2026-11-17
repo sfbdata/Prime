@@ -137,6 +137,18 @@ final class AssembleiaRepositoriosTest extends KernelTestCase
         self::assertSame(['pesoApto' => '3.000000', 'unidadesAptas' => 3], $repositorio->totaisAptos($porUnidade));
     }
 
+    #[TestDox('Totais aptos por grupos: ignora caixa e tab ou quebra de linha nas pontas do bloco (igual ao PHP)')]
+    public function testTotaisAptosPorGruposComTab(): void
+    {
+        $assembleia = AssembleiaFactory::createOne()->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'bloco' => "\tBloco A\n"]);
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'bloco' => 'bloco a']);
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'bloco' => 'Bloco B']);
+        $repositorio = static::getContainer()->get(UnidadeDaAssembleiaRepository::class);
+
+        self::assertSame(2, $repositorio->totaisAptos($assembleia, ["Bloco A\t"])['unidadesAptas']);
+    }
+
     #[TestDox('Envio dos links: só apta que tem e-mail e ainda não recebeu; "faltam N" bate com a lista')]
     public function testParaEnvioDoLink(): void
     {

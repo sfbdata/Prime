@@ -1,0 +1,122 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Perfis por assembleia ou votação (desenho 18, H247 e H463-464; spec docs/specs/voto-equipe-e-master-1611.md, seção 1.3).
+    Componentes do desenho: .vC, .vH, .vLin, .vPerG/.vPerGOn (grupo que abre e fecha), .vL/.vF, .vB, .vChip; os do
+    grupo vêm de public/css/voto-equipe.css (valores do CSS do desenho). Sem JavaScript: o grupo aberto vai em `grupo`.
+    Contexto: `grupos` (list<EquipeDaAssembleia>), `grupo` ('padrao' ou o id da assembleia aberta), `editar` (id da linha
+    em edição ou 0), `categorias` (CenarioDaAssembleia) e `papeis` (PapelNaEquipe).
+#}
+
+{% set sub = 'perfis' %}
+{% set assembleia = null %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/voto-equipe.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-equipe.js') }}" defer></script>
+{% endblock %}
+
+{% block conteudo %}
+{% set token = csrf_token('voto_equipe') %}
+{# Campo "Votação" do desenho (H236, `ctxOp`): trocar abre o grupo dela. O "Atuando como" do desenho não entra: a pessoa é quem está logada. #}
+<form class="vC voto-equipe-votacao" method="get" action="{{ path('voto_equipe_index') }}" data-voto-equipe-votacao>
+    <label class="vL voto-equipe-campo-largo">{{ 'voto.equipe.votacao'|trans }}
+        <select class="vF" name="grupo">
+            <option value="padrao"{{ grupo in ['', 'padrao'] ? ' selected' : '' }}>{{ 'voto.equipe.grupo_padrao'|trans }}</option>
+            {% for g in grupos %}<option value="{{ g.assembleiaId }}"{{ grupo == g.assembleiaId ? ' selected' : '' }}>{{ g.titulo }}</option>{% endfor %}
+        </select>
+    </label>
+    <noscript><button type="submit" class="vB">{{ 'voto.equipe.abrir'|trans }}</button></noscript>
+</form>
+<div class="vC voto-equipe">
+    <div class="vH"><i class="bi bi-people"></i>{{ 'voto.equipe.titulo'|trans }}</div>
+    <div class="vLin voto-equipe-texto">{{ 'voto.equipe.texto'|trans }}</div>
+
+    <div>
+        <a class="vPerG {{ grupo == 'padrao' ? 'vPerGOn' : '' }}" href="{{ path('voto_equipe_index', grupo == 'padrao' ? {} : {grupo: 'padrao'}) }}" aria-expanded="{{ grupo == 'padrao' ? 'true' : 'false' }}">
+            <i class="bi {{ grupo == 'padrao' ? 'bi-chevron-down' : 'bi-chevron-right' }}"></i><b>{{ 'voto.equipe.grupo_padrao'|trans }}</b>
+        </a>
+        {% if grupo == 'padrao' %}
+            <div class="voto-equipe-corpo"><div class="vLin voto-equipe-aviso">{{ 'voto.equipe.padrao_aviso'|trans }}</div></div>
+        {% endif %}
+    </div>
+
+    {% for g in grupos %}
+        {% set aberto = grupo == g.assembleiaId %}
+        <div id="equipe-{{ g.assembleiaId }}">
+            <a class="vPerG {{ aberto ? 'vPerGOn' : '' }}" href="{{ path('voto_equipe_index', aberto ? {} : {grupo: g.assembleiaId, _fragment: 'equipe-' ~ g.assembleiaId}) }}" aria-expanded="{{ aberto ? 'true' : 'false' }}">
+                <i class="bi {{ aberto ? 'bi-chevron-down' : 'bi-chevron-right' }}"></i><b>{{ g.titulo }}</b>
+                <span>{{ g.temEquipePropria ? 'voto.equipe.qtd'|trans({n: g.linhas|length}) : 'voto.equipe.sem_equipe'|trans }}</span>
+            </a>
+            {% if aberto %}
+                <div class="voto-equipe-corpo">
+                    {% if not g.editavel %}
+                        <div class="vLin voto-equipe-aviso">{{ 'voto.equipe.bloqueada'|trans }}</div>
+                    {% else %}
+                        <form class="vLin voto-equipe-categoria" method="post" action="{{ path('voto_equipe_categoria', {id: g.assembleiaId}) }}">
+                            <input type="hidden" name="_token" value="{{ token }}">
+                            <label class="vL voto-equipe-campo-largo">{{ 'voto.equipe.categoria'|trans }}
+                                <select class="vF" name="categoria">
+                                    {% for c in categorias %}<option value="{{ c.value }}"{{ c == g.cenario ? ' selected' : '' }}>{{ c.rotulo }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <button type="submit" class="vB vP"><i class="bi bi-magic"></i>{{ 'voto.equipe.aplicar'|trans }}</button>
+                        </form>
+                    {% endif %}
+
+                    {% for l in g.linhas %}
+                        <div class="vLin voto-equipe-linha">
+                            {% if g.editavel and editar == l.id %}
+                                <form class="voto-equipe-edicao" method="post" action="{{ path('voto_equipe_alterar', {id: g.assembleiaId, membro: l.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ token }}">
+                                    <input type="hidden" name="papel" value="{{ l.papel }}">
+                                    <input class="vF voto-equipe-in" name="nome" maxlength="120" aria-label="{{ 'voto.equipe.nome'|trans }}" value="{{ l.nome }}">
+                                    <input class="vF voto-equipe-in" name="email" maxlength="180" aria-label="{{ 'voto.equipe.email'|trans }}" value="{{ l.email }}">
+                                    <input class="vF voto-equipe-in voto-equipe-in-cargo" name="cargo" maxlength="60" aria-label="{{ 'voto.equipe.cargo'|trans }}" placeholder="{{ 'voto.equipe.cargo'|trans }}" value="{{ l.cargo }}">
+                                    <button type="submit" class="vB vP">{{ 'voto.equipe.salvar'|trans }}</button>
+                                    <a class="vB" href="{{ path('voto_equipe_index', {grupo: g.assembleiaId, _fragment: 'equipe-' ~ g.assembleiaId}) }}">{{ 'voto.equipe.cancelar'|trans }}</a>
+                                </form>
+                            {% else %}
+                                <b class="voto-equipe-nome">{{ l.nome }}</b>
+                                <span class="voto-equipe-email">{{ l.email }}</span>
+                                <span class="vChip voto-equipe-chip" title="{{ l.papelRotulo }}">{{ l.rotulo }}</span>
+                                {% if not l.comConta %}<span class="voto-equipe-semconta" title="{{ 'voto.equipe.sem_conta'|trans }}"><i class="bi bi-person-slash" aria-hidden="true"></i></span>{% endif %}
+                                {% if g.editavel %}
+                                    <a class="vB" href="{{ path('voto_equipe_index', {grupo: g.assembleiaId, editar: l.id, _fragment: 'equipe-' ~ g.assembleiaId}) }}" aria-label="{{ 'voto.equipe.editar'|trans }}"><i class="bi bi-pencil"></i></a>
+                                    <form class="voto-form-linha" method="post" action="{{ path('voto_equipe_remover', {id: g.assembleiaId, membro: l.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ token }}">
+                                        <button type="submit" class="vB vD" aria-label="{{ 'voto.equipe.remover'|trans }}"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    {% if g.editavel %}
+                        <form class="vLin voto-equipe-novo" method="post" action="{{ path('voto_equipe_designar', {id: g.assembleiaId}) }}">
+                            <input type="hidden" name="_token" value="{{ token }}">
+                            <label class="vL">{{ 'voto.equipe.nome'|trans }}<input class="vF" name="nome" maxlength="120"></label>
+                            <label class="vL">{{ 'voto.equipe.email'|trans }}<input class="vF" name="email" type="email" maxlength="180"></label>
+                            <label class="vL">{{ 'voto.equipe.cargo'|trans }}<input class="vF" name="cargo" maxlength="60" placeholder="{{ 'voto.equipe.cargo_exemplo'|trans }}"></label>
+                            <label class="vL">{{ 'voto.equipe.permissoes'|trans }}
+                                <select class="vF" name="papel">
+                                    {% for p in papeis %}<option value="{{ p.value }}">{{ p.rotulo }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <button type="submit" class="vB vP"><i class="bi bi-plus-lg"></i>{{ 'voto.equipe.designar'|trans }}</button>
+                        </form>
+                        <div class="vLin voto-equipe-aviso">{{ 'voto.equipe.acesso_por_email'|trans }}</div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="vLin voto-vazio">{{ 'voto.equipe.sem_assembleias'|trans }}</div>
+    {% endfor %}
+</div>
+{% endblock %}

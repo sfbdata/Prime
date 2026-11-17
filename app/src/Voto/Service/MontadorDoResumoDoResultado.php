@@ -41,7 +41,7 @@ final class MontadorDoResumoDoResultado
         $conteudo = array_map(static fn (PautaNoResumo $p): array => $p->paraArray(), $pautas);
         $hash = hash('sha256', json_encode([$assembleia->titulo, $divulgacao->codigoDeConferencia(), $conteudo], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 
-        return new ResumoDoResultado($assembleia->id, $assembleia->titulo, $divulgacao->link, $divulgacao->codigoDeConferencia(), $emitidoEm, $hash, $pautas);
+        return new ResumoDoResultado($assembleia->id, $assembleia->titulo, $divulgacao->link, $divulgacao->codigoDeConferencia(), $emitidoEm, $hash, $pautas, $assembleia->cenario, $assembleia->entidade);
     }
 
     private function pauta(PautaNoPainel $pauta, ResultadoDaPauta $r): PautaNoResumo

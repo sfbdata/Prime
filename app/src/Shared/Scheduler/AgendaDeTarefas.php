@@ -167,6 +167,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'blog:conferir-publicacoes --no-interaction',
             'cron'    => '* * * * *',
         ],
+        // A cada minuto: horário programado do Voto. Abre as pautas que chegaram na hora de abrir e encerra as que
+        // chegaram na de encerrar (abre e encerra sozinha, sem ação da mesa). Sem pauta programada, termina na hora.
+        'voto:executar-programacao' => [
+            'comando' => 'voto:executar-programacao --no-interaction',
+            'cron'    => '* * * * *',
+        ],
         // De hora em hora: envio do sistema para o Drive (só sistema para Drive; importar nunca
         // é automático). Sem --tenant-id: percorre todos os escritórios com Drive conectado; o
         // escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum

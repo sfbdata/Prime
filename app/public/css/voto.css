@@ -48,6 +48,8 @@
 .voto-tela .vF { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; background: #fff; box-sizing: border-box; width: 100%; }
 .voto-tela textarea.vF { height: 66px; padding: 7px 9px; resize: vertical; }
 .voto-tela .vF:focus, .voto-tela .vB:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.voto-tela .voto-simulacao { grid-column: 1 / -1; display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: #12242f; line-height: 1.4; }
+.voto-tela .voto-simulacao input { margin-top: 2px; }
 .voto-tela .vG2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .voto-tela .vKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .voto-tela .vKpi { padding: 13px 15px; background: #fff; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; }
@@ -58,6 +60,8 @@
 .voto-tela .voto-espaco { flex: 1; }
 .voto-tela .voto-chip-claro { background: rgba(255,255,255,.2); }
 .voto-tela .voto-form-linha { display: inline-flex; margin: 0; }
+/* Minuta de ata (desenho 18): botão, PDF e o rótulo do papel timbrado, na mesma linha do Relatório. */
+.voto-tela .voto-minuta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 0; }
 .voto-tela .voto-vazio { font-size: 13.5px; color: #5b7383; }
 .voto-tela .voto-texto { font-size: 13.5px; color: #34505f; line-height: 1.5; }
 
@@ -91,6 +95,17 @@
 .voto-tela .vLin.voto-rodape { padding: 12px 15px; }
 .voto-tela .voto-erro { color: #a3232b; font-size: 13.5px; font-weight: bold; }
 .voto-tela .voto-etapas { display:flex; flex-wrap:wrap; gap:5px; list-style:none; margin:0; padding:0; }
+.voto-tela .voto-trilho { display:flex; flex-wrap:wrap; gap:5px; }
+.voto-tela .voto-trilho > .vPas { border:0; cursor:pointer; font:inherit; font-size:13px; padding:6px 10px; text-decoration:none; }
+.voto-tela .voto-trilho > .vPasOk { background:#dcefe3; color:#1e7b45; }
+.voto-tela .voto-sujo { font-size:12.5px; font-weight:normal; }
+.voto-tela .voto-pendencia { font-size:13.5px; font-weight:bold; }
+.voto-tela .voto-pendencia-bloqueio { color:#a3232b; }
+.voto-tela .voto-pendencia-aviso { color:#8a6200; }
+.voto-tela .voto-pendencia-pronto { color:#1e7b45; }
+.voto-tela .voto-pendencias { display:flex; flex-direction:column; gap:10px; }
+.voto-tela .voto-regra-da-pauta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13.5px; }
+.voto-tela .voto-regra-da-pauta > b { flex:1 1 220px; min-width:0; }
 .voto-tela .vPas { font-size:12px; padding:3px 8px; background:#eef3f6; color:#5b7383; border-radius:3px; }
 .voto-tela .vPasAt { background:#0a6fa0; color:#fff; font-weight:bold; }
 .voto-tela .voto-revisao-quadro { border:1px solid #d3dde4; }
@@ -243,3 +258,41 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .vRelOp i { font-size: 22px; color: #0a6fa0; flex: none; margin-top: 2px; }
 .vRelOp b { display: block; font-size: 14.5px; color: #0b3550; margin-bottom: 2px; }
 .vRelOp:hover { border-color: #3b8fc2; background: #f2f8fb; color: #34505f; text-decoration: none; }
+
+/* Passo 1 do formulário: botões da categoria (cenário). Valores do desenho 18 (.vCats, .vCat, .vCatOn); o rádio nativo
+   fica escondido, mas continua focável pelo teclado. */
+.voto-tela .vCats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.voto-tela .vCat { position: relative; display: flex; align-items: center; gap: 9px; padding: 13px 12px; background: #fff; border: 1px solid #c9d8e2; border-radius: 3px; font: inherit; font-size: 13.5px; font-weight: bold; color: #0b3550; cursor: pointer; text-align: left; }
+.voto-tela .vCat i { font-size: 19px; color: #0a6fa0; }
+.voto-tela .vCat:hover { background: #3b8fc2; color: #fff; }
+.voto-tela .vCat:hover i { color: #fff; }
+.voto-tela .vCatOn { background: #0a6fa0; color: #fff; border-color: #0a6fa0; }
+.voto-tela .vCatOn i { color: #fff; }
+.voto-tela .vCat .voto-cat-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.voto-tela .vCat:focus-within { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+/* Relação nominal do voto aberto (Resultados e ata): tabela simples no mesmo tom da ata. */
+.voto-nominal { margin-top: 12px; }
+.voto-nominal .voto-nominal-titulo { display: block; color: #0b3550; margin-bottom: 4px; }
+.voto-nominal .voto-nominal-texto { margin: 0 0 6px; font-size: 13px; color: #4a6373; }
+.voto-nominal .voto-nominal-tabela { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.voto-nominal .voto-nominal-tabela th { background: #d6e3ec; font-size: 12.5px; font-weight: bold; color: #0b3550; text-align: left; padding: 6px 8px; }
+.voto-nominal .voto-nominal-tabela td { padding: 6px 8px; }
+.voto-nominal .voto-nominal-tabela tbody tr:nth-child(even) { background: #f6f9fb; }
+.voto-tela .voto-pauta-participacao { display: flex; flex-direction: column; gap: 8px; }
+.voto-tela .voto-pauta-participacao-titulo { color: #0b3550; font-size: 13px; }
+.voto-tela .voto-pauta-participacao .voto-pauta-aviso-aberto { flex: 1 1 100%; }
+.voto-tela .voto-pauta-participacao .voto-pauta-grupos { flex: 1 1 280px; }
+/* Passo 6 do assistente (desenho 18, H266): escolha da equipe, lista cargo + nome e "Indicar pessoas". Valores do desenho. */
+.voto-tela .voto-equipe-passo { display: flex; flex-direction: column; gap: 12px; }
+.voto-tela .voto-equipe-passo .vCats { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.voto-tela .voto-equipe-passo .vCats form { display: contents; }
+.voto-tela .voto-equipe-passo .vCats .vCat { width: 100%; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled { cursor: default; }
+.voto-tela .voto-equipe-passo-lista { border: 1px solid #d3dde4; }
+.voto-tela .voto-equipe-passo-linha { display: flex; gap: 10px; font-size: 13.5px; flex-wrap: wrap; }
+.voto-tela .voto-equipe-passo-linha > b { flex: 1 1 220px; }
+.voto-tela .voto-equipe-passo-linha > span { flex: 1 1 180px; color: #5b7383; }
+.voto-tela .voto-equipe-passo-indicar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: #8a6200; }
+.voto-tela .voto-equipe-passo-indicar > span { flex: 1 1 300px; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover { background: #fff; color: #0b3550; }
+.voto-tela .voto-equipe-passo .vCats .vCat:disabled:not(.vCatOn):hover i { color: #0a6fa0; }

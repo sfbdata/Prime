@@ -53,6 +53,7 @@ final class DuplicarPautaUseCase
             (int) $origem->getQuorumPrimeira(),
             null === $segunda ? null : (int) $segunda,
         );
+        $copia->definirParticipacao(null, null, $origem->getGrupos(), $origem->getOrdemDasCandidaturas(), $origem->getSigilo());
         foreach ($origem->getOpcoes() as $opcao) {
             (new OpcaoDaPauta($copia, $opcao->getNumero(), $opcao->getRotulo(), $opcao->isAbstencao()))
                 ->detalhar($opcao->getDescricao(), $opcao->getPropostas(), $opcao->getComposicao(), $opcao->getUnidadeCandidato());

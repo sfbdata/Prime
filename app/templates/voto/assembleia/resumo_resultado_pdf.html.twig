@@ -35,6 +35,9 @@
     {% if logo %}<img src="{{ logo }}" alt="" style="height:34px;">{% endif %}
     <h1>{{ 'voto.assembleia.gestor.relatorio.pdf_titulo_pagina'|trans|upper }}</h1>
     <p class="evento">{{ resumo.titulo }}</p>
+    <table>
+        <tr><td class="rotulo">{{ resumo.cenario.entidade }}</td><td>{{ resumo.entidade is not empty ? resumo.entidade : 'voto.assembleia.gestor.relatorio.entidade_nao_informada'|trans }}</td></tr>
+    </table>
 
     {% for p in resumo.pautas %}
         <h2>{{ p.titulo }}</h2>
@@ -65,11 +68,11 @@
             </td>
         </tr>
     </table>
-    {# Linhas de assinatura do boletim do desenho (cenário assembleia: rot.a1 e rot.a2). #}
+    {# Linhas de assinatura do boletim do desenho (rot.a1 e rot.a2 do cenário da assembleia). #}
     <table class="assinaturas">
         <tr>
-            <td><div class="linha">{{ 'voto.assembleia.gestor.relatorio.rotulo_a1'|trans }}</div></td>
-            <td><div class="linha">{{ 'voto.assembleia.gestor.relatorio.rotulo_a2'|trans }}</div></td>
+            <td><div class="linha">{{ resumo.cenario.assinatura1 }}</div></td>
+            <td><div class="linha">{{ resumo.cenario.assinatura2 }}</div></td>
         </tr>
     </table>
     <p class="base">{{ 'voto.assembleia.gestor.relatorio.rodape_legal'|trans }}</p>

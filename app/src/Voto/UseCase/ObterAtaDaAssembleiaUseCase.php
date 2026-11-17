@@ -4,19 +4,32 @@ declare(strict_types=1);
 
 namespace App\Voto\UseCase;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AtaDaAssembleia;
+use App\Voto\DTO\LinhaDaRelacaoDeVotantes;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
+use App\Voto\Repository\UnidadeDaAssembleiaRepository;
+use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\LeituraDaAssembleia;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * A ata imprimível (relatório consolidado do desenho, em HTML): a assembleia lida e, por pauta que saiu da espera, a
- * relação de votantes (quem e quando; nunca em quê) e a participação por bloco ou torre (unidades e peso).
+ * participação por bloco ou torre (unidades e peso) e, quando cabe, a relação de votantes.
+ *
+ * A relação de votantes (spec voto-equipe-e-master-1611, seção 2) só entra se TODAS as condições valem: o cenário tem
+ * lista (condomínio, associação, sociedade), a pauta está encerrada e a pessoa (`$ator`) pode vê-la
+ * ({@see AcessoAAssembleia::podeVerRelacao()}). Sai em ordem alfabética, com a faixa horária no lugar da hora exata e
+ * sem o voto de ninguém. Cada emissão grava "Relação de votantes emitida" no `audit_log`. Sem `$ator` (ou com
+ * `$comVotantes` falso, a minuta) a relação não é montada nem a lista nominal carregada.
  */
 final class ObterAtaDaAssembleiaUseCase
 {
@@ -25,21 +38,104 @@ final class ObterAtaDaAssembleiaUseCase
         private readonly ParticipacaoNaPautaRepository $participacoes,
         private readonly EncerrarPautaPorPrazoVencidoUseCase $encerrarVencidas,
         private readonly LeituraDaAssembleia $leitura,
+        private readonly UnidadeDaAssembleiaRepository $unidades,
+        private readonly AcessoAAssembleia $acesso,
+        private readonly RegistrarAuditoriaDaRelacaoDeVotantesUseCase $auditoria,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
-    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?\DateTimeImmutable $agora = null): AtaDaAssembleia
+    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?\DateTimeImmutable $agora = null, bool $comVotantes = true, ?User $ator = null): AtaDaAssembleia
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $this->encerrarVencidas->executar($assembleia, $agora);
-        [$votantes, $blocos] = $this->participacaoPorPauta($assembleia);
+        [$participacoes, $blocos] = $comVotantes ? $this->participacaoPorPauta($assembleia) : [[], []];
+        $relacao = $comVotantes && null !== $ator ? $this->relacaoDeVotantes($tenant, $assembleia, $ator, $participacoes) : [];
 
-        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $votantes, $blocos);
+        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos);
     }
 
     /**
-     * @return array{0: array<int, list<array{bloco: string, identificacao: string, responsavel: ?string, em: \DateTimeImmutable}>>, 1: array<int, list<array{bloco: string, unidades: int, peso: string}>>}
+     * A relação de votantes das pautas encerradas, por id da pauta; vazio quando o cenário não tem lista ou a pessoa não
+     * pode vê-la. Grava a trilha (e só quando saiu alguma relação).
+     *
+     * @param array<int, list<ParticipacaoNaPauta>> $participacoes por id da pauta
+     *
+     * @return array<int, list<LinhaDaRelacaoDeVotantes>>
+     */
+    private function relacaoDeVotantes(Tenant $tenant, Assembleia $assembleia, User $ator, array $participacoes): array
+    {
+        if (!$assembleia->getCenario()->temListaDeVotantes() || !$this->acesso->podeVerRelacao($ator, $assembleia)) {
+            return [];
+        }
+        $unidades = $this->unidades->listarDaAssembleia($assembleia);
+        $relacao = [];
+        foreach ($assembleia->getPautas() as $pauta) {
+            if (EstadoDaPauta::Encerrada !== $pauta->getEstado() || $pauta->cancelada() || $pauta->retirada()) {
+                continue;
+            }
+            $relacao[(int) $pauta->getId()] = self::linhasDaRelacao($pauta, $unidades, $participacoes[(int) $pauta->getId()] ?? []);
+        }
+        if ([] !== $relacao) {
+            $this->auditoria->emitiu($tenant, $ator, $assembleia, array_keys($relacao));
+            $this->em->flush();
+        }
+
+        return $relacao;
+    }
+
+    /**
+     * Uma linha por unidade da pauta (as de bloco fora dos grupos dela não entram), em ordem alfabética do nome.
+     *
+     * @param list<UnidadeDaAssembleia> $unidades
+     * @param list<ParticipacaoNaPauta> $participacoes
+     *
+     * @return list<LinhaDaRelacaoDeVotantes>
+     */
+    private static function linhasDaRelacao(PautaDaAssembleia $pauta, array $unidades, array $participacoes): array
+    {
+        $votouEm = [];
+        foreach ($participacoes as $participacao) {
+            $votouEm[(int) $participacao->getUnidade()->getId()] = $participacao->getRegistradaEm();
+        }
+        $repetidas = array_filter(array_count_values(array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $unidades)), static fn (int $n): bool => $n > 1);
+        $linhas = [];
+        foreach ($unidades as $unidade) {
+            if (!$pauta->aceitaBloco($unidade->getBloco())) {
+                continue;
+            }
+            $em = $votouEm[(int) $unidade->getId()] ?? null;
+            $nome = trim((string) $unidade->getResponsavel());
+            $linhas[] = new LinhaDaRelacaoDeVotantes(
+                '' !== $nome ? $nome : 'Não informado',
+                self::identificacao($unidade, isset($repetidas[$unidade->getIdentificacao()])),
+                null !== $em ? LinhaDaRelacaoDeVotantes::VOTOU : ($unidade->isApta() ? LinhaDaRelacaoDeVotantes::NAO_VOTOU : LinhaDaRelacaoDeVotantes::INAPTO),
+                null !== $em ? $em->setTime((int) $em->format('G'), 0) : null,
+            );
+        }
+        $colacao = new \Collator('pt_BR');
+        usort($linhas, static fn (LinhaDaRelacaoDeVotantes $x, LinhaDaRelacaoDeVotantes $y): int => $colacao->compare($x->nome, $y->nome) ?: $colacao->compare($x->identificacao, $y->identificacao));
+
+        return $linhas;
+    }
+
+    /**
+     * A identificação como o desenho (`masc`): o CPF de 11 dígitos sai mascarado ("***.456.789-**"). A identificação é
+     * única só dentro do bloco (UNIQUE assembleia, bloco, identificação): o bloco vem na frente só quando ela se repete.
+     */
+    private static function identificacao(UnidadeDaAssembleia $unidade, bool $repetida): string
+    {
+        $id = $unidade->getIdentificacao();
+        if (1 === preg_match('/^\d{11}$/', $id)) {
+            $id = '***.' . substr($id, 3, 3) . '.' . substr($id, 6, 3) . '-**';
+        }
+
+        return !$repetida || '' === $unidade->getBloco() ? $id : $unidade->getBloco() . ' · ' . $id;
+    }
+
+    /**
+     * @return array{0: array<int, list<ParticipacaoNaPauta>>, 1: array<int, list<array{bloco: string, unidades: int, peso: string}>>}
      */
     private function participacaoPorPauta(Assembleia $assembleia): array
     {
@@ -50,19 +146,11 @@ final class ObterAtaDaAssembleiaUseCase
                 continue;
             }
             $lista = $this->participacoes->listarNominalDaPauta($pauta);
-            $votantes[(int) $pauta->getId()] = array_map(self::votante(...), $lista);
+            $votantes[(int) $pauta->getId()] = $lista;
             $blocos[(int) $pauta->getId()] = self::porBloco($lista);
         }
 
         return [$votantes, $blocos];
-    }
-
-    /** @return array{bloco: string, identificacao: string, responsavel: ?string, em: \DateTimeImmutable} */
-    private static function votante(ParticipacaoNaPauta $participacao): array
-    {
-        $unidade = $participacao->getUnidade();
-
-        return ['bloco' => $unidade->getBloco(), 'identificacao' => $unidade->getIdentificacao(), 'responsavel' => $unidade->getResponsavel(), 'em' => $participacao->getRegistradaEm()];
     }
 
     /**

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Voto\Repository;
 
 use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -115,20 +117,48 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
      * string: a soma das frações das aptas quando o peso é a fração ideal; o número de aptas quando é uma unidade, um
      * voto.
      *
+     * Com `$grupos` (os grupos aptos de uma pauta), só entram as unidades de bloco igual a um deles, sem distinguir
+     * caixa nem espaços das pontas; vazio = todas.
+     *
+     * @param list<string> $grupos
+     *
      * @return array{pesoApto: string, unidadesAptas: int}
      */
-    public function totaisAptos(Assembleia $assembleia): array
+    public function totaisAptos(Assembleia $assembleia, array $grupos = []): array
     {
+        $parametros = ['assembleia' => $assembleia->getId(), 'tenant' => $assembleia->getTenant()->getId()];
+        $tipos = [];
+        $filtroDeGrupos = '';
+        if ([] !== $grupos) {
+            $filtroDeGrupos = ' AND LOWER(BTRIM(bloco, E\' \\t\\r\\n\')) IN (:grupos)';
+            $parametros['grupos'] = array_map(static fn (string $g): string => mb_strtolower(trim($g, PautaDaAssembleia::ESPACOS)), $grupos);
+            $tipos['grupos'] = ArrayParameterType::STRING;
+        }
         $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
             'SELECT COUNT(*) AS unidades, COALESCE(SUM(fracao), 0) AS fracoes
                FROM voto.assembleia_unidade
-              WHERE assembleia_id = :assembleia AND tenant_id = :tenant AND apta = TRUE',
-            ['assembleia' => $assembleia->getId(), 'tenant' => $assembleia->getTenant()->getId()],
+              WHERE assembleia_id = :assembleia AND tenant_id = :tenant AND apta = TRUE' . $filtroDeGrupos,
+            $parametros,
+            $tipos,
         );
         $unidades = (int) ($linha['unidades'] ?? 0);
         $peso = PesoDoVoto::Unidade === $assembleia->getPeso() ? (string) $unidades : (string) ($linha['fracoes'] ?? '0');
 
         return ['pesoApto' => bcadd($peso, '0', 6), 'unidadesAptas' => $unidades];
+    }
+
+    /**
+     * Soma das frações da lista inteira (aptas e não aptas), 6 casas em string; null se nenhuma unidade tem fração.
+     * Base do aviso "a soma não fecha 1 nem 100%".
+     */
+    public function somarFracoes(Assembleia $assembleia): ?string
+    {
+        $soma = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT SUM(fracao) FROM voto.assembleia_unidade WHERE assembleia_id = :assembleia AND tenant_id = :tenant',
+            ['assembleia' => $assembleia->getId(), 'tenant' => $assembleia->getTenant()->getId()],
+        );
+
+        return null === $soma || false === $soma ? null : bcadd((string) $soma, '0', 6);
     }
 
     private function buscarPeloHash(string $tokenHash): ?UnidadeDaAssembleia

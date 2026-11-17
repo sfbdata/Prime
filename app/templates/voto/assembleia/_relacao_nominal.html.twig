@@ -1,0 +1,31 @@
+{#
+    Relação nominal do VOTO ABERTO (desenho 18, "Aberto: nominal"): quem votou em quê e quando. Só entra quando a pauta foi
+    configurada como voto aberto antes de publicar e o sigilo já permite mostrar (`p.nominal` não nulo); a pauta secreta
+    nunca chega aqui. Só quem pode ver a relação de votantes (`voto_ve_relacao`, a mesma regra da W2-7 B11) a vê. Usada na aba Resultados e na ata. Contexto: `p` (PautaNoPainel), `a` (AssembleiaNoPainel).
+#}
+{% if p.nominal is not null and voto_ve_relacao(a.id) %}
+    <div class="voto-nominal" data-voto-nominal="{{ p.id }}">
+        <b class="voto-nominal-titulo">{{ 'voto.assembleia.gestor.nominal.titulo'|trans }}</b>
+        <p class="voto-nominal-texto">{{ (p.sigilo.value == 'aberto_vivo' ? 'voto.assembleia.gestor.nominal.ao_vivo' : 'voto.assembleia.gestor.nominal.texto')|trans }}</p>
+        <table class="voto-nominal-tabela">
+            <thead><tr><th>{{ a.cenario.identificacao }}</th><th>{{ 'voto.assembleia.gestor.nominal.responsavel'|trans }}</th><th>{{ 'voto.assembleia.gestor.nominal.voto'|trans }}</th>{% if a.porFracao %}<th>{{ 'voto.assembleia.gestor.nominal.peso'|trans }}</th>{% endif %}<th>{{ 'voto.assembleia.gestor.nominal.hora'|trans }}</th></tr></thead>
+            <tbody>
+            {% for v in p.nominal %}
+                <tr>
+                    <td>{{ v.bloco is same as('') ? v.identificacao : v.bloco ~ ' · ' ~ v.identificacao }}</td>
+                    <td>{{ v.responsavel }}</td>
+                    <td>
+                        {%- if v.nulo -%}{{ 'voto.assembleia.gestor.nominal.nulo'|trans({numero: v.numeroNulo}) }}
+                        {%- elseif v.abstencao -%}{{ (p.tipo.value == 'eleicao_cargo' ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans }}
+                        {%- else -%}{{ ('%0' ~ p.digitos ~ 'd')|format(v.numero) }} {{ v.rotulo }}{%- endif -%}
+                    </td>
+                    {% if a.porFracao %}<td>{{ v.peso|voto_fracao }}</td>{% endif %}
+                    <td>{{ v.em|date('d/m/Y H:i:s') }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="{{ a.porFracao ? 5 : 4 }}">{{ 'voto.assembleia.gestor.nominal.vazia'|trans }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}

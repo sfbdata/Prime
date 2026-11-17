@@ -13,6 +13,7 @@ use App\Voto\Service\GuardaDaEquipeDoVoto;
 use App\Voto\UseCase\EnviarLinksPorEmailUseCase;
 use App\Voto\UseCase\GerarNovoLinkDaUnidadeUseCase;
 use App\Voto\UseCase\ImportarUnidadesUseCase;
+use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\ObterUnidadesDaAssembleiaUseCase;
 use App\Voto\UseCase\RemoverUnidadeUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -83,11 +84,16 @@ final class UnidadesDaAssembleiaController extends AbstractController
     }
 
     #[Route('/modelo.xlsx', name: 'voto_assembleia_unidades_modelo', methods: ['GET'])]
-    public function modelo(ArquivoDeUnidades $arquivos): Response
+    public function modelo(int $id, ArquivoDeUnidades $arquivos, ObterAssembleiaUseCase $obter): Response
     {
-        $this->guarda->exigir();
+        $tenant = $this->guarda->exigir();
+        try {
+            $cenario = $obter->executar($tenant, $id)->cenario;
+        } catch (AssembleiaNaoEncontradaException) {
+            throw $this->createNotFoundException();
+        }
 
-        return $arquivos->modelo();
+        return $arquivos->modelo($cenario);
     }
 
     #[Route('/{unidade}/remover', name: 'voto_assembleia_unidade_remover', methods: ['POST'])]

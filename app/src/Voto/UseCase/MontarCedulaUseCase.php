@@ -19,6 +19,7 @@ use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ApuracaoDaPauta;
 use App\Voto\Service\ComprovanteDoVoto;
+use App\Voto\Service\OrdemDasCandidaturasNaCedula;
 use App\Voto\Service\TransacaoDoVoto;
 use App\Voto\Service\UnidadeDoLink;
 use Psr\Clock\ClockInterface;
@@ -29,6 +30,9 @@ use Psr\Clock\ClockInterface;
  *
  * É a "primeira leitura depois do prazo" do contrato: pauta aberta com o prazo vencido é encerrada aqui, com a linha
  * travada (a mesma trava do voto e do encerramento pela mesa), antes de montar a página.
+ *
+ * Pauta com grupos aptos só aparece para a unidade de um deles, e o peso apto dela (base do quórum) é o dos grupos. A
+ * ordem das opções segue a pauta (de registro ou sorteada a cada leitura). Pauta de voto aberto leva o aviso.
  *
  * Mostra quando a unidade votou, nunca em quê. Totais só na pauta encerrada, pelo ApuracaoDaPauta; nunca parcial.
  * Devolve null quando o link não leva a nenhuma cédula (a página responde 404).
@@ -44,6 +48,7 @@ final class MontarCedulaUseCase
         private readonly TransacaoDoVoto $transacao,
         private readonly ClockInterface $relogio,
         private readonly ComprovanteDoVoto $comprovante,
+        private readonly OrdemDasCandidaturasNaCedula $ordem,
     ) {
     }
 
@@ -81,34 +86,49 @@ final class MontarCedulaUseCase
     private function pautasDaCedula(UnidadeDaAssembleia $unidade, \DateTimeImmutable $agora): array
     {
         $votouEm = $this->participacoes->horariosDaUnidade($unidade);
-        $aptos = $this->unidades->totaisAptos($unidade->getAssembleia());
+        $aptosPorGrupos = [];
         $presencas = $this->participacoes->contarPorPauta($unidade->getAssembleia());
         $pautas = [];
         foreach ($unidade->getAssembleia()->getPautas() as $pauta) {
-            if ($pauta->retirada()) {
-                // Retirada da ordem do dia: some da cédula.
+            // Retirada da ordem do dia some da cédula; fora dos grupos aptos da pauta a unidade nem a vê.
+            if ($pauta->retirada() || !$pauta->aceitaBloco($unidade->getBloco())) {
                 continue;
             }
-            if (self::apurada($pauta)) { $this->pautas->relerContadores($pauta); }
-            $pautas[] = new PautaNaCedulaOutput(
-                id: (int) $pauta->getId(),
-                titulo: $pauta->getTitulo(),
-                descricao: $pauta->getDescricao(),
-                estado: $pauta->getEstado(),
-                votouEm: $votouEm[(int) $pauta->getId()] ?? null,
-                segundosAtePrazo: self::segundosAtePrazo($pauta, $agora),
-                opcoes: $pauta->aceitaVotoEm($agora) ? self::opcoes($pauta) : [],
-                resultado: self::apurada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presencas[(int) $pauta->getId()] ?? null) : null,
-                vagas: $pauta->getVagas(),
-                digitos: $pauta->getDigitos(),
-                tipo: $pauta->getTipo(),
-                suspensa: $pauta->suspensa(),
-                cancelada: $pauta->cancelada(),
-                comprovante: isset($votouEm[(int) $pauta->getId()]) ? $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm[(int) $pauta->getId()]) : null,
-            );
+            $aptos = $aptosPorGrupos[implode('|', $pauta->getGrupos())] ??= $this->unidades->totaisAptos($unidade->getAssembleia(), $pauta->getGrupos());
+            if (self::apurada($pauta)) {
+                $this->pautas->relerContadores($pauta);
+            }
+            $horario = $votouEm[(int) $pauta->getId()] ?? null;
+            $pautas[] = $this->pautaNaCedula($pauta, $unidade, $agora, $horario, $aptos, $presencas[(int) $pauta->getId()] ?? null);
         }
 
         return $pautas;
+    }
+
+    /**
+     * @param array{pesoApto: string, unidadesAptas: int}   $aptos     o peso apto dos grupos da pauta
+     * @param array{unidades: int, peso: string}|null       $presenca
+     */
+    private function pautaNaCedula(PautaDaAssembleia $pauta, UnidadeDaAssembleia $unidade, \DateTimeImmutable $agora, ?\DateTimeImmutable $votouEm, array $aptos, ?array $presenca): PautaNaCedulaOutput
+    {
+        return new PautaNaCedulaOutput(
+            id: (int) $pauta->getId(),
+            titulo: $pauta->getTitulo(),
+            descricao: $pauta->getDescricao(),
+            estado: $pauta->getEstado(),
+            votouEm: $votouEm,
+            segundosAtePrazo: self::segundosAtePrazo($pauta, $agora),
+            opcoes: $pauta->aceitaVotoEm($agora) ? $this->opcoes($pauta) : [],
+            resultado: self::apurada($pauta) ? $this->apuracao->apurar($pauta, $aptos['pesoApto'], $aptos['unidadesAptas'], $presenca) : null,
+            vagas: $pauta->getVagas(),
+            digitos: $pauta->getDigitos(),
+            tipo: $pauta->getTipo(),
+            suspensa: $pauta->suspensa(),
+            cancelada: $pauta->cancelada(),
+            votoAberto: $pauta->votoAberto(),
+            grupos: $pauta->getGrupos(),
+            comprovante: null === $votouEm ? null : $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm),
+        );
     }
 
     /** @param list<PautaNaCedulaOutput> $pautas */
@@ -125,18 +145,15 @@ final class MontarCedulaUseCase
             porFracao: PesoDoVoto::Fracao === $assembleia->getPeso(),
             pautas: $pautas,
             email: $unidade->getEmail() ?? '',
+            entidade: $assembleia->getEntidadeNome() ?? '',
+            cenario: $assembleia->getCenario(),
+            simulacao: $assembleia->isSimulacao(),
         );
     }
 
     /** @return list<OpcaoNaCedulaOutput> as opções de voto pelo número e a abstenção por último */
-    private static function opcoes(PautaDaAssembleia $pauta): array
+    private function opcoes(PautaDaAssembleia $pauta): array
     {
-        $opcoes = $pauta->getOpcoesDeVoto();
-        $abstencao = $pauta->getAbstencao();
-        if (null !== $abstencao) {
-            $opcoes[] = $abstencao;
-        }
-
         return array_map(static fn (OpcaoDaPauta $o): OpcaoNaCedulaOutput => new OpcaoNaCedulaOutput(
             (int) $o->getId(),
             $o->getNumero(),
@@ -145,7 +162,7 @@ final class MontarCedulaUseCase
             $o->getDescricao(),
             $o->getComposicao(),
             null !== $o->getFoto(),
-        ), $opcoes);
+        ), $this->ordem->ordenar($pauta));
     }
 
     private static function segundosAtePrazo(PautaDaAssembleia $pauta, \DateTimeImmutable $agora): ?int

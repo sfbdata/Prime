@@ -142,4 +142,15 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
             throw new \RuntimeException('A opção do voto não foi encontrada.');
         }
     }
+
+    /** Reiniciar a simulação: zera o contador de cada opção da assembleia do escritório (SQL direto, como a soma do voto). */
+    public function zerarDaAssembleia(Assembleia $assembleia): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE voto.assembleia_opcao SET total_unidades = 0, total_peso = 0 WHERE tenant_id = :tenant
+                AND pauta_id IN (SELECT p.id FROM voto.assembleia_pauta p JOIN voto.assembleia a ON a.id = p.assembleia_id
+                    WHERE p.assembleia_id = :assembleia AND p.tenant_id = :tenant AND a.simulacao = true)',
+            ['tenant' => $assembleia->getTenant()->getId(), 'assembleia' => $assembleia->getId()],
+        );
+    }
 }

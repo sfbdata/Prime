@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Voto\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Voto\Exception\AssembleiaNaoEncontradaException;
+use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
+use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\ModelosDePautas;
 use App\Voto\Service\SerializacaoDaConfiguracao;
@@ -14,13 +17,14 @@ use App\Voto\Service\TransacaoDoVoto;
  * "Modelos prontos" do passo Cargos e pautas (desenho 18, L262): cria, no fim da ordem, as pautas do modelo escolhido com
  * a mesma montagem de "adicionar pauta" (AdicionarPautaUseCase::montar: escritório, rascunho, validação das opções e
  * abstenção automática). Tudo ou nada: uma trava de configuração e uma transação para o modelo inteiro, e a recusa de
- * qualquer pauta não grava nenhuma. Devolve os títulos para o aviso "Modelo aplicado: ...". Modelo desconhecido é
- * recusado antes de qualquer coisa.
+ * qualquer pauta não grava nenhuma. Devolve os títulos para o aviso "Modelo aplicado: ...". Modelo desconhecido, ou de
+ * outro cenário que não o da assembleia, é recusado antes de qualquer coisa.
  */
 final class AplicarModeloDePautasUseCase
 {
     public function __construct(
         private readonly AdicionarPautaUseCase $adicionar,
+        private readonly AssembleiaRepository $assembleias,
         private readonly PautaDaAssembleiaRepository $pautas,
         private readonly SerializacaoDaConfiguracao $serializacao,
         private readonly TransacaoDoVoto $transacao,
@@ -32,7 +36,11 @@ final class AplicarModeloDePautasUseCase
     {
         $inputs = ModelosDePautas::pautasDoModelo($modelo);
 
-        return $this->serializacao->executar($tenant, $assembleiaId, fn (): array => $this->transacao->executar(function () use ($tenant, $assembleiaId, $inputs): array {
+        return $this->serializacao->executar($tenant, $assembleiaId, fn (): array => $this->transacao->executar(function () use ($tenant, $assembleiaId, $inputs, $modelo): array {
+            $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant) ?? throw new AssembleiaNaoEncontradaException();
+            if ($assembleia->getCenario()->value !== ModelosDePautas::modelos()[$modelo]['cenario']) {
+                throw new OperacaoInvalidaNaAssembleiaException('Modelo de pautas desconhecido.');
+            }
             $titulos = [];
             foreach ($inputs as $input) {
                 $this->pautas->salvar($this->adicionar->montar($tenant, $assembleiaId, $input));

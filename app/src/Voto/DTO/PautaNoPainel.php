@@ -6,7 +6,9 @@ namespace App\Voto\DTO;
 
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaPauta;
+use App\Voto\Enum\OrdemDasCandidaturas;
 use App\Voto\Enum\RegraDeDecisao;
+use App\Voto\Enum\SigiloDoVoto;
 use App\Voto\Enum\TipoDaPauta;
 
 /**
@@ -60,7 +62,52 @@ final readonly class PautaNoPainel
         public ?\DateTimeImmutable $retiradaEm = null,
         public ?string $retiradaMotivo = null,
         public ?string $retiradaPorNome = null,
+        public RegrasDeParticipacaoNoPainel $participacao = new RegrasDeParticipacaoNoPainel(),
     ) {
+    }
+
+    /** Voto aberto: o nome e o voto de cada unidade ficam visíveis (decidido antes de publicar). */
+    public function votoAberto(): bool
+    {
+        return $this->participacao->sigilo->aberto();
+    }
+
+    /** Abre e encerra sozinha no horário programado. */
+    public function programada(): bool
+    {
+        return null !== $this->participacao->abreEm && null !== $this->participacao->encerraEm;
+    }
+
+    public function getAbreEm(): ?\DateTimeImmutable
+    {
+        return $this->participacao->abreEm;
+    }
+
+    public function getEncerraEm(): ?\DateTimeImmutable
+    {
+        return $this->participacao->encerraEm;
+    }
+
+    /** @return list<string> os grupos aptos; vazio = todos */
+    public function getGrupos(): array
+    {
+        return $this->participacao->grupos;
+    }
+
+    public function getOrdemDasCandidaturas(): OrdemDasCandidaturas
+    {
+        return $this->participacao->ordem;
+    }
+
+    public function getSigilo(): SigiloDoVoto
+    {
+        return $this->participacao->sigilo;
+    }
+
+    /** @return list<VotoNominalNaPauta>|null a relação nominal do voto aberto; null na pauta secreta e enquanto o sigilo não permite mostrar */
+    public function getNominal(): ?array
+    {
+        return $this->participacao->nominal;
     }
 
     /** rascunho | publicada | aberta | encerrada (chave do chip e do texto). */
