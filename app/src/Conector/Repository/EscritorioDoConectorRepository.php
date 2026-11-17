@@ -63,7 +63,7 @@ class EscritorioDoConectorRepository extends ServiceEntityRepository
      * sem linha do conector sai com liberado e ligado falsos e sem aceite. Sai só o nome do escritório, nunca dado de
      * pessoa.
      *
-     * @return list<array{tenantId: int, nome: string, liberado: bool, ligado: bool, aceiteEm: ?string, aceiteVersao: ?string}>
+     * @return list<array{tenantId: int, nome: string, liberado: bool, ligado: bool, aceiteEm: ?string, aceiteVersao: ?int}>
      */
     public function listarEscritoriosParaOMaster(): array
     {
@@ -82,7 +82,7 @@ class EscritorioDoConectorRepository extends ServiceEntityRepository
             'liberado' => (bool) $l['liberado'],
             'ligado' => (bool) $l['ligado'],
             'aceiteEm' => $l['aceite_em'] === null ? null : (string) $l['aceite_em'],
-            'aceiteVersao' => $l['aceite_versao'] === null ? null : (string) $l['aceite_versao'],
+            'aceiteVersao' => $l['aceite_versao'] === null ? null : (int) $l['aceite_versao'],
         ], $linhas);
     }
 }

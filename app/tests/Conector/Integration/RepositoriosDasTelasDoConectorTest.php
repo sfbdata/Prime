@@ -175,7 +175,7 @@ final class RepositoriosDasTelasDoConectorTest extends KernelTestCase
         }
 
         self::assertSame(
-            ['tenantId' => $comLinha->getId(), 'nome' => $comLinha->getName(), 'liberado' => true, 'ligado' => true, 'aceiteEm' => '2026-11-10 09:30:00', 'aceiteVersao' => '1'],
+            ['tenantId' => $comLinha->getId(), 'nome' => $comLinha->getName(), 'liberado' => true, 'ligado' => true, 'aceiteEm' => '2026-11-10 09:30:00', 'aceiteVersao' => 1],
             $porId[$comLinha->getId()] ?? null,
         );
         self::assertSame(
