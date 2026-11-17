@@ -791,9 +791,9 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   (`app/src/DataFixtures/PermissionFixture.php:17-32`).
 
 **`buscar_pastas`** (PR 6)
-- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`minhas: true`), busca rápida por número ou NUP, as
+- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`acao: minhas_demandas`), busca rápida por número ou NUP, as
   pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
-  escritório (`lixeira: true`); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
 - Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
   (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
   `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
@@ -1253,7 +1253,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 |---|---|---|---|
 | `quem_sou_eu` | nenhuma | nenhuma | nenhuma |
 | `buscar_pastas` | `inteligencia_agente_pastas_buscar`, a Lista, `demandas_index`, `expediente_busca_rapida`, `expediente_lixeira` | nenhuma | nenhuma (a Lista é essencial, `base: true`; `assistente` desliga o Agente, não a Lista) |
-| `ler_pasta`: resumo, andamento, registro, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: resumo, andamento, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: registro | `pasta_show` | Dados (decisão 3 do PR 6) | `expedientes` |
 | `ler_pasta`: prazos | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: metas | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: detalhes, controladoria | `pasta_show` | Detalhes | `expedientes` |
@@ -1654,8 +1655,8 @@ erradas do plano, todas invisíveis à leitura):
    derruba o teste.
 10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa, **na leitura e na gravação** (cada
     ferramenta de gravação com pasta ligada a processo em segredo); `processos_da_pasta` não aceita o campo de segredo.
-    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (com e sem
-    cadeado); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
+    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (o prazo de pasta
+    trancada some sem contagem, como na tela, decisão 18 do PR 6); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
     o número de um processo do escritório em segredo recusa **sem chamar o DataJud** (o dublê do cliente HTTP prova zero
     chamadas), e com número que não é do escritório consulta normalmente.
 11. **Cliente só pelo necessário**: nenhuma resposta, fora o conteúdo de documento lido, traz CPF, CNPJ, RG, data de
@@ -2181,7 +2182,8 @@ Coordenador):**
 4. **Sugestões do andamento** que citam Push ou Financeiro saem quando a aba de origem está oculta.
 5. **Compromisso da pessoa ligado a pasta em segredo ou trancada** some da agenda e é contado.
 6. **Prazos da pasta**: só os abertos.
-7. **Lixeira do escritório**: o nome do documento pelo rótulo, sem conteúdo.
+7. **Lixeira do escritório**: por pasta, só o nome dela (cliente ou ação, pelo rótulo) e quantos documentos e subpastas
+   estão na lixeira; nenhum nome nem conteúdo de documento (sai menos que o pensado no planejamento).
 8. **Cadastro**: só preenchido ou falta, pelo `CadastroDaPastaOutput::de`.
 9. **Registro**: 50 por página, o mais recente primeiro.
 10. **`ler_pasta` não pede módulo**, como a tela da pasta (`pasta_show` só confere o recurso `pasta` view): quem lê é quem
@@ -2210,3 +2212,5 @@ Coordenador):**
 18. **Agenda**: período padrão de 7 dias a partir de hoje, no máximo 31; lembretes só quando pedidos (são das próximas
     24 horas), e os de prazo só com `prazos` em `incluir`. Prazo de pasta trancada some sem contagem, como na tela
     (`ListarCompromissosUseCase` já o tira); compromisso e lembrete de pasta trancada ou em segredo somem e são contados.
+19. **Minhas demandas** não traz a pasta trancada nem a conta, mesmo sendo da pessoa, como a tela
+    (`ListarMinhasDemandasUseCase`, spec pasta-cadeado D1); o `buscar` mostra a trancada com o cadeado, como a Lista.

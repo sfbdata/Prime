@@ -237,6 +237,24 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertSame(1, $resposta->dados['total']);
     }
 
+    #[TestDox('minhas_demandas: a trancada não aparece nem conta, mesmo sendo da pessoa, como na tela (spec pasta-cadeado D1)')]
+    public function testMinhasDemandasComATrancada(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::LEITOR);
+        $trancada = $this->pasta($escritorio, comProcesso: false);
+        $trancada->setResponsavel($pessoa);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'minhas_demandas'], $vinculo);
+
+        self::assertSame([], $resposta->dados['pastas']);
+        self::assertSame(0, $resposta->dados['total']);
+        self::assertSame(0, $resposta->dados['omitidas_sem_acesso'], 'nada a contar: o ListarMinhasDemandasUseCase já não a traz');
+    }
+
     #[TestDox('lixeira: sem nada excluído, a lista vem vazia; cursor fora do formato é filtro inválido')]
     public function testLixeira(): void
     {

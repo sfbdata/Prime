@@ -9,5 +9,5 @@ tipo: novidade
 
 ## Para o cliente
 - Com o conector de I.A. ligado, o Claude ou o ChatGPT conectado à sua conta passa a procurar pastas, ler o resumo, o andamento, o Registro, os prazos e as metas de uma pasta, e consultar a sua agenda e as suas metas.
-- O app só enxerga o que você já vê no BlueJus: abas ocultas, pastas trancadas e pastas em segredo de justiça ficam de fora, e CPF, telefone e e-mail chegam mascarados.
+- O app só enxerga o que você já vê no BlueJus: abas ocultas e pastas em segredo de justiça ficam de fora; da pasta trancada, só o número e o cliente, como na lista; CPF, CNPJ, telefone e e-mail chegam mascarados.
 - Por enquanto o conector só é liberado para o escritório piloto.
