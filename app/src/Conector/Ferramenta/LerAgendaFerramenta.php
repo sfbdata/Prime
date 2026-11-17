@@ -35,11 +35,12 @@ use Psr\Clock\ClockInterface;
  *    `verPrazos` pela permissão "Ver prazos na agenda" e `administra` sempre falso (6.3);
  *  - os aniversários da equipe ficam fora (dado pessoal de colega, 6.4);
  *  - compromisso ligado a pasta trancada para a pessoa (cadeado, {@see AcessoAPasta::idsOcultosPara()}) some e é contado;
- *    os prazos dessas pastas já não vêm do UseCase, como na tela;
+ *    os prazos dessas pastas já não vêm do UseCase e não são contados, como na tela;
  *  - item ligado a pasta em segredo de justiça some e é contado ({@see SegredoNasListas}, 6.2, regra 3);
  *  - sem o módulo `pastas`, o `pasta_id` sai dos itens (e o número da pasta, dos compromissos), como na tela;
  *  - as datas do sistema pelo {@see ListarDatasDoSistemaUseCase}, com a lotação do vínculo da chamada;
- *  - os lembretes das próximas 24 horas pelo {@see ListarLembretesUseCase}, só quando pedidos, com o mesmo filtro;
+ *  - os lembretes das próximas 24 horas pelo {@see ListarLembretesUseCase}, só quando pedidos, com o mesmo filtro; os
+ *    de prazo só com `prazos` em `incluir` (e a permissão "Ver prazos na agenda"), como os prazos da lista;
  *  - a lista de itens é paginada ({@see ORCAMENTO_POR_PAGINA} caracteres ou {@see ITENS_POR_PAGINA} itens por página);
  *    datas do sistema e lembretes vão só na primeira página.
  *
@@ -90,7 +91,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Lê a agenda do BlueJus. Ação "agenda" (padrão): compromissos, prazos e audiências das pastas, feriados e datas dos tribunais de um período (de e ate em AAAA-MM-DD, no máximo 31 dias; sem datas, os próximos 7 dias), só os da pessoa (so_minha, padrão) ou também os da equipe; "incluir" escolhe as partes e "lembretes" traz os avisos das próximas 24 horas. Ação "minhas_metas": as metas da própria pessoa com prazo, por período (hoje, proximos_7_dias ou atrasadas) e papel (responsavel, criei, acompanhando ou todas). Itens ligados a pasta em segredo de justiça ou trancada não saem: só a contagem aparece. Quando a lista for longa, peça a página seguinte em "pagina".';
+        return 'Lê a agenda do BlueJus. Ação "agenda" (padrão): compromissos, prazos e audiências das pastas, feriados e datas dos tribunais de um período (de e ate em AAAA-MM-DD, no máximo 31 dias; sem datas, os próximos 7 dias), só os da pessoa (so_minha, padrão) ou também os da equipe; "incluir" escolhe as partes e "lembretes" traz os avisos das próximas 24 horas. Ação "minhas_metas": as metas da própria pessoa com prazo, por período (hoje, proximos_7_dias ou atrasadas) e papel (responsavel, criei, acompanhando ou todas). Compromissos, prazos e lembretes ligados a pasta em segredo de justiça não saem: só a contagem aparece. Compromissos e lembretes de pasta trancada para a pessoa também não saem e são contados; prazos de pasta trancada não aparecem, sem contagem, como na tela. Quando a lista for longa, peça a página seguinte em "pagina".';
     }
 
     public function esquemaDeEntrada(): array
@@ -109,7 +110,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
                 'incluir' => [
                     'type' => 'array',
                     'items' => ['type' => 'string', 'enum' => Pedido::INCLUIR],
-                    'description' => 'Só na agenda. As partes: compromissos, prazos, datas_do_sistema (padrão: as três) e lembretes (próximas 24 horas).',
+                    'description' => 'Só na agenda. As partes: compromissos, prazos, datas_do_sistema (padrão: as três) e lembretes (próximas 24 horas; os de prazo só junto com prazos).',
                 ],
                 'pagina' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Só na agenda. A página da lista de itens; use o proxima_pagina da resposta anterior.'],
                 'periodo' => [
@@ -161,7 +162,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
             $dados['datas_do_sistema'] = $this->datas($pedido, $chamada);
         }
         if ($pedido->pagina === 1 && $pedido->inclui(Pedido::LEMBRETES)) {
-            $lembretes = $this->lembretesDa($chamada, $verPastas, $trancadas);
+            $lembretes = $this->lembretesDa($chamada, $pedido, $verPastas, $trancadas);
             $dados['lembretes'] = $lembretes['lembretes'];
             $lista['trancados'] += $lembretes['trancados'];
             $lista['em_segredo'] += $lembretes['em_segredo'];
@@ -239,7 +240,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
             'dono' => $c->donoNome === null ? null : $this->protecao->rotulo($escritorio, $c->donoNome, 'Sem nome'),
             'privado' => $c->privado,
             'recorrente' => $c->recorrente,
-            'local' => $c->local === null ? null : $this->protecao->rotulo($escritorio, $c->local, ''),
+            'local' => $this->local($escritorio, $c->local),
             'descricao' => $this->texto($escritorio, $c->descricao),
         ];
     }
@@ -253,6 +254,14 @@ final class LerAgendaFerramenta implements FerramentaDoConector
         $protegido = $this->protecao->comoDado($escritorio, $cortado);
 
         return $protegido === '' ? null : $protegido;
+    }
+
+    /** O local é de uma linha; vazio depois da proteção sai como nulo. */
+    private function local(Tenant $escritorio, ?string $local): ?string
+    {
+        $protegido = $local === null ? '' : $this->protecao->rotulo($escritorio, $local, '');
+
+        return trim($protegido) === '' ? null : $protegido;
     }
 
     /** @return list<array<string, mixed>> */
@@ -278,11 +287,11 @@ final class LerAgendaFerramenta implements FerramentaDoConector
      *
      * @return array{lembretes: list<array<string, mixed>>, trancados: int, em_segredo: int}
      */
-    private function lembretesDa(ChamadaDoConector $chamada, bool $verPastas, array $trancadas): array
+    private function lembretesDa(ChamadaDoConector $chamada, Pedido $pedido, bool $verPastas, array $trancadas): array
     {
         $pessoa = $chamada->contexto->pessoa;
         $escritorio = $chamada->contexto->escritorio;
-        $verPrazos = $this->permissoesDaAgenda->verPrazos($pessoa, $escritorio);
+        $verPrazos = $pedido->inclui(Pedido::PRAZOS) && $this->permissoesDaAgenda->verPrazos($pessoa, $escritorio);
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
 
         $todos = $this->lembretes->executar($escritorio, $pessoa, $agora, true, $verPrazos);

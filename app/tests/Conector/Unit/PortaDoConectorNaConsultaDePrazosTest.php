@@ -75,6 +75,15 @@ final class PortaDoConectorNaConsultaDePrazosTest extends TestCase
         $this->exigirRecusa();
     }
 
+    #[TestDox('a linha do conector existe e está ligada, mas o Master não liberou o escritório: sem permissão')]
+    public function testMasterNaoLiberou(): void
+    {
+        $this->doConector = new EscritorioDoConector($this->escritorio);
+        $this->doConector->ligar(new User(), new \DateTimeImmutable('2026-11-16 09:00:00'));
+
+        $this->exigirRecusa();
+    }
+
     #[TestDox('conector desligado pelo administrador do escritório: sem permissão')]
     public function testConectorDesligado(): void
     {

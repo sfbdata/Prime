@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Conector\Integration;
 
 use App\Agenda\DTO\CompromissoOutput;
+use App\Agenda\Entity\AjusteDeData;
 use App\Agenda\Entity\Evento;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\ChatIa\DTO\ConsultaDePrazosInput;
@@ -16,6 +17,7 @@ use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\TabelaDeAbaEChave;
 use App\Conector\Service\ModoDoConector;
 use App\Conector\Service\PortaDoConectorNaConsultaDePrazos;
 use App\Entity\Auth\User;
@@ -23,11 +25,13 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Entity\PastaProcesso;
+use App\Ponto\Entity\Feriado;
 use App\Processo\DTO\DadosManuaisDoProcesso;
 use App\Processo\Entity\Processo;
 use App\Profile\Entity\UserProfile;
@@ -64,7 +68,7 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         $this->amanha = new \DateTimeImmutable('tomorrow');
     }
 
-    #[TestDox('agenda: compromisso de pasta em segredo e de pasta trancada some e é contado; o prazo em segredo também; sem pasta e de pasta comum fica, com o pasta_id')]
+    #[TestDox('agenda: compromisso de pasta em segredo e de pasta trancada some e é contado; o prazo em segredo também; o prazo de pasta trancada some sem contagem, como na tela; sem pasta e de pasta comum fica, com o pasta_id')]
     public function testSegredoECadeado(): void
     {
         $escritorio = $this->escritorio();
@@ -79,6 +83,7 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         $this->evento($escritorio, $pessoa, 'Reunião trancada', $trancada);
         $this->prazo($escritorio, $comum, 'Contestação');
         $this->prazo($escritorio, $secreta, 'Prazo sigiloso');
+        $this->prazo($escritorio, $trancada, 'Prazo trancado');
         self::assertFalse($this->em()->getFilters()->isEnabled('tenant'), 'premissa: sem o filtro de sessão');
 
         $resposta = $this->agenda($pessoa, $vinculo, ['incluir' => ['compromissos', 'prazos']]);
@@ -88,7 +93,7 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         sort($titulos);
         self::assertSame(['Contestação · Pasta ' . $comum->getNup(), 'Reunião da pasta comum', 'Reunião sem pasta'], $titulos);
         self::assertSame(2, $dados['omitidos_por_segredo_de_justica'], 'o compromisso e o prazo da pasta em segredo');
-        self::assertSame(1, $dados['omitidos_por_pasta_trancada']);
+        self::assertSame(1, $dados['omitidos_por_pasta_trancada'], 'só o compromisso: o prazo da pasta trancada já não vem do UseCase, como na tela, e não é contado');
         self::assertSame(['itens' => 3, 'em_segredo' => 2, 'trancados' => 1], $resposta->contagens);
         self::assertSame(['pasta' => [$comum->getId()]], $resposta->ids);
         self::assertArrayNotHasKey('datas_do_sistema', $dados, 'só as partes pedidas');
@@ -101,7 +106,7 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         self::assertTrue($doEvento['meu']);
 
         $json = (string) json_encode($dados, \JSON_UNESCAPED_UNICODE);
-        foreach (['sigilos', 'Reunião trancada', (string) $secreta->getNup(), (string) $trancada->getNup()] as $proibido) {
+        foreach (['sigilos', 'Reunião trancada', 'Prazo trancado', (string) $secreta->getNup(), (string) $trancada->getNup()] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
     }
@@ -158,13 +163,28 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         $pessoa = $this->pessoa();
         $vinculoA = $this->vinculo($pessoa, $a, permissoes: self::TUDO);
         $this->vinculo($pessoa, $b, permissoes: self::TUDO);
+        $daqui = (new \DateTimeImmutable())->modify('+2 hours');
         $this->evento($a, $pessoa, 'Reunião em A');
+        $this->evento($a, $pessoa, 'Lembrete em A', inicio: $daqui);
         $this->evento($b, $pessoa, 'Reunião em B', $this->pasta($b));
+        $this->evento($b, $pessoa, 'Lembrete em B', $this->pasta($b), $daqui);
         $this->prazo($b, $this->pasta($b), 'Prazo em B');
+        $this->prazo($b, $this->pasta($b), 'Prazo de hoje em B', new \DateTimeImmutable('today'), '23:59');
+        $this->em()->persist(AjusteDeData::acrescentar($b, $this->amanha, 'Data acrescentada em B', 'com', null, $pessoa));
+        $this->em()->persist((new Feriado())->setNome('Feriado do Ponto em B')->setData(new \DateTime($this->amanha->format('Y-m-d')))->setRecorrente(false)->setTenant($b));
+        $this->em()->flush();
 
-        $dados = $this->agenda($pessoa, $vinculoA, ['so_minha' => false, 'incluir' => ['compromissos', 'prazos']])->dados;
+        $dados = $this->agenda($pessoa, $vinculoA, ['so_minha' => false, 'incluir' => ['compromissos', 'prazos', 'datas_do_sistema', 'lembretes']])->dados;
 
-        self::assertSame(['Reunião em A'], array_column($dados['itens'], 'titulo'));
+        $titulos = array_column($dados['itens'], 'titulo');
+        sort($titulos);
+        self::assertSame(['Lembrete em A', 'Reunião em A'], $titulos);
+        $lembretes = array_column($dados['lembretes'], 'titulo');
+        self::assertContains('Lembrete em A', $lembretes);
+        self::assertSame([], array_diff($lembretes, ['Lembrete em A', 'Reunião em A']), 'só lembretes de A (a reunião de amanhã entra se cair nas próximas 24 horas)');
+        self::assertArrayHasKey('datas_do_sistema', $dados);
+        $json = (string) json_encode($dados, \JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('em B', $json, 'nenhum compromisso, prazo, lembrete ou data do escritório B');
     }
 
     #[TestDox('agenda: lembretes pedidos seguem o mesmo filtro (o da pasta em segredo some e é contado)')]
@@ -182,6 +202,41 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         self::assertSame([], $dados['itens'], 'sem compromissos pedidos');
         self::assertSame(['Ligar para o perito'], array_column($dados['lembretes'], 'titulo'));
         self::assertSame(1, $dados['omitidos_por_segredo_de_justica']);
+    }
+
+    #[TestDox('agenda: o lembrete de prazo só vem com prazos em incluir; o de compromisso vem com lembretes')]
+    public function testLembreteDePrazoSegueOIncluir(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $pasta = $this->pasta($escritorio);
+        $this->evento($escritorio, $pessoa, 'Ligar para o perito', $pasta, (new \DateTimeImmutable())->modify('+2 hours'));
+        $this->prazo($escritorio, $pasta, 'Prazo de hoje', new \DateTimeImmutable('today'), '23:59');
+
+        $soLembretes = $this->agenda($pessoa, $vinculo, ['incluir' => ['lembretes']])->dados['lembretes'];
+        $comPrazos = $this->agenda($pessoa, $vinculo, ['incluir' => ['lembretes', 'prazos']])->dados['lembretes'];
+
+        self::assertSame(['meus'], array_column($soLembretes, 'tipo'));
+        $tipos = array_column($comPrazos, 'tipo');
+        sort($tipos);
+        self::assertSame(['meus', 'prazo'], $tipos);
+    }
+
+    #[TestDox('agenda: local em branco sai nulo; local preenchido sai pelo rótulo')]
+    public function testLocalVazioViraNulo(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $this->evento($escritorio, $pessoa, 'Sem local')->setLocal('   ');
+        $this->evento($escritorio, $pessoa, 'Com local')->setLocal('Fórum central');
+        $this->em()->flush();
+
+        $itens = $this->agenda($pessoa, $vinculo, ['incluir' => ['compromissos']])->dados['itens'];
+
+        self::assertNull(self::itemDe($itens, 'Sem local')['local']);
+        self::assertSame('Fórum central', self::itemDe($itens, 'Com local')['local']);
     }
 
     #[TestDox('agenda longa: a lista se corta pelo tamanho (até 100 itens), a página seguinte em proxima_pagina; datas do sistema só na primeira')]
@@ -249,6 +304,32 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         self::assertSame(['hoje', 'responsavel'], [$dados['periodo'], $dados['papel']]);
         self::assertSame(['metas' => 1, 'em_segredo' => 1], $resposta->contagens);
         self::assertSame($antes, $this->contarMetas(), 'nada é gravado');
+        $uow = $this->em()->getUnitOfWork();
+        $uow->computeChangeSets();
+        self::assertSame([], $uow->getScheduledEntityInsertions(), 'nada agendado para gravar');
+        self::assertSame([], $uow->getScheduledEntityUpdates(), 'nada agendado para gravar');
+        self::assertSame([], $uow->getScheduledEntityDeletions(), 'nada agendado para gravar');
+    }
+
+    #[TestDox('minhas_metas com a chave metas do Master desligada: função desligada, pela tabela de aba e chave e pela guarda reais')]
+    public function testMetasComAChaveDesligada(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $this->liberarConector($escritorio);
+        $this->meta($escritorio, $this->pasta($escritorio), $pessoa, 'Contestação de hoje');
+        self::assertSame(['metas'], TabelaDeAbaEChave::linha(LerAgendaFerramenta::NOME, 'minhas_metas')?->chaves, 'premissa: a linha da tabela pede a chave metas');
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => 'metas']) ?? new RecursoEstado('metas');
+        $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
+        $this->em()->flush();
+
+        $erro = $this->recusa($pessoa, $vinculo, ['acao' => 'minhas_metas', 'periodo' => 'hoje']);
+
+        self::assertSame(ErroDaFerramenta::MOTIVO_FUNCAO_DESLIGADA, $erro->motivo);
+        self::assertSame(ErroDaFerramenta::FUNCAO_DESLIGADA, $erro->getMessage());
+        self::assertSame([], $this->agenda($pessoa, $vinculo, ['incluir' => ['compromissos']])->dados['itens'], 'a agenda não pede a chave metas e continua respondendo');
     }
 
     #[TestDox('minhas_metas sem o módulo Tarefas: sem permissão')]
@@ -369,10 +450,10 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         return $evento;
     }
 
-    private function prazo(Tenant $escritorio, Pasta $pasta, string $titulo): PastaPrazo
+    private function prazo(Tenant $escritorio, Pasta $pasta, string $titulo, ?\DateTimeImmutable $data = null, ?string $hora = null): PastaPrazo
     {
         $prazo = new PastaPrazo($escritorio, $pasta, null);
-        $prazo->definir(PastaPrazo::TIPO_PRAZO, $titulo, $this->amanha, null, null);
+        $prazo->definir(PastaPrazo::TIPO_PRAZO, $titulo, $data ?? $this->amanha, $hora, null);
         $this->em()->persist($prazo);
         $this->em()->flush();
 
