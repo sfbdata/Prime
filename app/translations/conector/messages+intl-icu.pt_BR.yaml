@@ -1,0 +1,92 @@
+# Conector de I.A. (docs/specs/mcp-remoto-oauth.md, PR 8 "conector-telas", 14.a e 14.e): as três telas sem desenho,
+# pela convenção do sistema. "perfil": cartão "Conexões de I.A." do Meu Perfil; "master": liberação por escritório na
+# aba "Configurações da I.A." do Master; "admin": o administrador do escritório liga o conector e dá o aceite.
+conector:
+    perfil:
+        titulo: Conexões de I.A.
+        sub: Os apps de I.A. que você autorizou a usar o BlueJus em seu nome
+        vazio: Nenhum app de I.A. conectado à sua conta.
+        col_app: App
+        col_escritorio: Escritório
+        col_escopos: Permissões
+        col_concedido: Conectado em
+        col_ultimo_uso: Último uso
+        nunca_usado: ainda não usado
+        escopo:
+            leitura: Ler
+            escrita: Ler e gravar
+            renovacao: Manter conectado
+        vinculo_encerrado: 'Seu vínculo com este escritório foi encerrado: a conexão já não funciona. Revogue para tirá-la da lista.'
+        revogar: Revogar
+        # Modal de confirmação do "Revogar" (mesmo molde do "Sair de todos os aparelhos").
+        revogar_modal:
+            titulo: Revogar a conexão
+            texto: 'O app {app} perde o acesso ao escritório {escritorio} na hora. Para usar de novo, conecte outra vez pelo app.'
+            confirmar: Revogar
+            cancelar: Cancelar
+        revogada: 'A conexão com {app} foi revogada.'
+        nao_encontrada: Conexão não encontrada.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+    master:
+        titulo: Conector de I.A.
+        nota: 'Para usar o conector, o escritório precisa estar liberado aqui e o administrador dele precisa ligar o conector e dar o aceite. Bloquear suspende o acesso na hora, sem apagar o aceite nem as conexões.'
+        col_nome: Escritório
+        col_liberado: Liberado
+        col_ligado: Ligado pelo escritório
+        col_aceite: Aceite do escritório
+        col_conexoes: Conexões ativas
+        liberar: Liberar
+        bloquear: Bloquear
+        liberado: Liberado
+        bloqueado: Bloqueado
+        ligado: Ligado
+        desligado: Desligado
+        sem_aceite: sem aceite
+        aceite_antigo: aceite de versão anterior
+        vazio: Nenhum escritório ativo.
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            informe_liberado: Informe se o escritório fica liberado ou bloqueado.
+            escritorio_nao_encontrado: Escritório não encontrado.
+    admin:
+        titulo: Conector de I.A.
+        sub: Deixa cada pessoa do escritório usar o BlueJus pelo Claude ou pelo ChatGPT, com a conta de I.A. dela
+        estado:
+            ligado: Conector ligado neste escritório.
+            desligado: Conector desligado neste escritório.
+            aguardando_master: 'Aguardando a liberação do Master do BlueJus: o conector só pode ser ligado depois dela.'
+            bloqueado_master: 'O Master do BlueJus bloqueou o conector neste escritório: ninguém usa até ele liberar de novo.'
+        # PROVISÓRIO, versão 1 (VersaoDoAceiteDoConector::Inicial). O texto definitivo é dos advogados
+        # (bluejus-coordenacao/pacote-juridico.md); mudar o que ele cobre exige versão nova no enum.
+        aceite:
+            intro: 'Ao ligar, o escritório aceita que cada pessoa da equipe conecte a própria conta de I.A. ao BlueJus:'
+            conta_da_pessoa: 'os dados que a pessoa pedir saem do BlueJus para o provedor de I.A. da conta dela (Anthropic ou OpenAI), sob o contrato que ela tem com esse provedor; o BlueJus não tem contrato com esse provedor;'
+            treino: 'conforme o plano e a configuração da conta, o provedor pode usar as conversas para treinar os modelos dele; recomendamos plano empresarial ou com o treino desligado;'
+            o_que_sai: 'saem os dados de pastas, processos, clientes e agenda que a permissão da pessoa já mostra, e os documentos da pasta que ela pedir (menos áudio e vídeo);'
+            mascara: 'CPF, CNPJ, telefone e e-mail são sempre mascarados no texto livre;'
+            gravacao: 'a pessoa só grava no BlueJus o que a permissão dela já deixa, e cadastrar cliente ou excluir pede confirmação no próprio chat.'
+            fim: 'Cada pessoa vê e revoga as próprias conexões no Meu Perfil. Desligar aqui suspende o acesso de todos na hora.'
+            caixa: Li e aceito
+            registrado: 'Aceite registrado em {quando}.'
+            registrado_por: 'Aceite registrado em {quando} por {nome}.'
+            versao_antiga: 'O texto do aceite mudou. Para ligar de novo, leia e aceite o texto novo.'
+        ligar: Ligar
+        desligar: Desligar
+        ligou: Conector de I.A. ligado neste escritório.
+        desligou: 'Conector de I.A. desligado: as conexões da equipe param na hora e voltam se ligar de novo.'
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            sem_aceite: Marque "Li e aceito" para ligar o conector.
+            aguardando_master: O conector ainda não foi liberado pelo Master do BlueJus.
+    # Chaves do JS da tabela do Master (public/js/master/conector.js): vão cruas ao navegador, só com {nome}.
+    js:
+        master:
+            liberado: Liberado
+            bloqueado: Bloqueado
+            liberou: '"{nome}" liberado para o conector de I.A.'
+            bloqueou: '"{nome}" bloqueado para o conector de I.A.'
+            sem_aceite: sem aceite
+            contagem: '{n} ativa(s)'
+            vazio: Nenhum escritório ativo.
+            erro_carregar: Não foi possível carregar o conector de I.A. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
