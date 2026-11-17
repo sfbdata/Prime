@@ -181,6 +181,25 @@ final class RevogarConexaoUseCaseTest extends KernelTestCase
         }
     }
 
+    #[TestDox('Vínculo caído (decisão 2 do PR 8): a pessoa removida do escritório ainda revoga a conexão dele no Meu Perfil')]
+    public function testRevogaComVinculoRemovido(): void
+    {
+        [$conexao] = $this->conectado();
+        $id = (int) $conexao['consentimento']->getId();
+        $this->em()->getConnection()->executeStatement(
+            'DELETE FROM user_tenant WHERE user_id = :pessoa AND tenant_id = :escritorio',
+            ['pessoa' => $conexao['pessoa']->getId(), 'escritorio' => $conexao['escritorio']->getId()],
+        );
+        $this->sessaoEmOutroEscritorio($conexao['consentimento']);
+
+        $this->revogarConexao()->executar($id, $conexao['pessoa']);
+
+        self::assertSame('2026-11-16 10:00:00', $this->revogadoEmNoBanco($id));
+        foreach ($this->concessoesNoBanco($id) as $concessao) {
+            self::assertSame(MotivoDaRevogacaoDaConcessao::RevogadaPelaPessoa->value, $concessao['motivo']);
+        }
+    }
+
     #[TestDox('Revogar de novo não muda nada: a data da revogação e o motivo ficam os da primeira vez')]
     public function testRevogarDeNovoNaoMudaNada(): void
     {

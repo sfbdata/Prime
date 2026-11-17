@@ -31,7 +31,7 @@
                     <br><b data-vinculo-encerrado>{{ 'conector.perfil.vinculo_encerrado'|trans }}</b>
                 {% endif %}
             </div>
-            <button class="mp-btn-contorno" type="button" data-bs-toggle="modal" data-bs-target="#modalRevogarConexao{{ conexao.id }}"><i class="bi bi-x-circle"></i>{{ 'conector.perfil.revogar'|trans }}</button>
+            <button class="mp-btn-contorno" type="button" data-bs-toggle="modal" data-bs-target="#modalRevogarConexao{{ conexao.id }}" aria-label="{{ 'conector.perfil.revogar_rotulo'|trans({app: conexao.hostDoApp, escritorio: conexao.nomeDoEscritorio}) }}"><i class="bi bi-x-circle" aria-hidden="true"></i>{{ 'conector.perfil.revogar'|trans }}</button>
         </div>
     {% else %}
         <div class="mp-seguranca"><div>{{ 'conector.perfil.vazio'|trans }}</div></div>
@@ -44,8 +44,8 @@
     <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
             <div class="mp-modal-topo">
-                <i class="bi bi-plug"></i><b id="modalRevogarConexao{{ conexao.id }}Label">{{ 'conector.perfil.revogar_modal.titulo'|trans }}</b>
-                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+                <i class="bi bi-plug" aria-hidden="true"></i><b id="modalRevogarConexao{{ conexao.id }}Label">{{ 'conector.perfil.revogar_modal.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             <form method="post" action="{{ path('conector_perfil_revogar', {id: conexao.id}) }}" data-form-revogar-conexao="{{ conexao.id }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('conector_revogar_' ~ conexao.id) }}">

@@ -9,8 +9,10 @@ use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Exception\ClienteRecusado;
 use App\Conector\Repository\ConcessaoDoConectorRepository;
 use App\Conector\Repository\ConsentimentoDoConectorRepository;
+use App\Conector\Service\SemFiltroDoEscritorio;
 use App\Entity\Auth\User;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -61,38 +63,21 @@ final class RevogarConexaoUseCase
         return ClienteRecusado::hostDe($identificador) ?? $identificador;
     }
 
-    /** Dentro da transação: o `wrapInTransaction` grava (flush) e confirma no fim, ou desfaz tudo. */
+    /**
+     * Dentro da transação: o `wrapInTransaction` grava (flush) e confirma no fim, ou desfaz tudo. A conexão é relida
+     * com trava de linha antes de revogar: dois cliques ao mesmo tempo entram em fila, e o segundo acha a conexão já
+     * revogada (não encontrada), sem regravar a data nem sujar o histórico. O `revogarDoConsentimento` cuida sozinho
+     * do filtro do escritório da sessão.
+     */
     private function revogar(ConsentimentoDoConector $consentimento): void
     {
+        SemFiltroDoEscritorio::executar($this->em, fn () => $this->em->refresh($consentimento, LockMode::PESSIMISTIC_WRITE));
+        if (!$consentimento->isAtivo()) {
+            throw new \DomainException(self::NAO_ENCONTRADA);
+        }
+
         $agora = $this->relogio->now();
         $consentimento->revogar($agora);
-        $this->semFiltroDoEscritorio(fn (): int => $this->concessoes->revogarDoConsentimento(
-            $consentimento,
-            MotivoDaRevogacaoDaConcessao::RevogadaPelaPessoa,
-            $agora,
-        ));
-    }
-
-    /**
-     * O `TenantFilter` também entra no WHERE de um UPDATE em DQL: com a sessão num escritório, as concessões da conexão
-     * de outro escritório da pessoa não cairiam. Fica suspenso só durante o UPDATE, que já vem preso ao escritório da
-     * própria conexão (`c.tenant`), e volta como estava, mesmo se falhar.
-     *
-     * @param callable(): int $acao
-     */
-    private function semFiltroDoEscritorio(callable $acao): void
-    {
-        $filtros = $this->em->getFilters();
-        $estavaLigado = $filtros->isEnabled('tenant');
-        if ($estavaLigado) {
-            $filtros->suspend('tenant');
-        }
-        try {
-            $acao();
-        } finally {
-            if ($estavaLigado) {
-                $filtros->restore('tenant');
-            }
-        }
+        $this->concessoes->revogarDoConsentimento($consentimento, MotivoDaRevogacaoDaConcessao::RevogadaPelaPessoa, $agora);
     }
 }

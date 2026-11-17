@@ -18,6 +18,7 @@ conector:
             renovacao: Manter conectado
         vinculo_encerrado: 'Seu vínculo com este escritório foi encerrado: a conexão já não funciona. Revogue para tirá-la da lista.'
         revogar: Revogar
+        revogar_rotulo: 'Revogar a conexão do {app} com {escritorio}'
         # Modal de confirmação do "Revogar" (mesmo molde do "Sair de todos os aparelhos").
         revogar_modal:
             titulo: Revogar a conexão
