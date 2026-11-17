@@ -83,6 +83,23 @@ final class McpControllerTest extends WebTestCase
         self::assertSemSessao($resposta);
     }
 
+    #[TestDox('lote JSON-RPC com tools/call de gravação e token só de leitura: recusado antes do despacho (num lote a ScopePolicy só vê o escopo padrão; quem barra é o SDK, e este teste prende isso)')]
+    public function testLoteNaoChegaAoDespacho(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $this->trocarServidor(['mcp:leitura']);
+
+        $resposta = $this->postar($client, [
+            ['jsonrpc' => '2.0', 'id' => 21, 'method' => 'tools/call', 'params' => ['name' => 'atualizar_pasta', 'arguments' => new \stdClass()]],
+            ['jsonrpc' => '2.0', 'id' => 22, 'method' => 'tools/call', 'params' => ['name' => QuemSouEuFerramenta::NOME, 'arguments' => new \stdClass()]],
+        ], self::TOKEN);
+
+        self::assertContains($resposta->getStatusCode(), [400, 403], 'um lote nunca é aceito: ' . mb_substr((string) $resposta->getContent(), 0, 300));
+        self::assertStringNotContainsString('"result"', (string) $resposta->getContent(), 'nenhuma ferramenta do lote foi despachada');
+        self::assertSemSessao($resposta);
+    }
+
     #[TestDox('3.5, versão 2026-07-28 (sem initialize): tools/call de quem_sou_eu responde 200 com o escritório da chamada, sem Set-Cookie')]
     public function testQuemSouEuNaVersaoModerna(): void
     {
@@ -176,7 +193,7 @@ final class McpControllerTest extends WebTestCase
         ));
     }
 
-    /** @param array<string, mixed> $mensagem */
+    /** @param array<mixed> $mensagem uma mensagem JSON-RPC, ou a lista de um lote */
     private function postar(KernelBrowser $client, array $mensagem, ?string $token = null): Response
     {
         $cabecalhos = ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json, text/event-stream', 'HTTP_MCP_PROTOCOL_VERSION' => '2025-06-18'];

@@ -2125,3 +2125,12 @@ Coordenador):**
     as versões antigas do protocolo que o SDK aceita no handshake ficam aceitas, além das duas da 3.5; o mapa de
     ferramenta para módulo do `quem_sou_eu` é aproximado até o PR 6 trazer a tabela por ação. **Smoke**: conferir se
     algum app de I.A. manda `Origin` de servidor a servidor (a proteção contra DNS rebinding daria 403).
+16. **Ressalvas da re-revisão do PR inteiro**, aceitas no piloto:
+    - O metadado do recurso (as duas URLs) segue no firewall `main`, sem `stateless`, como o metadado do PR 3. Com
+      `stateless`, o `TenantFilterListener` e o `SessaoDeContaAConfirmarListener` usariam a sessão e o Symfony lançaria
+      em debug. Os apps chamam sem cookie; com cookie de navegador logado, a sessão pode ser renovada, sem efeito no
+      documento.
+    - Se o `PortaoDoConector::abrir()` recusar pessoa ou escritório depois do validador aceitar (corrida na mesma
+      requisição), a resposta é 503, não 401. Falha fechada: nada é despachado.
+    - Lote JSON-RPC: a `ScopePolicy` só vê o escopo padrão, e quem recusa o lote é o SDK (400).
+      `McpControllerTest::testLoteNaoChegaAoDespacho` prende isso para os PRs 9 a 13 e para uma troca de SDK.
