@@ -181,6 +181,27 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $card->filter('#conector-desligar'));
     }
 
+    #[TestDox('ligado e liberado com o aceite de versão antiga: o cartão pede um novo aceite (caixa e Ligar habilitados) e mostra o Desligar, nunca "desligado"')]
+    public function testAceiteDeVersaoAntigaPedeNovoAceite(): void
+    {
+        $tenant = $this->escritorio();
+        $admin = $this->administrador($tenant);
+        $linha = $this->liberar($tenant, $admin);
+        (new \ReflectionProperty(EscritorioDoConector::class, 'aceiteVersao'))->setValue($linha, 0);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $tenant);
+
+        $card = $this->card($this->client->request('GET', '/admin/inteligencia'));
+
+        self::assertSame('novo_aceite', $card->filter('[data-conector-estado]')->attr('data-conector-estado'));
+        self::assertStringContainsString('O texto do aceite mudou: o conector está suspenso', $card->text());
+        self::assertStringNotContainsString('Conector desligado neste escritório.', $card->text());
+        self::assertCount(1, $card->filter('#conector-aceite-antigo'));
+        self::assertNull($card->filter('#conector-aceite')->attr('disabled'));
+        self::assertNull($card->filter('#conector-ligar')->attr('disabled'));
+        self::assertCount(1, $card->filter('#conector-desligar'));
+    }
+
     private function administrador(Tenant $tenant): User
     {
         $admin = $this->pessoa();

@@ -57,6 +57,7 @@ conector:
             desligado: Conector desligado neste escritório.
             aguardando_master: 'Aguardando a liberação do Master do BlueJus: o conector só pode ser ligado depois dela.'
             bloqueado_master: 'O Master do BlueJus bloqueou o conector neste escritório: ninguém usa até ele liberar de novo.'
+            novo_aceite: 'O texto do aceite mudou: o conector está suspenso até alguém ler e aceitar o texto novo.'
         # PROVISÓRIO, versão 1 (VersaoDoAceiteDoConector::Inicial). O texto definitivo é dos advogados
         # (bluejus-coordenacao/pacote-juridico.md); mudar o que ele cobre exige versão nova no enum.
         aceite:

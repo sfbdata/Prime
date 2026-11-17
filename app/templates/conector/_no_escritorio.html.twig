@@ -3,6 +3,7 @@
    Recebe `conector` (EscritorioNoConectorOutput do escritório da sessão). O POST vai ao ConectorDoEscritorioController
    (`acao` ligar ou desligar, `aceite`, `_token`), que volta para esta tela com o flash.
    Sem a liberação do Master (nível 2), a caixa e o botão Ligar ficam desabilitados com o aviso (decisão 3 do PR 8).
+   Ligado com o aceite de versão antiga: o estado pede um novo aceite, com a caixa, o Ligar e o Desligar.
    Textos no catálogo conector.admin.*; o do aceite é provisório (versão 1, VersaoDoAceiteDoConector). #}
 {% set conector_ativo = conector.liberado and conector.ligado and conector.aceiteVigente %}
 <div class="card mt-3" id="conector-escritorio">
@@ -16,6 +17,9 @@
             <p class="text-warning mb-2" data-conector-estado="bloqueado_master">{{ 'conector.admin.estado.bloqueado_master'|trans }}</p>
         {% elseif not conector.liberado %}
             <p class="text-muted mb-2" data-conector-estado="aguardando_master">{{ 'conector.admin.estado.aguardando_master'|trans }}</p>
+        {% elseif conector.ligado %}
+            {# Ligado e liberado, com o aceite de versão antiga: suspenso até um novo aceite (caixa e Ligar abaixo). #}
+            <p class="text-warning mb-2" data-conector-estado="novo_aceite">{{ 'conector.admin.estado.novo_aceite'|trans }}</p>
         {% else %}
             <p class="mb-2" data-conector-estado="desligado">{{ 'conector.admin.estado.desligado'|trans }}</p>
         {% endif %}

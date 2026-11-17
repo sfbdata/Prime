@@ -1,5 +1,6 @@
 {# Conector de I.A. na aba "Configurações da I.A." do /master (spec docs/specs/mcp-remoto-oauth.md, 14.a nível 2 e 14.e:
-   sem desenho, pelos componentes que a aba já usa: .mp-card, .mp-cab-roxo, a grade .mp-ia-* e a chave da linha).
+   sem desenho, pelos componentes que a aba já usa: .mp-card, .mp-cab-roxo, a grade .mp-ia-* com as 5 colunas do
+   modificador .mp-ia-grade-conector e a chave da linha).
    Incluído pelo master/_ia.html.twig, depois do .mp-ia-raiz da BlueJus I.A. O estado vem por JSON quando a aba abre
    (public/js/master/conector.js); as regras moram nos UseCases do domínio Conector. O token CSRF é o da aba (master_ia).
    O Master vê só a contagem das conexões ativas de cada escritório, nunca de quem são.
@@ -15,7 +16,7 @@
         <div class="mp-cab-roxo"><i class="bi bi-plug"></i><b id="mp-conector-escritorios">{{ 'conector.master.titulo'|trans }}</b></div>
         <p class="mp-ia-nota mp-ia-nota-tabela">{{ 'conector.master.nota'|trans }}</p>
         <div class="mp-rolagem">
-            <div class="mp-ia-grade">
+            <div class="mp-ia-grade mp-ia-grade-conector">
                 <div class="mp-ia-cab">
                     <div>{{ 'conector.master.col_nome'|trans }}</div>
                     <div>{{ 'conector.master.col_liberado'|trans }}</div>
