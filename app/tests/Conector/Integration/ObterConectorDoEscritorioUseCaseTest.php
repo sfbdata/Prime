@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Conector\Integration;
 
+use App\Conector\Service\LiberacaoDoConector;
 use App\Conector\UseCase\ObterConectorDoEscritorioUseCase;
+use App\Master\Entity\RecursoEstado;
 use App\Tests\Conector\Support\CenarioDoServidorDeAutorizacaoTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -54,5 +56,23 @@ final class ObterConectorDoEscritorioUseCaseTest extends KernelTestCase
         self::assertTrue($saida->aceiteVigente);
         self::assertEquals($linha->getAceiteEm(), $saida->aceiteEm);
         self::assertSame(0, $saida->conexoesAtivas);
+    }
+
+    #[TestDox('chave geral desligada pelo Master: o cartão sai como não liberado (aguardando liberação), mesmo com a linha ligada')]
+    public function testChaveGeralDesligada(): void
+    {
+        $tenant = $this->escritorio();
+        $this->liberar($tenant, $this->pessoa());
+        $em = static::getContainer()->get('doctrine')->getManager();
+        $estado = $em->getRepository(RecursoEstado::class)->findOneBy(['chave' => LiberacaoDoConector::CHAVE_GERAL])
+            ?? new RecursoEstado(LiberacaoDoConector::CHAVE_GERAL);
+        $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
+        $em->persist($estado);
+        $em->flush();
+
+        $saida = $this->sut()->executar($tenant);
+
+        self::assertFalse($saida->liberado);
+        self::assertTrue($saida->ligado);
     }
 }

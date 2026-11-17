@@ -2056,7 +2056,8 @@ entra num PR próprio depois de testada nos dois clientes.
 8. **O comando `conector:liberar` exige `--master`** com o e-mail de um Master, conferido como Master; quem aparece
    como autor do aceite é esse Master.
 9. **A conferência da concessão** (pessoa, escritório, corte de "Sair de todos os aparelhos", impressão da senha e
-   liberação) roda também na troca do código, não só na renovação.
+   liberação) roda também na troca do código, não só na renovação. Desde o PR 8, a renovação não confere a liberação
+   (decisão 11 do PR 8).
 10. **Escopo desconhecido no pedido é ignorado**: o servidor emite só os escopos que conhece entre os pedidos, e a
     resposta do `/oauth/token` sempre diz quais foram, por interoperabilidade com os apps.
 
@@ -2089,7 +2090,8 @@ Coordenador):**
 2. **Um juiz só**: o validador guarda o resultado da requisição (o autenticador do firewall e o `AuthorizationMiddleware`
    leem o mesmo), e só o SDK formata o 401 e o 403 com o `WWW-Authenticate`.
 3. **Recusas**: concessão recusada (`ConcessaoRecusada`) e acesso recusado pelo portão por pessoa, escritório, termos
-   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa; filtro de escritório que não
+   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa (desde o PR 8, a liberação dá
+   403 sem desafio: decisão 11 do PR 8); filtro de escritório que não
    ligou, requisição já aberta ou qualquer erro inesperado dão 503 sem desafio.
 4. **O portão roda na cadeia PSR-15**, depois do `AuthorizationMiddleware`: a `ScopePolicy` barra o escopo antes de
    qualquer abertura.

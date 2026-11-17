@@ -8,6 +8,6 @@ tipo: novidade
 - Serviço `SemFiltroDoEscritorio`: o único lugar do conector, fora do portão, que suspende o filtro de escritório (nunca o liga).
 
 ## Para o cliente
-- No Meu Perfil, um cartão novo mostra os apps de I.A. (Claude, ChatGPT) conectados à sua conta, em cada escritório, com a data da conexão e o último uso. Dá para desconectar qualquer um com um clique.
+- No Meu Perfil, um cartão novo mostra os apps de I.A. (Claude, ChatGPT) conectados à sua conta, em cada escritório, com a data da conexão e o último uso. Dá para desconectar qualquer um: o BlueJus pede uma confirmação antes.
 - O administrador do escritório liga ou desliga o conector de I.A. na tela da BlueJus IA, depois de ler e aceitar os termos. Desligar suspende na hora: os apps conectados param de acessar os dados, e voltam a funcionar quando o conector é religado, sem precisar conectar de novo.
 - Por enquanto o conector só é liberado para o escritório piloto.
