@@ -110,13 +110,6 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 
         $dados = $this->resultado($this->chamarQuemSouEu($par['access_token'], self::ERA_DO_INITIALIZE, 1), 1)['structuredContent'];
 
-        if ($dados['ferramentas'] === []) {
-            self::markTestIncomplete(
-                'Defeito em src/Conector/Ferramenta/QuemSouEuFerramenta.php:55: #[AutowireIterator(FerramentaDoConector::TAG)] '
-                . 'tem excludeSelf true por padrão, e o container tira a própria quem_sou_eu do iterável. Com só ela registrada no '
-                . 'PR 5, o campo "ferramentas" sai vazio no /mcp. O QuemSouEuFerramentaTest não pega porque monta a ferramenta à mão.',
-            );
-        }
         self::assertSame([['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true]], $dados['ferramentas']);
     }
 

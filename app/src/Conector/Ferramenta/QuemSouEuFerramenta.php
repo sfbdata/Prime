@@ -52,7 +52,8 @@ final class QuemSouEuFerramenta implements FerramentaDoConector
 
     /** @param iterable<FerramentaDoConector> $ferramentas */
     public function __construct(
-        #[AutowireIterator(FerramentaDoConector::TAG)]
+        // `excludeSelf: false`: a própria `quem_sou_eu` entra na lista de ferramentas que ela mostra.
+        #[AutowireIterator(FerramentaDoConector::TAG, excludeSelf: false)]
         private readonly iterable $ferramentas,
         private readonly PermissionChecker $permissoes,
         private readonly ProtecaoDoTextoDoChat $protecao,
