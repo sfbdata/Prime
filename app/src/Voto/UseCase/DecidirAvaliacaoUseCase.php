@@ -14,6 +14,7 @@ use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Exception\SemPapelNaAvaliacaoException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
+use App\Voto\Repository\PautaDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\TransacaoDoVoto;
 
@@ -33,6 +34,7 @@ final class DecidirAvaliacaoUseCase
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
+        private readonly PautaDaAssembleiaRepository $pautas,
         private readonly AcessoAAssembleia $acesso,
         private readonly RegistrarAuditoriaDasAvaliacoesUseCase $auditoria,
         private readonly TransacaoDoVoto $transacao,
@@ -64,6 +66,8 @@ final class DecidirAvaliacaoUseCase
         return $this->transacao->executar(function () use ($tenant, $assembleia, $ocorrenciaId, $decisao, $justificativa, $ator, $porNome, $agora): OcorrenciaDaUnidade {
             $ocorrencia = $this->ocorrencias->buscarTravadaDaAssembleia($ocorrenciaId, $assembleia)
                 ?? throw new AssembleiaNaoEncontradaException();
+            // Relê as pautas: um encerramento que entrou depois da leitura inicial não pode ser ignorado.
+            $this->pautas->recarregarDaAssembleia($assembleia);
             $this->validarDecisao($ocorrencia, $assembleia, $decisao, $justificativa, $agora);
             if (AvaliacaoDaOcorrencia::TornadaApta === $decisao) {
                 $ocorrencia->getUnidade()->tornarAptaPeloConselho();

@@ -6,7 +6,9 @@ namespace App\Voto\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OcorrenciaDaUnidade;
+use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\OrigemDaOcorrencia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
@@ -16,6 +18,7 @@ use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\TransacaoDoVoto;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
 /**
  * Registrar ocorrência de uma unidade (spec voto-avaliacoes-do-conselho-1611, seção 2): a qualquer momento até a
@@ -29,6 +32,8 @@ use App\Voto\Service\TransacaoDoVoto;
  */
 final class RegistrarOcorrenciaUseCase
 {
+    private const JA_PENDENTE = 'Já há avaliação pendente para esta unidade.';
+
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly UnidadeDaAssembleiaRepository $unidades,
@@ -59,10 +64,20 @@ final class RegistrarOcorrenciaUseCase
             throw new OperacaoInvalidaNaAssembleiaException('A votação terminou: não é mais possível registrar ocorrência.');
         }
 
+        try {
+            return $this->gravarOcorrencia($tenant, $assembleia, $unidade, $texto, $ator, $porNome, $agora);
+        } catch (UniqueConstraintViolationException) {
+            // Corrida: dois registros na mesma unidade; o índice único parcial deixou só um. Mesma resposta da checagem.
+            throw new OperacaoInvalidaNaAssembleiaException(self::JA_PENDENTE);
+        }
+    }
+
+    private function gravarOcorrencia(Tenant $tenant, Assembleia $assembleia, UnidadeDaAssembleia $unidade, string $texto, User $ator, string $porNome, \DateTimeImmutable $agora): OcorrenciaDaUnidade
+    {
         return $this->transacao->executar(function () use ($tenant, $assembleia, $unidade, $texto, $ator, $porNome, $agora): OcorrenciaDaUnidade {
             $abreAvaliacao = !$unidade->isApta();
             if ($abreAvaliacao && null !== $this->ocorrencias->pendenteDaUnidade($unidade)) {
-                throw new OperacaoInvalidaNaAssembleiaException('Já há avaliação pendente para esta unidade.');
+                throw new OperacaoInvalidaNaAssembleiaException(self::JA_PENDENTE);
             }
             $ocorrencia = new OcorrenciaDaUnidade($assembleia, $unidade, $texto, OrigemDaOcorrencia::Manual, $porNome, $abreAvaliacao, $agora);
             $this->ocorrencias->salvar($ocorrencia);

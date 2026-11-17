@@ -6,6 +6,7 @@ namespace App\Tests\Voto\Functional;
 
 use App\Entity\Auth\User;
 use App\Tests\Factory\Voto\AssembleiaFactory;
+use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Controller\AvaliacoesDoConselhoController;
@@ -237,6 +238,30 @@ final class AvaliacoesDoConselhoTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contarOcorrencias($a));
         self::assertStringContainsString('Avaliação pendente no conselho.', $tela->filter('#unidade-' . $inapta->getId())->text());
         self::assertCount(0, $tela->filter('#unidade-' . $inapta->getId() . ' input[name=ocorrencia]'), 'com avaliação pendente não há como registrar outra');
+    }
+
+    #[TestDox('Rascunho: Unidades e links aceita a ocorrência da Administração e a pendente aparece na aba Avaliações')]
+    public function testOcorrenciaEmRascunho(): void
+    {
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO ' . uniqid()])->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $a])->comOpcoesPadrao()->create();
+        UnidadeDaAssembleiaFactory::new(['assembleia' => $a, 'identificacao' => '102', 'responsavel' => 'Beto Inapto'])->inapta()->create();
+        $this->em->refresh($a);
+        $inapta = $this->unidadeDe($a, '102');
+        $this->entrar($this->primario());
+
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/unidades');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $tela->filter('input[name=ocorrencia]'), 'rascunho: o campo existe');
+        self::assertCount(1, $tela->filter('a.vTab[href$="/avaliacoes"]'), 'rascunho: a aba existe');
+        $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/unidades/' . $inapta->getId() . '/ocorrencia', [
+            '_token' => $this->token('voto_assembleia_' . $a->getId()), 'ocorrencia' => 'Quitou ontem',
+        ]);
+        self::assertResponseRedirects();
+        $aba = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/avaliacoes');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Quitou ontem', $aba->text());
+        self::assertStringContainsString('Pendente', $aba->text());
     }
 
     #[TestDox('Outro escritório dá 404 na aba, na decisão e no registro; ocorrência de outra assembleia do escritório também')]

@@ -10,6 +10,7 @@ use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OcorrenciaDaUnidade;
+use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\AvaliacaoDaOcorrencia;
 use App\Voto\Enum\OrigemDaOcorrencia;
 use App\Voto\Enum\PapelNaEquipe;
@@ -19,6 +20,8 @@ use App\Voto\Exception\SemPapelNaAvaliacaoException;
 use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\UseCase\DecidirAvaliacaoUseCase;
 use App\Voto\UseCase\RegistrarOcorrenciaUseCase;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Zenstruck\Foundry\Test\Factories;
@@ -145,7 +148,42 @@ final class AvaliacoesDoConselhoNoBancoTest extends JusPrimeWebTestCase
         $this->registrar($a, '101', 'Fora da equipe', $fora);
     }
 
-    #[TestDox('Decidir: justificativa obrigatória; manter inaptidão fica registrado e a unidade segue não apta; a decisão não se refaz')]
+    #[TestDox('Corrida de dois registros: o índice único parcial recusa o segundo e a resposta é a de "já há avaliação pendente", não um erro 500')]
+    public function testCorridaNoRegistro(): void
+    {
+        $a = $this->assembleiaComUnidades();
+        $unidade = $this->unidadeDe($a, '102');
+        $conexao = $this->em->getConnection();
+        // Simula o outro pedido: um pendente entra no banco entre a checagem e a gravação do INSERT.
+        $this->em->getEventManager()->addEventListener(Events::onFlush, new class ($conexao, $a, $unidade) {
+            private bool $feito = false;
+
+            public function __construct(private readonly Connection $conexao, private readonly Assembleia $a, private readonly UnidadeDaAssembleia $u)
+            {
+            }
+
+            public function onFlush(): void
+            {
+                if ($this->feito) {
+                    return;
+                }
+                $this->feito = true;
+                $this->conexao->insert('voto.ocorrencia_da_unidade', [
+                    'tenant_id' => $this->a->getTenant()->getId(), 'assembleia_id' => $this->a->getId(), 'unidade_id' => $this->u->getId(),
+                    'texto' => 'Outro pedido', 'origem' => 'manual', 'registrada_por_nome' => 'Outro', 'registrada_em' => '2026-11-16 10:00:00', 'avaliacao' => 'pendente',
+                ]);
+            }
+        });
+
+        try {
+            $this->registrar($a, '102', 'Quitou ontem', $this->primario());
+            self::fail('devia recusar');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame('Já há avaliação pendente para esta unidade.', $e->getMessage());
+        }
+    }
+
+    #[TestDox('Decidir relê as pautas: justificativa obrigatória; manter inaptidão fica registrado e a unidade segue não apta; a decisão não se refaz')]
     public function testManter(): void
     {
         [$a, $ocorrencia] = $this->avaliacaoPendente();
@@ -185,6 +223,22 @@ final class AvaliacoesDoConselhoNoBancoTest extends JusPrimeWebTestCase
         self::assertSame('inadimplente', $unidade->getSituacao());
         self::assertSame($hash, $this->em->getRepository(Assembleia::class)->find($a->getId())->getHashDaLista());
         self::assertContains('Inaptidão alterada pelo conselho', array_column($this->trilhas($a), 'evento'));
+    }
+
+    #[TestDox('Encerramento de outro pedido, já gravado no banco mas ainda não visto pela memória: "tornar apto" relê as pautas e recusa')]
+    public function testRelePautasAntesDeTornarApto(): void
+    {
+        [$a, $ocorrencia] = $this->avaliacaoPendente('aberta');
+        $a = $this->em->find(Assembleia::class, $a->getId());
+        $a->getPautas()->first(); // pautas na memória ainda abertas
+        $this->em->getConnection()->executeStatement("UPDATE voto.assembleia_pauta SET estado = 'encerrada' WHERE assembleia_id = ?", [$a->getId()]);
+
+        try {
+            $this->decidir($a, $ocorrencia, AvaliacaoDaOcorrencia::TornadaApta, 'Quitou', $this->primario());
+            self::fail('deveria recusar');
+        } catch (OperacaoInvalidaNaAssembleiaException $e) {
+            self::assertSame('Votação encerrada: a aptidão não pode mais ser alterada.', $e->getMessage());
+        }
     }
 
     #[TestDox('Depois de uma pauta encerrada: "tornar apto" é recusado (e a unidade segue inapta), "manter" ainda vale')]
