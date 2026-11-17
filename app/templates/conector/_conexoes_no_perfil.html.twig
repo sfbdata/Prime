@@ -1,0 +1,61 @@
+{#
+    "Conexões de I.A." no Meu Perfil (docs/specs/mcp-remoto-oauth.md, 13.1 linha do PR 8, e 14.e): sem desenho, pela
+    convenção do perfil. Cartão igual ao "Segurança", uma linha por conexão (app pelo host do client_id, escritório,
+    permissões, datas e o aviso de vínculo encerrado) e o "Revogar" com o modal de confirmação igual ao de "Sair de
+    todos os aparelhos". Sem CSS novo: só as classes do perfil.
+
+    Variável: conexoesDeIa (list<ConexaoDeIaOutput>), do ProfileController.
+    Os modais ficam fora do cartão: o .mp-card tem animação com transform, que prenderia o modal dentro dele.
+#}
+{% set _rotulosDoEscopo = {
+    'mcp:leitura': 'conector.perfil.escopo.leitura'|trans,
+    'mcp:escrita': 'conector.perfil.escopo.escrita'|trans,
+    'offline_access': 'conector.perfil.escopo.renovacao'|trans,
+} %}
+<section class="mp-card" data-screen-label="Conexões de I.A." id="mpConexoesDeIa">
+    <div class="mp-card-topo">
+        <span class="mp-card-selo"><i class="bi bi-plug"></i></span>
+        <div><b>{{ 'conector.perfil.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.perfil.sub'|trans }}</div></div>
+    </div>
+    {% for conexao in conexoesDeIa %}
+        {# "Ler e gravar" já inclui o "Ler": não repete. #}
+        {% set _escopos = 'mcp:escrita' in conexao.escopos ? conexao.escopos|filter(e => e != 'mcp:leitura') : conexao.escopos %}
+        <div class="mp-seguranca{{ loop.first ? '' : ' border-top' }}" data-conexao-de-ia="{{ conexao.id }}">
+            <div>
+                <b>{{ 'conector.perfil.col_app'|trans }}: {{ conexao.hostDoApp }}</b><br>
+                {{ 'conector.perfil.col_escritorio'|trans }}: {{ conexao.nomeDoEscritorio }}<br>
+                {{ 'conector.perfil.col_escopos'|trans }}: {{ _escopos|map(e => _rotulosDoEscopo[e] ?? e)|join(', ') }}<br>
+                {{ 'conector.perfil.col_concedido'|trans }}: {{ conexao.concedidoEm|data_hora }}<br>
+                {{ 'conector.perfil.col_ultimo_uso'|trans }}: {{ conexao.ultimoUsoEm ? conexao.ultimoUsoEm|data_hora : 'conector.perfil.nunca_usado'|trans }}
+                {% if not conexao.vinculoAtivo %}
+                    <br><b data-vinculo-encerrado>{{ 'conector.perfil.vinculo_encerrado'|trans }}</b>
+                {% endif %}
+            </div>
+            <button class="mp-btn-contorno" type="button" data-bs-toggle="modal" data-bs-target="#modalRevogarConexao{{ conexao.id }}"><i class="bi bi-x-circle"></i>{{ 'conector.perfil.revogar'|trans }}</button>
+        </div>
+    {% else %}
+        <div class="mp-seguranca"><div>{{ 'conector.perfil.vazio'|trans }}</div></div>
+    {% endfor %}
+</section>
+
+{% for conexao in conexoesDeIa %}
+<div class="modal fade mp-modal" id="modalRevogarConexao{{ conexao.id }}" tabindex="-1" aria-labelledby="modalRevogarConexao{{ conexao.id }}Label" aria-hidden="true">
+    {# Confirmação do "Revogar": o mesmo modal do "Sair de todos os aparelhos" (topo azul, Cancelar e a ação). #}
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
+        <div class="modal-content">
+            <div class="mp-modal-topo">
+                <i class="bi bi-plug"></i><b id="modalRevogarConexao{{ conexao.id }}Label">{{ 'conector.perfil.revogar_modal.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form method="post" action="{{ path('conector_perfil_revogar', {id: conexao.id}) }}" data-form-revogar-conexao="{{ conexao.id }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('conector_revogar_' ~ conexao.id) }}">
+                <div class="mp-seguranca"><div>{{ 'conector.perfil.revogar_modal.texto'|trans({app: conexao.hostDoApp, escritorio: conexao.nomeDoEscritorio}) }}</div></div>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'conector.perfil.revogar_modal.cancelar'|trans }}</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-x-circle"></i>{{ 'conector.perfil.revogar_modal.confirmar'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
