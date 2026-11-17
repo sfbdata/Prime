@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Conector\Unit;
 
 use App\Conector\DTO\RespostaDaFerramenta;
+use App\Conector\Mcp\ConectorDesligadoMiddleware;
 use App\Conector\Mcp\EscopoQueFaltaMiddleware;
 use App\Conector\Mcp\PreflightSemPortaoMiddleware;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
 use Http\Discovery\Psr17Factory;
 use Mcp\Server\Transport\Http\Middleware\AuthorizationMiddleware;
@@ -30,6 +32,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ServidorMcpDoConector::class)]
 #[CoversClass(EscopoQueFaltaMiddleware::class)]
+#[CoversClass(ConectorDesligadoMiddleware::class)]
 #[CoversClass(RegistroDaChamadaMiddleware::class)]
 #[CoversClass(PreflightSemPortaoMiddleware::class)]
 final class ServidorMcpDoConectorTest extends TestCase
@@ -39,18 +42,19 @@ final class ServidorMcpDoConectorTest extends TestCase
     private const METADADO = 'https://bluejus.com.br/.well-known/oauth-protected-resource/mcp';
     private const CPF = '529.982.247-25';
 
-    #[TestDox('a cadeia: registro, CORS, rebinding, step-up, autorização, preflight, portão e limite; nunca o ProtocolVersionMiddleware')]
+    #[TestDox('a cadeia: registro, CORS, rebinding, step-up, conector desligado, autorização, preflight, portão e limite; nunca o ProtocolVersionMiddleware')]
     public function testOrdemDosMiddlewares(): void
     {
         $middlewares = $this->servidor(['mcp:leitura'], [], new RequisicaoDoConector())->middlewares();
 
-        self::assertCount(8, $middlewares);
+        self::assertCount(9, $middlewares);
         self::assertInstanceOf(RegistroDaChamadaMiddleware::class, $middlewares[0]);
         self::assertInstanceOf(CorsMiddleware::class, $middlewares[1]);
         self::assertInstanceOf(DnsRebindingProtectionMiddleware::class, $middlewares[2]);
         self::assertInstanceOf(EscopoQueFaltaMiddleware::class, $middlewares[3]);
-        self::assertInstanceOf(AuthorizationMiddleware::class, $middlewares[4]);
-        self::assertInstanceOf(PreflightSemPortaoMiddleware::class, $middlewares[5]);
+        self::assertInstanceOf(ConectorDesligadoMiddleware::class, $middlewares[4]);
+        self::assertInstanceOf(AuthorizationMiddleware::class, $middlewares[5]);
+        self::assertInstanceOf(PreflightSemPortaoMiddleware::class, $middlewares[6]);
         foreach ($middlewares as $middleware) {
             self::assertNotInstanceOf(ProtocolVersionMiddleware::class, $middleware);
         }
@@ -112,6 +116,51 @@ final class ServidorMcpDoConectorTest extends TestCase
         self::assertSame(401, $resposta->getStatusCode());
         self::assertStringContainsString('error="invalid_token"', $resposta->getHeaderLine('WWW-Authenticate'));
         self::assertSame('', (string) $resposta->getBody());
+    }
+
+    #[TestDox('conector suspenso: 403 sem WWW-Authenticate, erro JSON-RPC fixo em ASCII com o id do pedido, sem step-up, sem portão e sem ferramenta')]
+    public function testConectorDesligadoDa403SemDesafio(): void
+    {
+        // Gravação com token só de leitura: o 403 do conector suspenso vem antes do escopo, então não há step-up.
+        $gravar = self::ferramenta('atualizar_cliente', new RespostaDaFerramenta(['ok' => true]));
+        $resposta = $this->servidor(['mcp:leitura'], [$gravar], new RequisicaoDoConector())
+            ->responder(self::post('tools/call', ['name' => 'atualizar_cliente', 'arguments' => new \stdClass()], token: 'desligado', id: 'pedido-9'));
+
+        self::assertSame(403, $resposta->getStatusCode());
+        self::assertFalse($resposta->hasHeader('WWW-Authenticate'), 'sem desafio: o app não renova nem reconecta');
+        self::assertSame('application/json', $resposta->getHeaderLine('Content-Type'));
+        $bruto = (string) $resposta->getBody();
+        self::assertSame(1, preg_match('/^[\x20-\x7E]+$/', $bruto), 'corpo só em ASCII: ' . $bruto);
+        self::assertSame([
+            'jsonrpc' => '2.0',
+            'id' => 'pedido-9',
+            'error' => [
+                'code' => ConectorDesligadoMiddleware::CODIGO,
+                'message' => 'Conector desligado neste escritório.',
+                'data' => ['description' => ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO],
+            ],
+        ], self::corpo($resposta));
+        self::assertStringNotContainsString('mcp/www_authenticate', $bruto);
+        self::assertSame(0, $this->passouNoPortao, 'nada abre');
+        self::assertSame(0, $this->passouNoLimite);
+        self::assertSame([], $gravar->recebidos, 'a ferramenta não roda');
+    }
+
+    #[TestDox('conector suspenso numa notificação (sem id): o mesmo 403 sem desafio, com id nulo')]
+    public function testConectorDesligadoSemId(): void
+    {
+        $pedido = self::post('tools/list', token: 'desligado');
+        $pedido = $pedido->withBody((new Psr17Factory())->createStream('{"jsonrpc":"2.0","method":"notifications/initialized"}'));
+
+        $resposta = $this->servidor(['mcp:leitura'], [], new RequisicaoDoConector())->responder($pedido);
+
+        self::assertSame(403, $resposta->getStatusCode());
+        self::assertFalse($resposta->hasHeader('WWW-Authenticate'));
+        $corpo = self::corpo($resposta);
+        self::assertArrayHasKey('id', $corpo);
+        self::assertNull($corpo['id']);
+        self::assertSame(ConectorDesligadoMiddleware::CODIGO, $corpo['error']['code'] ?? null);
+        self::assertSame(0, $this->passouNoPortao);
     }
 
     #[TestDox('host fora de conector.mcp_hosts: 403 da proteção de rebinding')]

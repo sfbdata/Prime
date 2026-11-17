@@ -13,6 +13,7 @@ use App\Conector\Mcp\EscopoQueFaltaMiddleware;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -30,7 +31,7 @@ use Psr\Log\NullLogger;
 /**
  * O `/mcp` montado com dublês no lugar do validador do token, do portão e do limite (o bloco A do PR 5), para provar a
  * cadeia do SDK, o despacho e o log sem depender deles: o validador aceita qualquer bearer com os escopos dados (ou
- * recusa `recusado`), o portão abre a requisição com a chamada dada e conta quantas vezes passou, o limite só conta.
+ * recusa `recusado`, e julga `desligado` como conector suspenso), o portão abre a requisição com a chamada dada e conta quantas vezes passou, o limite só conta.
  */
 trait DublesDoMcpTrait
 {
@@ -81,9 +82,12 @@ trait DublesDoMcpTrait
 
             public function validate(string $accessToken): AuthorizationResult
             {
-                return $accessToken === 'recusado'
-                    ? AuthorizationResult::unauthorized('invalid_token', 'Token recusado.')
-                    : AuthorizationResult::allow(new AccessToken($this->escopos, ['sub' => 'dublê']));
+                return match ($accessToken) {
+                    'recusado' => AuthorizationResult::unauthorized('invalid_token', 'Token recusado.'),
+                    // O julgamento do conector suspenso, igual ao do validador de verdade.
+                    'desligado' => AuthorizationResult::forbidden(ValidadorDoTokenDoConector::ERRO_CONECTOR_DESLIGADO, ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO, []),
+                    default => AuthorizationResult::allow(new AccessToken($this->escopos, ['sub' => 'dublê'])),
+                };
             }
         };
     }

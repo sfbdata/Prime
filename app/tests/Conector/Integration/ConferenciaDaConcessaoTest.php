@@ -107,4 +107,21 @@ final class ConferenciaDaConcessaoTest extends KernelTestCase
         $this->em()->flush();
         $this->assertRecusa(AcessoDoConectorRecusado::MOTIVO_LIBERACAO, fn () => $this->sut()->exigir($liberacao['concessao'], $this->agora()));
     }
+
+    #[TestDox('Na renovação a liberação fica de fora (suspender não derruba), mas o resto vale: pessoa desativada e concessão vencida recusam')]
+    public function testNaRenovacaoSemLiberacao(): void
+    {
+        $suspenso = $this->conexaoAutorizada();
+        $suspenso['liberacao']->bloquearPeloMaster();
+        $suspenso['liberacao']->desligar();
+        $this->em()->flush();
+        $this->sut()->exigirNaRenovacao($suspenso['concessao'], $this->agora());
+
+        $pessoa = $this->conexaoAutorizada();
+        $pessoa['pessoa']->setIsActive(false);
+        $this->em()->flush();
+        $this->assertRecusa(AcessoDoConectorRecusado::MOTIVO_PESSOA, fn () => $this->sut()->exigirNaRenovacao($pessoa['concessao'], $this->agora()));
+
+        $this->assertRecusa(ConcessaoRecusada::MOTIVO_CONCESSAO_INVALIDA, fn () => $this->sut()->exigirNaRenovacao($suspenso['concessao'], $this->agora()->modify('+7 days')));
+    }
 }

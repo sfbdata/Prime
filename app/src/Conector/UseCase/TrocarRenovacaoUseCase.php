@@ -39,8 +39,11 @@ use Psr\Log\LoggerInterface;
  * 2. `client_id` que não é de app registrado: é outro app, a concessão cai (`renovacao_reutilizada`);
  * 3. {@see TokenDoConector::girar()} com a filha (a renovação mais recente gerada por esta): outro app, renovação
  *    revogada ou vencida, concessão inválida, ou repetição fora da janela de 60 s: a concessão cai;
- * 4. a conferência da concessão ({@see ConferenciaDaConcessao}: corte, senha, pessoa, escritório, liberação): se falha,
- *    a concessão cai com `falha_na_renovacao`;
+ * 4. a conferência da concessão SEM a liberação ({@see ConferenciaDaConcessao::exigirNaRenovacao()}: concessão viva nos
+ *    7 dias, corte, senha, pessoa, escritório e termos): se falha, a concessão cai com `falha_na_renovacao`. A liberação
+ *    fica de fora de propósito: desligar o conector (administrador) ou bloquear o escritório (Master) só suspende, a
+ *    renovação continua girando, e o `/mcp` responde 403 a cada chamada até religar, sem reconectar; o limite de 7 dias
+ *    continua correndo;
  * 5. repetição dentro da janela pelo mesmo app: revoga o par emitido antes a partir desta renovação;
  * 6. emite o par novo, gerado por esta renovação.
  *
@@ -146,7 +149,7 @@ final class TrocarRenovacaoUseCase
     private function exigirConcessaoConferida(TokenDoConector $renovacao, \DateTimeImmutable $agora): void
     {
         try {
-            $this->conferencia->exigir($renovacao->getConcessao(), $agora);
+            $this->conferencia->exigirNaRenovacao($renovacao->getConcessao(), $agora);
         } catch (ConcessaoRecusada|AcessoDoConectorRecusado $recusa) {
             $this->derrubar($renovacao, MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao, $agora, $recusa, $recusa->motivo);
         }

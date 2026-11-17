@@ -67,7 +67,7 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $blocos = $crawler->filter('section.content > div.container-fluid > div.card');
-        self::assertSame(['ia-estado', 'ia-consumo', 'ia-configuracao'], $blocos->each(static fn ($b): ?string => $b->attr('id')));
+        self::assertSame(['ia-estado', 'ia-consumo', 'ia-configuracao', 'conector-escritorio'], $blocos->each(static fn ($b): ?string => $b->attr('id')));
         $consumo = $crawler->filter('section.content > div.container-fluid > div.card#ia-consumo');
         self::assertSame('Consumo do mês', trim($consumo->filter('div.card#ia-consumo > div.card-header > strong')->text()));
         $dl = $consumo->filter('div.card#ia-consumo > div.card-body > dl.row');

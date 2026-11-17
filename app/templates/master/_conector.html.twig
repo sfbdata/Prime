@@ -1,0 +1,33 @@
+{# Conector de I.A. na aba "Configurações da I.A." do /master (spec docs/specs/mcp-remoto-oauth.md, 14.a nível 2 e 14.e:
+   sem desenho, pelos componentes que a aba já usa: .mp-card, .mp-cab-roxo, a grade .mp-ia-* com as 5 colunas do
+   modificador .mp-ia-grade-conector e a chave da linha).
+   Incluído pelo master/_ia.html.twig, depois do .mp-ia-raiz da BlueJus I.A. O estado vem por JSON quando a aba abre
+   (public/js/master/conector.js); as regras moram nos UseCases do domínio Conector. O token CSRF é o da aba (master_ia).
+   O Master vê só a contagem das conexões ativas de cada escritório, nunca de quem são.
+   Textos no catálogo (conector.master.*; os do JS em conector.js.*, entregues aqui pelo catalogo_js). #}
+<div class="mp-ia-raiz" data-mp-conector
+     data-url-dados="{{ path('master_conector_dados') }}"
+     data-url-escritorio="{{ path('master_conector_escritorio', {tenantId: 0}) }}"
+     data-token="{{ csrf_token('master_ia') }}">
+
+    <div class="mp-ia-msg" data-mp-conector-msg role="status" hidden></div>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-conector-escritorios">
+        <div class="mp-cab-roxo"><i class="bi bi-plug"></i><b id="mp-conector-escritorios">{{ 'conector.master.titulo'|trans }}</b></div>
+        <p class="mp-ia-nota mp-ia-nota-tabela">{{ 'conector.master.nota'|trans }}</p>
+        <div class="mp-rolagem">
+            <div class="mp-ia-grade mp-ia-grade-conector">
+                <div class="mp-ia-cab">
+                    <div>{{ 'conector.master.col_nome'|trans }}</div>
+                    <div>{{ 'conector.master.col_liberado'|trans }}</div>
+                    <div>{{ 'conector.master.col_ligado'|trans }}</div>
+                    <div>{{ 'conector.master.col_aceite'|trans }}</div>
+                    <div>{{ 'conector.master.col_conexoes'|trans }}</div>
+                </div>
+                <div data-mp-conector-linhas><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
+            </div>
+        </div>
+    </section>
+</div>
+{{ catalogo_js('conector.js') }}
+<script src="{{ asset('js/master/conector.js') }}"></script>

@@ -452,6 +452,9 @@ input[type="range"].img-slider {
         </div>
     </section>
 
+    {# ── Conexões de I.A. (conector de I.A., PR 8; docs/specs/mcp-remoto-oauth.md 14.e) ── #}
+    {% include 'conector/_conexoes_no_perfil.html.twig' %}
+
     {# ── Excluir conta do escritório (PR 5, docs/specs/conta-pedido-exclusao.md; desenho 07 L111-117) ──
        Só para o primário da conta (`exclusao_da_conta()` é nulo para os demais e na conta do Master). #}
     {% set _exclusao = exclusao_da_conta() %}

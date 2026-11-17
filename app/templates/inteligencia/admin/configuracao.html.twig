@@ -194,6 +194,7 @@
             </div>
             {{ form_end(form) }}
         </div>
+        {% include 'conector/_no_escritorio.html.twig' with {conector: conector} only %}
     </div>
 </section>
 {% endblock %}

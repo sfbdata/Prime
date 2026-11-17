@@ -19,6 +19,7 @@ use App\Conector\UseCase\TrocarRenovacaoUseCase;
 use App\Tests\Conector\Support\CenarioDoServidorDeAutorizacaoTrait;
 use App\Tests\Conector\Support\TravaDeLinhaDoConectorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
@@ -231,14 +232,55 @@ final class TrocarRenovacaoUseCaseTest extends KernelTestCase
         $this->assertRenovacaoRecusadaEDerrubada($par->refreshToken, $conexao['cliente'], (int) $conexao['concessao']->getId(), MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao);
     }
 
-    #[TestDox('12.24: liberação desligada depois de conectar: a renovação recusa e a concessão cai, gravada')]
-    public function testLiberacaoDesligadaRecusaERevoga(): void
+    /** @return iterable<string, array{string}> */
+    public static function suspensoes(): iterable
+    {
+        yield 'conector desligado pelo administrador' => ['desligar'];
+        yield 'escritório bloqueado pelo Master' => ['bloquear'];
+    }
+
+    /** @param array<string, mixed> $conexao */
+    private function suspender(string $como, array $conexao): void
+    {
+        if ($como === 'desligar') {
+            $conexao['liberacao']->desligar();
+        } else {
+            $conexao['liberacao']->bloquearPeloMaster();
+        }
+        $this->em()->flush();
+    }
+
+    #[DataProvider('suspensoes')]
+    #[TestDox('12.24 ($como): a liberação desligada só suspende; a renovação gira normalmente e a concessão não cai')]
+    public function testLiberacaoDesligadaRenovaSemRevogar(string $como): void
     {
         [$conexao, $par] = $this->conectado();
-        $conexao['liberacao']->desligar();
-        $this->em()->flush();
+        $this->suspender($como, $conexao);
+        self::mockTime('+50 minutes');
 
-        $this->assertRenovacaoRecusadaEDerrubada($par->refreshToken, $conexao['cliente'], (int) $conexao['concessao']->getId(), MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao);
+        $novo = $this->renovar($par->refreshToken, $conexao['cliente']);
+
+        self::assertSame('mcp:leitura offline_access', $novo->scope);
+        self::assertTrue($this->vale($novo->accessToken), 'o acesso novo foi emitido; quem barra a suspensão é o /mcp');
+        self::assertTrue($this->vale($novo->refreshToken));
+        $linha = $this->em()->getConnection()->fetchAssociative('SELECT revogada_em, motivo FROM conector_ia_concessao WHERE id = ?', [$conexao['concessao']->getId()]);
+        self::assertIsArray($linha);
+        self::assertNull($linha['revogada_em'], 'suspender não derruba a concessão');
+        self::assertNull($linha['motivo']);
+    }
+
+    #[DataProvider('suspensoes')]
+    #[TestDox('12.24 ($como): com o conector suspenso, o limite de 7 dias continua correndo: no fim, a renovação dá invalid_grant e a concessão cai')]
+    public function testLiberacaoDesligadaNaoEstendeOsSeteDias(string $como): void
+    {
+        [$conexao, $par] = $this->conectado();
+        $this->suspender($como, $conexao);
+
+        self::mockTime('2026-11-22 09:00:00');
+        $renovacao = $this->renovar($par->refreshToken, $conexao['cliente'])->refreshToken;
+
+        self::mockTime('2026-11-23 10:00:00');
+        $this->assertRenovacaoRecusadaEDerrubada($renovacao, $conexao['cliente'], (int) $conexao['concessao']->getId(), MotivoDaRevogacaoDaConcessao::FalhaNaRenovacao);
     }
 
     #[TestDox('12.16: "Sair de todos os aparelhos" no mesmo segundo da autorização derruba a renovação já girada uma vez; autorizar depois do corte funciona')]

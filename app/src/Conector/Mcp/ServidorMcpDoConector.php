@@ -36,11 +36,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *  2. CORS fechado (nenhuma origem liberada: os apps de I.A. chamam de servidor a servidor);
  *  3. proteção de rebinding com os hosts de `conector.mcp_hosts`;
  *  4. {@see EscopoQueFaltaMiddleware}: o 403 do escopo que falta ganha o corpo JSON-RPC do ChatGPT (step-up, 5.1);
- *  5. `AuthorizationMiddleware` com o validador do token e a política de escopo do catálogo: 401 e 403 com
+ *  5. {@see ConectorDesligadoMiddleware}: o 403 do conector suspenso (liberação desligada) sai sem `WWW-Authenticate`,
+ *     com um erro JSON-RPC fixo, para o app não renovar nem pedir reconexão;
+ *  6. `AuthorizationMiddleware` com o validador do token e a política de escopo do catálogo: 401 e 403 com
  *     `WWW-Authenticate`, um juiz só;
- *  6. {@see PreflightSemPortaoMiddleware}: o `OPTIONS` recebe o 204 aqui, sem passar pelo portão (que daria 503);
- *  7. o portão (abre a requisição com a pessoa e o escritório do token) e
- *  8. o limite de chamadas.
+ *  7. {@see PreflightSemPortaoMiddleware}: o `OPTIONS` recebe o 204 aqui, sem passar pelo portão (que daria 503);
+ *  8. o portão (abre a requisição com a pessoa e o escritório do token) e
+ *  9. o limite de chamadas.
  * Nunca o `ProtocolVersionMiddleware`: o transporte já o aplica só à era do `initialize`, e na lista ele recusaria a
  * 2026-07-28.
  *
@@ -109,6 +111,7 @@ final class ServidorMcpDoConector
             new CorsMiddleware(),
             new DnsRebindingProtectionMiddleware($this->hostsPermitidos, [], $this->respostas, $this->fluxos),
             $this->escopoQueFalta,
+            new ConectorDesligadoMiddleware($this->respostas, $this->fluxos),
             new AuthorizationMiddleware(
                 $this->validador,
                 self::metadadoDoRecurso(),

@@ -31,9 +31,17 @@ use Symfony\Contracts\Service\ResetInterface;
  *    todos os aparelhos", impressão da senha, barreiras da pessoa e do escritório (sem o passe do Master), termos e
  *    liberação nos três níveis.
  *
- * As recusas (decisão 3 do PR 5): token, concessão e acesso recusados por pessoa, escritório, termos ou liberação dão
- * 401 `invalid_token` com uma descrição ASCII fixa por categoria; qualquer outro erro (filtro, requisição já aberta, banco fora do
+ * As recusas (decisão 3 do PR 5): token, concessão e acesso recusados por pessoa, escritório ou termos dão 401
+ * `invalid_token` com uma descrição ASCII fixa por categoria; qualquer outro erro (filtro, requisição já aberta, banco fora do
  * ar, erro de programação) dá 503 sem desafio, e nunca deixa passar.
+ *
+ * A liberação é a exceção: quando só ela falha (chave geral, escritório bloqueado pelo Master, conector desligado ou
+ * aceite antigo), o token é válido e o conector está SUSPENSO. O julgamento é 403 com o erro
+ * {@see ERRO_CONECTOR_DESLIGADO}, nunca `invalid_token` (que levaria o app a renovar e, sem sucesso, a pedir
+ * reconexão) nem `insufficient_scope` (que levaria ao step-up). O {@see \App\Conector\Mcp\ConectorDesligadoMiddleware}
+ * troca a resposta do SDK por um 403 sem `WWW-Authenticate`, com um erro JSON-RPC de mensagem fixa. Nada é despachado:
+ * o `AuthorizationMiddleware` para aí, antes da `ScopePolicy` e do portão. A renovação continua girando
+ * ({@see ConferenciaDaConcessao::exigirNaRenovacao()}), e religar volta a aceitar o mesmo token.
  *
  * O resultado fica guardado até o `reset()` (fim da requisição, mensagem seguinte do worker): o mesmo token
  * apresentado de novo na mesma requisição recebe o MESMO julgamento, sem conferir outra vez.
@@ -55,14 +63,21 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
     public const DESCRICAO_AUTORIZACAO = 'The authorization was revoked.';
     public const DESCRICAO_ESCRITORIO = 'Access to this office is not available.';
     public const DESCRICAO_TERMOS = 'The Terms of Use must be accepted in BlueJus.';
+    /** A descrição do 403 do conector suspenso (liberação): a mesma regra ASCII, no corpo da resposta. */
     public const DESCRICAO_LIBERACAO = 'The connector is not enabled for this office.';
+
+    /**
+     * O código de erro do julgamento do conector suspenso (403). Não é `invalid_token` nem `insufficient_scope`: o
+     * token vale e não falta escopo. Só marca a resposta do SDK para o {@see \App\Conector\Mcp\ConectorDesligadoMiddleware},
+     * que tira o `WWW-Authenticate`; nunca chega ao app de I.A.
+     */
+    public const ERRO_CONECTOR_DESLIGADO = 'connector_disabled';
 
     /** As recusas do portão que pedem um login novo (401), com a descrição de cada uma; as demais dão 503. */
     private const RECUSAS_DO_PORTAO_COM_DESAFIO = [
         AcessoDoConectorRecusado::MOTIVO_PESSOA => self::DESCRICAO_ESCRITORIO,
         AcessoDoConectorRecusado::MOTIVO_ESCRITORIO => self::DESCRICAO_ESCRITORIO,
         AcessoDoConectorRecusado::MOTIVO_TERMOS => self::DESCRICAO_TERMOS,
-        AcessoDoConectorRecusado::MOTIVO_LIBERACAO => self::DESCRICAO_LIBERACAO,
     ];
 
     private ?string $hashJulgado = null;
@@ -156,7 +171,7 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
         ]));
     }
 
-    /** A conferência inteira da concessão; null se passou, ou o resultado da recusa (401 ou 503). */
+    /** A conferência inteira da concessão; null se passou, ou o resultado da recusa (401, 403 ou 503). */
     private function conferirConcessao(ConcessaoDoConector $concessao, \DateTimeImmutable $agora): ?AuthorizationResult
     {
         try {
@@ -164,6 +179,13 @@ final class ValidadorDoTokenDoConector implements AuthorizationTokenValidatorInt
         } catch (ConcessaoRecusada $recusa) {
             return $this->recusar($recusa->motivo, self::DESCRICAO_AUTORIZACAO);
         } catch (AcessoDoConectorRecusado $recusa) {
+            if ($recusa->motivo === AcessoDoConectorRecusado::MOTIVO_LIBERACAO) {
+                // A liberação é a última conferência: chegar aqui quer dizer que todo o resto passou e só ela falhou.
+                $this->motivo = $recusa->motivo;
+
+                return AuthorizationResult::forbidden(self::ERRO_CONECTOR_DESLIGADO, self::DESCRICAO_LIBERACAO, []);
+            }
+
             $descricao = self::RECUSAS_DO_PORTAO_COM_DESAFIO[$recusa->motivo] ?? null;
             if ($descricao === null) {
                 // Defensivo, hoje inalcançável: a conferência só lança pessoa, escritório, termos e liberação (o

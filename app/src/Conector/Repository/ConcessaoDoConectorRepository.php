@@ -7,6 +7,7 @@ namespace App\Conector\Repository;
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
+use App\Conector\Service\SemFiltroDoEscritorio;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
@@ -35,10 +36,14 @@ class ConcessaoDoConectorRepository extends ServiceEntityRepository
     /**
      * Derruba todas as cadeias ainda abertas de um consentimento num UPDATE só (a pessoa revogou a conexão, ou a conta
      * ou o vínculo acabou). Não mexe na data nem no motivo de quem já tinha caído. Devolve quantas caíram agora.
+     *
+     * Sem o filtro do escritório da sessão ({@see SemFiltroDoEscritorio}): o `TenantFilter` também entra no WHERE de
+     * um UPDATE em DQL, e a pessoa revoga no Meu Perfil a conexão de um escritório que não é o da sessão. O UPDATE
+     * continua preso ao escritório do consentimento.
      */
     public function revogarDoConsentimento(ConsentimentoDoConector $consentimento, MotivoDaRevogacaoDaConcessao $motivo, \DateTimeImmutable $agora): int
     {
-        return (int) $this->getEntityManager()->createQuery(
+        return SemFiltroDoEscritorio::executar($this->getEntityManager(), fn (): int => (int) $this->getEntityManager()->createQuery(
             'UPDATE ' . ConcessaoDoConector::class . ' c SET c.revogadaEm = :agora, c.motivo = :motivo'
             . ' WHERE c.consentimento = :consentimento AND c.tenant = :tenant AND c.revogadaEm IS NULL'
         )
@@ -46,7 +51,7 @@ class ConcessaoDoConectorRepository extends ServiceEntityRepository
             ->setParameter('motivo', $motivo->value)
             ->setParameter('consentimento', $consentimento)
             ->setParameter('tenant', $consentimento->getTenant())
-            ->execute();
+            ->execute());
     }
 
     /**

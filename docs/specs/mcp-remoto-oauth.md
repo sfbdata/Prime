@@ -1728,8 +1728,8 @@ erradas do plano, todas invisíveis à leitura):
 23. **Publicações**: ler a lista e o texto não muda o `lida` de nenhuma publicação; publicação de processo de outra pasta é
     recusada; aba Push oculta recusa.
 24. **Liberação** (14.a): chave geral desligada, escritório não liberado pelo Master, conector não ligado no escritório ou
-    aceite em versão antiga: cada um recusa no `/oauth/authorize` e no `/mcp`; desligar depois de conectar derruba na
-    requisição seguinte; liberar o escritório A não libera o B. Sem registro, a chave geral vale como ligada e o escritório,
+    aceite em versão antiga: cada um recusa no `/oauth/authorize` e no `/mcp`; desligar depois de conectar suspende na
+    requisição seguinte (403 no `/mcp`, sem revogar; decisão 11 do PR 8); liberar o escritório A não libera o B. Sem registro, a chave geral vale como ligada e o escritório,
     como não liberado (o nível 2 nasce falso). O comando `conector:liberar` (PR 3) liga a liberação, o "ligado" e o aceite
     de um escritório, grava auditoria e não toca outro escritório.
 25. **Tela que ganhou UseCase**: cada UseCase extraído de controller (6.4 e 6.6, "Falta") tem os testes funcionais da tela
@@ -2056,7 +2056,8 @@ entra num PR próprio depois de testada nos dois clientes.
 8. **O comando `conector:liberar` exige `--master`** com o e-mail de um Master, conferido como Master; quem aparece
    como autor do aceite é esse Master.
 9. **A conferência da concessão** (pessoa, escritório, corte de "Sair de todos os aparelhos", impressão da senha e
-   liberação) roda também na troca do código, não só na renovação.
+   liberação) roda também na troca do código, não só na renovação. Desde o PR 8, a renovação não confere a liberação
+   (decisão 11 do PR 8).
 10. **Escopo desconhecido no pedido é ignorado**: o servidor emite só os escopos que conhece entre os pedidos, e a
     resposta do `/oauth/token` sempre diz quais foram, por interoperabilidade com os apps.
 
@@ -2089,7 +2090,8 @@ Coordenador):**
 2. **Um juiz só**: o validador guarda o resultado da requisição (o autenticador do firewall e o `AuthorizationMiddleware`
    leem o mesmo), e só o SDK formata o 401 e o 403 com o `WWW-Authenticate`.
 3. **Recusas**: concessão recusada (`ConcessaoRecusada`) e acesso recusado pelo portão por pessoa, escritório, termos
-   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa; filtro de escritório que não
+   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa (desde o PR 8, a liberação dá
+   403 sem desafio: decisão 11 do PR 8); filtro de escritório que não
    ligou, requisição já aberta ou qualquer erro inesperado dão 503 sem desafio.
 4. **O portão roda na cadeia PSR-15**, depois do `AuthorizationMiddleware`: a `ScopePolicy` barra o escopo antes de
    qualquer abertura.
@@ -2134,3 +2136,34 @@ Coordenador):**
       requisição), a resposta é 503, não 401. Falha fechada: nada é despachado.
     - Lote JSON-RPC: a `ScopePolicy` só vê o escopo padrão, e quem recusa o lote é o SDK (400).
       `McpControllerTest::testLoteNaoChegaAoDespacho` prende isso para os PRs 9 a 13 e para uma troca de SDK.
+
+**Decidido em 16/11/2026 no PR 8 (orquestrador da frente, pela recomendação; a 11 com o Coordenador):**
+
+1. **Meu Perfil** lista as conexões de I.A. de todos os escritórios da pessoa, com o escritório na linha.
+2. Conexão de escritório com **vínculo caído** (suspenso ou removido) aparece marcada e pode ser revogada.
+3. O administrador **só dá o aceite depois da liberação do Master**: sem o nível 2, botão Ligar desabilitado e aviso de
+   aguardando liberação.
+4. **Desligar ou bloquear não revoga** as conexões: só suspende (ver 11).
+5. O administrador **não vê nem revoga** as conexões da equipe no piloto.
+6. O Master vê só a **contagem** de conexões ativas por escritório, nunca as pessoas.
+7. **Texto do aceite provisório** (versão 1) até o jurídico; não abrir a outro escritório antes dele.
+8. Aceite com **caixa "Li e aceito" obrigatória** e botão Ligar, como na BlueJus IA. Aceite de versão antiga mostra o
+   estado de novo aceite (caixa, Ligar e Desligar).
+9. **Revogar pede confirmação** (modal do perfil), revoga o consentimento e as concessões dele na mesma transação, com
+   `revogada_pela_pessoa`, e trava a conexão para dois cliques não gravarem duas vezes.
+10. **Exclusão de conta ou vínculo** (9.9, `conta_ou_vinculo_encerrado`) fica fora do PR 8; o CASCADE cobre a exclusão
+    física.
+11. **Suspensão sem revogar** (aprovada pelo Coordenador). Liberação desligada (chave geral, nível 2, nível 3 ou aceite
+    antigo) é zero acesso na hora e não derruba a conexão:
+    - a renovação (`refresh_token`) não confere a liberação (`ConferenciaDaConcessao::exigirNaRenovacao`); continua
+      conferindo pessoa, vínculo, senha, "Sair de todos", termos, `resource` e o limite de 7 dias, que corre durante a
+      suspensão. A troca do código e o `/oauth/authorize` continuam conferindo a liberação;
+    - o `/mcp` responde **403 sem `WWW-Authenticate`**, com erro JSON-RPC -32001 "Conector desligado neste escritório."
+      (ASCII escapado), sem despachar nada. Qualquer desafio (`invalid_token` ou `insufficient_scope`) levaria o app a
+      renovar e pedir reconexão. Os outros motivos de recusa continuam 401 (decisão 3 do PR 5);
+    - o formato sai do `ConectorDesligadoMiddleware`, entre o escopo que falta e o `AuthorizationMiddleware`: a cadeia
+      passa a 9 middlewares. O validador continua o único juiz.
+    **Smoke**: conferir como o Claude e o ChatGPT mostram esse 403.
+12. **Filtro do escritório fora do portão** só pelo `SemFiltroDoEscritorio`, que suspende e devolve e nunca liga (o
+    `PortaoDoConectorArquiteturaTest` confere). Usado pelas buscas das telas e pelo `revogarDoConsentimento`, porque o
+    `TenantFilter` também entra no WHERE de um UPDATE em DQL.

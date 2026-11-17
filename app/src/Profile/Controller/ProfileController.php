@@ -7,6 +7,7 @@ use App\Auth\Form\AlterarSenhaType;
 use App\Auth\UseCase\AlterarSenhaUseCase;
 use App\Auth\UseCase\SairDeTodosOsAparelhosUseCase;
 use App\Auth\UseCase\VerificarOabUseCase;
+use App\Conector\UseCase\ListarConexoesDaPessoaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Profile\Armazenamento\ChavesDePerfil;
@@ -59,6 +60,7 @@ final class ProfileController extends AbstractController
         private readonly ObterPreferenciasDoPerfilUseCase $obterPreferencias,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly SairDeTodosOsAparelhosUseCase $sairDeTodos,
+        private readonly ListarConexoesDaPessoaUseCase $listarConexoesDeIa,
     ) {
     }
 
@@ -92,6 +94,8 @@ final class ProfileController extends AbstractController
             // Recusa do modal da OAB: volta aberto, com o erro e o que foi digitado (InscricoesOabDoPerfilController).
             'erroOab'       => $request->getSession()->remove(InscricoesOabDoPerfilController::ERRO_NA_SESSAO),
             'form_senha' => $formSenha->createView(),
+            // Cartão "Conexões de I.A." (conector de I.A., PR 8): as da pessoa em todos os escritórios dela.
+            'conexoesDeIa' => $this->listarConexoesDeIa->executar($user),
         ]);
     }
 
