@@ -7,6 +7,7 @@ namespace App\Tests\Conector\Functional;
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
+use App\Conector\Ferramenta\LerAgendaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
@@ -36,6 +37,12 @@ use Symfony\Component\HttpFoundation\Response;
 #[CoversClass(QuemSouEuFerramenta::class)]
 final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
+    /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
+    private const REGISTRADAS = [
+        LerAgendaFerramenta::NOME,
+        QuemSouEuFerramenta::NOME,
+    ];
+
     use CenarioDaAutorizacaoTrait;
 
     private const FORM = 'autorizar_conexao';
@@ -384,7 +391,8 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
     {
         self::assertIsArray($resultado['tools'] ?? null);
         $nomes = array_column($resultado['tools'], 'name');
-        self::assertSame([QuemSouEuFerramenta::NOME], $nomes, 'no PR 5 só a quem_sou_eu está registrada');
+        sort($nomes);
+        self::assertSame(self::REGISTRADAS, $nomes, 'só as ferramentas já entregues estão registradas, e todas do catálogo fechado');
 
         foreach ($resultado['tools'] as $ferramenta) {
             $nome = $ferramenta['name'];
