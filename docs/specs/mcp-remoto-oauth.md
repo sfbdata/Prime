@@ -2194,3 +2194,19 @@ Coordenador):**
 12. **Porta do aceite na consulta de prazos** (14.i): `PortaDaConsultaDePrazos` é a interface; a `GuardaDaConsultaDePrazos`
     do chat a implementa e o conector passa a dele como parâmetro opcional de `ConsultarPrazosEMetasUseCase::executar`,
     nunca pelo construtor (duas implementações deixariam a injeção ambígua).
+13. **Pasta trancada em segredo de justiça**: o segredo vence o cadeado. Ela sai da busca e é contada como sem acesso
+    (`omitidas_sem_acesso`), não como segredo, para a contagem não revelar o segredo de uma pasta que a pessoa não abre.
+14. **Sugestões do andamento** (amplia a 4): saem quando a aba de onde vêm está oculta, qualquer que seja (Push,
+    Financeiro, Documentos, Processo). Com a aba Dados oculta, a base da estimativa também não diz quantos registros há.
+15. **Prazos da pasta** seguem a tela (`PastaController.php:389-392`): todos os abertos, sem filtro pela aba de origem do
+    prazo; a parte inteira é barrada pela aba Metas.
+16. **Busca por NUP** (`nups` do Agente) não entra no esquema, porque aquele caminho não confere o escopo da pessoa. O
+    número de processo se busca pela ação `numero` (busca rápida, que confere o escopo, tira a lixeira e troca o CPF ou
+    CNPJ do grupo Cliente por "Pasta N").
+17. **Máscara sempre ligada** (6.2.6) pela `PoliticaDeMascaramento`, que reconhece o conector pelo escritório fixado sem
+    sessão (`TenantContext::estaFixadoSemSessao()`): só o portão fixa assim, e o `PortaoDoConectorArquiteturaTest` proíbe
+    citar o `ModoDoConector` fora dele. Vale para `ler_pasta`, `buscar_pastas`, `ler_agenda` e `quem_sou_eu`; no Registro,
+    a máscara passa antes do corte de cada mensagem. O chat não muda.
+18. **Agenda**: período padrão de 7 dias a partir de hoje, no máximo 31; lembretes só quando pedidos (são das próximas
+    24 horas), e os de prazo só com `prazos` em `incluir`. Prazo de pasta trancada some sem contagem, como na tela
+    (`ListarCompromissosUseCase` já o tira); compromisso e lembrete de pasta trancada ou em segredo somem e são contados.
