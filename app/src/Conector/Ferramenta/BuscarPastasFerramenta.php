@@ -47,7 +47,8 @@ use App\Service\PermissionChecker;
  *    total (decisão 1 do PR 6);
  *  - pasta que a pessoa não pode ver por outro motivo (sem o recurso de ver a pasta) não aparece; a resposta conta
  *    quantas saíram da página (`omitidas_sem_acesso`);
- *  - pasta em segredo de justiça sai e é contada ({@see SegredoNasListas}, 6.2, regra 3: `omitidas_em_segredo`);
+ *  - pasta em segredo de justiça sai e é contada ({@see SegredoNasListas}, 6.2, regra 3: `omitidas_em_segredo`); a
+ *    trancada que também está em segredo sai e conta em `omitidas_sem_acesso`, para não revelar o segredo;
  *  - filtro que o repositório ignoraria vira "filtro inválido" com o nome do campo, nunca o valor (6.2, regra 10);
  *  - campo que a ação não usa é recusado (6.2, regra 10); a página seguinte vai em `proxima_pagina`;
  *  - todo texto do banco sai pelo {@see ProtecaoDoTextoDoChat::rotulo()} (neutralizado e, no conector, mascarado).
@@ -213,8 +214,8 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             AccessRequest::ACTION_VIEW,
         ));
         $visiveis = array_values(array_filter($linhas, static fn (PastaDoAgenteOutput $l): bool => $l->oculta || isset($permitidas[$l->id])));
-        $semAcesso = \count($linhas) - \count($visiveis);
-        $foraDoSegredo = $this->segredo->tirarDe($visiveis, static fn (PastaDoAgenteOutput $l): int => $l->id, $escritorio);
+        $foraDoSegredo = $this->semSegredo($visiveis, static fn (PastaDoAgenteOutput $l): int => $l->id, static fn (PastaDoAgenteOutput $l): bool => $l->oculta, $escritorio);
+        $semAcesso = \count($linhas) - \count($visiveis) + $foraDoSegredo['trancados_em_segredo'];
 
         $pastas = array_map(fn (PastaDoAgenteOutput $l): array => $this->linhaDaPasta($l, $escritorio), $foraDoSegredo['itens']);
         $trancadas = \count(array_filter($foraDoSegredo['itens'], static fn (PastaDoAgenteOutput $l): bool => $l->oculta));
@@ -232,6 +233,28 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             contagens: ['pastas' => \count($pastas), 'total' => $total, 'trancadas' => $trancadas, 'em_segredo' => $foraDoSegredo['em_segredo'], 'sem_acesso' => $semAcesso],
             ids: ['pasta' => array_map(static fn (PastaDoAgenteOutput $l): int => $l->id, $foraDoSegredo['itens'])],
         );
+    }
+
+    /**
+     * Tira o que está em segredo de justiça ({@see SegredoNasListas}). O item trancado (cadeado) que também está em segredo
+     * sai, mas conta à parte (`trancados_em_segredo`), para entrar em "sem acesso": contá-lo como "em segredo" revelaria o
+     * segredo de uma pasta que a pessoa nem pode ver.
+     *
+     * @template T
+     *
+     * @param list<T>          $itens
+     * @param \Closure(T): int  $pastaId
+     * @param \Closure(T): bool $trancado
+     *
+     * @return array{itens: list<T>, em_segredo: int, trancados_em_segredo: int}
+     */
+    private function semSegredo(array $itens, \Closure $pastaId, \Closure $trancado, Tenant $escritorio): array
+    {
+        $fora = $this->segredo->tirarDe($itens, $pastaId, $escritorio);
+        $ficam = array_flip(array_map($pastaId, $fora['itens']));
+        $trancados = \count(array_filter($itens, static fn (mixed $i): bool => $trancado($i) && !isset($ficam[$pastaId($i)])));
+
+        return ['itens' => $fora['itens'], 'em_segredo' => $fora['em_segredo'] - $trancados, 'trancados_em_segredo' => $trancados];
     }
 
     /** @return array<string, mixed> */
@@ -321,12 +344,18 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::filtroInvalido('numero');
         }
         $saida = $this->buscaRapida->executar($numero, $chamada->contexto->pessoa, $escritorio);
-        $foraDoSegredo = $this->segredo->tirarDe($saida->resultados, static fn (ResultadoDaBuscaRapidaOutput $r): int => $r->pastaId, $escritorio);
+        $foraDoSegredo = $this->semSegredo(
+            $saida->resultados,
+            static fn (ResultadoDaBuscaRapidaOutput $r): int => $r->pastaId,
+            static fn (ResultadoDaBuscaRapidaOutput $r): bool => $r->restrito,
+            $escritorio,
+        );
         $resultados = array_map(fn (ResultadoDaBuscaRapidaOutput $r): array => $this->resultadoPorNumero($r, $escritorio), $foraDoSegredo['itens']);
+        $semAcesso = $foraDoSegredo['trancados_em_segredo'];
 
         return new RespostaDaFerramenta(
-            ['resultados' => $resultados, 'omitidas_em_segredo' => $foraDoSegredo['em_segredo']],
-            contagens: ['resultados' => \count($resultados), 'em_segredo' => $foraDoSegredo['em_segredo']],
+            ['resultados' => $resultados, 'omitidas_em_segredo' => $foraDoSegredo['em_segredo'], 'omitidas_sem_acesso' => $semAcesso],
+            contagens: ['resultados' => \count($resultados), 'em_segredo' => $foraDoSegredo['em_segredo'], 'sem_acesso' => $semAcesso],
             ids: ['pasta' => array_values(array_unique(array_map(static fn (ResultadoDaBuscaRapidaOutput $r): int => $r->pastaId, $foraDoSegredo['itens'])))],
         );
     }

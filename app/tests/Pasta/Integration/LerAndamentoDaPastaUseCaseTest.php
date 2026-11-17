@@ -10,11 +10,14 @@ use App\Pasta\DTO\LeituraDoAndamentoDaPastaOutput;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\UseCase\LerAndamentoDaPastaUseCase;
+use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -22,8 +25,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * O andamento da pasta só para leitura (`docs/specs/mcp-remoto-oauth.md`, 6.4, `ler_pasta` parte `andamento`), com o
- * banco: a trilha estimada da pasta nova, a sugestão do Financeiro que some com a aba oculta, os registros por fase que
- * somem com a aba Dados oculta, as recusas (outro escritório, sem permissão) e nada gravado.
+ * banco: a trilha estimada da pasta nova, a sugestão que some com a aba de origem oculta (Financeiro, Documentos,
+ * Processo), a contagem de registros que some com a aba Dados oculta (por fase e na base da estimativa), as recusas (outro escritório, sem permissão) e nada gravado.
  */
 #[CoversClass(LerAndamentoDaPastaUseCase::class)]
 #[CoversClass(LeituraDoAndamentoDaPastaOutput::class)]
@@ -109,6 +112,65 @@ final class LerAndamentoDaPastaUseCaseTest extends KernelTestCase
         self::assertSame(0, array_sum(array_column($semDados->fases, 'registros')));
     }
 
+    #[TestDox('pasta nova com documento: a sugestão de Documentação sai com a aba Documentos oculta')]
+    public function testSugestaoDosDocumentosSomeComAAbaOculta(): void
+    {
+        $pasta = $this->pasta();
+        $documento = (new PastaDocumento())->setTitulo('Procuração')->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo('teste/' . uniqid() . '.pdf')->setNomeOriginal('procuracao.pdf')->setMimeType('application/pdf')
+            ->setTamanhoBytes(1)->setPasta($pasta)->setTenant($this->escritorio);
+        $this->em()->persist($documento);
+        $this->em()->flush();
+        self::assertContains('Documentação', $this->nomesDasSugestoes($pasta), 'premissa: com a aba visível, a sugestão sai');
+
+        $this->ocultar($pasta, AbaDaPasta::Documentos);
+
+        self::assertNotContains('Documentação', $this->nomesDasSugestoes($pasta));
+    }
+
+    #[TestDox('trilha gravada e processo vinculado: a sugestão de Em andamento sai com a aba Processo oculta')]
+    public function testSugestaoDoProcessoSomeComAAbaOculta(): void
+    {
+        $pasta = $this->pasta();
+        static::getContainer()->get(AndamentoDaPasta::class)->marcar($pasta, $this->colega, $this->escritorio, 1);
+        $processo = new Processo();
+        $processo->setNumeroProcesso('0701134572025807' . random_int(1000, 9999));
+        $processo->setSiglaTribunal('TJDFT');
+        $processo->setClasseProcessual('Procedimento Comum');
+        $processo->setAssuntoProcessual('Assunto');
+        $processo->setTenant($this->escritorio);
+        $this->em()->persist($processo);
+        $vinculo = new PastaProcesso($pasta, $processo);
+        $this->em()->persist($vinculo);
+        $pasta->getPastaProcessos()->add($vinculo);
+        $this->em()->flush();
+        self::assertContains('Em andamento', $this->nomesDasSugestoes($pasta), 'premissa: com a aba visível, a sugestão sai');
+
+        $this->ocultar($pasta, AbaDaPasta::Processo);
+
+        self::assertNotContains('Em andamento', $this->nomesDasSugestoes($pasta));
+    }
+
+    #[TestDox('trilha estimada pelos registros: com a aba Dados oculta, a base não traz a contagem')]
+    public function testBaseEstimadaSemAContagemComADadosOculta(): void
+    {
+        $pasta = $this->pasta();
+        for ($i = 0; $i < 3; ++$i) {
+            $mensagem = (new PastaMensagem())->setPasta($pasta)->setTenant($this->escritorio)->setAutor($this->colega)->setConteudo('Registro ' . $i);
+            $this->em()->persist($mensagem);
+            $pasta->getMensagens()->add($mensagem);
+        }
+        $this->em()->flush();
+        self::assertSame('3 registro(s) na pasta', $this->useCase()->executar($pasta, $this->pessoa, $this->escritorio)->baseDaEstimativa, 'premissa');
+
+        $this->ocultar($pasta, AbaDaPasta::Dados);
+        $leitura = $this->useCase()->executar($pasta, $this->pessoa, $this->escritorio);
+
+        self::assertTrue($leitura->estimada);
+        self::assertSame('registros na pasta', $leitura->baseDaEstimativa);
+        self::assertStringNotContainsString('3', (string) $leitura->baseDaEstimativa);
+    }
+
     #[TestDox('pasta de outro escritório: recusa como outro escritório')]
     public function testOutroEscritorio(): void
     {
@@ -127,6 +189,12 @@ final class LerAndamentoDaPastaUseCaseTest extends KernelTestCase
 
         $this->expectException(SemPermissaoParaVerPastaException::class);
         $this->useCase()->executar($pasta, $semRecurso, $this->escritorio);
+    }
+
+    /** @return list<string> */
+    private function nomesDasSugestoes(Pasta $pasta): array
+    {
+        return array_column($this->useCase()->executar($pasta, $this->pessoa, $this->escritorio)->sugestoes, 'nome');
     }
 
     private function useCase(): LerAndamentoDaPastaUseCase

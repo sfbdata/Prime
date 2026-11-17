@@ -23,7 +23,6 @@ use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\CarteiraDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
-use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaMensagemRepository;
@@ -54,8 +53,8 @@ use App\Pasta\UseCase\ListarMencionaveisDaPastaUseCase;
  * chat da pasta), em blocos de texto já neutralizados e, no conector, sempre mascarados (6.2, regra 6), com um orçamento
  * de {@see ORCAMENTO} caracteres; as seções que não foram pedidas nem são montadas. `registro` lê 50 por página, o mais
  * recente primeiro (decisão 9); `prazos`, só os abertos (decisão 6); `cadastro`, só preenchido ou falta (decisão 8);
- * `equipe`, só nome e id; `andamento`, pelo {@see LerAndamentoDaPastaUseCase} (sugestão do Push ou do Financeiro sai com
- * a aba oculta, decisão 4). O financeiro só com `VisibilidadeDoFinanceiroDaPasta` (6.2, regra 5), decidido no
+ * `equipe`, só nome e id; `andamento`, pelo {@see LerAndamentoDaPastaUseCase} (sugestão que vem de uma aba oculta sai,
+ * decisão 4). O financeiro só com `VisibilidadeDoFinanceiroDaPasta` (6.2, regra 5), decidido no
  * `liberar()`.
  */
 final class LerPastaFerramenta implements FerramentaDoConector
@@ -65,14 +64,28 @@ final class LerPastaFerramenta implements FerramentaDoConector
     /** As partes do PR 6, na ordem da tabela de aba e chave. */
     public const PARTES = ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'checklist', 'financeiro'];
 
-    /** O orçamento das seções do montador; menor quando o Registro vem junto, para a resposta caber no teto de 50 mil. */
+    /**
+     * O orçamento das seções do montador; menor quando os prazos ou o Registro vêm junto, para a resposta caber no teto
+     * de 50 mil do `DespachoDasFerramentas`.
+     */
     public const ORCAMENTO = 35_000;
-    public const ORCAMENTO_COM_REGISTRO = 12_000;
+    public const ORCAMENTO_COM_PRAZOS = 20_000;
+    public const ORCAMENTO_COM_REGISTRO = 8_000;
+
+    /** O teto da resposta inteira, com folga sob o `DespachoDasFerramentas::TETO_DE_CARACTERES` (50 mil). */
+    public const TETO_DA_RESPOSTA = 45_000;
 
     public const REGISTROS_POR_PAGINA = 50;
+    /** O texto de cada mensagem do Registro começa cortado aqui e encolhe (até o mínimo) se a resposta não couber. */
     public const TAMANHO_MAXIMO_DO_REGISTRO = 500;
+    public const TAMANHO_MINIMO_DO_REGISTRO = 80;
+    /** O título do prazo (até 255 na tabela) sai cortado aqui. */
+    public const TAMANHO_MAXIMO_DO_TITULO = 150;
     public const LIMITE_DE_PRAZOS = 50;
     private const TETO_DE_PAGINA = 10_000;
+
+    /** A mesma codificação do `DespachoDasFerramentas`, para medir a resposta como ele mede. */
+    private const JSON = \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR;
 
     /** A seção do montador de cada parte. */
     private const SECAO_DA_PARTE = [
@@ -80,13 +93,6 @@ final class LerPastaFerramenta implements FerramentaDoConector
         'detalhes' => SecaoDoContexto::Observacoes,
         'checklist' => SecaoDoContexto::Checklist,
         'financeiro' => SecaoDoContexto::Financeiro,
-    ];
-
-    /** A aba de onde vem o prazo lido de um registro (`PastaPrazo::ROTULOS_REGISTRO`) ou do Push. */
-    private const ABA_DA_ORIGEM_DO_PRAZO = [
-        'expedientes' => AbaDaPasta::Dados,
-        'detalhes' => AbaDaPasta::Detalhes,
-        'financeiro' => AbaDaPasta::Financeiro,
     ];
 
     public function __construct(
@@ -163,16 +169,20 @@ final class LerPastaFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::naoEncontrado();
         }
 
-        $dados = ['pasta_id' => (int) $pasta->getId()];
         $contexto = $this->contexto($pasta, $escritorio, $partes, $decisao);
+        $lidas = ['pasta_id' => (int) $pasta->getId()];
+        foreach (array_diff($partes, ['registro']) as $parte) {
+            $lidas[$parte] = $this->parte($parte, $pasta, $chamada, $contexto);
+        }
+        // O Registro por último: o texto de cada mensagem encolhe até a resposta inteira caber no teto.
         $proxima = null;
+        if (\in_array('registro', $partes, true)) {
+            $espaco = self::TETO_DA_RESPOSTA - mb_strlen((string) json_encode($lidas, self::JSON));
+            [$lidas['registro'], $proxima] = $this->registro($pasta, $escritorio, $pagina ?? 1, $decisao['financeiro'], $espaco);
+        }
+        $dados = ['pasta_id' => $lidas['pasta_id']];
         foreach ($partes as $parte) {
-            if ($parte === 'registro') {
-                [$dados['registro'], $proxima] = $this->registro($pasta, $escritorio, $pagina ?? 1, $decisao['financeiro']);
-
-                continue;
-            }
-            $dados[$parte] = $this->parte($parte, $pasta, $chamada, $contexto, $decisao['abasOcultas']);
+            $dados[$parte] = $lidas[$parte];
         }
 
         return new RespostaDaFerramenta($dados, proximaPagina: $proxima, contagens: ['partes' => \count($partes)], ids: ['pasta' => [(int) $pasta->getId()]]);
@@ -259,7 +269,11 @@ final class LerPastaFerramenta implements FerramentaDoConector
                 $pular[] = (string) $secao->abaDaPasta()?->value;
             }
         }
-        $orcamento = \in_array('registro', $partes, true) ? self::ORCAMENTO_COM_REGISTRO : self::ORCAMENTO;
+        $orcamento = match (true) {
+            \in_array('registro', $partes, true) => self::ORCAMENTO_COM_REGISTRO,
+            \in_array('prazos', $partes, true) => self::ORCAMENTO_COM_PRAZOS,
+            default => self::ORCAMENTO,
+        };
         $comFinanceiro = $decisao['financeiro'] && \in_array('financeiro', $partes, true);
 
         try {
@@ -269,12 +283,8 @@ final class LerPastaFerramenta implements FerramentaDoConector
         }
     }
 
-    /**
-     * @param list<string> $abasOcultas
-     *
-     * @return array<string, mixed>
-     */
-    private function parte(string $parte, Pasta $pasta, ChamadaDoConector $chamada, ?ContextoDaPasta $contexto, array $abasOcultas): array
+    /** @return array<string, mixed> */
+    private function parte(string $parte, Pasta $pasta, ChamadaDoConector $chamada, ?ContextoDaPasta $contexto): array
     {
         $escritorio = $chamada->contexto->escritorio;
 
@@ -283,7 +293,7 @@ final class LerPastaFerramenta implements FerramentaDoConector
             'andamento' => $this->andamento($pasta, $chamada),
             'equipe' => $this->equipe($pasta, $chamada),
             'cadastro' => $this->cadastro($pasta, $escritorio),
-            'prazos' => $this->prazosAbertos($pasta, $escritorio, $abasOcultas),
+            'prazos' => $this->prazosAbertos($pasta, $escritorio),
             default => self::secao($contexto, self::SECAO_DA_PARTE[$parte]),
         };
     }
@@ -339,27 +349,58 @@ final class LerPastaFerramenta implements FerramentaDoConector
 
     /**
      * Uma página do Registro: 50, o mais recente primeiro; sem o financeiro, os cartões de pró-bono e contrato ficam de
-     * fora. O texto vira texto plano, cortado em {@see TAMANHO_MAXIMO_DO_REGISTRO} e passa pelo `comoDado`.
+     * fora. O texto vira texto plano e passa pelo `comoDado` (neutralizado e mascarado) ANTES do corte: um CPF ou e-mail
+     * no limite não sobra pela metade, sem máscara. O corte começa em {@see TAMANHO_MAXIMO_DO_REGISTRO} e encolhe até a
+     * página caber em `$espaco` (o que sobrou do teto da resposta), sem passar de {@see TAMANHO_MINIMO_DO_REGISTRO}.
      *
      * @return array{0: array<string, mixed>, 1: ?int}
      */
-    private function registro(Pasta $pasta, Tenant $escritorio, int $pagina, bool $comFinanceiro): array
+    private function registro(Pasta $pasta, Tenant $escritorio, int $pagina, bool $comFinanceiro, int $espaco): array
     {
         $lidas = $this->mensagens->paginaDoRegistro($pasta, $escritorio, $pagina, self::REGISTROS_POR_PAGINA, $comFinanceiro);
         $haMais = \count($lidas) > self::REGISTROS_POR_PAGINA;
-        $itens = array_map(fn (PastaMensagem $m): array => $this->mensagem($m, $escritorio), \array_slice($lidas, 0, self::REGISTROS_POR_PAGINA));
+        $daPagina = \array_slice($lidas, 0, self::REGISTROS_POR_PAGINA);
+        $textos = array_map(fn (PastaMensagem $m): string => $this->protecao->comoDado($escritorio, self::textoPlano($m->getConteudo())), $daPagina);
+        $linhas = array_map(fn (PastaMensagem $m): array => $this->mensagem($m, $escritorio), $daPagina);
+
+        $tamanho = self::TAMANHO_MAXIMO_DO_REGISTRO;
+        do {
+            $itens = self::comTextos($linhas, $textos, $tamanho);
+            $cabe = mb_strlen((string) json_encode($itens, self::JSON)) <= $espaco;
+            $tamanho = intdiv($tamanho * 3, 4);
+        } while (!$cabe && $tamanho >= self::TAMANHO_MINIMO_DO_REGISTRO);
 
         return [['mensagens' => $itens, 'pagina' => $pagina, 'por_pagina' => self::REGISTROS_POR_PAGINA], $haMais ? $pagina + 1 : null];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * As linhas com o texto já protegido, cortado em `$tamanho`.
+     *
+     * @param list<array<string, mixed>> $linhas
+     * @param list<string>               $textos
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function comTextos(array $linhas, array $textos, int $tamanho): array
+    {
+        foreach ($linhas as $i => $linha) {
+            $cortado = mb_strlen($textos[$i]) > $tamanho;
+            $linhas[$i] = array_replace($linha, [
+                'texto' => $cortado ? mb_substr($textos[$i], 0, $tamanho) . '…' : $textos[$i],
+                'cortado' => $cortado,
+            ]);
+        }
+
+        return $linhas;
+    }
+
+    /**
+     * A mensagem sem o texto: `texto` e `cortado` saem do {@see comTextos()}.
+     *
+     * @return array<string, mixed>
+     */
     private function mensagem(PastaMensagem $m, Tenant $escritorio): array
     {
-        $texto = self::textoPlano($m->getConteudo());
-        $cortado = mb_strlen($texto) > self::TAMANHO_MAXIMO_DO_REGISTRO;
-        if ($cortado) {
-            $texto = mb_substr($texto, 0, self::TAMANHO_MAXIMO_DO_REGISTRO) . '…';
-        }
         $sistema = $m->getSistema();
 
         return [
@@ -369,9 +410,14 @@ final class LerPastaFerramenta implements FerramentaDoConector
             'do_sistema' => $sistema !== null ? (RegistroDoSistemaNaPasta::ROTULOS[$sistema] ?? 'Alteração') : null,
             'resposta_a' => $m->getRespostaA()?->getId(),
             'editada' => $m->getEditadaEm() !== null,
-            'texto' => $this->protecao->comoDado($escritorio, $texto),
-            'cortado' => $cortado,
+            'texto' => '',
+            'cortado' => false,
         ];
+    }
+
+    private static function cortar(string $texto, int $tamanho): string
+    {
+        return mb_strlen($texto) > $tamanho ? mb_substr($texto, 0, $tamanho) . '…' : $texto;
     }
 
     /** HTML do editor para texto plano, com as quebras de parágrafo preservadas. */
@@ -383,26 +429,22 @@ final class LerPastaFerramenta implements FerramentaDoConector
     }
 
     /**
-     * Os prazos e audiências em aberto (decisão 6), do mais próximo ao mais distante. O prazo lido do Push ou de um
-     * registro de aba oculta para a pessoa não sai, como as sugestões do andamento (decisão 4).
-     *
-     * @param list<string> $abasOcultas
+     * Os prazos e audiências em aberto (decisão 6), do mais próximo ao mais distante, como a aba Metas da tela
+     * (`PastaController`: todos os `abertosDaPasta`). A parte inteira é barrada pela aba Metas, na tabela de aba e chave.
+     * `omitidos`: os que passaram de {@see LIMITE_DE_PRAZOS}.
      *
      * @return array<string, mixed>
      */
-    private function prazosAbertos(Pasta $pasta, Tenant $escritorio, array $abasOcultas): array
+    private function prazosAbertos(Pasta $pasta, Tenant $escritorio): array
     {
-        $visiveis = array_values(array_filter(
-            $this->prazos->abertosDaPasta($pasta, $escritorio),
-            static fn (PastaPrazo $p): bool => !\in_array(self::abaDaOrigem($p)?->value, $abasOcultas, true),
-        ));
+        $abertos = $this->prazos->abertosDaPasta($pasta, $escritorio);
         $itens = [];
-        foreach (\array_slice($visiveis, 0, self::LIMITE_DE_PRAZOS) as $prazo) {
+        foreach (\array_slice($abertos, 0, self::LIMITE_DE_PRAZOS) as $prazo) {
             $linha = PastaPrazoOutput::dePrazo($prazo);
             $itens[] = [
                 'id' => (int) $prazo->getId(),
                 'tipo' => $prazo->getTipo(),
-                'titulo' => $this->protecao->rotulo($escritorio, $prazo->getTitulo(), 'sem título'),
+                'titulo' => $this->protecao->rotulo($escritorio, self::cortar($prazo->getTitulo(), self::TAMANHO_MAXIMO_DO_TITULO), 'sem título'),
                 'data' => $linha->dataIso,
                 'hora' => $linha->hora,
                 'responsavel' => $prazo->getResponsavel() !== null ? $this->protecao->rotulo($escritorio, $prazo->getResponsavel(), '') : null,
@@ -413,19 +455,7 @@ final class LerPastaFerramenta implements FerramentaDoConector
             ];
         }
 
-        return ['prazos' => $itens, 'omitidos' => max(0, \count($visiveis) - self::LIMITE_DE_PRAZOS)];
-    }
-
-    private static function abaDaOrigem(PastaPrazo $prazo): ?AbaDaPasta
-    {
-        if ($prazo->isPush()) {
-            return AbaDaPasta::Push;
-        }
-        if ($prazo->isManual()) {
-            return null;
-        }
-
-        return self::ABA_DA_ORIGEM_DO_PRAZO[explode(':', (string) $prazo->getRegistroRef())[0]] ?? null;
+        return ['prazos' => $itens, 'omitidos' => max(0, \count($abertos) - self::LIMITE_DE_PRAZOS)];
     }
 
     /**

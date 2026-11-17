@@ -30,18 +30,28 @@ use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
  *    cadeado ({@see AcessoAPasta::podeVer()}; senão {@see SemPermissaoParaVerPastaException});
  *  - os mesmos dados de {@see AndamentoDaPastaOutput::de()}: {@see AndamentoDaPasta::estado()}, `rotulos()` e
  *    `sugestoes()`;
- *  - sugestão que cita o Push ou o Financeiro sai quando a aba de origem está oculta para quem lê (decisão 4 do PR 6);
- *    com o Push oculto, as publicações nem são lidas;
- *  - com a aba Dados oculta, a contagem de registros por fase não sai (o Registro mora na aba Dados);
+ *  - sugestão sai quando a aba de onde ela vem (Push, Documentos, Processo, Financeiro) está oculta para quem lê
+ *    (decisão 4 do PR 6); com o Push oculto, as publicações nem são lidas;
+ *  - com a aba Dados oculta, a contagem de registros não sai: nem por fase, nem na base da trilha estimada (o Registro
+ *    mora na aba Dados);
  *  - nada é gravado: nenhum `marcar()`, nenhum flush.
  */
 final class LerAndamentoDaPastaUseCase
 {
-    /** O ícone da sugestão diz de onde ela veio ({@see AndamentoDaPasta::sugestoes()}): a aba de origem. */
+    /**
+     * O ícone da sugestão diz de onde ela veio ({@see AndamentoDaPasta::sugestoes()}): a aba de origem. Push (publicação),
+     * Documentos (arquivos anexados), Processo (processo vinculado) e Financeiro (contrato assinado).
+     */
     private const ABA_DA_SUGESTAO = [
         'bi-broadcast' => AbaDaPasta::Push,
+        'bi-paperclip' => AbaDaPasta::Documentos,
+        'bi-link-45deg' => AbaDaPasta::Processo,
         'bi-pen' => AbaDaPasta::Financeiro,
     ];
+
+    /** A base da estimativa que conta os registros ({@see AndamentoDaPasta}, `inferir()`: "N registro(s) na pasta"). */
+    private const BASE_PELOS_REGISTROS = '/^\d+ registro\(s\) na pasta$/u';
+    private const BASE_SEM_A_CONTAGEM = 'registros na pasta';
 
     public function __construct(
         private readonly AndamentoDaPasta $andamento,
@@ -60,6 +70,9 @@ final class LerAndamentoDaPastaUseCase
         $ocultas = $this->abas->abasOcultasPara($pasta, $quem);
 
         $estado = $this->andamento->estado($pasta, $tenant);
+        if (\in_array(AbaDaPasta::Dados, $ocultas, true) && $estado['inferida']) {
+            $estado['base'] = (string) preg_replace(self::BASE_PELOS_REGISTROS, self::BASE_SEM_A_CONTAGEM, $estado['base']);
+        }
         $publicacoes = \in_array(AbaDaPasta::Push, $ocultas, true) ? [] : null;
         $sugestoes = self::semAbaOculta($this->andamento->sugestoes($pasta, $tenant, $estado, $publicacoes), $ocultas);
         $mensagens = \in_array(AbaDaPasta::Dados, $ocultas, true) ? [] : $pasta->getMensagens();

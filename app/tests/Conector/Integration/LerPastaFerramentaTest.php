@@ -7,10 +7,12 @@ namespace App\Tests\Conector\Integration;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\CadeadoDaPasta;
@@ -80,24 +82,73 @@ final class LerPastaFerramentaTest extends KernelTestCase
         self::assertSame(['partes' => 1], $resposta->contagens);
     }
 
-    #[TestDox('todas as partes do PR 6 de uma vez: cada uma com a sua forma')]
+    #[TestDox('todas as partes do PR 6 de uma vez numa pasta cheia (50 mensagens longas, 50 prazos): cada uma com a sua forma e a resposta abaixo de 50 mil')]
     public function testTodasAsPartes(): void
     {
         $pasta = $this->pasta();
+        $longa = str_repeat("Linha com \"aspas\", barra / e acento ção.\n", 60);
+        for ($i = 1; $i <= 50; ++$i) {
+            $this->mensagem($pasta, '<p>' . $i . ' ' . $longa . '</p>');
+            $this->prazo($pasta, str_repeat('Prazo de título longo ', 12), '+' . $i . ' days', str_repeat('R', 120));
+        }
         $todas = ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'checklist', 'financeiro'];
 
-        $dados = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => $todas])->dados;
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => $todas]);
 
+        $dados = $resposta->dados;
         self::assertSame(['pasta_id', ...$todas], array_keys($dados));
         foreach (['metas' => '<metas>', 'detalhes' => '<observacoes>', 'checklist' => '<checklist>', 'financeiro' => '<financeiro>'] as $parte => $tag) {
             self::assertSame(['texto', 'omitidas'], array_keys($dados[$parte]), $parte);
             self::assertStringStartsWith($tag, $dados[$parte]['texto'], $parte);
         }
         self::assertSame(['via', 'atual', 'finalizada', 'estimada', 'base_da_estimativa', 'duracao', 'fases', 'sugestoes'], array_keys($dados['andamento']));
-        self::assertSame(['mensagens' => [], 'pagina' => 1, 'por_pagina' => 50], $dados['registro']);
+        self::assertCount(50, $dados['registro']['mensagens'], 'os 50 por página não mudam');
+        self::assertTrue($dados['registro']['mensagens'][0]['cortado']);
         self::assertSame(['campos', 'reu_completo', 'reus'], array_keys($dados['cadastro']));
-        self::assertSame(['prazos' => [], 'omitidos' => 0], $dados['prazos']);
-        self::assertLessThan(50_000, \strlen(json_encode($dados, \JSON_THROW_ON_ERROR)));
+        self::assertCount(50, $dados['prazos']['prazos']);
+        self::assertSame(0, $dados['prazos']['omitidos']);
+        $json = json_encode($dados + ['proxima_pagina' => $resposta->proximaPagina], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
+        self::assertLessThan(LerPastaFerramenta::TETO_DA_RESPOSTA + 1, mb_strlen($json));
+        self::assertLessThan(DespachoDasFerramentas::TETO_DE_CARACTERES, mb_strlen($json));
+    }
+
+    #[TestDox('registro: a máscara vem antes do corte; CPF e e-mail no limite dos 500 saem mascarados, não pela metade')]
+    public function testRegistroMascaraAntesDoCorte(): void
+    {
+        $pasta = $this->pasta();
+        $cpf = $this->mensagem($pasta, str_repeat('a', 490) . ' CPF ' . self::CPF . ' ' . str_repeat('b', 100));
+        $email = $this->mensagem($pasta, str_repeat('a', 492) . ' fulano.tal@exemplo.com.br ' . str_repeat('b', 100));
+
+        $mensagens = array_column($this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['registro']])->dados['registro']['mensagens'], null, 'id');
+
+        self::assertTrue($mensagens[$cpf->getId()]['cortado']);
+        self::assertStringNotContainsString('529', $mensagens[$cpf->getId()]['texto']);
+        self::assertTrue($mensagens[$email->getId()]['cortado']);
+        self::assertStringNotContainsString('fulan', $mensagens[$email->getId()]['texto']);
+    }
+
+    #[TestDox('financeiro: com a aba visível mas a VisibilidadeDoFinanceiroDaPasta negando, a parte é recusada como não encontrado')]
+    public function testFinanceiroRecusadoPelaVisibilidade(): void
+    {
+        $pasta = $this->pasta();
+        $nega = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $nega->method('podeVer')->willReturn(false);
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $nega);
+
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['financeiro']], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        static::getContainer()->get('services_resetter')->reset();
+        $resumo = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['resumo']]);
+        self::assertArrayNotHasKey('financeiro', $resumo->dados, 'o resto da pasta continua');
+    }
+
+    #[TestDox('pasta de outro escritório em que a mesma pessoa tem vínculo: não encontrado pela chamada deste escritório')]
+    public function testOutroEscritorioComVinculo(): void
+    {
+        $outro = $this->escritorio('Outro');
+        $this->vinculo($this->pessoa, $outro, permissoes: self::LEITOR);
+        $doOutro = $this->pasta($outro);
+
+        $this->assertMotivo(['pasta_id' => $doOutro->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
     }
 
     #[TestDox('registro: 55 mensagens dão a página 1 com as 50 mais recentes e proxima_pagina 2; a página 2 traz as 5 restantes')]
@@ -149,6 +200,7 @@ final class LerPastaFerramentaTest extends KernelTestCase
         yield 'detalhes pela aba Detalhes' => [AbaDaPasta::Detalhes, 'detalhes'];
         yield 'checklist pela aba Documentos' => [AbaDaPasta::Documentos, 'checklist'];
         yield 'metas pela aba Tarefas' => [AbaDaPasta::Tarefas, 'metas'];
+        yield 'prazos pela aba Tarefas (Metas)' => [AbaDaPasta::Tarefas, 'prazos'];
     }
 
     #[DataProvider('abaQueBarra')]
@@ -296,10 +348,10 @@ final class LerPastaFerramentaTest extends KernelTestCase
         return $mensagem;
     }
 
-    private function prazo(Pasta $pasta, string $titulo, string $quando): PastaPrazo
+    private function prazo(Pasta $pasta, string $titulo, string $quando, ?string $responsavel = null): PastaPrazo
     {
         $prazo = new PastaPrazo($this->escritorio, $pasta, $this->colega);
-        $prazo->definir(PastaPrazo::TIPO_PRAZO, $titulo, new \DateTimeImmutable($quando), null, null);
+        $prazo->definir(PastaPrazo::TIPO_PRAZO, $titulo, new \DateTimeImmutable($quando), null, $responsavel);
         $this->em()->persist($prazo);
         $this->em()->flush();
 

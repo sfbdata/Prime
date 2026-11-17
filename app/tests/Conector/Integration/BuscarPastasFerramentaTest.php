@@ -16,9 +16,11 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Zenstruck\Foundry\Test\Factories;
 
 /**
  * `buscar_pastas` com o banco e o portão de verdade (spec mcp-remoto-oauth 6.4 e decisões 1 a 3 do PR 6): a Lista do
@@ -29,6 +31,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 final class BuscarPastasFerramentaTest extends KernelTestCase
 {
     use CenarioDoConectorTrait;
+    use Factories;
 
     private const CPF = '529.982.247-25';
     private const LEITOR = ['modules.expediente.view', 'modules.pastas.view', 'resources.pasta.view'];
@@ -79,6 +82,22 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString(self::CPF, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE), 'no conector o CPF sai mascarado');
         self::assertStringNotContainsString((string) $deOutro->getNup(), json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
         self::assertSame(['pasta' => array_column($resposta->dados['pastas'], 'id')], $resposta->ids);
+    }
+
+    #[TestDox('buscar: a trancada que também está em segredo sai e conta como sem acesso, não como em segredo')]
+    public function testTrancadaEmSegredoContaComoSemAcesso(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $trancadaSecreta = $this->pasta($escritorio, nivelSigilo: 1);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancadaSecreta, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'buscar', 'busca' => (string) $trancadaSecreta->getNup()], $vinculo);
+
+        self::assertSame([], $resposta->dados['pastas']);
+        self::assertSame(0, $resposta->dados['omitidas_em_segredo']);
+        self::assertSame(1, $resposta->dados['omitidas_sem_acesso']);
     }
 
     #[TestDox('buscar: sem o recurso de ver a pasta, ela não aparece e a página conta quantas saíram')]
@@ -175,6 +194,30 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         static::getContainer()->get('services_resetter')->reset();
         $fora = $this->executar(['acao' => 'numero', 'numero' => $prefixo], $semEscopo);
         self::assertSame([], $fora->dados['resultados']);
+    }
+
+    #[TestDox('numero: acha a pasta pelo nome do cliente, e o resultado não traz o CPF dele')]
+    public function testNumeroPeloCliente(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $nome = 'Cliente Busca ' . random_int(100000, 999999);
+        $cliente = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => $nome, 'cpf' => self::CPF])->_real();
+        $pasta = $this->pasta($escritorio, comProcesso: false);
+        $pasta->addCliente($cliente);
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'numero', 'numero' => $nome], $vinculo);
+
+        $doCliente = array_values(array_filter($resposta->dados['resultados'], static fn (array $r): bool => $r['grupo'] === 'cliente'));
+        self::assertNotSame([], $doCliente, 'premissa: a busca rápida acha pelo cliente');
+        self::assertSame($pasta->getId(), $doCliente[0]['pasta_id']);
+        self::assertStringStartsWith('Pasta ', $doCliente[0]['subtitulo']);
+        $json = json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString(self::CPF, $json);
+        self::assertStringNotContainsString('52998224725', $json);
+        self::assertStringNotContainsString('[CPF]', $json);
+        self::assertStringNotContainsString('CPF', $json);
     }
 
     #[TestDox('minhas_demandas: só as pastas em que a pessoa é a responsável')]
