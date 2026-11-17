@@ -66,4 +66,27 @@ class ConsentimentoDoConectorRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Grava o último uso da conexão (13.2), no máximo uma vez por minuto
+     * ({@see ConsentimentoDoConector::INTERVALO_DO_ULTIMO_USO}): um UPDATE em DQL, preso ao escritório e só na conexão
+     * ativa. Não passa pela unidade de trabalho de propósito: não dá flush (nada pendente de outra parte vai junto) e
+     * não entra no `audit_log` (o último uso não é alteração de ninguém). A entidade em memória não muda. Devolve se
+     * gravou.
+     */
+    public function registrarUso(int $consentimentoId, Tenant $escritorio, \DateTimeImmutable $agora): bool
+    {
+        $limite = $agora->sub(new \DateInterval('PT' . ConsentimentoDoConector::INTERVALO_DO_ULTIMO_USO . 'S'));
+
+        return (int) $this->getEntityManager()->createQuery(
+            'UPDATE ' . ConsentimentoDoConector::class . ' c SET c.ultimoUsoEm = :agora'
+            . ' WHERE c.id = :id AND c.tenant = :tenant AND c.revogadoEm IS NULL'
+            . ' AND (c.ultimoUsoEm IS NULL OR c.ultimoUsoEm <= :limite)'
+        )
+            ->setParameter('agora', $agora, 'datetime_immutable')
+            ->setParameter('id', $consentimentoId)
+            ->setParameter('tenant', $escritorio)
+            ->setParameter('limite', $limite, 'datetime_immutable')
+            ->execute() > 0;
+    }
 }

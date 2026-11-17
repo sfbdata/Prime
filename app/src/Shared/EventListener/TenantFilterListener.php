@@ -20,7 +20,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * (`/oauth/authorize`, spec mcp-remoto-oauth 4 e 9.4) escolhe um escritório que pode não ser o da sessão, e lista os
  * escritórios da pessoa; com o filtro da sessão ligado, o escritório escolhido sumiria das consultas. Ali toda
  * consulta passa o escritório explícito. O `/oauth/token` também: ele não usa sessão, e o escritório vem da concessão;
- * um cookie de sessão que chegue junto não pode prender a troca ao escritório da sessão.
+ * um cookie de sessão que chegue junto não pode prender a troca ao escritório da sessão. O `/mcp` também: é sem sessão,
+ * e quem liga o filtro, com o escritório do token, é o PortaoDoConector.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 5)]
 final class TenantFilterListener
@@ -28,6 +29,7 @@ final class TenantFilterListener
     private const ROTAS_SEM_FILTRO = [
         'conector_oauth_autorizar',
         'conector_oauth_token',
+        'conector_mcp',
     ];
 
     public function __construct(

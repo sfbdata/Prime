@@ -2078,3 +2078,59 @@ entra num PR próprio depois de testada nos dois clientes.
     uma página de erro que deixaria o app esperando. Autorizar sem escolher o escritório volta à tela com aviso, sem
     gastar o pedido. Duas autorizações ao mesmo tempo da mesma pessoa saem uma de cada vez (a linha da pessoa é
     travada), sem erro na primeira conexão.
+
+**Decidido em 16/11/2026 no planejamento do PR 5 (orquestrador da frente, pela recomendação; o step-up, aceito pelo
+Coordenador):**
+
+1. **Resolução dupla mantida**: o validador do token confere a concessão inteira (`ConferenciaDaConcessao::exigir`, que
+   já passa pelo `PortaoDoConector::conferir`) e depois o middleware do portão chama `PortaoDoConector::abrir`, que
+   resolve a pessoa e o escritório de novo e tranca a requisição. Teste de arquitetura: só o middleware do portão chama
+   `abrir`.
+2. **Um juiz só**: o validador guarda o resultado da requisição (o autenticador do firewall e o `AuthorizationMiddleware`
+   leem o mesmo), e só o SDK formata o 401 e o 403 com o `WWW-Authenticate`.
+3. **Recusas**: concessão recusada (`ConcessaoRecusada`) e acesso recusado pelo portão por pessoa, escritório, termos
+   ou liberação (`AcessoDoConectorRecusado`) dão 401 `invalid_token` com mensagem fixa; filtro de escritório que não
+   ligou, requisição já aberta ou qualquer erro inesperado dão 503 sem desafio.
+4. **O portão roda na cadeia PSR-15**, depois do `AuthorizationMiddleware`: a `ScopePolicy` barra o escopo antes de
+   qualquer abertura.
+5. **`securitySchemes` só no `_meta`** de cada ferramenta (o SDK 0.10 não tem o campo no topo da ferramenta). Item do
+   smoke no ChatGPT.
+6. **Sem assinatura de eventos** (nenhum barramento de notificações), com `setSubscriptionLifetime(1.0)`. O valor 0
+   do planejamento estava errado: no SDK 0.10 o 0 é assinatura sem fim (`StatelessProtocol::listen`). O escolhido é
+   1 s, para nunca segurar um processo do PHP-FPM se um dia houver notificações; hoje, sem barramento, o
+   `subscriptions/listen` já encerra no reconhecimento.
+7. **Os números dos limites** do `/mcp` (`conector_chamada` 120 por minuto por pessoa e escritório,
+   `conector_chamada_escritorio` 600, `conector_documento` 20, `conector_confirmacao` 10) são ajustáveis no PR 15,
+   depois do smoke com os apps reais.
+8. **A rota do `/mcp` é `stateless: true`**, além do firewall sem sessão: o Symfony acusa qualquer uso da sessão nela.
+   O `IdiomaDaRequisicaoListener` não toca a sessão em requisição sem sessão (fica no português).
+9. **Step-up no ChatGPT**: aceito no piloto o 403 com `_meta["mcp/www_authenticate"]` num corpo JSON-RPC, como sai do
+   SDK; conferido no smoke. Plano B, se o ChatGPT não pedir o escopo que falta: a pessoa reconecta marcando a escrita.
+10. **nginx**: a `location ^~ /.well-known/oauth-` entra no `nginx/conf.d/nginx.prod.conf`, que é montado por pasta; o
+    deploy (`scripts/deploy-prod.sh`) roda `nginx -t` e recarrega o nginx sozinho. Sem passo manual, salvo se o deploy
+    avisar "'nginx -t' REPROVOU" (aí `docker exec jusprime_nginx_prod nginx -t` mostra o erro).
+
+**Decidido em 16/11/2026 na revisão dos blocos do PR 5 (orquestrador da frente, pela recomendação):**
+
+11. **A descrição do 401 é ASCII e fixa** no `WWW-Authenticate` (RFC 6750, 3), uma por categoria (token, autorização,
+    escritório, termos, liberação), sem nome de escritório nem de pessoa; o motivo detalhado fica só no log `mcp`.
+12. **Preflight (`OPTIONS`) recebe 204 sem passar pelo portão**: o CORS do SDK não encerra o preflight e o portão
+    responderia 503. Origem de fora continua barrada com 403 pela proteção contra DNS rebinding (CORS fechado, 8).
+13. **Rota sem sessão não toca a sessão em nenhum listener**: `ExpiracaoDaSessaoListener`,
+    `SessaoEncerradaEmTodosOsAparelhosListener` e a resolução da pasta da rota (`PastaDaRota`) saem cedo quando a rota
+    é `_stateless`. Sem isso, um cookie de sessão que chegasse ao `/mcp` abria a sessão (12.18).
+14. **Step-up de pedido sem `id`** (notificação ou lote) sai como erro JSON-RPC (`id` nulo, código -32000) com o `_meta`
+    em `error.data`; com `id`, como resultado com `_meta`. O 429 também leva um corpo JSON-RPC com mensagem fixa.
+15. **Aceitos no piloto**: campo fora do esquema da ferramenta é barrado pelo próprio SDK (erro -32602, em inglês);
+    as versões antigas do protocolo que o SDK aceita no handshake ficam aceitas, além das duas da 3.5; o mapa de
+    ferramenta para módulo do `quem_sou_eu` é aproximado até o PR 6 trazer a tabela por ação. **Smoke**: conferir se
+    algum app de I.A. manda `Origin` de servidor a servidor (a proteção contra DNS rebinding daria 403).
+16. **Ressalvas da re-revisão do PR inteiro**, aceitas no piloto:
+    - O metadado do recurso (as duas URLs) segue no firewall `main`, sem `stateless`, como o metadado do PR 3. Com
+      `stateless`, o `TenantFilterListener` e o `SessaoDeContaAConfirmarListener` usariam a sessão e o Symfony lançaria
+      em debug. Os apps chamam sem cookie; com cookie de navegador logado, a sessão pode ser renovada, sem efeito no
+      documento.
+    - Se o `PortaoDoConector::abrir()` recusar pessoa ou escritório depois do validador aceitar (corrida na mesma
+      requisição), a resposta é 503, não 401. Falha fechada: nada é despachado.
+    - Lote JSON-RPC: a `ScopePolicy` só vê o escopo padrão, e quem recusa o lote é o SDK (400).
+      `McpControllerTest::testLoteNaoChegaAoDespacho` prende isso para os PRs 9 a 13 e para uma troca de SDK.

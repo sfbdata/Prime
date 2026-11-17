@@ -109,6 +109,25 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         self::assertNotNull($this->tokens->getToken());
     }
 
+    #[TestDox('Rota sem estado (o /mcp do conector) com o cookie do navegador: não toca a sessão; a do navegador continua expirando')]
+    public function testRotaSemEstadoNaoTocaASessao(): void
+    {
+        $this->entrar();
+        $usoAntes = $this->sessao->getUsageIndex();
+        foreach ([[], ['/mcp']] as $publicas) {
+            $evento = $this->executar(['sessao' => '60'], minutosParado: 600, caminho: '/mcp', publicas: $publicas, semEstado: true);
+
+            self::assertNull($evento->getResponse());
+            self::assertNotNull($this->tokens->getToken());
+        }
+        self::assertSame($usoAntes, $this->sessao->getUsageIndex(), 'nem leitura nem escrita na sessão');
+        self::assertFalse($this->sessao->has(ExpiracaoDaSessaoListener::CARIMBO));
+
+        $navegador = $this->executar(['sessao' => '60'], minutosParado: 600, caminho: '/mcp');
+        self::assertSame(302, $navegador->getResponse()?->getStatusCode());
+        self::assertNull($this->tokens->getToken());
+    }
+
     /** @return iterable<string, array{string}> */
     public static function rotasIgnoradas(): iterable
     {
@@ -248,9 +267,13 @@ final class ExpiracaoDaSessaoListenerTest extends TestCase
         array $cookies = [],
         array $publicas = [],
         int $gc = 86400,
+        bool $semEstado = false,
     ): RequestEvent {
         $request = Request::create($caminho, 'GET', [], ($cookie ? [$this->sessao->getName() => 'abc'] : []) + $cookies, [], $cabecalhos);
         $request->setSession($this->sessao);
+        if ($semEstado) {
+            $request->attributes->set('_stateless', true);
+        }
 
         $relogio = new MockClock(new \DateTimeImmutable('@' . ($this->inicio + $minutosParado * 60)));
         $urls = $this->createStub(UrlGeneratorInterface::class);

@@ -29,9 +29,11 @@ use App\Termo\TermoVigente;
  *    `/mcp`, antes de despachar a ferramenta. Uma vez por requisição: abrir de novo recusa (falha fechada); o
  *    `reset()` dos serviços zera tudo no fim.
  *
- * O que fica para o PR do `/mcp` (ponto marcado em {@see resolver()}): liberação nos três níveis (14.a), corte de
- * "Sair de todos os aparelhos" (`autorizado_em`) e impressão da senha (seção 4, regra 3). São dados do token, que este
- * PR ainda não tem.
+ * O que o portão NÃO confere: a liberação nos três níveis (14.a), o corte de "Sair de todos os aparelhos"
+ * (`autorizado_em`) e a impressão da senha (seção 4, regra 3). São dados da concessão do token, e quem os confere é a
+ * {@see ConferenciaDaConcessao::exigir()}, que também chama {@see conferir()}. No `/mcp` (PR 5), o validador do token
+ * roda a conferência da concessão antes, e só depois o middleware do portão chama {@see abrir()}: a pessoa e o
+ * escritório são resolvidos duas vezes de propósito, e só {@see abrir()} tranca a requisição.
  */
 final class PortaoDoConector
 {
@@ -108,8 +110,6 @@ final class PortaoDoConector
         if ($vinculo === null || !$vinculo->isActive() || $vinculo->getSituacao() !== SituacaoNaEquipe::Aprovado) {
             throw AcessoDoConectorRecusado::escritorio();
         }
-
-        // PR do `/mcp`: liberação nos três níveis, `autorizado_em` e impressão da senha entram aqui.
 
         if (!$this->aceites->existeAceiteVigente($pessoa, $this->termoVigente->getVersao())) {
             throw AcessoDoConectorRecusado::termos();

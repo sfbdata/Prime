@@ -24,6 +24,11 @@ use Symfony\Component\Translation\LocaleSwitcher;
  *
  * Rota com locale fixo (`#[Route(locale: 'pt_BR')]`, o `_locale` da rota) fica nele: é o caso dos Termos de Uso e da
  * Política de Privacidade, que só existem em português (o aceite e a ciência estão amarrados ao texto pt).
+ *
+ * Requisição sem sessão (`_stateless`, como o `/mcp` do conector de I.A.) fica no português e não toca a sessão: ler
+ * ou gravar nela abriria a sessão (o Symfony acusa o uso numa requisição sem sessão) e mandaria `Set-Cookie` (spec
+ * mcp-remoto-oauth 12.18).
+ * O conector responde com mensagens fixas em português (6.2), então não há idioma da pessoa a buscar.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 7)]
 final class IdiomaDaRequisicaoListener
@@ -60,6 +65,10 @@ final class IdiomaDaRequisicaoListener
 
     private function idiomaDe(Request $request): Idioma
     {
+        if ($request->attributes->getBoolean('_stateless')) {
+            return Idioma::PADRAO;
+        }
+
         $usuario = $this->security->getUser();
         if (!$usuario instanceof User || !$request->hasSession()) {
             return Idioma::PADRAO;

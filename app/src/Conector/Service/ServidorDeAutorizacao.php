@@ -15,6 +15,8 @@ namespace App\Conector\Service;
  *   pessoa cola no Claude e no ChatGPT.
  * - Escopos: `mcp:leitura` e `mcp:escrita` (5.1) e `offline_access`, que só aparece no metadado do servidor de
  *   autorização (o Claude o acrescenta quando ele está lá), nunca no do recurso nem no `WWW-Authenticate`.
+ * - Rotas e caminhos do `/mcp` e do metadado do recurso (3.3 e 8): os listeners de `kernel.request`, o firewall e os
+ *   controllers do PR 5 leem daqui.
  */
 final class ServidorDeAutorizacao
 {
@@ -34,6 +36,23 @@ final class ServidorDeAutorizacao
     public const ROTA_AUTORIZAR = 'conector_oauth_autorizar';
     public const ROTA_TOKEN = 'conector_oauth_token';
     public const ROTA_METADADO = 'conector_oauth_metadado';
+
+    /**
+     * O servidor de recurso (`/mcp`, PR 5). A rota do `/mcp` tem nome próprio para a auditoria (6.2, regra 13): o
+     * `audit_log` grava o nome da rota, e toda alteração feita pelo conector fica marcada por ele.
+     */
+    public const ROTA_MCP = 'conector_mcp';
+    public const CAMINHO_MCP = '/mcp';
+
+    /**
+     * O metadado do recurso (RFC 9728) nas duas URLs da 3.3: a derivada do recurso, que o `WWW-Authenticate` do 401
+     * anuncia, e a da raiz. Um controller nosso serve as duas com o mesmo JSON (o `ProtectedResourceMetadata` do SDK
+     * serve só a primeira, 3.1).
+     */
+    public const ROTA_METADADO_DO_RECURSO = 'conector_metadado_do_recurso';
+    public const CAMINHO_METADADO_DO_RECURSO = '/.well-known/oauth-protected-resource/mcp';
+    public const ROTA_METADADO_DO_RECURSO_RAIZ = 'conector_metadado_do_recurso_raiz';
+    public const CAMINHO_METADADO_DO_RECURSO_RAIZ = '/.well-known/oauth-protected-resource';
 
     private function __construct()
     {
