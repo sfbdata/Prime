@@ -102,6 +102,14 @@ class PautaDaAssembleiaRepository extends ServiceEntityRepository
         return $pautas;
     }
 
+    /** Relê do banco o estado das pautas da assembleia (um encerramento de outra requisição não pode passar despercebido). */
+    public function recarregarDaAssembleia(Assembleia $assembleia): void
+    {
+        foreach ($assembleia->getPautas() as $pauta) {
+            $this->getEntityManager()->refresh($pauta);
+        }
+    }
+
     /** Relê os agregados atualizados por SQL antes de mostrar um resultado final. */
     public function relerContadores(PautaDaAssembleia $pauta): void
     {

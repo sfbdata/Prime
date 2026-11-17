@@ -7,6 +7,7 @@ namespace App\Voto\Entity;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\TenantAware;
 use App\Voto\Enum\PesoDoVoto;
+use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -145,6 +146,19 @@ class UnidadeDaAssembleia implements TenantAware
         $normalizada = u($situacao ?? '')->ascii()->lower()->trim()->toString();
 
         return '' === $normalizada || \in_array($normalizada, self::SITUACOES_APTAS, true);
+    }
+
+    /**
+     * Decisão do conselho (spec voto-avaliacoes-do-conselho-1611): a unidade passa a ser apta, sem tocar em `situacao` (o
+     * que veio da lista importada fica como está). Com peso por fração ideal, a unidade precisa ter fração: sem ela votaria
+     * com peso zero sem ninguém perceber. Quem confere "nenhuma pauta encerrada" é o UseCase.
+     */
+    public function tornarAptaPeloConselho(): void
+    {
+        if (PesoDoVoto::Fracao === $this->assembleia->getPeso() && bccomp($this->fracao ?? '0', '0', 6) <= 0) {
+            throw new OperacaoInvalidaNaAssembleiaException('Com peso por fração ideal, a unidade precisa de fração para ficar apta.');
+        }
+        $this->apta = true;
     }
 
     /** "Gerar novo link": o anterior deixa de valer e a unidade volta a "ainda não recebeu" o link por e-mail. */

@@ -81,6 +81,17 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $simulacao = false;
 
+    /**
+     * Impressão digital da lista de unidades (sha256), gravada no momento em que ela trava: a 1ª pauta sai de "aguardando"
+     * (spec voto-avaliacoes-do-conselho-1611, seção 2). Nula até a trava (e nas assembleias que travaram antes dela existir).
+     * A decisão do conselho muda a aptidão depois, e por isso NUNCA a recalcula.
+     */
+    #[ORM\Column(length: 64, nullable: true, options: ['fixed' => true])]
+    private ?string $hashDaLista = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $listaTravadaEm = null;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -184,6 +195,8 @@ class Assembleia implements TenantAware, Auditavel
         $this->arquivadaEm = null;
         $this->arquivadaMotivo = null;
         $this->arquivadaPorNome = null;
+        $this->hashDaLista = null;
+        $this->listaTravadaEm = null;
         $this->codigoPublico = bin2hex(random_bytes(16));
         foreach ($this->pautas as $pauta) {
             $pauta->reiniciar();
@@ -315,6 +328,85 @@ class Assembleia implements TenantAware, Auditavel
         }
 
         return true;
+    }
+
+    /**
+     * Trava a lista: grava o hash e a hora, uma vez só (chamada quando a 1ª pauta vai sair de "aguardando"; as demais
+     * aberturas não mudam nada). A aptidão que o conselho muda depois não entra aqui.
+     */
+    public function travarLista(?\DateTimeImmutable $agora = null): void
+    {
+        if (null !== $this->listaTravadaEm) {
+            return;
+        }
+        $this->hashDaLista = self::hashDasUnidades($this->unidades->toArray());
+        $this->listaTravadaEm = $agora ?? new \DateTimeImmutable();
+    }
+
+    /**
+     * sha256 das unidades em ordem estável (bloco, identificação, aptidão e fração), sem o responsável, o e-mail nem o
+     * link: só o que define quem vota e com que peso.
+     *
+     * @param list<UnidadeDaAssembleia> $unidades
+     */
+    public static function hashDasUnidades(array $unidades): string
+    {
+        $linhas = array_map(static fn (UnidadeDaAssembleia $u): array => [
+            $u->getBloco(), $u->getIdentificacao(), $u->isApta(), null === $u->getFracao() ? null : bcadd($u->getFracao(), '0', 6),
+        ], $unidades);
+        usort($linhas, static fn (array $x, array $y): int => [$x[0], $x[1]] <=> [$y[0], $y[1]]);
+
+        return hash('sha256', json_encode($linhas, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Alguma pauta já encerrou (ou o prazo dela já venceu, que é o mesmo: nenhum voto entra mais): a partir daí a aptidão
+     * não muda mais ("Votação encerrada: a aptidão não pode mais ser alterada.").
+     */
+    public function algumaPautaEncerrada(?\DateTimeImmutable $agora = null): bool
+    {
+        $agora ??= new \DateTimeImmutable();
+        foreach ($this->pautas as $pauta) {
+            if (EstadoDaPauta::Encerrada === $pauta->getEstado() || $pauta->prazoVencidoEm($agora)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A assembleia acabou: arquivada, ou com todas as pautas da ordem do dia (as não retiradas) encerradas. Ocorrência só
+     * se registra até aí (spec voto-avaliacoes-do-conselho-1611, seção 2).
+     */
+    public function acabou(?\DateTimeImmutable $agora = null): bool
+    {
+        $agora ??= new \DateTimeImmutable();
+        if ($this->arquivada()) {
+            return true;
+        }
+        $naOrdemDoDia = 0;
+        foreach ($this->pautas as $pauta) {
+            if ($pauta->retirada()) {
+                continue;
+            }
+            ++$naOrdemDoDia;
+            if (EstadoDaPauta::Encerrada !== $pauta->getEstado() && !$pauta->prazoVencidoEm($agora)) {
+                return false;
+            }
+        }
+
+        return $naOrdemDoDia > 0;
+    }
+
+    public function getHashDaLista(): ?string
+    {
+        return $this->hashDaLista;
+    }
+
+    public function getListaTravadaEm(): ?\DateTimeImmutable
+    {
+        return $this->listaTravadaEm;
     }
 
     public function exigirPautasAlteraveis(): void

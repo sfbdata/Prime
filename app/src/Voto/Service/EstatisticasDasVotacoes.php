@@ -11,6 +11,7 @@ use App\Voto\Entity\Assembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -20,6 +21,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * por unidade. O TenantFilter fica suspenso durante TODA a leitura (a coleção lazy e os repositórios leem outros
  * escritórios) e volta ao estado de antes no fim. Quem chama já exigiu o Master.
  *
+ * Ocorrências e avaliações do conselho (W2-7b): contadas por ASSEMBLEIA numa consulta só para o lote (só números; nenhum texto
+ * de ocorrência, nome ou unidade sai daqui).
+ *
  * Fora: rascunho e simulação (a consulta; desenho H466). Pauta cancelada e retirada entram com o chip do estado delas e
  * não contam como realizadas. Lê só números (`montarSoNumeros`: sem relação nominal, sem refresh, sem apuração): o
  * quórum vem da mesma conta da ApuracaoDaPauta sobre a participação, em qualquer estado, e nada além da participação
@@ -27,10 +31,13 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class EstatisticasDasVotacoes
 {
+    private const SEM_OCORRENCIA = ['ocorrencias' => 0, 'pendentes' => 0, 'mantidas' => 0, 'tornados_aptos' => 0];
+
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly LeituraDaAssembleia $leitura,
         private readonly EntityManagerInterface $em,
+        private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
     ) {
     }
 
@@ -43,8 +50,11 @@ final class EstatisticasDasVotacoes
         }
         try {
             $linhas = [];
-            foreach ($this->assembleias->listarParaEstatisticasDoMaster($categoria) as $assembleia) {
-                array_push($linhas, ...$this->daAssembleia($assembleia));
+            $doMaster = $this->assembleias->listarParaEstatisticasDoMaster($categoria);
+            // Uma consulta para o lote: ocorrências e avaliações, contadas por assembleia (não por pauta).
+            $contagens = $this->ocorrencias->contagensPorAssembleia(array_map(static fn (Assembleia $a): int => (int) $a->getId(), $doMaster));
+            foreach ($doMaster as $assembleia) {
+                array_push($linhas, ...$this->daAssembleia($assembleia, $contagens[(int) $assembleia->getId()] ?? self::SEM_OCORRENCIA));
             }
         } finally {
             if ($estavaLigado) {
@@ -55,8 +65,12 @@ final class EstatisticasDasVotacoes
         return new EstatisticasDoVotoOutput($linhas);
     }
 
-    /** @return list<EstatisticaDaVotacao> */
-    private function daAssembleia(Assembleia $assembleia): array
+    /**
+     * @param array{ocorrencias: int, pendentes: int, mantidas: int, tornados_aptos: int} $contagem a da assembleia
+     *
+     * @return list<EstatisticaDaVotacao>
+     */
+    private function daAssembleia(Assembleia $assembleia, array $contagem): array
     {
         $linhas = [];
         foreach ($this->leitura->montarSoNumeros($assembleia)->pautas as $pauta) {
@@ -71,6 +85,11 @@ final class EstatisticasDasVotacoes
                 aptos: $pauta->unidadesAptas,
                 votantes: $pauta->votantes,
                 quorum: self::quorum($pauta),
+                ocorrencias: $contagem['ocorrencias'],
+                pendentes: $contagem['pendentes'],
+                mantidas: $contagem['mantidas'],
+                tornadosAptos: $contagem['tornados_aptos'],
+                primeiraDaAssembleia: [] === $linhas,
             );
         }
 

@@ -41,6 +41,13 @@
         {% else %}
             <div class="voto-estado voto-estado-erro">{{ 'voto.assembleia.gestor.unidades.obrigatoria'|trans }}</div>
         {% endif %}
+        {# Hash da lista (gravado quando ela travou, E232) e as alterações do conselho depois disso (H462). #}
+        {% if tela.hashDaLista %}
+            <div class="voto-hash vMono" data-voto-hash>{{ 'voto.assembleia.gestor.ocorrencia.hash'|trans({hash: tela.hashDaLista[:32]}) }}</div>
+            {% if tela.alteracoesDoConselho > 0 %}
+                <div class="voto-texto" data-voto-alteracoes>{{ 'voto.assembleia.gestor.ocorrencia.alteracoes'|trans({n: tela.alteracoesDoConselho}) }}</div>
+            {% endif %}
+        {% endif %}
         {% if tela.somaForaDoEsperado %}
             <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: tela.somaDasFracoes|voto_fracao}) }}</div>
         {% endif %}
@@ -72,9 +79,15 @@
     {% else %}
         <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.links.antes_de_publicar'|trans }}</div>
     {% endif %}
+    {% if tela.unidades is not empty %}
+        <div class="vLin">
+            <label class="voto-busca">{{ 'voto.assembleia.gestor.ocorrencia.busca'|trans }}<input class="vF" type="search" autocomplete="off" data-voto-busca-unidade></label>
+            <div class="voto-vazio" data-voto-busca-vazia hidden>{{ 'voto.assembleia.gestor.ocorrencia.nenhuma_unidade'|trans }}</div>
+        </div>
+    {% endif %}
     {% for u in tela.unidades %}
         {% set link = url('voto_assembleia_cedula', {token: u.token}) %}
-        <div class="vLin voto-unidade" id="unidade-{{ u.id }}">
+        <div class="vLin voto-unidade" id="unidade-{{ u.id }}" data-voto-unidade-busca="{{ u.responsavel }} {{ u.identificacao }} {{ u.bloco }}">
             <div class="voto-unidade-dados">
                 <b>{{ u.rotulo }}</b>
                 <span class="vChip" style="background:{{ u.apta ? '#1e7b45' : '#a3232b' }}">{{ (u.apta ? 'voto.assembleia.gestor.unidades.apto' : 'voto.assembleia.gestor.unidades.nao_apto')|trans }}</span>
@@ -105,6 +118,28 @@
                     </form>
                 {% endif %}
             </div>
+            {% if u.ocorrencia %}
+                {% set oc = u.ocorrencia %}
+                {% set quando = oc.registradaEm|date('d/m/Y H:i:s') %}
+                <div class="voto-ocorrencia-texto" data-voto-ocorrencia>
+                    {{ 'voto.assembleia.gestor.ocorrencia.texto'|trans({texto: oc.texto}) }}<br>
+                    {% if oc.pendente %}
+                        {{ 'voto.assembleia.gestor.ocorrencia.historico_pendente'|trans({data: quando, por: oc.registradaPor}) }}
+                    {% elseif oc.avaliacao is not null %}
+                        {{ (oc.avaliacao.value == 'tornada_apta' ? 'voto.assembleia.gestor.ocorrencia.historico_concedida' : 'voto.assembleia.gestor.ocorrencia.historico_mantida')|trans({data: quando, por: oc.registradaPor, decisao: oc.decididaEm|date('d/m/Y H:i:s'), justificativa: oc.justificativa}) }}
+                    {% else %}
+                        {{ 'voto.assembleia.gestor.ocorrencia.historico_registrada'|trans({data: quando, por: oc.registradaPor}) }}
+                    {% endif %}
+                </div>
+            {% endif %}
+            {# Registrar ocorrência: a comissão e a Administração (voto_edita); com avaliação pendente aberta a nova é recusada, então o campo some. #}
+            {% if voto_edita(a.id) and tela.aceitaOcorrencia and not (u.ocorrencia and u.ocorrencia.pendente) %}
+                <form method="post" class="voto-ocorrencia" action="{{ path('voto_assembleia_unidade_ocorrencia', {id: a.id, unidade: u.id}) }}">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <input class="vF" type="text" name="ocorrencia" maxlength="80" placeholder="{{ 'voto.assembleia.gestor.ocorrencia.campo'|trans }}" aria-label="{{ 'voto.assembleia.gestor.ocorrencia.rotulo'|trans }}" data-voto-exige-texto>
+                    <button type="submit" class="vB vP" data-voto-exige-botao>{{ 'voto.assembleia.gestor.ocorrencia.registrar'|trans }}</button>
+                </form>
+            {% endif %}
         </div>
     {% else %}
         <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.unidades.vazio'|trans }}</div>
@@ -118,4 +153,9 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/voto-avaliacoes.js') }}" defer></script>
 {% endblock %}

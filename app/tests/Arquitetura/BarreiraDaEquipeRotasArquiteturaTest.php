@@ -84,9 +84,19 @@ final class BarreiraDaEquipeRotasArquiteturaTest extends KernelTestCase
         }
     }
 
-    #[TestDox('as leituras por POST que o Visualizar alcança são só as minutas')]
-    public function testVisualizarSoAlcancaAsMinutas(): void
+    #[TestDox('o Visualizar alcança só as minutas (leitura) e a decisão do conselho (a única escrita), e a escrita confere o papel no UseCase')]
+    public function testVisualizarSoAlcancaAsMinutasEADecisaoDoConselho(): void
     {
-        self::assertSame(['voto_assembleia_minuta', 'voto_assembleia_pauta_minuta'], array_keys(BarreiraDaEquipeListener::ROTAS_DO_VISUALIZAR));
+        self::assertSame(
+            ['voto_assembleia_minuta', 'voto_assembleia_pauta_minuta', 'voto_assembleia_avaliacao_decidir'],
+            array_keys(BarreiraDaEquipeListener::ROTAS_DO_VISUALIZAR),
+            'rota nova em ROTAS_DO_VISUALIZAR dá escrita a quem só lê: decisão do Coordenador e re-revisão do teto.',
+        );
+        $rota = self::rotas()['voto_assembleia_avaliacao_decidir'];
+        self::assertSame(['POST'], $rota->getMethods());
+        // O papel é conferido também no UseCase, nunca só pela barreira de rota.
+        $usecase = (string) file_get_contents(__DIR__ . '/../../src/Voto/UseCase/DecidirAvaliacaoUseCase.php');
+        self::assertStringContainsString('podeDecidirAvaliacao(', $usecase);
+        self::assertStringContainsString('SemPapelNaAvaliacaoException', $usecase);
     }
 }

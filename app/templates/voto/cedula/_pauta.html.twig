@@ -37,7 +37,7 @@
             {%- set tempo = '%02d:%02d'|format(pauta.segundosAtePrazo // 60, pauta.segundosAtePrazo % 60) -%}
             <div class="vcMsg vcMsgAmbar" data-vc-prazo="{{ pauta.segundosAtePrazo }}" data-vc-modelo="{{ 'voto.assembleia.cedula.mensagem.encerra_em'|trans({tempo: '{t}'}) }}"><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-vc-prazo-texto>{{ 'voto.assembleia.cedula.mensagem.encerra_em'|trans({tempo: tempo}) }}</span></div>
         {% elseif not pauta.encerrada() and not cedula.apta %}
-            <div class="vcMsg vcMsgVermelho" data-vc-inapta><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.inapta'|trans }}</div>
+            <div class="vcMsg vcMsgVermelho" data-vc-inapta><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.inapta'|trans }}{% if cedula.ocorrencia is not null %} <span data-vc-ocorrencia>{{ (cedula.ocorrenciaEmAvaliacao ? 'voto.assembleia.cedula.mensagem.ocorrencia_em_avaliacao' : 'voto.assembleia.cedula.mensagem.ocorrencia')|trans({texto: cedula.ocorrencia}) }}</span>{% endif %}</div>
         {% elseif pauta.aguardando() %}
             <div class="vcMsg vcMsgAzul" data-vc-aguardando><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.mensagem.aguardando'|trans }}</div>
         {% endif %}

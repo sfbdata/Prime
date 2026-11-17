@@ -8,9 +8,12 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\LinhaDeUnidade;
 use App\Voto\DTO\ResultadoDaImportacao;
 use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\OcorrenciaDaUnidade;
+use App\Voto\Enum\OrigemDaOcorrencia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\LeitorDaListaDeUnidades;
@@ -23,10 +26,15 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * válidas ENTRAM na lista (cada uma com o seu link); quem já estava fica como está, e a linha que repete uma unidade
  * já cadastrada conta como duplicada. Devolve o relatório das inválidas e das duplicadas.
  *
+ * A coluna 8 `ocorrencia` (opcional) vira uma ocorrência de origem "importação", sem avaliação (spec
+ * voto-avaliacoes-do-conselho-1611, seção 2).
+ *
  * Não substitui a lista: os links já enviados continuam valendo. Para corrigir uma unidade, remova e importe de novo.
  */
 final class ImportarUnidadesUseCase
 {
+    public const AUTOR_DA_IMPORTACAO = 'Importação da lista';
+
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly UnidadeDaAssembleiaRepository $unidades,
@@ -34,6 +42,7 @@ final class ImportarUnidadesUseCase
         private readonly TokenDaUnidade $tokens,
         private readonly ArquivoDeUnidades $arquivos,
         private readonly SerializacaoDaConfiguracao $serializacao,
+        private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
     ) {
     }
 
@@ -82,7 +91,12 @@ final class ImportarUnidadesUseCase
 
                 continue;
             }
-            $this->unidades->salvar($this->novaUnidade($assembleia, $linha));
+            $unidade = $this->novaUnidade($assembleia, $linha);
+            $this->unidades->salvar($unidade);
+            if (null !== $linha->ocorrencia) {
+                // Coluna 8 da lista (N97 do desenho): entra como origem "importação" e sem avaliação, mesmo em unidade não apta.
+                $this->ocorrencias->salvar(new OcorrenciaDaUnidade($assembleia, $unidade, $linha->ocorrencia, OrigemDaOcorrencia::Importacao, self::AUTOR_DA_IMPORTACAO));
+            }
             ++$importadas;
         }
         $this->assembleias->salvar($assembleia, flush: true);

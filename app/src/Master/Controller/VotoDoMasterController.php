@@ -121,6 +121,10 @@ final class VotoDoMasterController extends AbstractController
                 'participacao' => $e->participacaoNasRealizadas(),
                 'quorumAtingido' => $e->quorumAtingido(),
                 'quorumExigido' => $e->comQuorumExigido(),
+                'ocorrencias' => $e->ocorrencias(),
+                'avaliacoesPendentes' => $e->avaliacoesPendentes(),
+                'inaptidoesMantidas' => $e->inaptidoesMantidas(),
+                'tornadosAptos' => $e->tornadosAptos(),
             ],
             'linhas' => array_map(fn (EstatisticaDaVotacao $l): array => [
                 'escritorio' => $l->escritorio,
@@ -135,6 +139,7 @@ final class VotoDoMasterController extends AbstractController
                 'votantes' => $l->votantes,
                 'participacao' => $l->participacao(),
                 'quorum' => null === $l->quorum ? null : $this->tradutor->trans('master.voto.estatisticas.quorum.' . $l->quorum),
+                'ocorrencias' => $l->ocorrencias,
             ], $e->linhas),
         ];
     }

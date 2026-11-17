@@ -126,9 +126,11 @@
     nome.appendChild(el('div', 'mp-est-det', [l.escritorio, l.entidade, l.assembleia, l.categoria, l.ate ? T('master.js.voto.est_ate', { data: l.ate }) : null].filter(Boolean).join(' · ')));
     lin.appendChild(nome);
     const p = { n: l.votantes, m: l.aptos, pc: l.participacao };
-    lin.appendChild(el('div', 'mp-est-num', l.quorum === null
+    // "· N ocorrência(s)" fecha a linha, como o desenho (H466); o número é o da assembleia.
+    const numeros = l.quorum === null
       ? T('master.js.voto.est_numeros', p)
-      : T('master.js.voto.est_numeros_quorum', Object.assign({ quorum: l.quorum }, p))));
+      : T('master.js.voto.est_numeros_quorum', Object.assign({ quorum: l.quorum }, p));
+    lin.appendChild(el('div', 'mp-est-num', numeros + ' · ' + T('master.js.voto.est_ocorrencias', { o: l.ocorrencias })));
     const chip = el('span', 'vChip', l.situacao);
     chip.style.background = l.cor;
     lin.appendChild(chip);
@@ -146,6 +148,8 @@
     [['est_kpi_votacoes', k.votacoes], ['est_kpi_realizadas', k.realizadas], ['est_kpi_andamento', k.emAndamento],
       ['est_kpi_aptos', k.aptos], ['est_kpi_votantes', k.votantes], ['est_kpi_participacao', k.participacao],
       ['est_kpi_quorum', T('master.js.voto.est_kpi_quorum_valor', { x: k.quorumAtingido, y: k.quorumExigido })],
+      ['est_kpi_ocorrencias', k.ocorrencias], ['est_kpi_pendentes', k.avaliacoesPendentes],
+      ['est_kpi_mantidas', k.inaptidoesMantidas], ['est_kpi_tornados', k.tornadosAptos],
     ].forEach(x => estKpis.appendChild(estKpi(T('master.js.voto.' + x[0]), x[1])));
     estLinhas.textContent = '';
     if (!d.linhas.length) estLinhas.appendChild(el('div', 'vLin mp-est-vazio', T('master.js.voto.est_sem')));

@@ -13,7 +13,7 @@ use function Symfony\Component\String\u;
 
 /**
  * Lê a lista de unidades colada pelo gestor (spec voto-assembleia-condominio, seção 1.4): uma por linha,
- * `unidade; bloco; situação; fração; responsável; e-mail; telefone` (ponto e vírgula, ou tabulação quando vem colada de uma
+ * `unidade; bloco; situação; fração; responsável; e-mail; telefone; ocorrência` (ponto e vírgula, ou tabulação quando vem colada de uma
  * planilha). Uma primeira linha de cabeçalho (unidade, identificacao...) é pulada.
  *
  * Regras do desenho (importação, N97): linha sem unidade ou com fração menor ou igual a zero é inválida; a mesma
@@ -66,7 +66,7 @@ final class LeitorDaListaDeUnidades
             if ([] === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
                 continue;
             }
-            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 7, '')),
+            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 8, '')),
                 $peso, $lidas, $vistas);
         }
 
@@ -117,7 +117,7 @@ final class LeitorDaListaDeUnidades
     /** @param list<string> $colunas */
     private static function linha(int $numero, array $colunas, PesoDoVoto $peso): LinhaDeUnidade
     {
-        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email, $telefone] = $colunas;
+        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email, $telefone, $ocorrencia] = $colunas;
         if ('' === $identificacao) {
             throw new OperacaoInvalidaNaAssembleiaException('Linha sem a unidade.');
         }
@@ -131,6 +131,7 @@ final class LeitorDaListaDeUnidades
             responsavel: '' === $responsavel ? null : mb_substr($responsavel, 0, 160),
             email: self::email($email),
             telefone: self::telefone($telefone),
+            ocorrencia: '' === $ocorrencia ? null : mb_substr($ocorrencia, 0, 80),
         );
     }
 

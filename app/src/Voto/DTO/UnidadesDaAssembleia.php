@@ -14,6 +14,12 @@ final readonly class UnidadesDaAssembleia
         public int $faltamEnvio,
         public ?string $somaDasFracoes = null,
         public bool $somaForaDoEsperado = false,
+        /** Hash da lista (sha256) gravado quando ela travou; null até lá (e nas travadas antes dele existir). */
+        public ?string $hashDaLista = null,
+        /** "N alteração(ões) por decisão do conselho": tornadas aptas depois da trava. */
+        public int $alteracoesDoConselho = 0,
+        /** A assembleia ainda não acabou: dá para registrar ocorrência (a pessoa pode, ver `voto_edita`). */
+        public bool $aceitaOcorrencia = true,
     ) {
     }
 }

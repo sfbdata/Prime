@@ -7,14 +7,17 @@ namespace App\Voto\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\AtaDaAssembleia;
+use App\Voto\DTO\AvaliacaoNaLista;
 use App\Voto\DTO\LinhaDaRelacaoDeVotantes;
 use App\Voto\Entity\Assembleia;
+use App\Voto\Entity\OcorrenciaDaUnidade;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
@@ -42,6 +45,7 @@ final class ObterAtaDaAssembleiaUseCase
         private readonly AcessoAAssembleia $acesso,
         private readonly RegistrarAuditoriaDaRelacaoDeVotantesUseCase $auditoria,
         private readonly EntityManagerInterface $em,
+        private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
     ) {
     }
 
@@ -53,7 +57,29 @@ final class ObterAtaDaAssembleiaUseCase
         [$participacoes, $blocos] = $comVotantes ? $this->participacaoPorPauta($assembleia) : [[], []];
         $relacao = $comVotantes && null !== $ator ? $this->relacaoDeVotantes($tenant, $assembleia, $ator, $participacoes) : [];
 
-        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos);
+        $avaliacoes = $comVotantes && null !== $ator ? $this->avaliacoes($assembleia, $ator) : [];
+
+        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes);
+    }
+
+    /**
+     * "Ocorrências e avaliações de aptidão" (desenho 18, H297/H401): as ocorrências COM avaliação, para quem vê a relação de
+     * votantes ou decide a avaliação (spec voto-avaliacoes-do-conselho-1611, seção 4). Nome da unidade e texto da ocorrência
+     * não saem para quem não pode ver nenhuma das duas listas.
+     *
+     * @return list<AvaliacaoNaLista>
+     */
+    private function avaliacoes(Assembleia $assembleia, User $ator): array
+    {
+        if (!$this->acesso->podeVerRelacao($ator, $assembleia) && !$this->acesso->podeVerAvaliacoes($ator, $assembleia)) {
+            return [];
+        }
+        $comAvaliacao = array_filter(
+            $this->ocorrencias->listarDaAssembleia($assembleia),
+            static fn (OcorrenciaDaUnidade $o): bool => null !== $o->getAvaliacao(),
+        );
+
+        return array_values(array_map(AvaliacaoNaLista::deOcorrencia(...), array_reverse($comAvaliacao)));
     }
 
     /**

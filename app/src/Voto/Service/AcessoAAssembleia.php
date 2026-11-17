@@ -28,6 +28,10 @@ use App\Voto\Repository\MembroDaEquipeRepository;
  * É TETO, nunca permissão: o nível não olha o módulo `voto` nem a liberação do escritório. Quem a guarda atual recusa
  * ({@see GuardaDaEquipeDoVoto::exigir()}, chamada pelas actions) continua recusado, seja qual for o nível aqui.
  *
+ * A ÚNICA escrita do nível `Visualizar` é a decisão do conselho sobre uma avaliação de aptidão (spec
+ * docs/specs/voto-avaliacoes-do-conselho-1611.md, seção 3): {@see podeDecidirAvaliacao()} e {@see podeRegistrarOcorrencia()}
+ * são o ponto único dessas duas regras; continuam teto, nunca dão acesso a quem a guarda do módulo recusa.
+ *
  * Para listas: `niveisEmLote()` e `visiveis()` leem as equipes do lote numa consulta só (sem N+1).
  */
 final class AcessoAAssembleia
@@ -95,6 +99,72 @@ final class AcessoAAssembleia
             }
             foreach ($equipes as $id => $linhas) {
                 $podem[$id] = self::relacaoPelaEquipe($linhas, (int) $pessoa->getId());
+            }
+        }
+
+        return $podem;
+    }
+
+    /**
+     * Registrar ocorrência (spec voto-avaliacoes-do-conselho-1611, seção 3): sem equipe própria, quem tem o nível Editar (o
+     * módulo); com equipe, a comissão (Editar) e a Administração. É o nível `Editar`: auditoria, fiscal e conselho não.
+     */
+    public function podeRegistrarOcorrencia(User $pessoa, Assembleia $assembleia): bool
+    {
+        return NivelNaAssembleia::Editar === $this->nivel($pessoa, $assembleia);
+    }
+
+    /**
+     * Decidir uma avaliação (e ver a aba Avaliações): sem equipe própria, só a Administração; com equipe, o conselho e a
+     * Administração. Falha fechado: assembleia sem id, ninguém decide.
+     */
+    public function podeDecidirAvaliacao(User $pessoa, Assembleia $assembleia): bool
+    {
+        $id = $assembleia->getId();
+        if (null === $id) {
+            return false;
+        }
+
+        return $this->avaliacaoEmLote($pessoa, [$assembleia])[$id] ?? false;
+    }
+
+    /** Quem vê a aba Avaliações é quem a decide (a mesma linha da tabela da spec). */
+    public function podeVerAvaliacoes(User $pessoa, Assembleia $assembleia): bool
+    {
+        return $this->podeDecidirAvaliacao($pessoa, $assembleia);
+    }
+
+    /**
+     * {@see podeDecidirAvaliacao()} para um lote, por id da assembleia (uma consulta de equipes por escritório).
+     *
+     * @param iterable<Assembleia> $assembleias
+     *
+     * @return array<int, bool>
+     */
+    public function avaliacaoEmLote(User $pessoa, iterable $assembleias): array
+    {
+        $porEscritorio = [];
+        foreach ($assembleias as $assembleia) {
+            if (null !== $assembleia->getId()) {
+                $porEscritorio[(int) $assembleia->getTenant()->getId()][] = $assembleia;
+            }
+        }
+
+        $podem = [];
+        foreach ($porEscritorio as $doEscritorio) {
+            $tenant = $doEscritorio[0]->getTenant();
+            $ids = array_map(static fn (Assembleia $a): int => (int) $a->getId(), $doEscritorio);
+            if ($this->ehAdministracao($pessoa, $tenant)) {
+                $podem += array_fill_keys($ids, true);
+
+                continue;
+            }
+            $equipes = array_fill_keys($ids, []);
+            foreach ($this->membros->linhasDoLote($tenant, $ids) as $linha) {
+                $equipes[$linha['assembleia']][] = $linha;
+            }
+            foreach ($equipes as $id => $linhas) {
+                $podem[$id] = self::avaliacaoPelaEquipe($linhas, (int) $pessoa->getId());
             }
         }
 
@@ -232,6 +302,23 @@ final class AcessoAAssembleia
         foreach ($linhas as $linha) {
             if ($linha['user'] === $pessoaId) {
                 return \in_array(PapelNaEquipe::tryFrom($linha['papel']), [PapelNaEquipe::Comissao, PapelNaEquipe::Auditoria, PapelNaEquipe::Fiscal], true);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A regra da decisão da avaliação, sem banco (a Administração já foi tratada antes): sem equipe própria ninguém mais
+     * decide; com equipe, só o `conselho`.
+     *
+     * @param list<array{assembleia: int, user: int|null, papel: string}> $linhas
+     */
+    public static function avaliacaoPelaEquipe(array $linhas, int $pessoaId): bool
+    {
+        foreach ($linhas as $linha) {
+            if ($linha['user'] === $pessoaId) {
+                return PapelNaEquipe::Conselho === PapelNaEquipe::tryFrom($linha['papel']);
             }
         }
 

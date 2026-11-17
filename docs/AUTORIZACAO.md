@@ -654,8 +654,8 @@ vínculo ativo no escritório; sem conta, nome e e-mail ficam como cargo e **nã
 1. `BarreiraDaEquipeListener` (`kernel.controller_arguments`), em TODA rota `voto_assembleia_*` que resolve uma
    assembleia: o argumento `Assembleia` ou o `id` da rota, pelo `App\Voto\Service\AssembleiaDaRota` (id E
    escritório da sessão). `Oculto` recebe 403 em tudo, com a frase do desenho "Seu perfil não atua nesta
-   votação."; `Visualizar` recebe 403 nos métodos não seguros, menos as leituras por POST de
-   `ROTAS_DO_VISUALIZAR` (as duas minutas de ata, que só geram o arquivo). Assembleia de outro escritório passa
+   votação."; `Visualizar` recebe 403 nos métodos não seguros, menos as rotas de `ROTAS_DO_VISUALIZAR` (as duas
+   minutas de ata, que só geram o arquivo, e a decisão do conselho, a única escrita: ver abaixo). Assembleia de outro escritório passa
    reto: a action responde o 404 dela. As rotas sem assembleia na rota (`nova`, o lote, a cédula e o portal
    públicos) estão em `ROTAS_SEM_ASSEMBLEIA`, cada uma com o motivo. O alcance é travado por
    `app/tests/Arquitetura/BarreiraDaEquipeRotasArquiteturaTest.php`.
@@ -669,9 +669,29 @@ vínculo ativo no escritório; sem conta, nome e e-mail ficam como cargo e **nã
 assembleia de outro escritório). A tela "Perfis por assembleia ou votação" entra como sub-aba "Perfis" da Gestão
 eleitoral, visível só para a Administração (`voto_gere_equipe()`).
 
-**Ainda não cobre:** o Guardião e a Validação (dependem de C1 e C4); o acesso de membro sem conta no BlueJus;
-o ocultar dos botões de escrita para quem está em `Visualizar` (a barreira recusa o POST, mas a tela ainda os
-mostra); a relação de votantes (bloco B) e as estatísticas do Master (bloco C).
+**A única escrita do nível `Visualizar`: a decisão do conselho** (spec `docs/specs/voto-avaliacoes-do-conselho-1611.md`,
+W2-7b). O conselho tem `Visualizar` e, mesmo assim, decide a avaliação de aptidão de uma unidade ("Manter inaptidão" ou
+"Tornar apto(a)"). Dois métodos de `AcessoAAssembleia` são o ponto único dessa regra, e continuam teto (a guarda do módulo
+recusa antes de tudo):
+
+| | sem equipe própria | com equipe própria |
+|---|---|---|
+| registrar ocorrência (`podeRegistrarOcorrencia`: o nível `Editar`) | quem tem o módulo | comissão e Administração |
+| decidir a avaliação (`podeDecidirAvaliacao`) e ver a aba Avaliações (`podeVerAvaliacoes`) | só a Administração | conselho e Administração |
+
+- a rota `voto_assembleia_avaliacao_decidir` (POST) é a ÚNICA escrita em `BarreiraDaEquipeListener::ROTAS_DO_VISUALIZAR`,
+  com o motivo escrito; a barreira só a deixa passar. O **papel é conferido de novo no `DecidirAvaliacaoUseCase`** (e no
+  `ObterAvaliacoesDaAssembleiaUseCase`, para a aba): auditoria, fiscal e comissão (e quem está fora da equipe) recebem 403
+  (`SemPapelNaAvaliacaoException`); quem está `Oculto` já foi recusado pela barreira. O conselho recebe 403 no registro de
+  ocorrência (rota fora de `ROTAS_DO_VISUALIZAR`, nível `Editar`);
+- rota nova em `ROTAS_DO_VISUALIZAR` dá escrita a quem só lê: o teste de arquitetura trava a lista (decisão do Coordenador
+  e re-revisão do teto) e confere que o UseCase da decisão confere o papel;
+- os botões e a aba só aparecem para quem não levaria 403: `voto_edita(id)` (registro) e `voto_decide_avaliacao(id)`
+  (aba e decisão), em `EquipeExtension`; a decisão e o registro gravam a trilha própria (`voto_ocorr` e `voto_avali` no
+  `audit_log`, só com os ids), e a linha `voto.ocorrencia_da_unidade` fica fora do `Auditavel` pelo mesmo motivo.
+
+**Ainda não cobre:** o Guardião e a Validação (dependem de C1 e C4); o acesso de membro sem conta no BlueJus; a relação
+de votantes (bloco B) e as estatísticas do Master (bloco C) já têm a regra própria nas seções da spec.
 
 ### Meta aberta por id: ver a pasta ou cuidar da meta (auditoria 3.12, 05/11/2026)
 

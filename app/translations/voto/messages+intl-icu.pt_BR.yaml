@@ -106,6 +106,8 @@ voto:
         mensagem:
             aguardando: A votação desta pauta ainda não foi aberta.
             inapta: Sua unidade não está apta a votar nesta assembleia.
+            ocorrencia: 'Ocorrência: {texto}.'
+            ocorrencia_em_avaliacao: 'Ocorrência: {texto} (em avaliação pelo conselho).'
             ja_votou: Você já votou nesta pauta.
             hora: 'Registrado às {hora}.'
             encerra_em: 'Encerra em {tempo}.'
@@ -204,6 +206,7 @@ voto:
                 unidades: Unidades e links
                 conferencia: Conferência
                 perfis: Perfis
+                avaliacoes: Avaliações
             # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
             assistente:
                 rotulo: Passos do cadastro da assembleia
@@ -615,11 +618,11 @@ voto:
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
-                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional); ocorrência (opcional, até 80 caracteres). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
-                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável e E-mail.'
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável, E-mail, Telefone e Ocorrência.'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
@@ -635,6 +638,35 @@ voto:
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
                 soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
+            # Ocorrências da unidade na Lista de aptos e as avaliações do conselho (spec voto-avaliacoes-do-conselho-1611; desenho 18, H249/H462/H273/H469): textos literais do desenho.
+            ocorrencia:
+                busca: Procurar por nome ou unidade...
+                campo: 'Ocorrência, ex.: cadastro desatualizado'
+                rotulo: Ocorrência
+                registrar: Registrar
+                registrada: Ocorrência registrada.
+                texto: 'Ocorrência: {texto}'
+                historico_registrada: 'Registrada em {data} por {por}.'
+                historico_pendente: 'Registrada em {data} por {por}. Avaliação pendente no conselho.'
+                historico_concedida: 'Registrada em {data} por {por}. Aptidão concedida em {decisao}: {justificativa}'
+                historico_mantida: 'Registrada em {data} por {por}. Inaptidão mantida em {decisao}: {justificativa}'
+                hash: 'Hash da lista: {hash}'
+                alteracoes: '{n} alteração(ões) por decisão do conselho.'
+                nenhuma_unidade: Nenhum registro para mostrar.
+            avaliacoes:
+                titulo: Avaliações do conselho
+                texto: Cada ocorrência registrada para pessoa não apta abre uma avaliação. A decisão fica na trilha de auditoria, com data e hora em segundos.
+                vazio: Nenhuma avaliação registrada.
+                ocorrencia: 'Ocorrência: {texto} (registrada em {data} por {por})'
+                aberta: 'Avaliação aberta em {data}.'
+                concedida: 'Aptidão concedida em {data} por {por}: {justificativa}'
+                mantida: 'Inaptidão mantida em {data} por {por}: {justificativa}'
+                justificativa: Justificativa da decisão
+                justificativa_rotulo: Justificativa
+                manter: Manter inaptidão
+                alterar: Tornar apto(a)
+                decisao_registrada: Decisão registrada.
+                encerrada: 'Votação encerrada: a aptidão não pode mais ser alterada.'
             links:
                 titulo: Links das unidades
                 texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'
@@ -747,6 +779,11 @@ voto:
                 termo: Termo de encerramento
                 termo_1: Este relatório consolida os dados extraídos dos registros da votação na data de emissão.
                 termo_2: Os signatários declaram ter examinado o conteúdo deste relatório.
+                ocorrencias_titulo: Ocorrências e avaliações de aptidão
+                ocorrencia_item: '{nome} ({assembleia}). Ocorrência em {data}: {texto}.'
+                ocorrencia_pendente: Avaliação pendente.
+                ocorrencia_tornado_apto: 'Tornado apto em {data}: {justificativa}.'
+                ocorrencia_mantida: 'Inaptidão mantida em {data}: {justificativa}.'
             email:
                 assunto: 'Seu link para votar: {assembleia}'
                 titulo: Link para votar

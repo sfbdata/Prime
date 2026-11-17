@@ -176,6 +176,18 @@
         </section>
     {% endfor %}
 
+    {# Ocorrências e avaliações de aptidão (H297/H401): só as ocorrências com avaliação; antes do termo, como o desenho. #}
+    {% if ata.avaliacoes is not empty %}
+        <h2>{{ 'voto.assembleia.gestor.ata.ocorrencias_titulo'|trans }}</h2>
+        <ul data-voto-ata-ocorrencias>
+            {% for v in ata.avaliacoes %}
+                <li>{{ 'voto.assembleia.gestor.ata.ocorrencia_item'|trans({nome: v.nome, assembleia: a.titulo, data: v.registradaEm|date(dh), texto: v.texto}) }}
+                    {% if v.pendente %}{{ 'voto.assembleia.gestor.ata.ocorrencia_pendente'|trans }}
+                    {% else %}{{ (v.avaliacao.value == 'tornada_apta' ? 'voto.assembleia.gestor.ata.ocorrencia_tornado_apto' : 'voto.assembleia.gestor.ata.ocorrencia_mantida')|trans({data: v.decididaEm|date(dh), justificativa: v.justificativa}) }}{% endif %}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
     <h2>{{ 'voto.assembleia.gestor.ata.termo'|trans }}</h2>
     <p>{{ 'voto.assembleia.gestor.ata.termo_1'|trans }}</p>
     <p>{{ 'voto.assembleia.gestor.ata.termo_2'|trans }}</p>
