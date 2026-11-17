@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Conector\Repository;
 
 use App\Conector\Entity\EscritorioDoConector;
+use App\Conector\Service\SemFiltroDoEscritorio;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -42,18 +43,7 @@ class EscritorioDoConectorRepository extends ServiceEntityRepository
      */
     public function buscarDoEscritorioParaOMaster(Tenant $tenant): ?EscritorioDoConector
     {
-        $filtros = $this->getEntityManager()->getFilters();
-        $estavaLigado = $filtros->isEnabled('tenant');
-        if ($estavaLigado) {
-            $filtros->suspend('tenant');
-        }
-        try {
-            return $this->findOneBy(['tenant' => $tenant]);
-        } finally {
-            if ($estavaLigado) {
-                $filtros->restore('tenant');
-            }
-        }
+        return SemFiltroDoEscritorio::executar($this->getEntityManager(), fn (): ?EscritorioDoConector => $this->findOneBy(['tenant' => $tenant]));
     }
 
     /**

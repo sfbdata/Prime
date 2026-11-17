@@ -6,6 +6,7 @@ namespace App\Conector\Repository;
 
 use App\Conector\Entity\ClienteDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Service\SemFiltroDoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -140,8 +141,8 @@ class ConsentimentoDoConectorRepository extends ServiceEntityRepository
     }
 
     /**
-     * Roda a consulta com o `TenantFilter` suspenso e o devolve como estava, mesmo se a consulta falhar (molde:
-     * {@see \App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository::findDoTenantParaOMaster}).
+     * Roda a consulta com o `TenantFilter` suspenso e o devolve como estava, mesmo se a consulta falhar
+     * ({@see SemFiltroDoEscritorio}, o único lugar do conector que suspende o filtro).
      *
      * @template T
      *
@@ -151,18 +152,7 @@ class ConsentimentoDoConectorRepository extends ServiceEntityRepository
      */
     private function semFiltroDoEscritorio(callable $consulta): mixed
     {
-        $filtros = $this->getEntityManager()->getFilters();
-        $estavaLigado = $filtros->isEnabled('tenant');
-        if ($estavaLigado) {
-            $filtros->suspend('tenant');
-        }
-        try {
-            return $consulta();
-        } finally {
-            if ($estavaLigado) {
-                $filtros->restore('tenant');
-            }
-        }
+        return SemFiltroDoEscritorio::executar($this->getEntityManager(), $consulta);
     }
 
     /**

@@ -107,8 +107,12 @@ final class PortaoDoConectorArquiteturaTest extends TestCase
     {
         $violacoes = [];
         foreach (self::arquivosDoConector() as $relativo => $codigo) {
-            if (str_contains($codigo, 'getFilters(') && $relativo !== 'Service/FiltroDoEscritorioDoctrine.php') {
+            // O `SemFiltroDoEscritorio` só suspende e devolve o filtro (telas do PR 8); ligar continua só do portão.
+            if (str_contains($codigo, 'getFilters(') && !in_array($relativo, ['Service/FiltroDoEscritorioDoctrine.php', 'Service/SemFiltroDoEscritorio.php'], true)) {
                 $violacoes[] = $relativo . ' mexe nos filtros do Doctrine';
+            }
+            if ($relativo === 'Service/SemFiltroDoEscritorio.php' && preg_match('/->enable\(|->setParameter\(/', $codigo) === 1) {
+                $violacoes[] = $relativo . ' liga o filtro ou troca o escritório dele';
             }
             $usaOFiltro = preg_match('/\bFiltroDoEscritorio(Doctrine)?\b/', $codigo) === 1;
             if ($usaOFiltro && !in_array($relativo, ['Service/PortaoDoConector.php', 'Service/FiltroDoEscritorio.php', 'Service/FiltroDoEscritorioDoctrine.php'], true)) {
