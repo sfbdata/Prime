@@ -9,11 +9,14 @@ use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Exception\ConcessaoRecusada;
+use App\Conector\Mcp\ConectorDesligadoMiddleware;
 use App\Conector\Mcp\LimiteDeChamadasMiddleware;
 use App\Conector\Mcp\PortaoNoMcpMiddleware;
+use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Entity\TokenDoConector;
 use App\Conector\Service\FiltroDoEscritorio;
 use App\Conector\Service\ImpressaoDaSenha;
+use App\Conector\Service\LiberacaoDoConector;
 use App\Conector\Service\ModoDoConector;
 use App\Conector\Service\PortaoDoConector;
 use App\Conector\Service\ServidorDeAutorizacao;
@@ -22,6 +25,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Master\Entity\RecursoEstado;
+use App\Master\Service\RecursosDoSistema;
 use App\Repository\TenantRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
@@ -45,10 +50,12 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 /**
  * O `/mcp` pela cadeia PSR-15, sem o controller (bloco A do PR 5): o `AuthorizationMiddleware` do SDK com o validador
  * do token, o portão e o limite. Cada barreira recusa o token na requisição seguinte com 401 `invalid_token` e a
- * descrição ASCII fixa (spec mcp-remoto-oauth 12.3, 12.6, 12.16, 12.18 e 12.24); o portão que não abre dá 503 sem desafio e
- * nada é despachado (12.2 e decisão 4 do PR 1).
+ * descrição ASCII fixa (spec mcp-remoto-oauth 12.3, 12.6, 12.16 e 12.18); a liberação desligada (12.24) só suspende e
+ * dá 403 sem desafio, sem abrir nada; o portão que não abre dá 503 sem desafio e nada é despachado (12.2 e decisão 4
+ * do PR 1).
  */
 #[CoversClass(PortaoNoMcpMiddleware::class)]
+#[CoversClass(ConectorDesligadoMiddleware::class)]
 #[CoversClass(ValidadorDoTokenDoConector::class)]
 #[CoversClass(LimiteDeChamadasMiddleware::class)]
 final class PortaoNoMcpTest extends KernelTestCase
@@ -111,9 +118,6 @@ final class PortaoNoMcpTest extends KernelTestCase
         yield 'Master com vínculo em análise' => ['master_em_analise', AcessoDoConectorRecusado::MOTIVO_ESCRITORIO, ValidadorDoTokenDoConector::DESCRICAO_ESCRITORIO];
         // 12.18
         yield 'termos de uso não aceitos' => ['termos', AcessoDoConectorRecusado::MOTIVO_TERMOS, ValidadorDoTokenDoConector::DESCRICAO_TERMOS];
-        // 12.24
-        yield 'escritório bloqueado pelo Master' => ['liberacao_bloqueada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO, ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO];
-        yield 'conector desligado no escritório' => ['liberacao_desligada', AcessoDoConectorRecusado::MOTIVO_LIBERACAO, ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO];
         // 12.6 e 12.16
         yield 'consentimento revogado' => ['consentimento_revogado', ConcessaoRecusada::MOTIVO_CONCESSAO_INVALIDA, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
         yield 'app de I.A. desativado' => ['cliente_inativo', ConcessaoRecusada::MOTIVO_CLIENTE_INATIVO, ValidadorDoTokenDoConector::DESCRICAO_AUTORIZACAO];
@@ -137,6 +141,49 @@ final class PortaoNoMcpTest extends KernelTestCase
         $this->assertRecusaComDesafio($resposta, $descricao);
         self::assertSame($motivo, $this->validador()->motivoDaRecusa());
         self::assertFalse(static::getContainer()->get(TenantContext::class)->hasCurrentTenant());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function suspensoes(): iterable
+    {
+        // 12.24: os três níveis da liberação (14.a) e o aceite de versão antiga.
+        yield 'chave geral desligada pelo Master' => ['chave_geral_desligada'];
+        yield 'escritório bloqueado pelo Master' => ['liberacao_bloqueada'];
+        yield 'conector desligado no escritório' => ['liberacao_desligada'];
+        yield 'aceite de versão antiga' => ['aceite_antigo'];
+    }
+
+    #[DataProvider('suspensoes')]
+    #[TestDox('suspensão $suspensao depois de conectar: 403 sem WWW-Authenticate, nada despachado, nada aberto nem gravado, e a concessão não cai')]
+    public function testLiberacaoDesligadaSuspendeCom403(string $suspensao): void
+    {
+        $conexao = $this->conexaoAutorizada();
+        $bearer = $this->tokenDeAcesso($conexao['concessao']);
+        self::assertSame(200, $this->chamarMcp($bearer)->getStatusCode(), 'antes da suspensão, o token vale');
+        $this->fimDaRequisicao();
+        $this->despachos = 0;
+        $this->em()->getConnection()->executeStatement('UPDATE conector_ia_consentimento SET ultimo_uso_em = NULL WHERE id = ?', [$conexao['consentimento']->getId()]);
+
+        $this->aplicar($suspensao, $this->recarregar($conexao));
+        $resposta = $this->chamarMcp($bearer);
+
+        self::assertSame(403, $resposta->getStatusCode());
+        self::assertFalse($resposta->hasHeader('WWW-Authenticate'), 'sem desafio: nem invalid_token nem insufficient_scope');
+        $corpo = json_decode((string) $resposta->getBody(), true);
+        self::assertSame(1, $corpo['id'] ?? null);
+        self::assertSame(ConectorDesligadoMiddleware::CODIGO, $corpo['error']['code'] ?? null);
+        self::assertSame(ConectorDesligadoMiddleware::MENSAGEM, $corpo['error']['message'] ?? null);
+        self::assertSame(AcessoDoConectorRecusado::MOTIVO_LIBERACAO, $this->validador()->motivoDaRecusa());
+        // Zero acesso: nada despachado, nenhum escritório aberto, modo do conector desligado, nada gravado.
+        self::assertSame(0, $this->despachos, 'nada é despachado');
+        self::assertFalse($this->requisicao()->estaAberta(), 'a requisição não é aberta');
+        self::assertNull($this->validador()->tokenValidado());
+        self::assertFalse(static::getContainer()->get(TenantContext::class)->hasCurrentTenant());
+        self::assertFalse(static::getContainer()->get(ModoDoConector::class)->estaLigado());
+        self::assertNull($this->ultimoUso($conexao['consentimento']), 'o último uso não é gravado');
+        $linha = $this->em()->getConnection()->fetchAssociative('SELECT revogada_em FROM conector_ia_concessao WHERE id = ?', [$conexao['concessao']->getId()]);
+        self::assertIsArray($linha);
+        self::assertNull($linha['revogada_em'], 'suspender não derruba a concessão');
     }
 
     /** @return iterable<string, array{string, string}> */
@@ -313,6 +360,18 @@ final class PortaoNoMcpTest extends KernelTestCase
                 break;
             case 'termos':
                 $this->em()->createQuery('DELETE FROM ' . AceiteTermo::class . ' a WHERE a.user = :pessoa')->setParameter('pessoa', $pessoa)->execute();
+                break;
+            case 'chave_geral_desligada':
+                $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => LiberacaoDoConector::CHAVE_GERAL])
+                    ?? new RecursoEstado(LiberacaoDoConector::CHAVE_GERAL);
+                $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
+                $this->em()->persist($estado);
+                // Sem requisição principal (cadeia PSR-15 à mão), o RecursosDoSistema guarda as chaves pela vida do
+                // serviço; no `/mcp` de verdade o cache é por requisição. Zera para ler a chave gravada agora.
+                (new \ReflectionProperty(RecursosDoSistema::class, 'semRequisicao'))->setValue(static::getContainer()->get(RecursosDoSistema::class), null);
+                break;
+            case 'aceite_antigo':
+                (new \ReflectionProperty(EscritorioDoConector::class, 'aceiteVersao'))->setValue($conexao['liberacao'], 0);
                 break;
             case 'liberacao_bloqueada':
                 $conexao['liberacao']->bloquearPeloMaster();

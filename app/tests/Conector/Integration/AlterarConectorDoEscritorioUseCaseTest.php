@@ -9,6 +9,7 @@ use App\Conector\Enum\VersaoDoAceiteDoConector;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Repository\EscritorioDoConectorRepository;
 use App\Conector\Service\LiberacaoDoConector;
+use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Conector\UseCase\AlterarConectorDoEscritorioUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RecursosDoSistema;
@@ -21,8 +22,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 /**
  * O administrador liga (com o aceite) ou desliga o conector no próprio escritório (spec mcp-remoto-oauth 14.a, nível
  * 3; PR 8). Ligar exige a caixa marcada e a liberação do Master (decisão 3); o aceite grava a versão vigente e o autor
- * e não é regravado ao religar. Desligar só suspende (decisão 4): a liberação recusa e o mesmo token é recusado na
- * chamada seguinte; religar volta a aceitar sem reconectar.
+ * e não é regravado ao religar. Desligar só suspende (decisão 4): a liberação recusa e o mesmo token recebe 403 na
+ * chamada seguinte (sem `invalid_token`, então o app não reconecta); religar volta a aceitar sem reconectar.
  */
 #[CoversClass(AlterarConectorDoEscritorioUseCase::class)]
 final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
@@ -178,7 +179,7 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
         self::assertNull($this->linhaDe($tenant));
     }
 
-    #[TestDox('desligar só suspende: o mesmo token é recusado na chamada seguinte (401), a conexão não é revogada e religar volta a aceitar')]
+    #[TestDox('desligar só suspende: o mesmo token é recusado na chamada seguinte (403, sem invalid_token), a conexão não é revogada e religar volta a aceitar')]
     public function testDesligarSuspendeOToken(): void
     {
         $conexao = $this->conexaoAutorizada();
@@ -189,7 +190,8 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
         $this->validador()->reset();
 
         $recusa = $this->validador()->validate($bearer);
-        self::assertSame(401, $recusa->getStatusCode());
+        self::assertSame(403, $recusa->getStatusCode());
+        self::assertSame(ValidadorDoTokenDoConector::ERRO_CONECTOR_DESLIGADO, $recusa->getError());
         self::assertSame(AcessoDoConectorRecusado::MOTIVO_LIBERACAO, $this->validador()->motivoDaRecusa());
         self::assertNull($conexao['consentimento']->getRevogadoEm(), 'desligar não revoga a conexão');
         self::assertNull($conexao['concessao']->getRevogadaEm(), 'nem a concessão');

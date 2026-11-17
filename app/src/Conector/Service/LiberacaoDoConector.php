@@ -12,7 +12,9 @@ use App\Master\Service\RecursosDoSistema;
 
 /**
  * A liberação do conector de I.A. num escritório, nos três níveis da decisão 14.a (`docs/specs/mcp-remoto-oauth.md`),
- * conferida na autorização, na troca do código, na renovação e a cada requisição do `/mcp` (9.2):
+ * conferida na autorização, na troca do código e a cada requisição do `/mcp` (9.2). Na renovação, não: desligar ou
+ * bloquear só suspende, e a renovação continua girando dentro dos 7 dias
+ * ({@see ConferenciaDaConcessao::exigirNaRenovacao()}); no `/mcp` a suspensão dá 403, sem despacho:
  *
  * 1. a chave geral `conector_ia` do Master ({@see RecursosDoSistema}; sem registro, vale ligada);
  * 2. o escritório liberado pelo Master ({@see EscritorioDoConector::isLiberadoPeloMaster()}; nasce falso);

@@ -14,7 +14,11 @@ use App\Conector\Exception\ConcessaoRecusada;
  * PR 5, a cada requisição do `/mcp`. Sem efeito colateral: não revoga, não grava, não liga filtro nem modo; quem chama
  * decide o que fazer com a recusa (no `/oauth/token`, revogar a concessão e responder `invalid_grant`).
  *
- * API pública estável (o PR 5 reusa): {@see exigir()}. A ordem das conferências é esta, e a primeira que falha lança:
+ * API pública estável (o PR 5 reusa): {@see exigir()}, com os seis itens, na troca do código e no `/mcp`; e
+ * {@see exigirNaRenovacao()}, com os itens 1 a 5, na troca da renovação. Desligar o conector (administrador) ou bloquear
+ * o escritório (Master) só suspende: a renovação continua girando dentro dos 7 dias, e quem barra a suspensão é o
+ * `/mcp`, a cada requisição (403, sem despacho). Religar volta sem reconectar. A ordem das conferências é esta, e a
+ * primeira que falha lança:
  *
  * 1. concessão válida em `$agora`: não revogada, dentro dos 7 dias e com o consentimento ativo
  *    ({@see ConcessaoRecusada::concessaoInvalida()});
@@ -43,6 +47,19 @@ final class ConferenciaDaConcessao
      */
     public function exigir(ConcessaoDoConector $concessao, \DateTimeImmutable $agora): void
     {
+        $this->exigirNaRenovacao($concessao, $agora);
+        $this->liberacao->exigir($concessao->getTenant() ?? throw new \LogicException('Concessão sem escritório.'));
+    }
+
+    /**
+     * Os itens 1 a 5, sem a liberação (item 6): a suspensão do conector não derruba a concessão, e o limite de 7 dias
+     * continua correndo (item 1). Só a troca da renovação usa.
+     *
+     * @throws ConcessaoRecusada         por motivo da própria concessão (itens 1 a 4)
+     * @throws AcessoDoConectorRecusado  pelo portão (item 5)
+     */
+    public function exigirNaRenovacao(ConcessaoDoConector $concessao, \DateTimeImmutable $agora): void
+    {
         $this->exigirConcessaoViva($concessao, $agora);
 
         $pessoa = $concessao->getUser();
@@ -55,7 +72,6 @@ final class ConferenciaDaConcessao
 
         $escritorio = $concessao->getTenant() ?? throw new \LogicException('Concessão sem escritório.');
         $this->portao->conferir((int) $pessoa->getId(), (int) $escritorio->getId());
-        $this->liberacao->exigir($escritorio);
     }
 
     /** @throws ConcessaoRecusada */

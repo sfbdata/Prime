@@ -6,6 +6,7 @@ namespace App\Tests\Conector\Support;
 
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\TokenDoConector;
+use App\Conector\Mcp\ConectorDesligadoMiddleware;
 use App\Conector\Mcp\LimiteDeChamadasMiddleware;
 use App\Conector\Mcp\PortaoNoMcpMiddleware;
 use App\Conector\Repository\ConsentimentoDoConectorRepository;
@@ -124,7 +125,8 @@ trait CadeiaDoMcpTrait
     }
 
     /**
-     * Uma requisição do `/mcp` pela cadeia: autorização do SDK, portão e limite, nessa ordem (a do bloco B).
+     * Uma requisição do `/mcp` pela cadeia: o 403 do conector desligado, autorização do SDK, portão e limite, nessa
+     * ordem (a do {@see \App\Conector\Mcp\ServidorMcpDoConector}).
      */
     private function chamarMcp(?string $bearer, ?PortaoNoMcpMiddleware $portao = null, ?LimiteDeChamadasMiddleware $limite = null): ResponseInterface
     {
@@ -132,6 +134,7 @@ trait CadeiaDoMcpTrait
         $metadado = new ProtectedResourceMetadata(ServidorDeAutorizacao::RESOURCE, [ServidorDeAutorizacao::ISSUER], ServidorDeAutorizacao::ESCOPOS_DO_RECURSO);
         /** @var list<MiddlewareInterface> $cadeia */
         $cadeia = [
+            new ConectorDesligadoMiddleware($fabrica, $fabrica),
             new AuthorizationMiddleware($this->validador(), $metadado, null, $fabrica, $fabrica),
             $portao ?? $this->middlewareDoPortao(),
             $limite ?? $this->middlewareDoLimite(),

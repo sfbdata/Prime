@@ -25,7 +25,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 /**
  * O Master libera ou bloqueia o conector num escritório (spec mcp-remoto-oauth 14.a, nível 2; PR 8): só o Master, só
  * escritório ativo, a linha certa mesmo com o `TenantFilter` ligado em outro escritório, auditoria no escritório alvo.
- * Bloquear só suspende (decisão 4): o aceite fica, o token da conexão é recusado na hora e volta a valer ao liberar.
+ * Bloquear só suspende (decisão 4): o aceite fica, o token da conexão recebe 403 na hora (sem `invalid_token`, então o
+ * app não reconecta) e volta a valer ao liberar.
  */
 #[CoversClass(AlterarLiberacaoDoConectorPeloMasterUseCase::class)]
 #[CoversClass(GuardaDoMasterDoConector::class)]
@@ -174,7 +175,7 @@ final class AlterarLiberacaoDoConectorPeloMasterUseCaseTest extends KernelTestCa
         self::assertEquals($aceiteEm, $linha->getAceiteEm(), 'liberar de novo não pede nem regrava o aceite');
     }
 
-    #[TestDox('bloquear só suspende: o mesmo token é recusado na chamada seguinte (401) e volta a valer ao liberar')]
+    #[TestDox('bloquear só suspende: o mesmo token é recusado na chamada seguinte (403, sem invalid_token) e volta a valer ao liberar')]
     public function testBloquearSuspendeOToken(): void
     {
         $master = $this->master();
@@ -186,7 +187,8 @@ final class AlterarLiberacaoDoConectorPeloMasterUseCaseTest extends KernelTestCa
         $this->validador()->reset();
 
         $recusa = $this->validador()->validate($bearer);
-        self::assertSame(401, $recusa->getStatusCode());
+        self::assertSame(403, $recusa->getStatusCode());
+        self::assertSame(ValidadorDoTokenDoConector::ERRO_CONECTOR_DESLIGADO, $recusa->getError());
         self::assertSame(AcessoDoConectorRecusado::MOTIVO_LIBERACAO, $this->validador()->motivoDaRecusa());
         self::assertSame(ValidadorDoTokenDoConector::DESCRICAO_LIBERACAO, $recusa->getErrorDescription());
         self::assertNull($conexao['consentimento']->getRevogadoEm(), 'bloquear não revoga a conexão');

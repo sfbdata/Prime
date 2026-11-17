@@ -19,7 +19,9 @@ use Psr\Clock\ClockInterface;
  *   não se dá o aceite antes da liberação). O aceite só é regravado quando o gravado não cobre a versão vigente
  *   ({@see EscritorioDoConector::ligar()}).
  * - Desligar só suspende (decisão 4): as conexões da equipe param na hora, porque a liberação é conferida a cada
- *   chamada, e voltam se ligar de novo dentro dos 7 dias da concessão. Sem linha, não há o que desligar.
+ *   chamada do `/mcp`, que responde 403 sem `WWW-Authenticate` e sem despachar nada (o token continua válido, então o
+ *   app não renova à força nem pede reconexão). A renovação continua girando e a concessão não cai; religar dentro dos
+ *   7 dias da concessão volta sem reconectar, e o limite de 7 dias continua correndo. Sem linha, não há o que desligar.
  *
  * Auditado pela interface `Auditavel`, no escritório da sessão.
  */

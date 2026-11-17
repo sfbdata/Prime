@@ -17,7 +17,8 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
  * (`docs/specs/mcp-remoto-oauth.md`, 14.a, nível 2). Só o nível 2: liberar não liga o conector (falta o administrador
  * do escritório ligar e dar o aceite), e bloquear não apaga o aceite nem revoga as conexões (decisão 4 do plano do PR 8):
  * só suspende. Suspenso é zero acesso na hora, porque a {@see \App\Conector\Service\LiberacaoDoConector} é conferida a
- * cada chamada; o limite de 7 dias da concessão continua correndo.
+ * cada chamada do `/mcp`, que responde 403 sem `WWW-Authenticate` e sem despachar nada. A renovação continua girando e
+ * a concessão não cai: liberar de novo volta sem reconectar. O limite de 7 dias da concessão continua correndo.
  *
  * Escritório inexistente, suspenso ou excluído: {@see ESCRITORIO_NAO_ENCONTRADO}. Sem linha do conector, ela nasce aqui.
  * A auditoria vai para o escritório alterado, não para o da sessão do Master.
