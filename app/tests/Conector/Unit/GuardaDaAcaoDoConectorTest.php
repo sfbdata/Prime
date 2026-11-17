@@ -77,7 +77,7 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
         $this->guarda()->exigir($this->chamada(), 'ler_pasta', 'prazos', $this->pasta);
         $this->guarda()->exigir($this->chamada(), 'buscar_pastas', 'buscar');
 
-        self::assertContains(['pastas', '10'], $this->modulosPerguntados, 'o módulo é perguntado com a pessoa e o escritório da chamada');
+        self::assertContains(['expediente', '10'], $this->modulosPerguntados, 'o módulo é perguntado com a pessoa e o escritório da chamada');
     }
 
     #[TestDox('ação ou ferramenta fora da tabela: pedido inválido, antes de qualquer outra conferência')]
@@ -93,9 +93,19 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
     {
         $this->modulos = ['expediente'];
 
-        $erro = $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'ler_pasta', 'resumo', $this->pasta), ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        $erro = $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'buscar_pastas', 'minhas_demandas'), ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
 
         self::assertSame(ErroDaFerramenta::SEM_PERMISSAO, $erro->getMessage());
+    }
+
+    #[TestDox('ler a pasta não pede módulo, como a tela da pasta: basta poder ver a pasta e a aba')]
+    public function testLerPastaSemModulo(): void
+    {
+        $this->modulos = [];
+
+        $this->guarda()->exigir($this->chamada(), 'ler_pasta', 'resumo', $this->pasta);
+
+        self::assertSame([], $this->modulosPerguntados, 'nenhum módulo é perguntado para ler a pasta');
     }
 
     #[TestDox('módulo: basta um dos módulos da linha (criar pasta abre com expediente ou pastas)')]
