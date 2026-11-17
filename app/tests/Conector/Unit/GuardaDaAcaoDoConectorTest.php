@@ -7,6 +7,7 @@ namespace App\Tests\Conector\Unit;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\ContextoDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Ferramenta\TabelaDeAbaEChave;
 use App\Conector\Service\GuardaDaAcaoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -29,6 +30,7 @@ use App\Service\PermissionChecker;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tests\Inteligencia\Support\DefineId;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -186,6 +188,70 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
 
         $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'documentos_e_pecas', 'usar_modelo', $this->pasta), ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         $this->guarda()->exigir($this->chamada(), 'documentos_e_pecas', 'salvar_modelo', $this->pasta);
+    }
+
+    /**
+     * 12.9: a tabela da 6.6 linha por linha. Com tudo liberado, cada ação passa (com pasta), o que prova que a recusa dos
+     * dois testes seguintes vem da aba ou da chave, e não de outra conferência.
+     */
+    #[DataProvider('linhasDaTabela')]
+    #[TestDox('12.9: $ferramenta $acao passa com tudo liberado')]
+    public function testCadaLinhaPassaComTudoLiberado(string $ferramenta, string $acao): void
+    {
+        $this->guarda()->exigir($this->chamada(), $ferramenta, $acao, $this->pasta);
+        $this->addToAssertionCount(1);
+    }
+
+    #[DataProvider('abasDaTabela')]
+    #[TestDox('12.9: $ferramenta $acao recusa com a aba $aba oculta')]
+    public function testCadaLinhaRecusaComAAbaOculta(string $ferramenta, string $acao, string $aba): void
+    {
+        $this->regrasDeAba = [AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $this->pasta, AbaDaPasta::from($aba), new User(), new \DateTimeImmutable())];
+
+        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), $ferramenta, $acao, $this->pasta), ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[DataProvider('chavesDaTabela')]
+    #[TestDox('12.9: $ferramenta $acao recusa com a chave $chave desligada')]
+    public function testCadaLinhaRecusaComAChaveDesligada(string $ferramenta, string $acao, string $chave): void
+    {
+        $this->desligar($chave);
+
+        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), $ferramenta, $acao, $this->pasta), ErroDaFerramenta::MOTIVO_FUNCAO_DESLIGADA);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function linhasDaTabela(): iterable
+    {
+        foreach (array_keys(TabelaDeAbaEChave::LINHAS) as $ferramenta) {
+            foreach (TabelaDeAbaEChave::acoes($ferramenta) as $acao) {
+                yield $ferramenta . ' ' . $acao => [$ferramenta, $acao];
+            }
+        }
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function abasDaTabela(): iterable
+    {
+        foreach (array_keys(TabelaDeAbaEChave::LINHAS) as $ferramenta) {
+            foreach (TabelaDeAbaEChave::linhasDa($ferramenta) as $acao => $linha) {
+                foreach ($linha->abas as $aba) {
+                    yield $ferramenta . ' ' . $acao . ' ' . $aba->value => [$ferramenta, $acao, $aba->value];
+                }
+            }
+        }
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function chavesDaTabela(): iterable
+    {
+        foreach (array_keys(TabelaDeAbaEChave::LINHAS) as $ferramenta) {
+            foreach (TabelaDeAbaEChave::linhasDa($ferramenta) as $acao => $linha) {
+                foreach ($linha->chavesExigidas(true) as $chave) {
+                    yield $ferramenta . ' ' . $acao . ' ' . $chave => [$ferramenta, $acao, $chave];
+                }
+            }
+        }
     }
 
     private function recusa(\Closure $chamada, string $motivo): ErroDaFerramenta
