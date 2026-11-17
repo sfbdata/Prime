@@ -1,0 +1,67 @@
+{# Cartão do conector de I.A. na tela "BlueJus IA" do administrador do escritório (spec mcp-remoto-oauth 14.a nível 3 e
+   14.e: sem desenho, pela convenção desta tela, o mesmo .card dos blocos de estado e consumo).
+   Recebe `conector` (EscritorioNoConectorOutput do escritório da sessão). O POST vai ao ConectorDoEscritorioController
+   (`acao` ligar ou desligar, `aceite`, `_token`), que volta para esta tela com o flash.
+   Sem a liberação do Master (nível 2), a caixa e o botão Ligar ficam desabilitados com o aviso (decisão 3 do PR 8).
+   Textos no catálogo conector.admin.*; o do aceite é provisório (versão 1, VersaoDoAceiteDoConector). #}
+{% set conector_ativo = conector.liberado and conector.ligado and conector.aceiteVigente %}
+<div class="card mt-3" id="conector-escritorio">
+    <div class="card-header"><strong>{{ 'conector.admin.titulo'|trans }}</strong></div>
+    <div class="card-body">
+        <p class="text-muted small mb-2">{{ 'conector.admin.sub'|trans }}</p>
+
+        {% if conector_ativo %}
+            <p class="text-success mb-2" data-conector-estado="ligado">{{ 'conector.admin.estado.ligado'|trans }}</p>
+        {% elseif not conector.liberado and conector.aceiteEm is not null %}
+            <p class="text-warning mb-2" data-conector-estado="bloqueado_master">{{ 'conector.admin.estado.bloqueado_master'|trans }}</p>
+        {% elseif not conector.liberado %}
+            <p class="text-muted mb-2" data-conector-estado="aguardando_master">{{ 'conector.admin.estado.aguardando_master'|trans }}</p>
+        {% else %}
+            <p class="mb-2" data-conector-estado="desligado">{{ 'conector.admin.estado.desligado'|trans }}</p>
+        {% endif %}
+
+        {% if conector.aceiteEm is not null %}
+            <div class="form-text" id="conector-aceite-registrado">{{ 'conector.admin.aceite.registrado'|trans({quando: conector.aceiteEm|data_hora}) }}</div>
+            {% if not conector.aceiteVigente %}
+                <div class="form-text text-warning" id="conector-aceite-antigo">{{ 'conector.admin.aceite.versao_antiga'|trans }}</div>
+            {% endif %}
+        {% endif %}
+
+        {% if not conector_ativo %}
+            <form method="post" action="{{ path('conector_admin_alterar') }}" class="mt-3" id="conector-form-ligar">
+                <input type="hidden" name="_token" value="{{ csrf_token('conector_escritorio') }}">
+                <input type="hidden" name="acao" value="ligar">
+                <div class="form-text text-muted" id="conector-aceite-texto">
+                    {{ 'conector.admin.aceite.intro'|trans }}
+                    <ul class="mb-1 ps-3">
+                        <li>{{ 'conector.admin.aceite.conta_da_pessoa'|trans }}</li>
+                        <li>{{ 'conector.admin.aceite.treino'|trans }}</li>
+                        <li>{{ 'conector.admin.aceite.o_que_sai'|trans }}</li>
+                        <li>{{ 'conector.admin.aceite.mascara'|trans }}</li>
+                        <li>{{ 'conector.admin.aceite.gravacao'|trans }}</li>
+                    </ul>
+                    {{ 'conector.admin.aceite.fim'|trans }}
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" name="aceite" value="1" id="conector-aceite" required{% if not conector.liberado %} disabled{% endif %}>
+                    <label class="form-check-label fw-semibold" for="conector-aceite">{{ 'conector.admin.aceite.caixa'|trans }}</label>
+                </div>
+                <div class="d-flex justify-content-end mt-2">
+                    <button type="submit" class="btn btn-primary" id="conector-ligar"{% if not conector.liberado %} disabled{% endif %}>
+                        <i class="bi bi-plug me-1"></i> {{ 'conector.admin.ligar'|trans }}
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+
+        {% if conector.ligado %}
+            <form method="post" action="{{ path('conector_admin_alterar') }}" class="d-flex justify-content-end mt-3" id="conector-form-desligar">
+                <input type="hidden" name="_token" value="{{ csrf_token('conector_escritorio') }}">
+                <input type="hidden" name="acao" value="desligar">
+                <button type="submit" class="btn btn-outline-danger" id="conector-desligar">
+                    <i class="bi bi-power me-1"></i> {{ 'conector.admin.desligar'|trans }}
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</div>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Controller;
 
+use App\Conector\UseCase\ObterConectorDoEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Inteligencia\DTO\ConfiguracaoDeInteligenciaInput;
 use App\Inteligencia\Form\ConfiguracaoDeInteligenciaType;
@@ -32,6 +33,7 @@ final class ConfiguracaoController extends AbstractController
         private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly ConsultarConfiguracaoDeInteligenciaUseCase $consultar,
         private readonly AtualizarConfiguracaoDeInteligenciaUseCase $atualizar,
+        private readonly ObterConectorDoEscritorioUseCase $conector,
     ) {
     }
 
@@ -60,6 +62,8 @@ final class ConfiguracaoController extends AbstractController
         return $this->render('inteligencia/admin/configuracao.html.twig', [
             'form' => $form,
             'configuracao' => $this->consultar->executar($tenant),
+            // O cartão do conector de I.A. (spec mcp-remoto-oauth 14.a); o POST dele é do ConectorDoEscritorioController.
+            'conector' => $this->conector->executar($tenant),
         ]);
     }
 }

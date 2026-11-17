@@ -87,6 +87,9 @@ conector:
             liberou: '"{nome}" liberado para o conector de I.A.'
             bloqueou: '"{nome}" bloqueado para o conector de I.A.'
             sem_aceite: sem aceite
+            aceite_antigo: versão anterior
+            ligado: Ligado
+            desligado: Desligado
             contagem: '{n} ativa(s)'
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar o conector de I.A. Recarregue a página.
