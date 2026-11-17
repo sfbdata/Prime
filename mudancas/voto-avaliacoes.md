@@ -16,3 +16,4 @@ tipo: novidade
 - A lista de unidades mostra uma assinatura da lista (o "hash") e quantas alterações o conselho fez depois que ela travou. A ata traz a seção de ocorrências e avaliações.
 - A planilha de importação das unidades aceita uma coluna opcional de ocorrência.
 - No Painel do Master, as estatísticas do Voto mostram os totais de ocorrências e avaliações, e o arquivo CSV traz as mesmas colunas.
+- A unidade que não está apta vê, na própria cédula, a ocorrência anotada e se ela está em avaliação pelo conselho.
