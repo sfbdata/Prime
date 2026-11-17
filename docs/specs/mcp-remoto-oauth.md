@@ -983,7 +983,8 @@ continua sem texto).
 ### 6.6 Gravação (9 ferramentas)
 
 Todas: escopo `mcp:escrita` (sem ele, 403 `insufficient_scope`, 5.1); `readOnlyHint: false`, `destructiveHint: true`;
-pasta excluída é só leitura (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`), salvo restaurar; segredo recusa
+pasta na lixeira (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`) dá "não encontrada" no piloto, na leitura e
+na gravação, igual à BlueJus I.A. (decisão 2 do PR 6), salvo restaurar; segredo recusa
 (6.2.3); toda **exclusão** devolve uma proposta e só a `confirmar_acao` executa (6.7). "Exclusão" é toda ação que apaga, manda
 para a lixeira, exclui de vez, remove ou desvincula um item, inclusive tirar um marcador da pasta, apagar o nome de uma etapa
 e trocar um valor já preenchido no cadastro do cliente.
@@ -2167,3 +2168,29 @@ Coordenador):**
 12. **Filtro do escritório fora do portão** só pelo `SemFiltroDoEscritorio`, que suspende e devolve e nunca liga (o
     `PortaoDoConectorArquiteturaTest` confere). Usado pelas buscas das telas e pelo `revogarDoConsentimento`, porque o
     `TenantFilter` também entra no WHERE de um UPDATE em DQL.
+
+**Decidido em 16/11/2026 no PR 6 (orquestrador da frente, pela recomendação; a 1 e a 2 com o Coordenador):**
+
+1. **Pasta trancada na busca** segue a Lista do navegador para quem não tem a chave do cadeado: aparece com número,
+   cliente e o cadeado, sem o resto, e entra na contagem (`PastaRepository.php:916-925` e `:982-984`, `countByFilters`
+   `:225-231`, `_lista.html.twig:136-138`). Pasta que a pessoa não pode ver (`podeVer` falso) não aparece.
+2. **Pasta na lixeira** dá "não encontrada" no piloto, igual à BlueJus I.A. (a 6.6 foi corrigida). A lixeira do escritório
+   se lê por `buscar_pastas` `acao: lixeira`.
+3. **Registro com a aba Dados oculta**: a parte `registro` de `ler_pasta` é barrada pela aba Dados. Na gravação (PR 10),
+   a mesma regra.
+4. **Sugestões do andamento** que citam Push ou Financeiro saem quando a aba de origem está oculta.
+5. **Compromisso da pessoa ligado a pasta em segredo ou trancada** some da agenda e é contado.
+6. **Prazos da pasta**: só os abertos.
+7. **Lixeira do escritório**: o nome do documento pelo rótulo, sem conteúdo.
+8. **Cadastro**: só preenchido ou falta, pelo `CadastroDaPastaOutput::de`.
+9. **Registro**: 50 por página, o mais recente primeiro.
+10. **`ler_pasta` não pede módulo**, como a tela da pasta (`pasta_show` só confere o recurso `pasta` view): quem lê é quem
+    pode ver a pasta, e cada parte segue a aba de onde vem (tabela acima). `buscar_pastas` pede o módulo `expediente`
+    (`buscar`, `contar`, `opcoes`, `lixeira`) ou `pastas` (`numero`, `minhas_demandas`).
+11. **Ações por nome no esquema**: o campo é `acao` (`buscar_pastas`, `ler_agenda`), `partes` (`ler_pasta`) ou `lugar`
+    (`registrar_na_pasta`), com a lista fechada no `enum`. Tudo sai da `TabelaDeAbaEChave`, que a
+    `GuardaDaAcaoDoConector` consulta nesta ordem: ação na tabela, chave do Master, módulo ("basta um"), e com pasta:
+    escritório, `podeVer` e as abas. Pasta de outro escritório dá "não encontrada".
+12. **Porta do aceite na consulta de prazos** (14.i): `PortaDaConsultaDePrazos` é a interface; a `GuardaDaConsultaDePrazos`
+    do chat a implementa e o conector passa a dele como parâmetro opcional de `ConsultarPrazosEMetasUseCase::executar`,
+    nunca pelo construtor (duas implementações deixariam a injeção ambígua).
