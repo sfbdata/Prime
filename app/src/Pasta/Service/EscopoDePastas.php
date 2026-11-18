@@ -8,7 +8,9 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaCompartilhamento;
 use App\Pasta\Entity\PastaProcesso;
+use App\Pasta\Repository\PastaCompartilhamentoRepository;
 use App\Processo\Entity\Processo;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
@@ -17,12 +19,14 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\QueryBuilder;
+use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Ponto único do "ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE" (spec `docs/specs/acesso-restrito-e-compartilhar.md`,
- * §4.2 e §5.1). Quem tem o perfil restrito só alcança as pastas em que é o responsável. A pasta sem responsável fica
- * fora. Master nunca é restrito; o perfil de sistema também não (a entidade recusa).
+ * §4.2, §4.4 e §5.1). Quem tem o perfil restrito só alcança as pastas em que é o responsável e as compartilhadas com
+ * ele pela equipe (compartilhamento interno ativo). A pasta sem responsável fica fora. Master nunca é restrito; o
+ * perfil de sistema também não (a entidade recusa).
  *
  * Os dois usos:
  *  - por id: `foraDoEscopo()`, que o `NivelNoCadeado` transforma em `Oculto` (antes do cadeado), e daí o
@@ -35,6 +39,8 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 #[AsEntityListener(event: Events::postPersist, method: 'reset', entity: Pasta::class)]
 #[AsEntityListener(event: Events::postUpdate, method: 'reset', entity: Pasta::class)]
+#[AsEntityListener(event: Events::postPersist, method: 'reset', entity: PastaCompartilhamento::class)]
+#[AsEntityListener(event: Events::postUpdate, method: 'reset', entity: PastaCompartilhamento::class)]
 final class EscopoDePastas implements ResetInterface
 {
     /** @var array<string, list<int>> pastas sob a responsabilidade da pessoa, por "user:tenant" */
@@ -57,6 +63,8 @@ final class EscopoDePastas implements ResetInterface
         private readonly UserTenantRepository $userTenantRepository,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly TenantContext $tenantContext,
+        private readonly PastaCompartilhamentoRepository $compartilhamentos,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -129,8 +137,10 @@ final class EscopoDePastas implements ResetInterface
             return;
         }
 
-        $parametro = 'escopo_pessoa_' . ++$this->criterios;
-        $qb->andWhere(sprintf('%s.responsavel = :%s', $aliasPasta, $parametro))->setParameter($parametro, $pessoa);
+        $sufixo = (string) ++$this->criterios;
+        $qb->andWhere($this->criterioDoEscopo($aliasPasta, 'escopo_pessoa_' . $sufixo, 'escopo_hoje_' . $sufixo, $sufixo))
+            ->setParameter('escopo_pessoa_' . $sufixo, $pessoa)
+            ->setParameter('escopo_hoje_' . $sufixo, $this->hoje(), 'date_immutable');
     }
 
     /**
@@ -177,6 +187,32 @@ final class EscopoDePastas implements ResetInterface
         return in_array($processoId, $this->idsDosProcessosForaDoEscopo($pessoa, $tenant), true);
     }
 
+    /**
+     * A pessoa restrita alcança a pasta só pelo compartilhamento (não é a responsável): as ações dentro dela também
+     * dependem das caixas do compartilhamento (§4.4, "permissões do perfil e as do compartilhamento"). `null` para
+     * quem não é restrito, para o responsável e para quem não tem compartilhamento ativo.
+     */
+    public function compartilhamentoQueDaAcesso(User $pessoa, Pasta $pasta): ?PastaCompartilhamento
+    {
+        $tenant = $pasta->getTenant();
+        if ($tenant === null || $pasta->getId() === null || !$this->ehRestritoNoEscritorio($pessoa, $tenant)) {
+            return null;
+        }
+
+        return $this->compartilhamentos->ativoParaQuemNaoEhResponsavel((int) $pasta->getId(), $pessoa, $this->hoje());
+    }
+
+    /** A pessoa restrita vê a pasta pelo compartilhamento sem "Abrir e movimentar": o teto dela é `Visualizar`. */
+    public function compartilhamentoSemMovimentar(User $pessoa, UserTenant $vinculoAtivo, int $pastaId): bool
+    {
+        if (!$this->ehRestrito($pessoa, $vinculoAtivo)) {
+            return false;
+        }
+        $compartilhamento = $this->compartilhamentos->ativoParaQuemNaoEhResponsavel($pastaId, $pessoa, $this->hoje());
+
+        return $compartilhamento !== null && !$compartilhamento->permissoes()->movimentar;
+    }
+
     public function reset(): void
     {
         $this->sobResponsabilidade = [];
@@ -212,12 +248,13 @@ final class EscopoDePastas implements ResetInterface
     {
         $daPessoa = $this->em->createQueryBuilder()
             ->select('IDENTITY(pp.processo)')->from(PastaProcesso::class, 'pp')->join('pp.pasta', 'pe')
-            ->andWhere('pe.responsavel = :pessoa')->andWhere('pe.tenant = :tenant');
+            ->andWhere($this->criterioDoEscopo('pe', 'pessoa', 'hoje', 'proc'))->andWhere('pe.tenant = :tenant');
         $linhas = $this->em->createQueryBuilder()
             ->select('pr.id')->from(Processo::class, 'pr')
             ->andWhere('pr.tenant = :tenant')
             ->andWhere('pr.id NOT IN (' . $daPessoa->getDQL() . ')')
             ->setParameter('tenant', $tenant)->setParameter('pessoa', $pessoa)
+            ->setParameter('hoje', $this->hoje(), 'date_immutable')
             ->getQuery()->getScalarResult();
 
         return array_map('intval', array_column($linhas, 'id'));
@@ -237,10 +274,35 @@ final class EscopoDePastas implements ResetInterface
             ->from(Pasta::class, 'p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->setParameter('pessoa', $pessoa);
-        $qb->andWhere($daPessoa ? 'p.responsavel = :pessoa' : '(p.responsavel IS NULL OR p.responsavel <> :pessoa)');
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('hoje', $this->hoje(), 'date_immutable');
+        $qb->andWhere($daPessoa ? $this->criterioDoEscopo('p', 'pessoa', 'hoje', 'ids') : $this->criterioForaDoEscopo('p', 'pessoa', 'hoje', 'ids'));
 
         return array_map('intval', array_column($qb->getQuery()->getScalarResult(), 'id'));
+    }
+
+    /**
+     * O critério DQL do escopo: a pasta é da pessoa (responsável) ou está compartilhada com ela e ativa. Os nomes dos
+     * parâmetros vêm de quem chama, que os preenche.
+     */
+    private function criterioDoEscopo(string $aliasPasta, string $pessoa, string $hoje, string $sufixo): string
+    {
+        $daPessoa = sprintf('%s.responsavel = :%s', $aliasPasta, $pessoa);
+
+        return sprintf('(%s OR %s.id IN (%s))', $daPessoa, $aliasPasta, PastaCompartilhamentoRepository::dqlDasPastasCompartilhadasCom($sufixo, $pessoa, $hoje));
+    }
+
+    /** O contrário do `criterioDoEscopo()`, sem perder a pasta sem responsável (NULL não entra num NOT). */
+    private function criterioForaDoEscopo(string $aliasPasta, string $pessoa, string $hoje, string $sufixo): string
+    {
+        $deOutro = sprintf('(%1$s.responsavel IS NULL OR %1$s.responsavel <> :%2$s)', $aliasPasta, $pessoa);
+
+        return sprintf('(%s AND %s.id NOT IN (%s))', $deOutro, $aliasPasta, PastaCompartilhamentoRepository::dqlDasPastasCompartilhadasCom($sufixo, $pessoa, $hoje));
+    }
+
+    private function hoje(): \DateTimeImmutable
+    {
+        return $this->relogio->now()->setTime(0, 0);
     }
 
     private function chave(User $pessoa, Tenant $tenant): string

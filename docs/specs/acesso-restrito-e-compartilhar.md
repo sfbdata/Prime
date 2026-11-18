@@ -277,3 +277,13 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   (L63; o desenho manda sobre o "rótulo em maiúsculas" da P10) e descrição vazia "Acesso restrito às pastas sob
   responsabilidade" (P11). P12: rótulo em maiúsculas (badge do padrão da tela, sem desenho) na lista de usuários e
   na ficha do usuário. Simular fora (Q1).
+- 18/11: fatia 5a (servidor do compartilhar com a equipe; migration `Version20261118110000`, tabela
+  `pasta_compartilhamento`). O escopo do restrito soma as pastas compartilhadas e ativas (aceito e dentro da
+  validade, sem job). Caixas: sem "Abrir e movimentar" o restrito fica em `Visualizar` (`NivelNoCadeado`), "Baixar
+  documentos" e "Enviar documentos" valem por rota na barreira do cadeado (`ROTAS_DE_BAIXAR`, `ROTAS_DE_ENVIAR`; o
+  envio passa por cima do `Visualizar` do compartilhamento só se o cadeado deixaria editar), recusa com "O
+  compartilhamento desta pasta não permite esta ação.". Decisão: as caixas só limitam quem chega à pasta pelo
+  compartilhamento (o restrito que não é o responsável); para quem não é restrito o compartilhamento vale só como
+  ver a pasta (§4.4). Rotas JSON `pasta_compartilhamento_ver|criar|encerrar` (o GET devolve o token dos POSTs).
+  Encerrar: quem compartilhou, o responsável, o destino (deixar de colaborar), o primário e o Master. A tela (L1,
+  L3, L4, L5, L6) vem na 5b.

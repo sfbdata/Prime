@@ -8,9 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Repository\PastaCompartilhamentoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\UserTenantRepository;
+use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -33,6 +35,10 @@ class PermissionChecker implements ResetInterface
         // Master e do perfil de sistema e as permissões `admin.*`. Nulo (testes antigos que montam o checker à mão):
         // como desligado.
         private readonly ?ModoDoConector $modoDoConector = null,
+        // Compartilhar pasta (spec acesso-restrito-e-compartilhar §4.4): o compartilhamento interno ativo vale como
+        // permissão de ver a pasta, como o `ResourceAccess`. Nulos (testes antigos): sem compartilhamento.
+        private readonly ?PastaCompartilhamentoRepository $compartilhamentos = null,
+        private readonly ?ClockInterface $relogio = null,
     ) {}
 
     public function canAccessModule(User $user, ?Tenant $tenant, string $module): bool
@@ -159,8 +165,20 @@ class PermissionChecker implements ResetInterface
         // Acesso restrito: a liberação item a item não passa da lista de liberação (como no `permiteORecurso`).
         $acessos   = PermissoesDoAcessoRestrito::bloqueia($userTenant->getTenantRole(), $permissao) ? [] : $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
         $doPapel   = $this->hasPermissionFromUserTenant($userTenant, $permissao);
+        $compartilhadas = $this->compartilhadaParaVer($resourceType, $action) && $this->compartilhamentos !== null
+            ? $this->compartilhamentos->idsDasPastasCompartilhadasCom($user, $userTenant->getTenant(), $this->hoje()) : [];
 
-        return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel));
+        return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel || in_array($id, $compartilhadas, true)));
+    }
+
+    private function compartilhadaParaVer(string $resourceType, string $action): bool
+    {
+        return $resourceType === AccessRequest::RESOURCE_PASTA && $action === AccessRequest::ACTION_VIEW;
+    }
+
+    private function hoje(): \DateTimeImmutable
+    {
+        return ($this->relogio?->now() ?? new \DateTimeImmutable())->setTime(0, 0);
     }
 
     private static function mesmoUsuario(User $a, User $b): bool
@@ -205,6 +223,9 @@ class PermissionChecker implements ResetInterface
         }
         $resourceAccess = $this->resourceAccessRepository->findForUserAndResource($user, $resourceType, $resourceId);
         if ($resourceAccess !== null && $resourceAccess->allows($action)) {
+            return true;
+        }
+        if ($this->compartilhadaParaVer($resourceType, $action) && $this->compartilhamentos?->ativoPara($resourceId, $user, $this->hoje()) !== null) {
             return true;
         }
 

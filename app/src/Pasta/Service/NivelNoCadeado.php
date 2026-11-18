@@ -115,8 +115,27 @@ final class NivelNoCadeado implements ResetInterface
         if ($this->escopo?->foraDoEscopo($pessoa, $vinculoAtivo, $pastaId) === true) {
             return NivelDeAcesso::Oculto;
         }
+        $nivel = $this->cadeadoPorId($pastaId, $vinculoAtivo->getTenant())?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
+        // Compartilhamento sem "Abrir e movimentar" (spec acesso-restrito-e-compartilhar §4.4): o restrito só vê.
+        if ($nivel === NivelDeAcesso::Editar && $this->escopo?->compartilhamentoSemMovimentar($pessoa, $vinculoAtivo, $pastaId) === true) {
+            return NivelDeAcesso::Visualizar;
+        }
 
-        return $this->cadeadoPorId($pastaId, $vinculoAtivo->getTenant())?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
+        return $nivel;
+    }
+
+    /**
+     * Só o cadeado, sem o teto do compartilhamento: a barreira deixa o restrito com "Enviar documentos" enviar numa
+     * pasta compartilhada sem "Abrir e movimentar", desde que o cadeado permita editar (o teto continua teto).
+     */
+    public function nivelSoDoCadeado(User $pessoa, Pasta $pasta): NivelDeAcesso
+    {
+        $tenant = $pasta->getTenant();
+        if ($tenant === null || $pasta->getId() === null) {
+            return NivelDeAcesso::Editar;
+        }
+
+        return $this->cadeadoPorId((int) $pasta->getId(), $tenant)?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
     }
 
     /** Quem abre, altera e remove o cadeado e decide os pedidos (K1): o Master e o primário ativo. */
