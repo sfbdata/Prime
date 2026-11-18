@@ -8,6 +8,8 @@ use App\ChatIa\Controller\ChatIaAnexosController;
 use App\ChatIa\Controller\ChatIaConversasController;
 use App\ChatIa\Controller\ChatIaMensagensController;
 use App\ChatIa\Entity\ConversaDeChat;
+use App\Contribua\Entity\EspacoDoEscritorio;
+use App\Contribua\Entity\Plano;
 use App\Entity\Auth\User;
 use App\Inteligencia\Enum\ModeloDeIa;
 use App\Entity\Permission\ResourceAccess;
@@ -227,6 +229,11 @@ final class ChatIaTest extends JusPrimeWebTestCase
     public function testTetoDiario(): void
     {
         [$client, $tenant, $ana] = $this->cenario();
+        // Escritório pago: os 210 mil tokens passariam da I.A. gratuita da pessoa (100 mil), e aqui o alvo é o teto do chat.
+        $plano = new Plano('pago_' . substr(uniqid(), -8), 'Pago de teste', 20, 1990, 'Plano de teste', 99);
+        $this->em()->persist($plano);
+        $this->em()->persist(new EspacoDoEscritorio($tenant, $plano));
+        $this->em()->flush();
         $this->logarComTenant($client, $ana, $tenant);
         $id = $this->novaConversa($client);
         $this->provedorFalso()->transmitirTrechos(['ok'], 150000, 60000);
