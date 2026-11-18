@@ -173,7 +173,11 @@ Tabela `pasta_compartilhamento`: `id`, `tenant_id` (conta de origem), `pasta_id`
   contra as permissões do compartilhamento. Nunca abre outra pasta, cliente, processo ou tela de A.
 - Antes de codar a fatia 9, adendo desta spec com as rotas exatas e re-revisão (risco ALTO).
 
-#### 4.5.1 Adendo da fatia 9 (18/11): abrir a pasta recebida
+#### 4.5.1 Adendo da fatia 9 (18/11, revisto após a re-revisão): abrir a pasta recebida
+
+**Substitui** o terceiro item do §4.5 (`_sem_escritorio` e filtro ligado no escritório da pasta): a sessão continua
+no escritório do destino (B) e a pasta de A é lida por um leitor próprio. Consequência aceita: quem não está em
+nenhum escritório ativo (sem vínculo, ou com B suspenso) cai na escolha de escritório e não abre a recebida.
 
 **Por que não `pasta_show`.** Investigação de 18/11: `pasta_show` e as rotas que a página chama (mensagem, andamento,
 upload, documento, ZIP, metas) leem tudo pelo escritório da sessão (`TenantContext`, `PermissionChecker` exige
@@ -183,53 +187,80 @@ pasta de A ali pede desligar o filtro em dezenas de pontos ou dar vínculo em A:
 outra pasta, cliente, processo ou tela de A". O molde do Trabalho Externo também não serve como está: lá a
 `DemandaExterna` não é `TenantAware`; aqui `Pasta`, `PastaDocumento`, `PastaAndamento` e as metas são.
 
-**Desenho.** "Abrir pasta" (dc `rvAbrir`) e "Abrir metas" (`rvMetasIr`) levam à página normal da pasta (02). A pasta
-recebida abre numa **página própria e reduzida**, com os componentes visuais da página da pasta (cabeçalho, abas
-Andamentos, Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11),
-comunicado ao Coordenador.
+**Desenho.** "Abrir pasta" (dc `rvAbrir`) e "Abrir metas" (`rvMetasIr`) apontam para a página da pasta (02), que não
+tem tratamento de pasta recebida (conferido em `redesign-04-11-26/02 - EXPEDIENTES - VS 31.10.26`). A pasta recebida
+abre numa **página própria e reduzida**, com os componentes visuais da página da pasta (cabeçalho, abas Andamentos,
+Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11), comunicado ao
+Coordenador. ZIP fica fora (a recebida do desenho não o mostra).
 
-**Uma porta só.** Toda rota da pasta recebida tem nome `expediente_recebida_*` (prefixo já liberado pela barreira do
-restrito, fora de `pasta_*`, logo fora de `PastaDaRota`, do cadeado e da aba oculta), caminho
+**O teto é a origem (regra nova, pela recomendação).** B nunca faz mais do que quem republicou, e só enquanto quem
+republicou ainda poderia republicar. Por isso o localizador confere, a cada requisição:
+
+1. o compartilhamento: destino = usuário logado; `interno = false`; status `Aceita`; não venceu;
+2. a pasta: não excluída; **sem cadeado ativo** (qualquer modo: o destino não tem vínculo em A e não pode estar na
+   lista do cadeado; D3 "compartilhamento nunca fura o cadeado");
+3. o escritório A: ativo (suspenso: só leitura, como o `donoForaDoAr` do Trabalho Externo; excluído: 404);
+4. a origem: vínculo ativo em A, não restrita lá, e `AcessoAPasta::podeEditar(origem, pasta)` (a mesma regra de quem
+   republica); se a origem sai de A, perde a edição ou vira restrita, a recebida fecha sozinha;
+5. o destino: **sem** vínculo ativo em A (quem entrou em A depois usa o acesso de lá, com o escopo de lá).
+
+Falhou qualquer um: 404, sem dizer por quê. Tudo isso roda com o filtro desligado (o cadeado e o vínculo de A ficam
+invisíveis com o filtro em B: lido com filtro, "sem cadeado" seria falso positivo).
+
+**Abas.** A aba que está oculta para a origem (`VisibilidadeDasAbasDaPasta::ocultaPara(pasta, aba, origem)`, que
+inclui a regra "para todos") some para B na página e nas rotas dela.
+
+**Uma porta só.** Toda rota nova tem nome `expediente_recebida_*` (prefixo liberado pela barreira do restrito, fora de
+`pasta_*`, logo fora de `PastaDaRota`, do cadeado e da aba oculta, que o localizador substitui), caminho
 `/expediente/recebidas/{compartilhamentoId}/…`, e a primeira coisa que faz é
-`PastaRecebidaDoUsuario::localizar(compartilhamentoId, usuário logado)`, que devolve o compartilhamento só se:
-destino = usuário logado; `interno = false`; status `Aceita`; não venceu; pasta não excluída; escritório da pasta
-ativo (escritório suspenso: só leitura, como o `donoForaDoAr` do Trabalho Externo; excluído: 404). Senão, 404 sem
-dizer por quê. Um teste de arquitetura (molde `TrabalhoExternoSemEscritorioArquiteturaTest`) recusa rota
-`expediente_recebida_*` cuja ação não chame o localizador.
+`PastaRecebidaDoUsuario::localizar(compartilhamentoId, usuário logado)`. Um teste de arquitetura (molde
+`TrabalhoExternoSemEscritorioArquiteturaTest`) recusa rota `expediente_recebida*` cuja ação não chame o localizador,
+com duas exceções nomeadas: `expediente_recebidas` (a caixa) e `expediente_recebida_responder` (aceitar um pendente).
 
-**Leitura.** O escritório da sessão continua o do destino (B): cabeçalho, menu e Central são dele. Os dados da pasta
-de A vêm de um leitor próprio (`LeitorDaPastaRecebida`), que desliga o `TenantFilter` só durante cada consulta
-(`SemFiltroDeTenant`) e filtra **sempre** por `tenant = A` **e** `pasta = a do compartilhamento`. Nenhuma consulta por
-id solto. O leitor devolve DTO (nunca a entidade para o Twig): NUP, nome do cliente, fase atual, andamentos e
-anotações, lista de documentos (nome, data, tamanho) e metas abertas (título, prazo, situação). Fica de fora:
-link para cliente, processo, cobrança, push, IA, marcadores, responsável, atribuíveis, vizinhas e "N de M".
+**Leitura.** O leitor (`LeitorDaPastaRecebida`) desliga o `TenantFilter` (`SemFiltroDeTenant`) durante a leitura
+**e a montagem do DTO** (proxies preguiçosos morrem com o filtro ligado em B) e filtra **sempre** por `tenant = A` **e**
+`pasta = a do compartilhamento`; nenhuma consulta por id solto. Devolve DTO (nunca entidade ao Twig): NUP, cliente,
+ação, fase atual, andamentos e anotações, documentos (nome, data, tamanho; sem os da lixeira) e metas abertas (título,
+prazo, situação). Fora: link para cliente, processo, cobrança, push, IA, marcadores, responsável, atribuíveis,
+vizinhas e "N de M".
 
 **Rotas (fatia 9a, leitura).**
 
 | Nome | Método e caminho | Exige | Faz |
 |---|---|---|---|
-| `expediente_recebida_ver` | GET `…/{id}` | localizar | JSON da janela L11: de, conta, permissões, número de metas abertas |
-| `expediente_recebida_pasta` | GET `…/{id}/pasta` | localizar | página reduzida (abas Andamentos, Documentos, Metas; `?aba=metas` para "Abrir metas") |
-| `expediente_recebida_documento` | GET `…/{id}/documento/{documentoId}/{modo}` (`ver`/`baixar`) | localizar + `baixarDocumentos` + documento da pasta do compartilhamento | entrega o arquivo pela chave (skill `armazenamento-de-arquivos`) |
+| `expediente_recebida_ver` | GET `…/{compartilhamentoId}` | localizar | JSON da janela L11: de, conta, cliente, ação, permissões, número de metas abertas, só leitura |
+| `expediente_recebida_pasta` | GET `…/{compartilhamentoId}/pasta` | localizar | página reduzida (`?aba=metas` para "Abrir metas") |
+| `expediente_recebida_documento` | GET `…/{compartilhamentoId}/documento/{documentoId}/{modo}` | localizar + documento desta pasta, fora da lixeira, aba Documentos visível; `baixar` exige `baixarDocumentos` | `ver` mostra (o desenho dá "Ver a pasta e os documentos" a todo convite, como o `pasta_documento_view` interno); `baixar` entrega o arquivo pela chave |
 
-**Rotas (fatia 9b, escrita).** `expediente_recebida_anotar` (POST, exige `movimentar`: anotação na linha do tempo) e
-`expediente_recebida_enviar` (POST, exige `enviarDocumentos`: documento novo na pasta). A entidade nasce com o
-escritório A explícito; a auditoria vai para A (dono) com o ator de B, que é a trilha da outra conta que A precisa
-ver. ZIP fica fora (o desenho não mostra na recebida).
+**Fatia 9b (escrita), com mini-adendo próprio antes do código.** O "movimentar" do desenho é "abrir e movimentar
+metas, andamentos e prazos": anotação com prazo, mudança de fase e concluir/reabrir meta da pasta; "enviar
+documentos" é o envio de documento novo. Escrita só com A ativo (suspenso = só leitura). A entidade nasce com o
+escritório A explícito; o flush roda com o filtro desligado (o `PrazosDosRegistrosListener` relê os registros no
+`postFlush`); a auditoria vai para A (dono) com o ator de B, que é a trilha da outra conta que A precisa ver.
 
-**Lista (L2, L12).** As pastas aceitas e vigentes entram na Lista do destinatário como um bloco próprio no topo do
-acervo, desenhado pelo JS a partir do JSON `expediente_recebidas` (que já traz os itens `colaborando`), com a marca
-"Recebida · <conta>" e a dica L2; clicar abre a janela L11. Não entram no `findByFilters` (escopado ao escritório B).
-"Ver pasta" da caixa Recebidas abre a mesma janela L11.
+**Lista (L2, L12).** Como no desenho (`rpRows()` concatena as recebidas às linhas), as pastas que o localizador abre
+entram **na própria Lista** do destinatário, no topo, com a mesma linha, a marca "Recebida · <conta>", a dica L2 e o
+responsável "<origem> (dono)"; clicar abre a janela L11. A ordem (no topo, fora da ordenação e da paginação do
+acervo) é o único desvio. A fonte é o JSON `expediente_recebidas`, que passa a marcar em cada item `abre`
+(o mesmo critério do localizador); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
+entram no `findByFilters` (escopado ao escritório B).
 
-**Trilha (§4.6).** Abrir a página e cada documento entregue gravam `leitura` no `audit_log` do escritório A (só ids,
-rota, IP e o usuário de B); a recusa do localizador não grava (não há pasta conhecida a quem mostrar).
+**Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
+com o escritório A, só ids, rota, IP e o usuário de B); o 403 de `baixar` sem a caixa grava `negado`. A recusa do
+localizador não grava (não há pasta a quem mostrar).
 
-**Testes obrigatórios.** Pessoa de B abre a página e o documento com o convite aceito; recebe 404 com convite
-pendente, recusado, encerrado, vencido, de outra pessoa, com pasta excluída e com A excluído; documento de outra
-pasta de A pelo mesmo compartilhamento dá 404; `baixarDocumentos` falso dá 403; o filtro do escritório volta ligado
-em B depois de cada leitura; a página não tem link para `cliente_*`, `processo_*`, `tarefa_*`, `cobranca_*`, `push_*`;
-a trilha em A registra a leitura; ninguém de B sem convite chega a nada.
+**Testes obrigatórios (9a).**
+- Abre: convite aceito, página, `expediente_recebida_ver`, `ver` e `baixar` com a caixa; restrito em B também abre.
+- 404 na página, no `ver` da janela e no documento: pendente, recusado, encerrado, vencido, de outra pessoa, pasta
+  excluída, pasta com cadeado (`Todos` e `PorPessoa`), A excluído, origem removida ou inativa em A, origem sem edição,
+  origem restrita, destino com vínculo ativo em A.
+- A suspenso: abre só leitura.
+- Documento de outra pasta de A pelo mesmo compartilhamento, documento na lixeira e documento de aba oculta: 404;
+  `baixar` sem `baixarDocumentos`: 403 e linha `negado` em A.
+- O leitor não traz andamento, meta ou documento de outra pasta de A nem de B com o mesmo id; o filtro volta ligado
+  em B depois de cada leitura.
+- A página não tem link para `cliente_*`, `processo_*`, `tarefa_*`, `cobranca_*`, `push_*`.
+- A trilha em A registra a leitura; ninguém de B sem convite chega a nada; a Lista e a caixa só mostram `abre` certo.
 
 ### 4.6 Trilha (regra 7)
 
