@@ -16,6 +16,7 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
@@ -493,8 +494,8 @@ class PastaController extends AbstractController
         // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.
         // O "N de M" entre elas sai do mesmo conjunto e da mesma ordem.
         $vizinhas = PastaVizinhasOutput::montar(
-            $this->pastaRepository->vizinhasNoAcervo($pasta),
-            $this->pastaRepository->posicaoNoAcervo($pasta),
+            $this->pastaRepository->vizinhasNoAcervo($pasta, $currentUser),
+            $this->pastaRepository->posicaoNoAcervo($pasta, $currentUser),
         );
 
         return $this->render('pasta/show.html.twig', [
@@ -1695,8 +1696,9 @@ class PastaController extends AbstractController
             $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (ResponsavelFixoNoAcessoRestritoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
-
         $responsavel = $pasta->getResponsavel();
 
         return $this->json([

@@ -196,6 +196,41 @@ aplicar o escopo daria a falsa impressão de restrição.
 | 8 | Outra conta: código e convite | ALTO | sim | Código pessoal, aba "Outra conta (código)", "Recebidas" (L9, L10), aceitar/recusar/deixar, aviso na Central |
 | 9 | Outra conta: abrir a pasta recebida | ALTO | não | Adendo §4.5, rotas sem escritório, L2, L11, L12, permissões por ação, re-revisão |
 
+## 5.1 Fatia 2 em detalhe (núcleo do escopo no servidor)
+
+Migration `Version20261118100000` (número do Coordenador). Tudo abaixo vale só para vínculo cujo perfil tem
+`escopo_pasta = 'responsavel'`; ninguém liga isso antes da fatia 4.
+
+1. **Permissões por lista de liberação** (`App\Tenant\Service\PermissoesDoAcessoRestrito`, chamada no
+   `PermissionChecker::hasPermissionFromUserTenant`, o ponto por onde passam módulo, admin e recurso): o restrito só
+   tem, das permissões do perfil, `modules.{expediente,pastas,processos,clientes}.view` e
+   `resources.{pasta,cliente,processo}.{view,edit,delete}`. Todo o resto é negado, inclusive código novo que entrar
+   no catálogo depois (D4, Q2: BlueJus IA, Chat I.A, Voto, Assinatura, Agenda e `resources.agenda.ver_prazos`,
+   Cobrança e "Outros recursos", todo `admin.*`). Lista de liberação, e não de bloqueio: o que ninguém lembrou fica
+   fechado.
+2. **Barreira de rotas** (`App\Pasta\EventListener\BarreiraDoAcessoRestritoListener`, `kernel.request`, depois do
+   escritório da sessão): o restrito só alcança as rotas da Lista e da pasta (Expediente, pasta e filhas, processo,
+   cliente), Meu Perfil, Contribua, sair e a troca de escritório; o resto recebe a tela "Fora do seu acesso" (403,
+   textos do `bj-escopo.js`), e a página inicial manda para a Lista. É a segunda camada: módulo sem permissão já
+   recusa, mas tela sem módulo (Painel, Central) não. Também passam o que não mostra dado do escritório (sino,
+   convites recebidos, termos, política, páginas públicas). Dentro do Expediente ficam fechados os relatórios
+   gerais (acervo geral, pastas paradas, relatório de processos), a lixeira, a importação em lote e o cadastro de
+   marcadores; os convites da equipe também. Rota sem sessão (o conector MCP, por token) fica fora desta barreira: lá valem a lista de liberação e o teto do `NivelNoCadeado` com o escritório do token, e o resto do conector é da fatia 3.
+3. **Teto por pasta** (`NivelNoCadeado`): para o restrito, pasta em que ele não é o responsável é `Oculto`, antes do
+   cadeado. Por aí já fecham `canAccessResource`, `BarreiraDoCadeadoListener`, `AcessoAMeta`, documento, ZIP, e o
+   processo cujas pastas são todas ocultas (K3). `idsDasPastasOcultas` passa a incluir as fora do escopo (metas,
+   agenda, auditoria, processos). `pasta_show` responde 404 para o restrito em pasta fora do escopo (não desenha
+   "Pasta trancada" nem oferece pedido).
+4. **Listas**: na Lista do Expediente, no acervo, no trilho, no CSV e na busca Ctrl+K a pasta fora do escopo não
+   aparece nem por número e cliente (`EscopoDePastas::restringir` no `PastaRepository` e no `BuscarRapidoUseCase`).
+   As setas ‹ › e o "N de M" do cabeçalho da pasta andam só pelas pastas do restrito (senão mostrariam número e
+   cliente da vizinha).
+5. **Troca de responsável**: o restrito recebe 403 com "No acesso restrito, a pasta fica sob a sua responsabilidade.
+   Peça ao escritório para transferir." (`AlterarResponsavelDaPastaUseCase`).
+6. **Testes**: unit da lista de liberação; functional: restrito não abre pasta alheia (404), não a vê na Lista, no
+   CSV, na contagem nem na busca; abre a própria; recebe "Fora do seu acesso" no Painel; não troca responsável;
+   perfil comum sem mudança nenhuma.
+
 ## 6. Decisões de implementação (tomadas aqui; o Coordenador pode rever)
 
 - D1. Sem SQL Filter (§4.2).
@@ -222,3 +257,5 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
 
 - 18/11: inventário e plano (este arquivo, PR #768). Q1 a Q3 decididas. Fatia 1 liberada. Fatia 2: pedir o número da
   migration ao Coordenador. Fatia 3: só depois do smoke do conector (combina com o #763).
+- 18/11: frente única na branch `acesso-restrito` (PR #770 em rascunho), um commit por fatia. Fatia 1 feita. Fatia 2
+  feita (migration `Version20261118100000`); ninguém liga o restrito antes da fatia 4.

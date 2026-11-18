@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Pasta\Service\EscopoDePastas;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
@@ -97,6 +99,7 @@ final class BarreiraDoCadeadoListener
         private readonly Security $security,
         private readonly RequestStack $requestStack,
         private readonly RouterInterface $router,
+        private readonly ?EscopoDePastas $escopoDePastas = null,
     ) {
     }
 
@@ -111,6 +114,11 @@ final class BarreiraDoCadeadoListener
         $user    = $this->security->getUser();
         if ($pasta === null || !$user instanceof User) {
             return;
+        }
+        // Acesso restrito (spec acesso-restrito-e-compartilhar §5.1): pasta fora do escopo é 404 em toda rota, inclusive
+        // a tela e o pedido de acesso (não confirma que a pasta existe nem oferece pedir).
+        if ($this->escopoDePastas?->pastaForaDoEscopo($user, $pasta) === true) {
+            throw new NotFoundHttpException('Pasta não encontrada.');
         }
 
         $nivel = $this->acessoAPasta->nivel($user, $pasta);

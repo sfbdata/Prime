@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Tenant\Service\PermissoesDoAcessoRestrito;
 use App\Conector\Service\ModoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -326,6 +327,11 @@ class PermissionChecker implements ResetInterface
         $tenantRole = $userTenant->getTenantRole();
 
         if ($tenantRole === null) {
+            return false;
+        }
+
+        // Acesso restrito às pastas sob responsabilidade: fora da lista de liberação, nada vale, nem marcado no perfil.
+        if (PermissoesDoAcessoRestrito::bloqueia($tenantRole, $permission)) {
             return false;
         }
 

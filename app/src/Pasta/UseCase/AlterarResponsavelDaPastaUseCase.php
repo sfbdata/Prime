@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -16,6 +18,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * (`escolher`, dc L3118): "Responsável: alterado de "Ana" para "Bruno".", com "Sem responsável" no lado vazio.
  * Escolher quem já é o responsável não grava nada. Quem resolve o colaborador (do escritório, atribuível) e checa a
  * permissão de editar é o controller; aqui fica a guarda do escritório.
+ *
+ * Acesso restrito (spec `acesso-restrito-e-compartilhar.md`, §5.1 item 5): quem só alcança as pastas sob a sua
+ * responsabilidade não troca o responsável, nem para si (a pasta alheia nem chega aqui: a barreira dá 404).
  */
 final class AlterarResponsavelDaPastaUseCase
 {
@@ -25,6 +30,7 @@ final class AlterarResponsavelDaPastaUseCase
     public function __construct(
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly EntityManagerInterface $em,
+        private readonly ?EscopoDePastas $escopo = null,
     ) {
     }
 
@@ -33,6 +39,9 @@ final class AlterarResponsavelDaPastaUseCase
     {
         if ($pasta->getTenant() !== $tenant) {
             throw new PastaDeOutroEscritorioException('Pasta não encontrada.');
+        }
+        if ($this->escopo?->ehRestritoNoEscritorio($autor, $tenant) === true) {
+            throw new ResponsavelFixoNoAcessoRestritoException();
         }
 
         $atual = $pasta->getResponsavel();

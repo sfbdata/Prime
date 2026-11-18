@@ -508,6 +508,7 @@ class PastaRepository extends ServiceEntityRepository
         if ($quemBusca !== null) {
             // Cadeado: vincular escreve na pasta, então só é oferecida a que a pessoa EDITA (não a oculta nem a de só visualizar).
             $this->nivelNoCadeado?->restringirAoEditavel($qb, 'p', $quemBusca);
+            $this->soNoEscopo($qb, $quemBusca);
         }
 
         $termo = trim($termo);
@@ -963,6 +964,15 @@ class PastaRepository extends ServiceEntityRepository
     {
         if ($quemBusca !== null) {
             $this->nivelNoCadeado?->restringirAoVisivel($qb, 'p', $quemBusca);
+            $this->nivelNoCadeado?->restringirAoEscopo($qb, 'p', $quemBusca);
+        }
+    }
+
+    /** Acesso restrito (spec acesso-restrito-e-compartilhar §5.1): fora do escopo, a pasta não aparece de jeito nenhum. */
+    private function soNoEscopo(QueryBuilder $qb, ?User $quemBusca): void
+    {
+        if ($quemBusca !== null) {
+            $this->nivelNoCadeado?->restringirAoEscopo($qb, 'p', $quemBusca);
         }
     }
 
@@ -991,6 +1001,8 @@ class PastaRepository extends ServiceEntityRepository
     {
         if (self::temFiltroDeAtributo($filters)) {
             $this->soAsVisiveis($qb, $quemBusca);
+        } else {
+            $this->soNoEscopo($qb, $quemBusca);
         }
         if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
             $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
@@ -1572,7 +1584,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array{anterior: ?array{id: int, nup: ?string}, proxima: ?array{id: int, nup: ?string}}
      */
-    public function vizinhasNoAcervo(Pasta $pasta): array
+    public function vizinhasNoAcervo(Pasta $pasta, ?User $quemVe = null): array
     {
         $tenant = $pasta->getTenant();
         $id     = $pasta->getId();
@@ -1586,8 +1598,8 @@ class PastaRepository extends ServiceEntityRepository
         $nup = (string) $pasta->getNup();
 
         return [
-            'anterior' => $this->vizinha($tenant, $nup, $id, 'ASC'),
-            'proxima'  => $this->vizinha($tenant, $nup, $id, 'DESC'),
+            'anterior' => $this->vizinha($tenant, $nup, $id, 'ASC', $quemVe),
+            'proxima'  => $this->vizinha($tenant, $nup, $id, 'DESC', $quemVe),
         ];
     }
 
@@ -1600,9 +1612,10 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return ?array{id: int, nup: ?string, nomeCliente: ?string}
      */
-    private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao): ?array
+    private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao, ?User $quemVe): ?array
     {
         $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemVe);
 
         $comparar = $direcao === 'ASC'
             ? static fn (string $campo, string $parametro) => $qb->expr()->gt($campo, $parametro)
@@ -1666,11 +1679,12 @@ class PastaRepository extends ServiceEntityRepository
      * pasta que não é a 2ª — por isso as duas leem as mesmas constantes da classe.
      *
      * Devolve nulo quando a pasta não tem tenant, ainda não foi persistida ou está excluída
-     * (lápide): não há linha da lista que ela ocupe.
+     * (lápide): não há linha da lista que ela ocupe. Com `quemVe` no acesso restrito, o conjunto
+     * é só o das pastas sob a responsabilidade dele (setas e "N de M" iguais à Lista que ele vê).
      *
      * @return ?array{posicao: int, total: int}
      */
-    public function posicaoNoAcervo(Pasta $pasta): ?array
+    public function posicaoNoAcervo(Pasta $pasta, ?User $quemVe = null): ?array
     {
         $tenant = $pasta->getTenant();
         $id     = $pasta->getId();
@@ -1686,6 +1700,7 @@ class PastaRepository extends ServiceEntityRepository
         $nupCru  = self::EXPR_NUP_CRU;
 
         $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemVe);
 
         $acima = (int) $qb
             ->select('COUNT(p.id)')
@@ -1711,7 +1726,9 @@ class PastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
 
-        $total = (int) $this->createQueryBuilder('p')
+        $todas = $this->createQueryBuilder('p');
+        $this->soNoEscopo($todas, $quemVe);
+        $total = (int) $todas
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')
