@@ -49,6 +49,7 @@
                                 <td class="align-middle">
                                     {% if ut and ut.tenantRole %}
                                         <span class="badge text-bg-secondary">{{ ut.tenantRole.nomeExibido }}</span>
+                                        {% include 'tenant_role/_rotulo_restrito.html.twig' with {perfil: ut.tenantRole} only %}
                                     {% else %}
                                         <span class="text-muted">{{ 'escritorio.usuarios.nao_informado'|trans }}</span>
                                     {% endif %}

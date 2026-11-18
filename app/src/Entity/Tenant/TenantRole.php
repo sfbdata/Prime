@@ -148,6 +148,12 @@ class TenantRole implements Auditavel
         return $this->rotulo;
     }
 
+    /**
+     * As identificações do perfil restrito (desenho "05 - Perfis 1.2 - VS 03.11.26", `ROTULOS`), na ordem da tela.
+     * A primeira é a padrão ao ligar a opção.
+     */
+    public const ROTULOS_DO_ACESSO_RESTRITO = ['Prospectador', 'Parceiro', 'Equipe comercial', 'Correspondente', 'Colaborador externo'];
+
     /** Liga o acesso restrito. O perfil de sistema (primário) nunca é restrito. */
     public function restringirAsPastasSobResponsabilidade(string $rotulo): static
     {

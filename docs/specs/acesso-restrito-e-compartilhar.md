@@ -268,3 +268,12 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   processo a pasta alheia nem aparece. Rotas `pasta_*` por id de filha: cobertas pelo
   `BarreiraDoCadeadoRotasArquiteturaTest` e pelo 404 do escopo na barreira do cadeado. Ainda a conferir na fatia 3:
   o aviso de meta sem link no sino.
+- 18/11: fatia 4 (tela de Perfis). Cartão "ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE" no formulário do
+  secundário (P1 a P4, P6 a P9), com as 8 regras, a IDENTIFICAÇÃO DO PERFIL (os 5 rótulos do desenho) e o aviso;
+  ligado, os itens fora de `PermissoesDoAcessoRestrito::LIBERADAS` ficam desmarcados e travados (cadeado), o
+  grupo todo travado mostra "Bloqueado no acesso restrito" com opacidade .6 e os grupos de Cliente, Pasta e
+  Processo ganham a faixa "Vale só para as pastas sob responsabilidade do usuário". Desligar devolve as marcações de
+  antes (só na tela). O servidor decide: ligado, grava só as liberadas. Lista: selo com o texto fixo do desenho
+  (L63; o desenho manda sobre o "rótulo em maiúsculas" da P10) e descrição vazia "Acesso restrito às pastas sob
+  responsabilidade" (P11). P12: rótulo em maiúsculas (badge do padrão da tela, sem desenho) na lista de usuários e
+  na ficha do usuário. Simular fora (Q1).

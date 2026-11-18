@@ -1,13 +1,20 @@
 {#
    Formulário do perfil SECUNDÁRIO (novo e edição). Desenho "05 - Perfis 1.0", linhas 229-233
    (faixa + NOME DO PERFIL/DESCRIÇÃO) e 299-309 (cartões, "Marcar todos", rodapé).
-   Variáveis: form, cartoes (GruposDePermissaoDoPerfil), total, salvarRotulo, tenantId.
+   Variáveis: form, cartoes (GruposDePermissaoDoPerfil), total, salvarRotulo, tenantId, liberadas
+   (PermissoesDoAcessoRestrito::LIBERADAS).
+
+   Acesso restrito às pastas sob responsabilidade: desenho "05 - Perfis 1.2 - VS 03.11.26"
+   (docs/design/acesso-restrito-18-11-26), cartão da L499 e grupos da L569. O "Simular como" ficou de
+   fora (decisão Q1 da spec acesso-restrito-e-compartilhar). Travado = perfil restrito e código fora de
+   PermissoesDoAcessoRestrito::LIBERADAS; o servidor descarta os travados ao salvar (o perfis.js só mostra).
 
    Todo checkbox do form é desenhado aqui: os cartões cobrem o catálogo inteiro (código que o
    desenho não conhece cai no cartão do grupo). Sobrar campo faria o form_end re-renderizar o
    widget e quebrar com "Field already rendered" (regressão do 0c2a780d).
 #}
-{{ form_start(form, {attr: {novalidate: 'novalidate', 'data-pf-form-perfil': ''}}) }}
+{% set restrito = form.acessoRestrito.vars.data %}
+{{ form_start(form, {attr: {novalidate: 'novalidate', 'data-pf-form-perfil': '', class: 'pf-form-perfil' ~ (restrito ? ' is-restrito' : '')}}) }}
 
 <div class="pf-faixa"><i class="bi bi-info-circle"></i>{{ 'perfis.form.faixa'|trans }}</div>
 
@@ -24,18 +31,62 @@
     </label>
 </div>
 
+{% set rs = 'perfis.form.acesso_restrito.' %}
+<div class="pf-rs{{ restrito ? ' is-ligado' }}" data-pf-rs>
+    <label class="pf-rs-liga" for="{{ form.acessoRestrito.vars.id }}">
+        {{ form_widget(form.acessoRestrito, {attr: {'aria-label': (rs ~ 'aria')|trans, 'data-pf-rs-liga': ''}}) }}
+        <span class="pf-rs-corpo">
+            <span class="pf-rs-cab">
+                <i class="bi bi-shield-lock-fill"></i><b>{{ (rs ~ 'titulo')|trans }}</b>
+                <span class="pf-rs-chip"><span class="pf-rs-chip-on">{{ (rs ~ 'ativado')|trans }}</span><span class="pf-rs-chip-off">{{ (rs ~ 'desativado')|trans }}</span></span>
+            </span>
+            <span class="pf-rs-texto">{{ (rs ~ 'texto')|trans }}</span>
+        </span>
+    </label>
+    <div class="pf-rs-ligado">
+        <div class="pf-rs-regras">
+            {% for regra in [
+                ['bi-folder-check', 'regra_pastas'], ['bi-arrow-repeat', 'regra_compartilhadas'],
+                ['bi-person-check', 'regra_responsavel'], ['bi-search', 'regra_buscas'],
+                ['bi-slash-circle', 'regra_sem_acesso'], ['bi-arrow-left-right', 'regra_transferir'],
+                ['bi-journal-check', 'regra_auditoria'], ['bi-person-x', 'regra_troca'],
+            ] %}
+                <div class="pf-rs-regra"><i class="bi {{ regra[0] }}"></i><span>{{ (rs ~ regra[1])|trans }}</span></div>
+            {% endfor %}
+        </div>
+        <div class="pf-rs-linha">
+            <label class="pf-rs-rotulo" for="{{ form.rotulo.vars.id }}">
+                <span>{{ (rs ~ 'identificacao')|trans }}</span>
+                {{ form_widget(form.rotulo) }}
+            </label>
+            <span class="pf-rs-dica">{{ (rs ~ 'identificacao_dica')|trans }}</span>
+        </div>
+        <div class="pf-rs-aviso"><i class="bi bi-info-circle"></i> {{ (rs ~ 'aviso')|trans }}</div>
+    </div>
+</div>
+
 <div class="pf-cartoes">
     {% for cartao in cartoes %}
-        <div class="pf-card pf-cartao" data-pf-cartao>
+        {% set livres = cartao.itens|filter(i => i.codigo in liberadas)|length %}
+        {% set tudoTravado = restrito and livres == 0 %}
+        {% set escopo = cartao.rotulo matches '/Cliente/' ? 'escopo_cliente' : (cartao.rotulo matches '/Documento/' ? 'escopo_documento' : (cartao.rotulo matches '/Processo/' ? 'escopo_processo' : 'escopo')) %}
+        <div class="pf-card pf-cartao{{ tudoTravado ? ' is-travado-rs' }}" data-pf-cartao{% if livres == 0 %} data-pf-cartao-travavel{% endif %}>
             <div class="pf-cartao-cab">
                 <i class="bi {{ cartao.icone }}"></i><b>{{ cartao.rotulo }}</b>
-                <button type="button" class="pf-marcar-todos" data-pf-todos>{{ 'perfis.form.marcar_todos'|trans }}</button>
+                <button type="button" class="pf-marcar-todos" data-pf-todos>{{ tudoTravado ? (rs ~ 'grupo_bloqueado')|trans : 'perfis.form.marcar_todos'|trans }}</button>
             </div>
+            {% if cartao.rotulo matches '/Pasta|Documento|Cliente|Processo/' %}
+                <div class="pf-escopo" data-pf-escopo><i class="bi bi-shield-lock-fill"></i>{{ (rs ~ escopo)|trans }}</div>
+            {% endif %}
             {% for item in cartao.itens %}
+                {% set travavel = item.codigo not in liberadas %}
+                {% set travado = restrito and travavel %}
                 {% for child in form.permissions %}
                     {% if child.vars.value == item.codigo %}
-                        <label class="pf-item" for="{{ child.vars.id }}">
-                            {{ form_widget(child, {attr: child.vars.attr|merge({'data-pf-permissao': ''})}) }}{{ item.rotulo }}
+                        <label class="pf-item{{ travado ? ' is-travado-rs' }}" for="{{ child.vars.id }}"{% if travavel %} data-pf-travavel{% endif %}>
+                            {{ form_widget(child, travado
+                                ? {checked: false, attr: child.vars.attr|merge({'data-pf-permissao': '', disabled: 'disabled', 'data-pf-antes': child.vars.checked ? '1' : '0'})}
+                                : {attr: child.vars.attr|merge({'data-pf-permissao': ''})}) }}<span class="pf-item-texto">{{ item.rotulo }}</span>{% if travavel %}<i class="bi bi-lock-fill pf-item-trava" title="{{ (rs ~ 'item_bloqueado')|trans }}"></i>{% endif %}
                         </label>
                     {% endif %}
                 {% endfor %}
