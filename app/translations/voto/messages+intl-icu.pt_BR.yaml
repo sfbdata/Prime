@@ -685,6 +685,16 @@ voto:
                 texto: 'Clique em Assistir para abrir uma janela própria, que pode ser levada a outra tela. Assistir mostra participação e quórum e pode ser projetado.'
                 detalhe: '{assembleia} · {n} de {aptos} votaram'
                 assistir: Assistir
+                unidades: Unidades
+            unidades_ao_vivo:
+                titulo: 'Unidades: {pauta}'
+                votaram: '{n} de {aptos} votaram'
+                votou: Votou
+                nao_votou: Ainda não votou
+                inapta: Inapta
+                vazio: Nenhuma unidade nesta pauta.
+                legenda: Legenda
+                grade: Unidades da pauta
             assistir:
                 titulo: 'Ao vivo: {pauta}'
                 votaram: votaram
