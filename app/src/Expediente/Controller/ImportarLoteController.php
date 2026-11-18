@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Exception\AgrupamentoDoLoteFalhouException;
 use App\Inteligencia\Exception\CaminhosDoLoteInvalidosException;
+use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\UseCase\SugerirAgrupamentoDoLoteUseCase;
 use App\Pasta\DTO\CriarPastaDTO;
@@ -119,6 +120,14 @@ final class ImportarLoteController extends AbstractController
         try {
             $sugestao = $this->sugerirAgrupamento->executar($user, $tenant, is_array($caminhos) ? array_values($caminhos) : []);
         } catch (InteligenciaIndisponivelException $e) {
+            if ($e->motivo === Disponibilidade::SaldoDaPessoaEsgotado) {
+                // O motivo faz a tela abrir a janela "Sua I.A. gratuita acabou" (spec ia-liberada-por-indicacao, seção 6).
+                return new JsonResponse(
+                    ['status' => 'erro', 'mensagem' => $e->motivo->mensagem(), 'motivo' => $e->motivo->codigoDaRecusa()],
+                    Response::HTTP_CONFLICT,
+                );
+            }
+
             return $this->erro($e->motivo->mensagem(), Response::HTTP_CONFLICT);
         } catch (CaminhosDoLoteInvalidosException $e) {
             return $this->erro($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
