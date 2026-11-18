@@ -259,18 +259,21 @@ final class AgenteDePastasControllerTest extends JusPrimeWebTestCase
         self::assertNotContains('DE OUTRO', array_column($corpo['pastas'], 'identificador'));
     }
 
-    #[TestDox('Lápide aparece marcada, como na Lista')]
+    #[TestDox('Lápide não aparece, como na Lista: ela mora só na lixeira (18/11/2026)')]
     public function testLapide(): void
     {
         $client = $this->cliente();
         [$admin, $tenant] = $this->criarAdmin();
         $this->pasta($tenant, 'AG-X', 'A')->marcarExcluida($admin, new \DateTimeImmutable());
+        $this->pasta($tenant, 'AG-Y', 'B');
         $this->em()->flush();
         $this->logarComTenant($client, $admin, $tenant);
 
         $client->request('GET', '/api/agente/pastas');
 
-        self::assertTrue($this->json($client)['pastas'][0]['excluida']);
+        $corpo = $this->json($client);
+        self::assertSame(['AG-Y'], array_column($corpo['pastas'], 'nup'));
+        self::assertSame(1, $corpo['total']);
     }
 
     #[TestDox('Filtro torto é 422 com o campo, nunca "todas as pastas"')]

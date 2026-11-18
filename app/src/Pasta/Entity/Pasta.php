@@ -121,17 +121,13 @@ class Pasta implements Auditavel, TenantAware
 
     /**
      * Exclusão-lápide. Preenchido = a pasta foi excluída pela tela, mas a linha continua no banco:
-     * ela aparece riscada na lista do Expediente, some das telas de trabalho (a situação vai para
-     * ARQUIVADA junto) e fica somente-leitura.
+     * ela fica só na lixeira do escritório (sai da lista e das contagens do Expediente), some das
+     * telas de trabalho (a situação vai para ARQUIVADA junto) e fica somente-leitura.
      *
-     * Existe porque o número da pasta é derivado de MAX(prefixo)+1 (ver GerarNumeroDePasta): apagar
-     * a linha de uma pasta do MEIO da sequência deixava o número órfão para sempre, sem nenhum
-     * registro de que ele existiu. Medido em produção em 28/08/2026 — a pasta 1238 foi apagada
-     * quando a 1239 já existia, e a seguinte nasceu 1240. A lápide mantém o número ocupado e
-     * explica na tela para onde ele foi.
-     *
-     * Só vale para pasta que TEM posterior. Apagar a última continua apagando de verdade (decisão
-     * do dono): erro na hora de criar some sem deixar rastro e devolve o número.
+     * Nasceu em 28/08/2026 para guardar o rastro da pasta excluída e segurar o número dela. Desde
+     * 18/11/2026 (pedido do Samuel) o número não fica mais preso: se a lápide era a última, a
+     * próxima pasta recebe o número dela (ver NumeracaoDePasta), e restaurar com o número já
+     * reusado é recusado (RestaurarPastaUseCase).
      */
     #[ORM\Column(name: 'excluida_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $excluidaEm = null;

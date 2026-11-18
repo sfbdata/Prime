@@ -7,6 +7,8 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -89,7 +91,12 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $pasta = $this->criarPasta('1240');
 
         $this->useCase->executar($pasta, $this->autor, $this->tenant);
-        (new RestaurarPastaUseCase($this->em))->executar($pasta, $this->tenant);
+        $this->em->method('wrapInTransaction')->willReturnCallback(static fn (callable $f): mixed => $f());
+        (new RestaurarPastaUseCase(
+            $this->em,
+            $this->createStub(PastaRepository::class),
+            $this->createStub(NumeracaoDePastaInterface::class),
+        ))->executar($pasta, $this->tenant);
 
         self::assertFalse($pasta->estaExcluida());
         self::assertNull($pasta->getExcluidaEm());

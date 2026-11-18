@@ -139,8 +139,8 @@ final class PastaRepositoryVizinhasNoAcervoTest extends KernelTestCase
         self::assertSame([null, $nove->getId()], $this->vizinhas($dez));
     }
 
-    #[TestDox('arquivada e excluída entram no caminho das setas, como entram na lista')]
-    public function testArquivadaEExcluidaEntram(): void
+    #[TestDox('arquivada entra no caminho das setas e a excluída não, como na lista')]
+    public function testArquivadaEntraEExcluidaNao(): void
     {
         $tenant    = $this->criarTenant();
         $ativa     = $this->criarPasta($tenant, '1001');
@@ -157,7 +157,7 @@ final class PastaRepositoryVizinhasNoAcervoTest extends KernelTestCase
         $riscada->marcarExcluida($user, new \DateTimeImmutable());
         $this->em->flush();
 
-        self::assertSame([$riscada->getId(), $ativa->getId()], $this->vizinhas($arquivada));
+        self::assertSame([null, $ativa->getId()], $this->vizinhas($arquivada));
     }
 
     /**

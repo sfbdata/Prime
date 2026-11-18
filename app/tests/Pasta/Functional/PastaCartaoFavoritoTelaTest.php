@@ -107,8 +107,8 @@ final class PastaCartaoFavoritoTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('/pasta/' . $pastaB->getId() . '/favorito', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Pasta excluída (lápide) favorita: o cartão mostra só o indicador, sem o botão que alterna')]
-    public function testLapideFavoritaMostraSoOIndicadorNoCartao(): void
+    #[TestDox('Pasta excluída (lápide) favorita sai da lista: nem cartão nem botão que alterna (18/11/2026)')]
+    public function testLapideFavoritaSaiDaLista(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
@@ -121,10 +121,7 @@ final class PastaCartaoFavoritoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/expediente/painel/acervo-geral', ['view' => 'lista'], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
         self::assertResponseIsSuccessful();
 
-        $ident = $crawler->filter('.pastas-lista > .pasta-card.pasta-excluida > .pasta-card-topo > .pasta-card-ident');
-        self::assertCount(1, $ident, 'o cartão da lápide está na lista');
-        self::assertCount(1, $ident->filter('i.pasta-favorita-estrela.bi-star-fill'), 'a lápide favorita mostra o indicador');
-        self::assertCount(0, $ident->filter('.js-pasta-card-favorito'), 'lápide não aceita POST: nada de botão');
+        self::assertCount(0, $crawler->filter('.pastas-lista > .pasta-card[data-pasta-id="' . $lapide->getId() . '"]'), 'a lápide não está na lista');
         self::assertCount(0, $crawler->filter('.js-pasta-card-favorito[data-pasta-id="' . $lapide->getId() . '"]'));
     }
 

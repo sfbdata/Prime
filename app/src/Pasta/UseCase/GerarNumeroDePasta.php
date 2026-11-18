@@ -24,7 +24,7 @@ use App\Pasta\Service\NumeracaoDePastaInterface;
  * nunca é gerado.
  *
  * A trava e a leitura do maior número moram no `NumeracaoDePasta`. A pasta excluída (lápide)
- * continua na tabela e por isso continua ocupando o número dela.
+ * não conta: se ela era a última, o número dela volta a ser usado (18/11/2026).
  * O chamador continua obrigado a abrir transação — é o que dá validade à trava (é o que o
  * `CriarPastaUseCase` faz com `wrapInTransaction`).
  */
