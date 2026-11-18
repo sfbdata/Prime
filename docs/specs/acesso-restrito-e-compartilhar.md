@@ -200,15 +200,19 @@ republicou ainda poderia republicar. Por isso o localizador confere, a cada requ
 2. a pasta: não excluída; **sem cadeado ativo** (qualquer modo: o destino não tem vínculo em A e não pode estar na
    lista do cadeado; D3 "compartilhamento nunca fura o cadeado");
 3. o escritório A: ativo (suspenso: só leitura, como o `donoForaDoAr` do Trabalho Externo; excluído: 404);
-4. a origem: vínculo ativo em A, não restrita lá, e `AcessoAPasta::podeEditar(origem, pasta)` (a mesma regra de quem
+4. a origem: conta ativa (`User::isActive`), vínculo ativo em A, não restrita lá, e `AcessoAPasta::podeEditar(origem, pasta)` (a mesma regra de quem
    republica); se a origem sai de A, perde a edição ou vira restrita, a recebida fecha sozinha;
 5. o destino: **sem** vínculo ativo em A (quem entrou em A depois usa o acesso de lá, com o escopo de lá).
 
 Falhou qualquer um: 404, sem dizer por quê. Tudo isso roda com o filtro desligado (o cadeado e o vínculo de A ficam
-invisíveis com o filtro em B: lido com filtro, "sem cadeado" seria falso positivo).
+invisíveis com o filtro em B: lido com filtro, "sem cadeado" seria falso positivo). O localizador é a **primeira**
+consulta de A na requisição: `PermissionChecker`, `EscopoDePastas` e `VisibilidadeDasAbasDaPasta` guardam o resultado
+por pessoa e escritório durante a requisição, e um resultado nascido com o filtro de B ligado ("sem regra", "sem
+vínculo") valeria até o fim dela.
 
-**Abas.** A aba que está oculta para a origem (`VisibilidadeDasAbasDaPasta::ocultaPara(pasta, aba, origem)`, que
-inclui a regra "para todos") some para B na página e nas rotas dela.
+**Abas.** Some para B, na página e nas rotas dela, a aba oculta para a origem
+(`VisibilidadeDasAbasDaPasta::ocultaPara(pasta, aba, origem)`) **e** a aba com a regra "para todos" ligada, mesmo que
+a origem seja primária ou Master (quem configura vê a própria aba oculta; B não configura nada em A).
 
 **Uma porta só.** Toda rota nova tem nome `expediente_recebida_*` (prefixo liberado pela barreira do restrito, fora de
 `pasta_*`, logo fora de `PastaDaRota`, do cadeado e da aba oculta, que o localizador substitui), caminho
@@ -242,7 +246,8 @@ escritório A explícito; o flush roda com o filtro desligado (o `PrazosDosRegis
 entram **na própria Lista** do destinatário, no topo, com a mesma linha, a marca "Recebida · <conta>", a dica L2 e o
 responsável "<origem> (dono)"; clicar abre a janela L11. A ordem (no topo, fora da ordenação e da paginação do
 acervo) é o único desvio. A fonte é o JSON `expediente_recebidas`, que passa a marcar em cada item `abre`
-(o mesmo critério do localizador); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
+(o mesmo critério do localizador, conferido em lote: cadeados, vínculos e contas das origens numa consulta cada,
+para os até 100 itens da caixa); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
 entram no `findByFilters` (escopado ao escritório B).
 
 **Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
@@ -253,8 +258,9 @@ localizador não grava (não há pasta a quem mostrar).
 - Abre: convite aceito, página, `expediente_recebida_ver`, `ver` e `baixar` com a caixa; restrito em B também abre.
 - 404 na página, no `ver` da janela e no documento: pendente, recusado, encerrado, vencido, de outra pessoa, pasta
   excluída, pasta com cadeado (`Todos` e `PorPessoa`), A excluído, origem removida ou inativa em A, origem sem edição,
-  origem restrita, destino com vínculo ativo em A.
+  origem restrita, origem com a conta desativada, destino com vínculo ativo em A.
 - A suspenso: abre só leitura.
+- Aba "para todos" oculta por origem primária: some para B.
 - Documento de outra pasta de A pelo mesmo compartilhamento, documento na lixeira e documento de aba oculta: 404;
   `baixar` sem `baixarDocumentos`: 403 e linha `negado` em A.
 - O leitor não traz andamento, meta ou documento de outra pasta de A nem de B com o mesmo id; o filtro volta ligado
