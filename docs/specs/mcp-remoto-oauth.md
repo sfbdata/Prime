@@ -795,9 +795,9 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   (`app/src/DataFixtures/PermissionFixture.php:17-32`).
 
 **`buscar_pastas`** (PR 6)
-- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`minhas: true`), busca rápida por número ou NUP, as
+- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`acao: minhas_demandas`), busca rápida por número ou NUP, as
   pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
-  escritório (`lixeira: true`); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
 - Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
   (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
   `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
@@ -987,7 +987,8 @@ continua sem texto).
 ### 6.6 Gravação (9 ferramentas)
 
 Todas: escopo `mcp:escrita` (sem ele, 403 `insufficient_scope`, 5.1); `readOnlyHint: false`, `destructiveHint: true`;
-pasta excluída é só leitura (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`), salvo restaurar; segredo recusa
+pasta na lixeira (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`) dá "não encontrada" no piloto, na leitura e
+na gravação, igual à BlueJus I.A. (decisão 2 do PR 6), salvo restaurar; segredo recusa
 (6.2.3); toda **exclusão** devolve uma proposta e só a `confirmar_acao` executa (6.7). "Exclusão" é toda ação que apaga, manda
 para a lixeira, exclui de vez, remove ou desvincula um item, inclusive tirar um marcador da pasta, apagar o nome de uma etapa
 e trocar um valor já preenchido no cadastro do cliente.
@@ -1256,7 +1257,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 |---|---|---|---|
 | `quem_sou_eu` | nenhuma | nenhuma | nenhuma |
 | `buscar_pastas` | `inteligencia_agente_pastas_buscar`, a Lista, `demandas_index`, `expediente_busca_rapida`, `expediente_lixeira` | nenhuma | nenhuma (a Lista é essencial, `base: true`; `assistente` desliga o Agente, não a Lista) |
-| `ler_pasta`: resumo, andamento, registro, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: resumo, andamento, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: registro | `pasta_show` | Dados (decisão 3 do PR 6) | `expedientes` |
 | `ler_pasta`: prazos | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: metas | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: detalhes, controladoria | `pasta_show` | Detalhes | `expedientes` |
@@ -1657,8 +1659,8 @@ erradas do plano, todas invisíveis à leitura):
    derruba o teste.
 10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa, **na leitura e na gravação** (cada
     ferramenta de gravação com pasta ligada a processo em segredo); `processos_da_pasta` não aceita o campo de segredo.
-    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (com e sem
-    cadeado); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
+    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (o prazo de pasta
+    trancada some sem contagem, como na tela, decisão 18 do PR 6); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
     o número de um processo do escritório em segredo recusa **sem chamar o DataJud** (o dublê do cliente HTTP prova zero
     chamadas), e com número que não é do escritório consulta normalmente.
 11. **Cliente só pelo necessário**: nenhuma resposta, fora o conteúdo de documento lido, traz CPF, CNPJ, RG, data de
@@ -2056,7 +2058,7 @@ entra num PR próprio depois de testada nos dois clientes.
    ao escritório da sessão; ali o escritório vem da concessão.
 5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
    concessões já abertas guardam os escopos delas. *Revisto em 18/11/2026: as concessões anteriores caem como
-   `substituida` (decisão 13 do bloco de 18/11 abaixo).*
+   `substituida` (decisão 23, no bloco de 18/11 da seção 14).*
 6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com
    `codigo_reutilizado` (item 5 do bloco anterior).
 7. **`offline_access`**: a renovação é emitida sempre, peça o app ou não esse escopo.
@@ -2175,9 +2177,65 @@ Coordenador):**
     `PortaoDoConectorArquiteturaTest` confere). Usado pelas buscas das telas e pelo `revogarDoConsentimento`, porque o
     `TenantFilter` também entra no WHERE de um UPDATE em DQL.
 
+**Decidido em 16/11/2026 no PR 6 (orquestrador da frente, pela recomendação; a 1 e a 2 com o Coordenador):**
+
+1. **Pasta trancada na busca** segue a Lista do navegador para quem não tem a chave do cadeado: aparece com número,
+   cliente e o cadeado, sem o resto, e entra na contagem (`PastaRepository.php:916-925` e `:982-984`, `countByFilters`
+   `:225-231`, `_lista.html.twig:136-138`). Pasta que a pessoa não pode ver (`podeVer` falso) não aparece.
+2. **Pasta na lixeira** dá "não encontrada" no piloto, igual à BlueJus I.A. (a 6.6 foi corrigida). A lixeira do escritório
+   se lê por `buscar_pastas` `acao: lixeira`.
+3. **Registro com a aba Dados oculta**: a parte `registro` de `ler_pasta` é barrada pela aba Dados. Na gravação (PR 10),
+   a mesma regra.
+4. **Sugestões do andamento** que citam Push ou Financeiro saem quando a aba de origem está oculta.
+5. **Compromisso da pessoa ligado a pasta em segredo ou trancada** some da agenda e é contado.
+6. **Prazos da pasta**: só os abertos.
+7. **Lixeira do escritório**: por pasta, só o nome dela (cliente ou ação, pelo rótulo) e quantos documentos e subpastas
+   estão na lixeira; nenhum nome nem conteúdo de documento (sai menos que o pensado no planejamento).
+8. **Cadastro**: só preenchido ou falta, pelo `CadastroDaPastaOutput::de`.
+9. **Registro**: 50 por página, o mais recente primeiro.
+10. **`ler_pasta` não pede módulo**, como a tela da pasta (`pasta_show` só confere o recurso `pasta` view): quem lê é quem
+    pode ver a pasta, e cada parte segue a aba de onde vem (tabela acima). `buscar_pastas` pede o módulo `expediente`
+    (`buscar`, `contar`, `opcoes`, `lixeira`) ou `pastas` (`numero`, `minhas_demandas`).
+11. **Ações por nome no esquema**: o campo é `acao` (`buscar_pastas`, `ler_agenda`), `partes` (`ler_pasta`) ou `lugar`
+    (`registrar_na_pasta`), com a lista fechada no `enum`. Tudo sai da `TabelaDeAbaEChave`, que a
+    `GuardaDaAcaoDoConector` consulta nesta ordem: ação na tabela, chave do Master, módulo ("basta um"), e com pasta:
+    escritório, `podeVer` e as abas. Pasta de outro escritório dá "não encontrada".
+12. **Porta do aceite na consulta de prazos** (14.i): `PortaDaConsultaDePrazos` é a interface; a `GuardaDaConsultaDePrazos`
+    do chat a implementa e o conector passa a dele como parâmetro opcional de `ConsultarPrazosEMetasUseCase::executar`,
+    nunca pelo construtor (duas implementações deixariam a injeção ambígua).
+13. **Pasta trancada em segredo de justiça**: o segredo vence o cadeado. Ela sai da busca e é contada como sem acesso
+    (`omitidas_sem_acesso`), não como segredo, para a contagem não revelar o segredo de uma pasta que a pessoa não abre.
+14. **Sugestões do andamento** (amplia a 4): saem quando a aba de onde vêm está oculta, qualquer que seja (Push,
+    Financeiro, Documentos, Processo). Com a aba Dados oculta, a base da estimativa também não diz quantos registros há.
+15. **Prazos da pasta** seguem a tela (`PastaController.php:389-392`): todos os abertos, sem filtro pela aba de origem do
+    prazo; a parte inteira é barrada pela aba Metas.
+16. **Busca por NUP** (`nups` do Agente) não entra no esquema, porque aquele caminho não confere o escopo da pessoa. O
+    número de processo se busca pela ação `numero` (busca rápida, que confere o escopo, tira a lixeira e troca o CPF ou
+    CNPJ do grupo Cliente por "Pasta N").
+17. **Máscara sempre ligada** (6.2.6) pela `PoliticaDeMascaramento`, que reconhece o conector pelo escritório fixado sem
+    sessão (`TenantContext::estaFixadoSemSessao()`): só o portão fixa assim, e o `PortaoDoConectorArquiteturaTest` proíbe
+    citar o `ModoDoConector` fora dele. Vale para `ler_pasta`, `buscar_pastas`, `ler_agenda` e `quem_sou_eu`; no Registro,
+    a máscara passa antes do corte de cada mensagem (e em toda saída, pela 22). Fora disso, o chat não muda.
+18. **Agenda**: período padrão de 7 dias a partir de hoje, no máximo 31; lembretes só quando pedidos (são das próximas
+    24 horas), e os de prazo só com `prazos` em `incluir`. Prazo de pasta trancada some sem contagem, como na tela
+    (`ListarCompromissosUseCase` já o tira); compromisso e lembrete de pasta trancada ou em segredo somem e são contados.
+19. **Minhas demandas** não traz a pasta trancada nem a conta, mesmo sendo da pessoa, como a tela
+    (`ListarMinhasDemandasUseCase`, spec pasta-cadeado D1); o `buscar` mostra a trancada com o cadeado, como a Lista.
+20. **Processos vinculados no `resumo`** (regra: a ferramenta mostra exatamente o que a tela mostra àquela pessoa, nunca
+    mais): a tela da pasta mostra o processo vinculado e os apensados no alto do trilho da aba Dados
+    (`pasta/_dados_trilho_topo.html.twig`, só o atalho "ir para a aba" some) e na aba Processo. Por isso o `resumo` traz
+    os processos com a aba Processo oculta e os tira só quando Dados e Processo estão as duas ocultas.
+21. **Agenda e a aba Metas**: a `ler_agenda` mostra os prazos de pasta mesmo com a aba Metas oculta para a pessoa, porque a
+    agenda na tela não depende de aba (6.6). A parte `prazos` do `ler_pasta` continua barrada pela aba Metas.
+22. **Máscara antes de qualquer corte** (amplia a 17, achado da re-revisão): os padrões do mascarador exigem o dado
+    inteiro, e um CPF, e-mail ou telefone cortado no limite sairia aberto. Toda saída do conector mascara o texto inteiro
+    e só depois corta: descrição e observação da agenda, título do prazo e os rótulos e textos dos dois montadores
+    (`MontadorDeContextoDaPasta`, `MontadorDeContextoDoPush`). O chat só passa a mascarar mais quando a preferência do
+    escritório pede máscara; sem máscara, nada muda.
+
 **Decidido em 18/11/2026, depois do smoke em produção (Coordenador):**
 
-13. **Reconectar substitui a concessão anterior.** Ao gravar uma concessão nova num consentimento que já existia
+23. **Reconectar substitui a concessão anterior.** Ao gravar uma concessão nova num consentimento que já existia
     (reautorizar o mesmo app no mesmo escritório), as concessões abertas dele caem na mesma transação, com o motivo
     `substituida`; a cadeia de tokens delas cai junto, porque token e renovação dependem da concessão. Achado do smoke:
     reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil

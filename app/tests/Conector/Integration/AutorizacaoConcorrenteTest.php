@@ -88,7 +88,7 @@ final class AutorizacaoConcorrenteTest extends KernelTestCase
             self::assertSame(
                 [['id' => $gravado->getConcessao()->getId(), 'motivo' => null]],
                 $this->em()->getConnection()->fetchAllAssociative('SELECT id, motivo FROM conector_ia_concessao WHERE consentimento_id = ?', [$consentimentoDoPrimeiro]),
-                'decisão 13: a substituição, no consentimento que o primeiro gravou, não derruba a concessão nova do segundo',
+                'decisão 23: a substituição, no consentimento que o primeiro gravou, não derruba a concessão nova do segundo',
             );
         });
     }
