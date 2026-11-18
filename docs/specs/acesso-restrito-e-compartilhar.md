@@ -30,7 +30,7 @@ de quem criou. 38 perfis (29 de sistema). `resource_access`: 0 linhas.
 3. Itens administrativos travados: Administração do escritório inteira, Outros recursos inteiro e os módulos Painel do
    Escritório, Push Processual, Demandas, Minhas Metas, Agenda, Peticionar, Financeiro, FinBlue, Gestão de Cobranças,
    Trabalho Externo, BlueJus IA, Kanban, Ponto, Service Desk, Tarefas e BI. Continuam configuráveis: Expediente,
-   Pastas, Processos, Documentos, Clientes e Chat I.A (ver Q2), com Pasta, Documento, Cliente e Processo valendo só
+   Pastas, Processos, Documentos e Clientes (Chat I.A travado, Q2), com Pasta, Documento, Cliente e Processo valendo só
    dentro das pastas da pessoa.
 4. Identificação do perfil (Prospectador, Parceiro, Equipe comercial, Correspondente, Colaborador externo), em
    destaque na lista de perfis e no cadastro do usuário.
@@ -79,12 +79,12 @@ Legenda: **novo** = não existe; **muda** = existe e muda; **igual** = já exist
 | P2 | idem | Texto "O usuário terá acesso exclusivamente às pastas em que estiver cadastrado como responsável, sem visualizar os demais arquivos e informações do escritório. Indicado para equipe comercial, prospectadores e parceiros externos." | marcação | novo | 4 |
 | P3 | idem, ligado | Grade de 8 regras (ícone `#c0392b` 15px, texto 13px `#243845`), `grid auto-fit minmax(260px,1fr)`, borda `#f1d3d0` | `rsRegras` | novo | 4 |
 | P4 | idem, ligado | "IDENTIFICAÇÃO DO PERFIL" (select 38px) com os 5 rótulos; dica "Aparece em destaque na lista de perfis e no cadastro do usuário..." | `ROTULOS` | novo | 4 |
-| P5 | idem, ligado | "SIMULAR COMO" + botão "Simular acesso" (borda `#9a3d0b`) | `rsSimular` | novo | Q1 |
+| P5 | idem, ligado | "SIMULAR COMO" + botão "Simular acesso" (borda `#9a3d0b`) | `rsSimular` | novo | fora (Q1) |
 | P6 | idem, ligado | Aviso "As permissões abaixo valem apenas dentro dessas pastas. Os itens administrativos ficam bloqueados enquanto o acesso restrito estiver ativo. Os perfis atuais não mudam." | marcação | novo | 4 |
 | P7 | Cartões de permissão | Item travado: caixa desmarcada e desabilitada, texto `#9aabb7`, cadeado `bi-lock-fill` `#c0392b` 12px, `title` "Bloqueado no acesso restrito às pastas sob responsabilidade" | `TRAVA`, `travado()` | novo | 4 |
 | P8 | idem | Grupo todo travado: "Bloqueado no acesso restrito" no lugar de "Marcar todos" (`#a3232b`), opacidade .6 | `tudoTrav` | novo | 4 |
 | P9 | idem | Faixa no topo de Pasta, Documento, Cliente e Processo: "Vale só para as pastas sob responsabilidade do usuário" (+ " (clientes/documentos/processos dessas pastas)"), fundo `#fff6f5`, 12px bold `#a3232b` | `escopoTem`, `escopoTx` | novo | 4 |
-| P10 | Lista de perfis | Selo com o rótulo em maiúsculas (`title` "Só vê as pastas em que é responsável") e botão de simular (`title` "Simular o acesso deste perfil") | `p.restr`, `simular` | novo | 4 (botão: Q1) |
+| P10 | Lista de perfis | Selo com o rótulo em maiúsculas (`title` "Só vê as pastas em que é responsável") e botão de simular (`title` "Simular o acesso deste perfil") | `p.restr`, `simular` | novo | 4 (botão de simular fora, Q1) |
 | P11 | Lista de perfis | Descrição do restrito: "Acesso restrito às pastas sob responsabilidade" no lugar de "Usuário secundário" | `salvar` | novo | 4 |
 | P12 | Cadastro do usuário | Rótulo em destaque (regra 4; o desenho não traz a tela, o texto do dono sim) | ESPEC §1.3 | novo | 4 |
 | P13 | Desenho do catálogo | Recurso "Documento" com Visualizar/Baixar/Enviar/Excluir | `GRUPOS` | o sistema não tem `resources.documento.*` | fora (ver §6) |
@@ -105,7 +105,7 @@ Legenda: **novo** = não existe; **muda** = existe e muda; **igual** = já exist
 | L10 | Janela "Pastas recebidas de outras contas" | "Seu código para receber pastas:" + "Copiar código"; vazio "Nenhuma pasta recebida ainda. Envie seu código a quem quiser republicar pastas para você."; cartão com "Republicada por", mensagem, estado (Aguardando você, Colaborando, Expirada, Acesso encerrado), Recusar / Aceitar e colaborar / Deixar de colaborar / Ver pasta | novo | 8 |
 | L11 | Janela "Pasta recebida N" | permissões, metas abertas ("Nenhuma meta aberta"), "Abrir metas", "A pasta pertence à outra conta. Você colabora só nela, e o dono pode encerrar o acesso a qualquer momento.", Deixar de colaborar / Abrir pasta | novo | 9 |
 | L12 | Lista | Pastas recebidas aceitas entram na lista do destinatário | novo | 9 |
-| L13 | Simulação | Faixa "Simulação: você está vendo como X..." e tela "Fora do seu acesso" / "Pasta fora da sua responsabilidade" com "Ir para minhas pastas" | protótipo (ESPEC §4) | Q1 |
+| L13 | Simulação | Faixa "Simulação: você está vendo como X..." e tela "Fora do seu acesso" / "Pasta fora da sua responsabilidade" com "Ir para minhas pastas" | protótipo (ESPEC §4) | fora (Q1) |
 
 ## 4. Modelo e regra no servidor
 
@@ -163,7 +163,7 @@ Tabela `pasta_compartilhamento`: `id`, `tenant_id` (conta de origem), `pasta_id`
 
 ### 4.5 Outra conta (ALTO)
 
-- Código pessoal por usuário (Q3): `user.codigo_pessoal`, mesmo gerador e mesmo alfabeto do código da conta,
+- Código pessoal por usuário (Q3, decidido): `user.codigo_pessoal`, mesmo gerador e mesmo alfabeto do código da conta,
   único entre os dois (conferir as duas colunas). Mostrado em "Seu código" e "Copiar meu código".
 - Convite `pendente` aparece em "Recebidas" do destino (aviso pela Central). Aceite exige o usuário logado dono do
   código.
@@ -208,14 +208,17 @@ aplicar o escopo daria a falsa impressão de restrição.
 - D6. Trilha de leitura só para restrito e outra conta (§4.6).
 - D7. Pastas sem responsável (369 em produção) seguem sem: só perfis sem restrição as veem.
 
-## 7. Dúvidas de negócio (levadas ao Coordenador em 18/11)
+## 7. Decisões de negócio (Coordenador, 18/11, pela recomendação)
 
-- Q1. "Simular acesso" (P5, P10, L13): a ESPEC diz "só no protótipo". Recomendação: não implementar.
-- Q2. "Chat I.A (conversas da equipe)" fica livre no desenho, mas mostra conversas do escritório. Recomendação:
-  travar também no restrito (desvio do desenho, por isso a pergunta).
-- Q3. Código para receber pasta: pessoal, por usuário (como o protótipo), e não o código da conta. Recomendação: sim,
-  por usuário.
+Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
+
+- Q1. "Simular acesso" (P5, P10, L13): **não implementar** (a ESPEC diz "só no protótipo"; ver como outro usuário no
+  servidor é risco). Sai das fatias.
+- Q2. "Chat I.A (conversas da equipe)": **travado** no restrito. O texto do dono proíbe ver informação fora da
+  permissão e prevalece sobre o desenho, que o deixava livre. Entra na lista travada da fatia 2 e no P7 da fatia 4.
+- Q3. Código para receber pasta: **pessoal, por usuário** (novo), não o código da conta.
 
 ## 8. Estado da frente
 
-- 18/11: inventário e plano (este arquivo). Nenhum código. Próximo: fatia 1 assim que o Coordenador liberar.
+- 18/11: inventário e plano (este arquivo, PR #768). Q1 a Q3 decididas. Fatia 1 liberada. Fatia 2: pedir o número da
+  migration ao Coordenador. Fatia 3: só depois do smoke do conector (combina com o #763).
