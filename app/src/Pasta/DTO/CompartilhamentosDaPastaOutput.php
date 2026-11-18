@@ -17,7 +17,7 @@ final readonly class CompartilhamentosDaPastaOutput
     /**
      * @param list<array{id: int, nome: string}> $equipe
      * @param list<array<string, mixed>>         $colaboradores
-     * @param list<array{id: int, nome: string}> $recentes
+     * @param list<array{id: int, nome: string, interno: bool, conta: ?string}> $recentes
      */
     public function __construct(
         public int $pastaId,
@@ -29,7 +29,7 @@ final readonly class CompartilhamentosDaPastaOutput
     }
 
     /** @return array<string, mixed> */
-    public static function colaborador(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $podeEncerrar, bool $meu): array
+    public static function colaborador(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $podeEncerrar, bool $meu, ?string $conta = null): array
     {
         $permissoes = $c->permissoes();
 
@@ -38,6 +38,8 @@ final readonly class CompartilhamentosDaPastaOutput
             'destinoId'        => (int) $c->getDestino()->getId(),
             'nome'             => self::nome($c->getDestino()),
             'interno'          => $c->isInterno(),
+            // Outra conta: o escritório do destino ("Nome · Conta", desenho L.753); a equipe não precisa.
+            'conta'            => $c->isInterno() ? null : $conta,
             'movimentar'       => $permissoes->movimentar,
             'enviarDocumentos' => $permissoes->enviarDocumentos,
             'baixarDocumentos' => $permissoes->baixarDocumentos,
@@ -45,7 +47,9 @@ final readonly class CompartilhamentosDaPastaOutput
             'ate'              => $c->getValidoAte()?->format('Y-m-d'),
             'estado'           => self::estado($c, $hoje),
             'ativo'            => $c->estaAtivo($hoje),
-            'podeEncerrar'     => $podeEncerrar && $c->estaAtivo($hoje),
+            // O convite de outra conta que ainda espera o aceite ocupa a vaga (não sai no "1 clique" nem repete).
+            'aguardando'       => $c->aguardaAceite($hoje),
+            'podeEncerrar'     => $podeEncerrar && ($c->estaAtivo($hoje) || $c->aguardaAceite($hoje)),
             'meu'              => $meu,
         ];
     }
@@ -73,7 +77,7 @@ final readonly class CompartilhamentosDaPastaOutput
     {
         return match (true) {
             $c->getStatus() === EstadoDoCompartilhamento::Encerrada => 'encerrada',
-            $c->getStatus() === EstadoDoCompartilhamento::Aceita && !$c->estaAtivo($hoje) => 'expirada',
+            $c->venceuEm($hoje) => 'expirada',
             $c->getStatus() === EstadoDoCompartilhamento::Pendente => 'aguardando',
             default => 'colaborando',
         };

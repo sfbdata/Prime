@@ -13,6 +13,7 @@ use App\Pasta\Exception\CompartilhamentoRecusadoException;
 use App\Pasta\UseCase\CompartilharPastaComAEquipeUseCase;
 use App\Pasta\UseCase\ConsultarCompartilhamentosDaPastaUseCase;
 use App\Pasta\UseCase\EncerrarCompartilhamentoDaPastaUseCase;
+use App\Pasta\UseCase\RepublicarPastaParaOutraContaUseCase;
 use App\Service\Tenant\TenantContext;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,8 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Compartilhar pasta com a equipe do escritório (spec acesso-restrito-e-compartilhar §4.4; desenho "03 - EXPEDIENTE",
- * L3, L4, L5 e L6). Só JSON, para a janela e o menu da Lista. O GET devolve o token que os POSTs usam
+ * Compartilhar pasta com a equipe do escritório ou republicar para outra conta pelo código (spec
+ * acesso-restrito-e-compartilhar §4.4 e §4.5; desenho "03 - EXPEDIENTE", L3, L4, L5 e L6). Só JSON, para a janela e o menu da Lista. O GET devolve o token que os POSTs usam
  * (`pasta_compartilhar_<id>`). A barreira do cadeado e a do escopo olham a pasta da rota antes da action.
  */
 #[Route('/pasta/{id}/compartilhamento', requirements: ['id' => '\d+'])]
@@ -35,6 +36,7 @@ final class PastaCompartilhamentoController extends AbstractController
         private readonly ConsultarCompartilhamentosDaPastaUseCase $consultar,
         private readonly CompartilharPastaComAEquipeUseCase $compartilhar,
         private readonly EncerrarCompartilhamentoDaPastaUseCase $encerrar,
+        private readonly RepublicarPastaParaOutraContaUseCase $republicar,
         private readonly TenantContext $tenantContext,
     ) {
     }
@@ -55,10 +57,17 @@ final class PastaCompartilhamentoController extends AbstractController
     public function criar(int $id, Request $request): JsonResponse
     {
         return $this->acaoComToken($id, $request, function (User $quem, Tenant $tenant) use ($id, $request): JsonResponse {
-            $compartilhamento = $this->compartilhar->executar($id, CompartilharPastaInput::doJson($request->toArray()), $quem, $tenant);
+            $input = CompartilharPastaInput::doJson($request->toArray());
+            if ($input->outraConta) {
+                $convite = $this->republicar->executar($id, $input, $quem, $tenant);
+                $nome = CompartilhamentosDaPastaOutput::pessoa($convite->getDestino())['nome'];
+
+                return $this->json(['ok' => true, 'nome' => $nome, 'mensagem' => sprintf('Pasta republicada. %s recebe o convite e passa a colaborar quando aceitar.', $nome)]);
+            }
+            $compartilhamento = $this->compartilhar->executar($id, $input, $quem, $tenant);
             $nome = CompartilhamentosDaPastaOutput::pessoa($compartilhamento->getDestino())['nome'];
 
-            return $this->json(['ok' => true, 'mensagem' => sprintf('Pasta compartilhada com %s. Ela já aparece para ele, inclusive no acesso restrito.', $nome)]);
+            return $this->json(['ok' => true, 'nome' => $nome, 'mensagem' => sprintf('Pasta compartilhada com %s. Ela já aparece para ele, inclusive no acesso restrito.', $nome)]);
         });
     }
 

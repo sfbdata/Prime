@@ -1,0 +1,7 @@
+---
+tipo: alteracao
+---
+## Changelog
+- Compartilhar pasta com outra conta (oitava fatia de `docs/specs/acesso-restrito-e-compartilhar.md`): cada usuário ganha um código pessoal `BJ-XXXX-XXXX-XXXX` (`user.codigo_pessoal`, sorteado na primeira vez que a pessoa o vê, único também contra o código da conta e fora da auditoria). Na janela Compartilhar pasta, a aba "Outra conta (código)" convida pelo código quem não é da equipe; o convite nasce pendente e avisa o destinatário no sino, sem dado da pasta. A Lista ganha o botão "Recebidas", com o número dos convites que aguardam, e a janela "Pastas recebidas de outras contas" (seu código, copiar, aceitar, recusar, deixar de colaborar). O menu ⋮ ganha "Republicar para outra conta…", "Copiar meu código" e o 1 clique também para quem já recebeu por código. O convite aceito ainda não abre a pasta: o escopo e as permissões do escritório da pasta só olham o compartilhamento com a equipe (a abertura da pasta recebida é a nona fatia).
+## Para o cliente
+- Agora dá para enviar uma pasta a alguém de outro escritório que usa o BlueJus. Peça o código da pessoa (ela o encontra no botão "Recebidas", na Lista de pastas), abra o compartilhar da pasta, escolha "Outra conta (código)", digite o código e marque o que ela pode fazer. A pessoa recebe um aviso e aceita ou recusa o convite em "Recebidas". Você vê o convite na lista de quem colabora e pode encerrá-lo quando quiser.

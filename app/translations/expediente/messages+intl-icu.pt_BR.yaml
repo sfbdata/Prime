@@ -124,6 +124,8 @@ expediente:
         voltar_dica: Voltar ao acervo geral (ordem padrão)
         nova_pasta: Nova Pasta
         nova_pasta_dica: Abrir uma nova pasta (o número é gerado automaticamente)
+        recebidas: Recebidas
+        recebidas_dica: Pastas que outros usuários republicaram para você
         titulo:
             geral: Acervo geral
             resp10: Respondidos nos últimos 10 dias
@@ -347,7 +349,6 @@ expediente:
             compartilhar_com: COMPARTILHAR COM
             destino_equipe: Equipe do escritório
             destino_outra: Outra conta (código)
-            em_breve: Em breve
             usuario: USUÁRIO DA EQUIPE
             escolha: Escolha quem vai colaborar
             dica_sem_aceite: 'Sem aceite: a pasta aparece para ele na hora. Vale também para quem tem acesso restrito (parceiro, prospectador).'
@@ -388,6 +389,33 @@ expediente:
             menu_deixar: Deixar de colaborar
             menu_compartilhada: Pasta {nup} compartilhada com {nome}.
             menu_deixou: Você deixou de colaborar na pasta {nup}.
+            codigo_rotulo: CÓDIGO DO USUÁRIO QUE VAI COLABORAR
+            codigo_valido: Código válido. O destinatário confirma ao aceitar.
+            codigo_invalido: Código inválido. Use o formato BJ-XXXX-XXXX-XXXX.
+            outra_conta: outra conta
+            menu_recente_dica_conta: 'Compartilhar agora com {nome} · {conta}: ver, metas e documentos'
+            menu_outra_conta: Republicar para outra conta…
+            menu_copiar_codigo: Copiar meu código
+            menu_codigo_copiado: Seu código {codigo} foi copiado.
+            menu_republicada: Pasta {nup} republicada para {nome}. Aguardando aceite.
+        recebidas:
+            rotulo: Pastas recebidas
+            titulo: Pastas recebidas de outras contas
+            seu_codigo: 'Seu código para receber pastas:'
+            copiar: Copiar código
+            copiado: Seu código foi copiado. Envie a quem vai republicar pastas para você.
+            vazio: Nenhuma pasta recebida ainda. Envie seu código a quem quiser republicar pastas para você.
+            republicada_por: Republicada por
+            quando: 'Recebida em {em}'
+            quando_ate: 'Recebida em {em} · válida até {ate}'
+            estado_aguardando: Aguardando você
+            estado_colaborando: Colaborando
+            estado_expirada: Expirada
+            recusar: Recusar
+            aceitar: Aceitar e colaborar
+            deixar: Deixar de colaborar
+            aceita: Pasta {nup} adicionada às suas pastas, marcada como Recebida.
+            erro_carregar: Não foi possível abrir as pastas recebidas.
         trilho:
             expandir_painel: Expandir painel
             recolher_painel: Recolher painel

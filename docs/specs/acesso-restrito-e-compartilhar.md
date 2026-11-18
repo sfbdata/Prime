@@ -310,3 +310,20 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
   e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
   outra conta vem com a fatia 9.
+- 18/11: fatia 8 (outra conta: código e convite; migration `Version20261118120000`, `user.codigo_pessoal`). Código
+  pessoal sorteado na primeira vez que a pessoa o vê (`CodigoPessoal::garantir`), único também contra o código da
+  conta (as duas gerações conferem as duas colunas) e fora da auditoria. Aba "Outra conta (código)" na janela, convite
+  `Pendente` (`PastaCompartilhamento::externo`), caixa "Recebidas" (L9, L10) nas rotas `expediente_recebidas` e
+  `expediente_recebida_responder` (aceitar, recusar, deixar; só o destino; alheio = 404). Decisões: (1) **o convite de
+  outra conta não abre nada no escritório da pasta**: o escopo do restrito, o `PermissionChecker` e a barreira só
+  olham `interno = true` (a abertura é da fatia 9, com o adendo); (2) o servidor não diz de quem é um código antes do
+  envio (a tela mostra só "Código válido. O destinatário confirma ao aceitar."); depois do envio, quem republicou vê
+  "Nome · Conta" (o código foi dado por ela); (3) código de quem tem qualquer vínculo com o escritório da pasta é
+  recusado ("use Equipe do escritório"), e código inexistente tem mensagem própria (os dois textos fora do desenho,
+  necessários); (4) o 1 clique para outra conta manda o `destinoId` e só vale para quem já recebeu desta pessoa por
+  código neste escritório; (5) o aviso vai para o sino do primeiro escritório ativo do destino, sem número da pasta
+  nem nome da conta, com link para `?recebidas=1`; a trilha da conta destino registra o aviso **sem** quem agiu na
+  origem (e-mail, IP e rota vazios: `AuditLogSubscriber::avisoParaOutraConta`); (6) "Ver pasta" da caixa e a janela
+  L11 ficam para a fatia 9; (7) como no desenho, a caixa só traz pendente e aceito (recusado e encerrado saem; estados
+  Aguardando, Colaborando, Expirada) e quem recusou não volta ao 1 clique; (8) o aviso "Aceita: adicionada às suas
+  pastas" é o texto do desenho e só fica verdadeiro com a fatia 9 (as duas vão juntas para o master).
