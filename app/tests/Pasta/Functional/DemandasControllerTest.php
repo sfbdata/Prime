@@ -100,7 +100,8 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('.exp-painel > #pastas-resultado > #pastasView'));
         self::assertCount(0, $crawler->filter('#expedienteSidebar, .expediente-sidebar, .exp-trilho'));
-        self::assertCount(1, $crawler->filter('#modalNovaPasta form > input[type="hidden"][name="criador_responsavel"][value="1"]'));
+        // O campo saiu: toda pasta nova nasce com quem cria como responsável (CriarPastaDTO), sem pedir.
+        self::assertCount(0, $crawler->filter('#modalNovaPasta input[name="criador_responsavel"]'));
         self::assertStringNotContainsString('Importar em lote', (string) $this->client->getResponse()->getContent());
         self::assertSame('exp-body exp-demandas', $this->classesDoCorpo($crawler));
     }
@@ -442,13 +443,13 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
 
     // ── Nova demanda ────────────────────────────────────────────────────
 
-    #[TestDox('Nova demanda (criador_responsavel=1) abre a pasta com quem cria como responsável')]
+    #[TestDox('Nova demanda abre a pasta com quem cria como responsável')]
     public function testNovaDemandaCriaComCriadorResponsavel(): void
     {
         [$user, $tenant] = $this->criarAdmin();
         $this->logarComTenant($this->client, $user, $tenant);
 
-        $this->client->xmlHttpRequest('POST', '/pasta/nova', ['nome_cliente' => 'Cliente Demanda ' . uniqid(), 'criador_responsavel' => '1', 'confirmar' => '1']);
+        $this->client->xmlHttpRequest('POST', '/pasta/nova', ['nome_cliente' => 'Cliente Demanda ' . uniqid(), 'confirmar' => '1']);
 
         self::assertResponseIsSuccessful();
         $json  = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -459,8 +460,8 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertSame($user->getId(), $pasta->getResponsavel()?->getId());
     }
 
-    #[TestDox('Nova Pasta sem o campo (Expediente) continua sem responsável')]
-    public function testNovaPastaSemCampoFicaSemResponsavel(): void
+    #[TestDox('Nova Pasta do Expediente também nasce com quem cria como responsável (regra 6 do acesso restrito)')]
+    public function testNovaPastaDoExpedienteNasceComCriadorResponsavel(): void
     {
         [$user, $tenant] = $this->criarAdmin();
         $this->logarComTenant($this->client, $user, $tenant);
@@ -472,7 +473,7 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $this->em()->clear();
         $pasta = $this->em()->getRepository(Pasta::class)->findOneBy(['tenant' => $tenant->getId(), 'nup' => $json['nup']]);
         self::assertNotNull($pasta);
-        self::assertNull($pasta->getResponsavel());
+        self::assertSame($user->getId(), $pasta->getResponsavel()?->getId());
     }
 
     #[TestDox('sugestões da Nova demanda devolvem o próximo número e os clientes do escritório')]

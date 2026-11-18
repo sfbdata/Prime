@@ -14,15 +14,16 @@ final readonly class CriarPastaDTO
      * @param bool $vincularAoCadastroDoMesmoNome A Nova Pasta da tela (desenho 03, L276): se as pastas com
      *                     este nome de cliente apontam para um cadastro só, a nova entra ligada a ele. Os
      *                     caminhos automáticos (acervo, Drive, cobrança) não ligam nada por nome.
-     * @param bool $criadorComoResponsavel A Nova demanda das Minhas Demandas (desenho 15, dc `salvarNovaFn`): quem
-     *                     cria entra como responsável, senão a pasta não apareceria na própria lista. Os outros
-     *                     caminhos (Expediente, acervo, Drive, cobrança) criam sem responsável, como sempre.
+     * @param bool $criadorComoResponsavel Toda pasta nova nasce com quem a criou como responsável (spec
+     *                     `acesso-restrito-e-compartilhar.md`, regra 6: Nova pasta, Nova demanda, importação em lote,
+     *                     Chat I.A e judicializar). Só os caminhos sem uma pessoa abrindo a pasta passam `false`: o
+     *                     acervo por CSV, a descoberta pelo Drive e a correção de pasta judicial duplicada.
      */
     public function __construct(
         public ?string $nup = null,
         public ?string $nomeCliente = null,
         public ?string $nomeAcao = null,
         public bool $vincularAoCadastroDoMesmoNome = false,
-        public bool $criadorComoResponsavel = false,
+        public bool $criadorComoResponsavel = true,
     ) {}
 }
