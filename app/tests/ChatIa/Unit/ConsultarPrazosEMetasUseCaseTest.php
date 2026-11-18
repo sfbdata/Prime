@@ -9,6 +9,7 @@ use App\ChatIa\Enum\PeriodoDaConsulta;
 use App\ChatIa\Exception\SemAcessoAsMetasNoChatException;
 use App\ChatIa\Service\GuardaDaConsultaDePrazos;
 use App\ChatIa\Service\ListaDasMinhasMetas;
+use App\ChatIa\Service\PortaDaConsultaDePrazos;
 use App\ChatIa\UseCase\ConsultarPrazosEMetasUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
@@ -51,6 +52,9 @@ final class ConsultarPrazosEMetasUseCaseTest extends TestCase
     private array $pastasPerguntadas = [];
 
     private int $proximoId = 1;
+
+    /** @var list<array{User, Tenant}> quem a porta de quem chama recebeu */
+    private array $perguntasAPorta = [];
 
     protected function setUp(): void
     {
@@ -279,6 +283,63 @@ final class ConsultarPrazosEMetasUseCaseTest extends TestCase
         $this->expectException(SemAcessoAsMetasNoChatException::class);
 
         $caso->executar($this->eu, $this->tenant, $this->consulta(PeriodoDaConsulta::Hoje));
+    }
+
+    #[TestDox('Com a porta de quem chama (14.i): vale a porta, não o aceite da I.A; a mesma pessoa e o mesmo escritório chegam a ela')]
+    public function testComPortaValeAPorta(): void
+    {
+        $porta = $this->porta();
+
+        $saida = $this->caso([$this->meta('2026-11-07')], aceite: false)
+            ->executar($this->eu, $this->tenant, $this->consulta(PeriodoDaConsulta::Hoje), $porta);
+
+        self::assertSame(1, $saida->total);
+        self::assertSame([[$this->eu, $this->tenant]], $this->perguntasAPorta);
+    }
+
+    #[TestDox('Com a porta de quem chama: a recusa dela sobe como veio, antes de ler a lista, mesmo com módulo e aceite')]
+    public function testPortaRecusaAntesDaLista(): void
+    {
+        $porta = $this->porta(new \DomainException('recusa da porta'));
+
+        try {
+            $this->caso([$this->meta('2026-11-07')])->executar($this->eu, $this->tenant, $this->consulta(PeriodoDaConsulta::Hoje), $porta);
+            self::fail('devia recusar');
+        } catch (\DomainException $e) {
+            self::assertSame('recusa da porta', $e->getMessage());
+        }
+
+        self::assertSame([], $this->pedidosALista);
+    }
+
+    #[TestDox('Sem porta, o chat continua exigindo o aceite da I.A (sem regressão)')]
+    public function testSemPortaContinuaOAceite(): void
+    {
+        $this->expectException(SemAcessoAsMetasNoChatException::class);
+
+        $this->caso([$this->meta('2026-11-07')], aceite: false)->executar($this->eu, $this->tenant, $this->consulta(PeriodoDaConsulta::Hoje), null);
+    }
+
+    /** Uma porta de mentira que anota quem perguntou e passa (ou lança o que o caso mandar). */
+    private function porta(?\Throwable $recusa = null): PortaDaConsultaDePrazos
+    {
+        $anotar = function (User $eu, Tenant $tenant): void {
+            $this->perguntasAPorta[] = [$eu, $tenant];
+        };
+
+        return new class ($anotar, $recusa) implements PortaDaConsultaDePrazos {
+            public function __construct(private readonly \Closure $anotar, private readonly ?\Throwable $recusa)
+            {
+            }
+
+            public function exigir(User $eu, Tenant $tenant): void
+            {
+                ($this->anotar)($eu, $tenant);
+                if ($this->recusa !== null) {
+                    throw $this->recusa;
+                }
+            }
+        };
     }
 
     #[TestDox('Lista vazia: sem consulta de segredo desnecessária quebrando e com total zero')]

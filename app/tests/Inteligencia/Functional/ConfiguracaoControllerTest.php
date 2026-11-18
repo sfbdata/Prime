@@ -48,6 +48,23 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $crawler->filter('#ia-estado')->count());
     }
 
+    #[TestDox('o cartão do conector fica dentro da seção com espaço no fim, para o Desligar não ficar sob a bolha da Central')]
+    public function testEspacoParaABolhaDaCentral(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        $user = $this->criarUsuarioComPermissoes($tenant, ['admin.inteligencia.manage']);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $crawler->filter('section.content.ia-admin > .container-fluid > #conector-escritorio')->count());
+        self::assertSame(1, $crawler->filter('link[href*="css/inteligencia-admin.css"]')->count());
+        $css = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/inteligencia-admin.css');
+        self::assertMatchesRegularExpression('/\.ia-admin\s*\{[^}]*padding-bottom:\s*96px/', $css);
+    }
+
     #[TestDox('bloco "Consumo do mês": análises e limite, gasto em US$ só deste escritório, orçamento, modo e a nota; entre o estado e a configuração')]
     public function testBlocoDeConsumoDoMes(): void
     {

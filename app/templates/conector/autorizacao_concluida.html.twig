@@ -1,0 +1,17 @@
+{% extends 'recurso/_layout_simples.html.twig' %}
+
+{#
+    O mesmo pedido de conexão enviado de novo logo depois de dar certo (segundo clique em "Autorizar" enquanto o
+    navegador ainda carregava a volta ao aplicativo de I.A.). A conexão já foi feita; nada é concedido de novo.
+#}
+
+{% block title %}Conexão feita{% endblock %}
+
+{% block body %}
+<main class="bj-recurso-preparo" role="main">
+    <div class="bj-recurso-preparo-icone" aria-hidden="true"><i class="bi bi-plug"></i></div>
+    <h1 class="bj-recurso-preparo-titulo">Conexão feita</h1>
+    <div class="bj-recurso-preparo-texto">O aplicativo de I.A. já está conectado ao BlueJus. Volte a ele para continuar; esta aba pode ser fechada.</div>
+    <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">Ir para o BlueJus</a>
+</main>
+{% endblock %}

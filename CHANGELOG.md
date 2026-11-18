@@ -8,6 +8,30 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.58.1] - 2026-11-18
+
+### Corrigido
+
+- Push Processual: "Vincular à Pasta N" acha a pasta viva quando o número N era de uma pasta excluída e foi reusado; antes podia achar a excluída e responder que a pasta não existia.
+- Agente de pastas: a busca por número deixa a pasta excluída de fora, na lista e na contagem.
+- Ficha e resumo do cliente: a pasta excluída deixa de aparecer entre as pastas do cliente.
+
+## [2.58.0] - 2026-11-18
+
+### Adicionado
+
+- Conector de I.A. (spec mcp-remoto-oauth, PR 6): ferramentas de leitura `buscar_pastas` (buscar, contar, opções de filtro, lixeira do escritório, número, minhas demandas), `ler_pasta` (resumo, andamento, registro, prazos, metas, detalhes, checklist, financeiro, cadastro, equipe) e `ler_agenda` (agenda e Minhas Metas).
+- Tabela de aba e chave por ferramenta e ação (`TabelaDeAbaEChave`) e `GuardaDaAcaoDoConector`: ação, chave do Master, módulo, escritório, ver a pasta e abas conferidos a cada chamada. Pasta em segredo de justiça sai das listas e é contada (`SegredoNasListas`); pasta trancada segue a Lista do navegador.
+- `LerAndamentoDaPastaUseCase`, Registro paginado (`PastaMensagemRepository::paginaDoRegistro`) e `PoliticaDeMascaramento`: no conector, a máscara de dados pessoais fica sempre ligada. Em toda saída, a máscara passa antes do corte do texto (também nos montadores do chat, que passam a mascarar o dado que antes saía cortado e aberto no limite).
+- Minhas Metas pelo conector: `ConsultarPrazosEMetasUseCase` aceita a porta do chamador (`PortaDaConsultaDePrazos`); a do conector confere o módulo Metas e a liberação do conector.
+
+### Corrigido
+
+- Conector de I.A.: o mesmo pedido de autorização enviado de novo logo depois de autorizado (segundo clique enquanto a volta ao app carregava) mostra "Conexão feita" em vez de "Este pedido de conexão não vale mais", sem conceder nada de novo; depois de negado, o reenvio continua recusado.
+- Conector de I.A.: a tela de autorização envia o formulário uma vez só.
+- Conector de I.A.: autorizar de novo o mesmo aplicativo no mesmo escritório derruba as autorizações anteriores dele (motivo `substituida`), com os tokens e as renovações delas; valem só as permissões escolhidas agora.
+- Conector de I.A.: o log `mcp` registra também o método JSON-RPC e a versão do protocolo de cada requisição, conferidos pelo formato, para diagnosticar o app conectado.
+
 ## [2.57.0] - 2026-11-18
 
 ### Alterado
@@ -2095,7 +2119,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.57.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.58.1...HEAD
+[2.58.1]: https://github.com/sfbdata/Prime/compare/v2.58.0...v2.58.1
+[2.58.0]: https://github.com/sfbdata/Prime/compare/v2.57.0...v2.58.0
 [2.57.0]: https://github.com/sfbdata/Prime/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/sfbdata/Prime/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/sfbdata/Prime/compare/v2.54.0...v2.55.0

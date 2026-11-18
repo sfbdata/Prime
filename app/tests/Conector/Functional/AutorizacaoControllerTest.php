@@ -346,7 +346,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(self::REDIRECT, $codigo?->getRedirectUri());
     }
 
-    #[TestDox('12.27: o pedido é de uso único: o mesmo POST de novo recusa')]
+    #[TestDox('12.27: o pedido é de uso único: o mesmo POST de novo, logo depois de conectar (segundo clique), mostra "Conexão feita" sem conceder de novo nem redirecionar')]
     public function testPedidoDeUsoUnico(): void
     {
         [$tenant, $pessoa] = $this->cenario();
@@ -356,8 +356,52 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
 
         $this->enviar($campos);
 
+        self::assertResponseStatusCodeSame(200);
+        self::assertFalse($this->client->getResponse()->headers->has('Location'), 'o segundo envio não volta ao app');
+        self::assertSelectorTextContains('main h1', 'Conexão feita');
+        self::assertSame(1, $this->concessoesDe($pessoa), 'nenhuma concessão (nem código) nova');
+    }
+
+    #[TestDox('12.27: depois de "Não autorizar", o mesmo POST de novo continua recusado como pedido inválido')]
+    public function testPedidoNegadoDeNovoRecusa(): void
+    {
+        [$tenant, $pessoa] = $this->cenario();
+        $campos = $this->campos($this->abrir(), (int) $tenant->getId(), botao: 'negar');
+        $this->enviar($campos);
+        $this->voltaAoApp();
+
+        $this->enviar($campos);
+
+        $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
+        self::assertSame(0, $this->concessoesDe($pessoa));
+    }
+
+    #[TestDox('12.27: o reenvio de um pedido já autorizado com token CSRF errado continua recusado')]
+    public function testReenvioConcluidoComCsrfErradoRecusa(): void
+    {
+        [$tenant, $pessoa] = $this->cenario();
+        $campos = $this->campos($this->abrir(), (int) $tenant->getId());
+        $this->enviar($campos);
+        $this->voltaAoApp();
+
+        $campos['_token'] = 'token-errado';
+        $this->enviar($campos);
+
         $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
         self::assertSame(1, $this->concessoesDe($pessoa));
+    }
+
+    #[TestDox('a tela de consentimento envia o formulário uma vez só (o segundo clique é ignorado no navegador)')]
+    public function testTelaEnviaUmaVezSo(): void
+    {
+        $this->cenario();
+        $tela = $this->abrir();
+
+        $script = $tela->filter('body script')->last()->text();
+        self::assertStringContainsString("querySelector('form.cj-form')", $script);
+        self::assertStringContainsString('evento.preventDefault()', $script);
+        self::assertNotEmpty($tela->filter('body script')->last()->attr('nonce'), 'com o nonce da CSP, como o resto do sistema');
+        self::assertSame(1, $tela->filter('form.cj-form')->count());
     }
 
     #[TestDox('sessão no escritório A autoriza o B (sem o filtro da sessão); a auditoria cai no B')]
@@ -456,9 +500,13 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         $tela = $this->abrir();
         self::assertCount(1, $tela->filter('input[value="' . $tenant->getId() . '"][disabled]'));
         self::assertStringContainsString(AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO, $tela->filter('main')->text());
-        $this->enviar($this->campos($tela, (int) $tenant->getId()));
+        $campos = $this->campos($tela, (int) $tenant->getId());
+        $this->enviar($campos);
 
         $this->exigirRecusaNoApp();
         self::assertSame(0, $this->concessoesDe($pessoa));
+
+        $this->enviar($campos);
+        $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
     }
 }

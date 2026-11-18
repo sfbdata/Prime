@@ -22,6 +22,13 @@ final class PedidoDeAutorizacaoNaSessao
     private const MAXIMO = 5;
     private const VALIDADE_SEGUNDOS = 1800;
 
+    /**
+     * Os pedidos que terminaram em conexão, por alguns minutos: o segundo clique em "Autorizar" (o navegador ainda
+     * carregando a volta ao app) chega com um pedido já usado e deve ver "conexão feita", não "pedido inválido".
+     */
+    private const CHAVE_CONCLUIDOS = 'conector_oauth_concluidos';
+    private const VALIDADE_CONCLUIDO_SEGUNDOS = 600;
+
     public function __construct(
         private readonly RequestStack $requestStack,
         private readonly ClockInterface $relogio,
@@ -61,6 +68,37 @@ final class PedidoDeAutorizacaoNaSessao
         $this->gravar($pedidos);
 
         return $guardado === null ? null : PedidoDeAutorizacao::daSessao($guardado['pedido']);
+    }
+
+    /** Marca o pedido como concluído em conexão (o código já foi emitido). Não volta a valer: só muda a recusa. */
+    public function marcarConcluido(?string $id): void
+    {
+        if ($id === null || $id === '') {
+            return;
+        }
+
+        $concluidos = $this->concluidosVigentes();
+        $concluidos[$id] = $this->relogio->now()->getTimestamp();
+        $this->requestStack->getSession()->set(self::CHAVE_CONCLUIDOS, \array_slice($concluidos, -self::MAXIMO, null, true));
+    }
+
+    /** O pedido deste id terminou em conexão há pouco, nesta mesma sessão? */
+    public function foiConcluido(?string $id): bool
+    {
+        return $id !== null && $id !== '' && isset($this->concluidosVigentes()[$id]);
+    }
+
+    /** @return array<string, int> */
+    private function concluidosVigentes(): array
+    {
+        $guardados = $this->requestStack->getSession()->get(self::CHAVE_CONCLUIDOS, []);
+        if (!\is_array($guardados)) {
+            return [];
+        }
+
+        $limite = $this->relogio->now()->getTimestamp() - self::VALIDADE_CONCLUIDO_SEGUNDOS;
+
+        return array_filter($guardados, static fn (mixed $quando, mixed $id): bool => \is_string($id) && \is_int($quando) && $quando > $limite, \ARRAY_FILTER_USE_BOTH);
     }
 
     /** @return array<string, array{criado_em: int, pedido: array<mixed>}> */
