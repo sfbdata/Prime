@@ -13,7 +13,6 @@ use App\Conector\Enum\EstadoDaPropostaDoConector;
 use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
-use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Repository\ConsentimentoDoConectorRepository;
 use App\Conector\Repository\PropostaDoConectorRepository;
 use App\Conector\Service\GuardaDaAcaoDoConector;
@@ -326,7 +325,7 @@ final class ConfirmarAcaoTest extends KernelTestCase
 
         $erro = $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada()));
 
-        self::assertSame(DespachoDasFerramentas::GRANDE_DEMAIS, $erro->getMessage());
+        self::assertSame(ConfirmarPropostaDoConectorUseCase::RESULTADO_GRANDE_DEMAIS, $erro->getMessage());
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM tenant WHERE name = ?', [$this->executor->nomeDoEscritorioGravado]));
         self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($id)?->getEstado());
     }

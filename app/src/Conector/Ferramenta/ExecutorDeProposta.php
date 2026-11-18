@@ -29,7 +29,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *  3. {@see executarConfirmada()} roda na mesma transação, logo depois, e grava pelos UseCases, como a tela. Num lote
  *     (6.7, item 5), o executor confere CADA item antes de gravar qualquer um, sem gravar (o mesmo do item 2, item por
  *     item), e grava só os que passaram; o que não passou entra no resultado com o motivo (ex.: CPF que virou repetido),
- *     sem lançar. Não há "um item falhou no banco e os outros seguem": uma falha no `flush` fecha o EntityManager
+ *     sem lançar. A conferência antes de gravar não enxerga o efeito de um item sobre outro: os itens que conflitam entre
+ *     si no mesmo lote (o mesmo CPF duas vezes, editar o que outro item exclui) saem da lista já no `propor()`, com o
+ *     motivo, ou a conferência de cada item leva em conta os anteriores do lote. Não há "um item falhou no banco e os outros seguem": uma falha no `flush` fecha o EntityManager
  *     (`UnitOfWork::commit`), e o ponto de retorno da conexão desfaria o banco sem desfazer a memória. Por isso, toda
  *     exceção daqui (inclusive de banco) desfaz TUDO o que a confirmação gravou, e a proposta continua pendente.
  *  4. O resultado ({@see ResultadoDaConfirmacao}) segue as regras de toda resposta e precisa caber no teto: ele é

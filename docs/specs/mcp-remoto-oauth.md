@@ -1369,10 +1369,15 @@ piloto (item 2).
    atual; resumo e hash iguais; e de novo toda a permissão, o teto, as abas, a chave, a liberação, o segredo e o estado do
    item (pasta excluída, CPF que virou repetido). Usada, vencida, de outra pessoa ou de outra conexão: recusa com mensagem
    fixa, sem dizer se existe. Dois `confirmar_acao` ao mesmo tempo gravam uma vez.
-5. **Lote:** uma proposta leva até 50 itens; **uma confirmação vale para a lista toda** (decisão de 08/11/2026). Cada item roda
-   na própria transação, e a resposta diz o resultado de cada um (criado, excluído, recusado e por quê). Os itens que já
-   falham na proposta (CPF repetido, sem permissão) saem da lista antes, com o motivo, para a pessoa não confirmar o que não
-   vai acontecer.
+5. **Lote:** uma proposta leva até 50 itens; **uma confirmação vale para a lista toda** (decisão de 08/11/2026). A confirmação
+   roda numa transação só (a da trava da proposta): o executor confere cada item de novo antes de gravar qualquer um, grava
+   só os que passaram, e a resposta diz o resultado de cada um (criado, excluído, recusado e por quê). Qualquer exceção na
+   gravação (inclusive de banco) desfaz o lote inteiro e a proposta continua pendente. *(Revisão do PR 9, 18/11/2026: "cada
+   item na própria transação" não funciona com um EntityManager só, porque o `flush` que falha fecha o EntityManager e o
+   ponto de retorno desfaria o banco sem desfazer a memória; o contrato está no docblock de `ExecutorDeProposta`.)* Os itens
+   que já falham na proposta (CPF repetido, sem permissão) saem da lista antes, com o motivo, para a pessoa não confirmar o
+   que não vai acontecer; os que conflitam entre si no mesmo lote (o mesmo CPF duas vezes, editar o que outro item exclui)
+   também.
 6. **Dados zerados:** depois de confirmada, cancelada ou vencida, a proposta guarda só estado, datas e ids do resultado; os
    dados (que podem ter CPF) somem, como a `PropostaDeCadastro` do chat (`app/src/ChatIa/Entity/PropostaDeCadastro.php:22`). As
    vencidas são varridas ao registrar uma proposta nova, como no chat, e pela faxina agendada (13.2). `dados` e `resumo` nunca vão para log nem auditoria.

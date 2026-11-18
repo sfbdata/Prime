@@ -54,6 +54,9 @@ final class ConfirmarPropostaDoConectorUseCase
     public const MOTIVO_RESUMO_DIFERENTE = 'resumo_diferente';
     public const RESUMO_DIFERENTE = 'O resumo não confere com o da proposta. Mande o resumo exatamente como veio na proposta.';
 
+    /** Na confirmação não há "página seguinte": repetir dá o mesmo tamanho, então a saída é propor de novo com menos. */
+    public const RESULTADO_GRANDE_DEMAIS = 'O resultado desta ação passou do tamanho máximo e nada foi gravado. Peça a ação de novo com menos itens.';
+
     /** O teto do resultado do executor, em caracteres do JSON: folga para o envelope da resposta, abaixo dos 50 mil do despacho. */
     public const TETO_DO_RESULTADO = DespachoDasFerramentas::TETO_DE_CARACTERES - 1_000;
 
@@ -154,7 +157,7 @@ final class ConfirmarPropostaDoConectorUseCase
     {
         $json = json_encode($resultado->dados, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
         if (mb_strlen($json) > self::TETO_DO_RESULTADO) {
-            throw new ErroDaFerramenta(DespachoDasFerramentas::MOTIVO_GRANDE_DEMAIS, DespachoDasFerramentas::GRANDE_DEMAIS);
+            throw new ErroDaFerramenta(DespachoDasFerramentas::MOTIVO_GRANDE_DEMAIS, self::RESULTADO_GRANDE_DEMAIS);
         }
     }
 
