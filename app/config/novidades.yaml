@@ -1,6 +1,14 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.58.0"
+  data: "2026-11-18"
+  itens:
+    - "Com o conector de I.A. ligado, o Claude ou o ChatGPT conectado à sua conta passa a procurar pastas, ler o resumo, o andamento, o Registro, os prazos e as metas de uma pasta, e consultar a sua agenda e as suas metas."
+    - "O app só enxerga o que você já vê no BlueJus: abas ocultas e pastas em segredo de justiça ficam de fora; da pasta trancada, só o número e o cliente, como na lista; CPF, CNPJ, telefone e e-mail chegam mascarados, mesmo quando o texto é cortado no meio deles."
+    - "Por enquanto o conector só é liberado para o escritório piloto."
+    - "Ao conectar o Claude ou outro aplicativo de I.A. ao BlueJus, clicar duas vezes em Autorizar não mostra mais a mensagem de pedido vencido: aparece \"Conexão feita\" e basta voltar ao aplicativo."
+    - "Ao conectar de novo o mesmo aplicativo de I.A., só vale o que você autorizou agora: se antes ele podia alterar dados e agora só pode ler, a permissão antiga deixa de valer na hora."
 - versao: "2.57.0"
   data: "2026-11-18"
   itens:
