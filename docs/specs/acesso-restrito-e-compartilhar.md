@@ -173,6 +173,64 @@ Tabela `pasta_compartilhamento`: `id`, `tenant_id` (conta de origem), `pasta_id`
   contra as permissões do compartilhamento. Nunca abre outra pasta, cliente, processo ou tela de A.
 - Antes de codar a fatia 9, adendo desta spec com as rotas exatas e re-revisão (risco ALTO).
 
+#### 4.5.1 Adendo da fatia 9 (18/11): abrir a pasta recebida
+
+**Por que não `pasta_show`.** Investigação de 18/11: `pasta_show` e as rotas que a página chama (mensagem, andamento,
+upload, documento, ZIP, metas) leem tudo pelo escritório da sessão (`TenantContext`, `PermissionChecker` exige
+`UserTenant` ativo no escritório da pasta, `PastaDaRota`/`#[PastaPorId]` só acham pasta do escritório da sessão,
+`can_access_*` no Twig), e a página tem links para cliente, processo, metas, cobrança, push e vizinhas ‹ ›. Abrir a
+pasta de A ali pede desligar o filtro em dezenas de pontos ou dar vínculo em A: os dois furam a regra "nunca abre
+outra pasta, cliente, processo ou tela de A". O molde do Trabalho Externo também não serve como está: lá a
+`DemandaExterna` não é `TenantAware`; aqui `Pasta`, `PastaDocumento`, `PastaAndamento` e as metas são.
+
+**Desenho.** "Abrir pasta" (dc `rvAbrir`) e "Abrir metas" (`rvMetasIr`) levam à página normal da pasta (02). A pasta
+recebida abre numa **página própria e reduzida**, com os componentes visuais da página da pasta (cabeçalho, abas
+Andamentos, Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11),
+comunicado ao Coordenador.
+
+**Uma porta só.** Toda rota da pasta recebida tem nome `expediente_recebida_*` (prefixo já liberado pela barreira do
+restrito, fora de `pasta_*`, logo fora de `PastaDaRota`, do cadeado e da aba oculta), caminho
+`/expediente/recebidas/{compartilhamentoId}/…`, e a primeira coisa que faz é
+`PastaRecebidaDoUsuario::localizar(compartilhamentoId, usuário logado)`, que devolve o compartilhamento só se:
+destino = usuário logado; `interno = false`; status `Aceita`; não venceu; pasta não excluída; escritório da pasta
+ativo (escritório suspenso: só leitura, como o `donoForaDoAr` do Trabalho Externo; excluído: 404). Senão, 404 sem
+dizer por quê. Um teste de arquitetura (molde `TrabalhoExternoSemEscritorioArquiteturaTest`) recusa rota
+`expediente_recebida_*` cuja ação não chame o localizador.
+
+**Leitura.** O escritório da sessão continua o do destino (B): cabeçalho, menu e Central são dele. Os dados da pasta
+de A vêm de um leitor próprio (`LeitorDaPastaRecebida`), que desliga o `TenantFilter` só durante cada consulta
+(`SemFiltroDeTenant`) e filtra **sempre** por `tenant = A` **e** `pasta = a do compartilhamento`. Nenhuma consulta por
+id solto. O leitor devolve DTO (nunca a entidade para o Twig): NUP, nome do cliente, fase atual, andamentos e
+anotações, lista de documentos (nome, data, tamanho) e metas abertas (título, prazo, situação). Fica de fora:
+link para cliente, processo, cobrança, push, IA, marcadores, responsável, atribuíveis, vizinhas e "N de M".
+
+**Rotas (fatia 9a, leitura).**
+
+| Nome | Método e caminho | Exige | Faz |
+|---|---|---|---|
+| `expediente_recebida_ver` | GET `…/{id}` | localizar | JSON da janela L11: de, conta, permissões, número de metas abertas |
+| `expediente_recebida_pasta` | GET `…/{id}/pasta` | localizar | página reduzida (abas Andamentos, Documentos, Metas; `?aba=metas` para "Abrir metas") |
+| `expediente_recebida_documento` | GET `…/{id}/documento/{documentoId}/{modo}` (`ver`/`baixar`) | localizar + `baixarDocumentos` + documento da pasta do compartilhamento | entrega o arquivo pela chave (skill `armazenamento-de-arquivos`) |
+
+**Rotas (fatia 9b, escrita).** `expediente_recebida_anotar` (POST, exige `movimentar`: anotação na linha do tempo) e
+`expediente_recebida_enviar` (POST, exige `enviarDocumentos`: documento novo na pasta). A entidade nasce com o
+escritório A explícito; a auditoria vai para A (dono) com o ator de B, que é a trilha da outra conta que A precisa
+ver. ZIP fica fora (o desenho não mostra na recebida).
+
+**Lista (L2, L12).** As pastas aceitas e vigentes entram na Lista do destinatário como um bloco próprio no topo do
+acervo, desenhado pelo JS a partir do JSON `expediente_recebidas` (que já traz os itens `colaborando`), com a marca
+"Recebida · <conta>" e a dica L2; clicar abre a janela L11. Não entram no `findByFilters` (escopado ao escritório B).
+"Ver pasta" da caixa Recebidas abre a mesma janela L11.
+
+**Trilha (§4.6).** Abrir a página e cada documento entregue gravam `leitura` no `audit_log` do escritório A (só ids,
+rota, IP e o usuário de B); a recusa do localizador não grava (não há pasta conhecida a quem mostrar).
+
+**Testes obrigatórios.** Pessoa de B abre a página e o documento com o convite aceito; recebe 404 com convite
+pendente, recusado, encerrado, vencido, de outra pessoa, com pasta excluída e com A excluído; documento de outra
+pasta de A pelo mesmo compartilhamento dá 404; `baixarDocumentos` falso dá 403; o filtro do escritório volta ligado
+em B depois de cada leitura; a página não tem link para `cliente_*`, `processo_*`, `tarefa_*`, `cobranca_*`, `push_*`;
+a trilha em A registra a leitura; ninguém de B sem convite chega a nada.
+
 ### 4.6 Trilha (regra 7)
 
 Só para vínculo restrito e para quem entra por compartilhamento de outra conta: uma linha em `audit_log` por
@@ -194,7 +252,7 @@ aplicar o escopo daria a falsa impressão de restrição.
 | 6 | Trilha do restrito | BAIXO | não | §4.6 |
 | 7 | Troca de responsável com confirmação | MÉDIO | não | L8 com "Manter como colaborador" (compartilhamento interno), cartão no Registro |
 | 8 | Outra conta: código e convite | ALTO | sim | Código pessoal, aba "Outra conta (código)", "Recebidas" (L9, L10), aceitar/recusar/deixar, aviso na Central |
-| 9 | Outra conta: abrir a pasta recebida | ALTO | não | Adendo §4.5, rotas sem escritório, L2, L11, L12, permissões por ação, re-revisão |
+| 9 | Outra conta: abrir a pasta recebida | ALTO | não | Adendo §4.5.1. 9a: localizador, leitura, página reduzida, documento, L2, L11, L12, trilha. 9b: anotar e enviar documento. Re-revisão em cada uma |
 
 ## 5.1 Fatia 2 em detalhe (núcleo do escopo no servidor)
 
