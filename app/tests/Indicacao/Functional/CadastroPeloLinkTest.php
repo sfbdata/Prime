@@ -200,7 +200,8 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->client->request('GET', '/i/' . self::CODIGO);
 
-        $nova = $this->cadastrar();
+        // O cupom vai no formulário, como a tela o preenche a partir da sessão (spec ia-liberada-por-indicacao, seção 8).
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         self::assertCount(1, $this->atribuicoesDe($nova));
     }
@@ -213,7 +214,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $antes = $repo->totais($agora->modify('-24 hours'));
         $this->client->request('GET', '/i/' . self::CODIGO);
 
-        $this->cadastrar();
+        $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         $anaId = (int) $this->ana->getId();
         self::assertSame(0, $repo->contarDoUsuarioDesde($anaId, $agora->modify('-24 hours')), 'atribuir não conta no limite nem no alerta');
