@@ -30,17 +30,17 @@
                     <dd class="col-sm-8">
                         <code>{{ configuracao.provedorNome }}</code>
                         {% if configuracao.provedorConfigurado %}
-                            <span class="badge text-bg-success ms-1">{{ 'inteligencia.admin.configurado'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--ok ms-1">{{ 'inteligencia.admin.configurado'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary ms-1">{{ 'inteligencia.admin.nao_configurado'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">{{ 'inteligencia.admin.nao_configurado'|trans }}</span>
                         {% endif %}
                     </dd>
                     <dt class="col-sm-4">{{ 'inteligencia.admin.flag'|trans }}</dt>
                     <dd class="col-sm-8">
                         {% if configuracao.plataformaHabilitada %}
-                            <span class="badge text-bg-success">{{ 'inteligencia.admin.ligada'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--ok">{{ 'inteligencia.admin.ligada'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary">{{ 'inteligencia.admin.desligada'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ 'inteligencia.admin.desligada'|trans }}</span>
                         {% endif %}
                     </dd>
                     <dt class="col-sm-4">{{ 'inteligencia.admin.uso'|trans }}</dt>
@@ -188,8 +188,8 @@
                 </div>
             </div>
             <div class="card-footer d-flex justify-content-end gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i> {{ 'inteligencia.admin.salvar'|trans }}
+                <button type="submit" class="bjp-btn bjp-btn--primario">
+                    <i class="bi bi-check-lg"></i> {{ 'inteligencia.admin.salvar'|trans }}
                 </button>
             </div>
             {{ form_end(form) }}
