@@ -310,3 +310,16 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
   e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
   outra conta vem com a fatia 9.
+- 18/11: fatia 7 (troca de responsável com confirmação, regra 5 e L8). No chip do responsável (pasta e Lista), escolher
+  outra pessoa quando a pasta já tem responsável abre a janela L8 do desenho 03 (valores do CSS do desenho, prefixo
+  `resp-troca-*`); pasta sem responsável troca direto, a mesma pessoa só fecha. "Manter {de} como colaborador" começa
+  desmarcado; marcado, o servidor (`manter_colaborador=1` no PATCH) cria o compartilhamento interno pelo
+  `CompartilharPastaComAEquipeUseCase` (1 clique, sem validade, mensagem "Mantido como colaborador na troca de
+  responsável"), na mesma transação da troca. O aviso segue o que o servidor fez (`colaboradorMantido`): sem vínculo
+  ativo, o anterior não fica e o aviso diz "foi desvinculado". Quem já colabora não ganha outro e conta como mantido
+  (conferido no banco, não pelo texto da recusa); quem passa a própria pasta adiante segue vendo a pasta e também
+  conta como mantido. Se outra aba já fez a mesma troca (`mudou` falso), não há aviso.
+  Decisões: (1) "Sem responsável", que o sistema tem e o desenho não, também passa pela L8, com o texto "a pasta fica
+  sem responsável" (e o aviso "A pasta {nup} ficou sem responsável."); (2) o restrito vê o aviso do desenho (L877) sem abrir a L8 (`acesso_restrito()` no Twig, o
+  servidor recusa do mesmo jeito); (3) o ícone L1 da linha se atualiza pelo `ExpCompartilhar.atualizar`, que a fatia
+  8 acrescenta (até lá, só no recarregar). O cartão "Responsável" do Registro já existia.

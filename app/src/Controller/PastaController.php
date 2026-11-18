@@ -1713,9 +1713,10 @@ class PastaController extends AbstractController
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
         }
-        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118).
+        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118). Com
+        // "Manter como colaborador" (L8 do desenho 03), o anterior ganha o compartilhamento interno da pasta.
         try {
-            $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+            $troca = $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant, $request->request->get('manter_colaborador') === '1');
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         } catch (ResponsavelFixoNoAcessoRestritoException $e) {
@@ -1724,9 +1725,11 @@ class PastaController extends AbstractController
         $responsavel = $pasta->getResponsavel();
 
         return $this->json([
-            'sucesso'          => true,
-            'responsavelId'    => $responsavel?->getId(),
-            'responsavelNome'  => $responsavel?->getFullName() ?? 'Não informado',
+            'sucesso'            => true,
+            'responsavelId'      => $responsavel?->getId(),
+            'responsavelNome'    => $responsavel?->getFullName() ?? 'Não informado',
+            'mudou'              => $troca->mudou,
+            'colaboradorMantido' => $troca->colaboradorMantido,
         ]);
     }
 

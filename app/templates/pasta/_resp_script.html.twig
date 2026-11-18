@@ -3,6 +3,22 @@
    mais de uma pagina (ou duas vezes na mesma) nao duplica listener. #}
 {# Textos do script abaixo; o BJ_T so e lido no clique, depois do bj-traducao.js do base. #}
 {{ catalogo_js('pasta_resp.js.resp') }}
+{# Confirmação da troca de responsável: L8 do desenho 03 (acesso-restrito-18-11-26, dc L517-523), com os valores do
+   CSS do desenho. Prefixo próprio para não herdar o .modal/.btn do sistema. #}
+<style>
+.resp-troca-fundo { position: fixed; inset: 0; z-index: 9100; background: rgba(13,27,42,.45); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.resp-troca { width: min(470px,100%); background: #fff; border-radius: 4px; border-top: 4px solid #c08a12; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); padding: 18px 20px; display: flex; flex-direction: column; gap: 11px; font-size: 13.5px; color: #34505f; line-height: 1.5; text-align: left; }
+.resp-troca-titulo { font-size: 16px; color: #12242f; font-weight: bold; }
+.resp-troca-titulo .bi { color: #c08a12; }
+.resp-troca-manter { display: flex; gap: 9px; align-items: flex-start; padding: 9px 10px; background: #f3f7fa; border-radius: 4px; cursor: pointer; margin: 0; font-weight: normal; }
+.resp-troca-manter input { width: 16px; height: 16px; margin-top: 2px; accent-color: #0a6fa0; flex: none; }
+.resp-troca-nota { font-size: 12px; color: #7a8e9b; }
+.resp-troca-acoes { display: flex; gap: 8px; justify-content: flex-end; }
+.resp-troca-acoes button { height: 38px; border: none; border-radius: 4px; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.resp-troca-nao { padding: 0 14px; background: #e2e9ee; color: #243845; }
+.resp-troca-sim { padding: 0 16px; background: #0a6fa0; color: #fff; }
+.resp-troca-sim:hover { background: #3b8fc2; }
+</style>
 <script>
 (function () {
     /* Chip de responsável (avatar + nome) + menu compartilhado #pastaRespMenu.
@@ -162,13 +178,22 @@
         menu.style.top  = top + 'px';
     }
 
-    function salvarResponsavel(chip, userId, nome, fotoUrl) {
+    /* Aviso curto da troca: o da Lista (ExpAviso) ou o da pasta (avisarPs). */
+    function avisarTroca(texto) {
+        if (window.ExpAviso) { window.ExpAviso(texto); return; }
+        if (window.avisarPs) { window.avisarPs(texto); }
+    }
+
+    /* `troca` ({de, para, nup}) só quando a pasta tinha responsável e passou pela confirmação L8. */
+    function salvarResponsavel(chip, userId, nome, fotoUrl, manter, troca) {
         var prevHtml = chip.innerHTML;
         var prevId   = chip.dataset.respId || '';
         renderChip(chip, userId, nome, fotoUrl); // otimista
         chip.classList.add('salvando');
 
-        var body = new URLSearchParams({ _token: chip.dataset.csrf, responsavel_id: userId || '' });
+        var campos = { _token: chip.dataset.csrf, responsavel_id: userId || '' };
+        if (manter) { campos.manter_colaborador = '1'; }
+        var body = new URLSearchParams(campos);
         fetch(chip.dataset.url, {
             method: 'PATCH',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -181,12 +206,86 @@
                 chip.innerHTML = prevHtml;
                 chip.dataset.respId = prevId;
                 (window.avisarErroPs || window.alert)((res.data && res.data.erro) || BJ_T.t('pasta_resp.js.resp.erro_alterar'));
+
+                return;
+            }
+            if (!troca || res.data.mudou === false) { return; }
+            // O texto segue o que o servidor fez: sem vínculo ativo no escritório, o anterior não fica.
+            var mantido = res.data.colaboradorMantido === true;
+            var chave = 'pasta_resp.js.resp.troca_feita' + (troca.semNovo ? '_sem' : '') + (mantido ? '_mantido' : '_desvinculado');
+            avisarTroca(BJ_T.t(chave, { nup: troca.nup, para: troca.para, de: troca.de }));
+            if (mantido && window.ExpCompartilhar && window.ExpCompartilhar.atualizar) {
+                window.ExpCompartilhar.atualizar(chip.dataset.pastaId);
             }
         })
         .catch(function () {
             chip.classList.remove('salvando');
             chip.innerHTML = prevHtml;
             chip.dataset.respId = prevId;
+        });
+    }
+
+    /* Confirmação L8 (desenho 03): abre só quando a pasta já tem responsável e ele muda. "Manter como colaborador"
+       começa desmarcado; Cancelar, o fundo e o Esc fecham sem gravar. */
+    function confirmarTroca(troca, aoConfirmar) {
+        var negrito = function (s) { return '<b>' + escResp(s) + '</b>'; };
+        var fundo = document.createElement('div');
+        fundo.className = 'resp-troca-fundo';
+        fundo.innerHTML =
+            '<div class="resp-troca" role="alertdialog" aria-modal="true" aria-label="' + escResp(BJ_T.t('pasta_resp.js.resp.troca_aria')) + '">' +
+                '<div class="resp-troca-titulo"><i class="bi bi-exclamation-triangle-fill"></i> ' +
+                    escResp(BJ_T.t('pasta_resp.js.resp.troca_titulo', { nup: troca.nup })) + '</div>' +
+                '<div>' + BJ_T.t(troca.semNovo ? 'pasta_resp.js.resp.troca_texto_sem' : 'pasta_resp.js.resp.troca_texto',
+                    { deNegrito: negrito(troca.de), paraNegrito: negrito(troca.para), de: escResp(troca.de) }) + '</div>' +
+                '<label class="resp-troca-manter"><input type="checkbox"><span>' +
+                    escResp(BJ_T.t('pasta_resp.js.resp.troca_manter', { de: troca.de })) + '</span></label>' +
+                '<div class="resp-troca-nota">' + escResp(BJ_T.t('pasta_resp.js.resp.troca_historico')) + '</div>' +
+                '<div class="resp-troca-acoes">' +
+                    '<button type="button" class="resp-troca-nao">' + escResp(BJ_T.t('pasta_resp.js.resp.troca_cancelar')) + '</button>' +
+                    '<button type="button" class="resp-troca-sim">' + escResp(BJ_T.t('pasta_resp.js.resp.troca_confirmar')) + '</button>' +
+                '</div>' +
+            '</div>';
+        var fechar = function () {
+            document.removeEventListener('keydown', teclas, true);
+            if (fundo.parentNode) { fundo.parentNode.removeChild(fundo); }
+        };
+        var teclas = function (e) {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(); }
+        };
+        fundo.addEventListener('click', function (e) {
+            if (e.target === fundo || e.target.closest('.resp-troca-nao')) { fechar(); return; }
+            if (e.target.closest('.resp-troca-sim')) {
+                var manter = fundo.querySelector('.resp-troca-manter input').checked;
+                fechar();
+                aoConfirmar(manter);
+            }
+        });
+        document.addEventListener('keydown', teclas, true);
+        document.body.appendChild(fundo);
+        fundo.querySelector('.resp-troca-sim').focus();
+    }
+
+    /* Escolha no menu. Mesma pessoa não chega aqui; pasta sem responsável troca direto; com responsável, L8. */
+    function escolher(chip, userId, nome, fotoUrl) {
+        if (chip.dataset.restrito === '1') {
+            (window.ExpAviso || window.avisarErroPs || window.alert)(BJ_T.t('pasta_resp.js.resp.restrito_fixo'));
+
+            return;
+        }
+        if ((chip.dataset.respId || '') === '') {
+            salvarResponsavel(chip, userId, nome, fotoUrl, false, null);
+
+            return;
+        }
+        var atual = chip.querySelector('.pasta-resp-nome');
+        var troca = {
+            nup: chip.dataset.nup || '',
+            de: atual ? atual.textContent.trim() : '',
+            para: userId ? nome : BJ_T.t('pasta_resp.js.resp.sem_responsavel'),
+            semNovo: !userId,
+        };
+        confirmarTroca(troca, function (manter) {
+            salvarResponsavel(chip, userId, nome, fotoUrl, manter, troca);
         });
     }
 
@@ -209,7 +308,7 @@
                 e.preventDefault();
                 var uid = opc.dataset.userId || '';
                 if ((chipAtivo.dataset.respId || '') !== uid) {
-                    salvarResponsavel(chipAtivo, uid, opc.dataset.nome || '', opc.dataset.foto || '');
+                    escolher(chipAtivo, uid, opc.dataset.nome || '', opc.dataset.foto || '');
                 }
                 fecharMenu();
 
@@ -255,8 +354,8 @@
                 if (!alvo || !chipAtivo) return;
                 e.preventDefault();
                 if ((chipAtivo.dataset.respId || '') !== (alvo.dataset.userId || '')) {
-                    salvarResponsavel(chipAtivo, alvo.dataset.userId || '',
-                                      alvo.dataset.nome || '', alvo.dataset.foto || '');
+                    escolher(chipAtivo, alvo.dataset.userId || '',
+                             alvo.dataset.nome || '', alvo.dataset.foto || '');
                 }
                 fecharMenu();
             }
