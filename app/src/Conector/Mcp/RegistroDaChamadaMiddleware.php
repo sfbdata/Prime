@@ -47,10 +47,13 @@ final class RegistroDaChamadaMiddleware implements MiddlewareInterface
     }
 
     /** O método JSON-RPC: letras, `/` e `_`, até 60 caracteres (os nomes do protocolo); o resto não vai ao log. */
-    private const FORMATO_DO_METODO = '#^[a-zA-Z][a-zA-Z/_]{0,59}$#';
+    private const FORMATO_DO_METODO = '#^[a-zA-Z][a-zA-Z/_]{0,59}$#D';
 
     /** A versão do protocolo é sempre uma data (`2025-06-18`). */
-    private const FORMATO_DA_VERSAO = '/^\d{4}-\d{2}-\d{2}$/';
+    private const FORMATO_DA_VERSAO = '/^\d{4}-\d{2}-\d{2}$/D';
+
+    /** Corpo maior que isto (ou de tamanho desconhecido) não é lido para o log; o SDK aplica o limite dele depois. */
+    private const MAXIMO_DO_CORPO_LIDO = 65_536;
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -69,7 +72,8 @@ final class RegistroDaChamadaMiddleware implements MiddlewareInterface
 
     /**
      * O método JSON-RPC e a versão do protocolo, quando têm o formato esperado. O corpo só é lido se o fluxo volta ao
-     * começo depois (o SDK o lê de novo); lote, corpo inválido ou campo fora do formato ficam de fora. Nunca lança.
+     * começo depois (o SDK o lê de novo) e se cabe no limite; lote, corpo inválido ou campo fora do formato ficam de
+     * fora. Nunca lança.
      *
      * @return array{metodo?: string, versao?: string}
      */
@@ -83,7 +87,8 @@ final class RegistroDaChamadaMiddleware implements MiddlewareInterface
             }
 
             $corpo = $request->getBody();
-            if (!$corpo->isSeekable()) {
+            $tamanho = $corpo->getSize();
+            if (!$corpo->isSeekable() || $tamanho === null || $tamanho > self::MAXIMO_DO_CORPO_LIDO) {
                 return $campos;
             }
             $corpo->rewind();

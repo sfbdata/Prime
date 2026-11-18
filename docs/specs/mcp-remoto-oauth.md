@@ -2055,7 +2055,8 @@ entra num PR próprio depois de testada nos dois clientes.
    também (achado do teste ponta a ponta): ele não usa sessão, e um cookie que chegue junto não pode prender a troca
    ao escritório da sessão; ali o escritório vem da concessão.
 5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
-   concessões já abertas guardam os escopos delas.
+   concessões já abertas guardam os escopos delas. *Revisto em 18/11/2026: as concessões anteriores caem como
+   `substituida` (decisão 13 do bloco de 18/11 abaixo).*
 6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com
    `codigo_reutilizado` (item 5 do bloco anterior).
 7. **`offline_access`**: a renovação é emitida sempre, peça o app ou não esse escopo.
@@ -2173,3 +2174,12 @@ Coordenador):**
 12. **Filtro do escritório fora do portão** só pelo `SemFiltroDoEscritorio`, que suspende e devolve e nunca liga (o
     `PortaoDoConectorArquiteturaTest` confere). Usado pelas buscas das telas e pelo `revogarDoConsentimento`, porque o
     `TenantFilter` também entra no WHERE de um UPDATE em DQL.
+
+**Decidido em 18/11/2026, depois do smoke em produção (Coordenador):**
+
+13. **Reconectar substitui a concessão anterior.** Ao gravar uma concessão nova num consentimento que já existia
+    (reautorizar o mesmo app no mesmo escritório), as concessões abertas dele caem na mesma transação, com o motivo
+    `substituida`; a cadeia de tokens delas cai junto, porque token e renovação dependem da concessão. Achado do smoke:
+    reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil
+    mostrava só a conexão com os escopos novos. A coluna `motivo` é VARCHAR(40) sem CHECK: sem migration.
+    `FluxoOAuthCompletoTest::testReconectarSubstituiAConcessaoAnterior` prende isso.

@@ -15,6 +15,9 @@ namespace App\Conector\Enum;
  * - {@see CodigoReutilizado}: o código de autorização foi reapresentado depois de usado (RFC 6749 4.1.2: o servidor
  *   deve revogar o que foi emitido a partir dele). Aprovado pelo Coordenador em 16/11/2026; a coluna `motivo` é
  *   VARCHAR(40) sem CHECK, então não pede migration.
+ * - {@see Substituida}: a pessoa autorizou de novo o mesmo app no mesmo escritório; a concessão nova (com os escopos
+ *   escolhidos agora) substitui as anteriores do consentimento, que caem na mesma transação (decisão do Coordenador em
+ *   18/11/2026, achada no smoke: reconectar só com leitura deixava viva a cadeia antiga, com gravação).
  */
 enum MotivoDaRevogacaoDaConcessao: string
 {
@@ -23,4 +26,5 @@ enum MotivoDaRevogacaoDaConcessao: string
     case RevogadaPelaPessoa = 'revogada_pela_pessoa';
     case ContaOuVinculoEncerrado = 'conta_ou_vinculo_encerrado';
     case CodigoReutilizado = 'codigo_reutilizado';
+    case Substituida = 'substituida';
 }

@@ -376,6 +376,21 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->concessoesDe($pessoa));
     }
 
+    #[TestDox('12.27: o reenvio de um pedido já autorizado com token CSRF errado continua recusado')]
+    public function testReenvioConcluidoComCsrfErradoRecusa(): void
+    {
+        [$tenant, $pessoa] = $this->cenario();
+        $campos = $this->campos($this->abrir(), (int) $tenant->getId());
+        $this->enviar($campos);
+        $this->voltaAoApp();
+
+        $campos['_token'] = 'token-errado';
+        $this->enviar($campos);
+
+        $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
+        self::assertSame(1, $this->concessoesDe($pessoa));
+    }
+
     #[TestDox('a tela de consentimento envia o formulário uma vez só (o segundo clique é ignorado no navegador)')]
     public function testTelaEnviaUmaVezSo(): void
     {
@@ -385,6 +400,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         $script = $tela->filter('body script')->last()->text();
         self::assertStringContainsString("querySelector('form.cj-form')", $script);
         self::assertStringContainsString('evento.preventDefault()', $script);
+        self::assertNotEmpty($tela->filter('body script')->last()->attr('nonce'), 'com o nonce da CSP, como o resto do sistema');
         self::assertSame(1, $tela->filter('form.cj-form')->count());
     }
 
@@ -484,9 +500,13 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         $tela = $this->abrir();
         self::assertCount(1, $tela->filter('input[value="' . $tenant->getId() . '"][disabled]'));
         self::assertStringContainsString(AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO, $tela->filter('main')->text());
-        $this->enviar($this->campos($tela, (int) $tenant->getId()));
+        $campos = $this->campos($tela, (int) $tenant->getId());
+        $this->enviar($campos);
 
         $this->exigirRecusaNoApp();
         self::assertSame(0, $this->concessoesDe($pessoa));
+
+        $this->enviar($campos);
+        $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
     }
 }

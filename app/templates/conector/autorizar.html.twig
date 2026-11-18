@@ -77,7 +77,7 @@
         </div>
     {{ form_end(form) }}
 </main>
-<script>
+<script nonce="{{ csp_nonce() }}">
     /* Um envio só: o segundo clique, com a volta ao app ainda carregando, chegaria com o pedido já usado. O botão não
        fica `disabled` porque o navegador deixaria de mandar qual botão foi clicado (Autorizar ou Não autorizar). */
     (function () {
