@@ -13,13 +13,13 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O contrato de entrada de `ler_pasta` (spec mcp-remoto-oauth 6.4): as partes do PR 6, sem publicações, linha do tempo
+ * O contrato de entrada de `ler_pasta` (spec mcp-remoto-oauth 6.4): as partes do PR 6, com publicações, sem linha do tempo
  * e controladoria, e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de integração.
  */
 #[CoversClass(LerPastaFerramenta::class)]
 final class LerPastaFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema traz as dez partes do PR 6 e exige a pasta')]
+    #[TestDox('o esquema traz as onze partes (com publicacoes) e exige a pasta')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -29,11 +29,13 @@ final class LerPastaFerramentaTest extends TestCase
         self::assertSame(['pasta_id'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame('integer', $esquema['properties']['pasta_id']['type']);
+        self::assertSame('integer', $esquema['properties']['publicacao_id']['type']);
+        self::assertStringContainsString('publicacoes', $this->ferramenta()->descricao());
         self::assertEqualsCanonicalizing(
-            ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'checklist', 'financeiro'],
+            ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'checklist', 'financeiro', 'publicacoes'],
             $partes,
         );
-        foreach (['publicacoes', 'timeline', 'controladoria'] as $foraDoPr) {
+        foreach (['timeline', 'controladoria'] as $foraDoPr) {
             self::assertNotContains($foraDoPr, $partes);
         }
     }
@@ -47,7 +49,12 @@ final class LerPastaFerramentaTest extends TestCase
         yield 'pasta texto' => [['pasta_id' => 'abc']];
         yield 'partes vazia' => [['pasta_id' => 1, 'partes' => []]];
         yield 'partes não lista' => [['pasta_id' => 1, 'partes' => 'resumo']];
-        yield 'publicações fora do PR' => [['pasta_id' => 1, 'partes' => ['publicacoes']]];
+        yield 'publicacao_id sem a parte' => [['pasta_id' => 1, 'publicacao_id' => 5]];
+        yield 'publicacao_id com outra parte' => [['pasta_id' => 1, 'partes' => ['registro'], 'publicacao_id' => 5]];
+        yield 'publicacao_id zero' => [['pasta_id' => 1, 'partes' => ['publicacoes'], 'publicacao_id' => 0]];
+        yield 'publicacao_id texto' => [['pasta_id' => 1, 'partes' => ['publicacoes'], 'publicacao_id' => 'x']];
+        yield 'publicacao_id com página' => [['pasta_id' => 1, 'partes' => ['publicacoes'], 'publicacao_id' => 5, 'pagina' => 2]];
+        yield 'página sem registro nem publicações' => [['pasta_id' => 1, 'partes' => ['resumo', 'equipe'], 'pagina' => 2]];
         yield 'linha do tempo fora do PR' => [['pasta_id' => 1, 'partes' => ['timeline']]];
         yield 'controladoria fora do PR' => [['pasta_id' => 1, 'partes' => ['controladoria']]];
         yield 'página sem registro' => [['pasta_id' => 1, 'partes' => ['resumo'], 'pagina' => 2]];

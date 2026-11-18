@@ -883,7 +883,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 - Regras: segredo recusa; o log guarda só id e sha256, como o `contexto_resumo.documentosLidos` da I.A.; imagem embutida na
   peça não sai (é servida hoje sem isolamento por escritório, `docs/specs/peca-imagem-isolamento-tenant.md`); conteúdo de
   documento que está na lixeira não sai (o leitor tira a lixeira de propósito; restaurar entra em `documentos_e_pecas`).
-- Permissão: recurso `pasta` view; aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
+- Permissão: recurso `pasta` view (a `lixeira` pede `pasta` edit, como a tela, decisão 29); aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
   `MAPA` `:71`); chave `expedientes`. A chave `peticionar` não vale aqui: cobre só `pasta_peticionar*`.
 
 **`ler_processos`** (PR 7; CNJ no PR 13)
@@ -905,7 +905,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   movimentações de um processo que o conector esconde em toda outra ação.
 - Permissão: módulo `processos` (`app/src/Processo/Controller/ProcessoController.php:85`); por id,
   `idsDosProcessosOcultos` e recurso `processo` view, na ordem de `ProcessoController.php:222-225`; `para_vincular` e `cnj`,
-  recurso `pasta` view e aba Processo, como a tela.
+  recurso `pasta` edit e aba Processo, como a tela (`PastaController.php:1059`, decisão 29).
 - Regras: segredo omitido e contado na lista, recusa por id e no `cnj`; partes só pelo nome. `openWorldHint: true` (CNJ).
 
 **`ler_clientes`** (PR 11; documentos do cliente no PR 14)
@@ -1614,6 +1614,7 @@ extrair UseCase e dizer isso no PR.
 | **Clientes mudam rápido** | Nomes, planos e regras de Claude e ChatGPT mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
 | **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
 | **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
+| **PDF e imagem grandes na resposta** | O arquivo vai fora do teto de 50 mil caracteres (decisão 24): um PDF de 10 MB passa de 13 milhões de caracteres em base64, acima do que o Claude aceita por resultado (cerca de 150 mil). O app pode recusar ou cortar; o piloto confere, e se não lerem, extrair o texto do PDF no servidor vira pergunta nova (6.5). |
 | **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Piloto num escritório, liberação pelo Master, aceite próprio do conector (14.a) e máscara de CPF, CNPJ, telefone e e-mail sempre ligada no texto livre (6.2.6); o texto está com o jurídico. |
 | **Arquivo malicioso na leitura** | DOCX, planilha, apresentação e ZIP são pacotes: arquivo forjado pode estourar memória. Mesma proteção de pacote da prévia, tetos de tamanho, XML lido como texto (6.5). |
 | **Dependência nova para TIFF e HEIC** | Converter exige extensão nova na imagem PHP (arquivo quente, passo de deploy). Se não puder entrar, esses dois tipos ficam recusados com mensagem fixa (6.5). |
@@ -2241,3 +2242,31 @@ Coordenador):**
     reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil
     mostrava só a conexão com os escopos novos. A coluna `motivo` é VARCHAR(40) sem CHECK: sem migration.
     `FluxoOAuthCompletoTest::testReconectarSubstituiAConcessaoAnterior` prende isso.
+24. **PDF e imagem na resposta** (PR 7, 6.5 e regra 7 da 6.2): o arquivo vai num bloco à parte do `content` (imagem do
+    MCP, PDF como recurso embutido marcado `experimental`), fora do teto de 50 mil caracteres por campo, que vale para o
+    JSON. O `structuredContent` leva só os metadados (id, nome, tipo, tamanho, páginas). Os limites seguem os do leitor:
+    PDF até 10 MB e 100 páginas, imagem até 3 MB. O log `mcp` guarda só o sha256 do arquivo (`ArquivoNaResposta`). Risco
+    na seção 11: o app pode recusar uma resposta desse tamanho.
+25. **Status do prazo na agenda** (achado do smoke do PR 6): a `ler_agenda` devolve o status como a tela da agenda
+    (`agenda-1a.js`): `agendado`, `concluido` ou `cancelado`, e qualquer outro valor vira `agendado`. O prazo em aberto sai
+    `agendado` e o cumprido, `concluido`; sem campo a mais para a mesma informação.
+26. **Acesso à pasta pela porta da tela** (PR 7, com o #770 de acesso restrito em aberto): as ferramentas conferem a pasta
+    pela mesma porta da tela (o voter da pasta e o `NivelNoCadeado`, pelo `AcessoAPasta`), sem consulta própria de
+    acesso. Assim o escopo do acesso restrito vale sozinho no conector quando o #770 entrar.
+27. **Lista de publicações da pasta** (PR 7, corrige o "Reusa" do `ler_pasta`): o `MontarPainelDoPushUseCase` não devolve
+    a lista e grava (`registrarPrevisao` e `conferir` da previsão, com o monitoramento ativo). A lista sai da mesma consulta
+    da aba Push (`PublicacaoDjenRepository::listarItensPorNumerosDoTenant`, as 100 mais recentes, só leitura), 25 por
+    página; o texto inteiro, pelo caminho do `pasta_push_texto`. Nada grava `lida`. O resumo de cada item é feito do teor
+    mascarado e só então cortado (decisão 22), porque o resumo pronto da lista vem cortado antes da máscara.
+28. **Processos para vincular** (PR 7): a origem de cada processo sai só pelo tipo (`pasta`, `apensado`, `push`), sem o
+    número da pasta de origem, porque o `ProcessoParaVincularOutput` não traz o id dela e não daria para conferir se a
+    pessoa a vê ou se ela está em segredo. Mostra menos que a tela, nunca mais.
+29. **Lixeira da pasta e processos para vincular pedem editar** (revisão do PR 7, corrige a 6.4, que dizia "view"): a tela
+    só mostra a lixeira de documentos a quem pode editar a pasta (`PastaDocumentoController.php:353`, `podeVerLixeira`) e
+    só busca processos para vincular com a pasta em edição (`PastaController.php:1059`). O conector exige o mesmo recurso
+    `pasta` edit, pela mesma porta da tela.
+30. **`ler_processos` mostra o que a tela mostra** (revisão do PR 7): a lista do `buscar` traz só os campos da lista da
+    tela (número, tribunal, classe, assunto, situação); as partes ficam no `detalhar`, que exige o recurso `processo` view.
+    As notas técnicas só saem quando a pessoa vê alguma pasta vinculada ao processo, fora de segredo, com a aba Processo
+    visível, porque a tela só as mostra nessa aba de dentro da pasta. Processo que não está em segredo, mas vinculado a uma
+    pasta em segredo por causa de outro processo, segue a tela de processos: aparece na lista e no `detalhar`.

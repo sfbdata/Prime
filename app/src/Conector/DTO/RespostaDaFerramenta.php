@@ -10,7 +10,9 @@ namespace App\Conector\DTO;
  *  - {@see $proximaPagina}: a página seguinte, quando a lista foi cortada (teto de 50 mil caracteres por campo): o
  *    número da página ou um cursor em texto, que o app de I.A. devolve como veio no campo `pagina`;
  *  - {@see $contagens}: números para o log `mcp` e para dizer o que ficou de fora (ex.: `em_segredo` => 2);
- *  - {@see $ids}: os ids tocados ou lidos, por tipo (ex.: `pasta` => [12]), só para o log `mcp`.
+ *  - {@see $ids}: os ids tocados ou lidos, por tipo (ex.: `pasta` => [12]), só para o log `mcp`;
+ *  - {@see $arquivo}: o arquivo inteiro (imagem ou PDF), num bloco à parte do `content`, fora do teto de 50 mil
+ *    caracteres; os metadados dele ficam em {@see $dados} (6.5, decisão 24).
  *
  * Contagens e ids vão ao log; texto, título, nome e valor de campo nunca (regra 9).
  */
@@ -26,6 +28,7 @@ final class RespostaDaFerramenta
         public readonly int|string|null $proximaPagina = null,
         public readonly array $contagens = [],
         public readonly array $ids = [],
+        public readonly ?ArquivoNaResposta $arquivo = null,
     ) {
     }
 }
