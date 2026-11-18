@@ -10,7 +10,8 @@
    existe, como no Chat I.A.) e "Fechar". A linha do plano pago só aparece para o administrador do escritório.
    ============================================================================ #}
 {% set _iaSaldo = ia_saldo() %}
-{% if _iaSaldo is not null and _iaSaldo.seAplica %}
+{# Uma janela por página: a da pasta tem o drawer e a Central flutuante, e as duas incluem esta parcial. #}
+{% if _iaSaldo is not null and _iaSaldo.seAplica and ia_saldo_janela_primeira() %}
     <link rel="stylesheet" href="{{ asset('css/ia-saldo.css') }}">
     <div class="ias-ov" data-ia-saldo-janela hidden
          data-url-janela="{{ path('indicacao_janela') }}"

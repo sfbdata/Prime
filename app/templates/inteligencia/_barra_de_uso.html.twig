@@ -25,7 +25,7 @@
                     {{ 'inteligencia.saldo.barra_texto'|trans({usadas: _iaSaldo.pecasUsadas|number_format(1, ',', '.'), direito: _iaSaldo.pecasDireito ~ ''}) }}
                 {%- endif -%}
             </span>
-            <button type="button" class="ias-ganhar" {{ indicacao|default(true) ? 'data-ind-abrir' : 'data-ia-saldo-abrir' }}>{{ 'inteligencia.saldo.ganhar_mais'|trans }}</button>
+            <button type="button" class="ias-ganhar" {{ (indicacao ?? true) ? 'data-ind-abrir' : 'data-ia-saldo-abrir' }}>{{ 'inteligencia.saldo.ganhar_mais'|trans }}</button>
         </div>
         <div class="ias-trilho" role="progressbar" aria-label="{{ 'inteligencia.saldo.barra_aria'|trans }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ _iaSaldo.percentual }}">
             <div style="width: {{ _iaSaldo.percentual }}%"></div>

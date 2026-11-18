@@ -31,10 +31,17 @@ final class SaldoDeIaNasTelasTest extends JusPrimeWebTestCase
     private const DRAWER = 'aside.ia-drawer#psIaDrawer[data-ia-drawer]';
     private const JANELA = '.ias-ov[data-ia-saldo-janela] > .ias-caixa';
 
+    private ?SaldoDeIaOutput $saldoDoDuble = null;
+
     private function cliente(): KernelBrowser
     {
         $client = static::createClient();
         $client->disableReboot();
+        if ($this->saldoDoDuble !== null) {
+            $saldo = $this->createStub(SaldoDeIaDaPessoa::class);
+            $saldo->method('de')->willReturn($this->saldoDoDuble);
+            static::getContainer()->set(SaldoDeIaDaPessoa::class, $saldo);
+        }
 
         return $client;
     }
@@ -47,11 +54,10 @@ final class SaldoDeIaNasTelasTest extends JusPrimeWebTestCase
         $this->em()->flush();
     }
 
-    /** O saldo da pessoa fixo no teste (antes da primeira requisição, para o container entregar o dublê). */
+    /** O saldo da pessoa fixo no teste: o {@see cliente()} põe o dublê no container logo depois de criar o cliente. */
     private function saldoFixo(float $pecasUsadas, int $percentual, bool $esgotado = false): void
     {
-        $saldo = $this->createStub(SaldoDeIaDaPessoa::class);
-        $saldo->method('de')->willReturn(new SaldoDeIaOutput(
+        $this->saldoDoDuble = new SaldoDeIaOutput(
             seAplica: true,
             tokensUsados: (int) round($pecasUsadas * 33_000),
             tokensDireito: 100_000,
@@ -61,8 +67,7 @@ final class SaldoDeIaNasTelasTest extends JusPrimeWebTestCase
             esgotado: $esgotado,
             perto: $percentual >= 80,
             colegasCadastrados: 0,
-        ));
-        static::getContainer()->set(SaldoDeIaDaPessoa::class, $saldo);
+        );
     }
 
     /** @return array{Crawler, KernelBrowser} */

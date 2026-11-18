@@ -58,6 +58,9 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
     /** @var array<string, SaldoDeIaOutput|null> "userId:tenantId" => saldo desta requisição */
     private array $saldoLido = [];
 
+    /** A janela da trava já saiu nesta requisição? A página da pasta tem o drawer e a Central flutuante: uma janela só. */
+    private bool $janelaDoSaldoNaPagina = false;
+
     public function __construct(
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
         private readonly Security $security,
@@ -81,6 +84,7 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
             new TwigFunction('ia_aba_documentos_visivel', $this->iaAbaDocumentosVisivel(...)),
             new TwigFunction('ia_push_recolhidas', $this->iaPushRecolhidas(...)),
             new TwigFunction('ia_saldo', $this->iaSaldo(...)),
+            new TwigFunction('ia_saldo_janela_primeira', $this->iaSaldoJanelaPrimeira(...)),
         ];
     }
 
@@ -156,9 +160,21 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
         return $this->saldoLido[$chave];
     }
 
+    /** Verdadeiro só na primeira chamada da requisição: quem inclui a janela da trava a pede uma vez por página. */
+    public function iaSaldoJanelaPrimeira(): bool
+    {
+        if ($this->janelaDoSaldoNaPagina) {
+            return false;
+        }
+        $this->janelaDoSaldoNaPagina = true;
+
+        return true;
+    }
+
     public function reset(): void
     {
         $this->disponibilidadeLida = [];
         $this->saldoLido = [];
+        $this->janelaDoSaldoNaPagina = false;
     }
 }
