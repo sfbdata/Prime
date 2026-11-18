@@ -7,7 +7,7 @@
 <section class="content-header">
     <div class="container-fluid">
         <div class="d-flex align-items-center gap-2 mb-1">
-            <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="bjp-ico bjp-btn--secundario">
                 <i class="bi bi-arrow-left"></i>
             </a>
             <h1 class="m-0 d-flex align-items-center gap-2">
@@ -118,8 +118,8 @@
         <div class="row g-3">
             {# ── Rejeitadas ────────────────────────────────────── #}
             <div class="col-lg-6">
-                <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold"><i class="bi bi-x-octagon me-1 text-danger"></i>{{ 'cobranca_carteira.previa.rejeitadas_total'|trans({total: resultado.totalRejeitadas ~ ''}) }}</div>
+                <div class="bjp-painel cobranca-card h-100">
+                    <div class="bjp-painel-cabeca fw-semibold"><i class="bi bi-x-octagon me-1 text-danger"></i>{{ 'cobranca_carteira.previa.rejeitadas_total'|trans({total: resultado.totalRejeitadas ~ ''}) }}</div>
                     <div class="table-responsive">
                         {% if resultado.rejeitadas|length > 0 %}
                         <table class="table mb-0 small">
@@ -142,15 +142,15 @@
 
             {# ── Importadas / Atualizadas ──────────────────────── #}
             <div class="col-lg-6">
-                <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold"><i class="bi bi-list-check me-1"></i>{{ 'cobranca_carteira.previa.boletos'|trans }}</div>
-                    <div class="card-body">
+                <div class="bjp-painel cobranca-card h-100">
+                    <div class="bjp-painel-cabeca fw-semibold"><i class="bi bi-list-check me-1"></i>{{ 'cobranca_carteira.previa.boletos'|trans }}</div>
+                    <div class="bjp-painel-corpo">
                         <div class="mb-2">
-                            <span class="badge text-bg-success">{{ confirmado ? 'cobranca_carteira.previa.importadas'|trans : 'cobranca_carteira.previa.a_importar'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--ok">{{ confirmado ? 'cobranca_carteira.previa.importadas'|trans : 'cobranca_carteira.previa.a_importar'|trans }}</span>
                             <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : 'cobranca_carteira.previa.nenhuma'|trans }}</span>
                         </div>
                         <div>
-                            <span class="badge text-bg-secondary">{{ confirmado ? 'cobranca_carteira.previa.atualizadas'|trans : 'cobranca_carteira.previa.a_atualizar'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ confirmado ? 'cobranca_carteira.previa.atualizadas'|trans : 'cobranca_carteira.previa.a_atualizar'|trans }}</span>
                             <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : 'cobranca_carteira.previa.nenhuma'|trans }}</span>
                         </div>
                     </div>
@@ -161,13 +161,13 @@
         {# ── Ações ─────────────────────────────────────────────── #}
         <div class="d-flex justify-content-end gap-2 mt-3">
             {% if confirmado %}
-                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>{{ 'cobranca_carteira.previa.concluir'|trans }}</a>
+                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="bjp-btn bjp-btn--primario"><i class="bi bi-check2"></i>{{ 'cobranca_carteira.previa.concluir'|trans }}</a>
             {% else %}
-                <a href="{{ path('cobranca_importacao_upload', {id: carteiraId}) }}" class="btn btn-outline-secondary">{{ 'cobranca_carteira.previa.trocar_arquivo'|trans }}</a>
+                <a href="{{ path('cobranca_importacao_upload', {id: carteiraId}) }}" class="bjp-btn bjp-btn--secundario">{{ 'cobranca_carteira.previa.trocar_arquivo'|trans }}</a>
                 {% if resultado.totalImportadas > 0 or resultado.totalAtualizadas > 0 %}
                 <form method="POST" action="{{ path('cobranca_importacao_confirmar', {id: carteiraId}) }}" class="d-inline">
                     <input type="hidden" name="_token" value="{{ csrf_token('importar_confirmar_' ~ carteiraId) }}">
-                    <button type="submit" class="btn btn-success"><i class="bi bi-database-check me-1"></i>{{ 'cobranca_carteira.previa.confirmar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--sucesso"><i class="bi bi-database-check"></i>{{ 'cobranca_carteira.previa.confirmar'|trans }}</button>
                 </form>
                 {% endif %}
             {% endif %}

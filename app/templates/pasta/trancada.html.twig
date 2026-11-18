@@ -65,7 +65,7 @@
                         <input type="hidden" name="_token" value="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}">
                         <input type="hidden" name="nivel" value="editar">
                         <textarea name="motivo" maxlength="300" placeholder="{{ 'pasta_avisos.trancada.motivo'|trans }}" rows="2" style="width:min(360px,100%);box-sizing:border-box;padding:9px 11px;border:none;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #d8e2e8;font-family:inherit;font-size:13px;color:#243845;resize:none;outline:none"></textarea>
-                        <button type="submit" style="display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .15s"><i class="bi bi-send"></i>{{ 'pasta_avisos.trancada.pedir'|trans }}</button>
+                        <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-send"></i>{{ 'pasta_avisos.trancada.pedir'|trans }}</button>
                     </form>
                 {% endif %}
                 {% if cad.aguardando %}

@@ -86,7 +86,7 @@
         {# Dois estados: cheia = e o principal desta pasta, vazia = clique para trocar.
            Nao existe "desmarcar": pasta com cliente SEMPRE tem principal. #}
         {% if ehPrincipal %}
-            <span class="btn btn-xs btn-primary disabled js-cliente-principal-estrela"
+            <span class="bjp-ico bjp-btn--primario js-cliente-principal-estrela" style="pointer-events:none;"
                   data-cliente-id="{{ cliente.id }}"
                   title="{{ (podeMexerNoCliente ? 'pasta_lista.cliente_linha.principal_dica_trocar' : 'pasta_lista.cliente_linha.principal_dica')|trans }}">
                 <i class="bi bi-star-fill"></i>
@@ -94,7 +94,7 @@
         {% elseif podeMexerNoCliente %}
             <form method="post" action="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-cliente-principal m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                <button type="submit" class="btn btn-xs btn-outline-secondary" title="{{ 'pasta_lista.cliente_linha.tornar_principal'|trans }}">
+                <button type="submit" class="bjp-ico bjp-btn--secundario" title="{{ 'pasta_lista.cliente_linha.tornar_principal'|trans }}">
                     <i class="bi bi-star"></i>
                 </button>
             </form>
@@ -112,7 +112,7 @@
         {% if podeMexerNoCliente %}
             <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                <button type="submit" class="btn btn-xs btn-outline-danger" title="{{ 'pasta_lista.cliente_linha.desvincular'|trans }}">
+                <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="{{ 'pasta_lista.cliente_linha.desvincular'|trans }}">
                     <i class="bi bi-trash"></i>
                 </button>
             </form>

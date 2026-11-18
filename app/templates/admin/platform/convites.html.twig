@@ -15,9 +15,9 @@
         {% endfor %}
     {% endfor %}
 
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">{{ 'plataforma.convites.novo'|trans }}</div>
-        <div class="card-body">
+    <div class="bjp-painel mb-4">
+        <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'plataforma.convites.novo'|trans }}</h3></div>
+        <div class="bjp-painel-corpo">
             <form method="post" action="{{ path('admin_platform_convite_criar') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('convite_novo') }}">
                 <div class="row g-3">
@@ -30,15 +30,15 @@
                         <input type="text" id="full_name" name="full_name" class="form-control" maxlength="255">
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">{{ 'plataforma.convites.convidar'|trans }}</button>
+                        <button type="submit" class="bjp-btn bjp-btn--primario">{{ 'plataforma.convites.convidar'|trans }}</button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header fw-semibold">{{ 'plataforma.convites.enviados'|trans }}</div>
+    <div class="bjp-painel">
+        <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'plataforma.convites.enviados'|trans }}</h3></div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
@@ -59,15 +59,15 @@
                         <td>{{ convite.nomeConvidado ?? 'plataforma.convites.sem_informacao'|trans }}</td>
                         <td>
                             {% if convite.status == 'pending' %}
-                                <span class="badge bg-warning text-dark">{{ 'plataforma.convites.pendente'|trans }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--atencao">{{ 'plataforma.convites.pendente'|trans }}</span>
                             {% elseif convite.status == 'accepted' %}
-                                <span class="badge bg-success">{{ 'plataforma.convites.aceito'|trans }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--ok">{{ 'plataforma.convites.aceito'|trans }}</span>
                             {% elseif convite.status == 'revoked' %}
-                                <span class="badge bg-secondary">{{ 'plataforma.convites.revogado'|trans }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ 'plataforma.convites.revogado'|trans }}</span>
                             {% elseif convite.status == 'expired' %}
-                                <span class="badge bg-dark">{{ 'plataforma.convites.expirado'|trans }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--critico">{{ 'plataforma.convites.expirado'|trans }}</span>
                             {% else %}
-                                <span class="badge bg-body-tertiary text-dark">{{ convite.status }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ convite.status }}</span>
                             {% endif %}
                         </td>
                         <td>{{ convite.createdAt|data_hora }}</td>
@@ -80,7 +80,7 @@
                                     <form method="post" action="{{ path('admin_platform_convite_reenviar', {id: convite.id}) }}" class="d-inline"
                                           data-confirmar="{{ 'plataforma.convites.confirmar_reenviar'|trans({email: convite.email}) }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
+                                        <button type="submit" class="bjp-btn bjp-btn--secundario me-1">
                                             {{ 'plataforma.convites.reenviar'|trans }}
                                         </button>
                                     </form>
@@ -88,7 +88,7 @@
                                 <form method="post" action="{{ path('admin_platform_convite_revogar', {id: convite.id}) }}" class="d-inline"
                                       data-confirmar="{{ 'plataforma.convites.confirmar_revogar'|trans({email: convite.email}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <button type="submit" class="bjp-btn bjp-btn--destrutivo">
                                         {{ 'plataforma.convites.revogar'|trans }}
                                     </button>
                                 </form>

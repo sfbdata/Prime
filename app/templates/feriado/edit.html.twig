@@ -9,25 +9,25 @@
             <i class="bi bi-calendar-check me-2"></i>
             {{ 'feriado.editar.titulo'|trans }} <em>{{ feriado.nome }}</em>
         </h1>
-        <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left me-1"></i> {{ 'feriado.comum.voltar'|trans }}
+        <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="bjp-btn bjp-btn--secundario">
+            <i class="bi bi-arrow-left"></i> {{ 'feriado.comum.voltar'|trans }}
         </a>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
-        <div class="card">
+        <div class="bjp-painel">
             {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
-            <div class="card-body">
+            <div class="bjp-painel-corpo">
                 {% include 'feriado/_form.html.twig' with {form: form} %}
             </div>
-            <div class="card-footer d-flex justify-content-end gap-2">
-                <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
+            <div class="bjp-painel-pe">
+                <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="bjp-btn bjp-btn--secundario">
                     {{ 'feriado.comum.cancelar'|trans }}
                 </a>
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i> {{ 'feriado.editar.salvar'|trans }}
+                <button type="submit" class="bjp-btn bjp-btn--primario">
+                    <i class="bi bi-check-lg"></i> {{ 'feriado.editar.salvar'|trans }}
                 </button>
             </div>
             {{ form_end(form) }}

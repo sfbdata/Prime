@@ -173,19 +173,7 @@
         .address-search-row input {
             flex: 1;
         }
-        .btn-search {
-            border-radius: 4px !important;
-            font-size: .82rem !important;
-            font-weight: 600 !important;
-            font-family: 'DM Sans', sans-serif !important;
-            padding: .42rem .75rem !important;
-            white-space: nowrap;
-        }
-        .btn-icon-only {
-            border-radius: 4px !important;
-            padding: .42rem .65rem !important;
-            font-size: .88rem !important;
-        }
+        .btn-search { white-space: nowrap; }
 
         .cep-feedback {
             font-size: .77rem;
@@ -246,33 +234,6 @@
             gap: .6rem;
             margin-top: 1.25rem;
         }
-        .btn-submit {
-            border-radius: 4px !important;
-            font-weight: 700 !important;
-            font-size: .85rem !important;
-            font-family: 'DM Sans', sans-serif !important;
-            padding: .55rem 1.2rem !important;
-            background: linear-gradient(135deg, #1a56a4 0%, #0e3a72 100%) !important;
-            border: none !important;
-            box-shadow: 0 3px 10px rgba(26,86,164,.3) !important;
-            transition: transform .15s, box-shadow .15s !important;
-        }
-        .btn-submit:hover {
-            transform: translateY(-1px) !important;
-            box-shadow: 0 5px 16px rgba(26,86,164,.38) !important;
-        }
-        .btn-cancel-edit {
-            border-radius: 4px !important;
-            font-weight: 600 !important;
-            font-size: .85rem !important;
-            font-family: 'DM Sans', sans-serif !important;
-            padding: .55rem 1rem !important;
-            background: var(--bs-tertiary-bg) !important;
-            border: 1px solid var(--bs-border-color) !important;
-            color: var(--bs-body-color) !important;
-            transition: background .18s !important;
-        }
-        .btn-cancel-edit:hover { background: var(--bs-border-color) !important; }
 
         /* ── Lista de sedes ── */
         .sedes-list-body { padding: 1.25rem; }
@@ -353,31 +314,6 @@
             display: flex;
             gap: .4rem;
             flex-shrink: 0;
-        }
-        .btn-sede-edit, .btn-sede-del {
-            border-radius: 4px !important;
-            font-size: .82rem !important;
-            padding: .35rem .6rem !important;
-            font-family: 'DM Sans', sans-serif !important;
-            font-weight: 600 !important;
-            transition: transform .15s, box-shadow .15s !important;
-            border: none !important;
-        }
-        .btn-sede-edit {
-            background: #eff6ff !important;
-            color: #1a56a4 !important;
-        }
-        .btn-sede-edit:hover {
-            background: #dbeafe !important;
-            transform: translateY(-1px) !important;
-        }
-        .btn-sede-del {
-            background: #fef2f2 !important;
-            color: #dc2626 !important;
-        }
-        .btn-sede-del:hover {
-            background: #fee2e2 !important;
-            transform: translateY(-1px) !important;
         }
 
         /* ── Estado vazio ── */
@@ -492,10 +428,10 @@
                                    placeholder="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}"
                                    maxlength="9"
                                    aria-label="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}">
-                            <button class="btn btn-outline-secondary btn-search" type="button" id="btn-cep-search">
+                            <button class="bjp-btn bjp-btn--secundario btn-search" type="button" id="btn-cep-search">
                                 <i class="bi bi-search"></i> {{ 'escritorio.sedes.buscar'|trans }}
                             </button>
-                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="{{ 'escritorio.sedes.preencher_manualmente'|trans }}">
+                            <button class="bjp-ico bjp-btn--secundario btn-icon-only" type="button" id="btn-toggle-fields" title="{{ 'escritorio.sedes.preencher_manualmente'|trans }}">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
                         </div>
@@ -554,14 +490,14 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-submit" id="btn-salvar">
+                        <button type="submit" class="bjp-btn bjp-btn--primario btn-submit" id="btn-salvar">
                             {% if editSede is defined %}
-                                <i class="bi bi-pencil me-1"></i> {{ 'escritorio.sedes.atualizar'|trans }}
+                                <i class="bi bi-pencil"></i> {{ 'escritorio.sedes.atualizar'|trans }}
                             {% else %}
-                                <i class="bi bi-plus-lg me-1"></i> {{ 'escritorio.sedes.salvar'|trans }}
+                                <i class="bi bi-plus-lg"></i> {{ 'escritorio.sedes.salvar'|trans }}
                             {% endif %}
                         </button>
-                        <button type="button" id="btn-cancelar-sede" class="btn btn-cancel-edit"
+                        <button type="button" id="btn-cancelar-sede" class="bjp-btn bjp-btn--secundario btn-cancel-edit"
                                 style="{{ editSede is defined ? '' : 'display:none' }}">
                             {{ 'escritorio.sedes.cancelar'|trans }}
                         </button>
@@ -583,7 +519,7 @@
                         {{ 'escritorio.sedes.cadastradas'|trans }}
                     </h3>
                     {% if sedes|length > 0 %}
-                        <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56a4;font-size:.75rem;font-weight:700;padding:.3rem .65rem;font-family:'DM Sans',sans-serif">
+                        <span class="bjp-etiqueta bjp-etiqueta--info">
                             {{ 'escritorio.sedes.contagem'|trans({n: sedes|length, qtd: sedes|length ~ ''}) }}
                         </span>
                     {% endif %}
@@ -621,7 +557,7 @@
                                 </div>
                                 <div class="sede-actions">
                                     <button type="button"
-                                            class="btn btn-sede-edit btn-editar-sede"
+                                            class="bjp-ico bjp-btn--secundario btn-sede-edit btn-editar-sede"
                                             data-sede-id="{{ sede.id }}"
                                             title="{{ 'escritorio.sedes.editar_dica'|trans }}">
                                         <i class="bi bi-pencil"></i>
@@ -631,7 +567,7 @@
                                           class="d-inline-block"
                                           onsubmit="return confirm('Remover a sede \'{{ sede.nome|e('js') }}\'? Se já houver batida nela, a sede sai da lista e da cerca, e as batidas continuam no histórico.');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
-                                        <button type="submit" class="btn btn-sede-del" title="{{ 'escritorio.sedes.excluir_dica'|trans }}">
+                                        <button type="submit" class="bjp-ico bjp-btn--destrutivo btn-sede-del" title="{{ 'escritorio.sedes.excluir_dica'|trans }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

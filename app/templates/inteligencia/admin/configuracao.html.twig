@@ -26,25 +26,25 @@
         {% endfor %}
 
         {# ---- Estado da plataforma: o que este escritório NÃO controla ---- #}
-        <div class="card mb-3" id="ia-estado">
-            <div class="card-header"><strong>{{ 'inteligencia.admin.estado'|trans }}</strong></div>
-            <div class="card-body">
+        <div class="bjp-painel mb-3" id="ia-estado">
+            <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'inteligencia.admin.estado'|trans }}</h3></div>
+            <div class="bjp-painel-corpo">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">{{ 'inteligencia.admin.provedor'|trans }}</dt>
                     <dd class="col-sm-8">
                         <code>{{ configuracao.provedorNome }}</code>
                         {% if configuracao.provedorConfigurado %}
-                            <span class="badge text-bg-success ms-1">{{ 'inteligencia.admin.configurado'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--ok ms-1">{{ 'inteligencia.admin.configurado'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary ms-1">{{ 'inteligencia.admin.nao_configurado'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">{{ 'inteligencia.admin.nao_configurado'|trans }}</span>
                         {% endif %}
                     </dd>
                     <dt class="col-sm-4">{{ 'inteligencia.admin.flag'|trans }}</dt>
                     <dd class="col-sm-8">
                         {% if configuracao.plataformaHabilitada %}
-                            <span class="badge text-bg-success">{{ 'inteligencia.admin.ligada'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--ok">{{ 'inteligencia.admin.ligada'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary">{{ 'inteligencia.admin.desligada'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ 'inteligencia.admin.desligada'|trans }}</span>
                         {% endif %}
                     </dd>
                     <dt class="col-sm-4">{{ 'inteligencia.admin.uso'|trans }}</dt>
@@ -65,9 +65,9 @@
 
         {# ---- Consumo do mês: só deste escritório (ia-anthropic-ligar, PR C). O orçamento e o modo são do Master;
            o gasto é estimado pelo preço de tabela (CustoDaIa). Mesmos componentes do bloco de estado. ---- #}
-        <div class="card mb-3" id="ia-consumo">
-            <div class="card-header"><strong>{{ 'inteligencia.admin.consumo.titulo'|trans }}</strong></div>
-            <div class="card-body">
+        <div class="bjp-painel mb-3" id="ia-consumo">
+            <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'inteligencia.admin.consumo.titulo'|trans }}</h3></div>
+            <div class="bjp-painel-corpo">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">{{ 'inteligencia.admin.consumo.analises'|trans }}</dt>
                     <dd class="col-sm-8" data-ia-consumo="analises">{{ 'inteligencia.admin.consumo.analises_valor'|trans({n: configuracao.usoMes, limite: configuracao.limiteMensal}) }}</dd>
@@ -85,10 +85,10 @@
         </div>
 
         {# ---- Configuração do escritório ---- #}
-        <div class="card" id="ia-configuracao">
+        <div class="bjp-painel" id="ia-configuracao">
             {{ form_start(form, {attr: {novalidate: 'novalidate', id: 'form-ia-configuracao'}}) }}
-            <div class="card-header"><strong>{{ 'inteligencia.admin.configuracao'|trans }}</strong></div>
-            <div class="card-body">
+            <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'inteligencia.admin.configuracao'|trans }}</h3></div>
+            <div class="bjp-painel-corpo">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -191,9 +191,9 @@
                     </div>
                 </div>
             </div>
-            <div class="card-footer d-flex justify-content-end gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i> {{ 'inteligencia.admin.salvar'|trans }}
+            <div class="bjp-painel-pe">
+                <button type="submit" class="bjp-btn bjp-btn--primario">
+                    <i class="bi bi-check-lg"></i> {{ 'inteligencia.admin.salvar'|trans }}
                 </button>
             </div>
             {{ form_end(form) }}

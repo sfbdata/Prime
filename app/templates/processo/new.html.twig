@@ -59,8 +59,8 @@
 
             {# ── ABA: Informações do Processo ── #}
             <div class="processo-tab-content active" id="tab-proc-info">
-                <div class="card card-primary card-outline mb-0 border-top-0 rounded-top-0">
-                <div class="card-body">
+                <div class="bjp-painel mb-0 border-top-0 rounded-top-0">
+                <div class="bjp-painel-corpo">
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label for="numeroProcesso" class="form-label">
@@ -72,7 +72,7 @@
                             <div class="form-text">{{ 'processo.form.numero_formato'|trans }}</div>
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
-                            <button id="btn-datajud" type="button" class="btn btn-info w-100"
+                            <button id="btn-datajud" type="button" class="bjp-btn bjp-btn--secundario w-100"
                                     data-bs-toggle="tooltip" title="{{ 'processo.form.buscar_cnj_dica'|trans }}">
                                 <i class="bi bi-search me-1"></i> {{ 'processo.form.buscar_cnj'|trans }}
                             </button>
@@ -156,8 +156,8 @@
 
             {# ── ABA: Cliente ── #}
             <div class="processo-tab-content" id="tab-proc-cliente">
-                <div class="card card-outline card-success mb-0 border-top-0 rounded-top-0">
-                <div class="card-body">
+                <div class="bjp-painel mb-0 border-top-0 rounded-top-0">
+                <div class="bjp-painel-corpo">
                     <div class="col-md-8">
                         <label for="cliente_id" class="form-label">{{ 'processo.form.cliente_vinculado'|trans }}</label>
                         <select id="cliente_id" name="cliente_id" class="form-select select2-search">
@@ -182,19 +182,19 @@
 
             {# ── ABA: Partes do Processo ── #}
             <div class="processo-tab-content" id="tab-proc-partes">
-                <div class="card card-outline card-warning mb-0 border-top-0 rounded-top-0">
-                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
-                    <button type="button" id="btn-add-parte" class="btn btn-sm btn-warning ms-auto">
+                <div class="bjp-painel mb-0 border-top-0 rounded-top-0">
+                <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center border-top-0">
+                    <button type="button" id="btn-add-parte" class="bjp-btn bjp-btn--secundario ms-auto">
                         <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_parte'|trans }}
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="bjp-painel-corpo">
                     <div id="partesContainer">
                         {% if isEdit and processo.partes|length > 0 %}
                             {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
-                            {% set exibirRemover = processo.partes|length > 1 ? 'block' : 'none' %}
+                            {% set exibirRemover = processo.partes|length > 1 ? 'flex' : 'none' %}
                             {% for parte in processo.partes %}
-                                <div class="parte-row card mb-2 p-3" style="position: relative;">
+                                <div class="parte-row bjp-painel mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="partes[{{ loop.index0 }}][id]" value="{{ parte.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-3">
@@ -222,13 +222,13 @@
                                                    placeholder="{{ 'processo.form.parte.papel_placeholder'|trans }}" value="{{ parte.papel ?: '' }}">
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
+                                    <button type="button" class="bjp-ico bjp-btn--destrutivo remove-parte"
                                             style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
                                             title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
-                            <div class="parte-row card mb-2 p-3" style="position: relative;">
+                            <div class="parte-row bjp-painel mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
                                         <label class="form-label">{{ 'processo.comum.tipo'|trans }}</label>
@@ -252,7 +252,7 @@
                                         <input type="text" name="partes[0][papel]" class="form-control" placeholder="{{ 'processo.form.parte.papel_placeholder'|trans }}">
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
+                                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-parte"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
                                         title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
@@ -264,20 +264,20 @@
 
             {# ── ABA: Movimentações ── #}
             <div class="processo-tab-content" id="tab-proc-movimentacoes">
-                <div class="card card-outline card-info mb-0 border-top-0 rounded-top-0">
-                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
-                    <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-info ms-auto">
+                <div class="bjp-painel mb-0 border-top-0 rounded-top-0">
+                <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center border-top-0">
+                    <button type="button" id="btn-add-movimentacao" class="bjp-btn bjp-btn--secundario ms-auto">
                         <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_movimentacao'|trans }}
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="bjp-painel-corpo">
                     <div id="movimentacoesContainer">
                         {% if isEdit and processo.movimentacoes|length > 0 %}
                             {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
-                            {% set exibirRemover = processo.movimentacoes|length > 1 ? 'block' : 'none' %}
+                            {% set exibirRemover = processo.movimentacoes|length > 1 ? 'flex' : 'none' %}
                             {% set movimentacoesOrdenadas = processo.movimentacoes|sort((a, b) => b.dataMovimentacao <=> a.dataMovimentacao) %}
                             {% for mov in movimentacoesOrdenadas %}
-                                <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
+                                <div class="movimentacao-row bjp-painel mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="movimentacoes[{{ loop.index0 }}][id]" value="{{ mov.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-3">
@@ -301,13 +301,13 @@
                                                    placeholder="{{ 'processo.comum.orgao'|trans }}" value="{{ mov.orgao ?: '' }}">
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
+                                    <button type="button" class="bjp-ico bjp-btn--destrutivo remove-movimentacao"
                                             style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
                                             title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
-                            <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
+                            <div class="movimentacao-row bjp-painel mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
                                         <label class="form-label">{{ 'processo.comum.data'|trans }}</label>
@@ -327,7 +327,7 @@
                                         <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="{{ 'processo.comum.orgao'|trans }}">
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
+                                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-movimentacao"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
                                         title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
@@ -339,20 +339,20 @@
 
             {# ── ABA: Assuntos ── #}
             <div class="processo-tab-content" id="tab-proc-assuntos">
-                <div class="card card-outline card-primary mb-0 border-top-0 rounded-top-0">
-                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
+                <div class="bjp-painel mb-0 border-top-0 rounded-top-0">
+                <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center border-top-0">
                     <small class="text-muted">{{ 'processo.form.assuntos_ajuda'|trans }}</small>
-                    <button type="button" id="btn-add-assunto" class="btn btn-sm btn-primary ms-auto">
+                    <button type="button" id="btn-add-assunto" class="bjp-btn bjp-btn--primario ms-auto">
                         <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_assunto'|trans }}
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="bjp-painel-corpo">
                     <div id="assuntosContainer">
                         {% if isEdit and processo.assuntos|length > 0 %}
                             {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
-                            {% set exibirRemover = processo.assuntos|length > 1 ? 'block' : 'none' %}
+                            {% set exibirRemover = processo.assuntos|length > 1 ? 'flex' : 'none' %}
                             {% for assunto in processo.assuntos %}
-                                <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                                <div class="assunto-row bjp-painel mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="assuntos[{{ loop.index0 }}][id]" value="{{ assunto.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-9">
@@ -366,13 +366,13 @@
                                                    placeholder="{{ 'processo.form.assunto.codigo_placeholder'|trans }}" value="{{ assunto.codigo }}">
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                                    <button type="button" class="bjp-ico bjp-btn--destrutivo remove-assunto"
                                             style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
                                             title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
-                            <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                            <div class="assunto-row bjp-painel mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-9">
                                         <label class="form-label">{{ 'processo.form.assunto.assunto'|trans }}</label>
@@ -383,7 +383,7 @@
                                         <input type="number" name="assuntos[0][codigo]" class="form-control" placeholder="{{ 'processo.form.assunto.codigo_placeholder'|trans }}">
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-assunto"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
                                         title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
@@ -396,10 +396,10 @@
             {# Botões de ação #}
             <div class="d-flex justify-content-between mb-4">
                 <a href="{{ isEdit ? path('processo_show', {id: processo.id}) : path('processo_index') }}"
-                   class="btn btn-secondary">
+                   class="bjp-btn bjp-btn--secundario">
                     <i class="bi bi-x-lg me-1"></i> {{ 'processo.form.cancelar'|trans }}
                 </a>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="bjp-btn bjp-btn--primario">
                     <i class="bi bi-check-lg me-1"></i>
                     {{ isEdit ? 'processo.form.salvar'|trans : 'processo.form.criar'|trans }}
                 </button>
@@ -508,7 +508,7 @@ $(document).ready(function () {
         const container = document.getElementById('partesContainer');
         const index = container.querySelectorAll('.parte-row').length;
         const html = `
-            <div class="parte-row card mb-2 p-3" style="position: relative;">
+            <div class="parte-row bjp-painel mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
@@ -532,7 +532,7 @@ $(document).ready(function () {
                         <input type="text" name="partes[${index}][papel]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
+                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-parte"
                         style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
@@ -561,7 +561,7 @@ $(document).ready(function () {
         const container = document.getElementById('movimentacoesContainer');
         const index = container.querySelectorAll('.movimentacao-row').length;
         const html = `
-            <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
+            <div class="movimentacao-row bjp-painel mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">${esc(BJ_T.t('processo.form.js.data'))}</label>
@@ -581,7 +581,7 @@ $(document).ready(function () {
                         <input type="text" name="movimentacoes[${index}][orgao]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
+                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-movimentacao"
                         style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
@@ -611,7 +611,7 @@ $(document).ready(function () {
         const container = document.getElementById('assuntosContainer');
         const index = container.querySelectorAll('.assunto-row').length;
         const html = `
-            <div class="assunto-row card mb-2 p-3" style="position: relative;">
+            <div class="assunto-row bjp-painel mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-9">
                         <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.assunto'))}</label>
@@ -622,7 +622,7 @@ $(document).ready(function () {
                         <input type="number" name="assuntos[${index}][codigo]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                <button type="button" class="bjp-ico bjp-btn--destrutivo remove-assunto"
                         style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
@@ -649,15 +649,15 @@ $(document).ready(function () {
     function updateRemoveButtons() {
         const partes = document.querySelectorAll('.parte-row').length;
         document.querySelectorAll('.remove-parte').forEach(btn => {
-            btn.style.display = partes > 1 ? 'block' : 'none';
+            btn.style.display = partes > 1 ? 'flex' : 'none';
         });
         const movs = document.querySelectorAll('.movimentacao-row').length;
         document.querySelectorAll('.remove-movimentacao').forEach(btn => {
-            btn.style.display = movs > 1 ? 'block' : 'none';
+            btn.style.display = movs > 1 ? 'flex' : 'none';
         });
         const assuntos = document.querySelectorAll('.assunto-row').length;
         document.querySelectorAll('.remove-assunto').forEach(btn => {
-            btn.style.display = assuntos > 1 ? 'block' : 'none';
+            btn.style.display = assuntos > 1 ? 'flex' : 'none';
         });
     }
 
@@ -750,7 +750,7 @@ $(document).ready(function () {
                 const partesList = processData.partes && processData.partes.length > 0 ? processData.partes : [{}];
                 partesList.forEach((parte, idx) => {
                     partesContainer.insertAdjacentHTML('beforeend', `
-                        <div class="parte-row card mb-2 p-3" style="position: relative;">
+                        <div class="parte-row bjp-painel mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-3">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
@@ -777,8 +777,8 @@ $(document).ready(function () {
                                            value="${esc(parte.papel || '')}" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
-                                    style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                            <button type="button" class="bjp-ico bjp-btn--destrutivo remove-parte"
+                                    style="display: ${partesList.length > 1 ? 'flex' : 'none'}; position: absolute; top: 8px; right: 12px;"
                                     title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);
@@ -789,7 +789,7 @@ $(document).ready(function () {
                 const movsList = processData.movimentacoes && processData.movimentacoes.length > 0 ? processData.movimentacoes : [{}];
                 movsList.forEach((mov, idx) => {
                     movimentacoesContainer.insertAdjacentHTML('beforeend', `
-                        <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
+                        <div class="movimentacao-row bjp-painel mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-3">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.data'))}</label>
@@ -812,8 +812,8 @@ $(document).ready(function () {
                                            value="${esc(mov.orgao || '')}" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
-                                    style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                            <button type="button" class="bjp-ico bjp-btn--destrutivo remove-movimentacao"
+                                    style="display: ${movsList.length > 1 ? 'flex' : 'none'}; position: absolute; top: 8px; right: 12px;"
                                     title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);
@@ -824,7 +824,7 @@ $(document).ready(function () {
                 const assuntosList = processData.assuntos && processData.assuntos.length > 0 ? processData.assuntos : [{}];
                 assuntosList.forEach((assunto, idx) => {
                     assuntosContainer.insertAdjacentHTML('beforeend', `
-                        <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                        <div class="assunto-row bjp-painel mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-9">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.assunto'))}</label>
@@ -837,8 +837,8 @@ $(document).ready(function () {
                                            value="${esc(assunto.codigo ?? '')}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
-                                    style="display: ${assuntosList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                            <button type="button" class="bjp-ico bjp-btn--destrutivo remove-assunto"
+                                    style="display: ${assuntosList.length > 1 ? 'flex' : 'none'}; position: absolute; top: 8px; right: 12px;"
                                     title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);

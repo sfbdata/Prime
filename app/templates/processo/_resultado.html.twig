@@ -37,7 +37,7 @@
                         <td title="{{ processo.classeProcessual|e('html_attr') }}">{{ processo.classeProcessual }}</td>
                         <td title="{{ processo.assuntoProcessual|e('html_attr') }}">{{ processo.assuntoProcessual }}</td>
                         <td>
-                            <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                            <span class="bjp-etiqueta {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bjp-etiqueta--atencao{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bjp-etiqueta--critico{% else %}bjp-etiqueta--neutro{% endif %}">
                                 {{ processo.situacaoProcesso|replace({'_': ' '}) }}
                             </span>
                         </td>

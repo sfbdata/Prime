@@ -8,15 +8,15 @@
         <h1 class="m-0">{{ 'escritorio.usuarios.titulo'|trans({nome: tenant.name}) }}</h1>
         <div class="d-flex gap-2">
             <button type="button"
-                    class="btn btn-outline-secondary"
+                    class="bjp-btn bjp-btn--secundario"
                     data-bs-toggle="modal"
                     data-bs-target="#modalJornadaTenant"
                     data-tenant-id="{{ tenant.id }}"
                     data-jornada-url="{{ path('app_jornada_tenant_get', {id: tenant.id}) }}">
-                <i class="bi bi-clock-history me-1"></i> {{ 'escritorio.usuarios.jornada'|trans }}
+                <i class="bi bi-clock-history"></i> {{ 'escritorio.usuarios.jornada'|trans }}
             </button>
-            <a href="{{ path('app_tenant_show', {tenantId: tenant.id}) }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-1"></i> {{ 'escritorio.usuarios.voltar'|trans }}
+            <a href="{{ path('app_tenant_show', {tenantId: tenant.id}) }}" class="bjp-btn bjp-btn--secundario">
+                <i class="bi bi-arrow-left"></i> {{ 'escritorio.usuarios.voltar'|trans }}
             </a>
         </div>
     </div>
@@ -24,8 +24,8 @@
 
 <section class="content">
     <div class="container-fluid">
-        <div class="card">
-            <div class="card-body table-responsive p-0">
+        <div class="bjp-painel">
+            <div class="bjp-painel-corpo table-responsive p-0">
                 <table class="table table-hover mb-0" id="tabelaUsuarios">
                     <thead class="table-light">
                         <tr>
@@ -48,7 +48,7 @@
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
                                     {% if ut and ut.tenantRole %}
-                                        <span class="badge text-bg-secondary">{{ ut.tenantRole.nomeExibido }}</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ ut.tenantRole.nomeExibido }}</span>
                                     {% else %}
                                         <span class="text-muted">{{ 'escritorio.usuarios.nao_informado'|trans }}</span>
                                     {% endif %}
@@ -58,12 +58,12 @@
                                         <span class="text-muted small">{{ 'escritorio.usuarios.nenhum'|trans }}</span>
                                     {% else %}
                                         <button
-                                            class="btn btn-sm btn-outline-secondary"
+                                            class="bjp-btn bjp-btn--secundario"
                                             type="button"
                                             data-bs-toggle="collapse"
                                             data-bs-target="#accesses-{{ user.id }}"
                                             aria-expanded="false">
-                                            <i class="bi bi-unlock me-1"></i>
+                                            <i class="bi bi-unlock"></i>
                                             {{ 'escritorio.usuarios.itens'|trans({n: userAccesses|length, qtd: userAccesses|length ~ ''}) }}
                                         </button>
                                         <div class="collapse mt-2" id="accesses-{{ user.id }}">
@@ -71,17 +71,17 @@
                                                 {% for ra in userAccesses %}
                                                     {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
                                                     <li class="mb-1 d-flex align-items-center gap-2 flex-wrap">
-                                                        <span class="badge bg-body-tertiary text-body-secondary border text-capitalize">{{ ra.resourceType }}</span>
+                                                        <span class="bjp-etiqueta bjp-etiqueta--neutro text-capitalize">{{ ra.resourceType }}</span>
                                                         <span>{{ label }}</span>
                                                         <span class="ms-1">
                                                             {% if ra.canView %}
-                                                                <span class="badge text-bg-info" title="{{ 'escritorio.usuarios.ver_dica'|trans }}">{{ 'escritorio.usuarios.ver'|trans }}</span>
+                                                                <span class="bjp-etiqueta bjp-etiqueta--info" title="{{ 'escritorio.usuarios.ver_dica'|trans }}">{{ 'escritorio.usuarios.ver'|trans }}</span>
                                                             {% endif %}
                                                             {% if ra.canEdit %}
-                                                                <span class="badge text-bg-warning text-dark" title="{{ 'escritorio.usuarios.editar'|trans }}">{{ 'escritorio.usuarios.editar'|trans }}</span>
+                                                                <span class="bjp-etiqueta bjp-etiqueta--atencao" title="{{ 'escritorio.usuarios.editar'|trans }}">{{ 'escritorio.usuarios.editar'|trans }}</span>
                                                             {% endif %}
                                                             {% if ra.canDelete %}
-                                                                <span class="badge text-bg-danger" title="{{ 'escritorio.usuarios.excluir'|trans }}">{{ 'escritorio.usuarios.excluir'|trans }}</span>
+                                                                <span class="bjp-etiqueta bjp-etiqueta--critico" title="{{ 'escritorio.usuarios.excluir'|trans }}">{{ 'escritorio.usuarios.excluir'|trans }}</span>
                                                             {% endif %}
                                                         </span>
                                                         {% if ra.grantedBy %}
@@ -98,10 +98,10 @@
                                 <td class="align-middle text-muted" style="font-size:.82rem;">{{ user.createdAt|data_hora }}</td>
                                 <td class="align-middle">
                                     <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
-                                       class="btn btn-sm btn-outline-primary"
+                                       class="bjp-btn bjp-btn--secundario"
                                        title="{{ 'escritorio.usuarios.editar_dica'|trans }}"
                                        aria-label="{{ 'escritorio.usuarios.editar_dica'|trans }}">
-                                        <i class="bi bi-pencil me-1"></i> {{ 'escritorio.usuarios.editar'|trans }}
+                                        <i class="bi bi-pencil"></i> {{ 'escritorio.usuarios.editar'|trans }}
                                     </a>
                                 </td>
                             </tr>

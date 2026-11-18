@@ -8,11 +8,11 @@
         <h1 class="m-0">{{ 'processo.index.titulo'|trans }}</h1>
         <div class="d-flex gap-2">
             {% if can_access_module('djen') %}
-                <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
+                <a href="{{ path('push_processual_index') }}" class="bjp-btn bjp-btn--secundario">
                     <i class="bi bi-newspaper me-1"></i> {{ 'processo.comum.push'|trans }}
                 </a>
             {% endif %}
-            <a href="{{ path('processo_new') }}" class="btn btn-success">{{ 'processo.index.cadastrar'|trans }}</a>
+            <a href="{{ path('processo_new') }}" class="bjp-btn bjp-btn--primario">{{ 'processo.index.cadastrar'|trans }}</a>
         </div>
     </div>
 </section>

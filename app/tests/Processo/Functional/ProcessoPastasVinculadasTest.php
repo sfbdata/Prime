@@ -71,7 +71,7 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
 
         self::assertSame(
             '1',
-            trim($crawler->filter('#card-vinculos h6 .badge')->text()),
+            trim($crawler->filter('#card-vinculos h6 .bjp-etiqueta')->text()),
             'a contagem no cartão diz quantas pastas há'
         );
     }
@@ -145,7 +145,7 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
             $cartao->text(),
             'pasta de outro escritório não pode aparecer na tela do processo'
         );
-        self::assertSame('1', trim($crawler->filter('#card-vinculos h6 .badge')->text()));
+        self::assertSame('1', trim($crawler->filter('#card-vinculos h6 .bjp-etiqueta')->text()));
     }
 
     #[TestDox('o selo Principal marca só a pasta em que ESTE processo é o principal')]
@@ -181,12 +181,12 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
 
         // Principal primeiro: a ordenação é `pp.principal DESC`.
         self::assertStringContainsString($comoPrincipal->getNup(), $cartoes->eq(0)->text());
-        self::assertCount(1, $cartoes->eq(0)->filter('.badge.text-bg-primary'));
+        self::assertCount(1, $cartoes->eq(0)->filter('.bjp-etiqueta--info'));
 
         self::assertStringContainsString($comoSecundario->getNup(), $cartoes->eq(1)->text());
         self::assertCount(
             0,
-            $cartoes->eq(1)->filter('.badge.text-bg-primary'),
+            $cartoes->eq(1)->filter('.bjp-etiqueta--info'),
             'a pasta em que o processo NÃO é o principal não pode ganhar o selo'
         );
     }
@@ -241,7 +241,7 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         );
         self::assertCount(
             0,
-            $crawler->filter('#card-vinculos h6 .badge'),
+            $crawler->filter('#card-vinculos h6 .bjp-etiqueta'),
             'contagem zero não vira selo — o cartão fica limpo'
         );
     }
