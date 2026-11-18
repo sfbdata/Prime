@@ -130,6 +130,8 @@ final class InteligenciaExtensionMemoriaTest extends JusPrimeWebTestCase
             $container->get(TenantContext::class),
             $container->get(ObterAnalisesRecolhidasUseCase::class),
             $container->get(VisibilidadeDaAnaliseDaPasta::class),
+            $container->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class),
+            $container->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class),
         );
     }
 }

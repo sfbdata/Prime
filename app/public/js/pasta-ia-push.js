@@ -276,6 +276,12 @@
                         var d = res.dados;
                         if (!res.ok) {
                             var texto = d.mensagem || BJ_T.t('inteligencia.js.push.falha_pedir');
+                            /* Saldo da I.A. gratuita esgotado: janela da trava (ia-saldo.js) no lugar do aviso. */
+                            if (window.BJIaSaldo && window.BJIaSaldo.recusou(d)) {
+                                botaoCarregando(false);
+                                sincronizarBotao();
+                                return;
+                            }
                             avisar(texto, true);
                             // Motivos de disponibilidade (enum Disponibilidade) travam o botão; os
                             // demais (sessão, ritmo, contexto vazio/bloqueado) só avisam.

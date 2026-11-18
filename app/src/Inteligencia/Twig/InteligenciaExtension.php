@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Twig;
 
+use App\Contribua\Service\PlanoPagoDoEscritorio;
 use App\Entity\Auth\User;
+use App\Inteligencia\DTO\SaldoDeIaOutput;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\SaldoDeIaDaPessoa;
 use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Inteligencia\UseCase\ListarDocumentosDoIndiceUseCase;
 use App\Inteligencia\UseCase\ObterAnalisesRecolhidasUseCase;
@@ -39,6 +42,10 @@ use Twig\TwigFunction;
  * (IA-010, `preferencia_usuario`). Função, e não variável do controller, pelo mesmo motivo: o
  * fragmento da lista é incluído pelo `_push_processual.html.twig` com `only`. Sem sessão, lista vazia.
  *
+ * `ia_saldo()` — o saldo de I.A. gratuita de quem está logado (`SaldoDeIaOutput`), para a barra de uso e a janela da
+ * trava (spec ia-liberada-por-indicacao, seção 6). Null sem login, sem escritório atual ou quando o escritório ATUAL
+ * tem plano pago: a barra some em escritório pago.
+ *
  * `ia_disponibilidade()` guarda a resposta durante a requisição (por usuário e escritório): a mesma página a chama
  * em mais de um lugar (modal de importação, cabeçalho e drawer da pasta) e cada chamada eram até 5 consultas.
  * Nada que a página desenha cria análise; o `reset()` (kernel.reset) esvazia a memória a cada requisição.
@@ -48,12 +55,17 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
     /** @var array<string, Disponibilidade> "userId:tenantId" => resposta desta requisição */
     private array $disponibilidadeLida = [];
 
+    /** @var array<string, SaldoDeIaOutput|null> "userId:tenantId" => saldo desta requisição */
+    private array $saldoLido = [];
+
     public function __construct(
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly ObterAnalisesRecolhidasUseCase $recolhidas,
         private readonly VisibilidadeDaAnaliseDaPasta $visibilidadeDaAnalise,
+        private readonly SaldoDeIaDaPessoa $saldo,
+        private readonly PlanoPagoDoEscritorio $planos,
     ) {
     }
 
@@ -68,6 +80,7 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
             new TwigFunction('ia_comando_leitura', static fn (): Comando => Comando::leituraDeDocumentos()),
             new TwigFunction('ia_aba_documentos_visivel', $this->iaAbaDocumentosVisivel(...)),
             new TwigFunction('ia_push_recolhidas', $this->iaPushRecolhidas(...)),
+            new TwigFunction('ia_saldo', $this->iaSaldo(...)),
         ];
     }
 
@@ -126,8 +139,26 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
         return $this->disponibilidadeLida[$chave] ??= $this->disponibilidade->para($user, $tenant);
     }
 
+    public function iaSaldo(): ?SaldoDeIaOutput
+    {
+        $user = $this->security->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if (!$user instanceof User || $tenant === null) {
+            return null;
+        }
+
+        $chave = $user->getId() . ':' . $tenant->getId();
+        if (!array_key_exists($chave, $this->saldoLido)) {
+            $this->saldoLido[$chave] = $this->planos->temPlanoPago((int) $tenant->getId()) ? null : $this->saldo->de($user);
+        }
+
+        return $this->saldoLido[$chave];
+    }
+
     public function reset(): void
     {
         $this->disponibilidadeLida = [];
+        $this->saldoLido = [];
     }
 }

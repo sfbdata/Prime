@@ -1,0 +1,43 @@
+{# ============================================================================
+   Janela da trava "Sua I.A. gratuita acabou" (spec ia-liberada-por-indicacao, seção 6). Nasce `hidden`; o
+   public/js/ia-saldo.js abre quando a recusa da I.A. chega com `motivo: "saldo_da_pessoa_esgotado"` (os controllers
+   respondem 409 `{motivo, mensagem}`; o Chat I.A. responde `{codigo, mensagem}`, o helper lê os dois) e a leva para o
+   <body> na primeira abertura (o drawer e a Central ficam em contêineres que podem estar ocultos).
+
+   Só existe com `ia_saldo()` não nulo (escritório atual sem plano pago). Botões na ordem da spec: "Copiar meu link",
+   "Enviar pelo WhatsApp" (o mesmo link e o mesmo texto da janela "Indicar o BlueJus", lidos do GET
+   `indicacao_janela`), "Convidar por e-mail" (`data-ind-abrir`: abre a janela "Indicar o BlueJus"; some onde ela não
+   existe, como no Chat I.A.) e "Fechar". A linha do plano pago só aparece para o administrador do escritório.
+   ============================================================================ #}
+{% set _iaSaldo = ia_saldo() %}
+{% if _iaSaldo is not null and _iaSaldo.seAplica %}
+    <link rel="stylesheet" href="{{ asset('css/ia-saldo.css') }}">
+    <div class="ias-ov" data-ia-saldo-janela hidden
+         data-url-janela="{{ path('indicacao_janela') }}"
+         data-url-whatsapp="{{ path('indicacao_canal', {canal: 'whatsapp'}) }}"
+         data-url-link="{{ path('indicacao_canal', {canal: 'link'}) }}"
+         data-token="{{ csrf_token('indicacao') }}"
+         data-texto-copiado="{{ 'inteligencia.saldo.copiado'|trans }}"
+         data-texto-falhou="{{ 'inteligencia.saldo.falhou'|trans }}">
+        <div class="ias-caixa" role="alertdialog" aria-modal="true" aria-labelledby="iasTitulo" aria-describedby="iasTexto">
+            <div class="ias-topo">
+                <b id="iasTitulo" data-ia-saldo-titulo data-alternativo="{{ 'inteligencia.saldo.janela_titulo_convite'|trans }}">{{ 'inteligencia.saldo.janela_titulo'|trans }}</b>
+                <button type="button" class="ias-x" data-ia-saldo-fechar aria-label="{{ 'inteligencia.saldo.fechar'|trans }}">×</button>
+            </div>
+            <div class="ias-corpo">
+                <p id="iasTexto" data-ia-saldo-texto-janela data-alternativo="{{ 'inteligencia.saldo.janela_texto_convite'|trans }}">{{ 'inteligencia.saldo.janela_texto'|trans({pecas: _iaSaldo.pecasDireito ~ ''}) }}</p>
+                {% if eh_usuario_primario() or is_granted('ROLE_SUPER_ADMIN') %}
+                    <p class="ias-plano" data-ia-saldo-plano>{{ 'inteligencia.saldo.plano_pago'|trans }} <a href="{{ path('contribua_index') }}">{{ 'inteligencia.saldo.plano_pago_link'|trans }}</a></p>
+                {% endif %}
+                <div class="ias-aviso" data-ia-saldo-aviso role="status" aria-live="polite" hidden></div>
+                <div class="ias-acoes">
+                    <button type="button" class="ias-btn ias-btn-pri" data-ia-saldo-copiar>{{ 'inteligencia.saldo.copiar'|trans }}</button>
+                    <button type="button" class="ias-btn ias-btn-wa" data-ia-saldo-whatsapp>{{ 'inteligencia.saldo.whatsapp'|trans }}</button>
+                    <button type="button" class="ias-btn ias-btn-sec" data-ind-abrir data-ia-saldo-email>{{ 'inteligencia.saldo.email'|trans }}</button>
+                    <button type="button" class="ias-btn ias-btn-sec" data-ia-saldo-fechar>{{ 'inteligencia.saldo.fechar'|trans }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ asset('js/ia-saldo.js') }}" defer></script>
+{% endif %}
