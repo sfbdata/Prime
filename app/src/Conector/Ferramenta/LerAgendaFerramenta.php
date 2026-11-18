@@ -224,7 +224,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
             'status' => $c->status,
             'pasta_id' => $verPastas ? $c->pastaId : null,
             // O número da pasta do prazo já sai no título, como na tela; o do compromisso, só com o módulo Pastas.
-            'pasta_numero' => $doCompromisso && !$verPastas ? null : $c->pastaNup,
+            'pasta_numero' => $doCompromisso && !$verPastas || $c->pastaNup === null ? null : $this->protecao->rotulo($escritorio, $c->pastaNup, ''),
         ];
         if (!$doCompromisso) {
             return $item + [
@@ -250,10 +250,13 @@ final class LerAgendaFerramenta implements FerramentaDoConector
         if ($texto === null || trim($texto) === '') {
             return null;
         }
-        $cortado = mb_strlen($texto) > self::MAXIMO_DA_DESCRICAO ? mb_substr($texto, 0, self::MAXIMO_DA_DESCRICAO) . self::CORTADO : $texto;
-        $protegido = $this->protecao->comoDado($escritorio, $cortado);
+        // Mascara antes de cortar: um CPF, e-mail ou telefone cortado no limite não casa com o padrão e sairia aberto.
+        $protegido = $this->protecao->comoDado($escritorio, $texto);
+        if ($protegido === '') {
+            return null;
+        }
 
-        return $protegido === '' ? null : $protegido;
+        return mb_strlen($protegido) > self::MAXIMO_DA_DESCRICAO ? mb_substr($protegido, 0, self::MAXIMO_DA_DESCRICAO) . self::CORTADO : $protegido;
     }
 
     /** O local é de uma linha; vazio depois da proteção sai como nulo. */
@@ -361,7 +364,7 @@ final class LerAgendaFerramenta implements FerramentaDoConector
                 'metas' => array_map(fn (MetaDoPrazoOutput $m): array => [
                     'numero' => $m->numero,
                     'titulo' => $this->protecao->rotulo($escritorio, $m->titulo, 'Sem título'),
-                    'pasta_numero' => $m->pasta,
+                    'pasta_numero' => $this->protecao->rotulo($escritorio, $m->pasta, ''),
                     'cliente' => $this->protecao->rotulo($escritorio, $m->cliente, 'Sem nome'),
                     'prazo' => $m->prazo->format('Y-m-d'),
                     'dias' => $m->dias,

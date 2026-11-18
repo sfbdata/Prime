@@ -2208,9 +2208,20 @@ Coordenador):**
 17. **Máscara sempre ligada** (6.2.6) pela `PoliticaDeMascaramento`, que reconhece o conector pelo escritório fixado sem
     sessão (`TenantContext::estaFixadoSemSessao()`): só o portão fixa assim, e o `PortaoDoConectorArquiteturaTest` proíbe
     citar o `ModoDoConector` fora dele. Vale para `ler_pasta`, `buscar_pastas`, `ler_agenda` e `quem_sou_eu`; no Registro,
-    a máscara passa antes do corte de cada mensagem. O chat não muda.
+    a máscara passa antes do corte de cada mensagem (e em toda saída, pela 22). Fora disso, o chat não muda.
 18. **Agenda**: período padrão de 7 dias a partir de hoje, no máximo 31; lembretes só quando pedidos (são das próximas
     24 horas), e os de prazo só com `prazos` em `incluir`. Prazo de pasta trancada some sem contagem, como na tela
     (`ListarCompromissosUseCase` já o tira); compromisso e lembrete de pasta trancada ou em segredo somem e são contados.
 19. **Minhas demandas** não traz a pasta trancada nem a conta, mesmo sendo da pessoa, como a tela
     (`ListarMinhasDemandasUseCase`, spec pasta-cadeado D1); o `buscar` mostra a trancada com o cadeado, como a Lista.
+20. **Processos vinculados no `resumo`** (regra: a ferramenta mostra exatamente o que a tela mostra àquela pessoa, nunca
+    mais): a tela da pasta mostra o processo vinculado e os apensados no alto do trilho da aba Dados
+    (`pasta/_dados_trilho_topo.html.twig`, só o atalho "ir para a aba" some) e na aba Processo. Por isso o `resumo` traz
+    os processos com a aba Processo oculta e os tira só quando Dados e Processo estão as duas ocultas.
+21. **Agenda e a aba Metas**: a `ler_agenda` mostra os prazos de pasta mesmo com a aba Metas oculta para a pessoa, porque a
+    agenda na tela não depende de aba (6.6). A parte `prazos` do `ler_pasta` continua barrada pela aba Metas.
+22. **Máscara antes de qualquer corte** (amplia a 17, achado da re-revisão): os padrões do mascarador exigem o dado
+    inteiro, e um CPF, e-mail ou telefone cortado no limite sairia aberto. Toda saída do conector mascara o texto inteiro
+    e só depois corta: descrição e observação da agenda, título do prazo e os rótulos e textos dos dois montadores
+    (`MontadorDeContextoDaPasta`, `MontadorDeContextoDoPush`). O chat só passa a mascarar mais quando a preferência do
+    escritório pede máscara; sem máscara, nada muda.

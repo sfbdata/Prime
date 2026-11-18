@@ -172,7 +172,7 @@ final class LerPastaFerramenta implements FerramentaDoConector
         $contexto = $this->contexto($pasta, $escritorio, $partes, $decisao);
         $lidas = ['pasta_id' => (int) $pasta->getId()];
         foreach (array_diff($partes, ['registro']) as $parte) {
-            $lidas[$parte] = $this->parte($parte, $pasta, $chamada, $contexto);
+            $lidas[$parte] = $this->parte($parte, $pasta, $chamada, $contexto, $decisao['abasOcultas']);
         }
         // O Registro por último: o texto de cada mensagem encolhe até a resposta inteira caber no teto.
         $proxima = null;
@@ -283,13 +283,17 @@ final class LerPastaFerramenta implements FerramentaDoConector
         }
     }
 
-    /** @return array<string, mixed> */
-    private function parte(string $parte, Pasta $pasta, ChamadaDoConector $chamada, ?ContextoDaPasta $contexto): array
+    /**
+     * @param list<string> $abasOcultas
+     *
+     * @return array<string, mixed>
+     */
+    private function parte(string $parte, Pasta $pasta, ChamadaDoConector $chamada, ?ContextoDaPasta $contexto, array $abasOcultas): array
     {
         $escritorio = $chamada->contexto->escritorio;
 
         return match ($parte) {
-            'resumo' => $this->resumo($pasta, $escritorio, $contexto),
+            'resumo' => $this->resumo($pasta, $escritorio, $contexto, $abasOcultas),
             'andamento' => $this->andamento($pasta, $chamada),
             'equipe' => $this->equipe($pasta, $chamada),
             'cadastro' => $this->cadastro($pasta, $escritorio),
@@ -298,15 +302,23 @@ final class LerPastaFerramenta implements FerramentaDoConector
         };
     }
 
-    /** @return array<string, mixed> */
-    private function resumo(Pasta $pasta, Tenant $escritorio, ?ContextoDaPasta $contexto): array
+    /**
+     * Os processos vinculados saem como na tela: ela os mostra no alto do trilho da aba Dados e na aba Processo, então
+     * somem só quando as duas estão ocultas para a pessoa (decisão 20 do PR 6).
+     *
+     * @param list<string> $abasOcultas
+     *
+     * @return array<string, mixed>
+     */
+    private function resumo(Pasta $pasta, Tenant $escritorio, ?ContextoDaPasta $contexto, array $abasOcultas): array
     {
         $c = $contexto !== null ? $contexto->cabecalho : [];
         $marcadores = [];
         foreach ($pasta->getMarcadores() as $marcador) {
             $marcadores[] = $this->protecao->rotulo($escritorio, $marcador->getNome(), 'sem nome');
         }
-        $processos = $contexto !== null ? $contexto->processos : [];
+        $semProcessos = \in_array(AbaDaPasta::Dados->value, $abasOcultas, true) && \in_array(AbaDaPasta::Processo->value, $abasOcultas, true);
+        $processos = $contexto !== null && !$semProcessos ? $contexto->processos : [];
 
         return [
             'numero' => $c['pasta'] ?? '',
@@ -444,7 +456,7 @@ final class LerPastaFerramenta implements FerramentaDoConector
             $itens[] = [
                 'id' => (int) $prazo->getId(),
                 'tipo' => $prazo->getTipo(),
-                'titulo' => $this->protecao->rotulo($escritorio, self::cortar($prazo->getTitulo(), self::TAMANHO_MAXIMO_DO_TITULO), 'sem título'),
+                'titulo' => self::cortar($this->protecao->rotulo($escritorio, $prazo->getTitulo(), 'sem título'), self::TAMANHO_MAXIMO_DO_TITULO),
                 'data' => $linha->dataIso,
                 'hora' => $linha->hora,
                 'responsavel' => $prazo->getResponsavel() !== null ? $this->protecao->rotulo($escritorio, $prazo->getResponsavel(), '') : null,

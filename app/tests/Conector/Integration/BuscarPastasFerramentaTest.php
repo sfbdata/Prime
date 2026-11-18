@@ -8,11 +8,13 @@ use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
+use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
@@ -35,6 +37,9 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
 
     private const CPF = '529.982.247-25';
     private const LEITOR = ['modules.expediente.view', 'modules.pastas.view', 'resources.pasta.view'];
+
+    /** Quem lê a lixeira do escritório precisa também editar a pasta (a mesma regra das rotas da lixeira). */
+    private const LEITOR_DA_LIXEIRA = ['modules.expediente.view', 'modules.pastas.view', 'resources.pasta.view', 'resources.pasta.edit'];
 
     private int $numero = 0;
 
@@ -160,6 +165,10 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         $alheia = $this->pessoa();
         $alheia->setFullName('Pessoa de Outro Escritório');
         $this->vinculo($alheia, $outro, permissoes: self::LEITOR);
+        // O outro escritório TEM pastas: sem o isolamento do escopo, elas entrariam na contagem.
+        $this->pasta($outro, comProcesso: false);
+        $this->pasta($outro, comProcesso: false);
+        $this->pasta($outro, comProcesso: false);
         $this->em()->flush();
 
         $contar = $this->executar(['acao' => 'contar'], $vinculo);
@@ -218,6 +227,87 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString('52998224725', $json);
         self::assertStringNotContainsString('[CPF]', $json);
         self::assertStringNotContainsString('CPF', $json);
+    }
+
+    #[TestDox('lixeira: pasta em segredo sai da lista e conta em omitidas_em_segredo; a de outro escritório não aparece; excluido_por sai pelo rótulo, com o nome')]
+    public function testLixeiraSegredoOutroEscritorioEExcluidoPor(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $pessoa->setFullName('Ana Excluiu');
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::LEITOR_DA_LIXEIRA);
+        $comum = $this->pasta($escritorio, comProcesso: false);
+        $secreta = $this->pasta($escritorio, nivelSigilo: 1);
+        $outro = $this->escritorio('Outro');
+        $deOutro = $this->pasta($outro, comProcesso: false);
+        $this->naLixeira($comum, $escritorio, $pessoa, '2026-10-01 09:00:00');
+        $this->naLixeira($secreta, $escritorio, $pessoa, '2026-10-02 09:00:00');
+        $this->naLixeira($deOutro, $outro, $pessoa, '2026-10-03 09:00:00');
+
+        $resposta = $this->executar(['acao' => 'lixeira'], $vinculo);
+
+        self::assertSame([$comum->getId()], array_column($resposta->dados['pastas'], 'pasta_id'), 'premissa: a comum aparece, a em segredo e a de outro escritório não');
+        self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
+        self::assertSame(['Ana Excluiu'], $resposta->dados['pastas'][0]['excluido_por']);
+        $json = json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString((string) $secreta->getNup(), $json);
+        self::assertStringNotContainsString((string) $deOutro->getNup(), $json);
+    }
+
+    #[TestDox('lixeira: o cursor da primeira resposta traz a página seguinte, sem repetir pasta')]
+    public function testLixeiraCursorValido(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::LEITOR_DA_LIXEIRA);
+        for ($i = 0; $i < 51; ++$i) {
+            $this->naLixeira($this->pasta($escritorio, comProcesso: false), $escritorio, $pessoa, sprintf('2026-10-01 09:%02d:00', $i));
+        }
+
+        $primeira = $this->executar(['acao' => 'lixeira'], $vinculo);
+        self::assertCount(50, $primeira->dados['pastas']);
+        self::assertNotNull($primeira->proximaPagina);
+
+        static::getContainer()->get('services_resetter')->reset();
+        $segunda = $this->executar(['acao' => 'lixeira', 'pagina' => $primeira->proximaPagina], $vinculo);
+
+        self::assertCount(1, $segunda->dados['pastas']);
+        self::assertNull($segunda->proximaPagina);
+        self::assertSame([], array_intersect(array_column($primeira->dados['pastas'], 'pasta_id'), array_column($segunda->dados['pastas'], 'pasta_id')));
+    }
+
+    #[TestDox('numero: a pasta em segredo achada pelo número sai e conta em omitidas_em_segredo')]
+    public function testNumeroEmSegredo(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $prefixo = 'SEG' . random_int(100000, 999999);
+        $comum = $this->pasta($escritorio, comProcesso: false, nup: $prefixo . 'A');
+        $secreta = $this->pasta($escritorio, nivelSigilo: 1, nup: $prefixo . 'B');
+
+        $resposta = $this->executar(['acao' => 'numero', 'numero' => $prefixo], $vinculo);
+
+        self::assertSame([$comum->getId()], array_column($resposta->dados['resultados'], 'pasta_id'));
+        self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
+        self::assertSame(0, $resposta->dados['omitidas_sem_acesso']);
+        self::assertStringNotContainsString((string) $secreta->getNup(), json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+    }
+
+    #[TestDox('numero: a pasta trancada que também está em segredo sai e conta em omitidas_sem_acesso, não em segredo')]
+    public function testNumeroTrancadaEmSegredoContaComoSemAcesso(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $nup = 'TRS' . random_int(100000, 999999);
+        $trancadaSecreta = $this->pasta($escritorio, nivelSigilo: 1, nup: $nup);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancadaSecreta, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'numero', 'numero' => $nup], $vinculo);
+
+        self::assertSame([], $resposta->dados['resultados']);
+        self::assertSame(0, $resposta->dados['omitidas_em_segredo']);
+        self::assertSame(1, $resposta->dados['omitidas_sem_acesso']);
     }
 
     #[TestDox('minhas_demandas: só as pastas em que a pessoa é a responsável')]
@@ -338,5 +428,22 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         $this->em()->flush();
 
         return $pasta;
+    }
+
+    /** Um documento da pasta, excluído por `$por` na data dada: a pasta passa a ter algo na lixeira do escritório. */
+    private function naLixeira(Pasta $pasta, Tenant $escritorio, User $por, string $quando): void
+    {
+        $documento = new PastaDocumento();
+        $documento->setTenant($escritorio);
+        $documento->setPasta($pasta);
+        $documento->setTitulo('Documento excluído');
+        $documento->setCategoria('OUTROS');
+        $documento->setCaminhoArquivo('x/excluido.pdf');
+        $documento->setNomeOriginal('excluido.pdf');
+        $documento->setMimeType('application/pdf');
+        $documento->setTamanhoBytes(10);
+        $documento->marcarExcluido($por, new \DateTimeImmutable($quando));
+        $this->em()->persist($documento);
+        $this->em()->flush();
     }
 }

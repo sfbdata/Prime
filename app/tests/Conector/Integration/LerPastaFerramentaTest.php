@@ -39,6 +39,7 @@ final class LerPastaFerramentaTest extends KernelTestCase
     use CenarioDoConectorTrait;
 
     private const CPF = '529.982.247-25';
+    private const CNJ = '0701134-57.2025.8.07.0007';
     private const LEITOR = ['modules.expediente.view', 'modules.pastas.view', 'resources.pasta.view'];
 
     private Tenant $escritorio;
@@ -125,6 +126,56 @@ final class LerPastaFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString('529', $mensagens[$cpf->getId()]['texto']);
         self::assertTrue($mensagens[$email->getId()]['cortado']);
         self::assertStringNotContainsString('fulan', $mensagens[$email->getId()]['texto']);
+    }
+
+    /** @return array<string, array{string, string}> dado pessoal e o que não pode sobrar dele na saída */
+    public static function dadosNoLimite(): array
+    {
+        return [
+            'CPF' => ['529.982.247-25', '529'],
+            'e-mail' => ['fulano.tal@exemplo.com.br', 'fulano'],
+            'telefone' => ['(61) 99999-1234', '999'],
+        ];
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('prazos: a máscara vem antes do corte; o dado que atravessa o limite do título sai mascarado, não pela metade')]
+    public function testTituloDoPrazoMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $pasta = $this->pasta();
+        $inicio = LerPastaFerramenta::TAMANHO_MAXIMO_DO_TITULO - intdiv(mb_strlen($dado), 2);
+        $this->prazo($pasta, str_repeat('a', $inicio - 1) . ' ' . $dado . ' ' . str_repeat('b', 80), '+3 days');
+
+        $titulo = (string) $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['prazos']])->dados['prazos']['prazos'][0]['titulo'];
+
+        self::assertStringEndsWith('…', $titulo, 'o título saiu cortado');
+        self::assertStringNotContainsString($resto, $titulo);
+        self::assertStringNotContainsString('@', $titulo);
+    }
+
+    #[TestDox('resumo: com a aba Processo oculta, os processos vinculados continuam no resumo (a aba Dados os mostra)')]
+    public function testResumoComProcessoOcultoMantemOsProcessos(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $this->ocultar($pasta, AbaDaPasta::Processo);
+
+        $processos = $this->ler(['pasta_id' => $pasta->getId()])->dados['resumo']['processos'];
+
+        self::assertSame(1, $processos['total']);
+        self::assertStringContainsString(self::CNJ, $processos['texto']);
+    }
+
+    #[TestDox('resumo: com as abas Dados e Processo ocultas, os processos somem e o número do processo não sai')]
+    public function testResumoComDadosEProcessoOcultosTiraOsProcessos(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $this->ocultar($pasta, AbaDaPasta::Processo);
+        $this->ocultar($pasta, AbaDaPasta::Dados);
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId()]);
+
+        self::assertSame(0, $resposta->dados['resumo']['processos']['total']);
+        self::assertStringNotContainsString(self::CNJ, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
     }
 
     #[TestDox('financeiro: com a aba visível mas a VisibilidadeDoFinanceiroDaPasta negando, a parte é recusada como não encontrado')]
@@ -362,5 +413,24 @@ final class LerPastaFerramentaTest extends KernelTestCase
     {
         $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $pasta, $aba, $this->colega, new \DateTimeImmutable()));
         $this->em()->flush();
+    }
+
+    /** Pasta com um processo público vinculado (o `pasta()` só cria processo em segredo). */
+    private function pastaComProcesso(): Pasta
+    {
+        $pasta = $this->pasta();
+        $processo = new Processo();
+        $processo->setNumeroProcesso(self::CNJ);
+        $processo->setSiglaTribunal('TJDFT');
+        $processo->setClasseProcessual('Procedimento Comum');
+        $processo->setAssuntoProcessual('Assunto');
+        $processo->setTenant($this->escritorio);
+        $this->em()->persist($processo);
+        $vinculo = new PastaProcesso($pasta, $processo);
+        $this->em()->persist($vinculo);
+        $pasta->getPastaProcessos()->add($vinculo);
+        $this->em()->flush();
+
+        return $pasta;
     }
 }

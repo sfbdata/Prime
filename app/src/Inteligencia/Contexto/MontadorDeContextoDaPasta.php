@@ -579,14 +579,18 @@ final class MontadorDeContextoDaPasta
         if ($valor === '') {
             return $padrao;
         }
+        // Mascara antes de cortar: um CPF, e-mail ou telefone cortado no limite não casa com o padrão e sairia aberto.
+        if ($mascarar) {
+            $valor = $this->mascarador->mascarar($valor);
+        }
         if (mb_strlen($valor) > self::TAMANHO_MAXIMO_DO_ROTULO) {
             $valor = mb_substr($valor, 0, self::TAMANHO_MAXIMO_DO_ROTULO) . '…';
         }
 
-        return $mascarar ? $this->mascarador->mascarar($valor) : $valor;
+        return $valor;
     }
 
-    /** Texto livre (pode ser HTML do editor): texto plano, neutralizado, truncado, mascarado. */
+    /** Texto livre (pode ser HTML do editor): texto plano, neutralizado, mascarado, truncado. */
     private function texto(?string $valor, int $maximo, bool $mascarar): string
     {
         $texto = self::textoPlano($valor);
@@ -594,11 +598,15 @@ final class MontadorDeContextoDaPasta
         if ($texto === '') {
             return '';
         }
+        // Mascara antes de cortar: um CPF, e-mail ou telefone cortado no limite não casa com o padrão e sairia aberto.
+        if ($mascarar) {
+            $texto = $this->mascarador->mascarar($texto);
+        }
         if (mb_strlen($texto) > $maximo) {
             $texto = mb_substr($texto, 0, $maximo) . '…';
         }
 
-        return $mascarar ? $this->mascarador->mascarar($texto) : $texto;
+        return $texto;
     }
 
     private static function textoPlano(?string $html): string

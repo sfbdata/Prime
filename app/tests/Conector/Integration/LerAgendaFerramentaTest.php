@@ -38,6 +38,7 @@ use App\Profile\Entity\UserProfile;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -109,6 +110,54 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         foreach (['sigilos', 'Reunião trancada', 'Prazo trancado', (string) $secreta->getNup(), (string) $trancada->getNup()] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
+    }
+
+    /** @return array<string, array{string, string}> dado pessoal e o que não pode sobrar dele na saída */
+    public static function dadosNoLimite(): array
+    {
+        return [
+            'CPF' => ['529.982.247-25', '529'],
+            'e-mail' => ['fulano.tal@exemplo.com.br', 'fulano'],
+            'telefone' => ['(61) 99999-1234', '999'],
+        ];
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('descrição do compromisso: a máscara vem antes do corte; o dado que atravessa o limite sai mascarado, não pela metade')]
+    public function testDescricaoMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $inicio = LerAgendaFerramenta::MAXIMO_DA_DESCRICAO - intdiv(mb_strlen($dado), 2);
+        $this->evento($escritorio, $pessoa, 'Reunião com dado no limite')
+            ->setDescricao(str_repeat('a', $inicio - 1) . ' ' . $dado . ' ' . str_repeat('b', 80));
+        $this->em()->flush();
+
+        $itens = $this->agenda($pessoa, $vinculo, ['incluir' => ['compromissos']])->dados['itens'];
+        $descricao = (string) self::itemDe($itens, 'Reunião com dado no limite')['descricao'];
+
+        self::assertStringEndsWith(LerAgendaFerramenta::CORTADO, $descricao, 'o texto saiu cortado');
+        self::assertStringNotContainsString($resto, $descricao);
+        self::assertStringNotContainsString('@', $descricao);
+    }
+
+    #[TestDox('agenda: o número da pasta do prazo e da meta continua saindo, agora pelo rótulo')]
+    public function testNumeroDaPastaContinuaSaindo(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $this->liberarConector($escritorio);
+        $pasta = $this->pasta($escritorio);
+        $this->prazo($escritorio, $pasta, 'Contestação');
+        $this->meta($escritorio, $pasta, $pessoa, 'Meta da pasta');
+
+        $itens = $this->agenda($pessoa, $vinculo, ['incluir' => ['prazos']])->dados['itens'];
+        $metas = $this->executar($pessoa, $vinculo, ['acao' => 'minhas_metas', 'periodo' => 'hoje'])->dados['metas'];
+
+        self::assertSame($pasta->getNup(), self::itemDe($itens, 'Contestação · Pasta ' . $pasta->getNup())['pasta_numero']);
+        self::assertSame($pasta->getNup(), $metas[0]['pasta_numero']);
     }
 
     #[TestDox('agenda: o aniversário da equipe no período fica fora; as datas do sistema vêm no padrão')]
