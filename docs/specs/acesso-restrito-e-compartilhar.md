@@ -259,3 +259,9 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   migration ao Coordenador. Fatia 3: só depois do smoke do conector (combina com o #763).
 - 18/11: frente única na branch `acesso-restrito` (PR #770 em rascunho), um commit por fatia. Fatia 1 feita. Fatia 2
   feita (migration `Version20261118100000`); ninguém liga o restrito antes da fatia 4.
+- 18/11: revisão de vazamento da fatia 2. Corrigidos nela: sugestões da Nova pasta (nome e total de pastas de
+  cliente alheio), total do trilho e liberação item a item (`ResourceAccess`) que passava da lista de liberação.
+  Ficam para a fatia 3 (bloqueiam a entrega dela): `cliente_show` e `processo_show` ainda listam a pasta alheia
+  com o NUP (formato do cadeado); cliente e processo abrem por id sem olhar o escopo (dado cadastral, documentos
+  do cliente, nota técnica); processo sem pasta aparece; conferir toda rota `pasta_*` por id de filha
+  (`#[PastaPelaFilha]`) e o aviso de meta sem link no sino.

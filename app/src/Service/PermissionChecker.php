@@ -196,12 +196,17 @@ class PermissionChecker implements ResetInterface
 
     private function permiteORecurso(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
     {
+        $permissao = sprintf('resources.%s.%s', $resourceType, $action);
+        // Acesso restrito: a liberação item a item também não passa da lista de liberação (spec acesso-restrito §5.1).
+        if (PermissoesDoAcessoRestrito::bloqueia($userTenant->getTenantRole(), $permissao)) {
+            return false;
+        }
         $resourceAccess = $this->resourceAccessRepository->findForUserAndResource($user, $resourceType, $resourceId);
         if ($resourceAccess !== null && $resourceAccess->allows($action)) {
             return true;
         }
 
-        return $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
+        return $this->hasPermissionFromUserTenant($userTenant, $permissao);
     }
 
     public function hasPermission(User $user, ?Tenant $tenant, string $permission): bool

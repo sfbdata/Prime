@@ -11,6 +11,8 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\EventListener\BarreiraDoAcessoRestritoListener;
 use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Service\EscopoDePastas;
+use App\Entity\Permission\ResourceAccess;
+use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -91,6 +93,33 @@ final class AcessoRestritoTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', '/expediente/busca-rapida?q=' . rawurlencode((string) $this->minha->getNup()));
         self::assertStringContainsString((string) $this->minha->getNup(), (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('as sugestões da Nova pasta (nome do cliente e total de pastas) só contam as pastas do restrito')]
+    public function testSugestoesDaNovaPasta(): void
+    {
+        $this->entrar($this->restrito, $this->tenant);
+
+        $this->client->request('GET', '/expediente/nova-pasta/sugestoes?q=CLIENTE');
+        self::assertResponseIsSuccessful();
+        $corpo = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('CLIENTE DA RITA', $corpo);
+        self::assertStringNotContainsString('CLIENTE DO PRIMARIO', $corpo);
+        self::assertStringNotContainsString('CLIENTE SEM NINGUEM', $corpo);
+    }
+
+    #[TestDox('liberação item a item (ResourceAccess) não passa da lista de liberação do restrito')]
+    public function testLiberacaoItemAItemNaoFuraALista(): void
+    {
+        foreach ([$this->restrito, $this->comum] as $pessoa) {
+            $acesso = (new ResourceAccess())->setUser($pessoa)->setTenant($this->tenant)->setResourceType('agenda')->setResourceId(424242)->setCanView(true);
+            $this->em()->persist($acesso);
+        }
+        $this->em()->flush();
+        $checker = static::getContainer()->get(PermissionChecker::class);
+
+        self::assertFalse($checker->canAccessResource($this->restrito, $this->tenant, 'agenda', 424242, 'view'));
+        self::assertTrue($checker->canAccessResource($this->comum, $this->tenant, 'agenda', 424242, 'view'));
     }
 
     #[TestDox('as setas ‹ › e o "N de M" da pasta andam só pelas pastas do restrito')]

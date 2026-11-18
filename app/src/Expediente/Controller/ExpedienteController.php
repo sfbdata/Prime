@@ -130,7 +130,7 @@ final class ExpedienteController extends AbstractController
             'contagemPastas'      => $this->pastaRepository->countPorMarcadores($tenant, $this->quemConsulta()),
             'contagemRaiz'        => $this->pastaRepository->countPorMarcadoresDeTopoComFilhos($tenant, $this->quemConsulta()),
             'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant, $this->quemConsulta()),
-            'totalPastas'         => $this->pastaRepository->countByFilters([], $tenant),
+            'totalPastas'         => $this->pastaRepository->countByFilters([], $tenant, $this->quemConsulta()),
         ];
     }
 
@@ -559,8 +559,8 @@ final class ExpedienteController extends AbstractController
         $user   = $this->getUser();
         $tenant = $this->assertAccess($user);
 
-        $nomes     = $this->pastaRepository->nomesDeClienteParecidos((string) $request->query->get('q', ''), $tenant);
-        $cadastros = $this->pastaRepository->cadastroUnicoPorNomeDeCliente(array_map('strval', array_keys($nomes)), $tenant);
+        $nomes     = $this->pastaRepository->nomesDeClienteParecidos((string) $request->query->get('q', ''), $tenant, quemBusca: $user);
+        $cadastros = $this->pastaRepository->cadastroUnicoPorNomeDeCliente(array_map('strval', array_keys($nomes)), $tenant, $user);
 
         return $this->json([
             'proximoNumero' => (string) ($this->numeracaoDePasta->maiorNumero($tenant) + 1),

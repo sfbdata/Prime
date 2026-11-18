@@ -1464,20 +1464,23 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * Clientes já usados em pastas cujo nome contém o termo, com quantas pastas cada um tem: as sugestões e o
-     * aviso "Cliente já cadastrado em N pasta(s)" da Nova Pasta (E12). Casa pelo identificador da pasta.
+     * aviso "Cliente já cadastrado em N pasta(s)" da Nova Pasta (E12). Casa pelo identificador da pasta. Com
+     * `quemBusca` no acesso restrito, só as pastas sob a responsabilidade dele contam (nome e total).
      *
      * @return array<string, int> nome => total
      */
-    public function nomesDeClienteParecidos(string $termo, Tenant $tenant, int $limite = 8): array
+    public function nomesDeClienteParecidos(string $termo, Tenant $tenant, int $limite = 8, ?User $quemBusca = null): array
     {
         $termo = mb_strtoupper(trim($termo));
         if (mb_strlen($termo) < 2) {
             return [];
         }
 
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemBusca);
+        $linhas = $qb
             ->select('p.nomeCliente AS nome', 'COUNT(p.id) AS total')
-            ->where('p.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')
             ->andWhere('UPPER(p.nomeCliente) LIKE :termo')
             ->setParameter('tenant', $tenant)
@@ -1507,7 +1510,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<string, int> nome em maiúsculas => id do cliente
      */
-    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant): array
+    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant, ?User $quemBusca = null): array
     {
         $nomes = array_values(array_unique(array_filter(array_map(
             static fn (string $n): string => mb_strtoupper(trim($n)),
@@ -1517,10 +1520,12 @@ class PastaRepository extends ServiceEntityRepository
             return [];
         }
 
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemBusca);
+        $linhas = $qb
             ->select('UPPER(p.nomeCliente) AS nome', 'MIN(c.id) AS cliente')
             ->join('p.clientePrincipal', 'c')
-            ->where('p.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')
             ->andWhere('UPPER(p.nomeCliente) IN (:nomes)')
