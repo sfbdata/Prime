@@ -593,7 +593,7 @@
             <div class="modal-body">
                 <div class="pex-dest-arvore" id="pexDestinoArvore" role="listbox" aria-label="{{ 'pasta_show.documento.pasta_de_destino'|trans }}"></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button><button type="button" class="btn btn-primary" id="pexDestinoConfirmar" disabled>{{ 'pasta_show.documento.mover'|trans }}</button></div>
+            <div class="modal-footer"><button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button><button type="button" class="bjp-btn bjp-btn--primario" id="pexDestinoConfirmar" disabled>{{ 'pasta_show.documento.mover'|trans }}</button></div>
         </div>
     </div>
 </div>
@@ -638,8 +638,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> {{ 'pasta_show.salvar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg me-1"></i> {{ 'pasta_show.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -671,11 +671,11 @@
                     <div id="passoEscolhaTipo">
                         <p class="text-muted small mb-3">{{ 'pasta_show.cliente.escolha_tipo'|trans }}</p>
                         <div class="d-flex gap-3">
-                            <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPF">
+                            <button type="button" class="bjp-btn bjp-btn--secundario flex-fill" style="height:auto;padding:14px;flex-direction:column;gap:4px" id="btnEscolherPF">
                                 <i class="bi bi-person fs-4 d-block mb-1"></i>
                                 {{ 'pasta_show.cliente.pf'|trans }}
                             </button>
-                            <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPJ">
+                            <button type="button" class="bjp-btn bjp-btn--secundario flex-fill" style="height:auto;padding:14px;flex-direction:column;gap:4px" id="btnEscolherPJ">
                                 <i class="bi bi-building fs-4 d-block mb-1"></i>
                                 {{ 'pasta_show.cliente.pj'|trans }}
                             </button>
@@ -979,19 +979,19 @@
                 </div>{# /modal-body #}
 
                 <div class="modal-footer py-2" id="footerFormCliente" style="display:none!important;">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario">
                         <i class="bi bi-check-lg me-1"></i> {{ 'pasta_show.cliente.salvar'|trans }}
                     </button>
                 </div>
                 <div class="modal-footer py-2 d-none" id="footerVincularCliente">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
-                    <button type="button" class="btn btn-success btn-sm" id="btnConfirmarVincular">
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--sucesso" id="btnConfirmarVincular">
                         <i class="bi bi-link-45deg me-1"></i> <span class="btn-label">{{ 'pasta_show.cliente.vincular'|trans }}</span>
                     </button>
                 </div>
                 <div class="modal-footer py-2" id="footerEscolhaTipo">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -1475,7 +1475,8 @@
     function montaEstrelaPrincipal(clienteId, ehPrincipal, tokenMarcar) {
         if (ehPrincipal) {
             const marca = document.createElement('span');
-            marca.className = 'btn btn-xs btn-primary disabled js-cliente-principal-estrela';
+            marca.className = 'bjp-ico bjp-btn--primario js-cliente-principal-estrela';
+            marca.style.pointerEvents = 'none';
             marca.dataset.clienteId = clienteId;
             marca.title = BJ_T.t('pasta_show.js.cliente.principal_dica');
             marca.innerHTML = '<i class="bi bi-star-fill"></i>';
@@ -1487,7 +1488,7 @@
         form.action = '{{ path('pasta_cliente_principal', {id: pasta.id, cliente: '__CLIENTE__'}) }}'.replace('__CLIENTE__', clienteId);
         form.className = 'js-ajax-cliente-principal m-0';
         form.innerHTML = '<input type="hidden" name="_token" value="' + tokenMarcar + '">'
-            + '<button type="submit" class="btn btn-xs btn-outline-secondary"'
+            + '<button type="submit" class="bjp-ico bjp-btn--secundario"'
             + ' title="' + escHtml(BJ_T.t('pasta_show.js.cliente.tornar_principal')) + '"><i class="bi bi-star"></i></button>';
         return form;
     }
@@ -2056,10 +2057,10 @@
                 <div id="previewDocConteudo" class="w-100 h-100"></div>
             </div>
             <div class="modal-footer">
-                <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
+                <a id="previewDocDownload" href="#" class="bjp-btn bjp-btn--secundario">
                     <i class="bi bi-download me-1"></i> {{ 'pasta_show.preview.baixar'|trans }}
                 </a>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
             </div>
         </div>
     </div>

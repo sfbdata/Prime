@@ -51,16 +51,16 @@
 {# Main Content #}
 <section class="content">
     <div class="container-fluid">
-        <div class="card card-primary card-outline">
-            <div class="card-header">
-                <h3 class="card-title">{{ processo.numeroProcesso }}</h3>
+        <div class="bjp-painel">
+            <div class="bjp-painel-cabeca">
+                <h3 class="bjp-painel-titulo">{{ processo.numeroProcesso }}</h3>
                 <div class="card-tools">
-                    <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                    <span class="bjp-etiqueta {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bjp-etiqueta--atencao{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bjp-etiqueta--critico{% else %}bjp-etiqueta--neutro{% endif %}">
                         {{ processo.situacaoProcesso|replace({'_': ' '}) }}
                     </span>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="bjp-painel-corpo">
                 <div class="row">
                     {# Left Column - Tabs #}
                     <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
@@ -138,7 +138,7 @@
                                                 {% if processo.assuntos|length > 0 %}
                                                     <span class="d-block mt-1">
                                                         {% for assunto in processo.assuntos %}
-                                                            <span class="badge text-bg-light border me-1 mb-1">{{ assunto.nome }}{% if assunto.codigo %} <span class="text-muted">({{ assunto.codigo }})</span>{% endif %}</span>
+                                                            <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto me-1 mb-1">{{ assunto.nome }}{% if assunto.codigo %} <span class="text-muted">({{ assunto.codigo }})</span>{% endif %}</span>
                                                         {% endfor %}
                                                     </span>
                                                 {% else %}
@@ -177,7 +177,7 @@
                                             <tbody>
                                                 {% for parte in processo.partes %}
                                                     <tr>
-                                                        <td><span class="badge text-bg-secondary">{{ parte.tipo }}</span></td>
+                                                        <td><span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ parte.tipo }}</span></td>
                                                         <td>{{ parte.nome }}</td>
                                                         <td>{{ parte.documento ?: '-' }}</td>
                                                         <td>{{ parte.papel ?: '-' }}</td>
@@ -213,7 +213,7 @@
                                                             {{ mov.descricao }}
                                                             {% if mov.complementosResumo %}<span class="text-muted">({{ mov.complementosResumo }})</span>{% endif %}
                                                         </td>
-                                                        <td><span class="badge bg-body-tertiary text-body-secondary">{{ mov.tipo ?: '-' }}</span></td>
+                                                        <td><span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ mov.tipo ?: '-' }}</span></td>
                                                         <td>{{ mov.orgao ?: '-' }}</td>
                                                     </tr>
                                                 {% endfor %}
@@ -309,7 +309,7 @@
                                 {% if historicoTarefas|length > 0 %}
                                     <h4 class="mb-3"><i class="bi bi-list-task me-1"></i> {{ 'processo.show.atividades_recentes'|trans }}</h4>
                                     {% for item in historicoTarefas %}
-                                    <div class="card mb-3 tarefa-card" 
+                                    <div class="bjp-painel mb-3 tarefa-card" 
                                          style="cursor: pointer; transition: all 0.2s ease;"
                                          data-bs-toggle="modal" 
                                          data-bs-target="#modalTarefa"
@@ -324,10 +324,10 @@
                                          data-tarefa-conclusao="{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|data_hora }}{% else %}-{% endif %}"
                                          data-tarefa-tempo="{% if item.tempoTotalSegundos is not null %}{% set horas = item.tempoTotalSegundos // 3600 %}{% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}{{ 'processo.show.tempo'|trans({horas: horas ~ '', minutos: '%02d'|format(minutos)}) }}{% else %}-{% endif %}"
                                          data-tarefa-url="{{ path('tarefa_show', {id: item.tarefaId}) }}">
-                                        <div class="card-body py-3">
+                                        <div class="bjp-painel-corpo card-body py-3">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <h5 class="card-title mb-0">{{ item.titulo }}</h5>
-                                                <span class="badge {% if item.statusAtual == 'concluida' %}text-bg-success{% elseif item.statusAtual == 'em_revisao' %}text-bg-info{% elseif item.statusAtual == 'pendente' or item.statusAtual == 'reaberta' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+                                                <h5 class="bjp-painel-titulo mb-0">{{ item.titulo }}</h5>
+                                                <span class="bjp-etiqueta {% if item.statusAtual == 'concluida' %}bjp-etiqueta--ok{% elseif item.statusAtual == 'em_revisao' %}bjp-etiqueta--info{% elseif item.statusAtual == 'pendente' or item.statusAtual == 'reaberta' %}bjp-etiqueta--atencao{% else %}bjp-etiqueta--neutro{% endif %}">
                                                     {{ item.statusAtual|replace({'_': ' '})|upper }}
                                                 </span>
                                             </div>
@@ -359,11 +359,11 @@
 
                     {# Right Column - Sidebar #}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        <div class="card card-primary card-outline" id="card-vinculos">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> {{ 'processo.show.vinculos'|trans }}</h3>
+                        <div class="bjp-painel" id="card-vinculos">
+                            <div class="bjp-painel-cabeca">
+                                <h3 class="bjp-painel-titulo"><i class="bi bi-link-45deg me-1"></i> {{ 'processo.show.vinculos'|trans }}</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="bjp-painel-corpo">
                                 {# Pastas em que este processo está vinculado. É o espelho da aba
                                    "Processos vinculados" da pasta
                                    (templates/pasta/_processos_vinculados.html.twig), visto do lado
@@ -399,12 +399,12 @@
                                                 {% endif %}
                                                 {% if pasta.oculta %}
                                                 {% elseif pasta.excluida %}
-                                                    <span class="badge text-bg-danger pasta-badge-excluida small"
+                                                    <span class="bjp-etiqueta bjp-etiqueta--critico pasta-badge-excluida"
                                                           title="{{ 'processo.show.excluida_em'|trans({data: pasta.excluidaEm|data_hora}) }}">
                                                         {{ 'processo.show.excluida'|trans }}
                                                     </span>
                                                 {% else %}
-                                                    <span class="badge small {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                    <span class="bjp-etiqueta {{ pasta.situacao == 'ativo' ? 'bjp-etiqueta--ok' : 'bjp-etiqueta--neutro' }}">
                                                         {{ pasta.situacao|capitalize }}
                                                     </span>
                                                 {% endif %}
@@ -424,14 +424,14 @@
 
                 </div>
             </div>
-            <div class="card-footer">
+            <div class="bjp-painel-pe">
                 <div class="d-flex justify-content-between">
-                    <a href="{{ path('processo_index') }}" class="btn btn-secondary">
+                    <a href="{{ path('processo_index') }}" class="bjp-btn bjp-btn--secundario">
                         <i class="bi bi-arrow-left me-1"></i> {{ 'processo.show.voltar'|trans }}
                     </a>
                     <div class="d-flex gap-2">
                         <a href="{{ path('processo_edit', {id: processo.id}) }}"
-                           class="btn btn-outline-primary btn-sm"
+                           class="bjp-btn bjp-btn--secundario"
                            title="{{ 'processo.comum.editar_processo'|trans }}"
                            aria-label="{{ 'processo.comum.editar_processo'|trans }}">
                             <i class="bi bi-pencil me-1"></i> {{ 'processo.comum.editar'|trans }}
@@ -439,7 +439,7 @@
                         <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('{{ 'processo.show.excluir_confirmar'|trans|e('js') }}');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
                             <button type="submit"
-                                    class="btn btn-outline-danger btn-sm"
+                                    class="bjp-btn bjp-btn--destrutivo"
                                     title="{{ 'processo.show.excluir_processo'|trans }}"
                                     aria-label="{{ 'processo.show.excluir_processo'|trans }}">
                                 <i class="bi bi-trash me-1"></i> {{ 'processo.show.excluir'|trans }}
@@ -466,7 +466,7 @@
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <p class="text-sm text-muted mb-1">{{ 'processo.show.modal.status'|trans }}</p>
-                        <span id="modalTarefaStatus" class="badge"></span>
+                        <span id="modalTarefaStatus" class="bjp-etiqueta"></span>
                     </div>
                     <div class="col-md-6">
                         <p class="text-sm text-muted mb-1">{{ 'processo.show.modal.atribuido'|trans }}</p>
@@ -508,10 +508,10 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">
                     <i class="bi bi-x me-1"></i> {{ 'processo.comum.fechar'|trans }}
                 </button>
-                <a href="#" id="modalTarefaLink" class="btn btn-primary">
+                <a href="#" id="modalTarefaLink" class="bjp-btn bjp-btn--primario">
                     <i class="bi bi-box-arrow-up-right me-1"></i> {{ 'processo.show.modal.abrir_tarefa'|trans }}
                 </a>
             </div>
@@ -541,15 +541,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const statusEl = document.getElementById('modalTarefaStatus');
             const status = button.dataset.tarefaStatus;
             statusEl.textContent = status.replace('_', ' ').toUpperCase();
-            statusEl.className = 'badge ';
+            statusEl.className = 'bjp-etiqueta ';
             if (status === 'concluida') {
-                statusEl.className += 'text-bg-success';
+                statusEl.className += 'bjp-etiqueta--ok';
             } else if (status === 'em_revisao') {
-                statusEl.className += 'text-bg-info';
+                statusEl.className += 'bjp-etiqueta--info';
             } else if (status === 'pendente' || status === 'reaberta') {
-                statusEl.className += 'text-bg-warning';
+                statusEl.className += 'bjp-etiqueta--atencao';
             } else {
-                statusEl.className += 'text-bg-secondary';
+                statusEl.className += 'bjp-etiqueta--neutro';
             }
         });
     }

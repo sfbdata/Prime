@@ -43,7 +43,7 @@
                         {# novaAba: só a modal abre em nova aba (não perder o contexto da criação);
                            a página de fallback fica igual ao comportamento antigo (mesma aba). #}
                         <a href="{{ path('pasta_show', {id: pasta.id}) }}"
-                           class="btn btn-outline-secondary btn-sm"{% if novaAba|default(false) %} target="_blank" rel="noopener"{% endif %}>{{ 'pasta_avisos.duplicada.abrir'|trans }}</a>
+                           class="bjp-btn bjp-btn--secundario"{% if novaAba|default(false) %} target="_blank" rel="noopener"{% endif %}>{{ 'pasta_avisos.duplicada.abrir'|trans }}</a>
                     </td>
                 </tr>
             {% endfor %}

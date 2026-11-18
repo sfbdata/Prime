@@ -16,8 +16,8 @@
     {# Slot de erro DESTA modal: se o "Criar mesmo assim" falhar, a modal de nova pasta já está
        fechada, então a mensagem tem de aparecer aqui, num elemento visível. #}
     <div id="avisoDuplicadaErro" class="text-danger small me-auto" style="display:none;"></div>
-    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_avisos.cancelar'|trans }}</button>
-    <button type="button" class="btn btn-primary btn-sm" id="btnCriarDuplicadaMesmoAssim"
+    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'pasta_avisos.cancelar'|trans }}</button>
+    <button type="button" class="bjp-btn bjp-btn--primario" id="btnCriarDuplicadaMesmoAssim"
             data-nome-cliente="{{ nomeCliente|e('html_attr') }}" data-nome-acao="{{ nomeAcao|e('html_attr') }}">
         <i class="bi bi-check-lg me-1"></i> {{ 'pasta_avisos.duplicada.criar_mesmo_assim'|trans }}
     </button>

@@ -11,11 +11,11 @@
                 <span class="badge {{ chamado.statusBadgeClass }} ms-2">{{ chamado.statusLabel }}</span>
             </h1>
             {% if isAdmin %}
-                <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary">
+                <a href="{{ path('servicedesk_index') }}" class="bjp-btn bjp-btn--secundario">
                     <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.show.voltar_dashboard'|trans }}
                 </a>
             {% else %}
-                <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
+                <a href="{{ path('servicedesk_meus_chamados') }}" class="bjp-btn bjp-btn--secundario">
                     <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.comum.meus_chamados'|trans }}
                 </a>
             {% endif %}
@@ -29,14 +29,14 @@
             {# Coluna principal #}
             <div class="col-lg-8">
                 {# Detalhes do chamado #}
-                <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3 class="card-title mb-0">{{ chamado.titulo }}</h3>
+                <div class="bjp-painel mb-3">
+                    <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
+                        <h3 class="bjp-painel-titulo mb-0">{{ chamado.titulo }}</h3>
                         <span class="badge {{ chamado.prioridadeBadgeClass }}">
                             {{ chamado.prioridadeLabel }}
                         </span>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <div class="mb-3">
                             <label class="form-label text-muted">{{ 'servicedesk.show.descricao'|trans }}</label>
                             <div class="p-3 bg-body-tertiary rounded">
@@ -57,7 +57,7 @@
                                         <i class="{{ anexo.icone }} me-2"></i>
                                         {{ anexo.nomeOriginal }}
                                     </span>
-                                    <span class="badge text-bg-secondary">{{ anexo.tamanhoFormatado }}</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ anexo.tamanhoFormatado }}</span>
                                 </a>
                                 {% endfor %}
                             </div>
@@ -67,11 +67,11 @@
                 </div>
 
                 {# Timeline de interações #}
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>{{ 'servicedesk.show.historico'|trans({total: interacoes|length ~ ''}) }}</h3>
+                <div class="bjp-painel mb-3">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-chat-dots me-2"></i>{{ 'servicedesk.show.historico'|trans({total: interacoes|length ~ ''}) }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         {% if interacoes|length > 0 %}
                         <div class="timeline">
                             {% for interacao in interacoes %}
@@ -112,12 +112,12 @@
 
                 {# Formulário de nova interação #}
                 {% if chamado.status != 'fechado' %}
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-reply me-2"></i>{{ 'servicedesk.show.adicionar_resposta'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-reply me-2"></i>{{ 'servicedesk.show.adicionar_resposta'|trans }}</h3>
                     </div>
                     {{ form_start(interacaoForm) }}
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <div class="mb-3">
                             {{ form_widget(interacaoForm.mensagem, {'attr': {'class': 'form-control', 'rows': 4, 'placeholder': 'servicedesk.show.mensagem_placeholder'|trans}}) }}
                             {{ form_errors(interacaoForm.mensagem) }}
@@ -130,8 +130,8 @@
                         </div>
                         {% endif %}
                     </div>
-                    <div class="card-footer">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="bjp-painel-pe">
+                        <button type="submit" class="bjp-btn bjp-btn--primario">
                             <i class="bi bi-send me-1"></i> {{ 'servicedesk.show.enviar'|trans }}
                         </button>
                     </div>
@@ -143,11 +143,11 @@
             {# Coluna lateral #}
             <div class="col-lg-4">
                 {# Informações #}
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.show.informacoes'|trans }}</h3>
+                <div class="bjp-painel mb-3">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.show.informacoes'|trans }}</h3>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="bjp-painel-corpo p-0">
                         <table class="table table-sm mb-0">
                             <tr>
                                 <th class="w-50">{{ 'servicedesk.comum.solicitante'|trans }}</th>
@@ -156,7 +156,7 @@
                             <tr>
                                 <th>{{ 'servicedesk.comum.categoria'|trans }}</th>
                                 <td>
-                                    <span class="badge text-bg-secondary">{{ chamado.categoriaLabel }}</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ chamado.categoriaLabel }}</span>
                                 </td>
                             </tr>
                             <tr>
@@ -201,11 +201,11 @@
 
                 {# Ações administrativas #}
                 {% if isAdmin %}
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-gear me-2"></i>{{ 'servicedesk.comum.acoes'|trans }}</h3>
+                <div class="bjp-painel mb-3">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-gear me-2"></i>{{ 'servicedesk.comum.acoes'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         {# Atribuir responsável #}
                         <form action="{{ path('servicedesk_atribuir', {id: chamado.id}) }}" method="POST" class="mb-3">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_atribuir_' ~ chamado.id) }}">
@@ -220,7 +220,7 @@
                                         </option>
                                     {% endfor %}
                                 </select>
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="bjp-btn bjp-btn--primario">
                                     <i class="bi bi-person-check"></i>
                                 </button>
                             </div>
@@ -238,7 +238,7 @@
                                         </option>
                                     {% endfor %}
                                 </select>
-                                <button type="submit" class="btn btn-warning">
+                                <button type="submit" class="bjp-btn bjp-btn--secundario">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </button>
                             </div>
@@ -247,16 +247,16 @@
                 </div>
 
                 {# Ações rápidas #}
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-lightning me-2"></i>{{ 'servicedesk.show.acoes_rapidas'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-lightning me-2"></i>{{ 'servicedesk.show.acoes_rapidas'|trans }}</h3>
                     </div>
-                    <div class="card-body d-grid gap-2">
+                    <div class="bjp-painel-corpo d-grid gap-2">
                         {% if chamado.status == 'aberto' %}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
-                            <button type="submit" class="btn btn-primary w-100">
+                            <button type="submit" class="bjp-btn bjp-btn--primario w-100">
                                 <i class="bi bi-play-fill me-1"></i> {{ 'servicedesk.show.iniciar_atendimento'|trans }}
                             </button>
                         </form>
@@ -266,7 +266,7 @@
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="resolvido">
-                            <button type="submit" class="btn btn-success w-100">
+                            <button type="submit" class="bjp-btn bjp-btn--sucesso w-100">
                                 <i class="bi bi-check-lg me-1"></i> {{ 'servicedesk.show.marcar_resolvido'|trans }}
                             </button>
                         </form>
@@ -276,14 +276,14 @@
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="fechado">
-                            <button type="submit" class="btn btn-secondary w-100">
+                            <button type="submit" class="bjp-btn bjp-btn--secundario w-100">
                                 <i class="bi bi-archive me-1"></i> {{ 'servicedesk.show.fechar_chamado'|trans }}
                             </button>
                         </form>
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
-                            <button type="submit" class="btn btn-outline-warning w-100">
+                            <button type="submit" class="bjp-btn bjp-btn--secundario w-100">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> {{ 'servicedesk.show.reabrir'|trans }}
                             </button>
                         </form>
@@ -293,7 +293,7 @@
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="aberto">
-                            <button type="submit" class="btn btn-outline-primary w-100">
+                            <button type="submit" class="bjp-btn bjp-btn--secundario w-100">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> {{ 'servicedesk.show.reabrir_chamado'|trans }}
                             </button>
                         </form>

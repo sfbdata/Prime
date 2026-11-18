@@ -20,7 +20,7 @@
         {# Volta para a origem quando ela é conhecida e interna (ver DjenController::destinoDeVolta);
            sem origem, o destino é a lista — que era o comportamento fixo de antes. #}
         <a href="{{ voltarPara ?: path('push_processual_index') }}"
-           id="push-voltar" class="btn btn-outline-secondary">
+           id="push-voltar" class="bjp-btn bjp-btn--secundario">
             <i class="bi bi-arrow-left me-1"></i> {{ (voltarPara ? 'djen.show.voltar' : 'djen.show.voltar_publicacoes')|trans }}
         </a>
     </div>
@@ -28,8 +28,8 @@
 
 <section class="content">
     <div class="container-fluid">
-        <div class="card mb-3">
-            <div class="card-body">
+        <div class="bjp-painel mb-3">
+            <div class="bjp-painel-corpo">
                 <div class="row g-3">
                     <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.tribunal'|trans }}</small>{{ publicacao.siglaTribunal }}</div>
                     <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.tipo'|trans }}</small>{% if (publicacao.tipoComunicacao ?? null) is not null %}{{ publicacao.tipoComunicacao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
@@ -38,9 +38,9 @@
                     <div class="col-md-6"><small class="text-muted d-block">{{ 'djen.comum.processo'|trans }}</small>
                         {% if (publicacao.numeroProcessoExibicao ?? null) is not null %}{{ publicacao.numeroProcessoExibicao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}
                         {% if publicacao.avulsa %}
-                            <span class="badge bg-secondary">{{ 'djen.comum.avulsa'|trans }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ 'djen.comum.avulsa'|trans }}</span>
                         {% else %}
-                            <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="badge bg-success text-decoration-none">{{ 'djen.show.ver_processo'|trans }}</a>
+                            <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="bjp-etiqueta bjp-etiqueta--ok bjp-etiqueta--sem-ponto text-decoration-none">{{ 'djen.show.ver_processo'|trans }}</a>
                         {% endif %}
                     </div>
                     <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.orgao'|trans }}</small>{% if (publicacao.nomeOrgao ?? null) is not null %}{{ publicacao.nomeOrgao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
@@ -53,9 +53,9 @@
         </div>
 
         {% if publicacao.destinatarios is not empty %}
-            <div class="card mb-3">
-                <div class="card-header"><h3 class="card-title">{{ 'djen.show.destinatarios'|trans }}</h3></div>
-                <div class="card-body p-0">
+            <div class="bjp-painel mb-3">
+                <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'djen.show.destinatarios'|trans }}</h3></div>
+                <div class="bjp-painel-corpo p-0">
                     <table class="table mb-0">
                         <thead><tr><th>{{ 'djen.show.nome'|trans }}</th><th>{{ 'djen.show.polo'|trans }}</th></tr></thead>
                         <tbody>
@@ -68,18 +68,18 @@
             </div>
         {% endif %}
 
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title">{{ 'djen.show.teor'|trans }}</h3>
+        <div class="bjp-painel">
+            <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
+                <h3 class="bjp-painel-titulo">{{ 'djen.show.teor'|trans }}</h3>
                 {# Auditoria 5.09: o link vem da API do DJEN; só http e https viram botão (mesma regra do pasta/_push_teor). #}
                 {% set linkDoc = (publicacao.link and (publicacao.link|lower starts with 'https://' or publicacao.link|lower starts with 'http://')) ? publicacao.link : null %}
                 {% if linkDoc %}
-                    <a href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer" class="bjp-btn bjp-btn--secundario">
                         <i class="bi bi-box-arrow-up-right me-1"></i> {{ 'djen.show.inteiro_teor'|trans }}
                     </a>
                 {% endif %}
             </div>
-            <div class="card-body">
+            <div class="bjp-painel-corpo">
                 {% if publicacao.textoHtml %}
                     {# Teor já sanitizado no controller (HtmlSanitizer 'djen') — seguro renderizar com raw. #}
                     <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
