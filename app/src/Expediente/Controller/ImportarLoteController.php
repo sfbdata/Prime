@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Exception\AgrupamentoDoLoteFalhouException;
 use App\Inteligencia\Exception\CaminhosDoLoteInvalidosException;
+use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\UseCase\SugerirAgrupamentoDoLoteUseCase;
 use App\Pasta\DTO\CriarPastaDTO;
@@ -119,7 +120,7 @@ final class ImportarLoteController extends AbstractController
         try {
             $sugestao = $this->sugerirAgrupamento->executar($user, $tenant, is_array($caminhos) ? array_values($caminhos) : []);
         } catch (InteligenciaIndisponivelException $e) {
-            return $this->erro($e->motivo->mensagem(), Response::HTTP_CONFLICT);
+            return $this->iaIndisponivel($e);
         } catch (CaminhosDoLoteInvalidosException $e) {
             return $this->erro($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AgrupamentoDoLoteFalhouException) {
@@ -191,6 +192,19 @@ final class ImportarLoteController extends AbstractController
             'secaoUrl'    => $podeAnexar ? $this->generateUrl('pasta_secao_criar', ['id' => $id]) : null,
             'secaoToken'  => $podeAnexar ? $this->csrfTokenManager->getToken('pasta_secao_criar_' . $id)->getValue() : null,
         ]);
+    }
+
+    private function iaIndisponivel(InteligenciaIndisponivelException $e): JsonResponse
+    {
+        if ($e->motivo === Disponibilidade::SaldoDaPessoaEsgotado) {
+            // O motivo faz a tela abrir a janela "Sua I.A. gratuita acabou" (spec ia-liberada-por-indicacao, seção 6).
+            return new JsonResponse(
+                ['status' => 'erro', 'mensagem' => $e->motivo->mensagem(), 'motivo' => $e->motivo->codigoDaRecusa()],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
+        return $this->erro($e->motivo->mensagem(), Response::HTTP_CONFLICT);
     }
 
     private function erro(string $mensagem, int $status): JsonResponse

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Inteligencia\Service;
 
 use App\Entity\Auth\User;
+use App\Contribua\Service\PlanoPagoDoEscritorio;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
@@ -26,6 +27,9 @@ use Doctrine\DBAL\Exception as DbalException;
  *      modos `incluso` e `adicional`; em `limite_gratis` o orçamento é a parte grátis e NÃO bloqueia (o painel do
  *      Master mostra "acima do grátis"). Padrão adotado em 24/10/2026, o dono pode rever. Orçamento nulo não trava.
  *
+ *   6. saldo da pessoa: escritório atual sem plano pago e a I.A. gratuita dela esgotada ({@see SaldoDeIaDaPessoa});
+ *      só em `para()`, o worker ({@see paraProcessamento()}) não confere.
+ *
  * O primeiro motivo encontrado é o devolvido: a UI diz exatamente por que o botão não funciona.
  */
 final class DisponibilidadeDeInteligencia
@@ -40,6 +44,8 @@ final class DisponibilidadeDeInteligencia
         private readonly bool $iaHabilitada,
         private readonly ConfiguracaoDaPlataformaDeIaRepository $plataforma,
         private readonly CustoDaIa $custo,
+        private readonly PlanoPagoDoEscritorio $planos,
+        private readonly SaldoDeIaDaPessoa $saldo,
     ) {
     }
 
@@ -72,6 +78,16 @@ final class DisponibilidadeDeInteligencia
     public function paraEscritorio(Tenant $tenant): Disponibilidade
     {
         return $this->plataformaEEscritorio($tenant)[0];
+    }
+
+    /**
+     * A pessoa usa a I.A. neste escritório (permissão, plataforma, Master e escritório), sem olhar cota nem saldo. Para
+     * a barra de uso, que sai em toda página com a Central: a permissão vem primeiro porque não custa consulta.
+     */
+    public function pessoaUsaAIa(User $user, Tenant $tenant): bool
+    {
+        return $this->permissionChecker->canAccessModule($user, $tenant, self::MODULO)
+            && $this->paraEscritorio($tenant)->estaDisponivel();
     }
 
     /**
@@ -144,6 +160,11 @@ final class DisponibilidadeDeInteligencia
 
         if ($this->orcamentoAtingido($configuracao, $tenant, $inicioDoMes)) {
             return Disponibilidade::OrcamentoAtingido;
+        }
+
+        // Por último: a pessoa só vê "convide um colega" quando é isso que de fato a libera. O worker não confere.
+        if (!$this->planos->temPlanoPago((int) $tenant->getId()) && $this->saldo->de($user)->esgotado) {
+            return Disponibilidade::SaldoDaPessoaEsgotado;
         }
 
         return Disponibilidade::Disponivel;

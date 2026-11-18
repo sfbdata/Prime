@@ -191,6 +191,24 @@ inteligencia:
             nota: Valores estimados pelo preço de tabela da Anthropic.
         mascarar: Recomendado. O número do processo nunca é mascarado.
         salvar: Salvar
+    saldo:
+        barra_texto: 'I.A. gratuita: {usadas} de {direito} peças usadas'
+        barra_aviso: Resta menos de 1 peça. Convide um colega para ganhar mais 3.
+        barra_aria: Uso da I.A. gratuita
+        ganhar_mais: Ganhar mais
+        janela_titulo: Sua I.A. gratuita acabou
+        janela_texto: 'Você usou o equivalente a {pecas} peças. Convide um colega: quando ele se cadastrar e confirmar o e-mail, você ganha mais 3.'
+        janela_titulo_convite: Ganhe mais I.A. gratuita
+        janela_texto_convite: 'Convide um colega: quando ele se cadastrar e confirmar o e-mail, você ganha mais 3 peças.'
+        copiar: Copiar meu link
+        copiado: Link copiado.
+        whatsapp: Enviar pelo WhatsApp
+        email: Convidar por e-mail
+        fechar: Fechar
+        plano_pago: Com um plano pago, o escritório usa a I.A. sem esse limite.
+        plano_pago_link: Ver os planos
+        falhou: Não foi possível carregar o seu link agora. Tente de novo.
+        leitura_aviso: Esta leitura pode usar boa parte da sua I.A. gratuita
     js:
         agentes:
             falha_atualizar: Não foi possível atualizar as análises.

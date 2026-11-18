@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Contribua\Service\PlanoPagoDoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
@@ -15,6 +16,7 @@ use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\CustoDaIa;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
+use App\Inteligencia\Service\SaldoDeIaDaPessoa;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use App\Service\PermissionChecker;
 use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
@@ -50,9 +52,9 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         $this->user = new User();
     }
 
-    private function sut(ProvedorDeLinguagem $provedor, bool $flag = true, bool $chaveGeral = true): DisponibilidadeDeInteligencia
+    private function sut(ProvedorDeLinguagem $provedor, bool $flag = true, bool $chaveGeral = true, ?PlanoPagoDoEscritorio $planos = null, ?SaldoDeIaDaPessoa $saldo = null): DisponibilidadeDeInteligencia
     {
-        return new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, $flag, $this->plataformaDeIa($chaveGeral), new CustoDaIa('global'));
+        return new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, $flag, $this->plataformaDeIa($chaveGeral), new CustoDaIa('global'), $planos ?? $this->planoPagoNoTeste(), $saldo ?? $this->saldoNoTeste());
     }
 
     private function configuracao(bool $habilitada, int $diario = 50, int $mensal = 500, bool $liberada = true): ConfiguracaoDeInteligencia
@@ -121,7 +123,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
     {
         $plataforma = $this->createMock(\App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository::class);
         $plataforma->expects($this->never())->method('obter');
-        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, false, $plataforma, new CustoDaIa('global'));
+        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, false, $plataforma, new CustoDaIa('global'), $this->planoPagoNoTeste(), $this->saldoNoTeste());
 
         self::assertFalse($sut->plataformaConfigurada());
     }
@@ -134,7 +136,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
             new class ('relation "inteligencia_plataforma" does not exist') extends \Doctrine\DBAL\Driver\AbstractException {},
             null,
         ));
-        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $plataforma, new CustoDaIa('global'));
+        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $plataforma, new CustoDaIa('global'), $this->planoPagoNoTeste(), $this->saldoNoTeste());
 
         self::assertSame(Disponibilidade::NaoConfiguradaNaPlataforma, $sut->paraEscritorio($this->tenant));
     }
@@ -341,5 +343,68 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         self::assertSame(Disponibilidade::NaoLiberadaPeloMaster, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
         self::assertSame(Disponibilidade::DesligadaNoEscritorio, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
         self::assertSame(Disponibilidade::SemPermissao, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
+    }
+
+    private function portaoAbertoAteOSaldo(): void
+    {
+        $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true));
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->method('contarDesde')->willReturn(0);
+    }
+
+    #[TestDox('saldo da pessoa esgotado em escritório sem plano pago → SaldoDaPessoaEsgotado')]
+    public function testSaldoEsgotadoNoEscritorioFree(): void
+    {
+        $this->portaoAbertoAteOSaldo();
+
+        $motivo = $this->sut(new ProvedorFalso(), planos: $this->planoPagoNoTeste(false), saldo: $this->saldoNoTeste(true))->para($this->user, $this->tenant);
+
+        self::assertSame(Disponibilidade::SaldoDaPessoaEsgotado, $motivo);
+        self::assertFalse($motivo->ehLimiteDeCota());
+        self::assertSame('saldo_da_pessoa_esgotado', $motivo->codigoDaRecusa());
+        self::assertSame('Sua I.A. gratuita acabou. Convide um colega para ganhar mais 3 peças.', $motivo->mensagem());
+    }
+
+    #[TestDox('escritório com plano pago libera mesmo com o saldo esgotado, sem nem calcular o saldo')]
+    public function testPlanoPagoLibera(): void
+    {
+        $this->portaoAbertoAteOSaldo();
+        $saldo = $this->createMock(SaldoDeIaDaPessoa::class);
+        $saldo->expects($this->never())->method('de');
+
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso(), planos: $this->planoPagoNoTeste(true), saldo: $saldo)->para($this->user, $this->tenant));
+    }
+
+    #[TestDox('escritório Free com saldo sobrando libera')]
+    public function testSaldoComFolgaLibera(): void
+    {
+        $this->portaoAbertoAteOSaldo();
+
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso(), planos: $this->planoPagoNoTeste(false), saldo: $this->saldoNoTeste(false))->para($this->user, $this->tenant));
+    }
+
+    #[TestDox('as travas antigas vêm antes do saldo (limite diário do escritório)')]
+    public function testTravasAntigasVemAntesDoSaldo(): void
+    {
+        $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true, diario: 1));
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->method('contarDesde')->willReturn(1);
+        $saldo = $this->createMock(SaldoDeIaDaPessoa::class);
+        $saldo->expects($this->never())->method('de');
+
+        self::assertSame(Disponibilidade::LimiteAtingido, $this->sut(new ProvedorFalso(), planos: $this->planoPagoNoTeste(false), saldo: $saldo)->para($this->user, $this->tenant));
+    }
+
+    #[TestDox('paraProcessamento não confere o saldo: o pedido já foi aceito')]
+    public function testParaProcessamentoIgnoraOSaldo(): void
+    {
+        $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true));
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $saldo = $this->createMock(SaldoDeIaDaPessoa::class);
+        $saldo->expects($this->never())->method('de');
+        $planos = $this->createMock(PlanoPagoDoEscritorio::class);
+        $planos->expects($this->never())->method('temPlanoPago');
+
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso(), planos: $planos, saldo: $saldo)->paraProcessamento($this->user, $this->tenant));
     }
 }
