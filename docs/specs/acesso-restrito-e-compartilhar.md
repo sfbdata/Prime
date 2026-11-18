@@ -323,3 +323,12 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   sem responsável" (e o aviso "A pasta {nup} ficou sem responsável."); (2) o restrito vê o aviso do desenho (L877) sem abrir a L8 (`acesso_restrito()` no Twig, o
   servidor recusa do mesmo jeito); (3) o ícone L1 da linha se atualiza pelo `ExpCompartilhar.atualizar`, que a fatia
   8 acrescenta (até lá, só no recarregar). O cartão "Responsável" do Registro já existia.
+- 18/11: fatia 3, parte dos avisos (o conector espera o PR 7 do conector). Mapa: os avisos e e-mails da pasta já
+  respeitam o escopo sem mudança, porque passam pelo `NivelNoCadeado` (que devolve `Oculto` fora do escopo):
+  `QuemAcompanhaAPasta` (pasta acompanhada), os avisos de meta (`NotificacaoService::veAPastaDaMeta` na criação),
+  menções do Registro, "Avisar quando chegar" do Push, relatórios de pastas paradas e sem processo, e o corte do
+  sino na leitura (`idsDasPastasOcultasNaSessao` soma `idsForaDoEscopo`). O aviso de prazo pelo chat não filtra o
+  destinatário na criação, mas o link `/pasta/<id>` o tira do sino na leitura. Corrigido: o aviso de meta levava a
+  `/tarefas/<id>`, que é "Fora do seu acesso" para o restrito; agora (`LinkDoAviso`, no dropdown do sino e no "Ver
+  todas") leva à aba Metas da pasta já na meta (`/pasta/<id>?meta=<id>#tarefas`), e o aviso de metas sem meta
+  própria (metas redistribuídas, menção no despacho) fica sem link. Quem não é restrito não muda.
