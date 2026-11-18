@@ -18,7 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * O "N de M" entre as setas ‹ › do cabeçalho: a linha da pasta na lista do Expediente.
  *
  * Mesma ordem das setas — número decrescente, `id` desempatando — e mesmo conjunto
- * (ativas, arquivadas e lápides do escritório). Os cenários conferem também que a seta ‹
+ * (ativas e arquivadas do escritório; a lápide mora só na lixeira desde 18/11/2026). Os cenários conferem também que a seta ‹
  * leva à pasta da posição N-1: contador e setas não podem discordar.
  */
 #[CoversClass(PastaRepository::class)]
@@ -119,8 +119,8 @@ final class PastaRepositoryPosicaoNoAcervoTest extends KernelTestCase
         self::assertSame([1, 1], $this->posicao($sozinha));
     }
 
-    #[TestDox('arquivada e excluída contam, como contam nas setas e na lista')]
-    public function testArquivadaEExcluidaContam(): void
+    #[TestDox('arquivada conta e a excluída não, como nas setas e na lista; a própria lápide fica sem posição')]
+    public function testArquivadaContaEExcluidaNao(): void
     {
         $tenant  = $this->criarTenant();
         $ativa   = $this->criarPasta($tenant, '1001');
@@ -137,7 +137,8 @@ final class PastaRepositoryPosicaoNoAcervoTest extends KernelTestCase
         $riscada->marcarExcluida($user, new \DateTimeImmutable());
         $this->em->flush();
 
-        self::assertSame([3, 3], $this->posicao($ativa));
+        self::assertSame([2, 2], $this->posicao($ativa));
+        self::assertNull($this->repo->posicaoNoAcervo($riscada), 'a lápide não ocupa linha da lista');
     }
 
     /**

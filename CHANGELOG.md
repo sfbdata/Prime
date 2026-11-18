@@ -8,6 +8,65 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.57.0] - 2026-11-18
+
+### Alterado
+
+- Pasta excluída (lápide) sai da lista do Expediente, das contagens, dos marcadores, do CSV, das setas da pasta, dos números do Dashboard e da consulta do agente de pastas: fica só na lixeira do escritório. Substitui as decisões de 28/08 e 31/08 (lápide riscada na lista), a pedido do Samuel.
+- O próximo número de pasta não conta mais a pasta excluída: se ela era a última, o número dela volta a ser usado. Números do meio continuam sem uso (maior número + 1).
+- Restaurar da lixeira é recusado quando outra pasta do escritório já usa o mesmo número, com a mensagem "O número X já é usado por outra pasta. Mude o número dela antes de restaurar esta."
+
+### Corrigido
+
+- Push Processual: o teor em texto corrido (TJGO, TJDFT e outros) decodifica as entidades HTML antes de escapar, então "JUDICI&Aacute;RIO", "&nbsp;" e "-&gt;" aparecem como acento, espaço e seta. Vale também para as publicações já gravadas, porque a correção é na exibição. O texto continua escapado na tela (sem abrir XSS).
+
+## [2.56.0] - 2026-11-16
+
+### Adicionado
+
+- Conector de I.A. (spec mcp-remoto-oauth, PR 3): base do servidor de autorização próprio. Constantes do servidor (`ServidorDeAutorizacao`: issuer, resource, escopos, nomes de rota), `ErroOAuth` (códigos da RFC 6749 com descrição fixa), `SegredoOpaco` (256 bits em base64url, banco guarda só o SHA-256), `ImpressaoDaSenha` (HMAC do hash da senha com o segredo da aplicação) e `LiberacaoDoConector` (os três níveis da decisão 14.a: chave geral, escritório liberado pelo Master, ligado com o aceite vigente).
+- Registro do cliente por CIMD: interface `RegistroDeClientes` com a recusa `ClienteRecusado` (motivo e host, sem redirecionar) e a implementação `RegistroDeClientesPorCimd`.
+- Chave `conector_ia` nas Funções do catálogo de telas e recursos do Master, sem rota; a rota de ligar e desligar chave do Master passa a aceitar sublinhado.
+- Motivo novo `codigo_reutilizado` na revogação da concessão; troca de escopos no consentimento ao reautorizar; busca do código com a linha travada (`FOR UPDATE`).
+- Rotas do `/oauth/*` nas listas do `TenantContextValidatorListener`, do `TermoAceiteListener` (sem o authorize) e do `TenantFilterListener` (o authorize e o token, sem o filtro da sessão); `/oauth/authorize` como destino do login.
+- Tela de autorização `/oauth/authorize`: valida o pedido do app (PKCE S256, `resource`, `redirect_uri` da lista, `iss` em todo retorno), guarda o pedido na sessão para uso único, lista os escritórios da pessoa e grava consentimento, concessão e código; comando `conector:liberar <escritório> --master=<e-mail>` para o escritório piloto.
+- Troca do código e da renovação no `/oauth/token` (rotação com janela de 60 s, renovação reapresentada derruba a concessão, rotações em fila pela concessão) e metadado RFC 8414 em `/.well-known/oauth-authorization-server`.
+- Registro do cliente por CIMD com busca segura (sem rede interna, sem redirecionamento, teto de tamanho e tempo), cache pelos cabeçalhos e uso do documento gravado quando a renovação falha.
+- Faxina diária `app:conector:faxinar` no Scheduler (01:10): códigos, tokens, concessões e propostas vencidos.
+- `security.yaml`: acesso público só ao `/oauth/token` e ao metadado RFC 8414. `framework.yaml`: limites `conector_token` e `conector_cimd`. Parâmetro `conector.cimd_hosts` (`CONECTOR_CIMD_HOSTS`, padrão `claude.ai,chatgpt.com`).
+- Conector de I.A. (spec mcp-remoto-oauth, PR 5): contrato do `/mcp`. Rotas e caminhos do `/mcp` e do metadado do recurso em `ServidorDeAutorizacao`; `TipoDeFerramenta`; `CatalogoFechadoDoConector` com as 17 ferramentas (7 de leitura, 9 de gravação e a `confirmar_acao`), títulos, anotações MCP explícitas, `_meta` com `securitySchemes` e a `ScopePolicy` do SDK (`mcp:escrita` para gravar e confirmar); interface `FerramentaDoConector` (tag `conector.ferramenta`), `ChamadaDoConector`, `RespostaDaFerramenta`, `ErroDaFerramenta`, `RequisicaoDoConector` (por requisição, com `reset`) e `RegistroDasFerramentas`.
+- `security.yaml`: firewall `conector_mcp` (`^/mcp$`, sem sessão, autenticador de bearer) e acesso público ao `/mcp` e ao metadado do recurso nas duas URLs. `framework.yaml`: limites `conector_chamada`, `conector_chamada_escritorio`, `conector_documento` e `conector_confirmacao`. Parâmetro `conector.mcp_hosts` (`CONECTOR_MCP_HOSTS`, padrão `bluejus.com.br`).
+- Rotas do `/mcp` e do metadado do recurso nas listas do `TenantContextValidatorListener` e do `TermoAceiteListener`; o `/mcp` sem o filtro de escritório da sessão (`TenantFilterListener`). O `IdiomaDaRequisicaoListener` não toca a sessão em requisição sem sessão.
+- nginx de produção: `location ^~ /.well-known/oauth-` antes do bloqueio de arquivos ocultos, que barrava os metadados OAuth com 403. O deploy confere e recarrega o nginx sozinho.
+- O `/mcp`: autenticação pelo token de acesso a cada pedido (tipo, validade, `resource`, conferência da concessão e o portão do escritório), limite de chamadas por pessoa e por escritório, servidor do SDK MCP sem sessão, metadado RFC 9728 nas duas URLs, log `mcp` de uma linha por pedido sem dado pessoal, e a primeira ferramenta, `quem_sou_eu`.
+- Listeners de sessão (`ExpiracaoDaSessaoListener`, `SessaoEncerradaEmTodosOsAparelhosListener`) e a pasta da rota não tocam a sessão em rota sem sessão.
+- Conector de I.A. (spec mcp-remoto-oauth, PR 8): telas pela convenção do sistema. Cartão "Conexões de I.A." no Meu Perfil (lista as conexões da pessoa em todos os escritórios e revoga, com confirmação); cartão "Conector de I.A." na aba "Configurações da I.A." do Master (liberar ou bloquear por escritório, com a contagem de conexões ativas); cartão no `/admin/inteligencia` para o administrador ligar o conector com o aceite ou desligar.
+- UseCases `ListarConexoesDaPessoa`, `RevogarConexao`, `AlterarLiberacaoDoConectorPeloMaster`, `ObterConectorNoPainelDoMaster`, `AlterarConectorDoEscritorio` e `ObterConectorDoEscritorio`; controllers `ConexoesNoPerfilController`, `ConectorDoEscritorioController` e `ConectorDoMasterController`; textos novos em `translations/conector/`.
+- Desligar ou bloquear o conector suspende sem derrubar a conexão: a renovação do token não confere mais a liberação, e o `/mcp` responde 403 "conector desligado" sem desafio, em vez de 401. Religar volta a valer sem reconectar; o limite de 7 dias continua correndo.
+- Serviço `SemFiltroDoEscritorio`: o único lugar do conector, fora do portão, que suspende o filtro de escritório (nunca o liga).
+- Voto: tabela `voto.ocorrencia_da_unidade` (migration `Version20261117050000`), só acrescenta: ocorrência com texto até 80, origem (importação ou manual), autor, avaliação (pendente, mantida, tornada apta), decisão e justificativa até 160. Índice único parcial: uma avaliação pendente por unidade. Entra na purga e em `NAO_AUDITAVEIS`.
+- `Assembleia` ganha `hash_da_lista` (sha256) e `lista_travada_em`, gravados quando a primeira pauta sai de Aguardando; a decisão do conselho não recalcula.
+- Casos de uso `RegistrarOcorrenciaUseCase`, `DecidirAvaliacaoUseCase` e `ObterAvaliacoesDaAssembleiaUseCase`, trilha em `audit_log` ("Ocorrência registrada", "Inaptidão alterada pelo conselho", "Inaptidão mantida pelo conselho") só com ids.
+- `AcessoAAssembleia`: `podeRegistrarOcorrencia`, `podeDecidirAvaliacao`, `podeVerAvaliacoes`. A decisão do conselho é a única escrita do nível Visualizar (rota em `ROTAS_DO_VISUALIZAR`, papel conferido também no caso de uso); funções Twig `voto_decide_avaliacao`. `docs/AUTORIZACAO.md` atualizado.
+- Importação da lista aceita a 8ª coluna "Ocorrência" (sem abrir avaliação).
+- Telas: sub-aba "Avaliações", busca, hash e contador na lista de unidades, ocorrência na cédula da unidade não apta e seção na ata.
+- Master: KPIs "Ocorrências", "Avaliações pendentes", "Inaptidões mantidas" e "Tornados aptos" por assembleia, colunas `ocorrencias;pendentes;mantidas;tornados_aptos` no CSV e "N ocorrência(s)" em cada linha.
+- Voto: categoria da assembleia (condomínio, associação, sociedade, entre outras) com rótulos próprios de entidade, identificação e assinaturas, levados às pautas, à cédula, às unidades e à aba Votar.
+- Voto: lista de aptos com soma das frações.
+- Voto: pauta com horário programado de abertura e encerramento, grupos que votam nela, ordem das candidaturas e voto aberto com relação nominal.
+- Voto: aba Votar lista as votações publicadas, com as opções de cada pauta e simulação sem link de acesso.
+- Voto: minuta de ata em Word (com papel timbrado opcional) e em PDF, por votação.
+- Voto: simulação do evento inteiro, com reiniciar e apagar, fora dos números do painel e marcada "(SIMULAÇÃO)" na ata e na minuta.
+- Voto: o cadastro da assembleia virou um assistente de 7 passos (Categoria, Regras e prazo, Acesso, Cargos, Lista de aptos, Equipe e Revisar), com trilho clicável, aviso de alterações não salvas, revisão com pendências e "Ver na urna" (simulação, sem registrar voto).
+- Voto: equipe própria por assembleia (tela Perfis), que só restringe o acesso: comissão edita; auditoria, fiscal e conselho só leem; quem não está na equipe não vê a assembleia. Sem equipe própria, todos com o módulo seguem operando a assembleia.
+- Voto: relação de votantes na ata só nas categorias com lista, só depois do encerramento da pauta, em ordem alfabética, com faixa de horário no lugar da hora exata e registro de cada emissão na auditoria.
+- Voto: passo Equipe do assistente com a escolha "Usar a equipe padrão" ou "Equipe própria com os cargos desta categoria", lista de cargos ("A designar") e botão Indicar pessoas; a revisão avisa dos cargos sem pessoa indicada.
+- Master: estatísticas de todas as votações (só números agregados), com filtro por categoria e exportação em CSV.
+
+### Corrigido
+
+- Contribua: saem dois ícones que o desenho de 14 e 15/11 não tem: o da linha do bônus de indicação em "Meu espaço" (`bi-gift`) e o do aviso "Você digita o cartão na página segura" no checkout (`bi-box-arrow-up-right`). Os textos continuam.
+
 ## [2.55.0] - 2026-11-16
 
 ### Adicionado
@@ -2036,7 +2095,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.55.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.57.0...HEAD
+[2.57.0]: https://github.com/sfbdata/Prime/compare/v2.56.0...v2.57.0
+[2.56.0]: https://github.com/sfbdata/Prime/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/sfbdata/Prime/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/sfbdata/Prime/compare/v2.53.0...v2.54.0
 [2.53.0]: https://github.com/sfbdata/Prime/compare/v2.52.1...v2.53.0

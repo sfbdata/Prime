@@ -15,8 +15,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * A corrente inteira da exclusão-lápide, pela tela: excluir → a pasta continua na lista riscada,
- * a tela dela avisa, o histórico registra e a auditoria guarda quem/quando.
+ * A corrente inteira da exclusão-lápide, pela tela: excluir → a pasta sai da lista do Expediente
+ * (mora só na lixeira desde 18/11/2026), a tela dela avisa, o histórico registra e a auditoria
+ * guarda quem/quando.
  *
  * Suíte verde não diz nada sobre APARÊNCIA — o risco em si é CSS e continua invisível para o
  * PHPUnit. O que dá para provar aqui é o arranjo: a classe que o CSS usa está na linha certa, e
@@ -88,13 +89,13 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         $client->request('POST', $url, $payload + ['_token' => 'TOKEN_' . $tokenId]);
     }
 
-    #[TestDox('Excluir pasta do meio pela tela: continua na lista, riscada, e a tela dela avisa')]
-    public function testExcluirPelaTelaDeixaALapideVisivel(): void
+    #[TestDox('Excluir pasta do meio pela tela: sai da lista do Expediente e a tela dela avisa')]
+    public function testExcluirPelaTelaTiraALapideDaLista(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $doMeio          = $this->criarPasta($tenant, '1238');
-        $this->criarPasta($tenant, '1239');
+        $vizinha         = $this->criarPasta($tenant, '1239');
 
         $client->disableReboot();
         $this->instalarCsrfStorage();
@@ -125,7 +126,7 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         // ── O histórico registra ─────────────────────────────────────────────
         self::assertStringContainsString('Pasta excluída', $crawler->filter('#psHistorico')->html());
 
-        // ── A lista do Expediente mostra riscada ─────────────────────────────
+        // ── A lista do Expediente não mostra mais a pasta ────────────────────
         // O painel do acervo é fragmento: sem o cabeçalho de XHR ele redireciona para a home do
         // Expediente (que lista marcadores, não pastas) — foi o 302 que derrubou este teste antes.
         $lista = $client->request(
@@ -134,11 +135,13 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
             [], [], ['HTTP_X-Requested-With' => 'XMLHttpRequest'],
         );
         self::assertResponseIsSuccessful();
-        self::assertGreaterThan(
+        self::assertSame(
             0,
             $lista->filter('tr.pasta-excluida')->count() + $lista->filter('.pasta-card.pasta-excluida')->count(),
-            'A pasta excluída precisa continuar aparecendo na lista, com a marca do riscado.',
+            'A pasta excluída não pode mais aparecer na lista: ela fica só na lixeira.',
         );
+        self::assertCount(0, $lista->filter(sprintf('[data-pasta-id="%d"]', $doMeio->getId())), 'Nenhuma linha leva à pasta excluída.');
+        self::assertGreaterThan(0, $lista->filter(sprintf('[data-pasta-id="%d"]', $vizinha->getId()))->count(), 'pré-condição: a vizinha viva continua na lista.');
     }
 
     #[TestDox('A AUDITORIA guarda a exclusão: ação, autor, rota e o que mudou')]

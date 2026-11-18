@@ -689,6 +689,7 @@ class PastaRepository extends ServiceEntityRepository
             ->select('m.id AS marcador_id, COUNT(p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('m.id');
         $this->soAsVisiveis($qb, $quemBusca);
@@ -714,6 +715,7 @@ class PastaRepository extends ServiceEntityRepository
             ->select('COALESCE(IDENTITY(m.pai), m.id) AS raiz, COUNT(DISTINCT p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('raiz');
         $this->soAsVisiveis($qb, $quemBusca);
@@ -878,12 +880,15 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * Aplica os filtros globais do Dashboard a uma query cujo alias raiz é 'p':
-     * período por `p.dataAbertura` e, quando $filtrarResponsavel, o responsável.
+     * período por `p.dataAbertura` e, quando $filtrarResponsavel, o responsável. A pasta excluída
+     * (lápide) não conta em nenhum número do Dashboard, como não aparece na lista para onde ele leva.
      *
      * @param array<string, mixed> $filtros  data_de, data_ate, responsavel
      */
     private function aplicarFiltrosDashboard(QueryBuilder $qb, array $filtros, bool $filtrarResponsavel): void
     {
+        $qb->andWhere('p.excluidaEm IS NULL');
+
         $dataDe = $this->parseDataFiltro((string) ($filtros['data_de'] ?? ''), false);
         if ($dataDe !== null) {
             $qb->andWhere('p.dataAbertura >= :fDataDe')->setParameter('fDataDe', $dataDe);
@@ -915,8 +920,12 @@ class PastaRepository extends ServiceEntityRepository
      */
     private function buildQbByFilters(array $filters, Tenant $tenant, ?User $quemBusca = null): QueryBuilder
     {
+        // A pasta excluída (lápide) mora só na lixeira do escritório: não entra na lista, nas
+        // contagens, no CSV nem nas consultas que reaproveitam este filtro (pedido do Samuel,
+        // 18/11/2026, que substitui as decisões de 28/08 e 31/08 de manter a lápide riscada).
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant);
 
         $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
@@ -939,6 +948,7 @@ class PastaRepository extends ServiceEntityRepository
             ->where('m = :marcador OR m.pai = :marcador')
             ->setParameter('marcador', $marcador)
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // lápide só na lixeira, como em buildQbByFilters
             ->setParameter('tenant', $tenant);
 
         // O marcador é atributo: a pasta oculta para quem consulta não entra no painel dele (D1).
@@ -1013,9 +1023,8 @@ class PastaRepository extends ServiceEntityRepository
 
         // "Pastas criadas por X" — destino do número clicável do Dashboard. Usa EXATAMENTE o
         // critério de countCriadasPorCriador: JOIN interno com o criador (pasta sem criador
-        // fica de fora) e SEM a lápide (`excluidaEm IS NULL`). A exclusão da lápide só vale
-        // quando este filtro vem: sem ele, o acervo segue listando a lápide riscada, como
-        // sempre (decisão do dono, 31/08). Sem isso o número clicado não bateria com a lista.
+        // fica de fora) e SEM a lápide (`excluidaEm IS NULL`, que agora vale para todo o acervo:
+        // ver buildQbByFilters). Sem isso o número clicado não bateria com a lista.
         //
         // `criado_por=equipe` (e `equipe:<cargo>`) é o destino do "ver pastas" do CARD Pastas
         // criadas (DASH-006): o card soma as linhas da tabela, ou seja, conta as pastas cujo
@@ -1040,12 +1049,10 @@ class PastaRepository extends ServiceEntityRepository
             }
 
             $qb->join('p.criadoPor', 'criador_f')
-               ->andWhere('EXISTS (' . $sub . ')')
-               ->andWhere('p.excluidaEm IS NULL');
+               ->andWhere('EXISTS (' . $sub . ')');
         } elseif (!empty($filters['criado_por'])) {
             $qb->join('p.criadoPor', 'criador_f')
                ->andWhere('criador_f.id = :criadoPor')
-               ->andWhere('p.excluidaEm IS NULL')
                ->setParameter('criadoPor', (int) $filters['criado_por']);
         }
 
@@ -1553,8 +1560,9 @@ class PastaRepository extends ServiceEntityRepository
      * três pastas com o número 1214). Sem ele, duas pastas de mesmo número
      * apontariam uma para a outra e a navegação entraria em looping.
      *
-     * Entram TODAS as pastas do escritório — ativas, arquivadas e a lápide da
-     * excluída (decisão do dono, 31/08): é o mesmo conjunto que a lista mostra.
+     * Entram as pastas ativas e arquivadas do escritório, sem a lápide da excluída (ela mora só
+     * na lixeira desde 18/11/2026): é o mesmo conjunto que a lista mostra. Aberta a partir da
+     * lixeira, a lápide ainda tem setas para as vizinhas vivas.
      *
      * Custo medido no acervo do dev (1.055 pastas): ~2,6 ms por lado, varredura sequencial
      * mais `top-N heapsort`. A chave é uma expressão sobre o NUP e nenhum índice a atende;
@@ -1613,6 +1621,7 @@ class PastaRepository extends ServiceEntityRepository
         $linha = $qb
             ->select('p.id', 'p.nup', 'p.nomeCliente')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             // `orX`/`andX` (e não uma string com OR solto) para o parêntese existir de fato: sem ele
             // o OR escaparia do filtro de tenant e a seta atravessaria escritórios.
             ->andWhere($qb->expr()->orX(
@@ -1649,15 +1658,15 @@ class PastaRepository extends ServiceEntityRepository
      * O "N de M" entre as setas ‹ › do cabeçalho: em que linha da lista do Expediente a
      * pasta está e quantas linhas a lista tem.
      *
-     * Mesmo conjunto e mesma chave das setas (`vizinhasNoAcervo` / `vizinha`): todas as
-     * pastas do escritório — ativas, arquivadas e lápides —, ordenadas por (prefixo numérico
+     * Mesmo conjunto e mesma chave das setas (`vizinhasNoAcervo` / `vizinha`): as pastas
+     * ativas e arquivadas do escritório, sem as lápides, ordenadas por (prefixo numérico
      * do NUP, NUP cru, id) DECRESCENTE. A posição é quantas pastas têm chave MAIOR (as que
      * ficam acima na lista) + 1; o total é o COUNT do mesmo conjunto. Se as expressões
      * divergissem das de `vizinha()`, o número diria "3 de 7" com a seta ‹ levando a uma
      * pasta que não é a 2ª — por isso as duas leem as mesmas constantes da classe.
      *
-     * Devolve nulo quando a pasta não tem tenant ou ainda não foi persistida: não há
-     * acervo em que ela ocupe uma linha.
+     * Devolve nulo quando a pasta não tem tenant, ainda não foi persistida ou está excluída
+     * (lápide): não há linha da lista que ela ocupe.
      *
      * @return ?array{posicao: int, total: int}
      */
@@ -1666,7 +1675,7 @@ class PastaRepository extends ServiceEntityRepository
         $tenant = $pasta->getTenant();
         $id     = $pasta->getId();
 
-        if ($tenant === null || $id === null) {
+        if ($tenant === null || $id === null || $pasta->estaExcluida()) {
             return null;
         }
 
@@ -1681,6 +1690,7 @@ class PastaRepository extends ServiceEntityRepository
         $acima = (int) $qb
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             // `orX`/`andX` para o parêntese existir: um OR solto escaparia do filtro de tenant.
             ->andWhere($qb->expr()->orX(
                 $qb->expr()->gt($prefixo, ':prefixo'),
@@ -1704,6 +1714,7 @@ class PastaRepository extends ServiceEntityRepository
         $total = (int) $this->createQueryBuilder('p')
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getSingleScalarResult();
