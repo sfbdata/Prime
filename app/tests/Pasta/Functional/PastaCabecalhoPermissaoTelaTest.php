@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Twig\PermissionExtension;
@@ -175,7 +176,7 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $form);
         self::assertNull($form->attr('data-numero-ocupado'), 'número livre: sem aviso');
 
-        $outra = $this->criarPasta($tenant);
+        $outra = $this->criarPasta($this->em()->find(Tenant::class, $tenant->getId()));
         $outra->setNup('4321');
         $this->em()->flush();
 

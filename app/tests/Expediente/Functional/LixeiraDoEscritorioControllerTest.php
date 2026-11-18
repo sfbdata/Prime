@@ -255,9 +255,10 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         $client  = $this->cliente();
         $tenant  = $this->criarTenant();
         $quemLe  = $this->criarUsuarioComPermissoes($tenant, self::QUEM_LE);
-        $quemDel = $this->criarUsuarioComPermissoes($tenant, [...self::QUEM_LE, 'resources.pasta.delete']);
+        $quemDel = $this->criarUsuarioComPermissoes($tenant, self::QUEM_LE);
         $lapide  = $this->criarPasta($tenant, 'LAP-9', 'JOSE');
         $this->criarPasta($tenant, 'LAP-9');
+        $this->darExclusao($quemDel, $tenant, $lapide);
         $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = :em, excluida_por_id = :por WHERE id = :id', ['em' => '2026-10-05 08:00:00', 'por' => $quemDel->getId(), 'id' => $lapide->getId()]);
 
         $g = $this->pedir($client, $quemLe, $tenant)['grupos'][0];
@@ -277,7 +278,7 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
     {
         $client = $this->cliente();
         $tenant = $this->criarTenant();
-        $quem   = $this->criarUsuarioComPermissoes($tenant, [...self::QUEM_LE, 'resources.pasta.delete']);
+        $quem   = $this->criarUsuarioComPermissoes($tenant, self::QUEM_LE);
         $alheio = $this->criarTenant();
         $pasta  = $this->criarPasta($alheio, 'ALHEIA-LAP');
         $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = NOW() WHERE id = :id', ['id' => $pasta->getId()]);
@@ -507,6 +508,21 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         $acesso->setResourceId((int) $pasta->getId());
         $acesso->setCanView(true);
         $acesso->setCanEdit(true);
+        $this->em()->persist($acesso);
+        $this->em()->flush();
+    }
+
+    /** EDITAR e EXCLUIR a pasta, item a item (o papel de teste tem o nome limitado a 100 caracteres). */
+    private function darExclusao(User $user, Tenant $tenant, Pasta $pasta): void
+    {
+        $acesso = new ResourceAccess();
+        $acesso->setUser($user);
+        $acesso->setTenant($tenant);
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $pasta->getId());
+        $acesso->setCanView(true);
+        $acesso->setCanEdit(true);
+        $acesso->setCanDelete(true);
         $this->em()->persist($acesso);
         $this->em()->flush();
     }

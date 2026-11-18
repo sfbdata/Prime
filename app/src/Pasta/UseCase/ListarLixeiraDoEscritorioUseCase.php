@@ -119,10 +119,26 @@ final class ListarLixeiraDoEscritorioUseCase
                 $candidatas[] = ['pastaId' => $resumo->pastaId, 'contas' => $contas];
             }
         }
-        $jaTem = array_column($candidatas, 'pastaId');
+        array_push($candidatas, ...$this->candidatasDeLapide($tenant, array_column($candidatas, 'pastaId'), $ocultasPorPasta));
+        usort($candidatas, static fn (array $a, array $b): int => [$b['contas']['maisRecente'], $b['pastaId']] <=> [$a['contas']['maisRecente'], $a['pastaId']]);
+
+        return $candidatas;
+    }
+
+    /**
+     * As pastas excluídas (lápides) do escritório que ainda não entraram com contas de documentos,
+     * com a data da exclusão e contagens 0. Aba Documentos oculta: a pasta não entra.
+     *
+     * @param list<int>                      $jaTem           pastas que já são candidatas
+     * @param array<int, list<AbaDaPasta>> $ocultasPorPasta
+     *
+     * @return list<array{pastaId: int, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}>
+     */
+    private function candidatasDeLapide(Tenant $tenant, array $jaTem, array $ocultasPorPasta): array
+    {
+        $saida = [];
         foreach ($this->pastas->findExcluidasDoEscritorio($tenant) as $lapide) {
             $id = (int) $lapide->getId();
-            // Já entrou com as contas dos documentos; ou a aba Documentos está oculta para quem lê.
             if (\in_array($id, $jaTem, true) || $lapide->getTenant() !== $tenant) {
                 continue;
             }
@@ -130,9 +146,9 @@ final class ListarLixeiraDoEscritorioUseCase
             if (\in_array(AbaDaPasta::Documentos->value, $ocultas, true)) {
                 continue;
             }
-            $quando       = ($lapide->getExcluidaEm() ?? new \DateTimeImmutable())->format('Y-m-d H:i:s');
-            $autorId      = $lapide->getExcluidaPor()?->getId();
-            $candidatas[] = ['pastaId' => $id, 'contas' => [
+            $quando  = ($lapide->getExcluidaEm() ?? new \DateTimeImmutable())->format('Y-m-d H:i:s');
+            $autorId = $lapide->getExcluidaPor()?->getId();
+            $saida[] = ['pastaId' => $id, 'contas' => [
                 'documentos'  => 0,
                 'subpastas'   => 0,
                 'maisAntiga'  => $quando,
@@ -141,9 +157,8 @@ final class ListarLixeiraDoEscritorioUseCase
                 'semAutor'    => $autorId === null,
             ]];
         }
-        usort($candidatas, static fn (array $a, array $b): int => [$b['contas']['maisRecente'], $b['pastaId']] <=> [$a['contas']['maisRecente'], $a['pastaId']]);
 
-        return $candidatas;
+        return $saida;
     }
 
     /** @return array{0: string, 1: int}|null a chave (data, id) do cursor, ou NULL para começar do início */

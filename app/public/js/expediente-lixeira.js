@@ -69,7 +69,7 @@
     function postForm(url, corpo) {
         return fetch(url, {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
             credentials: 'same-origin',
             body: new URLSearchParams(corpo).toString(),
         }).then(lerJson);

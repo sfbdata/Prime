@@ -9,6 +9,7 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\DTO\PastaRestaurada;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CadeadoNaTelaOutput;
@@ -501,9 +502,7 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
-            // Janela de restaurar do cabeçalho: avisa quando o número da lápide já é de outra pasta.
-            'numeroDaLapideOcupado'       => $pasta->estaExcluida() && $tenant !== null
-                && $this->restaurarPastaUseCase->numeroOcupado($pasta, $tenant),
+            'numeroDaLapideOcupado'       => $this->numeroDaLapideOcupado($pasta, $tenant),
             // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
             'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
@@ -1831,20 +1830,8 @@ class PastaController extends AbstractController
         // A Lixeira do Expediente restaura por fetch e pede JSON; o cabeçalho segue o redirect.
         $querJson = $request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept', ''), 'application/json');
 
-        $pastaId = (int) $pasta->getId();
-        // Mesma permissão do excluir: quem pode pôr a lápide pode tirar (decisão do dono).
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $querJson
-                ? $this->json(['ok' => false, 'mensagem' => 'Sem permissão para restaurar esta pasta.'], Response::HTTP_FORBIDDEN)
-                : $redirect;
-        }
-
-        if (!$this->isCsrfTokenValid('restaurar_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
-            if ($querJson) {
-                return $this->json(['ok' => false, 'mensagem' => 'Token CSRF inválido. Recarregue a página e tente de novo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        if ($recusa = $this->recusarRestaurar($pasta, $request, $querJson)) {
+            return $recusa;
         }
 
         // O nome de ANTES é capturado aqui, enquanto a entidade ainda tem o número da lápide:
@@ -1867,6 +1854,31 @@ class PastaController extends AbstractController
             $this->syncDispatcher->despacharSeNomeMudou($pasta, $currentUser, $tenant, $nomeAntes);
         }
 
+        return $this->respostaDaRestauracao($pasta, $resultado, $querJson);
+    }
+
+    /** Permissão (DELETE, a mesma do excluir) e CSRF do restaurar; devolve a resposta de recusa, ou null se pode seguir. */
+    private function recusarRestaurar(Pasta $pasta, Request $request, bool $querJson): ?Response
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $querJson
+                ? $this->json(['ok' => false, 'mensagem' => 'Sem permissão para restaurar esta pasta.'], Response::HTTP_FORBIDDEN)
+                : $redirect;
+        }
+
+        if ($this->isCsrfTokenValid('restaurar_pasta_'.$pastaId, (string) $request->request->get('_token'))) {
+            return null;
+        }
+        if ($querJson) {
+            return $this->json(['ok' => false, 'mensagem' => 'Token CSRF inválido. Recarregue a página e tente de novo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        throw $this->createAccessDeniedException('Token CSRF inválido.');
+    }
+
+    private function respostaDaRestauracao(Pasta $pasta, PastaRestaurada $resultado, bool $querJson): Response
+    {
         $mensagem = $resultado->mudouDeNumero()
             ? sprintf('Pasta restaurada com o número %s. O número %s já era de outra pasta.', $resultado->numeroAgora, $resultado->numeroAntes)
             : sprintf('Pasta %s restaurada.', $resultado->numeroAgora);
@@ -1883,6 +1895,12 @@ class PastaController extends AbstractController
         $this->addFlash('success', $mensagem);
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+    }
+
+    /** Janela de restaurar do cabeçalho: avisa quando o número da lápide já é de outra pasta viva. */
+    private function numeroDaLapideOcupado(Pasta $pasta, ?Tenant $tenant): bool
+    {
+        return $pasta->estaExcluida() && $tenant !== null && $this->restaurarPastaUseCase->numeroOcupado($pasta, $tenant);
     }
 
     // -------------------------------------------------------------------------

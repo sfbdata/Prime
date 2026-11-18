@@ -172,7 +172,8 @@ final class RestaurarPastaRotaTest extends JusPrimeWebTestCase
     #[TestDox('JSON de erro: CSRF inválido e pasta que não está excluída dão 422; sem DELETE dá 403')]
     public function testJsonDeErro(): void
     {
-        $client          = static::createClient();
+        $client = static::createClient();
+        $client->disableReboot(); // o token de teste instalado no container precisa valer nos três pedidos
         [$user, $tenant] = $this->criarAdmin();
         $lapide = $this->pasta($tenant, '300', $user);
         $viva   = $this->pasta($tenant, '301');
