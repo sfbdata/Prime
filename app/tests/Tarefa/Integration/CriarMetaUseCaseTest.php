@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\EventListener\PastaSomenteLeituraListener;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\PastaExcluidaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Tarefa\DTO\AnalisarPrazoDaMetaInput;
 use App\Tarefa\DTO\CriarMetaInput;
@@ -29,7 +30,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * A meta nova da pasta pela regra única que a tela e o conector usam. Contra o banco: o número da meta sai da
- * trava do escritório e o aviso só chega a quem vê a pasta, e isso não se prova com mock.
+ * trava do escritório, o aviso de meta criada é gravado e nenhuma recusa deixa meta para trás.
  */
 #[CoversClass(CriarMetaUseCase::class)]
 #[Group('tarefa')]
@@ -83,8 +84,24 @@ final class CriarMetaUseCaseTest extends KernelTestCase
         $saida = $this->criar($this->pedido(responsaveis: [(int) $this->colega->getId(), (int) $deFora->getId()]));
         self::assertSame([(int) $this->colega->getId()], array_column($saida->responsaveis, 'id'));
 
-        $this->expectExceptionObject(new MetaNovaInvalidaException('Escolha ao menos um responsável do escritório para a meta.'));
-        $this->criar($this->pedido(responsaveis: [(int) $deFora->getId()]));
+        $this->assertRecusa(new MetaNovaInvalidaException('Escolha ao menos um responsável do escritório para a meta.'), $this->pedido(responsaveis: [(int) $deFora->getId()]), metasJaNaPasta: 1);
+    }
+
+    #[TestDox('título maior que a coluna recusa com a mensagem do Renomear, sem estourar no banco')]
+    public function testTituloLongoDemais(): void
+    {
+        $pedido = new CriarMetaInput(str_repeat('a', 256), 'Descrição', new \DateTimeImmutable('2026-12-01'), [(int) $this->colega->getId()], EtapaDaPasta::Juridico);
+
+        $this->assertRecusa(new MetaNovaInvalidaException('O nome da meta pode ter até 255 caracteres.'), $pedido);
+    }
+
+    #[TestDox('quem não tem vínculo com o escritório não cria meta nele')]
+    public function testSemVinculoNoEscritorio(): void
+    {
+        $this->quem = $this->pessoa();
+        $this->vinculo($this->quem, $this->escritorio('Outro'), permissoes: self::QUEM_CRIA);
+
+        $this->assertRecusa(new SemAcessoAoModuloTarefasException('Sem acesso ao módulo Tarefas.'), $this->pedido());
     }
 
     /** @return iterable<string, array{CriarMetaInput, string}> */
@@ -144,7 +161,7 @@ final class CriarMetaUseCaseTest extends KernelTestCase
         $this->pasta->marcarExcluida($this->quem, new \DateTimeImmutable());
         $this->em()->flush();
 
-        $this->assertRecusa(new MetaNovaInvalidaException(PastaSomenteLeituraListener::MENSAGEM), $this->pedido());
+        $this->assertRecusa(new PastaExcluidaException(PastaSomenteLeituraListener::MENSAGEM), $this->pedido());
     }
 
     #[TestDox('análise do prazo só estimada (contestação com a ciência, sem prazo jurídico nem confirmar) recusa e nada é gravado')]
@@ -182,7 +199,7 @@ final class CriarMetaUseCaseTest extends KernelTestCase
         return static::getContainer()->get(CriarMetaUseCase::class)->executar($this->pasta, $this->quem, $this->escritorio, $pedido, new \DateTimeImmutable('2026-11-18'));
     }
 
-    private function assertRecusa(\DomainException $esperada, CriarMetaInput $pedido): void
+    private function assertRecusa(\DomainException $esperada, CriarMetaInput $pedido, int $metasJaNaPasta = 0): void
     {
         try {
             $this->criar($pedido);
@@ -191,7 +208,7 @@ final class CriarMetaUseCaseTest extends KernelTestCase
             self::assertInstanceOf($esperada::class, $e);
             self::assertSame($esperada->getMessage(), $e->getMessage());
         }
-        self::assertSame(0, $this->metasDaPasta());
+        self::assertSame($metasJaNaPasta, $this->metasDaPasta(), 'a recusa não grava meta');
     }
 
     private function metasDaPasta(): int

@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\EventListener\PastaSomenteLeituraListener;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\PastaExcluidaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Service\AcessoAPasta;
 use App\Service\NotificacaoService;
@@ -49,6 +50,7 @@ final class CriarMetaUseCase
      * @throws SemAcessoAoModuloTarefasException
      * @throws PastaDeOutroEscritorioException
      * @throws SemPermissaoParaVerPastaException
+     * @throws PastaExcluidaException
      * @throws MetaNovaInvalidaException
      * @throws AnaliseDoPrazoRecusadaException
      */
@@ -79,7 +81,7 @@ final class CriarMetaUseCase
         }
         // A tela já recusa antes (PastaSomenteLeituraListener); o conector chega aqui sem passar por ele.
         if ($pasta->estaExcluida()) {
-            throw new MetaNovaInvalidaException(PastaSomenteLeituraListener::MENSAGEM);
+            throw new PastaExcluidaException(PastaSomenteLeituraListener::MENSAGEM);
         }
     }
 
@@ -88,9 +90,7 @@ final class CriarMetaUseCase
      */
     private function exigirCamposValidos(CriarMetaInput $input, Tenant $tenant): array
     {
-        if (trim($input->titulo) === '' || trim($input->descricao) === '') {
-            throw new MetaNovaInvalidaException('Título e descrição são obrigatórios.');
-        }
+        $this->exigirTituloEDescricao($input);
 
         $responsaveis = $this->atribuiveis->resolverVarios($input->responsaveis, $tenant);
         if ($input->prazo === null) {
@@ -104,6 +104,17 @@ final class CriarMetaUseCase
         }
 
         return [$input->prazo, $input->etapa, $responsaveis];
+    }
+
+    /** O título cabe na coluna (o mesmo teto do "Renomear"); sem isso o conector estouraria no flush, não numa recusa. */
+    private function exigirTituloEDescricao(CriarMetaInput $input): void
+    {
+        if (trim($input->titulo) === '' || trim($input->descricao) === '') {
+            throw new MetaNovaInvalidaException('Título e descrição são obrigatórios.');
+        }
+        if (mb_strlen(trim($input->titulo)) > RenomearMetaUseCase::TAMANHO_MAXIMO) {
+            throw new MetaNovaInvalidaException(sprintf('O nome da meta pode ter até %d caracteres.', RenomearMetaUseCase::TAMANHO_MAXIMO));
+        }
     }
 
     /**

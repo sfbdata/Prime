@@ -43,6 +43,7 @@ use App\Tarefa\Exception\AnaliseDoPrazoRecusadaException;
 use App\Tarefa\Exception\MetaNovaInvalidaException;
 use App\Tarefa\Exception\SemAcessoAoModuloTarefasException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\PastaExcluidaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
@@ -235,7 +236,7 @@ final class TarefaController extends AbstractController
             $meta = $criarMeta->executar($pasta, $usuario, $tenant, $this->pedidoDaMetaNova($request), new \DateTimeImmutable('today'));
         } catch (PastaDeOutroEscritorioException $e) {
             return $this->json(['erro' => $e->getMessage()], 404);
-        } catch (SemPermissaoParaVerPastaException|SemAcessoAoModuloTarefasException $e) {
+        } catch (SemPermissaoParaVerPastaException|SemAcessoAoModuloTarefasException|PastaExcluidaException $e) {
             return $this->json(['erro' => $e->getMessage()], 403);
         } catch (AnaliseDoPrazoRecusadaException $e) {
             return $this->json(['erro' => $e->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
