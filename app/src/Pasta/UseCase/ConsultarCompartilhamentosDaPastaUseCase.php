@@ -22,6 +22,9 @@ use Psr\Clock\ClockInterface;
  * Os dados da janela "Compartilhar pasta" e da seção COMPARTILHAR do menu (spec acesso-restrito-e-compartilhar §4.4,
  * desenho L3, L4 e L6): a equipe que pode receber (vínculos ativos, sem o responsável e sem quem pede), quem já colabora
  * e os três destinos recentes do "1 clique". Quem não vê a pasta não chega aqui (a barreira da rota responde antes).
+ *
+ * Outra conta (fatia 8): o destino aparece como "Nome · Conta" (o primeiro escritório ativo dele) e entra no "1 clique"
+ * enquanto não tiver vínculo com este escritório.
  */
 final class ConsultarCompartilhamentosDaPastaUseCase
 {
@@ -72,7 +75,8 @@ final class ConsultarCompartilhamentosDaPastaUseCase
         foreach ($this->compartilhamentos->historicoDaPasta($pasta) as $c) {
             $meu = $c->getDestino()->getId() === $quem->getId();
             if ($tudo || $meu) {
-                $linhas[] = CompartilhamentosDaPastaOutput::colaborador($c, $hoje, $gestor || $this->envolvido($c, $quem), $meu);
+                $conta = $c->isInterno() ? null : $this->contaDe($c->getDestino());
+                $linhas[] = CompartilhamentosDaPastaOutput::colaborador($c, $hoje, $gestor || $this->envolvido($c, $quem), $meu, $conta);
             }
         }
 
@@ -80,27 +84,46 @@ final class ConsultarCompartilhamentosDaPastaUseCase
     }
 
     /**
-     * Os recentes do "1 clique" (desenho L.826-827): só quem está na equipe que pode receber (vínculo ativo, sem o
-     * responsável e sem quem pede) e ainda não colabora nesta pasta.
+     * Os recentes do "1 clique" (desenho L.826-827), equipe e outra conta: só quem ainda não colabora nesta pasta nem
+     * tem convite esperando. Da equipe, só quem pode receber (vínculo ativo, sem o responsável e sem quem pede); de outra
+     * conta, só quem continua sem vínculo nenhum com este escritório.
      *
      * @param list<array{id: int, nome: string}> $equipe
      * @param list<array<string, mixed>>         $colaboradores
      *
-     * @return list<array{id: int, nome: string}>
+     * @return list<array{id: int, nome: string, interno: bool, conta: ?string}>
      */
     private function recentes(User $quem, Tenant $tenant, array $equipe, array $colaboradores): array
     {
         $podeReceber = array_column($equipe, 'id');
-        $jaColaboram = array_column(array_filter($colaboradores, static fn (array $c): bool => $c['ativo'] === true), 'destinoId');
+        $ocupados = array_column(array_filter($colaboradores, static fn (array $c): bool => $c['ativo'] === true || $c['aguardando'] === true), 'destinoId');
         $recentes = [];
-        foreach ($this->compartilhamentos->destinosRecentes($quem, $tenant, self::RECENTES * 3 + count($jaColaboram)) as $pessoa) {
+        foreach ($this->compartilhamentos->destinosRecentes($quem, $tenant, self::RECENTES * 3 + count($ocupados)) as ['pessoa' => $pessoa, 'interno' => $interno]) {
             $id = $pessoa->getId();
-            if (in_array($id, $podeReceber, true) && !in_array($id, $jaColaboram, true) && count($recentes) < self::RECENTES) {
-                $recentes[] = CompartilhamentosDaPastaOutput::pessoa($pessoa);
+            if (count($recentes) >= self::RECENTES || in_array($id, $ocupados, true)) {
+                continue;
+            }
+            if ($interno && in_array($id, $podeReceber, true)) {
+                $recentes[] = CompartilhamentosDaPastaOutput::pessoa($pessoa) + ['interno' => true, 'conta' => null];
+            } elseif (!$interno && $pessoa->isActive() && $this->vinculos->findPorUserETenant($pessoa, $tenant) === null) {
+                $recentes[] = CompartilhamentosDaPastaOutput::pessoa($pessoa) + ['interno' => false, 'conta' => $this->contaDe($pessoa)];
             }
         }
 
         return $recentes;
+    }
+
+    /** O escritório que aparece ao lado do nome de quem é de outra conta: o primeiro ativo dele (pelo id). */
+    private function contaDe(User $pessoa): ?string
+    {
+        $contas = [];
+        foreach ($this->vinculos->findActiveByUser($pessoa) as $vinculo) {
+            $tenant = $vinculo->getTenant();
+            $contas[(int) $tenant->getId()] = (string) $tenant->getName();
+        }
+        ksort($contas);
+
+        return $contas === [] ? null : reset($contas);
     }
 
     /** @return list<array{id: int, nome: string}> */

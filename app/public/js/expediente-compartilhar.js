@@ -1,10 +1,13 @@
 /* =============================================================================
    expediente-compartilhar.js: compartilhar a pasta com a equipe, na Lista do Expediente (spec
    acesso-restrito-e-compartilhar §3.2 L1, L3 a L6; desenho "03 - EXPEDIENTE - VS 30.10.26", janela "Compartilhar
-   pasta N" L.488-506, menu da linha L.420-432). Só a aba Equipe do escritório; "Outra conta (código)" é da fatia 8.
+   pasta N" L.488-506, menu da linha L.420-432). Abas Equipe do escritório e Outra conta (código, fatia 8, §4.5).
 
    Fala com o servidor pelas rotas JSON `pasta_compartilhamento_ver|criar|encerrar` (o GET devolve o token dos POSTs).
    Entrega ao menu de contexto (expediente-lista.js) os itens da seção COMPARTILHAR: `ExpCompartilhar.itensDoMenu`.
+
+   Fatia 8 também: o botão "Recebidas" da barra (L9) e a janela "Pastas recebidas de outras contas" (L10, dc L.507-512),
+   pelas rotas `expediente_recebidas` (GET, com o código pessoal e o token) e `expediente_recebida_responder`.
    ============================================================================= */
 (function () {
     'use strict';
@@ -24,6 +27,14 @@
         return modelo ? modelo.replace('/0/', '/' + pastaId + '/') : '';
     }
     function dataBr(iso) { return iso ? iso.split('-').reverse().join('/') : ''; }
+    /* O código pessoal como o desenho o trata (bj-republicar.js `normCod`, `valido`): maiúsculo, sem o que não é letra ou
+       número, em grupos de 4 depois do "BJ-". */
+    function normCod(t) {
+        var s = String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^BJ/, '').slice(0, 12);
+        return s.length ? 'BJ-' + [s.slice(0, 4), s.slice(4, 8), s.slice(8, 12)].filter(Boolean).join('-') : '';
+    }
+    function codValido(c) { return /^BJ-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(c); }
+    function copiar(texto) { try { navigator.clipboard.writeText(texto); } catch (e) { /* sem área de transferência */ } }
     function iniciais(nome) { return String(nome || '').trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0); }).join('').toUpperCase(); }
 
     /* ── Servidor ──────────────────────────────────────────────────────── */
@@ -95,26 +106,8 @@
         return l;
     }
 
-    function montarFormulario() {
-        var f = el('div', 'exp-cp-form');
-        var seg = el('div', 'exp-cp-seg');
-        var eq = el('button', 'exp-cp-seg-btn is-ativo');
-        eq.type = 'button';
-        eq.appendChild(icone('bi-people'));
-        eq.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.compartilhar.destino_equipe')));
-        var ext = el('button', 'exp-cp-seg-btn');
-        ext.type = 'button';
-        ext.disabled = true;
-        ext.title = BJ_T.t('expediente.js.compartilhar.em_breve');
-        ext.appendChild(icone('bi-arrow-repeat'));
-        ext.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.compartilhar.destino_outra')));
-        seg.appendChild(eq);
-        seg.appendChild(ext);
-        var g1 = el('div', 'exp-cp-grupo');
-        g1.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.compartilhar_com')));
-        g1.appendChild(seg);
-        f.appendChild(g1);
-
+    /* Aba Equipe do escritório (dc L.495). */
+    function grupoDaEquipe() {
         var gUsr = el('label', 'exp-cp-grupo');
         gUsr.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.usuario')));
         var sel = el('select', 'exp-cp-campo exp-cp-campo--alto');
@@ -131,7 +124,70 @@
         sel.addEventListener('change', function () { j.estado.usuario = sel.value; limparMensagens(); });
         gUsr.appendChild(sel);
         gUsr.appendChild(el('span', 'exp-cp-dica', BJ_T.t('expediente.js.compartilhar.dica_sem_aceite')));
-        f.appendChild(gUsr);
+
+        return gUsr;
+    }
+
+    /* Aba Outra conta (dc L.496): o código, normalizado enquanto se digita, e a confirmação de formato (o nome só
+       aparece depois de enviar: o servidor não diz de quem é um código antes do convite). */
+    function grupoDoCodigo() {
+        var g = el('label', 'exp-cp-grupo');
+        g.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.codigo_rotulo')));
+        var campo = el('input', 'exp-cp-campo exp-cp-campo--alto exp-cp-codigo');
+        campo.type = 'text';
+        campo.autocomplete = 'off';
+        campo.spellcheck = false;
+        campo.placeholder = 'BJ-XXXX-XXXX-XXXX';
+        campo.setAttribute('aria-label', BJ_T.t('expediente.js.compartilhar.codigo_rotulo'));
+        campo.value = j.estado.codigo;
+        var quem = el('span', 'exp-cp-quem');
+        function pintarQuem() { quem.textContent = codValido(j.estado.codigo) ? BJ_T.t('expediente.js.compartilhar.codigo_valido') : ''; }
+        campo.addEventListener('input', function () {
+            j.estado.codigo = normCod(campo.value);
+            campo.value = j.estado.codigo;
+            pintarQuem();
+            limparMensagens();
+        });
+        g.appendChild(campo);
+        g.appendChild(quem);
+        pintarQuem();
+        return g;
+    }
+
+    function trocarDestino(destino) {
+        if (!j || j.estado.destino === destino) { return; }
+        j.estado.destino = destino;
+        j.estado.erro = '';
+        j.estado.ok = '';
+        montarCorpo();
+        var alvo = j.secoes.corpo.querySelector(destino === 'ext' ? '.exp-cp-codigo' : 'select');
+        if (alvo) { alvo.focus(); }
+    }
+
+    function montarFormulario() {
+        var f = el('div', 'exp-cp-form');
+        var seg = el('div', 'exp-cp-seg');
+        var naEquipe = j.estado.destino !== 'ext';
+        var eq = el('button', 'exp-cp-seg-btn' + (naEquipe ? ' is-ativo' : ''));
+        eq.type = 'button';
+        eq.setAttribute('aria-pressed', naEquipe ? 'true' : 'false');
+        eq.appendChild(icone('bi-people'));
+        eq.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.compartilhar.destino_equipe')));
+        var ext = el('button', 'exp-cp-seg-btn' + (naEquipe ? '' : ' is-ativo'));
+        ext.type = 'button';
+        ext.setAttribute('aria-pressed', naEquipe ? 'false' : 'true');
+        ext.appendChild(icone('bi-arrow-repeat'));
+        ext.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.compartilhar.destino_outra')));
+        eq.addEventListener('click', function () { trocarDestino('eq'); });
+        ext.addEventListener('click', function () { trocarDestino('ext'); });
+        seg.appendChild(eq);
+        seg.appendChild(ext);
+        var g1 = el('div', 'exp-cp-grupo');
+        g1.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.compartilhar_com')));
+        g1.appendChild(seg);
+        f.appendChild(g1);
+
+        f.appendChild(naEquipe ? grupoDaEquipe() : grupoDoCodigo());
 
         var gPerm = el('div', 'exp-cp-grupo exp-cp-grupo--perm');
         gPerm.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.pode_fazer')));
@@ -198,7 +254,7 @@
         j.dados.colaboradores.forEach(function (c) {
             var linha = el('div', 'exp-cp-colab');
             var info = el('div', 'exp-cp-colab-info');
-            info.appendChild(el('b', null, c.interno ? BJ_T.t('expediente.js.compartilhar.equipe_do_escritorio', { nome: c.nome }) : c.nome));
+            info.appendChild(el('b', null, c.interno ? BJ_T.t('expediente.js.compartilhar.equipe_do_escritorio', { nome: c.nome }) : (c.conta ? c.nome + ' · ' + c.conta : c.nome)));
             info.appendChild(el('div', null, permissoes(c)));
             info.appendChild(el('div', 'exp-cp-colab-quando', c.ate ? BJ_T.t('expediente.js.compartilhar.quando_ate', { desde: dataBr(c.desde), ate: dataBr(c.ate) }) : BJ_T.t('expediente.js.compartilhar.quando', { desde: dataBr(c.desde) })));
             linha.appendChild(info);
@@ -233,9 +289,12 @@
     }
     function enviar(botao) {
         var e = j.estado;
-        if (!e.usuario) { e.ok = ''; e.erro = BJ_T.t('expediente.js.compartilhar.escolha_usuario'); pintarMensagens(); return; }
+        var externo = e.destino === 'ext';
+        if (!externo && !e.usuario) { e.ok = ''; e.erro = BJ_T.t('expediente.js.compartilhar.escolha_usuario'); pintarMensagens(); return; }
+        if (externo && !codValido(e.codigo)) { e.ok = ''; e.erro = BJ_T.t('expediente.js.compartilhar.codigo_invalido'); pintarMensagens(); return; }
         botao.disabled = true;
-        var corpo = { destinoId: parseInt(e.usuario, 10), movimentar: e.movimentar, enviarDocumentos: e.enviarDocumentos, baixarDocumentos: e.baixarDocumentos, validoAte: validoAte(e.dias), mensagem: e.mensagem };
+        var corpo = { movimentar: e.movimentar, enviarDocumentos: e.enviarDocumentos, baixarDocumentos: e.baixarDocumentos, validoAte: validoAte(e.dias), mensagem: e.mensagem };
+        if (externo) { corpo.outraConta = true; corpo.codigo = e.codigo; } else { corpo.destinoId = parseInt(e.usuario, 10); }
         postar(urlBase(j.pastaId), j.dados.token, corpo).then(function (r) {
             if (!j) { return; }
             botao.disabled = false;
@@ -243,6 +302,7 @@
             e.erro = '';
             e.ok = r.j.mensagem || '';
             e.usuario = '';
+            e.codigo = '';
             e.mensagem = '';
             recarregar().then(function () { if (j) { montarCorpo(); pintarMensagens(); } });
         }, function () { if (j) { botao.disabled = false; e.ok = ''; e.erro = BJ_T.t('expediente.js.compartilhar.falha_conexao'); pintarMensagens(); } });
@@ -294,7 +354,7 @@
         pintarMensagens();
     }
 
-    function abrirJanela(pastaId, nup, nome, origem) {
+    function abrirJanela(pastaId, nup, nome, origem, destino) {
         fechar();
         carregar(pastaId, true).then(function (dados) {
             if (!dados) { aviso(BJ_T.t('expediente.js.compartilhar.erro_carregar')); return; }
@@ -319,9 +379,9 @@
             fundo.addEventListener('mousedown', function (e) { if (e.target === fundo) { fechar(); } });
             document.body.appendChild(fundo);
             j = { fundo: fundo, pastaId: pastaId, nup: nup, nome: nome, dados: dados, origem: origem || null, secoes: { corpo: corpo },
-                estado: { usuario: '', movimentar: true, enviarDocumentos: true, baixarDocumentos: false, dias: '', mensagem: '', erro: '', ok: '' } };
+                estado: { destino: destino === 'ext' ? 'ext' : 'eq', usuario: '', codigo: '', movimentar: true, enviarDocumentos: true, baixarDocumentos: false, dias: '', mensagem: '', erro: '', ok: '' } };
             montarCorpo();
-            var primeiro = corpo.querySelector('select, button');
+            var primeiro = corpo.querySelector(destino === 'ext' ? '.exp-cp-codigo' : 'select, button');
             if (primeiro) { primeiro.focus(); }
         });
     }
@@ -344,9 +404,11 @@
         carregar(pastaId).then(function (dados) {
             if (!dados) { aviso(BJ_T.t('expediente.js.compartilhar.erro_carregar')); return; }
             /* Como o desenho (L.830): ver, movimentar e enviar documentos; sem baixar. */
-            postar(urlBase(pastaId), dados.token, { destinoId: destino.id, movimentar: true, enviarDocumentos: true, baixarDocumentos: false }).then(function (r) {
+            var corpo = { destinoId: destino.id, movimentar: true, enviarDocumentos: true, baixarDocumentos: false };
+            if (!destino.interno) { corpo.outraConta = true; }
+            postar(urlBase(pastaId), dados.token, corpo).then(function (r) {
                 if (!r.ok) { aviso(r.j.erro || BJ_T.t('expediente.js.compartilhar.falha_conexao')); return; }
-                aviso(BJ_T.t('expediente.js.compartilhar.menu_compartilhada', { nup: nup, nome: destino.nome }));
+                aviso(BJ_T.t(destino.interno ? 'expediente.js.compartilhar.menu_compartilhada' : 'expediente.js.compartilhar.menu_republicada', { nup: nup, nome: destino.nome }));
                 carregar(pastaId, true);
             }, function () { aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); });
         });
@@ -384,15 +446,219 @@
         lista.push({ secao: BJ_T.t('expediente.js.compartilhar.menu_secao'), icone: 'bi-arrow-repeat', corIcone: 'var(--cp-verde)' });
         if (dados.podeCompartilhar) {
             dados.recentes.slice(0, 3).forEach(function (r) {
-                lista.push({ rotulo: r.nome, avatar: { ini: iniciais(r.nome), bg: 'var(--cp-azul-fundo)' }, extra: BJ_T.t('expediente.js.compartilhar.menu_um_clique'), dica: BJ_T.t('expediente.js.compartilhar.menu_recente_dica', { nome: r.nome }),
+                /* Equipe em azul; outra conta em verde, com a conta na dica (dc L.830). */
+                var dica = r.interno ? BJ_T.t('expediente.js.compartilhar.menu_recente_dica', { nome: r.nome })
+                    : BJ_T.t('expediente.js.compartilhar.menu_recente_dica_conta', { nome: r.nome, conta: r.conta || BJ_T.t('expediente.js.compartilhar.outra_conta') });
+                lista.push({ rotulo: r.nome, avatar: { ini: iniciais(r.nome), bg: r.interno ? 'var(--cp-azul-fundo)' : 'var(--cp-verde)' }, extra: BJ_T.t('expediente.js.compartilhar.menu_um_clique'), dica: dica,
                     acao: function () { compartilharUmClique(pastaId, nup, r); } });
             });
             lista.push({ rotulo: BJ_T.t('expediente.js.compartilhar.menu_com_equipe'), icone: 'bi-people', acao: function () { abrirJanela(pastaId, nup, nome, null); } });
+            lista.push({ rotulo: BJ_T.t('expediente.js.compartilhar.menu_outra_conta'), icone: 'bi-arrow-repeat', acao: function () { abrirJanela(pastaId, nup, nome, null, 'ext'); } });
         }
         var n = ativos(dados).length;
         if (n > 0) { lista.push({ rotulo: BJ_T.t('expediente.js.compartilhar.menu_quem_colabora'), icone: 'bi-person-gear', selo: String(n), acao: function () { abrirJanela(pastaId, nup, nome, null); } }); }
+        if (dados.podeCompartilhar) {
+            lista.push({ rotulo: BJ_T.t('expediente.js.compartilhar.menu_copiar_codigo'), icone: 'bi-upc', acao: function () {
+                Recebidas.codigo().then(function (codigo) {
+                    if (!codigo) { aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); return; }
+                    copiar(codigo);
+                    aviso(BJ_T.t('expediente.js.compartilhar.menu_codigo_copiado', { codigo: codigo }));
+                });
+            } });
+        }
         return lista;
     }
 
-    window.ExpCompartilhar = { itensDoMenu: itensDoMenu, abrir: abrirJanela };
+    /* Para a troca de responsável (fatia 7): depois de "Manter como colaborador", o ícone L1 da linha se atualiza. */
+    function atualizar(pastaId) { delete cache[pastaId]; return carregar(pastaId, true); }
+
+    /* ── Recebidas (L9 e L10, dc L.134 e L.507-512) ────────────────────── */
+    var Recebidas = (function () {
+        var dados = null;      // o último GET: { meuCodigo, pendentes, itens, token }
+        var janela = null;     // { fundo, lista, origem }
+
+        function url() {
+            var b = document.querySelector('.js-recebidas');
+            return b ? b.getAttribute('data-url') : '';
+        }
+        function buscar() {
+            var u = url();
+            if (!u) { return Promise.resolve(null); }
+            return pedir(u, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(function (r) {
+                if (!r.ok || !r.j || !r.j.token) { return null; }
+                dados = r.j;
+                pintarBotoes();
+                return dados;
+            }, function () { return null; });
+        }
+
+        /* O botão da barra (L9): verde com o número dos que aguardam; cinza sem nenhum. A barra é recarregada a cada
+           troca de painel, por isso pinta de novo quando ela volta. */
+        function pintarBotoes() {
+            var n = dados ? dados.pendentes : 0;
+            document.querySelectorAll('.js-recebidas').forEach(function (b) {
+                b.classList.toggle('exp-rc-btn--pend', n > 0);
+                var selo = b.querySelector('.exp-rc-n');
+                if (selo) { selo.remove(); }
+                if (n > 0) { b.appendChild(el('span', 'exp-rc-n', String(n))); }
+            });
+        }
+
+        function fechar() {
+            if (!janela) { return; }
+            var origem = janela.origem;
+            janela.fundo.remove();
+            janela = null;
+            if (origem && document.contains(origem)) { origem.focus(); }
+        }
+
+        var ESTADO = {
+            aguardando: ['expediente.js.recebidas.estado_aguardando', 'var(--cp-aviso)'],
+            colaborando: ['expediente.js.recebidas.estado_colaborando', 'var(--cp-verde)'],
+            expirada: ['expediente.js.recebidas.estado_expirada', 'var(--cp-estado-fim)']
+        };
+        function dataHora(iso) {
+            var p = String(iso || '').split('T');
+            return dataBr(p[0]) + (p[1] ? ' ' + p[1].slice(0, 5) : '');
+        }
+        function botao(classe, texto, iconeClasse, acao) {
+            var b = el('button', 'exp-rc-acao ' + classe);
+            b.type = 'button';
+            if (iconeClasse) { b.appendChild(icone(iconeClasse)); b.appendChild(document.createTextNode(' ')); }
+            b.appendChild(document.createTextNode(texto));
+            b.addEventListener('click', function () { acao(b); });
+            return b;
+        }
+
+        function cartao(r) {
+            var c = el('div', 'exp-rc-item');
+            var info = el('div', 'exp-rc-info');
+            info.appendChild(el('b', 'exp-rc-tit', r.nup + ' · ' + r.cliente));
+            var por = el('div');
+            por.appendChild(document.createTextNode(BJ_T.t('expediente.js.recebidas.republicada_por') + ' '));
+            por.appendChild(el('b', null, r.de + ' · ' + r.conta));
+            info.appendChild(por);
+            info.appendChild(el('div', null, permissoes(r)));
+            if (r.mensagem) { info.appendChild(el('div', 'exp-rc-msg', '"' + r.mensagem + '"')); }
+            info.appendChild(el('div', 'exp-rc-quando', r.ate ? BJ_T.t('expediente.js.recebidas.quando_ate', { em: dataHora(r.em), ate: dataBr(r.ate) }) : BJ_T.t('expediente.js.recebidas.quando', { em: dataHora(r.em) })));
+            c.appendChild(info);
+            var est = ESTADO[r.estado] || ESTADO.expirada;
+            var st = el('span', 'exp-cp-estado', BJ_T.t(est[0]));
+            st.style.background = est[1];
+            c.appendChild(st);
+            var acoes = el('div', 'exp-rc-acoes');
+            if (r.estado === 'aguardando') {
+                acoes.appendChild(botao('exp-rc-acao--recusar', BJ_T.t('expediente.js.recebidas.recusar'), null, function (b) { responder(r, 'recusar', b); }));
+                acoes.appendChild(botao('exp-rc-acao--aceitar', BJ_T.t('expediente.js.recebidas.aceitar'), 'bi-check-lg', function (b) { responder(r, 'aceitar', b); }));
+            } else if (r.estado === 'colaborando') {
+                /* "Ver pasta" (dc L.511) abre a janela da pasta recebida: chega com a fatia 9. */
+                acoes.appendChild(botao('exp-rc-acao--sair', BJ_T.t('expediente.js.recebidas.deixar'), null, function (b) { responder(r, 'deixar', b); }));
+            }
+            if (acoes.childNodes.length) { c.appendChild(acoes); }
+            return c;
+        }
+
+        function pintarLista() {
+            var alvo = janela.lista;
+            alvo.textContent = '';
+            janela.codigo.textContent = dados.meuCodigo;
+            if (!dados.itens.length) {
+                alvo.appendChild(el('div', 'exp-rc-vazio', BJ_T.t('expediente.js.recebidas.vazio')));
+                return;
+            }
+            dados.itens.forEach(function (r) { alvo.appendChild(cartao(r)); });
+        }
+
+        function responder(r, acao, b) {
+            b.disabled = true;
+            postar(url() + '/' + r.id + '/' + acao, dados.token).then(function (resp) {
+                if (!resp.ok) { b.disabled = false; aviso(resp.j.erro || BJ_T.t('expediente.js.compartilhar.falha_conexao')); buscar().then(function () { if (janela && dados) { pintarLista(); } }); return; }
+                if (acao === 'aceitar') { aviso(BJ_T.t('expediente.js.recebidas.aceita', { nup: r.nup })); }
+                if (acao === 'deixar') { aviso(BJ_T.t('expediente.js.compartilhar.menu_deixou', { nup: r.nup })); }
+                buscar().then(function () { if (janela && dados) { pintarLista(); } });
+            }, function () { b.disabled = false; aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); });
+        }
+
+        function abrir(origem) {
+            fechar();
+            buscar().then(function (d) {
+                if (!d) { aviso(BJ_T.t('expediente.js.recebidas.erro_carregar')); return; }
+                var fundo = el('div', 'exp-cp-fundo');
+                var caixa = el('div', 'exp-cp exp-rc');
+                caixa.setAttribute('role', 'dialog');
+                caixa.setAttribute('aria-modal', 'true');
+                caixa.setAttribute('aria-label', BJ_T.t('expediente.js.recebidas.rotulo'));
+                var cab = el('div', 'exp-cp-cab exp-rc-cab');
+                cab.appendChild(icone('bi-arrow-repeat'));
+                cab.appendChild(el('b', null, BJ_T.t('expediente.js.recebidas.titulo')));
+                var x = el('button', 'exp-cp-x');
+                x.type = 'button';
+                x.setAttribute('aria-label', BJ_T.t('expediente.js.compartilhar.fechar'));
+                x.appendChild(icone('bi-x-lg'));
+                x.addEventListener('click', fechar);
+                cab.appendChild(x);
+                var faixa = el('div', 'exp-rc-faixa');
+                var seu = el('span', 'exp-rc-seu');
+                seu.appendChild(document.createTextNode(BJ_T.t('expediente.js.recebidas.seu_codigo') + ' '));
+                var codigo = el('b', 'exp-rc-codigo');
+                seu.appendChild(codigo);
+                var cop = el('button', 'exp-rc-copiar');
+                cop.type = 'button';
+                cop.appendChild(icone('bi-clipboard'));
+                cop.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.recebidas.copiar')));
+                cop.addEventListener('click', function () { copiar(dados.meuCodigo); aviso(BJ_T.t('expediente.js.recebidas.copiado')); });
+                faixa.appendChild(seu);
+                faixa.appendChild(cop);
+                var lista = el('div');
+                caixa.appendChild(cab);
+                caixa.appendChild(faixa);
+                caixa.appendChild(lista);
+                fundo.appendChild(caixa);
+                fundo.addEventListener('mousedown', function (e) { if (e.target === fundo) { fechar(); } });
+                document.body.appendChild(fundo);
+                janela = { fundo: fundo, lista: lista, codigo: codigo, origem: origem || null };
+                pintarLista();
+                cop.focus();
+            });
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && janela) { e.preventDefault(); e.stopPropagation(); fechar(); }
+        }, true);
+        document.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('.js-recebidas');
+            if (!b) { return; }
+            e.preventDefault();
+            abrir(b);
+        });
+
+        /* O botão chega com o painel (carregado por AJAX): a primeira busca espera ele aparecer. O aviso do sino leva a
+           `?recebidas=1`, e então a janela abre sozinha. */
+        var iniciado = false;
+        function iniciarQuandoHouverBotao() {
+            if (iniciado || !url()) { return; }
+            iniciado = true;
+            buscar().then(function () {
+                if (/[?&]recebidas=1(&|$)/.test(window.location.search)) { abrir(null); }
+            });
+        }
+        function iniciar() {
+            iniciarQuandoHouverBotao();
+            var painel = document.getElementById('expediente-painel');
+            if (painel && window.MutationObserver) {
+                new MutationObserver(function () {
+                    iniciarQuandoHouverBotao();
+                    if (dados) { pintarBotoes(); }
+                }).observe(painel, { childList: true });
+            }
+        }
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', iniciar); } else { iniciar(); }
+
+        return {
+            /* O código da pessoa (o mesmo GET da janela), para "Copiar meu código" do menu. */
+            codigo: function () { return (dados ? Promise.resolve(dados) : buscar()).then(function (d) { return d ? d.meuCodigo : ''; }); }
+        };
+    }());
+
+    window.ExpCompartilhar = { itensDoMenu: itensDoMenu, abrir: abrirJanela, atualizar: atualizar };
 }());

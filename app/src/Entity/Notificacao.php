@@ -45,6 +45,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_PEDIDO_ACESSO = 'pasta_pedido_acesso';
     /** Resposta ao pedido de acesso a uma pasta com cadeado (liberado ou recusado): vai para quem pediu. */
     public const TIPO_PASTA_ACESSO_DECIDIDO = 'pasta_acesso_decidido';
+    /** Uma pasta de outra conta foi republicada para o destinatário (convite em "Recebidas"; sem dado da outra conta). */
+    public const TIPO_PASTA_RECEBIDA = 'pasta_recebida';
     /** Alguém @mencionou o destinatário numa conversa da Central de Comunicação (sem o texto: é auditada). */
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
@@ -274,6 +276,8 @@ class Notificacao implements Auditavel, TenantAware
             // Cadeado da pasta (desenho 02, `bi-lock`/`bi-unlock`): o pedido e a resposta.
             self::TIPO_PASTA_PEDIDO_ACESSO => 'bi-lock text-primary',
             self::TIPO_PASTA_ACESSO_DECIDIDO => 'bi-unlock text-primary',
+            // Desenho (03 - EXPEDIENTE, botão "Recebidas"): `bi-arrow-repeat` em verde.
+            self::TIPO_PASTA_RECEBIDA => 'bi-arrow-repeat text-success',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
             self::TIPO_CENTRAL_DESPACHO => 'bi-person-check text-warning',
