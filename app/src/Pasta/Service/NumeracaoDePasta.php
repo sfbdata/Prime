@@ -12,8 +12,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * já foi usado.
  *
  * Existe para ter UM lugar só com a expressão do prefixo e a trava por escritório, que o
- * GerarNumeroDePasta usa para atribuir o próximo número. A exclusão de pasta não consulta mais a
- * sequência: toda pasta excluída vira lápide e continua ocupando o número dela.
+ * GerarNumeroDePasta usa para atribuir o próximo número. A pasta excluída (lápide, na lixeira) NÃO
+ * ocupa número: se ela era a última, o número dela volta a ser o próximo (pedido do Samuel,
+ * 18/11/2026, que substitui a decisão de 28/08). Buracos do meio continuam sem uso, porque a regra
+ * é o maior número + 1. Restaurar uma lápide cujo número já foi reusado é recusado no
+ * RestaurarPastaUseCase.
  *
  * O sufixo de letra do legado (10A/10B) conta pelo prefixo: 10A é o número 10. Nunca é gerado.
  */
@@ -63,14 +66,14 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
         );
     }
 
-    /** O maior número já usado no escritório; 0 se não há nenhum número aproveitável. */
+    /** O maior número em uso no escritório, sem as pastas excluídas; 0 se não há nenhum aproveitável. */
     public function maiorNumero(Tenant $tenant): int
     {
         // SQL cru NÃO passa pelo TenantFilter do Doctrine (o filtro age no ORM). O `tenant_id = ?`
         // é o isolamento — não é redundante, é o único que existe aqui.
         $maior = $this->em->getConnection()->fetchOne(
             "SELECT MAX(CASE WHEN nup ~ '^[0-9]' THEN " . self::SQL_PREFIXO . " END)
-             FROM pasta WHERE tenant_id = ?",
+             FROM pasta WHERE tenant_id = ? AND excluida_em IS NULL",
             [$this->idDo($tenant)]
         );
 

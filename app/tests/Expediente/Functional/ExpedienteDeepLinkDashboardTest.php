@@ -76,14 +76,15 @@ final class ExpedienteDeepLinkDashboardTest extends JusPrimeWebTestCase
         self::assertNotContains($deBruno->getNup(), $nups, 'responsável não é criador');
     }
 
-    #[TestDox('sem criado_por o acervo segue listando a lápide riscada (comportamento de sempre)')]
-    public function testSemCriadoPorAcervoContinuaListandoLapide(): void
+    #[TestDox('sem criado_por a lápide também fica fora do acervo: ela mora só na lixeira (18/11/2026)')]
+    public function testSemCriadoPorAcervoNaoListaLapide(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $admin  = $this->criarUsuario($tenant, 'Admin Lapide', admin: true);
 
         $s      = strtoupper(uniqid());
+        $viva   = $this->criarPasta($tenant, 'SEMCP-VIVA-' . $s, criadoPor: $admin);
         $lapide = $this->criarPasta($tenant, 'SEMCP-LAPIDE-' . $s, criadoPor: $admin);
         $lapide->marcarExcluida($admin, new \DateTimeImmutable());
         $this->em()->flush();
@@ -92,10 +93,17 @@ final class ExpedienteDeepLinkDashboardTest extends JusPrimeWebTestCase
         $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
 
         self::assertResponseIsSuccessful();
-        self::assertContains($lapide->getNup(), $this->nupsListados($crawler));
+        self::assertSame([$viva->getNup()], $this->nupsListados($crawler));
+
+        // O CSV da lista sai da mesma consulta: a lápide também não vai para a planilha.
+        $client->request('GET', '/expediente/exportar.csv');
+        self::assertResponseIsSuccessful();
+        $csv = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $viva->getNup(), $csv);
+        self::assertStringNotContainsString((string) $lapide->getNup(), $csv);
     }
 
-    #[TestDox('responsavel + período: a lista bate com Total demandas da linha (lápide conta dos dois lados)')]
+    #[TestDox('responsavel + período: a lista bate com Total demandas da linha (lápide fora dos dois lados)')]
     public function testResponsavelBateComTotalDemandas(): void
     {
         $client = static::createClient();
@@ -123,7 +131,7 @@ final class ExpedienteDeepLinkDashboardTest extends JusPrimeWebTestCase
         ));
 
         self::assertResponseIsSuccessful();
-        self::assertSame(3, $linha->totalDemandas, 'pré-condição: ativa + arquivada + lápide');
+        self::assertSame(2, $linha->totalDemandas, 'pré-condição: ativa + arquivada (a lápide fica só na lixeira)');
         self::assertSame($linha->totalDemandas, $this->contarLinhas($crawler));
     }
 
