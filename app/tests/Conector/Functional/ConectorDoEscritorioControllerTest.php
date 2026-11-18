@@ -222,7 +222,7 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
 
     private function card(Crawler $crawler): Crawler
     {
-        $card = $crawler->filter('section.content > div.container-fluid > div.card#conector-escritorio');
+        $card = $crawler->filter('section.content > div.container-fluid > div.bjp-painel#conector-escritorio');
         self::assertCount(1, $card, 'o cartão do conector é um bloco da tela, depois da configuração');
 
         return $card;

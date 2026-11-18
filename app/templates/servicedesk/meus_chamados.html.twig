@@ -17,38 +17,46 @@
         {# Resumo #}
         <div class="row mb-4">
             <div class="col-md-3 col-6">
-                <div class="info-box">
-                    <span class="info-box-icon text-bg-warning"><i class="bi bi-inbox"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">{{ 'servicedesk.comum.abertos'|trans }}</span>
-                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'aberto')|length }}</span>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ chamados|filter(c => c.status == 'aberto')|length }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.abertos'|trans }}</div>
+                        </div>
+                        <i class="bi bi-inbox" style="font-size:24px;color:#8a5a12"></i>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 col-6">
-                <div class="info-box">
-                    <span class="info-box-icon text-bg-primary"><i class="bi bi-gear-wide-connected"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">{{ 'servicedesk.comum.em_andamento'|trans }}</span>
-                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'em_andamento')|length }}</span>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ chamados|filter(c => c.status == 'em_andamento')|length }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.em_andamento'|trans }}</div>
+                        </div>
+                        <i class="bi bi-gear-wide-connected" style="font-size:24px;color:#0f6fc4"></i>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 col-6">
-                <div class="info-box">
-                    <span class="info-box-icon text-bg-success"><i class="bi bi-check-circle"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">{{ 'servicedesk.comum.resolvidos'|trans }}</span>
-                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'resolvido')|length }}</span>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ chamados|filter(c => c.status == 'resolvido')|length }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.resolvidos'|trans }}</div>
+                        </div>
+                        <i class="bi bi-check-circle" style="font-size:24px;color:#1f9d61"></i>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 col-6">
-                <div class="info-box">
-                    <span class="info-box-icon text-bg-secondary"><i class="bi bi-archive"></i></span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">{{ 'servicedesk.comum.fechados'|trans }}</span>
-                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'fechado')|length }}</span>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ chamados|filter(c => c.status == 'fechado')|length }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.fechados'|trans }}</div>
+                        </div>
+                        <i class="bi bi-archive" style="font-size:24px;color:#5f7684"></i>
                     </div>
                 </div>
             </div>
@@ -82,12 +90,12 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.prioridadeBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.prioridadeLabel }}
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.statusBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.statusBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.statusLabel }}
                                 </span>
                             </td>

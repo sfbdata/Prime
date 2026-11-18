@@ -197,7 +197,7 @@ final class ProcessoShowEmLoteTest extends JusPrimeWebTestCase
 
         return [
             'status' => $status,
-            'badge'  => trim($crawler->filter('#tarefas-tab .badge')->count() > 0 ? $crawler->filter('#tarefas-tab .badge')->text() : ''),
+            'badge'  => trim($crawler->filter('#tarefas-tab .bjp-etiqueta')->count() > 0 ? $crawler->filter('#tarefas-tab .bjp-etiqueta')->text() : ''),
             'metas'  => $crawler->filter('#tarefas .tarefa-card')->each(static fn (Crawler $c): array => [
                 'titulo'    => (string) $c->attr('data-tarefa-titulo'),
                 'descricao' => (string) $c->attr('data-tarefa-descricao'),
@@ -206,7 +206,7 @@ final class ProcessoShowEmLoteTest extends JusPrimeWebTestCase
                 'prazo'     => (string) $c->attr('data-tarefa-prazo'),
                 'criacao'   => (string) $c->attr('data-tarefa-criacao'),
                 'conclusao' => (string) $c->attr('data-tarefa-conclusao'),
-                'linha'     => preg_replace('/\s+/', ' ', trim($c->filter('.card-body')->text())),
+                'linha'     => preg_replace('/\s+/', ' ', trim($c->filter('.bjp-painel-corpo')->text())),
             ]),
         ];
     }

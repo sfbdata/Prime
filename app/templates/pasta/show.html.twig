@@ -724,7 +724,7 @@
                        quem alterna é `mostrar()`/`voltar()`, nunca o handler de submit. #}
                     <fieldset id="formPF" class="d-none" disabled>
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-                            <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPF">
+                            <button type="button" class="bjp-btn bjp-btn--discreto" id="btnVoltarPF">
                                 <i class="bi bi-arrow-left"></i>
                             </button>
                             <span class="fw-semibold"><i class="bi bi-person me-1"></i> {{ 'pasta_show.cliente.pf'|trans }}</span>
@@ -851,7 +851,7 @@
                     {# — Formulário PJ — #}
                     <fieldset id="formPJ" class="d-none" disabled>
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-                            <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPJ">
+                            <button type="button" class="bjp-btn bjp-btn--discreto" id="btnVoltarPJ">
                                 <i class="bi bi-arrow-left"></i>
                             </button>
                             <span class="fw-semibold"><i class="bi bi-building me-1"></i> {{ 'pasta_show.cliente.pj'|trans }}</span>
@@ -3984,7 +3984,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             {% if pasta.clientes|length > 0 %}
                                 <div class="d-flex flex-wrap gap-1 mt-1">
                                     {% for cliente in pasta.clientes %}
-                                        <span class="badge text-bg-secondary fw-normal">
+                                        <span class="bjp-etiqueta bjp-etiqueta--neutro">
                                             <i class="bi bi-person me-1"></i>{{ cliente.nomeExibicao }}
                                         </span>
                                     {% endfor %}

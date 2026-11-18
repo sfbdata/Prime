@@ -159,12 +159,12 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.prioridadeBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.prioridadeLabel }}
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.statusBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.statusBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.statusLabel }}
                                 </span>
                             </td>
