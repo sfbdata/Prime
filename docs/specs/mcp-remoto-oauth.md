@@ -2253,3 +2253,11 @@ Coordenador):**
 26. **Acesso à pasta pela porta da tela** (PR 7, com o #770 de acesso restrito em aberto): as ferramentas conferem a pasta
     pela mesma porta da tela (o voter da pasta e o `NivelNoCadeado`, pelo `AcessoAPasta`), sem consulta própria de
     acesso. Assim o escopo do acesso restrito vale sozinho no conector quando o #770 entrar.
+27. **Lista de publicações da pasta** (PR 7, corrige o "Reusa" do `ler_pasta`): o `MontarPainelDoPushUseCase` não devolve
+    a lista e grava (`registrarPrevisao` e `conferir` da previsão, com o monitoramento ativo). A lista sai da mesma consulta
+    da aba Push (`PublicacaoDjenRepository::listarItensPorNumerosDoTenant`, as 100 mais recentes, só leitura), 25 por
+    página; o texto inteiro, pelo caminho do `pasta_push_texto`. Nada grava `lida`. O resumo de cada item é feito do teor
+    mascarado e só então cortado (decisão 22), porque o resumo pronto da lista vem cortado antes da máscara.
+28. **Processos para vincular** (PR 7): a origem de cada processo sai só pelo tipo (`pasta`, `apensado`, `push`), sem o
+    número da pasta de origem, porque o `ProcessoParaVincularOutput` não traz o id dela e não daria para conferir se a
+    pessoa a vê ou se ela está em segredo. Mostra menos que a tela, nunca mais.

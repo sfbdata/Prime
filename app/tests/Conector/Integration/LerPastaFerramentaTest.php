@@ -9,6 +9,8 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\LerPastaFerramenta;
+use App\Djen\DTO\PublicacaoDjenListaItem;
+use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
@@ -40,6 +42,7 @@ final class LerPastaFerramentaTest extends KernelTestCase
 
     private const CPF = '529.982.247-25';
     private const CNJ = '0701134-57.2025.8.07.0007';
+    private const OUTRO_CNJ = '0000001-02.2025.8.07.0001';
     private const LEITOR = ['modules.expediente.view', 'modules.pastas.view', 'resources.pasta.view'];
 
     private Tenant $escritorio;
@@ -344,6 +347,178 @@ final class LerPastaFerramentaTest extends KernelTestCase
         self::assertStringContainsString('[CPF]', $dados['registro']['mensagens'][0]['texto']);
     }
 
+    #[TestDox('publicacoes: a lista traz id, data, tribunal, tipo, processo e resumo, a mais recente primeiro, e NÃO marca nada como lida')]
+    public function testPublicacoesListaSemGravarLida(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $antiga = $this->publicacao(self::CNJ, '<p>Despacho antigo.</p>', '2026-11-01');
+        $recente = $this->publicacao(self::CNJ, '<p>Intimação para <b>manifestar</b> em 15 dias.</p>', '2026-11-10');
+        $this->publicacao(self::OUTRO_CNJ, 'De um processo que não é desta pasta.');
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']]);
+
+        $lista = $resposta->dados['publicacoes'];
+        self::assertSame(['itens', 'pagina', 'por_pagina'], array_keys($lista));
+        self::assertSame([$recente->getId(), $antiga->getId()], array_column($lista['itens'], 'id'));
+        self::assertSame(['id', 'data', 'tribunal', 'tipo', 'processo', 'lida', 'resumo'], array_keys($lista['itens'][0]));
+        self::assertSame('2026-11-10', $lista['itens'][0]['data']);
+        self::assertSame('TJDFT', $lista['itens'][0]['tribunal']);
+        self::assertSame(self::CNJ, $lista['itens'][0]['processo']);
+        self::assertSame('Intimação para manifestar em 15 dias.', $lista['itens'][0]['resumo']);
+        self::assertNull($resposta->proximaPagina);
+        self::assertSame(0, $this->totalDeLidas(), 'montar a lista não grava lida');
+    }
+
+    #[TestDox('publicacoes: com publicacao_id, o texto inteiro da publicação desta pasta, sem marcar como lida')]
+    public function testPublicacaoInteiraSemGravarLida(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $publicacao = $this->publicacao(self::CNJ, '<p>Primeiro parágrafo.</p><p>Segundo &amp; último.</p>');
+        $outra = $this->publicacao(self::CNJ, 'Outra, que continua não lida.');
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes'], 'publicacao_id' => $publicacao->getId()]);
+
+        $unica = $resposta->dados['publicacoes']['publicacao'];
+        self::assertSame(['id', 'data', 'tribunal', 'tipo', 'processo', 'lida', 'texto', 'cortado'], array_keys($unica));
+        self::assertSame($publicacao->getId(), $unica['id']);
+        self::assertSame('Primeiro parágrafo. Segundo & último.', $unica['texto']);
+        self::assertFalse($unica['cortado']);
+        self::assertFalse($unica['lida']);
+        self::assertNotNull($outra->getId());
+        self::assertSame(0, $this->totalDeLidas(), 'ler o texto inteiro não grava lida');
+    }
+
+    #[TestDox('publicacoes: a publicação de outra pasta, de outro escritório (mesmo número de processo) ou inexistente: não encontrado')]
+    public function testPublicacaoDeForaDaPastaNaoEncontrada(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $outraPasta = $this->pastaComProcesso(self::OUTRO_CNJ);
+        $deOutraPasta = $this->publicacao(self::OUTRO_CNJ, 'Teor da outra pasta.');
+        $outro = $this->escritorio('Outro');
+        $deOutroEscritorio = $this->publicacao(self::CNJ, 'Teor de outro escritório.', escritorio: $outro);
+        self::assertNotNull($outraPasta->getId());
+
+        foreach ([$deOutraPasta->getId(), $deOutroEscritorio->getId(), 999_999_999] as $id) {
+            $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes'], 'publicacao_id' => $id], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+            static::getContainer()->get('services_resetter')->reset();
+        }
+        $lista = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']])->dados['publicacoes']['itens'];
+        self::assertSame([], $lista, 'a lista da pasta não traz a de outro escritório nem a de outra pasta');
+    }
+
+    #[TestDox('publicacoes: com a aba Push oculta, a parte é recusada como não encontrado (a lista e o texto); o resumo continua')]
+    public function testPublicacoesComPushOculto(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $publicacao = $this->publicacao(self::CNJ, 'Teor.');
+        $this->ocultar($pasta, AbaDaPasta::Push);
+
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        static::getContainer()->get('services_resetter')->reset();
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes'], 'publicacao_id' => $publicacao->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        static::getContainer()->get('services_resetter')->reset();
+        self::assertArrayHasKey('resumo', $this->ler(['pasta_id' => $pasta->getId()])->dados);
+    }
+
+    #[TestDox('publicacoes: publicacao_id sem a parte publicacoes é pedido inválido')]
+    public function testPublicacaoIdSemAParte(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $publicacao = $this->publicacao(self::CNJ, 'Teor.');
+
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'publicacao_id' => $publicacao->getId()], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        static::getContainer()->get('services_resetter')->reset();
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['resumo'], 'publicacao_id' => $publicacao->getId()], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+    }
+
+    #[TestDox('publicacoes: pasta da lixeira, de outro escritório, trancada ou em segredo de justiça seguem barradas')]
+    public function testPublicacoesComAsBarreirasDaPasta(): void
+    {
+        $naLixeira = $this->pastaComProcesso();
+        $naLixeira->marcarExcluida($this->pessoa, new \DateTimeImmutable());
+        $outro = $this->escritorio('Outro');
+        $deOutro = $this->pastaComProcesso(self::OUTRO_CNJ, $outro);
+        $trancada = $this->pasta();
+        $this->em()->persist(new CadeadoDaPasta($this->escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $segredo = $this->pasta(comSegredo: true);
+        $this->em()->flush();
+
+        foreach ([$naLixeira->getId(), $deOutro->getId(), $trancada->getId()] as $id) {
+            $this->assertMotivo(['pasta_id' => $id, 'partes' => ['publicacoes']], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+            static::getContainer()->get('services_resetter')->reset();
+        }
+        $this->assertMotivo(['pasta_id' => $segredo->getId(), 'partes' => ['publicacoes']], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
+    #[TestDox('publicacoes: 30 publicações dão a página 1 com 25 e proxima_pagina 2; a página 2 traz as 5 restantes')]
+    public function testPublicacoesPaginadas(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        for ($i = 1; $i <= 30; ++$i) {
+            $this->publicacao(self::CNJ, 'Publicação ' . $i, '2026-10-' . str_pad((string) $i, 2, '0', \STR_PAD_LEFT));
+        }
+
+        $primeira = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']]);
+        self::assertCount(25, $primeira->dados['publicacoes']['itens']);
+        self::assertSame('Publicação 30', $primeira->dados['publicacoes']['itens'][0]['resumo']);
+        self::assertSame(2, $primeira->proximaPagina);
+
+        static::getContainer()->get('services_resetter')->reset();
+        $segunda = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes'], 'pagina' => 2]);
+        self::assertCount(5, $segunda->dados['publicacoes']['itens']);
+        self::assertSame(2, $segunda->dados['publicacoes']['pagina']);
+        self::assertNull($segunda->proximaPagina);
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('publicacoes: a máscara vem antes do corte do resumo; o dado que atravessa o limite dos 220 sai mascarado, não pela metade')]
+    public function testResumoDaPublicacaoMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $inicio = PublicacaoDjenListaItem::LIMITE_RESUMO - intdiv(mb_strlen($dado), 2);
+        $this->publicacao(self::CNJ, str_repeat('a', $inicio - 1) . ' ' . $dado . ' ' . str_repeat('b', 80));
+
+        $resumo = (string) $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']])->dados['publicacoes']['itens'][0]['resumo'];
+
+        self::assertStringEndsWith('…', $resumo, 'o resumo saiu cortado');
+        self::assertStringNotContainsString($resto, $resumo);
+        self::assertStringNotContainsString('@', $resumo);
+    }
+
+    #[TestDox('publicacoes: o texto inteiro acima do teto é cortado DEPOIS da máscara e marcado cortado; o CPF no limite não sobra pela metade')]
+    public function testTextoInteiroCortadoDepoisDaMascara(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        $falta = LerPastaFerramenta::TETO_DO_TEOR - 4;
+        $publicacao = $this->publicacao(self::CNJ, str_repeat('a', $falta) . ' ' . self::CPF . ' ' . str_repeat('b', 20_000));
+
+        $unica = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes'], 'publicacao_id' => $publicacao->getId()])->dados['publicacoes']['publicacao'];
+
+        self::assertTrue($unica['cortado']);
+        self::assertStringEndsWith('…', $unica['texto']);
+        self::assertLessThan(LerPastaFerramenta::TETO_DO_TEOR + 2, mb_strlen($unica['texto']));
+        self::assertStringNotContainsString('529', $unica['texto']);
+        self::assertStringNotContainsString('982', $unica['texto']);
+    }
+
+    #[TestDox('publicacoes: o texto inteiro, mascarado com a máscara do escritório desligada, e a resposta cabe no teto do despacho')]
+    public function testTextoInteiroMascaradoECabeNoTeto(): void
+    {
+        $configuracao = new ConfiguracaoDeInteligencia($this->escritorio);
+        $configuracao->atualizar(true, 10, 100, false, $this->pessoa);
+        $this->em()->persist($configuracao);
+        $pasta = $this->pastaComProcesso();
+        $publicacao = $this->publicacao(self::CNJ, 'Cliente CPF ' . self::CPF . '. ' . str_repeat('Texto "com aspas" e barra / longo. ', 3_000));
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['resumo', 'publicacoes'], 'publicacao_id' => $publicacao->getId()]);
+
+        $texto = $resposta->dados['publicacoes']['publicacao']['texto'];
+        self::assertStringContainsString('[CPF]', $texto);
+        self::assertStringNotContainsString(self::CPF, $texto);
+        $json = json_encode($resposta->dados, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
+        self::assertLessThan(LerPastaFerramenta::TETO_DA_RESPOSTA + 1, mb_strlen($json));
+    }
+
     /** @param array<string, mixed> $argumentos */
     private function ler(array $argumentos): RespostaDaFerramenta
     {
@@ -416,15 +591,16 @@ final class LerPastaFerramentaTest extends KernelTestCase
     }
 
     /** Pasta com um processo público vinculado (o `pasta()` só cria processo em segredo). */
-    private function pastaComProcesso(): Pasta
+    private function pastaComProcesso(string $cnj = self::CNJ, ?Tenant $escritorio = null): Pasta
     {
-        $pasta = $this->pasta();
+        $escritorio ??= $this->escritorio;
+        $pasta = $this->pasta($escritorio);
         $processo = new Processo();
-        $processo->setNumeroProcesso(self::CNJ);
+        $processo->setNumeroProcesso($cnj);
         $processo->setSiglaTribunal('TJDFT');
         $processo->setClasseProcessual('Procedimento Comum');
         $processo->setAssuntoProcessual('Assunto');
-        $processo->setTenant($this->escritorio);
+        $processo->setTenant($escritorio);
         $this->em()->persist($processo);
         $vinculo = new PastaProcesso($pasta, $processo);
         $this->em()->persist($vinculo);
@@ -432,5 +608,32 @@ final class LerPastaFerramentaTest extends KernelTestCase
         $this->em()->flush();
 
         return $pasta;
+    }
+
+    /** Uma publicação do Diário (não lida) do processo de número `$cnj`, no escritório `$escritorio`. */
+    private function publicacao(string $cnj, string $texto, string $data = '2026-11-10', ?Tenant $escritorio = null): PublicacaoDjen
+    {
+        $publicacao = (new PublicacaoDjen())
+            ->setTenant($escritorio ?? $this->escritorio)
+            ->setDjenId((string) random_int(100_000_000, 999_999_999_999))
+            ->setNumeroProcesso((string) preg_replace('/\D/', '', $cnj))
+            ->setNumeroProcessoComMascara($cnj)
+            ->setSiglaTribunal('TJDFT')
+            ->setTipoComunicacao('Intimação')
+            ->setNomeOrgao('1ª Vara Cível')
+            ->setDataDisponibilizacao(new \DateTimeImmutable($data))
+            ->setTexto($texto);
+        $this->em()->persist($publicacao);
+        $this->em()->flush();
+
+        return $publicacao;
+    }
+
+    /** Quantas publicações do banco estão marcadas como lidas (a contagem vem do banco, não da memória). */
+    private function totalDeLidas(): int
+    {
+        $this->em()->clear();
+
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM publicacao_djen WHERE lida = true');
     }
 }
