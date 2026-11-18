@@ -154,7 +154,7 @@ final class LerPastaFerramenta implements FerramentaDoConector
                     'uniqueItems' => true,
                     'description' => 'As partes a ler. Sem este campo, só o resumo.',
                 ],
-                'pagina' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Só com a parte registro ou publicacoes: a página (o valor de proxima_pagina). Vale para as duas, se pedidas juntas.'],
+                'pagina' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Só com a parte registro ou publicacoes, pedida sozinha: a página (o valor de proxima_pagina). Pedidas juntas, as duas vêm na página 1 e a próxima de cada uma está em registro.proxima_pagina e publicacoes.proxima_pagina; para continuar, peça só aquela parte com pagina.'],
                 'publicacao_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Só com a parte publicacoes: o id de uma publicação da lista, para ler o texto inteiro.'],
             ],
             'required' => ['pasta_id'],
@@ -178,20 +178,39 @@ final class LerPastaFerramenta implements FerramentaDoConector
             $lidas[$parte] = $this->parte($parte, $pasta, $chamada, $contexto, $decisao['abasOcultas']);
         }
         // Publicações e Registro por último: o texto encolhe até a resposta inteira caber no teto.
-        $proxima = null;
+        $proximas = [];
         if (\in_array('publicacoes', $partes, true)) {
-            [$lidas['publicacoes'], $proxima] = $this->publicacoes($pasta, $chamada, $pagina ?? 1, $publicacaoId, self::espacoQueSobra($lidas));
+            [$lidas['publicacoes'], $proximas['publicacoes']] = $this->publicacoes($pasta, $chamada, $pagina ?? 1, $publicacaoId, self::espacoQueSobra($lidas));
         }
         if (\in_array('registro', $partes, true)) {
-            [$lidas['registro'], $proximaDoRegistro] = $this->registro($pasta, $escritorio, $pagina ?? 1, $decisao['financeiro'], self::espacoQueSobra($lidas));
-            $proxima = $proximaDoRegistro ?? $proxima;
+            [$lidas['registro'], $proximas['registro']] = $this->registro($pasta, $escritorio, $pagina ?? 1, $decisao['financeiro'], self::espacoQueSobra($lidas));
         }
+        $proxima = self::proximaDeCima($lidas, $proximas);
         $dados = ['pasta_id' => $lidas['pasta_id']];
         foreach ($partes as $parte) {
             $dados[$parte] = $lidas[$parte];
         }
 
         return new RespostaDaFerramenta($dados, proximaPagina: $proxima, contagens: ['partes' => \count($partes)], ids: ['pasta' => [(int) $pasta->getId()]]);
+    }
+
+    /**
+     * A próxima página: com uma parte paginada, a dela vai também no topo da resposta; com as duas juntas, cada uma leva a
+     * sua dentro da própria parte (a próxima de cima fica nula).
+     *
+     * @param array<string, mixed> $lidas  mudada: as partes ganham `proxima_pagina` quando são as duas
+     * @param array<string, ?int>  $proximas
+     */
+    private static function proximaDeCima(array &$lidas, array $proximas): ?int
+    {
+        if (\count($proximas) === 1) {
+            return array_values($proximas)[0];
+        }
+        foreach ($proximas as $parte => $proxima) {
+            $lidas[$parte]['proxima_pagina'] = $proxima;
+        }
+
+        return null;
     }
 
     /**
@@ -254,7 +273,9 @@ final class LerPastaFerramenta implements FerramentaDoConector
         $pagina = null;
         if (\array_key_exists('pagina', $argumentos)) {
             $pagina = self::inteiro($argumentos['pagina']);
-            if ($pagina === null || $pagina > self::TETO_DE_PAGINA || array_intersect($partes, ['registro', 'publicacoes']) === []) {
+            $paginadas = array_intersect($partes, ['registro', 'publicacoes']);
+            // `pagina` com as duas partes juntas é ambíguo: cada uma se pagina em um pedido só dela.
+            if ($pagina === null || $pagina > self::TETO_DE_PAGINA || $paginadas === [] || \count($paginadas) > 1) {
                 throw ErroDaFerramenta::entradaInvalida();
             }
         }

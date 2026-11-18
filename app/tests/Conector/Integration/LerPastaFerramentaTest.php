@@ -470,6 +470,31 @@ final class LerPastaFerramentaTest extends KernelTestCase
         self::assertNull($segunda->proximaPagina);
     }
 
+    #[TestDox('pagina com registro e publicacoes juntos é pedido inválido; sem pagina, as duas vêm na página 1 e a próxima de cada uma vai dentro da parte')]
+    public function testPaginaComRegistroEPublicacoesJuntos(): void
+    {
+        $pasta = $this->pastaComProcesso();
+        for ($i = 1; $i <= 26; ++$i) {
+            $this->publicacao(self::CNJ, 'Publicação ' . $i, '2026-10-' . str_pad((string) $i, 2, '0', \STR_PAD_LEFT));
+        }
+        for ($i = 1; $i <= 51; ++$i) {
+            $this->mensagem($pasta, 'Mensagem ' . $i);
+        }
+        $this->em()->flush();
+
+        $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['registro', 'publicacoes'], 'pagina' => 2], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+
+        static::getContainer()->get('services_resetter')->reset();
+        $juntas = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['registro', 'publicacoes']]);
+        self::assertNull($juntas->proximaPagina, 'com duas partes paginadas não há proxima_pagina de cima');
+        self::assertSame(2, $juntas->dados['registro']['proxima_pagina']);
+        self::assertSame(2, $juntas->dados['publicacoes']['proxima_pagina']);
+
+        static::getContainer()->get('services_resetter')->reset();
+        $so = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['publicacoes']]);
+        self::assertSame(2, $so->proximaPagina, 'com uma parte paginada a próxima de cima continua');
+    }
+
     #[DataProvider('dadosNoLimite')]
     #[TestDox('publicacoes: a máscara vem antes do corte do resumo; o dado que atravessa o limite dos 220 sai mascarado, não pela metade')]
     public function testResumoDaPublicacaoMascaraAntesDoCorte(string $dado, string $resto): void
@@ -632,6 +657,11 @@ final class LerPastaFerramentaTest extends KernelTestCase
     /** Quantas publicações do banco estão marcadas como lidas (a contagem vem do banco, não da memória). */
     private function totalDeLidas(): int
     {
+        $unidade = $this->em()->getUnitOfWork();
+        $unidade->computeChangeSets();
+        self::assertSame([], $unidade->getScheduledEntityUpdates(), 'nada agendado para gravar, nem lida');
+        self::assertSame([], $unidade->getScheduledEntityInsertions());
+        self::assertSame([], $unidade->getScheduledEntityDeletions());
         $this->em()->clear();
 
         return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM publicacao_djen WHERE lida = true');

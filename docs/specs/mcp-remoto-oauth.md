@@ -883,7 +883,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 - Regras: segredo recusa; o log guarda só id e sha256, como o `contexto_resumo.documentosLidos` da I.A.; imagem embutida na
   peça não sai (é servida hoje sem isolamento por escritório, `docs/specs/peca-imagem-isolamento-tenant.md`); conteúdo de
   documento que está na lixeira não sai (o leitor tira a lixeira de propósito; restaurar entra em `documentos_e_pecas`).
-- Permissão: recurso `pasta` view; aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
+- Permissão: recurso `pasta` view (a `lixeira` pede `pasta` edit, como a tela, decisão 29); aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
   `MAPA` `:71`); chave `expedientes`. A chave `peticionar` não vale aqui: cobre só `pasta_peticionar*`.
 
 **`ler_processos`** (PR 7; CNJ no PR 13)
@@ -905,7 +905,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   movimentações de um processo que o conector esconde em toda outra ação.
 - Permissão: módulo `processos` (`app/src/Processo/Controller/ProcessoController.php:85`); por id,
   `idsDosProcessosOcultos` e recurso `processo` view, na ordem de `ProcessoController.php:222-225`; `para_vincular` e `cnj`,
-  recurso `pasta` view e aba Processo, como a tela.
+  recurso `pasta` edit e aba Processo, como a tela (`PastaController.php:1059`, decisão 29).
 - Regras: segredo omitido e contado na lista, recusa por id e no `cnj`; partes só pelo nome. `openWorldHint: true` (CNJ).
 
 **`ler_clientes`** (PR 11; documentos do cliente no PR 14)
@@ -2261,3 +2261,12 @@ Coordenador):**
 28. **Processos para vincular** (PR 7): a origem de cada processo sai só pelo tipo (`pasta`, `apensado`, `push`), sem o
     número da pasta de origem, porque o `ProcessoParaVincularOutput` não traz o id dela e não daria para conferir se a
     pessoa a vê ou se ela está em segredo. Mostra menos que a tela, nunca mais.
+29. **Lixeira da pasta e processos para vincular pedem editar** (revisão do PR 7, corrige a 6.4, que dizia "view"): a tela
+    só mostra a lixeira de documentos a quem pode editar a pasta (`PastaDocumentoController.php:353`, `podeVerLixeira`) e
+    só busca processos para vincular com a pasta em edição (`PastaController.php:1059`). O conector exige o mesmo recurso
+    `pasta` edit, pela mesma porta da tela.
+30. **`ler_processos` mostra o que a tela mostra** (revisão do PR 7): a lista do `buscar` traz só os campos da lista da
+    tela (número, tribunal, classe, assunto, situação); as partes ficam no `detalhar`, que exige o recurso `processo` view.
+    As notas técnicas só saem quando a pessoa vê alguma pasta vinculada ao processo, fora de segredo, com a aba Processo
+    visível, porque a tela só as mostra nessa aba de dentro da pasta. Processo que não está em segredo, mas vinculado a uma
+    pasta em segredo por causa de outro processo, segue a tela de processos: aparece na lista e no `detalhar`.

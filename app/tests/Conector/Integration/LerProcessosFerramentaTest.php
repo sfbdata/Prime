@@ -50,7 +50,7 @@ final class LerProcessosFerramentaTest extends KernelTestCase
         self::bootKernel();
         $this->escritorio = $this->escritorio();
         $this->pessoa = $this->pessoa();
-        $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::LEITOR);
+        $this->vinculo($this->pessoa, $this->escritorio, permissoes: [...self::LEITOR, 'resources.pasta.edit']);
         $this->colega = $this->pessoa();
         $this->colega->setFullName('Colega da Equipe');
         $this->vinculo($this->colega, $this->escritorio, permissoes: self::LEITOR);
@@ -62,7 +62,7 @@ final class LerProcessosFerramentaTest extends KernelTestCase
         parent::tearDown();
     }
 
-    #[TestDox('buscar: acha pelo termo no escritório; o de outro escritório não sai; o em segredo sai e conta; a parte sai só pelo nome')]
+    #[TestDox('buscar: acha pelo termo no escritório; o de outro escritório não sai; o em segredo sai e conta; a lista tem só o que a tela mostra, sem parte')]
     public function testBuscarPeloTermo(): void
     {
         $comum = $this->processo(classe: 'Classe Buscada Alfa');
@@ -81,7 +81,8 @@ final class LerProcessosFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString($deOutro->getNumeroProcesso(), $json);
         self::assertStringNotContainsString('11122233344', $json, 'o documento da parte nunca sai');
         self::assertStringNotContainsString(self::CPF, $json);
-        self::assertStringContainsString('MARIA DA PARTE [CPF]', $json);
+        self::assertStringNotContainsString('MARIA DA PARTE', $json, 'a lista da tela não mostra parte');
+        self::assertSame(['id', 'numero', 'tribunal', 'classe', 'assunto', 'situacao'], array_keys($resposta->dados['processos'][0]));
         self::assertSame(['processo' => [$comum->getId()]], $resposta->ids);
         self::assertSame(['processos' => 1, 'total' => 2, 'em_segredo' => 1], $resposta->contagens);
     }
@@ -264,6 +265,7 @@ final class LerProcessosFerramentaTest extends KernelTestCase
         $processo = $this->processo();
         $movimentacao = $this->movimentacao($processo, 'Descrição ' . self::CPF, '2026-10-01');
         $movimentacao->setComplementos([['nome' => str_repeat('x', LerProcessosFerramenta::TAMANHO_DO_COMPLEMENTO - 8) . ' ' . self::CPF . ' fim']]);
+        $this->pastaDo($processo);
         $this->nota($processo, '<p>' . str_repeat('y', LerProcessosFerramenta::TAMANHO_DA_NOTA - 8) . ' ' . self::CPF . ' fim</p>');
         $this->em()->flush();
 
@@ -303,6 +305,59 @@ final class LerProcessosFerramentaTest extends KernelTestCase
             self::assertStringNotContainsString($fora, $json);
         }
         self::assertEqualsCanonicalizing([$livre->getId(), $naOutraPasta->getId()], $resposta->ids['processo']);
+    }
+
+    #[TestDox('detalhar: sem pasta vinculada que a pessoa veja fora do segredo, as notas técnicas não saem e o campo diz que não estão disponíveis')]
+    public function testDetalharNotasSemPastaVisivel(): void
+    {
+        $semPasta = $this->processo();
+        $this->nota($semPasta, '<p>Nota que a tela não mostraria</p>');
+        $naSegredo = $this->processo();
+        $this->nota($naSegredo, '<p>Nota na pasta em segredo</p>');
+        $pastaEmSegredo = $this->pastaDo($naSegredo);
+        $this->vincular($pastaEmSegredo, $this->processo(nivelSigilo: 1));
+
+        foreach ([$semPasta, $naSegredo] as $processo) {
+            $resposta = $this->ler(['acao' => 'detalhar', 'processo_id' => $processo->getId()]);
+            self::assertSame([], $resposta->dados['notas_tecnicas']);
+            self::assertFalse($resposta->dados['notas_tecnicas_disponiveis']);
+            self::assertStringNotContainsString('Nota', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+            static::getContainer()->get('services_resetter')->reset();
+        }
+    }
+
+    #[TestDox('detalhar: com a aba Processo oculta em todas as pastas visíveis, as notas técnicas não saem; com uma pasta com a aba visível, saem')]
+    public function testDetalharNotasDependemDaAbaProcesso(): void
+    {
+        $soOculta = $this->processo();
+        $this->nota($soOculta, '<p>Nota da aba Processo</p>');
+        $oculta = $this->pastaDo($soOculta);
+        $comUmaVisivel = $this->processo();
+        $this->nota($comUmaVisivel, '<p>Nota da aba Processo</p>');
+        $outraOculta = $this->pastaDo($comUmaVisivel);
+        $this->pastaDo($comUmaVisivel);
+        foreach ([$oculta, $outraOculta] as $pasta) {
+            $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $pasta, AbaDaPasta::Processo, $this->colega, new \DateTimeImmutable()));
+        }
+        $this->em()->flush();
+
+        $semAba = $this->ler(['acao' => 'detalhar', 'processo_id' => $soOculta->getId()]);
+        self::assertSame([], $semAba->dados['notas_tecnicas']);
+        self::assertFalse($semAba->dados['notas_tecnicas_disponiveis']);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $visivel = $this->ler(['acao' => 'detalhar', 'processo_id' => $comUmaVisivel->getId()]);
+        self::assertTrue($visivel->dados['notas_tecnicas_disponiveis']);
+        self::assertSame(['Nota da aba Processo'], array_column($visivel->dados['notas_tecnicas'], 'texto'));
+    }
+
+    #[TestDox('para_vincular: quem só tem ver na pasta (sem editar) recebe "não encontrado", como a tela recusa a busca')]
+    public function testParaVincularSoComVer(): void
+    {
+        $pasta = $this->pasta();
+        $this->processo(classe: 'Classe Vincular Epsilon');
+
+        $this->assertMotivo(['acao' => 'para_vincular', 'pasta_id' => $pasta->getId(), 'termo' => 'Classe Vincular Epsilon'], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->colega);
     }
 
     #[TestDox('para_vincular: pasta de outro escritório, na lixeira, trancada ou com a aba Processo oculta é "não encontrado"; em segredo, a recusa')]

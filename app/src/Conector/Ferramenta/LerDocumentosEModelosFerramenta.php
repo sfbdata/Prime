@@ -20,6 +20,7 @@ use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
+use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Inteligencia\UseCase\ListarDocumentosDaPastaDoAgenteUseCase;
 use App\Pasta\DTO\FiltroDosModelosInput;
 use App\Pasta\Entity\Pasta;
@@ -52,8 +53,9 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
  * ação) → {@see PastaDoContextoDaIa::liberar()} (segredo de justiça e abas ocultas). Nenhuma consulta própria de acesso
  * (decisão 26).
  *
- * Texto: nomes pelo {@see ProtecaoDoTextoDoChat::rotulo()}; o corpo do modelo só neutralizado, linha a linha, sem a
- * máscara (6.2, regra 6: o conteúdo de documento é a exceção coberta pelo aceite do conector).
+ * Texto: nomes pelo {@see ProtecaoDoTextoDoChat::rotulo()}; o corpo do modelo pelo {@see ProtecaoDoTextoDoChat::comoDado()}
+ * (neutralizado e mascarado, 6.2.6). Sem a máscara só o conteúdo do documento lido, a exceção coberta pelo aceite do
+ * conector (6.2, regra 6).
  */
 final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
 {
@@ -282,6 +284,8 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
     private function naLixeira(Pasta $pasta, ChamadaDoConector $chamada, array $abasOcultas, int $pagina): RespostaDaFerramenta
     {
         $escritorio = $chamada->contexto->escritorio;
+        // A tela só abre a lixeira de quem edita a pasta; quem só vê não fica sabendo que ela existe.
+        $this->guarda->exigirEdicaoDaPasta($chamada, $pasta);
         $saida = $this->listarLixeira->executar($pasta, $escritorio, $abasOcultas);
         $itens = [];
         foreach ($saida->itens as $item) {
@@ -409,12 +413,14 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
     }
 
     /** Neste PR, só PDF e imagem; áudio e vídeo recusam pela 14.f, os outros tipos dizem que ainda não são lidos. */
-    private static function conferirTipo(string $mime): void
+    private static function conferirTipo(string $gravado): void
     {
-        if (str_starts_with($mime, 'audio/') || str_starts_with($mime, 'video/')) {
+        $mime = strtolower(trim($gravado));
+        if ($mime === 'application/ogg' || str_starts_with($mime, 'audio/') || str_starts_with($mime, 'video/')) {
             throw new ErroDaFerramenta(self::MOTIVO_AUDIO_E_VIDEO, self::AUDIO_E_VIDEO);
         }
-        if ($mime !== ArquivoNaResposta::PDF && !\in_array($mime, ArquivoNaResposta::IMAGENS, true)) {
+        // A mesma normalização da leitura da I.A.: o upload gravou grafias como image/jpg e application/x-pdf.
+        if (RegraDaLeituraDeDocumentos::tipoDeclarado($mime) === null) {
             throw new ErroDaFerramenta(self::MOTIVO_TIPO_AINDA_NAO_LIDO, self::TIPO_AINDA_NAO_LIDO);
         }
     }

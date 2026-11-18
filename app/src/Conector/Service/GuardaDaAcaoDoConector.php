@@ -7,6 +7,7 @@ namespace App\Conector\Service;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\TabelaDeAbaEChave;
+use App\Entity\Permission\AccessRequest;
 use App\Master\Service\RecursosDoSistema;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\AcessoAPasta;
@@ -31,7 +32,7 @@ use App\Service\PermissionChecker;
  * Chave e módulo vêm antes da pasta: as duas recusas não dependem da pasta, e nenhuma diz se ela existe.
  *
  * Não confere: o segredo de justiça (a ferramenta, pelo `MontadorDeContextoDaPasta` ou pela {@see SegredoNasListas}),
- * o recurso de editar (o UseCase), a pasta na lixeira e o Financeiro (6.2, regra 5). Pessoa e escritório vêm só da
+ * o recurso de editar (a ferramenta, por {@see exigirEdicaoDaPasta()}, nas ações que a tela só abre a quem edita), a pasta na lixeira e o Financeiro (6.2, regra 5). Pessoa e escritório vêm só da
  * {@see ChamadaDoConector}: nada de sessão, Security, Request ou filtro do Doctrine.
  */
 final class GuardaDaAcaoDoConector
@@ -78,6 +79,20 @@ final class GuardaDaAcaoDoConector
             if (\in_array($aba, $ocultas, true)) {
                 throw ErroDaFerramenta::naoEncontrado();
             }
+        }
+    }
+
+    /**
+     * O recurso `pasta` de editar, como a tela exige na lixeira e na busca para vincular (`PastaDocumentoController::lixeira`,
+     * `PastaController::buscarProcessos`). Quem só vê recebe "não encontrado", sem revelar que a ação existe.
+     *
+     * @throws ErroDaFerramenta
+     */
+    public function exigirEdicaoDaPasta(ChamadaDoConector $chamada, Pasta $pasta): void
+    {
+        $contexto = $chamada->contexto;
+        if (!$this->permissoes->canAccessResource($contexto->pessoa, $contexto->escritorio, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT)) {
+            throw ErroDaFerramenta::naoEncontrado();
         }
     }
 

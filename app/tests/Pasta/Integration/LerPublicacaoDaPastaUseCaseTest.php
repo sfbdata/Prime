@@ -64,6 +64,18 @@ final class LerPublicacaoDaPastaUseCaseTest extends KernelTestCase
         $this->assertNadaGravado();
     }
 
+    #[TestDox('lista: o teor vai inteiro, sem corte nos 2000, para quem entrega mascarar antes de resumir (CPF no limite não é partido)')]
+    public function testListaComOTeorSemCorte(): void
+    {
+        $pasta = $this->pasta(self::CNJ);
+        $texto = str_repeat('a', 1995) . ' 529.982.247-25 ' . str_repeat('b', 500);
+        $this->publicacao(self::CNJ, $texto);
+
+        $lista = $this->useCase()->listar($pasta, $this->pessoa, $this->escritorio, 1, 25);
+
+        self::assertSame($texto, $lista['itens'][0]->texto);
+    }
+
     #[TestDox('lista: a página corta no tamanho pedido e diz se há mais')]
     public function testListaPaginada(): void
     {

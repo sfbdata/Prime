@@ -46,6 +46,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
     private const PNG = "\x89PNG\r\n\x1A\nimagem";
     private const CPF = '529.982.247-25';
     private const LEITOR = ['modules.pastas.view', 'resources.pasta.view'];
+    private const EDITOR = ['modules.pastas.view', 'resources.pasta.view', 'resources.pasta.edit'];
 
     private Tenant $escritorio;
     private User $pessoa;
@@ -58,7 +59,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         $this->disco = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
         $this->escritorio = $this->escritorio();
         $this->pessoa = $this->pessoa();
-        $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::LEITOR);
+        $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::EDITOR);
         $this->doConector = new EscritorioDoConector($this->escritorio);
         $this->doConector->liberarPeloMaster();
         $this->doConector->ligar($this->pessoa, new \DateTimeImmutable());
@@ -212,6 +213,8 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         yield 'áudio MP3' => ['audio/mpeg', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
         yield 'áudio OPUS' => ['audio/opus', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
         yield 'vídeo MP4' => ['video/mp4', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
+        yield 'áudio OGG (application/ogg)' => ['application/ogg', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
+        yield 'áudio com maiúsculas' => ['Audio/MPEG', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
         yield 'vídeo MOV' => ['video/quicktime', LerDocumentosEModelosFerramenta::MOTIVO_AUDIO_E_VIDEO, LerDocumentosEModelosFerramenta::AUDIO_E_VIDEO];
     }
 
@@ -229,6 +232,41 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
             self::assertSame($motivo, $e->motivo);
             self::assertSame($mensagem, $e->getMessage());
         }
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function grafiasGravadasQueLeem(): iterable
+    {
+        yield 'image/jpg' => ['image/jpg', self::PNG];
+        yield 'image/pjpeg' => ['image/pjpeg', self::PNG];
+        yield 'application/x-pdf' => ['application/x-pdf', self::PDF];
+        yield 'maiúsculas' => ['IMAGE/PNG', self::PNG];
+    }
+
+    #[DataProvider('grafiasGravadasQueLeem')]
+    #[TestDox('ler: as grafias que o upload gravou (como a I.A. normaliza) são lidas, não "tipo ainda não lido": $_dataName')]
+    public function testGrafiasGravadasLeem(string $mime, string $bytes): void
+    {
+        $pasta = $this->pasta();
+        $doc = $this->documento($pasta, 'arquivo.bin', $bytes, mime: $mime);
+
+        self::assertNotNull($this->executar('ler', $pasta, ['documento_id' => $doc->getId()])->arquivo);
+    }
+
+    #[TestDox('lixeira: quem só vê a pasta (sem o recurso de editar, como a tela) recebe "não encontrado"; quem edita, a lista')]
+    public function testLixeiraExigeEditar(): void
+    {
+        $pasta = $this->pasta();
+        $this->documento($pasta, 'excluido.pdf', self::PDF)->marcarExcluido($this->pessoa, new \DateTimeImmutable());
+        $soVer = $this->pessoa();
+        $this->vinculo($soVer, $this->escritorio, permissoes: self::LEITOR);
+        $this->em()->flush();
+        self::assertCount(1, $this->executar('lixeira', $pasta)->dados['itens']);
+
+        $this->pessoa = $soVer;
+
+        $this->assertMotivo('lixeira', $pasta, [], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        self::assertSame([], $this->executar('listar', $pasta)->dados['documentos'], 'listar continua para quem só vê');
     }
 
     #[TestDox('ler: PDF declarado cujo conteúdo não é PDF nem imagem é recusado pelo leitor com a mensagem fixa')]

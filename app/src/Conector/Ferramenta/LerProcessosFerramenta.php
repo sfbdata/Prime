@@ -10,24 +10,23 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Service\GuardaDaAcaoDoConector;
 use App\Conector\Service\SegredoNasListas;
-use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\DTO\ProcessoLidoOutput;
-use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
 use App\Processo\Exception\ProcessoEmSegredoDeJusticaException;
 use App\Processo\Exception\ProcessoNaoEncontradoException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\UseCase\LerProcessoUseCase;
-use App\Service\PermissionChecker;
 
 /**
  * `ler_processos` (`docs/specs/mcp-remoto-oauth.md`, `ler_processos` e as decisões 13, 20, 22 e 26 da seção 14). Neste PR,
@@ -35,13 +34,16 @@ use App\Service\PermissionChecker;
  * "pedido inválido".
  *  - `buscar`: processos do escritório por termo ou número CNJ (a consulta da tela de Processos), 25 por página, sem os
  *    que o cadeado oculta para a pessoa (K3, como a tela). Processo em segredo de justiça sai e é contado
- *    (`omitidos_em_segredo`); as partes saem só pelo nome;
+ *    (`omitidos_em_segredo`); a lista só tem o que a tela mostra (sem partes);
  *  - `detalhar`: um processo por id ({@see LerProcessoUseCase}: a ordem da tela, `idsDosProcessosOcultos` e o recurso
  *    `processo` de ver), com uma página das movimentações, as últimas notas técnicas e só o número das pastas vinculadas
  *    que a pessoa vê. De outro escritório, inexistente ou oculto: "não encontrado"; em segredo: a recusa da 6.2, regra 3;
  *  - `para_vincular`: os processos já cadastrados que podem ir para uma pasta ({@see BuscarProcessosParaVincularUseCase}).
  *    A pasta passa pela mesma porta da tela ({@see GuardaDaAcaoDoConector}: escritório, `AcessoAPasta::podeVer` com o
- *    cadeado e a aba Processo): de outro escritório, na lixeira ou trancada, "não encontrado"; em segredo, a recusa.
+ *    cadeado e a aba Processo) e pelo recurso `pasta` de editar, como a tela de vincular: de outro escritório, na lixeira,
+ *    trancada ou só com ver, "não encontrado"; em segredo, a recusa.
+ *
+ * As notas técnicas só saem a quem a tela as mostraria (aba Processo de uma pasta vinculada que a pessoa vê, fora do segredo).
  *
  * Todo texto do banco passa pela {@see ProtecaoDoTextoDoChat} (neutralizado e, no conector, mascarado) ANTES de qualquer
  * corte (decisão 22): um CPF no limite do corte nunca sobra pela metade.
@@ -52,7 +54,6 @@ final class LerProcessosFerramenta implements FerramentaDoConector
 
     public const POR_PAGINA = 25;
     public const LIMITE_DE_PASTAS = 50;
-    public const PARTES_NA_LISTA = 4;
     public const TAMANHO_DA_MOVIMENTACAO = 300;
     public const TAMANHO_DO_COMPLEMENTO = 200;
     public const TAMANHO_DA_NOTA = 800;
@@ -70,7 +71,7 @@ final class LerProcessosFerramenta implements FerramentaDoConector
         private readonly GuardaDaAcaoDoConector $guarda,
         private readonly SegredoNasListas $segredo,
         private readonly ProtecaoDoTextoDoChat $protecao,
-        private readonly PermissionChecker $permissoes,
+        private readonly VisibilidadeDasAbasDaPasta $abas,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly ProcessoRepository $processos,
         private readonly PastaRepository $pastas,
@@ -174,11 +175,14 @@ final class LerProcessosFerramenta implements FerramentaDoConector
         );
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Só o que a lista da tela mostra (`processo/_resultado.html.twig`): número, tribunal, classe, assunto e situação.
+     * Partes e data de distribuição só no `detalhar`, que exige o recurso `processo` de ver.
+     *
+     * @return array<string, mixed>
+     */
     private function linhaDoProcesso(Processo $p, Tenant $escritorio): array
     {
-        $partes = $p->getPartes()->toArray();
-
         return [
             'id' => (int) $p->getId(),
             'numero' => $this->protecao->rotulo($escritorio, $p->getNumeroProcesso(), 'sem número'),
@@ -186,12 +190,6 @@ final class LerProcessosFerramenta implements FerramentaDoConector
             'classe' => $this->protecao->rotulo($escritorio, trim($p->getClasseProcessual()), ''),
             'assunto' => $this->protecao->rotulo($escritorio, trim($p->getAssuntoProcessual()), ''),
             'situacao' => $this->protecao->rotulo($escritorio, trim($p->getSituacaoProcesso()), ''),
-            'distribuido_em' => $p->getDataDistribuicao()?->format('Y-m-d'),
-            'partes' => array_map(
-                fn (ParteProcesso $parte): string => $this->protecao->rotulo($escritorio, $parte->getNome(), 'sem nome'),
-                \array_slice($partes, 0, self::PARTES_NA_LISTA),
-            ),
-            'total_de_partes' => \count($partes),
         ];
     }
 
@@ -209,18 +207,20 @@ final class LerProcessosFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::emSegredo();
         }
         $pastas = $this->pastasQueAPessoaVe($lido->pastas, $chamada);
+        $notas = $this->notasQueAPessoaVe($lido->notas, $pastas['pastas'], $chamada);
 
         return new RespostaDaFerramenta(
             [
                 'processo' => $this->dadosDoProcesso($lido, $contexto->escritorio),
                 'movimentacoes' => $this->movimentacoes($lido, $contexto->escritorio),
-                'notas_tecnicas' => array_map(fn (NotaTecnicaOutput $n): array => $this->nota($n, $contexto->escritorio), $lido->notas),
+                'notas_tecnicas' => $notas['itens'],
+                'notas_tecnicas_disponiveis' => $notas['disponiveis'],
                 'pastas_vinculadas' => $pastas['dados'],
             ],
             proximaPagina: $lido->haMaisMovimentacoes ? $lido->paginaDasMovimentacoes + 1 : null,
             contagens: [
                 'movimentacoes' => \count($lido->movimentacoes),
-                'notas' => \count($lido->notas),
+                'notas' => \count($notas['itens']),
                 'pastas' => \count($pastas['dados']['numeros']),
                 'em_segredo' => $pastas['dados']['omitidas_em_segredo'],
                 'sem_acesso' => $pastas['dados']['omitidas_sem_acesso'],
@@ -289,26 +289,47 @@ final class LerProcessosFerramenta implements FerramentaDoConector
     }
 
     /**
-     * Só o número das pastas vinculadas que a pessoa vê: a oculta pelo cadeado, a na lixeira e a sem o recurso de ver
-     * saem; a em segredo sai e conta à parte ({@see SegredoNasListas}).
+     * As notas técnicas só saem se a tela as mostraria: a aba Processo de dentro de uma pasta vinculada que a pessoa vê,
+     * fora do segredo e com a aba Processo visível para ela. Sem isso, a lista vem vazia e o campo `disponiveis` é falso
+     * (sem dizer por quê).
+     *
+     * @param list<NotaTecnicaOutput> $notas
+     * @param list<Pasta>             $pastasVisiveis as vistas pela pessoa e fora do segredo
+     *
+     * @return array{itens: list<array<string, mixed>>, disponiveis: bool}
+     */
+    private function notasQueAPessoaVe(array $notas, array $pastasVisiveis, ChamadaDoConector $chamada): array
+    {
+        $pessoa = $chamada->contexto->pessoa;
+        foreach ($pastasVisiveis as $pasta) {
+            if (!\in_array(AbaDaPasta::Processo, $this->abas->abasOcultasPara($pasta, $pessoa), true)) {
+                $escritorio = $chamada->contexto->escritorio;
+
+                return ['itens' => array_map(fn (NotaTecnicaOutput $n): array => $this->nota($n, $escritorio), $notas), 'disponiveis' => true];
+            }
+        }
+
+        return ['itens' => [], 'disponiveis' => false];
+    }
+
+    /**
+     * Só o número das pastas vinculadas que a pessoa vê, pela porta da tela ({@see AcessoAPasta::podeVer()}, com o
+     * cadeado): a na lixeira e a sem acesso saem; a em segredo sai e conta à parte ({@see SegredoNasListas}). Mostra no
+     * máximo {@see LIMITE_DE_PASTAS}.
      *
      * @param list<PastaVinculadaOutput> $vinculadas
      *
-     * @return array{dados: array{numeros: list<array<string, mixed>>, omitidas_em_segredo: int, omitidas_sem_acesso: int, omitidas_por_limite: int}, ids: list<int>}
+     * @return array{dados: array{numeros: list<array<string, mixed>>, omitidas_em_segredo: int, omitidas_sem_acesso: int, omitidas_por_limite: int}, ids: list<int>, pastas: list<Pasta>}
      */
     private function pastasQueAPessoaVe(array $vinculadas, ChamadaDoConector $chamada): array
     {
         $escritorio = $chamada->contexto->escritorio;
         $vivas = array_values(array_filter($vinculadas, static fn (PastaVinculadaOutput $p): bool => !$p->excluida));
-        $abertas = array_values(array_filter($vivas, static fn (PastaVinculadaOutput $p): bool => !$p->oculta));
-        $permitidas = array_flip($this->permissoes->idsPermitidosComVinculo(
-            $chamada->contexto->pessoa,
-            $chamada->contexto->vinculo,
-            AccessRequest::RESOURCE_PASTA,
-            array_map(static fn (PastaVinculadaOutput $p): int => $p->id, $abertas),
-            AccessRequest::ACTION_VIEW,
-        ));
-        $visiveis = array_values(array_filter($abertas, static fn (PastaVinculadaOutput $p): bool => isset($permitidas[$p->id])));
+        $entidades = [];
+        foreach ($vivas === [] ? [] : $this->pastas->findBy(['id' => array_map(static fn (PastaVinculadaOutput $p): int => $p->id, $vivas), 'tenant' => $escritorio]) as $pasta) {
+            $entidades[(int) $pasta->getId()] = $pasta;
+        }
+        $visiveis = array_values(array_filter($vivas, fn (PastaVinculadaOutput $p): bool => isset($entidades[$p->id]) && $this->acessoAPasta->podeVer($chamada->contexto->pessoa, $entidades[$p->id])));
         $foraDoSegredo = $this->segredo->tirarDe($visiveis, static fn (PastaVinculadaOutput $p): int => $p->id, $escritorio);
         $mostradas = \array_slice($foraDoSegredo['itens'], 0, self::LIMITE_DE_PASTAS);
 
@@ -324,6 +345,7 @@ final class LerProcessosFerramenta implements FerramentaDoConector
                 'omitidas_por_limite' => \count($foraDoSegredo['itens']) - \count($mostradas),
             ],
             'ids' => array_map(static fn (PastaVinculadaOutput $p): int => $p->id, $mostradas),
+            'pastas' => array_map(static fn (PastaVinculadaOutput $p): Pasta => $entidades[$p->id], $foraDoSegredo['itens']),
         ];
     }
 
@@ -338,6 +360,7 @@ final class LerProcessosFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::naoEncontrado();
         }
         $this->guarda->exigir($chamada, self::NOME, 'para_vincular', $pasta);
+        $this->guarda->exigirEdicaoDaPasta($chamada, $pasta);
         if ($this->segredo->tirar([$pastaId], $contexto->escritorio)['em_segredo'] > 0) {
             throw ErroDaFerramenta::emSegredo();
         }

@@ -39,9 +39,6 @@ final class LerPublicacaoDaPastaUseCase
     /** O mesmo teto da aba Push (`PastaController::PUSH_LIMITE`). */
     public const LIMITE_DA_LISTA = 100;
 
-    /** Do teor, só o começo de cada item da lista: o resumo é curto, e a máscara roda sobre esta janela (antes do corte). */
-    public const JANELA_DO_RESUMO = 2_000;
-
     public function __construct(
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly AcessoAPasta $acessoAPasta,
@@ -50,7 +47,7 @@ final class LerPublicacaoDaPastaUseCase
     }
 
     /**
-     * Uma página da lista, a mais recente primeiro. `texto` é o começo do teor ({@see JANELA_DO_RESUMO}).
+     * Uma página da lista, a mais recente primeiro. `texto` é o teor inteiro em texto puro, sem corte: quem entrega a terceiros mascara e só depois resume (decisão 22).
      *
      * @return array{itens: list<PublicacaoDaPastaOutput>, haMais: bool}
      *
@@ -71,7 +68,7 @@ final class LerPublicacaoDaPastaUseCase
             if ($publicacao === null) {
                 continue;
             }
-            $itens[] = PublicacaoDaPastaOutput::de($publicacao, PublicacaoDjenListaItem::resumirTexto($publicacao->getTexto(), self::JANELA_DO_RESUMO));
+            $itens[] = PublicacaoDaPastaOutput::de($publicacao, PublicacaoDjenListaItem::resumirTexto($publicacao->getTexto(), \PHP_INT_MAX));
         }
 
         return ['itens' => $itens, 'haMais' => \count($todas) > $pagina * $porPagina];
