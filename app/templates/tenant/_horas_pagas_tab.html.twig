@@ -65,14 +65,14 @@
     </div>
 {% endmacro %}
 
-<div class="card card-outline card-success mb-3">
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <h3 class="card-title mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas: {{ user.fullName }}</h3>
-        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalLancarHorasPagas">
-            <i class="bi bi-plus-circle me-1"></i>Horas pagas
+<div class="bjp-painel mb-3">
+    <div class="bjp-painel-cabeca d-flex align-items-center justify-content-between">
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas: {{ user.fullName }}</h3>
+        <button type="button" class="bjp-btn bjp-btn--sucesso" data-bs-toggle="modal" data-bs-target="#modalLancarHorasPagas">
+            <i class="bi bi-plus-circle"></i>Horas pagas
         </button>
     </div>
-    <div class="card-body p-0">
+    <div class="bjp-painel-corpo p-0">
         {% if lancamentosHorasPagas is empty %}
             <p class="text-muted small p-3 mb-0">Nenhum lançamento de horas pagas para este colaborador.</p>
         {% else %}
@@ -109,7 +109,7 @@
                                 {% endif %}
                             </td>
                             <td class="align-middle text-end text-nowrap">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
+                                <button type="button" class="bjp-ico bjp-btn--secundario" title="Editar"
                                         data-bs-toggle="modal" data-bs-target="#modalEditarHorasPagas{{ lancamento.id }}">
                                     <i class="bi bi-pencil"></i>
                                 </button>
@@ -117,7 +117,7 @@
                                       action="{{ path('ponto_horas_pagas_excluir', {tenantId: tenantId, id: user.id, lancamentoId: lancamento.id}) }}"
                                       onsubmit="return confirm('Excluir este lançamento de horas pagas? Esta ação não pode ser desfeita.')">
                                     <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_excluir_' ~ lancamento.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                    <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="Excluir">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
@@ -146,8 +146,8 @@
                     {{ horasPagasMacros.camposLancamento('lancar-horas-pagas', null, '', '', 0, 0, '') }}
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>Salvar</button>
                 </div>
             </form>
         </div>
@@ -182,8 +182,8 @@
                         ) }}
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                        <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>Salvar</button>
                     </div>
                 </form>
             </div>

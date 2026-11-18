@@ -12,8 +12,8 @@
         <div class="d-flex align-items-center gap-2 flex-wrap">
             {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'carteiras' }) }}
             {% if formCriarCarteira is defined and formCriarCarteira is not null %}
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarCarteira">
-                <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_carteira.lista.nova_carteira'|trans }}
+            <button type="button" class="bjp-btn bjp-btn--primario" data-bs-toggle="modal" data-bs-target="#modalCriarCarteira">
+                <i class="bi bi-plus-lg"></i>{{ 'cobranca_carteira.lista.nova_carteira'|trans }}
             </button>
             {% endif %}
         </div>
@@ -43,8 +43,8 @@
                 {{ include('cobranca/carteira/_campos_config.html.twig', { form: formCriarCarteira }) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_carteira.lista.criar_carteira'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_carteira.lista.criar_carteira'|trans }}</button>
             </div>
             {{ form_end(formCriarCarteira) }}
         </div>

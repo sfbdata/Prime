@@ -22,7 +22,7 @@
 ─────────────────────────────────────────────────────────────────────────── #}
 {% if e.editavel and podeGerenciar %}
 <span class="ms-auto d-flex gap-1">
-    <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
+    <button type="button" class="bjp-btn bjp-btn--discreto p-0 text-secondary js-editar-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
             title="{{ (e.seloSemPrazo ? 'cobranca_objeto.anotacao.editar' : 'cobranca_objeto.anotacao.corrigir_dica')|trans }}"
             data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
             data-texto="{{ e.descricao|e('html_attr') }}">
@@ -31,7 +31,7 @@
     {# Excluir não dispara mais o `confirm()` do navegador: a confirmação passou a MOSTRAR um trecho da
        anotação, para o usuário saber qual vai embora (SPEC UX §10). O POST, a rota e o CSRF são os
        mesmos — só o passo de confirmação mudou. #}
-    <button type="button" class="btn btn-link btn-sm p-0 text-danger js-excluir-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
+    <button type="button" class="bjp-btn bjp-btn--discreto p-0 text-danger js-excluir-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
             title="{{ (e.seloSemPrazo ? 'cobranca_objeto.anotacao.excluir' : 'cobranca_objeto.anotacao.excluir_dica')|trans }}"
             data-url="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
             data-token="{{ csrf_token('excluir_anotacao_' ~ e.id) }}"

@@ -26,16 +26,16 @@
 {# Main Content #}
 <section class="content">
     <div class="container-fluid">
-        <div class="card card-primary card-outline">
-            <div class="card-header">
-                <h3 class="card-title">{{ cliente.cpf is defined ? 'cliente.show.pessoa_fisica'|trans : 'cliente.show.pessoa_juridica'|trans }}</h3>
-                <div class="card-tools">
-                    <span class="badge text-bg-primary">
+        <div class="bjp-painel">
+            <div class="bjp-painel-cabeca">
+                <h3 class="bjp-painel-titulo">{{ cliente.cpf is defined ? 'cliente.show.pessoa_fisica'|trans : 'cliente.show.pessoa_juridica'|trans }}</h3>
+                <div class="bjp-painel-acoes">
+                    <span class="bjp-etiqueta bjp-etiqueta--info bjp-etiqueta--sem-ponto">
                         {{ cliente.cpf is defined ? cliente.cpf : cliente.cnpj }}
                     </span>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="bjp-painel-corpo">
                 <div class="row">
                     {# Left Column - Tabs #}
                     <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
@@ -250,11 +250,11 @@
 
                     {# Right Column - Sidebar #}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        <div class="card card-primary card-outline">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> {{ 'cliente.show.vinculos.titulo'|trans }}</h3>
+                        <div class="bjp-painel">
+                            <div class="bjp-painel-cabeca">
+                                <i class="bi bi-link-45deg"></i><h3 class="bjp-painel-titulo">{{ 'cliente.show.vinculos.titulo'|trans }}</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="bjp-painel-corpo">
                                 {# Processos #}
                                 <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> {{ 'cliente.show.vinculos.processos'|trans }}</h6>
                                 <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> {{ 'cliente.show.vinculos.sem_processo'|trans }}</p>
@@ -273,7 +273,7 @@
                                             {% if (pastasOcultas ?? {})[pasta.id] is defined %}
                                                 <i class="bi bi-lock exp-cadeado ms-1" title="{{ 'cliente.show.vinculos.cadeado_dica'|trans }}" aria-label="{{ 'cliente.show.vinculos.cadeado'|trans }}"></i>
                                             {% else %}
-                                            <span class="badge ms-1 {% if pasta.situacao == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
+                                            <span class="bjp-etiqueta ms-1 {% if pasta.situacao == 'ativo' %}bjp-etiqueta--ok{% else %}bjp-etiqueta--neutro{% endif %}">
                                                 {{ pasta.situacao|capitalize }}
                                             </span>
                                             {% endif %}
@@ -284,22 +284,22 @@
                         </div>
 
                         {# Card: Arquivos do Cliente #}
-                        <div class="card card-primary card-outline mt-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-paperclip me-1"></i> {{ 'cliente.show.arquivos.titulo'|trans }}</h3>
+                        <div class="bjp-painel mt-3">
+                            <div class="bjp-painel-cabeca">
+                                <i class="bi bi-paperclip"></i><h3 class="bjp-painel-titulo">{{ 'cliente.show.arquivos.titulo'|trans }}</h3>
                             </div>
-                            <div class="card-body">
+                            <div class="bjp-painel-corpo">
                                 {# Formulário de upload inline #}
                                 <form id="formAnexosCliente" method="post" enctype="multipart/form-data"
                                       action="{{ path('cliente_documento_upload', {id: cliente.id}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
 
                                     <div class="d-flex align-items-center gap-2 mb-3">
-                                        <button type="button" id="btnAdicionarAnexoCliente" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-plus-lg me-1"></i> {{ 'cliente.show.arquivos.adicionar'|trans }}
+                                        <button type="button" id="btnAdicionarAnexoCliente" class="bjp-btn bjp-btn--primario">
+                                            <i class="bi bi-plus-lg"></i> {{ 'cliente.show.arquivos.adicionar'|trans }}
                                         </button>
-                                        <button type="button" id="btnLimparAnexosCliente" class="btn btn-sm btn-outline-secondary d-none">
-                                            <i class="bi bi-x-circle me-1"></i> {{ 'cliente.show.arquivos.limpar'|trans }}
+                                        <button type="button" id="btnLimparAnexosCliente" class="bjp-btn bjp-btn--secundario d-none">
+                                            <i class="bi bi-x-circle"></i> {{ 'cliente.show.arquivos.limpar'|trans }}
                                         </button>
                                         <input type="file" id="inputAnexoOcultoCliente" multiple
                                                accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
@@ -323,8 +323,8 @@
                                             </span>
                                         </div>
                                         <div class="text-end">
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="bi bi-cloud-upload me-1"></i> {{ 'cliente.show.arquivos.enviar_todos'|trans }}
+                                            <button type="submit" class="bjp-btn bjp-btn--sucesso">
+                                                <i class="bi bi-cloud-upload"></i> {{ 'cliente.show.arquivos.enviar_todos'|trans }}
                                             </button>
                                         </div>
                                     </div>
@@ -363,7 +363,7 @@
                                                         </small>
                                                     </div>
                                                     <div class="d-flex gap-1 flex-shrink-0">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        <button type="button" class="bjp-ico bjp-btn--secundario"
                                                                 title="{{ 'cliente.comum.visualizar'|trans }}"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#previewDocModal"
@@ -373,7 +373,7 @@
                                                             <i class="bi bi-eye"></i>
                                                         </button>
                                                         {% if not doc.vinculado %}
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        <button type="button" class="bjp-ico bjp-btn--secundario"
                                                                 title="{{ 'cliente.comum.editar'|trans }}"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#editDocModal{{ doc.id }}">
@@ -382,7 +382,7 @@
                                                         {% endif %}
                                                         <form method="post" action="{{ path('cliente_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('{{ 'cliente.show.arquivos.excluir_confirma'|trans|e('js') }}');">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'cliente.comum.excluir'|trans }}">
+                                                            <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="{{ 'cliente.comum.excluir'|trans }}">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </form>
@@ -398,22 +398,22 @@
                     </div>
                 </div>
             </div>
-            <div class="card-footer">
+            <div class="bjp-painel-pe">
                 <div class="d-flex justify-content-end">
                     <div class="d-flex gap-2">
                         <a href="{{ path('cliente_edit', {id: cliente.id}) }}"
-                           class="btn btn-outline-primary btn-sm"
+                           class="bjp-btn bjp-btn--secundario"
                            title="{{ 'cliente.show.editar_cliente'|trans }}"
                            aria-label="{{ 'cliente.show.editar_cliente'|trans }}">
-                            <i class="bi bi-pencil me-1"></i> {{ 'cliente.comum.editar'|trans }}
+                            <i class="bi bi-pencil"></i> {{ 'cliente.comum.editar'|trans }}
                         </a>
                         <form method="post" action="{{ path('cliente_delete', {id: cliente.id}) }}" onsubmit="return confirm('{{ 'cliente.show.excluir_confirma'|trans|e('js') }}');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
                             <button type="submit"
-                                    class="btn btn-outline-danger btn-sm"
+                                    class="bjp-btn bjp-btn--destrutivo"
                                     title="{{ 'cliente.show.excluir_cliente'|trans }}"
                                     aria-label="{{ 'cliente.show.excluir_cliente'|trans }}">
-                                <i class="bi bi-trash me-1"></i> {{ 'cliente.show.excluir_cliente_botao'|trans }}
+                                <i class="bi bi-trash"></i> {{ 'cliente.show.excluir_cliente_botao'|trans }}
                             </button>
                         </form>
                     </div>
@@ -435,8 +435,8 @@
                     <span id="previewDocNome"></span>
                 </h6>
                 <div class="ms-auto d-flex gap-2 align-items-center">
-                    <a id="previewDocDownload" href="#" class="btn btn-sm btn-outline-primary" download>
-                        <i class="bi bi-download me-1"></i> {{ 'cliente.show.previa.baixar'|trans }}
+                    <a id="previewDocDownload" href="#" class="bjp-btn bjp-btn--secundario" download>
+                        <i class="bi bi-download"></i> {{ 'cliente.show.previa.baixar'|trans }}
                     </a>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cliente.comum.fechar'|trans }}"></button>
                 </div>
@@ -495,9 +495,9 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'cliente.comum.cancelar'|trans }}</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i> {{ 'cliente.comum.salvar'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cliente.comum.cancelar'|trans }}</button>
+                            <button type="submit" class="bjp-btn bjp-btn--primario">
+                                <i class="bi bi-check-lg"></i> {{ 'cliente.comum.salvar'|trans }}
                             </button>
                         </div>
                     </form>
@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="${esc(BJ_T.t('cliente.js.anexo.remover'))}">
+                <button type="button" class="bjp-ico bjp-btn--destrutivo flex-shrink-0 mt-1 btn-remover-anexo" title="${esc(BJ_T.t('cliente.js.anexo.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>

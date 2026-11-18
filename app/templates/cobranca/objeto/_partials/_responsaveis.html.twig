@@ -73,7 +73,7 @@
                 {# 2026-07-28: abre o MODAL em vez de levar para a página da ficha (spec
                    `cobranca-modal-unico-pessoa.md`). `title` e não tooltip do Bootstrap: `data-bs-toggle`
                    aqui já é do modal, e os dois disputariam o mesmo atributo. #}
-                <button type="button" class="badge text-bg-warning border-0"
+                <button type="button" class="bjp-etiqueta bjp-etiqueta--atencao border-0"
                         data-badge="qualificacao-incompleta"
                         data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
                         data-modo="edicao"
@@ -83,7 +83,7 @@
                     <i class="bi bi-exclamation-triangle me-1"></i>{{ 'cobranca_objeto.responsaveis.incompleta'|trans }}
                 </button>
                 {% else %}
-                <span class="badge text-bg-warning" data-badge="qualificacao-incompleta">
+                <span class="bjp-etiqueta bjp-etiqueta--atencao" data-badge="qualificacao-incompleta">
                     <i class="bi bi-exclamation-triangle me-1"></i>{{ 'cobranca_objeto.responsaveis.incompleta'|trans }}
                 </span>
                 {% endif %}
@@ -95,31 +95,31 @@
                objeto com um vínculo só (116 dos 121 no banco de dev) ficaria sem NENHUM gatilho de troca.
                O botão por pessoa, no accordion, continua existindo como atalho já com a escolha feita. #}
             {% if podeGerenciar and forms.alterarPessoa is defined %}
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
-                <i class="bi bi-arrow-left-right me-1"></i>{{ 'cobranca_objeto.responsaveis.trocar'|trans }}
+            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
+                <i class="bi bi-arrow-left-right"></i>{{ 'cobranca_objeto.responsaveis.trocar'|trans }}
             </button>
             {% endif %}
             {# 2026-07-28: "Editar" abre o modal único (mesma casca do "Cadastrar nova pessoa"), em vez de
                tirar o gestor da cobrança que ele está trabalhando. A URL do fragmento vai PRONTA no
                `data-url` — o JS não monta rota. #}
             {% if cobradaAtual and podeAbrirFicha %}
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha"
+            <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="editar-ficha"
                     data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
                     data-modo="edicao"
                     data-url="{{ path('cobranca_pessoa_ficha_modal', {id: cobradaAtual.pessoaId}) }}"
                     data-pessoa-nome="{{ cobradaAtual.nome|e('html_attr') }}">
-                <i class="bi bi-pencil me-1"></i>{{ 'cobranca_objeto.responsaveis.editar'|trans }}
+                <i class="bi bi-pencil"></i>{{ 'cobranca_objeto.responsaveis.editar'|trans }}
             </button>
             {% endif %}
             {# O card que esta aba substituiu oferecia encerrar vínculo para TODOS os vínculos ativos,
                inclusive o da cobrada atual — e o `EncerrarVinculoUseCase` aceita esse caso (só recusa
                vínculo já encerrado). Sem este botão a função sumiria para a pessoa do topo. #}
             {% if cobradaAtual and cobradaAtual.ativo and formEncerrarVinculo %}
-            <button type="button" class="btn btn-sm btn-outline-danger"
+            <button type="button" class="bjp-btn bjp-btn--destrutivo"
                     data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
                     data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: cobradaAtual.vinculoId}) }}"
                     data-vinculo-rotulo="{{ (cobradaAtual.nome ~ ' (' ~ cobradaAtual.papelLabel ~ ')')|e('html_attr') }}">
-                <i class="bi bi-x-circle me-1"></i>{{ 'cobranca_objeto.responsaveis.encerrar_vinculo'|trans }}
+                <i class="bi bi-x-circle"></i>{{ 'cobranca_objeto.responsaveis.encerrar_vinculo'|trans }}
             </button>
             {% endif %}
         </div>
@@ -146,7 +146,7 @@
                     {# O vínculo pode estar ENCERRADO e a pessoa seguir sendo a cobrada atual (o
                        encerramento do vínculo não troca quem se cobra). O selo diz isso — e continua
                        sendo badge, não texto corrido: é estado excepcional, não metadado de rotina. #}
-                    {% if not cobradaAtual.ativo %}<span class="badge text-bg-secondary" data-selo="vinculo-encerrado">{{ 'cobranca_objeto.responsaveis.vinculo_encerrado'|trans }}</span>{% endif %}
+                    {% if not cobradaAtual.ativo %}<span class="bjp-etiqueta bjp-etiqueta--neutro" data-selo="vinculo-encerrado">{{ 'cobranca_objeto.responsaveis.vinculo_encerrado'|trans }}</span>{% endif %}
                 </div>
                 {% if not cobradaAtual.ativo and cobradaAtual.motivoEncerramento %}
                 <div class="text-secondary small"><i class="bi bi-info-circle me-1"></i>{{ 'cobranca_objeto.responsaveis.encerramento'|trans({motivo: cobradaAtual.motivoEncerramento}) }}</div>
@@ -239,11 +239,11 @@
 
             {# ── §2.5 Outras pessoas vinculadas: o accordion de hoje, preservado inteiro ───────────── #}
             <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4 mb-2">
-                <h6 class="mb-0">{{ 'cobranca_objeto.responsaveis.outras'|trans }} <span class="badge text-bg-secondary">{{ demais|length }}</span></h6>
+                <h6 class="mb-0">{{ 'cobranca_objeto.responsaveis.outras'|trans }} <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ demais|length }}</span></h6>
                 {% if formVincular or formNovaPessoa %}
                 <div class="dropdown">
-                    <button class="btn btn-sm jp-btn-accent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-person-plus me-1"></i>{{ 'cobranca_objeto.responsaveis.adicionar_pessoa'|trans }}
+                    <button class="bjp-btn bjp-btn--primario dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-plus"></i>{{ 'cobranca_objeto.responsaveis.adicionar_pessoa'|trans }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         {% if formVincular %}
@@ -272,7 +272,7 @@
                                 <i class="bi {{ v.ativo ? 'bi-person-fill' : 'bi-person-dash' }}"></i>
                                 <span class="fw-semibold">{{ v.nome }}</span>
                                 <span class="jp-chip">{{ v.papelLabel }}</span>
-                                {% if not v.ativo %}<span class="badge text-bg-secondary">{{ 'cobranca_objeto.responsaveis.encerrado'|trans }}</span>{% endif %}
+                                {% if not v.ativo %}<span class="bjp-etiqueta bjp-etiqueta--neutro">{{ 'cobranca_objeto.responsaveis.encerrado'|trans }}</span>{% endif %}
                             </span>
                         </button>
                     </h2>
@@ -299,29 +299,29 @@
                                    O `forms.alterarPessoa is defined` é a mesma guarda do botão universal lá em
                                    cima: sem o form o modal não é renderizado, e o botão abriria coisa nenhuma. #}
                                 {% if podeGerenciar and v.ativo and forms.alterarPessoa is defined %}
-                                <button type="button" class="btn btn-sm jp-btn-accent js-definir-cobrada"
+                                <button type="button" class="bjp-btn bjp-btn--primario js-definir-cobrada"
                                         data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
                                         data-pessoa-id="{{ v.pessoaId }}" data-pessoa-nome="{{ v.nome|e('html_attr') }}">
-                                    <i class="bi bi-arrow-left-right me-1"></i>{{ 'cobranca_objeto.responsaveis.definir_atual'|trans }}
+                                    <i class="bi bi-arrow-left-right"></i>{{ 'cobranca_objeto.responsaveis.definir_atual'|trans }}
                                 </button>
                                 {% endif %}
                                 {# O MESMO modal do "Editar" da cobrada, com outra pessoa — é o ponto do
                                    pedido: editar é uma coisa só, venha de onde vier. #}
                                 {% if podeAbrirFicha %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha"
+                                <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="editar-ficha"
                                         data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
                                         data-modo="edicao"
                                         data-url="{{ path('cobranca_pessoa_ficha_modal', {id: v.pessoaId}) }}"
                                         data-pessoa-nome="{{ v.nome|e('html_attr') }}">
-                                    <i class="bi bi-pencil me-1"></i>{{ 'cobranca_objeto.responsaveis.editar'|trans }}
+                                    <i class="bi bi-pencil"></i>{{ 'cobranca_objeto.responsaveis.editar'|trans }}
                                 </button>
                                 {% endif %}
                                 {% if v.ativo and formEncerrarVinculo %}
-                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                <button type="button" class="bjp-btn bjp-btn--destrutivo"
                                         data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
                                         data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
                                         data-vinculo-rotulo="{{ (v.nome ~ ' (' ~ v.papelLabel ~ ')')|e('html_attr') }}">
-                                    <i class="bi bi-x-circle me-1"></i>{{ 'cobranca_objeto.responsaveis.encerrar_vinculo'|trans }}
+                                    <i class="bi bi-x-circle"></i>{{ 'cobranca_objeto.responsaveis.encerrar_vinculo'|trans }}
                                 </button>
                                 {% endif %}
                             </div>
@@ -352,16 +352,16 @@
        navegação que ele de fato queria dizer, reusando o MESMO `objeto.objetoProximoId` das setas do
        cabeçalho (ordem `identificacao ASC, id ASC`). Na última unidade fica desabilitado. #}
     <div class="cob-resp-rodape d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4 pt-3 border-top">
-        <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="btn btn-sm btn-outline-secondary" data-rodape="voltar">
+        <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="bjp-btn bjp-btn--secundario" data-rodape="voltar">
             {{ 'cobranca_objeto.responsaveis.voltar'|trans }}
         </a>
         {% if objeto.objetoProximoId %}
-        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId, aba: 'responsaveis'}) }}" class="btn btn-sm jp-btn-accent" data-rodape="proximo">
+        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId, aba: 'responsaveis'}) }}" class="bjp-btn bjp-btn--primario" data-rodape="proximo">
             {{ 'cobranca_objeto.responsaveis.proxima'|trans }}
         </a>
         {% else %}
         <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.responsaveis.ultima'|trans }}">
-            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-rodape="proximo" disabled>
+            <button type="button" class="bjp-btn bjp-btn--secundario is-disabled" data-rodape="proximo" disabled>
                 {{ 'cobranca_objeto.responsaveis.proxima'|trans }}
             </button>
         </span>
