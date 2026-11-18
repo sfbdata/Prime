@@ -102,6 +102,12 @@ final class AutorizacaoController extends AbstractController
 
         $pedido = $this->pedidos->retirar($input->pedido);
         if ($pedido === null || !$valido) {
+            // O mesmo pedido de novo, logo depois de conectar (segundo clique enquanto o app carregava): a conexão já
+            // foi feita, e o navegador mostra esta resposta no lugar da volta ao app. Nada é concedido de novo.
+            if ($valido && $this->pedidos->foiConcluido($input->pedido)) {
+                return $this->semMoldura($this->render('conector/autorizacao_concluida.html.twig'));
+            }
+
             return $this->recusa(self::PEDIDO_INVALIDO, Response::HTTP_BAD_REQUEST);
         }
         if (!self::clicou($form, 'autorizar')) {
@@ -118,6 +124,8 @@ final class AutorizacaoController extends AbstractController
             // Cliente ou retorno que deixou de valer: nunca redireciona.
             return $this->recusa(ClienteRecusado::MENSAGEM, Response::HTTP_BAD_REQUEST);
         }
+
+        $this->pedidos->marcarConcluido($input->pedido);
 
         return RespostaDeAutorizacao::sucesso($pedido->redirectUri, $codigo, $pedido->state);
     }

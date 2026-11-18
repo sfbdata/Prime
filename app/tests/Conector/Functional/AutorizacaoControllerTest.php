@@ -346,7 +346,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(self::REDIRECT, $codigo?->getRedirectUri());
     }
 
-    #[TestDox('12.27: o pedido é de uso único: o mesmo POST de novo recusa')]
+    #[TestDox('12.27: o pedido é de uso único: o mesmo POST de novo, logo depois de conectar (segundo clique), mostra "Conexão feita" sem conceder de novo nem redirecionar')]
     public function testPedidoDeUsoUnico(): void
     {
         [$tenant, $pessoa] = $this->cenario();
@@ -356,8 +356,36 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
 
         $this->enviar($campos);
 
+        self::assertResponseStatusCodeSame(200);
+        self::assertFalse($this->client->getResponse()->headers->has('Location'), 'o segundo envio não volta ao app');
+        self::assertSelectorTextContains('main h1', 'Conexão feita');
+        self::assertSame(1, $this->concessoesDe($pessoa), 'nenhuma concessão (nem código) nova');
+    }
+
+    #[TestDox('12.27: depois de "Não autorizar", o mesmo POST de novo continua recusado como pedido inválido')]
+    public function testPedidoNegadoDeNovoRecusa(): void
+    {
+        [$tenant, $pessoa] = $this->cenario();
+        $campos = $this->campos($this->abrir(), (int) $tenant->getId(), botao: 'negar');
+        $this->enviar($campos);
+        $this->voltaAoApp();
+
+        $this->enviar($campos);
+
         $this->exigirPaginaDeErro(400, AutorizacaoController::PEDIDO_INVALIDO);
-        self::assertSame(1, $this->concessoesDe($pessoa));
+        self::assertSame(0, $this->concessoesDe($pessoa));
+    }
+
+    #[TestDox('a tela de consentimento envia o formulário uma vez só (o segundo clique é ignorado no navegador)')]
+    public function testTelaEnviaUmaVezSo(): void
+    {
+        $this->cenario();
+        $tela = $this->abrir();
+
+        $script = $tela->filter('body script')->last()->text();
+        self::assertStringContainsString("querySelector('form.cj-form')", $script);
+        self::assertStringContainsString('evento.preventDefault()', $script);
+        self::assertSame(1, $tela->filter('form.cj-form')->count());
     }
 
     #[TestDox('sessão no escritório A autoriza o B (sem o filtro da sessão); a auditoria cai no B')]

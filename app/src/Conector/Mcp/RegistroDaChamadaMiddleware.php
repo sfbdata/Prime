@@ -21,8 +21,11 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *
  * Vai ao log: o status HTTP, a duração, os ids da chamada aberta pelo portão (pessoa, escritório, concessão,
  * consentimento) e o host do app de I.A., o motivo da recusa do token (lista fechada do validador) e as anotações da
- * {@see RequisicaoDoConector} (ferramenta, resultado, contagens, ids). Nunca o corpo, os argumentos, o resultado da
- * ferramenta nem cabeçalho: nada de texto de busca, nome, valor de campo ou CPF (12.15).
+ * {@see RequisicaoDoConector} (ferramenta, resultado, contagens, ids). Do pedido, só dois nomes do próprio protocolo,
+ * conferidos por formato: o método JSON-RPC (`metodo`, ex.: `tools/list`) e a versão do protocolo do cabeçalho
+ * `MCP-Protocol-Version` (`versao`). Sem eles, uma chamada que o SDK responde sem chegar à ferramenta (descoberta,
+ * lista) não se distingue de outra no log de produção. Nunca o resto do corpo, os argumentos, o resultado da
+ * ferramenta nem outro cabeçalho: nada de texto de busca, nome, valor de campo ou CPF (12.15).
  *
  * Requisição aberta não quer dizer sucesso: o portão abre a requisição antes de gravar o último uso e, se essa
  * gravação falha, responde 503 com a requisição aberta e a anotação `recusa`. Quem diz que a chamada deu certo é o
@@ -43,23 +46,64 @@ final class RegistroDaChamadaMiddleware implements MiddlewareInterface
     ) {
     }
 
+    /** O método JSON-RPC: letras, `/` e `_`, até 60 caracteres (os nomes do protocolo); o resto não vai ao log. */
+    private const FORMATO_DO_METODO = '#^[a-zA-Z][a-zA-Z/_]{0,59}$#';
+
+    /** A versão do protocolo é sempre uma data (`2025-06-18`). */
+    private const FORMATO_DA_VERSAO = '/^\d{4}-\d{2}-\d{2}$/';
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $inicio = hrtime(true);
         $status = 500;
+        $doPedido = $this->doPedido($request);
         try {
             $resposta = $handler->handle($request);
             $status = $resposta->getStatusCode();
 
             return $resposta;
         } finally {
-            $this->registrar($status, intdiv(hrtime(true) - $inicio, 1_000_000));
+            $this->registrar($status, intdiv(hrtime(true) - $inicio, 1_000_000), $doPedido);
         }
     }
 
-    private function registrar(int $status, int $duracaoMs): void
+    /**
+     * O método JSON-RPC e a versão do protocolo, quando têm o formato esperado. O corpo só é lido se o fluxo volta ao
+     * começo depois (o SDK o lê de novo); lote, corpo inválido ou campo fora do formato ficam de fora. Nunca lança.
+     *
+     * @return array{metodo?: string, versao?: string}
+     */
+    private function doPedido(ServerRequestInterface $request): array
     {
-        $linha = ['status' => $status, 'duracao_ms' => $duracaoMs];
+        $campos = [];
+        try {
+            $versao = $request->getHeaderLine('MCP-Protocol-Version');
+            if (preg_match(self::FORMATO_DA_VERSAO, $versao) === 1) {
+                $campos['versao'] = $versao;
+            }
+
+            $corpo = $request->getBody();
+            if (!$corpo->isSeekable()) {
+                return $campos;
+            }
+            $corpo->rewind();
+            $mensagem = json_decode($corpo->getContents(), true);
+            $corpo->rewind();
+            $metodo = \is_array($mensagem) ? ($mensagem['method'] ?? null) : null;
+            if (\is_string($metodo) && preg_match(self::FORMATO_DO_METODO, $metodo) === 1) {
+                $campos['metodo'] = $metodo;
+            }
+        } catch (\Throwable) {
+            // Ler o pedido para o log nunca muda a resposta.
+        }
+
+        return $campos;
+    }
+
+    /** @param array{metodo?: string, versao?: string} $doPedido */
+    private function registrar(int $status, int $duracaoMs, array $doPedido): void
+    {
+        $linha = ['status' => $status, 'duracao_ms' => $duracaoMs] + $doPedido;
         try {
             $linha += $this->idsDaChamada();
         } catch (\Throwable $falha) {

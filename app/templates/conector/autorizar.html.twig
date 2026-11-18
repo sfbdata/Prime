@@ -77,4 +77,17 @@
         </div>
     {{ form_end(form) }}
 </main>
+<script>
+    /* Um envio só: o segundo clique, com a volta ao app ainda carregando, chegaria com o pedido já usado. O botão não
+       fica `disabled` porque o navegador deixaria de mandar qual botão foi clicado (Autorizar ou Não autorizar). */
+    (function () {
+        var form = document.querySelector('form.cj-form');
+        if (!form) { return; }
+        form.addEventListener('submit', function (evento) {
+            if (form.getAttribute('data-enviado') === '1') { evento.preventDefault(); return; }
+            form.setAttribute('data-enviado', '1');
+            form.setAttribute('aria-busy', 'true');
+        });
+    })();
+</script>
 {% endblock %}
