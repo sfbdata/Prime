@@ -9,6 +9,7 @@ use App\Conector\DTO\ResultadoDaConfirmacao;
 use App\Conector\Entity\PropostaDoConector;
 use App\Conector\Enum\EstadoDaPropostaDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\ExecutorDeProposta;
 use App\Conector\Repository\PropostaDoConectorRepository;
 use App\Conector\Service\GuardaDaAcaoDoConector;
@@ -32,12 +33,16 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  *  3. a linha da tabela de aba e chave da ação, sem pasta (chave do Master e módulo), pela
  *     {@see GuardaDaAcaoDoConector}; depois, o {@see ExecutorDeProposta::reconferir()} da ferramenta confere de novo
  *     o resto (pasta, recurso, teto, abas, segredo, estado do item);
- *  4. o executor grava; a proposta vira `confirmada`, guarda só os ids e perde `dados` e `resumo`.
+ *  4. o executor grava; o resultado precisa caber na resposta; a proposta vira `confirmada`, guarda só os ids e perde
+ *     `dados` e `resumo`.
  *
- * Recusa dos passos 1 a 3 confirma a transação (só o vencimento muda algo) e a proposta, quando não venceu, continua
- * pendente: a pessoa pode tentar de novo enquanto ela vale, e cada tentativa reconfere tudo. Exceção vinda do passo 4
- * desfaz TUDO, limpa o EntityManager (nada do que ficou na memória é gravado depois) e segue: a proposta continua
- * pendente.
+ * Só o vencimento é gravado numa recusa: a transação confirma a proposta `expirada` e devolve {@see NAO_VALE}. Toda
+ * outra recusa (passos 1 a 4) e toda exceção DESFAZEM a transação e limpam o EntityManager (nada do que ficou na
+ * memória, nem o que um executor tenha mexido ao reconferir, é gravado depois); a proposta continua pendente e a pessoa
+ * pode tentar de novo enquanto ela vale, com tudo reconferido.
+ *
+ * O resultado do executor é medido ANTES de confirmar ({@see TETO_DO_RESULTADO}): uma resposta que o despacho
+ * recusaria por tamanho depois do commit diria ao app que nada aconteceu, com a ação já gravada.
  *
  * Pessoa, escritório e consentimento vêm só da {@see ChamadaDoConector}. Nada de `dados` ou `resumo` vai para log.
  */
@@ -48,6 +53,9 @@ final class ConfirmarPropostaDoConectorUseCase
 
     public const MOTIVO_RESUMO_DIFERENTE = 'resumo_diferente';
     public const RESUMO_DIFERENTE = 'O resumo não confere com o da proposta. Mande o resumo exatamente como veio na proposta.';
+
+    /** O teto do resultado do executor, em caracteres do JSON: folga para o envelope da resposta, abaixo dos 50 mil do despacho. */
+    public const TETO_DO_RESULTADO = DespachoDasFerramentas::TETO_DE_CARACTERES - 1_000;
 
     /** @param iterable<ExecutorDeProposta> $executores */
     public function __construct(
@@ -81,7 +89,7 @@ final class ConfirmarPropostaDoConectorUseCase
             if ($conexao->isTransactionActive()) {
                 $conexao->rollBack();
             }
-            // O que o executor mexeu na memória não pode ir ao banco num flush depois deste.
+            // O que ficou na memória (do executor ou da reconferência) não pode ir ao banco num flush depois deste.
             $this->em->clear();
 
             throw $erro;
@@ -95,15 +103,18 @@ final class ConfirmarPropostaDoConectorUseCase
     }
 
     /**
-     * A recusa volta como valor (não lançada) para a transação confirmar o que ela mudou: o vencimento.
+     * Devolve a recusa como valor só no vencimento, para a transação gravar a proposta `expirada`; toda outra recusa é
+     * lançada e desfaz a transação.
      *
      * @return array{ferramenta: string, acao: string, resultado: ResultadoDaConfirmacao}|ErroDaFerramenta
+     *
+     * @throws ErroDaFerramenta
      */
     private function decidir(string $hash, string $resumo, ChamadaDoConector $chamada, \DateTimeImmutable $agora): array|ErroDaFerramenta
     {
         $proposta = $this->propostas->buscarComTrava($hash, $chamada->contexto->escritorio);
         if ($proposta === null || !self::eDaMesmaConexao($proposta, $chamada) || $proposta->getEstado() !== EstadoDaPropostaDoConector::Pendente) {
-            return self::naoVale();
+            throw self::naoVale();
         }
         if ($proposta->venceuEm($agora)) {
             $proposta->expirar($agora);
@@ -114,26 +125,37 @@ final class ConfirmarPropostaDoConectorUseCase
         $dados = $proposta->getDados();
         $resumoGuardado = $proposta->getResumo();
         if ($dados === null || $resumoGuardado === null || !hash_equals($proposta->getDadosHash(), PropostasDoConector::hashDosDados($dados))) {
-            return self::naoVale();
+            throw self::naoVale();
         }
         if (!hash_equals($resumoGuardado, $resumo)) {
-            return new ErroDaFerramenta(self::MOTIVO_RESUMO_DIFERENTE, self::RESUMO_DIFERENTE);
+            throw new ErroDaFerramenta(self::MOTIVO_RESUMO_DIFERENTE, self::RESUMO_DIFERENTE);
         }
 
         $ferramenta = $proposta->getFerramenta();
         $acao = $proposta->getAcao();
         $executor = $this->executorDe($ferramenta);
-        try {
-            $this->guarda->exigir($chamada, $ferramenta, $acao);
-            $executor->reconferir($acao, $dados, $chamada);
-        } catch (ErroDaFerramenta $recusa) {
-            return $recusa;
-        }
+        $this->guarda->exigir($chamada, $ferramenta, $acao);
+        $executor->reconferir($acao, $dados, $chamada);
 
         $resultado = $executor->executarConfirmada($acao, $dados, $chamada);
+        self::exigirResultadoQueCabe($resultado);
         $proposta->confirmar($resultado->idsDoResultado, $agora);
 
         return ['ferramenta' => $ferramenta, 'acao' => $acao, 'resultado' => $resultado];
+    }
+
+    /**
+     * O resultado tem de virar JSON e caber na resposta antes de a transação confirmar.
+     *
+     * @throws ErroDaFerramenta desfaz a gravação; a proposta fica pendente
+     * @throws \JsonException
+     */
+    private static function exigirResultadoQueCabe(ResultadoDaConfirmacao $resultado): void
+    {
+        $json = json_encode($resultado->dados, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
+        if (mb_strlen($json) > self::TETO_DO_RESULTADO) {
+            throw new ErroDaFerramenta(DespachoDasFerramentas::MOTIVO_GRANDE_DEMAIS, DespachoDasFerramentas::GRANDE_DEMAIS);
+        }
     }
 
     /**

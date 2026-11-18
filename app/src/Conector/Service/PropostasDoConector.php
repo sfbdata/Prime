@@ -70,6 +70,10 @@ final class PropostasDoConector
     public function propor(ChamadaDoConector $chamada, string $ferramenta, string $acao, array $dados, string $resumo, array $complemento = []): RespostaDaFerramenta
     {
         $this->exigirConfirmavel($ferramenta, $acao);
+        if (!$chamada->temEscopo(ServidorDeAutorizacao::ESCOPO_ESCRITA)) {
+            // A `ScopePolicy` barra a gravação sem `mcp:escrita` antes do SDK (5.1): chegar aqui sem ele é erro.
+            throw new \LogicException('Proposta sem o escopo mcp:escrita na chamada.');
+        }
         $resumo = self::normalizarResumo($resumo);
         if ($resumo === '' || mb_strlen($resumo) > self::TETO_DO_RESUMO) {
             throw new \LogicException('O resumo da proposta está vazio ou grande demais.');

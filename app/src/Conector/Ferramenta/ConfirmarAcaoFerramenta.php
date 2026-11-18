@@ -8,6 +8,7 @@ use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Conector\Service\ServidorDeAutorizacao;
 use App\Conector\UseCase\ConfirmarPropostaDoConectorUseCase;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
@@ -71,6 +72,10 @@ final class ConfirmarAcaoFerramenta implements FerramentaDoConector
 
     public function executar(array $argumentos, ChamadaDoConector $chamada): RespostaDaFerramenta
     {
+        // Segunda camada: a `ScopePolicy` já deu 403 antes do SDK a quem não tem `mcp:escrita` (5.1).
+        if (!$chamada->temEscopo(ServidorDeAutorizacao::ESCOPO_ESCRITA)) {
+            throw ErroDaFerramenta::semPermissao();
+        }
         $this->exigirLimite($chamada);
 
         $propostaId = $argumentos['proposta_id'] ?? null;

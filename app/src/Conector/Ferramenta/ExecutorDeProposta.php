@@ -20,14 +20,20 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *  1. A proposta nasce pelo {@see \App\Conector\Service\PropostasDoConector::propor()}, com a ação igual à chave da
  *     {@see TabelaDeAbaEChave} (o valor do campo de {@see TabelaDeAbaEChave::campoDasAcoes()}: `lugar` na
  *     `registrar_na_pasta`) e os dados exatos do que será feito. A ação fina (ex.: `editar`, `excluir`) mora nos dados.
+ *     Até propor, a ferramenta só LÊ: o `propor()` dá `flush`, e qualquer entidade mexida antes iria junto ao banco.
  *  2. {@see reconferir()} roda dentro da transação que segura a proposta travada e confere DE NOVO tudo o que a
  *     ferramenta conferiu ao propor (6.7, item 4): a linha da tabela com a pasta (`GuardaDaAcaoDoConector`), o recurso
  *     de editar, o teto (6.3, item 4), o segredo de justiça, o Financeiro, a pasta na lixeira, o envio automático ao
- *     cliente, o CPF que virou repetido. Nunca grava nada: recusa com {@see ErroDaFerramenta} de mensagem fixa.
+ *     cliente, o CPF que virou repetido. Nunca grava nada: recusa com {@see ErroDaFerramenta} de mensagem fixa (a
+ *     recusa desfaz a transação e a proposta fica pendente).
  *  3. {@see executarConfirmada()} roda na mesma transação, logo depois, e grava pelos UseCases, como a tela. Num lote
- *     (6.7, item 5), cada item que falha entra no resultado com o motivo, sem lançar; o executor não usa
- *     `EntityManager::wrapInTransaction` por item (ele fecha o EntityManager na falha), e sim um ponto de retorno da
- *     conexão. Lançar daqui desfaz TUDO o que a confirmação gravou e a proposta continua pendente.
+ *     (6.7, item 5), o executor confere CADA item antes de gravar qualquer um, sem gravar (o mesmo do item 2, item por
+ *     item), e grava só os que passaram; o que não passou entra no resultado com o motivo (ex.: CPF que virou repetido),
+ *     sem lançar. Não há "um item falhou no banco e os outros seguem": uma falha no `flush` fecha o EntityManager
+ *     (`UnitOfWork::commit`), e o ponto de retorno da conexão desfaria o banco sem desfazer a memória. Por isso, toda
+ *     exceção daqui (inclusive de banco) desfaz TUDO o que a confirmação gravou, e a proposta continua pendente.
+ *  4. O resultado ({@see ResultadoDaConfirmacao}) segue as regras de toda resposta e precisa caber no teto: ele é
+ *     medido antes de confirmar, e o que passa do teto desfaz a gravação.
  *
  * Pessoa, escritório e escopo vêm só da {@see ChamadaDoConector} da confirmação, nunca da proposta: a
  * `confirmar_acao` já conferiu que são os mesmos.

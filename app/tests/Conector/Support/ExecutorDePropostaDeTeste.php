@@ -26,6 +26,15 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
     public ?ErroDaFerramenta $recusaAoReconferir = null;
     public ?\Throwable $falhaAoExecutar = null;
 
+    /** Com falso, a falha vem depois do `persist` e antes do `flush`: o escritório gravado fica só na memória. */
+    public bool $flushAntesDeFalhar = true;
+
+    /** @var (callable(): void)|null roda dentro do reconferir, antes da recusa (para sujar a memória ou o banco) */
+    public $aoReconferir = null;
+
+    /** @var array<string, mixed>|null troca os dados do resultado (para passar do teto) */
+    public ?array $dadosDoResultado = null;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly string $ferramenta = 'atualizar_pasta',
@@ -41,6 +50,9 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
     public function reconferir(string $acao, array $dados, ChamadaDoConector $chamada): void
     {
         $this->reconferidas[] = ['acao' => $acao, 'dados' => $dados];
+        if ($this->aoReconferir !== null) {
+            ($this->aoReconferir)();
+        }
         if ($this->recusaAoReconferir !== null) {
             throw $this->recusaAoReconferir;
         }
@@ -51,13 +63,16 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
         $this->executadas[] = ['acao' => $acao, 'dados' => $dados];
         $gravado = (new Tenant())->setName($this->nomeDoEscritorioGravado !== '' ? $this->nomeDoEscritorioGravado : 'Gravado ' . uniqid())->setIsActive(true);
         $this->em->persist($gravado);
+        if ($this->falhaAoExecutar !== null && !$this->flushAntesDeFalhar) {
+            throw $this->falhaAoExecutar;
+        }
         $this->em->flush();
         if ($this->falhaAoExecutar !== null) {
             throw $this->falhaAoExecutar;
         }
 
         return new ResultadoDaConfirmacao(
-            ['excluidos' => [['id' => $gravado->getId()]]],
+            $this->dadosDoResultado ?? ['excluidos' => [['id' => $gravado->getId()]]],
             [(int) $gravado->getId()],
             ['excluidos' => 1],
             ['pasta' => [(int) $gravado->getId()]],

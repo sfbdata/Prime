@@ -13,6 +13,7 @@ use App\Conector\Enum\EstadoDaPropostaDoConector;
 use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
+use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Repository\ConsentimentoDoConectorRepository;
 use App\Conector\Repository\PropostaDoConectorRepository;
 use App\Conector\Service\GuardaDaAcaoDoConector;
@@ -237,6 +238,100 @@ final class ConfirmarAcaoTest extends KernelTestCase
         self::assertSame([], $this->executor->executadas);
     }
 
+    #[TestDox('12.1: a proposta do escritório A não é achada por uma chamada no B, nem com o consentimento do A (só o filtro do escritório na busca barra)')]
+    public function testOutroEscritorioComOMesmoConsentimento(): void
+    {
+        $id = $this->proporAgora();
+        $b = $this->escritorio('Escritório B');
+        $vinculoB = $this->vinculo($this->pessoa, $b, permissoes: ['modules.pastas.view']);
+
+        $this->assertNaoVale($id, $this->chamada($this->pessoa, $b, $vinculoB, $this->consentimento));
+        self::assertSame([], $this->executor->executadas);
+    }
+
+    #[TestDox('12.20: outra pessoa com o mesmo consentimento na chamada recusa (só a conferência da pessoa barra)')]
+    public function testOutraPessoaComOMesmoConsentimento(): void
+    {
+        $id = $this->proporAgora();
+        $colega = $this->pessoa();
+        $vinculo = $this->vinculo($colega, $this->escritorio, permissoes: ['modules.pastas.view']);
+
+        $this->assertNaoVale($id, $this->chamada($colega, $this->escritorio, $vinculo, $this->consentimento));
+        self::assertSame([], $this->executor->executadas);
+    }
+
+    #[TestDox('6.7, item 4: dados trocados no banco sem o hash recusam com a mesma mensagem e não executam')]
+    public function testDadosAdulterados(): void
+    {
+        $id = $this->proporAgora();
+        $this->em()->getConnection()->executeStatement("UPDATE conector_ia_proposta SET dados = '{\"pasta_id\":999}' WHERE identificador_hash = ?", [hash('sha256', $id)]);
+
+        $this->assertNaoVale($id, $this->chamada());
+        self::assertSame([], $this->executor->reconferidas);
+    }
+
+    #[TestDox('6.7, item 4: vale o estado do banco lido com a trava, não o da memória (a proposta decidida por outra requisição recusa)')]
+    public function testEstadoDoBancoNaoDaMemoria(): void
+    {
+        $id = $this->proporAgora();
+        self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($id)?->getEstado(), 'a proposta pendente fica na memória');
+        $this->em()->getConnection()->executeStatement("UPDATE conector_ia_proposta SET estado = 'cancelada', dados = NULL, resumo = NULL WHERE identificador_hash = ?", [hash('sha256', $id)]);
+
+        $this->assertNaoVale($id, $this->chamada());
+        self::assertSame([], $this->executor->executadas);
+    }
+
+    #[TestDox('a falha antes do flush do executor não deixa nada na memória: um flush depois não grava o que ele persistiu')]
+    public function testFalhaLimpaAMemoria(): void
+    {
+        $id = $this->proporAgora();
+        $this->executor->nomeDoEscritorioGravado = 'Só na memória ' . uniqid();
+        $this->executor->flushAntesDeFalhar = false;
+        $this->executor->falhaAoExecutar = new \RuntimeException('banco caiu');
+
+        try {
+            $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada());
+            self::fail('a falha deveria seguir');
+        } catch (\RuntimeException $erro) {
+            self::assertSame('banco caiu', $erro->getMessage());
+        }
+        $this->em()->flush();
+
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM tenant WHERE name = ?', [$this->executor->nomeDoEscritorioGravado]));
+        self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($id)?->getEstado());
+    }
+
+    #[TestDox('a recusa da reconferência desfaz o que o executor tenha gravado ao reconferir')]
+    public function testRecusaDesfazOQueAReconferenciaGravou(): void
+    {
+        $id = $this->proporAgora();
+        $nomeAntes = (string) $this->escritorio->getName();
+        $escritorioId = $this->escritorio->getId();
+        $this->executor->aoReconferir = function (): void {
+            $this->escritorio->setName('Mudado na reconferência');
+            $this->em()->flush();
+        };
+        $this->executor->recusaAoReconferir = ErroDaFerramenta::naoEncontrado();
+
+        $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada()));
+
+        self::assertSame($nomeAntes, $this->em()->getConnection()->fetchOne('SELECT name FROM tenant WHERE id = ?', [$escritorioId]));
+    }
+
+    #[TestDox('6.2, regra 7: resultado que não cabe na resposta desfaz a gravação antes de confirmar, e a proposta fica pendente')]
+    public function testResultadoGrandeDemaisDesfaz(): void
+    {
+        $id = $this->proporAgora();
+        $this->executor->nomeDoEscritorioGravado = 'Grande demais ' . uniqid();
+        $this->executor->dadosDoResultado = ['texto' => str_repeat('a', ConfirmarPropostaDoConectorUseCase::TETO_DO_RESULTADO)];
+
+        $erro = $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada()));
+
+        self::assertSame(DespachoDasFerramentas::GRANDE_DEMAIS, $erro->getMessage());
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM tenant WHERE name = ?', [$this->executor->nomeDoEscritorioGravado]));
+        self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($id)?->getEstado());
+    }
+
     #[TestDox('12.20: permissão retirada entre a proposta e a confirmação recusa pela linha da tabela, antes do executor; a proposta fica pendente')]
     public function testPermissaoRetirada(): void
     {
@@ -315,6 +410,20 @@ final class ConfirmarAcaoTest extends KernelTestCase
         self::assertSame(ErroDaFerramenta::ENTRADA_INVALIDA, $erro->getMessage());
     }
 
+    #[TestDox('5.1, segunda camada: sem mcp:escrita na chamada, a confirmação recusa sem olhar a proposta e a proposta não nasce')]
+    public function testSemEscritaNaChamada(): void
+    {
+        $id = $this->proporAgora();
+        $soLeitura = $this->chamada(escopos: ['mcp:leitura']);
+
+        $erro = $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $soLeitura));
+
+        self::assertSame(ErroDaFerramenta::SEM_PERMISSAO, $erro->getMessage());
+        self::assertSame([], $this->executor->reconferidas);
+        $this->expectException(\LogicException::class);
+        $this->propostas()->propor($soLeitura, 'atualizar_pasta', 'editar_dados', self::DADOS, self::RESUMO);
+    }
+
     #[TestDox('8: o teto conector_confirmacao (10 por minuto, por pessoa e escritório) recusa a 11ª confirmação, antes de olhar a proposta')]
     public function testLimiteDeConfirmacoes(): void
     {
@@ -390,14 +499,15 @@ final class ConfirmarAcaoTest extends KernelTestCase
         return new ConfirmarAcaoFerramenta($useCase, $c->get('limiter.conector_confirmacao'), $requisicao ?? new RequisicaoDoConector());
     }
 
-    private function chamada(?User $pessoa = null, ?Tenant $escritorio = null, ?UserTenant $vinculo = null, ?ConsentimentoDoConector $consentimento = null): ChamadaDoConector
+    /** @param list<string> $escopos */
+    private function chamada(?User $pessoa = null, ?Tenant $escritorio = null, ?UserTenant $vinculo = null, ?ConsentimentoDoConector $consentimento = null, array $escopos = ['mcp:leitura', 'mcp:escrita']): ChamadaDoConector
     {
         return new ChamadaDoConector(
             new ContextoDoConector($pessoa ?? $this->pessoa, $escritorio ?? $this->escritorio, $vinculo ?? $this->vinculo),
             concessaoId: 1,
             consentimentoId: (int) ($consentimento ?? $this->consentimento)->getId(),
             hostDoCliente: 'claude.ai',
-            escopos: ['mcp:leitura', 'mcp:escrita'],
+            escopos: $escopos,
             conexaoValeAte: new \DateTimeImmutable('2026-11-25 10:00:00'),
         );
     }
