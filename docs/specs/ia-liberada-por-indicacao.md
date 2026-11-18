@@ -181,6 +181,14 @@ Testes: um código plantado na sessão e desligado no formulário não gera indi
 2. **Uma leitura grande passa do limite** (seção 5): só o próximo pedido trava.
 3. **O furo do escritório continua:** o chat soma no saldo da pessoa (D7), mas segue fora do limite diário e mensal e do
    orçamento em dólar do **escritório** (seção 10). Corrigir à parte, se o Farlei quiser.
+4. **A limpeza do chat devolve saldo:** a retenção das conversas do Chat I.A. apaga as mensagens antigas, e com elas
+   some o consumo que contava no saldo. Quem usa o chat há muito tempo volta a ter um pouco de I.A. gratuita. Aceito: o
+   efeito é pequeno e não pede tabela nova.
+5. **O aviso ao indicador anda junto com o bônus de espaço:** a notificação "você ganhou mais 3 peças" sai no momento
+   em que o bônus de espaço é concedido (uma vez por conta nova). Se o bônus não for concedido por outro motivo (ex.:
+   falha ao gravar), o colega conta no saldo do mesmo jeito, só não há aviso.
+6. **O saldo olha os vínculos ativos da pessoa:** a soma do consumo considera os escritórios em que ela está hoje; o
+   uso feito num escritório que ela já deixou não entra.
 
 ## 10. Testes
 

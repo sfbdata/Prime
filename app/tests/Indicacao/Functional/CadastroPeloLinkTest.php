@@ -6,6 +6,8 @@ namespace App\Tests\Indicacao\Functional;
 
 use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Event\EmailDaContaConfirmado;
 use App\Indicacao\Controller\IndicacaoController;
@@ -395,6 +397,19 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * O aviso ao indicador é uma notificação, que sempre mora num escritório: sem vínculo ativo de quem indicou (nem
+     * escritório de origem na indicação) não há onde avisar.
+     */
+    private function darEscritorioAAna(): void
+    {
+        $escritorio = new Tenant();
+        $escritorio->setName('Escritório da Ana ' . uniqid());
+        $this->em->persist($escritorio);
+        $this->em->persist(new UserTenant($this->ana, $escritorio));
+        $this->em->flush();
+    }
+
     private function confirmarEmail(int $contaId): void
     {
         $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$contaId]);
@@ -406,6 +421,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
     #[TestDox('Bônus: cupom + cadastro por e-mail não concede; ao confirmar o e-mail concede 5 GB por 30 dias ao escritório da conta nova, uma vez só')]
     public function testBonusSoDepoisDeConfirmarOEmail(): void
     {
+        $this->darEscritorioAAna();
         $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
         self::assertSame([], $this->bonusDe($nova), 'sem confirmar o e-mail não há bônus');
 
@@ -430,6 +446,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
     #[TestDox('Bônus: conta que já nasce confirmada (Google) ganha logo no evento do cadastro, e o evento de confirmação depois não duplica')]
     public function testBonusNaContaQueNasceConfirmada(): void
     {
+        $this->darEscritorioAAna();
         $nova = $this->cadastrar();
         $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$nova]);
         static::getContainer()->get(EntityManagerInterface::class)->clear();
