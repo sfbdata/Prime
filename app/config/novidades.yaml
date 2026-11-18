@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.57.0"
+  data: "2026-11-18"
+  itens:
+    - "Pasta apagada sai da lista e o número volta a ficar livre: ela fica só na lixeira do escritório, de onde ainda pode ser restaurada."
+    - "Se a pasta apagada era a última, a próxima pasta criada recebe o número dela. Para restaurar uma pasta cujo número já foi usado, mude antes o número da pasta nova."
+    - "No Push Processual, o texto das intimações e publicações volta a mostrar os acentos e símbolos certos. Antes, alguns tribunais (como o TJGO) apareciam com códigos estranhos no lugar das letras, por exemplo \"JUDICI&Aacute;RIO\" em vez de \"JUDICIÁRIO\". Vale também para as publicações que já estavam no sistema."
 - versao: "2.56.0"
   data: "2026-11-16"
   itens:

@@ -8,6 +8,18 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.57.0] - 2026-11-18
+
+### Alterado
+
+- Pasta excluída (lápide) sai da lista do Expediente, das contagens, dos marcadores, do CSV, das setas da pasta, dos números do Dashboard e da consulta do agente de pastas: fica só na lixeira do escritório. Substitui as decisões de 28/08 e 31/08 (lápide riscada na lista), a pedido do Samuel.
+- O próximo número de pasta não conta mais a pasta excluída: se ela era a última, o número dela volta a ser usado. Números do meio continuam sem uso (maior número + 1).
+- Restaurar da lixeira é recusado quando outra pasta do escritório já usa o mesmo número, com a mensagem "O número X já é usado por outra pasta. Mude o número dela antes de restaurar esta."
+
+### Corrigido
+
+- Push Processual: o teor em texto corrido (TJGO, TJDFT e outros) decodifica as entidades HTML antes de escapar, então "JUDICI&Aacute;RIO", "&nbsp;" e "-&gt;" aparecem como acento, espaço e seta. Vale também para as publicações já gravadas, porque a correção é na exibição. O texto continua escapado na tela (sem abrir XSS).
+
 ## [2.56.0] - 2026-11-16
 
 ### Adicionado
@@ -2083,7 +2095,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.56.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.57.0...HEAD
+[2.57.0]: https://github.com/sfbdata/Prime/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/sfbdata/Prime/compare/v2.55.0...v2.56.0
 [2.55.0]: https://github.com/sfbdata/Prime/compare/v2.54.0...v2.55.0
 [2.54.0]: https://github.com/sfbdata/Prime/compare/v2.53.0...v2.54.0
