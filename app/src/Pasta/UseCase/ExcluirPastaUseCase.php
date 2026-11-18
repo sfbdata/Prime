@@ -17,13 +17,12 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * ('excluir'), sem o prazo de 30 dias do desenho: decisão do dono em 23/10, a lixeira de pastas não
  * tem purga e a pasta fica nela até ser restaurada). A linha fica com `excluida_em`/
  * `excluida_por` preenchidos e situação ARQUIVADA; os arquivos ficam no disco, a lixeira da aba
- * Documentos fica como está. A pasta continua na lista do Expediente, riscada, e fica
- * somente-leitura (a trava é do `PastaSomenteLeituraListener`).
+ * Documentos fica como está. A pasta sai da lista e das contagens do Expediente (fica só na lixeira
+ * do escritório) e fica somente-leitura (a trava é do `PastaSomenteLeituraListener`).
  *
- * Antes, a última da sequência era apagada de verdade, com os arquivos, e o número voltava a ser
- * livre. Esse caminho saiu: excluir passou a ser sempre reversível. Por consequência o número da
- * lápide continua ocupado (o `GerarNumeroDePasta` conta todas as linhas), o que também elimina a
- * corrida entre "sou a última?" e a criação da próxima pasta.
+ * Desde 18/11/2026 (pedido do Samuel, no lugar das decisões de 28/08 e 31/08) a lápide não ocupa
+ * número: se ela era a última, a próxima pasta criada recebe o número dela (`NumeracaoDePasta`).
+ * Restaurar com o número já reusado é recusado no `RestaurarPastaUseCase`.
  *
  * Apagar de vez depois dos 30 dias (purga) NÃO existe aqui: apagar dado é decisão do dono e ficou
  * pendente. Até ela existir, a lápide fica indefinidamente e continua restaurável.

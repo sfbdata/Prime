@@ -22,9 +22,10 @@ use Zenstruck\Foundry\Test\Factories;
 
 /**
  * Funcional de propósito: toda exclusão vira lápide (lixeira restaurável), inclusive a da última
- * pasta da sequência, e o que precisa ser provado contra o Postgres é o efeito disso na numeração:
- * a lápide continua ocupando o número, então nenhum número é reaproveitado. É o caso de produção
- * de 28/08/2026 (185 buracos na sequência) virado teste.
+ * pasta da sequência, e o que precisa ser provado contra o Postgres é o efeito disso na numeração.
+ * Desde 18/11/2026 (pedido do Samuel, no lugar da decisão de 28/08) a lápide NÃO ocupa número: se
+ * ela era a última, o número volta a ser o próximo; buraco do meio continua sem uso (maior + 1).
+ * Restaurar uma lápide cujo número já foi reusado é recusado.
  */
 #[CoversClass(ExcluirPastaUseCase::class)]
 #[CoversClass(\App\Pasta\Service\NumeracaoDePasta::class)]
@@ -102,23 +103,77 @@ final class ExcluirPastaLapideTest extends KernelTestCase
         self::assertFalse($restaurada->estaExcluida(), 'A pasta excluída tem de voltar ao ser restaurada.');
     }
 
-    #[TestDox('O CASO DE PRODUÇÃO: nenhuma exclusão devolve o número, nem a da última')]
-    public function testNenhumaExclusaoDevolveONumero(): void
+    #[TestDox('Excluir a ÚLTIMA devolve o número dela: a próxima pasta nasce com ele')]
+    public function testExcluirAUltimaDevolveONumero(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne()->_real();
+        PastaFactory::createOne(['nup' => '1238', 'tenant' => $tenant]);
+        $p1239 = PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant])->_real();
+        self::assertSame('1240', $this->proximoNumero($tenant));
+
+        $this->excluir($p1239, $tenant);
+
+        self::assertSame('1239', $this->proximoNumero($tenant));
+    }
+
+    #[TestDox('Excluir a do MEIO não muda o próximo: buraco não é preenchido (maior + 1)')]
+    public function testExcluirADoMeioNaoPreencheBuraco(): void
     {
         self::bootKernel();
         $tenant = TenantFactory::createOne()->_real();
         $p1238  = PastaFactory::createOne(['nup' => '1238', 'tenant' => $tenant])->_real();
-        $p1239  = PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant])->_real();
+        PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant]);
 
-        // A última vai para a lixeira e SEGURA o número: restaurá-la não pode colidir com uma
-        // pasta nova que tivesse herdado o 1239.
-        $this->excluir($p1239, $tenant);
-        self::assertSame('1240', $this->proximoNumero($tenant));
-
-        // A do meio também: sem isso o 1238 morreria em silêncio, que é exatamente o que
-        // aconteceu em produção em 28/08/2026.
         $this->excluir($p1238, $tenant);
+
         self::assertSame('1240', $this->proximoNumero($tenant));
+    }
+
+    #[TestDox('Restaurar lápide cujo número já foi reusado é recusado com a mensagem, e ela fica na lixeira')]
+    public function testRestaurarComNumeroReusadoEhRecusado(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne()->_real();
+        PastaFactory::createOne(['nup' => '1238', 'tenant' => $tenant]);
+        $p1239 = PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant])->_real();
+        $this->excluir($p1239, $tenant);
+        PastaFactory::createOne(['nup' => $this->proximoNumero($tenant), 'nomeCliente' => 'MARIA NOVA', 'tenant' => $tenant]);
+
+        $lapide = $this->recarregar($p1239);
+        self::assertNotNull($lapide);
+
+        try {
+            static::getContainer()->get(RestaurarPastaUseCase::class)->executar($lapide, $lapide->getTenant());
+            self::fail('Restaurar com o número já reusado devia ser recusado.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertSame(
+                'O número 1239 já é usado por outra pasta (MARIA NOVA). Mude o número dela antes de restaurar esta.',
+                $e->getMessage(),
+            );
+        }
+
+        $depois = $this->recarregar($p1239);
+        self::assertNotNull($depois);
+        self::assertTrue($depois->estaExcluida(), 'A lápide recusada continua na lixeira.');
+    }
+
+    #[TestDox('Número reusado em OUTRO escritório não impede restaurar')]
+    public function testNumeroDeOutroEscritorioNaoImpedeRestaurar(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne()->_real();
+        $p1239  = PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant])->_real();
+        PastaFactory::createOne(['nup' => '1239', 'tenant' => TenantFactory::createOne()]);
+        $this->excluir($p1239, $tenant);
+
+        $lapide = $this->recarregar($p1239);
+        self::assertNotNull($lapide);
+        static::getContainer()->get(RestaurarPastaUseCase::class)->executar($lapide, $lapide->getTenant());
+
+        $depois = $this->recarregar($p1239);
+        self::assertNotNull($depois);
+        self::assertFalse($depois->estaExcluida());
     }
 
     #[TestDox('ISOLAMENTO: excluir pasta de outro escritório é recusado e ela fica intacta')]

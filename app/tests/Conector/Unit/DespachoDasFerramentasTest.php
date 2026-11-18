@@ -122,6 +122,18 @@ final class DespachoDasFerramentasTest extends TestCase
         );
     }
 
+    #[TestDox('a página seguinte pode ser um cursor em texto: sai como veio, nos dois campos')]
+    public function testProximaPaginaEmTexto(): void
+    {
+        $ferramenta = self::ferramenta('ler_agenda', new RespostaDaFerramenta(['itens' => []], 'c:2026-11-16:40'));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], self::aberta()))->executar($ferramenta, []);
+
+        self::assertFalse($resultado->isError);
+        self::assertSame(['itens' => [], 'proxima_pagina' => 'c:2026-11-16:40'], $resultado->structuredContent);
+        self::assertSame('{"itens":[],"proxima_pagina":"c:2026-11-16:40"}', self::texto($resultado->content[0]));
+    }
+
     #[TestDox('dado vazio sai como objeto JSON nos dois campos')]
     public function testDadoVazioEhObjeto(): void
     {

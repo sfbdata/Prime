@@ -11,6 +11,7 @@ use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
+use App\Inteligencia\Service\PoliticaDeMascaramento;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 
@@ -37,11 +38,16 @@ final class MontadorDeContextoDoPush
     /** Campos curtos (classe, órgão, nomes…): acima disto é lixo ou ataque, não cabeçalho. */
     public const TAMANHO_MAXIMO_DO_ROTULO = 200;
 
+    private readonly PoliticaDeMascaramento $politica;
+
+    /** Sem a política (testes antigos que montam à mão), vale só a preferência do escritório, como antes. */
     public function __construct(
         private readonly FonteDeMovimentacoesDoPush $fonte,
-        private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
+        ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly MascaradorDeDadosPessoais $mascarador,
+        ?PoliticaDeMascaramento $politica = null,
     ) {
+        $this->politica = $politica ?? new PoliticaDeMascaramento($configuracoes);
     }
 
     /**
@@ -247,17 +253,24 @@ final class MontadorDeContextoDoPush
         if ($valor === '') {
             return $padrao;
         }
+        // Mascara antes de cortar: um CPF, e-mail ou telefone cortado no limite não casa com o padrão e sairia aberto.
+        if ($mascarar) {
+            $valor = $this->mascarador->mascarar($valor);
+        }
         if (mb_strlen($valor) > self::TAMANHO_MAXIMO_DO_ROTULO) {
             $valor = mb_substr($valor, 0, self::TAMANHO_MAXIMO_DO_ROTULO) . '…';
         }
 
-        return $mascarar ? $this->mascarador->mascarar($valor) : $valor;
+        return $valor;
     }
 
-    /** Preferência do escritório; sem configuração gravada, mascara (D4). */
+    /**
+     * Pela {@see PoliticaDeMascaramento}: no conector de I.A., sempre; fora dele, a preferência do escritório (sem
+     * configuração gravada, mascara, D4).
+     */
     private function mascararNoTenant(Tenant $tenant): bool
     {
-        return $this->configuracoes->findDoTenant($tenant)?->isMascararDadosPessoais() ?? true;
+        return $this->politica->mascarar($tenant);
     }
 
     /** HTML do DJEN → texto plano (quebras preservadas como espaço, entidades decodificadas). */
@@ -282,10 +295,14 @@ final class MontadorDeContextoDoPush
             return '';
         }
 
+        // Mascara antes de cortar: um CPF, e-mail ou telefone cortado no limite não casa com o padrão e sairia aberto.
+        if ($mascarar) {
+            $texto = $this->mascarador->mascarar($texto);
+        }
         if (mb_strlen($texto) > self::TAMANHO_MAXIMO_DO_ITEM) {
             $texto = mb_substr($texto, 0, self::TAMANHO_MAXIMO_DO_ITEM) . '…';
         }
 
-        return $mascarar ? $this->mascarador->mascarar($texto) : $texto;
+        return $texto;
     }
 }
