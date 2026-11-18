@@ -22,8 +22,13 @@ final readonly class PastasRecebidasOutput
     ) {
     }
 
-    /** @return array<string, mixed> */
-    public static function item(PastaCompartilhamento $c, \DateTimeImmutable $hoje): array
+    /**
+     * `abre`: o convite abre a pasta agora (fatia 9a, o critério do `PastaRecebidaDoUsuario`); `acao`, `prioridade` e
+     * `situacao` são os da linha da Lista (L12).
+     *
+     * @return array<string, mixed>
+     */
+    public static function item(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $abre = false): array
     {
         $permissoes = $c->permissoes();
         $pasta = $c->getPasta();
@@ -32,6 +37,9 @@ final readonly class PastasRecebidasOutput
             'id'               => (int) $c->getId(),
             'nup'              => (string) $pasta->getNup(),
             'cliente'          => (string) $pasta->getNomeCliente(),
+            'acao'             => (string) $pasta->getNomeAcao(),
+            'prioridade'       => $pasta->getPrioridade()->value,
+            'situacao'         => $pasta->getSituacao(),
             'de'               => self::nome($c->getOrigem()),
             'conta'            => (string) $c->getTenant()->getName(),
             'movimentar'       => $permissoes->movimentar,
@@ -41,6 +49,7 @@ final readonly class PastasRecebidasOutput
             'em'               => $c->getCriadoEm()->format('Y-m-d\TH:i'),
             'ate'              => $c->getValidoAte()?->format('Y-m-d'),
             'estado'           => self::estado($c, $hoje),
+            'abre'             => $abre,
         ];
     }
 

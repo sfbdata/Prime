@@ -166,6 +166,31 @@ expediente:
             nota: Somente o usuário primário pode liberar o acesso.
             entendi: Entendi
             pedir_acesso: Pedir acesso
+    # Página da pasta recebida de outra conta (spec acesso-restrito-e-compartilhar §4.5.1, fatia 9a): só leitura,
+    # sem nada que leve a outra tela da conta de origem.
+    recebida:
+        titulo: 'Pasta recebida {nup}'
+        marca: 'Recebida · {conta}'
+        marca_dica: 'Republicada por {de} ({conta}). Você colabora nesta pasta com as permissões concedidas.'
+        republicada_por: Republicada por
+        voce_pode: 'Você pode:'
+        pertence: A pasta pertence à outra conta. Você colabora só nela, e o dono pode encerrar o acesso a qualquer momento.
+        fase: Fase atual
+        acao: Ação
+        aba_andamentos: Andamentos
+        aba_documentos: Documentos
+        aba_metas: Metas
+        andamentos_vazio: Nenhum andamento registrado nesta pasta.
+        documentos_vazio: Nenhum documento nesta pasta.
+        metas_vazio: Nenhuma meta aberta
+        sem_abas: Nenhuma parte desta pasta está disponível para você.
+        registro_sistema: Andamento
+        ver: Visualizar
+        ver_dica: Abrir o documento numa aba nova
+        baixar: Baixar
+        baixar_dica: Baixar o documento
+        sem_prazo: Sem prazo
+        prazo: 'Prazo: {data}'
     js:
         lixeira:
             carregando: Carregando a lixeira…
@@ -416,6 +441,20 @@ expediente:
             deixar: Deixar de colaborar
             aceita: Pasta {nup} adicionada às suas pastas, marcada como Recebida.
             erro_carregar: Não foi possível abrir as pastas recebidas.
+            ver_pasta: Ver pasta
+            janela_titulo: 'Pasta recebida {nup}'
+            voce_pode: 'Você pode:'
+            metas_abertas: '{n} meta(s) aberta(s) nesta pasta'
+            sem_metas: Nenhuma meta aberta
+            abrir_metas: Abrir metas
+            pertence: A pasta pertence à outra conta. Você colabora só nela, e o dono pode encerrar o acesso a qualquer momento.
+            abrir_pasta: Abrir pasta
+            erro_abrir: Não foi possível abrir a pasta recebida.
+            marca: 'Recebida · {conta}'
+            marca_dica: 'Republicada por {de} ({conta}). Você colabora nesta pasta com as permissões concedidas.'
+            dono: '{de} (dono)'
+            dono_dica: 'Pasta de outra conta: o responsável é definido pelo dono'
+            reu_vazio: Não informado
         trilho:
             expandir_painel: Expandir painel
             recolher_painel: Recolher painel

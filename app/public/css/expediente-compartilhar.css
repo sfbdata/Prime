@@ -201,3 +201,24 @@
 .exp-rc-acao--recusar { border: 1px solid var(--cp-erro); background: var(--cp-fundo); color: var(--cp-erro); font-weight: 700; }
 .exp-rc-acao--aceitar { border: 0; padding: 0 14px; background: var(--cp-rc-cab); color: #fff; font-weight: 700; }
 .exp-rc-acao--sair { border: 1px solid var(--cp-borda-seg); background: var(--cp-fundo); color: var(--cp-texto); }
+/* "Ver pasta" do cartão aceito (dc L.511): azul, como o "Abrir pasta" da janela L11. */
+.exp-rc-acao--ver { border: 0; padding: 0 14px; background: var(--cp-azul-fundo); color: #fff; font-weight: 700; }
+
+/* ── Janela "Pasta recebida N" (L11, dc L.513-516; fatia 9a) ─────────────────────────────────────────────── */
+.exp-cp.exp-rv { width: min(480px, 100%); }
+.exp-rv-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; color: var(--cp-texto); line-height: 1.5; }
+.exp-rv-cliente { font-size: 15px; color: var(--cp-titulo); }
+.exp-rv-metas .bi { color: var(--cp-azul); }
+.exp-rv-metas-ir {
+    border: 0; background: none; padding: 0; color: var(--cp-azul); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;
+}
+.exp-rv-pertence { font-size: 12.5px; color: var(--cp-dica); }
+.exp-rv-acoes { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.exp-rv-btn { height: 36px; border-radius: 4px; font: inherit; cursor: pointer; }
+.exp-rv-btn:disabled { opacity: .6; cursor: progress; }
+.exp-rv-btn--sair { padding: 0 12px; border: 1px solid var(--cp-borda-seg); background: var(--cp-fundo); color: var(--cp-texto); font-size: 13px; }
+.exp-rv-btn--abrir { padding: 0 16px; border: 0; background: var(--cp-azul-fundo); color: #fff; font-size: 13.5px; font-weight: 700; }
+
+/* ── Linhas das pastas recebidas na Lista (L12, dc `rpRows()`; L2): no topo, abrem a janela L11 ──────────── */
+.exp-body .js-recebida-linha { cursor: pointer; }
+.exp-body .exp-rv-dono { color: var(--cp-texto); }

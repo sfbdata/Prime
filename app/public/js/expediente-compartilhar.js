@@ -8,6 +8,10 @@
 
    Fatia 8 também: o botão "Recebidas" da barra (L9) e a janela "Pastas recebidas de outras contas" (L10, dc L.507-512),
    pelas rotas `expediente_recebidas` (GET, com o código pessoal e o token) e `expediente_recebida_responder`.
+
+   Fatia 9a: a janela "Pasta recebida N" (L11, dc L.513-516), aberta pelo "Ver pasta" da caixa e pela linha da pasta
+   recebida, que vai no topo da Lista (L12, com a marca L2), pela rota `expediente_recebida_ver`; os botões levam à
+   página reduzida `expediente_recebida_pasta`.
    ============================================================================= */
 (function () {
     'use strict';
@@ -488,6 +492,7 @@
                 if (!r.ok || !r.j || !r.j.token) { return null; }
                 dados = r.j;
                 pintarBotoes();
+                pintarLinhas();
                 return dados;
             }, function () { return null; });
         }
@@ -551,8 +556,12 @@
                 acoes.appendChild(botao('exp-rc-acao--recusar', BJ_T.t('expediente.js.recebidas.recusar'), null, function (b) { responder(r, 'recusar', b); }));
                 acoes.appendChild(botao('exp-rc-acao--aceitar', BJ_T.t('expediente.js.recebidas.aceitar'), 'bi-check-lg', function (b) { responder(r, 'aceitar', b); }));
             } else if (r.estado === 'colaborando') {
-                /* "Ver pasta" (dc L.511) abre a janela da pasta recebida: chega com a fatia 9. */
                 acoes.appendChild(botao('exp-rc-acao--sair', BJ_T.t('expediente.js.recebidas.deixar'), null, function (b) { responder(r, 'deixar', b); }));
+                /* "Ver pasta" (dc L.511): a janela L11. Só quando o servidor diz que abre (`abre`, o mesmo critério da
+                   rota): sem ele, o botão levaria a um 404. */
+                if (r.abre) {
+                    acoes.appendChild(botao('exp-rc-acao--ver', BJ_T.t('expediente.js.recebidas.ver_pasta'), null, function () { var volta = janela ? janela.origem : null; fechar(); verPasta(r.id, volta); }));
+                }
             }
             if (acoes.childNodes.length) { c.appendChild(acoes); }
             return c;
@@ -577,6 +586,231 @@
                 if (acao === 'deixar') { aviso(BJ_T.t('expediente.js.compartilhar.menu_deixou', { nup: r.nup })); }
                 buscar().then(function () { if (janela && dados) { pintarLista(); } });
             }, function () { b.disabled = false; aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); });
+        }
+
+        /* ── Janela "Pasta recebida N" (L11, dc L.513-516; fatia 9a) ── */
+        var vista = null;      // { fundo, origem }
+
+        function fecharVista() {
+            if (!vista) { return; }
+            var origem = vista.origem;
+            vista.fundo.remove();
+            vista = null;
+            if (origem && document.contains(origem)) { origem.focus(); }
+        }
+
+        function verPasta(id, origem) {
+            fecharVista();
+            pedir(url() + '/' + id, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(function (r) {
+                if (!r.ok || !r.j || !r.j.urlPasta) { aviso(BJ_T.t('expediente.js.recebidas.erro_abrir')); return; }
+                montarVista(r.j, origem);
+            }, function () { aviso(BJ_T.t('expediente.js.recebidas.erro_abrir')); });
+        }
+
+        function montarVista(p, origem) {
+            var fundo = el('div', 'exp-cp-fundo');
+            var caixa = el('div', 'exp-cp exp-rv');
+            caixa.setAttribute('role', 'dialog');
+            caixa.setAttribute('aria-modal', 'true');
+            caixa.setAttribute('aria-label', BJ_T.t('expediente.js.recebidas.janela_titulo', { nup: p.nup }));
+            var cab = el('div', 'exp-cp-cab exp-rc-cab');
+            cab.appendChild(icone('bi-arrow-repeat'));
+            cab.appendChild(el('b', null, BJ_T.t('expediente.js.recebidas.janela_titulo', { nup: p.nup })));
+            var x = el('button', 'exp-cp-x');
+            x.type = 'button';
+            x.setAttribute('aria-label', BJ_T.t('expediente.js.compartilhar.fechar'));
+            x.appendChild(icone('bi-x-lg'));
+            x.addEventListener('click', fecharVista);
+            cab.appendChild(x);
+
+            var corpo = el('div', 'exp-rv-corpo');
+            corpo.appendChild(el('b', 'exp-rv-cliente', p.cliente));
+            if (p.acao) { corpo.appendChild(el('div', null, p.acao)); }
+            var por = el('div');
+            por.appendChild(document.createTextNode(BJ_T.t('expediente.js.recebidas.republicada_por') + ' '));
+            por.appendChild(el('b', null, p.de + ' · ' + p.conta));
+            corpo.appendChild(por);
+            var pode = el('div');
+            pode.appendChild(el('b', null, BJ_T.t('expediente.js.recebidas.voce_pode')));
+            pode.appendChild(document.createTextNode(' ' + permissoes(p) + '.'));
+            corpo.appendChild(pode);
+            /* Metas: só com a aba Metas visível para quem recebeu (o servidor manda `metas` nulo quando está oculta). */
+            if (p.metas !== null && p.metas !== undefined) {
+                var metas = el('div', 'exp-rv-metas');
+                metas.appendChild(icone('bi-check2-square'));
+                metas.appendChild(document.createTextNode(' ' + (p.metas > 0 ? BJ_T.t('expediente.js.recebidas.metas_abertas', { n: p.metas }) : BJ_T.t('expediente.js.recebidas.sem_metas')) + ' '));
+                var irMetas = el('button', 'exp-rv-metas-ir', BJ_T.t('expediente.js.recebidas.abrir_metas'));
+                irMetas.type = 'button';
+                irMetas.addEventListener('click', function () { window.location.href = p.urlMetas; });
+                metas.appendChild(irMetas);
+                corpo.appendChild(metas);
+            }
+            corpo.appendChild(el('div', 'exp-rv-pertence', BJ_T.t('expediente.js.recebidas.pertence')));
+
+            var acoes = el('div', 'exp-rv-acoes');
+            var sair = el('button', 'exp-rv-btn exp-rv-btn--sair', BJ_T.t('expediente.js.recebidas.deixar'));
+            sair.type = 'button';
+            sair.addEventListener('click', function () { deixarPelaVista(p, sair); });
+            var abrirPasta = el('button', 'exp-rv-btn exp-rv-btn--abrir', BJ_T.t('expediente.js.recebidas.abrir_pasta'));
+            abrirPasta.type = 'button';
+            abrirPasta.addEventListener('click', function () { window.location.href = p.urlPasta; });
+            acoes.appendChild(sair);
+            acoes.appendChild(abrirPasta);
+            corpo.appendChild(acoes);
+
+            caixa.appendChild(cab);
+            caixa.appendChild(corpo);
+            fundo.appendChild(caixa);
+            fundo.addEventListener('mousedown', function (e) { if (e.target === fundo) { fecharVista(); } });
+            document.body.appendChild(fundo);
+            vista = { fundo: fundo, origem: origem || null };
+            abrirPasta.focus();
+        }
+
+        function deixarPelaVista(p, b) {
+            b.disabled = true;
+            (dados ? Promise.resolve(dados) : buscar()).then(function (d) {
+                if (!d) { b.disabled = false; aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); return; }
+                postar(url() + '/' + p.id + '/deixar', d.token).then(function (resp) {
+                    if (!resp.ok) { b.disabled = false; aviso(resp.j.erro || BJ_T.t('expediente.js.compartilhar.falha_conexao')); return; }
+                    aviso(BJ_T.t('expediente.js.compartilhar.menu_deixou', { nup: p.nup }));
+                    fecharVista();
+                    buscar();
+                }, function () { b.disabled = false; aviso(BJ_T.t('expediente.js.compartilhar.falha_conexao')); });
+            });
+        }
+
+        /* ── Linhas das pastas recebidas na Lista (L12, dc `rpRows()`) ──
+           No topo do acervo geral, em todo carregamento (fora da paginação e dos filtros do escritório, que não alcançam
+           a pasta de outra conta), com a marca L2 e o responsável "<quem republicou> (dono)". Sem `pasta-row-link` nem
+           `data-href`: o clique abre a janela L11, e o menu de contexto, a seleção e as ações da linha (todas da pasta do
+           escritório) não as alcançam. Só as que o servidor diz que abrem (`abre`). */
+        var PRIO = { normal: 'normal', prioridade: 'alta', urgente: 'urgente' };
+        function abertas() {
+            return dados ? dados.itens.filter(function (r) { return r.estado === 'colaborando' && r.abre; }) : [];
+        }
+        function rotuloPrio(v) { return BJ_T.t('expediente.js.lista.prioridade.' + (PRIO[v] || 'normal')); }
+        function rotuloSit(v) { return ['ativo', 'suspenso', 'cancelado', 'arquivado'].indexOf(v) >= 0 ? BJ_T.t('expediente.js.lista.situacao.' + v) : v; }
+        function marca(r) {
+            var i = icone('bi-arrow-repeat exp-rp-recebida');
+            i.removeAttribute('aria-hidden');
+            i.setAttribute('aria-label', BJ_T.t('expediente.js.recebidas.marca', { conta: r.conta }));
+            i.setAttribute('data-tip', BJ_T.t('expediente.js.recebidas.marca_dica', { de: r.de, conta: r.conta }));
+            return i;
+        }
+        function celula(col, classe, filho) {
+            var td = el('td', 'align-middle' + (classe ? ' ' + classe : ''));
+            td.setAttribute('data-col', col);
+            if (filho) { td.appendChild(filho); }
+            return td;
+        }
+        function comDica(tag, classe, texto, dica) {
+            var e = el(tag, classe, texto);
+            if (dica) { e.setAttribute('data-tip', dica); }
+            return e;
+        }
+        function linhaDaTabela(r, comModificada) {
+            var tr = el('tr', 'js-recebida-linha');
+            tr.setAttribute('data-recebida', String(r.id));
+            tr.setAttribute('tabindex', '0');
+            tr.setAttribute('role', 'link');
+            var nup = el('span', 'exp-nup', r.nup);
+            var tdNup = celula('nup', 'fw-semibold', nup);
+            tdNup.appendChild(marca(r));
+            tr.appendChild(tdNup);
+            var cli = el('span', 'exp-cliente-linha');
+            cli.appendChild(comDica('span', 'text-truncate', r.cliente, r.cliente));
+            tr.appendChild(celula('cliente', 'exp-cel-cliente', cli));
+            tr.appendChild(celula('reu', 'col-reu-tabela', el('span', 'text-truncate d-block exp-reu exp-reu--vazio', BJ_T.t('expediente.js.recebidas.reu_vazio'))));
+            tr.appendChild(celula('acao', 'col-acao-tabela', r.acao ? comDica('span', 'text-truncate d-block', r.acao, r.acao) : null));
+            var prio = el('span', 'badge exp-prio');
+            prio.setAttribute('data-prio', r.prioridade);
+            prio.appendChild(icone('bi-flag-fill'));
+            prio.appendChild(document.createTextNode(rotuloPrio(r.prioridade)));
+            tr.appendChild(celula('prio', null, prio));
+            tr.appendChild(celula('resp', 'col-resp-tabela', comDica('span', 'exp-rv-dono', BJ_T.t('expediente.js.recebidas.dono', { de: r.de }), BJ_T.t('expediente.js.recebidas.dono_dica'))));
+            tr.appendChild(celula('metas', 'col-tarefas-tabela'));
+            tr.appendChild(celula('marc', 'col-marc-tabela'));
+            var sit = el('span', 'badge exp-sit-fixa', rotuloSit(r.situacao));
+            sit.setAttribute('data-situacao', r.situacao);
+            tr.appendChild(celula('sit', null, sit));
+            if (comModificada) { tr.appendChild(celula('mod', 'col-data-tabela')); }
+            return tr;
+        }
+        function linhaSimples(r) {
+            var d = el('div', 'exp-simples-linha js-recebida-linha');
+            d.setAttribute('data-recebida', String(r.id));
+            d.setAttribute('tabindex', '0');
+            d.setAttribute('role', 'link');
+            var ponto = el('span', 'exp-simples-ponto');
+            ponto.setAttribute('data-situacao', r.situacao);
+            d.appendChild(ponto);
+            var nup = el('span', 'exp-simples-nup', r.nup);
+            nup.appendChild(marca(r));
+            d.appendChild(nup);
+            d.appendChild(comDica('span', 'exp-simples-cli', r.cliente, r.cliente));
+            d.appendChild(comDica('span', 'exp-simples-acao', r.acao, r.acao));
+            d.appendChild(comDica('span', 'exp-simples-av', iniciais(r.de), BJ_T.t('expediente.js.recebidas.dono', { de: r.de })));
+            return d;
+        }
+        function cartaoDaLista(r) {
+            var d = el('div', 'exp-cartao pasta-card js-recebida-linha');
+            d.setAttribute('data-recebida', String(r.id));
+            d.setAttribute('tabindex', '0');
+            d.setAttribute('role', 'link');
+            var topo = el('span', 'exp-cartao-topo pasta-card-topo');
+            var ident = el('span', 'pasta-card-ident');
+            var nup = el('span', 'exp-cartao-nup pasta-card-nup', r.nup);
+            nup.appendChild(marca(r));
+            ident.appendChild(nup);
+            topo.appendChild(ident);
+            topo.appendChild(el('span', 'exp-cartao-vao'));
+            var prio = el('span', 'exp-prio exp-prio--cartao');
+            prio.setAttribute('data-prio', r.prioridade);
+            prio.appendChild(icone('bi-flag-fill'));
+            prio.appendChild(document.createTextNode(rotuloPrio(r.prioridade)));
+            topo.appendChild(prio);
+            var sit = el('span', 'exp-sit-chip');
+            sit.setAttribute('data-situacao', r.situacao);
+            sit.appendChild(el('span', 'exp-sit-chip-ponto'));
+            sit.appendChild(document.createTextNode(rotuloSit(r.situacao)));
+            topo.appendChild(sit);
+            d.appendChild(topo);
+            d.appendChild(comDica('span', 'exp-cartao-cli', r.cliente, r.cliente));
+            d.appendChild(comDica('span', 'exp-cartao-acao', r.acao, r.acao));
+            var pe = el('span', 'exp-cartao-pe');
+            pe.appendChild(el('span', 'exp-simples-av', iniciais(r.de)));
+            pe.appendChild(comDica('span', 'exp-cartao-resp', BJ_T.t('expediente.js.recebidas.dono', { de: r.de }), BJ_T.t('expediente.js.recebidas.dono_dica')));
+            d.appendChild(pe);
+            return d;
+        }
+        function acervo() { return document.getElementById('acervo-geral-wrapper'); }
+        function pintarLinhas() {
+            var w = acervo();
+            if (!w) { return; }
+            w.querySelectorAll('.js-recebida-linha').forEach(function (n) { n.remove(); });
+            var itens = abertas();
+            if (!itens.length) { return; }
+            var tbody = w.querySelector('#tabelaPastas tbody');
+            var comModificada = !!w.querySelector('#tabelaPastas thead th[data-col="mod"]');
+            var simples = w.querySelector('.exp-simples');
+            var cartoes = w.querySelector('.exp-cartoes');
+            itens.slice().reverse().forEach(function (r) {
+                if (tbody) { tbody.insertBefore(linhaDaTabela(r, comModificada), tbody.firstChild); }
+                if (simples) { simples.insertBefore(linhaSimples(r), simples.firstChild); }
+                if (cartoes) { cartoes.insertBefore(cartaoDaLista(r), cartoes.firstChild); }
+            });
+        }
+        /* A Lista é trocada por AJAX (filtro, página, ordem, troca de painel): repinta quando as linhas somem. */
+        var repintar = false;
+        function repintarSeSumiram() {
+            if (repintar) { return; }
+            repintar = true;
+            window.requestAnimationFrame(function () {
+                repintar = false;
+                var w = acervo();
+                if (w && abertas().length && !w.querySelector('.js-recebida-linha')) { pintarLinhas(); }
+            });
         }
 
         function abrir(origem) {
@@ -623,6 +857,7 @@
         }
 
         document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && vista) { e.preventDefault(); e.stopPropagation(); fecharVista(); return; }
             if (e.key === 'Escape' && janela) { e.preventDefault(); e.stopPropagation(); fechar(); }
         }, true);
         document.addEventListener('click', function (e) {
@@ -630,6 +865,20 @@
             if (!b) { return; }
             e.preventDefault();
             abrir(b);
+        });
+        /* Clique (e Enter) na linha L12 abre a janela L11. */
+        document.addEventListener('click', function (e) {
+            var linha = e.target.closest && e.target.closest('#acervo-geral-wrapper .js-recebida-linha');
+            if (!linha) { return; }
+            e.preventDefault();
+            verPasta(linha.getAttribute('data-recebida'), linha);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || !e.target.closest) { return; }
+            var linha = e.target.closest('#acervo-geral-wrapper .js-recebida-linha');
+            if (!linha || linha !== e.target) { return; }
+            e.preventDefault();
+            verPasta(linha.getAttribute('data-recebida'), linha);
         });
 
         /* O botão chega com o painel (carregado por AJAX): a primeira busca espera ele aparecer. O aviso do sino leva a
@@ -650,6 +899,8 @@
                     iniciarQuandoHouverBotao();
                     if (dados) { pintarBotoes(); }
                 }).observe(painel, { childList: true });
+                /* A Lista dentro do painel também troca sozinha (filtro, página): as linhas L12 voltam ao topo. */
+                new MutationObserver(function () { if (dados) { repintarSeSumiram(); } }).observe(painel, { childList: true, subtree: true });
             }
         }
         if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', iniciar); } else { iniciar(); }
