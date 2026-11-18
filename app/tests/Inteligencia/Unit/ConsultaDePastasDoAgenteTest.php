@@ -25,16 +25,16 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ConsultaDePastasDoAgente::class)]
 final class ConsultaDePastasDoAgenteTest extends TestCase
 {
-    #[TestDox('A lista de NUPs consulta com o escritório junto')]
+    #[TestDox('A lista de NUPs consulta com o escritório junto e sem a pasta excluída')]
     public function testNupsComTenant(): void
     {
         $tenant = new Tenant();
         $pastas = $this->createMock(PastaRepository::class);
         $pastas->expects(self::once())->method('findBy')
-            ->with(['tenant' => $tenant, 'nup' => ['101', '102']], self::anything())
+            ->with(['tenant' => $tenant, 'nup' => ['101', '102'], 'excluidaEm' => null], self::anything())
             ->willReturn([]);
         $pastas->expects(self::once())->method('count')
-            ->with(['tenant' => $tenant, 'nup' => ['101', '102']])
+            ->with(['tenant' => $tenant, 'nup' => ['101', '102'], 'excluidaEm' => null])
             ->willReturn(0);
 
         $consulta = new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class));

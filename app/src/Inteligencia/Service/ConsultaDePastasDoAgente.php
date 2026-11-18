@@ -21,6 +21,7 @@ use App\Repository\UserTenantRepository;
  *
  * A única consulta própria é a lista de NUPs, que a Lista não tem. `pasta.nup` não é único no
  * escritório: a lista pode devolver mais pastas do que NUPs pedidos, cada uma com o seu id.
+ * A pasta excluída (lápide) fica de fora, como na Lista: o número dela pode já ser de uma pasta nova.
  *
  * Com `quem` (a pessoa que conversa com o agente), a busca livre segue a regra do cadeado da Lista: pasta
  * oculta para ela só casa por número e cliente (spec pasta-cadeado D1/D2).
@@ -59,7 +60,7 @@ final class ConsultaDePastasDoAgente
     public function contar(FiltroDoAgenteInput $filtro, Tenant $tenant, ?User $quem = null): int
     {
         if ($filtro->nups !== []) {
-            return $this->pastaRepository->count(['tenant' => $tenant, 'nup' => $filtro->nups]);
+            return $this->pastaRepository->count(['tenant' => $tenant, 'nup' => $filtro->nups, 'excluidaEm' => null]);
         }
 
         $this->conferirResponsavel($filtro, $tenant);
@@ -113,7 +114,7 @@ final class ConsultaDePastasDoAgente
     private function pastasPorNup(FiltroDoAgenteInput $filtro, Tenant $tenant): array
     {
         /** @var list<Pasta> $pastas */
-        $pastas = $this->pastaRepository->findBy(['tenant' => $tenant, 'nup' => $filtro->nups], ['id' => 'ASC']);
+        $pastas = $this->pastaRepository->findBy(['tenant' => $tenant, 'nup' => $filtro->nups, 'excluidaEm' => null], ['id' => 'ASC']);
         usort($pastas, static fn (Pasta $a, Pasta $b): int => strnatcasecmp((string) $a->getNup(), (string) $b->getNup()) ?: $a->getId() <=> $b->getId());
 
         return $pastas;

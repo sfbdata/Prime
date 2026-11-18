@@ -80,7 +80,7 @@ final class FluxoOAuthCompletoTest extends JusPrimeWebTestCase
      *
      * @return array<string, string>
      */
-    private function autorizar(int $tenantId): array
+    private function autorizar(int $tenantId, bool $escrita = true): array
     {
         $tela = $this->client->request('GET', '/oauth/authorize?' . http_build_query($this->pedidoValido([
             'state' => $this->estado,
@@ -90,13 +90,16 @@ final class FluxoOAuthCompletoTest extends JusPrimeWebTestCase
         ])));
         self::assertResponseIsSuccessful();
 
-        $this->client->request('POST', '/oauth/authorize', [self::FORM => [
+        $campos = [
             'pedido' => (string) $tela->filter('input[name="' . self::FORM . '[pedido]"]')->attr('value'),
             '_token' => (string) $tela->filter('input[name="' . self::FORM . '[_token]"]')->attr('value'),
             'tenantId' => (string) $tenantId,
-            'escrita' => '1',
             'autorizar' => '',
-        ]]);
+        ];
+        if ($escrita) {
+            $campos['escrita'] = '1';
+        }
+        $this->client->request('POST', '/oauth/authorize', [self::FORM => $campos]);
 
         self::assertResponseStatusCodeSame(302);
         $local = (string) $this->client->getResponse()->headers->get('Location');
@@ -231,6 +234,29 @@ final class FluxoOAuthCompletoTest extends JusPrimeWebTestCase
         self::assertNotNull($concessao['revogada_em'], 'a queda da concessão ficou gravada');
         self::assertSame(MotivoDaRevogacaoDaConcessao::CodigoReutilizado->value, $concessao['motivo']);
         $this->exigirInvalidGrant($this->renovar((string) $par['refresh_token']));
+    }
+
+    #[TestDox('Reconectar o mesmo app só com leitura derruba a concessão anterior (com gravação) como substituida; a renovação antiga dá invalid_grant e a nova vale')]
+    public function testReconectarSubstituiAConcessaoAnterior(): void
+    {
+        $tenant = $this->pessoaLogada();
+        $primeiro = $this->autorizar((int) $tenant->getId());
+        $parAntigo = $this->exigirPar($this->trocarCodigo($primeiro['code']));
+
+        $segundo = $this->autorizar((int) $tenant->getId(), escrita: false);
+        $resposta = $this->trocarCodigo($segundo['code']);
+        self::assertSame(200, $resposta->getStatusCode(), (string) $resposta->getContent());
+        $parNovo = $this->json($resposta);
+        self::assertSame('mcp:leitura offline_access', $parNovo['scope'] ?? null);
+
+        $this->exigirInvalidGrant($this->renovar((string) $parAntigo['refresh_token']));
+
+        $this->em()->clear();
+        $antiga = $this->concessaoDoCodigo($primeiro['code']);
+        self::assertNotNull($antiga['revogada_em']);
+        self::assertSame(MotivoDaRevogacaoDaConcessao::Substituida->value, $antiga['motivo']);
+        self::assertNull($this->concessaoDoCodigo($segundo['code'])['revogada_em'], 'a concessão nova continua valendo');
+        self::assertSame(200, $this->renovar((string) $parNovo['refresh_token'])->getStatusCode());
     }
 
     /**

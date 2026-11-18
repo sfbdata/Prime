@@ -93,8 +93,10 @@ final class VincularPublicacaoAPastaUseCase
     public function executarPorNumeroENup(Tenant $tenant, User $usuario, string $numero, string $nup, ?int $trocarDaPastaId = null): Pasta
     {
         $nup = trim($nup);
-        $pasta = $nup === '' ? null : $this->pastas->findOneBy(['nup' => $nup, 'tenant' => $tenant]);
-        if (!$pasta instanceof Pasta || $pasta->getExcluidaEm() !== null) {
+        // Fora da lixeira na própria busca: com o número da lápide reusado por uma pasta nova, a busca
+        // sem esse filtro podia achar a lápide e recusar a pasta viva (18/11/2026).
+        $pasta = $nup === '' ? null : $this->pastas->findDoEscritorioPorNup($nup, $tenant);
+        if (!$pasta instanceof Pasta) {
             throw new VinculoDaPublicacaoInvalidoException(sprintf('A Pasta %s não existe neste escritório. Use "Abrir nova pasta".', $nup));
         }
 
@@ -110,8 +112,10 @@ final class VincularPublicacaoAPastaUseCase
     public function executarPorNup(Tenant $tenant, User $usuario, int $publicacaoId, string $nup, ?int $trocarDaPastaId = null): Pasta
     {
         $nup = trim($nup);
-        $pasta = $nup === '' ? null : $this->pastas->findOneBy(['nup' => $nup, 'tenant' => $tenant]);
-        if (!$pasta instanceof Pasta || $pasta->getExcluidaEm() !== null) {
+        // Fora da lixeira na própria busca: com o número da lápide reusado por uma pasta nova, a busca
+        // sem esse filtro podia achar a lápide e recusar a pasta viva (18/11/2026).
+        $pasta = $nup === '' ? null : $this->pastas->findDoEscritorioPorNup($nup, $tenant);
+        if (!$pasta instanceof Pasta) {
             throw new VinculoDaPublicacaoInvalidoException(sprintf('A Pasta %s não existe neste escritório. Use "Abrir nova pasta".', $nup));
         }
 
