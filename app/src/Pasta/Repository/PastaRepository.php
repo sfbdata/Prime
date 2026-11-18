@@ -570,6 +570,9 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * As pastas do cliente no escritório, sem a pasta excluída (lápide): ela mora só na lixeira, como
+     * na lista do Expediente (18/11/2026).
+     *
      * @return Pasta[]
      */
     public function findByCliente(Cliente $cliente, Tenant $tenant): array
@@ -579,6 +582,7 @@ class PastaRepository extends ServiceEntityRepository
             ->where('c = :cliente')
             ->setParameter('cliente', $cliente)
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->orderBy('p.dataAbertura', 'DESC')
             ->getQuery()

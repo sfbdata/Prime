@@ -111,6 +111,32 @@ final class VincularPublicacaoAPastaTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function numeroReusadoDeUmaPastaExcluidaVinculaAPastaViva(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarPublicacao($tenant, '970012', self::NUMERO);
+        $gestor = $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com');
+        $lapide = $this->criarPastaDoEscritorio($tenant, '4322', 'CLIENTE DA PASTA EXCLUIDA');
+        $lapide->marcarExcluida($gestor, new \DateTimeImmutable());
+        $this->em()->flush();
+        $viva = $this->criarPastaDoEscritorio($tenant, '4322', 'CLIENTE DA PASTA NOVA');
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+        $token = $this->tokenDaLista($client);
+        $id = (int) $client->getCrawler()->filter('[data-pp-linha]')->attr('data-id');
+
+        $client->request('POST', "/push-processual/publicacoes/$id/vincular", ['_token' => $token, 'nup' => '4322', 'numero' => self::NUMERO]);
+
+        self::assertStringContainsString('vinculado à Pasta 4322', $client->followRedirect()->text());
+        $this->limparIdentityMap();
+        $processo = $this->em()->getRepository(Processo::class)->findOneBy(['numeroProcesso' => self::NUMERO]);
+        self::assertNotNull($processo);
+        self::assertTrue($this->em()->find(Pasta::class, $viva->getId())->temProcesso($processo));
+        self::assertFalse($this->em()->find(Pasta::class, $lapide->getId())->temProcesso($processo));
+    }
+
+    #[Test]
     public function numeroDePastaInexistenteNaoCriaPastaEMandaAbrirNova(): void
     {
         $client = static::createClient();
