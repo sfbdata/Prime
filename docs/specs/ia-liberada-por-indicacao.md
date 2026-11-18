@@ -128,8 +128,8 @@ Abre quando a pessoa tenta usar a I.A. com o saldo zerado:
   BlueJus" que já existe) e "Fechar".
 - Só para o administrador, uma linha a mais: "Com um plano pago, o escritório usa a I.A. sem esse limite.", com link para
   o Contribua.
-- **Resposta do servidor:** 403 com `{"motivo": "saldo_da_pessoa_esgotado", "pecasUsadas": 3.0, "pecasDireito": 3}`,
-  seguindo o padrão das outras recusas da I.A. A tela abre a janela a partir disso.
+- **Resposta do servidor:** a mesma das outras recusas da I.A. (`InteligenciaIndisponivelException`): status 409 com
+  `motivo: "saldo_da_pessoa_esgotado"` e a mensagem. A tela abre a janela quando vê esse motivo.
 
 ## 7. O convite e a liberação
 
@@ -234,3 +234,27 @@ define. Com esta frente, **todas as funções de I.A. abaixo passam a gastar a f
 1. O Chat I.A. deve passar a contar também no limite e no orçamento do **escritório**? Hoje ele é barrado quando o
    escritório chega ao limite, mas não soma nesse limite.
 2. Os 100 mil tokens (3 peças) estão bons? Depois de um mês de uso a medição pode ser refeita.
+
+## 12. Contratos da implementação
+
+Nomes fixos, para as partes poderem ser feitas em paralelo.
+
+- `App\Inteligencia\Enum\Disponibilidade::SaldoDaPessoaEsgotado = 'saldo_da_pessoa_esgotado'`. `ehLimiteDeCota()`
+  continua falso para ele (status 409). `codigoDaRecusa()` devolve o próprio valor. `mensagem()`: "Sua I.A. gratuita
+  acabou. Convide um colega para ganhar mais 3 peças."
+- `App\Inteligencia\Service\SaldoDeIaDaPessoa::de(User $user): SaldoDeIaOutput`, com as constantes
+  `FRANQUIA_EM_TOKENS = 100_000`, `TOKENS_POR_COLEGA = 100_000` e `PECAS_DA_FRANQUIA = 3` (1 peça = franquia ÷ 3).
+- `App\Inteligencia\DTO\SaldoDeIaOutput` (readonly): `bool $seAplica` (a pessoa está em algum escritório sem plano
+  pago), `int $tokensUsados`, `int $tokensDireito`, `float $pecasUsadas` (uma casa), `int $pecasDireito`,
+  `int $percentual` (0 a 100), `bool $esgotado`, `bool $perto` (80% ou mais), `int $colegasCadastrados`.
+- `DisponibilidadeDeInteligencia::para()` confere, por último, se o **escritório atual** não tem plano pago e o saldo da
+  pessoa está esgotado.
+- Contribua expõe `App\Contribua\Service\PlanoPagoDoEscritorio` com `temPlanoPago(int $tenantId): bool` e
+  `semPlanoPago(array $tenantIds): array` (os ids sem plano pago). Sem linha de espaço = Free.
+- Indicacao expõe `App\Indicacao\Service\ColegasCadastradosPorIndicacao::contar(int $indicadorId): int` (indicação
+  `por_cadastro`, conta nova com `isEmailConfirmado()`).
+- Twig: função `ia_saldo()` no `InteligenciaExtension`, devolvendo o `SaldoDeIaOutput` de quem está logado (nulo sem
+  login). A barra é o parcial `inteligencia/_barra_de_uso.html.twig`; a janela da trava é
+  `inteligencia/_janela_saldo_esgotado.html.twig`.
+- Notificação ao indicador: tipo `ia_colega_cadastrado`, pelo `NotificacaoService::criarNotificacao`, disparada nos
+  mesmos dois gatilhos do bônus de espaço, uma vez por conta nova.
