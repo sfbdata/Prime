@@ -987,3 +987,14 @@
 .ps-meta-excluir-despacho .mp-modal-pe > .ps-meta-despacho-excluir {
     background: #a3232b;
 }
+
+/* Janela "Excluir a pasta" do cabeçalho da pasta (18/11/2026, no lugar do prompt() do navegador): o campo do número
+   ocupa a largura da caixa e o botão de excluir é o `.mp-confirmar` no vermelho de perigo da casa, como o da meta
+   com despacho. */
+.ps-excluir-pasta .mp-modal-corpo > .mp-campo > input {
+    width: 100%;
+}
+
+.ps-excluir-pasta .mp-modal-pe > .ps-excluir-pasta-ok {
+    background: #a3232b;
+}
