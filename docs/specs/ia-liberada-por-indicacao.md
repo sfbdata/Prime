@@ -1,156 +1,222 @@
 # BlueJus I.A. liberada por indicação
 
 **Risco:** MÉDIO (cota de uso por pessoa, recompensa por indicação) · **Frente:** `ia-liberada-por-indicacao` ·
-**Data:** 18/11/2026 · **Origem:** pedido do Farlei; decisões do Samuel em
-`bluejus-coordenacao/decisoes-ia-indicacao-1811.md`.
+**Data:** 18/11/2026 · **Origem:** pedido do Farlei ("limite de consumo de tokens equivalente a 3 peças"); decisões
+do Samuel em `bluejus-coordenacao/decisoes-ia-indicacao-1811.md`.
 
 ## Estado da frente
 
-- 18/11: spec e levantamento das funções com custo (seção 9). **Sem código até a Q1 (seção 2) ser decidida.**
-- Migration: provavelmente nenhuma (seção 5). Se a Q1 pedir uma tabela, o número é pedido ao Coordenador.
+- 18/11: spec, medição do uso real e levantamento das funções com custo (seção 10). Q1 decidida: medir por consumo.
+- Branch única, PR #769 em rascunho. Vai ao ar junto com os outros pedidos do Farlei, sem vigia.
+- Migration: nenhuma prevista (seção 4). Se aparecer, o número é pedido ao Coordenador.
 
-## 1. As regras decididas (Samuel, 18/11)
+## 1. As regras
 
-| # | Regra |
+| # | Regra | Quem decidiu |
+|---|---|---|
+| D1 | A I.A. só volta quando o colega convidado **se cadastra**. Mandar o convite não libera nada. | Samuel, 18/11 |
+| D2 | Mede por **consumo**: soma os tokens que a pessoa gastou e trava ao chegar no equivalente a **3 peças**. | Samuel, 18/11 (Q1) |
+| D3 | Cada colega cadastrado, com **e-mail confirmado**, libera **mais o mesmo tanto** (3 peças). | Samuel, 18/11 |
+| D4 | A contagem é **por pessoa**, não por escritório. | Samuel, 18/11 |
+| D5 | O consumo grátis **não renova** por mês. | Samuel, 18/11 |
+| D6 | Escritório com **plano pago não trava**. | Samuel, 18/11 |
+| D7 | Entra na soma **toda a I.A. pedida pela pessoa**: Chat I.A., análises e agentes da pasta, Central. | Samuel, 18/11 (Q1) |
+| D8 | A pessoa vê uma **barra de uso**. | Samuel, 18/11 |
+| D9 | Corrigir o achado do link `/i/{codigo}` (seção 8). | Samuel, 18/11 |
+
+## 2. Quanto é "3 peças"
+
+### O que o uso real mostra (produção, 18/11, só leitura)
+
+O piloto ainda usa pouco e sempre no modelo Haiku 5.5:
+
+| Uso | Vezes | Tokens de entrada (média) | Tokens de saída (média) | Total por uso (média) | Maior |
+|---|---|---|---|---|---|
+| Análises e agentes da pasta | 8 | 5.794 | 6.092 | 11.886 | 17.343 |
+| Respostas do Chat I.A. | 8 | 4.905 | 652 | 5.557 | 7.717 |
+
+Nenhuma resposta do chat em produção foi peça (nenhuma traz "Excelentíssimo"). A peça é estimada a partir disto.
+
+### A estimativa
+
+Uma peça (petição inicial, contestação ou recurso de tamanho comum, de 8 a 12 páginas) sai pelo Chat I.A. em umas 4
+respostas, porque cada resposta vai até 2.000 tokens (`CHAT_IA_TETO_TOKENS_RESPOSTA`):
+
+- Saída: cerca de 7.000 tokens (o texto da peça, de 5 a 6 mil palavras somando os ajustes).
+- Entrada: cerca de 26.000 tokens (o contexto da pasta, uns 5 mil por resposta, e o histórico da conversa, que cresce a
+  cada resposta).
+- **1 peça ≈ 33.000 tokens.** É o mesmo que umas 3 análises da pasta ou 6 respostas curtas do chat.
+
+**3 peças = 100.000 tokens** (arredondado). Cada colega cadastrado libera mais 100.000.
+
+Custo para o BlueJus, pelo preço de tabela que o sistema já usa (`ModeloDeIa::preco`), com 3/4 de entrada:
+
+| Modelo | 100 mil tokens custam |
 |---|---|
-| D1 | A I.A. só volta quando o colega convidado **se cadastra**. Mandar o convite não libera nada. |
-| D2 | A trava vem ao completar **3 peças**. Conta por peça gerada, não por tokens nem por custo. |
-| D3 | Cada colega cadastrado, com **e-mail confirmado**, libera **+3 peças**. |
-| D4 | A contagem é **por pessoa**, não por escritório. |
-| D5 | As 3 peças livres **não renovam** por mês. |
-| D6 | Escritório com **plano pago não trava**. |
-| D7 | Por ora a regra vale só para a **I.A. que gera peças**. As outras funções vão para o Farlei decidir (seção 9). |
+| Haiku 5.5 (o de hoje) | cerca de US$ 0,02 |
+| Sonnet 5.5 | cerca de US$ 0,40 |
+| Opus 5.5 | cerca de US$ 0,80 |
 
-## 2. Q1, a pergunta que trava a implementação: o que é "peça gerada"?
+Os três números (100.000 de franquia, 100.000 por colega, 33.000 por peça para a barra) ficam em constantes nomeadas
+num lugar só. Mudar é trocar o número, sem migration.
 
-**Hoje nenhuma I.A. do BlueJus redige peça.** Conferido no código (18/11):
+**Cuidado:** "Ler documentos" manda os PDFs inteiros. Uma leitura de 100 páginas passa fácil de 100 mil tokens e gasta
+a franquia inteira de uma vez. A barra mostra isso, e a janela de "Ler documentos" passa a avisar "Esta leitura pode
+usar boa parte da sua I.A. gratuita" quando o escritório não tem plano pago.
 
-- Os 7 agentes e os 17 comandos da pasta (`Inteligencia/Enum/Agente.php`, `Comando.php`) analisam, resumem e fazem
-  relatórios. Nenhum redige petição, contestação, recurso ou minuta.
-- O Peticionar é o editor manual de peças. Ele não chama a I.A., e o desenho `07 - Peticionar 1.0` não tem botão de I.A.
-- "Usar modelo na pasta" (`UsarModeloNaPastaUseCase`) gera a peça a partir de um modelo, **sem I.A.**
-- O único lugar onde a pessoa consegue uma peça escrita pela I.A. é o **Chat I.A.**: ela pede "redija uma contestação"
-  e recebe o texto. Para o sistema, essa resposta é igual a qualquer outra do chat.
+## 3. O que entra na soma
 
-Então a D7 não tem onde valer sem uma escolha:
+Soma `tokens_entrada + tokens_saida` de tudo o que a pessoa pediu, em escritório sem plano pago:
 
-| Opção | O que conta como 1 peça | A favor | Contra |
-|---|---|---|---|
-| **A (recomendada)** | Criar o botão **"Redigir com a I.A."** no Peticionar (a I.A. escreve o rascunho da peça na pasta). Conta 1 peça por rascunho entregue. As outras funções seguem como hoje. | Segue a D7 ao pé da letra. A contagem é exata e fácil de explicar ("3 peças"). | É uma função nova, fora do desenho: precisa do "sim" do Samuel e de prompt jurídico revisado por advogado. São mais 2 ou 3 PRs. |
-| B | Cada resposta do **Chat I.A.** e cada análise da pasta pedida pela pessoa conta 1. | Já existe, sai rápido. | 3 respostas acabam em minutos: na prática a I.A. trava logo no primeiro uso. Não é "peça". |
-| C | Só os **relatórios** da pasta (comandos `relatorio_*`, `briefing`, `resumo_cliente`) contam 1. | Já existe e gera documento. | Relatório não é peça. O chat continua livre, e é onde a peça sai de verdade. |
+| De onde | Como achar a pessoa | Já gravado em |
+|---|---|---|
+| Análises, agentes, comandos e relatórios da pasta; Perguntar sobre a pasta; Ler documentos; Resumir com I.A. (Push); BlueJus I.A. da Central; Sugerir agrupamento do lote | `solicitante_id` | `inteligencia_analise` |
+| Chat I.A. (página inteira), inclusive resposta interrompida ou refeita, porque o gasto aconteceu | `chat_ia_conversa.usuario_id` | `chat_ia_mensagem` (papel `assistente`) |
+| Resumo automático do Push ("Avisar quando chegar") | o responsável da pasta, que é quem ligou o aviso | `inteligencia_analise` |
 
-**Recomendação:** A. Até a função existir, nada trava. As 3 peças, a trava e o convite ficam prontos, e passam a valer
-no dia em que "Redigir com a I.A." for ao ar. Se o Farlei quiser travar antes, a opção C é a menos ruim.
+Fica de fora: o título automático das conversas (até 24 tokens, não é gravado) e o teste de conexão do console.
 
-O resto da spec vale para qualquer opção. Onde muda, está marcado **[Q1]**.
+- **Escritório pago (D6):** o plano vigente (`EspacoDoEscritorio`, mantido pelo `PlanoVigenteDoEscritorio`) é diferente
+  do Free. O limite próprio do Master não conta como plano pago. A soma só olha o consumo feito em escritório que está
+  sem plano pago **hoje**: se o escritório passar a pagar, o que a pessoa gastou lá deixa de contar.
+- **Pessoa em dois escritórios grátis:** soma os dois (D4).
 
-## 3. Onde contar a peça
+## 4. O saldo (calculado, sem tabela nova)
 
-- **Ponto único:** o fim, com sucesso, da geração.
-  - Na opção A: quando o rascunho é gravado na pasta (documento da categoria PECA, como faz o `UsarModeloNaPastaUseCase`).
-  - Na B ou C: o `ProcessarAnaliseDeInteligenciaHandler` ao concluir a análise, ou o `TransmitirRespostaDoChatUseCase`
-    ao fechar a resposta.
-- **Falha não conta.** Erro do provedor, recusa ou resposta vazia não gastam peça.
-- **Quem pediu** é quem gasta. Geração automática (resumo automático do Push, título do chat) nunca conta.
-- **Escritório pago não conta** (D6): a peça gerada lá não entra no saldo da pessoa.
-- **Leitura, sem tabela nova:** o saldo é calculado.
-  - Usadas = peças com sucesso pedidas pela pessoa em escritório sem plano pago. Na opção A, vem das análises com o
-    tipo novo `peca` em `inteligencia_analise` (já guarda quem pediu, o escritório e o status). **[Q1]**
-  - Direito = 3 + 3 × colegas que ela indicou e que se cadastraram com e-mail confirmado (seção 6).
-  - Saldo = direito − usadas.
+- **Direito** = 100.000 + 100.000 × colegas que a pessoa indicou, cadastrados e com e-mail confirmado (seção 7).
+- **Usado** = soma da seção 3.
+- **Saldo** = direito − usado.
 
-## 4. A trava
+Um serviço novo no domínio Inteligencia, `SaldoDeIaDaPessoa`, faz a conta. As duas somas usam os índices que já
+existem (`idx_inteligencia_analise_solicitante`; no chat, a conversa da pessoa). O número de colegas vem do domínio
+Indicacao por um método público (o Inteligencia não lê as tabelas da Indicacao).
 
-- **Onde barra:** no `DisponibilidadeDeInteligencia::para(user, tenant)`, que já é o portão de toda a I.A. Entra uma
-  checagem nova, só para a ação que gera peça **[Q1]**: escritório sem plano pago e saldo da pessoa igual a zero.
-  O pedido é recusado **antes** de chamar o provedor e antes de entrar na fila.
-- **Plano pago (D6):** o plano vigente do escritório (`EspacoDoEscritorio`, mantido pelo `PlanoVigenteDoEscritorio`) é
-  diferente do Free. O limite próprio do Master não conta como plano pago.
-- **Ordem:** as travas que já existem vêm primeiro (I.A. desligada, aceite, liberação do Master, limite diário e mensal,
-  orçamento em US$). Esta vem depois: a pessoa só vê "convide um colega" quando é isso que de fato a libera.
+## 5. A trava
 
-### Tela da trava (não há desenho: segue a convenção do sistema)
+- **Onde:** no `DisponibilidadeDeInteligencia::para(user, tenant)`, que já é o portão de toda I.A. pedida pela pessoa
+  (Chat I.A., análises, Central, agrupamento, resumo do Push). Entra o caso novo `Disponibilidade::SaldoDaPessoaEsgotado`,
+  conferido **depois** das travas que já existem (I.A. desligada, aceite, liberação do Master, limite diário e mensal do
+  escritório, orçamento em dólar). Assim a pessoa só vê "convide um colega" quando é isso que de fato a libera.
+- **Quando:** antes de chamar a I.A. e antes de entrar na fila. O `paraProcessamento` (o worker) não confere o saldo:
+  o pedido já foi aceito.
+- **Passar do limite:** um pedido aceito com saldo positivo termina, mesmo que passe do limite (a resposta do chat não é
+  cortada no meio). O próximo pedido é que trava.
+- **Resumo automático do Push:** com o saldo do responsável zerado, o resumo não é gerado e o aviso da publicação sai sem
+  ele, como já acontece hoje quando a I.A. está indisponível.
 
-1. **Contador antes da trava:** junto do botão que gera a peça, o texto "Peças com I.A.: 2 de 3". Some em escritório pago.
-2. **Ao travar:** o botão continua visível. No clique, abre a janela (componente de janela do sistema):
-   - Título: "Suas peças gratuitas acabaram"
-   - Texto: "Você usou as 3 peças com I.A. Convide um colega: quando ele se cadastrar e confirmar o e-mail, você ganha
-     mais 3 peças."
-   - Botões, nesta ordem: "Copiar meu link", "Enviar pelo WhatsApp", "Convidar por e-mail" (abre a janela "Indicar o
-     BlueJus" que já existe) e "Fechar".
-   - Linha de baixo, só para o administrador: "Com um plano pago, o escritório usa a I.A. sem esse limite." com link
-     para o Contribua.
-3. **Resposta do servidor:** o endpoint responde 403 com `{"motivo": "ia_peca_sem_saldo", "saldo": 0}`, e a tela abre a
-   janela a partir disso. Sem nova rota.
+## 6. A barra de uso e a janela da trava
 
-## 5. O convite
+Não há desenho. Segue a convenção do sistema e reaproveita a barra de "espaço usado" do Contribua.
 
-Reaproveita o que existe (spec `indicar-bluejus.md`): código por pessoa (`CodigoDeIndicacao`), link curto `/i/{codigo}`,
-canais (link, WhatsApp, e-mail) e a janela "Indicar o BlueJus".
+### Barra de uso
 
-- **Cota de e-mail da Hostinger:** o convite por e-mail já tem limite por pessoa (`IndicacaoConfig`: 20 por dia e 200 por
-  30 dias, ajustável pelo Master) e o alerta de disparo alto (30 em 24h). A janela da trava põe **link e WhatsApp
-  primeiro**, porque não gastam e-mail.
-- **Proposta:** baixar o padrão de convites por e-mail para **5 por dia** por pessoa enquanto a campanha durar. É só um
-  valor no painel do Master, sem código.
-- Sem migration: as tabelas `indicacao`, `indicacao_codigo` e `indicacao_config` já cobrem tudo.
+- **Onde:** no topo do Chat I.A., na janela de I.A. da pasta e na BlueJus I.A. da Central. **Some em escritório pago.**
+- **Texto:** "I.A. gratuita: 1,4 de 3 peças usadas" (com 1 colega cadastrado: "de 6 peças"). A conta em peças é
+  tokens usados ÷ 33.000, com uma casa decimal.
+- **Link ao lado:** "Ganhar mais", que abre a janela "Indicar o BlueJus".
+- **Aviso:** a partir de 80% a barra fica amarela e o texto vira "Resta menos de 1 peça. Convide um colega para ganhar
+  mais 3."
 
-## 6. A liberação
+### Janela da trava
 
-- **Gatilho:** o mesmo do bônus de espaço (spec `bonus-de-espaco-por-indicacao.md`, regra 2). Conta a `Indicacao` do
-  cadastro (`por_cadastro = true`, `indicado_user_id` = a conta nova) quando o e-mail da conta nova está confirmado.
-  Os eventos são `EmailDaContaConfirmado` e `ContaCriadaPeloCadastro` (conta que já nasce confirmada, pelo Google).
-- **Calculada, não gravada:** o direito da seção 3 é lido dessas linhas. Não há crédito para gravar, desfazer nem duplicar.
-- **Aviso a quem indicou:** notificação dentro do sistema: "Fulano se cadastrou pelo seu convite: você ganhou mais 3
-  peças com I.A." Sem e-mail, para poupar a cota.
-- **Uma vez por conta nova:** a indicação do cadastro é única por conta (`indicado_user_id`). A auto-indicação já é
-  recusada (`AtribuirCadastroPeloLinkUseCase`).
+Abre quando a pessoa tenta usar a I.A. com o saldo zerado:
 
-## 7. Riscos
+- Título: "Sua I.A. gratuita acabou"
+- Texto: "Você usou o equivalente a 3 peças. Convide um colega: quando ele se cadastrar e confirmar o e-mail, você ganha
+  mais 3."
+- Botões, nesta ordem: "Copiar meu link", "Enviar pelo WhatsApp", "Convidar por e-mail" (abre a janela "Indicar o
+  BlueJus" que já existe) e "Fechar".
+- Só para o administrador, uma linha a mais: "Com um plano pago, o escritório usa a I.A. sem esse limite.", com link para
+  o Contribua.
+- **Resposta do servidor:** 403 com `{"motivo": "saldo_da_pessoa_esgotado", "pecasUsadas": 3.0, "pecasDireito": 3}`,
+  seguindo o padrão das outras recusas da I.A. A tela abre a janela a partir disso.
 
-1. **Link plantado (agora vale a pena):** a spec `indicar-bluejus.md` registrou que o `GET /i/{codigo}` pode ser chamado
-   por outra página (uma imagem escondida, por exemplo) e gravar o código na sessão de quem visita. "Só vira risco se a
-   indicação passar a dar recompensa." **Esta frente dá recompensa a quem indica.** Correção proposta, no mesmo PR da
-   liberação: o cadastro mostra "Indicado por NOME" com um "Remover", e a indicação só conta se o cadastro foi enviado
-   com o código visível no formulário.
-2. **Contas falsas:** alguém cria contas com e-mails próprios para ganhar peças. O que segura: o e-mail confirmado, o
-   limite de convites e a pausa por pessoa que o Master já tem (`IndicacaoPausa`). Aceito como no bônus de espaço.
-3. **Pessoa em dois escritórios:** o saldo é da pessoa (D4). Peça gerada em escritório pago não gasta saldo.
+## 7. O convite e a liberação
 
-## 8. Testes (quando implementar)
+Reaproveita o que existe (spec `indicar-bluejus.md`): código por pessoa, link curto `/i/{codigo}`, canais (link,
+WhatsApp, e-mail) e a janela "Indicar o BlueJus".
 
-- Unit do saldo: 3 livres; +3 por indicado confirmado; indicado sem e-mail confirmado não conta; peça com falha não
-  conta; peça em escritório pago não conta.
-- Unit do portão: escritório Free com saldo zero recusa só a ação de peça **[Q1]**; plano pago libera; as travas antigas
-  vêm antes.
-- Funcional: a 4ª peça responde 403 com `ia_peca_sem_saldo`; um colega cadastra e confirma o e-mail e a 4ª passa; o
-  contador mostra "N de M".
-- Funcional do risco 1: código plantado na sessão e removido no formulário não gera indicação.
+- **Cota de e-mail da Hostinger:** o convite por e-mail já tem limite por pessoa (`IndicacaoConfig`: 20 por dia e 200
+  por 30 dias, ajustável pelo Master) e o alerta de disparo alto (30 em 24h). A janela da trava põe **link e WhatsApp
+  primeiro**, porque não gastam e-mail. Proposta: o Master baixa para **5 por dia** enquanto a campanha durar (só um valor
+  no painel, sem código).
+- **Quando libera:** o mesmo gatilho do bônus de espaço (spec `bonus-de-espaco-por-indicacao.md`, regra 2). Conta a
+  indicação do cadastro (`por_cadastro = true`, `indicado_user_id` = a conta nova) quando o e-mail da conta nova está
+  confirmado. Os eventos são `EmailDaContaConfirmado` e `ContaCriadaPeloCadastro` (conta que já nasce confirmada).
+- **Calculada, não gravada:** o direito da seção 4 é lido dessas linhas. Não há crédito para gravar, desfazer nem
+  duplicar. A indicação do cadastro é única por conta nova, e a auto-indicação já é recusada
+  (`AtribuirCadastroPeloLinkUseCase`).
+- **Aviso a quem indicou:** notificação dentro do sistema, sem e-mail para poupar a cota: "NOME se cadastrou pelo seu
+  convite: você ganhou mais 3 peças na I.A."
 
-## 9. Levantamento para o Farlei: outras funções com custo
+## 8. Correção do link `/i/{codigo}` (D9)
 
-Hoje o único serviço de I.A. pago é o Claude (Anthropic). Não há OCR, transcrição de áudio nem serviço pago de consulta
-a processos. "Limite do escritório" é o que já existe: limite diário e mensal de análises e orçamento mensal em dólar,
-que o Master define.
+**O problema.** A spec `indicar-bluejus.md` registrou que alguém pode plantar o próprio código na sessão de outra pessoa,
+e que isso "só vira risco se a indicação passar a dar recompensa". Agora quem indica ganha I.A. Hoje:
 
-### Com custo de I.A. (pedidas pela pessoa)
+- O `/i/{codigo}` já recusa imagem e iframe escondidos (`ehNavegacaoDePagina`, cabeçalhos `Sec-Fetch-*`). Basta, porém,
+  um link disfarçado em que a pessoa clique para o código ficar na sessão dela.
+- No "Criar conta", o cupom só vai no formulário quando está ligado, ou quando a pessoa desligou o cupom que veio na URL
+  (`entrada.js`, linha 433). Se ela abre o cadastro depois, por outro caminho, o campo aparece vazio, o formulário não
+  manda `indicacao` e o `CadastroPeloLinkListener` usa o código da sessão sem a pessoa saber.
+
+**A correção.** A indicação só conta se a pessoa viu o código no formulário:
+
+1. O servidor preenche o campo de cupom do "Criar conta" também com o código da sessão, não só com o da URL. O cupom
+   aparece ligado, com o código à vista, e a pessoa pode desligar.
+2. O formulário **sempre** manda `indicacao`: o código, se o cupom está ligado, ou vazio, se está desligado.
+3. O `CadastroPeloLinkListener` deixa de usar a sessão como plano B: sem `indicacao` no corpo, não liga nada. A sessão
+   continua servindo só para preencher o campo (passo 1) e é limpa no cadastro, como hoje.
+4. A volta do Google e do Facebook já termina no mesmo formulário (o cupom guardado em `sessionStorage`). O passo 2 vale
+   para ela também.
+
+Testes: um código plantado na sessão e desligado no formulário não gera indicação; um formulário sem o campo
+`indicacao` não gera indicação; o cupom da sessão aparece preenchido no "Criar conta".
+
+## 9. Riscos aceitos
+
+1. **Contas falsas:** alguém cria contas com e-mails próprios para ganhar I.A. O que segura: o e-mail confirmado, o limite
+   de convites e a pausa por pessoa que o Master já tem (`IndicacaoPausa`). Cada conta falsa vale uns US$ 0,02 de I.A.
+   no Haiku. Aceito como no bônus de espaço.
+2. **Uma leitura grande passa do limite** (seção 5): só o próximo pedido trava.
+3. **O furo do escritório continua:** o chat soma no saldo da pessoa (D7), mas segue fora do limite diário e mensal e do
+   orçamento em dólar do **escritório** (seção 10). Corrigir à parte, se o Farlei quiser.
+
+## 10. Testes
+
+- Unit do `SaldoDeIaDaPessoa`: franquia de 100.000; +100.000 por indicado confirmado; indicado sem e-mail confirmado não
+  conta; o chat soma, inclusive a resposta interrompida; o consumo em escritório pago não soma; pessoa em dois
+  escritórios grátis soma os dois.
+- Unit do portão: saldo zerado em escritório Free devolve `SaldoDaPessoaEsgotado`; plano pago libera; as travas antigas
+  vêm antes; `paraProcessamento` não olha o saldo.
+- Funcional: com o saldo zerado, o chat e a análise da pasta respondem 403 com o motivo; um colega cadastra, confirma o
+  e-mail e a I.A. volta; a barra mostra "N de M peças" e some em escritório pago; o resumo automático do Push não é
+  gerado com o saldo zerado.
+- Funcional do link (seção 8).
+
+## 11. Levantamento para o Farlei: outras funções com custo
+
+Hoje o único serviço de I.A. pago é o Claude (Anthropic). Não há OCR, transcrição de áudio nem consulta paga a processos.
+"Limite do escritório" é o que já existe: limite diário e mensal de análises e orçamento mensal em dólar, que o Master
+define. Com esta frente, **todas as funções de I.A. abaixo passam a gastar a franquia da pessoa**.
+
+### Com custo de I.A., pedidas pela pessoa
 
 | Função | O que já limita hoje |
 |---|---|
 | Resumir com I.A. (Push) | limite do escritório e limite por pessoa por minuto |
 | Agentes da pasta e relatórios (7 agentes, 17 comandos) | limite do escritório e limite por pessoa por minuto |
-| Ler documentos da pasta com I.A. (a mais cara: manda o PDF inteiro) | limite do escritório, até 3 arquivos e 100 páginas |
+| Ler documentos da pasta (a mais cara: manda o PDF inteiro) | limite do escritório, até 3 arquivos e 100 páginas |
 | Perguntar sobre a pasta | limite do escritório e limite por pessoa por minuto |
 | BlueJus I.A. na Central | limite do escritório e limite por pessoa por minuto |
 | Sugerir agrupamento ao importar pastas em lote | limite do escritório |
 | Chat I.A. (página inteira, aceita anexos) | 200 mil tokens por pessoa por dia e respostas curtas |
 
-### Com custo de I.A. (automáticas)
+### Com custo de I.A., automáticas
 
 | Função | O que já limita hoje |
 |---|---|
-| Resumo automático do Push quando chega publicação ("Avisar quando chegar") | limite do escritório |
+| Resumo automático do Push quando chega publicação | limite do escritório |
 | Título automático das conversas do chat | nenhum (custo muito baixo, modelo mais barato) |
 
 ### Sem I.A., com outro custo
@@ -163,14 +229,8 @@ que o Master define.
 | Sincronizar com o Google Drive | gratuito (cota da Google) |
 | Exportar peça em PDF ou Word | gratuito (feito no próprio servidor) |
 
-### Furo encontrado no levantamento
-
-O **Chat I.A.** é barrado quando o escritório chega ao limite, mas **não entra na conta**: as respostas do chat não somam
-no limite diário e mensal nem no orçamento em dólar do escritório. Hoje só o teto de 200 mil tokens por pessoa por dia
-segura o chat. Vale corrigir à parte, com ou sem esta frente.
-
 ### Perguntas ao Farlei
 
-1. Alguma dessas funções deve entrar na regra "3 grátis, depois indica"? A recomendação é começar só pela peça e olhar o
-   uso por um mês.
-2. O furo do Chat I.A. pode ser corrigido já (passar a contar no limite do escritório)?
+1. O Chat I.A. deve passar a contar também no limite e no orçamento do **escritório**? Hoje ele é barrado quando o
+   escritório chega ao limite, mas não soma nesse limite.
+2. Os 100 mil tokens (3 peças) estão bons? Depois de um mês de uso a medição pode ser refeita.
