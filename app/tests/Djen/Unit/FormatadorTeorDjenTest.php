@@ -73,6 +73,37 @@ final class FormatadorTeorDjenTest extends TestCase
     }
 
     #[Test]
+    public function textoCorridoComEntidadesHtmlMostraOsAcentos(): void
+    {
+        // Caso TJGO (09/11): texto corrido com entidades. Antes saía "JUDICI&amp;Aacute;RIO" e a
+        // tela mostrava "JUDICI&Aacute;RIO".
+        $this->sanitizer->expects($this->never())->method('sanitize');
+
+        $out = (string) $this->sut->formatar('PODER JUDICI&Aacute;RIO Estado de Goi&aacute;s&nbsp;Comarca A -&gt; B &#45; C');
+
+        self::assertStringContainsString('PODER JUDICIÁRIO', $out);
+        self::assertStringContainsString('Goiás', $out);
+        self::assertStringContainsString("Goiás\u{00A0}Comarca", $out);
+        self::assertStringContainsString('A -&gt; B - C', $out);
+        self::assertStringNotContainsString('&amp;', $out);
+        self::assertStringNotContainsString('&Aacute;', $out);
+    }
+
+    #[Test]
+    public function entidadeQueEscondeTagPerigosaContinuaEscapada(): void
+    {
+        // Decodificar não pode abrir XSS: "&lt;script&gt;" vira "<script>" e é escapado de novo.
+        $this->sanitizer->expects($this->never())->method('sanitize');
+
+        $out = (string) $this->sut->formatar('Intima&ccedil;&atilde;o &lt;script&gt;alert(1)&lt;/script&gt; &amp;lt;img&amp;gt;');
+
+        self::assertStringContainsString('Intimação', $out);
+        self::assertStringNotContainsString('<script>', $out);
+        self::assertStringNotContainsString('<img', $out);
+        self::assertStringContainsString('&lt;script&gt;', $out);
+    }
+
+    #[Test]
     public function vazioOuNuloRetornaNull(): void
     {
         $this->sanitizer->expects($this->never())->method('sanitize');
