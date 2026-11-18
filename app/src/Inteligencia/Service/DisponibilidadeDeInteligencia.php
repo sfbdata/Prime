@@ -81,6 +81,16 @@ final class DisponibilidadeDeInteligencia
     }
 
     /**
+     * A pessoa usa a I.A. neste escritório (permissão, plataforma, Master e escritório), sem olhar cota nem saldo. Para
+     * a barra de uso, que sai em toda página com a Central: a permissão vem primeiro porque não custa consulta.
+     */
+    public function pessoaUsaAIa(User $user, Tenant $tenant): bool
+    {
+        return $this->permissionChecker->canAccessModule($user, $tenant, self::MODULO)
+            && $this->paraEscritorio($tenant)->estaDisponivel();
+    }
+
+    /**
      * @return array{0: Disponibilidade, 1: ?ConfiguracaoDeInteligencia} a configuração só vem com os
      *                                                                   dois níveis liberados
      */

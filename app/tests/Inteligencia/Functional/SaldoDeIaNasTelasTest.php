@@ -138,6 +138,21 @@ final class SaldoDeIaNasTelasTest extends JusPrimeWebTestCase
         self::assertSame(0, $painel->filter('[data-ia-aviso-saldo]')->count());
     }
 
+    #[TestDox('I.A. desligada no escritório: nem barra nem janela, e o saldo nem é calculado')]
+    public function testSemIaLigadaNaoMostra(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(0, $crawler->filter('.ias-barra')->count());
+        self::assertSame(0, $crawler->filter('.ias-ov')->count());
+    }
+
     #[TestDox('Janela da trava no drawer: título, texto, botões na ordem da spec e a linha do plano pago com link para o Contribua (administrador)')]
     public function testJanelaParaAdministrador(): void
     {

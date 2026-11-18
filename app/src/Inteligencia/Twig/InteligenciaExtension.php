@@ -154,7 +154,9 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
 
         $chave = $user->getId() . ':' . $tenant->getId();
         if (!array_key_exists($chave, $this->saldoLido)) {
-            $this->saldoLido[$chave] = $this->planos->temPlanoPago((int) $tenant->getId()) ? null : $this->saldo->de($user);
+            $this->saldoLido[$chave] = $this->disponibilidade->pessoaUsaAIa($user, $tenant) && !$this->planos->temPlanoPago((int) $tenant->getId())
+                ? $this->saldo->de($user)
+                : null;
         }
 
         return $this->saldoLido[$chave];
