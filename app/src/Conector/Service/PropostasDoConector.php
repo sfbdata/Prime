@@ -6,6 +6,7 @@ namespace App\Conector\Service;
 
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
+use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Entity\PropostaDoConector;
 use App\Conector\Enum\TipoDeFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
@@ -69,26 +70,10 @@ final class PropostasDoConector
      */
     public function propor(ChamadaDoConector $chamada, string $ferramenta, string $acao, array $dados, string $resumo, array $complemento = []): RespostaDaFerramenta
     {
-        $this->exigirConfirmavel($ferramenta, $acao);
-        if (!$chamada->temEscopo(ServidorDeAutorizacao::ESCOPO_ESCRITA)) {
-            // A `ScopePolicy` barra a gravação sem `mcp:escrita` antes do SDK (5.1): chegar aqui sem ele é erro.
-            throw new \LogicException('Proposta sem o escopo mcp:escrita na chamada.');
-        }
-        $resumo = self::normalizarResumo($resumo);
-        if ($resumo === '' || mb_strlen($resumo) > self::TETO_DO_RESUMO) {
-            throw new \LogicException('O resumo da proposta está vazio ou grande demais.');
-        }
+        $resumo = $this->exigirPropostaValida($chamada, $ferramenta, $acao, $dados, $resumo);
         $hashDosDados = self::hashDosDados($dados);
-        if (\strlen(json_encode($dados, self::JSON)) > self::TETO_DOS_DADOS) {
-            throw new \LogicException('Os dados da proposta passaram do teto.');
-        }
-
         $escritorio = $chamada->contexto->escritorio;
-        $consentimento = $this->consentimentos->buscarAtivoDaPessoa($chamada->consentimentoId, $chamada->contexto->pessoa);
-        if ($consentimento === null || $consentimento->getTenant()?->getId() !== $escritorio->getId()) {
-            // O portão acabou de aceitar o token deste consentimento: chegar aqui sem ele é erro, nunca recusa a mostrar.
-            throw new \LogicException('O consentimento da chamada não está ativo neste escritório.');
-        }
+        $consentimento = $this->consentimentoAtivoDa($chamada);
 
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         $this->propostas->expirarVencidas($escritorio, $agora);
@@ -113,6 +98,46 @@ final class PropostasDoConector
         }
 
         return new RespostaDaFerramenta($resposta, contagens: ['proposta' => 1]);
+    }
+
+    /**
+     * Ferramenta e ação que confirmam, o escopo de escrita, o resumo e o teto dos dados. Tudo aqui é erro de programação
+     * (a ferramenta e a `ScopePolicy` barram antes), nunca recusa a mostrar.
+     *
+     * @param array<string, mixed> $dados
+     *
+     * @return string o resumo normalizado
+     *
+     * @throws \LogicException
+     */
+    private function exigirPropostaValida(ChamadaDoConector $chamada, string $ferramenta, string $acao, array $dados, string $resumo): string
+    {
+        $this->exigirConfirmavel($ferramenta, $acao);
+        if (!$chamada->temEscopo(ServidorDeAutorizacao::ESCOPO_ESCRITA)) {
+            // A `ScopePolicy` barra a gravação sem `mcp:escrita` antes do SDK (5.1): chegar aqui sem ele é erro.
+            throw new \LogicException('Proposta sem o escopo mcp:escrita na chamada.');
+        }
+        $resumo = self::normalizarResumo($resumo);
+        if ($resumo === '' || mb_strlen($resumo) > self::TETO_DO_RESUMO) {
+            throw new \LogicException('O resumo da proposta está vazio ou grande demais.');
+        }
+        if (\strlen(json_encode($dados, self::JSON)) > self::TETO_DOS_DADOS) {
+            throw new \LogicException('Os dados da proposta passaram do teto.');
+        }
+
+        return $resumo;
+    }
+
+    /** @throws \LogicException */
+    private function consentimentoAtivoDa(ChamadaDoConector $chamada): ConsentimentoDoConector
+    {
+        $consentimento = $this->consentimentos->buscarAtivoDaPessoa($chamada->consentimentoId, $chamada->contexto->pessoa);
+        if ($consentimento === null || $consentimento->getTenant()?->getId() !== $chamada->contexto->escritorio->getId()) {
+            // O portão acabou de aceitar o token deste consentimento: chegar aqui sem ele é erro, nunca recusa a mostrar.
+            throw new \LogicException('O consentimento da chamada não está ativo neste escritório.');
+        }
+
+        return $consentimento;
     }
 
     /**
