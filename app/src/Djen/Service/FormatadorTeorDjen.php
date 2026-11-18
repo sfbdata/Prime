@@ -58,7 +58,12 @@ final class FormatadorTeorDjen
 
     private function prettificarTextoCorrido(string $texto): string
     {
-        // Escapa primeiro: a saída é segura; rótulos e espaços sobrevivem ao escape.
+        // Alguns tribunais (TJGO, TJDFT) mandam o texto corrido com entidades HTML ("JUDICI&Aacute;RIO",
+        // "&nbsp;", "-&gt;"). Decodifica antes do escape: sem isso o "&" virava "&amp;" e a tela
+        // mostrava a entidade crua. Um "&lt;script&gt;" decodificado volta a ser escapado logo abaixo.
+        $texto = html_entity_decode($texto, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+
+        // Escapa em seguida: a saída é segura; rótulos e espaços sobrevivem ao escape.
         $texto = htmlspecialchars($texto, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
 
         // Runs de 2+ espaços costumam ser quebras de linha achatadas na origem.
