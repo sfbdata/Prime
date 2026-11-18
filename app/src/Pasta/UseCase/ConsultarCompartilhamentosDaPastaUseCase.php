@@ -44,20 +44,63 @@ final class ConsultarCompartilhamentosDaPastaUseCase
         if ($pasta === null || !$this->acessoAPasta->podeVer($quem, $pasta)) {
             throw new CompartilhamentoRecusadoException(CompartilhamentoRecusadoException::SEM_PERMISSAO, daPessoa: true);
         }
-        $hoje = $this->relogio->now();
         $podeCompartilhar = !$this->escopo->ehRestritoNoEscritorio($quem, $tenant) && $this->acessoAPasta->podeEditar($quem, $pasta);
-        $gestor = $this->ehGestor($quem, $tenant);
+        $equipe = $podeCompartilhar ? $this->equipe($pasta, $quem, $tenant) : [];
+        $colaboradores = $this->colaboradores($pasta, $quem, $tenant, $podeCompartilhar);
 
         return new CompartilhamentosDaPastaOutput(
             $pastaId,
             $podeCompartilhar,
-            $podeCompartilhar ? $this->equipe($pasta, $quem, $tenant) : [],
-            array_map(
-                fn (PastaCompartilhamento $c): array => CompartilhamentosDaPastaOutput::colaborador($c, $hoje, $gestor || $this->envolvido($c, $quem)),
-                $this->compartilhamentos->historicoDaPasta($pasta),
-            ),
-            $podeCompartilhar ? array_map(CompartilhamentosDaPastaOutput::pessoa(...), $this->compartilhamentos->destinosRecentes($quem, $tenant, self::RECENTES)) : [],
+            $equipe,
+            $colaboradores,
+            $podeCompartilhar ? $this->recentes($quem, $tenant, $equipe, $colaboradores) : [],
         );
+    }
+
+    /**
+     * Quem pode compartilhar, o responsável e o gestor veem o histórico inteiro; os demais (o colaborador que recebeu,
+     * inclusive o restrito) só a própria linha, sem os nomes e as permissões dos outros.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function colaboradores(Pasta $pasta, User $quem, Tenant $tenant, bool $podeCompartilhar): array
+    {
+        $hoje = $this->relogio->now();
+        $gestor = $this->ehGestor($quem, $tenant);
+        $tudo = $podeCompartilhar || $gestor || $pasta->getResponsavel()?->getId() === $quem->getId();
+        $linhas = [];
+        foreach ($this->compartilhamentos->historicoDaPasta($pasta) as $c) {
+            $meu = $c->getDestino()->getId() === $quem->getId();
+            if ($tudo || $meu) {
+                $linhas[] = CompartilhamentosDaPastaOutput::colaborador($c, $hoje, $gestor || $this->envolvido($c, $quem), $meu);
+            }
+        }
+
+        return $linhas;
+    }
+
+    /**
+     * Os recentes do "1 clique" (desenho L.826-827): só quem está na equipe que pode receber (vínculo ativo, sem o
+     * responsável e sem quem pede) e ainda não colabora nesta pasta.
+     *
+     * @param list<array{id: int, nome: string}> $equipe
+     * @param list<array<string, mixed>>         $colaboradores
+     *
+     * @return list<array{id: int, nome: string}>
+     */
+    private function recentes(User $quem, Tenant $tenant, array $equipe, array $colaboradores): array
+    {
+        $podeReceber = array_column($equipe, 'id');
+        $jaColaboram = array_column(array_filter($colaboradores, static fn (array $c): bool => $c['ativo'] === true), 'destinoId');
+        $recentes = [];
+        foreach ($this->compartilhamentos->destinosRecentes($quem, $tenant, self::RECENTES * 3 + count($jaColaboram)) as $pessoa) {
+            $id = $pessoa->getId();
+            if (in_array($id, $podeReceber, true) && !in_array($id, $jaColaboram, true) && count($recentes) < self::RECENTES) {
+                $recentes[] = CompartilhamentosDaPastaOutput::pessoa($pessoa);
+            }
+        }
+
+        return $recentes;
     }
 
     /** @return list<array{id: int, nome: string}> */

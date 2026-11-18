@@ -287,3 +287,19 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   ver a pasta (§4.4). Rotas JSON `pasta_compartilhamento_ver|criar|encerrar` (o GET devolve o token dos POSTs).
   Encerrar: quem compartilhou, o responsável, o destino (deixar de colaborar), o primário e o Master. A tela (L1,
   L3, L4, L5, L6) vem na 5b.
+- 18/11: fatia 5b (tela do compartilhar na Lista do Expediente). Ícone da linha (L1: verde com a contagem e a dica
+  "Compartilhada com N colaborador(es)", só para quem pode compartilhar; o restrito não vê), janela Compartilhar
+  pasta (L3 a L6: equipe sem o responsável e sem quem pede, os 3 recentes, as caixas, validade, mensagem, quem
+  colabora e o histórico) e a seção COMPARTILHAR do menu ⋮ (1 clique com um recente e "Deixar de colaborar" para
+  quem recebeu). Decisões, todas seguindo o desenho: (1) validade num select "Sem prazo / 7 / 30 / 90 dias"; (2) o
+  1 clique dá movimentar e enviar documentos, sem baixar (L830; `PermissoesDoCompartilhamento::umClique()` alinhado);
+  (3) dicas com `data-tip`, não `title`; (4) o menu reabre sozinho quando chega o GET da pasta; (5) o GET marca o
+  compartilhamento de quem pergunta (`meu`) e o "Deixar de colaborar" usa esse, nunca outro que a pessoa apenas
+  possa encerrar; (6) Demandas fica sem a mudança (o desenho é da Lista), o ícone verde do recebido continua.
+  Revisão da 5b, corrigido: os recentes do 1 clique só trazem quem pode receber (vínculo ativo, sem o responsável e
+  sem quem pede) e ainda não colabora na pasta (L826-827); quem não pode compartilhar (o destino, inclusive o
+  restrito) recebe no GET só a própria linha; o ícone da linha só sai para quem edita a pasta (`pastasEditaveis`,
+  mesmo critério do servidor); as cores do JS e da janela passaram para os tokens `--cp-*` com versão escura.
+  Ficam para depois: "Ver permissões e metas" da recebida (janela L11, fatia 9); "Outra conta (código)" desabilitado
+  com a dica "Em breve" até a fatia 8 (texto fora do desenho, sai na fatia 8); armadilha de foco da janela e aviso
+  quando o GET do menu falha (baixos).

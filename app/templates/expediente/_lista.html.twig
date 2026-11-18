@@ -143,9 +143,15 @@
 {% set pastasPorCliente = pastasPorCliente ?? {} %}
 {% set destaques = destaques ?? {} %}
 {% set cadeados = cadeados ?? {} %}
+{# Compartilhar pasta com a equipe (spec acesso-restrito-e-compartilhar L1 e L6): o ícone da linha só vem de quem pode
+   compartilhar da Lista (`podeCompartilharNaLista`; o restrito não) e edita a pasta (`pastasEditaveis`, como o servidor). Quem recebeu a pasta (restrito) vê o ícone verde
+   sem clique e "Deixar de colaborar" no menu. O ícone fica de fora da linha de pasta oculta pelo cadeado. #}
+{% set podeCompartilharNaLista = podeCompartilharNaLista ?? false %}
+{% set compartilhamentos = compartilhamentos ?? {} %}
+{% set compartilhadasComigo = compartilhadasComigo ?? [] %}
 <div class="pastas-tabela-wrap card">
     <div class="card-body table-responsive p-0">
-        <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}"
+        <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}"{% if podeCompartilharNaLista %} data-url-compartilhamento="{{ path('pasta_compartilhamento_ver', {id: 0}) }}" data-dica-compartilhar="{{ 'expediente.lista.compartilhar_dica_sem'|trans }}" data-dica-compartilhada="{{ 'expediente.lista.compartilhar_dica_com'|trans({n: '__N__'}) }}"{% elseif compartilhadasComigo %} data-url-compartilhamento="{{ path('pasta_compartilhamento_ver', {id: 0}) }}"{% endif %} data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}"
                data-chave-colunas="{{ (current_tenant() ? current_tenant().id : 0) ~ ':' ~ (app.user ? app.user.id : 0) }}"
                data-colunas="{{ (colunasSalvas ?? null)|json_encode|e('html_attr') }}"
                data-url-colunas="{{ urlColunasLista }}"{% if colunasPadrao is not null %} data-colunas-padrao="{{ colunasPadrao|json_encode|e('html_attr') }}"{% endif %}{% if prefixoColunasLocal %} data-prefixo-colunas-local="{{ prefixoColunasLocal }}"{% endif %}>
@@ -186,6 +192,7 @@
                     data-url-trancar="{{ path(rotaPastaTrancar, {id: pasta.id}) }}"
                     data-url-destaque="{{ path(rotaPastaDestaque, {id: pasta.id}) }}"
                     data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %}
+                    {% if not oculta and podeCompartilharNaLista and (pastasEditaveis ?? {})[pasta.id] is defined %}data-compartilhar="1" {% endif %}{% if not oculta and pasta.id in compartilhadasComigo %}data-compartilhada-comigo="1" {% endif %}
                     data-nome-editavel="{{ identificador is not null and identificador != pasta.nomeCliente ? '0' : '1' }}"
                     {#- Pasta arquivada (desenho 03 VS 30.10.26 dc L.211 e L.795): a linha esmaece, com a dica. #}
                     {% if not oculta and pasta.situacao == 'arquivado' %}data-arquivada="1" title="{{ 'expediente.lista.arquivada_dica'|trans }}" {% endif %}{% if dest %}data-dest="{{ dest }}"{% endif %}>
@@ -194,6 +201,13 @@
                         {%- if cad %}
                             <i class="bi bi-lock exp-cadeado js-cadeado" aria-label="{{ 'expediente.lista.pasta_trancada'|trans }}"
                                data-tip="{{ cad.por ? 'expediente.lista.cadeado_dica_por'|trans({por: cad.por, em: cad.em}) : 'expediente.lista.cadeado_dica_primario'|trans({em: cad.em}) }}"></i>
+                        {%- endif %}
+                        {%- if not oculta and podeCompartilharNaLista and (pastasEditaveis ?? {})[pasta.id] is defined %}
+                            {%- set nComp = compartilhamentos[pasta.id] ?? 0 %}
+                            <button type="button" class="exp-rp js-compartilhar{{ nComp ? ' exp-rp--tem' : '' }}" data-pasta-id="{{ pasta.id }}" aria-label="{{ 'expediente.lista.compartilhar_aria'|trans }}"
+                                    data-tip="{{ nComp ? 'expediente.lista.compartilhar_dica_com'|trans({n: nComp}) : 'expediente.lista.compartilhar_dica_sem'|trans }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{% if nComp %}<span class="exp-rp-n">{{ nComp }}</span>{% endif %}</button>
+                        {%- elseif not oculta and pasta.id in compartilhadasComigo %}
+                            <i class="bi bi-arrow-repeat exp-rp-recebida" aria-label="{{ 'expediente.lista.compartilhada_comigo'|trans }}" data-tip="{{ pasta.responsavel ? 'expediente.lista.compartilhada_comigo_dica'|trans({de: pasta.responsavel.fullName}) : 'expediente.lista.compartilhada_comigo'|trans }}"></i>
                         {%- endif %}
                     </td>
                     <td data-col="cliente" class="align-middle exp-cel-cliente">

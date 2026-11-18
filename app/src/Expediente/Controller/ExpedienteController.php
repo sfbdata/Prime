@@ -25,9 +25,11 @@ use App\Pasta\Exception\CadeadoRecusadoException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\Repository\PastaCompartilhamentoRepository;
 use App\Pasta\Repository\PastaDestaqueRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\AlternarTrancaDaPastaUseCase;
 use App\Pasta\UseCase\DestacarPastaUseCase;
@@ -35,6 +37,7 @@ use App\Pasta\UseCase\RenomearClienteDaPastaUseCase;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -80,6 +83,9 @@ final class ExpedienteController extends AbstractController
         private readonly TenantDriveConexaoRepository $conexoesDoDrive,
         private readonly ObterColunasDoExpedienteUseCase $obterColunasUseCase,
         private readonly ResolvedorIdentificadorDaPasta $identificadorDaPasta,
+        private readonly PastaCompartilhamentoRepository $compartilhamentos,
+        private readonly EscopoDePastas $escopoDePastas,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -675,6 +681,27 @@ final class ExpedienteController extends AbstractController
             'pastasEditaveis'   => $this->pastasEditaveis->para($pastas, $user, $tenant),
             'csrfLista'         => $this->csrfTokenManager->getToken(self::CSRF_LISTA)->getValue(),
             'colunasSalvas'     => $this->obterColunasUseCase->executar($tenant, $user),
+        ] + $this->compartilhamentosDaPagina($pastas, $user, $tenant);
+    }
+
+    /**
+     * Compartilhar pasta com a equipe na linha (spec acesso-restrito-e-compartilhar §3.2, L1 e L6): a contagem de
+     * colaboradores por pasta (o ícone), se a pessoa pode compartilhar da Lista (o restrito não) e, para o
+     * restrito, as pastas da página que foram compartilhadas com ele ("Deixar de colaborar"). Uma consulta cada.
+     *
+     * @param Pasta[] $pastas
+     * @return array{compartilhamentos: array<int, int>, podeCompartilharNaLista: bool, compartilhadasComigo: list<int>}
+     */
+    private function compartilhamentosDaPagina(array $pastas, User $user, Tenant $tenant): array
+    {
+        $restrito = $this->escopoDePastas->ehRestritoNoEscritorio($user, $tenant);
+        $ids      = array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas);
+        $hoje     = $this->relogio->now();
+
+        return [
+            'compartilhamentos'       => $restrito ? [] : $this->compartilhamentos->contagemPorPasta($tenant, $ids, $hoje),
+            'podeCompartilharNaLista' => !$restrito,
+            'compartilhadasComigo'    => $restrito ? array_values(array_intersect($ids, $this->compartilhamentos->idsDasPastasCompartilhadasCom($user, $tenant, $hoje))) : [],
         ];
     }
 

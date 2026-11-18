@@ -29,12 +29,13 @@ final readonly class CompartilhamentosDaPastaOutput
     }
 
     /** @return array<string, mixed> */
-    public static function colaborador(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $podeEncerrar): array
+    public static function colaborador(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $podeEncerrar, bool $meu): array
     {
         $permissoes = $c->permissoes();
 
         return [
             'id'               => (int) $c->getId(),
+            'destinoId'        => (int) $c->getDestino()->getId(),
             'nome'             => self::nome($c->getDestino()),
             'interno'          => $c->isInterno(),
             'movimentar'       => $permissoes->movimentar,
@@ -45,6 +46,7 @@ final readonly class CompartilhamentosDaPastaOutput
             'estado'           => self::estado($c, $hoje),
             'ativo'            => $c->estaAtivo($hoje),
             'podeEncerrar'     => $podeEncerrar && $c->estaAtivo($hoje),
+            'meu'              => $meu,
         ];
     }
 

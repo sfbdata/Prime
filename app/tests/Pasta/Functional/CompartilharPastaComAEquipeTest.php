@@ -16,6 +16,7 @@ use App\Pasta\EventListener\BarreiraDoCadeadoListener;
 use App\Pasta\Exception\CompartilhamentoRecusadoException;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -72,6 +73,7 @@ final class CompartilharPastaComAEquipeTest extends JusPrimeWebTestCase
         $janela = $this->janela();
         self::assertCount(1, $janela['colaboradores']);
         self::assertSame('colaborando', $janela['colaboradores'][0]['estado']);
+        self::assertFalse($janela['colaboradores'][0]['meu'], 'quem compartilhou não é o destino');
         $this->postar($this->urlDaPasta() . '/compartilhamento/' . $janela['colaboradores'][0]['id'] . '/encerrar', [], $janela['token']);
         self::assertResponseIsSuccessful();
 
@@ -171,6 +173,7 @@ final class CompartilharPastaComAEquipeTest extends JusPrimeWebTestCase
         $this->entrar($this->restrito, $this->tenant);
         $janela = $this->janela();
         self::assertTrue($janela['colaboradores'][0]['podeEncerrar']);
+        self::assertTrue($janela['colaboradores'][0]['meu'], 'o "Deixar de colaborar" usa o compartilhamento de quem pergunta');
         $this->postar($this->urlDaPasta() . '/compartilhamento/' . $id . '/encerrar', [], $janela['token']);
         self::assertResponseIsSuccessful();
         $this->client->request('GET', $this->urlDaPasta());
@@ -193,6 +196,43 @@ final class CompartilharPastaComAEquipeTest extends JusPrimeWebTestCase
         self::assertTrue($checker->canAccessResource($semVer, $this->tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW));
         self::assertSame([$pastaId], $checker->idsPermitidosComVinculo($semVer, $vinculo, AccessRequest::RESOURCE_PASTA, [$pastaId], AccessRequest::ACTION_VIEW));
         self::assertFalse($checker->canAccessResource($semVer, $this->tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT));
+    }
+
+    #[TestDox('quem recebeu a pasta vê na janela só a própria linha, sem os outros colaboradores')]
+    public function testDestinoSoVeAPropriaLinha(): void
+    {
+        $this->gravarCompartilhamento($this->restrito, new PermissoesDoCompartilhamento());
+        $this->gravarCompartilhamento($this->comum, new PermissoesDoCompartilhamento());
+
+        $this->entrar($this->restrito, $this->tenant);
+        $janela = $this->janela();
+        self::assertFalse($janela['podeCompartilhar']);
+        self::assertSame(['Rita Restrita'], array_column($janela['colaboradores'], 'nome'));
+        self::assertTrue($janela['colaboradores'][0]['meu']);
+        self::assertSame([], $janela['recentes']);
+
+        $this->entrar($this->primario, $this->tenant);
+        self::assertCount(2, $this->janela()['colaboradores'], 'quem compartilha vê todos');
+    }
+
+    #[TestDox('o 1 clique não oferece quem já colabora nesta pasta, o responsável nem quem saiu do escritório')]
+    public function testRecentesSoComQuemPodeReceber(): void
+    {
+        $paula = $this->criarColaborador($this->tenant, 'Paula Livre', self::PERMISSOES);
+        $saiu  = $this->criarColaborador($this->tenant, 'Samuel Saiu', self::PERMISSOES);
+        $outra = $this->criarPasta($this->tenant, 'OUTRA DO PRIMARIO');
+        $outra->setResponsavel($this->primario);
+        foreach ([$this->comum, $paula, $saiu] as $destino) {
+            $this->em()->persist(PastaCompartilhamento::interno($outra, $this->primario, $destino, new PermissoesDoCompartilhamento(), null, null, new \DateTimeImmutable('-3 days')));
+        }
+        $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $saiu, 'tenant' => $this->tenant])?->alterarSituacao(SituacaoNaEquipe::Suspenso);
+        $this->pasta->setResponsavel($this->comum);
+        $this->em()->flush();
+        $this->gravarCompartilhamento($this->restrito, new PermissoesDoCompartilhamento());
+
+        $this->entrar($this->primario, $this->tenant);
+
+        self::assertSame(['Paula Livre'], array_column($this->janela()['recentes'], 'nome'));
     }
 
     private function gravarCompartilhamento(User $destino, PermissoesDoCompartilhamento $permissoes, ?\DateTimeImmutable $validoAte = null): int
