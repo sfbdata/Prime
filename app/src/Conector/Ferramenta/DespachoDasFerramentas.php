@@ -161,8 +161,8 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
     }
 
     /**
-     * O `structuredContent`: os dados da ferramenta e, quando a lista foi cortada, a página seguinte. Sempre um objeto
-     * JSON, mesmo vazio.
+     * O `structuredContent`: os dados da ferramenta e, quando a lista foi cortada, a página seguinte (número ou cursor
+     * em texto, como a ferramenta devolveu). Sempre um objeto JSON, mesmo vazio.
      *
      * @return array<string, mixed>|\stdClass
      */

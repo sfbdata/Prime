@@ -737,4 +737,50 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         $this->configuracao->atualizar(true, 50, 500, false, $this->user);
         self::assertSame('CPF ' . self::CPF, $this->sut()->analiseAnterior($this->tenant, 'CPF ' . self::CPF));
     }
+
+    /** @return array<string, array{string, string}> dado pessoal e o que não pode sobrar dele na saída */
+    public static function dadosNoLimite(): array
+    {
+        return [
+            'CPF' => ['529.982.247-25', '529'],
+            'e-mail' => ['fulano.tal@exemplo.com.br', 'fulano'],
+            'telefone' => ['(61) 99999-1234', '999'],
+        ];
+    }
+
+    /** Texto em que o dado começa antes do limite e termina depois dele, seguido de sobra que será cortada. */
+    private static function atravessandoOLimite(string $dado, int $limite): string
+    {
+        $inicio = $limite - intdiv(mb_strlen($dado), 2);
+
+        return str_repeat('a', $inicio - 1) . ' ' . $dado . ' ' . str_repeat('b', 80);
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('rótulo: a máscara vem antes do corte; o dado que atravessa o limite do rótulo sai mascarado, não pela metade')]
+    public function testRotuloMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $this->dados->tarefas = [$this->tarefa(self::atravessandoOLimite($dado, MontadorDeContextoDaPasta::TAMANHO_MAXIMO_DO_ROTULO), '+3 days')];
+
+        $contexto = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        $linha = self::secao($contexto, SecaoDoContexto::Metas)->linhas[0];
+
+        self::assertStringContainsString('…"', $linha, 'o título saiu cortado');
+        self::assertStringNotContainsString($resto, $linha);
+        self::assertStringNotContainsString('@', $linha);
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('texto livre: a máscara vem antes do corte; o dado que atravessa o limite da observação sai mascarado, não pela metade')]
+    public function testTextoLivreMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $this->dados->observacoes = [$this->observacao(self::atravessandoOLimite($dado, MontadorDeContextoDaPasta::TAMANHO_MAXIMO_DA_OBSERVACAO))];
+
+        $contexto = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        $linha = self::secao($contexto, SecaoDoContexto::Observacoes)->linhas[0];
+
+        self::assertStringContainsString('…', $linha, 'o texto saiu cortado');
+        self::assertStringNotContainsString($resto, $linha);
+        self::assertStringNotContainsString('@', $linha);
+    }
 }
