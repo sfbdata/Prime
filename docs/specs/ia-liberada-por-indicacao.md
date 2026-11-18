@@ -242,11 +242,15 @@ Nomes fixos, para as partes poderem ser feitas em paralelo.
 - `App\Inteligencia\Enum\Disponibilidade::SaldoDaPessoaEsgotado = 'saldo_da_pessoa_esgotado'`. `ehLimiteDeCota()`
   continua falso para ele (status 409). `codigoDaRecusa()` devolve o próprio valor. `mensagem()`: "Sua I.A. gratuita
   acabou. Convide um colega para ganhar mais 3 peças."
-- `App\Inteligencia\Service\SaldoDeIaDaPessoa::de(User $user): SaldoDeIaOutput`, com as constantes
-  `FRANQUIA_EM_TOKENS = 100_000`, `TOKENS_POR_COLEGA = 100_000` e `PECAS_DA_FRANQUIA = 3` (1 peça = franquia ÷ 3).
-- `App\Inteligencia\DTO\SaldoDeIaOutput` (readonly): `bool $seAplica` (a pessoa está em algum escritório sem plano
-  pago), `int $tokensUsados`, `int $tokensDireito`, `float $pecasUsadas` (uma casa), `int $pecasDireito`,
-  `int $percentual` (0 a 100), `bool $esgotado`, `bool $perto` (80% ou mais), `int $colegasCadastrados`.
+- `App\Inteligencia\Service\Saldo\MedidaDoUsoDeIa` (interface, o ponto de extensão da seção 13): `unidade()`
+  ('tokens' ou 'pecas'), `franquia()`, `porColega()` e `usado(User $user, array $tenantIdsSemPlanoPago)`. A de hoje é
+  `ConsumoEmTokens` (`#[AsAlias]`), com `FRANQUIA_EM_TOKENS = 100_000` e `TOKENS_POR_COLEGA = 100_000`.
+- `App\Inteligencia\Service\SaldoDeIaDaPessoa::de(User $user): SaldoDeIaOutput` recebe a medida e só faz a conta
+  (direito = franquia + porColega × colegas), com `PECAS_DA_FRANQUIA = 3`. Em tokens, 1 peça = franquia ÷ 3.
+- `App\Inteligencia\DTO\SaldoDeIaOutput` (readonly): `string $unidade`, `bool $seAplica` (a pessoa está em algum
+  escritório sem plano pago), `int $tokensUsados`, `int $tokensDireito`, `float $pecasUsadas` (uma casa),
+  `int $pecasDireito`, `int $percentual` (0 a 100), `bool $esgotado`, `bool $perto` (80% ou mais),
+  `int $colegasCadastrados`.
 - `DisponibilidadeDeInteligencia::para()` confere, por último, se o **escritório atual** não tem plano pago e o saldo da
   pessoa está esgotado.
 - Contribua expõe `App\Contribua\Service\PlanoPagoDoEscritorio` com `temPlanoPago(int $tenantId): bool` e
@@ -258,3 +262,19 @@ Nomes fixos, para as partes poderem ser feitas em paralelo.
   `inteligencia/_janela_saldo_esgotado.html.twig`.
 - Notificação ao indicador: tipo `ia_colega_cadastrado`, pelo `NotificacaoService::criarNotificacao`, disparada nos
   mesmos dois gatilhos do bônus de espaço, uma vez por conta nova.
+
+## 13. Quando existir "Redigir peça com a I.A." (D10, Samuel, 18/11)
+
+A trava liga agora por consumo (100 mil tokens). O mecanismo fica pronto para contar **peças** no dia em que a função
+"Redigir peça com a I.A." existir, sem tela nova agora:
+
+- **A regra futura:** 1 peça entregue = 1 unidade; trava em 3; cada colega cadastrado libera mais 3.
+- **O ponto de extensão:** a interface `MedidaDoUsoDeIa` (seção 12). Basta criar `PecasEntregues implements
+  MedidaDoUsoDeIa`, com `unidade() = 'pecas'`, `franquia() = 3`, `porColega() = 3` e `usado()` contando as peças
+  entregues com sucesso pela pessoa nos escritórios sem plano pago (a análise do tipo novo `peca`, concluída, em
+  `inteligencia_analise`), e mover o `#[AsAlias]` para ela.
+- **O que não muda:** o portão, a conta do direito, a notificação, a barra e a janela. A barra já fala em peças, e com a
+  unidade `pecas` mostra o número inteiro.
+- **A decidir quando a função vier:** se a medida por peças **substitui** a de consumo (todo o resto da I.A. fica livre)
+  ou se as duas valem juntas (uma trava para "Redigir peça" e outra para o resto). No segundo caso, o portão passa a
+  receber a ação pedida para escolher a medida.
