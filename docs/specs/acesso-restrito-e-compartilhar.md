@@ -303,3 +303,10 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   Ficam para depois: "Ver permissões e metas" da recebida (janela L11, fatia 9); "Outra conta (código)" desabilitado
   com a dica "Em breve" até a fatia 8 (texto fora do desenho, sai na fatia 8); armadilha de foco da janela e aviso
   quando o GET do menu falha (baixos).
+- 18/11: fatia 6 (trilha do restrito, regra 7). `TrilhaDoAcessoRestrito` grava direto no `audit_log` (pela conexão,
+  fica mesmo com 404 ou 403): ação `leitura` ao abrir a pasta (`pasta_show`, download de documento, ZIP e documento
+  do financeiro, só GET) e `negado` em toda recusa: pasta fora do escopo (404) e recusa do cadeado ou do
+  compartilhamento (`BarreiraDoCadeadoListener`), tela "Fora do seu acesso" (`entity_class` = `rota`) e cliente ou
+  processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
+  e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
+  outra conta vem com a fatia 9.

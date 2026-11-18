@@ -7,6 +7,8 @@ namespace App\Pasta\EventListener;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\NivelNoCadeado;
+use App\Pasta\Service\TrilhaDoAcessoRestrito;
+use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
@@ -125,6 +127,7 @@ final class BarreiraDoCadeadoListener
         private readonly RouterInterface $router,
         private readonly ?EscopoDePastas $escopoDePastas = null,
         private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+        private readonly ?TrilhaDoAcessoRestrito $trilha = null,
     ) {
     }
 
@@ -140,25 +143,72 @@ final class BarreiraDoCadeadoListener
         if ($pasta === null || !$user instanceof User) {
             return;
         }
-        // Acesso restrito (spec acesso-restrito-e-compartilhar §5.1): pasta fora do escopo é 404 em toda rota, inclusive
-        // a tela e o pedido de acesso (não confirma que a pasta existe nem oferece pedir).
-        if ($this->escopoDePastas?->pastaForaDoEscopo($user, $pasta) === true) {
-            throw new NotFoundHttpException('Pasta não encontrada.');
-        }
+        $tenant = $this->tenantDoRestrito($user, $pasta);
+        try {
+            $resposta = $this->recusaPara($user, $pasta, $request);
+        } catch (NotFoundHttpException $foraDoEscopo) {
+            $this->anotarNaTrilha($tenant, $user, $request, $pasta, negado: true);
 
-        $peloCompartilhamento = $this->decisaoDoCompartilhamento($user, $pasta, (string) $request->attributes->get('_route'));
-        if ($peloCompartilhamento === true) {
-            return;
+            throw $foraDoEscopo;
         }
-        $nivel = $this->acessoAPasta->nivel($user, $pasta);
-        if ($peloCompartilhamento === null && !$this->recusa($nivel, $request)) {
+        $this->anotarNaTrilha($tenant, $user, $request, $pasta, negado: $resposta !== null);
+        if ($resposta === null) {
             return;
         }
 
         // Curto-circuito: troca o controller por quem só devolve a recusa, com os argumentos zerados.
-        $resposta = $this->resposta($request, $pasta, $nivel, $peloCompartilhamento === false || $this->soOCompartilhamentoLimita($user, $pasta, $nivel) ? self::MENSAGEM_COMPARTILHAMENTO : null);
         $event->setController(static fn (): Response => $resposta);
         $event->setArguments([]);
+    }
+
+    /**
+     * A recusa da barreira para esta rota, ou `null` quando ela passa. Pasta fora do escopo do restrito é 404 em toda
+     * rota (spec acesso-restrito-e-compartilhar §5.1), inclusive a tela e o pedido de acesso: não confirma que a pasta
+     * existe nem oferece pedir.
+     */
+    private function recusaPara(User $user, Pasta $pasta, Request $request): ?Response
+    {
+        if ($this->escopoDePastas?->pastaForaDoEscopo($user, $pasta) === true) {
+            throw new NotFoundHttpException('Pasta não encontrada.');
+        }
+        $peloCompartilhamento = $this->decisaoDoCompartilhamento($user, $pasta, (string) $request->attributes->get('_route'));
+        if ($peloCompartilhamento === true) {
+            return null;
+        }
+        $nivel = $this->acessoAPasta->nivel($user, $pasta);
+        if ($peloCompartilhamento === null && !$this->recusa($nivel, $request)) {
+            return null;
+        }
+        $limitaPeloCompartilhamento = $peloCompartilhamento === false || $this->soOCompartilhamentoLimita($user, $pasta, $nivel);
+
+        return $this->resposta($request, $pasta, $nivel, $limitaPeloCompartilhamento ? self::MENSAGEM_COMPARTILHAMENTO : null);
+    }
+
+    /** Regra 7: a recusa sempre; a passagem só quando abre a pasta (a tela, o download ou o ZIP). */
+    private function anotarNaTrilha(?Tenant $tenant, User $user, Request $request, Pasta $pasta, bool $negado): void
+    {
+        if ($tenant === null || $this->trilha === null) {
+            return;
+        }
+        if ($negado) {
+            $this->trilha->negado($user, $tenant, $request, Pasta::class, (int) $pasta->getId());
+
+            return;
+        }
+        if (TrilhaDoAcessoRestrito::contaComoLeitura($request)) {
+            $this->trilha->leitura($user, $tenant, $request, Pasta::class, (int) $pasta->getId());
+        }
+    }
+
+    /** O escritório da pasta quando quem pede tem o perfil restrito nele (a trilha da regra 7); senão, `null`. */
+    private function tenantDoRestrito(User $user, Pasta $pasta): ?Tenant
+    {
+        $tenant = $pasta->getTenant();
+        if ($this->trilha === null || $tenant === null || $this->escopoDePastas?->ehRestritoNoEscritorio($user, $tenant) !== true) {
+            return null;
+        }
+
+        return $tenant;
     }
 
     /**

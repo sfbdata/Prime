@@ -11,6 +11,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\EventListener\BarreiraDoAcessoRestritoListener;
 use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Service\EscopoDePastas;
+use App\Pasta\Service\TrilhaDoAcessoRestrito;
 use App\Entity\Permission\ResourceAccess;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -201,6 +202,46 @@ final class AcessoRestritoTest extends JusPrimeWebTestCase
         $vinculo = $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $this->tenant]);
         self::assertNotNull($vinculo);
         static::getContainer()->get(TenantContext::class)->fixarSemSessao($this->tenant, $vinculo);
+    }
+
+    #[TestDox('regra 7: abrir a pasta, baixar e cada recusa ficam na trilha do restrito; quem não é restrito não ganha trilha de leitura')]
+    public function testTrilhaDoRestrito(): void
+    {
+        $this->entrar($this->restrito, $this->tenant);
+        $this->client->request('GET', '/pasta/' . $this->minha->getId());
+        self::assertResponseIsSuccessful();
+        $this->client->request('GET', '/pasta/' . $this->alheia->getId());
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('GET', '/dashboard');
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', '/pasta/' . $this->minha->getId() . '/compartilhamento');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([
+            ['leitura', Pasta::class, (string) $this->minha->getId(), 'pasta_show'],
+            ['negado', Pasta::class, (string) $this->alheia->getId(), 'pasta_show'],
+            ['negado', TrilhaDoAcessoRestrito::SEM_REGISTRO, null, 'dashboard_index'],
+        ], $this->trilhaDe($this->restrito));
+        $linha = $this->em()->getConnection()->fetchAssociative('SELECT ip_address, tenant_id, changes FROM audit_log WHERE actor_user_id = ? ORDER BY id LIMIT 1', [$this->restrito->getId()]);
+        self::assertNotEmpty($linha['ip_address'] ?? null);
+        self::assertSame($this->tenant->getId(), $linha['tenant_id'] ?? null);
+        self::assertSame(['evento' => 'leitura', 'rota' => 'pasta_show', 'metodo' => 'GET'], json_decode((string) ($linha['changes'] ?? ''), true));
+
+        $this->entrar($this->comum, $this->tenant);
+        $this->client->request('GET', '/pasta/' . $this->minha->getId());
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->trilhaDe($this->comum));
+    }
+
+    /** @return list<array{string, string, ?string, string}> */
+    private function trilhaDe(User $user): array
+    {
+        $linhas = $this->em()->getConnection()->fetchAllAssociative(
+            "SELECT action, entity_class, entity_id, route FROM audit_log WHERE actor_user_id = ? AND action IN ('leitura', 'negado') ORDER BY id",
+            [$user->getId()],
+        );
+
+        return array_map(static fn (array $l): array => [$l['action'], $l['entity_class'], $l['entity_id'], $l['route']], $linhas);
     }
 
     private function restringir(User $user): void

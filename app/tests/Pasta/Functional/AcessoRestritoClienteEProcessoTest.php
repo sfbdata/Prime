@@ -109,6 +109,25 @@ final class AcessoRestritoClienteEProcessoTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('regra 7: o cliente e o processo fora do escopo ficam na trilha como recusa, com o id')]
+    public function testRecusaNaTrilha(): void
+    {
+        $this->entrar($this->restrito, $this->tenant);
+        $this->client->request('GET', '/clientes/' . $this->clienteAlheio->getId());
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('GET', '/processos/' . $this->processoAlheio->getId());
+        self::assertResponseStatusCodeSame(404);
+
+        $linhas = $this->em()->getConnection()->fetchAllAssociative(
+            "SELECT entity_class, entity_id, route FROM audit_log WHERE actor_user_id = ? AND action = 'negado' ORDER BY id",
+            [$this->restrito->getId()],
+        );
+        self::assertSame([
+            ['entity_class' => Cliente::class, 'entity_id' => (string) $this->clienteAlheio->getId(), 'route' => 'cliente_show'],
+            ['entity_class' => Processo::class, 'entity_id' => (string) $this->processoAlheio->getId(), 'route' => 'processo_show'],
+        ], $linhas);
+    }
+
     #[TestDox('o restrito abre o próprio cliente e o próprio processo; a pasta alheia não aparece em nenhum dos dois')]
     public function testProprioAbreSemAPastaAlheia(): void
     {

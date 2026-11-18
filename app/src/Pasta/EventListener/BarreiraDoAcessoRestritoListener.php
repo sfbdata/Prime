@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
+use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\EscopoDePastas;
+use App\Pasta\Service\TrilhaDoAcessoRestrito;
+use App\Processo\Entity\Processo;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Doctrine\ORM\EntityManagerInterface;
@@ -123,6 +126,7 @@ final class BarreiraDoAcessoRestritoListener
         private readonly UrlGeneratorInterface $urls,
         private readonly Environment $twig,
         private readonly EntityManagerInterface $em,
+        private readonly TrilhaDoAcessoRestrito $trilha,
     ) {
     }
 
@@ -147,11 +151,15 @@ final class BarreiraDoAcessoRestritoListener
             return;
         }
         if (!self::liberada($rota)) {
+            $this->trilha->negado($usuario, $tenant, $request);
             $event->setResponse($this->recusa($request));
 
             return;
         }
-        if ($this->recursoDaRotaForaDoEscopo($rota, $request, $usuario, $tenant)) {
+        $foraDoEscopo = $this->recursoDaRotaForaDoEscopo($rota, $request, $usuario, $tenant);
+        if ($foraDoEscopo !== null) {
+            $this->trilha->negado($usuario, $tenant, $request, $foraDoEscopo[0], $foraDoEscopo[1]);
+
             throw new NotFoundHttpException('Não encontrado.');
         }
     }
@@ -173,24 +181,31 @@ final class BarreiraDoAcessoRestritoListener
         return false;
     }
 
-    /** Cliente ou processo do `{id}` da rota fora do escopo do restrito. Documento inexistente segue para o 404 do controller. */
-    private function recursoDaRotaForaDoEscopo(string $rota, Request $request, User $usuario, Tenant $tenant): bool
+    /**
+     * Cliente ou processo do `{id}` da rota fora do escopo do restrito, como `[classe, id]` para a trilha; `null`
+     * quando está no escopo. Documento inexistente segue para o 404 do controller.
+     *
+     * @return array{class-string, int}|null
+     */
+    private function recursoDaRotaForaDoEscopo(string $rota, Request $request, User $usuario, Tenant $tenant): ?array
     {
         $id = $request->attributes->get('id');
         if (!is_scalar($id) || !ctype_digit((string) $id)) {
-            return false;
+            return null;
         }
         if (str_starts_with($rota, 'processo_')) {
-            return $this->escopo->processoForaDoEscopo($usuario, $tenant, (int) $id);
+            return $this->escopo->processoForaDoEscopo($usuario, $tenant, (int) $id) ? [Processo::class, (int) $id] : null;
         }
         if (!str_starts_with($rota, 'cliente_')) {
-            return false;
+            return null;
         }
         $clienteId = in_array($rota, self::ROTAS_POR_DOCUMENTO_DO_CLIENTE, true)
             ? $this->em->find(ClienteDocumento::class, (int) $id)?->getCliente()?->getId()
             : (int) $id;
 
-        return $clienteId !== null && $this->escopo->clienteForaDoEscopo($usuario, $tenant, (int) $clienteId);
+        return $clienteId !== null && $this->escopo->clienteForaDoEscopo($usuario, $tenant, (int) $clienteId)
+            ? [Cliente::class, (int) $clienteId]
+            : null;
     }
 
     private function recusa(Request $request): Response
