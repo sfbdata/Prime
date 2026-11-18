@@ -11,6 +11,7 @@ use App\ChatIa\Enum\PeriodoDaConsulta;
 use App\ChatIa\Exception\SemAcessoAsMetasNoChatException;
 use App\ChatIa\Service\GuardaDaConsultaDePrazos;
 use App\ChatIa\Service\ListaDasMinhasMetas;
+use App\ChatIa\Service\PortaDaConsultaDePrazos;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
@@ -35,6 +36,11 @@ use Psr\Clock\ClockInterface;
  *
  * **Erros:** sem o módulo Tarefas ou sem o aceite do escritório, {@see SemAcessoAsMetasNoChatException} (quem chama põe uma
  * linha fixa no prompt, sem dado).
+ *
+ * **Porta** (`docs/specs/mcp-remoto-oauth.md`, 14.i): quem chama pode passar a própria {@see PortaDaConsultaDePrazos} no lugar
+ * da guarda do chat. O conector de I.A. passa a dele (módulo Tarefas e a liberação do conector), porque o aceite da BlueJus I.A.
+ * não cobre o conector. Sem porta, vale a {@see GuardaDaConsultaDePrazos}, como sempre. A porta vem por parâmetro, nunca pelo
+ * construtor: com duas implementações da interface, a injeção ficaria ambígua.
  */
 final class ConsultarPrazosEMetasUseCase
 {
@@ -49,10 +55,15 @@ final class ConsultarPrazosEMetasUseCase
     ) {
     }
 
-    /** @throws SemAcessoAsMetasNoChatException */
-    public function executar(User $eu, Tenant $tenant, ConsultaDePrazosInput $input): PrazosEMetasOutput
+    /**
+     * @param PortaDaConsultaDePrazos|null $porta a guarda de quem chama; nula, a do chat
+     *
+     * @throws SemAcessoAsMetasNoChatException sem porta, quando a guarda do chat recusa
+     * @throws \Exception                       com porta, a recusa da porta
+     */
+    public function executar(User $eu, Tenant $tenant, ConsultaDePrazosInput $input, ?PortaDaConsultaDePrazos $porta = null): PrazosEMetasOutput
     {
-        $this->guarda->exigir($eu, $tenant);
+        ($porta ?? $this->guarda)->exigir($eu, $tenant);
         $hoje = \DateTimeImmutable::createFromInterface($this->relogio->now())->setTime(0, 0);
 
         $daTela = $this->lista->daTela($eu, $tenant, $input->papel, $input->periodo->filtroDaTela());

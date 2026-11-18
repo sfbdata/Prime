@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
@@ -16,6 +17,7 @@ use App\Processo\Entity\Processo;
 use App\Tests\Inteligencia\Support\DefineId;
 use App\Tests\Inteligencia\Support\FonteDeMovimentacoesFalsa;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -171,5 +173,59 @@ final class MontadorDeContextoDoPushTest extends TestCase
 
         self::assertSame('Fulano CPF [CPF]', $contexto->cabecalho['responsavel']);
         self::assertSame('sem processo vinculado', $contexto->cabecalho['processo']);
+    }
+
+    /** @return array<string, array{string, string}> dado pessoal e o que não pode sobrar dele na saída */
+    public static function dadosNoLimite(): array
+    {
+        return [
+            'CPF' => ['529.982.247-25', '529'],
+            'e-mail' => ['fulano.tal@exemplo.com.br', 'fulano'],
+            'telefone' => ['(61) 99999-1234', '999'],
+        ];
+    }
+
+    /** Texto em que o dado começa antes do limite e termina depois dele, seguido de sobra que será cortada. */
+    private static function atravessandoOLimite(string $dado, int $limite): string
+    {
+        $inicio = $limite - intdiv(mb_strlen($dado), 2);
+
+        return str_repeat('a', $inicio - 1) . ' ' . $dado . ' ' . str_repeat('b', 80);
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('rótulo: a máscara vem antes do corte; o dado que atravessa o limite do rótulo sai mascarado, não pela metade')]
+    public function testRotuloMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $this->responsavel->setFullName(self::atravessandoOLimite($dado, MontadorDeContextoDoPush::TAMANHO_MAXIMO_DO_ROTULO));
+
+        $responsavel = $this->sut()->para($this->tenant, $this->pasta)->cabecalho['responsavel'];
+
+        self::assertStringEndsWith('…', $responsavel, 'o texto saiu cortado');
+        self::assertStringNotContainsString($resto, $responsavel);
+        self::assertStringNotContainsString('@', $responsavel);
+    }
+
+    #[DataProvider('dadosNoLimite')]
+    #[TestDox('item: a máscara vem antes do corte; o dado que atravessa o limite do item sai mascarado, não pela metade')]
+    public function testItemMascaraAntesDoCorte(string $dado, string $resto): void
+    {
+        $publicacao = new PublicacaoDjen();
+        $publicacao->setTenant($this->tenant);
+        $publicacao->setDjenId('11');
+        $publicacao->setNumeroProcesso(self::CNJ);
+        $publicacao->setSiglaTribunal('TJDFT');
+        $publicacao->setTipoComunicacao('Intimação');
+        $publicacao->setDataDisponibilizacao(new \DateTimeImmutable('2026-10-01'));
+        $publicacao->setTexto(self::atravessandoOLimite($dado, MontadorDeContextoDoPush::TAMANHO_MAXIMO_DO_ITEM));
+        DefineId::em($publicacao, 11);
+        $this->fonte->publicacoes = [$publicacao];
+
+        $itens = $this->sut()->para($this->tenant, $this->pasta)->itens;
+
+        self::assertCount(1, $itens);
+        self::assertStringEndsWith('…', $itens[0]->texto, 'o texto saiu cortado');
+        self::assertStringNotContainsString($resto, $itens[0]->texto);
+        self::assertStringNotContainsString('@', $itens[0]->texto);
     }
 }
