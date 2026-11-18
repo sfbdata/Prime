@@ -1,6 +1,14 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.59.0"
+  data: "2026-11-18"
+  itens:
+    - "Com o conector de I.A. ligado, o Claude ou o ChatGPT conectado à sua conta passa a abrir os PDFs e as imagens da aba Documentos de uma pasta, ver os modelos de peça do escritório, consultar os processos e ler as publicações do Diário de uma pasta."
+    - "Ler uma publicação pelo app não a marca como lida no BlueJus."
+    - "Na agenda, o app passa a saber se um prazo já foi cumprido ou ainda está em aberto, como você vê na tela."
+    - "O app só enxerga o que você já vê no BlueJus: abas ocultas, pastas trancadas e processos em segredo de justiça ficam de fora."
+    - "Na tela BlueJus IA, o botão Desligar do conector não fica mais escondido atrás do balão do chat."
 - versao: "2.58.1"
   data: "2026-11-18"
   itens:
