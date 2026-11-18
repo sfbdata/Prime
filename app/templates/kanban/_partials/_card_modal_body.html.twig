@@ -19,7 +19,7 @@
                 <div class="flex-grow-1">
                     <div class="d-flex align-items-center gap-2">
                         <h5 class="mb-0 fw-semibold" id="cardTituloDisplay" style="font-size:1rem;">{{ card.titulo }}</h5>
-                        <button class="btn btn-link btn-sm p-0 text-muted"
+                        <button class="bjp-ico bjp-btn--discreto"
                                 onclick="editarTituloCard({{ card.id }}, {{ card.titulo|json_encode }})"
                                 title="{{ 'kanban.card.editar_titulo'|trans }}">
                             <i class="bi bi-pencil" style="font-size:.78rem;"></i>
@@ -66,7 +66,7 @@
             <div class="mb-3" id="checklist-{{ checklist.id }}">
                 <div class="d-flex align-items-center justify-content-between mb-1">
                     <strong class="small">{{ checklist.titulo }}</strong>
-                    <button class="btn btn-link btn-sm p-0 text-danger"
+                    <button class="bjp-ico bjp-btn--destrutivo"
                             onclick="excluirChecklist({{ checklist.id }}, {{ card.id }}, '{{ csrf_token('kanban_checklist_excluir_' ~ checklist.id) }}')"
                             title="{{ 'kanban.card.excluir_checklist'|trans }}">
                         <i class="bi bi-trash" style="font-size:.8rem;"></i>
@@ -83,7 +83,7 @@
                                onchange="toggleChecklistItem({{ item.id }}, {{ card.id }})">
                         <label class="form-check-label flex-grow-1 small{{ item.concluido ? ' text-decoration-line-through text-muted' : '' }}"
                                for="checkItem-{{ item.id }}">{{ item.texto }}</label>
-                        <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                        <button class="bjp-ico bjp-btn--destrutivo flex-shrink-0"
                                 onclick="excluirItemChecklist({{ item.id }}, {{ card.id }}, '{{ csrf_token('kanban_item_excluir_' ~ item.id) }}')"
                                 title="{{ 'kanban.card.remover_item'|trans }}">
                             <i class="bi bi-x" style="font-size:.9rem;"></i>
@@ -98,15 +98,15 @@
                                id="inputAddItem-{{ checklist.id }}"
                                placeholder="{{ 'kanban.card.novo_item'|trans }}"
                                onkeydown="if(event.key==='Enter'){adicionarItemChecklist({{ checklist.id }}, {{ card.id }});} if(event.key==='Escape'){cancelarFormItem({{ checklist.id }});}">
-                        <button class="btn btn-primary btn-sm" onclick="adicionarItemChecklist({{ checklist.id }}, {{ card.id }})">
+                        <button class="bjp-btn bjp-btn--primario" onclick="adicionarItemChecklist({{ checklist.id }}, {{ card.id }})">
                             <i class="bi bi-plus"></i>
                         </button>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="cancelarFormItem({{ checklist.id }})">
+                        <button class="bjp-btn bjp-btn--secundario" onclick="cancelarFormItem({{ checklist.id }})">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
                 </div>
-                <button class="btn btn-link btn-sm p-0 text-secondary mt-1"
+                <button class="bjp-btn bjp-btn--discreto mt-1"
                         onclick="mostrarFormItem({{ checklist.id }})"
                         style="font-size:.8rem;">
                     <i class="bi bi-plus me-1"></i>{{ 'kanban.card.adicionar_item'|trans }}
@@ -134,7 +134,7 @@
             <div class="mt-2">
                 <div id="quillComentario" style="min-height:60px;"></div>
                 <div class="mt-2 d-flex justify-content-end">
-                    <button class="btn btn-primary btn-sm" onclick="enviarComentario({{ card.id }})">
+                    <button class="bjp-btn bjp-btn--primario" onclick="enviarComentario({{ card.id }})">
                         <i class="bi bi-send me-1"></i>{{ 'kanban.card.comentar'|trans }}
                     </button>
                 </div>
@@ -166,7 +166,7 @@
             </div>
             {% if card.participantesDisponiveis %}
             <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                <button class="bjp-btn bjp-btn--secundario dropdown-toggle" type="button"
                         data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-person-plus"></i> {{ 'kanban.card.gerenciar'|trans }}
                 </button>
@@ -206,7 +206,7 @@
                 <span class="text-muted small">{{ 'kanban.card.sem_marcadores'|trans }}</span>
                 {% endif %}
             </div>
-            <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
+            <button class="bjp-btn bjp-btn--secundario" style="font-size:.78rem;"
                     onclick="mostrarFormCriarMarcador({{ card.boardId }}, {{ card.id }})">
                 <i class="bi bi-plus me-1"></i>{{ 'kanban.card.criar_marcador'|trans }}
             </button>
@@ -225,8 +225,8 @@
                 </div>
                 <input type="hidden" id="novoMarcadorCor" value="#3b82f6">
                 <div class="d-flex gap-1">
-                    <button class="btn btn-primary btn-sm" onclick="criarMarcador({{ card.boardId }}, {{ card.id }})">{{ 'kanban.comum.criar'|trans }}</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('formCriarMarcador').classList.add('d-none')">{{ 'kanban.comum.cancelar'|trans }}</button>
+                    <button class="bjp-btn bjp-btn--primario" onclick="criarMarcador({{ card.boardId }}, {{ card.id }})">{{ 'kanban.comum.criar'|trans }}</button>
+                    <button class="bjp-btn bjp-btn--secundario" onclick="document.getElementById('formCriarMarcador').classList.add('d-none')">{{ 'kanban.comum.cancelar'|trans }}</button>
                 </div>
             </div>
         </div>
@@ -257,7 +257,7 @@
                        style="max-width:130px;"
                        title="{{ anexo.nomeOriginal }}">{{ anexo.nomeOriginal }}</a>
                     <span class="text-muted flex-shrink-0" style="font-size:.7rem;">{{ anexo.tamanhoFormatado }}</span>
-                    <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                    <button class="bjp-ico bjp-btn--destrutivo flex-shrink-0"
                             onclick="excluirAnexo({{ anexo.id }}, {{ card.id }}, '{{ csrf_token('kanban_anexo_excluir_' ~ anexo.id) }}')"
                             title="{{ 'kanban.card.remover_anexo'|trans }}">
                         <i class="bi bi-x" style="font-size:.9rem;"></i>
@@ -269,7 +269,7 @@
                 {% endif %}
             </div>
 
-            <label class="btn btn-outline-secondary btn-sm mt-1" style="font-size:.78rem; cursor:pointer;">
+            <label class="bjp-btn bjp-btn--secundario mt-1" style="font-size:.78rem; cursor:pointer;">
                 <i class="bi bi-paperclip me-1"></i>{{ 'kanban.card.adicionar_arquivo'|trans }}
                 <input type="file" class="d-none" onchange="uploadAnexo({{ card.id }}, this)">
             </label>
@@ -278,7 +278,7 @@
         {# Criar checklist #}
         <div class="kb-sidebar-section">
             <div class="kb-sidebar-label">{{ 'kanban.card.checklist'|trans }}</div>
-            <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
+            <button class="bjp-btn bjp-btn--secundario" style="font-size:.78rem;"
                     onclick="criarChecklist({{ card.id }})">
                 <i class="bi bi-check-square me-1"></i>{{ 'kanban.card.adicionar_checklist'|trans }}
             </button>
@@ -288,7 +288,7 @@
         <div class="kb-sidebar-section border-top pt-3 mt-2">
             <div class="text-muted" style="font-size:.72rem;">
                 <div>{{ 'kanban.card.criado_em'|trans({data: card.criadoEm|data_hora}) }}</div>
-                <button class="btn btn-link btn-sm p-0 text-danger mt-2"
+                <button class="bjp-btn bjp-btn--destrutivo mt-2"
                         onclick="excluirCard({{ card.id }}, '{{ csrf_token('kanban_card_excluir_' ~ card.id) }}')"
                         style="font-size:.78rem;">
                     <i class="bi bi-trash me-1"></i>{{ 'kanban.card.excluir_card'|trans }}

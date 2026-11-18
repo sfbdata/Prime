@@ -22,9 +22,9 @@
         </div>
     {% endif %}
 
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">{{ 'auth.gerenciar.novo'|trans }}</div>
-        <div class="card-body">
+    <div class="bjp-painel">
+        <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'auth.gerenciar.novo'|trans }}</h3></div>
+        <div class="bjp-painel-corpo">
             <form method="post" action="{{ path('auth_gerenciar_convites_criar') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('convite_novo') }}">
                 <div class="row g-3">
@@ -46,15 +46,15 @@
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">{{ 'auth.gerenciar.convidar'|trans }}</button>
+                        <button type="submit" class="bjp-btn bjp-btn--primario w-100">{{ 'auth.gerenciar.convidar'|trans }}</button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header fw-semibold">{{ 'auth.gerenciar.enviados'|trans }}</div>
+    <div class="bjp-painel">
+        <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'auth.gerenciar.enviados'|trans }}</h3></div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
@@ -100,7 +100,7 @@
                                     <form method="post" action="{{ path('auth_gerenciar_convites_reenviar', {id: convite.id}) }}" class="d-inline"
                                           data-confirmar="{{ 'auth.gerenciar.confirmar_reenviar'|trans }} {{ convite.email }}?">
                                         <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
+                                        <button type="submit" class="bjp-btn bjp-btn--secundario me-1">
                                             {{ 'auth.gerenciar.reenviar'|trans }}
                                         </button>
                                     </form>
@@ -108,7 +108,7 @@
                                 <form method="post" action="{{ path('auth_gerenciar_convites_revogar', {id: convite.id}) }}" class="d-inline"
                                       data-confirmar="{{ 'auth.gerenciar.confirmar_revogar'|trans }} {{ convite.email }}?">
                                     <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <button type="submit" class="bjp-btn bjp-btn--destrutivo">
                                         {{ 'auth.gerenciar.revogar'|trans }}
                                     </button>
                                 </form>

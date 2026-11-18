@@ -561,11 +561,11 @@ input[type="range"].img-slider {
                 {% endif %}
             </div>
             <div class="modal-footer justify-content-center gap-2">
-                <label class="btn btn-primary" style="cursor:pointer">
+                <label class="bjp-btn bjp-btn--primario" style="cursor:pointer">
                     <i class="bi bi-upload me-1"></i>{{ 'perfil.foto.alterar'|trans }}
                     <input type="file" id="inputFotoNova" accept="image/jpeg,image/png,image/webp" hidden>
                 </label>
-                <button type="button" class="btn btn-outline-secondary" id="btnEditarFotoExistente"
+                <button type="button" class="bjp-btn bjp-btn--secundario" id="btnEditarFotoExistente"
                         {% if not perfil.fotoUrl %}style="display:none"{% endif %}>
                     <i class="bi bi-crop me-1"></i>{{ 'perfil.foto.editar'|trans }}
                 </button>
@@ -604,8 +604,8 @@ input[type="range"].img-slider {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelarCropper" type="button">{{ 'perfil.acoes.cancelar'|trans }}</button>
-                <button class="btn btn-primary" id="btnConfirmarFoto" type="button">
+                <button class="bjp-btn bjp-btn--discreto" id="btnCancelarCropper" type="button">{{ 'perfil.acoes.cancelar'|trans }}</button>
+                <button class="bjp-btn bjp-btn--primario" id="btnConfirmarFoto" type="button">
                     <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerFoto"></span>
                     {{ 'perfil.foto.salvar'|trans }}
                 </button>
