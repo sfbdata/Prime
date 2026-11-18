@@ -25,7 +25,7 @@ use Zenstruck\Foundry\Test\Factories;
  * pasta da sequência, e o que precisa ser provado contra o Postgres é o efeito disso na numeração.
  * Desde 18/11/2026 (pedido do Samuel, no lugar da decisão de 28/08) a lápide NÃO ocupa número: se
  * ela era a última, o número volta a ser o próximo; buraco do meio continua sem uso (maior + 1).
- * Restaurar uma lápide cujo número já foi reusado é recusado.
+ * Restaurar uma lápide cujo número já foi reusado sempre funciona: volta com o próximo número livre.
  */
 #[CoversClass(ExcluirPastaUseCase::class)]
 #[CoversClass(\App\Pasta\Service\NumeracaoDePasta::class)]
@@ -130,32 +130,34 @@ final class ExcluirPastaLapideTest extends KernelTestCase
         self::assertSame('1240', $this->proximoNumero($tenant));
     }
 
-    #[TestDox('Restaurar lápide cujo número já foi reusado é recusado com a mensagem, e ela fica na lixeira')]
-    public function testRestaurarComNumeroReusadoEhRecusado(): void
+    #[TestDox('Restaurar lápide cujo número já foi reusado: volta com maior + 1 e a outra pasta não muda')]
+    public function testRestaurarComNumeroReusadoVoltaComProximoLivre(): void
     {
         self::bootKernel();
         $tenant = TenantFactory::createOne()->_real();
         PastaFactory::createOne(['nup' => '1238', 'tenant' => $tenant]);
         $p1239 = PastaFactory::createOne(['nup' => '1239', 'tenant' => $tenant])->_real();
         $this->excluir($p1239, $tenant);
-        PastaFactory::createOne(['nup' => $this->proximoNumero($tenant), 'nomeCliente' => 'MARIA NOVA', 'tenant' => $tenant]);
+        $nova = PastaFactory::createOne(['nup' => $this->proximoNumero($tenant), 'nomeCliente' => 'MARIA NOVA', 'tenant' => $tenant])->_real();
+        self::assertSame('1239', $nova->getNup());
 
         $lapide = $this->recarregar($p1239);
         self::assertNotNull($lapide);
 
-        try {
-            static::getContainer()->get(RestaurarPastaUseCase::class)->executar($lapide, $lapide->getTenant());
-            self::fail('Restaurar com o número já reusado devia ser recusado.');
-        } catch (\InvalidArgumentException $e) {
-            self::assertSame(
-                'O número 1239 já é usado por outra pasta (MARIA NOVA). Mude o número dela antes de restaurar esta.',
-                $e->getMessage(),
-            );
-        }
+        $resultado = static::getContainer()->get(RestaurarPastaUseCase::class)->executar($lapide, $lapide->getTenant());
+
+        self::assertTrue($resultado->mudouDeNumero());
+        self::assertSame('1239', $resultado->numeroAntes);
+        self::assertSame('1240', $resultado->numeroAgora);
 
         $depois = $this->recarregar($p1239);
         self::assertNotNull($depois);
-        self::assertTrue($depois->estaExcluida(), 'A lápide recusada continua na lixeira.');
+        self::assertFalse($depois->estaExcluida());
+        self::assertSame('1240', $depois->getNup());
+
+        $outra = $this->recarregar($nova);
+        self::assertNotNull($outra);
+        self::assertSame('1239', $outra->getNup(), 'A pasta que tinha herdado o número não muda.');
     }
 
     #[TestDox('Número reusado em OUTRO escritório não impede restaurar')]

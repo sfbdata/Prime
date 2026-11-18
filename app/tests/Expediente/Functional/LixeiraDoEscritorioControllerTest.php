@@ -249,6 +249,42 @@ final class LixeiraDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertArrayHasKey('urlLixeira', $g);
     }
 
+    #[TestDox('lápide SEM documento na lixeira aparece; restaurar a pasta só vem com DELETE; número ocupado é avisado')]
+    public function testLapideSemDocumentosERestaurarPasta(): void
+    {
+        $client  = $this->cliente();
+        $tenant  = $this->criarTenant();
+        $quemLe  = $this->criarUsuarioComPermissoes($tenant, self::QUEM_LE);
+        $quemDel = $this->criarUsuarioComPermissoes($tenant, [...self::QUEM_LE, 'resources.pasta.delete']);
+        $lapide  = $this->criarPasta($tenant, 'LAP-9', 'JOSE');
+        $this->criarPasta($tenant, 'LAP-9');
+        $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = :em, excluida_por_id = :por WHERE id = :id', ['em' => '2026-10-05 08:00:00', 'por' => $quemDel->getId(), 'id' => $lapide->getId()]);
+
+        $g = $this->pedir($client, $quemLe, $tenant)['grupos'][0];
+        self::assertSame([(int) $lapide->getId(), true, 0, 0], [$g['pastaId'], $g['pastaExcluida'], $g['documentos'], $g['subpastas']]);
+        self::assertSame(self::atom('2026-10-05 08:00:00'), $g['maisRecente']);
+        self::assertArrayNotHasKey('urlRestaurarPasta', $g, 'sem DELETE a lápide só se olha');
+        self::assertArrayNotHasKey('csrfRestaurarPasta', $g);
+
+        $g = $this->pedir($client, $quemDel, $tenant)['grupos'][0];
+        self::assertSame('/pasta/' . $lapide->getId() . '/restaurar', $g['urlRestaurarPasta']);
+        self::assertTrue(static::getContainer()->get(CsrfTokenManagerInterface::class)->isTokenValid(new CsrfToken('restaurar_pasta_' . $lapide->getId(), $g['csrfRestaurarPasta'])));
+        self::assertTrue($g['numeroOcupado']);
+    }
+
+    #[TestDox('lápide de outro escritório nunca aparece')]
+    public function testLapideDeOutroEscritorioNaoAparece(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $quem   = $this->criarUsuarioComPermissoes($tenant, [...self::QUEM_LE, 'resources.pasta.delete']);
+        $alheio = $this->criarTenant();
+        $pasta  = $this->criarPasta($alheio, 'ALHEIA-LAP');
+        $this->em()->getConnection()->executeStatement('UPDATE pasta SET excluida_em = NOW() WHERE id = :id', ['id' => $pasta->getId()]);
+
+        self::assertSame([], $this->pedir($client, $quem, $tenant)['grupos']);
+    }
+
     #[TestDox('o Expediente tem o botão Lixeira e a janela que lê a rota')]
     public function testTelaTemBotaoEJanela(): void
     {

@@ -65,6 +65,15 @@
             body: JSON.stringify(corpo),
         }).then(lerJson);
     }
+    // Restaurar a pasta: o servidor responde JSON quando o pedido diz que é fetch (X-Requested-With e Accept).
+    function postForm(url, corpo) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            credentials: 'same-origin',
+            body: new URLSearchParams(corpo).toString(),
+        }).then(lerJson);
+    }
     function avisar(texto, erro) {
         el.aviso.hidden = !texto;
         el.aviso.textContent = texto || '';
@@ -173,17 +182,25 @@
         const g = li._grupo;
         const titulo = BJ_T.t('expediente.js.lixeira.pasta', { nup: g.nup }) + ' · ' + (g.nome || BJ_T.t('expediente.js.lixeira.sem_nome'));
         const escreve = !g.pastaExcluida && g.urlRestaurar && g.csrfLote;
+        const restauraPasta = g.pastaExcluida && g.urlRestaurarPasta && g.csrfRestaurarPasta;
+        const semItens = g.pastaExcluida && !g.documentos && !g.subpastas;
         li.textContent = '';
         li.appendChild(icone('bi-folder2 exp-lix-ico'));
         li.appendChild(h('div', { class: 'exp-lix-txt' }, [
             h('span', { class: 'exp-lix-titulo', text: titulo }),
-            h('span', { class: 'exp-lix-sub', text: quantidade(g.documentos, g.subpastas) + ' · ' + quando(g) }),
+            h('span', { class: 'exp-lix-sub', text: semItens ? quando(g) : quantidade(g.documentos, g.subpastas) + ' · ' + quando(g) }),
             h('span', { class: 'exp-lix-sub', text: quem(g) }),
             g.pastaExcluida ? h('span', { class: 'exp-lix-lapide', text: BJ_T.t('expediente.js.lixeira.lapide') }) : null,
             modalDaPasta()
                 ? h('button', { type: 'button', class: 'exp-lix-link', 'data-lix-acao': 'ver', text: BJ_T.t('expediente.js.lixeira.abrir') })
                 : h('a', { class: 'exp-lix-link', href: g.urlPasta, text: BJ_T.t('expediente.js.lixeira.abrir') }),
         ]));
+        if (restauraPasta) {
+            li.appendChild(h('div', { class: 'exp-lix-acoes' }, [
+                h('button', { type: 'button', class: 'exp-btn exp-lix-restaurar-pasta', 'data-lix-acao': 'restaurar-pasta', 'data-tip': BJ_T.t('expediente.js.lixeira.restaurar_pasta_titulo'), disabled: ocupado }, [icone('bi-arrow-counterclockwise'), h('span', { text: BJ_T.t('expediente.js.lixeira.restaurar_pasta') })]),
+            ]));
+            return;
+        }
         if (!escreve) return;
         li.appendChild(h('div', { class: 'exp-lix-acoes' }, [
             h('button', { type: 'button', class: 'exp-btn exp-lix-restaurar', 'data-lix-acao': 'restaurar', 'data-tip': BJ_T.t('expediente.js.lixeira.restaurar_tudo_titulo'), disabled: ocupado }, [icone('bi-arrow-counterclockwise'), h('span', { text: BJ_T.t('expediente.js.lixeira.restaurar_tudo') })]),
@@ -202,6 +219,7 @@
         const li = b.closest('li[data-lix-pasta]');
         if (!li || !li._grupo) return;
         if (b.dataset.lixAcao === 'ver') abrirLixeiraDaPasta(li);
+        else if (b.dataset.lixAcao === 'restaurar-pasta') restaurarPasta(li);
         else if (b.dataset.lixAcao === 'restaurar') restaurarTudo(li);
         else excluirDeVezTudo(li);
     });
@@ -292,6 +310,26 @@
         return rodada(0, { n: 0, pulados: 0 }, itens);
     }
 
+    /* Restaura a PASTA (lápide). Com o número ocupado, a pergunta já avisa que ela volta com o próximo livre;
+       a resposta traz o texto final (com o número novo) e a lista sai desta pasta. */
+    function restaurarPasta(li) {
+        const g = li._grupo;
+        let pergunta = BJ_T.t('expediente.js.lixeira.confirmar_restaurar_pasta', { nup: g.nup });
+        if (g.numeroOcupado) pergunta += '\n\n' + BJ_T.t('expediente.js.lixeira.numero_ocupado', { nup: g.nup });
+        confirmar(pergunta, false).then(function (sim) {
+            if (!sim) return;
+            travar(true);
+            avisar(BJ_T.t('expediente.js.lixeira.restaurando_pasta'));
+            postForm(g.urlRestaurarPasta, { _token: g.csrfRestaurarPasta }).then(function (res) {
+                if (!res.ok || !res.j.ok) throw new Error(res.j.mensagem || BJ_T.t('expediente.js.lixeira.erro_restaurar_pasta'));
+                li.remove();
+                atualizarRodape();
+                avisar(res.j.mensagem || BJ_T.t('expediente.js.lixeira.restaurada_pasta', { nup: g.nup }));
+            }).catch(function (err) {
+                avisar(err.message || BJ_T.t('expediente.js.lixeira.erro_restaurar_pasta'), true);
+            }).then(function () { travar(false); });
+        });
+    }
     function restaurarTudo(li) {
         const g = li._grupo;
         confirmar(BJ_T.t('expediente.js.lixeira.confirmar_restaurar', { nup: g.nup, n: inteiro(g.documentos + g.subpastas) }), false).then(function (sim) {
@@ -333,12 +371,19 @@
         }).then(function () { travar(false); });
     }
     function atualizarGrupo(li, itens) {
-        if (!itens.length) {
+        if (!itens.length && !(li._grupo.pastaExcluida && li._grupo.urlRestaurarPasta)) {
             li.remove();
             atualizarRodape();
             return;
         }
         const g = li._grupo;
+        if (!itens.length) {
+            // Lápide: a pasta continua na lixeira mesmo sem itens dentro dela.
+            g.documentos = 0;
+            g.subpastas = 0;
+            montarGrupo(li);
+            return;
+        }
         const datas = itens.map(function (it) { return it.excluidoEm; }).filter(Boolean).sort();
         const nomes = [];
         itens.forEach(function (it) { const n = it.excluidoPor && it.excluidoPor.nome; if (n && nomes.indexOf(n) === -1) nomes.push(n); });

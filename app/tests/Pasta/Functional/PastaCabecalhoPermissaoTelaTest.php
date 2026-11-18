@@ -158,4 +158,31 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('form[action$="/restaurar"]'));
         self::assertCount(1, $crawler->filter('.ps-cab-acoes > #psHistoricoAbrir'), 'o histórico continua');
     }
+
+    #[TestDox('lápide com número ocupado por outra pasta viva: a janela de restaurar leva o aviso; sem ocupação não leva')]
+    public function testAvisoDeNumeroOcupadoNaJanelaDeRestaurar(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $lapide          = $this->criarPasta($tenant);
+        $lapide->setNup('4321');
+        $lapide->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, $lapide);
+        $form    = $crawler->filter('form.js-restaurar-pasta');
+        self::assertCount(1, $form);
+        self::assertNull($form->attr('data-numero-ocupado'), 'número livre: sem aviso');
+
+        $outra = $this->criarPasta($tenant);
+        $outra->setNup('4321');
+        $this->em()->flush();
+
+        $crawler = $this->abrir($client, $lapide);
+        self::assertSame(
+            'O número 4321 já é de outra pasta. Ela volta com o próximo número livre.',
+            $crawler->filter('form.js-restaurar-pasta')->attr('data-numero-ocupado'),
+        );
+    }
 }

@@ -501,6 +501,9 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            // Janela de restaurar do cabeçalho: avisa quando o número da lápide já é de outra pasta.
+            'numeroDaLapideOcupado'       => $pasta->estaExcluida() && $tenant !== null
+                && $this->restaurarPastaUseCase->numeroOcupado($pasta, $tenant),
             // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
             'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
@@ -1823,26 +1826,61 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        // A Lixeira do Expediente restaura por fetch e pede JSON; o cabeçalho segue o redirect.
+        $querJson = $request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept', ''), 'application/json');
 
         $pastaId = (int) $pasta->getId();
         // Mesma permissão do excluir: quem pode pôr a lápide pode tirar (decisão do dono).
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $querJson
+                ? $this->json(['ok' => false, 'mensagem' => 'Sem permissão para restaurar esta pasta.'], Response::HTTP_FORBIDDEN)
+                : $redirect;
         }
 
         if (!$this->isCsrfTokenValid('restaurar_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
+            if ($querJson) {
+                return $this->json(['ok' => false, 'mensagem' => 'Token CSRF inválido. Recarregue a página e tente de novo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // O nome de ANTES é capturado aqui, enquanto a entidade ainda tem o número da lápide:
+        // se a pasta voltar com outro número, o Drive precisa renomear (mesmo padrão do pasta_edit).
+        $nomeAntes = ReconciliadorDePasta::nomeEsperado($pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao());
+
         try {
-            $this->restaurarPastaUseCase->executar($pasta, $this->tenantContext->getCurrentTenant());
+            $resultado = $this->restaurarPastaUseCase->executar($pasta, $tenant);
         } catch (\InvalidArgumentException $e) {
+            if ($querJson) {
+                return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $this->addFlash('warning', $e->getMessage());
 
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $this->addFlash('success', sprintf('Pasta %s restaurada.', $pasta->getNup()));
+        if ($resultado->mudouDeNumero() && $tenant !== null) {
+            $this->syncDispatcher->despacharSeNomeMudou($pasta, $currentUser, $tenant, $nomeAntes);
+        }
+
+        $mensagem = $resultado->mudouDeNumero()
+            ? sprintf('Pasta restaurada com o número %s. O número %s já era de outra pasta.', $resultado->numeroAgora, $resultado->numeroAntes)
+            : sprintf('Pasta %s restaurada.', $resultado->numeroAgora);
+
+        if ($querJson) {
+            return $this->json([
+                'ok'       => true,
+                'mensagem' => $mensagem,
+                'nup'      => $resultado->numeroAgora,
+                'urlPasta' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+            ]);
+        }
+
+        $this->addFlash('success', $mensagem);
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }

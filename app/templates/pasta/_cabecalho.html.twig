@@ -183,7 +183,8 @@
             {# PAS-034b: a pergunta é a janela da tela (`confirmarPs`, pasta-dialogos.js), não o
                `confirm` do navegador; o script no fim deste parcial segura o envio até a resposta. #}
             <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
-                  class="js-restaurar-pasta" data-nup="{{ pasta.nup }}">
+                  class="js-restaurar-pasta" data-nup="{{ pasta.nup }}"{% if numeroDaLapideOcupado|default(false) %}
+                  data-numero-ocupado="{{ 'pasta_cabecalho.js.cabecalho.restaurar_numero_ocupado'|trans({nup: pasta.nup}) }}"{% endif %}>
                 <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
                 <button type="submit" class="ps-btn" title="{{ 'pasta_cabecalho.cabecalho.restaurar_dica'|trans }}">
                     <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_cabecalho.cabecalho.restaurar'|trans }}</span>
@@ -764,6 +765,8 @@
         // desenho não tem esta pergunta — a convenção dele decide a cor).
         window.confirmarPs({
             titulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar_pergunta', { nup: form.dataset.nup }),
+            // Número da lápide já é de outra pasta: o aviso vem pronto do servidor (data-numero-ocupado).
+            texto: form.dataset.numeroOcupado || '',
             rotulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar'),
             icone: 'bi-arrow-counterclockwise',
             variante: 'azul'

@@ -2198,4 +2198,49 @@ class PastaRepository extends ServiceEntityRepository
 
         return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'nup' => (string) $l['nup']], $qb->getQuery()->getArrayResult());
     }
+
+    /**
+     * Toda pasta EXCLUÍDA (lápide) do escritório, para a Lixeira do Expediente listar mesmo a que
+     * não tem documento na lixeira. Filtro de tenant explícito.
+     *
+     * @return list<Pasta>
+     */
+    public function findExcluidasDoEscritorio(Tenant $tenant): array
+    {
+        return array_values($this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.excluidaEm', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Dos números dados, os que já são de uma pasta VIVA do escritório (a lixeira não conta), numa
+     * consulta só. Serve para a Lixeira avisar que a lápide voltaria com outro número.
+     *
+     * @param list<string> $nups
+     *
+     * @return list<string> números em maiúsculas, como são gravados
+     */
+    public function nupsEmUsoDoEscritorio(Tenant $tenant, array $nups): array
+    {
+        if ($nups === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('DISTINCT p.nup AS nup')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('p.nup IN (:nups)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nups', array_map(static fn (string $n): string => mb_strtoupper(trim($n)), $nups))
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_values(array_map(static fn (array $l): string => (string) $l['nup'], $linhas));
+    }
 }
