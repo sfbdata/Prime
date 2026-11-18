@@ -10,7 +10,6 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPorId;
-use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
@@ -38,8 +37,13 @@ use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Tarefa\DTO\AnalisarPrazoDaMetaInput;
-use App\Tarefa\UseCase\GravarMetaNovaUseCase;
-use App\Tarefa\UseCase\RegistrarAnaliseDoPrazoNaMetaUseCase;
+use App\Tarefa\UseCase\CriarMetaUseCase;
+use App\Tarefa\DTO\CriarMetaInput;
+use App\Tarefa\Exception\AnaliseDoPrazoRecusadaException;
+use App\Tarefa\Exception\MetaNovaInvalidaException;
+use App\Tarefa\Exception\SemAcessoAoModuloTarefasException;
+use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Tarefa\Service\PastasSoAcompanhadasSemVer;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
@@ -194,18 +198,13 @@ final class TarefaController extends AbstractController
 
     /**
      * Cria tarefa vinculada a uma pasta (chamada via modal AJAX). Na pasta excluída (lápide) o
-     * PastaSomenteLeituraListener recusa antes de chegar aqui.
+     * PastaSomenteLeituraListener recusa antes de chegar aqui. A regra mora no `CriarMetaUseCase`, o mesmo do
+     * conector de I.A.; aqui só o formato do modal e as respostas.
      */
     #[Route('/pasta/{pastaId}/criar', name: 'tarefa_criar_para_pasta', methods: ['POST'])]
     #[PastaPorId('pastaId')]
-    public function criarParaPasta(
-        int $pastaId,
-        Request $request,
-        PastaRepository $pastaRepository,
-        ColaboradoresAtribuiveis $atribuiveis,
-        GravarMetaNovaUseCase $gravarMeta,
-        RegistrarAnaliseDoPrazoNaMetaUseCase $registrarAnalise
-    ): JsonResponse {
+    public function criarParaPasta(int $pastaId, Request $request, PastaRepository $pastaRepository, CriarMetaUseCase $criarMeta): JsonResponse
+    {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
@@ -215,6 +214,7 @@ final class TarefaController extends AbstractController
         // escritório quando ela está nos dois (e o TenantFilter falhou) — a meta nasceria com o
         // meu tenant pendurada na pasta alheia. Mesma correção do SEC-013. Fora do escritório:
         // 404, como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
+        // O CriarMetaUseCase confere de novo; aqui é para o 404 vir antes do token.
         $pasta = $pastaRepository->find($pastaId);
         if ($pasta === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
             return $this->json(['erro' => 'Pasta não encontrada.'], 404);
@@ -231,101 +231,59 @@ final class TarefaController extends AbstractController
             return $this->json(['erro' => 'Token inválido.'], 403);
         }
 
-        $titulo = trim((string) $request->request->get('titulo', ''));
-        $descricao = trim((string) $request->request->get('descricao', ''));
-
-        if ($titulo === '' || $descricao === '') {
-            return $this->json(['erro' => 'Título e descrição são obrigatórios.'], 422);
+        try {
+            $meta = $criarMeta->executar($pasta, $usuario, $tenant, $this->pedidoDaMetaNova($request), new \DateTimeImmutable('today'));
+        } catch (PastaDeOutroEscritorioException $e) {
+            return $this->json(['erro' => $e->getMessage()], 404);
+        } catch (SemPermissaoParaVerPastaException|SemAcessoAoModuloTarefasException $e) {
+            return $this->json(['erro' => $e->getMessage()], 403);
+        } catch (AnaliseDoPrazoRecusadaException $e) {
+            return $this->json(['erro' => $e->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
+        } catch (MetaNovaInvalidaException $e) {
+            return $this->json(['erro' => $e->getMessage()], 422);
         }
-
-        // D-META (desenho 02, PZ-MOD-04): prazo e ao menos um responsável também são obrigatórios.
-        $prazo = $this->prazoDaMetaNova($request);
-        $responsaveis = $atribuiveis->resolverVarios(array_map('intval', $request->request->all('responsaveis')), $tenant);
-        if ($prazo === null || $responsaveis === []) {
-            return $this->json(['erro' => $prazo === null ? 'Informe um prazo válido para a meta.' : 'Escolha ao menos um responsável do escritório para a meta.'], 422);
-        }
-
-        // Desenho 02 (L179 e L4048 `inval`): a caixa / etapa é escolhida no modal, obrigatória. Só um valor do enum
-        // vale; a dedução pelo título (PrePersist) continua como rede para as outras rotas, não para esta.
-        $etapa = EtapaDaPasta::tryFrom(trim((string) $request->request->get('etapa', '')));
-        if ($etapa === null) {
-            return $this->json(['erro' => 'Escolha a caixa / etapa da meta.'], 422);
-        }
-
-        $tarefa = $this->novaMetaDaPasta($titulo, $descricao, $pasta, $tenant, $usuario, $prazo, $etapa, $responsaveis);
-
-        // Análise do prazo (desenho 02): estimado ou a conferir não grava.
-        if (($recusa = $this->registrarAnaliseDoPrazo($request, $registrarAnalise, $tarefa, $titulo, $descricao)) !== null) {
-            return $recusa;
-        }
-
-        // Grava já com o número da meta no escritório ("Nº 0001"), sob a trava da sequência.
-        $gravarMeta->executar($tarefa);
-
-        $this->notificacaoService->notificarTarefaCriada($tarefa);
 
         // PMC-044: esta rota só é chamada pelo modal da pasta, então quem criou fica NA pasta — na
         // aba Metas, com a meta nova realçada (`?meta=`, lido pelo pasta-metas.js). A criação pela
         // tela /tarefas é outra rota e não muda.
         return $this->json([
             'sucesso' => true,
-            'id'      => $tarefa->getId(),
-            'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $tarefa->getId()]) . '#tarefas',
+            'id'      => $meta->id,
+            'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $meta->id]) . '#tarefas',
         ]);
     }
 
     /**
-     * A meta nova da pasta, ainda sem gravar (a gravação é do `GravarMetaNovaUseCase`).
-     *
-     * @param iterable<User> $responsaveis
+     * O pedido do modal "Nova meta" da pasta. D-META (desenho 02, PZ-MOD-04): título, descrição, prazo, responsáveis e
+     * a caixa / etapa (L179 e L4048 `inval`). A análise do prazo só vem quando o modal a mostrou (`analise_prazo=1`);
+     * sem o campo (chamadas antigas) a meta nasce como sempre nasceu.
      */
-    private function novaMetaDaPasta(string $titulo, string $descricao, Pasta $pasta, Tenant $tenant, User $usuario, \DateTimeImmutable $prazo, EtapaDaPasta $etapa, iterable $responsaveis): Tarefa
+    private function pedidoDaMetaNova(Request $request): CriarMetaInput
     {
-        $tarefa = new Tarefa();
-        $tarefa->setTitulo($titulo);
-        $tarefa->setDescricao($descricao);
-        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
-        $tarefa->setPasta($pasta);
-        $tarefa->setTenant($tenant);
-        $tarefa->setCriadoPor($usuario);
-        $tarefa->setPrazo($prazo);
-        $tarefa->setEtapa($etapa);
-        foreach ($responsaveis as $responsavel) {
-            $tarefa->addResponsavel($responsavel);
-        }
+        $titulo = trim((string) $request->request->get('titulo', ''));
+        $descricao = trim((string) $request->request->get('descricao', ''));
+        $analise = '1' !== (string) $request->request->get('analise_prazo') ? null : new AnalisarPrazoDaMetaInput(
+            $titulo,
+            $descricao,
+            AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_publicacao')),
+            AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_ciencia')),
+            AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('prazo_juridico')),
+            '1' === (string) $request->request->get('analise_confirmada'),
+        );
 
-        return $tarefa;
-    }
-
-    /**
-     * Análise do prazo da Nova meta (desenho 02): o modal manda `analise_prazo=1` quando a mostrou. Sem o campo (chamadas
-     * antigas) a meta nasce como sempre nasceu. Devolve a recusa 422 quando o prazo jurídico ainda é só uma estimativa.
-     */
-    private function registrarAnaliseDoPrazo(Request $request, RegistrarAnaliseDoPrazoNaMetaUseCase $registrar, Tarefa $tarefa, string $titulo, string $descricao): ?JsonResponse
-    {
-        if ('1' !== (string) $request->request->get('analise_prazo')) {
-            return null;
-        }
-
-        try {
-            $registrar->executar($tarefa, new AnalisarPrazoDaMetaInput(
-                $titulo,
-                $descricao,
-                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_publicacao')),
-                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_ciencia')),
-                AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('prazo_juridico')),
-                '1' === (string) $request->request->get('analise_confirmada'),
-            ), new \DateTimeImmutable('today'));
-        } catch (\DomainException $recusa) {
-            return $this->json(['erro' => $recusa->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
-        }
-
-        return null;
+        return new CriarMetaInput(
+            $titulo,
+            $descricao,
+            $this->prazoDaMetaNova($request),
+            array_values(array_map('intval', $request->request->all('responsaveis'))),
+            EtapaDaPasta::tryFrom(trim((string) $request->request->get('etapa', ''))),
+            $analise,
+        );
     }
 
     /**
      * O prazo da meta nova, no formato do campo do modal (`<input type="date">`, ISO `aaaa-mm-dd`). Vazio ou fora
-     * do formato (texto solto, data impossível como 31/02) vira null, e o `criarParaPasta` responde 422.
+     * do formato (texto solto, data impossível como 31/02) vira null, e o `CriarMetaUseCase` recusa.
      */
     private function prazoDaMetaNova(Request $request): ?\DateTimeImmutable
     {
