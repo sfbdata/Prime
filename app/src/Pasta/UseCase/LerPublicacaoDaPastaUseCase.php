@@ -62,9 +62,11 @@ final class LerPublicacaoDaPastaUseCase
         $todas = $this->publicacoes->listarItensPorNumerosDoTenant($tenant, $numeros, self::LIMITE_DA_LISTA);
         $daPagina = \array_slice($todas, max(0, ($pagina - 1) * $porPagina), $porPagina);
 
+        // Uma consulta para a página inteira, com a mesma restrição de escritório e números da leitura de uma só.
+        $porId = $this->publicacoes->findByIdsENumerosDoTenant(array_map(static fn ($item) => $item->id, $daPagina), $tenant, $numeros);
         $itens = [];
         foreach ($daPagina as $item) {
-            $publicacao = $this->publicacoes->findOneByIdENumerosDoTenant($item->id, $tenant, $numeros);
+            $publicacao = $porId[$item->id] ?? null;
             if ($publicacao === null) {
                 continue;
             }

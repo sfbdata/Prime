@@ -7,7 +7,6 @@ namespace App\Conector\Service;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\TabelaDeAbaEChave;
-use App\Entity\Permission\AccessRequest;
 use App\Master\Service\RecursosDoSistema;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\AcessoAPasta;
@@ -90,8 +89,11 @@ final class GuardaDaAcaoDoConector
      */
     public function exigirEdicaoDaPasta(ChamadaDoConector $chamada, Pasta $pasta): void
     {
+        // Pela mesma porta da tela e do `podeVer` acima (decisão 26): o que o acesso restrito mudar no AcessoAPasta vale aqui também.
         $contexto = $chamada->contexto;
-        if (!$this->permissoes->canAccessResource($contexto->pessoa, $contexto->escritorio, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT)) {
+        $escritorioDaPasta = $pasta->getTenant()?->getId();
+        $doEscritorio = $escritorioDaPasta !== null && $escritorioDaPasta === $contexto->escritorio->getId();
+        if (!$doEscritorio || !$this->acessoAPasta->podeEditar($contexto->pessoa, $pasta)) {
             throw ErroDaFerramenta::naoEncontrado();
         }
     }

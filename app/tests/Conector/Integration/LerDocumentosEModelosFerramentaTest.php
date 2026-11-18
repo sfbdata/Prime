@@ -479,6 +479,21 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         }
     }
 
+    #[DataProvider('acoes')]
+    #[TestDox('com o módulo Pastas mas sem o recurso de ver a pasta, sem cadeado: não encontrado em toda ação: $_dataName')]
+    public function testSemVerAPasta(string $acao): void
+    {
+        $pasta = $this->pasta();
+        $doc = $this->documento($pasta, 'peticao.pdf', self::PDF);
+        $modelo = $this->modelo('M', 'corpo');
+        $semVer = $this->pessoa();
+        $this->vinculo($semVer, $this->escritorio, permissoes: ['modules.pastas.view']);
+        $this->em()->flush();
+        $this->pessoa = $semVer;
+
+        $this->assertMotivo($acao, $pasta, ['documento_id' => $doc->getId(), 'modelo_id' => $modelo->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
     #[TestDox('sem o módulo Pastas: sem permissão em toda ação (a tabela da 6.6)')]
     public function testSemModulo(): void
     {
