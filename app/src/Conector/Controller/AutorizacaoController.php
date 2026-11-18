@@ -102,7 +102,7 @@ final class AutorizacaoController extends AbstractController
 
         $pedido = $this->pedidos->retirar($input->pedido);
         if ($pedido === null || !$valido) {
-            return $this->recusa(self::PEDIDO_INVALIDO, Response::HTTP_BAD_REQUEST);
+            return $this->pedidoQueNaoVale($valido, $input->pedido);
         }
         if (!self::clicou($form, 'autorizar')) {
             return RespostaDeAutorizacao::erro($pedido->redirectUri, ErroOAuth::accessDenied(), $pedido->state);
@@ -119,7 +119,23 @@ final class AutorizacaoController extends AbstractController
             return $this->recusa(ClienteRecusado::MENSAGEM, Response::HTTP_BAD_REQUEST);
         }
 
+        $this->pedidos->marcarConcluido($input->pedido);
+
         return RespostaDeAutorizacao::sucesso($pedido->redirectUri, $codigo, $pedido->state);
+    }
+
+    /**
+     * Pedido que não está mais na sessão, ou envio inválido. O mesmo pedido de novo, logo depois de conectar (segundo
+     * clique enquanto o app carregava), mostra "Conexão feita": a conexão já foi feita, e o navegador mostra esta
+     * resposta no lugar da volta ao app. Nada é concedido de novo.
+     */
+    private function pedidoQueNaoVale(bool $envioValido, ?string $id): Response
+    {
+        if ($envioValido && $this->pedidos->foiConcluido($id)) {
+            return $this->semMoldura($this->render('conector/autorizacao_concluida.html.twig'));
+        }
+
+        return $this->recusa(self::PEDIDO_INVALIDO, Response::HTTP_BAD_REQUEST);
     }
 
     private function tela(PedidoDeAutorizacao $pedido, FormInterface $form, User $pessoa, ?string $aviso = null, int $status = Response::HTTP_OK): Response

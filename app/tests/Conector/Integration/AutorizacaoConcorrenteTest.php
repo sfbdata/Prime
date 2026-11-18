@@ -85,6 +85,11 @@ final class AutorizacaoConcorrenteTest extends KernelTestCase
             self::assertInstanceOf(CodigoDoConector::class, $gravado);
             self::assertSame($consentimentoDoPrimeiro, $gravado->getConcessao()->getConsentimento()->getId(), 'reaproveitou o consentimento do primeiro');
             self::assertSame(1, $this->em()->getRepository(ConsentimentoDoConector::class)->count(['user' => $cenario['userId'], 'revogadoEm' => null]));
+            self::assertSame(
+                [['id' => $gravado->getConcessao()->getId(), 'motivo' => null]],
+                $this->em()->getConnection()->fetchAllAssociative('SELECT id, motivo FROM conector_ia_concessao WHERE consentimento_id = ?', [$consentimentoDoPrimeiro]),
+                'decisão 23: a substituição, no consentimento que o primeiro gravou, não derruba a concessão nova do segundo',
+            );
         });
     }
 

@@ -216,6 +216,9 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
             self::assertSame('claude.ai', $campos['cliente'] ?? null, $linha);
         }
         self::assertSame(QuemSouEuFerramenta::NOME, self::contextoDaLinha($linhas[1])['ferramenta'] ?? null);
+        // O método JSON-RPC e a versão do protocolo: distinguem no log a lista da chamada da ferramenta.
+        self::assertSame(['tools/list', 'tools/call', 'tools/call'], array_map(static fn (string $l): ?string => self::contextoDaLinha($l)['metodo'] ?? null, $linhas));
+        self::assertSame([self::ERA_DO_INITIALIZE, self::ERA_DO_INITIALIZE, self::SEM_ESTADO], array_map(static fn (string $l): ?string => self::contextoDaLinha($l)['versao'] ?? null, $linhas));
 
         foreach ([$par['access_token'], $par['refresh_token'], hash('sha256', $par['access_token'])] as $segredo) {
             self::assertStringNotContainsString($segredo, $conteudo, 'o token nunca vai ao log mcp');

@@ -123,6 +123,46 @@ final class PedidoDeAutorizacaoNaSessaoTest extends TestCase
         self::assertSame('5', $sut->retirar($ids[5])?->state);
     }
 
+    #[TestDox('o pedido marcado como concluído é reconhecido por 10 minutos; id vazio, nulo ou outro não')]
+    public function testConcluidoVence(): void
+    {
+        $sut = $this->sut();
+        $id = $sut->guardar(self::pedido());
+        $sut->retirar($id);
+
+        self::assertFalse($sut->foiConcluido($id), 'retirar não marca: só o sucesso marca');
+        $sut->marcarConcluido($id);
+        self::assertTrue($sut->foiConcluido($id));
+        self::assertFalse($sut->foiConcluido('outro'));
+        self::assertFalse($sut->foiConcluido(''));
+        self::assertFalse($sut->foiConcluido(null));
+
+        $this->relogio->sleep(600);
+        self::assertFalse($sut->foiConcluido($id));
+    }
+
+    #[TestDox('a sessão guarda no máximo 5 concluídos: o mais antigo sai')]
+    public function testMaximoDeConcluidos(): void
+    {
+        $sut = $this->sut();
+        for ($i = 0; $i < 6; ++$i) {
+            $sut->marcarConcluido('pedido-' . $i);
+        }
+
+        self::assertFalse($sut->foiConcluido('pedido-0'));
+        self::assertTrue($sut->foiConcluido('pedido-5'));
+    }
+
+    #[TestDox('o concluído de uma sessão não vale em outra')]
+    public function testConcluidoEDaSessao(): void
+    {
+        $this->sut()->marcarConcluido('pedido-a');
+
+        $this->sessao = new Session(new MockArraySessionStorage());
+
+        self::assertFalse($this->sut()->foiConcluido('pedido-a'));
+    }
+
     #[TestDox('sessão adulterada (forma errada) não vira pedido')]
     public function testSessaoAdulterada(): void
     {

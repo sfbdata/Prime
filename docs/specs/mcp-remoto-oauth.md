@@ -697,6 +697,10 @@ entre ler e gravar).
    (ou um logger que só passa `warning` sem contexto), porque ele escreve no log a mensagem inteira, os argumentos e o
    resultado da ferramenta (3.1), e o canal `mcp` grava `info` em `mcp.log` na produção (`monolog.yaml:96-100`); sem isso,
    o CPF de `atualizar_cliente` e o conteúdo de documento iriam para o arquivo.
+   A linha de cada requisição (`RegistroDaChamadaMiddleware`) leva também o `metodo` JSON-RPC (`initialize`, `tools/list`,
+   `tools/call`...) e a `versao` do cabeçalho `MCP-Protocol-Version`, só quando batem com o formato esperado (nome de método
+   curto, data `AAAA-MM-DD`); nada mais do corpo vai para o log. Veio do smoke de 18/11 em produção: sem o método, não dava
+   para saber se o app chegou a chamar alguma ferramenta.
 10. **Entrada fechada**: JSON Schema plano, com `acao` em lista fechada e os campos opcionais de cada ação, e
     `additionalProperties: false`; o servidor valida por ação e recusa campo que a ação não usa. Sem `oneOf`, para não
     depender de como cada cliente o trata. Valor fora da lista vira erro de ferramenta com mensagem fixa em português, nunca
@@ -1742,7 +1746,9 @@ erradas do plano, todas invisíveis à leitura):
     conector), e o chat continua exigindo o aceite da I.A.; nada é gravado (nenhuma meta muda).
 27. **Tela de consentimento** (9.4): POST sem token CSRF, ou com token errado, recusa; escritório trocado no formulário por
     um em que a pessoa não tem vínculo ativo recusa; parâmetros OAuth alterados entre o GET e o POST não valem (vêm da
-    sessão).
+    sessão). O pedido continua de uso único, mas o mesmo pedido enviado de novo até 10 minutos depois de **autorizado**
+    (segundo clique enquanto a volta ao app carregava, achado do smoke de 18/11) mostra "Conexão feita" em vez do erro e
+    não concede nada de novo; depois de **negado**, o reenvio segue recusado. A tela manda o formulário uma vez só.
 28. **Tabelas e faxina** (13.2): `PurgaCoberturaSchemaTest` verde com as tabelas novas; purgar o escritório e excluir a conta
     levam as linhas pela cascata; a faxina apaga o que venceu além do prazo e não toca o que está em uso.
 29. **Resposta** (6.2, regra 7): o `content` de cada ferramenta traz o mesmo dado do `structuredContent`; nenhuma
@@ -2051,7 +2057,8 @@ entra num PR próprio depois de testada nos dois clientes.
    também (achado do teste ponta a ponta): ele não usa sessão, e um cookie que chegue junto não pode prender a troca
    ao escritório da sessão; ali o escritório vem da concessão.
 5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
-   concessões já abertas guardam os escopos delas.
+   concessões já abertas guardam os escopos delas. *Revisto em 18/11/2026: as concessões anteriores caem como
+   `substituida` (decisão 23, no bloco de 18/11 da seção 14).*
 6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com
    `codigo_reutilizado` (item 5 do bloco anterior).
 7. **`offline_access`**: a renovação é emitida sempre, peça o app ou não esse escopo.
@@ -2225,3 +2232,12 @@ Coordenador):**
     e só depois corta: descrição e observação da agenda, título do prazo e os rótulos e textos dos dois montadores
     (`MontadorDeContextoDaPasta`, `MontadorDeContextoDoPush`). O chat só passa a mascarar mais quando a preferência do
     escritório pede máscara; sem máscara, nada muda.
+
+**Decidido em 18/11/2026, depois do smoke em produção (Coordenador):**
+
+23. **Reconectar substitui a concessão anterior.** Ao gravar uma concessão nova num consentimento que já existia
+    (reautorizar o mesmo app no mesmo escritório), as concessões abertas dele caem na mesma transação, com o motivo
+    `substituida`; a cadeia de tokens delas cai junto, porque token e renovação dependem da concessão. Achado do smoke:
+    reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil
+    mostrava só a conexão com os escopos novos. A coluna `motivo` é VARCHAR(40) sem CHECK: sem migration.
+    `FluxoOAuthCompletoTest::testReconectarSubstituiAConcessaoAnterior` prende isso.
