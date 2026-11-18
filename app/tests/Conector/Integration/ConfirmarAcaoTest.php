@@ -32,7 +32,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
-use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * Proposta e `confirmar_acao` com o banco (spec mcp-remoto-oauth 6.7 e 12.20): a proposta não grava nada e guarda só o
