@@ -155,8 +155,10 @@ class PermissionChecker implements ResetInterface
         }
 
         $noCadeado = array_values(array_filter($resourceIds, fn (int $id): bool => $this->cabeNoCadeadoDaPasta($user, $userTenant, $resourceType, $id, $action)));
-        $acessos   = $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
-        $doPapel   = $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
+        $permissao = sprintf('resources.%s.%s', $resourceType, $action);
+        // Acesso restrito: a liberação item a item não passa da lista de liberação (como no `permiteORecurso`).
+        $acessos   = PermissoesDoAcessoRestrito::bloqueia($userTenant->getTenantRole(), $permissao) ? [] : $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
+        $doPapel   = $this->hasPermissionFromUserTenant($userTenant, $permissao);
 
         return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel));
     }
@@ -250,6 +252,10 @@ class PermissionChecker implements ResetInterface
         if ($resourceType === AccessRequest::RESOURCE_PROCESSO) {
             // K3: o processo cujas pastas são todas ocultas para a pessoa não abre para ela.
             return !$this->nivelNoCadeado->processoOcultoComVinculo($user, $userTenant, $resourceId);
+        }
+        if ($resourceType === AccessRequest::RESOURCE_CLIENTE) {
+            // Acesso restrito: só os clientes das pastas sob a responsabilidade da pessoa.
+            return !$this->nivelNoCadeado->clienteForaDoEscopoComVinculo($user, $userTenant, $resourceId);
         }
         if ($resourceType !== AccessRequest::RESOURCE_PASTA) {
             return true;

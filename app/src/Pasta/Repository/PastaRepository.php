@@ -540,7 +540,7 @@ class PastaRepository extends ServiceEntityRepository
      */
     public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant, ?User $quemVe = null): array
     {
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select(
                 'p.id AS id',
                 'p.nup AS nup',
@@ -557,9 +557,10 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('pp.principal', 'DESC')
-            ->addOrderBy('p.id', 'DESC')
-            ->getQuery()
-            ->getArrayResult();
+            ->addOrderBy('p.id', 'DESC');
+        // Acesso restrito: a pasta fora do escopo nem aparece (o cadeado mostra o número; o escopo, nada).
+        $this->soNoEscopo($qb, $quemVe);
+        $linhas = $qb->getQuery()->getArrayResult();
 
         return array_map(function (array $linha) use ($tenant, $quemVe): PastaVinculadaOutput {
             $pasta = PastaVinculadaOutput::fromRow($linha);

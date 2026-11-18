@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
+use App\Cliente\Entity\ClienteDocumento;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\EscopoDePastas;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
@@ -27,6 +31,9 @@ use Twig\Environment;
  * cliente), Meu Perfil, Contribua, sair e a troca de escritório, mais o que não mostra dado do escritório (sino, termos,
  * páginas públicas). Rota nova fica fechada até alguém a pôr aqui. O resto recebe a tela "Fora do seu acesso" (403,
  * textos do `bj-escopo.js` do desenho); a página inicial manda para a Lista.
+ *
+ * Nas rotas liberadas de cliente e processo por id (fatia 2b), o cliente que não está em nenhuma pasta sob a
+ * responsabilidade dele e o processo sem nenhuma pasta dele dão 404, como a pasta alheia (não confirma que existem).
  *
  * Prioridade 2: depois do roteamento (32), do firewall (8), da barreira da sessão (6), do TenantFilter (5) e da
  * barreira do escritório inativo (3).
@@ -101,22 +108,36 @@ final class BarreiraDoAcessoRestritoListener
         'auth_gerenciar_convites_revogar',
     ];
 
+    /** @var list<string> rotas `cliente_*` em que o `{id}` é o do documento do cliente, e não o do cliente */
+    public const ROTAS_POR_DOCUMENTO_DO_CLIENTE = [
+        'cliente_documento_view',
+        'cliente_documento_download',
+        'cliente_documento_edit',
+        'cliente_documento_delete',
+    ];
+
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly EscopoDePastas $escopo,
         private readonly UrlGeneratorInterface $urls,
         private readonly Environment $twig,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
     public function __invoke(RequestEvent $event): void
     {
-        $rota = (string) $event->getRequest()->attributes->get('_route', '');
+        $request = $event->getRequest();
+        $rota    = (string) $request->attributes->get('_route', '');
         // Rota sem sessão (o conector MCP, por token) não tem escritório da sessão para olhar; o escopo dela vem da
         // lista de liberação e do `NivelNoCadeado` com o escritório do token (fatia 3).
-        $semSessao = $event->getRequest()->attributes->getBoolean('_stateless');
-        if (!$event->isMainRequest() || $rota === '' || $semSessao || !$this->ehRestrito()) {
+        if (!$event->isMainRequest() || $rota === '' || $request->attributes->getBoolean('_stateless')) {
+            return;
+        }
+        $usuario = $this->security->getUser();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if (!$usuario instanceof User || $tenant === null || !$this->escopo->ehRestritoNoEscritorio($usuario, $tenant)) {
             return;
         }
 
@@ -126,7 +147,12 @@ final class BarreiraDoAcessoRestritoListener
             return;
         }
         if (!self::liberada($rota)) {
-            $event->setResponse($this->recusa($event->getRequest()));
+            $event->setResponse($this->recusa($request));
+
+            return;
+        }
+        if ($this->recursoDaRotaForaDoEscopo($rota, $request, $usuario, $tenant)) {
+            throw new NotFoundHttpException('Não encontrado.');
         }
     }
 
@@ -147,12 +173,24 @@ final class BarreiraDoAcessoRestritoListener
         return false;
     }
 
-    private function ehRestrito(): bool
+    /** Cliente ou processo do `{id}` da rota fora do escopo do restrito. Documento inexistente segue para o 404 do controller. */
+    private function recursoDaRotaForaDoEscopo(string $rota, Request $request, User $usuario, Tenant $tenant): bool
     {
-        $usuario = $this->security->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
+        $id = $request->attributes->get('id');
+        if (!is_scalar($id) || !ctype_digit((string) $id)) {
+            return false;
+        }
+        if (str_starts_with($rota, 'processo_')) {
+            return $this->escopo->processoForaDoEscopo($usuario, $tenant, (int) $id);
+        }
+        if (!str_starts_with($rota, 'cliente_')) {
+            return false;
+        }
+        $clienteId = in_array($rota, self::ROTAS_POR_DOCUMENTO_DO_CLIENTE, true)
+            ? $this->em->find(ClienteDocumento::class, (int) $id)?->getCliente()?->getId()
+            : (int) $id;
 
-        return $usuario instanceof User && $tenant !== null && $this->escopo->ehRestritoNoEscritorio($usuario, $tenant);
+        return $clienteId !== null && $this->escopo->clienteForaDoEscopo($usuario, $tenant, (int) $clienteId);
     }
 
     private function recusa(Request $request): Response

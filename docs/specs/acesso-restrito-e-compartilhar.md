@@ -261,7 +261,10 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   feita (migration `Version20261118100000`); ninguém liga o restrito antes da fatia 4.
 - 18/11: revisão de vazamento da fatia 2. Corrigidos nela: sugestões da Nova pasta (nome e total de pastas de
   cliente alheio), total do trilho e liberação item a item (`ResourceAccess`) que passava da lista de liberação.
-  Ficam para a fatia 3 (bloqueiam a entrega dela): `cliente_show` e `processo_show` ainda listam a pasta alheia
-  com o NUP (formato do cadeado); cliente e processo abrem por id sem olhar o escopo (dado cadastral, documentos
-  do cliente, nota técnica); processo sem pasta aparece; conferir toda rota `pasta_*` por id de filha
-  (`#[PastaPelaFilha]`) e o aviso de meta sem link no sino.
+- 18/11: fatia 2b (decisão do Coordenador: não esperar a fatia 3, que fica só com o conector). O restrito só
+  alcança o cliente que está numa pasta dele (principal ou vinculado) e o processo ligado a uma pasta dele: o resto
+  dá 404 em toda rota `cliente_*` e `processo_*` por id (inclusive documento do cliente e nota técnica), some da
+  lista de processos (também o processo sem pasta) e da busca de cliente para vincular; nas telas do cliente e do
+  processo a pasta alheia nem aparece. Rotas `pasta_*` por id de filha: cobertas pelo
+  `BarreiraDoCadeadoRotasArquiteturaTest` e pelo 404 do escopo na barreira do cadeado. Ainda a conferir na fatia 3:
+  o aviso de meta sem link no sino.

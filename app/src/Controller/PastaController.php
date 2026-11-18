@@ -17,6 +17,7 @@ use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
@@ -943,6 +944,25 @@ class PastaController extends AbstractController
     }
 
     /**
+     * Acesso restrito (spec acesso-restrito-e-compartilhar §4.3): os clientes das pastas sob a responsabilidade de
+     * quem busca; `null` para quem não é restrito.
+     *
+     * @return list<int>|null
+     */
+    private function clientesNoEscopo(EscopoDePastas $escopo, Tenant $tenant): ?array
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof User ? $escopo->idsDosClientesNoEscopo($usuario, $tenant) : null;
+    }
+
+    /** @param list<int>|null $clientesNoEscopo `null` = sem restrição */
+    private static function foraDosClientes(Cliente $cliente, ?array $clientesNoEscopo): bool
+    {
+        return $clientesNoEscopo !== null && !in_array($cliente->getId(), $clientesNoEscopo, true);
+    }
+
+    /**
      * Busca de cliente para vincular à pasta — usada pelo modal "Adicionar Cliente" e pela busca
      * inline do cartão Clientes do trilho (desenho 1.2.3, L.1357-1372 e L.3304).
      *
@@ -967,7 +987,7 @@ class PastaController extends AbstractController
      * (`podeMexerNoCliente`). Pasta de outro escritório: 404.
      */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
-    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
+    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias, EscopoDePastas $escopo): JsonResponse
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
@@ -987,12 +1007,14 @@ class PastaController extends AbstractController
         $termoMinusculo     = mb_strtolower($termo);
         $termoDigitos       = (string) preg_replace('/\D/', '', $termo);
         $documentoInteiroDigitado = in_array(strlen($termoDigitos), [11, 14], true);
+        $clientesNoEscopo = $this->clientesNoEscopo($escopo, $tenant);
 
         $achados = [];
         foreach ($this->clienteRepository->findAll() as $cliente) {
             // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
             // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
-            if ($cliente->getTenant()?->getId() !== $tenant->getId()) {
+            // Acesso restrito: só os clientes das pastas sob a responsabilidade de quem busca.
+            if ($cliente->getTenant()?->getId() !== $tenant->getId() || self::foraDosClientes($cliente, $clientesNoEscopo)) {
                 continue;
             }
 

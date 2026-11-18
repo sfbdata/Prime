@@ -319,7 +319,18 @@ final class NivelNoCadeado implements ResetInterface
     {
         $chave = $pessoa->getId() . ':' . $tenant->getId();
 
-        return $this->processosOcultos[$chave] ??= $this->cadeadoRepository->processosSoDestasPastas($this->idsDasPastasOcultas($pessoa, $tenant));
+        return $this->processosOcultos[$chave] ??= array_values(array_unique([
+            ...$this->cadeadoRepository->processosSoDestasPastas($this->idsDasPastasOcultas($pessoa, $tenant)),
+            // Acesso restrito: também o processo sem nenhuma pasta sob a responsabilidade da pessoa (inclusive sem pasta).
+            ...($this->escopo?->idsDosProcessosForaDoEscopo($pessoa, $tenant) ?? []),
+        ]));
+    }
+
+    /** Acesso restrito: o cliente que não está em nenhuma pasta sob a responsabilidade da pessoa (Master e primário: nunca). */
+    public function clienteForaDoEscopoComVinculo(User $pessoa, UserTenant $vinculoAtivo, int $clienteId): bool
+    {
+        return $this->escopo !== null && $this->escopo->ehRestrito($pessoa, $vinculoAtivo)
+            && $this->escopo->clienteForaDoEscopo($pessoa, $vinculoAtivo->getTenant(), $clienteId);
     }
 
     /** O mesmo, para o `canAccessResource`, que já tem o vínculo ativo (Master e primário: nenhum). */
