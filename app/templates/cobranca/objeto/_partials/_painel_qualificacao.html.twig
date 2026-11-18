@@ -32,9 +32,9 @@
         <form method="post" action="{{ path('cobranca_qualificacao_registrar', {id: caso.id}) }}" data-disable-on-submit="true">
             <input type="hidden" name="_token" value="{{ csrf_token('registrar_qualificacao_' ~ caso.id) }}">
             <input type="hidden" name="qualificacao" value="{{ q.value }}">
-            <button type="submit" class="btn btn-sm w-100 {{ loop.last ? 'jp-btn-accent' : 'btn-outline-secondary' }}"
+            <button type="submit" class="bjp-btn bjp-btn--secundario w-100 {{ loop.last ? 'bjp-btn--primario' : '' }}"
                     data-qualificacao="{{ q.value }}">
-                <i class="bi {{ q.icone }} me-1"></i>{{ q.label }}
+                <i class="bi {{ q.icone }}"></i>{{ q.label }}
             </button>
         </form>
         {% endfor %}
@@ -66,7 +66,7 @@
                       class="ms-auto" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('desfazer_qualificacao_' ~ linha.eventoId) }}">
                     {# Edição sem prazo (item 7): liberado só pelo poder, leva o selo no hover e no foco. #}
-                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none{{ linha.seloSemPrazo ? ' com-selo-sem-prazo' }}" data-acao="desfazer-qualificacao">
+                    <button type="submit" class="bjp-btn bjp-btn--discreto p-0 text-decoration-none{{ linha.seloSemPrazo ? ' com-selo-sem-prazo' }}" data-acao="desfazer-qualificacao">
                         {{ 'cobranca_objeto.qualificacao.desfazer'|trans }}{% include '_partials/_selo_sem_prazo.html.twig' with {poder: linha.seloSemPrazo} only %}
                     </button>
                 </form>

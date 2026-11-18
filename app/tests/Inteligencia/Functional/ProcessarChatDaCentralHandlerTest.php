@@ -86,7 +86,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
-            new DisponibilidadeDeInteligencia($provedor, $c->get(ConfiguracaoDeInteligenciaRepository::class), $repositorio, $c->get(PermissionChecker::class), $iaHabilitada, $c->get(ConfiguracaoDaPlataformaDeIaRepository::class), new CustoDaIa('us')),
+            new DisponibilidadeDeInteligencia($provedor, $c->get(ConfiguracaoDeInteligenciaRepository::class), $repositorio, $c->get(PermissionChecker::class), $iaHabilitada, $c->get(ConfiguracaoDaPlataformaDeIaRepository::class), new CustoDaIa('us'), $c->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class), $c->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class)),
             $logger ?? new LoggerEmMemoria(),
         );
     }

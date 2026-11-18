@@ -26,18 +26,18 @@
                          data-index="{{ forms.registrarPagamento.alocacoes|length }}">
                         {% for alocacao in forms.registrarPagamento.alocacoes %}
                         <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
+                            <button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.registrarPagamento.alocacoes) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" id="addAlocacaoPagamento"><i class="bi bi-plus-lg"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
                 </div>
                 <div class="form-text">{{ 'cobranca_objeto.financeiro.registrar_ajuda.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.alocar_manualmente'|trans }}</strong> {{ 'cobranca_objeto.financeiro.alocar_manualmente_fim'|trans }}</div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_pagamento'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.financeiro.registrar_pagamento'|trans }}</button>
             </div>
             {{ form_end(forms.registrarPagamento) }}
         </div>
@@ -72,19 +72,19 @@
                          data-index="{{ forms.corrigirPagamento.alocacoes|length }}">
                         {% for alocacao in forms.corrigirPagamento.alocacoes %}
                         <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
+                            <button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.corrigirPagamento.alocacoes) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
                 </div>
                 <div class="form-text">{{ 'cobranca_objeto.financeiro.corrigir_ajuda.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.alocar_manualmente'|trans }}</strong> {{ 'cobranca_objeto.financeiro.alocar_manualmente_fim'|trans }}</div>
                 {{ form_row(forms.corrigirPagamento.motivoCorrecao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.corrigir_pagamento'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.financeiro.corrigir_pagamento'|trans }}</button>
             </div>
             {{ form_end(forms.corrigirPagamento) }}
         </div>
@@ -111,8 +111,8 @@
                     <input type="text" name="motivo" id="motivoExcluirPagamento" class="form-control" maxlength="255" placeholder="{{ 'cobranca_objeto.financeiro.motivo_placeholder'|trans }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.financeiro.excluir_recebimento'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-trash"></i>{{ 'cobranca_objeto.financeiro.excluir_recebimento'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -138,8 +138,8 @@
                 {{ form_row(forms.registrarLiquidacao.data) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_liquidacao'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.financeiro.registrar_liquidacao'|trans }}</button>
             </div>
             {{ form_end(forms.registrarLiquidacao) }}
         </div>

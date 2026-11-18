@@ -1398,6 +1398,8 @@
         function ajustarCompositor() {
             var podeEnviar = podeEscrever();
             el.compositor.hidden = !podeEnviar || !!miniIa;
+            var saldoDaIa = el.telaConversa.querySelector('[data-central-ia-saldo]');   // barra de uso da I.A. gratuita: só na conversa com a IA
+            if (saldoDaIa) { saldoDaIa.hidden = !(estado.aberta && estado.aberta.ia); }
             el.telaConversa.querySelectorAll('.bj-central-aviso').forEach(function (a) { a.remove(); });
             atualizarCampoDaIa();
             if (podeEnviar && estado.aberta && estado.aberta.ia && ia.aviso) {   // aviso fixo: a resposta é de IA e pode errar
@@ -1615,6 +1617,7 @@
                 }
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
+                if (e.codigo === 'saldo_da_pessoa_esgotado' && window.BJIaSaldo && window.BJIaSaldo.recusou({ motivo: e.codigo })) { return; }   // I.A. gratuita esgotada: janela da trava (ia-saldo.js)
                 avisar(e.message);   // 409 contexto_bloqueado e 404 pasta_nao_encontrada: a mensagem fixa do servidor
                 if (e.codigo === 'cruzamento_sem_consentimento') { desligarClientes(); }   // o escritório não autorizou: a barra fica, o interruptor desliga
                 if (e.codigo === 'pasta_nao_encontrada' || e.codigo === 'contexto_bloqueado') { removerBarraDaPasta(); }   // pasta que a IA não lê: as próximas perguntas vão sem pastaId

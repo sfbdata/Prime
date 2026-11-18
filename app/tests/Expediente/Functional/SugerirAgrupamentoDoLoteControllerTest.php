@@ -165,6 +165,33 @@ final class SugerirAgrupamentoDoLoteControllerTest extends BuscaRapidaWebTestCas
         self::assertCount(1, $this->provedor()->pedidos);
     }
 
+    #[TestDox('I.A. gratuita da pessoa esgotada (escritório sem plano pago): 409 com o motivo saldo_da_pessoa_esgotado, que abre a janela do convite')]
+    public function testSaldoDaPessoaEsgotadoDa409ComMotivo(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdministrador($tenant);
+        $this->ligarIa($tenant, $admin);
+        $this->provedor()->limpar();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $token = $this->tokenDaTela($client);
+        $this->provedor()->responderCom('{"casos": []}');
+        $this->sugerir($client, $token);
+        self::assertResponseIsSuccessful();
+        // O uso da pessoa passa da franquia de 100 mil tokens.
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE inteligencia_analise SET tokens_entrada = 150000 WHERE tenant_id = ? AND solicitante_id = ?',
+            [$tenant->getId(), $admin->getId()],
+        );
+
+        $this->sugerir($client, $token);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('saldo_da_pessoa_esgotado', $this->json($client)['motivo']);
+        self::assertSame('Sua I.A. gratuita acabou. Convide um colega para ganhar mais 3 peças.', $this->json($client)['mensagem']);
+        self::assertCount(1, $this->provedor()->pedidos);
+    }
+
     #[TestDox('entrada vazia: 422 sem gravar análise')]
     public function testEntradaVaziaDa422(): void
     {

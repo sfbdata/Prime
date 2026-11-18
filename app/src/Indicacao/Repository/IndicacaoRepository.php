@@ -163,6 +163,43 @@ class IndicacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quantas contas novas o indicador trouxe pelo cadastro e já confirmaram o e-mail (cada uma libera mais I.A.,
+     * spec `ia-liberada-por-indicacao.md`, seção 7). A indicação do cadastro é única por conta nova.
+     */
+    public function contarCadastrosConfirmadosDoIndicador(int $indicadorId): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            'SELECT COUNT(*) FROM indicacao i JOIN "user" u ON u.id = i.indicado_user_id
+             WHERE i.indicado_por_id = ? AND i.por_cadastro AND u.email_a_confirmar_desde IS NULL',
+            [$indicadorId],
+        );
+    }
+
+    /**
+     * Quem indicou e como a conta nova se chama, para o aviso "se cadastrou pelo seu convite". O escritório do aviso é
+     * o de origem da indicação; sem ele, o primeiro vínculo ativo de quem indicou.
+     *
+     * @return array{indicadorId: int, tenantId: int, nome: string}|null
+     */
+    public function dadosDoAvisoDeColega(int $indicacaoId): ?array
+    {
+        $linha = $this->conexao()->fetchAssociative(
+            'SELECT i.indicado_por_id, u.full_name,
+                    COALESCE(i.tenant_origem_id, (SELECT ut.tenant_id FROM user_tenant ut
+                                                   WHERE ut.user_id = i.indicado_por_id AND ut.is_active = true
+                                                   ORDER BY ut.id LIMIT 1)) AS tenant_id
+             FROM indicacao i JOIN "user" u ON u.id = i.indicado_user_id
+             WHERE i.id = ? AND i.por_cadastro',
+            [$indicacaoId],
+        );
+        if ($linha === false || $linha['tenant_id'] === null) {
+            return null;
+        }
+
+        return ['indicadorId' => (int) $linha['indicado_por_id'], 'tenantId' => (int) $linha['tenant_id'], 'nome' => (string) $linha['full_name']];
+    }
+
+    /**
      * O e-mail é de alguém com vínculo ativo NESTE escritório? Só o escritório de quem indica: consultar contas de fora
      * deixaria descobrir quem tem conta no BlueJus (spec, comportamento 4).
      */

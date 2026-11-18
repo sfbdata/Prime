@@ -27,7 +27,7 @@ use App\Pasta\Entity\PastaDocumento;
  * E o aceite: só com o aceite do escritório dado na versão do texto que cita os documentos
  * ({@see \App\Inteligencia\Enum\VersaoDoAceiteDaIa::ComDocumentos} ou maior).
  */
-final class RegraDaLeituraDeDocumentos
+final class RegraDaLeituraDeDocumentos implements PortaDaLeituraDeDocumentos
 {
     public const MAXIMO_POR_ANALISE = 3;
     public const MEGABYTE = 1024 * 1024;

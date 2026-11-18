@@ -12,6 +12,7 @@ use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\PortaDaLeituraDeDocumentos;
 use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\AbaDaPasta;
@@ -270,5 +271,47 @@ final class LeitorDeDocumentosDaPastaTest extends TestCase
         } catch (ArmazenamentoIndisponivelException $e) {
             self::assertSame('documento 1: falha ao ler o armazenamento (FalhaDeArmazenamento)', $e->getMessage());
         }
+    }
+
+    #[TestDox('Porta do conector: com a porta recusando, o leitor recusa mesmo com o aceite da BlueJus I.A. valendo; com a porta aceitando, lê sem o aceite da I.A.')]
+    public function testPortaDoConectorSubstituiOAceiteDaIa(): void
+    {
+        $this->documento(1, '%PDF-1.7 x');
+        $consultadas = new \ArrayObject();
+        $porta = static fn (bool $cobre) => new class ($cobre, $consultadas) implements PortaDaLeituraDeDocumentos {
+            public function __construct(private readonly bool $cobre, private readonly \ArrayObject $consultadas)
+            {
+            }
+
+            public function aceiteCobre(Tenant $tenant): bool
+            {
+                $this->consultadas->append($tenant);
+
+                return $this->cobre;
+            }
+        };
+
+        try {
+            $this->leitor()->anexos($this->tenant, $this->pasta, [1], [], $this->solicitante, $porta(false));
+            self::fail('a porta recusou, o leitor devia recusar');
+        } catch (DocumentoIlegivelException $e) {
+            self::assertStringContainsString('aceite', $e->getMessage());
+        }
+
+        (new \ReflectionProperty($this->config, 'consentimentoVersao'))->setValue($this->config, 1);
+        $anexos = $this->leitor()->anexos($this->tenant, $this->pasta, [1], [], $this->solicitante, $porta(true));
+
+        self::assertCount(1, $anexos, 'o aceite antigo da I.A. não vale para o conector: vale a porta');
+        self::assertSame([$this->tenant, $this->tenant], $consultadas->getArrayCopy());
+    }
+
+    #[TestDox('Sem porta: o comportamento antigo (aceite da BlueJus I.A.) segue igual')]
+    public function testSemPortaValeOAceiteDaIa(): void
+    {
+        $this->documento(1, '%PDF-1.7 x');
+        self::assertCount(1, $this->leitor()->anexos($this->tenant, $this->pasta, [1], [], $this->solicitante));
+
+        (new \ReflectionProperty($this->config, 'consentimentoVersao'))->setValue($this->config, 1);
+        $this->esperarIlegivel([1], 'aceite');
     }
 }

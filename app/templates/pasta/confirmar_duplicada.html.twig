@@ -23,14 +23,14 @@
                 </div>
 
                 <div class="card-footer d-flex justify-content-end gap-2 py-2">
-                    <a href="{{ path('expediente_index') }}" class="btn btn-secondary btn-sm">{{ 'pasta_avisos.cancelar'|trans }}</a>
+                    <a href="{{ path('expediente_index') }}" class="bjp-btn bjp-btn--secundario">{{ 'pasta_avisos.cancelar'|trans }}</a>
 
                     {# Reenvia os MESMOS dados com confirmar=1: o servidor então cria sem perguntar de novo. #}
                     <form method="post" action="{{ path('pasta_new') }}" class="d-inline">
                         <input type="hidden" name="nome_cliente" value="{{ nomeCliente }}">
                         <input type="hidden" name="nome_acao" value="{{ nomeAcao }}">
                         <input type="hidden" name="confirmar" value="1">
-                        <button type="submit" class="btn btn-primary btn-sm">
+                        <button type="submit" class="bjp-btn bjp-btn--primario">
                             <i class="bi bi-check-lg me-1"></i> {{ 'pasta_avisos.duplicada.criar_mesmo_assim'|trans }}
                         </button>
                     </form>

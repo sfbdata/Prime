@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AnexoDeDocumento;
 use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
+use App\Inteligencia\Service\PortaDaLeituraDeDocumentos;
 use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\AbaDaPasta;
@@ -64,15 +65,16 @@ final class LeitorDeDocumentosDaPasta
     /**
      * @param list<int>    $ids         na ordem gravada pela solicitação; é a ordem dos anexos
      * @param list<string> $abasOcultas como a solicitação gravou (as de agora entram por cima)
+     * @param ?PortaDaLeituraDeDocumentos $porta o aceite que vale; sem ela, o da BlueJus I.A. ({@see RegraDaLeituraDeDocumentos})
      *
      * @return list<AnexoDeDocumento>
      *
      * @throws DocumentoIlegivelException
      * @throws ArmazenamentoIndisponivelException
      */
-    public function anexos(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante): array
+    public function anexos(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante, ?PortaDaLeituraDeDocumentos $porta = null): array
     {
-        $ocultas = $this->conferirPedido($tenant, $pasta, $ids, $abasOcultas, $solicitante);
+        $ocultas = $this->conferirPedido($tenant, $pasta, $ids, $abasOcultas, $solicitante, $porta ?? $this->regra);
 
         $porId = [];
         foreach (VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $ids), $ocultas) as $documento) {
@@ -106,7 +108,7 @@ final class LeitorDeDocumentosDaPasta
      *
      * @return list<string>
      */
-    private function conferirPedido(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante): array
+    private function conferirPedido(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante, PortaDaLeituraDeDocumentos $porta): array
     {
         if ($ids === [] || \count($ids) > RegraDaLeituraDeDocumentos::MAXIMO_POR_ANALISE) {
             throw DocumentoIlegivelException::porque(0, 'seleção vazia ou acima do limite');
@@ -119,7 +121,7 @@ final class LeitorDeDocumentosDaPasta
         if (\in_array(AbaDaPasta::Documentos->value, $ocultas, true)) {
             throw DocumentoIlegivelException::porque(0, 'aba Documentos oculta para quem pediu');
         }
-        if (!$this->regra->aceiteCobre($tenant)) {
+        if (!$porta->aceiteCobre($tenant)) {
             throw DocumentoIlegivelException::porque(0, 'o aceite do escritório não cobre a leitura de documentos');
         }
 

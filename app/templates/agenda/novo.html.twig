@@ -24,12 +24,12 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-8">
-                <div class="card card-primary">
-                    <div class="card-header">
-                        <h3 class="card-title">{{ 'agenda.form.novo_cartao'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo">{{ 'agenda.form.novo_cartao'|trans }}</h3>
                     </div>
                     {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <div class="row">
                             <div class="col-md-8">
                                 {{ form_row(form.titulo, {'attr': {'class': 'form-control'}}) }}
@@ -105,11 +105,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="bjp-painel-pe">
+                        <button type="submit" class="bjp-btn bjp-btn--primario">
                             <i class="bi bi-check-lg me-1"></i> {{ 'agenda.form.salvar_evento'|trans }}
                         </button>
-                        <a href="{{ path('agenda_index') }}" class="btn btn-secondary">
+                        <a href="{{ path('agenda_index') }}" class="bjp-btn bjp-btn--discreto">
                             <i class="bi bi-x-lg me-1"></i> {{ 'agenda.form.cancelar'|trans }}
                         </a>
                     </div>
@@ -118,11 +118,12 @@
             </div>
 
             <div class="col-md-4">
-                <div class="card card-info">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.form.dicas'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-info-circle"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.form.dicas'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_titulo_datas'|trans }}</p>
                         <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_participantes'|trans }}</p>
                         <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_cores'|trans }}</p>

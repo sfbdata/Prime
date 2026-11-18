@@ -13,7 +13,7 @@
 </div>
 
 {% if carteiras|length > 0 %}
-    <div class="card cobranca-card d-none d-md-block">
+    <div class="bjp-painel cobranca-card d-none d-md-block">
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -30,7 +30,7 @@
                     <tr class="cobranca-row-link" style="cursor:pointer;" data-href="{{ path('cobranca_carteira_show', {id: c.id}) }}">
                         <td class="ps-3 align-middle fw-semibold">{{ c.nome }}</td>
                         <td class="align-middle">{{ c.clienteNome }}</td>
-                        <td class="align-middle"><span class="badge text-bg-secondary" style="font-size:.7rem;">{{ c.modoLabel }}</span></td>
+                        <td class="align-middle"><span class="bjp-etiqueta bjp-etiqueta--neutro" style="font-size:.7rem;">{{ c.modoLabel }}</span></td>
                         <td class="align-middle">
                             {{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} <span class="text-muted">({{ c.percentualHonorarios }}%)</span>{% endif %}
                         </td>
@@ -48,14 +48,14 @@
             <div class="cobranca-card-title"><i class="bi bi-folder2 me-1"></i>{{ c.nome }}</div>
             <div class="cobranca-card-sub text-muted">{{ c.clienteNome }}</div>
             <div class="mt-1 d-flex gap-2 flex-wrap">
-                <span class="badge text-bg-secondary">{{ c.modoLabel }}</span>
-                <span class="badge text-bg-light text-dark">{{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} {{ c.percentualHonorarios }}%{% endif %}</span>
+                <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ c.modoLabel }}</span>
+                <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} {{ c.percentualHonorarios }}%{% endif %}</span>
             </div>
         </div>
         {% endfor %}
     </div>
 {% else %}
-    <div class="card cobranca-card">
+    <div class="bjp-painel cobranca-card">
         <div class="cobranca-empty">
             <div class="empty-ico"><i class="bi bi-folder-x"></i></div>
             {% if temFiltro %}

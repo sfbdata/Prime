@@ -379,6 +379,8 @@
                     aplicarSugestao(d);
                 } else {
                     s.erro = (d && d.mensagem) || FALHA_IA;
+                    /* I.A. gratuita da pessoa acabou: abre a janela do convite (ia-saldo.js, quando a página a tem). */
+                    if (d && window.BJIaSaldo) { window.BJIaSaldo.recusou(d); }
                 }
                 render();
             });

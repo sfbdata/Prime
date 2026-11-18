@@ -26,17 +26,17 @@
                 <i class="bi bi-check-circle me-2"></i>{{ 'access_request.nenhuma'|trans }}
             </div>
         {% else %}
-            <div class="card">
-                <div class="card-body table-responsive p-0">
+            <div class="bjp-painel">
+                <div class="table-responsive p-0">
                     <table class="table table-striped table-hover mb-0">
                         <thead>
                             <tr>
-                                <th><i class="bi bi-person me-1"></i> {{ 'access_request.col_solicitante'|trans }}</th>
-                                <th><i class="bi bi-box me-1"></i> {{ 'access_request.col_recurso'|trans }}</th>
-                                <th><i class="bi bi-hash me-1"></i> {{ 'access_request.col_id'|trans }}</th>
-                                <th><i class="bi bi-lightning me-1"></i> {{ 'access_request.col_acao'|trans }}</th>
-                                <th><i class="bi bi-clock me-1"></i> {{ 'access_request.col_solicitado_em'|trans }}</th>
-                                <th><i class="bi bi-gear me-1"></i> {{ 'access_request.col_decisao'|trans }}</th>
+                                <th>{{ 'access_request.col_solicitante'|trans }}</th>
+                                <th>{{ 'access_request.col_recurso'|trans }}</th>
+                                <th>{{ 'access_request.col_id'|trans }}</th>
+                                <th>{{ 'access_request.col_acao'|trans }}</th>
+                                <th>{{ 'access_request.col_solicitado_em'|trans }}</th>
+                                <th>{{ 'access_request.col_decisao'|trans }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -47,14 +47,14 @@
                                         <div class="text-muted small">{{ req.user.email }}</div>
                                     </td>
                                     <td>
-                                        <span class="badge text-bg-secondary">{{ req.resourceType }}</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">{{ req.resourceType }}</span>
                                     </td>
                                     <td class="text-muted">#{{ req.resourceId }}</td>
                                     <td>
-                                        <span class="badge
-                                            {{ req.action == 'view'   ? 'text-bg-info' :
-                                               (req.action == 'edit'   ? 'text-bg-warning' :
-                                               (req.action == 'delete' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
+                                        <span class="bjp-etiqueta bjp-etiqueta--sem-ponto
+                                            {{ req.action == 'view'   ? 'bjp-etiqueta--info' :
+                                               (req.action == 'edit'   ? 'bjp-etiqueta--atencao' :
+                                               (req.action == 'delete' ? 'bjp-etiqueta--critico' : 'bjp-etiqueta--neutro')) }}">
                                             {{ req.action }}
                                         </span>
                                     </td>
@@ -70,10 +70,10 @@
                                     <td>
                                         {# ── Formulário de aprovação ── #}
                                         <button type="button"
-                                                class="btn btn-sm btn-success me-1"
+                                                class="bjp-btn bjp-btn--sucesso me-1"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalApprove{{ req.id }}">
-                                            <i class="bi bi-check-lg me-1"></i>{{ 'access_request.aprovar'|trans }}
+                                            <i class="bi bi-check-lg"></i>{{ 'access_request.aprovar'|trans }}
                                         </button>
 
                                         {# ── Formulário de negação ── #}
@@ -82,8 +82,8 @@
                                               class="d-inline"
                                               onsubmit="return confirm('{{ 'access_request.confirmar_negar'|trans({nome: req.user.fullName, recurso: req.resourceType, id: req.resourceId ~ ''})|e('js') }}');">
                                             <input type="hidden" name="_token" value="{{ csrf_token('deny_request_' ~ req.id) }}">
-                                            <button class="btn btn-sm btn-outline-danger">
-                                                <i class="bi bi-x-lg me-1"></i>{{ 'access_request.negar'|trans }}
+                                            <button class="bjp-btn bjp-btn--destrutivo">
+                                                <i class="bi bi-x-lg"></i>{{ 'access_request.negar'|trans }}
                                             </button>
                                         </form>
 
@@ -110,26 +110,26 @@
                                                             <div class="form-check mb-2">
                                                                 <input class="form-check-input" type="checkbox" name="canView" value="1" id="canView{{ req.id }}" checked>
                                                                 <label class="form-check-label" for="canView{{ req.id }}">
-                                                                    <span class="badge text-bg-info me-1">view</span> {{ 'access_request.visualizar'|trans }}
+                                                                    <span class="bjp-etiqueta bjp-etiqueta--info bjp-etiqueta--sem-ponto me-1">view</span> {{ 'access_request.visualizar'|trans }}
                                                                 </label>
                                                             </div>
                                                             <div class="form-check mb-2">
                                                                 <input class="form-check-input" type="checkbox" name="canEdit" value="1" id="canEdit{{ req.id }}">
                                                                 <label class="form-check-label" for="canEdit{{ req.id }}">
-                                                                    <span class="badge text-bg-warning me-1">edit</span> {{ 'access_request.editar'|trans }}
+                                                                    <span class="bjp-etiqueta bjp-etiqueta--atencao bjp-etiqueta--sem-ponto me-1">edit</span> {{ 'access_request.editar'|trans }}
                                                                 </label>
                                                             </div>
                                                             <div class="form-check">
                                                                 <input class="form-check-input" type="checkbox" name="canDelete" value="1" id="canDelete{{ req.id }}">
                                                                 <label class="form-check-label" for="canDelete{{ req.id }}">
-                                                                    <span class="badge text-bg-danger me-1">delete</span> {{ 'comum.excluir'|trans }}
+                                                                    <span class="bjp-etiqueta bjp-etiqueta--critico bjp-etiqueta--sem-ponto me-1">delete</span> {{ 'comum.excluir'|trans }}
                                                                 </label>
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
-                                                            <button type="submit" class="btn btn-success">
-                                                                <i class="bi bi-check-lg me-1"></i>{{ 'access_request.confirmar_aprovacao'|trans }}
+                                                            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
+                                                            <button type="submit" class="bjp-btn bjp-btn--sucesso">
+                                                                <i class="bi bi-check-lg"></i>{{ 'access_request.confirmar_aprovacao'|trans }}
                                                             </button>
                                                         </div>
                                                     </form>

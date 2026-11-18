@@ -25,12 +25,12 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-8">
-                <div class="card card-warning">
-                    <div class="card-header">
-                        <h3 class="card-title">{{ 'agenda.form.editar_cartao'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo">{{ 'agenda.form.editar_cartao'|trans }}</h3>
                     </div>
                     {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <div class="row">
                             <div class="col-md-8">
                                 {{ form_row(form.titulo, {'attr': {'class': 'form-control'}}) }}
@@ -106,13 +106,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="bjp-painel-pe">
                         <button type="submit"
-                                class="btn btn-outline-primary btn-sm"
+                                class="bjp-btn bjp-btn--secundario"
                                 aria-label="{{ 'agenda.form.salvar_alteracoes_rotulo'|trans }}">
                             <i class="bi bi-check-lg me-1"></i> {{ 'agenda.form.salvar_alteracoes'|trans }}
                         </button>
-                        <a href="{{ path('agenda_show', {id: evento.id}) }}" class="btn btn-secondary">
+                        <a href="{{ path('agenda_show', {id: evento.id}) }}" class="bjp-btn bjp-btn--discreto">
                             <i class="bi bi-x-lg me-1"></i> {{ 'agenda.form.cancelar'|trans }}
                         </a>
                     </div>
@@ -121,11 +121,12 @@
             </div>
 
             <div class="col-md-4">
-                <div class="card card-outline card-secondary">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.comum.informacoes'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-info-circle"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.comum.informacoes'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <p><strong>{{ 'agenda.comum.criado_por'|trans }}</strong> {{ evento.criador.fullName }}</p>
                         <p><strong>{{ 'agenda.comum.criado_em'|trans }}</strong> {{ evento.criadoEm|data_hora }}</p>
                         {% if evento.modificadoEm %}
@@ -134,15 +135,16 @@
                     </div>
                 </div>
 
-                <div class="card card-outline card-danger">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'agenda.comum.acoes'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-exclamation-triangle"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.comum.acoes'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         {% if evento.status != 'cancelado' %}
                         <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="mb-2">
                             <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
-                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('{{ 'agenda.comum.cancelar_confirmar'|trans|e('js') }}')">
+                            <button type="submit" class="bjp-btn bjp-btn--destrutivo w-100" onclick="return confirm('{{ 'agenda.comum.cancelar_confirmar'|trans|e('js') }}')">
                                 <i class="bi bi-x-circle me-1"></i> {{ 'agenda.comum.cancelar_evento'|trans }}
                             </button>
                         </form>
@@ -150,7 +152,7 @@
                         <form method="POST" action="{{ path('agenda_excluir', {id: evento.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ evento.id) }}">
                             <button type="submit"
-                                    class="btn btn-outline-danger w-100"
+                                    class="bjp-btn bjp-btn--destrutivo w-100"
                                     aria-label="{{ 'agenda.comum.excluir_permanentemente'|trans }}"
                                     onclick="return confirm('{{ 'agenda.comum.excluir_confirmar'|trans|e('js') }}')">
                                 <i class="bi bi-trash me-1"></i> {{ 'agenda.comum.excluir_evento'|trans }}

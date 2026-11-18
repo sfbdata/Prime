@@ -53,6 +53,9 @@ use Psr\Clock\ClockInterface;
  */
 final class LerAgendaFerramenta implements FerramentaDoConector
 {
+    /** Os status que a tela da agenda mostra (`agenda-1a.js`, na leitura dos eventos). */
+    private const STATUS_DA_TELA = ['agendado', 'concluido', 'cancelado'];
+
     public const NOME = 'ler_agenda';
 
     /** O teto de caracteres da lista de itens numa página: folga para as datas e os lembretes, abaixo dos 50 mil (6.2, regra 7). */
@@ -221,7 +224,9 @@ final class LerAgendaFerramenta implements FerramentaDoConector
             'inicio' => $c->h1 === '' ? null : $c->h1,
             'fim' => $c->h2 === '' ? null : $c->h2,
             'titulo' => $this->protecao->rotulo($escritorio, $c->titulo, 'Sem título'),
-            'status' => $c->status,
+            // Como a tela da agenda (agenda-1a.js): fora de agendado, concluido e cancelado, vale agendado. O prazo em
+            // aberto chega sem status e sai agendado; o cumprido sai concluido.
+            'status' => \in_array($c->status, self::STATUS_DA_TELA, true) ? $c->status : 'agendado',
             'pasta_id' => $verPastas ? $c->pastaId : null,
             // O número da pasta do prazo já sai no título, como na tela; o do compromisso, só com o módulo Pastas.
             'pasta_numero' => $doCompromisso && !$verPastas || $c->pastaNup === null ? null : $this->protecao->rotulo($escritorio, $c->pastaNup, ''),

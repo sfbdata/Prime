@@ -7,7 +7,7 @@
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="m-0"><i class="bi bi-plus-circle me-2"></i>{{ 'servicedesk.comum.abrir_chamado'|trans }}</h1>
-            <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
+            <a href="{{ path('servicedesk_meus_chamados') }}" class="bjp-btn bjp-btn--secundario">
                 <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.comum.voltar'|trans }}
             </a>
         </div>
@@ -18,12 +18,12 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-pencil-square me-2"></i>{{ 'servicedesk.novo.dados_do_chamado'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-pencil-square me-2"></i>{{ 'servicedesk.novo.dados_do_chamado'|trans }}</h3>
                     </div>
                     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <div class="mb-3">
                             {{ form_label(form.titulo) }}
                             {{ form_widget(form.titulo, {'attr': {'class': 'form-control'}}) }}
@@ -70,11 +70,11 @@
                             </small>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="bjp-painel-pe">
+                        <button type="submit" class="bjp-btn bjp-btn--primario">
                             <i class="bi bi-send me-1"></i> {{ 'servicedesk.comum.abrir_chamado'|trans }}
                         </button>
-                        <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-outline-secondary">
+                        <a href="{{ path('servicedesk_meus_chamados') }}" class="bjp-btn bjp-btn--secundario">
                             {{ 'servicedesk.novo.cancelar'|trans }}
                         </a>
                     </div>
@@ -83,11 +83,11 @@
             </div>
 
             <div class="col-lg-4">
-                <div class="card bg-body-tertiary text-body-secondary">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.novo.dicas'|trans }}</h3>
+                <div class="bjp-painel bg-body-tertiary text-body-secondary">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.novo.dicas'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <h6><i class="bi bi-1-circle text-primary me-2"></i>{{ 'servicedesk.novo.dica_especifico'|trans }}</h6>
                         <p class="small text-muted">{{ 'servicedesk.novo.dica_especifico_texto'|trans }}</p>
 
@@ -102,11 +102,11 @@
                     </div>
                 </div>
 
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-book me-2"></i>{{ 'servicedesk.novo.categorias'|trans }}</h3>
+                <div class="bjp-painel mt-3">
+                    <div class="bjp-painel-cabeca">
+                        <h3 class="bjp-painel-titulo"><i class="bi bi-book me-2"></i>{{ 'servicedesk.novo.categorias'|trans }}</h3>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="bjp-painel-corpo p-0">
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item">
                                 <i class="bi bi-pc-display text-primary me-2"></i>

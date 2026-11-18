@@ -36,11 +36,11 @@
                (#modalRegistrarLiquidacao e #modalRegistrarPagamento), controllers, rotas e UseCases seguem
                intactos e acessíveis — #modalRegistrarPagamento inclusive é reaproveitado pelo próprio
                "Receber". Reversível: descomentar devolve os dois botões.
-            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
-                <i class="bi bi-box-seam me-1"></i>Registrar liquidação
+            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
+                <i class="bi bi-box-seam"></i>Registrar liquidação
             </button>
-            <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
-                <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
+            <button type="button" class="bjp-btn bjp-btn--primario" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
+                <i class="bi bi-cash-coin"></i>Registrar pagamento
             </button>
             #}
         </div>
@@ -73,17 +73,17 @@
                 <div class="jp-mov-valor">{{ p.valorTotal|centavos }}</div>
                 <div class="jp-obr-acoes">
                     {% if p.foiCorrigido %}
-                    <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.movimentos.corrigido_dica'|trans({motivo: p.motivoCorrecao}) }}">{{ 'cobranca_objeto.movimentos.corrigido'|trans }}</span>
+                    <span class="bjp-etiqueta bjp-etiqueta--atencao" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.movimentos.corrigido_dica'|trans({motivo: p.motivoCorrecao}) }}">{{ 'cobranca_objeto.movimentos.corrigido'|trans }}</span>
                     {% endif %}
                     {% if podeMovimentar %}
-                    <button type="button" class="btn btn-sm jp-btn-outline py-0"
+                    <button type="button" class="bjp-btn bjp-btn--secundario py-0"
                             data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
                             data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
                             data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
                             data-pagamento-data="{{ p.data|date('d/m/Y') }}"
                             data-pagamento-total="{{ p.valorTotal|centavos }}"
                             title="{{ 'cobranca_objeto.movimentos.corrigir_dica'|trans }}">{{ 'cobranca_objeto.movimentos.corrigir'|trans }}</button>
-                    <button type="button" class="btn btn-sm jp-btn-outline py-0 text-danger"
+                    <button type="button" class="bjp-btn bjp-btn--secundario py-0 text-danger"
                             data-bs-toggle="modal" data-bs-target="#modalExcluirPagamento"
                             data-acao-url="{{ path('cobranca_pagamento_excluir', {id: p.id}) }}"
                             data-token="{{ csrf_token('excluir_pagamento_' ~ p.id) }}"
@@ -148,9 +148,9 @@
                    situação do acordo assumido de propósito ("Em andamento" para rastreabilidade, ou
                    "Liquidado" quando ela deu baixa) — e 20 dos 37 acordos assumidos no dado real estão
                    Cumpridos. Trocar um selo pelo outro apagaria essa informação da tela. #}
-                <span class="badge {{ a.statusBadgeClass }} ms-1">{{ a.statusLabel }}</span>
+                <span class="bjp-etiqueta bjp-etiqueta--{{ {'text-bg-success': 'ok', 'text-bg-danger': 'critico', 'text-bg-warning': 'atencao', 'text-bg-primary': 'info'}[a.statusBadgeClass] ?? 'neutro' }} ms-1">{{ a.statusLabel }}</span>
                 {%- if a.qtdSucessores > 0 %}
-                    <span class="badge text-bg-secondary ms-1">
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">
                         {{- a.substituidoPeloAcordoId
                             ? 'cobranca_objeto.movimentos.substituido_pelo'|trans({id: a.substituidoPeloAcordoId ~ ''})
                             : 'cobranca_objeto.movimentos.substituido_por'|trans({n: a.qtdSucessores ~ ''}) -}}
@@ -170,7 +170,7 @@
             </div>
             <div class="jp-obr-valor"></div>
             <div class="jp-obr-acoes">
-                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm jp-btn-outline">{{ 'cobranca_objeto.movimentos.abrir'|trans }}</a>
+                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="bjp-btn bjp-btn--secundario">{{ 'cobranca_objeto.movimentos.abrir'|trans }}</a>
             </div>
         </div>
         {% endfor %}

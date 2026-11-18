@@ -56,17 +56,18 @@
 <section class="content">
     <div class="container-fluid">
         {# Filtros #}
-        <div class="card card-outline card-primary mb-3">
-            <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> {{ 'auditoria.filtros'|trans }}</h3>
-                <div class="card-tools">
-                    <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#filtrosAudit">
+        <div class="bjp-painel mb-3">
+            <div class="bjp-painel-cabeca">
+                <i class="bi bi-funnel"></i>
+                <h3 class="bjp-painel-titulo">{{ 'auditoria.filtros'|trans }}</h3>
+                <div class="bjp-painel-acoes">
+                    <button type="button" class="bjp-ico bjp-btn--discreto" data-bs-toggle="collapse" data-bs-target="#filtrosAudit">
                         <i class="bi bi-dash-lg"></i>
                     </button>
                 </div>
             </div>
             <div class="collapse show" id="filtrosAudit">
-                <div class="card-body">
+                <div class="bjp-painel-corpo">
                     <form method="get" action="{{ path('audit_log_index') }}">
                         <div class="row g-3">
                             <div class="col-md-3">
@@ -96,11 +97,11 @@
                                 <input type="date" id="date_to" name="date_to" class="form-control" value="{{ filters.date_to }}">
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-search me-1"></i> {{ 'auditoria.filtrar'|trans }}
+                                <button type="submit" class="bjp-btn bjp-btn--primario">
+                                    <i class="bi bi-search"></i> {{ 'auditoria.filtrar'|trans }}
                                 </button>
-                                <a href="{{ path('audit_log_index') }}" class="btn btn-secondary">
-                                    <i class="bi bi-x-lg me-1"></i> {{ 'auditoria.limpar'|trans }}
+                                <a href="{{ path('audit_log_index') }}" class="bjp-btn bjp-btn--secundario">
+                                    <i class="bi bi-x-lg"></i> {{ 'auditoria.limpar'|trans }}
                                 </a>
                             </div>
                         </div>
@@ -113,17 +114,17 @@
             <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ 'auditoria.resultados_pagina'|trans({n: auditLogs|length ~ ''}) }}{% if pagination.total_items is defined %} {{ 'auditoria.resultados_total'|trans({total: pagination.total_items ~ ''}) }}{% endif %}</span>
         </div>
 
-        <div class="card">
-            <div class="card-body table-responsive p-0">
+        <div class="bjp-painel">
+            <div class="table-responsive p-0">
                 <table class="table table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th><i class="bi bi-clock me-1"></i> {{ 'auditoria.col_data_hora'|trans }}</th>
-                            <th><i class="bi bi-person me-1"></i> {{ 'auditoria.usuario'|trans }}</th>
-                            <th><i class="bi bi-box me-1"></i> {{ 'auditoria.entidade'|trans }}</th>
-                            <th><i class="bi bi-activity me-1"></i> {{ 'auditoria.col_acao'|trans }}</th>
-                            <th><i class="bi bi-card-text me-1"></i> {{ 'auditoria.col_resumo'|trans }}</th>
-                            <th><i class="bi bi-eye me-1"></i> {{ 'auditoria.col_alteracoes'|trans }}</th>
+                            <th>{{ 'auditoria.col_data_hora'|trans }}</th>
+                            <th>{{ 'auditoria.usuario'|trans }}</th>
+                            <th>{{ 'auditoria.entidade'|trans }}</th>
+                            <th>{{ 'auditoria.col_acao'|trans }}</th>
+                            <th>{{ 'auditoria.col_resumo'|trans }}</th>
+                            <th>{{ 'auditoria.col_alteracoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
