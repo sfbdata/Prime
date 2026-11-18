@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.58.1"
+  data: "2026-11-18"
+  itens:
+    - "No Push Processual, vincular uma publicação pelo número da pasta funciona mesmo quando esse número já foi de uma pasta excluída."
+    - "A pasta excluída não aparece mais na ficha do cliente nem nas respostas do agente de pastas; ela fica só na lixeira."
 - versao: "2.58.0"
   data: "2026-11-18"
   itens:
