@@ -1614,6 +1614,7 @@ extrair UseCase e dizer isso no PR.
 | **Clientes mudam rápido** | Nomes, planos e regras de Claude e ChatGPT mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
 | **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
 | **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
+| **PDF e imagem grandes na resposta** | O arquivo vai fora do teto de 50 mil caracteres (decisão 24): um PDF de 10 MB passa de 13 milhões de caracteres em base64, acima do que o Claude aceita por resultado (cerca de 150 mil). O app pode recusar ou cortar; o piloto confere, e se não lerem, extrair o texto do PDF no servidor vira pergunta nova (6.5). |
 | **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Piloto num escritório, liberação pelo Master, aceite próprio do conector (14.a) e máscara de CPF, CNPJ, telefone e e-mail sempre ligada no texto livre (6.2.6); o texto está com o jurídico. |
 | **Arquivo malicioso na leitura** | DOCX, planilha, apresentação e ZIP são pacotes: arquivo forjado pode estourar memória. Mesma proteção de pacote da prévia, tetos de tamanho, XML lido como texto (6.5). |
 | **Dependência nova para TIFF e HEIC** | Converter exige extensão nova na imagem PHP (arquivo quente, passo de deploy). Se não puder entrar, esses dois tipos ficam recusados com mensagem fixa (6.5). |
@@ -2241,3 +2242,14 @@ Coordenador):**
     reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil
     mostrava só a conexão com os escopos novos. A coluna `motivo` é VARCHAR(40) sem CHECK: sem migration.
     `FluxoOAuthCompletoTest::testReconectarSubstituiAConcessaoAnterior` prende isso.
+24. **PDF e imagem na resposta** (PR 7, 6.5 e regra 7 da 6.2): o arquivo vai num bloco à parte do `content` (imagem do
+    MCP, PDF como recurso embutido marcado `experimental`), fora do teto de 50 mil caracteres por campo, que vale para o
+    JSON. O `structuredContent` leva só os metadados (id, nome, tipo, tamanho, páginas). Os limites seguem os do leitor:
+    PDF até 10 MB e 100 páginas, imagem até 3 MB. O log `mcp` guarda só o sha256 do arquivo (`ArquivoNaResposta`). Risco
+    na seção 11: o app pode recusar uma resposta desse tamanho.
+25. **Status do prazo na agenda** (achado do smoke do PR 6): a `ler_agenda` devolve o status como a tela da agenda
+    (`agenda-1a.js`): `agendado`, `concluido` ou `cancelado`, e qualquer outro valor vira `agendado`. O prazo em aberto sai
+    `agendado` e o cumprido, `concluido`; sem campo a mais para a mesma informação.
+26. **Acesso à pasta pela porta da tela** (PR 7, com o #770 de acesso restrito em aberto): as ferramentas conferem a pasta
+    pela mesma porta da tela (o voter da pasta e o `NivelNoCadeado`, pelo `AcessoAPasta`), sem consulta própria de
+    acesso. Assim o escopo do acesso restrito vale sozinho no conector quando o #770 entrar.
