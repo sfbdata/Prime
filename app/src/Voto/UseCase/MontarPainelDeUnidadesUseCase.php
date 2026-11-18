@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Voto\DTO\PainelDeUnidadesDaPauta;
 use App\Voto\DTO\UnidadeNoPainel;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
@@ -43,18 +44,7 @@ final class MontarPainelDeUnidadesUseCase
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
-        if (EstadoDaAssembleia::Publicada !== $assembleia->getEstado() || $assembleia->arquivada()) {
-            throw new AssembleiaNaoEncontradaException();
-        }
-        $pauta = null;
-        foreach ($assembleia->getPautas() as $candidata) {
-            if ($candidata->getId() === $pautaId) {
-                $pauta = $candidata;
-            }
-        }
-        if (null === $pauta || $pauta->retirada() || !$assembleia->getCenario()->temListaDeVotantes()) {
-            throw new AssembleiaNaoEncontradaException();
-        }
+        $pauta = self::pautaVisivel($assembleia, $pautaId);
         if (!$this->acesso->podeVerRelacao($ator, $assembleia)) {
             throw new SemPermissaoParaVerAsUnidadesException();
         }
@@ -81,6 +71,24 @@ final class MontarPainelDeUnidadesUseCase
                 $daPauta,
             ),
         );
+    }
+
+    /**
+     * A pauta pedida, se o painel pode existir para ela: assembleia publicada e não arquivada, pauta da assembleia e não
+     * retirada, cenário com lista de votantes. Senão, 404.
+     */
+    private static function pautaVisivel(Assembleia $assembleia, int $pautaId): PautaDaAssembleia
+    {
+        if (EstadoDaAssembleia::Publicada !== $assembleia->getEstado() || $assembleia->arquivada() || !$assembleia->getCenario()->temListaDeVotantes()) {
+            throw new AssembleiaNaoEncontradaException();
+        }
+        foreach ($assembleia->getPautas() as $pauta) {
+            if ($pauta->getId() === $pautaId && !$pauta->retirada()) {
+                return $pauta;
+            }
+        }
+
+        throw new AssembleiaNaoEncontradaException();
     }
 
     private static function situacaoDaPauta(PautaDaAssembleia $pauta): string
