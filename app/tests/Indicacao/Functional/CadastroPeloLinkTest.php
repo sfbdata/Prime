@@ -104,7 +104,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/i/' . strtolower(self::CODIGO));
         self::assertResponseRedirects('/cadastro?ind=' . self::CODIGO);
 
-        $nova = $this->cadastrar();
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         $atribuicoes = $this->atribuicoesDe($nova);
         self::assertCount(1, $atribuicoes);
@@ -156,7 +156,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         // Pelo HTTP a conta nova nunca tem código antes de nascer: o evento é disparado direto, com a sessão no request.
         $sessao = new Session(new MockArraySessionStorage());
         $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
-        $request = new Request();
+        $request = new Request(content: json_encode(['indicacao' => 'BJ-' . self::CODIGO], JSON_THROW_ON_ERROR));
         $request->setSession($sessao);
         $pilha = static::getContainer()->get(RequestStack::class);
         $pilha->push($request);
@@ -277,6 +277,50 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         self::assertSame([], $this->atribuicoesDe($nova));
     }
 
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: código plantado na sessão e formulário com indicacao vazia não gera indicação')]
+    public function testSessaoComIndicacaoVaziaNaoLiga(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => '']);
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao(), 'a chave sai da sessão no cadastro, usada ou não');
+    }
+
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: formulário sem o campo indicacao não gera indicação, mesmo com código na sessão')]
+    public function testSessaoSemOCampoIndicacaoNaoLiga(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar();
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: o cupom da sessão aparece preenchido no Criar conta, igual para código válido e inválido')]
+    #[TestWith([self::CODIGO])]
+    #[TestWith(['NAOEXISTE'])]
+    public function testCupomDaSessaoApareceNoCriarConta(string $codigo): void
+    {
+        $sessao = $this->client->getSession();
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, $codigo);
+        $sessao->save();
+
+        $this->client->request('GET', '/login');
+
+        self::assertSelectorExists('[data-ind="BJ-' . $codigo . '"]');
+    }
+
+    #[TestDox('sem código na sessão nem na URL, o Criar conta vem com o cupom vazio')]
+    public function testSemCodigoOCupomVemVazio(): void
+    {
+        $this->client->request('GET', '/login');
+
+        self::assertSelectorExists('[data-ind=""]');
+    }
+
     #[TestDox('o campo é a palavra final: o cupom digitado vale no lugar do código do link curto')]
     public function testCupomVenceOLinkCurto(): void
     {
@@ -376,7 +420,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $tenantId = (int) $this->conexao->fetchOne('SELECT tenant_id FROM user_tenant WHERE user_id = ?', [$nova]);
         $sessao = new Session(new MockArraySessionStorage());
         $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
-        $request = new Request();
+        $request = new Request(content: json_encode(['indicacao' => 'BJ-' . self::CODIGO], JSON_THROW_ON_ERROR));
         $request->setSession($sessao);
         $pilha = static::getContainer()->get(RequestStack::class);
         $pilha->push($request);
