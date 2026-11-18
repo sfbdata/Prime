@@ -9,15 +9,21 @@ use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
+use App\Conector\Ferramenta\LerProcessosFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\ServidorDeAutorizacao;
 use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Conector\Support\CenarioDaAutorizacaoTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -43,7 +49,9 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
     private const REGISTRADAS = [
         BuscarPastasFerramenta::NOME,
         LerAgendaFerramenta::NOME,
+        LerDocumentosEModelosFerramenta::NOME,
         LerPastaFerramenta::NOME,
+        LerProcessosFerramenta::NOME,
         QuemSouEuFerramenta::NOME,
     ];
 
@@ -225,17 +233,58 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('ler_documentos_e_modelos ler: o /mcp devolve o bloco de imagem com o arquivo, e o log mcp leva só o sha256, sem nome nem bytes')]
+    public function testLerDocumentoPeloMcpNaoVazaNoLog(): void
+    {
+        $disco = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $this->client->disableReboot();
+        $arquivoDeLog = static::getContainer()->getParameter('kernel.logs_dir') . '/mcp_test' . (string) getenv('TESTE_PROCESSO') . '.log';
+        @unlink($arquivoDeLog);
+        [$conectado, $par] = $this->conectado(permissoes: ['modules.pastas.view', 'resources.pasta.view']);
+        $tenant = $this->em()->find(Tenant::class, $conectado->getId());
+        self::assertNotNull($tenant);
+        $png = "\x89PNG\r\n\x1A\n" . 'bytes-da-imagem-ponta-a-ponta';
+        $nome = 'rg-sigiloso-do-cliente.png';
+        $pasta = (new Pasta())->setNup('E2E-' . uniqid());
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $documento = (new PastaDocumento())->setTenant($tenant)->setPasta($pasta)->setTitulo($nome)->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo(uniqid('doc', true) . '.bin')->setNomeOriginal($nome)->setMimeType('image/png')->setTamanhoBytes(\strlen($png))->setPaginas(null);
+        $this->em()->persist($documento);
+        $this->em()->flush();
+        $disco->memoria->semear(ChavesDePasta::documento($documento), $png);
+
+        $argumentos = ['acao' => 'ler', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()];
+        $resultado = $this->resultado($this->mcp($par['access_token'], 'tools/call', ['name' => LerDocumentosEModelosFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, 1, LerDocumentosEModelosFerramenta::NOME), 1);
+
+        self::assertFalse($resultado['isError'] ?? null, json_encode($resultado, \JSON_THROW_ON_ERROR));
+        $imagens = array_values(array_filter($resultado['content'], static fn (array $bloco): bool => ($bloco['type'] ?? null) === 'image'));
+        self::assertCount(1, $imagens, 'a resposta tem o bloco de imagem');
+        self::assertSame('image/png', $imagens[0]['mimeType']);
+        self::assertSame(base64_encode($png), $imagens[0]['data']);
+
+        $conteudo = (string) @file_get_contents($arquivoDeLog);
+        $linhas = array_values(array_filter(explode("\n", $conteudo), static fn (string $l): bool => str_contains($l, RegistroDaChamadaMiddleware::MENSAGEM)));
+        self::assertCount(1, $linhas, $conteudo);
+        self::assertSame(hash('sha256', $png), self::contextoDaLinha($linhas[0])['arquivo_sha256'] ?? null);
+        foreach ([$nome, 'rg-sigiloso', 'bytes-da-imagem', base64_encode($png), $par['access_token']] as $proibido) {
+            self::assertStringNotContainsString($proibido, $conteudo, 'o log mcp só leva o sha256 do arquivo');
+        }
+    }
+
     /**
      * Pessoa logada com o escritório na sessão; autoriza o mesmo escritório e troca o código.
      *
+     * @param list<string> $permissoes os códigos de permissão do perfil da pessoa
+     *
      * @return array{Tenant, array{access_token: string, refresh_token: string}, int} o escritório, o par e o id da pessoa
      */
-    private function conectado(bool $escrita = true): array
+    private function conectado(bool $escrita = true, array $permissoes = []): array
     {
         $this->clienteValido();
         $tenant = $this->escritorio();
         $pessoa = $this->pessoa();
-        $this->vinculo($pessoa, $tenant);
+        $this->vinculo($pessoa, $tenant, permissoes: $permissoes);
         $this->liberarConector($tenant);
         $this->logarComTenant($this->client, $pessoa, $tenant);
 

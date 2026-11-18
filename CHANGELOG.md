@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.58.1] - 2026-11-18
+
+### Corrigido
+
+- Push Processual: "Vincular à Pasta N" acha a pasta viva quando o número N era de uma pasta excluída e foi reusado; antes podia achar a excluída e responder que a pasta não existia.
+- Agente de pastas: a busca por número deixa a pasta excluída de fora, na lista e na contagem.
+- Ficha e resumo do cliente: a pasta excluída deixa de aparecer entre as pastas do cliente.
+
 ## [2.58.0] - 2026-11-18
 
 ### Adicionado
@@ -2111,7 +2119,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.58.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.58.1...HEAD
+[2.58.1]: https://github.com/sfbdata/Prime/compare/v2.58.0...v2.58.1
 [2.58.0]: https://github.com/sfbdata/Prime/compare/v2.57.0...v2.58.0
 [2.57.0]: https://github.com/sfbdata/Prime/compare/v2.56.0...v2.57.0
 [2.56.0]: https://github.com/sfbdata/Prime/compare/v2.55.0...v2.56.0

@@ -272,6 +272,25 @@ final class LerAgendaFerramentaTest extends KernelTestCase
         self::assertSame(['meus', 'prazo'], $tipos);
     }
 
+    #[TestDox('agenda: prazo em aberto sai com status agendado e o cumprido sai concluido, como a tela (decisão 25)')]
+    public function testStatusDoPrazo(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $vinculo = $this->vinculo($pessoa, $escritorio, permissoes: self::TUDO);
+        $pasta = $this->pasta($escritorio);
+        $aberto = $this->prazo($escritorio, $pasta, 'Prazo em aberto');
+        $cumprido = $this->prazo($escritorio, $pasta, 'Prazo cumprido');
+        $cumprido->cumprir($pessoa);
+        $this->em()->flush();
+
+        $itens = $this->agenda($pessoa, $vinculo, ['incluir' => ['prazos']])->dados['itens'];
+
+        $status = array_column($itens, 'status', 'prazo_id');
+        self::assertSame('agendado', $status[$aberto->getId()]);
+        self::assertSame('concluido', $status[$cumprido->getId()]);
+    }
+
     #[TestDox('agenda: local em branco sai nulo; local preenchido sai pelo rótulo')]
     public function testLocalVazioViraNulo(): void
     {
