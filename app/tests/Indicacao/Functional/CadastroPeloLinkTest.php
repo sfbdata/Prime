@@ -12,6 +12,7 @@ use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Entity\IndicacaoConfig;
 use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\EventListener\BonusDeEspacoPorIndicacaoListener;
+use App\Indicacao\Service\AvisoDeColegaCadastradoAoIndicador;
 use App\Indicacao\EventListener\CadastroPeloLinkListener;
 use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -385,6 +386,15 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         );
     }
 
+    /** @return list<string> os títulos dos avisos "colega se cadastrou" de quem indicou */
+    private function avisosDeColegaDe(int $indicadorId): array
+    {
+        return $this->conexao->fetchFirstColumn(
+            "SELECT titulo FROM notificacao WHERE usuario_id = ? AND tipo = 'ia_colega_cadastrado' ORDER BY id",
+            [$indicadorId],
+        );
+    }
+
     private function confirmarEmail(int $contaId): void
     {
         $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$contaId]);
@@ -410,6 +420,11 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         self::assertSame(30, $dias);
         self::assertSame((int) $this->atribuicoesDe($nova)[0]['id'], (int) $bonus[0]['indicacao_id']);
         self::assertSame([], $this->bonusDe((int) $this->ana->getId()), 'quem indicou não ganha');
+        self::assertSame(
+            ['Nova Pessoa se cadastrou pelo seu convite: você ganhou mais 3 peças na I.A.'],
+            $this->avisosDeColegaDe((int) $this->ana->getId()),
+            'quem indicou é avisado uma vez só, mesmo com o evento repetido',
+        );
     }
 
     #[TestDox('Bônus: conta que já nasce confirmada (Google) ganha logo no evento do cadastro, e o evento de confirmação depois não duplica')]
@@ -436,6 +451,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $bonus = $this->bonusDe($nova);
         self::assertCount(1, $bonus);
         self::assertSame($tenantId, (int) $bonus[0]['tenant_id']);
+        self::assertCount(1, $this->avisosDeColegaDe((int) $this->ana->getId()), 'o aviso sai no cadastro e o evento de confirmação não repete');
     }
 
     #[TestDox('Bônus: sem cupom, ou com cupom inválido, a confirmação do e-mail não concede nada')]
@@ -449,6 +465,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
 
         self::assertSame([], $this->bonusDe($semCupom));
         self::assertSame([], $this->bonusDe($invalido));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()), 'sem indicação válida ninguém é avisado');
     }
 
     #[TestDox('Bônus: falha ao conceder vira log e não derruba a confirmação do e-mail')]
@@ -462,5 +479,20 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->confirmarEmail($nova);
 
         self::assertSame([], $this->bonusDe($nova));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()), 'sem concessão não há aviso');
+    }
+
+    #[TestDox('Aviso: falha ao avisar quem indicou vira log e não desfaz o bônus nem derruba a confirmação')]
+    public function testFalhaNoAvisoNaoDerrubaNada(): void
+    {
+        $quebrado = $this->createStub(AvisoDeColegaCadastradoAoIndicador::class);
+        $quebrado->method('avisar')->willThrowException(new \RuntimeException('sino fora do ar'));
+        static::getContainer()->set(AvisoDeColegaCadastradoAoIndicador::class, $quebrado);
+        $nova = $this->cadastrar(['indicacao' => self::CODIGO]);
+
+        $this->confirmarEmail($nova);
+
+        self::assertCount(1, $this->bonusDe($nova));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()));
     }
 }
