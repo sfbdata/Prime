@@ -2,6 +2,10 @@
 
 {% block title %}BlueJus IA{% endblock %}
 
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('css/inteligencia-admin.css') }}">
+{% endblock %}
+
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
@@ -9,7 +13,7 @@
     </div>
 </section>
 
-<section class="content">
+<section class="content ia-admin">
     <div class="container-fluid">
 
         {% for label, messages in app.flashes %}

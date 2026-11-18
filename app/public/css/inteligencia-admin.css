@@ -1,0 +1,10 @@
+/*
+ * Tela "BlueJus IA" do administrador (/admin/inteligencia).
+ *
+ * A bolha da Central fica fixa no canto inferior direito (central-flutuante.css: 18px da borda e 54px de altura)
+ * e cobria o botão Desligar do conector, o último da tela e alinhado à direita (18/11/2026). O espaço no fim da
+ * página deixa o botão rolar até acima da bolha; os dois continuam na tela.
+ */
+.ia-admin {
+    padding-bottom: 96px;
+}
