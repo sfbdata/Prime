@@ -208,7 +208,9 @@
 .te-hm-menu { position: absolute; z-index: 1115; right: 0; top: 42px; width: 270px; background: var(--te-card); border: 1px solid var(--te-border-ctl); border-radius: 4px; box-shadow: var(--te-shadow-pop); padding: 4px 0; animation: teUp .14s ease; }
 .te-hm-sec { padding: 9px 14px 4px; font-size: 10.5px; font-weight: bold; color: var(--te-muted); letter-spacing: .5px; border-top: 1px solid var(--te-div-2); }
 .te-hm-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: var(--te-card); padding: 7px 14px; font-size: 13px; color: var(--te-body); cursor: pointer; text-align: left; }
-.te-hm-item:hover { background: var(--te-hover); }
+.te-hm-item:hover, .te-hm-item:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; color: #fff; }
+.te-hm-item:hover > .bi:first-child, .te-hm-item:hover > .te-hm-ok,
+.te-hm-item:focus-visible > .bi:first-child, .te-hm-item:focus-visible > .te-hm-ok { color: #fff; }
 .te-hm-item > .bi:first-child { width: 16px; color: var(--te-muted); }
 .te-hm-item > span { flex: 1; }
 .te-hm-item > .te-hm-ok { color: var(--te-azul); }
@@ -260,12 +262,18 @@
 .te-grade--cab > div.te-centro { padding: 11px 6px; text-align: center; }
 .te-linha { border-bottom: 1px solid var(--te-div); cursor: pointer; background: var(--te-card); transition: background .12s; }
 .te-linha.is-urgente { background: var(--te-urgente); }
-.te-linha:hover { background: var(--te-hover); }
+.te-linha:hover, .te-linha.is-sel:hover, .te-linha:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; transition: background .18s, color .18s; }
+/* Guia visual v30: texto branco na linha realçada. As cores de prazo e de situação vêm inline do JS, por isso o !important. */
+.te-linha:hover .te-l-id, .te-linha:hover .te-l-tipo, .te-linha:hover .te-l-desc, .te-linha:hover .te-l-rota, .te-linha:hover .te-l-destino,
+.te-linha:hover .te-l-destino > .bi, .te-linha:hover .te-l-prazo, .te-linha:hover .te-l-resp, .te-linha:hover .te-l-resp.is-vazio,
+.te-linha:hover .te-l-chat > .bi, .te-linha:hover .te-btn-mais, .te-linha:hover .te-sel-btn,
+.te-linha:hover .te-l-prazo-txt, .te-linha:hover .te-l-prazo-txt *, .te-linha:hover .te-l-sit > span, .te-linha:hover .te-l-sit > span * { color: #fff !important; }
+/* O contador de mensagens (#0a6fa0) sumiria no azul do realce: vira branco com o número azul. */
+.te-linha:hover .te-l-chat-n { background: #fff; color: #2b7ab0; }
 .te-l-id { padding: 12px 14px; font-weight: normal; font-size: 13.5px; color: var(--te-azul); }
 /* Não lida: o desenho põe o peso da linha no ID (`l.negrito`, linha 138). */
 .te-linha.is-naolida .te-l-id { font-weight: bold; }
 .te-linha.is-sel { background: var(--te-sel-bg); }
-.te-linha.is-sel:hover { background: var(--te-hover); }
 .te-l-serv { padding: 10px 14px; min-width: 0; }
 .te-l-tipo { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .te-l-desc { font-size: 12.5px; color: var(--te-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -280,7 +288,7 @@
 .te-l-sit { padding: 10px 14px; }
 .te-l-sit > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; }
 .te-l-chat { text-align: center; }
-.te-l-chat-n { background: #0a6fa0; color: #fff; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 9px; }
+.te-l-chat-n { background: #0a6fa0; color: #fff; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 4px; }
 .te-l-chat > .bi { color: var(--te-chat-vazio); }
 .te-l-mais { text-align: center; }
 .te-btn-mais { width: 30px; height: 30px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); cursor: pointer; }
@@ -344,7 +352,7 @@
 .te-dz-abas { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--te-border); overflow-x: auto; flex: none; }
 .te-dz-aba { padding: 12px 12px 10px; border: none; border-bottom: 3px solid transparent; background: transparent; color: var(--te-muted); font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .te-dz-aba.is-ativa { border-bottom-color: var(--te-azul); color: var(--te-azul); }
-.te-dz-aba-n { background: #0a6fa0; color: #fff; font-size: 10.5px; padding: 1px 6px; border-radius: 8px; }
+.te-dz-aba-n { background: #0a6fa0; color: #fff; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; }
 
 .te-and { border-bottom: 1px solid var(--te-border); padding: 12px 16px 10px; background: var(--te-soft-2); flex: none; }
 .te-secao-rot { font-size: 12px; font-weight: bold; color: var(--te-text-2); letter-spacing: .4px; }
@@ -943,7 +951,10 @@ textarea.te-vf-ctl { height: auto; padding: 9px 10px; resize: vertical; line-hei
 .te-cv-cab > span.is-prof { padding: 11px 16px; }
 .te-cv-cab > span:first-child, .te-cv-cab > span:last-child { padding: 0; }
 .te-cv-linha { border-bottom: 1px solid var(--te-div-2); font-size: 13.5px; cursor: pointer; transition: background .15s; }
-.te-cv-linha:hover { background: var(--te-hover); }
+.te-cv-linha:hover, .te-cv-linha.is-sel:hover, .te-cv-linha:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; color: #fff; }
+.te-cv-linha:hover .te-cv-nome, .te-cv-linha:hover .te-cv-cargo, .te-cv-linha:hover .te-cv-cel, .te-cv-linha:hover .te-cv-cel.is-fraco,
+.te-cv-linha:hover .te-cv-mais, .te-cv-linha:hover .te-sel-btn { color: #fff; }
+.te-cv-linha:hover .te-cv-av { box-shadow: 0 0 0 2px #fff; }
 .te-cv-linha.is-sel { background: var(--te-sel-bg); }
 .te-cv-marca { padding: 0 4px; display: flex; align-items: center; gap: 1px; }
 .te-cv-marca > .te-sel-btn, .te-cv-marca > .te-estrela { width: 26px; height: 26px; }
