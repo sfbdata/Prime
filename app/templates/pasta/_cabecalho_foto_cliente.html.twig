@@ -13,6 +13,8 @@
    "Remover foto" vai para quem é dono da foto mostrada (`data-origem`): o cliente
    (`data-url-remover`) ou a pasta (`data-url-remover-pasta`, só para quem edita a pasta).
    As rotas de entrega conferem a visibilidade de novo.
+   A URL da foto leva o nome SEM a extensão (como o pathinfo FILENAME das rotas): o nginx de produção responde
+   404 sozinho a todo caminho terminado em .jpg/.png, sem passar pelo PHP.
 
    Contexto: `pasta`, `cliente` (pode ser null), `cad` (o cadeado já montado, ou null).
    ============================================================================ #}
@@ -24,10 +26,10 @@
     ? (aceitaEscrita and podeVerCliente and can_access_resource('cliente', cliente.id, 'edit'))
     : podeEditarPasta %}
 {% set fotoCliente = podeVerCliente and cliente.foto
-    ? path('cliente_foto', {id: cliente.id, nome: cliente.foto, v: cliente.fotoAtualizadaEm ? cliente.fotoAtualizadaEm|date('U') : null})
+    ? path('cliente_foto', {id: cliente.id, nome: (cliente.foto|split('.')|length > 1 ? cliente.foto|split('.')|slice(0, -1)|join('.') : cliente.foto), v: cliente.fotoAtualizadaEm ? cliente.fotoAtualizadaEm|date('U') : null})
     : null %}
 {% set fotoPasta = pasta.foto
-    ? path('pasta_foto', {id: pasta.id, nome: pasta.foto, v: pasta.fotoAtualizadaEm ? pasta.fotoAtualizadaEm|date('U') : null})
+    ? path('pasta_foto', {id: pasta.id, nome: (pasta.foto|split('.')|length > 1 ? pasta.foto|split('.')|slice(0, -1)|join('.') : pasta.foto), v: pasta.fotoAtualizadaEm ? pasta.fotoAtualizadaEm|date('U') : null})
     : null %}
 {% set fotoUrl = fotoCliente ?: fotoPasta %}
 {% set origemFoto = fotoCliente ? 'cliente' : (fotoPasta ? 'pasta' : '') %}
