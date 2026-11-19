@@ -158,6 +158,16 @@ final class ExcluirPastaLapideTest extends KernelTestCase
         $outra = $this->recarregar($nova);
         self::assertNotNull($outra);
         self::assertSame('1239', $outra->getNup(), 'A pasta que tinha herdado o número não muda.');
+
+        // O "antes era N" do histórico sai desta linha: a volta da lápide e a troca de número no mesmo diff.
+        $changes = (string) static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne(
+            'SELECT changes::text FROM audit_log WHERE entity_class = ? AND entity_id = ? ORDER BY id DESC LIMIT 1',
+            [Pasta::class, (string) $p1239->getId()],
+        );
+        self::assertStringContainsString('excluidaEm', $changes);
+        self::assertStringContainsString('"nup"', $changes);
+        self::assertStringContainsString('1239', $changes);
+        self::assertStringContainsString('1240', $changes);
     }
 
     #[TestDox('Número reusado em OUTRO escritório não impede restaurar')]

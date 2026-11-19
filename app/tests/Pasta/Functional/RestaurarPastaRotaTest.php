@@ -177,6 +177,8 @@ final class RestaurarPastaRotaTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarAdmin();
         $lapide = $this->pasta($tenant, '300', $user);
         $viva   = $this->pasta($tenant, '301');
+        // Criado antes do primeiro pedido: a requisição limpa o EntityManager e o tenant ficaria solto.
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
         $this->instalarCsrf();
         $this->logarComTenant($client, $user, $tenant);
 
@@ -188,7 +190,6 @@ final class RestaurarPastaRotaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Esta pasta não está excluída.', json_decode((string) $client->getResponse()->getContent(), true)['mensagem']);
 
-        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
         $this->logarComTenant($client, $leitor, $tenant);
         $this->restaurar($client, $lapide, self::JSON);
         self::assertResponseStatusCodeSame(403);

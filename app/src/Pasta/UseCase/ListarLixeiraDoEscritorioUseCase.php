@@ -137,17 +137,18 @@ final class ListarLixeiraDoEscritorioUseCase
     private function candidatasDeLapide(Tenant $tenant, array $jaTem, array $ocultasPorPasta): array
     {
         $saida = [];
-        foreach ($this->pastas->findExcluidasDoEscritorio($tenant) as $lapide) {
-            $id = (int) $lapide->getId();
-            if (\in_array($id, $jaTem, true) || $lapide->getTenant() !== $tenant) {
+        $jaTem = array_flip($jaTem);
+        foreach ($this->pastas->lapidesDoEscritorio($tenant) as $lapide) {
+            $id = $lapide['id'];
+            if (isset($jaTem[$id])) {
                 continue;
             }
             $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $ocultasPorPasta[$id] ?? []);
             if (\in_array(AbaDaPasta::Documentos->value, $ocultas, true)) {
                 continue;
             }
-            $quando  = ($lapide->getExcluidaEm() ?? new \DateTimeImmutable())->format('Y-m-d H:i:s');
-            $autorId = $lapide->getExcluidaPor()?->getId();
+            $quando  = $lapide['excluidaEm']->format('Y-m-d H:i:s');
+            $autorId = $lapide['excluidaPorId'];
             $saida[] = ['pastaId' => $id, 'contas' => [
                 'documentos'  => 0,
                 'subpastas'   => 0,

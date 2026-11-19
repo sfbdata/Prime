@@ -2201,20 +2201,28 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * Toda pasta EXCLUÍDA (lápide) do escritório, para a Lixeira do Expediente listar mesmo a que
-     * não tem documento na lixeira. Filtro de tenant explícito.
+     * não tem documento na lixeira. Só id, data e autor da exclusão (sem hidratar a pasta): a lápide
+     * não é apagada nunca, então a lista cresce com o tempo. Filtro de tenant explícito.
      *
-     * @return list<Pasta>
+     * @return list<array{id: int, excluidaEm: \DateTimeImmutable, excluidaPorId: ?int}>
      */
-    public function findExcluidasDoEscritorio(Tenant $tenant): array
+    public function lapidesDoEscritorio(Tenant $tenant): array
     {
-        return array_values($this->createQueryBuilder('p')
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.id', 'p.excluidaEm', 'IDENTITY(p.excluidaPor) AS excluidaPorId')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NOT NULL')
             ->setParameter('tenant', $tenant)
             ->orderBy('p.excluidaEm', 'DESC')
             ->addOrderBy('p.id', 'DESC')
             ->getQuery()
-            ->getResult());
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'id'            => (int) $l['id'],
+            'excluidaEm'    => $l['excluidaEm'],
+            'excluidaPorId' => $l['excluidaPorId'] === null ? null : (int) $l['excluidaPorId'],
+        ], $linhas);
     }
 
     /**

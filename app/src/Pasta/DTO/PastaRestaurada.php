@@ -13,7 +13,8 @@ final readonly class PastaRestaurada
     public function __construct(
         public string $numeroAntes,
         public string $numeroAgora,
-    ) {}
+    ) {
+    }
 
     public function mudouDeNumero(): bool
     {

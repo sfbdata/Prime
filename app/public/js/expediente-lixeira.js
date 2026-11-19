@@ -28,6 +28,7 @@
     let geracao = 0;                    // cada abertura é uma geração: resposta de abertura anterior é descartada
     let teto = 2000;
     let lendo = false;
+    let avisoPendente = '';             // mensagem a mostrar quando a lista recarregada chegar (ver recarregarLista)
     let ocupado = false;
     let focoDeVolta = null;
     const vistas = new Set();
@@ -69,7 +70,7 @@
     function postForm(url, corpo) {
         return fetch(url, {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
             credentials: 'same-origin',
             body: new URLSearchParams(corpo).toString(),
         }).then(lerJson);
@@ -87,6 +88,14 @@
     function abrir() {
         focoDeVolta = document.activeElement;
         janela.hidden = false;
+        const x = janela.querySelector('.exp-modal-x');
+        if (x) x.focus();
+        recarregarLista();
+    }
+    /* Lê a lista do zero. `avisoPendente` é a mensagem que aparece quando a primeira página chega (a
+       leitura limpa o aviso): serve para a pasta restaurada que ainda tem documentos na lixeira, que
+       volta para a lista como pasta comum. */
+    function recarregarLista() {
         el.lista.textContent = '';
         vistas.clear();
         geracao++;
@@ -95,8 +104,6 @@
         el.vazia.hidden = true;
         el.mais.hidden = true;
         avisar(BJ_T.t('expediente.js.lixeira.carregando'));
-        const x = janela.querySelector('.exp-modal-x');
-        if (x) x.focus();
         lerPagina(PAGINAS_SOZINHAS);
     }
     function fechar() {
@@ -140,7 +147,8 @@
                 vistas.add(g.pastaId);
                 el.lista.appendChild(linhaDoGrupo(g));
             });
-            avisar('');
+            avisar(avisoPendente);
+            avisoPendente = '';
             lendo = false;
             if (proximo !== null && sozinhas > 1 && el.lista.children.length < MINIMO_NA_TELA) { lerPagina(sozinhas - 1); return; }
             atualizarRodape();
@@ -322,9 +330,12 @@
             avisar(BJ_T.t('expediente.js.lixeira.restaurando_pasta'));
             postForm(g.urlRestaurarPasta, { _token: g.csrfRestaurarPasta }).then(function (res) {
                 if (!res.ok || !res.j.ok) throw new Error(res.j.mensagem || BJ_T.t('expediente.js.lixeira.erro_restaurar_pasta'));
+                const mensagem = res.j.mensagem || BJ_T.t('expediente.js.lixeira.restaurada_pasta', { nup: g.nup });
+                // Com documentos na lixeira, a pasta volta para a lista como pasta comum (com as ações deles).
+                if (g.documentos + g.subpastas > 0) { avisoPendente = mensagem; recarregarLista(); return; }
                 li.remove();
                 atualizarRodape();
-                avisar(res.j.mensagem || BJ_T.t('expediente.js.lixeira.restaurada_pasta', { nup: g.nup }));
+                avisar(mensagem);
             }).catch(function (err) {
                 avisar(err.message || BJ_T.t('expediente.js.lixeira.erro_restaurar_pasta'), true);
             }).then(function () { travar(false); });

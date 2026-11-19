@@ -342,7 +342,10 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
         $secoes->method('resumoDaLixeiraDoEscritorio')->willReturnCallback(fn (): array => $this->linhasSecoes);
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findBy')->willReturnCallback(fn (array $c): array => array_values(array_filter($this->pastas, static fn (Pasta $p): bool => \in_array($p->getId(), $c['id'], true))));
-        $pastas->method('findExcluidasDoEscritorio')->willReturnCallback(fn (): array => array_values(array_filter($this->pastas, static fn (Pasta $p): bool => $p->estaExcluida())));
+        $pastas->method('lapidesDoEscritorio')->willReturnCallback(fn (): array => array_values(array_map(
+            static fn (Pasta $p): array => ['id' => (int) $p->getId(), 'excluidaEm' => $p->getExcluidaEm() ?? new \DateTimeImmutable(), 'excluidaPorId' => $p->getExcluidaPor()?->getId()],
+            array_filter($this->pastas, static fn (Pasta $p): bool => $p->estaExcluida()),
+        )));
         $pastas->method('nupsEmUsoDoEscritorio')->willReturnCallback(fn (Tenant $t, array $nups): array => array_values(array_intersect($nups, $this->nupsEmUso)));
         $usuarios = $this->createStub(UserRepository::class);
         $usuarios->method('findBy')->willReturnCallback(fn (array $c): array => array_values(array_filter($this->usuarios, static fn (User $u): bool => \in_array($u->getId(), $c['id'], true))));
