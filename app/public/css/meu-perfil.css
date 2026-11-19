@@ -95,6 +95,9 @@ html[data-bs-theme="dark"] .mp-btn-contorno.mp-btn-ouvir:hover { background: #0a
 html[data-bs-theme="dark"] .mp-ouvir-rotulo { color: var(--bs-secondary-color); }
 .mp-seguranca { padding: 18px 20px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .mp-seguranca > div { flex: 1; min-width: 240px; font-size: 13px; color: #34505f; line-height: 1.5; }
+/* Cartão "Meu código BlueJus" (pedido do Farlei, 19/11/2026): o código em destaque, legível para ditar e copiar. */
+.mp-codigo { display: inline-block; margin-bottom: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 18px; font-weight: 700; letter-spacing: .06em; color: #0a6fa0; user-select: all; }
+html[data-bs-theme="dark"] .mp-codigo { color: #6cb6e0; }
 
 /* Registro OAB (desenho 07, linhas 79 a 92) */
 .mp-btn-oab { height: 30px; padding: 0 11px; border: 1px solid #0d6efd; border-radius: 3px; background: #fff; color: #0d6efd; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
