@@ -40,16 +40,16 @@
         <a class="pp-kpi" href="{{ path('push_processual_processos') }}" data-pp-kpi="processos">
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_processos'|trans }}</span><b class="pp-kpi__valor">{{ indicadores.processos }}</b></span><i class="bi bi-folder2"></i>
         </a>
-        <a class="pp-kpi{{ criterios.mov == '7' ? ' pp-kpi--ativo pp-kpi--verde' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == '7' ? '' : '7'}) }}" data-pp-kpi="movidos7">
+        <a class="pp-kpi{{ criterios.mov == '7' ? ' pp-kpi--ativo pp-kpi--verde' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == '7' ? '' : '7'}) }}" data-pp-kpi="movidos7"{% if criterios.mov == '7' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_movidos'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--verde">{{ indicadores.movidos7 }}</b></span><i class="bi bi-activity"></i>
         </a>
-        <a class="pp-kpi{{ criterios.mov == 'p30' ? ' pp-kpi--ativo pp-kpi--vermelho' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'p30' ? '' : 'p30'}) }}" data-pp-kpi="parados30">
+        <a class="pp-kpi{{ criterios.mov == 'p30' ? ' pp-kpi--ativo pp-kpi--vermelho' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'p30' ? '' : 'p30'}) }}" data-pp-kpi="parados30"{% if criterios.mov == 'p30' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_parados'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--alerta">{{ indicadores.parados30 }}</b></span><i class="bi bi-hourglass-split"></i>
         </a>
-        <a class="pp-kpi{{ criterios.mov == 'nc' ? ' pp-kpi--ativo pp-kpi--ambar' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'nc' ? '' : 'nc'}) }}" data-pp-kpi="nunca">
+        <a class="pp-kpi{{ criterios.mov == 'nc' ? ' pp-kpi--ativo pp-kpi--ambar' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'nc' ? '' : 'nc'}) }}" data-pp-kpi="nunca"{% if criterios.mov == 'nc' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_nunca'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--ambar">{{ indicadores.nuncaCapturados }}</b></span><i class="bi bi-question-circle"></i>
         </a>
-        <a class="pp-kpi{{ criterios.pasta == 's' ? ' pp-kpi--ativo pp-kpi--roxo' : '' }}" href="{{ path('push_processual_processos', {pasta: criterios.pasta == 's' ? '' : 's'}) }}" data-pp-kpi="sem_pasta">
+        <a class="pp-kpi{{ criterios.pasta == 's' ? ' pp-kpi--ativo pp-kpi--roxo' : '' }}" href="{{ path('push_processual_processos', {pasta: criterios.pasta == 's' ? '' : 's'}) }}" data-pp-kpi="sem_pasta"{% if criterios.pasta == 's' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_sem_pasta'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--roxo">{{ indicadores.semPasta }}</b></span><i class="bi bi-folder-x"></i>
         </a>
     </div>

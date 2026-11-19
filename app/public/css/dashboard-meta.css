@@ -91,7 +91,7 @@
     color: var(--db-text-strong);
 }
 
-.db-page .db-meta-feitas i { font-size: 10.5px; opacity: .55; }
+.db-page .db-meta-feitas i { font-size: 10.5px; }
 
 .db-page .db-meta-status {
     display: inline-flex;
