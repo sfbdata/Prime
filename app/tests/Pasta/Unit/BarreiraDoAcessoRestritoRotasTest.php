@@ -18,7 +18,7 @@ final class BarreiraDoAcessoRestritoRotasTest extends TestCase
     public static function liberadas(): iterable
     {
         foreach ([
-            'expediente_index', 'expediente_busca_rapida', 'expediente_exportar_csv', 'pasta_show', 'pasta_new',
+            'expediente_index', 'expediente_acervo_geral', 'expediente_busca_rapida', 'expediente_exportar_csv', 'pasta_show', 'pasta_new',
             'processo_show', 'cliente_index', 'app_profile', 'app_profile_senha', 'contribua_index', 'app_logout',
             'tenant_selecionar', 'notificacao_count', 'termo_aceite',
         ] as $rota) {
@@ -32,7 +32,7 @@ final class BarreiraDoAcessoRestritoRotasTest extends TestCase
         foreach ([
             'dashboard_index', 'central_index', 'agenda_index', 'chat_index', 'app_tenant_role_index', 'app_tenant_users',
             'push_processual_index', 'tarefa_index', 'cobranca_index', 'voto_index', 'service_desk_index', 'audit_log_index',
-            'expediente_lixeira', 'expediente_acervo_geral', 'expediente_relatorio_processos', 'expediente_pastas_paradas',
+            'expediente_lixeira', 'expediente_relatorio_processos', 'expediente_pastas_paradas',
             'expediente_marcador_criar', 'auth_gerenciar_convites', 'conector_mcp', 'rota_que_ainda_nao_existe',
         ] as $rota) {
             yield $rota => [$rota];

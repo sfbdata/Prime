@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaCompartilhamento;
+use App\Pasta\Entity\PermissoesDoCompartilhamento;
 use App\Pasta\EventListener\BarreiraDoAcessoRestritoListener;
 use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Service\EscopoDePastas;
@@ -132,6 +134,27 @@ final class AcessoRestritoTest extends JusPrimeWebTestCase
         self::assertSame(['anterior' => null, 'proxima' => null], $repositorio->vizinhasNoAcervo($this->minha, $this->restrito));
         self::assertSame(['posicao' => 1, 'total' => 1], $repositorio->posicaoNoAcervo($this->minha, $this->restrito));
         self::assertSame(3, $repositorio->posicaoNoAcervo($this->minha, $this->comum)['total'] ?? null);
+    }
+
+    #[TestDox('painel da Lista (acervo-geral, por AJAX) responde 200 ao restrito: só a pasta dele e a compartilhada, e a contagem também')]
+    public function testPainelDaListaSoComAsDele(): void
+    {
+        $primario = $this->alheia->getResponsavel();
+        $compartilhada = $this->pastaDe($primario, 'CLIENTE COMPARTILHADO');
+        $this->em()->persist(PastaCompartilhamento::interno($compartilhada, $primario, $this->restrito, new PermissoesDoCompartilhamento(), null, null, new \DateTimeImmutable('-2 days')));
+        $this->em()->flush();
+        $this->entrar($this->restrito, $this->tenant);
+
+        $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        self::assertResponseStatusCodeSame(200);
+        $corpo = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('CLIENTE DA RITA', $corpo);
+        self::assertStringContainsString('CLIENTE COMPARTILHADO', $corpo);
+        self::assertStringNotContainsString('CLIENTE DO PRIMARIO', $corpo);
+        self::assertStringNotContainsString('CLIENTE SEM NINGUEM', $corpo);
+        $this->fixarEscritorioDe($this->restrito);
+        self::assertSame(2, $this->em()->getRepository(Pasta::class)->countByFilters([], $this->tenant, $this->restrito));
     }
 
     #[TestDox('Painel dá "Fora do seu acesso" (403); a página inicial manda para a Lista; chamada de script recebe JSON')]

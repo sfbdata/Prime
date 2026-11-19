@@ -296,8 +296,8 @@ responsável "<origem> (dono)"; clicar abre a janela L11. A ordem (no topo, fora
 acervo) é o único desvio. A fonte é o JSON `expediente_recebidas`, que passa a marcar em cada item `abre`
 (o mesmo critério do localizador, conferido em lote: cadeados, vínculos e contas das origens numa consulta cada,
 para os até 100 itens da caixa); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
-entram no `findByFilters` (escopado ao escritório B). Limites da 9a: o restrito em B não tem o acervo geral, então
-chega à recebida só pela caixa "Recebidas" ("Ver pasta"); com a Lista vazia (sem tabela) as linhas não aparecem, e a
+entram no `findByFilters` (escopado ao escritório B). Limites da 9a: a recebida não entra no `findByFilters` do restrito em B, então
+ele chega a ela só pela caixa "Recebidas" ("Ver pasta"); com a Lista vazia (sem tabela) as linhas não aparecem, e a
 caixa continua sendo o caminho.
 
 **Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
@@ -364,8 +364,10 @@ Migration `Version20261118100000` (número do Coordenador). Tudo abaixo vale só
    textos do `bj-escopo.js`), e a página inicial manda para a Lista. É a segunda camada: módulo sem permissão já
    recusa, mas tela sem módulo (Painel, Central) não. Também passam o que não mostra dado do escritório (sino,
    convites recebidos, termos, política, páginas públicas). Dentro do Expediente ficam fechados os relatórios
-   gerais (acervo geral, pastas paradas, relatório de processos), a lixeira, a importação em lote e o cadastro de
-   marcadores; os convites da equipe também. Rota sem sessão (o conector MCP, por token) fica fora desta barreira: lá valem a lista de liberação e o teto do `NivelNoCadeado` com o escritório do token, e o resto do conector é da fatia 3.
+   gerais (pastas paradas, relatório de processos), a lixeira, a importação em lote e o cadastro de
+   marcadores; os convites da equipe também. O painel `expediente_acervo_geral` fica aberto: é por ele que todos os
+   painéis da Lista carregam, e a consulta já vem escopada (`findByFilters`/`countByFilters` com o escopo; achado do
+   smoke de 19/11, fechado dava "Erro ao carregar o conteúdo"). Rota sem sessão (o conector MCP, por token) fica fora desta barreira: lá valem a lista de liberação e o teto do `NivelNoCadeado` com o escritório do token, e o resto do conector é da fatia 3.
 3. **Teto por pasta** (`NivelNoCadeado`): para o restrito, pasta em que ele não é o responsável é `Oculto`, antes do
    cadeado. Por aí já fecham `canAccessResource`, `BarreiraDoCadeadoListener`, `AcessoAMeta`, documento, ZIP, e o
    processo cujas pastas são todas ocultas (K3). `idsDasPastasOcultas` passa a incluir as fora do escopo (metas,
