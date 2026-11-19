@@ -29,8 +29,12 @@ final class ExpedienteQueriesDaPaginaTest extends JusPrimeWebTestCase
 {
     use CriaCenarioDoCadeadoFuncionalTrait;
 
-    /** Teto medido em 06/11/2026 neste cenário, já com as contagens EXPEDIENTES numa consulta (#679): subir exige motivo. */
-    private const TETO = ['primario' => 30, 'colaborador' => 26];
+    /**
+     * Teto medido em 06/11/2026 neste cenário, já com as contagens EXPEDIENTES numa consulta (#679): subir exige motivo.
+     * +1 em 19/11/2026 (#829): a aba da campanha BlueJus Black lê a campanha vigente uma vez por tela (memorizada na
+     * requisição); desligada, não há outra consulta. Zerar pediria cache entre requisições, com risco de valor velho.
+     */
+    private const TETO = ['primario' => 31, 'colaborador' => 27];
 
     /** @return iterable<string, array{string}> */
     public static function personas(): iterable
