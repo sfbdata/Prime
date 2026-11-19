@@ -561,6 +561,7 @@
     filter: drop-shadow(0 1px 1px rgba(150,110,30,.25));
 }
 .db-page .db-colab > .db-trofeu { margin-left: -6px; } /* 6px do nome, como no desenho (gap 12px da célula) */
+[data-bs-theme="dark"] .db-page .db-trofeu { color: #e6c48a; } /* ouro claro no fundo escuro, como o das janelas */
 .db-page .db-tr-campeao:hover .db-trofeu {
     transform: scale(1.35) rotate(-10deg);
     filter: drop-shadow(0 0 6px rgba(214,160,40,.75));
@@ -957,7 +958,7 @@
     transition: transform .22s var(--db-ease), color .18s ease;
 }
 .db-page .db-cal-dia.is-fds .db-cal-num  { color: var(--db-muted); }
-.db-page .db-cal-dia.is-fora .db-cal-num { color: var(--db-zero); }
+.db-page .db-cal-dia.is-fora .db-cal-num { color: var(--db-zero); font-weight: 400; font-style: italic; } /* guia v30 (A3): fora do mês não fica mais claro (4,5:1); distingue-se do fim de semana pelo itálico */
 .db-page .db-cal-dia.is-entre { background: var(--db-cal-entre-bg); }
 .db-page .db-cal-dia.is-ponta { background: var(--db-accent-bg); }
 .db-page .db-cal-dia.is-ponta .db-cal-num { color: var(--db-accent-text); }

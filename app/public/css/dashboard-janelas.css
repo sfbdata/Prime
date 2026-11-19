@@ -128,7 +128,7 @@
     --db-hist-seg-ativo-sombra: 0 1px 2px rgba(16,42,58,.1), 0 0 0 1px rgba(12,122,156,.14);
     --db-hist-eixo:          #e3eaef;
     --db-hist-vazio:         #eef3f6;
-    --db-hist-rotulo:        #7b93a2;
+    --db-hist-rotulo:        #5f7684;
     --db-hist-rotulo-vazio:  #5f7684;
     --db-hist-ouro:          #9a7220;
     --db-hist-ouro-barra:    linear-gradient(180deg, #f3d27a, #d7aa45);
@@ -267,7 +267,7 @@
     font-weight: 700;
     color: var(--db-hist-rotulo);
 }
-.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); }
+.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); font-style: italic; }
 
 .db-hist-stats {
     display: grid;

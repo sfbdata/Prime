@@ -32,6 +32,8 @@ final class ContrasteBordasV30CssTest extends TestCase
         foreach (['--db-border', '--db-div-strong', '--db-seg-border'] as $token) {
             self::assertMatchesRegularExpression('/' . preg_quote($token, '/') . ':\s+#d6e0e7;/', $css, $token);
         }
+        self::assertStringContainsString('.db-cal-dia.is-fora .db-cal-num { color: var(--db-zero); font-weight: 400; font-style: italic; }', $css, 'fora do mês se distingue do fim de semana sem clarear');
+        self::assertStringContainsString('[data-bs-theme="dark"] .db-page .db-trofeu { color: #e6c48a; }', $css);
         self::assertStringNotContainsString('.db-pref-fixa { display: flex; align-items: center; gap: 10px; padding: 7px 8px; opacity: .55; }', $css);
     }
 
@@ -39,6 +41,8 @@ final class ContrasteBordasV30CssTest extends TestCase
     public function testCssAuxiliaresDoDashboard(): void
     {
         self::assertStringNotContainsString('#c3d0d8', $this->ler('public/css/dashboard-janelas.css'));
+        self::assertMatchesRegularExpression('/--db-hist-rotulo:\s+#5f7684;/', $this->ler('public/css/dashboard-janelas.css'), 'rótulo do histórico é texto: 4,5:1');
+        self::assertStringContainsString('.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); font-style: italic; }', $this->ler('public/css/dashboard-janelas.css'));
         self::assertStringNotContainsString('#c49a3a', $this->ler('public/css/dashboard-janelas.css'));
         self::assertStringNotContainsString('#9fb2bf', $this->ler('public/css/dashboard-relatorio.css'));
         self::assertStringContainsString('.db-page .db-meta-feitas i { font-size: 10.5px; }', $this->ler('public/css/dashboard-meta.css'));
