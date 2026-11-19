@@ -17,8 +17,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * O conector de I.A. na aba "Configurações da I.A." do Master (spec mcp-remoto-oauth 14.a nível 2; PR 8): o JSON da
- * tabela e o POST de liberar ou bloquear um escritório. Só o Master; token CSRF da aba no header.
+ * O conector de I.A. na aba "Configurações da I.A." do Master (spec mcp-remoto-oauth 14.a; PR 8): o JSON da
+ * tabela, só leitura. Só o Master. O Master não libera escritório por escritório (decisão do Samuel, 19/11): a rota de
+ * liberar sumiu.
  *
  * O armazém de CSRF é fixo ('TOKEN_<id>' sempre válido, como no IaDoMasterControllerTest): o 403 de quem não é Master
  * vem da regra, não do token. O CSRF errado tem teste próprio.
@@ -39,7 +40,7 @@ final class ConectorDoMasterControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfFixo();
     }
 
-    #[TestDox('Master lê a tabela: escritório sem linha com tudo falso, o liberado e ligado com aceite e a contagem; suspenso fora')]
+    #[TestDox('Master lê a tabela: escritório sem linha desligado, o ligado com aceite e a contagem; suspenso fora')]
     public function testMasterLe(): void
     {
         $this->entrarComoMaster();
@@ -54,24 +55,21 @@ final class ConectorDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $d = $this->json();
-        self::assertSame(['tenantId' => $semLinha->getId(), 'nome' => $semLinha->getName(), 'liberado' => false, 'ligado' => false, 'aceiteEm' => null, 'aceiteVigente' => false, 'conexoesAtivas' => 0], $this->linhaDe($d, $semLinha));
+        self::assertSame(['tenantId' => $semLinha->getId(), 'nome' => $semLinha->getName(), 'ligado' => false, 'aceiteEm' => null, 'aceiteVigente' => false, 'conexoesAtivas' => 0], $this->linhaDe($d, $semLinha));
         $linha = $this->linhaDe($d, $ligado);
-        self::assertTrue($linha['liberado']);
         self::assertTrue($linha['ligado']);
         self::assertTrue($linha['aceiteVigente']);
         self::assertSame($this->agora()->format('Y-m-d'), $linha['aceiteEm']);
         self::assertNull($this->linhaDe($d, $suspenso, false));
     }
 
-    #[TestDox('quem não é Master (primário de escritório) recebe 403 no GET e no POST, e nada muda')]
+    #[TestDox('quem não é Master (primário de escritório) recebe 403 no GET')]
     public function testNaoMaster403(): void
     {
         $alvo = $this->escritorio();
         $this->entrarComoPrimarioDeEscritorio();
 
         $this->client->request('GET', '/master/conector', server: ['HTTP_ACCEPT' => 'application/json']);
-        self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/conector/escritorios/' . $alvo->getId(), ['liberado' => true]);
         self::assertResponseStatusCodeSame(403);
 
         self::assertNull($this->linhaNoBanco($alvo));
@@ -85,89 +83,19 @@ final class ConectorDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->client->getResponse()->isRedirect(), 'vai para o login');
     }
 
-    #[TestDox('CSRF errado: 403 e nada muda')]
-    public function testCsrfErrado(): void
+    #[TestDox('a rota de liberar escritório não existe mais: o POST do Master dá 404 e nenhuma linha nasce')]
+    public function testLiberarPorEscritorioNaoExiste(): void
     {
         $this->entrarComoMaster();
         $alvo = $this->escritorio();
-
-        $this->postar('/master/conector/escritorios/' . $alvo->getId(), ['liberado' => true], 'errado');
-
-        self::assertResponseStatusCodeSame(403);
-        self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
-        self::assertNull($this->linhaNoBanco($alvo));
-    }
-
-    #[TestDox('liberado que não é booleano: 422 e nada muda')]
-    public function testLiberadoInvalido(): void
-    {
-        $this->entrarComoMaster();
-        $alvo = $this->escritorio();
-
-        foreach ([['liberado' => 1], ['liberado' => 'sim'], []] as $corpo) {
-            $this->postar('/master/conector/escritorios/' . $alvo->getId(), $corpo);
-            self::assertResponseStatusCodeSame(422);
-            self::assertSame('Informe se o escritório fica liberado ou bloqueado.', $this->json()['erro']);
-        }
-        self::assertNull($this->linhaNoBanco($alvo));
-    }
-
-    #[TestDox('escritório inexistente, suspenso ou excluído: 404')]
-    public function testEscritorioInexistente(): void
-    {
-        $this->entrarComoMaster();
-        $suspenso = $this->escritorio();
-        $suspenso->setIsActive(false);
-        $excluido = $this->escritorio();
-        $excluido->setExcluidoEm(new \DateTimeImmutable('-1 day'));
-        $this->em()->flush();
-
-        foreach ([999999999, (int) $suspenso->getId(), (int) $excluido->getId()] as $id) {
-            $this->postar('/master/conector/escritorios/' . $id, ['liberado' => true]);
-            self::assertResponseStatusCodeSame(404);
-            self::assertSame('Escritório não encontrado.', $this->json()['erro']);
-        }
-        self::assertNull($this->linhaNoBanco($suspenso));
-    }
-
-    #[TestDox('Master com sessão em outro escritório libera e bloqueia o alvo: linha certa, aceite mantido, auditoria no alvo e o da sessão intacto')]
-    public function testLiberarEBloquearComSessaoEmOutroEscritorio(): void
-    {
-        $alvo = $this->escritorio();
-        $linha = $this->liberar($alvo, $this->pessoa());
-        $linha->bloquearPeloMaster();
-        $this->em()->flush();
-        $doMaster = $this->escritorio();
-        $master = $this->pessoa(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
-        $this->vinculo($master, $doMaster);
-        $this->logarComTenant($this->client, $master, $doMaster);
 
         $this->postar('/master/conector/escritorios/' . $alvo->getId(), ['liberado' => true]);
 
-        self::assertResponseIsSuccessful();
-        self::assertTrue($this->linhaDe($this->json(), $alvo)['liberado']);
-        self::assertTrue($this->linhaNoBanco($alvo)?->isLiberadoPeloMaster());
-
-        $this->postar('/master/conector/escritorios/' . $alvo->getId(), ['liberado' => false]);
-
-        self::assertResponseIsSuccessful();
-        $json = $this->linhaDe($this->json(), $alvo);
-        self::assertFalse($json['liberado']);
-        self::assertTrue($json['ligado'], 'bloquear não desliga');
-        self::assertNotNull($json['aceiteEm'], 'nem apaga o aceite');
-        $gravada = $this->linhaNoBanco($alvo);
-        self::assertFalse($gravada?->isLiberadoPeloMaster());
-        self::assertNotNull($gravada?->getAceiteEm());
-        self::assertCount(1, $this->em()->getRepository(EscritorioDoConector::class)->findBy(['tenant' => $alvo->getId()]));
-        self::assertNull($this->linhaNoBanco($doMaster), 'o escritório da sessão não ganha linha');
-        $tenants = $this->em()->getConnection()->fetchFirstColumn(
-            'SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?',
-            [EscritorioDoConector::class, $master->getId()],
-        );
-        self::assertSame([(int) $alvo->getId(), (int) $alvo->getId()], array_map('intval', $tenants), 'as duas mudanças do Master vão para o escritório alvo, não para o da sessão');
+        self::assertResponseStatusCodeSame(404);
+        self::assertNull($this->linhaNoBanco($alvo));
     }
 
-    #[TestDox('tela: o conector entra na aba "Configurações da I.A." depois do bloco da BlueJus IA, com as rotas, as colunas, o catálogo e o JS')]
+    #[TestDox('tela: o conector entra na aba "Configurações da I.A." depois do bloco da BlueJus IA, com a rota de dados, as colunas, o catálogo e o JS')]
     public function testTela(): void
     {
         $this->entrarComoMaster();
@@ -178,14 +106,14 @@ final class ConectorDoMasterControllerTest extends JusPrimeWebTestCase
         $raiz = $crawler->filter('#master-painel > div.mp-ia[data-painel-aba="ia"] > div.mp-ia-raiz[data-mp-ia] + div.mp-ia-raiz[data-mp-conector]');
         self::assertCount(1, $raiz);
         self::assertSame('/master/conector', $raiz->attr('data-url-dados'));
-        self::assertSame('/master/conector/escritorios/0', $raiz->attr('data-url-escritorio'));
+        self::assertNull($raiz->attr('data-url-escritorio'), 'sem a rota de liberar');
         $card = $raiz->filter('div.mp-ia-raiz[data-mp-conector] > section.mp-card');
         self::assertCount(1, $card);
         self::assertSame('Conector de I.A.', trim($card->filter('section > div.mp-cab-roxo > b')->text()));
-        self::assertSame(['Escritório', 'Liberado', 'Ligado pelo escritório', 'Aceite do escritório', 'Conexões ativas'], $card->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
+        self::assertSame(['Escritório', 'Ligado pelo escritório', 'Aceite do escritório', 'Conexões ativas'], $card->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $raiz->text());
         self::assertCount(1, $crawler->filter('script[src*="js/master/conector.js"]'));
-        $catalogo = $crawler->filter('script[type="application/json"][data-bj-t]')->reduce(static fn ($c): bool => str_contains($c->text(), 'conector.js.master.liberou'));
+        $catalogo = $crawler->filter('script[type="application/json"][data-bj-t]')->reduce(static fn ($c): bool => str_contains($c->text(), 'conector.js.master.vazio'));
         self::assertCount(1, $catalogo, 'o catálogo conector.js vai junto');
     }
 

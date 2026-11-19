@@ -58,7 +58,6 @@ final class GravarNaAgendaFerramentaTest extends KernelTestCase
         $this->pessoa = $this->pessoa();
         $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::PERMISSOES);
         $doConector = new EscritorioDoConector($this->escritorio);
-        $doConector->liberarPeloMaster();
         $doConector->ligar($this->pessoa, new \DateTimeImmutable());
         $this->em()->persist($doConector);
         $this->app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable());

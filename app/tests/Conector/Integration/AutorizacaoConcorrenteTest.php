@@ -188,7 +188,6 @@ final class AutorizacaoConcorrenteTest extends KernelTestCase
         $cliente = new ClienteDoConector($clientId, TipoDeClienteDoConector::Cimd, 'App', [self::REDIRECT], $agora);
         $cliente->renovarMetadados('App', [self::REDIRECT], $agora, $agora->modify('+1 day'));
         $escritorio = new EscritorioDoConector($tenant);
-        $escritorio->liberarPeloMaster();
         $escritorio->ligar($pessoa, $agora);
         foreach ([
             $tenant, $pessoa, $perfil, $cliente, $escritorio,

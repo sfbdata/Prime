@@ -17,7 +17,7 @@ final class GuardaDoMasterDoConector
     public static function exigir(User $user): void
     {
         if (!in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
-            throw new AccessDeniedException('Só o Master libera ou bloqueia o conector de I.A. num escritório.');
+            throw new AccessDeniedException('Só o Master vê o conector de I.A. dos escritórios.');
         }
     }
 }

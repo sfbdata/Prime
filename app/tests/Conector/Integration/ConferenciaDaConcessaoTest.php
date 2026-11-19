@@ -103,7 +103,7 @@ final class ConferenciaDaConcessaoTest extends KernelTestCase
         $this->assertRecusa(AcessoDoConectorRecusado::MOTIVO_PESSOA, fn () => $this->sut()->exigir($pessoa['concessao'], $this->agora()));
 
         $liberacao = $this->conexaoAutorizada();
-        $liberacao['liberacao']->bloquearPeloMaster();
+        $liberacao['liberacao']->desligar();
         $this->em()->flush();
         $this->assertRecusa(AcessoDoConectorRecusado::MOTIVO_LIBERACAO, fn () => $this->sut()->exigir($liberacao['concessao'], $this->agora()));
     }
@@ -112,7 +112,7 @@ final class ConferenciaDaConcessaoTest extends KernelTestCase
     public function testNaRenovacaoSemLiberacao(): void
     {
         $suspenso = $this->conexaoAutorizada();
-        $suspenso['liberacao']->bloquearPeloMaster();
+        $suspenso['liberacao']->desligar();
         $suspenso['liberacao']->desligar();
         $this->em()->flush();
         $this->sut()->exigirNaRenovacao($suspenso['concessao'], $this->agora());

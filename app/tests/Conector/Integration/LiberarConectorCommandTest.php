@@ -53,7 +53,7 @@ final class LiberarConectorCommandTest extends KernelTestCase
         return static::getContainer()->get(EscritorioDoConectorRepository::class)->buscarDoEscritorio($tenant);
     }
 
-    #[TestDox('libera e liga só o escritório alvo, com o aceite vigente em nome do Master; o outro escritório não muda')]
+    #[TestDox('liga só o escritório alvo, com o aceite vigente em nome do Master; o outro escritório não muda')]
     public function testLiberaSoOAlvo(): void
     {
         self::bootKernel();
@@ -66,7 +66,7 @@ final class LiberarConectorCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
         $escritorio = $this->doEscritorio($alvo);
         self::assertInstanceOf(EscritorioDoConector::class, $escritorio);
-        self::assertTrue($escritorio->liberadoELigado());
+        self::assertTrue($escritorio->ligadoComAceite());
         self::assertSame(VersaoDoAceiteDoConector::atual()->value, $escritorio->getAceiteVersao());
         self::assertSame($master->getId(), $escritorio->getAceitoPor()?->getId());
         self::assertNull($this->doEscritorio($outro), 'o outro escritório não ganhou linha');
@@ -89,22 +89,22 @@ final class LiberarConectorCommandTest extends KernelTestCase
         self::assertSame('create', $registros[0]->getAction());
     }
 
-    #[TestDox('escritório já com linha (bloqueado e desligado): volta a liberado e ligado, sem linha nova')]
+    #[TestDox('escritório já com linha (desligado): volta a ligado, sem linha nova')]
     public function testEscritorioJaComLinha(): void
     {
         self::bootKernel();
         $alvo = $this->escritorio('Alvo');
-        $this->liberarConector($alvo, liberado: false, ligado: false);
+        $this->liberarConector($alvo, ligado: false);
         $master = $this->pessoa(['ROLE_SUPER_ADMIN']);
 
         $tester = $this->rodar((string) $alvo->getId(), (string) $master->getEmail());
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-        self::assertTrue($this->doEscritorio($alvo)?->liberadoELigado());
+        self::assertTrue($this->doEscritorio($alvo)?->ligadoComAceite());
         self::assertSame(1, $this->em()->getRepository(EscritorioDoConector::class)->count(['tenant' => $alvo->getId()]));
     }
 
-    #[TestDox('sem --master, com e-mail de quem não é Master ou de Master desativado: recusa e não libera')]
+    #[TestDox('sem --master, com e-mail de quem não é Master ou de Master desativado: recusa e não liga')]
     public function testExigeMaster(): void
     {
         self::bootKernel();

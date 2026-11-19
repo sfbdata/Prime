@@ -1,25 +1,20 @@
 /* BlueJus · Painel do Master, aba "Configurações da I.A.": o conector de I.A. por escritório
-   (spec docs/specs/mcp-remoto-oauth.md, 14.a nível 2).
+   (spec docs/specs/mcp-remoto-oauth.md, 14.a), só leitura.
    - Carrega na primeira vez que a aba abre (clique na aba ou #aba=ia no endereço), como o ia.js.
-   - Uma linha por escritório ativo: a chave Liberado/Bloqueado grava na hora (POST da linha); o "ligado" e o aceite são
-     do administrador do escritório e aqui só aparecem; das conexões ativas, só a contagem.
-   - POST JSON com X-CSRF-Token (o token da aba); a resposta traz o estado novo e a tabela se redesenha. Recusa: a
-     mensagem do servidor.
+   - Uma linha por escritório ativo: o "ligado" e o aceite são do administrador do escritório e aqui só aparecem; das
+     conexões ativas, só a contagem. O Master não libera escritório por escritório (decisão do Samuel, 19/11).
    - Textos no catálogo (conector.js.*, entregue pelo parcial com catalogo_js), lidos por BJ_T.t na hora de usar.
-   Nenhuma regra mora só aqui: o servidor confere o Master, o escritório e o valor enviado. */
+   Nenhuma regra mora só aqui: o servidor confere o Master. */
 (() => {
   'use strict';
   const raiz = document.querySelector('[data-mp-conector]');
   if (!raiz) return;
 
-  const TOKEN = raiz.dataset.token || '';
   const elMsg = raiz.querySelector('[data-mp-conector-msg]');
   const elLinhas = raiz.querySelector('[data-mp-conector-linhas]');
   // O catálogo e o BJ_T entram depois deste arquivo (fim da página): ler só na hora de usar.
   const T = (chave, params) => window.BJ_T.t(chave, params);
-  let estado = null;
   let carregado = false;
-  let ocupado = false;
 
   function avisar(texto, erro) {
     elMsg.textContent = texto || '';
@@ -27,28 +22,11 @@
     elMsg.hidden = !texto;
   }
 
-  function travar(sim) {
-    ocupado = sim;
-    raiz.querySelectorAll('[data-mp-conector-linha] button').forEach(b => { b.disabled = sim; });
-  }
-
   function el(tag, classe, texto) {
     const e = document.createElement(tag);
     if (classe) e.className = classe;
     if (texto !== undefined) e.textContent = texto;
     return e;
-  }
-
-  function chaveDaLinha(e) {
-    const b = el('button', 'mp-ia-chave-linha' + (e.liberado ? '' : ' is-off'));
-    b.type = 'button';
-    b.setAttribute('role', 'switch');
-    b.setAttribute('aria-checked', e.liberado ? 'true' : 'false');
-    b.dataset.mpConectorLiberado = '';
-    b.appendChild(el('span', 'mp-rec-chave')).appendChild(el('span'));
-    b.appendChild(el('span', 'mp-ia-chave-linha-txt', e.liberado ? T('conector.js.master.liberado') : T('conector.js.master.bloqueado')));
-    b.addEventListener('click', () => alterar(e, !e.liberado));
-    return b;
   }
 
   function textoDoAceite(e) {
@@ -61,7 +39,6 @@
     const lin = el('div', 'mp-ia-lin mp-lin');
     lin.dataset.mpConectorLinha = String(e.tenantId);
     lin.appendChild(el('div', 'mp-ia-nome mp-hv', e.nome));
-    lin.appendChild(el('div', 'mp-ia-celula')).appendChild(chaveDaLinha(e));
     lin.appendChild(el('div', 'mp-ia-celula mp-ia-aceite mp-hv', e.ligado ? T('conector.js.master.ligado') : T('conector.js.master.desligado')));
     lin.appendChild(el('div', 'mp-ia-celula mp-ia-aceite mp-hv', textoDoAceite(e)));
     lin.appendChild(el('div', 'mp-ia-celula mp-ia-num mp-hv', T('conector.js.master.contagem', { n: e.conexoesAtivas })));
@@ -69,7 +46,6 @@
   }
 
   function desenhar(d) {
-    estado = d;
     elLinhas.textContent = '';
     if (!d.escritorios.length) elLinhas.appendChild(el('div', 'mp-carregando', T('conector.js.master.vazio')));
     d.escritorios.forEach(e => elLinhas.appendChild(linha(e)));
@@ -77,26 +53,10 @@
 
   function carregar() {
     carregado = true;
-    travar(true);
     fetch(raiz.dataset.urlDados, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(d => { desenhar(d); travar(false); })
+      .then(d => { desenhar(d); })
       .catch(() => { carregado = false; avisar(T('conector.js.master.erro_carregar'), true); });
-  }
-
-  function alterar(e, liberado) {
-    if (ocupado) return;
-    travar(true);
-    avisar('');
-    fetch(raiz.dataset.urlEscritorio.replace(/\/0$/, '/' + e.tenantId), {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
-      body: JSON.stringify({ liberado: liberado }),
-    })
-      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('conector.js.master.erro_salvar'))))))
-      .then(d => { desenhar(d); avisar(T(liberado ? 'conector.js.master.liberou' : 'conector.js.master.bloqueou', { nome: e.nome })); })
-      .catch(err => { if (estado) desenhar(estado); avisar(err.message || T('conector.js.master.erro_salvar'), true); })
-      .finally(() => travar(false));
   }
 
   const aba = document.querySelector('.mp-aba[data-aba="ia"]');

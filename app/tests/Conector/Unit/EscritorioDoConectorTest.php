@@ -18,19 +18,18 @@ final class EscritorioDoConectorTest extends TestCase
 {
     use CenarioDoConector;
 
-    #[TestDox('Nasce sem liberação do Master, desligado e sem aceite')]
+    #[TestDox('Nasce desligado e sem aceite')]
     public function testNasceFechado(): void
     {
         $escritorio = new EscritorioDoConector(new Tenant());
 
-        self::assertFalse($escritorio->isLiberadoPeloMaster());
         self::assertFalse($escritorio->isLigado());
         self::assertNull($escritorio->getAceiteEm());
-        self::assertFalse($escritorio->liberadoELigado());
+        self::assertFalse($escritorio->ligadoComAceite());
     }
 
-    #[TestDox('Ligar grava o aceite da versão vigente com quem ligou; sem a liberação do Master, o aceite não basta')]
-    public function testLigarGravaAceiteMasNaoBastaSemMaster(): void
+    #[TestDox('Ligar grava o aceite da versão vigente com quem ligou e já abre o conector, sem liberação do Master')]
+    public function testLigarGravaAceiteEAbre(): void
     {
         $escritorio = new EscritorioDoConector(new Tenant());
         $admin = new User();
@@ -41,10 +40,7 @@ final class EscritorioDoConectorTest extends TestCase
         self::assertSame(VersaoDoAceiteDoConector::atual()->value, $escritorio->getAceiteVersao());
         self::assertSame($admin, $escritorio->getAceitoPor());
         self::assertEquals(self::em('2026-11-16 10:00:00'), $escritorio->getAceiteEm());
-        self::assertFalse($escritorio->liberadoELigado(), 'sem a liberação do Master não abre');
-
-        $escritorio->liberarPeloMaster();
-        self::assertTrue($escritorio->liberadoELigado());
+        self::assertTrue($escritorio->ligadoComAceite());
     }
 
     #[TestDox('Religar com o aceite vigente não troca a data nem quem aceitou')]
@@ -61,19 +57,15 @@ final class EscritorioDoConectorTest extends TestCase
         self::assertEquals(self::em('2026-11-16 10:00:00'), $escritorio->getAceiteEm());
     }
 
-    #[TestDox('Desligar ou o Master bloquear fecha o conector e guarda o aceite como histórico')]
-    public function testDesligarEBloquearGuardamAceite(): void
+    #[TestDox('Desligar fecha o conector e guarda o aceite como histórico')]
+    public function testDesligarGuardaAceite(): void
     {
         $escritorio = new EscritorioDoConector(new Tenant());
-        $escritorio->liberarPeloMaster();
         $escritorio->ligar(new User(), self::em('2026-11-16 10:00:00'));
 
         $escritorio->desligar();
-        self::assertFalse($escritorio->liberadoELigado());
+        self::assertFalse($escritorio->ligadoComAceite());
 
-        $escritorio->ligar(new User(), self::em('2026-11-16 11:00:00'));
-        $escritorio->bloquearPeloMaster();
-        self::assertFalse($escritorio->liberadoELigado());
         self::assertNotNull($escritorio->getAceiteEm());
     }
 }

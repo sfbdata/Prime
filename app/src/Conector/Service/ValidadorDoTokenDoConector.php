@@ -29,7 +29,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * 4. a concessão foi emitida para o `resource` deste servidor ({@see ServidorDeAutorizacao::RESOURCE}, RFC 8707);
  * 5. a concessão inteira passa na {@see ConferenciaDaConcessao::exigir()}: concessão viva, app ativo, corte de "Sair de
  *    todos os aparelhos", impressão da senha, barreiras da pessoa e do escritório (sem o passe do Master), termos e
- *    liberação nos três níveis.
+ *    liberação nos dois níveis.
  *
  * As recusas (decisão 3 do PR 5): token, concessão e acesso recusados por pessoa, escritório ou termos dão 401
  * `invalid_token` com uma descrição ASCII fixa por categoria; qualquer outro erro (filtro, requisição já aberta, banco fora do

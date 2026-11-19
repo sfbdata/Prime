@@ -20,8 +20,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * Os três níveis da liberação do conector (spec mcp-remoto-oauth, decisão 14.a) no banco: chave geral do Master,
- * escritório liberado pelo Master e conector ligado com o aceite vigente. Cada teste sobe o kernel de novo, porque o
+ * Os dois níveis da liberação do conector (spec mcp-remoto-oauth, decisão 14.a, decisão do Samuel de 19/11) no banco:
+ * chave geral do Master (interruptor de emergência) e conector ligado pelo escritório com o aceite vigente. Não há
+ * liberação do Master por escritório. Cada teste sobe o kernel de novo, porque o
  * `RecursosDoSistema` guarda o estado das chaves na primeira leitura.
  */
 #[CoversClass(LiberacaoDoConector::class)]
@@ -46,12 +47,9 @@ final class LiberacaoDoConectorTest extends KernelTestCase
         );
     }
 
-    private function escritorio(Tenant $tenant, bool $liberado, bool $ligado): EscritorioDoConector
+    private function escritorio(Tenant $tenant, bool $ligado): EscritorioDoConector
     {
         $escritorio = new EscritorioDoConector($tenant);
-        if ($liberado) {
-            $escritorio->liberarPeloMaster();
-        }
         if ($ligado) {
             $escritorio->ligar($this->administrador(), new \DateTimeImmutable());
         }
@@ -77,22 +75,22 @@ final class LiberacaoDoConectorTest extends KernelTestCase
         }
     }
 
-    #[TestDox('Os três níveis completos (chave geral sem registro, liberado pelo Master, ligado com o aceite vigente): passa')]
-    public function testTresNiveisPassam(): void
+    #[TestDox('Os dois níveis completos (chave geral sem registro, ligado com o aceite vigente): passa, sem nenhuma ação do Master sobre o escritório')]
+    public function testDoisNiveisPassam(): void
     {
         $tenant = $this->tenantNovo();
-        $this->escritorio($tenant, liberado: true, ligado: true);
+        $this->escritorio($tenant, ligado: true);
 
         $this->sut()->exigir($tenant);
 
         $this->addToAssertionCount(1);
     }
 
-    #[TestDox('Nível 1: a chave geral conector_ia desligada pelo Master recusa mesmo com o escritório liberado e ligado')]
+    #[TestDox('Nível 1: a chave geral conector_ia desligada pelo Master recusa mesmo com o escritório ligado e com o aceite')]
     public function testChaveGeralDesligadaRecusa(): void
     {
         $tenant = $this->tenantNovo();
-        $this->escritorio($tenant, liberado: true, ligado: true);
+        $this->escritorio($tenant, ligado: true);
         $estado = $this->em->getRepository(RecursoEstado::class)->findOneBy(['chave' => LiberacaoDoConector::CHAVE_GERAL]) ?? new RecursoEstado(LiberacaoDoConector::CHAVE_GERAL);
         $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
         $this->em->persist($estado);
@@ -101,36 +99,28 @@ final class LiberacaoDoConectorTest extends KernelTestCase
         $this->exigirRecusa($tenant, 'chave geral desligada');
     }
 
-    #[TestDox('Nível 2: escritório sem linha, ou ligado com aceite mas sem a liberação do Master, recusa')]
-    public function testSemLiberacaoDoMasterRecusa(): void
+    #[TestDox('Nível 2: escritório sem linha recusa; sem ligar (sem aceite) recusa; desligado depois do aceite também')]
+    public function testSemLigarRecusa(): void
     {
         $this->exigirRecusa($this->tenantNovo(), 'escritório sem linha em conector_ia_escritorio');
 
         $tenant = $this->tenantNovo();
-        $this->escritorio($tenant, liberado: false, ligado: true);
-        $this->exigirRecusa($tenant, 'ligado e com aceite, sem a liberação do Master');
-    }
-
-    #[TestDox('Nível 3: liberado pelo Master mas não ligado (sem aceite) recusa; desligado depois do aceite também')]
-    public function testSemLigarRecusa(): void
-    {
-        $tenant = $this->tenantNovo();
-        $this->escritorio($tenant, liberado: true, ligado: false);
-        $this->exigirRecusa($tenant, 'liberado, sem ligar');
+        $this->escritorio($tenant, ligado: false);
+        $this->exigirRecusa($tenant, 'sem ligar');
 
         $outro = $this->tenantNovo();
-        $escritorio = $this->escritorio($outro, liberado: true, ligado: true);
+        $escritorio = $this->escritorio($outro, ligado: true);
         $escritorio->desligar();
         $this->em->flush();
         $this->exigirRecusa($outro, 'desligado depois do aceite');
     }
 
-    #[TestDox('A liberação é por escritório: A liberado não libera B')]
+    #[TestDox('A ligação é por escritório: A ligado não liga B')]
     public function testOutroEscritorioNaoHerda(): void
     {
         $a = $this->tenantNovo();
         $b = $this->tenantNovo();
-        $this->escritorio($a, liberado: true, ligado: true);
+        $this->escritorio($a, ligado: true);
 
         $this->sut()->exigir($a);
         $this->exigirRecusa($b, 'outro escritório');

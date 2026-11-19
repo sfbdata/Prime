@@ -13,17 +13,15 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * O conector de I.A. em UM escritório (`docs/specs/mcp-remoto-oauth.md`, decisão 14.a e 13.2): os níveis 2 e 3 da
- * liberação. O nível 1 (chave geral `conector_ia` do Master) mora no `CatalogoDeRecursos`, sem tabela.
+ * O conector de I.A. em UM escritório (`docs/specs/mcp-remoto-oauth.md`, decisão 14.a e 13.2): o nível 2 da liberação
+ * (decisão do Samuel, 19/11: o Master não libera mais escritório por escritório). O nível 1 (chave geral `conector_ia`
+ * do Master, interruptor de emergência) mora no `CatalogoDeRecursos`, sem tabela.
  *
- * - Nível 2: o Master libera o escritório (`liberado_pelo_master`, nasce falso). Sem isso, o aceite do administrador
- *   não basta.
- * - Nível 3: o administrador do escritório liga o conector e dá o aceite próprio do conector, com versão
- *   ({@see VersaoDoAceiteDoConector}). Não reaproveita o aceite da BlueJus I.A.
+ * O administrador do escritório liga o conector e dá o aceite próprio do conector, com versão
+ * ({@see VersaoDoAceiteDoConector}). Não reaproveita o aceite da BlueJus I.A.
  *
- * Uma linha por escritório: constraint única NOMEADA em `tenant_id`, como a `ConfiguracaoDeInteligencia`. Desligar ou
- * bloquear não apaga o aceite: ele é histórico. Auditável: quem liberou, ligou ou aceitou, e quando, fica no
- * `audit_log`.
+ * Uma linha por escritório: constraint única NOMEADA em `tenant_id`, como a `ConfiguracaoDeInteligencia`. Desligar
+ * não apaga o aceite: ele é histórico. Auditável: quem ligou ou aceitou, e quando, fica no `audit_log`.
  */
 #[ORM\Entity(repositoryClass: EscritorioDoConectorRepository::class)]
 #[ORM\Table(name: 'conector_ia_escritorio')]
@@ -35,9 +33,6 @@ class EscritorioDoConector implements TenantAware, Auditavel
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
-
-    #[ORM\Column(name: 'liberado_pelo_master', type: 'boolean', options: ['default' => false])]
-    private bool $liberadoPeloMaster = false;
 
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $ligado = false;
@@ -60,17 +55,6 @@ class EscritorioDoConector implements TenantAware, Auditavel
     ) {
     }
 
-    public function liberarPeloMaster(): void
-    {
-        $this->liberadoPeloMaster = true;
-    }
-
-    /** Bloquear não mexe no aceite: ele volta a valer se o Master liberar de novo. */
-    public function bloquearPeloMaster(): void
-    {
-        $this->liberadoPeloMaster = false;
-    }
-
     /**
      * O administrador liga o conector vendo o texto do aceite vigente. Grava o aceite quando não há nenhum ou quando o
      * gravado é de versão anterior à vigente: é o aceite mais recente que vale.
@@ -91,10 +75,10 @@ class EscritorioDoConector implements TenantAware, Auditavel
         $this->ligado = false;
     }
 
-    /** Os níveis 2 e 3 juntos: liberado pelo Master, ligado e com o aceite da versão vigente. */
-    public function liberadoELigado(): bool
+    /** Ligado pelo administrador e com o aceite da versão vigente. */
+    public function ligadoComAceite(): bool
     {
-        return $this->liberadoPeloMaster && $this->ligado && $this->aceiteCobreVersaoVigente();
+        return $this->ligado && $this->aceiteCobreVersaoVigente();
     }
 
     public function aceiteCobreVersaoVigente(): bool
@@ -112,11 +96,6 @@ class EscritorioDoConector implements TenantAware, Auditavel
     public function getTenant(): ?Tenant
     {
         return $this->tenant;
-    }
-
-    public function isLiberadoPeloMaster(): bool
-    {
-        return $this->liberadoPeloMaster;
     }
 
     public function isLigado(): bool

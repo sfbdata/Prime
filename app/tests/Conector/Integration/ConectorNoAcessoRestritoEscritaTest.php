@@ -77,7 +77,6 @@ final class ConectorNoAcessoRestritoEscritaTest extends KernelTestCase
         $this->comum = $this->pessoa();
         $this->vinculo($this->comum, $this->escritorio, permissoes: self::PERMISSOES);
         $doConector = new EscritorioDoConector($this->escritorio);
-        $doConector->liberarPeloMaster();
         $doConector->ligar($this->restrito, new \DateTimeImmutable());
         $doConector->ligar($this->comum, new \DateTimeImmutable());
         $this->em()->persist($doConector);

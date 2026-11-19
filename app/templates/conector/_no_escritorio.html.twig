@@ -1,11 +1,12 @@
-{# Cartão do conector de I.A. na tela "BlueJus IA" do administrador do escritório (spec mcp-remoto-oauth 14.a nível 3 e
+{# Cartão do conector de I.A. na tela "BlueJus IA" do administrador do escritório (spec mcp-remoto-oauth 14.a e
    14.e: sem desenho, pela convenção desta tela, o mesmo painel (bjp-painel) dos blocos de estado e consumo).
    Recebe `conector` (EscritorioNoConectorOutput do escritório da sessão). O POST vai ao ConectorDoEscritorioController
    (`acao` ligar ou desligar, `aceite`, `_token`), que volta para esta tela com o flash.
-   Sem a liberação do Master (nível 2), a caixa e o botão Ligar ficam desabilitados com o aviso (decisão 3 do PR 8).
+   Não depende de liberação do Master (decisão do Samuel, 19/11). Com a chave geral do conector desligada (emergência),
+   o cartão avisa que o conector está fora do ar, mas o administrador continua podendo ligar e desligar.
    Ligado com o aceite de versão antiga: o estado pede um novo aceite, com a caixa, o Ligar e o Desligar.
    Textos no catálogo conector.admin.*; o do aceite é provisório (versão 1, VersaoDoAceiteDoConector). #}
-{% set conector_ativo = conector.liberado and conector.ligado and conector.aceiteVigente %}
+{% set conector_ativo = conector.chaveGeralLigada and conector.ligado and conector.aceiteVigente %}
 <div class="bjp-painel mt-3" id="conector-escritorio">
     <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'conector.admin.titulo'|trans }}</h3></div>
     <div class="bjp-painel-corpo">
@@ -15,12 +16,10 @@
 
         {% if conector_ativo %}
             <p class="text-success mb-2" data-conector-estado="ligado">{{ 'conector.admin.estado.ligado'|trans }}</p>
-        {% elseif not conector.liberado and conector.aceiteEm is not null %}
-            <p class="text-warning mb-2" data-conector-estado="bloqueado_master">{{ 'conector.admin.estado.bloqueado_master'|trans }}</p>
-        {% elseif not conector.liberado %}
-            <p class="text-muted mb-2" data-conector-estado="aguardando_master">{{ 'conector.admin.estado.aguardando_master'|trans }}</p>
+        {% elseif not conector.chaveGeralLigada %}
+            <p class="text-warning mb-2" data-conector-estado="fora_do_ar">{{ 'conector.admin.estado.fora_do_ar'|trans }}</p>
         {% elseif conector.ligado %}
-            {# Ligado e liberado, com o aceite de versão antiga: suspenso até um novo aceite (caixa e Ligar abaixo). #}
+            {# Ligado, com o aceite de versão antiga: suspenso até um novo aceite (caixa e Ligar abaixo). #}
             <p class="text-warning mb-2" data-conector-estado="novo_aceite">{{ 'conector.admin.estado.novo_aceite'|trans }}</p>
         {% else %}
             <p class="mb-2" data-conector-estado="desligado">{{ 'conector.admin.estado.desligado'|trans }}</p>
@@ -49,11 +48,11 @@
                     {{ 'conector.admin.aceite.fim'|trans }}
                 </div>
                 <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" name="aceite" value="1" id="conector-aceite" required{% if not conector.liberado %} disabled{% endif %}>
+                    <input class="form-check-input" type="checkbox" name="aceite" value="1" id="conector-aceite" required>
                     <label class="form-check-label fw-semibold" for="conector-aceite">{{ 'conector.admin.aceite.caixa'|trans }}</label>
                 </div>
                 <div class="d-flex justify-content-end mt-2">
-                    <button type="submit" class="bjp-btn bjp-btn--primario" id="conector-ligar"{% if not conector.liberado %} disabled{% endif %}>
+                    <button type="submit" class="bjp-btn bjp-btn--primario" id="conector-ligar">
                         <i class="bi bi-plug"></i> {{ 'conector.admin.ligar'|trans }}
                     </button>
                 </div>

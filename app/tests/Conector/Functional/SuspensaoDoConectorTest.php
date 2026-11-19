@@ -11,8 +11,9 @@ use App\Conector\Mcp\ConectorDesligadoMiddleware;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Service\ServidorDeAutorizacao;
 use App\Conector\Service\ValidadorDoTokenDoConector;
+use App\Conector\Service\LiberacaoDoConector;
 use App\Conector\UseCase\AlterarConectorDoEscritorioUseCase;
-use App\Conector\UseCase\AlterarLiberacaoDoConectorPeloMasterUseCase;
+use App\Master\Entity\RecursoEstado;
 use App\Conector\UseCase\TrocarRenovacaoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -25,7 +26,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Desligar (administrador) ou bloquear (Master) só suspende o conector (spec mcp-remoto-oauth 12.24; decisão do
+ * Desligar (administrador) ou desligar a chave geral (Master, emergência) só suspende o conector (spec mcp-remoto-oauth 12.24; decisão do
  * Coordenador de 16/11/2026), de ponta a ponta pelo HTTP, com o token de verdade: suspenso, o `/mcp` responde 403 sem
  * `WWW-Authenticate` e sem despachar a ferramenta (nada lido, nada gravado); a renovação no `/oauth/token` continua
  * girando, sem derrubar a concessão; religar volta a responder 200 com a mesma cadeia de tokens, sem reconectar.
@@ -34,7 +35,6 @@ use Symfony\Component\HttpFoundation\Response;
 #[CoversClass(ValidadorDoTokenDoConector::class)]
 #[CoversClass(TrocarRenovacaoUseCase::class)]
 #[CoversClass(AlterarConectorDoEscritorioUseCase::class)]
-#[CoversClass(AlterarLiberacaoDoConectorPeloMasterUseCase::class)]
 final class SuspensaoDoConectorTest extends JusPrimeWebTestCase
 {
     use CenarioDaAutorizacaoTrait;
@@ -57,7 +57,7 @@ final class SuspensaoDoConectorTest extends JusPrimeWebTestCase
     public static function suspensoes(): iterable
     {
         yield 'desligar pelo administrador' => ['administrador'];
-        yield 'bloquear pelo Master' => ['master'];
+        yield 'chave geral desligada pelo Master' => ['master'];
     }
 
     #[DataProvider('suspensoes')]
@@ -105,8 +105,11 @@ final class SuspensaoDoConectorTest extends JusPrimeWebTestCase
     {
         $tenant = $this->em()->find(Tenant::class, $this->tenantId) ?? throw new \LogicException('sem escritório');
         if ($quem === 'master') {
-            static::getContainer()->get(AlterarLiberacaoDoConectorPeloMasterUseCase::class)
-                ->executar($this->tenantId, $religar, $this->pessoa(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']));
+            $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => LiberacaoDoConector::CHAVE_GERAL])
+                ?? new RecursoEstado(LiberacaoDoConector::CHAVE_GERAL);
+            $religar ? $estado->reativar(null, new \DateTimeImmutable()) : $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
+            $this->em()->persist($estado);
+            $this->em()->flush();
 
             return;
         }

@@ -17,7 +17,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * O administrador do escritório liga (com o aceite) ou desliga o conector de I.A. no cartão da tela "BlueJus IA"
- * (`docs/specs/mcp-remoto-oauth.md`, 14.a nível 3; a guarda é a mesma da tela: `admin.inteligencia.manage`). O
+ * (`docs/specs/mcp-remoto-oauth.md`, 14.a, nível 2; a guarda é a mesma da tela: `admin.inteligencia.manage`). O
  * escritório é sempre o da sessão ({@see TenantContext}); o formulário não manda escritório. CSRF `_token`, flash e
  * volta para a tela.
  *

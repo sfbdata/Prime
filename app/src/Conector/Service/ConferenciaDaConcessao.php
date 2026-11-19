@@ -29,7 +29,7 @@ use App\Conector\Exception\ConcessaoRecusada;
  * 4. impressão da senha de agora igual à gravada na autorização ({@see ConcessaoRecusada::senhaTrocada()});
  * 5. as barreiras da pessoa e do escritório, sem o passe do Master ({@see PortaoDoConector::conferir()}, lança
  *    {@see AcessoDoConectorRecusado});
- * 6. a liberação do conector nos três níveis ({@see LiberacaoDoConector::exigir()}, lança
+ * 6. a liberação do conector nos dois níveis ({@see LiberacaoDoConector::exigir()}, lança
  *    {@see AcessoDoConectorRecusado} com o motivo `liberacao`).
  */
 final class ConferenciaDaConcessao

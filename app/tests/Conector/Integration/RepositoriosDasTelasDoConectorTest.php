@@ -125,35 +125,7 @@ final class RepositoriosDasTelasDoConectorTest extends KernelTestCase
         $this->assertFiltroDeVoltaEm($a);
     }
 
-    #[TestDox('Master: com a sessão num escritório, acha a linha do conector de outro; sem suspender o filtro, ela some')]
-    public function testMasterAchaLinhaDeOutroEscritorio(): void
-    {
-        $user = UserFactory::createOne()->_real();
-        $cliente = $this->clienteGlobal();
-        $a = $this->tenantNovo();
-        $b = $this->tenantNovo();
-        $this->semearConector($a, $user, $cliente);
-        $this->semearConector($b, $user, $cliente);
-        $semLinha = $this->tenantNovo();
-        $this->em->clear();
-        $b = $this->em->find(Tenant::class, $b->getId());
-        $semLinha = $this->em->find(Tenant::class, $semLinha->getId());
-        self::assertNotNull($b);
-        self::assertNotNull($semLinha);
-        $this->sessaoNoEscritorio($a);
-
-        $daMaster = $this->escritorios()->buscarDoEscritorioParaOMaster($b);
-        $this->em->clear();
-        $semSuspender = $this->escritorios()->buscarDoEscritorio($b);
-
-        self::assertNotNull($daMaster);
-        self::assertSame($b->getId(), $daMaster->getTenant()?->getId());
-        self::assertNull($semSuspender, 'sanidade: o filtro do escritório da sessão esconde a linha de outro');
-        self::assertNull($this->escritorios()->buscarDoEscritorioParaOMaster($semLinha), 'escritório sem linha dá nulo');
-        $this->assertFiltroDeVoltaEm($a);
-    }
-
-    #[TestDox('Master: a tabela traz o escritório sem linha com tudo falso, o liberado e ligado com o aceite, e não traz o excluído nem o suspenso')]
+    #[TestDox('Master: a tabela traz o escritório sem linha desligado, o ligado com o aceite, e não traz o excluído nem o suspenso')]
     public function testListarEscritoriosParaOMaster(): void
     {
         $user = UserFactory::createOne()->_real();
@@ -162,7 +134,6 @@ final class RepositoriosDasTelasDoConectorTest extends KernelTestCase
         $excluido = $this->tenantNovo(true, '2026-11-01 10:00:00');
         $suspenso = $this->tenantNovo(false);
         $linha = new EscritorioDoConector($comLinha);
-        $linha->liberarPeloMaster();
         $linha->ligar($user, new \DateTimeImmutable('2026-11-10 09:30:00'));
         $this->em->persist($linha);
         $this->em->persist(new EscritorioDoConector($excluido));
@@ -175,11 +146,11 @@ final class RepositoriosDasTelasDoConectorTest extends KernelTestCase
         }
 
         self::assertSame(
-            ['tenantId' => $comLinha->getId(), 'nome' => $comLinha->getName(), 'liberado' => true, 'ligado' => true, 'aceiteEm' => '2026-11-10 09:30:00', 'aceiteVersao' => 1],
+            ['tenantId' => $comLinha->getId(), 'nome' => $comLinha->getName(), 'ligado' => true, 'aceiteEm' => '2026-11-10 09:30:00', 'aceiteVersao' => 1],
             $porId[$comLinha->getId()] ?? null,
         );
         self::assertSame(
-            ['tenantId' => $semLinha->getId(), 'nome' => $semLinha->getName(), 'liberado' => false, 'ligado' => false, 'aceiteEm' => null, 'aceiteVersao' => null],
+            ['tenantId' => $semLinha->getId(), 'nome' => $semLinha->getName(), 'ligado' => false, 'aceiteEm' => null, 'aceiteVersao' => null],
             $porId[$semLinha->getId()] ?? null,
         );
         self::assertArrayNotHasKey((int) $excluido->getId(), $porId, 'escritório excluído fica fora');

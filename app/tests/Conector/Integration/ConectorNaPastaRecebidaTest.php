@@ -436,7 +436,6 @@ final class ConectorNaPastaRecebidaTest extends KernelTestCase
     private function ligarConector(Tenant $escritorio, User $quem): void
     {
         $doConector = new EscritorioDoConector($escritorio);
-        $doConector->liberarPeloMaster();
         $doConector->ligar($quem, new \DateTimeImmutable());
         $this->em()->persist($doConector);
         $this->em()->flush();

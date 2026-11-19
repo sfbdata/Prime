@@ -15,9 +15,9 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
 
 /**
- * O Master libera o conector de I.A. num escritório pelo console (`conector:liberar`, `docs/specs/mcp-remoto-oauth.md`,
- * 13.1 e 14.a), para conectar um cliente real antes das telas do PR 8: liga, de uma vez, os níveis 2 e 3 só deste
- * escritório (liberado pelo Master, ligado e com o aceite da versão vigente). O nível 1 (a chave geral) não muda.
+ * Liga o conector de I.A. num escritório pelo console (`conector:liberar`, `docs/specs/mcp-remoto-oauth.md`,
+ * 13.1 e 14.a), sem passar pela tela: deixa só este escritório ligado e com o aceite da versão vigente. Não existe
+ * mais liberação do Master por escritório (decisão do Samuel, 19/11). A chave geral não muda.
  *
  * Quem aparece como autor do aceite é o Master informado (decisão 8 de 16/11), conferido como Master e com a conta
  * ativa. A gravação entra no `audit_log` com o escritório alvo ({@see EscopoDeAuditoriaDePlataforma::executarComoConta()}).
@@ -44,7 +44,6 @@ final class LiberarConectorNoEscritorioUseCase
         $tenant = $this->escritorioAtivo($tenantId);
 
         $escritorio = $this->escritorios->buscarDoEscritorio($tenant) ?? new EscritorioDoConector($tenant);
-        $escritorio->liberarPeloMaster();
         $escritorio->ligar($master, $this->relogio->now());
 
         $this->escopoDeAuditoria->executarComoConta(

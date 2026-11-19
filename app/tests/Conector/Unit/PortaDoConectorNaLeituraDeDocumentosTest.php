@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * A porta do conector na leitura de documentos (spec mcp-remoto-oauth, `ler_documentos_e_modelos`, e 14.a): vale a
- * liberação do conector nos três níveis, não o aceite da BlueJus I.A. Cada nível que falta recusa, sem lançar.
+ * liberação do conector nos dois níveis, não o aceite da BlueJus I.A. Cada nível que falta recusa, sem lançar.
  */
 #[CoversClass(PortaDoConectorNaLeituraDeDocumentos::class)]
 final class PortaDoConectorNaLeituraDeDocumentosTest extends TestCase
@@ -39,7 +39,6 @@ final class PortaDoConectorNaLeituraDeDocumentosTest extends TestCase
     {
         $this->escritorio = (new Tenant())->setName('Escritório da Porta');
         $this->doConector = new EscritorioDoConector($this->escritorio);
-        $this->doConector->liberarPeloMaster();
         $this->doConector->ligar(new User(), new \DateTimeImmutable('2026-11-16 09:00:00'));
     }
 
@@ -53,15 +52,6 @@ final class PortaDoConectorNaLeituraDeDocumentosTest extends TestCase
     public function testSemLinha(): void
     {
         $this->doConector = null;
-
-        self::assertFalse($this->porta()->aceiteCobre($this->escritorio));
-    }
-
-    #[TestDox('o Master não liberou o escritório: não cobre')]
-    public function testMasterNaoLiberou(): void
-    {
-        $this->doConector = new EscritorioDoConector($this->escritorio);
-        $this->doConector->ligar(new User(), new \DateTimeImmutable('2026-11-16 09:00:00'));
 
         self::assertFalse($this->porta()->aceiteCobre($this->escritorio));
     }

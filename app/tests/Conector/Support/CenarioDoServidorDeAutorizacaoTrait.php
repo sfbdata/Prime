@@ -55,7 +55,6 @@ trait CenarioDoServidorDeAutorizacaoTrait
     private function liberar(Tenant $escritorio, User $por): EscritorioDoConector
     {
         $liberacao = new EscritorioDoConector($escritorio);
-        $liberacao->liberarPeloMaster();
         $liberacao->ligar($por, $this->agora());
         $this->em()->persist($liberacao);
         $this->em()->flush();

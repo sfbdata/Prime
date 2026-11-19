@@ -29,7 +29,7 @@ use App\Termo\TermoVigente;
  *    `/mcp`, antes de despachar a ferramenta. Uma vez por requisição: abrir de novo recusa (falha fechada); o
  *    `reset()` dos serviços zera tudo no fim.
  *
- * O que o portão NÃO confere: a liberação nos três níveis (14.a), o corte de "Sair de todos os aparelhos"
+ * O que o portão NÃO confere: a liberação nos dois níveis (14.a), o corte de "Sair de todos os aparelhos"
  * (`autorizado_em`) e a impressão da senha (seção 4, regra 3). São dados da concessão do token, e quem os confere é a
  * {@see ConferenciaDaConcessao::exigir()}, que também chama {@see conferir()}. No `/mcp` (PR 5), o validador do token
  * roda a conferência da concessão antes, e só depois o middleware do portão chama {@see abrir()}: a pessoa e o
