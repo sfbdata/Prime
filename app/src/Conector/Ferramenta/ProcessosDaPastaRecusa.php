@@ -20,10 +20,6 @@ final class ProcessosDaPastaRecusa
     public const MOTIVO_MUDOU = 'mudou_depois_da_proposta';
     public const MUDOU = 'O que a proposta mudaria já não é o que está no BlueJus. Faça o pedido de novo.';
 
-    // Sem a fábrica comum do PR 10 no master: a regra é a da abertura da 6.6 (envio automático ao cliente).
-    public const MOTIVO_ENVIO_AUTOMATICO = 'envio_automatico_ligado';
-    public const ENVIO_AUTOMATICO = 'Este cliente recebe o envio automático do Push: faça isso pela tela do BlueJus.';
-
     private function __construct()
     {
     }
@@ -57,10 +53,5 @@ final class ProcessosDaPastaRecusa
     public static function mudou(): ErroDaFerramenta
     {
         return new ErroDaFerramenta(self::MOTIVO_MUDOU, self::MUDOU);
-    }
-
-    public static function envioAutomatico(): ErroDaFerramenta
-    {
-        return new ErroDaFerramenta(self::MOTIVO_ENVIO_AUTOMATICO, self::ENVIO_AUTOMATICO);
     }
 }

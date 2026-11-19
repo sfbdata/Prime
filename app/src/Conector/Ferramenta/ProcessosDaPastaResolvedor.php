@@ -85,7 +85,7 @@ final class ProcessosDaPastaResolvedor
         }
         foreach (ChaveDoEnvioAutomatico::cases() as $chave) {
             if ($linha->ligada($chave)) {
-                throw ProcessosDaPastaRecusa::envioAutomatico();
+                throw ErroDaFerramenta::envioAutomatico();
             }
         }
     }

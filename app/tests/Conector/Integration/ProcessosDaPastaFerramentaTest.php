@@ -15,7 +15,6 @@ use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
 use App\Conector\Ferramenta\ProcessosDaPastaFerramenta;
-use App\Conector\Ferramenta\ProcessosDaPastaRecusa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\AbaDaPasta;
@@ -488,8 +487,8 @@ final class ProcessosDaPastaFerramentaTest extends KernelTestCase
                 $this->executar(['pasta_id' => $pasta->getId()] + $pedido);
                 self::fail('deveria recusar');
             } catch (ErroDaFerramenta $e) {
-                self::assertSame(ProcessosDaPastaRecusa::MOTIVO_ENVIO_AUTOMATICO, $e->motivo);
-                self::assertSame(ProcessosDaPastaRecusa::ENVIO_AUTOMATICO, $e->getMessage());
+                self::assertSame(ErroDaFerramenta::MOTIVO_ENVIO_AUTOMATICO, $e->motivo);
+                self::assertSame(ErroDaFerramenta::ENVIO_AUTOMATICO, $e->getMessage());
             }
         }
         self::assertSame([], $this->idsDosProcessos($pasta));
