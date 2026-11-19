@@ -46,17 +46,20 @@ class OpcaoDaPautaRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => $id, 'pauta' => $pauta, 'tenant' => $pauta->getTenant()]);
     }
 
-    /** Guarda de posse da foto: a opção da assembleia (e do escritório dela) que tem esta foto, ou null. */
-    public function buscarComFotoDaAssembleia(Assembleia $assembleia, string $nomeDaFoto): ?OpcaoDaPauta
+    /**
+     * Guarda de posse da foto: a opção da assembleia (e do escritório dela) que tem esta foto, ou null. Recebe o nome
+     * sem a extensão (o da URL) e procura entre as extensões que o storage aceita.
+     */
+    public function buscarComFotoDaAssembleia(Assembleia $assembleia, string $nomeSemExtensao): ?OpcaoDaPauta
     {
         return $this->createQueryBuilder('o')
             ->join('o.pauta', 'p')
             ->where('p.assembleia = :assembleia')
             ->andWhere('o.tenant = :tenant')
-            ->andWhere('o.foto = :foto')
+            ->andWhere('o.foto IN (:fotos)')
             ->setParameter('assembleia', $assembleia)
             ->setParameter('tenant', $assembleia->getTenant())
-            ->setParameter('foto', $nomeDaFoto)
+            ->setParameter('fotos', array_map(static fn (string $extensao): string => $nomeSemExtensao . '.' . $extensao, ['jpg', 'jpeg', 'png', 'webp']))
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();

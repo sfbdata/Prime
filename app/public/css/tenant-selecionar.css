@@ -1,0 +1,33 @@
+/* Tela "Selecione um escritório" (tenant/selecionar), pedido A6 de 19/11.
+   Cada escritório é a linha de conta do desenho bj-contas.js (a mesma do "Trocar conta" do menu do usuário,
+   .mu-conta em menu-usuario.css): borda 1px #e1e8ed, raio 4px, 11px 13px, nome 14px em negrito e perfil 12px
+   embaixo. Realce ao passar o mouse pelo "Guia visual BlueJus" v30: fundo #2b7ab0 e texto branco. */
+.sel-contas { display: flex; flex-direction: column; gap: 8px; }
+.sel-contas form { margin: 0; }
+.sel-conta {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    border: 1px solid #e1e8ed;
+    border-radius: 4px;
+    padding: 11px 13px;
+    background: #fff;
+    color: #12242f;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .18s, color .18s, border-color .18s;
+}
+.sel-conta > .bi { font-size: 18px; color: #0a6fa0; }
+.sel-conta-texto { flex: 1; min-width: 0; }
+.sel-conta-texto > b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-conta-texto > span { display: block; font-size: 12px; color: #5f7684; }
+.sel-conta > .bi-chevron-right { font-size: 14px; color: #5f7684; }
+.sel-conta:hover, .sel-conta:focus-visible { background: #2b7ab0; border-color: #2b7ab0; color: #fff; }
+.sel-conta:hover *, .sel-conta:focus-visible * { color: #fff; }
+.sel-conta:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(15, 111, 196, .35); }
+
+html[data-bs-theme="dark"] .sel-conta { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .sel-conta-texto > span { color: var(--bs-secondary-color); }
+html[data-bs-theme="dark"] .sel-conta:hover, html[data-bs-theme="dark"] .sel-conta:focus-visible { background: #2b7ab0; border-color: #2b7ab0; color: #fff; }

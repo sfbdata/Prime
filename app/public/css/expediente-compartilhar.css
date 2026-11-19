@@ -11,7 +11,7 @@
     --cp-verde:        #1e7b45;   /* ícone com colaborador, selo e mensagem de sucesso, dc L.215 e L.503 */
     --cp-cinza-icone:  #9aabb7;   /* ícone sem colaborador, dc L.215 */
     --cp-azul:         #0a6fa0;
-    --cp-azul-hover:   #3b8fc2;
+    --cp-azul-hover:   #2b7ab0;
     --cp-azul-fundo:   #0a6fa0;   /* cabeçalho da janela, botão Compartilhar, segmento ativo e avatar, dc L.488 */
     --cp-icone-hover-bg: #e3f1f8;
     --cp-fundo:        #fff;
@@ -167,6 +167,9 @@
 .exp-cp-campo.exp-cp-codigo { padding: 0 12px; font: 700 15px monospace; letter-spacing: 1px; text-transform: uppercase; }
 .exp-cp-quem { font-size: 12.5px; font-weight: 700; color: var(--cp-dica); }
 .exp-cp-quem:empty { display: none; }
+/* Atalho "Onde encontrar meu código?" da aba Outra conta (pedido do Farlei, 19/11/2026). */
+.exp-cp-onde { align-self: flex-start; font-size: 12.5px; font-weight: 700; color: var(--cp-azul); text-decoration: none; }
+.exp-cp-onde:hover, .exp-cp-onde:focus-visible { text-decoration: underline; }
 
 /* ── Botão "Recebidas" da barra (L9, dc L.134): o mesmo do "Nova Pasta"; verde com convite esperando ──────── */
 .exp-body .exp-nova-pasta.exp-rc-btn { gap: 8px; padding: 0 14px; }

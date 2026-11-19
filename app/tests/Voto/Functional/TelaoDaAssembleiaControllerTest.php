@@ -95,6 +95,7 @@ final class TelaoDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $tela = $this->client->request('GET', '/voto/assembleias/' . $id . '/telao');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $tela->filter('.vAo[role="dialog"] > .vAoTop > img'));
+        self::assertStringEndsWith('/images/voto/bj-voto-simbolo-branco.svg', (string) $tela->filter('.vAo > .vAoTop > img.vAoSimbolo')->attr('src'), 'símbolo vetorial branco, sem o quadro branco do PNG');
         self::assertCount(1, $tela->filter('.vAo > .vAoTop > .vAoHora'));
         self::assertSame(['Tela cheia', 'Sair'], $tela->filter('.vAo > .vAoTop > .vAoB')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(1, $tela->filter('.vAo > .vAoG > aside.vAoL'));

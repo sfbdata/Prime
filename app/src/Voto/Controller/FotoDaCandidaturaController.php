@@ -21,7 +21,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Entrega a foto 3x4 da candidatura, sempre por chave (nunca por caminho) e só depois de provar quem pede:
  *  - a equipe, na tela das pautas: `/voto/assembleias/{id}/fotos/{nome}`, com a guarda do Voto e a assembleia do
- *    escritório da sessão (outro escritório: 404); o nome só vale se uma opção DESSA assembleia o tem;
+ *    escritório da sessão (outro escritório: 404); o nome só vale se uma opção DESSA assembleia o tem. A URL leva o
+ *    nome SEM a extensão: o nginx de produção responde sozinho (404, sem passar pelo PHP) a todo caminho terminado em
+ *    .jpg/.png, e por isso a foto aparecia quebrada na tela das candidaturas e na prévia da urna;
  *  - o eleitor, na urna: `/votar/{token}/foto/{opcao}`, sem login. O link da unidade leva à assembleia; só assembleia
  *    publicada entrega foto, e a opção tem de ser de uma pauta dela. Link inválido consome o limitador por IP, como a
  *    cédula (`CedulaController`), e responde 404 sem corpo.
@@ -39,7 +41,7 @@ final class FotoDaCandidaturaController extends AbstractController
     ) {
     }
 
-    #[Route('/voto/assembleias/{id}/fotos/{nome}', name: 'voto_assembleia_foto_candidatura', requirements: ['id' => '\d+', 'nome' => '[0-9a-f]{32}\.(?:jpe?g|png|webp)'], methods: ['GET'])]
+    #[Route('/voto/assembleias/{id}/fotos/{nome}', name: 'voto_assembleia_foto_candidatura', requirements: ['id' => '\d+', 'nome' => '[0-9a-f]{32}'], methods: ['GET'])]
     public function daEquipe(int $id, string $nome): Response
     {
         $tenant = $this->guarda->exigir();

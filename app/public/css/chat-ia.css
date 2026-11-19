@@ -213,3 +213,12 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Barra de uso da I.A. gratuita na página do Chat (pedido A8, 19/11): sem a faixa de fundo, só o texto e a barrinha,
+   nas cores do tema (no escuro a faixa clara do ia-saldo.css destoava). A variante "perto" segue com a barrinha amarela
+   e o texto de aviso, então a cor não é o único sinal. */
+.ci-principal > .ias-barra { background: transparent; border-bottom: 0; color: var(--ci-apoio); }
+.ci-principal > .ias-barra .ias-texto, .ci-principal > .ias-barra--perto .ias-texto { color: var(--ci-apoio); }
+.ci-principal > .ias-barra .ias-ganhar { color: var(--ci-acao); }
+.ci-principal > .ias-barra .ias-ganhar:hover { color: var(--ci-acao-forte); }
+.ci-principal > .ias-barra .ias-trilho { background: var(--ci-borda); }

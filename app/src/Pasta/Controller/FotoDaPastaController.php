@@ -74,16 +74,19 @@ final class FotoDaPastaController extends AbstractController
         return $this->executar($request, $id, $this->remover->executar(...));
     }
 
-    #[Route('/pasta/{id}/foto/{nome}', name: 'pasta_foto', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/pasta/{id}/foto/{nome}', name: 'pasta_foto', requirements: ['id' => '\d+', 'nome' => '[^/]+'], methods: ['GET'])]
     #[PastaPorId('id')]
     public function entregar(int $id, string $nome): Response
     {
-        // Nome com caminho é recusado antes de qualquer acesso ao banco ou ao disco.
+        // A URL leva o nome SEM a extensão: o nginx de produção responde sozinho (404, sem passar pelo PHP) a todo
+        // caminho terminado em .jpg/.png, e a foto aparecia quebrada. Nome com caminho é recusado antes de qualquer
+        // acesso ao banco ou ao disco.
         if (basename($nome) !== $nome) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
         $pasta = $this->pastaVisivel($id);
-        if ($pasta === null || $pasta->getFoto() !== $nome) {
+        $foto = $pasta?->getFoto();
+        if ($foto === null || pathinfo($foto, \PATHINFO_FILENAME) !== $nome) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 
@@ -96,7 +99,7 @@ final class FotoDaPastaController extends AbstractController
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 
-        return $this->entrega->resposta($chave, $nome, inline: true);
+        return $this->entrega->resposta($chave, $foto, inline: true);
     }
 
     /** @param \Closure(FotoDaPastaInput): FotoDaPastaOutput $acao */

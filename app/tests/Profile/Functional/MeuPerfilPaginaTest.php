@@ -356,6 +356,31 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame(['tipo' => 'pj', 'cnpj' => '11222333000144'], $linhas[$outro->getId()] ?? null);
     }
 
+    #[TestDox('cartão Meu código BlueJus: o código pessoal no formato BJ-XXXX-XXXX-XXXX, igual a cada visita, com copiar, compartilhar e a orientação')]
+    public function testCartaoDoMeuCodigo(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        $cartao = $tela->filter('section.mp-card#mpMeuCodigo');
+        self::assertCount(1, $cartao);
+        self::assertSame('MEU CÓDIGO BLUEJUS', trim($cartao->filter('.mp-card-topo b')->text()));
+        $codigo = trim($cartao->filter('.mp-seguranca > div > .mp-codigo')->text());
+        self::assertMatchesRegularExpression('/^BJ-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/', $codigo);
+        self::assertSame($codigo, $cartao->filter('.mp-seguranca > button[data-mp-copiar]')->attr('data-mp-copiar'));
+        self::assertSame($codigo, $cartao->filter('.mp-seguranca > button[data-mp-compartilhar-codigo]')->attr('data-mp-compartilhar-codigo'));
+        self::assertStringContainsString('Informe este código para receber compartilhamento de pastas de outros escritórios.', $cartao->text());
+
+        // Gravado na conta: é o mesmo que a janela Recebidas e a aba "Outra conta (código)" usam, e não muda.
+        $this->em->clear();
+        self::assertSame($codigo, $this->em->find(User::class, $this->primario->getId())?->getCodigoPessoal());
+        $deNovo = $this->client->request('GET', '/perfil');
+        self::assertSame($codigo, trim($deNovo->filter('#mpMeuCodigo .mp-codigo')->text()));
+
+        // Cada pessoa tem o seu.
+        $outro = trim($this->abrir($this->secundario)->filter('#mpMeuCodigo .mp-codigo')->text());
+        self::assertNotSame($codigo, $outro);
+    }
+
     #[TestDox('Master fora de escritório: a página abre sem o bloco de vínculo e salva só os dados da pessoa')]
     public function testMasterSemEscritorio(): void
     {

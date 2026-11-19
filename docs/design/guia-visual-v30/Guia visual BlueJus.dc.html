@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  body { margin:0; background:#f4f7f9; font-family:Arial, Helvetica, sans-serif; color:#12242f; -webkit-font-smoothing:antialiased; }
+  a { color:#0f6fc4; } a:hover { color:#0b5f86; }
+  @media (max-width:760px) { .pjG { grid-template-columns:1fr 1fr !important; } }
+  .gS2 { grid-column:span 2; } @media (max-width:760px) { .gS2 { grid-column:auto; } }
+  *:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(15,111,196,.35) !important; }
+</style>
+</helmet>
+<div style="max-width:1180px;margin:0 auto;padding:0 20px 60px">
+  <header style="margin:20px 0 24px;padding:20px 24px;border-radius:4px;background:linear-gradient(135deg,#0d80a3,#0b5f86);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+    <div style="flex:1;min-width:240px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.8">BlueJus · Proposta para aprovação</div>
+      <h1 style="margin:6px 0 4px;font-size:24px;font-weight:700;letter-spacing:-.01em">Guia visual de padronização</h1>
+      <div style="font-size:13.5px;opacity:.9;line-height:1.5">Antes e depois de cada elemento. Nada foi aplicado às telas ainda.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <sc-for list="{{ indice }}" as="x" hint-placeholder-count="7"><a href="{{ x.href }}" style="height:30px;padding:0 12px;border-radius:4px;background:rgba(255,255,255,.14);color:#fff;font-size:12.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center" style-hover="background:rgba(255,255,255,.24)">{{ x.l }}</a></sc-for>
+    </div>
+  </header>
+
+  <section id="criterios" data-screen-label="00 Critérios" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #e3eaef"><span style="font-size:12px;font-weight:700;color:#0a6fa0;background:#e8f2fa;border-radius:4px;padding:3px 8px">00</span><h2 style="margin:0;font-size:16px;font-weight:700">Critérios de padronização</h2><span style="flex:1;min-width:0;font-size:12.5px;color:#5f7684">Referência para todas as telas, aplicada com análise caso a caso</span></div>
+    <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px">
+
+      <div style="border:1px solid #e3eaef;border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <b style="font-size:14px;color:#12242f">1. Botões retangulares</b>
+        <div style="font-size:12.5px;color:#455c6b;line-height:1.5">Cantos levemente arredondados (raio 4px). Evitar o aspecto oval (pílula) em botões, filtros, navegação, etiquetas e contadores.</div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#a3232b"><i class="bi bi-x-circle-fill"></i> EVITAR</span><button style="height:32px;padding:0 16px;border:none;border-radius:999px;background:#0a6fa0;color:#fff;font:600 13px Arial;outline:2px solid #c0392f;outline-offset:3px">Nova pasta</button></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#186c47"><i class="bi bi-check-circle-fill"></i> ADOTAR</span><button style="height:32px;padding:0 14px;border:none;border-radius:4px;background:#0a6fa0;color:#fff;font:600 13px Arial;cursor:pointer" style-hover="background:#085c86">Nova pasta</button></div>
+        </div>
+        <div style="font-size:11.5px;color:#5f7684">Vale para todo o sistema: etiquetas de situação, contadores, selos, filtros e barras de progresso, todos retangulares (raio 4px; 2px em barras finas). Exceções: avatares e pontos de status (círculos) e o interruptor liga/desliga.</div>
+      </div>
+
+      <div style="border:1px solid #e3eaef;border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <b style="font-size:14px;color:#12242f">2. Realce azul na linha ao passar o cursor</b>
+        <div style="font-size:12.5px;color:#455c6b;line-height:1.5">A linha inteira ganha fundo azul e texto branco. Passe o cursor nas linhas abaixo.</div>
+        <div style="border:1px solid #e3eaef;border-radius:4px;overflow:hidden;font-size:13px">
+          <sc-for list="{{ linhasHv }}" as="l" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:9px 12px;border-bottom:1px solid #eef2f5;color:#1d3441;cursor:pointer;transition:background .18s,color .18s" style-hover="{{ l.hv }}"><b style="width:44px">{{ l.n }}</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.c }}</span><span>{{ l.r }}</span></div></sc-for>
+        </div>
+        <div style="font-size:11.5px;color:#5f7684;line-height:1.45">{{ hvNota }}</div>
+      </div>
+
+      <div style="border:1px solid #e3eaef;border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <b style="font-size:14px;color:#12242f">3. Contraste e acessibilidade</b>
+        <div style="font-size:12.5px;color:#455c6b;line-height:1.5">Texto com contraste mínimo de 4,5:1 (3:1 para texto grande, ícones e bordas de campos). A cor nunca é o único sinal: sempre ícone ou palavra junto.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#a3232b"><i class="bi bi-x-circle-fill"></i> EVITAR</span>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1d3441"><span style="width:10px;height:10px;border-radius:50%;background:#1f9d61"></span>Pasta 1180</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1d3441"><span style="width:10px;height:10px;border-radius:50%;background:#c0392f"></span>Pasta 1181</div>
+            <span style="font-size:12.5px;color:#a9b8c2">Texto apagado 2,0:1</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#186c47"><i class="bi bi-check-circle-fill"></i> ADOTAR</span>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1d3441"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#186c47;background:#e2f4ea;padding:2px 7px;border-radius:3px"><i class="bi bi-check-circle-fill"></i>Em dia</span>1180</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#1d3441"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#a3232b;background:#fdeceb;padding:2px 7px;border-radius:3px"><i class="bi bi-exclamation-triangle-fill"></i>Atrasada</span>1181</div>
+            <span style="font-size:12.5px;color:#5f7684">Texto de apoio 4,8:1</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <sc-for list="{{ contrastes }}" as="k" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#243845"><span style="{{ k.am }}">Aa</span><span style="flex:1;min-width:0">{{ k.t }}</span><b style="{{ k.rs }}">{{ k.r }}</b></div></sc-for>
+        </div>
+      </div>
+
+      <div style="border:1px solid #e3eaef;border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <b style="font-size:14px;color:#12242f">4. Bordas suaves onde organizam</b>
+        <div style="font-size:12.5px;color:#455c6b;line-height:1.5">Manter bordas para delimitar áreas e separar informações, em 1px e tom claro. Campos de formulário usam borda um pouco mais firme, para serem encontrados.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#a3232b"><i class="bi bi-x-circle-fill"></i> EVITAR</span><div style="border:2px solid #4f6878;border-radius:4px;font-size:12.5px"><div style="padding:7px 10px;border-bottom:2px solid #4f6878">Prazos</div><div style="padding:7px 10px">Réplica · 2 dias</div></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;color:#186c47"><i class="bi bi-check-circle-fill"></i> ADOTAR</span><div style="border:1px solid #d6e0e7;border-radius:4px;font-size:12.5px"><div style="padding:7px 10px;border-bottom:1px solid #e3eaef;font-weight:700;color:#0b5f86">Prazos</div><div style="padding:7px 10px">Réplica · 2 dias</div></div></div>
+        </div>
+        <div style="font-size:11.5px;color:#5f7684;line-height:1.45">Divisórias e contornos de área: #d6e0e7 / #e3eaef. Campos (input, select): #7b93a2, que tem contraste de 3,2:1.</div>
+      </div>
+
+      <div style="border:1px solid #e3eaef;border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px" class="gS2">
+        <b style="font-size:14px;color:#12242f">5. Padronizar com análise funcional</b>
+        <div style="font-size:12.5px;color:#455c6b;line-height:1.5">Os critérios não são aplicados de forma automática. Antes de mudar cada tela ou componente:</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+          <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="6"><div style="display:flex;gap:9px;align-items:flex-start;padding:9px 11px;background:#f6f9fb;border-radius:4px;font-size:12.5px;color:#243845;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:3px;background:#0a6fa0;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center">{{ c.n }}</b><span>{{ c.t }}</span></div></sc-for>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="botoes" data-screen-label="01 Botões" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #eef2f5"><span style="font-family:Arial;font-size:12px;font-weight:700;color:#0f6fc4;background:#e8f2fa;border-radius:4px;padding:3px 8px">01</span><h2 style="margin:0;font-size:16px;font-weight:700">Botões</h2><span style="flex:1;min-width:0;font-size:12.5px;color:#5f7684">Primário, Secundário, Discreto e Ícone, mais as variantes Destrutivo e Sucesso. Mesma altura (32px), raio 4px (retangular, nunca oval) e foco visível</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div style="padding:18px 20px;background:#fbfcfd;border-right:1px solid #eef2f5">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a3232b;margin-bottom:12px">Hoje · 6 estilos diferentes</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;white-space:nowrap">
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #0f6fc4;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:4px"><i class="bi bi-upload"></i>Anexar</button>
+          <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;border-radius:4px"><i class="bi bi-folder-plus"></i>Nova pasta</button>
+          <button style="border:none;background:#fff;color:#0f6fc4;box-shadow:0 1px 3px rgba(16,42,58,.1);font-family:inherit;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:4px">+ Vincular</button>
+          <button style="height:30px;padding:0 10px;border:none;background:transparent;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:4px">Visualizar <i class="bi bi-chevron-down" style="font-size:10px"></i></button>
+          <button style="height:36px;padding:0 14px;border:none;border-radius:4px;background:#1f9d61;color:#fff;font-family:inherit;font-size:13px;font-weight:700">Concluir</button>
+          <a href="#" style="font-size:12px;font-weight:600">abrir</a>
+        </div>
+        <div style="font-size:12.5px;color:#5f7684;margin-top:12px;line-height:1.5">Alturas 26 a 36px, raios 6 a 10px, borda em uns e sombra em outros. O usuário não sabe qual ação é a principal.</div>
+      </div>
+      <div style="padding:18px 20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#186c47;margin-bottom:12px">Proposta</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ botoes }}" as="b" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;align-items:center">
+              <div><div style="font-size:12.5px;font-weight:700;color:#243845">{{ b.nivel }}</div><div style="font-size:11.5px;color:#7b93a2;line-height:1.35">{{ b.uso }}</div></div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                <button style="{{ b.st }}" style-hover="{{ b.hv }}" style-active="transform:scale(.97)"><i class="{{ b.ic }}" style="font-size:14px"></i>{{ b.l }}</button>
+                <button style="{{ b.icoSt }}" style-hover="{{ b.hv }}" title="{{ b.l }}" aria-label="{{ b.l }}"><i class="{{ b.ic }}" style="font-size:15px"></i></button>
+                <button disabled="{{ true }}" style="{{ b.disSt }}"><i class="{{ b.ic }}" style="font-size:14px"></i>{{ b.l }}</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:12.5px;color:#5f7684;margin-top:14px;line-height:1.5">Regra: no máximo <b style="color:#243845">1 Primário por área</b>. Passe o cursor e use Tab para ver hover e foco. A terceira coluna mostra o estado desativado: legível, com borda tracejada e o motivo no tooltip, nunca apagado a ponto de sumir.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="etiquetas" data-screen-label="02 Etiquetas e prazos" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #eef2f5"><span style="font-size:12px;font-weight:700;color:#0f6fc4;background:#e8f2fa;border-radius:4px;padding:3px 8px">02</span><h2 style="margin:0;font-size:16px;font-weight:700">Etiquetas de situação e regra de prazo</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div style="padding:18px 20px;background:#fbfcfd;border-right:1px solid #eef2f5">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a3232b;margin-bottom:12px">Hoje · cada tela com o seu formato</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <span style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:4px;color:#a3232b;background:#fdeceb;border:1px solid #f2c9c6">Atrasada</span>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:4px">Principal</span>
+          <span style="font-size:12px;font-weight:700;color:#fff;background:#c0392f;padding:2px 8px;border-radius:4px">7</span>
+          <span style="font-size:12.5px;color:#1f9d61;font-weight:700">● Ativo</span>
+          <span style="font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;color:#5a3ea8;background:#efeafd">Decisão</span>
+        </div>
+        <div style="font-size:12.5px;color:#5f7684;margin-top:12px;line-height:1.5">Prazos: o Dashboard usa "vencidas", a Pasta usa "faltam X dias" e a Agenda só a cor do dia.</div>
+      </div>
+      <div style="padding:18px 20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#186c47;margin-bottom:12px">Proposta · um único formato</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ etiquetas }}" as="e" hint-placeholder-count="6"><span style="{{ e.st }}"><span style="{{ e.dot }}"></span>{{ e.l }}</span></sc-for>
+        </div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7b93a2;margin:18px 0 8px">Regra de prazo igual em todas as telas</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ prazos }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:4px;background:#f6f9fb"><span style="{{ p.barra }}"></span><span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1d3441;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.t }}</span><span style="{{ p.st }}">{{ p.txt }}</span><span style="font-size:11.5px;color:#7b93a2;white-space:nowrap">{{ p.regra }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="paineis" data-screen-label="03 Painéis" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #eef2f5"><span style="font-size:12px;font-weight:700;color:#0f6fc4;background:#e8f2fa;border-radius:4px;padding:3px 8px">03</span><h2 style="margin:0;font-size:16px;font-weight:700">Painéis</h2><span style="flex:1;min-width:0;font-size:12.5px;color:#5f7684">mesmo raio, sem borda, sombra suave, cabeçalho fixo</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div style="padding:18px 20px;background:#fbfcfd;border-right:1px solid #eef2f5">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a3232b;margin-bottom:12px">Hoje</div>
+        <div style="border:1px solid #dfe7ed;border-radius:4px;background:#fff">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f7f9fb;border-bottom:1px solid #e6edf2;border-radius:4px 4px 0 0"><span style="font-size:13px;font-weight:600">Clientes</span><span style="font-size:11px;font-weight:700;color:#4f6878;background:#e0e8ee;padding:1px 7px;border-radius:4px">4</span><span style="flex:1"></span><button style="border:none;background:#fff;color:#0f6fc4;box-shadow:0 1px 3px rgba(16,42,58,.1);font-family:inherit;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:4px">+ Vincular</button></div>
+          <div style="padding:10px 14px;font-size:13px;display:flex;justify-content:space-between">Gleisson Bruno Gabriel<a href="#" style="font-size:12px;font-weight:600">abrir</a></div>
+        </div>
+      </div>
+      <div style="padding:18px 20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#186c47;margin-bottom:12px">Proposta</div>
+        <div style="border-radius:4px;background:#fff;box-shadow:0 1px 2px rgba(16,42,58,.06), 0 10px 26px -18px rgba(10,50,80,.35)">
+          <div style="display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid #eef2f5"><i class="bi bi-people" style="font-size:16px;color:#0b5f86"></i><span style="font-size:14px;font-weight:700;color:#0b5f86">Clientes</span><span style="font-size:12px;font-weight:700;color:#0b5f86;background:#e8f2fa;padding:1px 8px;border-radius:4px">4</span><span style="flex:1"></span><button title="Vincular cliente" aria-label="Vincular cliente" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;color:#0f6fc4;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#e8f2fa"><i class="bi bi-plus-lg"></i></button></div>
+          <div style="padding:10px 16px;display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:50%;background:#0f6fc4;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">GB</span><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">Gleisson Bruno Gabriel</div><div style="font-size:11.5px;color:#7b93a2">CPF 022.547.725-44</div></div><button title="Abrir cliente" aria-label="Abrir cliente" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;color:#7fa6c2;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#e8f2fa;color:#0f6fc4"><i class="bi bi-folder2-open"></i></button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tipografia" data-screen-label="04 Tipografia e ícones" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #eef2f5"><span style="font-size:12px;font-weight:700;color:#0f6fc4;background:#e8f2fa;border-radius:4px;padding:3px 8px">04</span><h2 style="margin:0;font-size:16px;font-weight:700">Tipografia e ícones</h2><span style="flex:1;min-width:0;font-size:12.5px;color:#5f7684">Arial em 5 tamanhos fixos, ícones em 2 tamanhos</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div style="padding:18px 20px;border-right:1px solid #eef2f5;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ tipos }}" as="t" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:baseline"><span style="font-size:11.5px;color:#7b93a2">{{ t.nome }}</span><span style="{{ t.st }}">{{ t.ex }}</span></div>
+        </sc-for>
+      </div>
+      <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:13px;color:#455c6b;line-height:1.5">Ícones neutros em <b>14px</b> (dentro de botões) e <b>16px</b> (cabeçalhos). Cor só para tipo de arquivo e situação.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:16px;color:#5f7684">
+          <i class="bi bi-folder2"></i><i class="bi bi-calendar-event"></i><i class="bi bi-people"></i><i class="bi bi-clipboard2-check"></i><i class="bi bi-three-dots-vertical"></i>
+          <span style="width:1px;height:20px;background:#e6edf2"></span>
+          <i class="bi bi-file-earmark-pdf-fill" style="color:#d93a2b"></i><i class="bi bi-file-earmark-word-fill" style="color:#1f5fbf"></i><i class="bi bi-file-earmark-excel-fill" style="color:#1d7a46"></i><i class="bi bi-folder-fill" style="color:#f2b93b"></i>
+        </div>
+        <div style="font-size:13px;color:#455c6b;line-height:1.5">Animações: duração única de <b>180ms</b> para hover e <b>320ms</b> para entrada, sempre com a mesma curva. Todas desligam com a opção Animações.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="fluxo" data-screen-label="05 Organização e fluxo" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #eef2f5"><span style="font-size:12px;font-weight:700;color:#0f6fc4;background:#e8f2fa;border-radius:4px;padding:3px 8px">05</span><h2 style="margin:0;font-size:16px;font-weight:700">Organização e fluxo</h2></div>
+    <div style="padding:18px 20px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7b93a2;margin-bottom:8px">Ações principais da pasta juntas</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-radius:4px;background:#f6f9fb">
+          <button style="{{ bPrim }}" style-hover="background:#0b5f86"><i class="bi bi-plus-lg"></i>Nova meta</button>
+          <button style="{{ bSec }}" style-hover="background:#d8e9f6"><i class="bi bi-paperclip"></i>Anexar</button>
+          <button style="{{ bSec }}" style-hover="background:#d8e9f6"><i class="bi bi-calendar-plus"></i>Novo prazo</button>
+          <span style="flex:1"></span>
+          <button title="Mais ações" aria-label="Mais ações" style="width:32px;height:32px;border:none;border-radius:4px;background:transparent;color:#455c6b;font-size:16px;cursor:pointer" style-hover="background:#e8f2fa"><i class="bi bi-three-dots-vertical"></i></button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7b93a2;margin-bottom:8px">Busca rápida global</div>
+          <div style="border-radius:4px;background:#fff;box-shadow:0 1px 2px rgba(16,42,58,.06), 0 14px 32px -18px rgba(10,50,80,.4)">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #eef2f5"><i class="bi bi-search" style="color:#7b93a2"></i><span style="flex:1;font-size:14px;color:#12242f">glei</span><span style="font-size:11px;font-weight:700;color:#5f7684;background:#eef2f5;border-radius:3px;padding:2px 6px">Ctrl K</span></div>
+            <sc-for list="{{ busca }}" as="r" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px"><i class="{{ r.ic }}" style="color:#0b5f86;font-size:14px"></i><span style="flex:1;min-width:0;color:#1d3441">{{ r.t }}</span><span style="font-size:11.5px;color:#7b93a2">{{ r.g }}</span></div></sc-for>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7b93a2;margin-bottom:8px">Carregamento e estado vazio</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:4px;background:#fff;box-shadow:0 1px 2px rgba(16,42,58,.06)">
+              <div style="height:10px;width:40%;border-radius:6px;background:linear-gradient(90deg,#eef2f5,#f7f9fb,#eef2f5)"></div>
+              <div style="height:10px;width:85%;border-radius:6px;background:linear-gradient(90deg,#eef2f5,#f7f9fb,#eef2f5)"></div>
+              <div style="height:10px;width:65%;border-radius:6px;background:linear-gradient(90deg,#eef2f5,#f7f9fb,#eef2f5)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:4px;background:#f6f9fb"><i class="bi bi-calendar-check" style="font-size:20px;color:#8aa0ad"></i><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#243845">Nenhum prazo nos próximos 7 dias</div><div style="font-size:12px;color:#7b93a2">Cadastre um prazo para acompanhar aqui.</div></div><button style="{{ bSec }}" style-hover="background:#d8e9f6">Novo prazo</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pje" data-screen-label="06 Referência PJe" style="background:#fff;border-radius:4px;box-shadow:0 1px 2px rgba(16,42,58,.05), 0 8px 24px -16px rgba(10,50,80,.25);margin-bottom:18px;overflow:hidden">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:14px 20px;border-bottom:1px solid #e3eaef"><span style="font-size:12px;font-weight:700;color:#0a6fa0;background:#e8f2fa;border-radius:4px;padding:3px 8px">06</span><h2 style="margin:0;font-size:16px;font-weight:700">Referência PJe</h2><span style="flex:1;min-width:0;font-size:12.5px;color:#5f7684">Familiar para quem usa o PJe, sem perder a identidade BlueJus</span></div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:13px;color:#455c6b;line-height:1.55">O PJe é o sistema do tribunal; o BlueJus é a plataforma do advogado. Herdamos o que o advogado já faz no automático (onde ficam as coisas, os nomes, a ordem dos campos) e mantemos o que é nosso (cores, tipografia, etiquetas, cards). Onde o padrão do PJe prejudica leitura ou acessibilidade, adaptamos.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <sc-for list="{{ pjLeg }}" as="g" hint-placeholder-count="3"><span style="{{ g.st }}"><i class="{{ g.ic }}"></i>{{ g.l }}</span></sc-for>
+      </div>
+      <div style="border:1px solid #d6e0e7;border-radius:4px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:minmax(120px,.8fr) minmax(160px,1.3fr) minmax(170px,1.5fr) 92px;background:#f4f7f9;border-bottom:1px solid #d6e0e7;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#4a6373" class="pjG"><div style="padding:9px 12px">Elemento</div><div style="padding:9px 12px">Como é no PJe</div><div style="padding:9px 12px">Como fica no BlueJus</div><div style="padding:9px 12px">Decisão</div></div>
+        <sc-for list="{{ pjRef }}" as="r" hint-placeholder-count="6"><div class="pjG" style="display:grid;grid-template-columns:minmax(120px,.8fr) minmax(160px,1.3fr) minmax(170px,1.5fr) 92px;border-bottom:1px solid #eef2f5;font-size:12.5px;line-height:1.45;color:#243845;transition:background .18s,color .18s" style-hover="background:#2b7ab0;color:#fff"><div style="padding:9px 12px;font-weight:700">{{ r.el }}</div><div style="padding:9px 12px">{{ r.pje }}</div><div style="padding:9px 12px">{{ r.bj }}</div><div style="padding:9px 12px"><span style="{{ r.st }}"><i class="{{ r.ic }}"></i>{{ r.d }}</span></div></div></sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5f7684;margin-bottom:8px">Formulário no padrão harmonizado</div>
+          <div style="border:1px solid #d6e0e7;border-radius:4px;overflow:hidden">
+            <div style="display:flex;border-bottom:1px solid #d6e0e7;padding:0 12px"><span style="padding:11px 6px 9px;font-size:12.5px;font-weight:700;letter-spacing:.04em;color:#0a6fa0;border-bottom:2px solid #0a6fa0">DADOS INICIAIS</span><span style="padding:11px 12px 9px;font-size:12.5px;font-weight:700;letter-spacing:.04em;color:#4a6373">PARTES</span><span style="padding:11px 12px 9px;font-size:12.5px;font-weight:700;letter-spacing:.04em;color:#4a6373">DOCUMENTOS</span></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fdf4e1;border-radius:4px;font-size:12.5px;color:#7a4f0d"><i class="bi bi-exclamation-circle-fill"></i>* Campos obrigatórios</div>
+              <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:13px;font-weight:700;color:#12242f">Nome completo *</span><input value="Cliente Exemplo da Silva" readonly style="height:40px;border:1px solid #c5d2db;border-radius:4px;padding:0 11px;font:13.5px Arial;color:#243845;background:#eef2f5"><span style="font-size:11.5px;color:#5f7684"><i class="bi bi-lock"></i> Só leitura: vem do cadastro do cliente</span></label>
+              <div style="display:flex;flex-direction:column;gap:5px;position:relative"><span style="font-size:13px;font-weight:700;color:#12242f">Classe judicial *</span>
+                <button onClick="{{ pjTg }}" style="height:40px;border:1px solid #7b93a2;border-radius:4px;padding:0 11px;font:13.5px Arial;color:#243845;background:#fff;display:flex;align-items:center;cursor:pointer;text-align:left" style-hover="border-color:#0a6fa0"><span style="flex:1">{{ pjSel }}</span><i class="bi bi-caret-down-fill" style="font-size:11px;color:#4a6373"></i></button>
+                <sc-if value="{{ pjAb }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid #7b93a2;border-top:none;border-radius:0 0 4px 4px;background:#fff;margin-top:-6px"><div style="padding:6px"><input value="{{ pjQ }}" onInput="{{ pjSetQ }}" placeholder="Digite para filtrar" autofocus style="width:100%;box-sizing:border-box;height:34px;border:1px solid #0a6fa0;border-radius:4px;padding:0 10px;font:13px Arial"></div><sc-for list="{{ pjOps }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.pick }}" style="padding:8px 11px;font-size:13px;color:#243845;cursor:pointer" style-hover="background:#2b7ab0;color:#fff">{{ o.l }}</div></sc-for></div></sc-if>
+                <span style="font-size:11.5px;color:#5f7684">Listas longas abrem com busca, como no PJe; a opção em foco usa o azul de contraste adequado.</span></div>
+              <div style="font-size:12.5px;color:#455c6b">Em caso de dúvida na classificação, consulte as <a href="#">Tabelas Processuais Unificadas</a>.</div>
+              <div><button style="height:36px;padding:0 18px;border:none;border-radius:4px;background:#0a6fa0;color:#fff;font:700 13.5px Arial;cursor:pointer;display:inline-flex;align-items:center;gap:7px" style-hover="background:#085c86"><i class="bi bi-plus-lg"></i>Incluir</button></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5f7684">O que continua sendo BlueJus</div>
+          <sc-for list="{{ pjNosso }}" as="n" hint-placeholder-count="5"><div style="display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:#f6f9fb;border-radius:4px;font-size:12.5px;color:#243845;line-height:1.45"><i class="{{ n.ic }}" style="color:#0a6fa0;font-size:15px;margin-top:1px"></i><span><b>{{ n.t }}</b> {{ n.d }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px 20px;border-radius:4px;background:#e8f2fa;color:#0b4f86;font-size:13.5px;line-height:1.5"><i class="bi bi-info-circle" style="font-size:18px"></i><span style="flex:1;min-width:240px">Aplicado na Pasta. Paleta mantida predominantemente azul, como referência ao PJe.</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { pjAb: false, pjQ: '', pjSel: 'Selecione' };
+  renderVals() {
+    const s = this.state, CLS = ['Procedimento Comum Cível', 'Execução de Título Extrajudicial', 'Cumprimento de Sentença', 'Monitória', 'Despejo por Falta de Pagamento', 'Busca e Apreensão em Alienação Fiduciária'];
+    const dec = { h: ['Herdar', 'bi bi-arrow-down-circle-fill', '#0b4f75', '#e3f1f8'], a: ['Adaptar', 'bi bi-sliders', '#7a4f0d', '#fdf1dc'], n: ['Nosso', 'bi bi-star-fill', '#186c47', '#e2f4ea'] };
+    const tag = k => 'display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;font-size:11.5px;font-weight:700;white-space:nowrap;color:' + dec[k][2] + ';background:' + dec[k][3];
+    const btn = (bg, cor, extra) => 'display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:none;border-radius:4px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .18s, color .18s, transform .1s;background:' + bg + ';color:' + cor + (extra || '');
+    const ico = (bg, cor) => 'width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;transition:background .18s;background:' + bg + ';color:' + cor;
+    const dis = 'display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px dashed #93a7b4;border-radius:4px;font-family:inherit;font-size:13px;font-weight:600;background:#eef2f5;color:#5f7684;cursor:not-allowed';
+    const B = [
+      ['Primário', 'Ação principal da área', 'Nova meta', 'bi bi-plus-lg', '#0f6fc4', '#fff', 'background:#0b5f86'],
+      ['Secundário', 'Ações frequentes', 'Anexar', 'bi bi-paperclip', '#e8f2fa', '#0b5f86', 'background:#d8e9f6'],
+      ['Discreto', 'Menus, filtros, visualizar', 'Visualizar', 'bi bi-eye', 'transparent', '#455c6b', 'background:#eef4f8;color:#0f6fc4'],
+      ['Destrutivo', 'Excluir, desvincular', 'Excluir', 'bi bi-trash3', '#fdeceb', '#a3232b', 'background:#f9d9d6'],
+      ['Sucesso', 'Concluir, confirmar', 'Concluir', 'bi bi-check2', '#18804f', '#fff', 'background:#136a41'],
+    ];
+    const sw = (c, b) => 'width:' + (b || 34) + 'px;height:' + (b || 34) + 'px;border-radius:4px;flex-shrink:0;background:' + c + (c === '#ffffff' || c === '#f4f7f9' ? ';box-shadow:inset 0 0 0 1px #dfe7ed' : '');
+    const ET = [['Ativo', '#186c47', '#e2f4ea', '#1f9d61'], ['Pendente', '#8a5a12', '#fdf1dc', '#c8952a'], ['Atrasada', '#a3232b', '#fdeceb', '#c0392f'], ['Urgente', '#a3232b', '#fdeceb', '#c0392f'], ['Concluída', '#186c47', '#e2f4ea', '#1f9d61'], ['Arquivado', '#4f6878', '#eef2f5', '#8aa0ad']];
+    const PZ = [['Contestação', 'Vencido há 2 dias', 'vencido', '#a3232b', '#fdeceb', '#c0392f'], ['Réplica', 'Faltam 2 dias', 'até 3 dias', '#a3232b', '#fdeceb', '#c0392f'], ['Audiência de conciliação', 'Faltam 6 dias', 'até 7 dias', '#8a5a12', '#fdf1dc', '#c8952a'], ['Manifestação sobre laudo', 'Faltam 18 dias', 'mais de 7 dias', '#455c6b', '#eef2f5', '#8aa0ad']];
+    return {
+      indice: [['Critérios', '#criterios'], ['Botões', '#botoes'], ['Etiquetas', '#etiquetas'], ['Painéis', '#paineis'], ['Tipografia', '#tipografia'], ['Fluxo', '#fluxo'], ['PJe', '#pje']].map(([l, href]) => ({ l, href })),
+      botoes: B.map(([nivel, uso, l, ic, bg, cor, hv]) => ({ nivel, uso, l, ic, st: btn(bg, cor), hv, icoSt: ico(bg, cor), disSt: dis })),
+      bPrim: btn('#0f6fc4', '#fff'), bSec: btn('#e8f2fa', '#0b5f86'),
+      azuisHoje: ['#0f6fc4', '#0b5f86', '#0c7a9c', '#0d80a3', '#1d4f78', '#0b4f86', '#2a7bc4', '#7fa6c2', '#7cc4ff'].map(hex => ({ hex, st: sw(hex, 30) })),
+      paleta: [['Azul ação', '#0f6fc4', 'botões, links'], ['Petróleo', '#0b5f86', 'títulos, cabeçalhos'], ['Azul realce', '#e8f2fa', 'hover, seleção'], ['Texto', '#12242f', 'conteúdo'], ['Texto apoio', '#5f7684', 'descrições'], ['Fundo', '#f4f7f9', 'página'], ['Sucesso', '#1f9d61', 'concluído'], ['Atenção', '#c8952a', 'pendente'], ['Crítico', '#c0392f', 'atraso, urgente']].map(([nome, hex, uso]) => ({ nome, hex, uso, st: sw(hex) })),
+      etiquetas: ET.map(([l, c, bg, dot]) => ({ l, st: 'display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:4px;font-size:12px;font-weight:700;color:' + c + ';background:' + bg, dot: 'width:6px;height:6px;border-radius:50%;background:' + dot })),
+      prazos: PZ.map(([t, txt, regra, c, bg, bar]) => ({ t, txt, regra, barra: 'width:3px;height:22px;border-radius:2px;flex-shrink:0;background:' + bar, st: 'font-size:12px;font-weight:700;padding:3px 9px;border-radius:4px;white-space:nowrap;color:' + c + ';background:' + bg })),
+      tipos: [['Título da tela', 'Pasta 1180', 'font-size:22px;font-weight:700;letter-spacing:-.01em;color:#12242f'], ['Título de painel', 'Próximos prazos', 'font-size:15px;font-weight:700;color:#0b5f86'], ['Texto principal', 'Gleisson Bruno Gabriel', 'font-size:13.5px;font-weight:600;color:#1d3441'], ['Texto de apoio', 'CPF 022.547.725-44 · atualizado hoje', 'font-size:12px;color:#5f7684'], ['Rótulo', 'Responsável', 'font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5f7684']].map(([nome, ex, st]) => ({ nome, ex, st })),
+      linhasHv: [['1365', 'SIMONE MOURA', 'Ativo'], ['1364', 'JOYCE APARECIDA', 'Ativo'], ['1363', 'WELLINGTON DE SOUZA', 'Ativo']].map(([n, c, r]) => ({ n, c, r, hv: 'background:#2b7ab0;color:#fff' })),
+      hvNota: 'Proposta: #2b7ab0 com texto branco (4,7:1, atende o mínimo). O tom atual #3b8fc2 com texto branco fica em 3,6:1, abaixo do mínimo para texto de 13px. A troca muda pouco a aparência e depende da sua aprovação.',
+      contrastes: [['#ffffff', '#0a6fa0', 'Botão primário, texto branco', '5,5:1', true], ['#ffffff', '#3b8fc2', 'Hover atual da linha, texto branco', '3,6:1', false], ['#ffffff', '#1f9d61', 'Botão verde atual, texto branco', '3,5:1', false], ['#ffffff', '#18804f', 'Verde proposto, texto branco', '5,0:1', true], ['#7b93a2', '#ffffff', 'Rótulo cinza atual sobre branco', '3,2:1', false], ['#5f7684', '#ffffff', 'Rótulo proposto sobre branco', '4,8:1', true]].map(([c, bg, t, r, ok]) => ({ t, r: (ok ? 'Atende ' : 'Abaixo ') + r, am: 'width:30px;height:22px;flex:none;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:' + c + ';background:' + bg + (bg === '#ffffff' ? ';box-shadow:inset 0 0 0 1px #d6e0e7' : ''), rs: 'font-size:11.5px;white-space:nowrap;color:' + (ok ? '#186c47' : '#a3232b') })),
+      checklist: ['Qual é a função principal da tela e a ação mais usada?', 'O que já funciona bem fica como está.', 'Mudar só o que melhora uso, leitura ou acessibilidade.', 'Testar contraste e o modo daltônico (sem depender de cor).', 'Testar com teclado (Tab) e em tela de celular.', 'Registrar a decisão no guia antes de replicar em outras telas.'].map((t, i) => ({ n: String(i + 1), t })),
+      pjLeg: [['h', 'Herdar: igual ao PJe'], ['a', 'Adaptar: mesma lógica, com ajuste'], ['n', 'Nosso: identidade BlueJus']].map(([k, l]) => ({ l, ic: dec[k][1], st: tag(k) })),
+      pjRef: [
+        ['Barra superior', 'Barra azul sólida: menu à esquerda, nome da tela, usuário com foto e último acesso à direita.', 'Mesma estrutura e posições. Logo e azul #0a6fa0 do BlueJus.', 'h'],
+        ['Abas', 'Texto curto em maiúsculas; a aba ativa fica azul e sublinhada.', 'Igual: maiúsculas, aba ativa azul com sublinhado de 2px.', 'h'],
+        ['Rótulo e obrigatório', 'Rótulo em negrito acima do campo; asterisco e aviso "* Campos obrigatórios".', 'Igual, com o aviso no topo do formulário.', 'h'],
+        ['Campo de texto', 'Alto (cerca de 48px), borda cinza fina, cantos quase retos, foco pouco visível.', '40px de altura, borda #7b93a2, raio 4px e foco azul bem visível.', 'a'],
+        ['Campo só leitura', 'Fundo cinza; alguns ficam apagados.', 'Fundo cinza com texto escuro legível e cadeado explicando a origem do dado.', 'a'],
+        ['Lista longa', 'Abre com caixa de busca dentro da lista.', 'Igual para listas com mais de 10 opções (classe, responsável, comarca).', 'h'],
+        ['Opção em foco', 'Azul claro forte com texto branco (2,9:1, abaixo do mínimo).', 'Azul #2b7ab0 com texto branco (4,7:1).', 'a'],
+        ['Botão principal', 'Maiúsculas ("INCLUIR"), com sombra, abaixo do formulário à esquerda.', 'Mesmo verbo e mesma posição; caixa normal ("Incluir"), sem sombra, raio 4px.', 'a'],
+        ['Botão secundário', 'Branco com sombra ("SAIR").', 'Secundário azul claro do guia, sem sombra.', 'a'],
+        ['Caixas de expedientes', 'Lista lateral com seta para expandir, contador à direita e os nomes oficiais das caixas.', 'Mesmos nomes e contador à direita; seta só onde há subnível.', 'h'],
+        ['Pesquisa', 'Campo com botão de lupa colado e botão de atualizar ao lado.', 'Igual, com atalho Ctrl K para a busca global.', 'h'],
+        ['Tela vazia', 'Só uma frase no centro ("Selecione uma jurisdição ou caixa").', 'Frase, ícone e a ação sugerida (ex.: Nova pasta).', 'a'],
+        ['Menu do usuário', 'Lista de perfis com estrela de favorito; rodapé com ajuda e Sair.', 'Estrela de favorito ao trocar escritório ou perfil; Sair no rodapé.', 'h'],
+        ['Cores de situação', 'Pouco uso de cor; status quase sempre em texto.', 'Etiquetas com cor, ícone e palavra, retangulares.', 'n'],
+        ['Painéis e cards', 'Caixas brancas com sombra leve.', 'Cards no padrão do Dashboard, bordas suaves.', 'n']
+      ].map(([el, pje, bj, k]) => ({ el, pje, bj, d: dec[k][0], ic: dec[k][1], st: tag(k) })),
+      pjNosso: [['bi bi-fonts', 'Tipografia:', 'Arial em 5 tamanhos fixos.'], ['bi bi-palette', 'Cores:', 'azul #0a6fa0 e paleta de situação com ícone e palavra.'], ['bi bi-bounding-box', 'Formas:', 'raio 4px em tudo, sem oval.'], ['bi bi-hand-index', 'Interação:', 'realce azul na linha, botão direito com atalhos, compartilhar pasta.'], ['bi bi-grid-1x2', 'Organização:', 'cards do Dashboard, ações principais juntas e um só botão primário por área.']].map(([ic, t, d]) => ({ ic, t, d })),
+      pjAb: s.pjAb, pjSel: s.pjSel, pjQ: s.pjQ, pjTg: () => this.setState({ pjAb: !s.pjAb, pjQ: '' }), pjSetQ: e => this.setState({ pjQ: e.target.value }),
+      pjOps: ['Selecione'].concat(CLS).filter(l => !s.pjQ || l.toLowerCase().indexOf(s.pjQ.toLowerCase()) >= 0).map(l => ({ l, pick: () => this.setState({ pjSel: l, pjAb: false }) })),
+      busca: [['bi bi-person', 'Gleisson Bruno Gabriel', 'Cliente'], ['bi bi-folder2', 'Pasta 1180 · Obrigação de fazer', 'Pasta'], ['bi bi-bank', '1059316-72.2022.4.01.3400', 'Processo']].map(([ic, t, g]) => ({ ic, t, g })),
+    };
+  }
+}
+</script>
+</body>
+</html>
