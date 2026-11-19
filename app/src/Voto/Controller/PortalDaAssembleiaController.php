@@ -74,10 +74,12 @@ final class PortalDaAssembleiaController extends AbstractController
                 return $this->pagina($request, $codigo, 'Informe seu nome completo e um CPF válido, como constam na lista da votação.', 422);
             }
             $estado = ['nome' => $input->nome, 'cpf' => $cpf];
-            $achada = $this->localizarEleitor->executar($a, $input->nome, $cpf);
-            if (null !== $achada) {
-                $estado['exibir_unidade'] = $achada['unidade'];
-                $estado['exibir_bloco'] = $achada['bloco'];
+            $achadas = $this->localizarEleitor->executar($a, $input->nome, $cpf);
+            if (1 === \count($achadas)) {
+                $estado['exibir_unidade'] = $achadas[0]['unidade'];
+                $estado['exibir_bloco'] = $achadas[0]['bloco'];
+            } elseif (\count($achadas) > 1) {
+                $estado['opcoes'] = $achadas;
             }
             $request->getSession()->set($this->chave($codigo), $estado);
 
@@ -101,6 +103,27 @@ final class PortalDaAssembleiaController extends AbstractController
         return $this->voltar($codigo);
     }
 
+    /** Dono de mais de uma unidade escolhe uma antes do e-mail. A escolha só vale se estiver na lista que casou. */
+    #[Route('/escolher', name: 'voto_assembleia_portal_escolher', methods: ['POST'])]
+    public function escolher(Request $request, string $codigo): Response
+    {
+        $this->acesso->exigir($codigo);
+        if (!$this->csrfValido($request, $codigo)) {
+            return $this->pagina($request, $codigo, 'A página expirou. Tente novamente.', 400);
+        }
+        $estado = $this->estado($request, $codigo);
+        $opcoes = $estado['opcoes'] ?? [];
+        $indice = $request->request->getString('opcao');
+        if (!\is_array($opcoes) || 1 !== preg_match('/^\d{1,3}$/', $indice) || !isset($opcoes[(int) $indice])) {
+            return $this->pagina($request, $codigo, 'Escolha uma das unidades da lista.', 422);
+        }
+        $estado['exibir_unidade'] = $estado['escolha_unidade'] = $opcoes[(int) $indice]['unidade'];
+        $estado['exibir_bloco'] = $estado['escolha_bloco'] = $opcoes[(int) $indice]['bloco'];
+        $request->getSession()->set($this->chave($codigo), $estado);
+
+        return $this->voltar($codigo);
+    }
+
     #[Route('/codigo', name: 'voto_assembleia_portal_solicitar', methods: ['POST'])]
     public function solicitar(Request $request, string $codigo): Response
     {
@@ -113,6 +136,9 @@ final class PortalDaAssembleiaController extends AbstractController
         }
         $estado = $this->estado($request, $codigo);
         $estado['email'] = mb_strtolower(trim($request->request->getString('email')));
+        if (isset($estado['opcoes']) && !isset($estado['escolha_unidade'])) {
+            return $this->pagina($request, $codigo, 'Escolha uma das unidades da lista.', 422);
+        }
         $estado['desafio'] ??= bin2hex(random_bytes(16));
         $input = $this->input($estado);
         if (\count($this->validator->validate($input)) > 0) {
@@ -208,16 +234,16 @@ final class PortalDaAssembleiaController extends AbstractController
         ], new Response('', $status)));
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, mixed> */
     private function estado(Request $request, string $codigo): array
     {
         return $request->getSession()->get($this->chave($codigo), []);
     }
 
-    /** @param array<string, string> $estado */
+    /** @param array<string, mixed> $estado */
     private function input(array $estado): SolicitarCodigoDaAssembleiaInput
     {
-        return new SolicitarCodigoDaAssembleiaInput($estado['nome'] ?? '', $estado['unidade'] ?? '', $estado['bloco'] ?? '', $estado['email'] ?? '', $estado['desafio'] ?? '', $estado['cpf'] ?? null);
+        return new SolicitarCodigoDaAssembleiaInput($estado['nome'] ?? '', $estado['unidade'] ?? '', $estado['bloco'] ?? '', $estado['email'] ?? '', $estado['desafio'] ?? '', $estado['cpf'] ?? null, $estado['escolha_unidade'] ?? null, $estado['escolha_bloco'] ?? null);
     }
 
     private function chave(string $codigo): string

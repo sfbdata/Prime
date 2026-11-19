@@ -205,6 +205,72 @@ final class PortalDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(1);
     }
 
+    public function testDonoDeDuasUnidadesEscolheUmaERecebeCodigoSoDela(): void
+    {
+        foreach ([['101', 'A', 'ana1@example.com'], ['202', 'B', 'ana2@example.com']] as [$id, $bloco, $email]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'email' => $email, 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        self::assertCount(2, $crawler->filter('[data-vp-escolha] input[type="radio"]'));
+        self::assertCount(0, $crawler->filter('[data-vp-escolha] input[type="radio"][checked]'));
+        self::assertCount(0, $crawler->filter('input[name="email"]'));
+        self::assertStringContainsString('Unidade 101, Bloco A', $crawler->text());
+        self::assertStringContainsString('Unidade 202, Bloco B', $crawler->text());
+        $this->client->submit($crawler->filter('[data-vp-escolha]')->selectButton('Continuar')->form(['opcao' => '1']));
+        self::assertResponseRedirects($this->link(), 303);
+        $crawler = $this->client->followRedirect();
+        self::assertSame('Unidade 202', trim($crawler->filter('[data-vp-unidade]')->text()));
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana1@example.com']));
+        self::assertEmailCount(0);
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->selectButton('Receber novo código')->form());
+        self::assertEmailCount(0);
+    }
+
+    public function testEscolhaDeUnidadeEnviaCodigoParaOEmailDaEscolhida(): void
+    {
+        foreach ([['101', 'A', 'ana1@example.com'], ['202', 'B', 'ana2@example.com']] as [$id, $bloco, $email]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'email' => $email, 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->filter('[data-vp-escolha]')->selectButton('Continuar')->form(['opcao' => '1']));
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana2@example.com']));
+        self::assertEmailCount(1);
+        self::assertEmailHeaderSame(self::getMailerMessage(0), 'To', 'ana2@example.com');
+    }
+
+    public function testEscolhaForjadaForaDaListaDa422(): void
+    {
+        foreach ([['101', 'A'], ['202', 'B']] as [$id, $bloco]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        $token = $crawler->filter('[data-vp-escolha] input[name="_token"]')->attr('value');
+        foreach (['7', '-1', 'abc', ''] as $forjada) {
+            $this->client->request('POST', $this->link() . '/escolher', ['_token' => $token, 'opcao' => $forjada]);
+            self::assertResponseStatusCodeSame(422);
+        }
+        $this->client->request('POST', $this->link() . '/codigo', ['_token' => $token, 'email' => 'ana@example.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertEmailCount(0);
+    }
+
     public function testCpfQueNaoCasaVaiAoPassoDoisSoComONomeESemCodigo(): void
     {
         UnidadeDaAssembleiaFactory::createOne([

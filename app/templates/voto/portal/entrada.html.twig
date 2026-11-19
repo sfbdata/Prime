@@ -33,7 +33,16 @@
 <div class="vC vpCartao">
     <b class="vpTitulo">Confirme sua identidade</b>
     <div class="vpIdentidade"><span><b>{{ estado.nome }}</b>{% if estado.exibir_unidade|default('') != '' %}<br><span data-vp-unidade>{{ portal.rotuloUnidade }} {{ estado.exibir_unidade }}</span>{% endif %}{% if estado.exibir_bloco|default('') != '' %}<br><span data-vp-bloco>{{ portal.rotuloBloco }} {{ estado.exibir_bloco }}</span>{% endif %}</span><form method="post" action="{{ path('voto_assembleia_portal_reiniciar', {codigo: portal.codigo}) }}"><input type="hidden" name="_token" value="{{ token }}"><button class="vB" type="submit">Não sou eu</button></form></div>
-    {% if estado.desafio is not defined %}
+    {% if estado.opcoes is defined and estado.escolha_unidade is not defined %}
+    <form method="post" action="{{ path('voto_assembleia_portal_escolher', {codigo: portal.codigo}) }}" class="vpFormulario" data-vp-escolha>
+        <input type="hidden" name="_token" value="{{ token }}">
+        <div class="vpTexto">Há mais de um cadastro no seu nome. Escolha para qual deles você vai votar agora. Depois, volte ao portal para votar pelo outro.</div>
+        {% for o in estado.opcoes %}
+        <label class="vL"><input type="radio" name="opcao" value="{{ loop.index0 }}" required> {{ portal.rotuloUnidade }} {{ o.unidade }}{% if o.bloco != '' %}, {{ portal.rotuloBloco }} {{ o.bloco }}{% endif %}</label>
+        {% endfor %}
+        <div><button class="vB vP" type="submit"><i class="bi bi-arrow-right"></i>Continuar</button></div>
+    </form>
+    {% elseif estado.desafio is not defined %}
     <form method="post" action="{{ path('voto_assembleia_portal_solicitar', {codigo: portal.codigo}) }}" class="vpFormulario">
         <input type="hidden" name="_token" value="{{ token }}">
         <label class="vL">E-mail cadastrado<input class="vF" type="email" name="email" autocomplete="email" maxlength="180" required></label>

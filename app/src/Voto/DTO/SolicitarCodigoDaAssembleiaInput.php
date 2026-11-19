@@ -21,6 +21,9 @@ final readonly class SolicitarCodigoDaAssembleiaInput
         #[Assert\Email] #[Assert\NotBlank] #[Assert\Length(max: 180)] public string $email,
         #[Assert\Regex('/^[a-f0-9]{32}$/')] public string $desafio,
         public ?string $cpf = null,
+        /** Só no modo CPF, quando a pessoa tem mais de uma unidade: identificação e bloco da escolhida. */
+        public ?string $escolhaUnidade = null,
+        public ?string $escolhaBloco = null,
     ) {
     }
 
