@@ -8,6 +8,21 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.63.0] - 2026-11-19
+
+### Adicionado
+
+- Campanha BlueJus Black, aba do topo (`contribua-campanha.css/js`): centralizada (`left:50%` + `translateX(-50%)`) logo abaixo do cabeçalho, no lugar de `right:24px`, que caía sobre o nome e o avatar; some sozinha 5 s depois de abrir a tela (classe `cp-aba--saindo` e remoção).
+- Campanha só para escritório criado há até 5 dias (`CampanhaVigente::contaNova`, constante `DIAS_DA_CONTA_NOVA`): `campanha()` null, `/contribua/campanha/janela` 404 e inscrição recusada para escritório mais antigo. O Master continua com a prévia; quem já se inscreveu continua vendo a própria participação. Spec `docs/specs/contribua-campanha.md` (D6b). Sem migration.
+- Menu lateral, seção ADMIN: item "Suporte" entre "Solicitações de Acesso" e "Service Desk (TI)", só para o Master e o destinatário do suporte (a mesma regra de `/suporte/mensagens`, agora em `SuporteEntradaController::garantirLeitorDoSuporte` e `PaginaDeEntrada::ehDestinatarioDoSuporte`). A função Twig `suporte_no_menu()` devolve o número de pendentes, ou nulo para quem não lê o suporte.
+- `mensagem_suporte.respondida_em` (migration Version20261119140000; nula = pendente). As mensagens que já existem entram como pendentes.
+- `/suporte/mensagens`: coluna "Situação". "Responder por e-mail" abre o e-mail e marca como respondida (POST `auth_suporte_resposta`, com CSRF, pelo `js/suporte-mensagens.js`); "Desfazer" volta para pendente.
+
+### Corrigido
+
+- Moldura (`base.html.twig`): o tooltip automático de células de tabela cortadas passa a ignorar quem já tem dica própria (`data-tip`, `data-bj-tip`, `data-tip-proprio`, `title` dentro da Central e o tooltip do Bootstrap), conferindo o alvo e o elemento sob o mouse. Acaba a dica dupla (preta do Bootstrap e azul-clara do desenho) na coluna Ação da lista do Expediente e nas outras telas com a dica do desenho.
+- Bug de produção de 19/11: com o Windows em "animações desligadas" (`prefers-reduced-motion: reduce`), o `adminlte.min.css` 4.0.0-rc3 põe `.fade{display:block}` e isso vence o `.modal{display:none}`. Toda janela `.modal.fade` fechada (por exemplo `#modalInstalarIOS`, no `base.html.twig`) ficava na tela, invisível e por cima de tudo, sem deixar clicar. O `app.css`, carregado depois do AdminLTE em `base.html.twig` e `layout_peticionar.html.twig`, devolve `display:none` à `.modal.fade:not(.show)` nessa mídia. Os outros `.fade` (aba, alerta, aviso) e o `.collapse{display:block}` da mesma regra não sofrem, porque as regras do Bootstrap para eles são mais fortes.
+
 ## [2.62.0] - 2026-11-19
 
 ### Adicionado
@@ -2298,7 +2313,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.62.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.0...HEAD
+[2.63.0]: https://github.com/sfbdata/Prime/compare/v2.62.0...v2.63.0
 [2.62.0]: https://github.com/sfbdata/Prime/compare/v2.61.0...v2.62.0
 [2.61.0]: https://github.com/sfbdata/Prime/compare/v2.60.0...v2.61.0
 [2.60.0]: https://github.com/sfbdata/Prime/compare/v2.59.0...v2.60.0
