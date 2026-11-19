@@ -441,6 +441,21 @@ final class ConfirmarAcaoTest extends KernelTestCase
         self::assertSame([$resposta->dados['resultado']['excluidos'][0]['id']], $proposta->getResultado());
     }
 
+    #[TestDox('6.7, item 4 (PR 14): o que ficou pendente na memória antes do executor que limpa o EntityManager é gravado, não descartado')]
+    public function testPendenteAntesDoExecutorQueLimpaEGravado(): void
+    {
+        $id = $this->proporAgora();
+        $escritorioId = $this->escritorio->getId();
+        $this->executor->aoReconferir = function (): void {
+            $this->escritorio->setName('Pendente antes do executor');
+        };
+        $this->executor->limparAoExecutar = true;
+
+        $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada());
+
+        self::assertSame('Pendente antes do executor', $this->em()->getConnection()->fetchOne('SELECT name FROM tenant WHERE id = ?', [$escritorioId]));
+    }
+
     #[TestDox('6.7: falha ao gravar desfaz tudo o que o executor gravou, e a proposta continua pendente com os dados')]
     public function testFalhaAoGravarDesfazTudo(): void
     {

@@ -24,7 +24,9 @@ use App\Service\PermissionChecker;
  * ({@see GerarRelatorioSemProcessoUseCase}), os mesmos UseCases das folhas da tela.
  *
  * Os UseCases já decidem quem vê o quê: o cadeado (pasta trancada nem entra no relatório), as pastas que a pessoa pode ver
- * e o financeiro de cada pasta (só para quem o vê). Aqui entram só as regras do conector: de novo o recurso de ver a
+ * e o financeiro de cada pasta (só para quem o vê). O `sem_contrato` também é do Financeiro: para quem não o vê, vai
+ * nulo na linha e fica fora do total (a tela mostra a todos; o conector não herda isso). Aqui entram só as regras do
+ * conector: de novo o recurso de ver a
  * pasta pelo vínculo da conexão (o que sai é contado em `omitidas_sem_acesso`), o segredo de justiça (fora e contado
  * em `omitidas_em_segredo`, 6.2, regra 3), a página de {@see POR_PAGINA} e todo texto do banco pelo
  * {@see ProtecaoDoTextoDoChat::rotulo()}, cortado para a resposta caber no teto de 50 mil caracteres.
@@ -93,7 +95,7 @@ final class RelatoriosDoExpedienteNoConector
                 'resumo' => [
                     'pastas_paradas' => \count($itens),
                     'mais_de_90_dias' => \count(array_filter($itens, static fn (PastaParada $p): bool => $p->critica())),
-                    'sem_contrato' => \count(array_filter($itens, static fn (PastaParada $p): bool => $p->semContrato)),
+                    'sem_contrato' => \count(array_filter($itens, static fn (PastaParada $p): bool => $p->financeiroVisivel && $p->semContrato)),
                     'sem_processo' => \count(array_filter($itens, static fn (PastaParada $p): bool => $p->semProcesso())),
                 ],
                 'pastas' => array_map(fn (PastaParada $p): array => $this->linhaParada($p, $chamada), $daPagina),
@@ -177,7 +179,7 @@ final class RelatoriosDoExpedienteNoConector
             'dias_parada' => $p->dias,
             'ultima_movimentacao' => $p->ultima?->format('Y-m-d'),
             'nivel' => $p->nivel,
-            'sem_contrato' => $p->semContrato,
+            'sem_contrato' => $p->financeiroVisivel ? $p->semContrato : null,
             'pontos' => array_map($frase, \array_slice($p->pontos, 0, self::FRASES_POR_PASTA)),
             'sugestoes' => array_map($frase, \array_slice($p->sugestoes, 0, self::FRASES_POR_PASTA)),
         ];

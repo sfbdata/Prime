@@ -12,6 +12,8 @@ use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
@@ -415,6 +417,27 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
 
         self::assertSame([], $resposta->dados['pastas']);
         self::assertSame(0, $resposta->dados['total']);
+    }
+
+    #[TestDox('pastas_paradas: sem_contrato é do Financeiro; com a aba Financeiro escondida, vai nulo e fica fora do total')]
+    public function testPastasParadasSemContratoSoParaQuemVeOFinanceiro(): void
+    {
+        $escritorio = $this->escritorio();
+        $leitor = $this->pessoa();
+        $vinculo = $this->vinculo($leitor, $escritorio, permissoes: self::LEITOR);
+        $visivel = $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 60);
+        $escondida = $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 61);
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($escritorio, $escondida, AbaDaPasta::Financeiro, $this->pessoa(), new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $dados = $this->executar(['acao' => 'pastas_paradas'], $vinculo)->dados;
+
+        $porPasta = array_column($dados['pastas'], 'sem_contrato', 'pasta_id');
+        self::assertTrue($porPasta[$visivel->getId()]);
+        self::assertArrayHasKey((int) $escondida->getId(), $porPasta);
+        self::assertNull($porPasta[$escondida->getId()]);
+        self::assertSame(1, $dados['resumo']['sem_contrato']);
+        self::assertSame(2, $dados['resumo']['pastas_paradas']);
     }
 
     #[TestDox('pastas_paradas: 21 pastas dão duas páginas de 20, a resposta cabe no teto e proxima_pagina leva à segunda')]

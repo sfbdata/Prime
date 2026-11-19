@@ -175,6 +175,9 @@ final class ConfirmarPropostaDoConectorUseCase
         $this->guarda->exigir($chamada, $ferramenta, $acao);
         $executor->reconferir($acao, $dados, $chamada);
 
+        // Grava o que já está na memória antes do executor: um executor que limpa o EntityManager (a purga da lixeira,
+        // a exclusão do processo) não pode descartar em silêncio o que ficou pendente até aqui.
+        $this->em->flush();
         $propostaId = (int) $proposta->getId();
         $resultado = $executor->executarConfirmada($acao, $dados, $chamada);
         self::exigirResultadoQueCabe($resultado);
