@@ -48,7 +48,8 @@ final class AndamentoDaPasta
 
     /** Índice de "Protocolo" nas duas trilhas: é por ele que a Lista conta o que falta protocolar. */
     public const IDX_PROTOCOLO = 4;
-    private const IDX_CONTRATO = 2;
+    /** Índice de "Contrato" nas duas trilhas: a fase que quem recebeu a pasta de outra conta não cruza (§4.5.1). */
+    public const IDX_CONTRATO = 2;
     private const CONTRATO_ASSINADO = 'REGULAR';
     private const CONTRATO_PENDENTE = 'PENDENTE';
     public const PUBLICACOES_RECENTES = 50;

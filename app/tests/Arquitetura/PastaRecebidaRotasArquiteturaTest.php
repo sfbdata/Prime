@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Arquitetura;
 
+use App\Pasta\Controller\EscritaNaPastaRecebidaController;
 use App\Pasta\Controller\PastaRecebidaController;
 use App\Pasta\Service\PastaRecebidaDoUsuario;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -21,14 +22,18 @@ use Symfony\Component\Routing\RouterInterface;
  * Exceções com nome: `expediente_recebidas` (a caixa da pessoa, lê só os convites dela) e
  * `expediente_recebida_responder` (aceitar, recusar e deixar o próprio convite; não lê a pasta).
  *
- * O teste percorre o router inteiro: rota nova `expediente_recebida*` que não comece pela porta quebra aqui.
+ * O teste percorre o router inteiro: rota nova `expediente_recebida*` que não comece pela porta quebra aqui. As
+ * escritas da fatia 9b (anotar, fase, enviar documento) passam pela mesma porta e só aceitam POST.
  */
 #[CoversClass(PastaRecebidaController::class)]
+#[CoversClass(EscritaNaPastaRecebidaController::class)]
 final class PastaRecebidaRotasArquiteturaTest extends KernelTestCase
 {
     private const EXCECOES = ['expediente_recebidas', 'expediente_recebida_responder'];
 
     private const ROTAS_DA_FATIA_9A = ['expediente_recebida_ver', 'expediente_recebida_pasta', 'expediente_recebida_documento'];
+
+    private const ROTAS_DA_FATIA_9B = ['expediente_recebida_anotar', 'expediente_recebida_fase', 'expediente_recebida_documento_enviar'];
 
     #[TestDox('As rotas da pasta recebida (janela, página e documento) existem')]
     public function testAsRotasExistem(): void
@@ -37,6 +42,17 @@ final class PastaRecebidaRotasArquiteturaTest extends KernelTestCase
 
         foreach (self::ROTAS_DA_FATIA_9A as $nome) {
             self::assertArrayHasKey($nome, $rotas, $nome);
+        }
+    }
+
+    #[TestDox('As escritas da pasta recebida (anotar, fase, enviar documento) existem e só aceitam POST')]
+    public function testAsEscritasExistemSoComPost(): void
+    {
+        $rotas = self::rotas();
+
+        foreach (self::ROTAS_DA_FATIA_9B as $nome) {
+            self::assertArrayHasKey($nome, $rotas, $nome);
+            self::assertSame(['POST'], $rotas[$nome]->getMethods(), $nome);
         }
     }
 
@@ -56,7 +72,7 @@ final class PastaRecebidaRotasArquiteturaTest extends KernelTestCase
             }
         }
 
-        self::assertGreaterThanOrEqual(count(self::ROTAS_DA_FATIA_9A), $conferidas);
+        self::assertGreaterThanOrEqual(count(self::ROTAS_DA_FATIA_9A) + count(self::ROTAS_DA_FATIA_9B), $conferidas);
         self::assertSame([], $semPorta, 'rota da pasta recebida que não começa por PastaRecebidaDoUsuario::localizar()');
     }
 
