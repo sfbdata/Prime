@@ -1137,7 +1137,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   `MoverDocumentoParaSecaoUseCase`), `copiar` (`CopiarDocumentosDaPastaUseCase`), `favoritar`
   (`AlternarFavoritoDeDocumentoUseCase`), `subpasta` (criar, renomear, mover: `CriarPastaSecaoUseCase`,
   `RenomearPastaSecaoUseCase`, `MoverPastaSecaoUseCase`), `reordenar` (`ReordenarDocumentosUseCase`, `ReordenarSecoesUseCase`) e
-  `restaurar` da lixeira (`RestaurarItensDaPastaUseCase`).
+  `restaurar` da lixeira (`RestaurarItensDaPastaUseCase`); no PR 14, `excluir_de_vez` da lixeira (`ExcluirDeVezDaLixeiraUseCase`,
+  por proposta, abaixo).
 - Peças: `escrever_peca` (`SalvarPecaTextoUseCase::executar`, `:60`, que saneia o HTML e grava pela chave de
   `ChavesDePasta::novoDocumento`; falta converter Markdown em HTML antes do saneador), `editar_peca`
   (`EditarPecaTextoUseCase::executar`, `:74`; **por proposta**, porque regrava a peça na mesma chave, sem versão: abertura
@@ -1163,10 +1164,16 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`ExcluirPastaSecaoUseCase`), item de checklist
   (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
   (`ExcluirModeloDePecaUseCase`).
-- Excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível) fica para o PR 14 (revisão do PR 12, 18/11): a
-  purga apaga o arquivo no fim da própria transação e dá `clear()` no EntityManager. Dentro da transação da confirmação, o
-  arquivo sai antes do COMMIT de fora (INV-6) e a proposta desanexada continua pendente. Entra quando a confirmação tiver
-  um passo depois do COMMIT para a remoção dos arquivos e reler a proposta depois do executor.
+- Excluir de vez da lixeira (PR 14): `excluir_de_vez` (`documentos` e ou `subpastas` que estão NA LIXEIRA da pasta; a
+  subpasta leva a subárvore), sempre por proposta, com o resumo que diz que não dá para desfazer e lista os nomes. Mesmas
+  conferências da rota da tela (`pasta_documentos_excluir_de_vez`): cada item na lixeira desta pasta e deste escritório,
+  e contrato de honorários com o Financeiro oculto, selecionado ou em qualquer nível da subárvore, responde "não
+  encontrado". Grava pelo `ExcluirDeVezDaLixeiraUseCase::excluirDoBanco`, o mesmo laço da purga sem a remoção física:
+  apaga as linhas e conta as referências na transação da confirmação e devolve as chaves livres. A remoção dos arquivos é
+  o passo depois do COMMIT do resultado (`ResultadoDaConfirmacao::$depoisDoCommit`), que a `confirmar_acao` só roda com o
+  COMMIT feito; falha ali não muda a resposta (vira registro no log `mcp`) e o arquivo fica como órfão recuperável. Como a
+  purga dá `clear()` no EntityManager, a confirmação relê a proposta (ainda travada pelo `FOR UPDATE`) antes de
+  confirmá-la. A tela segue pelo caminho de sempre, sem mudança.
 - Risco aceito no PR 12: `editar_peca` confirmado regrava o arquivo da peça (`EditarPecaTextoUseCase`, mesma chave) dentro
   da transação da confirmação. Se o COMMIT de fora falhar, o banco volta e o arquivo fica com o texto novo; a proposta
   continua pendente e um novo sim acerta os dois. É a mesma janela da tela, que também grava antes do COMMIT.
@@ -1799,7 +1806,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector (feito) | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,

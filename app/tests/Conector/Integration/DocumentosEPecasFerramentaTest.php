@@ -444,8 +444,8 @@ final class DocumentosEPecasFerramentaTest extends KernelTestCase
         self::assertNotNull($this->naLixeira(PastaDocumento::class, (int) $dentro->getId()));
     }
 
-    #[TestDox('excluir de vez da lixeira não existe nesta ferramenta (PR 14): o pedido é recusado e nada sai da lixeira')]
-    public function testExcluirDeVezEhRecusado(): void
+    #[TestDox('restaurar não aceita excluir de vez (a ação própria é excluir_de_vez, em ExcluirDeVezPeloConectorTest): o pedido é recusado e nada sai da lixeira')]
+    public function testRestaurarNaoExcluiDeVez(): void
     {
         $pasta = $this->pasta();
         $doc = $this->documento($pasta, 'a.pdf');

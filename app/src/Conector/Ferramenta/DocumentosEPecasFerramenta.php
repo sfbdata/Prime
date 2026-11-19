@@ -22,7 +22,8 @@ use App\Pasta\Repository\PastaRepository;
  * modelos de peça e o checklist de documentação de uma pasta, pelos UseCases que a tela usa. A entrada é plana: `acao` é
  * a chave da {@see TabelaDeAbaEChave} (a linha da aba e da chave), `operacao` diz o que fazer dentro dela e os campos
  * variam por operação ({@see DocumentosEPecasAcoes}). Os grupos de ações moram em classes próprias
- * ({@see DocumentosEPecasNosDocumentos}, {@see DocumentosEPecasNasPecas}, {@see DocumentosEPecasNoChecklist}).
+ * ({@see DocumentosEPecasNosDocumentos}, {@see DocumentosEPecasNasPecas}, {@see DocumentosEPecasNoChecklist},
+ * {@see DocumentosEPecasNaLixeira}).
  *
  * Direto: mover, copiar, reordenar, favoritar, criar subpasta, restaurar da lixeira, escrever peça, usar modelo, destino da
  * peça, salvar modelo novo, favoritar modelo, adicionar, marcar e reordenar item, ligar ou desligar o checklist, salvar e
@@ -57,6 +58,7 @@ final class DocumentosEPecasFerramenta implements FerramentaDoConector, Executor
         private readonly DocumentosEPecasNosDocumentos $documentos,
         private readonly DocumentosEPecasNasPecas $pecas,
         private readonly DocumentosEPecasNoChecklist $checklist,
+        private readonly DocumentosEPecasNaLixeira $naLixeira,
     ) {
     }
 
@@ -200,6 +202,7 @@ final class DocumentosEPecasFerramenta implements FerramentaDoConector, Executor
             DocumentosEPecasAcoes::GRUPO_DOCUMENTOS => $this->documentos,
             DocumentosEPecasAcoes::GRUPO_PECAS => $this->pecas,
             DocumentosEPecasAcoes::GRUPO_CHECKLIST => $this->checklist,
+            DocumentosEPecasAcoes::GRUPO_LIXEIRA => $this->naLixeira,
             default => throw ErroDaFerramenta::entradaInvalida(),
         };
     }

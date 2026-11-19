@@ -183,6 +183,7 @@ final class TabelaDeAbaEChave
             'subpasta' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'reordenar' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'restaurar' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
+            'excluir_de_vez' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'escrever_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => ['peticionar', 'expedientes']],
             'editar_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => ['peticionar', 'expedientes']],
             'destino_da_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
