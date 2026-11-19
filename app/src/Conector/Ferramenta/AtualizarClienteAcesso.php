@@ -135,6 +135,19 @@ final class AtualizarClienteAcesso
     }
 
     /**
+     * O recurso `cliente` de excluir (6.6: excluir cliente), como a tela `cliente_delete`.
+     *
+     * @throws ErroDaFerramenta
+     */
+    public function exigirExclusaoDoCliente(ChamadaDoConector $chamada, Cliente $cliente): void
+    {
+        $contexto = $chamada->contexto;
+        if (!$this->permissoes->canAccessResource($contexto->pessoa, $contexto->escritorio, AccessRequest::RESOURCE_CLIENTE, (int) $cliente->getId(), AccessRequest::ACTION_DELETE)) {
+            throw ErroDaFerramenta::semPermissao();
+        }
+    }
+
+    /**
      * A pasta viva do escritório, conferida pela linha da ação com a pasta, a lixeira e o segredo; com `$editar`,
      * também o recurso `pasta` de editar (quem só vê recebe "não encontrado", como a guarda).
      *

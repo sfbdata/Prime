@@ -19,7 +19,9 @@ use App\Conector\Service\ServidorDeAutorizacao;
  *  - {@see AtualizarClienteCadastro}: `completar` (campos do cadastro) e `contato` (celular ou e-mail). Campo vazio grava
  *    direto; trocar ou apagar valor preenchido vai por proposta, com os vazios do mesmo pedido na mesma proposta;
  *  - {@see AtualizarClienteVinculos}: `vincular_a_pasta` (com `operacao`: `vincular`, o padrão e direto, ou
- *    `desvincular`, exclusão e por proposta), `principal` e `ligar_documento`.
+ *    `desvincular`, exclusão e por proposta), `principal` e `ligar_documento`;
+ *  - {@see AtualizarClienteExclusoes}: `excluir_documento` (um documento do cadastro) e `excluir_cliente` (o cliente
+ *    inteiro, sem volta), sempre por proposta.
  *
  * O que vai por proposta só é gravado depois do "sim" da pessoa, pela `confirmar_acao`, no
  * {@see AtualizarClienteConfirmacao}, que reconfere tudo.
@@ -47,6 +49,8 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
         'vincular_a_pasta' => ['cliente_id', 'pasta_id'],
         'principal' => ['cliente_id', 'pasta_id'],
         'ligar_documento' => ['cliente_id', 'documento_id'],
+        'excluir_documento' => ['cliente_id', 'documento_id'],
+        'excluir_cliente' => ['cliente_id'],
     ];
 
     /** Os campos que a ação aceita sem exigir. */
@@ -65,6 +69,7 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
         private readonly AtualizarClienteCadastro $cadastro,
         private readonly AtualizarClienteVinculos $vinculos,
         private readonly AtualizarClienteLote $lote,
+        private readonly AtualizarClienteExclusoes $exclusoes,
     ) {
     }
 
@@ -84,8 +89,10 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
             . 'a que fica ligado; sempre por proposta); completar (preenche campos do cadastro: mande em campos só as chaves que mudam, a ação ler da ler_clientes '
             . 'diz quais faltam); contato (o celular ou o e-mail); vincular_a_pasta (liga o cliente a uma pasta, e pasta sem cliente faz dele o principal; com '
             . 'operacao desvincular, tira o cliente da pasta, sem apagar o cadastro); principal (marca, entre os clientes da pasta, o que a representa) e '
-            . 'ligar_documento (liga ao cadastro um documento de identificação ou comprovante achado numa pasta do cliente, veja ler_clientes, ação documentos_de_identidade). '
-            . 'Preencher campo vazio grava na hora. Cadastrar, desvincular e trocar ou apagar um valor já preenchido devolvem uma proposta com o resumo: '
+            . 'ligar_documento (liga ao cadastro um documento de identificação ou comprovante achado numa pasta do cliente, veja ler_clientes, ação documentos_de_identidade); '
+            . 'excluir_documento (tira um documento do cadastro do cliente, veja ler_clientes, ação documentos_do_cliente; o arquivo próprio é apagado, o de pasta continua na pasta) e '
+            . 'excluir_cliente (exclui o cliente de vez, com os documentos próprios do cadastro, e o tira de todas as pastas; não vale para cliente com carteira de cobrança). '
+            . 'Preencher campo vazio grava na hora. Cadastrar, desvincular, excluir e trocar ou apagar um valor já preenchido devolvem uma proposta com o resumo: '
             . 'mostre o resumo à pessoa e só chame confirmar_acao se ela disser sim; nada é gravado antes. No cadastrar, o cliente com CPF ou CNPJ que já é de '
             . 'um cadastro do escritório, o repetido na própria lista e o que a pessoa não pode cadastrar saem da proposta, com o motivo. '
             . 'Cliente que recebe o envio automático do Push não tem o e-mail gravado, não é vinculado nem vira principal pelo conector. '
@@ -111,7 +118,7 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
                 'valor' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO, 'description' => 'Em contato: o celular com DDD ou o e-mail.'],
                 'pasta_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Em vincular_a_pasta e principal: o id da pasta (veja buscar_pastas).'],
                 'operacao' => ['type' => 'string', 'enum' => self::OPERACOES_DO_VINCULO, 'description' => 'Em vincular_a_pasta: vincular (o padrão) ou desvincular (por proposta).'],
-                'documento_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Em ligar_documento: o id do documento da pasta (veja ler_clientes, ação documentos_de_identidade).'],
+                'documento_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Em ligar_documento: o id do documento da pasta (veja ler_clientes, ação documentos_de_identidade). Em excluir_documento: o id do documento do cadastro (veja ler_clientes, ação documentos_do_cliente).'],
             ],
             'required' => ['acao'],
             'additionalProperties' => false,
@@ -195,6 +202,9 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
 
             return fn (ChamadaDoConector $c): RespostaDaFerramenta => $this->cadastro->contato($clienteId, $campo, $valor, $c);
         }
+        if (str_starts_with($acao, 'excluir_')) {
+            return $this->prepararExclusao($acao, $clienteId, $argumentos);
+        }
         if ($acao === 'ligar_documento') {
             $documentoId = self::inteiro($argumentos, 'documento_id');
 
@@ -202,6 +212,25 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
         }
 
         return $this->prepararPelaPasta($acao, $clienteId, self::inteiro($argumentos, 'pasta_id'), $argumentos['operacao'] ?? 'vincular');
+    }
+
+    /**
+     * `excluir_cliente` e `excluir_documento`: sempre por proposta.
+     *
+     * @param array<string, mixed> $argumentos
+     *
+     * @return \Closure(ChamadaDoConector): RespostaDaFerramenta
+     *
+     * @throws ErroDaFerramenta
+     */
+    private function prepararExclusao(string $acao, int $clienteId, array $argumentos): \Closure
+    {
+        if ($acao === 'excluir_cliente') {
+            return fn (ChamadaDoConector $c): RespostaDaFerramenta => $this->exclusoes->proporCliente($clienteId, $c);
+        }
+        $documentoId = self::inteiro($argumentos, 'documento_id');
+
+        return fn (ChamadaDoConector $c): RespostaDaFerramenta => $this->exclusoes->proporDocumento($clienteId, $documentoId, $c);
     }
 
     /**

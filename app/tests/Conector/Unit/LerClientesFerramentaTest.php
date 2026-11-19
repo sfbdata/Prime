@@ -14,13 +14,14 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O contrato de entrada de `ler_clientes` (spec mcp-remoto-oauth, 6.4): as quatro ações, o esquema fechado,
- * `documentos_do_cliente` fora do esquema (tem linha na tabela, chega no PR 14) e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de integração.
+ * O contrato de entrada de `ler_clientes` (spec mcp-remoto-oauth, 6.4): as cinco ações, o esquema fechado, todas as
+ * linhas da tabela no esquema e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de
+ * integração.
  */
 #[CoversClass(LerClientesFerramenta::class)]
 final class LerClientesFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema lista só buscar, ler, conferir_documento e documentos_de_identidade, exige a ação e fecha os campos')]
+    #[TestDox('o esquema lista buscar, ler, conferir_documento, documentos_de_identidade e documentos_do_cliente, exige a ação e fecha os campos')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -28,7 +29,7 @@ final class LerClientesFerramentaTest extends TestCase
         self::assertSame('object', $esquema['type']);
         self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
-        self::assertSame(['buscar', 'ler', 'conferir_documento', 'documentos_de_identidade'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['buscar', 'ler', 'conferir_documento', 'documentos_de_identidade', 'documentos_do_cliente'], $esquema['properties']['acao']['enum']);
         self::assertSame(['acao', 'termo', 'cliente_id', 'documento'], array_keys($esquema['properties']));
         self::assertSame('ler_clientes', $this->ferramenta()->nome());
         self::assertSame('Ler clientes', $this->ferramenta()->titulo());
@@ -40,7 +41,7 @@ final class LerClientesFerramentaTest extends TestCase
         $doEsquema = $this->ferramenta()->esquemaDeEntrada()['properties']['acao']['enum'];
 
         self::assertSame([], array_diff($doEsquema, TabelaDeAbaEChave::acoes('ler_clientes')));
-        self::assertSame(['documentos_do_cliente'], array_values(array_diff(TabelaDeAbaEChave::acoes('ler_clientes'), $doEsquema)));
+        self::assertSame([], array_values(array_diff(TabelaDeAbaEChave::acoes('ler_clientes'), $doEsquema)));
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
@@ -56,7 +57,8 @@ final class LerClientesFerramentaTest extends TestCase
         yield 'buscar com uma letra' => [['acao' => 'buscar', 'termo' => 'a'], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
         yield 'buscar só com espaços' => [['acao' => 'buscar', 'termo' => '    '], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
         yield 'buscar com termo longo demais' => [['acao' => 'buscar', 'termo' => str_repeat('5', 101)], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
-        yield 'documentos_do_cliente ainda não existe' => [['acao' => 'documentos_do_cliente', 'cliente_id' => 1], $invalido];
+        yield 'documentos_do_cliente sem cliente_id' => [['acao' => 'documentos_do_cliente'], $invalido];
+        yield 'documentos_do_cliente com documento' => [['acao' => 'documentos_do_cliente', 'cliente_id' => 1, 'documento' => 'x'], $invalido];
         yield 'ação fora da lista' => [['acao' => 'apagar']];
         yield 'ler sem cliente_id' => [['acao' => 'ler'], $invalido];
         yield 'ler com cliente_id zero' => [['acao' => 'ler', 'cliente_id' => 0], $invalido];

@@ -115,12 +115,12 @@ final class TabelaDeAbaEChave
             'para_vincular' => ['modulos' => self::PROCESSOS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'cnj' => ['modulos' => self::PROCESSOS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
         ],
-        // `documentos_de_identidade`: a aba Documentos de cada pasta da lista (a pasta com a aba oculta sai).
+        // `documentos_de_identidade` e `documentos_do_cliente`: a aba Documentos de cada pasta da lista (a pasta com a aba oculta sai).
         'ler_clientes' => [
             'buscar' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
             'ler' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
             'conferir_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
-            'documentos_do_cliente' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
+            'documentos_do_cliente' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
             'documentos_de_identidade' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
         ],
         // `agenda`: módulo `agenda` (`AgendaNovaController` :58). `minhas_metas` (14.i): módulo `tarefas` e a chave `metas`
@@ -210,6 +210,9 @@ final class TabelaDeAbaEChave
             'vincular_a_pasta' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
             'principal' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
             'ligar_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
+            // Excluir (por proposta): o documento do cadastro (o vinculado de pasta passa pela aba Documentos da pasta) e o cliente.
+            'excluir_documento' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
+            'excluir_cliente' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
         ],
         // Nota técnica: sem aba nem chave (é do processo, não da tela da pasta). Excluir processo: aba Processo e `expedientes`.
         'processos_da_pasta' => [
