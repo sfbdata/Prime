@@ -15,7 +15,8 @@ use App\Conector\DTO\ResultadoDaConfirmacao;
  *  - `cadastrar` / `cadastrar`: a lista de clientes ({@see AtualizarClienteLote});
  *  - `completar` ou `contato` / `trocar`: a troca de valor preenchido, com os campos vazios do mesmo pedido
  *    ({@see AtualizarClienteCadastro});
- *  - `vincular_a_pasta` / `desvincular`: tirar o cliente da pasta ({@see AtualizarClienteVinculos}).
+ *  - `vincular_a_pasta` / `desvincular`: tirar o cliente da pasta ({@see AtualizarClienteVinculos});
+ *  - `excluir_documento` e `excluir_cliente` / a mesma operação: as exclusões ({@see AtualizarClienteExclusoes}).
  *
  * Reconferir e executar repetem a conferência da proposta inteira (permissão, pasta na lixeira, segredo, envio
  * automático, CPF que virou repetido, cliente ainda vinculado), sem gravar ao reconferir. Pessoa e escritório vêm só
@@ -29,12 +30,15 @@ final class AtualizarClienteConfirmacao implements ExecutorDeProposta
         'completar' => 'trocar',
         'contato' => 'trocar',
         'vincular_a_pasta' => 'desvincular',
+        'excluir_documento' => 'excluir_documento',
+        'excluir_cliente' => 'excluir_cliente',
     ];
 
     public function __construct(
         private readonly AtualizarClienteLote $lote,
         private readonly AtualizarClienteCadastro $cadastro,
         private readonly AtualizarClienteVinculos $vinculos,
+        private readonly AtualizarClienteExclusoes $exclusoes,
     ) {
     }
 
@@ -56,7 +60,11 @@ final class AtualizarClienteConfirmacao implements ExecutorDeProposta
 
             return;
         }
-        $this->vinculos->reconferirDesvinculo($dados, $chamada);
+        match ($operacao) {
+            'excluir_documento' => $this->exclusoes->reconferirDocumento($dados, $chamada),
+            'excluir_cliente' => $this->exclusoes->reconferirCliente($dados, $chamada),
+            default => $this->vinculos->reconferirDesvinculo($dados, $chamada),
+        };
     }
 
     public function executarConfirmada(string $acao, array $dados, ChamadaDoConector $chamada): ResultadoDaConfirmacao
@@ -64,6 +72,8 @@ final class AtualizarClienteConfirmacao implements ExecutorDeProposta
         return match (self::operacao($acao, $dados)) {
             'cadastrar' => $this->lote->executarConfirmada($dados, $chamada),
             'trocar' => $this->cadastro->executarTroca($acao, $dados, $chamada),
+            'excluir_documento' => $this->exclusoes->executarDocumento($dados, $chamada),
+            'excluir_cliente' => $this->exclusoes->executarCliente($dados, $chamada),
             default => $this->vinculos->executarDesvinculo($dados, $chamada),
         };
     }
