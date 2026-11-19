@@ -433,6 +433,14 @@ voto:
                 foto_formato: formato 3x4
                 foto_trocar: Trocar foto
                 foto_alt: 'Foto de {nome}'
+                ajuste_foto:
+                    titulo: Ajustar a foto
+                    dica: 'Arraste para enquadrar o rosto. Use a barra ou a roda do mouse para aproximar.'
+                    area: 'Área de enquadramento da foto, formato 3x4'
+                    zoom: Aproximar
+                    girar: Girar
+                    cancelar: Cancelar
+                    aplicar: Usar esta foto
                 menu_remover_opcao: Remover opção
                 detalhe_pessoa: Descrição, propostas e composição da chapa
                 detalhe_opcao: Descrição da opção

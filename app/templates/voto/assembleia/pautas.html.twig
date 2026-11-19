@@ -23,6 +23,7 @@
 {{ parent() }}
 <script src="{{ asset('js/voto-cabine.js') }}" defer></script>
 <script src="{{ asset('js/voto-assistente.js') }}" defer></script>
+<script src="{{ asset('js/voto-foto-ajuste.js') }}" defer></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -80,6 +81,7 @@
         </div>
     </div>
 </div>
+{% include 'voto/assembleia/_janela_ajustar_foto.html.twig' only %}
 {% if urna is not empty %}
     {% include 'voto/assembleia/_urna_do_rascunho.html.twig' with {a: a} only %}
 {% endif %}
