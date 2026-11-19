@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class TelaDoPontoSemRecarregarJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private static function tela(): string
     {
         return (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
@@ -114,7 +117,8 @@ final class TelaDoPontoSemRecarregarJsTest extends TestCase
     public function testNotificacaoSemHorarioVazio(): void
     {
         $modal = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_modal_alerta_ponto.html.twig');
-        self::assertStringContainsString("dados.mensagem + (dados.horario ? '\\nHorário: ' + dados.horario : '')", $modal);
+        self::assertStringContainsString("dados.mensagem + (dados.horario ? '\\n{{ 'ponto_cartao.alerta.horario'|trans|e('js') }} ' + dados.horario : '')", $modal);
+        self::assertSame('Horário:', self::ptBr('ponto_cartao.alerta.horario'));
         self::assertStringContainsString("tag:     'alerta-ponto-' + dados.tipo + '-' + (dados.horario || ''),", $modal, 'cada tipo com sua notificação');
     }
 }

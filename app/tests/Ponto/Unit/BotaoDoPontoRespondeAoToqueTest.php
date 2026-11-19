@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -37,6 +38,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
 
     private const CAMINHO_MODULO = __DIR__ . '/../../../public/js/ponto-batida.js';
@@ -317,10 +320,12 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         // Pré-selecionar sem mostrar trocaria o erro de "não escolheu" pelo de "não percebeu".
         self::assertMatchesRegularExpression(
-            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?Bater Ponto\'\s*\+\s*\(nome\s*\?\s*\': \'\s*\+\s*nome\s*:\s*\'\'\)/',
+            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?BJ_T\.t\(\'ponto_cartao\.js\.cartao\.bater_ponto\'\)\s*\+\s*\(nome\s*\?\s*\': \'\s*\+\s*nome\s*:\s*\'\'\)/',
             $tela,
             'o rótulo do botão deixou de dizer o tipo escolhido'
         );
+
+        self::assertSame('Bater Ponto', self::ptBr('ponto_cartao.js.cartao.bater_ponto'));
 
         // Regra do dono (15/10/2026): nada de travessão em texto visível. O rótulo é "Bater Ponto: Saída".
         self::assertDoesNotMatchRegularExpression(

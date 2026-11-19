@@ -15,6 +15,7 @@ use App\Ponto\Service\SeloDaFolha;
 use App\Ponto\Service\SeloDaFolhaHmac;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDaFolhaDoMesTrait;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -35,6 +36,8 @@ use Symfony\Component\DomCrawler\Crawler;
 #[CoversClass(TenantController::class)]
 final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
 {
+    use TextoDoCatalogo;
+
     use ClockSensitiveTrait;
     use CenarioDaFolhaDoMesTrait;
 
@@ -235,14 +238,19 @@ final class AceiteDaFolhaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('pe-sf-aviso', $e16, 'o aviso é o da E8 (decisão 15), sem uma segunda cópia');
 
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-folha.js');
+        self::assertSame('Gerando a folha em PDF...', self::ptBr('ponto_folha.js.gerando'));
+        self::assertSame('Folha baixada em PDF.', self::ptBr('ponto_folha.js.baixada'));
+        self::assertSame('Folha baixada em PDF. Código {codigo}.', self::ptBr('ponto_folha.js.baixada_codigo'));
+        self::assertSame('Não foi possível gerar o PDF.', self::ptBr('ponto_folha.js.falhou'));
+        self::assertSame('Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.', self::ptBr('ponto_folha.js.limite'));
         foreach ([
             "window.PontoAvisoFlutuante.mostrar(texto, tom || 'ok');",
-            "avisar(GERANDO, 'gerando');",
-            "'Gerando a folha em PDF...'",
-            "'Folha baixada em PDF.'",
-            "'Folha baixada em PDF. Código ' + codigo + '.'",
-            "'Não foi possível gerar o PDF.'",
-            "'Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.'",
+            "avisar(gerando(), 'gerando');",
+            "BJ_T.t('ponto_folha.js.gerando')",
+            "BJ_T.t('ponto_folha.js.baixada')",
+            "BJ_T.t('ponto_folha.js.baixada_codigo', { codigo: codigo })",
+            "BJ_T.t('ponto_folha.js.falhou')",
+            "BJ_T.t('ponto_folha.js.limite')",
             "'Descreva a ressalva.'",
             "resposta.headers.get('X-Codigo-Folha')",
             'resposta.status === 429',

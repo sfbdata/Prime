@@ -1313,6 +1313,92 @@
         ],
         "permitidos": ["bja-body", "Content-Type", "Escape", "BlueJus"]
     },
+    "ponto_cartao": {
+        "templates": [
+            "ponto/index.html.twig",
+            "ponto/_abas.html.twig",
+            "ponto/_abas_equipe.html.twig",
+            "ponto/_abas_banco.html.twig",
+            "ponto/_abas_comprovantes.html.twig",
+            "ponto/_abas_auditoria.html.twig",
+            "ponto/_tela_cheia.html.twig",
+            "ponto/_janela_antes_de_registrar.html.twig",
+            "ponto/_janela_trabalho_externo.html.twig",
+            "ponto/_modal_alerta_ponto.html.twig"
+        ],
+        "js": [
+            "ponto-janelas.js",
+            "presenca-ponto.js",
+            "ponto-batida.js",
+            "ponto-abas.js",
+            "ponto-fila.js",
+            "ponto-folha.js",
+            "ponto-comprovantes.js",
+            "ponto-tela-cheia.js",
+            "ponto-paineis.js",
+            "ponto-equipe.js",
+            "ponto-sons.js"
+        ],
+        "permitidos": [
+            "pe-body",
+            "Uv",
+            "hm",
+            "terça-feira",
+            "sábado",
+            "App\\\\Ponto\\\\Form\\\\JustificativaPontoType::MOTIVO_MAXIMO",
+            "App\\\\Ponto\\\\Service\\\\AlertasAntesDaBatida::NOTA",
+            "Validar comprovante",
+            "Fechar",
+            "BJP-XXXX-XXXX-XXXX",
+            "Código do comprovante",
+            "Comprovante autêntico.",
+            "Código não localizado.",
+            "Confira a digitação. Comprovante sem registro correspondente não é válido.",
+            "Validar",
+            "Content-Type",
+            "Accept",
+            "Escape",
+            "Tab",
+            "Notification",
+            "Content-Disposition",
+            "Falha no atalho de ponto:",
+            "Não consegui guardar a posição para a próxima batida:",
+            "Erro ao registrar ponto:",
+            "Tela do ponto respondeu ",
+            "A sincronização da fila não entrou na auditoria:",
+            "O banco da fila está preso por outra aba.",
+            "A transação da fila foi desfeita.",
+            "A transação da chave foi desfeita.",
+            "Batida guardada que não pôde ser lida:",
+            "Recusa guardada que não pôde ser lida:",
+            "A transação da recusa foi desfeita.",
+            "Não foi possível guardar a recusa da batida:",
+            "Não foi possível guardar a batida neste aparelho:",
+            "Não foi possível ler as batidas guardadas:",
+            "Não foi possível limpar as batidas guardadas:",
+            "Não foi possível apagar da fila:",
+            "Falha ao enviar as batidas guardadas:",
+            "Falha depois de fechar a tela cheia:",
+            "Descreva a ressalva.",
+            "Sem resposta do servidor. Confira a conexão e tente de novo."
+        ]
+    },
+    "ponto_folha": {
+        "templates": [
+            "ponto/_folha_table.html.twig",
+            "ponto/_folha_justificativa.html.twig",
+            "ponto/_folha_saldo_dia.html.twig",
+            "ponto/_folha_macros.html.twig"
+        ],
+        "permitidos": [
+            "hm",
+            "Assinar folha",
+            "0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}\" data-r=\"\">",
+            "0 ? 'pe-cor--pos' : 'pe-cor--zero') }}\">",
+            "0 or diaTemBatida ? 'pe-cor--pos' : 'pe-cor--zero') }}\">",
+            "App\\\\Ponto\\\\Exception\\\\AjusteDeBatidaRecusadoException::MENSAGEM_LIGADA_A_JUSTIFICATIVA"
+        ]
+    },
     "assinatura_eletronica_publica": {
         "js": [
             "assinatura-publica.js"

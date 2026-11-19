@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class TrabalhoExternoForaDoRaioJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private static function modulo(): string
     {
         return (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-batida.js');
@@ -64,20 +67,27 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
     {
         $textos = self::corpo(self::modulo(), 'function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {');
 
-        self::assertStringContainsString("const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';", self::modulo());
-        self::assertStringContainsString("let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';", $textos, 'sem sede, a frase do desenho');
+        self::assertStringContainsString("const tituloForaDoRaio = function () { return BJ_T.t('ponto_cartao.js.batida.fora_do_raio'); };", self::modulo());
+        self::assertSame('Você está fora do raio permitido', self::ptBr('ponto_cartao.js.batida.fora_do_raio'));
+        self::assertStringContainsString("let detalhe = BJ_T.t('ponto_cartao.js.batida.exige_raio');", $textos, 'sem sede, a frase do desenho');
+        self::assertSame('O registro exige estar dentro do raio de uma sede do escritório.', self::ptBr('ponto_cartao.js.batida.exige_raio'));
         self::assertStringContainsString(
-            "detalhe = 'A sede mais próxima é ' + String(maisProxima.sede.nome) + ', a ' + Math.round(maisProxima.distancia).toLocaleString('pt-BR')\n"
-            . "                + ' m. O raio permitido é de ' + Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR') + ' m.';",
+            "detalhe = BJ_T.t('ponto_cartao.js.batida.sede_mais_proxima', {\n"
+            . "                sede: String(maisProxima.sede.nome),\n"
+            . "                distancia: Math.round(maisProxima.distancia).toLocaleString('pt-BR'),\n"
+            . "                raio: Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR'),\n"
+            . '            });',
             $textos,
             'a sede, a distância e o raio com o milhar em pt-BR, como o servidor (PosicaoNaCerca)'
         );
+        self::assertSame('A sede mais próxima é {sede}, a {distancia} m. O raio permitido é de {raio} m.', self::ptBr('ponto_cartao.js.batida.sede_mais_proxima'));
+        self::assertSame('Aproxime-se ou informe o trabalho externo.', self::ptBr('ponto_cartao.js.batida.aproxime_se'));
         self::assertMatchesRegularExpression(
-            "/const permitido = trabalhoExternoPermitido === true;\s+if \(permitido\) \{\s+detalhe \+= ' Aproxime-se ou informe o trabalho externo\.';\s+\}/",
+            "/const permitido = trabalhoExternoPermitido === true;\s+if \(permitido\) \{\s+detalhe \+= ' ' \+ BJ_T\.t\('ponto_cartao\.js\.batida\.aproxime_se'\);\s+\}/",
             $textos,
             'a frase do trabalho externo só com a função permitida no escritório'
         );
-        self::assertStringContainsString('return { titulo: TITULO_FORA_DO_RAIO, detalhe, trabalhoExterno: permitido };', $textos, 'a forma do foraDoRaio do servidor');
+        self::assertStringContainsString('return { titulo: tituloForaDoRaio(), detalhe, trabalhoExterno: permitido };', $textos, 'a forma do foraDoRaio do servidor');
         self::assertStringNotContainsString('document', $textos, 'puro: quem mostra é a tela');
         self::assertStringNotContainsString('innerHTML', self::modulo());
 

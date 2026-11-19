@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private static function js(): string
     {
         return (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-ponto.js');
@@ -55,8 +58,8 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString('var POSICAO_PRAZO_MS = 10000;', $js);
         self::assertStringContainsString('var prazo = setTimeout(function () { aborto.abort(); }, prazoMs);', $js);
         self::assertStringContainsString('signal: aborto.signal', $js);
-        self::assertStringContainsString("if (!position) { avisar(AVISO_SEM_POSICAO); return; }", $js);
-        self::assertStringContainsString("if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }", $js, 'releitura que falha não envia');
+        self::assertStringContainsString("if (!position) { avisar(textoSemPosicao()); return; }", $js);
+        self::assertStringContainsString("if (!conferido) { avisar(textoSemConferir()); return; }", $js, 'releitura que falha não envia');
         self::assertStringContainsString('if (conferido.estado !== base.estado || conferido.dia !== base.dia) {', $js, 'compara com o retrato do clique (estado derivado e dia), não com o estado que o fundo reescreve');
     }
 
@@ -67,19 +70,21 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringNotContainsString('fetch(urlBatida', $js, 'o POST é o do módulo');
         self::assertStringNotContainsString('function distanciaEmMetros', $js);
         self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
-        self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
+        self::assertStringContainsString("return { texto: BJ_T.t('ponto_cartao.js.presenca.em_intervalo', { hora: h.repouso }), cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
         // Decisão do dono 19/10: o valor do escritório, só com a validação ligada. E11: nada recusa a entrada; o texto
         // diz se ela avisa antes de registrar (alertas ligados) ou só informa o mínimo (desligados).
         self::assertStringContainsString('if (base.interjornadaMinimaMin) {', $js);
-        self::assertStringContainsString("? ' O descanso mínimo até a próxima entrada é de ' + descanso(base.interjornadaMinimaMin) + '.'", $js);
-        self::assertStringContainsString(": ' Se a próxima entrada vier antes de ' + descanso(base.interjornadaMinimaMin) + ' de descanso, o sistema vai avisar antes de registrar.';", $js);
+        self::assertStringContainsString("? ' ' + BJ_T.t('ponto_cartao.js.presenca.descanso_minimo', { descanso: descanso(base.interjornadaMinimaMin) })", $js);
+        self::assertStringContainsString(": ' ' + BJ_T.t('ponto_cartao.js.presenca.descanso_aviso', { descanso: descanso(base.interjornadaMinimaMin) });", $js);
+        self::assertSame('O descanso mínimo até a próxima entrada é de {descanso}.', self::ptBr('ponto_cartao.js.presenca.descanso_minimo'));
+        self::assertSame('Se a próxima entrada vier antes de {descanso} de descanso, o sistema vai avisar antes de registrar.', self::ptBr('ponto_cartao.js.presenca.descanso_aviso'));
         self::assertStringContainsString('texto += base.alertasLigados === false', $js, 'estado sem o campo: a frase dos alertas ligados (P96)');
         self::assertStringNotContainsString('só será aceita', $js, 'nada mais recusa a entrada');
         self::assertStringContainsString("'?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida'", $js);
-        foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
+        foreach (['nao_entrou: textoNaoEntrou()', 'sem_confirmacao: textoSemConfirmacao()', 'sem_rede: textoSemRede()', 'atrasado: textoAtrasado()'] as $caso) {
             self::assertStringContainsString($caso, $js);
         }
-        self::assertStringContainsString('PODE ter sido registrada', $js);
+        self::assertStringContainsString('PODE ter sido registrada', self::ptBr('ponto_cartao.js.presenca.sem_confirmacao'));
         self::assertStringContainsString("resultado.data.data.hora", $js, 'a hora do aviso é a do servidor');
         self::assertStringNotContainsString('innerHTML', $js);
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);

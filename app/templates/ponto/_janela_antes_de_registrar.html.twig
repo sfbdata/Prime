@@ -6,10 +6,10 @@
     moldura das janelas da tela, js/ponto-abas.js). O comportamento mora no script da tela (templates/ponto/index).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-alerta" hidden>
-    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Antes de registrar" aria-describedby="ponto-alerta-texto">
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_cartao.antes.titulo'|trans }}" aria-describedby="ponto-alerta-texto">
         <div class="pe-janela-topo">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo">Antes de registrar</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_cartao.antes.titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_cartao.comum.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-janela-alerta">
             <div id="ponto-alerta-texto" data-alerta-texto></div>
@@ -17,8 +17,8 @@
         </div>
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Aguardar</button>
-            <button type="button" class="pe-janela-acao" data-alerta-registrar>Registrar assim mesmo</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_cartao.antes.aguardar'|trans }}</button>
+            <button type="button" class="pe-janela-acao" data-alerta-registrar>{{ 'ponto_cartao.antes.registrar_assim_mesmo'|trans }}</button>
         </div>
     </div>
 </div>

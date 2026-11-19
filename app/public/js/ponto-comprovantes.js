@@ -18,11 +18,13 @@
 
     const PRAZO_MS = 15000;
     const FOCAVEIS = 'button:not([disabled]), [href], input:not([type="hidden"])';
+    // Fica em português: é da janela de validar comprovante, documento legal (sempre em pt_BR).
     const SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
     const PRAZO_BAIXAR_MS = 30000;   // a imagem em alta é gerada na hora
-    const BAIXAR_LIMITE = 'Muitos pedidos seguidos. Tente de novo em 1 minuto.';
-    const BAIXAR_SEM_REDE = 'Sem conexão. Tente de novo quando a internet voltar.';
-    const BAIXAR_FALHOU = 'O comprovante não pôde ser baixado agora. Tente de novo.';
+    // Lidos na hora do uso (idioma da tela).
+    const baixarLimite = function () { return BJ_T.t('ponto_cartao.js.comprovantes.baixar_limite'); };
+    const baixarSemRede = function () { return BJ_T.t('ponto_cartao.js.comprovantes.baixar_sem_rede'); };
+    const baixarFalhou = function () { return BJ_T.t('ponto_cartao.js.comprovantes.baixar_falhou'); };
 
     let focoAntes = null;
     let pedido = 0;   // o número da consulta que vale; resposta de número anterior é descartada
@@ -158,16 +160,16 @@
         try {
             const resposta = await fetch(url, { credentials: 'same-origin', signal: aborto.signal });
             if (resposta.status === 429) {
-                return BAIXAR_LIMITE;
+                return baixarLimite();
             }
             if (!resposta.ok) {
-                return BAIXAR_FALHOU;
+                return baixarFalhou();
             }
             salvar(await resposta.blob(), nomeDoArquivo(resposta));
 
             return '';
         } catch (erro) {
-            return BAIXAR_SEM_REDE;
+            return baixarSemRede();
         } finally {
             clearTimeout(prazo);
         }

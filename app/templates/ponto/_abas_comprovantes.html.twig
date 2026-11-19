@@ -13,8 +13,8 @@
     feita na própria janela (js/ponto-comprovantes.js). A lista (`#ponto-comprovantes-lista`) é trocada depois da batida.
 #}
 <div class="pe-comp-topo">
-    <span class="pe-comp-texto">Cada comprovante é uma imagem única, com código, QR Code e padrões de segurança gerados para o próprio registro.</span>
-    <button type="button" class="pe-comp-btn" data-validar-abrir><i class="bi bi-shield-check" aria-hidden="true"></i>Validar código</button>
+    <span class="pe-comp-texto">{{ 'ponto_cartao.comprovantes.explicacao'|trans }}</span>
+    <button type="button" class="pe-comp-btn" data-validar-abrir><i class="bi bi-shield-check" aria-hidden="true"></i>{{ 'ponto_cartao.comprovantes.validar_codigo'|trans }}</button>
 </div>
 <div class="pe-comp-lista" id="ponto-comprovantes-lista">
     {% for c in comprovantes %}
@@ -23,11 +23,11 @@
             <span>{{ c.tipo }}</span>
             <span class="pe-comp-metodo">{{ c.metodo }}</span>
             <code class="pe-comp-codigo">{{ c.codigo }}</code>
-            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id})|e('html_attr') }}" download aria-label="Baixar comprovante {{ c.codigo|e('html_attr') }}" data-baixar><i class="bi bi-download" aria-hidden="true"></i>Baixar</a>
+            <a class="pe-comp-btn pe-comp-btn--baixar" href="{{ path('ponto_comprovante_baixar', {id: c.id})|e('html_attr') }}" download aria-label="{{ 'ponto_cartao.comprovantes.baixar_comprovante'|trans({codigo: c.codigo}) }}" data-baixar><i class="bi bi-download" aria-hidden="true"></i>{{ 'ponto_cartao.comprovantes.baixar'|trans }}</a>
             <div class="pe-comp-falha" role="alert" data-baixar-falha hidden></div>
         </div>
     {% else %}
-        <div class="pe-abas-vazio">Os comprovantes aparecem aqui depois do primeiro registro.</div>
+        <div class="pe-abas-vazio">{{ 'ponto_cartao.comprovantes.vazio'|trans }}</div>
     {% endfor %}
 </div>
 

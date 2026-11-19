@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ponto')]
 final class AntesDeRegistrarNoJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
     private const CAMINHO_ATALHO = __DIR__ . '/../../../public/js/presenca-ponto.js';
     private const CAMINHO_CSS = __DIR__ . '/../../../public/css/ponto-eletronico.css';
@@ -140,7 +143,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     public function testAtalhoPergunta(): void
     {
         $js = (string) file_get_contents(self::CAMINHO_ATALHO);
-        self::assertStringContainsString("var NOTA_DO_ALERTA = '" . AlertasAntesDaBatida::NOTA . "';", $js);
+        self::assertStringContainsString("function textoNotaAlerta() { return BJ_T.t('ponto_cartao.js.presenca.nota_alerta'); }", $js);
+        self::assertSame(AlertasAntesDaBatida::NOTA, self::ptBr('ponto_cartao.js.presenca.nota_alerta'), 'a frase do atalho é a da janela do servidor');
         self::assertStringContainsString("return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;", $js);
 
         $bater = $this->corpoDaFuncao($js, 'async function bater()');
@@ -150,11 +154,11 @@ final class AntesDeRegistrarNoJsTest extends TestCase
             'await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS',
             "if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }",
             'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
-            "if (conferido.estado !== base.estado || conferido.dia !== base.dia) {\n                    estado = conferido;\n                    aoMudar();\n                    avisar(AVISO_MUDOU);\n                    return;\n                }",
+            "if (conferido.estado !== base.estado || conferido.dia !== base.dia) {\n                    estado = conferido;\n                    aoMudar();\n                    avisar(textoMudou());\n                    return;\n                }",
             'resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
             'var alerta = confirmouAlerta ? null : alertaDe(resultado);',
             'if (alerta === null) { break; }',
-            "if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }",
+            "if (!window.confirm(alerta + ' ' + textoNotaAlerta() + ' ' + BJ_T.t('ponto_cartao.js.presenca.registrar_assim_mesmo'))) { return; }",
             'confirmouAlerta = true;',
             'momentoDoToque = performance.now();',
             'payload.horaAparelho = Date.now();',

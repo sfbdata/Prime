@@ -2,3 +2,80 @@
 ponto_folha:
     registro_em_outro_escritorio: Houve registro em outro escritório neste período
     registro_em_outro_escritorio_dica: 'Enquanto o ponto deste escritório estava aberto, a pessoa registrou ponto em outro escritório. Confira as batidas do dia.'
+
+    # ---- Telas do ponto (templates e JS extraídos)
+    carga_semanal_dica: Carga horária semanal vigente
+    baixar_pdf: Baixar PDF
+    competencia: Competência
+    coluna:
+        dia: Dia
+        semana: Semana
+        entrada: Entrada
+        repouso: Repouso
+        retorno: Retorno
+        saida: Saída
+        trabalhado: Trabalhado
+        trabalhado_dica: Horas trabalhadas no dia
+        saldo_dia: Saldo dia
+        saldo_dia_dica: 'Saldo do dia (positivo = extra, negativo = falta)'
+        saldo_mes: Saldo mês
+        saldo_mes_dica: 'Saldo acumulado no mês, dia a dia'
+        justificativa: Justificativa
+    feriado: Feriado
+    home_office: Home Office
+    home_office_dica: Batida em home office
+    sem_internet: Sem internet
+    sem_internet_dica: 'Batida enviada sem internet: vale a hora do aparelho.'
+    fora_da_conta: 'Fora da conta:'
+    ajustar_batida: Ajustar batida
+    desconsideradas: 'Desconsideradas:'
+    restaurar_batida: Restaurar batida
+    desconsiderar_batida: Desconsiderar batida
+    nenhuma_batida: Nenhuma batida nesta competência.
+    saldo_do_mes: Saldo do mês
+    horas_pagas: Horas pagas
+    total_do_mes: Total do mês
+    fora_de_sequencia: Fora de sequência
+    registro_incompleto: Registro incompleto
+    registro_incompleto_dica: 'Faltam batidas neste dia, então não dá para apurar a jornada: ele não credita nem debita. Corrija os registros para o saldo voltar a contar.'
+    em_andamento: Em andamento
+    esquecimento_dica: Esquecimento de Registro
+    just:
+        em_analise: Em análise
+        nao_abonada: Não abonada
+        abonada: Abonada
+        recusada: Recusada
+        periodo: '{inicio} às {fim}'
+    semana:
+        segunda: Segunda
+        terca: Terça
+        quarta: Quarta
+        quinta: Quinta
+        sexta: Sexta
+        sabado: Sábado
+        domingo: Domingo
+    motivo:
+        entradas: mais de uma entrada
+        repousos: mais de um repouso
+        retornos: mais de um retorno
+        saidas: mais de uma saída
+        retorno_antes: retorno antes do repouso
+    jornada_semana: '{h}h{m}m/sem ({fonte})'
+    personalizada: Personalizada
+    padrao_escritorio: Padrão do escritório
+    a_conferir_dica: 'Batidas a conferir: {motivos}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta até serem corrigidas.'
+    desconsiderada_por: 'Desconsiderada por {por} em {em}. Registro original preservado.'
+    ajustado_por: 'Ajustado por {por} em {em}. Registro original preservado.'
+    sigla_ajuste: aj
+    incluir: 'Incluir {rotulo}'
+    enviar_esquecimento: 'Enviar registro de esquecimento: {rotulo}'
+    batida_em: '{rotulo} {hora} de {dia}'
+    a_conferir: A conferir
+    js:
+        gerando: Gerando a folha em PDF...
+        baixada: Folha baixada em PDF.
+        baixada_codigo: 'Folha baixada em PDF. Código {codigo}.'
+        falhou: Não foi possível gerar o PDF.
+        limite: Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.
+
+# ---- fim

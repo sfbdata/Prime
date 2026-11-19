@@ -11,19 +11,19 @@
     Não recebe nada.
 #}
 <div class="pe-janela-fundo" id="ponto-janela-externo" hidden>
-    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Trabalho externo">
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_cartao.externo.titulo'|trans }}">
         <div class="pe-janela-topo">
-            <i class="bi bi-briefcase" aria-hidden="true"></i><b class="pe-janela-titulo">Trabalho externo</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-briefcase" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_cartao.externo.titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_cartao.comum.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-janela-corpo">
-            <div class="pe-janela-info">O registro será feito fora do raio e seguirá para análise do gestor.</div>
-            <label class="pe-janela-rotulo">Local e motivo <textarea rows="3" maxlength="500" class="pe-janela-campo" data-externo-motivo></textarea></label>
+            <div class="pe-janela-info">{{ 'ponto_cartao.externo.aviso'|trans }}</div>
+            <label class="pe-janela-rotulo">{{ 'ponto_cartao.externo.local_motivo'|trans }} <textarea rows="3" maxlength="500" class="pe-janela-campo" data-externo-motivo></textarea></label>
         </div>
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-            <button type="button" class="pe-janela-acao" data-externo-registrar>Registrar</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_cartao.comum.cancelar'|trans }}</button>
+            <button type="button" class="pe-janela-acao" data-externo-registrar>{{ 'ponto_cartao.externo.registrar'|trans }}</button>
         </div>
     </div>
 </div>

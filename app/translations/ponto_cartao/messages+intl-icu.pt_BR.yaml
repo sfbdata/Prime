@@ -8,4 +8,234 @@ ponto_cartao:
     dispensar: Dispensar até amanhã
     regiao: Lembrete do ponto
 
+    # ---- Telas do ponto (templates e JS extraídos)
+    cartao:
+        saldo_acima_limite: Saldo acima do limite configurado
+        tempo_alem_jornada: Tempo além da jornada de hoje
+        tipo_registro: Tipo de registro
+        atualizar_localizacao: Atualizar localização
+        silenciar_sons: Silenciar sons
+        registrar_ponto: Registrar Ponto
+        banco_de_horas: Banco de horas
+        situacao_aguardando: Aguardando entrada
+        situacao_encerrada: Jornada encerrada
+        situacao_repouso: Em repouso
+        situacao_jornada: Em jornada
+        hora_oficial: Hora oficial
+        a_mais_hoje: a mais hoje
+        home_office: 'Home Office hoje: o ponto será registrado sem exigir localização.'
+        obtendo_localizacao: Obtendo a sua localização...
+        regularizar: Regularizar
+        atualizar_batidas: Atualizar e conferir minhas batidas
+        justificar_falta: Justificar falta
+        jornada_semanal: Jornada semanal
+        personalizada: Personalizada
+        padrao_escritorio: Padrão do escritório
+        registros_dup: '{n} registros'
+        falta_entrada: falta a entrada
+        falta_repouso: falta a ida ao repouso
+        falta_retorno: falta o retorno do repouso
+        falta_saida: falta a saída
+        ultima_pendencia: 'Última pendência: {dia}, {falta}.'
+        folha_titulo: Folha de Ponto
+    comum:
+        fechar: Fechar
+        tipo: Tipo
+        selecione: Selecione...
+        entrada: Entrada
+        repouso: Repouso
+        retorno: Retorno
+        saida: Saída
+        cancelar: Cancelar
+        situacao: Situação
+    editar:
+        titulo: Editar justificativa
+        detalhes_esquecido: Detalhes do registro esquecido
+        tipo_batida: Tipo de batida
+        horario: Horário
+        abono_parcial: Abono parcial (ausência dentro do expediente)
+        periodo_parcial: Período de ausência parcial
+        motivo: Motivo
+        substituir_atestado: Substituir atestado (opcional)
+        formatos_anexo: 'PDF, JPEG ou PNG (máximo 10 MB)'
+        salvar: Salvar alterações
+    pagina:
+        titulo: Ponto Eletrônico
+    abas:
+        registros_comprovantes: Registros e comprovantes
+        pendencias: Pendências
+        minhas_justificativas: Minhas Justificativas
+        comprovantes: Comprovantes
+        banco_de_horas: Banco de Horas
+        equipe: Equipe
+        auditoria: Auditoria
+        configuracoes: Configurações
+    equipe:
+        colaborador: Colaborador
+        ultimo_registro: Último registro
+        banco: Banco
+        pendencias: Pendências
+        escala: Escala
+        ninguem_registra: Ninguém registra ponto neste escritório.
+        abonar_selecionadas: Abonar selecionadas
+        nenhuma_justificativa: Nenhuma justificativa aguardando análise.
+        sem_registro: Sem registro
+        escala_de: 'Escala de {nome}'
+        justificativas_a_analisar: 'Justificativas a analisar ({n})'
+    banco:
+        saldo_atual: SALDO ATUAL
+        limite_configurado: LIMITE CONFIGURADO
+        prazo_compensacao: PRAZO DE COMPENSAÇÃO
+        competencia: Competência
+        credito: Crédito
+        compensado: Compensado
+        saldo: Saldo
+        vence_em: Vence em
+        nenhum_lote: Nenhum lote no banco de horas.
+        nota: 'Horas negativas abatem primeiro os créditos mais antigos. O prazo padrão é de 6 meses, próprio do acordo individual (art. 59, § 5º, da CLT), e pode ser ajustado em Configurações conforme o acordo do escritório.'
+        prazo_meses: '{n, plural, one {# mês} other {# meses}}'
+        aviso_acima_limite: Saldo acima do limite configurado. Planeje a compensação para evitar passivo.
+        sem_prazo: Sem prazo
+    comprovantes:
+        explicacao: 'Cada comprovante é uma imagem única, com código, QR Code e padrões de segurança gerados para o próprio registro.'
+        validar_codigo: Validar código
+        baixar: Baixar
+        vazio: Os comprovantes aparecem aqui depois do primeiro registro.
+        baixar_comprovante: 'Baixar comprovante {codigo}'
+    auditoria:
+        data_hora: Data e hora
+        autor: Autor
+        acao: Ação
+        detalhe: Detalhe
+        selo: Selo
+        sem_selo: sem selo
+        paginas: Páginas da auditoria
+        mais_recentes: Mais recentes
+        mais_antigos: Mais antigos
+        vazio: Os eventos aparecem aqui a partir do próximo registro.
+        pagina_de: 'Página {pagina} de {paginas} ({total} eventos)'
+    tela_cheia:
+        registro_de_ponto: Registro de ponto
+        validando: Validando
+        registrado: Ponto registrado
+        baixar_comprovante: Baixar comprovante
+        concluir: Concluir
+        nao_registrado: Ponto não registrado
+        tentar_novamente: Tentar novamente
+        etapa_horario: Horário oficial confirmado
+        etapa_localizacao: Localização validada
+        etapa_selado: Registro selado
+        registrado_no_sistema: Registrado no sistema
+        localizacao_validada: localização validada
+    antes:
+        titulo: Antes de registrar
+        aguardar: Aguardar
+        registrar_assim_mesmo: Registrar assim mesmo
+    externo:
+        titulo: Trabalho externo
+        aviso: O registro será feito fora do raio e seguirá para análise do gestor.
+        local_motivo: Local e motivo
+        registrar: Registrar
+    alerta:
+        titulo: Registro de Ponto
+        fechar_aviso: Fechar aviso
+        ir_para_ponto: Ir para o Ponto Eletrônico
+        horario: 'Horário:'
+        horario_configurado: 'Horário configurado:'
+    js:
+        cartao:
+            tipo_entrada: Entrada
+            tipo_repouso: Repouso
+            tipo_retorno: Retorno
+            tipo_saida: Saída
+            jornada_concluida: Jornada de hoje concluída
+            bater_ponto: Bater Ponto
+        sons:
+            silenciar: Silenciar sons
+            ativar: Ativar sons
+        comum:
+            sem_resposta: Sem resposta do servidor. Confira a conexão e tente de novo.
+        equipe:
+            recusa: Não foi possível trocar a escala. Atualize a página e tente de novo.
+            escala_alterada: 'Escala de {nome} alterada.'
+        paineis:
+            carregando: Carregando...
+            falha: Não foi possível carregar esta aba.
+            tentar: Tentar de novo
+        tela_cheia:
+            baixar_comprovante: 'Baixar comprovante {codigo}'
+        comprovantes:
+            baixar_limite: Muitos pedidos seguidos. Tente de novo em 1 minuto.
+            baixar_sem_rede: Sem conexão. Tente de novo quando a internet voltar.
+            baixar_falhou: O comprovante não pôde ser baixado agora. Tente de novo.
+        abas:
+            sem_justificativas: Nenhuma justificativa enviada nesta competência.
+            excluida_de: 'Justificativa de {data} excluída.'
+            excluida: Justificativa excluída.
+            excluir_falhou: Não foi possível excluir a justificativa. Atualize a página e tente de novo.
+            recusar_titulo: Recusar justificativa
+            abonar_titulo: Abonar justificativa
+            recusar: Recusar
+            abonar: Abonar
+            motivo_recusa: Informe o motivo da recusa.
+        batida:
+            fora_do_raio: Você está fora do raio permitido
+            exige_raio: O registro exige estar dentro do raio de uma sede do escritório.
+            sede_mais_proxima: 'A sede mais próxima é {sede}, a {distancia} m. O raio permitido é de {raio} m.'
+            aproxime_se: Aproxime-se ou informe o trabalho externo.
+        janelas:
+            mes_1: Janeiro
+            mes_2: Fevereiro
+            mes_3: Março
+            mes_4: Abril
+            mes_5: Maio
+            mes_6: Junho
+            mes_7: Julho
+            mes_8: Agosto
+            mes_9: Setembro
+            mes_10: Outubro
+            mes_11: Novembro
+            mes_12: Dezembro
+            semana_0: Dom
+            semana_1: Seg
+            semana_2: Ter
+            semana_3: Qua
+            semana_4: Qui
+            semana_5: Sex
+            semana_6: Sáb
+            erro_data: Selecione ao menos uma data.
+            erro_data_e_motivo: Informe a data e o motivo.
+            erro_motivo: Informe o motivo.
+            erro_tipo: Selecione o tipo de justificativa.
+            erro_esquecido: Informe o tipo e o horário do registro esquecido.
+            erro_esquecido_uma_data: Esquecimento de Registro só pode ser aplicado a uma única data.
+            erro_abono_uma_data: Abono parcial só pode ser aplicado a uma única data.
+            erro_abono_horarios: Informe os horários de saída e retorno corretamente para o abono parcial.
+            desmarque_extras: Desmarque as datas extras no calendário.
+        presenca:
+            sem_posicao: Não foi possível obter a sua localização; permita a localização e tente de novo.
+            mudou: O ponto mudou em outra tela; confira antes de bater.
+            sem_conferir: Não deu para conferir o seu ponto agora. Nada foi enviado; tente de novo em instantes.
+            nao_entrou: 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.'
+            sem_confirmacao: Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Abra o ponto e confira ANTES de bater de novo.
+            sem_rede: 'Você está sem internet e não dá para saber se a batida saiu. Quando a conexão voltar, abra o ponto e confira antes de bater de novo.'
+            atrasado: 'Demorou demais para enviar e a batida não saiu, para não gravar a hora errada. Tente de novo.'
+            nota_alerta: 'O alerta não impede o registro: a folha deve refletir o horário real.'
+            registrar_assim_mesmo: Registrar assim mesmo?
+            bater_ponto: Bater ponto
+            dica_entrada: Clique para registrar a entrada
+            em_intervalo: 'Em intervalo desde {hora}'
+            em_jornada: 'Em jornada desde {hora}'
+            dica_saida: Clique para registrar a saída
+            jornada: 'Jornada {entrada} às {saida}'
+            regularizar_ontem: Regularizar ponto de ontem
+            dica_regularizar: Clique para informar a saída de ontem
+            confirmar_saida: 'Registrar a saída agora ({hora})?'
+            descanso_minimo: 'O descanso mínimo até a próxima entrada é de {descanso}.'
+            descanso_aviso: 'Se a próxima entrada vier antes de {descanso} de descanso, o sistema vai avisar antes de registrar.'
+            sede_mais_proxima: mais próxima
+            fora_da_cerca: 'Não registrou: você está a {distancia} m da sede {nome}, fora da área permitida. Se hoje é trabalho fora da sede, peça a liberação do dia ao gestor.'
+            entrada_registrada: 'Ponto de entrada registrado às {hora}'
+            saida_registrada: 'Saída registrada às {hora}'
+
 # ---- fim

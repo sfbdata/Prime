@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class PontoEquipeJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     #[TestDox('Trocar a escala: um fetch só, POST com prazo próprio, sem esperar para sempre')]
     public function testTrocaComPrazo(): void
     {
@@ -38,9 +41,10 @@ final class PontoEquipeJsTest extends TestCase
     {
         $trocar = self::trecho(self::js(), 'async function trocarEscala(select) {', 'function ligarAbonar(form) {');
 
-        self::assertStringContainsString("anunciar(painel, 'Escala de ' + select.dataset.nome + ' alterada.');", $trocar);
+        self::assertStringContainsString("anunciar(painel, BJ_T.t('ponto_cartao.js.equipe.escala_alterada', { nome: select.dataset.nome }));", $trocar);
+        self::assertSame('Escala de {nome} alterada.', self::ptBr('ponto_cartao.js.equipe.escala_alterada'));
         self::assertStringContainsString('fixarAtual(select);', $trocar);
-        self::assertStringContainsString('falha = dados.erro || TEXTO_RECUSA;', $trocar);
+        self::assertStringContainsString('falha = dados.erro || textoRecusa();', $trocar);
         self::assertStringContainsString('anterior.selected = true;', $trocar);
         self::assertStringContainsString('mostrarErro(painel, falha);', $trocar);
         self::assertStringContainsString("querySelector('[data-equipe-erro]')", self::js());

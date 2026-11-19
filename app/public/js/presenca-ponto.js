@@ -24,15 +24,16 @@
     // item em "registrando". A posição, 10 s (o teto de BatidaNaoTravaNoGpsTest): o atalho não tem posição prévia.
     var RELEITURA_PRAZO_MS = 5000;
     var POSICAO_PRAZO_MS = 10000;
-    var AVISO_SEM_POSICAO = 'Não foi possível obter a sua localização; permita a localização e tente de novo.';
-    var AVISO_MUDOU = 'O ponto mudou em outra tela; confira antes de bater.';
-    var AVISO_SEM_CONFERIR = 'Não deu para conferir o seu ponto agora. Nada foi enviado; tente de novo em instantes.';
-    var AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
-    var AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Abra o ponto e confira ANTES de bater de novo.';
-    var AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. Quando a conexão voltar, abra o ponto e confira antes de bater de novo.';
-    var AVISO_ATRASADO = 'Demorou demais para enviar e a batida não saiu, para não gravar a hora errada. Tente de novo.';
+    // Textos lidos na hora do uso (idioma da tela): funções, nunca constantes avaliadas no carregamento.
+    function textoSemPosicao() { return BJ_T.t('ponto_cartao.js.presenca.sem_posicao'); }
+    function textoMudou() { return BJ_T.t('ponto_cartao.js.presenca.mudou'); }
+    function textoSemConferir() { return BJ_T.t('ponto_cartao.js.presenca.sem_conferir'); }
+    function textoNaoEntrou() { return BJ_T.t('ponto_cartao.js.presenca.nao_entrou'); }
+    function textoSemConfirmacao() { return BJ_T.t('ponto_cartao.js.presenca.sem_confirmacao'); }
+    function textoSemRede() { return BJ_T.t('ponto_cartao.js.presenca.sem_rede'); }
+    function textoAtrasado() { return BJ_T.t('ponto_cartao.js.presenca.atrasado'); }
     // E11 (P21): a frase fixa da janela "Antes de registrar" da tela do ponto (desenho 16, L288).
-    var NOTA_DO_ALERTA = 'O alerta não impede o registro: a folha deve refletir o horário real.';
+    function textoNotaAlerta() { return BJ_T.t('ponto_cartao.js.presenca.nota_alerta'); }
 
     var estado = null;            // a última resposta de /ponto/estado-do-dia
     var envioEmAndamento = false; // trava do clique: cobre a posição, a releitura e o POST (spec F2)
@@ -65,14 +66,14 @@
         switch (e.estado) {
             case 'bater_entrada':
                 if (!podeBater) { return null; }   // "Bater ponto" sem a batida seria um botão que não faz nada
-                return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
+                return { texto: BJ_T.t('ponto_cartao.js.presenca.bater_ponto'), cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: BJ_T.t('ponto_cartao.js.presenca.dica_entrada') };
             case 'em_intervalo':
-                return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };
+                return { texto: BJ_T.t('ponto_cartao.js.presenca.em_intervalo', { hora: h.repouso }), cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };
             case 'em_jornada':
-                if (!podeBater) { return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' }; }
-                return { texto: 'Em jornada desde ' + h.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: 'saida', dica: 'Clique para registrar a saída' };
+                if (!podeBater) { return { texto: BJ_T.t('ponto_cartao.js.presenca.em_jornada', { hora: h.entrada }), cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' }; }
+                return { texto: BJ_T.t('ponto_cartao.js.presenca.em_jornada', { hora: h.entrada }), cor: '#1e7b45', icone: 'bi-play-circle', acao: 'saida', dica: BJ_T.t('ponto_cartao.js.presenca.dica_saida') };
             case 'jornada_concluida':
-                return { texto: 'Jornada ' + h.entrada + ' às ' + h.saida, cor: '#5b7383', icone: 'bi-check2-circle', acao: '', dica: '' };
+                return { texto: BJ_T.t('ponto_cartao.js.presenca.jornada', { entrada: h.entrada, saida: h.saida }), cor: '#5b7383', icone: 'bi-check2-circle', acao: '', dica: '' };
             default:
                 return null;
         }
@@ -83,7 +84,7 @@
     function aviso() {
         if (!podeBater || !estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
 
-        return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: 'Clique para informar a saída de ontem' };
+        return { texto: BJ_T.t('ponto_cartao.js.presenca.regularizar_ontem'), cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: BJ_T.t('ponto_cartao.js.presenca.dica_regularizar') };
     }
 
     function atualizar() {
@@ -121,11 +122,11 @@
         return h + 'h' + (m ? (m < 10 ? '0' : '') + m : '');
     }
     function confirmarSaida(base) {
-        var texto = 'Registrar a saída agora (' + new Date().toTimeString().slice(0, 5) + ')?';
+        var texto = BJ_T.t('ponto_cartao.js.presenca.confirmar_saida', { hora: new Date().toTimeString().slice(0, 5) });
         if (base.interjornadaMinimaMin) {
             texto += base.alertasLigados === false
-                ? ' O descanso mínimo até a próxima entrada é de ' + descanso(base.interjornadaMinimaMin) + '.'
-                : ' Se a próxima entrada vier antes de ' + descanso(base.interjornadaMinimaMin) + ' de descanso, o sistema vai avisar antes de registrar.';
+                ? ' ' + BJ_T.t('ponto_cartao.js.presenca.descanso_minimo', { descanso: descanso(base.interjornadaMinimaMin) })
+                : ' ' + BJ_T.t('ponto_cartao.js.presenca.descanso_aviso', { descanso: descanso(base.interjornadaMinimaMin) });
         }
 
         return window.confirm(texto);
@@ -144,10 +145,9 @@
     }
 
     function mensagemDaCerca(onde) {
-        var nome = onde.sede && onde.sede.nome ? onde.sede.nome : 'mais próxima';
+        var nome = onde.sede && onde.sede.nome ? onde.sede.nome : BJ_T.t('ponto_cartao.js.presenca.sede_mais_proxima');
 
-        return 'Não registrou: você está a ' + Math.round(onde.distancia) + ' m da sede ' + nome
-            + ', fora da área permitida. Se hoje é trabalho fora da sede, peça a liberação do dia ao gestor.';
+        return BJ_T.t('ponto_cartao.js.presenca.fora_da_cerca', { distancia: Math.round(onde.distancia), nome: nome });
     }
 
     /* A sequência do clique, nesta ordem (spec F2). `base` é o retrato do estado no clique: a ação, o home office,
@@ -180,7 +180,7 @@
                 // como o servidor. `!== false`: um estado sem o campo continua pedindo a posição.
                 if (!base.homeOffice && base.geoLigado !== false) {
                     var position = await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS, function () {});   // (4)
-                    if (!position) { avisar(AVISO_SEM_POSICAO); return; }
+                    if (!position) { avisar(textoSemPosicao()); return; }
                     payload.latitude = position.coords.latitude;
                     payload.longitude = position.coords.longitude;
                     payload.precisaoGps = position.coords.accuracy;
@@ -191,11 +191,11 @@
                     if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }
                 }
                 var conferido = await lerEstado(RELEITURA_PRAZO_MS);                                 // (6)
-                if (!conferido) { avisar(AVISO_SEM_CONFERIR); return; }
+                if (!conferido) { avisar(textoSemConferir()); return; }
                 if (conferido.estado !== base.estado || conferido.dia !== base.dia) {
                     estado = conferido;
                     aoMudar();
-                    avisar(AVISO_MUDOU);
+                    avisar(textoMudou());
                     return;
                 }
                 resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
@@ -203,7 +203,7 @@
                 // a MESMA batida (o mesmo `idEnvio`, nada foi gravado) com a confirmação.
                 var alerta = confirmouAlerta ? null : alertaDe(resultado);
                 if (alerta === null) { break; }
-                if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }
+                if (!window.confirm(alerta + ' ' + textoNotaAlerta() + ' ' + BJ_T.t('ponto_cartao.js.presenca.registrar_assim_mesmo'))) { return; }
                 confirmouAlerta = true;
                 momentoDoToque = performance.now();
                 payload.horaAparelho = Date.now();
@@ -213,20 +213,20 @@
                 sucesso = true;
                 avisosDaBatida = avisosDe(resultado);
                 var extra = avisosDaBatida.map(function (a) { return ' ' + a.texto; }).join('');
-                avisar((atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado)) + (extra ? '.' + extra : ''));
+                avisar((atual.acao === 'entrada' ? BJ_T.t('ponto_cartao.js.presenca.entrada_registrada', { hora: horaDe(resultado) }) : BJ_T.t('ponto_cartao.js.presenca.saida_registrada', { hora: horaDe(resultado) })) + (extra ? '.' + extra : ''));
                 return;
             }
             avisar({
-                recusa: resultado.mensagem || AVISO_SEM_CONFIRMACAO,
-                nao_entrou: AVISO_NAO_ENTROU,
-                sem_confirmacao: AVISO_SEM_CONFIRMACAO,
-                sem_rede: AVISO_SEM_REDE,
-                atrasado: AVISO_ATRASADO,
-            }[resultado.tipo] || AVISO_SEM_CONFIRMACAO);
+                recusa: resultado.mensagem || textoSemConfirmacao(),
+                nao_entrou: textoNaoEntrou(),
+                sem_confirmacao: textoSemConfirmacao(),
+                sem_rede: textoSemRede(),
+                atrasado: textoAtrasado(),
+            }[resultado.tipo] || textoSemConfirmacao());
         } catch (erro) {
             // Erro do próprio atalho nunca vira silêncio, e o aviso nunca afirma que a batida não entrou.
             if (window.console) { window.console.error('Falha no atalho de ponto:', erro); }
-            avisar(AVISO_SEM_CONFIRMACAO);
+            avisar(textoSemConfirmacao());
         } finally {
             // (9) No sucesso, a trava só sai com o estado novo desenhado: antes disso o item ainda ofereceria a
             // ação velha e um segundo clique sairia como batida repetida.
