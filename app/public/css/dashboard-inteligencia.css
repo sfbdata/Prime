@@ -211,7 +211,7 @@
     height: 46px;
     padding: 0 11px 0 16px;
     border: 1px solid var(--db-ia-btn-borda);
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
     background: var(--db-ia-btn-bg);
@@ -776,7 +776,7 @@
 /* perguntas guiadas */
 .db-page .db-ia-perguntas { background: linear-gradient(180deg, var(--db-ia-suave-bg), var(--db-ia-bloco-bg)); }
 .db-page .db-ia-pilulas { display: flex; flex-wrap: wrap; gap: 6px; }
-.db-page .db-ia-pilula { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: none; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
+.db-page .db-ia-pilula { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
 .db-page .db-ia-pilula[aria-pressed="true"] { background: var(--db-accent); color: #fff; box-shadow: none; }
 .db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 10px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
 .db-page .db-ia-resposta[hidden] { display: none; }
@@ -935,15 +935,15 @@
 .db-page .db-ia-alerta-status { font-size: 11px; font-weight: 700; color: var(--db-label); background: var(--db-ia-chip-bg); border-radius: 4px; padding: 1px 8px; }
 .db-page .db-ia-alerta-status[hidden] { display: none; }
 .db-page .db-ia-alerta-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.db-page .db-ia-btn-resolver, .db-page .db-ia-btn-ignorar { height: 30px; padding: 0 11px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
-.db-page .db-ia-btn-resolver { font-weight: 700; color: var(--db-ia-normal); background: var(--db-ia-normal-bg); }
+.db-page .db-ia-btn-resolver, .db-page .db-ia-btn-ignorar { height: 32px; padding: 0 14px; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.db-page .db-ia-btn-resolver { color: var(--db-ia-normal); background: var(--db-ia-normal-bg); }
 .db-page .db-ia-btn-ignorar { font-weight: 600; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); }
 .db-page .db-ia-btn-resolver:hover { filter: brightness(.96); }
 .db-page .db-ia-btn-ignorar:hover { filter: brightness(.96); }
 .db-page .db-ia-btn-resolver[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px currentColor; }
 .db-page .db-ia-btn-ignorar[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--db-label); }
 /* Criar tarefa (dc L967: 30px, #0a6fa0, 12px/700) e seletor de pasta (visual do modal do Push, desenho 11). */
-.db-page .db-ia-btn-tarefa { height: 30px; padding: 0 11px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.db-page .db-ia-btn-tarefa { height: 32px; padding: 0 14px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
 .db-page .db-ia-btn-tarefa > i { font-size: 11px; }
 .db-page .db-ia-btn-tarefa:hover { filter: brightness(1.08); }
 .db-page .db-ia-pasta-dlg { width: min(480px, calc(100vw - 24px)); padding: 0; border: none; border-radius: 3px; background: #fff; color: #12242f; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
@@ -964,7 +964,7 @@
 .db-page .db-ia-pasta-vazio { padding: 14px; font-size: 13px; color: #7a8e9b; text-align: center; }
 .db-page .db-ia-retorno { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; margin-top: 2px; border-top: 1px dashed var(--db-ia-divisor); }
 .db-page .db-ia-retorno-pergunta { font-size: 11.5px; color: var(--db-faint); }
-.db-page .db-ia-retorno-btn { height: 26px; padding: 0 9px; border: none; border-radius: 4px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; transition: background .2s; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); }
+.db-page .db-ia-retorno-btn { height: 32px; padding: 0 14px; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; transition: background .2s; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); }
 .db-page .db-ia-retorno-btn[aria-pressed="true"] { background: var(--db-accent); color: #fff; }
 .db-page .db-ia-alerta [data-ia-marcar]:disabled { opacity: .6; cursor: progress; }
 
@@ -998,7 +998,7 @@
 .db-page .db-ia-plano-marco-alvo { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
 .db-page .db-ia-plano-alavanca { display: flex; gap: 8px; padding: 4px 0; font-size: 13px; line-height: 1.4; color: var(--db-text-strong); }
 .db-page .db-ia-plano-alavanca i { margin-top: 2px; font-size: 13px; color: var(--db-accent); }
-.db-page .db-ia-plano-aplicar { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 38px; margin-top: 12px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px -10px rgba(12,122,156,.8); }
+.db-page .db-ia-plano-aplicar { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 32px; margin-top: 12px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 18px -10px rgba(12,122,156,.8); }
 .db-page .db-ia-plano-aplicar:hover { filter: brightness(1.06); }
 .db-page .db-ia-plano-aplicar:disabled { opacity: .6; cursor: progress; }
 .db-page .db-ia-plano-aviso { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--db-ia-normal); }

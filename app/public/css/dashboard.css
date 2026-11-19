@@ -46,7 +46,7 @@
     --db-div-strong:    #d3dde4;
     --db-head-bg:       #f6f9fb;
     --db-head-card-bg:  linear-gradient(180deg, #f7fafc 0%, #fff 100%);
-    --db-row-hover:     #f4f9fc;
+    --db-row-hover:     #2b7ab0;   /* guia visual v30 (19/11): realce azul da linha, texto branco */
     --db-total-bg:      #f5f8fa;
     --db-nota-bg:       linear-gradient(180deg, #fafcfd, #f6f9fb);
     --db-seg-bg:        #edf2f6;
@@ -153,7 +153,7 @@
     --db-div-strong:    var(--bs-border-color);
     --db-head-bg:       var(--bs-secondary-bg);
     --db-head-card-bg:  var(--bs-tertiary-bg);
-    --db-row-hover:     rgba(255,255,255,.05);
+    --db-row-hover:     #2b7ab0;
     --db-total-bg:      var(--bs-secondary-bg);
     --db-nota-bg:       var(--bs-secondary-bg);
     --db-seg-bg:        var(--bs-body-bg);
@@ -1378,7 +1378,8 @@
 }
 .db-page .db-table tbody tr:last-child td { border-bottom: 1px solid var(--db-div); }
 .db-page .db-table tbody tr:hover td { background: var(--db-row-hover); }
-.db-page .db-table tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 var(--db-accent); }
+.db-page .db-table tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 #1f6f9c; }
+.db-page .db-table tbody tr:hover > td, .db-page .db-table tbody tr:hover > td * { color: #fff !important; }
 /* Sombra externa da linha no hover (dc): o <tr> precisa de posicao para a sombra pintar. */
 .db-page .db-table tbody tr { position: relative; }
 .db-page .db-table tbody tr:hover { box-shadow: 0 10px 20px -16px rgba(12,60,90,.5); z-index: 2; }
