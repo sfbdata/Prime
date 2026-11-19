@@ -1,0 +1,57 @@
+/* =============================================================================
+   pasta-recebida.css: a página reduzida da pasta recebida de outra conta (spec acesso-restrito-e-compartilhar
+   §4.5.1, fatia 9a; `pasta/recebida.html.twig`). Usa os componentes da página da pasta (`pasta-show.css`: cartão,
+   cabeçalho, abas, painéis) e só acrescenta o que ela não tem, com o prefixo `.pr-` e os tokens `--ps-*` (que já
+   trazem a versão escura). O verde da marca "Recebida" é o do desenho 03 (dc L.215, `#1e7b45`).
+   ============================================================================= */
+
+.pr-page { --pr-verde: #1e7b45; }
+[data-bs-theme="dark"] .pr-page { --pr-verde: #4fd18a; }
+
+/* Marca "Recebida · <conta>" ao lado do número (o ícone e a cor da marca L2). */
+.pr-page .pr-marca {
+    display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 12px;
+    background: color-mix(in srgb, var(--pr-verde) 12%, transparent); color: var(--pr-verde);
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.pr-page .pr-marca i { font-size: 15px; line-height: 1; }
+
+/* Ação e fase, sob o nome do cliente. */
+.pr-page .pr-dados { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ps-text-2); }
+.pr-page .pr-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--ps-label); }
+.pr-page .pr-fase { font-weight: 600; color: var(--ps-text); }
+
+/* De quem veio, o que a pessoa pode e o aviso do desenho (L11). */
+.pr-page .pr-colabora {
+    display: flex; flex-direction: column; gap: 4px; margin: -10px 0 16px; padding: 10px 14px;
+    border-left: 3px solid var(--pr-verde); background: var(--ps-soft); font-size: 13px; line-height: 1.5; color: var(--ps-body);
+}
+.pr-page .pr-pertence { font-size: 12.5px; color: var(--ps-muted); }
+
+/* Andamentos e anotações. */
+.pr-page .pr-andamento { padding: 12px 0; border-bottom: 1px solid var(--ps-div-strong); }
+.pr-page .pr-andamento:last-child { border-bottom: 0; }
+.pr-page .pr-andamento--resposta { margin-left: 28px; }
+.pr-page .pr-andamento-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12.5px; color: var(--ps-muted); }
+.pr-page .pr-andamento--sistema .pr-andamento-topo i { color: var(--ps-accent); }
+.pr-page .pr-andamento-autor { font-weight: 600; color: var(--ps-text); }
+.pr-page .pr-andamento-data { margin-left: auto; }
+.pr-page .pr-andamento-texto { font-size: 13.5px; color: var(--ps-body); }
+.pr-page .pr-andamento-texto .ql-editor { padding: 0; }
+
+/* Documentos e metas: uma linha por item. */
+.pr-page .pr-doc,
+.pr-page .pr-meta { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--ps-div-strong); font-size: 13.5px; }
+.pr-page .pr-doc:last-child,
+.pr-page .pr-meta:last-child { border-bottom: 0; }
+.pr-page .pr-doc-icone,
+.pr-page .pr-meta-icone { font-size: 16px; color: var(--ps-accent); flex: none; }
+.pr-page .pr-doc-nome,
+.pr-page .pr-meta-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ps-text); }
+.pr-page .pr-doc-meta,
+.pr-page .pr-meta-prazo { font-size: 12.5px; color: var(--ps-muted); white-space: nowrap; }
+.pr-page .pr-doc-acao { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.pr-page .pr-meta-situacao { font-size: 12px; font-weight: 600; color: var(--ps-text-2); white-space: nowrap; }
+
+.pr-page .pr-vazio { padding: 14px 0; font-size: 13.5px; color: var(--ps-muted); }
+.pr-page .pr-vazio--sem-abas { margin-top: 18px; padding: 18px 20px; }
