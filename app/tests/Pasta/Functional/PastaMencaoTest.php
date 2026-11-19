@@ -274,6 +274,37 @@ final class PastaMencaoTest extends JusPrimeWebTestCase
         self::assertSame('@Bruno Lima', trim($crawler->filter('#pasta-msg-' . $msgId . ' .ps-mencao')->text()));
     }
 
+    #[TestDox('Token aninhado: o de fora, que só vira token depois de trocar o de dentro, também passa pela conferência')]
+    public function testTokenAninhadoNaoGravaIdDeOutroEscritorio(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $eu      = $this->membro($tenantA, 'Ana Paula Souza');
+        $bruno   = $this->membro($tenantA, 'Bruno Lima');
+        $deFora  = $this->membro($tenantB, 'Carla de Fora');
+        $pasta   = $this->criarPasta($tenantA);
+
+        $this->logarComTenant($client, $eu, $tenantA);
+        $dados = $this->enviar($client, $pasta, sprintf(
+            '<p>Veja @[Carla @[x](user:2147483000)](user:%d) e @[B @[y](user:0)](user:%d)</p>',
+            $deFora->getId(),
+            $bruno->getId(),
+        ));
+
+        self::assertResponseStatusCodeSame(201);
+        $msg = $this->em()->find(PastaMensagem::class, (int) $dados['id']);
+        self::assertNotNull($msg);
+        self::assertStringNotContainsString('(user:' . $deFora->getId() . ')', $msg->getConteudo(), 'o id de outro escritório não fica gravado');
+        self::assertStringNotContainsString('(user:2147483000)', $msg->getConteudo());
+        self::assertStringContainsString('@Carla @x', $msg->getConteudo());
+        self::assertStringContainsString('@[Bruno Lima](user:' . $bruno->getId() . ')', $msg->getConteudo(), 'o de fora válido fica na forma canônica');
+        self::assertCount(0, $this->mencoesRecebidas($deFora), 'outro escritório nunca recebe');
+        self::assertCount(1, $this->mencoesRecebidas($bruno));
+    }
+
     // ── Cota de avisos do autor (SEC-008) ────────────────────────────────────
     //
     // O pool `cache.rate_limiter` é ArrayAdapter em teste e o `services_resetter` o zera ao fim de
