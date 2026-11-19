@@ -131,7 +131,7 @@ final class AlertasAntesDaBatida
         $faltam = $minimo * 60 - ($momento->getTimestamp() - $repouso->getDataHora()->getTimestamp());
 
         return $faltam > 0
-            ? new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTRAJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo)))
+            ? new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTRAJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo)), faltamDoIntervalo: $faltam)
             : IntervaloDaBatida::livre();
     }
 

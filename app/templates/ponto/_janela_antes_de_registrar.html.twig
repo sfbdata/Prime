@@ -5,6 +5,7 @@
     refaz a mesma batida com a confirmação; "Aguardar", o "x" e o Esc fecham sem registrar. Clicar fora não fecha (a
     moldura das janelas da tela, js/ponto-abas.js). O comportamento mora no script da tela (templates/ponto/index).
 #}
+{{ catalogo_js('ponto_intervalo.js') }}
 <div class="pe-janela-fundo" id="ponto-janela-alerta" hidden>
     <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_cartao.antes.titulo'|trans }}" aria-describedby="ponto-alerta-texto">
         <div class="pe-janela-topo">
@@ -12,6 +13,13 @@
             <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_cartao.comum.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-janela-alerta">
+            {# O retorno antes do mínimo do intervalo (resposta com `contador: intervalo`): quanto falta, ao vivo, em
+               HH:MM:SS, com a mesma conta do aviso do dia no cartão. role="timer" não anuncia a cada segundo. Zerou com
+               a janela aberta: o texto de cumprido no lugar. Os textos vêm do catálogo `ponto_intervalo.js`. #}
+            <div class="pe-janela-contador" id="ponto-alerta-contador" data-alerta-contador hidden>
+                <div class="pe-janela-contador-valor" role="timer" data-alerta-contador-valor></div>
+                <div class="pe-janela-contador-rotulo" data-alerta-contador-rotulo></div>
+            </div>
             <div id="ponto-alerta-texto" data-alerta-texto></div>
             <div class="pe-janela-alerta-nota">{{ constant('App\\Ponto\\Service\\AlertasAntesDaBatida::NOTA') }}</div>
         </div>

@@ -1,0 +1,11 @@
+# ---- Timekeeping: the break in progress (day notice on the card and countdown in the "Before recording" window)
+ponto_intervalo:
+    js:
+        aviso_em_andamento: 'On break since {inicio} ({decorrido} ago).{saida}'
+        aviso_faltam: 'On break since {inicio} ({decorrido} ago). {faltam} left to complete the {minimo} minimum.{saida}'
+        aviso_cumprido: 'Minimum break of {minimo} completed. On break since {inicio} ({decorrido} ago).{saida}'
+        saida_prevista: ' Expected clock-out at {hora}.'
+        janela_faltam: 'Left to complete the {minimo} minimum break. If you record now, the timesheet will mark the intra-day break as non-compliant.'
+        janela_cumprido: 'Minimum break of {minimo} completed. You can record the return.'
+
+# ---- fim

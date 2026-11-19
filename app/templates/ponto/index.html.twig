@@ -606,6 +606,17 @@
     setInterval(desenharHoraOficial, 1000);
     desenharHoraOficial();
 
+    // E11 + P12: quanto falta, em segundos, para o mínimo do intervalo em andamento; null fora do repouso ou sem o mínimo
+    // (validação do repouso ou chave `ponto-alertas` desligada). A conta é a do aviso do dia (a hora do aparelho e a
+    // batida de repouso do cartão), definida dentro do contador abaixo; a janela "Antes de registrar" usa a mesma, e os
+    // dois mostram o mesmo número.
+    let segundosParaOMinimoDoIntervalo = function () { return null; };
+    // O acerto da hora do aparelho pela do servidor, em ms, para a conta do intervalo: vem com o alerta do intervalo
+    // (`faltamSegundos`). Sem ele, o aparelho adiantado abria a janela em "cumprido" logo depois da recusa.
+    let acertoDoIntervaloMs = 0;
+    let minimoDoIntervaloFormatado = '';
+    let formatarContadorDoIntervalo = String;
+
     // Contador de tempo trabalhado no dia
     (function() {
         const clockEl = document.getElementById('clock');
@@ -710,6 +721,16 @@
             return m === 0 ? h + 'h' : h + 'h' + String(m).padStart(2, '0');
         }
 
+        // A conta única do que falta para o mínimo do intervalo (o aviso do dia e o contador da janela). Segundos
+        // inteiros, nunca abaixo de 0.
+        segundosParaOMinimoDoIntervalo = function (agora) {
+            if (!tRepouso || tRetorno || tSaida || minimoRepousoMinutos <= 0) return null;
+            const decorrido = Math.max(0, Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000));
+            return Math.max(0, minimoRepousoMinutos * 60 - decorrido);
+        };
+        minimoDoIntervaloFormatado = minimoRepousoMinutos > 0 ? formatarMinimo(minimoRepousoMinutos) : '';
+        formatarContadorDoIntervalo = formatarTempo;
+
         // Sem meta (feriado, dia fora da escala), sem previsão nem lembrete de saída, antes ou depois do repouso. Antes
         // do repouso batido, a conta do sistema: entrada + duração da escala de hoje, com o almoço da escala (a 1h do
         // protótipo é valor de exemplo). Com o intervalo batido: entrada + meta do dia + o intervalo batido. Sem ele (em
@@ -769,23 +790,28 @@
             // (`updateClock`, a cada segundo); o início é a hora da batida de repouso que o cartão já tem. Com a
             // validação, também o mínimo do escritório. E a saída prevista, quando houver (também função que volta).
             if (tRepouso && !tRetorno && !tSaida) {
-                const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));
-                const emIntervaloHa = formatarTempo(decorrido);
+                const decorrido = Math.max(0, Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000));
                 const previstaNoRepouso = saidaPrevista(agora);
-                const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';
+                // "Desde 12:00 (há 00:04:22)": a hora de início deixa claro que o contador do intervalo é o tempo passado,
+                // não o que falta (quem leu "há 00:04:22" como tempo restante achou o "faltam" errado).
+                const textos = {
+                    inicio: formatarHoraDoDia(tRepouso),
+                    decorrido: formatarTempo(decorrido),
+                    saida: previstaNoRepouso ? BJ_T.t('ponto_intervalo.js.saida_prevista', { hora: formatarHoraDoDia(previstaNoRepouso) }) : '',
+                };
                 if (minimoRepousoMinutos <= 0) {
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '.' + saida);
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', BJ_T.t('ponto_intervalo.js.aviso_em_andamento', textos));
                     return;
                 }
-                const minimo = formatarMinimo(minimoRepousoMinutos);
-                const restante = minimoRepousoMinutos * 60 - decorrido;
+                textos.minimo = formatarMinimo(minimoRepousoMinutos);
+                const restante = segundosParaOMinimoDoIntervalo(agora);
                 if (restante > 0) {
-                    // Arredondado para cima, no minuto: 17min50s dá 00:18, e os últimos 59 s dão 00:01, nunca 00:00.
-                    const faltaEmMinutos = Math.ceil(restante / 60);
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', 'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.' + saida);
+                    // Ao vivo, em HH:MM:SS, o mesmo número do contador da janela "Antes de registrar".
+                    textos.faltam = formatarTempo(restante);
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', BJ_T.t('ponto_intervalo.js.aviso_faltam', textos));
                     return;
                 }
-                mostrarAvisoDoDia('success', 'bi-check-circle', 'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida);
+                mostrarAvisoDoDia('success', 'bi-check-circle', BJ_T.t('ponto_intervalo.js.aviso_cumprido', textos));
                 return;
             }
             // E8 (P83): com a função `ponto-lembrete` desligada, sem "Saída prevista" e sem o lembrete (aviso, som e
@@ -2519,8 +2545,65 @@
     const janelaDoAlerta = document.getElementById('ponto-janela-alerta');
     let alertaEmEspera = null;
     let confirmacaoDoAlerta = null;
+    let tiqueDoContador = null;
 
-    function abrirAntesDeRegistrar(texto, payload) {
+    // O retorno antes do mínimo do intervalo: no lugar do texto do servidor, o contador regressivo ao vivo (HH:MM:SS),
+    // com a conta do aviso do dia no cartão, para os dois mostrarem o mesmo número. Zerou com a janela aberta: o texto
+    // de cumprido. Sem a conta no cartão (sem a batida de repouso de hoje na tela), fica o texto do servidor. O tique
+    // para quando a janela fecha.
+    // Os outros alertas (e o de intervalo sem a conta no cartão): o texto do servidor, que a janela descreve.
+    function esconderContadorDoIntervalo(fundo) {
+        clearInterval(tiqueDoContador);
+        tiqueDoContador = null;
+        const caixa = fundo.querySelector('[data-alerta-contador]');
+        if (caixa) caixa.hidden = true;
+        fundo.querySelector('[data-alerta-texto]').hidden = false;
+        fundo.querySelector('[role="dialog"]').setAttribute('aria-describedby', 'ponto-alerta-texto');
+    }
+
+    function mostrarContadorDoIntervalo(fundo, faltamNoServidor) {
+        const caixa = fundo.querySelector('[data-alerta-contador]');
+        const textoEl = fundo.querySelector('[data-alerta-texto]');
+        clearInterval(tiqueDoContador);
+        tiqueDoContador = null;
+        const naConta = segundosParaOMinimoDoIntervalo(new Date());
+        if (naConta !== null) {
+            // A conta do cartão passa a bater com a do servidor (o aviso do dia junto): o que falta é o que ele disse.
+            acertoDoIntervaloMs += (naConta - faltamNoServidor) * 1000;
+        }
+        if (!caixa || naConta === null) {
+            esconderContadorDoIntervalo(fundo);
+            return;
+        }
+        const valor = caixa.querySelector('[data-alerta-contador-valor]');
+        const rotulo = caixa.querySelector('[data-alerta-contador-rotulo]');
+        const textos = { minimo: minimoDoIntervaloFormatado };
+        function desenhar() {
+            const restante = segundosParaOMinimoDoIntervalo(new Date());
+            if (fundo.hidden || restante === null) {
+                clearInterval(tiqueDoContador);
+                tiqueDoContador = null;
+                return;
+            }
+            const cumprido = restante <= 0;
+            valor.textContent = formatarContadorDoIntervalo(restante);
+            rotulo.textContent = BJ_T.t(cumprido ? 'ponto_intervalo.js.janela_cumprido' : 'ponto_intervalo.js.janela_faltam', textos);
+            caixa.classList.toggle('pe-janela-contador--cumprido', cumprido);
+            if (cumprido) {
+                clearInterval(tiqueDoContador);
+                tiqueDoContador = null;
+            }
+        }
+        caixa.hidden = false;
+        textoEl.hidden = true;
+        fundo.querySelector('[role="dialog"]').setAttribute('aria-describedby', caixa.id);
+        desenhar();
+        if (!caixa.classList.contains('pe-janela-contador--cumprido')) {
+            tiqueDoContador = setInterval(desenhar, 1000);
+        }
+    }
+
+    function abrirAntesDeRegistrar(texto, payload, faltamDoIntervalo) {
         const fundo = janelaDoAlerta && window.PontoAbas ? window.PontoAbas.abrirJanela('ponto-janela-alerta', origemDaJanelaExterna()) : null;
         if (!fundo) {
             mostrarAvisoBatida(texto, 'warning');   // sem a moldura (script fora), ao menos o alerta; nada foi gravado
@@ -2533,6 +2616,11 @@
             alertaEmEspera.externo = { tipo: payload.tipo, motivo: payload.motivoTrabalhoExterno };
         }
         fundo.querySelector('[data-alerta-texto]').textContent = String(texto);
+        if (typeof faltamDoIntervalo === 'number' && faltamDoIntervalo > 0) {
+            mostrarContadorDoIntervalo(fundo, faltamDoIntervalo);
+        } else {
+            esconderContadorDoIntervalo(fundo);
+        }
         fundo.querySelector('.pe-janela-cancelar').focus();   // o foco na saída segura: Enter não registra sem querer
     }
 
@@ -2540,14 +2628,14 @@
     // ao título do cartão e a janela o leva ao "Aguardar"), segurando a espera dela: o alerta de horário, o aviso
     // flutuante, o lembrete e a recarga só saem quando a janela fechar (`soltarQuandoAJanelaFechar`). Sem a moldura, o
     // alerta vai à caixa de hoje e a espera sai já.
-    function mostrarAntesDeRegistrar(texto, payload) {
+    function mostrarAntesDeRegistrar(texto, payload, faltamDoIntervalo) {
         const tela = window.PontoTelaCheia;
         const soltar = tela && typeof tela.segurar === 'function' ? tela.segurar() : null;
         try {
             if (tela) {
                 tela.fecharSeValidando();
             }
-            abrirAntesDeRegistrar(texto, payload);
+            abrirAntesDeRegistrar(texto, payload, faltamDoIntervalo);
         } finally {
             soltarQuandoAJanelaFechar('ponto-janela-alerta', soltar);
         }
@@ -2721,7 +2809,7 @@
 
             // E11: a batida saiu da regra de intervalo e o servidor não gravou; a janela pergunta (P21).
             if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {
-                mostrarAntesDeRegistrar(resultado.data.alerta, payload);
+                mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo' ? resultado.data.faltamSegundos : null);
                 return;
             }
 
