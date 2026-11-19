@@ -1812,7 +1812,8 @@ class PastaController extends AbstractController
 
         // Toda exclusão vai para a lixeira (lápide restaurável): a pasta continua existindo, então
         // a volta é para ela, onde estão a faixa de excluída e o botão Restaurar.
-        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira (restaurável a qualquer momento)', $pasta->getNup()));
+        // Texto decidido pelo Samuel em 18/11/2026: o número fica livre e a pasta volta pela Lixeira do Expediente.
+        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira. O número dela ficou livre e ela pode ser restaurada pela Lixeira do Expediente.', $pasta->getNup()));
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }

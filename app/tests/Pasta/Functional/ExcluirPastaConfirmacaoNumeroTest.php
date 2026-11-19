@@ -145,7 +145,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         self::assertFalse($pasta->estaExcluida(), 'Número errado não pode mandar a última pasta para a lixeira.');
     }
 
-    #[TestDox('Número certo na ÚLTIMA da sequência: vai para a lixeira (não some), volta para a pasta com o aviso do desenho e é restaurável')]
+    #[TestDox('Número certo na ÚLTIMA da sequência: vai para a lixeira (não some), volta para a pasta com o aviso de número livre e é restaurável')]
     public function testUltimaDaSequenciaVaiParaALixeira(): void
     {
         $client          = static::createClient();
@@ -161,7 +161,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects("/pasta/{$id}");
         $crawler = $client->followRedirect();
-        self::assertStringContainsString('Pasta 500 enviada para a lixeira (restaurável a qualquer momento)', $crawler->text());
+        self::assertStringContainsString('Pasta 500 enviada para a lixeira. O número dela ficou livre e ela pode ser restaurada pela Lixeira do Expediente.', $crawler->text());
         self::assertCount(1, $crawler->filter('.ps-cab-excluida'), 'A pasta na lixeira mostra a faixa de excluída.');
         self::assertCount(1, $crawler->filter('form[action$="/restaurar"]'), 'A pasta na lixeira oferece o Restaurar.');
 
@@ -189,7 +189,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$id}/deletar", ['_token' => 'TOKEN_delete_pasta_' . $id, 'confirmar_nup' => '1238']);
 
         self::assertResponseRedirects("/pasta/{$id}");
-        self::assertStringContainsString('Pasta 1238 enviada para a lixeira (restaurável a qualquer momento)', $client->followRedirect()->text());
+        self::assertStringContainsString('Pasta 1238 enviada para a lixeira. O número dela ficou livre e ela pode ser restaurada pela Lixeira do Expediente.', $client->followRedirect()->text());
         $pasta = $this->recarregar($id);
         self::assertNotNull($pasta);
         self::assertTrue($pasta->estaExcluida(), 'Com o número certo a pasta precisa virar lápide.');
