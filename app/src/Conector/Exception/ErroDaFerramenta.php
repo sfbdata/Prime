@@ -21,6 +21,8 @@ final class ErroDaFerramenta extends \RuntimeException
     public const MOTIVO_FUNCAO_DESLIGADA = 'funcao_desligada';
     public const MOTIVO_SEM_PERMISSAO = 'sem_permissao';
     public const MOTIVO_FILTRO_INVALIDO = 'filtro_invalido';
+    public const MOTIVO_RECUSADA = 'recusada';
+    public const MOTIVO_ENVIO_AUTOMATICO = 'envio_automatico';
 
     public const NAO_ENCONTRADO = 'Não encontrado.';
     public const ENTRADA_INVALIDA = 'Pedido inválido para esta ferramenta.';
@@ -33,6 +35,8 @@ final class ErroDaFerramenta extends \RuntimeException
     public const FILTRO_INVALIDO = 'Filtro inválido no campo %s. Confira o valor e tente de novo.';
     /** Quando o nome do campo não é um nome de campo do esquema (só letras minúsculas, números e sublinhado). */
     public const FILTRO_INVALIDO_SEM_CAMPO = 'Filtro inválido. Confira os valores e tente de novo.';
+    /** A frase da abertura da 6.6: nenhum caminho do conector estende o envio automático do Push ao cliente. */
+    public const ENVIO_AUTOMATICO = 'Este cliente recebe o envio automático do Push: faça isso pela tela do BlueJus.';
 
     public function __construct(public readonly string $motivo, string $mensagem)
     {
@@ -80,5 +84,22 @@ final class ErroDaFerramenta extends \RuntimeException
             : self::FILTRO_INVALIDO_SEM_CAMPO;
 
         return new self(self::MOTIVO_FILTRO_INVALIDO, $mensagem);
+    }
+
+    /**
+     * Regra de negócio que recusa a gravação (6.6): campo obrigatório vazio, valor fora da lista, ação que a tela também
+     * recusaria. A mensagem é SEMPRE uma constante do código (da ferramenta ou a mensagem fixa da exceção do UseCase,
+     * escolhida pela classe da exceção), nunca o `getMessage()` de uma exceção qualquer nem texto vindo do pedido ou
+     * do banco: a mensagem vai ao app de I.A.
+     */
+    public static function recusada(string $mensagemFixa): self
+    {
+        return new self(self::MOTIVO_RECUSADA, $mensagemFixa);
+    }
+
+    /** A gravação estenderia o envio automático do Push a um cliente que o tem ligado (abertura da 6.6, 14.h). */
+    public static function envioAutomatico(): self
+    {
+        return new self(self::MOTIVO_ENVIO_AUTOMATICO, self::ENVIO_AUTOMATICO);
     }
 }
