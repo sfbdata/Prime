@@ -243,7 +243,9 @@
 }
 
 /* Guia visual BlueJus v30 (19/11, pedidos A1 e A4): busca, filtros e datas retangulares (raio 4px, acima) e
-   campo com a borda mais firme do guia (#7b93a2, 3,2:1) para ser encontrado. No tema escuro fica a borda do tema. */
-html:not([data-bs-theme="dark"]) .filtro-busca input.js-filtro-busca,
-html:not([data-bs-theme="dark"]) .filtro-select,
-html:not([data-bs-theme="dark"]) .filtro-data-campo { border-color: #7b93a2; }
+   campo com a borda mais firme do guia (#7b93a2, 3,2:1) para ser encontrado. No tema escuro fica a borda do tema.
+   O :where() zera o peso do seletor do tema: a tela que já desenha a própria borda (Dashboard, Carteira) continua
+   mandando, inclusive no foco. */
+:where(html:not([data-bs-theme="dark"])) .filtro-busca input.js-filtro-busca,
+:where(html:not([data-bs-theme="dark"])) .filtro-select,
+:where(html:not([data-bs-theme="dark"])) .filtro-data-campo { border-color: #7b93a2; }

@@ -33,8 +33,9 @@ final class CarteirasListaPadraoV30CssTest extends TestCase
     public function testRealceDaLinha(): void
     {
         $css = $this->css('cobrancas.css');
-        self::assertStringContainsString('.cobranca-card .table > tbody > tr:hover > td { background: #2b7ab0; color: #fff; }', $css);
-        self::assertStringContainsString('.cobranca-card .table > tbody > tr:hover > td * { color: #fff !important; }', $css);
+        self::assertStringContainsString('.cobranca-card .table > tbody > tr.cobranca-row-link:hover > * { background: #2b7ab0; color: #fff; }', $css);
+        self::assertStringContainsString('.cobranca-card .table > tbody > tr.cobranca-row-link:hover > * * { color: #fff !important; }', $css);
+        self::assertStringContainsString('.cobranca-card .table > tbody > tr:not(.cobranca-row-link):hover { background: var(--bs-tertiary-bg); }', $css, 'tabela sem clique não acende em azul');
         self::assertStringNotContainsString('.cobranca-card .table > tbody > tr:hover { background: var(--bs-tertiary-bg); }', $css);
     }
 
@@ -43,6 +44,6 @@ final class CarteirasListaPadraoV30CssTest extends TestCase
     {
         $css = $this->css('filtro-tabela.css');
         self::assertDoesNotMatchRegularExpression('/border-radius:\s*(16|20)px/', $css);
-        self::assertStringContainsString('html:not([data-bs-theme="dark"]) .filtro-data-campo { border-color: #7b93a2; }', $css);
+        self::assertStringContainsString(':where(html:not([data-bs-theme="dark"])) .filtro-data-campo { border-color: #7b93a2; }', $css, 'peso zero: Dashboard e Carteira mantêm a borda própria');
     }
 }
