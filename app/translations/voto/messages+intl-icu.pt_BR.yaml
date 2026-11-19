@@ -618,6 +618,16 @@ voto:
                 mensagem_copiada: Mensagem copiada.
             unidades:
                 titulo: Unidades e links
+                editar: Editar
+                editar_travada: A lista fica bloqueada depois da abertura da votação.
+                editada: Cadastro atualizado.
+                campo_situacao: Situação
+                campo_fracao: Fração
+                campo_responsavel: Responsável
+                campo_email: E-mail
+                campo_telefone: Telefone
+                salvar_edicao: Salvar
+                cancelar_edicao: Cancelar
                 texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional); ocorrência (opcional, até 80 caracteres). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
