@@ -1756,3 +1756,10 @@
     height: 78vh;
     border: 0;
 }
+
+/* Janela "Antes de registrar": o contador regressivo do intervalo (o retorno antes do mínimo). O número em destaque, em
+   algarismos de largura fixa para não tremer a cada segundo; zerado, em verde, com o texto de cumprido. */
+.pe-janela-contador { margin-bottom: 8px; text-align: center; }
+.pe-janela-contador-valor { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: .5px; font-variant-numeric: tabular-nums; color: var(--pe-alerta-cor); }
+.pe-janela-contador-rotulo { margin-top: 4px; color: var(--pe-corpo); }
+.pe-janela-contador--cumprido .pe-janela-contador-valor { color: var(--pe-ok-cor); }

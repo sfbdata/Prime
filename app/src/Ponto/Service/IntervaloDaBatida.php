@@ -12,12 +12,16 @@ namespace App\Ponto\Service;
  *   fila sem internet, que não tem como mostrar a janela;
  * - `avisoDepois`: a batida grava e a resposta avisa (a interjornada contada de uma saída vinda de esquecimento, spec
  *   ponto-esquecimento-nao-trava R4).
+ *
+ * `doIntervaloMinimo` marca o alerta do retorno antes do mínimo do intervalo: a janela troca o texto por um contador
+ * regressivo, com a mesma conta do aviso do dia no cartão (os dois mostram o mesmo número).
  */
 final readonly class IntervaloDaBatida
 {
     public function __construct(
         public ?string $alerta = null,
         public ?string $avisoDepois = null,
+        public bool $doIntervaloMinimo = false,
     ) {
     }
 

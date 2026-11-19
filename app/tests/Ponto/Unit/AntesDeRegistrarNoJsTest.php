@@ -46,7 +46,7 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         $toque = $this->toque();
         $fila = strpos($toque, 'if (resultado.falhaDeRede && await guardarNaFila(payload)) {');
         // E8: pelo `mostrarAntesDeRegistrar`, que fecha a validação em tela cheia antes (testAlertaNoLugarDaTelaCheia).
-        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                mostrarAntesDeRegistrar(resultado.data.alerta, payload);\n                return;\n            }");
+        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo');\n                return;\n            }");
         $atraso = strpos($toque, "if (resultado.tipo === 'atrasado') {");
 
         self::assertIsInt($fila);
@@ -59,7 +59,7 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     #[TestDox('A janela usa a moldura das janelas da tela, escreve o alerta por textContent e põe o foco no "Aguardar"')]
     public function testJanelaPelaMoldura(): void
     {
-        $abrir = $this->corpoDaFuncao($this->tela(), 'function abrirAntesDeRegistrar(texto, payload)');
+        $abrir = $this->corpoDaFuncao($this->tela(), 'function abrirAntesDeRegistrar(texto, payload, doIntervalo)');
 
         // E8: o foco volta ao título do cartão, nunca ao "Bater Ponto" (um Enter bateria o tipo sugerido).
         self::assertStringContainsString("window.PontoAbas.abrirJanela('ponto-janela-alerta', origemDaJanelaExterna())", $abrir);
@@ -93,13 +93,13 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         // na caixa e a janela segue escondida: a espera sai já.
         self::assertMatchesRegularExpression(
             "/^\{\s+const tela = window\.PontoTelaCheia;\s+const soltar = tela && typeof tela\.segurar === 'function' \? tela\.segurar\(\) : null;\s+try \{\s+"
-            . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+abrirAntesDeRegistrar\(texto, payload\);\s+"
+            . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+abrirAntesDeRegistrar\(texto, payload, doIntervalo\);\s+"
             . "\} finally \{\s+soltarQuandoAJanelaFechar\('ponto-janela-alerta', soltar\);\s+\}\s+\}$/",
-            $this->corpoDaFuncao($tela, 'function mostrarAntesDeRegistrar(texto, payload)'),
+            $this->corpoDaFuncao($tela, 'function mostrarAntesDeRegistrar(texto, payload, doIntervalo)'),
         );
         self::assertSame(2, substr_count($tela, 'mostrarAntesDeRegistrar('), 'a declaração e a resposta com alerta');
         self::assertSame(2, substr_count($tela, 'abrirAntesDeRegistrar('), 'a declaração e o `mostrarAntesDeRegistrar`: nenhuma abertura sem fechar a validação antes');
-        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning');   // sem a moldura", $this->corpoDaFuncao($tela, 'function abrirAntesDeRegistrar(texto, payload)'));
+        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning');   // sem a moldura", $this->corpoDaFuncao($tela, 'function abrirAntesDeRegistrar(texto, payload, doIntervalo)'));
         self::assertMatchesRegularExpression(
             "/const fundo = document\.getElementById\(id\);\s+if \(!fundo \|\| fundo\.hidden \|\| typeof MutationObserver !== 'function'\) \{\s+soltar\(\);\s+return;\s+\}/",
             $this->corpoDaFuncao($tela, 'function soltarQuandoAJanelaFechar(id, soltar)'),

@@ -1314,7 +1314,13 @@ final class PontoController extends AbstractController
             return null;
         }
 
-        return $this->json(['success' => false, 'alerta' => $intervalo->alerta, 'message' => $intervalo->alerta]);
+        $resposta = ['success' => false, 'alerta' => $intervalo->alerta, 'message' => $intervalo->alerta];
+        if ($intervalo->doIntervaloMinimo) {
+            // O retorno antes do mínimo: a janela mostra o contador regressivo no lugar do texto.
+            $resposta['contador'] = 'intervalo';
+        }
+
+        return $this->json($resposta);
     }
 
     /**
