@@ -10,11 +10,11 @@
     <title>{{ 'calculo.verificacao.titulo'|trans }}</title>
     <style>
         body { margin:0; background:#f3f6f8; font-family:Arial, Helvetica, sans-serif; color:#12242f; }
-        .cv-campo { display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:bold; color:#4a6373; text-align:left; margin-top:14px; }
-        .cv-campo input { height:38px; box-sizing:border-box; border:1px solid #d3dde4; border-radius:3px; padding:0 10px; font-size:14px; font-weight:normal; color:#12242f; background:#fff; }
+        .cv-campo { display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:bold; color:#5f7684; text-align:left; margin-top:14px; }
+        .cv-campo input { height:38px; box-sizing:border-box; border:1px solid #d3dde4; border-radius:4px; padding:0 10px; font-size:14px; font-weight:normal; color:#12242f; background:#fff; }
         .cv-campo input[type=file] { height:auto; padding:7px 10px; font-size:13px; }
         .cv-dica { font-size:12px; font-weight:normal; color:#7a8e9b; }
-        .cv-ok, .cv-ruim, .cv-aviso { margin-top:16px; border-radius:3px; padding:11px 14px; font-size:13.5px; line-height:1.55; text-align:left; }
+        .cv-ok, .cv-ruim, .cv-aviso { margin-top:16px; border-radius:4px; padding:11px 14px; font-size:13.5px; line-height:1.55; text-align:left; }
         .cv-ok { background:#e9f6ee; border:1px solid #b9e0c7; color:#1e5e37; }
         .cv-ruim { background:#fdf1f2; border:1px solid #f3c6cb; color:#842029; }
         .cv-aviso { background:#fffaf0; border:1px solid #f1d38a; color:#7a5200; }
@@ -22,13 +22,13 @@
     </style>
 </head>
 <body style="min-height:100vh; display:flex; flex-direction:column;">
-    <header style="background:#0a6fa0; color:#fff; height:58px; display:flex; align-items:center; padding:0 18px;">
+    <header style="background:#0b5f86; color:#fff; height:58px; display:flex; align-items:center; padding:0 18px;">
         <span style="font-size:20px; font-weight:bold;">BlueJus</span>
     </header>
     <main style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px 16px;">
-        <div style="width:min(520px, 100%); background:#fff; border:1px solid #dde5eb; border-radius:8px; padding:30px 28px; text-align:center;">
+        <div style="width:min(520px, 100%); background:#fff; border:none; border-radius:4px; box-shadow:0 1px 2px rgba(16,42,58,.06), 0 10px 26px -18px rgba(10,50,80,.35); padding:30px 28px; text-align:center;">
             <h1 style="font-size:19px; font-weight:bold; margin:0 0 6px;">{{ 'calculo.verificacao.titulo'|trans }}</h1>
-            <p style="margin:0; font-size:14px; color:#4a6373; line-height:1.55;">{{ 'calculo.verificacao.subtitulo'|trans }}</p>
+            <p style="margin:0; font-size:14px; color:#5f7684; line-height:1.55;">{{ 'calculo.verificacao.subtitulo'|trans }}</p>
 
             <form method="post" action="{{ path('calculo_verificar') }}" enctype="multipart/form-data">
                 <input type="hidden" name="_token" value="{{ csrf_token('calculo_verificar') }}">
@@ -39,7 +39,7 @@
                     <input type="file" name="arquivo" accept="application/pdf,.pdf">
                     <span class="cv-dica">{{ 'calculo.verificacao.arquivo_dica'|trans }}</span>
                 </label>
-                <button type="submit" style="margin-top:18px; height:40px; padding:0 22px; border:none; border-radius:3px; background:#0a6fa0; color:#fff; font-size:14.5px; font-weight:bold; cursor:pointer;">{{ 'calculo.verificacao.botao'|trans }}</button>
+                <button type="submit" style="margin-top:18px; height:32px; padding:0 14px; border:none; border-radius:4px; background:#0f6fc4; color:#fff; font-size:13px; font-weight:600; cursor:pointer;">{{ 'calculo.verificacao.botao'|trans }}</button>
             </form>
 
             {% if aviso %}

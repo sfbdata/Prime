@@ -26,8 +26,8 @@
             <input type="search" id="fmBusca" placeholder="{{ 'cobranca_objeto.documentos.buscar_placeholder'|trans }}" autocomplete="off" aria-label="{{ 'cobranca_objeto.documentos.buscar'|trans }}">
         </div>
         <div class="fm-acoes">
-            <button type="button" class="btn btn-sm btn-primary" id="fmNovaPasta"><i class="bi bi-folder-plus me-1"></i> {{ 'cobranca_objeto.documentos.nova_pasta'|trans }}</button>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="fmUpload"><i class="bi bi-upload me-1"></i> {{ 'cobranca_objeto.documentos.enviar'|trans }}</button>
+            <button type="button" class="bjp-btn bjp-btn--primario" id="fmNovaPasta"><i class="bi bi-folder-plus"></i> {{ 'cobranca_objeto.documentos.nova_pasta'|trans }}</button>
+            <button type="button" class="bjp-btn bjp-btn--secundario" id="fmUpload"><i class="bi bi-upload"></i> {{ 'cobranca_objeto.documentos.enviar'|trans }}</button>
             <input type="file" id="fmFileInput" multiple class="d-none" accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
             <div class="fm-view-toggle" role="group" aria-label="{{ 'cobranca_objeto.documentos.modo_exibicao'|trans }}">
                 <button type="button" class="fm-view-btn ativo" data-view="lista" title="{{ 'cobranca_objeto.documentos.lista'|trans }}" aria-label="{{ 'cobranca_objeto.documentos.lista'|trans }}"><i class="bi bi-list-ul"></i></button>
@@ -157,7 +157,7 @@
                 <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="{{ 'cobranca_objeto.documentos.nome_pasta_placeholder'|trans }}">
                 <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">{{ 'cobranca_objeto.documentos.salvar'|trans }}</button></div>
+            <div class="modal-footer"><button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button><button type="button" class="bjp-btn bjp-btn--primario" id="fmInputConfirmar">{{ 'cobranca_objeto.documentos.salvar'|trans }}</button></div>
         </div>
     </div>
 </div>

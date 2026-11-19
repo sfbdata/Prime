@@ -12,6 +12,7 @@ use App\Voto\DTO\FiltroDoPainel;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
+use App\Voto\Exception\SemPermissaoParaVerAsUnidadesException;
 use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
@@ -21,6 +22,7 @@ use App\Voto\UseCase\ObterEquipeDaAssembleiaUseCase;
 use App\Voto\UseCase\CriarAssembleiaUseCase;
 use App\Voto\UseCase\EditarAssembleiaUseCase;
 use App\Voto\UseCase\ListarVotacoesParaVotarUseCase;
+use App\Voto\UseCase\MontarPainelDeUnidadesUseCase;
 use App\Voto\UseCase\ObterAssembleiaUseCase;
 use App\Voto\UseCase\ObterAtaDaAssembleiaUseCase;
 use App\Voto\UseCase\ObterPainelDoVotoUseCase;
@@ -265,6 +267,24 @@ final class AssembleiaController extends AbstractController
         }
 
         throw $this->createNotFoundException();
+    }
+
+    /**
+     * "Unidades": página própria com todas as unidades da pauta, que mudam de cor quando votam. Só quem vê a relação de
+     * votantes (403 para os demais); cenário sem lista, rascunho, arquivada e pauta retirada dão 404. Só a identificação.
+     */
+    #[Route('/{id}/pautas/{pauta}/unidades', name: 'voto_assembleia_unidades_ao_vivo', methods: ['GET'])]
+    public function unidadesAoVivo(int $id, int $pauta, MontarPainelDeUnidadesUseCase $montar): Response
+    {
+        try {
+            $painel = $montar->executar($this->guarda->exigir(), $id, $pauta, $this->pessoa());
+        } catch (AssembleiaNaoEncontradaException) {
+            throw $this->createNotFoundException();
+        } catch (SemPermissaoParaVerAsUnidadesException) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return $this->render('voto/assembleia/unidades_ao_vivo.html.twig', ['painel' => $painel, 'agora' => new \DateTimeImmutable()]);
     }
 
     private function lida(Tenant $tenant, int $id): AssembleiaNoPainel

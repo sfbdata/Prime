@@ -1,7 +1,8 @@
 {#
     Aba "Acompanhar" de /voto (desenho L172, embutida por AssembleiaController::acompanhar): por pauta das
     assembleias publicadas (abertas primeiro), nome, "{assembleia} · {n} de {aptos} votaram", chip e "Assistir"
-    (vB vP bi-box-arrow-up-right), que abre a página própria para projetar. Nunca parcial de votos.
+    (vB vP bi-box-arrow-up-right), que abre a página própria para projetar, e "Unidades" (vB bi-grid-3x3-gap), o painel
+    de unidades da pauta, só para quem vê a relação de votantes e em cenário com lista de votantes. Nunca parcial de votos.
     Retirada e assembleia arquivada não entram; a pauta suspensa ou cancelada leva o chip do ciclo (_chip_da_pauta).
     Contexto: `assembleias` (list<AssembleiaNoPainel>).
 #}
@@ -24,6 +25,9 @@
                     <div class="voto-aco-det">{{ 'voto.assembleia.gestor.acompanhar.detalhe'|trans({assembleia: linha.a.titulo, n: linha.p.votantes, aptos: linha.p.unidadesAptas}) }}</div>
                 </div>
                 {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: linha.p, a: linha.a} only %}
+                {% if voto_ve_relacao(linha.a.id) and linha.a.cenario.temListaDeVotantes %}
+                    <a class="vB" href="{{ path('voto_assembleia_unidades_ao_vivo', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-unidades><i class="bi bi-grid-3x3-gap"></i>{{ 'voto.assembleia.gestor.acompanhar.unidades'|trans }}</a>
+                {% endif %}
                 <a class="vB vP" href="{{ path('voto_assembleia_assistir', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-assistir><i class="bi bi-box-arrow-up-right"></i>{{ 'voto.assembleia.gestor.acompanhar.assistir'|trans }}</a>
             </div>
         {% else %}

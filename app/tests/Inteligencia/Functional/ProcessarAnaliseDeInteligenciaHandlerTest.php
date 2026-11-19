@@ -71,6 +71,8 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $iaHabilitada,
             $c->get(ConfiguracaoDaPlataformaDeIaRepository::class),
             new \App\Inteligencia\Service\CustoDaIa('us'),
+            $c->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class),
+            $c->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class),
         );
 
         return new ProcessarAnaliseDeInteligenciaHandler(
@@ -323,6 +325,8 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             true,
             static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class),
             new \App\Inteligencia\Service\CustoDaIa('us'),
+            static::getContainer()->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class),
+            static::getContainer()->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class),
         );
         self::assertSame(Disponibilidade::Disponivel, $disponibilidade->para($user, $tenant), 'limite 2, uma contada: ainda dá para pedir');
     }

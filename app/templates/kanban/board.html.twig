@@ -296,7 +296,7 @@
                 {% endfor %}
             </div>
             {% if board.podeAdministrar %}
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarBoard">
+                <button class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalEditarBoard">
                     <i class="bi bi-gear"></i>
                 </button>
             {% endif %}
@@ -322,8 +322,8 @@
             <div class="kb-add-card-form" id="formAddCard-{{ coluna.id }}">
                 <textarea placeholder="{{ 'kanban.mural.titulo_card_placeholder'|trans }}" rows="2" id="inputAddCard-{{ coluna.id }}"></textarea>
                 <div class="kb-add-card-actions">
-                    <button class="btn btn-primary btn-sm" onclick="adicionarCard({{ coluna.id }})">{{ 'kanban.mural.adicionar'|trans }}</button>
-                    <button class="btn btn-secondary btn-sm" onclick="cancelarAdd({{ coluna.id }})">
+                    <button class="bjp-btn bjp-btn--primario" onclick="adicionarCard({{ coluna.id }})">{{ 'kanban.mural.adicionar'|trans }}</button>
+                    <button class="bjp-btn bjp-btn--discreto" onclick="cancelarAdd({{ coluna.id }})">
                         <i class="bi bi-x"></i>
                     </button>
                 </div>
@@ -374,8 +374,8 @@
                 <div id="checklistTituloErro" class="text-danger small mt-1" style="display:none;"></div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
-                <button type="button" class="btn btn-primary btn-sm" id="btnConfirmarChecklist">
+                <button type="button" class="bjp-btn bjp-btn--discreto" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--primario" id="btnConfirmarChecklist">
                     <i class="bi bi-plus-lg me-1"></i> {{ 'kanban.comum.criar'|trans }}
                 </button>
             </div>
@@ -411,7 +411,7 @@
                     <hr>
                     <div>
                         <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'kanban.modal_editar.zona_de_perigo'|trans }}</p>
-                        <button type="button" class="btn btn-outline-danger btn-sm"
+                        <button type="button" class="bjp-btn bjp-btn--destrutivo"
                                 onclick="excluirBoard({{ board.id }}, '{{ csrf_token('kanban_board_excluir_' ~ board.id) }}')">
                             <i class="bi bi-trash me-1"></i> {{ 'kanban.modal_editar.excluir_mural'|trans }}
                         </button>
@@ -421,8 +421,8 @@
                     <div id="editarBoardErro" class="text-danger small mt-2" style="display:none;"></div>
                 </div>
                 <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="button" class="bjp-btn bjp-btn--discreto" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario">
                         <i class="bi bi-check-lg me-1"></i> {{ 'kanban.comum.salvar'|trans }}
                     </button>
                 </div>

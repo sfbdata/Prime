@@ -1,0 +1,32 @@
+/* Barra de uso e janela da trava da I.A. gratuita (spec ia-liberada-por-indicacao, seção 6).
+   Visual da barra de "espaço usado" do Contribua (.ct-barra: 8px, #eef2f5) e da caixa dos modais de espaço (.es-*).
+   Só tokens próprios (.ias-*): a página do Chat I.A. não carrega o CSS global do sistema. */
+.ias-barra { padding: 8px 14px; background: #f7fafc; border-bottom: 1px solid #e1e8ed; font-family: Arial, Helvetica, sans-serif; color: #4a6373; --ias-cor: #0a6fa0; }
+.ias-barra--perto { background: #fdf6e3; border-bottom-color: #ecd9a0; --ias-cor: #c08a12; }
+.ias-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+.ias-texto { flex: 1; min-width: 0; }
+.ias-barra--perto .ias-texto { color: #7a5a0c; }
+.ias-ganhar { border: none; background: transparent; padding: 0; color: #0a6fa0; font: bold 12px Arial, Helvetica, sans-serif; cursor: pointer; text-decoration: underline; white-space: nowrap; }
+.ias-ganhar:hover { color: #0b5f86; }
+.ias-trilho { height: 8px; border-radius: 4px; background: #eef2f5; overflow: hidden; margin-top: 6px; }
+.ias-trilho > div { height: 100%; background: var(--ias-cor); border-radius: 4px; }
+
+.ias-ov { position: fixed; inset: 0; z-index: 2147483300; background: rgba(18, 36, 47, .4); display: flex; align-items: center; justify-content: center; padding: 12px; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.ias-ov[hidden] { display: none; }
+.ias-caixa { width: min(480px, 100%); max-height: calc(100vh - 24px); overflow: auto; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+.ias-topo { background: #0a6fa0; color: #fff; padding: 13px 18px; display: flex; align-items: center; gap: 10px; }
+.ias-topo > b { flex: 1; font-size: 15px; }
+.ias-x { width: 30px; height: 30px; border: none; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; font-size: 18px; line-height: 1; }
+.ias-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; color: #34505f; line-height: 1.5; }
+.ias-corpo p { margin: 0; }
+.ias-plano { padding: 10px 12px; background: #eef6fb; border: 1px solid #cfe3ef; border-radius: 4px; }
+.ias-plano a { color: #0a6fa0; font-weight: bold; }
+.ias-aviso { padding: 10px 12px; background: #e9f6ee; border: 1px solid #bfe3cc; border-radius: 4px; color: #1e5f39; }
+.ias-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.ias-btn { height: 34px; padding: 0 14px; border: none; border-radius: 3px; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; }
+.ias-btn:disabled { opacity: .6; cursor: default; }
+.ias-btn-pri { background: #0a6fa0; color: #fff; }
+.ias-btn-pri:hover:not(:disabled) { background: #0b5f86; }
+.ias-btn-wa { background: #1f9d61; color: #fff; }
+.ias-btn-sec { background: #eef2f5; color: #34505f; }
+.ias-btn[hidden] { display: none; }

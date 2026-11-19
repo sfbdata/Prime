@@ -13,6 +13,7 @@ use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\Service\PoliticaDeCadastro;
 use App\Entity\Auth\User;
+use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -61,7 +62,7 @@ final class SecurityController extends AbstractController
             'cadastro' => $cadastro,
             'abrir' => $this->passoParaAbrir($request),
             // Cupom de indicação na URL (desenho 10 VS 25.10.26): o JS abre o "Criar conta" com ele preenchido.
-            'cupom' => self::cupomDaUrl($request),
+            'cupom' => self::cupomDaUrl($request) ?: self::cupomDaSessao($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
             // Entrar com o Google (spec entrar-com-google, decisão do dono de 24/10): sem o cliente OAuth no servidor, a
             // tela não mostra nenhum botão do Google (nem o do cartão nem o do "Criar conta"). A URL aberta direto ainda
@@ -136,6 +137,20 @@ final class SecurityController extends AbstractController
         }
 
         return '';
+    }
+
+    /**
+     * Código que o link curto `/i/{codigo}` guardou na sessão, como `BJ-` + código (spec ia-liberada-por-indicacao, seção 8):
+     * a indicação só conta se a pessoa o vê no campo do "Criar conta". Vazio sem código. Não confere se existe.
+     */
+    private static function cupomDaSessao(Request $request): string
+    {
+        if (!$request->hasSession()) {
+            return '';
+        }
+        $codigo = CodigoDeIndicacao::doCupom($request->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
+
+        return $codigo !== null ? 'BJ-' . $codigo : '';
     }
 
     private function passoParaAbrir(Request $request): ?string

@@ -8,6 +8,19 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.59.0] - 2026-11-18
+
+### Adicionado
+
+- Conector de I.A. (spec mcp-remoto-oauth, PR 7): ferramenta `ler_documentos_e_modelos` (listar, ler PDF e imagem, lixeira da pasta, modelos de peça e o corpo de um modelo sem preencher), ferramenta `ler_processos` (buscar, detalhar com movimentações paginadas e para vincular) e a parte `publicacoes` do `ler_pasta`, que lê as publicações do Diário sem marcar como lidas.
+- PDF e imagem vão num bloco à parte da resposta (`ArquivoNaResposta`), fora do teto de 50 mil caracteres; o log guarda só o sha256 do arquivo.
+- `LeitorDeDocumentosDaPasta` aceita a porta do aceite (`PortaDaLeituraDeDocumentos`): a I.A. continua com o aceite da BlueJus I.A.; o conector usa a liberação do conector.
+- `ler_agenda`: o prazo sai com o status da tela da agenda (`agendado` ou `concluido`), não mais nulo quando está em aberto.
+
+### Corrigido
+
+- BlueJus IA do administrador (/admin/inteligencia): espaço no fim da tela para o botão Desligar do conector rolar até acima da bolha da Central, que o cobria.
+
 ## [2.58.1] - 2026-11-18
 
 ### Corrigido
@@ -2119,7 +2132,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.58.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.59.0...HEAD
+[2.59.0]: https://github.com/sfbdata/Prime/compare/v2.58.1...v2.59.0
 [2.58.1]: https://github.com/sfbdata/Prime/compare/v2.58.0...v2.58.1
 [2.58.0]: https://github.com/sfbdata/Prime/compare/v2.57.0...v2.58.0
 [2.57.0]: https://github.com/sfbdata/Prime/compare/v2.56.0...v2.57.0

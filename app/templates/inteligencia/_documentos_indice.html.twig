@@ -60,6 +60,10 @@
         {% endfor %}
     {% endif %}
 </div>
+{% set _iaSaldoLeitura = ia_saldo() %}
+{% if _iaSaldoLeitura is not null and _iaSaldoLeitura.seAplica %}
+    <p class="ia-docs-aceite" data-ia-aviso-saldo>{{ 'inteligencia.saldo.leitura_aviso'|trans }}</p>
+{% endif %}
 <div class="ia-docs-acoes">
     {% for c in [leitura, comando] %}
         {% set s = c.leConteudoDosArquivos ? saidaLeitura : saida %}

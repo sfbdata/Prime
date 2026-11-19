@@ -25,6 +25,11 @@ enum Disponibilidade: string
      * ia-anthropic-ligar §10.1, PR C). Em `limite_gratis` o orçamento é a parte grátis e não trava.
      */
     case OrcamentoAtingido = 'orcamento_atingido';
+    /**
+     * A pessoa gastou toda a I.A. gratuita a que tem direito (franquia + colegas indicados) e o escritório atual não
+     * tem plano pago (spec ia-liberada-por-indicacao §5). Responde 409 com este próprio código.
+     */
+    case SaldoDaPessoaEsgotado = 'saldo_da_pessoa_esgotado';
 
     public function estaDisponivel(): bool
     {
@@ -43,6 +48,7 @@ enum Disponibilidade: string
             self::LimiteAtingido => 'Limite diário de análises atingido',
             self::LimiteMensalAtingido => 'Limite mensal de análises atingido',
             self::OrcamentoAtingido => 'Orçamento mensal da BlueJus IA atingido; volta no dia 1º',
+            self::SaldoDaPessoaEsgotado => 'Sua I.A. gratuita acabou. Convide um colega para ganhar mais 3 peças.',
         };
     }
 

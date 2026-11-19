@@ -120,6 +120,8 @@ final class InteligenciaExtensionMemoriaTest extends JusPrimeWebTestCase
             true,
             $container->get(ConfiguracaoDaPlataformaDeIaRepository::class),
             new CustoDaIa('global'),
+            $container->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class),
+            $container->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class),
         );
 
         return new InteligenciaExtension(
@@ -128,6 +130,8 @@ final class InteligenciaExtensionMemoriaTest extends JusPrimeWebTestCase
             $container->get(TenantContext::class),
             $container->get(ObterAnalisesRecolhidasUseCase::class),
             $container->get(VisibilidadeDaAnaliseDaPasta::class),
+            $container->get(\App\Inteligencia\Service\SaldoDeIaDaPessoa::class),
+            $container->get(\App\Contribua\Service\PlanoPagoDoEscritorio::class),
         );
     }
 }

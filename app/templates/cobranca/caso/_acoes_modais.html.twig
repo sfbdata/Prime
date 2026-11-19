@@ -55,7 +55,7 @@
             {{ form_errors(attribute(formEncargos, reaisCampo)) }}
             <div class="d-flex align-items-center justify-content-between mt-1">
                 <small class="text-muted jp-taxa-herda">{{ 'cobranca_objeto.modais.encargos.herda'|trans }}</small>
-                <button type="button" class="btn btn-link btn-sm p-0 jp-taxa-limpar"
+                <button type="button" class="bjp-btn bjp-btn--discreto p-0 jp-taxa-limpar"
                         aria-label="{{ 'cobranca_objeto.modais.encargos.limpar_rotulo'|trans({encargo: encargo.rotulo}) }}">{{ 'cobranca_objeto.modais.encargos.limpar'|trans }}</button>
             </div>
         </div>
@@ -84,8 +84,8 @@
                 {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, caso.baseHonorariosComposta, caso.carenciaHonorariosDias) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
             </div>
             {{ form_end(forms.registrarObrigacao) }}
         </div>
@@ -125,8 +125,8 @@
                 {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.salvar_correcao'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.salvar_correcao'|trans }}</button>
             </div>
             {{ form_end(forms.editarObrigacao) }}
         </div>
@@ -149,8 +149,8 @@
                     <input type="text" name="motivo" id="motivoExcluirObrigacao" class="form-control" maxlength="255" required placeholder="{{ 'cobranca_objeto.modais.motivo_exclusao_placeholder'|trans }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.modais.excluir'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-trash"></i>{{ 'cobranca_objeto.modais.excluir'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -174,8 +174,8 @@
                 {{ form_row(forms.encerrarCaso.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.modais.encerrar_caso'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-flag"></i>{{ 'cobranca_objeto.modais.encerrar_caso'|trans }}</button>
             </div>
             {{ form_end(forms.encerrarCaso) }}
         </div>
@@ -196,8 +196,8 @@
                 {{ form_row(forms.definirProximaAcao.prazo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.definir'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.definir'|trans }}</button>
             </div>
             {{ form_end(forms.definirProximaAcao) }}
         </div>
@@ -223,8 +223,8 @@
                 {{ form_row(forms.concluirAcao.proximoPrazo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.concluir'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.concluir'|trans }}</button>
             </div>
             {{ form_end(forms.concluirAcao) }}
         </div>
@@ -247,8 +247,8 @@
                 {{ form_row(forms.alterarPessoa.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.alterar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.alterar'|trans }}</button>
             </div>
             {{ form_end(forms.alterarPessoa) }}
         </div>
@@ -321,8 +321,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.judicializar.botao'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.judicializar.botao'|trans }}</button>
             </div>
             {{ form_end(forms.judicializar) }}
         </div>
@@ -348,8 +348,8 @@
                 {{ form_row(forms.cancelarJudicializacao.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.modais.cancelar_judicializacao.titulo'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-x-octagon"></i>{{ 'cobranca_objeto.modais.cancelar_judicializacao.titulo'|trans }}</button>
             </div>
             {{ form_end(forms.cancelarJudicializacao) }}
         </div>
@@ -373,8 +373,8 @@
                 {{ form_row(forms.registrarTentativa.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
             </div>
             {{ form_end(forms.registrarTentativa) }}
         </div>
@@ -417,8 +417,8 @@
                     {% else %}
                         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
                             <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_objeto.modais.acordo.selecao'|trans }}">
-                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="todas">{{ 'cobranca_objeto.modais.acordo.selecionar_todas'|trans }}</button>
-                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="nenhuma">{{ 'cobranca_objeto.modais.acordo.limpar'|trans }}</button>
+                                <button type="button" class="bjp-btn bjp-btn--secundario" data-acordo-selecao="todas">{{ 'cobranca_objeto.modais.acordo.selecionar_todas'|trans }}</button>
+                                <button type="button" class="bjp-btn bjp-btn--secundario" data-acordo-selecao="nenhuma">{{ 'cobranca_objeto.modais.acordo.limpar'|trans }}</button>
                             </div>
                             <span class="cob-acordo-selecionado">
                                 {{ 'cobranca_objeto.modais.acordo.selecionado'|trans }} <strong data-acordo-total-selecionado>{{ 0|centavos }}</strong>
@@ -480,8 +480,8 @@
                             <span class="form-text mb-0">
                                 {{ 'cobranca_objeto.modais.acordo.total_ajuda'|trans }}
                             </span>
-                            <button type="button" class="btn jp-btn-accent" id="acordoGerar">
-                                <i class="bi bi-magic me-1"></i>{{ 'cobranca_objeto.modais.acordo.gerar_parcelas'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--primario" id="acordoGerar">
+                                <i class="bi bi-magic"></i>{{ 'cobranca_objeto.modais.acordo.gerar_parcelas'|trans }}
                             </button>
                         </div>
                         <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
@@ -501,12 +501,12 @@
                          data-index="{{ forms.acordoCriar.parcelas|length }}">
                         {% for parcela in forms.acordoCriar.parcelas %}
                         <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.modais.acordo.remover'|trans }}</button>
+                            <button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">{{ 'cobranca_objeto.modais.acordo.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.acordoCriar.parcelas) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.modais.acordo.adicionar_parcela'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" id="addParcela"><i class="bi bi-plus-lg"></i>{{ 'cobranca_objeto.modais.acordo.adicionar_parcela'|trans }}</button>
                     <div class="form-text">{{ 'cobranca_objeto.modais.acordo.parcela_fixa_ajuda'|trans }}</div>
                 </section>
 
@@ -518,8 +518,8 @@
                    que "Criar acordo" está desabilitado. Antes ficava no fim do corpo, fora de vista quando o
                    modal rolava. O gancho `data-acordo-fechamento` é o mesmo — o JS não muda. #}
                 <div class="small flex-grow-1" data-acordo-fechamento></div>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.acordo.criar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.modais.acordo.criar'|trans }}</button>
             </div>
             {{ form_end(forms.acordoCriar) }}
         </div>
@@ -540,8 +540,8 @@
                 {{ form_row(forms.romperAcordo.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.acordo.romper'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-x-octagon"></i>{{ 'cobranca_objeto.acordo.romper'|trans }}</button>
             </div>
             {{ form_end(forms.romperAcordo) }}
         </div>
@@ -562,8 +562,8 @@
                 {{ form_row(forms.cancelarAcordo.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.fechar'|trans }}</button>
-                <button type="submit" class="btn btn-warning"><i class="bi bi-slash-circle me-1"></i>{{ 'cobranca_objeto.acordo.cancelar_titulo'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.fechar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--secundario"><i class="bi bi-slash-circle"></i>{{ 'cobranca_objeto.acordo.cancelar_titulo'|trans }}</button>
             </div>
             {{ form_end(forms.cancelarAcordo) }}
         </div>

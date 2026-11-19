@@ -4,11 +4,11 @@
    geridos pelas listas (SPEC §6). Contexto herdado do show: `pessoa` (PessoaFichaOutput) e
    `formQualificacao` (EditarQualificacaoPessoaType).
 ─────────────────────────────────────────────────────────────────────────── #}
-<div class="card cobranca-card mb-3">
-    <div class="card-header fw-semibold">
+<div class="bjp-painel cobranca-card mb-3">
+    <div class="bjp-painel-cabeca fw-semibold">
         <i class="bi bi-person-badge me-1"></i>{{ 'cobranca_pessoa.qualificacao.titulo'|trans }}
     </div>
-    <div class="card-body">
+    <div class="bjp-painel-corpo">
         {{ form_start(formQualificacao, {
             action: path('cobranca_pessoa_qualificacao_editar', {id: pessoa.id}),
             attr: {'data-disable-on-submit': 'true'},
@@ -29,7 +29,7 @@
         </div>
         {{ form_row(formQualificacao.observacao) }}
         <div class="mt-2">
-            <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.qualificacao.salvar'|trans }}</button>
+            <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_pessoa.qualificacao.salvar'|trans }}</button>
         </div>
         {{ form_end(formQualificacao) }}
     </div>

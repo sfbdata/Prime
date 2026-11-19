@@ -150,6 +150,8 @@
     <div class="bj-central-despacho" data-central-tela-despacho hidden></div>
 
     <div class="bj-central-conversa-tela" data-central-tela-conversa hidden>
+        {# Barra de uso da I.A. gratuita: só na conversa com a BlueJus IA (central.js mostra/esconde). #}
+        <div data-central-ia-saldo hidden>{{ include('inteligencia/_barra_de_uso.html.twig') }}</div>
         <div class="bj-central-corpo" data-central-corpo aria-live="polite"></div>
         <div class="bj-central-rodape" data-central-rodape>
             {# A2: faixa "Respondendo a…" e, dentro do compositor, a lista de @menção — preenchidas por central.js #}
@@ -176,4 +178,5 @@
             </form>
         </div>
     </div>
+    {{ include('inteligencia/_janela_saldo_esgotado.html.twig') }}
 </section>

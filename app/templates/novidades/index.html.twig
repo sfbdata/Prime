@@ -6,14 +6,7 @@
 {% block title %}{{ 'novidades.titulo'|trans }} | BlueJus{% endblock %}
 
 {% block stylesheets %}
-<style>
-    .novidades-pagina { max-width: 52rem; margin: 0 auto; padding: 1.5rem 0 4rem; }
-    .novidades-versao { border-left: 3px solid var(--bs-primary); padding: .25rem 0 .25rem 1.25rem; margin-bottom: 2rem; }
-    .novidades-versao h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: .15rem; }
-    .novidades-versao .novidades-data { color: var(--bs-secondary-color); font-size: .875rem; }
-    .novidades-versao ul { margin: .75rem 0 0; padding-left: 1.1rem; line-height: 1.6; }
-    .novidades-versao li + li { margin-top: .35rem; }
-</style>
+<link rel="stylesheet" href="{{ asset('css/novidades.css') }}">
 {% endblock %}
 
 {% block body %}

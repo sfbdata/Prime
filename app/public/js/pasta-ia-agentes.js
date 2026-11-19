@@ -526,6 +526,12 @@
                     var d = res.dados;
                     if (!res.ok) {
                         var texto = d.mensagem || BJ_T.t('inteligencia.js.agentes.falha_pedir');
+                        /* Saldo da I.A. gratuita esgotado: janela da trava (ia-saldo.js) no lugar do aviso. */
+                        if (window.BJIaSaldo && window.BJIaSaldo.recusou(d)) {
+                            botaoCarregando(botao, false);
+                            sincronizarBotao(secao);
+                            return;
+                        }
                         avisar(texto, true);
                         if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) {
                             travarTodos(texto, d.motivo);

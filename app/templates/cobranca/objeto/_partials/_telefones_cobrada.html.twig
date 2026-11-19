@@ -37,7 +37,7 @@
    `show` e as respostas AJAX) herdam a mesma ordem, e a ficha da pessoa não é afetada. #}
 {% set telefonesEmOrdem = ficha.telefones|filter(t => t.atual)|merge(ficha.telefones|filter(t => not t.atual)) %}
 <div class="cob-resp-telefones mt-3">
-    <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>{{ 'cobranca_objeto.telefones.titulo'|trans }} <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
+    <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>{{ 'cobranca_objeto.telefones.titulo'|trans }} <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ ficha.telefones|length }}</span></h6>
     {% if ficha.telefones|length > 0 %}
     {# A lista encolhe até o conteúdo (`width: fit-content` no CSS): esticada na largura toda ela
        deixava um vão morto enorme à direita de números de 8-9 dígitos. #}
@@ -69,7 +69,7 @@
                 {# O selo `Atual` é INFORMAÇÃO, não ação: mudou de lado junto com o hover das ações
                    (2026-07-28). No grupo de ações ele sumiria com os botões, e o "qual é o número bom"
                    é justamente o que a linha precisa dizer sem passar o mouse. #}
-                {% if t.atual %}<span class="badge text-bg-success ms-1" data-selo="telefone-atual">{{ 'cobranca_objeto.telefones.atual'|trans }}</span>{% endif %}
+                {% if t.atual %}<span class="bjp-etiqueta bjp-etiqueta--ok ms-1" data-selo="telefone-atual">{{ 'cobranca_objeto.telefones.atual'|trans }}</span>{% endif %}
             </div>
             {# Ações: fora do fluxo e transparentes até o hover/foco da linha (§CSS `.cob-resp-telefone-acoes`).
                Fora do fluxo porque, reservando espaço, a linha voltaria a ser tão larga quanto antes. #}
@@ -81,14 +81,14 @@
                 <form method="POST" action="{{ path('cobranca_objeto_telefone_atual', {id: objetoId, itemId: t.id}) }}"
                       data-form="marcar-telefone" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">{{ 'cobranca_objeto.telefones.marcar_atual'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--secundario" data-acao="marcar-telefone-atual">{{ 'cobranca_objeto.telefones.marcar_atual'|trans }}</button>
                 </form>
                 {% endif %}
                 {# Editar e excluir GANHARAM ROTA em 2026-07-28 (antes eram botões desabilitados).
                    `data-bs-toggle` é do collapse/modal, então o rótulo vai em `title`/`aria-label`,
                    e não em tooltip do Bootstrap — que disputaria o mesmo atributo. #}
                 {% if podeAbrirFicha %}
-                <button type="button" class="btn btn-sm btn-outline-secondary"
+                <button type="button" class="bjp-ico bjp-btn--secundario"
                         data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}"
                         aria-expanded="false" aria-controls="editarTelefone{{ t.id }}"
                         data-acao="editar-telefone" aria-label="{{ 'cobranca_objeto.telefones.editar'|trans }}" title="{{ 'cobranca_objeto.telefones.corrigir_dica'|trans }}">
@@ -97,7 +97,7 @@
                 {# A confirmação de exclusão é um modal compartilhado no `show` (mesmo padrão da
                    anotação): o clique injeta ação, token e o número que vai sumir. `confirm()` do
                    navegador não diria QUAL número está prestes a ir embora. #}
-                <button type="button" class="btn btn-sm btn-outline-danger js-excluir-telefone"
+                <button type="button" class="bjp-ico bjp-btn--destrutivo js-excluir-telefone"
                         data-acao="excluir-telefone" aria-label="{{ 'cobranca_objeto.telefones.excluir'|trans }}" title="{{ 'cobranca_objeto.telefones.excluir_dica'|trans }}"
                         data-url="{{ path('cobranca_objeto_telefone_excluir', {id: objetoId, itemId: t.id}) }}"
                         data-token="{{ csrf_token('excluir_telefone_' ~ t.id) }}"
@@ -127,13 +127,13 @@
                         <input type="radio" class="btn-check" name="tipo" value="{{ opcao.value }}"
                                id="tipoTel{{ t.id }}{{ opcao.value }}" autocomplete="off"
                                {{ t.tipo == opcao ? 'checked' : '' }}>
-                        <label class="btn btn-outline-secondary" for="tipoTel{{ t.id }}{{ opcao.value }}">
+                        <label class="bjp-btn bjp-btn--secundario" for="tipoTel{{ t.id }}{{ opcao.value }}">
                             <i class="bi {{ opcao.icone() }} me-1"></i>{{ opcao.label() }}
                         </label>
                         {% endfor %}
                     </div>
-                    <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.telefones.salvar'|trans }}</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.telefones.salvar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario"
                             data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
                 </form>
             </div>
@@ -170,7 +170,7 @@
        ("Adicionar telefone. Clique em + para adicionar.") só faria barulho em leitor de tela. #}
     {% if formTelefoneCobrada is not null %}
     <div class="cob-resp-telefone-adicionar d-flex align-items-center gap-2 flex-wrap mt-2">
-        <button type="button" class="btn btn-sm cob-resp-telefone-add"
+        <button type="button" class="bjp-ico bjp-btn--secundario cob-resp-telefone-add"
                 data-bs-toggle="collapse" data-bs-target="#cobRespTelefoneNovo"
                 aria-expanded="false" aria-controls="cobRespTelefoneNovo"
                 data-acao="abrir-novo-telefone" aria-label="{{ 'cobranca_objeto.telefones.adicionar'|trans }}" title="{{ 'cobranca_objeto.telefones.adicionar'|trans }}">
@@ -212,12 +212,12 @@
                o clique marca a caixa errada, em silêncio. #}
             {% set idOpcao = 'cobRespTelefoneTipo' ~ opcao.vars.value %}
             {{ form_widget(opcao, {id: idOpcao, attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
-            <label class="btn btn-outline-secondary" for="{{ idOpcao }}">
+            <label class="bjp-btn bjp-btn--secundario" for="{{ idOpcao }}">
                 <i class="bi {{ caso.icone() }} me-1"></i>{{ opcao.vars.label }}
             </label>
             {% endfor %}
         </div>
-        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.telefones.adicionar'|trans }}</button>
+        <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-plus-lg"></i>{{ 'cobranca_objeto.telefones.adicionar'|trans }}</button>
         {# O token sai explícito só para levar id próprio — mesmo motivo dos campos acima. Renderizado
            aqui, o `form_end` não o repete (campo já renderizado não volta no `form_rest`). #}
         {{ form_widget(formTelefoneCobrada._token, {id: 'cobRespTelefoneToken'}) }}

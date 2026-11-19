@@ -242,7 +242,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
                 return new Envelope($message, $stamps);
             }
         };
-        $disponibilidade = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa($plataformaLigada), new CustoDaIa('us'));
+        $disponibilidade = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa($plataformaLigada), new CustoDaIa('us'), $this->planoPagoNoTeste(), $this->saldoNoTeste());
 
         return new PerguntarABlueJusIaUseCase(
             $acesso,

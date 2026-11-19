@@ -83,17 +83,17 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/admin/inteligencia');
 
         self::assertResponseIsSuccessful();
-        $blocos = $crawler->filter('section.content > div.container-fluid > div.card');
+        $blocos = $crawler->filter('section.content > div.container-fluid > div.bjp-painel');
         self::assertSame(['ia-estado', 'ia-consumo', 'ia-configuracao', 'conector-escritorio'], $blocos->each(static fn ($b): ?string => $b->attr('id')));
-        $consumo = $crawler->filter('section.content > div.container-fluid > div.card#ia-consumo');
-        self::assertSame('Consumo do mês', trim($consumo->filter('div.card#ia-consumo > div.card-header > strong')->text()));
-        $dl = $consumo->filter('div.card#ia-consumo > div.card-body > dl.row');
+        $consumo = $crawler->filter('section.content > div.container-fluid > div.bjp-painel#ia-consumo');
+        self::assertSame('Consumo do mês', trim($consumo->filter('div.bjp-painel#ia-consumo > div.bjp-painel-cabeca > h3.bjp-painel-titulo')->text()));
+        $dl = $consumo->filter('div.bjp-painel#ia-consumo > div.bjp-painel-corpo > dl.row');
         self::assertSame(['Análises no mês', 'Gasto estimado', 'Orçamento mensal', 'Cobrança'], $dl->filter('dl.row > dt')->each(static fn ($c): string => trim($c->text())));
         self::assertSame('1 de 300', trim($dl->filter('dl.row > dd[data-ia-consumo="analises"]')->text()));
         self::assertSame('US$ 0,01', trim($dl->filter('dl.row > dd[data-ia-consumo="gasto"]')->text()), 'o gasto do outro escritório não entra');
         self::assertSame('US$ 12,50', trim($dl->filter('dl.row > dd[data-ia-consumo="orcamento"]')->text()));
         self::assertSame('Adicional pago', trim($dl->filter('dl.row > dd[data-ia-consumo="modo"]')->text()));
-        self::assertSame('Valores estimados pelo preço de tabela da Anthropic.', trim($consumo->filter('div.card#ia-consumo > div.card-body > p#ia-consumo-nota')->text()));
+        self::assertSame('Valores estimados pelo preço de tabela da Anthropic.', trim($consumo->filter('div.bjp-painel#ia-consumo > div.bjp-painel-corpo > p#ia-consumo-nota')->text()));
         self::assertStringNotContainsString('—', $consumo->text());
         self::assertStringNotContainsString('–', $consumo->text());
     }
@@ -109,7 +109,7 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/admin/inteligencia');
 
         self::assertResponseIsSuccessful();
-        $dl = $crawler->filter('section.content > div.container-fluid > div.card#ia-consumo > div.card-body > dl.row');
+        $dl = $crawler->filter('section.content > div.container-fluid > div.bjp-painel#ia-consumo > div.bjp-painel-corpo > dl.row');
         self::assertSame(0, $dl->filter('dl.row > dd[data-ia-consumo="orcamento"]')->count());
         self::assertSame('US$ 0,00', trim($dl->filter('dl.row > dd[data-ia-consumo="gasto"]')->text()));
         self::assertSame('Incluso no plano', trim($dl->filter('dl.row > dd[data-ia-consumo="modo"]')->text()));

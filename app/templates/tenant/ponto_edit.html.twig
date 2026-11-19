@@ -20,15 +20,14 @@
     <div class="container-fluid">
         <div class="row justify-content-center">
             <div class="col-lg-5 col-md-7">
-                <div class="card card-outline card-warning">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="bi bi-clock-history me-2"></i>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-clock-history"></i><h3 class="bjp-painel-titulo">
                             {{ rotulosBatida[tipoAtual] ?? tipoAtual }}: {{ dataHoraAtual|date('d/m/Y H:i:s') }}
                         </h3>
                     </div>
                     {{ form_start(form) }}
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         {{ form_errors(form) }}
                         <div class="row g-3 mb-3">
                             <div class="col-6">
@@ -56,13 +55,13 @@
                         <input type="hidden" name="cabeca" value="{{ cabeca }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('ponto_ajustar') }}">
                     </div>
-                    <div class="card-footer d-flex justify-content-between gap-2">
+                    <div class="bjp-painel-pe d-flex justify-content-between gap-2">
                         <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia, tab: 'ponto'}) }}"
-                           class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                           class="bjp-btn bjp-btn--secundario">
+                            <i class="bi bi-arrow-left"></i>Cancelar
                         </a>
-                        <button type="submit" class="btn btn-warning">
-                            <i class="bi bi-save me-1"></i>Salvar ajuste
+                        <button type="submit" class="bjp-btn bjp-btn--secundario">
+                            <i class="bi bi-save"></i>Salvar ajuste
                         </button>
                     </div>
                     {{ form_end(form) }}

@@ -1,12 +1,12 @@
-<div class="card card-outline card-warning mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h3 class="card-title mb-0"><i class="bi bi-clock me-2"></i>Jornada Personalizada</h3>
+<div class="bjp-painel mb-3">
+    <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-clock me-2"></i>Jornada Personalizada</h3>
         {# Aparece também quando só há versão agendada (o JS confere o histórico ao carregar). #}
-        <button type="button" class="btn btn-sm btn-outline-danger{{ userHasCustomEscala ? '' : ' d-none' }}" id="btnLimparEscala">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar jornada personalizada
+        <button type="button" class="bjp-btn bjp-btn--destrutivo{{ userHasCustomEscala ? '' : ' d-none' }}" id="btnLimparEscala">
+            <i class="bi bi-arrow-counterclockwise"></i>Limpar jornada personalizada
         </button>
     </div>
-    <div class="card-body">
+    <div class="bjp-painel-corpo">
 
         {# Chave "Registra ponto eletrônico" da pessoa NESTE escritório (spec seguranca-b-jornada §3.4) #}
         <div class="form-check form-switch mb-3">
@@ -39,7 +39,7 @@
         <div id="escalaFormContainer" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0" id="escalaModoTitulo">Nova versão da jornada</h6>
-                <button type="button" class="btn btn-sm btn-link d-none" id="btnCancelarEdicaoEscala">Cancelar edição</button>
+                <button type="button" class="bjp-btn bjp-btn--discreto d-none" id="btnCancelarEdicaoEscala">Cancelar edição</button>
             </div>
 
             <div class="row g-3 mb-4">
@@ -66,8 +66,8 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">Blocos de horário</h6>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarBlocoEscala">
-                    <i class="bi bi-plus-lg me-1"></i>Adicionar bloco
+                <button type="button" class="bjp-btn bjp-btn--secundario" id="btnAdicionarBlocoEscala">
+                    <i class="bi bi-plus-lg"></i>Adicionar bloco
                 </button>
             </div>
 
@@ -100,20 +100,20 @@
         </div>
 
     </div>
-    <div class="card-footer d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-warning" id="btnSalvarEscala" disabled>
-            <i class="bi bi-save me-1"></i>Salvar Jornada
+    <div class="bjp-painel-pe d-flex justify-content-end gap-2">
+        <button type="button" class="bjp-btn bjp-btn--secundario" id="btnSalvarEscala" disabled>
+            <i class="bi bi-save"></i>Salvar Jornada
         </button>
     </div>
 </div>
 
 {# Template JS para um bloco de jornada do colaborador #}
 <template id="tmplBlocoEscala">
-    <div class="bloco-escala card mb-3" data-bloco-idx="">
-        <div class="card-body pb-2">
+    <div class="bjp-painel bloco-escala mb-3" data-bloco-idx="">
+        <div class="bjp-painel-corpo pb-2">
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <span class="fw-semibold text-muted small">Bloco <span class="bloco-num"></span></span>
-                <button type="button" class="btn btn-sm btn-outline-danger btn-remover-bloco-escala">
+                <button type="button" class="bjp-ico bjp-btn--destrutivo btn-remover-bloco-escala">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -373,9 +373,9 @@
     function botaoDoHistorico(texto, classes, icone, aoClicar) {
         const botao = document.createElement('button');
         botao.type = 'button';
-        botao.className = 'btn btn-sm ' + classes;
+        botao.className = 'bjp-btn ' + classes;
         const i = document.createElement('i');
-        i.className = 'bi ' + icone + ' me-1';
+        i.className = 'bi ' + icone;
         botao.append(i, texto);
         botao.addEventListener('click', aoClicar);
         return botao;
@@ -420,9 +420,9 @@
 
             const acoes = document.createElement('td');
             acoes.className = 'text-end text-nowrap';
-            acoes.appendChild(botaoDoHistorico('Editar', 'btn-outline-primary', 'bi-pencil', () => editarVersao(versao)));
+            acoes.appendChild(botaoDoHistorico('Editar', 'bjp-btn--secundario', 'bi-pencil', () => editarVersao(versao)));
             if (versoes.length > 1) {
-                acoes.appendChild(botaoDoHistorico('Excluir', 'btn-outline-danger ms-1', 'bi-trash', ev => excluirVersao(versao, ev.currentTarget)));
+                acoes.appendChild(botaoDoHistorico('Excluir', 'bjp-btn--destrutivo ms-1', 'bi-trash', ev => excluirVersao(versao, ev.currentTarget)));
             }
 
             const tr = document.createElement('tr');

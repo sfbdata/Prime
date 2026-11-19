@@ -8,7 +8,7 @@
         <div class="row mb-2">
             <div class="col-sm-6">
                 <h1 class="m-0">
-                    <span class="badge" style="background-color: {{ evento.cor }};">&nbsp;</span>
+                    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color: {{ evento.cor }};"></span>
                     {{ evento.titulo }}
                 </h1>
             </div>
@@ -34,21 +34,22 @@
 
         <div class="row">
             <div class="col-md-8">
-                <div class="card card-primary card-outline">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-calendar-event me-1"></i> {{ 'agenda.show.detalhes_evento'|trans }}</h3>
-                        <div class="card-tools">
-                            <span class="badge {{ evento.statusBadgeClass }}">{{ evento.statusLabel }}</span>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-calendar-event"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.show.detalhes_evento'|trans }}</h3>
+                        <div class="bjp-painel-acoes">
+                            {% set _nivelStatus = {agendado: 'info', concluido: 'ok', cancelado: 'critico'}[evento.status] ?? 'neutro' %}<span class="bjp-etiqueta bjp-etiqueta--{{ _nivelStatus }}">{{ evento.statusLabel }}</span>
                         </div>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         {# Info Boxes #}
                         <div class="row">
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-body-tertiary">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.inicio'|trans }}</span>
-                                        <span class="info-box-number text-center text-muted mb-0">
+                                <div class="mb-3">
+                                    <div>
+                                        <span class="bjp-rotulo d-block">{{ 'agenda.comum.inicio'|trans }}</span>
+                                        <span class="d-block fw-bold" style="font-size:13.5px;color:#12242f">
                                             {{ evento.dataInicio|data }}
                                             {% if not evento.diaInteiro %}
                                             <br><small>{{ evento.dataInicio|hora }}</small>
@@ -58,10 +59,10 @@
                                 </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-body-tertiary">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.fim'|trans }}</span>
-                                        <span class="info-box-number text-center text-muted mb-0">
+                                <div class="mb-3">
+                                    <div>
+                                        <span class="bjp-rotulo d-block">{{ 'agenda.comum.fim'|trans }}</span>
+                                        <span class="d-block fw-bold" style="font-size:13.5px;color:#12242f">
                                             {{ evento.dataFim|data }}
                                             {% if not evento.diaInteiro %}
                                             <br><small>{{ evento.dataFim|hora }}</small>
@@ -71,10 +72,10 @@
                                 </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-body-tertiary">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.participantes'|trans }}</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ evento.participantes|length }}</span>
+                                <div class="mb-3">
+                                    <div>
+                                        <span class="bjp-rotulo d-block">{{ 'agenda.comum.participantes'|trans }}</span>
+                                        <span class="d-block fw-bold" style="font-size:13.5px;color:#12242f">{{ evento.participantes|length }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -125,16 +126,16 @@
                         </div>
                         {% endif %}
                     </div>
-                    <div class="card-footer">
+                    <div class="bjp-painel-pe">
                         {% if podeGerenciar ?? false %}
                         <a href="{{ path('agenda_editar', {id: evento.id}) }}"
-                           class="btn btn-outline-primary btn-sm"
+                           class="bjp-btn bjp-btn--secundario"
                            title="{{ 'agenda.comum.editar_evento'|trans }}"
                            aria-label="{{ 'agenda.comum.editar_evento'|trans }}">
                             <i class="bi bi-pencil me-1"></i> {{ 'agenda.comum.editar'|trans }}
                         </a>
                         {% endif %}
-                        <a href="{{ path('agenda_index') }}" class="btn btn-secondary">
+                        <a href="{{ path('agenda_index') }}" class="bjp-btn bjp-btn--discreto">
                             <i class="bi bi-arrow-left me-1"></i> {{ 'agenda.show.voltar_calendario'|trans }}
                         </a>
                     </div>
@@ -142,17 +143,18 @@
             </div>
 
             <div class="col-md-4">
-                <div class="card card-outline card-secondary">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.comum.informacoes'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-info-circle"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.comum.informacoes'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <p><strong>{{ 'agenda.comum.criado_por'|trans }}</strong> {{ evento.criador.fullName }}</p>
                         <p><strong>{{ 'agenda.comum.criado_em'|trans }}</strong> {{ evento.criadoEm|data_hora }}</p>
                         {% if evento.modificadoEm %}
                         <p><strong>{{ 'agenda.comum.modificado_em'|trans }}</strong> {{ evento.modificadoEm|data_hora }}</p>
                         {% endif %}
-                        <p><strong>{{ 'agenda.show.cor'|trans }}</strong> <span class="badge" style="background-color: {{ evento.cor }};">&nbsp;&nbsp;&nbsp;</span></p>
+                        <p><strong>{{ 'agenda.show.cor'|trans }}</strong> <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color: {{ evento.cor }};"></span></p>
                         {% if evento.diaInteiro %}
                         <p><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.show.dia_inteiro'|trans }}</p>
                         {% endif %}
@@ -160,21 +162,22 @@
                 </div>
 
                 {% if evento.status != 'cancelado' and (podeGerenciar ?? false) %}
-                <div class="card card-outline card-danger">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'agenda.comum.acoes'|trans }}</h3>
+                <div class="bjp-painel">
+                    <div class="bjp-painel-cabeca">
+                        <i class="bi bi-exclamation-triangle"></i>
+<h3 class="bjp-painel-titulo">{{ 'agenda.comum.acoes'|trans }}</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="bjp-painel-corpo">
                         <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="mb-2">
                             <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
-                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('{{ 'agenda.comum.cancelar_confirmar'|trans|e('js') }}')">
+                            <button type="submit" class="bjp-btn bjp-btn--destrutivo w-100" onclick="return confirm('{{ 'agenda.comum.cancelar_confirmar'|trans|e('js') }}')">
                                 <i class="bi bi-x-circle me-1"></i> {{ 'agenda.comum.cancelar_evento'|trans }}
                             </button>
                         </form>
                         <form method="POST" action="{{ path('agenda_excluir', {id: evento.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ evento.id) }}">
                             <button type="submit"
-                                    class="btn btn-outline-danger w-100"
+                                    class="bjp-btn bjp-btn--destrutivo w-100"
                                     aria-label="{{ 'agenda.comum.excluir_permanentemente'|trans }}"
                                     onclick="return confirm('{{ 'agenda.comum.excluir_confirmar'|trans|e('js') }}')">
                                 <i class="bi bi-trash me-1"></i> {{ 'agenda.comum.excluir_evento'|trans }}
