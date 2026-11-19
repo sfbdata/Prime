@@ -1,0 +1,35 @@
+# Bandeira do idioma no topo e "Opções avançadas" do Meu Perfil (spec docs/specs/sistema-em-ingles.md).
+opcoes_avancadas:
+    bandeira:
+        rotulo: 'Idioma: {idioma}'
+    rotulo: Opções avançadas
+    sub: Idioma, fuso horário, formato de data e de valores
+    titulo: Opções avançadas
+    idioma: Idioma
+    fuso_rotulo: Fuso horário
+    fuso_nota: Vale para a hora dos registros. Prazos, audiências e os campos de digitar data e hora continuam no horário de Brasília.
+    data_rotulo: Formato de data
+    numero_rotulo: Números e valores
+    numero_exemplo: 'R$ {exemplo}'
+    numero_nota: Os valores continuam em reais. Muda só a forma de escrever o número.
+    automatico: Automático (pelo idioma)
+    salvar: Salvar
+    erro_token: Sua sessão expirou. Recarregue a página e tente de novo.
+    erro_pedido: Pedido inválido.
+    erro_idioma: Este idioma ainda não está disponível.
+    erro_opcao: Escolha uma das opções da lista.
+    fuso:
+        brasilia: Brasília
+        noronha: Fernando de Noronha
+        manaus: Manaus
+        rio_branco: Rio Branco
+        lisboa: Lisboa
+        londres: Londres
+        madri: Madri
+        nova_york: Nova York
+        chicago: Chicago
+        denver: Denver
+        los_angeles: Los Angeles
+        utc: UTC
+    js:
+        erro: Não foi possível salvar as opções. Tente de novo.

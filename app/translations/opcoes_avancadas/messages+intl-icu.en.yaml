@@ -1,0 +1,35 @@
+# Language flag on the top bar and "Advanced options" in My Profile (spec docs/specs/sistema-em-ingles.md).
+opcoes_avancadas:
+    bandeira:
+        rotulo: 'Language: {idioma}'
+    rotulo: Advanced options
+    sub: Language, time zone, date and number format
+    titulo: Advanced options
+    idioma: Language
+    fuso_rotulo: Time zone
+    fuso_nota: Applies to the time of records. Deadlines, hearings and the date and time fields stay in Brasília time.
+    data_rotulo: Date format
+    numero_rotulo: Numbers and amounts
+    numero_exemplo: 'R$ {exemplo}'
+    numero_nota: Amounts stay in Brazilian reais. Only the way the number is written changes.
+    automatico: Automatic (by language)
+    salvar: Save
+    erro_token: Your session has expired. Reload the page and try again.
+    erro_pedido: Invalid request.
+    erro_idioma: This language is not available yet.
+    erro_opcao: Choose one of the options on the list.
+    fuso:
+        brasilia: Brasília
+        noronha: Fernando de Noronha
+        manaus: Manaus
+        rio_branco: Rio Branco
+        lisboa: Lisbon
+        londres: London
+        madri: Madrid
+        nova_york: New York
+        chicago: Chicago
+        denver: Denver
+        los_angeles: Los Angeles
+        utc: UTC
+    js:
+        erro: Could not save the options. Please try again.

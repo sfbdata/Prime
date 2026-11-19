@@ -1,0 +1,16 @@
+{#
+    Bandeira do idioma em uso no topo (pedido do dono de 19/11/2026, spec docs/specs/sistema-em-ingles.md §1). Os
+    desenhos não têm bandeira: SVG próprio, sem emoji (no Windows a bandeira em emoji vira as letras "BR"). Idioma
+    sem bandeira desenhada mostra a sigla, como no modal. Recebe `idioma` (enum Idioma).
+#}
+<span class="navtop-bandeira" aria-hidden="true">
+{%- if idioma.value == 'pt-BR' -%}
+    <svg viewBox="0 0 20 14" width="20" height="14" focusable="false"><rect width="20" height="14" fill="#009b3a"/><path d="M10 1.6 18.4 7 10 12.4 1.6 7z" fill="#fedf00"/><circle cx="10" cy="7" r="3.4" fill="#002776"/></svg>
+{%- elseif idioma.value == 'en' -%}
+    <svg viewBox="0 0 20 14" width="20" height="14" focusable="false"><rect width="20" height="14" fill="#fff"/><path d="M0 0h20v2H0zM0 4h20v2H0zM0 8h20v2H0zM0 12h20v2H0z" fill="#b22234"/><rect width="9" height="8" fill="#3c3b6e"/></svg>
+{%- elseif idioma.value == 'es' -%}
+    <svg viewBox="0 0 20 14" width="20" height="14" focusable="false"><rect width="20" height="14" fill="#aa151b"/><rect y="3.5" width="20" height="7" fill="#f1bf00"/></svg>
+{%- else -%}
+    <span class="navtop-bandeira-sigla">{{ idioma.sigla }}</span>
+{%- endif -%}
+</span>

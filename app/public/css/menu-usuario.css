@@ -130,6 +130,22 @@
 .mu-idioma-nome { flex: 1; }
 .mu-idioma-breve { font-size: 11px; color: #7a8e9b; }
 
+/* Bandeira do idioma no topo (spec sistema-em-ingles §1; sem desenho: botão da barra, bandeira 20x14 com o raio da
+   sigla do modal, 2px). O contorno separa o branco da bandeira dos EUA do fundo claro (pedido A3, contraste). */
+.navtop-idioma { border: 0; background: transparent; padding: 0; cursor: pointer; }
+.navtop-bandeira { display: inline-flex; width: 20px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(18, 36, 47, .25); }
+.navtop-bandeira > svg { display: block; }
+.navtop-bandeira-sigla { width: 20px; height: 14px; background: #0a6fa0; color: #fff; font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+/* Opções avançadas (spec sistema-em-ingles §2; sem desenho: campos iguais aos do Meu Perfil, .mp-campo) */
+.mu-opcoes { display: grid; gap: 12px; }
+.mu-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; }
+.mu-campo > span { font-size: 12px; font-weight: 700; color: #4a6373; letter-spacing: .3px; }
+.mu-campo select { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 8px; font-size: 14px; color: #12242f; background: #fff; width: 100%; }
+.mu-campo select:focus { outline: none; border-color: #0a6fa0; box-shadow: 0 0 0 2px rgba(10, 111, 160, .15); }
+.mu-campo > small { font-size: 11.5px; color: #5b7383; line-height: 1.45; }
+.mu-opcoes .mu-acoes { margin-top: 4px; gap: 8px; }
+
 /* Em preparação (bj-recursos.js) */
 .mu-preparacao { position: relative; text-align: center; padding: 30px 26px; }
 .mu-modal-x-claro { position: absolute; top: 10px; right: 10px; background: #eef2f5; color: #34505f; }
@@ -182,6 +198,9 @@ html[data-bs-theme="dark"] .mu-idioma { background: var(--bs-body-bg); color: va
 html[data-bs-theme="dark"] .mu-conta.atual,
 html[data-bs-theme="dark"] .mu-idioma.atual { background: var(--bs-secondary-bg); border-color: #3aa0d8; }
 html[data-bs-theme="dark"] .mu-texto { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-campo > span,
+html[data-bs-theme="dark"] .mu-campo > small { color: var(--bs-secondary-color); }
+html[data-bs-theme="dark"] .mu-campo select { background: var(--bs-body-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mu-menu .mu-menu-x { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 html[data-bs-theme="dark"] .mu-abas { border-color: var(--bs-border-color); }
 
