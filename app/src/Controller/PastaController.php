@@ -100,6 +100,11 @@ use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use App\Pasta\UseCase\DefinirClientePrincipalUseCase;
+use App\Pasta\UseCase\DesvincularClienteDaPastaUseCase;
+use App\Pasta\UseCase\VincularClienteAPastaUseCase;
+use App\Pasta\Exception\ClienteJaVinculadoAPastaException;
+use App\Pasta\Exception\ClienteNaoVinculadoAPastaException;
+use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -778,7 +783,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/cliente/{cliente}/desvincular', name: 'pasta_cliente_desvincular', methods: ['POST'])]
-    public function desvincularCliente(Pasta $pasta, Cliente $cliente, Request $request): Response
+    public function desvincularCliente(Pasta $pasta, Cliente $cliente, Request $request, DesvincularClienteDaPastaUseCase $desvincularCliente): Response
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
@@ -796,25 +801,24 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
         }
 
-        if (!$pasta->getClientes()->contains($cliente)) {
-            if ($request->isXmlHttpRequest()) {
-                return $this->json(['erro' => 'Cliente não vinculado a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-            $this->addFlash('warning', 'Cliente não vinculado a esta pasta.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-        }
-
         // Desvincular o PRINCIPAL faz o servidor promover outro (Pasta::removeCliente → o de
         // cadastro mais antigo). A tela precisa saber QUAL, senão a estrela, o selo e a Média
-        // por CPF ficam sem dono até alguém dar F5.
-        $eraPrincipal = $pasta->getClientePrincipal()?->getId() === $cliente->getId();
-
-        $pasta->removeCliente($cliente);
-        $this->em->flush();
+        // por CPF ficam sem dono até alguém dar F5: o UseCase devolve o promovido.
+        try {
+            $novoPrincipal = $desvincularCliente->executar($pasta, $cliente, $currentUser, $this->tenantContext->getCurrentTenant() ?? throw $this->createNotFoundException());
+        } catch (ClienteNaoVinculadoAPastaException $e) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('warning', $e->getMessage());
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        } catch (PastaDeOutroEscritorioException|ClienteNaoEncontradoException) {
+            throw $this->createNotFoundException();
+        } catch (SemPermissaoParaEditarPastaException) {
+            throw $this->createAccessDeniedException();
+        }
 
         if ($request->isXmlHttpRequest()) {
-            $novoPrincipal = $eraPrincipal ? $pasta->getClientePrincipal() : null;
-
             return $this->json([
                 'sucesso'         => true,
                 'clienteId'       => $cliente->getId(),
@@ -1108,7 +1112,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/cliente/vincular', name: 'pasta_cliente_vincular', methods: ['POST'])]
-    public function vincularCliente(Pasta $pasta, Request $request): JsonResponse
+    public function vincularCliente(Pasta $pasta, Request $request, VincularClienteAPastaUseCase $vincularCliente): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1124,20 +1128,21 @@ class PastaController extends AbstractController
 
         // Auditoria 3.17: o cliente é do escritório (tenant explícito, não só o TenantFilter) e a pessoa pode vê-lo.
         // Sem isso, enumerar ids devolveria o CPF/CNPJ inteiro de quem ela não pode ver; a recusa é o mesmo 404.
-        $clienteId = (int) $request->request->get('cliente_id', 0);
         $tenant = $this->tenantContext->getCurrentTenant();
-        $cliente = $tenant !== null ? $this->clienteRepository->findOneBy(['id' => $clienteId, 'tenant' => $tenant]) : null;
-
-        if (!$cliente || !$this->permissionChecker->canAccessResource($currentUser, $tenant, AccessRequest::RESOURCE_CLIENTE, $clienteId, AccessRequest::ACTION_VIEW)) {
+        if ($tenant === null) {
             return $this->json(['erro' => 'Cliente não encontrado.'], Response::HTTP_NOT_FOUND);
         }
-
-        if ($pasta->getClientes()->contains($cliente)) {
-            return $this->json(['erro' => 'Este cliente já está vinculado à pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        try {
+            $cliente = $vincularCliente->executar($pasta, (int) $request->request->get('cliente_id', 0), $currentUser, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            throw $this->createNotFoundException();
+        } catch (ClienteNaoEncontradoException) {
+            return $this->json(['erro' => 'Cliente não encontrado.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaEditarPastaException) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        } catch (ClienteJaVinculadoAPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
-
-        $pasta->addCliente($cliente);
-        $this->em->flush();
 
         return $this->json([
             'sucesso' => true,
