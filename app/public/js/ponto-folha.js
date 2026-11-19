@@ -33,6 +33,7 @@
     const baixada = function () { return BJ_T.t('ponto_folha.js.baixada'); };
     const falhou = function () { return BJ_T.t('ponto_folha.js.falhou'); };
     const limite = function () { return BJ_T.t('ponto_folha.js.limite'); };
+    // Fica em português: é do aceite da folha com ressalva, documento legal (sempre em pt_BR).
     const SEM_RESSALVA = 'Descreva a ressalva.';
     const NOME_PADRAO = 'folha_ponto.pdf';
     const FOCAVEIS = 'button:not([disabled]), iframe, [href]';

@@ -18,6 +18,7 @@
 
     const PRAZO_MS = 15000;
     const FOCAVEIS = 'button:not([disabled]), [href], input:not([type="hidden"])';
+    // Fica em português: é da janela de validar comprovante, documento legal (sempre em pt_BR).
     const SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
     const PRAZO_BAIXAR_MS = 30000;   // a imagem em alta é gerada na hora
     // Lidos na hora do uso (idioma da tela).

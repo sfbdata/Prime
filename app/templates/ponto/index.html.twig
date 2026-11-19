@@ -411,6 +411,8 @@
 </div>
 
 {{ catalogo_js('ponto_cartao.js') }}
+{# O script da tela e o ponto-sons.js pedem texto já no carregamento: o bj-traducao.js do base vem depois do corpo, então vem aqui também (ele mesmo ignora a segunda carga). #}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
 {# E8: o aviso flutuante, os sons e a tela cheia vêm antes do script da tela, que os usa. #}
 <script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
