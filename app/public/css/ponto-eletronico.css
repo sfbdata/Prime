@@ -32,7 +32,8 @@
     --pe-link:         #0a6fa0;
     --pe-link-hover:   #0b5f86;
     --pe-card:         #fff;
-    --pe-borda:        #d3dde4;
+    --pe-borda:        #d6e0e7;
+    --pe-borda-campo:  #7b93a2;
     --pe-div:          #e6edf2;
     --pe-sombra:       rgba(18, 36, 47, .06);
     --pe-azul:         #0a6fa0;
@@ -42,7 +43,7 @@
     --pe-texto-3:      #4a6373;
     --pe-mudo:         #5b7383;
     --pe-perigo:       #a3232b;
-    --pe-concluida:    #7a8e9b;
+    --pe-concluida:    #5f7684;
     --pe-hover-sec:    #f3f6f8;
 
     --pe-info-bd:      #9fc3d8;
@@ -91,6 +92,7 @@
     --pe-link-hover:   #3b8fd4;
     --pe-card:         var(--bs-tertiary-bg);
     --pe-borda:        var(--bs-border-color);
+    --pe-borda-campo:  var(--bs-border-color);
     --pe-div:          var(--bs-border-color-translucent);
     --pe-sombra:       rgba(0, 0, 0, .3);
     --pe-azul:         #0a6fa0;
@@ -185,7 +187,7 @@
 .pe-tipo-btn {
     min-height: 54px;
     padding: 6px 2px;
-    border: 1px solid var(--pe-borda);
+    border: 1px solid var(--pe-borda-campo);
     border-radius: 3px;
     background: var(--pe-card);
     color: var(--pe-texto-2);
@@ -852,7 +854,7 @@
 .pe-janela-texto { font-size: 13.5px; line-height: 1.5; color: var(--pe-corpo); }
 .pe-janela-rotulo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; color: var(--pe-texto-3); }
 .pe-janela-campo {
-    border: 1px solid var(--pe-borda);
+    border: 1px solid var(--pe-borda-campo);
     border-radius: 3px;
     padding: 8px 10px;
     background: var(--pe-card);
@@ -921,7 +923,7 @@
     height: 34px;
     width: 100%;
     box-sizing: border-box;
-    border: 1px solid var(--pe-borda);
+    border: 1px solid var(--pe-borda-campo);
     border-radius: 3px;
     padding: 0 8px;
     background: var(--pe-card);
@@ -1006,7 +1008,7 @@
 .pe-cal-dia--hoje { border-color: var(--pe-azul); }
 .pe-cal-dia[aria-pressed="true"],
 .pe-cal-dia[aria-pressed="true"]:hover { background: var(--pe-azul); border-color: var(--pe-azul); color: #fff; font-weight: bold; }
-.pe-cal-dia:disabled { color: var(--pe-concluida); opacity: .55; cursor: default; }
+.pe-cal-dia:disabled { color: var(--pe-concluida); cursor: default; }
 .pe-cal-vazio { visibility: hidden; }
 .pe-cal-escolhidos { font-size: 12.5px; font-weight: normal; color: var(--pe-mudo); }
 .pe-cal-escolhidos > b { color: var(--pe-texto); }
@@ -1036,7 +1038,7 @@
    ============================================================================= */
 .pe-config-funcoes {
     --pe-chave-ligada:   #1e7b45;
-    --pe-chave-desligada: #9aabb7;
+    --pe-chave-desligada: #7b93a2;
     --pe-chave-travada:  #c4ced6;
     --pe-chave-pino:     #fff;
 }
@@ -1513,7 +1515,7 @@
 .pe-sf-contorno:disabled { opacity: .65; cursor: default; }
 .pe-sf-campo {
     height: 34px;
-    border: 1px solid var(--pe-borda);
+    border: 1px solid var(--pe-borda-campo);
     border-radius: 3px;
     padding: 0 8px;
     font: inherit;
@@ -1688,7 +1690,7 @@
 /* Janela "Validar comprovante" (L297 a L302): o campo do código e as caixas do resultado. */
 .pe-comp-campo {
     height: 38px;
-    border: 1px solid var(--pe-borda);
+    border: 1px solid var(--pe-borda-campo);
     border-radius: 3px;
     padding: 0 10px;
     background: var(--pe-card);
@@ -1756,3 +1758,10 @@
     height: 78vh;
     border: 0;
 }
+
+/* Janela "Antes de registrar": o contador regressivo do intervalo (o retorno antes do mínimo). O número em destaque, em
+   algarismos de largura fixa para não tremer a cada segundo; zerado, em verde, com o texto de cumprido. */
+.pe-janela-contador { margin-bottom: 8px; text-align: center; }
+.pe-janela-contador-valor { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: .5px; font-variant-numeric: tabular-nums; color: var(--pe-alerta-cor); }
+.pe-janela-contador-rotulo { margin-top: 4px; color: var(--pe-corpo); }
+.pe-janela-contador--cumprido .pe-janela-contador-valor { color: var(--pe-ok-cor); }

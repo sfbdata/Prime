@@ -168,7 +168,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertIsInt($semValidacao, 'sem a guarda da chave desligada');
         self::assertLessThan((int) strpos($aviso, 'formatarMinimo(minimoRepousoMinutos)'), $semValidacao, 'com a chave desligada o mínimo voltou a aparecer');
         self::assertMatchesRegularExpression(
-            "/if \\(minimoRepousoMinutos <= 0\\) \\{\\s*mostrarAvisoDoDia\\('info', 'bi-hourglass-split', 'Intervalo em andamento há ' \\+ emIntervaloHa \\+ '\\.' \\+ saida\\);\\s*return;/",
+            "/if \\(minimoRepousoMinutos <= 0\\) \\{\\s*mostrarAvisoDoDia\\('info', 'bi-hourglass-split', BJ_T\\.t\\('ponto_intervalo\\.js\\.aviso_em_andamento', textos\\)\\);\\s*return;/",
             $aviso,
             'com a chave desligada, só o tempo do intervalo (e a saída prevista)'
         );
@@ -181,28 +181,27 @@ final class CartaoDoPontoNoJsTest extends TestCase
 
         // O início do intervalo é a hora da batida de repouso que o cartão já tem (`data-ponto-do-dia`); o aparelho
         // atrasado não mostra tempo negativo.
-        self::assertStringContainsString('const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));', $aviso);
-        self::assertStringContainsString('const emIntervaloHa = formatarTempo(decorrido);', $aviso, 'o tempo do intervalo em HH:MM:SS');
+        self::assertStringContainsString('const decorrido = Math.max(0, Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000));', $aviso);
+        self::assertStringContainsString('decorrido: formatarTempo(decorrido),', $aviso, 'o tempo do intervalo em HH:MM:SS');
+        // "Desde 12:00 (há 00:04:22)": com a hora de início, o tempo passado não se lê como o que falta.
+        self::assertStringContainsString('inicio: formatarHoraDoDia(tRepouso),', $aviso);
         self::assertStringContainsString(
             "return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');",
             $this->corpoDaFuncao('function formatarTempo('),
             'HH:MM:SS'
         );
-        self::assertStringContainsString('const restante = minimoRepousoMinutos * 60 - decorrido;', $aviso, 'o mínimo conta do mesmo início');
+        self::assertStringContainsString(
+            'return Math.max(0, minimoRepousoMinutos * 60 - decorrido);',
+            $this->corpoDaFuncao('segundosParaOMinimoDoIntervalo = function (agora)'),
+            'o mínimo conta do mesmo início'
+        );
+        self::assertStringContainsString('const restante = segundosParaOMinimoDoIntervalo(agora);', $aviso);
 
-        // Os três textos (o do desenho fica, com o tempo acrescentado). O "1h" é o mínimo da Jornada do escritório.
-        self::assertStringContainsString(
-            "'Intervalo em andamento há ' + emIntervaloHa + '. O mínimo de ' + minimo + ' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.' + saida",
-            $aviso,
-            'com validação, antes do mínimo'
-        );
-        self::assertStringContainsString(
-            "'Intervalo mínimo de ' + minimo + ' cumprido. Em intervalo há ' + emIntervaloHa + '.' + saida",
-            $aviso,
-            'com validação, depois do mínimo: o tempo continua andando'
-        );
-        self::assertStringContainsString("'Intervalo em andamento há ' + emIntervaloHa + '.' + saida", $aviso, 'sem validação');
-        self::assertStringContainsString('const minimo = formatarMinimo(minimoRepousoMinutos);', $aviso, 'o mínimo não é fixo');
+        // Os três textos, do catálogo `ponto_intervalo.js`. O "1h" é o mínimo da Jornada do escritório.
+        self::assertStringContainsString("BJ_T.t('ponto_intervalo.js.aviso_faltam', textos)", $aviso, 'com validação, antes do mínimo');
+        self::assertStringContainsString("BJ_T.t('ponto_intervalo.js.aviso_cumprido', textos)", $aviso, 'com validação, depois do mínimo: o tempo continua andando');
+        self::assertStringContainsString("BJ_T.t('ponto_intervalo.js.aviso_em_andamento', textos)", $aviso, 'sem validação');
+        self::assertStringContainsString('textos.minimo = formatarMinimo(minimoRepousoMinutos);', $aviso, 'o mínimo não é fixo');
         self::assertStringNotContainsString("'1h'", $aviso, 'o mínimo voltou a ser fixo');
 
         // Nada de busca nova: o aviso sai do estado do cartão.
@@ -219,7 +218,14 @@ final class CartaoDoPontoNoJsTest extends TestCase
 
         // Os quatro relógios da tela, cada um uma vez: a hora oficial, o tempo do dia (que redesenha o aviso), a virada e
         // o reenvio da fila sem internet (E14).
-        self::assertSame(4, substr_count($tela, 'setInterval('), 'um setInterval novo apareceu na tela do ponto');
+        // O quinto é o contador da janela "Antes de registrar": um só, desligado antes de ligar de novo e quando a janela fecha.
+        self::assertSame(5, substr_count($tela, 'setInterval('), 'um setInterval novo apareceu na tela do ponto');
+        self::assertSame(1, substr_count($tela, 'tiqueDoContador = setInterval(desenhar, 1000);'), 'o contador da janela tem um tique só');
+        self::assertLessThan(
+            (int) strpos($tela, 'tiqueDoContador = setInterval(desenhar, 1000);'),
+            (int) strpos($tela, 'clearInterval(tiqueDoContador);', (int) strpos($tela, 'function mostrarContadorDoIntervalo(fundo, faltamNoServidor)')),
+            'o contador da janela empilhava um tique a cada alerta'
+        );
         self::assertSame(1, substr_count($tela, 'setInterval(() => { if (filaTemPendentes) { enviarFila(); } }, FILA_INTERVALO_MS);'), 'o reenvio da fila tem um tique só');
         self::assertSame(1, substr_count($tela, 'setInterval(updateClock, 1000);'), 'o relógio do dia tem um tique só');
         self::assertStringContainsString('atualizarAvisoDoDia(agora);', $this->corpoDaFuncao('function updateClock('), 'o aviso anda com o relógio');
@@ -246,11 +252,11 @@ final class CartaoDoPontoNoJsTest extends TestCase
 
         self::assertStringContainsString('const previstaNoRepouso = saidaPrevista(agora);', $repouso, 'a conta é a de `saidaPrevista`, com o agora do tique');
         self::assertStringContainsString(
-            "const saida = previstaNoRepouso ? ' Saída prevista às ' + formatarHoraDoDia(previstaNoRepouso) + '.' : '';",
+            "saida: previstaNoRepouso ? BJ_T.t('ponto_intervalo.js.saida_prevista', { hora: formatarHoraDoDia(previstaNoRepouso) }) : '',",
             $repouso,
             'sem previsão (sem meta, sem escala), nada é acrescentado'
         );
-        self::assertSame(3, substr_count($repouso, "+ '.' + saida);"), 'os três textos do intervalo levam a saída prevista');
+        self::assertSame(3, substr_count($repouso, ', textos));'), 'os três textos do intervalo levam a saída prevista');
         self::assertStringContainsString(
             "return String(data.getHours()).padStart(2, '0') + ':' + String(data.getMinutes()).padStart(2, '0');",
             $this->corpoDaFuncao('function formatarHoraDoDia('),
@@ -309,21 +315,37 @@ final class CartaoDoPontoNoJsTest extends TestCase
         // a guarda vem depois desse ramo, e antes do intervalo feito até agora.
         self::assertGreaterThan((int) strpos($prevista, 'if (tRetorno && tRetorno > tRepouso) {'), $guarda, 'a guarda tirou a previsão de depois do retorno');
         self::assertLessThan((int) strpos($prevista, 'const feitoMs'), $guarda);
-        self::assertStringContainsString("const saida = previstaNoRepouso ? ' Saída prevista às '", $this->corpoDaFuncao('function atualizarAvisoDoDia('));
+        self::assertStringContainsString("saida: previstaNoRepouso ? BJ_T.t('ponto_intervalo.js.saida_prevista'", $this->corpoDaFuncao('function atualizarAvisoDoDia('));
     }
 
-    #[TestDox('"se completa em" arredonda para cima, no minuto: 17min50s dá 00:18; os últimos 59 s dão 00:01, nunca 00:00')]
-    public function testFaltaDoMinimoArredondaParaCima(): void
+    #[TestDox('O que falta do mínimo: HH:MM:SS ao vivo, a mesma conta no aviso do dia e no contador da janela "Antes de registrar" (antes, 00:56 no aviso e 57 minutos na janela)')]
+    public function testFaltaDoMinimoUmaContaSo(): void
     {
         $aviso = $this->corpoDaFuncao('function atualizarAvisoDoDia(');
 
-        self::assertMatchesRegularExpression(
-            '/if \(restante > 0\) \{[^}]*const faltaEmMinutos = Math\.ceil\(restante \/ 60\);/',
-            $aviso,
-            'o que falta do mínimo voltou a arredondar para baixo'
+        self::assertStringContainsString('textos.faltam = formatarTempo(restante);', $aviso, 'o que falta em HH:MM:SS, não "00:56"');
+        self::assertStringNotContainsString('formatarHorasMinutos', $aviso, 'o HH:MM sem segundos parecia minutos e segundos');
+        self::assertStringNotContainsString('Math.ceil', $aviso, 'o arredondamento separava o aviso da janela');
+
+        $janela = $this->corpoDaFuncao('function mostrarContadorDoIntervalo(fundo, faltamNoServidor)');
+        self::assertStringContainsString('const restante = segundosParaOMinimoDoIntervalo(new Date());', $janela, 'a janela usa a conta do aviso');
+        self::assertStringContainsString('valor.textContent = formatarContadorDoIntervalo(restante);', $janela);
+        self::assertStringContainsString("BJ_T.t(cumprido ? 'ponto_intervalo.js.janela_cumprido' : 'ponto_intervalo.js.janela_faltam', textos)", $janela, 'zerou com a janela aberta: o texto de cumprido');
+        self::assertStringContainsString('tiqueDoContador = setInterval(desenhar, 1000);', $janela, 'ao vivo, a cada segundo');
+        self::assertStringContainsString('if (fundo.hidden || restante === null) {', $janela, 'o tique para quando a janela fecha');
+        self::assertStringContainsString('formatarContadorDoIntervalo = formatarTempo;', $this->tela());
+        // O aparelho adiantado abria a janela em "cumprido" logo depois da recusa: a conta passa a bater com o servidor.
+        self::assertStringContainsString('acertoDoIntervaloMs += (naConta - faltamNoServidor) * 1000;', $janela);
+        self::assertStringContainsString(
+            'Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000)',
+            $this->corpoDaFuncao('segundosParaOMinimoDoIntervalo = function (agora)'),
         );
-        self::assertStringContainsString("' se completa em ' + formatarHorasMinutos(faltaEmMinutos * 60) + '.'", $aviso);
-        self::assertStringNotContainsString('formatarHorasMinutos(restante)', $aviso, 'arredondado para baixo, os últimos 59 s mostravam 00:00');
+        self::assertStringContainsString('Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000)', $aviso, 'o aviso do dia usa o mesmo acerto');
+        self::assertStringContainsString(
+            "mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo' ? resultado.data.faltamSegundos : null);",
+            $this->tela(),
+            'só o alerta do intervalo abre o contador'
+        );
     }
 
     private function tela(): string

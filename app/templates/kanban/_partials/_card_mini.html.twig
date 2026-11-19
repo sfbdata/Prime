@@ -20,7 +20,7 @@
         <div class="kb-card-meta">
             {% if card.dataVencimento %}
             <span class="kb-card-meta-item {{ card.estaVencido ? 'vencido' : '' }}">
-                <i class="bi bi-calendar-event"></i>
+                <i class="bi {{ card.estaVencido ? 'bi-exclamation-circle' : 'bi-calendar-event' }}"></i>
                 {{ card.dataVencimento|date('d/m') }}
             </span>
             {% endif %}

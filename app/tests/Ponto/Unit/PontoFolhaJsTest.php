@@ -54,7 +54,7 @@ final class PontoFolhaJsTest extends TestCase
 
         $baixar = self::corpo($js, 'async function baixarPdf(botao) {');
         self::assertMatchesRegularExpression('/const aborto = comecarEmissao\(\);\s+if \(!aborto\) \{\s+return;\s+\}/', $baixar);
-        self::assertLessThan(strpos($baixar, 'avisar(GERANDO'), strpos($baixar, 'comecarEmissao()'), 'travado, nem o aviso azul aparece');
+        self::assertLessThan(strpos($baixar, 'avisar(gerando()'), strpos($baixar, 'comecarEmissao()'), 'travado, nem o aviso azul aparece');
         self::assertLessThan(strpos($baixar, 'salvar('), strpos($baixar, 'terminarEmissao(aborto);'), 'a trava sai com a resposta');
 
         $abrir = self::corpo($js, 'async function abrirVer(botao) {');
@@ -76,7 +76,7 @@ final class PontoFolhaJsTest extends TestCase
         $pedir = self::corpo($js, 'async function pedirPdf(url, aborto) {');
         self::assertStringContainsString("fetch(url, { credentials: 'same-origin', signal: aborto.signal })", $pedir, 'o pedido ouve o controle da trava');
         self::assertStringContainsString('setTimeout(function () { venceu = true; aborto.abort(); }, PRAZO_PDF_MS);', $pedir);
-        self::assertStringContainsString('return aborto.signal.aborted && !venceu ? { cancelado: true } : { erro: FALHOU };', $pedir, 'o prazo vencido é falha; fechar a janela é cancelamento');
+        self::assertStringContainsString('return aborto.signal.aborted && !venceu ? { cancelado: true } : { erro: falhou() };', $pedir, 'o prazo vencido é falha; fechar a janela é cancelamento');
 
         $abrir = self::corpo($js, 'async function abrirVer(botao) {');
         self::assertStringContainsString('ver.aborto = aborto;', $abrir);
@@ -113,7 +113,7 @@ final class PontoFolhaJsTest extends TestCase
         $pedir = self::corpo(self::folha(), 'async function pedirPdf(url, aborto) {');
 
         self::assertMatchesRegularExpression(
-            "/if \\(!resposta\\.ok \\|\\| !\\(resposta\\.headers\\.get\\('Content-Type'\\) \\|\\| ''\\)\\.includes\\('application\\/pdf'\\)\\) \\{\\s+return \\{ erro: FALHOU \\};\\s+\\}/",
+            "/if \\(!resposta\\.ok \\|\\| !\\(resposta\\.headers\\.get\\('Content-Type'\\) \\|\\| ''\\)\\.includes\\('application\\/pdf'\\)\\) \\{\\s+return \\{ erro: falhou\\(\\) \\};\\s+\\}/",
             $pedir
         );
         self::assertLessThan(strpos($pedir, 'await resposta.blob()'), strpos($pedir, "includes('application/pdf')"), 'confere antes de ler o arquivo');

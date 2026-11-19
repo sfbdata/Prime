@@ -93,6 +93,11 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertFalse($alerta['success']);
         self::assertSame(self::ALERTA_DO_INTERVALO, $alerta['alerta']);
+        self::assertSame('intervalo', $alerta['contador'] ?? null, 'a janela mostra o contador regressivo do intervalo');
+        // 30 min de mínimo, repouso há 12 min: faltam uns 18 min, na hora do servidor (a tela acerta a conta por eles).
+        self::assertIsInt($alerta['faltamSegundos'] ?? null);
+        self::assertGreaterThan(17 * 60, $alerta['faltamSegundos']);
+        self::assertLessThanOrEqual(18 * 60, $alerta['faltamSegundos']);
         self::assertSame(0, $this->batidas('retorno'), 'o alerta não grava');
 
         $gravou = $this->bater('retorno', true);
@@ -127,6 +132,8 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
             '/^Faltam (\d+h\d{2}|\d+ minutos?) para completar 40h de descanso desde a saída de ontem\. Se registrar agora, a folha marcará a interjornada como não conforme\.$/u',
             (string) $alerta['alerta'],
         );
+        self::assertArrayNotHasKey('contador', $alerta, 'o contador é só do intervalo');
+        self::assertArrayNotHasKey('faltamSegundos', $alerta);
         self::assertSame(1, $this->batidas('entrada'), 'só a de ontem');
 
         self::assertTrue($this->bater('entrada', true)['success']);
@@ -316,7 +323,14 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $janela->filter('div.pe-janela > div.pe-janela-topo:first-child + div.pe-janela-alerta + div.pe-janela-erro[data-janela-erro][hidden] + div.pe-janela-rodape:last-child'));
         self::assertCount(1, $janela->filter('div.pe-janela-topo > i.bi.bi-exclamation-triangle[aria-hidden="true"]:first-child + b.pe-janela-titulo + button.pe-janela-fechar[type="button"][aria-label="Fechar"][data-janela-fechar]:last-child'));
         self::assertSame('Antes de registrar', trim($janela->filter('b.pe-janela-titulo')->text()));
-        self::assertCount(1, $janela->filter('div.pe-janela-alerta > div#ponto-alerta-texto[data-alerta-texto]:first-child + div.pe-janela-alerta-nota:last-child'));
+        self::assertCount(1, $janela->filter('div.pe-janela-alerta > div#ponto-alerta-contador.pe-janela-contador[data-alerta-contador][hidden]:first-child + div#ponto-alerta-texto[data-alerta-texto] + div.pe-janela-alerta-nota:last-child'));
+        self::assertCount(1, $janela->filter('#ponto-alerta-contador > div.pe-janela-contador-valor[role="timer"][data-alerta-contador-valor]:first-child + div.pe-janela-contador-rotulo[data-alerta-contador-rotulo]:last-child'));
+        $catalogo = json_decode((string) $tela->filter('script[type="application/json"][data-bj-t]')->reduce(
+            static fn ($s) => str_contains($s->text(), 'ponto_intervalo.js.'),
+        )->text(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertSame('Faltam para completar o intervalo mínimo de {minimo}. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.', $catalogo['ponto_intervalo.js.janela_faltam']);
+        self::assertSame('Intervalo mínimo de {minimo} cumprido. Pode registrar o retorno.', $catalogo['ponto_intervalo.js.janela_cumprido']);
+        self::assertSame('Em intervalo desde {inicio} (há {decorrido}). Faltam {faltam} para completar o mínimo de {minimo}.{saida}', $catalogo['ponto_intervalo.js.aviso_faltam']);
         self::assertSame('', trim($janela->filter('#ponto-alerta-texto')->text()), 'o alerta entra pelo script (textContent)');
         self::assertSame(AlertasAntesDaBatida::NOTA, trim($janela->filter('.pe-janela-alerta-nota')->text()));
         $rodape = $janela->filter('div.pe-janela-rodape');

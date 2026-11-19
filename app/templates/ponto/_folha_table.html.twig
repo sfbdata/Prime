@@ -60,16 +60,16 @@
 {% set carregarCssDaFolha = carregarCssDaFolha is defined ? carregarCssDaFolha : true %}
 {% set campoCompetenciaId = competenciaFieldId|default('competencia') %}
 {% set totalDeColunas = 6 + (mostrarBancoHoras ? 3 : 0) + (mostrarJustificativas ? 1 : 0) %}
-{% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
-{% set nomesDaSemana = {1: 'Segunda', 2: 'Terça', 3: 'Quarta', 4: 'Quinta', 5: 'Sexta', 6: 'Sábado', 7: 'Domingo'} %}
+{% set rotulosBatida = {entrada: 'ponto_folha.coluna.entrada'|trans, repouso: 'ponto_folha.coluna.repouso'|trans, retorno: 'ponto_folha.coluna.retorno'|trans, saida: 'ponto_folha.coluna.saida'|trans} %}
+{% set nomesDaSemana = {1: 'ponto_folha.semana.segunda'|trans, 2: 'ponto_folha.semana.terca'|trans, 3: 'ponto_folha.semana.quarta'|trans, 4: 'ponto_folha.semana.quinta'|trans, 5: 'ponto_folha.semana.sexta'|trans, 6: 'ponto_folha.semana.sabado'|trans, 7: 'ponto_folha.semana.domingo'|trans} %}
 {# Motivos de um dia ambíguo (`BatidasEscolhidas::MARCA_*`). A marca não muda número: avisa que há
    batida a corrigir. Ver docs/specs/ponto-folha-uma-batida-por-tipo.md §9.3 e §9.9. #}
 {% set motivosAConferir = {
-    entradas_distintas: 'mais de uma entrada',
-    repousos_distintos: 'mais de um repouso',
-    retornos_distintos: 'mais de um retorno',
-    saidas_distintas: 'mais de uma saída',
-    retorno_antes_do_repouso: 'retorno antes do repouso'
+    entradas_distintas: 'ponto_folha.motivo.entradas'|trans,
+    repousos_distintos: 'ponto_folha.motivo.repousos'|trans,
+    retornos_distintos: 'ponto_folha.motivo.retornos'|trans,
+    saidas_distintas: 'ponto_folha.motivo.saidas'|trans,
+    retorno_antes_do_repouso: 'ponto_folha.motivo.retorno_antes'|trans
 } %}
 {# E10: o dia que só tem batida desconsiderada também fica, para a linha "Desconsideradas" trazer o Restaurar. #}
 {% set linhasDaFolha = somenteDiasComBatida
@@ -86,7 +86,7 @@
         {# A lista é filha da barra, como no desenho; o formulário que ela envia mora fora (atributo `form`). #}
         {% if competenciasPonto is defined and competenciasPonto is not empty and competenciaFormAction is defined %}
             <select id="{{ campoCompetenciaId }}" name="competencia" form="{{ campoCompetenciaId }}-form" class="pe-folha-mes"
-                    aria-label="Competência" onchange="this.form.submit()">
+                    aria-label="{{ 'ponto_folha.competencia'|trans }}" onchange="this.form.submit()">
                 {% for competencia in competenciasPonto %}
                     <option value="{{ competencia.valor }}" {% if competencia.valor == competenciaSelecionada %}selected{% endif %}>{{ competencia.label }}</option>
                 {% endfor %}
@@ -103,7 +103,7 @@
         {% if jornadaInfo is not null %}
             {% set horasDaJornada = jornadaInfo.cargaHorariaSemanal // 60 %}
             {% set minutosDaJornada = jornadaInfo.cargaHorariaSemanal % 60 %}
-            <span class="pe-folha-jornada" title="Carga horária semanal vigente"><i class="bi bi-calendar-week" aria-hidden="true"></i>{{ horasDaJornada }}h{{ '%02d'|format(minutosDaJornada) }}m/sem ({{ jornadaInfo.fonte == 'personalizada' ? 'Personalizada' : 'Padrão do escritório' }})</span>
+            <span class="pe-folha-jornada" title="{{ 'ponto_folha.carga_semanal_dica'|trans }}"><i class="bi bi-calendar-week" aria-hidden="true"></i>{{ 'ponto_folha.jornada_semana'|trans({h: horasDaJornada, m: '%02d'|format(minutosDaJornada), fonte: (jornadaInfo.fonte == 'personalizada' ? 'ponto_folha.personalizada'|trans : 'ponto_folha.padrao_escritorio'|trans)}) }}</span>
         {% endif %}
         <span class="pe-folha-espaco"></span>
         {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
@@ -117,7 +117,7 @@
                 </button>
             {% endif %}
             <button type="button" class="pe-folha-btn" data-folha-pdf="{{ urlPdf }}">
-                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Baixar PDF
+                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>{{ 'ponto_folha.baixar_pdf'|trans }}
             </button>
         {% endif %}
     </div>
@@ -129,19 +129,19 @@
         <table class="pe-tab pe-resp">
             <thead>
                 <tr>
-                    <th>Dia</th>
-                    <th>Semana</th>
-                    <th>Entrada</th>
-                    <th>Repouso</th>
-                    <th>Retorno</th>
-                    <th>Saída</th>
+                    <th>{{ 'ponto_folha.coluna.dia'|trans }}</th>
+                    <th>{{ 'ponto_folha.coluna.semana'|trans }}</th>
+                    <th>{{ 'ponto_folha.coluna.entrada'|trans }}</th>
+                    <th>{{ 'ponto_folha.coluna.repouso'|trans }}</th>
+                    <th>{{ 'ponto_folha.coluna.retorno'|trans }}</th>
+                    <th>{{ 'ponto_folha.coluna.saida'|trans }}</th>
                     {% if mostrarBancoHoras %}
-                        <th title="Horas trabalhadas no dia">Trabalhado</th>
-                        <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo dia</th>
-                        <th title="Saldo acumulado no mês, dia a dia">Saldo mês</th>
+                        <th title="{{ 'ponto_folha.coluna.trabalhado_dica'|trans }}">{{ 'ponto_folha.coluna.trabalhado'|trans }}</th>
+                        <th title="{{ 'ponto_folha.coluna.saldo_dia_dica'|trans }}">{{ 'ponto_folha.coluna.saldo_dia'|trans }}</th>
+                        <th title="{{ 'ponto_folha.coluna.saldo_mes_dica'|trans }}">{{ 'ponto_folha.coluna.saldo_mes'|trans }}</th>
                     {% endif %}
                     {% if mostrarJustificativas %}
-                        <th>Justificativa</th>
+                        <th>{{ 'ponto_folha.coluna.justificativa'|trans }}</th>
                     {% endif %}
                 </tr>
             </thead>
@@ -157,14 +157,14 @@
                         <td class="pe-larga"><b>{{ linha.diaMes }}</b></td>
                         <td class="pe-larga">{{ nomesDaSemana[linha.chaveDia|date('N')] }}
                             {%- if ehFeriado and diaTemBatida %}
-                                <span class="pe-tag pe-tag--info pe-tag--extra" title="{{ linha.nomeFeriado }}"><i class="bi bi-calendar-event" aria-hidden="true"></i>Feriado</span>
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="{{ linha.nomeFeriado }}"><i class="bi bi-calendar-event" aria-hidden="true"></i>{{ 'ponto_folha.feriado'|trans }}</span>
                             {%- endif %}
                             {%- if linha.homeOffice|default(false) %}
-                                <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida em home office"><i class="bi bi-house-laptop" aria-hidden="true"></i>Home Office</span>
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="{{ 'ponto_folha.home_office_dica'|trans }}"><i class="bi bi-house-laptop" aria-hidden="true"></i>{{ 'ponto_folha.home_office'|trans }}</span>
                             {%- endif %}
                             {# E14: alguma batida do dia veio da fila do aparelho, guardada sem internet (a hora é a do aparelho). #}
                             {%- if linha.semInternet|default(false) %}
-                                <span class="pe-tag pe-tag--info pe-tag--extra" title="Batida enviada sem internet: vale a hora do aparelho."><i class="bi bi-wifi-off" aria-hidden="true"></i>Sem internet</span>
+                                <span class="pe-tag pe-tag--info pe-tag--extra" title="{{ 'ponto_folha.sem_internet_dica'|trans }}"><i class="bi bi-wifi-off" aria-hidden="true"></i>{{ 'ponto_folha.sem_internet'|trans }}</span>
                             {%- endif %}
                             {# E12 (decisão C1 de 10/11/2026): o trabalho externo não tem selo aqui. O desenho (L153) só mostra o dia
                                da semana, e a batida externa aparece "Em análise" na coluna Justificativa (L743, L751), na trilha e no
@@ -173,24 +173,25 @@
                                reinterpretada; quem resolve é um humano corrigindo a batida. Só aqui, na tela do colaborador e
                                na ficha do admin; o PDF e o XLSX assinados não anunciam pendência. #}
                             {%- if linha.aConferir|default([]) is not empty %}
+                                {%- set motivosEmTexto = linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') %}
                                 <span class="pe-tag pe-tag--alerta pe-tag--extra a-conferir"
                                       data-a-conferir="{{ linha.aConferir|join(' ') }}"
                                       data-bs-toggle="tooltip"
-                                      title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta até serem corrigidas."><i class="bi bi-question-circle" aria-hidden="true"></i>A conferir</span>
+                                      title="{{ 'ponto_folha.a_conferir_dica'|trans({motivos: motivosEmTexto}) }}"><i class="bi bi-question-circle" aria-hidden="true"></i>{{ 'ponto_folha.a_conferir'|trans }}</span>
                             {%- endif %}
                             {# As batidas que ficaram fora da conta, para o gestor corrigir pela ficha. #}
                             {% if editarBatidasHabilitado and linha.batidasDesconsideradas|default([]) is not empty %}
                                 <span class="pe-folha-sub batidas-desconsideradas">
-                                    Fora da conta:
+                                    {{ 'ponto_folha.fora_da_conta'|trans }}
                                     {% for desconsiderada in linha.batidasDesconsideradas %}
                                         {% if desconsiderada.alvo|default(null) %}
                                             {% set rotuloForaDaConta = rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo %}
                                             <span class="pe-folha-celula">
                                                 <a href="{{ path(editarBatidasRotaAjustar, editarBatidasParametros|merge({alvo: desconsiderada.alvo, competencia: competenciaSelecionada})) }}"
-                                                   class="pe-folha-hora batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" data-alvo="{{ desconsiderada.alvo }}" title="Ajustar batida">
+                                                   class="pe-folha-hora batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" data-alvo="{{ desconsiderada.alvo }}" title="{{ 'ponto_folha.ajustar_batida'|trans }}">
                                                     {{ rotuloForaDaConta }} {{ desconsiderada.hora }}
                                                 </a>
-                                                {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, desconsiderada.alvo, desconsiderada.cabeca|default(null), rotuloForaDaConta ~ ' ' ~ desconsiderada.hora ~ ' de ' ~ linha.chaveDia|date('d/m/Y')) }}
+                                                {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, desconsiderada.alvo, desconsiderada.cabeca|default(null), 'ponto_folha.batida_em'|trans({rotulo: rotuloForaDaConta, hora: desconsiderada.hora, dia: linha.chaveDia|date('d/m/Y')})) }}
                                             </span>
                                         {% endif %}
                                     {% endfor %}
@@ -200,18 +201,18 @@
                                da justificativa não se restaura pela ficha (decisão A): fica sem o botão, com o porquê na dica. #}
                             {% if editarBatidasHabilitado and desconsideradasPorDia[linha.chaveDia] is defined %}
                                 <span class="pe-folha-sub batidas-fora-por-ajuste">
-                                    Desconsideradas:
+                                    {{ 'ponto_folha.desconsideradas'|trans }}
                                     {% for fora in desconsideradasPorDia[linha.chaveDia] %}
                                         {% set rotuloFora = rotulosBatida[fora.tipo] ?? fora.tipo %}
                                         <span class="pe-folha-celula batida-fora-por-ajuste" data-ajuste-id="{{ fora.ajusteId }}"
-                                              title="{{ fora.pelaAnalise ? constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_LIGADA_A_JUSTIFICATIVA') : 'Desconsiderada por ' ~ fora.por ~ ' em ' ~ fora.em ~ '. Registro original preservado.' }}">
+                                              title="{{ fora.pelaAnalise ? constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_LIGADA_A_JUSTIFICATIVA') : 'ponto_folha.desconsiderada_por'|trans({por: fora.por, em: fora.em}) }}">
                                             {{ rotuloFora }} {{ fora.hora }}
                                             {% if not fora.pelaAnalise %}
-                                                <button type="button" class="pe-mais pe-mais--restaurar" title="Restaurar batida" aria-label="Restaurar batida"
+                                                <button type="button" class="pe-mais pe-mais--restaurar" title="{{ 'ponto_folha.restaurar_batida'|trans }}" aria-label="{{ 'ponto_folha.restaurar_batida'|trans }}"
                                                         data-bs-toggle="modal" data-bs-target="#modalRestaurarBatida"
                                                         data-acao="{{ path(editarBatidasRotaRestaurar, editarBatidasParametros|merge({ajusteId: fora.ajusteId})) }}"
                                                         data-token="{{ csrf_token('ponto_restaurar_' ~ fora.ajusteId) }}"
-                                                        data-batida="{{ rotuloFora }} {{ fora.hora }} de {{ fora.dia|date('d/m/Y') }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
+                                                        data-batida="{{ 'ponto_folha.batida_em'|trans({rotulo: rotuloFora, hora: fora.hora, dia: fora.dia|date('d/m/Y')}) }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></button>
                                             {% endif %}
                                         </span>
                                     {% endfor %}
@@ -228,23 +229,23 @@
                             {% set horario = attribute(linha, tipoInfo.campo) %}
                             {% set rotulo = rotulosBatida[tipoInfo.campo] %}
                             {# E10 (desenho L154 e L749): a batida ajustada leva a marca "aj" depois da hora, com quem ajustou e quando. #}
-                            {% set dicaDoAjuste = tipoInfo.ajuste ? 'Ajustado por ' ~ tipoInfo.ajuste.por ~ ' em ' ~ tipoInfo.ajuste.em ~ '. Registro original preservado.' : null %}
+                            {% set dicaDoAjuste = tipoInfo.ajuste ? 'ponto_folha.ajustado_por'|trans({por: tipoInfo.ajuste.por, em: tipoInfo.ajuste.em}) : null %}
                             <td data-r="{{ rotulo }}">
                                 {%- if editarBatidasHabilitado -%}
                                     {%- if tipoInfo.alvo -%}
                                         <span class="pe-folha-celula">
                                             <a href="{{ path(editarBatidasRotaAjustar, editarBatidasParametros|merge({alvo: tipoInfo.alvo, competencia: competenciaSelecionada})) }}"
-                                               class="pe-folha-hora" title="Ajustar batida">{{ horario }}</a>
-                                            {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">aj</span>{% endif %}
-                                            {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, tipoInfo.alvo, tipoInfo.cabeca, rotulo ~ ' ' ~ horario ~ ' de ' ~ linha.chaveDia|date('d/m/Y')) }}
+                                               class="pe-folha-hora" title="{{ 'ponto_folha.ajustar_batida'|trans }}">{{ horario }}</a>
+                                            {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">{{ 'ponto_folha.sigla_ajuste'|trans }}</span>{% endif %}
+                                            {{ _self.desconsiderar(editarBatidasRotaDesconsiderar, editarBatidasParametros, tipoInfo.alvo, tipoInfo.cabeca, 'ponto_folha.batida_em'|trans({rotulo: rotulo, hora: horario, dia: linha.chaveDia|date('d/m/Y')})) }}
                                         </span>
                                     {%- else -%}
-                                        <button type="button" class="pe-mais" title="Incluir {{ rotulo|lower }}" aria-label="Incluir {{ rotulo|lower }}"
+                                        <button type="button" class="pe-mais" title="{{ 'ponto_folha.incluir'|trans({rotulo: rotulo|lower}) }}" aria-label="{{ 'ponto_folha.incluir'|trans({rotulo: rotulo|lower}) }}"
                                                 onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
                                     {%- endif -%}
                                 {%- elseif tipoInfo.alvo is not null -%}
                                     {{ horario }}
-                                    {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">aj</span>{% endif %}
+                                    {%- if dicaDoAjuste %} <span class="pe-pl pe-aj" title="{{ dicaDoAjuste }}" aria-label="{{ dicaDoAjuste }}">{{ 'ponto_folha.sigla_ajuste'|trans }}</span>{% endif %}
                                 {#- P30 (a), decisão de 09/11/2026: "+" em qualquer dia passado da folha; feriado fica sem ele (no
                                     desenho, um traço; aqui, a célula vazia). Hoje também tem o "+": função do sistema que volta
                                     (regra 2; spec ponto-atalho-esquecimento-registro: "esqueci de bater a entrada hoje de manhã" é
@@ -258,8 +259,8 @@
                                     and not linha.antesDoPrimeiroRegistro|default(false)
                                     and dataHoje is not null and linha.chaveDia <= dataHoje -%}
                                     <button type="button" class="pe-mais"
-                                            title="Enviar registro de esquecimento: {{ rotulo }}"
-                                            aria-label="Enviar registro de esquecimento: {{ rotulo }}"
+                                            title="{{ 'ponto_folha.enviar_esquecimento'|trans({rotulo: rotulo}) }}"
+                                            aria-label="{{ 'ponto_folha.enviar_esquecimento'|trans({rotulo: rotulo}) }}"
                                             data-esquecimento-dia="{{ linha.chaveDia }}"
                                             data-esquecimento-campo="{{ tipoInfo.campo }}"
                                             data-esquecimento-rotulo="{{ rotulo }}"><i class="bi bi-plus-circle" aria-hidden="true"></i></button>
@@ -269,7 +270,7 @@
 
                         {% if mostrarBancoHoras %}
                             {% set trabalhou = linha.minutosTrabalhadosDia is not null and linha.minutosTrabalhadosDia > 0 %}
-                            <td{% if not trabalhou %} class="pe-vazia"{% endif %} data-r="Trabalhado">
+                            <td{% if not trabalhou %} class="pe-vazia"{% endif %} data-r="{{ 'ponto_folha.coluna.trabalhado'|trans }}">
                                 {%- if trabalhou %}{{ folha.horas(linha.minutosTrabalhadosDia) }}{% endif -%}
                             </td>
                             {{ include('ponto/_folha_saldo_dia.html.twig', {
@@ -280,7 +281,7 @@
                             }, with_context = false) }}
                             {# Dia em andamento (hoje sem saída, E17): o acumulado até ontem, como o desenho (L157); no dia 1º, nada. #}
                             {% set acumulado = linha.saldoAcumulado ?? linha.saldoAcumuladoAteOntem|default(null) %}
-                            <td class="pe-sm{{ acumulado is null ? ' pe-vazia' : (acumulado < 0 ? ' pe-cor--neg' : (acumulado > 0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}" data-r="Saldo mês">
+                            <td class="pe-sm{{ acumulado is null ? ' pe-vazia' : (acumulado < 0 ? ' pe-cor--neg' : (acumulado > 0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}" data-r="{{ 'ponto_folha.coluna.saldo_mes'|trans }}">
                                 {%- if acumulado is not null %}{{ folha.saldo(acumulado) }}{% endif -%}
                             </td>
                         {% endif %}
@@ -294,7 +295,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="{{ totalDeColunas }}" class="pe-toda pe-folha-vazia">Nenhuma batida nesta competência.</td>
+                        <td colspan="{{ totalDeColunas }}" class="pe-toda pe-folha-vazia">{{ 'ponto_folha.nenhuma_batida'|trans }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -325,15 +326,15 @@
         {% set totalMesMinutos = saldoMesMinutos + horasPagasMinutos %}
         <div class="pe-folha-totais">
             <div class="pe-folha-total">
-                <span class="pe-folha-total-rotulo">Saldo do mês</span>
+                <span class="pe-folha-total-rotulo">{{ 'ponto_folha.saldo_do_mes'|trans }}</span>
                 <b class="pe-folha-total-valor {{ saldoMesMinutos < 0 ? 'pe-cor--neg' : (saldoMesMinutos > 0 ? 'pe-cor--pos' : 'pe-cor--zero') }}">{{ saldoMesMinutos < 0 ? '-' : (saldoMesMinutos > 0 ? '+' : '') }}{{ folha.horas(saldoMesMinutos) }}</b>
             </div>
             <div class="pe-folha-total">
-                <span class="pe-folha-total-rotulo">Horas pagas</span>
+                <span class="pe-folha-total-rotulo">{{ 'ponto_folha.horas_pagas'|trans }}</span>
                 <b class="pe-folha-total-valor {{ horasPagasMinutos < 0 ? 'pe-cor--neg' : 'pe-cor--pos' }}">{{ horasPagasMinutos < 0 ? '-' : '+' }}{{ folha.horas(horasPagasMinutos) }}</b>
             </div>
             <div class="pe-folha-total pe-folha-total--soma">
-                <span class="pe-folha-total-rotulo">Total do mês</span>
+                <span class="pe-folha-total-rotulo">{{ 'ponto_folha.total_do_mes'|trans }}</span>
                 <b class="pe-folha-total-valor {{ totalMesMinutos < 0 ? 'pe-cor--neg' : (totalMesMinutos > 0 ? 'pe-cor--pos' : 'pe-cor--zero') }}">{{ totalMesMinutos < 0 ? '-' : (totalMesMinutos > 0 ? '+' : '') }}{{ folha.horas(totalMesMinutos) }}</b>
             </div>
         </div>
@@ -346,13 +347,14 @@
 {% endif %}
 
 {% if exportarFolhaHabilitado %}
+{{ catalogo_js('ponto_folha.js') }}
 <script src="{{ asset('js/ponto-folha.js') }}"></script>
 {% endif %}
 
 {# O "x" da batida na ficha (E10): abre a janela "Desconsiderar batida" da ficha com o endereço, o token por intenção e
    a cabeça que a folha mostrou (vazia na batida nunca ajustada); o motivo é digitado lá. #}
 {% macro desconsiderar(rota, parametros, alvo, cabeca, batida) %}
-    <button type="button" class="pe-mais pe-mais--excluir" title="Desconsiderar batida" aria-label="Desconsiderar batida"
+    <button type="button" class="pe-mais pe-mais--excluir" title="{{ 'ponto_folha.desconsiderar_batida'|trans }}" aria-label="{{ 'ponto_folha.desconsiderar_batida'|trans }}"
             data-bs-toggle="modal" data-bs-target="#modalDesconsiderarBatida"
             data-acao="{{ path(rota, parametros|merge({alvo: alvo})) }}"
             data-token="{{ csrf_token('ponto_desconsiderar_' ~ alvo) }}"

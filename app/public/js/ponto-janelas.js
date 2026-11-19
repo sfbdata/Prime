@@ -13,19 +13,24 @@
 (function () {
     'use strict';
 
-    const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    // Lidos na hora do uso (idioma da tela): funções, nunca constantes avaliadas no carregamento.
+    const nomesDosMeses = function () {
+        return [BJ_T.t('ponto_cartao.js.janelas.mes_1'), BJ_T.t('ponto_cartao.js.janelas.mes_2'), BJ_T.t('ponto_cartao.js.janelas.mes_3'), BJ_T.t('ponto_cartao.js.janelas.mes_4'), BJ_T.t('ponto_cartao.js.janelas.mes_5'), BJ_T.t('ponto_cartao.js.janelas.mes_6'), BJ_T.t('ponto_cartao.js.janelas.mes_7'), BJ_T.t('ponto_cartao.js.janelas.mes_8'), BJ_T.t('ponto_cartao.js.janelas.mes_9'), BJ_T.t('ponto_cartao.js.janelas.mes_10'), BJ_T.t('ponto_cartao.js.janelas.mes_11'), BJ_T.t('ponto_cartao.js.janelas.mes_12')];
+    };
+    const nomesDaSemana = function () {
+        return [BJ_T.t('ponto_cartao.js.janelas.semana_0'), BJ_T.t('ponto_cartao.js.janelas.semana_1'), BJ_T.t('ponto_cartao.js.janelas.semana_2'), BJ_T.t('ponto_cartao.js.janelas.semana_3'), BJ_T.t('ponto_cartao.js.janelas.semana_4'), BJ_T.t('ponto_cartao.js.janelas.semana_5'), BJ_T.t('ponto_cartao.js.janelas.semana_6')];
+    };
     const TIPO_ESQUECIMENTO = 'esquecimento_registro';
+    const erroData = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_data'); };
+    const erroDataEMotivo = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_data_e_motivo'); };
+    const erroMotivo = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_motivo'); };
+    const erroTipo = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_tipo'); };
+    const erroEsquecido = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_esquecido'); };
+    const erroEsquecidoUmaData = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_esquecido_uma_data'); };
+    const erroAbonoUmaData = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_abono_uma_data'); };
+    const erroAbonoHorarios = function () { return BJ_T.t('ponto_cartao.js.janelas.erro_abono_horarios'); };
     const TIPO_NAO_JUSTIFICADA = 'falta_nao_justificada';
 
-    const ERRO_DATA = 'Selecione ao menos uma data.';
-    const ERRO_DATA_E_MOTIVO = 'Informe a data e o motivo.';
-    const ERRO_MOTIVO = 'Informe o motivo.';
-    const ERRO_TIPO = 'Selecione o tipo de justificativa.';
-    const ERRO_ESQUECIDO = 'Informe o tipo e o horário do registro esquecido.';
-    const ERRO_ESQUECIDO_UMA_DATA = 'Esquecimento de Registro só pode ser aplicado a uma única data.';
-    const ERRO_ABONO_UMA_DATA = 'Abono parcial só pode ser aplicado a uma única data.';
-    const ERRO_ABONO_HORARIOS = 'Informe os horários de saída e retorno corretamente para o abono parcial.';
 
     // Calendário da janela "Justificar falta": o mês à vista e os dias escolhidos (AAAA-MM-DD).
     const calendario = { ano: 0, mes: 0, hoje: '', escolhidos: new Set() };
@@ -89,7 +94,7 @@
         const vazios = new Date(calendario.ano, calendario.mes, 1).getDay();
         const pedacos = [];
 
-        SEMANA.forEach(function (nome) { pedacos.push('<span class="pe-cal-sem" aria-hidden="true">' + nome + '</span>'); });
+        nomesDaSemana().forEach(function (nome) { pedacos.push('<span class="pe-cal-sem" aria-hidden="true">' + nome + '</span>'); });
         for (let i = 0; i < vazios; i++) {
             pedacos.push('<span class="pe-cal-vazio" aria-hidden="true"></span>');
         }
@@ -108,7 +113,7 @@
                 + (chave > calendario.hoje ? ' disabled' : '') + '>' + dia + '</button>');
         }
         grade.innerHTML = pedacos.join('');
-        raiz.querySelector('[data-cal-mes]').textContent = MESES[calendario.mes] + ' ' + calendario.ano;
+        raiz.querySelector('[data-cal-mes]').textContent = nomesDosMeses()[calendario.mes] + ' ' + calendario.ano;
         // Mês futuro não tem dia a justificar.
         raiz.querySelector('[data-cal-seguinte]').disabled = chaveDoDia(calendario.ano, calendario.mes, 1) >= calendario.hoje.slice(0, 8) + '01';
         atualizarEscolhidos(form);
@@ -168,7 +173,7 @@
         if (marca.checked && datasEscolhidas().length > 1) {
             marca.checked = false;
             horario.hidden = true;
-            moldura().mostrarErro(form.closest('.pe-janela-fundo'), ERRO_ABONO_UMA_DATA + ' Desmarque as datas extras no calendário.');
+            moldura().mostrarErro(form.closest('.pe-janela-fundo'), erroAbonoUmaData() + ' ' + BJ_T.t('ponto_cartao.js.janelas.desmarque_extras'));
             return;
         }
         horario.hidden = !marca.checked;
@@ -205,25 +210,25 @@
         const motivoLivre = tipo.value === TIPO_ESQUECIMENTO;
 
         if (datas.length === 0 && motivoLivre) {
-            return recusar(evento, form, ERRO_DATA, null);
+            return recusar(evento, form, erroData(), null);
         }
         if (datas.length === 0 || (!motivoLivre && motivoEmBranco(form))) {
-            return recusar(evento, form, ERRO_DATA_E_MOTIVO, datas.length === 0 ? null : form.querySelector('[data-janela-motivo]'));
+            return recusar(evento, form, erroDataEMotivo(), datas.length === 0 ? null : form.querySelector('[data-janela-motivo]'));
         }
         if (tipo.value === '') {
-            return recusar(evento, form, ERRO_TIPO, tipo);
+            return recusar(evento, form, erroTipo(), tipo);
         }
         if (tipo.value === TIPO_ESQUECIMENTO && datas.length > 1) {
-            return recusar(evento, form, ERRO_ESQUECIDO_UMA_DATA, null);
+            return recusar(evento, form, erroEsquecidoUmaData(), null);
         }
         if (tipo.value === TIPO_ESQUECIMENTO && (esquecido.value === '' || hora.value === '')) {
-            return recusar(evento, form, ERRO_ESQUECIDO, esquecido.value === '' ? esquecido : hora);
+            return recusar(evento, form, erroEsquecido(), esquecido.value === '' ? esquecido : hora);
         }
         if (abono && datas.length > 1) {
-            return recusar(evento, form, ERRO_ABONO_UMA_DATA, null);
+            return recusar(evento, form, erroAbonoUmaData(), null);
         }
         if (abono && (inicio.value === '' || fim.value === '' || inicio.value >= fim.value)) {
-            return recusar(evento, form, ERRO_ABONO_HORARIOS, inicio);
+            return recusar(evento, form, erroAbonoHorarios(), inicio);
         }
         enviar(form);
     }
@@ -251,7 +256,7 @@
         const hora = form.querySelector('#esquecimentoHora');
         // O motivo é livre aqui (pedido do dono, 16/11/2026); a frase é a do servidor para o horário que falta.
         if (hora.value === '') {
-            return recusar(evento, form, ERRO_ESQUECIDO, hora);
+            return recusar(evento, form, erroEsquecido(), hora);
         }
         enviar(form);
     }
@@ -312,13 +317,13 @@
 
         // No esquecimento de registro o motivo é livre (pedido do dono, 16/11/2026).
         if (!esquecimento && motivo.value.trim() === '') {
-            return recusar(evento, form, ERRO_MOTIVO, motivo);
+            return recusar(evento, form, erroMotivo(), motivo);
         }
         if (esquecimento && (esquecido.value === '' || hora.value === '')) {
-            return recusar(evento, form, ERRO_ESQUECIDO, esquecido.value === '' ? esquecido : hora);
+            return recusar(evento, form, erroEsquecido(), esquecido.value === '' ? esquecido : hora);
         }
         if (form.querySelector('#editarAbonoParcial').checked && (inicio.value === '' || fim.value === '' || inicio.value >= fim.value)) {
-            return recusar(evento, form, ERRO_ABONO_HORARIOS, inicio);
+            return recusar(evento, form, erroAbonoHorarios(), inicio);
         }
         enviar(form);
     }

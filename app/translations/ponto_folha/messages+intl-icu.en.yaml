@@ -1,3 +1,80 @@
 ponto_folha:
     registro_em_outro_escritorio: There was an entry at another firm in this period
     registro_em_outro_escritorio_dica: 'While the time clock at this firm was open, the person clocked in at another firm. Check the punches for the day.'
+
+    # ---- Telas do ponto (templates e JS extraídos)
+    carga_semanal_dica: Current weekly hours
+    baixar_pdf: Download PDF
+    competencia: Period
+    coluna:
+        dia: Day
+        semana: Weekday
+        entrada: Clock-in
+        repouso: Break
+        retorno: Return
+        saida: Clock-out
+        trabalhado: Worked
+        trabalhado_dica: Hours worked in the day
+        saldo_dia: Day balance
+        saldo_dia_dica: 'Day balance (positive = extra, negative = shortfall)'
+        saldo_mes: Month balance
+        saldo_mes_dica: 'Balance accumulated in the month, day by day'
+        justificativa: Justification
+    feriado: Holiday
+    home_office: Home Office
+    home_office_dica: Entry made from home office
+    sem_internet: Offline
+    sem_internet_dica: 'Entry sent offline: the device time applies.'
+    fora_da_conta: 'Not counted:'
+    ajustar_batida: Adjust entry
+    desconsideradas: 'Disregarded:'
+    restaurar_batida: Restore entry
+    desconsiderar_batida: Disregard entry
+    nenhuma_batida: No entries in this period.
+    saldo_do_mes: Month balance
+    horas_pagas: Paid hours
+    total_do_mes: Month total
+    fora_de_sequencia: Out of sequence
+    registro_incompleto: Incomplete entry
+    registro_incompleto_dica: 'This day is missing entries, so the workday cannot be calculated: it neither credits nor debits. Fix the entries for the balance to count again.'
+    em_andamento: In progress
+    esquecimento_dica: Missed Entry
+    just:
+        em_analise: Under review
+        nao_abonada: Not excused
+        abonada: Excused
+        recusada: Rejected
+        periodo: '{inicio} to {fim}'
+    semana:
+        segunda: Monday
+        terca: Tuesday
+        quarta: Wednesday
+        quinta: Thursday
+        sexta: Friday
+        sabado: Saturday
+        domingo: Sunday
+    motivo:
+        entradas: more than one clock-in
+        repousos: more than one break
+        retornos: more than one return
+        saidas: more than one clock-out
+        retorno_antes: return before break
+    jornada_semana: '{h}h{m}m/wk ({fonte})'
+    personalizada: Custom
+    padrao_escritorio: Firm default
+    a_conferir_dica: 'Entries to check: {motivos}. The timesheet counts the first entry of each type and the last clock-out; the others stay out of the count until corrected.'
+    desconsiderada_por: 'Disregarded by {por} on {em}. Original entry preserved.'
+    ajustado_por: 'Adjusted by {por} on {em}. Original entry preserved.'
+    sigla_ajuste: adj
+    incluir: 'Add {rotulo}'
+    enviar_esquecimento: 'Submit missed entry: {rotulo}'
+    batida_em: '{rotulo} {hora} on {dia}'
+    a_conferir: To check
+    js:
+        gerando: Generating the timesheet PDF...
+        baixada: Timesheet downloaded as PDF.
+        baixada_codigo: 'Timesheet downloaded as PDF. Code {codigo}.'
+        falhou: Could not generate the PDF.
+        limite: Too many timesheet requests in a row. Wait a minute and try again.
+
+# ---- fim

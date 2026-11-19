@@ -14,7 +14,7 @@
 {% if trilha.eventos is not empty %}
     <div class="pe-audit-rolagem">
         <table class="pe-tab pe-audit-tab">
-            <thead><tr><th>Data e hora</th><th>Autor</th><th>Ação</th><th>Detalhe</th><th>Selo</th></tr></thead>
+            <thead><tr><th>{{ 'ponto_cartao.auditoria.data_hora'|trans }}</th><th>{{ 'ponto_cartao.auditoria.autor'|trans }}</th><th>{{ 'ponto_cartao.auditoria.acao'|trans }}</th><th>{{ 'ponto_cartao.auditoria.detalhe'|trans }}</th><th>{{ 'ponto_cartao.auditoria.selo'|trans }}</th></tr></thead>
             <tbody>
                 {% for evento in trilha.eventos %}
                     <tr>
@@ -26,7 +26,7 @@
                             {%- if evento.seloCurto is not null -%}
                                 <code class="pe-audit-selo" title="{{ evento.selo }}">{{ evento.seloCurto }}</code>
                             {%- else -%}
-                                <span class="pe-audit-sem-selo">sem selo</span>
+                                <span class="pe-audit-sem-selo">{{ 'ponto_cartao.auditoria.sem_selo'|trans }}</span>
                             {%- endif -%}
                         </td>
                     </tr>
@@ -35,16 +35,16 @@
         </table>
     </div>
     {% if trilha.paginas > 1 %}
-        <nav class="pe-audit-paginas" aria-label="Páginas da auditoria">
+        <nav class="pe-audit-paginas" aria-label="{{ 'ponto_cartao.auditoria.paginas'|trans }}">
             <button type="button" class="pe-audit-pag" data-auditoria-pagina="{{ path('ponto_auditoria', {pagina: trilha.pagina - 1}) }}"{{ trilha.temAnterior ? '' : ' disabled' }}>
-                <i class="bi bi-chevron-left" aria-hidden="true"></i>Mais recentes
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>{{ 'ponto_cartao.auditoria.mais_recentes'|trans }}
             </button>
-            <span class="pe-audit-pag-txt">Página {{ trilha.pagina }} de {{ trilha.paginas }} ({{ trilha.total }} eventos)</span>
+            <span class="pe-audit-pag-txt">{{ 'ponto_cartao.auditoria.pagina_de'|trans({pagina: trilha.pagina, paginas: trilha.paginas, total: trilha.total}) }}</span>
             <button type="button" class="pe-audit-pag" data-auditoria-pagina="{{ path('ponto_auditoria', {pagina: trilha.pagina + 1}) }}"{{ trilha.temProxima ? '' : ' disabled' }}>
-                Mais antigos<i class="bi bi-chevron-right" aria-hidden="true"></i>
+                {{ 'ponto_cartao.auditoria.mais_antigos'|trans }}<i class="bi bi-chevron-right" aria-hidden="true"></i>
             </button>
         </nav>
     {% endif %}
 {% else %}
-    <div class="pe-abas-vazio">Os eventos aparecem aqui a partir do próximo registro.</div>
+    <div class="pe-abas-vazio">{{ 'ponto_cartao.auditoria.vazio'|trans }}</div>
 {% endif %}

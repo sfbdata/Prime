@@ -241,7 +241,7 @@
             link.hidden = !comprovante;
             if (comprovante) {
                 link.setAttribute('href', comprovante.url);
-                link.setAttribute('aria-label', 'Baixar comprovante ' + comprovante.codigo);
+                link.setAttribute('aria-label', BJ_T.t('ponto_cartao.js.tela_cheia.baixar_comprovante', { codigo: comprovante.codigo }));
             } else {
                 link.removeAttribute('href');
                 link.removeAttribute('aria-label');

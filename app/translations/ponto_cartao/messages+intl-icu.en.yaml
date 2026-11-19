@@ -6,3 +6,235 @@ ponto_cartao:
     adiar: Remind me in 10 min
     dispensar: Dismiss until tomorrow
     regiao: Time clock reminder
+
+    # ---- Telas do ponto (templates e JS extraídos)
+    cartao:
+        saldo_acima_limite: Balance above the configured limit
+        tempo_alem_jornada: 'Time beyond today''s workday'
+        tipo_registro: Entry type
+        atualizar_localizacao: Refresh location
+        silenciar_sons: Mute sounds
+        registrar_ponto: Record Time
+        banco_de_horas: Hour bank
+        situacao_aguardando: Waiting for clock-in
+        situacao_encerrada: Workday ended
+        situacao_repouso: On break
+        situacao_jornada: On shift
+        hora_oficial: Official time
+        a_mais_hoje: extra today
+        home_office: 'Working from home today: the clock entry will be recorded without requiring location.'
+        obtendo_localizacao: Getting your location...
+        regularizar: Resolve
+        atualizar_batidas: Refresh and check my clock entries
+        justificar_falta: Justify absence
+        jornada_semanal: Weekly hours
+        personalizada: Custom
+        padrao_escritorio: Firm default
+        registros_dup: '{n} entries'
+        falta_entrada: clock-in missing
+        falta_repouso: break start missing
+        falta_retorno: return from break missing
+        falta_saida: clock-out missing
+        ultima_pendencia: 'Last pending item: {dia}, {falta}.'
+        folha_titulo: Timesheet
+    comum:
+        fechar: Close
+        tipo: Type
+        selecione: Select...
+        entrada: Clock-in
+        repouso: Break
+        retorno: Return
+        saida: Clock-out
+        cancelar: Cancel
+        situacao: Status
+    editar:
+        titulo: Edit justification
+        detalhes_esquecido: Missed entry details
+        tipo_batida: Entry type
+        horario: Time
+        abono_parcial: Partial excuse (absence within working hours)
+        periodo_parcial: Partial absence period
+        motivo: Reason
+        substituir_atestado: Replace medical certificate (optional)
+        formatos_anexo: 'PDF, JPEG or PNG (max 10 MB)'
+        salvar: Save changes
+    pagina:
+        titulo: Time Clock
+    abas:
+        registros_comprovantes: Entries and receipts
+        pendencias: Pending items
+        minhas_justificativas: My Justifications
+        comprovantes: Receipts
+        banco_de_horas: Hour Bank
+        equipe: Team
+        auditoria: Audit
+        configuracoes: Settings
+    equipe:
+        colaborador: Team member
+        ultimo_registro: Last entry
+        banco: Bank
+        pendencias: Pending
+        escala: Schedule
+        ninguem_registra: No one clocks in at this firm.
+        abonar_selecionadas: Excuse selected
+        nenhuma_justificativa: No justifications awaiting review.
+        sem_registro: No entry
+        escala_de: 'Schedule for {nome}'
+        justificativas_a_analisar: 'Justifications to review ({n})'
+    banco:
+        saldo_atual: CURRENT BALANCE
+        limite_configurado: CONFIGURED LIMIT
+        prazo_compensacao: OFFSET PERIOD
+        competencia: Period
+        credito: Credit
+        compensado: Offset
+        saldo: Balance
+        vence_em: Expires on
+        nenhum_lote: No batches in the hour bank.
+        nota: 'Negative hours first offset the oldest credits. The default period is 6 months, as set by the individual agreement (art. 59, § 5, of the CLT), and can be adjusted in Settings according to the firm''s agreement.'
+        prazo_meses: '{n, plural, one {# month} other {# months}}'
+        aviso_acima_limite: Balance above the configured limit. Plan the offset to avoid liability.
+        sem_prazo: No deadline
+    comprovantes:
+        explicacao: 'Each receipt is a unique image, with a code, QR Code and security patterns generated for the entry itself.'
+        validar_codigo: Validate code
+        baixar: Download
+        vazio: Receipts appear here after your first entry.
+        baixar_comprovante: 'Download receipt {codigo}'
+    auditoria:
+        data_hora: Date and time
+        autor: Author
+        acao: Action
+        detalhe: Detail
+        selo: Seal
+        sem_selo: no seal
+        paginas: Audit pages
+        mais_recentes: Newer
+        mais_antigos: Older
+        vazio: Events appear here starting from the next entry.
+        pagina_de: 'Page {pagina} of {paginas} ({total} events)'
+    tela_cheia:
+        registro_de_ponto: Time clock entry
+        validando: Validating
+        registrado: Time entry recorded
+        baixar_comprovante: Download receipt
+        concluir: Done
+        nao_registrado: Time entry not recorded
+        tentar_novamente: Try again
+        etapa_horario: Official time confirmed
+        etapa_localizacao: Location validated
+        etapa_selado: Entry sealed
+        registrado_no_sistema: Recorded in the system
+        localizacao_validada: location validated
+    antes:
+        titulo: Before you clock in
+        aguardar: Wait
+        registrar_assim_mesmo: Clock in anyway
+    externo:
+        titulo: Field work
+        aviso: The entry will be made outside the allowed radius and will go to the manager for review.
+        local_motivo: Location and reason
+        registrar: Record
+    alerta:
+        titulo: Time Clock Entry
+        fechar_aviso: Close notice
+        ir_para_ponto: Go to Time Clock
+        horario: 'Time:'
+        horario_configurado: 'Configured time:'
+    js:
+        cartao:
+            tipo_entrada: Clock-in
+            tipo_repouso: Break
+            tipo_retorno: Return
+            tipo_saida: Clock-out
+            jornada_concluida: 'Today''s workday is complete'
+            bater_ponto: Record Entry
+        sons:
+            silenciar: Mute sounds
+            ativar: Turn on sounds
+        comum:
+            sem_resposta: No response from the server. Check your connection and try again.
+        equipe:
+            recusa: Could not change the schedule. Refresh the page and try again.
+            escala_alterada: 'Schedule for {nome} changed.'
+        paineis:
+            carregando: Loading...
+            falha: Could not load this tab.
+            tentar: Try again
+        tela_cheia:
+            baixar_comprovante: 'Download receipt {codigo}'
+        comprovantes:
+            baixar_limite: Too many requests in a row. Try again in 1 minute.
+            baixar_sem_rede: No connection. Try again when the internet is back.
+            baixar_falhou: The receipt could not be downloaded right now. Try again.
+        abas:
+            sem_justificativas: No justifications submitted in this period.
+            excluida_de: 'Justification for {data} deleted.'
+            excluida: Justification deleted.
+            excluir_falhou: Could not delete the justification. Refresh the page and try again.
+            recusar_titulo: Reject justification
+            abonar_titulo: Excuse justification
+            recusar: Reject
+            abonar: Excuse
+            motivo_recusa: Enter the reason for the rejection.
+        batida:
+            fora_do_raio: You are outside the allowed radius
+            exige_raio: 'The entry requires being within the radius of one of the firm''s locations.'
+            sede_mais_proxima: 'The nearest location is {sede}, {distancia} m away. The allowed radius is {raio} m.'
+            aproxime_se: Move closer or report field work.
+        janelas:
+            mes_1: January
+            mes_2: February
+            mes_3: March
+            mes_4: April
+            mes_5: May
+            mes_6: June
+            mes_7: July
+            mes_8: August
+            mes_9: September
+            mes_10: October
+            mes_11: November
+            mes_12: December
+            semana_0: Sun
+            semana_1: Mon
+            semana_2: Tue
+            semana_3: Wed
+            semana_4: Thu
+            semana_5: Fri
+            semana_6: Sat
+            erro_data: Select at least one date.
+            erro_data_e_motivo: Enter the date and the reason.
+            erro_motivo: Enter the reason.
+            erro_tipo: Select the justification type.
+            erro_esquecido: Enter the type and time of the missed entry.
+            erro_esquecido_uma_data: Missed Entry can only be applied to a single date.
+            erro_abono_uma_data: Partial excuse can only be applied to a single date.
+            erro_abono_horarios: Enter the clock-out and return times correctly for the partial excuse.
+            desmarque_extras: Uncheck the extra dates on the calendar.
+        presenca:
+            sem_posicao: Could not get your location; allow location access and try again.
+            mudou: Your time clock changed on another screen; check it before clocking.
+            sem_conferir: Could not check your time clock right now. Nothing was sent; try again shortly.
+            nao_entrou: 'The entry was not recorded: the server refused the request before saving it. Refresh the page, sign in again if needed, and repeat.'
+            sem_confirmacao: We did not receive confirmation from the server and the entry MAY have been recorded. Open the time clock and check BEFORE clocking again.
+            sem_rede: 'You are offline and it is not possible to know whether the entry went through. When the connection is back, open the time clock and check before clocking again.'
+            atrasado: 'Sending took too long and the entry was not sent, to avoid saving the wrong time. Try again.'
+            nota_alerta: 'The warning does not prevent the entry: the timesheet must reflect the real time.'
+            registrar_assim_mesmo: Clock in anyway?
+            bater_ponto: Record entry
+            dica_entrada: Click to record the clock-in
+            em_intervalo: 'On break since {hora}'
+            em_jornada: 'On shift since {hora}'
+            dica_saida: Click to record the clock-out
+            jornada: 'Workday {entrada} to {saida}'
+            regularizar_ontem: 'Fix yesterday''s time clock'
+            dica_regularizar: 'Click to enter yesterday''s clock-out'
+            confirmar_saida: 'Record the clock-out now ({hora})?'
+            descanso_minimo: 'The minimum rest until the next clock-in is {descanso}.'
+            descanso_aviso: 'If the next clock-in comes before {descanso} of rest, the system will warn you before recording.'
+            sede_mais_proxima: nearest
+            fora_da_cerca: 'Not recorded: you are {distancia} m from the {nome} location, outside the allowed area. If you are working off-site today, ask your manager to release the day.'
+            entrada_registrada: 'Clock-in recorded at {hora}'
+            saida_registrada: 'Clock-out recorded at {hora}'
+
+# ---- fim

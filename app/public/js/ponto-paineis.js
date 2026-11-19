@@ -17,9 +17,10 @@
 
     // Sem resposta até aqui, o painel avisa e deixa tentar de novo.
     const CARREGAR_PRAZO_MS = 20000;
-    const TEXTO_CARREGANDO = 'Carregando...';
-    const TEXTO_FALHA = 'Não foi possível carregar esta aba.';
-    const TEXTO_TENTAR = 'Tentar de novo';
+    // Lidos na hora do uso (idioma da tela).
+    const textoCarregando = function () { return BJ_T.t('ponto_cartao.js.paineis.carregando'); };
+    const textoFalha = function () { return BJ_T.t('ponto_cartao.js.paineis.falha'); };
+    const textoTentar = function () { return BJ_T.t('ponto_cartao.js.paineis.tentar'); };
 
     function aviso(classe, papel, texto) {
         const caixa = document.createElement('div');
@@ -52,7 +53,7 @@
         painel.dataset.estado = 'carregando';
         painel.setAttribute('aria-busy', 'true');
         if (estado !== 'pronto') {
-            painel.replaceChildren(aviso('pe-painel-carregando', 'status', TEXTO_CARREGANDO));
+            painel.replaceChildren(aviso('pe-painel-carregando', 'status', textoCarregando()));
         }
 
         const aborto = new AbortController();
@@ -73,12 +74,12 @@
             painel.dispatchEvent(new CustomEvent('ponto:painel-carregado', { bubbles: true, detail: { painel: painel } }));
         } catch (erro) {
             painel.dataset.estado = 'erro';
-            const falha = aviso('pe-painel-falha', 'alert', TEXTO_FALHA);
+            const falha = aviso('pe-painel-falha', 'alert', textoFalha());
             const tentar = document.createElement('button');
             tentar.type = 'button';
             tentar.className = 'pe-painel-tentar';
             tentar.setAttribute('data-painel-tentar', '');
-            tentar.textContent = TEXTO_TENTAR;
+            tentar.textContent = textoTentar();
             falha.appendChild(tentar);
             painel.replaceChildren(falha);
         } finally {

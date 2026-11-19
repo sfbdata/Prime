@@ -138,7 +138,9 @@ final class TelaCheiaEAvisosDoPontoTest extends JusPrimeWebTestCase
         // O JS da tela recebe a chave, e os módulos da E8 vêm antes do script da tela.
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('const ANIMACAO_LIGADA = true;', $html);
-        $ordem = array_map(static fn (string $js): int|false => strpos($html, $js), ['js/ponto-batida.js', 'js/ponto-aviso-flutuante.js', 'js/ponto-sons.js', 'js/ponto-tela-cheia.js', 'const ANIMACAO_LIGADA']);
+        // O catálogo da tela e o bj-traducao.js vêm antes de tudo: o ponto-sons.js e o script da tela pedem texto
+        // já no carregamento (botão de som, rótulo do Bater Ponto); sem o BJ_T o script para e a batida não funciona.
+        $ordem = array_map(static fn (string $js): int|false => strpos($html, $js), ['"ponto_cartao.js.cartao.bater_ponto"', 'js/bj-traducao.js', 'js/ponto-batida.js', 'js/ponto-aviso-flutuante.js', 'js/ponto-sons.js', 'js/ponto-tela-cheia.js', 'const ANIMACAO_LIGADA']);
         self::assertNotContains(false, $ordem);
         $ordenada = $ordem;
         sort($ordenada);

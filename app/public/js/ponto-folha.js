@@ -28,10 +28,12 @@
 
     // O PDF em imagem é desenhado na hora, no servidor; sem resposta até aqui, a falha aparece.
     const PRAZO_PDF_MS = 30000;
-    const GERANDO = 'Gerando a folha em PDF...';
-    const BAIXADA = 'Folha baixada em PDF.';
-    const FALHOU = 'Não foi possível gerar o PDF.';
-    const LIMITE = 'Muitos pedidos de folha em sequência. Aguarde um minuto e tente de novo.';
+    // Lidos na hora do uso (idioma da tela): funções, nunca constantes avaliadas no carregamento.
+    const gerando = function () { return BJ_T.t('ponto_folha.js.gerando'); };
+    const baixada = function () { return BJ_T.t('ponto_folha.js.baixada'); };
+    const falhou = function () { return BJ_T.t('ponto_folha.js.falhou'); };
+    const limite = function () { return BJ_T.t('ponto_folha.js.limite'); };
+    // Fica em português: é do aceite da folha com ressalva, documento legal (sempre em pt_BR).
     const SEM_RESSALVA = 'Descreva a ressalva.';
     const NOME_PADRAO = 'folha_ponto.pdf';
     const FOCAVEIS = 'button:not([disabled]), iframe, [href]';
@@ -52,7 +54,7 @@
     }
 
     function textoDaBaixa(codigo) {
-        return codigo ? 'Folha baixada em PDF. Código ' + codigo + '.' : BAIXADA;
+        return codigo ? BJ_T.t('ponto_folha.js.baixada_codigo', { codigo: codigo }) : baixada();
     }
 
     function nomeDoArquivo(resposta) {
@@ -103,16 +105,16 @@
         try {
             const resposta = await fetch(url, { credentials: 'same-origin', signal: aborto.signal });
             if (resposta.status === 429) {
-                return { erro: LIMITE };
+                return { erro: limite() };
             }
             if (!resposta.ok || !(resposta.headers.get('Content-Type') || '').includes('application/pdf')) {
-                return { erro: FALHOU };
+                return { erro: falhou() };
             }
             const blob = await resposta.blob();
 
             return { blob: blob, nome: nomeDoArquivo(resposta), codigo: (resposta.headers.get('X-Codigo-Folha') || '').trim() };
         } catch (erro) {
-            return aborto.signal.aborted && !venceu ? { cancelado: true } : { erro: FALHOU };
+            return aborto.signal.aborted && !venceu ? { cancelado: true } : { erro: falhou() };
         } finally {
             clearTimeout(prazo);
         }
@@ -125,7 +127,7 @@
         if (!aborto) {
             return;
         }
-        avisar(GERANDO, 'gerando');
+        avisar(gerando(), 'gerando');
         const pdf = await pedirPdf(botao.dataset.folhaPdf, aborto);
         terminarEmissao(aborto);
         if (pdf.cancelado) {
@@ -163,7 +165,7 @@
         const corpo = fundo.querySelector('[data-folha-ver-corpo]');
         const texto = document.createElement('div');
         texto.className = 'pe-janela-texto';
-        texto.textContent = GERANDO;
+        texto.textContent = gerando();
         corpo.classList.remove('pe-folha-ver-quadro');
         corpo.replaceChildren(texto);
         erroDaJanela(fundo, '');

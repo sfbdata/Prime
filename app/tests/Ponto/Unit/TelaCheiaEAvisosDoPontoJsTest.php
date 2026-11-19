@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ponto')]
 final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const RAIZ = __DIR__ . '/../../..';
 
     #[TestDox('Tela cheia: os tempos do desenho (2.800 ms; erro em 55%, sucesso no fim; fecha em 10 s) e a espera da resposta')]
@@ -154,8 +157,10 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         self::assertMatchesRegularExpression('/try \{\s*localStorage\.setItem\(CHAVE_MUDO, JSON\.stringify\(!!valor\)\);\s*\} catch/', $js);
         self::assertStringContainsString('return ligados && !mudo();', $js, 'a chave desligada e o mudo calam o som');
         self::assertMatchesRegularExpression('/function liberar\(\) \{\s*if \(!ligados\) \{\s*return;/', $js, 'chave desligada: nem cria o contexto');
-        self::assertStringContainsString("const DICA_SILENCIAR = 'Silenciar sons';", $js);
-        self::assertStringContainsString("const DICA_ATIVAR = 'Ativar sons';", $js);
+        self::assertStringContainsString("const dicaSilenciar = function () { return BJ_T.t('ponto_cartao.js.sons.silenciar'); };", $js);
+        self::assertStringContainsString("const dicaAtivar = function () { return BJ_T.t('ponto_cartao.js.sons.ativar'); };", $js);
+        self::assertSame('Silenciar sons', self::ptBr('ponto_cartao.js.sons.silenciar'));
+        self::assertSame('Ativar sons', self::ptBr('ponto_cartao.js.sons.ativar'));
         self::assertStringContainsString("botao.setAttribute('aria-label', dica);", $js);
     }
 
@@ -493,7 +498,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
     {
         $tela = self::tela();
 
-        self::assertStringContainsString('<span class="pe-registrar-titulo" id="ponto-registrar-titulo" tabindex="-1">Registrar Ponto</span>', $tela);
+        self::assertStringContainsString('<span class="pe-registrar-titulo" id="ponto-registrar-titulo" tabindex="-1">{{ \'ponto_cartao.cartao.registrar_ponto\'|trans }}</span>', $tela);
         self::assertStringContainsString("window.PontoTelaCheia.configurar({ focoAoFechar: () => document.getElementById('ponto-registrar-titulo') });", $tela);
         self::assertStringNotContainsString("focoAoFechar: () => btnPonto", $tela);
         $tc = self::arquivo('public/js/ponto-tela-cheia.js');
@@ -573,7 +578,8 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         self::assertStringContainsString('no.hidden = !comprovante;', $mostrar);
         self::assertStringContainsString('link.hidden = !comprovante;', $mostrar);
         self::assertStringContainsString("link.setAttribute('href', comprovante.url);", $mostrar);
-        self::assertStringContainsString("link.setAttribute('aria-label', 'Baixar comprovante ' + comprovante.codigo);", $mostrar);
+        self::assertStringContainsString("link.setAttribute('aria-label', BJ_T.t('ponto_cartao.js.tela_cheia.baixar_comprovante', { codigo: comprovante.codigo }));", $mostrar);
+        self::assertSame('Baixar comprovante {codigo}', self::ptBr('ponto_cartao.js.tela_cheia.baixar_comprovante'));
         self::assertStringContainsString("link.removeAttribute('href');", $mostrar, 'sem comprovante, o link escondido nem recebe foco');
         self::assertStringNotContainsString('innerHTML', $tc);
         // Baixar para o fechamento sozinho e esconde a barra (desenho L829 e L832, `limparAuto`); o download é do link.
@@ -585,7 +591,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         // (`data-baixar`, o erro em `data-baixar-falha`); os dois escondidos até o JS pôr o comprovante.
         $marcacao = self::arquivo('templates/ponto/_tela_cheia.html.twig');
         self::assertStringContainsString("<div class=\"pe-tc-ok-met\" data-tc-ok-met data-padrao=\"{{ metPadrao }}\">{{ metPadrao }}</div>\n                    <div class=\"pe-tc-ok-cod\" data-tc-ok-cod hidden></div>", $marcacao);
-        self::assertStringContainsString("<a class=\"pe-tc-btn pe-tc-btn--baixar\" download data-baixar data-tc-baixar hidden><i class=\"bi bi-download\" aria-hidden=\"true\"></i>Baixar comprovante</a>\n                    <button type=\"button\" class=\"pe-tc-btn pe-tc-btn--contorno\" data-tc-concluir>Concluir</button>\n                    <div class=\"pe-tc-falha\" role=\"alert\" data-baixar-falha hidden></div>", $marcacao);
+        self::assertStringContainsString("<a class=\"pe-tc-btn pe-tc-btn--baixar\" download data-baixar data-tc-baixar hidden><i class=\"bi bi-download\" aria-hidden=\"true\"></i>{{ 'ponto_cartao.tela_cheia.baixar_comprovante'|trans }}</a>\n                    <button type=\"button\" class=\"pe-tc-btn pe-tc-btn--contorno\" data-tc-concluir>{{ 'ponto_cartao.tela_cheia.concluir'|trans }}</button>\n                    <div class=\"pe-tc-falha\" role=\"alert\" data-baixar-falha hidden></div>", $marcacao);
         self::assertStringContainsString("link.parentElement.querySelector('[data-baixar-falha]')", self::arquivo('public/js/ponto-comprovantes.js'), 'o erro do download vai ao irmão do link');
 
         // O CSS do desenho (L365 e L368).

@@ -71,7 +71,7 @@ final class AbasDoDesenhoCssTest extends TestCase
         yield 'fechar' => ['.pe-janela-fechar', ['width' => '28px', 'height' => '28px', 'border' => 'none', 'border-radius' => '3px', 'background' => 'transparent', 'color' => '#fff', 'font-size' => '17px', 'cursor' => 'pointer']];
         yield 'corpo (L292)' => ['.pe-janela-corpo', ['padding' => '14px 16px', 'display' => 'flex', 'flex-direction' => 'column', 'gap' => '11px']];
         yield 'rótulo (L294)' => ['.pe-janela-rotulo', ['display' => 'flex', 'flex-direction' => 'column', 'gap' => '5px', 'font-size' => '12px', 'font-weight' => 'bold', 'color' => 'var(--pe-texto-3)']];
-        yield 'campo (L294)' => ['.pe-janela-campo', ['border' => '1px solid var(--pe-borda)', 'border-radius' => '3px', 'padding' => '8px 10px', 'font' => 'inherit', 'font-size' => '14px', 'font-weight' => 'normal', 'resize' => 'vertical']];
+        yield 'campo (L294)' => ['.pe-janela-campo', ['border' => '1px solid var(--pe-borda-campo)', 'border-radius' => '3px', 'padding' => '8px 10px', 'font' => 'inherit', 'font-size' => '14px', 'font-weight' => 'normal', 'resize' => 'vertical']];
         yield 'erro (L312)' => ['.pe-janela-erro', ['padding' => '0 16px 10px', 'font-size' => '13px', 'color' => 'var(--pe-perigo)']];
         yield 'rodapé (L313)' => ['.pe-janela-rodape', ['display' => 'flex', 'justify-content' => 'flex-end', 'gap' => '8px', 'padding' => '10px 16px', 'background' => 'var(--pe-rodape-bg)', 'border-top' => '1px solid var(--pe-div)']];
         yield 'Cancelar (L315)' => ['.pe-janela-cancelar', ['height' => '36px', 'padding' => '0 14px', 'border' => '1px solid var(--pe-borda)', 'border-radius' => '3px', 'background' => 'var(--pe-card)', 'color' => 'var(--pe-texto-2)', 'font-size' => '14px']];

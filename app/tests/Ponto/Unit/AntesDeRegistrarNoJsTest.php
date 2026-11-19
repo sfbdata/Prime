@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Ponto\Service\AlertasAntesDaBatida;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ponto')]
 final class AntesDeRegistrarNoJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
     private const CAMINHO_ATALHO = __DIR__ . '/../../../public/js/presenca-ponto.js';
     private const CAMINHO_CSS = __DIR__ . '/../../../public/css/ponto-eletronico.css';
@@ -46,7 +49,7 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         $toque = $this->toque();
         $fila = strpos($toque, 'if (resultado.falhaDeRede && await guardarNaFila(payload)) {');
         // E8: pelo `mostrarAntesDeRegistrar`, que fecha a validação em tela cheia antes (testAlertaNoLugarDaTelaCheia).
-        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                mostrarAntesDeRegistrar(resultado.data.alerta, payload);\n                return;\n            }");
+        $alerta = strpos($toque, "if (resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string') {\n                mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo' ? resultado.data.faltamSegundos : null);\n                return;\n            }");
         $atraso = strpos($toque, "if (resultado.tipo === 'atrasado') {");
 
         self::assertIsInt($fila);
@@ -59,7 +62,7 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     #[TestDox('A janela usa a moldura das janelas da tela, escreve o alerta por textContent e põe o foco no "Aguardar"')]
     public function testJanelaPelaMoldura(): void
     {
-        $abrir = $this->corpoDaFuncao($this->tela(), 'function abrirAntesDeRegistrar(texto, payload)');
+        $abrir = $this->corpoDaFuncao($this->tela(), 'function abrirAntesDeRegistrar(texto, payload, faltamDoIntervalo)');
 
         // E8: o foco volta ao título do cartão, nunca ao "Bater Ponto" (um Enter bateria o tipo sugerido).
         self::assertStringContainsString("window.PontoAbas.abrirJanela('ponto-janela-alerta', origemDaJanelaExterna())", $abrir);
@@ -93,13 +96,13 @@ final class AntesDeRegistrarNoJsTest extends TestCase
         // na caixa e a janela segue escondida: a espera sai já.
         self::assertMatchesRegularExpression(
             "/^\{\s+const tela = window\.PontoTelaCheia;\s+const soltar = tela && typeof tela\.segurar === 'function' \? tela\.segurar\(\) : null;\s+try \{\s+"
-            . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+abrirAntesDeRegistrar\(texto, payload\);\s+"
+            . "if \(tela\) \{\s+tela\.fecharSeValidando\(\);\s+\}\s+abrirAntesDeRegistrar\(texto, payload, faltamDoIntervalo\);\s+"
             . "\} finally \{\s+soltarQuandoAJanelaFechar\('ponto-janela-alerta', soltar\);\s+\}\s+\}$/",
-            $this->corpoDaFuncao($tela, 'function mostrarAntesDeRegistrar(texto, payload)'),
+            $this->corpoDaFuncao($tela, 'function mostrarAntesDeRegistrar(texto, payload, faltamDoIntervalo)'),
         );
         self::assertSame(2, substr_count($tela, 'mostrarAntesDeRegistrar('), 'a declaração e a resposta com alerta');
         self::assertSame(2, substr_count($tela, 'abrirAntesDeRegistrar('), 'a declaração e o `mostrarAntesDeRegistrar`: nenhuma abertura sem fechar a validação antes');
-        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning');   // sem a moldura", $this->corpoDaFuncao($tela, 'function abrirAntesDeRegistrar(texto, payload)'));
+        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning');   // sem a moldura", $this->corpoDaFuncao($tela, 'function abrirAntesDeRegistrar(texto, payload, faltamDoIntervalo)'));
         self::assertMatchesRegularExpression(
             "/const fundo = document\.getElementById\(id\);\s+if \(!fundo \|\| fundo\.hidden \|\| typeof MutationObserver !== 'function'\) \{\s+soltar\(\);\s+return;\s+\}/",
             $this->corpoDaFuncao($tela, 'function soltarQuandoAJanelaFechar(id, soltar)'),
@@ -140,7 +143,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     public function testAtalhoPergunta(): void
     {
         $js = (string) file_get_contents(self::CAMINHO_ATALHO);
-        self::assertStringContainsString("var NOTA_DO_ALERTA = '" . AlertasAntesDaBatida::NOTA . "';", $js);
+        self::assertStringContainsString("function textoNotaAlerta() { return BJ_T.t('ponto_cartao.js.presenca.nota_alerta'); }", $js);
+        self::assertSame(AlertasAntesDaBatida::NOTA, self::ptBr('ponto_cartao.js.presenca.nota_alerta'), 'a frase do atalho é a da janela do servidor');
         self::assertStringContainsString("return resultado.tipo === 'recusa' && resultado.data && typeof resultado.data.alerta === 'string' ? resultado.data.alerta : null;", $js);
 
         $bater = $this->corpoDaFuncao($js, 'async function bater()');
@@ -150,11 +154,11 @@ final class AntesDeRegistrarNoJsTest extends TestCase
             'await PB.lerPosicaoComPrazo(POSICAO_PRAZO_MS',
             "if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }",
             'var conferido = await lerEstado(RELEITURA_PRAZO_MS);',
-            "if (conferido.estado !== base.estado || conferido.dia !== base.dia) {\n                    estado = conferido;\n                    aoMudar();\n                    avisar(AVISO_MUDOU);\n                    return;\n                }",
+            "if (conferido.estado !== base.estado || conferido.dia !== base.dia) {\n                    estado = conferido;\n                    aoMudar();\n                    avisar(textoMudou());\n                    return;\n                }",
             'resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);',
             'var alerta = confirmouAlerta ? null : alertaDe(resultado);',
             'if (alerta === null) { break; }',
-            "if (!window.confirm(alerta + ' ' + NOTA_DO_ALERTA + ' Registrar assim mesmo?')) { return; }",
+            "if (!window.confirm(alerta + ' ' + textoNotaAlerta() + ' ' + BJ_T.t('ponto_cartao.js.presenca.registrar_assim_mesmo'))) { return; }",
             'confirmouAlerta = true;',
             'momentoDoToque = performance.now();',
             'payload.horaAparelho = Date.now();',
