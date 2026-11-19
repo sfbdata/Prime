@@ -2275,3 +2275,11 @@ Coordenador):**
     As notas técnicas só saem quando a pessoa vê alguma pasta vinculada ao processo, fora de segredo, com a aba Processo
     visível, porque a tela só as mostra nessa aba de dentro da pasta. Processo que não está em segredo, mas vinculado a uma
     pasta em segredo por causa de outro processo, segue a tela de processos: aparece na lista e no `detalhar`.
+31. **Ação `excluir` da `atualizar_pasta`** (PR 10, decidido pelo Coordenador em 18/11/2026): a tabela da 6.6 ganha a
+    linha `excluir` (módulo `pastas`, chave `expedientes`), com o alvo nos dados (`pasta`, `marcador` ou `reu`), sempre por
+    proposta (6.7). Cada alvo exige, além da linha, a mesma permissão que a tela exige hoje, nada mais frouxo, com um teste
+    de paridade por alvo: excluir a pasta, o recurso `pasta` com a ação `delete` (`pasta_delete`,
+    `PastaController.php:1792`); excluir marcador, o módulo `expediente` (`expediente_marcador_excluir`, `assertAccess` do
+    `ExpedienteController`); remover réu, o recurso `pasta` editar (`pasta_reu_remover`, pelo
+    `GerenciarReusDaPastaUseCase`). Excluir a pasta pelo conector segue a regra nova: a pasta vira lápide restaurável
+    (o #783 faz o restaurar sempre funcionar).

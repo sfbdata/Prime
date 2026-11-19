@@ -143,6 +143,9 @@ final class TabelaDeAbaEChave
             'reu' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'pedir_acesso' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'enviar_relatorio_sem_processo' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
+            // Sempre por proposta; o alvo (pasta, marcador, réu) vai nos dados e a ferramenta exige, por alvo, a mesma
+            // permissão da tela (decisão 31): pasta `delete`, módulo `expediente`, pasta editar.
+            'excluir' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
         ],
         'mudar_andamento' => [
             'mudar_fase' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
