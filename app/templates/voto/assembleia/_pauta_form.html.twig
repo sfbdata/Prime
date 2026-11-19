@@ -121,7 +121,7 @@
                 <label class="vFotoU" title="{{ 'voto.assembleia.gestor.pautas.foto_titulo'|trans }}" data-voto-foto data-voto-so-pessoa{% if not eleicao %} hidden{% endif %}>
                     <input type="file" name="opcao_foto_arquivo[]" accept="image/jpeg,image/png,image/webp" aria-label="{{ 'voto.assembleia.gestor.pautas.foto_aria'|trans }}" data-voto-foto-arquivo style="display:none;">
                     <input type="hidden" name="opcao_foto[]" value="{{ fotoDaOpcao }}" data-voto-foto-nome>
-                    <img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" data-voto-foto-img data-voto-foto-alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: '{nome}'}) }}"{% if fotoDaOpcao != '' %} src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: fotoDaOpcao}) }}"{% else %} hidden{% endif %}>
+                    <img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" data-voto-foto-img data-voto-foto-alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: '{nome}'}) }}"{% if fotoDaOpcao != '' %} src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: fotoDaOpcao|split('.')|first}) }}"{% else %} hidden{% endif %}>
                     <span class="vFotoT" data-voto-foto-com{% if fotoDaOpcao == '' %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.foto_trocar'|trans }}</span>
                     <i class="bi bi-person-bounding-box" aria-hidden="true" data-voto-foto-sem{% if fotoDaOpcao != '' %} hidden{% endif %}></i>
                     <span data-voto-foto-sem{% if fotoDaOpcao != '' %} hidden{% endif %}>{{ 'voto.assembleia.gestor.pautas.foto_enviar'|trans }}</span>

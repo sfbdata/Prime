@@ -14,7 +14,7 @@
                 <b>{{ p.titulo }}</b>
                 {% for o in p.opcoes %}
                     <div class="voto-votar-cand" data-numero="{{ o.numero }}">
-                        {% if p.tipo.eleitoral %}<span class="vAv">{% if o.foto ?? null %}<img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) }}">{% else %}{{ o.rotulo|split(' ')|map(x => x|first)|slice(-2)|join|upper }}{% endif %}</span>{% endif %}
+                        {% if p.tipo.eleitoral %}<span class="vAv">{% if o.foto ?? null %}<img alt="{{ 'voto.assembleia.gestor.pautas.foto_alt'|trans({nome: o.rotulo}) }}" src="{{ path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto|split('.')|first}) }}">{% else %}{{ o.rotulo|split(' ')|map(x => x|first)|slice(-2)|join|upper }}{% endif %}</span>{% endif %}
                         <div class="voto-votar-cand-tx">
                             <b>{{ p.tipo.eleitoral ? ('00000' ~ o.numero)|slice(-p.digitos) ~ ' · ' ~ o.rotulo : o.rotulo }}</b>
                             {% if o.descricao ?? null %}<div>{{ o.descricao }}</div>{% endif %}

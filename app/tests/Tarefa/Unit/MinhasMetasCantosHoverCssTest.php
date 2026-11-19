@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  *
  * - Cantos: cartões, abas, campos e botões com 4px; KPIs (desenho de 22/10), abas internas e status com 3px; o
  *   trilho e o preenchimento de "Seu andamento" com 4px.
- * - Hover da linha (dc L17-18): fundo #3b8fc2, faixa interna 4px #1f6f9c, sombra 0 4px 12px, e todo o
+ * - Hover da linha (dc L17-18): fundo #2b7ab0 (guia visual v30), faixa interna 4px #1f6f9c, sombra 0 4px 12px, e todo o
  *   conteúdo da linha em branco, sem fundo nem borda própria.
  * - Número da meta antes do título (dc L86): #0a6fa0, 10px de respiro.
  *
@@ -68,7 +68,7 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/border-radius:\s*(999px|[5-9]px|1\d+px)/', $this->regras($seletor));
     }
 
-    #[TestDox('hover da linha da meta: fundo #3b8fc2, faixa #1f6f9c, sombra e por cima das vizinhas (dc L17)')]
+    #[TestDox('hover da linha da meta: fundo #2b7ab0, faixa #1f6f9c, sombra e por cima das vizinhas (dc L17)')]
     public function testHoverDaLinha(): void
     {
         $regra = $this->regras('.mm-meta:hover');
@@ -77,7 +77,7 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertStringContainsString('box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);', $regra, 'faixa e sombra na mesma declaração');
         self::assertStringNotContainsString('border-left', $regra);
         self::assertMatchesRegularExpression('/z-index:\s*1;/', $regra);
-        self::assertMatchesRegularExpression('/--mm-linha-hover-bg:\s*#3b8fc2;/', $this->css());
+        self::assertMatchesRegularExpression('/--mm-linha-hover-bg:\s*#2b7ab0;/', $this->css());
         self::assertMatchesRegularExpression('/--mm-linha-hover-barra:\s*#1f6f9c;/', $this->css());
     }
 

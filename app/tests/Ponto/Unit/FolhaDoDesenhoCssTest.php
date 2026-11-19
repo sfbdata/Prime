@@ -49,7 +49,7 @@ final class FolhaDoDesenhoCssTest extends TestCase
         yield 'cabeçalho (L34)' => ['.pe-tab th', ['text-align' => 'left', 'padding' => '10px 12px', 'font-size' => '12px', 'letter-spacing' => '.3px', 'color' => 'var(--pe-texto-2)', 'background' => 'var(--pe-th-bg)', 'border-bottom' => '1px solid var(--pe-borda)', 'white-space' => 'nowrap']];
         yield 'célula (L35)' => ['.pe-tab td', ['padding' => '9px 12px', 'border-bottom' => '1px solid var(--pe-div)', 'white-space' => 'nowrap', 'font-variant-numeric' => 'tabular-nums']];
         yield 'listra (L36)' => ['.pe-lin:nth-child(odd)', ['background' => 'var(--pe-listra)']];
-        yield 'linha no hover (L37)' => ['.pe-lin:hover td', ['background' => '#3b8fc2', 'color' => '#fff']];
+        yield 'linha no hover (L37)' => ['.pe-lin:hover td', ['background' => '#2b7ab0', 'color' => '#fff']];
         yield 'botões no hover (L38)' => ['.pe-lin:hover td button', ['color' => '#fff']];
         yield 'saldos no hover (L39)' => ['.pe-lin:hover td.pe-sm,.pe-lin:hover .pe-pl', ['color' => '#fff']];
         yield '"+" (L41)' => ['.pe-mais', ['width' => '24px', 'height' => '24px', 'border' => 'none', 'background' => 'transparent', 'color' => 'var(--pe-mudo)', 'cursor' => 'pointer', 'padding' => '0', 'font-size' => '15px', 'border-radius' => '3px']];
