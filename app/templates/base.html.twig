@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 {%- set _opcoes = opcoes_avancadas() -%}
-<html lang="{{ idioma_atual().value }}" dir="{{ idioma_atual().direcao }}" data-bs-theme="light"{% if _opcoes.fusoEscolhido %} data-bj-fuso="{{ _opcoes.fuso.value }}"{% endif %}{% if _opcoes.data %} data-bj-formato-data="{{ _opcoes.data.value }}"{% endif %}{% if _opcoes.numero %} data-bj-formato-numero="{{ _opcoes.numero.value }}"{% endif %}{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
+<html lang="{{ idioma_atual().value }}" dir="{{ idioma_atual().direcao }}"{% if _opcoes.fusoEscolhido %} data-bj-fuso="{{ _opcoes.fuso.value }}"{% endif %}{% if _opcoes.data %} data-bj-formato-data="{{ _opcoes.data.value }}"{% endif %}{% if _opcoes.numero %} data-bj-formato-numero="{{ _opcoes.numero.value }}"{% endif %} data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
