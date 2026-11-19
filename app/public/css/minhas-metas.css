@@ -21,7 +21,7 @@
     --mm-card:          #fff;
     --mm-soft:          #fafcfd;
     --mm-border:        #dde5eb;
-    --mm-border-ctl:    #cdd7de;
+    --mm-border-ctl:    #d6e0e7;
     --mm-div:           #eef2f5;
     --mm-div-row:       #f1f4f7;
     --mm-hover:         #f2f7fa;
@@ -83,9 +83,9 @@
     --mm-text:          #12242f;
     --mm-body:          #243845;
     --mm-text-2:        #455c6b;
-    --mm-muted:         #6b8494;
+    --mm-muted:         #5f7684;
     --mm-label:         #7b93a2;
-    --mm-faint:         #8496a3;
+    --mm-faint:         #5f7684;
 
     --mm-accent:        #0f6fc4;
     --mm-accent-hover:  #0b5596;
@@ -870,7 +870,7 @@ a.mm-linha-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
     color: var(--mm-vazio-texto);
 }
 .mm-vazio { padding: 3.25rem 1.5rem; text-align: center; }
-.mm-vazio .bi { font-size: 2rem; color: var(--mm-border-ctl); display: block; margin-bottom: .625rem; }
+.mm-vazio .bi { font-size: 2rem; color: #7b93a2; display: block; margin-bottom: .625rem; }
 .mm-vazio-titulo { font-size: .9rem; font-weight: 600; color: var(--mm-text); }
 .mm-vazio-sub { font-size: .82rem; color: var(--mm-muted); margin-top: .1875rem; }
 
@@ -904,7 +904,7 @@ a.mm-linha-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
 @media (max-width: 1240px) { .mm-esteira-caixas { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 460px) { .mm-esteira-caixas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .mm-caixa-celula { display: flex; align-items: stretch; min-width: 0; }
-.mm-caixa-seta { flex: none; width: 14px; align-self: center; text-align: center; color: #b7c6d1; font-size: 12px; }
+.mm-caixa-seta { flex: none; width: 14px; align-self: center; text-align: center; color: #7b93a2; font-size: 12px; }
 .mm-caixa {
     position: relative; flex: 1; min-width: 0; min-height: 108px; padding: 9px 9px 7px;
     display: flex; flex-direction: column; gap: 3px;
@@ -919,7 +919,7 @@ a.mm-linha-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
 /* O link cobre a caixa inteira (o rodapé incluso); o rodapé de quem configura sobe por cima. */
 .mm-caixa-link::after { content: ''; position: absolute; inset: 0; border-radius: 4px; }
 .mm-caixa-topo { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
-.mm-caixa-icone { font-size: 15px; color: #9aabb7; }
+.mm-caixa-icone { font-size: 15px; color: #7b93a2; }
 .mm-caixa.tem-metas .mm-caixa-icone { color: #0a6fa0; }
 .mm-caixa.is-ativa .mm-caixa-icone { color: #fff; }
 .mm-caixa-total { font-size: 20px; line-height: 1; }

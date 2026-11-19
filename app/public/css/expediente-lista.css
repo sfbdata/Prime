@@ -36,7 +36,7 @@
     --ex-botao:        #e2e9ee;   /* Nova Pasta, dc L.82 */
     --ex-contagem-bg:  #e9eff3;
     --ex-contagem-tx:  #34505f;
-    --ex-mais-borda:   #9fb6c5;
+    --ex-mais-borda:   #7b93a2;
     --ex-seta-ordem:   #a7b6c0;   /* seta de ordenar em repouso e paginação desligada, dc L.515-516 */
     --ex-borda-tag:    #d8e1e7;   /* botão de marcador vazio, dc L.171 */
     --ex-borda-menu:   #d3dde4;   /* menu de botão direito, dc L.234/273 */
@@ -47,7 +47,7 @@
     --ex-avatar:       #0a6fa0;   /* avatar com iniciais na Lista, dc L.330 `avBg` */
     --ex-avatar-vazio-bg: #eef2f5; --ex-avatar-vazio-tx: #62798a;   /* "?" sem responsável, dc L.330/524 */
     --ex-menu-titulo:  #62798a;
-    --ex-menu-subtitulo: #7a8e9b;
+    --ex-menu-subtitulo: #5f7684;
     --ex-menu-hover:   #e6f2fa;  --ex-menu-hover-tx: #0b4f75;
     --ex-perigo-hover: #fbecec;  --ex-perigo-hover-tx: #8a1d24;
     /* Hover da linha (dc L.28-35) */

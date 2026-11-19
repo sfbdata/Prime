@@ -222,7 +222,7 @@
                         {% set pontoPushDica = 'pasta_push.processual.cartao.ponto_cartorio'|trans %}
                     {% endif %}
                     <div class="ps-push-cartao">
-                        <span class="ps-push-ponto ps-push-ponto--{{ pontoPushMod }}" title="{{ pontoPushDica }}" aria-hidden="true"></span>
+                        <i class="bi {{ pontoPushMod == 'juizo' ? 'bi-bank2' : 'bi-building' }} ps-push-ponto ps-push-ponto--{{ pontoPushMod }}" title="{{ pontoPushDica }}" aria-hidden="true"></i>
                         {# A dica só onde o item existe (FPN-014c): prometer a nota e recusar depois de
                            abrir o cartão (e marcá-lo como lido) era o defeito. #}
                         <button type="button" class="ps-push-cab"
