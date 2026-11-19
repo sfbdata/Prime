@@ -8,8 +8,8 @@ namespace App\Profile\Enum;
  * Idioma do sistema escolhido pela pessoa no Meu Perfil (desenho 07, "Preferências"; `bj-idioma.js`; spec
  * docs/specs/idioma-do-sistema.md). O valor é a etiqueta BCP 47 (`<html lang>`); o locale do Symfony troca o hífen
  * por sublinhado. O seletor oferece só Português (Brasil), Inglês e Espanhol (`oferecidos()`, decisão do dono,
- * 23/10/2026); só os `ativo()` podem ser escolhidos, e por enquanto é só o português: inglês e espanhol aparecem
- * "em breve" até ter catálogo de tradução. Os outros casos saem do seletor mas ficam no enum: quem já gravou um
+ * 23/10/2026); só os `ativo()` podem ser escolhidos: o português e o inglês (liberado com o catálogo `en`, spec
+ * docs/specs/sistema-em-ingles.md); o espanhol aparece "em breve" até ter catálogo de tradução. Os outros casos saem do seletor mas ficam no enum: quem já gravou um
  * deles no perfil (coluna `user_profiles.idioma`) continua carregando sem erro e vale como português
  * ({@see self::emUso()}). Liberar um idioma é decisão do dono, junto com o catálogo de tradução dele.
  */
@@ -62,15 +62,15 @@ enum Idioma: string
         return $this === self::Arabe ? 'rtl' : 'ltr';
     }
 
-    /** Pode ser escolhido. Por enquanto só o português: inglês e espanhol esperam o catálogo de tradução. */
+    /** Pode ser escolhido: português e inglês (catálogo `en` completo, spec `sistema-em-ingles`); o espanhol espera o catálogo. */
     public function ativo(): bool
     {
-        return $this === self::PortuguesBrasil;
+        return $this === self::PortuguesBrasil || $this === self::Ingles;
     }
 
     /**
      * Os idiomas do seletor (menu do usuário e Meu Perfil), na ordem do desenho: o português e os dois planejados
-     * (inglês e espanhol, "em breve" enquanto não estão `ativo()`).
+     * (inglês e espanhol; o espanhol "em breve" enquanto não está `ativo()`).
      *
      * @return list<self>
      */

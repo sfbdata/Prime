@@ -55,7 +55,7 @@ final class SalvarOpcoesAvancadasUseCaseTest extends TestCase
     {
         [$useCase, $perfil, $usuario] = $this->montar(salva: false);
 
-        foreach (['en', 'es', 'xx', ''] as $valor) {
+        foreach (['es', 'xx', ''] as $valor) {
             try {
                 $useCase->executar($usuario, $valor, 'Europe/London', 'ymd', 'us');
                 self::fail('deveria recusar ' . $valor);

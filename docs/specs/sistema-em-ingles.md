@@ -12,7 +12,8 @@ Risco BAIXO (preferência pessoal; nada de permissão, tenant nem ponto).
 ## Estado
 
 - PR 1 (branch `idioma-opcoes-avancadas`, migration `Version20261119110000`): bandeira e Opções avançadas.
-- PRs de tradução: pendentes.
+- PRs de tradução: #820 (lote 1), #821 (lote 2), #822 (lote 3), #823 (lote 4).
+- PR de liberação (branch `idioma-en-liberar`): `Idioma::ativo()` aceita o inglês; entra depois de #818, #820 e #821.
 
 ## 1. Bandeira no topo (E2)
 
