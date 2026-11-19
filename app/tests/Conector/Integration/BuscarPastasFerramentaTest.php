@@ -8,6 +8,7 @@ use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
+use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -370,6 +371,128 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         $this->assertMotivo(['acao' => 'numero', 'numero' => '123'], $soExpediente, ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
     }
 
+    #[TestDox('pastas_paradas: sai a parada há mais de 30 dias; a trancada fica fora do relatório; a em segredo sai e é contada; a recente e a de outro escritório não entram')]
+    public function testPastasParadas(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $parada = $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 60);
+        $recente = $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 2);
+        $trancada = $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 70);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $secreta = $this->paradaHaDias($this->pasta($escritorio, nivelSigilo: 1), 80);
+        $deOutro = $this->paradaHaDias($this->pasta($this->escritorio('Outro'), comProcesso: false), 90);
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'pastas_paradas'], $vinculo);
+
+        $dados = $resposta->dados;
+        self::assertSame([$parada->getId()], array_column($dados['pastas'], 'pasta_id'));
+        self::assertSame(1, $dados['total']);
+        self::assertSame(1, $dados['omitidas_em_segredo']);
+        self::assertSame(0, $dados['omitidas_sem_acesso']);
+        self::assertSame(1, $dados['resumo']['pastas_paradas']);
+        self::assertSame(1, $dados['resumo']['sem_processo']);
+        self::assertGreaterThanOrEqual(60, $dados['pastas'][0]['dias_parada']);
+        self::assertNull($dados['pastas'][0]['processo']);
+        self::assertNull($resposta->proximaPagina);
+        self::assertSame(['pasta' => [(int) $parada->getId()]], $resposta->ids);
+        $json = json_encode($dados, \JSON_THROW_ON_ERROR);
+        foreach ([$recente, $trancada, $secreta, $deOutro] as $fora) {
+            self::assertStringNotContainsString((string) $fora->getNup(), $json);
+        }
+    }
+
+    #[TestDox('pastas_paradas: sem o recurso de ver a pasta, o relatório vem vazio, como a tela')]
+    public function testPastasParadasSemRecursoDeVer(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: ['modules.expediente.view']);
+        $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 60);
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'pastas_paradas'], $vinculo);
+
+        self::assertSame([], $resposta->dados['pastas']);
+        self::assertSame(0, $resposta->dados['total']);
+    }
+
+    #[TestDox('pastas_paradas: 21 pastas dão duas páginas de 20, a resposta cabe no teto e proxima_pagina leva à segunda')]
+    public function testPastasParadasPaginadas(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        for ($i = 0; $i < 21; ++$i) {
+            $this->paradaHaDias($this->pasta($escritorio, comProcesso: false), 40 + $i);
+        }
+        $this->em()->flush();
+
+        $primeira = $this->executar(['acao' => 'pastas_paradas'], $vinculo);
+        static::getContainer()->get('services_resetter')->reset();
+        $segunda = $this->executar(['acao' => 'pastas_paradas', 'pagina' => $primeira->proximaPagina], $vinculo);
+
+        self::assertCount(20, $primeira->dados['pastas']);
+        self::assertSame(21, $primeira->dados['total']);
+        self::assertSame(2, $primeira->proximaPagina);
+        self::assertLessThan(DespachoDasFerramentas::TETO_DE_CARACTERES, mb_strlen(json_encode($primeira->dados, \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR)));
+        self::assertCount(1, $segunda->dados['pastas']);
+        self::assertNull($segunda->proximaPagina);
+        self::assertSame(2, $segunda->dados['pagina']);
+    }
+
+    #[TestDox('pastas_sem_processo: sai a pasta sem processo e a com processo; a trancada fica fora; a em segredo sai e é contada; a de outro escritório não aparece; categoria filtra')]
+    public function testPastasSemProcesso(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $sem = $this->pasta($escritorio, comProcesso: false);
+        $com = $this->pasta($escritorio);
+        $trancada = $this->pasta($escritorio, comProcesso: false);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $secreta = $this->pasta($escritorio, nivelSigilo: 1);
+        $deOutro = $this->pasta($this->escritorio('Outro'), comProcesso: false);
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'pastas_sem_processo'], $vinculo);
+
+        $porId = array_column($resposta->dados['pastas'], null, 'pasta_id');
+        self::assertEqualsCanonicalizing([$sem->getId(), $com->getId()], array_keys($porId));
+        self::assertNull($porId[$sem->getId()]['processo']);
+        self::assertNotNull($porId[$com->getId()]['processo']);
+        self::assertSame(1, $resposta->dados['resumo']['sem_processo']);
+        self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
+        self::assertSame(0, $resposta->dados['omitidas_sem_acesso']);
+        $json = json_encode($resposta->dados, \JSON_THROW_ON_ERROR);
+        foreach ([$trancada, $secreta, $deOutro] as $fora) {
+            self::assertStringNotContainsString((string) $fora->getNup(), $json);
+        }
+
+        static::getContainer()->get('services_resetter')->reset();
+        $categoria = $porId[$com->getId()]['categoria'];
+        $filtrada = $this->executar(['acao' => 'pastas_sem_processo', 'categoria' => $categoria], $vinculo);
+        self::assertContains($com->getId(), array_column($filtrada->dados['pastas'], 'pasta_id'));
+        self::assertSame($filtrada->dados['total'], \count($filtrada->dados['pastas']));
+    }
+
+    #[TestDox('os relatórios recusam o que a ação não usa, página e categoria inválidas e pedem o módulo do Expediente')]
+    public function testRelatoriosRecusas(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $soPastas = $this->vinculo($this->pessoa(), $escritorio, permissoes: ['modules.pastas.view', 'resources.pasta.view']);
+
+        $this->assertMotivo(['acao' => 'pastas_paradas', 'busca' => 'x'], $vinculo, ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        static::getContainer()->get('services_resetter')->reset();
+        $this->assertMotivo(['acao' => 'pastas_paradas', 'categoria' => 'com'], $vinculo, ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        static::getContainer()->get('services_resetter')->reset();
+        $this->assertFiltroInvalido(['acao' => 'pastas_paradas', 'pagina' => 12345678], $vinculo, 'pagina', '12345678');
+        $this->assertFiltroInvalido(['acao' => 'pastas_sem_processo', 'pagina' => 'abc'], $vinculo, 'pagina', 'abc');
+        $this->assertFiltroInvalido(['acao' => 'pastas_sem_processo', 'categoria' => 'inventada'], $vinculo, 'categoria', 'inventada');
+        $this->assertMotivo(['acao' => 'pastas_paradas'], $soPastas, ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        static::getContainer()->get('services_resetter')->reset();
+        $this->assertMotivo(['acao' => 'pastas_sem_processo'], $soPastas, ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+    }
+
     /** @param array<string, mixed> $argumentos */
     private function executar(array $argumentos, UserTenant $vinculo): RespostaDaFerramenta
     {
@@ -425,6 +548,15 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
             $this->em()->persist($vinculo);
             $pasta->getPastaProcessos()->add($vinculo);
         }
+        $this->em()->flush();
+
+        return $pasta;
+    }
+
+    /** A pasta aberta há `$dias` e sem nenhuma movimentação: o relatório de pastas paradas conta a partir da abertura. */
+    private function paradaHaDias(Pasta $pasta, int $dias): Pasta
+    {
+        $pasta->setDataAbertura(new \DateTimeImmutable('-' . $dias . ' days'));
         $this->em()->flush();
 
         return $pasta;

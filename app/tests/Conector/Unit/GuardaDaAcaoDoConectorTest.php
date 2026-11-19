@@ -85,7 +85,7 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
     #[TestDox('ação ou ferramenta fora da tabela: pedido inválido, antes de qualquer outra conferência')]
     public function testForaDaTabela(): void
     {
-        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'ler_pasta', 'timeline', $this->pasta), ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'ler_pasta', 'linha_do_tempo', $this->pasta), ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
         $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'consultar_sql', 'unica'), ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
         self::assertSame([], $this->modulosPerguntados);
     }

@@ -797,7 +797,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 **`buscar_pastas`** (PR 6)
 - Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`acao: minhas_demandas`), busca rápida por número ou NUP, as
   pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
-  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); e, no PR 14, os relatórios de pastas paradas (`acao: pastas_paradas`) e de pastas sem processo (`acao: pastas_sem_processo`, com `categoria?`), 20 por página, pelos UseCases das folhas da tela (`GerarRelatorioPastasParadasUseCase` e `GerarRelatorioSemProcessoUseCase`, que já existiam), com o cadeado nos UseCases e o segredo de justiça tirado e contado.
 - Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
   (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
   `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
@@ -809,8 +809,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   **Passar sempre `$quem`**: sem ele o cadeado não entra. Filtro inválido é erro (`FiltroDoAgenteInvalidoException`), nunca
   lista inteira.
 - Falta: tirar e contar o segredo de justiça (a busca do Agente hoje não tira); conferir no PR se `ListarMinhasDemandasUseCase`
-  aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); relatórios do Expediente com UseCase extraído (regra hoje no
-  controller, PR 14).
+  aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); os relatórios do Expediente já tinham UseCase (feito no PR 14, sem extração).
 - Permissão: módulo `expediente` (como o `/api/agente`, `AgenteDePastasController.php:99`); Minhas demandas, módulo `pastas`
   (`app/src/Pasta/Controller/DemandasController.php:240`).
 
@@ -827,8 +826,12 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   - `publicacoes` (14.h): as publicações do Diário ligadas à pasta; com `publicacao_id`, o texto inteiro;
   - `equipe`: os colegas que podem ser mencionados no Registro (`ListarMencionaveisDaPastaUseCase::executar`,
     `app/src/Pasta/UseCase/ListarMencionaveisDaPastaUseCase.php:58`), só nome e id;
-  - `timeline` e `controladoria` (alertas e pontos do relatório inicial): depois do PR 14, com UseCase extraído (regra hoje no
-    controller).
+  - `timeline` (a Timeline inteligente, pelo `MontadorDaTimelineInteligente`: os 30 acontecimentos mais recentes, sem link, com
+    o texto mascarado e as abas ocultas e o financeiro como na tela) e `controladoria` (alertas e pontos do relatório inicial),
+    do PR 14: `ListarAlertasDaPastaUseCase` e `LerPontosDoRelatorioInicialUseCase`, extraídos do `PastaControladoriaController`
+    e do `PastaController`/`PastaResumoController`. O alerta de metas e prazos some com a aba Metas oculta; os de contrato e
+    unidade só saem a quem vê o financeiro, e esses e o do titular do extrato saem sem o detalhe (citam outra pasta, o contrato
+    ou o nome do réu).
 - Reusa: `PastaDoContextoDaIa::liberar(User, Tenant, int)` (`app/src/Central/Service/PastaDoContextoDaIa.php:52`: id e
   escritório, pasta excluída, `podeVer`, decide financeiro e abas, confere sigilo) e `MontadorDeContextoDaPasta::para(...)`
   (`app/src/Inteligencia/Contexto/MontadorDeContextoDaPasta.php:108`), como o `ContextoDaPastaNoChat::ler`
@@ -1435,7 +1438,7 @@ validadores e o conversor do chat (`ValidadorDaProposta`, `ConversorDaProposta`)
 ## 7. Legado que a feature encosta
 
 Com o escopo novo (14.b), o conector encosta em cerca de 50 ações cuja regra está no controller (inventário, seção 6, item
-3). Cada uma ganha UseCase antes de entrar, no PR que a usa; as que sobram vão juntas no PR 14 (13.1). Onde a tela antiga tem
+3). Cada uma ganha UseCase antes de entrar, no PR que a usa; as que sobram vão juntas no PR 14 (13.1; os alertas, os pontos do relatório inicial e os relatórios do Expediente já estão feitos). Onde a tela antiga tem
 versão nova, entra só a nova (6.1).
 
 - **`Processo` está no domínio** (`app/src/Processo/Entity/Processo.php`, com escritório), mas a regra da tela continua no

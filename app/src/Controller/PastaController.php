@@ -17,6 +17,8 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\UseCase\LerPontosDoRelatorioInicialUseCase;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
@@ -2687,7 +2689,7 @@ class PastaController extends AbstractController
      * Lê o relatório inteiro (`conteudosDaPasta`), não a lista de exibição com teto.
      */
     #[Route('/{id}/detalhes/pontos-relatorio', name: 'pasta_detalhes_pontos_relatorio', methods: ['GET'])]
-    public function detalhesPontosRelatorio(Pasta $pasta): JsonResponse
+    public function detalhesPontosRelatorio(Pasta $pasta, LerPontosDoRelatorioInicialUseCase $lerPontosDoRelatorio): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2700,7 +2702,13 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        $pontos = PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+        try {
+            $pontos = $lerPontosDoRelatorio->executar($pasta, $currentUser, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaVerPastaException) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
 
         return $this->json($pontos->paraResposta());
     }

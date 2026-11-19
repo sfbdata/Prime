@@ -13,13 +13,13 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O contrato de entrada de `ler_pasta` (spec mcp-remoto-oauth 6.4): as partes do PR 6, com publicações, sem linha do tempo
- * e controladoria, e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de integração.
+ * O contrato de entrada de `ler_pasta` (spec mcp-remoto-oauth 6.4): as partes do PR 6, com publicações, linha do tempo e
+ * controladoria (PR 14), e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de integração.
  */
 #[CoversClass(LerPastaFerramenta::class)]
 final class LerPastaFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema traz as onze partes (com publicacoes) e exige a pasta')]
+    #[TestDox('o esquema traz as treze partes (com publicacoes, timeline e controladoria) e exige a pasta')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -32,12 +32,11 @@ final class LerPastaFerramentaTest extends TestCase
         self::assertSame('integer', $esquema['properties']['publicacao_id']['type']);
         self::assertStringContainsString('publicacoes', $this->ferramenta()->descricao());
         self::assertEqualsCanonicalizing(
-            ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'checklist', 'financeiro', 'publicacoes'],
+            ['resumo', 'andamento', 'registro', 'equipe', 'cadastro', 'prazos', 'metas', 'detalhes', 'controladoria', 'checklist', 'financeiro', 'publicacoes', 'timeline'],
             $partes,
         );
-        foreach (['timeline', 'controladoria'] as $foraDoPr) {
-            self::assertNotContains($foraDoPr, $partes);
-        }
+        self::assertStringContainsString('timeline', $this->ferramenta()->descricao());
+        self::assertStringContainsString('controladoria', $this->ferramenta()->descricao());
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */
@@ -55,8 +54,8 @@ final class LerPastaFerramentaTest extends TestCase
         yield 'publicacao_id texto' => [['pasta_id' => 1, 'partes' => ['publicacoes'], 'publicacao_id' => 'x']];
         yield 'publicacao_id com página' => [['pasta_id' => 1, 'partes' => ['publicacoes'], 'publicacao_id' => 5, 'pagina' => 2]];
         yield 'página sem registro nem publicações' => [['pasta_id' => 1, 'partes' => ['resumo', 'equipe'], 'pagina' => 2]];
-        yield 'linha do tempo fora do PR' => [['pasta_id' => 1, 'partes' => ['timeline']]];
-        yield 'controladoria fora do PR' => [['pasta_id' => 1, 'partes' => ['controladoria']]];
+        yield 'timeline com página' => [['pasta_id' => 1, 'partes' => ['timeline'], 'pagina' => 2]];
+        yield 'controladoria com publicacao_id' => [['pasta_id' => 1, 'partes' => ['controladoria'], 'publicacao_id' => 5]];
         yield 'página sem registro' => [['pasta_id' => 1, 'partes' => ['resumo'], 'pagina' => 2]];
         yield 'página zero' => [['pasta_id' => 1, 'partes' => ['registro'], 'pagina' => 0]];
         yield 'página acima do teto' => [['pasta_id' => 1, 'partes' => ['registro'], 'pagina' => 10_001]];
