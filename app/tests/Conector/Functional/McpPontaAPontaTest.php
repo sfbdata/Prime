@@ -9,6 +9,8 @@ use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
+use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
+use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
 use App\Conector\Ferramenta\LerClientesFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
@@ -51,6 +53,8 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
     private const REGISTRADAS = [
         BuscarPastasFerramenta::NOME,
         ConfirmarAcaoFerramenta::NOME,
+        DocumentosEPecasFerramenta::NOME,
+        FinanceiroDaPastaFerramenta::NOME,
         LerAgendaFerramenta::NOME,
         LerClientesFerramenta::NOME,
         LerDocumentosEModelosFerramenta::NOME,
