@@ -6,8 +6,10 @@ namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
 use App\Pasta\DTO\PastaRecebida;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Exception\EscritaNaPastaRecebidaNegadaException;
 use App\Pasta\Exception\PastaRecebidaNaoEncontradaException;
+use App\Pasta\Service\EscritaNaPastaRecebida;
 use App\Pasta\Service\PastaRecebidaDoUsuario;
 use App\Pasta\UseCase\AnotarNaPastaRecebidaUseCase;
 use App\Pasta\UseCase\EnviarDocumentoNaPastaRecebidaUseCase;
@@ -63,6 +65,7 @@ final class EscritaNaPastaRecebidaController extends AbstractController
         $recebida = $this->localizar($compartilhamentoId);
 
         return $this->escrever($request, $recebida, 'fase', Response::HTTP_OK, function () use ($recebida, $request): void {
+            EscritaNaPastaRecebida::exigirMovimentar($recebida); // a guarda (403) antes da validação do campo (422)
             $fase = (string) $request->request->get('fase', '');
             if (!ctype_digit($fase)) {
                 throw new \InvalidArgumentException($this->tradutor->trans('expediente.recebida.fase_invalida'));
@@ -78,6 +81,7 @@ final class EscritaNaPastaRecebidaController extends AbstractController
         $recebida = $this->localizar($compartilhamentoId);
 
         return $this->escrever($request, $recebida, 'documento', Response::HTTP_CREATED, function () use ($recebida, $request): void {
+            EscritaNaPastaRecebida::exigir($recebida, $recebida->compartilhamento->permissoes()->enviarDocumentos, AbaDaPasta::Documentos);
             $arquivo = $request->files->get('arquivo');
             if (!$arquivo instanceof UploadedFile) {
                 throw new \InvalidArgumentException($this->tradutor->trans('expediente.recebida.sem_arquivo'));

@@ -118,7 +118,7 @@ final class EnviarMensagemPastaUseCase
         $raiz = $this->raizRespondida($respostaA, $pasta, $tenant, $autorDeOutraConta);
 
         [$conteudo, $mencionados] = $autorDeOutraConta
-            ? [$this->mencoes->reescrever($conteudo, []), []]
+            ? [$this->mencoes->semMarcacao($conteudo), []]
             : $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
         $mensagem = new PastaMensagem();

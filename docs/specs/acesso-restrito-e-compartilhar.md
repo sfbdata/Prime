@@ -278,6 +278,11 @@ linha e o código do documento perde a unicidade). Por isso:
   teto por convite e por dia entra depois.
 - **Tela.** A página reduzida ganha, só com a caixa marcada: o campo de anotação (aba Andamentos), a troca de fase
   (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
+  Decisões da revisão (18/11, pela recomendação): (1) a anotação de B usa um campo de texto simples, sem o editor da
+  pasta, porque B não tem a lista de menção da equipe de A; (2) quando o espaço de A acaba, B vê a mesma mensagem de
+  espaço esgotado que a equipe de A vê, e A recebe o aviso de sempre; (3) sem a caixa, a recusa (403) vem antes da
+  validação do campo, para a resposta não revelar a regra a quem não pode escrever; (4) a menção de B sai do texto
+  mesmo quando vem aninhada (`@[Fulano @[x](user:1)](user:6)`): a limpeza repete até não sobrar marca nenhuma.
 - **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
   nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
   ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum token nem nome de A fica no texto gravado; `respostaA` da requisição é

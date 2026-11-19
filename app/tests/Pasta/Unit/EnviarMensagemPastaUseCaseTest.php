@@ -1138,6 +1138,10 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         yield '&#64; no HTML' => ['<p>Veja &#64;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
         yield '&commat; no HTML' => ['<p>Veja &commat;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
         yield '&#x40; no HTML' => ['<p>Veja &#x40;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
+        // Token aninhado: trocar o de dentro fecha o de fora, que também precisa sair.
+        yield 'aninhado em texto puro' => ['Veja @[Fulano @[x](user:1)](user:6) hoje', 'Veja @Fulano @x hoje'];
+        yield 'aninhado no HTML' => ['<p>&#64;[Fulano &#64;[x](user:1)](user:6)</p>', '@Fulano @x'];
+        yield 'aninhado três vezes' => ['@[a @[b @[c](user:3)](user:2)](user:1)', '@a @b @c'];
     }
 
     #[DataProvider('mencoesDeOutraConta')]
@@ -1152,7 +1156,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $msg = $this->useCase->executar($this->pasta, $this->autor, $enviado, $this->tenant, null, autorDeOutraConta: true);
 
         self::assertSame(0, preg_match(MencoesDoRegistro::PADRAO, $msg->getConteudo()), $msg->getConteudo());
-        self::assertStringNotContainsString('user:2', $msg->getConteudo());
+        self::assertStringNotContainsString('](user:', $msg->getConteudo());
         self::assertStringContainsString($esperado, $msg->getConteudo());
     }
 

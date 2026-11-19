@@ -390,6 +390,21 @@ final class EscreverNaPastaRecebidaTest extends JusPrimeWebTestCase
         $this->assertFiltroLigadoEmB();
     }
 
+    #[TestDox('sem a caixa, campo inválido dá 403 e não 422: a recusa não revela a regra de validação')]
+    public function testSemACaixaOCampoInvalidoDa403(): void
+    {
+        $id = $this->convite(new PermissoesDoCompartilhamento(false, false, true));
+        $this->entrar($this->bia, $this->contaB);
+
+        $this->fase($id, '99');
+        self::assertResponseStatusCodeSame(403, 'fase inexistente');
+        $this->enviar($id, 'QUALQUER');
+        self::assertResponseStatusCodeSame(403, 'categoria inventada');
+
+        $this->assertNadaGravado();
+        $this->assertFiltroLigadoEmB();
+    }
+
     #[DataProvider('rotas')]
     #[TestDox('$rota: 403 com o escritório A suspenso (só leitura), com todas as caixas; nada é gravado')]
     public function testRecusaComASuspenso(string $rota): void
