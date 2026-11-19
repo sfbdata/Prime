@@ -128,8 +128,8 @@
     --db-hist-seg-ativo-sombra: 0 1px 2px rgba(16,42,58,.1), 0 0 0 1px rgba(12,122,156,.14);
     --db-hist-eixo:          #e3eaef;
     --db-hist-vazio:         #eef3f6;
-    --db-hist-rotulo:        #7b93a2;
-    --db-hist-rotulo-vazio:  #c3d0d8;
+    --db-hist-rotulo:        #5f7684;
+    --db-hist-rotulo-vazio:  #5f7684;
     --db-hist-ouro:          #9a7220;
     --db-hist-ouro-barra:    linear-gradient(180deg, #f3d27a, #d7aa45);
     --db-hist-stat-bg:       #f6f9fb;
@@ -267,7 +267,7 @@
     font-weight: 700;
     color: var(--db-hist-rotulo);
 }
-.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); }
+.db-hist-rotulo.is-vazio { color: var(--db-hist-rotulo-vazio); font-style: italic; }
 
 .db-hist-stats {
     display: grid;
@@ -350,9 +350,9 @@ body:has(.db-page--sem-anim) .db-hist-barra { animation: none; }
     --db-colab-valor:  #0e2533;
     --db-colab-extra:  #6b8494;
     --db-colab-ico:    #0a6fa0;
-    --db-colab-ouro:   #c49a3a;
+    --db-colab-ouro:   #9a7220;
     --db-colab-mes-rot: #7b93a2;
-    --db-colab-mes-aberto-rot: #c3d0d8;
+    --db-colab-mes-aberto-rot: #5f7684;
     --db-colab-mes-cinza: #eef3f6;
     --db-colab-mes-borda: #e3eaef;
     --db-colab-rend-bg: linear-gradient(180deg, #fafcfd, #f5f9fb);
