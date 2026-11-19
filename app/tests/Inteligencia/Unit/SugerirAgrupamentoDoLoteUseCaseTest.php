@@ -90,7 +90,7 @@ final class SugerirAgrupamentoDoLoteUseCaseTest extends TestCase
         $configuracoes->method('findDoTenant')->willReturn($configuracao);
 
         return new SugerirAgrupamentoDoLoteUseCase(
-            new DisponibilidadeDeInteligencia($this->provedor, $configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new CustoDaIa('us')),
+            new DisponibilidadeDeInteligencia($this->provedor, $configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new CustoDaIa('us'), $this->planoPagoNoTeste(), $this->saldoNoTeste()),
             $provedorDaChamada ?? $this->provedor,
             $this->analises,
             new MascaradorDeDadosPessoais(),

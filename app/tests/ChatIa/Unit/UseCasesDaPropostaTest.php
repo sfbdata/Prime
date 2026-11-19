@@ -35,6 +35,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\ModeloDeIa;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\NumeroDePastaEmUsoException;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
@@ -66,6 +67,8 @@ final class UseCasesDaPropostaTest extends TestCase
     private array $execucoes = [];
     /** @var array<int, PropostaDeCadastro> */
     private array $banco = [];
+    /** O número que o dublê do executor encontra em outra pasta viva (o `CriarPastaUseCase` real confere sob a trava). */
+    private ?string $numeroEmUso = null;
 
     protected function setUp(): void
     {
@@ -81,6 +84,7 @@ final class UseCasesDaPropostaTest extends TestCase
         $this->parecidas = [];
         $this->execucoes = [];
         $this->banco = [];
+        $this->numeroEmUso = null;
     }
 
     /** @param array<string, mixed> $dados */
@@ -181,6 +185,9 @@ final class UseCasesDaPropostaTest extends TestCase
     /** @param array<string, mixed> $dados */
     public function registrarExecucao(TipoDaProposta $tipo, array $dados, ?Cliente $existente): void
     {
+        if ($tipo === TipoDaProposta::Pasta && $this->numeroEmUso !== null && ($dados['nup'] ?? '') === $this->numeroEmUso) {
+            throw new NumeroDePastaEmUsoException($this->numeroEmUso);
+        }
         $this->execucoes[] = [$tipo, $dados, $existente];
     }
 
@@ -443,5 +450,24 @@ final class UseCasesDaPropostaTest extends TestCase
         } catch (PropostaInvalidaException $e) {
             self::assertSame(['pasta.nomeCliente'], array_keys($e->erros));
         }
+    }
+
+    #[TestDox('Número de outra pasta viva (conferido sob a trava ao gravar): 422 no campo do número, nada gravado e a proposta segue pendente')]
+    public function testNumeroEmUsoNaHoraDeGravar(): void
+    {
+        $this->numeroEmUso = '1240';
+        $proposta = $this->proposta(5, TipoDaProposta::Pasta, ['nup' => '1240'] + $this->dadosDePasta());
+
+        try {
+            $this->confirmar()->executar($this->eu, $this->tenant, 5, new ConfirmarPropostaInput(criarMesmoAssim: true));
+            self::fail('Deveria ser 422.');
+        } catch (PropostaInvalidaException $e) {
+            self::assertSame(['pasta.nup' => 'O número 1240 já é de outra pasta do escritório. Escolha outro número.'], $e->erros);
+        }
+        self::assertSame([], $this->execucoes);
+        self::assertTrue($proposta->estaPendente(), 'a pessoa troca o número no cartão e confirma de novo');
+
+        $this->confirmar()->executar($this->eu, $this->tenant, 5, new ConfirmarPropostaInput(criarMesmoAssim: true, pasta: ['nup' => '1241']));
+        self::assertSame('1241', $this->execucoes[0][1]['nup']);
     }
 }

@@ -10,6 +10,7 @@ use App\Conector\Entity\ClienteDoConector;
 use App\Conector\Entity\CodigoDoConector;
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Exception\ClienteRecusado;
 use App\Conector\Repository\CodigoDoConectorRepository;
@@ -105,7 +106,9 @@ final class AutorizarConexaoUseCase
     }
 
     /**
-     * Confere o escritório de novo, dentro da transação, e grava consentimento, concessão e código.
+     * Confere o escritório de novo, dentro da transação, e grava consentimento, concessão e código. Reautorizar o mesmo
+     * app no mesmo escritório derruba antes as concessões abertas do consentimento (`substituida`): os escopos que
+     * valem são os escolhidos agora, e a cadeia antiga (talvez com gravação) não fica viva sem aparecer no Meu Perfil.
      *
      * @param list<string> $escopos
      *
@@ -122,6 +125,9 @@ final class AutorizarConexaoUseCase
 
         $agora = $this->relogio->now();
         $consentimento = $this->consentimento($pessoa, $tenant, $cliente, $escopos, $agora);
+        if ($consentimento->getId() !== null) {
+            $this->concessoes->revogarDoConsentimento($consentimento, MotivoDaRevogacaoDaConcessao::Substituida, $agora);
+        }
         $concessao = new ConcessaoDoConector($consentimento, $escopos, $pedido->resource, $this->impressao->de($pessoa), $agora);
         $codigo = $this->segredo->gerar();
 

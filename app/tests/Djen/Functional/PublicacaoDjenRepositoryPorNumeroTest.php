@@ -175,6 +175,24 @@ final class PublicacaoDjenRepositoryPorNumeroTest extends KernelTestCase
         self::assertNull($achada);
     }
 
+    #[TestDox('findByIdsENumerosDoTenant devolve só as publicações do escritório e dos números da pasta, indexadas pelo id')]
+    public function testAchaVariasPorIdComAMesmaRestricao(): void
+    {
+        $tenantA = TenantFactory::createOne()->_real();
+        $tenantB = TenantFactory::createOne()->_real();
+        $numero  = '07011111111111111111';
+        $daPasta = $this->criarPublicacao($tenantA, '10000110', $numero, '2026-08-20');
+        $foraDaPasta = $this->criarPublicacao($tenantA, '10000111', '07099999999999999999', '2026-08-21');
+        $deOutroEscritorio = $this->criarPublicacao($tenantB, '10000112', $numero, '2026-08-22');
+
+        $ids = [(int) $daPasta->getId(), (int) $foraDaPasta->getId(), (int) $deOutroEscritorio->getId()];
+        $achadas = $this->repo->findByIdsENumerosDoTenant($ids, $tenantA, [$numero]);
+
+        self::assertSame([(int) $daPasta->getId()], array_keys($achadas));
+        self::assertSame([], $this->repo->findByIdsENumerosDoTenant([], $tenantA, [$numero]));
+        self::assertSame([], $this->repo->findByIdsENumerosDoTenant($ids, $tenantA, []));
+    }
+
     #[TestDox('A lista sai com o número mascarado quando a publicação o trouxe do CNJ')]
     public function testExibeNumeroMascaradoQuandoExiste(): void
     {

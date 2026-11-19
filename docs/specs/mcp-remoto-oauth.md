@@ -697,6 +697,10 @@ entre ler e gravar).
    (ou um logger que só passa `warning` sem contexto), porque ele escreve no log a mensagem inteira, os argumentos e o
    resultado da ferramenta (3.1), e o canal `mcp` grava `info` em `mcp.log` na produção (`monolog.yaml:96-100`); sem isso,
    o CPF de `atualizar_cliente` e o conteúdo de documento iriam para o arquivo.
+   A linha de cada requisição (`RegistroDaChamadaMiddleware`) leva também o `metodo` JSON-RPC (`initialize`, `tools/list`,
+   `tools/call`...) e a `versao` do cabeçalho `MCP-Protocol-Version`, só quando batem com o formato esperado (nome de método
+   curto, data `AAAA-MM-DD`); nada mais do corpo vai para o log. Veio do smoke de 18/11 em produção: sem o método, não dava
+   para saber se o app chegou a chamar alguma ferramenta.
 10. **Entrada fechada**: JSON Schema plano, com `acao` em lista fechada e os campos opcionais de cada ação, e
     `additionalProperties: false`; o servidor valida por ação e recusa campo que a ação não usa. Sem `oneOf`, para não
     depender de como cada cliente o trata. Valor fora da lista vira erro de ferramenta com mensagem fixa em português, nunca
@@ -791,9 +795,9 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   (`app/src/DataFixtures/PermissionFixture.php:17-32`).
 
 **`buscar_pastas`** (PR 6)
-- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`minhas: true`), busca rápida por número ou NUP, as
+- Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`acao: minhas_demandas`), busca rápida por número ou NUP, as
   pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
-  escritório (`lixeira: true`); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
 - Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
   (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
   `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
@@ -879,7 +883,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 - Regras: segredo recusa; o log guarda só id e sha256, como o `contexto_resumo.documentosLidos` da I.A.; imagem embutida na
   peça não sai (é servida hoje sem isolamento por escritório, `docs/specs/peca-imagem-isolamento-tenant.md`); conteúdo de
   documento que está na lixeira não sai (o leitor tira a lixeira de propósito; restaurar entra em `documentos_e_pecas`).
-- Permissão: recurso `pasta` view; aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
+- Permissão: recurso `pasta` view (a `lixeira` pede `pasta` edit, como a tela, decisão 29); aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
   `MAPA` `:71`); chave `expedientes`. A chave `peticionar` não vale aqui: cobre só `pasta_peticionar*`.
 
 **`ler_processos`** (PR 7; CNJ no PR 13)
@@ -901,7 +905,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   movimentações de um processo que o conector esconde em toda outra ação.
 - Permissão: módulo `processos` (`app/src/Processo/Controller/ProcessoController.php:85`); por id,
   `idsDosProcessosOcultos` e recurso `processo` view, na ordem de `ProcessoController.php:222-225`; `para_vincular` e `cnj`,
-  recurso `pasta` view e aba Processo, como a tela.
+  recurso `pasta` edit e aba Processo, como a tela (`PastaController.php:1059`, decisão 29).
 - Regras: segredo omitido e contado na lista, recusa por id e no `cnj`; partes só pelo nome. `openWorldHint: true` (CNJ).
 
 **`ler_clientes`** (PR 11; documentos do cliente no PR 14)
@@ -920,7 +924,8 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   `pastasVisiveis` (`:67-73`) e só filtra `canAccessResource` view (`:72`); não tira segredo nem aba oculta. A ferramenta tira também as pastas ligadas a processo
   em segredo (`ProcessoRepository::idsDasPastasEmSegredoDeJustica`, `:148`; contadas) e as pastas em que a aba Documentos
   está oculta para a pessoa (`VisibilidadeDasAbasDaPasta::abasOcultasPara`, `:115`), antes de buscar os documentos. Como o
-  filtro entra (parâmetro novo no UseCase ou recorte na ferramenta) o PR decide, sem mudar a tela do cliente.
+  filtro entra (parâmetro novo no UseCase ou recorte na ferramenta) o PR decide, sem mudar a tela do cliente. *(PR 11: recorte na ferramenta. A resposta diz também `documento_do_cadastro_valido`, se o CPF ou CNPJ do
+  cadastro passa no dígito verificador, sem o valor: sem ele, a busca não roda e a lista vazia pareceria "nenhum documento".)*
 - Permissão: recurso `cliente` view; buscar e conferir documento, módulo `clientes`; `documentos_de_identidade`, também a
   aba Documentos de cada pasta (6.6, tabela).
 
@@ -983,7 +988,8 @@ continua sem texto).
 ### 6.6 Gravação (9 ferramentas)
 
 Todas: escopo `mcp:escrita` (sem ele, 403 `insufficient_scope`, 5.1); `readOnlyHint: false`, `destructiveHint: true`;
-pasta excluída é só leitura (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`), salvo restaurar; segredo recusa
+pasta na lixeira (`Pasta::estaExcluida()`, `app/src/Pasta/Entity/Pasta.php:450`) dá "não encontrada" no piloto, na leitura e
+na gravação, igual à BlueJus I.A. (decisão 2 do PR 6), salvo restaurar; segredo recusa
 (6.2.3); toda **exclusão** devolve uma proposta e só a `confirmar_acao` executa (6.7). "Exclusão" é toda ação que apaga, manda
 para a lixeira, exclui de vez, remove ou desvincula um item, inclusive tirar um marcador da pasta, apagar o nome de uma etapa
 e trocar um valor já preenchido no cadastro do cliente.
@@ -1069,7 +1075,7 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   quem tem o Financeiro oculto**. Mesmo tratamento de `mudar_andamento`: arquivar executa direto (desarquivar não
   reverte a fase, `:25` do UseCase), e a resposta diz que o contrato foi marcado como assinado **só para quem vê o
   Financeiro da pasta** (6.2.5); para os demais, nenhuma palavra sobre o contrato, como na tela.
-- Permissão: recurso `pasta` edit (cadeado em "Visualizar" recusa); `criar`, módulo `expediente` ou `pastas`, como a tela.
+- Permissão: recurso `pasta` edit (cadeado em "Visualizar" recusa); `criar`, módulo `pastas`, como a tela (`pasta_new` e o lote de importação).
 
 **`mudar_andamento`** (PR 10; pedido A)
 - Ações: `mudar_fase` (`pasta_id`, `fase` pelo nome da trilha da via da pasta ou pelo número, `sem_pular?`, `motivo?`) e
@@ -1150,9 +1156,16 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`EditarChecklistItemUseCase::executar`, `app/src/Pasta/UseCase/EditarChecklistItemUseCase.php:17`) e `checklist_modelo`
   renomear. Mover, copiar, reordenar, favoritar, marcar item e salvar modelo novo são diretos.
 - Exclusões por proposta: documento e vários documentos para a lixeira (`ExcluirItensDaPastaUseCase`), subpasta
-  (`ExcluirPastaSecaoUseCase`), excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível), item de checklist
+  (`ExcluirPastaSecaoUseCase`), item de checklist
   (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
   (`ExcluirModeloDePecaUseCase`).
+- Excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível) fica para o PR 14 (revisão do PR 12, 18/11): a
+  purga apaga o arquivo no fim da própria transação e dá `clear()` no EntityManager. Dentro da transação da confirmação, o
+  arquivo sai antes do COMMIT de fora (INV-6) e a proposta desanexada continua pendente. Entra quando a confirmação tiver
+  um passo depois do COMMIT para a remoção dos arquivos e reler a proposta depois do executor.
+- Risco aceito no PR 12: `editar_peca` confirmado regrava o arquivo da peça (`EditarPecaTextoUseCase`, mesma chave) dentro
+  da transação da confirmação. Se o COMMIT de fora falhar, o banco volta e o arquivo fica com o texto novo; a proposta
+  continua pendente e um novo sim acerta os dois. É a mesma janela da tela, que também grava antes do COMMIT.
 - Permissão: recurso `pasta` edit; aba Documentos (Detalhes para modelos e `usar_modelo`, como a tela, e Documentos também em
   `usar_modelo`, porque a resposta devolve o documento criado); chave `expedientes`, e `peticionar` em `escrever_peca`, a
   mesma da tela (`pasta_peticionar_texto`).
@@ -1252,7 +1265,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 |---|---|---|---|
 | `quem_sou_eu` | nenhuma | nenhuma | nenhuma |
 | `buscar_pastas` | `inteligencia_agente_pastas_buscar`, a Lista, `demandas_index`, `expediente_busca_rapida`, `expediente_lixeira` | nenhuma | nenhuma (a Lista é essencial, `base: true`; `assistente` desliga o Agente, não a Lista) |
-| `ler_pasta`: resumo, andamento, registro, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: resumo, andamento, equipe, cadastro | `pasta_show` | nenhuma (Dados não tem rota no `MAPA`) | `expedientes` |
+| `ler_pasta`: registro | `pasta_show` | Dados (decisão 3 do PR 6) | `expedientes` |
 | `ler_pasta`: prazos | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: metas | `pasta_show` | Metas (`tarefas`) | `expedientes` |
 | `ler_pasta`: detalhes, controladoria | `pasta_show` | Detalhes | `expedientes` |
@@ -1363,10 +1377,15 @@ piloto (item 2).
    atual; resumo e hash iguais; e de novo toda a permissão, o teto, as abas, a chave, a liberação, o segredo e o estado do
    item (pasta excluída, CPF que virou repetido). Usada, vencida, de outra pessoa ou de outra conexão: recusa com mensagem
    fixa, sem dizer se existe. Dois `confirmar_acao` ao mesmo tempo gravam uma vez.
-5. **Lote:** uma proposta leva até 50 itens; **uma confirmação vale para a lista toda** (decisão de 08/11/2026). Cada item roda
-   na própria transação, e a resposta diz o resultado de cada um (criado, excluído, recusado e por quê). Os itens que já
-   falham na proposta (CPF repetido, sem permissão) saem da lista antes, com o motivo, para a pessoa não confirmar o que não
-   vai acontecer.
+5. **Lote:** uma proposta leva até 50 itens; **uma confirmação vale para a lista toda** (decisão de 08/11/2026). A confirmação
+   roda numa transação só (a da trava da proposta): o executor confere cada item de novo antes de gravar qualquer um, grava
+   só os que passaram, e a resposta diz o resultado de cada um (criado, excluído, recusado e por quê). Qualquer exceção na
+   gravação (inclusive de banco) desfaz o lote inteiro e a proposta continua pendente. *(Revisão do PR 9, 18/11/2026: "cada
+   item na própria transação" não funciona com um EntityManager só, porque o `flush` que falha fecha o EntityManager e o
+   ponto de retorno desfaria o banco sem desfazer a memória; o contrato está no docblock de `ExecutorDeProposta`.)* Os itens
+   que já falham na proposta (CPF repetido, sem permissão) saem da lista antes, com o motivo, para a pessoa não confirmar o
+   que não vai acontecer; os que conflitam entre si no mesmo lote (o mesmo CPF duas vezes, editar o que outro item exclui)
+   também.
 6. **Dados zerados:** depois de confirmada, cancelada ou vencida, a proposta guarda só estado, datas e ids do resultado; os
    dados (que podem ter CPF) somem, como a `PropostaDeCadastro` do chat (`app/src/ChatIa/Entity/PropostaDeCadastro.php:22`). As
    vencidas são varridas ao registrar uma proposta nova, como no chat, e pela faxina agendada (13.2). `dados` e `resumo` nunca vão para log nem auditoria.
@@ -1608,6 +1627,7 @@ extrair UseCase e dizer isso no PR.
 | **Clientes mudam rápido** | Nomes, planos e regras de Claude e ChatGPT mudaram várias vezes em 2026; o guia do usuário leva data e é revisto a cada trimestre. |
 | **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
 | **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
+| **PDF e imagem grandes na resposta** | O arquivo vai fora do teto de 50 mil caracteres (decisão 24): um PDF de 10 MB passa de 13 milhões de caracteres em base64, acima do que o Claude aceita por resultado (cerca de 150 mil). O app pode recusar ou cortar; o piloto confere, e se não lerem, extrair o texto do PDF no servidor vira pergunta nova (6.5). |
 | **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Piloto num escritório, liberação pelo Master, aceite próprio do conector (14.a) e máscara de CPF, CNPJ, telefone e e-mail sempre ligada no texto livre (6.2.6); o texto está com o jurídico. |
 | **Arquivo malicioso na leitura** | DOCX, planilha, apresentação e ZIP são pacotes: arquivo forjado pode estourar memória. Mesma proteção de pacote da prévia, tetos de tamanho, XML lido como texto (6.5). |
 | **Dependência nova para TIFF e HEIC** | Converter exige extensão nova na imagem PHP (arquivo quente, passo de deploy). Se não puder entrar, esses dois tipos ficam recusados com mensagem fixa (6.5). |
@@ -1653,8 +1673,8 @@ erradas do plano, todas invisíveis à leitura):
    derruba o teste.
 10. **Segredo de justiça** (do tribunal e manual): lista omite e conta; por id recusa, **na leitura e na gravação** (cada
     ferramenta de gravação com pasta ligada a processo em segredo); `processos_da_pasta` não aceita o campo de segredo.
-    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (com e sem
-    cadeado); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
+    Casos próprios: `ler_agenda` omite e conta os prazos e audiências de pasta ligada a processo em segredo (o prazo de pasta
+    trancada some sem contagem, como na tela, decisão 18 do PR 6); `ler_clientes` `documentos_de_identidade` não traz documento de pasta em segredo; `ler_processos` `cnj` com
     o número de um processo do escritório em segredo recusa **sem chamar o DataJud** (o dublê do cliente HTTP prova zero
     chamadas), e com número que não é do escritório consulta normalmente.
 11. **Cliente só pelo necessário**: nenhuma resposta, fora o conteúdo de documento lido, traz CPF, CNPJ, RG, data de
@@ -1740,7 +1760,9 @@ erradas do plano, todas invisíveis à leitura):
     conector), e o chat continua exigindo o aceite da I.A.; nada é gravado (nenhuma meta muda).
 27. **Tela de consentimento** (9.4): POST sem token CSRF, ou com token errado, recusa; escritório trocado no formulário por
     um em que a pessoa não tem vínculo ativo recusa; parâmetros OAuth alterados entre o GET e o POST não valem (vêm da
-    sessão).
+    sessão). O pedido continua de uso único, mas o mesmo pedido enviado de novo até 10 minutos depois de **autorizado**
+    (segundo clique enquanto a volta ao app carregava, achado do smoke de 18/11) mostra "Conexão feita" em vez do erro e
+    não concede nada de novo; depois de **negado**, o reenvio segue recusado. A tela manda o formulário uma vez só.
 28. **Tabelas e faxina** (13.2): `PurgaCoberturaSchemaTest` verde com as tabelas novas; purgar o escritório e excluir a conta
     levam as linhas pela cascata; a faxina apaga o que venceu além do prazo e não toca o que está em uso.
 29. **Resposta** (6.2, regra 7): o `content` de cada ferramenta traz o mesmo dado do `structuredContent`; nenhuma
@@ -1772,7 +1794,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist, excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
@@ -2049,7 +2071,8 @@ entra num PR próprio depois de testada nos dois clientes.
    também (achado do teste ponta a ponta): ele não usa sessão, e um cookie que chegue junto não pode prender a troca
    ao escritório da sessão; ali o escritório vem da concessão.
 5. **Reautorizar o mesmo app no mesmo escritório atualiza os escopos** do consentimento ativo (sem migration); as
-   concessões já abertas guardam os escopos delas.
+   concessões já abertas guardam os escopos delas. *Revisto em 18/11/2026: as concessões anteriores caem como
+   `substituida` (decisão 23, no bloco de 18/11 da seção 14).*
 6. **Código de autorização reapresentado**: a linha fica travada na troca e a concessão cai com
    `codigo_reutilizado` (item 5 do bloco anterior).
 7. **`offline_access`**: a renovação é emitida sempre, peça o app ou não esse escopo.
@@ -2167,3 +2190,114 @@ Coordenador):**
 12. **Filtro do escritório fora do portão** só pelo `SemFiltroDoEscritorio`, que suspende e devolve e nunca liga (o
     `PortaoDoConectorArquiteturaTest` confere). Usado pelas buscas das telas e pelo `revogarDoConsentimento`, porque o
     `TenantFilter` também entra no WHERE de um UPDATE em DQL.
+
+**Decidido em 16/11/2026 no PR 6 (orquestrador da frente, pela recomendação; a 1 e a 2 com o Coordenador):**
+
+1. **Pasta trancada na busca** segue a Lista do navegador para quem não tem a chave do cadeado: aparece com número,
+   cliente e o cadeado, sem o resto, e entra na contagem (`PastaRepository.php:916-925` e `:982-984`, `countByFilters`
+   `:225-231`, `_lista.html.twig:136-138`). Pasta que a pessoa não pode ver (`podeVer` falso) não aparece.
+2. **Pasta na lixeira** dá "não encontrada" no piloto, igual à BlueJus I.A. (a 6.6 foi corrigida). A lixeira do escritório
+   se lê por `buscar_pastas` `acao: lixeira`.
+3. **Registro com a aba Dados oculta**: a parte `registro` de `ler_pasta` é barrada pela aba Dados. Na gravação (PR 10),
+   a mesma regra.
+4. **Sugestões do andamento** que citam Push ou Financeiro saem quando a aba de origem está oculta.
+5. **Compromisso da pessoa ligado a pasta em segredo ou trancada** some da agenda e é contado.
+6. **Prazos da pasta**: só os abertos.
+7. **Lixeira do escritório**: por pasta, só o nome dela (cliente ou ação, pelo rótulo) e quantos documentos e subpastas
+   estão na lixeira; nenhum nome nem conteúdo de documento (sai menos que o pensado no planejamento).
+8. **Cadastro**: só preenchido ou falta, pelo `CadastroDaPastaOutput::de`.
+9. **Registro**: 50 por página, o mais recente primeiro.
+10. **`ler_pasta` não pede módulo**, como a tela da pasta (`pasta_show` só confere o recurso `pasta` view): quem lê é quem
+    pode ver a pasta, e cada parte segue a aba de onde vem (tabela acima). `buscar_pastas` pede o módulo `expediente`
+    (`buscar`, `contar`, `opcoes`, `lixeira`) ou `pastas` (`numero`, `minhas_demandas`).
+11. **Ações por nome no esquema**: o campo é `acao` (`buscar_pastas`, `ler_agenda`), `partes` (`ler_pasta`) ou `lugar`
+    (`registrar_na_pasta`), com a lista fechada no `enum`. Tudo sai da `TabelaDeAbaEChave`, que a
+    `GuardaDaAcaoDoConector` consulta nesta ordem: ação na tabela, chave do Master, módulo ("basta um"), e com pasta:
+    escritório, `podeVer` e as abas. Pasta de outro escritório dá "não encontrada".
+12. **Porta do aceite na consulta de prazos** (14.i): `PortaDaConsultaDePrazos` é a interface; a `GuardaDaConsultaDePrazos`
+    do chat a implementa e o conector passa a dele como parâmetro opcional de `ConsultarPrazosEMetasUseCase::executar`,
+    nunca pelo construtor (duas implementações deixariam a injeção ambígua).
+13. **Pasta trancada em segredo de justiça**: o segredo vence o cadeado. Ela sai da busca e é contada como sem acesso
+    (`omitidas_sem_acesso`), não como segredo, para a contagem não revelar o segredo de uma pasta que a pessoa não abre.
+14. **Sugestões do andamento** (amplia a 4): saem quando a aba de onde vêm está oculta, qualquer que seja (Push,
+    Financeiro, Documentos, Processo). Com a aba Dados oculta, a base da estimativa também não diz quantos registros há.
+15. **Prazos da pasta** seguem a tela (`PastaController.php:389-392`): todos os abertos, sem filtro pela aba de origem do
+    prazo; a parte inteira é barrada pela aba Metas.
+16. **Busca por NUP** (`nups` do Agente) não entra no esquema, porque aquele caminho não confere o escopo da pessoa. O
+    número de processo se busca pela ação `numero` (busca rápida, que confere o escopo, tira a lixeira e troca o CPF ou
+    CNPJ do grupo Cliente por "Pasta N").
+17. **Máscara sempre ligada** (6.2.6) pela `PoliticaDeMascaramento`, que reconhece o conector pelo escritório fixado sem
+    sessão (`TenantContext::estaFixadoSemSessao()`): só o portão fixa assim, e o `PortaoDoConectorArquiteturaTest` proíbe
+    citar o `ModoDoConector` fora dele. Vale para `ler_pasta`, `buscar_pastas`, `ler_agenda` e `quem_sou_eu`; no Registro,
+    a máscara passa antes do corte de cada mensagem (e em toda saída, pela 22). Fora disso, o chat não muda.
+18. **Agenda**: período padrão de 7 dias a partir de hoje, no máximo 31; lembretes só quando pedidos (são das próximas
+    24 horas), e os de prazo só com `prazos` em `incluir`. Prazo de pasta trancada some sem contagem, como na tela
+    (`ListarCompromissosUseCase` já o tira); compromisso e lembrete de pasta trancada ou em segredo somem e são contados.
+19. **Minhas demandas** não traz a pasta trancada nem a conta, mesmo sendo da pessoa, como a tela
+    (`ListarMinhasDemandasUseCase`, spec pasta-cadeado D1); o `buscar` mostra a trancada com o cadeado, como a Lista.
+20. **Processos vinculados no `resumo`** (regra: a ferramenta mostra exatamente o que a tela mostra àquela pessoa, nunca
+    mais): a tela da pasta mostra o processo vinculado e os apensados no alto do trilho da aba Dados
+    (`pasta/_dados_trilho_topo.html.twig`, só o atalho "ir para a aba" some) e na aba Processo. Por isso o `resumo` traz
+    os processos com a aba Processo oculta e os tira só quando Dados e Processo estão as duas ocultas.
+21. **Agenda e a aba Metas**: a `ler_agenda` mostra os prazos de pasta mesmo com a aba Metas oculta para a pessoa, porque a
+    agenda na tela não depende de aba (6.6). A parte `prazos` do `ler_pasta` continua barrada pela aba Metas.
+22. **Máscara antes de qualquer corte** (amplia a 17, achado da re-revisão): os padrões do mascarador exigem o dado
+    inteiro, e um CPF, e-mail ou telefone cortado no limite sairia aberto. Toda saída do conector mascara o texto inteiro
+    e só depois corta: descrição e observação da agenda, título do prazo e os rótulos e textos dos dois montadores
+    (`MontadorDeContextoDaPasta`, `MontadorDeContextoDoPush`). O chat só passa a mascarar mais quando a preferência do
+    escritório pede máscara; sem máscara, nada muda.
+
+**Decidido em 18/11/2026, depois do smoke em produção (Coordenador):**
+
+23. **Reconectar substitui a concessão anterior.** Ao gravar uma concessão nova num consentimento que já existia
+    (reautorizar o mesmo app no mesmo escritório), as concessões abertas dele caem na mesma transação, com o motivo
+    `substituida`; a cadeia de tokens delas cai junto, porque token e renovação dependem da concessão. Achado do smoke:
+    reconectar só com leitura deixava viva a concessão anterior, com `mcp:escrita` e renovação válida, e o Meu Perfil
+    mostrava só a conexão com os escopos novos. A coluna `motivo` é VARCHAR(40) sem CHECK: sem migration.
+    `FluxoOAuthCompletoTest::testReconectarSubstituiAConcessaoAnterior` prende isso.
+24. **PDF e imagem na resposta** (PR 7, 6.5 e regra 7 da 6.2): o arquivo vai num bloco à parte do `content` (imagem do
+    MCP, PDF como recurso embutido marcado `experimental`), fora do teto de 50 mil caracteres por campo, que vale para o
+    JSON. O `structuredContent` leva só os metadados (id, nome, tipo, tamanho, páginas). Os limites seguem os do leitor:
+    PDF até 10 MB e 100 páginas, imagem até 3 MB. O log `mcp` guarda só o sha256 do arquivo (`ArquivoNaResposta`). Risco
+    na seção 11: o app pode recusar uma resposta desse tamanho.
+25. **Status do prazo na agenda** (achado do smoke do PR 6): a `ler_agenda` devolve o status como a tela da agenda
+    (`agenda-1a.js`): `agendado`, `concluido` ou `cancelado`, e qualquer outro valor vira `agendado`. O prazo em aberto sai
+    `agendado` e o cumprido, `concluido`; sem campo a mais para a mesma informação.
+26. **Acesso à pasta pela porta da tela** (PR 7, com o #770 de acesso restrito em aberto): as ferramentas conferem a pasta
+    pela mesma porta da tela (o voter da pasta e o `NivelNoCadeado`, pelo `AcessoAPasta`), sem consulta própria de
+    acesso. Assim o escopo do acesso restrito vale sozinho no conector quando o #770 entrar.
+27. **Lista de publicações da pasta** (PR 7, corrige o "Reusa" do `ler_pasta`): o `MontarPainelDoPushUseCase` não devolve
+    a lista e grava (`registrarPrevisao` e `conferir` da previsão, com o monitoramento ativo). A lista sai da mesma consulta
+    da aba Push (`PublicacaoDjenRepository::listarItensPorNumerosDoTenant`, as 100 mais recentes, só leitura), 25 por
+    página; o texto inteiro, pelo caminho do `pasta_push_texto`. Nada grava `lida`. O resumo de cada item é feito do teor
+    mascarado e só então cortado (decisão 22), porque o resumo pronto da lista vem cortado antes da máscara.
+28. **Processos para vincular** (PR 7): a origem de cada processo sai só pelo tipo (`pasta`, `apensado`, `push`), sem o
+    número da pasta de origem, porque o `ProcessoParaVincularOutput` não traz o id dela e não daria para conferir se a
+    pessoa a vê ou se ela está em segredo. Mostra menos que a tela, nunca mais.
+29. **Lixeira da pasta e processos para vincular pedem editar** (revisão do PR 7, corrige a 6.4, que dizia "view"): a tela
+    só mostra a lixeira de documentos a quem pode editar a pasta (`PastaDocumentoController.php:353`, `podeVerLixeira`) e
+    só busca processos para vincular com a pasta em edição (`PastaController.php:1059`). O conector exige o mesmo recurso
+    `pasta` edit, pela mesma porta da tela.
+30. **`ler_processos` mostra o que a tela mostra** (revisão do PR 7): a lista do `buscar` traz só os campos da lista da
+    tela (número, tribunal, classe, assunto, situação); as partes ficam no `detalhar`, que exige o recurso `processo` view.
+    As notas técnicas só saem quando a pessoa vê alguma pasta vinculada ao processo, fora de segredo, com a aba Processo
+    visível, porque a tela só as mostra nessa aba de dentro da pasta. Processo que não está em segredo, mas vinculado a uma
+    pasta em segredo por causa de outro processo, segue a tela de processos: aparece na lista e no `detalhar`.
+31. **Ação `excluir` da `atualizar_pasta`** (PR 10, decidido pelo Coordenador em 18/11/2026): a tabela da 6.6 ganha a
+    linha `excluir` (módulo `pastas`, chave `expedientes`), com o alvo nos dados (`pasta`, `marcador` ou `reu`), sempre por
+    proposta (6.7). Cada alvo exige, além da linha, a mesma permissão que a tela exige hoje, nada mais frouxo, com um teste
+    de paridade por alvo: excluir a pasta, o recurso `pasta` com a ação `delete` (`pasta_delete`,
+    `PastaController.php:1792`); excluir marcador, o módulo `expediente` (`expediente_marcador_excluir`, `assertAccess` do
+    `ExpedienteController`); remover réu, o recurso `pasta` editar (`pasta_reu_remover`, pelo
+    `GerenciarReusDaPastaUseCase`). Excluir a pasta pelo conector segue a regra nova: a pasta vira lápide restaurável
+    (o #783 faz o restaurar sempre funcionar).
+32. **`pedir_acesso` pelo conector só em pasta que a pessoa vê** (PR 10, decidido em 18/11/2026): mais restrito que a
+    tela, de propósito. A tela aceita o pedido de quem veria a pasta sem o cadeado (`PedirAcessoAPastaUseCase.php:83`,
+    `veriaSemCadeado`); o conector responde não encontrado, para não revelar a pasta trancada (6.2, regra 1). Pedir
+    acesso a ela segue pela tela. Teste: `AtualizarPastaPropostasTest::testPedirAcessoEmPastaTrancada`.
+33. **Ids das observações na `ler_pasta`** (depois do PR 10, pedido pelo Coordenador em 18/11/2026): as partes `detalhes` e
+    `financeiro` trazem `[registro_id N]` na frente de cada observação, para o `registrar_na_pasta` responder, editar,
+    destacar e excluir qualquer uma, não só a que ele mesmo escreveu. O id sai da assinatura que o
+    `MontadorDeContextoDaPasta` já monta com cada linha (`observacao:ID` e `obsfin:ID`), então só ganha id o que o montador
+    já mostra, com a mesma visibilidade da tela (abas ocultas, `VisibilidadeDoFinanceiroDaPasta`, segredo); o montador e o
+    contexto do chat não mudam. Teste: `LerPastaFerramentaTest::testObservacoesComId`.

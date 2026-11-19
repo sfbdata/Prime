@@ -13,9 +13,13 @@
 <button type="button" class="pasta-resp-chip"
         data-contexto="{{ naPasta ? 'pasta' : 'expediente' }}"
         data-pasta-id="{{ pasta.id }}"
+        {# NUP no título da confirmação da troca (L8 do desenho 03). #}
+        data-nup="{{ pasta.nup ?? ('#' ~ pasta.id) }}"
         data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
         data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}"
         data-resp-id="{{ resp ? resp.id : '' }}"
+        {# Acesso restrito: o menu abre, mas escolher outra pessoa só mostra o aviso do desenho 03 (sem a L8). #}
+        {% if acesso_restrito() %}data-restrito="1"{% endif %}
         {# No Expediente a dica é a do desenho 03 (dc `respTip`), pelo sistema de dicas da lista; na pasta, o title. #}
         {% if naPasta %}title="{{ resp ? resp.fullName : 'pasta_resp.resp.definir'|trans }}"{% else %}data-tip="{{ resp ? 'pasta_resp.resp.dica_alterar'|trans({nome: resp.fullName}) : 'pasta_resp.resp.dica_atribuir'|trans }}"{% endif %}>
     {% if resp %}

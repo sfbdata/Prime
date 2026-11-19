@@ -16,39 +16,17 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  * aberta pelo portão: só o escritório do token aparece, nunca outro da mesma pessoa (12.1).
  *
  * "Pode usar" é pelo {@see PermissionChecker}, com o modo do conector ligado pelo portão (sem os passes do Master e do
- * perfil de sistema, 6.3): a ferramenta aparece se a pessoa tem o módulo de {@see MODULO_DA_FERRAMENTA}; a que não
- * depende de módulo aparece sempre. Cada ferramenta continua conferindo a própria permissão ao ser chamada; esta lista
- * só informa. `liberada_nesta_conexao` diz se o escopo do token basta (gravar exige `mcp:escrita`, 5.1).
+ * perfil de sistema, 6.3): a ferramenta aparece se a pessoa tem o módulo de alguma ação dela na
+ * {@see TabelaDeAbaEChave}; a que tem ação sem módulo exigido aparece sempre, e a que não está na tabela, nunca. Cada
+ * ferramenta continua conferindo a própria permissão ao ser chamada (a {@see \App\Conector\Service\GuardaDaAcaoDoConector},
+ * com aba e chave); esta lista só informa. `liberada_nesta_conexao` diz se o escopo do token basta (gravar exige
+ * `mcp:escrita`, 5.1).
  *
  * Nomes saem neutralizados ({@see ProtecaoDoTextoDoChat::rotulo()}, 6.2, regra 6).
  */
 final class QuemSouEuFerramenta implements FerramentaDoConector
 {
     public const NOME = 'quem_sou_eu';
-
-    /**
-     * O módulo (código `modules.<x>.view`) que abre cada ferramenta, pela linha "Permissão" de cada uma na 6.4 e na 6.6;
-     * null quando nenhum módulo é exigido. Ferramenta fora deste mapa não aparece (o teste exige o catálogo inteiro aqui).
-     */
-    public const MODULO_DA_FERRAMENTA = [
-        'quem_sou_eu' => null,
-        'buscar_pastas' => 'expediente',
-        'ler_pasta' => 'pastas',
-        'ler_documentos_e_modelos' => 'pastas',
-        'ler_processos' => 'processos',
-        'ler_clientes' => 'clientes',
-        'ler_agenda' => 'agenda',
-        'atualizar_pasta' => 'pastas',
-        'mudar_andamento' => 'pastas',
-        'registrar_na_pasta' => 'pastas',
-        'prazos_e_metas_da_pasta' => 'pastas',
-        'documentos_e_pecas' => 'pastas',
-        'financeiro_da_pasta' => 'pastas',
-        'atualizar_cliente' => 'clientes',
-        'processos_da_pasta' => 'pastas',
-        'gravar_na_agenda' => 'agenda',
-        'confirmar_acao' => null,
-    ];
 
     /** @param iterable<FerramentaDoConector> $ferramentas */
     public function __construct(
@@ -118,12 +96,17 @@ final class QuemSouEuFerramenta implements FerramentaDoConector
 
     private function temOModulo(ChamadaDoConector $chamada, string $nome): bool
     {
-        if (!\array_key_exists($nome, self::MODULO_DA_FERRAMENTA)) {
-            return false;
+        foreach (TabelaDeAbaEChave::linhasDa($nome) as $linha) {
+            if ($linha->modulos === []) {
+                return true;
+            }
+            foreach ($linha->modulos as $modulo) {
+                if ($this->permissoes->canAccessModule($chamada->contexto->pessoa, $chamada->contexto->escritorio, $modulo)) {
+                    return true;
+                }
+            }
         }
-        $modulo = self::MODULO_DA_FERRAMENTA[$nome];
 
-        return $modulo === null
-            || $this->permissoes->canAccessModule($chamada->contexto->pessoa, $chamada->contexto->escritorio, $modulo);
+        return false;
     }
 }

@@ -1,12 +1,12 @@
-<div class="card card-outline card-info mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h3 class="card-title mb-0"><i class="bi bi-house-laptop me-2"></i>Home Office</h3>
+<div class="bjp-painel mb-3">
+    <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-house-laptop me-2"></i>Home Office</h3>
         <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="hoAtivo" checked>
             <label class="form-check-label" for="hoAtivo">Habilitado</label>
         </div>
     </div>
-    <div class="card-body">
+    <div class="bjp-painel-corpo">
 
         <p class="text-muted small mb-3">
             <i class="bi bi-info-circle me-1"></i>
@@ -53,8 +53,8 @@
                 <label class="form-label fw-semibold">Datas avulsas</label>
                 <div class="input-group">
                     <input type="date" id="hoDataAvulsa" class="form-control">
-                    <button type="button" class="btn btn-outline-primary" id="hoAddData">
-                        <i class="bi bi-plus-lg me-1"></i>Adicionar
+                    <button type="button" class="bjp-btn bjp-btn--secundario" id="hoAddData">
+                        <i class="bi bi-plus-lg"></i>Adicionar
                     </button>
                 </div>
                 <div id="hoDatasLista" class="d-flex flex-wrap gap-2 mt-2"></div>
@@ -64,12 +64,12 @@
         </div>
 
     </div>
-    <div class="card-footer d-flex justify-content-between gap-2">
-        <button type="button" class="btn btn-outline-danger" id="hoBtnLimpar">
-            <i class="bi bi-trash me-1"></i>Remover configuração
+    <div class="bjp-painel-pe d-flex justify-content-between gap-2">
+        <button type="button" class="bjp-btn bjp-btn--destrutivo" id="hoBtnLimpar">
+            <i class="bi bi-trash"></i>Remover configuração
         </button>
-        <button type="button" class="btn btn-info" id="hoBtnSalvar">
-            <i class="bi bi-save me-1"></i>Salvar
+        <button type="button" class="bjp-btn bjp-btn--secundario" id="hoBtnSalvar">
+            <i class="bi bi-save"></i>Salvar
         </button>
     </div>
 </div>

@@ -290,14 +290,14 @@
     [$('lgCdGoogle'), $('lgCdFacebook')].forEach((botao) => {
         if (!botao) { return; }
         botao.addEventListener('click', () => {
-            // DESLIGADO marca o cupom da URL que a pessoa desligou: sem ele, a volta perde o "desliguei" e o link curto vale de novo.
+            // DESLIGADO marca o cupom (da URL ou da sessão) que a pessoa desligou: sem ele, a volta o religaria.
             try {
                 if (cupomLigado() && ind.value) { sessionStorage.setItem(CUPOM_GUARDADO, ind.value); } else if (cupomDaUrl) { sessionStorage.setItem(CUPOM_GUARDADO, DESLIGADO); }
             } catch (e) { /* sem storage, segue */ }
         });
     });
-    /* O "indicacao" só vai quando há cupom ligado, ou quando a pessoa desligou o cupom que veio na URL: assim quem chegou
-       pelo link curto e cria a conta em outra aba não perde a indicação da sessão. */
+    /* O "indicacao" SEMPRE vai: o código se o cupom está ligado, vazio se está desligado (spec ia-liberada-por-indicacao,
+       seção 8). O servidor já preenche o cupom também com o código da sessão (data-ind): só conta o que a pessoa viu. */
     const cupomDaUrl = raiz.dataset.ind || '';
     let cupomVoltaDoGoogle = ''; /* vale também para a volta do Facebook */
     try {
@@ -306,7 +306,8 @@
     } catch (e) { cupomVoltaDoGoogle = ''; }
     const desligouAntesDoGoogle = cupomVoltaDoGoogle === DESLIGADO;
     if (desligouAntesDoGoogle) { cupomVoltaDoGoogle = ''; }
-    if (cupomDaUrl || cupomVoltaDoGoogle) { ligarCupom(true, cupomDaUrl || cupomVoltaDoGoogle); }
+    /* Desligado antes de ir ao Google/Facebook: o código do servidor (URL ou sessão) não religa o cupom na volta. */
+    if (!desligouAntesDoGoogle && (cupomDaUrl || cupomVoltaDoGoogle)) { ligarCupom(true, cupomDaUrl || cupomVoltaDoGoogle); }
 
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
@@ -430,7 +431,7 @@
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
         };
-        if (cupomLigado()) { campos.indicacao = ind.value.trim(); } else if (cupomDaUrl || desligouAntesDoGoogle) { campos.indicacao = ''; }
+        campos.indicacao = cupomLigado() ? ind.value.trim() : '';
         /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. Pelo Facebook vai o do
            campo (o Facebook só sugere); o `id` do Facebook o servidor lê da sessão. */
         const destinoDoPost = peloGoogle ? '/cadastro/google/criar' : (peloFacebook ? '/cadastro/facebook/criar' : '/cadastro/criar');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Exception\NumeroDePastaEmUsoException;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 
 /**
@@ -40,5 +41,23 @@ final class GerarNumeroDePasta
         $this->numeracao->travar($tenant);
 
         return (string) ($this->numeracao->maiorNumero($tenant) + 1);
+    }
+
+    /**
+     * O número digitado à mão passa pela MESMA trava da numeração automática e da restauração (pedido do Samuel,
+     * 18/11/2026): segura a sequência do escritório e confere se outra pasta viva já tem o número. Sem a trava, duas
+     * pessoas digitando o mesmo número (ou uma digitando e outra criando no automático) passavam juntas.
+     *
+     * Devolve a recusa em vez de lançar: exceção que escapa de `wrapInTransaction` FECHA o EntityManager, e quem
+     * chama ainda precisa dele (a tela de editar responde com aviso; o Chat I.A grava a proposta como pendente).
+     * Quem chama devolve a recusa para fora da transação e só então a lança. Exige transação aberta, como o `executar`.
+     */
+    public function recusaDoNumero(Tenant $tenant, string $nup, ?int $propriaPastaId): ?NumeroDePastaEmUsoException
+    {
+        $this->numeracao->travar($tenant);
+
+        return $this->numeracao->emUsoPorOutraPasta($tenant, $nup, $propriaPastaId)
+            ? new NumeroDePastaEmUsoException(mb_strtoupper(trim($nup)))
+            : null;
     }
 }

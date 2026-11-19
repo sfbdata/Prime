@@ -18,6 +18,9 @@ final readonly class CriarPastaDTO
      *                     `acesso-restrito-e-compartilhar.md`, regra 6: Nova pasta, Nova demanda, importação em lote,
      *                     Chat I.A e judicializar). Só os caminhos sem uma pessoa abrindo a pasta passam `false`: o
      *                     acervo por CSV, a descoberta pelo Drive e a correção de pasta judicial duplicada.
+     * @param bool $recusarNumeroEmUso Número digitado por uma pessoa (a proposta de pasta do Chat I.A): recusa se outra
+     *                     pasta viva do escritório já o tem, sob a trava da numeração. O acervo e o Drive não ligam,
+     *                     porque trazem o número da origem (10A/10B e repetidos do legado) e ele precisa ser preservado.
      */
     public function __construct(
         public ?string $nup = null,
@@ -25,5 +28,6 @@ final readonly class CriarPastaDTO
         public ?string $nomeAcao = null,
         public bool $vincularAoCadastroDoMesmoNome = false,
         public bool $criadorComoResponsavel = true,
+        public bool $recusarNumeroEmUso = false,
     ) {}
 }

@@ -1807,3 +1807,11 @@ html[data-bs-theme="dark"] .fm-vazio-categoria {
 .cob-anotacao-nova-sub { font-size: 12.5px; color: var(--bs-secondary-color); }
 .cob-anotacao-nova-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cob-anotacao-nova-dica { font-size: 12px; color: var(--bs-secondary-color); margin-right: auto; }
+
+/* Etiqueta do guia com a classe `badge` mantida como gancho (teste do cabeçalho do objeto): anula o miolo do Bootstrap. */
+.cob-cab-identidade .badge.bjp-etiqueta { padding: 0 10px; font-size: 12px; font-weight: 700; line-height: 1; border-radius: 999px; color: inherit; background: none; }
+.cob-cab-identidade .badge.bjp-etiqueta.bjp-etiqueta--ok { color: #186c47; background: #e2f4ea; }
+.cob-cab-identidade .badge.bjp-etiqueta.bjp-etiqueta--atencao { color: #8a5a12; background: #fdf1dc; }
+.cob-cab-identidade .badge.bjp-etiqueta.bjp-etiqueta--critico { color: #a3232b; background: #fdeceb; }
+.cob-cab-identidade .badge.bjp-etiqueta.bjp-etiqueta--neutro { color: #4f6878; background: #eef2f5; }
+.cob-cab-identidade .badge.bjp-etiqueta.bjp-etiqueta--info { color: #0b5f86; background: #e8f2fa; }

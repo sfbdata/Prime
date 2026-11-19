@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Conector\Ferramenta;
 
+use App\Conector\DTO\ArquivoNaResposta;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Mcp\RegistroDasFerramentas;
 use App\Conector\Service\RequisicaoDoConector;
+use Mcp\Schema\Content\BlobResourceContents;
+use Mcp\Schema\Content\EmbeddedResource;
+use Mcp\Schema\Content\ImageContent;
 use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\Result\CallToolResult;
 use Mcp\Schema\Tool;
@@ -24,7 +28,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  *  - a chamada só roda com a requisição aberta pelo portão ({@see RequisicaoDoConector::atual()} lança sem ela);
  *  - campo fora do esquema de entrada é recusado antes da ferramenta;
  *  - a resposta leva o dado no `structuredContent` e o mesmo dado, em JSON, no `content`, com teto de
- *    {@see TETO_DE_CARACTERES} caracteres por campo;
+ *    {@see TETO_DE_CARACTERES} caracteres por campo; o arquivo da resposta ({@see ArquivoNaResposta}), quando há, vai num
+ *    bloco à parte do `content` (imagem do MCP ou PDF como recurso embutido), fora do teto (6.5, decisão 24);
  *  - {@see ErroDaFerramenta} vira `isError` com a mensagem fixa;
  *  - ferramenta, resultado, contagens e ids vão às anotações da requisição, para o log `mcp`.
  */
@@ -110,7 +115,12 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
 
         $this->anotarSucesso($resposta);
 
-        return new CallToolResult([new TextContent($json)], false, $dados);
+        $conteudo = [new TextContent($json)];
+        if ($resposta->arquivo !== null) {
+            $conteudo[] = self::blocoDoArquivo($resposta->arquivo);
+        }
+
+        return new CallToolResult($conteudo, false, $dados);
     }
 
     private static function definicao(FerramentaDoConector $ferramenta): Tool
@@ -161,8 +171,8 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
     }
 
     /**
-     * O `structuredContent`: os dados da ferramenta e, quando a lista foi cortada, a página seguinte. Sempre um objeto
-     * JSON, mesmo vazio.
+     * O `structuredContent`: os dados da ferramenta e, quando a lista foi cortada, a página seguinte (número ou cursor
+     * em texto, como a ferramenta devolveu). Sempre um objeto JSON, mesmo vazio.
      *
      * @return array<string, mixed>|\stdClass
      */
@@ -176,9 +186,24 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
         return $dados === [] ? new \stdClass() : $dados;
     }
 
+    /** Imagem como conteúdo de imagem do MCP; PDF como recurso embutido, marcado experimental (6.5). */
+    private static function blocoDoArquivo(ArquivoNaResposta $arquivo): ImageContent|EmbeddedResource
+    {
+        $base64 = base64_encode($arquivo->conteudo);
+        if ($arquivo->ehImagem()) {
+            return new ImageContent($base64, $arquivo->tipo);
+        }
+
+        return new EmbeddedResource(new BlobResourceContents($arquivo->uri, $arquivo->tipo, $base64, ['experimental' => true]));
+    }
+
     private function anotarSucesso(RespostaDaFerramenta $resposta): void
     {
         $this->requisicao->anotar('resultado', 'ok');
+        if ($resposta->arquivo !== null) {
+            // Só o hash vai ao log, nunca o conteúdo nem o nome do arquivo (regra 9).
+            $this->requisicao->anotar('arquivo_sha256', $resposta->arquivo->sha256);
+        }
         if ($resposta->contagens !== []) {
             $this->requisicao->anotar('contagens', $resposta->contagens);
         }

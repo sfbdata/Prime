@@ -1,0 +1,150 @@
+/*
+ * Componentes do "Guia visual BlueJus" (docs/design/redesign-04-11-26/Guia visual BlueJus.dc.html), criados UMA vez
+ * e aplicados tela a tela pela padronização visual de 18/11 (relatório bluejus-coordenacao/auditoria-visual-1811.md).
+ * Valores copiados do código do guia (funções btn, ico e dis; listas B, ET e PZ; seções Painéis e Tipografia).
+ * O texto do guia fala em raio 8px, mas o código dele usa 4px em tudo: vale o código.
+ *
+ * Só classes com o prefixo .bjp-: carregar este arquivo não muda nenhuma tela. Nada aqui restiliza .btn, .card ou
+ * outra classe do Bootstrap/AdminLTE.
+ */
+
+/* Botão: 32px, raio 4px, sem borda, 13px/600, ícone bi 14px. Máximo de 1 Primário por área. */
+.bjp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: background .18s, color .18s, transform .1s;
+    background: #e8f2fa;
+    color: #0b5f86;
+}
+.bjp-btn > i, .bjp-btn > .bi { font-size: 14px; line-height: 1; }
+.bjp-btn:hover, .bjp-btn:focus { text-decoration: none; }
+.bjp-btn:active { transform: scale(.97); }
+.bjp-btn:focus-visible, .bjp-ico:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(15, 111, 196, .35); }
+
+.bjp-btn--primario { background: #0f6fc4; color: #fff; }
+.bjp-btn--primario:hover, .bjp-btn--primario:focus { background: #0b5f86; color: #fff; }
+.bjp-btn--secundario { background: #e8f2fa; color: #0b5f86; }
+.bjp-btn--secundario:hover, .bjp-btn--secundario:focus { background: #d8e9f6; color: #0b5f86; }
+.bjp-btn--discreto { background: transparent; color: #455c6b; }
+.bjp-btn--discreto:hover, .bjp-btn--discreto:focus { background: #eef4f8; color: #0f6fc4; }
+.bjp-btn--destrutivo { background: #fdeceb; color: #a3232b; }
+.bjp-btn--destrutivo:hover, .bjp-btn--destrutivo:focus { background: #f9d9d6; color: #a3232b; }
+.bjp-btn--sucesso { background: #1f9d61; color: #fff; }
+.bjp-btn--sucesso:hover, .bjp-btn--sucesso:focus { background: #18804f; color: #fff; }
+
+.bjp-btn:disabled, .bjp-btn.disabled, .bjp-btn[aria-disabled="true"] {
+    background: #eef2f5;
+    color: #a9b8c2;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Botão só de ícone: 32x32, raio 4px, ícone 15px (16px em cabeçalho de painel). Cores pelos mesmos níveis. */
+.bjp-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    font-size: 15px;
+    line-height: 1;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: background .18s;
+    background: transparent;
+    color: #0f6fc4;
+}
+.bjp-ico:hover, .bjp-ico:focus { background: #e8f2fa; color: #0f6fc4; text-decoration: none; }
+.bjp-ico.bjp-btn--primario { background: #0f6fc4; color: #fff; }
+.bjp-ico.bjp-btn--primario:hover { background: #0b5f86; }
+.bjp-ico.bjp-btn--secundario { background: #e8f2fa; color: #0b5f86; }
+.bjp-ico.bjp-btn--secundario:hover { background: #d8e9f6; }
+.bjp-ico.bjp-btn--discreto { color: #455c6b; }
+.bjp-ico.bjp-btn--discreto:hover { background: #eef4f8; color: #0f6fc4; }
+.bjp-ico.bjp-btn--destrutivo { background: #fdeceb; color: #a3232b; }
+.bjp-ico.bjp-btn--destrutivo:hover { background: #f9d9d6; }
+.bjp-ico:disabled, .bjp-ico.disabled { background: transparent; color: #a9b8c2; cursor: not-allowed; }
+
+/* Painel: raio 4px, sem borda, sombra suave; cabeçalho com ícone 16px e título 14px/700 petróleo. */
+.bjp-painel {
+    background: #fff;
+    border: none;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(16, 42, 58, .06), 0 10px 26px -18px rgba(10, 50, 80, .35);
+    margin-bottom: 18px;
+    color: #12242f;
+}
+.bjp-painel-cabeca {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef2f5;
+}
+.bjp-painel-cabeca > i, .bjp-painel-cabeca > .bi { font-size: 16px; color: #0b5f86; }
+.bjp-painel-titulo { margin: 0; font-size: 14px; font-weight: 700; color: #0b5f86; }
+.bjp-painel-cabeca .bjp-painel-acoes { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bjp-painel-corpo { padding: 14px 16px; }
+.bjp-painel-pe { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid #eef2f5; }
+.bjp-contagem { font-size: 12px; font-weight: 700; color: #0b5f86; background: #e8f2fa; padding: 1px 8px; border-radius: 999px; }
+
+/* Etiqueta de situação: pílula 24px, 12px/700, bolinha 6px. */
+.bjp-etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    color: #4f6878;
+    background: #eef2f5;
+}
+.bjp-etiqueta::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #8aa0ad; flex-shrink: 0; }
+.bjp-etiqueta--sem-ponto::before { display: none; }
+.bjp-etiqueta--ok { color: #186c47; background: #e2f4ea; }
+.bjp-etiqueta--ok::before { background: #1f9d61; }
+.bjp-etiqueta--atencao { color: #8a5a12; background: #fdf1dc; }
+.bjp-etiqueta--atencao::before { background: #c8952a; }
+.bjp-etiqueta--critico { color: #a3232b; background: #fdeceb; }
+.bjp-etiqueta--critico::before { background: #c0392f; }
+.bjp-etiqueta--neutro { color: #4f6878; background: #eef2f5; }
+.bjp-etiqueta--neutro::before { background: #8aa0ad; }
+.bjp-etiqueta--info { color: #0b5f86; background: #e8f2fa; }
+.bjp-etiqueta--info::before { background: #0f6fc4; }
+
+/* Prazo: 12px/700, pílula; vencido ou até 3 dias crítico, até 7 dias atenção, depois neutro. */
+.bjp-prazo { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: #455c6b; background: #eef2f5; }
+.bjp-prazo--critico { color: #a3232b; background: #fdeceb; }
+.bjp-prazo--atencao { color: #8a5a12; background: #fdf1dc; }
+
+/* Tipografia do guia. */
+.bjp-titulo-tela { font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: #12242f; }
+.bjp-titulo-painel { font-size: 15px; font-weight: 700; color: #0b5f86; }
+.bjp-texto-apoio { font-size: 12px; color: #5f7684; }
+.bjp-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7b93a2; }
+
+/* Grupo de botões (barra de ações). */
+.bjp-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

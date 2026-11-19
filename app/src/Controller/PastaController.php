@@ -9,6 +9,7 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\DTO\PastaRestaurada;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CadeadoNaTelaOutput;
@@ -501,6 +502,7 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            'numeroDaLapideOcupado'       => $this->numeroDaLapideOcupado($pasta, $tenant),
             // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
             'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
@@ -1704,18 +1706,16 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $responsavelId = $request->request->get('responsavel_id');
+        $responsavelId = (string) $request->request->get('responsavel_id', '');
         $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
-        $responsavel = null;
-        if ($responsavelId !== '' && $responsavelId !== null) {
-            $responsavel = $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]);
-            if ($responsavel === null) {
-                return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
-            }
+        $responsavel = $responsavelId !== '' ? $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]) : null;
+        if ($responsavelId !== '' && $responsavel === null) {
+            return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
         }
-        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118).
+        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118). Com
+        // "Manter como colaborador" (L8 do desenho 03), o anterior ganha o compartilhamento interno da pasta.
         try {
-            $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+            $troca = $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant, $request->request->get('manter_colaborador') === '1');
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         } catch (ResponsavelFixoNoAcessoRestritoException $e) {
@@ -1724,9 +1724,11 @@ class PastaController extends AbstractController
         $responsavel = $pasta->getResponsavel();
 
         return $this->json([
-            'sucesso'          => true,
-            'responsavelId'    => $responsavel?->getId(),
-            'responsavelNome'  => $responsavel?->getFullName() ?? 'Não informado',
+            'sucesso'            => true,
+            'responsavelId'      => $responsavel?->getId(),
+            'responsavelNome'    => $responsavel?->getFullName() ?? 'Não informado',
+            'mudou'              => $troca->mudou,
+            'colaboradorMantido' => $troca->colaboradorMantido,
         ]);
     }
 
@@ -1834,7 +1836,8 @@ class PastaController extends AbstractController
 
         // Toda exclusão vai para a lixeira (lápide restaurável): a pasta continua existindo, então
         // a volta é para ela, onde estão a faixa de excluída e o botão Restaurar.
-        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira (restaurável a qualquer momento)', $pasta->getNup()));
+        // Texto decidido pelo Samuel em 18/11/2026: o número fica livre e a pasta volta pela Lixeira do Expediente.
+        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira. O número dela ficou livre e ela pode ser restaurada pela Lixeira do Expediente.', $pasta->getNup()));
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
@@ -1844,28 +1847,82 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
 
-        $pastaId = (int) $pasta->getId();
-        // Mesma permissão do excluir: quem pode pôr a lápide pode tirar (decisão do dono).
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
+        // A Lixeira do Expediente restaura por fetch e pede JSON; o cabeçalho segue o redirect.
+        $querJson = $request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept', ''), 'application/json');
+
+        if ($recusa = $this->recusarRestaurar($pasta, $request, $querJson)) {
+            return $recusa;
         }
 
-        if (!$this->isCsrfTokenValid('restaurar_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
+        // O nome de ANTES é capturado aqui, enquanto a entidade ainda tem o número da lápide:
+        // se a pasta voltar com outro número, o Drive precisa renomear (mesmo padrão do pasta_edit).
+        $nomeAntes = ReconciliadorDePasta::nomeEsperado($pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao());
 
         try {
-            $this->restaurarPastaUseCase->executar($pasta, $this->tenantContext->getCurrentTenant());
+            $resultado = $this->restaurarPastaUseCase->executar($pasta, $tenant);
         } catch (\InvalidArgumentException $e) {
+            if ($querJson) {
+                return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $this->addFlash('warning', $e->getMessage());
 
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $this->addFlash('success', sprintf('Pasta %s restaurada.', $pasta->getNup()));
+        if ($resultado->mudouDeNumero() && $tenant !== null) {
+            $this->syncDispatcher->despacharSeNomeMudou($pasta, $currentUser, $tenant, $nomeAntes);
+        }
+
+        return $this->respostaDaRestauracao($pasta, $resultado, $querJson);
+    }
+
+    /** Permissão (DELETE, a mesma do excluir) e CSRF do restaurar; devolve a resposta de recusa, ou null se pode seguir. */
+    private function recusarRestaurar(Pasta $pasta, Request $request, bool $querJson): ?Response
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $querJson
+                ? $this->json(['ok' => false, 'mensagem' => 'Sem permissão para restaurar esta pasta.'], Response::HTTP_FORBIDDEN)
+                : $redirect;
+        }
+
+        if ($this->isCsrfTokenValid('restaurar_pasta_'.$pastaId, (string) $request->request->get('_token'))) {
+            return null;
+        }
+        if ($querJson) {
+            return $this->json(['ok' => false, 'mensagem' => 'Token CSRF inválido. Recarregue a página e tente de novo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        throw $this->createAccessDeniedException('Token CSRF inválido.');
+    }
+
+    private function respostaDaRestauracao(Pasta $pasta, PastaRestaurada $resultado, bool $querJson): Response
+    {
+        $mensagem = $resultado->mudouDeNumero()
+            ? sprintf('Pasta restaurada com o número %s. O número %s já era de outra pasta.', $resultado->numeroAgora, $resultado->numeroAntes)
+            : sprintf('Pasta %s restaurada.', $resultado->numeroAgora);
+
+        if ($querJson) {
+            return $this->json([
+                'ok'       => true,
+                'mensagem' => $mensagem,
+                'nup'      => $resultado->numeroAgora,
+                'urlPasta' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+            ]);
+        }
+
+        $this->addFlash('success', $mensagem);
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+    }
+
+    /** Janela de restaurar do cabeçalho: avisa quando o número da lápide já é de outra pasta viva. */
+    private function numeroDaLapideOcupado(Pasta $pasta, ?Tenant $tenant): bool
+    {
+        return $pasta->estaExcluida() && $tenant !== null && $this->restaurarPastaUseCase->numeroOcupado($pasta, $tenant);
     }
 
     // -------------------------------------------------------------------------

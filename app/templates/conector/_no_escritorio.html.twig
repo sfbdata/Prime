@@ -1,14 +1,14 @@
 {# Cartão do conector de I.A. na tela "BlueJus IA" do administrador do escritório (spec mcp-remoto-oauth 14.a nível 3 e
-   14.e: sem desenho, pela convenção desta tela, o mesmo .card dos blocos de estado e consumo).
+   14.e: sem desenho, pela convenção desta tela, o mesmo painel (bjp-painel) dos blocos de estado e consumo).
    Recebe `conector` (EscritorioNoConectorOutput do escritório da sessão). O POST vai ao ConectorDoEscritorioController
    (`acao` ligar ou desligar, `aceite`, `_token`), que volta para esta tela com o flash.
    Sem a liberação do Master (nível 2), a caixa e o botão Ligar ficam desabilitados com o aviso (decisão 3 do PR 8).
    Ligado com o aceite de versão antiga: o estado pede um novo aceite, com a caixa, o Ligar e o Desligar.
    Textos no catálogo conector.admin.*; o do aceite é provisório (versão 1, VersaoDoAceiteDoConector). #}
 {% set conector_ativo = conector.liberado and conector.ligado and conector.aceiteVigente %}
-<div class="card mt-3" id="conector-escritorio">
-    <div class="card-header"><strong>{{ 'conector.admin.titulo'|trans }}</strong></div>
-    <div class="card-body">
+<div class="bjp-painel mt-3" id="conector-escritorio">
+    <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'conector.admin.titulo'|trans }}</h3></div>
+    <div class="bjp-painel-corpo">
         <p class="text-muted small mb-2">{{ 'conector.admin.sub'|trans }}</p>
 
         {% if conector_ativo %}
@@ -51,8 +51,8 @@
                     <label class="form-check-label fw-semibold" for="conector-aceite">{{ 'conector.admin.aceite.caixa'|trans }}</label>
                 </div>
                 <div class="d-flex justify-content-end mt-2">
-                    <button type="submit" class="btn btn-primary" id="conector-ligar"{% if not conector.liberado %} disabled{% endif %}>
-                        <i class="bi bi-plug me-1"></i> {{ 'conector.admin.ligar'|trans }}
+                    <button type="submit" class="bjp-btn bjp-btn--primario" id="conector-ligar"{% if not conector.liberado %} disabled{% endif %}>
+                        <i class="bi bi-plug"></i> {{ 'conector.admin.ligar'|trans }}
                     </button>
                 </div>
             </form>
@@ -62,8 +62,8 @@
             <form method="post" action="{{ path('conector_admin_alterar') }}" class="d-flex justify-content-end mt-3" id="conector-form-desligar">
                 <input type="hidden" name="_token" value="{{ csrf_token('conector_escritorio') }}">
                 <input type="hidden" name="acao" value="desligar">
-                <button type="submit" class="btn btn-outline-danger" id="conector-desligar">
-                    <i class="bi bi-power me-1"></i> {{ 'conector.admin.desligar'|trans }}
+                <button type="submit" class="bjp-btn bjp-btn--destrutivo" id="conector-desligar">
+                    <i class="bi bi-power"></i> {{ 'conector.admin.desligar'|trans }}
                 </button>
             </form>
         {% endif %}

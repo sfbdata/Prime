@@ -208,7 +208,7 @@
     "Controller/ServiceDeskController.php::novo": 51,
     "Controller/ServiceDeskController.php::status": 46,
     "Controller/TarefaController.php::concluir": 75,
-    "Controller/TarefaController.php::criarParaPasta": 75,
+    "Controller/TarefaController.php::criarParaPasta": 49,
     "Controller/Tenant/TenantSelecaoController.php::__invoke": 47,
     "Controller/TenantController.php::aprovarJustificativa": 92,
     "Controller/TenantController.php::aprovarTodosJustificativas": 63,

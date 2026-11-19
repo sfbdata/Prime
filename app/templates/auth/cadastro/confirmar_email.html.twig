@@ -45,7 +45,7 @@
                 <div class="alert alert-danger criar-senha__erro" role="alert">{{ erro }}</div>
             {% endif %}
             <input type="hidden" name="_token" value="{{ csrf_token(constant('App\\Auth\\Controller\\CadastroController::CSRF_CRIAR_SENHA')) }}">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check2" aria-hidden="true"></i> {{ 'auth.link.criar_e_confirmar'|trans }}</button>
+            <button type="submit" class="bjp-btn bjp-btn--primario w-100"><i class="bi bi-check2" aria-hidden="true"></i> {{ 'auth.link.criar_e_confirmar'|trans }}</button>
         </form>
     {% else %}
         <div class="text-center">
@@ -58,7 +58,7 @@
     {% endif %}
     {% if motivo is not null or situacao.name|lower != 'pendente' %}
         <div class="d-flex gap-2 justify-content-center mt-3">
-            <a href="{{ path('app_login') }}" class="btn btn-primary">{{ 'auth.comum.entrar'|trans }}</a>
+            <a href="{{ path('app_login') }}" class="bjp-btn bjp-btn--primario">{{ 'auth.comum.entrar'|trans }}</a>
         </div>
     {% endif %}
 </div>

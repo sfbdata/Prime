@@ -4,6 +4,7 @@ namespace App\Processo\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\MovimentacaoProcesso;
+use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -66,6 +67,32 @@ class MovimentacaoProcessoRepository extends ServiceEntityRepository
         }
 
         return $porProcesso;
+    }
+
+    /**
+     * Uma página das movimentações do processo, a mais recente primeiro (sem data por último; empate pelo id), sempre
+     * com o escritório explícito. Devolve até `$porPagina + 1` linhas: a que sobra só diz que há próxima página.
+     *
+     * @return list<MovimentacaoProcesso>
+     */
+    public function paginaDoProcesso(Processo $processo, Tenant $tenant, int $pagina, int $porPagina): array
+    {
+        /** @var list<MovimentacaoProcesso> $linhas */
+        $linhas = $this->createQueryBuilder('m')
+            ->addSelect('CASE WHEN m.dataMovimentacao IS NULL THEN 1 ELSE 0 END AS HIDDEN semData')
+            ->andWhere('m.processo = :processo')
+            ->andWhere('m.tenant = :tenant')
+            ->setParameter('processo', $processo)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('semData', 'ASC')
+            ->addOrderBy('m.dataMovimentacao', 'DESC')
+            ->addOrderBy('m.id', 'DESC')
+            ->setFirstResult(max(0, $pagina - 1) * $porPagina)
+            ->setMaxResults($porPagina + 1)
+            ->getQuery()
+            ->getResult();
+
+        return $linhas;
     }
 
     /**

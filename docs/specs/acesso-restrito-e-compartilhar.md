@@ -460,6 +460,37 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
   e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
   outra conta vem com a fatia 9.
+- 18/11: fatia 7 (troca de responsável com confirmação, regra 5 e L8). No chip do responsável (pasta e Lista), escolher
+  outra pessoa quando a pasta já tem responsável abre a janela L8 do desenho 03 (valores do CSS do desenho, prefixo
+  `resp-troca-*`); pasta sem responsável troca direto, a mesma pessoa só fecha. "Manter {de} como colaborador" começa
+  desmarcado; marcado, o servidor (`manter_colaborador=1` no PATCH) cria o compartilhamento interno pelo
+  `CompartilharPastaComAEquipeUseCase` (1 clique, sem validade, mensagem "Mantido como colaborador na troca de
+  responsável"), na mesma transação da troca. O aviso segue o que o servidor fez (`colaboradorMantido`): sem vínculo
+  ativo, o anterior não fica e o aviso diz "foi desvinculado". Quem já colabora não ganha outro e conta como mantido
+  (conferido no banco, não pelo texto da recusa); quem passa a própria pasta adiante segue vendo a pasta e também
+  conta como mantido. Se outra aba já fez a mesma troca (`mudou` falso), não há aviso.
+  Decisões: (1) "Sem responsável", que o sistema tem e o desenho não, também passa pela L8, com o texto "a pasta fica
+  sem responsável" (e o aviso "A pasta {nup} ficou sem responsável."); (2) o restrito vê o aviso do desenho (L877) sem abrir a L8 (`acesso_restrito()` no Twig, o
+  servidor recusa do mesmo jeito); (3) o ícone L1 da linha se atualiza pelo `ExpCompartilhar.atualizar`, que a fatia
+  8 acrescenta (até lá, só no recarregar). O cartão "Responsável" do Registro já existia.
+- 18/11: fatia 3, parte dos avisos (o conector espera o PR 7 do conector). Mapa: os avisos e e-mails da pasta já
+  respeitam o escopo sem mudança, porque passam pelo `NivelNoCadeado` (que devolve `Oculto` fora do escopo):
+  `QuemAcompanhaAPasta` (pasta acompanhada), os avisos de meta (`NotificacaoService::veAPastaDaMeta` na criação),
+  menções do Registro, "Avisar quando chegar" do Push, relatórios de pastas paradas e sem processo, e o corte do
+  sino na leitura (`idsDasPastasOcultasNaSessao` soma `idsForaDoEscopo`). O aviso de prazo pelo chat não filtra o
+  destinatário na criação, mas o link `/pasta/<id>` o tira do sino na leitura. Corrigido: o aviso de meta levava a
+  `/tarefas/<id>`, que é "Fora do seu acesso" para o restrito; agora (`LinkDoAviso`, no dropdown do sino e no "Ver
+  todas") leva à aba Metas da pasta já na meta (`/pasta/<id>?meta=<id>#tarefas`), e o aviso de metas sem meta
+  própria (metas redistribuídas, menção no despacho) fica sem link. Quem não é restrito não muda.
+- 18/11: fatia 3, parte do conector (depois do PR 7, #777). Mapa: as 6 ferramentas já respeitam o escopo, porque o
+  portão fixa o escritório do token e tudo passa pelo `PastaRepository` com `soNoEscopo`, pelo `BuscarRapidoUseCase`
+  (`idsNoEscopo`), pelo `AcessoAPasta::podeVer` e pelo `NivelNoCadeado` (`idsDosProcessosOcultos` soma os processos
+  fora do escopo); `ler_agenda` fica fechada pela lista de liberação (`agenda` e `tarefas`). Corrigido: (1) a ação
+  `lixeira` do `buscar_pastas`, aberta pelo módulo `expediente`, fecha para o restrito como a tela
+  (`GuardaDaAcaoDoConector::FECHADAS_NO_ACESSO_RESTRITO`, "sem permissão"); (2) a tela de autorizar o conector
+  (`conector_oauth_*`, `conector_metadado_*`) passa na barreira do restrito: ela só mostra os escritórios da pessoa,
+  e o conector já valia para ele por outros caminhos (token de antes do perfil, sessão em outro escritório).
+  `opcoes` continua listando responsáveis e marcadores do escritório, como os filtros da Lista.
 - 18/11: fatia 8 (outra conta: código e convite; migration `Version20261118120000`, `user.codigo_pessoal`). Código
   pessoal sorteado na primeira vez que a pessoa o vê (`CodigoPessoal::garantir`), único também contra o código da
   conta (as duas gerações conferem as duas colunas) e fora da auditoria. Aba "Outra conta (código)" na janela, convite

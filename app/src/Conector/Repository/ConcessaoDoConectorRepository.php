@@ -35,7 +35,7 @@ class ConcessaoDoConectorRepository extends ServiceEntityRepository
 
     /**
      * Derruba todas as cadeias ainda abertas de um consentimento num UPDATE só (a pessoa revogou a conexão, ou a conta
-     * ou o vínculo acabou). Não mexe na data nem no motivo de quem já tinha caído. Devolve quantas caíram agora.
+     * ou o vínculo acabou, ou a pessoa autorizou de novo e a concessão nova substitui as antigas). Não mexe na data nem no motivo de quem já tinha caído. Devolve quantas caíram agora.
      *
      * Sem o filtro do escritório da sessão ({@see SemFiltroDoEscritorio}): o `TenantFilter` também entra no WHERE de
      * um UPDATE em DQL, e a pessoa revoga no Meu Perfil a conexão de um escritório que não é o da sessão. O UPDATE

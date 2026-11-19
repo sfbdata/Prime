@@ -21,6 +21,7 @@ use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
+use App\Voto\Service\IdentificacaoDaUnidade;
 use App\Voto\Service\LeituraDaAssembleia;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -125,7 +126,7 @@ final class ObterAtaDaAssembleiaUseCase
         foreach ($participacoes as $participacao) {
             $votouEm[(int) $participacao->getUnidade()->getId()] = $participacao->getRegistradaEm();
         }
-        $repetidas = array_filter(array_count_values(array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $unidades)), static fn (int $n): bool => $n > 1);
+        $repetidas = IdentificacaoDaUnidade::repetidas($unidades);
         $linhas = [];
         foreach ($unidades as $unidade) {
             if (!$pauta->aceitaBloco($unidade->getBloco())) {
@@ -135,7 +136,7 @@ final class ObterAtaDaAssembleiaUseCase
             $nome = trim((string) $unidade->getResponsavel());
             $linhas[] = new LinhaDaRelacaoDeVotantes(
                 '' !== $nome ? $nome : 'Não informado',
-                self::identificacao($unidade, isset($repetidas[$unidade->getIdentificacao()])),
+                IdentificacaoDaUnidade::exibir($unidade, isset($repetidas[$unidade->getIdentificacao()])),
                 null !== $em ? LinhaDaRelacaoDeVotantes::VOTOU : ($unidade->isApta() ? LinhaDaRelacaoDeVotantes::NAO_VOTOU : LinhaDaRelacaoDeVotantes::INAPTO),
                 null !== $em ? $em->setTime((int) $em->format('G'), 0) : null,
             );
@@ -144,20 +145,6 @@ final class ObterAtaDaAssembleiaUseCase
         usort($linhas, static fn (LinhaDaRelacaoDeVotantes $x, LinhaDaRelacaoDeVotantes $y): int => $colacao->compare($x->nome, $y->nome) ?: $colacao->compare($x->identificacao, $y->identificacao));
 
         return $linhas;
-    }
-
-    /**
-     * A identificação como o desenho (`masc`): o CPF de 11 dígitos sai mascarado ("***.456.789-**"). A identificação é
-     * única só dentro do bloco (UNIQUE assembleia, bloco, identificação): o bloco vem na frente só quando ela se repete.
-     */
-    private static function identificacao(UnidadeDaAssembleia $unidade, bool $repetida): string
-    {
-        $id = $unidade->getIdentificacao();
-        if (1 === preg_match('/^\d{11}$/', $id)) {
-            $id = '***.' . substr($id, 3, 3) . '.' . substr($id, 6, 3) . '-**';
-        }
-
-        return !$repetida || '' === $unidade->getBloco() ? $id : $unidade->getBloco() . ' · ' . $id;
     }
 
     /**

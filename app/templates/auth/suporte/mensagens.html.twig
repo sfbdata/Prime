@@ -35,7 +35,7 @@
                                 <tr>
                                     <td class="text-nowrap">{{ m.criadaEm|data_hora }}</td>
                                     <td>{{ m.nome is empty ? 'auth.suporte.sem_nome'|trans : m.nome }}</td>
-                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="btn btn-sm btn-outline-primary mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ ('auth.suporte.assunto_do_email'|trans)|url_encode }}"><i class="bi bi-reply"></i> {{ 'auth.suporte.responder'|trans }}</a></td>
+                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="bjp-btn bjp-btn--secundario mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ ('auth.suporte.assunto_do_email'|trans)|url_encode }}"><i class="bi bi-reply"></i> {{ 'auth.suporte.responder'|trans }}</a></td>
                                     <td>{{ m.assunto ?? 'auth.suporte.sem_assunto'|trans }}</td>
                                     <td>{{ m.mensagem|nl2br }}</td>
                                     <td>{{ m.origem == 'login' ? 'auth.suporte.origem_login'|trans : m.origem }}</td>

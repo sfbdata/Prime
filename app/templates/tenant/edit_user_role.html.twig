@@ -50,7 +50,7 @@
                             <i class="bi bi-calendar-x me-1"></i>{{ 'escritorio.editar_usuario.aba_justificativas'|trans }}
                             {% set qtdPendentes = justificativas|filter(j => j.status == 'pendente')|length %}
                             {% if qtdPendentes > 0 %}
-                                <span class="badge text-bg-warning text-dark ms-1">{{ qtdPendentes }}</span>
+                                <span class="bjp-etiqueta bjp-etiqueta--atencao ms-1">{{ qtdPendentes }}</span>
                             {% endif %}
                         </button>
                     </li>
@@ -65,16 +65,16 @@
 
                     {# Aba: Perfil e Senha #}
                     <div class="tab-pane fade show active" id="tab-perfil" role="tabpanel">
-                        <div class="card card-outline card-primary mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title">
+                        <div class="bjp-painel mb-3">
+                            <div class="bjp-painel-cabeca">
+                                <h3 class="bjp-painel-titulo">
                                     <i class="bi bi-person me-2"></i>{{ user.fullName }}
-                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 align-baseline text-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarNome" title="{{ 'escritorio.editar_usuario.alterar_nome'|trans }}">
+                                    <button type="button" class="bjp-ico bjp-btn--discreto p-0 ms-1 align-baseline text-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarNome" title="{{ 'escritorio.editar_usuario.alterar_nome'|trans }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                 </h3>
                             </div>
-                            <div class="card-body">
+                            <div class="bjp-painel-corpo">
                                 {{ form_start(form) }}
                                     <div class="mb-4">
                                         {{ form_label(form.codigoFuncionario, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
@@ -144,21 +144,21 @@
 
                                     {{ form_errors(form.newPassword) }}
                             </div>
-                            <div class="card-footer">
+                            <div class="bjp-painel-pe">
                                 <div class="d-flex gap-2 justify-content-between align-items-center">
                                     <div class="d-flex gap-2">
                                         <button type="button"
-                                                class="btn btn-danger"
+                                                class="bjp-btn bjp-btn--destrutivo"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalConfirmarRemocao">
-                                            <i class="bi bi-person-x me-1"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
+                                            <i class="bi bi-person-x"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
                                         </button>
-                                        <a href="{{ path('app_tenant_users', {tenantId: tenantId}) }}" class="btn btn-outline-secondary">
-                                            <i class="bi bi-arrow-left me-1"></i>{{ 'escritorio.editar_usuario.voltar'|trans }}
+                                        <a href="{{ path('app_tenant_users', {tenantId: tenantId}) }}" class="bjp-btn bjp-btn--secundario">
+                                            <i class="bi bi-arrow-left"></i>{{ 'escritorio.editar_usuario.voltar'|trans }}
                                         </a>
                                     </div>
-                                    <button class="btn btn-primary">
-                                        <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}
+                                    <button class="bjp-btn bjp-btn--primario">
+                                        <i class="bi bi-check-lg"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}
                                     </button>
                                 </div>
                             </div>
@@ -168,12 +168,12 @@
 
                     {# Aba: Dados Pessoais #}
                     <div class="tab-pane fade" id="tab-dados-pessoais" role="tabpanel">
-                        <div class="card card-outline card-info mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-person-vcard me-2"></i>{{ 'escritorio.editar_usuario.aba_dados'|trans }}</h3>
+                        <div class="bjp-painel mb-3">
+                            <div class="bjp-painel-cabeca">
+                                <i class="bi bi-person-vcard"></i><h3 class="bjp-painel-titulo">{{ 'escritorio.editar_usuario.aba_dados'|trans }}</h3>
                             </div>
                             {{ form_start(formDadosPessoais, {action: path('app_tenant_user_dados_pessoais', {tenantId: tenantId, id: user.id})}) }}
-                            <div class="card-body">
+                            <div class="bjp-painel-corpo">
                                 <div class="row g-3">
                                     <div class="col-12">
                                         {{ form_row(formDadosPessoais.nomeCompleto, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
@@ -193,9 +193,9 @@
                                 </div>
                                 {{ form_rest(formDadosPessoais) }}
                             </div>
-                            <div class="card-footer d-flex justify-content-end">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar_dados'|trans }}
+                            <div class="bjp-painel-pe d-flex justify-content-end">
+                                <button type="submit" class="bjp-btn bjp-btn--primario">
+                                    <i class="bi bi-check-lg"></i>{{ 'escritorio.editar_usuario.salvar_dados'|trans }}
                                 </button>
                             </div>
                             {{ form_end(formDadosPessoais) }}
@@ -204,11 +204,11 @@
 
                     {# Aba: Acessos específicos por item #}
                     <div class="tab-pane fade" id="tab-acessos" role="tabpanel">
-                        <div class="card card-outline card-secondary mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-unlock me-2"></i>{{ 'escritorio.editar_usuario.acessos_titulo'|trans }}</h3>
+                        <div class="bjp-painel mb-3">
+                            <div class="bjp-painel-cabeca">
+                                <i class="bi bi-unlock"></i><h3 class="bjp-painel-titulo">{{ 'escritorio.editar_usuario.acessos_titulo'|trans }}</h3>
                             </div>
-                            <div class="card-body p-0">
+                            <div class="bjp-painel-corpo p-0">
                                 {% if userAccesses is empty %}
                                     <p class="text-muted small p-3 mb-0">{{ 'escritorio.editar_usuario.acessos_vazio'|trans }}</p>
                                 {% else %}
@@ -227,18 +227,18 @@
                                                 {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
                                                 <tr>
                                                     <td class="align-middle">
-                                                        <span class="badge bg-body-tertiary text-body-secondary border text-capitalize">{{ ra.resourceType }}</span>
+                                                        <span class="bjp-etiqueta bjp-etiqueta--neutro text-capitalize">{{ ra.resourceType }}</span>
                                                     </td>
                                                     <td class="align-middle">{{ label }}</td>
                                                     <td class="align-middle">
                                                         {% if ra.canView %}
-                                                            <span class="badge text-bg-info me-1">{{ 'escritorio.usuarios.ver'|trans }}</span>
+                                                            <span class="bjp-etiqueta bjp-etiqueta--info me-1">{{ 'escritorio.usuarios.ver'|trans }}</span>
                                                         {% endif %}
                                                         {% if ra.canEdit %}
-                                                            <span class="badge text-bg-warning text-dark me-1">{{ 'escritorio.usuarios.editar'|trans }}</span>
+                                                            <span class="bjp-etiqueta bjp-etiqueta--atencao me-1">{{ 'escritorio.usuarios.editar'|trans }}</span>
                                                         {% endif %}
                                                         {% if ra.canDelete %}
-                                                            <span class="badge text-bg-danger me-1">{{ 'escritorio.usuarios.excluir'|trans }}</span>
+                                                            <span class="bjp-etiqueta bjp-etiqueta--critico me-1">{{ 'escritorio.usuarios.excluir'|trans }}</span>
                                                         {% endif %}
                                                     </td>
                                                     <td class="align-middle small text-muted">
@@ -253,7 +253,7 @@
                                                               action="{{ path('app_tenant_user_resource_access_remove', {tenantId: tenantId, userId: user.id, raId: ra.id}) }}"
                                                               onsubmit="return confirm('Remover este acesso específico?')">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'escritorio.editar_usuario.remover_acesso'|trans }}">
+                                                            <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="{{ 'escritorio.editar_usuario.remover_acesso'|trans }}">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </form>
@@ -381,8 +381,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>{{ 'escritorio.editar_usuario.batida_incluir'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-plus-circle"></i>{{ 'escritorio.editar_usuario.batida_incluir'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -392,8 +392,8 @@
 {# Janelas do ajuste de batida (E10). O "x" da batida e o "Restaurar" da folha as abrem com o endereço, o token por
    intenção e a batida (atributos data-*); o motivo é opcional. O desenho não mostra a ficha (P60): o molde é o modalAddBatida. #}
 {% for janela in [
-    {id: 'modalDesconsiderarBatida', chave: 'desconsiderar', icone: 'bi-x-circle', botao: 'btn-danger', cabeca: true},
-    {id: 'modalRestaurarBatida', chave: 'restaurar', icone: 'bi-arrow-counterclockwise', botao: 'btn-primary', cabeca: false}
+    {id: 'modalDesconsiderarBatida', chave: 'desconsiderar', icone: 'bi-x-circle', botao: 'bjp-btn--destrutivo', cabeca: true},
+    {id: 'modalRestaurarBatida', chave: 'restaurar', icone: 'bi-arrow-counterclockwise', botao: 'bjp-btn--primario', cabeca: false}
 ] %}
 <div class="modal fade" id="{{ janela.id }}" tabindex="-1" aria-labelledby="{{ janela.id }}Label" aria-hidden="true">
     <div class="modal-dialog modal-sm">
@@ -415,8 +415,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn {{ janela.botao }}"><i class="bi {{ janela.icone }} me-1"></i>{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_botao')|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn {{ janela.botao }}"><i class="bi {{ janela.icone }}"></i>{{ ('escritorio.editar_usuario.' ~ janela.chave ~ '_botao')|trans }}</button>
                 </div>
             </form>
         </div>
@@ -439,8 +439,8 @@
                     <input type="text" class="form-control" id="inputFullName" name="fullName" value="{{ user.fullName }}" required maxlength="255" autofocus>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -484,9 +484,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-person-x me-1"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--destrutivo">
+                        <i class="bi bi-person-x"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
                     </button>
                 </div>
             </form>

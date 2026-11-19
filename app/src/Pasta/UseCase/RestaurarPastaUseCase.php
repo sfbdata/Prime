@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Pasta\DTO\PastaRestaurada;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
@@ -20,9 +21,11 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * duas pontas — quando foi excluída e quando voltou.
  *
  * Desde 18/11/2026 a pasta excluída não ocupa mais número (ver `NumeracaoDePasta`): se ela era a
- * última, a próxima pasta criada recebe o mesmo número. Por isso a restauração é recusada quando
- * outra pasta viva do escritório já tem o número da lápide: voltariam duas pastas iguais na lista.
- * A conferência roda sob a mesma trava da numeração, para não cruzar com uma criação ao mesmo tempo.
+ * última, a próxima pasta criada recebe o mesmo número. Restaurar SEMPRE funciona: com o número
+ * antigo livre a pasta volta com ele; ocupado por outra pasta viva do escritório, volta com o
+ * próximo número livre (maior número + 1). A decisão roda sob a mesma trava da numeração, dentro
+ * da transação, para não cruzar com uma criação ao mesmo tempo. O histórico guarda "antes era N"
+ * porque o `AuditLogSubscriber` grava a troca de `nup` junto com a limpeza da lápide.
  */
 final class RestaurarPastaUseCase
 {
@@ -32,7 +35,7 @@ final class RestaurarPastaUseCase
         private readonly NumeracaoDePastaInterface $numeracao,
     ) {}
 
-    public function executar(Pasta $pasta, Tenant $tenant): void
+    public function executar(Pasta $pasta, Tenant $tenant): PastaRestaurada
     {
         if ($pasta->getTenant() !== $tenant) {
             throw new AccessDeniedException('Pasta não pertence ao tenant do usuário.');
@@ -44,34 +47,36 @@ final class RestaurarPastaUseCase
             throw new \InvalidArgumentException('Esta pasta não está excluída.');
         }
 
-        $this->em->wrapInTransaction(function () use ($pasta, $tenant): void {
+        $numeroAntes = (string) $pasta->getNup();
+
+        return $this->em->wrapInTransaction(function () use ($pasta, $tenant, $numeroAntes): PastaRestaurada {
             $this->numeracao->travar($tenant);
-            $this->recusarSeONumeroJaFoiReusado($pasta, $tenant);
+
+            $numeroNovo = $this->numeroOcupado($pasta, $tenant)
+                ? (string) ($this->numeracao->maiorNumero($tenant) + 1)
+                : $numeroAntes;
 
             $pasta->restaurar();
+            if ($numeroNovo !== $numeroAntes) {
+                $pasta->setNup($numeroNovo);
+            }
             $this->em->flush();
+
+            return new PastaRestaurada($numeroAntes, (string) $pasta->getNup());
         });
     }
 
-    private function recusarSeONumeroJaFoiReusado(Pasta $pasta, Tenant $tenant): void
+    /** O número da lápide já é de outra pasta viva do escritório. */
+    public function numeroOcupado(Pasta $pasta, Tenant $tenant): bool
     {
         $nup = $pasta->getNup();
         if ($nup === null || $nup === '') {
-            return;
+            return false;
         }
 
         // `findDoEscritorioPorNup` já deixa a lixeira de fora: a própria lápide não se acha.
         $ocupante = $this->pastas->findDoEscritorioPorNup($nup, $tenant);
-        if ($ocupante === null || $ocupante === $pasta) {
-            return;
-        }
 
-        $cliente = trim((string) $ocupante->getNomeCliente());
-
-        throw new \InvalidArgumentException(sprintf(
-            'O número %s já é usado por outra pasta%s. Mude o número dela antes de restaurar esta.',
-            $nup,
-            $cliente === '' ? '' : ' (' . $cliente . ')',
-        ));
+        return $ocupante !== null && $ocupante !== $pasta;
     }
 }

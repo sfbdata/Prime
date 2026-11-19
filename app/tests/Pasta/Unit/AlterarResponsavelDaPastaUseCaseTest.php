@@ -33,7 +33,8 @@ final class AlterarResponsavelDaPastaUseCaseTest extends TestCase
 
         $mudou = $this->useCase($em)->executar($pasta, $bruno, $autor, $tenant);
 
-        self::assertTrue($mudou);
+        self::assertTrue($mudou->mudou);
+        self::assertFalse($mudou->colaboradorMantido);
         self::assertSame($bruno, $pasta->getResponsavel());
         $cartao = $this->cartao();
         self::assertSame('resp', $cartao->getSistema());
@@ -77,10 +78,10 @@ final class AlterarResponsavelDaPastaUseCaseTest extends TestCase
         $ana = $this->usuario('Ana');
         $pasta->setResponsavel($ana);
 
-        self::assertFalse($this->useCase($this->em(0))->executar($pasta, $ana, $autor, $tenant));
+        self::assertFalse($this->useCase($this->em(0))->executar($pasta, $ana, $autor, $tenant)->mudou);
 
         $vazia = $this->cenario()[0];
-        self::assertFalse($this->useCase($this->em(0))->executar($vazia, null, $autor, $vazia->getTenant() ?? new Tenant()));
+        self::assertFalse($this->useCase($this->em(0))->executar($vazia, null, $autor, $vazia->getTenant() ?? new Tenant())->mudou);
         self::assertSame([], $this->persistidos);
     }
 

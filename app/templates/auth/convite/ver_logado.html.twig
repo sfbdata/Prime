@@ -45,13 +45,13 @@
                 <div class="d-flex gap-3 mt-4">
                     <form method="post" action="{{ acao_aceitar }}">
                         <input type="hidden" name="_token" value="{{ csrf_aceitar }}">
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="bjp-btn bjp-btn--sucesso">
                             <i class="bi bi-check-lg me-1"></i> {{ 'auth.convite.ver_logado.aceitar'|trans }}
                         </button>
                     </form>
                     <form method="post" action="{{ acao_recusar }}">
                         <input type="hidden" name="_token" value="{{ csrf_recusar }}">
-                        <button type="submit" class="btn btn-outline-secondary">{{ 'auth.convite.ver_logado.recusar'|trans }}</button>
+                        <button type="submit" class="bjp-btn bjp-btn--discreto">{{ 'auth.convite.ver_logado.recusar'|trans }}</button>
                     </form>
                 </div>
             </div>

@@ -1,6 +1,40 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.60.0"
+  data: "2026-11-18"
+  itens:
+    - "Com o conector de I.A. ligado, quando o Claude ou o ChatGPT for excluir algo, trocar uma informação já preenchida ou cadastrar cliente no BlueJus, o BlueJus primeiro devolve um resumo do que vai acontecer e só grava quando chega a confirmação desse resumo."
+    - "O app pede a sua aprovação antes de confirmar, salvo se você marcou nele a opção de aprovar sempre sem perguntar. Recomendamos não marcar essa opção para o BlueJus."
+    - "Cada resumo vale por 10 minutos e para uma vez só. Se algo mudar nesse meio tempo (por exemplo, você perdeu o acesso à pasta), o BlueJus recusa a gravação."
+    - "As ferramentas que gravam ainda chegam nas próximas versões: esta parte prepara a confirmação que todas elas vão usar."
+    - "Em escritório sem plano pago, cada pessoa tem uma I.A. gratuita equivalente a 3 peças. Uma barra no topo da I.A. mostra quanto já foi usado."
+    - "Quando a I.A. gratuita acaba, aparece uma janela com o seu link de indicação: cada colega que se cadastrar e confirmar o e-mail libera mais 3 peças para você, e você recebe um aviso no sino."
+    - "Escritórios com plano pago continuam usando a I.A. sem esse limite."
+    - "Na tela de criar conta, o código de quem indicou aparece no campo de indicação; se a pessoa desligar o campo, ninguém recebe a indicação."
+    - "Botões, painéis e etiquetas ficaram com o mesmo formato em todas as telas: mesma altura, mesmos cantos arredondados, mesmas cores para cada tipo de ação (principal, secundária, excluir, concluir) e os mesmos ícones. Cada tela continua com as mesmas funções de antes."
+    - "No Voto, a aba Acompanhar ganhou o botão Unidades: um painel com todas as unidades da pauta, que fica azul quando a unidade vota. Dá para deixar numa tela da assembleia e ver, ao vivo, quem já votou e quem ainda falta. O painel mostra só o número ou nome da unidade, nunca quem votou em quê. Aparece só para quem pode ver a lista de votantes."
+- versao: "2.59.0"
+  data: "2026-11-18"
+  itens:
+    - "Com o conector de I.A. ligado, o Claude ou o ChatGPT conectado à sua conta passa a abrir os PDFs e as imagens da aba Documentos de uma pasta, ver os modelos de peça do escritório, consultar os processos e ler as publicações do Diário de uma pasta."
+    - "Ler uma publicação pelo app não a marca como lida no BlueJus."
+    - "Na agenda, o app passa a saber se um prazo já foi cumprido ou ainda está em aberto, como você vê na tela."
+    - "O app só enxerga o que você já vê no BlueJus: abas ocultas, pastas trancadas e processos em segredo de justiça ficam de fora."
+    - "Na tela BlueJus IA, o botão Desligar do conector não fica mais escondido atrás do balão do chat."
+- versao: "2.58.1"
+  data: "2026-11-18"
+  itens:
+    - "No Push Processual, vincular uma publicação pelo número da pasta funciona mesmo quando esse número já foi de uma pasta excluída."
+    - "A pasta excluída não aparece mais na ficha do cliente nem nas respostas do agente de pastas; ela fica só na lixeira."
+- versao: "2.58.0"
+  data: "2026-11-18"
+  itens:
+    - "Com o conector de I.A. ligado, o Claude ou o ChatGPT conectado à sua conta passa a procurar pastas, ler o resumo, o andamento, o Registro, os prazos e as metas de uma pasta, e consultar a sua agenda e as suas metas."
+    - "O app só enxerga o que você já vê no BlueJus: abas ocultas e pastas em segredo de justiça ficam de fora; da pasta trancada, só o número e o cliente, como na lista; CPF, CNPJ, telefone e e-mail chegam mascarados, mesmo quando o texto é cortado no meio deles."
+    - "Por enquanto o conector só é liberado para o escritório piloto."
+    - "Ao conectar o Claude ou outro aplicativo de I.A. ao BlueJus, clicar duas vezes em Autorizar não mostra mais a mensagem de pedido vencido: aparece \"Conexão feita\" e basta voltar ao aplicativo."
+    - "Ao conectar de novo o mesmo aplicativo de I.A., só vale o que você autorizou agora: se antes ele podia alterar dados e agora só pode ler, a permissão antiga deixa de valer na hora."
 - versao: "2.57.0"
   data: "2026-11-18"
   itens:

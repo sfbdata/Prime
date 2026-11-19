@@ -22,7 +22,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * Desde 18/11/2026 (pedido do Samuel, no lugar das decisões de 28/08 e 31/08) a lápide não ocupa
  * número: se ela era a última, a próxima pasta criada recebe o número dela (`NumeracaoDePasta`).
- * Restaurar com o número já reusado é recusado no `RestaurarPastaUseCase`.
+ * Restaurar com o número já reusado sempre funciona: a pasta volta com o próximo número livre
+ * (`RestaurarPastaUseCase`).
  *
  * Apagar de vez depois dos 30 dias (purga) NÃO existe aqui: apagar dado é decisão do dono e ficou
  * pendente. Até ela existir, a lápide fica indefinidamente e continua restaurável.

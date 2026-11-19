@@ -13,7 +13,7 @@
 </div>
 
 {% if casos|length > 0 %}
-    <div class="card cobranca-card d-none d-md-block">
+    <div class="bjp-painel cobranca-card d-none d-md-block">
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -36,8 +36,8 @@
                         <td class="align-middle">{{ caso.pessoaCobradaNome }}</td>
                         <td class="align-middle text-muted">{{ caso.carteiraNome }}</td>
                         <td class="align-middle">
-                            <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.casos.pronto_dica'|trans }}">{{ 'cobranca_objeto.casos.pronto'|trans }}</span>{% endif %}
+                            <span class="bjp-etiqueta bjp-etiqueta--{{ {'text-bg-success': 'ok', 'text-bg-danger': 'critico', 'text-bg-warning': 'atencao', 'text-bg-primary': 'info'}[caso.statusBadgeClass] ?? 'neutro' }}">{{ caso.statusLabel }}</span>
+                            {% if caso.prontoParaEncerrar %}<span class="bjp-etiqueta bjp-etiqueta--ok ms-1" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.casos.pronto_dica'|trans }}">{{ 'cobranca_objeto.casos.pronto'|trans }}</span>{% endif %}
                         </td>
                         <td class="align-middle text-end fw-semibold">{{ caso.saldoExigivel|centavos }}</td>
                         <td class="align-middle text-end {{ caso.temVencido ? 'text-danger fw-semibold' : 'text-muted' }}">{{ caso.saldoVencido|centavos }}</td>
@@ -53,7 +53,7 @@
         <div class="cobranca-card-item{{ caso.temVencido ? ' cobranca-row-vencido' : '' }}" style="cursor:pointer;" onclick="window.location.href='{{ path('cobranca_caso_show', {id: caso.id}) }}'">
             <div class="d-flex justify-content-between align-items-start gap-2">
                 <div class="cobranca-card-title"><i class="bi bi-box-seam me-1"></i>{{ caso.objetoIdentificacao }}</div>
-                <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                <span class="bjp-etiqueta bjp-etiqueta--{{ {'text-bg-success': 'ok', 'text-bg-danger': 'critico', 'text-bg-warning': 'atencao', 'text-bg-primary': 'info'}[caso.statusBadgeClass] ?? 'neutro' }}">{{ caso.statusLabel }}</span>
             </div>
             <div class="cobranca-card-sub text-muted">{{ caso.pessoaCobradaNome }} · {{ caso.carteiraNome }}</div>
             <div class="mt-1 d-flex justify-content-between">
@@ -64,7 +64,7 @@
         {% endfor %}
     </div>
 {% else %}
-    <div class="card cobranca-card">
+    <div class="bjp-painel cobranca-card">
         <div class="cobranca-empty">
             <div class="empty-ico"><i class="bi bi-briefcase"></i></div>
             {% if temFiltro %}
