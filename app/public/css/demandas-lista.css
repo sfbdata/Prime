@@ -12,7 +12,7 @@
    branca, a segunda azul-acinzentada, e assim por diante; borda de baixo #eef2f5 (dc L.209). O hover do desenho
    (azul cheio, com !important em expediente-lista.css) e o destaque de linha (expediente-lista-12.css) continuam
    vencendo a zebra. */
-.exp-demandas #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #eef2f5; }
+.exp-demandas #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #e3eaef; } /* guia v30 (A4): divisória */
 .exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }
 [data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr > td { background: transparent; border-bottom-color: var(--bs-border-color-translucent); }
 [data-bs-theme="dark"] .exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: rgba(255,255,255,.04); }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Service;
 
+use App\Shared\Service\DigitoVerificador;
 use App\Voto\DTO\LinhaDeUnidade;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
@@ -13,7 +14,7 @@ use function Symfony\Component\String\u;
 
 /**
  * Lê a lista de unidades colada pelo gestor (spec voto-assembleia-condominio, seção 1.4): uma por linha,
- * `unidade; bloco; situação; fração; responsável; e-mail; telefone; ocorrência` (ponto e vírgula, ou tabulação quando vem colada de uma
+ * `unidade; bloco; situação; fração; responsável; e-mail; telefone; ocorrência; CPF` (ponto e vírgula, ou tabulação quando vem colada de uma
  * planilha). Uma primeira linha de cabeçalho (unidade, identificacao...) é pulada.
  *
  * Regras do desenho (importação, N97): linha sem unidade ou com fração menor ou igual a zero é inválida; a mesma
@@ -66,7 +67,7 @@ final class LeitorDaListaDeUnidades
             if ([] === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
                 continue;
             }
-            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 8, '')),
+            $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 9, '')),
                 $peso, $lidas, $vistas);
         }
 
@@ -83,7 +84,7 @@ final class LeitorDaListaDeUnidades
      */
     public function lerUmaLinha(array $colunas, PesoDoVoto $peso): LinhaDeUnidade
     {
-        return self::linha(1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 8, '')), $peso);
+        return self::linha(1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 9, '')), $peso);
     }
 
     /**
@@ -130,7 +131,7 @@ final class LeitorDaListaDeUnidades
     /** @param list<string> $colunas */
     private static function linha(int $numero, array $colunas, PesoDoVoto $peso): LinhaDeUnidade
     {
-        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email, $telefone, $ocorrencia] = $colunas;
+        [$identificacao, $bloco, $situacao, $fracao, $responsavel, $email, $telefone, $ocorrencia, $cpf] = $colunas;
         if ('' === $identificacao) {
             throw new OperacaoInvalidaNaAssembleiaException('Linha sem a unidade.');
         }
@@ -145,6 +146,7 @@ final class LeitorDaListaDeUnidades
             email: self::email($email),
             telefone: self::telefone($telefone),
             ocorrencia: '' === $ocorrencia ? null : mb_substr($ocorrencia, 0, 80),
+            cpf: self::cpf($cpf),
         );
     }
 
@@ -174,6 +176,19 @@ final class LeitorDaListaDeUnidades
         $digitos = mb_substr(preg_replace('/\D/', '', $telefone) ?? '', 0, 20);
 
         return '' === $digitos ? null : $digitos;
+    }
+
+    /** Com ou sem pontuação; guarda só os dígitos. Vazio fica sem CPF; com dígito verificador errado a linha é inválida. */
+    private static function cpf(string $cpf): ?string
+    {
+        if ('' === $cpf) {
+            return null;
+        }
+        if (!DigitoVerificador::cpfValido($cpf)) {
+            throw new OperacaoInvalidaNaAssembleiaException('CPF inválido.');
+        }
+
+        return DigitoVerificador::digitos($cpf);
     }
 
     private static function email(string $email): ?string

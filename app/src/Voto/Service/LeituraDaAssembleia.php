@@ -91,6 +91,8 @@ final class LeituraDaAssembleia
             cnpj: $assembleia->getCnpj(),
             cenario: $assembleia->getCenario(),
             simulacao: $assembleia->isSimulacao(),
+            rotuloUnidade: $assembleia->getRotuloUnidadePersonalizado(),
+            rotuloBloco: $assembleia->getRotuloBlocoPersonalizado(),
         );
     }
 

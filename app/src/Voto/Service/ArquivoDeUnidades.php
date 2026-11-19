@@ -44,8 +44,8 @@ final class ArquivoDeUnidades
         try {
             $aba = $planilha->getSheet(0);
             if ($aba->getHighestDataRow() > LeitorDaListaDeUnidades::LIMITE_DE_LINHAS
-                || \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($aba->getHighestDataColumn()) > 8) {
-                throw new OperacaoInvalidaNaAssembleiaException('A planilha deve ter até 3000 linhas e 8 colunas.');
+                || \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($aba->getHighestDataColumn()) > 9) {
+                throw new OperacaoInvalidaNaAssembleiaException('A planilha deve ter até 3000 linhas e 9 colunas.');
             }
             $linhas = $aba->toArray(null, false, false, false);
 
@@ -60,7 +60,7 @@ final class ArquivoDeUnidades
         $planilha = new Spreadsheet();
         $aba = $planilha->getActiveSheet();
         $aba->setTitle('Unidades');
-        $aba->fromArray([[$cenario->identificacao(), CenarioDaAssembleia::Condominio === $cenario ? 'Bloco' : $cenario->grupo(), 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone', 'Ocorrência']], null, 'A1');
+        $aba->fromArray([[$cenario->identificacao(), CenarioDaAssembleia::Condominio === $cenario ? 'Bloco' : $cenario->grupo(), 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone', 'Ocorrência', 'CPF']], null, 'A1');
         $aba->getColumnDimension('A')->setWidth(18);
         $aba->getColumnDimension('B')->setWidth(18);
         $aba->getColumnDimension('C')->setWidth(20);
@@ -69,6 +69,7 @@ final class ArquivoDeUnidades
         $aba->getColumnDimension('F')->setWidth(32);
         $aba->getColumnDimension('G')->setWidth(18);
         $aba->getColumnDimension('H')->setWidth(32);
+        $aba->getColumnDimension('I')->setWidth(16);
         $resposta = new StreamedResponse(static function () use ($planilha): void {
             try {
                 (new Xlsx($planilha))->save('php://output');
@@ -100,8 +101,8 @@ final class ArquivoDeUnidades
             if (false === $colunas || [null] === $colunas) {
                 continue;
             }
-            if (\count($colunas) > 8) {
-                throw new OperacaoInvalidaNaAssembleiaException('O CSV deve ter no máximo 8 colunas.');
+            if (\count($colunas) > 9) {
+                throw new OperacaoInvalidaNaAssembleiaException('O CSV deve ter no máximo 9 colunas.');
             }
             $linhas[] = self::textoEmColunas($colunas);
             if (\count($linhas) > LeitorDaListaDeUnidades::LIMITE_DE_LINHAS) {

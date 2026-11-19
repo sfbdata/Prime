@@ -117,7 +117,7 @@ final class UnidadesDaAssembleiaController extends AbstractController
     {
         $tenant = $this->guarda->exigir();
         $campos = [];
-        foreach (['identificacao', 'bloco', 'situacao', 'fracao', 'responsavel', 'email', 'telefone'] as $campo) {
+        foreach (['identificacao', 'bloco', 'situacao', 'fracao', 'responsavel', 'email', 'telefone', 'cpf'] as $campo) {
             $campos[$campo] = $request->request->getString($campo);
         }
         $this->executar($request, $id, function () use ($editar, $tenant, $id, $unidade, $campos): void {

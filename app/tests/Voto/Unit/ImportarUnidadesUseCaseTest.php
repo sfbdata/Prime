@@ -132,6 +132,35 @@ final class ImportarUnidadesUseCaseTest extends TestCase
         self::assertNull($salvas['104']->getTelefone());
     }
 
+    #[TestDox('O CPF da coluna 9 entra na unidade só com dígitos; a linha com CPF inválido vai para o relatório')]
+    public function testImportaCpf(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Unidade, 'Gestora');
+        $salvas = [];
+        $unidades = $this->createMock(UnidadeDaAssembleiaRepository::class);
+        $unidades->method('salvar')->willReturnCallback(static function (UnidadeDaAssembleia $u) use (&$salvas): void {
+            $salvas[$u->getIdentificacao()] = $u;
+        });
+        $assembleias = $this->assembleias($tenant, $assembleia);
+
+        $resultado = (new ImportarUnidadesUseCase(
+            $assembleias,
+            $unidades,
+            new LeitorDaListaDeUnidades(),
+            new TokenDaUnidade('segredo-de-teste'),
+            new ArquivoDeUnidades(),
+            self::serializacao(),
+            $this->createMock(OcorrenciaDaUnidadeRepository::class),
+        ))->executar($tenant, 7, "101;A;;;Ana;;;;529.982.247-25\n102;A;;;Beto;;;;111\n103;A;;;Caio\n");
+
+        self::assertSame(2, $resultado->importadas);
+        self::assertSame([['linha' => 2, 'motivo' => 'CPF inválido.']], $resultado->invalidas);
+        self::assertSame('52998224725', $salvas['101']->getCpf());
+        self::assertNull($salvas['103']->getCpf());
+        self::assertArrayNotHasKey('102', $salvas);
+    }
+
     #[TestDox('O modelo para baixar traz a coluna Telefone depois de E-mail')]
     public function testModeloTrazTelefone(): void
     {
@@ -146,7 +175,7 @@ final class ImportarUnidadesUseCaseTest extends TestCase
             unlink($caminho);
         }
 
-        self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone', 'Ocorrência'], $linha);
+        self::assertSame(['Unidade', 'Bloco', 'Situação', 'Fração', 'Responsável', 'E-mail', 'Telefone', 'Ocorrência', 'CPF'], $linha);
     }
 
     #[TestDox('O modelo do cenário abre com o rótulo da identificação e do grupo do cenário')]

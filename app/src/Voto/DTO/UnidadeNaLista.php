@@ -24,6 +24,8 @@ final readonly class UnidadeNaLista
         /** A última ocorrência registrada para a unidade (o desenho mostra "Registrada em ... por ..."), ou null. */
         public ?OcorrenciaNaUnidade $ocorrencia = null,
         public ?string $telefone = null,
+        /** Só dígitos; aparece só no formulário "Editar" do organizador. */
+        public ?string $cpf = null,
     ) {
     }
 

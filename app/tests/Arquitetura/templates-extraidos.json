@@ -15,11 +15,21 @@
             "layout/_globais/genero.html.twig"
         ],
         "js": [
-            "janela-genero.js"
+            "janela-genero.js",
+            "central-flutuante.js",
+            "presenca-cabecalho.js"
         ],
         "permitidos": [
             "BlueJus",
-            "Esc"
+            "Esc",
+            "ArrowLeft",
+            "ArrowRight",
+            "ArrowUp",
+            "ArrowDown",
+            "Escape",
+            "Content-Type",
+            "Accept",
+            "Enter"
         ]
     },
 
@@ -150,12 +160,15 @@
             "expediente/_relatorio_processos_modal.html.twig",
             "expediente/relatorio_processos.html.twig",
             "expediente/pastas_paradas.html.twig",
-            "expediente/_lixeira_modal.html.twig"
+            "expediente/_lixeira_modal.html.twig",
+            "expediente/_importar_lote_modal.html.twig"
         ],
         "js": [
             "expediente-lista.js",
             "expediente-trilho.js",
-            "expediente-lixeira.js"
+            "expediente-lixeira.js",
+            "expediente-importar-lote.js",
+            "expediente-compartilhar.js"
         ],
         "permitidos": [
             "exp-body",
@@ -176,7 +189,12 @@
             "ArrowUp",
             "Home",
             "End",
-            "ContextMenu"
+            "ContextMenu",
+            "Accept",
+            "https://drive.google.com/drive/folders/...",
+            "&nbsp;&nbsp;📁 MARIA DA SILVA →",
+            "&nbsp;&nbsp;&nbsp;&nbsp;📄 RG.jpg",
+            "&nbsp;&nbsp;📁 JOÃO SOUZA →"
         ]
     },
 
@@ -194,10 +212,42 @@
             "tarefa/_meta_situacao.html.twig",
             "tarefa/_meta_detalhes.html.twig",
             "tarefa/registro.html.twig",
-            "tarefa/extrato.html.twig"
+            "tarefa/extrato.html.twig",
+            "tarefa/_esteira.html.twig",
+            "tarefa/_esteira_modal.html.twig",
+            "tarefa/_ia_painel.html.twig",
+            "tarefa/_meta_devolucao_modal.html.twig"
         ],
-        "js": ["meta-despacho.js", "meta-detalhe.js"],
-        "permitidos": ["Enter", "Escape", "Tab", "meta-body", "mm-body"]
+        "js": [
+            "meta-despacho.js",
+            "meta-detalhe.js",
+            "meta-passagem.js",
+            "meta-excluir-despacho.js"
+        ],
+        "permitidos": [
+            "Enter",
+            "Escape",
+            "Tab",
+            "meta-body",
+            "mm-body",
+            "0 ? ' tem-metas' : '' }}\"",
+            "data-mm-caixa",
+            "data-etapa=\"\"",
+            "data-caixa=\"\"",
+            "data-caixa-padrao=\"\"",
+            "data-nome=\"\"",
+            "data-nome-padrao=\"\"",
+            "data-avisados=\"\"",
+            "data-salvar=\"\"",
+            "data-restaurar=\"\"",
+            "data-token=\"\"",
+            "{id: m.id, nome: m.nome, funcao: m.funcao})|json_encode|e('html_attr') }}\"",
+            "data-rotulo-remover=\"\">",
+            "0 ? k.tom : 'zero' }}\">",
+            "App\\\\Tarefa\\\\DTO\\\\DevolverMetaInput::MOTIVOS",
+            "Accept",
+            "Content-Type"
+        ]
     },
 
     "perfis": {
@@ -488,14 +538,20 @@
             "dashboard/_desempenho_cards.html.twig",
             "dashboard/_extras.html.twig",
             "dashboard/_tendencia.html.twig",
-            "dashboard/_inteligencia.html.twig"
+            "dashboard/_inteligencia.html.twig",
+            "dashboard/_perfil_pessoa.html.twig"
         ],
         "js": [
             "dashboard.js",
             "dashboard-filtros.js",
             "dashboard-historico.js",
             "dashboard-janelas.js",
-            "dashboard-preferencias.js"
+            "dashboard-preferencias.js",
+            "dashboard-inteligencia.js",
+            "dashboard-zerar.js",
+            "dashboard-perfil-pessoa.js",
+            "dashboard-meta.js",
+            "dashboard-relatorio.js"
         ],
         "permitidos": [
             "BlueJus",
@@ -514,7 +570,9 @@
             "Enter",
             "Tab",
             "ArrowDown",
-            "ArrowUp"
+            "ArrowUp",
+            "0 ? max(3, (c.atual / c.maior * 100)|round) : 0 }}%\">",
+            "0 ? max(3, (c.anterior / c.maior * 100)|round) : 0 }}%\">"
         ]
     },
 
@@ -905,7 +963,9 @@
             "email/push_aviso_equipe.html.twig",
             "email/push_cliente.html.twig",
             "email/redefinicao_senha.html.twig",
-            "email/trabalho_externo_convite.html.twig"
+            "email/trabalho_externo_convite.html.twig",
+            "auth/cadastro/email_confirmacao.html.twig",
+            "auth/cadastro/email_conta_existente.html.twig"
         ],
         "js": [],
         "permitidos": [

@@ -29,7 +29,7 @@ final class EditarUnidadeUseCaseTest extends TestCase
 {
     private const CAMPOS = [
         'identificacao' => '102', 'bloco' => 'B', 'situacao' => '', 'fracao' => '', 'responsavel' => 'Maria',
-        'email' => 'maria@exemplo.com', 'telefone' => '(11) 99999-0000',
+        'email' => 'maria@exemplo.com', 'telefone' => '(11) 99999-0000', 'cpf' => '',
     ];
 
     #[TestDox('Grava os campos limpos, mantém o link e recalcula a aptidão quando a situação muda')]
@@ -87,6 +87,22 @@ final class EditarUnidadeUseCaseTest extends TestCase
             $this->caso($tenant, $assembleia, $unidade, expectSalvar: true)->executar($tenant, 7, 5, $campos);
 
             self::assertSame($nome, $unidade->getIdentificacao());
+        }
+    }
+
+    #[TestDox('CPF válido é gravado só com dígitos; CPF com dígito verificador errado é recusado sem gravar')]
+    public function testEditaCpf(): void
+    {
+        [$tenant, $assembleia, $unidade] = $this->cenario();
+        $this->caso($tenant, $assembleia, $unidade, expectSalvar: true)->executar($tenant, 7, 5, [...self::CAMPOS, 'cpf' => '529.982.247-25']);
+        self::assertSame('52998224725', $unidade->getCpf());
+
+        [$tenant, $assembleia, $unidade] = $this->cenario();
+        try {
+            $this->caso($tenant, $assembleia, $unidade, expectSalvar: false)->executar($tenant, 7, 5, [...self::CAMPOS, 'cpf' => '529.982.247-26']);
+            self::fail('devia recusar o CPF inválido');
+        } catch (OperacaoInvalidaNaAssembleiaException) {
+            self::assertNull($unidade->getCpf());
         }
     }
 

@@ -28,7 +28,7 @@ final class EditarUnidadeUseCase
     ) {
     }
 
-    /** @param array{identificacao: string, bloco: string, situacao: string, fracao: string, responsavel: string, email: string, telefone: string} $campos */
+    /** @param array{identificacao: string, bloco: string, situacao: string, fracao: string, responsavel: string, email: string, telefone: string, cpf: string} $campos */
     public function executar(Tenant $tenant, int $assembleiaId, int $unidadeId, array $campos): void
     {
         $this->serializacao->executar($tenant, $assembleiaId, function () use ($tenant, $assembleiaId, $unidadeId, $campos): void {
@@ -36,7 +36,7 @@ final class EditarUnidadeUseCase
         });
     }
 
-    /** @param array{identificacao: string, bloco: string, situacao: string, fracao: string, responsavel: string, email: string, telefone: string} $campos */
+    /** @param array{identificacao: string, bloco: string, situacao: string, fracao: string, responsavel: string, email: string, telefone: string, cpf: string} $campos */
     private function executarComConfiguracaoReservada(Tenant $tenant, int $assembleiaId, int $unidadeId, array $campos): void
     {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
@@ -49,7 +49,7 @@ final class EditarUnidadeUseCase
         }
         $linha = $this->leitor->lerUmaLinha([
             $campos['identificacao'], $campos['bloco'], $campos['situacao'], $campos['fracao'],
-            $campos['responsavel'], $campos['email'], $campos['telefone'], '',
+            $campos['responsavel'], $campos['email'], $campos['telefone'], '', $campos['cpf'],
         ], $assembleia->getPeso());
         foreach ($assembleia->getUnidades() as $outra) {
             if ($outra !== $unidade && LinhaDeUnidade::chaveDe($outra->getBloco(), $outra->getIdentificacao()) === $linha->chave()) {

@@ -196,3 +196,19 @@ emails:
             perfil_titulo: My Profile
             perfil_resumo: Register your primary and supplementary OAB registrations.
             botao: Continue on BlueJus
+    conta_criada:
+        titulo: 'Confirm your email on BlueJus'
+        ola: 'Hello, {nome}!'
+        sua_conta_no: 'Your account on'
+        foi_criada: 'was created. To activate it, confirm that this email is yours and create your password. The link is valid for 7 days.'
+        botao: 'Confirm and create my password'
+        nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        ignore: 'If you did not create this account, ignore this email.'
+    conta_existente:
+        titulo: 'You already have a BlueJus account'
+        ola: 'Hello, {nome}!'
+        alguem_tentou: 'Someone tried to create an account on'
+        ja_tem: 'with this email, but it already has an account. To sign in, use your password. If you do not remember it, use "Forgot password": we will send a code to this email.'
+        botao: 'Forgot password'
+        nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        ignore: 'If it was not you, ignore this email: your account stays as it is.'

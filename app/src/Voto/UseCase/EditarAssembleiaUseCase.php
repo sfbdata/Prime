@@ -37,6 +37,7 @@ final class EditarAssembleiaUseCase
         $assembleia->definirCenario($input->cenarioDaAssembleia());
         $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $cnpj);
+        $assembleia->definirRotulos($input->rotuloUnidade, $input->rotuloBloco);
         $this->assembleias->salvar($assembleia, flush: true);
     }
 }

@@ -48,6 +48,9 @@
                 <div class="voto-texto" data-voto-alteracoes>{{ 'voto.assembleia.gestor.ocorrencia.alteracoes'|trans({n: tela.alteracoesDoConselho}) }}</div>
             {% endif %}
         {% endif %}
+        {% if tela.aptasSemCpf > 0 %}
+            <div class="vAviso" data-voto-cpf-faltando>{{ 'voto.assembleia.gestor.unidades.cpf_faltando'|trans({n: tela.aptasSemCpf}) }}</div>
+        {% endif %}
         {% if tela.somaForaDoEsperado %}
             <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: tela.somaDasFracoes|voto_fracao}) }}</div>
         {% endif %}
@@ -84,6 +87,9 @@
             <label class="voto-busca">{{ 'voto.assembleia.gestor.ocorrencia.busca'|trans }}<input class="vF" type="search" autocomplete="off" data-voto-busca-unidade></label>
             <div class="voto-vazio" data-voto-busca-vazia hidden>{{ 'voto.assembleia.gestor.ocorrencia.nenhuma_unidade'|trans }}</div>
         </div>
+    {% endif %}
+    {% if tela.unidades is not empty %}
+        <div class="vLin voto-texto" data-voto-cabecalho-unidades>{{ a.nomeDaUnidade }} · {{ a.nomeDoBloco }}</div>
     {% endif %}
     {% for u in tela.unidades %}
         {% set link = url('voto_assembleia_cedula', {token: u.token}) %}
@@ -136,6 +142,7 @@
                     <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_responsavel'|trans }}<input class="vF" type="text" name="responsavel" value="{{ u.responsavel }}" maxlength="160"></label>
                     <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_email'|trans }}<input class="vF" type="email" name="email" value="{{ u.email }}" maxlength="180"></label>
                     <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_telefone'|trans }}<input class="vF" type="text" name="telefone" value="{{ u.telefone }}" maxlength="25" inputmode="tel"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_cpf'|trans }}<input class="vF" type="text" name="cpf" value="{{ u.cpf }}" maxlength="14" inputmode="numeric" autocomplete="off"></label>
                     <div class="voto-editar-unidade-acoes">
                         <button type="submit" class="vB vP"><i class="bi bi-check-lg"></i>{{ 'voto.assembleia.gestor.unidades.salvar_edicao'|trans }}</button>
                         <button type="button" class="vB" data-voto-ocultar>{{ 'voto.assembleia.gestor.unidades.cancelar_edicao'|trans }}</button>

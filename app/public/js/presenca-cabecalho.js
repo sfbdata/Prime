@@ -22,8 +22,9 @@
     var OPCOES_AUSENCIA = [15, 30, 60, 120];
 
     // dc L.665 `ST`: rótulo, cor e ordem do grupo.
-    var ST = { on: ['On-line', '#2ecc71', 1], ausente: ['Ausente', '#f0b429', 2], ocupado: ['Não perturbe', '#e74c3c', 3], off: ['Desligado', '#b7c4cd', 4] };
-    var NOTA = 'Ponto e horas on-line são só seus: ninguém da equipe vê. Contagem de 00:00 às 23:59, zera todo dia.';
+    var ST = { on: [null, '#2ecc71', 1], ausente: [null, '#f0b429', 2], ocupado: [null, '#e74c3c', 3], off: [null, '#b7c4cd', 4] };
+    /* O rótulo do status vem do catálogo, já no idioma da página. */
+    function rotuloSt(k) { return { on: BJ_T.t('moldura.js.presenca.status_online'), ausente: BJ_T.t('moldura.js.presenca.ausente'), ocupado: BJ_T.t('moldura.js.presenca.ocupado'), off: BJ_T.t('moldura.js.presenca.desligado') }[k]; }
     var HORAS_A_CADA_MS = 20000;
     var HORAS_INTERVALO_MAX_MS = 90000;   // dc L.667: só soma intervalo de até 90 s
 
@@ -56,16 +57,16 @@
     function hmDe(iso) {   // o mesmo da Central (central.js `hmDe`): "hoje às HH:MM" ou "dd/mm às HH:MM"
         var d = new Date(iso);
         var hoje = new Date();
-        var dia = d.toDateString() === hoje.toDateString() ? 'hoje' : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+        var dia = d.toDateString() === hoje.toDateString() ? BJ_T.t('moldura.js.presenca.hoje') : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
 
-        return dia + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return BJ_T.t('moldura.js.presenca.dia_as_hora', { dia: dia, hora: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') });
     }
     /* O X de fechar que o protótipo põe em toda janela sem um (bluejus-central.js, "X de fechar em toda janelinha"). */
     function botaoFechar() {
         var b = el('button', 'presenca-fechar');
         b.type = 'button';
-        b.setAttribute('aria-label', 'Fechar');
-        b.title = 'Fechar (Esc)';
+        b.setAttribute('aria-label', BJ_T.t('moldura.js.presenca.fechar'));
+        b.title = BJ_T.t('moldura.js.presenca.fechar_esc');
         var ns = 'http://www.w3.org/2000/svg';
         var svg = document.createElementNS(ns, 'svg');
         svg.setAttribute('width', '12'); svg.setAttribute('height', '12'); svg.setAttribute('viewBox', '0 0 12 12'); svg.setAttribute('aria-hidden', 'true');
@@ -88,12 +89,12 @@
     function regraDeAusencia() {
         var linha = el('div', 'presenca-regra');
         linha.appendChild(icone('bi-clock-history'));
-        var rotulo = el('label', 'presenca-regra-rotulo', 'Ausente após sem atividade');
+        var rotulo = el('label', 'presenca-regra-rotulo', BJ_T.t('moldura.js.presenca.regra_ausencia'));
         var seletor = el('select', 'presenca-regra-seletor');
         seletor.id = 'presencaAusencia';
         rotulo.htmlFor = seletor.id;
         OPCOES_AUSENCIA.forEach(function (n) {
-            var op = el('option', null, n < 60 ? n + ' min' : (n / 60) + ' h');
+            var op = el('option', null, n < 60 ? BJ_T.t('moldura.js.presenca.minutos', { n: n }) : BJ_T.t('moldura.js.presenca.horas', { n: n / 60 }));
             op.value = String(n);
             op.selected = n === ausenciaMin;
             seletor.appendChild(op);
@@ -132,7 +133,7 @@
                 ausenciaMin = ausenciaConfirmada;
                 var atual = document.getElementById('presencaAusencia');   // o seletor da tela, não o de antes do redesenho
                 if (atual) { atual.value = String(ausenciaConfirmada); }
-                if (window.bjAviso) { window.bjAviso('Não foi possível salvar o tempo de ausência. Tente de novo.'); }
+                if (window.bjAviso) { window.bjAviso(BJ_T.t('moldura.js.presenca.erro_ausencia')); }
             });
     }
 
@@ -168,14 +169,14 @@
         return 'on';
     }
     function detalhe(m, k) {
-        if (m.id === euId) { return 'Você'; }
-        if (k === 'off') { return m.vistoEm ? 'visto por último ' + hmDe(m.vistoEm) : 'sem atividade recente'; }   // det da Central
+        if (m.id === euId) { return BJ_T.t('moldura.js.presenca.voce'); }
+        if (k === 'off') { return m.vistoEm ? BJ_T.t('moldura.js.presenca.visto_ultimo', { quando: hmDe(m.vistoEm) }) : BJ_T.t('moldura.js.presenca.sem_atividade_recente'); }   // det da Central
         if (k === 'ausente') {
             var p = online.filter(function (o) { return o.id === m.id; })[0];
-            return p && p.semAtividadeMin ? 'sem atividade há ' + p.semAtividadeMin + ' min' : 'ausente';
+            return p && p.semAtividadeMin ? BJ_T.t('moldura.js.presenca.sem_atividade_ha', { n: p.semAtividadeMin }) : BJ_T.t('moldura.js.presenca.ausente_minusculo');
         }
 
-        return m.cargo || 'on-line';
+        return m.cargo || BJ_T.t('moldura.js.presenca.online_minusculo');
     }
     function pessoas() {
         var lista = (equipe || []).map(function (m) { var k = chaveDeStatus(m.id); return { m: m, k: k, eu: m.id === euId }; });
@@ -199,12 +200,12 @@
     }
     function textoHoras() {
         var hr = ler(window.localStorage, CHAVE_HORAS, {});
-        if (hr.d !== hojeLocal() || !hr.s) { return 'iniciando'; }
+        if (hr.d !== hojeLocal() || !hr.s) { return BJ_T.t('moldura.js.presenca.horas_iniciando'); }
         var m = Math.floor(hr.s / 60);
-        if (m < 1) { return 'menos de 1 min hoje'; }
+        if (m < 1) { return BJ_T.t('moldura.js.presenca.horas_menos_1'); }
         var h = Math.floor(m / 60);
 
-        return (h ? h + 'h ' + String(m % 60).padStart(2, '0') : String(m % 60)) + 'min hoje';
+        return h ? BJ_T.t('moldura.js.presenca.horas_hm', { h: h, m: String(m % 60).padStart(2, '0') }) : BJ_T.t('moldura.js.presenca.horas_m', { m: String(m % 60) });
     }
 
     /* ── Som de entrada e saída (dc L.664), uma vez só com duas janelas à vista ── */
@@ -248,7 +249,7 @@
             var saiu = anteriores.filter(function (id) { return agora.indexOf(id) === -1; });
             var quem = pessoaDe(entrou.length ? entrou[0] : saiu[0]);
             if (quem && (entrou.length || saiu.length)) {
-                evento = primeiroNome(quem.nome) + (entrou.length ? ' entrou' : ' saiu') + ' · ' + horaAgora();
+                evento = entrou.length ? BJ_T.t('moldura.js.presenca.evento_entrou', { nome: primeiroNome(quem.nome), hora: horaAgora() }) : BJ_T.t('moldura.js.presenca.evento_saiu', { nome: primeiroNome(quem.nome), hora: horaAgora() });
                 bipeUmaVez(quem.id + (entrou.length ? '+' : '-'), !!entrou.length);
             }
         }
@@ -263,8 +264,8 @@
         selo.hidden = n < 1;
         var nomes = ligados.map(function (x) { return primeiroNome(x.m.nome); });
         /* dc 03 L.67: no Expediente a dica é a do desenho (data-tip, a azul); fora dele, a do navegador. */
-        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : ''));
-        selo.setAttribute('aria-label', 'Quem está on-line: ' + n);
+        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', BJ_T.t('moldura.js.presenca.faixa_online', { n: n }) + (nomes.length ? ': ' + nomes.join(', ') : ''));
+        selo.setAttribute('aria-label', BJ_T.t('moldura.js.presenca.quem_online_n', { n: n }));
     }
 
     /* ── Painel (dc L.300-308) ──────────────────────────────────────────── */
@@ -284,13 +285,13 @@
         var frag = document.createDocumentFragment();
         if (i === 0 || lista[i - 1].k !== x.k) {
             var n = lista.filter(function (y) { return y.k === x.k; }).length;
-            frag.appendChild(el('div', 'presenca-grupo', ST[x.k][0].toUpperCase() + ' · ' + n));
+            frag.appendChild(el('div', 'presenca-grupo', rotuloSt(x.k).toUpperCase() + ' · ' + n));
         }
         var l = el('div', 'presenca-linha' + (x.k === 'off' ? ' is-off' : ''));
         var av = avatar(x.m);
         var pt = el('span', 'presenca-av-ponto');
         pt.style.background = ST[x.k][1];
-        pt.title = ST[x.k][0];
+        pt.title = rotuloSt(x.k);
         av.appendChild(pt);
         l.appendChild(av);
         var tx = el('span', 'presenca-textos');
@@ -301,12 +302,12 @@
         avisosDaBatida(x).forEach(function (a) { tx.appendChild(a); });
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
-        var st = el('span', 'presenca-status', ST[x.k][0]);
+        var st = el('span', 'presenca-status', rotuloSt(x.k));
         st.style.color = ST[x.k][1];
         dir.appendChild(st);
         if (x.eu) {   // horas: só na sua linha (dc `temHoras`)
             var h = el('span', 'presenca-horas');
-            h.title = 'Tempo on-line hoje';
+            h.title = BJ_T.t('moldura.js.presenca.tempo_online_hoje');
             h.appendChild(icone('bi-clock'));
             h.appendChild(document.createTextNode(' ' + textoHoras()));
             dir.appendChild(h);
@@ -389,10 +390,10 @@
 
         var faixa = el('div', 'presenca-faixa');
         faixa.appendChild(el('span', 'presenca-faixa-ponto'));
-        faixa.appendChild(el('span', 'presenca-faixa-resumo', nOn + ' on-line' + (nAus ? ' · ' + nAus + ' ausente(s)' : '')));
+        faixa.appendChild(el('span', 'presenca-faixa-resumo', BJ_T.t('moldura.js.presenca.faixa_online', { n: nOn }) + (nAus ? BJ_T.t('moldura.js.presenca.faixa_ausentes', { n: nAus }) : '')));
         var som = el('button', 'presenca-som');
         som.type = 'button';
-        som.title = somLigado() ? 'Som de entrada e saída ligado' : 'Som desligado';
+        som.title = somLigado() ? BJ_T.t('moldura.js.presenca.som_ligado') : BJ_T.t('moldura.js.presenca.som_desligado');
         som.setAttribute('aria-label', som.title);
         som.appendChild(icone(somLigado() ? 'bi-volume-up' : 'bi-volume-mute'));
         som.addEventListener('click', function (e) {
@@ -415,10 +416,10 @@
         lista.forEach(function (x, i) { painel.appendChild(linha(x, i, lista)); });
         var nota = el('div', 'presenca-nota');
         nota.appendChild(icone('bi-info-circle'));
-        nota.appendChild(document.createTextNode(' ' + NOTA));
+        nota.appendChild(document.createTextNode(' ' + BJ_T.t('moldura.js.presenca.nota')));
         painel.appendChild(nota);
         if (urlAusencia) { painel.appendChild(regraDeAusencia()); }
-        if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
+        if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', BJ_T.t('moldura.js.presenca.so_voce'))); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
         var novoPonto = focoNoPonto ? painel.querySelector('.presenca-sub--ponto.is-acao') : null;
         if (novoPonto) { novoPonto.focus(); }   // nem do atalho de ponto (revisão: perdia o foco em até 4 s)
@@ -436,7 +437,7 @@
         painel = el('div', 'presenca-painel is-abrindo');
         window.setTimeout(function () { if (painel) { painel.classList.remove('is-abrindo'); } }, 400);
         painel.setAttribute('role', 'dialog');
-        painel.setAttribute('aria-label', 'Quem está on-line');
+        painel.setAttribute('aria-label', BJ_T.t('moldura.js.presenca.quem_online'));
         document.body.appendChild(veu);
         document.body.appendChild(painel);
         selo.setAttribute('aria-expanded', 'true');

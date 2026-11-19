@@ -54,7 +54,8 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
         $base = self::ler('templates/base.html.twig');
         self::assertStringContainsString("{% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}=\"{{ current_tenant().name }}\"", $base);
         $js = self::ler('public/js/presenca-cabecalho.js');
-        self::assertStringContainsString("selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line'", $js);
+        self::assertStringContainsString("selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', BJ_T.t('moldura.js.presenca.faixa_online', { n: n })", $js);
+        self::assertStringContainsString("faixa_online: '{n} on-line'", self::ler('translations/moldura/messages+intl-icu.pt_BR.yaml'), 'o português da dica continua o mesmo');
         self::assertStringNotContainsString('selo.title =', $js);
     }
 

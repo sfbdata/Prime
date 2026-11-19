@@ -55,6 +55,12 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '10 minutes'
+        # Passo 1 do portal com CPF (nome + CPF): chave = IP. Limite próprio, separado do envio do código, para o terminal
+        # da mesa e o wi-fi do condomínio (muitos eleitores no mesmo IP) não esgotarem a ficha do envio.
+        voto_portal_localizar:
+            policy: sliding_window
+            limit: 60
+            interval: '10 minutes'
         voto_cedula_invalido:
             policy: sliding_window
             limit: 20

@@ -27,6 +27,7 @@ final class CriarAssembleiaUseCase
         $assembleia = new Assembleia($tenant, $input->titulo, $input->pesoDoVoto(), $criadaPorNome, $input->cenarioDaAssembleia());
         $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $this->cnpjs->normalizar($input->cnpj));
+        $assembleia->definirRotulos($input->rotuloUnidade, $input->rotuloBloco);
         $this->assembleias->salvar($assembleia, flush: true);
 
         return (int) $assembleia->getId();

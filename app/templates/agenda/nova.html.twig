@@ -75,7 +75,7 @@
             <div class="ag-google">
                 {# Três estados do desenho (linha 232): conectado, não conectado, servidor sem cliente OAuth. #}
                 <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>{{ google == 'conectado' ? 'agenda.nova.google_sincronizado'|trans : 'agenda.nova.google_sincronizar'|trans }}</button>
-                <div class="ag-google-st" style="color: {{ google == 'conectado' ? '#1e7b45' : '#7a8e9b' }};"><i class="bi bi-circle-fill"></i>{{ google == 'conectado' ? 'agenda.nova.google_conectado'|trans : (google == 'nao_conectado' ? 'agenda.nova.google_nao_conectado'|trans : 'agenda.nova.google_indisponivel'|trans) }}</div>
+                <div class="ag-google-st" style="color: {{ google == 'conectado' ? '#1e7b45' : 'var(--ag-fraco)' }};"><i class="bi bi-circle-fill"></i>{{ google == 'conectado' ? 'agenda.nova.google_conectado'|trans : (google == 'nao_conectado' ? 'agenda.nova.google_nao_conectado'|trans : 'agenda.nova.google_indisponivel'|trans) }}</div>
                 {% if google == 'conectado' %}
                     {# Fora do desenho: revogar o consentimento é direito da pessoa (LGPD, art. 8º, § 5º). #}
                     <button type="button" class="ag-google-sair" id="agGoogleSair">{{ 'agenda.nova.google_desconectar'|trans }}</button>

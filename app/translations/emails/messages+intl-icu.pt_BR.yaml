@@ -196,3 +196,19 @@ emails:
             perfil_titulo: Meu Perfil
             perfil_resumo: Cadastre sua OAB principal e as suplementares.
             botao: Continuar no BlueJus
+    conta_criada:
+        titulo: 'Confirme seu e-mail no BlueJus'
+        ola: 'Olá, {nome}!'
+        sua_conta_no: 'Sua conta no'
+        foi_criada: 'foi criada. Para ativá-la, confirme que este e-mail é seu e crie a sua senha. O link vale por 7 dias.'
+        botao: 'Confirmar e criar minha senha'
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        ignore: 'Se você não criou esta conta, ignore este e-mail.'
+    conta_existente:
+        titulo: 'Você já tem uma conta no BlueJus'
+        ola: 'Olá, {nome}!'
+        alguem_tentou: 'Alguém tentou criar uma conta no'
+        ja_tem: 'com este e-mail, mas ele já tem uma conta. Para entrar, use a sua senha. Se não lembra dela, use "Esqueci a senha": enviamos um código para este e-mail.'
+        botao: 'Esqueci a senha'
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        ignore: 'Se não foi você, ignore este e-mail: a sua conta continua como está.'

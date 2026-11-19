@@ -154,12 +154,12 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString((string) $urgente->getNup(), $crawler->filter('#tabelaPastas tbody tr')->first()->text());
     }
 
-    #[TestDox('o CSS da tela zebra as linhas (#ffffff e #eef3f7, borda #eef2f5) só sob .exp-demandas')]
+    #[TestDox('o CSS da tela zebra as linhas (#ffffff e #eef3f7, borda #e3eaef do guia v30) só sob .exp-demandas')]
     public function testZebraNoCss(): void
     {
         $css = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/demandas-lista.css');
 
-        self::assertStringContainsString('.exp-demandas #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #eef2f5; }', $css);
+        self::assertStringContainsString('.exp-demandas #tabelaPastas tbody tr > td { background: #ffffff; border-bottom: 1px solid #e3eaef; }', $css);
         self::assertStringContainsString('.exp-demandas #tabelaPastas tbody tr:nth-child(even) > td { background: #eef3f7; }', $css);
     }
 
