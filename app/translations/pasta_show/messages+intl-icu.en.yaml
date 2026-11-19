@@ -1,0 +1,420 @@
+# ---- Matter: the main screen (pasta/show)
+pasta_show:
+    titulo: 'Matter {nup}'
+    fechar: Close
+    cancelar: Cancel
+    salvar: Save
+    abas:
+        nenhuma: No tabs available to you in this matter.
+    registro:
+        titulo: Matter log
+        criada_em: Created on
+        modificada_em: Modified on
+        hoje: 'today,'
+        sem_registro: No record
+        criada_por: Created by
+        nao_informado: Not provided
+        historico_dica: System history
+        ver_historico: View system history
+    pagamento:
+        titulo: Add payment
+        total_contratado: Total contracted
+        calculo_automatico: '· automatic calculation'
+        tipo: Type
+        tipo_rotulo: Payment type
+        nota_contratuais: Fees agreed with the client. Can be a fixed amount or a % of the case value, with down payment, installments and interest.
+        contratuais: Contractual
+        nota_exito: 'Success fee: % of the economic benefit obtained for the client, received only if there is a result. Counts as expected.'
+        exito: Economic benefit
+        nota_recorrente: 'Fixed monthly fees (advisory, retainer or consulting): the same amount every month, for the number of months entered.'
+        recorrente: Recurring
+        valor_mensal: Monthly amount (R$)
+        meses: Months
+        nota_sucumbencia: Set by the court, usually between 10% and 20% (art. 85 CPC). Estimated on the total contracted and paid by the opposing party.
+        sucumbencia: Fee shifting
+        nota_custas: Court costs and expenses advanced, to be reimbursed by the client.
+        custas: Court costs
+        base: Amount basis
+        valor_fixo: Fixed amount
+        pct_da_causa: '% of the case'
+        valor_total: Total amount (R$)
+        pct_do_valor: '% of the case value'
+        pct_proveito: '% of the economic benefit'
+        pct_sucumbencia: '% fee shifting'
+        base_previsto: Basis
+        entrada: Down payment (R$)
+        opcional: optional
+        parcelas: Installments
+        primeiro_vencimento: 1st due date
+        juros: Interest
+        sem_juros: No interest
+        com_juros: With interest
+        juros_ao_mes: Monthly interest (%)
+        descricao: Description
+        opcional_parenteses: (optional)
+        descricao_exemplo: 'E.g.: Fees for the March contract'
+        previa: Preview
+        previa_vazia: Enter the amount to see the calculated installments.
+        adicionar: Add
+    documento:
+        mover_para: Move to…
+        pasta_de_destino: Destination matter
+        mover: Move
+        editar: Edit document
+        nome_do_arquivo: File name
+        extensao_a: The extension
+        extensao_preservada: is preserved automatically.
+        tipo: Document type
+        descricao: Description
+        descricao_opcional: Description (optional)
+        numero_opcional: Number (optional)
+        numero: Number
+    cliente:
+        titulo: Add Client
+        escolha_tipo: 'Select the client type to continue:'
+        pf: Individual
+        pj: Legal Entity
+        ou_selecione: or select an existing client
+        buscar: Search by name, CPF or CNPJ…
+        dados_pessoais: Personal Details
+        contato: Contact
+        endereco: Address
+        dados_empresa: Company Details
+        representante_legal: Legal Representative
+        nome_completo: Full Name
+        data_nascimento: Date of Birth
+        estado_civil: Marital Status
+        selecione: Select
+        solteiro: Single
+        casado: Married
+        divorciado: Divorced
+        viuvo: Widowed
+        uniao_estavel: Domestic partnership
+        profissao: Occupation
+        orgao_expedidor: Issuing Agency
+        data_emissao_rg: ID Issue Date
+        email: Email
+        celular: Mobile
+        telefone_fixo: Landline
+        complemento: Address Line 2
+        cidade: City
+        razao_social: Legal Name
+        nome_fantasia: Trade Name
+        inscricao_estadual: State Registration
+        inscricao_municipal: Municipal Registration
+        endereco_sede: Headquarters Address
+        nome: Name
+        cargo: Title
+        salvar: Save Client
+        vincular: Link Client
+    processo:
+        vincular: Link case
+        tipo_apenso: Related case type
+        modo_rotulo: Case link mode
+        buscar_existente: Search existing case
+        cadastrar_novo: Register new (CNJ)
+        ja_cadastrado: Case already registered
+        busca_placeholder: Enter number, class, subject or court…
+        trocar: Change
+        ampliar: Enlarge window
+        busque_dica: Search by number, class, subject or court and select a firm case.
+        aba_informacoes: Information
+        aba_partes: Parties
+        aba_movimentacoes: Updates
+        numero: Case number
+        numero_exemplo: 'E.g.: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Format: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj_dica: Looks up the case in the CNJ database
+        buscar_cnj: Search CNJ
+        dados_localizados: 'Data found ·'
+        movimentacoes_contagem: update(s)
+        tribunal: Court
+        tribunal_placeholder: Detected from the case number
+        tribunal_dica: Filled in automatically from the case number.
+        orgao_julgador: Judging body
+        classe: Case class
+        assunto: Case subject
+        situacao: Status
+        situacao_em_andamento: In progress
+        situacao_suspenso: Suspended
+        situacao_arquivado: Archived
+        situacao_baixado: Closed
+        situacao_transitado: Final judgment
+        instancia: Instance
+        instancia_g1: G1 - First Instance
+        instancia_g2: G2 - Second Instance
+        instancia_je: Special Court
+        instancia_tr: Appellate Panel
+        instancia_st: Superior Court
+        data_distribuicao: Filing date
+        valor_causa: Case value
+        jurisdicao: Jurisdiction
+        jurisdicao_exemplo: 'E.g.: Brasília · Fórum Des. Joaquim Sousa Neto'
+        flag_segredo: Sealed case?
+        flag_digital: 100% digital court?
+        flag_gratuita: Legal aid?
+        flag_tutela: Injunction?
+        flag_prioridade: Priority?
+        nao_informado: Not provided
+        sim: 'Yes'
+        nao: 'No'
+        adicionar_parte: Add party
+        tipo: Type
+        parte_parte: Party
+        parte_advogado: Attorney
+        parte_terceiro: Interested third party
+        parte_mp: Public Prosecutor
+        parte_perito: Expert
+        nome: Name
+        nome_da_parte: Party name
+        documento: Document
+        documento_placeholder: CPF/CNPJ
+        papel: Role
+        papel_placeholder: Plaintiff/defendant side
+        remover_linha: Remove row
+        adicionar_movimentacao: Add update
+        data: Date
+        descricao: Description
+        descricao_movimentacao: Update description
+        tipo_movimento: Update type
+        orgao: Body
+        movimentacoes_nota: '"Search CNJ" (Information tab) imports the updates from PJe and the official gazettes. Once linked, Case Push starts monitoring the case.'
+    preview:
+        baixar: Download
+    editar:
+        editar_dados_da: Edit details of
+        dados_da_pasta: Matter details
+        atalhos: Matter shortcuts
+        ir_cliente_dica: Close and open the client record
+        aba_cliente: Client
+        ir_processo_dica: Close and go to the Case tab
+        aba_processo: Case
+        ir_historico_dica: Close and open the history
+        aba_historico: History
+        numero: Matter number
+        nome_cliente: Client name
+        montado: Built from the portfolio creditor and the responsible party being collected.
+        para_mudar: To change it, edit the
+        cadastro_do_cliente: client record
+        ou_responsavel: or the responsible party of the case.
+        clientes_dica: Clients registered on the matter. To change them, use the Clients section in the Details tab.
+        responsavel: Responsible
+        sem_responsavel: No one responsible
+        trocar: Change
+        # PZ-MOD-N05 (desenho 02, L.659): a Ação só leitura, com o "Abrir" que leva à aba Processo.
+        acao_do_processo: Action · comes from the Case menu
+        abrir: Open
+        acao_abrir_dica: Close and edit the Action in the Case tab
+        sem_acao: No action provided
+        sem_processo: No linked case
+        # PZ-MOD-16 (desenho 02, L.652-653): o CPF/CNPJ do cliente, só leitura, com atalho ao cadastro dele.
+        cpf_cnpj: CPF/CNPJ
+        documento_cadastro: Record
+        documento_dica: Open the client record to change the document
+        sem_documento: Client has no document on file
+        sem_cliente_cadastrado: No client on file
+        situacao: Status
+        pendencias: Pending items
+        cadastro_cliente_botao: Client record
+    meta:
+        alca_dica: Drag to move · double-click to collapse
+        titulo: New goal
+        recolher: Collapse (keep seeing the list)
+        fechar_esc: Close (Esc)
+        titulo_campo: Title
+        titulo_placeholder: Short summary of the goal
+        descricao: Description
+        descricao_placeholder: Describe what needs to be done…
+        prazo: Deadline
+        escolher_prazo: Choose deadline
+        data_vazia: mm/dd/yyyy
+        hoje: Today
+        amanha: Tomorrow
+        uteis5: +5 business days
+        uteis15: +15 business days
+        mes_anterior: Previous month
+        proximo_mes: Next month
+        sem_dom: S
+        sem_seg: M
+        sem_ter: T
+        sem_qua: W
+        sem_qui: T
+        sem_sex: F
+        sem_sab: S
+        limpar: Clear
+        legenda_fds: Weekends in gray
+        escolha_data: Choose the due date.
+        abrir_existente: Open existing goal
+        etapa: Box / stage
+        responsaveis: Assignees
+        selecionar_responsaveis: Select assignees
+        responsaveis_dica: Select one or more assignees for the goal.
+        filtrar: Filter…
+        filtrar_responsaveis: Filter assignees
+        ninguem: No one found
+        concluir: Done
+        criar_dica: Create goal and notify the assignees
+        criar: Create goal
+        analise_titulo: DEADLINE ANALYSIS
+        analise_botao: Analysis
+        analise_ver: View full analysis
+        analise_atualizada: Analysis updated
+        analise_conferir_dica: Review the information used in the analysis
+        analise_conferir: Review
+        analise_prazo_juridico: Legal deadline
+        analise_dias_uteis: Business days until then
+        analise_folga: Margin
+        analise_editar_jur_dica: Click to enter or correct the legal deadline
+        analise_jur_aria: Enter the date you consider the legal deadline for this request
+        analise_confira: 'Review the information used:'
+        analise_corretas: Is this information correct?
+        analise_confirmar: Confirm analysis
+        analise_corrigir: Correct information
+        analise_incerto: I could not confirm the legal deadline with the available information alone. Enter the publication date or the date of notice acknowledgment to improve the analysis.
+        analise_origem_informar: '+ Enter deadline source'
+        analise_data_publicacao: Publication date
+        analise_data_ciencia: Acknowledgment/court notice date
+        analise_antes_de_salvar: Before saving, review
+    js:
+        cancelar: Cancel
+        salvar: Save
+        erro_rede: Network error.
+        erro_rede_tente: Network error. Please try again.
+        erro_comunicacao_tente: Communication error. Please try again.
+        cliente:
+            nao_vinculado: not linked
+            nenhum_vinculado: No client linked
+            vincule_para_media: Link the client to calculate the average by CPF.
+            erro_salvar: Error saving client.
+            salvo_sem_lista: Client saved, but the list could not be updated.
+            erro_comunicacao: Communication error. Please try again.
+            vincular_um: Link 1 Client
+            vincular_varios: 'Link {n} Clients'
+            remover: Remove
+            remover_nome: 'Remove {nome}'
+            nenhum_encontrado: No clients found.
+            principal_dica: Main client of this matter. The Average by CPF is based on this client. Click the star on another to switch
+            tornar_principal: Make main client (the Average by CPF is based on this client)
+            principal: Main
+            erro_desvincular: Error unlinking client.
+            erro_principal: Error setting the main client.
+            erro_comunicacao_marcacao: Communication error. The mark may not have been saved. Reload the page.
+            erro_vincular: 'Error linking "{nome}".'
+            vinculado_sem_lista: '"{nome}" linked, but the list could not be updated.'
+            erro_comunicacao_vincular: 'Communication error while linking "{nome}".'
+        processo:
+            desvincular_pergunta: Unlink the case from this matter?
+            erro_desvincular: Error unlinking case.
+            erro_principal: Error setting the main case.
+            ampliar_janela: Enlarge window
+            reduzir_janela: Shrink window
+            nenhum_encontrado: 'No cases found. Use "Register new (CNJ)".'
+            buscando: Searching…
+            buscar_cnj: Search CNJ
+            selecione: Select a case to link.
+            origem_pasta: 'Matter {pasta}'
+            origem_apensado: 'Related · matter {pasta}'
+            origem_push: Case Push
+            origem_outra_pasta: Another matter
+            origem_apensado_outra: Related · another matter
+            dados_a_completar: Data to complete
+            preencha: 'Fill in: {campos}.'
+            falta_numero: case number
+            falta_orgao: judging body
+            falta_classe: case class
+            falta_assunto: case subject
+            vinculado_aviso: Case linked · Action and Linked case updated in Matter details
+            erro_vincular: Error linking case.
+            erro_comunicacao: Communication error. Please try again.
+            numero_completo: Enter the full number in the format NNNNNNN-DD.AAAA.J.TT.OOOO.
+            nao_localizado: Case not found in CNJ/gazette. Fill in the data manually.
+            erro_buscar_cnj: Error searching the case in CNJ/DataJud.
+            erro_buscar_cnj_tente: Error searching the case in CNJ/DataJud. Please try again in a moment.
+            tipo: Type
+            parte_parte: Party
+            parte_advogado: Attorney
+            parte_terceiro: Interested third party
+            parte_mp: Public Prosecutor
+            parte_perito: Expert
+            nome: Name
+            nome_da_parte: Party name
+            documento: Document
+            documento_placeholder: CPF/CNPJ
+            papel: Role
+            papel_placeholder: Plaintiff/defendant side
+            remover_linha: Remove row
+            data: Date
+            descricao: Description
+            descricao_movimentacao: Update description
+            tipo_movimento: Update type
+            orgao: Body
+        upload:
+            duplicado_nesta: '«{nome}» has the same content as «{titulo}» in this matter.'
+            duplicado_na_pasta: '«{nome}» has the same content as «{titulo}» in matter {nup}.'
+            abrir_pasta: 'Open matter {nup}'
+            erro_enviar: Error uploading the file.
+            erro_comunicacao: Communication error.
+            enviando: 'Uploading… {pct}%'
+            comprimindo: Compressing…
+            processando: Processing…
+            reduzido: 'Reduced from {de} to {para}.'
+            pdf_assinado: 'Warning: signed PDF. The signature may have been invalidated.'
+            nao_reduziu: Could not reduce. Uploaded at original size.
+            enviado: Uploaded.
+            ja_existe: 'An identical file already exists:'
+            identico_nesta: '«{titulo}» (in this matter)'
+            identico_pasta: '«{titulo}» (matter {nup})'
+        registro:
+            orfa: Reply to a deleted message
+            resposta_a: 'Reply to {nome}'
+            colaborador: team member
+            excluir_titulo: 'Delete the comment by {autor}?'
+            excluir_texto: '"{trecho}". It disappears for the whole team and the deletion is recorded in the history.'
+            respondendo_a: 'Replying to {nome}'
+            autor_desconhecido: Unknown author
+            escreva_resposta: Write your reply…
+            responder: Reply
+            erro_resposta: Error sending the reply.
+            motivo_prazo: The 15-minute window to edit or delete has ended.
+            motivo_autor: Only the author can edit or delete, within 15 minutes of posting.
+            menu_editar: 'Edit · {min} min'
+            menu_excluir: 'Delete comment · {min} min'
+            menu_editar_bloqueado: Edit · locked
+            menu_excluir_bloqueado: Delete · locked
+            menu_editar_sem_prazo: Edit
+            menu_excluir_sem_prazo: Delete comment
+            copiado: Text copied
+            nao_copiou: Could not copy
+            visivel_equipe: Visible to the team
+            vazia: The message cannot be empty.
+            erro_editar: Error editing.
+            erro_excluir: Error deleting.
+            editado: edited
+            publicado_as: 'Posted at {hora}'
+            ultima_edicao: 'last edited {data} at {hora}'
+            enviando: Sending…
+            erro_enviar: Error sending message.
+            enviar: Send
+            encaminhar: Forward via AI Chat
+            editavel: 'Editable for {minutos} more minutes'
+            editar: Edit entry
+            excluir: Delete entry
+            mais_acoes: More entry actions
+        editar:
+            informe_numero: Enter the matter number.
+            nao_salvas: Unsaved changes
+            dados_da_pasta: Matter details
+            nenhuma_alteracao: No changes to save
+            numero_titulo: Change matter number
+            numero_pergunta: 'Change the matter number from {antes} to {depois}? Old links and references will point to the new number.'
+            descartar_titulo: Discard changes?
+            descartar_texto: Unsaved changes to the matter details will be lost.
+            descartar: Discard
+        cabecalho:
+            erro_situacao: Error changing status.
+            erro_comunicacao: Communication error with the server.
+            erro_prioridade: Error changing priority.
+        meta:
+            criar: Create goal
+            enviando: Sending…
+            erro_criar: Error creating goal.

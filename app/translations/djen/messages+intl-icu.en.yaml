@@ -1,0 +1,368 @@
+# ---- Case Push: publications, monitored OABs and publication (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Not provided
+        sem_registro: No record
+        avulsa: Unlinked
+        tribunal: Court
+        tipo: Type
+        processo: Case
+        orgao: Body
+        meio: Medium
+        acoes: Actions
+        tribunal_maiusculo: COURT
+        tipo_maiusculo: TYPE
+        processo_maiusculo: CASE
+        orgao_maiusculo: BODY
+        acoes_maiusculo: ACTIONS
+    abas:
+        rotulo: Case Push sections
+        publicacoes: Publications
+        processos: OAB Cases
+        diario: OAB Gazette
+        oabs: Monitored OABs
+        novas: '{n} new'
+    kpi:
+        nao_lidas: UNREAD
+        hoje: TODAY
+        vinculadas: LINKED
+        avulsas: UNLINKED
+    diario:
+        titulo_pagina: 'Case Push | OAB Gazette'
+        titulo: OAB Electronic Gazette
+        sigilo: 'Publications of the OAB Electronic Gazette (DEOAB) for the monitored OABs. In ethics and disciplinary cases, the publication carries only the case number, the body, the parties'' initials and the name of the attorney, because of confidentiality (art. 72 of Lei nº 8.906/1994). Every deadline is 15 business days and starts on the 1st business day after publication, which is the business day following the release (art. 69, § 2º). Only you see this tab.'
+        busca_placeholder: Case, act or text
+        filtro_todas: All
+        filtro_eticas: Ethics and disciplinary
+        filtro_comunicados: Notices
+        seccional: BRANCH
+        ato: ACT
+        prazo: DEADLINE
+        selecionar: Select
+        limpar_lidas: Clear read
+        vazio: No publications.
+        registrar: Record publication
+        pasta_n: 'Matter {n}'
+        confirma_desvincular: Unlink this publication from the matter?
+        avulsa: Unlinked
+        vincular_pasta: Link to a matter
+        trocar_pasta: Change the linked matter
+        desvincular_pasta: Unlink from the matter
+        criar_meta: Create goal with this deadline
+        meta_criada: Goal created for this publication
+        meta_sem_pasta: Link to a matter to create the goal
+        meta_sem_prazo: Record the deadline in business days to create the goal
+        confirma_excluir: "Delete {n} selected publication(s) from the Gazette?\n\nThey leave your list."
+        prompt_excluir: 'Security confirmation: type EXCLUIR to delete {n} publication(s).'
+        registrar_titulo: Record OAB Gazette publication
+        campo_data: PUBLICATION DATE
+        campo_tipo: TYPE
+        campo_processo: CASE
+        campo_prazo: DEADLINE (BUSINESS DAYS)
+        campo_prazo_dica: 'Blank: no deadline'
+        campo_texto: PUBLICATION TEXT
+        tipo_etico: Ethics and disciplinary case
+        tipo_comunicado: Institutional notice
+        sigiloso: Confidential
+        expandir: Click to read the text
+        selecionar_item: Select
+        prazo_dias: '{n} business days'
+    index:
+        vincular_pasta: Link to a matter
+        desvincular_pasta: Unlink from the matter
+        vincular: Link
+        pasta_n: 'Matter {n}'
+        menu_abrir_pasta: 'Open Matter {n}'
+        menu_trocar_pasta: Change the linked matter
+        confirma_desvincular: 'Unlink case {processo} from Matter {n}?'
+        busca_pasta_ph: Matter number or client name
+        nenhuma_pasta: No matter found.
+        partes_nao_informadas: Parties not provided
+        vincular_a_pasta_n: 'Link to Matter {n}'
+        abrir_nova_pasta: Open new matter
+        fechar: Close
+        selecionar: Select
+        selecionar_todas: Select all
+        selecionar_publicacao: Select the publication
+        n_selecionadas: '{n} selected'
+        marcar_lidas: Mark as read
+        excluir: Delete
+        limpar_lidas: Clear read
+        dica_botao_direito: Right-click for more options
+        menu_abrir: Open publication
+        menu_marcar_lida: Mark as read
+        menu_marcar_nao_lida: Mark as unread
+        menu_copiar: Copy case number
+        menu_excluir: Delete publication
+        numero_copiado: Number copied.
+        confirma_excluir_lote: "Delete {n} selected publication(s)?\n\nThey leave the Push inbox. The case and the matter stay as they are."
+        prompt_excluir_lote: 'Security confirmation: type EXCLUIR to delete {n} publication(s).'
+        confirma_excluir_uma: 'Delete this publication of {data} from case {processo}?'
+        prompt_excluir_uma: 'Security confirmation: type EXCLUIR to delete the publication.'
+        confirma_limpar: 'Clear the inbox: delete the {n} publications already read?'
+        prompt_limpar: 'Security confirmation: type EXCLUIR to clear {n} read publications.'
+        exclusao_cancelada: 'Deletion canceled: the confirmation did not match.'
+        limpeza_cancelada: Cleanup canceled.
+        sem_lidas: There are no read publications to clear.
+        titulo_pagina: 'Case Push | Publications'
+        titulo: 'Case Push: Publications'
+        processos_monitorados: Monitored cases
+        cadastrar_processo: Register case
+        sincronizar: Sync now
+        filtros: Filters
+        busca: Search
+        busca_placeholder: Case no., court, type...
+        todos: All
+        todas: All
+        diario: Gazette
+        edital: Public notice
+        vinculo: Link
+        vinculadas: Linked
+        avulsas: Unlinked
+        de: From
+        ate: To
+        filtrar: Filter
+        limpar: Clear
+        data: Date
+        vinculada: Linked
+        ver: View
+        vazio: 'No publications found. Register an OAB or a case and click "Sync now".'
+        paginacao: '{total} publication(s) · page {pagina} of {paginas}'
+        anterior: Previous
+        proxima: Next
+        tribunal_todos: 'Court: all'
+        vinculo_todos: 'Link: all'
+        vinculadas_pasta: Linked to a matter
+        leitura_todas: 'Read status: all'
+        nao_lidas: Unread
+        lidas: Read
+        a: to
+        limpar_filtros: Clear filters
+        data_maiusculo: DATE
+        vazio_filtros: No publications with these filters.
+        avulsa_dica: Publication with no linked matter
+        vinculada_dica: Publication linked to a matter
+    oabs:
+        titulo_pagina: 'Case Push | Monitored OABs'
+        titulo: Monitored OABs
+        voltar: Back to publications
+        adicionar_oab: Add OAB
+        adicionar: Add
+        oab: OAB
+        apelido: Nickname
+        status: Status
+        desde: Since
+        ativa: Active
+        pausada: Paused
+        pausar: Pause
+        reativar: Reactivate
+        remover_confirmar: 'Stop monitoring OAB {oab}? Publications already received stay.'
+        vazio: No monitored OAB.
+        adicionar_dica: the system searches daily for publications under this registration
+        numero_da_oab: OAB NUMBER
+        uf: STATE
+        apelido_maiusculo: NICKNAME
+        opcional: (optional)
+        oab_maiusculo: OAB
+        status_maiusculo: STATUS
+        publicacoes_maiusculo: PUBLICATIONS
+        desde_maiusculo: SINCE
+        retomar: Resume
+        remover: Remove
+        sem_apelido: No nickname
+        editar_apelido: Edit nickname
+        editar_dica: 'Only the nickname changes. Number and state stay: to change the registration, remove it and add another.'
+        apelido_ph: 'E.g.: Dr. Smith'
+        cancelar: Cancel
+        salvar: Save
+    show:
+        titulo_pagina: 'Case Push | Publication'
+        titulo: 'Case Push: Publication'
+        voltar: Back
+        voltar_publicacoes: Back to publications
+        disponibilizacao: Release
+        ver_processo: View case
+        classe: Class
+        captada_pela_oab: Captured by the OAB
+        destinatarios: Recipients
+        nome: Name
+        polo: Side
+        teor: Text of the notice
+        inteiro_teor: Full text at the source
+        sem_teor: No text available.
+    processos:
+        titulo_pagina: 'Case Push | OAB Cases'
+        titulo: OAB Cases
+        capturados_das: 'Captured from the OABs {oabs}'
+        sem_oab: 'No active OAB: register one in Monitored OABs'
+        buscar: Search OAB cases
+        buscando: Searching...
+        kpi_processos: CASES
+        kpi_movidos: UPDATED IN 7 DAYS
+        kpi_parados: STALLED 30+ DAYS
+        kpi_nunca: NEVER CAPTURED
+        kpi_sem_pasta: NO MATTER
+        inclusao_titulo: Add cases to follow
+        numero_do_processo: Case number
+        email_alternativo: Alternate email
+        opcional: Optional
+        observacao: Note
+        observacao_dica: 'E.g.: client, subject or opposing party'
+        incluir: Add
+        email_padrao: 'Without an alternate email, notices go to {email}.'
+        sub_acompanhados: Followed cases
+        sub_relacionados: Related cases
+        selecionadas: selected
+        selecionar_todos: Select all
+        selecionar_processo: Select case
+        parar: Stop following
+        parar_confirmar: 'Stop following the selected cases? Publications already received stay.'
+        parar_um_confirmar: 'Stop following {numero}? Publications already received stay.'
+        relatorio_texto: Cases where the OAB appears and that are not yet being followed.
+        incluir_n: 'Add {n} to follow'
+        busca: Number, client, party or body
+        oab_todas: 'OAB: all'
+        mov_todas: 'Updates: all'
+        mov_hoje: Updated today
+        mov_7: Last 7 days
+        mov_30: Last 30 days
+        mov_p30: Stalled for 30+ days
+        mov_p45: Stalled for 45+ days
+        mov_p90: Stalled for 90+ days
+        mov_nc: Never captured
+        area_todas: 'Area: all'
+        fase_todas: 'Phase: all'
+        pasta_todos: 'Matter: all'
+        com_pasta: With matter
+        sem_pasta: No matter
+        exportar: Export
+        col_partes: PARTIES · BODY
+        col_area: AREA
+        col_fase: PHASE
+        col_ultimo: LAST UPDATE
+        col_pasta: MATTER
+        sem_partes: Parties not provided
+        sem_orgao: Body not provided
+        nunca_capturado: Never captured
+        hoje: today
+        ha_dias: '{n} day(s) ago'
+        pasta_curto: Matter
+        editar_obs: Edit notes
+        incluir_acompanhamento: Add to follow list
+        menu_excluir: Delete case
+        confirma_excluir: "Delete case {processo}?\n\nIt leaves the Push, the follow list and the linked matter. Publications already received stay in the history."
+        ver_publicacoes: View publications
+        vazio: No cases with these filters.
+        paginacao: '{total} case(s) · page {pagina} of {paginas}'
+        janela_titulo: Case notes
+        fechar: Close
+        cancelar: Cancel
+        salvar: Save
+    acervo:
+        subaba: 'Collection by jurisdiction'
+        busca: 'Search by case number'
+        atualizar: Refresh
+        atualizado: 'Collection updated.'
+        selecione: 'Select a jurisdiction'
+        grupo_pr: 'Pending acknowledgment or response'
+        grupo_pend: 'Pending acknowledgment only'
+        grupo_cien: 'Acknowledged · pending response'
+        grupo_fin: 'Deadline ended · no response'
+        grupo_sem: 'No deadline'
+        grupo_resp: 'Answered in the last 10 days'
+    detalhe:
+        titulo: '{tipo} · {processo}'
+        data: Date
+        tribunal: Court
+        vinculo: Link
+        orgao: Body
+        avulsa: Unlinked
+        pasta_n: 'Matter {n}'
+        teor: Text
+        sem_teor: No text available.
+        prazo: Deadline
+        dias_uteis: 'Deadline in business days'
+        outro: Other
+        outro_pergunta: 'Deadline in business days (1 to 399):'
+        dias_n: '{n} days'
+        faltam: '{n, plural, one {# business day left} other {# business days left}}'
+        vence_hoje: Due today
+        vencido: Deadline expired
+        cumprido: Deadline met
+        intervalo: 'From {inicio} to {fim} · business days, excluding weekends, holidays and the court recess (12/20 to 01/20). Check the start date in the court notice.'
+        do_teor: 'Deadline read from the text, until {fim}. Check the start date in the court notice.'
+        sem_prazo: 'No deadline set. Choose the business days according to the court notice.'
+        criar_meta: Create goal with this deadline
+        criar_meta_sem_pasta: Link a matter to create the goal
+        meta_criada: 'Goal created · open My Goals'
+        abrir_pasta: Open the matter
+        vincular_pasta: Link to a matter
+        marcar_lida: Mark as read
+        marcar_nao_lida: Mark as unread
+        fechar: Close
+        selo_vencido: Expired
+        selo_hoje: Due today
+        selo_dias: 'Due in {n} d'
+        selo_dica: 'Deadline of {dias} business days: from {inicio} to {fim} (excluding weekends, holidays and the court recess)'
+        selo_dica_teor: 'Deadline read from the text: until {fim}'
+        meta_criada_selo: goal created
+    vp:
+        titulo: Link case
+        localizar: Find matter
+        localizar_dica: Find the matter and link this case
+        modo_busca: Search existing case
+        modo_novo: Register new (CNJ)
+        busca_ph: Case number, client or matter
+        busca_vazia: 'No cases found. Use "Register new (CNJ)".'
+        pasta_n: 'Matter {n}'
+        sem_selecao: Select a case from the list.
+        localizar_fora_da_lista: 'Link the case first and use Link matter in the OAB Cases tab.'
+        sem_numero_pasta: Enter or choose the case number before finding the matter.
+        aba_info: Information
+        aba_partes: Parties
+        aba_mov: Updates
+        numero: CASE NUMBER
+        formato: 'Format: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        formato_erro: 'CNJ format: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        formato_antes_de_buscar: Enter the number in CNJ format before searching.
+        numero_invalido: Enter the case number in CNJ format.
+        preencha: 'Fill in: {campos}.'
+        buscar_cnj: Search CNJ
+        buscando: Searching…
+        falha_cnj: Could not query the CNJ right now. Fill in the fields or try again later.
+        tribunal: COURT
+        tribunal_ph: Detected from the case number
+        orgao: JUDGING BODY
+        classe: CASE CLASS
+        assunto: CASE SUBJECT
+        situacao: STATUS
+        sit_em_andamento: In progress
+        sit_suspenso: Suspended
+        sit_arquivado: Archived
+        sit_baixado: Closed out
+        instancia: INSTANCE
+        inst_g1: G1 · First Instance
+        inst_g2: G2 · Second Instance
+        inst_je: Special Court
+        inst_tr: Appellate Panel
+        inst_st: Superior Court
+        distribuicao: FILING DATE
+        valor: CASE VALUE
+        jurisdicao: JURISDICTION
+        jurisdicao_ph: 'E.g.: Brasília · Fórum Des. Joaquim Sousa Neto'
+        segredo: SEALED CASE?
+        digital: 100% DIGITAL COURT?
+        gratuita: LEGAL AID?
+        tutela: INJUNCTION?
+        prioridade: PRIORITY?
+        nao_informado: Not provided
+        sim: 'Yes'
+        nao: 'No'
+        adicionar_parte: Add party
+        polo_ativo: Plaintiff side
+        polo_passivo: Defendant side
+        terceiro: Third party
+        nome_ph: Name or legal name
+        doc_ph: CPF/CNPJ
+        remover: Remove
+        sem_movs: Updates appear after searching the CNJ or after the first sync.
