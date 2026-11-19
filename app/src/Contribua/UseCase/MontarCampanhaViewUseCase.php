@@ -11,10 +11,13 @@ use App\Contribua\Repository\CampanhaParticipacaoRepository;
 use App\Contribua\Service\CampanhaVigente;
 use App\Contribua\Service\FormatoDaCampanha;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 
 /**
  * A campanha como o usuário logado a enxerga (aba do topo, faixa, FAQ): o que mostrar e com quais textos.
  * Null quando não existe campanha. Quem decide o que o Master vê a mais (prévia) é `ehMaster`.
+ * Também null para o escritório criado há mais de 5 dias (`CampanhaVigente::contaNova`), salvo para quem já se
+ * inscreveu: essa pessoa continua vendo a própria participação (pagar o Pix, pedir a devolução).
  */
 final class MontarCampanhaViewUseCase
 {
@@ -24,7 +27,7 @@ final class MontarCampanhaViewUseCase
     ) {
     }
 
-    public function executar(User $usuario, bool $ehMaster): ?CampanhaView
+    public function executar(User $usuario, Tenant $escritorio, bool $ehMaster): ?CampanhaView
     {
         $campanha = $this->vigente->campanha();
         if ($campanha === null) {
@@ -34,8 +37,12 @@ final class MontarCampanhaViewUseCase
         $estado = $this->vigente->estado($campanha);
         // Aba, faixa e FAQ só aparecem ao público (ativa ou esgotada) ou ao Master: sem isso, nem consulta a participação.
         $aparece = $estado->aoPublico() || $ehMaster;
+        $participa = $aparece && $this->participacoes->daPessoa($campanha, $usuario) !== null;
+        if ($estado->aoPublico() && !$ehMaster && !$participa && !$this->vigente->contaNova($escritorio)) {
+            return null;
+        }
 
-        return $this->montar($campanha, $estado, $ehMaster, $aparece && $this->participacoes->daPessoa($campanha, $usuario) !== null);
+        return $this->montar($campanha, $estado, $ehMaster, $participa);
     }
 
     public function montar(Campanha $campanha, EstadoDaCampanha $estado, bool $ehMaster, bool $temParticipacao): CampanhaView

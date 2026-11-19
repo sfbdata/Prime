@@ -6,6 +6,7 @@ namespace App\Contribua\Service;
 
 use App\Contribua\DTO\Solicitante;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -44,6 +45,17 @@ final class SolicitanteDaSessao
         }
 
         return $this->usuario();
+    }
+
+    /** O escritório escolhido na sessão (sem consulta: o TenantContext já o tem). */
+    public function escritorio(): Tenant
+    {
+        $escritorio = $this->tenantContext->getCurrentTenant();
+        if ($escritorio === null) {
+            throw new AccessDeniedException('Escolha um escritório para abrir o Contribua.');
+        }
+
+        return $escritorio;
     }
 
     public function ehMaster(): bool

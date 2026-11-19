@@ -45,9 +45,20 @@
         return achados[0] ? achados[0].getBoundingClientRect().bottom : 0;
     }
 
+    // A aba fica no centro do topo, logo abaixo do cabeçalho (não cobre o nome nem o avatar), e some sozinha.
+    const ABA_SOME_EM_MS = 5000;
+
     function posicionarAba() {
         const aba = document.getElementById('cp-aba');
         if (aba) { aba.style.top = baseDoCabecalho() + 'px'; }
+    }
+
+    function esconderAba() {
+        const aba = document.getElementById('cp-aba');
+        if (!aba) { return; }
+        window.removeEventListener('resize', posicionarAba);
+        aba.classList.add('cp-aba--saindo');
+        setTimeout(() => aba.remove(), 450);
     }
 
     /* ---------- Janela ---------- */
@@ -237,6 +248,7 @@
         posicionarAba();
         setTimeout(posicionarAba, 600);
         window.addEventListener('resize', posicionarAba);
+        setTimeout(esconderAba, ABA_SOME_EM_MS);
         const painel = document.querySelector('[data-cp-painel]');
         if (painel) { iniciarPainel(painel); }
         if (/[#&]black\b/.test(window.location.hash)) { abrir(); }
