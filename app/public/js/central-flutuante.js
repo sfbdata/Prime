@@ -18,8 +18,9 @@
     var POS_PADRAO = { r: 18, b: 18 };     // L5412
     var AVISO_MS = 2600;              // aviso(), L5398
     var SALTO_MS = 2400;              // ui.pulso, L141
-    var VOL = { baixo: 0.45, medio: 1, alto: 1.7 }, VOL_ROTULO = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' };   // L44
-    var STATUS_ROTULO = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'] };   // L45
+    var VOL = { baixo: 0.45, medio: 1, alto: 1.7 }, ROTULO_VOL = function (k) { return { baixo: BJ_T.t('moldura.js.central.baixo'), medio: BJ_T.t('moldura.js.central.medio'), alto: BJ_T.t('moldura.js.central.alto') }[k]; };   // L44
+    var STATUS_COR = { disponivel: '#3fd17f', ocupado: '#e5484d', ausente: '#f2a93b' };   // L45
+    var rotuloStatus = function (k) { return { disponivel: BJ_T.t('moldura.js.central.disponivel'), ocupado: BJ_T.t('moldura.js.central.ocupado'), ausente: BJ_T.t('moldura.js.central.ausente') }[k]; };
 
     function iniciar(raizLancador) {
         var janela = document.querySelector('[data-flutuante-janela]');
@@ -67,9 +68,9 @@
             var nl = ui.naoLidas;
             lancador.dataset.estado = ui.aberto ? 'aberto' : (nl ? 'novas' : 'calmo');
             lancador.setAttribute('aria-expanded', String(ui.aberto));
-            var resumo = nl ? (nl === 1 ? '1 não lida' : nl + ' não lidas') : 'tudo em dia';
-            lancador.title = 'Central de Comunicação · ' + resumo;
-            lancador.setAttribute('aria-label', 'Central de Comunicação, ' + resumo);
+            var resumo = nl ? (nl === 1 ? BJ_T.t('moldura.js.central.nao_lida_um') : BJ_T.t('moldura.js.central.nao_lidas_n', { n: nl })) : BJ_T.t('moldura.js.central.tudo_em_dia');
+            lancador.title = BJ_T.t('moldura.js.central.titulo_lancador', { resumo: resumo });
+            lancador.setAttribute('aria-label', BJ_T.t('moldura.js.central.aria_lancador', { resumo: resumo }));
             lancador.classList.toggle('bj-flutuante--anim', !!(prefs.alertas && !silencio() && !ui.aberto && nl));
             badge.hidden = !nl;
             badge.textContent = nl > 99 ? '99+' : String(nl);
@@ -78,7 +79,7 @@
             badge.classList.toggle('bj-flutuante-badge--pulsa', ui.urgentes > 0 && !!prefs.alertas);
             badgeMencoes.hidden = !(ui.mencoes && !ui.aberto);
             badgeMencoes.textContent = '@' + ui.mencoes;
-            badgeMencoes.title = ui.mencoes + (ui.mencoes === 1 ? ' menção' : ' menções');
+            badgeMencoes.title = ui.mencoes === 1 ? BJ_T.t('moldura.js.central.mencao_um') : BJ_T.t('moldura.js.central.mencoes_n', { n: ui.mencoes });
         }
 
         function posicionarLancador() {
@@ -198,11 +199,11 @@
             // Destacada: some Minimizar e Maximizar; Destacar vira "Voltar para dentro do BlueJus" (L6340-6344).
             btnMinimizar.hidden = !!separada;
             btnMaximizar.hidden = !!separada;
-            btnDestacar.title = separada ? 'Voltar para dentro do BlueJus' : 'Destacar: levar o chat para qualquer lugar da tela';
-            btnDestacar.setAttribute('aria-label', separada ? 'Voltar para dentro do BlueJus' : 'Destacar');
+            btnDestacar.title = separada ? BJ_T.t('moldura.js.central.voltar_bluejus') : BJ_T.t('moldura.js.central.destacar_dica');
+            btnDestacar.setAttribute('aria-label', separada ? BJ_T.t('moldura.js.central.voltar_bluejus') : BJ_T.t('moldura.js.central.destacar'));
             btnDestacar.querySelector('.bi').className = 'bi ' + (separada ? 'bi-box-arrow-in-down-left' : 'bi-box-arrow-up-right');
             var max = prefs.janela === 'max';
-            btnMaximizar.title = max ? 'Restaurar tamanho' : 'Maximizar';
+            btnMaximizar.title = max ? BJ_T.t('moldura.js.central.restaurar_tamanho') : BJ_T.t('moldura.js.central.maximizar');
             btnMaximizar.setAttribute('aria-label', btnMaximizar.title);
             btnMaximizar.querySelector('.bi').className = 'bi ' + (max ? 'bi-window-stack' : 'bi-square');
             void janela.offsetWidth;   // aplica o tamanho novo antes de devolver a transição
@@ -316,8 +317,8 @@
 
         // ── mover a janela pelo cabeçalho, com ímã e encaixe (moverJanela, L6432-6451) ─
         cab.tabIndex = 0;
-        cab.title = 'Arraste para mover o chat';
-        cab.setAttribute('aria-label', 'Barra da janela do chat. Arraste ou use as setas para mover.');
+        cab.title = BJ_T.t('moldura.js.central.arraste_mover');
+        cab.setAttribute('aria-label', BJ_T.t('moldura.js.central.barra_janela'));
         cab.addEventListener('keydown', function (e) {
             if (e.target !== cab || !/^Arrow/.test(e.key) || prefs.janela === 'max' || separada) { return; }
             e.preventDefault();
@@ -427,7 +428,7 @@
             var g = document.createElement('div');
             g.className = 'bj-flutuante-alca';
             g.style.cssText = a[0] + ';cursor:' + a[2];
-            g.title = 'Arraste para redimensionar';
+            g.title = BJ_T.t('moldura.js.central.arraste_redimensionar');
             g.dataset.flutuanteAlca = a[1];
             g.addEventListener('pointerdown', function (ev) {
                 if (ev.button !== 0) { return; }
@@ -492,54 +493,54 @@
             var dnd = silencio();
             var final = [];
             if (prefs.pos || prefs.win || prefs.snap) {   // L6288: só quando há o que restaurar
-                final.push({ icone: 'bi-arrows-move', rotulo: 'Restaurar posição do chat', acao: function () {
+                final.push({ icone: 'bi-arrows-move', rotulo: BJ_T.t('moldura.js.central.restaurar_posicao'), acao: function () {
                     prefs.pos = null; prefs.win = null; prefs.snap = null; salvarPrefs(); aplicarJanela(); posicionarLancador();
                 } });
             }
             if (prefs.tam) {                                // L6289
-                final.push({ icone: 'bi-aspect-ratio', rotulo: 'Restaurar tamanho do chat', acao: function () {
+                final.push({ icone: 'bi-aspect-ratio', rotulo: BJ_T.t('moldura.js.central.restaurar_tamanho_chat'), acao: function () {
                     prefs.tam = null; prefs.janela = 'normal'; salvarPrefs(); aplicarJanela(); posicionarLancador();
                 } });
             }
             // L6291: o mesmo comando do botão Destacar (destacada, ele traz de volta).
-            final.push({ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir em janela separada', acao: destacar });
+            final.push({ icone: 'bi-box-arrow-up-right', rotulo: BJ_T.t('moldura.js.central.abrir_separada'), acao: destacar });
             return [
-                { titulo: 'Meu status', itens: [   // L6264-6266
-                    { icone: 'bi-circle-fill', rotulo: 'Status', valor: STATUS_ROTULO[STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel'][0], ponto: STATUS_ROTULO[STATUS_ROTULO[prefs.status] ? prefs.status : 'disponivel'][1], acao: function () {
+                { titulo: BJ_T.t('moldura.js.central.meu_status'), itens: [   // L6264-6266
+                    { icone: 'bi-circle-fill', rotulo: BJ_T.t('moldura.js.central.status'), valor: rotuloStatus(STATUS_COR[prefs.status] ? prefs.status : 'disponivel'), ponto: STATUS_COR[STATUS_COR[prefs.status] ? prefs.status : 'disponivel'], acao: function () {
                         // ciclo(['disponivel', 'ocupado', 'ausente']) a partir do manual (L6264)
                         var ordem = ['disponivel', 'ocupado', 'ausente'];
                         prefs.status = ordem[(ordem.indexOf(prefs.status) + 1) % ordem.length];
                         salvarPrefs();
                         avisarPreferencias();
                     } },
-                    { icone: dnd ? 'bi-moon-fill' : 'bi-moon', rotulo: dnd ? 'Não perturbe até ' + hhmm(prefs.dnd) : 'Não perturbe por 1 hora', chave: dnd, acao: function () {
+                    { icone: dnd ? 'bi-moon-fill' : 'bi-moon', rotulo: dnd ? BJ_T.t('moldura.js.central.nao_perturbe_ate', { hora: hhmm(prefs.dnd) }) : BJ_T.t('moldura.js.central.nao_perturbe_1h'), chave: dnd, acao: function () {
                         prefs.dnd = dnd ? 0 : Date.now() + 3600000; salvarPrefs(); desenharLancador(); avisarPreferencias();
                     } }
                 ] },
-                { titulo: 'Notificações', itens: [   // L6268-6272 (Volume, Toques e Avisar não têm efeito aqui: fora)
-                    { icone: prefs.som ? 'bi-volume-up' : 'bi-volume-mute', rotulo: 'Som de notificações', chave: !!prefs.som, acao: function () {
+                { titulo: BJ_T.t('moldura.js.central.notificacoes'), itens: [   // L6268-6272 (Volume, Toques e Avisar não têm efeito aqui: fora)
+                    { icone: prefs.som ? 'bi-volume-up' : 'bi-volume-mute', rotulo: BJ_T.t('moldura.js.central.som'), chave: !!prefs.som, acao: function () {
                         prefs.som = !prefs.som; salvarPrefs();
                         if (prefs.som) { ultimoToque = 0; tocar(); }   // L6268: ligar toca uma vez, para ouvir
                     } },
-                    { icone: 'bi-sliders', rotulo: 'Volume', valor: VOL_ROTULO[prefs.volume] || 'Médio', acao: function () {   // L6269
+                    { icone: 'bi-sliders', rotulo: BJ_T.t('moldura.js.central.volume'), valor: ROTULO_VOL(prefs.volume) || BJ_T.t('moldura.js.central.medio'), acao: function () {   // L6269
                         var o = ['baixo', 'medio', 'alto'];
                         prefs.volume = o[(o.indexOf(prefs.volume) + 1) % 3]; salvarPrefs();
                         ultimoToque = 0; tocar();   // mudar toca uma vez, para ouvir
                     } },
-                    { icone: 'bi-lightning', rotulo: 'Alertas visuais', chave: !!prefs.alertas, acao: function () {
+                    { icone: 'bi-lightning', rotulo: BJ_T.t('moldura.js.central.alertas'), chave: !!prefs.alertas, acao: function () {
                         prefs.alertas = !prefs.alertas; salvarPrefs(); desenharLancador();
                     } },
-                    { icone: 'bi-funnel', rotulo: 'Avisar', valor: prefs.modo === 'importantes' ? 'Importantes' : 'Todas', acao: function () {   // L6275
+                    { icone: 'bi-funnel', rotulo: BJ_T.t('moldura.js.central.avisar'), valor: prefs.modo === 'importantes' ? BJ_T.t('moldura.js.central.importantes') : BJ_T.t('moldura.js.central.todas'), acao: function () {   // L6275
                         prefs.modo = prefs.modo === 'importantes' ? 'todas' : 'importantes'; salvarPrefs();
                     } }
                 ] },
                 // No desenho o "Tamanho do texto" mora na seção "Ligações · BlueJus Connect" (L6278), que não existe
                 // aqui (ligações não autorizadas); vai para "Mensagens", a seção de leitura das conversas.
-                { titulo: 'Mensagens', itens: [
-                    { icone: 'bi-arrow-return-left', rotulo: 'Enter envia a mensagem', chave: prefs.enterEnvia !== false, acao: function () {   // L6277
+                { titulo: BJ_T.t('moldura.js.central.mensagens'), itens: [
+                    { icone: 'bi-arrow-return-left', rotulo: BJ_T.t('moldura.js.central.enter_envia'), chave: prefs.enterEnvia !== false, acao: function () {   // L6277
                         prefs.enterEnvia = prefs.enterEnvia === false; salvarPrefs();
                     } },
-                    { icone: 'bi-fonts', rotulo: 'Tamanho do texto', valor: prefs.texto === 'grande' ? 'Grande' : 'Normal', acao: function () {
+                    { icone: 'bi-fonts', rotulo: BJ_T.t('moldura.js.central.tamanho_texto'), valor: prefs.texto === 'grande' ? BJ_T.t('moldura.js.central.grande') : BJ_T.t('moldura.js.central.normal'), acao: function () {
                         prefs.texto = prefs.texto === 'grande' ? 'normal' : 'grande'; salvarPrefs(); aplicarTexto();
                     } }
                 ] },
@@ -581,7 +582,7 @@
             if (separada || w.closed) { try { w.close(); } catch (e) { /* já fechada */ } return; }
             w.document.head.replaceChildren();   // pop-up reaproveitado ("bluejus-chat") de uma página anterior
             w.document.body.replaceChildren();
-            w.document.title = 'BlueJus · Central de Comunicação';
+            w.document.title = BJ_T.t('moldura.js.central.titulo_janela');
             copiarEstilos(w);
             separada = { janela: w, tipo: tipo, pai: janela.parentNode, prox: janela.nextSibling };
             ui.aberto = true;
@@ -597,8 +598,8 @@
             w.addEventListener('pagehide', function () { voltar(false); });   // fechou a janela de fora
             btnDestacar.focus();   // o foco não atravessa documentos sozinho: fica no botão de voltar
             avisar(tipo === 'flutuante'
-                ? 'Chat em janela flutuante: arraste para qualquer lugar da tela. Ela fica por cima mesmo com o BlueJus minimizado.'
-                : 'Chat em janela própria: arraste para qualquer lugar ou para outro monitor.');
+                ? BJ_T.t('moldura.js.central.aviso_flutuante')
+                : BJ_T.t('moldura.js.central.aviso_janela'));
         }
 
         function destacar() {
@@ -616,15 +617,15 @@
                         if (!valia) { try { w.close(); } catch (e) { /* já fechada */ } return; }   // Fechar no meio
                         montarSeparada(w, 'flutuante');
                     })
-                    .catch(function () { pedindo = false; avisar('Não foi possível abrir a janela separada.'); });
+                    .catch(function () { pedindo = false; avisar(BJ_T.t('moldura.js.central.erro_separada')); });
                 return;
             }
             var w = null;
             try {
                 w = window.open('', 'bluejus-chat', 'popup=yes,width=' + W + ',height=' + H + ',left=' + Math.max(0, screen.availWidth - W - 40) + ',top=60');
             } catch (e) { w = null; }
-            if (!w) { avisar('O navegador bloqueou a janela. Permita pop-ups para este site e tente de novo.'); return; }
-            try { montarSeparada(w, 'janela'); } catch (e) { avisar('Não foi possível abrir a janela separada.'); }
+            if (!w) { avisar(BJ_T.t('moldura.js.central.popup_bloqueado')); return; }
+            try { montarSeparada(w, 'janela'); } catch (e) { avisar(BJ_T.t('moldura.js.central.erro_separada')); }
         }
 
         function voltar(fecharDeFora) {
