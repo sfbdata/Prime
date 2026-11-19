@@ -325,6 +325,12 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertSame($versao, (int) $this->db->fetchOne('SELECT versao_regras FROM contribua_campanha WHERE id = ?', [$this->campanha->getId()]));
         self::assertSame(1, (int) $this->db->fetchOne('SELECT COUNT(*) FROM contribua_campanha_alteracao WHERE campanha_id = ?', [$this->campanha->getId()]));
 
+        // Nome vazio volta ao padrão, como no desenho (e como a chamada).
+        $this->post('/contribua/campanha/configurar', ['nome' => 'Outra']);
+        $this->post('/contribua/campanha/configurar', ['nome' => '   ']);
+        self::assertSame(['ok' => true, 'mensagem' => 'Campanha atualizada.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame('BlueJus Black', $this->db->fetchOne('SELECT nome FROM contribua_campanha WHERE id = ?', [$this->campanha->getId()]));
+
         $this->post('/contribua/campanha/configurar', ['preco' => '0,50']);
         self::assertResponseStatusCodeSame(422);
         $this->post('/contribua/campanha/configurar', ['fim' => '2000-01-01']);

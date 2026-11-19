@@ -107,7 +107,8 @@ final class ConfigurarCampanhaUseCase
             $novo['ligada'] = $this->booleano($campos['ligada']);
         }
         if (\array_key_exists('nome', $campos)) {
-            $novo['nome'] = trim($this->texto($campos['nome']));
+            $nome = trim($this->texto($campos['nome']));
+            $novo['nome'] = $nome === '' ? Campanha::NOME_PADRAO : $nome;
         }
         if (\array_key_exists('chamada', $campos)) {
             $chamada = trim($this->texto($campos['chamada']));

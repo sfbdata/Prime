@@ -122,6 +122,18 @@ final class CampanhaServicosTest extends TestCase
         self::assertSame($status, $view->statusTexto);
     }
 
+    #[TestDox('Status da janela: os textos do abrir() do desenho, sem o "Prévia do Master" da faixa')]
+    public function testStatusDaJanela(): void
+    {
+        $status = fn (EstadoDaCampanha $e): string => $this->montar()->montar(Campanha::padrao(), $e, true, false)->statusJanela;
+
+        self::assertSame('Inscrições abertas até 30/11/2026', $status(EstadoDaCampanha::Ativa));
+        self::assertSame('Vagas esgotadas', $status(EstadoDaCampanha::Esgotada));
+        self::assertSame('Começa em 19/11/2026', $status(EstadoDaCampanha::Agendada));
+        self::assertSame('Campanha encerrada em 30/11/2026', $status(EstadoDaCampanha::Encerrada));
+        self::assertSame('Campanha desligada', $status(EstadoDaCampanha::Desligada));
+    }
+
     #[TestDox('CampanhaView: textos derivados da configuração')]
     public function testTextosDaView(): void
     {

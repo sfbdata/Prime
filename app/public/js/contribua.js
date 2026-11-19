@@ -310,6 +310,9 @@
         });
     });
 
+    /* Linha da sugestão sem menu do botão direito (onContextMenu do desenho). */
+    $$('[data-sug]').forEach((l) => l.addEventListener('contextmenu', (e) => e.preventDefault()));
+
     /* Master: "Marcar atendida" (com resposta opcional) / "Reabrir" */
     $$('[data-atender]').forEach((b) => b.addEventListener('click', () => {
         const resposta = b.dataset.atendida === '1' ? '' : (window.prompt('Resposta para quem enviou (opcional):', '') || '');

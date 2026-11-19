@@ -307,6 +307,10 @@
 .ct-faq summary::before { content: '+'; width: 20px; height: 20px; flex: none; border-radius: 50%; background: #e9f6ee; color: #1e7b45; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
 .ct-faq[open] summary::before { content: '\2212'; }
 .ct-faq summary:hover { color: #0a6fa0; }
+/* Sem o anel do navegador ao clicar (o laranja do print do Farlei, 19/11); pelo teclado o foco continua visível,
+   na cor de foco do guia visual (#2b7ab0). */
+.ct-faq summary:focus { outline: none; }
+.ct-faq summary:focus-visible { outline: 2px solid #2b7ab0; outline-offset: 2px; }
 .ct-faq > div { padding: 0 0 12px 28px; font-size: 13.5px; color: #4a6373; line-height: 1.55; }
 
 /* Apoie recolhível: a cabeça virou botão (começa recolhido; abre com #apoie) */
