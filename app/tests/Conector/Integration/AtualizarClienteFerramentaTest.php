@@ -151,6 +151,30 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
         self::assertSame('', $this->doBanco($cliente)['bairro']);
     }
 
+    #[TestDox('completar: a recusa da gravação direta (UF inválida depois de um campo válido) não deixa o cliente sujo: um flush seguinte, na mesma requisição, não grava nada (sem a conferência no rascunho, este teste cai)')]
+    public function testRecusaDaGravacaoDiretaNaoSujaOCliente(): void
+    {
+        $cliente = $this->cliente();
+        $cliente->setEstado('');
+        $this->em()->flush();
+        $antes = $this->doBanco($cliente);
+        $contexto = $this->portao()->abrir((int) $this->pessoa->getId(), (int) $this->escritorio->getId());
+        $chamada = new ChamadaDoConector($contexto, 41, $this->consentimentoDe($this->pessoa), 'claude.ai', ['mcp:leitura', 'mcp:escrita'], new \DateTimeImmutable('+7 days'));
+
+        try {
+            // O complemento é aplicado antes da UF no cadastro: sem o rascunho, ele ficaria no cliente gerenciado.
+            static::getContainer()->get(AtualizarClienteFerramenta::class)->executar(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['complemento' => self::COMPLEMENTO_NOVO, 'uf' => 'D1']], $chamada);
+            self::fail('deveria recusar a UF');
+        } catch (ErroDaFerramenta $e) {
+            self::assertSame(AtualizarClienteCadastro::CADASTRO_RECUSADO, $e->getMessage());
+        }
+        // A mesma requisição seguiria com outro flush (o registro da chamada, outra ferramenta): nada do pedido recusado vai junto.
+        $this->em()->flush();
+        static::getContainer()->get('services_resetter')->reset();
+
+        self::assertSame($antes, $this->doBanco($cliente));
+    }
+
     #[TestDox('completar: valor que o cadastro recusa (CPF inválido) dá a mensagem fixa, sem o valor')]
     public function testCompletarValorInvalido(): void
     {

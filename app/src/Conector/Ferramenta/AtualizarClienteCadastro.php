@@ -29,8 +29,9 @@ use App\Shared\Service\DigitoVerificador;
  * Preencher campo vazio grava direto. Trocar ou apagar um valor já preenchido é gravar por cima (abertura da 6.6) e
  * vai por proposta ({@see proporTroca()}): a chamada que troca qualquer campo vira UMA proposta com todos os campos que
  * mudam, os vazios junto (item "Lote"), e o resumo diz o que é novo e o que é troca, com os valores que o assistente
- * mandou e nunca o valor antigo. Os valores são conferidos ao propor (num cadastro em branco que não vai ao banco,
- * {@see AtualizarClienteAcesso::conferirCampos()}) e de novo na confirmação ({@see reconferirTroca()}), com a
+ * mandou e nunca o valor antigo. Os valores são conferidos antes de gravar direto e ao propor (num cadastro em branco
+ * que não vai ao banco, {@see AtualizarClienteAcesso::conferirCampos()}), então a recusa nunca deixa o cliente
+ * gerenciado sujo, e de novo na confirmação ({@see reconferirTroca()}), com a
  * permissão, o CPF que virou repetido e o envio automático. O e-mail de cliente com o envio automático ligado recusa
  * sempre, antes de propor. A resposta traz o id, o nome e os NOMES dos campos que mudaram, nunca os valores (6.2,
  * regra 4).
@@ -70,6 +71,9 @@ final class AtualizarClienteCadastro
         if ($trocas !== []) {
             return $this->proporCompletar($cliente, $mudam, $trocas, $chamada);
         }
+        // Os valores passam primeiro no rascunho: o UseCase aplica campo por campo no cliente gerenciado e, se recusa um
+        // depois de aplicar outro, o cliente fica sujo e um flush posterior da requisição gravaria a metade.
+        $this->exigirValores($cliente, $mudam, $chamada);
 
         return $this->resposta('completar', $cliente, $this->gravarCampos($cliente, $mudam, $chamada), $chamada);
     }

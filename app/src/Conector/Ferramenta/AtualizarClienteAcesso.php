@@ -90,6 +90,20 @@ final class AtualizarClienteAcesso
     }
 
     /**
+     * Se algum campo não é do tipo (`pf` ou `pj`): o {@see CamposDoCadastro::aplicar()} ignoraria esse campo ao gravar, e
+     * a proposta prometeria o que a confirmação não grava. As chaves do tipo são as do retrato de um cadastro em branco.
+     *
+     * @param array<string, string> $campos chaves de {@see CamposDoCadastro::ROTULOS}
+     */
+    public function temCampoDeOutroTipo(string $tipo, array $campos): bool
+    {
+        $rascunho = $tipo === 'pj' ? CriarClienteDaPastaUseCase::pjEmBranco() : CriarClienteDaPastaUseCase::pfEmBranco();
+        $doTipo = array_intersect_key($this->campos->fotografar($rascunho), CamposDoCadastro::ROTULOS);
+
+        return array_diff_key($campos, $doTipo) !== [];
+    }
+
+    /**
      * O cliente do escritório da chamada que a pessoa vê; senão, "não encontrado".
      *
      * @throws ErroDaFerramenta

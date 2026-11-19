@@ -408,6 +408,106 @@ final class AtualizarClienteConfirmacaoTest extends KernelTestCase
         self::assertSame(AtualizarClienteVinculos::NAO_VINCULADO, $this->recusa($pedido)->getMessage());
     }
 
+    #[TestDox('cadastrar: o item com campo de outro tipo (CNPJ num pf, CPF num pj) sai da lista com o motivo e o campo não entra no resumo; os outros seguem')]
+    public function testCampoDeOutroTipoSaiDaLista(): void
+    {
+        $proposta = $this->chamar(['acao' => 'cadastrar', 'clientes' => [
+            ['tipo' => 'pf', 'campos' => ['nome' => 'Pessoa Com Cnpj', 'cnpj' => '11.222.333/0001-81']],
+            ['tipo' => 'pj', 'campos' => ['razao_social' => 'Empresa Com Profissao', 'profissao' => 'Engenheira Intrusa']],
+            ['tipo' => 'pf', 'campos' => ['nome' => 'Pessoa Certa']],
+        ]]);
+
+        self::assertSame([
+            ['item' => 1, 'motivo' => AtualizarClienteLote::MOTIVO_CAMPO_DE_OUTRO_TIPO, 'mensagem' => AtualizarClienteLote::CAMPO_DE_OUTRO_TIPO],
+            ['item' => 2, 'motivo' => AtualizarClienteLote::MOTIVO_CAMPO_DE_OUTRO_TIPO, 'mensagem' => AtualizarClienteLote::CAMPO_DE_OUTRO_TIPO],
+        ], $proposta->dados['detalhes']['fora_da_lista']);
+        $resumo = $proposta->dados['proposta']['resumo'];
+        self::assertSame("Cadastrar 1 cliente no escritório:\n3. Pessoa física, sem pasta: nome: Pessoa Certa", $resumo);
+        foreach (['CNPJ', '11.222.333/0001-81', 'Engenheira Intrusa', 'Pessoa Com Cnpj', 'Empresa Com Profissao'] as $fora) {
+            self::assertStringNotContainsString($fora, $resumo);
+        }
+
+        self::assertSame([3], array_column($this->confirmar($proposta)->dados['resultado']['criados'], 'item'));
+    }
+
+    #[TestDox('6.7, item 4: a pasta foi para a lixeira entre propor e confirmar o desvincular: a reconferência recusa (não encontrado) e nada muda (sem a conferência da lixeira, este teste cai)')]
+    public function testDesvincularComAPastaNaLixeira(): void
+    {
+        $cliente = $this->cliente();
+        $pasta = $this->pasta($cliente);
+        $proposta = $this->chamar(['acao' => 'vincular_a_pasta', 'operacao' => 'desvincular', 'cliente_id' => $cliente->getId(), 'pasta_id' => $pasta->getId()]);
+        $this->ref(Pasta::class, (int) $pasta->getId())->marcarExcluida($this->ref(User::class, (int) $this->pessoa->getId()), new \DateTimeImmutable());
+        $this->em()->flush();
+
+        self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->recusaDaReconferencia('vincular_a_pasta')->motivo);
+        self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->recusaDaConfirmacao($proposta)->motivo);
+        self::assertSame(1, $this->vinculos($pasta));
+        self::assertSame((int) $cliente->getId(), $this->principalNoBanco($pasta));
+        self::assertSame('pendente', $this->estadoDasPropostas()[0]);
+    }
+
+    #[TestDox('desvincular por quem só VÊ a pasta: nem propõe; a permissão de editar a pasta retirada entre propor e confirmar faz a reconferência recusar e nada muda (sem a conferência de editar a pasta, este teste cai)')]
+    public function testDesvincularPorQuemSoVeAPasta(): void
+    {
+        $cliente = $this->cliente();
+        $pasta = $this->pasta($cliente);
+        $pedido = ['acao' => 'vincular_a_pasta', 'operacao' => 'desvincular', 'cliente_id' => $cliente->getId(), 'pasta_id' => $pasta->getId()];
+        $soVe = $this->pessoa();
+        $this->vinculo($soVe, $this->doEscritorio(), permissoes: array_values(array_diff(self::EDITOR, ['resources.pasta.edit'])));
+
+        self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->recusa($pedido, $soVe)->motivo);
+        self::assertSame(0, $this->propostasNoBanco(), 'quem só vê a pasta não chega a propor');
+
+        $proposta = $this->chamar($pedido);
+        $this->tirarPermissao('resources.pasta.edit');
+
+        self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->recusaDaReconferencia('vincular_a_pasta')->motivo);
+        self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->recusaDaConfirmacao($proposta)->motivo);
+        self::assertSame(1, $this->vinculos($pasta));
+    }
+
+    #[TestDox('cadastrar com pasta: quem só vê a pasta tem o item fora da lista; a permissão de editar a pasta retirada entre propor e confirmar tira o item da pasta e grava só o outro (sem a conferência de editar a pasta, este teste cai)')]
+    public function testCadastrarComPastaPorQuemSoVeAPasta(): void
+    {
+        $pasta = $this->pasta();
+        $lista = ['acao' => 'cadastrar', 'clientes' => [
+            ['tipo' => 'pf', 'campos' => ['nome' => 'Da Pasta'], 'pasta_id' => $pasta->getId()],
+            ['tipo' => 'pf', 'campos' => ['nome' => 'Avulso']],
+        ]];
+        $soVe = $this->pessoa();
+        $this->vinculo($soVe, $this->doEscritorio(), permissoes: array_values(array_diff(self::EDITOR, ['resources.pasta.edit'])));
+
+        $deQuemSoVe = $this->chamar($lista, $soVe);
+        self::assertSame([['item' => 1, 'motivo' => ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, 'mensagem' => ErroDaFerramenta::NAO_ENCONTRADO]], $deQuemSoVe->dados['detalhes']['fora_da_lista']);
+        self::assertStringNotContainsString('Da Pasta', $deQuemSoVe->dados['proposta']['resumo']);
+
+        $proposta = $this->chamar($lista);
+        self::assertArrayNotHasKey('detalhes', $proposta->dados);
+        $this->tirarPermissao('resources.pasta.edit');
+        $antes = $this->clientesNoBanco();
+
+        $resultado = $this->confirmar($proposta)->dados['resultado'];
+
+        self::assertSame([2], array_column($resultado['criados'], 'item'));
+        self::assertSame([['item' => 1, 'motivo' => ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, 'mensagem' => ErroDaFerramenta::NAO_ENCONTRADO]], $resultado['recusados']);
+        self::assertSame($antes + 1, $this->clientesNoBanco());
+        self::assertSame(0, $this->vinculos($pasta));
+    }
+
+    #[TestDox('6.7, item 4: a permissão de editar o cliente retirada entre propor e confirmar a troca: a reconferência recusa (sem permissão) e o cadastro não muda (sem a conferência de editar o cliente, este teste cai)')]
+    public function testTrocaComAEdicaoDoClienteRetirada(): void
+    {
+        $cliente = $this->cliente();
+        $antes = $this->doBanco($cliente);
+        $proposta = $this->chamar(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['profissao' => 'Engenheira Nova']]);
+        $this->tirarPermissao('resources.cliente.edit');
+
+        self::assertSame(ErroDaFerramenta::MOTIVO_SEM_PERMISSAO, $this->recusaDaReconferencia('completar')->motivo);
+        self::assertSame(ErroDaFerramenta::MOTIVO_SEM_PERMISSAO, $this->recusaDaConfirmacao($proposta)->motivo);
+        self::assertSame($antes, $this->doBanco($cliente));
+        self::assertSame('pendente', $this->estadoDasPropostas()[0]);
+    }
+
     /**
      * Nenhum valor de documento ou contato do BANCO (nem os mandados, quando a lista os inclui) no JSON inteiro.
      *
@@ -465,6 +565,23 @@ final class AtualizarClienteConfirmacaoTest extends KernelTestCase
             return $e;
         }
         self::fail('a confirmação deveria recusar');
+    }
+
+    /**
+     * A reconferência do executor, sozinha, com os dados da última proposta do escritório: prova a conferência da
+     * própria ferramenta, sem a segunda barreira do UseCase que grava.
+     */
+    private function recusaDaReconferencia(string $acao): ErroDaFerramenta
+    {
+        $dados = json_decode((string) $this->em()->getConnection()->fetchOne('SELECT dados FROM conector_ia_proposta WHERE tenant_id = ? ORDER BY id DESC LIMIT 1', [$this->escritorio->getId()]), true, 512, \JSON_THROW_ON_ERROR);
+        try {
+            static::getContainer()->get(AtualizarClienteConfirmacao::class)->reconferir($acao, $dados, $this->chamada($this->pessoa));
+        } catch (ErroDaFerramenta $e) {
+            return $e;
+        } finally {
+            static::getContainer()->get('services_resetter')->reset();
+        }
+        self::fail('a reconferência deveria recusar');
     }
 
     private function chamada(User $pessoa): ChamadaDoConector

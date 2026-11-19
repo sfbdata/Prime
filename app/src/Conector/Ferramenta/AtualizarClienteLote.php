@@ -29,7 +29,8 @@ use App\Shared\Service\DigitoVerificador;
  * `resources.carteira.gerenciar`, como o Chat I.A faz no `ConversorDaProposta`.
  *
  * A mesma conferência ({@see conferir()}) roda ao propor, ao reconferir e antes de gravar, item por item e sem gravar:
- * sai da lista, com o motivo, o item sem permissão (ou cuja pasta não se acha), o de valor que o cadastro recusa, o de
+ * sai da lista, com o motivo, o item sem permissão (ou cuja pasta não se acha), o que traz campo de outro tipo (CNPJ
+ * num `pf`, CPF num `pj`: o cadastro o ignoraria ao gravar), o de valor que o cadastro recusa, o de
  * CPF ou CNPJ que já é de um cadastro do escritório (com o id e o NOME dele) e o que repete o CPF ou CNPJ de um item
  * anterior da mesma lista (só o primeiro fica). Ao propor, os que saíram vão em `detalhes.fora_da_lista`; se nada sobra,
  * não há proposta. Na confirmação, os que deixaram de passar (CPF que virou repetido, pasta que foi para a lixeira)
@@ -47,11 +48,13 @@ final class AtualizarClienteLote
     public const NADA_PASSA_NA_CONFIRMACAO = 'Nenhum cliente da proposta pode mais ser cadastrado: o CPF ou CNPJ passou a ser de outro cadastro, ou a permissão ou a pasta mudou. Nada foi gravado. Peça o cadastro de novo para ver o motivo de cada um.';
     public const JA_CADASTRADO = 'Este CPF ou CNPJ já é do cadastro do escritório indicado em cadastro_existente.';
     public const REPETIDO_NA_LISTA = 'Este CPF ou CNPJ repete o de um item anterior da lista (igual_ao_item): só o primeiro fica.';
+    public const CAMPO_DE_OUTRO_TIPO = 'Um dos campos não é do tipo deste cliente (pf ou pj): confira o tipo e as chaves dos campos.';
     public const CADASTRO_RECUSADO = 'O BlueJus recusou os valores deste cliente. Confira CPF ou CNPJ válidos, e-mail, nascimento AAAA-MM-DD, UF de duas letras, estado civil da lista e o tamanho de cada campo.';
 
     public const MOTIVO_JA_CADASTRADO = 'ja_cadastrado';
     public const MOTIVO_REPETIDO_NA_LISTA = 'repetido_na_lista';
     public const MOTIVO_CADASTRO_RECUSADO = 'cadastro_recusado';
+    public const MOTIVO_CAMPO_DE_OUTRO_TIPO = 'campo_de_outro_tipo';
 
     public function __construct(
         private readonly AtualizarClienteAcesso $acesso,
@@ -185,6 +188,9 @@ final class AtualizarClienteLote
     {
         try {
             $pasta = $this->autorizar($item['pasta_id'], $chamada);
+            if ($this->acesso->temCampoDeOutroTipo($item['tipo'], $item['campos'])) {
+                return [self::recusa($item, self::MOTIVO_CAMPO_DE_OUTRO_TIPO, self::CAMPO_DE_OUTRO_TIPO), null];
+            }
             $this->acesso->conferirCampos($item['tipo'], $item['campos'], $chamada->contexto->escritorio);
 
             return [null, $pasta];

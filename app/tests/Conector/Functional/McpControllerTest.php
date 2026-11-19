@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Conector\Functional;
 
+use App\Cliente\Entity\ClientePF;
 use App\Conector\Controller\McpController;
+use App\Conector\DTO\ChamadaDoConector;
+use App\Conector\Ferramenta\AtualizarClienteFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\RequisicaoDoConector;
@@ -154,6 +157,44 @@ final class McpControllerTest extends WebTestCase
         self::assertStringContainsString('conector: chamada ao /mcp', $log);
         foreach (['52998224725', '529.982.247-25', '529982', '24725'] as $pedaco) {
             self::assertStringNotContainsString($pedaco, $log);
+        }
+    }
+
+    #[TestDox('12.15, caso próprio: atualizar_cliente com CPF nos argumentos grava, e nenhum dígito dele fica no mcp.log (nem na linha do registro da chamada) nem na resposta')]
+    public function testCpfDaAtualizarClienteNaoVaiAoLog(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $arquivo = static::getContainer()->getParameter('kernel.logs_dir') . '/mcp_test' . (string) getenv('TESTE_PROCESSO') . '.log';
+        @unlink($arquivo);
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit']);
+        $cliente = (new ClientePF())->setNomeCompleto('Cliente Do Log')->setCpf('')->setRg('')->setRgOrgaoExpedidor('')->setNacionalidade('brasileira');
+        $cliente->setEmail('')->setCep('')->setEndereco('')->setCidade('Brasília')->setEstado('DF')->setTenant($escritorio);
+        $this->em()->persist($cliente);
+        $this->em()->flush();
+        $escopos = ['mcp:leitura', 'mcp:escrita'];
+        $c = static::getContainer();
+        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, 42, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+        $c->set(ServidorMcpDoConector::class, $this->servidor($escopos, [$c->get(AtualizarClienteFerramenta::class)], $c->get(RequisicaoDoConector::class), $c->get('monolog.logger.mcp'), $chamada));
+
+        $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 13, 'method' => 'tools/call', 'params' => ['name' => AtualizarClienteFerramenta::NOME, 'arguments' => [
+            'acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['cpf' => self::CPF, 'bairro' => 'Bairro 52998224725'],
+        ]]], self::TOKEN);
+
+        self::assertSame(200, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertFalse($corpo['result']['isError'], mb_substr((string) $resposta->getContent(), 0, 600));
+        self::assertEqualsCanonicalizing(['cpf', 'bairro'], $corpo['result']['structuredContent']['campos_alterados']);
+        self::assertSame('52998224725', preg_replace('/\D/', '', (string) $this->em()->getConnection()->fetchOne('SELECT cpf FROM cliente_pf WHERE id = ?', [$cliente->getId()])), 'a chamada gravou o CPF');
+        $log = (string) @file_get_contents($arquivo);
+        self::assertStringContainsString('conector: chamada ao /mcp', $log);
+        self::assertStringContainsString(AtualizarClienteFerramenta::NOME, $log, 'a linha é a da chamada da atualizar_cliente');
+        foreach ([$log, (string) $resposta->getContent()] as $texto) {
+            foreach (['52998224725', '529.982.247-25', '529982', '24725'] as $pedaco) {
+                self::assertStringNotContainsString($pedaco, $texto);
+            }
         }
     }
 
