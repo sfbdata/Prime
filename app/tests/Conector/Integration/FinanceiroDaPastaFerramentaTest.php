@@ -415,6 +415,11 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
     {
         $pasta = $this->pasta();
         $documento = $this->contrato($pasta, 'a.pdf');
+        // Tudo criado antes da primeira chamada: o services_resetter solta as entidades a cada uma.
+        $demais = $this->contrato($pasta, 'peticao.pdf', PastaDocumento::CATEGORIA_DEMAIS);
+        $daOutraPasta = $this->contrato($this->pasta(), 'outro.pdf');
+        $outroEscritorio = $this->escritorio();
+        $alheio = $this->contrato($this->pasta($outroEscritorio), 'alheio.pdf', PastaDocumento::CATEGORIA_CONTRATO, $outroEscritorio);
         $base = ['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()];
 
         $this->assertMotivo($base + ['titulo' => '   '], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
@@ -422,10 +427,6 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
         $this->assertMotivo($base + ['titulo' => 'a.pdf'], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
         $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
 
-        $demais = $this->contrato($pasta, 'peticao.pdf', PastaDocumento::CATEGORIA_DEMAIS);
-        $daOutraPasta = $this->contrato($this->pasta(), 'outro.pdf');
-        $outroEscritorio = $this->escritorio();
-        $alheio = $this->contrato($this->pasta($outroEscritorio), 'alheio.pdf', PastaDocumento::CATEGORIA_CONTRATO, $outroEscritorio);
         foreach ([$demais, $daOutraPasta, $alheio] as $naoServe) {
             $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $naoServe->getId(), 'titulo' => 'novo.pdf'], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         }
