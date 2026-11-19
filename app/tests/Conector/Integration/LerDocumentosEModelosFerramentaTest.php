@@ -361,17 +361,24 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         $this->assertMotivo('ler', $pasta, ['documento_id' => $doc->getId()], LerDocumentosEModelosFerramenta::MOTIVO_ILEGIVEL);
     }
 
-    #[TestDox('ler texto: na lixeira ou com a aba Documentos oculta, não encontrado')]
-    public function testTextoNaLixeiraOuComAbaOculta(): void
+    #[TestDox('ler texto: documento de texto na lixeira, não encontrado')]
+    public function testTextoNaLixeira(): void
     {
         $pasta = $this->pasta();
-        $doc = $this->documento($pasta, 'notas.txt', 'segredo do caso', mime: 'text/plain');
         $lixo = $this->documento($pasta, 'lixo.txt', 'na lixeira', mime: 'text/plain');
         $lixo->marcarExcluido($this->pessoa, new \DateTimeImmutable());
         $this->em()->flush();
 
         $this->assertMotivo('ler', $pasta, ['documento_id' => $lixo->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[TestDox('ler texto: com a aba Documentos oculta, não encontrado')]
+    public function testTextoComAbaDocumentosOculta(): void
+    {
+        $pasta = $this->pasta();
+        $doc = $this->documento($pasta, 'notas.txt', 'segredo do caso', mime: 'text/plain');
         $this->ocultar($pasta, AbaDaPasta::Documentos);
+
         $this->assertMotivo('ler', $pasta, ['documento_id' => $doc->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
     }
 

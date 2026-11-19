@@ -127,21 +127,22 @@ final class LeitorDeTextoDoDoc
 
         $saida = '';
         $campos = [];
+        $noCodigo = 0;
         foreach ($partes as $parte) {
             if ($parte === '') {
                 continue;
             }
             if (\strlen($parte) > 1 || \ord($parte) >= 0x20) {
-                $saida .= \in_array(true, $campos, true) ? '' : $parte;
+                $saida .= $noCodigo > 0 ? '' : $parte;
 
                 continue;
             }
             if ($parte === "\x13" || $parte === "\x14" || $parte === "\x15") {
-                $this->campo($parte, $campos);
+                $this->campo($parte, $campos, $noCodigo);
 
                 continue;
             }
-            $saida .= \in_array(true, $campos, true) ? '' : $this->controle($parte);
+            $saida .= $noCodigo > 0 ? '' : $this->controle($parte);
         }
 
         return $saida;
@@ -149,20 +150,23 @@ final class LeitorDeTextoDoDoc
 
     /**
      * Pilha de campos: `true` enquanto está no código (texto suprimido), `false` depois do separador `\x14`.
+     * `$noCodigo` conta os `true` da pilha, para o texto não varrer a pilha a cada parte.
      *
      * @param list<bool> $campos
      */
-    private function campo(string $marca, array &$campos): void
+    private function campo(string $marca, array &$campos, int &$noCodigo): void
     {
         if ($marca === "\x13") {
             if (\count($campos) >= self::MAXIMO_DE_CAMPOS_ANINHADOS) {
                 throw new ArquivoSemTextoException(self::MENSAGEM);
             }
             $campos[] = true;
+            ++$noCodigo;
         } elseif ($marca === "\x14" && $campos !== []) {
+            $noCodigo -= $campos[\count($campos) - 1] ? 1 : 0;
             $campos[\count($campos) - 1] = false;
-        } elseif ($marca === "\x15") {
-            array_pop($campos);
+        } elseif ($marca === "\x15" && $campos !== []) {
+            $noCodigo -= array_pop($campos) ? 1 : 0;
         }
     }
 

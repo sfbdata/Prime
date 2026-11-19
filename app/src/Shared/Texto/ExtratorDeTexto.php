@@ -112,11 +112,15 @@ final class ExtratorDeTexto
     private function normalizar(string $texto): string
     {
         $texto = str_replace(["\r\n", "\r"], "\n", $texto);
-        foreach (['/[\x00-\x08\x0B-\x1F]/', '/[ \t]+$/m', "/\n{3,}/"] as $indice => $padrao) {
-            $texto = preg_replace($padrao, $indice === 2 ? "\n\n" : '', $texto);
-            if ($texto === null) {
-                throw new ArquivoSemTextoException('O arquivo não é um arquivo de texto.');
-            }
+        $texto = preg_replace('/[\x00-\x08\x0B-\x1F]+/', '', $texto);
+        if ($texto === null) {
+            throw new ArquivoSemTextoException('O arquivo não é um arquivo de texto.');
+        }
+        // Sem regex com `$`: uma corrida longa de espaços estoura o limite do PCRE e recusaria um arquivo legítimo.
+        $linhas = array_map(static fn (string $linha): string => rtrim($linha, " \t"), explode("\n", $texto));
+        $texto = preg_replace("/\n{3,}/", "\n\n", implode("\n", $linhas));
+        if ($texto === null) {
+            throw new ArquivoSemTextoException('O arquivo não é um arquivo de texto.');
         }
 
         $texto = trim($texto);

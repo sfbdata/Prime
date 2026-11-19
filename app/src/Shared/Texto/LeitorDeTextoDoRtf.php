@@ -172,6 +172,11 @@ final class LeitorDeTextoDoRtf
         match ($palavra) {
             'par', 'line', 'sect', 'page', 'row' => $this->emitir("\n"),
             'tab', 'cell' => $this->emitir("\t"),
+            'lquote', 'rquote' => $this->emitir("'"),
+            'ldblquote', 'rdblquote' => $this->emitir('"'),
+            'endash', 'emdash' => $this->emitir('-'),
+            'bullet' => $this->emitir('*'),
+            'emspace', 'enspace', 'qmspace' => $this->emitir(' '),
             'uc' => $this->uc[\count($this->uc) - 1] = max(0, $parametro ?? 1),
             'u' => $this->unicode($parametro ?? 0),
             'bin' => $this->posicao += max(0, $parametro ?? 0),

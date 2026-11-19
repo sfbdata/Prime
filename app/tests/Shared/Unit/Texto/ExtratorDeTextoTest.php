@@ -313,6 +313,22 @@ final class ExtratorDeTextoTest extends TestCase
         self::assertSame("a\tb\n\nc", $this->texto("\x01a\tb \x02\n\n\n\n\nc\x1F  ", FormatoDeTexto::Txt));
     }
 
+    #[TestDox('RTF: aspas curvas, traços, marcador e espaços especiais viram os equivalentes simples')]
+    public function testRtfPontuacao(): void
+    {
+        $rtf = '{\\rtf1\\ansi \\ldblquote Sim\\rdblquote , \\lquote x\\rquote \\endash  a\\emdash b \\bullet  c\\emspace d}';
+
+        self::assertSame('"Sim", \'x\'- a-b * c d', $this->texto($rtf, FormatoDeTexto::Rtf));
+    }
+
+    #[TestDox('Normalização: corrida longa de espaços e de quebras (acima do limite do PCRE) não recusa o arquivo legítimo')]
+    public function testNormalizacaoComCorridasLongas(): void
+    {
+        $bytes = str_repeat(' ', 2_000_000) . "x\n" . str_repeat(' ', 1_000_000) . str_repeat("\n", 1_000_000) . 'fim';
+
+        self::assertSame("x\n\nfim", $this->texto($bytes, FormatoDeTexto::Txt));
+    }
+
     #[TestDox('Vazio, só espaços e tamanho acima do teto são recusados, com mensagem fixa')]
     public function testVazioEGrande(): void
     {
