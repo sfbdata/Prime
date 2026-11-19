@@ -236,11 +236,41 @@ vizinhas e "N de M".
 | `expediente_recebida_pasta` | GET `…/{compartilhamentoId}/pasta` | localizar | página reduzida (`?aba=metas` para "Abrir metas") |
 | `expediente_recebida_documento` | GET `…/{compartilhamentoId}/documento/{documentoId}/{modo}` | localizar + documento desta pasta, fora da lixeira, aba Documentos visível; `baixar` exige `baixarDocumentos` | `ver` mostra (o desenho dá "Ver a pasta e os documentos" a todo convite, como o `pasta_documento_view` interno); `baixar` entrega o arquivo pela chave |
 
-**Fatia 9b (escrita), com mini-adendo próprio antes do código.** O "movimentar" do desenho é "abrir e movimentar
-metas, andamentos e prazos": anotação com prazo, mudança de fase e concluir/reabrir meta da pasta; "enviar
-documentos" é o envio de documento novo. Escrita só com A ativo (suspenso = só leitura). A entidade nasce com o
-escritório A explícito; o flush roda com o filtro desligado (o `PrazosDosRegistrosListener` relê os registros no
-`postFlush`); a auditoria vai para A (dono) com o ator de B, que é a trilha da outra conta que A precisa ver.
+**Fatia 9b (escrita): mini-adendo (18/11, pela recomendação).** Investigação de 18/11: nenhuma escrita da pasta
+funciona com a sessão em B como está (as rotas leem `TenantContext` e `canAccessResource` exige vínculo em A; com o
+filtro de B ligado, o prazo do texto não nasce, a fase cria andamento duplicado, o `refresh` com trava não acha a
+linha e o código do documento perde a unicidade). Por isso:
+
+- **Molde comum.** Toda rota de escrita é POST com CSRF, nome `expediente_recebida_*`, chama primeiro o localizador e
+  recusa (403) com A suspenso (`soLeitura`) ou sem a caixa do convite. O trabalho **e o flush** rodam inteiros dentro
+  de `semFiltroDeTenant`, sempre com o escritório A e a pasta do convite que o localizador devolveu (nada por id
+  solto: resposta, documento e fase são lidos com `tenant = A` e `pasta = a do convite`). A auditoria vai para A, com
+  o ator de B (a trilha da outra conta que A precisa ver).
+- **`expediente_recebida_anotar`** (POST `…/{compartilhamentoId}/anotacao`; caixa `movimentar`; aba Dados visível):
+  `EnviarMensagemPastaUseCase::executar(pasta, B, conteúdo, A, null)`. Só anotação nova (responder a registro fica
+  fora). Os tokens de menção (`@[..](user:ID)`) saem do texto antes: B não conhece nem notifica a equipe de A. O
+  prazo escrito no texto nasce como hoje (`PrazosDosRegistrosListener`, que precisa do flush sem filtro). O aviso a
+  quem acompanha a pasta segue a regra de hoje, calculado sem filtro (quem desligou o acompanhamento não recebe).
+- **`expediente_recebida_fase`** (POST `…/{compartilhamentoId}/fase`; caixa `movimentar`): UseCase próprio e fino
+  sobre `AndamentoDaPasta::marcar(pasta, B, A, fase, semPular, motivo, sincronizarContrato: false)` (o
+  `MudarFaseDaPastaUseCase` barra quem não tem vínculo, e a sincronização do contrato mexeria no Financeiro, que fica
+  fora para B).
+- **`expediente_recebida_documento_enviar`** (POST `…/{compartilhamentoId}/documento`; caixa `enviarDocumentos`; aba
+  Documentos visível): só arquivo (sem Drive, texto, imagem nem seção), pelo `UploadPecaUseCase` com o escritório A e
+  dentro de `TransacaoComArquivoNovo` (o arquivo só é apagado se o COMMIT comprovadamente não aconteceu); categoria
+  de contrato e as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro. O envio ao
+  Drive de A segue o que o `UploadPecaUseCase` já faz se o worker não depender do vínculo de quem enviou; se depender,
+  fica fora e é registrado.
+- **Metas: só leitura para B.** A regra D3 (só o responsável ou quem criou conclui e reabre a meta) continua valendo,
+  e B nunca é nenhum dos dois. O "movimentar metas" do desenho fica coberto pela anotação e pela fase; concluir e
+  reabrir meta por outra conta, se o dono quiser, é decisão de negócio nova.
+- **Tela.** A página reduzida ganha, só com a caixa marcada: o campo de anotação (aba Andamentos), a troca de fase
+  (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
+- **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
+  nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
+  ela; fase não duplica andamento e não mexe no contrato; documento grava a chave pelo escritório A, código único com
+  outro documento de A, contrato recusado, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
+  de B religado depois de cada escrita, inclusive em erro.
 
 **Lista (L2, L12).** Como no desenho (`rpRows()` concatena as recebidas às linhas), as pastas que o localizador abre
 entram **na própria Lista** do destinatário, no topo, com a mesma linha, a marca "Recebida · <conta>", a dica L2 e o
