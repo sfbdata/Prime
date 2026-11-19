@@ -6,6 +6,7 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\AtualizarPastaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
@@ -16,7 +17,10 @@ use App\Conector\Ferramenta\LerClientesFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
+use App\Conector\Ferramenta\MudarAndamentoFerramenta;
+use App\Conector\Ferramenta\PrazosEMetasDaPastaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\ServidorDeAutorizacao;
@@ -51,6 +55,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
     /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
     private const REGISTRADAS = [
+        AtualizarPastaFerramenta::NOME,
         BuscarPastasFerramenta::NOME,
         ConfirmarAcaoFerramenta::NOME,
         DocumentosEPecasFerramenta::NOME,
@@ -60,7 +65,10 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         LerDocumentosEModelosFerramenta::NOME,
         LerPastaFerramenta::NOME,
         LerProcessosFerramenta::NOME,
+        MudarAndamentoFerramenta::NOME,
+        PrazosEMetasDaPastaFerramenta::NOME,
         QuemSouEuFerramenta::NOME,
+        RegistrarNaPastaFerramenta::NOME,
     ];
 
     use CenarioDaAutorizacaoTrait;
