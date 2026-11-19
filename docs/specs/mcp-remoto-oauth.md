@@ -1147,8 +1147,9 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   editar, reordenar: `AdicionarChecklistItemUseCase`, `ToggleChecklistItemUseCase`, `EditarChecklistItemUseCase`,
   `ReordenarChecklistItensUseCase`), `checklist_estado` (ligar ou desligar com motivo, `AlterarEstadoDoChecklistUseCase`) e
   `checklist_modelo` (salvar como modelo, aplicar, renomear: `SalvarChecklistComoModeloUseCase`,
-  `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist, com UseCase extraído do
-  controller (PR 14).
+  `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist é a ação de leitura
+  `modelos_de_checklist` da `ler_documentos_e_modelos` (`ListarModelosDeChecklistUseCase`, extraído do controller no PR 14; aba
+  Documentos, só para quem edita a pasta).
 - Gravar por cima, por proposta (abertura da 6.6): `editar_documento` (`EditarDocumentoDaPastaUseCase::executar`,
   `app/src/Pasta/UseCase/EditarDocumentoDaPastaUseCase.php:44`), `editar_peca`, `subpasta` renomear, `salvar_modelo`
   sobre modelo existente (`SalvarModeloDePecaUseCase::executar` com `$existente`,
@@ -1177,7 +1178,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`AtualizarValorCausaUseCase`), `pagamento` (registrar, parcelar, marcar recebido ou desfazer, corrigir valor:
   `RegistrarPagamentoDaPastaUseCase`, `RegistrarParcelamentoDaPastaUseCase`, `AlternarQuitacaoDoPagamentoUseCase`,
   `CorrigirValorDoPagamentoUseCase`), `documento_assinado` (marcar ou desmarcar: `AlterarAssinaturaDoDocumentoUseCase`) e
-  `renomear_documento` (regra no controller, UseCase extraído no PR 14).
+  `renomear_documento` (`RenomearDocumentoDoFinanceiroUseCase`, extraído do controller no PR 14; vai por proposta e a
+  confirmação recusa se o nome mudou).
 - Gravar por cima, por proposta (abertura da 6.6): `valor_da_causa` já preenchido e corrigir o valor de um pagamento
   (`CorrigirValorDoPagamentoUseCase`). Registrar, parcelar, marcar recebido, contrato, pro bono e documento assinado são
   diretos.
@@ -1794,7 +1796,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist, excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
@@ -1929,7 +1931,7 @@ abertas (6.3, item 3). É aceito por ser o lado seguro.
 
 **A abertura do piloto sai sem o PR 14** (13.1): excluir cliente, excluir processo e os documentos do cliente (lista e
 exclusão), além do resto da linha 14 (relatórios do Expediente, timeline e controladoria da pasta, renomear documento do
-Financeiro, lista de modelos de checklist), entram depois.
+Financeiro e lista de modelos de checklist, já feitos), entram depois.
 
 **c) Como os 7 dias funcionam. Decidido em 08/11/2026: opção 2.** Token de acesso de 1 hora, com renovação e rotação até
 completar 7 dias da autorização. A pessoa faz login uma vez por semana, e um token vazado vale 1 hora. O metadado anuncia

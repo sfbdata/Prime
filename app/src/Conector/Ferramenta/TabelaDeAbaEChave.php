@@ -100,6 +100,7 @@ final class TabelaDeAbaEChave
             'lixeira' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'modelos' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
             'modelo' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
+            'modelos_de_checklist' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
         ],
         'ler_processos' => [
             'buscar' => ['modulos' => self::PROCESSOS, 'abas' => [], 'chaves' => self::NENHUMA],

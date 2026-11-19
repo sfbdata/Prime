@@ -18,6 +18,8 @@ use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModeloDePeca;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaChecklistModelo;
+use App\Pasta\Entity\PastaChecklistModeloItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Enum\MateriaDeModelo;
@@ -357,6 +359,37 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         self::assertSame($this->escritorio->getId(), $meu->getTenant()->getId());
     }
 
+    #[TestDox('modelos_de_checklist: os do escritório com nome, total e itens; o de outro escritório não aparece; CPF no nome sai mascarado')]
+    public function testModelosDeChecklist(): void
+    {
+        $pasta = $this->pasta();
+        $meu = $this->modeloDeChecklist('Checklist de João 123.456.789-09', ['RG', 'Procuração']);
+        $this->modeloDeChecklist('Alheio', ['X'], $this->escritorio('Outro'));
+
+        $resposta = $this->executar('modelos_de_checklist', $pasta);
+
+        self::assertCount(1, $resposta->dados['modelos_de_checklist']);
+        $linha = $resposta->dados['modelos_de_checklist'][0];
+        self::assertSame((int) $meu->getId(), $linha['id']);
+        self::assertSame(2, $linha['total_itens']);
+        self::assertSame(['RG', 'Procuração'], $linha['itens']);
+        self::assertStringNotContainsString('123.456.789-09', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('ALHEIO', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+    }
+
+    #[TestDox('modelos_de_checklist: quem só vê a pasta (sem o recurso de editar, como a tela) recebe "não encontrado"')]
+    public function testModelosDeChecklistExigeEditar(): void
+    {
+        $pasta = $this->pasta();
+        $this->modeloDeChecklist('Meu', ['RG']);
+        $soVer = $this->pessoa();
+        $this->vinculo($soVer, $this->escritorio, permissoes: self::LEITOR);
+        $this->em()->flush();
+        $this->pessoa = $soVer;
+
+        $this->assertMotivo('modelos_de_checklist', $pasta, [], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
     #[TestDox('modelos: a busca filtra pelo título')]
     public function testModelosComBusca(): void
     {
@@ -421,6 +454,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         yield 'lixeira pela aba Documentos' => ['lixeira', AbaDaPasta::Documentos];
         yield 'modelos pela aba Detalhes' => ['modelos', AbaDaPasta::Detalhes];
         yield 'modelo pela aba Detalhes' => ['modelo', AbaDaPasta::Detalhes];
+        yield 'modelos de checklist pela aba Documentos' => ['modelos_de_checklist', AbaDaPasta::Documentos];
     }
 
     #[DataProvider('abaQueBarra')]
@@ -510,7 +544,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
      */
     private function executar(string $acao, Pasta|int $pasta, array $extras = []): RespostaDaFerramenta
     {
-        $campos = ['listar' => ['pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id']][$acao];
+        $campos = ['listar' => ['pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id'], 'modelos_de_checklist' => ['pagina']][$acao];
         $argumentos = ['acao' => $acao, 'pasta_id' => $pasta instanceof Pasta ? $pasta->getId() : $pasta] + array_intersect_key($extras, array_flip($campos));
         static::getContainer()->get('services_resetter')->reset();
         $contexto = $this->portao()->abrir((int) $this->pessoa->getId(), (int) $this->escritorio->getId());
@@ -594,6 +628,19 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
     private function modelo(string $titulo, string $corpo, ?Tenant $escritorio = null): ModeloDePeca
     {
         $modelo = (new ModeloDePeca($escritorio ?? $this->escritorio))->atualizar($titulo, MateriaDeModelo::Civel, TipoDePeca::Contestacao, $corpo);
+        $this->em()->persist($modelo);
+        $this->em()->flush();
+
+        return $modelo;
+    }
+
+    /** @param list<string> $itens */
+    private function modeloDeChecklist(string $nome, array $itens, ?Tenant $escritorio = null): PastaChecklistModelo
+    {
+        $modelo = (new PastaChecklistModelo())->setTenant($escritorio ?? $this->escritorio)->setNome($nome);
+        foreach ($itens as $ordem => $titulo) {
+            $modelo->adicionarItem((new PastaChecklistModeloItem())->setTenant($escritorio ?? $this->escritorio)->setTitulo($titulo)->setOrdem($ordem));
+        }
         $this->em()->persist($modelo);
         $this->em()->flush();
 

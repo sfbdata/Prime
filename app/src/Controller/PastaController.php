@@ -125,6 +125,7 @@ use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
+use App\Pasta\UseCase\RenomearDocumentoDoFinanceiroUseCase;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\Service\CobrancasDoChecklistDaPasta;
@@ -2306,13 +2307,14 @@ class PastaController extends AbstractController
     // ── Financeiro: Renomear documento de contrato ───────────────────────────
 
     #[Route('/{id}/financeiro/documento/{docId}/renomear', name: 'pasta_financeiro_documento_renomear', methods: ['POST'])]
-    public function financeiroRenomearDocumento(Pasta $pasta, int $docId, Request $request): JsonResponse
+    public function financeiroRenomearDocumento(Pasta $pasta, int $docId, Request $request, RenomearDocumentoDoFinanceiroUseCase $renomear): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if ($tenant === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -2325,18 +2327,13 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $novoTitulo = trim((string) $request->request->get('titulo', ''));
-        if ($novoTitulo === '') {
-            return $this->json(['erro' => 'O nome não pode ser vazio.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-        if (mb_strlen($novoTitulo) > 255) {
-            return $this->json(['erro' => 'Nome muito longo (máx. 255 caracteres).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        try {
+            $titulo = $renomear->executar($pasta, $doc, (string) $request->request->get('titulo', ''), $tenant);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $doc->setTitulo($novoTitulo);
-        $this->em->flush();
-
-        return $this->json(['titulo' => $doc->getTitulo()]);
+        return $this->json(['titulo' => $titulo]);
     }
 
     // ── Financeiro: Excluir documento de contrato ────────────────────────────
