@@ -228,7 +228,7 @@
 .bja .bjaGrupoTit { display: block; font-size: 14px; color: var(--bja-titulo); margin-bottom: 8px; }
 .bja .bjaMods { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .bja .bjaMod { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid var(--bja-borda); border-radius: 3px; background: var(--bja-card); font: inherit; text-align: left; cursor: pointer; color: var(--bja-texto); margin: 0; }
-.bja .bjaMod:hover { background: #3b8fc2; border-color: #3b8fc2; color: #fff; }
+.bja .bjaMod:hover { background: #2b7ab0; border-color: #2b7ab0; color: #fff; }
 .bja .bjaMod:hover * { color: #fff !important; }
 .bja .bjaMod > .bi { font-size: 20px; color: var(--bja-azul-tx); }
 .bja .bjaModTx { min-width: 0; }
@@ -317,7 +317,7 @@
 .bja .bjaCtx.is-perigo { color: #a3232b; }
 [data-bs-theme="dark"] .bja .bjaCtx.is-perigo { color: var(--bja-verm-tx); }
 .bja .bjaCtx:hover,
-.bja .bjaCtx:focus-visible { background: #3b8fc2; color: #fff !important; outline: none; }
+.bja .bjaCtx:focus-visible { background: #2b7ab0; color: #fff !important; outline: none; }
 .bja .bjaCtxCores { padding: 6px 12px 8px; border-top: 1px solid var(--bja-div); margin-top: 3px; }
 .bja .bjaCtxCoresTit { font-size: 11.5px; font-weight: bold; color: var(--bja-mudo); margin-bottom: 5px; }
 .bja .bjaCtxCoresLin { display: flex; gap: 4px; }
@@ -344,7 +344,7 @@
 .bja .bjaVincInfo { font-size: 13px; color: var(--bja-t2); }
 .bja .bjaVincLista { max-height: 300px; overflow-y: auto; border: 1px solid var(--bja-div); }
 .bja .bjaVincIt { display: flex; gap: 10px; width: 100%; padding: 8px 10px; border: none; border-bottom: 1px solid var(--bja-div); background: var(--bja-card); font: inherit; font-size: 13.5px; color: var(--bja-texto); text-align: left; cursor: pointer; margin: 0; box-sizing: border-box; }
-.bja .bjaVincIt:hover { background: #3b8fc2; color: #fff; }
+.bja .bjaVincIt:hover { background: #2b7ab0; color: #fff; }
 .bja .bjaVincIt > b { min-width: 64px; }
 .bja .bjaVincIt > .bjaVincCli { flex: 1; min-width: 0; }
 .bja .bjaVincIt > .bjaVincAcao { font-size: 12px; }

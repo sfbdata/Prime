@@ -134,7 +134,7 @@ final class AssinaturaVinculoJsTest extends TestCase
             '.bja .bjaVincCorpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }',
             '.bja .bjaVincInfo { font-size: 13px; color: var(--bja-t2); }',
             '.bja .bjaVincLista { max-height: 300px; overflow-y: auto; border: 1px solid var(--bja-div); }',
-            '.bja .bjaVincIt:hover { background: #3b8fc2; color: #fff; }',
+            '.bja .bjaVincIt:hover { background: #2b7ab0; color: #fff; }',
             '.bja .bjaVincIt > b { min-width: 64px; }',
             '.bja .bjaVincIt > .bjaVincCli { flex: 1; min-width: 0; }',
             '.bja .bjaVincIt > .bjaVincAcao { font-size: 12px; }',

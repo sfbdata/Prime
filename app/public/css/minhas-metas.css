@@ -25,7 +25,7 @@
     --mm-div:           #eef2f5;
     --mm-div-row:       #f1f4f7;
     --mm-hover:         #f2f7fa;
-    --mm-linha-hover-bg:    #3b8fc2;   /* hover da linha, dc 04 Minhas Metas L17 */
+    --mm-linha-hover-bg:    #2b7ab0;   /* hover da linha, dc 04 Minhas Metas L17 */
     --mm-linha-hover-barra: #1f6f9c;
     --mm-num:           #0a6fa0;   /* número da meta, dc L86 */
     --mm-sem-text:      #5b7383;   /* pílula "Sem prazo" (ST.sem do dc) */
@@ -127,7 +127,7 @@
     --mm-div:           var(--bs-border-color-translucent);
     --mm-div-row:       var(--bs-border-color-translucent);
     --mm-hover:         rgba(255,255,255,.05);
-    --mm-linha-hover-bg:    #3b8fc2;
+    --mm-linha-hover-bg:    #2b7ab0;
     --mm-linha-hover-barra: #1f6f9c;
     --mm-num:           #4da3ea;
     --mm-sem-text:      var(--bs-secondary-color);
