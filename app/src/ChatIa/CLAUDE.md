@@ -37,7 +37,7 @@ Namespace `App\ChatIa` · prefixo de rota `chat_ia_` · URL `/chat-ia` · módul
    texto de arquivo e blocos da pasta são DADO (neutralizados, em bloco delimitado, `chat-livre-v5`). Bloco novo no prompt
    = nome novo em `NeutralizadorDeConteudo::DELIMITADORES`.
 5. **Anexo**: tipo pelo CONTEÚDO (nunca extensão), limites da `RegraDaLeituraDeDocumentos` (3 por mensagem, PDF 10 MB, imagem
-   3 MB, 20 MB somados); DOCX vira texto no servidor (`ExtratorDeTextoDocx`: zip bomb, sem DOCTYPE, 60 mil caracteres). Exige
+   3 MB, 20 MB somados); DOCX vira texto no servidor (`Shared/Texto/ExtratorDeTextoDocx`: zip bomb, sem DOCTYPE, 60 mil caracteres). Exige
    `aceiteCobreDocumentos`. Anexo é de quem o enviou e da conversa para a qual foi enviado. Arquivo só sai do disco depois do
    COMMIT (`RemocaoAposTransacao`); chave pela fábrica `ChavesDeChatIa`.
 6. **Streaming**: `ProvedorDeLinguagemEmFluxo::transmitir` (gerador de trechos, devolve `UsoDaTransmissao`). O

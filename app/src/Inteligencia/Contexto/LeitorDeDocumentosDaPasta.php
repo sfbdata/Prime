@@ -7,6 +7,7 @@ namespace App\Inteligencia\Contexto;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AnexoDeDocumento;
+use App\Inteligencia\DTO\TextoDeDocumento;
 use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Service\PortaDaLeituraDeDocumentos;
@@ -23,6 +24,10 @@ use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
+use App\Shared\Texto\ArquivoSemTextoException;
+use App\Shared\Texto\ExtratorDeTexto;
+use App\Shared\Texto\ExtratorDeTextoDocx;
+use App\Shared\Texto\FormatoDeTexto;
 
 /**
  * No worker, os arquivos do "Ler N documentos" (PR F da spec ia-anthropic-ligar) como {@see AnexoDeDocumento}.
@@ -46,6 +51,11 @@ use App\Shared\Armazenamento\MaterializadorDeArquivo;
  * menos em silêncio: a resposta diria que leu o que não leu. Falha de I/O do armazenamento é
  * {@see ArmazenamentoIndisponivelException}, transitória (o handler devolve à fila).
  *
+ * Os documentos de TEXTO (peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML) saem pelo {@see textos()}, com as
+ * mesmas conferências do pedido e do documento; o formato é o que o upload gravou e o conteúdo tem de bater com ele
+ * ({@see ExtratorDeTexto}), dentro do teto de bytes do formato e do teto total. Usado pelo conector (spec
+ * mcp-remoto-oauth, 6.5).
+ *
  * O arquivo é lido pela CHAVE do armazenamento (`ChavesDePasta::documento`), nunca por caminho. Nada do conteúdo é
  * logado nem persistido aqui; as mensagens levam o id e o motivo, nunca o nome nem o conteúdo.
  */
@@ -59,6 +69,7 @@ final class LeitorDeDocumentosDaPasta
         private readonly RegraDaLeituraDeDocumentos $regra,
         private readonly PermissionChecker $permissoes,
         private readonly VisibilidadeDasAbasDaPasta $abas,
+        private readonly ExtratorDeTexto $extrator = new ExtratorDeTexto(new ExtratorDeTextoDocx()),
     ) {
     }
 
@@ -75,11 +86,7 @@ final class LeitorDeDocumentosDaPasta
     public function anexos(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante, ?PortaDaLeituraDeDocumentos $porta = null): array
     {
         $ocultas = $this->conferirPedido($tenant, $pasta, $ids, $abasOcultas, $solicitante, $porta ?? $this->regra);
-
-        $porId = [];
-        foreach (VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $ids), $ocultas) as $documento) {
-            $porId[(int) $documento->getId()] = $documento;
-        }
+        $porId = $this->visiveisPorId($tenant, $pasta, $ids, $ocultas);
 
         $anexos = [];
         $total = 0;
@@ -98,6 +105,55 @@ final class LeitorDeDocumentosDaPasta
         }
 
         return $anexos;
+    }
+
+    /**
+     * O texto dos documentos de texto, com as mesmas conferências de {@see anexos()} (pedido, pasta, escritório,
+     * lixeira, abas e aceite), o formato gravado no upload conferido pelo conteúdo e os tetos de bytes do formato e
+     * total.
+     *
+     * @param list<int>    $ids         a ordem dos textos
+     * @param list<string> $abasOcultas como quem chama já sabe (as de agora entram por cima)
+     * @param ?PortaDaLeituraDeDocumentos $porta o aceite que vale; sem ela, o da BlueJus I.A. ({@see RegraDaLeituraDeDocumentos})
+     *
+     * @return list<TextoDeDocumento>
+     *
+     * @throws DocumentoIlegivelException
+     * @throws ArmazenamentoIndisponivelException
+     */
+    public function textos(Tenant $tenant, Pasta $pasta, array $ids, array $abasOcultas, ?User $solicitante, ?PortaDaLeituraDeDocumentos $porta = null): array
+    {
+        $ocultas = $this->conferirPedido($tenant, $pasta, $ids, $abasOcultas, $solicitante, $porta ?? $this->regra);
+        $porId = $this->visiveisPorId($tenant, $pasta, $ids, $ocultas);
+
+        $textos = [];
+        $total = 0;
+        foreach ($ids as $id) {
+            $texto = $this->texto($tenant, $pasta, $id, $porId[$id] ?? null);
+            $total += $texto->tamanhoDoArquivo;
+            if ($total > RegraDaLeituraDeDocumentos::TAMANHO_MAXIMO_TOTAL) {
+                throw DocumentoIlegivelException::porque($id, 'os documentos juntos passam do limite de tamanho');
+            }
+            $textos[] = $texto;
+        }
+
+        return $textos;
+    }
+
+    /**
+     * @param list<int>    $ids
+     * @param list<string> $ocultas
+     *
+     * @return array<int, PastaDocumento>
+     */
+    private function visiveisPorId(Tenant $tenant, Pasta $pasta, array $ids, array $ocultas): array
+    {
+        $porId = [];
+        foreach (VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $ids), $ocultas) as $documento) {
+            $porId[(int) $documento->getId()] = $documento;
+        }
+
+        return $porId;
     }
 
     /**
@@ -131,16 +187,7 @@ final class LeitorDeDocumentosDaPasta
     /** @return array{AnexoDeDocumento, int} o anexo e as páginas que ele conta (0 para imagem) */
     private function anexo(Tenant $tenant, Pasta $pasta, int $id, ?PastaDocumento $documento): array
     {
-        // A fonte já filtra por pasta e tenant; a conferência repetida é a defesa se a fonte mudar.
-        if ($documento === null
-            || $documento->getTenant()?->getId() !== $tenant->getId()
-            || $documento->getPasta()?->getId() !== $pasta->getId()) {
-            throw DocumentoIlegivelException::porque($id, 'fora da pasta, do escritório ou da lista visível');
-        }
-        if ($documento->estaNaLixeira()) {
-            throw DocumentoIlegivelException::porque($id, 'na lixeira');
-        }
-
+        $documento = $this->conferirDocumento($tenant, $pasta, $id, $documento);
         $bytes = $this->ler($documento, $id);
         $tipo = RegraDaLeituraDeDocumentos::tipoPeloConteudo($bytes);
         if ($tipo === null) {
@@ -152,6 +199,40 @@ final class LeitorDeDocumentosDaPasta
         $anexo = new AnexoDeDocumento($id, $documento->getNomeOriginal(), $tipo, $bytes);
 
         return [$anexo, $anexo->ehPdf() ? $this->paginas($documento, $id) : 0];
+    }
+
+    private function texto(Tenant $tenant, Pasta $pasta, int $id, ?PastaDocumento $documento): TextoDeDocumento
+    {
+        $documento = $this->conferirDocumento($tenant, $pasta, $id, $documento);
+        $formato = FormatoDeTexto::doTipoDeclarado($documento->getMimeType())
+            ?? throw DocumentoIlegivelException::porque($id, 'o tipo gravado não é lido como texto');
+        $bytes = $this->ler($documento, $id);
+        if (\strlen($bytes) > $formato->tamanhoMaximo()) {
+            throw DocumentoIlegivelException::porque($id, 'passa do tamanho máximo');
+        }
+        try {
+            $extraido = $this->extrator->extrair($bytes, $formato);
+        } catch (ArquivoSemTextoException) {
+            throw DocumentoIlegivelException::porque($id, 'o conteúdo não dá texto no formato gravado');
+        }
+
+        return new TextoDeDocumento($id, $documento->getNomeOriginal(), $formato->value, $extraido->texto, $extraido->cortado, \strlen($bytes));
+    }
+
+    /** O documento é da pasta e do escritório pedidos, da lista visível e está fora da lixeira. */
+    private function conferirDocumento(Tenant $tenant, Pasta $pasta, int $id, ?PastaDocumento $documento): PastaDocumento
+    {
+        // A fonte já filtra por pasta e tenant; a conferência repetida é a defesa se a fonte mudar.
+        if ($documento === null
+            || $documento->getTenant()?->getId() !== $tenant->getId()
+            || $documento->getPasta()?->getId() !== $pasta->getId()) {
+            throw DocumentoIlegivelException::porque($id, 'fora da pasta, do escritório ou da lista visível');
+        }
+        if ($documento->estaNaLixeira()) {
+            throw DocumentoIlegivelException::porque($id, 'na lixeira');
+        }
+
+        return $documento;
     }
 
     /** As páginas do PDF: a contagem do upload ou, sem ela, a do arquivo (o mesmo contador do upload). */

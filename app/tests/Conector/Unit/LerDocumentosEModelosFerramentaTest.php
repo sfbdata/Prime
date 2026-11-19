@@ -82,7 +82,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
         }
     }
 
-    #[TestDox('as mensagens fixas de tipo, áudio e vídeo e limite não trazem travessão nem dado do banco')]
+    #[TestDox('as mensagens fixas de tipo, áudio e vídeo, limite e corte não trazem travessão nem dado do banco')]
     public function testMensagensFixas(): void
     {
         foreach ([
@@ -91,6 +91,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
             LerDocumentosEModelosFerramenta::ILEGIVEL,
             LerDocumentosEModelosFerramenta::LIMITE,
             LerDocumentosEModelosFerramenta::INDISPONIVEL,
+            LerDocumentosEModelosFerramenta::AVISO_DE_CORTE,
         ] as $mensagem) {
             self::assertStringNotContainsString("\u{2014}", $mensagem);
             self::assertStringNotContainsString("\u{2013}", $mensagem);

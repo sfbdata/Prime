@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\LeitorDeDocumentosDaPasta;
 use App\Inteligencia\DTO\AnexoDeDocumento;
+use App\Inteligencia\DTO\TextoDeDocumento;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
@@ -313,5 +314,37 @@ final class LeitorDeDocumentosDaPastaTest extends TestCase
 
         (new \ReflectionProperty($this->config, 'consentimentoVersao'))->setValue($this->config, 1);
         $this->esperarIlegivel([1], 'aceite');
+    }
+
+    #[TestDox('textos: o texto do formato gravado, na ordem pedida; tipo que não é texto, conteúdo que não bate, lixeira e aba oculta recusam')]
+    public function testTextos(): void
+    {
+        $this->documento(1, "Petição\r\ninicial")->setMimeType('text/plain');
+        $this->documento(2, '{\\rtf1\\ansi Carta}')->setMimeType('text/rtf');
+
+        $textos = $this->leitor()->textos($this->tenant, $this->pasta, [2, 1], [], $this->solicitante);
+
+        self::assertSame([2, 1], array_map(static fn (TextoDeDocumento $t): int => $t->documentoId, $textos));
+        self::assertSame(['application/rtf', 'text/plain'], array_map(static fn (TextoDeDocumento $t): string => $t->tipo, $textos));
+        self::assertSame("Petição\ninicial", $textos[1]->texto);
+        self::assertFalse($textos[1]->cortado);
+
+        $this->documento(3, '%PDF-1.7 pdf');
+        $this->documento(4, 'texto solto')->setMimeType('application/msword');
+        $this->documento(5, 'na lixeira')->setMimeType('text/plain');
+        $this->dados->documentos[4]->marcarExcluido(new User(), new \DateTimeImmutable());
+        foreach ([3 => 'não é lido como texto', 4 => 'não dá texto', 5 => 'na lixeira'] as $id => $trecho) {
+            try {
+                $this->leitor()->textos($this->tenant, $this->pasta, [$id], [], $this->solicitante);
+                self::fail('deveria recusar ' . $id);
+            } catch (DocumentoIlegivelException $e) {
+                self::assertStringContainsString($trecho, $e->getMessage());
+                self::assertStringNotContainsString('solto', $e->getMessage(), 'nunca o conteúdo');
+            }
+        }
+
+        $this->expectException(DocumentoIlegivelException::class);
+        $this->expectExceptionMessage('aba Documentos oculta');
+        $this->leitor()->textos($this->tenant, $this->pasta, [1], [AbaDaPasta::Documentos->value], $this->solicitante);
     }
 }
