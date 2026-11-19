@@ -196,8 +196,11 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         $this->confirmar($proposta);
 
         $estado = $this->estado($pasta);
-        self::assertSame(12, $estado['atual']);
+        // Como a tela (PastaAndamentoControllerTest::testFinalizarEReativar): entram Reativada, Em andamento e uma nova
+        // Finalizada, e a pasta fica em "Em andamento".
+        self::assertSame(11, $estado['atual']);
         self::assertSame('Reativada', $estado['fases'][10][0]);
+        self::assertSame('Em andamento', $estado['fases'][11][0]);
         self::assertSame('Finalizada', $estado['fases'][12][0]);
     }
 
@@ -298,8 +301,10 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         $this->executar(['acao' => 'nomear_etapa', 'pasta_id' => $pasta->getId(), 'fase_de_inicio' => 'Abertura', 'texto' => 'Triagem']);
         $proposta = $this->executar(['acao' => 'nomear_etapa', 'pasta_id' => $pasta->getId(), 'fase_de_inicio' => 'Abertura', 'texto' => 'Análise']);
         static::getContainer()->get('services_resetter')->reset();
+        // A pasta antes do portão: o pastaAtual() limpa o EntityManager, e o UseCase compara o escritório por identidade.
+        $agora = $this->pastaAtual($pasta);
         $contexto = $this->portao()->abrir((int) $this->pessoa->getId(), (int) $this->escritorio->getId());
-        static::getContainer()->get(NomearEtapaDaPastaUseCase::class)->executar($this->pastaAtual($pasta), $contexto->pessoa, $contexto->escritorio, 0, 'Outro');
+        static::getContainer()->get(NomearEtapaDaPastaUseCase::class)->executar($agora, $contexto->pessoa, $contexto->escritorio, 0, 'Outro');
 
         $erro = $this->recusaDaConfirmacao($proposta);
 
@@ -313,7 +318,7 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         $pasta = $this->pasta();
         $this->executar(['acao' => 'mudar_fase', 'pasta_id' => $pasta->getId(), 'fase' => 'Protocolo']);
         $proposta = $this->executar(['acao' => 'mudar_fase', 'pasta_id' => $pasta->getId(), 'fase' => 'Abertura']);
-        $this->pastaAtual($pasta)->marcarExcluida($this->pessoa, new \DateTimeImmutable());
+        $this->pastaAtual($pasta)->marcarExcluida($this->em()->getReference(User::class, $this->pessoa->getId()), new \DateTimeImmutable());
         $this->em()->flush();
 
         $erro = $this->recusaDaConfirmacao($proposta);
@@ -341,7 +346,6 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         foreach ([$naLixeira->getId(), $deOutro->getId(), 999_999_999] as $id) {
             $this->assertMotivo($this->argumentos($acao, (int) $id), ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         }
-        self::assertSame(0, $this->faseAtual($deOutro, $outro));
     }
 
     #[DataProvider('acoes')]

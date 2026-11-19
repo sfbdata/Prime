@@ -42,7 +42,9 @@ use App\Pasta\UseCase\NomearEtapaDaPastaUseCase;
  * pasta. Até chamar {@see PropostasDoConector::propor()} a ferramenta só LÊ. A mensagem de toda recusa de regra é uma
  * constante desta classe, escolhida pela classe da exceção do UseCase.
  */
-final class MudarAndamentoFerramenta implements FerramentaDoConector, ExecutorDeProposta
+// Não implementa o ExecutorDeProposta: as duas interfaces declaram `TAG` e o PHP recusa a classe. O
+// MudarAndamentoExecutor é o executor e repassa para o reconferir() e o executarConfirmada() daqui.
+final class MudarAndamentoFerramenta implements FerramentaDoConector
 {
     public const NOME = 'mudar_andamento';
 
@@ -80,11 +82,6 @@ final class MudarAndamentoFerramenta implements FerramentaDoConector, ExecutorDe
     }
 
     public function nome(): string
-    {
-        return self::NOME;
-    }
-
-    public function ferramenta(): string
     {
         return self::NOME;
     }
