@@ -6,7 +6,7 @@
 .cc-integ-titulo { flex: 1; min-width: min(220px, 100%); }
 .cc-integ-titulo b { font-size: 15px; }
 .cc-integ-titulo div { font-size: 12px; color: #7a5200; }
-.cc-estado { height: 24px; padding: 0 11px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
+.cc-estado { height: 24px; padding: 0 11px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
 .cc-estado i { font-size: 7px; }
 .cc-estado.is-off { background: #f1f3f5; color: #6c757d; }
 .cc-estado.is-pend { background: #fff3cd; color: #664d03; }

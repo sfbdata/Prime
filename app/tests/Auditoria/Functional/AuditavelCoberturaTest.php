@@ -69,6 +69,14 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // trilha); a cobrança PIX aberta é passo técnico: o que vale como prova é o Apoio confirmado, auditado.
         \App\Contribua\Entity\IntegracaoBancaria::class,
         \App\Contribua\Entity\CobrancaPixDaConta::class,
+        // Contribua, campanha BlueJus Black (spec contribua-campanha): entidades globais, sem escritório; o Master as
+        // muda a partir do escritório da sessão e o audit_log gravaria lá (mesmo caso da Sugestao). A campanha tem
+        // trilha própria (CampanhaAlteracao, só acrescenta); a participação e a devolução guardam quem pagou, quem
+        // confirmou e quando, e a devolução leva a chave Pix cifrada, que não vai para o audit_log.
+        \App\Contribua\Entity\Campanha::class,
+        \App\Contribua\Entity\CampanhaAlteracao::class,
+        \App\Contribua\Entity\CampanhaParticipacao::class,
+        \App\Contribua\Entity\CampanhaDevolucao::class,
 
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.

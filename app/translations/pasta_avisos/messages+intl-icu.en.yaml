@@ -115,3 +115,8 @@ pasta_avisos:
         pedidos_decidido: Request decided
         pedidos_falhou: Could not decide the request
         pedidos_sem_conexao: Connection failure while deciding the request
+    fora:
+        # pasta/fora_do_seu_acesso.html.twig
+        texto: 'Your role has {destaque}. This area of the firm is not available to you.'
+        destaque: 'access restricted to the matters you are responsible for'
+        botao: 'Go to my matters'

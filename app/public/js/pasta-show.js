@@ -268,8 +268,8 @@
         var botao = document.createElement('button');
         botao.type      = 'button';
         botao.className = 'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '');
-        botao.title     = 'Fechar (Esc)';
-        botao.setAttribute('aria-label', 'Fechar');
+        botao.title     = BJ_T.t('pasta_show.js.show.fechar_esc');
+        botao.setAttribute('aria-label', BJ_T.t('comum.js.fechar'));
         botao.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">'
             + '<path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
         botao.addEventListener('click', function (e) {
@@ -461,11 +461,11 @@
 
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(link).then(
-                        function () { avisar('Link copiado', true); },
-                        function () { avisar('Não foi possível copiar', false); }
+                        function () { avisar(BJ_T.t('pasta_show.js.show.link_copiado'), true); },
+                        function () { avisar(BJ_T.t('pasta_show.js.show.copiar_falhou'), false); }
                     );
                 } else {
-                    avisar('Não foi possível copiar', false);
+                    avisar(BJ_T.t('pasta_show.js.show.copiar_falhou'), false);
                 }
             });
         }
@@ -547,7 +547,8 @@
                     if (pip) { pip.remove(); }
                 })
                 .catch(function () {
-                    painel.innerHTML = '<p class="ps-push-sem-teor">Não foi possível carregar o teor. Tente de novo.</p>';
+                    painel.innerHTML = '<p class="ps-push-sem-teor"></p>';
+                    painel.firstChild.textContent = BJ_T.t('pasta_show.js.show.teor_falhou');
                 });
         });
     }

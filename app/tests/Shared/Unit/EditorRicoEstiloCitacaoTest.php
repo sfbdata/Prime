@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Unit;
 
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class EditorRicoEstiloCitacaoTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     use CriaSanitizadorTextoRico;
 
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
@@ -50,7 +53,11 @@ final class EditorRicoEstiloCitacaoTest extends TestCase
 
         self::assertStringContainsString("var ESTILO_CITACAO = 'citacao';", $js);
         self::assertStringContainsString('[{ header: [false, 2, 3, ESTILO_CITACAO] }],', $js);
-        self::assertStringContainsString("{ '': 'Normal', '2': 'Título 1', '3': 'Título 2', citacao: 'Citação' }", $this->funcao('aplicarDicas'));
+        self::assertStringContainsString("{ '': T('estilo_normal'), '2': T('estilo_titulo1'), '3': T('estilo_titulo2'), citacao: T('d.citacao') }", $this->funcao('aplicarDicas'));
+        self::assertSame('Normal', self::ptBr('comum.js.editor.' . 'estilo_normal'));
+        self::assertSame('Título 1', self::ptBr('comum.js.editor.' . 'estilo_titulo1'));
+        self::assertSame('Título 2', self::ptBr('comum.js.editor.' . 'estilo_titulo2'));
+        self::assertSame('Citação', self::ptBr('comum.js.editor.' . 'd.citacao'));
     }
 
     #[TestDox('Citação aplica o formato blockquote — nunca vira "header" no texto')]

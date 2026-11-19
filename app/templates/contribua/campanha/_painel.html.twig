@@ -1,0 +1,77 @@
+{#
+    Painel do Master do modo campanha (#campanha). Recebe `painel` (PainelDaCampanhaView).
+    Desenho: seção id="campanha" do 08 - Contribua. Cada campo grava ao mudar (contribua-campanha.js).
+    As urls de confirmar, cancelar e devolvida vêm com o id 0; o JS troca o "/0/" pelo id da linha.
+#}
+<section id="campanha" class="cp-painel" data-screen-label="Modo campanha" data-cp-painel
+         data-csrf="{{ csrf_token('contribua') }}"
+         data-url-configurar="{{ painel.urls.configurar }}"
+         data-url-padrao="{{ painel.urls.padrao }}"
+         data-url-confirmar="{{ painel.urls.confirmar }}"
+         data-url-cancelar="{{ painel.urls.cancelar }}"
+         data-url-devolvida="{{ painel.urls.devolvida }}">
+    <div class="cp-painel-topo">
+        <span class="cp-painel-selo">MASTER</span>
+        <b class="cp-painel-titulo">Modo campanha: {{ painel.nome }}</b>
+        <span class="cp-painel-estado" style="background: {{ painel.estadoCor }}">{{ painel.estadoRotulo }}</span>
+        <button type="button" class="cp-chave" role="switch" aria-checked="{{ painel.ligada ? 'true' : 'false' }}" aria-label="Ligar campanha" data-cp-ligar><span></span></button>
+    </div>
+    <div class="cp-painel-corpo">
+        <div class="cp-painel-col">
+            <div class="cp-painel-grade">
+                <label class="cp-l">Nome da campanha<input class="cp-i" value="{{ painel.nome }}" data-cp-campo="nome"></label>
+                <label class="cp-l">Chamada (selo)<input class="cp-i" value="{{ painel.chamada }}" data-cp-campo="chamada"></label>
+                <label class="cp-l">Valor da inscrição (R$)<input class="cp-i" type="number" min="1" step="0.01" value="{{ painel.preco }}" data-cp-campo="preco"></label>
+                <div class="cp-l">Devolução se não gostar
+                    <div class="cp-mult">
+                        <button type="button" class="{{ painel.multiplicador == 2 ? 'is-on' }}" data-cp-mult="2">Dobro</button>
+                        <button type="button" class="{{ painel.multiplicador == 3 ? 'is-on' }}" data-cp-mult="3">Triplo</button>
+                    </div>
+                </div>
+                <label class="cp-l">Início<input class="cp-i" type="date" value="{{ painel.inicio }}" data-cp-campo="inicio"></label>
+                <label class="cp-l">Fim<input class="cp-i" type="date" value="{{ painel.fim }}" data-cp-campo="fim"></label>
+                <label class="cp-l">Prazo para pedir devolução (dias)<input class="cp-i" type="number" min="7" value="{{ painel.prazoPedido }}" data-cp-campo="prazoPedido"></label>
+                <label class="cp-l">Pagar a devolução em até (dias úteis)<input class="cp-i" type="number" min="1" value="{{ painel.prazoPagto }}" data-cp-campo="prazoPagto"></label>
+                <label class="cp-l">Limite de vagas (0 = sem limite)<input class="cp-i" type="number" min="0" value="{{ painel.vagas }}" data-cp-campo="vagas"></label>
+                <div class="cp-l">Exibição
+                    <label class="cp-marca"><input type="checkbox" {{ painel.abaNoTopo ? 'checked' }} data-cp-campo="abaNoTopo">Aba no topo de todas as telas</label>
+                    <label class="cp-marca"><input type="checkbox" {{ painel.mostrarContador ? 'checked' }} data-cp-campo="mostrarContador">Mostrar nº de inscritos (real)</label>
+                </div>
+            </div>
+            <label class="cp-l">O que o Desafio inclui (um por linha; só o que a equipe consegue entregar)<textarea class="cp-i cp-i--area" rows="4" data-cp-campo="beneficios">{{ painel.beneficiosTexto }}</textarea></label>
+            <div class="cp-painel-botoes">
+                <button type="button" class="cp-pbtn cp-pbtn--preto" data-campanha-abrir>Ver página da campanha</button>
+                <button type="button" class="cp-pbtn cp-pbtn--contorno" data-cp-padrao>Restaurar padrão</button>
+            </div>
+        </div>
+        <div class="cp-painel-col">
+            <div class="cp-resumo"><b>Custo máximo de devolução:</b> {{ painel.custo }}<br><b>Pedidos:</b> {{ painel.pedidosResumo }}</div>
+            <details class="cp-painel-regras"><summary>Regras publicadas (geradas desta configuração)</summary><ol>{% for r in painel.regras %}<li>{{ r }}</li>{% endfor %}</ol></details>
+            <div class="cp-nota">As regras, a aba do topo, a página da campanha e os textos desta tela saem desta mesma configuração, para não haver divergência.</div>
+
+            {% if painel.aguardando|length %}
+                <b class="cp-subtitulo">Aguardando Pix</b>
+                {% for a in painel.aguardando %}
+                    <div class="cp-ped" data-cp-aguardando="{{ a.id }}">
+                        <div class="cp-ped-texto"><b>{{ a.nome }}</b> · OAB {{ a.oab }}<div>{{ a.valor }} · CPF final {{ a.cpfFinal }} · Pix {{ a.txid }} · inscrito em {{ a.em }}</div></div>
+                        <span class="cp-ped-selo" style="background: #9a5b00">Aguardando Pix</span>
+                        <button type="button" class="cp-ped-botao" data-cp-confirmar="{{ a.id }}">Confirmar pagamento</button>
+                        <button type="button" class="cp-ped-botao" style="border-color: #a3232b; color: #a3232b" data-cp-cancelar="{{ a.id }}">Cancelar</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <b class="cp-subtitulo">Pedidos de devolução</b>
+            {% if not painel.devolucoes|length %}
+                <div class="cp-vazio">Nenhum pedido.</div>
+            {% endif %}
+            {% for d in painel.devolucoes %}
+                <div class="cp-ped" data-cp-devolucao="{{ d.id }}">
+                    <div class="cp-ped-texto"><b>{{ d.nome }}</b> · OAB {{ d.oab }}<div>{{ d.valor }} · Pix {{ d.pix }} · pedido em {{ d.em }}</div>{% if d.motivo %}<div class="cp-ped-motivo">"{{ d.motivo }}"</div>{% endif %}</div>
+                    <span class="cp-ped-selo" style="background: {{ d.pendente ? '#9a5b00' : '#1e7b45' }}">{{ d.pendente ? 'Aguardando Pix' : 'Devolvido' }}</span>
+                    {% if d.pendente %}<button type="button" class="cp-ped-botao" data-cp-devolvida="{{ d.id }}">Marcar como devolvido</button>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>

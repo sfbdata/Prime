@@ -13,6 +13,7 @@ use App\Contribua\UseCase\AtenderSugestaoUseCase;
 use App\Contribua\UseCase\DecidirPedidoDeEspacoUseCase;
 use App\Contribua\UseCase\EnviarSugestaoUseCase;
 use App\Contribua\UseCase\ListarPedidosDeEspacoParaOMasterUseCase;
+use App\Contribua\UseCase\MontarPainelDaCampanhaUseCase;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
 use App\Contribua\UseCase\MontarPagamentoDoContribuaUseCase;
 use App\Contribua\UseCase\PedirEspacoUseCase;
@@ -48,7 +49,7 @@ final class ContribuaController extends AbstractController
 
     /** `?assinatura=ok` é a página de retorno colada no gateway: abre o "Pagamento enviado" do checkout. */
     #[Route('', name: 'contribua_index', methods: ['GET'])]
-    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno, ObterMeuSaldoDeRecompensaUseCase $recompensa, VerPedidoDeEspacoDoEscritorioUseCase $pedidoDeEspaco, ListarPedidosDeEspacoParaOMasterUseCase $pedidosDoMaster): Response
+    public function index(Request $request, MontarPaginaDoContribuaUseCase $montar, MontarPagamentoDoContribuaUseCase $pagamento, RegistrarRetornoDoPagamentoUseCase $retorno, ObterMeuSaldoDeRecompensaUseCase $recompensa, VerPedidoDeEspacoDoEscritorioUseCase $pedidoDeEspaco, ListarPedidosDeEspacoParaOMasterUseCase $pedidosDoMaster, MontarPainelDaCampanhaUseCase $painelDaCampanha): Response
     {
         $quem = $this->solicitante();
         $voltou = $request->query->get('assinatura') === 'ok' ? $retorno->executar($quem) : null;
@@ -59,6 +60,8 @@ final class ContribuaController extends AbstractController
             // N4 (caixa do pedido) para todos; N7 (painel de pedidos) só é montado para o Master.
             'pedidoDeEspaco' => $pedidoDeEspaco->executar($quem),
             'painelDePedidos' => $quem->ehMaster ? $pedidosDoMaster->executar($quem) : null,
+            // Painel do modo campanha (BlueJus Black): só o Master.
+            'painelDaCampanha' => $quem->ehMaster ? $painelDaCampanha->executar() : null,
         ]);
     }
 

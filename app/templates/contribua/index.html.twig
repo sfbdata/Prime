@@ -10,6 +10,7 @@
 
 {% block body %}
 {% set p = pagina %}
+{% set cp = campanha() %}
 <div class="ct-pagina"
      data-contribua
      data-csrf="{{ csrf_token('contribua') }}"
@@ -51,6 +52,18 @@
         </div>
     </section>
 
+    {# Modo campanha "BlueJus Black": faixa do desenho entre a Apresentação e o Convênio. O botão abre a janela (contribua-campanha.js). #}
+    {% if cp and cp.mostrarFaixa %}
+    <section id="black" class="cp-faixa" data-screen-label="Campanha">
+        <div class="cp-faixa-texto">
+            <div class="cp-faixa-linha"><span class="cp-faixa-selo">{{ cp.chamadaSelo }}</span><span class="cp-faixa-status">{{ cp.statusTexto }}</span></div>
+            <div class="cp-faixa-titulo">{{ cp.nome }}: Desafio de <span>{{ cp.preco }}</span>. Não gostou? Devolvemos <span>{{ cp.devolve }}</span>.</div>
+            <div class="cp-faixa-sub">O BlueJus continua gratuito. O Desafio é opcional: um convite para usar de verdade, com acompanhamento da equipe.</div>
+        </div>
+        <button type="button" class="cp-faixa-botao" data-campanha-abrir><i class="bi bi-lightning-charge-fill"></i>{{ cp.botao }}</button>
+    </section>
+    {% endif %}
+
     {# Convênio OAB: o botão "Ver benefícios" abre o modal que já existe (_convenio_oab). O endereço do sistema na mensagem vem da requisição (D8). #}
     {% set convenio_mensagem = 'Olá! Sou advogado(a) e uso o BlueJus, sistema gratuito de gestão para escritórios de advocacia (prazos, processos, documentos e equipe). Sugiro que a nossa subseção da OAB firme convênio com o BlueJus, para fortalecer o acesso gratuito à tecnologia para os advogados da região. Conheça: ' ~ app.request.schemeAndHttpHost %}
     <section id="convenio" class="ct-convenio">
@@ -72,11 +85,14 @@
             {% for f in [
                 ['O BlueJus é gratuito mesmo?', 'Sim. Para usar o sistema não há mensalidade, período de teste nem cartão de crédito. Todos os recursos ficam liberados para o escritório.'],
                 ['Por que é gratuito?', 'O BlueJus nasceu para aproximar a tecnologia da advocacia. Os convênios com a OAB, a CAA e as subseções, e as contribuições voluntárias de quem quiser apoiar, ajudam a manter o sistema.'],
-                ['Existe alguma coisa paga?', 'Só o espaço extra de armazenamento, para quem passar dos 10 GB e quiser ampliar. É opcional e só aparece quando o escritório solicita ou chega perto do limite.'],
+                ['Existe alguma coisa paga?', 'Só o espaço extra de armazenamento, para quem passar dos 10 GB e quiser ampliar. É opcional e só aparece quando o escritório solicita ou chega perto do limite.' ~ (cp ? cp.faqPago : '')],
                 ['E se o meu espaço acabar?', 'Nada é apagado. Consultar e baixar arquivos continua liberado; apenas novos envios ficam pausados até liberar espaço.'],
                 ['Preciso contribuir para continuar usando?', 'Não. A contribuição por PIX é voluntária e não muda nada no seu acesso.'],
             ] %}
                 <details class="ct-faq"><summary>{{ f[0] }}</summary><div>{{ f[1] }}</div></details>
+                {% if loop.index == 3 and cp and cp.mostrarFaq %}
+                    <details class="ct-faq"><summary>Se o BlueJus é gratuito, por que o Desafio de {{ cp.preco }}?</summary><div>O sistema continua gratuito para todos. O Desafio {{ cp.nome }} é uma ação opcional para quem quer testar a fundo com o apoio da equipe. Se não gostar, você pede a devolução em até {{ cp.prazoPedido }} dias e recebe {{ cp.devolve }}, {{ cp.multTx }} do que pagou, sem precisar justificar. <a href="#black" data-campanha-abrir>Ver as regras completas</a>.</div></details>
+                {% endif %}
             {% endfor %}
         </div>
     </section>
@@ -327,6 +343,9 @@
         <a href="mailto:bluejus.86@gmail.com"><i class="bi bi-envelope"></i>bluejus.86@gmail.com</a>
         <a href="https://wa.me/556141049958" target="_blank" rel="noopener" class="ct-suporte-whats"><i class="bi bi-whatsapp"></i>(61) 4104-9958</a>
     </section>
+
+    {# Modo campanha, só Master (painelDaCampanha vem do controller): depois do Suporte e antes da Integração bancária. #}
+    {% if painelDaCampanha is defined and painelDaCampanha is not null %}{% include 'contribua/campanha/_painel.html.twig' with {painel: painelDaCampanha} only %}{% endif %}
 
     {# Integração bancária (API), só Master: C4 (sessão 4b). Parcial próprio, com JS e CSS próprios. #}
     {% if p.ehMaster %}{% include 'contribua/_integracao_bancaria.html.twig' ignore missing %}{% endif %}

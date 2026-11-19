@@ -418,3 +418,49 @@ pasta_show:
             criar: Create goal
             enviando: Sending…
             erro_criar: Error creating goal.
+        destaque:
+            # pasta-destaque.js
+            destacar: 'Highlight'
+            remover: 'Remove highlight'
+            destacar_cor: 'Highlight · {cor}'
+            paleta: 'Highlight color'
+            titulo: 'Highlight comment'
+            sem_cor: 'No color'
+            erro_salvar: 'Could not save the highlight.'
+            removido: 'Highlight removed'
+            destacado: 'Comment highlighted in {cor}'
+            desfeito_autor: 'Comment highlighted in {cor}. The previous highlight (comment by {autor}) was undone: only the latest highlight on this tab applies.'
+            desfeito: 'Comment highlighted in {cor}. The previous highlight was undone: only the latest highlight on this tab applies.'
+        show:
+            # pasta-show.js
+            fechar_esc: 'Close (Esc)'
+            link_copiado: 'Link copied'
+            copiar_falhou: 'Could not copy'
+            teor_falhou: 'Could not load the full text. Try again.'
+        presenca:
+            # pasta-presenca-autor.js
+            disponivel: 'Available'
+            ocupado: 'Busy'
+            ausente: 'Away'
+            offline: 'Offline'
+            hoje: 'today'
+            dia_hora: '{dia} at {hora}'
+            visto: 'last seen {quando}'
+            sem_atividade: 'no recent activity'
+            desde: 'since {hora}'
+            online_agora: 'online now'
+            dica_eu: 'click to change in AI Chat'
+            dica_outro: 'set in AI Chat'
+        apensado:
+            # pasta-apensado.js
+            aviso: 'Related case linked · shown in Case, Matter Details and Case Push'
+            vincular: 'Link related case'
+            confirmar: 'Unlink this related case from the matter?'
+            desvincular_titulo: 'Unlink related case'
+            desvincular: 'Unlink'
+            erro: 'Error unlinking the related case.'
+            erro_comunicacao: 'Communication error. Try again.'
+        duplicados:
+            # pasta-clientes-duplicados.js
+            dica: 'Another linked client has the same {doc}'
+            selo: 'Duplicate {doc}'

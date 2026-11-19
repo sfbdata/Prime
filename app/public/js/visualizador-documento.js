@@ -236,7 +236,6 @@
        volta a ser o pako original. O teto é o tamanho da página que está sendo decodificada
        (`orcamentoInflateTiff`, posto pelo renderTiff antes de cada decodeImage). */
     let orcamentoInflateTiff = 0;
-    const MSG_TIFF_GRANDE = 'Imagem grande demais para pré-visualizar. Baixe para abrir.';
 
     function pakoComTeto(pako) {
         return {
@@ -246,7 +245,7 @@
                 let total = 0;
                 inf.onData = function (pedaco) {
                     total += pedaco.length;
-                    if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }
+                    if (total > orcamentoInflateTiff) { throw falha(T('tiff_grande')); }
                     partes.push(pedaco);
                 };
                 inf.onEnd = function () { /* o resultado é o das partes */ };
@@ -339,6 +338,9 @@
         return decodificar(bytes, false);
     }
 
+    /* Texto do catálogo na hora do uso (comum.js.visualizador): este script pode carregar antes do bj-traducao.js. */
+    function T(chave, params) { return BJ_T.t('comum.js.visualizador.' + chave, params); }
+
     /** Erro com mensagem que PODE ir para a tela (o abrir() mostra vdMensagem). */
     function falha(mensagem) {
         const e = new Error(mensagem);
@@ -370,7 +372,6 @@
 
     /* ----------------------------------------------- ZIP (nativo) ------ */
 
-    const MSG_ZIP_INVALIDO = 'O arquivo não é um ZIP válido, está corrompido ou protegido por senha.';
 
     /* Metade alta do CP850 (página OEM do Windows em português): nome de
        entrada sem a flag UTF-8 que também não é UTF-8 válido. */
@@ -462,7 +463,7 @@
      * índice, não o quanto se aceita carregar.
      */
     function lerZip(bytes, mensagemInvalido) {
-        const invalido = mensagemInvalido || MSG_ZIP_INVALIDO;
+        const invalido = mensagemInvalido || T('zip_invalido');
         const n = bytes.length;
         let eocd = -1;
         for (let p = n - 22; p >= 0 && p >= n - 22 - 0xffff; p--) {
@@ -520,7 +521,7 @@
     /** Descompacta deflate com teto: passou do teto, cancela e falha (zip bomb). */
     async function inflar(dados, teto) {
         if (typeof DecompressionStream === 'undefined') {
-            throw falha('Este navegador não consegue abrir este formato. Baixe o arquivo para abrir.');
+            throw falha(T('sem_suporte_formato'));
         }
         const ds = new DecompressionStream('deflate-raw');
         const escritor = ds.writable.getWriter();
@@ -535,7 +536,7 @@
             total += r.value.length;
             if (total > teto) {
                 leitor.cancel().catch(function () { /* já encerrado */ });
-                throw falha('O conteúdo descompactado é grande demais para pré-visualizar. Baixe para abrir.');
+                throw falha(T('descompactado_grande'));
             }
             partes.push(r.value);
         }
@@ -546,17 +547,17 @@
     }
 
     async function extrairEntrada(bytes, entrada, teto) {
-        if (entrada.criptografado) { throw falha('O arquivo está protegido por senha. Baixe para abrir.'); }
+        if (entrada.criptografado) { throw falha(T('protegido_arquivo')); }
         const p = entrada.offsetLocal;
-        if (p + 30 > bytes.length || lerU32(bytes, p) !== 0x04034b50) { throw falha(MSG_ZIP_INVALIDO); }
+        if (p + 30 > bytes.length || lerU32(bytes, p) !== 0x04034b50) { throw falha(T('zip_invalido')); }
         const inicio = p + 30 + lerU16(bytes, p + 26) + lerU16(bytes, p + 28);
         const dados = bytes.subarray(inicio, inicio + entrada.comprimido);
-        if (dados.length < entrada.comprimido) { throw falha(MSG_ZIP_INVALIDO); }
+        if (dados.length < entrada.comprimido) { throw falha(T('zip_invalido')); }
         if (entrada.metodo === 0) {
-            if (dados.length > teto) { throw falha('O conteúdo descompactado é grande demais para pré-visualizar. Baixe para abrir.'); }
+            if (dados.length > teto) { throw falha(T('descompactado_grande')); }
             return dados;
         }
-        if (entrada.metodo !== 8) { throw falha('O arquivo usa uma compressão que a pré-visualização não lê. Baixe para abrir.'); }
+        if (entrada.metodo !== 8) { throw falha(T('compressao')); }
         return inflar(dados, teto);
     }
 
@@ -783,7 +784,7 @@
      * → { texto, cortado }
      */
     function rtfParaTexto(fonte, limite) {
-        if (!/^\s*\{\\rtf/.test(fonte)) { throw falha('O arquivo não parece ser um RTF válido.'); }
+        if (!/^\s*\{\\rtf/.test(fonte)) { throw falha(T('rtf_invalido')); }
         let codepage = 'windows-1252';
         const pilha = [];
         let estado = { ignorar: false, uc: 1 };
@@ -875,7 +876,6 @@
        (Clx, no stream 0Table/1Table) aponta. Assim não entram nome de fonte, estilo nem
        metadado. Nada é descompactado (o .doc não comprime o texto): o teto é o de bytes baixados
        e o de caracteres exibidos; as cadeias de setores têm guarda de laço. */
-    const MSG_DOC_INVALIDO = 'O arquivo não parece ser um documento .doc válido (ou está corrompido).';
     const FIM_DE_CADEIA    = 0xfffffffa; // daqui para cima: ENDOFCHAIN, FREESECT, FATSECT, DIFSECT
 
     /**
@@ -999,14 +999,14 @@
      * caracteres. → { texto, cortado }
      */
     function textoDoDoc(bytes, limite) {
-        const invalido = MSG_DOC_INVALIDO;
+        const invalido = T('doc_invalido');
         const cfb = lerCfb(bytes, invalido);
         const wd = cfb.stream('WordDocument');
         if (!wd || wd.length < 64 || lerU16(wd, 0) !== 0xa5ec) { throw falha(invalido); }
         const flags = lerU16(wd, 0x0a);
-        if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
+        if (flags & 0x0100) { throw falha(T('protegido_doc')); }
         if (lerU16(wd, 2) < 0xc1) {
-            throw falha('Este .doc é de uma versão do Word anterior à 97, que a pré-visualização não lê. Baixe para abrir.');
+            throw falha(T('doc_antigo'));
         }
 
         /* FIB: base (32 bytes) → fibRgW (csw × 2) → fibRgLw (cslw × 4) → fibRgFcLcb (pares fc/lcb). */
@@ -1185,7 +1185,7 @@
         const topo = separarMime(bruto);
         const c = topo.cabecalhos;
         if (!('from' in c) && !('subject' in c) && !('date' in c) && !('to' in c)) {
-            throw falha('O arquivo não parece ser um e-mail (.eml) válido.');
+            throw falha(T('eml_invalido'));
         }
         const acc = { texto: null, html: null, anexos: [] };
         lerParteMime(bruto, 0, acc);
@@ -1267,11 +1267,11 @@
         const div = el('div', 'p-5 text-center text-muted w-100');
         div.setAttribute('data-vd-sem-conteudo', ''); // DOC-108: não há o que imprimir
         div.appendChild(el('i', 'bi bi-file-earmark display-1 d-block mb-3'));
-        div.appendChild(el('p', null, mensagem || 'Pré-visualização não disponível para este tipo de arquivo.'));
+        div.appendChild(el('p', null, mensagem || T('nao_disponivel')));
         const a = el('a', 'btn btn-primary');
         a.href = urlDownload;
         a.appendChild(el('i', 'bi bi-download me-1'));
-        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        a.appendChild(document.createTextNode(' ' + T('baixar')));
         div.appendChild(a);
         return div;
     }
@@ -1287,12 +1287,12 @@
         const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();
         const div = el('div', 'p-5 text-center text-muted w-100');
         div.appendChild(el('i', 'bi bi-patch-check-fill display-1 d-block mb-3 text-success'));
-        div.appendChild(el('p', 'fw-bold mb-1', nome || 'Assinatura digital'));
-        div.appendChild(el('p', null, 'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'));
+        div.appendChild(el('p', 'fw-bold mb-1', nome || T('assinatura')));
+        div.appendChild(el('p', null, T('assinatura_envelope', { info: ext + (tam ? ', ' + tam : '') })));
         const a = el('a', 'btn btn-primary');
         a.href = urlDownload;
         a.appendChild(el('i', 'bi bi-download me-1'));
-        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        a.appendChild(document.createTextNode(' ' + T('baixar')));
         div.appendChild(a);
         return div;
     }
@@ -1311,7 +1311,7 @@
         const a = el('a', 'btn btn-primary');
         a.href = urlDownload;
         a.appendChild(el('i', 'bi bi-download me-1'));
-        a.appendChild(document.createTextNode(' Baixar arquivo'));
+        a.appendChild(document.createTextNode(' ' + T('baixar')));
         div.appendChild(a);
         return div;
     }
@@ -1333,14 +1333,14 @@
         const rotulo = partes.length ? ' (' + partes.join(', ') + ')' : '';
         if (EXT_COMPACTADO.includes(ext)) {
             return blocoAviso('bi-file-earmark-zip-fill', '#b7791f', o.nome,
-                'Arquivo ' + ext.toUpperCase() + (tam ? ' (' + tam + ')' : '') + '. O navegador não abre este formato.', o.urlDownload);
+                T('sem_viz_compactado', { ext: ext.toUpperCase(), tam: tam ? ' (' + tam + ')' : '' }), o.urlDownload);
         }
         if (EXT_MICROSOFT_ANTIGO.includes(ext)) {
             return blocoAviso(ext === 'msg' ? 'bi-envelope-paper-fill' : 'bi-file-earmark-slides-fill', '#c0571d', o.nome,
-                'Formato antigo da Microsoft' + rotulo + '. O navegador não lê este formato.', o.urlDownload);
+                T('sem_viz_microsoft', { rotulo: rotulo }), o.urlDownload);
         }
         return blocoAviso('bi-file-earmark', '#6b8494', o.nome,
-            'Este tipo de arquivo' + rotulo + ' não tem visualização. Use Baixar.', o.urlDownload);
+            T('sem_viz_outro', { rotulo: rotulo }), o.urlDownload);
     }
 
     function blocoCarregando(nome) {
@@ -1349,7 +1349,7 @@
         sp.setAttribute('role', 'status');
         sp.setAttribute('aria-hidden', 'true');
         div.appendChild(sp);
-        div.appendChild(document.createTextNode('Abrindo ' + (nome || 'arquivo') + '…'));
+        div.appendChild(document.createTextNode(T('abrindo', { nome: nome || T('abrindo_arquivo') })));
         return div;
     }
 
@@ -1379,8 +1379,8 @@
             if (!vivo()) { return; }
             const ehHeic = MIMES_HEIC.includes(o.mime.toLowerCase()) || EXT_HEIC.includes(extensao(o.nome));
             trocar(alvo, ehHeic
-                ? blocoAviso('bi-image', '#7a4bb0', o.nome, 'Imagem HEIC (iPhone). Este navegador não abre esse formato. Use Baixar.', o.urlDownload)
-                : blocoNaoDisponivel(o.urlDownload, 'Não foi possível abrir a pré-visualização deste arquivo.'));
+                ? blocoAviso('bi-image', '#7a4bb0', o.nome, T('heic'), o.urlDownload)
+                : blocoNaoDisponivel(o.urlDownload, T('erro_abrir')));
         }, { once: true });
         img.src = o.url;
         img.className = 'img-fluid d-block mx-auto p-3';
@@ -1403,7 +1403,7 @@
         src.type = o.mime;
         au.appendChild(src);
         if (o.textoSemSuporteMidia) {
-            au.appendChild(document.createTextNode('Seu navegador não suporta reprodução de áudio.'));
+            au.appendChild(document.createTextNode(T('audio')));
         }
         div.appendChild(au);
         alvo.appendChild(div);
@@ -1419,7 +1419,7 @@
         src.type = o.mime;
         v.appendChild(src);
         if (o.textoSemSuporteMidia) {
-            v.appendChild(document.createTextNode('Seu navegador não suporta reprodução de vídeo.'));
+            v.appendChild(document.createTextNode(T('video')));
         }
         alvo.appendChild(v);
     }
@@ -1428,7 +1428,7 @@
         const [mammoth, arq] = await Promise.all([carregarBiblioteca('mammoth'), baixar(o.url, LIMITE_BYTES_DOCX, false, o.sinal)]);
         if (!vivo()) { return; }
         if (!arq.bytes || arq.truncado) {
-            trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'Arquivo grande demais para pré-visualizar. Baixe para abrir.'));
+            trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande')));
             return;
         }
         /* Imagens: mammoth já embute como data: por padrão (e a CSP só aceita data:). */
@@ -1446,7 +1446,7 @@
         const [XLSX, arq] = await Promise.all([carregarBiblioteca('xlsx'), baixar(o.url, LIMITE_BYTES_PLANILHA, false, o.sinal)]);
         if (!vivo()) { return; }
         if (!arq.bytes || arq.truncado) {
-            trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'Arquivo grande demais para pré-visualizar. Baixe para abrir.'));
+            trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande')));
             return;
         }
         /* Lê UMA linha a mais que o limite: é assim que se sabe que houve corte
@@ -1459,7 +1459,7 @@
 
         const nomes = wb.SheetNames || [];
         if (!nomes.length) {
-            trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'A planilha não tem abas para mostrar.'));
+            trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('planilha_sem_abas')));
             return;
         }
 
@@ -1482,7 +1482,7 @@
             quadro.replaceChildren();
 
             if (!ws || !ws['!ref']) {
-                quadro.appendChild(el('div', 'p-4 text-center text-muted', 'Aba vazia.'));
+                quadro.appendChild(el('div', 'p-4 text-center text-muted', T('aba_vazia')));
                 return;
             }
             const faixa      = XLSX.utils.decode_range(ws['!ref']);
@@ -1500,13 +1500,14 @@
 
             const partes = [];
             if (cortouLinhas) {
-                partes.push('Mostrando as primeiras ' + LIMITE_LINHAS_PLANILHA.toLocaleString('pt-BR') + ' linhas'
-                    + (totalLinhas ? ' de ' + totalLinhas.toLocaleString('pt-BR') : '') + '.');
+                partes.push(totalLinhas
+                    ? T('planilha_linhas_de', { n: LIMITE_LINHAS_PLANILHA.toLocaleString('pt-BR'), total: totalLinhas.toLocaleString('pt-BR') })
+                    : T('planilha_linhas', { n: LIMITE_LINHAS_PLANILHA.toLocaleString('pt-BR') }));
             }
             if (cortouColunas) {
-                partes.push('Mostrando as primeiras ' + LIMITE_COLUNAS_PLANILHA + ' colunas de ' + totalColunas + '.');
+                partes.push(T('planilha_colunas', { n: LIMITE_COLUNAS_PLANILHA, total: totalColunas }));
             }
-            if (partes.length) { avisoEl.appendChild(aviso(partes.join(' ') + ' Baixe o arquivo para ver tudo.')); }
+            if (partes.length) { avisoEl.appendChild(aviso(partes.join(' ') + ' ' + T('planilha_baixar_tudo'))); }
 
             quadro.appendChild(criarIframe(montarSrcdoc(neutralizar(tabela), CSS_PLANILHA), nomeAba));
         }
@@ -1546,7 +1547,7 @@
         }
         const wrap = el('div', 'vd-texto-area w-100');
         if (arq.truncado) {
-            wrap.appendChild(aviso('Mostrando o primeiro 1 MB do arquivo. Baixe para ver tudo.'));
+            wrap.appendChild(aviso(T('texto_primeiro_mb')));
         }
         const pre = el('pre', 'vd-texto');
         pre.textContent = texto;
@@ -1554,7 +1555,6 @@
         trocar(alvo, wrap);
     }
 
-    const MSG_GRANDE = 'Arquivo grande demais para pré-visualizar. Baixe para abrir.';
 
     /** Folha clara montada só com nós + textContent (nenhuma string do arquivo vira HTML). */
     function folha(classeExtra) {
@@ -1569,7 +1569,7 @@
         const manifesto = acharEntrada(entradas, 'META-INF/manifest.xml');
         if (!manifesto) { return; }
         const m = new TextDecoder('utf-8').decode(await extrairEntrada(bytes, manifesto, LIMITE_BYTES_XML_ZIP));
-        if (/encryption-data/.test(m)) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }
+        if (/encryption-data/.test(m)) { throw falha(T('protegido_doc')); }
     }
 
     /** Cartões de slide (PPTX e ODP), só nós + textContent. */
@@ -1577,17 +1577,17 @@
     function blocoSlides(slides, total, textoCortado) {
         const wrap = el('div', 'vd-slides-area w-100');
         const cortou = slides.length < total;
-        wrap.appendChild(aviso('Mostrando só o texto dos slides, sem imagens nem formatação.'
-            + (cortou ? ' Aparecem os ' + slides.length + ' primeiros de ' + total + ' slides.' : '')
-            + (textoCortado ? ' O texto é longo: só o começo aparece aqui.' : '')
-            + (cortou || textoCortado ? ' Baixe para ver tudo.' : '')));
+        wrap.appendChild(aviso(T('slides_aviso')
+            + (cortou ? ' ' + T('slides_cortou', { n: slides.length, total: total }) : '')
+            + (textoCortado ? ' ' + T('texto_longo') : '')
+            + (cortou || textoCortado ? ' ' + T('baixar_tudo') : '')));
         const lista = el('div', 'vd-slides');
         slides.forEach(function (s, i) {
             const card = el('section', 'vd-slide');
-            card.setAttribute('aria-label', 'Slide ' + (i + 1));
-            card.appendChild(el('div', 'vd-slide-numero', 'Slide ' + (i + 1) + ' de ' + total + (s.oculto ? ' · oculto' : '')));
+            card.setAttribute('aria-label', T('slide_n', { n: i + 1 }));
+            card.appendChild(el('div', 'vd-slide-numero', T('slide_de', { n: i + 1, total: total }) + (s.oculto ? ' · ' + T('slide_oculto') : '')));
             if (!s.linhas.length) {
-                card.appendChild(el('p', 'vd-vazio', 'Slide sem texto.'));
+                card.appendChild(el('p', 'vd-vazio', T('slide_sem_texto')));
             }
             s.linhas.forEach(function (l, j) {
                 card.appendChild(el(j === 0 ? 'h3' : 'p', j === 0 ? 'vd-slide-titulo' : null, l));
@@ -1601,9 +1601,9 @@
     async function renderOdt(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_ODT, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
-        const invalido = 'O arquivo não parece ser um documento ODT válido (ou está corrompido).';
+        const invalido = T('odt_invalido');
         const entradas = lerZip(arq.bytes, invalido);
         await recusarOdfComSenha(arq.bytes, entradas);
         const conteudo = acharEntrada(entradas, 'content.xml');
@@ -1613,11 +1613,11 @@
 
         const r = paragrafosOdt(doc, LIMITE_CARACTERES);
         const wrap = el('div', 'vd-documento w-100');
-        wrap.appendChild(aviso('Mostrando só o texto do documento, sem formatação nem imagens.'
-            + (r.cortado ? ' O documento é longo: só o começo aparece aqui. Baixe para ver tudo.' : '')));
+        wrap.appendChild(aviso(T('odt_aviso')
+            + (r.cortado ? ' ' + T('doc_longo') : '')));
         const fl = folha();
         if (!r.blocos.some(function (b) { return b.texto.trim(); })) {
-            fl.folha.appendChild(el('p', 'vd-vazio', 'Documento sem texto.'));
+            fl.folha.appendChild(el('p', 'vd-vazio', T('sem_texto')));
         }
         r.blocos.forEach(function (b) {
             const tag = b.titulo ? 'h' + Math.min(6, b.titulo + 1) : 'p';
@@ -1630,9 +1630,9 @@
     async function renderPptx(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_PPTX, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
-        const invalido = 'O arquivo não parece ser uma apresentação PPTX válida, está corrompido ou protegido por senha.';
+        const invalido = T('pptx_invalido');
         const entradas = lerZip(arq.bytes, invalido);
         const ordem = await ordemDosSlides(arq.bytes, entradas);
         if (!vivo()) { return; }
@@ -1659,9 +1659,9 @@
     async function renderOdp(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_ODP, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
-        const invalido = 'O arquivo não parece ser uma apresentação ODP válida (ou está corrompido).';
+        const invalido = T('odp_invalido');
         const entradas = lerZip(arq.bytes, invalido);
         await recusarOdfComSenha(arq.bytes, entradas);
         const conteudo = acharEntrada(entradas, 'content.xml');
@@ -1680,10 +1680,10 @@
         if (!vivo()) { return; }
         const r = rtfParaTexto(bytesParaBinario(arq.bytes), LIMITE_CARACTERES);
         const wrap = el('div', 'vd-documento w-100');
-        wrap.appendChild(aviso('Mostrando só o texto do RTF, sem formatação nem imagens.'
-            + (arq.truncado || r.cortado ? ' O arquivo é longo: só o começo aparece aqui. Baixe para ver tudo.' : '')));
+        wrap.appendChild(aviso(T('rtf_aviso')
+            + (arq.truncado || r.cortado ? ' ' + T('arquivo_longo') : '')));
         const fl = folha('vd-folha-pre');
-        fl.folha.textContent = r.texto || 'Documento sem texto.';
+        fl.folha.textContent = r.texto || T('sem_texto');
         wrap.appendChild(fl.fundo);
         trocar(alvo, wrap);
     }
@@ -1708,7 +1708,7 @@
         const u32 = function (p) {
             return le ? lerU32(bytes, p) : (((bytes[p] << 24) | (bytes[p + 1] << 16) | (bytes[p + 2] << 8) | bytes[p + 3]) >>> 0);
         };
-        if (u16(2) !== 42) { throw falha('Este TIFF usa um formato (BigTIFF) que a pré-visualização não lê. Baixe para abrir.'); }
+        if (u16(2) !== 42) { throw falha(T('tiff_bigtiff')); }
 
         const vistos = new Set();
         function ifd(off, profundidade) {
@@ -1726,7 +1726,7 @@
                 const valor = tamanho > 4 ? u32(e + 8) : e + 8;
                 if (valor + tamanho > bytes.length) { throw falha(invalido); }
                 if (tag === 50740 || (tag === 37500 && qtd >= 5 && String.fromCharCode.apply(null, bytes.subarray(valor, valor + 5)) === 'Nikon')) {
-                    throw falha('Este TIFF traz dados de câmera que a pré-visualização não lê. Baixe para abrir.');
+                    throw falha(T('tiff_camera'));
                 }
                 if ((tag === 330 || tag === 34665) && (tipo === 3 || tipo === 4)) { // o UTIF só segue SHORT/LONG
                     for (let j = 0; j < qtd; j++) {
@@ -1774,7 +1774,7 @@
        por pixel não é TIFF que o visor abra. */
     function bytesDaPaginaTiff(d, w, h) {
         const bits = d.t258 ? Math.min(32, d.t258[0]) * d.t258.length : ((d.t277 || [1])[0] || 1);
-        if (!(bits > 0) || bits > 64) { throw falha('Este TIFF usa um formato de cor que a pré-visualização não lê. Baixe para abrir.'); }
+        if (!(bits > 0) || bits > 64) { throw falha(T('tiff_cor')); }
         return (Math.ceil(w * bits / 8) + 8) * h;
     }
 
@@ -1786,7 +1786,7 @@
 
     /** RGBA → canvas, reduzido a LARGURA_MAX_TIFF (o original some depois de copiado). */
     function paginaTiffEmCanvas(rgba, w, h, numero, total) {
-        if (!rgba || rgba.length < w * h * 4) { throw falha('O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).'); }
+        if (!rgba || rgba.length < w * h * 4) { throw falha(T('tiff_invalido')); }
         let c = document.createElement('canvas');
         c.width = w;
         c.height = h;
@@ -1803,9 +1803,9 @@
             c = r;
         }
         c.className = 'vd-tiff-pagina';
-        c.title = 'Página ' + numero;
+        c.title = T('pagina_n', { n: numero });
         c.setAttribute('role', 'img');
-        c.setAttribute('aria-label', 'Página ' + numero + ' de ' + total);
+        c.setAttribute('aria-label', T('pagina_de', { n: numero, total: total }));
         // bj-visualizar.js L66: página branca com sombra, na largura disponível.
         c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';
         return c;
@@ -1817,9 +1817,9 @@
     async function renderTiff(alvo, o, vivo) {
         const [UTIF, arq] = await Promise.all([carregarUtif(), baixar(o.url, LIMITE_BYTES_TIFF, false, o.sinal)]);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
-        const invalido = 'O arquivo não parece ser uma imagem TIFF válida (ou está corrompido).';
+        const invalido = T('tiff_invalido');
         const buf = arq.bytes.buffer.slice(arq.bytes.byteOffset, arq.bytes.byteOffset + arq.bytes.byteLength);
         conferirTiff(arq.bytes, invalido);
         let ifds;
@@ -1862,9 +1862,9 @@
             await new Promise(function (ok) { setTimeout(ok, 0); });
             if (!vivo()) { return; }
         }
-        if (!desenhadas) { throw falha(MSG_TIFF_GRANDE); }
+        if (!desenhadas) { throw falha(T('tiff_grande')); }
         if (desenhadas < total) {
-            wrap.insertBefore(aviso('Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'), lista);
+            wrap.insertBefore(aviso(T('tiff_paginas', { n: desenhadas, total: total })), lista);
         }
     }
 
@@ -1873,17 +1873,17 @@
     async function renderDoc(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
         const r = textoDoDoc(arq.bytes, LIMITE_CARACTERES);
         const wrap = el('div', 'vd-documento w-100');
         const fl = folha();
-        const faixa = el('div', 'vd-faixa-doc', 'Formato antigo do Word (.doc): mostrando só o texto.'
-            + (r.cortado ? ' O documento é longo: só o começo aparece aqui. Baixe para ver tudo.' : ''));
+        const faixa = el('div', 'vd-faixa-doc', T('doc_faixa')
+            + (r.cortado ? ' ' + T('doc_longo') : ''));
         faixa.setAttribute('role', 'note');
         faixa.style.cssText = 'background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px';
         fl.folha.appendChild(faixa);
-        fl.folha.appendChild(r.texto ? el('div', 'vd-folha-pre', r.texto) : el('p', 'vd-vazio', 'Documento sem texto.'));
+        fl.folha.appendChild(r.texto ? el('div', 'vd-folha-pre', r.texto) : el('p', 'vd-vazio', T('sem_texto')));
         wrap.appendChild(fl.fundo);
         trocar(alvo, wrap);
     }
@@ -1901,20 +1901,20 @@
     async function renderEml(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_EML, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
         const m = lerEml(arq.bytes);
         const wrap = el('div', 'vd-email w-100');
         const cab = el('div', 'vd-email-cabecalho');
-        cab.appendChild(el('div', 'vd-email-assunto', m.assunto || '(sem assunto)'));
+        cab.appendChild(el('div', 'vd-email-assunto', m.assunto || T('email_sem_assunto')));
         const dl = el('dl', 'vd-email-campos');
         const data = m.data ? new Date(m.data) : null;
-        linhaCabecalhoEmail(dl, 'De', m.de);
-        linhaCabecalhoEmail(dl, 'Para', m.para);
-        linhaCabecalhoEmail(dl, 'Cc', m.cc);
-        linhaCabecalhoEmail(dl, 'Data', data && !isNaN(data.getTime()) ? data.toLocaleString('pt-BR') : m.data);
+        linhaCabecalhoEmail(dl, T('email_de'), m.de);
+        linhaCabecalhoEmail(dl, T('email_para'), m.para);
+        linhaCabecalhoEmail(dl, T('email_cc'), m.cc);
+        linhaCabecalhoEmail(dl, T('email_data'), data && !isNaN(data.getTime()) ? data.toLocaleString('pt-BR') : m.data);
         if (m.anexos.length) {
-            linhaCabecalhoEmail(dl, 'Anexos', m.anexos.map(function (a) {
+            linhaCabecalhoEmail(dl, T('email_anexos'), m.anexos.map(function (a) {
                 return a.nome + ' (' + formatarTamanho(a.tamanho) + ')';
             }).join(', '));
         }
@@ -1923,7 +1923,7 @@
 
         if (m.texto !== null) {
             const cortado = m.texto.length > LIMITE_CARACTERES;
-            if (cortado) { wrap.appendChild(aviso('O e-mail é longo: só o começo aparece aqui. Baixe para ver tudo.')); }
+            if (cortado) { wrap.appendChild(aviso(T('email_longo'))); }
             const pre = el('pre', 'vd-email-corpo');
             pre.textContent = cortado ? m.texto.slice(0, LIMITE_CARACTERES) : m.texto;
             wrap.appendChild(pre);
@@ -1942,7 +1942,7 @@
     async function renderZip(alvo, o, vivo) {
         const arq = await baixar(o.url, LIMITE_BYTES_ZIP, false, o.sinal);
         if (!vivo()) { return; }
-        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, MSG_GRANDE)); return; }
+        if (!arq.bytes || arq.truncado) { trocar(alvo, blocoNaoDisponivel(o.urlDownload, T('grande'))); return; }
 
         /* Só o diretório central: nada é descompactado. */
         const entradas = lerZip(arq.bytes);
@@ -1951,23 +1951,21 @@
         const protegidos = arquivos.some(function (e) { return e.criptografado; });
 
         const wrap = el('div', 'vd-zip w-100');
-        wrap.appendChild(aviso(arquivos.length.toLocaleString('pt-BR') + ' arquivo(s) · '
-            + formatarTamanho(total) + ' descompactado(s). Conteúdo listado, não extraído'
-            + (protegidos ? '; há itens protegidos por senha' : '') + '.'
-            + (entradas.length > LIMITE_ENTRADAS_ZIP ? ' Mostrando as primeiras ' + LIMITE_ENTRADAS_ZIP.toLocaleString('pt-BR')
-                + ' de ' + entradas.length.toLocaleString('pt-BR') + ' entradas.' : '')));
+        wrap.appendChild(aviso(T('zip_resumo', { n: arquivos.length.toLocaleString('pt-BR'), tamanho: formatarTamanho(total) })
+            + (protegidos ? '; ' + T('zip_protegidos') : '') + '.'
+            + (entradas.length > LIMITE_ENTRADAS_ZIP ? ' ' + T('zip_limite', { n: LIMITE_ENTRADAS_ZIP.toLocaleString('pt-BR'), total: entradas.length.toLocaleString('pt-BR') }) : '')));
 
         const area = el('div', 'vd-zip-area');
         const tabela = el('table', 'vd-zip-tabela');
         const thead = el('thead');
         const trh = el('tr');
-        ['Nome', 'Tamanho', 'Modificado em'].forEach(function (t) { trh.appendChild(el('th', null, t)); });
+        [T('zip_nome'), T('zip_tamanho'), T('zip_modificado')].forEach(function (t) { trh.appendChild(el('th', null, t)); });
         thead.appendChild(trh);
         tabela.appendChild(thead);
         const tbody = el('tbody');
         if (!entradas.length) {
             const tr = el('tr');
-            const td = el('td', 'vd-vazio', 'O ZIP está vazio.');
+            const td = el('td', 'vd-vazio', T('zip_vazio'));
             td.colSpan = 3;
             tr.appendChild(td);
             tbody.appendChild(tr);
@@ -2124,7 +2122,7 @@
             /* Falha com mensagem própria (senha, corrompido, zip bomb…) vai
                para a tela; o resto fica com a genérica. */
             trocar(alvo, blocoNaoDisponivel(o.urlDownload, (erro && erro.vdMensagem)
-                || 'Não foi possível abrir a pré-visualização deste arquivo.'));
+                || T('erro_abrir')));
         });
     }
 

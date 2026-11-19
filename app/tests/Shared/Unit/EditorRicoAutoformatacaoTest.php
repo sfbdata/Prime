@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Unit;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class EditorRicoAutoformatacaoTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
     private const QUILL = __DIR__ . '/../../../public/js/quill/quill.js';
 
@@ -120,8 +123,10 @@ final class EditorRicoAutoformatacaoTest extends TestCase
         $auto = $this->funcao('autoFormatar');
 
         self::assertStringContainsString("if (!convertido) { return true; }", $auto, 'sem conversão, o espaço segue para o Quill');
-        self::assertStringContainsString("textoDoChip('bi-magic', [{ texto: 'Formatação automática aplicada' }])", $auto);
-        self::assertStringContainsString("{ rotulo: 'Desfazer', acao: function () {", $auto);
+        self::assertStringContainsString("textoDoChip('bi-magic', [{ texto: T('chip.formatacao_auto') }])", $auto);
+        self::assertStringContainsString("{ rotulo: T('revisao.desfazer'), acao: function () {", $auto);
+        self::assertSame('Formatação automática aplicada', self::ptBr('comum.js.editor.' . 'chip.formatacao_auto'));
+        self::assertSame('Desfazer', self::ptBr('comum.js.editor.' . 'revisao.desfazer'));
         // Desfazer só volta a conversão se ela ainda for o último passo (não apaga digitação nova).
         self::assertStringContainsString('if (pilha && pilha.undo.length === passos) { quill.history.undo(); }', $auto);
         self::assertStringContainsString('], 3600);', $auto, 'mesma duração do chip do desenho');
