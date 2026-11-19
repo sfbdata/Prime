@@ -18,6 +18,8 @@
     --bjc-fundo: #fff;
     --bjc-fundo-corpo: #f3f6f8;
     --bjc-fundo-hover-usuario: #f2f8fb;
+    --bjc-linha-hv: #2b7ab0;          /* realce da linha sob o cursor, Guia visual v30 (texto branco, 4,7:1) */
+    --bjc-linha-hv-barra: #1f6f9c;    /* faixa interna de 4px da linha realçada (master.css .mp-lin) */
     --bjc-separador: #e1e8ed;
     --bjc-separador-texto: #5f7684;
     --bjc-bolha-outro: #fff;
@@ -63,6 +65,8 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-fundo: #1f2a31;
     --bjc-fundo-corpo: #18222a;
     --bjc-fundo-hover-usuario: #26343d;
+    --bjc-linha-hv: #2b7ab0;
+    --bjc-linha-hv-barra: #1f6f9c;
     --bjc-separador: #2c3a43;
     --bjc-separador-texto: #b7c6cf;
     --bjc-bolha-outro: #26343d;
@@ -279,6 +283,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition: background .18s, color .18s;
 }
 
 .bj-central-linha::before {
@@ -302,7 +307,20 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
 
 .bj-central-linha:hover,
 .bj-central-linha:focus-visible {
-    background: rgba(59, 110, 143, .13);   /* COR_CONV + '22' */
+    background: var(--bjc-linha-hv);   /* Guia visual v30: linha inteira azul, texto branco */
+    box-shadow: inset 4px 0 0 var(--bjc-linha-hv-barra);
+    color: #fff;
+}
+
+/* A faixa de 3px da conversa dá lugar à faixa de 4px do realce. */
+.bj-central-linha:hover::before,
+.bj-central-linha:focus-visible::before {
+    opacity: 0;
+}
+
+.bj-central-linha:hover .bj-central-linha-textos *,
+.bj-central-linha:focus-visible .bj-central-linha-textos * {
+    color: #fff;
 }
 
 .bj-central-linha-textos {
@@ -371,7 +389,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: 4px;   /* Guia visual v30: raio 4px, sem pílula */
     background: var(--bjc-conv);
     color: #fff;
     font-size: 11px;
@@ -390,7 +408,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
 
 .bj-central-linha--contato:hover,
 .bj-central-linha--contato:focus-visible {
-    background: var(--bjc-fundo-hover-usuario);
+    background: var(--bjc-linha-hv);
 }
 
 .bj-central-linha--contato .bj-central-nome {
@@ -442,7 +460,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     align-self: center;
     margin: 8px 0 2px;
     padding: 2px 10px;
-    border-radius: 999px;
+    border-radius: 4px;   /* Guia visual v30: raio 4px, sem pílula */
     background: var(--bjc-separador);
     color: var(--bjc-separador-texto);
     font-size: 11px;
@@ -593,6 +611,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     width: 10px;
     height: 10px;
     padding: 0;
+    border-radius: 50%;   /* bolinha de "marcada como não lida": círculo de status, fica redonda (Guia visual v30) */
 }
 
 /* Citação no balão — L6035 */
@@ -879,7 +898,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
 
 .bj-central-sistema {
     padding: 3px 10px;
-    border-radius: 999px;
+    border-radius: 4px;   /* Guia visual v30: raio 4px, sem pílula */
     background: var(--bjc-sistema-fundo);
     color: var(--bjc-sistema-texto);
     font-size: 11.5px;
@@ -1093,7 +1112,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    border-radius: 999px;
+    border-radius: 4px;   /* Guia visual v30: raio 4px, sem pílula */
     background: var(--bjc-azul);
     color: #fff;
     font-size: 10.5px;
@@ -1519,13 +1538,24 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     font-family: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background .15s;
+    transition: background .18s, color .18s;
 }
 
-.bj-central-equipe-linha:hover,
-.bj-central-equipe-linha:focus-visible {
-    background: var(--bjc-menu-hover);
+/* Guia visual v30: linha inteira azul e texto branco. A linha da própria pessoa não é clicável e não acende. */
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):hover,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):focus-visible {
+    background: var(--bjc-linha-hv);
+    box-shadow: inset 4px 0 0 var(--bjc-linha-hv-barra);
     outline: none;
+}
+
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):hover .bj-central-equipe-nome,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):hover .bj-central-equipe-sub,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):hover .bj-central-equipe-conversar,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):focus-visible .bj-central-equipe-nome,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):focus-visible .bj-central-equipe-sub,
+.bj-central-equipe-linha:not(.bj-central-equipe-linha--eu):focus-visible .bj-central-equipe-conversar {
+    color: #fff;
 }
 
 .bj-central-equipe-linha--eu {
@@ -1590,7 +1620,7 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     min-width: 24px;
     height: 22px;
     padding: 0 7px;
-    border-radius: 999px;
+    border-radius: 4px;   /* Guia visual v30: raio 4px, sem pílula */
     font-size: 11.5px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
