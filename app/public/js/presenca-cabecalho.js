@@ -264,7 +264,7 @@
         selo.hidden = n < 1;
         var nomes = ligados.map(function (x) { return primeiroNome(x.m.nome); });
         /* dc 03 L.67: no Expediente a dica é a do desenho (data-tip, a azul); fora dele, a do navegador. */
-        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : ''));
+        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', BJ_T.t('moldura.js.presenca.faixa_online', { n: n }) + (nomes.length ? ': ' + nomes.join(', ') : ''));
         selo.setAttribute('aria-label', BJ_T.t('moldura.js.presenca.quem_online_n', { n: n }));
     }
 
