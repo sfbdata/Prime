@@ -169,7 +169,9 @@ class UnidadeDaAssembleia implements TenantAware
     public function editarCadastro(LinhaDeUnidade $linha): void
     {
         if ($linha->situacao !== $this->situacao) {
-            $this->apta = self::situacaoPermiteVotar($linha->situacao);
+            // Liberada pelo conselho (apta com situação que não vota): a decisão do conselho continua valendo.
+            $peloConselho = $this->apta && !self::situacaoPermiteVotar($this->situacao);
+            $this->apta = $peloConselho || self::situacaoPermiteVotar($linha->situacao);
         }
         $this->identificacao = $linha->identificacao;
         $this->bloco = $linha->bloco;

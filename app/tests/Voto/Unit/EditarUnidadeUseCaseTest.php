@@ -62,6 +62,34 @@ final class EditarUnidadeUseCaseTest extends TestCase
         self::assertTrue($unidade->isApta());
     }
 
+    #[TestDox('Liberada pelo conselho e com a situação trocada por outra que não vota: continua apta')]
+    public function testMantemDecisaoDoConselhoAoTrocarSituacao(): void
+    {
+        [$tenant, $assembleia, $unidade] = $this->cenario('inadimplente');
+        $unidade->tornarAptaPeloConselho();
+        $campos = self::CAMPOS;
+        $campos['situacao'] = 'em acordo';
+
+        $this->caso($tenant, $assembleia, $unidade, expectSalvar: true)->executar($tenant, 7, 5, $campos);
+
+        self::assertTrue($unidade->isApta());
+        self::assertSame('em acordo', $unidade->getSituacao());
+    }
+
+    #[TestDox('Identificação igual a um rótulo de cabeçalho ("Unidade", "Matrícula") é gravada, não pulada')]
+    public function testIdentificacaoComNomeDeCabecalho(): void
+    {
+        foreach (['Unidade', 'Matrícula'] as $nome) {
+            [$tenant, $assembleia, $unidade] = $this->cenario();
+            $campos = self::CAMPOS;
+            $campos['identificacao'] = $nome;
+
+            $this->caso($tenant, $assembleia, $unidade, expectSalvar: true)->executar($tenant, 7, 5, $campos);
+
+            self::assertSame($nome, $unidade->getIdentificacao());
+        }
+    }
+
     #[TestDox('E-mail inválido, fração faltando no peso por fração e unidade repetida são recusados sem gravar')]
     public function testRecusaInvalidos(): void
     {

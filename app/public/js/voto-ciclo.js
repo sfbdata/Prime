@@ -46,7 +46,14 @@
         var ocultar = ev.target.closest('[data-voto-ocultar]');
         if (ocultar) {
             var faixa = ocultar.closest('[data-voto-revelavel]');
-            if (faixa) { faixa.hidden = true; }
+            if (faixa) {
+                faixa.hidden = true;
+                // O foco volta ao botão ⋮ do menu que abriu a faixa (leitor de tela e teclado não se perdem).
+                var origem = faixa.id ? document.querySelector('[data-voto-revelar="#' + faixa.id + '"]') : null;
+                var menu = origem ? origem.closest('[data-voto-menu]') : null;
+                var botao = menu ? menu.querySelector('[data-voto-menu-botao]') : null;
+                if (botao) { botao.focus(); }
+            }
             return;
         }
         var janela = ev.target.closest('[data-voto-janela]');

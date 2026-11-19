@@ -44,14 +44,13 @@ final class EditarUnidadeUseCase
         $assembleia->exigirUnidadesAlteraveis();
         $unidade = $this->unidades->buscarDaAssembleia($unidadeId, $assembleia) ?? throw new AssembleiaNaoEncontradaException();
 
-        $lidas = $this->leitor->lerTabela([[
-            trim($campos['identificacao']), trim($campos['bloco']), trim($campos['situacao']), trim($campos['fracao']),
-            trim($campos['responsavel']), trim($campos['email']), trim($campos['telefone']), '',
-        ]], $assembleia->getPeso());
-        if ([] !== $lidas['invalidas']) {
-            throw new OperacaoInvalidaNaAssembleiaException($lidas['invalidas'][0]['motivo']);
+        if ('' === trim($campos['identificacao'])) {
+            throw new OperacaoInvalidaNaAssembleiaException('Informe a unidade.');
         }
-        $linha = $lidas['validas'][0] ?? throw new OperacaoInvalidaNaAssembleiaException('Informe a unidade.');
+        $linha = $this->leitor->lerUmaLinha([
+            $campos['identificacao'], $campos['bloco'], $campos['situacao'], $campos['fracao'],
+            $campos['responsavel'], $campos['email'], $campos['telefone'], '',
+        ], $assembleia->getPeso());
         foreach ($assembleia->getUnidades() as $outra) {
             if ($outra !== $unidade && LinhaDeUnidade::chaveDe($outra->getBloco(), $outra->getIdentificacao()) === $linha->chave()) {
                 throw new OperacaoInvalidaNaAssembleiaException('Já existe outra unidade com essa identificação e esse bloco.');
