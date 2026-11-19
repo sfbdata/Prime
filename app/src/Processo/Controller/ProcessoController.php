@@ -16,18 +16,12 @@ use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Repository\TarefaRepository;
-use App\Processo\Enum\MotivoFalhaDatajud;
-use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
-use App\Processo\Service\DatajudClient;
-use App\Processo\Service\ConsultasDoCnjGuardadas;
-use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
-use App\Processo\Service\ValidadorNumeroCnj;
+use App\Processo\UseCase\ConsultarProcessoNoCnjUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -62,14 +56,6 @@ class ProcessoController extends AbstractController
     use ResourceAccessTrait;
 
     private const PER_PAGE = 25;
-
-    /**
-     * Acima desta quantidade de processos mais novos do mesmo foro já publicados, o atraso da base
-     * não explica a ausência. Medido em 15/10/2026: processo sigiloso de vara de família com 466
-     * posteriores, arquivado com 1.187, recente com 0. Perto do corte de publicação a base fica
-     * com buracos de poucos processos (um caso real tinha 1), daí a margem.
-     */
-    private const POSTERIORES_PARA_DESCARTAR_ATRASO = 50;
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -317,7 +303,7 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj, ConsultasDoCnjGuardadas $consultasDoCnj): JsonResponse
+    public function datajudSearch(Request $request, PermissionChecker $permissionChecker, ConsultarProcessoNoCnjUseCase $consultarNoCnj): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
@@ -328,108 +314,20 @@ class ProcessoController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        $numeroProcesso = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
-
-        if (!$numeroProcesso) {
-            return $this->erroDatajud('Informe o número do processo para consultar no CNJ.', 400);
+        $resultado = $consultarNoCnj->executar(
+            (string) ($data['numeroProcesso'] ?? ''),
+            $this->tenantContext->getCurrentTenant(),
+            $user,
+            $request->hasSession() ? $request->getSession()->getId() : null,
+        );
+        if (!$resultado->achouOProcesso()) {
+            return $this->erroDatajud((string) $resultado->mensagem, $resultado->statusHttp);
         }
 
-        // O tribunal é derivado do número (padrão CNJ); o usuário não informa a sigla.
-        try {
-            $apiResponse = $datajudClient->searchByNumeroProcesso($numeroProcesso);
+        $response = new JsonResponse(['success' => true, 'data' => $resultado->dados]);
+        $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
 
-            $hits = $apiResponse['hits']['hits'] ?? null;
-            if (!is_array($hits)) {
-                return $this->erroDatajud(
-                    MotivoFalhaDatajud::RespostaInvalida->mensagemUsuario(),
-                    MotivoFalhaDatajud::RespostaInvalida->statusHttp()
-                );
-            }
-
-            if ($hits === []) {
-                return $this->erroDatajud(
-                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj, $datajudClient, $logger),
-                    404
-                );
-            }
-
-            $processData = $hits[0]['_source'] ?? [];
-            $this->guardarConsulta($consultasDoCnj, $request, $user, $numeroProcesso, $processData);
-
-            // Criar um processo temporário para mapping
-            $processo = new Processo();
-            $processo = $mapper->mapFromSource($processo, $processData);
-
-            // Formatar resposta
-            $response = new JsonResponse([
-                'success' => true,
-                'data' => [
-                    'numeroProcesso' => $processo->getNumeroProcesso(),
-                    'orgaoJulgador' => $processo->getOrgaoJulgador(),
-                    // Sigla derivada do número (mesma fonte usada na persistência), garantindo
-                    // consistência com o que será salvo mesmo se a resposta do CNJ omitir o tribunal.
-                    'siglaTribunal' => $this->tribunalResolver->resolverSigla($numeroProcesso),
-                    'classeProcessual' => $processo->getClasseProcessual(),
-                    'assuntoProcessual' => $processo->getAssuntoProcessual(),
-                    'situacaoProcesso' => $processo->getSituacaoProcesso(),
-                    'instancia' => $processo->getInstancia(),
-                    'dataDistribuicao' => $processo->getDataDistribuicao()?->format('Y-m-d'),
-                    'dataBaixa' => $processo->getDataBaixa()?->format('Y-m-d'),
-                    'nivelSigilo' => $processo->getNivelSigilo(),
-                    'nivelSigiloLabel' => $processo->getNivelSigiloLabel(),
-                    'formato' => $processo->getFormato(),
-                    'formatoCodigo' => $processo->getFormatoCodigo(),
-                    'sistema' => $processo->getSistema(),
-                    'sistemaCodigo' => $processo->getSistemaCodigo(),
-                    'classeCodigo' => $processo->getClasseCodigo(),
-                    'orgaoJulgadorCodigo' => $processo->getOrgaoJulgadorCodigo(),
-                    'orgaoJulgadorMunicipioIbge' => $processo->getOrgaoJulgadorMunicipioIbge(),
-                    'datajudId' => $processo->getDatajudId(),
-                    'assuntos' => array_map(fn(AssuntoProcesso $a) => [
-                        'codigo' => $a->getCodigo(),
-                        'nome' => $a->getNome(),
-                    ], $processo->getAssuntos()->toArray()),
-                    'partes' => array_map(fn(ParteProcesso $p) => [
-                        'tipo' => $p->getTipo(),
-                        'nome' => $p->getNome(),
-                        'documento' => $p->getDocumento(),
-                        'papel' => $p->getPapel(),
-                    ], $processo->getPartes()->toArray()),
-                    'movimentacoes' => array_map(fn(MovimentacaoProcesso $m) => [
-                        'descricao' => $m->getDescricao(),
-                        'tipo' => $m->getTipo(),
-                        'orgao' => $m->getOrgao(),
-                        'dataMovimentacao' => $m->getDataMovimentacao()?->format('Y-m-d'),
-                    ], $processo->getMovimentacoes()->toArray()),
-                ]
-            ]);
-            $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-            return $response;
-        } catch (TribunalNaoIdentificadoException $e) {
-            // Número fora do padrão CNJ ou tribunal desconhecido: erro do dado de entrada.
-            return $this->erroDatajud($this->mensagemNumeroInvalido($numeroProcesso), 422);
-        } catch (ConsultaDatajudException $e) {
-            // Falha na interação com o CNJ (rede, timeout, indisponibilidade, limite, etc.).
-            // Registra a causa técnica: a mensagem ao usuário é intencionalmente amigável/vaga.
-            $motivo = $e->getMotivo();
-            $logger->warning('Consulta ao Datajud falhou: {motivo}', [
-                'motivo' => $motivo->value,
-                'exception' => $e,
-            ]);
-
-            return $this->erroDatajud(
-                $motivo->mensagemUsuario($this->derivarSiglaSegura($numeroProcesso)),
-                $motivo->statusHttp()
-            );
-        } catch (\Exception $e) {
-            // Erro interno inesperado (ex.: mapeamento) — não culpa o CNJ; loga a causa real.
-            $logger->error('Erro inesperado na consulta ao Datajud', ['exception' => $e]);
-
-            return $this->erroDatajud(
-                'Não conseguimos concluir a consulta agora. Tente novamente; se persistir, avise o suporte.',
-                500
-            );
-        }
+        return $response;
     }
 
     /**
@@ -443,100 +341,12 @@ class ProcessoController extends AbstractController
             || $permissionChecker->canAccessModule($usuario, $this->tenantContext->getCurrentTenant(), 'processos');
     }
 
-    /**
-     * Guarda o `_source` no servidor (30 min, por escritório, pessoa, sessão e número) para o cadastro pela janela
-     * da pasta aplicar o que a resposta não leva de volta (a1). O navegador nunca devolve esses dados.
-     */
-    private function guardarConsulta(ConsultasDoCnjGuardadas $consultasDoCnj, Request $request, \App\Entity\Auth\User $usuario, string $numeroSoDigitos, mixed $source): void
-    {
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant !== null && is_array($source)) {
-            $consultasDoCnj->guardar($tenant, $usuario, $request->getSession()->getId(), $numeroSoDigitos, $source);
-        }
-    }
-
     private function erroDatajud(string $mensagem, int $status): JsonResponse
     {
         $response = new JsonResponse(['error' => $mensagem], $status);
         $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
 
         return $response;
-    }
-
-    /**
-     * Mensagem para "o CNJ respondeu, mas sem nenhum resultado".
-     *
-     * Zero resultados tem duas causas muito diferentes e a mensagem anterior culpava o usuário
-     * pelas duas — mandava "conferir o número digitado" mesmo quando o número estava correto.
-     * O dígito verificador (Res. CNJ 65/2008) separa os casos sem custo nenhum:
-     *
-     *  - DV não confere  → erro de digitação, e agora dizemos POR QUE desconfiamos;
-     *  - DV confere      → o número existe; quem não tem o processo é a base pública do CNJ,
-     *                      que é publicada com semanas de atraso e omite segredo de justiça.
-     *
-     * O DV é conferido só AQUI, para escolher o texto: número com DV errado continua sendo
-     * consultado no CNJ normalmente. Bloquear a consulta deixaria o usuário sem saída diante
-     * de um número atípico, e não é isso que estamos consertando.
-     */
-    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador, DatajudClient $datajudClient, LoggerInterface $logger): string
-    {
-        $sigla = $this->derivarSiglaSegura($numeroProcesso);
-        $base = $sigla !== null ? sprintf('na base pública do %s', $sigla) : 'na base pública do CNJ';
-
-        if (!$validador->digitoVerificadorConfere($numeroProcesso)) {
-            $abertura = $sigla !== null
-                ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número.', $sigla)
-                : 'Não encontramos nenhum processo com esse número.';
-
-            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação. Se o número estiver certo, preencha os dados manualmente.';
-        }
-
-        // Segunda consulta só para escolher a explicação: se falhar, cai na mensagem que cobre as duas causas.
-        try {
-            $posteriores = $datajudClient->contarPosterioresNoForo($numeroProcesso, self::POSTERIORES_PARA_DESCARTAR_ATRASO);
-        } catch (ConsultaDatajudException | TribunalNaoIdentificadoException $e) {
-            $logger->warning('Falha ao contar processos posteriores no Datajud', ['erro' => $e->getMessage()]);
-            $posteriores = null;
-        }
-
-        if ($posteriores === 0) {
-            return sprintf('O número é válido, mas este processo ainda não aparece %s.', $base)
-                . ' A base do CNJ é publicada com algumas semanas de atraso e ainda não chegou aos processos mais recentes deste foro.'
-                . ' Para cadastrar agora, preencha os dados manualmente. Se preferir, tente a busca de novo daqui a algumas semanas.';
-        }
-
-        if ($posteriores !== null && $posteriores >= self::POSTERIORES_PARA_DESCARTAR_ATRASO) {
-            return sprintf('O número é válido, mas este processo não aparece %s, embora processos mais novos do mesmo foro já apareçam.', $base)
-                . ' Isso acontece com processos em segredo de justiça (como os de família) e com processos arquivados, que a base pública não divulga.'
-                . ' Ele não vai aparecer na busca: preencha os dados manualmente.';
-        }
-
-        return sprintf('O número é válido, mas não encontramos este processo %s.', $base)
-            . ' Isso acontece com processos recentes, que o CNJ publica com algumas semanas de atraso, e com processos em segredo de justiça ou arquivados, que a base pública não divulga.'
-            . ' Preencha os dados manualmente.';
-    }
-
-    /**
-     * Deriva a sigla do tribunal do número sem quebrar quando o número é inválido — usada só
-     * para enriquecer mensagens de erro (número que já falhou não deve derrubar a resposta).
-     */
-    private function derivarSiglaSegura(string $numeroProcesso): ?string
-    {
-        try {
-            return $this->tribunalResolver->resolverSigla($numeroProcesso);
-        } catch (TribunalNaoIdentificadoException) {
-            return null;
-        }
-    }
-
-    private function mensagemNumeroInvalido(string $numeroDigitos): string
-    {
-        $qtd = strlen($numeroDigitos);
-        if ($qtd !== 20) {
-            return sprintf('O número informado tem %d dígito(s), mas o padrão do CNJ tem 20. Confira e tente de novo.', $qtd);
-        }
-
-        return 'Não reconhecemos o tribunal a partir desse número. Confira se o número está correto.';
     }
 
     private function fillProcessoFromRequest(Processo $processo, array $data): void
