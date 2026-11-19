@@ -427,14 +427,19 @@ final class RegistrarNaPastaFerramentaTest extends KernelTestCase
         self::assertSame(1, $this->contarDestaques());
     }
 
-    #[TestDox('sem o módulo Pastas: sem permissão; chave expedientes desligada: função desligada')]
-    public function testModuloEChave(): void
+    #[TestDox('sem o módulo Pastas: sem permissão')]
+    public function testSemModulo(): void
     {
         $semModulo = $this->pessoaComPermissoes(['resources.pasta.view', 'resources.pasta.edit']);
         $pedido = ['lugar' => 'registro', 'acao' => 'escrever', 'pasta_id' => $this->pasta->getId(), 'texto' => 'Texto'];
 
         $this->assertMotivo($pedido, ErroDaFerramenta::MOTIVO_SEM_PERMISSAO, $semModulo);
+    }
 
+    #[TestDox('chave expedientes desligada: função desligada')]
+    public function testChaveDesligada(): void
+    {
+        $pedido = ['lugar' => 'registro', 'acao' => 'escrever', 'pasta_id' => $this->pasta->getId(), 'texto' => 'Texto'];
         $estado = new RecursoEstado('expedientes');
         $estado->desativar('teste', null, null, new \DateTimeImmutable());
         $this->em()->persist($estado);
