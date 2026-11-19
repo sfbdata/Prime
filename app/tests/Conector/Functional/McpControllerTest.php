@@ -7,6 +7,9 @@ namespace App\Tests\Conector\Functional;
 use App\Cliente\Entity\ClientePF;
 use App\Conector\Controller\McpController;
 use App\Conector\DTO\ChamadaDoConector;
+use App\Conector\Entity\ClienteDoConector;
+use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\AtualizarClienteFerramenta;
 use App\Conector\Ferramenta\AtualizarPastaFerramenta;
@@ -212,10 +215,16 @@ final class McpControllerTest extends WebTestCase
         $client->disableReboot();
         $escritorio = $this->escritorio();
         $pessoa = $this->pessoa();
-        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit']);
+        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit', 'resources.carteira.gerenciar']);
         $escopos = ['mcp:leitura', 'mcp:escrita'];
         $c = static::getContainer();
-        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, 42, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+        // A proposta guarda o consentimento da chamada: aqui ele existe de verdade.
+        $app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable('-1 hour'));
+        $consentimento = new ConsentimentoDoConector($pessoa, $escritorio, $app, $escopos, new \DateTimeImmutable('-1 hour'));
+        $this->em()->persist($app);
+        $this->em()->persist($consentimento);
+        $this->em()->flush();
+        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, (int) $consentimento->getId(), 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
         $c->set(ServidorMcpDoConector::class, $this->servidor($escopos, [$c->get(AtualizarClienteFerramenta::class)], $c->get(RequisicaoDoConector::class), $c->get('monolog.logger.mcp'), $chamada));
         $antes = (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_pf');
 
