@@ -109,6 +109,35 @@ final class OpcoesAvancadasTest extends JusPrimeWebTestCase
         self::assertNull($deVolta->filter('html')->attr('data-bj-formato-data'));
     }
 
+    #[TestDox('Brasília escolhida fica gravada e vai ao <html> (a hora do JS sai em Brasília); outra pessoa que entra no mesmo navegador não herda as opções guardadas na sessão')]
+    public function testBrasiliaEscolhidaETrocaDeConta(): void
+    {
+        $tela = $this->abrir();
+        $this->postar($tela, ['idioma' => 'pt-BR', 'fuso' => 'America/Sao_Paulo', 'formatoData' => 'ymd', 'formatoNumero' => '']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(FusoHorario::Brasilia, $this->perfil()?->getFusoHorario());
+        $depois = $this->client->request('GET', '/perfil');
+        self::assertSame('America/Sao_Paulo', $depois->filter('html')->attr('data-bj-fuso'));
+        self::assertSame('ymd', $depois->filter('html')->attr('data-bj-formato-data'));
+
+        $outra = (new User())->setEmail(uniqid('opcoes_outra_') . '@test.com')->setFullName('Bia Lima')->setRoles(['ROLE_USER'])->setIsActive(true);
+        $outra->setPassword('x');
+        $this->em->persist($outra);
+        // perfil() limpa o EntityManager: escritório e papel voltam do banco.
+        $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->usuario->getId()]);
+        $tenant = $this->em->find(Tenant::class, $this->tenant->getId());
+        self::assertNotNull($vinculo);
+        self::assertNotNull($tenant);
+        $this->em->persist((new UserTenant($outra, $tenant))->setTenantRole($vinculo->getTenantRole()));
+        $this->em->flush();
+        $this->logarComTenant($this->client, $outra, $tenant);
+
+        $daOutra = $this->client->request('GET', '/perfil');
+        self::assertResponseIsSuccessful();
+        self::assertNull($daOutra->filter('html')->attr('data-bj-fuso'));
+        self::assertNull($daOutra->filter('html')->attr('data-bj-formato-data'));
+    }
+
     #[TestDox('recusas: idioma "em breve" e opção fora da lista dão 422 com a mensagem do catálogo e não gravam; pedido malformado, 400; sem o token, 403')]
     public function testRecusas(): void
     {
@@ -125,6 +154,12 @@ final class OpcoesAvancadasTest extends JusPrimeWebTestCase
 
         $this->postar($tela, ['idioma' => 'pt-BR', 'fuso' => 3]);
         self::assertResponseStatusCodeSame(400);
+        $this->postar($tela, ['idioma' => 5]);
+        self::assertResponseStatusCodeSame(400);
+        foreach (['"texto"', '{nao e json'] as $corpo) {
+            $this->client->request('POST', '/perfil/opcoes-avancadas', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => (string) $tela->filter('meta[name="csrf-token"]')->attr('content')], $corpo);
+            self::assertResponseStatusCodeSame(400, $corpo);
+        }
 
         $this->client->request('POST', '/perfil/opcoes-avancadas', [], [], ['CONTENT_TYPE' => 'application/json'], '{"idioma":"pt-BR"}');
         self::assertResponseStatusCodeSame(403);

@@ -37,7 +37,7 @@ final class SalvarOpcoesAvancadasUseCaseTest extends TestCase
         self::assertSame(FormatoDeNumero::EstadosUnidos, $perfil->getFormatoNumero());
     }
 
-    #[TestDox('vazio ou nulo volta ao padrão (nulo no banco); Brasília escolhida também fica nula, porque é o fuso do sistema')]
+    #[TestDox('vazio ou nulo volta ao padrão (nulo no banco); Brasília escolhida fica gravada, para a hora do JS sair em Brasília')]
     public function testPadraoFicaNulo(): void
     {
         [$useCase, $perfil, $usuario] = $this->montar(salva: true);
@@ -45,7 +45,7 @@ final class SalvarOpcoesAvancadasUseCaseTest extends TestCase
 
         $useCase->executar($usuario, 'pt-BR', 'America/Sao_Paulo', '', null);
 
-        self::assertNull($perfil->getFusoHorario());
+        self::assertSame(FusoHorario::Brasilia, $perfil->getFusoHorario());
         self::assertNull($perfil->getFormatoData());
         self::assertNull($perfil->getFormatoNumero());
     }
