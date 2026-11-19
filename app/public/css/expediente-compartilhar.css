@@ -1,0 +1,153 @@
+/* =============================================================================
+   expediente-compartilhar.css: compartilhar a pasta com a equipe na Lista do Expediente (spec
+   acesso-restrito-e-compartilhar L1, L3 a L6). Desenho "03 - EXPEDIENTE - VS 30.10.26": ícone da linha (L.215),
+   seção COMPARTILHAR do menu (L.420-432) e janela "Compartilhar pasta N" (L.488-506).
+
+   Prefixo próprio: `.exp-rp` (ícone da linha), `.exp-cp*` (janela), `.exp-ctx-avatar`/`.exp-ctx-selo` (menu). Os
+   tokens `--cp-*` trazem os hex do desenho no claro; o escuro aponta para o Bootstrap, como o resto da Lista.
+   ============================================================================= */
+
+.exp-body {
+    --cp-verde:        #1e7b45;   /* ícone com colaborador, selo e mensagem de sucesso, dc L.215 e L.503 */
+    --cp-cinza-icone:  #9aabb7;   /* ícone sem colaborador, dc L.215 */
+    --cp-azul:         #0a6fa0;
+    --cp-azul-hover:   #3b8fc2;
+    --cp-azul-fundo:   #0a6fa0;   /* cabeçalho da janela, botão Compartilhar, segmento ativo e avatar, dc L.488 */
+    --cp-icone-hover-bg: #e3f1f8;
+    --cp-fundo:        #fff;
+    --cp-texto:        #34505f;   /* corpo da janela, dc L.491 */
+    --cp-titulo:       #12242f;
+    --cp-rotulo:       #4a6373;
+    --cp-dica:         #5b7383;
+    --cp-fixo:         #7a8e9b;
+    --cp-borda-campo:  #d6e0e7;
+    --cp-borda-seg:    #c5d2db;
+    --cp-borda-sep:    #e6edf2;
+    --cp-seg-off-bg:   #fff;      --cp-seg-off-tx: #243845;
+    --cp-btn-cinza-bg: #e2e9ee;   --cp-btn-cinza-tx: #243845;
+    --cp-erro:         #a3232b;
+    --cp-aviso:        #c08a12;
+    --cp-estado-fim:   #9aabb7;
+    --cp-sombra:       0 20px 50px -12px rgba(13,27,42,.45);
+    --cp-veu:          rgba(13,27,42,.4);
+}
+[data-bs-theme="dark"] .exp-body {
+    --cp-verde:        #4fd18a;
+    --cp-cinza-icone:  var(--bs-secondary-color);
+    --cp-azul:         #4da3ea;
+    --cp-azul-hover:   #6fb8f0;
+    --cp-azul-fundo:   #1d6aa5;
+    --cp-estado-fim:   var(--bs-secondary-color);
+    --cp-icone-hover-bg: rgba(77,163,234,.16);
+    --cp-fundo:        var(--bs-tertiary-bg);
+    --cp-texto:        var(--bs-body-color);
+    --cp-titulo:       var(--bs-body-color);
+    --cp-rotulo:       var(--bs-secondary-color);
+    --cp-dica:         var(--bs-secondary-color);
+    --cp-fixo:         var(--bs-secondary-color);
+    --cp-borda-campo:  var(--bs-border-color);
+    --cp-borda-seg:    var(--bs-border-color);
+    --cp-borda-sep:    var(--bs-border-color-translucent);
+    --cp-seg-off-bg:   var(--bs-secondary-bg);  --cp-seg-off-tx: var(--bs-body-color);
+    --cp-btn-cinza-bg: var(--bs-secondary-bg);  --cp-btn-cinza-tx: var(--bs-body-color);
+    --cp-erro:         #f0707a;
+    --cp-aviso:        #e0b04a;
+    --cp-sombra:       0 20px 50px -12px rgba(0,0,0,.7);
+    --cp-veu:          rgba(0,0,0,.6);
+}
+
+/* ── Ícone da linha (L1, dc L.215): botão 26x26, 15px; o selo com a contagem fica no canto ───────────── */
+.exp-body .exp-rp {
+    position: relative; width: 26px; height: 26px; margin-left: 7px; padding: 0; vertical-align: middle;
+    border: 0; border-radius: 4px; background: transparent; color: var(--cp-cinza-icone);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1;
+}
+.exp-body .exp-rp--tem { color: var(--cp-verde); }
+.exp-body .exp-rp:hover, .exp-body .exp-rp:focus-visible { background: var(--cp-icone-hover-bg); color: var(--cp-azul); outline: 0; }
+.exp-body .exp-rp-n {
+    position: absolute; top: -3px; right: -4px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px;
+    background: var(--cp-verde); color: #fff; font-size: 9.5px; font-weight: 700; line-height: 14px; text-align: center;
+}
+[data-bs-theme="dark"] .exp-body .exp-rp-n { color: #0f202b; }
+/* Quem recebeu a pasta (restrito): o mesmo ícone, verde e sem clique (dc L.215 `rpRecTem`). */
+.exp-body .exp-rp-recebida { margin-left: 7px; font-size: 15px; color: var(--cp-verde); vertical-align: middle; }
+/* Hover azul da linha: o ícone fica branco, como o cadeado; o próprio hover do botão volta ao claro. */
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not([data-dest]):hover .exp-rp:not(:hover),
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not([data-dest]):hover .exp-rp-recebida { color: #fff; }
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not([data-dest]):hover .exp-rp-n { background: #fff; color: var(--cp-azul); }
+
+/* ── Seção COMPARTILHAR do menu (L6, dc L.424 e L.427) ───────────────────────────────────────────── */
+.exp-ctx .exp-ctx-avatar {
+    width: 22px; height: 22px; flex: none; border-radius: 50%; color: #fff; font-size: 9.5px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+}
+.exp-ctx .exp-ctx-selo {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--cp-verde); color: #fff;
+    font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+
+/* ── Janela "Compartilhar pasta N" (L3, dc L.488-506) ─────────────────────────────────────────────── */
+.exp-cp-fundo {
+    position: fixed; inset: 0; z-index: 1065; background: var(--cp-veu, rgba(13,27,42,.4));
+    display: flex; align-items: center; justify-content: center; padding: 14px;
+}
+.exp-cp {
+    width: min(560px, 100%); max-height: 92vh; overflow: auto; background: var(--cp-fundo); border-radius: 4px; box-shadow: var(--cp-sombra);
+}
+.exp-cp-cab { background: var(--cp-azul-fundo); color: #fff; padding: 13px 18px; display: flex; align-items: center; gap: 10px; }
+.exp-cp-cab > .bi { font-size: 18px; }
+.exp-cp-cab b { flex: 1; font-size: 15px; }
+.exp-cp-x { width: 30px; height: 30px; border: 0; border-radius: 3px; background: rgba(255,255,255,.15); color: #fff; cursor: pointer; }
+.exp-cp-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 13px; font-size: 13.5px; color: var(--cp-texto); }
+.exp-cp-cliente { color: var(--cp-titulo); }
+.exp-cp-intro { margin-top: 3px; line-height: 1.5; }
+.exp-cp-form { display: flex; flex-direction: column; gap: 13px; }
+.exp-cp-grupo { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.exp-cp-grupo--perm { gap: 7px; }
+.exp-cp-rotulo { font-size: 11px; font-weight: 700; letter-spacing: 1.1px; color: var(--cp-rotulo); }
+.exp-cp-seg { display: flex; border: 1px solid var(--cp-borda-seg); border-radius: 4px; overflow: hidden; }
+.exp-cp-seg-btn {
+    flex: 1; height: 36px; border: 0; background: var(--cp-seg-off-bg); color: var(--cp-seg-off-tx);
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.exp-cp-seg-btn + .exp-cp-seg-btn { border-left: 1px solid var(--cp-borda-seg); }
+.exp-cp-seg-btn.is-ativo { background: var(--cp-azul-fundo); color: #fff; }
+.exp-cp-seg-btn:disabled { cursor: not-allowed; opacity: .6; }
+.exp-cp-campo {
+    height: 38px; border: 1px solid var(--cp-borda-campo); border-radius: 4px; padding: 0 10px;
+    font: inherit; font-size: 13.5px; color: var(--cp-titulo); background: var(--cp-fundo); outline: none; min-width: 0;
+}
+.exp-cp-campo--alto { height: 40px; font-size: 14px; }
+.exp-cp-campo:focus { border-color: var(--cp-azul); box-shadow: 0 0 0 3px rgba(10,111,160,.12); }
+.exp-cp-dica { font-size: 12.5px; color: var(--cp-dica); }
+.exp-cp-fixo { display: flex; gap: 9px; align-items: center; color: var(--cp-fixo); }
+.exp-cp-fixo .bi { font-size: 16px; color: var(--cp-cinza-icone); }
+.exp-cp-caixa { display: flex; gap: 9px; align-items: center; margin: 0; cursor: pointer; }
+.exp-cp-caixa input { width: 16px; height: 16px; margin: 0; accent-color: var(--cp-azul); }
+.exp-cp-linha { display: flex; gap: 10px; flex-wrap: wrap; }
+.exp-cp-val { flex: 0 1 190px; }
+.exp-cp-msg { flex: 1 1 220px; }
+.exp-cp-erro { color: var(--cp-erro); font-weight: 700; }
+.exp-cp-ok { color: var(--cp-verde); font-weight: 700; }
+.exp-cp-acoes { display: flex; gap: 8px; justify-content: flex-end; }
+.exp-cp-btn {
+    height: 38px; border: 0; border-radius: 4px; padding: 0 14px; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+}
+.exp-cp-btn--cinza { background: var(--cp-btn-cinza-bg); color: var(--cp-btn-cinza-tx); }
+.exp-cp-btn--azul { background: var(--cp-azul-fundo); color: #fff; padding: 0 16px; }
+.exp-cp-btn--azul:hover { background: var(--cp-azul-hover); }
+.exp-cp-btn:disabled { opacity: .6; cursor: progress; }
+.exp-cp-colabora { border-top: 1px solid var(--cp-borda-sep); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.exp-cp-colabora[hidden] { display: none; }
+.exp-cp-colabora-tit { font-size: 13px; color: var(--cp-titulo); }
+.exp-cp-colab { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 10px; border: 1px solid var(--cp-borda-sep); border-radius: 4px; }
+.exp-cp-colab-info { flex: 1 1 220px; min-width: 0; font-size: 12.5px; line-height: 1.45; }
+.exp-cp-colab-info b { font-size: 13px; color: var(--cp-titulo); }
+.exp-cp-colab-quando { color: var(--cp-fixo); }
+.exp-cp-estado { height: 22px; padding: 0 8px; border-radius: 3px; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; }
+.exp-cp-encerrar {
+    height: 30px; padding: 0 10px; border: 1px solid var(--cp-erro); border-radius: 4px; background: var(--cp-fundo); color: var(--cp-erro);
+    font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.exp-cp-encerrar:disabled { opacity: .6; cursor: progress; }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Expediente\UseCase;
 
+use App\Pasta\Service\EscopoDePastas;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
@@ -43,6 +44,7 @@ final class BuscarRapidoUseCase
         private readonly AcessoAPasta $acessoAPasta,
         private readonly DocumentoBrExtension $documentoBr,
         private readonly NumeroProcessoExtension $numeroCnj,
+        private readonly ?EscopoDePastas $escopoDePastas = null,
     ) {
     }
 
@@ -79,6 +81,20 @@ final class BuscarRapidoUseCase
      * @return list<int>|null
      */
     private function escopo(User $user, Tenant $tenant): ?array
+    {
+        $doPerfil = $this->escopoPeloPerfil($user, $tenant);
+        // Acesso restrito (spec acesso-restrito-e-compartilhar §5.1): só as pastas sob a responsabilidade da pessoa,
+        // e nem por número e cliente as outras aparecem.
+        $doAcessoRestrito = $this->escopoDePastas?->idsNoEscopo($user, $tenant);
+        if ($doAcessoRestrito === null) {
+            return $doPerfil;
+        }
+
+        return $doPerfil === null ? $doAcessoRestrito : array_values(array_intersect($doPerfil, $doAcessoRestrito));
+    }
+
+    /** @return list<int>|null */
+    private function escopoPeloPerfil(User $user, Tenant $tenant): ?array
     {
         $permissao = sprintf('resources.%s.%s', AccessRequest::RESOURCE_PASTA, AccessRequest::ACTION_VIEW);
         if ($this->permissionChecker->hasPermission($user, $tenant, $permissao)) {

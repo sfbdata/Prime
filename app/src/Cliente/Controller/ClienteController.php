@@ -17,6 +17,7 @@ use App\Cliente\Service\HistoricoDoCliente;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -112,7 +113,7 @@ class ClienteController extends AbstractController
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(int $id, AcessoAPasta $acessoAPasta): Response
+    public function show(int $id, AcessoAPasta $acessoAPasta, EscopoDePastas $escopo): Response
     {
         $cliente = $this->clienteRepository->find($id);
 
@@ -130,7 +131,7 @@ class ClienteController extends AbstractController
 
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
-            'pastas' => $this->pastasQueAPessoaVe($cliente, $currentUser, $tenant),
+            'pastas' => $this->pastasQueAPessoaVe($cliente, $currentUser, $tenant, $escopo),
             // Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número (sem a situação).
             'pastasOcultas' => $tenant !== null ? array_flip($acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId())) : [],
             'documentTypeOptions' => self::DOCUMENT_TYPES,
@@ -150,14 +151,16 @@ class ClienteController extends AbstractController
     /**
      * As pastas do cliente que a pessoa pode ver, a mesma regra da janela do cliente (auditoria 1.06): a permissão de
      * ver a pasta, SEM o teto do cadeado. A pasta trancada continua na lista só com o número (D1, `pastasOcultas`).
+     * No acesso restrito, a pasta fora do escopo nem aparece (spec acesso-restrito-e-compartilhar §4.3).
      *
      * @return list<Pasta>
      */
-    private function pastasQueAPessoaVe(Cliente $cliente, User $usuario, ?Tenant $tenant): array
+    private function pastasQueAPessoaVe(Cliente $cliente, User $usuario, ?Tenant $tenant, EscopoDePastas $escopo): array
     {
         return array_values(array_filter(
             $this->pastaRepository->findByCliente($cliente, $tenant),
-            fn (Pasta $pasta): bool => $this->permissionChecker->canAccessResourceIgnoringPastaLock($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW),
+            fn (Pasta $pasta): bool => !$escopo->pastaForaDoEscopo($usuario, $pasta)
+                && $this->permissionChecker->canAccessResourceIgnoringPastaLock($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW),
         ));
     }
 

@@ -15,39 +15,40 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * `criadorComoResponsavel` do CriarPastaUseCase (Nova demanda das Minhas Demandas, desenho 15). Integração, e não
- * unitário com mock: o UseCase recebe o EntityManager direto (transação do número da pasta), e o EntityManager não
- * se mocka (tests/CLAUDE.md).
+ * Responsável automático do CriarPastaUseCase (spec `acesso-restrito-e-compartilhar.md`, regra 6): toda pasta nova
+ * nasce com quem a criou como responsável; só os caminhos automáticos (acervo, Drive, correção) passam `false`.
+ * Integração, e não unitário com mock: o UseCase recebe o EntityManager direto (transação do número da pasta), e o
+ * EntityManager não se mocka (tests/CLAUDE.md).
  */
 #[CoversClass(CriarPastaUseCase::class)]
 final class CriarPastaCriadorComoResponsavelTest extends KernelTestCase
 {
-    #[TestDox('com criadorComoResponsavel, quem cria vira o responsável da pasta')]
-    public function testCriadorViraResponsavel(): void
+    #[TestDox('pelo padrão do DTO, quem cria vira o responsável da pasta')]
+    public function testPadraoCriadorViraResponsavel(): void
     {
-        $pasta = $this->criar(true);
+        $pasta = $this->criar(new CriarPastaDTO(nomeCliente: 'Cliente Demanda'));
 
         self::assertNotNull($pasta->getResponsavel());
         self::assertSame($pasta->getCriadoPor()?->getId(), $pasta->getResponsavel()->getId());
     }
 
-    #[TestDox('sem criadorComoResponsavel (padrão do Expediente), a pasta nasce sem responsável')]
-    public function testSemOpcaoFicaSemResponsavel(): void
+    #[TestDox('com criadorComoResponsavel false (acervo, Drive, correção), a pasta nasce sem responsável')]
+    public function testCaminhoAutomaticoFicaSemResponsavel(): void
     {
-        $pasta = $this->criar(false);
+        $pasta = $this->criar(new CriarPastaDTO(nomeCliente: 'Cliente Acervo', criadorComoResponsavel: false));
 
         self::assertNull($pasta->getResponsavel());
         self::assertNotNull($pasta->getCriadoPor());
     }
 
-    private function criar(bool $criadorComoResponsavel): Pasta
+    private function criar(CriarPastaDTO $dto): Pasta
     {
         $tenant  = TenantFactory::createOne()->_real();
         $criador = UserFactory::createOne()->_real();
         $useCase = static::getContainer()->get(CriarPastaUseCase::class);
 
         $pasta = $useCase->executar(
-            new CriarPastaDTO(nomeCliente: 'Cliente Demanda', criadorComoResponsavel: $criadorComoResponsavel),
+            $dto,
             $criador,
             $tenant,
         );

@@ -32,6 +32,8 @@ use Symfony\Contracts\Service\ResetInterface;
  *  1. Master, ou primário com vínculo ativo no escritório da pasta → `Editar` (K1: quem configura nunca
  *     é restringido; é o mesmo critério do `RegraDosPrimarios::podeGerirPrimarios`);
  *  2. sem vínculo ativo com o escritório da pasta → `Oculto`;
+ *  2b. perfil com acesso restrito e pasta fora do escopo dele → `Oculto` (`EscopoDePastas`, spec
+ *      acesso-restrito-e-compartilhar §5.1);
  *  3. pasta sem cadeado → `Editar` (as outras camadas, módulo e recurso, decidem o resto);
  *  4. cadeado `Todos` → `Oculto`; `PorPessoa` → o nível da pessoa na lista, ou `Oculto`.
  *
@@ -72,6 +74,7 @@ final class NivelNoCadeado implements ResetInterface
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly TenantContext $tenantContext,
         private readonly ?Security $security = null,
+        private readonly ?EscopoDePastas $escopo = null,
     ) {
     }
 
@@ -109,8 +112,30 @@ final class NivelNoCadeado implements ResetInterface
         if ($this->regraDosPrimarios->ehMaster($pessoa) || $this->regraDosPrimarios->ehPrimario($vinculoAtivo)) {
             return NivelDeAcesso::Editar;
         }
+        if ($this->escopo?->foraDoEscopo($pessoa, $vinculoAtivo, $pastaId) === true) {
+            return NivelDeAcesso::Oculto;
+        }
+        $nivel = $this->cadeadoPorId($pastaId, $vinculoAtivo->getTenant())?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
+        // Compartilhamento sem "Abrir e movimentar" (spec acesso-restrito-e-compartilhar §4.4): o restrito só vê.
+        if ($nivel === NivelDeAcesso::Editar && $this->escopo?->compartilhamentoSemMovimentar($pessoa, $vinculoAtivo, $pastaId) === true) {
+            return NivelDeAcesso::Visualizar;
+        }
 
-        return $this->cadeadoPorId($pastaId, $vinculoAtivo->getTenant())?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
+        return $nivel;
+    }
+
+    /**
+     * Só o cadeado, sem o teto do compartilhamento: a barreira deixa o restrito com "Enviar documentos" enviar numa
+     * pasta compartilhada sem "Abrir e movimentar", desde que o cadeado permita editar (o teto continua teto).
+     */
+    public function nivelSoDoCadeado(User $pessoa, Pasta $pasta): NivelDeAcesso
+    {
+        $tenant = $pasta->getTenant();
+        if ($tenant === null || $pasta->getId() === null) {
+            return NivelDeAcesso::Editar;
+        }
+
+        return $this->cadeadoPorId((int) $pasta->getId(), $tenant)?->nivelDe($pessoa) ?? NivelDeAcesso::Editar;
     }
 
     /** Quem abre, altera e remove o cadeado e decide os pedidos (K1): o Master e o primário ativo. */
@@ -283,7 +308,25 @@ final class NivelNoCadeado implements ResetInterface
             return [];
         }
 
-        return $this->pastasOcultas[$pessoa->getId() . ':' . $tenant->getId()] ??= $this->cadeadoRepository->idsDasPastasOcultasPara($pessoa, $tenant);
+        return $this->pastasOcultas[$pessoa->getId() . ':' . $tenant->getId()] ??= $this->ocultasPeloCadeadoEPeloEscopo($pessoa, $tenant);
+    }
+
+    /** @return list<int> as do cadeado e, no acesso restrito, as fora do escopo da pessoa */
+    private function ocultasPeloCadeadoEPeloEscopo(User $pessoa, Tenant $tenant): array
+    {
+        $doCadeado = $this->cadeadoRepository->idsDasPastasOcultasPara($pessoa, $tenant);
+        $foraDoEscopo = $this->escopo?->idsForaDoEscopo($pessoa, $tenant) ?? [];
+
+        return $foraDoEscopo === [] ? $doCadeado : array_values(array_unique([...$doCadeado, ...$foraDoEscopo]));
+    }
+
+    /**
+     * Acesso restrito: o QueryBuilder passa a devolver só as pastas do escopo de quem busca. Diferente do cadeado, a
+     * pasta fora do escopo não aparece nem por número e cliente. Para quem não é restrito, nada muda.
+     */
+    public function restringirAoEscopo(QueryBuilder $qb, string $aliasPasta, User $pessoa): void
+    {
+        $this->escopo?->restringir($qb, $aliasPasta, $pessoa);
     }
 
     /**
@@ -295,7 +338,18 @@ final class NivelNoCadeado implements ResetInterface
     {
         $chave = $pessoa->getId() . ':' . $tenant->getId();
 
-        return $this->processosOcultos[$chave] ??= $this->cadeadoRepository->processosSoDestasPastas($this->idsDasPastasOcultas($pessoa, $tenant));
+        return $this->processosOcultos[$chave] ??= array_values(array_unique([
+            ...$this->cadeadoRepository->processosSoDestasPastas($this->idsDasPastasOcultas($pessoa, $tenant)),
+            // Acesso restrito: também o processo sem nenhuma pasta sob a responsabilidade da pessoa (inclusive sem pasta).
+            ...($this->escopo?->idsDosProcessosForaDoEscopo($pessoa, $tenant) ?? []),
+        ]));
+    }
+
+    /** Acesso restrito: o cliente que não está em nenhuma pasta sob a responsabilidade da pessoa (Master e primário: nunca). */
+    public function clienteForaDoEscopoComVinculo(User $pessoa, UserTenant $vinculoAtivo, int $clienteId): bool
+    {
+        return $this->escopo !== null && $this->escopo->ehRestrito($pessoa, $vinculoAtivo)
+            && $this->escopo->clienteForaDoEscopo($pessoa, $vinculoAtivo->getTenant(), $clienteId);
     }
 
     /** O mesmo, para o `canAccessResource`, que já tem o vínculo ativo (Master e primário: nenhum). */

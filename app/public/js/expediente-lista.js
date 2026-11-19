@@ -85,6 +85,7 @@
                     var si = document.createElement('i');
                     si.className = 'bi ' + it.icone;
                     si.setAttribute('aria-hidden', 'true');
+                    if (it.corIcone) { si.style.color = it.corIcone; }
                     sec.appendChild(si);
                 }
                 sec.appendChild(document.createTextNode(it.secao));
@@ -97,15 +98,30 @@
             b.setAttribute('role', it.marcado === undefined ? 'menuitem' : 'menuitemcheckbox');
             if (it.marcado !== undefined) { b.setAttribute('aria-checked', it.marcado ? 'true' : 'false'); }
             if (it.dica) { b.setAttribute('data-tip', it.dica); }
-            var i = document.createElement('i');
-            i.className = 'bi ' + it.icone;
+            var i;
+            if (it.avatar) {
+                /* Compartilhar em 1 clique (dc L.424): bolinha com as iniciais no lugar do ícone. */
+                i = document.createElement('span');
+                i.className = 'exp-ctx-avatar';
+                i.style.background = it.avatar.bg;
+                i.textContent = it.avatar.ini;
+            } else {
+                i = document.createElement('i');
+                i.className = 'bi ' + it.icone;
+                if (it.corIcone) { i.style.color = it.corIcone; }
+            }
             i.setAttribute('aria-hidden', 'true');
-            if (it.corIcone) { i.style.color = it.corIcone; }
             var t = document.createElement('span');
             t.className = 'exp-ctx-rotulo';
             t.textContent = it.rotulo;
             b.appendChild(i);
             b.appendChild(t);
+            if (it.selo) {
+                var sl = document.createElement('span');
+                sl.className = 'exp-ctx-selo';
+                sl.textContent = it.selo;
+                b.appendChild(sl);
+            }
             if (it.atalho || it.extra) {
                 var k = document.createElement('span');
                 k.className = 'exp-ctx-atalho';
@@ -418,6 +434,13 @@
         }
         if (nup) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.copiar_numero'), icone: 'bi-hash', acao: function () { copiar(nup, BJ_T.t('expediente.js.lista.menu.numero_copiado', {nup: nup})); } }); }
         if (temNome) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.copiar_nome'), icone: 'bi-clipboard', acao: function () { copiar(nome, BJ_T.t('expediente.js.lista.menu.nome_copiado')); } }); }
+        /* Seção COMPARTILHAR (dc L.420-432): em expediente-compartilhar.js. Sem os dados da pasta ainda, vem vazia e
+           reabre o menu quando eles chegam (se o menu continua o mesmo). */
+        if (!editando && !oculta && !excluida && window.ExpCompartilhar) {
+            lista = lista.concat(window.ExpCompartilhar.itensDoMenu(linha, nup, nome, function () {
+                if (linhaDoMenu === linha && menu && document.contains(linha) && !menu.classList.contains('exp-ctx--editando')) { menuDaLinha(linha, x, y, false, espelho); }
+            }));
+        }
         if (!excluida) {
             lista.push('-');
             lista.push({ rotulo: trancada ? BJ_T.t('expediente.js.lista.menu.destrancar') : BJ_T.t('expediente.js.lista.menu.trancar'), icone: trancada ? 'bi-unlock' : 'bi-lock', corIcone: '#141e5c',

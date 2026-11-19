@@ -279,6 +279,9 @@ final class PurgarEscritorioUseCase
         ['pasta_cadeado_acesso', 'tenant_id = :tenant'],
         ['pasta_cadeado', 'tenant_id = :tenant'],
         ['pasta_pedido_acesso', 'tenant_id = :tenant'],
+        // Compartilhar pasta (spec acesso-restrito-e-compartilhar §4.4): cairia pela CASCADE de `pasta`, mas a FK de
+        // tenant é NO ACTION.
+        ['pasta_compartilhamento', 'tenant_id = :tenant'],
         // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
         ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
