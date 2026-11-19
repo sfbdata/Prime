@@ -29,8 +29,11 @@ use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Conector\Support\ExecutorDePropostaDeTeste;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\ErrorHandler\BufferingLogger;
 
 /**
  * Proposta e `confirmar_acao` com o banco (spec mcp-remoto-oauth 6.7 e 12.20): a proposta não grava nada e guarda só o
@@ -362,6 +365,82 @@ final class ConfirmarAcaoTest extends KernelTestCase
         self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($id)?->getEstado());
     }
 
+    #[TestDox('6.7, item 4 (PR 14): o passo depois do COMMIT roda uma vez, fora da transação em que o executor gravou')]
+    public function testPassoDepoisDoCommitRodaDepoisDoCommit(): void
+    {
+        $id = $this->proporAgora();
+        $niveis = [];
+        $this->executor->depoisDoCommit = function () use (&$niveis): void {
+            $niveis[] = $this->em()->getConnection()->getTransactionNestingLevel();
+        };
+
+        $resposta = $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada());
+
+        self::assertSame('confirmada', $resposta->dados['estado']);
+        self::assertCount(1, $niveis, 'o passo roda uma vez');
+        self::assertLessThan($this->executor->nivelAoExecutar, $niveis[0], 'quando o passo roda, a transação da confirmação já confirmou');
+        self::assertSame(EstadoDaPropostaDoConector::Confirmada, $this->propostaPeloId($id)?->getEstado());
+    }
+
+    #[TestDox('6.7, item 4 (PR 14): o passo depois do COMMIT não roda se o executor recusar ou o resultado passar do teto')]
+    public function testPassoDepoisDoCommitNaoRodaSemCommit(): void
+    {
+        $rodou = 0;
+        $this->executor->depoisDoCommit = function () use (&$rodou): void {
+            ++$rodou;
+        };
+
+        $recusada = $this->proporAgora();
+        $this->executor->falhaAoExecutar = new ErroDaFerramenta('teste', 'Recusa de última hora.');
+        $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $recusada, 'resumo' => self::RESUMO], $this->chamada()));
+
+        $grande = $this->proporAgora();
+        $this->executor->falhaAoExecutar = null;
+        $this->executor->dadosDoResultado = ['texto' => str_repeat('a', ConfirmarPropostaDoConectorUseCase::TETO_DO_RESULTADO)];
+        $this->recusa(fn () => $this->ferramenta()->executar(['proposta_id' => $grande, 'resumo' => self::RESUMO], $this->chamada()));
+
+        self::assertSame(0, $rodou);
+        self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($recusada)?->getEstado());
+        self::assertSame(EstadoDaPropostaDoConector::Pendente, $this->propostaPeloId($grande)?->getEstado());
+    }
+
+    #[TestDox('6.7, item 4 (PR 14): falha no passo depois do COMMIT não muda a resposta nem desfaz nada; vira registro só com a classe do erro')]
+    public function testFalhaNoPassoDepoisDoCommitNaoMudaAResposta(): void
+    {
+        $id = $this->proporAgora();
+        $this->executor->nomeDoEscritorioGravado = 'Gravado antes do passo ' . uniqid();
+        $this->executor->depoisDoCommit = static function (): void {
+            throw new \RuntimeException('disco caiu: segredo-do-arquivo.pdf');
+        };
+        $logger = new BufferingLogger();
+
+        $resposta = $this->ferramenta(logger: $logger)->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada());
+
+        self::assertSame('confirmada', $resposta->dados['estado']);
+        self::assertSame(EstadoDaPropostaDoConector::Confirmada, $this->propostaPeloId($id)?->getEstado());
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM tenant WHERE name = ?', [$this->executor->nomeDoEscritorioGravado]));
+        $registros = $logger->cleanLogs();
+        self::assertCount(1, $registros);
+        self::assertSame('error', $registros[0][0]);
+        self::assertSame(['ferramenta' => 'atualizar_pasta', 'acao' => 'editar_dados', 'classe' => \RuntimeException::class], $registros[0][2]);
+        self::assertStringNotContainsString('segredo', (string) json_encode($registros));
+    }
+
+    #[TestDox('6.7, item 4 (PR 14): executor que limpa o EntityManager (a purga da lixeira) não deixa a proposta desanexada: ela é relida e sai confirmada')]
+    public function testPropostaRelidaDepoisDeExecutorQueLimpa(): void
+    {
+        $id = $this->proporAgora();
+        $this->executor->limparAoExecutar = true;
+
+        $resposta = $this->ferramenta()->executar(['proposta_id' => $id, 'resumo' => self::RESUMO], $this->chamada());
+
+        $this->em()->clear();
+        $proposta = $this->propostaPeloId($id);
+        self::assertSame(EstadoDaPropostaDoConector::Confirmada, $proposta?->getEstado());
+        self::assertNull($proposta->getDados());
+        self::assertSame([$resposta->dados['resultado']['excluidos'][0]['id']], $proposta->getResultado());
+    }
+
     #[TestDox('6.7: falha ao gravar desfaz tudo o que o executor gravou, e a proposta continua pendente com os dados')]
     public function testFalhaAoGravarDesfazTudo(): void
     {
@@ -482,7 +561,7 @@ final class ConfirmarAcaoTest extends KernelTestCase
         );
     }
 
-    private function ferramenta(?RequisicaoDoConector $requisicao = null): ConfirmarAcaoFerramenta
+    private function ferramenta(?RequisicaoDoConector $requisicao = null, ?LoggerInterface $logger = null): ConfirmarAcaoFerramenta
     {
         $c = static::getContainer();
         $useCase = new ConfirmarPropostaDoConectorUseCase(
@@ -492,6 +571,7 @@ final class ConfirmarAcaoTest extends KernelTestCase
             $this->em(),
             $this->relogio,
             [$this->executor],
+            $logger ?? new NullLogger(),
         );
 
         return new ConfirmarAcaoFerramenta($useCase, $c->get('limiter.conector_confirmacao'), $requisicao ?? new RequisicaoDoConector());

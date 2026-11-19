@@ -17,6 +17,8 @@ use App\Conector\Service\PropostasDoConector;
 use App\Conector\Service\SegredoOpaco;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -33,8 +35,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  *  3. a linha da tabela de aba e chave da ação, sem pasta (chave do Master e módulo), pela
  *     {@see GuardaDaAcaoDoConector}; depois, o {@see ExecutorDeProposta::reconferir()} da ferramenta confere de novo
  *     o resto (pasta, recurso, teto, abas, segredo, estado do item);
- *  4. o executor grava; o resultado precisa caber na resposta; a proposta vira `confirmada`, guarda só os ids e perde
- *     `dados` e `resumo`.
+ *  4. o executor grava; o resultado precisa caber na resposta; a proposta, RELIDA se o executor limpou o EntityManager
+ *     (a purga da lixeira dá `clear()`), vira `confirmada`, guarda só os ids e perde `dados` e `resumo`;
+ *  5. depois do COMMIT, e só se ele aconteceu, o passo opcional do resultado
+ *     ({@see ResultadoDaConfirmacao::$depoisDoCommit}: a remoção dos arquivos, INV-6). Falha ali não muda a resposta nem
+ *     desfaz nada: vira registro no log `mcp`, só com a classe do erro.
  *
  * Só o vencimento é gravado numa recusa: a transação confirma a proposta `expirada` e devolve {@see NAO_VALE}. Toda
  * outra recusa (passos 1 a 4) e toda exceção DESFAZEM a transação e limpam o EntityManager (nada do que ficou na
@@ -69,6 +74,7 @@ final class ConfirmarPropostaDoConectorUseCase
         private readonly ClockInterface $relogio,
         #[AutowireIterator(ExecutorDeProposta::TAG)]
         private readonly iterable $executores,
+        private readonly LoggerInterface $mcpLogger = new NullLogger(),
     ) {
     }
 
@@ -101,8 +107,37 @@ final class ConfirmarPropostaDoConectorUseCase
         if ($desfecho instanceof ErroDaFerramenta) {
             throw $desfecho;
         }
+        $this->depoisDoCommit($desfecho);
 
         return $desfecho;
+    }
+
+    /**
+     * O passo do resultado que só vale com o banco confirmado (INV-6). Nunca lança: a ação já está gravada e a resposta
+     * tem de dizer isso; o que ficou para trás (um arquivo órfão) fica no log.
+     *
+     * @param array{ferramenta: string, acao: string, resultado: ResultadoDaConfirmacao} $desfecho
+     */
+    private function depoisDoCommit(array $desfecho): void
+    {
+        $passo = $desfecho['resultado']->depoisDoCommit;
+        if ($passo === null) {
+            return;
+        }
+
+        try {
+            $passo();
+        } catch (\Throwable $erro) {
+            try {
+                $this->mcpLogger->error('Passo depois do COMMIT da confirmação falhou; a ação ficou gravada.', [
+                    'ferramenta' => $desfecho['ferramenta'],
+                    'acao' => $desfecho['acao'],
+                    'classe' => $erro::class,
+                ]);
+            } catch (\Throwable) {
+                // Sem onde registrar: a ação já está confirmada e a resposta segue.
+            }
+        }
     }
 
     /**
@@ -140,11 +175,29 @@ final class ConfirmarPropostaDoConectorUseCase
         $this->guarda->exigir($chamada, $ferramenta, $acao);
         $executor->reconferir($acao, $dados, $chamada);
 
+        $propostaId = (int) $proposta->getId();
         $resultado = $executor->executarConfirmada($acao, $dados, $chamada);
         self::exigirResultadoQueCabe($resultado);
-        $proposta->confirmar($resultado->idsDoResultado, $agora);
+        $this->depoisDoExecutor($proposta, $propostaId)->confirmar($resultado->idsDoResultado, $agora);
 
         return ['ferramenta' => $ferramenta, 'acao' => $acao, 'resultado' => $resultado];
+    }
+
+    /**
+     * A proposta que vai ser confirmada. Se o executor limpou o EntityManager, ela ficou desanexada e o `flush` não a
+     * gravaria (ficaria pendente com a ação feita): relê pelo id. A linha continua travada pelo `FOR UPDATE` desta
+     * transação, que a limpeza da memória não solta.
+     *
+     * @throws \LogicException a linha travada sumiu: não pode acontecer, e desfaz tudo
+     */
+    private function depoisDoExecutor(PropostaDoConector $proposta, int $propostaId): PropostaDoConector
+    {
+        if ($this->em->contains($proposta)) {
+            return $proposta;
+        }
+
+        return $this->em->find(PropostaDoConector::class, $propostaId)
+            ?? throw new \LogicException('A proposta travada sumiu durante a confirmação.');
     }
 
     /**
