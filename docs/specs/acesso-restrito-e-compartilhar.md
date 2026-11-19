@@ -250,14 +250,15 @@ linha e o código do documento perde a unicidade). Por isso:
   `EnviarMensagemPastaUseCase::executar(pasta, B, conteúdo, A, null)`. Só anotação nova (responder a registro fica
   fora; um `respostaA` na requisição é ignorado). **Menção não existe para autor de outra conta:** o UseCase ganha o
   parâmetro que desliga a resolução e o aviso de menção, aplicado **depois** do sanitizador (cortar antes não segura:
-  `&commat;` e `&#x40;` viram `&#64;` no sanitizador e o padrão aceita as duas formas), e o token que sobrar fica só
-  como o texto do rótulo, sem nome de ninguém de A. B não conhece nem notifica a equipe de A. O
+  `&commat;` e `&#x40;` viram `&#64;` no sanitizador e o padrão aceita as duas formas), e o token vira `@rótulo` puro
+  (como `MencoesDoRegistro::reescrever($conteudo, [])`): nenhum token fica gravado, senão a tela de A desenharia uma
+  menção falsa a um colega com o rótulo que B escolheu. B não conhece nem notifica a equipe de A. O
   prazo escrito no texto nasce como hoje (`PrazosDosRegistrosListener`, que precisa do flush sem filtro). O aviso a
   quem acompanha a pasta segue a regra de hoje, calculado sem filtro (quem desligou o acompanhamento não recebe).
 - **`expediente_recebida_fase`** (POST `…/{compartilhamentoId}/fase`; caixa `movimentar`): UseCase próprio e fino
   sobre `AndamentoDaPasta::marcar(pasta, B, A, fase, semPular, motivo, sincronizarContrato: false)` (o
   `MudarFaseDaPastaUseCase` barra quem não tem vínculo, e a sincronização do contrato mexeria no Financeiro, que fica
-  fora para B). B **não cruza a fase Contrato** (nem para frente nem para trás; o contrato assinado é dado do
+  fora para B). B **não cruza a fase Contrato** (nem para frente nem para trás, e sair da própria fase Contrato conta como cruzar; o contrato assinado é dado do
   Financeiro e ficaria divergente) e **não finaliza nem reativa** a pasta (mexe em "Pastas concluídas" de A): a troca
   de fase da tela só oferece as fases do mesmo lado do Contrato, e o servidor recusa (422) o resto.
 - **`expediente_recebida_documento_enviar`** (POST `…/{compartilhamentoId}/documento`; caixa `enviarDocumentos`; aba
@@ -278,8 +279,8 @@ linha e o código do documento perde a unicidade). Por isso:
   (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
 - **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
   nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
-  ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum nome de A fica no texto; `respostaA` da requisição é
-  ignorado; fase não duplica andamento e não mexe no contrato; cruzar o Contrato e Finalizar/Reativar dão 422; documento grava a chave pelo escritório A, código único com
+  ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum token nem nome de A fica no texto gravado; `respostaA` da requisição é
+  ignorado; fase não duplica andamento e não mexe no contrato; cruzar o Contrato (inclusive a partir dele) e Finalizar/Reativar dão 422; documento grava a chave pelo escritório A, código único com
   outro documento de A, contrato e as categorias do Financeiro recusados, aviso de acompanhamento chega a quem acompanha em A e nunca a B, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
   de B religado depois de cada escrita, inclusive em erro.
 
