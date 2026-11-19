@@ -6,6 +6,9 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\ConexoesNoPerfilController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\CatalogoFechadoDoConector;
+use App\Conector\Service\GuiaDoConector;
+use App\Conector\Service\ServidorDeAutorizacao;
 use App\Conector\UseCase\ListarConexoesDaPessoaUseCase;
 use App\Conector\UseCase\RevogarConexaoUseCase;
 use App\Entity\Auth\User;
@@ -18,6 +21,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * "Conexões de I.A." no Meu Perfil pelo HTTP (`docs/specs/mcp-remoto-oauth.md`, 13.1 linha do PR 8, e 14.e): o cartão
@@ -28,6 +32,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 #[CoversClass(ProfileController::class)]
 #[CoversClass(ListarConexoesDaPessoaUseCase::class)]
 #[CoversClass(RevogarConexaoUseCase::class)]
+#[CoversClass(GuiaDoConector::class)]
 final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
 {
     use CenarioDoServidorDeAutorizacaoTrait;
@@ -205,5 +210,101 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
         $conexao = $this->conexaoLogada();
         $this->client->request('GET', $this->url((int) $conexao['consentimento']->getId()));
         self::assertResponseStatusCodeSame(405);
+    }
+
+    private const GUIA = '/perfil/conexoes-de-ia/como-conectar';
+
+    private function logadoSemConexao(): void
+    {
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio);
+        $this->logarComTenant($this->client, $pessoa, $escritorio);
+    }
+
+    #[TestDox('Cartão "Conexões de I.A." do Meu Perfil leva ao passo a passo, no topo do cartão')]
+    public function testCartaoLevaAoGuia(): void
+    {
+        $this->logadoSemConexao();
+
+        $tela = $this->client->request('GET', '/perfil');
+
+        self::assertSame(self::GUIA, $tela->filter(self::CARTAO . ' > .mp-card-topo > a[data-guia-do-conector]')->attr('href'));
+    }
+
+    #[TestDox('Guia: a URL exata do recurso em caixa, também no comando do Claude Code, e o voltar ao Meu Perfil')]
+    public function testGuiaMostraAUrlExata(): void
+    {
+        $this->logadoSemConexao();
+
+        $tela = $this->client->request('GET', self::GUIA);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('https://bluejus.com.br/mcp', ServidorDeAutorizacao::RESOURCE, 'premissa: o resource que o Claude confere');
+        self::assertSame(ServidorDeAutorizacao::RESOURCE, $tela->filter('.mp-pagina > section.mp-card[data-guia="antes"] > .mp-guia > code.mp-guia-url[data-guia-url]')->text());
+        self::assertSame('claude mcp add --transport http bluejus ' . ServidorDeAutorizacao::RESOURCE, $tela->filter('section[data-guia="claude-code"] [data-guia-comando]')->text());
+        self::assertSame('/perfil', $tela->filter('#guiaVoltar')->attr('href'));
+        self::assertSame(['antes', 'claude', 'claude-code', 'chatgpt', 'seguranca', 'ferramentas', 'desconectar'], $tela->filter('.mp-pagina > section.mp-card')->each(static fn ($c): string => (string) $c->attr('data-guia')));
+    }
+
+    #[TestDox('Guia: pede para nunca usar "Always allow" na confirmação, "Skip approvals" nem o modo "Auto", e explica a proposta')]
+    public function testGuiaOrientaAConfirmacao(): void
+    {
+        $this->logadoSemConexao();
+
+        $tela = $this->client->request('GET', self::GUIA);
+        $seguranca = $tela->filter('section[data-guia="seguranca"]')->text();
+
+        self::assertStringContainsString('Nunca marque "Always allow"', $seguranca);
+        self::assertStringContainsString('"Skip approvals", deixe desligada', $seguranca);
+        self::assertStringContainsString('Não use o modo "Auto"', $seguranca);
+        self::assertStringContainsString('monta uma proposta com o resumo', $seguranca);
+        self::assertStringContainsString('10 minutos e uma vez só', $seguranca);
+    }
+
+    #[TestDox('Guia: ChatGPT só em Business, Enterprise e Edu; gravar, Plus e Pro e a loja ficam "em breve"')]
+    public function testGuiaDoChatGpt(): void
+    {
+        $this->logadoSemConexao();
+
+        $chatgpt = $this->client->request('GET', self::GUIA)->filter('section[data-guia="chatgpt"]');
+
+        self::assertSame('Só nos planos Business, Enterprise e Edu', $chatgpt->filter('.mp-card-sub')->text());
+        self::assertStringStartsWith('Em breve: gravar no BlueJus pelo ChatGPT', $chatgpt->filter('[data-guia-em-breve]')->text());
+    }
+
+    #[TestDox('Guia: "O que dá para pedir" lista só as ferramentas registradas, sem a confirmar_acao, com texto traduzido')]
+    public function testGuiaListaAsFerramentasRegistradas(): void
+    {
+        $this->logadoSemConexao();
+        $esperado = static::getContainer()->get(GuiaDoConector::class)->ferramentas();
+
+        $tela = $this->client->request('GET', self::GUIA);
+        $nomes = static fn (string $lista): array => $tela->filter($lista . ' > li')->each(static fn ($li): string => (string) $li->attr('data-ferramenta'));
+
+        self::assertSame($esperado['leitura'], $nomes('[data-guia-leitura]'));
+        self::assertSame($esperado['gravacao'], $nomes('[data-guia-gravacao]'));
+        self::assertContains('buscar_pastas', $esperado['leitura']);
+        self::assertNotContains('confirmar_acao', array_merge($esperado['leitura'], $esperado['gravacao']));
+        self::assertSame('Buscar pastas pelo número, pelo cliente ou pela ação, e ver relatórios como o das pastas paradas', $tela->filter('[data-ferramenta="buscar_pastas"]')->text());
+    }
+
+    #[TestDox('Toda ferramenta do catálogo fechado tem o texto do guia: a que entrar depois aparece traduzida')]
+    public function testTodoNomeDoCatalogoTemTexto(): void
+    {
+        $tradutor = static::getContainer()->get(TranslatorInterface::class);
+        foreach (array_keys(CatalogoFechadoDoConector::FERRAMENTAS) as $nome) {
+            $chave = 'conector.guia.ferramenta.' . $nome;
+            self::assertNotSame($chave, $tradutor->trans($chave), $nome);
+        }
+    }
+
+    #[TestDox('Guia sem login: vai para a tela de entrada')]
+    public function testGuiaSemLogin(): void
+    {
+        $this->client->request('GET', self::GUIA);
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('/login', (string) $this->client->getResponse()->headers->get('Location'));
     }
 }

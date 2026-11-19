@@ -231,4 +231,20 @@ html[data-bs-theme="dark"] .mp-ex-modal .modal-content { background: var(--bs-bo
 html[data-bs-theme="dark"] .mp-ex-rodape { border-color: var(--bs-border-color); }
 html[data-bs-theme="dark"] .mp-ex-erro { color: #f08a7e; }
 
+/* Guia "Como conectar o Claude ou o ChatGPT" (conector de I.A., PR 15): sem desenho, pela convenção dos cartões do perfil
+   (as cores do .mp-incompleto e do .mp-card-topo). */
+.mp-guia-topo-link { margin-left: auto; text-decoration: none; }
+.mp-guia { padding: 18px 20px 20px; font-size: 14px; line-height: 1.5; color: #34505f; }
+.mp-guia > h4 { margin: 16px 0 6px; font-size: 14px; font-weight: 700; color: #212529; }
+.mp-guia > h4:first-child { margin-top: 0; }
+.mp-guia > p { margin: 0 0 8px; }
+.mp-guia ol, .mp-guia ul { margin: 0; padding-left: 20px; }
+.mp-guia li + li { margin-top: 6px; }
+.mp-guia-url { display: block; margin: 8px 0 0; padding: 10px 12px; border: 1px solid #dee2e6; border-radius: 3px; background: #f8f9fa;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; color: #12242f; word-break: break-all; user-select: all; }
+.mp-guia-aviso { margin-top: 12px; padding: 10px 14px; border: 1px solid #f1d38a; border-left: 4px solid #e0a106; border-radius: 4px; background: #fff8e6; color: #5c4300; }
+html[data-bs-theme="dark"] .mp-guia, html[data-bs-theme="dark"] .mp-guia > h4 { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-guia-url { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mp-guia-aviso { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+
 @media (prefers-reduced-motion: reduce) { .mp-card, .mp-barra > div { animation: none; } }

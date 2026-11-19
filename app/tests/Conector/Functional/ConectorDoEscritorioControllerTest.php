@@ -94,7 +94,7 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->linhaNoBanco($tenant)?->isLigado());
     }
 
-    #[TestDox('sem liberação do Master: o cartão mostra "aguardando" e a caixa e o botão Ligar desabilitados')]
+    #[TestDox('sem liberação do Master: o cartão mostra "aguardando", a caixa e o botão Ligar desabilitados e o link do passo a passo')]
     public function testAguardandoLiberacao(): void
     {
         $tenant = $this->escritorio();
@@ -109,6 +109,7 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($card->filter('#conector-ligar')->attr('disabled'));
         self::assertNotNull($card->filter('#conector-aceite')->attr('disabled'));
         self::assertCount(0, $card->filter('#conector-desligar'));
+        self::assertSame('/perfil/conexoes-de-ia/como-conectar', $card->filter('#conector-guia')->attr('href'), 'o passo a passo para repassar à equipe');
     }
 
     #[TestDox('sem marcar "Li e aceito": flash de erro e continua desligado')]
