@@ -22,6 +22,7 @@ use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\AbaOcultaDaPastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\EquipeQuePodeTerAbaOculta;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
@@ -110,13 +111,15 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
         self::assertSame([], $this->modulosPerguntados, 'nenhum módulo é perguntado para ler a pasta');
     }
 
-    #[TestDox('módulo: basta um dos módulos da linha (criar pasta abre com expediente ou pastas)')]
-    public function testBastaUmModulo(): void
+    #[TestDox('criar pasta pede o módulo Pastas, como a tela: só com Expediente, sem permissão')]
+    public function testCriarPedeOModuloPastas(): void
     {
         $this->modulos = ['expediente'];
+        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'atualizar_pasta', 'criar'), ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
 
+        $this->modulos = ['pastas'];
         $this->guarda()->exigir($this->chamada(), 'atualizar_pasta', 'criar');
-        $this->recusa(fn () => $this->guarda()->exigir($this->chamada(), 'buscar_pastas', 'minhas_demandas'), ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        self::assertContains(['pastas', '10'], $this->modulosPerguntados);
     }
 
     #[TestDox('chave do Master desligada: função desligada, mesmo para o Master logado (estaAtivo, nunca visivel)')]
@@ -322,6 +325,18 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
             $this->recursos(),
             new VisibilidadeDasAbasDaPasta($regras, $primarios, new EquipeQuePodeTerAbaOculta($vinculos, $primarios)),
             new AcessoAPasta((new \ReflectionClass(NivelNoCadeado::class))->newInstanceWithoutConstructor(), $permissoes),
+            $this->escopoSemRestrito($vinculos),
         );
+    }
+
+    /** Escopo cujo vínculo nunca é achado: ninguém aqui é restrito (o restrito tem teste de integração próprio). */
+    private function escopoSemRestrito(UserTenantRepository $vinculos): EscopoDePastas
+    {
+        $escopo = (new \ReflectionClass(EscopoDePastas::class))->newInstanceWithoutConstructor();
+        \Closure::bind(function () use ($vinculos): void {
+            $this->userTenantRepository = $vinculos;
+        }, $escopo, EscopoDePastas::class)();
+
+        return $escopo;
     }
 }

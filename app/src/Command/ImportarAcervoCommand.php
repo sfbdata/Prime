@@ -252,6 +252,8 @@ final class ImportarAcervoCommand extends Command
                 nup: $nup,
                 nomeCliente: $cliente !== '' ? $cliente : null,
                 nomeAcao: $acao !== '' ? $acao : null,
+                // Acervo por CSV: quem roda o comando não abriu a pasta; o responsável vem depois, na tela.
+                criadorComoResponsavel: false,
             );
 
             try {

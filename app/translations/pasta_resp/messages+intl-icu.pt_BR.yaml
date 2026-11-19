@@ -110,6 +110,19 @@ pasta_resp:
             dica_alterar: '{nome} · clique para alterar'
             dica_atribuir: Clique para atribuir um responsável
             erro_alterar: Erro ao alterar responsável.
+            restrito_fixo: No acesso restrito, a pasta fica sob a sua responsabilidade. Peça ao escritório para transferir.
+            troca_aria: Confirmar troca de responsável
+            troca_titulo: 'Trocar o responsável da pasta {nup}?'
+            troca_texto: '{deNegrito} será desvinculado e {paraNegrito} passa a ser o responsável. Se {de} tiver acesso restrito, deixa de ver esta pasta e as metas dela.'
+            troca_texto_sem: '{deNegrito} será desvinculado e a pasta fica sem responsável. Se {de} tiver acesso restrito, deixa de ver esta pasta e as metas dela.'
+            troca_manter: 'Manter {de} como colaborador (a pasta fica compartilhada com ele)'
+            troca_historico: A troca fica registrada no histórico da pasta.
+            troca_cancelar: Cancelar
+            troca_confirmar: Confirmar troca
+            troca_feita_mantido: 'Responsável da pasta {nup} alterado para {para}. {de} continua como colaborador.'
+            troca_feita_desvinculado: 'Responsável da pasta {nup} alterado para {para}. {de} foi desvinculado.'
+            troca_feita_sem_mantido: 'A pasta {nup} ficou sem responsável. {de} continua como colaborador.'
+            troca_feita_sem_desvinculado: 'A pasta {nup} ficou sem responsável. {de} foi desvinculado.'
         pontos:
             completar: Completar no relatório
             detalhes: Detalhes

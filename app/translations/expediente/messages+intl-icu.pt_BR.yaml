@@ -95,6 +95,11 @@ expediente:
         favorito_tirar: Tirar dos favoritos
         favorito_marcar: Marcar como favorito
         pasta_trancada: Pasta trancada
+        compartilhar_aria: Compartilhar pasta
+        compartilhar_dica_sem: Compartilhar pasta (equipe ou outra conta)
+        compartilhar_dica_com: Compartilhada com {n} colaborador(es) · clique para gerenciar
+        compartilhada_comigo: Compartilhada com você
+        compartilhada_comigo_dica: Republicada por {de} (equipe). Você colabora nesta pasta com as permissões concedidas.
         cadeado_dica_por: Documentos sigilosos · pasta trancada por {por} em {em}
         cadeado_dica_primario: Documentos sigilosos · pasta trancada pelo usuário primário em {em}
         sem_cliente: Sem cliente
@@ -342,6 +347,54 @@ expediente:
                 cliente_vinculo: A nova pasta será vinculada ao mesmo cadastro.
                 proximo_numero: PASTA {numero}
             concluida_no_periodo: Concluídas no período
+        compartilhar:
+            titulo: Compartilhar pasta {nup}
+            fechar: Fechar
+            intro: O colaborador vê só esta pasta e as metas dela, sem acesso ao resto do escritório. A pasta continua sua e você encerra o acesso quando quiser.
+            compartilhar_com: COMPARTILHAR COM
+            destino_equipe: Equipe do escritório
+            destino_outra: Outra conta (código)
+            em_breve: Em breve
+            usuario: USUÁRIO DA EQUIPE
+            escolha: Escolha quem vai colaborar
+            dica_sem_aceite: 'Sem aceite: a pasta aparece para ele na hora. Vale também para quem tem acesso restrito (parceiro, prospectador).'
+            pode_fazer: O QUE ELE PODE FAZER
+            sempre: Ver a pasta, os documentos e as metas (sempre)
+            movimentar: Abrir e movimentar metas, andamentos e prazos
+            enviar_docs: Enviar documentos
+            baixar_docs: Baixar documentos
+            validade: VALIDADE
+            sem_prazo: Sem prazo
+            dias: '{n} dias'
+            mensagem: MENSAGEM (OPCIONAL)
+            mensagem_exemplo: 'Ex.: acompanhe os prazos desta cobrança'
+            compartilhar: Compartilhar
+            quem_colabora_titulo: Quem já colabora nesta pasta
+            equipe_do_escritorio: '{nome} · equipe do escritório'
+            perm_ver: Ver a pasta e os documentos
+            perm_mov: abrir e movimentar metas, andamentos e prazos
+            perm_metas: ver as metas
+            perm_enviar: enviar documentos
+            perm_baixar: baixar documentos
+            quando: 'desde {desde}'
+            quando_ate: 'desde {desde} · até {ate}'
+            estado_colaborando: Colaborando
+            estado_aguardando: Aguardando aceite
+            estado_expirada: Expirada
+            estado_encerrada: Acesso encerrado
+            encerrar: Encerrar acesso
+            escolha_usuario: Escolha o usuário da equipe.
+            falha_conexao: Não foi possível falar com o servidor. Tente de novo.
+            erro_carregar: Não foi possível abrir o compartilhamento da pasta.
+            menu_secao: COMPARTILHAR
+            menu_recebida: RECEBIDA DE EQUIPE
+            menu_um_clique: 1 clique
+            menu_recente_dica: 'Compartilhar agora com {nome} (equipe): ver, metas e documentos'
+            menu_com_equipe: Compartilhar com a equipe…
+            menu_quem_colabora: Quem colabora
+            menu_deixar: Deixar de colaborar
+            menu_compartilhada: Pasta {nup} compartilhada com {nome}.
+            menu_deixou: Você deixou de colaborar na pasta {nup}.
         trilho:
             expandir_painel: Expandir painel
             recolher_painel: Recolher painel

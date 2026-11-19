@@ -2,14 +2,17 @@
 
 namespace App\Service;
 
+use App\Tenant\Service\PermissoesDoAcessoRestrito;
 use App\Conector\Service\ModoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Repository\PastaCompartilhamentoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\UserTenantRepository;
+use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -32,6 +35,10 @@ class PermissionChecker implements ResetInterface
         // Master e do perfil de sistema e as permissões `admin.*`. Nulo (testes antigos que montam o checker à mão):
         // como desligado.
         private readonly ?ModoDoConector $modoDoConector = null,
+        // Compartilhar pasta (spec acesso-restrito-e-compartilhar §4.4): o compartilhamento interno ativo vale como
+        // permissão de ver a pasta, como o `ResourceAccess`. Nulos (testes antigos): sem compartilhamento.
+        private readonly ?PastaCompartilhamentoRepository $compartilhamentos = null,
+        private readonly ?ClockInterface $relogio = null,
     ) {}
 
     public function canAccessModule(User $user, ?Tenant $tenant, string $module): bool
@@ -154,10 +161,24 @@ class PermissionChecker implements ResetInterface
         }
 
         $noCadeado = array_values(array_filter($resourceIds, fn (int $id): bool => $this->cabeNoCadeadoDaPasta($user, $userTenant, $resourceType, $id, $action)));
-        $acessos   = $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
-        $doPapel   = $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
+        $permissao = sprintf('resources.%s.%s', $resourceType, $action);
+        // Acesso restrito: a liberação item a item não passa da lista de liberação (como no `permiteORecurso`).
+        $acessos   = PermissoesDoAcessoRestrito::bloqueia($userTenant->getTenantRole(), $permissao) ? [] : $this->resourceAccessRepository->findForUserAndResources($user, $resourceType, $noCadeado);
+        $doPapel   = $this->hasPermissionFromUserTenant($userTenant, $permissao);
+        $compartilhadas = $this->compartilhadaParaVer($resourceType, $action) && $this->compartilhamentos !== null
+            ? $this->compartilhamentos->idsDasPastasCompartilhadasCom($user, $userTenant->getTenant(), $this->hoje()) : [];
 
-        return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel));
+        return array_values(array_filter($noCadeado, static fn (int $id): bool => (isset($acessos[$id]) && $acessos[$id]->allows($action)) || $doPapel || in_array($id, $compartilhadas, true)));
+    }
+
+    private function compartilhadaParaVer(string $resourceType, string $action): bool
+    {
+        return $resourceType === AccessRequest::RESOURCE_PASTA && $action === AccessRequest::ACTION_VIEW;
+    }
+
+    private function hoje(): \DateTimeImmutable
+    {
+        return ($this->relogio?->now() ?? new \DateTimeImmutable())->setTime(0, 0);
     }
 
     private static function mesmoUsuario(User $a, User $b): bool
@@ -195,12 +216,20 @@ class PermissionChecker implements ResetInterface
 
     private function permiteORecurso(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
     {
+        $permissao = sprintf('resources.%s.%s', $resourceType, $action);
+        // Acesso restrito: a liberação item a item também não passa da lista de liberação (spec acesso-restrito §5.1).
+        if (PermissoesDoAcessoRestrito::bloqueia($userTenant->getTenantRole(), $permissao)) {
+            return false;
+        }
         $resourceAccess = $this->resourceAccessRepository->findForUserAndResource($user, $resourceType, $resourceId);
         if ($resourceAccess !== null && $resourceAccess->allows($action)) {
             return true;
         }
+        if ($this->compartilhadaParaVer($resourceType, $action) && $this->compartilhamentos?->ativoPara($resourceId, $user, $this->hoje()) !== null) {
+            return true;
+        }
 
-        return $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
+        return $this->hasPermissionFromUserTenant($userTenant, $permissao);
     }
 
     public function hasPermission(User $user, ?Tenant $tenant, string $permission): bool
@@ -244,6 +273,10 @@ class PermissionChecker implements ResetInterface
         if ($resourceType === AccessRequest::RESOURCE_PROCESSO) {
             // K3: o processo cujas pastas são todas ocultas para a pessoa não abre para ela.
             return !$this->nivelNoCadeado->processoOcultoComVinculo($user, $userTenant, $resourceId);
+        }
+        if ($resourceType === AccessRequest::RESOURCE_CLIENTE) {
+            // Acesso restrito: só os clientes das pastas sob a responsabilidade da pessoa.
+            return !$this->nivelNoCadeado->clienteForaDoEscopoComVinculo($user, $userTenant, $resourceId);
         }
         if ($resourceType !== AccessRequest::RESOURCE_PASTA) {
             return true;
@@ -326,6 +359,11 @@ class PermissionChecker implements ResetInterface
         $tenantRole = $userTenant->getTenantRole();
 
         if ($tenantRole === null) {
+            return false;
+        }
+
+        // Acesso restrito às pastas sob responsabilidade: fora da lista de liberação, nada vale, nem marcado no perfil.
+        if (PermissoesDoAcessoRestrito::bloqueia($tenantRole, $permission)) {
             return false;
         }
 

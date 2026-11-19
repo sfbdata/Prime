@@ -126,23 +126,36 @@
 
     // ── Edição: Marcar todos / resumo ──────────────────────────────────────
     var resumo = qs('[data-pf-resumo]');
+    var formPerfil = qs('[data-pf-form-perfil]');
+    var cartaoRs = qs('[data-pf-rs]');
+    var ligaRs = qs('[data-pf-rs-liga]');
     function atualizarResumo() {
         if (!resumo) { return; }
         var ativos = qsa('[data-pf-permissao]').filter(function (c) { return c.checked; }).length;
         resumo.textContent = BJ_T.t('perfis.js.resumo', { ativos: ativos, total: resumo.getAttribute('data-total') });
     }
+    // Caixas livres: as travadas pelo acesso restrito não contam para "Marcar todos" (desenho 1.2, L1225).
+    function livres(cartao) {
+        return qsa('[data-pf-permissao]', cartao).filter(function (c) { return !c.disabled; });
+    }
     function atualizarCartao(cartao) {
-        var caixas = qsa('[data-pf-permissao]', cartao);
+        var caixas = livres(cartao);
+        var tudoTravado = caixas.length === 0 && cartao.hasAttribute('data-pf-cartao-travavel') && formRestrito();
         var todos = caixas.length > 0 && caixas.every(function (c) { return c.checked; });
+        cartao.classList.toggle('is-travado-rs', tudoTravado);
         var btn = qs('[data-pf-todos]', cartao);
-        if (btn) { btn.textContent = todos ? BJ_T.t('perfis.js.desmarcar_todos') : BJ_T.t('perfis.js.marcar_todos'); }
+        if (btn) {
+            btn.textContent = tudoTravado ? BJ_T.t('perfis.js.grupo_bloqueado')
+                : (todos ? BJ_T.t('perfis.js.desmarcar_todos') : BJ_T.t('perfis.js.marcar_todos'));
+        }
     }
     qsa('[data-pf-cartao]').forEach(function (cartao) {
         atualizarCartao(cartao);
         var btn = qs('[data-pf-todos]', cartao);
         if (btn) {
             btn.addEventListener('click', function () {
-                var caixas = qsa('[data-pf-permissao]', cartao);
+                var caixas = livres(cartao);
+                if (!caixas.length) { return; }
                 var todos = caixas.every(function (c) { return c.checked; });
                 caixas.forEach(function (c) { c.checked = !todos; });
                 atualizarCartao(cartao);
@@ -153,6 +166,34 @@
             c.addEventListener('change', function () { atualizarCartao(cartao); atualizarResumo(); });
         });
     });
+
+    // ── Edição: acesso restrito às pastas sob responsabilidade ─────────────
+    // Ligado: o cartão fica vermelho, mostra as regras, e cada permissão fora da lista de liberação
+    // (data-pf-travavel) fica desmarcada e travada, guardando o estado anterior; desligado, volta como
+    // estava (desenho 1.2, isOn/travado). Quem decide de verdade é o servidor ao salvar.
+    function formRestrito() { return !!ligaRs && ligaRs.checked; }
+    function aplicarRestrito() {
+        var ligado = formRestrito();
+        cartaoRs.classList.toggle('is-ligado', ligado);
+        formPerfil.classList.toggle('is-restrito', ligado);
+        qsa('[data-pf-travavel]', formPerfil).forEach(function (rotulo) {
+            var caixa = qs('[data-pf-permissao]', rotulo);
+            if (ligado && !caixa.disabled) {
+                caixa.setAttribute('data-pf-antes', caixa.checked ? '1' : '0');
+                caixa.checked = false;
+                caixa.disabled = true;
+            } else if (!ligado && caixa.disabled) {
+                caixa.disabled = false;
+                caixa.checked = caixa.getAttribute('data-pf-antes') === '1';
+            }
+            rotulo.classList.toggle('is-travado-rs', ligado);
+        });
+        qsa('[data-pf-cartao]', formPerfil).forEach(atualizarCartao);
+        atualizarResumo();
+    }
+    if (formPerfil && cartaoRs && ligaRs) {
+        ligaRs.addEventListener('change', aplicarRestrito);
+    }
 
     // ── Edição do primário: promover sócio ─────────────────────────────────
     var formPromover = qs('[data-pf-form-promover]');

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Pasta\Service\LinkDoAviso;
 use App\Repository\NotificacaoRepository;
 use App\Service\NotificacaoService;
 use App\Service\Tenant\TenantContext;
@@ -185,7 +186,7 @@ class NotificacaoController extends AbstractController
      * Retorna o HTML do dropdown de notificações atualizado (para AJAX)
      */
     #[Route('/lista-dropdown', name: 'notificacao_lista_dropdown', methods: ['GET'])]
-    public function listaDropdown(Request $request): JsonResponse
+    public function listaDropdown(Request $request, LinkDoAviso $linkDoAviso): JsonResponse
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -205,8 +206,8 @@ class NotificacaoController extends AbstractController
         $html = '';
         if (count($notificacoes) > 0) {
             foreach ($notificacoes as $notif) {
-                $link = $notif->getUrl()
-                    ?? ($notif->getTarefa() ? "/tarefas/{$notif->getTarefa()->getId()}" : '#');
+                // No acesso restrito o aviso de meta leva à aba Metas da pasta (as telas de metas ficam fechadas).
+                $link = $linkDoAviso->para($notif, $usuario);
                 $link = htmlspecialchars($link, ENT_QUOTES);
                 $icone = htmlspecialchars($notif->getIcone(), ENT_QUOTES);
                 $titulo = htmlspecialchars($notif->getTitulo(), ENT_QUOTES);

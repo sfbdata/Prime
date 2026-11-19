@@ -32,6 +32,9 @@ perfis:
         descricao_master: O criador do BlueJus (Master primário) e quem ele promover (Master secundário).
         descricao_primario: Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.
         descricao_secundario_vazia: Usuário secundário
+        restrito_selo: ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE
+        restrito_dica: Só vê as pastas em que é responsável
+        descricao_restrito_vazia: Acesso restrito às pastas sob responsabilidade
     novo:
         titulo: Novo Perfil
         salvar: Salvar perfil
@@ -67,6 +70,29 @@ perfis:
         marcar_todos: Marcar todos
         resumo: '{ativos} de {total} permissões ativas'
         nome_repetido: Já existe um perfil com esse nome.
+        acesso_restrito:
+            aria: Acesso restrito às pastas sob responsabilidade
+            titulo: ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE
+            ativado: ATIVADO
+            desativado: DESATIVADO
+            texto: O usuário terá acesso exclusivamente às pastas em que estiver cadastrado como responsável, sem visualizar os demais arquivos e informações do escritório. Indicado para equipe comercial, prospectadores e parceiros externos.
+            regra_pastas: Vê, abre e movimenta só as pastas em que é o responsável
+            regra_compartilhadas: Também vê as pastas que o escritório compartilhar com ele (ícone de compartilhar na lista), com as metas delas
+            regra_responsavel: Ao abrir uma pasta, fica automaticamente como responsável
+            regra_buscas: Buscas, contagens, downloads, exportações e relatórios mostram só as suas pastas
+            regra_sem_acesso: Sem acesso a painel do escritório, relatórios gerais, financeiro, perfis e configurações
+            regra_transferir: Não transfere a responsabilidade da pasta para outra pessoa
+            regra_auditoria: Cada acesso e cada tentativa bloqueada ficam na trilha de auditoria
+            regra_troca: Se trocarem o responsável, ele é desvinculado e perde o acesso, salvo se for mantido como colaborador
+            identificacao: IDENTIFICAÇÃO DO PERFIL
+            identificacao_dica: Aparece em destaque na lista de perfis e no cadastro do usuário, para identificar quem é da equipe comercial ou parceiro.
+            aviso: As permissões abaixo valem apenas dentro dessas pastas. Os itens administrativos ficam bloqueados enquanto o acesso restrito estiver ativo. Os perfis atuais não mudam.
+            item_bloqueado: Bloqueado no acesso restrito às pastas sob responsabilidade
+            grupo_bloqueado: Bloqueado no acesso restrito
+            escopo: Vale só para as pastas sob responsabilidade do usuário
+            escopo_cliente: Vale só para as pastas sob responsabilidade do usuário (clientes dessas pastas)
+            escopo_documento: Vale só para as pastas sob responsabilidade do usuário (documentos dessas pastas)
+            escopo_processo: Vale só para as pastas sob responsabilidade do usuário (processos dessas pastas)
     restrito:
         titulo: Acesso restrito
         texto: O menu Perfis é exclusivo do usuário primário do escritório e do Master. Para usar, peça a permissão ao primário.
@@ -97,6 +123,7 @@ perfis:
         excluir_usuarios: Os {n} usuário(s) com este perfil ficam sem perfil até você atribuir outro.
         marcar_todos: Marcar todos
         desmarcar_todos: Desmarcar todos
+        grupo_bloqueado: Bloqueado no acesso restrito
         resumo: '{ativos} de {total} permissões ativas'
         escolha_secundario: Escolha um usuário secundário da conta.
         promover_titulo: Promover a primário

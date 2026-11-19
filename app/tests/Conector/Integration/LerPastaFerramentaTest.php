@@ -21,6 +21,8 @@ use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
@@ -114,6 +116,25 @@ final class LerPastaFerramentaTest extends KernelTestCase
         $json = json_encode($dados + ['proxima_pagina' => $resposta->proximaPagina], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
         self::assertLessThan(LerPastaFerramenta::TETO_DA_RESPOSTA + 1, mb_strlen($json));
         self::assertLessThan(DespachoDasFerramentas::TETO_DE_CARACTERES, mb_strlen($json));
+    }
+
+    #[TestDox('detalhes e financeiro: cada observação sai com o [registro_id N] dela, para o registrar_na_pasta; as outras linhas do financeiro não')]
+    public function testObservacoesComId(): void
+    {
+        $pasta = $this->pasta();
+        $pasta->setValorCausa('1000.00');
+        $detalhes = (new PastaObservacaoDetalhes())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('Cliente trouxe os documentos');
+        $financeira = (new PastaObservacaoFinanceira())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('Pagamento combinado em 3 vezes');
+        $this->em()->persist($detalhes);
+        $this->em()->persist($financeira);
+        $this->em()->flush();
+
+        $dados = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['detalhes', 'financeiro']])->dados;
+
+        self::assertStringContainsString('• [registro_id ' . $detalhes->getId() . '] ', $dados['detalhes']['texto']);
+        self::assertStringContainsString('Cliente trouxe os documentos', $dados['detalhes']['texto']);
+        self::assertStringContainsString('• [registro_id ' . $financeira->getId() . '] observação financeira', $dados['financeiro']['texto']);
+        self::assertSame(1, substr_count($dados['financeiro']['texto'], '[registro_id '), 'o valor da causa não ganha id');
     }
 
     #[TestDox('registro: a máscara vem antes do corte; CPF e e-mail no limite dos 500 saem mascarados, não pela metade')]

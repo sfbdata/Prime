@@ -81,7 +81,7 @@
                 {% set largura = totalDoCatalogo > 0 ? min(100, (perfil.permissoes / totalDoCatalogo * 100)|round) : 0 %}
                 {# C3/C6 (desenho L823): sem poder editar, a linha e o lápis não abrem a edição; o clique mostra o aviso. #}
                 <div class="pf-grade pf-linha" data-pf-linha {% if perfil.podeEditar %}data-href="{{ urlEditar }}"{% else %}data-pf-recusa="{{ recusaDeNivel }}"{% endif %}>
-                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, perfil.fixo) }}
+                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, perfil.fixo, perfil.restrito) }}
                     <div class="pf-col-classe">
                         {% if perfil.classificacao == 'primario' %}
                             <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>{{ 'termos.primario'|trans|upper }}</span>
@@ -122,10 +122,12 @@
 <script src="{{ asset('js/perfis.js') }}" defer></script>
 {% endblock %}
 
-{# Célula PERFIL (linha 60): nome em maiúsculas, selo FIXO nos perfis do sistema e a descrição embaixo. #}
-{% macro colunaPerfil(nome, descricao, fixo) %}
+{# Célula PERFIL (linha 60): nome em maiúsculas, selo FIXO nos perfis do sistema, o selo do acesso restrito (Perfis 1.2
+   de 03.11, L63, `p.restr`) e a descrição embaixo. #}
+{% macro colunaPerfil(nome, descricao, fixo, restrito = false) %}
     <div class="pf-col-perfil">
         <span class="pf-perfil-nome"><b>{{ nome }}</b>{% if fixo %}<span class="pf-fixo" title="{{ 'perfis.lista.fixo_dica'|trans }}"><i class="bi bi-lock-fill"></i>{{ 'perfis.lista.fixo'|trans }}</span>{% endif %}</span>
+        {% if restrito %}<span class="pf-selo-restrito" title="{{ 'perfis.lista.restrito_dica'|trans }}" data-pf-selo-restrito><i class="bi bi-shield-lock-fill"></i>{{ 'perfis.lista.restrito_selo'|trans }}</span>{% endif %}
         <span class="pf-perfil-desc">{{ descricao }}</span>
     </div>
 {% endmacro %}
