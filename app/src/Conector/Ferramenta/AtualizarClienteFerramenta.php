@@ -160,34 +160,12 @@ final class AtualizarClienteFerramenta implements FerramentaDoConector
         if (!$chamada->temEscopo(ServidorDeAutorizacao::ESCOPO_ESCRITA)) {
             throw ErroDaFerramenta::semPermissao();
         }
-        $argumentos = self::semObjetos($argumentos);
         $acao = self::acao($argumentos);
         // A entrada inteira é conferida antes da guarda: pedido inválido não depende de permissão.
         $executar = $this->preparar($acao, $argumentos);
         $this->guarda->exigir($chamada, self::NOME, $acao);
 
         return $executar($chamada);
-    }
-
-    /**
-     * O SDK entrega objeto aninhado como `\stdClass` (`CallToolRequest`: "nested objects are \stdClass"): `campos` e cada
-     * cliente do `cadastrar` chegam assim pelo `/mcp`. Aqui viram arrays, para a conferência da entrada valer igual.
-     *
-     * @param array<string, mixed> $argumentos
-     *
-     * @return array<string, mixed>
-     */
-    private static function semObjetos(array $argumentos): array
-    {
-        $converter = static function (mixed $valor) use (&$converter): mixed {
-            if ($valor instanceof \stdClass) {
-                $valor = get_object_vars($valor);
-            }
-
-            return \is_array($valor) ? array_map($converter, $valor) : $valor;
-        };
-
-        return $converter($argumentos);
     }
 
     /**
