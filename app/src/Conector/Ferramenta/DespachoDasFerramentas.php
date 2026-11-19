@@ -92,6 +92,7 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
     {
         $chamada = $this->requisicao->atual();
         $this->requisicao->anotar('ferramenta', $ferramenta->nome());
+        $argumentos = self::semObjetos($argumentos);
 
         try {
             self::exigirCamposDoEsquema($ferramenta, $argumentos);
@@ -121,6 +122,29 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
         }
 
         return new CallToolResult($conteudo, false, $dados);
+    }
+
+    /**
+     * O SDK entrega objeto aninhado dos argumentos como `\stdClass` (`CallToolRequest`: "nested objects are \stdClass").
+     * Antes, ele confere os argumentos contra o esquema e recusa (-32602) objeto em campo de texto, número ou lista de
+     * números; mas um campo de objeto ou uma lista de objetos chegaria assim, e a ferramenta que espera array recusaria
+     * o pedido. Aqui, na entrada e uma vez para todas, viram arrays, em profundidade. Um objeto vazio vira lista vazia.
+     *
+     * @param array<string, mixed> $argumentos
+     *
+     * @return array<string, mixed>
+     */
+    private static function semObjetos(array $argumentos): array
+    {
+        $converter = static function (mixed $valor) use (&$converter): mixed {
+            if ($valor instanceof \stdClass) {
+                $valor = get_object_vars($valor);
+            }
+
+            return \is_array($valor) ? array_map($converter, $valor) : $valor;
+        };
+
+        return $converter($argumentos);
     }
 
     private static function definicao(FerramentaDoConector $ferramenta): Tool
