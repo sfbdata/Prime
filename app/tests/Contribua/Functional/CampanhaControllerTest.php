@@ -341,12 +341,9 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $ativa->inscritos);
     }
 
-    #[TestDox('GET /janela: 200 com o template da janela (pula enquanto o template da tela não existe)')]
+    #[TestDox('GET /janela: 200 com o template da janela')]
     public function testRotaDaJanela(): void
     {
-        if (!is_file(\dirname(__DIR__, 3) . '/templates/contribua/campanha/_janela.html.twig')) {
-            self::markTestSkipped('TODO: o template contribua/campanha/_janela.html.twig é do implementador da tela.');
-        }
         $this->logar($this->ana, $this->escritorio);
         $this->client->request('GET', '/contribua/campanha/janela');
 

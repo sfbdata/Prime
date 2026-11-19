@@ -86,7 +86,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         );
         self::assertSame('Existe alguma coisa paga?', $perguntas[2]);
         self::assertSame('Se o BlueJus é gratuito, por que o Desafio de R$ 1,00?', $perguntas[3]);
-        self::assertSelectorTextContains('#faq details.ct-faq > div', 'em até 30 dias e recebe R$ 2,00, o dobro do que pagou');
+        self::assertStringContainsString('em até 30 dias e recebe R$ 2,00, o dobro do que pagou', $this->client->getCrawler()->filter('#faq details.ct-faq > div')->eq(3)->text());
         self::assertSelectorExists('#faq details.ct-faq > div > a[data-campanha-abrir][href="#black"]');
     }
 
@@ -122,7 +122,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
     public function testAbaNoTopoEmOutraTela(): void
     {
         $this->campanha(true);
-        $this->abrir($this->comum, '/dashboard');
+        $this->abrir($this->comum, '/perfil');
 
         self::assertSelectorCount(1, 'button#cp-aba.cp-aba[data-campanha-abrir]');
         self::assertSelectorTextContains('#cp-aba', 'BLACK FRIDAY');
@@ -131,7 +131,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         self::assertSelectorExists('#cp-raiz[data-url-janela="/contribua/campanha/janela"]');
 
         $this->campanha(false);
-        $this->abrir($this->comum, '/dashboard');
+        $this->abrir($this->comum, '/perfil');
         self::assertSelectorNotExists('#cp-aba');
     }
 
@@ -140,7 +140,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
     {
         $this->campanha(false);
 
-        $this->abrir($this->comum, '/dashboard');
+        $this->abrir($this->comum, '/perfil');
         self::assertSelectorNotExists('#cp-aba');
 
         $this->abrir($this->master, '/dashboard');
@@ -169,8 +169,8 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
             'multiplicador' => 2,
             'prazo_pedido_dias' => 30,
             'prazo_pagamento_dias_uteis' => 7,
-            'inicio' => new \DateTimeImmutable('-1 day', new \DateTimeZone('America/Sao_Paulo'))->format('Y-m-d'),
-            'fim' => new \DateTimeImmutable('+30 days', new \DateTimeZone('America/Sao_Paulo'))->format('Y-m-d'),
+            'inicio' => (new \DateTimeImmutable('-1 day', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d'),
+            'fim' => (new \DateTimeImmutable('+30 days', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m-d'),
             'vagas' => 0,
             'mostrar_contador' => 'false',
             'aba_no_topo' => 'true',
