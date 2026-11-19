@@ -378,7 +378,7 @@ final class AtualizarPastaFerramentaTest extends KernelTestCase
         self::assertSame(0, $this->contarPropostas());
     }
 
-    #[TestDox('sem o módulo Pastas: sem permissão, também no criar (que aceita Expediente ou Pastas) sem nenhum dos dois')]
+    #[TestDox('sem o módulo Pastas: sem permissão, também no criar (que pede Pastas, como a tela), mesmo com Expediente')]
     public function testSemModulo(): void
     {
         $pasta = $this->pasta();
@@ -386,6 +386,10 @@ final class AtualizarPastaFerramentaTest extends KernelTestCase
 
         $this->assertMotivo(['acao' => 'prioridade', 'pasta_id' => $pasta->getId(), 'prioridade' => 'urgente'], ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
         $this->assertMotivo(['acao' => 'criar', 'nome_cliente' => 'Fulano'], ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+
+        $this->trocarPessoa(['modules.expediente.view', 'resources.pasta.view', 'resources.pasta.edit']);
+        $this->assertMotivo(['acao' => 'criar', 'nome_cliente' => 'Fulano'], ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        self::assertSame(0, $this->contarPropostas());
     }
 
     #[TestDox('ação fora da lista, campo de outra ação, valor fora da lista fechada ou tipo errado: pedido inválido')]

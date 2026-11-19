@@ -123,9 +123,10 @@ final class TabelaDeAbaEChave
         ],
 
         // Gravação (6.6).
-        // `criar`: módulo `expediente` ou `pastas`, como a tela, e nenhuma chave (`pasta_new` não é `pasta_show`).
+        // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é
+        // `pasta_show`).
         'atualizar_pasta' => [
-            'criar' => ['modulos' => ['expediente', 'pastas'], 'abas' => [], 'chaves' => self::NENHUMA],
+            'criar' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
             'editar_dados' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'situacao' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'responsavel' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],

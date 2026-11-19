@@ -20,7 +20,7 @@ use App\Sync\Service\SincronizacaoPastaDispatcher;
  * O ciclo da pasta pela `atualizar_pasta` (`docs/specs/mcp-remoto-oauth.md`, 6.6): `criar`, `duplicar` e `restaurar`.
  * As três acrescentam (nada se perde) e gravam direto.
  *
- *  - `criar`: sem pasta; a linha da tabela pede o módulo `expediente` ou `pastas`. Como a Nova Pasta da tela
+ *  - `criar`: sem pasta; a linha da tabela pede o módulo `pastas`, como a tela. Como a Nova Pasta da tela
  *    (`pasta_new`): o número é gerado pelo sistema e a pasta entra ligada ao cadastro de mesmo nome de cliente;
  *  - `duplicar`: ver a pasta de origem e o módulo `pastas`, como `pasta_duplicar`; a cópia leva cliente, ação,
  *    responsável e checklist; documentos, metas e financeiro ficam;

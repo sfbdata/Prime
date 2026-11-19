@@ -396,8 +396,11 @@ final class PrazosEMetasDaPastaFerramenta implements FerramentaDoConector
         ];
         $escritorio = $chamada->contexto->escritorio;
         $linhas = ['Editar o prazo da pasta ' . $this->nup($pasta, $escritorio) . ':'];
-        $depois = $novo->paraOResumo(static fn (string $texto): string => self::umaLinha($texto));
-        foreach ($antes->paraOResumo(fn (string $texto): string => $this->umaLinhaProtegida($escritorio, $texto)) as $rotulo => $valorAntes) {
+        // O "depois" mistura o que o assistente mandou com o que o prazo já tem no banco (texto, responsável): sai todo
+        // pela proteção, como o "antes" (6.2, regra 6).
+        $protegido = fn (string $texto): string => $this->umaLinhaProtegida($escritorio, $texto);
+        $depois = $novo->paraOResumo($protegido);
+        foreach ($antes->paraOResumo($protegido) as $rotulo => $valorAntes) {
             $linhas[] = sprintf('%s: antes %s; depois %s.', $rotulo, $valorAntes, $depois[$rotulo]);
         }
         $linhas[] = 'Depois de confirmar, o prazo editado aparece na Agenda da equipe com os valores novos.';

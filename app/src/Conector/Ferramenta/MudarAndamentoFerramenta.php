@@ -135,13 +135,7 @@ final class MudarAndamentoFerramenta implements FerramentaDoConector
         $estado = $this->andamento->estado($pasta, $chamada->contexto->escritorio);
         $ultima = \count($estado['fases']) - 1;
         if ($acao === 'mudar_fase') {
-            $alvo = self::inteiroDosDados($dados, 'fase');
-            if ($alvo < 0 || $alvo > $ultima) {
-                throw ErroDaFerramenta::recusada(self::FASE_INVALIDA);
-            }
-            if ($estado['atual'] !== self::inteiroDosDados($dados, 'fase_atual')) {
-                throw ErroDaFerramenta::recusada(self::MUDOU);
-            }
+            self::reconferirFase($pasta, $estado['atual'], $ultima, $dados);
 
             return;
         }
@@ -150,6 +144,25 @@ final class MudarAndamentoFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::recusada(self::FASE_INVALIDA);
         }
         if ($this->textoDaEtapa($pasta, $estado['via'], $origem, $chamada) !== ($dados['texto_atual'] ?? null)) {
+            throw ErroDaFerramenta::recusada(self::MUDOU);
+        }
+    }
+
+    /**
+     * Voltar ou reativar: a fase pedida ainda existe, e a fase atual e o contrato do Financeiro são os da proposta (o
+     * resumo disse se o contrato volta a ficar pendente; se ele mudou, o resumo já não vale).
+     *
+     * @param array<string, mixed> $dados
+     *
+     * @throws ErroDaFerramenta
+     */
+    private static function reconferirFase(Pasta $pasta, int $atual, int $ultima, array $dados): void
+    {
+        $alvo = self::inteiroDosDados($dados, 'fase');
+        if ($alvo < 0 || $alvo > $ultima) {
+            throw ErroDaFerramenta::recusada(self::FASE_INVALIDA);
+        }
+        if ($atual !== self::inteiroDosDados($dados, 'fase_atual') || $pasta->getSituacaoContrato() !== ($dados['contrato'] ?? null)) {
             throw ErroDaFerramenta::recusada(self::MUDOU);
         }
     }
@@ -296,7 +309,8 @@ final class MudarAndamentoFerramenta implements FerramentaDoConector
         if ($alvo > $atual) {
             return new RespostaDaFerramenta($this->aplicarFase($pasta, $chamada, $alvo, $semPular, $motivo), ids: ['pasta' => [$id]]);
         }
-        $dados = ['pasta_id' => $id, 'fase_atual' => $atual, 'fase' => $alvo, 'sem_pular' => $semPular, 'motivo' => $motivo];
+        $dados = ['pasta_id' => $id, 'fase_atual' => $atual, 'fase' => $alvo, 'sem_pular' => $semPular, 'motivo' => $motivo,
+            'contrato' => $pasta->getSituacaoContrato()];
 
         return $this->propostas->propor($chamada, self::NOME, 'mudar_fase', $dados, $this->resumoDaFase($pasta, $chamada, $estado, $alvo, $motivo));
     }

@@ -20,6 +20,8 @@ use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaReu;
 use App\Pasta\Repository\PastaReuRepository;
@@ -278,7 +280,7 @@ final class AtualizarPastaPropostasTest extends KernelTestCase
         self::assertSame(0, $this->contarPropostas());
     }
 
-    #[TestDox('cadastro_da_pasta: trocar campo preenchido vira proposta sem os valores no resumo; confirmar grava; mudou no meio, recusa')]
+    #[TestDox('cadastro_da_pasta: trocar campo preenchido vira proposta com o valor novo protegido e sem o antigo no resumo; confirmar grava; mudou no meio, recusa')]
     public function testCadastroPorCima(): void
     {
         $pasta = $this->pasta();
@@ -288,8 +290,9 @@ final class AtualizarPastaPropostasTest extends KernelTestCase
 
         $resumo = $proposta->dados['proposta']['resumo'];
         self::assertStringContainsString('CPF ou CNPJ do réu: apagar.', $resumo);
-        self::assertStringContainsString('E-mail do réu: preencher.', $resumo);
+        self::assertStringContainsString('E-mail do réu: preencher com "[EMAIL]".', $resumo);
         self::assertStringNotContainsString(self::CPF, $resumo);
+        self::assertStringNotContainsString('52998224725', $resumo);
         self::assertStringNotContainsString('reu@exemplo.com', $resumo);
         self::assertSame(self::CPF, $this->reus($pasta)[0]->getDocumento(), 'propor não grava');
 
@@ -298,7 +301,12 @@ final class AtualizarPastaPropostasTest extends KernelTestCase
         self::assertNull($reu->getDocumento());
         self::assertSame('reu@exemplo.com', $reu->getEmail());
 
-        $outra = $this->executar(['acao' => 'cadastro_da_pasta', 'pasta_id' => $pasta->getId(), 'nome_do_reu' => 'Banco Beta']);
+        $outra = $this->executar(['acao' => 'cadastro_da_pasta', 'pasta_id' => $pasta->getId(), 'nome_do_reu' => 'Banco Beta', 'cpf' => '111.444.777-35']);
+        $resumo = $outra->dados['proposta']['resumo'];
+        self::assertStringContainsString('Nome do réu: trocar para "BANCO BETA".', $resumo);
+        self::assertStringContainsString('CPF ou CNPJ do réu: preencher com "[CPF]".', $resumo);
+        self::assertStringNotContainsString('BANCO ALFA', $resumo, 'o valor antigo não aparece');
+        self::assertStringNotContainsString('11144477735', $resumo);
         $this->executar(['acao' => 'cadastro_da_pasta', 'pasta_id' => $pasta->getId(), 'contrato' => 'CT-99']);
         self::assertSame(AtualizarPastaFerramenta::MUDOU, $this->recusaDaConfirmacao($outra)->getMessage());
     }
@@ -348,6 +356,17 @@ final class AtualizarPastaPropostasTest extends KernelTestCase
         $pasta = $this->pasta();
 
         $this->assertRecusa(['acao' => 'pedir_acesso', 'pasta_id' => $pasta->getId()], AtualizarPastaAvisos::SEM_CADEADO);
+    }
+
+    #[TestDox('pedir_acesso em pasta que o cadeado esconde da pessoa: não encontrado, sem gravar pedido (decisão 32; a tela aceita, o conector não revela a pasta)')]
+    public function testPedirAcessoEmPastaTrancada(): void
+    {
+        $pasta = $this->pasta();
+        $this->em()->persist(new CadeadoDaPasta($this->gerenciado($this->escritorio), $pasta, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $this->assertMotivo(['acao' => 'pedir_acesso', 'pasta_id' => $pasta->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_pedido_acesso'));
     }
 
     #[TestDox('enviar_relatorio_sem_processo: a partir de uma pasta que a pessoa edita, envia e avisa que o relatório é do escritório')]

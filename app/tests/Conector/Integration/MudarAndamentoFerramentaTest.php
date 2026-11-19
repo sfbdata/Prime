@@ -294,6 +294,24 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         self::assertSame(5, $this->faseAtual($pasta));
     }
 
+    #[TestDox('reconferir: o contrato do Financeiro mudou depois da proposta de voltar a fase, a confirmação recusa e nada é gravado')]
+    public function testReconferirContratoMudou(): void
+    {
+        $pasta = $this->pasta();
+        $this->executar(['acao' => 'mudar_fase', 'pasta_id' => $pasta->getId(), 'fase' => 'Protocolo', 'sem_pular' => true]);
+        $this->trocarContrato($pasta, 'PENDENTE');
+        $fase = $this->faseAtual($pasta);
+        $proposta = $this->executar(['acao' => 'mudar_fase', 'pasta_id' => $pasta->getId(), 'fase' => 'Documentação']);
+        self::assertStringContainsString('O contrato do Financeiro não muda.', $proposta->dados['proposta']['resumo']);
+        $this->trocarContrato($pasta, 'REGULAR');
+
+        $erro = $this->recusaDaConfirmacao($proposta);
+
+        self::assertSame(MudarAndamentoFerramenta::MUDOU, $erro->getMessage());
+        self::assertSame($fase, $this->faseAtual($pasta), 'a fase não muda');
+        self::assertSame('REGULAR', $this->pastaAtual($pasta)->getSituacaoContrato());
+    }
+
     #[TestDox('reconferir: o nome da etapa mudou depois da proposta, a confirmação recusa')]
     public function testReconferirNomeMudou(): void
     {
@@ -517,6 +535,13 @@ final class MudarAndamentoFerramentaTest extends KernelTestCase
         $this->em()->clear();
 
         return $this->em()->find(Pasta::class, $pasta->getId()) ?? throw new \LogicException('pasta sumiu');
+    }
+
+    /** Troca o contrato direto no banco, como faria outra pessoa pela tela do Financeiro. */
+    private function trocarContrato(Pasta $pasta, string $situacao): void
+    {
+        $this->pastaAtual($pasta)->setSituacaoContrato($situacao);
+        $this->em()->flush();
     }
 
     /** @return array{via: string, fases: list<array{0: string, 1: string}>, atual: int} */

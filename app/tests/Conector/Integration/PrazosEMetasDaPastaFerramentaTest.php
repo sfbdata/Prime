@@ -504,6 +504,21 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
         self::assertStringContainsString('[CPF]', $resumo);
     }
 
+    #[TestDox('editar só a data: o texto do banco que segue igual no "depois" também sai protegido no resumo')]
+    public function testDepoisDaEdicaoProtegido(): void
+    {
+        $prazo = $this->prazo();
+        $prazo->definir('prazo', 'Chamar 529.982.247-25', new \DateTimeImmutable('2026-11-20'), null, 'Pessoa do Conector');
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'salvar_prazo', 'pasta_id' => $this->pasta->getId(), 'prazo_id' => $prazo->getId(), 'data' => '2026-12-01']);
+
+        $resumo = $resposta->dados['proposta']['resumo'];
+        self::assertStringContainsString('Data: antes 20/11/2026; depois 01/12/2026.', $resumo);
+        self::assertStringNotContainsString('529.982.247-25', $resumo);
+        self::assertStringContainsString('depois Chamar [CPF].', $resumo);
+    }
+
     // ---------------------------------------------------------------- apoio
 
     /** O pedido mínimo e válido de cada ação, na pasta dada (a própria, se não vier). */

@@ -29,7 +29,9 @@ use App\Shared\Service\DigitoVerificador;
  *    pela cobrança (nome montado pela carteira) recusa, como a tela;
  *  - `cadastro_da_pasta` (os campos do "Cadastro da pasta" da Controladoria, {@see SalvarCadastroDaPastaUseCase}): só os
  *    campos mandados mudam; preencher o que está vazio é direto, trocar ou apagar o que está preenchido vai por proposta.
- *    O resumo e a resposta dizem QUAIS campos mudam, sem os valores (CPF, e-mail e endereço são dado pessoal, 6.2.4);
+ *    O resumo diz quais campos mudam e o valor novo mandado pelo assistente, passado pela proteção (que mascara CPF e
+ *    e-mail, 6.2.4); o valor antigo nunca aparece, nem no resumo nem na proposta. A resposta da gravação direta diz só
+ *    QUAIS campos mudaram;
  *  - `reu` (`operacao` adicionar com `nome` e `documento?`, ou subir com `reu_id`): acrescentar e mudar a ordem são
  *    diretos ({@see GerenciarReusDaPastaUseCase}); a resposta nunca traz o CPF ou CNPJ.
  *
@@ -243,14 +245,15 @@ final class AtualizarPastaCadastro implements AtualizarPastaGrupo
      */
     private function resumoDoCadastro(Pasta $pasta, array $atuais, array $novos, array $mudam, ChamadaDoConector $chamada): string
     {
-        $linhas = [sprintf('Atualizar o cadastro da pasta %s (Controladoria):', $this->texto->numero($pasta, $chamada->contexto->escritorio))];
+        $escritorio = $chamada->contexto->escritorio;
+        $linhas = [sprintf('Atualizar o cadastro da pasta %s (Controladoria):', $this->texto->numero($pasta, $escritorio))];
         foreach ($mudam as $campo) {
-            $verbo = match (true) {
-                $atuais[$campo] === '' => 'preencher',
-                $novos[$campo] === '' => 'apagar',
-                default => 'trocar',
+            $novo = AtualizarPastaTexto::citado($this->texto->protegido($escritorio, $novos[$campo]));
+            $linhas[] = self::ROTULOS[$campo] . ': ' . match (true) {
+                $novos[$campo] === '' => 'apagar.',
+                $atuais[$campo] === '' => 'preencher com ' . $novo . '.',
+                default => 'trocar para ' . $novo . '.',
             };
-            $linhas[] = sprintf('%s: %s.', self::ROTULOS[$campo], $verbo);
         }
 
         return implode("\n", $linhas);
