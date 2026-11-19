@@ -101,7 +101,7 @@
 .cad-fechar:hover { background: rgba(255,255,255,.14); }
 
 .cad-abas { display: flex; gap: 2px; padding: 0 10px; background: var(--cad-abas); overflow-x: auto; }
-.cad-aba { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 11px 12px; border: 0; background: transparent;
+.cad-aba { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 11px; border: 0; background: transparent;
     color: var(--cad-aba); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .cad-aba.is-ativa { color: var(--cad-aba-on); box-shadow: inset 0 -2px 0 var(--cad-aba-on); }
 .cad-aba-ponto { width: 6px; height: 6px; border-radius: 50%; background: #d39222; }
@@ -139,7 +139,7 @@
 .cad-rodape { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--cad-borda); }
 .cad-msg { flex: 1; min-width: 160px; font-size: 12.5px; }
 .cad-msg--ok { color: var(--cad-ok); } .cad-msg--erro { color: var(--cad-erro); } .cad-msg--pendente { color: var(--cad-pend-tx); }
-.cad-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cad-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .cad-btn--sec { background: var(--cad-btn-sec-bg); color: var(--cad-btn-sec-tx); }
 .cad-btn--pri { background: var(--cad-btn-off); color: #fff; }
 .cad-btn--pri.is-pronto, .cad-existente .cad-btn--pri { background: var(--cad-btn-pri); }
