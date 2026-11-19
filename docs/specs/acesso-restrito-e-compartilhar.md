@@ -254,7 +254,12 @@ caixa continua sendo o caminho.
 
 **Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
 com o escritório A, só ids, rota, IP e o usuário de B); o 403 de `baixar` sem a caixa grava `negado`. A recusa do
-localizador não grava (não há pasta a quem mostrar).
+localizador não grava (não há pasta a quem mostrar). A janela L11 (`expediente_recebida_ver`) não grava: é um
+resumo (permissões e contagem de metas), não leitura do conteúdo (decisão de 18/11, pela recomendação).
+
+**Cobrança fica fora.** Contrato de honorários e qualquer documento da aba Financeiro nunca aparecem para B, nem com a
+aba visível (decisão de 18/11, pela recomendação). Na caixa "Recebidas", ação, prioridade, situação e metas só saem
+no item que abre.
 
 **Testes obrigatórios (9a).**
 - Abre: convite aceito, página, `expediente_recebida_ver`, `ver` e `baixar` com a caixa; restrito em B também abre.
