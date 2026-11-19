@@ -2,6 +2,11 @@
 
 {% block title %}{{ 'escritorio.selecionar.titulo_pagina'|trans({termo: 'termos.escritorio'|trans}) }}{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/tenant-selecionar.css') }}">
+{% endblock %}
+
 {% block body %}
 <div class="container py-5" style="max-width: 600px">
     <div class="text-center mb-4">
@@ -72,18 +77,23 @@
             </a>
         </div>
     {% else %}
-        {% for vinculo in vinculos %}
-            <form method="post" action="{{ path('tenant_selecionar') }}" class="mb-3">
-                <input type="hidden" name="tenant_id" value="{{ vinculo.tenant.id }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
-                <button type="submit" class="bjp-btn bjp-btn--secundario w-100 text-start p-3" style="height:auto;white-space:normal;justify-content:flex-start;line-height:1.4">
-                    <strong>{{ vinculo.tenant.name }}</strong>
-                    {% if vinculo.tenantRole %}
-                        <br><small class="text-muted">{{ vinculo.tenantRole.nomeExibido }}</small>
-                    {% endif %}
-                </button>
-            </form>
-        {% endfor %}
+        {# Linha de conta do desenho bj-contas.js (a do "Trocar conta"), com o realce do guia v30 (tenant-selecionar.css). #}
+        <div class="sel-contas">
+            {% for vinculo in vinculos %}
+                <form method="post" action="{{ path('tenant_selecionar') }}">
+                    <input type="hidden" name="tenant_id" value="{{ vinculo.tenant.id }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
+                    <button type="submit" class="sel-conta">
+                        <i class="bi bi-building" aria-hidden="true"></i>
+                        <span class="sel-conta-texto">
+                            <b>{{ vinculo.tenant.name }}</b>
+                            {% if vinculo.tenantRole %}<span>{{ vinculo.tenantRole.nomeExibido }}</span>{% endif %}
+                        </span>
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+            {% endfor %}
+        </div>
     {% endif %}
 </div>
 {% endblock %}
