@@ -122,9 +122,10 @@ final class VisualizadorDocumentoTelasTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Pré-visualização não disponível', $inline, 'o texto do fallback mora só no módulo');
     }
 
+    /** Script inline de verdade: o JSON do catálogo de tradução (`data-bj-t`) traz o texto do módulo e não é cópia dele. */
     private function scriptsInline(Crawler $crawler): string
     {
-        return implode("\n", $crawler->filter('script:not([src])')->each(
+        return implode("\n", $crawler->filter('script:not([src]):not([data-bj-t])')->each(
             static fn (Crawler $s): string => $s->text('', false)
         ));
     }

@@ -8,6 +8,7 @@ use App\Shared\Service\SanitizadorTextoRico;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -22,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(SanitizadorTextoRico::class)]
 final class EditorRicoColarTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     use CriaSanitizadorTextoRico;
 
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
@@ -48,9 +51,13 @@ final class EditorRicoColarTest extends TestCase
     {
         $mostrar = $this->funcao('mostrarOpcoesDeColar');
 
-        self::assertStringContainsString("[['manter', 'Manter formatação'], ['mesclar', 'Mesclar formatação'], ['texto', 'Somente texto']]", $mostrar);
+        self::assertStringContainsString("[['manter', T('colagem.manter')], ['mesclar', T('colagem.mesclar')], ['texto', T('colagem.texto')]]", $mostrar);
+        self::assertSame('Manter formatação', self::ptBr('comum.js.editor.' . 'colagem.manter'));
+        self::assertSame('Mesclar formatação', self::ptBr('comum.js.editor.' . 'colagem.mesclar'));
+        self::assertSame('Somente texto', self::ptBr('comum.js.editor.' . 'colagem.texto'));
         self::assertStringContainsString("icone('bi-clipboard editor-rico-colar-icone')", $mostrar);
-        self::assertStringContainsString("document.createTextNode('Colar')", $mostrar);
+        self::assertStringContainsString("document.createTextNode(T('menu.colar'))", $mostrar);
+        self::assertSame('Colar', self::ptBr('comum.js.editor.' . 'menu.colar'));
         self::assertStringContainsString('var DURACAO_OPCOES_DE_COLAR = 7000;', $this->js());
     }
 
