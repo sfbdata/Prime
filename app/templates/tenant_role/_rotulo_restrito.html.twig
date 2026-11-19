@@ -1,0 +1,8 @@
+{#
+   Rótulo do acesso restrito às pastas sob responsabilidade no cadastro do usuário (spec
+   acesso-restrito-e-compartilhar, P12; regra 4 da ESPEC §1.3). O desenho não traz a tela do usuário:
+   vale o padrão dela (etiqueta `bjp-etiqueta`). Variável: perfil (TenantRole ou nulo).
+#}
+{% if perfil and perfil.temAcessoRestrito %}
+    <span class="bjp-etiqueta bjp-etiqueta--critico ms-1" title="{{ 'perfis.lista.restrito_dica'|trans }}" data-rotulo-restrito><i class="bi bi-shield-lock-fill me-1"></i>{{ perfil.rotulo|upper }}</span>
+{% endif %}

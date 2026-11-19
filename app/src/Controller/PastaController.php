@@ -17,7 +17,9 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\UseCase\LerPontosDoRelatorioInicialUseCase;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -298,8 +300,6 @@ class PastaController extends AbstractController
             nomeCliente: $nomeCliente,
             nomeAcao: $nomeAcao,
             vincularAoCadastroDoMesmoNome: true,
-            // Só a Nova demanda das Minhas Demandas manda o campo (desenho 15): quem cria vira o responsável.
-            criadorComoResponsavel: $request->request->getBoolean('criador_responsavel'),
         );
 
         try {
@@ -499,8 +499,8 @@ class PastaController extends AbstractController
         // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.
         // O "N de M" entre elas sai do mesmo conjunto e da mesma ordem.
         $vizinhas = PastaVizinhasOutput::montar(
-            $this->pastaRepository->vizinhasNoAcervo($pasta),
-            $this->pastaRepository->posicaoNoAcervo($pasta),
+            $this->pastaRepository->vizinhasNoAcervo($pasta, $currentUser),
+            $this->pastaRepository->posicaoNoAcervo($pasta, $currentUser),
         );
 
         return $this->render('pasta/show.html.twig', [
@@ -949,6 +949,25 @@ class PastaController extends AbstractController
     }
 
     /**
+     * Acesso restrito (spec acesso-restrito-e-compartilhar §4.3): os clientes das pastas sob a responsabilidade de
+     * quem busca; `null` para quem não é restrito.
+     *
+     * @return list<int>|null
+     */
+    private function clientesNoEscopo(EscopoDePastas $escopo, Tenant $tenant): ?array
+    {
+        $usuario = $this->getUser();
+
+        return $usuario instanceof User ? $escopo->idsDosClientesNoEscopo($usuario, $tenant) : null;
+    }
+
+    /** @param list<int>|null $clientesNoEscopo `null` = sem restrição */
+    private static function foraDosClientes(Cliente $cliente, ?array $clientesNoEscopo): bool
+    {
+        return $clientesNoEscopo !== null && !in_array($cliente->getId(), $clientesNoEscopo, true);
+    }
+
+    /**
      * Busca de cliente para vincular à pasta — usada pelo modal "Adicionar Cliente" e pela busca
      * inline do cartão Clientes do trilho (desenho 1.2.3, L.1357-1372 e L.3304).
      *
@@ -973,7 +992,7 @@ class PastaController extends AbstractController
      * (`podeMexerNoCliente`). Pasta de outro escritório: 404.
      */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
-    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
+    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias, EscopoDePastas $escopo): JsonResponse
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
@@ -993,12 +1012,14 @@ class PastaController extends AbstractController
         $termoMinusculo     = mb_strtolower($termo);
         $termoDigitos       = (string) preg_replace('/\D/', '', $termo);
         $documentoInteiroDigitado = in_array(strlen($termoDigitos), [11, 14], true);
+        $clientesNoEscopo = $this->clientesNoEscopo($escopo, $tenant);
 
         $achados = [];
         foreach ($this->clienteRepository->findAll() as $cliente) {
             // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
             // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
-            if ($cliente->getTenant()?->getId() !== $tenant->getId()) {
+            // Acesso restrito: só os clientes das pastas sob a responsabilidade de quem busca.
+            if ($cliente->getTenant()?->getId() !== $tenant->getId() || self::foraDosClientes($cliente, $clientesNoEscopo)) {
                 continue;
             }
 
@@ -1688,28 +1709,29 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $responsavelId = $request->request->get('responsavel_id');
+        $responsavelId = (string) $request->request->get('responsavel_id', '');
         $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
-        $responsavel = null;
-        if ($responsavelId !== '' && $responsavelId !== null) {
-            $responsavel = $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]);
-            if ($responsavel === null) {
-                return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
-            }
+        $responsavel = $responsavelId !== '' ? $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]) : null;
+        if ($responsavelId !== '' && $responsavel === null) {
+            return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
         }
-        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118).
+        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118). Com
+        // "Manter como colaborador" (L8 do desenho 03), o anterior ganha o compartilhamento interno da pasta.
         try {
-            $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+            $troca = $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant, $request->request->get('manter_colaborador') === '1');
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (ResponsavelFixoNoAcessoRestritoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
-
         $responsavel = $pasta->getResponsavel();
 
         return $this->json([
-            'sucesso'          => true,
-            'responsavelId'    => $responsavel?->getId(),
-            'responsavelNome'  => $responsavel?->getFullName() ?? 'Não informado',
+            'sucesso'            => true,
+            'responsavelId'      => $responsavel?->getId(),
+            'responsavelNome'    => $responsavel?->getFullName() ?? 'Não informado',
+            'mudou'              => $troca->mudou,
+            'colaboradorMantido' => $troca->colaboradorMantido,
         ]);
     }
 

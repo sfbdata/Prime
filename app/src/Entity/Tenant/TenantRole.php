@@ -7,6 +7,7 @@ use App\Repository\TenantRoleRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Tenant\Enum\EscopoDePastas;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TenantRoleRepository::class)]
@@ -33,6 +34,17 @@ class TenantRole implements Auditavel
      */
     #[ORM\Column(type: 'boolean')]
     private bool $isSystem = false;
+
+    /**
+     * "ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE" (spec acesso-restrito-e-compartilhar, §4.1). Só perfil
+     * secundário pode ser restrito: o de sistema nunca é.
+     */
+    #[ORM\Column(name: 'escopo_pasta', length: 20, enumType: EscopoDePastas::class, options: ['default' => 'todas'])]
+    private EscopoDePastas $escopoPasta = EscopoDePastas::Todas;
+
+    /** Identificação do perfil restrito (Prospectador, Parceiro...), em destaque na lista e no cadastro do usuário. */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $rotulo = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
@@ -118,6 +130,49 @@ class TenantRole implements Auditavel
     public function setIsSystem(bool $isSystem): static
     {
         $this->isSystem = $isSystem;
+        return $this;
+    }
+
+    public function getEscopoPasta(): EscopoDePastas
+    {
+        return $this->escopoPasta;
+    }
+
+    public function temAcessoRestrito(): bool
+    {
+        return $this->escopoPasta === EscopoDePastas::Responsavel;
+    }
+
+    public function getRotulo(): ?string
+    {
+        return $this->rotulo;
+    }
+
+    /**
+     * As identificações do perfil restrito (desenho "05 - Perfis 1.2 - VS 03.11.26", `ROTULOS`), na ordem da tela.
+     * A primeira é a padrão ao ligar a opção.
+     */
+    public const ROTULOS_DO_ACESSO_RESTRITO = ['Prospectador', 'Parceiro', 'Equipe comercial', 'Correspondente', 'Colaborador externo'];
+
+    /** Liga o acesso restrito. O perfil de sistema (primário) nunca é restrito. */
+    public function restringirAsPastasSobResponsabilidade(string $rotulo): static
+    {
+        if ($this->isSystem) {
+            throw new \DomainException('O perfil do usuário primário não pode ter acesso restrito.');
+        }
+        $rotulo = trim($rotulo);
+        $this->escopoPasta = EscopoDePastas::Responsavel;
+        $this->rotulo = $rotulo === '' ? null : mb_substr($rotulo, 0, 40);
+
+        return $this;
+    }
+
+    /** Desliga o acesso restrito: o perfil volta a alcançar as pastas como os demais. */
+    public function liberarTodasAsPastas(): static
+    {
+        $this->escopoPasta = EscopoDePastas::Todas;
+        $this->rotulo = null;
+
         return $this;
     }
 

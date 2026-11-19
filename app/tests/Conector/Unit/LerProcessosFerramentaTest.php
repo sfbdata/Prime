@@ -13,14 +13,14 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O contrato de entrada de `ler_processos` neste PR (spec mcp-remoto-oauth, `ler_processos`): as três ações, o esquema
- * fechado, `cnj` fora do esquema (PR 13) e o pedido recusado antes da guarda. As regras que dependem do banco estão no
+ * O contrato de entrada de `ler_processos` (spec mcp-remoto-oauth, `ler_processos`): as quatro ações, o esquema
+ * fechado e o pedido recusado antes da guarda. As regras que dependem do banco estão no
  * teste de integração.
  */
 #[CoversClass(LerProcessosFerramenta::class)]
 final class LerProcessosFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema lista só buscar, detalhar e para_vincular (cnj fica para o PR 13), exige a ação e fecha os campos')]
+    #[TestDox('o esquema lista buscar, detalhar, para_vincular e cnj (com numero_processo de até 30 caracteres), exige a ação e fecha os campos')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -28,7 +28,8 @@ final class LerProcessosFerramentaTest extends TestCase
         self::assertSame('object', $esquema['type']);
         self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
-        self::assertSame(['buscar', 'detalhar', 'para_vincular'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['buscar', 'detalhar', 'para_vincular', 'cnj'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['type' => 'string', 'maxLength' => 30], array_intersect_key($esquema['properties']['numero_processo'], ['type' => 1, 'maxLength' => 1]));
         self::assertSame('ler_processos', $this->ferramenta()->nome());
         self::assertSame('Ler processos', $this->ferramenta()->titulo());
     }
@@ -38,7 +39,8 @@ final class LerProcessosFerramentaTest extends TestCase
     {
         yield 'sem ação' => [[]];
         yield 'ação não texto' => [['acao' => 1]];
-        yield 'cnj ainda não existe' => [['acao' => 'cnj', 'numero' => '07011345720258070007']];
+        yield 'cnj com o campo errado' => [['acao' => 'cnj', 'numero' => '07011345720258070007', 'pasta_id' => 1]];
+        yield 'cnj com termo' => [['acao' => 'cnj', 'numero_processo' => '07011345720258070007', 'pasta_id' => 1, 'termo' => 'x']];
         yield 'ação fora da lista' => [['acao' => 'apagar']];
         yield 'buscar com processo_id' => [['acao' => 'buscar', 'processo_id' => 1]];
         yield 'detalhar com termo' => [['acao' => 'detalhar', 'processo_id' => 1, 'termo' => 'x']];

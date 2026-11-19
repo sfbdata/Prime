@@ -336,12 +336,7 @@ final class ReconciliarCommand extends Command
                 // getReference: proxies leves, válidos mesmo após em->clear() da iteração anterior.
                 $tenant  = $this->em->getReference(Tenant::class, $tenantId);
                 $usuario = $this->em->getReference(User::class, $usuarioId);
-                $dto = new CriarPastaDTO(
-                    nup: $item['nup'],
-                    nomeCliente: $item['cliente'] !== '' ? $item['cliente'] : null,
-                    nomeAcao: $item['acao'] !== '' ? $item['acao'] : null,
-                );
-                $pasta = $this->criarPasta->executar($dto, $usuario, $tenant);
+                $pasta = $this->criarPasta->executar($this->dtoDaPastaDescoberta($item), $usuario, $tenant);
                 $pasta->setDriveFolderId($sub['id']);
                 $pasta->setDriveSyncedAt(new \DateTimeImmutable());
                 $this->em->flush(); // executar() persistiu sem driveFolderId; aqui grava o vínculo
@@ -476,5 +471,21 @@ final class ReconciliarCommand extends Command
             ['Arquivos já vinculados a outra pasta (pulados)', $totais['ignoradosDuplicados']],
             ['Erros por item (logados)', $totais['erros']],
         ]);
+    }
+
+    /**
+     * A pasta achada no Drive. O usuário do comando não abriu a pasta, então ela nasce sem responsável (o
+     * responsável vem depois, na tela; spec `acesso-restrito-e-compartilhar.md`, regra 6).
+     *
+     * @param array<string, string> $item uma linha do `AcervoNomesParser` (nup, cliente, acao)
+     */
+    private function dtoDaPastaDescoberta(array $item): CriarPastaDTO
+    {
+        return new CriarPastaDTO(
+            nup: $item['nup'],
+            nomeCliente: $item['cliente'] !== '' ? $item['cliente'] : null,
+            nomeAcao: $item['acao'] !== '' ? $item['acao'] : null,
+            criadorComoResponsavel: false,
+        );
     }
 }

@@ -115,6 +115,8 @@ final class ImportarLoteControllerTest extends BuscaRapidaWebTestCase
         $pasta = $this->em()->find(Pasta::class, $criada['id']);
         self::assertNotNull($pasta);
         self::assertSame($tenant->getId(), $pasta->getTenant()->getId());
+        // Regra 6 do acesso restrito: a pasta importada nasce com quem importou como responsável.
+        self::assertSame($admin->getId(), $pasta->getResponsavel()?->getId());
 
         $tmp = (string) tempnam(sys_get_temp_dir(), 'lote_pdf_');
         file_put_contents($tmp, '%PDF-1.4 dummy');

@@ -153,7 +153,7 @@ html[data-bs-theme="dark"] .notif-page {
                    aria-label="{{ 'notificacao.selecionar'|trans }}">
         </div>
         <span class="notif-ico"><i class="bi {{ notif.icone }}"></i></span>
-        <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
+        <a href="{{ link_do_aviso(notif) }}"
            class="notif-main text-decoration-none">
             <h6 class="notif-title">{{ notif.titulo }}</h6>
             {% if notif.mensagem and notif.mensagem != notif.titulo %}
