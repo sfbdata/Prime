@@ -155,25 +155,31 @@
 
 /* Linha de tabela sob o cursor (Guia visual v30): `.bjp-linhas` no lugar do `table-hover`. A linha inteira fica azul
    #2b7ab0, com faixa interna de 4px #1f6f9c e texto branco, como `.mp-lin` do Master. Botões, etiquetas, selos,
-   campos e menus guardam as cores próprias, que se leem sobre o azul; o botão discreto (sem fundo) fica branco. A
-   linha de detalhe que abre (`tr.collapse`) não acende. O Bootstrap 5.3 pinta a célula com sombra interna: a
-   faixa e o azul vão na mesma sombra. */
+   campos e menus guardam as cores próprias, que se leem sobre o azul; o botão discreto e os ícones de ação
+   (`.btn-action`, sem fundo) ficam brancos. A linha de detalhe que abre (`tr.collapse`) e a de lista vazia (célula
+   com colspan) não acendem. O Bootstrap 5.3 pinta a célula com sombra interna: a faixa e o azul vão na mesma
+   sombra. O `!important` da cor vence o `.text-muted` do Bootstrap, posto na própria célula. */
 table.bjp-linhas > tbody > tr > * {
     transition: background-color .18s, color .18s, box-shadow .18s;
 }
-table.bjp-linhas > tbody > tr:not(.collapse):hover > * {
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover > * {
     --bs-table-bg-state: #2b7ab0;
     --bs-table-color-state: #fff;
     background-color: #2b7ab0;
     box-shadow: inset 0 0 0 9999px #2b7ab0;
-    color: #fff;
+    color: #fff !important;
 }
-table.bjp-linhas > tbody > tr:not(.collapse):hover > :first-child {
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover > :first-child {
     box-shadow: inset 4px 0 0 #1f6f9c, inset 0 0 0 9999px #2b7ab0;
 }
-table.bjp-linhas > tbody > tr:not(.collapse):hover > * :not(:is(.btn, .btn *, .bjp-btn, .bjp-btn *, .bjp-ico, .bjp-ico *, .btn-action, .btn-action *, .btn-close, .dropdown-menu, .dropdown-menu *, .badge, .badge *, .bjp-etiqueta, .bjp-etiqueta *, .bjp-prazo, .bjp-prazo *, input, select, textarea, .form-control, .form-select)) {
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover > * :not(:is(.btn, .btn *, .bjp-btn, .bjp-btn *, .bjp-ico, .bjp-ico *, .btn-action, .btn-action *, .btn-close, .dropdown-menu, .dropdown-menu *, .badge, .badge *, .bjp-etiqueta, .bjp-etiqueta *, .bjp-prazo, .bjp-prazo *, input, select, textarea, .form-control, .form-select)) {
     color: #fff !important;
 }
-table.bjp-linhas > tbody > tr:not(.collapse):hover .bjp-btn--discreto:not(:hover):not(:focus) {
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover .bjp-btn--discreto:not(:hover):not(:focus),
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover .btn-action {
     color: #fff !important;
+}
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover .btn-action:hover,
+table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover .btn-action:focus {
+    background-color: rgba(255, 255, 255, .2) !important;
 }

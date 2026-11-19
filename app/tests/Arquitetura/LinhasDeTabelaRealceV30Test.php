@@ -18,7 +18,8 @@ use PHPUnit\Framework\TestCase;
 final class LinhasDeTabelaRealceV30Test extends TestCase
 {
     private const RAIZ = __DIR__ . '/../../';
-    private const LINHA = 'table.bjp-linhas > tbody > tr:not(.collapse):hover > *';
+    private const TR = 'table.bjp-linhas > tbody > tr:not(.collapse):not(:has(> td[colspan])):hover';
+    private const LINHA = self::TR . ' > *';
 
     /** @return iterable<string, array{string, int}> */
     public static function telas(): iterable
@@ -70,10 +71,10 @@ final class LinhasDeTabelaRealceV30Test extends TestCase
         self::assertStringContainsString('background-color: #2b7ab0;', $linha);
         self::assertStringContainsString('box-shadow: inset 0 0 0 9999px #2b7ab0;', $linha);
         self::assertStringContainsString('--bs-table-bg-state: #2b7ab0;', $linha);
-        self::assertStringContainsString('color: #fff;', $linha);
+        self::assertStringContainsString('color: #fff !important;', $linha);   // vence o .text-muted da própria célula
         self::assertStringContainsString(
             'box-shadow: inset 4px 0 0 #1f6f9c, inset 0 0 0 9999px #2b7ab0;',
-            $this->regra('table.bjp-linhas > tbody > tr:not(.collapse):hover > :first-child'),
+            $this->regra(self::TR . ' > :first-child'),
         );
         self::assertStringContainsString('transition: background-color .18s, color .18s', $this->regra('table.bjp-linhas > tbody > tr > *'));
     }
@@ -87,6 +88,14 @@ final class LinhasDeTabelaRealceV30Test extends TestCase
         foreach (['.btn', '.bjp-btn', '.bjp-ico', '.btn-action', '.dropdown-menu', '.badge', '.bjp-etiqueta', '.bjp-prazo', 'input', 'select', '.form-control', '.form-select'] as $excecao) {
             self::assertContains($excecao, $excecoes);
         }
+    }
+
+    #[TestDox('Ícones de ação (.btn-action, sem fundo) e botão discreto ficam brancos no azul')]
+    public function testAcoesSemFundoFicamBrancas(): void
+    {
+        self::assertStringContainsString('color: #fff !important;', $this->regra(self::TR . ' .btn-action'));
+        self::assertStringContainsString('color: #fff !important;', $this->regra(self::TR . ' .bjp-btn--discreto:not(:hover):not(:focus)'));
+        self::assertStringContainsString('rgba(255, 255, 255, .2) !important', $this->regra(self::TR . ' .btn-action:hover'));
     }
 
     #[TestDox('O bloco fica no fim do bj-padrao.css (combinado entre as sessões para não conflitar)')]
