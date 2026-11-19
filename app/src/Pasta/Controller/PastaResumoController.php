@@ -288,6 +288,9 @@ final class PastaResumoController extends AbstractController
     }
 
     /**
+     * Os pontos do relatório inicial vêm inteiros, sem o teto da lista de exibição: `imprimirResumo()` do desenho
+     * (dc L.4832) lista as pendências de todas as abas, Detalhes inclusive.
+     *
      * @param PastaPagamento[] $pagamentos
      */
     private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro, User $usuario): PastaResumoImpressaoOutput
@@ -323,7 +326,6 @@ final class PastaResumoController extends AbstractController
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
                 documentosCobrados: $this->cobrancasDoChecklist->cobradosPendentes($pasta),
-                // `imprimirResumo()` do desenho (dc L.4832): as pendências de todas as abas, Detalhes inclusive, com o relatório inteiro.
                 relatorioInicial: $this->lerPontosDoRelatorio->executar($pasta, $usuario, $tenant),
             )->semAbas($ocultas),
             \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,
