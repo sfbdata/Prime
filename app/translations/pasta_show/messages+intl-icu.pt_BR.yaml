@@ -418,3 +418,49 @@ pasta_show:
             criar: Criar meta
             enviando: Enviando…
             erro_criar: Erro ao criar meta.
+        destaque:
+            # pasta-destaque.js
+            destacar: 'Destacar'
+            remover: 'Remover destaque'
+            destacar_cor: 'Destacar · {cor}'
+            paleta: 'Cor do destaque'
+            titulo: 'Destacar comentário'
+            sem_cor: 'Sem cor'
+            erro_salvar: 'Não foi possível salvar o destaque.'
+            removido: 'Destaque removido'
+            destacado: 'Comentário destacado em {cor}'
+            desfeito_autor: 'Comentário destacado em {cor}. O destaque anterior (comentário de {autor}) foi desfeito: só o último destaque desta aba prevalece.'
+            desfeito: 'Comentário destacado em {cor}. O destaque anterior foi desfeito: só o último destaque desta aba prevalece.'
+        show:
+            # pasta-show.js
+            fechar_esc: 'Fechar (Esc)'
+            link_copiado: 'Link copiado'
+            copiar_falhou: 'Não foi possível copiar'
+            teor_falhou: 'Não foi possível carregar o teor. Tente de novo.'
+        presenca:
+            # pasta-presenca-autor.js
+            disponivel: 'Disponível'
+            ocupado: 'Ocupado'
+            ausente: 'Ausente'
+            offline: 'Off-line'
+            hoje: 'hoje'
+            dia_hora: '{dia} às {hora}'
+            visto: 'visto por último {quando}'
+            sem_atividade: 'sem atividade recente'
+            desde: 'desde {hora}'
+            online_agora: 'on-line agora'
+            dica_eu: 'clique para mudar no Chat I.A'
+            dica_outro: 'definido no Chat I.A'
+        apensado:
+            # pasta-apensado.js
+            aviso: 'Apensado vinculado · aparece em Processo, Dados da pasta e Push processual'
+            vincular: 'Vincular apensado'
+            confirmar: 'Desvincular este apensado da pasta?'
+            desvincular_titulo: 'Desvincular apensado'
+            desvincular: 'Desvincular'
+            erro: 'Erro ao desvincular o apensado.'
+            erro_comunicacao: 'Erro de comunicação. Tente novamente.'
+        duplicados:
+            # pasta-clientes-duplicados.js
+            dica: 'Outro cliente vinculado tem o mesmo {doc}'
+            selo: '{doc} duplicado'

@@ -115,3 +115,8 @@ pasta_avisos:
         pedidos_decidido: Pedido decidido
         pedidos_falhou: Não foi possível decidir o pedido
         pedidos_sem_conexao: Falha de conexão ao decidir o pedido
+    fora:
+        # pasta/fora_do_seu_acesso.html.twig
+        texto: 'Seu perfil tem {destaque}. Esta área do escritório não está disponível para você.'
+        destaque: 'acesso restrito às pastas sob sua responsabilidade'
+        botao: 'Ir para minhas pastas'

@@ -1,0 +1,95 @@
+{#
+    Conteúdo da janela da campanha (fragmento devolvido por GET /contribua/campanha/janela).
+    Recebe `janela` (JanelaDaCampanhaView). O overlay é montado pelo contribua-campanha.js.
+    Desenho: abrir() do bj-campanha.js.
+#}
+{% set c = janela.campanha %}
+{% set pt = janela.participacao %}
+{% set status = c.statusTexto != '' ? c.statusTexto : 'Campanha desligada' %}
+<div class="cp-jan" data-cp-janela data-cp-nome="{{ c.nome }}">
+    <div class="cp-jan-topo">
+        <button type="button" class="cp-jan-fechar" data-cp-a="fechar" aria-label="Fechar">×</button>
+        <div class="cp-jan-linha"><span class="cp-jan-selo">{{ c.chamadaSelo }}</span><span class="cp-jan-status">{{ status }}</span>{% if janela.inscritos is not null %}<span class="cp-jan-contador">· {{ janela.inscritos }} inscrito(s){{ janela.vagas ? ' de ' ~ janela.vagas : '' }}</span>{% endif %}</div>
+        <div class="cp-jan-nome">{{ c.nome }}</div>
+        <div class="cp-jan-lema">Desafio de <span>{{ c.preco }}</span>. Não gostou? Devolvemos <span>{{ c.devolve }}</span>.</div>
+        <div class="cp-jan-texto">O BlueJus é gratuito. O Desafio é um convite para usar de verdade, com acompanhamento da nossa equipe. Se não aprovar, você recebe {{ c.multTx }} do que pagou. É simples assim: confiamos no sistema.</div>
+    </div>
+    <div class="cp-jan-corpo">
+        <div class="cp-passos">
+            {% for passo in [
+                ['1', 'Inscreva-se com ' ~ c.preco ~ ' no Pix'],
+                ['2', 'Use o BlueJus no seu escritório, com nossa ajuda'],
+                ['3', 'Não gostou? Peça ' ~ c.devolve ~ ' em até ' ~ c.prazoPedido ~ ' dias'],
+            ] %}
+                <div class="cp-passo"><b>{{ passo[0] }}</b><span>{{ passo[1] }}</span></div>
+            {% endfor %}
+        </div>
+
+        {# Caixa da ação, conforme a situação da participação e da campanha #}
+        {% if pt and pt.situacao == 'aguardando_pagamento' %}
+            <div class="cp-acao" data-cp-acao="aguardando_pagamento">
+                <b class="cp-acao-titulo">Pague com Pix para entrar no Desafio</b>
+                <div class="cp-pix">
+                    <div class="cp-pix-qr" data-cp-qr data-codigo="{{ pt.pixCodigo }}"></div>
+                    <div class="cp-pix-dados">
+                        <label class="cp-campo">Pix copia e cola<textarea class="cp-entrada cp-pix-codigo" rows="3" readonly data-cp-codigo>{{ pt.pixCodigo }}</textarea></label>
+                        <div><button type="button" class="cp-botao cp-botao--claro" data-cp-a="copiar"><i class="bi bi-copy"></i><span>Copiar código</span></button></div>
+                    </div>
+                </div>
+                <span class="cp-acao-texto">Sua inscrição vale quando o pagamento for confirmado. Valor: {{ pt.preco }}.</span>
+            </div>
+        {% elseif pt and pt.situacao == 'ativa' %}
+            <div class="cp-acao" data-cp-acao="ativa">
+                <b class="cp-acao-titulo">Você está no Desafio desde {{ pt.desde }}</b>
+                <span class="cp-acao-texto">Use o BlueJus no dia a dia. Se não gostar, você ainda tem {{ pt.diasRestantes }} dia(s) para pedir {{ pt.valorDevolucao }} de volta.</span>
+                {% if pt.podeDevolver %}
+                    <div><button type="button" class="cp-botao cp-botao--contorno" data-cp-a="devForm">Não gostei: quero {{ pt.valorDevolucao }} de volta</button></div>
+                    <form class="cp-form cp-form--dev" action="{{ janela.urls.devolucao }}" method="post" data-cp-form hidden>
+                        <input type="hidden" name="_token" value="{{ janela.csrf }}">
+                        <label class="cp-campo">Chave Pix para receber *<input class="cp-entrada" name="pix" maxlength="140" autocomplete="off" data-cp-foco></label>
+                        <label class="cp-campo">O que faltou? (opcional, nos ajuda a melhorar)<textarea class="cp-entrada cp-entrada--area" name="motivo" rows="2" maxlength="400"></textarea></label>
+                        <div><button type="submit" class="cp-botao cp-botao--claro">Confirmar pedido de devolução</button></div>
+                    </form>
+                {% endif %}
+            </div>
+        {% elseif pt and pt.situacao == 'devolucao_pedida' %}
+            <div class="cp-acao cp-acao--ambar" data-cp-acao="devolucao_pedida"><b>Devolução pedida em {{ pt.pedidaEm }}.</b> Você recebe {{ pt.valorDevolucao }} por Pix em até {{ c.prazoPagto }} dias úteis. Obrigado por testar; suas pastas continuam no BlueJus gratuito.</div>
+        {% elseif pt and pt.situacao == 'devolvida' %}
+            <div class="cp-acao cp-acao--verde" data-cp-acao="devolvida"><b>Devolução de {{ pt.valorDevolucao }} concluída.</b> Obrigado por participar do Desafio.</div>
+        {% elseif c.estado == 'ativa' %}
+            <div class="cp-acao" data-cp-acao="inscrever">
+                <b class="cp-acao-titulo">Entrar no Desafio</b>
+                <form class="cp-form" action="{{ janela.urls.inscrever }}" method="post" data-cp-form>
+                    <input type="hidden" name="_token" value="{{ janela.csrf }}">
+                    <div class="cp-campos">
+                        <label class="cp-campo">Nome<input class="cp-entrada" name="nome" value="{{ janela.nomeSugerido }}" autocomplete="name"></label>
+                        <label class="cp-campo">CPF *<input class="cp-entrada" name="cpf" inputmode="numeric" placeholder="somente números" autocomplete="off"></label>
+                        <label class="cp-campo">OAB *<input class="cp-entrada" name="oab" placeholder="ex.: 12345/DF" autocomplete="off"></label>
+                    </div>
+                    <label class="cp-aceite"><input type="checkbox" name="aceite" value="1">Li e aceito as regras do Desafio abaixo.</label>
+                    <div><button type="submit" class="cp-botao cp-botao--claro">Pagar {{ c.preco }} com Pix e entrar</button></div>
+                </form>
+            </div>
+        {% else %}
+            <div class="cp-acao cp-acao--cinza" data-cp-acao="indisponivel">{{ status }}.</div>
+        {% endif %}
+
+        <div>
+            <div class="cp-rotulo">O QUE O DESAFIO INCLUI</div>
+            <div class="cp-beneficios">
+                {% for b in janela.beneficios %}
+                    <div class="cp-beneficio"><span>✓</span><span>{{ b }}</span></div>
+                {% endfor %}
+                <div class="cp-beneficio"><span>✓</span><span>Todo o sistema, que já é gratuito, continua liberado</span></div>
+            </div>
+        </div>
+
+        <details open class="cp-regras"><summary>Regras do Desafio</summary><ol>{% for r in janela.regras %}<li>{{ r }}</li>{% endfor %}</ol></details>
+
+        <div class="cp-rodape">{{ c.nome }} é uma campanha da BlueJus Gestão e Tecnologia Ltda. {{ c.chamada }} é o nome da ação comercial desta temporada. Dúvidas: bluejus.86@gmail.com.</div>
+
+        {% if c.ehMaster and janela.urlConfigurar %}
+            <div class="cp-master"><a href="{{ janela.urlConfigurar }}">Configurar campanha (Master)</a></div>
+        {% endif %}
+    </div>
+</div>

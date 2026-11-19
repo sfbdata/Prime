@@ -111,7 +111,7 @@
 
     /* ── Variáveis da peça: a prévia repete a regra do servidor (PreenchedorDeModelo) ── */
     function esc(texto) {
-        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\x22/g, '&quot;').replace(/\x27/g, '&#039;');
     }
 
     function valorLimpo(v) {

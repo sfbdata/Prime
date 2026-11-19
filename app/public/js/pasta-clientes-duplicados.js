@@ -19,8 +19,8 @@
         var rotulo = tipo === 'cnpj' ? 'CNPJ' : 'CPF';
         var selo = document.createElement('span');
         selo.className = 'ps-selo-duplicado';
-        selo.title = 'Outro cliente vinculado tem o mesmo ' + rotulo;
-        selo.textContent = rotulo + ' duplicado';
+        selo.title = BJ_T.t('pasta_show.js.duplicados.dica', { doc: rotulo });
+        selo.textContent = BJ_T.t('pasta_show.js.duplicados.selo', { doc: rotulo });
 
         return selo;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,10 @@ use PHPUnit\Framework\TestCase;
  */
 final class EditorRicoMenuContextoTest extends TestCase
 {
+    use TextoDoCatalogo;
+
+    private const CAT = 'comum.js.editor.';
+
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
     private const CSS = __DIR__ . '/../../../public/css/editor-rico.css';
 
@@ -39,35 +44,45 @@ final class EditorRicoMenuContextoTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
-    /** @return iterable<string, array{string, string, string}> ícone, rótulo, atalho do desenho */
+    /** @return iterable<string, array{string, string, string, string}> ícone, chave, rótulo, atalho do desenho */
     public static function itensDoDesenho(): iterable
     {
-        yield 'Recortar' => ['bi-scissors', 'Recortar', 'Ctrl+X'];
-        yield 'Copiar' => ['bi-copy', 'Copiar', 'Ctrl+C'];
-        yield 'Colar' => ['bi-clipboard', 'Colar', 'Ctrl+V'];
-        yield 'Colar somente texto' => ['bi-clipboard-check', 'Colar somente texto', 'Ctrl+Shift+V'];
-        yield 'Localizar e substituir' => ['bi-search', 'Localizar e substituir', 'Ctrl+H'];
-        yield 'Revisar texto' => ['bi-spellcheck', 'Revisar texto', ''];
-        yield 'Selecionar tudo' => ['bi-check2-all', 'Selecionar tudo', 'Ctrl+A'];
+        yield 'Recortar' => ['bi-scissors', 'menu.recortar', 'Recortar', 'Ctrl+X'];
+        yield 'Copiar' => ['bi-copy', 'menu.copiar', 'Copiar', 'Ctrl+C'];
+        yield 'Colar' => ['bi-clipboard', 'menu.colar', 'Colar', 'Ctrl+V'];
+        yield 'Colar somente texto' => ['bi-clipboard-check', 'menu.colar_texto', 'Colar somente texto', 'Ctrl+Shift+V'];
+        yield 'Localizar e substituir' => ['bi-search', 'menu.localizar', 'Localizar e substituir', 'Ctrl+H'];
+        yield 'Revisar texto' => ['bi-spellcheck', 'menu.revisar', 'Revisar texto', ''];
+        yield 'Selecionar tudo' => ['bi-check2-all', 'menu.selecionar_tudo', 'Selecionar tudo', 'Ctrl+A'];
     }
 
     #[DataProvider('itensDoDesenho')]
     #[TestDox('o item $_dataName tem o ícone, o rótulo e o atalho do desenho')]
-    public function testItemDoDesenho(string $icone, string $rotulo, string $atalho): void
+    public function testItemDoDesenho(string $icone, string $chave, string $rotulo, string $atalho): void
     {
         self::assertStringContainsString(
-            "itemDoMenu('{$icone}', '{$rotulo}', '{$atalho}',",
+            "itemDoMenu('{$icone}', T('{$chave}'), '{$atalho}',",
             $this->funcao('abrirMenuContexto')
         );
+        self::assertSame($rotulo, self::ptBr(self::CAT . $chave), 'o português do catálogo não mudou');
     }
 
     #[TestDox('os itens seguem a ordem do desenho')]
     public function testOrdemDosItens(): void
     {
         $menu = $this->funcao('abrirMenuContexto');
+        $ordem = [
+            'menu.negrito' => 'Negrito', 'menu.limpar' => 'Limpar formatação', 'menu.recortar' => 'Recortar',
+            'menu.copiar' => 'Copiar', 'menu.colar' => 'Colar', 'menu.colar_texto' => 'Colar somente texto',
+            'menu.paragrafo' => 'Parágrafo', 'menu.esquerda' => 'À esquerda', 'menu.aumentar' => 'Aumentar recuo',
+            'menu.localizar' => 'Localizar e substituir', 'menu.revisar' => 'Revisar texto', 'menu.selecionar_tudo' => 'Selecionar tudo',
+        ];
+        foreach ($ordem as $chave => $rotulo) {
+            self::assertSame($rotulo, self::ptBr(self::CAT . $chave), 'o português do catálogo não mudou');
+        }
         $posicoes = array_map(
-            static fn (string $r): int|false => strpos($menu, "'" . $r . "'"),
-            ['Negrito', 'Limpar formatação', 'Recortar', 'Copiar', 'Colar', 'Colar somente texto', 'Parágrafo', 'À esquerda', 'Aumentar recuo', 'Localizar e substituir', 'Revisar texto', 'Selecionar tudo']
+            static fn (string $c): int|false => strpos($menu, "T('" . $c . "')"),
+            array_keys($ordem)
         );
         self::assertNotContains(false, $posicoes);
         $ordenadas = $posicoes;
@@ -79,11 +94,12 @@ final class EditorRicoMenuContextoTest extends TestCase
     public function testSugestoesDeCorrecaoAntesDeRecortar(): void
     {
         $menu = $this->funcao('abrirMenuContexto');
-        $bloco = strpos($menu, "cabecalhoDaJanela('Sugestões de correção')");
+        $bloco = strpos($menu, "cabecalhoDaJanela(T('menu.correcoes'))");
 
         self::assertNotFalse($bloco, 'bloco "Sugestões de correção" ausente do menu');
-        self::assertGreaterThan(strpos($menu, "'Limpar formatação'"), $bloco);
-        self::assertLessThan(strpos($menu, "'Recortar'"), $bloco);
+        self::assertSame('Sugestões de correção', self::ptBr(self::CAT . 'menu.correcoes'));
+        self::assertGreaterThan(strpos($menu, "T('menu.limpar')"), $bloco);
+        self::assertLessThan(strpos($menu, "T('menu.recortar')"), $bloco);
         self::assertStringContainsString('var correcoes = palavra ? correcoesDoMenu(palavra.texto) : [];', $menu);
         self::assertStringContainsString('if (correcoes.length) {', $menu, 'só aparece quando há correção');
     }
@@ -92,8 +108,8 @@ final class EditorRicoMenuContextoTest extends TestCase
     public function testSugestaoDeCorrecaoTrocaAPalavra(): void
     {
         $menu = $this->funcao('abrirMenuContexto');
-        $ini = (int) strpos($menu, "cabecalhoDaJanela('Sugestões de correção')");
-        $trecho = substr($menu, $ini, (int) strpos($menu, "'Recortar'") - $ini);
+        $ini = (int) strpos($menu, "cabecalhoDaJanela(T('menu.correcoes'))");
+        $trecho = substr($menu, $ini, (int) strpos($menu, "T('menu.recortar')") - $ini);
 
         self::assertStringContainsString("itemDoMenu('bi-spellcheck', correcao, '', false, executar(function () {", $trecho);
         self::assertStringContainsString('trocarPorSinonimo(quill, palavra, correcao);', $trecho);
@@ -125,29 +141,30 @@ final class EditorRicoMenuContextoTest extends TestCase
         }
     }
 
-    /** @return iterable<string, array{string, string}> rótulo, chamada real do editor */
+    /** @return iterable<string, array{string, string, string}> chave, rótulo, chamada real do editor */
     public static function acoesReais(): iterable
     {
-        yield 'Negrito' => ['Negrito', "quill.format('bold', !formatos.bold, 'user')"];
-        yield 'Tachado' => ['Tachado', "quill.format('strike', !formatos.strike, 'user')"];
-        yield 'Realce' => ['Realçar com a última cor', "quill.format('background', realce, 'user')"];
-        yield 'Cor' => ['Cor da fonte (última usada)', "quill.format('color', cor, 'user')"];
-        yield 'Marcadores' => ['Marcadores', "quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user')"];
-        yield 'Título' => ['Título', "quill.format('header', formatos.header === 2 ? false : 2, 'user')"];
-        yield 'Limpar' => ['Limpar formatação', 'limparFormatacao(quill, quill.getSelection())'];
-        yield 'Justificado' => ['Justificado', "quill.format('align', 'justify', 'user')"];
-        yield 'Recuo' => ['Aumentar recuo', 'recuar(quill, 1)'];
-        yield 'Localizar' => ['Localizar e substituir', 'refs.busca.abrir()'];
-        yield 'Revisar' => ['Revisar texto', 'conteudoDaRevisao(refs)'];
-        yield 'Selecionar tudo' => ['Selecionar tudo', "quill.setSelection(0, Math.max(quill.getLength() - 1, 0), 'user')"];
+        yield 'Negrito' => ['menu.negrito', 'Negrito', "quill.format('bold', !formatos.bold, 'user')"];
+        yield 'Tachado' => ['menu.tachado', 'Tachado', "quill.format('strike', !formatos.strike, 'user')"];
+        yield 'Realce' => ['menu.realcar', 'Realçar com a última cor', "quill.format('background', realce, 'user')"];
+        yield 'Cor' => ['menu.cor_ultima', 'Cor da fonte (última usada)', "quill.format('color', cor, 'user')"];
+        yield 'Marcadores' => ['menu.marcadores', 'Marcadores', "quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user')"];
+        yield 'Título' => ['menu.titulo_h', 'Título', "quill.format('header', formatos.header === 2 ? false : 2, 'user')"];
+        yield 'Limpar' => ['menu.limpar', 'Limpar formatação', 'limparFormatacao(quill, quill.getSelection())'];
+        yield 'Justificado' => ['menu.justificado', 'Justificado', "quill.format('align', 'justify', 'user')"];
+        yield 'Recuo' => ['menu.aumentar', 'Aumentar recuo', 'recuar(quill, 1)'];
+        yield 'Localizar' => ['menu.localizar', 'Localizar e substituir', 'refs.busca.abrir()'];
+        yield 'Revisar' => ['menu.revisar', 'Revisar texto', 'conteudoDaRevisao(refs)'];
+        yield 'Selecionar tudo' => ['menu.selecionar_tudo', 'Selecionar tudo', "quill.setSelection(0, Math.max(quill.getLength() - 1, 0), 'user')"];
     }
 
     #[DataProvider('acoesReais')]
     #[TestDox('o item "$_dataName" aciona a função que o editor já tem')]
-    public function testItemAcionaFuncaoReal(string $rotulo, string $chamada): void
+    public function testItemAcionaFuncaoReal(string $chave, string $rotulo, string $chamada): void
     {
+        self::assertSame($rotulo, self::ptBr(self::CAT . $chave), 'o português do catálogo não mudou');
         $menu = $this->funcao('abrirMenuContexto');
-        $ini = strpos($menu, "'" . $rotulo . "'");
+        $ini = strpos($menu, "T('" . $chave . "')");
         self::assertNotFalse($ini);
         $linha = substr($menu, $ini, (int) strpos($menu, "\n", $ini) - $ini);
         // A chamada pode vir na mesma linha ou na seguinte (itens de várias linhas).
@@ -171,7 +188,8 @@ final class EditorRicoMenuContextoTest extends TestCase
     {
         $colar = $this->funcao('colarDaAreaDeTransferencia');
 
-        self::assertStringContainsString("'Use Ctrl+V para colar (o navegador bloqueou o acesso direto)'", $colar);
+        self::assertStringContainsString("T('copiar.colar_bloqueado')", $colar);
+        self::assertSame('Use Ctrl+V para colar (o navegador bloqueou o acesso direto)', self::ptBr(self::CAT . 'copiar.colar_bloqueado'));
         self::assertStringContainsString('if (!api || !api.readText) { bloqueado(); return; }', $colar);
         self::assertStringContainsString('api.readText().then(function (t) { colarConteudo(refs, faixa, \'\', t); }, bloqueado)', $colar);
     }

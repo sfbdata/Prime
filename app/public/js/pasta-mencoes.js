@@ -165,13 +165,13 @@
         if (!pop) {
             pop = el('div', 'ps-mencao-lista');
             pop.setAttribute('role', 'listbox');
-            pop.setAttribute('aria-label', 'Mencionar pessoa');
+            pop.setAttribute('aria-label', BJ_T.t('comum.js.mencoes.aria'));
             // Clicar na lista não pode tirar o foco do editor (perderia a posição do cursor).
             pop.addEventListener('mousedown', function (ev) { ev.preventDefault(); });
             document.body.appendChild(pop);
         }
         pop.innerHTML = '';
-        pop.appendChild(el('div', 'ps-mencao-lista-cab', 'Mencionar · notifica a pessoa'));
+        pop.appendChild(el('div', 'ps-mencao-lista-cab', BJ_T.t('comum.js.mencoes.cabecalho')));
 
         L.forEach(function (u, i) {
             var b = el('button', 'ps-mencao-opcao');

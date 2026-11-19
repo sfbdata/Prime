@@ -8,6 +8,7 @@ use App\Shared\Service\SanitizadorTextoRico;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -22,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(SanitizadorTextoRico::class)]
 final class EditorRicoCitacaoTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     use CriaSanitizadorTextoRico;
 
     private const APP = __DIR__ . '/../../..';
@@ -67,7 +70,8 @@ final class EditorRicoCitacaoTest extends TestCase
         self::assertStringContainsString("quill.updateContents(mudanca, 'user')", $inserir);
         self::assertStringNotContainsString('innerHTML', $inserir);
         self::assertStringNotContainsString('dangerouslyPasteHTML', $inserir);
-        self::assertStringContainsString("'Citação inserida no editor'", $inserir);
+        self::assertStringContainsString("T('chip.citacao_inserida')", $inserir);
+        self::assertSame('Citação inserida no editor', self::ptBr('comum.js.editor.' . 'chip.citacao_inserida'));
         self::assertStringContainsString("textoDoChip('bi-quote'", $inserir);
         self::assertStringContainsString('scrollIntoView', $inserir, 'precisa rolar até o compositor');
     }
