@@ -325,11 +325,38 @@
         sincronizarFoto(linha);
     }
 
-    /* Escolheu (ou cancelou) o arquivo: prévia local; sem arquivo, volta a foto que a linha já tinha. */
+    /* Escolheu (ou cancelou) o arquivo: prévia local; sem arquivo, volta a foto que a linha já tinha.
+       Arquivo novo passa antes pela janela "Ajustar a foto" (voto-foto-ajuste.js): "Usar esta foto" troca o arquivo do
+       campo pelo recorte 3x4; "Cancelar" desfaz a escolha; sem a janela (ou imagem ilegível) fica o original. */
     function escolherFoto(campo) {
         var linha = campo.closest('[data-voto-opcao]');
         var caixa = campo.closest('[data-voto-foto]');
         if (!linha || !caixa) {
+            return;
+        }
+        // 'feito': já é o recorte (não reduz de novo); 'pular': sem janela ou imagem ilegível, segue com o original.
+        var ajuste = campo.votoAjuste;
+        campo.votoAjuste = undefined;
+        if (!ajuste && campo.files && campo.files.length > 0 && window.VotoFotoAjuste && window.DataTransfer && window.File) {
+            var escolhido = campo.files[0];
+            window.VotoFotoAjuste.abrir(escolhido, function (recorte) {
+                if (recorte === null) {
+                    campo.value = '';
+                } else {
+                    campo.votoAjuste = 'pular';
+                    if (recorte) {
+                        try {
+                            var troca = new window.DataTransfer();
+                            troca.items.add(new window.File([recorte], escolhido.name.replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg' }));
+                            campo.files = troca.files;
+                            campo.votoAjuste = 'feito';
+                        } catch (erro) {
+                            /* fica o original */
+                        }
+                    }
+                }
+                escolherFoto(campo);
+            });
             return;
         }
         var img = caixa.querySelector('[data-voto-foto-img]');
@@ -346,7 +373,9 @@
             img.removeAttribute('src');
         }
         sincronizarFoto(linha);
-        reduzirFoto(campo);
+        if (ajuste !== 'feito') {
+            reduzirFoto(campo);
+        }
     }
 
     /* Como o desenho (reduz(a, 480)): o maior lado vai a 480 px (sem ampliar), em JPEG; o servidor ainda valida tipo e

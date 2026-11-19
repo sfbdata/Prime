@@ -26,8 +26,11 @@
 .sel-conta > .bi-chevron-right { font-size: 14px; color: #5f7684; }
 .sel-conta:hover, .sel-conta:focus-visible { background: #2b7ab0; border-color: #2b7ab0; color: #fff; }
 .sel-conta:hover *, .sel-conta:focus-visible * { color: #fff; }
-.sel-conta:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(15, 111, 196, .35); }
+/* Foco do teclado: além do fundo azul, contorno sólido por fora (o anel translúcido do guia some sobre o azul). */
+.sel-conta:focus-visible { outline: 2px solid #0b5f86; outline-offset: 2px; }
 
 html[data-bs-theme="dark"] .sel-conta { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
 html[data-bs-theme="dark"] .sel-conta-texto > span { color: var(--bs-secondary-color); }
 html[data-bs-theme="dark"] .sel-conta:hover, html[data-bs-theme="dark"] .sel-conta:focus-visible { background: #2b7ab0; border-color: #2b7ab0; color: #fff; }
+html[data-bs-theme="dark"] .sel-conta:hover .sel-conta-texto > span,
+html[data-bs-theme="dark"] .sel-conta:focus-visible .sel-conta-texto > span { color: #fff; }

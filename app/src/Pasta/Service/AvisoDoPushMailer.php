@@ -14,6 +14,7 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Twig\Environment;
 
 /**
@@ -36,11 +37,18 @@ final class AvisoDoPushMailer
         private readonly UrlGeneratorInterface $urls,
         private readonly IdentidadeDeEmail $identidade,
         private readonly DescadastroDeEmailInterface $descadastro,
+        private readonly LocaleSwitcher $idiomaDoEmail,
     ) {
     }
 
     /** @throws \RuntimeException falha do transporte (quem chama registra e segue) */
     public function enviar(User $destinatario, Tenant $tenant, AvisoDaPastaOutput $aviso): void
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        $this->idiomaDoEmail->runWithLocale('pt_BR', fn () => $this->enviarEmPortugues($destinatario, $tenant, $aviso));
+    }
+
+    private function enviarEmPortugues(User $destinatario, Tenant $tenant, AvisoDaPastaOutput $aviso): void
     {
         $email = (string) $destinatario->getEmail();
         $descadastro = $this->descadastro->gerarLink($tenant, $email, self::ASSUNTO_DO_DESCADASTRO);
