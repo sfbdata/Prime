@@ -1155,9 +1155,16 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`EditarChecklistItemUseCase::executar`, `app/src/Pasta/UseCase/EditarChecklistItemUseCase.php:17`) e `checklist_modelo`
   renomear. Mover, copiar, reordenar, favoritar, marcar item e salvar modelo novo são diretos.
 - Exclusões por proposta: documento e vários documentos para a lixeira (`ExcluirItensDaPastaUseCase`), subpasta
-  (`ExcluirPastaSecaoUseCase`), excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível), item de checklist
+  (`ExcluirPastaSecaoUseCase`), item de checklist
   (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
   (`ExcluirModeloDePecaUseCase`).
+- Excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível) fica para o PR 14 (revisão do PR 12, 18/11): a
+  purga apaga o arquivo no fim da própria transação e dá `clear()` no EntityManager. Dentro da transação da confirmação, o
+  arquivo sai antes do COMMIT de fora (INV-6) e a proposta desanexada continua pendente. Entra quando a confirmação tiver
+  um passo depois do COMMIT para a remoção dos arquivos e reler a proposta depois do executor.
+- Risco aceito no PR 12: `editar_peca` confirmado regrava o arquivo da peça (`EditarPecaTextoUseCase`, mesma chave) dentro
+  da transação da confirmação. Se o COMMIT de fora falhar, o banco volta e o arquivo fica com o texto novo; a proposta
+  continua pendente e um novo sim acerta os dois. É a mesma janela da tela, que também grava antes do COMMIT.
 - Permissão: recurso `pasta` edit; aba Documentos (Detalhes para modelos e `usar_modelo`, como a tela, e Documentos também em
   `usar_modelo`, porque a resposta devolve o documento criado); chave `expedientes`, e `peticionar` em `escrever_peca`, a
   mesma da tela (`pasta_peticionar_texto`).
@@ -1786,7 +1793,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist, excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
