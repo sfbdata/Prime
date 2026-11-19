@@ -95,7 +95,7 @@
 .ps-push-cliente-cab-ico { font-size: 14px; color: var(--ps-accent); }
 .ps-push-cliente-titulo { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ps-label); white-space: nowrap; }
 /* Chip contador (dc N:5260 `contSt`): azul, âmbar no zero. */
-.ps-push-cliente-cont { font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: var(--pc-cont-tx); background: var(--pc-cont-bg); }
+.ps-push-cliente-cont { font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; color: var(--pc-cont-tx); background: var(--pc-cont-bg); }
 .ps-push-cliente-cont.is-vazio { color: var(--pc-cont-vazio-tx); background: var(--pc-cont-vazio-bg); }
 .ps-push-cliente-espaco { flex: 1; }
 /* "Cadastrar e-mail" (dc N:2772). */
@@ -115,7 +115,10 @@
 
 /* Um e-mail (dc N:2778-2787; `lista` N:5261-5265). */
 .ps-push-cliente-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; transition: background .15s; }
-.ps-push-cliente-item:hover { background: var(--pc-hover); }
+.ps-push-cliente-item { transition: background .18s; }
+.ps-push-cliente-item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.ps-push-cliente-item:hover, .ps-push-cliente-item:hover * { color: #fff !important; }
+.ps-push-cliente-item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .ps-push-cliente-ico { font-size: 15px; flex-shrink: 0; color: var(--pc-icone-off); }
 .ps-push-cliente-ico.is-on { color: var(--ps-accent); }
 .ps-push-cliente-texto { min-width: 0; flex: 1; }

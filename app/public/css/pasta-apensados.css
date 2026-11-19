@@ -175,8 +175,11 @@
     cursor: pointer;
     font: inherit;
 }
-#modalVincularProcesso .mp-busca-item:hover,
 #modalVincularProcesso .mp-busca-item.is-ativo { background: #e5f1f7; }
+#modalVincularProcesso .mp-busca-item { transition: background .18s; }
+#modalVincularProcesso .mp-busca-item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+#modalVincularProcesso .mp-busca-item:hover, #modalVincularProcesso .mp-busca-item:hover *, #modalVincularProcesso .mp-busca-item:hover .mp-busca-num, #modalVincularProcesso .mp-busca-item:hover .mp-busca-sub { color: #fff !important; }
+#modalVincularProcesso .mp-busca-item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 #modalVincularProcesso .mp-busca-num { font-size: 13.5px; font-weight: 700; color: #0a6fa0; font-variant-numeric: tabular-nums; }
 #modalVincularProcesso .mp-busca-sub { font-size: 12px; font-weight: 400; color: #5b7383; }
 #modalVincularProcesso .mp-busca-vazio { padding: 10px; font-size: 12.5px; font-weight: 400; color: #7b93a2; }
@@ -319,8 +322,9 @@
 [data-bs-theme="dark"] #modalVincularProcesso .processo-modal-tab.active { border-bottom-color: #6fb6dc; }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-busca-lista { background: var(--bs-body-bg); border-color: var(--bs-border-color); }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item { background: transparent; }
-[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item:hover,
 [data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item.is-ativo { background: var(--bs-tertiary-bg); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item:hover { background: #2b7ab0 !important; color: #fff !important; }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item:hover .mp-busca-num, [data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item:hover .mp-busca-sub { color: #fff !important; }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-busca-sel { background: var(--bs-tertiary-bg); color: var(--bs-body-color); border-color: #6fb6dc; }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-btn-add:not(:hover):not(:focus-visible) { background: var(--bs-tertiary-bg); color: #6fb6dc; }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-linha { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }

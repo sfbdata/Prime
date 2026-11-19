@@ -10,13 +10,19 @@
 .pp-acv__atualizar:hover { background: #e5f1f7; }
 .pp-acv__grupo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #eef2f5; color: #243845; font-size: 14px; text-decoration: none; border-bottom: 1px solid #d3dde4; }
 .pp-acv__grupo.is-aberto { background: #fff; }
-.pp-acv__grupo:hover { background: #e5f1f7; color: #243845; text-decoration: none; }
+.pp-acv__grupo { transition: background .18s; }
+.pp-acv__grupo:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-acv__grupo:hover, .pp-acv__grupo:hover * { color: #fff !important; text-decoration: none; }
+.pp-acv__grupo:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-acv__grupo i { font-size: 12px; }
 .pp-acv__grupo span { flex: 1; min-width: 0; font-weight: bold; }
 .pp-acv__grupo b { font-weight: bold; }
 .pp-acv__grupo--topo span { font-style: italic; color: #0a6fa0; }
 .pp-acv__orgao { display: flex; align-items: center; gap: 7px; padding: 8px 12px 8px 22px; background: #fff; color: #243845; font-size: 13.5px; text-decoration: none; border-bottom: 1px solid #eef2f5; }
-.pp-acv__orgao:hover { background: #e5f1f7; color: #243845; text-decoration: none; }
+.pp-acv__orgao { transition: background .18s; }
+.pp-acv__orgao:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-acv__orgao:hover, .pp-acv__orgao:hover * { color: #fff !important; text-decoration: none; }
+.pp-acv__orgao:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-acv__orgao.is-sel { background: #e5f1f7; color: #0a6fa0; }
 .pp-acv__orgao > i:first-child { font-size: 10px; }
 .pp-acv__orgao .bi-bank { color: #34505f; }
