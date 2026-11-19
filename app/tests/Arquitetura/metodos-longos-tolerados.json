@@ -392,7 +392,6 @@
     "Ponto/UseCase/GuardaHorasPagas.php::validarInput": 49,
     "Ponto/UseCase/SubstituirAnexoDoLoteUseCase.php::executar": 84,
     "Processo/Controller/NotaTecnicaController.php::criar": 62,
-    "Processo/Controller/ProcessoController.php::datajudSearch": 113,
     "Processo/Controller/ProcessoController.php::fillProcessoFromRequest": 72,
     "Processo/Controller/ProcessoController.php::new": 51,
     "Processo/Controller/ProcessoController.php::show": 61,
