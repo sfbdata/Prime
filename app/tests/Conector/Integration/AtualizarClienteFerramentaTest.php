@@ -11,6 +11,9 @@ use App\Cliente\Enum\ChaveDoEnvioAutomatico;
 use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
+use App\Conector\Entity\ClienteDoConector;
+use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\AtualizarClienteAcesso;
 use App\Conector\Ferramenta\AtualizarClienteCadastro;
@@ -33,10 +36,11 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * `atualizar_cliente`, rodada 1, com o banco, o portão, a guarda e os UseCases de verdade (spec mcp-remoto-oauth, 6.6 e
- * 6.2, regras 1, 3, 4 e 10): campo vazio grava, campo preenchido recusa a chamada inteira sem gravar nada (conferido no
- * banco), o envio automático ligado recusa e nada grava, o isolamento por escritório dá o mesmo "não encontrado", a
- * pasta na lixeira e a pasta em segredo recusam, e nenhum valor mandado volta no JSON da resposta.
+ * `atualizar_cliente`, as ações diretas, com o banco, o portão, a guarda e os UseCases de verdade (spec mcp-remoto-oauth,
+ * 6.6 e 6.2, regras 1, 3, 4 e 10): campo vazio grava, campo preenchido vira proposta sem gravar nada (conferido no
+ * banco; a confirmação está em {@see AtualizarClienteConfirmacaoTest}), o envio automático ligado recusa e nada grava, o
+ * isolamento por escritório dá o mesmo "não encontrado", a pasta na lixeira e a pasta em segredo recusam, e nenhum valor
+ * mandado volta no JSON da resposta.
  */
 #[CoversClass(AtualizarClienteFerramenta::class)]
 #[CoversClass(AtualizarClienteCadastro::class)]
@@ -58,6 +62,9 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
 
     private Tenant $escritorio;
     private User $pessoa;
+    private ClienteDoConector $app;
+    /** @var array<int, int> pessoa => consentimento (a proposta exige um consentimento ativo de verdade) */
+    private array $consentimentos = [];
 
     protected function setUp(): void
     {
@@ -65,6 +72,9 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
         $this->escritorio = $this->escritorio();
         $this->pessoa = $this->pessoa();
         $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::EDITOR);
+        $this->app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable('-1 hour'));
+        $this->em()->persist($this->app);
+        $this->em()->flush();
     }
 
     protected function tearDown(): void
@@ -91,29 +101,29 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
         self::assertSemValores($resposta, [self::BAIRRO_NOVO, self::COMPLEMENTO_NOVO, 'Sigiloso', 'Reservado']);
     }
 
-    #[TestDox('completar: um campo preenchido com outro valor recusa a chamada inteira; nem o campo vazio mandado junto é gravado')]
-    public function testCompletarCampoPreenchidoRecusaTudo(): void
+    #[TestDox('completar: um campo preenchido com outro valor faz a chamada inteira virar proposta; nem o campo vazio mandado junto é gravado')]
+    public function testCompletarCampoPreenchidoViraProposta(): void
     {
         $cliente = $this->cliente();
         $antes = $this->doBanco($cliente);
 
-        $erro = $this->recusa(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['bairro' => self::BAIRRO_NOVO, 'profissao' => 'Engenheira Valor Novo']]);
+        $resposta = $this->chamar(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['bairro' => self::BAIRRO_NOVO, 'profissao' => 'Engenheira Valor Novo']]);
 
-        self::assertSame(ErroDaFerramenta::MOTIVO_RECUSADA, $erro->motivo);
-        self::assertSame(AtualizarClienteCadastro::TROCA_POR_CONFIRMACAO, $erro->getMessage());
-        self::assertStringNotContainsString('Engenheira', $erro->getMessage());
+        self::assertSame('aguardando_confirmacao', $resposta->dados['estado']);
+        self::assertSame(['campos_que_trocam' => ['profissao'], 'campos_vazios' => ['bairro']], $resposta->dados['detalhes']);
+        self::assertStringNotContainsString('PROFESSORA', mb_strtoupper($resposta->dados['proposta']['resumo']), 'o valor antigo não vai ao resumo');
         self::assertSame($antes, $this->doBanco($cliente), 'nada foi gravado, nem o bairro vazio');
     }
 
-    #[TestDox('completar: apagar um campo preenchido também é troca e recusa sem gravar')]
-    public function testCompletarApagarRecusa(): void
+    #[TestDox('completar: apagar um campo preenchido também é troca e vira proposta sem gravar')]
+    public function testCompletarApagarViraProposta(): void
     {
         $cliente = $this->cliente();
         $antes = $this->doBanco($cliente);
 
-        $erro = $this->recusa(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['profissao' => '']]);
+        $resposta = $this->chamar(['acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['profissao' => '']]);
 
-        self::assertSame(AtualizarClienteCadastro::TROCA_POR_CONFIRMACAO, $erro->getMessage());
+        self::assertStringEndsWith('- profissão (troca o valor atual): apagar o valor atual', $resposta->dados['proposta']['resumo']);
         self::assertSame($antes, $this->doBanco($cliente));
     }
 
@@ -155,8 +165,13 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
     /** @return iterable<string, array{0: array<string, mixed>}> */
     public static function entradasInvalidas(): iterable
     {
-        yield 'ação fora da lista (cadastrar fica para a rodada 2)' => [['acao' => 'cadastrar', 'cliente_id' => 1]];
-        yield 'desvincular fica para a rodada 2' => [['acao' => 'desvincular', 'cliente_id' => 1, 'pasta_id' => 1]];
+        yield 'cadastrar sem a lista (cliente_id não é campo dele)' => [['acao' => 'cadastrar', 'cliente_id' => 1]];
+        yield 'cadastrar com item fora do formato' => [['acao' => 'cadastrar', 'clientes' => [['tipo' => 'pf', 'campos' => ['nome' => 'X'], 'cpf' => '1']]]];
+        yield 'cadastrar com tipo fora da lista' => [['acao' => 'cadastrar', 'clientes' => [['tipo' => 'outro', 'campos' => ['nome' => 'X']]]]];
+        yield 'cadastrar com a lista em objeto' => [['acao' => 'cadastrar', 'clientes' => ['a' => ['tipo' => 'pf', 'campos' => ['nome' => 'X']]]]];
+        yield 'desvincular não é ação: é a operacao do vincular_a_pasta' => [['acao' => 'desvincular', 'cliente_id' => 1, 'pasta_id' => 1]];
+        yield 'operacao fora da lista' => [['acao' => 'vincular_a_pasta', 'cliente_id' => 1, 'pasta_id' => 1, 'operacao' => 'apagar']];
+        yield 'operacao em ação que não a aceita' => [['acao' => 'principal', 'cliente_id' => 1, 'pasta_id' => 1, 'operacao' => 'desvincular']];
         yield 'campo que a ação não usa' => [['acao' => 'completar', 'cliente_id' => 1, 'campos' => ['bairro' => 'X'], 'pasta_id' => 1]];
         yield 'campo que falta' => [['acao' => 'vincular_a_pasta', 'cliente_id' => 1]];
         yield 'chave fora do cadastro' => [['acao' => 'completar', 'cliente_id' => 1, 'campos' => ['senha' => 'X']]];
@@ -185,7 +200,7 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString('Linha', $erro->getMessage());
     }
 
-    #[TestDox('contato: celular vazio grava com a máscara; e-mail preenchido com outro valor recusa sem gravar; e-mail igual não muda nada')]
+    #[TestDox('contato: celular vazio grava com a máscara; e-mail preenchido com outro valor vira proposta sem gravar; e-mail igual não muda nada')]
     public function testContato(): void
     {
         $cliente = $this->cliente(celular: null);
@@ -195,15 +210,15 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
         self::assertSame(self::CELULAR_NOVO, $this->doBanco($cliente)['telefone_celular']);
         self::assertSemValores($resposta, ['61998761234', '99876', self::CELULAR_NOVO]);
 
-        $erro = $this->recusa(['acao' => 'contato', 'cliente_id' => $cliente->getId(), 'campo' => 'email', 'valor' => self::EMAIL_NOVO]);
-        self::assertSame(AtualizarClienteCadastro::TROCA_POR_CONFIRMACAO, $erro->getMessage());
+        $troca = $this->chamar(['acao' => 'contato', 'cliente_id' => $cliente->getId(), 'campo' => 'email', 'valor' => self::EMAIL_NOVO]);
+        self::assertSame('aguardando_confirmacao', $troca->dados['estado']);
         self::assertSame('maria.completa@exemplo.com.br', $this->doBanco($cliente)['email']);
 
         $igual = $this->chamar(['acao' => 'contato', 'cliente_id' => $cliente->getId(), 'campo' => 'email', 'valor' => 'Maria.Completa@exemplo.com.br']);
         self::assertTrue($igual->dados['nada_mudou']);
 
-        $outroCelular = $this->recusa(['acao' => 'contato', 'cliente_id' => $cliente->getId(), 'campo' => 'celular', 'valor' => '61911112222']);
-        self::assertSame(AtualizarClienteCadastro::TROCA_POR_CONFIRMACAO, $outroCelular->getMessage());
+        $outroCelular = $this->chamar(['acao' => 'contato', 'cliente_id' => $cliente->getId(), 'campo' => 'celular', 'valor' => '61911112222']);
+        self::assertSame('aguardando_confirmacao', $outroCelular->dados['estado']);
         self::assertSame(self::CELULAR_NOVO, $this->doBanco($cliente)['telefone_celular']);
     }
 
@@ -454,8 +469,10 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
     private function chamar(array $argumentos, ?User $pessoa = null, array $escopos = ['mcp:leitura', 'mcp:escrita']): RespostaDaFerramenta
     {
         try {
-            $contexto = $this->portao()->abrir((int) ($pessoa ?? $this->pessoa)->getId(), (int) $this->escritorio->getId());
-            $chamada = new ChamadaDoConector($contexto, 41, 42, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+            $quem = $pessoa ?? $this->pessoa;
+            $consentimento = $this->consentimentoDe($quem);
+            $contexto = $this->portao()->abrir((int) $quem->getId(), (int) $this->escritorio->getId());
+            $chamada = new ChamadaDoConector($contexto, 41, $consentimento, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
 
             return static::getContainer()->get(AtualizarClienteFerramenta::class)->executar($argumentos, $chamada);
         } finally {
@@ -475,6 +492,21 @@ final class AtualizarClienteFerramentaTest extends KernelTestCase
             return $e;
         }
         self::fail('deveria recusar: ' . json_encode($argumentos, \JSON_THROW_ON_ERROR));
+    }
+
+    private function consentimentoDe(User $pessoa): int
+    {
+        $id = (int) $pessoa->getId();
+        if (!isset($this->consentimentos[$id])) {
+            // Pelo id: o `services_resetter` de cada chamada limpa o EntityManager e solta as entidades do cenário.
+            $em = $this->em();
+            $consentimento = new ConsentimentoDoConector($em->getReference(User::class, $id), $em->getReference(Tenant::class, $this->escritorio->getId()), $em->getReference(ClienteDoConector::class, $this->app->getId()), ['mcp:leitura', 'mcp:escrita'], new \DateTimeImmutable('-1 hour'));
+            $this->em()->persist($consentimento);
+            $this->em()->flush();
+            $this->consentimentos[$id] = (int) $consentimento->getId();
+        }
+
+        return $this->consentimentos[$id];
     }
 
     /** @return array<string, mixed> a linha do cliente lida direto do banco, sem o EntityManager */

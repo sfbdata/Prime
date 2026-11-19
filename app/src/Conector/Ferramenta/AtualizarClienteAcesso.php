@@ -12,13 +12,17 @@ use App\Cliente\Exception\DocumentoDaPastaNaoEncontradoException;
 use App\Cliente\Exception\DocumentoJaCadastradoException;
 use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Exception\SemPermissaoParaVerClienteException;
+use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Service\EnvioAutomaticoLigado;
 use App\Conector\Service\GuardaDaAcaoDoConector;
 use App\Conector\Service\SegredoNasListas;
 use App\Entity\Permission\AccessRequest;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -38,7 +42,10 @@ use App\Service\PermissionChecker;
  *  - a pasta ({@see pastaViva()}): a linha da tabela com a pasta (chave `expedientes`, ver a pasta com o cadeado), a
  *    lixeira ("não encontrado", como a BlueJus I.A.), o segredo de justiça e, quando a tela só abre a quem edita, o
  *    recurso `pasta` de editar ({@see GuardaDaAcaoDoConector::exigirEdicaoDaPasta()});
- *  - o envio automático do Push ({@see exigirSemEnvioAutomatico()}): recusa a chamada inteira (abertura da 6.6).
+ *  - o envio automático do Push ({@see exigirSemEnvioAutomatico()}): recusa a chamada inteira (abertura da 6.6);
+ *  - os valores de uma proposta ({@see conferirCampos()}): as regras da janela de Cadastro num cadastro em branco que
+ *    nunca vai ao banco, para a proposta não prometer o que a confirmação recusaria (CPF inválido, CPF de outro
+ *    cadastro).
  *
  * {@see gravando()} troca a exceção de regra do UseCase por recusa de mensagem fixa, escolhida pela CLASSE da exceção:
  * a mensagem do UseCase nunca passa adiante.
@@ -55,7 +62,31 @@ final class AtualizarClienteAcesso
         private readonly PermissionChecker $permissoes,
         private readonly VisibilidadeDasAbasDaPasta $abas,
         private readonly EnvioAutomaticoLigado $envio,
+        private readonly CamposDoCadastro $campos,
     ) {
+    }
+
+    /** `pj` para pessoa jurídica, `pf` para o resto (o tipo dos cadastros em branco do `CriarClienteDaPastaUseCase`). */
+    public static function tipoDo(Cliente $cliente): string
+    {
+        return $cliente instanceof ClientePJ ? 'pj' : 'pf';
+    }
+
+    /**
+     * Aplica os campos num cadastro em branco do tipo, que nunca é persistido (só LÊ o banco, na busca do CPF ou CNPJ
+     * repetido): a ferramenta propõe e reconfere sem mexer em entidade do EntityManager (contrato da
+     * {@see ExecutorDeProposta}, item 1). Lança as exceções da {@see CamposDoCadastro}; quem chama as traduz.
+     *
+     * @param array<string, string> $campos chaves de {@see CamposDoCadastro::ROTULOS}
+     *
+     * @throws \App\Cliente\Exception\CadastroInvalidoException
+     * @throws DocumentoJaCadastradoException
+     */
+    public function conferirCampos(string $tipo, array $campos, Tenant $escritorio): void
+    {
+        $rascunho = $tipo === 'pj' ? CriarClienteDaPastaUseCase::pjEmBranco() : CriarClienteDaPastaUseCase::pfEmBranco();
+        $rascunho->setTenant($escritorio);
+        $this->campos->aplicar($rascunho, $campos, $escritorio);
     }
 
     /**
