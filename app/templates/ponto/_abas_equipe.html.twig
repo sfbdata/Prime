@@ -25,19 +25,19 @@
     <div class="pe-eq-rolagem">
         <table class="pe-tab pe-eq-tab">
             <thead>
-                <tr><th>Colaborador</th><th>Situação</th><th>Entrada</th><th>Último registro</th><th>Banco</th><th>Pendências</th><th>Escala</th></tr>
+                <tr><th>{{ 'ponto_cartao.equipe.colaborador'|trans }}</th><th>{{ 'ponto_cartao.comum.situacao'|trans }}</th><th>{{ 'ponto_cartao.comum.entrada'|trans }}</th><th>{{ 'ponto_cartao.equipe.ultimo_registro'|trans }}</th><th>{{ 'ponto_cartao.equipe.banco'|trans }}</th><th>{{ 'ponto_cartao.equipe.pendencias'|trans }}</th><th>{{ 'ponto_cartao.equipe.escala'|trans }}</th></tr>
             </thead>
             <tbody>
                 {% for m in painel.membros %}
                     <tr class="pe-eq-lin" data-pessoa="{{ m.userId }}">
                         <td><b>{{ m.nome }}</b>{% if m.subtitulo %}<div class="pe-eq-sub">{{ m.subtitulo }}</div>{% endif %}</td>
                         <td><span class="pe-eq-selo pe-eq-selo--{{ m.situacao.value }}">{{ m.situacao.rotulo }}</span></td>
-                        <td>{{ m.entrada ?? 'Sem registro' }}</td>
-                        <td>{{ m.ultimoRegistro ?? 'Sem registro' }}</td>
+                        <td>{{ m.entrada ?? 'ponto_cartao.equipe.sem_registro'|trans }}</td>
+                        <td>{{ m.ultimoRegistro ?? 'ponto_cartao.equipe.sem_registro'|trans }}</td>
                         <td class="pe-eq-banco">{{ fm.saldo(m.bancoMinutos) }}</td>
                         <td>{{ m.pendencias }}</td>
                         <td>
-                            <select class="pe-eq-escala" aria-label="Escala de {{ m.nome }}" data-nome="{{ m.nome }}"
+                            <select class="pe-eq-escala" aria-label="{{ 'ponto_cartao.equipe.escala_de'|trans({nome: m.nome}) }}" data-nome="{{ m.nome }}"
                                     data-url="{{ path('ponto_equipe_escala', {id: m.userId}) }}">
                                 {%- for o in m.escalas -%}
                                     <option value="{{ o.id }}"{{ o.marcada ? ' selected' }}{{ o.id is same as('') ? ' disabled' }}>{{ o.rotulo }}</option>
@@ -46,7 +46,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="7" class="pe-eq-vazia">Ninguém registra ponto neste escritório.</td></tr>
+                    <tr><td colspan="7" class="pe-eq-vazia">{{ 'ponto_cartao.equipe.ninguem_registra'|trans }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -55,8 +55,8 @@
     <form method="post" action="{{ path('ponto_equipe_abonar') }}" class="pe-eq-abonar" data-equipe-abonar>
         <input type="hidden" name="_token" value="{{ csrf_token('ponto_equipe_abonar') }}">
         <div class="pe-eq-barra">
-            <b class="pe-eq-barra-titulo">Justificativas a analisar ({{ painel.justificativas|length }})</b>
-            <button type="submit" class="pe-eq-btn-abonar" data-equipe-abonar-botao disabled>Abonar selecionadas</button>
+            <b class="pe-eq-barra-titulo">{{ 'ponto_cartao.equipe.justificativas_a_analisar'|trans({n: painel.justificativas|length}) }}</b>
+            <button type="submit" class="pe-eq-btn-abonar" data-equipe-abonar-botao disabled>{{ 'ponto_cartao.equipe.abonar_selecionadas'|trans }}</button>
         </div>
         {% for j in painel.justificativas %}
             {% set sub = jm.subtitulo(j) %}
@@ -68,7 +68,7 @@
                 <span class="pe-eq-just-sub">{{ sub }}</span>
             </label>
         {% else %}
-            <div class="pe-eq-just-vazia">Nenhuma justificativa aguardando análise.</div>
+            <div class="pe-eq-just-vazia">{{ 'ponto_cartao.equipe.nenhuma_justificativa'|trans }}</div>
         {% endfor %}
     </form>
 </div>

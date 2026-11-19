@@ -17,7 +17,7 @@
     // Prazo da exclusão: sem resposta até aqui, a janela avisa e deixa tentar de novo.
     const EXCLUIR_PRAZO_MS = 15000;
     // A lista que ficou vazia depois de excluir: a mesma frase do servidor (_abas_justificativas.html.twig).
-    const TEXTO_SEM_JUSTIFICATIVAS = 'Nenhuma justificativa enviada nesta competência.';
+    const textoSemJustificativas = function () { return BJ_T.t('ponto_cartao.js.abas.sem_justificativas'); };
     // A aba que abre ao entrar (P37) não vai para o endereço.
     const ABA_PADRAO = 'pendencias';
     // Campo dentro de bloco escondido (o abono parcial fechado, por exemplo) não entra na volta do Tab.
@@ -239,13 +239,13 @@
         if (restantes === 0) {
             const vazio = document.createElement('div');
             vazio.className = 'pe-abas-vazio';
-            vazio.textContent = TEXTO_SEM_JUSTIFICATIVAS;
+            vazio.textContent = textoSemJustificativas();
             corpo.closest('.pe-abas-rolagem').replaceWith(vazio);
         }
         if (contavaNaEquipe) {
             tirarDaEquipe();
         }
-        anunciar(data ? 'Justificativa de ' + data.textContent.trim() + ' excluída.' : 'Justificativa excluída.');
+        anunciar(data ? BJ_T.t('ponto_cartao.js.abas.excluida_de', { data: data.textContent.trim() }) : BJ_T.t('ponto_cartao.js.abas.excluida'));
         document.dispatchEvent(new CustomEvent('ponto:justificativa-excluida'));
     }
 
@@ -260,7 +260,7 @@
         botao.disabled = true;
         fundo.dataset.ocupada = '1';
         mostrarErro(fundo, '');
-        let falha = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
+        let falha = BJ_T.t('ponto_cartao.js.comum.sem_resposta');
         try {
             const resposta = await fetch(botao.dataset.url, {
                 method: 'POST',
@@ -281,7 +281,7 @@
                 tirarLinhaExcluida(linha);
                 return;
             }
-            falha = dados.mensagem || 'Não foi possível excluir a justificativa. Atualize a página e tente de novo.';
+            falha = dados.mensagem || BJ_T.t('ponto_cartao.js.abas.excluir_falhou');
         } catch (erro) {
             // sem rede ou prazo estourado: a frase padrão acima
         } finally {
@@ -299,14 +299,14 @@
         }
         const form = fundo.querySelector('[data-analise-form]');
         const recusar = botao.dataset.analisar === 'recusar';
-        const titulo = recusar ? 'Recusar justificativa' : 'Abonar justificativa';
+        const titulo = recusar ? BJ_T.t('ponto_cartao.js.abas.recusar_titulo') : BJ_T.t('ponto_cartao.js.abas.abonar_titulo');
         form.action = botao.dataset.url;
         form.dataset.recusar = recusar ? '1' : '0';
         form.setAttribute('aria-label', titulo);
         form.querySelector('input[name="_token"]').value = botao.dataset.token;
         form.querySelector('[data-analise-titulo]').textContent = titulo;
         const acao = form.querySelector('[data-analise-acao]');
-        acao.textContent = recusar ? 'Recusar' : 'Abonar';
+        acao.textContent = recusar ? BJ_T.t('ponto_cartao.js.abas.recusar') : BJ_T.t('ponto_cartao.js.abas.abonar');
         acao.disabled = false;
         const campo = form.querySelector('textarea');
         campo.value = '';
@@ -319,7 +319,7 @@
         const fundo = form.closest('.pe-janela-fundo');
         if (form.dataset.recusar === '1' && form.querySelector('textarea').value.trim() === '') {
             evento.preventDefault();
-            mostrarErro(fundo, 'Informe o motivo da recusa.');
+            mostrarErro(fundo, BJ_T.t('ponto_cartao.js.abas.motivo_recusa'));
             form.querySelector('textarea').focus();
             return;
         }

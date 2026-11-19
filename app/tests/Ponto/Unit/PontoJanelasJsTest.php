@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -19,6 +20,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class PontoJanelasJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     #[TestDox('Sem modal do Bootstrap: as três janelas abrem pela moldura do js/ponto-abas.js, por delegação no documento')]
     public function testAbrePelaMolduraDoDesenho(): void
     {
@@ -62,10 +65,10 @@ final class PontoJanelasJsTest extends TestCase
     public static function conferencias(): iterable
     {
         yield 'Justificar falta' => ['function conferirJustificar(evento, form) {', '// ---- Registro de esquecimento', [
-            'ERRO_DATA', 'ERRO_DATA_E_MOTIVO', 'ERRO_TIPO', 'ERRO_ESQUECIDO_UMA_DATA', 'ERRO_ESQUECIDO', 'ERRO_ABONO_UMA_DATA', 'ERRO_ABONO_HORARIOS',
+            'erroData()', 'erroDataEMotivo()', 'erroTipo()', 'erroEsquecidoUmaData()', 'erroEsquecido()', 'erroAbonoUmaData()', 'erroAbonoHorarios()',
         ]];
-        yield 'Registro de esquecimento' => ['function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa', ['ERRO_ESQUECIDO']];
-        yield 'Editar justificativa' => ['function conferirEdicao(evento, form) {', '// ---- Delegação', ['ERRO_MOTIVO', 'ERRO_ESQUECIDO', 'ERRO_ABONO_HORARIOS']];
+        yield 'Registro de esquecimento' => ['function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa', ['erroEsquecido()']];
+        yield 'Editar justificativa' => ['function conferirEdicao(evento, form) {', '// ---- Delegação', ['erroMotivo()', 'erroEsquecido()', 'erroAbonoHorarios()']];
     }
 
     /** @param list<string> $erros */
@@ -96,16 +99,17 @@ final class PontoJanelasJsTest extends TestCase
         $js = self::janelas();
 
         foreach ([
-            "'Selecione ao menos uma data.'",
-            "'Informe a data e o motivo.'",
-            "'Informe o motivo.'",
-            "'Selecione o tipo de justificativa.'",
-            "'Informe o tipo e o horário do registro esquecido.'",
-            "'Esquecimento de Registro só pode ser aplicado a uma única data.'",
-            "'Abono parcial só pode ser aplicado a uma única data.'",
-            "'Informe os horários de saída e retorno corretamente para o abono parcial.'",
-        ] as $frase) {
-            self::assertStringContainsString($frase, $js);
+            'data' => 'Selecione ao menos uma data.',
+            'data_e_motivo' => 'Informe a data e o motivo.',
+            'motivo' => 'Informe o motivo.',
+            'tipo' => 'Selecione o tipo de justificativa.',
+            'esquecido' => 'Informe o tipo e o horário do registro esquecido.',
+            'esquecido_uma_data' => 'Esquecimento de Registro só pode ser aplicado a uma única data.',
+            'abono_uma_data' => 'Abono parcial só pode ser aplicado a uma única data.',
+            'abono_horarios' => 'Informe os horários de saída e retorno corretamente para o abono parcial.',
+        ] as $chave => $frase) {
+            self::assertStringContainsString("BJ_T.t('ponto_cartao.js.janelas.erro_" . $chave . "')", $js);
+            self::assertSame($frase, self::ptBr('ponto_cartao.js.janelas.erro_' . $chave));
         }
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $js, 'sem travessão');
     }
@@ -122,7 +126,7 @@ final class PontoJanelasJsTest extends TestCase
         $esquecimento = self::trecho($js, 'function conferirEsquecimento(evento, form) {', '// ---- Editar justificativa');
         self::assertStringNotContainsString('motivoEmBranco', $esquecimento, 'a janela do esquecimento não pede o motivo');
         self::assertStringNotContainsString('data-janela-motivo', $esquecimento);
-        self::assertStringNotContainsString('ERRO_HORARIO_E_MOTIVO', $js);
+        self::assertStringNotContainsString('erroHorarioEMotivo', $js);
 
         $edicao = self::trecho($js, 'function conferirEdicao(evento, form) {', '// ---- Delegação');
         self::assertStringContainsString("if (!esquecimento && motivo.value.trim() === '') {", $edicao);

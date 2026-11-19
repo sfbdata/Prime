@@ -39,47 +39,47 @@
 {% endif %}
 <section class="pe-abas" data-screen-label="Registros e comprovantes"
          data-url-volta="{{ path('ponto_index', {competencia: competenciaSelecionada, aba: 'justificativas'}) }}">
-    <div class="pe-abas-barra" role="tablist" aria-label="Registros e comprovantes">
+    <div class="pe-abas-barra" role="tablist" aria-label="{{ 'ponto_cartao.abas.registros_comprovantes'|trans }}">
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-pendencias" data-aba="pendencias"
                 aria-controls="ponto-regiao-pendencias" aria-selected="{{ aberta == 'pendencias' ? 'true' : 'false' }}" tabindex="{{ aberta == 'pendencias' ? '0' : '-1' }}">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Pendências
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{{ 'ponto_cartao.abas.pendencias'|trans }}
             {%- if pendencias|length > 0 %}<span class="pe-aba-num pe-aba-num--pend">{{ pendencias|length }}</span>{% endif -%}
         </button>
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-justificativas" data-aba="justificativas"
                 aria-controls="ponto-painel-justificativas" aria-selected="{{ aberta == 'justificativas' ? 'true' : 'false' }}" tabindex="{{ aberta == 'justificativas' ? '0' : '-1' }}">
-            <i class="bi bi-calendar-check" aria-hidden="true"></i>Minhas Justificativas
+            <i class="bi bi-calendar-check" aria-hidden="true"></i>{{ 'ponto_cartao.abas.minhas_justificativas'|trans }}
             {%- if justificativas|length > 0 %}<span class="pe-aba-num">{{ justificativas|length }}</span>{% endif -%}
         </button>
         {% if comprovantesVisiveis %}
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-comprovantes" data-aba="comprovantes"
                 aria-controls="ponto-painel-comprovantes" aria-selected="{{ aberta == 'comprovantes' ? 'true' : 'false' }}" tabindex="{{ aberta == 'comprovantes' ? '0' : '-1' }}">
-            <i class="bi bi-receipt" aria-hidden="true"></i>Comprovantes
+            <i class="bi bi-receipt" aria-hidden="true"></i>{{ 'ponto_cartao.abas.comprovantes'|trans }}
             {%- if comprovantes|default([])|length > 0 %}<span class="pe-aba-num">{{ comprovantes|length }}</span>{% endif -%}
         </button>
         {% endif %}
         {% if bancoDeHoras is not null %}
         <button type="button" role="tab" class="pe-aba" id="ponto-aba-banco" data-aba="banco"
                 aria-controls="ponto-painel-banco" aria-selected="{{ aberta == 'banco' ? 'true' : 'false' }}" tabindex="{{ aberta == 'banco' ? '0' : '-1' }}">
-            <i class="bi bi-piggy-bank" aria-hidden="true"></i>Banco de Horas
+            <i class="bi bi-piggy-bank" aria-hidden="true"></i>{{ 'ponto_cartao.abas.banco_de_horas'|trans }}
         </button>
         {% endif %}
         {% if veEquipe %}
             <button type="button" role="tab" class="pe-aba" id="ponto-aba-equipe" data-aba="equipe"
                     aria-controls="ponto-painel-equipe" aria-selected="{{ aberta == 'equipe' ? 'true' : 'false' }}" tabindex="{{ aberta == 'equipe' ? '0' : '-1' }}">
-                <i class="bi bi-people" aria-hidden="true"></i>Equipe
+                <i class="bi bi-people" aria-hidden="true"></i>{{ 'ponto_cartao.abas.equipe'|trans }}
                 {%- if equipeAAnalisar|default(0) > 0 %}<span class="pe-aba-num pe-aba-num--pend">{{ equipeAAnalisar }}</span>{% endif -%}
             </button>
         {% endif %}
         {% if veAuditoria %}
             <button type="button" role="tab" class="pe-aba" id="ponto-aba-auditoria" data-aba="auditoria"
                     aria-controls="ponto-painel-auditoria" aria-selected="{{ aberta == 'auditoria' ? 'true' : 'false' }}" tabindex="{{ aberta == 'auditoria' ? '0' : '-1' }}">
-                <i class="bi bi-shield-lock" aria-hidden="true"></i>Auditoria
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>{{ 'ponto_cartao.abas.auditoria'|trans }}
             </button>
         {% endif %}
         {% if veConfiguracoes %}
             <button type="button" role="tab" class="pe-aba" id="ponto-aba-configuracoes" data-aba="configuracoes"
                     aria-controls="ponto-painel-configuracoes" aria-selected="{{ aberta == 'configuracoes' ? 'true' : 'false' }}" tabindex="{{ aberta == 'configuracoes' ? '0' : '-1' }}">
-                <i class="bi bi-sliders" aria-hidden="true"></i>Configurações
+                <i class="bi bi-sliders" aria-hidden="true"></i>{{ 'ponto_cartao.abas.configuracoes'|trans }}
             </button>
         {% endif %}
     </div>

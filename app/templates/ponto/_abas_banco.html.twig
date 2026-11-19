@@ -11,25 +11,25 @@
 {% set limite = bancoDeHoras.limiteMinutos %}
 <div class="pe-bh-kpis">
     <div class="pe-bh-kpi">
-        <div class="pe-bh-kpi-rotulo">SALDO ATUAL</div>
+        <div class="pe-bh-kpi-rotulo">{{ 'ponto_cartao.banco.saldo_atual'|trans }}</div>
         <b class="pe-bh-kpi-valor {{ bancoDeHoras.saldoAtualMinutos < 0 ? 'pe-cor--neg' : 'pe-cor--pos' }}">{{ folha.saldo(bancoDeHoras.saldoAtualMinutos) }}</b>
     </div>
     <div class="pe-bh-kpi">
-        <div class="pe-bh-kpi-rotulo">LIMITE CONFIGURADO</div>
+        <div class="pe-bh-kpi-rotulo">{{ 'ponto_cartao.banco.limite_configurado'|trans }}</div>
         <b class="pe-bh-kpi-valor {{ bancoDeHoras.acimaDoLimite ? 'pe-cor--neg' : 'pe-cor--zero' }}">{{ limite % 60 == 0 ? (limite // 60) ~ 'h' : folha.horas(limite) }}</b>
     </div>
     <div class="pe-bh-kpi">
-        <div class="pe-bh-kpi-rotulo">PRAZO DE COMPENSAÇÃO</div>
-        <b class="pe-bh-kpi-valor pe-cor--zero">{{ bancoDeHoras.prazoMeses }} {{ bancoDeHoras.prazoMeses == 1 ? 'mês' : 'meses' }}</b>
+        <div class="pe-bh-kpi-rotulo">{{ 'ponto_cartao.banco.prazo_compensacao'|trans }}</div>
+        <b class="pe-bh-kpi-valor pe-cor--zero">{{ 'ponto_cartao.banco.prazo_meses'|trans({n: bancoDeHoras.prazoMeses}) }}</b>
     </div>
 </div>
 {% if bancoDeHoras.acimaDoLimite %}
-<div class="pe-bh-aviso"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Saldo acima do limite configurado. Planeje a compensação para evitar passivo.</div>
+<div class="pe-bh-aviso"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {{ 'ponto_cartao.banco.aviso_acima_limite'|trans }}</div>
 {% endif %}
 <div class="pe-abas-rolagem">
     <table class="pe-tab">
         <thead>
-            <tr><th>Competência</th><th>Crédito</th><th>Compensado</th><th>Saldo</th><th>Vence em</th><th>Situação</th></tr>
+            <tr><th>{{ 'ponto_cartao.banco.competencia'|trans }}</th><th>{{ 'ponto_cartao.banco.credito'|trans }}</th><th>{{ 'ponto_cartao.banco.compensado'|trans }}</th><th>{{ 'ponto_cartao.banco.saldo'|trans }}</th><th>{{ 'ponto_cartao.banco.vence_em'|trans }}</th><th>{{ 'ponto_cartao.comum.situacao'|trans }}</th></tr>
         </thead>
         <tbody>
             {% for lote in bancoDeHoras.lotes %}
@@ -38,14 +38,14 @@
                     <td>{{ folha.saldo(lote.creditoMinutos) }}</td>
                     <td>{{ lote.compensadoMinutos > 0 ? folha.horas(lote.compensadoMinutos) : '0h' }}</td>
                     <td class="pe-bh-saldo">{{ folha.saldo(lote.saldoMinutos) }}</td>
-                    <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : 'Sem prazo' }}</td>
+                    <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : 'ponto_cartao.banco.sem_prazo'|trans }}</td>
                     <td><span class="pe-bh-selo" style="background-color: {{ lote.cor|e('html_attr') }};">{{ lote.situacao }}</span></td>
                 </tr>
             {% else %}
                 {# O desenho não tem o vazio; a convenção das abas (E3) é a frase no lugar da lista. #}
-                <tr><td colspan="6" class="pe-abas-vazio">Nenhum lote no banco de horas.</td></tr>
+                <tr><td colspan="6" class="pe-abas-vazio">{{ 'ponto_cartao.banco.nenhum_lote'|trans }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-<div class="pe-bh-nota">Horas negativas abatem primeiro os créditos mais antigos. O prazo padrão é de 6 meses, próprio do acordo individual (art. 59, § 5º, da CLT), e pode ser ajustado em Configurações conforme o acordo do escritório.</div>
+<div class="pe-bh-nota">{{ 'ponto_cartao.banco.nota'|trans }}</div>

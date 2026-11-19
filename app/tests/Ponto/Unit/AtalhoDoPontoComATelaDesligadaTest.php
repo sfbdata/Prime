@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ponto')]
 final class AtalhoDoPontoComATelaDesligadaTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const PARCIAL = __DIR__ . '/../../../templates/menu_usuario/_presenca.html.twig';
     private const JS = __DIR__ . '/../../../public/js/presenca-ponto.js';
 
@@ -37,10 +40,11 @@ final class AtalhoDoPontoComATelaDesligadaTest extends TestCase
     {
         $js = (string) file_get_contents(self::JS);
 
+        self::assertSame('Em jornada desde {hora}', self::ptBr('ponto_cartao.js.presenca.em_jornada'));
         self::assertStringContainsString('var podeBater = !!urlBatida;', $js);
         self::assertMatchesRegularExpression("/case 'bater_entrada':\\s*if \\(!podeBater\\) \\{ return null; \\}/", $js);
         self::assertMatchesRegularExpression(
-            "/case 'em_jornada':\\s*if \\(!podeBater\\) \\{ return \\{ texto: 'Em jornada desde ' \\+ h\\.entrada, cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' \\}; \\}/",
+            "/case 'em_jornada':\\s*if \\(!podeBater\\) \\{ return \\{ texto: BJ_T\\.t\\('ponto_cartao\\.js\\.presenca\\.em_jornada', \\{ hora: h\\.entrada \\}\\), cor: '#1e7b45', icone: 'bi-play-circle', acao: '', dica: '' \\}; \\}/",
             $js,
         );
         self::assertStringContainsString("if (!podeBater || !estado || estado.aviso !== 'regularizar_ontem'", $js);

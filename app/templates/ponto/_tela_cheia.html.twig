@@ -15,14 +15,14 @@
 
     Variáveis: `cercaValendo` (bool).
 #}
-{% set etapas = ['Horário oficial confirmado'] %}
+{% set etapas = ['ponto_cartao.tela_cheia.etapa_horario'|trans] %}
 {% if cercaValendo %}
-    {% set etapas = etapas|merge(['Localização validada']) %}
+    {% set etapas = etapas|merge(['ponto_cartao.tela_cheia.etapa_localizacao'|trans]) %}
 {% endif %}
-{% set etapas = etapas|merge(['Registro selado']) %}
+{% set etapas = etapas|merge(['ponto_cartao.tela_cheia.etapa_selado'|trans]) %}
 {# `VAL_T` do desenho (2.800 ms): as barras acendem em 94% dele, e cada etapa no seu trecho (L760 e L764). #}
 {% set valT = 2800 %}
-<div id="ponto-tela-cheia" class="pe-tc" role="dialog" aria-modal="true" aria-label="Registro de ponto" tabindex="-1" hidden>
+<div id="ponto-tela-cheia" class="pe-tc" role="dialog" aria-modal="true" aria-label="{{ 'ponto_cartao.tela_cheia.registro_de_ponto'|trans }}" tabindex="-1" hidden>
     <div class="pe-tc-fase" data-tc-fase="val" hidden>
         <div class="pe-tc-val">
             <div class="pe-tc-anel">
@@ -32,7 +32,7 @@
                 <div class="pe-tc-anel-hora" data-tc-hora-val></div>
             </div>
             <div aria-live="assertive">
-                <div class="pe-tc-validando">Validando <span data-tc-tipo></span></div>
+                <div class="pe-tc-validando">{{ 'ponto_cartao.tela_cheia.validando'|trans }} <span data-tc-tipo></span></div>
                 <div class="pe-tc-data" data-tc-data></div>
             </div>
             <div class="pe-tc-etapas">
@@ -58,17 +58,17 @@
                     <svg class="pe-tc-check" viewBox="0 0 64 64" aria-hidden="true"><path class="pe-tc-traco pe-tc-traco--check pe-tc-mov" d="M12 34 L27 49 L54 17" pathLength="1"></path></svg>
                 </div>
                 <div class="pe-tc-ok-textos pe-tc-mov">
-                    <div class="pe-tc-titulo">Ponto registrado</div>
+                    <div class="pe-tc-titulo">{{ 'ponto_cartao.tela_cheia.registrado'|trans }}</div>
                     <div class="pe-tc-ok-hora" data-tc-hora-ok></div>
                     <div class="pe-tc-ok-tipo"><span data-tc-tipo></span> · <span data-tc-data></span></div>
-                    {% set metPadrao = 'Registrado no sistema' ~ (cercaValendo ? ' · localização validada' : '') %}
+                    {% set metPadrao = 'ponto_cartao.tela_cheia.registrado_no_sistema'|trans ~ (cercaValendo ? ' · ' ~ 'ponto_cartao.tela_cheia.localizacao_validada'|trans : '') %}
                     {# A batida que já tinha entrado (mesmo envio) troca esta linha pelo texto do sistema (JS, `met`). #}
                     <div class="pe-tc-ok-met" data-tc-ok-met data-padrao="{{ metPadrao }}">{{ metPadrao }}</div>
                     <div class="pe-tc-ok-cod" data-tc-ok-cod hidden></div>
                 </div>
                 <div class="pe-tc-botoes pe-tc-botoes--ok pe-tc-mov">
-                    <a class="pe-tc-btn pe-tc-btn--baixar" download data-baixar data-tc-baixar hidden><i class="bi bi-download" aria-hidden="true"></i>Baixar comprovante</a>
-                    <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-concluir>Concluir</button>
+                    <a class="pe-tc-btn pe-tc-btn--baixar" download data-baixar data-tc-baixar hidden><i class="bi bi-download" aria-hidden="true"></i>{{ 'ponto_cartao.tela_cheia.baixar_comprovante'|trans }}</a>
+                    <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-concluir>{{ 'ponto_cartao.tela_cheia.concluir'|trans }}</button>
                     <div class="pe-tc-falha" role="alert" data-baixar-falha hidden></div>
                 </div>
             </div>
@@ -80,13 +80,13 @@
         <div class="pe-tc-cortina pe-tc-cortina--erro pe-tc-mov"></div>
         <div class="pe-tc-erro pe-tc-mov">
             <svg class="pe-tc-x" viewBox="0 0 64 64" width="110" height="110" aria-hidden="true"><path class="pe-tc-traco pe-tc-traco--x1 pe-tc-mov" d="M14 14 L50 50" pathLength="1"></path><path class="pe-tc-traco pe-tc-traco--x2 pe-tc-mov" d="M50 14 L14 50" pathLength="1"></path></svg>
-            <div class="pe-tc-titulo">Ponto não registrado</div>
+            <div class="pe-tc-titulo">{{ 'ponto_cartao.tela_cheia.nao_registrado'|trans }}</div>
             <div class="pe-tc-erro-titulo" data-tc-erro-titulo></div>
             <div class="pe-tc-erro-detalhe" data-tc-erro-detalhe></div>
             {# Os botões a mais (a E12 põe "Registrar como trabalho externo", `.pe-tc-btn--externo`) entram antes do "Fechar". #}
             <div class="pe-tc-botoes">
-                <button type="button" class="pe-tc-btn pe-tc-btn--tentar" data-tc-tentar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Tentar novamente</button>
-                <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-fechar>Fechar</button>
+                <button type="button" class="pe-tc-btn pe-tc-btn--tentar" data-tc-tentar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'ponto_cartao.tela_cheia.tentar_novamente'|trans }}</button>
+                <button type="button" class="pe-tc-btn pe-tc-btn--contorno" data-tc-fechar>{{ 'ponto_cartao.comum.fechar'|trans }}</button>
             </div>
         </div>
     </div>

@@ -21,12 +21,12 @@
 <link rel="stylesheet" href="{{ asset('css/ponto-eletronico.css') }}">
 {% endblock %}
 
-{% block title %}Ponto Eletrônico{% endblock %}
+{% block title %}{{ 'ponto_cartao.pagina.titulo'|trans }}{% endblock %}
 
 {% block body %}
-{% set rotulosDosTipos = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+{% set rotulosDosTipos = {'entrada': 'ponto_cartao.comum.entrada'|trans, 'repouso': 'ponto_cartao.comum.repouso'|trans, 'retorno': 'ponto_cartao.comum.retorno'|trans, 'saida': 'ponto_cartao.comum.saida'|trans} %}
 <div class="pe-page">
-    <h1 class="pe-titulo">Ponto Eletrônico</h1>
+    <h1 class="pe-titulo">{{ 'ponto_cartao.pagina.titulo'|trans }}</h1>
 
     <div class="pe-grade">
         <div class="pe-esq">
@@ -34,16 +34,16 @@
                 <div class="pe-registrar-barra">
                     <i class="bi bi-fingerprint" aria-hidden="true"></i>
                     {# E8: tabindex -1, para receber o foco quando a tela cheia fecha (o "Bater Ponto" não: um Enter registraria o próximo tipo). #}
-                    <span class="pe-registrar-titulo" id="ponto-registrar-titulo" tabindex="-1">Registrar Ponto</span>
+                    <span class="pe-registrar-titulo" id="ponto-registrar-titulo" tabindex="-1">{{ 'ponto_cartao.cartao.registrar_ponto'|trans }}</span>
                     {# Wrapper sempre presente: depois da batida a tela troca este bloco pelo do servidor (sem recarregar).
                        P2 (E17): o saldo atual dos lotes (P51 a, não zera em janeiro), em branco, sem verde nem vermelho;
                        formato do desenho: "0h" no zero, senão sinal e XhYYm. O triângulo amarelo (L106) só acima do
                        limite (P52); a dica do desenho (`data-tip`) é o `title`. #}
                     {% set absBanco = saldoMes < 0 ? -saldoMes : saldoMes %}
                     <span id="ponto-banco-horas" class="pe-banco">
-                        <span class="pe-banco-rotulo">Banco de horas</span>
+                        <span class="pe-banco-rotulo">{{ 'ponto_cartao.cartao.banco_de_horas'|trans }}</span>
                         <b class="pe-banco-valor">{{ saldoMes == 0 ? '0h' : (saldoMes < 0 ? '-' : '+') ~ (absBanco // 60) ~ 'h' ~ ('%02d'|format(absBanco % 60)) ~ 'm' }}</b>
-                        {%- if bancoDeHoras is not null and bancoDeHoras.acimaDoLimite %} <i class="bi bi-exclamation-triangle-fill pe-banco-alerta" role="img" title="Saldo acima do limite configurado" aria-label="Saldo acima do limite configurado"></i>{% endif %}
+                        {%- if bancoDeHoras is not null and bancoDeHoras.acimaDoLimite %} <i class="bi bi-exclamation-triangle-fill pe-banco-alerta" role="img" title="{{ 'ponto_cartao.cartao.saldo_acima_limite'|trans }}" aria-label="{{ 'ponto_cartao.cartao.saldo_acima_limite'|trans }}"></i>{% endif %}
                     </span>
                 </div>
 
@@ -54,13 +54,13 @@
                     <div class="pe-relogio">
                         <div id="clock-label" class="pe-situacao">
                             {%- if pontoHoje.entrada is null -%}
-                                Aguardando entrada
+                                {{ 'ponto_cartao.cartao.situacao_aguardando'|trans }}
                             {%- elseif pontoHoje.saida is not null -%}
-                                Jornada encerrada
+                                {{ 'ponto_cartao.cartao.situacao_encerrada'|trans }}
                             {%- elseif pontoHoje.repouso is not null and pontoHoje.retorno is null -%}
-                                Em repouso
+                                {{ 'ponto_cartao.cartao.situacao_repouso'|trans }}
                             {%- else -%}
-                                Em jornada
+                                {{ 'ponto_cartao.cartao.situacao_jornada'|trans }}
                             {%- endif -%}
                         </div>
                         <div id="clock" class="pe-relogio-tempo"
@@ -70,14 +70,14 @@
                         <div id="ponto-hora-oficial" class="pe-hora-oficial"
                              data-agora-ms="{{ agoraServidor|date('Uv') }}"
                              data-fuso="{{ agoraServidor|date('e')|e('html_attr') }}"
-                             data-proxima-virada-ms="{{ proximaViradaMs }}">Hora oficial <b id="ponto-hora-oficial-hora">{{ agoraServidor|date('H:i:s') }}</b> · <span id="ponto-hora-oficial-data">{{ diasDaSemana[agoraServidor|date('w')] }}, {{ agoraServidor|date('d/m/Y') }}</span></div>
+                             data-proxima-virada-ms="{{ proximaViradaMs }}">{{ 'ponto_cartao.cartao.hora_oficial'|trans }} <b id="ponto-hora-oficial-hora">{{ agoraServidor|date('H:i:s') }}</b> · <span id="ponto-hora-oficial-data">{{ diasDaSemana[agoraServidor|date('w')] }}, {{ agoraServidor|date('d/m/Y') }}</span></div>
                     </div>
 
                     {# P13 (fica): horas excedentes do dia, verde do desenho do Expediente ("Em jornada desde").
                        Aparece só depois de cumprida a meta; o JS abaixo conta ao vivo. #}
-                    <div id="excedente-hoje" class="pe-excedente d-none" style="color:#1e7b45;" title="Tempo além da jornada de hoje"
+                    <div id="excedente-hoje" class="pe-excedente d-none" style="color:#1e7b45;" title="{{ 'ponto_cartao.cartao.tempo_alem_jornada'|trans }}"
                          data-meta-dia-minutos="{{ metaDiaMinutos }}">
-                        <span id="excedente-hoje-valor"></span> <span class="pe-excedente-rotulo">a mais hoje</span>
+                        <span id="excedente-hoje-valor"></span> <span class="pe-excedente-rotulo">{{ 'ponto_cartao.cartao.a_mais_hoje'|trans }}</span>
                     </div>
 
                     {# Próximo tipo esperado: a primeira das quatro batidas que hoje ainda não tem. A seleção nascia
@@ -94,12 +94,12 @@
                     {% set jornadaConcluida = tipoSugerido is null %}
 
                     <div id="ponto-tipo" class="pe-tipo">
-                        <div class="pe-tipo-rotulo">Tipo de registro <span class="pe-obrigatorio">*</span></div>
+                        <div class="pe-tipo-rotulo">{{ 'ponto_cartao.cartao.tipo_registro'|trans }} <span class="pe-obrigatorio">*</span></div>
                         {# P8: a hora de cada batida mora no botão do tipo (a lista "Suas batidas de hoje" saiu). O
                            estado vem nos atributos: rótulo muda, invariante não. A duplicata ("N registros") também
                            fica no botão: é o que o aviso de "sem confirmação" manda conferir antes de bater de novo.
                            Depois da batida a tela troca este grupo pelo do servidor (sem recarregar). #}
-                        <div id="ponto-tipos" class="pe-tipos" role="radiogroup" aria-label="Tipo de registro">
+                        <div id="ponto-tipos" class="pe-tipos" role="radiogroup" aria-label="{{ 'ponto_cartao.cartao.tipo_registro'|trans }}">
                             {% for tipo, rotulo in rotulosDosTipos %}
                                 {% set horario = pontoHoje[tipo]|default(null) %}
                                 {% set quantas = quantasHoje[tipo]|default(0) %}
@@ -109,7 +109,7 @@
                                     <span>{{ rotulo }}</span>
                                     <span class="pe-tipo-hora">{{ horario ? horario : '--:--:--' }}</span>
                                     {% if quantas > 1 %}
-                                        <span class="pe-tipo-dup">{{ quantas }} registros</span>
+                                        <span class="pe-tipo-dup">{{ 'ponto_cartao.cartao.registros_dup'|trans({n: quantas}) }}</span>
                                     {% endif %}
                                 </button>
                             {% endfor %}
@@ -128,13 +128,13 @@
                     {% if geoLigado and homeOfficeHoje %}
                         <div id="gps-status" class="pe-caixa pe-caixa--info">
                             <i class="bi bi-house-laptop" aria-hidden="true"></i>
-                            <span class="pe-caixa-texto">Home Office hoje: o ponto será registrado sem exigir localização.</span>
+                            <span class="pe-caixa-texto">{{ 'ponto_cartao.cartao.home_office'|trans }}</span>
                         </div>
                     {% elseif geoLigado %}
                         <div id="gps-status" class="pe-caixa pe-caixa--info">
                             <i class="bi bi-crosshair" aria-hidden="true"></i>
-                            <span class="pe-caixa-texto">Obtendo a sua localização...</span>
-                            <button type="button" id="btn-gps-atualizar" class="pe-caixa-atualizar" aria-label="Atualizar localização" title="Atualizar localização"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+                            <span class="pe-caixa-texto">{{ 'ponto_cartao.cartao.obtendo_localizacao'|trans }}</span>
+                            <button type="button" id="btn-gps-atualizar" class="pe-caixa-atualizar" aria-label="{{ 'ponto_cartao.cartao.atualizar_localizacao'|trans }}" title="{{ 'ponto_cartao.cartao.atualizar_localizacao'|trans }}"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
                         </div>
                     {% endif %}
 
@@ -168,12 +168,12 @@
                        troca de escritório e ficam na lista de pendências). "Regularizar" abre o mesmo "+" da folha. #}
                     {% set ultimaPendencia = pendencias|filter(p => p.atual)|first %}
                     {% if ultimaPendencia and pontoHoje.entrada is null %}
-                        {% set faltas = {'entrada': 'falta a entrada', 'repouso': 'falta a ida ao repouso', 'retorno': 'falta o retorno do repouso', 'saida': 'falta a saída'} %}
+                        {% set faltas = {'entrada': 'ponto_cartao.cartao.falta_entrada'|trans, 'repouso': 'ponto_cartao.cartao.falta_repouso'|trans, 'retorno': 'ponto_cartao.cartao.falta_retorno'|trans, 'saida': 'ponto_cartao.cartao.falta_saida'|trans} %}
                         <div id="ponto-ultima-pendencia" class="pe-pendencia">
-                            <span class="pe-pendencia-texto">Última pendência: {{ ultimaPendencia.dia|date('d/m/Y') }}, {{ faltas[ultimaPendencia.tipo] }}.</span>
+                            <span class="pe-pendencia-texto">{{ 'ponto_cartao.cartao.ultima_pendencia'|trans({dia: ultimaPendencia.dia|date('d/m/Y'), falta: faltas[ultimaPendencia.tipo]}) }}</span>
                             <button type="button" id="btn-regularizar-pendencia" class="pe-pendencia-btn"
                                     data-dia="{{ ultimaPendencia.dia }}" data-tipo="{{ ultimaPendencia.tipo }}"
-                                    data-url="{{ path('ponto_index', {competencia: ultimaPendencia.dia|slice(0, 7), esquecimento: ultimaPendencia.dia ~ ':' ~ ultimaPendencia.tipo}) }}">Regularizar</button>
+                                    data-url="{{ path('ponto_index', {competencia: ultimaPendencia.dia|slice(0, 7), esquecimento: ultimaPendencia.dia ~ ':' ~ ultimaPendencia.tipo}) }}">{{ 'ponto_cartao.cartao.regularizar'|trans }}</button>
                         </div>
                     {% endif %}
 
@@ -193,7 +193,7 @@
                        O rótulo diz o tipo porque pré-selecionar sem mostrar trocaria o erro de "não escolheu" pelo de
                        "não percebeu o que ia registrar". A digital é o desenho do `bi-fingerprint` (L129). #}
                     <button id="btn-bater-ponto" type="button" class="pe-bater{{ jornadaConcluida ? ' pe-bater--concluida' : '' }}" disabled>
-                        <svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.06 6.5a.5.5 0 0 1 .5.5v.776a11.5 11.5 0 0 1-.552 3.519l-1.331 4.14a.5.5 0 0 1-.952-.305l1.33-4.141a10.5 10.5 0 0 0 .504-3.213V7a.5.5 0 0 1 .5-.5Z"></path><path d="M6.06 7a2 2 0 1 1 4 0 .5.5 0 1 1-1 0 1 1 0 1 0-2 0v.332q0 .613-.066 1.221A.5.5 0 0 1 6 8.447q.06-.555.06-1.115zm3.509 1a.5.5 0 0 1 .487.513 11.5 11.5 0 0 1-.587 3.339l-1.266 3.8a.5.5 0 0 1-.949-.317l1.267-3.8a10.5 10.5 0 0 0 .535-3.048A.5.5 0 0 1 9.569 8m-3.356 2.115a.5.5 0 0 1 .33.626L5.24 14.939a.5.5 0 1 1-.955-.296l1.303-4.199a.5.5 0 0 1 .625-.329"></path><path d="M4.759 5.833A3.501 3.501 0 0 1 11.559 7a.5.5 0 0 1-1 0 2.5 2.5 0 0 0-4.857-.833.5.5 0 1 1-.943-.334m.3 1.67a.5.5 0 0 1 .449.546 10.7 10.7 0 0 1-.4 2.031l-1.222 4.072a.5.5 0 1 1-.958-.287L4.15 9.793a9.7 9.7 0 0 0 .363-1.842.5.5 0 0 1 .546-.449Zm6 .647a.5.5 0 0 1 .5.5c0 1.28-.213 2.552-.632 3.762l-1.09 3.145a.5.5 0 0 1-.944-.327l1.089-3.145c.382-1.105.578-2.266.578-3.435a.5.5 0 0 1 .5-.5Z"></path><path d="M3.902 4.222a5 5 0 0 1 5.202-2.113.5.5 0 0 1-.208.979 4 4 0 0 0-4.163 1.69.5.5 0 0 1-.831-.556m6.72-.955a.5.5 0 0 1 .705-.052A4.99 4.99 0 0 1 13.059 7v1.5a.5.5 0 1 1-1 0V7a3.99 3.99 0 0 0-1.386-3.028.5.5 0 0 1-.051-.705M3.68 5.842a.5.5 0 0 1 .422.568q-.044.289-.044.59c0 .71-.1 1.417-.298 2.1l-1.14 3.923a.5.5 0 1 1-.96-.279L2.8 8.821A6.5 6.5 0 0 0 3.058 7q0-.375.054-.736a.5.5 0 0 1 .568-.422m8.882 3.66a.5.5 0 0 1 .456.54c-.084 1-.298 1.986-.64 2.934l-.744 2.068a.5.5 0 0 1-.941-.338l.745-2.07a10.5 10.5 0 0 0 .584-2.678.5.5 0 0 1 .54-.456"></path><path d="M4.81 1.37A6.5 6.5 0 0 1 14.56 7a.5.5 0 1 1-1 0 5.5 5.5 0 0 0-8.25-4.765.5.5 0 0 1-.5-.865m-.89 1.257a.5.5 0 0 1 .04.706A5.48 5.48 0 0 0 2.56 7a.5.5 0 0 1-1 0c0-1.664.626-3.184 1.655-4.333a.5.5 0 0 1 .706-.04ZM1.915 8.02a.5.5 0 0 1 .346.616l-.779 2.767a.5.5 0 1 1-.962-.27l.778-2.767a.5.5 0 0 1 .617-.346m12.15.481a.5.5 0 0 1 .49.51c-.03 1.499-.161 3.025-.727 4.533l-.07.187a.5.5 0 0 1-.936-.351l.07-.187c.506-1.35.634-2.74.663-4.202a.5.5 0 0 1 .51-.49"></path></svg>{{ jornadaConcluida ? 'Jornada de hoje concluída' : 'Bater Ponto: ' ~ rotulosDosTipos[tipoSugerido] }}
+                        <svg viewBox="0 0 16 16" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.06 6.5a.5.5 0 0 1 .5.5v.776a11.5 11.5 0 0 1-.552 3.519l-1.331 4.14a.5.5 0 0 1-.952-.305l1.33-4.141a10.5 10.5 0 0 0 .504-3.213V7a.5.5 0 0 1 .5-.5Z"></path><path d="M6.06 7a2 2 0 1 1 4 0 .5.5 0 1 1-1 0 1 1 0 1 0-2 0v.332q0 .613-.066 1.221A.5.5 0 0 1 6 8.447q.06-.555.06-1.115zm3.509 1a.5.5 0 0 1 .487.513 11.5 11.5 0 0 1-.587 3.339l-1.266 3.8a.5.5 0 0 1-.949-.317l1.267-3.8a10.5 10.5 0 0 0 .535-3.048A.5.5 0 0 1 9.569 8m-3.356 2.115a.5.5 0 0 1 .33.626L5.24 14.939a.5.5 0 1 1-.955-.296l1.303-4.199a.5.5 0 0 1 .625-.329"></path><path d="M4.759 5.833A3.501 3.501 0 0 1 11.559 7a.5.5 0 0 1-1 0 2.5 2.5 0 0 0-4.857-.833.5.5 0 1 1-.943-.334m.3 1.67a.5.5 0 0 1 .449.546 10.7 10.7 0 0 1-.4 2.031l-1.222 4.072a.5.5 0 1 1-.958-.287L4.15 9.793a9.7 9.7 0 0 0 .363-1.842.5.5 0 0 1 .546-.449Zm6 .647a.5.5 0 0 1 .5.5c0 1.28-.213 2.552-.632 3.762l-1.09 3.145a.5.5 0 0 1-.944-.327l1.089-3.145c.382-1.105.578-2.266.578-3.435a.5.5 0 0 1 .5-.5Z"></path><path d="M3.902 4.222a5 5 0 0 1 5.202-2.113.5.5 0 0 1-.208.979 4 4 0 0 0-4.163 1.69.5.5 0 0 1-.831-.556m6.72-.955a.5.5 0 0 1 .705-.052A4.99 4.99 0 0 1 13.059 7v1.5a.5.5 0 1 1-1 0V7a3.99 3.99 0 0 0-1.386-3.028.5.5 0 0 1-.051-.705M3.68 5.842a.5.5 0 0 1 .422.568q-.044.289-.044.59c0 .71-.1 1.417-.298 2.1l-1.14 3.923a.5.5 0 1 1-.96-.279L2.8 8.821A6.5 6.5 0 0 0 3.058 7q0-.375.054-.736a.5.5 0 0 1 .568-.422m8.882 3.66a.5.5 0 0 1 .456.54c-.084 1-.298 1.986-.64 2.934l-.744 2.068a.5.5 0 0 1-.941-.338l.745-2.07a10.5 10.5 0 0 0 .584-2.678.5.5 0 0 1 .54-.456"></path><path d="M4.81 1.37A6.5 6.5 0 0 1 14.56 7a.5.5 0 1 1-1 0 5.5 5.5 0 0 0-8.25-4.765.5.5 0 0 1-.5-.865m-.89 1.257a.5.5 0 0 1 .04.706A5.48 5.48 0 0 0 2.56 7a.5.5 0 0 1-1 0c0-1.664.626-3.184 1.655-4.333a.5.5 0 0 1 .706-.04ZM1.915 8.02a.5.5 0 0 1 .346.616l-.779 2.767a.5.5 0 1 1-.962-.27l.778-2.767a.5.5 0 0 1 .617-.346m12.15.481a.5.5 0 0 1 .49.51c-.03 1.499-.161 3.025-.727 4.533l-.07.187a.5.5 0 0 1-.936-.351l.07-.187c.506-1.35.634-2.74.663-4.202a.5.5 0 0 1 .51-.49"></path></svg>{{ jornadaConcluida ? 'ponto_cartao.js.cartao.jornada_concluida'|trans : 'ponto_cartao.js.cartao.bater_ponto'|trans ~ ': ' ~ rotulosDosTipos[tipoSugerido] }}
                     </button>
 
                     {# Resultado da última tentativa que NÃO tem tela cheia nem aviso flutuante (P11 b, E8): sem rede,
@@ -207,7 +207,7 @@
                        que não mandar nada: os botões dos tipos ainda dizem "--:--:--" e confirmam a conclusão errada,
                        levando à segunda batida. Este botão é o jeito honesto de conferir. #}
                     <button type="button" id="btn-atualizar-pagina" class="pe-btn-sec pe-atualizar d-none">
-                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>Atualizar e conferir minhas batidas
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>{{ 'ponto_cartao.cartao.atualizar_batidas'|trans }}
                     </button>
 
                     {# P16: rodapé do cartão. A jornada semanal é a carga da jornada que vale hoje para a pessoa (D1),
@@ -218,10 +218,10 @@
                        como no botão da localização. #}
                     <div class="pe-rodape">
                         <button type="button" id="btn-justificar-falta" class="pe-btn-sec pe-justificar" data-janela-justificar>
-                            <i class="bi bi-calendar-check" aria-hidden="true"></i>Justificar falta
+                            <i class="bi bi-calendar-check" aria-hidden="true"></i>{{ 'ponto_cartao.cartao.justificar_falta'|trans }}
                         </button>
                         {% if sonsLigados %}
-                            <button type="button" id="btn-som-ponto" class="pe-som" aria-label="Silenciar sons" title="Silenciar sons">
+                            <button type="button" id="btn-som-ponto" class="pe-som" aria-label="{{ 'ponto_cartao.cartao.silenciar_sons'|trans }}" title="{{ 'ponto_cartao.cartao.silenciar_sons'|trans }}">
                                 <svg data-som-ligado viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M11.536 14.01A8.47 8.47 0 0 0 14.026 8a8.47 8.47 0 0 0-2.49-6.01l-.708.707A7.48 7.48 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303z"></path><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.48 5.48 0 0 1 11.025 8a5.48 5.48 0 0 1-1.61 3.89z"></path><path d="M10.025 8a4.5 4.5 0 0 1-1.318 3.182L8 10.475A3.5 3.5 0 0 0 9.025 8c0-.966-.392-1.841-1.025-2.475l.707-.707A4.5 4.5 0 0 1 10.025 8M7 4a.5.5 0 0 0-.812-.39L3.825 5.5H1.5A.5.5 0 0 0 1 6v4a.5.5 0 0 0 .5.5h2.325l2.363 1.89A.5.5 0 0 0 7 12zM4.312 6.39 6 5.04v5.92L4.312 9.61A.5.5 0 0 0 4 9.5H2v-3h2a.5.5 0 0 0 .312-.11"></path></svg>
                                 <svg data-som-mudo hidden viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06M6 5.04 4.312 6.39A.5.5 0 0 1 4 6.5H2v3h2a.5.5 0 0 1 .312.11L6 10.96zm7.854.606a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0"></path></svg>
                             </button>
@@ -229,11 +229,11 @@
                         {% if jornadaInfo is not null %}
                             {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
                             {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
-                            <span class="pe-jornada">Jornada semanal <b>{{ horas }}h{{ '%02d'|format(mins) }}m</b>
+                            <span class="pe-jornada">{{ 'ponto_cartao.cartao.jornada_semanal'|trans }} <b>{{ horas }}h{{ '%02d'|format(mins) }}m</b>
                                 {%- if jornadaInfo.fonte == 'personalizada' -%}
-                                    <span class="pe-selo pe-selo--personalizada">Personalizada</span>
+                                    <span class="pe-selo pe-selo--personalizada">{{ 'ponto_cartao.cartao.personalizada'|trans }}</span>
                                 {%- else -%}
-                                    <span class="pe-selo pe-selo--padrao">Padrão do escritório</span>
+                                    <span class="pe-selo pe-selo--padrao">{{ 'ponto_cartao.cartao.padrao_escritorio'|trans }}</span>
                                 {%- endif -%}
                             </span>
                         {% endif %}
@@ -247,7 +247,7 @@
                primeiro filho) pelo do servidor, sem recarregar. Só os dias com batida (P25); o CSS já vem no <head>. #}
             <div id="ponto-regiao-folha">
             {% include 'ponto/_folha_table.html.twig' with {
-                titulo: 'Folha de Ponto',
+                titulo: 'ponto_cartao.cartao.folha_titulo'|trans,
                 folhaRows: folhaRows,
                 somenteDiasComBatida: true,
                 carregarCssDaFolha: false,
@@ -318,20 +318,20 @@
        existe no desenho; ganha a moldura dele e os campos de hoje, mais o "Motivo" (E4). O horário do esquecimento segue
        em minutos (a edição lê H:i). Depois de salvar, a tela volta na aba Minhas Justificativas, no mês da justificativa. #}
     <div class="pe-janela-fundo" id="ponto-janela-editar" hidden>
-        <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Editar justificativa" id="formEditarJustificativa"
+        <form class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_cartao.editar.titulo'|trans }}" id="formEditarJustificativa"
               method="post" enctype="multipart/form-data" data-janela-form="editar" novalidate>
             <input type="hidden" name="_token" id="editarJustificativaToken">
 
             <div class="pe-janela-topo">
-                <i class="bi bi-pencil" aria-hidden="true"></i><b class="pe-janela-titulo">Editar justificativa</b>
-                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <i class="bi bi-pencil" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_cartao.editar.titulo'|trans }}</b>
+                <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_cartao.comum.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
 
             <div class="pe-janela-corpo">
                 <div class="pe-janela-info" data-janela-info></div>
-                <label class="pe-janela-rotulo">Tipo
+                <label class="pe-janela-rotulo">{{ 'ponto_cartao.comum.tipo'|trans }}
                     <select name="tipo" id="editarJustificativaTipo" class="pe-janela-select">
-                        <option value="">Selecione...</option>
+                        <option value="">{{ 'ponto_cartao.comum.selecione'|trans }}</option>
                         {# P45: os 45 tipos nos 6 grupos, como na janela de justificar. #}
                         {% for grupo, tipos in tiposJustificativa %}
                             <optgroup label="{{ grupo }}">
@@ -344,43 +344,43 @@
                 </label>
 
                 <div class="pe-janela-par" id="editarBlocoRegistroEsquecido" hidden>
-                    <span class="pe-janela-par-titulo">Detalhes do registro esquecido</span>
-                    <label class="pe-janela-rotulo">Tipo de batida
+                    <span class="pe-janela-par-titulo">{{ 'ponto_cartao.editar.detalhes_esquecido'|trans }}</span>
+                    <label class="pe-janela-rotulo">{{ 'ponto_cartao.editar.tipo_batida'|trans }}
                         <select name="tipoRegistroEsquecido" id="editarTipoRegEsquecido" class="pe-janela-select">
-                            <option value="">Selecione...</option>
-                            <option value="entrada">Entrada</option>
-                            <option value="repouso">Repouso</option>
-                            <option value="retorno">Retorno</option>
-                            <option value="saida">Saída</option>
+                            <option value="">{{ 'ponto_cartao.comum.selecione'|trans }}</option>
+                            <option value="entrada">{{ 'ponto_cartao.comum.entrada'|trans }}</option>
+                            <option value="repouso">{{ 'ponto_cartao.comum.repouso'|trans }}</option>
+                            <option value="retorno">{{ 'ponto_cartao.comum.retorno'|trans }}</option>
+                            <option value="saida">{{ 'ponto_cartao.comum.saida'|trans }}</option>
                         </select>
                     </label>
-                    <label class="pe-janela-rotulo">Horário
+                    <label class="pe-janela-rotulo">{{ 'ponto_cartao.editar.horario'|trans }}
                         <input type="time" name="horaRegistroEsquecido" id="editarHoraRegEsquecido" class="pe-janela-entrada">
                     </label>
                 </div>
 
                 <label class="pe-janela-marca" id="editarBlocoAbonoParcial">
                     <input type="checkbox" id="editarAbonoParcial" name="abonoParcial" value="1">
-                    <span>Abono parcial (ausência dentro do expediente)</span>
+                    <span>{{ 'ponto_cartao.editar.abono_parcial'|trans }}</span>
                 </label>
 
                 <div class="pe-janela-par" id="editarBlocoHorario" hidden>
-                    <span class="pe-janela-par-titulo">Período de ausência parcial</span>
-                    <label class="pe-janela-rotulo">Saída
+                    <span class="pe-janela-par-titulo">{{ 'ponto_cartao.editar.periodo_parcial'|trans }}</span>
+                    <label class="pe-janela-rotulo">{{ 'ponto_cartao.comum.saida'|trans }}
                         <input type="time" name="horaInicioAbono" id="editarHoraInicio" class="pe-janela-entrada">
                     </label>
-                    <label class="pe-janela-rotulo">Retorno
+                    <label class="pe-janela-rotulo">{{ 'ponto_cartao.comum.retorno'|trans }}
                         <input type="time" name="horaFimAbono" id="editarHoraFim" class="pe-janela-entrada">
                     </label>
                 </div>
 
-                <label class="pe-janela-rotulo">Motivo
+                <label class="pe-janela-rotulo">{{ 'ponto_cartao.editar.motivo'|trans }}
                     <textarea name="motivo" id="editarMotivo" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
                 </label>
 
-                <label class="pe-janela-rotulo" id="editarBlocoAnexo">Substituir atestado (opcional)
+                <label class="pe-janela-rotulo" id="editarBlocoAnexo">{{ 'ponto_cartao.editar.substituir_atestado'|trans }}
                     <input type="file" name="anexo" id="editarAnexo" class="pe-janela-arquivo" accept=".pdf,.jpg,.jpeg,.png">
-                    <span class="pe-janela-nota">PDF, JPEG ou PNG (máximo 10 MB)</span>
+                    <span class="pe-janela-nota">{{ 'ponto_cartao.editar.formatos_anexo'|trans }}</span>
                 </label>
                 <div class="pe-janela-aviso" id="editarAvisoAnexoAnalisado" hidden>
                     <i class="bi bi-lock" aria-hidden="true"></i>{{ nome_da_situacao('anexo.travado') }}
@@ -389,8 +389,8 @@
 
             <div class="pe-janela-erro" data-janela-erro hidden></div>
             <div class="pe-janela-rodape">
-                <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-                <button type="submit" class="pe-janela-acao" data-janela-enviar>Salvar alterações</button>
+                <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_cartao.comum.cancelar'|trans }}</button>
+                <button type="submit" class="pe-janela-acao" data-janela-enviar>{{ 'ponto_cartao.editar.salvar'|trans }}</button>
             </div>
         </form>
     </div>
@@ -410,6 +410,7 @@
          {%- if avisoFlutuante %} data-aviso-na-carga="{{ avisoFlutuante.texto|e('html_attr') }}" data-aviso-na-carga-tom="{{ avisoFlutuante.tom|e('html_attr') }}"{% endif %}></div>
 </div>
 
+{{ catalogo_js('ponto_cartao.js') }}
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
 {# E8: o aviso flutuante, os sons e a tela cheia vêm antes do script da tela, que os usa. #}
 <script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
@@ -940,16 +941,22 @@
         return !!tipos && tipos.querySelector('button[role="radio"]:not(:disabled)') === null;
     }
 
-    const ROTULOS_TIPO = { entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída' };
+    // Rótulos lidos na hora do uso (getters): o catálogo da tela já está exposto, e o idioma vale a cada chamada.
+    const ROTULOS_TIPO = {
+        get entrada() { return BJ_T.t('ponto_cartao.js.cartao.tipo_entrada'); },
+        get repouso() { return BJ_T.t('ponto_cartao.js.cartao.tipo_repouso'); },
+        get retorno() { return BJ_T.t('ponto_cartao.js.cartao.tipo_retorno'); },
+        get saida() { return BJ_T.t('ponto_cartao.js.cartao.tipo_saida'); }
+    };
     // A digital do desenho vem no HTML do botão; o rótulo redesenhado reaproveita o mesmo SVG.
     const ICONE_DIGITAL = (btnPonto.querySelector('svg') || { outerHTML: '' }).outerHTML;
 
     function rotuloBotaoBatida() {
         if (jornadaConcluida()) {
-            return ICONE_DIGITAL + 'Jornada de hoje concluída';
+            return ICONE_DIGITAL + BJ_T.t('ponto_cartao.js.cartao.jornada_concluida');
         }
         const nome = ROTULOS_TIPO[tipoRegistro.value];
-        return ICONE_DIGITAL + 'Bater Ponto' + (nome ? ': ' + nome : '');
+        return ICONE_DIGITAL + BJ_T.t('ponto_cartao.js.cartao.bater_ponto') + (nome ? ': ' + nome : '');
     }
 
     function atualizarRotuloBotao() {

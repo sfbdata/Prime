@@ -12,8 +12,9 @@
 
     // Prazo da troca de escala: sem resposta até aqui, a escolha volta e a frase avisa.
     const ESCALA_PRAZO_MS = 15000;
-    const TEXTO_SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
-    const TEXTO_RECUSA = 'Não foi possível trocar a escala. Atualize a página e tente de novo.';
+    // Lidos na hora do uso (idioma da tela).
+    const textoSemResposta = function () { return BJ_T.t('ponto_cartao.js.comum.sem_resposta'); };
+    const textoRecusa = function () { return BJ_T.t('ponto_cartao.js.equipe.recusa'); };
 
     function painelDe(elemento) {
         return elemento.closest('.pe-equipe');
@@ -52,7 +53,7 @@
         const prazo = setTimeout(function () { aborto.abort(); }, ESCALA_PRAZO_MS);
         select.disabled = true;
         mostrarErro(painel, '');
-        let falha = TEXTO_SEM_RESPOSTA;
+        let falha = textoSemResposta();
         try {
             const resposta = await fetch(select.dataset.url, {
                 method: 'POST',
@@ -64,10 +65,10 @@
             const dados = await resposta.json().catch(function () { return {}; });
             if (resposta.ok && dados.ok === true) {
                 fixarAtual(select);
-                anunciar(painel, 'Escala de ' + select.dataset.nome + ' alterada.');
+                anunciar(painel, BJ_T.t('ponto_cartao.js.equipe.escala_alterada', { nome: select.dataset.nome }));
                 return;
             }
-            falha = dados.erro || TEXTO_RECUSA;
+            falha = dados.erro || textoRecusa();
         } catch (erro) {
             // sem rede ou prazo estourado: a frase padrão acima
         } finally {

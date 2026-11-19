@@ -26,6 +26,7 @@
     </span>
     <link rel="stylesheet" href="{{ asset('css/presenca-cabecalho.css') }}">
     {% if atalhoPonto %}
+        {{ catalogo_js('ponto_cartao.js.presenca', 'ponto_cartao.js.batida') }}
         <script src="{{ asset('js/ponto-batida.js') }}" defer></script>
         <script src="{{ asset('js/presenca-ponto.js') }}" defer></script>
     {% endif %}

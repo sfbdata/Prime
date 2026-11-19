@@ -19,15 +19,15 @@
 <div class="pe-alerta-ponto pe-janela-fundo" id="modalAlertaPonto" data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}" hidden>
     <div class="pe-janela" role="dialog" aria-modal="true" aria-labelledby="modalAlertaPontoLabel" tabindex="-1" data-alerta-ponto-janela>
         <div class="pe-janela-topo">
-            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo" id="modalAlertaPontoLabel">Registro de Ponto</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar aviso" data-alerta-ponto-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i><b class="pe-janela-titulo" id="modalAlertaPontoLabel">{{ 'ponto_cartao.alerta.titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_cartao.alerta.fechar_aviso'|trans }}" data-alerta-ponto-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-alerta-ponto-corpo">
             <p id="alertaPontoMensagem"></p>
             <p class="pe-alerta-ponto-nota" id="alertaPontoHorario"></p>
         </div>
         <div class="pe-janela-rodape">
-            <a href="{{ path('ponto_index') }}" class="pe-janela-acao" id="btnIrParaPonto">Ir para o Ponto Eletrônico</a>
+            <a href="{{ path('ponto_index') }}" class="pe-janela-acao" id="btnIrParaPonto">{{ 'ponto_cartao.alerta.ir_para_ponto'|trans }}</a>
         </div>
     </div>
 </div>
@@ -230,9 +230,9 @@
     function dispararNotificacaoNativa(dados) {
         solicitarPermissaoNotificacao(function (permitido) {
             if (!permitido) return;
-            var notif = new Notification('Registro de Ponto', {
+            var notif = new Notification('{{ 'ponto_cartao.alerta.titulo'|trans|e('js') }}', {
                 // Retorno e saída chegam sem horário configurado: sem ele, a linha "Horário:" sairia vazia.
-                body:    dados.mensagem + (dados.horario ? '\nHorário: ' + dados.horario : ''),
+                body:    dados.mensagem + (dados.horario ? '\n{{ 'ponto_cartao.alerta.horario'|trans|e('js') }} ' + dados.horario : ''),
                 icon:    '/icons/icon-192x192.png',
                 // Com o tipo na tag: retorno e saída chegam sem horário e, com a mesma tag, um substituía o outro.
                 tag:     'alerta-ponto-' + dados.tipo + '-' + (dados.horario || ''),
@@ -272,7 +272,7 @@
         var elHorario  = document.getElementById('alertaPontoHorario');
         if (elMensagem) elMensagem.textContent = dados.mensagem;
         if (elHorario) {
-            elHorario.textContent = dados.horario ? 'Horário configurado: ' + dados.horario : '';
+            elHorario.textContent = dados.horario ? '{{ 'ponto_cartao.alerta.horario_configurado'|trans|e('js') }} ' + dados.horario : '';
         }
 
         modalEl._tipoAtual = dados.tipo;

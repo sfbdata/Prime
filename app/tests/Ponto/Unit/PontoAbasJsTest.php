@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class PontoAbasJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     #[TestDox('D4: a lixeira abre a janela; o único fetch do arquivo é o do "Excluir" da janela, com prazo')]
     public function testConfirmaAntesDeApagar(): void
     {
@@ -92,12 +95,12 @@ final class PontoAbasJsTest extends TestCase
         $js    = self::js();
         $tirar = self::trecho($js, 'function tirarLinhaExcluida(linha) {', 'async function confirmarExclusao(botao) {');
 
-        self::assertStringContainsString('vazio.textContent = TEXTO_SEM_JUSTIFICATIVAS;', $tirar);
+        self::assertStringContainsString('vazio.textContent = textoSemJustificativas();', $tirar);
         self::assertStringContainsString("corpo.closest('.pe-abas-rolagem').replaceWith(vazio);", $tirar);
-        self::assertMatchesRegularExpression("/const TEXTO_SEM_JUSTIFICATIVAS = '([^']+)';/", $js);
-        preg_match("/const TEXTO_SEM_JUSTIFICATIVAS = '([^']+)';/", $js, $frase);
+        self::assertStringContainsString("const textoSemJustificativas = function () { return BJ_T.t('ponto_cartao.js.abas.sem_justificativas'); };", $js);
+        $frase = self::ptBr('ponto_cartao.js.abas.sem_justificativas');
         $twig = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_abas_justificativas.html.twig');
-        self::assertStringContainsString('<div class="pe-abas-vazio">' . $frase[1] . '</div>', $twig, 'a mesma frase e o mesmo molde do servidor');
+        self::assertStringContainsString('<div class="pe-abas-vazio">' . $frase . '</div>', $twig, 'a mesma frase e o mesmo molde do servidor');
         foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, $proibido);
         }
@@ -144,7 +147,9 @@ final class PontoAbasJsTest extends TestCase
         $tirar = self::trecho($js, 'function tirarLinhaExcluida(linha) {', 'async function confirmarExclusao(botao) {');
 
         self::assertStringContainsString("const data = linha.querySelector('.pe-just-data');", $tirar);
-        self::assertStringContainsString("anunciar(data ? 'Justificativa de ' + data.textContent.trim() + ' excluída.' : 'Justificativa excluída.');", $tirar);
+        self::assertStringContainsString("anunciar(data ? BJ_T.t('ponto_cartao.js.abas.excluida_de', { data: data.textContent.trim() }) : BJ_T.t('ponto_cartao.js.abas.excluida'));", $tirar);
+        self::assertSame('Justificativa de {data} excluída.', self::ptBr('ponto_cartao.js.abas.excluida_de'));
+        self::assertSame('Justificativa excluída.', self::ptBr('ponto_cartao.js.abas.excluida'));
         $anunciar = self::trecho($js, 'function anunciar(texto) {', 'function baixarNumeroDaAba(aba, valor) {');
         self::assertStringContainsString("sec.querySelector('[data-abas-aviso]')", $anunciar);
         self::assertStringContainsString('voz.textContent = texto;', $anunciar);
@@ -173,7 +178,8 @@ final class PontoAbasJsTest extends TestCase
 
         self::assertStringContainsString("form.dataset.recusar === '1' && form.querySelector('textarea').value.trim() === ''", $enviar);
         self::assertStringContainsString('evento.preventDefault();', $enviar);
-        self::assertStringContainsString("'Informe o motivo da recusa.'", $enviar);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.abas.motivo_recusa')", $enviar);
+        self::assertSame('Informe o motivo da recusa.', self::ptBr('ponto_cartao.js.abas.motivo_recusa'));
     }
 
     #[TestDox('A aba aberta vai para o endereço e para o formulário do mês (a tela buscada depois da batida volta nela)')]

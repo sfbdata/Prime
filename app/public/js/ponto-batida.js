@@ -142,7 +142,8 @@
     }
 
     // E12 (P18; desenho L528): o título do "fora do raio", o mesmo do servidor.
-    const TITULO_FORA_DO_RAIO = 'Você está fora do raio permitido';
+    // Lido na hora do uso (idioma da tela).
+    const tituloForaDoRaio = function () { return BJ_T.t('ponto_cartao.js.batida.fora_do_raio'); };
 
     /**
      * A sede que a tela CITA quando a pessoa está fora: a válida mais próxima em metros (desenho L528, `maisProx`), a
@@ -185,17 +186,20 @@
      */
     function textosDoForaDoRaio(posicao, sedes, trabalhoExternoPermitido) {
         const maisProxima = sedeMaisProxima(posicao, sedes);
-        let detalhe = 'O registro exige estar dentro do raio de uma sede do escritório.';
+        let detalhe = BJ_T.t('ponto_cartao.js.batida.exige_raio');
         if (maisProxima) {
-            detalhe = 'A sede mais próxima é ' + String(maisProxima.sede.nome) + ', a ' + Math.round(maisProxima.distancia).toLocaleString('pt-BR')
-                + ' m. O raio permitido é de ' + Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR') + ' m.';
+            detalhe = BJ_T.t('ponto_cartao.js.batida.sede_mais_proxima', {
+                sede: String(maisProxima.sede.nome),
+                distancia: Math.round(maisProxima.distancia).toLocaleString('pt-BR'),
+                raio: Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR'),
+            });
         }
         const permitido = trabalhoExternoPermitido === true;
         if (permitido) {
-            detalhe += ' Aproxime-se ou informe o trabalho externo.';
+            detalhe += ' ' + BJ_T.t('ponto_cartao.js.batida.aproxime_se');
         }
 
-        return { titulo: TITULO_FORA_DO_RAIO, detalhe, trabalhoExterno: permitido };
+        return { titulo: tituloForaDoRaio(), detalhe, trabalhoExterno: permitido };
     }
 
     /**

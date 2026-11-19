@@ -24,8 +24,9 @@
     }
 
     const CHAVE_MUDO = 'bj-ponto-mudo';
-    const DICA_SILENCIAR = 'Silenciar sons';
-    const DICA_ATIVAR = 'Ativar sons';
+    // Lidas na hora do uso (idioma da tela): funções, nunca constantes avaliadas no carregamento.
+    const dicaSilenciar = function () { return BJ_T.t('ponto_cartao.js.sons.silenciar'); };
+    const dicaAtivar = function () { return BJ_T.t('ponto_cartao.js.sons.ativar'); };
 
     // Quanto um som espera o contexto voltar depois do toque. Passou disso, o som não sai: ele tocaria fora de hora.
     const ESPERA_DA_RETOMADA_MS = 1500;
@@ -177,7 +178,7 @@
             return;
         }
         const estaMudo = mudo();
-        const dica = estaMudo ? DICA_ATIVAR : DICA_SILENCIAR;
+        const dica = estaMudo ? dicaAtivar() : dicaSilenciar();
         botao.setAttribute('aria-label', dica);
         botao.setAttribute('title', dica);
         // Os ícones são SVG: o `hidden` vai pelo atributo (o elemento SVG não tem a propriedade).

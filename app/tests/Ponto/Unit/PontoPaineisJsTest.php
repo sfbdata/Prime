@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class PontoPaineisJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     #[TestDox('A busca do painel tem prazo e trata o redirecionamento como falha (sessão sem escritório, vínculo suspenso)')]
     public function testBuscaComPrazo(): void
     {
@@ -35,11 +38,12 @@ final class PontoPaineisJsTest extends TestCase
     {
         $js = self::js('ponto-paineis.js');
 
-        self::assertStringContainsString("const TEXTO_CARREGANDO = 'Carregando...';", $js);
-        self::assertStringContainsString("const TEXTO_FALHA = 'Não foi possível carregar esta aba.';", $js);
-        self::assertStringContainsString("const TEXTO_TENTAR = 'Tentar de novo';", $js);
+        foreach (['carregando' => 'Carregando...', 'falha' => 'Não foi possível carregar esta aba.', 'tentar' => 'Tentar de novo'] as $chave => $frase) {
+            self::assertStringContainsString("BJ_T.t('ponto_cartao.js.paineis." . $chave . "')", $js);
+            self::assertSame($frase, self::ptBr('ponto_cartao.js.paineis.' . $chave));
+        }
         self::assertStringContainsString('frase.textContent = texto;', $js);
-        self::assertStringContainsString('tentar.textContent = TEXTO_TENTAR;', $js);
+        self::assertStringContainsString('tentar.textContent = textoTentar();', $js);
         self::assertSame(1, substr_count($js, 'innerHTML'), 'só o painel que veio do servidor');
         self::assertStringContainsString("evento.target.closest('[data-painel-tentar]')", $js, 'o botão busca de novo');
     }
