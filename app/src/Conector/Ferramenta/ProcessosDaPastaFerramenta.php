@@ -30,9 +30,8 @@ use App\Pasta\UseCase\EditarAcaoDaPastaUseCase;
  *  - `dados_do_cartao`: direto com campo vazio; trocar valor manual já preenchido é proposta ({@see ProcessosDaPastaNoCartao});
  *  - `acao_da_pasta`: direto com a ação vazia; trocar a ação já preenchida é proposta ({@see EditarAcaoDaPastaUseCase});
  *  - `via_administrativa`: direto ({@see DefinirPastaAdministrativaUseCase}; troca a trilha do andamento);
- *  - `nota_tecnica`: `criar` direto; `editar` e `excluir` são proposta ({@see ProcessosDaPastaNasNotas}).
- *
- * Excluir processo fica fora deste PR (a regra mora no controller; o UseCase sai no PR 14): pedido inválido.
+ *  - `nota_tecnica`: `criar` direto; `editar` e `excluir` são proposta ({@see ProcessosDaPastaNasNotas});
+ *  - `excluir_processo`: sempre proposta, sem volta, pede o recurso `processo` de excluir ({@see ProcessosDaPastaNaExclusao}).
  *
  * Ordem das recusas: escopo de escrita → ação e campos → chave do Master e módulo → a pasta por id e escritório (alheia
  * ou na lixeira: "não encontrado") → a guarda com a pasta (cadeado e aba Processo) → recurso `pasta` editar → segredo de
@@ -61,6 +60,7 @@ final class ProcessosDaPastaFerramenta implements FerramentaDoConector, Executor
         private readonly ProcessosDaPastaNosVinculos $vinculos,
         private readonly ProcessosDaPastaNoCartao $cartao,
         private readonly ProcessosDaPastaNasNotas $notas,
+        private readonly ProcessosDaPastaNaExclusao $exclusao,
         private readonly EditarAcaoDaPastaUseCase $editarAcao,
         private readonly DefinirPastaAdministrativaUseCase $definirVia,
     ) {
@@ -102,6 +102,7 @@ final class ProcessosDaPastaFerramenta implements FerramentaDoConector, Executor
             'dados_do_cartao' => $this->cartao->executar($entrada, $pasta, $chamada),
             'acao_da_pasta' => $this->acaoDaPasta($entrada, $pasta, $chamada),
             'via_administrativa' => $this->viaAdministrativa($entrada, $pasta, $chamada),
+            'excluir_processo' => $this->exclusao->propor($entrada, $pasta, $chamada),
             default => $this->notas->executar($entrada, $pasta, $chamada),
         };
     }
@@ -121,6 +122,7 @@ final class ProcessosDaPastaFerramenta implements FerramentaDoConector, Executor
             'dados_do_cartao' => $this->cartao->reconferir($entrada, $dados, $pasta, $chamada),
             'acao_da_pasta' => $this->reconferirAcao($dados, $pasta),
             'nota_tecnica.editar', 'nota_tecnica.excluir' => $this->notas->reconferir($entrada, $dados, $pasta, $chamada),
+            'excluir_processo' => $this->exclusao->reconferir($entrada, $pasta, $chamada),
             default => throw ErroDaFerramenta::entradaInvalida(),
         };
     }
@@ -138,6 +140,7 @@ final class ProcessosDaPastaFerramenta implements FerramentaDoConector, Executor
             'dados_do_cartao' => $this->cartao->confirmar($entrada, $pasta, $chamada),
             'acao_da_pasta' => $this->gravarAcao($entrada, $pasta, $chamada),
             'nota_tecnica.editar', 'nota_tecnica.excluir' => $this->notas->confirmar($entrada, $pasta, $chamada),
+            'excluir_processo' => $this->exclusao->confirmar($entrada, $pasta, $chamada),
             default => throw ErroDaFerramenta::entradaInvalida(),
         };
     }

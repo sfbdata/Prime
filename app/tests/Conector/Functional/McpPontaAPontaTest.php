@@ -6,6 +6,7 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\AtualizarClienteFerramenta;
 use App\Conector\Ferramenta\AtualizarPastaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
@@ -57,6 +58,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
     /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
     private const REGISTRADAS = [
+        AtualizarClienteFerramenta::NOME,
         AtualizarPastaFerramenta::NOME,
         BuscarPastasFerramenta::NOME,
         ConfirmarAcaoFerramenta::NOME,

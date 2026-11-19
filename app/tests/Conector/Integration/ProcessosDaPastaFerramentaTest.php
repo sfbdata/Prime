@@ -43,6 +43,8 @@ final class ProcessosDaPastaFerramentaTest extends KernelTestCase
 
     private const EDITOR = ['modules.pastas.view', 'resources.pasta.view', 'resources.pasta.edit', 'resources.processo.view', 'resources.processo.edit'];
     private const SO_PASTA = ['modules.pastas.view', 'resources.pasta.view', 'resources.pasta.edit'];
+    private const SO_EDITA_PROCESSO = self::EDITOR;
+    private const PODE_EXCLUIR = [...self::EDITOR, 'resources.processo.delete'];
     private const LEITOR = ['modules.pastas.view', 'resources.pasta.view'];
 
     private Tenant $escritorio;
@@ -182,6 +184,110 @@ final class ProcessosDaPastaFerramentaTest extends KernelTestCase
         $this->em()->getConnection()->executeStatement('DELETE FROM pasta_processo WHERE pasta_id = ?', [$pasta->getId()]);
 
         $this->assertConfirmacaoRecusada($proposta, ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[TestDox('excluir_processo: é proposta, avisa que é de vez e o que sai junto, e só apaga depois do confirmar')]
+    public function testExcluirProcesso(): void
+    {
+        $this->comoOutraPessoa(self::PODE_EXCLUIR);
+        [$pasta, $processo, $nota] = $this->comNota('Texto');
+        $numero = $processo->getNumeroProcesso();
+
+        $proposta = $this->executar(['acao' => 'excluir_processo', 'pasta_id' => $pasta->getId(), 'processo_id' => $processo->getId()]);
+
+        self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
+        self::assertStringContainsString('Não há como desfazer', $proposta->dados['proposta']['resumo']);
+        self::assertStringContainsString('todas as pastas', $proposta->dados['proposta']['resumo']);
+        self::assertNotNull($this->recarregar(Processo::class, (int) $processo->getId()), 'a proposta não apaga');
+        self::assertNotNull($this->recarregar(NotaTecnica::class, (int) $nota->getId()));
+
+        $confirmada = $this->confirmar($proposta);
+        self::assertSame([['processo_id' => $processo->getId()]], $confirmada->dados['resultado']['excluidos']);
+        self::assertNull($this->recarregar(Processo::class, (int) $processo->getId()));
+        self::assertNull($this->recarregar(NotaTecnica::class, (int) $nota->getId()), 'a nota sai junto');
+        self::assertSame([], $this->idsDosProcessos($pasta));
+        self::assertNotNull($this->recarregar(Pasta::class, (int) $pasta->getId()), 'a pasta fica');
+        self::assertNotSame('', $numero);
+    }
+
+    #[TestDox('excluir_processo: a confirmação confere de novo, e processo que sumiu ou saiu da pasta depois da proposta é recusado')]
+    public function testExcluirProcessoQueMudou(): void
+    {
+        $this->comoOutraPessoa(self::PODE_EXCLUIR);
+        $pasta = $this->pasta();
+        $processo = $this->processo();
+        $this->vincularNaPasta($pasta, $processo);
+        $argumentos = ['acao' => 'excluir_processo', 'pasta_id' => $pasta->getId(), 'processo_id' => $processo->getId()];
+        $semVinculo = $this->executar($argumentos);
+        $sumiu = $this->executar($argumentos);
+
+        $this->em()->getConnection()->executeStatement('DELETE FROM pasta_processo WHERE pasta_id = ?', [$pasta->getId()]);
+        $this->assertConfirmacaoRecusada($semVinculo, ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        self::assertNotNull($this->recarregar(Processo::class, (int) $processo->getId()));
+
+        $this->em()->getConnection()->executeStatement('DELETE FROM processo WHERE id = ?', [$processo->getId()]);
+        $this->assertConfirmacaoRecusada($sumiu, ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[TestDox('excluir_processo: quem só edita processo, sem o recurso de excluir como a tela, recebe sem permissão e nada some')]
+    public function testExcluirProcessoSemPermissaoDeExcluir(): void
+    {
+        $this->comoOutraPessoa(self::SO_EDITA_PROCESSO);
+        $pasta = $this->pasta();
+        $processo = $this->processo();
+        $this->vincularNaPasta($pasta, $processo);
+
+        $this->assertMotivo(['acao' => 'excluir_processo', 'pasta_id' => $pasta->getId(), 'processo_id' => $processo->getId()], ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        self::assertNotNull($this->recarregar(Processo::class, (int) $processo->getId()));
+    }
+
+    #[TestDox('excluir_processo: a permissão tirada depois da proposta recusa a confirmação')]
+    public function testExcluirProcessoComPermissaoTiradaDepoisDaProposta(): void
+    {
+        $this->comoOutraPessoa(self::PODE_EXCLUIR);
+        $pasta = $this->pasta();
+        $processo = $this->processo();
+        $this->vincularNaPasta($pasta, $processo);
+        $proposta = $this->executar(['acao' => 'excluir_processo', 'pasta_id' => $pasta->getId(), 'processo_id' => $processo->getId()]);
+
+        $this->em()->getConnection()->executeStatement(
+            "DELETE FROM tenant_role_permission WHERE permission_id = (SELECT id FROM permission WHERE code = 'resources.processo.delete')"
+            . ' AND tenant_role_id IN (SELECT tenant_role_id FROM user_tenant WHERE user_id = ?)',
+            [$this->pessoa->getId()],
+        );
+
+        $this->assertConfirmacaoRecusada($proposta, ErroDaFerramenta::MOTIVO_SEM_PERMISSAO);
+        self::assertNotNull($this->recarregar(Processo::class, (int) $processo->getId()));
+    }
+
+    #[TestDox('excluir_processo: processo de outro escritório, de outra pasta ou em segredo não sai, e a aba Processo oculta é "não encontrado"')]
+    public function testExcluirProcessoQueNaoServe(): void
+    {
+        $this->comoOutraPessoa(self::PODE_EXCLUIR);
+        $pasta = $this->pasta();
+        $alheio = $this->processo($this->escritorio());
+        $deOutraPasta = $this->processo();
+        $this->vincularNaPasta($this->pasta(), $deOutraPasta);
+        $emSegredo = $this->processo();
+        $emSegredo->setNivelSigilo(1);
+        $pastaEmSegredo = $this->pasta();
+        $this->vincularNaPasta($pastaEmSegredo, $emSegredo);
+        $base = ['acao' => 'excluir_processo', 'pasta_id' => $pasta->getId()];
+
+        $this->assertMotivo($base + ['processo_id' => $alheio->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        $this->assertMotivo($base + ['processo_id' => $deOutraPasta->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        $this->assertMotivo(['acao' => 'excluir_processo', 'pasta_id' => $pastaEmSegredo->getId(), 'processo_id' => $emSegredo->getId()], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+
+        $this->reanexar();
+        $comAba = $this->pasta();
+        $processo = $this->processo();
+        $this->vincularNaPasta($comAba, $processo);
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $comAba, AbaDaPasta::Processo, $this->pessoa(), new \DateTimeImmutable()));
+        $this->em()->flush();
+        $this->assertMotivo(['acao' => 'excluir_processo', 'pasta_id' => $comAba->getId(), 'processo_id' => $processo->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        foreach ([$alheio, $deOutraPasta, $emSegredo, $processo] as $intacto) {
+            self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM processo WHERE id = ?', [$intacto->getId()]));
+        }
     }
 
     #[TestDox('dados_do_cartao: campo vazio e marcas sim ou não gravam direto, sem tocar no segredo; a resposta não traz o texto')]
@@ -706,7 +812,8 @@ final class ProcessosDaPastaFerramentaTest extends KernelTestCase
     public static function pedidosInvalidos(): iterable
     {
         yield 'ação fora da lista' => [['acao' => 'apagar_tudo']];
-        yield 'excluir processo fica fora deste PR' => [['acao' => 'excluir_processo', 'processo_id' => 1]];
+        yield 'excluir processo sem processo_id' => [['acao' => 'excluir_processo']];
+        yield 'excluir processo com operacao' => [['acao' => 'excluir_processo', 'operacao' => 'excluir', 'processo_id' => 1]];
         yield 'vincular excluir processo' => [['acao' => 'vincular', 'operacao' => 'excluir', 'processo_id' => 1]];
         yield 'vincular sem operacao' => [['acao' => 'vincular', 'processo_id' => 1]];
         yield 'vincular cadastrado sem processo_id' => [['acao' => 'vincular', 'operacao' => 'cadastrado']];
@@ -740,12 +847,12 @@ final class ProcessosDaPastaFerramentaTest extends KernelTestCase
         $this->assertMotivo(['pasta_id' => $pasta->getId()] + $argumentos, ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
     }
 
-    #[TestDox('o esquema tem as seis ações da tabela, fecha os campos e não tem campo de segredo')]
+    #[TestDox('o esquema tem as sete ações da tabela, fecha os campos e não tem campo de segredo')]
     public function testEsquema(): void
     {
         $esquema = static::getContainer()->get(ProcessosDaPastaFerramenta::class)->esquemaDeEntrada();
 
-        self::assertSame(['vincular', 'principal', 'dados_do_cartao', 'acao_da_pasta', 'via_administrativa', 'nota_tecnica'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['vincular', 'principal', 'dados_do_cartao', 'acao_da_pasta', 'via_administrativa', 'nota_tecnica', 'excluir_processo'], $esquema['properties']['acao']['enum']);
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame(['acao', 'pasta_id'], $esquema['required']);
         self::assertSame([], array_values(array_filter(array_keys($esquema['properties']), static fn (string $campo): bool => str_contains($campo, 'segredo'))));

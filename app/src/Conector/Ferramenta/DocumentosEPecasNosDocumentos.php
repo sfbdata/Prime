@@ -27,8 +27,7 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
  * Documentos, subpastas e lixeira da `documentos_e_pecas` (aba Documentos, 6.6), pelos UseCases que a tela usa:
  * `editar_documento` (editar e excluir para a lixeira), `mover`, `copiar`, `favoritar`, `subpasta` (criar, renomear,
  * excluir), `reordenar` e `restaurar` (da lixeira). Por proposta: editar, excluir e
- * renomear subpasta; o resto é direto. Excluir de vez da lixeira fica para o PR 14 (a purga apaga o arquivo antes do
- * COMMIT da confirmação).
+ * renomear subpasta; o resto é direto. Excluir de vez da lixeira mora no {@see DocumentosEPecasNaLixeira} (PR 14).
  *
  * Mover e copiar vão pelo lote da tela (`MoverItensDaPastaUseCase` e `CopiarDocumentosDaPastaUseCase`); subpasta entra
  * no mover pelo campo `subpastas`. Restaurar roda por inteiro dentro do {@see AcessoALixeira}, como a

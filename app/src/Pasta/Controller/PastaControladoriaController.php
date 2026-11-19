@@ -13,8 +13,9 @@ use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Repository\PastaReuRepository;
 use App\Pasta\Service\AcessoAPasta;
-use App\Pasta\Service\AlertasDaPasta;
 use App\Pasta\Service\DadosDaCobrancaNaPasta;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\UseCase\ListarAlertasDaPastaUseCase;
 use App\Pasta\UseCase\SalvarCadastroDaPastaUseCase;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,7 +31,7 @@ final class PastaControladoriaController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly AcessoAPasta $acesso,
-        private readonly AlertasDaPasta $alertas,
+        private readonly ListarAlertasDaPastaUseCase $listarAlertas,
         private readonly PastaReuRepository $reus,
         private readonly DadosDaCobrancaNaPasta $cobranca,
         private readonly SalvarCadastroDaPastaUseCase $salvarCadastro,
@@ -49,16 +50,21 @@ final class PastaControladoriaController extends AbstractController
         $user = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($tenant === null || $pasta->getTenant() !== $tenant || !$this->acesso->podeVer($user, $pasta)) {
+        if ($tenant === null) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
-        $lista = $this->alertas->montar($pasta, $tenant, $user, new \DateTimeImmutable());
+        try {
+            $saida = $this->listarAlertas->executar($pasta, $user, $tenant);
+        } catch (PastaDeOutroEscritorioException|SemPermissaoParaVerPastaException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
         $reu = $this->reus->daPasta($pasta, $tenant)[0] ?? null;
 
         return $this->json([
-            'alertas' => array_map(static fn (AlertaDaPasta $a): array => $a->paraArray(), $lista),
-            'urgentes' => count(array_filter($lista, static fn (AlertaDaPasta $a): bool => $a->nivel !== AlertaDaPasta::BAIXA)),
+            'alertas' => array_map(static fn (AlertaDaPasta $a): array => $a->paraArray(), $saida->alertas),
+            'urgentes' => $saida->urgentes,
             'cadastro' => CadastroDaPastaOutput::de($pasta, $reu, $this->cobranca->da($pasta, $tenant))->paraArray(),
             'podeEditar' => $this->acesso->podeEditar($user, $pasta) && !$pasta->estaExcluida(),
         ]);

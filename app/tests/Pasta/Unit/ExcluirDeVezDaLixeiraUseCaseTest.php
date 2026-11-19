@@ -121,6 +121,28 @@ final class ExcluirDeVezDaLixeiraUseCaseTest extends TestCase
         self::assertSame([], $this->memoria->excluidas, 'nenhum arquivo sai');
     }
 
+    #[TestDox('excluirDoBanco (o caminho do conector) faz as mesmas conferências antes de tocar no banco: vazio, outro escritório, outra pasta e fora da lixeira')]
+    public function testExcluirDoBancoConfereIgual(): void
+    {
+        $casos = [
+            [[], [], \InvalidArgumentException::class],
+            [[$this->documento(naLixeira: true, tenant: new Tenant())], [], AccessDeniedException::class],
+            [[], [$this->secao(naLixeira: true, tenant: new Tenant())], AccessDeniedException::class],
+            [[$this->documento(naLixeira: true, pasta: (new Pasta())->setTenant($this->tenant))], [], \InvalidArgumentException::class],
+            [[$this->documento(naLixeira: false)], [], \InvalidArgumentException::class],
+        ];
+        foreach ($casos as [$documentos, $secoes, $esperada]) {
+            try {
+                $this->useCase->excluirDoBanco($this->pasta, $documentos, $secoes, $this->tenant);
+                self::fail('devia recusar com ' . $esperada);
+            } catch (\Throwable $e) {
+                self::assertInstanceOf($esperada, $e);
+            }
+        }
+
+        self::assertSame([], $this->memoria->excluidas, 'nenhum arquivo sai');
+    }
+
     private function documento(bool $naLixeira, ?Tenant $tenant = null, ?Pasta $pasta = null): PastaDocumento
     {
         $d = new PastaDocumento();

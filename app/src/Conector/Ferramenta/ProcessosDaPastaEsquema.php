@@ -18,10 +18,11 @@ final class ProcessosDaPastaEsquema
     {
         return 'Grava na aba Processo de uma pasta do escritório (pasta_id é obrigatório). Ações: vincular (operacao: novo, cadastrado, apensado ou desvincular), '
             . 'principal (processo_id), dados_do_cartao (classe, assuntos, jurisdicao, orgao, distribuicao, valor_causa e os sim ou não digital, gratuita, tutela e prioridade; '
-            . 'o segredo de justiça nunca muda pelo conector), acao_da_pasta (nome_da_acao), via_administrativa (administrativa verdadeiro ou falso) e '
-            . 'nota_tecnica (operacao: criar, editar ou excluir). Trocar um valor que já existe, editar ou excluir nota técnica e desvincular processo não gravam na hora: '
+            . 'o segredo de justiça nunca muda pelo conector), acao_da_pasta (nome_da_acao), via_administrativa (administrativa verdadeiro ou falso), '
+            . 'nota_tecnica (operacao: criar, editar ou excluir) e excluir_processo (processo_id; apaga o processo do escritório inteiro, de todas as pastas, sem volta; pede a permissão de excluir processo). '
+            . 'Trocar um valor que já existe, editar ou excluir nota técnica, desvincular e excluir processo não gravam na hora: '
             . 'voltam como proposta, que a pessoa precisa aprovar com confirmar_acao. Vincular não vale para pasta cujo cliente principal recebe o envio automático do Push. '
-            . 'Excluir processo ainda não está disponível. Pasta ou processo de outro escritório, na lixeira ou com a aba Processo oculta responde "não encontrado"; '
+            . 'Pasta ou processo de outro escritório, na lixeira ou com a aba Processo oculta responde "não encontrado"; '
             . 'pasta ou processo em segredo de justiça não sai pelo conector.';
     }
 

@@ -25,6 +25,7 @@ use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\CobrancasDoChecklistDaPasta;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\PontosDoRelatorioInicial;
+use App\Pasta\UseCase\LerPontosDoRelatorioInicialUseCase;
 use App\Processo\Entity\Processo;
 use App\Processo\Service\ResumoDoProcesso;
 use App\Service\PermissionChecker;
@@ -97,6 +98,7 @@ final class PastaResumoController extends AbstractController
         private readonly CobrancasDoChecklistDaPasta $cobrancasDoChecklist,
         private readonly GeradorDePdf $geradorDePdf,
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        private readonly LerPontosDoRelatorioInicialUseCase $lerPontosDoRelatorio,
     ) {
     }
 
@@ -286,6 +288,9 @@ final class PastaResumoController extends AbstractController
     }
 
     /**
+     * Os pontos do relatório inicial vêm inteiros, sem o teto da lista de exibição: `imprimirResumo()` do desenho
+     * (dc L.4832) lista as pendências de todas as abas, Detalhes inclusive.
+     *
      * @param PastaPagamento[] $pagamentos
      */
     private function resumoCompleto(Pasta $pasta, Tenant $tenant, array $pagamentos, bool $veFinanceiro, User $usuario): PastaResumoImpressaoOutput
@@ -321,20 +326,11 @@ final class PastaResumoController extends AbstractController
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
                 documentosCobrados: $this->cobrancasDoChecklist->cobradosPendentes($pasta),
-                relatorioInicial: $this->pontosDoRelatorio($pasta, $tenant),
+                relatorioInicial: $this->lerPontosDoRelatorio->executar($pasta, $usuario, $tenant),
             )->semAbas($ocultas),
             \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,
             $pagamentos,
             incluirFinanceiro: $veFinanceiro,
         )->semSecoesDasAbas($ocultas);
-    }
-
-    /**
-     * `imprimirResumo()` do desenho (dc L.4832) lista as pendências de todas as abas, Detalhes inclusive:
-     * o relatório inteiro, sem o teto da lista de exibição.
-     */
-    private function pontosDoRelatorio(Pasta $pasta, Tenant $tenant): PontosDoRelatorioInicial
-    {
-        return PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
     }
 }
