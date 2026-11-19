@@ -8,10 +8,10 @@
     <div class="pe-fer-lin">
         <b>{{ feriado.data }}</b>
         <span class="pe-fer-nome">{{ feriado.nome }}</span>
-        {% if feriado.recorrente %}<span class="pe-fer-marca"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Todo ano</span>{% endif %}
+        {% if feriado.recorrente %}<span class="pe-fer-marca"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'ponto_config.feriados_lista.todo_ano'|trans }}</span>{% endif %}
         <span class="pe-fer-abrangencia">{{ feriado.abrangencia }}</span>
-        <button type="button" class="pe-fer-remover" aria-label="Remover feriado" data-pc-feriado-remover data-pc-feriado-url="{{ path('ponto_configuracoes_feriado_remover', {id: feriado.id}) }}" data-pc-feriado-info="{{ feriado.data }}: {{ feriado.nome }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <button type="button" class="pe-fer-remover" aria-label="{{ 'ponto_config.feriados.remover_titulo'|trans }}" data-pc-feriado-remover data-pc-feriado-url="{{ path('ponto_configuracoes_feriado_remover', {id: feriado.id}) }}" data-pc-feriado-info="{{ feriado.data }}: {{ feriado.nome }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
 {% else %}
-    <div class="pe-fer-vazio">Nenhum feriado cadastrado.</div>
+    <div class="pe-fer-vazio">{{ 'ponto_config.feriados_lista.vazio'|trans }}</div>
 {% endfor %}

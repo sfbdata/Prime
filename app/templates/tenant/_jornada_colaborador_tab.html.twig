@@ -1,9 +1,9 @@
 <div class="bjp-painel mb-3">
     <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
-        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-clock me-2"></i>Jornada Personalizada</h3>
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-clock me-2"></i>{{ 'escritorio.jornada_colab.titulo'|trans }}</h3>
         {# Aparece também quando só há versão agendada (o JS confere o histórico ao carregar). #}
         <button type="button" class="bjp-btn bjp-btn--destrutivo{{ userHasCustomEscala ? '' : ' d-none' }}" id="btnLimparEscala">
-            <i class="bi bi-arrow-counterclockwise"></i>Limpar jornada personalizada
+            <i class="bi bi-arrow-counterclockwise"></i>{{ 'escritorio.jornada_colab.limpar'|trans }}
         </button>
     </div>
     <div class="bjp-painel-corpo">
@@ -21,60 +21,60 @@
         {# Aviso de jornada legada #}
         <div id="escalaAvisoLegado" class="alert alert-warning d-none">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            Sua jornada usa formato legado. Configure blocos abaixo para usar o novo sistema.
+            {{ 'escritorio.jornada_colab.legado'|trans }}
         </div>
 
         {# Resumo somente leitura da jornada do escritório #}
         <div id="escalaResumoTenant" class="alert alert-info mb-3 d-none">
-            <strong><i class="bi bi-building me-1"></i>Jornada do escritório:</strong>
+            <strong><i class="bi bi-building me-1"></i>{{ 'escritorio.jornada_colab.jornada_escritorio'|trans }}</strong>
             <span id="escalaResumoCargaTenant"></span>
             <div id="escalaResumoBlocosTenant" class="mt-1 small text-muted"></div>
         </div>
 
         <div id="escalaLoadingMsg" class="text-center py-4">
             <div class="spinner-border text-warning" role="status"></div>
-            <p class="mt-2 text-muted">Carregando jornada...</p>
+            <p class="mt-2 text-muted">{{ 'escritorio.jornada_colab.carregando'|trans }}</p>
         </div>
 
         <div id="escalaFormContainer" class="d-none">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0" id="escalaModoTitulo">Nova versão da jornada</h6>
-                <button type="button" class="bjp-btn bjp-btn--discreto d-none" id="btnCancelarEdicaoEscala">Cancelar edição</button>
+                <h6 class="mb-0" id="escalaModoTitulo">{{ 'escritorio.jornada_colab.nova_versao'|trans }}</h6>
+                <button type="button" class="bjp-btn bjp-btn--discreto d-none" id="btnCancelarEdicaoEscala">{{ 'escritorio.jornada_colab.cancelar_edicao'|trans }}</button>
             </div>
 
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
-                    <label class="form-label fw-semibold" for="escalaValeAPartirDe">Vale a partir de</label>
+                    <label class="form-label fw-semibold" for="escalaValeAPartirDe">{{ 'escritorio.jornada_colab.vale_a_partir'|trans }}</label>
                     <input type="date" id="escalaValeAPartirDe" class="form-control">
-                    <div class="form-text">A folha usa esta jornada a partir desta data. Os dias anteriores seguem a versão anterior.</div>
+                    <div class="form-text">{{ 'escritorio.jornada_colab.vale_a_partir_ajuda'|trans }}</div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-semibold">Carga horária semanal</label>
+                    <label class="form-label fw-semibold">{{ 'escritorio.jornada_colab.carga_semanal'|trans }}</label>
                     <input type="text" id="escalaCargaSemanal" class="form-control" placeholder="40:00" maxlength="5">
-                    <div class="form-text">Formato HH:MM (ex.: 40:00 para 40 horas)</div>
+                    <div class="form-text">{{ 'escritorio.jornada_colab.carga_ajuda'|trans }}</div>
                 </div>
                 <div class="col-md-4 d-flex align-items-center">
                     <div class="form-check mt-4">
                         <input class="form-check-input" type="checkbox" id="escalaAlertaHabilitado">
                         <label class="form-check-label" for="escalaAlertaHabilitado">
-                            Habilitar alertas de ponto
+                            {{ 'escritorio.jornada_colab.alertas'|trans }}
                         </label>
-                        <div class="form-text">Vale para todas as versões.</div>
+                        <div class="form-text">{{ 'escritorio.jornada_colab.alertas_ajuda'|trans }}</div>
                     </div>
                 </div>
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Blocos de horário</h6>
+                <h6 class="mb-0">{{ 'escritorio.jornada_colab.blocos'|trans }}</h6>
                 <button type="button" class="bjp-btn bjp-btn--secundario" id="btnAdicionarBlocoEscala">
-                    <i class="bi bi-plus-lg"></i>Adicionar bloco
+                    <i class="bi bi-plus-lg"></i>{{ 'escritorio.jornada_colab.adicionar_bloco'|trans }}
                 </button>
             </div>
 
             <div id="escalaBlocos"></div>
 
             <div class="mt-3 p-3 rounded border bg-body-tertiary d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">Total acumulado:</span>
+                <span class="fw-semibold">{{ 'escritorio.jornada_colab.total'|trans }}</span>
                 <span id="escalaTotalAcumulado" class="fw-bold fs-5">00:00 / 00:00</span>
             </div>
 
@@ -82,15 +82,15 @@
 
             {# Versões da jornada, da mais nova para a mais antiga (spec ponto-jornada-vigencia §5.2 e §10.2) #}
             <div id="escalaHistorico" class="mt-4 d-none">
-                <h6 class="mb-2">Histórico da jornada</h6>
+                <h6 class="mb-2">{{ 'escritorio.jornada_colab.historico'|trans }}</h6>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Período</th>
-                                <th>Carga semanal</th>
-                                <th>Blocos</th>
-                                <th class="text-end">Ações</th>
+                                <th>{{ 'escritorio.jornada_colab.col_periodo'|trans }}</th>
+                                <th>{{ 'escritorio.jornada_colab.col_carga'|trans }}</th>
+                                <th>{{ 'escritorio.jornada_colab.col_blocos'|trans }}</th>
+                                <th class="text-end">{{ 'escritorio.jornada_colab.col_acoes'|trans }}</th>
                             </tr>
                         </thead>
                         <tbody id="escalaHistoricoLinhas"></tbody>
@@ -102,7 +102,7 @@
     </div>
     <div class="bjp-painel-pe d-flex justify-content-end gap-2">
         <button type="button" class="bjp-btn bjp-btn--secundario" id="btnSalvarEscala" disabled>
-            <i class="bi bi-save"></i>Salvar Jornada
+            <i class="bi bi-save"></i>{{ 'escritorio.jornada_colab.salvar'|trans }}
         </button>
     </div>
 </div>
@@ -112,69 +112,70 @@
     <div class="bjp-painel bloco-escala mb-3" data-bloco-idx="">
         <div class="bjp-painel-corpo pb-2">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <span class="fw-semibold text-muted small">Bloco <span class="bloco-num"></span></span>
+                <span class="fw-semibold text-muted small">{{ 'escritorio.jornada_colab.bloco'|trans }} <span class="bloco-num"></span></span>
                 <button type="button" class="bjp-ico bjp-btn--destrutivo btn-remover-bloco-escala">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
             <div class="mb-3">
-                <label class="form-label small fw-semibold">Dias da semana</label>
+                <label class="form-label small fw-semibold">{{ 'escritorio.jornada_colab.dias_semana'|trans }}</label>
                 <div class="d-flex flex-wrap gap-2 bloco-dias">
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="1">
-                        <label class="form-check-label small">Seg</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_seg'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="2">
-                        <label class="form-check-label small">Ter</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_ter'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="3">
-                        <label class="form-check-label small">Qua</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_qua'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="4">
-                        <label class="form-check-label small">Qui</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_qui'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="5">
-                        <label class="form-check-label small">Sex</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_sex'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="6">
-                        <label class="form-check-label small">Sáb</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_sab'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check-escala" type="checkbox" value="7">
-                        <label class="form-check-label small">Dom</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_dom'|trans }}</label>
                     </div>
                 </div>
             </div>
             <div class="row g-2">
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Entrada</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.entrada'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-entrada" required>
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Repouso</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.repouso'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-repouso">
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Retorno</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.retorno'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-retorno">
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Saída</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.saida'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-saida" required>
                 </div>
             </div>
             <div class="mt-2 text-end text-muted small">
-                Carga do bloco: <span class="bloco-carga-display fw-semibold">0:00</span>/dia
+                {{ 'escritorio.jornada_colab.carga_bloco'|trans }} <span class="bloco-carga-display fw-semibold">0:00</span>{{ 'escritorio.jornada_colab.por_dia'|trans }}
             </div>
         </div>
     </div>
 </template>
 
+{{ catalogo_js('escritorio.jornada_colab.js') }}
 <script>
 (function () {
     'use strict';
@@ -293,7 +294,7 @@
     function adicionarBlocoEscala(dados) {
         const container = document.getElementById('escalaBlocos');
         if (container.querySelectorAll('.bloco-escala').length >= 7) {
-            alert('Máximo de 7 blocos de jornada.');
+            alert(BJ_T.t('escritorio.jornada_colab.js.max_blocos'));
             return;
         }
         const el = criarBlocoEscalaEl(dados || null);
@@ -311,7 +312,7 @@
         }
 
         document.getElementById('escalaResumoCargaTenant').textContent =
-            ' ' + toHHMM(jornada.cargaHorariaSemanal || 0) + ' semanais';
+            ' ' + BJ_T.t('escritorio.jornada_colab.js.semanais', {horas: toHHMM(jornada.cargaHorariaSemanal || 0)});
 
         document.getElementById('escalaResumoBlocosTenant').innerHTML =
             resumoDosBlocos(jornada.blocos).map(l => `<div>${l}</div>`).join('');
@@ -320,13 +321,13 @@
     }
 
     function resumoDosBlocos(blocos) {
-        const diasNomes = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+        const diasNomes = ['', BJ_T.t('escritorio.jornada_colab.js.dia_seg'), BJ_T.t('escritorio.jornada_colab.js.dia_ter'), BJ_T.t('escritorio.jornada_colab.js.dia_qua'), BJ_T.t('escritorio.jornada_colab.js.dia_qui'), BJ_T.t('escritorio.jornada_colab.js.dia_sex'), BJ_T.t('escritorio.jornada_colab.js.dia_sab'), BJ_T.t('escritorio.jornada_colab.js.dia_dom')];
         return blocos.map(b => {
             const dias = (b.diasSemana || []).map(d => diasNomes[d] || d).join(', ');
             const horario = b.repouso
-                ? `${b.entrada} às ${b.repouso} / ${b.retorno} às ${b.saida}`
-                : `${b.entrada} às ${b.saida}`;
-            return `${dias}: ${horario} (${toHHMM(b.minutosBloco)}/dia)`;
+                ? BJ_T.t('escritorio.jornada_colab.js.horario_com_repouso', {entrada: b.entrada, repouso: b.repouso, retorno: b.retorno, saida: b.saida})
+                : BJ_T.t('escritorio.jornada_colab.js.horario', {entrada: b.entrada, saida: b.saida});
+            return BJ_T.t('escritorio.jornada_colab.js.linha_bloco', {dias: dias, horario: horario, carga: toHHMM(b.minutosBloco)});
         });
     }
 
@@ -351,8 +352,8 @@
         document.getElementById('escalaBlocos').innerHTML = '';
         blocos.forEach(b => adicionarBlocoEscala(b));
         document.getElementById('escalaModoTitulo').textContent = versao
-            ? `Editando a versão que vale a partir de ${dataBr(versao.valeAPartirDe)}`
-            : 'Nova versão da jornada';
+            ? BJ_T.t('escritorio.jornada_colab.js.editando', {data: dataBr(versao.valeAPartirDe)})
+            : BJ_T.t('escritorio.jornada_colab.js.nova_versao');
         document.getElementById('btnCancelarEdicaoEscala').classList.toggle('d-none', !versao);
         document.getElementById('escalaErro').classList.add('d-none');
         atualizarCheckboxesDisabledEscala();
@@ -384,14 +385,14 @@
     function periodoDaVersao(versao) {
         let periodo;
         if (versao.valeParaTras) {
-            periodo = versao.ate ? 'até ' + dataBr(versao.ate) : 'todos os dias';
+            periodo = versao.ate ? BJ_T.t('escritorio.jornada_colab.js.ate', {data: dataBr(versao.ate)}) : BJ_T.t('escritorio.jornada_colab.js.todos_os_dias');
         } else {
             periodo = versao.ate
-                ? `de ${dataBr(versao.valeAPartirDe)} a ${dataBr(versao.ate)}`
-                : 'a partir de ' + dataBr(versao.valeAPartirDe);
+                ? BJ_T.t('escritorio.jornada_colab.js.de_a', {de: dataBr(versao.valeAPartirDe), ate: dataBr(versao.ate)})
+                : BJ_T.t('escritorio.jornada_colab.js.a_partir_de', {data: dataBr(versao.valeAPartirDe)});
         }
-        if (versao.vigente) periodo += ' (atual)';
-        if (versao.agendada) periodo += ' (agendada)';
+        if (versao.vigente) periodo += ' (' + BJ_T.t('escritorio.jornada_colab.js.atual') + ')';
+        if (versao.agendada) periodo += ' (' + BJ_T.t('escritorio.jornada_colab.js.agendada') + ')';
         return periodo;
     }
 
@@ -408,7 +409,7 @@
             const carga = document.createElement('td');
             carga.textContent = temJornadaPessoal(versao)
                 ? toHHMM(versao.cargaHorariaSemanal || 0)
-                : 'jornada do escritório';
+                : BJ_T.t('escritorio.jornada_colab.js.jornada_do_escritorio');
 
             const blocos = document.createElement('td');
             blocos.className = 'small text-muted';
@@ -420,9 +421,9 @@
 
             const acoes = document.createElement('td');
             acoes.className = 'text-end text-nowrap';
-            acoes.appendChild(botaoDoHistorico('Editar', 'bjp-btn--secundario', 'bi-pencil', () => editarVersao(versao)));
+            acoes.appendChild(botaoDoHistorico(BJ_T.t('escritorio.jornada_colab.js.editar'), 'bjp-btn--secundario', 'bi-pencil', () => editarVersao(versao)));
             if (versoes.length > 1) {
-                acoes.appendChild(botaoDoHistorico('Excluir', 'bjp-btn--destrutivo ms-1', 'bi-trash', ev => excluirVersao(versao, ev.currentTarget)));
+                acoes.appendChild(botaoDoHistorico(BJ_T.t('escritorio.jornada_colab.js.excluir'), 'bjp-btn--destrutivo ms-1', 'bi-trash', ev => excluirVersao(versao, ev.currentTarget)));
             }
 
             const tr = document.createElement('tr');
@@ -432,7 +433,7 @@
     }
 
     async function excluirVersao(versao, botao) {
-        if (!confirm(`Excluir a versão que vale a partir de ${dataBr(versao.valeAPartirDe)}? Os dias dela passam a seguir a versão vizinha, e a folha e o saldo desses dias serão recalculados.`)) return;
+        if (!confirm(BJ_T.t('escritorio.jornada_colab.js.excluir_confirmar', {data: dataBr(versao.valeAPartirDe)}))) return;
 
         botao.disabled = true;
         try {
@@ -445,9 +446,9 @@
                 return;
             }
             const result = await resp.json().catch(() => ({}));
-            alert(result.erro || 'Erro ao excluir a versão da jornada.');
+            alert(result.erro || BJ_T.t('escritorio.jornada_colab.js.erro_excluir'));
         } catch (err) {
-            alert('Falha na comunicação com o servidor.');
+            alert(BJ_T.t('escritorio.jornada_colab.js.falha_servidor'));
         }
         botao.disabled = false;
     }
@@ -481,7 +482,8 @@
             atualizarAcumuladorEscala();
         } catch (err) {
             document.getElementById('escalaLoadingMsg').innerHTML =
-                '<p class="text-danger">Erro ao carregar jornada. Tente novamente.</p>';
+                '<p class="text-danger"></p>';
+            document.querySelector('#escalaLoadingMsg p').textContent = BJ_T.t('escritorio.jornada_colab.js.erro_carregar');
         }
     }
 
@@ -498,14 +500,14 @@
         const valeAPartirDe = document.getElementById('escalaValeAPartirDe').value;
 
         if (!valeAPartirDe) {
-            erroEl.textContent = 'Informe a data em que a jornada passa a valer.';
+            erroEl.textContent = BJ_T.t('escritorio.jornada_colab.js.informe_data');
             erroEl.classList.remove('d-none');
             return;
         }
         // Data no passado: a folha e o saldo mudam desde a mais antiga entre a data nova e a antiga da versão.
         const desde = versaoEmEdicao && versaoEmEdicao.valeAPartirDe < valeAPartirDe ? versaoEmEdicao.valeAPartirDe : valeAPartirDe;
         if (estadoEscala && desde < estadoEscala.hoje
-            && !confirm(`A folha e o saldo serão recalculados desde ${dataBr(desde)}. Continuar?`)) {
+            && !confirm(BJ_T.t('escritorio.jornada_colab.js.recalcular_confirmar', {data: dataBr(desde)}))) {
             return;
         }
 
@@ -524,7 +526,7 @@
         });
 
         this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + BJ_T.t('escritorio.jornada_colab.js.salvando');
 
         try {
             const resp = await fetch(escalaUrl, {
@@ -539,17 +541,17 @@
             const result = await resp.json();
 
             if (!resp.ok) {
-                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.textContent = result.erro || BJ_T.t('escritorio.jornada_colab.js.erro_salvar');
                 erroEl.classList.remove('d-none');
             } else {
                 window.location.href = window.location.pathname + '?tab=escala';
             }
         } catch (err) {
-            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.textContent = BJ_T.t('escritorio.jornada_colab.js.falha_servidor');
             erroEl.classList.remove('d-none');
         } finally {
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Jornada';
+            this.innerHTML = '<i class="bi bi-save me-1"></i>' + BJ_T.t('escritorio.jornada_colab.js.salvar');
             atualizarAcumuladorEscala();
         }
     });
@@ -557,7 +559,7 @@
     const btnLimpar = document.getElementById('btnLimparEscala');
     if (btnLimpar) {
         btnLimpar.addEventListener('click', async function () {
-            if (!confirm('A jornada personalizada e todo o histórico dela serão apagados. A folha de todos os meses, inclusive os passados, volta a usar a jornada padrão do escritório. Continuar?')) return;
+            if (!confirm(BJ_T.t('escritorio.jornada_colab.js.limpar_confirmar'))) return;
 
             this.disabled = true;
 
@@ -571,11 +573,11 @@
                     window.location.href = window.location.pathname + '?tab=escala';
                 } else {
                     const result = await resp.json().catch(() => ({}));
-                    alert(result.erro || 'Erro ao limpar jornada personalizada.');
+                    alert(result.erro || BJ_T.t('escritorio.jornada_colab.js.erro_limpar'));
                     this.disabled = false;
                 }
             } catch (err) {
-                alert('Falha na comunicação com o servidor.');
+                alert(BJ_T.t('escritorio.jornada_colab.js.falha_servidor'));
                 this.disabled = false;
             }
         });

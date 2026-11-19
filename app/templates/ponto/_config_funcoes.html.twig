@@ -15,13 +15,14 @@
     O painel chega por innerHTML (js/ponto-paineis.js), e script dentro dele não roda: o comportamento mora em
     js/ponto-configuracoes.js, por delegação no documento. Só textos fixos aqui; o JS só troca estado e mensagem.
 #}
+{{ catalogo_js('ponto_config.js') }}
 {% if funcoesDoPonto|default(null) %}
     <div class="pe-config-funcoes" data-config-funcoes>
         <div class="pe-config-ajuda">
             {%- if funcoesDoPonto.ehMaster -%}
-                Master: a chave Global libera ou bloqueia a função para todos os escritórios. Com a função liberada, cada usuário primário decide o uso no seu escritório.
+                {{ 'ponto_config.funcoes.ajuda_master'|trans }}
             {%- else -%}
-                Usuário primário: define como o ponto funciona no seu escritório, dentro do que o Master liberou.
+                {{ 'ponto_config.funcoes.ajuda_primario'|trans }}
             {%- endif -%}
         </div>
         {% for funcao in funcoesDoPonto.funcoes %}
@@ -29,16 +30,16 @@
                 <i class="pe-config-icone bi {{ funcao.icone }}" aria-hidden="true"></i>
                 <div class="pe-config-texto"><b>{{ funcao.titulo }}</b><span>{{ funcao.ajuda }}</span></div>
                 {% if funcoesDoPonto.ehMaster %}
-                    <div class="pe-config-chave"><span>Global</span><button type="button" role="switch" class="pe-config-switch"
-                            aria-checked="{{ funcao.global ? 'true' : 'false' }}" aria-label="{{ funcao.titulo }}: liberar para todos"
+                    <div class="pe-config-chave"><span>{{ 'ponto_config.funcoes.global'|trans }}</span><button type="button" role="switch" class="pe-config-switch"
+                            aria-checked="{{ funcao.global ? 'true' : 'false' }}" aria-label="{{ 'ponto_config.funcoes.liberar_todos'|trans({titulo: funcao.titulo}) }}"
                             data-config-global="{{ path('master_recurso_alternar', {chave: funcao.chave}) }}"
                             data-token="{{ csrf_token('master_recursos') }}"><span></span></button></div>
                 {% endif %}
-                <div class="pe-config-chave"><span>Escritório</span><button type="button" role="switch" class="pe-config-switch"
-                        aria-checked="{{ funcao.escritorioEfetivo ? 'true' : 'false' }}" aria-label="{{ funcao.titulo }}: usar no escritório"
+                <div class="pe-config-chave"><span>{{ 'ponto_config.funcoes.escritorio'|trans }}</span><button type="button" role="switch" class="pe-config-switch"
+                        aria-checked="{{ funcao.escritorioEfetivo ? 'true' : 'false' }}" aria-label="{{ 'ponto_config.funcoes.usar_escritorio'|trans({titulo: funcao.titulo}) }}"
                         data-config-escritorio="{{ path('ponto_configuracao_funcao', {chave: funcao.chave}) }}"
                         data-ligada="{{ funcao.escritorio ? '1' : '0' }}"{{ funcao.travada ? ' disabled' }}><span></span></button></div>
-                <span class="pe-config-trava" data-config-trava{{ funcao.travada ? '' : ' hidden' }}>Desativado pelo Master para todos os escritórios.</span>
+                <span class="pe-config-trava" data-config-trava{{ funcao.travada ? '' : ' hidden' }}>{{ 'ponto_config.funcoes.travada'|trans }}</span>
                 <span class="pe-config-erro" role="alert" data-config-erro hidden></span>
             </div>
         {% endfor %}

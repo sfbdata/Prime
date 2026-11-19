@@ -657,11 +657,19 @@
             "tenant/escritorio_indisponivel.html.twig",
             "tenant/users.html.twig",
             "tenant/edit_user_role.html.twig",
-            "tenant/sedes.html.twig"
+            "tenant/sedes.html.twig",
+            "tenant/_horas_pagas_tab.html.twig",
+            "tenant/_jornada_colaborador_tab.html.twig",
+            "tenant/_justificativas_tab.html.twig",
+            "tenant/_modal_jornada_tenant.html.twig",
+            "tenant/_home_office_tab.html.twig",
+            "tenant/ponto_edit.html.twig"
         ],
         "js": [],
         "permitidos": [
-            "· BlueJus"
+            "· BlueJus",
+            "(hm)",
+            "App\\\\Ponto\\\\Service\\\\AnaliseDaPropriaJustificativa::RECUSA"
         ]
     },
 
@@ -1187,12 +1195,48 @@
     "ponto_pendencias": {
         "templates": [
             "ponto/_pendencias.html.twig",
-            "layout/_globais/ponto_pendente.html.twig"
+            "layout/_globais/ponto_pendente.html.twig",
+            "ponto/_justificativa_form.html.twig",
+            "ponto/_justificativas_list.html.twig",
+            "ponto/_abas_justificativas.html.twig",
+            "ponto/_justificativa_campos.html.twig",
+            "ponto/_janelas_justificativa.html.twig",
+            "ponto/_justificativa_macros.html.twig",
+            "ponto/_justificativa_esquecimento_modal.html.twig",
+            "ponto/_justificativa_calendario.html.twig"
         ],
         "js": [
             "ponto-pendente.js"
         ],
-        "permitidos": ["·", "×", "Content-Type"]
+        "permitidos": ["·", "×", "Content-Type", "App\\\\Ponto\\\\Form\\\\JustificativaPontoType::MOTIVO_MAXIMO", "j.status != 'pendente')|length == 0 ? '1' : '0' }}\"", "data-url=\"\"", "onclick=\"abrirModalEditarJustificativa(this)\">", "o.batchId == j.batchId and o.status != 'pendente')|length == 0 ? '1' : '0' }}\"", "data-justificativa-editar>"]
+    },
+
+    "ponto_config": {
+        "templates": [
+            "ponto/_config_feriados.html.twig",
+            "ponto/_config_sedes.html.twig",
+            "ponto/_config_sede_linha.html.twig",
+            "ponto/_config_funcoes.html.twig",
+            "ponto/_config_banco.html.twig",
+            "ponto/_config_feriados_lista.html.twig",
+            "ponto/_config_trabalho_externo.html.twig"
+        ],
+        "js": [
+            "ponto-configuracoes-sedes.js",
+            "ponto-configuracoes.js"
+        ],
+        "permitidos": ["Escape", "Tab", "Content-Type", "Accept", "Nova sede", "App\\\\Ponto\\\\Service\\\\LimitesPadraoDoBancoDeHoras::LIMITE_EM_HORAS", "App\\\\Ponto\\\\Service\\\\LimitesPadraoDoBancoDeHoras::PRAZO_EM_MESES"]
+    },
+
+    "calculo": {
+        "templates": [
+            "calculo/index.html.twig",
+            "calculo/verificar.html.twig"
+        ],
+        "js": [
+            "calculo.js"
+        ],
+        "permitidos": ["calc-body", "BlueJus", "America/Sao_Paulo", "Enter", "Escape", "Content-Type", "Accept", "Demonstrativo"]
     },
 
     "voto": {

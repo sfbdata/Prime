@@ -30,10 +30,11 @@
     // O aviso flutuante some sozinho (desenho, `avisar` L468); um por vez.
     const AVISO_MS = 3400;
     const CASAS_DA_POSICAO = 6;
-    const SEM_RESPOSTA = 'Sem resposta do servidor. Confira a conexão e tente de novo.';
-    const CRIACAO_INCERTA = 'Sem resposta do servidor. A lista de sedes vai ser buscada de novo: confira se a sede foi criada.';
-    const SEM_POSICAO = 'Localização indisponível neste aparelho.';
-    const FALTA_FERIADO = 'Informe a data e o nome do feriado.';
+    // Textos pelo catálogo do idioma (BJ_T), lidos na hora do uso: o script carrega antes do catálogo da página.
+    const SEM_RESPOSTA = function () { return BJ_T.t('ponto_config.js.sem_resposta'); };
+    const CRIACAO_INCERTA = function () { return BJ_T.t('ponto_config.js.criacao_incerta'); };
+    const SEM_POSICAO = function () { return BJ_T.t('ponto_config.js.sem_posicao'); };
+    const FALTA_FERIADO = function () { return BJ_T.t('ponto_config.js.falta_feriado'); };
     const CAMPOS_DA_SEDE = ['nome', 'latitude', 'longitude', 'raio'];
     const FOCAVEIS = 'button:not([disabled]), [href], input:not([type="hidden"]), select';
 
@@ -60,7 +61,7 @@
 
             return { ok: resposta.ok && dados.ok === true, semResposta: false, dados: dados };
         } catch (erro) {
-            return { ok: false, semResposta: true, dados: { mensagem: SEM_RESPOSTA } };
+            return { ok: false, semResposta: true, dados: { mensagem: SEM_RESPOSTA() } };
         } finally {
             clearTimeout(prazo);
         }
@@ -125,8 +126,8 @@
     // foi criada (sem isso, a mudança seguinte criaria outra).
     function criacaoIncerta(linha) {
         linha.dataset.incerta = '1';
-        erroDaLinha(linha, CRIACAO_INCERTA, []);
-        avisar(CRIACAO_INCERTA, true);
+        erroDaLinha(linha, CRIACAO_INCERTA(), []);
+        avisar(CRIACAO_INCERTA(), true);
         const painel = linha.closest('[data-carregar]');
         if (painel && window.PontoPaineis && window.PontoPaineis.recarregar) {
             window.PontoPaineis.recarregar(painel);
@@ -158,7 +159,7 @@
             mostrarGravada(linha, resultado.dados.sede);
             return;
         }
-        erroDaLinha(linha, frase(resultado.dados, 'Não foi possível gravar a sede.'), Object.keys(resultado.dados.erros || {}));
+        erroDaLinha(linha, frase(resultado.dados, BJ_T.t('ponto_config.js.erro_gravar_sede')), Object.keys(resultado.dados.erros || {}));
     }
 
     async function gravarSede(linha) {
@@ -195,7 +196,7 @@
         const posicao = leitor ? await leitor(POSICAO_PRAZO_MS, function () {}) : null;
         botao.disabled = false;
         if (!posicao || !posicao.coords) {
-            avisar(SEM_POSICAO, true);
+            avisar(SEM_POSICAO(), true);
             return;
         }
         linha.querySelector('[name="latitude"]').value = posicao.coords.latitude.toFixed(CASAS_DA_POSICAO);
@@ -230,7 +231,7 @@
     async function cadastrarFeriado(form) {
         const dados = new FormData(form);
         if (String(dados.get('data') || '') === '' || String(dados.get('nome') || '').trim() === '') {
-            avisar(FALTA_FERIADO, true);
+            avisar(FALTA_FERIADO(), true);
             return;
         }
         const botao = form.querySelector('button[type="submit"]');
@@ -238,7 +239,7 @@
         const resultado = await enviar(form.action, dados);
         botao.disabled = false;
         if (!resultado.ok) {
-            avisar(frase(resultado.dados, 'Não foi possível cadastrar o feriado.'), true);
+            avisar(frase(resultado.dados, BJ_T.t('ponto_config.js.erro_cadastrar_feriado')), true);
             return;
         }
         trocarLista(form.closest('[data-pc-feriados]'), resultado.dados.lista);
@@ -337,7 +338,7 @@
         delete fundo.dataset.ocupada;
         botao.disabled = false;
         if (!resultado.ok) {
-            erroDaJanela(fundo, frase(resultado.dados, 'Não foi possível remover. Atualize a página e tente de novo.'));
+            erroDaJanela(fundo, frase(resultado.dados, BJ_T.t('ponto_config.js.erro_remover')));
             return;
         }
         if (botao.dataset.pcSfConfirmar === 'sede') {
@@ -347,7 +348,7 @@
         }
         focoAntes = null;
         fecharJanela();
-        avisar(resultado.dados.mensagem || 'Removido.', false);
+        avisar(resultado.dados.mensagem || BJ_T.t('ponto_config.js.removido'), false);
     }
 
     // ------------------------------------------------------------ delegação

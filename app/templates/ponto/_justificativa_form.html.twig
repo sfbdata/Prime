@@ -16,7 +16,7 @@
     competenciaSelecionada, dataHoje (AAAA-MM-DD, do servidor) e abaAberta (a aba para onde a janela volta).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-justificar" hidden>
-    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Justificar falta" id="form-justificativa"
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_pendencias.justificativa.form.titulo'|trans }}" id="form-justificativa"
           method="post" action="{{ path('ponto_justificativa_nova') }}" enctype="multipart/form-data"
           data-janela-form="justificar" novalidate>
         <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
@@ -26,27 +26,27 @@
         <input type="hidden" name="justificativa_ponto[datas]" id="just-datas" data-just-datas>
 
         <div class="pe-janela-topo">
-            <i class="bi bi-calendar-check" aria-hidden="true"></i><b class="pe-janela-titulo">Justificar falta</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-calendar-check" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_pendencias.justificativa.form.titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_pendencias.justificativa.form.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
 
         <div class="pe-janela-corpo">
             <div class="pe-janela-rotulo" role="group" aria-labelledby="just-cal-rotulo">
-                <span id="just-cal-rotulo">Data da falta</span>
+                <span id="just-cal-rotulo">{{ 'ponto_pendencias.justificativa.form.data_falta'|trans }}</span>
                 <div class="pe-cal" data-just-calendario data-hoje="{{ dataHoje }}">
                     <div class="pe-cal-barra">
-                        <button type="button" class="pe-cal-seta" aria-label="Mês anterior" data-cal-anterior><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                        <button type="button" class="pe-cal-seta" aria-label="{{ 'ponto_pendencias.justificativa.form.mes_anterior'|trans }}" data-cal-anterior><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
                         <span class="pe-cal-mes" data-cal-mes aria-live="polite"></span>
-                        <button type="button" class="pe-cal-seta" aria-label="Mês seguinte" data-cal-seguinte><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                        <button type="button" class="pe-cal-seta" aria-label="{{ 'ponto_pendencias.justificativa.form.mes_seguinte'|trans }}" data-cal-seguinte><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
                     </div>
                     <div class="pe-cal-grade" data-cal-grade></div>
-                    <div class="pe-cal-escolhidos">Dias selecionados: <b data-cal-escolhidos>nenhum</b></div>
+                    <div class="pe-cal-escolhidos">{{ 'ponto_pendencias.justificativa.form.dias_selecionados'|trans }} <b data-cal-escolhidos>{{ 'ponto_pendencias.justificativa.form.nenhum'|trans }}</b></div>
                 </div>
             </div>
 
-            <label class="pe-janela-rotulo">Tipo de justificativa
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.tipo'|trans }}
                 <select name="justificativa_ponto[tipo]" class="pe-janela-select" id="just-tipo" data-just-tipo>
-                    <option value="">Selecione o tipo</option>
+                    <option value="">{{ 'ponto_pendencias.justificativa.form.selecione_tipo'|trans }}</option>
                     {% for grupo, tipos in tiposJustificativa %}
                         <optgroup label="{{ grupo }}">
                             {% for label, value in tipos %}
@@ -58,54 +58,54 @@
             </label>
 
             <div class="pe-janela-aviso" data-just-nao-justificada hidden>
-                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{{ 'ponto_pendencias.justificativa.form.nao_just_antes'|trans }} <strong>{{ 'ponto_pendencias.justificativa.form.nao_just_destaque'|trans }}</strong> {{ 'ponto_pendencias.justificativa.form.nao_just_depois'|trans }}
             </div>
 
             <div class="pe-janela-par" data-just-esquecido hidden>
-                <span class="pe-janela-par-titulo">Detalhes do registro esquecido</span>
-                <label class="pe-janela-rotulo">Tipo de batida
+                <span class="pe-janela-par-titulo">{{ 'ponto_pendencias.justificativa.form.esquecido'|trans }}</span>
+                <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.tipo_batida'|trans }}
                     <select name="justificativa_ponto[tipoRegistroEsquecido]" class="pe-janela-select" data-just-esquecido-tipo>
-                        <option value="">Selecione...</option>
-                        <option value="entrada">Entrada</option>
-                        <option value="repouso">Repouso</option>
-                        <option value="retorno">Retorno</option>
-                        <option value="saida">Saída</option>
+                        <option value="">{{ 'ponto_pendencias.justificativa.form.selecione'|trans }}</option>
+                        <option value="entrada">{{ 'ponto_pendencias.justificativa.batida_entrada'|trans }}</option>
+                        <option value="repouso">{{ 'ponto_pendencias.justificativa.batida_repouso'|trans }}</option>
+                        <option value="retorno">{{ 'ponto_pendencias.justificativa.batida_retorno'|trans }}</option>
+                        <option value="saida">{{ 'ponto_pendencias.justificativa.batida_saida'|trans }}</option>
                     </select>
                 </label>
-                <label class="pe-janela-rotulo">Horário
+                <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.horario'|trans }}
                     <input type="time" step="1" name="justificativa_ponto[horaRegistroEsquecido]" class="pe-janela-entrada" data-just-esquecido-hora>
                 </label>
             </div>
 
             <label class="pe-janela-marca" data-just-abono>
                 <input type="checkbox" name="justificativa_ponto[abonoParcial]" value="1" data-just-abono-marca>
-                <span>Abono parcial (saída para consulta e retorno no mesmo dia)<span class="pe-janela-nota">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</span></span>
+                <span>{{ 'ponto_pendencias.justificativa.form.abono'|trans }}<span class="pe-janela-nota">{{ 'ponto_pendencias.justificativa.form.abono_nota'|trans }}</span></span>
             </label>
 
             <div class="pe-janela-par" data-just-abono-horario hidden>
-                <span class="pe-janela-par-titulo">Período de ausência parcial</span>
-                <label class="pe-janela-rotulo">Saída para atestado
+                <span class="pe-janela-par-titulo">{{ 'ponto_pendencias.justificativa.form.periodo_parcial'|trans }}</span>
+                <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.saida_atestado'|trans }}
                     <input type="time" name="justificativa_ponto[horaInicioAbono]" class="pe-janela-entrada" data-just-abono-inicio>
                 </label>
-                <label class="pe-janela-rotulo">Retorno do atestado
+                <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.retorno_atestado'|trans }}
                     <input type="time" name="justificativa_ponto[horaFimAbono]" class="pe-janela-entrada" data-just-abono-fim>
                 </label>
             </div>
 
-            <label class="pe-janela-rotulo">Motivo
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.motivo'|trans }}
                 <textarea name="justificativa_ponto[motivo]" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
             </label>
 
-            <label class="pe-janela-rotulo">Atestado ou documento (opcional)
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.atestado'|trans }}
                 <input type="file" name="justificativa_ponto[anexo]" accept=".pdf,.jpg,.jpeg,.png" class="pe-janela-arquivo" data-just-anexo>
-                <span class="pe-janela-nota">PDF, JPEG ou PNG (máximo 10 MB)</span>
+                <span class="pe-janela-nota">{{ 'ponto_pendencias.justificativa.form.formatos'|trans }}</span>
             </label>
         </div>
 
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-            <button type="submit" class="pe-janela-acao" data-janela-enviar>Enviar</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_pendencias.justificativa.cancelar'|trans }}</button>
+            <button type="submit" class="pe-janela-acao" data-janela-enviar>{{ 'ponto_pendencias.justificativa.form.enviar'|trans }}</button>
         </div>
     </form>
 </div>

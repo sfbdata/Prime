@@ -6,13 +6,13 @@
 #}
 {% extends 'base.html.twig' %}
 
-{% block title %}Ajustar batida{% endblock %}
+{% block title %}{{ 'escritorio.ajustar_batida.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
-{% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
+{% set rotulosBatida = {entrada: 'escritorio.justificativas_tab.batida_entrada'|trans, repouso: 'escritorio.justificativas_tab.batida_repouso'|trans, retorno: 'escritorio.justificativas_tab.batida_retorno'|trans, saida: 'escritorio.justificativas_tab.batida_saida'|trans} %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Ajustar batida: {{ user.fullName }}</h1>
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>{{ 'escritorio.ajustar_batida.h1'|trans({nome: user.fullName}) }}</h1>
     </div>
 </section>
 
@@ -58,10 +58,10 @@
                     <div class="bjp-painel-pe d-flex justify-content-between gap-2">
                         <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia, tab: 'ponto'}) }}"
                            class="bjp-btn bjp-btn--secundario">
-                            <i class="bi bi-arrow-left"></i>Cancelar
+                            <i class="bi bi-arrow-left"></i>{{ 'comum.cancelar'|trans }}
                         </a>
                         <button type="submit" class="bjp-btn bjp-btn--secundario">
-                            <i class="bi bi-save"></i>Salvar ajuste
+                            <i class="bi bi-save"></i>{{ 'escritorio.ajustar_batida.salvar'|trans }}
                         </button>
                     </div>
                     {{ form_end(form) }}

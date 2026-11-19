@@ -1,11 +1,11 @@
 <div class="bjp-painel mb-3">
     <div class="bjp-painel-cabeca">
         <i class="bi bi-calendar-check"></i>
-        <h3 class="bjp-painel-titulo">Minhas Justificativas</h3>
+        <h3 class="bjp-painel-titulo">{{ 'ponto_pendencias.justificativa.lista.titulo'|trans }}</h3>
     </div>
     <div class="p-0">
         {% if justificativas is empty %}
-            <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada nesta competência.</p>
+            <p class="text-muted small p-3 mb-0">{{ 'ponto_pendencias.justificativa.lista.vazia'|trans }}</p>
         {% else %}
             {# Agrupar por batchId para exibir dias do mesmo lote juntos #}
             {% set batches = {} %}
@@ -20,12 +20,12 @@
             <table class="table table-sm mb-0">
                 <thead>
                     <tr>
-                        <th>Data(s)</th>
-                        <th>Tipo</th>
-                        <th>Status</th>
-                        <th>Atestado</th>
-                        <th>Obs. da Análise</th>
-                        <th>Analisado em</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_datas'|trans }}</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_tipo'|trans }}</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_status'|trans }}</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_atestado'|trans }}</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_obs'|trans }}</th>
+                        <th>{{ 'ponto_pendencias.justificativa.lista.col_analisado'|trans }}</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -42,56 +42,56 @@
                                     <span class="bjp-etiqueta bjp-etiqueta--info bjp-etiqueta--sem-ponto">{{ batch[0].labelTipo }}</span>
                                 {% endif %}
                                 {% if batch[0].abonoParcial %}
-                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto ms-1" title="Abono parcial">Parcial</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto ms-1" title="{{ 'ponto_pendencias.justificativa.lista.abono_parcial'|trans }}">{{ 'ponto_pendencias.justificativa.lista.parcial'|trans }}</span>
                                     {% if batch[0].horaInicioAbono and batch[0].horaFimAbono %}
-                                        <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }} às {{ batch[0].horaFimAbono|date('H:i') }}</div>
+                                        <div class="small text-muted mt-1">{{ 'ponto_pendencias.justificativa.macros.intervalo'|trans({inicio: batch[0].horaInicioAbono|date('H:i'), fim: batch[0].horaFimAbono|date('H:i')}) }}</div>
                                     {% endif %}
                                 {% endif %}
                                 {% if batch[0].tipo == 'esquecimento_registro' and batch[0].tipoRegistroEsquecido %}
                                     <div class="small text-muted mt-1">
-                                        {{ {'entrada':'Entrada','repouso':'Repouso','retorno':'Retorno','saida':'Saída'}[batch[0].tipoRegistroEsquecido] }}
-                                        {% if batch[0].horaRegistroEsquecido %}às {{ batch[0].horaRegistroEsquecido|date('H:i') }}{% endif %}
+                                        {{ {'entrada': 'ponto_pendencias.justificativa.batida_entrada'|trans, 'repouso': 'ponto_pendencias.justificativa.batida_repouso'|trans, 'retorno': 'ponto_pendencias.justificativa.batida_retorno'|trans, 'saida': 'ponto_pendencias.justificativa.batida_saida'|trans}[batch[0].tipoRegistroEsquecido] }}
+                                        {% if batch[0].horaRegistroEsquecido %}{{ 'ponto_pendencias.justificativa.macros.as_hora'|trans({hora: batch[0].horaRegistroEsquecido|date('H:i')}) }}{% endif %}
                                     </div>
                                 {% endif %}
                             </td>
                             <td>
                                 {% set status = batch[0].status %}
                                 {% if status == 'abonado' and batch[0].tipo == 'falta_nao_justificada' %}
-                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>{{ 'ponto_pendencias.justificativa.lista.nao_abonado'|trans }}</span>
                                 {% elseif status == 'abonado' %}
-                                    <span class="bjp-etiqueta bjp-etiqueta--ok"><i class="bi bi-check-circle me-1"></i>Abonado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--ok"><i class="bi bi-check-circle me-1"></i>{{ 'ponto_pendencias.justificativa.lista.abonado'|trans }}</span>
                                 {% elseif status == 'pendente' %}
-                                    <span class="bjp-etiqueta bjp-etiqueta--atencao"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--atencao"><i class="bi bi-hourglass-split me-1"></i>{{ 'ponto_pendencias.justificativa.lista.pendente'|trans }}</span>
                                 {% else %}
-                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>{{ 'ponto_pendencias.justificativa.lista.rejeitado'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if batch[0].anexoPath %}
                                     <a href="{{ path('ponto_justificativa_anexo', {id: batch[0].id}) }}" target="_blank" class="bjp-btn bjp-btn--secundario">
-                                        <i class="bi bi-paperclip"></i> Ver
+                                        <i class="bi bi-paperclip"></i> {{ 'ponto_pendencias.justificativa.lista.ver'|trans }}
                                     </a>
                                 {% else %}
-                                    <span class="text-muted">Sem anexo</span>
+                                    <span class="text-muted">{{ 'ponto_pendencias.justificativa.lista.sem_anexo'|trans }}</span>
                                 {% endif %}
                             </td>
-                            <td class="small text-muted">{{ batch[0].observacaoAnalise ?? 'Não informado' }}</td>
+                            <td class="small text-muted">{{ batch[0].observacaoAnalise ?? ('ponto_pendencias.justificativa.lista.nao_informado'|trans) }}</td>
                             <td class="small text-muted">
                                 {% if batch[0].dataAnalise %}
                                     {{ batch[0].dataAnalise|date('d/m/Y') }}
                                 {% else %}
-                                    Sem registro
+                                    {{ 'ponto_pendencias.justificativa.lista.sem_registro'|trans }}
                                 {% endif %}
                             </td>
                             <td>
                                 {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa).
                                    E12 (P18): a ligada a uma batida de trabalho externo (`registroPonto`) não se edita; o servidor recusa. #}
                                 {% if batch[0].status == 'pendente' and batch[0].registroPonto is defined and batch[0].registroPonto is not null %}
-                                    <span class="text-muted small" data-justificativa-da-batida>Segue para a análise do gestor.</span>
+                                    <span class="text-muted small" data-justificativa-da-batida>{{ 'ponto_pendencias.justificativa.lista.segue'|trans }}</span>
                                 {% elseif batch[0].status == 'pendente' %}
                                 <button type="button"
                                             class="bjp-ico bjp-btn--secundario"
-                                            title="Editar justificativa"
+                                            title="{{ 'ponto_pendencias.justificativa.lista.editar'|trans }}"
                                             data-id="{{ batch[0].id }}"
                                             data-tipo="{{ batch[0].tipo }}"
                                             data-abono-parcial="{{ batch[0].abonoParcial ? '1' : '0' }}"
@@ -108,7 +108,7 @@
                                     </button>
                                 {% else %}
                                     <span class="text-muted" data-justificativa-bloqueada
-                                          title="Não está mais pendente (analisada pelo gestor ou registrada como falta). Para corrigir, peça ao administrador para revertê-la para pendente.">
+                                          title="{{ 'ponto_pendencias.justificativa.lista.bloqueada'|trans }}">
                                         <i class="bi bi-lock"></i>
                                     </span>
                                 {% endif %}

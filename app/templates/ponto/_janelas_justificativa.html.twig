@@ -10,40 +10,40 @@
     Recebe `competenciaSelecionada`.
 #}
 <div class="pe-janela-fundo" id="ponto-janela-excluir" hidden>
-    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Excluir justificativa">
+    <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_pendencias.justificativa.janelas.excluir_titulo'|trans }}">
         <div class="pe-janela-topo">
-            <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">Excluir justificativa</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_pendencias.justificativa.janelas.excluir_titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_pendencias.justificativa.form.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-janela-corpo">
             <div class="pe-janela-info" data-janela-info></div>
-            <div class="pe-janela-texto">A justificativa sai da lista e não vai mais para a análise do gestor. Não é possível desfazer.</div>
+            <div class="pe-janela-texto">{{ 'ponto_pendencias.justificativa.janelas.excluir_texto'|trans }}</div>
         </div>
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-            <button type="button" class="pe-janela-acao" data-excluir-confirmar>Excluir</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_pendencias.justificativa.cancelar'|trans }}</button>
+            <button type="button" class="pe-janela-acao" data-excluir-confirmar>{{ 'ponto_pendencias.justificativa.janelas.excluir'|trans }}</button>
         </div>
     </div>
 </div>
 
 <div class="pe-janela-fundo" id="ponto-janela-analise" hidden>
-    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Abonar justificativa" method="post" action="" data-analise-form novalidate>
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_pendencias.justificativa.janelas.abonar_titulo'|trans }}" method="post" action="" data-analise-form novalidate>
         <div class="pe-janela-topo">
-            <i class="bi bi-clipboard-check" aria-hidden="true"></i><b class="pe-janela-titulo" data-analise-titulo>Abonar justificativa</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i><b class="pe-janela-titulo" data-analise-titulo>{{ 'ponto_pendencias.justificativa.janelas.abonar_titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_pendencias.justificativa.form.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="pe-janela-corpo">
             <div class="pe-janela-info" data-janela-info></div>
-            <label class="pe-janela-rotulo">Observação da análise <textarea name="observacaoAnalise" rows="3" class="pe-janela-campo"></textarea></label>
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.janelas.observacao'|trans }} <textarea name="observacaoAnalise" rows="3" class="pe-janela-campo"></textarea></label>
         </div>
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <input type="hidden" name="_token" value="">
         <input type="hidden" name="volta" value="ponto">
         <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-            <button type="submit" class="pe-janela-acao" data-analise-acao>Abonar</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_pendencias.justificativa.cancelar'|trans }}</button>
+            <button type="submit" class="pe-janela-acao" data-analise-acao>{{ 'ponto_pendencias.justificativa.janelas.abonar'|trans }}</button>
         </div>
     </form>
 </div>

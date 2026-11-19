@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -93,9 +94,9 @@ final class PontoConfiguracoesSedesJsTest extends TestCase
         $umaVez = self::trecho($js, 'async function gravarSedeUmaVez(linha) {', 'async function gravarSede(linha) {');
         $gravar = self::trecho($js, 'async function gravarSede(linha) {', '// "Nova sede"');
 
-        self::assertStringContainsString("return { ok: false, semResposta: true, dados: { mensagem: SEM_RESPOSTA } };", self::trecho($js, 'async function enviar(url, corpo) {', 'function frase(dados, padrao) {'));
+        self::assertStringContainsString("return { ok: false, semResposta: true, dados: { mensagem: SEM_RESPOSTA() } };", self::trecho($js, 'async function enviar(url, corpo) {', 'function frase(dados, padrao) {'));
         self::assertStringContainsString('if (criando && resultado.semResposta) {', $umaVez);
-        self::assertStringContainsString('erroDaLinha(linha, CRIACAO_INCERTA, []);', $incerta);
+        self::assertStringContainsString('erroDaLinha(linha, CRIACAO_INCERTA(), []);', $incerta);
         self::assertStringContainsString("linha.closest('[data-carregar]')", $incerta);
         self::assertStringContainsString('window.PontoPaineis.recarregar(painel);', $incerta);
         self::assertStringContainsString("linha.dataset.incerta = '1';", $incerta);
@@ -143,7 +144,8 @@ final class PontoConfiguracoesSedesJsTest extends TestCase
         self::assertStringContainsString('window.PontoBatida.lerPosicaoComPrazo', $usar);
         self::assertStringContainsString('toFixed(CASAS_DA_POSICAO)', $usar);
         self::assertStringContainsString('const CASAS_DA_POSICAO = 6;', $js);
-        self::assertStringContainsString("const SEM_POSICAO = 'Localização indisponível neste aparelho.';", $js);
+        self::assertStringContainsString("BJ_T.t('ponto_config.js.sem_posicao')", $js);
+        self::assertSame('Localização indisponível neste aparelho.', CatalogoPtBr::carregar()['ponto_config']['js']['sem_posicao']);
         self::assertStringNotContainsString('getCurrentPosition', $js, 'a posição só vem pelo leitor com prazo');
     }
 
@@ -156,9 +158,10 @@ final class PontoConfiguracoesSedesJsTest extends TestCase
         self::assertStringNotContainsString("addEventListener('input'", $js, 'não grava a cada tecla');
         $gravar = self::trecho($js, 'async function gravarSede(linha) {', '// "Nova sede"');
         self::assertStringContainsString("linha.dataset.deNovo = '1';", $gravar);
-        self::assertStringContainsString("const FALTA_FERIADO = 'Informe a data e o nome do feriado.';", $js);
+        self::assertStringContainsString("BJ_T.t('ponto_config.js.falta_feriado')", $js);
+        self::assertSame('Informe a data e o nome do feriado.', CatalogoPtBr::carregar()['ponto_config']['js']['falta_feriado']);
         $cadastrar = self::trecho($js, 'async function cadastrarFeriado(form) {', 'function trocarLista(secao, html) {');
-        self::assertLessThan(strpos($cadastrar, 'enviar('), strpos($cadastrar, 'avisar(FALTA_FERIADO, true);'), 'confere antes de enviar');
+        self::assertLessThan(strpos($cadastrar, 'enviar('), strpos($cadastrar, 'avisar(FALTA_FERIADO(), true);'), 'confere antes de enviar');
     }
 
     #[TestDox('Tudo por delegação no documento (o painel é buscado depois e pode ser buscado de novo); sem travessão')]

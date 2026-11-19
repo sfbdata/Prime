@@ -10,39 +10,40 @@
 
     Recebe `lotacoesDoPonto` (list<Lotacao>) e `feriadosDoPonto` (list<FeriadoDoPontoOutput>).
 #}
+{{ catalogo_js('ponto_config.js') }}
 <section class="pe-sf-secao" aria-labelledby="ponto-feriados-titulo" data-pc-feriados>
-    <b class="pe-fer-titulo" id="ponto-feriados-titulo">Feriados do escritório</b>
-    <div class="pe-fer-texto">Os nacionais já estão incluídos. Cadastre aqui os estaduais e municipais, por sede.</div>
+    <b class="pe-fer-titulo" id="ponto-feriados-titulo">{{ 'ponto_config.feriados.titulo'|trans }}</b>
+    <div class="pe-fer-texto">{{ 'ponto_config.feriados.texto'|trans }}</div>
     <form class="pe-fer-form" method="post" action="{{ path('ponto_configuracoes_feriado_criar') }}" data-pc-feriado-form novalidate>
-        <label class="pe-fer-rotulo">Data<input class="pe-sf-campo" type="date" name="data"></label>
-        <label class="pe-fer-rotulo">Nome<input class="pe-sf-campo" name="nome" maxlength="255" autocomplete="off"></label>
-        <label class="pe-fer-rotulo">Abrangência<select class="pe-sf-campo" name="abrangencia">
-            <option value="">Todas as sedes</option>
+        <label class="pe-fer-rotulo">{{ 'ponto_config.feriados.data'|trans }}<input class="pe-sf-campo" type="date" name="data"></label>
+        <label class="pe-fer-rotulo">{{ 'ponto_config.feriados.nome'|trans }}<input class="pe-sf-campo" name="nome" maxlength="255" autocomplete="off"></label>
+        <label class="pe-fer-rotulo">{{ 'ponto_config.feriados.abrangencia'|trans }}<select class="pe-sf-campo" name="abrangencia">
+            <option value="">{{ 'ponto_config.feriados.todas_sedes'|trans }}</option>
             {% for lotacao in lotacoesDoPonto %}
                 <option value="{{ lotacao.id }}">{{ lotacao.nome }}</option>
             {% endfor %}
         </select></label>
-        <label class="pe-fer-repete"><input type="checkbox" name="recorrente" value="1" checked>Repete todo ano</label>
-        <button type="submit" class="pe-fer-adicionar">Adicionar</button>
+        <label class="pe-fer-repete"><input type="checkbox" name="recorrente" value="1" checked>{{ 'ponto_config.feriados.repete'|trans }}</label>
+        <button type="submit" class="pe-fer-adicionar">{{ 'ponto_config.feriados.adicionar'|trans }}</button>
     </form>
     <div class="pe-fer-lista" data-pc-feriados-lista>
         {{ include('ponto/_config_feriados_lista.html.twig') }}
     </div>
 
     <div class="pe-janela-fundo" id="ponto-janela-remover-feriado" hidden data-pc-sf-janela>
-        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Remover feriado">
+        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_config.feriados.remover_titulo'|trans }}">
             <div class="pe-janela-topo">
-                <i class="bi bi-calendar-x" aria-hidden="true"></i><b class="pe-janela-titulo">Remover feriado</b>
-                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <i class="bi bi-calendar-x" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_config.feriados.remover_titulo'|trans }}</b>
+                <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_config.feriados.fechar'|trans }}" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             <div class="pe-janela-corpo">
                 <div class="pe-janela-info" data-pc-sf-info></div>
-                <div class="pe-janela-texto">O feriado sai da lista e deixa de contar na folha de ponto, também nos meses que já passaram. Não é possível desfazer.</div>
+                <div class="pe-janela-texto">{{ 'ponto_config.feriados.remover_texto'|trans }}</div>
             </div>
             <div class="pe-janela-erro" data-pc-sf-erro hidden></div>
             <div class="pe-janela-rodape">
-                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>Cancelar</button>
-                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="feriado">Remover</button>
+                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>{{ 'ponto_config.feriados.cancelar'|trans }}</button>
+                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="feriado">{{ 'ponto_config.feriados.remover'|trans }}</button>
             </div>
         </div>
     </div>

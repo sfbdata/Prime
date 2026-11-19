@@ -16,9 +16,9 @@
 {% set campoHoraRegEsquecido = nomePrefixo ? nomePrefixo ~ '[horaRegistroEsquecido]' : 'horaRegistroEsquecido' %}
 
 <div class="mb-3">
-    <label for="{{ p }}-tipo" class="form-label fw-semibold">Tipo de Justificativa</label>
+    <label for="{{ p }}-tipo" class="form-label fw-semibold">{{ 'ponto_pendencias.justificativa.campos.tipo'|trans }}</label>
     <select name="{{ campoTipo }}" id="{{ p }}-tipo" class="form-select" required>
-        <option value="">Selecione o tipo</option>
+        <option value="">{{ 'ponto_pendencias.justificativa.form.selecione_tipo'|trans }}</option>
         {% for label, value in tiposJustificativa %}
             <option value="{{ value }}">{{ label }}</option>
         {% endfor %}
@@ -27,24 +27,24 @@
 
 <div id="{{ p }}-alerta-nao-justificada" class="d-none alert alert-warning py-2 mb-3">
     <i class="bi bi-exclamation-triangle me-1"></i>
-    Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+    {{ 'ponto_pendencias.justificativa.form.nao_just_antes'|trans }} <strong>{{ 'ponto_pendencias.justificativa.form.nao_just_destaque'|trans }}</strong> {{ 'ponto_pendencias.justificativa.form.nao_just_depois'|trans }}
 </div>
 
 <div id="{{ p }}-bloco-registro-esquecido" class="d-none mb-3 p-3 border rounded bg-warning bg-opacity-10">
-    <p class="small fw-semibold mb-2"><i class="bi bi-clock-history me-1"></i>Detalhes do registro esquecido</p>
+    <p class="small fw-semibold mb-2"><i class="bi bi-clock-history me-1"></i>{{ 'ponto_pendencias.justificativa.form.esquecido'|trans }}</p>
     <div class="row g-2">
         <div class="col-sm-6">
-            <label for="{{ p }}-tipo-reg-esquecido" class="form-label">Tipo de batida</label>
+            <label for="{{ p }}-tipo-reg-esquecido" class="form-label">{{ 'ponto_pendencias.justificativa.form.tipo_batida'|trans }}</label>
             <select name="{{ campoTipoRegEsquecido }}" id="{{ p }}-tipo-reg-esquecido" class="form-select">
-                <option value="">Selecione...</option>
-                <option value="entrada">Entrada</option>
-                <option value="repouso">Repouso</option>
-                <option value="retorno">Retorno</option>
-                <option value="saida">Saída</option>
+                <option value="">{{ 'ponto_pendencias.justificativa.form.selecione'|trans }}</option>
+                <option value="entrada">{{ 'ponto_pendencias.justificativa.batida_entrada'|trans }}</option>
+                <option value="repouso">{{ 'ponto_pendencias.justificativa.batida_repouso'|trans }}</option>
+                <option value="retorno">{{ 'ponto_pendencias.justificativa.batida_retorno'|trans }}</option>
+                <option value="saida">{{ 'ponto_pendencias.justificativa.batida_saida'|trans }}</option>
             </select>
         </div>
         <div class="col-sm-6">
-            <label for="{{ p }}-hora-reg-esquecido" class="form-label">Horário que deveria ter sido registrado</label>
+            <label for="{{ p }}-hora-reg-esquecido" class="form-label">{{ 'ponto_pendencias.justificativa.campos.horario_esquecido'|trans }}</label>
             <input type="time" name="{{ campoHoraRegEsquecido }}" id="{{ p }}-hora-reg-esquecido" class="form-control">
         </div>
     </div>
@@ -52,19 +52,19 @@
 
 <div id="{{ p }}-bloco-abono-parcial" class="mb-3 form-check">
     <input type="checkbox" name="{{ campoAbono }}" id="{{ p }}-abono-parcial" class="form-check-input" value="1">
-    <label for="{{ p }}-abono-parcial" class="form-check-label">Abono parcial (saída para consulta e retorno no mesmo dia)</label>
-    <div class="form-text">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</div>
+    <label for="{{ p }}-abono-parcial" class="form-check-label">{{ 'ponto_pendencias.justificativa.form.abono'|trans }}</label>
+    <div class="form-text">{{ 'ponto_pendencias.justificativa.form.abono_nota'|trans }}</div>
 </div>
 
 <div id="{{ p }}-bloco-horario-abono" class="d-none mb-3 p-3 border rounded bg-body-tertiary">
-    <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
+    <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>{{ 'ponto_pendencias.justificativa.form.periodo_parcial'|trans }}</p>
     <div class="row g-2">
         <div class="col">
-            <label for="{{ p }}-hora-inicio" class="form-label">Saída para atestado</label>
+            <label for="{{ p }}-hora-inicio" class="form-label">{{ 'ponto_pendencias.justificativa.form.saida_atestado'|trans }}</label>
             <input type="time" name="{{ campoHoraInicio }}" id="{{ p }}-hora-inicio" class="form-control">
         </div>
         <div class="col">
-            <label for="{{ p }}-hora-fim" class="form-label">Retorno do atestado</label>
+            <label for="{{ p }}-hora-fim" class="form-label">{{ 'ponto_pendencias.justificativa.form.retorno_atestado'|trans }}</label>
             <input type="time" name="{{ campoHoraFim }}" id="{{ p }}-hora-fim" class="form-control">
         </div>
     </div>
@@ -72,10 +72,10 @@
 
 <div class="mb-3">
     <label for="{{ p }}-anexo" class="form-label fw-semibold">
-        Atestado / Comprovante <span class="text-muted fw-normal small">(opcional)</span>
+        {{ 'ponto_pendencias.justificativa.campos.anexo'|trans }} <span class="text-muted fw-normal small">{{ 'ponto_pendencias.justificativa.campos.opcional'|trans }}</span>
     </label>
     <input type="file" name="{{ campoAnexo }}" id="{{ p }}-anexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-    <div class="form-text">PDF, JPEG ou PNG (máximo 10 MB)</div>
+    <div class="form-text">{{ 'ponto_pendencias.justificativa.form.formatos'|trans }}</div>
 </div>
 
 {% if textoInfoAdicional is defined and textoInfoAdicional %}
@@ -121,7 +121,7 @@
     checkAbonoParcial.addEventListener('change', function() {
         const numDatas = hiddenDatas.value ? hiddenDatas.value.split(',').filter(Boolean).length : 0;
         if (this.checked && numDatas > 1) {
-            alert('Abono parcial só pode ser aplicado a uma única data. Desmarque as datas extras no calendário.');
+            alert({{ 'ponto_pendencias.justificativa.campos.abono_uma_data'|trans|json_encode|raw }});
             this.checked = false;
             blocoHorario.classList.add('d-none');
             return;

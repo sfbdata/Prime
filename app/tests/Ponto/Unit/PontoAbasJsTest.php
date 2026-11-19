@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -97,7 +98,8 @@ final class PontoAbasJsTest extends TestCase
         self::assertMatchesRegularExpression("/const TEXTO_SEM_JUSTIFICATIVAS = '([^']+)';/", $js);
         preg_match("/const TEXTO_SEM_JUSTIFICATIVAS = '([^']+)';/", $js, $frase);
         $twig = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_abas_justificativas.html.twig');
-        self::assertStringContainsString('<div class="pe-abas-vazio">' . $frase[1] . '</div>', $twig, 'a mesma frase e o mesmo molde do servidor');
+        self::assertStringContainsString("<div class=\"pe-abas-vazio\">{{ 'ponto_pendencias.justificativa.lista.vazia'|trans }}</div>", $twig, 'o mesmo molde do servidor, com a frase do catálogo');
+        self::assertSame($frase[1], CatalogoPtBr::carregar()['ponto_pendencias']['justificativa']['lista']['vazia'], 'a mesma frase do servidor');
         foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, $proibido);
         }

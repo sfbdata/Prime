@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -55,7 +56,8 @@ final class TelaDoPontoTraduzAClassificacaoTest extends TestCase
         self::assertStringContainsString('[data-esquecimento-dia="\' + pedido[1] + \'"][data-esquecimento-campo="\' + pedido[2] + \'"]', $modal, 'o botão do "+" da folha, nenhuma regra própria');
         self::assertStringContainsString("if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); return; }", $modal);
         self::assertStringContainsString("if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', abrirPedidoDoLink); }", $modal, 'o Bootstrap vem no fim da página: o clique espera');
-        self::assertStringContainsString("window.bjAviso('Não há pedido de esquecimento a fazer para '", $modal, 'sem o "+", avisa em vez de ficar mudo');
+        self::assertStringContainsString("window.bjAviso({{ 'ponto_pendencias.justificativa.esquecimento.sem_pedido'|trans({data: '__DATA__'})|json_encode|raw }}.replace('__DATA__', formatarData(pedido[1])));", $modal, 'sem o "+", avisa em vez de ficar mudo');
+        self::assertStringContainsString('Não há pedido de esquecimento a fazer para {data}', CatalogoPtBr::carregar()['ponto_pendencias']['justificativa']['esquecimento']['sem_pedido']);
         self::assertStringContainsString("url.searchParams.delete('esquecimento');", $modal);
     }
 }

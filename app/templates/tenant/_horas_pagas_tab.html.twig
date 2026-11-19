@@ -10,56 +10,66 @@
 
 {% macro camposLancamento(idPrefix, mesValor, anoValor, operacaoValor, horasValor, minutosValor, motivoValor) %}
     {% set meses = {
-        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
-        7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+        1: 'escritorio.horas_pagas.meses.m1'|trans,
+        2: 'escritorio.horas_pagas.meses.m2'|trans,
+        3: 'escritorio.horas_pagas.meses.m3'|trans,
+        4: 'escritorio.horas_pagas.meses.m4'|trans,
+        5: 'escritorio.horas_pagas.meses.m5'|trans,
+        6: 'escritorio.horas_pagas.meses.m6'|trans,
+        7: 'escritorio.horas_pagas.meses.m7'|trans,
+        8: 'escritorio.horas_pagas.meses.m8'|trans,
+        9: 'escritorio.horas_pagas.meses.m9'|trans,
+        10: 'escritorio.horas_pagas.meses.m10'|trans,
+        11: 'escritorio.horas_pagas.meses.m11'|trans,
+        12: 'escritorio.horas_pagas.meses.m12'|trans
     } %}
     <div class="row g-2 mb-3">
         <div class="col-7">
-            <label for="{{ idPrefix }}-mes" class="form-label">Competência (mês)</label>
+            <label for="{{ idPrefix }}-mes" class="form-label">{{ 'escritorio.horas_pagas.competencia_mes'|trans }}</label>
             <select name="lancamento_horas_pagas[mes]" id="{{ idPrefix }}-mes" class="form-select">
-                <option value="" {{ mesValor is null ? 'selected' : '' }} disabled hidden>Selecione</option>
+                <option value="" {{ mesValor is null ? 'selected' : '' }} disabled hidden>{{ 'escritorio.horas_pagas.selecione'|trans }}</option>
                 {% for numero, nome in meses %}
                     <option value="{{ numero }}" {{ mesValor == numero ? 'selected' : '' }}>{{ nome }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="col-5">
-            <label for="{{ idPrefix }}-ano" class="form-label">Ano</label>
+            <label for="{{ idPrefix }}-ano" class="form-label">{{ 'escritorio.horas_pagas.ano'|trans }}</label>
             <input type="number" name="lancamento_horas_pagas[ano]" id="{{ idPrefix }}-ano"
                    class="form-control" value="{{ anoValor }}" min="2000" max="2999"
-                   placeholder="Ex.: {{ "now"|date('Y') }}" required>
+                   placeholder="{{ 'escritorio.horas_pagas.exemplo'|trans({ano: 'now'|date('Y')}) }}" required>
         </div>
     </div>
 
     <div class="mb-3">
-        <label class="form-label d-block">Operação</label>
+        <label class="form-label d-block">{{ 'escritorio.horas_pagas.operacao'|trans }}</label>
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="lancamento_horas_pagas[operacao]"
                    id="{{ idPrefix }}-descontar" value="descontar" {{ operacaoValor == 'descontar' ? 'checked' : '' }} required>
-            <label class="form-check-label" for="{{ idPrefix }}-descontar">Descontar do banco</label>
+            <label class="form-check-label" for="{{ idPrefix }}-descontar">{{ 'escritorio.horas_pagas.descontar'|trans }}</label>
         </div>
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="lancamento_horas_pagas[operacao]"
                    id="{{ idPrefix }}-acrescentar" value="acrescentar" {{ operacaoValor == 'acrescentar' ? 'checked' : '' }} required>
-            <label class="form-check-label" for="{{ idPrefix }}-acrescentar">Acrescentar ao banco</label>
+            <label class="form-check-label" for="{{ idPrefix }}-acrescentar">{{ 'escritorio.horas_pagas.acrescentar'|trans }}</label>
         </div>
     </div>
 
     <div class="row g-2 mb-3">
         <div class="col-6">
-            <label for="{{ idPrefix }}-horas" class="form-label">Horas</label>
+            <label for="{{ idPrefix }}-horas" class="form-label">{{ 'escritorio.horas_pagas.horas'|trans }}</label>
             <input type="number" name="lancamento_horas_pagas[horas]" id="{{ idPrefix }}-horas"
                    class="form-control" value="{{ horasValor }}" min="0" required>
         </div>
         <div class="col-6">
-            <label for="{{ idPrefix }}-minutos" class="form-label">Minutos</label>
+            <label for="{{ idPrefix }}-minutos" class="form-label">{{ 'escritorio.horas_pagas.minutos'|trans }}</label>
             <input type="number" name="lancamento_horas_pagas[minutos]" id="{{ idPrefix }}-minutos"
                    class="form-control" value="{{ minutosValor }}" min="0" max="59" required>
         </div>
     </div>
 
     <div class="mb-1">
-        <label for="{{ idPrefix }}-motivo" class="form-label">Motivo</label>
+        <label for="{{ idPrefix }}-motivo" class="form-label">{{ 'escritorio.horas_pagas.motivo'|trans }}</label>
         <textarea name="lancamento_horas_pagas[motivo]" id="{{ idPrefix }}-motivo"
                   class="form-control" rows="2" required>{{ motivoValor }}</textarea>
     </div>
@@ -67,23 +77,23 @@
 
 <div class="bjp-painel mb-3">
     <div class="bjp-painel-cabeca d-flex align-items-center justify-content-between">
-        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas: {{ user.fullName }}</h3>
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-cash-coin me-2"></i>{{ 'escritorio.horas_pagas.titulo'|trans({nome: user.fullName}) }}</h3>
         <button type="button" class="bjp-btn bjp-btn--sucesso" data-bs-toggle="modal" data-bs-target="#modalLancarHorasPagas">
-            <i class="bi bi-plus-circle"></i>Horas pagas
+            <i class="bi bi-plus-circle"></i>{{ 'escritorio.horas_pagas.botao'|trans }}
         </button>
     </div>
     <div class="bjp-painel-corpo p-0">
         {% if lancamentosHorasPagas is empty %}
-            <p class="text-muted small p-3 mb-0">Nenhum lançamento de horas pagas para este colaborador.</p>
+            <p class="text-muted small p-3 mb-0">{{ 'escritorio.horas_pagas.vazio'|trans }}</p>
         {% else %}
             <table class="table bjp-linhas mb-0">
                 <thead>
                     <tr>
-                        <th>Competência</th>
-                        <th>Valor</th>
-                        <th>Motivo</th>
-                        <th>Lançado por</th>
-                        <th>Quando</th>
+                        <th>{{ 'escritorio.horas_pagas.col_competencia'|trans }}</th>
+                        <th>{{ 'escritorio.horas_pagas.col_valor'|trans }}</th>
+                        <th>{{ 'escritorio.horas_pagas.col_motivo'|trans }}</th>
+                        <th>{{ 'escritorio.horas_pagas.col_lancado_por'|trans }}</th>
+                        <th>{{ 'escritorio.horas_pagas.col_quando'|trans }}</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -98,26 +108,26 @@
                                 </span>
                             </td>
                             <td class="align-middle" style="white-space: pre-wrap;">{{ lancamento.motivo }}</td>
-                            <td class="align-middle small text-muted">{{ lancamento.criadoPor ? lancamento.criadoPor.fullName : 'Não informado' }}</td>
+                            <td class="align-middle small text-muted">{{ lancamento.criadoPor ? lancamento.criadoPor.fullName : 'escritorio.horas_pagas.nao_informado'|trans }}</td>
                             <td class="align-middle small text-muted">
-                                {{ lancamento.criadoEm ? lancamento.criadoEm|date('d/m/Y H:i') : 'Sem registro' }}
+                                {{ lancamento.criadoEm ? lancamento.criadoEm|date('d/m/Y H:i') : 'escritorio.horas_pagas.sem_registro'|trans }}
                                 {% if lancamento.atualizadoEm %}
                                     <br>
                                     <span class="fst-italic">
-                                        editado em {{ lancamento.atualizadoEm|date('d/m/Y H:i') }}{% if lancamento.atualizadoPor %} por {{ lancamento.atualizadoPor.fullName }}{% endif %}
+                                        {% if lancamento.atualizadoPor %}{{ 'escritorio.horas_pagas.editado_por'|trans({data: lancamento.atualizadoEm|date('d/m/Y H:i'), nome: lancamento.atualizadoPor.fullName}) }}{% else %}{{ 'escritorio.horas_pagas.editado'|trans({data: lancamento.atualizadoEm|date('d/m/Y H:i')}) }}{% endif %}
                                     </span>
                                 {% endif %}
                             </td>
                             <td class="align-middle text-end text-nowrap">
-                                <button type="button" class="bjp-ico bjp-btn--secundario" title="Editar"
+                                <button type="button" class="bjp-ico bjp-btn--secundario" title="{{ 'escritorio.horas_pagas.editar'|trans }}"
                                         data-bs-toggle="modal" data-bs-target="#modalEditarHorasPagas{{ lancamento.id }}">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <form method="post" class="d-inline"
                                       action="{{ path('ponto_horas_pagas_excluir', {tenantId: tenantId, id: user.id, lancamentoId: lancamento.id}) }}"
-                                      onsubmit="return confirm('Excluir este lançamento de horas pagas? Esta ação não pode ser desfeita.')">
+                                      onsubmit="return confirm({{ 'escritorio.horas_pagas.excluir_confirmar'|trans|e('js') }})">
                                     <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_excluir_' ~ lancamento.id) }}">
-                                    <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="Excluir">
+                                    <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="{{ 'escritorio.horas_pagas.excluir'|trans }}">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
@@ -138,7 +148,7 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_lancar_' ~ user.id) }}">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalLancarHorasPagasLabel">
-                        <i class="bi bi-cash-coin me-2"></i>Lançar horas pagas: {{ user.fullName }}
+                        <i class="bi bi-cash-coin me-2"></i>{{ 'escritorio.horas_pagas.lancar_titulo'|trans({nome: user.fullName}) }}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -146,8 +156,8 @@
                     {{ horasPagasMacros.camposLancamento('lancar-horas-pagas', null, '', '', 0, 0, '') }}
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>Salvar</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>{{ 'comum.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -166,7 +176,7 @@
                     <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_editar_' ~ lancamento.id) }}">
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalEditarHorasPagasLabel{{ lancamento.id }}">
-                            <i class="bi bi-pencil me-2"></i>Editar lançamento de horas pagas
+                            <i class="bi bi-pencil me-2"></i>{{ 'escritorio.horas_pagas.editar_titulo'|trans }}
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
@@ -182,8 +192,8 @@
                         ) }}
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>Salvar</button>
+                        <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
+                        <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-save"></i>{{ 'comum.salvar'|trans }}</button>
                     </div>
                 </form>
             </div>
