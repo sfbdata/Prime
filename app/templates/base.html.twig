@@ -522,6 +522,12 @@
                 // tabelas (inclusive linhas carregadas dinamicamente) sem editar
                 // cada template.
                 (function () {
+                    // Quem já tem dica própria fica de fora: o tooltip do Bootstrap e as dicas dos desenhos
+                    // (data-tip da lista do Expediente, do painel e da assinatura; na Central, o title que o
+                    // central-dica.js vira data-bj-tip, e data-tip-proprio). Sem isso aparecem duas dicas juntas (F5, 19/11).
+                    var DICA_PROPRIA = '[data-bs-toggle="tooltip"], [data-bs-original-title], [data-tip], [data-bj-tip], [data-tip-proprio], '
+                        + '[data-central] [title], [data-central-flutuante] [title], [data-flutuante-janela] [title]';
+
                     function estaTruncado(el) {
                         return el.scrollWidth > el.clientWidth + 1;
                     }
@@ -535,7 +541,7 @@
                         if (!alvo || !celula.contains(alvo)) alvo = celula;
 
                         // Não interferir em quem já tem tooltip próprio.
-                        if (alvo.closest('[data-bs-toggle="tooltip"], [data-bs-original-title]')) return;
+                        if (alvo.closest(DICA_PROPRIA) || ev.target.closest(DICA_PROPRIA)) return;
                         if (bootstrap.Tooltip.getInstance(alvo)) return;
 
                         if (!estaTruncado(alvo)) return;
