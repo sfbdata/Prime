@@ -198,6 +198,38 @@ final class McpControllerTest extends WebTestCase
         }
     }
 
+    #[TestDox('cadastrar pelo /mcp: a lista de clientes chega como lista de objetos (stdClass no SDK) e vira uma proposta com os dois, sem gravar')]
+    public function testCadastrarPeloMcpViraProposta(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit']);
+        $escopos = ['mcp:leitura', 'mcp:escrita'];
+        $c = static::getContainer();
+        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, 42, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+        $c->set(ServidorMcpDoConector::class, $this->servidor($escopos, [$c->get(AtualizarClienteFerramenta::class)], $c->get(RequisicaoDoConector::class), $c->get('monolog.logger.mcp'), $chamada));
+        $antes = (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_pf');
+
+        $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 14, 'method' => 'tools/call', 'params' => ['name' => AtualizarClienteFerramenta::NOME, 'arguments' => [
+            'acao' => 'cadastrar', 'clientes' => [
+                ['tipo' => 'pf', 'campos' => ['nome' => 'Joana Pelo Mcp', 'cpf' => '390.533.447-05']],
+                ['tipo' => 'pf', 'campos' => ['nome' => 'Pedro Pelo Mcp', 'cpf' => '111.444.777-35']],
+            ],
+        ]]], self::TOKEN);
+
+        self::assertSame(200, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertFalse($corpo['result']['isError'], mb_substr((string) $resposta->getContent(), 0, 600));
+        self::assertSame('aguardando_confirmacao', $corpo['result']['structuredContent']['estado']);
+        $resumo = $corpo['result']['structuredContent']['proposta']['resumo'];
+        self::assertStringContainsString('Cadastrar 2 clientes no escritório:', $resumo);
+        self::assertStringContainsString('Joana Pelo Mcp', $resumo);
+        self::assertStringContainsString('Pedro Pelo Mcp', $resumo);
+        self::assertSame($antes, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_pf'), 'propor não grava cliente');
+    }
+
     #[TestDox('com bearer aceito e um cookie de sessão de outro escritório: nada liga o filtro da sessão nem toca na sessão (debug ligado: o Symfony lança se a sessão for usada)')]
     public function testNadaTocaNaSessaoNemLigaOFiltro(): void
     {
