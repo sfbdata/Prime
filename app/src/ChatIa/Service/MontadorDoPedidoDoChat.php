@@ -17,6 +17,8 @@ use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Texto\ArquivoSemTextoException;
+use App\Shared\Texto\ExtratorDeTextoDocx;
 
 /**
  * Monta o {@see PedidoDeLinguagem} de uma pergunta do chat: o histórico recente (protegido pelo escritório), a pergunta,
@@ -155,7 +157,7 @@ final class MontadorDoPedidoDoChat
                 throw $e;
             }
             if ($anexo->getMime() === self::TIPO_DOCX) {
-                $textos[] = ['nome' => $nome, 'texto' => $this->protecao->comoDado($tenant, $this->docx->extrair($bytes))];
+                $textos[] = ['nome' => $nome, 'texto' => $this->protecao->comoDado($tenant, $this->textoDoDocx($bytes))];
 
                 continue;
             }
@@ -179,5 +181,15 @@ final class MontadorDoPedidoDoChat
         $nome = trim((string) $eu->getFullName());
 
         return $nome === '' ? '' : explode(' ', $nome)[0];
+    }
+
+    /** O texto do DOCX; o arquivo que não dá texto é anexo inválido, como no envio. */
+    private function textoDoDocx(string $bytes): string
+    {
+        try {
+            return $this->docx->extrair($bytes);
+        } catch (ArquivoSemTextoException $e) {
+            throw new AnexoDoChatInvalidoException($e->getMessage());
+        }
     }
 }
