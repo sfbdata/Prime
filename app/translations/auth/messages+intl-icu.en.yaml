@@ -1,0 +1,131 @@
+# ---- Auth: invitations, confirmation link, password and support messages (auth/*, auth/criar-senha.js)
+auth:
+    comum:
+        nao_foi_possivel_confirmar: Could not confirm
+        ir_para_login: Go to sign in
+        entrar: Sign in
+        li_e_aceito_os: I have read and accept the
+        expira_em: Expires on
+        email: Email
+        nome: Name
+    meus_convites:
+        titulo: My Invitations
+        cabecalho: My Pending Invitations
+        vazio: No pending invitations.
+        escritorio: Firm
+        convidado_por: Invited by
+        nao_informado: Not provided
+        ver_convite: View invitation
+    cadastro:
+        titulo: Sign-up
+        refazer: Redo sign-up
+    link:
+        titulo_criar: Create your password
+        titulo_confirmacao: Email confirmation
+        nova_senha: New password
+        minimo_caracteres: Minimum of 8 characters
+        confirmacao_da_nova: Confirm new password
+        termos_de_uso: Terms of use
+        e_a: and the
+        politica: Privacy policy
+        criar_e_confirmar: Create password and confirm
+        confirmado: Email confirmed.
+        senha_criada: Your password has been created.
+    reenviar_confirmacao: Resend the confirmation link
+    convite:
+        erro:
+            titulo: Invalid invitation
+            expirado_titulo: Invitation expired
+            expirado_texto: 'This invitation is no longer valid: the deadline has passed. Ask the firm administrator for a new invitation.'
+            usado_titulo: Invitation already used
+            usado_texto: This invitation has already been accepted, declined or revoked and cannot be used again.
+            nao_encontrado_titulo: Invitation not found
+            nao_encontrado_texto: The link you used is invalid or does not exist. Check that you copied the full link from the email.
+        nao_pertence:
+            titulo: Invitation for another account
+            enviado_para: This invitation was sent to
+            outra_conta: You are signed in with a different account. To accept this invitation, sign out and sign in with the correct email.
+            sair: Sign out of this account
+        ver:
+            titulo: Accept Invitation
+            para_escritorio: 'Invitation to {escritorio}'
+            para_bluejus: Invitation to BlueJus
+            te_convidou: '{nome} invited you to collaborate'
+            em: at
+            expira: 'Invitation expires on {data} at {hora}'
+            nome_completo: Full name
+            senha: Password
+            oab_numero: OAB number
+            oab_numero_exemplo: 'E.g., 123456'
+            oab_uf: OAB state
+            oab_uf_exemplo: 'E.g., SP'
+            genero: Gender
+            genero_escolha: Select
+            genero_feminino: Female
+            genero_masculino: Male
+            termos: General Terms and Conditions of Use
+            ciencia: By creating the account you acknowledge the
+            politica: Privacy Policy
+            criar_e_aceitar: Create account and accept
+        ver_logado:
+            titulo: Firm Invitation
+            cabecalho: Firm invitation
+            colaborar_em: You have been invited to collaborate at
+            convidado_por: 'Invited by: {nome}'
+            expira: 'Expires on {data}'
+            aceitar: Accept invitation
+            recusar: Decline
+    gerenciar:
+        titulo: Manage Invitations
+        novo: New invitation
+        nome_opcional: Name (optional)
+        perfil: Role
+        selecione: Select...
+        convidar: Invite
+        enviados: Sent invitations
+        status: Status
+        enviado_em: Sent on
+        reenvios: Resends
+        sem_informacao: no information
+        situacao:
+            pendente: Pending
+            aceito: Accepted
+            recusado: Declined
+            revogado: Revoked
+            expirado: Expired
+        reenviar: Resend
+        confirmar_reenviar: Resend invitation to
+        revogar: Revoke
+        confirmar_revogar: Revoke invitation for
+        vazio: No invitations sent yet.
+    senha:
+        erro:
+            titulo: Invalid link
+            cabecalho: Could not use this link
+            recuperar: Recover the password with a code
+            voltar: Back to sign in
+        redefinir:
+            titulo: Create new password
+            subtitulo: Use at least 8 characters. When you save, you will be signed out of your other sessions.
+            salvar: Save new password
+    suporte:
+        titulo: Support messages
+        subtitulo_antes: Sent through
+        falar_com_suporte: Contact support
+        subtitulo_depois: on the sign-in screen. Reply to the email provided.
+        vazio: No support messages for now.
+        data: Date
+        assunto: Subject
+        mensagem: Message
+        origem: Source
+        sem_nome: (no name)
+        sem_assunto: Message
+        responder: Reply by email
+        assunto_do_email: BlueJus Support
+        origem_login: Sign-in screen
+    js:
+        forca:
+            fraca: Weak
+            media: Fair
+            boa: Good
+            forte: Strong

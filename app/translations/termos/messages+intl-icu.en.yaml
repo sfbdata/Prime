@@ -1,0 +1,13 @@
+# ---- termos: the common glossary, in normal form. Uppercase is done by |upper or by the CSS of whoever uses it.
+# ICU cannot reference another key: a sentence with the term inside receives the term as a parameter
+# ('perfis.x'|trans({papel: 'termos.master'|trans})).
+termos:
+    master: Master
+    primario: primary
+    secundario: secondary
+    perfil: role
+    escritorio: firm
+    usuario: user
+    colaborador: team member
+    pasta: matter
+    processo: case

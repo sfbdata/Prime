@@ -1,0 +1,4 @@
+recurso:
+    em_preparacao:
+        previsao: 'Expected: {data}'
+        voltar: Back to Dockets

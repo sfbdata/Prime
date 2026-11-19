@@ -1,0 +1,232 @@
+# ---- moldura: base, sidebar and common notices (layout/_globais)
+moldura:
+    comum:
+        fechar: Close
+    cabecalho:
+        menu_lateral_alternar: Open/close menu
+        menu_lateral_dica: Menu
+        titulo_pagina:
+            clientes: Clients
+            processos: Cases
+            pastas: Matters
+            metas: Goals
+            agenda: Calendar
+            service_desk: Service Desk
+            perfis: Roles
+            tenants: Tenants
+            auditoria: Audit
+            convidar_usuarios: Invite Users
+            meu_perfil: My Profile
+            expediente: Docket
+            cobrancas: Collections
+            quem_somos_e_contribua: About us and contribute
+            ponto: Time Clock
+        escritorio_trocar_conta: '{escritorio}: switch account'
+        instalar_aplicativo: Install app
+        tela_cheia: Full screen
+        menu_usuario: User menu
+        subnav:
+            expediente: Docket
+            demandas: Requests
+            minhas_metas: My Goals
+            agenda: Calendar
+            trabalho_externo: Field Work
+        indicar_botao: Refer BlueJus
+        indicar_botao_dica: Refer BlueJus and earn a reward
+        indicar_botao_dica_saldo: Refer BlueJus and earn credit
+    notificacoes:
+        rotulo: Notifications
+        aba_minhas: Mine
+        aba_gestao: Management
+        contagem_sufixo: notification(s)
+        nenhuma: No notifications
+        ver_todas: View all notifications
+    instalar_ios:
+        titulo: Install BlueJus
+        introducao: 'To install BlueJus on your iPhone or iPad:'
+        passo1_inicio: Tap the
+        passo1_compartilhar: Share
+        passo1_fim: button in the Safari toolbar
+        passo2_inicio: Scroll down and tap
+        passo2_adicionar_tela_inicio: Add to Home Screen
+        passo3_inicio: Tap
+        passo3_adicionar: Add
+        passo3_fim: to confirm
+    menu_lateral:
+        busca: Quick access
+        dashboard: Dashboard
+        expediente: Docket
+        push_processual: Case Push
+        processos: Cases
+        trabalho_externo: Field Work
+        selo_novo: NEW
+        calculo: Calculation
+        cobrancas: Collections
+        minhas_metas: My Goals
+        demandas: Requests
+        agenda: Calendar
+        kanban: Kanban
+        service_desk: Service Desk
+        ponto_eletronico: Time Clock
+        voto: Voting
+        chat_ia: BlueJus AI
+        secao_admin: ADMIN
+        convidar_usuarios: Invite Users
+        colaboradores: Team Members
+        meu_escritorio: My Firm
+        perfis: Roles
+        solicitacoes_acesso: Access Requests
+        service_desk_ti: Service Desk (IT)
+        sedes_ponto: Offices (Time Clock)
+        feriados_folgas: Holidays and Days Off
+        bluejus_ia: BlueJus AI
+        trilha_auditoria: Audit Trail
+        assinatura: Subscription
+    aviso_espaco:
+        titulo_ocupado: Your storage is {percentual}% full
+        titulo_em_analise: Your request for more storage is under review
+        uso_de_limite: '{uso} of {limite}.'
+        enviado_em: 'Sent on {quando}.'
+        avisaremos: We will let you know by email.
+        ja_liberadas: The extra storage options are already unlocked for you.
+        faltam_solicite: '{faltam} left. If you need more, request more storage.'
+        ver_pedido: View request
+        ver_opcoes: View options
+        solicitar: Request more storage
+        lembrar_amanha: Remind me tomorrow
+        fechar: Close
+        pedidos_titulo: '{quantidade} storage request(s) waiting for you'
+        pedidos_sub: Firms asked for the extra storage options to be unlocked.
+        pedidos_analisar: Review requests
+        # "Request more storage" and "Request for more storage" modal (Contribute design 14 and 15/11, bj-plano.js)
+        modal:
+            titulo: Request more storage
+            gratis_negrito: BlueJus is free
+            gratis_resto: and it stays that way. Extra storage is an optional service, purchased separately only by those who need it. When you request it, the BlueJus team unlocks the options for you to choose from.
+            hoje_usa: Today you use
+            uso_de_limite: '{uso} of {limite}'
+            hoje_usa_percentual: '({percentual}%).'
+            quanto: How much storage do you think you will need?
+            opcao_20: Up to 20 GB
+            opcao_50: Up to 50 GB
+            opcao_100: More than 50 GB
+            motivo: What will you use it for (optional)
+            motivo_exemplo: 'E.g., digitizing the old cases of the firm'
+            sem_cobranca: Requesting does not generate a charge. Meanwhile, everything keeps working and your files are never deleted for lack of space.
+            cancelar: Cancel
+            enviar: Send request
+            enviado_titulo: Request sent
+            enviado_texto: 'The BlueJus team will unlock the extra storage options for {escritorio} and let you know by email.'
+            erro_generico: Could not send the request. Try again.
+            pedido_titulo: Request for more storage
+            em_analise: Request under review
+            em_analise_texto: The BlueJus team will unlock the extra storage options for your firm and let you know by email.
+        # Pop-up at 97% (automatic unlock)
+        popup:
+            titulo_atencao: 'Attention: your storage reached {percentual}%'
+            titulo_cheio: Your storage is full
+            usados: '{uso} of {limite} used'
+            faltam: '{faltam} left.'
+            vai_pausar: When storage runs out, new uploads are paused.
+            pausados: New uploads are paused. Viewing and downloading files is still available.
+            sem_espaco: There is no free space left. Viewing and downloading files is still available.
+            liberamos_antes: We automatically unlocked the
+            liberamos_negrito: extra storage options
+            liberamos_depois: for your firm. BlueJus stays free; extra storage is optional.
+            agora_nao: Not now
+            ver_opcoes: View storage options
+    # Scheduled task failure notice (layout/_globais/aviso_falha_agendada)
+    aviso_falha_agendada:
+        titulo: Scheduled task failed
+        item: '{tarefa} at {hora} on {data}.'
+        mais: There are other, older failures.
+        detalhe: The details are recorded by the BlueJus team.
+        # Name of each task in the notice (key = command without "app:", with _ in place of : and -).
+        tarefa:
+            purgar_dados_expirados: Expired data cleanup
+            inteligencia_expirar_conteudo: BlueJus AI response retention
+            desempenho_purgar: Performance records cleanup
+            documentos_purgar_lixeira: Documents trash cleanup (30 days)
+            importar_indices_monetarios: Monetary index import
+            djen_sincronizar: DJEN publication capture
+            push_resumo_semanal_cliente: Weekly client summary
+            pastas_rotina_controladoria: Monday Docket control routine
+            pastas_relatorio_sem_processo: Matters without a case report
+            pastas_relatorio_pastas_paradas: Idle matters report
+            dashboard_fotografar: Daily Dashboard snapshot
+            master_retratar_metricas: Daily Master Panel metrics snapshot
+            sync_reconciliar: Upload to Google Drive
+            contribua_conciliar_assinaturas: Storage subscription reconciliation
+            pagamento_conciliar: Payment reconciliation with the bank
+            armazenamento_replicar_espelho: File copy to R2
+            armazenamento_reconciliar_espelho: R2 copy check
+            armazenamento_limpar_replicacao: R2 upload queue cleanup
+            blog_conferir_publicacoes: Blog article publishing
+            voto_executar_programacao: Scheduled opening and closing of Voting
+            conector_faxinar: Cleanup of expired AI connector connections
+            outra: Scheduled task
+        dispensar: Dismiss
+    # Email sending quota notice (layout/_globais/aviso_cota_de_envio)
+    aviso_cota_de_envio:
+        titulo_perto: Close to the email limit
+        texto_perto: 'Emails: {enviados} of {teto} sent in the last 24 hours. Close to the daily limit.'
+        titulo_pausadas: Campaign email limit reached
+        texto_pausadas: 'Campaigns are paused and will resume sending around {hora} on {data}. Account and invitation emails keep going out.'
+        dispensar: Dismiss
+    # Scheduled maintenance notice (layout/_globais/aviso_manutencao; text written by the Master in Global settings)
+    aviso_manutencao:
+        titulo: Scheduled maintenance
+    # BlueJus AI legal issues notice (layout/_globais/aviso_questoes_juridicas), Master only
+    aviso_questoes_juridicas:
+        titulo: Legal issues to be reviewed
+        texto: '{n, plural, one {# BlueJus AI legal issue has not been resolved yet.} other {# BlueJus AI legal issues have not been resolved yet.}}'
+        ver: View the issues
+    busca_rapida:
+        rotulo: Quick search
+        campo: Search matter, client, CPF or case
+        resultados: Quick search results
+        nada_encontrado: Nothing found.
+        dica_navegar: ↑ ↓ navigate
+        dica_abrir: Enter to open
+        dica_alternar: Ctrl + K to open or close
+    # "How should we address you?" window (layout/_globais/genero)
+    genero:
+        titulo: How should we address you?
+        texto: We use this information to write your name correctly in the system (for example, Mr. or Ms.).
+        feminino: Female
+        masculino: Male
+        salvar: Save
+        fechar: Close
+        informe: Select your gender.
+        sessao_expirada: Session expired. Reload the page.
+    js:
+        busca_sem_resultado: No results
+        instalar_sem_pedido: 'To install: in Chrome or Edge, use the install icon in the address bar. On mobile, "Add to Home Screen".'
+        lembretes:
+            tipo_audiencia: HEARING
+            tipo_reuniao: TEAM MEETING
+            tipo_prazo: DEADLINE
+            tipo_compromisso: APPOINTMENT
+            dica_audiencia: Check the agenda, the documents and the virtual room link.
+            dica_reuniao: The team is going to meet. Bring the week's pending items.
+            dica_prazo: 'Deadline with a set time: confirm the filing before the cutoff.'
+            em_horas: In {horas}h · {hora}
+            em_minutos: In {minutos} min · at {hora}
+            agora: Now · {hora}
+            comecou: Started at {hora}
+            notificacao_titulo: BlueJus · {titulo}
+            regiao: Reminders
+            dispensar: Dismiss
+            abrir_pasta: Open matter
+            ver_na_agenda: View on calendar
+            lembrar_em_10_min: Remind me in 10 min
+            exemplo_audiencia: Conciliation hearing · Matter 1180
+            exemplo_reuniao: Weekly team meeting
+            exemplo_prazo: Answer deadline · Matter 1180
+            exemplo_compromisso: Client appointment
+        genero:
+            informe: Select your gender.
+            falha: Could not save. Try again.
+    # Master banner on a disabled screen (_recurso_faixa_master, included by base, layout_peticionar and push_compartilhado/show)
+    faixa_master:
+        aviso: This screen is disabled for users. Only the Master can see it.

@@ -64,6 +64,9 @@ keywords = ["pass", "pwd", "senha"]
     [rules.allowlist]
     description = "Placeholders, referências e expressões de código"
     regexTarget = "secret"
+    # Catálogo de tradução: a chave `senha:` traz o rótulo da tela ("Password" no inglês), nunca segredo.
+    # Vale só para esta regra e a de aspas; as outras (Asaas, URL com credencial...) seguem varrendo o catálogo.
+    paths = ['''^app/translations/([a-z_]+/messages\+intl-icu|security)\.[A-Za-z_]+\.yaml$''']
     regexes = [
         '''^(\$|%env\(|\{\{|@[A-Za-z]|![a-z]+/)''',
         '''^%[A-Za-z0-9_.]+%$''',
@@ -91,6 +94,7 @@ keywords = ["pass", "pwd", "senha"]
     [rules.allowlist]
     description = "Placeholders e referências"
     regexTarget = "secret"
+    paths = ['''^app/translations/([a-z_]+/messages\+intl-icu|security)\.[A-Za-z_]+\.yaml$''']  # catálogo de tradução (ver a regra acima)
     regexes = [
         '''^(\$|%env\(|\{\{|@[A-Za-z]|![a-z]+/)''',
         '''^%[A-Za-z0-9_.]+%$''',
