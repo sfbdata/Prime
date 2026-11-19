@@ -36,7 +36,7 @@
 
 .filtro-busca input.js-filtro-busca {
     padding-left: 32px;
-    border-radius: 20px;
+    border-radius: 4px;
 }
 
 .filtro-select {
@@ -45,10 +45,10 @@
     /* Cap para nomes longos (ex.: Responsável) não estourarem a linha; o nome
        completo segue visível no dropdown e no chip do filtro ativo. */
     max-width: 150px;
-    border-radius: 20px;
+    border-radius: 4px;
 }
 
-/* Cada data é um "pill" próprio, igual aos dropdowns, com o calendário embutido */
+/* Cada data é um campo próprio, igual aos dropdowns, com o calendário embutido */
 .filtro-data-campo {
     display: inline-flex;
     align-items: center;
@@ -56,7 +56,7 @@
     min-height: 31px;
     padding: 0 8px 0 12px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
+    border-radius: 4px;
     background: var(--bs-body-bg);
 }
 
@@ -150,7 +150,7 @@
     background: var(--bs-primary-bg-subtle);
     color: var(--bs-primary-text-emphasis);
     border: 1px solid var(--bs-primary-border-subtle);
-    border-radius: 16px;
+    border-radius: 4px;
     padding: 2px 6px 2px 11px;
     font-size: .74rem;
     line-height: 1.6;
@@ -241,3 +241,11 @@
         flex: 1;
     }
 }
+
+/* Guia visual BlueJus v30 (19/11, pedidos A1 e A4): busca, filtros e datas retangulares (raio 4px, acima) e
+   campo com a borda mais firme do guia (#7b93a2, 3,2:1) para ser encontrado. No tema escuro fica a borda do tema.
+   O :where() zera o peso do seletor do tema: a tela que já desenha a própria borda (Dashboard, Carteira) continua
+   mandando, inclusive no foco. */
+:where(html:not([data-bs-theme="dark"])) .filtro-busca input.js-filtro-busca,
+:where(html:not([data-bs-theme="dark"])) .filtro-select,
+:where(html:not([data-bs-theme="dark"])) .filtro-data-campo { border-color: #7b93a2; }
