@@ -29,8 +29,8 @@
     --a1-azul-esc: #0a6a89;
     --a1-link: #0f6fc4;
     --a1-card: #fff;
-    --a1-borda: #dde5eb;
-    --a1-ctl: #cdd7de;
+    --a1-borda: #d6e0e7;   /* guia v30 (A4, 19/11) */
+    --a1-ctl: #7b93a2;     /* guia v30 (A4): borda de campo e controle, 3,2:1 */
     --a1-seg-fundo: #eef2f5;
     --a1-seg-borda: #e0e7ec;
     --a1-sutil: #fafcfd;
@@ -46,10 +46,10 @@
     --a1-corpo: #243845;
     --a1-t2: #455c6b;
     --a1-t3: #5f7684;
-    --a1-t4: #6b8494;
-    --a1-mudo: #7b93a2;
-    --a1-fraco: #8496a3;
-    --a1-apagado: #95a6b2;
+    --a1-t4: #5f7684;      /* guia v30 (A3): texto de apoio com 4,7:1 */
+    --a1-mudo: #5f7684;
+    --a1-fraco: #7b93a2;   /* só ícones (3:1); texto usa --a1-t3 */
+    --a1-apagado: #5f7684;
     --a1-sombra: 0 1px 2px rgba(16, 42, 58, .04);
     --a1-agora: #e0472e;
 
@@ -144,14 +144,14 @@
 /* ── Mês ─────────────────────────────────────────────────────────────────── */
 .a1-mes-cab { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: var(--a1-sutil); border-bottom: 1px solid var(--a1-div3); }
 .a1-mes-dia { padding: 9px 8px; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; border-right: 1px solid var(--a1-div3); color: var(--a1-mudo); }
-.a1-mes-dia.is-fds { color: #a9b8c2; }
+.a1-mes-dia.is-fds { color: var(--a1-t3); font-weight: 500; } /* guia v30 (A3): fim de semana pelo peso, não por cinza ilegível */
 .a1-mes-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .a1-cel { border-right: 1px solid var(--a1-div); border-bottom: 1px solid var(--a1-div); padding: 7px 7px 8px; min-height: 118px; background: var(--a1-card); overflow: hidden; }
 .a1-cel.is-fora { background: var(--a1-sutil); }
 .a1-cel.is-hoje { background: var(--a1-hoje-fundo); }
 .a1-cel-topo { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
 .a1-cel-n { display: inline-flex; align-items: center; justify-content: center; min-width: 21px; height: 21px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--a1-t2); }
-.a1-cel.is-fora .a1-cel-n { font-weight: 400; color: #b3c1ca; }
+.a1-cel.is-fora .a1-cel-n { font-weight: 400; font-style: italic; color: var(--a1-t3); }
 .a1-cel.is-hoje .a1-cel-n { border-radius: 50%; background: var(--a1-azul); color: #fff; font-size: 12px; font-weight: 700; }
 .a1-cel-cont { font-size: 10px; font-weight: 700; color: var(--a1-apagado); font-variant-numeric: tabular-nums; }
 .a1-cel-cont:empty { display: none; }
@@ -159,7 +159,7 @@
 
 .a1-chip { display: flex; align-items: center; gap: 5px; padding: 3px 6px 3px 4px; border-radius: 4px; cursor: pointer; background: var(--tint); transition: filter .15s; overflow: hidden; }
 .a1-chip:hover { filter: brightness(.97); }
-.a1-chip.is-cancelado { background: #f4f7f9; opacity: .72; }
+.a1-chip.is-cancelado { background: #f4f7f9; }
 .a1-chip.is-concluido { background: #f7fafc; }
 .a1-chip-barra { width: 3px; height: 13px; border-radius: 2px; flex-shrink: 0; background: var(--cor); }
 .is-cancelado > .a1-chip-barra { opacity: .5; }
@@ -167,7 +167,8 @@
 .is-cancelado > .a1-chip-hora { color: var(--a1-apagado); }
 .a1-chip-tit { font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #12242f; }
 .is-concluido > .a1-chip-tit { color: #5f7684; }
-.is-cancelado > .a1-chip-tit { color: #7b93a2; text-decoration: line-through; }
+.is-concluido > .a1-chip-tit::before { content: "\2713\00a0"; } /* guia v30 (A3): concluído não é marcado só pela cor */
+.is-cancelado > .a1-chip-tit { color: var(--a1-t3); text-decoration: line-through; }
 .a1-chip-rep { font-size: 10px; color: var(--a1-fraco); flex-shrink: 0; }
 .a1-chip-cad { font-size: 9px; color: var(--a1-fraco); flex-shrink: 0; }
 .a1-mais { border: none; background: transparent; padding: 2px 0 0 6px; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--a1-link); cursor: pointer; }
@@ -199,8 +200,8 @@
 .a1-bloco-hora { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 .is-cancelado > .a1-bloco-hora { color: var(--a1-apagado); }
 .a1-bloco-tit { font-size: 11.5px; font-weight: 600; line-height: 1.25; color: #12242f; overflow: hidden; }
-.is-cancelado > .a1-bloco-tit { color: #7b93a2; text-decoration: line-through; }
-.a1-bloco-local { font-size: 10.5px; color: #7b93a2; margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.is-cancelado > .a1-bloco-tit { color: var(--a1-t3); text-decoration: line-through; }
+.a1-bloco-local { font-size: 10.5px; color: var(--a1-t3); margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* ── Lista ───────────────────────────────────────────────────────────────── */
 .a1-grupo-cab { display: flex; align-items: center; gap: 10px; padding: 9px 18px; background: var(--a1-sutil); border-bottom: 1px solid var(--a1-div3); border-top: 1px solid var(--a1-div2); }
@@ -208,7 +209,7 @@
 .a1-grupo-dia { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 4px; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--a1-t2); background: var(--a1-seg-fundo); }
 .is-hoje > .a1-grupo-dia { color: #fff; background: var(--a1-azul); }
 .a1-grupo-rot { font-size: 13px; font-weight: 600; color: var(--a1-texto); }
-.a1-grupo-n { font-size: 12px; color: var(--a1-fraco); }
+.a1-grupo-n { font-size: 12px; color: var(--a1-t3); }
 .a1-lin { display: grid; grid-template-columns: 8px 46px minmax(0, 1fr) auto auto; gap: 11px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--a1-div); cursor: pointer; transition: background .15s; }
 .a1-lin:hover, .a1-lin:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; transition: background .18s, color .18s; }
 /* Guia visual v30: linha sob o cursor azul com texto branco; a etiqueta e o status têm fundo próprio e ficam como estão. */
@@ -220,7 +221,7 @@
 .a1-lin-hora { font-size: 13px; font-weight: 600; color: var(--a1-t2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .a1-lin-bloco { min-width: 0; }
 .a1-lin-tit { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--a1-texto); }
-.is-cancelado .a1-lin-tit { color: #7b93a2; text-decoration: line-through; }
+.is-cancelado .a1-lin-tit { color: var(--a1-t3); text-decoration: line-through; }
 .a1-lin-meta { font-size: 11.5px; color: var(--a1-mudo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .a1-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap; color: var(--ink); background: var(--tint); }
 .a1-st { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; color: #455c6b; background: #f1f5f8; border: 1px solid #dde5eb; }
@@ -285,16 +286,15 @@
 .a1-hoje-data { font-size: 14px; font-weight: 600; margin-top: 3px; color: var(--a1-texto); }
 .a1-hoje-lista { display: flex; flex-direction: column; }
 .a1-hoje-lin { display: flex; align-items: center; gap: 9px; padding: 9px 16px; border-bottom: 1px solid var(--a1-div); cursor: pointer; transition: background .15s; }
-.a1-hoje-lin.is-cancelado { opacity: .7; }
 .a1-hoje-lin:hover, .a1-hoje-lin:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; transition: background .18s, color .18s; }
 .a1-hoje-lin:hover .a1-hoje-hora, .a1-hoje-lin:hover .a1-hoje-tit, .a1-hoje-lin:hover .a1-lin-meta, .a1-hoje-lin:hover .a1-agora-tag,
 .a1-hoje-lin:focus-visible .a1-hoje-hora, .a1-hoje-lin:focus-visible .a1-hoje-tit, .a1-hoje-lin:focus-visible .a1-lin-meta, .a1-hoje-lin:focus-visible .a1-agora-tag { color: #fff; }
 .a1-hoje-hora { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--a1-t2); min-width: 34px; flex-shrink: 0; }
 .a1-hoje-bloco { min-width: 0; flex: 1; }
 .a1-hoje-tit { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--a1-texto); }
-.is-cancelado .a1-hoje-tit { color: #7b93a2; text-decoration: line-through; }
+.is-cancelado .a1-hoje-tit { color: var(--a1-t3); text-decoration: line-through; }
 .a1-agora-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #c0392f; flex-shrink: 0; }
-.a1-hoje-vazio { padding: 22px 16px; text-align: center; font-size: 12.5px; color: var(--a1-fraco); }
+.a1-hoje-vazio { padding: 22px 16px; text-align: center; font-size: 12.5px; color: var(--a1-t3); }
 .a1-seguir { padding: 11px 16px; border-top: 1px solid var(--a1-div2); background: var(--a1-sutil); }
 .a1-seguir .a1-rotulo { margin-bottom: 8px; }
 .a1-seguir-lista { display: flex; flex-direction: column; gap: 8px; }
@@ -313,7 +313,7 @@
 .a1-leg-lista { display: flex; flex-direction: column; gap: 2px; }
 .a1-leg { display: flex; align-items: center; gap: 9px; width: 100%; border: none; background: transparent; padding: 5px 6px; border-radius: 4px; cursor: pointer; text-align: left; transition: background .15s; }
 .a1-leg:hover { background: var(--a1-hover); }
-.a1-leg.is-oculto { opacity: .45; }
+.a1-leg.is-oculto .a1-leg-nome { color: var(--a1-t3); } /* guia v30 (A3): oculto pelo riscado e pelo ponto vazio, sem opacidade que derruba o contraste */
 .a1-leg-ponto { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; background: var(--cor); box-shadow: inset 0 0 0 2px var(--cor); }
 .a1-leg.is-oculto .a1-leg-ponto { background: transparent; }
 .a1-leg-nome { font-size: 12.5px; font-weight: 500; color: var(--a1-corpo); }
