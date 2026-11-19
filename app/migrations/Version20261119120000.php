@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Modo campanha "BlueJus Black" (Desafio de R$ 1,00): campanha, trilha de alteração, inscrições e devoluções.
  * Tabelas globais, sem filtro de tenant (spec docs/specs/contribua-campanha.md). Cria também a campanha padrão do
- * desenho (D5), ligada, de 19/11/2026 a 30/11/2026; o Master desliga no painel.
+ * desenho (D5), desligada, de 19/11/2026 a 30/11/2026; o Master liga no painel.
  */
 final class Version20261119120000 extends AbstractMigration
 {
@@ -46,7 +46,7 @@ final class Version20261119120000 extends AbstractMigration
         $this->addSql('ALTER TABLE contribua_campanha_participacao ADD CONSTRAINT FK_F54D7D5F9033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) ON DELETE SET NULL NOT DEFERRABLE;');
         $this->addSql('ALTER TABLE contribua_campanha_devolucao ADD CONSTRAINT FK_FB0677ECDD44609D FOREIGN KEY (devolvida_por_id) REFERENCES "user" (id) ON DELETE SET NULL NOT DEFERRABLE;');
         $this->addSql('ALTER TABLE contribua_campanha_devolucao ADD CONSTRAINT FK_FB0677EC8DD6EADE FOREIGN KEY (participacao_id) REFERENCES contribua_campanha_participacao (id) ON DELETE CASCADE NOT DEFERRABLE;');
-        $this->addSql('INSERT INTO contribua_campanha (nome, chamada, preco_centavos, multiplicador, prazo_pedido_dias, prazo_pagamento_dias_uteis, inicio, fim, vagas, mostrar_contador, aba_no_topo, beneficios, ligada, versao_regras, atualizada_em) SELECT \'BlueJus Black\', \'Black Friday BlueJus\', 100, 2, 30, 7, \'2026-11-19\', \'2026-11-30\', 0, false, true, \'["Implantação assistida: importamos suas pastas, clientes e prazos","Suporte prioritário pelo WhatsApp durante a campanha","Treinamento ao vivo para a sua equipe","Selo \\"Fundador BlueJus Black\\" no seu perfil"]\'::json, true, 1, NOW() WHERE NOT EXISTS (SELECT 1 FROM contribua_campanha)');
+        $this->addSql('INSERT INTO contribua_campanha (nome, chamada, preco_centavos, multiplicador, prazo_pedido_dias, prazo_pagamento_dias_uteis, inicio, fim, vagas, mostrar_contador, aba_no_topo, beneficios, ligada, versao_regras, atualizada_em) SELECT \'BlueJus Black\', \'Black Friday BlueJus\', 100, 2, 30, 7, \'2026-11-19\', \'2026-11-30\', 0, false, true, \'["Implantação assistida: importamos suas pastas, clientes e prazos","Suporte prioritário pelo WhatsApp durante a campanha","Treinamento ao vivo para a sua equipe","Selo \\"Fundador BlueJus Black\\" no seu perfil"]\'::json, false, 1, NOW() WHERE NOT EXISTS (SELECT 1 FROM contribua_campanha)');
     }
 
     public function down(Schema $schema): void

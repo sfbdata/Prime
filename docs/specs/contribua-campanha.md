@@ -19,8 +19,9 @@ Risco BAIXO (Contribua), mas mexe com dinheiro: uma revisão no fim.
   `CONTRIBUA_CRYPTO_KEY`, que não está configurada em todo ambiente. Só o Master vê a chave decifrada, no painel.
 - D4. CPF guardado só como hash (`hash_hmac('sha256', digitos, kernel.secret)`) e os 2 últimos dígitos. CPF
   válido = 11 dígitos com dígitos verificadores corretos e não todos iguais.
-- D5. A migration cria a campanha padrão do desenho (`PADRAO` do `bj-campanha.js`), **ligada**, de 19/11/2026 a
-  30/11/2026. O Master desliga no painel. A validação jurídica da ESPEC fica anotada em
+- D5. A migration cria a campanha padrão do desenho (`PADRAO` do `bj-campanha.js`), **desligada**
+  (decisão do Samuel, 19/11), de 19/11/2026 a 30/11/2026. O Farlei liga no painel do Master; até lá não há aba, faixa
+  nem item do FAQ para os usuários (o Master vê a prévia da aba). A validação jurídica da ESPEC fica anotada em
   `bluejus-coordenacao/pacote-juridico.md` (jurídico não trava, regra de 04/11).
 - D6. A aba do topo entra pelo `templates/layout/_globais.html.twig` (parcial `layout/_globais/campanha.html.twig`),
   sem tocar no `base.html.twig`.
@@ -57,7 +58,7 @@ prazo_pagamento_dias_uteis, versao_regras (congelados da campanha na inscrição
 motivo (varchar 400, null), pedida_em, devolvida_em (null), devolvida_por_id (FK user SET NULL).
 
 Insert da campanha padrão: nome "BlueJus Black", chamada "Black Friday BlueJus", 100 centavos, multiplicador 2,
-prazo 30, pagamento 7, 2026-11-19 a 2026-11-30, vagas 0, contador false, aba true, ligada true, versão 1, benefícios:
+prazo 30, pagamento 7, 2026-11-19 a 2026-11-30, vagas 0, contador false, aba true, ligada false, versão 1, benefícios:
 "Implantação assistida: importamos suas pastas, clientes e prazos"; "Suporte prioritário pelo WhatsApp durante a
 campanha"; "Treinamento ao vivo para a sua equipe"; "Selo \"Fundador BlueJus Black\" no seu perfil".
 

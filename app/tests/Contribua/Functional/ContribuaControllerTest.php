@@ -52,7 +52,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         $this->primario = $this->pessoa('primario', $this->escritorio, true);
         $this->secundario = $this->pessoa('secundario', $this->escritorio, false);
         $this->master = $this->pessoa('master', $this->escritorio, false, ['ROLE_SUPER_ADMIN']);
-        // A campanha padrão da migration (BlueJus Black) acrescenta faixa, FAQ e painel; os testes dela ficam no CampanhaTelaTest.
+        // A campanha (BlueJus Black) ligada acrescenta faixa, FAQ e painel; os testes dela ficam no CampanhaTelaTest. A da migration nasce desligada.
         $this->em->getConnection()->executeStatement('UPDATE contribua_campanha SET ligada = false');
         $this->em->persist(new Sugestao($this->outro, null, 'Pessoa do B', TipoDeSugestao::Falta, 'Sugestão que só o B e o Master veem'));
         $this->em->flush();

@@ -11,7 +11,7 @@
 Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
 
 **19/11/2026, campanha "BlueJus Black" (Desafio de R$ 1,00)**: spec própria em `docs/specs/contribua-campanha.md`,
-branch `contribua-campanha`, PR #829, migration `Version20261119120000` (campanha padrão ligada de 19 a 30/11). Aba no
+branch `contribua-campanha`, PR #829, migration `Version20261119120000` (campanha padrão desligada, de 19 a 30/11; o Master liga). Aba no
 topo pelo `layout/_globais/campanha.html.twig`, faixa `#black`, item do FAQ, janela e painel do Master `#campanha`. Pix
 estático com txid `BJB<id>`; o Master confirma o pagamento, cancela inscrição aguardando e marca a devolução paga.
 
