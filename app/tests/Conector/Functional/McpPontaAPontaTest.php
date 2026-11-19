@@ -12,6 +12,7 @@ use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
 use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
 use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\LerClientesFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
@@ -55,6 +56,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         DocumentosEPecasFerramenta::NOME,
         FinanceiroDaPastaFerramenta::NOME,
         LerAgendaFerramenta::NOME,
+        LerClientesFerramenta::NOME,
         LerDocumentosEModelosFerramenta::NOME,
         LerPastaFerramenta::NOME,
         LerProcessosFerramenta::NOME,

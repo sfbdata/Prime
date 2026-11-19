@@ -8,6 +8,25 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.60.0] - 2026-11-18
+
+### Adicionado
+
+- Conector de I.A. (spec mcp-remoto-oauth, PR 9): ferramenta `confirmar_acao` (`proposta_id` e o `resumo` exato), com escopo `mcp:escrita`, `destructiveHint` e `_meta["anthropic/requiresUserInteraction"]`, e teto próprio de chamadas (`conector_confirmacao`).
+- `PropostasDoConector::propor` grava a proposta (`conector_ia_proposta`) presa à pessoa, ao escritório, ao consentimento e ao app de I.A. do token, com os dados, o hash deles e o resumo, 10 minutos de validade e uso único; só o hash do id vai ao banco. Ao propor, as pendentes vencidas do escritório viram expiradas e perdem os dados.
+- `ConfirmarPropostaDoConectorUseCase`: trava de linha numa transação; recusa com mensagem fixa a proposta usada, vencida, de outra pessoa, de outro escritório, de outro app ou de consentimento revogado; confere o resumo e o hash, a linha da tabela de aba e chave e a reconferência da ferramenta; grava, mede o resultado antes de confirmar, guarda só os ids e zera dados e resumo. Toda recusa (salvo o vencimento) e toda falha desfazem a transação e deixam a proposta pendente.
+- Contrato `ExecutorDeProposta` para as ferramentas de gravação (PRs 10 a 13): `reconferir` sem gravar e `executarConfirmada` dentro da transação da confirmação.
+- I.A. gratuita por pessoa em escritório sem plano pago: franquia de 100 mil tokens (equivalente a 3 peças), somando Chat I.A., análises, agentes, comandos, Ler documentos, BlueJus I.A. da Central e resumo do Push.
+- Cada colega que se cadastra pelo link de indicação e confirma o e-mail libera mais 100 mil tokens para quem indicou; quem indicou recebe uma notificação.
+- Nova recusa `saldo_da_pessoa_esgotado` (409) no portão da I.A.; escritório com plano pago não tem o limite.
+- Barra de uso no Chat I.A., na I.A. da pasta e na BlueJus I.A. da Central, e janela "Sua I.A. gratuita acabou" com os atalhos de convite.
+- Link de indicação: a indicação só conta se o código aparece no Criar conta e a pessoa o mantém ligado; o código guardado na sessão deixa de valer sozinho.
+- Voto: a aba Acompanhar ganhou o botão "Unidades", ao lado de "Assistir". Abre uma janela com todas as unidades da pauta (as que ela aceita, em ordem de bloco e identificação), que se atualiza a cada 5 segundos. A unidade que votou fica com fundo azul claro e letra azul escura; as que ainda não votaram ficam brancas e as inaptas, cinza. Mostra só a identificação da unidade (CPF mascarado, como na ata), nunca o nome, o voto ou a hora. Só aparece, e a rota só abre, para quem pode ver a relação de votantes, em assembleias com lista de votantes (condomínio, associação, sociedade); as demais dão 404. A regra de como a unidade é escrita passou para `IdentificacaoDaUnidade`, usada também pela ata (sem mudança nela).
+
+### Alterado
+
+- Padronização visual pelo Guia visual BlueJus: componentes únicos em app/public/css/bj-padrao.css (botão de 32px em 5 níveis, botão de ícone, painel, etiqueta e prazo, prefixo .bjp-), aplicados tela a tela no lugar dos botões, cartões e etiquetas crus do Bootstrap/AdminLTE. Só aparência: nenhuma função entra nem sai.
+
 ## [2.59.0] - 2026-11-18
 
 ### Adicionado
@@ -2132,7 +2151,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.59.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.60.0...HEAD
+[2.60.0]: https://github.com/sfbdata/Prime/compare/v2.59.0...v2.60.0
 [2.59.0]: https://github.com/sfbdata/Prime/compare/v2.58.1...v2.59.0
 [2.58.1]: https://github.com/sfbdata/Prime/compare/v2.58.0...v2.58.1
 [2.58.0]: https://github.com/sfbdata/Prime/compare/v2.57.0...v2.58.0

@@ -562,7 +562,7 @@ class PastaTimelineAssembler
                     'Pasta restaurada',
                     'bi-arrow-counterclockwise',
                     'text-bg-success',
-                    null,
+                    $this->detalheDaRestauracao($diff),
                 ];
         }
 
@@ -1013,5 +1013,22 @@ class PastaTimelineAssembler
         } catch (\Throwable) {
             return $valor;
         }
+    }
+
+    /**
+     * Restaurar com o número já reusado grava `nup` junto com a limpeza da lápide: o detalhe diz o
+     * número novo e o antigo. Sem troca de número, não há detalhe.
+     *
+     * @param array<string, mixed> $diff
+     */
+    private function detalheDaRestauracao(array $diff): ?string
+    {
+        $de = $diff['nup']['from'] ?? null;
+        $para = $diff['nup']['to'] ?? null;
+        if (!is_string($de) || !is_string($para) || $de === '' || $para === '' || $de === $para) {
+            return null;
+        }
+
+        return sprintf('Restaurada com o número %s; antes era %s.', $para, $de);
     }
 }
