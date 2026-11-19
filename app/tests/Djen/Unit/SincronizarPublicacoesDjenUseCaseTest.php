@@ -502,12 +502,102 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
         self::assertArrayHasKey('Processo 11111111111111111111', $resultado->getFalhas());
     }
 
-    private function oab(string $numero, string $uf): OabMonitorada
+    #[Test]
+    public function oabCadastradaDentroDaJanelaBuscaOsUltimos90Dias(): void
+    {
+        $nova = $this->oab('53290', 'DF', new \DateTimeImmutable('2026-11-19 14:24'));
+        $antiga = $this->oab('62230', 'DF', new \DateTimeImmutable('2026-10-01 09:00'));
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$nova, $antiga]);
+        $inicios = [];
+        $this->djenClient->method('consultarComunicacoes')->willReturnCallback(
+            static function (ConsultaComunicacoesQuery $q) use (&$inicios): RespostaComunicacoes {
+                $inicios[$q->numeroOab] = $q->dataDisponibilizacaoInicio?->format('Y-m-d');
+
+                return new RespostaComunicacoes(0, []);
+            }
+        );
+
+        // A captação diária olha 2 dias; a OAB cadastrada hoje traz o histórico, a antiga não.
+        $this->sut->executar($this->tenant, PeriodoConsulta::ultimosDias(2, new \DateTimeImmutable('2026-11-20')), false, false);
+
+        self::assertSame(['53290' => '2026-08-23', '62230' => '2026-11-19'], $inicios);
+    }
+
+    #[Test]
+    public function oabNovaAindaTrazOHistoricoNaSegundaNoiteMasNaoNaTerceira(): void
+    {
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('53290', 'DF', new \DateTimeImmutable('2026-11-19 14:24'))]);
+        $inicios = [];
+        $this->djenClient->method('consultarComunicacoes')->willReturnCallback(
+            static function (ConsultaComunicacoesQuery $q) use (&$inicios): RespostaComunicacoes {
+                $inicios[] = $q->dataDisponibilizacaoInicio?->format('Y-m-d');
+
+                return new RespostaComunicacoes(0, []);
+            }
+        );
+
+        // Noite de 21/11 (janela 20 e 21): ainda é OAB nova. Noite de 22/11: já não é.
+        $this->sut->executar($this->tenant, PeriodoConsulta::ultimosDias(2, new \DateTimeImmutable('2026-11-21')), false, false);
+        $this->sut->executar($this->tenant, PeriodoConsulta::ultimosDias(2, new \DateTimeImmutable('2026-11-22')), false, false);
+
+        self::assertSame(['2026-08-24', '2026-11-21'], $inicios);
+    }
+
+    #[Test]
+    public function timeoutDaOabEOcupadoDoProcessoNaoRepetem(): void
+    {
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('53290', 'DF')]);
+        $this->processoRepository->method('listarNumerosAcompanhadosDoTenant')->willReturn(['11111111111111111111']);
+        $this->djenClient->expects($this->exactly(2))->method('consultarComunicacoes')->willReturnCallback(
+            static fn (ConsultaComunicacoesQuery $q): RespostaComunicacoes => throw new ConsultaDjenException(
+                $q->numeroOab !== null ? MotivoFalhaDjen::Timeout : MotivoFalhaDjen::SistemaOcupado
+            )
+        );
+        $this->espera->expects($this->never())->method('aguardar');
+
+        $resultado = $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')));
+        $resultado->somar($this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), false, false));
+
+        self::assertSame(MotivoFalhaDjen::Timeout->value, $resultado->getFalhas()['53290/DF']);
+        self::assertSame(MotivoFalhaDjen::SistemaOcupado->value, $resultado->getFalhas()['Processo 11111111111111111111']);
+    }
+
+    #[Test]
+    public function sistemaOcupadoTentaMaisDuasVezesAntesDeDesistir(): void
+    {
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('53290', 'DF'), $this->oab('62230', 'DF')]);
+        $chamadas = ['53290' => 0, '62230' => 0];
+        $this->djenClient->method('consultarComunicacoes')->willReturnCallback(
+            function (ConsultaComunicacoesQuery $q) use (&$chamadas): RespostaComunicacoes {
+                $vez = ++$chamadas[(string) $q->numeroOab];
+                // 53290 responde na 3ª tentativa; 62230 segue ocupado.
+                if ($q->numeroOab === '62230' || $vez < 3) {
+                    throw new ConsultaDjenException(MotivoFalhaDjen::SistemaOcupado);
+                }
+
+                return new RespostaComunicacoes(1, [$this->item(901, '07000000020268070001')]);
+            }
+        );
+        $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
+        $this->processoRepository->method('findByNumeroProcessoDoTenant')->willReturn(null);
+        $this->espera->expects($this->exactly(4))->method('aguardar')->with(3);
+
+        $resultado = $this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), false, false);
+
+        self::assertSame(['53290' => 3, '62230' => 3], $chamadas);
+        self::assertSame(1, $resultado->getNovas());
+        self::assertSame(['62230/DF' => MotivoFalhaDjen::SistemaOcupado->value], $resultado->getFalhas());
+    }
+
+    private function oab(string $numero, string $uf, ?\DateTimeImmutable $criadaEm = null): OabMonitorada
     {
         $oab = new OabMonitorada();
         $oab->setTenant($this->tenant);
         $oab->setNumero($numero);
         $oab->setUf($uf);
+        if ($criadaEm !== null) {
+            (new \ReflectionProperty(OabMonitorada::class, 'criadoEm'))->setValue($oab, $criadaEm);
+        }
 
         return $oab;
     }
