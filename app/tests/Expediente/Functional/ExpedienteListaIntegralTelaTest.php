@@ -140,6 +140,8 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         }
         self::assertSame('1', $c->filter('#tabelaPastas')->attr('data-sou-admin'));
         self::assertNotEmpty($c->filter('#tabelaPastas')->attr('data-csrf-lista'));
+        // Atalho "Onde encontrar meu código?" da aba Outra conta: o cartão Meu código BlueJus do Perfil.
+        self::assertSame('/perfil#mpMeuCodigo', $c->filter('#tabelaPastas')->attr('data-url-meu-codigo'));
     }
 
     #[TestDox('Metas conta só as abertas, como o desenho; com todas concluídas, a célula fica vazia, sem travessão')]
