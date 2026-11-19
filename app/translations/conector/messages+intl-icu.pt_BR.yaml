@@ -86,11 +86,11 @@ conector:
             gravacao: Gravar
         ferramenta:
             quem_sou_eu: Ver com qual conta e escritório o app está conectado
-            buscar_pastas: Buscar pastas pelo número, pelo cliente ou pela ação
-            ler_pasta: 'Ler a pasta: dados, andamento, anotações e publicações'
-            ler_documentos_e_modelos: Ler os documentos e os modelos da pasta
-            ler_processos: Consultar os processos e as movimentações
-            ler_clientes: 'Consultar o cadastro dos clientes, sem CPF, CNPJ, contato nem endereço'
+            buscar_pastas: 'Buscar pastas pelo número, pelo cliente ou pela ação, e ver relatórios como o das pastas paradas'
+            ler_pasta: 'Ler a pasta: dados, andamento, registro, prazos, metas e alertas da Controladoria'
+            ler_documentos_e_modelos: Ler os documentos, as peças do editor e os modelos da pasta
+            ler_processos: Consultar os processos, as movimentações e o número na base pública do CNJ
+            ler_clientes: 'Buscar os clientes e consultar o cadastro e a lista de documentos deles, sem mostrar CPF, CNPJ, contato nem endereço'
             ler_agenda: Ver a agenda e as suas metas
             atualizar_pasta: Atualizar os dados da pasta
             mudar_andamento: Mudar o andamento da pasta
@@ -98,9 +98,9 @@ conector:
             prazos_e_metas_da_pasta: Criar prazos e metas da pasta
             documentos_e_pecas: Organizar os documentos e as peças da pasta
             financeiro_da_pasta: Lançar no financeiro da pasta
-            atualizar_cliente: Completar e atualizar o cadastro dos clientes
+            atualizar_cliente: 'Cadastrar, completar e atualizar clientes, ligar o cliente à pasta e excluir cadastro ou documento'
             processos_da_pasta: Vincular e atualizar os processos da pasta
-            gravar_na_agenda: Gravar compromissos na agenda
+            gravar_na_agenda: Criar e mudar os seus compromissos na agenda e avisar colegas
             confirmar_acao: Confirmar a ação proposta
         desconectar:
             titulo: Desconectar

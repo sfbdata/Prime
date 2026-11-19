@@ -286,7 +286,7 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
         self::assertSame($esperado['gravacao'], $nomes('[data-guia-gravacao]'));
         self::assertContains('buscar_pastas', $esperado['leitura']);
         self::assertNotContains('confirmar_acao', array_merge($esperado['leitura'], $esperado['gravacao']));
-        self::assertSame('Buscar pastas pelo número, pelo cliente ou pela ação', $tela->filter('[data-ferramenta="buscar_pastas"]')->text());
+        self::assertSame('Buscar pastas pelo número, pelo cliente ou pela ação, e ver relatórios como o das pastas paradas', $tela->filter('[data-ferramenta="buscar_pastas"]')->text());
     }
 
     #[TestDox('Toda ferramenta do catálogo fechado tem o texto do guia: a que entrar depois aparece traduzida')]
