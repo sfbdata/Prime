@@ -114,6 +114,15 @@
       (navigator.clipboard ? navigator.clipboard.writeText(copiar.dataset.mpCopiar) : Promise.reject()).then(() => aviso(BJ_T.t('perfil.js.copiado')), () => {});
       return;
     }
+    // Compartilhar o código BlueJus: a janela de compartilhar do aparelho; sem ela, copia o texto pronto.
+    const compartilhar = t.closest('[data-mp-compartilhar-codigo]');
+    if (compartilhar) {
+      e.preventDefault();
+      const texto = BJ_T.t('perfil.js.codigo_compartilhar_texto', { codigo: compartilhar.dataset.mpCompartilharCodigo });
+      if (navigator.share) { navigator.share({ text: texto }).catch(() => {}); return; }
+      (navigator.clipboard ? navigator.clipboard.writeText(texto) : Promise.reject()).then(() => aviso(BJ_T.t('perfil.js.codigo_compartilhar_copiado')), () => {});
+      return;
+    }
     if (t.closest('[data-mp-oab-nova]')) return abrirOab(null);
     const linhaOab = t.closest('[data-mp-oab-editar]');
     if (linhaOab) return abrirOab(linhaOab);

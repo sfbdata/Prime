@@ -167,6 +167,9 @@
 .exp-cp-campo.exp-cp-codigo { padding: 0 12px; font: 700 15px monospace; letter-spacing: 1px; text-transform: uppercase; }
 .exp-cp-quem { font-size: 12.5px; font-weight: 700; color: var(--cp-dica); }
 .exp-cp-quem:empty { display: none; }
+/* Atalho "Onde encontrar meu código?" da aba Outra conta (pedido do Farlei, 19/11/2026). */
+.exp-cp-onde { align-self: flex-start; font-size: 12.5px; font-weight: 700; color: var(--cp-azul); text-decoration: none; }
+.exp-cp-onde:hover, .exp-cp-onde:focus-visible { text-decoration: underline; }
 
 /* ── Botão "Recebidas" da barra (L9, dc L.134): o mesmo do "Nova Pasta"; verde com convite esperando ──────── */
 .exp-body .exp-nova-pasta.exp-rc-btn { gap: 8px; padding: 0 14px; }
