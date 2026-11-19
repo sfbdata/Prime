@@ -11,6 +11,7 @@ use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
+use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\UseCase\MontarPortalDaAssembleiaUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -31,12 +32,15 @@ final class MontarPortalDaAssembleiaUseCaseTest extends TestCase
         $liberacao->liberar();
         $liberacoes->method('findDoTenantParaOMaster')->with($tenant)->willReturn($liberacao);
 
-        $portal = (new MontarPortalDaAssembleiaUseCase($repo, $liberacoes))->executar($assembleia->getCodigoPublico());
+        $portal = (new MontarPortalDaAssembleiaUseCase($repo, $liberacoes, $this->createStub(UnidadeDaAssembleiaRepository::class)))->executar($assembleia->getCodigoPublico());
 
         self::assertNotNull($portal);
         self::assertSame('AGO Ipê', $portal->titulo);
         self::assertSame($assembleia->getCodigoPublico(), $portal->codigo);
-        self::assertSame(['titulo', 'codigo'], array_keys(get_object_vars($portal)));
+        self::assertSame(['titulo', 'codigo', 'pedeCpf', 'rotuloUnidade', 'rotuloBloco'], array_keys(get_object_vars($portal)));
+        self::assertFalse($portal->pedeCpf);
+        self::assertSame('Unidade', $portal->rotuloUnidade);
+        self::assertSame('Bloco', $portal->rotuloBloco);
     }
 
     public function testSemLiberacaoNaoMostraAssembleia(): void
@@ -46,7 +50,7 @@ final class MontarPortalDaAssembleiaUseCaseTest extends TestCase
         $liberacoes = $this->createMock(LiberacaoDoVotoRepository::class);
         $liberacoes->method('findDoTenantParaOMaster')->willReturn(null);
 
-        self::assertNull((new MontarPortalDaAssembleiaUseCase($repo, $liberacoes))->executar(str_repeat('a', 32)));
+        self::assertNull((new MontarPortalDaAssembleiaUseCase($repo, $liberacoes, $this->createStub(UnidadeDaAssembleiaRepository::class)))->executar(str_repeat('a', 32)));
     }
 
     public function testCodigoInvalidoNaoConsultaBanco(): void
@@ -54,7 +58,7 @@ final class MontarPortalDaAssembleiaUseCaseTest extends TestCase
         $repo = $this->createMock(AssembleiaRepository::class);
         $repo->expects(self::never())->method('buscarPublicadaPeloCodigo');
 
-        self::assertNull((new MontarPortalDaAssembleiaUseCase($repo, $this->createStub(LiberacaoDoVotoRepository::class)))->executar('invalido'));
+        self::assertNull((new MontarPortalDaAssembleiaUseCase($repo, $this->createStub(LiberacaoDoVotoRepository::class), $this->createStub(UnidadeDaAssembleiaRepository::class)))->executar('invalido'));
     }
 
     public function testCodigoPublicoEUnicoEPermaneceAoEditar(): void

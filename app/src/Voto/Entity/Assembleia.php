@@ -74,6 +74,14 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 14, nullable: true)]
     private ?string $cnpj = null;
 
+    /** Nome do campo "Unidade" da lista e do portal (ex.: "Matrícula"). NULL = "Unidade". */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $rotuloUnidade = null;
+
+    /** Nome do campo "Bloco" da lista e do portal (ex.: "Seção"). NULL = "Bloco". */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $rotuloBloco = null;
+
     /**
      * Simulação (desenho 18, "Votação de simulação"): treino da mesa e teste do link. Marca só em rascunho; pode ser
      * reiniciada e apagada, não se arquiva e fica fora das estatísticas. Entra no hash da configuração só quando verdadeira.
@@ -150,6 +158,43 @@ class Assembleia implements TenantAware, Auditavel
         }
         $this->entidadeNome = '' === $nome ? null : mb_substr($nome, 0, 160);
         $this->cnpj = '' === $cnpj ? null : $cnpj;
+    }
+
+    /**
+     * Nomes dos campos "Unidade" e "Bloco" (a assembleia serve a outros tipos de eleição: "Matrícula", "Seção"). Opcionais
+     * (vazio volta ao padrão), no máximo 40 caracteres; só em rascunho, como o título. Fora das regras e do hash.
+     */
+    public function definirRotulos(?string $unidade, ?string $bloco): void
+    {
+        $this->exigirPautasAlteraveis();
+        $unidade = trim((string) $unidade);
+        $bloco = trim((string) $bloco);
+        if (mb_strlen($unidade) > 40 || mb_strlen($bloco) > 40) {
+            throw new OperacaoInvalidaNaAssembleiaException('O nome do campo tem no máximo 40 caracteres.');
+        }
+        $this->rotuloUnidade = '' === $unidade ? null : $unidade;
+        $this->rotuloBloco = '' === $bloco ? null : $bloco;
+    }
+
+    public function getRotuloUnidade(): string
+    {
+        return $this->rotuloUnidade ?? 'Unidade';
+    }
+
+    public function getRotuloBloco(): string
+    {
+        return $this->rotuloBloco ?? 'Bloco';
+    }
+
+    /** O nome escolhido pelo gestor, ou null quando vale o padrão (para a duplicação e para o formulário). */
+    public function getRotuloUnidadePersonalizado(): ?string
+    {
+        return $this->rotuloUnidade;
+    }
+
+    public function getRotuloBlocoPersonalizado(): ?string
+    {
+        return $this->rotuloBloco;
     }
 
     /** O cenário só muda em rascunho, como o título; define rótulos e não entra nas regras nem no hash. */

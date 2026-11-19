@@ -7,6 +7,7 @@ namespace App\Voto\UseCase;
 use App\Voto\DTO\PortalDaAssembleiaOutput;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
+use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 
 /** O participante abre o código público; só vê assembleia publicada e escritório ativo e liberado. */
 final class MontarPortalDaAssembleiaUseCase
@@ -14,6 +15,7 @@ final class MontarPortalDaAssembleiaUseCase
     public function __construct(
         private readonly AssembleiaRepository $assembleias,
         private readonly LiberacaoDoVotoRepository $liberacoes,
+        private readonly UnidadeDaAssembleiaRepository $unidades,
     ) {
     }
 
@@ -30,6 +32,12 @@ final class MontarPortalDaAssembleiaUseCase
             return null;
         }
 
-        return new PortalDaAssembleiaOutput($assembleia->getTitulo(), $assembleia->getCodigoPublico());
+        return new PortalDaAssembleiaOutput(
+            $assembleia->getTitulo(),
+            $assembleia->getCodigoPublico(),
+            $this->unidades->portalPedeCpf($assembleia),
+            $assembleia->getRotuloUnidade(),
+            $assembleia->getRotuloBloco(),
+        );
     }
 }

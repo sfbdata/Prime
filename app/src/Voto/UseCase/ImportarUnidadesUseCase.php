@@ -120,6 +120,7 @@ final class ImportarUnidadesUseCase
             responsavel: $linha->responsavel,
             email: $linha->email,
             telefone: $linha->telefone,
+            cpf: $linha->cpf,
         );
     }
 

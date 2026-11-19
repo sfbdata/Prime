@@ -18,6 +18,8 @@ final readonly class LinhaDeUnidade
         public ?string $telefone = null,
         /** Coluna 8 (opcional): ocorrência da importação, até 80 caracteres; entra sem avaliação (N97 do desenho). */
         public ?string $ocorrencia = null,
+        /** Coluna 9 (opcional): CPF só com os 11 dígitos, já conferido. */
+        public ?string $cpf = null,
     ) {
     }
 

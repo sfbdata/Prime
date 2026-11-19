@@ -80,6 +80,10 @@ voto:
     # insumo docs/specs/voto-assembleia-desenho.md) e textos do contrato docs/specs/voto-assembleia-condominio.md.
     # Chave com ponto de propósito: vira voto.assembleia.cedula.* sem abrir um segundo `assembleia:` neste arquivo.
     assembleia.portal:
+        identidade:
+            nome: Nome completo
+            cpf: CPF
+            texto: Informe seu nome completo e seu CPF como constam na lista da votação.
         comprovante:
             titulo: Comprovante de votação
             campo: Confira seu comprovante
@@ -352,6 +356,9 @@ voto:
                 cenario: Tipo de entidade
                 cnpj: 'CNPJ (opcional, separa entidades com nome parecido)'
                 evento: Evento
+                rotulo_unidade: Nome do campo Unidade
+                rotulo_bloco: Nome do campo Bloco
+                rotulo_dica: 'Opcional, até 40 caracteres. Serve para outras eleições (ex.: Matrícula, Seção). Aparece no portal do eleitor e na lista.'
                 peso: Peso do voto
                 peso_fracao: Fração ideal
                 peso_unidade: Uma unidade, um voto
@@ -634,13 +641,14 @@ voto:
                 campo_responsavel: Responsável
                 campo_email: E-mail
                 campo_telefone: Telefone
+                campo_cpf: CPF
                 salvar_edicao: Salvar
                 cancelar_edicao: Cancelar
-                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional); ocorrência (opcional, até 80 caracteres). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
+                texto: 'Cole a lista, uma linha para cada registro: {identificacao}; {grupo}; situação; fração; responsável; e-mail; telefone (opcional); ocorrência (opcional, até 80 caracteres); CPF (opcional, com ou sem pontuação: com CPF em todas as unidades aptas, o eleitor se localiza no portal por nome e CPF). Sem situação, o registro fica apto; com ela, só "apto", "adimplente", "regular" ou "quite" liberam o voto. Votação com peso exige a fração. A lista fica bloqueada após a abertura.'
                 importacao_arquivo: Também é possível importar um arquivo XLSX ou CSV. A segunda importação acrescenta unidades e mantém as que já estão cadastradas.
                 arquivo: Arquivo XLSX ou CSV (até 10 MB)
                 baixar_modelo: Baixar planilha modelo
-                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável, E-mail, Telefone e Ocorrência.'
+                primeira_aba: 'O XLSX usa a primeira aba. Colunas: {identificacao}, {grupo}, Situação, Fração, Responsável, E-mail, Telefone, Ocorrência e CPF (opcional).'
                 lista: Lista de unidades
                 importar: Importar lista
                 resumo: '{aptos} aptos e {inaptos} não aptos importados.'
@@ -655,6 +663,7 @@ voto:
                 fracao: 'Fração {fracao}'
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
+                cpf_faltando: '{n, plural, one {# unidade apta está sem CPF} other {# unidades aptas estão sem CPF}}. Enquanto faltar, o portal do eleitor pede nome, unidade e bloco, e não nome e CPF.'
                 soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
             # Ocorrências da unidade na Lista de aptos e as avaliações do conselho (spec voto-avaliacoes-do-conselho-1611; desenho 18, H249/H462/H273/H469): textos literais do desenho.
             ocorrencia:

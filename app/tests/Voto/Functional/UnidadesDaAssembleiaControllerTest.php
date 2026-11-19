@@ -69,6 +69,24 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $lista->filter('[data-voto-soma-fracoes]'), 'a lista inteira (aptas e não aptas) fecha 1');
     }
 
+    #[TestDox('Lista mista (apta com CPF e apta sem): avisa quantas estão sem CPF; sem CPF nenhum ou todas com, não avisa')]
+    public function testAvisoDeUnidadeAptaSemCpf(): void
+    {
+        [$a] = $this->cenario();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '1']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertCount(0, $lista->filter('[data-voto-cpf-faltando]'), 'lista sem CPF nenhum segue no modo antigo, sem aviso');
+
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '2', 'cpf' => '52998224725']);
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '3', 'situacao' => 'inadimplente']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame(
+            '1 unidade apta está sem CPF. Enquanto faltar, o portal do eleitor pede nome, unidade e bloco, e não nome e CPF.',
+            trim($lista->filter('[data-voto-cpf-faltando]')->text()),
+            'a inapta sem CPF não conta',
+        );
+    }
+
     #[TestDox('Peso por unidade: não há aviso de soma')]
     public function testSemAvisoNoPesoPorUnidade(): void
     {
@@ -89,6 +107,36 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertSame('A-101 · Bloco A', trim($lista->filter('.voto-unidade-dados > b')->text()));
     }
 
+    #[TestDox('Rótulos renomeados aparecem no cabeçalho da lista; sem rótulo, Unidade e Bloco')]
+    public function testCabecalhoComRotulos(): void
+    {
+        [$a] = $this->cenario();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '1']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame('Unidade · Bloco', trim($lista->filter('[data-voto-cabecalho-unidades]')->text()));
+
+        $a->definirRotulos('Matrícula', 'Seção');
+        $this->em->flush();
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame('Matrícula · Seção', trim($lista->filter('[data-voto-cabecalho-unidades]')->text()));
+    }
+
+    #[TestDox('O formulário da assembleia grava os nomes dos campos e os mostra preenchidos na edição')]
+    public function testFormularioGravaRotulos(): void
+    {
+        [$a] = $this->cenario();
+        $crawler = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/editar');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('input[name="rotulo_unidade"][maxlength="40"][placeholder="Unidade"]'));
+        $this->client->submit($crawler->selectButton('Salvar e sair')->form(['rotulo_unidade' => 'Matrícula', 'rotulo_bloco' => 'Seção']));
+        $this->em->clear();
+        $gravada = $this->em->find(Assembleia::class, $a->getId());
+        self::assertSame('Matrícula', $gravada->getRotuloUnidade());
+        self::assertSame('Seção', $gravada->getRotuloBloco());
+        $crawler = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/editar');
+        self::assertSame('Matrícula', $crawler->filter('input[name="rotulo_unidade"]')->attr('value'));
+    }
+
     #[TestDox('Menu ⋮ da linha tem "Editar"; salvar grava o cadastro e mantém o link')]
     public function testEditarUnidade(): void
     {
@@ -104,7 +152,7 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $token = (string) $lista->filter('#editar-unidade-' . $id . ' input[name="_token"]')->attr('value');
         $this->client->request('POST', $this->base($a) . '/' . $id . '/editar', [
             '_token' => $token, 'identificacao' => '102', 'bloco' => 'B', 'situacao' => '', 'fracao' => '',
-            'responsavel' => 'Maria Souza', 'email' => 'maria@exemplo.com', 'telefone' => '(11) 99999-0000',
+            'responsavel' => 'Maria Souza', 'email' => 'maria@exemplo.com', 'telefone' => '(11) 99999-0000', 'cpf' => '529.982.247-25',
         ]);
         self::assertResponseRedirects($this->base($a) . '#unidade-' . $id);
 
@@ -113,6 +161,7 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertSame('102', $depois->getIdentificacao());
         self::assertSame('Maria Souza', $depois->getResponsavel());
         self::assertSame('11999990000', $depois->getTelefone());
+        self::assertSame('52998224725', $depois->getCpf(), 'o CPF que faltava se corrige pelo Editar');
         self::assertSame($semente, $depois->getSemente());
     }
 

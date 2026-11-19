@@ -120,4 +120,27 @@ final class LeitorDaListaDeUnidadesTest extends TestCase
 
         (new LeitorDaListaDeUnidades())->ler(str_repeat("1; A\n", LeitorDaListaDeUnidades::LIMITE_DE_LINHAS), PesoDoVoto::Unidade);
     }
+
+    #[TestDox('A coluna 9 CPF aceita com ou sem pontuação e guarda só os dígitos; ausente fica nula')]
+    public function testCpfValidoAusente(): void
+    {
+        $texto = "101; A; ; ; Ana; ana@exemplo.com; ; ; 529.982.247-25\n102; A; ; ; Beto; ; ; ; 11144477735\n103; A\n";
+
+        $lidas = (new LeitorDaListaDeUnidades())->ler($texto, PesoDoVoto::Unidade);
+
+        self::assertSame([], $lidas['invalidas']);
+        self::assertSame(['52998224725', '11144477735', null], array_map(static fn (LinhaDeUnidade $l): ?string => $l->cpf, $lidas['validas']));
+    }
+
+    #[TestDox('CPF com dígito verificador errado, curto ou repetido vira erro da linha; as outras linhas entram')]
+    public function testCpfInvalidoViraErroDeLinha(): void
+    {
+        $texto = "101; A; ; ; Ana; ; ; ; 529.982.247-26\n102; A; ; ; Beto; ; ; ; 123\n103; A; ; ; Caio; ; ; ; 111.111.111-11\n104; A; ; ; Dora; ; ; ; 529.982.247-25\n";
+
+        $lidas = (new LeitorDaListaDeUnidades())->ler($texto, PesoDoVoto::Unidade);
+
+        self::assertSame([['linha' => 1, 'motivo' => 'CPF inválido.'], ['linha' => 2, 'motivo' => 'CPF inválido.'], ['linha' => 3, 'motivo' => 'CPF inválido.']], $lidas['invalidas']);
+        self::assertCount(1, $lidas['validas']);
+        self::assertSame('104', $lidas['validas'][0]->identificacao);
+    }
 }

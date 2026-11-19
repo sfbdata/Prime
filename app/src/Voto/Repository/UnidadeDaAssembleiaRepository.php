@@ -187,19 +187,75 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
             ->addOrderBy('u.id', 'ASC');
     }
 
-    /** Não enumera moradores: só encontra uma correspondência completa, apta e com e-mail cadastrado. */
+    /**
+     * Não enumera moradores: só encontra uma correspondência completa, apta e com e-mail cadastrado. Com CPF no input, o
+     * critério é nome e CPF exato (a unidade e o bloco só entram se a pessoa escolheu uma de várias); sem CPF, nome, unidade e bloco, como sempre foi.
+     */
     public function localizarParaCodigo(Assembleia $assembleia, \App\Voto\DTO\SolicitarCodigoDaAssembleiaInput $input): ?UnidadeDaAssembleia
     {
-        $linhas = $this->createQueryBuilder('u')
+        $qb = $this->createQueryBuilder('u')
             ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
-            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND LOWER(TRIM(u.identificacao)) = :unidade')
-            ->andWhere('LOWER(TRIM(u.bloco)) = :bloco AND LOWER(TRIM(u.email)) = :email')
+            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND LOWER(TRIM(u.email)) = :email')
             ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
-            ->setParameter('nome', mb_strtolower(trim($input->nome)))->setParameter('unidade', mb_strtolower(trim($input->unidade)))
-            ->setParameter('bloco', mb_strtolower(trim($input->bloco)))->setParameter('email', mb_strtolower(trim($input->email)))
-            ->setMaxResults(2)->getQuery()->getResult();
+            ->setParameter('nome', mb_strtolower(trim($input->nome)))->setParameter('email', mb_strtolower(trim($input->email)));
+        if ($input->porCpf()) {
+            $qb->andWhere('u.cpf = :cpf')->setParameter('cpf', $input->cpf);
+            if (null !== $input->escolhaUnidade) {
+                // Dono de mais de uma unidade: o código é da unidade escolhida (identificação e bloco).
+                $qb->andWhere('LOWER(TRIM(u.identificacao)) = :escolhaUnidade AND LOWER(TRIM(u.bloco)) = :escolhaBloco')
+                    ->setParameter('escolhaUnidade', mb_strtolower(trim($input->escolhaUnidade)))
+                    ->setParameter('escolhaBloco', mb_strtolower(trim((string) $input->escolhaBloco)));
+            }
+        } else {
+            $qb->andWhere('LOWER(TRIM(u.identificacao)) = :unidade AND LOWER(TRIM(u.bloco)) = :bloco')
+                ->setParameter('unidade', mb_strtolower(trim($input->unidade)))->setParameter('bloco', mb_strtolower(trim($input->bloco)));
+        }
+        $linhas = $qb->setMaxResults(2)->getQuery()->getResult();
 
         return \count($linhas) === 1 ? $linhas[0] : null;
+    }
+
+    /**
+     * Para o passo 2 do portal: as unidades aptas que casam com nome e CPF (sem o e-mail), em ordem de bloco e unidade. Quem
+     * é dono de mais de uma aparece com todas e escolhe uma. O controller só a chama com o limitador do portal já consumido.
+     *
+     * @return list<UnidadeDaAssembleia>
+     */
+    public function localizarPorNomeECpf(Assembleia $assembleia, string $nome, string $cpf): array
+    {
+        return array_values($this->createQueryBuilder('u')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
+            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND u.cpf = :cpf')
+            ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
+            ->setParameter('nome', mb_strtolower(trim($nome)))->setParameter('cpf', $cpf)
+            ->orderBy('u.bloco', 'ASC')->addOrderBy('u.identificacao', 'ASC')->addOrderBy('u.id', 'ASC')
+            ->getQuery()->getResult());
+    }
+
+    /**
+     * Unidades aptas com e sem CPF. O portal pede CPF só quando TODAS as aptas têm (com > 0 e sem = 0): numa lista
+     * mista, quem está sem CPF ficaria sem entrar, então o portal segue no modo antigo e a tela de unidades avisa.
+     *
+     * @return array{com: int, sem: int}
+     */
+    public function contarAptasPorCpf(Assembleia $assembleia): array
+    {
+        /** @var array{com: int|string|null, sem: int|string|null} $linha */
+        $linha = $this->createQueryBuilder('u')
+            ->select('COUNT(u.cpf) AS com', 'SUM(CASE WHEN u.cpf IS NULL THEN 1 ELSE 0 END) AS sem')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
+            ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
+            ->getQuery()->getSingleResult();
+
+        return ['com' => (int) $linha['com'], 'sem' => (int) $linha['sem']];
+    }
+
+    /** O portal identifica o eleitor por nome e CPF: todas as unidades aptas têm CPF (ver contarAptasPorCpf). */
+    public function portalPedeCpf(Assembleia $assembleia): bool
+    {
+        $contagem = $this->contarAptasPorCpf($assembleia);
+
+        return $contagem['com'] > 0 && 0 === $contagem['sem'];
     }
 
     /** A trava serializa tentativas simultâneas e pedidos, inclusive com a purga da unidade. */

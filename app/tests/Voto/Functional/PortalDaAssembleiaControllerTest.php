@@ -186,6 +186,193 @@ final class PortalDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(0);
     }
 
+    public function testLocalizarComCpfTemLimiteProprioPorIp(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        static::getContainer()->set('limiter.voto_portal_localizar', new RateLimiterFactoryEspiao(false));
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        self::assertResponseStatusCodeSame(429);
+    }
+
+    public function testListaMistaComUnidadeAptaSemCpfFicaNoModoAntigo(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '102', 'bloco' => 'B',
+            'responsavel' => 'Beto Souza', 'email' => 'beto@example.com',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertCount(0, $crawler->filter('input[name="cpf"]'), 'quem está sem CPF não pode ficar sem entrar');
+        self::assertCount(1, $crawler->filter('input[name="unidade"]'));
+    }
+
+    public function testComCpfNaListaOPassoUmPedeNomeECpfESoOPassoDoisMostraUnidadeEBloco(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertCount(1, $crawler->filter('input[name="cpf"]'));
+        self::assertCount(0, $crawler->filter('input[name="unidade"]'));
+        self::assertCount(0, $crawler->filter('input[name="bloco"]'));
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'ANA SILVA', 'cpf' => '529.982.247-25']));
+        self::assertResponseRedirects($this->link(), 303);
+        $crawler = $this->client->followRedirect();
+        self::assertStringContainsString('Confirme sua identidade', $crawler->text());
+        self::assertSame('Unidade 101', trim($crawler->filter('[data-vp-unidade]')->text()));
+        self::assertSame('Bloco B', trim($crawler->filter('[data-vp-bloco]')->text()));
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana@example.com']));
+        self::assertEmailCount(1);
+    }
+
+    public function testDonoDeDuasUnidadesEscolheUmaERecebeCodigoSoDela(): void
+    {
+        foreach ([['101', 'A', 'ana1@example.com'], ['202', 'B', 'ana2@example.com']] as [$id, $bloco, $email]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'email' => $email, 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        self::assertCount(2, $crawler->filter('[data-vp-escolha] input[type="radio"]'));
+        self::assertCount(0, $crawler->filter('[data-vp-escolha] input[type="radio"][checked]'));
+        self::assertCount(0, $crawler->filter('input[name="email"]'));
+        self::assertStringContainsString('Unidade 101, Bloco A', $crawler->text());
+        self::assertStringContainsString('Unidade 202, Bloco B', $crawler->text());
+        $this->client->submit($crawler->filter('[data-vp-escolha]')->selectButton('Continuar')->form(['opcao' => '1']));
+        self::assertResponseRedirects($this->link(), 303);
+        $crawler = $this->client->followRedirect();
+        self::assertSame('Unidade 202', trim($crawler->filter('[data-vp-unidade]')->text()));
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana1@example.com']));
+        self::assertEmailCount(0);
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->selectButton('Receber novo código')->form());
+        self::assertEmailCount(0);
+    }
+
+    public function testEscolhaDeUnidadeEnviaCodigoParaOEmailDaEscolhida(): void
+    {
+        foreach ([['101', 'A', 'ana1@example.com'], ['202', 'B', 'ana2@example.com']] as [$id, $bloco, $email]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'email' => $email, 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->filter('[data-vp-escolha]')->selectButton('Continuar')->form(['opcao' => '1']));
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana2@example.com']));
+        self::assertEmailCount(1);
+        self::assertEmailHeaderSame(self::getMailerMessage(0), 'To', 'ana2@example.com');
+    }
+
+    public function testEscolhaForjadaForaDaListaDa422(): void
+    {
+        foreach ([['101', 'A'], ['202', 'B']] as [$id, $bloco]) {
+            UnidadeDaAssembleiaFactory::createOne([
+                'assembleia' => $this->assembleia, 'identificacao' => $id, 'bloco' => $bloco,
+                'responsavel' => 'Ana Silva', 'cpf' => '52998224725',
+            ]);
+        }
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        $token = $crawler->filter('[data-vp-escolha] input[name="_token"]')->attr('value');
+        foreach (['7', '-1', 'abc', ''] as $forjada) {
+            $this->client->request('POST', $this->link() . '/escolher', ['_token' => $token, 'opcao' => $forjada]);
+            self::assertResponseStatusCodeSame(422);
+        }
+        $this->client->request('POST', $this->link() . '/codigo', ['_token' => $token, 'email' => 'ana@example.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertEmailCount(0);
+    }
+
+    public function testCpfQueNaoCasaVaiAoPassoDoisSoComONomeESemCodigo(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '111.444.777-35']));
+        self::assertResponseRedirects($this->link(), 303);
+        $crawler = $this->client->followRedirect();
+        self::assertStringContainsString('Confirme sua identidade', $crawler->text());
+        self::assertStringContainsString('Ana Silva', $crawler->text());
+        self::assertCount(0, $crawler->filter('[data-vp-unidade]'));
+        self::assertCount(0, $crawler->filter('[data-vp-bloco]'));
+        self::assertStringNotContainsStringIgnoringCase('não encontrad', $crawler->text());
+        $crawler = $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana@example.com']));
+        self::assertEmailCount(0);
+        self::assertStringContainsString('Se os dados informados correspondem ao cadastro', $this->client->followRedirect()->text());
+    }
+
+    public function testCpfComDigitoVerificadorErradoEFormatoRecusado(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'cpf' => '52998224725']);
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '529.982.247-26']));
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testCpfDeOutraAssembleiaNaoCasa(): void
+    {
+        $outra = AssembleiaFactory::new()->publicada()->create(['tenant' => $this->assembleia->getTenant()])->_real();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'responsavel' => 'Beto', 'cpf' => '11144477735']);
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $outra, 'identificacao' => '9', 'bloco' => 'Z', 'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        $crawler = $this->client->followRedirect();
+        self::assertCount(0, $crawler->filter('[data-vp-unidade]'));
+    }
+
+    public function testSemCpfNaListaOFluxoAntigoSegueIntactoEPassoDoisMostraUnidadeEBloco(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'A',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertCount(0, $crawler->filter('input[name="cpf"]'));
+        self::assertCount(1, $crawler->filter('input[name="unidade"]'));
+        self::assertCount(1, $crawler->filter('input[name="bloco"]'));
+        $this->localizar();
+        $crawler = $this->client->followRedirect();
+        self::assertSame('Unidade 101', trim($crawler->filter('[data-vp-unidade]')->text()));
+        self::assertSame('Bloco A', trim($crawler->filter('[data-vp-bloco]')->text()));
+    }
+
+    public function testRotulosRenomeadosAparecemNosDoisPassos(): void
+    {
+        // O portal só existe com a assembleia publicada, e os rótulos só se editam em rascunho: grava direto no banco.
+        $this->em->getConnection()->executeStatement("UPDATE voto.assembleia SET rotulo_unidade = 'Matrícula', rotulo_bloco = 'Seção' WHERE id = ?", [$this->assembleia->getId()]);
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'A',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertStringContainsString('Matrícula', $crawler->filter('input[name="unidade"]')->ancestors()->first()->text());
+        self::assertStringContainsString('Seção', $crawler->filter('input[name="bloco"]')->ancestors()->first()->text());
+        $this->localizar();
+        $crawler = $this->client->followRedirect();
+        self::assertSame('Matrícula 101', trim($crawler->filter('[data-vp-unidade]')->text()));
+        self::assertSame('Seção A', trim($crawler->filter('[data-vp-bloco]')->text()));
+    }
+
     public function testDivulgacaoBaixaQrECartazSemCredencialDaUnidade(): void
     {
         $usuario = UserFactory::createOne(['roles' => ['ROLE_USER']])->_real();
