@@ -1249,9 +1249,13 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   `app/src/Pasta/UseCase/VincularProcessoUseCase.php:67`, ou apensado) recusa em pasta cujo cliente principal tem o envio
   ligado: as publicações do processo passariam a ir para ele (abertura da 6.6).
 - Exclusões por proposta: desvincular processo (`DesvincularProcessoUseCase`; o processo continua existindo), excluir nota
-  técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`processo_delete`, regra no controller: UseCase extraído no PR 14).
-- Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica e excluir processo, recurso
-  `processo` edit; chave `expedientes`.
+  técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`excluir_processo`; a regra de `processo_delete` virou `ExcluirProcessoUseCase`, extraído do controller
+  no PR 14: apaga o processo do escritório inteiro, de todas as pastas, com o que depende dele pelo mapeamento e pelas chaves do
+  banco; não há arquivo no disco, então não há passo depois do COMMIT). A proposta diz que não há como desfazer; a confirmação
+  confere de novo processo, pasta, segredo e permissão.
+- Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica, recurso `processo` edit
+  (sem chave); excluir processo, recurso `processo` **delete** (o que a tela `processo_delete` exige; só editar não basta) e chave
+  `expedientes`, com a aba Processo.
 
 **`gravar_na_agenda`** (PR 13)
 - Ações: `salvar` (criar ou editar compromisso: tipo, horário, "Equipe" ou "Só eu", pasta, participantes, lembrete;
@@ -1806,7 +1810,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector (feito) | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo (feito), renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector (feito) | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,

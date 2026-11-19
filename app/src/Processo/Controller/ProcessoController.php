@@ -19,6 +19,7 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Processo\UseCase\ConsultarProcessoNoCnjUseCase;
+use App\Processo\UseCase\ExcluirProcessoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -281,7 +282,7 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
-    public function delete(Request $request, Processo $processo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
+    public function delete(Request $request, Processo $processo, ExcluirProcessoUseCase $excluir, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -296,8 +297,7 @@ class ProcessoController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $em->remove($processo);
-        $em->flush();
+        $excluir->executar($processo, $tenant ?? throw $this->createNotFoundException());
 
         return $this->redirectToRoute('processo_index');
     }

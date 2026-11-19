@@ -211,7 +211,7 @@ final class TabelaDeAbaEChave
             'principal' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
             'ligar_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
         ],
-        // Nota técnica: sem aba nem chave (é do processo, não da tela da pasta).
+        // Nota técnica: sem aba nem chave (é do processo, não da tela da pasta). Excluir processo: aba Processo e `expedientes`.
         'processos_da_pasta' => [
             'vincular' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'principal' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
@@ -219,6 +219,7 @@ final class TabelaDeAbaEChave
             'acao_da_pasta' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'via_administrativa' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'nota_tecnica' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
+            'excluir_processo' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
         ],
         'gravar_na_agenda' => [
             'salvar' => ['modulos' => self::AGENDA, 'abas' => [], 'chaves' => self::NENHUMA],
