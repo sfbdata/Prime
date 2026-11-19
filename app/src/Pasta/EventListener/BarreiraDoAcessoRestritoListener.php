@@ -89,12 +89,12 @@ final class BarreiraDoAcessoRestritoListener
 
     /**
      * Rotas dentro dos prefixos liberados que mostram ou mexem no escritório inteiro: relatórios gerais, lixeira,
-     * importação em lote, cadastro de marcadores e os convites da equipe.
+     * importação em lote, cadastro de marcadores e os convites da equipe. O painel da Lista
+     * (`expediente_acervo_geral`) não entra aqui: é o que desenha a Lista do restrito, já escopado no repositório.
      *
      * @var list<string>
      */
     public const ROTAS_FECHADAS = [
-        'expediente_acervo_geral',
         'expediente_lixeira',
         'expediente_pastas_paradas',
         'expediente_pastas_paradas_pdf',
