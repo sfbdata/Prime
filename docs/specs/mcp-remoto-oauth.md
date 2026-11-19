@@ -2295,3 +2295,9 @@ Coordenador):**
     tela, de propósito. A tela aceita o pedido de quem veria a pasta sem o cadeado (`PedirAcessoAPastaUseCase.php:83`,
     `veriaSemCadeado`); o conector responde não encontrado, para não revelar a pasta trancada (6.2, regra 1). Pedir
     acesso a ela segue pela tela. Teste: `AtualizarPastaPropostasTest::testPedirAcessoEmPastaTrancada`.
+33. **Ids das observações na `ler_pasta`** (depois do PR 10, pedido pelo Coordenador em 18/11/2026): as partes `detalhes` e
+    `financeiro` trazem `[registro_id N]` na frente de cada observação, para o `registrar_na_pasta` responder, editar,
+    destacar e excluir qualquer uma, não só a que ele mesmo escreveu. O id sai da assinatura que o
+    `MontadorDeContextoDaPasta` já monta com cada linha (`observacao:ID` e `obsfin:ID`), então só ganha id o que o montador
+    já mostra, com a mesma visibilidade da tela (abas ocultas, `VisibilidadeDoFinanceiroDaPasta`, segredo); o montador e o
+    contexto do chat não mudam. Teste: `LerPastaFerramentaTest::testObservacoesComId`.
