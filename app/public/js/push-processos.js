@@ -52,7 +52,7 @@
         form.addEventListener('submit', function (e) {
             if (!window.confirm(form.getAttribute('data-pp-confirmar'))) { e.preventDefault(); return; }
             var digitado = window.prompt(BJ_T.t('comum.js.push.confirma_digite', { palavra: BJ_T.t('comum.js.push.palavra_excluir') }), '');
-            if (String(digitado || '').trim().toUpperCase() !== BJ_T.t('comum.js.push.palavra_excluir')) {
+            if (String(digitado || '').trim().toUpperCase() !== BJ_T.t('comum.js.push.palavra_excluir').toUpperCase()) {
                 e.preventDefault();
                 window.alert(BJ_T.t('comum.js.push.cancelado'));
             }
