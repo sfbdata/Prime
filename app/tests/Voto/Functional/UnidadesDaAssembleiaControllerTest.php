@@ -12,11 +12,13 @@ use App\Master\Entity\RecursoEstado;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Factory\Voto\AssembleiaFactory;
+use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
 use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Controller\UnidadesDaAssembleiaController;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
+use App\Voto\Entity\UnidadeDaAssembleia;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -85,6 +87,89 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
 
         $lista = $this->client->request('GET', $this->base($a));
         self::assertSame('A-101 · Bloco A', trim($lista->filter('.voto-unidade-dados > b')->text()));
+    }
+
+    #[TestDox('Menu ⋮ da linha tem "Editar"; salvar grava o cadastro e mantém o link')]
+    public function testEditarUnidade(): void
+    {
+        [$a] = $this->cenario();
+        $u = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '101', 'bloco' => 'A'])->_real();
+        $id = $u->getId();
+        $semente = $u->getSemente();
+
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame('Editar', trim($lista->filter('#unidade-' . $id . ' .vKm [data-voto-revelar]')->text()));
+        self::assertCount(1, $lista->filter('#editar-unidade-' . $id . '[hidden]'));
+
+        $token = (string) $lista->filter('#editar-unidade-' . $id . ' input[name="_token"]')->attr('value');
+        $this->client->request('POST', $this->base($a) . '/' . $id . '/editar', [
+            '_token' => $token, 'identificacao' => '102', 'bloco' => 'B', 'situacao' => '', 'fracao' => '',
+            'responsavel' => 'Maria Souza', 'email' => 'maria@exemplo.com', 'telefone' => '(11) 99999-0000',
+        ]);
+        self::assertResponseRedirects($this->base($a) . '#unidade-' . $id);
+
+        $this->em->clear();
+        $depois = $this->em->getRepository(UnidadeDaAssembleia::class)->find($id);
+        self::assertSame('102', $depois->getIdentificacao());
+        self::assertSame('Maria Souza', $depois->getResponsavel());
+        self::assertSame('11999990000', $depois->getTelefone());
+        self::assertSame($semente, $depois->getSemente());
+    }
+
+    #[TestDox('Editar com dado inválido não grava; sem token válido não grava')]
+    public function testEditarInvalidoOuSemToken(): void
+    {
+        [$a] = $this->cenario();
+        $u = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '101', 'bloco' => 'A'])->_real();
+        $id = $u->getId();
+        $token = (string) $this->client->request('GET', $this->base($a))->filter('#editar-unidade-' . $id . ' input[name="_token"]')->attr('value');
+        $base = ['identificacao' => '999', 'bloco' => 'A', 'situacao' => '', 'fracao' => '', 'responsavel' => '', 'email' => '', 'telefone' => ''];
+
+        $this->client->request('POST', $this->base($a) . '/' . $id . '/editar', ['_token' => $token, ...$base, 'email' => 'sem-arroba']);
+        $this->client->request('POST', $this->base($a) . '/' . $id . '/editar', ['_token' => 'falso', ...$base]);
+
+        $this->em->clear();
+        self::assertSame('101', $this->em->getRepository(UnidadeDaAssembleia::class)->find($id)->getIdentificacao());
+    }
+
+    #[TestDox('Depois da abertura da votação o item Editar fica desabilitado com o motivo e o POST não grava')]
+    public function testEditarTravadaDepoisDaAbertura(): void
+    {
+        [$a] = $this->cenario();
+        $u = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '101', 'bloco' => 'A'])->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $a])->comOpcoesPadrao()->aberta()->create();
+        $id = $u->getId();
+
+        $lista = $this->client->request('GET', $this->base($a));
+        $item = $lista->filter('#unidade-' . $id . ' .vKm button[disabled]');
+        self::assertCount(1, $item);
+        self::assertSame('A lista fica bloqueada depois da abertura da votação.', $item->attr('title'));
+        self::assertCount(0, $lista->filter('#editar-unidade-' . $id));
+
+        $token = (string) $lista->filter('#unidade-' . $id . ' input[name="_token"]')->attr('value');
+        $this->client->request('POST', $this->base($a) . '/' . $id . '/editar', ['_token' => $token, 'identificacao' => '999']);
+        $this->em->clear();
+        self::assertSame('101', $this->em->getRepository(UnidadeDaAssembleia::class)->find($id)->getIdentificacao());
+    }
+
+    #[TestDox('Unidade de outro escritório (ou de outra assembleia): 404 e nada muda')]
+    public function testEditarOutroEscritorio404(): void
+    {
+        [$a] = $this->cenario();
+        $outro = TenantFactory::createOne(['name' => 'Outro ' . uniqid()])->_real();
+        $alheia = AssembleiaFactory::new(['tenant' => $outro])->create()->_real();
+        $deles = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $alheia, 'identificacao' => '777'])->_real();
+        $minha = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '101'])->_real();
+        $token = (string) $this->client->request('GET', $this->base($a))->filter('#editar-unidade-' . $minha->getId() . ' input[name="_token"]')->attr('value');
+        $idDeles = $deles->getId();
+
+        // (A assembleia alheia com token próprio dela é coberta em AssembleiaGestorTest.)
+        // Unidade alheia na minha assembleia.
+        $this->client->request('POST', $this->base($a) . '/' . $idDeles . '/editar', ['_token' => $token, 'identificacao' => '1']);
+        self::assertResponseStatusCodeSame(404);
+
+        // Pelo banco: o filtro de tenant da sessão esconde as linhas do outro escritório do EntityManager.
+        self::assertSame('777', $this->em->getConnection()->fetchOne('SELECT identificacao FROM voto.assembleia_unidade WHERE id = ?', [$idDeles]));
     }
 
     /** @return array{Assembleia} */
