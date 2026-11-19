@@ -21,7 +21,7 @@
     display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
     font-size: .74rem; font-weight: 600; color: #0078AA;
     background: rgba(0,120,170,.10); border: 1px solid rgba(0,120,170,.28);
-    padding: .38rem .75rem; border-radius: 999px;
+    padding: .38rem .75rem; border-radius: 4px;
 }
 
 /* Hub — tiles com ícone e hover-lift */
@@ -48,10 +48,10 @@
 .platform-tile-arrow { color: var(--bs-secondary-color); transition: transform .16s ease; }
 .platform-tile:hover .platform-tile-arrow { transform: translateX(4px); color: #0078AA; }
 
-/* Filtros em pílula */
+/* Filtros retangulares (raio 4px, guia visual v30) */
 .platform-filters { display: flex; flex-wrap: wrap; gap: .4rem; }
 .platform-filter {
-    font-size: .82rem; font-weight: 600; padding: .35rem .85rem; border-radius: 999px;
+    font-size: .82rem; font-weight: 600; padding: .35rem .85rem; border-radius: 4px;
     border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color);
     text-decoration: none; background: var(--bs-body-bg); transition: all .15s ease;
 }
@@ -77,8 +77,11 @@
 }
 .platform-table td { vertical-align: middle; }
 .platform-table tbody tr { transition: background .12s ease; }
-.platform-table tbody tr:hover { background: var(--bs-tertiary-bg); }
+/* Realce da linha do guia visual v30 (19/11, A2): fundo #2b7ab0 e texto branco; botões, menus e selos mantêm a cor. */
+.platform-table > tbody > tr:hover > * { background: #2b7ab0; color: #fff; }
+.platform-table > tbody > tr:hover > * *:not(.btn):not(.btn *):not(.bjp-btn):not(.bjp-btn *):not(.bjp-ico):not(.bjp-ico *):not(.dropdown-menu):not(.dropdown-menu *):not(.badge):not(.badge *) { color: #fff !important; }
 .platform-row-divergente { box-shadow: inset 3px 0 0 var(--bs-danger); }
+.oab-selo-tipo { border-radius: 4px; }
 .platform-oab-num { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: .3px; }
 .platform-name-strong { font-weight: 600; }
 

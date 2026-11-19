@@ -59,7 +59,7 @@
                     <td class="platform-oab-num">
                         {{ item.oabNumero ~ '/' ~ item.oabUf }}
                         {% set principal = item.tipo.value == 'principal' %}
-                        <span class="badge rounded-pill ms-1 oab-selo-tipo {{ principal ? 'text-bg-primary' : 'text-bg-secondary' }}"><i class="bi {{ principal ? 'bi-star-fill' : 'bi-diagram-2' }} me-1"></i>{{ (principal ? 'plataforma.oab.principal' : 'plataforma.oab.suplementar')|trans|upper }}</span>
+                        <span class="badge ms-1 oab-selo-tipo {{ principal ? 'text-bg-primary' : 'text-bg-secondary' }}"><i class="bi {{ principal ? 'bi-star-fill' : 'bi-diagram-2' }} me-1"></i>{{ (principal ? 'plataforma.oab.principal' : 'plataforma.oab.suplementar')|trans|upper }}</span>
                     </td>
                     <td>{% if (item.oabNomeOficial ?? null) is not null %}{{ item.oabNomeOficial }}{% else %}<span class="text-muted small">{{ 'plataforma.oab.nao_informado'|trans }}</span>{% endif %}</td>
                     <td>{% include '_oab_status.html.twig' with {status: item.oabStatus, size: 'sm'} only %}</td>
