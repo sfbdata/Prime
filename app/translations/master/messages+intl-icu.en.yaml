@@ -1,0 +1,1513 @@
+master:
+    painel:
+        titulo_pagina: 'Edit Role | System {papel}'
+        titulo: 'Edit Role: System {papel}'
+        voltar: Back
+        cancelar: Cancel
+        aba:
+            painel: System dashboard
+            permissoes: Permissions
+            recursos: Screens and features
+            ia: AI settings
+            voto: Voting
+        faixa: Master-only dashboard. It shows account metadata (counts, usage, status), never the legal content of the firms.
+        carregando: Loading the dashboard…
+        masters:
+            titulo: System Masters
+            contagem: '{n} Master(s)'
+            tag: '{papel} {nivel}'
+            primario_dica: The primary Master cannot be deleted
+            remover: Remove this Master
+            vazio: No user with the Master role.
+            oab: 'OAB {numero}'
+            sem_oab: no OAB
+            sem_perfil: no role
+            promover_titulo: 'Promote to {papel}'
+            promover_campo: User to promote to Master
+            promover_escolha: Choose a user from the account *
+            promover_info: Must already be registered as a user of the account.
+            promover_msg: A secondary Master has the system powers but cannot delete the primary Master. Every promotion and removal goes to the audit trail.
+            promover: Promote
+        poderes:
+            titulo: Master-only powers
+            fixos_dica: Fixed, cannot be removed or transferred
+            ver_contas: View and manage all BlueJus accounts
+            suspender: Suspend, reactivate, and delete accounts
+            limites: Set storage and user limits
+            planos: Create and change plans and allowances
+            configuracoes: Global system settings
+            auditoria: Access the entire system audit trail
+            masters: Promote and remove secondary Masters
+            sem_tempo: No time restriction to edit or delete
+            rodape: These powers exist only in the Master role. Primary and secondary users of the firms never receive them.
+        papeis:
+            titulo: Duties by role
+            faz: 'Does:'
+            nao_faz: 'Does not:'
+            master_quem: The creator of BlueJus (primary Master) and whoever they promote (secondary Master).
+            master_faz: 'runs the platform: accounts, limits, plans, costs, infrastructure, global settings, and system audit.'
+            master_nao_faz: does not act inside the firms or read the legal content of the accounts; has no primary or secondary role.
+            primario_quem: Whoever opened the account (owner) and the partners they promote.
+            primario_faz: 'manages their own firm: invites and manages secondary users, creates roles, sets permissions, configures modules, and audits the account.'
+            primario_nao_faz: does not see or change other accounts, contracted limits, or system settings.
+            secundario_quem: Team member invited by the primary user.
+            secundario_faz: works on the matters, cases, and modules enabled by their role.
+            secundario_nao_faz: does not manage users, roles, or settings, and has no access to the system dashboard.
+            rodape: Each role has separate duties. The Master does not receive firm permissions and the primary user does not receive system powers.
+        recursos:
+            titulo: System screens and features
+            texto: Turn off a screen or feature while it is not ready, for ethical compliance, or because of a failure. Non-Master users stop seeing it; the Master keeps seeing it, marked in red.
+            desativados: '{n} turned off for users'
+            tudo_ativo: Everything on
+            busca: Search screen or feature
+    seccionais:
+        nao_encontrada: Section not found.
+        token_invalido: Invalid CSRF token. Reload the page.
+        subsecao_adicionada: 'Subsection added to {seccional}.'
+        subsecao_removida: 'Subsection removed from {seccional}.'
+        nota_salva: 'Note for {seccional} saved.'
+        nota_apagada: 'Note for {seccional} deleted.'
+        nota_cidade_salva: 'Note for {cidade} saved.'
+        nota_cidade_apagada: 'Note for {cidade} deleted.'
+        sede_atualizada: 'Headquarters of {seccional} updated.'
+        divulgacao_registrada: 'Outreach recorded for {seccional}: {status}.'
+        visivel: '{seccional} appears on the map.'
+        oculta: '{seccional} hidden on the map.'
+        todas_visiveis: All sections appear on the map.
+        recusa:
+            status_de_divulgacao: Choose the outreach status.
+            cor_da_marca: Choose the marker color.
+            data_formato: Enter the date in day, month, and year format.
+            data_no_futuro: The outreach date cannot be in the future.
+            nota_longa: 'The note exceeds {limite} characters.'
+            cidade_obrigatoria: Enter the city of the subsection.
+            cidade_da_nota_obrigatoria: Enter the city of the note.
+            cidade_da_nota_fora_das_capitais: The per-city note applies only to the state capital.
+            visibilidade: Indicate whether the section appears on the map.
+            cidade_longa: 'The city exceeds {limite} characters.'
+            endereco_obrigatorio: Enter the address of the subsection.
+            nome_longo: 'The name exceeds {limite} characters.'
+            endereco_longo: 'The address exceeds {limite} characters.'
+            telefone_longo: 'The phone number exceeds {limite} characters.'
+            site_longo: 'The website exceeds {limite} characters.'
+            site_sem_https: 'Enter the full website address, starting with http:// or https://.'
+            subsecao_nao_encontrada: Subsection not found.
+        tipo:
+            material: Material sent
+            reuniao: Meeting
+            parceria: Partnership
+        status:
+            env: Material sent
+            vis: Meeting or event
+            neg: In negotiation
+            cli: Partnership signed
+            ret: Follow up later
+            sem: Agreement made
+    contas:
+        sessao_expirada: Session expired. Reload the page.
+        suspensa: 'Account "{nome}" suspended.'
+        reativada: 'Account "{nome}" reactivated.'
+        excluida: 'Account "{nome}" deleted. It stays in quarantine until purged and can be recovered by the {papel}.'
+    planos:
+        informe_espaco_e_preco: Enter the space in GB and the price in reais.
+        plano_atualizado: 'Plan "{nome}" updated.'
+        faixas_atualizadas: Alert thresholds updated.
+        limite_arm_atualizado: Storage limit updated.
+        limite_usu_atualizado: User limit updated.
+    faixa_etaria:
+        intervalo: '{min} to {max}'
+        ou_mais: '{min} or older'
+    mapa_brasil:
+        titulo: Map of Brazil by state
+        carregando_mapa: Loading map…
+        carregando_municipios: Loading municipalities…
+        voltar: Back to the map of Brazil
+        regiao_sub: 'Region {regiao}'
+        regiao:
+            norte: North
+            nordeste: Northeast
+            centro_oeste: Center-West
+            sudeste: Southeast
+            sul: South
+        pessoas: '{n} user(s)'
+        inscricoes: '{n} signup(s)'
+        ind_env: '{n} referral(s) sent'
+        ind_ok: '{n} account(s) opened'
+        ind_pago: 'R$ {n} paid'
+        municipios: '{n} municipalities'
+        municipio: Municipality
+        cidade_nao_informada: City not provided
+        cidades_vazias: Cities not provided in the registration yet.
+        sem_usuarios_estado: No users in this state. Expansion opportunity.
+        sem_usuarios: no users
+        sem_atuacao: no activity
+        dica_estado: ' · click for details · right-click to mark'
+        dica_estado_oab: ' · click for details · right-click to record outreach'
+        erro_municipios: Could not load the IBGE municipalities right now.
+        erro_mapa: Could not load the IBGE map right now.
+        arraste: Drag to move
+        aproximar: Zoom in
+        afastar: Zoom out
+        ajustar: Fit to map
+        marcar_municipio: MARK MUNICIPALITY
+        marcar_estado: MARK STATE
+        remover_marcacao: Remove mark
+        sec_nome: 'OAB/{uf} · {estado}'
+        sec_titulo: 'OAB/{uf} · {estado} · no outreach recorded'
+        sec_titulo_marca: 'OAB/{uf} · {estado} · {status} on {data}'
+        registrar: Record outreach
+        registrar_botao: Record
+        data: Outreach date
+        registrando: Recording…
+        erro_registrar: Could not record right now. Reload the page.
+    notificacoes:
+        selecionar: Select
+        atualizar: Refresh
+        marcar_lida: Mark as read
+        nao_lida: Unread
+        arquivar: Archive
+        selecionadas: selected
+        buscar: Search message
+        pagina_vazia: 0 of 0
+        mais_novas: Newest
+        mais_antigas: Oldest
+        aba:
+            rec: Received
+            rec_sub: Everything that arrived
+            nl: Unread
+            nl_sub: Not opened yet
+            est: Starred
+            est_sub: Marked
+            resp: Answered
+            resp_sub: Already answered
+            arq: Archived
+            arq_sub: Out of the inbox
+        vazio: No messages here.
+        voltar: Back
+        estrela: Star
+        para: 'to System {papel}'
+        abrir_indicacoes: Open Referrals
+        resposta: Reply
+        enviar: Send reply
+        token_invalido: Invalid CSRF token. Reload the page.
+        escolha_mensagens: Choose the messages and the action.
+        recusa:
+            nao_encontrada: Message not found.
+            sem_texto: Write the reply.
+            texto_longo: The reply exceeded 5,000 characters.
+            nao_aceita: This message does not accept replies.
+            sem_destino: There is no one left to reply to for this message.
+    indicacoes:
+        titulo: BlueJus Referrals
+        pausar_todos: Pause invitations for everyone
+        liberados: Invitations enabled
+        limite_dia: DAILY LIMIT (PER PERSON)
+        limite_dia_dica: Each user can send at most this number of invitations in 24 hours. Beyond that, the system blocks and asks to try again the next day.
+        limite_mes: MONTHLY LIMIT
+        limite_mes_dica: Each user can send at most this number of invitations in 30 days.
+        alerta: ALERT IN CHAT FROM (24H)
+        alerta_dica: 'If someone sends this number of invitations in 24 hours, the {papel} receives an alert in the AI Chat (high invitation volume), to identify misuse.'
+        regras: Invitation security rules
+        regras_dica: Only users with a name, phone number, and CPF on record can send invitations. The invitation always carries the sender name and a short trackable link (bluejus.com.br/i/…), which shows who the referral came from.
+        token_invalido: Invalid CSRF token. Reload the page.
+        informe_pausa: Indicate whether invitations are paused or enabled.
+        informe_inteiros: Enter the limits as whole numbers.
+    recompensas:
+        titulo: Refer and Earn program rules
+        campo_valor: REWARD PER FIRM (R$)
+        campo_libera: UNLOCKS AT (ACTIVE FIRMS)
+        campo_carencia: WAITING PERIOD (DAYS OF ACTIVE USE)
+        campo_alerta: ANTI-FRAUD ALERT (ACCOUNTS IN 7 DAYS)
+        so_com_pasta: Only counts firms with open matters
+        unico: One-time payment per unlocked firm · recurring only for partners ★
+        unico_dica: 'Monthly recurrence only by individual partner terms (⋮ menu › Individual terms)'
+        nota: The reward only becomes available when the user reaches the number of active firms. Use ★ Adjust to set an individual amount.
+        indicadores: Referrers
+        busca: Name, email, or firm
+        vazio: No referrer in this filter.
+        col_usuario: USER
+        col_envios: SENT
+        col_contas: ACCOUNTS
+        col_ativos: ACTIVE TO UNLOCK
+        col_por_conta: PER ACCOUNT
+        col_saldo: BALANCE
+        col_pago: PAID
+        col_situacao: STATUS
+        col_acoes: ACTIONS
+        dialogo:
+            titulo: Referrer individual terms
+            valor: Reward per firm (R$)
+            libera: UNLOCKS AT (FIRMS)
+            carencia: WAITING PERIOD (DAYS)
+            vazio_geral: Empty = general rule
+            recorrente: Recurring partner (monthly credit)
+            mensal: PER MONTH, PER ACTIVE FIRM (R$)
+            mensal_dica: Only counts an active firm that opened a matter in the last 30 days and has no suspicion flag.
+            aviso: Individual terms are kept even when the general rule changes.
+            motivo: Reason (contract, partnership, agreement…)
+            cancelar: Cancel
+            salvar: Save terms
+            fechar: Close
+        extrato:
+            titulo: Statement of payments and releases
+            exportar: Export CSV
+            vazio: No payment or release yet.
+        lancamento:
+            titulo: Post credit or reversal
+            valor: Amount (R$)
+            dica: Use a negative amount to reverse
+            observacao: Note (optional)
+            cancelar: Cancel
+            lancar: Post
+        baixa:
+            titulo: Mark as paid · record payment
+            valor: Amount paid (R$)
+            forma: Payment method
+            confirmar: Confirm payment
+        recebimento:
+            titulo: Payment details
+            nome: Name of the recipient
+            documento: CPF or CNPJ
+            documento_dica: 'The system stores the gross amount and does not calculate tax; this record is what the accountant uses.'
+            pix: PIX key (optional)
+            pix_dica: 'Shown in the payment dialog so you can check it before paying.'
+            pix_sugestao: 'Key provided by the referrer:'
+            pix_usar: Use
+            salvar: Save details
+        apagar:
+            titulo: Delete referrer from the list
+            rotulo: Type APAGAR to confirm
+            dica: 'They leave the rewards list; the statement stays saved.'
+            cancelar: Cancel
+            apagar: Delete
+        csv:
+            data: Date
+            usuario: User
+            email: Email
+            tipo: Type
+            valor: Amount
+            observacao: Note
+            credito: Manual credit
+            estorno: Reversal
+            pago: Payment
+            forma: Method
+            forma_pix: PIX
+            forma_transferencia: Transfer
+            forma_desconto_na_mensalidade: Discount on the subscription
+            forma_credito_de_espaco: Storage credit
+        token_invalido: Invalid CSRF token. Reload the page.
+        indicador_nao_encontrado: Referrer not found.
+        corpo_invalido: Invalid request body.
+        suspeitas_mudou: The suspicion list changed. Reload the dashboard and review again.
+    ia:
+        instalacao:
+            titulo: Installation
+            intro: 'These two items live on the server and are technical settings of the BlueJus team; the status of each one appears here.'
+            chave_api: API key
+            trava: Server safety key
+            trava_desc: 'BlueJus AI only works with it and with the master switch on; the technical part stays with the BlueJus team.'
+            nota: 'This screen neither shows nor receives the API key.'
+        chave_geral:
+            titulo: Master switch
+            rotulo: Turn on BlueJus AI for all enabled firms
+            desc: 'This switch is yours. When off, no firm uses AI, even if enabled, and whatever is in the queue is canceled.'
+        modelo:
+            titulo: Model
+            campo: ANTHROPIC MODEL
+        retencao:
+            titulo: Response retention
+            campo: KEEP AI RESPONSES FOR N MONTHS
+            aviso: 'BlueJus AI responses and questions older than this are deleted every day at 00:20; only the cost figures remain.'
+        escritorios:
+            titulo: Firms
+            nota: 'To use AI, the firm must be enabled here and its administrator must turn AI on and give consent. In "Included in the plan" and "Paid add-on", AI stops when the month spending reaches the budget and returns on the 1st; in "Free limit, then charge", the budget is the free portion and AI keeps running. With no budget, there is no dollar cap. Values are estimated at Anthropic list price.'
+            col_nome: Firm
+            col_liberado: Enabled
+            col_aceite: Firm consent
+            col_cobranca: Billing
+            col_orcamento: Monthly budget (US$)
+            col_analises_mes: Analyses this month
+            col_gasto_mes: Spending this month (US$)
+        recusa:
+            token_invalido: Invalid CSRF token. Reload the page.
+            informe_ligada: Indicate whether the master switch is on or off.
+            modelo_invalido: Choose a model from the list.
+            informe_liberada: Indicate whether the firm is enabled or blocked.
+            modo_invalido: Choose a billing mode from the list.
+            orcamento_invalido: Enter the budget in dollars, with up to two decimal places.
+            escritorio_nao_encontrado: Firm not found.
+            retencao_invalida: Enter the months as a whole number.
+        juridico:
+            titulo: Legal issues
+            em_aberto: 'Open: {n}'
+            nota: 'For Dr. Farlei: each issue shows the problem, the risk, the options, the suggestion, and the sources. Mark the status of each issue. The documents to download and to upload the adjusted version are at the end of the page. While there is an unresolved issue, a notice appears at the top of the Master screens. It disappears after you click "view the issues" and only returns if a new open issue appears.'
+            vazio: No legal issue in the catalog.
+            problema: Problem
+            risco: Risk
+            opcoes: Options
+            sugestao: Suggestion
+            fontes: Sources
+            documentos: Documents to update
+            documentos_titulo: Legal documents
+            documentos_aviso: Each upload replaces the document in all issues.
+            status: Status
+            risco_alto: High risk
+            risco_medio: Medium risk
+            risco_baixo: Low risk
+            baixar_atual: Download the current one
+            enviar: Upload adjusted version
+            versoes: Versions uploaded
+            versao_item: '{nome}, uploaded by {por} on {quando}'
+            versao_questao: '(issue: {questao})'
+            baixar: Download
+            sem_versao: No version uploaded.
+            campo_status: ISSUE STATUS
+            historico_item: '{de} to {para}, by {por} on {quando}'
+            sem_historico: No status changes.
+            recusa:
+                documento_nao_encontrado: Document not found.
+                questao_nao_encontrada: Legal issue not found.
+                sem_arquivo: Choose the file to upload.
+                status_invalido: Choose a status from the list.
+    voto:
+        liberacao:
+            titulo: Enablement per firm
+            nota: Voting only appears for the firm enabled here and while it is turned on in Screens and features. Every firm starts in demo mode.
+            col_nome: Firm
+            col_liberado: Enabled
+        estatisticas:
+            titulo: Statistics for all votes
+            exportar: Export CSV
+            categoria: Category
+            todas: All
+            nota: Aggregate numbers only. The role does not run votes and has no access to anyone vote.
+            situacao:
+                aguardando: Published
+                aberta: Vote open
+                encerrada: Closed
+                cancelada: Canceled
+                retirada: Withdrawn from the agenda
+            quorum:
+                atingido: Reached
+                nao_atingido: Not reached
+                nao_exigido: Not required
+        recusa:
+            token_invalido: Invalid CSRF token. Reload the page.
+            informe_liberado: Indicate whether the firm is enabled or blocked.
+            categoria_invalida: Choose a category from the list.
+            escritorio_nao_encontrado: Firm not found.
+    masters:
+        promovido: '"{nome}" is now a secondary {papel}.'
+        removido: '"{nome}" is no longer a {papel}.'
+        recusa:
+            so_primario: Only the primary Master can promote or remove Masters.
+            outro_escritorio: Enter the user firm to promote them to Master.
+            sem_escolha: Choose a registered user.
+            conta_desativada: This user account is deactivated.
+            ja_master: This user is already a Master.
+            so_usuario_ativo: Only active users of this account can be promoted to Master.
+            nao_e_master: This user is not a Master.
+            excluir_primario: The primary Master cannot be deleted.
+    mapa:
+        titulo_mundo: World map by country
+        carregando_mapa: Loading map…
+        carregando: Loading…
+        voltar: Back
+    revisao_oab:
+        token_invalido: Invalid CSRF token. Reload the page.
+        nao_encontrada: Registration not found. Reload the list.
+        inscricao_mudou: The registration changed since the list was opened. Reload and check again.
+        frequencia_sem_cna: Available when the CNA lookup is turned on.
+        rodada: 'Automatic validation: {conferidas} registration(s) checked, {invalidas} with invalid format. The CNA lookup is unavailable, so name and status were not checked: confirm by name in the CNA.'
+    js:
+        carregando: Loading…
+        erro_secao: Could not load this section right now. Reload the page.
+        sem_informacao: no information
+        gb_menos: 'less than {n} GB'
+        cancelar: Cancel
+        fechar: Close
+        campo:
+            nome: NAME
+        secao:
+            visao: Overview
+            contas: Accounts and firms
+            oab: Users and OABs
+            arm: Storage
+            planos: Plans and limits
+            custos: Costs and infrastructure
+            desemp: Performance
+            audit: Security and audit
+            config: Global settings
+            com: Sales and emails
+            ind: BlueJus Referrals
+            recomp: Rewards
+            notif: Notification Center
+            roab: OAB Review
+        vazia:
+            aviso: DATA NOT COLLECTED YET · INTEGRATION NOT AVAILABLE YET
+            custos:
+                texto: Shows how much it costs to keep BlueJus running and the impact of each account, separating measured, vendor-imported, and estimated costs. Without a financial integration, values can be entered manually, with the source identified.
+                armazenamento: Storage
+                banco: Database
+                hospedagem: Hosting
+                trafego: Traffic
+                backups: Backups
+                apis_ia: AI APIs
+                notificacoes: Notifications
+                receita: Recurring revenue
+                custo_conta: Cost per account
+                custo_gb: Cost per GB
+                margem: Margin per plan
+                projecao: 3, 6, and 12 month projection
+            desemp:
+                titulo: Performance and availability
+                texto: Technical health of the platform, with history filterable by severity, period, and category. Metrics not collected appear as unavailable, never estimated.
+                disponibilidade: Availability
+                tempo_resposta: Response time
+                erros: Errors
+                falhas_upload: Upload failures
+                falhas_login: Login failures
+                ultimo_backup: Last backup
+                teste_restauracao: Restore test
+                cpu_memoria: CPU and memory
+                integracoes: Integrations
+                incidentes: Incidents
+            config:
+                texto: Parameters that apply to all accounts. Each change requires confirmation and goes to the audit trail.
+                faixas: Default alert thresholds
+                periodo_teste: Trial period
+                excedente: Overage policy
+                excecoes: Temporary exceptions
+                autenticacao: Enhanced authentication
+                retencao: Audit retention
+        visao:
+            kpi:
+                escritorios: FIRMS
+                escritorios_desc: '{ativas} active · {suspensas} suspended'
+                primarios: PRIMARY USERS
+                primarios_desc: who opened the firm and the partners
+                secundarios: SECONDARY USERS
+                secundarios_desc: invited across all accounts
+                oab: UNIQUE OABs
+                oab_desc: '{registros} records · {duplicados} duplicate(s)'
+                pastas: MATTERS
+                pastas_desc: sum of all accounts
+                documentos: DOCUMENTS
+                documentos_desc: stored files
+                armazenamento: STORAGE
+                arm_sem_dado: 'contracted: no information · time clock and tasks not measured'
+                arm_desc: 'of {cota} GB contracted · free {livre}'
+                arm_sem_limite: '+ {gb} in {n} account(s) without a limit'
+                receita: MONTHLY REVENUE
+                receita_desc: no financial integration yet
+            grafico:
+                titulo: Growth
+                tit_contas: registered accounts
+                tit_usuarios: users (primary + secondary)
+                tit_pastas: matters in the system
+                tit_gb: storage in GB
+                met_contas: Accounts
+                met_usuarios: Users
+                met_pastas: Matters
+                met_gb: Storage (GB)
+                diario: Daily
+                por_mes: By month
+                por_ano: By year
+                continua: Continuous line
+                acumulado: Cumulative
+                novos: New in the month
+                todos_anos: All years
+                acessos: System visits
+                acessos_max_dia: 'System visits · max {n}/day'
+                acessos_max_mes: 'System visits · max {n}/month'
+                acessos_dica: Show or hide the visits line (own scale)
+                mes:
+                    jan: jan
+                    fev: feb
+                    mar: mar
+                    abr: apr
+                    mai: may
+                    jun: jun
+                    jul: jul
+                    ago: aug
+                    set: sep
+                    out: oct
+                    nov: nov
+                    dez: dec
+            idades:
+                titulo: User age range
+                media: 'average age {valor}'
+                anos: '{n} years'
+                nota: Calculated from the birth date in My Profile. {n} user(s) without a date are not counted.
+                menores: '{n} under 18 are not included in the ranges.'
+        mapa:
+            titulo: Where we operate
+            por_estado: users by state
+            por_seccional: registrations by OAB section
+            por_pais: users by country
+            oab: OAB
+            inscricoes: Registrations
+            total: '{n} in total'
+            pessoas: People
+            escritorios: Firms
+            primarios: Primary
+            geral: Overall
+            so_primarios: Primary only
+            indicacoes: Referrals
+            ind_env: Referrals sent
+            ind_ok: Accounts opened
+            ind_pago: Rewards paid (R$)
+            col_ind_env: Referrals
+            col_ind_ok: Accounts
+            col_ind_pago: R$ paid
+            por_estado_ind: referrals by the referrer state
+            brasil: Brazil
+            mundo: World
+            estado: State
+            pais: Country
+            outros_paises: Other countries
+            sem_endereco: No address on record
+            sem_localizacao: No location on record
+            sem_localizacao_dica: No City/State assignment, no OAB state, and no firm state
+            total_geral: Grand total
+            tendencia: '{ag} in the last 30 days · {an} in the previous 30'
+            tendencia_so_pessoas: Trend measured for people only
+            escala_menos: less
+            escala_mais: more
+            malha: 'State boundaries: IBGE'
+            iframe_brasil: Map of Brazil by state
+            iframe_mundo: World map by country
+            regiao:
+                norte: North
+                nordeste: Northeast
+                centro_oeste: Center-West
+                sudeste: Southeast
+                sul: South
+                america_sul: South America
+                america_norte: North and Central America
+                europa: Europe
+                lusofonia: Lusophone countries
+        faltam:
+            dica: Show where we still have no users
+            ocultar: Hide what is missing
+            estados: Missing states
+            paises: Missing countries
+            cobertura: 'Coverage:'
+            cobertura_valor: '{feitos} of {total} ({pct}%)'
+            faltam: '{n} to go to reach {meta}'
+            meta_estados: 'all {n} states'
+            meta_capitais: 'all {n} capitals'
+            modo_estados: States
+            modo_capitais: Capitals
+            meta_paises: 'all {n} target countries'
+            rodape: Expansion opportunities
+        seccionais:
+            carregando: Loading the sections…
+            erro_carga: Could not load the sections right now. Reload the page.
+            erro_salvar: Could not save right now. Reload the page.
+            titulo: VISIBLE SECTIONS
+            mostrar_todas: Show all
+            todas_visiveis: All visible
+            nota: 'Click a section to see its headquarters. Right-click on the list shows or hides it on the map; right-click on the map records outreach (material sent, meeting, partnership). The colored dot marks a section already worked. Source: OAB Federal Council.'
+            linha: 'OAB/{uf} · {estado}'
+            chip_titulo: 'OAB/{uf} · {estado} · click to see the headquarters, right-click to show or hide on the map'
+            chip_titulo_marca: 'OAB/{uf} · {estado} · {status} on {data} · click to see the headquarters, right-click to show or hide on the map'
+            cartao_titulo: 'OAB/{uf} · {estado} Section'
+            inscricao_um: 1 registration of BlueJus users
+            inscricoes: '{n} registrations of BlueJus users'
+            sem_endereco: 'Headquarters address: see the official page'
+            site: Section website
+            cfoab: Official address (CFOAB)
+            editar_sede: Edit headquarters
+            salvar_sede: Save headquarters
+            campo_endereco: 'Headquarters address of OAB/{uf} (copy from the official CFOAB page)'
+            campo_telefone: Section phone number (optional)
+            campo_site: 'Official section website (https://...), optional'
+            sede_ajuda: Check the data on the CFOAB website. An empty field stays without information. The change is recorded in the audit trail.
+            site_invalido: 'Enter the full website address, starting with http:// or https://.'
+        janela_oab:
+            dica: See OAB addresses and write a note
+            exemplo: 'E.g.: contact the subsection president, send material in November'
+            titulo_cidade: '{cidade} · {uf}'
+            sub_estado: 'OAB/{uf} section and registered subsections'
+            sub_cidade: 'OAB subsection and OAB/{uf} section'
+            tem_nota: Has note
+            sede: SECTION · HEADQUARTERS
+            editar: Edit
+            sem_endereco_sede: Address not registered yet
+            campo_endereco_sede: 'Headquarters address of OAB/{uf}'
+            campo_telefone: Phone (optional)
+            campo_site: 'Official website (https://...), optional'
+            ver_mapa: View on map
+            site_oficial: Official website
+            subsecoes_titulo: SUBSECTIONS
+            adicionar_endereco: Add address
+            subs_vazio: 'No subsection registered. {link} and add it.'
+            pesquisar: Search for the official address
+            busca_estado: 'OAB seccional {estado} endereço'
+            busca_cidade: 'OAB subseção {cidade} {estado} endereço'
+            campo_cidade: Subsection city
+            campo_nome: 'Name (e.g., Subsection of {cidade})'
+            nome_padrao: 'Subsection of {cidade}'
+            campo_endereco_completo: Full address
+            remover: Remove
+            adicionar: Add
+            nota: EXPLANATORY NOTE
+            salvar_nota: Save note
+            nota_salva: 'Note saved on {data}'
+            remover_titulo: Remove this address?
+            remover_texto: 'The address "{nome}" leaves the section list. The removal is recorded in the audit trail.'
+        sem_limite: no limit
+        erro_acao: Could not complete the action. Reload the page.
+        situacao:
+            ativa: Active
+            suspensa: Suspended
+            a_pedido: Suspended on request
+            quarentena: In quarantine
+        faixa:
+            livre: Normal
+            atencao: Attention
+            alerta: Alert
+            critico: Critical
+            bloqueio: Limit reached
+            chip_bloqueio: Blocked
+        contas:
+            convites: Invitations
+            todas_situacoes: All statuses
+            busca: Search code, account, or primary user
+            ordenar: Sort accounts
+            ordem_num: 'Order: account no.'
+            ordem_nome: 'Order: name (A-Z)'
+            ordem_usu: 'Order: most users'
+            ordem_arm: 'Order: most storage'
+            ordem_pastas: 'Order: most matters'
+            ordem_rec: 'Order: most recent'
+            codigo_dica: Account code
+            cab:
+                conta: ACCOUNT
+                primario_plano: PRIMARY · PLAN
+                usuarios: USERS
+                pastas: MATTERS
+                docs: DOCS
+                armazenamento: STORAGE
+                dias30: 30 DAYS
+                previsao: FORECAST
+                situacao: STATUS
+            contagem: '{n} · right-click a row for actions'
+            numero_dica: Account number (order of opening)
+            numero: 'No. {numero}'
+            desde: 'since {desde} · last access {acesso}'
+            sem_registro: no record
+            hoje: today
+            ontem: yesterday
+            ha_dias: '{n} days ago'
+            titular_ausente: owner not recorded
+            estavel: stable
+            sem_previsao: no forecast
+            prev_menos: less than 1 month
+            prev_mes: '≈ {n} month'
+            prev_meses: '≈ {n} months'
+            purga_dica: Automatic purge runs at 3 AM, from this date
+            purga: deleted from
+            acoes: Account actions
+            nenhuma: No account found.
+            arm_nao_medido: usage not measured
+            arm_quarentena: account in quarantine
+            arm_em_uso: '{gb} in use'
+            arm_de: '{gb} of {limite} GB'
+            arm_livre: '{faixa} · free {livre}'
+            arm_bonus: 'Includes {gb} GB bonus ({origem}) until {data}'
+            arm_bonus_indicacao: referral
+            aviso_ok: Account status updated.
+        pedidos:
+            titulo: 'Account deletion requests · {n}'
+            sub: suspended accounts awaiting your decision
+            autor_ausente: requester not recorded
+            reativar: Reactivate
+            excluir: Delete account
+        menu:
+            lim_arm: Edit storage limit
+            lim_usu: Set user limit
+            estat: Usage statistics
+            hist: Change history
+            suspender: Suspend account
+            reativar: Reactivate account
+            excluir: Delete account
+        conf:
+            suspender:
+                titulo: Suspend account
+                botao: Suspend
+                texto: 'Users of "{nome}" lose access until reactivation. No data is deleted.'
+            reativar:
+                titulo: Reactivate account
+                botao: Reactivate
+                texto: 'The account "{nome}" returns to normal access.'
+            excluir:
+                titulo: Delete account
+                botao: Delete account
+                texto: 'The account "{nome}" goes offline now and is permanently deleted in {dias} days. Until then, it can be recovered by the {papel}.'
+        usuarios_oab:
+            kpi:
+                registros: WITH OAB PROVIDED
+                registros_desc: records in the registrations
+                unicas: UNIQUE REGISTRATIONS
+                unicas_desc: after normalizing number and state
+                duplicadas: DUPLICATES
+                duplicadas_desc: same registration repeated
+                nao_validadas: NOT VALIDATED
+                nao_validadas_desc: do not count as a confirmed attorney
+                ufs: STATES
+                ufs_desc: states with a registration
+            pend:
+                sem_uf: '{conta}: {inscricao} without OAB state'
+                sem_numero: '{conta}: user without an OAB number'
+                aguardando: '{conta}: {normalizada} awaiting validation'
+                divergente: '{conta}: {normalizada} differs from the OAB record'
+                formatacao: '{conta}: "{inscricao}" normalized to {normalizada}'
+                tag_incompleto: INCOMPLETE
+                tag_nao_validada: NOT VALIDATED
+                tag_formatacao: FORMATTING
+            distribuicao: Distribution by state
+            sem_inscricao: No registration provided.
+            pendencias: Registrations with pending issues
+            sem_pendencia: No pending issues.
+            nota: 'Normalized count: number without dots and leading zeros + state in uppercase. A registration only counts as confirmed after validation.'
+            revisao: Open OAB Review
+        arm:
+            faixas_titulo: Usage alert thresholds
+            configuraveis: (configurable)
+            a_partir: '{faixa} from'
+            faixas_nota: At the limit (100%), new uploads above capacity are blocked. Viewing, downloading, and exporting stay available. No document is deleted automatically.
+            bloquear: 'Block new uploads at the {faixa} threshold'
+            aviso_bloqueio: Before turning on, check the firms above their plan and set no limit or a custom quota.
+            erro_faixas: The thresholds must increase in order, from 1% to 100%.
+            salvar_faixas: Save thresholds
+            dup:
+                cobrado: ACTUAL SPACE · BILLED
+                cobrado_desc: what each account pays for (all files)
+                cobrado_dica: Sum of each file in each matter. This is what counts toward the limit and billing, even when the file is virtual
+                fisico: PHYSICAL SPACE · SERVER
+                fisico_desc: the storage BlueJus buys
+                fisico_dica: Unique files actually written to the server
+                virtual: VIRTUAL SPACE · SAVED
+                virtual_desc: '{pct}% of the billed space does not use the server'
+                virtual_vazio: no data yet
+                virtual_dica: 'Repeated files recognized by their fingerprint (the file CPF): billed to the account, but stored only once. It becomes revenue margin'
+                arquivos: FILES
+                arquivos_desc: '{reais} real · {virtuais} virtual'
+                arquivos_dica: 'Real: stored on the server. Virtual: points to an identical real file'
+            ranking: Accounts by usage
+            nenhuma: No account.
+            editar_limite: Edit limit
+            nota: 'Sum of files with a stored size (matters outside the trash, clients, cases, collections, tickets, and kanban). Time clock justifications and task attachments have no size in the database: not measured.'
+        planos:
+            plano_free: '{nome} plan'
+            tag_free: 'OAB agreement · every new account starts here'
+            tag_escolhido: Most popular
+            inativo: inactive
+            por_mes: / month
+            cap: '<b>{gb} GB</b> of storage · unlimited users'
+            recursos: All features enabled
+            contas: '{n} account(s) · {acima} near or above the allowance'
+            ajustar: Adjust
+            ajustar_dica: Adjust price and space
+            editar: Edit plan
+            rotulo: STORAGE PLANS
+            faixa_titulo: OAB agreement · BlueJus free for attorneys
+            faixa_texto: All system features are enabled on every account, with no user limit. Billing exists only for those who want more storage space, as a monthly credit card subscription that can be canceled at any time.
+            nota: Every new account joins the Free Plan (10 GB) through the OAB agreement. From 90% usage, the primary user receives a notice in the system and by email suggesting more space; at 100%, new uploads are paused, but viewing and downloading files stays available and nothing is deleted. The storage subscription is monthly on a credit card, with no lock-in. Plan changes are recorded in the audit trail.
+        limite:
+            em_uso: IN USE
+            limite_atual: CURRENT LIMIT
+            livre: FREE
+            usuarios: USERS
+            vagas: OPEN SEATS
+            novo_arm: NEW LIMIT (GB)
+            novo_usu: NEW USER LIMIT
+            sem_limite: No limit (space and users)
+            nota_sem_limite: 'This account has no limit: the user limit only applies again when it has a space limit again.'
+            justificativa: REASON
+            justificativa_dica: Required, goes to the audit trail
+            confirmar: Confirm change
+            msg_sem: 'No limit: the account no longer has a space or user limit. The change is recorded in the audit trail.'
+            msg_abaixo_arm: 'The new limit is lower than the volume in use ({gb}). Reducing does not delete files, so it is not allowed below usage.'
+            msg_abaixo_usu: Lower than the users already registered.
+            msg_inteiro: Enter a whole number.
+            msg_de_sem_arm: 'Changes from no limit to {n} GB. The change is recorded in the audit trail.'
+            msg_de_sem_usu: 'Changes from no limit to {n} users. The change is recorded in the audit trail.'
+            msg_diferenca_arm: 'Difference: {d} GB. The change is recorded in the audit trail.'
+            msg_diferenca_usu: 'Difference: {d} user(s). The change is recorded in the audit trail.'
+        plano_modal:
+            espaco: SPACE (GB)
+            preco: PRICE (R$)
+            limite_usuarios: USER LIMIT
+            vazio_sem_limite: empty for no limit
+            descricao: DESCRIPTION
+            ativo: Active plan
+            salvar: Save plan
+            msg_ok: 'The plan code ({codigo}) does not change. The change is recorded in the audit trail.'
+            msg_preencha: 'Fill in the name, the space in GB, and the price in reais (for example 19.90). Users: empty for no limit.'
+        audit:
+            titulo: Audit trail
+            contagem: '{n} record(s) · last {meses} months'
+            truncado: 'showing the {n} most recent'
+            todas_acoes: All actions
+            pdf: Generate PDF
+            todas_contas: Show all accounts
+            resumo:
+                limites: Limits
+                contas: Accounts
+                masters: Masters and primary users
+                alertas: Alerts
+            cab:
+                data: DATE AND TIME
+                responsavel: RESPONSIBLE
+                acao: ACTION AND ACCOUNT
+                detalhe: DETAILS
+            vazio: No record yet. Limit changes, suspensions, and deletions appear here. System sign-ins (login) are not audited.
+            por_pagina: Per page
+            pagina: 'Page {pagina} of {paginas}'
+            anterior: Previous
+            proxima: Next
+            gerando_pdf: Generating the PDF...
+            erro_pdf: Could not generate the PDF right now. Try again.
+        pdf:
+            titulo_janela: BlueJus Audit
+            titulo: System audit trail
+            gerado: 'Generated on {quando} by {quem} ({papel}) · {n} record(s)'
+            filtro: 'filter: {filtro}'
+            conta: 'account: {conta}'
+            rodape: 'BlueJus · document generated by the {papel} dashboard. Contains administrative metadata only.'
+        notificacoes:
+            erro_salvar: Could not save.
+            erro_carregar: Could not load the messages. Reload the page.
+            arquivar: Archive
+            desarquivar: Unarchive
+            pagina: '{ini}-{fim} of {total}'
+            pagina_vazia: 0 of 0
+            selecionar: Select
+            tirar_estrela: Remove the star
+            marcar_estrela: Mark with a star
+            respondida: Answered
+            responder_a: 'Reply to {quem}'
+            dica_email: 'Write your reply. It is sent by email to {email}.'
+            dica_central: Write your reply. It arrives as a notice in the sender Notification Center.
+            respondeu_contribua: '{nome} replied through the Contribute page'
+            voce_respondeu: You replied
+            respondeu: '{nome} replied'
+            enviada_email: Reply recorded and sent to the email queue.
+            enviada_central: Reply recorded and sent as a notice in the Notification Center.
+        convenio:
+            titulo: OAB agreement by state
+            resumo_todos: Agreement active in all 27 states · all attorneys use it for free
+            resumo_gratis: '{n} free'
+            resumo_dif: '{n} with a special price ({ufs})'
+            resumo_sem: '{n} without an agreement ({ufs})'
+            ajuda: 'Click a state to choose: free agreement, agreement with a special price, or no agreement (full monthly fee).'
+            desde: ' since {data}'
+            st_livre: Agreement active · free
+            st_dif: 'Agreement · special price {valor}/month'
+            st_sem: 'No agreement · {valor}/month'
+            p_menu: "OAB/{uf} · {estado} ({contas} account(s))\n\n1 · Agreement active, free\n2 · Agreement with a special price\n3 · No agreement (full monthly fee)\n\nChoose 1, 2, or 3:"
+            p_valor_dif: 'Special price under the OAB/{uf} agreement (R$ per month):'
+            p_valor_sem: "OAB/{uf} agreement ended or not renewed.\nMonthly fee charged to accounts in {estado} (R$):"
+            p_desde: 'Starting from (YYYY-MM-DD):'
+            p_motivo: 'Reason (optional):'
+            motivo_padrao: Agreement not renewed
+            valor_invalido: Invalid amount.
+            erro_salvar: Could not save. Try again.
+            erro_importar: Could not import the file. Try again.
+            importados: '{n} entry(ies) imported.'
+            importados_ignoradas: '{n} entry(ies) imported, {ignoradas} line(s) ignored.'
+            erro_carregar: Could not load the agreements.
+            rotulo_conta: 'OAB/{uf} agreement'
+            rotulo_conta_dif: 'OAB/{uf} agreement · special price {valor}/month'
+            rotulo_conta_sem: 'No agreement ({uf}) · {valor}/month'
+        metas:
+            titulo: Outreach goals
+            mercado_pre: 'Market:'
+            mercado_pos: practicing attorneys
+            quadro: Bar Association roll
+            ajustar: Adjust
+            auto: Automatic update
+            freq:
+                semanal: weekly
+                mensal: monthly
+                trimestral: quarterly
+            ultima: 'last: {ultima} · next: {proxima}'
+            nunca: not run yet
+            agora: Update now
+            fase: Move to the next phase when the goal is reached
+            manual: market set manually · back to automatic
+            fase1: Phase 1
+            fase2: Phase 2
+            chip: '{rotulo} · {valor}'
+            chip_dica: '{valor} attorneys'
+            usuarios_de: 'of {alvo} attorneys · {pct} of the goal · {faltam} to go'
+            estados: '{n} of 27 states reached'
+            cab:
+                uf: State
+                estado: State name
+                meta_estado: State goal
+                bluejus: BlueJus
+                oab: OAB
+                alcance: Reach
+            linha_dica: Click to see the cities
+            meta_uf_dica: Adjust the state goal
+            meta_n: '{n} attorneys'
+            alcancado: 'reached {pct}'
+            mais_10: Show only the top 10
+            mais_27: Show all 27 states
+            nota: 'Attorneys per state come from the OAB table on the map (⋮ › Update data). BlueJus and OAB update themselves from the database.'
+            cid_cab:
+                cidade: City
+                bluejus: BlueJus
+                pct_meta: '% of the state'
+                meta: Goal
+                progresso: Progress
+            buscar: Search city
+            cid_total: '{n} cities'
+            carregando: Loading IBGE cities…
+            sem_conta: No city with an account or goal yet. Search for a city or view all to set goals.
+            todas_cidades: 'View all {n} cities'
+            outra: Goal for another city
+            meta_fixa_dica: Goal set. Click to change
+            meta_sugerida_dica: Goal suggested from what is missing in the state. Click to set it
+            destacar: Highlight
+            cor:
+                amarelo: Yellow
+                azul: Blue
+                verde: Green
+                laranja: Orange
+                vermelho: Red
+                roxo: Purple
+            ver_cidades: View cities on the map
+            remover: Remove highlight
+            mapa_titulo: Map of Brazil
+            p_mercado: 'How many attorneys exist in the market? (OAB total)'
+            p_alvo: 'BlueJus user goal:'
+            p_invalido: Enter numbers greater than zero.
+            p_meta_uf: 'User goal in {estado} (empty returns to the automatic calculation):'
+            p_meta_cid: 'User goal in {cidade} ({uf}) (empty returns to the suggestion):'
+            p_cidade: 'City name in {estado}:'
+            p_meta_nova: 'User goal in {cidade}:'
+            confirma_fase: 'The goal of {alvo} users was reached. Move to the next phase ({proxima})?'
+            erro_salvar: Could not save. Try again.
+            erro_carregar: Could not load the outreach goals.
+        indicacoes:
+            resumo: '{enviadas} sent · {hoje} today · {conta} became accounts'
+            liberar_todos: Enable invitations for everyone
+            pausar_todos: Pause invitations for everyone
+            pausados: Invitations paused for everyone
+            liberados: Invitations enabled
+            erro_carregar: Could not load the referrals. Reload the page.
+            erro_salvar: Could not save.
+        recompensas:
+            ativo: Program active
+            pausado: Program paused
+            kpi:
+                indicadores: REFERRERS
+                contas: ACCOUNTS OPENED
+                liberados: UNLOCKED
+                a_pagar: TO PAY
+                ja_pago: ALREADY PAID
+            filtro:
+                todos: All
+                pagar: To pay
+                lib: Unlocked
+                nao: Not unlocked yet
+                priv: ★ Individual terms
+            priv_n: '{n} with individual terms · not affected by the general rule'
+            sit:
+                liberado: Unlocked
+                carencia: '{n} in waiting period'
+                andamento: In progress
+                bloqueado: Blocked
+                analise_uma: 'Under review ({n} flag)'
+                analise_varias: 'Under review ({n} flags)'
+                alerta: 'Alert: {n} accounts in 7 days'
+            sit_dica_alerta: 'Many accounts created in a few days. The alert only flags: nothing is blocked.'
+            motivo:
+                escritorio: same firm as the referrer
+                cnpj: same CNPJ
+                dominio: same email domain
+            sit_dica_carencia: '{n} account(s) waiting {dias} days of active use to generate credit'
+            por_mes: '+ {valor}/month ↻'
+            dica_geral: Follows the general rule
+            dica_priv: 'Individual terms. Does not change when the general rule changes.'
+            dica_priv_motivo: 'Individual terms: {motivo}. Does not change when the general rule changes.'
+            dica_recorrente: 'Recurring partner: {valor} per month for each active firm that opened a matter in the last 30 days. {motivo}'
+            linha_dica: Right-click for more options
+            ajustar: Adjust
+            ajustar_dica: Adjust the reward amount
+            mais_opcoes: More options
+            menu_condicao: Individual terms (★)
+            menu_geral: Use the general rule
+            menu_copiar: Copy email
+            email_copiado: Email copied.
+            sem_email: No email.
+            pagar: Mark as paid
+            menu_lancamento: Post credit or reversal
+            menu_extrato: View this referrer statement
+            menu_csv: Download statement (CSV)
+            menu_aprovar: Review flags and approve
+            menu_bloquear: Block reward
+            menu_desbloquear: Unblock reward
+            menu_apagar: Delete from list
+            menu_baixa: Mark as paid (record payment)
+            menu_recebimento: Payment details
+            comprovante: View receipt
+            forma:
+                pix: PIX
+                transferencia: Transfer
+                desconto_na_mensalidade: Discount on the subscription
+                credito_de_espaco: Storage credit
+            baixa_dica: 'Available balance: {saldo} · PIX key: {pix}'
+            baixa_sem_pix: not registered
+            baixa_anexar: Attach receipt (PDF or image)
+            baixa_erro_valor: Enter an amount greater than zero and up to the balance.
+            baixa_ok: 'Payment of {valor} recorded for {nome}.'
+            recebimento_ok: 'Payment details for {nome} saved.'
+            recebimento_erro_carregar: Could not load the details already on record.
+            aprovar_titulo: 'Flags for {nome} ({n}):'
+            aprovar_pergunta: Approve and count these accounts?
+            aprovadas: 'Accounts approved for {nome}.'
+            bloqueada: 'Reward for {nome} blocked.'
+            desbloqueada: 'Reward for {nome} unblocked.'
+            erro_apagar: Type APAGAR to confirm.
+            apagado: '{nome} was removed from the list. The statement stays saved.'
+            tipo:
+                credito: Manual credit
+                estorno: Reversal
+                pago: Payment
+            extrato_todos: Show all
+            extrato_removido: Referrer removed
+            extrato_erro: Could not load the statement.
+            erro_valor: Enter the credit amount (use a negative amount to reverse).
+            lancado_credito: 'Credit of {valor} posted for {nome}.'
+            lancado_estorno: 'Reversal of {valor} posted for {nome}.'
+            vazio_geral: 'Empty = general rule ({valor})'
+            salvo: 'Individual terms for {nome} saved.'
+            voltou: '{nome} went back to the general rule.'
+            regras_salvas: Program rules saved.
+            erro_carregar: Could not load the rewards. Reload the page.
+            erro_salvar: Could not save.
+        ia:
+            gravada: installed
+            nao_gravada: not installed yet (technical setting of the BlueJus team)
+            ligada: on
+            desligada: off
+            ligada_todos: On for all enabled firms
+            preco: 'US$ {entrada} per million input tokens, US$ {saida} per million output tokens'
+            contagem: '{n} active'
+            cobranca: Billing
+            orcamento: Monthly budget in dollars
+            sem_orcamento: no budget
+            orcamento_atingido: budget reached
+            acima_do_gratis: above the free limit
+            sem_aceite: no consent
+            liberado: Enabled
+            bloqueado: Blocked
+            salvar: Save
+            salvo: '"{nome}" saved.'
+            modelo_salvo: Model saved.
+            retencao_salva: Retention saved.
+            ligou: BlueJus AI was turned on for the enabled firms.
+            desligou: BlueJus AI was turned off for everyone.
+            ligar_titulo: Turn on BlueJus AI for everyone
+            ligar_texto: 'AI starts working in all enabled firms that gave consent. Turn it on only after Anthropic confirms zero retention (ZDR) in writing.'
+            ligar_botao: Turn on for everyone
+            vazio: No active firm.
+            erro_carregar: Could not load the AI settings. Reload the page.
+            erro_salvar: Could not save.
+        ia_juridico:
+            em_aberto: 'Open: {n}'
+            status_salvo: 'Status of "{titulo}": {status}.'
+            enviando: Uploading…
+            enviado: '"{nome}" uploaded.'
+            erro_salvar: Could not save.
+            erro_enviar: Could not upload the file.
+            versao_item: '{nome}, uploaded by {por} on {quando}'
+            versao_questao: '(issue: {questao})'
+            baixar: Download
+            sem_versao: No version uploaded.
+            historico_item: '{de} to {para}, by {por} on {quando}'
+            sem_historico: No status changes.
+        voto:
+            contagem: '{n} active'
+            liberado: Enabled
+            bloqueado: Blocked
+            chave_rotulo: 'Enable Voting for {nome}'
+            liberou: 'Voting was enabled for "{nome}".'
+            bloqueou: 'Voting was blocked for "{nome}".'
+            vazio: No active firm.
+            erro_carregar: Could not load the Voting enablement. Reload the page.
+            erro_salvar: Could not save.
+            est_kpi_votacoes: Votes
+            est_kpi_realizadas: Held
+            est_kpi_andamento: In progress
+            est_kpi_aptos: Eligible in held votes
+            est_kpi_votantes: Voters in held votes
+            est_kpi_participacao: Participation in held votes
+            est_kpi_quorum: Quorum reached
+            est_kpi_quorum_valor: '{x} of {y}'
+            est_kpi_ocorrencias: Occurrences
+            est_kpi_pendentes: Pending reviews
+            est_kpi_mantidas: Ineligibilities upheld
+            est_kpi_tornados: Made eligible
+            est_ocorrencias: '{o} occurrence(s)'
+            est_ate: 'until {data}'
+            est_sem: No vote in this category.
+            est_numeros: '{n} of {m} voted ({pc})'
+            est_numeros_quorum: '{n} of {m} voted ({pc}) · Quorum: {quorum}'
+            est_erro_carregar: Could not load the statistics. Reload the page.
+        masters:
+            digite: 'Type {palavra} to confirm'
+            escolha: Choose a registered user.
+            promover_titulo: 'Promote to {papel}'
+            promover_botao: Confirm promotion
+            promover_texto: '"{nome}" will have all system powers (accounts, limits, plans, settings, and audit), as a secondary {papel}. They will not be able to delete the primary {papel}.'
+            remover: 'Remove {papel}'
+            remover_texto: '"{nome}" is no longer a {papel} and loses the system powers. The removal is recorded in the audit trail.'
+        recursos:
+            sem_motivo: No reason provided
+            volta_em: 'returns on {data}'
+            tela_inteira: Full screen
+            item_menu: Photo menu item
+            essencial: Essential
+            ativo: Active
+            desativado: Turned off
+            vazio: No screen or feature found.
+            desativados: '{n} turned off for users'
+            tudo_ativo: Everything on
+            erro: Could not change right now. Reload the page.
+            essencial_recusa: 'Essential screen: it cannot be turned off.'
+            pergunta_motivo: 'Reason shown to users (optional). E.g.: "Screen in preparation", "Ethics review", "Bug fix":'
+            motivo_padrao: Screen in preparation
+            pergunta_data: 'Turn back on automatically on (YYYY-MM-DD), or leave blank:'
+        mapa_mundo:
+            usuarios: '{n} user(s)'
+            por_estado: '{n} user(s) · by state'
+            por_regiao: '{n} user(s) · by region'
+            sem_usuarios: no users
+            sem_atuacao: no activity
+            dica: '{nome}: {qtd}'
+            dica_detalhar: '{nome}: {qtd} · click for details'
+            estados_nao_informados: States not provided yet.
+            regioes_nao_informadas: Regions not provided in the registration yet.
+            nenhum_no_pais: No users in this country. Expansion opportunity.
+            cidades_nao_informadas: Cities not provided in the registration yet.
+            nenhum_no_estado: No users in this state. Expansion opportunity.
+            local_nao_informado: Location not provided
+            mundo: World
+            regiao: 'Region {regiao} · {n} user(s)'
+            regiao_municipios: 'Region {regiao} · {n} user(s) · {m} municipalities'
+            municipio: Municipality
+            erro_estados: Could not load the IBGE states right now.
+            erro_municipios: Could not load the IBGE municipalities right now.
+            erro_mapa: Could not load the world map right now.
+            arraste: Drag to move
+            aproximar: Zoom in
+            afastar: Zoom out
+            ajustar: Fit to map
+        config:
+            restaurar: Restore defaults
+            descartar: Discard
+            salvar: Save
+            confirmar_padrao: Return all settings to the default?
+            nao_salvas: Unsaved changes
+            salvas: Settings saved ✓
+            ultima: 'Last change on {data}'
+            erro_carregar: Could not load the settings. Reload the page.
+            erro_salvar: Could not save.
+            grupo:
+                identidade: Identity
+                contas: New accounts
+                seguranca: Security
+                regiao: Region
+                manutencao: Scheduled maintenance
+            campo:
+                nome: System name
+                remetente: Sender email
+                suporte: Support email
+                cadastro: New account signup
+                freeGb: Free Plan space (GB)
+                aviso: Space alert from (%)
+                sessao: Session expires after (min idle)
+                tentativas: Block login after (attempts)
+                dois: Two-step verification
+                retencao: Keep audit for (days)
+                avisoLoginNovo: Notify by email about new sign-ins
+                idioma: Default language
+                fuso: Time zone
+                manut: Notice for all users
+                manutAte: Show the notice until
+            ajuda:
+                remetente: 'The email used as sender (signup, password reset, invitations, and campaigns). Only change it to an address from a Hostinger SMTP account with SPF and DKIM set up on the domain; otherwise emails may be rejected or land in spam.'
+                manut: 'E.g.: the system will be unavailable from 10 PM to 11 PM. Blank, no notice.'
+            opcao:
+                cadastro:
+                    'on': Open
+                    convite: Invite only
+                    'off': Closed
+                dois:
+                    master: Required for the Master
+                    prim: Master and primary users
+                    todos: All users
+                    opc: Optional
+                avisoLoginNovo:
+                    'on': 'On'
+                    'off': 'Off'
+                idioma:
+                    pt-BR: Português (Brasil)
+                    en: English
+                    es: Español
+                fuso:
+                    America/Sao_Paulo: Brasília (GMT-3)
+                    America/Manaus: Manaus (GMT-4)
+                    America/Rio_Branco: Rio Branco (GMT-5)
+                    America/Noronha: Noronha (GMT-2)
+        revisao_oab:
+            titulo: OAB Review
+            subtitulo: 'Global identity: attorneys from all firms'
+            total: '{n} registrations'
+            total_um: '{n} registration'
+            auto_ligada: Automatic validation on
+            auto_desligada: Automatic validation off
+            frequencia: Automatic validation frequency
+            freq:
+                cadastro: When the OAB is registered
+                diaria: Daily
+                semanal: Weekly
+            freq_sem_cna: Available when the CNA lookup is turned on
+            ajuda: 'Checks format, name in the CNA, and status. A matching name confirms; a different name goes to Mismatched.'
+            ultima_rodada: 'Last run: {quando}'
+            ainda_nao_rodou: Has not run yet
+            validar_agora: Validate now
+            aba:
+                pend: Pending
+                div: Mismatched
+                nao: Not checked
+                conf: Confirmed
+                todas: All
+            busca: Name, email, or OAB no.
+            col:
+                nome: NAME
+                escritorio: FIRM
+                oab: OAB
+                nome_cna: NAME IN THE CNA
+                status: STATUS
+                verificada_em: CHECKED ON
+                acoes: ACTIONS
+            vazio: No registration in this tab.
+            principal: PRIMARY
+            nao_informado: Not provided
+            sem_registro: No record
+            status:
+                conf: Confirmed
+                div: Mismatched
+                nao: Not checked
+                pend: Pending
+            confirmar: Confirm registration
+            verificar: Check again (name in the CNA)
+            prompt: 'Name on file in the CNA for OAB {inscricao} (leave blank if not found):'
+            erro: Could not complete the action. Reload the page.
+            erro_carga: Could not load the OAB review right now. Reload the page.
+    convenio_email:
+        titulo: 'OAB/{uf} agreement'
+        ola: 'Hello, {nome}.'
+        assunto_dif: 'OAB/{uf} agreement: special price of R$ {valor}/month starting {data}'
+        assunto_sem: 'Notice: the OAB/{uf} agreement has ended · new monthly fee starting {data}'
+        assunto_livre: 'OAB/{uf} agreement: your account is free again'
+        corpo_dif: 'The OAB/{uf} agreement now has a special price: R$ {valor} per month, starting {data}.'
+        corpo_sem: 'The OAB/{uf} agreement has ended. Starting {data}, the monthly fee for your account is R$ {valor} per month.'
+        corpo_livre: 'The OAB/{uf} agreement is active again. Your account uses BlueJus for free again.'
+        motivo: 'Reason: {motivo}'
+        fecho: If you have questions, use the Help menu inside BlueJus.
+        motivo_do_envio: 'You are receiving this notice because you are a primary user of a firm in {uf} on BlueJus.'
+        falha_ao_enfileirar: Could not queue the notices. Nothing was changed.
+    desempenho:
+        periodo: Period
+        periodo_24h: 24 hours
+        periodo_7d: 7 days
+        periodo_30d: 30 days
+        nota: Measured on the system screens by signed-in users. Server metrics are added when the monitoring API is turned on.
+        incidentes: Incidents
+        sem_incidentes: No incident recorded.
+        backups: Backups and restore
+        backups_sub: record each backup and each test
+        sem_backups: No backup recorded.
+        integracoes: Integrations
+        integracoes_sub: status of external connections
+        erros: Recent errors
+        erros_sub: captured on the screens
+        sem_erros: No error in the period.
+        limpar: Clear records
+        abrir_incidente: Open incident
+        btn_backup: Record backup
+        btn_teste: Record test
+        campo_titulo: Title
+        campo_categoria: Category
+        campo_gravidade: Severity
+        campo_solucao: What was done
+        campo_resultado: Result
+        resultado_ok: It worked
+        resultado_falhou: Failed
+        campo_observacao: Note
+        observacao_dica: Optional. Where the file was saved, how long it took.
+        cancelar: Cancel
+        categoria:
+            disponibilidade: Availability
+            login: Login
+            upload: Upload
+            integracao: Integration
+            banco: Database
+            outro: Other
+        gravidade:
+            crit: Critical
+            alta: High
+            media: Medium
+            baixa: Low
+        js:
+            sem_dados: No data
+            nenhum_registrado: none recorded
+            erro_carregar: Could not load performance. Reload the page.
+            kpi:
+                disponibilidade: AVAILABILITY
+                p95: LOAD TIME (P95)
+                erros: SYSTEM ERRORS
+                logins: LOGIN FAILURES
+                uploads: UPLOAD FAILURES
+                backup: LAST BACKUP
+                restauracao: RESTORE TEST
+                servidor: SERVER CPU AND MEMORY
+            verificacoes: '{n} check(s)'
+            segundos: '{n} s'
+            carregamentos: '{n} load(s) measured'
+            erros_de_tela: screen errors recorded
+            tentativas: '{n} attempt(s)'
+            envios: '{n} upload(s)'
+            backup_menos_1h: less than 1 h ago
+            backup_ha_h: '{n} h ago'
+            aprovado: Passed
+            falhou: Failed
+            concluido: Completed
+            aguarda_api: waiting for the server metrics API
+            navegador_mb: 'browser: {n} MB'
+            em_aberto: '{n} open'
+            em_aberto_status: Open
+            resolvido_em: 'Resolved on {data}'
+            sem_pagina: '-'
+            categoria:
+                disponibilidade: Availability
+                login: Login
+                upload: Upload
+                integracao: Integration
+                banco: Database
+                outro: Other
+            resolver: Resolve
+            erro_titulo: Enter the incident title.
+            erro_salvar: Could not save. Try again.
+            dlg:
+                salvar: Save
+                resolver: Mark as resolved
+                limpar: Clear records
+                incidente: Open incident
+                backup: Record backup
+                restauracao: Record restore test
+                resolver_titulo: Resolve incident
+                limpar_titulo: Clear performance records
+                limpar_texto: Deletes the errors and measurements of the period. Incidents and backups stay.
+            gravidade:
+                crit: Critical
+                alta: High
+                media: Medium
+                baixa: Low
+            tipo:
+                backup: Backup
+                restauracao: Restore test
+            conectada: Connected
+            nao_configurada: Not configured
+            integracao:
+                email: Email (sending and read receipts)
+                banco_pix: Bank · PIX
+                google: Google (login and calendar)
+                facebook: Facebook (login)
+                tribunais: Courts · Case Push
+                ia: AI (AI Chat and document reading)
+    custos:
+        mes: Month
+        nota: Current revenue, not historical. Costs are the ones posted in the chosen month.
+        copiar: Copy from the previous month
+        importar: Import CSV
+        exportar: Export
+        lancar: Post cost
+        cancelar: Cancel
+        campo_categoria: Category
+        campo_valor: Monthly amount (R$)
+        campo_fornecedor: Vendor
+        fornecedor_dica: 'E.g.: AWS, Google'
+        campo_origem: Source of the amount
+        campo_observacao: Note
+        por_categoria: Costs by category
+        do_mes: of the selected month
+        margem_e_projecao: Margin per plan and projection
+        margem_sub: space cost estimated from the cost per GB
+        col_plano: PLAN
+        col_contas: ACCOUNTS
+        col_preco: PRICE
+        col_custo: COST
+        col_margem: MARGIN
+        col_projecao: PROJECTION
+        col_receita: REVENUE
+        projecao_nota: The projection keeps the values of the selected month.
+        lancamentos: Entries for the month
+        lancamentos_sub: 'source identified: measured, imported from the vendor, or estimated'
+        sem_lancamentos: No cost posted this month.
+        js:
+            moeda: 'R$ {valor}'
+            kpi:
+                custo: COST OF THE MONTH
+                receita: RECURRING REVENUE
+                margem: MARGIN
+                por_conta: COST PER ACCOUNT
+                por_gb: COST PER GB
+            lancamentos_n: '{n} entry(ies)'
+            receita_desc: storage subscriptions and regional agreements
+            sem_receita: no revenue this month
+            da_receita: '{n}% of revenue'
+            contas_usuarios: '{contas} account(s) · {usuario} per user'
+            gb_armazenados: '{n} GB stored'
+            nao_lancado: not posted
+            sem_valor: '-'
+            meses: '{n} months'
+            excluir: Delete
+            erro_valor: Enter the monthly amount.
+            erro_salvar: Could not save. Try again.
+            dlg:
+                salvar: Save
+                excluir: Delete
+                copiar: Copy
+                lancar: 'Post cost · {mes}'
+                copiar_titulo: Copy from the previous month
+                copiar_texto: 'Copy the entries from the previous month to {mes}? What was measured becomes estimated.'
+                excluir_titulo: Delete entry
+                excluir_texto: Delete this entry?
+            erro_carregar: Could not load the costs. Reload the page.
+            categoria:
+                armazenamento: Storage
+                banco_de_dados: Database
+                hospedagem: Hosting and processing
+                trafego: Traffic
+                backups: Backups
+                apis_de_ia: AI APIs
+                notificacoes: Notifications and email
+                integracoes: Integrations
+                outros: Others
+            origem:
+                medido: Measured
+                importado: Imported from the vendor
+                estimado: Estimated
+    blog:
+        js:
+            secao: Blog articles
