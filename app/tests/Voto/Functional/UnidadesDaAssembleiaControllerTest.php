@@ -87,6 +87,36 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertSame('A-101 · Bloco A', trim($lista->filter('.voto-unidade-dados > b')->text()));
     }
 
+    #[TestDox('Rótulos renomeados aparecem no cabeçalho da lista; sem rótulo, Unidade e Bloco')]
+    public function testCabecalhoComRotulos(): void
+    {
+        [$a] = $this->cenario();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '1']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame('Unidade · Bloco', trim($lista->filter('[data-voto-cabecalho-unidades]')->text()));
+
+        $a->definirRotulos('Matrícula', 'Seção');
+        $this->em->flush();
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame('Matrícula · Seção', trim($lista->filter('[data-voto-cabecalho-unidades]')->text()));
+    }
+
+    #[TestDox('O formulário da assembleia grava os nomes dos campos e os mostra preenchidos na edição')]
+    public function testFormularioGravaRotulos(): void
+    {
+        [$a] = $this->cenario();
+        $crawler = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/editar');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('input[name="rotulo_unidade"][maxlength="40"][placeholder="Unidade"]'));
+        $this->client->submit($crawler->selectButton('Salvar e sair')->form(['rotulo_unidade' => 'Matrícula', 'rotulo_bloco' => 'Seção']));
+        $this->em->clear();
+        $gravada = $this->em->find(Assembleia::class, $a->getId());
+        self::assertSame('Matrícula', $gravada->getRotuloUnidade());
+        self::assertSame('Seção', $gravada->getRotuloBloco());
+        $crawler = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/editar');
+        self::assertSame('Matrícula', $crawler->filter('input[name="rotulo_unidade"]')->attr('value'));
+    }
+
     /** @return array{Assembleia} */
     private function cenario(): array
     {

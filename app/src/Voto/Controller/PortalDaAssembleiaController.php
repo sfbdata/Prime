@@ -6,6 +6,8 @@ namespace App\Voto\Controller;
 
 use App\Voto\DTO\SolicitarCodigoDaAssembleiaInput;
 use App\Voto\Service\AssembleiaDoPortal;
+use App\Shared\Service\DigitoVerificador;
+use App\Voto\UseCase\LocalizarEleitorNoPortalUseCase;
 use App\Voto\UseCase\MontarPortalDaAssembleiaUseCase;
 use App\Voto\UseCase\SolicitarCodigoDaAssembleiaUseCase;
 use App\Voto\UseCase\ConfirmarCodigoDaAssembleiaUseCase;
@@ -29,6 +31,7 @@ final class PortalDaAssembleiaController extends AbstractController
         private readonly RateLimiterFactoryInterface $votoPortalConfirmacaoLimiter,
         private readonly \App\Voto\Service\EnderecoPublicoDaAssembleia $endereco,
         private readonly \App\Voto\UseCase\ConferirComprovanteUseCase $conferirComprovante,
+        private readonly LocalizarEleitorNoPortalUseCase $localizarEleitor,
     ) {
     }
 
@@ -44,15 +47,44 @@ final class PortalDaAssembleiaController extends AbstractController
         return $this->pagina($request, $codigo);
     }
 
+    /**
+     * Passo 1. Lista com CPF: nome completo e CPF; sem CPF na lista, nome, unidade e bloco, como sempre foi.
+     *
+     * Privacidade: nunca se diz "não encontrado". Nome e CPF que não casam seguem ao passo 2 só com o nome, e o código não
+     * chega a ninguém. Quando casam, o passo 2 mostra a unidade e o bloco do cadastro (pedido do dono), o que confirma
+     * que o cadastro existe para quem sabe nome e CPF dele. Por isso cada tentativa consome uma ficha do limitador
+     * `votoPortalEnvioLimiter` do IP (a mesma do envio do código), que barra a varredura de CPFs.
+     */
     #[Route('/localizar', name: 'voto_assembleia_portal_localizar', methods: ['POST'])]
     public function localizar(Request $request, string $codigo): Response
     {
-        $this->acesso->exigir($codigo);
+        $a = $this->acesso->exigir($codigo);
         if (!$this->csrfValido($request, $codigo)) {
             return $this->pagina($request, $codigo, 'A página expirou. Tente novamente.', 400);
         }
+        if (!$this->votoPortalEnvioLimiter->create($request->getClientIp())->consume()->isAccepted()) {
+            return $this->pagina($request, $codigo, 'Muitas solicitações. Aguarde alguns minutos e tente novamente.', 429);
+        }
+        $portal = $this->montar->executar($codigo);
+        $nome = trim($request->request->getString('nome'));
+        if ($portal?->pedeCpf === true) {
+            $cpf = DigitoVerificador::digitos($request->request->getString('cpf'));
+            $input = new SolicitarCodigoDaAssembleiaInput($nome, '', '', 'localizacao@example.com', str_repeat('a', 32), $cpf);
+            if (\count($this->validator->validate($input)) > 0) {
+                return $this->pagina($request, $codigo, 'Informe seu nome completo e um CPF válido, como constam na lista da votação.', 422);
+            }
+            $estado = ['nome' => $input->nome, 'cpf' => $cpf];
+            $achada = $this->localizarEleitor->executar($a, $input->nome, $cpf);
+            if (null !== $achada) {
+                $estado['exibir_unidade'] = $achada['unidade'];
+                $estado['exibir_bloco'] = $achada['bloco'];
+            }
+            $request->getSession()->set($this->chave($codigo), $estado);
+
+            return $this->voltar($codigo);
+        }
         $input = new SolicitarCodigoDaAssembleiaInput(
-            trim($request->request->getString('nome')),
+            $nome,
             trim($request->request->getString('unidade')),
             trim($request->request->getString('bloco')),
             'localizacao@example.com',
@@ -61,7 +93,10 @@ final class PortalDaAssembleiaController extends AbstractController
         if (\count($this->validator->validate($input)) > 0) {
             return $this->pagina($request, $codigo, 'Informe seu nome completo e a unidade conforme a lista da votação.', 422);
         }
-        $request->getSession()->set($this->chave($codigo), ['nome' => $input->nome, 'unidade' => $input->unidade, 'bloco' => $input->bloco]);
+        $request->getSession()->set($this->chave($codigo), [
+            'nome' => $input->nome, 'unidade' => $input->unidade, 'bloco' => $input->bloco,
+            'exibir_unidade' => $input->unidade, 'exibir_bloco' => $input->bloco,
+        ]);
 
         return $this->voltar($codigo);
     }
@@ -182,7 +217,7 @@ final class PortalDaAssembleiaController extends AbstractController
     /** @param array<string, string> $estado */
     private function input(array $estado): SolicitarCodigoDaAssembleiaInput
     {
-        return new SolicitarCodigoDaAssembleiaInput($estado['nome'] ?? '', $estado['unidade'] ?? '', $estado['bloco'] ?? '', $estado['email'] ?? '', $estado['desafio'] ?? '');
+        return new SolicitarCodigoDaAssembleiaInput($estado['nome'] ?? '', $estado['unidade'] ?? '', $estado['bloco'] ?? '', $estado['email'] ?? '', $estado['desafio'] ?? '', $estado['cpf'] ?? null);
     }
 
     private function chave(string $codigo): string

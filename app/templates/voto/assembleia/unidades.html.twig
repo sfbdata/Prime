@@ -85,6 +85,9 @@
             <div class="voto-vazio" data-voto-busca-vazia hidden>{{ 'voto.assembleia.gestor.ocorrencia.nenhuma_unidade'|trans }}</div>
         </div>
     {% endif %}
+    {% if tela.unidades is not empty %}
+        <div class="vLin voto-texto" data-voto-cabecalho-unidades>{{ a.nomeDaUnidade }} · {{ a.nomeDoBloco }}</div>
+    {% endif %}
     {% for u in tela.unidades %}
         {% set link = url('voto_assembleia_cedula', {token: u.token}) %}
         <div class="vLin voto-unidade" id="unidade-{{ u.id }}" data-voto-unidade-busca="{{ u.responsavel }} {{ u.identificacao }} {{ u.bloco }}">

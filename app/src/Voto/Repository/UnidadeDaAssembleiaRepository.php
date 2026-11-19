@@ -187,19 +187,52 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
             ->addOrderBy('u.id', 'ASC');
     }
 
-    /** Não enumera moradores: só encontra uma correspondência completa, apta e com e-mail cadastrado. */
+    /**
+     * Não enumera moradores: só encontra uma correspondência completa, apta e com e-mail cadastrado. Com CPF no input, o
+     * critério é nome e CPF exato (a unidade e o bloco não entram); sem CPF, nome, unidade e bloco, como sempre foi.
+     */
     public function localizarParaCodigo(Assembleia $assembleia, \App\Voto\DTO\SolicitarCodigoDaAssembleiaInput $input): ?UnidadeDaAssembleia
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
+            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND LOWER(TRIM(u.email)) = :email')
+            ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
+            ->setParameter('nome', mb_strtolower(trim($input->nome)))->setParameter('email', mb_strtolower(trim($input->email)));
+        if ($input->porCpf()) {
+            $qb->andWhere('u.cpf = :cpf')->setParameter('cpf', $input->cpf);
+        } else {
+            $qb->andWhere('LOWER(TRIM(u.identificacao)) = :unidade AND LOWER(TRIM(u.bloco)) = :bloco')
+                ->setParameter('unidade', mb_strtolower(trim($input->unidade)))->setParameter('bloco', mb_strtolower(trim($input->bloco)));
+        }
+        $linhas = $qb->setMaxResults(2)->getQuery()->getResult();
+
+        return \count($linhas) === 1 ? $linhas[0] : null;
+    }
+
+    /**
+     * Para exibir "Unidade 101, Bloco B" no passo 2 do portal: a unidade apta que casa com nome e CPF (sem o e-mail). Só
+     * devolve com correspondência única. O controller só a chama com o limitador do portal já consumido.
+     */
+    public function localizarPorNomeECpf(Assembleia $assembleia, string $nome, string $cpf): ?UnidadeDaAssembleia
     {
         $linhas = $this->createQueryBuilder('u')
             ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
-            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND LOWER(TRIM(u.identificacao)) = :unidade')
-            ->andWhere('LOWER(TRIM(u.bloco)) = :bloco AND LOWER(TRIM(u.email)) = :email')
+            ->andWhere('LOWER(TRIM(u.responsavel)) = :nome AND u.cpf = :cpf')
             ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
-            ->setParameter('nome', mb_strtolower(trim($input->nome)))->setParameter('unidade', mb_strtolower(trim($input->unidade)))
-            ->setParameter('bloco', mb_strtolower(trim($input->bloco)))->setParameter('email', mb_strtolower(trim($input->email)))
+            ->setParameter('nome', mb_strtolower(trim($nome)))->setParameter('cpf', $cpf)
             ->setMaxResults(2)->getQuery()->getResult();
 
         return \count($linhas) === 1 ? $linhas[0] : null;
+    }
+
+    /** A assembleia identifica o eleitor por CPF quando ao menos uma unidade da lista tem CPF. */
+    public function algumaComCpf(Assembleia $assembleia): bool
+    {
+        return null !== $this->createQueryBuilder('u')
+            ->select('u.id')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.cpf IS NOT NULL')
+            ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
+            ->setMaxResults(1)->getQuery()->getOneOrNullResult();
     }
 
     /** A trava serializa tentativas simultâneas e pedidos, inclusive com a purga da unidade. */

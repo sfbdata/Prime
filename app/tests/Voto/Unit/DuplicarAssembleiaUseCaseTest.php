@@ -53,6 +53,9 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
         self::assertSame('Residencial Jardim', $salva->getEntidadeNome(), 'a cópia fica na mesma entidade');
         self::assertSame('11222333000181', $salva->getCnpj());
         self::assertSame(CenarioDaAssembleia::Cooperativa, $salva->getCenario(), 'a cópia mantém o cenário');
+        self::assertSame('Matrícula', $salva->getRotuloUnidade(), 'a cópia leva os nomes dos campos');
+        self::assertSame('Seção', $salva->getRotuloBloco());
+        self::assertSame(['52998224725', null], array_map(static fn (UnidadeDaAssembleia $u): ?string => $u->getCpf(), array_values($salva->getUnidades()->toArray())), 'o CPF faz parte do cadastro copiado');
         self::assertSame('Nova gestora', $salva->getCriadaPorNome());
         self::assertSame(EstadoDaAssembleia::Rascunho, $salva->getEstado());
         self::assertNull($salva->getPublicadaEm());
@@ -177,12 +180,13 @@ final class DuplicarAssembleiaUseCaseTest extends TestCase
     {
         $origem = new Assembleia($tenant, 'AGO 2026', PesoDoVoto::Fracao, 'Gestora antiga', CenarioDaAssembleia::Cooperativa);
         $origem->identificarEntidade('Residencial Jardim', '11222333000181');
+        $origem->definirRotulos('Matrícula', 'Seção');
         $pauta = new PautaDaAssembleia($origem, 2, 'Síndico(a)', 'Mandato de 2 anos', TipoDaPauta::EleicaoDeCargo);
         $pauta->configurar(RegraDeDecisao::Mais, BaseDaDecisao::Validos, 2, 2, 60, null);
         new OpcaoDaPauta($pauta, 11, 'Ana');
         new OpcaoDaPauta($pauta, 12, 'Beto');
         new OpcaoDaPauta($pauta, 0, 'Abstenção', true);
-        $u1 = new UnidadeDaAssembleia($origem, '101', str_repeat('a', 32), str_repeat('b', 64), 'A', 'adimplente', '0.050000', 'Maria', 'maria@exemplo.com', '61999990001');
+        $u1 = new UnidadeDaAssembleia($origem, '101', str_repeat('a', 32), str_repeat('b', 64), 'A', 'adimplente', '0.050000', 'Maria', 'maria@exemplo.com', '61999990001', '52998224725');
         new UnidadeDaAssembleia($origem, '102', str_repeat('c', 32), str_repeat('d', 64), 'A', 'inadimplente', '0.050000', null, null);
         $u1->registrarEnvioDoLink(new \DateTimeImmutable('-1 day'));
         $origem->publicar();

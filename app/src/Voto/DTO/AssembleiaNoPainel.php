@@ -37,7 +37,21 @@ final readonly class AssembleiaNoPainel
         public ?string $cnpj = null,
         public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
         public bool $simulacao = false,
+        public ?string $rotuloUnidade = null,
+        public ?string $rotuloBloco = null,
     ) {
+    }
+
+    /** Nome do campo Unidade (padrão "Unidade"). */
+    public function nomeDaUnidade(): string
+    {
+        return $this->rotuloUnidade ?? 'Unidade';
+    }
+
+    /** Nome do campo Bloco (padrão "Bloco"). */
+    public function nomeDoBloco(): string
+    {
+        return $this->rotuloBloco ?? 'Bloco';
     }
 
     /**
@@ -51,6 +65,7 @@ final readonly class AssembleiaNoPainel
             $this->id, $this->titulo, $this->peso, $this->estado, $this->criadaPorNome, $this->criadaEm, $this->publicadaEm,
             $this->podeAlterarPautas, $this->podeAlterarUnidades, $this->unidadesAptas, $this->unidadesInaptas, $this->pesoApto,
             $pautas, $this->arquivadaEm, $this->arquivadaMotivo, $this->arquivadaPorNome, $this->entidade, $this->cnpj, $this->cenario,
+            rotuloUnidade: $this->rotuloUnidade, rotuloBloco: $this->rotuloBloco,
         );
     }
 

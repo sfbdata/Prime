@@ -111,4 +111,46 @@ final class EntidadeDaAssembleiaTest extends TestCase
         $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
         $publicada->identificarEntidade('Jardim', null);
     }
+
+    #[TestDox('Rótulos dos campos: padrão Unidade e Bloco; criar e editar gravam o nome aparado e vazio volta ao padrão')]
+    public function testRotulosDosCampos(): void
+    {
+        $tenant = new Tenant();
+        $assembleia = new Assembleia($tenant, 'Eleição', PesoDoVoto::Unidade, 'Gestora');
+        self::assertSame('Unidade', $assembleia->getRotuloUnidade());
+        self::assertSame('Bloco', $assembleia->getRotuloBloco());
+
+        $criada = null;
+        $repo = $this->createMock(AssembleiaRepository::class);
+        $repo->method('salvar')->willReturnCallback(static function (Assembleia $a) use (&$criada): void {
+            $criada = $a;
+        });
+        (new CriarAssembleiaUseCase($repo, $this->cnpjs()))->executar($tenant, new AssembleiaInput('Eleição', 'unidade', rotuloUnidade: '  Matrícula ', rotuloBloco: 'Seção'), 'Gestora');
+        self::assertSame('Matrícula', $criada->getRotuloUnidade());
+        self::assertSame('Seção', $criada->getRotuloBloco());
+
+        $repo = $this->createMock(AssembleiaRepository::class);
+        $repo->method('buscarDoEscritorio')->willReturn($assembleia);
+        $editar = new EditarAssembleiaUseCase($repo, new SerializacaoDaConfiguracao(new LockFactory(new InMemoryStore())), $this->cnpjs());
+        $editar->executar($tenant, 1, new AssembleiaInput('Eleição', 'unidade', rotuloUnidade: 'Matrícula'));
+        self::assertSame('Matrícula', $assembleia->getRotuloUnidade());
+        self::assertSame('Bloco', $assembleia->getRotuloBloco());
+        $editar->executar($tenant, 1, new AssembleiaInput('Eleição', 'unidade'));
+        self::assertSame('Unidade', $assembleia->getRotuloUnidade());
+    }
+
+    #[TestDox('Rótulo com mais de 40 caracteres é recusado e rótulo não muda depois de publicada')]
+    public function testRotulosLimiteESoEmRascunho(): void
+    {
+        $assembleia = new Assembleia(new Tenant(), 'Eleição', PesoDoVoto::Unidade, 'Gestora');
+        try {
+            $assembleia->definirRotulos(str_repeat('a', 41), null);
+            self::fail('o rótulo tem no máximo 40 caracteres');
+        } catch (OperacaoInvalidaNaAssembleiaException) {
+        }
+
+        (new \ReflectionProperty(Assembleia::class, 'estado'))->setValue($assembleia, \App\Voto\Enum\EstadoDaAssembleia::Publicada);
+        $this->expectException(OperacaoInvalidaNaAssembleiaException::class);
+        $assembleia->definirRotulos('Matrícula', null);
+    }
 }

@@ -134,6 +134,9 @@ class UnidadeDaAssembleia implements TenantAware
         private ?string $email = null,
         #[ORM\Column(length: 20, nullable: true)]
         private ?string $telefone = null,
+        /** Só os 11 dígitos, com dígitos verificadores válidos (a importação confere). Opcional: liga o portal por nome e CPF. */
+        #[ORM\Column(length: 11, nullable: true)]
+        private ?string $cpf = null,
     ) {
         $this->tenant = $assembleia->getTenant();
         $this->apta = self::situacaoPermiteVotar($situacao);
@@ -253,6 +256,12 @@ class UnidadeDaAssembleia implements TenantAware
     public function getTelefone(): ?string
     {
         return $this->telefone;
+    }
+
+    /** Só dígitos. Dado pessoal: nunca vai para tela, log nem ata; serve só para o eleitor se localizar no portal. */
+    public function getCpf(): ?string
+    {
+        return $this->cpf;
     }
 
     public function getSemente(): string
