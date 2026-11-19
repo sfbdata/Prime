@@ -72,8 +72,8 @@ final class BuscarClientesUseCase
     private static function casar(Cliente $cliente, string $termoMinusculo, ?string $documentoDigitado): ?array
     {
         $nome = match (true) {
-            $cliente instanceof ClientePF => (string) $cliente->getNomeCompleto(),
-            $cliente instanceof ClientePJ => (string) $cliente->getRazaoSocial(),
+            $cliente instanceof ClientePF => $cliente->getNomeCompleto(),
+            $cliente instanceof ClientePJ => $cliente->getRazaoSocial(),
             default => '',
         };
         $documento = match (true) {

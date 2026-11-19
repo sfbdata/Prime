@@ -285,6 +285,26 @@ final class LerClientesFerramentaTest extends KernelTestCase
         self::assertTrue($resposta->dados['mais_resultados']);
     }
 
+    #[TestDox('buscar: o limite conta só os clientes que a pessoa vê; 20 vistos e 5 fora do escopo dão 20, sem mais_resultados')]
+    public function testBuscarLimiteDepoisDoEscopo(): void
+    {
+        $restrito = $this->pessoa();
+        $this->vinculo($restrito, $this->escritorio, permissoes: self::LEITOR)->getTenantRole()?->restringirAsPastasSobResponsabilidade('Parceiro');
+        $minha = $this->pasta($this->clientePF(cpf: '')->setNomeCompleto('Homônimo 00'))->setResponsavel($restrito);
+        $alheia = $this->pasta($this->clientePF(cpf: '')->setNomeCompleto('Homônimo de fora'))->setResponsavel($this->colega);
+        // Mais 19 na pasta da restrita (20 com o primeiro) e 4 na alheia (5 com o primeiro), intercalados.
+        for ($i = 1; $i <= 23; ++$i) {
+            $cliente = $this->clientePF(cpf: '')->setNomeCompleto(sprintf('Homônimo %02d', $i));
+            ($i % 5 === 0 ? $alheia : $minha)->addCliente($cliente);
+        }
+        $this->em()->flush();
+
+        $resposta = $this->ler(['acao' => 'buscar', 'termo' => 'homônimo'], $restrito);
+
+        self::assertCount(LerClientesFerramenta::LIMITE_DA_BUSCA, $resposta->dados['clientes']);
+        self::assertFalse($resposta->dados['mais_resultados']);
+    }
+
     #[TestDox('documentos_de_identidade: metadados dos achados nas pastas; sem a pasta em segredo (contada) nem a pasta com a aba Documentos oculta')]
     public function testDocumentosDeIdentidade(): void
     {
