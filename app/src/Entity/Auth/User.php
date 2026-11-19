@@ -12,6 +12,7 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
+#[ORM\UniqueConstraint(name: 'uniq_user_codigo_pessoal', columns: ['codigo_pessoal'], options: ['where' => '(codigo_pessoal IS NOT NULL)'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditavel
 {
     #[ORM\Id]
@@ -86,6 +87,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
      */
     #[ORM\Column(name: 'facebook_id', length: 255, unique: true, nullable: true)]
     private ?string $facebookId = null;
+
+    /**
+     * Código pessoal `BJ-XXXX-XXXX-XXXX` com que a pessoa recebe pastas de outras contas (spec
+     * acesso-restrito-e-compartilhar §4.5). Nasce na primeira vez que ela o vê (`CodigoPessoal::garantir`); fica fora
+     * da auditoria (`AuditLogSubscriber`).
+     */
+    #[ORM\Column(name: 'codigo_pessoal', length: 20, nullable: true)]
+    private ?string $codigoPessoal = null;
 
     // -------------------------
     // Construtor
@@ -227,6 +236,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
             throw new \DomainException('Esta conta já está ligada a outra conta do Facebook.');
         }
         $this->facebookId = $id;
+    }
+
+    public function getCodigoPessoal(): ?string
+    {
+        return $this->codigoPessoal;
+    }
+
+    /** Grava o código pessoal uma vez só: depois de dado a alguém, ele não troca. */
+    public function definirCodigoPessoal(string $codigo): void
+    {
+        if (null !== $this->codigoPessoal && $this->codigoPessoal !== $codigo) {
+            throw new \DomainException('O código pessoal já foi definido.');
+        }
+        $this->codigoPessoal = $codigo;
     }
 
     public function isActive(): bool

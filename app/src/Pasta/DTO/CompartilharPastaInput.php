@@ -6,7 +6,10 @@ namespace App\Pasta\DTO;
 
 use App\Pasta\Entity\PermissoesDoCompartilhamento;
 
-/** O que a janela "Compartilhar pasta" envia, aba Equipe do escritório (desenho L3). */
+/**
+ * O que a janela "Compartilhar pasta" envia (desenho L3): aba Equipe do escritório (`destinoId`) ou Outra conta
+ * (`outraConta`, com o `codigo`; o "1 clique" do menu manda o `destinoId` de quem já recebeu por código).
+ */
 final readonly class CompartilharPastaInput
 {
     public function __construct(
@@ -16,6 +19,8 @@ final readonly class CompartilharPastaInput
         public bool $baixarDocumentos = false,
         public ?\DateTimeImmutable $validoAte = null,
         public ?string $mensagem = null,
+        public bool $outraConta = false,
+        public ?string $codigo = null,
     ) {
     }
 
@@ -32,6 +37,8 @@ final readonly class CompartilharPastaInput
             ($dados['baixarDocumentos'] ?? false) === true,
             $validade === false ? null : $validade,
             is_string($dados['mensagem'] ?? null) ? $dados['mensagem'] : null,
+            ($dados['outraConta'] ?? false) === true,
+            is_string($dados['codigo'] ?? null) ? $dados['codigo'] : null,
         );
     }
 

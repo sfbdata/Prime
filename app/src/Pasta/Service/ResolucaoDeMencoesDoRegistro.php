@@ -88,6 +88,9 @@ final class ResolucaoDeMencoesDoRegistro
     /** Prévia da menção no sino — `menNotificar`: `prev.slice(0, 180) + '…'`. */
     private const LIMITE_PREVIA = 180;
 
+    /** Teto de passadas do {@see resolver()}: o rótulo tem até 120 caracteres, então o aninhamento real é bem menor. */
+    private const PASSADAS_DA_REESCRITA = 64;
+
     public function __construct(
         private readonly MencoesDoRegistro $mencoes,
         private readonly UserRepository $userRepository,
@@ -103,35 +106,63 @@ final class ResolucaoDeMencoesDoRegistro
     /**
      * Recebe conteúdo JÁ sanitizado.
      *
+     * Repete a reescrita até o texto parar de mudar: num token aninhado (`@[Fulano @[x](user:1)](user:6)`) só o de
+     * dentro casa, e trocá-lo por `@x` faz o de fora virar um token novo, cujo id também passa pela conferência (sem
+     * isso, um id de outro escritório ficava gravado como menção). A forma canônica não muda numa nova passada, e cada
+     * token recusado encurta o texto, então as passadas acabam; o teto só protege contra um texto patológico.
+     *
      * @return array{0: string, 1: list<User>} o conteúdo na forma canônica e os mencionados válidos
      *                                         (na ordem em que aparecem)
      */
     public function resolver(string $conteudo, Tenant $tenant): array
     {
-        $ids = $this->mencoes->extrairIds($conteudo);
-        if ($ids === []) {
+        if ($this->mencoes->extrairIds($conteudo) === []) {
             return [$conteudo, []];
         }
 
-        $validos = [];
-        $nomes   = [];
+        $colegas = [];
         foreach ($this->userRepository->findColaboradoresAtivosPorTenant($tenant) as $colega) {
             $id = $colega->getId();
-            if ($id === null || !in_array($id, $ids, true) || !$colega->isActive()) {
-                continue;
+            if ($id !== null && $colega->isActive()) {
+                $colegas[$id] = $colega;
             }
-            $validos[$id] = $colega;
-            $nomes[$id]   = (string) $colega->getFullName();
+        }
+
+        for ($passada = 0; $passada < self::PASSADAS_DA_REESCRITA; ++$passada) {
+            $reescrito = $this->mencoes->reescrever($conteudo, $this->nomesDosValidos($conteudo, $colegas));
+            if ($reescrito === $conteudo) {
+                break;
+            }
+            $conteudo = $reescrito;
         }
 
         $mencionados = [];
-        foreach ($ids as $id) {
-            if (isset($validos[$id])) {
-                $mencionados[] = $validos[$id];
+        foreach ($this->mencoes->extrairIds($conteudo) as $id) {
+            if (isset($colegas[$id])) {
+                $mencionados[] = $colegas[$id];
             }
         }
 
-        return [$this->mencoes->reescrever($conteudo, $nomes), $mencionados];
+        return [$conteudo, $mencionados];
+    }
+
+    /**
+     * Nome do banco de cada id do texto que é colega ativo (até o teto de menções por registro).
+     *
+     * @param array<int, User> $colegas
+     *
+     * @return array<int, string>
+     */
+    private function nomesDosValidos(string $conteudo, array $colegas): array
+    {
+        $nomes = [];
+        foreach ($this->mencoes->extrairIds($conteudo) as $id) {
+            if (isset($colegas[$id])) {
+                $nomes[$id] = (string) $colegas[$id]->getFullName();
+            }
+        }
+
+        return $nomes;
     }
 
     /**
