@@ -2184,7 +2184,7 @@
     font-weight: 700;
     color: var(--bs-secondary-color);
     background: var(--bs-tertiary-bg);
-    border-radius: 999px;
+    border-radius: 4px;
     padding: 1px 7px;
     letter-spacing: 0;
     text-transform: none;
@@ -2229,7 +2229,10 @@
 .cliente-linha { transition: background-color .12s; }
 .cliente-linha { border-bottom: 1px solid var(--bs-border-color); }
 .cliente-linha:last-child { border-bottom: none; }
-.cliente-linha:hover { background-color: rgba(0,0,0,.02); }
+.cliente-linha { transition: background .18s; }
+.cliente-linha:hover { background-color: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.cliente-linha:hover, .cliente-linha:hover *:not(.cliente-avatar) { color: #fff !important; }
+.cliente-linha:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .cliente-nome { font-size: .82rem; font-weight: 600; line-height: 1.25; }
 .cliente-doc { font-size: .72rem; color: var(--bs-secondary-color); line-height: 1.25; }
 .cliente-doc-rotulo { font-weight: 600; margin-right: 3px; }
@@ -2262,9 +2265,10 @@
     background: transparent;
     transition: background-color .15s;
 }
-.doc-row-cliente:hover {
-    background-color: rgba(0,0,0,.04);
-}
+.doc-row-cliente { transition: background .18s; }
+.doc-row-cliente:hover { background-color: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.doc-row-cliente:hover, .doc-row-cliente:hover * { color: #fff !important; }
+.doc-row-cliente:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 
 .upload-item-cliente {
     background: var(--bs-tertiary-bg);

@@ -80,7 +80,7 @@
     width: 100%;
     padding: 8px 12px 8px 34px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--bs-body-bg);
     color: var(--bs-body-color);
     font-size: .9rem;
@@ -292,7 +292,10 @@
     cursor: default;
     transition: background .12s, border-color .12s;
 }
-.fm-arquivo:hover { background: var(--fm-hover); }
+.fm-arquivo { transition: background .18s; }
+.fm-arquivo:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.fm-arquivo:hover, .fm-arquivo:hover * { color: #fff !important; }
+.fm-arquivo:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .fm-arquivo.arrastando { opacity: .5; }
 
 .fm-arq-grip {
@@ -332,7 +335,7 @@
     padding: 2px 9px;
     font-size: .74rem;
     font-weight: 600;
-    border-radius: 999px;
+    border-radius: 4px;
     color: var(--bs-secondary-color);
     background: var(--bs-secondary-bg);
     border: 1px solid var(--bs-border-color);
@@ -536,7 +539,7 @@
     font-size: .69rem;
     font-weight: 600;
     padding: 2px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -556,13 +559,13 @@
     flex: 1;
     min-width: 0;
     height: 6px;
-    border-radius: 999px;
+    border-radius: 2px;
     background: var(--bs-tertiary-bg);
     overflow: hidden;
 }
 .fm-checklist-barra-fill {
     height: 100%;
-    border-radius: 999px;
+    border-radius: 2px;
     transition: width .6s cubic-bezier(.32,.72,0,1), background-color .3s;
 }
 .fm-checklist-barra-fill.incompleto { background: var(--bs-warning); }

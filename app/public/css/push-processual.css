@@ -51,7 +51,10 @@
 .pp-linha--cab > span:last-child { text-align: right; }
 .pp-linha--dado { border-bottom: 1px solid #eef2f5; font-size: 13.5px; transition: background .12s; background: #fff; }
 .pp-linha--dado:nth-child(even) { background: #fafcfd; }
-.pp-linha--dado:hover { background: #eaf3f9; }
+.pp-linha--dado { transition: background .18s; }
+.pp-linha--dado:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-linha--dado:hover, .pp-linha--dado:hover * { color: #fff !important; }
+.pp-linha--dado:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-linha--nova { font-weight: bold; }
 .pp-linha--dado > span { padding: 11px 8px; min-width: 0; }
 .pp-linha--dado > span:first-child { padding-left: 18px; }
@@ -98,7 +101,10 @@
 .pp-linha--oab { grid-template-columns: 140px minmax(160px, 1fr) 110px 120px 120px 210px; }
 .pp-linha--oab > b, .pp-linha--oab > span { padding: 11px 8px; }
 .pp-linha--oab > b, .pp-linha--oab > span:first-child { padding-left: 18px; }
-.pp-linha--oab:hover { background: #f5fafd; }
+.pp-linha--oab { transition: background .18s; }
+.pp-linha--oab:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-linha--oab:hover, .pp-linha--oab:hover * { color: #fff !important; }
+.pp-linha--oab:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-selo--status { height: 20px; padding: 0 8px; font-size: 11px; }
 .pp-selo--pausada { background: #7a8e9b; }
 .pp-mudo { color: #7a8e9b; }
@@ -150,7 +156,10 @@
 .pp-modal__busca > input { border: none; outline: none; flex: 1; min-width: 0; font-size: 14px; }
 .pp-modal__lista { border: 1px solid #e1e8ed; border-radius: 2px; max-height: 280px; overflow: auto; }
 .pp-modal__pasta { width: 100%; display: flex; align-items: center; gap: 10px; border: none; border-bottom: 1px solid #f0f4f7; background: #fff; padding: 9px 12px; font: inherit; text-align: left; cursor: pointer; }
-.pp-modal__pasta:hover { background: #eaf3f9; }
+.pp-modal__pasta { transition: background .18s; }
+.pp-modal__pasta:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-modal__pasta:hover, .pp-modal__pasta:hover * { color: #fff !important; }
+.pp-modal__pasta:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-modal__pasta > i { color: #0a6fa0; }
 .pp-modal__pasta > span { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pp-modal__pasta > em { font-style: normal; font-size: 12px; color: #0a6fa0; font-weight: bold; }
@@ -217,7 +226,10 @@
 .pp-vp__lista { margin-top: 10px; border: 1px solid #e6edf2; border-radius: 2px; }
 .pp-vp__vazio { padding: 18px; text-align: center; color: #7a8e9b; font-size: 13.5px; }
 .pp-vp__item { width: 100%; display: flex; align-items: center; gap: 12px; border: none; border-bottom: 1px solid #eef2f5; background: #fff; padding: 10px 12px; font: inherit; text-align: left; cursor: pointer; }
-.pp-vp__item:hover { background: #eaf3f9; }
+.pp-vp__item { transition: background .18s; }
+.pp-vp__item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.pp-vp__item:hover, .pp-vp__item:hover * { color: #fff !important; }
+.pp-vp__item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-vp__item.is-sel { background: #e5f1f7; }
 .pp-vp__item i { color: #0a6fa0; }
 .pp-vp__item span { flex: 1; min-width: 0; }

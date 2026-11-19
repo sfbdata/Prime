@@ -662,7 +662,10 @@
     text-align: left;
     cursor: pointer;
 }
-.editor-rico-revisao-item:hover { background: var(--er-item-hover); }
+.editor-rico-revisao-item { transition: background .18s; }
+.editor-rico-revisao-item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.editor-rico-revisao-item:hover, .editor-rico-revisao-item:hover * { color: #fff !important; }
+.editor-rico-revisao-item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 
 .editor-rico-revisao-corpo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .editor-rico-revisao-tipo {
