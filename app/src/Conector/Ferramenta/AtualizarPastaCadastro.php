@@ -269,8 +269,15 @@ final class AtualizarPastaCadastro implements AtualizarPastaGrupo
         self::validar($campos);
         $contexto = $chamada->contexto;
         $input = new CadastroDaPastaInput(
-            $campos['nome_do_reu'], $campos['cpf'], $campos['qualificacao'], $campos['email'], $campos['endereco'],
-            $campos['contrato'], $campos['unidade'], $campos['titular_extrato'], $campos['prescricao'],
+            $campos['nome_do_reu'],
+            $campos['cpf'],
+            $campos['qualificacao'],
+            $campos['email'],
+            $campos['endereco'],
+            $campos['contrato'],
+            $campos['unidade'],
+            $campos['titular_extrato'],
+            $campos['prescricao'],
         );
         $completo = AtualizarPastaRecusa::gravando(fn (): bool => $this->salvarCadastro->executar($pasta, $contexto->pessoa, $contexto->escritorio, $input), self::RECUSA_CADASTRO);
 

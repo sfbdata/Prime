@@ -195,7 +195,7 @@ final class AtualizarPastaExclusao implements AtualizarPastaGrupo
         $ids = array_map(static fn (Marcador $f): int => (int) $f->getId(), $marcador->getFilhos()->toArray());
         sort($ids);
 
-        return array_values($ids);
+        return $ids;
     }
 
     /**
