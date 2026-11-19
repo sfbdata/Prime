@@ -16,12 +16,15 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Liga a conta criada pelo "Criar minha conta" a quem indicou, quando a pessoa chegou pelo link curto `/i/{codigo}`
- * (spec `indicar-bluejus.md`, comportamento 7). O código mora na sessão (gravado pelo {@see IndicacaoController}); sai
- * dela sempre que existe, usado ou não. O Auth não conhece a Indicação: só despacha o evento, depois do commit.
+ * (spec `indicar-bluejus.md`, comportamento 7). O código mora na sessão (gravado pelo {@see IndicacaoController}) só para
+ * preencher o campo de cupom do "Criar conta"; sai dela sempre que existe, usado ou não. O Auth não conhece a
+ * Indicação: só despacha o evento, depois do commit.
  *
- * Cupom do "Criar conta" (desenho 10 VS 25.10.26, spec `login-cupom-e-facebook.md`, PR A): quando o JSON do POST traz
- * `indicacao`, o campo é a palavra final e vale no lugar do código da sessão (vazio ou malformado não liga nada). O
- * ouvinte lê o corpo da própria requisição do cadastro, para o Auth continuar sem conhecer a Indicação.
+ * Cupom do "Criar conta" (desenho 10 VS 25.10.26, spec `login-cupom-e-facebook.md`, PR A; spec
+ * `ia-liberada-por-indicacao.md`, seção 8): a indicação só conta se a pessoa viu o código no formulário. O JSON do POST
+ * traz `indicacao` (o código, ou vazio se ela desligou o cupom) e o campo é a palavra final. Sem `indicacao` no corpo, ou
+ * vazio ou malformado, não liga nada: a sessão NÃO é plano B. O ouvinte lê o corpo da própria requisição do cadastro,
+ * para o Auth continuar sem conhecer a Indicação.
  *
  * Depois da atribuição, tenta o bônus de espaço (spec `bonus-de-espaco-por-indicacao.md`).
  *
@@ -46,12 +49,13 @@ final class CadastroPeloLinkListener
                 return;
             }
             $sessao = $request->getSession();
+            // O código da sessão só preenche o campo; aqui ele é descartado, usado ou não.
+            $sessao->remove(IndicacaoController::CHAVE_DA_SESSAO);
             $cupom = self::cupomDoCorpo($request);
-            if ($cupom === false && !$sessao->has(IndicacaoController::CHAVE_DA_SESSAO)) {
+            if ($cupom === false) {
                 return;
             }
-            $codigo = $sessao->remove(IndicacaoController::CHAVE_DA_SESSAO);
-            $this->atribuir->executar($cupom !== false ? $cupom : (is_string($codigo) ? $codigo : null), $evento->userId);
+            $this->atribuir->executar($cupom, $evento->userId);
             // Conta que já nasce confirmada (Google): o bônus sai agora. Pelo e-mail, o `tentar` não concede (a
             // conta ainda não confirmou) e quem concede é o ouvinte da confirmação.
             $this->bonus->tentar($evento->userId);

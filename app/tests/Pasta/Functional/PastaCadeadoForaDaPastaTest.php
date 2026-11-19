@@ -168,13 +168,13 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Descrição sigilosa da trancada', $html);
         self::assertStringContainsString('Meta da pasta livre', $html);
         self::assertCount(1, $c->filter('#tarefas .tarefa-card'));
-        self::assertSame('1', trim($c->filter('#tarefas-tab .badge')->text()), 'o badge da aba conta só a meta visível');
+        self::assertSame('1', trim($c->filter('#tarefas-tab .bjp-etiqueta')->text()), 'o badge da aba conta só a meta visível');
 
         $this->entrar($primario, $tenant);
         $c = $this->client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
         self::assertCount(2, $c->filter('#tarefas .tarefa-card'), 'o primário vê as metas das duas pastas');
-        self::assertSame('2', trim($c->filter('#tarefas-tab .badge')->text()));
+        self::assertSame('2', trim($c->filter('#tarefas-tab .bjp-etiqueta')->text()));
     }
 
     #[TestDox('K3 processo: o processo cujas pastas são todas ocultas não abre (403) e some da lista de processos; sem pasta, abre')]

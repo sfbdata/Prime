@@ -67,7 +67,7 @@ final class DefinirAvisoDoPushUseCaseTest extends TestCase
         $provedor->method('estaConfigurado')->willReturn(true);
         $configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $configuracoes->method('findDoTenant')->willReturnCallback(fn (): ?ConfiguracaoDeInteligencia => $this->configuracao);
-        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $configuracoes, $this->createMock(AnaliseDeInteligenciaRepository::class), $this->permissoes, $plataforma, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'));
+        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $configuracoes, $this->createMock(AnaliseDeInteligenciaRepository::class), $this->permissoes, $plataforma, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'), $this->planoPagoNoTeste(), $this->saldoNoTeste());
 
         return new DisponibilidadeDaIaNoAvisoDoPush($disponibilidade, $this->permissoes);
     }

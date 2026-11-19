@@ -51,8 +51,8 @@
                omitir a contagem em vez de abrir duas consultas novas. #}
             <div class="cob-cab-topo d-flex align-items-center gap-2 flex-wrap">
                 <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}"
-                   class="btn btn-sm btn-outline-secondary cob-cab-voltar">
-                    <i class="bi bi-arrow-left me-1"></i>{{ objeto.carteiraNome }}
+                   class="bjp-btn bjp-btn--secundario cob-cab-voltar">
+                    <i class="bi bi-arrow-left"></i>{{ objeto.carteiraNome }}
                 </a>
                 <nav class="cob-cab-trilha small" aria-label="{{ 'cobranca_objeto.show.trilha'|trans }}">
                     <a href="{{ path('cobranca_carteira_index') }}">{{ 'cobranca_objeto.comum.cobrancas'|trans }}</a>
@@ -64,20 +64,20 @@
                 <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="{{ 'cobranca_objeto.show.nav.rotulo'|trans }}">
                     {% if objeto.objetoAnteriorId %}
                     <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
-                       class="btn btn-outline-secondary" data-nav="anterior"
+                       class="bjp-btn bjp-btn--secundario" data-nav="anterior"
                        data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.nav.anterior'|trans }}"
                        aria-label="{{ 'cobranca_objeto.show.nav.anterior'|trans }}">‹</a>
                     {% else %}
-                    <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
+                    <span class="bjp-btn bjp-btn--secundario disabled" data-nav="anterior" aria-disabled="true"
                           data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.nav.primeira'|trans }}">‹</span>
                     {% endif %}
                     {% if objeto.objetoProximoId %}
                     <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
-                       class="btn btn-outline-secondary" data-nav="proximo"
+                       class="bjp-btn bjp-btn--secundario" data-nav="proximo"
                        data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.nav.proxima'|trans }}"
                        aria-label="{{ 'cobranca_objeto.show.nav.proxima'|trans }}">›</a>
                     {% else %}
-                    <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
+                    <span class="bjp-btn bjp-btn--secundario disabled" data-nav="proximo" aria-disabled="true"
                           data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.nav.ultima'|trans }}">›</span>
                     {% endif %}
                 </div>
@@ -95,9 +95,9 @@
                         {% if not caso.encerrado and not caso.judicializado %}
                             <span class="cob-selo-ativa"><i class="bi bi-circle-fill" aria-hidden="true"></i>{{ 'cobranca_objeto.show.cobranca_ativa'|trans }}</span>
                         {% else %}
-                            <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                            <span class="badge bjp-etiqueta bjp-etiqueta--{{ {'text-bg-success': 'ok', 'text-bg-danger': 'critico', 'text-bg-warning': 'atencao', 'text-bg-primary': 'info'}[caso.statusBadgeClass] ?? 'neutro' }}">{{ caso.statusLabel }}</span>
                         {% endif %}
-                        {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.pronto_dica'|trans }}">{{ 'cobranca_objeto.show.pronto'|trans }}</span>{% endif %}
+                        {% if caso.prontoParaEncerrar %}<span class="bjp-etiqueta bjp-etiqueta--ok" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.pronto_dica'|trans }}">{{ 'cobranca_objeto.show.pronto'|trans }}</span>{% endif %}
                     </div>
 
                     <h1 class="m-0 mt-2 mb-1">{{ objeto.identificacao }}</h1>
@@ -135,18 +135,18 @@
                 <div class="cob-acoes cob-cab-acoes ms-auto">
                     <div class="cob-acoes-linha">
                         {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
-                            <i class="bi bi-telephone me-1"></i>{{ 'cobranca_objeto.show.acoes.registrar_contato'|trans }}
+                        <button type="button" class="bjp-btn bjp-btn--primario" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
+                            <i class="bi bi-telephone"></i>{{ 'cobranca_objeto.show.acoes.registrar_contato'|trans }}
                         </button>
                         {% endif %}
                         <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.acoes.sem_funcao'|trans }}">
-                            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="simular-acordo" disabled>
-                                <i class="bi bi-calculator me-1"></i>{{ 'cobranca_objeto.show.acoes.simular_acordo'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--secundario is-disabled" data-acao="simular-acordo" disabled>
+                                <i class="bi bi-calculator"></i>{{ 'cobranca_objeto.show.acoes.simular_acordo'|trans }}
                             </button>
                         </span>
                         <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.show.acoes.sem_funcao'|trans }}">
-                            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="planilha-atualizada" disabled>
-                                <i class="bi bi-file-earmark-spreadsheet me-1"></i>{{ 'cobranca_objeto.show.acoes.planilha_atualizada'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--secundario is-disabled" data-acao="planilha-atualizada" disabled>
+                                <i class="bi bi-file-earmark-spreadsheet"></i>{{ 'cobranca_objeto.show.acoes.planilha_atualizada'|trans }}
                             </button>
                         </span>
                     </div>
@@ -154,15 +154,15 @@
                     <div class="cob-acoes-linha">
                         {% if can_access_module('pastas') %}
                             {% if not caso.judicializado %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                                <i class="bi bi-bank me-1"></i>{{ 'cobranca_objeto.show.acoes.judicializar'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                                <i class="bi bi-bank"></i>{{ 'cobranca_objeto.show.acoes.judicializar'|trans }}
                             </button>
                             {% else %}
                             {# Gate é o STATUS (`caso.judicializado`), não `pastaJudicialId`: a pasta pode
                                ter sido excluída (FK zera) e o caso continuar judicializado — mostrar
                                "Judicializar" de novo bateria em CasoJaJudicializadoException. #}
-                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelarJudicializacao">
-                                <i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.show.acoes.cancelar_judicializacao'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--destrutivo" data-bs-toggle="modal" data-bs-target="#modalCancelarJudicializacao">
+                                <i class="bi bi-x-octagon"></i>{{ 'cobranca_objeto.show.acoes.cancelar_judicializacao'|trans }}
                             </button>
                             {% endif %}
                         {% endif %}
@@ -170,23 +170,23 @@
                         {# `Encargos` é abreviação de "Editar configuração de encargos" — o rótulo curto é
                            do desenho, e o título nativo do navegador diz o nome inteiro. Não pode ser
                            tooltip do Bootstrap: `data-bs-toggle` já está ocupado pelo modal. #}
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                        <button type="button" class="bjp-btn bjp-btn--secundario"
                                 data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto"
                                 title="{{ 'cobranca_objeto.show.acoes.editar_encargos'|trans }}">
-                            <i class="bi bi-sliders me-1"></i>{{ 'cobranca_objeto.show.acoes.encargos'|trans }}
+                            <i class="bi bi-sliders"></i>{{ 'cobranca_objeto.show.acoes.encargos'|trans }}
                         </button>
                         {% endif %}
                         {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
                            zerado). Desabilitado, o botão ENSINA a condição em vez de falhar após o clique. #}
                         {% if caso.prontoParaEncerrar %}
-                        <button type="button" class="btn btn-sm btn-outline-danger cob-acao-encerrar" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
-                            <i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}
+                        <button type="button" class="bjp-btn bjp-btn--destrutivo cob-acao-encerrar" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                            <i class="bi bi-flag"></i>{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}
                         </button>
                         {% else %}
                         <span class="d-inline-block" data-bs-toggle="tooltip"
                               title="{{ 'cobranca_objeto.show.acoes.encerrar_bloqueado'|trans({valor: caso.saldoExigivel|centavos}) }}">
-                            <button type="button" class="btn btn-sm btn-outline-secondary cob-acao-encerrar is-disabled" disabled>
-                                <i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}
+                            <button type="button" class="bjp-btn bjp-btn--secundario cob-acao-encerrar is-disabled" disabled>
+                                <i class="bi bi-flag"></i>{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}
                             </button>
                         </span>
                         {% endif %}
@@ -305,12 +305,12 @@
                             <span class="cob-proxima-prazo">{{ 'cobranca_objeto.show.proxima.prazo'|trans({data: caso.proximaAcao.prazo|data}) }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</span>
                             {% endif %}
                             {% if podeGerenciar %}
-                            <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">{{ 'cobranca_objeto.show.proxima.concluir'|trans }}</button>
+                            <button type="button" class="bjp-btn bjp-btn--secundario py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">{{ 'cobranca_objeto.show.proxima.concluir'|trans }}</button>
                             {% endif %}
                         {% else %}
                             <span class="cob-proxima-texto text-secondary">{{ 'cobranca_objeto.show.proxima.nenhuma'|trans }}</span>
                             {% if podeGerenciar %}
-                            <button type="button" class="btn btn-sm jp-btn-outline py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">{{ 'cobranca_objeto.show.proxima.definir'|trans }}</button>
+                            <button type="button" class="bjp-btn bjp-btn--secundario py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">{{ 'cobranca_objeto.show.proxima.definir'|trans }}</button>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -348,15 +348,15 @@
                        nenhum rola até elemento invisível — o botão virava clique morto. O
                        `data-abrir-aba` faz o JS ativar a aba antes de rolar. O `href` continua sendo o
                        alvo da rolagem (e o destino natural se o JS não rodar). #}
-                    <a href="#secao-divida" data-abrir-aba="divida" class="btn btn-sm btn-outline-secondary">{{ 'cobranca_objeto.show.alertas.ver_na_divida'|trans }}</a>
+                    <a href="#secao-divida" data-abrir-aba="divida" class="bjp-btn bjp-btn--secundario">{{ 'cobranca_objeto.show.alertas.ver_na_divida'|trans }}</a>
                 </div>
                 {% elseif alerta.tipo.value == 'acao_atrasada' and podeGerenciar %}
                 <div class="jp-alerta-acoes">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">{{ 'cobranca_objeto.show.proxima.concluir'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">{{ 'cobranca_objeto.show.proxima.concluir'|trans }}</button>
                 </div>
                 {% elseif alerta.tipo.value == 'pronto_para_encerrar' and podeGerenciar %}
                 <div class="jp-alerta-acoes">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">{{ 'cobranca_objeto.show.acoes.encerrar'|trans }}</button>
                 </div>
                 {% endif %}
             </div>
@@ -381,7 +381,7 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
                     <i class="bi bi-cash-stack"></i><span>{{ 'cobranca_objeto.show.aba.divida'|trans }}</span>
-                    <span class="badge">{{ caso.obrigacoesEmAbertoQtd }}</span>
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ caso.obrigacoesEmAbertoQtd }}</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -395,7 +395,7 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-responsaveis" type="button">
                     <i class="bi bi-people"></i><span>{{ 'cobranca_objeto.show.aba.responsaveis'|trans }}</span>
-                    <span class="badge">{{ objeto.vinculos|length }}</span>
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ objeto.vinculos|length }}</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -407,13 +407,13 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">
                     <i class="bi bi-folder2"></i><span>{{ 'cobranca_objeto.show.aba.documentos'|trans }}</span>
-                    <span class="badge">{{ arquivosFm|length }}</span>
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ arquivosFm|length }}</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="historico-tab" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
                     <i class="bi bi-clock-history"></i><span>{{ 'cobranca_objeto.show.aba.historico'|trans }}</span>
-                    <span class="badge">{{ caso.historico|length }}</span>
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ caso.historico|length }}</span>
                 </button>
             </li>
         </ul>
@@ -461,8 +461,8 @@
                     {{ form_errors(forms.registrarAnotacao.texto) }}
                     <div class="cob-anotacao-nova-rodape mt-2">
                         <span class="cob-anotacao-nova-dica">{{ 'cobranca_objeto.show.anotacoes.nova_dica'|trans }}</span>
-                        <button type="submit" class="btn jp-btn-accent js-salvar-anotacao">
-                            <i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.show.anotacoes.salvar'|trans }}
+                        <button type="submit" class="bjp-btn bjp-btn--primario js-salvar-anotacao">
+                            <i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.show.anotacoes.salvar'|trans }}
                         </button>
                     </div>
                     {{ form_end(forms.registrarAnotacao) }}
@@ -483,7 +483,7 @@
                 {% set anotacoes = caso.historico|filter(e => e.tipoValue == 'anotacao') %}
                 <h6 class="mb-2">
                     <i class="bi bi-chat-left-text me-1"></i>{{ 'cobranca_objeto.show.anotacoes.titulo'|trans }}
-                    {% if anotacoes|length > 0 %}<span class="badge text-bg-secondary">{{ anotacoes|length }}</span>{% endif %}
+                    {% if anotacoes|length > 0 %}<span class="bjp-etiqueta bjp-etiqueta--neutro">{{ anotacoes|length }}</span>{% endif %}
                 </h6>
                 {% if anotacoes|length > 0 %}
                 <ul class="cob-anotacoes" tabindex="0" role="region" aria-label="{{ 'cobranca_objeto.show.anotacoes.regiao'|trans }}">
@@ -492,7 +492,7 @@
                         <div class="d-flex align-items-center gap-2 cob-anotacao-topo">
                             <span class="cob-anotacao-autor">{{ e.usuarioNome|default('cobranca_objeto.show.anotacoes.sistema'|trans) }}</span>
                             <span class="cob-anotacao-data">{{ e.ocorridoEm|date('d/m/Y H:i') }}</span>
-                            {% if e.editadoEm %}<span class="badge text-bg-secondary">{{ 'cobranca_objeto.show.anotacoes.editada'|trans }}</span>{% endif %}
+                            {% if e.editadoEm %}<span class="bjp-etiqueta bjp-etiqueta--neutro">{{ 'cobranca_objeto.show.anotacoes.editada'|trans }}</span>{% endif %}
                             {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
                         </div>
                         <div class="cob-anotacao-corpo">
@@ -645,8 +645,8 @@
                 {{ form_errors(forms.editarAnotacao.texto) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.show.modal.salvar_correcao'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.show.modal.salvar_correcao'|trans }}</button>
             </div>
             {{ form_end(forms.editarAnotacao) }}
         </div>
@@ -672,8 +672,8 @@
                     <blockquote class="cob-anotacao-trecho" id="trechoExcluirAnotacao"></blockquote>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.anotacao.excluir'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-trash"></i>{{ 'cobranca_objeto.anotacao.excluir'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -708,8 +708,8 @@
                     </p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.telefones.excluir'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-trash"></i>{{ 'cobranca_objeto.telefones.excluir'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -820,7 +820,7 @@
                                 {% for opcao in formNovaPessoa.tipoTelefone %}
                                 {% set caso = enum_cases('App\\Cobranca\\Enum\\TipoTelefone')|filter(c => c.value == opcao.vars.value)|first %}
                                 {{ form_widget(opcao, {attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
-                                <label class="btn btn-outline-secondary" for="{{ opcao.vars.id }}">
+                                <label class="bjp-btn bjp-btn--secundario" for="{{ opcao.vars.id }}">
                                     <i class="bi {{ caso.icone() }} me-1"></i>{{ opcao.vars.label }}
                                 </label>
                                 {% endfor %}
@@ -830,8 +830,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                    <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.show.ficha.cadastrar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.show.ficha.cadastrar'|trans }}</button>
                 </div>
                 {{ form_end(formNovaPessoa) }}
             </div>
@@ -849,7 +849,7 @@
                     {# Não há "Salvar" aqui de propósito: cada bloco da ficha grava sozinho, na hora — é a
                        regra que preserva o histórico das listas (spec de qualificação §6). Um botão de
                        salvar no rodapé prometeria uma gravação em lote que não existe. #}
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.fechar'|trans }}</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.fechar'|trans }}</button>
                 </div>
             </div>
         </div>
@@ -874,8 +874,8 @@
                 {{ form_row(formVincular.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.show.modal.vincular'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.show.modal.vincular'|trans }}</button>
             </div>
             {{ form_end(formVincular) }}
         </div>
@@ -900,8 +900,8 @@
                 {{ form_row(formEncerrarVinculo.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-person-dash me-1"></i>{{ 'cobranca_objeto.show.modal.encerrar'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--destrutivo"><i class="bi bi-person-dash"></i>{{ 'cobranca_objeto.show.modal.encerrar'|trans }}</button>
             </div>
             {{ form_end(formEncerrarVinculo) }}
         </div>
@@ -938,8 +938,8 @@
                 }) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
-                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.show.modal.salvar_configuracao'|trans }}</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.show.modal.salvar_configuracao'|trans }}</button>
             </div>
             {{ form_end(formConfigEncargos) }}
         </div>
@@ -1783,7 +1783,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var html = (container.dataset.prototype || '').replace(/__name__/g, index);
             var linha = document.createElement('div');
             linha.className = classeLinha;
-            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">' + rotuloRemover + '</button>';
+            linha.innerHTML = html + '<button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">' + rotuloRemover + '</button>';
             container.appendChild(linha);
             container.dataset.index = (index + 1).toString();
         });
@@ -1906,7 +1906,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var html = (container.dataset.prototype || '').replace(/__name__/g, index);
             var row = document.createElement('div');
             row.className = 'parcela-linha border rounded p-2 mb-2';
-            row.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">' + BJ_T.t('cobranca_objeto.js.remover') + '</button>';
+            row.innerHTML = html + '<button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">' + BJ_T.t('cobranca_objeto.js.remover') + '</button>';
             var d = row.querySelector('input[name$="[descricao]"]'); if (d) { d.value = p.descricao; }
             var v = valorInputDe(row); if (v) { v.value = reaisInput(p.valor); }
             var w = row.querySelector('input[name$="[vencimento]"]'); if (w) { w.value = p.vencimento; }
@@ -2182,7 +2182,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var html = (containerAloc.dataset.prototype || '').replace(/__name__/g, index);
             var linha = document.createElement('div');
             linha.className = 'alocacao-linha border rounded p-2 mb-2';
-            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">' + BJ_T.t('cobranca_objeto.js.remover') + '</button>';
+            linha.innerHTML = html + '<button type="button" class="bjp-btn bjp-btn--destrutivo mt-1 remover-linha">' + BJ_T.t('cobranca_objeto.js.remover') + '</button>';
             var select = linha.querySelector('[name$="[obrigacaoId]"]');
             if (select) { select.value = obrigacaoId; }
             var valor = linha.querySelector('[name$="[valor]"]');

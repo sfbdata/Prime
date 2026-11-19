@@ -115,6 +115,7 @@ final class PastaCabecalhoSeloTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $form);
         self::assertSame($pasta->getNup(), $form->attr('data-nup'));
         self::assertCount(1, $form->filter('input[type="hidden"][name="confirmar_nup"]'));
-        self::assertStringContainsString('prompt(', (string) $form->attr('onsubmit'));
+        self::assertNull($form->attr('onsubmit'), 'sem o prompt() do navegador: quem pergunta é a janela #psExcluirPasta');
+        self::assertCount(1, $crawler->filter('#psExcluirPasta.mp-modal [data-excluir-pasta-numero]'));
     }
 }

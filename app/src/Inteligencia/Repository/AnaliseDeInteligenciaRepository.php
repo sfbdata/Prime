@@ -323,6 +323,29 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tokens (entrada + saída) que UMA pessoa pediu nos escritórios dados, de todas as linhas com tokens, em qualquer
+     * status: é consumo (saldo de I.A. por pessoa, spec `ia-liberada-por-indicacao.md`). SQL direto: o saldo cruza
+     * escritórios e o TenantFilter da sessão esconderia os outros; o isolamento é o `tenant_id IN` explícito, e quem
+     * chama passa só os escritórios com vínculo ativo da pessoa. O índice `idx_inteligencia_analise_solicitante` cobre.
+     *
+     * @param list<int> $tenantIds
+     */
+    public function somarTokensDoSolicitanteNosEscritorios(int $userId, array $tenantIds): int
+    {
+        if ($tenantIds === []) {
+            return 0;
+        }
+
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COALESCE(SUM(COALESCE(tokens_entrada, 0) + COALESCE(tokens_saida, 0)), 0)
+               FROM inteligencia_analise
+              WHERE solicitante_id = :user AND tenant_id IN (:tenants)',
+            ['user' => $userId, 'tenants' => $tenantIds],
+            ['tenants' => ArrayParameterType::INTEGER],
+        );
+    }
+
+    /**
      * O consumo de TODOS os escritórios desde um instante, numa consulta só (a tabela da aba do Master, sem N+1):
      * por escritório e modelo, as análises que contam na cota (a mesma regra do {@see contarDesde}) e os tokens de
      * todas, inclusive excluídas e falhas. Varre todos os tenants de propósito: quem chama é o Master.

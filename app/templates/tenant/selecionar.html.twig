@@ -51,8 +51,8 @@
             </p>
             {% for convite in convites_escritorio %}
                 <a href="{{ path('auth_meu_convite', {id: convite.id}) }}"
-                   class="card mb-2 text-decoration-none text-body">
-                    <div class="card-body d-flex align-items-center gap-3">
+                   class="bjp-painel mb-2 text-decoration-none text-body">
+                    <div class="bjp-painel-corpo d-flex align-items-center gap-3">
                         <i class="bi bi-building fs-4 text-primary"></i>
                         <div class="flex-grow-1">
                             <div class="fw-semibold">{{ convite.tenant.name }}</div>
@@ -60,15 +60,15 @@
                                 <small class="text-muted">{{ convite.tenantRole.nomeExibido }}</small>
                             {% endif %}
                         </div>
-                        <span class="btn btn-sm btn-outline-primary">{{ 'escritorio.selecionar.ver_convite'|trans }}</span>
+                        <span class="bjp-btn bjp-btn--secundario">{{ 'escritorio.selecionar.ver_convite'|trans }}</span>
                     </div>
                 </a>
             {% endfor %}
         {% endif %}
 
         <div class="text-center mt-4">
-            <a href="{{ path('escritorio_criar') }}" class="btn btn-primary">
-                <i class="bi bi-building-add me-1"></i> {{ 'escritorio.selecionar.criar'|trans }}
+            <a href="{{ path('escritorio_criar') }}" class="bjp-btn bjp-btn--primario">
+                <i class="bi bi-building-add"></i> {{ 'escritorio.selecionar.criar'|trans }}
             </a>
         </div>
     {% else %}
@@ -76,7 +76,7 @@
             <form method="post" action="{{ path('tenant_selecionar') }}" class="mb-3">
                 <input type="hidden" name="tenant_id" value="{{ vinculo.tenant.id }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
-                <button type="submit" class="btn btn-outline-primary w-100 text-start p-3">
+                <button type="submit" class="bjp-btn bjp-btn--secundario w-100 text-start p-3" style="height:auto;white-space:normal;justify-content:flex-start;line-height:1.4">
                     <strong>{{ vinculo.tenant.name }}</strong>
                     {% if vinculo.tenantRole %}
                         <br><small class="text-muted">{{ vinculo.tenantRole.nomeExibido }}</small>

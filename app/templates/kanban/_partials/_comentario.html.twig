@@ -14,12 +14,12 @@
                 </div>
                 {% if comentario.podeEditar %}
                 <div class="d-flex gap-1 flex-shrink-0">
-                    <button class="btn btn-link btn-sm p-0 text-muted"
+                    <button class="bjp-ico bjp-btn--discreto"
                             onclick="editarComentarioModal({{ comentario.id }}, this)"
                             title="{{ 'kanban.comentario.editar'|trans }}">
                         <i class="bi bi-pencil" style="font-size:.8rem;"></i>
                     </button>
-                    <button class="btn btn-link btn-sm p-0 text-danger"
+                    <button class="bjp-ico bjp-btn--destrutivo"
                             onclick="excluirComentario({{ comentario.id }}, '{{ csrf_token('kanban_comentario_excluir_' ~ comentario.id) }}')"
                             title="{{ 'kanban.comentario.excluir'|trans }}">
                         <i class="bi bi-trash" style="font-size:.8rem;"></i>

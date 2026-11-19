@@ -220,7 +220,7 @@
     <div id="editorPanel" style="display:none; grid-column:2; grid-row:1; width:100%; height:100%; flex-direction:column; overflow:hidden;">
         <div id="editorToolbar" style="flex-shrink:0; padding:8px 12px; background:var(--bs-tertiary-bg); border-bottom:1px solid var(--bs-border-color); display:flex; align-items:center; position:relative; min-height:48px;">
 
-            <button type="button" id="btnSalvarNaPasta" class="btn btn-primary btn-sm d-flex align-items-center gap-2" style="flex-shrink:0;">
+            <button type="button" id="btnSalvarNaPasta" class="bjp-btn bjp-btn--primario" style="flex-shrink:0;">
                 <span class="petic-spinner" id="editorSpinner"></span>
                 <i class="bi bi-floppy2-fill" id="editorSaveIcon"></i>
                 <span id="btnSalvarLabel">{{ 'pasta_peticionar.salvar_na_pasta'|trans }}</span>
@@ -233,7 +233,7 @@
                           title="">{{ 'pasta_peticionar.novo_documento'|trans }}</span>
                 </div>
                 <div style="margin-top:1px;">
-                    <span id="editorCategoriaBadge" style="font-size:0.7rem; color:#888; letter-spacing:.02em;"></span>
+                    <span id="editorCategoriaBadge" style="font-size:0.7rem; color:#7b93a2; letter-spacing:.02em;"></span>
                 </div>
             </div>
 
@@ -293,8 +293,8 @@
             <div id="textoErro" class="alert alert-danger py-2 d-none" role="alert"></div>
 
             <div class="d-flex gap-2 justify-content-end">
-                <button type="button" class="btn btn-secondary" id="btnCancelarSalvarTexto">{{ 'pasta_peticionar.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnConfirmarSalvarTexto">
+                <button type="button" class="bjp-btn bjp-btn--secundario" id="btnCancelarSalvarTexto">{{ 'pasta_peticionar.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario" id="btnConfirmarSalvarTexto">
                     <span class="petic-spinner" id="textoSpinner"></span>
                     <i class="bi bi-floppy2-fill" id="textoSaveIcon"></i>
                     {{ 'pasta_peticionar.salvar'|trans }}
@@ -381,8 +381,8 @@
             <div id="uploadErro" class="alert alert-danger py-2 d-none" role="alert"></div>
 
             <div class="d-flex gap-2 justify-content-end">
-                <button type="button" class="btn btn-secondary" id="btnCancelarUpload">{{ 'pasta_peticionar.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnEnviar">
+                <button type="button" class="bjp-btn bjp-btn--secundario" id="btnCancelarUpload">{{ 'pasta_peticionar.cancelar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario" id="btnEnviar">
                     <span class="petic-spinner" id="uploadSpinner"></span>
                     <i class="bi bi-upload" id="uploadIcon"></i>
                     {{ 'pasta_peticionar.envio.enviar'|trans }}
@@ -409,9 +409,9 @@
         </p>
 
         <div class="d-flex gap-2 justify-content-end">
-            <button type="button" class="btn btn-secondary" id="btnDescarteCancelar">{{ 'pasta_peticionar.cancelar'|trans }}</button>
-            <button type="button" class="btn btn-outline-danger" id="btnDescarteNaoSalvar">{{ 'pasta_peticionar.descarte.nao_salvar'|trans }}</button>
-            <button type="button" class="btn btn-primary" id="btnDescarteSalvar">
+            <button type="button" class="bjp-btn bjp-btn--secundario" id="btnDescarteCancelar">{{ 'pasta_peticionar.cancelar'|trans }}</button>
+            <button type="button" class="bjp-btn bjp-btn--destrutivo" id="btnDescarteNaoSalvar">{{ 'pasta_peticionar.descarte.nao_salvar'|trans }}</button>
+            <button type="button" class="bjp-btn bjp-btn--primario" id="btnDescarteSalvar">
                 <i class="bi bi-floppy2-fill me-1"></i> {{ 'pasta_peticionar.salvar'|trans }}
             </button>
         </div>

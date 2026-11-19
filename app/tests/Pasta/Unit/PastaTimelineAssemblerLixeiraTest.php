@@ -107,4 +107,27 @@ final class PastaTimelineAssemblerLixeiraTest extends TestCase
         self::assertCount(1, $itens);
         self::assertSame('Documento atualizado', $itens[0]->titulo);
     }
+
+    #[TestDox('pasta restaurada com número novo: o detalhe diz o número novo e o antigo')]
+    public function testPastaRestauradaComNumeroNovoDizAntesEraN(): void
+    {
+        $itens = $this->montar([$this->evento('App\\Pasta\\Entity\\Pasta', [
+            'excluidaEm' => ['from' => '2026-10-07T10:00:00+00:00', 'to' => null],
+            'nup'        => ['from' => '12', 'to' => '15'],
+        ])]);
+
+        self::assertSame('Pasta restaurada', $itens[0]->titulo);
+        self::assertSame('Restaurada com o número 15; antes era 12.', $itens[0]->detalhe);
+    }
+
+    #[TestDox('pasta restaurada com o mesmo número: sem detalhe')]
+    public function testPastaRestauradaSemTrocaDeNumeroNaoTemDetalhe(): void
+    {
+        $itens = $this->montar([$this->evento('App\\Pasta\\Entity\\Pasta', [
+            'excluidaEm' => ['from' => '2026-10-07T10:00:00+00:00', 'to' => null],
+        ])]);
+
+        self::assertSame('Pasta restaurada', $itens[0]->titulo);
+        self::assertNull($itens[0]->detalhe);
+    }
 }

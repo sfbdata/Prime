@@ -36,6 +36,9 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
  *  - só aparece a pasta em que quem lê pode restaurar: EDITAR a pasta pelo `PermissionChecker`
  *    (a mesma permissão das rotas da lixeira da pasta) e a aba Documentos visível para ele (a
  *    `BarreiraDeAbaOcultaListener` recusaria as rotas `pasta_documento*`);
+ *  - a pasta EXCLUÍDA (lápide) aparece mesmo sem documento na lixeira, com data = `excluidaEm` e
+ *    contagens 0 (a lixeira do escritório é onde ela se restaura); quem tem DELETE nela recebe a
+ *    ação de restaurar a pasta, com o aviso de número ocupado;
  *  - o contrato de honorários com o Financeiro oculto para quem lê não conta (nem na quantidade,
  *    nem nas datas, nem em quem excluiu, nem na POSIÇÃO da pasta na lista); a pasta em que só ele
  *    está na lixeira não aparece;
@@ -88,7 +91,7 @@ final class ListarLixeiraDoEscritorioUseCase
         $nomes    = $this->nomesDosAutores($visiveis);
 
         return new LixeiraDoEscritorioOutput(
-            array_map(static fn (array $v): GrupoDaLixeiraDoEscritorio => self::grupo($v['pasta'], $v['contas'], $nomes), $visiveis),
+            array_map(static fn (array $v): GrupoDaLixeiraDoEscritorio => self::grupo($v['pasta'], $v['contas'], $nomes, $v['podeRestaurar'], $v['numeroOcupado']), $visiveis),
             $haMais && $ultima !== null ? $ultima['contas']['maisRecente'] . '|' . $ultima['pasta']->getId() : null,
         );
     }
@@ -116,9 +119,47 @@ final class ListarLixeiraDoEscritorioUseCase
                 $candidatas[] = ['pastaId' => $resumo->pastaId, 'contas' => $contas];
             }
         }
+        array_push($candidatas, ...$this->candidatasDeLapide($tenant, array_column($candidatas, 'pastaId'), $ocultasPorPasta));
         usort($candidatas, static fn (array $a, array $b): int => [$b['contas']['maisRecente'], $b['pastaId']] <=> [$a['contas']['maisRecente'], $a['pastaId']]);
 
         return $candidatas;
+    }
+
+    /**
+     * As pastas excluídas (lápides) do escritório que ainda não entraram com contas de documentos,
+     * com a data da exclusão e contagens 0. Aba Documentos oculta: a pasta não entra.
+     *
+     * @param list<int>                      $jaTem           pastas que já são candidatas
+     * @param array<int, list<AbaDaPasta>> $ocultasPorPasta
+     *
+     * @return list<array{pastaId: int, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}>
+     */
+    private function candidatasDeLapide(Tenant $tenant, array $jaTem, array $ocultasPorPasta): array
+    {
+        $saida = [];
+        $jaTem = array_flip($jaTem);
+        foreach ($this->pastas->lapidesDoEscritorio($tenant) as $lapide) {
+            $id = $lapide['id'];
+            if (isset($jaTem[$id])) {
+                continue;
+            }
+            $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $ocultasPorPasta[$id] ?? []);
+            if (\in_array(AbaDaPasta::Documentos->value, $ocultas, true)) {
+                continue;
+            }
+            $quando  = $lapide['excluidaEm']->format('Y-m-d H:i:s');
+            $autorId = $lapide['excluidaPorId'];
+            $saida[] = ['pastaId' => $id, 'contas' => [
+                'documentos'  => 0,
+                'subpastas'   => 0,
+                'maisAntiga'  => $quando,
+                'maisRecente' => $quando,
+                'autores'     => $autorId === null ? [] : [$autorId],
+                'semAutor'    => $autorId === null,
+            ]];
+        }
+
+        return $saida;
     }
 
     /** @return array{0: string, 1: int}|null a chave (data, id) do cursor, ou NULL para começar do início */
@@ -157,7 +198,7 @@ final class ListarLixeiraDoEscritorioUseCase
      *
      * @param list<array{pastaId: int, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}> $pagina
      *
-     * @return list<array{pasta: Pasta, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}}>
+     * @return list<array{pasta: Pasta, contas: array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool}, podeRestaurar: bool, numeroOcupado: bool}>
      */
     private function editaveis(array $pagina, User $quem, Tenant $tenant): array
     {
@@ -170,11 +211,24 @@ final class ListarLixeiraDoEscritorioUseCase
         $vinculo    = $this->vinculos->findAtivoPorUserETenant($quem, $tenant);
         $permitidas = array_flip($this->permissoes->idsPermitidosComVinculo($quem, $vinculo, AccessRequest::RESOURCE_PASTA, array_keys($pastas), AccessRequest::ACTION_EDIT));
 
+        // Restaurar a pasta (lápide) é DELETE, mais forte que EDITAR: ação própria, conferida à parte.
+        $lapides         = array_keys(array_filter($pastas, static fn (Pasta $p): bool => $p->estaExcluida()));
+        $podemRestaurar  = array_flip($lapides === [] ? [] : $this->permissoes->idsPermitidosComVinculo($quem, $vinculo, AccessRequest::RESOURCE_PASTA, $lapides, AccessRequest::ACTION_DELETE));
+        $nupsDasLapides  = array_values(array_filter(array_map(static fn (Pasta $p): string => $p->estaExcluida() ? (string) $p->getNup() : '', $pastas), static fn (string $n): bool => $n !== ''));
+        $ocupados        = array_flip($this->pastas->nupsEmUsoDoEscritorio($tenant, $nupsDasLapides));
+
         $visiveis = [];
         foreach ($pagina as $candidata) {
-            if (isset($permitidas[$candidata['pastaId']], $pastas[$candidata['pastaId']])) {
-                $visiveis[] = ['pasta' => $pastas[$candidata['pastaId']], 'contas' => $candidata['contas']];
+            $pasta = $pastas[$candidata['pastaId']] ?? null;
+            if ($pasta === null || !isset($permitidas[$candidata['pastaId']])) {
+                continue;
             }
+            $visiveis[] = [
+                'pasta'           => $pasta,
+                'contas'          => $candidata['contas'],
+                'podeRestaurar'   => $pasta->estaExcluida() && isset($podemRestaurar[$candidata['pastaId']]),
+                'numeroOcupado'   => $pasta->estaExcluida() && isset($ocupados[mb_strtoupper(trim((string) $pasta->getNup()))]),
+            ];
         }
 
         return $visiveis;
@@ -227,7 +281,7 @@ final class ListarLixeiraDoEscritorioUseCase
      * @param array{documentos: int, subpastas: int, maisAntiga: string, maisRecente: string, autores: list<int>, semAutor: bool} $contas
      * @param array<int, string>                                                                                                  $nomes
      */
-    private static function grupo(Pasta $pasta, array $contas, array $nomes): GrupoDaLixeiraDoEscritorio
+    private static function grupo(Pasta $pasta, array $contas, array $nomes, bool $podeRestaurarPasta, bool $numeroOcupado): GrupoDaLixeiraDoEscritorio
     {
         $quem = array_values(array_unique(array_filter(array_map(static fn (int $id): string => $nomes[$id] ?? '', $contas['autores']), static fn (string $n): bool => $n !== '')));
         sort($quem, SORT_STRING | SORT_FLAG_CASE);
@@ -243,6 +297,8 @@ final class ListarLixeiraDoEscritorioUseCase
             maisAntiga: new \DateTimeImmutable($contas['maisAntiga']),
             excluidoPor: $quem,
             autorSemRegistro: $contas['semAutor'] || \count($quem) < \count($contas['autores']),
+            podeRestaurarPasta: $podeRestaurarPasta,
+            numeroOcupado: $numeroOcupado,
         );
     }
 }

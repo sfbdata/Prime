@@ -15,8 +15,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * GerarNumeroDePasta usa para atribuir o próximo número. A pasta excluída (lápide, na lixeira) NÃO
  * ocupa número: se ela era a última, o número dela volta a ser o próximo (pedido do Samuel,
  * 18/11/2026, que substitui a decisão de 28/08). Buracos do meio continuam sem uso, porque a regra
- * é o maior número + 1. Restaurar uma lápide cujo número já foi reusado é recusado no
- * RestaurarPastaUseCase.
+ * é o maior número + 1. Restaurar uma lápide cujo número já foi reusado sempre funciona: a pasta
+ * volta com o próximo número livre (RestaurarPastaUseCase).
  *
  * O sufixo de letra do legado (10A/10B) conta pelo prefixo: 10A é o número 10. Nunca é gerado.
  */
@@ -78,6 +78,18 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
         );
 
         return (int) $maior;
+    }
+
+    public function emUsoPorOutraPasta(Tenant $tenant, string $nup, ?int $excetoPastaId): bool
+    {
+        // SQL cru de propósito: lê o que está gravado agora, não o UnitOfWork. O `tenant_id = ?` é o isolamento.
+        // O NUP é gravado em maiúsculas e sem espaços nas pontas (`Pasta::setNup`); a comparação segue a mesma regra.
+        $achou = $this->em->getConnection()->fetchOne(
+            'SELECT 1 FROM pasta WHERE tenant_id = ? AND nup = ? AND excluida_em IS NULL AND id <> ? LIMIT 1',
+            [$this->idDo($tenant), mb_strtoupper(trim($nup)), $excetoPastaId ?? 0]
+        );
+
+        return $achou !== false;
     }
 
     private function idDo(Tenant $tenant): int

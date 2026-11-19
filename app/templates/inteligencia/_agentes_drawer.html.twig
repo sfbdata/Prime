@@ -79,6 +79,7 @@
             </p>
         {% endif %}
     </header>
+    {{ include('inteligencia/_barra_de_uso.html.twig') }}
     <div class="ia-drawer-corpo">
         <p class="ia-msg" data-ia-msg role="status" hidden></p>
         {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id, documentosVisivel: iaDocsVisivel}) }}
@@ -94,6 +95,7 @@
        `inteligencia_auditoria_da_pasta` ao abrir o drawer e troca o rodapé inteiro. #}
     {{ include('inteligencia/_auditoria.html.twig', {auditoria: null, pastaId: pasta.id}) }}
 </aside>
+{{ include('inteligencia/_janela_saldo_esgotado.html.twig') }}
 <link rel="stylesheet" href="/css/pasta-ia-agentes.css">
 {# Textos do pasta-ia-agentes.js e do pasta-ia-conversa.js (o drawer só existe aqui, uma vez por página). #}
 {{ catalogo_js('inteligencia.js.agentes', 'inteligencia.js.conversa') }}

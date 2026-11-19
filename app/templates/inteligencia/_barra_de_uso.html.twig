@@ -1,0 +1,34 @@
+{# ============================================================================
+   Barra de uso da I.A. gratuita (spec ia-liberada-por-indicacao, seção 6). Só aparece quando `ia_saldo()` não é
+   nulo (escritório atual SEM plano pago) e o saldo se aplica. Visual da barra de "espaço usado" do Contribua
+   (`.ct-barra`), com a variante amarela a partir de 80%. "Ganhar mais" abre a janela "Indicar o BlueJus"
+   (`data-ind-abrir`, tratado por public/js/indicacao.js); onde essa janela não existe (página do Chat I.A), passe
+   `indicacao: false` e o link abre a janela da trava, que traz o link e o WhatsApp.
+
+   Atributos para o JS atualizar: `data-ia-saldo-barra`, `data-percentual`, `data-perto`, `data-esgotado`,
+   `data-pecas-usadas`, `data-pecas-direito`.
+
+   Contexto opcional: `indicacao` (bool, padrão true).
+   ============================================================================ #}
+{% set _iaSaldo = ia_saldo() %}
+{% if _iaSaldo is not null and _iaSaldo.seAplica %}
+    {% set _avisar = _iaSaldo.perto and not _iaSaldo.esgotado %}
+    <link rel="stylesheet" href="{{ asset('css/ia-saldo.css') }}">
+    <div class="ias-barra{{ _iaSaldo.perto ? ' ias-barra--perto' : '' }}" data-ia-saldo-barra
+         data-percentual="{{ _iaSaldo.percentual }}" data-perto="{{ _iaSaldo.perto ? '1' : '0' }}" data-esgotado="{{ _iaSaldo.esgotado ? '1' : '0' }}"
+         data-pecas-usadas="{{ _iaSaldo.pecasUsadas|number_format(1, ',', '.') }}" data-pecas-direito="{{ _iaSaldo.pecasDireito }}">
+        <div class="ias-linha">
+            <span class="ias-texto" data-ia-saldo-texto>
+                {%- if _avisar -%}
+                    {{ 'inteligencia.saldo.barra_aviso'|trans }}
+                {%- else -%}
+                    {{ 'inteligencia.saldo.barra_texto'|trans({usadas: _iaSaldo.pecasUsadas|number_format(1, ',', '.'), direito: _iaSaldo.pecasDireito ~ ''}) }}
+                {%- endif -%}
+            </span>
+            <button type="button" class="ias-ganhar" {{ (indicacao ?? true) ? 'data-ind-abrir' : 'data-ia-saldo-abrir' }}>{{ 'inteligencia.saldo.ganhar_mais'|trans }}</button>
+        </div>
+        <div class="ias-trilho" role="progressbar" aria-label="{{ 'inteligencia.saldo.barra_aria'|trans }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ _iaSaldo.percentual }}">
+            <div style="width: {{ _iaSaldo.percentual }}%"></div>
+        </div>
+    </div>
+{% endif %}

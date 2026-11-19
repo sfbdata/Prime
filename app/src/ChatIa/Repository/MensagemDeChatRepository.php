@@ -10,6 +10,7 @@ use App\ChatIa\Enum\PapelDaMensagem;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -146,5 +147,29 @@ class MensagemDeChatRepository extends ServiceEntityRepository
     public function remover(MensagemDeChat $mensagem): void
     {
         $this->getEntityManager()->remove($mensagem);
+    }
+
+    /**
+     * Tokens (entrada + saída) das respostas do assistente nas conversas de UMA pessoa, nos escritórios dados, inclusive
+     * a interrompida e a substituída (o gasto aconteceu). Saldo de I.A. por pessoa, spec `ia-liberada-por-indicacao.md`.
+     * EXCEÇÃO consciente à regra de tenant único: cruza os escritórios da pessoa, então é SQL direto (o TenantFilter da
+     * sessão esconderia os outros) e o isolamento é o `tenant_id IN` explícito mais o dono da conversa.
+     *
+     * @param list<int> $tenantIds
+     */
+    public function somarTokensDoAssistenteDaPessoaNosEscritorios(int $userId, array $tenantIds): int
+    {
+        if ($tenantIds === []) {
+            return 0;
+        }
+
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COALESCE(SUM(COALESCE(m.tokens_entrada, 0) + COALESCE(m.tokens_saida, 0)), 0)
+               FROM chat_ia_mensagem m
+               JOIN chat_ia_conversa c ON c.id = m.conversa_id
+              WHERE c.usuario_id = :user AND m.papel = :papel AND m.tenant_id IN (:tenants)',
+            ['user' => $userId, 'papel' => PapelDaMensagem::Assistente->value, 'tenants' => $tenantIds],
+            ['tenants' => ArrayParameterType::INTEGER],
+        );
     }
 }

@@ -183,7 +183,8 @@
             {# PAS-034b: a pergunta é a janela da tela (`confirmarPs`, pasta-dialogos.js), não o
                `confirm` do navegador; o script no fim deste parcial segura o envio até a resposta. #}
             <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
-                  class="js-restaurar-pasta" data-nup="{{ pasta.nup }}">
+                  class="js-restaurar-pasta" data-nup="{{ pasta.nup }}"{% if numeroDaLapideOcupado|default(false) %}
+                  data-numero-ocupado="{{ 'pasta_cabecalho.js.cabecalho.restaurar_numero_ocupado'|trans({nup: pasta.nup}) }}"{% endif %}>
                 <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
                 <button type="submit" class="ps-btn" title="{{ 'pasta_cabecalho.cabecalho.restaurar_dica'|trans }}">
                     <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_cabecalho.cabecalho.restaurar'|trans }}</span>
@@ -327,22 +328,15 @@
                     </button>
                     {% endif %}
                     {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
-                       O prompt é só o primeiro filtro: o servidor confere `confirmar_nup` com o
-                       número gravado e recusa se não bater. Os textos são os do desenho: toda
-                       exclusão vira lápide restaurável (a "lixeira" da pasta), inclusive a última
-                       da sequência. Trocar o prompt() nativo por modal é frente própria.
-                       Número errado: o aviso da tela (`avisarPs`, PAS-034b), neutro como o `gmAviso` do
-                       desenho (dc L.4337), e não o `alert` do navegador. O prompt leva o cliente entre
-                       parênteses, como o desenho (dc L.4336), o mesmo nome do título do cabeçalho. #}
+                       A janela "Excluir a pasta" (#psExcluirPasta, no fim deste parcial) é só o primeiro
+                       filtro: o servidor confere `confirmar_nup` com o número gravado e recusa se não bater.
+                       Desde 18/11/2026 (pedido do Samuel) a janela é o `.mp-modal` da casa, não o prompt()
+                       do navegador: o form não envia direto, o pasta-excluir-pasta.js segura o envio e pede
+                       o número na janela. Título com o cliente entre parênteses, como o desenho (dc L.4336). #}
                     {% if podeExcluirPasta %}
                     {% set excluirCliente = cliente ? cliente.nomeExibicao : pasta.nomeCliente %}
-                    {% set excluirPergunta = (excluirCliente
-                        ? 'pasta_cabecalho.cabecalho.menu.excluir_pergunta_cliente'|trans({nup: pasta.nup, cliente: excluirCliente})
-                        : 'pasta_cabecalho.cabecalho.menu.excluir_pergunta'|trans({nup: pasta.nup}))
-                        ~ "\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_registro'|trans ~ "\n\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_digite'|trans({nup: pasta.nup}) %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ excluirCliente }}"
-                          onsubmit="var n = this.dataset.nup, t0 = Date.now(), txt = window.prompt('{{ excluirPergunta|e('js') }}'); if (txt === null) { if (Date.now() - t0 < 150 && window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_sem_dialogo'|trans|e('js') }}'); } return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans({nup: pasta.nup})|e('js') }}'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
+                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ excluirCliente }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
                         <input type="hidden" name="confirmar_nup" value="">
                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
@@ -690,6 +684,40 @@
     </div>
 </header>
 
+{# Janela "Excluir a pasta" (18/11/2026, pedido do Samuel, no lugar do prompt() do navegador): o `.mp-modal` da
+   devolução, como a janela da meta com despacho (pasta/_metas.html.twig), sem Bootstrap. Pede o número da pasta;
+   o botão vermelho só habilita com o número certo, e o pasta-excluir-pasta.js envia o form do menu com
+   `confirmar_nup`. O CSS é o meta-passagem.css, que a pasta/show.html.twig já carrega. #}
+{% if podeExcluirPasta and not pasta.estaExcluida %}
+{% set excluirClienteJanela = cliente ? cliente.nomeExibicao : pasta.nomeCliente %}
+<div class="mp-modal mp-devolucao ps-excluir-pasta" id="psExcluirPasta" data-nup="{{ pasta.nup }}"
+     data-nao-confere="{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans({nup: pasta.nup}) }}" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="psExcluirPastaTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <b id="psExcluirPastaTitulo" class="mp-modal-cabeca-titulo">{{ excluirClienteJanela
+                    ? 'pasta_cabecalho.cabecalho.menu.excluir_pergunta_cliente'|trans({nup: pasta.nup, cliente: excluirClienteJanela})
+                    : 'pasta_cabecalho.cabecalho.menu.excluir_pergunta'|trans({nup: pasta.nup}) }}</b>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'pasta_cabecalho.cabecalho.menu.excluir_cancelar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-dev-texto" data-excluir-pasta-aviso>{{ 'pasta_cabecalho.cabecalho.menu.excluir_aviso'|trans({nup: pasta.nup}) }}</div>
+                <label class="mp-campo" for="psExcluirPastaNumero">{{ 'pasta_cabecalho.cabecalho.menu.excluir_digite'|trans({nup: pasta.nup}) }}
+                    <input type="text" id="psExcluirPastaNumero" autocomplete="off" spellcheck="false" data-excluir-pasta-numero>
+                </label>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'pasta_cabecalho.cabecalho.menu.excluir_cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar ps-excluir-pasta-ok" data-excluir-pasta-ok disabled><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'pasta_cabecalho.cabecalho.menu.excluir'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/pasta-excluir-pasta.js') }}" defer></script>
+{% endif %}
+
 <style>
 /* Interruptor dos itens "Acompanhar alterações" e "Fixar nos favoritos": medidas do desenho (`swS`/`swB`).
    O trilho é token com par escuro (auditoria 2 C7: `--ps-switch-off`); o valor
@@ -737,6 +765,8 @@
         // desenho não tem esta pergunta — a convenção dele decide a cor).
         window.confirmarPs({
             titulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar_pergunta', { nup: form.dataset.nup }),
+            // Número da lápide já é de outra pasta: o aviso vem pronto do servidor (data-numero-ocupado).
+            texto: form.dataset.numeroOcupado || '',
             rotulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar'),
             icone: 'bi-arrow-counterclockwise',
             variante: 'azul'

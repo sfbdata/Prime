@@ -8,6 +8,8 @@ use App\Conector\Entity\PropostaDoConector;
 use App\Conector\Enum\EstadoDaPropostaDoConector;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -40,6 +42,43 @@ class PropostaDoConectorRepository extends ServiceEntityRepository
             ->setParameter('hash', $identificadorHash)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * A mesma busca, com a linha travada (`SELECT ... FOR UPDATE`) até o fim da transação de quem chama: duas
+     * `confirmar_acao` da mesma proposta saem uma depois da outra, e a segunda já enxerga a proposta decidida (6.7, item 4).
+     * `HINT_REFRESH`: a linha pode já estar no gerenciador de identidades, lida antes da trava; vale o estado do banco.
+     */
+    public function buscarComTrava(string $identificadorHash, Tenant $tenant): ?PropostaDoConector
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.identificadorHash = :hash')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('hash', $identificadorHash)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * A varredura ao registrar uma proposta nova (6.7, item 6, como o chat faz): as pendentes do escritório que já
+     * venceram viram `expirada` e perdem `dados` e `resumo`. Em lote, sem auditoria: é o fim do prazo, não um ato de
+     * alguém. Só do escritório dado. Devolve quantas mudaram.
+     */
+    public function expirarVencidas(Tenant $tenant, \DateTimeImmutable $agora): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'UPDATE ' . PropostaDoConector::class . ' p'
+            . ' SET p.estado = :expirada, p.dados = NULL, p.resumo = NULL, p.decididaEm = :agora'
+            . ' WHERE p.tenant = :tenant AND p.estado = :pendente AND p.expiraEm <= :agora'
+        )
+            ->setParameter('expirada', EstadoDaPropostaDoConector::Expirada->value)
+            ->setParameter('pendente', EstadoDaPropostaDoConector::Pendente->value)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('agora', $agora, 'datetime_immutable')
+            ->execute();
     }
 
     /**

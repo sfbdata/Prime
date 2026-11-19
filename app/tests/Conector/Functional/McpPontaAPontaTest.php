@@ -6,13 +6,21 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\AtualizarPastaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
+use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
+use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
+use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\LerClientesFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
+use App\Conector\Ferramenta\MudarAndamentoFerramenta;
+use App\Conector\Ferramenta\PrazosEMetasDaPastaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\ServidorDeAutorizacao;
@@ -47,12 +55,20 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
     /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
     private const REGISTRADAS = [
+        AtualizarPastaFerramenta::NOME,
         BuscarPastasFerramenta::NOME,
+        ConfirmarAcaoFerramenta::NOME,
+        DocumentosEPecasFerramenta::NOME,
+        FinanceiroDaPastaFerramenta::NOME,
         LerAgendaFerramenta::NOME,
+        LerClientesFerramenta::NOME,
         LerDocumentosEModelosFerramenta::NOME,
         LerPastaFerramenta::NOME,
         LerProcessosFerramenta::NOME,
+        MudarAndamentoFerramenta::NOME,
+        PrazosEMetasDaPastaFerramenta::NOME,
         QuemSouEuFerramenta::NOME,
+        RegistrarNaPastaFerramenta::NOME,
     ];
 
     use CenarioDaAutorizacaoTrait;
@@ -130,8 +146,10 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         $dados = $this->resultado($this->chamarQuemSouEu($par['access_token'], self::ERA_DO_INITIALIZE, 1), 1)['structuredContent'];
 
         // A pessoa do cenário não tem módulo: sobram as que não pedem nenhum (a ler_pasta segue a tela da pasta, decisão
-        // 10 do PR 6, e a própria quem_sou_eu).
+        // 10 do PR 6, a própria quem_sou_eu e a confirmar_acao, que confere a ação confirmada ao executar), esta não
+        // liberada na conexão só de leitura.
         self::assertSame([
+            ['nome' => ConfirmarAcaoFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[ConfirmarAcaoFerramenta::NOME], 'liberada_nesta_conexao' => false],
             ['nome' => LerPastaFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[LerPastaFerramenta::NOME], 'liberada_nesta_conexao' => true],
             ['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true],
         ], $dados['ferramentas']);

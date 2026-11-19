@@ -1,8 +1,9 @@
-<div class="card card-outline card-warning mb-3">
-    <div class="card-header">
-        <h3 class="card-title"><i class="bi bi-calendar-check me-2"></i>Minhas Justificativas</h3>
+<div class="bjp-painel mb-3">
+    <div class="bjp-painel-cabeca">
+        <i class="bi bi-calendar-check"></i>
+        <h3 class="bjp-painel-titulo">Minhas Justificativas</h3>
     </div>
-    <div class="card-body p-0">
+    <div class="p-0">
         {% if justificativas is empty %}
             <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada nesta competência.</p>
         {% else %}
@@ -33,15 +34,15 @@
                         <tr>
                             <td>
                                 {% for j in batch %}
-                                    <span class="badge bg-body-tertiary text-body-secondary border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto me-1">{{ j.data|date('d/m/Y') }}</span>
                                 {% endfor %}
                             </td>
                             <td class="small">
                                 {% if batch[0].labelTipo %}
-                                    <span class="badge text-bg-info text-dark">{{ batch[0].labelTipo }}</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--info bjp-etiqueta--sem-ponto">{{ batch[0].labelTipo }}</span>
                                 {% endif %}
                                 {% if batch[0].abonoParcial %}
-                                    <span class="badge text-bg-secondary ms-1" title="Abono parcial">Parcial</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto ms-1" title="Abono parcial">Parcial</span>
                                     {% if batch[0].horaInicioAbono and batch[0].horaFimAbono %}
                                         <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }} às {{ batch[0].horaFimAbono|date('H:i') }}</div>
                                     {% endif %}
@@ -56,18 +57,18 @@
                             <td>
                                 {% set status = batch[0].status %}
                                 {% if status == 'abonado' and batch[0].tipo == 'falta_nao_justificada' %}
-                                    <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
                                 {% elseif status == 'abonado' %}
-                                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Abonado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--ok"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                 {% elseif status == 'pendente' %}
-                                    <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--atencao"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
                                 {% else %}
-                                    <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
+                                    <span class="bjp-etiqueta bjp-etiqueta--critico"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if batch[0].anexoPath %}
-                                    <a href="{{ path('ponto_justificativa_anexo', {id: batch[0].id}) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <a href="{{ path('ponto_justificativa_anexo', {id: batch[0].id}) }}" target="_blank" class="bjp-btn bjp-btn--secundario">
                                         <i class="bi bi-paperclip"></i> Ver
                                     </a>
                                 {% else %}
@@ -89,7 +90,7 @@
                                     <span class="text-muted small" data-justificativa-da-batida>Segue para a análise do gestor.</span>
                                 {% elseif batch[0].status == 'pendente' %}
                                 <button type="button"
-                                            class="btn btn-sm btn-outline-primary"
+                                            class="bjp-ico bjp-btn--secundario"
                                             title="Editar justificativa"
                                             data-id="{{ batch[0].id }}"
                                             data-tipo="{{ batch[0].tipo }}"
