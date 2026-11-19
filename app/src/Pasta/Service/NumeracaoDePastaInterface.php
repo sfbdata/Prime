@@ -25,4 +25,10 @@ interface NumeracaoDePastaInterface
 
     /** O maior número já usado no escritório; 0 se não há nenhum número aproveitável. */
     public function maiorNumero(Tenant $tenant): int;
+
+    /**
+     * Se outra pasta viva do escritório (fora da lixeira) já tem este número. Lê o banco, não a memória: chamado
+     * depois do `travar`, enxerga o que quem segurava a trava antes acabou de gravar.
+     */
+    public function emUsoPorOutraPasta(Tenant $tenant, string $nup, ?int $excetoPastaId): bool;
 }

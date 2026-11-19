@@ -123,9 +123,10 @@ final class TabelaDeAbaEChave
         ],
 
         // Gravação (6.6).
-        // `criar`: módulo `expediente` ou `pastas`, como a tela, e nenhuma chave (`pasta_new` não é `pasta_show`).
+        // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é
+        // `pasta_show`).
         'atualizar_pasta' => [
-            'criar' => ['modulos' => ['expediente', 'pastas'], 'abas' => [], 'chaves' => self::NENHUMA],
+            'criar' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
             'editar_dados' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'situacao' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'responsavel' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
@@ -143,6 +144,9 @@ final class TabelaDeAbaEChave
             'reu' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'pedir_acesso' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'enviar_relatorio_sem_processo' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
+            // Sempre por proposta; o alvo (pasta, marcador, réu) vai nos dados e a ferramenta exige, por alvo, a mesma
+            // permissão da tela (decisão 31): pasta `delete`, módulo `expediente`, pasta editar.
+            'excluir' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],
         ],
         'mudar_andamento' => [
             'mudar_fase' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::EXPEDIENTES],

@@ -47,6 +47,8 @@ final class ConversorDaProposta implements ExecutorDaProposta
             nomeAcao: trim((string) $dados['nomeAcao']),
             // Como a tela de Nova pasta: sem cadastro novo nem escolhido, liga o cadastro único de mesmo nome, se houver.
             vincularAoCadastroDoMesmoNome: $cliente === null && $existente === null,
+            // A pessoa confirmou o número no cartão: número de outra pasta viva é recusado, como no Editar dados.
+            recusarNumeroEmUso: true,
         ), $eu, $tenant);
 
         if ($existente !== null) {
