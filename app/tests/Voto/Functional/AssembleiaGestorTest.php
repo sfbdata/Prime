@@ -110,7 +110,7 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         $u = $unidade->getId();
         $acoes = [
             '/editar', '/publicar', '/pautas/' . $p . '/abrir', '/pautas/' . $p . '/encerrar', '/pautas/' . $p . '/prazo',
-            '/pautas', '/pautas/modelo', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/importar',
+            '/pautas', '/pautas/modelo', '/pautas/' . $p . '/editar', '/unidades/' . $u . '/novo-link', '/unidades/' . $u . '/editar', '/unidades/importar',
             '/unidades/enviar-links', '/unidades/' . $u . '/reenviar', '/pautas/' . $p . '/remover', '/unidades/' . $u . '/remover',
             '/pautas/' . $p . '/mover/cima', '/pautas/' . $p . '/mover/baixo', '/pautas/' . $p . '/duplicar',
         ];

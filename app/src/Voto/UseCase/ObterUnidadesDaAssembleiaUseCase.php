@@ -68,6 +68,8 @@ final class ObterUnidadesDaAssembleiaUseCase
             fracao: $unidade->getFracao(),
             responsavel: $unidade->getResponsavel(),
             email: $unidade->getEmail(),
+            telefone: $unidade->getTelefone(),
+            cpf: $unidade->getCpf(),
             token: $this->tokens->token($unidade->getSemente()),
             linkEnviadoEm: $unidade->getLinkEnviadoEm(),
             ocorrencia: null === $ocorrencia ? null : new OcorrenciaNaUnidade(

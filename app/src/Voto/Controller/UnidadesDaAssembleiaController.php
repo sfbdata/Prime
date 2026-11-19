@@ -12,6 +12,7 @@ use App\Voto\Exception\SemPapelNaAvaliacaoException;
 use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
+use App\Voto\UseCase\EditarUnidadeUseCase;
 use App\Voto\UseCase\EnviarLinksPorEmailUseCase;
 use App\Voto\UseCase\GerarNovoLinkDaUnidadeUseCase;
 use App\Voto\UseCase\ImportarUnidadesUseCase;
@@ -109,6 +110,22 @@ final class UnidadesDaAssembleiaController extends AbstractController
         });
 
         return $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]);
+    }
+
+    #[Route('/{unidade}/editar', name: 'voto_assembleia_unidade_editar', methods: ['POST'])]
+    public function editar(int $id, int $unidade, Request $request, EditarUnidadeUseCase $editar): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+        $campos = [];
+        foreach (['identificacao', 'bloco', 'situacao', 'fracao', 'responsavel', 'email', 'telefone', 'cpf'] as $campo) {
+            $campos[$campo] = $request->request->getString($campo);
+        }
+        $this->executar($request, $id, function () use ($editar, $tenant, $id, $unidade, $campos): void {
+            $editar->executar($tenant, $id, $unidade, $campos);
+            $this->avisar('voto.assembleia.gestor.unidades.editada');
+        });
+
+        return $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id, '_fragment' => 'unidade-' . $unidade]);
     }
 
     #[Route('/{unidade}/novo-link', name: 'voto_assembleia_unidade_novo_link', methods: ['POST'])]

@@ -31,6 +31,24 @@
       .catch(() => { botao.disabled = false; aviso(BJ_T.t('menu.usuario.js.idioma_erro')); });
   }
 
+  /* Opções avançadas do Meu Perfil (spec sistema-em-ingles §2): grava idioma, fuso e formatos de uma vez e recarrega. */
+  function salvarOpcoes(form) {
+    const botao = form.querySelector('[type="submit"]');
+    if (botao.disabled) return;
+    const token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    const dados = {};
+    ['idioma', 'fuso', 'formatoData', 'formatoNumero'].forEach(n => { dados[n] = form.elements[n] ? form.elements[n].value : ''; });
+    botao.disabled = true;
+    fetch('/perfil/opcoes-avancadas', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token }, body: JSON.stringify(dados) })
+      .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok) { location.reload(); return; } botao.disabled = false; aviso(d.erro || BJ_T.t('opcoes_avancadas.js.erro')); })
+      .catch(() => { botao.disabled = false; aviso(BJ_T.t('opcoes_avancadas.js.erro')); });
+  }
+  document.addEventListener('submit', e => {
+    const form = e.target.closest && e.target.closest('[data-mu-opcoes-form]');
+    if (form) { e.preventDefault(); salvarOpcoes(form); }
+  });
+
   /* ---------- tema escuro (chave liga/desliga; persiste em localStorage 'tema', lido pelo anti-flash do base) ---------- */
   function sincronizarTema() {
     const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark', b = document.getElementById('toggleTema');
@@ -138,6 +156,7 @@
     if (conta) { e.preventDefault(); fecharMenu(); return abrirConta(conta.dataset.muConta); }
     const aba = t.closest('[data-mu-aba]');
     if (aba) return abrirAba(aba.dataset.muAba);
+    if (t.closest('[data-mu-opcoes]')) { e.preventDefault(); const m = modal('modalOpcoesAvancadas'); if (m) m.show(); return; }
     if (t.closest('[data-mu-idioma]')) { e.preventDefault(); fecharMenu(); const m = modal('modalIdioma'); if (m) m.show(); return; }
     const idioma = t.closest('[data-mu-idioma-escolher]');
     if (idioma) { e.preventDefault(); return escolherIdioma(idioma); }

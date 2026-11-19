@@ -189,7 +189,7 @@ final class PainelRevisaoOabJsTest extends TestCase
             '.mp .roab-st-nao { color: #8a6200; background: #fff6dc; border-color: #f0dba3; }',
             '.mp .roab-aba.on { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }',
             '.mp .roab-linha:nth-child(even) { background: #f7f9fb; }',
-            '.mp .roab-linha:hover { background: #eaf3f9; }',
+            '.mp .roab-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }',
             '.mp .roab-confirmar:hover { background: #17633a; }',
             '.mp .roab-reverif:hover { border-color: #0a6fa0; color: #0a6fa0; }',
             '.mp .roab-rodar:hover { background: #0b5f86; }',

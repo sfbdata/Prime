@@ -54,4 +54,19 @@ final class FormatoDoIdiomaTest extends TestCase
         self::assertSame('05/03/2026 23:30', (new FormatoDoIdioma())->dataHora($utc, 'pt_BR'));
         self::assertSame('05/03/2026 20:30', (new FormatoDoIdioma())->dataHora($utc->setTimezone(new \DateTimeZone('America/Sao_Paulo')), 'pt_BR'));
     }
+
+    #[TestDox('formato fixo de data (dmy, mdy, ymd) e de número (br, us) no lugar do automático; código desconhecido vale como automático')]
+    public function testFormatosFixos(): void
+    {
+        $formato = new FormatoDoIdioma();
+        $momento = new \DateTimeImmutable('2026-12-31 18:05:00', new \DateTimeZone('America/Sao_Paulo'));
+
+        self::assertSame('31/12/2026', $formato->data($momento, 'en', 'dmy'));
+        self::assertSame('12/31/2026', $formato->data($momento, 'pt_BR', 'mdy'));
+        self::assertSame('2026-12-31 18:05', $formato->dataHora($momento, 'pt_BR', 'ymd'));
+        self::assertSame('31/12/2026', $formato->data($momento, 'pt_BR', 'xyz'));
+        self::assertSame('1,234.50', $formato->numero(1234.5, 'pt_BR', 2, 'us'));
+        self::assertSame('1.234,50', $formato->numero(1234.5, 'en', 2, 'br'));
+        self::assertSame('1.234,50', $formato->numero(1234.5, 'pt_BR', 2, 'xx'));
+    }
 }

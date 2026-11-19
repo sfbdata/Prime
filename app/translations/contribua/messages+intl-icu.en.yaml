@@ -1,0 +1,9 @@
+contribua:
+    espaco:
+        bonus_ate: 'Includes {gb} GB bonus until {data}'
+        inclui_liberados: '(includes +{gb} GB unlocked)'
+        liberada_auto: 'Options unlocked automatically because usage passed {limiar}%. BlueJus stays free; the package is optional.'
+        liberada_master: 'Options unlocked by the BlueJus team at your request. BlueJus stays free; the package is optional.'
+        previa_master: 'Visible only to you, as Master. The firm sees these options when you unlock them or when usage passes {limiar}%.'
+        pedido_pendente_titulo: 'Your request for +{gb} GB is under review'
+        pedido_pendente_sub: 'Sent on {data}. The BlueJus team unlocks it and notifies you by email. Meanwhile, everything keeps working.'

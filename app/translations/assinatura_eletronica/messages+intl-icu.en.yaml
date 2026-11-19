@@ -1,0 +1,189 @@
+assinatura_eletronica:
+    titulo_pagina: E-signature
+    nome_da_copia: '{nome} (copy)'
+    tratamento:
+        dr: Dr.
+        dra: Dr.
+    evento:
+        rascunho_salvo: Draft saved
+        documento_criado: Document created
+        duplicado: Duplicated from {nome}
+        movido_para_lixeira: Moved to Trash. Evidence preserved
+        restaurado: Restored from Trash
+        envio_cancelado_pela_exclusao: Sending canceled by deletion. Links deactivated
+        documento_enviado: Sent for signature. Hash {hash_inicio}...
+        convite_enviado: Invitation sent by email to {nome}
+        email_nao_enviado: Email not sent to {nome}
+        link_aberto: '{nome} opened the link'
+        codigo_enviado: Verification code sent to {nome}
+        codigo_errado: Incorrect code entered by {nome}
+        assinado: '{metodo, select, reforcada {Signed by {nome} · Email and code, selfie, location {local}} govbr {Signed by {nome} · gov.br account} icp {Signed by {nome} · ICP-Brasil certificate} other {Signed by {nome} · Email and code}}'
+        recusado: 'Declined by {nome}: {motivo}'
+        documento_concluido: Document completed
+        lembrete_enviado: Reminder sent to {nome}
+        envio_cancelado: Sending canceled. Document and evidence preserved
+        vinculo_definido: 'Link to matter {nup} set for when signing is complete'
+        vinculo_feito: 'Signed document linked to matter {nup}'
+        vinculo_nao_aplicado: 'Link to matter {nup} not applied: {motivo}'
+        pdf_para_assinar_gerado: 'PDF to sign generated for {nome}'
+        pdf_assinado_recusado: 'Signed PDF sent by {nome} was rejected: {motivo, select, sem_assinatura {no digital signature in the file} alterada {signature does not match the content} prefixo {the file does not preserve the previous version} sem_assinatura_nova {no new signature in the file} ilegivel {file could not be read} sem_cpf {certificate without CPF} cpf_diferente {certificate CPF differs from the one on record} cadeia_recusada {certificate not confirmed by the official chain} cadeia_indisponivel {certificate validator unavailable} other {file not accepted}}'
+        pdf_selado: Final PDF sealed by BlueJus
+        selo_nao_aplicado: Final PDF stored without the BlueJus seal
+    erro:
+        sem_permissao: You do not have access to Document E-signature.
+        nao_encontrado: Document not found.
+        so_rascunho: Only drafts can be changed.
+        excluir_enviado: Sent documents stay in the Trash to preserve the evidence.
+        excluir_fora_da_lixeira: Only documents in the Trash can be permanently deleted.
+        dados_invalidos: The document data could not be read. Reload the page and try again.
+        selecao_invalida: Select at least one document.
+        cor_invalida: Invalid color.
+        nome_longo: The document name can have up to 200 characters.
+        pasta_longa: The matter name can have up to 200 characters.
+        categoria_longa: The category can have up to 80 characters.
+        modelo_invalido: Invalid document template.
+        layout_invalido: Invalid document layout.
+        lateral_longa: The side text can have up to 20,000 characters.
+        mensagem_longa: The message can have up to 2,000 characters.
+        prazo_invalido: The signing deadline must be from 1 to 90 days.
+        logo_invalida: Invalid logo.
+        signatarios_demais: The document can have up to 50 signers.
+        signatario_nome_longo: The name of signer {numero} can have up to 200 characters.
+        signatario_papel_longo: The role of signer {numero} can have up to 120 characters.
+        signatario_email_invalido: The email of signer {numero} is invalid.
+        signatario_cpf_invalido: The CPF of signer {numero} must have 11 digits.
+        signatario_nivel_invalido: Invalid signature type for signer {numero}.
+        blocos_demais: The document can have up to 2,000 blocks.
+        bloco_invalido: The document content has an invalid block (position {posicao}).
+        bloco_texto_longo: A document block exceeds 20,000 characters (position {posicao}).
+        pagina_sem_arquivo: The document uses pages from a PDF that was not uploaded.
+        pagina_invalida: The document uses a page that does not exist in the uploaded PDF (position {posicao}).
+        arquivo_invalido: Upload a PDF file.
+        arquivo_grande: The PDF can be up to 10 MB.
+        logo_arquivo_invalido: The logo must be a PNG or JPEG image.
+        logo_grande: The logo can be up to 2 MB.
+        logo_propria_sem_arquivo: Upload your own logo image.
+        upload_falhou: The file could not be received. Try again.
+        sem_chave: E-signature has no key configured. Contact support.
+        envio_ja_feito: This document has already been sent.
+        envio_na_lixeira: Restore the document from the Trash to send it.
+        envio_sem_signatarios: Add at least one signer to send.
+        envio_nome: Enter the name of every signer.
+        envio_cpf: Check the CPF entered.
+        envio_email: Enter the email of {nome} to send the signing code.
+        envio_reforcada_menor: 'Enhanced signature collects a selfie and is not used for minors ({nome}). Choose another signature type.'
+        reforcada_sem_chave: Enhanced signature has no key configured. Contact support.
+        certificado_sem_validador: 'The signature for {nome} is not available yet. Use the Simple signature.'
+        selo_sem_chave: Validation code has no key configured. Contact support.
+        vinculo_ja_definido: This document is already linked to a matter.
+        vinculo_fora_do_envio: Only documents awaiting signature or completed, and not in the Trash, can be linked to a matter.
+        vinculo_sem_pasta: Choose a matter.
+        vinculo_pasta_nao_encontrada: Matter not found.
+        vinculo_sem_permissao: You cannot edit this matter.
+        vinculo_pasta_excluida: This matter was deleted and does not accept documents.
+        cancelar_fora_do_envio: Only documents awaiting signature can have sending canceled.
+        lembrete_fora_do_envio: Only documents awaiting signature, within the deadline, receive reminders.
+        lembrete_sem_pendente: No signer is awaiting signature.
+        lembrete_recente: A reminder was already sent in the last hour. Try again later.
+        email_nao_enviado: 'Could not send the email to {nome}. Try again later.'
+        link_invalido: Invalid link.
+        muitas_tentativas: Too many attempts. Wait a few minutes and try again.
+        sessao_expirada: The page has expired. Reload the page and try again.
+        assinar_nome: Enter your full name.
+        assinar_nome_longo: The name can have up to 200 characters.
+        assinar_cpf: Enter a valid CPF.
+        assinar_cpf_cadastro: The CPF does not match the one on record for this signer.
+        assinar_sem_rubrica: Draw or type your signature.
+        assinar_pedir_codigo: Request the confirmation code.
+        assinar_aceite: Check the confirmation that you have read the document.
+        assinar_selfie: Upload the selfie with the document.
+        selfie_invalida: The selfie could not be read. Upload a JPEG or PNG photo.
+        selfie_grande: The selfie can be up to 4 MB. Take the photo again.
+        selfie_tamanho: The photo size is not suitable. Take the selfie again.
+        assinar_localizacao: Allow location access to sign.
+        localizacao_invalida: The location received is not valid. Reload the page and try again.
+        rubrica_invalida: The drawn signature could not be read. Draw it again.
+        rubrica_grande: The signature image exceeds 200 KB. Draw it again.
+        codigo_errado: Incorrect code.
+        codigo_queimado: Incorrect code. Request a new code.
+        codigo_vencido: The code has expired. Request a new code.
+        codigo_nao_enviado: Could not send the code by email. Try again later.
+        recusa_sem_motivo: Enter the reason.
+        recusa_motivo_longo: The reason can have up to 500 characters.
+    vinculo_motivo:
+        pasta_excluida: the matter was deleted
+        pasta_apagada: the matter no longer exists
+        sem_quem_vinculou: the person who linked it is no longer in the system
+        sem_permissao: the person who linked it can no longer edit the matter
+        pdf_indisponivel: the signed PDF could not be generated
+        falha_ao_salvar: the file could not be saved to the matter
+    publica:
+        titulo: E-signature
+        limite: Please wait a moment
+        estado:
+            pronto: Ready to sign.
+            aguardando_anterior: Waiting for the previous signature.
+            prazo_encerrado: Deadline has passed. Ask the sender to send it again.
+            cancelado: Sending canceled. This document is no longer available for signing.
+            recusado: Signature declined.
+            concluido: Signature already recorded.
+            ja_assinado: Signature already recorded.
+            invalido: Invalid link.
+    aceite:
+        v1: I have read the document and agree to sign it electronically. Date, time, authorized location, and identification data will be recorded.
+    email:
+        ola: Hello, {nome}.
+        abrir_documento: Open the document
+        link_pessoal: This link is personal. Do not forward it to anyone else.
+        rodape: You received this email because you were listed as a signer of a document. If you were not expecting it, ignore it.
+        rodape_remetente: Automatic notice from BlueJus Document E-signature.
+        convite:
+            assunto: 'Document for signature: {documento}'
+            texto: '{escritorio} sent you the document "{documento}" for signature.'
+            codigo: On the page, request the confirmation code. It arrives in this email and is valid for 15 minutes.
+        vez:
+            assunto: 'Your turn to sign: {documento}'
+            texto: 'It is your turn to sign the document "{documento}", sent by {escritorio}.'
+        lembrete:
+            assunto: 'Signature reminder: {documento}'
+            texto: 'The document "{documento}", sent by {escritorio}, is still awaiting your signature.'
+        codigo:
+            assunto: Signature confirmation code
+            texto: 'Use this code to confirm the signature of the document "{documento}":'
+            validade: The code is valid for 15 minutes. A new code replaces the previous one.
+            nao_pediu: If you did not request this code, ignore this email.
+        recusa:
+            assunto: 'Signature declined: {documento}'
+            titulo: Signature declined
+            texto: '{nome} declined to sign the document "{documento}".'
+            motivo: 'Reason: {motivo}'
+            efeito: The document was closed and the links of the other signers are no longer valid.
+        conclusao:
+            assunto: 'Document signed: {documento}'
+            titulo: All signatures recorded
+            texto: 'The document "{documento}" was signed by all signers.'
+    modelo:
+        erro:
+            dados_invalidos: The template data could not be read. Reload the page and try again.
+            nao_encontrado: Template not found.
+            pedido_grande: The template exceeds the size that can be saved. Split the text into more than one template.
+            nome_vazio: Enter the template name.
+            nome_longo: The template name can have up to 200 characters.
+            categoria_longa: The category can have up to 80 characters.
+            layout_invalido: Invalid template format.
+            lateral_longa: The side text can have up to 20,000 characters.
+            campos_demais: The template can have up to 100 fields.
+            campo_invalido: The template has an invalid field (position {posicao}).
+            campo_chave: The name of field {posicao} must have from 1 to 60 characters, without brackets and not starting with ^.
+            campo_repetido: 'The field "{nome}" appears more than once in the template.'
+            signatarios_demais: The template can have up to 50 signatures.
+            signatario_invalido: Signature {numero} of the template is invalid.
+            signatario_papel_longo: The role of signature {numero} can have up to 120 characters.
+            blocos_demais: The template text can have up to 2,000 blocks (headings, paragraphs, and signatures).
+            bloco_invalido: The template text has an invalid block (position {posicao}).
+            bloco_texto_longo: A template passage exceeds 20,000 characters (position {posicao}).
+            assinatura_invalida: The template text has an invalid signature spot (position {posicao}).
+            corpo_longo: The template text exceeds 300,000 characters. Split it into more than one template.
+            sem_texto: Write the template text.
+            sem_assinatura: Include at least one signature.
+            sem_titulo: 'In single-sheet format, mark one line as Title.'

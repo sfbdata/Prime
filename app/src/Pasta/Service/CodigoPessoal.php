@@ -6,6 +6,7 @@ namespace App\Pasta\Service;
 
 use App\Entity\Auth\User;
 use App\Tenant\Service\GeradorDeCodigoDaConta;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -23,21 +24,46 @@ final class CodigoPessoal
     ) {
     }
 
-    /** O código da pessoa; sem código ainda, sorteia um livre e grava (com flush). */
+    /**
+     * O código da pessoa; sem código ainda, sorteia um livre e grava.
+     *
+     * A gravação é um UPDATE condicional (`codigo_pessoal IS NULL`), não um flush: duas visitas ao mesmo tempo na
+     * primeira vez (Perfil e Recebidas, ou duas abas) sorteariam códigos diferentes e o último flush trocaria o código
+     * que a primeira já mostrou. Assim só o primeiro grava e o outro lê o que ficou no banco. Sem flush, nada mais do
+     * que estiver pendente no EntityManager é gravado aqui.
+     */
     public function garantir(User $pessoa): string
     {
         $atual = $pessoa->getCodigoPessoal();
         if ($atual !== null) {
             return $atual;
         }
+        $conexao = $this->em->getConnection();
         for ($i = 0; $i < self::TENTATIVAS; ++$i) {
             $codigo = $this->gerador->gerar();
-            if (!$this->emUso($codigo)) {
-                $pessoa->definirCodigoPessoal($codigo);
-                $this->em->flush();
-
-                return $codigo;
+            if ($this->emUso($codigo)) {
+                continue;
             }
+            try {
+                $conexao->executeStatement(
+                    'UPDATE "user" SET codigo_pessoal = ? WHERE id = ? AND codigo_pessoal IS NULL',
+                    [$codigo, $pessoa->getId()],
+                );
+            } catch (UniqueConstraintViolationException $e) {
+                // Outra pessoa levou o mesmo código entre a consulta e o UPDATE: sorteia de novo. Dentro de uma
+                // transação do chamador não dá: no Postgres o erro aborta a transação inteira.
+                if ($conexao->isTransactionActive()) {
+                    throw $e;
+                }
+                continue;
+            }
+            $gravado = $conexao->fetchOne('SELECT codigo_pessoal FROM "user" WHERE id = ?', [$pessoa->getId()]);
+            if (!\is_string($gravado)) {
+                break;
+            }
+            $this->sincronizar($pessoa, $gravado);
+
+            return $gravado;
         }
 
         throw new \RuntimeException('Não foi possível sortear um código pessoal livre.');
@@ -57,6 +83,15 @@ final class CodigoPessoal
         $pessoa = $this->em->getRepository(User::class)->findOneBy(['codigoPessoal' => $codigo]);
 
         return $pessoa !== null && $pessoa->isActive() ? $pessoa : null;
+    }
+
+    /** Põe na entidade o código que já está no banco, sem que o próximo flush o grave de novo. */
+    private function sincronizar(User $pessoa, string $codigo): void
+    {
+        $pessoa->definirCodigoPessoal($codigo);
+        if ($this->em->contains($pessoa)) {
+            $this->em->getUnitOfWork()->setOriginalEntityProperty(spl_object_id($pessoa), 'codigoPessoal', $codigo);
+        }
     }
 
     private function emUso(string $codigo): bool

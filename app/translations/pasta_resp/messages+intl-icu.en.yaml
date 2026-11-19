@@ -1,0 +1,172 @@
+# ---- Matter: responsible party, history, printing and reports (pasta/_resp_*, _historico_drawer, _impressao_modal, ...)
+pasta_resp:
+    fechar: Close
+    imprimir: Print
+    resp:
+        sem_responsavel: No one responsible
+        definir: Set responsible
+        dica_alterar: '{nome} · click to change'
+        dica_atribuir: Click to assign a responsible party
+        escolher: Choose responsible
+        filtrar: Filter responsible
+        nenhum_colaborador: No team member found
+        nenhum_responsavel: No responsible party found
+    historico:
+        titulo: System history
+        nenhuma_alteracao: No changes recorded
+        alteracoes_uma: '{total} change recorded automatically'
+        alteracoes_varias: '{total} changes recorded automatically'
+        fechar_historico: Close history
+        vazio_titulo: No events recorded
+        vazio_nota: The system notes here every change to the matter.
+        hoje: 'Today, {dia}'
+    impressao:
+        incluir: Include on the sheet
+        opcao_cabecalho: Firm letterhead
+        opcao_dados: Matter and case details
+        opcao_autor: Author, date and type of entry
+        opcao_financeiro: Financial
+        tamanho: Text size
+        diminuir: Decrease
+        aumentar: Increase
+        fonte: '{tamanho} pt'
+        nota: 'A4 paper. To generate a PDF, choose "Save as PDF" in the print window.'
+        baixar_pdf: Download PDF
+        copiar: Copy text
+    timeline:
+        titulo: Smart timeline
+        subtitulo: 'Matter {pasta}'
+        fechar_dica: Close (Esc)
+        busca: 'Search: "when they talked about the contract", "Jéssica", "phone"…'
+        busca_rotulo: Search the timeline
+        filtrar_tipo: Filter by type
+        periodo: Period
+        pessoa: Person
+        periodo_tudo: Entire period
+        hoje: Today
+        ontem: Yesterday
+        semana: This week
+        mes: This month
+        todas_pessoas: All people
+        resumir: Summarize activity
+        rodape: Built by fixed rules from what the system recorded.
+        carregar_mais: Load more
+    pontos:
+        titulo: Initial report points
+        completar: Complete in the report
+    folha:
+        gestao: Legal management
+        impresso: 'Printed on {quando}'
+        impresso_por: 'Printed on {quando} by {nome}'
+        pasta: Matter
+        cliente: Client
+        processo: Case
+        autor_desconhecido: Unknown author
+        observacao: Note
+        dados_pasta: Matter details
+        responsavel: Responsible
+        situacao: Status
+        acao: Action
+        orgao: Body
+        clientes: 'Clients ({total})'
+        nome: Name
+        documento: Document
+        principal: main
+        processos: 'Cases ({total})'
+        numero: Number
+        classe: Class
+        nao_informado: Not provided
+        nao_informada: Not provided
+        pendencias: Pending items
+        metas: 'Open goals ({total})'
+        meta: Goal
+        prazo: Deadline
+        sem_prazo: No deadline
+        atraso: '({dias}d overdue)'
+        mais_metas: 'and {total} more. The full list is in the Goals tab.'
+        nenhuma_meta: No open goals.
+        movimentacoes: Latest updates
+        sem_registro: No record
+        publicacao: Publication
+        financeiro: Financial
+        valor_causa: Case value
+        recebido: Received
+        recebido_de: '{recebido} of {previsto}'
+        lancamentos: Entries
+        recebidos_de: received of
+        fin_linha: '{contrato} · Contracted {contratado} · Received {recebido} · To receive {receber}'
+        fin_previsto: ' · Expected (success fee/fee shifting) {previsto}'
+        lancamento: Entry
+        vencimento: Due date
+        valor: Amount
+        rodape: Internal firm document · BlueJus
+        barra: Summary printout
+        incluir_financeiro: Include financial
+        voltar: Back to the matter
+    js:
+        resp:
+            sem_responsavel: No one responsible
+            definir: Set responsible
+            dica_alterar: '{nome} · click to change'
+            dica_atribuir: Click to assign a responsible party
+            erro_alterar: Error changing responsible.
+            restrito_fixo: With restricted access, the matter stays under your responsibility. Ask the firm to transfer it.
+            troca_aria: Confirm change of responsible
+            troca_titulo: 'Change the responsible for matter {nup}?'
+            troca_texto: '{deNegrito} will be unlinked and {paraNegrito} becomes the responsible. If {de} has restricted access, they will no longer see this matter and its goals.'
+            troca_texto_sem: '{deNegrito} will be unlinked and the matter will have no responsible. If {de} has restricted access, they will no longer see this matter and its goals.'
+            troca_manter: 'Keep {de} as a team member (the matter stays shared with them)'
+            troca_historico: The change is recorded in the matter history.
+            troca_cancelar: Cancel
+            troca_confirmar: Confirm change
+            troca_feita_mantido: 'Responsible for matter {nup} changed to {para}. {de} remains as a team member.'
+            troca_feita_desvinculado: 'Responsible for matter {nup} changed to {para}. {de} was unlinked.'
+            troca_feita_sem_mantido: 'Matter {nup} has no responsible now. {de} remains as a team member.'
+            troca_feita_sem_desvinculado: 'Matter {nup} has no responsible now. {de} was unlinked.'
+        pontos:
+            completar: Complete in the report
+            detalhes: Details
+        impressao:
+            imprimir: Print
+            imprimir_de: 'Print · {titulo}'
+            fonte: '{tamanho} pt'
+            montando: Building the sheet…
+            erro_montar: Could not build the sheet. Close and try again.
+            preparando: Preparing to print…
+            iframe_titulo: Printout
+            erro_imprimir: Could not print.
+            gerando_pdf: Generating PDF…
+            copiado: Text copied
+            erro_copiar: Could not copy
+            registro_titulo: Docket entry
+        timeline:
+            hoje: Today
+            ontem: Yesterday
+            amanha: Tomorrow
+            futuro: '{data} (future)'
+            erro_carregar: Could not load the timeline. Please try again.
+            vazio_pasta: No events recorded in this matter.
+            nada_encontrado: 'Nothing found for "{busca}".'
+            vazio_filtros: No events with these filters.
+            mostrando: 'Showing the {total} most recent events.'
+            mostrando_maximo: 'Showing the {total} most recent events (the maximum for this screen).'
+            chip_tudo: All
+            chip_pendencias: ⚠ Pending items
+            chip_marcos: Milestones
+            fora_titulo: 'While you were away: {total} event(s)'
+            ver_resumo: View summary
+            resumo_desde: 'What happened since {quando}'
+            resumo_titulo: Activity summary
+            resumo_nota: Count by fixed rules, over the filtered events.
+            atencao: ⚠ Needs attention
+            grupo_n: '{total} {rotulo} · tap to view'
+            marco: 'Milestone · {marco}'
+            editado: edited
+            abrir: Open
+            ver_alteracao: View change
+            ocultar_alteracao: Hide change
+            ver_tudo: View all
+            mostrar_menos: Show less
+            antes: 'Before:'
+            depois: 'After:'
+            alterado_em: 'Changed on {quando}'

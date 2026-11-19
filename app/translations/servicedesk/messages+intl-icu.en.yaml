@@ -1,0 +1,101 @@
+servicedesk:
+    comum:
+        abertos: Open
+        em_andamento: In Progress
+        resolvidos: Resolved
+        fechados: Closed
+        titulo: Title
+        solicitante: Requester
+        categoria: Category
+        prioridade: Priority
+        status: Status
+        responsavel: Assignee
+        aberto_em: Opened on
+        acoes: Actions
+        nao_atribuido: Unassigned
+        visualizar_chamado: View ticket
+        meus_chamados: My Tickets
+        abrir_chamado: Open Ticket
+        voltar: Back
+        horas: '{valor} hours'
+    index:
+        titulo_pagina: Service Desk - Dashboard
+        service_desk: Service Desk
+        urgentes: Urgent
+        aguardando_atribuicao: ticket(s) awaiting assignment.
+        todos: All
+        todas: All
+        busca: Search
+        busca_placeholder: Title, description...
+        filtrar: Filter
+        chamados: Tickets ({total})
+        nenhum_chamado: No tickets found.
+        por_categoria: Tickets by Category
+        tempo_medio: 'Average resolution time:'
+    meus_chamados:
+        ultima_atualizacao: Last updated
+        vazio_titulo: You have not opened any ticket yet
+        vazio_texto: Need help with something? Open a ticket and our IT team will assist you.
+        primeiro_chamado: Open my first ticket
+    novo:
+        dados_do_chamado: Ticket Details
+        prioridade_critica: 'Critical:'
+        prioridade_critica_ajuda: System down
+        prioridade_alta: 'High:'
+        prioridade_alta_ajuda: Significant impact
+        prioridade_media: 'Medium:'
+        prioridade_media_ajuda: Common problem
+        prioridade_baixa: 'Low:'
+        prioridade_baixa_ajuda: Can wait
+        descricao_ajuda: 'Describe the problem in as much detail as possible: what you were doing, error messages, when it started, etc.'
+        anexos_ajuda: 'Allowed files: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT (max. 10MB each)'
+        cancelar: Cancel
+        dicas: Tips
+        dica_especifico: Be specific
+        dica_especifico_texto: Describe exactly what happened and when the problem started.
+        dica_detalhes: Include details
+        dica_detalhes_texto: Error messages, program name, time of the problem, etc.
+        dica_imagens: Attach images
+        dica_imagens_texto: Screenshots help a lot to identify the problem.
+        dica_prioridade: Right priority
+        dica_prioridade_texto: Use critical priority only for problems that stopped work completely.
+        categorias: Categories
+        categoria:
+            software: Software
+            software_ajuda: Programs, systems, apps
+            hardware: Hardware
+            hardware_ajuda: Computer, monitor, keyboard, mouse
+            impressora: Printer
+            impressora_ajuda: Printing, scanner, toner
+            rede: Network/Internet
+            rede_ajuda: Connection, VPN, slowness
+            acesso: Access/Permissions
+            acesso_ajuda: Login, passwords, approvals
+            email: E-mail
+            email_ajuda: Outlook, mailbox, calendar
+    show:
+        chamado: 'Ticket #{id}'
+        voltar_dashboard: Back to Dashboard
+        descricao: Description
+        anexos: Attachments
+        historico: History ({total})
+        interno: Internal
+        sistema: System
+        nenhuma_interacao: No interaction yet.
+        adicionar_resposta: Add Reply
+        mensagem_placeholder: Type your message...
+        interno_ajuda: Internal comments are visible only to the IT team.
+        enviar: Send
+        informacoes: Information
+        departamento: Department
+        resolvido_em: Resolved on
+        fechado_em: Closed on
+        tempo_resolucao: Resolution time
+        atribuir_para: Assign to
+        alterar_status: Change Status
+        acoes_rapidas: Quick Actions
+        iniciar_atendimento: Start Working
+        marcar_resolvido: Mark as Resolved
+        fechar_chamado: Close Ticket
+        reabrir: Reopen
+        reabrir_chamado: Reopen Ticket

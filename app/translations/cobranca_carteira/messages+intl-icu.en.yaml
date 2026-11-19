@@ -1,0 +1,281 @@
+cobranca_carteira:
+    comum:
+        cobrancas: Collections
+        carteira: Portfolio
+        todas_as_carteiras: All portfolios
+        fechar: Close
+        cancelar: Cancel
+        nao_informado: Not provided
+        dia: '{dias} day'
+        dias: '{dias} days'
+    lista:
+        titulo_pagina: 'Collections · Portfolios'
+        nova_carteira: New portfolio
+        cliente_fora_da_lista: Client not on the list?
+        cadastrar_cliente: Register client
+        criar_carteira: Create portfolio
+        busca_placeholder: Search portfolio by name…
+        faceta_modo: Mode
+        modo_unico: One collection per object
+        modo_multiplo: Several collections per object
+        contagem: portfolio(s)
+        coluna:
+            carteira: Portfolio
+            cliente_credor: Creditor client
+            modo: Mode
+            honorarios: Fees
+            modificado: Modified
+        sem_registro: No record
+        vazio_filtro_titulo: No portfolio found
+        vazio_filtro_texto: Adjust or clear the applied filters.
+        vazio_titulo: No portfolio registered
+        vazio_texto: Collections portfolios will appear here.
+    paginacao:
+        rotulo: List pagination
+        anterior: Previous page
+        pagina: 'Page {numero}'
+        proxima: Next page
+    campos:
+        secao_operacao: Operation
+        modo_titulo: Operation mode
+        modo_ajuda: Help on the operation mode
+        secao_honorarios: Fees
+        honorarios_titulo: Fee arrangement
+        honorarios_ajuda: Help on the fee arrangement
+        secao_encargos: Late charges
+        encargos_nota:
+            inicio: These rates apply
+            ao_vivo: live
+            alterar: ': changing them here'
+            recalcula: recalculates at once
+            encargos: the charges on every
+            em_aberto: open obligation
+            meio: 'that inherits from this portfolio. It does not change what is already frozen (obligation paid/settled or replaced by a settlement) nor what has its own rate on the object or on the obligation. Leave the fee grace period'
+            vazia: empty
+            fim: to use the late tolerance set above.
+        dias: days
+    modais:
+        configuracao_titulo: Portfolio setup
+        configuracao_sub: Applies to the cases of this portfolio. Charges already recorded are not recalculated.
+        exige_permissao: Requires the permission
+        salvar_configuracao: Save setup
+        novo_objeto: New object
+        novo_objeto_rotulo: 'New {rotulo}'
+        objeto_sub: Creating the object already opens the collection and takes you to its page.
+        criar_e_abrir: Create and open collection
+        documento_titulo: Add document
+        documento_sub: Shareholder meeting minutes and the fee agreement stay in the portfolio.
+        soltar_titulo: Drag the file or click to choose
+        soltar_dica: PDF or spreadsheet up to 10 MB · image up to 3 MB
+        categoria: Category
+        observacao: Note
+        opcional: (optional)
+        observacao_exemplo: 'E.g.: meeting that authorized the lawsuit'
+        adicionar: Add
+    show:
+        titulo_pagina: 'Collections · {carteira}'
+        voltar: Portfolios
+        migalhas: You are here
+        inicio: Home
+        novo_objeto: New object
+        importar_relatorio: Import report
+        mais_acoes: More actions
+        editar_configuracao: Edit setup
+        exportar_lista: Export list (.xlsx)
+        selo_carteira: 'Portfolio {id}'
+        credor: 'Creditor:'
+        objeto: Object
+        frescor:
+            atualizados_ate: 'Data updated through {data}'
+            hoje: '· today'
+            ha_um_dia: '· 1 day ago'
+            ha_dias: '· {dias} days ago'
+            titulo: Issued by report
+            tipo:
+                inadimplencia: Delinquency
+                acordos: Detailed settlements
+                receitas: Revenue
+                cadastro: Registration data
+            importar_qual:
+                inadimplencia: delinquency
+                acordos: detailed settlements
+                receitas: revenue
+                cadastro: registration data
+                outro: 'the {tipo} report'
+            nota: The portfolio is only up to date as of the issue date
+            nota_mais_antiga: oldest
+            importe: Import
+            para_fechar: to close the gap.
+            desconhecida_dica: The issue date started being recorded on 07/08/2026. Whatever was imported before that has none.
+            desconhecida: Report date unknown
+            nenhum: No report imported yet
+        kpi:
+            saldo: Consolidated balance
+            saldo_sub: whole portfolio, not the page
+            vencido: Overdue
+            com_atraso_um: '{total} case overdue'
+            com_atraso: '{total} cases overdue'
+            do_saldo: '· {percentual}% of the balance'
+            objetos: Objects in collection
+            rotulo: 'label: {rotulo}'
+            casos_abertos: Open cases
+            tolerancia: 'late tolerance: {duracao}'
+        filtro:
+            busca: Search
+            busca_placeholder: 'Search {rotulo} or debtor…'
+            estado: Status
+            filtrar_por_estado: Filter by status
+            todos_os_estados: All statuses
+        configuracao:
+            titulo: Setup
+            editar: Edit
+            modo: Mode
+            honorarios: Fees
+            tolerancia: Late tolerance
+            juros: Interest
+            multa: Penalty
+            vinculo: Preferred link
+            rotulo_objeto: Object label
+        documentos:
+            titulo: Documents
+            adicionar: Add document
+            baixar: 'Download {nome}'
+            excluir: 'Delete {nome}'
+            confirmar_excluir: Delete this document?
+            vazio: No document in the portfolio. Shareholder meeting minutes and the fee agreement stay here.
+    casos:
+        contagem_um: '{total} case'
+        contagem: '{total} cases'
+        contagem_filtrada: '{total} of {carteira} cases'
+        coluna:
+            pessoa: Debtor
+            estado: Status
+            saldo: Balance
+            anexos: Attachments
+        pronto_dica: 'Collectible balance at zero: the case can be closed'
+        pronto: Ready to close
+        tudo_vencido: all overdue
+        vencido: '{valor} overdue'
+        tem_documentos: The object has documents
+        faixa: 'Showing {primeiro} to {ultimo} of {total}'
+        busca_vazia_titulo: 'No case matches “{busca}”'
+        busca_vazia_texto_objeto: The search covers the object identification and the name of the debtor. The header values remain those of the whole portfolio.
+        busca_vazia_texto: 'The search covers the identification of the {rotulo} and the name of the debtor. The header values remain those of the whole portfolio.'
+        limpar_busca: Clear search
+        estado_vazio_titulo: No case in this selection
+        estado_vazio_texto: 'The portfolio has {casos}, but none in the chosen status. The header values remain those of the whole portfolio.'
+        limpar_filtro: Clear filter
+        vazio_titulo: No collection in this portfolio
+        vazio_texto_objeto: Collections appear here after you import a report or create an object by hand.
+        vazio_texto: 'Collections appear here after you import a report or create a {rotulo} by hand.'
+    painel:
+        titulo_pagina: 'Collections · Dashboard'
+        inicio_periodo: Period start
+        fim_periodo: Period end
+        aplicar: Apply
+        vazio_titulo: No collection to display
+        vazio_carteira: This portfolio has no collections yet.
+        vazio_texto: Register a portfolio and create collections to see the dashboard.
+        financeira: Financial view
+        saldo_em_aberto: Open balance
+        saldo_vencido: Overdue balance
+        recuperado_periodo: Recovered in the period
+        honorarios_projetados: Projected fees
+        honorarios_projetados_dica: Estimated fees on the balance still open (SPEC §18)
+        honorarios_realizados: Earned fees
+        honorarios_realizados_dica: Fees earned in the period according to the arrangement of each collection (SPEC §18)
+        operacional: Operational view
+        pagamentos_verificar: Payments to verify
+        pagamentos_verificar_dica: Collections with an overdue obligation to verify (SPEC §14)
+        acoes_atrasadas: Overdue actions
+        parcelas_vencidas: Overdue settlement installments
+        judicializadas: Litigated collections
+        resultado: Results
+        taxa: Recovery rate
+        taxa_sub: Recovered over the total (recovered + open).
+        total_recuperado: Total amount recovered
+        ainda_em_aberto: Amount still open
+        objetos_inadimplentes: Delinquent objects
+        casos_ativos: 'Active collections: {total}'
+    alertas:
+        titulo_pagina: 'Collections · Alerts'
+        vazio_titulo: No pending alert
+        vazio_carteira: This portfolio has no operational alerts at the moment.
+        vazio_texto: No firm collection needs attention right now.
+        total: '{total} alert(s)'
+    importacao:
+        titulo_pagina: 'Collections · Import · {carteira}'
+        titulo: Import report
+        inadimplencia: Delinquency report
+        aviso:
+            inicio: The report will only be
+            pre_visualizado: previewed
+            primeiro: first. Nothing is saved until you confirm. Lines
+            sem_principal: without a principal amount
+            apenas: (charges/fees only) are
+            rejeitadas: rejected
+            motivo: with the reason. No obligation is created for them. Reimporting the same report
+            nao_duplica: does not duplicate
+            fim: ': it only updates the charges.'
+        pre_visualizar: Preview
+    previa:
+        titulo_pagina_importado: 'Collections · Imported · {carteira}'
+        titulo_pagina_previa: 'Collections · Preview · {carteira}'
+        concluida: Import complete
+        titulo: Import preview
+        aviso:
+            inicio: This is a
+            previa: preview
+            fim: . Nothing has been saved yet. Check the numbers and confirm to really import.
+        obrigacoes_importadas: Obligations imported
+        serao_importadas: Will be imported
+        atualizadas: Updated
+        serao_atualizadas: Will be updated
+        rejeitadas: Rejected
+        ignoradas: Ignored
+        novos: 'New: {objetos} object(s) · {pessoas} person(s) · {casos} case(s).'
+        sem_boleto:
+            titulo: Debt that never had a boleto
+            resumo_criadas: ': {total} obligation(s) ({novas} created, {atualizadas} updated), totaling'
+            resumo_a_criar: ': {total} obligation(s) ({novas} to create, {atualizadas} updated), totaling'
+            valor: 'R$ {valor}'
+            de_principal: in principal and charges.
+            nota: These are old entries that accounting never issued as a boleto. They come in through the substitute key
+            nota_fim: ', and the amount above is the one from the spreadsheet. For an obligation that already existed, the posted amount is preserved.'
+            chave: 'SNN:<vencimento>'
+        reutilizado:
+            titulo: Reused Nosso Número
+            em: 'in {total} boleto(s): accounting repeated a number that already exists in this case, but in'
+            outra_competencia: another period
+            e: ': it is'
+            outra_divida: another debt
+            nasceu: ', and was created separately, without overwriting the previous one. Check whether it is really a new collection.'
+            vai_nascer: ', and will be created separately, without overwriting the previous one. Check whether it is really a new collection.'
+        nossos_numeros: 'Nosso Número list: {lista}.'
+        vencimento:
+            titulo: Due date changed
+            em: 'in {total} boleto(s): same debt (same period) with a new date in the report, the pattern of a'
+            reemitido: reissued boleto
+            lancado: . The posted due date
+            nao_sobrescrito: is not overwritten
+            fim: '; only the charges are recalculated.'
+        sacado:
+            titulo: Mismatched payer
+            em: 'in {total} object(s): the debtor in the report differs from the current debtor of the case. A new person was linked, but the'
+            nao_trocada: debtor was not replaced automatically
+            decisao: (manager decision).
+            objetos: 'Objects: {lista}.'
+        rejeitadas_total: 'Rejected ({total})'
+        referencia: Reference
+        motivo: Reason
+        nenhuma_rejeitada: No rejected line.
+        boletos: Boletos
+        importadas: Imported
+        a_importar: To import
+        a_atualizar: To update
+        nenhuma: None
+        concluir: Finish
+        trocar_arquivo: Change file
+        confirmar: Confirm import
+    js:
+        estado: Status

@@ -1,0 +1,668 @@
+cobranca_objeto:
+    comum:
+        cobrancas: Collections
+        cancelar: Cancel
+        fechar: Close
+        nao_informado: Not provided
+        simbolo_reais: R$
+    casos:
+        titulo_pagina: 'Collections · Cases'
+        busca_placeholder: Search by object or debtor…
+        faceta_estado: Status
+        faceta_carteira: Portfolio
+        estado:
+            ativo: Active
+            judicializado: Litigated
+            encerrado: Closed
+        contagem: case(s)
+        coluna:
+            objeto: Object
+            pessoa_cobrada: Debtor
+            carteira: Portfolio
+            estado: Status
+            saldo_exigivel: Collectible balance
+            vencido: Overdue
+        pronto: Ready
+        pronto_dica: 'Collectible balance at zero: can be closed'
+        exigivel: 'Collectible:'
+        vencido_valor: 'Overdue: {valor}'
+        vazio_filtro_titulo: No case found
+        vazio_filtro_texto: Adjust or clear the applied filters.
+        vazio_titulo: No collection case
+        vazio_texto: Collection cases will appear here.
+    show:
+        titulo_pagina: 'Collections · {objeto}'
+        trilha: Breadcrumb
+        trilha_unidade: 'Unit {objeto}'
+        nav:
+            rotulo: Navigate between units of the portfolio
+            anterior: Previous unit of the portfolio
+            primeira: This is the first unit of the portfolio
+            proxima: Next unit of the portfolio
+            ultima: This is the last unit of the portfolio
+        sobretitulo: Unit
+        cobranca_ativa: Active collection
+        pronto: Ready to close
+        pronto_dica: 'Collectible balance at zero: the manager can close (SPEC §17)'
+        meta:
+            obrigacao_em_aberto: '{n} open obligation'
+            obrigacoes_em_aberto: '{n} open obligations'
+            desde: 'since {data}'
+            responsavel: assignee
+            pasta_judicial: Court matter
+        acoes:
+            registrar_contato: Log contact
+            sem_funcao: Has no function yet. It will be defined with the manager.
+            simular_acordo: Simulate settlement
+            planilha_atualizada: Updated spreadsheet
+            judicializar: Litigate
+            cancelar_judicializacao: Cancel litigation
+            editar_encargos: Edit charges setup
+            encargos: Charges
+            encerrar_bloqueado: 'It can only be closed with the total open at zero. {valor} remaining.'
+            encerrar: Close collection
+        dinheiro:
+            total: Total overdue today
+            total_dica: Sum of the obligations overdue until today (principal + interest and penalty + fees), before deducting payments.
+            atualizado_em: 'updated on {data}'
+            principal: Principal
+            principal_dica: Original amount of the obligations overdue until today.
+            encargos: Interest and penalty
+            encargos_dica: Interest, penalty and monetary adjustment of the obligations overdue until today.
+            honorarios: Fees
+            honorarios_dica: Fees of the obligations overdue until today. The Fees tab shows the Receivable, which also includes the installments not yet due.
+            composicao: 'Overdue breakdown: principal {principal}%, interest and penalty {encargos}%, fees {honorarios}%'
+            legenda_principal: 'Principal {pct}%'
+            legenda_encargos: 'Interest and penalty {pct}%'
+            legenda_honorarios: 'Fees {pct}%'
+            recuperado: Recovered
+        prescricao:
+            esgotada: 'Filing deadline expired on {data}'
+            risco_dia: 'Statute of limitations risk in {n} day'
+            risco_dias: 'Statute of limitations risk in {n} days'
+            competencia: 'Oldest period:'
+            vencida_em: ', due on {data}.'
+            prazo_limite: 'Filing deadline: {data}.'
+            ver: See the period in the debt →
+        proxima:
+            rotulo: Next action
+            atrasada: overdue
+            prazo: 'Deadline: {data}'
+            concluir: Complete
+            nenhuma: None defined
+            definir: Set
+        alertas:
+            ver_na_divida: See in the debt
+        aba:
+            divida: Debt
+            cobranca: Collection
+            responsaveis: Responsible Parties
+            honorarios: Fees
+            documentos: Documents
+            historico: History
+        anotacoes:
+            nova: New note
+            nova_sub: logs to the collection history
+            nova_dica: You can correct your own note within the next 48 hours.
+            salvar: Save note
+            titulo: Notes
+            regiao: Collection notes
+            sistema: System
+            editada: Edited
+            vazio: No notes yet. Use the field beside to record what happened.
+        historico:
+            titulo: History
+            evento: '{n} event'
+            eventos: '{n} events'
+            filtrar: Filter the history by event type
+            editado: (edited)
+            sem_resultado: No event of this type in this history.
+            vazio: No events in the history.
+        modal:
+            corrigir_anotacao: Correct note
+            corrigir_ajuda: A correction can be made within the first 48 hours, by the author only. The timeline will then show
+            corrigir_ajuda_fim: .
+            salvar_correcao: Save correction
+            excluir_anotacao_texto: This note is removed from the history and
+            nao_da_para_desfazer: cannot be undone
+            ponto: .
+            excluir_telefone_texto: This number is removed from the list and
+            excluir_telefone_atual: This is the current phone number. When deleted, the most recent one left becomes the current one.
+            vincular_titulo: Link existing person
+            vincular: Link
+            vinculo_selecionado: Link selected.
+            encerrar: End
+            encargos_ajuda:
+                inicio: Applies to
+                todas: every obligation in every case
+                meio: of this object, live (nothing is frozen). Values in gray are those of the portfolio
+            salvar_configuracao: Save setup
+        ficha:
+            nova_pessoa: New person
+            aba_qualificacao: Legal Description
+            aba_enderecos: Addresses
+            aba_contatos: Phone Numbers and E-mails
+            endereco_ajuda: 'Optional. If you fill it in, enter the full address: it becomes the current address of the person.'
+            contatos_ajuda: Optional. Each one becomes the current contact of the person; the next ones are added later, by editing.
+            cadastrar: Register and link
+            carregando: Loading the record…
+    divida:
+        motivo_sem_data: ⚠ settlement without date
+        atualizados_em: 'Charges updated on {data}.'
+        congelados_dica: 'Charges frozen on {data}. They are not recalculated automatically.'
+        congelados: 'Charges frozen on {data}'
+        falta: '{valor} remaining'
+        detalhar: Show charge details
+        detalhar_de: 'Show the charges of {descricao}'
+        detalhe:
+            original: Original
+            original_nota: face value of the boleto
+            juros: Interest
+            juros_taxa: '{pct}% per month, pro rata'
+            multa: Penalty
+            correcao: Adjustment
+            honorarios: Fees
+        titulo: Open debt
+        obrigacao: '{n} obligation'
+        obrigacoes: '{n} obligations'
+        ordem_dica: 'This is the order in which the payment reduces the debt: always the oldest first.'
+        ordem: From oldest to newest
+        nova_obrigacao: New obligation
+        nao_acordavel: 'There is no open original debt to settle. If a settlement is already in force, break it first: the originals go back to the total.'
+        novo_acordo: New settlement
+        vazio_titulo: No obligation recorded.
+        vazio_dica: 'Record what is being collected: each obligation joins the queue above by due date.'
+        nada_aberto_titulo: Nothing open.
+        nada_aberto_dica: Everything recorded for this unit has already been paid. See “Already paid”, below.
+        coluna:
+            venceu_em: Due on
+            o_que_e: What it is
+            original: Original
+            original_dica: Face value of the debt, as it came from accounting, before any charge.
+            acrescimos: Additions
+            acrescimos_dica: 'Everything added to the face value: interest, penalty, monetary adjustment and fees. Open the ⌄ on the row to see each one with its percentage.'
+            total: Total
+            total_dica: 'Total of each debt: original + interest + penalty + adjustment + fees, before deducting payments. Adding up this column does not match the “Total overdue” card at the top, and that is expected: there only debts already overdue and not yet paid are counted. Both are gross: a partial payment does not reduce either one.'
+            pago_em: Paid on
+            recebido: Received
+        selecionar: 'Select {descricao}'
+        ja_recebidos: '{valor} already received'
+        paga: Paid
+        receber: Receive
+        receber_obrigacao_dica: Record a payment on this obligation
+        receber_parcela_dica: Record a payment on this installment
+        acordar: Settle
+        acordar_dica: Create a settlement replacing this debt
+        menu:
+            mais_acoes_obrigacao: More actions for this obligation
+            mais_acoes: More actions
+            marcar: Mark for batch collection
+            copiar: Copy amount and description
+            memoria: See calculation breakdown
+            editar: Edit (correct)
+            excluir: Delete entry
+        tudo_em_acordo_titulo: All the obligations of this collection are in the settlements below.
+        tudo_em_acordo_dica: The settlement installments are the debt now. The obligations it replaced left the open total.
+        rodape_obrigacao: '{n} open obligation'
+        rodape_obrigacoes: '{n} open obligations'
+        acordo: 'Settlement #{id}'
+        substituido_pelo: 'Replaced by settlement #{id}'
+        substituido_por: 'Replaced by {n} settlements'
+        firmado_em: 'signed on {data}'
+        firmado_sem_data: signed on an unknown date ⚠
+        resumo_acordo: '{parcelas} installment(s) · replaced {obrigacoes} obligation(s)'
+        parcelas_pagas: '{pagas} of {total} installments paid'
+        abrir_acordo: Open settlement
+        mostrar_trocadas: 'Show {n} obligation(s) replaced by settlement #{id}'
+        fora_do_total: (outside the open total)
+        trocada_pelo: 'replaced by settlement #{id} · returns to the total if the settlement is broken'
+        sem_acordo_titulo: No settlement in this collection
+        sem_acordo_dica: Mark the obligations that go into the settlement and use “Settle these”, or start from scratch.
+        ja_pago: Already paid
+        sem_registro: No record
+        venceu_em: 'due on {data}'
+        nada_quitado_titulo: Nothing paid off yet in this unit
+        nada_quitado_dica: When there is a receipt, it appears here as “Already paid”, with the amount received.
+        recebido: '{valor} received'
+        selecionadas_total: selected · total
+        limpar_selecao: Clear selection
+        acordar_selecionadas: Settle these
+    movimentos:
+        titulo: What has come in
+        ordem_dica: 'Statement: the latest event appears at the top, in reverse order from the debt above.'
+        ordem: From newest to oldest
+        coluna:
+            entrou_em: Received on
+            o_que_foi: What it was
+            valor: Amount
+        pagamento_recebido: Payment received
+        divida: 'debt {valor}'
+        encargos: 'charges {valor}'
+        honorarios: 'fees {valor}'
+        corrigido: Corrected
+        corrigido_dica: 'Correction without reversal: {motivo}'
+        corrigir: Correct
+        corrigir_dica: Correct payment (without reversal)
+        excluir: Delete
+        excluir_dica: Delete receipt (returns the amount to the balance)
+        liquidacao: 'Settlement in kind · {tipo}'
+        valor_reconhecido: amount recognized by the creditor
+        bem_avaliado: '(asset valued at {valor})'
+        vazio_titulo: Nothing has come in yet
+        vazio_dica: Payments and non-cash settlements appear here, from newest to oldest.
+        acordos_encerrados: Closed settlements
+        acordos_encerrados_nota: do not affect the open total
+        sem_data: ⚠ no date
+        acordo: 'Settlement #{id}'
+        substituido_pelo: 'Replaced by settlement #{id}'
+        substituido_por: 'Replaced by {n} settlements'
+        resumo_acordo: '{parcelas} installment(s) · replaced {obrigacoes} obligation(s)'
+        desfeito: '· the replaced obligations went back to the open total'
+        renegociadas_um: '· its installments were renegotiated in another settlement and left the open total'
+        renegociadas_varios: '· its installments were renegotiated in {n} other settlements and left the open total'
+        abrir: Open
+    responsaveis:
+        titulo: Responsible Parties
+        incompleta: Legal description incomplete
+        incompleta_dica: CPF/CNPJ, marital status or address is missing. Click to complete the record.
+        trocar: Change responsible party
+        editar: Edit
+        encerrar_vinculo: End link
+        atual: Current responsible party
+        papel_desde: '{papel} · since {data}'
+        vinculo_encerrado: Link ended
+        encerramento: 'Ended: {motivo}'
+        nao_informado: not provided
+        email: E-mail
+        estado_civil: Marital status
+        endereco: Address
+        endereco_bairro_cep: '{bairro} · CEP {cep} · {cidade}/{uf}'
+        cpf: 'CPF:'
+        cnpj: 'CNPJ:'
+        telefone: 'Phone:'
+        email_rotulo: 'E-mail:'
+        sem_cobrada: No debtor
+        sem_cobrada_dica:
+            inicio: Link whoever is liable for this collection using
+            fim: .
+        outras: Other linked people
+        adicionar_pessoa: Add person
+        vincular_existente: Link a registered person
+        cadastrar_nova: Register new person
+        encerrado: Ended
+        ate: 'to {data}'
+        definir_atual: Set as current
+        sem_outras: No other person linked to this unit.
+        voltar: ← Back
+        proxima: Next unit →
+        ultima: This is the last unit of the portfolio.
+    telefones:
+        titulo: Phone numbers
+        telefone: Phone number
+        cadastrado_em: '· registered on {data}'
+        atual: Current
+        marcar_atual: Mark as current
+        editar: Edit phone number
+        corrigir_dica: Correct this number
+        excluir: Delete phone number
+        excluir_dica: Delete this number
+        numero: Phone number
+        tipo: Phone type
+        salvar: Save
+        vazio: No phone number on file.
+        adicionar: Add phone number
+        dica_adicionar: Click + to add.
+        novo: New phone number
+    qualificacao:
+        titulo: Contact qualification
+        subtitulo: One click logs it to the collection history.
+        encerrada: Collection closed. No new entry.
+        desfazer: undo
+        vazio: No qualification recorded.
+    honorarios:
+        titulo: Fees
+        editar_config: Edit charges setup
+        a_receber: Receivable
+        a_receber_nota: fees on obligations still open
+        ja_recebido: Already received
+        em_recebimento: 'in {n} receipt'
+        em_recebimentos: 'in {n} receipts'
+        nenhum_recebimento_ainda: no receipt yet
+        forma: Configured arrangement
+        percentual: Percentage
+        base: Calculation base
+        base_composta: Compound
+        base_principal: Principal
+        carencia: Grace period
+        carencia_dias: '{n} day(s)'
+        por_obrigacao: Per obligation
+        aviso:
+            inicio: The setup above is the one that applies today to new charges. Each obligation can have its own rate, set in
+            fim: . So a value in the list may not match the percentage shown.
+        quitada: Paid off
+        venc: 'due {data}'
+        acordo_chip: 'settlement #{id}'
+        sem_obrigacoes: No obligation recorded.
+        total_obrigacoes: Total of the obligations
+        por_recebimento: Per receipt
+        recebimento_de: 'Receipt of {valor}'
+        corrigido: corrected
+        total_recebido: Total received
+        sem_recebimentos: No receipt recorded.
+    anotacao:
+        corrigir_dica: Correct this note (up to 48h)
+        editar: Edit note
+        excluir_dica: Delete this note (up to 48h)
+        excluir: Delete note
+    config_encargos:
+        sem_honorarios: The portfolio does not charge fees. This field does not apply.
+        dias: days
+    documentos:
+        nav_pastas: Folder navigation
+        documentos: Documents
+        buscar_placeholder: Search files...
+        buscar: Search files
+        nova_pasta: New folder
+        enviar: Upload
+        modo_exibicao: View mode
+        lista: List
+        grade: Grid
+        ordenar: Sort files by
+        ordem:
+            manual: Manual (drag)
+            nome: Name (A to Z)
+            nome_desc: Name (Z to A)
+            data_desc: Newest
+            data: Oldest
+            tamanho_desc: Largest
+            tamanho: Smallest
+        progresso: Upload progress
+        pastas: Folders
+        abrir_pasta: 'Open folder {nome}'
+        arrastar: Drag to reorder
+        arquivo_contagem: '{n} file'
+        arquivos_contagem: '{n} files'
+        acoes_pasta: Folder actions
+        abrir: Open
+        renomear: Rename
+        excluir: Delete
+        arquivos: Files
+        coluna:
+            nome: Name
+            categoria: Category
+            tamanho: Size
+            modificado: Modified
+            data: Date
+        acoes_arquivo: File actions
+        baixar: Download
+        mover_para: Move to…
+        confirmar_excluir: Delete this file? This action cannot be undone.
+        vazio_titulo: No file here
+        vazio_dica:
+            inicio: Drag files from your computer to this area or click
+            fim: .
+        exemplos: Document examples
+        exemplo:
+            boletos: Boletos
+            notificacoes: Notices
+            acordos_assinados: Signed settlements
+            comprovantes: Receipts
+        nome_pasta_placeholder: Folder name...
+        salvar: Save
+        leitura_vazio: No document in this case.
+    financeiro:
+        registrar_pagamento: Record payment
+        alocacoes: Payment allocations
+        remover: Remove
+        adicionar_alocacao: Add allocation
+        registrar_ajuda:
+            inicio: The system distributes the payment automatically to the oldest debt (FIFO); fees are calculated separately. Check
+        corrigir_ajuda:
+            inicio: By default the new breakdown is distributed automatically (FIFO). Check
+        alocar_manualmente: Allocate manually
+        alocar_manualmente_fim: to distribute it yourself.
+        corrigir_pagamento: Correct payment
+        corrigir_aviso:
+            inicio: The correction
+            reescreve: rewrites
+            fim: the payment breakdown (without reversal) and is recorded in the audit log.
+        pagamento_selecionado: Payment selected.
+        excluir_recebimento: Delete receipt
+        excluir_pergunta:
+            inicio: Permanently delete the receipt of
+            meio: from
+            fim: '?'
+        excluir_aviso:
+            inicio: The amount
+            volta: returns to the outstanding balance
+            fim: and the obligation it paid off is charged again, with interest accruing again. The deletion is recorded in the history.
+        motivo: Reason
+        opcional: (optional)
+        motivo_placeholder: 'E.g.: receipt posted twice'
+        registrar_liquidacao: Record settlement in kind
+        valor_bem_ajuda: The value of the asset is optional and may differ from the recognized amount.
+        valor_reconhecido_ajuda: The recognized amount is the one that reduces the collectible balance of the debt.
+    modais:
+        encargos:
+            titulo: Recognized charges
+            ajuda:
+                inicio: Enter the percentage
+                ou: or
+                espelho: 'the amount in reais: one mirrors the other as you type; the server records the final rate (as of today). Interest, penalty and adjustment apply to the'
+                valor_original: original amount
+                o: '; the'
+                honorario: fee
+                incide_sobre: applies to
+                base_composta: the compound base (amount + interest + penalty + adjustment).
+                base_original: the original amount (principal).
+                deixe: Leave both fields
+                vazios: empty
+                para: to
+                herdar: inherit
+                configuracao: the case setup.
+                nunca_congela: The obligation never freezes when recording or editing.
+            juros: Interest
+            multa: Penalty
+            correcao: Adjustment
+            honorarios: Fees
+            rotulo_pct: '{encargo} (%)'
+            rotulo_reais: '{encargo} (R$)'
+            herda: inherits from the case
+            limpar_rotulo: 'Clear {encargo} and go back to inheriting from the case'
+            limpar: Clear (inherit)
+        registrar_obrigacao: Record obligation
+        registrar: Record
+        editar_obrigacao: Edit obligation
+        editar_obrigacao_texto: 'Record correction: enter the reason. The balance adjusts automatically.'
+        reconciliar:
+            inicio: This obligation has already received payment. If you
+            alterar_valor: change the amount
+            meio: ', the amount received may end up in excess or short. In that case, adjust it later in'
+            corrigir_pagamento: Correct payment
+            fim: ', in the movements statement.'
+        salvar_correcao: Save correction
+        excluir_obrigacao: Delete obligation
+        excluir_obrigacao_pergunta:
+            inicio: Permanently delete
+            fim: '? This action cannot be undone.'
+        motivo_exclusao: Reason for deletion
+        motivo_exclusao_placeholder: 'E.g.: obligation posted twice'
+        excluir: Delete
+        encerrar_caso: Close case
+        encerrar_aviso:
+            inicio: Closing is only accepted with
+            saldo_zerado: zero collectible balance
+            fim: (invariant 17). Litigation does not prevent closing.
+        definir_acao: Set next action
+        definir: Set
+        concluir_acao: Complete action
+        encadear: 'If you already want to chain the next action (optional):'
+        concluir: Complete
+        alterar_pessoa: Change debtor
+        alterar_pessoa_texto: 'The change is manual and does not affect debt, payments or settlements. Current:'
+        alterar_pessoa_fim: .
+        alterar: Change
+        judicializar:
+            titulo: Litigate case
+            aviso:
+                inicio: Opens the court matter for the case and links the two. Litigation
+                nao_encerra: does not close
+                fim: 'the case: financial tracking continues.'
+            com_cpf:
+                inicio: '{nome} joins the matter as'
+                cliente_principal: primary client
+                fim: ', with the data from the record.'
+            sem_cpf: 'The matter is created with only the name and the action: without a CPF on the record of {nome}, there is no client to register.'
+            pasta_judicial: Court matter
+            buscar_placeholder: Type the number, client or action of the matter…
+            so_usada:
+                inicio: Only used if you check
+                vincular: Link an existing matter
+                fim: above.
+            botao: Litigate
+        cancelar_judicializacao:
+            titulo: Cancel litigation
+            aviso:
+                inicio: Unlinks the court matter from the case and returns the status to
+                ativo: active
+                meio: . The matter itself
+                nao_apagada: is not deleted
+                fim: . Only the link to this case is removed.
+        registrar_contato: Log contact
+        acordo:
+            criar: Create settlement
+            passo1: What will be renegotiated
+            sem_dividas: 'There are no debts available for settlement in this case. If a settlement is already in force, break it first: the original debts return to the balance and can be settled again.'
+            selecao: Debt selection
+            selecionar_todas: Select all
+            limpar: Clear
+            selecionado: 'Selected:'
+            com_pagamento:
+                inicio: One of the chosen debts
+                ja_recebeu: has already received a payment
+                meio: . The suggested amount is what
+                ainda_falta: is still owed
+                fim: ', not the original amount.'
+            escolhidas_ajuda: The chosen ones leave the collectible balance and are collected through the installments. Only original debts appear here. To redo a settlement in force, break the current one first.
+            passo2: How to split into installments
+            qtd_parcelas: No. of installments
+            primeiro_vencimento: 1st due date
+            periodicidade: Frequency
+            mensal: Monthly
+            quinzenal: Biweekly
+            semanal: Weekly
+            total_ajuda: The total comes from the selection above; edit it to give a discount or add interest.
+            gerar_parcelas: Generate installments
+            passo3: Settlement installments
+            vazio:
+                inicio: No installments yet. Use
+                fim: above, or add one at a time.
+            remover: Remove
+            adicionar_parcela: Add installment
+            parcela_fixa_ajuda: When you change the amount of an installment, it becomes fixed and the others are redistributed to match the total.
+        romper_texto: Breaking it restores the original obligations.
+    acordo:
+        titulo_pagina: 'Collections · {acordo}'
+        titulo_data: 'Settlement of {data}'
+        titulo_sem_data: Settlement without date
+        voltar: Back to the collection
+        sem_data: No date
+        sem_data_dica_vigente: 'Accounting did not provide the date of this settlement. The system does not make one up: the charges of the debts it replaces are left uncalculated; the frozen one keeps the snapshot it has.'
+        sem_data_dica_desfeito: Accounting did not provide the date of this settlement. Since the settlement was undone, the original debts returned to the balance and their charges went back to being calculated normally.
+        incompleto_dica: Installments not yet present in the imported report. They arrive through a future import or manual entry.
+        faltam_parcela: '{n} installment missing'
+        faltam_parcelas: '{n} installments missing'
+        editar: Edit settlement
+        marcar_cumprido: Mark as fulfilled
+        romper: Break
+        motivo: 'Reason: {motivo}'
+        desfeito: 'Settlement undone: the original obligations returned to the balance and the installments left it.'
+        aba_resumo: Summary
+        aba_documentos: Documents
+        total_negociado: Total negotiated
+        entrada: Down payment
+        sem_entrada: No down payment
+        divida_substituida: Debt replaced
+        motivo_sem_data: ⚠ settlement without date
+        desconto_concedido: Discount granted
+        juros_acrescidos: Interest added
+        parcelas: Installments
+        pago_ate_agora: 'Paid so far: {valor}'
+        coluna:
+            descricao: Description
+            vencimento: Due date
+            valor: Amount
+            pago: Paid
+            situacao: Status
+        sem_pagamento: No payment
+        situacao:
+            quitada: Paid off
+            parcial: Partial
+            em_aberto: Open
+        nenhuma_parcela: No installment.
+        substituidas: Replaced obligations
+        substituidas_nota: 'These obligations are never deleted: while the settlement is in force, they stay out of the balance and the installments above take their place.'
+        nenhuma_substituida: No replaced obligation.
+        documentos:
+            adicionar: Add document
+            coluna:
+                data: Date
+                nome: Name
+                categoria: Category
+                observacao: Note
+                acoes: Actions
+            baixar: Download
+            excluir: Delete
+            confirmar_excluir: Delete this document?
+            vazio: No document attached.
+            arquivo: File
+            categoria: Category
+            observacao: Note
+            enviar: Upload
+        editar_nota: Installments already paid cannot be changed or removed. When you change the amount of an installment, the others are redistributed to match the total.
+        trava_pagamento: 'Installment with a payment of {valor}. Not editable here.'
+        trava_substituida: This installment has already been replaced by another settlement in force. That settlement manages it.
+        remover: Remove
+        adicionar_parcela: Add installment
+        salvar_alteracoes: Save changes
+        romper_titulo: Break settlement
+        romper_texto: Breaking it restores the original obligations to the balance and discards the installments.
+        cancelar_titulo: Cancel settlement
+        cancelar_texto: Canceling (entry error) restores the original obligations.
+        cumprir_titulo: Mark settlement as fulfilled
+        cumprir_texto: Confirm that this settlement was fully fulfilled? The replaced obligations stay out of the balance.
+        confirmar: Confirm
+    js:
+        remover: Remove
+        salvando: Saving...
+        anotacao_sem_texto: (note without text)
+        vinculo: 'Link: {vinculo}'
+        pagamento_contexto: 'Payment of {data} · total {total}'
+        ficha:
+            carregando: Loading the record…
+            nova_pessoa: New person
+            ficha_da_pessoa: Person record
+            erro_carregar: Could not load the record.
+            erro_carregar_pessoa: Could not load the record of this person.
+            erro_confirmar: Could not confirm the save. Reload the page to check.
+        acordo:
+            fecham_em: 'The installments add up to {total}.'
+            nao_fecham: 'The installments add up to {soma}, but must add up to {total}.'
+            entrada_fecham_em: 'Down payment + installments add up to {total}.'
+            entrada_nao_fecham: 'Down payment + installments add up to {soma}, but must add up to {total}.'
+            gerador_incompleto: Enter the total negotiated, the number of installments and the 1st due date.
+            gerador_erro: Could not generate the installments.
+            gerador_falha: Failed to generate the installments.
+        previa:
+            divida: 'Debt:'
+            honorarios: 'Fees:'
+            excede: 'Exceeds the case balance by {valor}.'
+            distribuicao: 'Automatic distribution (FIFO):'
+            obrigacao: Obligation
+        upload:
+            erro_enviar: Error uploading the file.
+            erro_comunicacao: Communication error.
+        copiado: Copied
+        copiar_falhou: Could not copy
+        pasta_escolhida: 'Matter chosen: {pasta}'
+        nenhuma_pasta: No matter found.

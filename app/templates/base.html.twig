@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{ idioma_atual().value }}" dir="{{ idioma_atual().direcao }}" data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
+{%- set _opcoes = opcoes_avancadas() -%}
+<html lang="{{ idioma_atual().value }}" dir="{{ idioma_atual().direcao }}"{% if _opcoes.fusoEscolhido %} data-bj-fuso="{{ _opcoes.fuso.value }}"{% endif %}{% if _opcoes.data %} data-bj-formato-data="{{ _opcoes.data.value }}"{% endif %}{% if _opcoes.numero %} data-bj-formato-numero="{{ _opcoes.numero.value }}"{% endif %} data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
@@ -282,6 +283,15 @@
                                     aria-label="{{ 'moldura.cabecalho.instalar_aplicativo'|trans }}"
                                     style="display:none; background:none; border:none; cursor:pointer;">
                                 <i class="bi bi-download"></i>
+                            </button>
+                            {% endif %}
+
+                            {# Bandeira do idioma (spec sistema-em-ingles §1): abre o modal "Idioma do sistema", o mesmo do menu
+                               do usuário; some junto com o item do menu quando o Master esconde o recurso. #}
+                            {% if recurso_visivel('idioma') %}
+                            <button type="button" class="navtop-action-btn navtop-idioma" data-mu-idioma
+                                    aria-label="{{ 'opcoes_avancadas.bandeira.rotulo'|trans({idioma: idioma_atual().nome}) }}" data-tip="{{ 'opcoes_avancadas.bandeira.rotulo'|trans({idioma: idioma_atual().nome}) }}">
+                                {% include 'menu_usuario/_bandeira.html.twig' with {idioma: idioma_atual()} only %}
                             </button>
                             {% endif %}
 
@@ -629,7 +639,7 @@
 
         {# Formatos de data e número pelo <html lang> (spec idioma-do-sistema, entrega 2); sem defer: quem usa pode vir antes. #}
         <script src="{{ asset('js/bj-formato.js') }}"></script>
-        {{ catalogo_js('moldura.js', 'menu.usuario.js', 'termos', 'comum.js') }}
+        {{ catalogo_js('moldura.js', 'menu.usuario.js', 'opcoes_avancadas.js', 'termos', 'comum.js') }}
         <script src="{{ asset('js/bj-traducao.js') }}"></script>
         <script src="{{ asset('js/novidades.js') }}" defer></script>
         <script src="{{ asset('js/menu-usuario.js') }}" defer></script>

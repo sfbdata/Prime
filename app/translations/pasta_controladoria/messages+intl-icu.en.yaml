@@ -1,0 +1,40 @@
+# ---- Matter: matter Docket control (alerts button and panel, design 02 of 10/31/2026)
+pasta_controladoria:
+    botao: Docket control
+    botao_dica: 'Matter Docket control: alerts'
+    titulo: 'Docket control · Matter {nup}'
+    fechar: Close
+    aba_alertas: Alerts
+    vazio: No alerts in this matter.
+    erro: Could not load the alerts. Please try again.
+    carregando: Loading alerts...
+    nota: The alerts use the data on deadlines, goals and matter progress. The Monday routine runs this same analysis on all matters and posts only the new alert to the log of each one.
+    nivel:
+        alta: High
+        media: Medium
+        baixa: Low
+    aba_cadastro: Matter record
+    cadastro:
+        nota_antes: 'You can save even without an email or address: the record stays '
+        nota_negrito: incomplete
+        nota_depois: ' and you complete it later.'
+        reu: Defendant (full name)
+        cpf: Defendant CPF
+        cpf_dica: Numbers only
+        qualificacao: Defendant details
+        qualificacao_dica: Nationality, marital status, occupation, address
+        email: Email (optional)
+        endereco: Address (optional)
+        contrato: Contract
+        contrato_dica: No. or name
+        unidade: Unit
+        unidade_dica: 'E.g.: Lot 12, Apt 302'
+        titular: Statement holder
+        prescricao: Statute of limitations deadline
+        da_cobranca: Suggested by Collections. Correct it if it is different.
+        completo: ✓ Record complete
+        pendente: Record incomplete
+        salvar: Save
+        salvo_completo: Complete record saved.
+        salvo_pendente: Saved as incomplete. Complete the CPF and details later.
+        erro: Could not save the record. Please try again.

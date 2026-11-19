@@ -1,0 +1,117 @@
+# ---- Matter: notices, lock and simple screens (pasta/_cadeado_*, _aviso_duplicada_*, ...)
+pasta_avisos:
+    fechar: Close
+    cancelar: Cancel
+    abas_ocultas:
+        fechar_dica: Close (Esc)
+        ocultar_todos: Hide from the whole team
+        ocultar_para: Hide from…
+        mostrar_todos: Show to everyone
+        titulo: Hide tab
+        subtitulo: Anyone checked stops seeing this tab
+        toda_equipe: 'Whole team ({total})'
+        equipe: Team
+        carregando: Loading…
+        vazio: No one on the team to hide this tab from.
+        salvar: Save
+        selo_oculta: Hidden
+    andamento:
+        avancar: Advance
+        ignorar: Ignore
+        etapa_dica: '{nome} · click to edit, right-click to remove'
+        etapa_exemplo: 'E.g.: {exemplos}'
+        etapa_nomear: 'Name the stage between {entre}'
+        hist_meta_aberta: Goal opened
+        hist_meta_respondida: Goal answered
+        hist_push: '{tipo} · Push'
+    duplicada:
+        titulo: A similar matter already exists
+        encontramos_uma: 'We found {total} matter already registered'
+        encontramos_varias: 'We found {total} matters already registered'
+        para: for
+        em: in
+        mostrando: 'Showing the {total} most recent:'
+        confira: 'Check before creating another:'
+        numero: Number
+        cliente: Client
+        acao: Action
+        criada_em: Created on
+        nao_informado: Not provided
+        sem_registro: No record
+        abrir: Open
+        caso_novo: 'If this really is a new case, you can create it: the system will assign its own number.'
+        criar_mesmo_assim: Create anyway
+    cadeado_faixa:
+        so_ver: 'Matter locked by the primary user: you can view it, but not change it.'
+        pedir_editar: Request to edit
+        pedido_enviado: Request sent
+    cadeado_menu:
+        secao: Access · Primary
+        cadeado: Lock
+    cadeado_modal:
+        rotulo: Matter lock
+        titulo: 'Lock for matter {pasta}'
+        subtitulo: Primary user only · applies to the whole team
+        por_pessoa: Choose by person
+        por_pessoa_dica: Define who hides, views or edits
+        todos: Hide from everyone
+        todos_dica: Only the client name and CPF stay visible
+        colaborador: Team member
+        ocultar: Hide
+        visualizar: View
+        editar: Edit
+        aplicar_todos: Apply to all
+        marcar_todos: 'Set {nivel} for all'
+        nivel_para: '{nivel} for {nome}'
+        sem_equipe: There are no team members besides the primary user.
+        todos_ocultos: 'No one besides the primary user will see the matter. The team sees only the client name and CPF; tabs, documents, case, Push, financial data and BlueJus AI are blocked.'
+        remover: Remove lock
+        trancar: Lock
+    cadeado_pedidos:
+        liberar_editar: Allow editing
+        liberar_visualizar: Allow viewing only
+        recusar: Decline
+    trancada:
+        titulo: 'Matter {pasta}'
+        voltar_dica: Back to the matter list
+        voltar: Back
+        cliente_nao_informado: Client not provided
+        titulo_veu: Matter locked
+        texto: 'The primary user restricted access to this matter. You see only the client name and CPF. If you need to work on it, ask the primary user for access.'
+        motivo: Reason (optional)
+        pedir: Request access from the primary user
+        aguardando: 'Request sent at {hora}. Waiting for the primary user.'
+    zip:
+        titulo: Could not download the .zip
+        dica: If the tab does not close, close it in the browser and go back to the matter.
+    js:
+        abas_so_primario: Only the primary user can hide tabs
+        abas_erro_geral: Could not reach the server. Please try again.
+        abas_toda_equipe: 'Whole team ({total})'
+        abas_ocultar_aba: 'Hide tab {aba}'
+        andamento_erro: Could not change the phase
+        etapa_erro: Could not save the stage
+        etapa_placeholder: 'E.g.: {exemplo}'
+        etapa_letras: '{total} letters'
+        etapa_cancelar: Cancel
+        etapa_salvar: Save
+        etapa_remover: Remove stage
+        andamento_sem_conexao: Connection failure. Please try again.
+        andamento_reativar_titulo: Reactivate matter
+        andamento_reativar_texto: 'The matter is closed. Reactivating opens two new stages: "In progress" (reactivated) and a new "Closed". The previous history is kept.'
+        andamento_reativar: Reactivate
+        andamento_finalizar_titulo: Close matter
+        andamento_avancar_titulo: Advance matter phase
+        andamento_voltar_titulo: Go back a matter phase
+        andamento_pulam: 'Warning: {total} intermediate phase(s) will be marked in red as skipped.'
+        andamento_finalizar_texto: 'Mark the matter as closed? Later, if needed, click "Closed" to reactivate it.'
+        andamento_mudar_texto: 'Change from "{de}" to "{para}"? The change is recorded in the Docket log with date and time.'
+        andamento_finalizar: Close
+        andamento_avancar: Advance
+        andamento_voltar: Go back
+        andamento_sugestao: 'Advance to "{fase}"?'
+        cadeado_resumo_todos: The primary user still sees and edits everything. The rule is recorded in the matter history.
+        cadeado_resumo: '{editar} can edit, {visualizar} can only view, {oculto} cannot see it. The primary user always sees and edits everything.'
+        pedidos_decidido: Request decided
+        pedidos_falhou: Could not decide the request
+        pedidos_sem_conexao: Connection failure while deciding the request

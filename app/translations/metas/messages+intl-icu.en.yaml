@@ -1,0 +1,430 @@
+# ---- My Goals (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global, show)
+metas:
+    titulo: My Goals
+    subtitulo: What is with you, what you delegated and what you follow.
+    atualizado_as: Updated at
+    migalha:
+        home: Home
+    comum:
+        nao_informado: Not provided
+        sem_prazo: no deadline
+        abrir_a_meta: Open the goal
+        de_criador: 'by {nome}'
+    marcador:
+        parar_de_acompanhar: Stop following
+        acompanhar_esta_meta: Follow this goal
+    prazo:
+        atrasadas: Overdue
+        vencem_em_7_dias: Due in 7 days
+        sem_prazo: No deadline
+    grupos:
+        atrasadas: Overdue
+        proximas: Due in 7 days
+        em_revisao: Awaiting review
+        depois: On time
+        sem_prazo: No deadline
+        concluidas: Completed
+    status:
+        pendente: Pending
+        em_revisao: In review
+        concluida: Completed
+        atrasada: Overdue
+        vence_em_breve: Due soon
+        no_prazo: On time
+        sem_prazo: No deadline
+    prioridade:
+        normal: Normal
+        alta: High
+        urgente: Urgent
+    kpis:
+        ver: 'View {rotulo}'
+        sob_sua_responsabilidade: under your responsibility
+        ainda_da_tempo: still time left
+        aguardando_sua_revisao: Awaiting your review
+        criadas_por_voce: created by you
+        abertas_sem_data: open with no date set
+    abas:
+        rotulo: Role in goals
+        responsavel: I am the assignee
+        criei: I created
+        acompanhando: Following
+        todas: All
+    filtros:
+        limpar: Clear filters
+        busca_placeholder: Search by title, matter or client
+        prioridade: Priority
+        prazo: Deadline
+    lista:
+        cabecalho:
+            meta: Goal
+            responsavel: Assignee
+            prazo: Deadline
+            status: Status
+            criada: Created
+    cartao:
+        abrir_a_pasta: Open the matter
+        quem_delegou: Who delegated this goal
+        sem_criador: no creator
+        prazo_dica: 'Deadline: {data}'
+        criada_em: 'created {data}'
+        etapa: '{posicao}/{total} · {etapa}'
+        etapa_dica: Matter stage this goal is in
+        proximo: 'next: {etapa} · {setor}'
+    numero:
+        dica: 'Goal {local} of this matter · no. {numero} in the firm sequence'
+        selo: 'No. {numero}'
+    vazio:
+        com_filtro: No goals with these filters.
+    trilho:
+        seu_andamento: Your progress
+        ultimos_30_dias: last 30 days
+        x_de_y: '{concluidas} of {total}'
+        concluidas: completed
+        percentual_concluidas: Percentage of goals completed
+        legenda:
+            concluidas: '{total} completed'
+            atrasadas: '{total} overdue'
+            em_revisao: '{total} in review'
+    atencao:
+        titulo: Needs attention
+        titulo_e_pasta: '{titulo} · Matter {nup}'
+        prazo: 'deadline {data}'
+        prazo_nao_informado: not provided
+    ia:
+        marca: BlueJus
+        dica: 'BlueJus AI · analyze your goals, deadlines and orders'
+        abrir: Open BlueJus AI
+        eyebrow: BLUEJUS AI
+        titulo: Your goals, deadlines and orders
+        fechar: Close
+        kpi_atrasadas: overdue
+        kpi_sete_dias: due in 7 days
+        kpi_revisao: in review
+        primeiro: WHAT TO DO FIRST
+        sem_prioridade: No goals overdue or due in the next 7 days.
+        motivo_atrasada: 'Overdue by {dias} day(s)'
+        motivo_hoje: Due today
+        motivo_vence: 'Due in {dias} day(s)'
+        motivo_detalhe: '{prazo} · {prioridade} priority · {cliente}'
+        perguntar: ASK BLUEJUS AI
+        placeholder: Ask about your goals
+        enviar: Send
+        sug_primeiro: What should I do first today?
+        sug_delegar: Which goals can I delegate?
+        sug_atrasadas: Summarize my overdue goals
+        sug_despacho: Write a follow-up order
+    equipe:
+        migalha_dashboard: Firm Dashboard
+        migalha_atual: Team goals
+        vazio_titulo: No goals found with these filters
+        vazio_sub: Go back to the Firm Dashboard and choose another team member, position or period.
+        total_uma: '{total} goal'
+        total_varias: '{total} goals'
+        paginacao: Goals pagination
+        pagina_anterior: Previous page
+        proxima_pagina: Next page
+    linha:
+        tipo:
+            prazo: Deadline changed
+            responsaveis: Assignees changed
+            concluida: Goal completed
+            criada: Goal created
+            reaberta: Goal reopened
+            removida: Goal removed
+            atualizada: Goal updated
+            evento: Event recorded
+    detalhe:
+        titulo: 'Goal #{id}'
+        voltar_as_metas: Back to goals
+        trilha:
+            rotulo: Path
+            expediente: Docket
+            pasta: 'Matter {nup}'
+            meta: Goal
+        aguardando:
+            despacho: AWAITING ORDER FROM
+            revisao: AWAITING REVIEW FROM
+            hoje: today
+            dias: '{n, plural, one {# day} other {# days}}'
+            com_a_demanda: with the request
+            desde_o_envio: since it was sent for review
+            lembrar: Remind
+            lembrar_dica: Send a reminder in the AI Chat
+            lembrete_enviado: Reminder sent in the AI Chat.
+        situacao:
+            pendente: Pending
+            revisao: Awaiting review
+            atrasada: 'Overdue · {n} day(s)'
+            concluida: Completed
+            etapa: 'Stage {posicao}/{total} · {etapa}'
+        detalhes:
+            titulo: GOAL DETAILS
+            prazo: DEADLINE
+            alterar: Change
+            alterar_prazo_dica: Click to change the deadline
+            atrasada: Overdue
+            venceu_em: 'was due on {data}'
+            dias: '{n, plural, one {day} other {days}}'
+            sem_prazo: No deadline
+            responsaveis: ASSIGNEES
+            alterar_responsaveis_dica: Click to change the assignees
+            criada_em: CREATED ON
+            criada_hoje: today
+            criada_ha: '{n, plural, one {1 day ago} other {# days ago}}'
+            despachante: ISSUED BY
+        responsaveis: Assignees
+        pasta: 'Matter: {nup}'
+        abrir_a_pasta: Open the matter
+        demanda: REQUEST
+        sem_descricao: No description.
+        historico: History
+        observacao_placeholder: Write a note… (Ctrl+Enter to send)
+        enviar_para_revisao: Send for Review
+        so_comentar: Comment only
+        devolver: Return
+        sem_eventos: No events recorded yet.
+        visualizar_arquivo: View file
+        baixar: Download
+        acompanhando: Following
+        acompanhar: Follow
+        so_voce_ve: Only you see this mark.
+        confirmar_conclusao: Confirm the completion of this goal?
+        concluir_meta: Complete goal
+        responsaveis_titulo: Goal Assignees
+        responsaveis_sub: Search and select team members
+        fechar: Close
+        buscar_membro: Search member…
+        sem_membro: No members found.
+        responsaveis_selecionados: assignee(s) selected
+        cancelar: Cancel
+        salvar_responsaveis: Save Assignees
+        prazo_titulo: Goal Deadline
+        prazo_sub: Leave blank to remove the deadline
+        salvar_prazo: Save Deadline
+        despacho_titulo: ORDER
+        js:
+            acompanhando: Following
+            acompanhar: Follow
+            permita_popups: Allow pop-ups to generate the statement.
+    despacho:
+        natureza_rotulo: Nature
+        prazo_rotulo: Deadline
+        prazo_dica: Deadline for compliance
+        dias_uteis: '{n, plural, one {# business day} other {# business days}}'
+        placeholder: Write the order. Type @ to tag someone on the team.
+        juntado_a_pasta: attached to the matter
+        extrato: Statement
+        extrato_dica: Print or save the routing history as a PDF
+        contador: '{n} / 5,000'
+        anexar: Attach file
+        despachar: Issue order
+        enviar_para_revisao: Send for review
+        aprendizado:
+            dica_etapa: Learned from your orders at this stage
+            dica_etapa_prazo: 'Learned from your orders at this stage · usual deadline: {n} business days'
+            dica_geral: Suggestions from your previous orders
+        natureza:
+            ciencia: For acknowledgment
+            providencia: For action
+            manifestacao: For response
+            conferencia: For review
+            cumpra_se: Comply
+        inicio:
+            ciencia: 'For acknowledgment: '
+            providencia: 'I am forwarding this for action regarding '
+            manifestacao: 'I am forwarding this for a response on '
+            conferencia: 'For review: '
+            cumpra_se: 'Comply: '
+        numero: 'ORDER {n}'
+        tipo:
+            despacho: Comment
+            envio: Sent for review
+            devolucao: Returned
+            etapa: Stage completed
+            redistribuicao: Assignee changed
+        mais_recente: MOST RECENT
+        local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
+        registrado_por: Recorded by
+        registrado_em: 'on {data} at {hora}'
+        codigo: 'Code {codigo}'
+        conferir_registro: Verify this order record
+        cumprir_ate: 'Comply by {data}'
+        ciente: 'Acknowledged · {nome}, {quando}'
+        quando: '{data}, {hora}'
+        certificar: Certify compliance
+        certidao_assinatura: '{nome}, {quando}'
+        certidao_rotulo: 'Compliance certificate (what was done):'
+        certidao_inicio: 'I certify that '
+        certidao_dica: 'Start with "I certify that" and say what was done. Up to 1,000 characters.'
+        registro:
+            titulo: Order record
+            confere: 'Code {codigo} matches this order.'
+            meta: Goal
+            meta_numero: 'Goal #{numero}'
+            autor: Recorded by
+            cargo: Position
+            data: Date
+            data_hora: '{data} at {hora}'
+            natureza: Nature
+            sem_natureza: No nature
+            sem_texto: The order text does not appear here. Open the goal to read it.
+            abrir_meta: Open the goal
+            nao_encontrado_titulo: Record not found
+            nao_encontrado: 'No order in this firm has code {codigo}.'
+        extrato_folha:
+            titulo: Routing statement
+            cabeca: 'Goal #{numero} · {titulo} · Matter {pasta}'
+            emitido_em: 'Issued on {quando}'
+            demanda: REQUEST
+            demanda_quem: '{data} · {autor}'
+            cumprir_ate: 'Comply by {data}'
+            ciente: 'Acknowledged: {nome}'
+            certidao: '{texto} · {nome}, {quando}'
+        js:
+            um_dia_util: 1 business day
+            dias_uteis: '{n} business days'
+            contador: '{n} / 5,000'
+            vezes: '{n}x'
+    etapa:
+        comercial:
+            nome: Sales
+            setor: Sales
+            descricao: Contract signed and fees defined
+        abertura:
+            nome: Intake and report
+            setor: Client Service
+            descricao: Matter opened, initial account and client objective
+        controladoria:
+            nome: Docket control
+            setor: Docket control
+            descricao: Check the matter, registration and list pending items
+        documentacao:
+            nome: Documentation
+            setor: Administration
+            descricao: Gather missing documents and power of attorney
+        juridico:
+            nome: Legal
+            setor: Attorney
+            descricao: Analysis, strategy and drafting of the filing or opinion
+        protocolo:
+            nome: Filing
+            setor: Attorney
+            descricao: File the case, submit the request or deliver the opinion
+        acompanhamento:
+            nome: Follow-up
+            setor: Attorney
+            descricao: Deadlines, publications, hearings and diligences
+        encerramento:
+            nome: Closing
+            setor: Docket control
+            descricao: Outcome, accounting and archiving
+    tipo_de_demanda:
+        judicial: Judicial
+        administrativo: Administrative / Social Security
+        consultoria: Consulting
+    # Stage handoff and return (designs 04 and 04B of 10/22, Phase 3): rail, sidebar, modals and card.
+    passagem:
+        trilho:
+            rotulo: MATTER STAGE
+            dica_saltada: skipped stage, no record
+            dica_concluida: completed
+            saltadas: '{n, plural, one {# stage skipped} other {# stages skipped}}: {nomes}'
+        concluir_e_passar: 'Complete and move to {etapa}'
+        concluir_meta: Complete goal
+        proximo_passo: 'Next step: {etapa} ({setor}). You choose the assignee, the deadline and the pending items.'
+        ultima_etapa: 'Last stage: the matter will be closed.'
+        devolver_para: 'Return to {nome}'
+        ja_seguiu_adiante: This goal was completed at the stage handoff and cannot be reopened.
+        cartao:
+            concluir_etapa: Complete stage
+            dica_passar: 'Complete this stage and move to {etapa}'
+            dica_encerrar: Complete and close the matter
+        modal:
+            titulo: Complete stage and move forward
+            concluida: COMPLETED
+            proximo_passo: NEXT STEP
+            tipo: REQUEST TYPE
+            responsavel: HAND OFF TO ASSIGNEE
+            prazo: NEXT STAGE DEADLINE
+            prazo_meta: DEADLINE
+            responsavel_placeholder_meta: Team member
+            pendencias: PENDING ITEMS FOR THE NEXT DEPARTMENT
+            pendencias_placeholder: 'One per line: missing power of attorney, proof of address...'
+            pendencias_placeholder_meta: One per line
+            costuma_pedir: 'You usually ask for:'
+            feito: WHAT WAS DONE
+            feito_placeholder: Summary for the matter record
+            menu_dica: Choose another stage (skip)
+            menu_titulo: MOVE TO STAGE
+            cancelar: Cancel
+            fechar: Close
+        devolucao:
+            explicacao: The goal goes back to whoever sent it, with the reason recorded in the history. The matter stage does not change.
+            motivo: REASON
+            o_que_falta: WHAT IS MISSING TO MOVE FORWARD
+            placeholder: 'E.g., I need the signed contract and the proof of address'
+            cancelar: Cancel
+            devolver: Return
+            fechar: Close
+        js:
+            pasta: 'Matter {pasta} · {cliente}'
+            pasta_sem_cliente: 'Matter {pasta}'
+            proximo_passo: NEXT STEP
+            saltar_para: SKIP TO
+            voltar_para: GO BACK TO
+            encerramento: Matter closing
+            sem_proxima: No stage after this one.
+            responsavel_placeholder: 'Choose a team member ({setor})'
+            saltando: 'Skipping: {nomes}. Skipped stages are marked on the matter pipeline.'
+            voltando: 'Going back to {etapa}. The goal returns to that stage and the reason should go in the pending items.'
+            salta: skips
+            volta: goes back
+            botao_passar: 'Complete and move to {etapa}'
+            botao_voltar: 'Go back to {etapa}'
+            botao_encerrar: Complete and close
+            botao_concluir_meta: Complete goal
+            toast_passou: 'Stage completed. Matter {pasta} moved to {etapa}.'
+            toast_encerrou: 'Matter {pasta} closed.'
+            toast_meta_concluida: Goal completed.
+            toast_devolvida: 'Goal returned to {nome}. The notice was sent in the AI Chat.'
+            toast_devolvida_sem_aviso: 'Goal returned to {nome}.'
+            erro_motivo: Choose the reason for the return.
+            erro_falta: Explain what is missing to be able to move forward.
+            erro_rede: Could not save. Try again.
+            erro_responsavel: Choose a team member as the assignee.
+    esteira:
+        titulo: Matter pipeline
+        geral: Firm overview
+        geral_dica: 'The pipeline is shared by the whole firm: everyone sees the same boxes and numbers, for the whole team.'
+        resumo: '{abertas, plural, one {# open goal} other {# open goals}} in the firm{atrasadas, plural, =0 {} one { · # overdue} other { · # overdue}}. Click a box to see its goals for the whole team.'
+        so_a_etapa: Only stage {etapa}
+        limpar_etapa: Show all stages
+        caixa_padrao: BOX {numero}
+        caixa_dica: '{descricao} · assignee: {setor}'
+        gargalo: Bottleneck
+        gargalo_dica: Stage with the most overdue goals
+        atrasadas: '{n, plural, one {# overdue} other {# overdue}}'
+        avisados_dica: 'Notified when a request arrives: {nomes}'
+        # Title for those with an OAB and a declared gender (design 04, trat(); spec genero-no-cadastro, rule 4)
+        tratamento_dra: Ms. {nome}
+        tratamento_dr: Mr. {nome}
+        renomear: Rename box and stage
+        suas_metas: Your goals
+        individual: Individual
+        individual_dica: These numbers count only the goals where you are the assignee or that you created.
+        modal:
+            titulo: Configure box
+            fechar: Close
+            nome_da_caixa: Box name
+            nome_da_etapa: Stage name
+            avisar: Notify when a request arrives
+            avisar_ajuda: type @ to tag team members
+            avisar_placeholder: '@name'
+            remover: Remove {nome}
+            nota: Whoever is tagged as the assignee at the handoff only receives a notice.
+            restaurar: Restore default
+            cancelar: Cancel
+            salvar: Save
+    js:
+        parar_de_acompanhar: Stop following
+        acompanhar_esta_meta: Follow this goal

@@ -1,0 +1,25 @@
+{#
+    Janela "Ajustar a foto" da candidatura (pedido B2 do Farlei, 19/11): ao escolher a foto 3x4 na linha da candidatura
+    (.vFotoU de _pauta_form), a imagem abre aqui para enquadrar (arrastar), aproximar (barra ou roda, de 1 a 3) e girar
+    90°. "Usar esta foto" troca o arquivo do campo por um JPEG 360x480 recortado no navegador; "Cancelar" desfaz a escolha.
+    O desenho 18 não tem esta janela: segue o editor da foto do cliente da pasta (pasta-foto-cliente.js) na moldura 3x4 e
+    a janela .vModAbrir/.vModC do Voto (voto-janela.css), nunca modal do Bootstrap. JS: public/js/voto-foto-ajuste.js.
+    Quem confere tipo e tamanho continua sendo o servidor (FotosDasCandidaturas).
+#}
+<div class="vModAbrir vModFoto" data-voto-foto-ajuste hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="voto-foto-ajuste-titulo">
+        <div class="vH"><i class="bi bi-crop" aria-hidden="true"></i><span id="voto-foto-ajuste-titulo">{{ 'voto.assembleia.gestor.pautas.ajuste_foto.titulo'|trans }}</span></div>
+        <div class="vModCorpo">
+            <div class="vFotoDicaAjuste">{{ 'voto.assembleia.gestor.pautas.ajuste_foto.dica'|trans }}</div>
+            <div class="vFotoArea" data-voto-foto-ajuste-area role="img" aria-label="{{ 'voto.assembleia.gestor.pautas.ajuste_foto.area'|trans }}"><img alt="" draggable="false" data-voto-foto-ajuste-img></div>
+            <div class="vFotoControles">
+                <label class="vL vFotoZoom">{{ 'voto.assembleia.gestor.pautas.ajuste_foto.zoom'|trans }}<input type="range" min="1" max="3" step="0.01" value="1" data-voto-foto-ajuste-zoom></label>
+                <button type="button" class="vB" data-voto-foto-ajuste-girar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i>{{ 'voto.assembleia.gestor.pautas.ajuste_foto.girar'|trans }}</button>
+            </div>
+            <div class="vModRodape">
+                <button type="button" class="vB" data-voto-foto-ajuste-cancelar>{{ 'voto.assembleia.gestor.pautas.ajuste_foto.cancelar'|trans }}</button>
+                <button type="button" class="vB vP" data-voto-foto-ajuste-aplicar><i class="bi bi-check-lg" aria-hidden="true"></i>{{ 'voto.assembleia.gestor.pautas.ajuste_foto.aplicar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>

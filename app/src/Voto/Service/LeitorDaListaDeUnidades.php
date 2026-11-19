@@ -75,6 +75,19 @@ final class LeitorDaListaDeUnidades
     }
 
     /**
+     * Uma linha só (editar a unidade pela tela): sem a heurística de cabeçalho, para a unidade chamada "Unidade" ou
+     * "Matrícula" não ser pulada. Mesmas regras da importação.
+     *
+     * @param list<string> $colunas
+     *
+     * @throws OperacaoInvalidaNaAssembleiaException com o motivo da recusa
+     */
+    public function lerUmaLinha(array $colunas, PesoDoVoto $peso): LinhaDeUnidade
+    {
+        return self::linha(1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 9, '')), $peso);
+    }
+
+    /**
      * @param list<string>                                                                                                  $colunas
      * @param array{validas: list<LinhaDeUnidade>, invalidas: list<array{linha: int, motivo: string}>, duplicadas: list<int>} $lidas
      * @param array<string, true>                                                                                           $vistas

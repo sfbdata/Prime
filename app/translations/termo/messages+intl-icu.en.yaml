@@ -1,0 +1,15 @@
+# ---- Terms of Use acceptance: only the frame of the acceptance screen.
+termo:
+    aceite:
+        titulo_pagina: Terms and Conditions of Use | BlueJus
+        titulo: General Terms and Conditions of Use
+        instrucao: To continue, read and accept the terms below.
+        versao: 'Version {versao}'
+        declaracao: I have read and accept the BlueJus General Terms and Conditions of Use.
+        # Sentence split around the Policy link: "<before> <link>." (punctuation and link in the template).
+        declaracao_com_politica_antes: I have read and accept the BlueJus General Terms and Conditions of Use and the
+        declaracao_com_politica_link: Privacy Policy
+        baixar_pdf: Download PDF
+        politica: Privacy Policy
+        sair: Sign out
+        aceitar: Accept and continue

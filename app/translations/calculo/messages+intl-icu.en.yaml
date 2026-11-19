@@ -1,0 +1,209 @@
+# ---- Monetary adjustment calculation (calculo/*, calculo.js, statement PDF)
+calculo:
+    titulo: Calculation
+    tela:
+        sec_dados: '1 · CALCULATION DETAILS'
+        sec_valores: '2 · AMOUNTS OWED'
+        sec_acrescimos: '3 · ADDITIONS AND DEDUCTIONS'
+        proc_rotulo: 'CASE (OPTIONAL)'
+        proc_ph: 'Case number'
+        credor_rotulo: CREDITOR
+        credor_ph: 'Creditor name'
+        devedor_rotulo: DEBTOR
+        devedor_ph: 'Debtor name'
+        ate_rotulo: 'UPDATE UNTIL'
+        idx_rotulo: 'MONETARY ADJUSTMENT INDEX'
+        idx_oficial: 'Official TJDFT indexes (INPC until 08/31/2024 and IPCA from 09/01/2024, Lei 14.905/2024)'
+        idx_inpc: 'INPC for the whole period'
+        idx_nenhum: 'No monetary adjustment'
+        jur_rotulo: 'LATE-PAYMENT INTEREST'
+        jur_legal: '1% per month until 08/29/2024 and the statutory rate after that (Lei 14.905/2024)'
+        jur_1: '1% per month for the whole period'
+        jur_05: '0.5% per month for the whole period'
+        jur_nenhum: 'No late-payment interest'
+        ini_rotulo: 'INTEREST START'
+        ini_valores: 'From the date of the amounts'
+        ini_citacao: 'From service of process or another date'
+        ini_fixa: 'From a fixed date'
+        proj_rotulo: 'FUTURE MONTHS (NO INDEX)'
+        proj_media: 'Project using the average of the last 12 months'
+        proj_nao: 'Do not adjust months without an index'
+        djur_fixa: 'FIXED INTEREST DATE'
+        djur_citacao: 'SERVICE OF PROCESS DATE (OR OTHER)'
+        gerar_parcelas: 'Generate installments'
+        ger_qtd: QUANTITY
+        ger_valor: 'AMOUNT OF EACH (R$)'
+        ger_ini: '1ST DUE DATE'
+        ger_desc: 'DESCRIPTION'
+        ger_desc_ph: 'E.g.: Settlement installment'
+        ger_incluir: 'Add monthly installments'
+        nv_valor: 'AMOUNT (R$)'
+        nv_data: 'AMOUNT DATE'
+        nv_desc: 'DESCRIPTION'
+        nv_desc_ph: 'E.g.: installment 1, August rent'
+        nv_adicionar: 'Add amount'
+        nv_salvar: 'Save amount'
+        cancelar: Cancel
+        col_valor: AMOUNT
+        col_data: 'AMOUNT DATE'
+        col_desc: 'DESCRIPTION'
+        col_acoes: 'ACTIONS'
+        vazio_valores: 'No amount added. Fill in above and click Add amount.'
+        nota_anatocismo: 'Enter the original amount of each installment. If the amount already includes interest, the calculation will have interest on interest (compounding).'
+        multa_rotulo: 'PENALTY (%)'
+        hon_rotulo: 'ATTORNEY FEES (%)'
+        abat_rotulo: 'DEDUCTIONS (PAYMENTS ALREADY MADE)'
+        abat_add: 'Add deduction'
+        abat_desc_ph: 'Payment description'
+        calcular: Calculate
+        limpar: Clear
+        pdf: 'Download PDF'
+        pdf_tip: 'Download the calculation as a PDF'
+        atualizar_indices: 'Update indexes'
+        atualizar_indices_tip: 'Fetch the indexes again from the Central Bank'
+    pagina:
+        titulo: Monetary adjustment
+        subtitulo: Adjustment, late-payment interest and additions under the TJDFT JurisCalc rules.
+    criterio:
+        indice_nenhum: No monetary adjustment.
+        indice_inpc: Adjustment by INPC for the whole period.
+        indice_oficial: Adjustment by INPC until 08/2024 and by IPCA from 09/2024 (Lei 14.905/2024).
+        juros_nenhum: No late-payment interest.
+        juros_legal: Interest of 1% per month until 08/29/2024 and, after that, the statutory rate (Selic minus IPCA, art. 406 of the Civil Code).
+        juros_simples: 'Simple interest of {taxa} per month.'
+        inicio_valores: Interest from the due date of each installment.
+        inicio_fixa: 'Interest from {data} for all installments.'
+        inicio_citacao: 'Interest from {data} for earlier installments and from the due date for later ones.'
+        data_valores: From the due date of each installment
+        data_fixa: 'From {data}'
+        data_citacao: 'From {data} (earlier installments) and from the due date (later ones)'
+    resumo:
+        subtotal: Subtotal adjusted with interest
+        multa: 'Penalty ({pct}%)'
+        honorarios: 'Attorney fees ({pct}%)'
+        abatimentos: Adjusted deductions
+        debito: Debt
+        multa_523: Penalty art. 523, § 1º, CPC (10%)
+        honorarios_523: Attorney fees art. 523, § 1º, CPC (10%)
+        total: TOTAL OWED
+    aviso:
+        sem_indice: 'Warning: {n} month(s) of the period do not have a published index yet and were treated as unadjusted.'
+        projetadas: '{n} installment(s) with projected amounts: months without a published index yet were estimated using the average of the last 12 months (INPC/IPCA/Selic). The result will be confirmed when the indexes are released.'
+        titulo_atencao: Check before using the result
+        titulo_corrigir: Fix to calculate
+    erro:
+        sem_valores: No amount was added to Amounts owed. Fill in the amount and date and click Add amount.
+        ir_valores: Go to Amounts
+        sem_ate: Enter the date until which the calculation should be updated (Update until field).
+        ir_campo: Go to the field
+        sem_indices: The Central Bank indexes have not been loaded yet. Click Update indexes, at the top of the page, and try again.
+        sem_data_juros_fixa: Enter the interest start date (fixed date).
+        sem_data_juros_citacao: Enter the interest start date (service of process date).
+        data_invalida: 'The date entered is not valid: {data}.'
+        muitos_valores: 'There are too many amounts to calculate (maximum {max}).'
+        indices_ocupado: Another index update is already in progress. Please try again in a moment.
+        indices_falha: 'Could not update the {series} series now. The indexes already saved remain valid.'
+    indices:
+        ate: 'Indexes until {mes}'
+        indisponiveis: Indexes unavailable
+        carregando: Loading indexes…
+        dica: Official INPC, IPCA and Selic from the Central Bank (SGS)
+        dica_consulta: 'Official INPC, IPCA and Selic from the Central Bank (SGS) · queried on {quando}'
+    pdf:
+        titulo: Monetary adjustment calculation statement
+        escritorio_padrao: Law firm
+        marca_dagua: user
+        moeda: Currency
+        valores_em_real: Amounts in Brazilian Real (R$)
+        processo: Case
+        credor: Creditor
+        devedor: Debtor
+        atualizacao_ate: 'Monetary adjustment until {mes}'
+        data_final: 'Calculation end date:'
+        indices_rotulo: 'Monetary adjustment indexes:'
+        juros: Interest
+        tipo_juros: 'Interest type:'
+        data: 'Date:'
+        principais: Statement of principal amounts
+        abatimentos: Deductions
+        agrupamento: Grouping of the amounts calculated
+        total_do_calculo: 'Calculation total:'
+        total_valores: Total amounts
+        coluna:
+            data: Date
+            descricao: Description
+            valor: Amount
+            indices: Adjustment indexes
+            fator: Adjustment factor
+            valor_atualizacao: Adjustment amount
+            valor_atualizado: Adjusted amount
+            juros_pct: 'Accumulated interest %'
+            valor_juros: Interest amount
+            total: Total
+        indice_sem: No adjustment
+        indice_inpc: INPC
+        indice_oficial: INPC/IPCA
+        indice_periodo: '{indice} from {de} to {ate}'
+        projecao: Projection
+        nota: Note
+        nota_indices: 'Indexes: Central Bank of Brazil (INPC, IPCA and Selic series)'
+        nota_consulta: ', queried on {quando}'
+        nota_projecao: 'Installments marked as PROJECTION are not yet due: the amount is projected up to the due date.'
+        nota_final: The routine does not follow the rules for calculations against the Treasury. Check the data before filing it in the case.
+        rodape: 'BlueJus · Monetary adjustment calculation · Verification code {codigo}'
+        cabecalho: BlueJus · Calculations
+        pagina: '{n}/{total}'
+        nome_arquivo: Calculation
+    verificacao:
+        titulo: 'Verify Calculation PDF'
+        subtitulo: 'Check whether a monetary adjustment statement was issued by BlueJus.'
+        codigo_rotulo: 'Verification code'
+        codigo_ph: BJC-XXXXXXXX
+        arquivo_rotulo: 'PDF received (optional)'
+        arquivo_dica: 'Upload the file to find out whether it is identical to the original. The file is not stored.'
+        botao: Verify
+        encontrado: 'Code recognized'
+        emitido_por: 'Issued by {escritorio}'
+        emitido_em: 'Issued on: {data}'
+        atualizado_ate: 'Updated until: {data}'
+        total: 'Statement total: R$ {valor}'
+        confere_sim: 'The uploaded file is identical to the issued PDF.'
+        confere_nao: 'The uploaded file is NOT identical to the issued PDF. It was altered or belongs to another calculation.'
+        sem_arquivo: 'Upload the PDF to also check the content.'
+        formato_invalido: 'The code must have the format BJC- followed by 8 letters or numbers.'
+        nao_encontrado: 'No PDF was issued with this code.'
+        limite: 'Too many consecutive queries. Wait a minute and try again.'
+        sessao: 'The page expired. Please submit again.'
+        arquivo_grande: 'The file is over 5 MB. Upload the original calculation PDF.'
+    js:
+        carregando: Loading indexes…
+        nao_gerou_pdf: Could not generate the PDF now. Please try again.
+        parcela_padrao: Installment
+        editar: Edit
+        excluir: Delete
+        valor_zero: 'Enter an amount greater than zero.'
+        sem_data: 'Enter the amount date.'
+        excluir_valor: 'Delete the amount of R$ {valor}?'
+        limpar_confirma: 'Clear all calculation data?'
+        ger_faltam: 'Enter the amount and 1st due date to generate the installments.'
+        soma: '{n} amounts · sum without adjustment'
+        valor_sem_data: 'The amount of R$ {valor} has no date. Enter the Amount date.'
+        ir_data: 'Go to the date'
+        data_sem_valor: 'A date is filled in without an amount in Amounts owed. Enter the amount.'
+        ir_valor: 'Go to the amount'
+        dem_titulo: 'CALCULATION STATEMENT · UPDATED UNTIL {data}'
+        dem_col_data: DATE
+        dem_col_desc: 'DESCRIPTION'
+        dem_col_valor: AMOUNT
+        dem_col_fator: FACTOR
+        dem_col_corrigido: ADJUSTED
+        dem_col_juros_pct: 'INTEREST %'
+        dem_col_juros: INTEREST
+        dem_col_total: TOTAL
+        proj_tag: 'PROJECTION'
+        proj_tip: 'Installment not yet due: amounts projected up to the due date'
+        rodape_fixo: 'Indexes: Central Bank of Brazil (INPC, IPCA and Selic series). The routine does not follow the rules for calculations against the Treasury. Check the data before filing it in the case.'
+        baixar_pdf: 'Download PDF'
+        gerando_pdf: 'Generating PDF…'
+        falha_calculo: 'Could not calculate now. Please try again.'
+        falha_indices: 'Could not update the indexes now. Please try again.'

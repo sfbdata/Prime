@@ -103,7 +103,7 @@ final class DashboardMetaJsTest extends TestCase
         self::assertMatchesRegularExpression('/\.db-meta-fill \{[^}]*--db-meta-rgb: 15, 111, 196;/s', $css);
         self::assertMatchesRegularExpression('/\.db-meta-fill--abaixo \{ --db-meta-rgb: 192, 57, 47; \}/', $css);
         self::assertMatchesRegularExpression('/\.db-meta-marco \{[^}]*top: -3px;[^}]*bottom: -3px;[^}]*width: 2px;[^}]*opacity: \.55;/s', $css);
-        self::assertMatchesRegularExpression('/\.db-meta-definir \{[^}]*height: 28px;[^}]*padding: 0 10px 0 8px;[^}]*rgba\(12, 122, 156, \.07\)/s', $css);
+        self::assertMatchesRegularExpression('/\.db-meta-definir \{[^}]*height: 32px;[^}]*padding: 0 14px 0 12px;[^}]*rgba\(12, 122, 156, \.07\)/s', $css);
         self::assertMatchesRegularExpression('/\.db-meta-ed \{[^}]*width: 280px;[^}]*padding: 16px;/s', $css);
         self::assertMatchesRegularExpression('/\.db-meta-ed-entrada \{[^}]*height: 40px;[^}]*font-size: 16px;/s', $css);
         self::assertMatchesRegularExpression('/\.db-meta-menu \{[^}]*width: 216px;[^}]*padding: 5px;/s', $css);

@@ -6,6 +6,7 @@ namespace App\Voto\Entity;
 
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\TenantAware;
+use App\Voto\DTO\LinhaDeUnidade;
 use App\Voto\Enum\PesoDoVoto;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
@@ -162,6 +163,27 @@ class UnidadeDaAssembleia implements TenantAware
             throw new OperacaoInvalidaNaAssembleiaException('Com peso por fração ideal, a unidade precisa de fração para ficar apta.');
         }
         $this->apta = true;
+    }
+
+    /**
+     * Corrige o cadastro (o gestor, antes da abertura da votação). O link não muda. A aptidão só é recalculada se a
+     * situação mudou: sem mudança, uma decisão do conselho (tornarAptaPeloConselho) continua valendo.
+     */
+    public function editarCadastro(LinhaDeUnidade $linha): void
+    {
+        if ($linha->situacao !== $this->situacao) {
+            // Liberada pelo conselho (apta com situação que não vota): a decisão do conselho continua valendo.
+            $peloConselho = $this->apta && !self::situacaoPermiteVotar($this->situacao);
+            $this->apta = $peloConselho || self::situacaoPermiteVotar($linha->situacao);
+        }
+        $this->identificacao = $linha->identificacao;
+        $this->bloco = $linha->bloco;
+        $this->situacao = $linha->situacao;
+        $this->fracao = $linha->fracao;
+        $this->responsavel = $linha->responsavel;
+        $this->email = $linha->email;
+        $this->telefone = $linha->telefone;
+        $this->cpf = $linha->cpf;
     }
 
     /** "Gerar novo link": o anterior deixa de valer e a unidade volta a "ainda não recebeu" o link por e-mail. */

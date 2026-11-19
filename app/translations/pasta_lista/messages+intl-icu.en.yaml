@@ -1,0 +1,69 @@
+# ---- Matter: matter list and requests (pasta/index, _tabela, _card, _filtros, demandas...)
+pasta_lista:
+    ativo: Active
+    arquivado: Archived
+    cliente: Client
+    prioridade: Priority
+    cliente_linha:
+        cad_completo: Record complete · open client details
+        cad_incompleto_uma: 'Record incomplete: {total} pending item · open client details'
+        cad_incompleto_varias: 'Record incomplete: {total} pending items · open client details'
+        duplicado_dica: 'Another linked client has the same {doc}'
+        duplicado: '{doc} duplicated'
+        principal: Main
+        principal_dica: Main client of this matter. The Average by CPF is based on this client
+        principal_dica_trocar: Main client of this matter. The Average by CPF is based on this client. Click the star on another to switch
+        tornar_principal: Make main client (the Average by CPF is based on this client)
+        abrir_dica: Open client profile (documents and attachments are there)
+        abrir_rotulo: 'Open client {nome}'
+        desvincular: Unlink client from matter
+    filtro_situacao:
+        dica: Filter by matter status
+        rotulo: Status
+        todas: All
+        suspenso: Suspended
+        cancelado: Canceled
+    filtros:
+        busca_dica: Search by matter number, client name, action or case number
+        busca_placeholder: Search matter, client, action or case
+        responsavel_dica: Filter by the responsible for the matter
+        responsavel: Responsible
+        responsavel_rotulo: Filter by responsible
+        sem_responsavel: No one responsible
+        prioridade_dica: 'Priority: Normal, High or Urgent'
+        prioridade_rotulo: Filter by priority
+        normal: Normal
+        alta: High
+        urgente: Urgent
+        periodo_dica: Matter opening period
+        de: From
+        de_rotulo: Opened from
+        ate: To
+        ate_rotulo: Opened until
+        periodo_sep: to
+        abrir_calendario: Open calendar
+        limpar: Clear all filters
+    demandas:
+        titulo: My Requests
+        # Desenho 15 (Minhas Demandas na Lista do Expediente): barra do acervo, resumo e Nova demanda.
+        todas: All requests
+        nova: New request
+        nova_dica: 'New request: opens a matter with the next number in the general collection and you as the responsible'
+        resumo: '{total} request(s) found'
+        resumo_vazio: No requests found
+    # Responsável "equipe" (Total de Pastas concluídas do Dashboard): rótulo do campo e da opção que só existe com o link.
+    # Coluna "Mod." das Minhas Demandas (expediente/_lista.html.twig com `colunaModificada`).
+    hoje: Today
+    resultado:
+        modificada: Mod.
+        sem_registro: No record
+        um_dia: 1 day ago
+        dias: '{dias}d ago'
+    filtro_equipe:
+        equipe: Team
+        equipe_cargo: 'Team · {cargo}'
+        sem_cargo: No title
+    # Textos do JS das Minhas Demandas (public/js/demandas-lista.js), entregues por catalogo_js('pasta_lista.js').
+    js:
+        demandas:
+            criada: 'Request for matter {nup} opened for {cliente} with you as the responsible'

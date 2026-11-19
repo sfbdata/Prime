@@ -117,6 +117,14 @@
                         <button type="submit" class="vB"><i class="bi bi-arrow-repeat"></i>{{ 'voto.assembleia.gestor.links.novo_link'|trans }}</button>
                     </form>
                 {% endif %}
+                {% if voto_edita(a.id) %}
+                    {% if a.podeAlterarUnidades %}
+                        {% set itemEditar = {rotulo: 'voto.assembleia.gestor.unidades.editar'|trans, icone: 'bi-pencil', revelar: '#editar-unidade-' ~ u.id} %}
+                    {% else %}
+                        {% set itemEditar = {rotulo: 'voto.assembleia.gestor.unidades.editar'|trans, icone: 'bi-pencil', atributos: {'disabled': 'disabled', 'title': 'voto.assembleia.gestor.unidades.editar_travada'|trans, 'data-voto-editar-travada': '1'}} %}
+                    {% endif %}
+                    {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: [itemEditar]} only %}
+                {% endif %}
                 {% if a.podeAlterarUnidades and voto_edita(a.id) %}
                     <form method="post" action="{{ path('voto_assembleia_unidade_remover', {id: a.id, unidade: u.id}) }}" class="voto-form-linha">
                         <input type="hidden" name="_token" value="{{ token }}">
@@ -124,6 +132,23 @@
                     </form>
                 {% endif %}
             </div>
+            {% if a.podeAlterarUnidades and voto_edita(a.id) %}
+                <form method="post" class="voto-editar-unidade" id="editar-unidade-{{ u.id }}" data-voto-revelavel hidden action="{{ path('voto_assembleia_unidade_editar', {id: a.id, unidade: u.id}) }}">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <label class="vL">{{ a.cenario.identificacao }}<input class="vF" type="text" name="identificacao" value="{{ u.identificacao }}" maxlength="80" required></label>
+                    <label class="vL">{{ a.cenario.grupo }}<input class="vF" type="text" name="bloco" value="{{ u.bloco }}" maxlength="40"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_situacao'|trans }}<input class="vF" type="text" name="situacao" value="{{ u.situacao }}" maxlength="40"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_fracao'|trans }}<input class="vF" type="text" name="fracao" value="{{ u.fracao is not null ? u.fracao|replace({'.': ','}) : '' }}" inputmode="decimal"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_responsavel'|trans }}<input class="vF" type="text" name="responsavel" value="{{ u.responsavel }}" maxlength="160"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_email'|trans }}<input class="vF" type="email" name="email" value="{{ u.email }}" maxlength="180"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_telefone'|trans }}<input class="vF" type="text" name="telefone" value="{{ u.telefone }}" maxlength="25" inputmode="tel"></label>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.campo_cpf'|trans }}<input class="vF" type="text" name="cpf" value="{{ u.cpf }}" maxlength="14" inputmode="numeric" autocomplete="off"></label>
+                    <div class="voto-editar-unidade-acoes">
+                        <button type="submit" class="vB vP"><i class="bi bi-check-lg"></i>{{ 'voto.assembleia.gestor.unidades.salvar_edicao'|trans }}</button>
+                        <button type="button" class="vB" data-voto-ocultar>{{ 'voto.assembleia.gestor.unidades.cancelar_edicao'|trans }}</button>
+                    </div>
+                </form>
+            {% endif %}
             {% if u.ocorrencia %}
                 {% set oc = u.ocorrencia %}
                 {% set quando = oc.registradaEm|date('d/m/Y H:i:s') %}
@@ -164,4 +189,5 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/voto-avaliacoes.js') }}" defer></script>
+<script src="{{ asset('js/voto-ciclo.js') }}" defer></script>
 {% endblock %}
