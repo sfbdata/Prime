@@ -396,6 +396,14 @@ input[type="range"].img-slider {
                 <span class="mp-pref-texto"><span>{{ 'perfil.preferencias.idioma_rotulo'|trans }}</span><small>{{ 'perfil.preferencias.idioma_sub'|trans }}</small></span>
                 <span class="mp-pref-valor">{{ idioma_atual().nome }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
             </button>
+            {# Opções avançadas (pedido do dono de 19/11/2026, spec sistema-em-ingles §2): o desenho 07 não tem; a linha segue
+               a do "Idioma do sistema" e abre o modal abaixo (menu-usuario.js). #}
+            {% set _opcoes = opcoes_avancadas() %}
+            <button type="button" class="mp-pref" data-mu-opcoes>
+                <i class="bi bi-gear-wide-connected"></i>
+                <span class="mp-pref-texto"><span>{{ 'opcoes_avancadas.rotulo'|trans }}</span><small>{{ 'opcoes_avancadas.sub'|trans }}</small></span>
+                <span class="mp-pref-valor">{{ _opcoes.fuso.chave|trans }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
+            </button>
             {% for p in [
                 {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'perfil.preferencias.notificacoes_rotulo'|trans, sub: 'perfil.preferencias.notificacoes_sub'|trans},
                 {chave: 'perfil.sons', icone: 'bi-volume-up', rotulo: 'perfil.preferencias.sons_rotulo'|trans, sub: 'perfil.preferencias.sons_sub'|trans},
@@ -787,6 +795,61 @@ input[type="range"].img-slider {
                 <div class="mp-modal-rodape">
                     <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'perfil.acoes.cancelar'|trans }}</button>
                     <button type="submit" class="mp-btn-azul"><i class="bi bi-box-arrow-right"></i>{{ 'perfil.sair_todos.confirmar'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Modal das Opções avançadas (spec sistema-em-ingles §2): componentes do modal do menu do usuário (.mu-modal). #}
+{% set _opcoes = opcoes_avancadas() %}
+{% set _idiomaAtual = idioma_atual() %}
+<div class="modal fade mu-modal" id="modalOpcoesAvancadas" tabindex="-1" aria-labelledby="modalOpcoesAvancadasTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered mu-modal-medio">
+        <div class="modal-content">
+            <div class="mu-modal-topo">
+                <b id="modalOpcoesAvancadasTitulo">{{ 'opcoes_avancadas.titulo'|trans }}</b>
+                <button type="button" class="mu-modal-x" data-bs-dismiss="modal" aria-label="{{ 'menu.usuario.modal.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form class="mu-modal-corpo mu-opcoes" data-mu-opcoes-form>
+                <label class="mu-campo">
+                    <span>{{ 'opcoes_avancadas.idioma'|trans }}</span>
+                    <select name="idioma">
+                        {% for idioma in idiomas() %}
+                            <option value="{{ idioma.value }}" lang="{{ idioma.value }}"{{ idioma == _idiomaAtual ? ' selected' : '' }}{{ idioma.ativo ? '' : ' disabled' }}>{{ idioma.nome }}{{ idioma.ativo ? '' : ' (' ~ 'menu.usuario.idioma.em_breve'|trans ~ ')' }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="mu-campo">
+                    <span>{{ 'opcoes_avancadas.fuso_rotulo'|trans }}</span>
+                    <select name="fuso">
+                        {% for fuso in fusos_horarios() %}
+                            <option value="{{ fuso.value }}"{{ fuso == _opcoes.fuso ? ' selected' : '' }}>{{ fuso.chave|trans }} ({{ fuso.deslocamento }})</option>
+                        {% endfor %}
+                    </select>
+                    <small>{{ 'opcoes_avancadas.fuso_nota'|trans }}</small>
+                </label>
+                <label class="mu-campo">
+                    <span>{{ 'opcoes_avancadas.data_rotulo'|trans }}</span>
+                    <select name="formatoData">
+                        <option value=""{{ _opcoes.data is null ? ' selected' : '' }}>{{ 'opcoes_avancadas.automatico'|trans }}</option>
+                        {% for formato in formatos_de_data() %}
+                            <option value="{{ formato.value }}"{{ formato == _opcoes.data ? ' selected' : '' }}>{{ formato.exemplo }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="mu-campo">
+                    <span>{{ 'opcoes_avancadas.numero_rotulo'|trans }}</span>
+                    <select name="formatoNumero">
+                        <option value=""{{ _opcoes.numero is null ? ' selected' : '' }}>{{ 'opcoes_avancadas.automatico'|trans }}</option>
+                        {% for formato in formatos_de_numero() %}
+                            <option value="{{ formato.value }}"{{ formato == _opcoes.numero ? ' selected' : '' }}>{{ 'opcoes_avancadas.numero_exemplo'|trans({exemplo: formato.exemplo}) }}</option>
+                        {% endfor %}
+                    </select>
+                    <small>{{ 'opcoes_avancadas.numero_nota'|trans }}</small>
+                </label>
+                <div class="mu-acoes">
+                    <button type="submit" class="mu-btn mu-btn-pri"><i class="bi bi-check-lg"></i>{{ 'opcoes_avancadas.salvar'|trans }}</button>
                 </div>
             </form>
         </div>

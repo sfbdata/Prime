@@ -4,6 +4,9 @@ namespace App\Profile\Entity;
 
 use App\Entity\Auth\User;
 use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\FormatoDeData;
+use App\Profile\Enum\FormatoDeNumero;
+use App\Profile\Enum\FusoHorario;
 use App\Profile\Enum\Genero;
 use App\Profile\Enum\Idioma;
 use App\Profile\Repository\UserProfileRepository;
@@ -59,6 +62,18 @@ class UserProfile
     /** Idioma do sistema escolhido pela pessoa (spec idioma-do-sistema); nulo = o padrão, português. */
     #[ORM\Column(length: 10, nullable: true, enumType: Idioma::class)]
     private ?Idioma $idioma = null;
+
+    /** "Opções avançadas" do Meu Perfil (spec sistema-em-ingles): nulo = Brasília, o fuso do sistema. */
+    #[ORM\Column(length: 40, nullable: true, enumType: FusoHorario::class)]
+    private ?FusoHorario $fusoHorario = null;
+
+    /** "Opções avançadas": nulo = automático, pelo idioma. */
+    #[ORM\Column(length: 10, nullable: true, enumType: FormatoDeData::class)]
+    private ?FormatoDeData $formatoData = null;
+
+    /** "Opções avançadas": nulo = automático, pelo idioma. A moeda continua sendo o real. */
+    #[ORM\Column(length: 10, nullable: true, enumType: FormatoDeNumero::class)]
+    private ?FormatoDeNumero $formatoNumero = null;
 
     /** Última vez em que a pessoa confirmou, na revisão mensal, que o cadastro está certo. */
     #[ORM\Column(type: 'date_immutable', nullable: true)]
@@ -212,6 +227,42 @@ class UserProfile
     public function setIdioma(Idioma $idioma): static
     {
         $this->idioma = $idioma;
+
+        return $this;
+    }
+
+    public function getFusoHorario(): ?FusoHorario
+    {
+        return $this->fusoHorario;
+    }
+
+    public function setFusoHorario(?FusoHorario $fusoHorario): static
+    {
+        $this->fusoHorario = $fusoHorario;
+
+        return $this;
+    }
+
+    public function getFormatoData(): ?FormatoDeData
+    {
+        return $this->formatoData;
+    }
+
+    public function setFormatoData(?FormatoDeData $formatoData): static
+    {
+        $this->formatoData = $formatoData;
+
+        return $this;
+    }
+
+    public function getFormatoNumero(): ?FormatoDeNumero
+    {
+        return $this->formatoNumero;
+    }
+
+    public function setFormatoNumero(?FormatoDeNumero $formatoNumero): static
+    {
+        $this->formatoNumero = $formatoNumero;
 
         return $this;
     }
