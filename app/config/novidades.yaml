@@ -1,6 +1,14 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.63.1"
+  data: "2026-11-19"
+  itens:
+    - "Nas perguntas frequentes do Contribua, o texto de cada pergunta fica num bloco só, para não aparecerem espaços sobrando no meio da frase (como em volta do preço do Desafio)."
+    - "Ao clicar numa pergunta frequente, não aparece mais a borda colorida em volta dela. Quem navega pelo teclado continua vendo onde está."
+    - "Na janela da campanha BlueJus Black, a situação aparece com textos mais claros, como \"Começa em 25/11/2026\" ou \"Campanha encerrada em 30/11/2026\"."
+    - "Nas sugestões do Contribua, o clique com o botão direito não abre mais o menu do navegador sobre a linha."
+    - "No painel do Master, se o nome da campanha ficar em branco, ele volta sozinho para \"BlueJus Black\"."
 - versao: "2.63.0"
   data: "2026-11-19"
   itens:
