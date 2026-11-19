@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\Controller;
 
 use App\Voto\DTO\SolicitarCodigoDaAssembleiaInput;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Service\AssembleiaDoPortal;
 use App\Shared\Service\DigitoVerificador;
 use App\Voto\UseCase\LocalizarEleitorNoPortalUseCase;
@@ -67,25 +68,7 @@ final class PortalDaAssembleiaController extends AbstractController
         $portal = $this->montar->executar($codigo);
         $nome = trim($request->request->getString('nome'));
         if ($portal?->pedeCpf === true) {
-            if (!$this->votoPortalLocalizarLimiter->create($request->getClientIp())->consume()->isAccepted()) {
-                return $this->pagina($request, $codigo, 'Muitas solicitações. Aguarde alguns minutos e tente novamente.', 429);
-            }
-            $cpf = DigitoVerificador::digitos($request->request->getString('cpf'));
-            $input = new SolicitarCodigoDaAssembleiaInput($nome, '', '', 'localizacao@example.com', str_repeat('a', 32), $cpf);
-            if (\count($this->validator->validate($input)) > 0) {
-                return $this->pagina($request, $codigo, 'Informe seu nome completo e um CPF válido, como constam na lista da votação.', 422);
-            }
-            $estado = ['nome' => $input->nome, 'cpf' => $cpf];
-            $achadas = $this->localizarEleitor->executar($a, $input->nome, $cpf);
-            if (1 === \count($achadas)) {
-                $estado['exibir_unidade'] = $achadas[0]['unidade'];
-                $estado['exibir_bloco'] = $achadas[0]['bloco'];
-            } elseif (\count($achadas) > 1) {
-                $estado['opcoes'] = $achadas;
-            }
-            $request->getSession()->set($this->chave($codigo), $estado);
-
-            return $this->voltar($codigo);
+            return $this->localizarPorCpf($request, $codigo, $a, $nome);
         }
         $input = new SolicitarCodigoDaAssembleiaInput(
             $nome,
@@ -101,6 +84,30 @@ final class PortalDaAssembleiaController extends AbstractController
             'nome' => $input->nome, 'unidade' => $input->unidade, 'bloco' => $input->bloco,
             'exibir_unidade' => $input->unidade, 'exibir_bloco' => $input->bloco,
         ]);
+
+        return $this->voltar($codigo);
+    }
+
+    /** Passo 1 com CPF (lista em que todas as aptas têm CPF): limitador próprio, nome + CPF e a escolha da unidade. */
+    private function localizarPorCpf(Request $request, string $codigo, Assembleia $a, string $nome): Response
+    {
+        if (!$this->votoPortalLocalizarLimiter->create($request->getClientIp())->consume()->isAccepted()) {
+            return $this->pagina($request, $codigo, 'Muitas solicitações. Aguarde alguns minutos e tente novamente.', 429);
+        }
+        $cpf = DigitoVerificador::digitos($request->request->getString('cpf'));
+        $input = new SolicitarCodigoDaAssembleiaInput($nome, '', '', 'localizacao@example.com', str_repeat('a', 32), $cpf);
+        if (\count($this->validator->validate($input)) > 0) {
+            return $this->pagina($request, $codigo, 'Informe seu nome completo e um CPF válido, como constam na lista da votação.', 422);
+        }
+        $estado = ['nome' => $input->nome, 'cpf' => $cpf];
+        $achadas = $this->localizarEleitor->executar($a, $input->nome, $cpf);
+        if (1 === \count($achadas)) {
+            $estado['exibir_unidade'] = $achadas[0]['unidade'];
+            $estado['exibir_bloco'] = $achadas[0]['bloco'];
+        } elseif (\count($achadas) > 1) {
+            $estado['opcoes'] = $achadas;
+        }
+        $request->getSession()->set($this->chave($codigo), $estado);
 
         return $this->voltar($codigo);
     }
