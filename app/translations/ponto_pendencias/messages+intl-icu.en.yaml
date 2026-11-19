@@ -1,0 +1,12 @@
+ponto_pendencias:
+    titulo: Pending entries
+    explicacao: 'Days in the last 30 on which a punch is missing. They do not prevent clocking in: submit the missed punch request to fix them.'
+    falta:
+        entrada: Clock-in missing
+        repouso: Break start missing
+        retorno: Break end missing
+        saida: Clock-out missing
+    enviar: Submit missed punch request
+    outro_escritorio: 'This entry belongs to {escritorio}. Switch to that firm and submit the missed punch request there.'
+    trocar: Switch firm
+    vazia: No pending entries.
