@@ -190,8 +190,8 @@ outra pasta, cliente, processo ou tela de A". O molde do Trabalho Externo també
 **Desenho.** "Abrir pasta" (dc `rvAbrir`) e "Abrir metas" (`rvMetasIr`) apontam para a página da pasta (02), que não
 tem tratamento de pasta recebida (conferido em `redesign-04-11-26/02 - EXPEDIENTES - VS 31.10.26`). A pasta recebida
 abre numa **página própria e reduzida**, com os componentes visuais da página da pasta (cabeçalho, abas Andamentos,
-Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11), comunicado ao
-Coordenador. ZIP fica fora (a recebida do desenho não o mostra).
+Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11), **aceito pelo
+Samuel em 18/11** (com o teto da origem e a divisão 9a/9b). ZIP fica fora (a recebida do desenho não o mostra).
 
 **O teto é a origem (regra nova, pela recomendação).** B nunca faz mais do que quem republicou, e só enquanto quem
 republicou ainda poderia republicar. Por isso o localizador confere, a cada requisição:
@@ -248,7 +248,9 @@ responsável "<origem> (dono)"; clicar abre a janela L11. A ordem (no topo, fora
 acervo) é o único desvio. A fonte é o JSON `expediente_recebidas`, que passa a marcar em cada item `abre`
 (o mesmo critério do localizador, conferido em lote: cadeados, vínculos e contas das origens numa consulta cada,
 para os até 100 itens da caixa); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
-entram no `findByFilters` (escopado ao escritório B).
+entram no `findByFilters` (escopado ao escritório B). Limites da 9a: o restrito em B não tem o acervo geral, então
+chega à recebida só pela caixa "Recebidas" ("Ver pasta"); com a Lista vazia (sem tabela) as linhas não aparecem, e a
+caixa continua sendo o caminho.
 
 **Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
 com o escritório A, só ids, rota, IP e o usuário de B); o 403 de `baixar` sem a caixa grava `negado`. A recusa do
