@@ -14,6 +14,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
@@ -38,6 +39,7 @@ final readonly class CorreioDaAssinatura
         private DocumentoParaAssinarRepository $documentos,
         private TrilhaDoDocumento $trilha,
         private LoggerInterface $logger,
+        private LocaleSwitcher $idiomaDoEmail,
     ) {
     }
 
@@ -47,6 +49,12 @@ final readonly class CorreioDaAssinatura
      * @return bool se todas as cartas com destinatário foram entregues ao transporte
      */
     public function entregar(array $cartas): bool
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        return $this->idiomaDoEmail->runWithLocale('pt_BR', fn (): bool => $this->entregarEmPortugues($cartas));
+    }
+
+    private function entregarEmPortugues(array $cartas): bool
     {
         $tudoEntregue = true;
         foreach ($cartas as $carta) {

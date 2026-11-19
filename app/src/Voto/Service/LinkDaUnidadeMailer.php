@@ -10,6 +10,7 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
@@ -28,6 +29,7 @@ final class LinkDaUnidadeMailer
         private readonly IdentidadeDeEmail $identidadeDeEmail,
         private readonly TokenDaUnidade $tokens,
         private readonly TranslatorInterface $tradutor,
+        private readonly LocaleSwitcher $idiomaDoEmail,
     ) {
     }
 
@@ -38,6 +40,12 @@ final class LinkDaUnidadeMailer
      * @throws \InvalidArgumentException quando o endereço não cumpre a RFC (Mime\Address, no `->to()`)
      */
     public function enviar(UnidadeDaAssembleia $unidade): void
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        $this->idiomaDoEmail->runWithLocale('pt_BR', fn () => $this->enviarEmPortugues($unidade));
+    }
+
+    private function enviarEmPortugues(UnidadeDaAssembleia $unidade): void
     {
         $link = $this->urlGenerator->generate(
             'voto_assembleia_cedula',

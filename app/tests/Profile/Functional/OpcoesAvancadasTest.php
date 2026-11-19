@@ -71,7 +71,7 @@ final class OpcoesAvancadasTest extends JusPrimeWebTestCase
         self::assertSame('Brasília', trim($tela->filter('.mp-prefs > button[data-mu-opcoes] > .mp-pref-valor')->text()));
         $modal = $tela->filter('#modalOpcoesAvancadas form[data-mu-opcoes-form]');
         self::assertSame('pt-BR', $modal->filter('select[name="idioma"] option[selected]')->attr('value'));
-        self::assertSame(['en', 'es'], $modal->filter('select[name="idioma"] option[disabled]')->each(static fn (Crawler $o): string => (string) $o->attr('value')));
+        self::assertSame(['es'], $modal->filter('select[name="idioma"] option[disabled]')->each(static fn (Crawler $o): string => (string) $o->attr('value')));
         self::assertSame('America/Sao_Paulo', $modal->filter('select[name="fuso"] option[selected]')->attr('value'));
         self::assertCount(12, $modal->filter('select[name="fuso"] > option'));
         self::assertSame('', $modal->filter('select[name="formatoData"] option[selected]')->attr('value'));
@@ -143,7 +143,7 @@ final class OpcoesAvancadasTest extends JusPrimeWebTestCase
     {
         $tela = $this->abrir();
 
-        $this->postar($tela, ['idioma' => 'en', 'fuso' => 'UTC']);
+        $this->postar($tela, ['idioma' => 'es', 'fuso' => 'UTC']);
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'Este idioma ainda não está disponível.'], json_decode((string) $this->client->getResponse()->getContent(), true));
 

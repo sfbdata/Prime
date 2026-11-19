@@ -10,6 +10,7 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Twig\Environment;
 
 /**
@@ -23,10 +24,17 @@ final class TrabalhoExternoMailer
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urls,
         private readonly IdentidadeDeEmail $identidade,
+        private readonly LocaleSwitcher $idiomaDoEmail,
     ) {
     }
 
     public function enviarConvite(ConviteDemanda $convite, string $token): void
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        $this->idiomaDoEmail->runWithLocale('pt_BR', fn () => $this->enviarConviteEmPortugues($convite, $token));
+    }
+
+    private function enviarConviteEmPortugues(ConviteDemanda $convite, string $token): void
     {
         $demanda = $convite->getDemanda();
         $link = $this->urls->generate('trabalho_externo_convite', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
