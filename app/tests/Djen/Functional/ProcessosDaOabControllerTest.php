@@ -9,6 +9,10 @@ use App\Djen\DTO\ConsultaComunicacoesQuery;
 use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
+use App\Djen\Exception\ConsultaDjenException;
+use App\Djen\Enum\MotivoFalhaDjen;
+use App\Djen\Service\EsperaEntreConsultas;
+use App\Djen\Service\EsperaEntreConsultasInterface;
 use App\Djen\Service\DjenClient;
 use App\Djen\Service\DjenClientInterface;
 use App\Entity\Tenant\Tenant;
@@ -462,6 +466,31 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('#Busca concluída: [1-9]\d* processos encontrados para 67228/PR\.#', $client->followRedirect()->text());
         self::assertNotEmpty($consultas);
         self::assertSame((new \DateTimeImmutable('today -89 days'))->format('Y-m-d'), $consultas[0]->dataDisponibilizacaoInicio->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function buscarComDiarioOcupadoAvisaParaTentarDeNovo(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $this->criarOab($tenant, '53290', 'DF');
+        $mock = $this->createMock(DjenClientInterface::class);
+        // Ocupado nas 3 tentativas da mesma página.
+        $mock->expects($this->exactly(3))->method('consultarComunicacoes')
+            ->willThrowException(new ConsultaDjenException(MotivoFalhaDjen::SistemaOcupado));
+        static::getContainer()->set(DjenClient::class, $mock);
+        $espera = $this->createMock(EsperaEntreConsultasInterface::class);
+        static::getContainer()->set(EsperaEntreConsultas::class, $espera);
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
+        $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
+
+        self::assertResponseRedirects('/push-processual/processos?sub=acompanhados');
+        self::assertStringContainsString('Diário Oficial ocupado, tente de novo em alguns minutos. Ficou sem resposta: 53290/DF.', $client->followRedirect()->text());
     }
 
     #[Test]

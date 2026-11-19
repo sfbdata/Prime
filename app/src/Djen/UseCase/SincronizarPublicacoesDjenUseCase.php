@@ -6,6 +6,7 @@ namespace App\Djen\UseCase;
 
 use App\Djen\DTO\ConsultaComunicacoesQuery;
 use App\Djen\DTO\PeriodoConsulta;
+use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\DTO\ResultadoSincronizacao;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Entity\PublicacaoDjen;
@@ -53,6 +54,17 @@ final class SincronizarPublicacoesDjenUseCase
     /** Janela do limite do DJEN (20 requisições por IP), com 1s de folga. */
     private const SEGUNDOS_JANELA_LIMITE = 61;
     private const MAX_ESPERAS_SEGUIDAS = 3;
+    /**
+     * O DJEN devolve 500 "O sistema está muito ocupado" com frequência, e a resposta vem rápida:
+     * cada página da consulta por OAB ganha mais 2 tentativas, com 3s entre elas, antes de contar como
+     * falha. Os processos não repetem: são centenas por escritório e a captação diária já os refaz.
+     */
+    private const NOVAS_TENTATIVAS_SE_OCUPADO = 2;
+    private const SEGUNDOS_ENTRE_TENTATIVAS = 3;
+    /** Histórico que uma OAB recém-cadastrada busca na primeira captação (igual ao "Buscar processos"). */
+    private const DIAS_DE_HISTORICO_DA_OAB_NOVA = 90;
+    /** Por quantos dias, contados do fim do período, uma OAB conta como recém-cadastrada. */
+    private const DIAS_DA_OAB_NOVA = 2;
 
     public function __construct(
         private readonly DjenClientInterface $djenClient,
@@ -88,12 +100,14 @@ final class SincronizarPublicacoesDjenUseCase
         $vistosNesteRun = [];
 
         foreach ($this->oabRepository->listarAtivasDoTenant($tenant) as $oab) {
+            $periodoDaOab = $this->periodoDaOab($oab, $periodo);
+
             try {
-                $itens = $this->consultarTodosItens(static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                $itens = $this->consultarTodosItens(true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
                     numeroOab: $oab->getNumero(),
                     ufOab: $oab->getUf(),
-                    dataDisponibilizacaoInicio: $periodo->inicio,
-                    dataDisponibilizacaoFim: $periodo->fim,
+                    dataDisponibilizacaoInicio: $periodoDaOab->inicio,
+                    dataDisponibilizacaoFim: $periodoDaOab->fim,
                     pagina: $pagina,
                     itensPorPagina: self::ITENS_POR_PAGINA,
                 ));
@@ -125,6 +139,28 @@ final class SincronizarPublicacoesDjenUseCase
         }
 
         return $resultado;
+    }
+
+    /**
+     * OAB recém-cadastrada (no período consultado ou nos 2 dias antes do fim dele) busca os últimos 90
+     * dias: sem isso, quem cadastra uma OAB nunca vê o que saiu antes do cadastro (o "Sincronizar agora"
+     * olha só hoje e a captação diária só 2 dias). Cadastro no dia D: as captações das noites D+1 e D+2
+     * e o "Sincronizar agora" até D+2 trazem o histórico, então uma falha passageira do DJEN numa delas
+     * ainda tem outra chance. A dedupe evita duplicar o que já chegou.
+     */
+    private function periodoDaOab(OabMonitorada $oab, PeriodoConsulta $periodo): PeriodoConsulta
+    {
+        $historico = PeriodoConsulta::ultimosDias(self::DIAS_DE_HISTORICO_DA_OAB_NOVA, $periodo->fim);
+        if ($historico->inicio >= $periodo->inicio) {
+            return $periodo;
+        }
+
+        $criadaEm = $oab->getCriadoEm()->setTime(0, 0);
+        $fim = $periodo->fim->setTime(0, 0);
+        $desde = min($periodo->inicio->setTime(0, 0), $fim->modify(sprintf('-%d days', self::DIAS_DA_OAB_NOVA)));
+        $cadastradaNaJanela = $criadaEm >= $desde && $criadaEm <= $fim;
+
+        return $cadastradaNaJanela ? $historico : $periodo;
     }
 
     /**
@@ -285,7 +321,7 @@ final class SincronizarPublicacoesDjenUseCase
             $numero = $numeros[$indice];
 
             try {
-                $itens = $this->consultarTodosItens(static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                $itens = $this->consultarTodosItens(false, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
                     dataDisponibilizacaoInicio: $periodo->inicio,
                     dataDisponibilizacaoFim: $periodo->fim,
                     pagina: $pagina,
@@ -400,16 +436,19 @@ final class SincronizarPublicacoesDjenUseCase
     /**
      * Busca todas as páginas de uma consulta (até o teto), acumulando os itens brutos.
      *
-     * @param \Closure(int): ConsultaComunicacoesQuery $consultaDaPagina monta a consulta de cada página
+     * @param bool                                     $tentarDeNovoSeOcupado repete o 500 "muito ocupado" (só nas OABs)
+     * @param \Closure(int): ConsultaComunicacoesQuery $consultaDaPagina      monta a consulta de cada página
      *
      * @return list<array<string, mixed>>
      */
-    private function consultarTodosItens(\Closure $consultaDaPagina): array
+    private function consultarTodosItens(bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): array
     {
         $todos = [];
 
         for ($pagina = 1; $pagina <= self::MAX_PAGINAS; $pagina++) {
-            $resposta = $this->djenClient->consultarComunicacoes($consultaDaPagina($pagina));
+            $resposta = $tentarDeNovoSeOcupado
+                ? $this->consultarComNovaTentativa($consultaDaPagina($pagina))
+                : $this->djenClient->consultarComunicacoes($consultaDaPagina($pagina));
 
             foreach ($resposta->items as $item) {
                 $todos[] = $item;
@@ -421,6 +460,25 @@ final class SincronizarPublicacoesDjenUseCase
         }
 
         return $todos;
+    }
+
+    /** Só o 500 "muito ocupado" tenta de novo: o limite (429) e o timeout têm tratamento próprio. */
+    private function consultarComNovaTentativa(ConsultaComunicacoesQuery $consulta): RespostaComunicacoes
+    {
+        $tentativa = 0;
+
+        while (true) {
+            try {
+                return $this->djenClient->consultarComunicacoes($consulta);
+            } catch (ConsultaDjenException $e) {
+                if ($e->getMotivo() !== MotivoFalhaDjen::SistemaOcupado || $tentativa >= self::NOVAS_TENTATIVAS_SE_OCUPADO) {
+                    throw $e;
+                }
+
+                ++$tentativa;
+                $this->espera->aguardar(self::SEGUNDOS_ENTRE_TENTATIVAS);
+            }
+        }
     }
 
     /**

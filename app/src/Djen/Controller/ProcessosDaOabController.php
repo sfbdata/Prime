@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Djen\Controller;
 
+use App\Djen\Enum\MotivoFalhaDjen;
 use App\Djen\Exception\AcompanhamentoInvalidoException;
 use App\Djen\Enum\SituacaoDoPrazoDoProcesso;
 use App\Djen\Repository\OabMonitoradaRepository;
@@ -295,6 +296,15 @@ final class ProcessosDaOabController extends AbstractController
         }
 
         $mensagem = sprintf('Busca concluída: %d processos encontrados para %s.', $busca->processos, implode(', ', $busca->oabs));
+        // O UseCase já tentou de novo; se o DJEN seguiu "muito ocupado", a OAB ficou sem o histórico.
+        $ocupadas = array_keys($busca->resultado->getFalhas(), MotivoFalhaDjen::SistemaOcupado->value, true);
+        if ($ocupadas !== []) {
+            return $this->voltar('warning', sprintf(
+                'Diário Oficial ocupado, tente de novo em alguns minutos. Ficou sem resposta: %s. %s',
+                implode(', ', $ocupadas),
+                $mensagem,
+            ));
+        }
         if ($busca->resultado->temFalhas()) {
             return $this->voltar('warning', 'Busca parcial (alguns tribunais não responderam). ' . $mensagem);
         }
