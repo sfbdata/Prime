@@ -176,6 +176,60 @@ final class PurgarSelecaoDaLixeiraTest extends KernelTestCase
         self::assertSame([], $this->memoria->excluidas);
     }
 
+    #[TestDox('sem remover (o caminho do conector, dentro de uma transação de fora): a linha sai, o arquivo fica e a chave livre volta; só removerArquivosLivres, depois do COMMIT, tira o arquivo')]
+    public function testSemRemoverDevolveAsChavesLivres(): void
+    {
+        $doc        = $this->documento('adiado.pdf', naLixeira: true);
+        $naLixeira  = $this->documento('compartilhado.pdf', naLixeira: true);
+        $copia      = (new PastaDocumento())->setTenant($this->tenant);
+        $copia->setTitulo('copia.pdf')
+            ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo($naLixeira->getCaminhoArquivo())
+            ->setNomeOriginal('copia.pdf')
+            ->setMimeType('application/pdf')
+            ->setTamanhoBytes(10)
+            ->setPasta($this->pasta);
+        $this->em->persist($copia);
+        $this->em->flush();
+        $this->em->clear();
+        $purga   = $this->purga();
+        $conexao = $this->em->getConnection();
+
+        $conexao->beginTransaction();
+        $resultado = $purga->purgarSelecaoSemRemoverArquivos([], [(int) $doc->getId(), (int) $naLixeira->getId()], (int) $this->pasta->getId(), (int) $this->tenant->getId());
+        self::assertSame([], $this->memoria->excluidas, 'nada sai do disco com a transação de fora aberta');
+        $conexao->commit();
+
+        self::assertSame(2, $resultado->documentosRemovidos);
+        self::assertSame(0, $resultado->arquivosRemovidos);
+        self::assertEquals([$this->chaveDe($doc)], $resultado->arquivosARemover, 'só a chave que nenhuma outra linha usa');
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $doc->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($doc)));
+
+        $remocao = $purga->removerArquivosLivres($resultado->arquivosARemover);
+
+        self::assertSame(1, $remocao->removidos);
+        self::assertFalse($this->memoria->existe($this->chaveDe($doc)));
+        self::assertTrue($this->memoria->existe($this->chaveDe($naLixeira)), 'a cópia ainda aponta para o arquivo');
+        self::assertTrue($this->em->getFilters()->isEnabled(LixeiraFilter::NOME));
+    }
+
+    #[TestDox('sem remover, com a transação de fora desfeita: a linha volta e nenhum arquivo sai')]
+    public function testSemRemoverComRollbackNaoApagaNada(): void
+    {
+        $doc = $this->documento('desfeito.pdf', naLixeira: true);
+        $this->em->clear();
+        $conexao = $this->em->getConnection();
+
+        $conexao->beginTransaction();
+        $this->purga()->purgarSelecaoSemRemoverArquivos([], [(int) $doc->getId()], (int) $this->pasta->getId(), (int) $this->tenant->getId());
+        $conexao->rollBack();
+
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $doc->getId()));
+        self::assertTrue($this->memoria->existe($this->chaveDe($doc)));
+        self::assertSame([], $this->memoria->excluidas);
+    }
+
     #[TestDox('banco que recusa: a exceção sobe, a linha fica e nenhum arquivo sai; o filtro volta ligado')]
     public function testBancoQueRecusaNaoApagaArquivo(): void
     {

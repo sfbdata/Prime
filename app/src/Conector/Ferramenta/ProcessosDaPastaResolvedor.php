@@ -70,6 +70,15 @@ final class ProcessosDaPastaResolvedor
         }
     }
 
+    /** Excluir o processo pede o recurso `processo` de excluir (a tela `processo_delete`), que editar não dá. */
+    public function exigirExclusaoDoProcesso(Processo $processo, ChamadaDoConector $chamada): void
+    {
+        $contexto = $chamada->contexto;
+        if (!$this->permissoes->canAccessResource($contexto->pessoa, $contexto->escritorio, AccessRequest::RESOURCE_PROCESSO, (int) $processo->getId(), AccessRequest::ACTION_DELETE)) {
+            throw ErroDaFerramenta::semPermissao();
+        }
+    }
+
     /**
      * Pasta cujo cliente principal tem o envio automático ligado (qualquer chave): as publicações do processo vinculado
      * passariam a ir para ele, então a chamada inteira é recusada (abertura da 6.6).

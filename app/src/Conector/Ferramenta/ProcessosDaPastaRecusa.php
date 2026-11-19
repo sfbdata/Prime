@@ -8,6 +8,7 @@ use App\Conector\Exception\ErroDaFerramenta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Processo\Exception\NotaTecnicaForaDoEscopoException;
+use App\Processo\Exception\ProcessoForaDoEscopoException;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -37,7 +38,7 @@ final class ProcessosDaPastaRecusa
     {
         try {
             return $trabalho();
-        } catch (AccessDeniedException|PastaDeOutroEscritorioException|SemPermissaoParaEditarPastaException|NotaTecnicaForaDoEscopoException) {
+        } catch (AccessDeniedException|PastaDeOutroEscritorioException|SemPermissaoParaEditarPastaException|NotaTecnicaForaDoEscopoException|ProcessoForaDoEscopoException) {
             // `ProcessoOcultoPeloCadeadoException` é um `AccessDeniedException`: o mesmo "não encontrado".
             throw ErroDaFerramenta::naoEncontrado();
         } catch (\InvalidArgumentException|\DomainException $e) {

@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(BuscarPastasFerramenta::class)]
 final class BuscarPastasFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema lista as seis ações, exige a ação e fecha os campos')]
+    #[TestDox('o esquema lista as oito ações, exige a ação e fecha os campos')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -29,7 +29,7 @@ final class BuscarPastasFerramentaTest extends TestCase
         self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame(
-            ['buscar', 'contar', 'opcoes', 'lixeira', 'numero', 'minhas_demandas'],
+            ['buscar', 'contar', 'opcoes', 'lixeira', 'numero', 'minhas_demandas', 'pastas_paradas', 'pastas_sem_processo'],
             $esquema['properties']['acao']['enum'],
         );
         self::assertArrayNotHasKey('nups', $esquema['properties'], 'a busca por NUP sem escopo não sai pelo conector');

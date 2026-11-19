@@ -34,6 +34,8 @@ final readonly class PastaParada
         public string $nivel,
         public string $cor,
         public bool $semContrato,
+        /** Quem lê pode ver o Financeiro desta pasta (o contrato mora lá): o conector só mostra `semContrato` se sim. */
+        public bool $financeiroVisivel = false,
     ) {
     }
 

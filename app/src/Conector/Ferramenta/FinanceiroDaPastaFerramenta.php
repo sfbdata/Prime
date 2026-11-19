@@ -38,6 +38,7 @@ use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPagamentoDaPastaUseCase;
 use App\Pasta\UseCase\RegistrarPagamentoDaPastaUseCase;
 use App\Pasta\UseCase\RegistrarParcelamentoDaPastaUseCase;
+use App\Pasta\UseCase\RenomearDocumentoDoFinanceiroUseCase;
 use App\Shared\Service\ValorEmReais;
 
 /**
@@ -54,7 +55,9 @@ use App\Shared\Service\ValorEmReais;
  *    ({@see ExcluirPagamentoDaPastaUseCase}, irreversível) são proposta;
  *  - `documento_assinado`: `marcar` e `desmarcar` são diretos ({@see AlterarAssinaturaDoDocumentoUseCase}); `excluir`
  *    (o documento do Financeiro vai para a lixeira, {@see ExcluirItensDaPastaUseCase}) é proposta;
- *  - `renomear_documento`: fora deste PR (a regra mora no controller; o UseCase sai no PR 14). Responde "pedido inválido".
+ *  - `renomear_documento` (`documento_id`, `titulo`): troca o nome de um contrato do Financeiro. É trocar um texto
+ *    preenchido, então vira proposta ({@see RenomearDocumentoDoFinanceiroUseCase}, PR 14); a confirmação recusa se o
+ *    nome mudou desde a proposta.
  *
  * Ordem das recusas: ação e campos → chave do Master e módulo → a pasta por id e escritório (alheia ou na lixeira:
  * "não encontrado") → a guarda com a pasta (cadeado e aba Financeiro) → recurso `pasta` editar → segredo de justiça →
@@ -95,6 +98,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
         'documento_assinado.marcar' => ['documento_id'],
         'documento_assinado.desmarcar' => ['documento_id'],
         'documento_assinado.excluir' => ['documento_id'],
+        'renomear_documento' => ['documento_id', 'titulo'],
     ];
 
     /** O que cada ação (ou ação e operação) exige. */
@@ -111,10 +115,11 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
         'documento_assinado.marcar' => ['documento_id'],
         'documento_assinado.desmarcar' => ['documento_id'],
         'documento_assinado.excluir' => ['documento_id'],
+        'renomear_documento' => ['documento_id', 'titulo'],
     ];
 
     /** O `maxLength` de cada campo de texto do esquema. */
-    private const TAMANHO_DOS_TEXTOS = ['valor' => 20, 'entrada' => 20, 'percentual' => 10, 'taxa_mensal' => 10, 'parcelas' => 3];
+    private const TAMANHO_DOS_TEXTOS = ['valor' => 20, 'entrada' => 20, 'percentual' => 10, 'taxa_mensal' => 10, 'parcelas' => 3, 'titulo' => RenomearDocumentoDoFinanceiroUseCase::TAMANHO_MAXIMO];
 
     private const TIPOS = ['contrato', 'custas', 'recorrente', 'exito', 'sucumbencia'];
     private const BASES = ['valor', 'pct'];
@@ -140,6 +145,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
         private readonly ExcluirPagamentoDaPastaUseCase $excluirPagamento,
         private readonly AlterarAssinaturaDoDocumentoUseCase $alterarAssinatura,
         private readonly ExcluirItensDaPastaUseCase $excluirItens,
+        private readonly RenomearDocumentoDoFinanceiroUseCase $renomearDocumento,
     ) {
     }
 
@@ -158,11 +164,12 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
         return 'Grava no Financeiro de uma pasta do escritório (pasta_id é obrigatório). Ações: contrato (situacao pendente ou regular), '
             . 'pro_bono (ligado verdadeiro ou falso), valor_da_causa (valor em reais; se já houver valor, a troca vira proposta), '
             . 'pagamento (operacao: registrar, parcelar, marcar_recebido, desfazer_recebimento, corrigir_valor ou excluir) e '
-            . 'documento_assinado (operacao: marcar, desmarcar ou excluir, para os contratos do Financeiro). '
-            . 'Trocar um valor que já existe, excluir pagamento e excluir documento não gravam na hora: voltam como proposta, '
+            . 'documento_assinado (operacao: marcar, desmarcar ou excluir, para os contratos do Financeiro) e '
+            . 'renomear_documento (documento_id e titulo: o novo nome do contrato do Financeiro). '
+            . 'Trocar um valor que já existe, renomear documento, excluir pagamento e excluir documento não gravam na hora: voltam como proposta, '
             . 'que a pessoa precisa aprovar com confirmar_acao. Valores em reais, com vírgula nos centavos (12.860,00). '
             . 'Pasta de outro escritório, na lixeira ou com o Financeiro oculto para a pessoa responde "não encontrado"; '
-            . 'pasta em segredo de justiça não sai pelo conector. Renomear documento ainda não está disponível.';
+            . 'pasta em segredo de justiça não sai pelo conector.';
     }
 
     public function esquemaDeEntrada(): array
@@ -178,6 +185,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
                 'valor' => ['type' => 'string', 'maxLength' => 20, 'description' => 'Valor em reais, com vírgula nos centavos (12.860,00). No valor_da_causa, registrar, corrigir_valor e parcelar por valor.'],
                 'pagamento_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'O id do pagamento (veja ler_pasta, parte financeiro).'],
                 'documento_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'O id do documento de contrato do Financeiro.'],
+                'titulo' => ['type' => 'string', 'maxLength' => RenomearDocumentoDoFinanceiroUseCase::TAMANHO_MAXIMO, 'description' => 'Na acao renomear_documento: o novo nome do documento.'],
                 'descricao' => ['type' => 'string', 'maxLength' => self::TAMANHO_DO_TEXTO, 'description' => 'Na operacao registrar: o que é o pagamento. No parcelar: descrição opcional.'],
                 'vencimento' => ['type' => 'string', 'maxLength' => 10, 'description' => 'Data do vencimento (AAAA-MM-DD); no parcelar, a do primeiro.'],
                 'tipo' => ['type' => 'string', 'enum' => self::TIPOS, 'description' => 'Na operacao parcelar: o tipo do pagamento.'],
@@ -209,6 +217,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
             'pro_bono' => $this->proBono($pasta, $chamada, (bool) $campos['ligado']),
             'valor_da_causa' => $this->valorDaCausa($pasta, $chamada, (string) $campos['valor']),
             'pagamento' => $this->pagamento($pasta, $chamada, (string) $operacao, $campos),
+            'renomear_documento' => $this->renomear($pasta, $chamada, $escritorio, (int) $campos['documento_id'], (string) $campos['titulo']),
             default => $this->documento($pasta, $chamada, (string) $operacao, $escritorio, (int) $campos['documento_id']),
         };
     }
@@ -231,6 +240,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
             'valor_da_causa' => $this->reconferirValorDaCausa($pasta, $dados),
             'pagamento' => $this->reconferirPagamento($pasta, $escritorio, $dados),
             'documento_assinado' => $this->documentoDoFinanceiro($pasta, $escritorio, (int) ($dados['documento_id'] ?? 0)),
+            'renomear_documento' => $this->reconferirRenomeio($pasta, $escritorio, $dados),
             default => throw ErroDaFerramenta::entradaInvalida(),
         };
     }
@@ -249,6 +259,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
             $acao === 'pagamento' && ($dados['operacao'] ?? null) === 'corrigir_valor' => $this->gravarCorrecao($pasta, $chamada, $dados),
             $acao === 'pagamento' && ($dados['operacao'] ?? null) === 'excluir' => $this->gravarExclusaoDoPagamento($pasta, $escritorio, (int) $dados['pagamento_id']),
             $acao === 'documento_assinado' && ($dados['operacao'] ?? null) === 'excluir' => $this->gravarExclusaoDoDocumento($pasta, $chamada, (int) $dados['documento_id']),
+            $acao === 'renomear_documento' => $this->gravarRenomeio($pasta, $chamada, $dados),
             default => throw ErroDaFerramenta::entradaInvalida(),
         };
     }
@@ -265,8 +276,7 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
     private static function entrada(array $argumentos): array
     {
         $acao = $argumentos['acao'] ?? null;
-        // `renomear_documento` está na lista da tabela, mas a regra ainda mora no controller (PR 14): pedido inválido.
-        if (!\is_string($acao) || !\in_array($acao, self::ACOES, true) || $acao === 'renomear_documento') {
+        if (!\is_string($acao) || !\in_array($acao, self::ACOES, true)) {
             throw ErroDaFerramenta::entradaInvalida();
         }
         $pastaId = self::inteiro($argumentos['pasta_id'] ?? null) ?? throw ErroDaFerramenta::entradaInvalida();
@@ -557,6 +567,39 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
         );
     }
 
+    private function renomear(Pasta $pasta, ChamadaDoConector $chamada, Tenant $escritorio, int $documentoId, string $titulo): RespostaDaFerramenta
+    {
+        $documento = $this->documentoDoFinanceiro($pasta, $escritorio, $documentoId);
+        // A entidade grava o título em maiúsculas (como na tela): a proposta e a comparação já usam a forma gravada.
+        $novo = mb_strtoupper($this->gravando(static fn () => RenomearDocumentoDoFinanceiroUseCase::normalizar($titulo)));
+        if ($novo === $documento->getTitulo()) {
+            throw self::recusa('O documento já tem este nome.');
+        }
+        $resumo = sprintf(
+            'Renomear o documento "%s" do Financeiro da pasta %s para "%s".',
+            $this->protecao->rotulo($escritorio, $documento->getTitulo(), 'sem nome'),
+            $this->nomeDaPasta($pasta, $escritorio),
+            $this->protecao->rotulo($escritorio, $novo, 'sem nome'),
+        );
+
+        return $this->propostas->propor($chamada, self::NOME, 'renomear_documento', [
+            'pasta_id' => (int) $pasta->getId(),
+            'documento_id' => (int) $documento->getId(),
+            'titulo' => $novo,
+            'titulo_anterior' => $documento->getTitulo(),
+        ], $resumo);
+    }
+
+    /** @param array<string, mixed> $dados */
+    private function reconferirRenomeio(Pasta $pasta, Tenant $escritorio, array $dados): void
+    {
+        $documento = $this->documentoDoFinanceiro($pasta, $escritorio, (int) ($dados['documento_id'] ?? 0));
+        $this->gravando(static fn () => RenomearDocumentoDoFinanceiroUseCase::normalizar((string) ($dados['titulo'] ?? '')));
+        if (($dados['titulo_anterior'] ?? null) !== $documento->getTitulo()) {
+            throw new ErroDaFerramenta(self::MOTIVO_MUDOU, self::MUDOU);
+        }
+    }
+
     /** @param array<string, mixed> $dados */
     private function reconferirValorDaCausa(Pasta $pasta, array $dados): void
     {
@@ -614,6 +657,22 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
             [(int) $pagamento->getId()],
             ['pagamentos' => 1],
             ['pasta' => [(int) $pasta->getId()], 'pagamento' => [(int) $pagamento->getId()]],
+        );
+    }
+
+    /** @param array<string, mixed> $dados */
+    private function gravarRenomeio(Pasta $pasta, ChamadaDoConector $chamada, array $dados): ResultadoDaConfirmacao
+    {
+        $escritorio = $chamada->contexto->escritorio;
+        $documento = $this->documentoDoFinanceiro($pasta, $escritorio, (int) ($dados['documento_id'] ?? 0));
+        $titulo = $this->gravando(fn () => $this->renomearDocumento->executar($pasta, $documento, (string) ($dados['titulo'] ?? ''), $escritorio));
+        $id = (int) $documento->getId();
+
+        return new ResultadoDaConfirmacao(
+            ['pasta_id' => (int) $pasta->getId(), 'acao' => 'renomear_documento', 'documento_id' => $id, 'titulo' => $this->protecao->rotulo($escritorio, $titulo, 'sem nome')],
+            [$id],
+            ['renomeados' => 1],
+            ['pasta' => [(int) $pasta->getId()], 'documento' => [$id]],
         );
     }
 

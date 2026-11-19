@@ -102,6 +102,7 @@ final class AnalisadorDePastasParadas
             nivel: self::nivel($dias)[0],
             cor: self::nivel($dias)[1],
             semContrato: !self::temContrato($p),
+            financeiroVisivel: $verFinanceiro,
         );
     }
 

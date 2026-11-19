@@ -15,7 +15,7 @@ use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
  */
 final class ProcessosDaPastaEntrada
 {
-    public const ACOES = ['vincular', 'principal', 'dados_do_cartao', 'acao_da_pasta', 'via_administrativa', 'nota_tecnica'];
+    public const ACOES = ['vincular', 'principal', 'dados_do_cartao', 'acao_da_pasta', 'via_administrativa', 'nota_tecnica', 'excluir_processo'];
 
     public const OPERACOES = [
         'vincular' => ['novo', 'cadastrado', 'apensado', 'desvincular'],
@@ -45,6 +45,7 @@ final class ProcessosDaPastaEntrada
         'nota_tecnica.criar' => ['processo_id', 'conteudo'],
         'nota_tecnica.editar' => ['processo_id', 'nota_id', 'conteudo'],
         'nota_tecnica.excluir' => ['processo_id', 'nota_id'],
+        'excluir_processo' => ['processo_id'],
     ];
 
     private const OPCIONAIS = [

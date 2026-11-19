@@ -797,7 +797,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 **`buscar_pastas`** (PR 6)
 - Faz: a lista do Expediente com busca livre e filtros, Minhas demandas (`acao: minhas_demandas`), busca rápida por número ou NUP, as
   pastas de um marcador, a contagem, os valores de filtro (`opcoes`: marcadores, situações, responsáveis) e a lixeira do
-  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); depois do PR 14, os relatórios de pastas paradas e de pastas sem processo.
+  escritório (`acao: lixeira`; a ação de cada uso pela decisão 11 do PR 6); e, no PR 14, os relatórios de pastas paradas (`acao: pastas_paradas`) e de pastas sem processo (`acao: pastas_sem_processo`, com `categoria?`), 20 por página, pelos UseCases das folhas da tela (`GerarRelatorioPastasParadasUseCase` e `GerarRelatorioSemProcessoUseCase`, que já existiam), com o cadeado nos UseCases e o segredo de justiça tirado e contado.
 - Reusa: a API do Agente de Pastas, que já roda com tenant explícito "porque o conector MCP da Fase 4 roda sem sessão"
   (`app/src/Inteligencia/CLAUDE.md`, seção Agente de Pastas; `AgenteDePastasController`, rotas
   `inteligencia_agente_pastas_buscar`, `inteligencia_agente_pastas_documentos` e `inteligencia_agente_opcoes`):
@@ -809,8 +809,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   **Passar sempre `$quem`**: sem ele o cadeado não entra. Filtro inválido é erro (`FiltroDoAgenteInvalidoException`), nunca
   lista inteira.
 - Falta: tirar e contar o segredo de justiça (a busca do Agente hoje não tira); conferir no PR se `ListarMinhasDemandasUseCase`
-  aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); relatórios do Expediente com UseCase extraído (regra hoje no
-  controller, PR 14).
+  aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); os relatórios do Expediente já tinham UseCase (feito no PR 14, sem extração).
 - Permissão: módulo `expediente` (como o `/api/agente`, `AgenteDePastasController.php:99`); Minhas demandas, módulo `pastas`
   (`app/src/Pasta/Controller/DemandasController.php:240`).
 
@@ -827,8 +826,12 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   - `publicacoes` (14.h): as publicações do Diário ligadas à pasta; com `publicacao_id`, o texto inteiro;
   - `equipe`: os colegas que podem ser mencionados no Registro (`ListarMencionaveisDaPastaUseCase::executar`,
     `app/src/Pasta/UseCase/ListarMencionaveisDaPastaUseCase.php:58`), só nome e id;
-  - `timeline` e `controladoria` (alertas e pontos do relatório inicial): depois do PR 14, com UseCase extraído (regra hoje no
-    controller).
+  - `timeline` (a Timeline inteligente, pelo `MontadorDaTimelineInteligente`: os 30 acontecimentos mais recentes, sem link, com
+    o texto mascarado e as abas ocultas e o financeiro como na tela) e `controladoria` (alertas e pontos do relatório inicial),
+    do PR 14: `ListarAlertasDaPastaUseCase` e `LerPontosDoRelatorioInicialUseCase`, extraídos do `PastaControladoriaController`
+    e do `PastaController`/`PastaResumoController`. O alerta de metas e prazos some com a aba Metas oculta; os de contrato e
+    unidade só saem a quem vê o financeiro, e esses e o do titular do extrato saem sem o detalhe (citam outra pasta, o contrato
+    ou o nome do réu).
 - Reusa: `PastaDoContextoDaIa::liberar(User, Tenant, int)` (`app/src/Central/Service/PastaDoContextoDaIa.php:52`: id e
   escritório, pasta excluída, `podeVer`, decide financeiro e abas, confere sigilo) e `MontadorDeContextoDaPasta::para(...)`
   (`app/src/Inteligencia/Contexto/MontadorDeContextoDaPasta.php:108`), como o `ContextoDaPastaNoChat::ler`
@@ -1134,7 +1137,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   `MoverDocumentoParaSecaoUseCase`), `copiar` (`CopiarDocumentosDaPastaUseCase`), `favoritar`
   (`AlternarFavoritoDeDocumentoUseCase`), `subpasta` (criar, renomear, mover: `CriarPastaSecaoUseCase`,
   `RenomearPastaSecaoUseCase`, `MoverPastaSecaoUseCase`), `reordenar` (`ReordenarDocumentosUseCase`, `ReordenarSecoesUseCase`) e
-  `restaurar` da lixeira (`RestaurarItensDaPastaUseCase`).
+  `restaurar` da lixeira (`RestaurarItensDaPastaUseCase`); no PR 14, `excluir_de_vez` da lixeira (`ExcluirDeVezDaLixeiraUseCase`,
+  por proposta, abaixo).
 - Peças: `escrever_peca` (`SalvarPecaTextoUseCase::executar`, `:60`, que saneia o HTML e grava pela chave de
   `ChavesDePasta::novoDocumento`; falta converter Markdown em HTML antes do saneador), `editar_peca`
   (`EditarPecaTextoUseCase::executar`, `:74`; **por proposta**, porque regrava a peça na mesma chave, sem versão: abertura
@@ -1147,8 +1151,9 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   editar, reordenar: `AdicionarChecklistItemUseCase`, `ToggleChecklistItemUseCase`, `EditarChecklistItemUseCase`,
   `ReordenarChecklistItensUseCase`), `checklist_estado` (ligar ou desligar com motivo, `AlterarEstadoDoChecklistUseCase`) e
   `checklist_modelo` (salvar como modelo, aplicar, renomear: `SalvarChecklistComoModeloUseCase`,
-  `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist, com UseCase extraído do
-  controller (PR 14).
+  `AplicarChecklistModeloUseCase`, `RenomearChecklistModeloUseCase`); listar os modelos de checklist é a ação de leitura
+  `modelos_de_checklist` da `ler_documentos_e_modelos` (`ListarModelosDeChecklistUseCase`, extraído do controller no PR 14; aba
+  Documentos, só para quem edita a pasta).
 - Gravar por cima, por proposta (abertura da 6.6): `editar_documento` (`EditarDocumentoDaPastaUseCase::executar`,
   `app/src/Pasta/UseCase/EditarDocumentoDaPastaUseCase.php:44`), `editar_peca`, `subpasta` renomear, `salvar_modelo`
   sobre modelo existente (`SalvarModeloDePecaUseCase::executar` com `$existente`,
@@ -1159,10 +1164,16 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`ExcluirPastaSecaoUseCase`), item de checklist
   (`ExcluirChecklistItemUseCase`), modelo de checklist (`ExcluirChecklistModeloUseCase`), modelo de peça
   (`ExcluirModeloDePecaUseCase`).
-- Excluir de vez da lixeira (`ExcluirDeVezDaLixeiraUseCase`, irreversível) fica para o PR 14 (revisão do PR 12, 18/11): a
-  purga apaga o arquivo no fim da própria transação e dá `clear()` no EntityManager. Dentro da transação da confirmação, o
-  arquivo sai antes do COMMIT de fora (INV-6) e a proposta desanexada continua pendente. Entra quando a confirmação tiver
-  um passo depois do COMMIT para a remoção dos arquivos e reler a proposta depois do executor.
+- Excluir de vez da lixeira (PR 14): `excluir_de_vez` (`documentos` e ou `subpastas` que estão NA LIXEIRA da pasta; a
+  subpasta leva a subárvore), sempre por proposta, com o resumo que diz que não dá para desfazer e lista os nomes. Mesmas
+  conferências da rota da tela (`pasta_documentos_excluir_de_vez`): cada item na lixeira desta pasta e deste escritório,
+  e contrato de honorários com o Financeiro oculto, selecionado ou em qualquer nível da subárvore, responde "não
+  encontrado". Grava pelo `ExcluirDeVezDaLixeiraUseCase::excluirDoBanco`, o mesmo laço da purga sem a remoção física:
+  apaga as linhas e conta as referências na transação da confirmação e devolve as chaves livres. A remoção dos arquivos é
+  o passo depois do COMMIT do resultado (`ResultadoDaConfirmacao::$depoisDoCommit`), que a `confirmar_acao` só roda com o
+  COMMIT feito; falha ali não muda a resposta (vira registro no log `mcp`) e o arquivo fica como órfão recuperável. Como a
+  purga dá `clear()` no EntityManager, a confirmação relê a proposta (ainda travada pelo `FOR UPDATE`) antes de
+  confirmá-la. A tela segue pelo caminho de sempre, sem mudança.
 - Risco aceito no PR 12: `editar_peca` confirmado regrava o arquivo da peça (`EditarPecaTextoUseCase`, mesma chave) dentro
   da transação da confirmação. Se o COMMIT de fora falhar, o banco volta e o arquivo fica com o texto novo; a proposta
   continua pendente e um novo sim acerta os dois. É a mesma janela da tela, que também grava antes do COMMIT.
@@ -1177,7 +1188,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   (`AtualizarValorCausaUseCase`), `pagamento` (registrar, parcelar, marcar recebido ou desfazer, corrigir valor:
   `RegistrarPagamentoDaPastaUseCase`, `RegistrarParcelamentoDaPastaUseCase`, `AlternarQuitacaoDoPagamentoUseCase`,
   `CorrigirValorDoPagamentoUseCase`), `documento_assinado` (marcar ou desmarcar: `AlterarAssinaturaDoDocumentoUseCase`) e
-  `renomear_documento` (regra no controller, UseCase extraído no PR 14).
+  `renomear_documento` (`RenomearDocumentoDoFinanceiroUseCase`, extraído do controller no PR 14; vai por proposta e a
+  confirmação recusa se o nome mudou).
 - Gravar por cima, por proposta (abertura da 6.6): `valor_da_causa` já preenchido e corrigir o valor de um pagamento
   (`CorrigirValorDoPagamentoUseCase`). Registrar, parcelar, marcar recebido, contrato, pro bono e documento assinado são
   diretos.
@@ -1237,9 +1249,13 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
   `app/src/Pasta/UseCase/VincularProcessoUseCase.php:67`, ou apensado) recusa em pasta cujo cliente principal tem o envio
   ligado: as publicações do processo passariam a ir para ele (abertura da 6.6).
 - Exclusões por proposta: desvincular processo (`DesvincularProcessoUseCase`; o processo continua existindo), excluir nota
-  técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`processo_delete`, regra no controller: UseCase extraído no PR 14).
-- Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica e excluir processo, recurso
-  `processo` edit; chave `expedientes`.
+  técnica (`ExcluirNotaTecnicaUseCase`) e excluir processo (`excluir_processo`; a regra de `processo_delete` virou `ExcluirProcessoUseCase`, extraído do controller
+  no PR 14: apaga o processo do escritório inteiro, de todas as pastas, com o que depende dele pelo mapeamento e pelas chaves do
+  banco; não há arquivo no disco, então não há passo depois do COMMIT). A proposta diz que não há como desfazer; a confirmação
+  confere de novo processo, pasta, segredo e permissão.
+- Permissão: recurso `pasta` edit e aba Processo, como a tela (`MAPA`, `:72-78`); nota técnica, recurso `processo` edit
+  (sem chave); excluir processo, recurso `processo` **delete** (o que a tela `processo_delete` exige; só editar não basta) e chave
+  `expedientes`, com a aba Processo.
 
 **`gravar_na_agenda`** (PR 13)
 - Ações: `salvar` (criar ou editar compromisso: tipo, horário, "Equipe" ou "Só eu", pasta, participantes, lembrete;
@@ -1433,7 +1449,7 @@ validadores e o conversor do chat (`ValidadorDaProposta`, `ConversorDaProposta`)
 ## 7. Legado que a feature encosta
 
 Com o escopo novo (14.b), o conector encosta em cerca de 50 ações cuja regra está no controller (inventário, seção 6, item
-3). Cada uma ganha UseCase antes de entrar, no PR que a usa; as que sobram vão juntas no PR 14 (13.1). Onde a tela antiga tem
+3). Cada uma ganha UseCase antes de entrar, no PR que a usa; as que sobram vão juntas no PR 14 (13.1; os alertas, os pontos do relatório inicial e os relatórios do Expediente já estão feitos). Onde a tela antiga tem
 versão nova, entra só a nova (6.1).
 
 - **`Processo` está no domínio** (`app/src/Processo/Entity/Processo.php`, com escritório), mas a regra da tela continua no
@@ -1794,7 +1810,7 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
 | 12 | `conector-escrita-documentos` | `documentos_e_pecas` e `financeiro_da_pasta` | 7, 9 | MÉDIO |
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
-| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo, renomear documento do Financeiro, lista de modelos de checklist, excluir de vez da lixeira pelo conector | 11, 12, 13 | MÉDIO |
+| 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo (feito), renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector (feito) | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
@@ -1929,7 +1945,7 @@ abertas (6.3, item 3). É aceito por ser o lado seguro.
 
 **A abertura do piloto sai sem o PR 14** (13.1): excluir cliente, excluir processo e os documentos do cliente (lista e
 exclusão), além do resto da linha 14 (relatórios do Expediente, timeline e controladoria da pasta, renomear documento do
-Financeiro, lista de modelos de checklist), entram depois.
+Financeiro e lista de modelos de checklist, já feitos), entram depois.
 
 **c) Como os 7 dias funcionam. Decidido em 08/11/2026: opção 2.** Token de acesso de 1 hora, com renovação e rotação até
 completar 7 dias da autorização. A pessoa faz login uma vez por semana, e um token vazado vale 1 hora. O metadado anuncia

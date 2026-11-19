@@ -14,6 +14,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Armazenamento\ResultadoDaRemocao;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -134,6 +135,49 @@ final class PurgarLixeiraUseCase
      */
     public function purgarSelecao(array $idsSecoes, array $idsDocumentos, int $pastaId, int $tenantId): ResultadoPurgaDaLixeira
     {
+        return $this->selecao($idsSecoes, $idsDocumentos, $pastaId, $tenantId, false);
+    }
+
+    /**
+     * O mesmo "Excluir de vez", para quem já está DENTRO de uma transação que só confirma depois (a `confirmar_acao`
+     * do conector): faz só a parte do banco, com o mesmo laço, e NÃO remove nenhum arquivo. As chaves que nenhuma
+     * linha referencia mais (contadas na mesma transação de fora, com o registro travado) voltam em
+     * {@see ResultadoPurgaDaLixeira::$arquivosARemover}, e quem chama as entrega a {@see removerArquivosLivres()}
+     * DEPOIS do COMMIT de fora (INV-6). Se a transação de fora desfizer, ninguém remove nada e o arquivo fica.
+     *
+     * Como o caminho de sempre, dá `clear()` no EntityManager ao fim de cada lote: quem chama relê o que ainda usa.
+     *
+     * @param list<int> $idsSecoes
+     * @param list<int> $idsDocumentos
+     *
+     * @throws \Doctrine\DBAL\Exception banco que recusa (nada saiu do disco)
+     */
+    public function purgarSelecaoSemRemoverArquivos(array $idsSecoes, array $idsDocumentos, int $pastaId, int $tenantId): ResultadoPurgaDaLixeira
+    {
+        return $this->selecao($idsSecoes, $idsDocumentos, $pastaId, $tenantId, true);
+    }
+
+    /**
+     * A parte física, depois do COMMIT: remove as chaves livres pela {@see RemocaoAposTransacao} (nunca lança por
+     * falha do disco) e descarta o registro de `arquivo_armazenado` só do que saiu. O descarte é SQL próprio, em
+     * autocommit quando não há transação aberta; um banco que recusa aqui lança (o arquivo já saiu e o registro fica).
+     *
+     * @param list<ChaveDeArquivo> $livres
+     */
+    public function removerArquivosLivres(array $livres): ResultadoDaRemocao
+    {
+        $resultado = $this->remocao->remover($livres, 'PurgarLixeiraUseCase');
+        $this->referencias->descartarRegistros($livres, $resultado->naoRemovidas);
+
+        return $resultado;
+    }
+
+    /**
+     * @param list<int> $idsSecoes
+     * @param list<int> $idsDocumentos
+     */
+    private function selecao(array $idsSecoes, array $idsDocumentos, int $pastaId, int $tenantId, bool $adiarRemocao): ResultadoPurgaDaLixeira
+    {
         $daSelecao = static fn (PastaSecao|PastaDocumento $item): bool => $item->getExcluidoEm() !== null
             && (int) $item->getPasta()?->getId() === $pastaId
             && (int) $item->getTenant()?->getId() === $tenantId;
@@ -147,6 +191,7 @@ final class PurgarLixeiraUseCase
             null,
             count($idsSecoes),
             count($idsDocumentos),
+            $adiarRemocao,
         ));
     }
 
@@ -168,13 +213,14 @@ final class PurgarLixeiraUseCase
     /**
      * O laço da purga, comum às duas filas: a dos vencidos (`executar`) e a da seleção
      * (`purgarSelecao`). `$elegivel` decide, na hora do `remove()`, se a entrada ainda pode sair
-     * (vencida, ou na lixeira desta pasta); a que não puder é pulada sem contar.
+     * (vencida, ou na lixeira desta pasta); a que não puder é pulada sem contar. Com `$adiarRemocao`, nenhum arquivo
+     * sai: as chaves livres voltam no resultado ({@see purgarSelecaoSemRemoverArquivos()}).
      *
      * @param list<int>                                $idsSecoes
      * @param list<int>                                $idsDocumentos
      * @param callable(PastaSecao|PastaDocumento): bool $elegivel
      */
-    private function purgar(array $idsSecoes, array $idsDocumentos, callable $elegivel, \DateTimeImmutable $corte, bool $simulacao, ?int $limite, int $candidatosSecoes, int $candidatosDocumentos): ResultadoPurgaDaLixeira
+    private function purgar(array $idsSecoes, array $idsDocumentos, callable $elegivel, \DateTimeImmutable $corte, bool $simulacao, ?int $limite, int $candidatosSecoes, int $candidatosDocumentos, bool $adiarRemocao = false): ResultadoPurgaDaLixeira
     {
         /** Vagas que sobram nesta execução; null = sem limite. */
         $vagas = $limite;
@@ -189,6 +235,7 @@ final class PurgarLixeiraUseCase
         $documentosRemovidos = 0;
         $arquivosRemovidos   = 0;
         $naoRemovidos        = [];
+        $adiadas             = [];
         $secoesPuladas       = 0;
         $documentosPulados   = 0;
 
@@ -250,9 +297,10 @@ final class PurgarLixeiraUseCase
                 }
             }
 
-            [$removidos, $falhas] = $this->confirmarEApagar($chaves, $simulacao);
+            [$removidos, $falhas, $livres] = $this->confirmarEApagar($chaves, $simulacao, $adiarRemocao);
             $arquivosRemovidos += $removidos;
             array_push($naoRemovidos, ...$falhas);
+            array_push($adiadas, ...$livres);
         }
 
         foreach (array_chunk($idsDocumentos, self::LOTE) as $lote) {
@@ -290,9 +338,10 @@ final class PurgarLixeiraUseCase
                 }
             }
 
-            [$removidos, $falhas] = $this->confirmarEApagar($chaves, $simulacao);
+            [$removidos, $falhas, $livres] = $this->confirmarEApagar($chaves, $simulacao, $adiarRemocao);
             $arquivosRemovidos += $removidos;
             array_push($naoRemovidos, ...$falhas);
+            array_push($adiadas, ...$livres);
         }
 
         return new ResultadoPurgaDaLixeira(
@@ -306,6 +355,7 @@ final class PurgarLixeiraUseCase
             arquivosNaoRemovidos: $naoRemovidos,
             secoesPuladas: $secoesPuladas,
             documentosPulados: $documentosPulados,
+            arquivosARemover: $adiadas,
         );
     }
 
@@ -315,16 +365,19 @@ final class PurgarLixeiraUseCase
      * `flush` recusado sobe antes de qualquer `excluir()`, com os arquivos intactos. O `clear()`
      * vem depois para o próximo lote não acordar a árvore que acabou de sair.
      *
+     * Com `$adiarRemocao` (há uma transação de fora, que ainda não confirmou), o fim do closure só solta o ponto de
+     * retorno: nenhum arquivo sai e as chaves livres voltam como terceiro item, para depois do COMMIT de fora.
+     *
      * @param list<ChaveDeArquivo> $chaves
      *
-     * @return array{int, list<string>}
+     * @return array{int, list<string>, list<ChaveDeArquivo>}
      */
-    private function confirmarEApagar(array $chaves, bool $simulacao): array
+    private function confirmarEApagar(array $chaves, bool $simulacao, bool $adiarRemocao): array
     {
         if ($simulacao) {
             $this->em->clear();
 
-            return [0, []];
+            return [0, [], []];
         }
 
         // O flush e a contagem de referências na MESMA transação (com o registro do arquivo travado): o COMMIT
@@ -335,11 +388,16 @@ final class PurgarLixeiraUseCase
             return $this->referencias->semReferencia($chaves);
         });
 
-        $resultado = $this->remocao->remover($livres, 'PurgarLixeiraUseCase');
-        $this->referencias->descartarRegistros($livres, $resultado->naoRemovidas);
+        if ($adiarRemocao) {
+            $this->em->clear();
+
+            return [0, [], $livres];
+        }
+
+        $resultado = $this->removerArquivosLivres($livres);
         $this->em->clear();
 
-        return [$resultado->removidos, $resultado->naoRemovidas];
+        return [$resultado->removidos, $resultado->naoRemovidas, []];
     }
 
     /**
