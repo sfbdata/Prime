@@ -32,6 +32,7 @@ final class ContrasteBordasV30CssTest extends TestCase
             self::assertStringNotContainsString($antigo, $css, $antigo);
         }
         self::assertStringNotContainsString('.a1-hoje-lin.is-cancelado { opacity', $css);
+        self::assertStringContainsString('.is-cancelado .a1-lin-tit { color: var(--a1-t3);', $css);
         self::assertStringContainsString('.is-concluido > .a1-chip-tit::before { content: "\2713\00a0"; }', $css);
     }
 
@@ -47,5 +48,6 @@ final class ContrasteBordasV30CssTest extends TestCase
         self::assertStringNotContainsString('.ag-chip.is-concluido, .ag-bloco.is-concluido { opacity: .6; }', $css);
         self::assertStringContainsString('.ag-chip.is-concluido > span::before, .ag-bloco.is-concluido > b::after { content: "\2713"; }', $css);
         self::assertStringNotContainsString('#7a8e9b', $this->ler('templates/agenda/nova.html.twig'));
+        self::assertStringNotContainsString('text-decoration: line-through; opacity: .7;', $css, 'cancelado sem opacidade');
     }
 }

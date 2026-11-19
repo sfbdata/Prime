@@ -221,7 +221,7 @@
 .a1-lin-hora { font-size: 13px; font-weight: 600; color: var(--a1-t2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .a1-lin-bloco { min-width: 0; }
 .a1-lin-tit { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--a1-texto); }
-.is-cancelado .a1-lin-tit { color: #7b93a2; text-decoration: line-through; }
+.is-cancelado .a1-lin-tit { color: var(--a1-t3); text-decoration: line-through; }
 .a1-lin-meta { font-size: 11.5px; color: var(--a1-mudo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .a1-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap; color: var(--ink); background: var(--tint); }
 .a1-st { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; color: #455c6b; background: #f1f5f8; border: 1px solid #dde5eb; }

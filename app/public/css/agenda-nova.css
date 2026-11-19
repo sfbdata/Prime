@@ -233,7 +233,7 @@
 .ag-chip:hover { filter: brightness(.96); }
 .ag-chip b { font-size: 11px; color: #4a6373; }
 .ag-chip span { overflow: hidden; text-overflow: ellipsis; }
-.ag-chip.is-cancelado span, .ag-bloco.is-cancelado { text-decoration: line-through; opacity: .7; }
+.ag-chip.is-cancelado span, .ag-bloco.is-cancelado { text-decoration: line-through; color: var(--ag-mudo); } /* guia v30 (A3): riscado e tom, sem a opacidade que derrubava o contraste */
 .ag-chip.is-concluido, .ag-bloco.is-concluido { color: var(--ag-mudo); }
 /* guia v30 (A3): concluído ganha o sinal ✓, não só o tom apagado (a opacidade .6 derrubava a hora para 2,7:1). */
 .ag-chip.is-concluido > span::before, .ag-bloco.is-concluido > b::after { content: "\2713"; }
