@@ -840,7 +840,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     border-top: 1px dashed var(--bs-border-color);
 }
 .jp-substituidas-toggle:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
-.jp-obr.is-substituida { color: var(--bs-secondary-color); } /* guia v30 (A3): substituída pelo riscado e pelo tom, sem opacidade (2,8:1) */
+.jp-obr.is-substituida { color: var(--bs-secondary-color); } /* guia v30 (A3): substituída pelo riscado e pelo tom, sem a opacidade .62, que dava 2,8:1 */
 .jp-obr.is-substituida .jp-obr-desc { text-decoration: line-through; text-decoration-thickness: 1px; }
 
 /* ── "Já pago" (R5): histórico de faturamento, recolhido, abaixo da fila de cobrança ───────────────

@@ -380,11 +380,13 @@
 .pf-page .pf-rs-dica { flex: 1 1 200px; font-size: 12.5px; color: var(--pf-mudo); line-height: 1.45; }
 .pf-page .pf-rs-aviso { font-size: 12.5px; color: var(--pf-rs-titulo); line-height: 1.5; }
 
-/* Itens e grupos travados (L569-570): texto #9aabb7, cadeado #c0392b 12px, grupo todo travado com opacidade .6. */
+/* Itens e grupos travados (L569-570), guia v30 (A3, 19/11): texto #5f7684 (4,7:1), cadeado #c0392b 12px; o grupo todo travado tem o cabeçalho no tom travado e o ícone de cadeado, sem a opacidade .6 que derrubava o contraste. */
 .pf-page .pf-item-texto { flex: 1; }
 .pf-page .pf-item-trava { display: none; color: var(--pf-rs); font-size: 12px; }
 .pf-page .pf-item.is-travado-rs { color: var(--pf-rs-off); cursor: default; }
 [data-bs-theme="dark"] .pf-page .pf-item.is-travado-rs { color: var(--bs-secondary-color); } /* #5f7684 no fundo escuro daria 3:1 */
+.pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > b, .pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > .bi { color: var(--pf-rs-off); }
+[data-bs-theme="dark"] .pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > b, [data-bs-theme="dark"] .pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > .bi { color: var(--bs-secondary-color); }
 .pf-page .pf-item.is-travado-rs:hover { background: transparent; }
 .pf-page .pf-item.is-travado-rs .pf-item-trava { display: inline; }
 .pf-page .pf-cartao.is-travado-rs .pf-marcar-todos { color: var(--pf-perigo); cursor: default; }

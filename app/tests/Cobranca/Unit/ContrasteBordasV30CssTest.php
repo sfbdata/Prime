@@ -41,6 +41,7 @@ final class ContrasteBordasV30CssTest extends TestCase
         self::assertMatchesRegularExpression('/--pf-socio:\s+#2b7ab0;/', $css);
         self::assertStringNotContainsString('#d3dde4', $css);
         self::assertStringNotContainsString('.pf-cartao.is-travado-rs { opacity', $css);
+        self::assertStringContainsString('.pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > b, .pf-page .pf-cartao.is-travado-rs .pf-cartao-cab > .bi { color: var(--pf-rs-off); }', $css, 'cartão travado se distingue pelo cabeçalho');
         self::assertStringContainsString('[data-bs-theme="dark"] .pf-page .pf-item.is-travado-rs { color: var(--bs-secondary-color); }', $css);
     }
 
