@@ -144,6 +144,23 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('image/', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
 
+    #[TestDox('Rascunho: a tela das pautas traz a janela "Ajustar a foto" (moldura 3x4, aproximar, girar, cancelar e usar) e o script do recorte')]
+    public function testJanelaDeAjustarAFoto(): void
+    {
+        $tela = $this->client->request('GET', $this->url());
+
+        self::assertResponseIsSuccessful();
+        $janela = $tela->filter('body .vModAbrir.vModFoto[data-voto-foto-ajuste][hidden]');
+        self::assertCount(1, $janela);
+        self::assertSame('dialog', $janela->filter('.vModFoto > .vModC')->attr('role'));
+        self::assertSame('Ajustar a foto', trim($janela->filter('.vModC > .vH > span')->text()));
+        self::assertCount(1, $janela->filter('.vModCorpo > .vFotoArea[data-voto-foto-ajuste-area] > img[data-voto-foto-ajuste-img]'));
+        self::assertSame('range', $janela->filter('.vModCorpo > .vFotoControles > .vFotoZoom > input')->attr('type'));
+        self::assertSame(['Girar'], $janela->filter('.vFotoControles > button')->each(static fn (Crawler $b): string => trim($b->text())));
+        self::assertSame(['Cancelar', 'Usar esta foto'], $janela->filter('.vModCorpo > .vModRodape > button')->each(static fn (Crawler $b): string => trim($b->text())));
+        self::assertCount(1, $tela->filter('script[src$="/js/voto-foto-ajuste.js"]'));
+    }
+
     #[TestDox('Trocar apaga a foto antiga do disco; manter (nome devolvido, sem arquivo) não mexe; remover (nome vazio) apaga')]
     public function testTrocarManterERemover(): void
     {
