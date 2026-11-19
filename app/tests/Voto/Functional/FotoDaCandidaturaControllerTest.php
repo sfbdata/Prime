@@ -107,7 +107,7 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Foto da candidatura para a urna', $quadro->filter('input[type="file"]')->attr('aria-label'));
         self::assertSame('opcao_foto_arquivo[]', $quadro->filter('input[type="file"]')->attr('name'));
         self::assertSame($nome, $quadro->filter('input[type="hidden"][name="opcao_foto[]"]')->attr('value'));
-        self::assertSame('/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . $nome, $quadro->filter('img')->attr('src'));
+        self::assertSame('/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . self::semExtensao($nome), $quadro->filter('img')->attr('src'));
         self::assertSame('Foto de Ana Souza', $quadro->filter('img')->attr('alt'));
         self::assertSame('Trocar foto', trim($quadro->filter('.vFotoT')->text()));
         self::assertNull($quadro->filter('.vFotoT')->attr('hidden'));
@@ -120,8 +120,26 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         self::assertSame('formato 3x4', trim($caio->filter('label.vFotoU > .vFotoDica')->text()));
         self::assertNotNull($caio->filter('.vKm > button[data-voto-foto-remover]')->attr('hidden'), 'sem foto, não há o que remover');
 
-        $this->client->request('GET', $this->url('/..' . '/fotos/' . $nome));
-        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . $nome);
+        $this->client->request('GET', $this->url('/..' . '/fotos/' . self::semExtensao($nome)));
+        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . self::semExtensao($nome));
+        self::assertResponseStatusCodeSame(200);
+        self::assertStringStartsWith('image/', (string) $this->client->getResponse()->headers->get('Content-Type'));
+    }
+
+    #[TestDox('Nenhuma URL de foto da tela das pautas termina em extensão de imagem: o nginx de produção responderia 404 sem passar pelo PHP')]
+    public function testUrlDaFotoSemExtensao(): void
+    {
+        $this->salvar([$this->linha('1', 'Ana Souza', $this->jpeg()), $this->linha('2', 'Caio Lima')]);
+        $nome = (string) $this->fotoDe(1);
+
+        $this->client->request('GET', $this->url());
+        $html = (string) $this->client->getResponse()->getContent();
+
+        $urlDaFoto = '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . self::semExtensao($nome);
+        self::assertStringContainsString('src="' . $urlDaFoto . '"', $html);
+        self::assertDoesNotMatchRegularExpression('#/fotos/[0-9a-f]{32}\.(?:jpe?g|png|webp)#', $html);
+
+        $this->client->request('GET', $urlDaFoto);
         self::assertResponseStatusCodeSame(200);
         self::assertStringStartsWith('image/', (string) $this->client->getResponse()->headers->get('Content-Type'));
     }
@@ -215,9 +233,9 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
 
         // 2. A foto alheia pela rota da minha assembleia e pela da alheia: 404.
-        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . $nomeAlheio);
+        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . self::semExtensao($nomeAlheio));
         self::assertResponseStatusCodeSame(404);
-        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/fotos/' . $nomeAlheio);
+        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/fotos/' . self::semExtensao($nomeAlheio));
         self::assertResponseStatusCodeSame(404);
 
         // 3. Nome forjado no meu "Salvar": não vira minha foto e o arquivo do vizinho continua.
@@ -234,7 +252,7 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         $nome = (string) $this->fotoDe(1);
         $this->em->getConnection()->executeStatement('UPDATE voto.liberacao SET liberado = false WHERE tenant_id = ?', [$this->escritorio->getId()]);
 
-        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . $nome);
+        $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . self::semExtensao($nome));
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -242,7 +260,7 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
     #[TestDox('Nome com caminho ou fora do formato da chave: 404, sem chegar ao armazenamento')]
     public function testNomeForaDoFormato(): void
     {
-        foreach (['..%2F..%2Fsegredo.jpg', 'abc.jpg', bin2hex(random_bytes(16)) . '.gif', bin2hex(random_bytes(16)) . '.jpg'] as $nome) {
+        foreach (['..%2F..%2Fsegredo.jpg', 'abc.jpg', bin2hex(random_bytes(16)) . '.gif', bin2hex(random_bytes(16)) . '.jpg', bin2hex(random_bytes(16))] as $nome) {
             $this->client->request('GET', '/voto/assembleias/' . $this->assembleia->getId() . '/fotos/' . $nome);
             self::assertResponseStatusCodeSame(404, $nome);
         }
@@ -555,5 +573,11 @@ final class FotoDaCandidaturaControllerTest extends JusPrimeWebTestCase
         $this->em->persist((new UserTenant($user, $this->escritorio))->setTenantRole($papel));
         $this->em->flush();
         $this->logarComTenant($this->client, $user, $this->escritorio);
+    }
+
+    /** A URL da foto leva o nome sem a extensão (o nginx de produção responde 404 a caminho terminado em .jpg/.png). */
+    private static function semExtensao(string $nome): string
+    {
+        return pathinfo($nome, \PATHINFO_FILENAME);
     }
 }

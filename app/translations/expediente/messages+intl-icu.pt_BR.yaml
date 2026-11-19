@@ -439,6 +439,8 @@ expediente:
             menu_deixou: Você deixou de colaborar na pasta {nup}.
             codigo_rotulo: CÓDIGO DO USUÁRIO QUE VAI COLABORAR
             codigo_valido: Código válido. O destinatário confirma ao aceitar.
+            codigo_orientacao: Para compartilhar esta pasta com alguém de outro escritório, solicite o código BlueJus do usuário destinatário. Ele pode localizar essa informação no menu Perfil.
+            codigo_onde: Onde encontrar meu código?
             codigo_invalido: Código inválido. Use o formato BJ-XXXX-XXXX-XXXX.
             outra_conta: outra conta
             menu_recente_dica_conta: 'Compartilhar agora com {nome} · {conta}: ver, metas e documentos'
