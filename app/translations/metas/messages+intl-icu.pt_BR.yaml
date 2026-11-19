@@ -428,3 +428,5 @@ metas:
     js:
         parar_de_acompanhar: Parar de acompanhar
         acompanhar_esta_meta: Acompanhar esta meta
+    ia_painel:
+        rotulo: 'BlueJus IA'

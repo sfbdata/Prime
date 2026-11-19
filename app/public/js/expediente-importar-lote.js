@@ -21,7 +21,7 @@
     }
     // Só estes disparam ação; o rótulo dentro do botão também tem data-il e não pode interceptar o clique.
     var ACOES = '[data-il="fechar"], [data-il="trocar"], [data-il="importar"], [data-il="sim"], [data-il="nao"], [data-il="sugerir"], [data-il="voltar-regra"], [data-il="ler-drive"]';
-    var FALHA_IA = 'A IA não conseguiu sugerir agora. O agrupamento por pasta continua valendo.';
+    var falhaIa = function () { return BJ_T.t('expediente.js.lote.falha_ia'); };
     var el = function (nome) { return raiz.querySelector('[data-il="' + nome + '"]'); };
     /* Etapa 2 (IA): `origem` guarda os arquivos e a regra do último `montar`, para a IA e o "Voltar"; `modo` é
        'regra' ou 'ia'; `iniciou` some com os botões da IA assim que o Importar começa. */
@@ -112,9 +112,9 @@
         return { subpastas: Object.keys(subpastas).sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); }), soltos: soltos };
     }
 
-    function plural(n, um, varios) {
-        return n + ' ' + (n === 1 ? um : varios);
-    }
+    function pastasN(n) { return n === 1 ? BJ_T.t('expediente.js.lote.pastas_um') : BJ_T.t('expediente.js.lote.pastas_n', { n: n }); }
+    function subpastasN(n) { return n === 1 ? BJ_T.t('expediente.js.lote.subpastas_um') : BJ_T.t('expediente.js.lote.subpastas_n', { n: n }); }
+    function soltosN(n) { return n === 1 ? BJ_T.t('expediente.js.lote.soltos_um') : BJ_T.t('expediente.js.lote.soltos_n', { n: n }); }
 
     /* "A pasta "X" tem 2 subpastas (Documentos, Processo). Criar 2 pastas, uma por subpasta, ou 1 pasta só, "X", com
        tudo?" Com arquivo solto na raiz, a regra cria mais uma pasta com o nome da escolhida para eles: o texto conta. */
@@ -122,15 +122,14 @@
         var n = e.subpastas.length, MAX = 5;
         var nomes = e.subpastas.slice(0, MAX).join(', ') + (n > MAX ? ', ...' : '');
         var pastas = n + (e.soltos > 0 ? 1 : 0);
-        var comSoltos = e.soltos > 0 ? ' e ' + plural(e.soltos, 'arquivo solto', 'arquivos soltos') : '';
-        var criar = 'Criar ' + plural(pastas, 'pasta', 'pastas') + (n === 1 ? ', uma para a subpasta' : ', uma por subpasta')
-            + (e.soltos > 0 ? ' e uma "' + nome + '" com ' + (e.soltos === 1 ? 'o arquivo solto' : 'os arquivos soltos') : '');
+        var comSoltos = e.soltos > 0 ? BJ_T.t('expediente.js.lote.com_soltos', { soltos: soltosN(e.soltos) }) : '';
+        var criar = BJ_T.t('expediente.js.lote.criar', { pastas: pastasN(pastas) }) + (n === 1 ? BJ_T.t('expediente.js.lote.criar_uma_subpasta') : BJ_T.t('expediente.js.lote.criar_uma_por_subpasta'))
+            + (e.soltos > 0 ? (e.soltos === 1 ? BJ_T.t('expediente.js.lote.criar_mais_solto', { nome: nome }) : BJ_T.t('expediente.js.lote.criar_mais_soltos', { nome: nome })) : '');
 
         return {
-            texto: 'A pasta "' + nome + '" tem ' + plural(n, 'subpasta', 'subpastas') + ' (' + nomes + ')' + comSoltos + '. '
-                + criar + ', ou 1 pasta só, "' + nome + '", com tudo?',
-            nao: 'Criar ' + plural(pastas, 'pasta', 'pastas'),
-            sim: '1 pasta só, "' + nome + '"'
+            texto: BJ_T.t('expediente.js.lote.pergunta', { nome: nome, subpastas: subpastasN(n), nomes: nomes, soltos: comSoltos, criar: criar }),
+            nao: BJ_T.t('expediente.js.lote.criar', { pastas: pastasN(pastas) }),
+            sim: BJ_T.t('expediente.js.lote.pergunta_sim', { nome: nome })
         };
     }
 
@@ -186,7 +185,7 @@
                 base: solta ? 0 : umCliente ? 1 : -1 };
         });
         if (!lote.length) {
-            s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';
+            s.erro = BJ_T.t('expediente.js.lote.sem_arquivo');
             render();
 
             return;
@@ -200,22 +199,25 @@
     function resumo() {
         var sel = s.lote.filter(function (p) { return p.on; });
 
-        return sel.length + ' pasta(s) · ' + totalDeArquivos(sel) + ' arquivo(s)'
-            + (s.base !== null ? ' · numeração a partir de ' + s.base : '');
+        return BJ_T.t('expediente.js.lote.resumo', { pastas: sel.length, arquivos: totalDeArquivos(sel) })
+            + (s.base !== null ? BJ_T.t('expediente.js.lote.resumo_numeracao', { base: s.base }) : '');
     }
 
-    function situacao(p) {
-        if (p.st === 'Importada') { return ['Importada', 'importada']; }
-        if (p.st) { return [p.st, 'andando']; }
-        if (p.ia && p.on) { return ['Sugerida pela IA', '']; }
+    /* `p.st` guarda o texto da situação já no idioma da página; a importada é a única comparada. */
+    function textoImportada() { return BJ_T.t('expediente.js.lote.situacao_importada'); }
 
-        return p.on ? ['Pronta', ''] : ['Ignorada', 'ignorada'];
+    function situacao(p) {
+        if (p.st === textoImportada()) { return [p.st, 'importada']; }
+        if (p.st) { return [p.st, 'andando']; }
+        if (p.ia && p.on) { return [BJ_T.t('expediente.js.lote.situacao_sugerida'), '']; }
+
+        return p.on ? [BJ_T.t('expediente.js.lote.situacao_pronta'), ''] : [BJ_T.t('expediente.js.lote.situacao_ignorada'), 'ignorada'];
     }
 
     /* Atualiza só a linha da pasta, sem recriar os campos: quem digita o nome de outra linha não perde o foco. */
     function atualizarLinha(p) {
         var sit = situacao(p);
-        p.ref.linha.className = 'il-linha' + (p.st === 'Importada' ? ' importada' : '');
+        p.ref.linha.className = 'il-linha' + (p.st === textoImportada() ? ' importada' : '');
         p.ref.nup.textContent = p.nup || p.previsto;
         p.ref.st.className = 'il-dir il-sit ' + sit[1];
         p.ref.st.textContent = sit[0];
@@ -246,7 +248,7 @@
             cli.className = 'il-cli';
             cli.value = p.cli;
             cli.maxLength = 255;
-            if (!p.cli) { cli.placeholder = 'Nome do cliente'; }
+            if (!p.cli) { cli.placeholder = BJ_T.t('expediente.js.lote.nome_cliente'); }
             cli.addEventListener('input', function () { p.cli = cli.value.toUpperCase(); });
 
             /* Linha da IA: "mesmo cliente que ..." ou "Arquivos sem caso" em texto pequeno sob o nome. */
@@ -279,7 +281,7 @@
         el('vazio').hidden = s.doDrive || !!s.lote || !!s.pergunta;
         el('drive').hidden = !s.doDrive || !!s.lote || !!s.pergunta;
         el('ler-drive').disabled = s.lendo;
-        el('ler-drive-txt').textContent = s.lendo ? 'Lendo a pasta…' : 'Ler a pasta';
+        el('ler-drive-txt').textContent = s.lendo ? BJ_T.t('expediente.js.lote.lendo_pasta') : BJ_T.t('expediente.js.lote.ler_pasta');
         el('pergunta').hidden = !s.pergunta;
         el('tem').hidden = !s.lote;
         if (s.lote) {
@@ -293,8 +295,8 @@
         el('erro').hidden = !s.erro;
         el('erro').textContent = s.erro;
         el('importar').hidden = !(s.lote && !s.fim && sel.length > 0);
-        el('btn-txt').textContent = s.rodando ? 'Importando…' : 'Importar ' + sel.length + ' pasta(s)';
-        raiz.querySelector('.il-cancelar').textContent = s.fim ? 'Concluir' : 'Cancelar';
+        el('btn-txt').textContent = s.rodando ? BJ_T.t('expediente.js.lote.importando') : BJ_T.t('expediente.js.lote.importar_n', { n: sel.length });
+        raiz.querySelector('.il-cancelar').textContent = s.fim ? BJ_T.t('expediente.js.lote.concluir') : BJ_T.t('expediente.js.lote.cancelar');
     }
 
     /* Os botões da IA só existem quando a BlueJus IA está disponível (o Twig não os renderiza fora disso). Só para
@@ -305,7 +307,7 @@
         if (sugerir) {
             sugerir.hidden = !(pode && s.modo === 'regra');
             sugerir.disabled = s.analisando;
-            el('sugerir-txt').textContent = s.analisando ? 'Analisando...' : 'Sugerir agrupamento com IA';
+            el('sugerir-txt').textContent = s.analisando ? BJ_T.t('expediente.js.lote.analisando') : BJ_T.t('expediente.js.lote.sugerir');
         }
         var daPergunta = el('sugerir-pergunta');
         if (daPergunta) { daPergunta.hidden = !s.pergunta; }
@@ -343,17 +345,17 @@
             });
             if (!files.length) { return; }
             lote.push({ cli: String(c.cliente || '').toUpperCase(), files: files, on: true, feita: false, st: '', nup: '',
-                base: 0, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? 'mesmo cliente que a pasta ' + nomeDaPasta(c.mesmoClienteQue) : '' });
+                base: 0, ia: true, pastaIa: c.pasta, sub: c.mesmoClienteQue ? BJ_T.t('expediente.js.lote.mesmo_cliente', { pasta: nomeDaPasta(c.mesmoClienteQue) }) : '' });
         });
         var resto = arquivos.filter(function (fl, i) { return !usados[i]; });
         if (resto.length) {
             lote.push({ cli: '', files: resto, on: false, feita: false, st: '', nup: '', base: 1, ia: true, pastaIa: '',
-                sub: 'Arquivos sem caso' });
+                sub: BJ_T.t('expediente.js.lote.sem_caso') });
         }
         s.lote = lote;
         s.modo = 'ia';
-        s.aviso = 'Sugestão da IA: ela pode errar, confira antes de importar.'
-            + (d.truncado ? ' A IA olhou só os primeiros 2.000 itens (pastas e arquivos). Confira os arquivos de cada caso e a linha Arquivos sem caso.' : '');
+        s.aviso = BJ_T.t('expediente.js.lote.aviso_ia')
+            + (d.truncado ? BJ_T.t('expediente.js.lote.aviso_ia_truncado') : '');
         s.erro = '';
     }
 
@@ -368,8 +370,8 @@
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ _token: raiz.dataset.token, caminhos: arquivosDaOrigem().map(caminhoDe) })
         })
-            .then(function (r) { return r.json().catch(function () { return { status: 'erro', mensagem: FALHA_IA }; }); })
-            .catch(function () { return { status: 'erro', mensagem: FALHA_IA }; })
+            .then(function (r) { return r.json().catch(function () { return { status: 'erro', mensagem: falhaIa() }; }); })
+            .catch(function () { return { status: 'erro', mensagem: falhaIa() }; })
             .then(function (d) {
                 /* Trocou de pasta, voltou ou começou a importar enquanto a IA pensava: a resposta não vale mais. */
                 if (vez !== s.vezIa || s.origem !== origem) { return; }
@@ -378,7 +380,7 @@
                 if (d && d.status === 'ok') {
                     aplicarSugestao(d);
                 } else {
-                    s.erro = (d && d.mensagem) || FALHA_IA;
+                    s.erro = (d && d.mensagem) || falhaIa();
                     /* I.A. gratuita da pessoa acabou: abre a janela do convite (ia-saldo.js, quando a página a tem). */
                     if (d && window.BJIaSaldo) { window.BJIaSaldo.recusou(d); }
                 }
@@ -406,7 +408,7 @@
             .then(function (d) {
                 s.lendo = false;
                 if (!d || d.status !== 'ok') {
-                    s.erro = (d && d.mensagem) || 'Não foi possível ler a pasta do Google Drive.';
+                    s.erro = (d && d.mensagem) || BJ_T.t('expediente.js.lote.drive_erro');
                     render();
 
                     return;
@@ -416,14 +418,14 @@
                     return { webkitRelativePath: i.caminho, name: nomeDaPasta(i.caminho), size: i.tamanho, driveId: i.id, recusa: i.recusa };
                 });
                 if (!itens.length) {
-                    s.erro = 'Nenhum arquivo encontrado na pasta escolhida.';
+                    s.erro = BJ_T.t('expediente.js.lote.sem_arquivo');
                     render();
 
                     return;
                 }
                 lerPasta(itens);
                 if (d.truncado) {
-                    s.erro = 'A pasta passa de 2.000 arquivos: só os primeiros entraram. Importe as subpastas em partes.';
+                    s.erro = BJ_T.t('expediente.js.lote.drive_truncado');
                     render();
                 }
             });
@@ -459,7 +461,7 @@
     function postar(url, dados) {
         return fetch(url, { method: 'POST', body: dados, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) {
-                return r.json().catch(function () { return { status: 'erro', error: 'não foi possível enviar' }; });
+                return r.json().catch(function () { return { status: 'erro', error: BJ_T.t('expediente.js.lote.motivo_nao_enviar') }; });
             });
     }
 
@@ -484,7 +486,7 @@
             return pa.length - pb.length;
         });
         if (ordem.length && criada.secaoUrl) {
-            progresso('Criando subpastas · ' + p.cli, null);
+            progresso(BJ_T.t('expediente.js.lote.criando_subpastas', { cliente: p.cli }), null);
             for (var i = 0; i < ordem.length; i++) {
                 var pastas = caminhos[ordem[i]];
                 var pai = pastas.length > 1 ? ids[pastas.slice(0, -1).join('/')] : null;
@@ -518,13 +520,13 @@
     /* Motivo curto da recusa do upload, sem repetir o nome do arquivo (o servidor manda '"nome": excede ...'). */
     function motivoCurto(erro) {
         var limite = /excede o limite de (\d+) MB/.exec(erro);
-        if (limite) { return 'passa de ' + limite[1] + ' MB'; }
-        if (/Tipo de arquivo não permitido/i.test(erro)) { return 'tipo não aceito'; }
+        if (limite) { return BJ_T.t('expediente.js.lote.motivo_passa_de', { mb: limite[1] }); }
+        if (/Tipo de arquivo não permitido/i.test(erro)) { return BJ_T.t('expediente.js.lote.motivo_tipo'); }
         var pacote = /não é um arquivo (\.\w+) válido/.exec(erro);
-        if (pacote) { return 'arquivo ' + pacote[1] + ' inválido'; }
+        if (pacote) { return BJ_T.t('expediente.js.lote.motivo_invalido', { ext: pacote[1] }); }
         var resto = erro.replace(/^"[^"]*":\s*/, '').replace(/\.\s*$/, '').trim();
 
-        return resto ? resto.charAt(0).toLowerCase() + resto.slice(1) : 'não foi possível enviar';
+        return resto ? resto.charAt(0).toLowerCase() + resto.slice(1) : BJ_T.t('expediente.js.lote.motivo_nao_enviar');
     }
 
     /* "2 arquivos não foram anexados: a.jpg (passa de 3 MB) e b.exe (tipo não aceito)". Até 5 pelo nome;
@@ -534,17 +536,17 @@
         var itens = lista.slice(0, MAX).map(function (x) { return x.nome + ' (' + x.motivo + ')'; });
         var resto = lista.length - itens.length;
         var juntos = resto > 0
-            ? itens.join(', ') + ' e mais ' + resto
-            : itens.length > 1 ? itens.slice(0, -1).join(', ') + ' e ' + itens[itens.length - 1] : itens[0];
+            ? itens.join(', ') + BJ_T.t('expediente.js.lote.recusados_e_mais', { n: resto })
+            : itens.length > 1 ? itens.slice(0, -1).join(', ') + BJ_T.t('expediente.js.lote.recusados_e') + itens[itens.length - 1] : itens[0];
 
-        return (lista.length === 1 ? '1 arquivo não foi anexado: ' : lista.length + ' arquivos não foram anexados: ') + juntos;
+        return (lista.length === 1 ? BJ_T.t('expediente.js.lote.recusados_um') : BJ_T.t('expediente.js.lote.recusados_n', { n: lista.length })) + juntos;
     }
 
     async function importar() {
         var sel = pendentes();
         if (!sel.length || s.rodando) { return; }
         if (sel.some(function (p) { return !p.cli.trim(); })) {
-            s.erro = 'Todas as pastas marcadas precisam de um nome de cliente.';
+            s.erro = BJ_T.t('expediente.js.lote.nome_obrigatorio');
             render();
 
             return;
@@ -557,7 +559,7 @@
         s.vezIa++;
         s.erro = '';
         render();
-        progresso('Preparando…', 0);
+        progresso(BJ_T.t('expediente.js.lote.preparando'), 0);
 
         lote: for (var i = 0; i < sel.length; i++) {
             var p = sel[i];
@@ -570,10 +572,10 @@
             try {
                 criada = await postar(raiz.dataset.urlPasta, dados);
             } catch (e) {
-                criada = { status: 'erro', mensagem: 'Falha de conexão ao criar a pasta de ' + p.cli + '.' };
+                criada = { status: 'erro', mensagem: BJ_T.t('expediente.js.lote.criar_falha_conexao', { cliente: p.cli }) };
             }
             if (criada.status !== 'ok') {
-                s.erro = criada.mensagem || 'Não foi possível criar a pasta de ' + p.cli + '.';
+                s.erro = criada.mensagem || BJ_T.t('expediente.js.lote.criar_erro', { cliente: p.cli });
                 break;
             }
             // Criada é criada: daqui em diante a linha não volta para a fila, nem se o lote parar no meio.
@@ -581,11 +583,11 @@
             p.nup = criada.nup;
             novas.push(criada.nup);
             s.criou = true;
-            progresso('Pasta ' + criada.nup + ' · ' + p.cli, tot ? feitos / tot : 0);
+            progresso(BJ_T.t('expediente.js.lote.progresso_pasta', { nup: criada.nup, cliente: p.cli }), tot ? feitos / tot : 0);
 
             if (!criada.uploadUrl) {
                 // Pasta criada, mas a pessoa não pode anexar nela (D2).
-                p.st = 'Sem permissão para anexar';
+                p.st = BJ_T.t('expediente.js.lote.situacao_sem_permissao');
                 feitos += p.files.length;
                 progresso(null, tot ? feitos / tot : 1);
                 atualizarLinha(p);
@@ -617,7 +619,7 @@
                 try {
                     r = await postar(fl.driveId ? criada.uploadDriveUrl : criada.uploadUrl, arq);
                 } catch (e) {
-                    r = { success: false, error: 'falha de conexão' };
+                    r = { success: false, error: BJ_T.t('expediente.js.lote.motivo_conexao') };
                 }
                 if (r.success) {
                     anexados++;
@@ -625,7 +627,7 @@
                 } else if (r.codigo === 'espaco_esgotado') {
                     // Cota do plano acabou: os próximos arquivos falhariam todos (D6).
                     s.erro = r.mensagem || r.error;
-                    p.st = 'Incompleta';
+                    p.st = BJ_T.t('expediente.js.lote.situacao_incompleta');
                     atualizarLinha(p);
                     break lote;
                 } else {
@@ -634,14 +636,14 @@
                 feitos++;
                 progresso(null, feitos / tot);
             }
-            p.st = 'Importada';
+            p.st = textoImportada();
             atualizarLinha(p);
         }
 
         s.rodando = false;
         var frase = novas.length
-            ? novas.length + ' pasta(s) criada(s) (nº ' + novas[0] + (novas.length > 1 ? ' a ' + novas[novas.length - 1] : '') + ') com ' + anexados + ' documento(s) anexado(s)'
-                + (iguais ? '. ' + iguais + ' arquivo(s) iguais a documentos de outras pastas' : '')
+            ? BJ_T.t('expediente.js.lote.fim', { pastas: novas.length, numeros: novas.length > 1 ? BJ_T.t('expediente.js.lote.faixa', { de: novas[0], ate: novas[novas.length - 1] }) : novas[0], docs: anexados })
+                + (iguais ? BJ_T.t('expediente.js.lote.fim_iguais', { n: iguais }) : '')
                 + (recusados.length ? '. ' + fraseDosRecusados(recusados) : '')
                 + '.'
             : '';

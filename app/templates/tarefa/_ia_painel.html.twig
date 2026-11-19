@@ -13,7 +13,7 @@
 ] %}
 {% set sugestoes = ['metas.ia.sug_primeiro'|trans, 'metas.ia.sug_delegar'|trans, 'metas.ia.sug_atrasadas'|trans, 'metas.ia.sug_despacho'|trans] %}
 <div class="mm-ia-fundo" data-mm-ia-fechar hidden></div>
-<aside class="mm-ia-painel" id="mmIaPainel" role="dialog" aria-label="BlueJus IA" hidden
+<aside class="mm-ia-painel" id="mmIaPainel" role="dialog" aria-label="{{ 'metas.ia_painel.rotulo'|trans }}" hidden
        data-chat-ia-rotas="{{ include('central/_ia_chat_rotas.html.twig')|e('html_attr') }}"
        data-chat-ia-textos="{{ include('central/_ia_chat_textos.html.twig')|e('html_attr') }}"
        data-chat-ia-csrf="{{ csrf_token('ajax') }}">
