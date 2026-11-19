@@ -3,7 +3,7 @@ tipo: alteracao
 ---
 ## Changelog
 - Ponto, Cálculo e Kanban: contraste e bordas do Guia visual v30. Texto de apoio passa a `#5f7684`, bordas de área a `#d6e0e7`, bordas de campo e controles a `#7b93a2` (novo token `--pe-borda-campo` no Ponto). Só CSS e marcação de ícone.
-- Ponto: dia desabilitado do calendário sem opacidade extra; no calendário da justificativa, dia selecionado em negrito e sublinhado, hoje em negrito, dia desabilitado legível.
+- Ponto: dia desabilitado do calendário sem opacidade extra; no calendário da justificativa, dia selecionado em negrito e sublinhado, hoje em negrito, dia desabilitado no tom de apoio, sem opacidade; texto do dia selecionado escuro também no tema escuro.
 - Kanban: prazo vencido em `#b91c1c` com ícone de alerta (`bi-exclamation-circle`); avatar com fundo `#0a6fa0`; cor de marcador selecionada ganha um check (classe `selecionado`, aplicada pelo mesmo JS que já marcava a borda).
 
 ## Para o cliente

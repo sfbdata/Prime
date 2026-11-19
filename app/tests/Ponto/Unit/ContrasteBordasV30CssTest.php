@@ -48,9 +48,9 @@ final class ContrasteBordasV30CssTest extends TestCase
     {
         self::assertStringContainsString('border:1px solid #7b93a2', $this->ler('templates/ponto/validar_comprovante.html.twig'));
         $cal = $this->ler('templates/ponto/_justificativa_calendario.html.twig');
-        self::assertMatchesRegularExpression('/\.cal-selected \{[^}]*font-weight: 700;[^}]*text-decoration: underline;/', $cal);
+        self::assertMatchesRegularExpression('/\.cal-selected \{[^}]*color: #212529;[^}]*font-weight: 700;[^}]*text-decoration: underline;/', $cal);
         self::assertMatchesRegularExpression('/\.cal-today \{[^}]*font-weight: 700;/', $cal);
-        self::assertMatchesRegularExpression('/\.cal-disabled \{[^}]*color: var\(--bs-secondary-color\);[^}]*opacity: \.6;/', $cal);
+        self::assertMatchesRegularExpression('/\.cal-disabled \{\s*color: var\(--bs-secondary-color\);\s*cursor: default;/', $cal);
     }
 
     #[TestDox('Cálculo: campos #7b93a2, áreas #d6e0e7 e texto de apoio #5f7684')]

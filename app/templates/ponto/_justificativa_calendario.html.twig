@@ -55,6 +55,7 @@
 #{{ p }}-calendar .cal-day.cal-selected {
     background: #ffc107;
     border-color: #e0a800;
+    color: #212529; /* texto escuro também no tema escuro: claro sobre amarelo daria 1,5:1 */
     font-weight: 700;
     text-decoration: underline;
     text-decoration-thickness: 2px;
@@ -65,7 +66,6 @@
 }
 #{{ p }}-calendar .cal-day.cal-disabled {
     color: var(--bs-secondary-color);
-    opacity: .6;
     cursor: default;
 }
 #{{ p }}-calendar .cal-day.cal-weekend {
