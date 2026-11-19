@@ -1,0 +1,214 @@
+# ---- Case (processo/index, _resultado, new, show, _notas_tecnicas, _nota_tecnica_item; the form JS in
+# processo.form.js, delivered by new). The stored status (EM_ANDAMENTO...) stays the value; only the label comes from here.
+processo:
+    comum:
+        home: Home
+        push: Case Push
+        processos: Cases
+        numero: Case Number
+        tribunal: Court
+        situacao: Status
+        instancia: Instance
+        informacoes: Information
+        partes: Parties
+        movimentacoes: Updates
+        orgao_julgador: Judging Body
+        classe_processual: Case Class
+        data_baixa: Closing Date
+        tipo: Type
+        nome: Name
+        documento: Document
+        papel: Role
+        data: Date
+        descricao: Description
+        orgao: Body
+        editar: Edit
+        editar_processo: Edit case
+        fechar: Close
+    situacao:
+        em_andamento: In Progress
+        encerrado: Closed
+        suspenso: Suspended
+        arquivado: Archived
+        baixado: Closed Out
+        transitado_em_julgado: Final judgment
+        paralisado: Stalled
+    index:
+        titulo: Court Cases
+        cadastrar: Register Case
+        busca: Search by number, class, subject or court…
+        filtro:
+            tribunal: Court
+            situacao: Status
+            de: From
+            ate: To
+    resultado:
+        total: '{total} result(s) found'
+        classe: Class
+        assunto: Subject
+        acoes: Actions
+        visualizar: View case
+        vazio: No cases found.
+        criar: Create new case
+    show:
+        titulo: 'Case {numero}'
+        detalhes: Details
+        distribuicao: Filing
+        tarefas: Tasks
+        assunto: Subject
+        assuntos: Subjects
+        ultima_atualizacao: Last Update
+        sem_partes: No parties registered.
+        sem_movimentacoes: No updates registered.
+        criado_em: Created on
+        modificado_em: Modified on
+        criado_por: Created by
+        dados_cnj: CNJ Data (Datajud)
+        sistema_origem: Source system
+        formato: Format
+        nivel_sigilo: Confidentiality level
+        codigo_orgao: Body code
+        municipio_ibge: Municipality (IBGE)
+        id_datajud: Datajud ID
+        atividades_recentes: Recent Activity
+        tempo: '{horas}h {minutos}min'
+        prazo_em: 'Deadline: {data}'
+        sem_tarefas: There are no tasks linked to this case.
+        vinculos: Links
+        pastas: Matters
+        sem_pastas: This case is not linked to any matter.
+        pasta_trancada_dica: Matter locked by the primary user
+        pasta_trancada: Matter locked
+        principal_dica: This is the main case of the matter
+        principal: Main
+        excluida_em: 'Deleted on {data}'
+        excluida: Deleted
+        voltar: Back to Cases
+        excluir_confirmar: Are you sure you want to delete this case?
+        excluir_processo: Delete case
+        excluir: Delete Case
+        modal:
+            status: Status
+            atribuido: Assigned to
+            criada_em: Created on
+            prazo: Deadline
+            tempo_total: Total Time
+            ultima_revisao: Last Review
+            conclusao: Completion
+            abrir_tarefa: Open Task
+    form:
+        titulo_novo: New Case
+        titulo_editar: Edit Case
+        novo: New
+        cliente: Client
+        assuntos: Subjects
+        numero_exemplo: 'E.g.: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Format: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj: Search CNJ
+        buscar_cnj_dica: Looks up the case in the CNJ database
+        tribunal_placeholder: Detected from the case number
+        tribunal_ajuda: Filled in automatically from the case number.
+        assunto_processual: Case Subject
+        instancia:
+            g1: G1 - First Instance
+            g2: G2 - Second Instance
+            st: ST - Superior Court
+        data_distribuicao: Filing Date
+        cliente_vinculado: Linked client
+        nenhum_cliente: No client
+        adicionar_parte: Add Party
+        adicionar_movimentacao: Add Update
+        adicionar_assunto: Add Subject
+        assuntos_ajuda: All the subjects of the case (the main subject stays in the Information tab).
+        remover: Remove
+        parte:
+            parte: Party
+            advogado: Attorney
+            juiz: Judge
+            promotor: Prosecutor
+            nome_placeholder: Party name
+            documento_placeholder: CPF/CNPJ
+            papel_placeholder: Plaintiff/defendant side
+        movimentacao:
+            descricao_placeholder: Update description
+            tipo_placeholder: Update type
+        assunto:
+            assunto: Subject
+            codigo: Code (TPU)
+            nome_placeholder: Subject description
+            codigo_placeholder: 'E.g.: 10433'
+        cancelar: Cancel
+        salvar: Save Changes
+        criar: Create Case
+        buscando: Searching...
+        buscando_datajud: Searching the case in DataJud...
+        mensagem: Message
+        close: Close
+        js:
+            nenhum_cliente: No client
+            nenhum_cliente_encontrado: No client found
+            tipo: Type
+            nome: Name
+            documento: Document
+            papel: Role
+            data: Date
+            descricao: Description
+            orgao: Body
+            remover: Remove
+            parte:
+                parte: Party
+                advogado: Attorney
+                juiz: Judge
+                promotor: Prosecutor
+                nome_placeholder: Party name
+                documento_placeholder: CPF/CNPJ
+                papel_placeholder: Plaintiff/defendant side
+            movimentacao:
+                descricao_placeholder: Update description
+                tipo_placeholder: Update type
+            assunto:
+                assunto: Subject
+                codigo: Code (TPU)
+                nome_placeholder: Subject description
+                codigo_placeholder: 'E.g.: 10433'
+            sucesso: Success
+            atencao: Warning
+            erro: Error
+            informe_numero: Enter the case number.
+            erro_busca: Error searching the case in CNJ/DataJud.
+            erro_busca_tente: Error searching the case in CNJ/DataJud. Please try again in a moment.
+            carregado: Case loaded successfully! The data was filled in on the form. You can edit it before saving.
+    notas:
+        titulo: Technical notes
+        sobre_movimentacao: About this update.
+        aviso: 'The note belongs to the case: it appears in every matter that links it.'
+        adicionar: Add technical note
+        nova: New technical note
+        texto: Technical note text
+        placeholder_despacho: 'Explain the order: what it means, what needs to be done, deadline… Use @ to mention someone.'
+        placeholder_processo: 'Explain the case or the order: what it means, what needs to be done, deadline… Use @ to mention someone.'
+        cancelar: Cancel
+        salvar: Save note
+        salvar_dica: Save (Ctrl+Enter)
+    nota:
+        selo: Technical note
+        hoje: 'today, {hora}'
+        quando: '{data}, {hora}'
+        editada_em: 'Edited on {data}'
+        editada: edited
+        movimentacao_dica: Note about a Case Push update
+        opcoes: Note options
+        menu_titulo: 'Technical note · {autor}'
+        responder: Reply with another note
+        copiar: Copy text
+        encaminhar: Forward via AI Chat
+        edicao_liberada: 'Editing allowed for {minutos} more min'
+        editar_min: 'Edit · {minutos} min'
+        exclusao_liberada: 'Deleting allowed for {minutos} more min'
+        excluir_min: 'Delete · {minutos} min'
+        editar_sem_prazo: Edit
+        excluir_sem_prazo: Delete
+        so_autor_edita: Only the author can edit the note, within 15 minutes
+        so_autor_exclui: Only the author can delete the note, within 15 minutes
+        editar_bloqueado: Edit · locked
+        excluir_bloqueado: Delete · locked

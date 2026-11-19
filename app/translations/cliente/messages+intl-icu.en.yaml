@@ -1,0 +1,320 @@
+# ---- Client (cliente/show, editPF, editPJ, _cadastro, _resumo, cliente-cadastro.js). The legal description text in the JS
+# mirrors QualificacaoDoCliente (PHP), which does not read the catalog yet: both change together in the translation.
+cliente:
+    comum:
+        copiar: Copy
+        copiar_qualificacao: Copy legal description
+        fechar: Close
+        cancelar: Cancel
+        salvar: Save
+        editar: Edit
+        excluir: Delete
+        visualizar: Preview
+        tipo_documento: Document type
+        descricao: Description
+        descricao_opcional: Description (optional)
+        numero: Number
+        numero_opcional: Number (optional)
+    show:
+        titulo_pagina: 'Client - {nome}'
+        migalha:
+            inicio: Home
+            clientes: Clients
+            detalhes: Details
+        pessoa_fisica: Individual
+        pessoa_juridica: Legal Entity
+        tipo: Type
+        sigla_pf: IND
+        sigla_pj: ENT
+        aba:
+            dados: Client Details
+            detalhes: Details
+        secao:
+            dados_pessoais: Personal Details
+            documento_rg: ID Document
+            dados_empresa: Company Details
+            representante_legal: Legal Representative
+            contato: Contact
+            endereco: Address
+        campo:
+            nome_completo: Full Name
+            cpf: CPF
+            data_nascimento: Date of Birth
+            estado_civil: Marital Status
+            profissao: Occupation
+            rg: ID (RG)
+            orgao_expedidor: Issuing Agency
+            data_emissao: Issue Date
+            razao_social: Legal Name
+            nome_fantasia: Trade Name
+            cnpj: CNPJ
+            inscricao_estadual: State Registration
+            inscricao_municipal: Municipal Registration
+            nome: Name
+            cargo: Title
+            email: Email
+            celular: Mobile
+            telefone_fixo: Landline
+            cep: ZIP Code
+            endereco: Address
+            complemento: Address Line 2
+            cidade_estado: City/State
+            criado_em: Created on
+            modificado_em: Modified on
+            criado_por: Created by
+        vinculos:
+            titulo: Links
+            processos: Cases
+            sem_processo: No cases registered.
+            pastas: Matters
+            sem_pasta: No matters linked.
+            cadeado_dica: Matter locked by the primary user
+            cadeado: Matter locked
+        arquivos:
+            titulo: Client Files
+            adicionar: Add file
+            limpar: Clear
+            reduzir: Reduce file size (saves space)
+            reduzir_nota: Keep it off to preserve the original quality.
+            reduzir_aviso: Digitally signed PDFs may have the signature invalidated when the size is reduced.
+            enviar_todos: Upload all
+            numero: 'No. {numero}'
+            na_pasta: 'in Matter {nup}'
+            tamanho_kb: '{n} KB'
+            tamanho_mb: '{n} MB'
+            excluir_confirma: Do you want to delete this document?
+        editar_cliente: Edit client
+        excluir_cliente: Delete client
+        excluir_cliente_botao: Delete Client
+        excluir_confirma: Are you sure you want to delete this client?
+        previa:
+            baixar: Download
+        editar_doc:
+            titulo: Edit document
+            nome: File name
+            extensao_antes: The extension
+            extensao_depois: is preserved automatically.
+    editar:
+        titulo_pf: Edit Client - Individual
+        titulo_pj: Edit Client - Legal Entity
+        voltar: Back
+        salvar: Save Changes
+        secao:
+            dados_pessoais: Personal Details
+            rg: ID (RG)
+            dados_empresa: Company Details
+            representante_legal: Legal Representative
+            contato: Contact
+            endereco: Address
+    cadastro:
+        titulo: Client record and legal description
+        novo_cliente: New client
+        autores:
+            grupo: Matter plaintiffs
+            rotulo: Plaintiffs
+            principal: Main
+            novo: New plaintiff
+        aba:
+            cliente: Client
+            empresa: Company
+            reu: Defendant
+            endereco: Address
+            contato: Contact
+            documentos: Documents
+            qualificacao: Legal description
+            historico: History
+        tipo:
+            grupo: Client type
+            pf: Individual
+        campo:
+            nome_completo: Full name
+            cpf: CPF
+            rg: ID (RG)
+            orgao: Agency
+            orgao_exemplo: SSP/DF
+            nascimento: Date of birth
+            estado_civil: Marital status
+            profissao: Occupation
+            nacionalidade: Nationality
+            genero: Gender
+            razao_social: Legal name
+            cnpj: CNPJ
+            nome_fantasia: Trade name
+            inscricao_estadual: State registration
+            inscricao_municipal: Municipal registration
+            representante_cargo: Representative title
+            representante_legal: Legal representative
+            representante_cpf: Representative CPF
+            representante_rg: Representative ID (RG)
+            cep: ZIP code
+            logradouro: Street
+            complemento: Address line 2
+            bairro: Neighborhood
+            cidade: City
+            uf: State
+            telefone: Phone
+            whatsapp: WhatsApp
+            email: Email
+            email_exemplo: nome@email.com
+        pend:
+            nome_completo: Full name not provided
+            cpf: CPF not provided
+            cnpj: CNPJ not provided
+            rg: ID (RG) not provided
+            estado_civil: Marital status not provided
+            profissao: Occupation not provided
+            razao_social: Legal name not provided
+            representante_legal: Legal representative not provided
+            representante_cpf: Representative CPF not provided
+            cep: ZIP code not provided
+            logradouro: Street not provided
+            numero: Number not provided
+            bairro: Neighborhood not provided
+            cidade: City not provided
+            uf: State not provided
+        civil:
+            solteiro: Single
+            casado: Married
+            divorciado: Divorced
+            separado: Separated
+            viuvo: Widowed
+            uniao_estavel: Domestic partnership
+        genero:
+            masculino: Male
+            feminino: Female
+        aviso:
+            cpf_invalido: 'Invalid CPF: check the digits.'
+            cnpj_invalido: 'Invalid CNPJ: check the digits.'
+            email_invalido: Email in an invalid format.
+            cep_preenchido: Address filled in from the ZIP code. Check it and enter the number.
+        reu:
+            nota_antes: Opposing party of this matter. The first defendant appears in the column
+            nota_meio: of the Docket list; if there is more than one, it appears
+            nota_e_outros: and others
+            nome: Name / legal name
+            nome_exemplo: 'E.g.: Banco do Brasil S.A.'
+            documento: CPF / CNPJ
+            opcional: Optional
+            adicionar: Add defendant
+        doc:
+            identificacao: ID document
+            identificacao_sub: Driver license (CNH) or ID (RG)
+            residencia: Proof of residence
+            residencia_sub: Utility bill, lease agreement or similar
+            anexado_em: 'attached on {data}'
+            nao_anexado: not attached
+            tamanho_kb: '{n} KB'
+            baixar: Download
+            substituir: Replace
+            anexar: Attach
+            excluir_confirma: 'Delete {nome} from the record?'
+        ocr:
+            titulo: Automatic document reading
+            texto: The reading service (OCR) is not set up in this environment. When it is active, name, CPF, ID and date of birth are suggested here for you to check before saving.
+        qualificacao_nota: Text generated from the filled-in fields, ready for contracts, powers of attorney and petitions. Documents already generated do not change when the record is updated.
+        historico_vazio: No changes recorded yet.
+        existente:
+            titulo_cpf: This CPF already has a record in the system.
+            titulo_cnpj: This CNPJ already has a record in the system.
+            abrir: Open record
+            usar: Use existing record
+        pendencias: Pending items
+    resumo:
+        titulo: Client details
+        arrastar: Drag to move
+        nome: Name
+        copiar_nome: Copy name
+        copiar_item: 'Copy {item}'
+        editar_item: 'Edit {item}'
+        numero:
+            pasta: matter
+            pastas: matters
+            ativa: active
+            ativas: active
+            com_processo: with case
+        pastas_mesmo: 'Matters with the same {item}'
+        pastas_mesmo_cliente: client
+        sem_pasta: No matter you can open.
+        desde: 'Client since {data}'
+        cadastrado: Registered client
+        sem_contato: No contact provided
+        mais_telefone: Phone
+        mais_email: Email
+        qualificacao_dica: Copy the full legal description
+        qualificacao_dica_pendencia: 'Copy the legal description. The record still has {n} pending item: {lista}'
+        qualificacao_dica_pendencias: 'Copy the legal description. The record still has {n} pending items: {lista}'
+        qualificacao_copiada: Legal description copied
+        editar_cadastro: Edit record
+        tag:
+            atual: Current
+            ativa: Active
+            arquivada: Archived
+    js:
+        cancelar: Cancel
+        civil:
+            solteiro: single
+            casado: married
+            divorciado: divorced
+            separado: separated
+            viuvo: widowed
+            uniao_estavel: in a domestic partnership
+        erro:
+            abrir: Could not open the record.
+            comunicacao: Communication error with the server.
+            usar: Could not use that record.
+            principal: The record was linked, but did not become the main one of the matter.
+            salvar: Could not save.
+        pend:
+            sem_contato: No contact provided
+        status:
+            completo: Record complete
+            incompleto_um: 'Record incomplete · {n} pending item'
+            incompleto_varias: 'Record incomplete · {n} pending items'
+        aviso:
+            nao_salvas: Unsaved changes
+            salvar_antes_docs: Save the changes before touching the documents.
+            salvar_antes_trocar: Save the changes before switching.
+            fechar_descartar: There are unsaved changes. Click Close again to discard.
+        qual:
+            nascido: 'born on {data}'
+            rg: 'holder of ID (RG) No. {rg}'
+            cpf: 'registered under CPF No. {cpf}'
+            cnpj: 'registered under CNPJ No. {cnpj}'
+            logradouro: 'at {logradouro}'
+            numero: ', No. {numero}'
+            bairro: 'Neighborhood {bairro}'
+            cep: 'ZIP code {cep}'
+            residente: 'residing {endereco}'
+            sede: 'headquartered {endereco}'
+            telefone: 'phone {telefone}'
+            whatsapp: 'WhatsApp {whatsapp}'
+            email: 'email {email}'
+            representada: 'herein represented by {nome}'
+        existente:
+            completo: complete record
+            incompleto: incomplete record
+            usando: 'Using the existing record of {nome}.'
+        doc:
+            enviando: Uploading the file...
+            recusado: 'The file was not accepted: upload a PDF or image within the size limit.'
+            erro_anexar: Could not attach the file.
+            erro_excluir: Could not delete the document.
+        reu:
+            vazio: No defendant registered in this matter.
+            principal: Main
+            subir: Make main / move up
+            remover: Remove defendant
+            remover_confirma: 'Remove {nome} from the defendants of this matter?'
+            remover_botao: Remove
+            erro: Could not change the defendants.
+        copiar:
+            ok: Legal description copied.
+            erro: Could not copy.
+        anexo:
+            selecione_tipo: Select the type
+            tipo_documento: Document type
+            descricao: Description
+            descricao_opcional: Description (optional)
+            numero: Number
+            numero_opcional: Number (optional)
+            remover: Remove

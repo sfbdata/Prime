@@ -1,0 +1,241 @@
+# ---- pasta_financeiro: Financial tab of the matter (pasta/_financeiro*, its scripts in pasta_financeiro.js)
+pasta_financeiro:
+    comum:
+        encaminhar: Forward via AI Chat
+    contrato:
+        rotulo: Contract
+        assinado: Signed
+        pendente: Pending
+        assinado_titulo: Contract signed
+        pendente_titulo: Contract pending
+        sem_arquivo_titulo: 'No contract attached: it stays pending until the contract is attached in CONTRACTS.'
+        assinado_dica: Contract signed. Click to reopen as pending
+        pendente_dica: Contract pending. Click to mark as signed
+    pro_bono:
+        rotulo: Pro bono
+        ativo: Pro bono active
+        inativo: Not pro bono
+        alternar: Toggle pro bono matter
+    total_contratado:
+        rotulo: Case value
+        nota: total of payments · synced
+        dica: Sum of the contracted entries in Payments. Updates automatically when a payment is added, edited or deleted.
+    media:
+        dica: Average of the matters of this client
+        sem_cliente: Link the client to calculate
+    relatorio:
+        titulo: Financial report
+        subtitulo: Collections and negotiation history
+        contagem_dica: Main entries (replies do not count)
+        somente_leitura: 'Matter deleted: the financial report is read-only.'
+        placeholder: Record an agreement, fee or financial movement of the case…
+        visivel_equipe: Visible to the team
+        enviar_dica: Send (Ctrl+Enter)
+        enviar: Send
+        vazio_titulo: Nothing recorded yet
+        vazio_nota: Note above what was agreed on fees, court costs or reimbursement.
+    menu_registro:
+        rotulo: Entry actions
+        responder: Reply
+        copiar: Copy text
+        editar: Edit
+        excluir: Delete comment
+    registro:
+        resposta_a: 'Reply to {nome}'
+        resposta_orfa: Reply to a deleted message
+        autor_desconhecido: Unknown author
+        editado: edited
+        editado_em: 'Edited on {quando}'
+        editar: Edit entry
+        excluir: Delete entry
+        janela_dica: 'Editing and deleting allowed for {minutos} more min'
+        janela: '· {minutos} min'
+        responder: Reply
+    vencidas:
+        uma: '{n} overdue installment · {valor}'
+        varias: '{n} overdue installments · {valor}'
+    arquivos:
+        titulo: CONTRACTS
+        subtitulo: Receipts, payment slips and others
+        adicionar: Add
+        adicionar_dica: Add file (PDF, DOCX, JPEG, PNG, max. 10 MB)
+        vazio: No financial file attached.
+        mais_acoes: More file actions
+        visualizar: Preview
+        abrir: Open
+        baixar: Download
+        copiar_nome: Copy file name
+        renomear: Rename
+        enviar_email: Send to client by email
+        email_assunto: 'Matter {pasta} · {titulo}'
+        email_corpo: 'Attached is the file "{titulo}" for matter {pasta}.'
+        ver_documentos: View in Documents
+        excluir: Delete
+        assinado: Signed
+        marcar_assinado: Mark as signed
+        desmarcar_assinado: Unmark signature
+        ver_outros: 'view the other {quantidade} in the manager'
+        reduzir: Reduce size on upload
+        reduzir_nota: Uploads keep the original file, recommended for signed contracts.
+        enviando: Uploading…
+    pagamentos:
+        titulo: Payments
+        concluir_edicao: Finish editing
+        mais_opcoes: More options
+        mais_opcoes_rotulo: More payment options
+        adicionar: Add payment
+        editar_valores: Edit or correct amounts
+        ver_todos: View all entries
+        copiar_resumo: Copy summary
+        imprimir_extrato: Print statement
+        extrato_titulo: Payment statement
+        extrato_pasta: 'Matter {pasta}'
+        emitido_em: Issued on
+    corpo:
+        editar_valores_dica: Edit or correct the amounts of the entries
+        recebidos_de: received of
+        percentual: Percent received
+        proximos: Upcoming due dates
+        ja_pago: '{quantidade} already paid'
+        ja_pagos: '{quantidade} already paid'
+        nenhum_pago: none paid
+        vazio: No entries.
+        vazio_convite: Use Add payment.
+        quitado: All paid. Nothing due.
+        corrigir_dica: Click to edit or correct the amount
+        ja_corrigido: ' · already corrected {vezes}x'
+        corrigido_era: corrected · was
+        pago_dica: Paid. Click to undo the receipt
+        receber_dica: Click to mark as received
+        excluir: Delete entry
+        corrigir: Correct amount
+        desfazer: Undo receipt
+        marcar_recebido: Mark as received
+        previsto_exito: '+ {valor} expected as success fee'
+        previsto_sucumbencia: '+ {valor} expected as fee shifting'
+        previsto_exito_sucumbencia: '+ {valor} expected as success fee and fee shifting'
+    js:
+        vencidas_um: '{n} overdue installment · {valor}'
+        vencidas_varias: '{n} overdue installments · {valor}'
+        # selos e honorários
+        mensalidade_de: 'Monthly payment {numero}/{n} · recurring fees'
+        contrato_sem_arquivo: Attach the contract file in Contracts to mark it as signed.
+        contrato_assinado: Signed
+        contrato_pendente: Pending
+        contrato_assinado_dica: Contract signed. Click to reopen as pending
+        contrato_pendente_dica: Contract pending. Click to mark as signed
+        contrato_sem_arquivo_titulo: 'No contract attached: it stays pending until the contract is attached in CONTRACTS.'
+        pro_bono_ativo: Pro bono active
+        pro_bono_inativo: Not pro bono
+        erro_situacao: Error changing status.
+        erro_pro_bono: Error saving pro bono.
+        erro_salvar: Error saving.
+        erro_rede: Network error.
+        erro_rede_tente: Network error. Please try again.
+        erro_excluir: Error deleting.
+        # arquivos
+        reduzir_aviso: 'Warning: a digitally signed PDF may lose its signature when reduced.'
+        reduzir_nota: Uploads keep the original file, recommended for signed contracts.
+        ver_demais: view the others in the manager
+        email_assunto: 'Matter {pasta} · {titulo}'
+        email_corpo: 'Attached is the file "{titulo}" for matter {pasta}.'
+        enviar_email: Send to client by email
+        encaminhar: Forward via AI Chat
+        mais_acoes: More file actions
+        visualizar: Preview
+        abrir: Open
+        baixar: Download
+        copiar_nome: Copy file name
+        renomear: Rename
+        ver_documentos: View in Documents
+        excluir: Delete
+        arquivos_vazio: No financial file attached.
+        erro_enviar_arquivo: Error uploading file.
+        erro_renomear: Error renaming.
+        assinado: Signed
+        marcar_assinado: Mark as signed
+        desmarcar_assinado: Unmark signature
+        erro_assinatura: Could not change the signature.
+        excluir_arquivo_nome: 'Delete the file "{nome}" from Financial?'
+        excluir_arquivo: Delete this file? This action cannot be undone.
+        # menus
+        concluir_edicao: Finish editing
+        editar_valores: Edit or correct amounts
+        mostrar_proximos: Show only upcoming
+        ver_todos: View all entries
+        motivo_prazo: The 15-minute window to edit or delete has ended.
+        motivo_autor: Only the author can edit or delete, within 15 minutes of posting.
+        editar_bloqueado: Edit · locked
+        excluir_bloqueado: Delete · locked
+        editar_min: 'Edit · {minutos} min'
+        excluir_min: 'Delete comment · {minutos} min'
+        editar_sem_prazo: Edit
+        excluir_sem_prazo: Delete comment
+        nao_copiou: Could not copy
+        nome_copiado: Name copied
+        resumo_copiado: Summary copied
+        texto_copiado: Text copied
+        resumo_pagamentos: 'Payments · {total}'
+        email_sem_cadastro: Add a client email to send
+        # Relatório financeiro
+        registro_vazio: The entry cannot be empty.
+        enviar: Send
+        enviando: Sending…
+        erro_enviar: Error sending.
+        erro_editar: Error editing.
+        erro_enviar_resposta: Error sending the reply.
+        excluir_comentario_titulo: 'Delete the comment by {autor}?'
+        excluir_comentario_texto: '"{trecho}". It disappears for the whole team and the deletion is recorded in the history.'
+        colaborador: team member
+        autor_desconhecido: Unknown author
+        resposta_a: 'Reply to {nome}'
+        resposta_orfa: Reply to a deleted message
+        editar_registro: Edit entry
+        excluir_registro: Delete entry
+        janela_dica: 'Editing and deleting allowed for {minutos} more min'
+        janela: '· {minutos} min'
+        responder: Reply
+        respondendo_a: 'Replying to {nome}'
+        resposta_placeholder: Write your reply…
+        cancelar: Cancel
+        salvar: Save
+        vazio_titulo: Nothing recorded yet
+        vazio_nota: Note above what was agreed on fees, court costs or reimbursement.
+        # Pagamentos: correção, quitação, exclusão e o modal de novo lançamento
+        erro_formato: Enter numbers only, like 12,860.00.
+        erro_casas: Use at most two decimal places, like 12,860.00.
+        novo_valor_de: 'New amount for {descricao}'
+        salvar_enter: Save (Enter)
+        salvar_valor: Save amount
+        cancelar_esc: Cancel (Esc)
+        corrigir_pergunta: 'Correct "{descricao}" from {de} to {para}?'
+        corrigir_historico: The change is recorded in the history with your name, date and time.
+        erro_conflito: The amount was changed by someone else. Reload and check before correcting.
+        erro_corrigir: Error correcting the amount.
+        erro_quitacao: Error changing the payment.
+        excluir_lancamento_titulo: Delete entry
+        excluir_lancamento_pergunta: 'Delete "{descricao}" ({valor})?'
+        excluir_lancamento_generico: Delete this entry?
+        tipo_custas: court costs
+        tipo_honorarios: fees
+        erro_percentual: Enter a percentage between 0 and 100.
+        erro_causa: Enter the case value before calculating by percentage.
+        erro_total: Enter the total amount.
+        erro_vencimento: Enter the 1st due date.
+        erro_juros: Enter the monthly interest between 0 and 10%.
+        erro_pequeno: 'The amount is too small for {n} installments. Reduce the number of installments.'
+        entrada_de: 'Down payment · {tipo}'
+        livre_entrada: '{descricao} · down payment'
+        parcela_de: 'Installment {numero} · {tipo}'
+        custas_e_despesas: Court costs and expenses
+        honorarios_contratuais: Contractual fees
+        resumo_um: '{quantidade} entry · {total}'
+        resumo_varios: '{quantidade} entries · {total}'
+        mais_parcelas: '+ {quantidade} installments'
+        gerar: 'Generate {quantidade} entries'
+        adicionar: Add
+        sem_dado: No data
+        erro_lancar: Error posting the payment.
+        previsto: expected
+        exito_descricao: 'Success fee ({percentual}%)'
+        sucumbencia_descricao: 'Estimated fee shifting ({percentual}%)'

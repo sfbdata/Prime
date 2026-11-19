@@ -1,0 +1,81 @@
+# ---- Kanban (kanban/index, board, _partials/_card_mini, _card_modal_body, _comentario; inline JS in kanban.js)
+kanban:
+    nome: Kanban
+    comum:
+        participantes: Participants
+        cancelar: Cancel
+        criar: Create
+        salvar: Save
+    index:
+        titulo_aba: 'Kanban | BlueJus'
+        criar_mural: Create Board
+        vazio_titulo: No boards yet
+        vazio_texto: Create your first board to organize tasks in columns and track the progress of the team.
+        criar_primeiro: Create first board
+        cards_um: '{total} card'
+        cards_varios: '{total} cards'
+        novo_mural: New board
+    modal_criar:
+        titulo: New Board
+        cor: Board color
+        participantes_ajuda: Who will have access to this board.
+    mural:
+        titulo_aba: '{nome} | Kanban'
+        titulo_card_placeholder: Card title...
+        adicionar: Add
+        adicionar_card: Add card
+    modal_checklist:
+        titulo: New Checklist
+        campo_titulo: Title
+        placeholder: 'E.g.: Required documents'
+    modal_editar:
+        titulo: Board Settings
+        zona_de_perigo: Danger zone
+        excluir_mural: Delete board
+    card:
+        editar_titulo: Edit title
+        descricao: Description
+        checklists: Checklists
+        excluir_checklist: Delete checklist
+        remover_item: Remove item
+        novo_item: New item...
+        adicionar_item: Add item
+        comentarios: Comments
+        sem_comentarios: No comments yet.
+        comentar: Comment
+        responsaveis: Assignees
+        nenhum_responsavel: No assignee
+        gerenciar: Manage
+        marcadores: Labels
+        sem_marcadores: No labels created
+        criar_marcador: Create label
+        nome_marcador: Name...
+        vencimento: Due date
+        vencido: Overdue
+        anexos: Attachments
+        remover_anexo: Remove
+        nenhum_anexo: No attachments
+        adicionar_arquivo: Add file
+        checklist: Checklist
+        adicionar_checklist: Add checklist
+        criado_em: 'Created on {data}'
+        excluir_card: Delete card
+    comentario:
+        editado: '(edited)'
+        editar: Edit
+        excluir: Delete
+    js:
+        selecionar_participantes: Select participants...
+        erro_criar_mural: Error creating board.
+        erro_comunicacao: Communication error. Please try again.
+        erro_carregar_card: Error loading the card.
+        confirmar_excluir_mural: Are you sure you want to delete this board? All cards will be permanently removed.
+        erro_salvar: Error saving.
+        descricao_placeholder: Add description...
+        comentario_placeholder: Write a comment...
+        confirmar_excluir_comentario: Delete comment?
+        confirmar_excluir_checklist: Delete this checklist?
+        informe_titulo_checklist: Enter a title for the checklist.
+        erro_criar_checklist: Error creating checklist. Please try again.
+        confirmar_excluir_anexo: Delete attachment?
+        confirmar_excluir_card: Permanently delete this card?

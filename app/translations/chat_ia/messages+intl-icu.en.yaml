@@ -1,0 +1,91 @@
+# ---- Full-page AI Chat (chat_ia/pagina.html.twig, public/js/chat-ia.js)
+chat_ia:
+    titulo_pagina: AI Chat
+    marca: BlueJus
+    voltar_ao_bluejus: Back to BlueJus
+    novo_chat: New chat
+    buscar: Search conversations
+    buscar_placeholder: Search conversations
+    historico: Conversation history
+    grupo_fixadas: Pinned
+    grupo_hoje: Today
+    grupo_ultimos_7_dias: Last 7 days
+    grupo_mais_antigas: Older
+    sem_conversas: No conversations yet.
+    sem_resultados: No conversations found.
+    carregando: Loading
+    recolher_barra: Collapse the sidebar
+    abrir_barra: Open the sidebar
+    fechar_barra: Close the sidebar
+    tema_claro: Use the light theme
+    tema_escuro: Use the dark theme
+    mais_opcoes: More conversation options
+    renomear: Rename
+    fixar: Pin
+    desafixar: Unpin
+    excluir: Delete
+    renomear_rotulo: Conversation name
+    sem_titulo: New conversation
+    excluir_titulo: Delete this conversation?
+    excluir_texto: 'The conversation "{titulo}" and its attachments will be deleted. This cannot be undone.'
+    cancelar: Cancel
+    salvar: Save
+    saudacao_bom_dia: Good morning
+    saudacao_boa_tarde: Good afternoon
+    saudacao_boa_noite: Good evening
+    saudacao_com_nome: '{saudacao}, {nome}'
+    mensagem_placeholder: How can I help you today?
+    mensagem_rotulo: Message for the AI
+    enviar: Send message
+    parar: Stop the response
+    anexar: Attach file
+    citar_pasta: Cite matter
+    citar_pasta_busca: Search matter by NUP
+    citar_pasta_vazio: No matter found.
+    citar_pasta_chip: 'Matter {nup} · {cliente}'
+    remover: Remove
+    modelo_rotulo: AI model
+    aviso_rodape: The AI can make mistakes. Check important information.
+    voce: You
+    copiar: Copy
+    copiado: Copied
+    copiar_resposta: Copy response
+    regenerar: Regenerate
+    editar: Edit question
+    interrompida: Response stopped
+    cortada: The response reached the length limit and was cut off.
+    descer: Scroll to the bottom
+    gerando: Generating the response
+    pensando: Thinking
+    sem_chave_titulo: The AI is not connected yet
+    fechar_aviso: Close the notice
+    soltar_arquivo: Drop the file to attach
+    erro_sem_chave: The AI is not connected yet. Tell whoever administers the system.
+    erro_sem_aceite: The firm needs to consent to data sending to use the AI. Ask whoever administers the firm to give consent in Intelligence.
+    erro_generico: I could not answer now. Please try again.
+    erro_rede: No connection to the server. Check your internet and try again.
+    erro_conversa: I could not open this conversation.
+    erro_anexo_tipo: 'File type not accepted: {nome}. Upload a PDF, image or DOCX.'
+    erro_anexo_tamanho: 'The file {nome} is too large.'
+    erro_anexo_quantidade: Attach at most 3 files per message.
+    erro_texto_vazio: Write a message before sending.
+    proposta_titulo_cliente: Register client
+    proposta_titulo_pasta: Open matter
+    proposta_confira: Check the data. Nothing is saved until you confirm.
+    proposta_nome_cliente: Client name
+    proposta_nome_acao: Action
+    proposta_numero: Matter number
+    proposta_cadastro_do_cliente: Client record
+    proposta_documento: document
+    proposta_duplicada: 'This {documento} is already in the record of {nome}.'
+    proposta_abrir_cadastro: Open record
+    proposta_semelhantes: 'Matters of this client with this action already exist: {total}.'
+    proposta_confirmar: Confirm
+    proposta_criar_mesmo_assim: Create anyway
+    proposta_usar_existente: Open new matter with the existing client
+    proposta_cancelar: Cancel
+    proposta_criada_cliente: Client registered.
+    proposta_criada_pasta: Matter opened.
+    proposta_abrir: Open
+    proposta_cancelada: Canceled. Nothing was saved.
+    proposta_vencida: The proposal expired. Ask the AI again.

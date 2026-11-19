@@ -1,0 +1,104 @@
+# ---- Matter: Filing (pasta/peticionar, layout_peticionar, peticionar-documentos.js)
+pasta_peticionar:
+    titulo: 'File | {nup}'
+    fechar: Close
+    cancelar: Cancel
+    salvar: Save
+    categoria: Category
+    secao: Section
+    area_geral: (general area)
+    opcional: (optional)
+    texto: Text
+    adicionar_peca: Add Document
+    salvar_na_pasta: Save to matter
+    novo_documento: New document
+    lista:
+        voltar_dica: Back to the matter
+        voltar: Back to the matter
+        documentos: Documents
+        pesquisar: Search documents...
+        mais_opcoes: More options
+        vazio: No documents in the matter.
+        vazio_dica: 'Use "Add document" or drag files here.'
+        anexo: Attachment
+        anexo_dica: 'PDF, Word, Excel, images, XML and KML'
+        texto_dica: Write the document in the editor
+    barra:
+        renomear_dica: Double-click to rename
+        editar_dica: Edit text
+        editar: Edit
+        baixar: Download
+        excluir: Delete document
+    preview:
+        selecione: Select a document in the list to preview
+        visualizador: Document viewer
+        baixar_arquivo: Download file
+        indisponivel: Preview not available for this format.
+    salvar_texto:
+        titulo: Save document to matter
+        campo_titulo: Title
+        exemplo: 'E.g.: Initial Petition, Appeal…'
+    envio:
+        arquivo: File
+        limites: PDF up to 10 MB · Images up to 3 MB · DOC/XLS up to 10 MB
+        descricao: Description
+        descricao_exemplo: Briefly describe the document…
+        numero: Number
+        numero_exemplo: 'E.g.: 001/2026'
+        reduzir: Reduce file size
+        reduzir_dica: Saves space by compressing images and PDFs. Keep it off to preserve the original quality.
+        reduzir_assinatura: Digitally signed PDFs may have the signature invalidated when the size is reduced.
+        enviar: Upload
+    descarte:
+        titulo: Save changes?
+        texto: The document has unsaved changes.
+        pergunta: Do you want to save the changes before continuing?
+        nao_salvar: Do not save
+    js:
+        compressao_reduzido: 'File reduced from {de} to {para}.'
+        compressao_assinado: 'Warning: this PDF was digitally signed. The signature may have been invalidated.'
+        compressao_nao_reduziu: Could not reduce the file; original quality kept.
+        selecione_arquivo: Select a file before uploading.
+        erro_enviar: Error uploading the file.
+        erro_comunicacao: Communication error. Please try again.
+        menu_arquivo: File
+        menu_editar: Edit
+        menu_inserir: Insert
+        erro_imagem: Error uploading the image.
+        novo_documento: New document
+        salvar_na_pasta: Save to matter
+        exportar_como: 'Export as {formato}'
+        salve_antes_exportar: Save the document first to export it.
+        salvar_alteracoes: Save changes
+        editar_titulo_dica: Click to edit the title
+        erro_abrir: Error opening the document for editing.
+        erro_salvar: Error saving.
+        sem_titulo: Untitled
+        informe_titulo: Enter a title for the document.
+        vazio: No documents in the matter.
+        vazio_dica: 'Use "Add document" or drag files here.'
+        mais_opcoes: More options
+        abrir: Open
+        renomear: Rename
+        baixar: Download
+        classificar: 'Classify: {categoria}'
+        excluir: Delete
+        mover_cima: Move up
+        mover_baixo: Move down
+        erro_salvar_nome: Could not save.
+        novo_nome: New name
+        erro_comunicacao_curto: Communication error.
+        classificado: 'Classified as {categoria}'
+        excluir_pergunta: 'Delete the document "{nome}"? It goes to the trash and can be restored in the matter Documents tab for 30 days.'
+        erro_excluir: Could not delete.
+        erro_ordenar: Could not save the new order.
+        peca_excluida: Document deleted
+        texto: Text
+        nenhum_encontrado: No documents found.
+        aguarde_envio: Wait for the upload in progress.
+        formato_nao_aceito: '{arquivo}: format not accepted.'
+        enviando: 'Uploading {total} file(s)...'
+        arquivo_erro: '{arquivo}: {erro}'
+        erro_ao_enviar: upload error.
+        arquivo_sem_conexao: '{arquivo}: communication error.'
+        adicionadas: '{total} document(s) added'

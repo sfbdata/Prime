@@ -1,0 +1,266 @@
+# ---- BlueJus AI: matter drawer, Push analyses and settings (inteligencia/*, pasta-ia-*.js)
+inteligencia:
+    comum:
+        hoje: today
+        lido: read
+        analise_gerada_por_ia: AI-generated analysis
+        dica_interna_sim: 'Internal analysis: does not appear in the link shared with the client. Click to release it.'
+        dica_interna_nao: Visible in the shared link. Click to make it internal to the firm.
+        cadeado: 'Internal to the firm: does not go to shared links'
+        mais_opcoes: More analysis options
+        marcar_lido: Mark as read
+        marcar_nao_lido: Mark as unread
+        excluir_analise: Delete analysis
+        excluir: Delete
+        quem_deve_agir: 'Who should act:'
+        falhou: Could not generate the analysis now. Please try again.
+        motivo_tecnico: 'Technical reason: {motivo}'
+        nao_configurada: AI not set up in this installation.
+    drawer:
+        assistente: Firm legal assistant
+        fechar: Close
+        chips_dica: Context loaded automatically from this screen
+        chip_pasta: 'Matter {nup}'
+        sem_cliente: No client
+        sem_processo: No case
+        sem_responsavel: No one responsible
+        abas: BlueJus AI sections
+        aba_analise: Analysis
+        aba_documentos: Documents
+        aba_relatorios: Reports
+        aba_perguntar: Ask
+    painel:
+        sabe: What the AI knows about this matter
+        comandos: Commands for this matter
+        relatorios_intro: Executive reports built with the authorized data of this matter and the client.
+        relatorios: Reports
+    comando:
+        gerar_analise: Generate analysis
+        gerar_nova: Generate new analysis
+        le: '{agente}. Reads: matter data, cases, {secoes}.'
+        le_leitura: '{agente}. Reads: the content of the documents checked (PDF and image), matter data, cases, document names and dates, checklist.'
+        em_andamento: Analysis in progress
+        dica_indice: Check the documents for the index
+        dica_nova: New analysis considering the history
+        dica_primeira: 'The {agente} reads the data of this matter and answers'
+        analisando: Analyzing…
+        carregando: Loading the analyses…
+    documentos:
+        intro: 'The AI reads the PDF and image files you check (up to 3 at a time, 10 MB per file, images up to 3 MB and 100 pages in total) and extracts type, date, parties, amounts, deadlines and actions. The Smart Index uses only the name, title, category and date of each file.'
+        ler_selecione: Select
+        ler_bloqueado: Read documents
+        dica_ler: Check the documents for the AI to read
+        aceite_antigo: 'Document reading is waiting for the new consent of the firm: the administrator renews the consent in the BlueJus AI settings.'
+        grupo: Documents of this matter
+        carregando: Loading the documents…
+        vazio: No documents in this matter.
+        selecionar_todos: Select all
+        contagem: '0 of {total}'
+    cartao:
+        aviso: AI-generated · not an official act of the case
+        selo_padrao: AI Analysis
+        copiar: Copy
+        baixar_dica: Download .txt
+        baixar: Download
+        imprimir_dica: Print or save as PDF
+        imprimir: Print
+        confirmar_excluir: Delete this AI analysis? The matter data is not changed.
+        andamento_um: 'Analyzing… (reading {n} item of the matter)'
+        andamento_varios: 'Analyzing… (reading {n} items of the matter)'
+        completa: Full analysis
+        meta_titulo: 'Action indicated by the {agente}'
+        agente_da_ia: AI agent
+        criar_tarefa: Create task
+        criar_tarefa_dica: Opens a new goal for this matter filled in with this analysis
+        base_um: 'Basis: {n} item of this matter. Check the original documents before acting.'
+        base_varios: 'Basis: {n} items of this matter. Check the original documents before acting.'
+    lista:
+        vazia_agente: No analysis from this agent yet.
+        vazia_relatorio: No report generated yet.
+        vazia_indice: No index generated yet.
+        vazia_leitura: No reading done yet.
+        vazia_comando: No analysis from this command yet.
+    push:
+        recolher: Collapse the analysis
+        expandir: Expand the analysis
+        selo: AI Analysis
+        aviso: AI-generated · not an official update
+        editado_por: 'Edited by {nome} on {dia} at {hora}'
+        editado_em: 'Edited on {dia} at {hora}'
+        editado: edited
+        liberar: Release for sharing
+        tornar_interna: Make internal to the firm
+        editar: Edit
+        meta_titulo: Action indicated by the AI analysis
+        criar_tarefa: Create task for the action
+        confirmar_excluir: Delete this AI analysis? The official updates are not changed.
+        pontos: '{n} point(s)'
+        andamento_um: 'Analyzing… (reading {n} update)'
+        andamento_varios: 'Analyzing… (reading {n} updates)'
+        base_um: 'Basis: {n} update. Check the original document before acting.'
+        base_varios: 'Basis: {n} updates. Check the original document before acting.'
+        resumo_rotulo: Analysis summary
+        ponto_rotulo: Analysis point
+        remover_ponto: Remove point
+        nota_edicao: 'Content originally generated by AI. Your edit is recorded as "{editado}".'
+        salvar: Save
+        cancelar: Cancel
+        interna_bloqueia: 'Internal firm analysis: release the lock to send it to the client.'
+        reenviar: Resend to client
+        enviar: Send to client
+        vazia: No AI analysis yet for this matter.
+    conversa:
+        sugestao_parado: Is this case stalled?
+        sugestao_falta: What is left to do?
+        sugestao_prazo: Check if there is a deadline
+        sugestao_risco: Is there any risk?
+        carregando: Loading the conversation…
+        vazia: Ask about this matter. The AI already knows the client, the case, the deadlines, the goals, the entries and the documents.
+        sugestoes: Suggested questions
+        consultando: Checking the data of this matter
+        lendo: Reading entries and documents
+        redigindo: Writing the answer
+        frase_1: Doing a deep analysis of the matter, item by item.
+        frase_2: Cross-checking entries, goals and documents against each other.
+        frase_3: Reading the updates of the linked case.
+        frase_4: Checking the deadlines and goals of the matter.
+        frase_5: Checking the notes and remarks of the matter.
+        frase_6: Looking for inconsistencies that would go unnoticed.
+        frase_7: Organizing the answer around what really matters.
+        placeholder: Ask about this matter...
+        campo: Question for the AI
+        enviar: Send
+    auditoria:
+        rotulo: Audit log
+        carregando: Loading the log…
+        download: 'Download: {oque}'
+        impressao: 'Print: {oque}'
+        pedida_por: 'requested by {nome}'
+        excluida: removed from the screen
+        vazia: No AI action in this matter yet.
+        mostrando: 'Showing the {n} most recent of {total}.'
+    admin:
+        estado: Platform status
+        provedor: AI provider
+        configurado: configured
+        nao_configurado: not configured
+        flag: Platform flag (IA_HABILITADA)
+        ligada: on
+        desligada: off
+        uso: Usage by this firm
+        uso_hoje: today
+        uso_mes: this month
+        aviso_plataforma: AI not set up in this installation. Turning it on here activates nothing until the platform has a provider configured.
+        operacional: BlueJus AI is operational in this firm.
+        configuracao: Firm settings
+        envio:
+            intro: 'By turning it on, the firm agrees to send data to an external AI provider, under Annex I of the Privacy Policy:'
+            pasta: 'matter data:'
+            pasta_numero: number
+            pasta_situacao: status
+            pasta_prioridade: priority
+            pasta_abertura: opening date
+            pasta_acao: action
+            pasta_responsavel: responsible
+            pasta_equipe: team names
+            e: and
+            processos: 'linked cases:'
+            processo_numero: number
+            processo_classe: class
+            processo_assunto: subject
+            processo_tribunal: court
+            processo_orgao: body
+            processo_situacao: case status
+            agentes: 'what the agents read from the matter:'
+            push: 'in Case Push Summarize with AI: the DJEN publications and the Datajud updates of the linked cases (date, type, court, body and text);'
+            analise_anterior: the summary of the previous analysis made by the AI itself in the same matter, sent again so that it does not repeat itself;
+            documentos: 'in Read matter documents: the content of the PDF and image files the person chooses, up to 3 at a time, with the name of each one.'
+            fim: 'Financial data is sent only when the person requesting the analysis can see it. Personal data (CPF, CNPJ, phone and email) is masked by default. Cases under seal are never sent.'
+        aceite_documentos: 'The consent text changed on 10/24/2026 and now mentions reading the documents chosen. Save with the AI on to renew the consent; until then, the AI does not read documents.'
+        consentimento: 'Consent recorded on {quando}.'
+        consentimento_por: 'Consent recorded on {quando} by {nome}.'
+        cotas: Quotas count every request made in the firm, including those that failed.
+        consumo:
+            titulo: Usage this month
+            analises: Analyses this month
+            analises_valor: '{n} of {limite}'
+            gasto: Estimated spending
+            orcamento: Monthly budget
+            modo: Billing
+            dolares: 'US$ {valor}'
+            nota: Amounts estimated at Anthropic list prices.
+        mascarar: Recommended. The case number is never masked.
+        salvar: Save
+    saldo:
+        barra_texto: 'Free AI: {usadas} of {direito} documents used'
+        barra_aviso: Less than 1 document left. Invite a colleague to earn 3 more.
+        barra_aria: Free AI usage
+        ganhar_mais: Get more
+        janela_titulo: Your free AI is used up
+        janela_texto: 'You used the equivalent of {pecas} documents. Invite a colleague: when they sign up and confirm their email, you earn 3 more.'
+        janela_titulo_convite: Get more free AI
+        janela_texto_convite: 'Invite a colleague: when they sign up and confirm their email, you earn 3 more documents.'
+        copiar: Copy my link
+        copiado: Link copied.
+        whatsapp: Send via WhatsApp
+        email: Invite by email
+        fechar: Close
+        plano_pago: With a paid plan, the firm uses the AI without this limit.
+        plano_pago_link: See the plans
+        falhou: Could not load your link now. Please try again.
+        leitura_aviso: This reading may use a good part of your free AI
+    js:
+        agentes:
+            falha_atualizar: Could not update the analyses.
+            falha_carregar: Could not load the analyses.
+            analisando: Analyzing…
+            em_andamento: Analysis in progress
+            gerar_analise: Generate analysis
+            gerar_nova: Generate new analysis
+            dica_nova: New analysis considering the history
+            dica_primeira: Reads the data of this matter and answers
+            demorando: The analysis is taking longer than usual. Reload the page later to see the result.
+            dica_indice_marque: Check the documents for the index
+            dica_indice_monta: Builds the index of the documents checked
+            dica_ler_marque: Check the documents for the AI to read
+            dica_ler: Sends the content of the documents checked to the AI
+            ler_selecione: Select
+            ler_um: Read 1 document
+            ler_varios: 'Read {n} documents'
+            contagem: '{marcados} of {total}'
+            falha_pedir: Could not request the analysis now. Please try again.
+            falha_atualizar_analise: Could not update the analysis.
+            falha_ler: Could not read the analysis.
+            sem_copiar: This browser does not allow copying from here.
+            falha_copiar: Could not copy the analysis.
+            popup_bloqueado: The browser blocked the print window. Allow pop-up windows for this site.
+            falha_imprimir: Could not print the analysis.
+            meta_linha: 'Action indicated by the BlueJus AI {agente} on {quando}.'
+            meta_agente: agent
+            meta_aviso: AI-generated · not an official act of the case. Check the original documents before acting.
+            meta_quem: 'Who should act: {quem}'
+            meta_resumo: 'Summary: {resumo}'
+            meta_titulo: Action indicated by the AI analysis
+        conversa:
+            falha_enviar: Could not send the question now. Please try again.
+            falha_carregar: Could not load the conversation.
+            demorando: The answer is taking longer than usual. Reload the page later to see the result.
+        push:
+            analisando: Analyzing…
+            gerar_nova: Generate new analysis
+            resumir: Summarize with AI
+            dica_primeira: The AI reads the updates and points out deadlines and actions
+            dica_nao_analisadas: '{n} update(s) not yet analyzed'
+            dica_nova: New analysis considering the history
+            falha_atualizar: Could not update the analyses.
+            demorando: The analysis is taking longer than usual. Reload the page later to see the result.
+            falha_pedir: Could not request the analysis now. Please try again.
+            falha_atualizar_analise: Could not update the analysis.
+            expandir: Expand the analysis
+            recolher: Collapse the analysis
+            falha_guardar: Could not save your choice.
+            meta_linha: 'Action indicated by the BlueJus AI analysis of {quando}.'
+            meta_aviso: AI-generated · not an official update. Check the original document before acting.
+            meta_quem: 'Who should act: {quem}'
+            meta_resumo: 'Summary: {resumo}'
+            meta_titulo: Action indicated by the AI analysis
