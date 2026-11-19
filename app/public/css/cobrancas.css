@@ -48,7 +48,7 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .carteira-chip.is-alerta strong { color: inherit; }
 /* A procedência ("· pela importação dos relatórios") é nota de rodapé dentro do selo: fica, mas
    não disputa leitura com a data. Some no celular, onde a linha é curta demais para carregá-la. */
-.carteira-chip-fonte { opacity: .75; }
+.carteira-chip-fonte { color: var(--bs-secondary-color); } /* guia v30 (A3): tom de apoio no lugar da opacidade (3,7:1) */
 @media (max-width: 575.98px) { .carteira-chip-fonte { display: none; } }
 
 /* ── Faixa de indicadores ───────────────────────────────────────
@@ -209,7 +209,7 @@ html[data-bs-theme="dark"] .cobranca-subnav-item.active { background: rgba(var(-
 .cobranca-card .table > tbody > tr.cobranca-row-link:hover > * * { color: #fff !important; }
 .cobranca-card .table > tbody > tr.cobranca-row-link:hover > * .bjp-etiqueta { background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7); }
 .cobranca-card .table > tbody > tr.cobranca-row-link:hover > * .bjp-etiqueta::before { background: #fff; }
-.cobranca-row-link .sort-icon { opacity: .35; }
+.cobranca-row-link .sort-icon { opacity: .65; } /* guia v30 (A3): ícone com 3:1 */
 
 /* Largura das colunas em `rem`, não em px: assim elas acompanham o tamanho de fonte do usuário
    em vez de espremer o conteúdo quando ele aumenta o zoom de texto. */
@@ -436,7 +436,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-pessoa-contatos > span, .jp-pessoa-contatos > a { display: inline-flex; align-items: baseline; gap: .3rem; }
 .jp-pessoa-contatos a { color: inherit; text-decoration: none; }
 .jp-pessoa-contatos a:hover { color: var(--jp-accent); text-decoration: underline; }
-.jp-contato-label { font-weight: 600; opacity: .75; white-space: nowrap; }
+.jp-contato-label { font-weight: 600; color: var(--bs-secondary-color); white-space: nowrap; }
 
 /* ── Seções da aba Cobrança ── */
 .jp-secao { margin-bottom: 1.5rem; }
@@ -614,7 +614,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 /* O % vive DENTRO do rótulo: é contexto, não dinheiro. `text-transform: none` para não virar caixa-alta.
    `white-space: nowrap` no par número+unidade, para "1% a.m. pró-rata" não quebrar no meio. */
 .cob-obr-detalhe-pct {
-    font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .8; white-space: nowrap;
+    font-weight: 600; text-transform: none; letter-spacing: 0; white-space: nowrap;
 }
 .cob-obr-detalhe-val { font-size: .875rem; font-weight: 600; margin-top: .1875rem; font-variant-numeric: tabular-nums; }
 /* Encargo zerado fica CINZA, não some (decisão do dono mantida do desenho anterior): a ausência do
@@ -840,7 +840,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     border-top: 1px dashed var(--bs-border-color);
 }
 .jp-substituidas-toggle:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
-.jp-obr.is-substituida { opacity: .62; }
+.jp-obr.is-substituida { color: var(--bs-secondary-color); } /* guia v30 (A3): substituída pelo riscado e pelo tom, sem opacidade (2,8:1) */
 .jp-obr.is-substituida .jp-obr-desc { text-decoration: line-through; text-decoration-thickness: 1px; }
 
 /* ── "Já pago" (R5): histórico de faturamento, recolhido, abaixo da fila de cobrança ───────────────
@@ -1773,7 +1773,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* ── Documentos do objeto: chips de exemplo na área vazia (desenho Objeto 1A, aba Documentos) ──
    Medidas e cores do desenho: fila centralizada e quebrável, 7px entre chips, 14px abaixo da dica;
-   chip em pílula de 11.5px, texto #8a9aa6 sobre #f1f5f7 com borda #e2eaef. No tema escuro, as mesmas
+   chip em pílula de 11.5px, texto #4f6878 (guia v30, A3) sobre #f1f5f7 com borda #e2eaef. No tema escuro, as mesmas
    proporções sobre as cores do tema (o cinza claro do desenho viraria um clarão no fundo escuro). */
 .fm-vazio-categorias {
     display: flex;
@@ -1785,7 +1785,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .fm-vazio-categoria {
     font-size: 11.5px;
     line-height: 1.5;
-    color: #8a9aa6;
+    color: #4f6878;   /* guia v30 (A3): 5:1 sobre o fundo claro (era 2,6:1) */
     background: #f1f5f7;
     border: 1px solid #e2eaef;
     padding: 3px 10px;
