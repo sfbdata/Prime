@@ -186,6 +186,8 @@
             <h1 class="ci-titulo-conversa" id="ci-titulo-conversa">{{ 'chat_ia.titulo_pagina'|trans }}</h1>
         </header>
 
+        {{ include('inteligencia/_barra_de_uso.html.twig', {indicacao: false}) }}
+
         <div class="ci-banner" id="ci-banner" role="status" hidden>
             <svg class="ci-svg" aria-hidden="true"><use href="#ci-i-aviso"/></svg>
             <div>
@@ -259,6 +261,7 @@
     </div>
 </div>
 
+{{ include('inteligencia/_janela_saldo_esgotado.html.twig') }}
 <script src="{{ asset('js/chat-ia-markdown.js') }}"></script>
 <script src="{{ asset('js/chat-ia.js') }}"></script>
 </body>

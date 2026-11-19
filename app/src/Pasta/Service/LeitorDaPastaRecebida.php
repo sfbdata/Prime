@@ -60,13 +60,14 @@ final class LeitorDaPastaRecebida
             $dados = $recebida->abaVisivel(AbaDaPasta::Dados);
             $documentos = $recebida->abaVisivel(AbaDaPasta::Documentos);
             $metas = $recebida->abaVisivel(AbaDaPasta::Tarefas);
+            $estado = $this->andamento->estado($recebida->pasta, $recebida->tenant);
 
             return new PastaRecebidaOutput(
                 $recebida->compartilhamentoId(),
                 (string) $recebida->pasta->getNup(),
                 (string) $recebida->pasta->getNomeCliente(),
                 (string) $recebida->pasta->getNomeAcao(),
-                $this->faseAtual($recebida),
+                (string) ($estado['fases'][$estado['atual']][0] ?? ''),
                 self::nome($recebida->origem),
                 (string) $recebida->tenant->getName(),
                 $p->movimentar,
@@ -79,6 +80,7 @@ final class LeitorDaPastaRecebida
                 $dados ? $this->andamentos($recebida) : [],
                 $documentos ? $this->documentos($recebida) : [],
                 $metas ? $this->metasAbertas($recebida) : [],
+                $p->movimentar && !$recebida->soLeitura ? self::fasesAoAlcance($estado) : [],
             );
         });
     }
@@ -199,11 +201,16 @@ final class LeitorDaPastaRecebida
             || ($regra->alcanca((int) $c->getOrigem()->getId()) && !$this->abas->podeConfigurar($c->getOrigem(), $c->getTenant()));
     }
 
-    private function faseAtual(PastaRecebida $recebida): string
+    /**
+     * As fases da troca de fase da página (fatia 9b), com o nome: a regra é a do servidor.
+     *
+     * @param array{fases: list<array{0: string, 1: string}>, atual: int} $estado
+     *
+     * @return list<array{indice: int, nome: string}>
+     */
+    private static function fasesAoAlcance(array $estado): array
     {
-        $estado = $this->andamento->estado($recebida->pasta, $recebida->tenant);
-
-        return (string) ($estado['fases'][$estado['atual']][0] ?? '');
+        return array_map(static fn (int $k): array => ['indice' => $k, 'nome' => $estado['fases'][$k][0]], FasesDaPastaRecebida::aoAlcance($estado));
     }
 
     /** @return list<array{autor: string, em: \DateTimeImmutable, texto: string, sistema: bool, resposta: bool}> */

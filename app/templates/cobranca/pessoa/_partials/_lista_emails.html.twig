@@ -3,14 +3,14 @@
    "adicionar" só acrescenta, "marcar atual" só troca a flag (o item anterior permanece na lista).
    Contexto herdado do show: `pessoa` (PessoaFichaOutput) e `formEmail` (AdicionarEmailType).
 ─────────────────────────────────────────────────────────────────────────── #}
-<div class="card cobranca-card mb-3">
-    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-envelope me-1"></i>{{ 'cobranca_pessoa.emails.titulo'|trans }} <span class="badge text-bg-secondary">{{ pessoa.emails|length }}</span></span>
-        <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="collapse" data-bs-target="#formAdicionarEmail" aria-expanded="false" aria-controls="formAdicionarEmail">
-            <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_pessoa.comum.adicionar'|trans }}
+<div class="bjp-painel cobranca-card mb-3">
+    <div class="bjp-painel-cabeca fw-semibold d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-envelope me-1"></i>{{ 'cobranca_pessoa.emails.titulo'|trans }} <span class="bjp-etiqueta bjp-etiqueta--neutro">{{ pessoa.emails|length }}</span></span>
+        <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="collapse" data-bs-target="#formAdicionarEmail" aria-expanded="false" aria-controls="formAdicionarEmail">
+            <i class="bi bi-plus-lg"></i>{{ 'cobranca_pessoa.comum.adicionar'|trans }}
         </button>
     </div>
-    <div class="card-body">
+    <div class="bjp-painel-corpo">
         {% if pessoa.emails|length > 0 %}
         <ul class="list-unstyled mb-0">
             {% for m in pessoa.emails %}
@@ -22,11 +22,11 @@
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
                     {% if m.atual %}
-                        <span class="badge text-bg-success">{{ 'cobranca_pessoa.comum.atual'|trans }}</span>
+                        <span class="bjp-etiqueta bjp-etiqueta--ok">{{ 'cobranca_pessoa.comum.atual'|trans }}</span>
                     {% else %}
                         <form method="POST" action="{{ path('cobranca_pessoa_email_atual', {id: pessoa.id, itemId: m.id}) }}" data-disable-on-submit="true">
                             <input type="hidden" name="_token" value="{{ csrf_token('marcar_email_atual_' ~ m.id) }}">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'cobranca_pessoa.comum.marcar_atual'|trans }}</button>
+                            <button type="submit" class="bjp-btn bjp-btn--secundario">{{ 'cobranca_pessoa.comum.marcar_atual'|trans }}</button>
                         </form>
                     {% endif %}
                 </div>
@@ -47,7 +47,7 @@
             }) }}
             {{ form_row(formEmail.email) }}
             <div class="mt-2">
-                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.emails.salvar'|trans }}</button>
+                <button type="submit" class="bjp-btn bjp-btn--primario"><i class="bi bi-check-lg"></i>{{ 'cobranca_pessoa.emails.salvar'|trans }}</button>
             </div>
             {{ form_end(formEmail) }}
         </div>

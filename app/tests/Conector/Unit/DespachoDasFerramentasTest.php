@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Conector\Unit;
 
+use App\Conector\DTO\ArquivoNaResposta;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Service\RequisicaoDoConector;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
+use Mcp\Schema\Content\EmbeddedResource;
+use Mcp\Schema\Content\ImageContent;
 use Mcp\Schema\Content\TextContent;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -122,6 +125,18 @@ final class DespachoDasFerramentasTest extends TestCase
         );
     }
 
+    #[TestDox('a página seguinte pode ser um cursor em texto: sai como veio, nos dois campos')]
+    public function testProximaPaginaEmTexto(): void
+    {
+        $ferramenta = self::ferramenta('ler_agenda', new RespostaDaFerramenta(['itens' => []], 'c:2026-11-16:40'));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], self::aberta()))->executar($ferramenta, []);
+
+        self::assertFalse($resultado->isError);
+        self::assertSame(['itens' => [], 'proxima_pagina' => 'c:2026-11-16:40'], $resultado->structuredContent);
+        self::assertSame('{"itens":[],"proxima_pagina":"c:2026-11-16:40"}', self::texto($resultado->content[0]));
+    }
+
     #[TestDox('dado vazio sai como objeto JSON nos dois campos')]
     public function testDadoVazioEhObjeto(): void
     {
@@ -200,6 +215,85 @@ final class DespachoDasFerramentasTest extends TestCase
         self::assertSame(200, $resposta->getStatusCode());
         self::assertTrue(self::corpo($resposta)['result']['isError']);
         self::assertSame(ErroDaFerramenta::NAO_ENCONTRADO, self::corpo($resposta)['result']['content'][0]['text']);
+    }
+
+    #[TestDox('arquivo na resposta (decisão 24): a imagem vira ImageContent em base64 num bloco à parte, depois do JSON dos metadados')]
+    public function testImagemVaiComoImageContent(): void
+    {
+        $png = "\x89PNG\r\n\x1A\nimagem";
+        $arquivo = new ArquivoNaResposta($png, 'image/png', 'bluejus://pasta/1/documento/2');
+        $ferramenta = self::ferramenta('ler_documentos_e_modelos', new RespostaDaFerramenta(['id' => 2, 'tipo' => 'image/png'], arquivo: $arquivo));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], self::aberta()))->executar($ferramenta, []);
+
+        self::assertFalse($resultado->isError);
+        self::assertCount(2, $resultado->content);
+        self::assertSame('{"id":2,"tipo":"image/png"}', self::texto($resultado->content[0]));
+        self::assertInstanceOf(ImageContent::class, $resultado->content[1]);
+        self::assertSame(base64_encode($png), $resultado->content[1]->data);
+        self::assertSame('image/png', $resultado->content[1]->mimeType);
+        self::assertSame(['id' => 2, 'tipo' => 'image/png'], $resultado->structuredContent, 'o structuredContent leva só os metadados');
+    }
+
+    #[TestDox('arquivo na resposta (decisão 24): o PDF vira recurso embutido com BlobResourceContents, a uri e o meta experimental')]
+    public function testPdfVaiComoRecursoEmbutido(): void
+    {
+        $pdf = "%PDF-1.7\nconteudo";
+        $arquivo = new ArquivoNaResposta($pdf, 'application/pdf', 'bluejus://pasta/1/documento/2');
+        $ferramenta = self::ferramenta('ler_documentos_e_modelos', new RespostaDaFerramenta(['id' => 2], arquivo: $arquivo));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], self::aberta()))->executar($ferramenta, []);
+
+        self::assertCount(2, $resultado->content);
+        $bloco = $resultado->content[1];
+        self::assertInstanceOf(EmbeddedResource::class, $bloco);
+        self::assertSame(
+            ['blob' => base64_encode($pdf), 'uri' => 'bluejus://pasta/1/documento/2', 'mimeType' => 'application/pdf', '_meta' => ['experimental' => true]],
+            $bloco->resource->jsonSerialize(),
+        );
+    }
+
+    #[TestDox('arquivo na resposta (decisão 24): o JSON continua dentro do teto de 50 mil mesmo com um arquivo de 8 MB; só o JSON conta')]
+    public function testArquivoGrandeNaoEntraNoTeto(): void
+    {
+        $grande = "%PDF-1.7\n" . str_repeat('A', 8 * 1024 * 1024);
+        $arquivo = new ArquivoNaResposta($grande, 'application/pdf', 'bluejus://pasta/1/documento/2');
+        $ferramenta = self::ferramenta('ler_documentos_e_modelos', new RespostaDaFerramenta(['id' => 2], arquivo: $arquivo));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], self::aberta()))->executar($ferramenta, []);
+
+        self::assertFalse($resultado->isError);
+        self::assertLessThan(DespachoDasFerramentas::TETO_DE_CARACTERES, mb_strlen(self::texto($resultado->content[0])));
+        self::assertInstanceOf(EmbeddedResource::class, $resultado->content[1]);
+    }
+
+    #[TestDox('arquivo na resposta (regra 9): o log anota o sha256 do arquivo e nunca o conteúdo, a uri nem o base64')]
+    public function testLogAnotaSoOHash(): void
+    {
+        $pdf = "%PDF-1.7\nconteudo secreto";
+        $requisicao = self::aberta();
+        $arquivo = new ArquivoNaResposta($pdf, 'application/pdf', 'bluejus://pasta/1/documento/2');
+        $ferramenta = self::ferramenta('ler_documentos_e_modelos', new RespostaDaFerramenta(['id' => 2], contagens: ['bytes' => \strlen($pdf)], ids: ['documento' => [2]], arquivo: $arquivo));
+
+        (new DespachoDasFerramentas([$ferramenta], $requisicao))->executar($ferramenta, []);
+
+        self::assertSame(hash('sha256', $pdf), $requisicao->anotacao('arquivo_sha256'));
+        $anotacoes = json_encode($requisicao->anotacoes(), \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('secreto', $anotacoes);
+        self::assertStringNotContainsString(base64_encode($pdf), $anotacoes);
+        self::assertStringNotContainsString('bluejus://', $anotacoes);
+    }
+
+    #[TestDox('sem arquivo, o content tem um bloco só e o log não leva arquivo_sha256')]
+    public function testSemArquivoNaoAnotaHash(): void
+    {
+        $requisicao = self::aberta();
+        $ferramenta = self::ferramenta('ler_agenda', new RespostaDaFerramenta(['a' => 1]));
+
+        $resultado = (new DespachoDasFerramentas([$ferramenta], $requisicao))->executar($ferramenta, []);
+
+        self::assertCount(1, $resultado->content);
+        self::assertNull($requisicao->anotacao('arquivo_sha256'));
     }
 
     private static function aberta(): RequisicaoDoConector

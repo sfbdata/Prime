@@ -7,22 +7,29 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
+use App\Inteligencia\DTO\FiltroDoAgenteInput;
+use App\Inteligencia\Service\ConsultaDePastasDoAgente;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Zenstruck\Foundry\Test\Factories;
 
 /**
  * A pasta excluída (lápide) mora só na lixeira do escritório desde 18/11/2026 (pedido do Samuel, no
  * lugar das decisões de 28/08 e 31/08 de mantê-la riscada na lista). Aqui se prova contra o Postgres
  * que ela sai da lista do acervo, das contagens e dos marcadores, que são as consultas da tela do
- * Expediente, do CSV, do Minhas Demandas e do agente de pastas.
+ * Expediente, do CSV, do Minhas Demandas e do agente de pastas. Também a ficha do cliente e a busca
+ * do agente pelo número, que ainda achavam a lápide.
  */
 #[CoversClass(PastaRepository::class)]
 final class PastaRepositoryLapideForaDoAcervoTest extends KernelTestCase
 {
+    use Factories;
+
     private EntityManagerInterface $em;
     private PastaRepository $repo;
     private Tenant $tenant;
@@ -103,5 +110,33 @@ final class PastaRepositoryLapideForaDoAcervoTest extends KernelTestCase
         self::assertSame(1, $porMarcador[$topo->getId()] ?? 0);
         self::assertSame(0, $porMarcador[$filho->getId()] ?? 0);
         self::assertSame(1, $this->repo->countPorMarcadoresDeTopoComFilhos($this->tenant)[$topo->getId()] ?? 0);
+    }
+
+    #[TestDox('ficha do cliente: as pastas do cliente deixam a lápide de fora')]
+    public function testPastasDoClienteSemLapide(): void
+    {
+        $cliente = ClientePFFactory::createOne(['tenant' => $this->tenant])->_real();
+        $viva = $this->criarPasta('2001');
+        $viva->addCliente($cliente);
+        $lapide = $this->criarPasta('2002', excluida: true);
+        $lapide->addCliente($cliente);
+        $this->em->flush();
+
+        self::assertSame(['2001'], self::nups($this->repo->findByCliente($cliente, $this->tenant)));
+    }
+
+    #[TestDox('agente: a busca pelo número acha só a pasta viva quando a lápide tinha o mesmo número')]
+    public function testAgentePorNumeroSemLapide(): void
+    {
+        $lapide = $this->criarPasta('2005', excluida: true);
+        $viva = $this->criarPasta('2005');
+        $consulta = static::getContainer()->get(ConsultaDePastasDoAgente::class);
+        $filtro = FiltroDoAgenteInput::daQuery(['nups' => '2005']);
+
+        $achadas = $consulta->buscar($filtro, $this->tenant, 50);
+
+        self::assertSame([$viva->getId()], array_map(static fn (Pasta $p): ?int => $p->getId(), $achadas));
+        self::assertNotSame($lapide->getId(), $viva->getId());
+        self::assertSame(1, $consulta->contar($filtro, $this->tenant));
     }
 }

@@ -6,12 +6,15 @@ namespace App\Tests\Indicacao\Functional;
 
 use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Event\EmailDaContaConfirmado;
 use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Entity\IndicacaoConfig;
 use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\EventListener\BonusDeEspacoPorIndicacaoListener;
+use App\Indicacao\Service\AvisoDeColegaCadastradoAoIndicador;
 use App\Indicacao\EventListener\CadastroPeloLinkListener;
 use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -104,7 +107,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/i/' . strtolower(self::CODIGO));
         self::assertResponseRedirects('/cadastro?ind=' . self::CODIGO);
 
-        $nova = $this->cadastrar();
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         $atribuicoes = $this->atribuicoesDe($nova);
         self::assertCount(1, $atribuicoes);
@@ -156,7 +159,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         // Pelo HTTP a conta nova nunca tem código antes de nascer: o evento é disparado direto, com a sessão no request.
         $sessao = new Session(new MockArraySessionStorage());
         $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
-        $request = new Request();
+        $request = new Request(content: json_encode(['indicacao' => 'BJ-' . self::CODIGO], JSON_THROW_ON_ERROR));
         $request->setSession($sessao);
         $pilha = static::getContainer()->get(RequestStack::class);
         $pilha->push($request);
@@ -200,7 +203,8 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->client->request('GET', '/i/' . self::CODIGO);
 
-        $nova = $this->cadastrar();
+        // O cupom vai no formulário, como a tela o preenche a partir da sessão (spec ia-liberada-por-indicacao, seção 8).
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         self::assertCount(1, $this->atribuicoesDe($nova));
     }
@@ -213,7 +217,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $antes = $repo->totais($agora->modify('-24 hours'));
         $this->client->request('GET', '/i/' . self::CODIGO);
 
-        $this->cadastrar();
+        $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
 
         $anaId = (int) $this->ana->getId();
         self::assertSame(0, $repo->contarDoUsuarioDesde($anaId, $agora->modify('-24 hours')), 'atribuir não conta no limite nem no alerta');
@@ -275,6 +279,50 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $nova = $this->cadastrar(['indicacao' => '']);
 
         self::assertSame([], $this->atribuicoesDe($nova));
+    }
+
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: código plantado na sessão e formulário com indicacao vazia não gera indicação')]
+    public function testSessaoComIndicacaoVaziaNaoLiga(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => '']);
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao(), 'a chave sai da sessão no cadastro, usada ou não');
+    }
+
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: formulário sem o campo indicacao não gera indicação, mesmo com código na sessão')]
+    public function testSessaoSemOCampoIndicacaoNaoLiga(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar();
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('spec ia-liberada-por-indicacao, seção 8: o cupom da sessão aparece preenchido no Criar conta, igual para código válido e inválido')]
+    #[TestWith([self::CODIGO])]
+    #[TestWith(['NAOEXISTE'])]
+    public function testCupomDaSessaoApareceNoCriarConta(string $codigo): void
+    {
+        $sessao = $this->client->getSession();
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, $codigo);
+        $sessao->save();
+
+        $this->client->request('GET', '/login');
+
+        self::assertSelectorExists('[data-ind="BJ-' . $codigo . '"]');
+    }
+
+    #[TestDox('sem código na sessão nem na URL, o Criar conta vem com o cupom vazio')]
+    public function testSemCodigoOCupomVemVazio(): void
+    {
+        $this->client->request('GET', '/login');
+
+        self::assertSelectorExists('[data-ind=""]');
     }
 
     #[TestDox('o campo é a palavra final: o cupom digitado vale no lugar do código do link curto')]
@@ -340,6 +388,28 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         );
     }
 
+    /** @return list<string> os títulos dos avisos "colega se cadastrou" de quem indicou */
+    private function avisosDeColegaDe(int $indicadorId): array
+    {
+        return $this->conexao->fetchFirstColumn(
+            "SELECT titulo FROM notificacao WHERE usuario_id = ? AND tipo = 'ia_colega_cadastrado' ORDER BY id",
+            [$indicadorId],
+        );
+    }
+
+    /**
+     * O aviso ao indicador é uma notificação, que sempre mora num escritório: sem vínculo ativo de quem indicou (nem
+     * escritório de origem na indicação) não há onde avisar.
+     */
+    private function darEscritorioAAna(): void
+    {
+        $escritorio = new Tenant();
+        $escritorio->setName('Escritório da Ana ' . uniqid());
+        $this->em->persist($escritorio);
+        $this->em->persist(new UserTenant($this->ana, $escritorio));
+        $this->em->flush();
+    }
+
     private function confirmarEmail(int $contaId): void
     {
         $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$contaId]);
@@ -351,6 +421,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
     #[TestDox('Bônus: cupom + cadastro por e-mail não concede; ao confirmar o e-mail concede 5 GB por 30 dias ao escritório da conta nova, uma vez só')]
     public function testBonusSoDepoisDeConfirmarOEmail(): void
     {
+        $this->darEscritorioAAna();
         $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
         self::assertSame([], $this->bonusDe($nova), 'sem confirmar o e-mail não há bônus');
 
@@ -365,18 +436,24 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         self::assertSame(30, $dias);
         self::assertSame((int) $this->atribuicoesDe($nova)[0]['id'], (int) $bonus[0]['indicacao_id']);
         self::assertSame([], $this->bonusDe((int) $this->ana->getId()), 'quem indicou não ganha');
+        self::assertSame(
+            ['Nova Pessoa se cadastrou pelo seu convite: você ganhou mais 3 peças na I.A.'],
+            $this->avisosDeColegaDe((int) $this->ana->getId()),
+            'quem indicou é avisado uma vez só, mesmo com o evento repetido',
+        );
     }
 
     #[TestDox('Bônus: conta que já nasce confirmada (Google) ganha logo no evento do cadastro, e o evento de confirmação depois não duplica')]
     public function testBonusNaContaQueNasceConfirmada(): void
     {
+        $this->darEscritorioAAna();
         $nova = $this->cadastrar();
         $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$nova]);
         static::getContainer()->get(EntityManagerInterface::class)->clear();
         $tenantId = (int) $this->conexao->fetchOne('SELECT tenant_id FROM user_tenant WHERE user_id = ?', [$nova]);
         $sessao = new Session(new MockArraySessionStorage());
         $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
-        $request = new Request();
+        $request = new Request(content: json_encode(['indicacao' => 'BJ-' . self::CODIGO], JSON_THROW_ON_ERROR));
         $request->setSession($sessao);
         $pilha = static::getContainer()->get(RequestStack::class);
         $pilha->push($request);
@@ -391,6 +468,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $bonus = $this->bonusDe($nova);
         self::assertCount(1, $bonus);
         self::assertSame($tenantId, (int) $bonus[0]['tenant_id']);
+        self::assertCount(1, $this->avisosDeColegaDe((int) $this->ana->getId()), 'o aviso sai no cadastro e o evento de confirmação não repete');
     }
 
     #[TestDox('Bônus: sem cupom, ou com cupom inválido, a confirmação do e-mail não concede nada')]
@@ -404,6 +482,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
 
         self::assertSame([], $this->bonusDe($semCupom));
         self::assertSame([], $this->bonusDe($invalido));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()), 'sem indicação válida ninguém é avisado');
     }
 
     #[TestDox('Bônus: falha ao conceder vira log e não derruba a confirmação do e-mail')]
@@ -417,5 +496,20 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->confirmarEmail($nova);
 
         self::assertSame([], $this->bonusDe($nova));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()), 'sem concessão não há aviso');
+    }
+
+    #[TestDox('Aviso: falha ao avisar quem indicou vira log e não desfaz o bônus nem derruba a confirmação')]
+    public function testFalhaNoAvisoNaoDerrubaNada(): void
+    {
+        $quebrado = $this->createStub(AvisoDeColegaCadastradoAoIndicador::class);
+        $quebrado->method('avisar')->willThrowException(new \RuntimeException('sino fora do ar'));
+        static::getContainer()->set(AvisoDeColegaCadastradoAoIndicador::class, $quebrado);
+        $nova = $this->cadastrar(['indicacao' => self::CODIGO]);
+
+        $this->confirmarEmail($nova);
+
+        self::assertCount(1, $this->bonusDe($nova));
+        self::assertSame([], $this->avisosDeColegaDe((int) $this->ana->getId()));
     }
 }

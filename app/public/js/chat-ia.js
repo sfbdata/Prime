@@ -132,6 +132,8 @@
     }
 
     function textoDoErro(dados) {
+        /* Saldo da I.A. gratuita esgotado: além da mensagem do servidor no aviso, abre a janela da trava (ia-saldo.js). */
+        if (window.BJIaSaldo) { window.BJIaSaldo.recusou(dados); }
         var codigo = dados && dados.codigo;
         if (codigo === 'rede') { return T('erro_rede'); }
         if (codigo === 'sem_chave') { return T('erro_sem_chave'); }

@@ -220,6 +220,8 @@
             var d = res.dados;
             if (!res.ok) {
                 var texto = d.mensagem || falhaAoEnviar();
+                /* Saldo da I.A. gratuita esgotado: abre a janela da trava (ia-saldo.js) no lugar do aviso; o texto escrito fica. */
+                if (window.BJIaSaldo && window.BJIaSaldo.recusou(d)) { sincronizar(); return; }
                 if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) { travar(texto); return; }
                 avisar(texto, true);
                 sincronizar();

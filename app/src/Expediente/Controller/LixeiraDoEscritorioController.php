@@ -71,7 +71,15 @@ final class LixeiraDoEscritorioController extends AbstractController
             'urlPasta'   => $this->generateUrl('pasta_show', $id + ['pex_lixeira' => 1, '_fragment' => 'documentos']),
         ];
         if ($grupo->pastaExcluida) {
-            return $acoes;
+            // Lápide só se olha na lixeira dela; restaurar a PASTA exige DELETE (decidido no UseCase).
+            if (!$grupo->podeRestaurarPasta) {
+                return $acoes;
+            }
+
+            return $acoes + [
+                'urlRestaurarPasta'  => $this->generateUrl('pasta_restaurar', $id),
+                'csrfRestaurarPasta' => $this->csrfTokenManager->getToken('restaurar_pasta_' . $grupo->pastaId)->getValue(),
+            ];
         }
 
         return $acoes + [

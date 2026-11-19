@@ -14,46 +14,46 @@
         {# Cards de estatísticas #}
         <div class="row mb-4">
             <div class="col-lg-3 col-6">
-                <div class="small-box text-bg-warning">
-                    <div class="inner">
-                        <h3>{{ stats.abertos }}</h3>
-                        <p>{{ 'servicedesk.comum.abertos'|trans }}</p>
-                    </div>
-                    <div class="icon">
-                        <i class="bi bi-inbox"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-6">
-                <div class="small-box text-bg-primary">
-                    <div class="inner">
-                        <h3>{{ stats.em_andamento }}</h3>
-                        <p>{{ 'servicedesk.comum.em_andamento'|trans }}</p>
-                    </div>
-                    <div class="icon">
-                        <i class="bi bi-gear-wide-connected"></i>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ stats.abertos }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.abertos'|trans }}</div>
+                        </div>
+                        <i class="bi bi-inbox" style="font-size:24px;color:#8a5a12"></i>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-6">
-                <div class="small-box text-bg-success">
-                    <div class="inner">
-                        <h3>{{ stats.resolvidos }}</h3>
-                        <p>{{ 'servicedesk.comum.resolvidos'|trans }}</p>
-                    </div>
-                    <div class="icon">
-                        <i class="bi bi-check-circle"></i>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ stats.em_andamento }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.em_andamento'|trans }}</div>
+                        </div>
+                        <i class="bi bi-gear-wide-connected" style="font-size:24px;color:#0f6fc4"></i>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-6">
-                <div class="small-box text-bg-danger">
-                    <div class="inner">
-                        <h3>{{ stats.urgentes }}</h3>
-                        <p>{{ 'servicedesk.index.urgentes'|trans }}</p>
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ stats.resolvidos }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.comum.resolvidos'|trans }}</div>
+                        </div>
+                        <i class="bi bi-check-circle" style="font-size:24px;color:#1f9d61"></i>
                     </div>
-                    <div class="icon">
-                        <i class="bi bi-exclamation-triangle"></i>
+                </div>
+            </div>
+            <div class="col-lg-3 col-6">
+                <div class="bjp-painel h-100">
+                    <div class="bjp-painel-corpo d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="bjp-titulo-tela">{{ stats.urgentes }}</div>
+                            <div class="bjp-texto-apoio">{{ 'servicedesk.index.urgentes'|trans }}</div>
+                        </div>
+                        <i class="bi bi-exclamation-triangle" style="font-size:24px;color:#a3232b"></i>
                     </div>
                 </div>
             </div>
@@ -68,8 +68,8 @@
         {% endif %}
 
         {# Filtros #}
-        <div class="card mb-3">
-            <div class="card-body">
+        <div class="bjp-painel mb-3">
+            <div class="bjp-painel-corpo">
                 <form method="GET" action="{{ path('servicedesk_index') }}" class="row g-2 align-items-end">
                     <div class="col-md-2">
                         <label class="form-label">{{ 'servicedesk.comum.status'|trans }}</label>
@@ -114,10 +114,10 @@
                     <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
                         <div>
-                            <button type="submit" class="btn btn-primary btn-sm">
+                            <button type="submit" class="bjp-btn bjp-btn--primario">
                                 <i class="bi bi-search me-1"></i> {{ 'servicedesk.index.filtrar'|trans }}
                             </button>
-                            <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary btn-sm">
+                            <a href="{{ path('servicedesk_index') }}" class="bjp-btn bjp-btn--secundario">
                                 <i class="bi bi-x-lg"></i>
                             </a>
                         </div>
@@ -127,11 +127,11 @@
         </div>
 
         {# Lista de chamados #}
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-list-task me-2"></i>{{ 'servicedesk.index.chamados'|trans({total: stats.total ~ ''}) }}</h3>
+        <div class="bjp-painel">
+            <div class="bjp-painel-cabeca">
+                <h3 class="bjp-painel-titulo"><i class="bi bi-list-task me-2"></i>{{ 'servicedesk.index.chamados'|trans({total: stats.total ~ ''}) }}</h3>
             </div>
-            <div class="card-body table-responsive p-0">
+            <div class="bjp-painel-corpo table-responsive p-0">
                 {% if chamados|length > 0 %}
                 <table class="table table-striped table-hover mb-0">
                     <thead>
@@ -154,17 +154,17 @@
                             <td>{{ chamado.titulo|length > 50 ? chamado.titulo|slice(0, 50) ~ '...' : chamado.titulo }}</td>
                             <td>{{ chamado.solicitante.fullName }}</td>
                             <td>
-                                <span class="badge text-bg-secondary">
+                                <span class="bjp-etiqueta bjp-etiqueta--neutro bjp-etiqueta--sem-ponto">
                                     <i class="{{ chamado.categoriaIcone }} me-1"></i>{{ chamado.categoriaLabel }}
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.prioridadeBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.prioridadeLabel }}
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {{ chamado.statusBadgeClass }}">
+                                <span class="bjp-etiqueta bjp-etiqueta--{{ {'bg-success': 'ok', 'bg-danger': 'critico', 'bg-warning text-dark': 'atencao', 'bg-primary': 'info', 'bg-info': 'info'}[chamado.statusBadgeClass] ?? 'neutro' }}">
                                     {{ chamado.statusLabel }}
                                 </span>
                             </td>
@@ -201,17 +201,17 @@
 
         {# Estatísticas por categoria #}
         {% if stats.por_categoria|length > 0 %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-bar-chart me-2"></i>{{ 'servicedesk.index.por_categoria'|trans }}</h3>
+        <div class="bjp-painel mt-4">
+            <div class="bjp-painel-cabeca">
+                <h3 class="bjp-painel-titulo"><i class="bi bi-bar-chart me-2"></i>{{ 'servicedesk.index.por_categoria'|trans }}</h3>
             </div>
-            <div class="card-body">
+            <div class="bjp-painel-corpo">
                 <div class="row">
                     {% for cat in stats.por_categoria %}
                     <div class="col-md-3 col-6 mb-2">
                         <div class="d-flex justify-content-between align-items-center p-2 border rounded">
                             <span>{{ categorias[cat.categoria] ?? cat.categoria }}</span>
-                            <span class="badge text-bg-primary">{{ cat.total }}</span>
+                            <span class="bjp-etiqueta bjp-etiqueta--info bjp-etiqueta--sem-ponto">{{ cat.total }}</span>
                         </div>
                     </div>
                     {% endfor %}

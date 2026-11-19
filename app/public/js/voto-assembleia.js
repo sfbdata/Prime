@@ -796,7 +796,7 @@
 
     /* Rodapé ("Salvar e sair", "Voltar", "Continuar"), abas e sub-abas: no desenho, sair da etapa grava as pautas. */
     document.addEventListener('click', function (evento) {
-        var link = telaDePautas ? evento.target.closest('.voto-tela a[href]:not([data-voto-assistir])') : null;
+        var link = telaDePautas ? evento.target.closest('.voto-tela a[href]:not([data-voto-assistir]):not([data-voto-unidades])') : null;
         if (!link || evento.defaultPrevented || evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) {
             return;
         }
@@ -839,7 +839,7 @@
     });
 
     document.addEventListener('click', function (evento) {
-        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-opcao-mover], [data-voto-foto-remover], [data-voto-envia], [data-voto-mostrar], [data-voto-assistir], [data-voto-imprimir]');
+        var alvo = evento.target.closest('[data-voto-copiar], [data-voto-numerar], [data-voto-opcao-nova], [data-voto-opcao-remover], [data-voto-opcao-mover], [data-voto-foto-remover], [data-voto-envia], [data-voto-mostrar], [data-voto-assistir], [data-voto-unidades], [data-voto-imprimir]');
         if (!alvo) {
             return;
         }
@@ -870,6 +870,11 @@
         } else if (alvo.hasAttribute('data-voto-assistir')) {
             var janela = window.open(alvo.href, 'voto-assistir-' + (alvo.closest('[data-pauta]') || alvo).getAttribute('data-pauta'), 'popup=yes,width=620,height=560,resizable=yes,scrollbars=yes');
             if (janela) {
+                evento.preventDefault();
+            }
+        } else if (alvo.hasAttribute('data-voto-unidades')) {
+            var janelaUnidades = window.open(alvo.href, 'voto-unidades-' + (alvo.closest('[data-pauta]') || alvo).getAttribute('data-pauta'), 'popup=yes,width=1060,height=760,resizable=yes,scrollbars=yes');
+            if (janelaUnidades) {
                 evento.preventDefault();
             }
         } else if (alvo.hasAttribute('data-voto-imprimir')) {

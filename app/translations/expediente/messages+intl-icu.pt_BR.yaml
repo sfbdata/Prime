@@ -191,6 +191,22 @@ expediente:
         baixar_dica: Baixar o documento
         sem_prazo: Sem prazo
         prazo: 'Prazo: {data}'
+        anotar_rotulo: Nova anotação
+        anotar_placeholder: Escreva uma anotação para a equipe da pasta
+        anotar_nota: 'A anotação fica na pasta de {conta}, com o seu nome.'
+        anotar_enviar: Registrar
+        fase_trocar_rotulo: Mudar para
+        fase_escolher: Escolha a fase
+        fase_trocar: Mudar fase
+        fase_dica: Só as fases do mesmo lado do Contrato. Finalizar e reativar ficam com a conta da pasta.
+        fase_invalida: Escolha uma fase da lista.
+        enviar_categoria: Categoria
+        enviar_arquivo_rotulo: Arquivo para enviar
+        enviar_arquivo: Enviar arquivo
+        sem_arquivo: Escolha um arquivo para enviar.
+        token_invalido: A página expirou. Recarregue e tente de novo.
+        sem_permissao: Você não tem permissão para esta ação nesta pasta.
+        erro_envio: Não foi possível concluir. Tente de novo.
     js:
         lixeira:
             carregando: Carregando a lixeira…
@@ -216,6 +232,13 @@ expediente:
             confirmar_restaurar: 'Restaurar tudo o que está na lixeira da pasta {nup}? Ao todo: {n} item(ns). Cada item volta para o lugar de onde saiu.'
             confirmar_excluir_de_vez: 'Excluir de vez {n} item(ns)? Eles saem do sistema e não podem ser restaurados.'
             restaurando: Restaurando…
+            restaurar_pasta: Restaurar pasta
+            restaurar_pasta_titulo: 'Tira a pasta da lixeira e ela volta para o Expediente'
+            confirmar_restaurar_pasta: 'Restaurar a pasta {nup}?'
+            numero_ocupado: 'O número {nup} já é de outra pasta. Ela volta com o próximo número livre.'
+            restaurando_pasta: Restaurando a pasta…
+            restaurada_pasta: 'Pasta {nup} restaurada.'
+            erro_restaurar_pasta: Não foi possível restaurar a pasta. Tente de novo.
             excluindo_de_vez: Excluindo de vez…
             restaurados: '{n} item(ns) restaurado(s) na pasta {nup}.'
             excluidos_de_vez: '{n} item(ns) excluído(s) de vez na pasta {nup}.'

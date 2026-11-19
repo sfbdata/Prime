@@ -55,3 +55,31 @@
 
 .pr-page .pr-vazio { padding: 14px 0; font-size: 13.5px; color: var(--ps-muted); }
 .pr-page .pr-vazio--sem-abas { margin-top: 18px; padding: 18px 20px; }
+
+/* Fatia 9b: escrever na pasta recebida, só com a caixa do convite (anotação, fase e envio de arquivo). O compositor
+   é o da página da pasta (`.ps-compositor`, `.ps-compositor-caixa`, `.ps-compositor-rodape`); o campo é um texto
+   simples com as medidas do editor de lá (`.ql-editor`: 70px, 13px 15px, 14.5px, 1.55). Campos e botões na altura
+   do `.ps-btn` (34px), com a borda dos controles (`--ps-border-ctl`). */
+.pr-page .pr-compositor { margin: 0 0 4px; border-bottom: 0; }
+.pr-page .pr-compositor-campo {
+    display: block; width: 100%; min-height: 70px; padding: 13px 15px; border: 0; border-radius: 4px 4px 0 0;
+    background: transparent; color: var(--ps-text); font: inherit; font-size: 14.5px; line-height: 1.55; resize: vertical;
+}
+.pr-page .pr-compositor-campo:focus { outline: none; }
+.pr-page .pr-compositor-campo::placeholder { color: var(--ps-placeholder); }
+
+.pr-page .pr-form { margin: 0; }
+.pr-page .pr-fase-form,
+.pr-page .pr-envio { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.pr-page .pr-fase-form { margin-top: 10px; }
+.pr-page .pr-envio { padding: 4px 0 12px; border-bottom: 1px solid var(--ps-div-strong); }
+.pr-page .pr-campo {
+    height: 34px; padding: 0 10px; border: 1px solid var(--ps-border-ctl); border-radius: 4px;
+    background: var(--ps-card); color: var(--ps-text); font: inherit; font-size: 13px;
+}
+.pr-page .pr-campo:focus { border-color: var(--ps-accent); outline: none; }
+.pr-page .pr-arquivo { font-size: 13px; color: var(--ps-text-2); max-width: 320px; }
+.pr-page .pr-erro { flex-basis: 100%; font-size: 12.5px; color: var(--ps-danger-text); }
+.pr-page .pr-compositor .pr-erro { display: block; padding-top: 8px; }
+.pr-page .pr-erro[hidden] { display: none; }
+.pr-page .pr-form [type="submit"]:disabled { opacity: .55; cursor: not-allowed; }

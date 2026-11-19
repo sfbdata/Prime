@@ -208,7 +208,7 @@ final class AbasDoPontoTelaTest extends JusPrimeWebTestCase
         $ficha = $this->client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=justificativas&competencia=%s', $this->escritorio->getId(), $this->eu->getId(), $this->dia->format('Y-m')));
         self::assertResponseIsSuccessful();
 
-        $selos = $ficha->filter('#justificativas .badge, [id^="batch-"] .badge')->each(static fn (Crawler $b): string => trim($b->text()));
+        $selos = $ficha->filter('#justificativas .bjp-etiqueta, [id^="batch-"] .bjp-etiqueta')->each(static fn (Crawler $b): string => trim($b->text()));
         foreach (['Em análise', 'Abonado', 'Recusado'] as $rotulo) {
             self::assertContains($rotulo, $selos, $rotulo);
         }

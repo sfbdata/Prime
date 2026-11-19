@@ -9,6 +9,7 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Ferramenta\TabelaDeAbaEChave;
 use App\Conector\Service\ModoDoConector;
 use App\Service\PermissionChecker;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
@@ -88,10 +89,10 @@ final class QuemSouEuFerramentaTest extends KernelTestCase
         self::assertSame(['quem_sou_eu', 'ler_agenda', 'gravar_na_agenda'], $this->nomesPara($primario, $vinculoDoPrimario, ['mcp:leitura']));
     }
 
-    #[TestDox('todo nome do catálogo tem linha no mapa de módulos da quem_sou_eu')]
-    public function testMapaCobreOCatalogo(): void
+    #[TestDox('todo nome do catálogo tem linha na tabela de aba e chave, de onde a quem_sou_eu lê o módulo')]
+    public function testTabelaCobreOCatalogo(): void
     {
-        self::assertSame(CatalogoFechadoDoConector::nomes(), array_keys(QuemSouEuFerramenta::MODULO_DA_FERRAMENTA));
+        self::assertSame(CatalogoFechadoDoConector::nomes(), array_keys(TabelaDeAbaEChave::LINHAS));
     }
 
     /**

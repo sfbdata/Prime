@@ -9,6 +9,7 @@ use App\Conector\DTO\PedidoDeAutorizacao;
 use App\Conector\Entity\CodigoDoConector;
 use App\Conector\Entity\ConcessaoDoConector;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Enum\MotivoDaRevogacaoDaConcessao;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Exception\ClienteRecusado;
 use App\Conector\Repository\CodigoDoConectorRepository;
@@ -183,7 +184,7 @@ final class AutorizarConexaoUseCaseTest extends KernelTestCase
         self::assertSame(['mcp:leitura'], $this->codigo($nada)->getConcessao()->getEscopos());
     }
 
-    #[TestDox('reautorizar o mesmo app no mesmo escritório: o consentimento ativo fica e troca os escopos; a concessão é nova')]
+    #[TestDox('reautorizar o mesmo app no mesmo escritório: o consentimento ativo fica e troca os escopos; a concessão é nova e a anterior cai como substituída')]
     public function testReautorizar(): void
     {
         [$tenant, $pessoa] = $this->cenario();
@@ -194,7 +195,12 @@ final class AutorizarConexaoUseCaseTest extends KernelTestCase
         self::assertSame($primeira->getConsentimento()->getId(), $segunda->getConsentimento()->getId());
         self::assertNotSame($primeira->getId(), $segunda->getId());
         self::assertSame(['mcp:leitura', 'offline_access'], $segunda->getConsentimento()->getEscopos());
-        self::assertSame(['mcp:leitura', 'mcp:escrita', 'offline_access'], $primeira->getEscopos(), 'a concessão já aberta guarda os escopos dela');
+        self::assertSame(['mcp:leitura', 'mcp:escrita', 'offline_access'], $primeira->getEscopos(), 'a concessão anterior guarda os escopos dela');
+
+        $this->em()->refresh($primeira);
+        self::assertSame(MotivoDaRevogacaoDaConcessao::Substituida, $primeira->getMotivo(), 'a cadeia antiga, com gravação, não fica viva');
+        self::assertNotNull($primeira->getRevogadaEm());
+        self::assertNull($segunda->getRevogadaEm(), 'a concessão nova vale');
     }
 
     #[TestDox('12.27: escritório forjado no formulário, sem vínculo da pessoa, recusa (mesmo liberado)')]

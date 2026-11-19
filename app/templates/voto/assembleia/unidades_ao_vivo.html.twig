@@ -1,0 +1,44 @@
+{#
+    "Unidades" (painel de unidades da aba Acompanhar): página própria de uma pauta, com todas as unidades que ela aceita.
+    Abre num pop-up de 1060×760 (public/js/voto-assembleia.js) e se atualiza sozinha a cada 5 segundos. Faixa azul com a
+    pauta, a assembleia e a situação; "{n} de {aptos} votaram"; legenda com as três cores e a contagem de cada estado; a
+    grade, em que a unidade que votou fica azul. Só a identificação da unidade: nunca nome, voto nem hora. CSS em
+    public/css/voto.css (.voto-assistir .voto-unidades-*).
+    Contexto: `painel` (PainelDeUnidadesDaPauta), `agora`.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="5">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ 'voto.assembleia.gestor.unidades_ao_vivo.titulo'|trans({pauta: painel.tituloDaPauta}) }}</title>
+    <link rel="stylesheet" href="{{ asset('css/voto.css') }}">
+</head>
+<body class="voto-assistir">
+<div class="vv">
+    <div class="h">
+        <div><b>{{ painel.tituloDaPauta }}</b><span>{{ painel.tituloDaAssembleia }}</span></div>
+        <i>{{ painel.ciclo == 'cancelada' ? 'voto.assembleia.gestor.chip_ciclo.cancelada'|trans : (painel.ciclo == 'suspensa' ? 'voto.assembleia.gestor.chip_ciclo.suspensa'|trans : ('voto.assembleia.gestor.situacao.' ~ painel.situacaoDaPauta)|trans) }}</i>
+    </div>
+    <p class="voto-unidades-resumo">{{ 'voto.assembleia.gestor.unidades_ao_vivo.votaram'|trans({n: painel.contar('votou'), aptos: painel.aptos}) }}</p>
+    <ul class="voto-unidades-legenda" aria-label="{{ 'voto.assembleia.gestor.unidades_ao_vivo.legenda'|trans }}">
+        {% for situacao in ['votou', 'nao_votou', 'inapta'] %}
+            <li><span class="voto-unidades-amostra voto-unidades-{{ situacao }}"></span>{{ ('voto.assembleia.gestor.unidades_ao_vivo.' ~ situacao)|trans }}: <b>{{ painel.contar(situacao) }}</b></li>
+        {% endfor %}
+    </ul>
+    {% if painel.unidades is empty %}
+        <p class="voto-unidades-vazio">{{ 'voto.assembleia.gestor.unidades_ao_vivo.vazio'|trans }}</p>
+    {% else %}
+        <div class="voto-unidades-grade" aria-label="{{ 'voto.assembleia.gestor.unidades_ao_vivo.grade'|trans }}">
+            {% for u in painel.unidades %}
+                {% set rotulo = u.identificacao ~ ': ' ~ ('voto.assembleia.gestor.unidades_ao_vivo.' ~ u.situacao)|trans %}
+                <div class="voto-unidades-item voto-unidades-{{ u.situacao }}" data-situacao="{{ u.situacao }}" title="{{ rotulo }}" aria-label="{{ rotulo }}">{{ u.identificacao }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <small>{{ 'voto.assembleia.gestor.assistir.atualizado'|trans({hora: agora|date('H:i:s')}) }}</small>
+</div>
+</body>
+</html>

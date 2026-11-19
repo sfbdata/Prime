@@ -182,17 +182,17 @@
         </span>
         {% if podeGerenciar %}
         <div class="jp-secao-acoes">
-            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
-                <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.divida.nova_obrigacao'|trans }}
+            <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
+                <i class="bi bi-plus-lg"></i>{{ 'cobranca_objeto.divida.nova_obrigacao'|trans }}
             </button>
             {# O tooltip vai no wrapper: um <button disabled> não dispara eventos, logo não mostraria a
                explicação — mesmo padrão do "Encerrar cobrança" no show. #}
             <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
                   title="{{ 'cobranca_objeto.divida.nao_acordavel'|trans }}"{% endif %}>
-                <button type="button" class="btn btn-sm jp-btn-outline" data-acao="novo-acordo"
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="novo-acordo"
                         data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
                         {{ acordaveis|length == 0 ? 'disabled' : '' }}>
-                    <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.novo_acordo'|trans }}
+                    <i class="bi bi-file-earmark-text"></i>{{ 'cobranca_objeto.divida.novo_acordo'|trans }}
                 </button>
             </span>
         </div>
@@ -321,17 +321,17 @@
                     <div class="jp-obr-acoes">
                         {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.divida.paga'|trans }}</span>{% endif %}
                         {% if podeMovimentar and exigivel and not o.quitada %}
-                        <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
+                        <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="receber"
                                 data-obrigacao-id="{{ o.id }}"
                                 data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
                                 title="{{ 'cobranca_objeto.divida.receber_obrigacao_dica'|trans }}">
-                            <i class="bi bi-cash me-1"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
+                            <i class="bi bi-cash"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
                         </button>
                         {% endif %}
                         {% if podeAcordar %}
-                        <button type="button" class="btn btn-sm jp-btn-outline" data-acao="acordar"
+                        <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="acordar"
                                 data-obrigacao-id="{{ o.id }}" title="{{ 'cobranca_objeto.divida.acordar_dica'|trans }}">
-                            <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.acordar'|trans }}
+                            <i class="bi bi-file-earmark-text"></i>{{ 'cobranca_objeto.divida.acordar'|trans }}
                         </button>
                         {% endif %}
                         {# ── Menu da LINHA (desenho 1A de 19/10, `omVals`) ──────────────────────────────
@@ -351,7 +351,7 @@
                         {% set idMenu = 'menuObr' ~ o.id %}
                         {% set podeEditarLinha = podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
                         <div class="cob-row-menu">
-                            <button type="button" class="btn btn-sm jp-btn-outline py-0 cob-obr-menu-btn"
+                            <button type="button" class="bjp-ico bjp-btn--secundario py-0 cob-obr-menu-btn"
                                     data-obr-menu-abrir="{{ idMenu }}" aria-haspopup="menu" aria-expanded="false"
                                     aria-controls="{{ idMenu }}" aria-label="{{ 'cobranca_objeto.divida.menu.mais_acoes_obrigacao'|trans }}" title="{{ 'cobranca_objeto.divida.menu.mais_acoes'|trans }}">
                                 <i class="bi bi-three-dots"></i>
@@ -447,13 +447,13 @@
         <div class="jp-acordo" id="grupoAcordo{{ g.acordoId }}">
             <div class="jp-acordo-head">
                 <span class="jp-acordo-titulo"><i class="bi bi-file-earmark-text"></i>{{ 'cobranca_objeto.divida.acordo'|trans({id: g.acordoId ~ ''}) }}</span>
-                <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
+                <span class="bjp-etiqueta bjp-etiqueta--{{ {'text-bg-success': 'ok', 'text-bg-danger': 'critico', 'text-bg-warning': 'atencao', 'text-bg-primary': 'info'}[g.statusBadgeClass] ?? 'neutro' }}">{{ g.statusLabel }}</span>
                 {%- if g.qtdSucessores > 0 %}
                     {# Acordo já assumido por um mais novo: ele só continua aqui porque sobraram parcelas
                        PAGAS dele (não substituídas). Sem este selo ele se anunciaria só como "Ativo" no
                        meio da dívida em aberto, que é a queixa que originou a spec. O selo de estado
                        fica: é o que a contábil diz, e some-lo apagaria informação. #}
-                    <span class="badge text-bg-secondary">
+                    <span class="bjp-etiqueta bjp-etiqueta--neutro">
                         {{- g.substituidoPeloAcordoId
                             ? 'cobranca_objeto.divida.substituido_pelo'|trans({id: g.substituidoPeloAcordoId ~ ''})
                             : 'cobranca_objeto.divida.substituido_por'|trans({n: g.qtdSucessores ~ ''}) -}}
@@ -468,8 +468,8 @@
                     <div class="jp-acordo-bar" role="presentation">
                         <div class="jp-acordo-fill" style="width:{{ 0 < g.qtdParcelas ? (pagas / g.qtdParcelas * 100)|round : 0 }}%"></div>
                     </div>
-                    <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm jp-btn-outline">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>{{ 'cobranca_objeto.divida.abrir_acordo'|trans }}
+                    <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="bjp-btn bjp-btn--secundario">
+                        <i class="bi bi-box-arrow-up-right"></i>{{ 'cobranca_objeto.divida.abrir_acordo'|trans }}
                     </a>
                 </div>
             </div>
@@ -498,11 +498,11 @@
                 <div class="jp-obr-acoes">
                     {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.divida.paga'|trans }}</span>{% endif %}
                     {% if podeMovimentar and not p.quitada %}
-                    <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="receber"
                             data-obrigacao-id="{{ p.id }}"
                             data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
                             title="{{ 'cobranca_objeto.divida.receber_parcela_dica'|trans }}">
-                        <i class="bi bi-cash me-1"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
+                        <i class="bi bi-cash"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
                     </button>
                     {% endif %}
                 </div>
@@ -564,7 +564,7 @@
             {# Sem `data-acao="novo-acordo"`: esse gancho é do botão do cabeçalho da seção, e é por ele
                que os testes contam "o gatilho canônico". Este aqui é uma segunda porta para o MESMO
                modal (`#modalCriarAcordo`), não um segundo gatilho a rastrear. #}
-            <button type="button" class="btn btn-sm jp-btn-outline"
+            <button type="button" class="bjp-btn bjp-btn--secundario"
                     data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
                     {{ acordaveis|length == 0 ? 'disabled' : '' }}>{{ 'cobranca_objeto.divida.novo_acordo'|trans }}</button>
         </span>
@@ -648,9 +648,9 @@
         <span class="jp-selbar-info">
             <strong data-selecao-qtd>0</strong> {{ 'cobranca_objeto.divida.selecionadas_total'|trans }} <strong class="jp-selbar-total" data-selecao-total>{{ 0|centavos }}</strong>
         </span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">{{ 'cobranca_objeto.divida.limpar_selecao'|trans }}</button>
-        <button type="button" class="btn btn-sm jp-btn-accent" data-acao="acordar-selecionadas">
-            <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.acordar_selecionadas'|trans }}
+        <button type="button" class="bjp-btn bjp-btn--secundario" data-acao="limpar-selecao">{{ 'cobranca_objeto.divida.limpar_selecao'|trans }}</button>
+        <button type="button" class="bjp-btn bjp-btn--primario" data-acao="acordar-selecionadas">
+            <i class="bi bi-file-earmark-text"></i>{{ 'cobranca_objeto.divida.acordar_selecionadas'|trans }}
         </button>
     </div>
     {% endif %}

@@ -176,7 +176,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         return new SolicitarAnaliseDaPastaUseCase(
             $this->pastas,
             $this->permissoes,
-            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us')),
+            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'), $this->planoPagoNoTeste(), $this->saldoNoTeste()),
             $this->financeiro,
             $montador,
             $this->analises,

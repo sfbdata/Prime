@@ -15,7 +15,7 @@
         <form method="post" action="{{ path('pasta_acesso_pedir', {id: pasta.id}) }}" style="display:contents">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}">
             <input type="hidden" name="nivel" value="editar">
-            <button type="submit" data-cad-pedir="1" style="flex-shrink:0;height:28px;padding:0 12px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer"><i class="bi bi-send"></i> {{ 'pasta_avisos.cadeado_faixa.pedir_editar'|trans }}</button>
+            <button type="submit" data-cad-pedir="1" class="bjp-btn bjp-btn--primario" style="flex-shrink:0"><i class="bi bi-send"></i> {{ 'pasta_avisos.cadeado_faixa.pedir_editar'|trans }}</button>
         </form>
     {%- endif -%}
     {%- if cad.aguardando -%}

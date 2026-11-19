@@ -236,11 +236,59 @@ vizinhas e "N de M".
 | `expediente_recebida_pasta` | GET `…/{compartilhamentoId}/pasta` | localizar | página reduzida (`?aba=metas` para "Abrir metas") |
 | `expediente_recebida_documento` | GET `…/{compartilhamentoId}/documento/{documentoId}/{modo}` | localizar + documento desta pasta, fora da lixeira, aba Documentos visível; `baixar` exige `baixarDocumentos` | `ver` mostra (o desenho dá "Ver a pasta e os documentos" a todo convite, como o `pasta_documento_view` interno); `baixar` entrega o arquivo pela chave |
 
-**Fatia 9b (escrita), com mini-adendo próprio antes do código.** O "movimentar" do desenho é "abrir e movimentar
-metas, andamentos e prazos": anotação com prazo, mudança de fase e concluir/reabrir meta da pasta; "enviar
-documentos" é o envio de documento novo. Escrita só com A ativo (suspenso = só leitura). A entidade nasce com o
-escritório A explícito; o flush roda com o filtro desligado (o `PrazosDosRegistrosListener` relê os registros no
-`postFlush`); a auditoria vai para A (dono) com o ator de B, que é a trilha da outra conta que A precisa ver.
+**Fatia 9b (escrita): mini-adendo (18/11, pela recomendação).** Investigação de 18/11: nenhuma escrita da pasta
+funciona com a sessão em B como está (as rotas leem `TenantContext` e `canAccessResource` exige vínculo em A; com o
+filtro de B ligado, o prazo do texto não nasce, a fase cria andamento duplicado, o `refresh` com trava não acha a
+linha e o código do documento perde a unicidade). Por isso:
+
+- **Molde comum.** Toda rota de escrita é POST com CSRF, nome `expediente_recebida_*`, chama primeiro o localizador e
+  recusa (403) com A suspenso (`soLeitura`) ou sem a caixa do convite. O trabalho **e o flush** rodam inteiros dentro
+  de `semFiltroDeTenant`, sempre com o escritório A e a pasta do convite que o localizador devolveu (nada por id
+  solto: resposta, documento e fase são lidos com `tenant = A` e `pasta = a do convite`). A auditoria vai para A, com
+  o ator de B (a trilha da outra conta que A precisa ver).
+- **`expediente_recebida_anotar`** (POST `…/{compartilhamentoId}/anotacao`; caixa `movimentar`; aba Dados visível):
+  `EnviarMensagemPastaUseCase::executar(pasta, B, conteúdo, A, null)`. Só anotação nova (responder a registro fica
+  fora; um `respostaA` na requisição é ignorado). **Menção não existe para autor de outra conta:** o UseCase ganha o
+  parâmetro que desliga a resolução e o aviso de menção, aplicado **depois** do sanitizador (cortar antes não segura:
+  `&commat;` e `&#x40;` viram `&#64;` no sanitizador e o padrão aceita as duas formas), e o token vira `@rótulo` puro
+  (como `MencoesDoRegistro::reescrever($conteudo, [])`): nenhum token fica gravado, senão a tela de A desenharia uma
+  menção falsa a um colega com o rótulo que B escolheu. B não conhece nem notifica a equipe de A. O
+  prazo escrito no texto nasce como hoje (`PrazosDosRegistrosListener`, que precisa do flush sem filtro). O aviso a
+  quem acompanha a pasta segue a regra de hoje, calculado sem filtro (quem desligou o acompanhamento não recebe).
+- **`expediente_recebida_fase`** (POST `…/{compartilhamentoId}/fase`; caixa `movimentar`): UseCase próprio e fino
+  sobre `AndamentoDaPasta::marcar(pasta, B, A, fase, semPular, motivo, sincronizarContrato: false)` (o
+  `MudarFaseDaPastaUseCase` barra quem não tem vínculo, e a sincronização do contrato mexeria no Financeiro, que fica
+  fora para B). B **não cruza a fase Contrato** (nem para frente nem para trás, e sair da própria fase Contrato conta como cruzar; o contrato assinado é dado do
+  Financeiro e ficaria divergente) e **não finaliza nem reativa** a pasta (mexe em "Pastas concluídas" de A): a troca
+  de fase da tela só oferece as fases do mesmo lado do Contrato, e o servidor recusa (422) o resto.
+- **`expediente_recebida_documento_enviar`** (POST `…/{compartilhamentoId}/documento`; caixa `enviarDocumentos`; aba
+  Documentos visível): só arquivo (sem Drive, texto, imagem nem seção), pelo `UploadPecaUseCase` com o escritório A e
+  dentro de `TransacaoComArquivoNovo` (o arquivo só é apagado se o COMMIT comprovadamente não aconteceu); categoria
+  de contrato e todas as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro, para a
+  equipe de A que acompanha (nunca para B). O upload comum não envia nada ao Drive (só o contrato e a criação da pasta
+  sincronizam), então nada muda ali.
+- **Metas: só leitura para B (desvio do desenho, decidido pelo Samuel em 18/11, opção (a): o botão "Concluir meta"
+  não aparece para a outra conta).** O desenho diz "abrir e movimentar metas". A meta é
+  trabalho atribuído dentro da equipe de A (responsável, criador, esteira e prazo); B não é da equipe, não aparece
+  como responsável e não recebe meta. Concluir e reabrir já esbarram na D3 (só o responsável ou quem criou); despachar
+  e comentar na meta também ficam fora, porque escreveriam na esteira de quem é de A. "Movimentar" fica coberto pela
+  anotação e pela fase; abrir a meta para outra conta é decisão de negócio nova.
+- **Volume.** Sem teto de quantidade na 9b (decisão escrita): cada arquivo segue o limite de tamanho de hoje, os avisos
+  a quem acompanha já se juntam num não lido por pasta, e A encerra o convite quando quiser. Se o uso mostrar abuso, um
+  teto por convite e por dia entra depois.
+- **Tela.** A página reduzida ganha, só com a caixa marcada: o campo de anotação (aba Andamentos), a troca de fase
+  (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
+  Decisões da revisão (18/11, pela recomendação): (1) a anotação de B usa um campo de texto simples, sem o editor da
+  pasta, porque B não tem a lista de menção da equipe de A; (2) quando o espaço de A acaba, B vê a mesma mensagem de
+  espaço esgotado que a equipe de A vê, e A recebe o aviso de sempre; (3) sem a caixa, a recusa (403) vem antes da
+  validação do campo, para a resposta não revelar a regra a quem não pode escrever; (4) a menção de B sai do texto
+  mesmo quando vem aninhada (`@[Fulano @[x](user:1)](user:6)`): a limpeza repete até não sobrar marca nenhuma.
+- **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
+  nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
+  ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum token nem nome de A fica no texto gravado; `respostaA` da requisição é
+  ignorado; fase não duplica andamento e não mexe no contrato; cruzar o Contrato (inclusive a partir dele) e Finalizar/Reativar dão 422; documento grava a chave pelo escritório A, código único com
+  outro documento de A, contrato e as categorias do Financeiro recusados, aviso de acompanhamento chega a quem acompanha em A e nunca a B, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
+  de B religado depois de cada escrita, inclusive em erro.
 
 **Lista (L2, L12).** Como no desenho (`rpRows()` concatena as recebidas às linhas), as pastas que o localizador abre
 entram **na própria Lista** do destinatário, no topo, com a mesma linha, a marca "Recebida · <conta>", a dica L2 e o
@@ -412,6 +460,37 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
   e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
   outra conta vem com a fatia 9.
+- 18/11: fatia 7 (troca de responsável com confirmação, regra 5 e L8). No chip do responsável (pasta e Lista), escolher
+  outra pessoa quando a pasta já tem responsável abre a janela L8 do desenho 03 (valores do CSS do desenho, prefixo
+  `resp-troca-*`); pasta sem responsável troca direto, a mesma pessoa só fecha. "Manter {de} como colaborador" começa
+  desmarcado; marcado, o servidor (`manter_colaborador=1` no PATCH) cria o compartilhamento interno pelo
+  `CompartilharPastaComAEquipeUseCase` (1 clique, sem validade, mensagem "Mantido como colaborador na troca de
+  responsável"), na mesma transação da troca. O aviso segue o que o servidor fez (`colaboradorMantido`): sem vínculo
+  ativo, o anterior não fica e o aviso diz "foi desvinculado". Quem já colabora não ganha outro e conta como mantido
+  (conferido no banco, não pelo texto da recusa); quem passa a própria pasta adiante segue vendo a pasta e também
+  conta como mantido. Se outra aba já fez a mesma troca (`mudou` falso), não há aviso.
+  Decisões: (1) "Sem responsável", que o sistema tem e o desenho não, também passa pela L8, com o texto "a pasta fica
+  sem responsável" (e o aviso "A pasta {nup} ficou sem responsável."); (2) o restrito vê o aviso do desenho (L877) sem abrir a L8 (`acesso_restrito()` no Twig, o
+  servidor recusa do mesmo jeito); (3) o ícone L1 da linha se atualiza pelo `ExpCompartilhar.atualizar`, que a fatia
+  8 acrescenta (até lá, só no recarregar). O cartão "Responsável" do Registro já existia.
+- 18/11: fatia 3, parte dos avisos (o conector espera o PR 7 do conector). Mapa: os avisos e e-mails da pasta já
+  respeitam o escopo sem mudança, porque passam pelo `NivelNoCadeado` (que devolve `Oculto` fora do escopo):
+  `QuemAcompanhaAPasta` (pasta acompanhada), os avisos de meta (`NotificacaoService::veAPastaDaMeta` na criação),
+  menções do Registro, "Avisar quando chegar" do Push, relatórios de pastas paradas e sem processo, e o corte do
+  sino na leitura (`idsDasPastasOcultasNaSessao` soma `idsForaDoEscopo`). O aviso de prazo pelo chat não filtra o
+  destinatário na criação, mas o link `/pasta/<id>` o tira do sino na leitura. Corrigido: o aviso de meta levava a
+  `/tarefas/<id>`, que é "Fora do seu acesso" para o restrito; agora (`LinkDoAviso`, no dropdown do sino e no "Ver
+  todas") leva à aba Metas da pasta já na meta (`/pasta/<id>?meta=<id>#tarefas`), e o aviso de metas sem meta
+  própria (metas redistribuídas, menção no despacho) fica sem link. Quem não é restrito não muda.
+- 18/11: fatia 3, parte do conector (depois do PR 7, #777). Mapa: as 6 ferramentas já respeitam o escopo, porque o
+  portão fixa o escritório do token e tudo passa pelo `PastaRepository` com `soNoEscopo`, pelo `BuscarRapidoUseCase`
+  (`idsNoEscopo`), pelo `AcessoAPasta::podeVer` e pelo `NivelNoCadeado` (`idsDosProcessosOcultos` soma os processos
+  fora do escopo); `ler_agenda` fica fechada pela lista de liberação (`agenda` e `tarefas`). Corrigido: (1) a ação
+  `lixeira` do `buscar_pastas`, aberta pelo módulo `expediente`, fecha para o restrito como a tela
+  (`GuardaDaAcaoDoConector::FECHADAS_NO_ACESSO_RESTRITO`, "sem permissão"); (2) a tela de autorizar o conector
+  (`conector_oauth_*`, `conector_metadado_*`) passa na barreira do restrito: ela só mostra os escritórios da pessoa,
+  e o conector já valia para ele por outros caminhos (token de antes do perfil, sessão em outro escritório).
+  `opcoes` continua listando responsáveis e marcadores do escritório, como os filtros da Lista.
 - 18/11: fatia 8 (outra conta: código e convite; migration `Version20261118120000`, `user.codigo_pessoal`). Código
   pessoal sorteado na primeira vez que a pessoa o vê (`CodigoPessoal::garantir`), único também contra o código da
   conta (as duas gerações conferem as duas colunas) e fora da auditoria. Aba "Outra conta (código)" na janela, convite

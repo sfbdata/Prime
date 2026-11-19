@@ -1,18 +1,18 @@
-<div class="card card-outline card-warning mb-3">
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <h3 class="card-title mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta: {{ user.fullName }}</h3>
+<div class="bjp-painel mb-3">
+    <div class="bjp-painel-cabeca d-flex align-items-center justify-content-between">
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta: {{ user.fullName }}</h3>
         {# P43 a: `podeAnalisar` é a decisão do servidor (AnaliseDaPropriaJustificativa). Na própria, quem gere pelo
            perfil e não é primário nem Master não abona, não recusa, não volta para análise nem lança para si. #}
         {% if podeAnalisar %}
-        <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
-            <i class="bi bi-plus-circle me-1"></i>Justificar Falta
+        <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
+            <i class="bi bi-plus-circle"></i>Justificar Falta
         </button>
         {% endif %}
     </div>
     {% if not podeAnalisar %}
         <p class="small text-muted px-3 pt-2 mb-0">{{ constant('App\\Ponto\\Service\\AnaliseDaPropriaJustificativa::RECUSA') }}</p>
     {% endif %}
-    <div class="card-body p-0">
+    <div class="bjp-painel-corpo p-0">
         {% if justificativas is empty %}
             <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada por este usuário.</p>
         {% else %}
@@ -49,19 +49,19 @@
                                 <div class="d-flex align-items-center gap-2 flex-wrap w-100 me-3">
                                     <span>
                                         {% for j in batch %}
-                                            <span class="badge bg-body-tertiary text-body-secondary border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
+                                            <span class="bjp-etiqueta bjp-etiqueta--neutro me-1">{{ j.data|date('d/m/Y') }}</span>
                                         {% endfor %}
                                     </span>
                                     {% if hasAnyPendente and qtdPendente < batch|length %}
-                                        <span class="badge text-bg-info text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>Análise parcial</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--info ms-auto"><i class="bi bi-hourglass-split me-1"></i>Análise parcial</span>
                                     {% elseif primeiraJust.status == 'abonado' and primeiraJust.tipo == 'falta_nao_justificada' %}
-                                        <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--critico ms-auto"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
                                     {% elseif primeiraJust.status == 'abonado' %}
-                                        <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--ok ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                     {% elseif primeiraJust.status == 'pendente' %}
-                                        <span class="badge text-bg-warning text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>{{ nome_da_situacao('situacao.pendente') }}</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--atencao ms-auto"><i class="bi bi-hourglass-split me-1"></i>{{ nome_da_situacao('situacao.pendente') }}</span>
                                     {% else %}
-                                        <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>{{ nome_da_situacao('situacao.rejeitado') }}</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--critico ms-auto"><i class="bi bi-x-circle me-1"></i>{{ nome_da_situacao('situacao.rejeitado') }}</span>
                                     {% endif %}
                                 </div>
                             </button>
@@ -73,12 +73,12 @@
                                     <dt class="col-sm-3">Tipo</dt>
                                     <dd class="col-sm-9">
                                         {% if primeiraJust.labelTipo %}
-                                            <span class="badge text-bg-info text-dark">{{ primeiraJust.labelTipo }}</span>
+                                            <span class="bjp-etiqueta bjp-etiqueta--info">{{ primeiraJust.labelTipo }}</span>
                                         {% else %}
                                             <span class="text-muted">Não informado</span>
                                         {% endif %}
                                         {% if primeiraJust.abonoParcial %}
-                                            <span class="badge text-bg-secondary ms-1">Abono Parcial</span>
+                                            <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">Abono Parcial</span>
                                             {% if primeiraJust.horaInicioAbono and primeiraJust.horaFimAbono %}
                                                 <span class="small text-muted ms-1">
                                                     {{ primeiraJust.horaInicioAbono|date('H:i') }} às {{ primeiraJust.horaFimAbono|date('H:i') }}
@@ -91,7 +91,7 @@
                                     {% if primeiraJust.tipo == 'esquecimento_registro' and primeiraJust.tipoRegistroEsquecido %}
                                         <dt class="col-sm-3">Registro esquecido</dt>
                                         <dd class="col-sm-9">
-                                            <span class="badge text-bg-warning text-dark">
+                                            <span class="bjp-etiqueta bjp-etiqueta--atencao">
                                                 {{ {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'}[primeiraJust.tipoRegistroEsquecido] ?? primeiraJust.tipoRegistroEsquecido }}
                                             </span>
                                             {% if primeiraJust.horaRegistroEsquecido %}
@@ -110,8 +110,8 @@
                                     <dd class="col-sm-9">
                                         {% if primeiraJust.anexoPath %}
                                             <a href="{{ path('app_tenant_user_justificativa_anexo', {tenantId: tenantId, id: user.id, justificativaId: primeiraJust.id}) }}"
-                                               target="_blank" class="btn btn-sm btn-outline-secondary">
-                                                <i class="bi bi-paperclip me-1"></i>Visualizar atestado
+                                               target="_blank" class="bjp-btn bjp-btn--secundario">
+                                                <i class="bi bi-paperclip"></i>Visualizar atestado
                                             </a>
                                         {% else %}
                                             <span class="text-muted">Sem atestado</span>
@@ -126,8 +126,8 @@
                                           class="mb-3"
                                           onsubmit="return confirm('Aprovar todos os {{ qtdPendente }} dias pendentes deste lote?')">
                                         <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_todos_' ~ primeiraJust.batchId) }}">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="bi bi-check-all me-1"></i>Aprovar Todos ({{ qtdPendente }} dias pendentes)
+                                        <button type="submit" class="bjp-btn bjp-btn--sucesso">
+                                            <i class="bi bi-check-all"></i>Aprovar Todos ({{ qtdPendente }} dias pendentes)
                                         </button>
                                     </form>
                                 {% endif %}
@@ -138,13 +138,13 @@
                                         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                             <strong><i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}</strong>
                                             {% if j.status == 'pendente' %}
-                                                <span class="badge text-bg-warning text-dark">{{ nome_da_situacao('situacao.pendente') }}</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--atencao">{{ nome_da_situacao('situacao.pendente') }}</span>
                                             {% elseif j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
-                                                <span class="badge text-bg-danger">Não abonado</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--critico">Não abonado</span>
                                             {% elseif j.status == 'abonado' %}
-                                                <span class="badge text-bg-success">Abonado</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--ok">Abonado</span>
                                             {% else %}
-                                                <span class="badge text-bg-danger">{{ nome_da_situacao('situacao.rejeitado') }}</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--critico">{{ nome_da_situacao('situacao.rejeitado') }}</span>
                                             {% endif %}
                                         </div>
 
@@ -158,9 +158,9 @@
                                                     <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
                                                            style="max-width: 220px" placeholder="Obs. abono (opcional)">
-                                                    <button type="submit" class="btn btn-sm btn-success"
+                                                    <button type="submit" class="bjp-btn bjp-btn--sucesso"
                                                             onclick="return confirm('Abonar justificativa de {{ j.data|date('d/m/Y') }}?')">
-                                                        <i class="bi bi-check-lg me-1"></i>Abonar
+                                                        <i class="bi bi-check-lg"></i>Abonar
                                                     </button>
                                                 </form>
 
@@ -178,8 +178,8 @@
                                                     <input type="hidden" name="_token" value="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
                                                            style="max-width: 220px" placeholder="{{ nome_da_situacao('ficha.motivo') }}" required>
-                                                    <button type="submit" class="btn btn-sm btn-danger">
-                                                        <i class="bi bi-x-lg me-1"></i>{{ nome_da_situacao('ficha.recusar') }}
+                                                    <button type="submit" class="bjp-btn bjp-btn--destrutivo">
+                                                        <i class="bi bi-x-lg"></i>{{ nome_da_situacao('ficha.recusar') }}
                                                     </button>
                                                 </form>
                                             </div>
@@ -196,8 +196,8 @@
                                                   action="{{ path('app_tenant_user_justificativa_reverter', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
                                                   onsubmit="return confirm('{{ nome_da_situacao('reverter.confirmar')|e('js') }}')">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('justificativa_reverter_' ~ j.id) }}">
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>{{ nome_da_situacao('reverter.botao') }}
+                                                <button type="submit" class="bjp-btn bjp-btn--secundario">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>{{ nome_da_situacao('reverter.botao') }}
                                                 </button>
                                             </form>
                                             {% endif %}
@@ -244,9 +244,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-send me-1"></i>Lançar Justificativa
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="bjp-btn bjp-btn--secundario">
+                        <i class="bi bi-send"></i>Lançar Justificativa
                     </button>
                 </div>
             </form>

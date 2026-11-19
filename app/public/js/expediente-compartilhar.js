@@ -687,7 +687,9 @@
            filtro do trilho), saem, como lá. Sem `pasta-row-link` nem `data-href`: o clique abre a janela L11, e o menu de
            contexto, a seleção e as ações da linha (todas da pasta do escritório) não as alcançam. Só as que o servidor
            diz que abrem (`abre`). */
-        var PRIO = { normal: 'normal', prioridade: 'alta', urgente: 'urgente' };
+        // Chaves inteiras (o teste do catálogo de tradução só acha chave escrita por extenso).
+        var PRIO = { normal: 'expediente.js.lista.prioridade.normal', prioridade: 'expediente.js.lista.prioridade.alta', urgente: 'expediente.js.lista.prioridade.urgente' };
+        var SIT = { ativo: 'expediente.js.lista.situacao.ativo', suspenso: 'expediente.js.lista.situacao.suspenso', cancelado: 'expediente.js.lista.situacao.cancelado', arquivado: 'expediente.js.lista.situacao.arquivado' };
         function abertas() {
             return dados ? dados.itens.filter(function (r) { return r.estado === 'colaborando' && r.abre; }) : [];
         }
@@ -719,8 +721,8 @@
             b.appendChild(document.createTextNode(String(r.metas)));
             return b;
         }
-        function rotuloPrio(v) { return BJ_T.t('expediente.js.lista.prioridade.' + (PRIO[v] || 'normal')); }
-        function rotuloSit(v) { return ['ativo', 'suspenso', 'cancelado', 'arquivado'].indexOf(v) >= 0 ? BJ_T.t('expediente.js.lista.situacao.' + v) : v; }
+        function rotuloPrio(v) { return BJ_T.t(PRIO[v] || PRIO.normal); }
+        function rotuloSit(v) { return Object.prototype.hasOwnProperty.call(SIT, v) ? BJ_T.t(SIT[v]) : v; }
         function marca(r) {
             var i = icone('bi-arrow-repeat exp-rp-recebida');
             i.removeAttribute('aria-hidden');

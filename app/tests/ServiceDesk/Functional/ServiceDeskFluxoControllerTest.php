@@ -98,8 +98,8 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Nota reservada da TI xyz123', $html);
         self::assertStringContainsString('Histórico (2)', $html);
-        self::assertGreaterThan(0, $crawler->filter('.timeline-item.border-warning .badge.text-bg-warning')->count());
-        self::assertStringContainsString('Interno', $crawler->filter('.timeline-item.border-warning .badge.text-bg-warning')->text());
+        self::assertGreaterThan(0, $crawler->filter('.timeline-item.border-warning .bjp-etiqueta--atencao')->count());
+        self::assertStringContainsString('Interno', $crawler->filter('.timeline-item.border-warning .bjp-etiqueta--atencao')->text());
     }
 
     #[TestDox('Interação do solicitante cria comentário e redireciona')]

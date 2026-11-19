@@ -6,15 +6,32 @@ namespace App\Tests\Conector\Functional;
 
 use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Ferramenta\AtualizarPastaFerramenta;
+use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
+use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
+use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
+use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
+use App\Conector\Ferramenta\LerAgendaFerramenta;
+use App\Conector\Ferramenta\LerClientesFerramenta;
+use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
+use App\Conector\Ferramenta\LerPastaFerramenta;
+use App\Conector\Ferramenta\LerProcessosFerramenta;
+use App\Conector\Ferramenta\MudarAndamentoFerramenta;
+use App\Conector\Ferramenta\PrazosEMetasDaPastaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\ServidorDeAutorizacao;
 use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Conector\Support\CenarioDaAutorizacaoTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -36,6 +53,24 @@ use Symfony\Component\HttpFoundation\Response;
 #[CoversClass(QuemSouEuFerramenta::class)]
 final class McpPontaAPontaTest extends JusPrimeWebTestCase
 {
+    /** Ferramentas registradas até este PR, em ordem alfabética. Cada PR que entrega uma ferramenta a acrescenta aqui. */
+    private const REGISTRADAS = [
+        AtualizarPastaFerramenta::NOME,
+        BuscarPastasFerramenta::NOME,
+        ConfirmarAcaoFerramenta::NOME,
+        DocumentosEPecasFerramenta::NOME,
+        FinanceiroDaPastaFerramenta::NOME,
+        LerAgendaFerramenta::NOME,
+        LerClientesFerramenta::NOME,
+        LerDocumentosEModelosFerramenta::NOME,
+        LerPastaFerramenta::NOME,
+        LerProcessosFerramenta::NOME,
+        MudarAndamentoFerramenta::NOME,
+        PrazosEMetasDaPastaFerramenta::NOME,
+        QuemSouEuFerramenta::NOME,
+        RegistrarNaPastaFerramenta::NOME,
+    ];
+
     use CenarioDaAutorizacaoTrait;
 
     private const FORM = 'autorizar_conexao';
@@ -99,8 +134,8 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
      * do app, e nem a troca do código nem o `/mcp` mudam o escritório da sessão.
      */
     /**
-     * 6.4: a `quem_sou_eu` diz "quais ferramentas registradas a pessoa pode usar", e ela própria é uma delas (o mapa
-     * {@see QuemSouEuFerramenta::MODULO_DA_FERRAMENTA} a põe sem módulo exigido). O teste de integração monta a
+     * 6.4: a `quem_sou_eu` diz "quais ferramentas registradas a pessoa pode usar", e ela própria é uma delas (a tabela
+     * {@see \App\Conector\Ferramenta\TabelaDeAbaEChave} a põe sem módulo exigido). O teste de integração monta a
      * ferramenta à mão com ela na lista; o serviço do container, não.
      */
     #[TestDox('6.4: com o serviço do container, a quem_sou_eu se lista entre as ferramentas que a pessoa pode usar')]
@@ -110,7 +145,14 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
 
         $dados = $this->resultado($this->chamarQuemSouEu($par['access_token'], self::ERA_DO_INITIALIZE, 1), 1)['structuredContent'];
 
-        self::assertSame([['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true]], $dados['ferramentas']);
+        // A pessoa do cenário não tem módulo: sobram as que não pedem nenhum (a ler_pasta segue a tela da pasta, decisão
+        // 10 do PR 6, a própria quem_sou_eu e a confirmar_acao, que confere a ação confirmada ao executar), esta não
+        // liberada na conexão só de leitura.
+        self::assertSame([
+            ['nome' => ConfirmarAcaoFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[ConfirmarAcaoFerramenta::NOME], 'liberada_nesta_conexao' => false],
+            ['nome' => LerPastaFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[LerPastaFerramenta::NOME], 'liberada_nesta_conexao' => true],
+            ['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true],
+        ], $dados['ferramentas']);
     }
 
     #[TestDox('12.1 e 12.19: sessão no A, autoriza o B, cookie junto; quem_sou_eu mostra só o B e a tela seguinte do navegador continua no A')]
@@ -200,23 +242,67 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
             self::assertSame('claude.ai', $campos['cliente'] ?? null, $linha);
         }
         self::assertSame(QuemSouEuFerramenta::NOME, self::contextoDaLinha($linhas[1])['ferramenta'] ?? null);
+        // O método JSON-RPC e a versão do protocolo: distinguem no log a lista da chamada da ferramenta.
+        self::assertSame(['tools/list', 'tools/call', 'tools/call'], array_map(static fn (string $l): ?string => self::contextoDaLinha($l)['metodo'] ?? null, $linhas));
+        self::assertSame([self::ERA_DO_INITIALIZE, self::ERA_DO_INITIALIZE, self::SEM_ESTADO], array_map(static fn (string $l): ?string => self::contextoDaLinha($l)['versao'] ?? null, $linhas));
 
         foreach ([$par['access_token'], $par['refresh_token'], hash('sha256', $par['access_token'])] as $segredo) {
             self::assertStringNotContainsString($segredo, $conteudo, 'o token nunca vai ao log mcp');
         }
     }
 
+    #[TestDox('ler_documentos_e_modelos ler: o /mcp devolve o bloco de imagem com o arquivo, e o log mcp leva só o sha256, sem nome nem bytes')]
+    public function testLerDocumentoPeloMcpNaoVazaNoLog(): void
+    {
+        $disco = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $this->client->disableReboot();
+        $arquivoDeLog = static::getContainer()->getParameter('kernel.logs_dir') . '/mcp_test' . (string) getenv('TESTE_PROCESSO') . '.log';
+        @unlink($arquivoDeLog);
+        [$conectado, $par] = $this->conectado(permissoes: ['modules.pastas.view', 'resources.pasta.view']);
+        $tenant = $this->em()->find(Tenant::class, $conectado->getId());
+        self::assertNotNull($tenant);
+        $png = "\x89PNG\r\n\x1A\n" . 'bytes-da-imagem-ponta-a-ponta';
+        $nome = 'rg-sigiloso-do-cliente.png';
+        $pasta = (new Pasta())->setNup('E2E-' . uniqid());
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $documento = (new PastaDocumento())->setTenant($tenant)->setPasta($pasta)->setTitulo($nome)->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo(uniqid('doc', true) . '.bin')->setNomeOriginal($nome)->setMimeType('image/png')->setTamanhoBytes(\strlen($png))->setPaginas(null);
+        $this->em()->persist($documento);
+        $this->em()->flush();
+        $disco->memoria->semear(ChavesDePasta::documento($documento), $png);
+
+        $argumentos = ['acao' => 'ler', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()];
+        $resultado = $this->resultado($this->mcp($par['access_token'], 'tools/call', ['name' => LerDocumentosEModelosFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, 1, LerDocumentosEModelosFerramenta::NOME), 1);
+
+        self::assertFalse($resultado['isError'] ?? null, json_encode($resultado, \JSON_THROW_ON_ERROR));
+        $imagens = array_values(array_filter($resultado['content'], static fn (array $bloco): bool => ($bloco['type'] ?? null) === 'image'));
+        self::assertCount(1, $imagens, 'a resposta tem o bloco de imagem');
+        self::assertSame('image/png', $imagens[0]['mimeType']);
+        self::assertSame(base64_encode($png), $imagens[0]['data']);
+
+        $conteudo = (string) @file_get_contents($arquivoDeLog);
+        $linhas = array_values(array_filter(explode("\n", $conteudo), static fn (string $l): bool => str_contains($l, RegistroDaChamadaMiddleware::MENSAGEM)));
+        self::assertCount(1, $linhas, $conteudo);
+        self::assertSame(hash('sha256', $png), self::contextoDaLinha($linhas[0])['arquivo_sha256'] ?? null);
+        foreach ([$nome, 'rg-sigiloso', 'bytes-da-imagem', base64_encode($png), $par['access_token']] as $proibido) {
+            self::assertStringNotContainsString($proibido, $conteudo, 'o log mcp só leva o sha256 do arquivo');
+        }
+    }
+
     /**
      * Pessoa logada com o escritório na sessão; autoriza o mesmo escritório e troca o código.
      *
+     * @param list<string> $permissoes os códigos de permissão do perfil da pessoa
+     *
      * @return array{Tenant, array{access_token: string, refresh_token: string}, int} o escritório, o par e o id da pessoa
      */
-    private function conectado(bool $escrita = true): array
+    private function conectado(bool $escrita = true, array $permissoes = []): array
     {
         $this->clienteValido();
         $tenant = $this->escritorio();
         $pessoa = $this->pessoa();
-        $this->vinculo($pessoa, $tenant);
+        $this->vinculo($pessoa, $tenant, permissoes: $permissoes);
         $this->liberarConector($tenant);
         $this->logarComTenant($this->client, $pessoa, $tenant);
 
@@ -384,7 +470,8 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
     {
         self::assertIsArray($resultado['tools'] ?? null);
         $nomes = array_column($resultado['tools'], 'name');
-        self::assertSame([QuemSouEuFerramenta::NOME], $nomes, 'no PR 5 só a quem_sou_eu está registrada');
+        sort($nomes);
+        self::assertSame(self::REGISTRADAS, $nomes, 'só as ferramentas já entregues estão registradas, e todas do catálogo fechado');
 
         foreach ($resultado['tools'] as $ferramenta) {
             $nome = $ferramenta['name'];

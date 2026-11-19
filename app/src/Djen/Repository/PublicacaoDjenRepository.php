@@ -641,6 +641,42 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Várias publicações por id, com a mesma restrição do `findOneByIdENumerosDoTenant` (escritório e
+     * números da pasta na própria consulta), numa ida só ao banco. Devolve indexado pelo id; id que
+     * não passa na restrição fica de fora.
+     *
+     * @param int[]    $ids
+     * @param string[] $numeros números CNJ dos processos da pasta
+     *
+     * @return array<int, PublicacaoDjen>
+     */
+    public function findByIdsENumerosDoTenant(array $ids, Tenant $tenant, array $numeros): array
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($ids === [] || $numeros === []) {
+            return [];
+        }
+
+        /** @var list<PublicacaoDjen> $achadas */
+        $achadas = $this->createQueryBuilder('p')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->setParameter('ids', array_values(array_map('intval', $ids)))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->getQuery()
+            ->getResult();
+
+        $porId = [];
+        foreach ($achadas as $publicacao) {
+            $porId[(int) $publicacao->getId()] = $publicacao;
+        }
+
+        return $porId;
+    }
+
+    /**
      * Números CNJ comparáveis: a publicação grava só dígitos (DjenPublicacaoMapper::soDigitos), e
      * o processo pode chegar mascarado. Sem normalizar dos dois lados o casamento falha calado —
      * lista vazia com cara de "não há publicação".

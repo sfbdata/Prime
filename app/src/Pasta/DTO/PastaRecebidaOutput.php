@@ -11,7 +11,9 @@ namespace App\Pasta\DTO;
  *
  * `andamentos`: `{autor, em, texto (o conteúdo gravado, cru: quem sanitiza na saída é o filtro Twig `registro_texto`),
  * sistema (bool), resposta (bool)}`;
- * `documentos`: `{id, nome, em, tamanho}`; `metas`: `{titulo, prazo, situacao}`.
+ * `documentos`: `{id, nome, em, tamanho}`; `metas`: `{titulo, prazo, situacao}`;
+ * `fasesAoAlcance`: `{indice, nome}` das fases que a troca de fase oferece (fatia 9b, {@see \App\Pasta\Service\FasesDaPastaRecebida}),
+ * vazia sem "Movimentar" ou com a conta da pasta suspensa.
  */
 final readonly class PastaRecebidaOutput
 {
@@ -19,6 +21,7 @@ final readonly class PastaRecebidaOutput
      * @param list<array{autor: string, em: \DateTimeImmutable, texto: string, sistema: bool, resposta: bool}> $andamentos
      * @param list<array{id: int, nome: string, em: \DateTimeImmutable, tamanho: int}>                        $documentos
      * @param list<array{titulo: string, prazo: ?\DateTimeImmutable, situacao: string}>                       $metas
+     * @param list<array{indice: int, nome: string}>                                                          $fasesAoAlcance
      */
     public function __construct(
         public int $compartilhamentoId,
@@ -38,6 +41,7 @@ final readonly class PastaRecebidaOutput
         public array $andamentos,
         public array $documentos,
         public array $metas,
+        public array $fasesAoAlcance = [],
     ) {
     }
 
@@ -50,5 +54,16 @@ final readonly class PastaRecebidaOutput
             $this->abaMetas      => 'metas',
             default              => null,
         };
+    }
+
+    /** O campo de anotação, a troca de fase e o envio de arquivo só aparecem com a caixa e a conta da pasta no ar. */
+    public function podeMovimentar(): bool
+    {
+        return $this->movimentar && !$this->soLeitura;
+    }
+
+    public function podeEnviarDocumentos(): bool
+    {
+        return $this->enviarDocumentos && !$this->soLeitura;
     }
 }
