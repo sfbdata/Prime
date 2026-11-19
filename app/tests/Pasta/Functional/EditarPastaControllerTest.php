@@ -188,6 +188,36 @@ final class EditarPastaControllerTest extends JusPrimeWebTestCase
         self::assertNull($atualizada->getNomeAcao(), 'o pasta_edit não grava mais a Ação');
     }
 
+    #[TestDox('POST /{id}/editar com o número de outra pasta viva: volta à pasta com o aviso e o número não muda')]
+    public function testNumeroDeOutraPastaEhRecusado(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+        $em                      = static::getContainer()->get(EntityManagerInterface::class);
+        $nupAntes                = (string) $pasta->getNup();
+        $outra                   = (new Pasta())->setNup('NUP-OUTRA-' . strtoupper(uniqid()))->setTenant($tenant);
+        $em->persist($outra);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/editar', [
+            '_token'       => $this->gerarCsrf('edit_pasta_' . $pasta->getId()),
+            'nup'          => strtolower((string) $outra->getNup()),
+            'nome_cliente' => 'Cliente Editado',
+        ]);
+
+        self::assertResponseRedirects('/pasta/' . $pasta->getId());
+        self::assertSame(
+            ['O número ' . $outra->getNup() . ' já é de outra pasta do escritório. Escolha outro número.'],
+            $client->getRequest()->getSession()->getFlashBag()->peek('error'),
+        );
+        $em->clear();
+        $atualizada = $em->find(Pasta::class, $pasta->getId());
+        self::assertSame($nupAntes, $atualizada?->getNup());
+        self::assertNull($atualizada?->getNomeCliente(), 'nada do POST foi gravado');
+    }
+
     #[TestDox('POST /{id}/editar com CSRF inválido retorna 403')]
     public function testCsrfInvalidoRetorna403(): void
     {
