@@ -575,3 +575,15 @@ html.jp-sem-anim *::after {
         scroll-behavior: auto !important;
     }
 }
+
+/* Windows com "animações desligadas" (prefers-reduced-motion): o adminlte.min.css 4.0.0-rc3 tem
+   `.fade{display:block}` nessa mídia, e isso vence o `.modal{display:none}` do Bootstrap (mesma força, vem
+   depois). Toda janela .modal.fade fechada ficava na tela, invisível (opacity 0) e por cima de tudo
+   (z-index 1055): ninguém conseguia clicar em nada. Fechada volta a sumir; ao abrir, o Bootstrap põe
+   `display:block` no próprio elemento e põe `.show`. A aba (.tab-pane), o aviso (.toast) e o
+   `.collapse{display:block}` não sofrem: as regras deles no Bootstrap são mais fortes; o alerta já nasce visível. */
+@media (prefers-reduced-motion: reduce) {
+    .modal.fade:not(.show) {
+        display: none;
+    }
+}
