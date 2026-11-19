@@ -15,10 +15,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\GeradorDePdf;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
-/** Calcula e devolve o demonstrativo em PDF (conteúdo e nome do arquivo). Nada é gravado. */
+/**
+ * Calcula e devolve o demonstrativo em PDF (conteúdo e nome do arquivo). Nada é gravado.
+ * O demonstrativo vai para processo no Brasil: sai sempre em português, qualquer que seja o idioma de quem pede.
+ */
 final class GerarPdfDoCalculoUseCase
 {
     public function __construct(
@@ -31,11 +35,18 @@ final class GerarPdfDoCalculoUseCase
         private readonly TranslatorInterface $tradutor,
         private readonly GeradorDePdf $logos,
         private readonly CalculoEmitidoRepository $emitidos,
+        private readonly LocaleSwitcher $idiomaDoDocumento,
     ) {
     }
 
     /** @return ErroDoCalculo|array{conteudo: string, nome: string} */
     public function executar(CalculoInput $in, User $usuario, Tenant $tenant): ErroDoCalculo|array
+    {
+        return $this->idiomaDoDocumento->runWithLocale('pt_BR', fn (): ErroDoCalculo|array => $this->executarEmPortugues($in, $usuario, $tenant));
+    }
+
+    /** @return ErroDoCalculo|array{conteudo: string, nome: string} */
+    private function executarEmPortugues(CalculoInput $in, User $usuario, Tenant $tenant): ErroDoCalculo|array
     {
         $resultado = $this->calcular->executar($in);
         if ($resultado instanceof ErroDoCalculo) {

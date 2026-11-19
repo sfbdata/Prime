@@ -16,6 +16,8 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Idioma;
 use App\Tests\Calculo\CalculoDeFixture;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -266,6 +268,22 @@ final class CalculoControllerTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('/^BJC-[A-Z0-9]{8}$/', $emitidos[0]->getCodigo());
         self::assertSame('20094.57', $emitidos[0]->getTotal());
         self::assertTrue($emitidos[0]->confereComOHash(hash('sha256', (string) $resposta->getContent())));
+    }
+
+    public function testPdfSaiEmPortuguesMesmoComQuemPedeEmIngles(): void
+    {
+        $usuario = $this->entrar(true);
+        $this->em()->persist((new UserProfile($usuario))->setIdioma(Idioma::Ingles));
+        $this->em()->flush();
+        $this->gravarIndicesDaFixture();
+
+        $this->client->request('POST', '/calculo/pdf', ['_token' => self::TOKEN, 'dados' => json_encode($this->exemploDoPdf(), \JSON_THROW_ON_ERROR)]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('en', $this->client->getRequest()->getLocale(), 'quem pede usa o sistema em inglês');
+        $disposicao = (string) $this->client->getResponse()->headers->get('Content-Disposition');
+        self::assertStringNotContainsString('Calculation', $disposicao);
+        self::assertStringContainsString('lculo', $disposicao, 'o nome do arquivo sai em português');
     }
 
     public function testAtualizarIndicesGravaAsTresSeriesEAtualizaOSelo(): void
