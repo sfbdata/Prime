@@ -248,28 +248,39 @@ linha e o código do documento perde a unicidade). Por isso:
   o ator de B (a trilha da outra conta que A precisa ver).
 - **`expediente_recebida_anotar`** (POST `…/{compartilhamentoId}/anotacao`; caixa `movimentar`; aba Dados visível):
   `EnviarMensagemPastaUseCase::executar(pasta, B, conteúdo, A, null)`. Só anotação nova (responder a registro fica
-  fora). Os tokens de menção (`@[..](user:ID)`) saem do texto antes: B não conhece nem notifica a equipe de A. O
+  fora; um `respostaA` na requisição é ignorado). **Menção não existe para autor de outra conta:** o UseCase ganha o
+  parâmetro que desliga a resolução e o aviso de menção, aplicado **depois** do sanitizador (cortar antes não segura:
+  `&commat;` e `&#x40;` viram `&#64;` no sanitizador e o padrão aceita as duas formas), e o token que sobrar fica só
+  como o texto do rótulo, sem nome de ninguém de A. B não conhece nem notifica a equipe de A. O
   prazo escrito no texto nasce como hoje (`PrazosDosRegistrosListener`, que precisa do flush sem filtro). O aviso a
   quem acompanha a pasta segue a regra de hoje, calculado sem filtro (quem desligou o acompanhamento não recebe).
 - **`expediente_recebida_fase`** (POST `…/{compartilhamentoId}/fase`; caixa `movimentar`): UseCase próprio e fino
   sobre `AndamentoDaPasta::marcar(pasta, B, A, fase, semPular, motivo, sincronizarContrato: false)` (o
   `MudarFaseDaPastaUseCase` barra quem não tem vínculo, e a sincronização do contrato mexeria no Financeiro, que fica
-  fora para B).
+  fora para B). B **não cruza a fase Contrato** (nem para frente nem para trás; o contrato assinado é dado do
+  Financeiro e ficaria divergente) e **não finaliza nem reativa** a pasta (mexe em "Pastas concluídas" de A): a troca
+  de fase da tela só oferece as fases do mesmo lado do Contrato, e o servidor recusa (422) o resto.
 - **`expediente_recebida_documento_enviar`** (POST `…/{compartilhamentoId}/documento`; caixa `enviarDocumentos`; aba
   Documentos visível): só arquivo (sem Drive, texto, imagem nem seção), pelo `UploadPecaUseCase` com o escritório A e
   dentro de `TransacaoComArquivoNovo` (o arquivo só é apagado se o COMMIT comprovadamente não aconteceu); categoria
-  de contrato e as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro. O envio ao
-  Drive de A segue o que o `UploadPecaUseCase` já faz se o worker não depender do vínculo de quem enviou; se depender,
-  fica fora e é registrado.
-- **Metas: só leitura para B.** A regra D3 (só o responsável ou quem criou conclui e reabre a meta) continua valendo,
-  e B nunca é nenhum dos dois. O "movimentar metas" do desenho fica coberto pela anotação e pela fase; concluir e
-  reabrir meta por outra conta, se o dono quiser, é decisão de negócio nova.
+  de contrato e todas as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro, para a
+  equipe de A que acompanha (nunca para B). O upload comum não envia nada ao Drive (só o contrato e a criação da pasta
+  sincronizam), então nada muda ali.
+- **Metas: só leitura para B (desvio do desenho, registrado).** O desenho diz "abrir e movimentar metas". A meta é
+  trabalho atribuído dentro da equipe de A (responsável, criador, esteira e prazo); B não é da equipe, não aparece
+  como responsável e não recebe meta. Concluir e reabrir já esbarram na D3 (só o responsável ou quem criou); despachar
+  e comentar na meta também ficam fora, porque escreveriam na esteira de quem é de A. "Movimentar" fica coberto pela
+  anotação e pela fase; abrir a meta para outra conta é decisão de negócio nova.
+- **Volume.** Sem teto de quantidade na 9b (decisão escrita): cada arquivo segue o limite de tamanho de hoje, os avisos
+  a quem acompanha já se juntam num não lido por pasta, e A encerra o convite quando quiser. Se o uso mostrar abuso, um
+  teto por convite e por dia entra depois.
 - **Tela.** A página reduzida ganha, só com a caixa marcada: o campo de anotação (aba Andamentos), a troca de fase
   (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
 - **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
   nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
-  ela; fase não duplica andamento e não mexe no contrato; documento grava a chave pelo escritório A, código único com
-  outro documento de A, contrato recusado, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
+  ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum nome de A fica no texto; `respostaA` da requisição é
+  ignorado; fase não duplica andamento e não mexe no contrato; cruzar o Contrato e Finalizar/Reativar dão 422; documento grava a chave pelo escritório A, código único com
+  outro documento de A, contrato e as categorias do Financeiro recusados, aviso de acompanhamento chega a quem acompanha em A e nunca a B, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
   de B religado depois de cada escrita, inclusive em erro.
 
 **Lista (L2, L12).** Como no desenho (`rpRows()` concatena as recebidas às linhas), as pastas que o localizador abre
