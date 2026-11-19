@@ -570,7 +570,8 @@ final class FinanceiroDaPastaFerramenta implements FerramentaDoConector, Executo
     private function renomear(Pasta $pasta, ChamadaDoConector $chamada, Tenant $escritorio, int $documentoId, string $titulo): RespostaDaFerramenta
     {
         $documento = $this->documentoDoFinanceiro($pasta, $escritorio, $documentoId);
-        $novo = $this->gravando(static fn () => RenomearDocumentoDoFinanceiroUseCase::normalizar($titulo));
+        // A entidade grava o título em maiúsculas (como na tela): a proposta e a comparação já usam a forma gravada.
+        $novo = mb_strtoupper($this->gravando(static fn () => RenomearDocumentoDoFinanceiroUseCase::normalizar($titulo)));
         if ($novo === $documento->getTitulo()) {
             throw self::recusa('O documento já tem este nome.');
         }

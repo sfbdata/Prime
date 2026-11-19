@@ -372,7 +372,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         $linha = $resposta->dados['modelos_de_checklist'][0];
         self::assertSame((int) $meu->getId(), $linha['id']);
         self::assertSame(2, $linha['total_itens']);
-        self::assertSame(['RG', 'Procuração'], $linha['itens']);
+        self::assertSame(['RG', 'PROCURAÇÃO'], $linha['itens']);
         self::assertStringNotContainsString('123.456.789-09', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('ALHEIO', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
     }

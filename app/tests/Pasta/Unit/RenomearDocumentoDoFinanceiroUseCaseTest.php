@@ -40,8 +40,8 @@ final class RenomearDocumentoDoFinanceiroUseCaseTest extends TestCase
 
         $titulo = $this->useCase->executar($this->pasta, $this->documento, '  novo.pdf ', $this->tenant);
 
-        self::assertSame('novo.pdf', $titulo);
-        self::assertSame('novo.pdf', $this->documento->getTitulo());
+        self::assertSame('NOVO.PDF', $titulo);
+        self::assertSame('NOVO.PDF', $this->documento->getTitulo());
     }
 
     #[TestDox('nome vazio e nome com mais de 255 caracteres são recusados, com a mensagem da tela, sem gravar')]
@@ -61,7 +61,7 @@ final class RenomearDocumentoDoFinanceiroUseCaseTest extends TestCase
         } catch (\InvalidArgumentException $e) {
             self::assertSame('Nome muito longo (máx. 255 caracteres).', $e->getMessage());
         }
-        self::assertSame('antigo.pdf', $this->documento->getTitulo());
+        self::assertSame('ANTIGO.PDF', $this->documento->getTitulo());
     }
 
     #[TestDox('pasta de outro escritório é recusada')]

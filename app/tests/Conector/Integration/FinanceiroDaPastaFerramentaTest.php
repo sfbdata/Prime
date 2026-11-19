@@ -383,13 +383,13 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
 
         self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
         $resumo = $proposta->dados['proposta']['resumo'];
-        self::assertStringContainsString('para "Contrato assinado.pdf"', $resumo);
+        self::assertStringContainsString('para "CONTRATO ASSINADO.PDF"', $resumo);
         self::assertStringNotContainsString('123.456.789-09', $resumo, 'o nome antigo sai mascarado');
-        self::assertSame('Contrato do 123.456.789-09.pdf', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo(), 'a proposta não grava');
+        self::assertSame('CONTRATO DO 123.456.789-09.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo(), 'a proposta não grava');
 
         $confirmada = $this->confirmar($proposta);
         self::assertSame('confirmada', $confirmada->dados['estado']);
-        self::assertSame('Contrato assinado.pdf', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
+        self::assertSame('CONTRATO ASSINADO.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
     }
 
     #[TestDox('renomear_documento: o nome mudou depois da proposta, a confirmação é recusada e nada grava')]
@@ -429,7 +429,7 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
         foreach ([$demais, $daOutraPasta, $alheio] as $naoServe) {
             $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $naoServe->getId(), 'titulo' => 'novo.pdf'], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         }
-        self::assertSame('a.pdf', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
+        self::assertSame('A.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
     }
 
     #[TestDox('renomear_documento: quem só vê a pasta (sem editar) recebe não encontrado')]
