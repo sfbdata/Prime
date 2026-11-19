@@ -1,0 +1,11 @@
+# English translations of the Symfony security messages
+# Keys must be identical to the original Symfony strings (including the final period)
+
+"Bad credentials.": "Incorrect email or password. Check your details and try again."
+"Invalid credentials.": "Incorrect email or password. Check your details and try again."
+"Account is disabled.": "Your account is inactive. Contact support to reactivate it."
+"Account is locked.": "Your account has been temporarily locked for security. Try again in a few minutes."
+"Account has expired.": "Your account has expired. Contact the administrator."
+"Credentials have expired.": "Your password has expired. Please reset your password."
+"Too many failed login attempts, please try again in %minutes% minute.": "Too many sign-in attempts. Wait %minutes% minute before trying again."
+"Too many failed login attempts, please try again in %minutes% minutes.": "Too many sign-in attempts. Wait %minutes% minutes before trying again."

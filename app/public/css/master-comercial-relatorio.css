@@ -44,12 +44,12 @@
 .mc-rl-redondo { border-radius: 50%; }
 .mc-rl-sel-n { font-size: 12px; color: var(--rl-cinza); }
 /* L301 (F3e): os botões da seleção */
-.mc-rl-acao { height: 30px; padding: 0 10px; border: none; background: transparent; border-radius: 15px; color: var(--rl-acao); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mc-rl-acao { height: 30px; padding: 0 10px; border: none; background: transparent; border-radius: 4px; color: var(--rl-acao); font: inherit; font-size: 12.5px; cursor: pointer; }
 .mc-rl-acao:hover, .mc-rl-acao:focus-visible { background: var(--rl-hover); }
 .mc-rl-ic.mc-rl-lixeira { color: var(--rl-vermelho); }
 .mc-rl-ic.mc-rl-lixeira:hover, .mc-rl-ic.mc-rl-lixeira:focus-visible { background: var(--rl-vermelho-hover); }
 .mc-rl-vao { flex: 1; }
-.mc-rl-busca { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; margin: 0; border-radius: 15px; background: var(--rl-busca); width: min(260px, 40%); }
+.mc-rl-busca { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; margin: 0; border-radius: 4px; background: var(--rl-busca); width: min(260px, 40%); }
 .mc-rl-busca > i { color: var(--rl-cinza); }
 .mc-rl-busca > input { border: none; outline: none; background: transparent; flex: 1; min-width: 0; font: inherit; font-size: 12.5px; color: var(--rl-texto); }
 .mc-rl-faixa { font-size: 12px; color: var(--rl-cinza); margin-left: 8px; white-space: nowrap; }
@@ -80,7 +80,9 @@
 
 /* L304: a linha */
 .mc-rl-linha { display: flex; align-items: center; gap: 6px; padding: 0 14px 0 6px; height: 42px; border-bottom: 1px solid var(--rl-linha); font-size: 13.5px; background: var(--rl-fundo); cursor: pointer; transition: box-shadow .12s; position: relative; }
-.mc-rl-linha:hover { box-shadow: inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px rgba(60,64,67,.3); z-index: 1; }
+.mc-rl-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; z-index: 1; transition: background .18s; }
+.mc-rl-linha:hover *:not(.mc-rl-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+.mc-rl-linha:hover .mc-rl-st, .mc-rl-linha:hover .mc-rl-publico { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .mc-rl-linha.mc-rl-marcada { background: var(--rl-marcada); }
 .mc-rl-sel { width: 30px; height: 30px; flex: none; border: none; background: transparent; color: var(--rl-apagado); cursor: pointer; font-size: 15px; }
 .mc-rl-estrela { width: 30px; height: 30px; flex: none; border: none; background: transparent; color: var(--rl-sem-estrela); cursor: pointer; font-size: 15px; }
@@ -109,7 +111,7 @@
 .mc-rl-ver-barra { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--rl-div); }
 .mc-rl-ver-voltar { width: 34px; height: 34px; border: none; border-radius: 50%; background: transparent; color: var(--rl-cinza); cursor: pointer; font-size: 16px; }
 .mc-rl-ver-voltar:hover, .mc-rl-ver-voltar:focus-visible { background: var(--rl-hover); }
-.mc-rl-ver-acao { height: 32px; padding: 0 12px; border: 1px solid var(--rl-ver-borda); border-radius: 16px; background: var(--rl-fundo); color: var(--rl-ver-acao); font: inherit; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.mc-rl-ver-acao { height: 32px; padding: 0 12px; border: 1px solid var(--rl-ver-borda); border-radius: 4px; background: var(--rl-fundo); color: var(--rl-ver-acao); font: inherit; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .mc-rl-ver-acao:hover, .mc-rl-ver-acao:focus-visible { background: var(--rl-ver-acao-hover); }
 .mc-rl-ver-cancelar { color: var(--rl-st-canc-tx); }
 .mc-rl-ver-corpo { overflow: auto; padding: 16px 22px 20px; }

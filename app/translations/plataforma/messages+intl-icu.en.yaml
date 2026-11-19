@@ -1,0 +1,81 @@
+plataforma:
+    menu:
+        painel: Dashboard
+        convites: Invitations
+        revisao_oab: OAB Review
+        sistema: System
+        voltar: Back to the system
+    painel:
+        titulo: '{termo} Panel'
+        subtitulo: Global administration, outside any firm
+        oab_titulo: OAB Review
+        oab_descricao: Confirm, revert and review the OABs of users.
+        convites_titulo: Invitations
+        convites_descricao: 'Invite new accounts and track the {termo} invitations.'
+    convites:
+        titulo: '{termo} Invitations'
+        novo: New invitation
+        email: E-mail
+        nome_opcional: Name (optional)
+        convidar: Invite
+        enviados: Invitations sent
+        nome: Name
+        status: Status
+        enviado_em: Sent on
+        expira_em: Expires on
+        reenvios: Resends
+        sem_informacao: no information
+        pendente: Pending
+        aceito: Accepted
+        revogado: Revoked
+        expirado: Expired
+        reenviar: Resend
+        confirmar_reenviar: 'Resend invitation to {email}?'
+        revogar: Revoke
+        confirmar_revogar: 'Revoke invitation for {email}?'
+        vazio: No invitation sent yet.
+    oab:
+        titulo: OAB Review
+        subtitulo: 'Global identity: attorneys from all firms'
+        contagem: '{n, plural, =1 {{qtd} registration} other {{qtd} registrations}}'
+        filtro:
+            pendentes: Pending
+            divergente: Mismatched
+            nao_verificada: Not verified
+            confirmada: Confirmed
+            todas: All
+        busca_placeholder: Name, e-mail or OAB no.
+        buscar: Search
+        nome: Name
+        email: E-mail
+        oab: OAB
+        nome_cna: Name in the CNA
+        status: Status
+        verificada_em: Verified on
+        acoes: Actions
+        principal: Primary
+        suplementar: Supplementary
+        nao_informado: Not provided
+        sem_registro: No record
+        confirmar_dica: Mark as confirmed
+        reverter_dica: Revert confirmation
+        reverter: Revert
+        reverter_para: Revert to…
+        nao_verificada: Not verified
+        divergente: Mismatched
+        reverificar_dica: Re-verify (automatic check unavailable)
+        vazio_titulo: No registration in this queue
+        vazio_com_busca: Adjust the search or change the filter.
+        vazio_sem_busca: Try another filter above.
+    flash:
+        convite_criado_sem_email: Invitation created, but the e-mail was not sent. Use the Resend button.
+        convite_enviado: 'Invitation sent to {email}.'
+        convite_revogado: Invitation revoked.
+        convite_email_nao_enviado: Could not send the e-mail. Try again.
+        convite_reenviado: Invitation resent.
+        oab_confirmada: OAB confirmed.
+        oab_destino_invalido: Invalid destination.
+        oab_revertida: OAB reverted.
+        oab_verificada_sem_automatico: Check run. Automatic backend unavailable, the status stays not verified.
+        oab_verificada: Check run.
+        oab_inscricao_mudou: The registration changed after the queue was opened. Check again.

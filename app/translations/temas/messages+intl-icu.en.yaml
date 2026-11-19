@@ -1,0 +1,27 @@
+# ---- Commemorative themes of the Master panel
+temas:
+    titulo: Commemorative themes
+    descricao: 'Changes the system color and shows a message on special dates. Applies to all users; each one can dismiss the message.'
+    status:
+        ativo: '{icone} {tema} is active now'
+        desligados: 'Themes off: default BlueJus colors'
+        nenhum: 'No theme today: default BlueJus colors'
+    modos:
+        rotulo: Theme mode
+        automatico: Automatic by calendar
+        manual: Choose a theme
+        desligado: Off
+    dica: Click a theme to pin it.
+    parar_previa: Stop preview
+    ativo: ACTIVE
+    previa: Preview
+    previa_dica: See how it looks for 1 minute
+    chave: Turn on or off
+    chave_rotulo: 'Turn {tema} on or off'
+    js:
+        previa: 'Preview: {icone} {tema} (ends on its own in {s} s)'
+        ativo: '{icone} {tema} is active now'
+        desligados: 'Themes off: default BlueJus colors'
+        nenhum: 'No theme today: default BlueJus colors'
+        previa_indisponivel: Could not show the preview in this browser.
+        erro_alterar: Could not change it right now. Reload the page.

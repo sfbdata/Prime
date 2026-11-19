@@ -1,0 +1,102 @@
+# ---- Matter, Details tab: Initial Intake Report (pasta/_detalhes_obs, its script and pasta-ler-mais.js)
+pasta_detalhes:
+    titulo: Initial Intake Report
+    contagem_dica: Main notes (replies do not count)
+    lapide_nota: 'Matter deleted: the report is read-only.'
+    placeholder: Add note…
+    visivel_equipe: Visible to the team
+    enviar: Send
+    enviar_dica: Send (Ctrl+Enter)
+    vazio_titulo: No notes recorded
+    vazio_nota: Record above the account given by the client, the summary of the request, the legal theory and the expected results.
+    motivo_prazo: The 15-minute window to edit or delete has ended.
+    motivo_autor: Only the author can edit or delete, within 15 minutes of posting.
+    cartao:
+        resposta_a: 'Reply to {nome}'
+        resposta_orfa: Reply to a deleted message
+        autor_desconhecido: Unknown author
+        tag: Note
+        editado: edited
+        editado_dica: 'Posted at {hora} · last edited {data} at {hora_edicao}'
+        editavel_um: 'Editable for {minutos} more minute'
+        editavel_varios: 'Editable for {minutos} more minutes'
+        editar: Edit note
+        excluir: Delete note
+        responder: Reply
+        encaminhar: Forward via AI Chat
+        mais_acoes: More note actions
+    menu:
+        copiar: Copy text
+        citar: Quote in the new entry
+        criar_meta: Create goal from this entry
+        enviar_chat: Send to AI Chat
+        imprimir: Print
+        editar_min: 'Edit · {minutos} min'
+        excluir_min: 'Delete comment · {minutos} min'
+        editar_sem_prazo: Edit
+        excluir_sem_prazo: Delete comment
+        editar_dica: 'Editing allowed for {minutos} more min'
+        excluir_dica: 'Deleting allowed for {minutos} more min'
+        editar_bloqueado: Edit · locked
+        excluir_bloqueado: Delete · locked
+    js:
+        # compositor, envio e exclusão
+        vazia: The note cannot be empty.
+        enviar: Send
+        enviando: Sending…
+        erro_enviar: Error sending.
+        erro_enviar_resposta: Error sending the reply.
+        erro_editar: Error editing.
+        erro_excluir: Error deleting.
+        erro_rede: Network error.
+        erro_rede_tente: Network error. Please try again.
+        excluir_titulo: 'Delete the comment by {autor}?'
+        excluir_texto: '"{trecho}". It disappears for the whole team and the deletion is recorded in the history.'
+        colaborador: team member
+        vazio_titulo: No notes recorded
+        vazio_nota: Record above the account given by the client, the summary of the request, the legal theory and the expected results.
+        # cartão montado no JS (o mesmo do Twig)
+        autor_desconhecido: Unknown author
+        resposta_a: 'Reply to {nome}'
+        resposta_orfa: Reply to a deleted message
+        tag: Note
+        editado: edited
+        editado_quando: '{data} at {hora}'
+        editado_dica: 'Posted at {hora} · last edited {quando}'
+        editado_dica_sem_hora: 'last edited {quando}'
+        editavel_um: 'Editable for {minutos} more minute'
+        editavel_varios: 'Editable for {minutos} more minutes'
+        editar: Edit note
+        excluir: Delete note
+        responder: Reply
+        encaminhar: Forward via AI Chat
+        mais_acoes: More note actions
+        # ⋮ da observação
+        copiar: Copy text
+        citar: Quote in the new entry
+        criar_meta: Create goal from this entry
+        enviar_chat: Send to AI Chat
+        imprimir: Print
+        editar_min: 'Edit · {minutos} min'
+        excluir_min: 'Delete comment · {minutos} min'
+        editar_sem_prazo: Edit
+        excluir_sem_prazo: Delete comment
+        editar_dica: 'Editing allowed for {minutos} more min'
+        excluir_dica: 'Deleting allowed for {minutos} more min'
+        editar_bloqueado: Edit · locked
+        excluir_bloqueado: Delete · locked
+        texto_copiado: Text copied
+        nao_copiou: Could not copy
+        chat_texto: 'Matter {pasta} · {cabecalho}'
+        chat_copiado: AI Chat opened. Text copied to paste into the conversation
+        chat_nao_copiou: AI Chat opened. Could not copy the text
+        # Responder e editar
+        respondendo_a: 'Replying to {nome}'
+        resposta_placeholder: Write your reply…
+        cancelar: Cancel
+        salvar: Save
+        visivel_equipe: Visible to the team
+        # pasta-ler-mais.js
+        ler_mais_um: 'keep reading ({total} paragraph)'
+        ler_mais_varios: 'keep reading ({total} paragraphs)'
+        ler_menos: show less

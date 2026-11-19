@@ -1,0 +1,57 @@
+# ---- Matter, Templates tab: petition template bank (pasta/modelos/*, pasta-modelos.js)
+pasta_modelos:
+    aba: Templates
+    titulo: Petition template bank
+    contador: '{total, plural, one {# template} other {# templates}} · available in all matters'
+    busca_placeholder: Search template by name, type or text excerpt
+    todos_tipos: All types
+    ordenar: Sort
+    novo: New template
+    voltar: Back to the list
+    mais_opcoes: More options
+    vazio: No templates found.
+    relatorio_resumo: Initial matter report (objectives, settlements and expected result)
+    confirmar_excluir: 'Delete the template "{titulo}"?'
+    sufixo_copia: (adjusted)
+    lacuna: '___'
+    copiado: Text copied.
+    minuta_gerada: 'Draft "{titulo}" generated for Matter {pasta} and saved in the matter documents.'
+    corpo_novo: "TO THE HONORABLE JUDGE OF THE ___ DIVISION ___ OF THE DISTRICT OF '{cidade}'\n\n'{cliente}', CPF '{cpf}', comes before this Court ___\n\nIn these terms, we request that the petition be granted.\n\n'{cidade}', '{data}'.\n\n'{advogado}'\nOAB/'{oab}'"
+    modo:
+        modelo: Template
+        preenchido: Filled in with this matter
+    dados:
+        titulo: DOCUMENT DATA
+        sub: comes from the matter; adjust before generating
+        placeholder: fill in
+        nota: Fields with no data in the matter appear as ___ for you to complete. Always review the document before filing.
+    acao:
+        copiar: Copy
+        word: Word
+        usar: 'Use in matter {nup}'
+    erro_generico: Could not complete. Please try again.
+    coluna:
+        todas: All subjects
+        favoritos: ★ Favorites
+        materias_favoritas: Favorite subjects
+        marcar_favorita: Mark as favorite
+        tirar_favorita: Remove from favorites
+    linha:
+        favorito: Favorite
+        do_escritorio: from the firm
+        usado: 'used {n}x'
+    menu:
+        duplicar: Duplicate and adjust
+        editar: Edit template
+        excluir: Delete template
+    editor:
+        novo: New template
+        editar: Edit template
+        titulo: TITLE
+        materia: SUBJECT
+        tipo: DOCUMENT TYPE
+        texto: TEMPLATE TEXT
+        dica_variaveis: "use '{cliente}', '{cpf}', '{processo}', '{pasta}', '{cidade}', '{data}', '{advogado}', '{oab}'"
+        cancelar: Cancel
+        salvar: Save template
+        informe_titulo: Enter the title.

@@ -1,0 +1,99 @@
+# ---- Matter, Case tab (pasta/_processos_vinculados, pasta-processo.js)
+pasta_processo:
+    titulo: Linked cases
+    administrativa:
+        rotulo: Administrative, no case
+        dica_alternar: Check when the matter is administrative (consulting, out-of-court, contract) and will not have a court case
+        dica_ligada: 'Administrative matter: will not have a court case'
+        dica_desligada: Matter not marked as administrative
+        confirmar_com_processo: "Matter {pasta} has case {processo} linked.\nMark it as \"Administrative, no case\" anyway? Progress moves to the administrative track."
+        marcar: Mark as administrative, no case
+        desmarcar: Unmark administrative, no case
+        vazio_nota: 'Administrative matter (consulting, out-of-court, contract): will not have a court case.'
+    cabecalho:
+        mais_opcoes: More options
+        mais_opcoes_rotulo: More case options
+        vincular: Link case
+        vincular_apensado: Link related case
+        vincular_apensado_dica: Link a related case (motion, interlocutory appeal, enforcement…)
+        peticionar: File in the matter
+        peticionar_dica: Open the filing screen for this matter (attachments and texts)
+        menu_titulo: 'Cases · Matter {pasta}'
+        enviar_controladoria: Send to Docket control now
+    cartao:
+        vinculado_em: 'Linked on {data}'
+        processo_vinculado: Linked case
+        dica_botao_direito: Right-click for more options
+        copiar_numero_dica: Copy case number
+        principal: Main
+        apensado: 'Related · {tipo}'
+        desvincular_apensado: Unlink this related case
+        confirmar_desvincular_apensado: 'Unlink the related case {processo} from the matter? The record stays in the history.'
+        mais_opcoes: More options
+        mais_opcoes_rotulo: More case options
+    menu:
+        titulo: 'Case {processo}'
+        nota_tecnica: Add technical note
+        ver_completo: View full case
+        ver_todas: View all information
+        editar: Edit case details
+        ver_movimentacoes: View updates (Push)
+        copiar_numero: Copy number
+        numero_copiado: Case number copied
+        copiar_resumo: Copy case summary
+        resumo_copiado: Case summary copied
+        compartilhar: Share
+        resumo_copiado_compartilhar: Summary copied to share
+        encaminhar: Forward via AI Chat
+        relatorio: General case report
+        imprimir: Print summary
+        tornar_principal: Make main case
+        desvincular: Unlink from matter
+        confirmar_desvincular: "Unlink case {processo} from Matter {pasta}?\nThe case data stays saved and you can link it again."
+    dados:
+        acao: Action
+        classe: Class
+        tribunal: Court
+        situacao: Status
+        instancia: Instance
+        data_baixa: Closing date
+        sistema: System
+        formato: Format
+        origem: Originating case
+        partes: Parties
+        atualizacao: Last update at the court
+        nao_informado: Not provided
+        nao_informada: Not provided
+        manual: manual
+        manual_dica: Filled in manually
+        selo_sim: YES
+        selo_nao: NO
+    edicao:
+        dica: 'Fill in only what you confirmed in the case file. Empty fields stay as "Not provided".'
+        sim: 'Yes'
+        nao: 'No'
+        nao_informado: Not provided
+        cancelar: Cancel
+        salvar: Save
+    acao:
+        editar: Edit matter action
+        dica: 'The action belongs to the matter: it appears on the main case card, in the case summary and in the matter name. Leave empty to clear it.'
+        placeholder: 'E.g.: Collection action'
+    vazio:
+        acao_registrada: 'Action recorded:'
+        titulo: No court case linked
+        vincule: Link a case with the button above.
+        quem_edita: Whoever edits the matter can link a case to it.
+    nota: The main case is the one shown in the matter header and in the lists. A matter can have several linked cases.
+    js:
+        mostrar_menos: Show less
+        ver_todas: View all information
+        copiado: Copied
+        copiar_falhou: Could not copy
+        administrativa_falhou: 'Could not change "Administrative, no case". Please try again.'
+        administrativa_titulo: Mark as administrative
+        administrativa_sem_comunicacao: Communication error. The mark may not have been saved. Reload the page.
+        dados_falhou: Could not save the case details.
+        dados_sem_comunicacao: Communication error. The data may not have been saved. Reload the page.
+        acao_falhou: Could not save the matter action.
+        acao_sem_comunicacao: Communication error. The action may not have been saved. Reload the page.

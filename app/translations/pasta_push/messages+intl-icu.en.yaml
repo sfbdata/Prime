@@ -1,0 +1,304 @@
+# ---- Matter, Push tab (pasta/_push_*, pasta-push*.js)
+pasta_push:
+    processual:
+        titulo: Updates received
+        ver_no_modulo: view in the module
+        ia:
+            analisando: Analyzing…
+            gerar_nova: Generate new analysis
+            resumir: Summarize with AI
+            dica_primeira: The AI reads the updates and points out deadlines and actions
+            dica_nao_analisadas: '{n} update(s) not yet analyzed'
+            dica_nova: New analysis considering the history
+        filtros:
+            por_processo: Filter by case
+            todos_dica: Updates from all cases in the matter
+            somente: 'Only {numero}'
+            rotulo: Filter updates
+            todas: All
+            novas: New
+            prazo: Create deadlines
+        vazio:
+            sem_processo: This matter has no linked case.
+            sem_processo_como: Case Push follows publications by case number.
+            vincule: Link a case
+            vincule_resto: so its publications appear here.
+            sem_publicacao: No publications captured for this case.
+            sem_publicacao_como: The system captures what is published in the DJEN for the OABs monitored by the firm.
+            sem_publicacao_oab: If the case is not under a monitored OAB, nothing arrives here.
+            filtro: No updates in this filter.
+        # Pílula do dia do cartão ("5 out 2026"): a abreviação de cada mês.
+        meses:
+            jan: jan
+            fev: feb
+            mar: mar
+            abr: apr
+            mai: may
+            jun: jun
+            jul: jul
+            ago: aug
+            set: sep
+            out: oct
+            nov: nov
+            dez: dec
+        cartao:
+            sem_data: No date
+            ponto_juizo: Court act (decision, order, judgment, writ)
+            ponto_cartorio: Court clerk (certificate, diligence, court notice)
+            dica_nota: Right-click to add a technical note
+            publicacao: Publication
+            nao_lida: Unread
+            novo: New
+            djen: DJEN
+            apensado: 'Related · {tipo} {numero}'
+        menu:
+            rotulo: Update actions
+            nota: Add technical note
+            tarefa: Create task
+            encaminhar: Forward via AI Chat
+            marcar_lida: Mark as read
+            documento: Open document
+            copiar: Copy text
+        teto:
+            exibindo: 'Showing the {total} most recent publications of this case.'
+            ver_todas: View all in the module
+    painel:
+        rotulo: Case monitoring
+        switch: Monitoring
+        switch_do_processo: 'Monitoring of case {numero}'
+        excluida: 'Matter deleted: read-only.'
+        so_quem_edita: Only those who edit the matter can pause or resume monitoring
+        principal: Main
+        sem_processo: No linked case
+        buscar: Search now
+        buscar_dica: 'Searches, reads and audits the case: deadlines, elapsed periods, pending items and next acts'
+        situacao:
+            titulo: Current status
+            ultimo: Latest event
+            proximo: Next act
+            quem: Who acts
+            prazo: Deadline
+            previsao: Forecast
+            proxima: Likely next stage
+            confianca: 'Confidence {conf}'
+            base: 'Basis: {base}'
+            rodape: 'Forecast based on CPC rules, not an official act. {aprendizado}.'
+        avisos:
+            titulo: Notify when it arrives
+            so_quem_edita: Only those who edit the matter can change the notices.
+    cliente:
+        titulo: Notify client
+        excluida: 'Matter deleted: read-only.'
+        so_quem_edita: Only those who edit the matter can change the client emails.
+        cadastrar: Add email
+        cadastrar_dica: Add client email
+        sem_cliente: The matter has no linked client.
+        vazio: 'No email on file for {cliente}. Add one to keep the client informed about the case.'
+        descadastrado: Unsubscribed by the client
+        email_principal: Main email
+        tornar_principal: Make main
+        avisos_para: 'Notices for {email}'
+        remover: Remove email
+        form:
+            exemplo: email@cliente.com.br
+            email: Client email
+            rotulo: Email label
+            pessoal: Personal
+            trabalho: Work
+            familiar: Family
+            outro: Other
+            cancelar: Cancel
+            adicionar: Add
+        controladoria:
+            dica: Every email to the client is copied to Docket control, for review and control of the acts
+            copia: 'Copy to Docket control:'
+            sempre: Always
+        automatico:
+            titulo: Automatic sending
+            ia: BlueJus AI analysis
+            ia_dica: The analysis needs correction and review by the attorney before reaching the client
+            so_manual: Manual only
+    envio:
+        rotulo: Send analysis to client
+        titulo: Send to client
+        fechar: Close
+        para: To
+        cc: Copy (CC) · Docket control
+        cc_dica: 'Required copy: ensures review and control of the acts sent to the client'
+        cc_obrigatoria: Required copy, cannot be removed
+        sem_cc: No user with the Docket control role on file.
+        assunto: Subject
+        mensagem: Message
+        selo_ia: analysis text, review before sending
+        revisei: I reviewed and corrected the content. I authorize sending it to the client on behalf of the firm.
+        cancelar: Cancel
+        enviar: Send email
+    teor:
+        publicacao: Publication
+        documento: Document
+        rotulo_doc: '{documento} - {tipo}'
+        abrir_documento: Open document in PJe
+        copiar_id_dica: Copy document ID
+        copiar_id: Copy ID
+        abrir_pje: Open in PJe
+        criar_tarefa: Create task
+        encaminhar_dica: Forward via AI Chat
+        encaminhar: Forward
+        marcar_lida: Mark as read
+        marcar_nao_lida: Mark as unread
+        sem_teor: This publication came without text.
+        abrir_no_modulo: Open in the module
+    link:
+        fechar: Close
+        pasta: 'Matter {nup}'
+        acessos_no_total: total views
+        menu:
+            titulo: Case Push
+            fechar_dica: Close (Esc)
+            copiar: Copy active external link
+            acessos: View link visits
+            gerar: Generate external Push link
+            indisponivel: External link unavailable
+            carregando: Loading…
+        modal:
+            titulo: External Push link
+            processo: 'Case {numero}'
+            sem_processo: This matter has no linked case. Link a case to share the Push.
+            aviso_antes: Whoever receives the link sees
+            aviso_destaque: only the Case Push
+            aviso_depois: of this case, without signing in and without being able to change anything. Documents, financial data, goals and internal records of the matter do not appear.
+            gerar: Generate and copy link
+        criado:
+            titulo: Link created and copied
+            endereco: External link address
+            copiar: Copy
+            codigo: Access code
+            codigo_dica: Send it through another channel, separate from the link.
+            ver_como_terceiro: View as a third party
+            criar_outro: Create another
+        form:
+            validade: Valid for 30 days.
+            validade_depois: After that, whoever has the link can request renewal and you receive a notice to accept or not.
+            o_que_ve: What the third party sees
+            movimentacoes: Official case updates
+            hoje: today · updates automatically
+            codigo: Require access code
+            codigo_desc: Generates a 6-digit code to send separately from the link.
+            cliente: Show the client name
+            cliente_desc: Without this, the link shows only the case number.
+            ia: Include AI Analyses
+            ia_sem: This matter has no AI Analysis yet.
+        lista:
+            titulo: Links for this matter
+            abrir_acessos: Open the visits panel
+        acessos:
+            titulo: Push link visits
+            nenhum: No visits yet
+            rodape: Counts each opening of the link (after the code, when there is one).
+    # O JS (pasta-push.js, pasta-push-painel.js, pasta-push-cliente.js e pasta-push-link.js) lê este bloco
+    # pelo catalogo_js('pasta_push.js'): só {x}, sem plural ICU (o singular e o plural são chaves separadas).
+    js:
+        aba_titulo: Case Push
+        aba_titulo_uma_nova: Case Push · 1 new unread update
+        aba_titulo_novas: 'Case Push · {n} new unread updates'
+        nao_lida: Unread
+        novo: New
+        id_copiado: 'ID {id} copied'
+        copiar_falhou: Could not copy
+        marcar_lida: Mark as read
+        marcar_nao_lida: Mark as unread
+        marcada_lida: Marked as read
+        marcada_nao_lida: Marked as unread
+        lida_falhou: Could not update the publication.
+        texto_falhou: Could not copy the text.
+        texto_copiado: Text copied
+        sem_teor: This publication came without text.
+        teor_falhou: Could not load the text. Please try again.
+        sem_documento: This update has no document to open.
+        tarefa_falhou: Could not create the task from here.
+        sem_nota: This update does not accept a technical note.
+        tarefa:
+            publicacao: Publication
+            titulo: 'Action: {tipo}'
+            titulo_com_data: 'Action: {tipo} of {data}'
+            recebida: Update received by Case Push.
+            tipo: 'Type: {tipo}'
+            orgao: 'Body: {orgao}'
+            processo: 'Case: {processo}'
+            disponibilizada: 'Made available on: {data}'
+            documento: 'Document ID: {documento}'
+            link: 'Document in PJe: {link}'
+        painel:
+            monitoramento_falhou: Could not change the monitoring.
+            lendo: Reading the case...
+            buscar: Search now
+            buscar_falhou: Could not search now.
+            aviso_falhou: Could not change the notice.
+        cliente:
+            sem_email: Add an email to send the analysis.
+            sem_permissao_cadastrar: No permission to add an email.
+            cadastrar_falhou: Could not add the email.
+            email_falhou: Could not change the email.
+            automatico_falhou: Could not change automatic sending.
+            remover_pergunta: 'Remove {email} from the client notices?'
+        envio:
+            enviando: Sending…
+            enviar: Send email
+            sem_permissao: No permission to send to the client.
+            sem_destinatario: Choose at least one recipient.
+            vazio: Subject and message cannot be empty.
+            sem_revisao: Confirm that you reviewed the content before sending.
+            reenviar: Resend to client
+            falhou: Sending failed. The text was kept; please try again.
+        link:
+            erro_geral: Could not reach the server. Please try again.
+            carregar_falhou: Could not load the links for this matter.
+            um_link_ativo: 1 active link
+            links_ativos: '{n} active links'
+            reenviar_confirmacao: Resend the confirmation link
+            ia_com: '{n} analysis(es) in this matter. Marked as analysis, not an official act.'
+            criado_copiado: Link created and copied
+            criado: Link created
+            copiado: Copied
+            copiar: Copy
+            valido_ate: 'Valid until {data}'
+            indisponivel: External link unavailable.
+            ninguem_abriu: No one has opened this link yet.
+            um_acesso: 1 visit
+            acessos: '{n} visits'
+            acesso: visit
+            acessos_sem_numero: visits
+            ultimos_acessos: Latest visits
+            ate: 'until {data}'
+            expirou_em: 'expired on {data}'
+            criado_por: 'Created by {quem} on {quando}'
+            com_codigo: with code
+            sem_codigo: no code
+            renovacao_pedida: 'Renewal requested by {quem} on {quando}'
+            quem_recebeu: who received the link
+            ultimo_em: 'latest on {data}'
+            clique_detalhes: click to see details
+            copiar_link: Copy link
+            revogar: Revoke
+            renovar: Renew 30 days
+            nao_renovar: Do not renew
+            acesso_no_total: total visit
+            acessos_no_total: total visits
+            revogar_titulo: Revoke external link
+            revogar_pergunta: Revoke this link? Whoever has the address loses access immediately.
+            revogado: Link revoked
+            copiar_falhou_lista: Could not copy. Copy the address from the external link list.
+            copiar_falhou_selecione: Could not copy. Select the address and copy it.
+            copiado_aviso: Link copied
+            renovado: Link renewed for 30 days
+            recusado: Renewal declined
+            pasta: 'Matter {nup}'
+            um_link: 1 link
+            links: '{n} links'
+            ultimo_acesso_em: 'Latest visit on {data}'
+            nenhum_acesso: No visits yet
+            ver_acessos: View link visits
+            gerar_novo: Generate new external link
+            gerar: Generate external Push link
+            copiado_menu: 'Link copied · valid until {data}. Analyses with a closed lock do not appear.'
+            copiado_menu_com_codigo: 'Link copied · valid until {data} · with access code. Analyses with a closed lock do not appear.'

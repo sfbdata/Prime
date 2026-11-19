@@ -1,0 +1,187 @@
+trabalho_externo:
+    painel:
+        titulo_pagina: Field Work · BlueJus
+        nome: Field Work
+        subtitulo: Hub for requests, positions and legal talent
+        busca_placeholder: Search request, city, case
+        vagas_busca_placeholder: Search position, role, area or city
+        coluna:
+            id: ID
+            servico: SERVICE
+            origem_execucao: ORIGIN → EXECUTION
+            prazo: DEADLINE
+            responsavel: ASSIGNEE
+            situacao: STATUS
+            chat: CHAT
+    sem_acesso:
+        titulo_pagina: No access · Field Work
+        titulo: You do not have access to Field Work
+        sem_escritorio: This account has no firm or valid invitation. If you received an invitation by e-mail, open the invitation link to join the request.
+        sem_permissao: Your role does not have permission for this module. If you need it, ask your firm administrator to grant access.
+    convite:
+        titulo_pagina: Invitation · Field Work
+        indisponivel: Invitation unavailable
+        indisponivel_texto: This invitation does not exist, was revoked or has expired. Ask the sender for a new invitation.
+        titulo: Invitation for field work
+        convidado_para: You have been invited to perform
+        em: in
+        acesso_somente: 'Access is only to this request: instructions, authorized documents, checklist and chat.'
+        para_validade: Invitation for {email}, valid until {validade}.
+        nome_completo: Full name
+        senha: Password (minimum 8 characters)
+        genero: Gender
+        genero_escolha: Select
+        genero_feminino: Female
+        genero_masculino: Male
+        li_e_aceito: I have read and accept the
+        termos_de_uso: General Terms and Conditions of Use
+        declara_ciencia: By creating the account you acknowledge the
+        politica_de_privacidade: Privacy Policy
+        criar_conta_e_aceitar: Create account and accept
+        conta_existente: A BlueJus account already exists for this e-mail. Sign in with it and then open this link again to accept the invitation.
+        entrar: Sign in
+        outro_email: This invitation is for another e-mail. Sign out of the current account and sign in with {email}.
+        sair: Sign out
+        aceitar: Accept invitation
+    curriculo:
+        titulo_pagina: Résumé · {nome}
+        contato: Contact
+        habilidades: Skills
+        idiomas: Languages
+        disponibilidade: Availability
+        gerado_no_bluejus: Résumé generated on BlueJus
+        perfil_profissional: Professional profile
+        experiencia: Experience
+        formacao: Education
+        areas_de_atuacao: Practice areas
+    vagas_publicas:
+        titulo_pagina: Jobs for Attorneys and the Legal Field · BlueJus
+        og_descricao: Open positions for attorneys, interns, correspondents and legal staff. Create your free account and apply.
+        entrar: Sign in
+        criar_conta_gratis: Create free account
+        procuro_vaga: I am looking for a job
+        quero_contratar: I want to hire
+        quero_divulgar_vaga: I want to post a job
+        selo:
+            vagas_abertas: '{total} open position(s)'
+            atualizado_em: updated on {data}
+            central: Legal job hub
+            escritorios: For firms · free posting
+        h1:
+            com_vagas: Jobs for Attorneys and the Legal Field
+            sem_vagas: Your next legal job starts here
+            escritorios: Find attorneys and legal professionals without spending on ads
+        sub:
+            contratando: Firms in the BlueJus network are hiring {cargos}
+            profissionais: legal professionals
+            em_ufs: in {ufs}
+            ver_detalhes: Create your free account to see the details and apply in 1 click.
+            sem_vagas: Jobs for attorneys, interns, correspondents and legal staff. Create your free account to follow along.
+            escritorios: Post for free to attorneys, interns, correspondents and legal staff across Brazil. The BlueJus team reviews the position and hands you a selection of the best-matching candidates.
+        cta:
+            candidatar: Create free account and apply
+            receber_por_email: Get jobs by e-mail
+            divulgar: Post my job for free
+            como_funciona: How it works
+        num:
+            vaga_aberta: open position
+            vagas_abertas: open positions
+            cargo: role
+            cargos: roles
+            estado: state
+            estados: states
+            gratis: Free
+            para_se_candidatar: to apply
+            um_clique: 1 click
+            pdf: PDF
+            curriculo_profissional: professional résumé
+            avisos: Alerts
+            de_vaga_nova: for new jobs
+            sem_pegadinha: no catch
+            rs_zero: R$ 0
+            para_divulgar: to post
+            selecao: Selection
+            melhores_candidatos: of the best candidates
+            revisada: Reviewed
+            pela_equipe: by the BlueJus team
+            rede: Network
+            canais: WhatsApp, e-mail and LinkedIn
+        preenchidas:
+            titulo: The positions on this link have already been filled
+            texto: New positions arrive at the Hub all the time. Create your account and turn on alerts to be first for the next one.
+        lista:
+            vaga_compartilhada: Position shared with you
+            vagas_compartilhadas: Positions shared with you
+            indicadas_por: Referred by {nome}
+        card:
+            qtd_vagas: '{qtd} positions'
+            borrado_remuneracao: 'Pay: R$ ●●●●'
+            borrado_escritorio: 'Firm: ●●●●●●●● ●●●●●'
+            borrado_requisitos: Requirements and duties of the position ●●●●●●
+            ver_detalhes: Create your account to see the details
+            candidatar: I want to apply
+        escritorios:
+            chapeu: FOR LAW FIRMS
+            titulo: Post your job for free and receive the best candidates
+            texto: You submit the position, the BlueJus team reviews it, posts it to attorneys, interns and correspondents and hands you a selection of the best-matching candidates. No paid ads, no screening hundreds of résumés.
+        passo:
+            conta: Create the firm account
+            conta_texto: Takes 2 minutes and is free.
+            envie: Submit the position
+            envie_texto: 'Standard form: role, location, requirements and how long to post.'
+            revisa: BlueJus reviews and posts
+            revisa_texto: Published on the Hub and shared with the network.
+            receba: Receive the best candidates
+            receba_texto: The team selects the best matches and sends them to you.
+        beneficios:
+            titulo: Why create your account on BlueJus
+            subtitulo: It is free and takes a few minutes.
+            um_clique: 1-click applications
+            um_clique_texto: Register your résumé once and use it for all positions.
+            curriculo: Free professional résumé
+            curriculo_texto: Generate your formatted résumé as a PDF, ready to send.
+            avisos: New job alerts
+            avisos_texto: Be first to see the positions in your field and city.
+            rede: Network of firms
+            rede_texto: Firm positions reviewed by the BlueJus team.
+        alertas:
+            pronto: Done! You will receive jobs by e-mail
+            criar_conta_agora: Create account now
+            titulo: Get jobs in your field by e-mail
+            subtitulo: Be one of the first to know. You can cancel whenever you want.
+            email_placeholder: Your e-mail
+            todo_o_brasil: All of Brazil
+            areas_de_interesse: AREAS OF INTEREST
+            quero_receber: I want to receive jobs
+        compartilhar:
+            titulo: Know someone looking for a legal job?
+            texto: Share these positions with colleagues, law school groups and OAB groups.
+            whatsapp_com_vagas: '⚖️ Jobs for Attorneys and the Legal Field available on BlueJus! {total} position(s): {cargos}. See: {url}'
+            whatsapp_sem_vagas: '⚖️ Jobs for Attorneys and the Legal Field available on BlueJus! See: {url}'
+            enviar_whatsapp: Send on WhatsApp
+        sistema:
+            chapeu: MORE THAN A JOB HUB
+            titulo: The system that organizes the whole firm
+            texto: Matters and dockets, PJe deadlines and publications, team goals, financials and an assistant with artificial intelligence that flags what needs attention. All in one place.
+            criar_conta: Create account and explore
+            pastas: Matters and dockets
+            pastas_texto: Everything about the client in one place.
+            prazos: Deadlines and PJe
+            prazos_texto: Publications and deadlines under control.
+            assistente: AI assistant
+            assistente_texto: Flags what needs attention.
+            metas: Goals and financials
+            metas_texto: Productivity and fees.
+        faq:
+            titulo: Frequently asked questions
+            gratis: Is it really free?
+            gratis_resposta: Yes. Creating the account, registering your résumé, generating the PDF, applying and posting jobs are all free of charge.
+            oab: Do I need an OAB license?
+            oab_resposta: Not for every position. There are positions for attorneys, interns, students, law graduates and administrative staff. Each position says whether it requires an active OAB.
+            divulgar: How does my firm post a job?
+            divulgar_resposta: Create the account, click Post a job and fill in the details. The BlueJus team reviews it, publishes it and sends the firm a selection of the best-matching candidates.
+            dados: Is my data protected?
+            dados_resposta: 'Yes. We follow the LGPD: the résumé is only shared with the firm of the position you apply for, and you can delete everything whenever you want.'
+            sistema: What else does BlueJus do?
+            sistema_resposta: 'It is a complete management system for law firms: matters, deadlines, publications, goals, financials and an assistant with artificial intelligence.'
+        rodape: BlueJus · management for law firms · Positions are posted by firms in the network and reviewed by the BlueJus team.

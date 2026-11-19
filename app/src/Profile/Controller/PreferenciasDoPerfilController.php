@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Profile\Controller;
 
 use App\Entity\Auth\User;
+use App\Profile\EventListener\FormatoDaRequisicaoListener;
 use App\Profile\EventListener\IdiomaDaRequisicaoListener;
 use App\Profile\Exception\IdiomaIndisponivelException;
+use App\Profile\Exception\OpcaoAvancadaInvalidaException;
 use App\Profile\UseCase\ConfirmarRevisaoDoCadastroUseCase;
 use App\Profile\UseCase\DefinirIdiomaDoPerfilUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Profile\UseCase\SalvarOpcoesAvancadasUseCase;
 use App\Profile\UseCase\SalvarPreferenciaDoPerfilUseCase;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -17,6 +20,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Card "Preferências" e revisão mensal do Meu Perfil (desenho "07 - Meu Perfil", VS 18.10.26).
@@ -31,6 +35,8 @@ final class PreferenciasDoPerfilController extends AbstractController
         private readonly ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         private readonly TenantContext $tenantContext,
         private readonly DefinirIdiomaDoPerfilUseCase $definirIdioma,
+        private readonly SalvarOpcoesAvancadasUseCase $salvarOpcoesAvancadas,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -86,6 +92,43 @@ final class PreferenciasDoPerfilController extends AbstractController
         IdiomaDaRequisicaoListener::lembrar($request, $user, $idioma);
 
         return new JsonResponse(['ok' => true, 'idioma' => $idioma->value]);
+    }
+
+    /**
+     * "Opções avançadas" (spec sistema-em-ingles, §2): idioma, fuso horário, formato de data e de números, gravados de
+     * uma vez no perfil e na sessão; a página recarrega com as escolhas. Vale só para a pessoa, com ou sem escritório.
+     * Vazio no fuso e nos formatos = o padrão.
+     */
+    #[Route('/opcoes-avancadas', name: '_opcoes_avancadas', methods: ['POST'])]
+    public function salvarOpcoesAvancadas(Request $request): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid('ajax', (string) $request->headers->get('X-CSRF-Token'))) {
+            return new JsonResponse(['erro' => $this->tradutor->trans('opcoes_avancadas.erro_token')], Response::HTTP_FORBIDDEN);
+        }
+        $dados = json_decode($request->getContent(), true);
+        if (!is_array($dados) || !is_string($dados['idioma'] ?? null) || !self::textoOuNulo($dados, 'fuso') || !self::textoOuNulo($dados, 'formatoData') || !self::textoOuNulo($dados, 'formatoNumero')) {
+            return new JsonResponse(['erro' => $this->tradutor->trans('opcoes_avancadas.erro_pedido')], Response::HTTP_BAD_REQUEST);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        try {
+            $perfil = $this->salvarOpcoesAvancadas->executar($user, $dados['idioma'], $dados['fuso'] ?? null, $dados['formatoData'] ?? null, $dados['formatoNumero'] ?? null);
+        } catch (IdiomaIndisponivelException) {
+            return new JsonResponse(['erro' => $this->tradutor->trans('opcoes_avancadas.erro_idioma')], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (OpcaoAvancadaInvalidaException $e) {
+            return new JsonResponse(['erro' => $this->tradutor->trans($e->getMessage())], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        IdiomaDaRequisicaoListener::lembrar($request, $user, $perfil->getIdioma());
+        FormatoDaRequisicaoListener::lembrar($request, $user, $perfil);
+
+        return new JsonResponse(['ok' => true]);
+    }
+
+    /** @param array<mixed> $dados */
+    private static function textoOuNulo(array $dados, string $campo): bool
+    {
+        return !isset($dados[$campo]) || is_string($dados[$campo]);
     }
 
     #[Route('/revisao', name: '_revisao', methods: ['POST'])]

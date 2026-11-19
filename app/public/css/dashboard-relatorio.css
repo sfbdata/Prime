@@ -53,8 +53,8 @@
 .db-rel-cab-titulo { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
 .db-rel-cab-sub { font-size: 12px; opacity: .9; }
 .db-rel-fechar {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, .16);

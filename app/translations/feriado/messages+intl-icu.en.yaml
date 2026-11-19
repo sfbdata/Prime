@@ -1,0 +1,32 @@
+# ---- Firm holidays and days off
+feriado:
+    comum:
+        voltar: Back
+        cancelar: Cancel
+    index:
+        titulo: Holidays and Days Off
+        data: Date
+        nome: Name
+        recorrencia: Recurrence
+        abrangencia: Scope
+        todas_as_sedes: All offices
+        acoes: Actions
+        todo_ano: (every year)
+        recorrente: Recurring
+        pontual: One-time
+        editar: Edit
+        editar_feriado: Edit holiday
+        excluir: Delete
+        excluir_feriado: Delete holiday
+        excluir_confirmar: "Delete the holiday ''{nome}''?"
+        vazio: No holidays registered.
+    novo:
+        titulo: New Holiday
+        salvar: Save Holiday
+    editar:
+        titulo_pagina: 'Edit Holiday | {nome}'
+        titulo: 'Edit:'
+        salvar: Save Changes
+    form:
+        ajuda_data: 'For recurring holidays, the year of the date is ignored: only the day and month matter.'
+        ajuda_recorrente: 'Check for holidays that fall on the same date every year (e.g., Christmas, Tiradentes). Leave unchecked for one-time days off and dismissals.'

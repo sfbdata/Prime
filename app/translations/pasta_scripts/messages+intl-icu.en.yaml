@@ -1,0 +1,396 @@
+# ---- Matter: file explorer, checklist and goals scripts (pasta-explorador.js, pasta-checklist.js, pasta-metas.js)
+pasta_scripts:
+    js:
+        explorador:
+            col_nome: Name
+            col_tipo: Type
+            col_cat: Category
+            col_tam: Size
+            col_data: Modified
+            qtd_arquivo_um: '{n} file'
+            qtd_arquivo_varios: '{n} files'
+            qtd_pasta_um: '{n} folder'
+            qtd_pasta_varios: '{n} folders'
+            qtd_subpasta_um: '{n} subfolder'
+            qtd_subpasta_varios: '{n} subfolders'
+            qtd_item_um: '{n} item'
+            qtd_item_varios: '{n} items'
+            qtd_resultado_um: '{n} result'
+            qtd_resultado_varios: '{n} results'
+            qtd_favorito_um: '{n} favorite'
+            qtd_favorito_varios: '{n} favorites'
+            tipo_pdf: PDF document
+            tipo_word: Word document
+            tipo_odt: ODT document
+            tipo_rtf: RTF document
+            tipo_texto: Text
+            tipo_excel: Excel spreadsheet
+            tipo_csv: CSV spreadsheet
+            tipo_ods: ODS spreadsheet
+            tipo_apresentacao: Presentation
+            tipo_compactada: Compressed folder
+            tipo_jpeg: JPEG image
+            tipo_png: PNG image
+            tipo_tiff: TIFF image
+            tipo_heic: HEIC image
+            tipo_audio: Audio
+            tipo_audio_whatsapp: Audio (WhatsApp)
+            tipo_video: Video
+            tipo_email: Email
+            tipo_email_outlook: Outlook email
+            tipo_assinatura: Digital signature
+            tipo_assinado: Signed document
+            tipo_json: JSON file
+            tipo_xml: XML file
+            tipo_html: HTML page
+            tipo_kml: KML map
+            tipo_com_extensao: '{tipo} ({ext})'
+            tipo_arquivo_ext: '{ext} file'
+            tipo_arquivo: File
+            tipo_pasta: File folder
+            busca_info: '{resultados} for "{busca}"'
+            vazio_busca: No file or folder with that name.
+            vazio_filtro_pasta: 'No {tipo} items in this folder.'
+            vazio_filtro_raiz: 'No {tipo} items here.'
+            vazio_pasta: Empty folder.
+            vazio_raiz: No files yet.
+            vazio_pasta_editar: Empty folder. Drag files here or use Paste (Ctrl+V).
+            vazio_raiz_editar: No files yet. Drag files here or click Attach.
+            dica_classificar: 'Click to sort · drag to move the column'
+            dica_alca: 'Drag to adjust the width · double-click to reset'
+            documentos: Documents
+            rodape_raiz: '{arquivos} and {pastas} · {total} in total, counting subfolders'
+            rodape_pasta: '{nome} · {itens} in this folder'
+            rodape_pasta_vazia: '{nome} · empty'
+            mover_esquerda: Move left
+            mover_coluna_esquerda: 'Move {coluna} left'
+            mover_direita: Move right
+            mover_coluna_direita: 'Move {coluna} right'
+            vazia: Empty
+            acoes_pasta: Folder actions
+            acoes_arquivo: File actions
+            selecionar: 'Select {nome}'
+            favorito: Favorite
+            tirar_favorito: Remove from favorites
+            marcar_favorito: Mark as favorite
+            marcar_favoritos: Mark as favorites
+            mais_acoes: More actions
+            rotulo_pasta: 'Folder {nome}'
+            prop_conteudo: Contents
+            prop_local: Location
+            prop_adicionado: Added on
+            prop_paginas: Pages
+            prop_enviado_por: Uploaded by
+            prop_numero: Number
+            prop_descricao: Description
+            prop_nome_parecido: Similar name
+            prop_pastas: Folders
+            prop_arquivos: Files
+            prop_tamanho_arquivos: File size
+            painel_selecionados: '{n} items selected'
+            selo_vazio: Empty
+            selo_copia_processo: View in PJe
+            selo_muito_grande: Very large
+            identico_este_fica: 'Identical content to: {nomes}. This is the oldest (suggested to keep).'
+            identico_outro_fica: 'Identical content to: {nomes}. Suggestion: keep "{fica}".'
+            selo_identico: Identical
+            selo_sugestao_titulo: 'Suggestion to free up space: {motivo}'
+            motivo_identico: 'Identical content to "{nome}". The oldest stays.'
+            motivo_identico_outro_nome: 'Identical content to "{nome}" (different name). The oldest stays.'
+            motivo_vazio: 'Empty file (0 KB): it has no content.'
+            motivo_copia_paginas: 'Copy of the case with {paginas} pages: the case file stays available in PJe, without taking up space here. Keep only the important documents.'
+            motivo_copia_grande: 'Very large copy of the case ({tamanho}): the case file stays available in PJe.'
+            motivo_muito_grande: 'Very large file ({tamanho}). Check whether it needs to stay in the matter.'
+            nome_parecido: '{nome} ({percentual}% similar; check whether it is the same document)'
+            regra_identico_um: '{n} identical copy'
+            regra_identico_varios: '{n} identical copies'
+            regra_vazio_um: '{n} empty'
+            regra_vazio_varios: '{n} empty'
+            regra_copia_processo_um: '{n} case copy'
+            regra_copia_processo_varios: '{n} case copies'
+            regra_muito_grande_um: '{n} very large'
+            regra_muito_grande_varios: '{n} very large'
+            limpeza_texto: 'Free up space: {regras} · frees about {tamanho}'
+            fechar: Close
+            revisar: Review
+            limpeza_excluir: 'Delete {n} selected · {tamanho}'
+            limpeza_confirmacao: 'Delete {n} suggested file(s)? You can undo right after.'
+            limpeza_aviso: '{n} file(s) deleted · {tamanho} freed'
+            selecao_um: 1 selected
+            selecao_varios: '{n} selected'
+            selecao_com_tamanho: '{contagem} · {tamanho}'
+            baixar_itens_zip: 'Download {n} items (.zip)'
+            baixar: Download
+            baixar_zip: Download (.zip)
+            baixar_arquivo: Download the file
+            baixar_tudo_zip: Download everything selected as a .zip file
+            copiar_atalho: Copy (Ctrl+C)
+            menu_nova_pasta: New folder
+            menu_colar: Paste
+            menu_selecionar_tudo: Select all
+            menu_classificar_nome: Sort by name
+            menu_classificar_data: Sort by date
+            menu_classificar_tamanho: Sort by size
+            menu_classificar_tipo: Sort by type
+            menu_ocultar_painel: Hide details panel
+            menu_mostrar_painel: Show details panel
+            menu_baixar_zip_n: 'Download as .zip ({n})'
+            menu_copiar_links_n: 'Copy links ({n})'
+            menu_copiar_links: Copy links
+            menu_recortar: Cut
+            menu_mover_para: Move to…
+            menu_copiar_caminhos: Copy paths
+            menu_excluir_n: 'Delete {n} items'
+            menu_propriedades: Properties
+            menu_abrir: Open
+            menu_baixar_zip: Download as .zip
+            menu_copiar_link: Copy link
+            menu_visualizar: Preview
+            atalho_espaco: Space
+            atalho_ctrl_v: Ctrl+V
+            atalho_ctrl_a: Ctrl+A
+            atalho_ctrl_x: Ctrl+X
+            atalho_ctrl_c: Ctrl+C
+            atalho_del: Del
+            atalho_enter: Enter
+            atalho_f2: F2
+            menu_copiar_caminho: Copy path
+            menu_renomear: Rename
+            menu_editar: Edit…
+            menu_excluir: Delete
+            menu_encaminhar: Forward via AI Chat
+            copiar_so_pastas: Folders are not copied
+            menu_copiar: Copy
+            erro_comunicacao: Communication error.
+            algo_errado: Something went wrong.
+            n_itens: '{n} items'
+            link_copiado: Link copied
+            links_copiados: Links copied
+            erro_copiar: Could not copy.
+            caminho_copiado: 'BlueJus › Matter {pasta} › {local} › {nome}'
+            caminho_copiado_aviso: Path copied
+            caminhos_copiados_aviso: Paths copied
+            recortado: 'Cut: {rotulo}'
+            copiar_sem_arquivo: 'Folders are not copied: select files.'
+            copiado: 'Copied: {rotulo}'
+            copiado_sem_pastas: 'Copied: {rotulo} (folders are not copied)'
+            nada_para_colar: Nothing to paste
+            acima_do_teto: 'Selection is over the limit of {teto} items per action. Select fewer items.'
+            ja_nesta_pasta: The items are already in this folder
+            pasta_dentro_dela: A folder cannot be moved into itself.
+            falha_mover: Failed to move.
+            um_item: 1 item
+            movido_um: '"{nome}" moved to {local}'
+            movidos_varios: '{n} items moved to {local}'
+            acima_do_teto_bytes: 'The selection totals {soma}; the limit per action is {teto}.'
+            copiar_indisponivel: Copy is not available in this folder.
+            falha_copiar: Failed to copy.
+            copiados_atualizando: Items copied. Updating the list…
+            colado: 'Pasted: {rotulo}'
+            copiado_para_um: '{rotulo} copied to {local}'
+            copiado_para_varios: '{rotulo} copied to {local}'
+            zip_sem_arquivos: The selection has no files to download.
+            zip_acima_do_teto: 'The selection has {n} files; the limit per .zip is {teto}.'
+            zip_indisponivel: .zip download is not available in this folder.
+            zip_preparando: 'Preparing {itens} for download…'
+            zip_baixando: 'Downloading {nome} · {arquivos}'
+            zip_baixando_com_pastas: 'Downloading {nome} · {arquivos}, {pastas}'
+            favoritos_indisponiveis: Favorites are not available in this folder.
+            favorito_topo_um: '★ "{nome}" moved to the top of the list'
+            favorito_topo_varios: '★ {n} items moved to the top of the list'
+            favorito_saiu_um: '"{nome}" removed from favorites'
+            favorito_saiu_varios: '{n} items removed from favorites'
+            favorito_falha_um: '{erro} "{nome}" went back to how it was.'
+            favorito_falha_padrao: Could not update the favorite.
+            favorito_falha_varios_um: 'Could not update {favoritos} of {total}; that one went back to how it was.'
+            favorito_falha_varios: 'Could not update {favoritos} of {total}; those went back to how they were.'
+            aviso_lixeira: Items go to the trash and can be restored for 30 days. After that, they are permanently deleted.
+            lista_e: '{a} and {b}'
+            excluir_pasta_vazia: 'The folder "{nome}" is empty. Delete anyway? {lixeira}'
+            excluir_pasta: 'Delete the folder "{nome}" and all its contents? In total: {conteudo}. {lixeira}'
+            excluir_arquivo: 'Delete "{nome}"? {lixeira}'
+            excluir_lote: 'Delete {n} items? In total: {conteudo}. {lixeira}'
+            falha_favorito: Failed to update the favorite.
+            excluido_um: 'Deleted: {nome}'
+            excluidos_varios: '{n} items deleted'
+            falha_excluir: Failed to delete.
+            erro_desfazer: Could not undo.
+            restaurados_atualizando: Items restored. Updating the list…
+            restaurados_varios: '{n} items restored'
+            restaurado: Restored
+            lixeira: Trash
+            lixeira_n: 'Trash ({n})'
+            lix_erro_abrir: Could not open the trash.
+            lix_itens: Items in the trash
+            lix_vazia: The trash is empty.
+            lix_nota: Items in the trash can be restored for 30 days. After that, they are permanently deleted automatically.
+            lix_lapide: 'This folder is deleted: restore the folder to restore its documents.'
+            lix_restaurar_selecionados: Restore selected
+            lix_restaurar_selecionados_n: 'Restore selected ({n})'
+            lix_excluido_em: 'Deleted on {data}'
+            lix_excluido_sem_data: Deleted (date not recorded)
+            lix_excluido_por: '{quando} by {nome}'
+            lix_junto_com: 'Deleted along with the folder "{nome}"'
+            lix_pai_na_lixeira: 'Was in "{nome}", which is also in the trash'
+            lix_local_original: 'Original location: {local}'
+            raiz: Root
+            lix_volta_raiz: 'On its own, it returns to the matter root: the original folder is in the trash'
+            lix_volta_para: 'Returns to: {local}'
+            lix_restaurar: Restore
+            lix_abrir: Open
+            lix_abrir_titulo: 'Open "{nome}" in a new tab, view only (stays in the trash)'
+            lix_restaurado_um: 1 item restored
+            lix_restaurados_varios: '{n} items restored'
+            lix_restaurado_na_raiz: '{texto} ({n} at the matter root: the original folder is still in the trash)'
+            lix_restaurado_fim: '{texto}. The document list updates when you close this.'
+            mover_um_para: 'Move "{nome}" to'
+            mover_varios_para: 'Move {n} items to'
+            atualizando_documentos: Updating the document list…
+            carregando: Loading…
+            restaurando: Restoring…
+            lix_erro_restaurar: Could not restore.
+            lix_excluir_de_vez: Delete permanently
+            lix_excluir_de_vez_titulo: 'Deletes now from the system, with no way to restore'
+            lix_excluir_de_vez_sel: Permanently delete selected
+            lix_excluir_de_vez_sel_n: 'Permanently delete selected ({n})'
+            lix_confirmar_excluir_de_vez: 'Permanently delete {n} item(s)? They leave the system and cannot be restored.'
+            lix_excluindo_de_vez: Deleting permanently…
+            lix_excluido_de_vez_um: 1 item permanently deleted
+            lix_excluidos_de_vez_varios: '{n} items permanently deleted'
+            lix_excluido_de_vez_pulados: '{texto}. {n} item(s) could not be deleted and remain in the trash.'
+            lix_erro_excluir_de_vez: Could not delete permanently.
+            ren_nome_arquivo: New file name
+            ren_nome_pasta: Folder name
+            falha_renomear: Failed to rename.
+            falha_criar_pasta: Failed to create the folder.
+            sem_extensao: '(no extension)'
+            falha_salvar: Failed to save.
+            documento_atualizado: 'Document updated: {nome}'
+            destino_proibido: A folder cannot be moved into itself
+            destino_ja_aqui: Already here
+            destino_atual: current
+            destino_raiz: Documents (matter root)
+            upload_indisponivel: Upload not available.
+            upload_concluido_erros: Completed with errors
+            upload_concluido: Completed
+            anexado_um: 'Attached: {nome}'
+            anexados_varios: '{n} files attached'
+            falha_anexar: 'Failed to attach "{nome}": {erro}'
+        checklist:
+            selo_itens: '{concluidos}/{total} items'
+            marcar_pendente: Mark as pending
+            marcar_concluido: Mark as done
+            vazio_antes: 'No items. Click '
+            vazio_depois: ' to add one.'
+            erro: Error
+            concluir_edicao: Finish editing
+            editar_checklist: Edit checklist (remove, rename and reorder items)
+            excluir_item_pergunta: Delete this checklist item?
+            titulo_vazio: The title cannot be empty.
+            erro_adicionar: Error adding item.
+            arrastar: Drag to reorder
+            renomear_item: Rename checklist item
+            remover_item: Remove item
+            erro_comunicacao: Communication error.
+            erro_ponto: Error.
+            modelo_itens_um: '{total} item'
+            modelo_itens_varios: '{total} items'
+            aplicar: Apply
+            renomear_modelo: Rename template
+            excluir_modelo: Delete template
+            erro_carregar_modelos: Error loading the templates.
+            modelo_sem_nome: Give the template a name.
+            substituir_pergunta: "Replace template\nThe template \"{nome}\" already exists. Replace its items with the checklist of this matter?"
+            modelo_salvo: 'Template "{nome}" saved with {total} items.'
+            erro_salvar_modelo: Error saving the template.
+            erro_aplicar_modelo: Error applying the template.
+            erro_renomear_modelo: Error renaming the template.
+            erro_excluir_modelo: Error deleting the template.
+            nada_a_adicionar: 'Nothing to add: this matter already had all the items of "{nome}".'
+            criados_um: '{total} item added'
+            criados_varios: '{total} items added'
+            ignorados_um: '{recado}, {total} already existed'
+            ignorados_varios: '{recado}, {total} already existed'
+            recado_fim: '{recado}.'
+            excluir_modelo_pergunta: 'Delete the template "{nome}"? Checklists already applied to matters do not change.'
+            erro_alterar_checklist: Could not change the checklist.
+        analise_prazo:
+            estado_informado: Entered by the user
+            estado_confirmado: Confirmed
+            estado_estimado: Estimated
+            estado_conferencia: Needs review
+            estado_sem_prazo: No legal deadline identified
+            nao_identificado: Not identified
+            sem_prazo_legal: No legal deadline
+            dia_util: '{n} business day'
+            dias_uteis: '{n} business days'
+            chip: 'Suggested {data}'
+            chip_dica: 'Suggested deadline: {data}. {porque}'
+            tog_ver: View full analysis
+            tog_ocultar: Hide analysis
+            confirmado_botao: '✓ Confirmed'
+            conferir: Review
+            origem_informar: '+ Enter deadline source'
+            origem_informada: Deadline source entered
+            origem_ocultar: Hide deadline source
+            nota_prazo_atualizado: 'Goal deadline updated to {data}.'
+            nota_nova_sugestao: 'The analysis now suggests {data} as the internal deadline. The deadline you chose was kept.'
+            nota_confirmada: 'Analysis confirmed. The legal deadline {data} will not be replaced by new estimates.'
+            alt_confirmado: 'Based on the source entered, the analysis would calculate {data}. The deadline you confirmed was kept. Click the date if you want to change it.'
+            alt_informado: 'Based on the source entered, the analysis would calculate {data}. The deadline you entered was kept. Click the date if you want to change it.'
+            ref_ciencia: '{data} (acknowledgment)'
+            ref_publicacao: '{data} (after publication)'
+            ref_hoje: '{data} (today)'
+            conf_referencia: Reference date
+            conf_prazo: Deadline considered
+            conf_dias: Business days
+            conf_feriados: Holidays considered
+            conf_folga: Suggested operational margin
+            conf_interno: Suggested internal date
+            nd: n/a
+            ck_ciencia: Date of notice acknowledgment, to set the start of the period.
+            ck_feriados: 'Local and court holidays through {data}.'
+            ck_existe_prazo: Whether a legal or court deadline exists for this action.
+            ck_apertado: 'Tight deadline: notify the assignee today.'
+            ck_responsavel: Set the assignee so the notification goes out.
+            tip_jur_titulo: Legal deadline
+            tip_jur_1: This date is used in the analysis to calculate the time available and suggest an internal date to complete the task.
+            tip_jur_2: The date may depend on the publication date, acknowledgment/court notice, holidays, suspension of deadlines and specific case rules.
+            tip_jur_3: Check the date before saving. Click the date to correct or confirm the deadline considered.
+            tip_dias_titulo: Business days until then
+            tip_dias_informado: '{n} business days counted between today and the legal deadline entered.'
+            tip_dias_estimado: '{n} business days counted between today and the estimated legal deadline.'
+            tip_dias_calendario: The calculation uses the calendar configured in the system, weekends, national holidays and the 12/20 to 01/20 recess.
+            tip_dias_calendario_um: The calculation uses the calendar configured in the system, weekends, national holidays and the 12/20 to 01/20 recess (1 holiday in the period).
+            tip_dias_calendario_varios: 'The calculation uses the calendar configured in the system, weekends, national holidays and the 12/20 to 01/20 recess ({n} holidays in the period).'
+            tip_folga_titulo: Margin
+            tip_folga_com: 'The analysis suggests completing the task {folga} before the legal deadline to allow for review, corrections and any filing needs.'
+            tip_folga_sem: 'No margin: the internal deadline matches the legal deadline or there is no legal deadline for this task.'
+            tip_prio_1: The classification considers the time available, the nature of the task and the risks identified.
+            tip_prio_2: This classification may change automatically as the deadline approaches or new information is added.
+        metas:
+            prazo_escolha: Choose the due date.
+            prazo_hoje: '{data}, today'
+            prazo_amanha: '{data}, tomorrow'
+            prazo_em_dias: '{data}, in {dias} days'
+            prazo_passou: '{data}, date has passed'
+            prazo_fim_de_semana: '{texto}. Falls on a weekend.'
+            titulo_repetido: 'The open goal "{titulo}" already exists. Update the existing one instead of creating another.'
+            titulo_repetido_com_prazo: 'The open goal "{titulo}" already exists (deadline {prazo}). Update the existing one instead of creating another.'
+            posicao: '{atual} of {total}'
+            desfazer: Undo
+            erro_alterar: Could not change the goal. Reload the page and try again.
+            desfeito: Undone
+            erro_comunicacao: Communication error. Reload the page to check the goal.
+            erro_desfazer: Could not undo. Reload the page.
+            criar_e_notificar: Create goal and notify the assignees
+            falta_titulo: title
+            falta_descricao: description
+            falta_prazo: deadline
+            falta_responsavel: assignee
+            falta_etapa: stage
+            sugestao_pelo_titulo: 'Suggestion from the title: {etapa}'
+            erro_duplicar: Could not duplicate the goal. Reload the page and try again.
+            preencha: 'Fill in: {campos}'
+            expandir: Expand
+            recolher: Collapse (keep seeing the list)

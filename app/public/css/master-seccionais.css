@@ -59,7 +59,9 @@
 
 /* L118 e L898: linha da UF, com o realce do desenho (style-hover); a mão só no modo OAB (`u.cur`), onde o clique abre
    o cartão da sede. */
-.mp-uf-lin:hover { background: #f5fafd; }
+.mp-uf-lin:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
+.mp-uf-lin:hover *:not(.mp-uf-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+.mp-uf-lin:hover > .mp-uf-barra { background: rgba(255,255,255,.18); }
 .mp-uf-lin.is-oab { cursor: pointer; }
 
 /* L134 e L888: seletor "Estados" / "Capitais" dos que faltam, só no Brasil. */

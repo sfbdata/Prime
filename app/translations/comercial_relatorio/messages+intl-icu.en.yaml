@@ -1,0 +1,78 @@
+comercial_relatorio:
+    rotulo: Campaign report
+    barra:
+        selecionar: Select
+        atualizar: Refresh
+        arquivar: Archive
+        estrela_dica: Mark with a star
+        estrela: Star
+        remover: Remove from report
+        buscar: Search campaign or email
+        faixa_vazia: 0 of 0
+        pagina_anterior: Previous page
+        proxima_pagina: Next page
+    abas:
+        rotulo: Campaigns
+        env:
+            rotulo: Sent
+            sub: Queued and already sent
+        ag:
+            rotulo: Scheduled
+            sub: With a set date
+        rec:
+            rotulo: Recurring
+            sub: Weekly, every two weeks, and monthly
+        est:
+            rotulo: Starred
+            sub: Marked campaigns
+        arq:
+            rotulo: Archived
+            sub: Out of the lists
+    ver:
+        voltar: Back
+        duplicar: Duplicate
+        reenviar: Resend to those who did not read
+        exportar: Export recipients
+        cancelar: Cancel sending
+        para: to
+        modelo: template
+        quadro: Campaign
+        destinatarios: RECIPIENTS
+    menu:
+        abrir: Open campaign
+        duplicar: Duplicate as new
+        reenviar: Resend to those who did not read
+        encaminhar: Forward to an email
+        encaminhar_motivo: Test sending to other addresses is not available yet.
+        estrela: Mark with a star
+        arquivar: Archive
+        exportar: Export recipients (CSV)
+        excluir: Delete from report
+    js:
+        erro_concluir: Could not complete. Reload the page.
+        linha_dica: Open · right-click for more options
+        selecionar: Select
+        estrela_marcar: Mark with a star
+        estrela_remover: Remove star
+        selecionadas: '{n} selected'
+        arquivar: Archive
+        desarquivar: Unarchive
+        vazia: No campaign in this tab.
+        faixa_vazia: 0 of 0
+        erro_carregar: Could not load the campaigns. Reload the page.
+        previa_indisponivel: Preview not available for older campaigns.
+        lista_nao_registrada: List not recorded for this campaign.
+        lista_ao_comecar: The list is built when sending starts.
+        mais_destinatarios: '+ {n} recipient(s)'
+        duplicada_visualizador: 'Campaign duplicated: adjust and send again.'
+        duplicada_menu: 'Campaign duplicated: adjust and send.'
+        editor_indisponivel: Could not open the campaign editor.
+        confirmar_cancelar: Cancel the scheduled sending of this campaign?
+        confirmar_cancelar_fila: Cancel the sending of this campaign? What is still in the queue will not go out.
+        confirmar_remover: 'Remove {n} campaign(s) from the report?'
+        confirmar_excluir: Delete this campaign from the report?
+        reenvio_menu_rastreada: Resending is available as soon as the reads are recorded.
+        reenvio_menu_sem_rastreio: This campaign did not track reads.
+        reenvio_rastreada: Resending to those who did not read is available as soon as the reads are recorded.
+        reenvio_sem_rastreio: 'This campaign did not track reads; there is no way to know who did not read.'
+        erro_exportar: Could not export. Reload the page.

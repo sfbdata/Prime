@@ -1,0 +1,10 @@
+# ---- Privacy Policy: only the page and PDF frame. The policy body stays fixed in the template.
+legal:
+    politica:
+        titulo_pagina: Privacy Policy | BlueJus
+        abrir_pdf: Open as PDF
+        termos: Terms and Conditions of Use
+        voltar_topo: Back to top
+    pdf:
+        titulo_pagina: 'Privacy Policy | BlueJus (version {versao})'
+        rodape: 'BlueJus · Privacy Policy · version {versao} · published on {data}'

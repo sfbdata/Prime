@@ -1,0 +1,105 @@
+cobranca_pessoa:
+    subnav:
+        rotulo: Collections sections
+        painel: Dashboard
+        carteiras: Portfolios
+        alertas: Alerts
+        central: Center
+    comum:
+        adicionar: Add
+        atual: Current
+        marcar_atual: Mark as current
+        desde: 'since {data}'
+        salvar: Save
+        cancelar: Cancel
+    ficha:
+        titulo_pagina: 'Collections · {pessoa}'
+        voltar: Back
+        subtitulo: 'Full record of the person: legal description and history of addresses, phone numbers and e-mails.'
+    abas:
+        qualificacao: Legal Description
+        enderecos: Addresses
+        contatos: Phone Numbers and E-mails
+    qualificacao:
+        titulo: Legal Description
+        salvar: Save legal description
+    enderecos:
+        titulo: Addresses
+        cep: 'CEP {cep}'
+        vazio: No address on file
+        salvar: Save address
+    telefones:
+        titulo: Phone numbers
+        telefone: Phone number
+        editar: Edit phone number
+        corrigir_dica: Correct this number
+        excluir: Delete phone number
+        excluir_dica: Delete this number
+        excluir_confirmar_atual: 'Delete {numero}? This is the current phone number. The most recent one left becomes the current one.'
+        excluir_confirmar: 'Delete {numero}? This cannot be undone.'
+        numero: Phone number
+        tipo: Phone type
+        vazio: No phone number on file
+        salvar: Save phone number
+    emails:
+        titulo: E-mails
+        vazio: No e-mail on file
+        salvar: Save e-mail
+    central:
+        titulo_pagina: 'Collections · Center'
+        titulo: Collections
+        filtro:
+            periodo: Period
+            de: From
+            ate: To
+            carteira: Portfolio
+            todas_carteiras: All portfolios
+            aplicar: Apply
+        periodo:
+            hoje: Today
+            ontem: Yesterday
+            semana: This week
+            mes: This month
+            personalizado: Custom
+        abas:
+            atividade: Activity
+            resultado: Results
+            pendencias: Pending Items
+            extrato: Debtor Statement
+        em_construcao: '{aba}: under construction'
+        em_construcao_texto: This tab arrives in a later release of the Center.
+    atividade:
+        sem_pessoas: No one has access to the Collections module
+        sem_pessoas_texto: Enable the module for the team and their activity appears here.
+        vazia: 'No collections work recorded in the selected period. Registration and import entries are not counted here: the screen shows what the team records, so a zero row may also be unrecorded work.'
+        contatos_no_periodo: 'Contacts in the period:'
+        coluna:
+            quem: Who
+            contatos: Contacts
+            atendidos: Spoke with the debtor
+            acordos: Settlements closed
+            baixas: Payments recorded
+            ultima_acao: Last action
+        total_do_setor: Department total
+        sem_registro: No record
+        sem_responsavel_dica: Events whose author is no longer on record. They are never assigned to anyone.
+    detalhe:
+        contatos_do_periodo: contacts in the period
+        sem_contato: No contact recorded in the period.
+        desfecho: Outcome
+        canal: Channel
+        sem_trabalho: No collections work recorded by this person in the period.
+        truncado: 'Showing the {limite} most recent events of the period. There are more beyond these.'
+        lancamentos_um: '{total} registration/import entry'
+        lancamentos_varios: '{total} registration/import entries'
+        nao_contam: (they do not count as collections work).
+        truncado_cadastro: 'Showing the {limite} most recent.'
+    eventos:
+        quando: When
+        o_que: What
+        objeto: Object
+        resumo: Summary
+    js:
+        carregando: Loading…
+        erro_cadastro: could not load
+        erro_detalhe: Could not load the details. Try again.
