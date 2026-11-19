@@ -127,7 +127,7 @@ class Pasta implements Auditavel, TenantAware
      * Nasceu em 28/08/2026 para guardar o rastro da pasta excluída e segurar o número dela. Desde
      * 18/11/2026 (pedido do Samuel) o número não fica mais preso: se a lápide era a última, a
      * próxima pasta recebe o número dela (ver NumeracaoDePasta), e restaurar com o número já
-     * reusado é recusado (RestaurarPastaUseCase).
+     * reusado devolve a pasta com o próximo número livre (RestaurarPastaUseCase).
      */
     #[ORM\Column(name: 'excluida_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $excluidaEm = null;

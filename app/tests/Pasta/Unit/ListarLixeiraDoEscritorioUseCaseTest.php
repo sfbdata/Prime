@@ -67,6 +67,12 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
     /** @var list<int> pastas em que `$quem` pode EDITAR */
     private array $editaveis = [];
 
+    /** @var list<int> pastas em que `$quem` pode EXCLUIR (e, na lápide, restaurar) */
+    private array $deletaveis = [];
+
+    /** @var list<string> números que pastas vivas do escritório já usam */
+    private array $nupsEmUso = [];
+
     /** @var array<int, list<AbaOcultaDaPasta>> */
     private array $regras = [];
 
@@ -267,6 +273,65 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
         self::assertTrue($this->useCase()->executar($this->quem, $this->tenant)->grupos[0]->pastaExcluida);
     }
 
+    #[TestDox('lápide sem documento na lixeira aparece, com a data da exclusão e contagens 0')]
+    public function testLapideSemDocumentosAparece(): void
+    {
+        $pasta = $this->pasta(1, 'P-1', 'MARIA');
+        $pasta->marcarExcluida($this->quem, new \DateTimeImmutable('2026-10-01 12:30:00'));
+        $this->editaveis = [1];
+        $this->usuarios  = [10 => $this->quem];
+
+        $grupos = $this->useCase()->executar($this->quem, $this->tenant)->grupos;
+
+        self::assertCount(1, $grupos);
+        self::assertTrue($grupos[0]->pastaExcluida);
+        self::assertSame([0, 0], [$grupos[0]->documentos, $grupos[0]->subpastas]);
+        self::assertSame('2026-10-01 12:30:00', $grupos[0]->maisRecente->format('Y-m-d H:i:s'));
+        self::assertSame(['Quem Lê'], $grupos[0]->excluidoPor);
+    }
+
+    #[TestDox('lápide em que quem lê não pode editar não aparece; com a aba Documentos oculta também não')]
+    public function testLapideSemPermissaoOuComAbaOcultaNaoAparece(): void
+    {
+        foreach ([1, 2] as $id) {
+            $this->pasta($id, 'P-' . $id)->marcarExcluida($this->quem, new \DateTimeImmutable('2026-10-01'));
+        }
+        $this->editaveis = [2];
+        $this->ocultar(2, AbaDaPasta::Documentos);
+
+        self::assertSame([], $this->useCase()->executar($this->quem, $this->tenant)->grupos);
+    }
+
+    #[TestDox('a ação de restaurar a pasta só vem com DELETE; sem ele a lápide só se olha')]
+    public function testRestaurarPastaSoComDelete(): void
+    {
+        foreach ([1, 2] as $id) {
+            $this->pasta($id, 'P-' . $id)->marcarExcluida($this->quem, new \DateTimeImmutable('2026-10-0' . $id));
+        }
+        $this->editaveis  = [1, 2];
+        $this->deletaveis = [2];
+
+        $grupos = $this->useCase()->executar($this->quem, $this->tenant)->grupos;
+
+        self::assertSame([2, 1], array_map(static fn (GrupoDaLixeiraDoEscritorio $g): int => $g->pastaId, $grupos), 'a mais recente primeiro');
+        self::assertTrue($grupos[0]->podeRestaurarPasta);
+        self::assertFalse($grupos[1]->podeRestaurarPasta);
+    }
+
+    #[TestDox('numeroOcupado vem quando uma pasta viva do escritório já usa o número da lápide')]
+    public function testNumeroOcupado(): void
+    {
+        $this->pasta(1, 'P-1')->marcarExcluida($this->quem, new \DateTimeImmutable('2026-10-01'));
+        $this->pasta(2, 'P-2')->marcarExcluida($this->quem, new \DateTimeImmutable('2026-10-02'));
+        $this->editaveis  = [1, 2];
+        $this->deletaveis = [1, 2];
+        $this->nupsEmUso  = ['P-1'];
+
+        $grupos = $this->useCase()->executar($this->quem, $this->tenant)->grupos;
+
+        self::assertSame([false, true], array_map(static fn (GrupoDaLixeiraDoEscritorio $g): bool => $g->numeroOcupado, $grupos));
+    }
+
     // ── montagem ───────────────────────────────────────────────────────────────
 
     private function useCase(): ListarLixeiraDoEscritorioUseCase
@@ -277,6 +342,11 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
         $secoes->method('resumoDaLixeiraDoEscritorio')->willReturnCallback(fn (): array => $this->linhasSecoes);
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findBy')->willReturnCallback(fn (array $c): array => array_values(array_filter($this->pastas, static fn (Pasta $p): bool => \in_array($p->getId(), $c['id'], true))));
+        $pastas->method('lapidesDoEscritorio')->willReturnCallback(fn (): array => array_values(array_map(
+            static fn (Pasta $p): array => ['id' => (int) $p->getId(), 'excluidaEm' => $p->getExcluidaEm() ?? new \DateTimeImmutable(), 'excluidaPorId' => $p->getExcluidaPor()?->getId()],
+            array_filter($this->pastas, static fn (Pasta $p): bool => $p->estaExcluida()),
+        )));
+        $pastas->method('nupsEmUsoDoEscritorio')->willReturnCallback(fn (Tenant $t, array $nups): array => array_values(array_intersect($nups, $this->nupsEmUso)));
         $usuarios = $this->createStub(UserRepository::class);
         $usuarios->method('findBy')->willReturnCallback(fn (array $c): array => array_values(array_filter($this->usuarios, static fn (User $u): bool => \in_array($u->getId(), $c['id'], true))));
 
@@ -321,6 +391,7 @@ final class ListarLixeiraDoEscritorioUseCaseTest extends TestCase
             $acesso->setResourceId($id);
             $acesso->setCanView(true);
             $acesso->setCanEdit(true);
+            $acesso->setCanDelete(\in_array($id, $this->deletaveis, true));
             $acessos[$id] = $acesso;
         }
 

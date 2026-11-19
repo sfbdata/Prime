@@ -2198,4 +2198,57 @@ class PastaRepository extends ServiceEntityRepository
 
         return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'nup' => (string) $l['nup']], $qb->getQuery()->getArrayResult());
     }
+
+    /**
+     * Toda pasta EXCLUÍDA (lápide) do escritório, para a Lixeira do Expediente listar mesmo a que
+     * não tem documento na lixeira. Só id, data e autor da exclusão (sem hidratar a pasta): a lápide
+     * não é apagada nunca, então a lista cresce com o tempo. Filtro de tenant explícito.
+     *
+     * @return list<array{id: int, excluidaEm: \DateTimeImmutable, excluidaPorId: ?int}>
+     */
+    public function lapidesDoEscritorio(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.id', 'p.excluidaEm', 'IDENTITY(p.excluidaPor) AS excluidaPorId')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.excluidaEm', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'id'            => (int) $l['id'],
+            'excluidaEm'    => $l['excluidaEm'],
+            'excluidaPorId' => $l['excluidaPorId'] === null ? null : (int) $l['excluidaPorId'],
+        ], $linhas);
+    }
+
+    /**
+     * Dos números dados, os que já são de uma pasta VIVA do escritório (a lixeira não conta), numa
+     * consulta só. Serve para a Lixeira avisar que a lápide voltaria com outro número.
+     *
+     * @param list<string> $nups
+     *
+     * @return list<string> números em maiúsculas, como são gravados
+     */
+    public function nupsEmUsoDoEscritorio(Tenant $tenant, array $nups): array
+    {
+        if ($nups === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('DISTINCT p.nup AS nup')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('p.nup IN (:nups)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nups', array_map(static fn (string $n): string => mb_strtoupper(trim($n)), $nups))
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_values(array_map(static fn (array $l): string => (string) $l['nup'], $linhas));
+    }
 }

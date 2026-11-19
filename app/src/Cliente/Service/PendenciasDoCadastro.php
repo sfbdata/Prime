@@ -9,6 +9,7 @@ use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -46,6 +47,31 @@ final class PendenciasDoCadastro
     /** @return list<array{texto: string, aba: string}> */
     public function porAba(Cliente $cliente): array
     {
+        return $this->montar($cliente, $this->documentosQueContam($cliente));
+    }
+
+    /**
+     * O mesmo {@see porAba()} para quem olha dado por parâmetro, sem sessão nem `TenantContext` (o conector de I.A.,
+     * pelo `LerClienteUseCase`): o documento vinculado conta só se a pessoa vê a pasta dele, neste escritório.
+     *
+     * @return list<array{texto: string, aba: string}>
+     */
+    public function porAbaVistoPor(Cliente $cliente, User $quemOlha, Tenant $escritorio): array
+    {
+        $documentos = $this->visiveis !== null
+            ? $this->visiveis->de($cliente, $quemOlha, $escritorio)
+            : self::soOsAnexosProprios($cliente);
+
+        return $this->montar($cliente, $documentos);
+    }
+
+    /**
+     * @param list<ClienteDocumento> $documentos os que resolvem a pendência de anexo para quem olha
+     *
+     * @return list<array{texto: string, aba: string}>
+     */
+    private function montar(Cliente $cliente, array $documentos): array
+    {
         $pendencias = [];
         foreach ($this->camposObrigatorios($cliente) as [$rotulo, $valor, $aba, $genero]) {
             if (self::vazio($valor)) {
@@ -60,11 +86,11 @@ final class PendenciasDoCadastro
             $pendencias[] = ['texto' => 'Nenhum contato informado', 'aba' => 'contato'];
         }
 
-        if (!$this->temAnexo($cliente, ClienteDocumento::CATEGORIA_IDENTIFICACAO)) {
+        if (!self::temAnexo($documentos, ClienteDocumento::CATEGORIA_IDENTIFICACAO)) {
             $pendencias[] = ['texto' => 'Documento de identificação não anexado', 'aba' => 'docs'];
         }
 
-        if (!$this->temAnexo($cliente, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA)) {
+        if (!self::temAnexo($documentos, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA)) {
             $pendencias[] = ['texto' => 'Comprovante de residência não anexado', 'aba' => 'docs'];
         }
 
@@ -112,9 +138,10 @@ final class PendenciasDoCadastro
         return $endereco;
     }
 
-    private function temAnexo(Cliente $cliente, string $categoria): bool
+    /** @param list<ClienteDocumento> $documentos */
+    private static function temAnexo(array $documentos, string $categoria): bool
     {
-        foreach ($this->documentosQueContam($cliente) as $documento) {
+        foreach ($documentos as $documento) {
             if ($documento->getCategoria() === $categoria && $documento->estaDisponivel()) {
                 return true;
             }
@@ -123,15 +150,21 @@ final class PendenciasDoCadastro
         return false;
     }
 
-    /** @return iterable<ClienteDocumento> */
-    private function documentosQueContam(Cliente $cliente): iterable
+    /** @return list<ClienteDocumento> */
+    private function documentosQueContam(Cliente $cliente): array
     {
         $usuario = $this->seguranca?->getUser();
         if ($this->visiveis === null || !$usuario instanceof User) {
-            return array_filter($cliente->getDocumentos()->toArray(), static fn (ClienteDocumento $d): bool => !$d->isVinculado());
+            return self::soOsAnexosProprios($cliente);
         }
 
         return $this->visiveis->de($cliente, $usuario, $this->tenants?->getCurrentTenant());
+    }
+
+    /** @return list<ClienteDocumento> */
+    private static function soOsAnexosProprios(Cliente $cliente): array
+    {
+        return array_values(array_filter($cliente->getDocumentos()->toArray(), static fn (ClienteDocumento $d): bool => !$d->isVinculado()));
     }
 
     private static function vazio(?string $valor): bool

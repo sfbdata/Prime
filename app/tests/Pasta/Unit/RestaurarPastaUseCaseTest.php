@@ -18,8 +18,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Restaurar da lixeira com o número já reusado: desde 18/11/2026 a pasta excluída não ocupa número,
- * então a próxima pasta criada pode ter herdado o dela. A restauração é recusada, sob a trava da
- * numeração, para não voltarem duas pastas com o mesmo número.
+ * então a próxima pasta criada pode ter herdado o dela. A restauração sempre funciona: com o número
+ * ocupado a pasta volta com o próximo número livre (maior + 1), sob a trava da numeração.
  */
 #[CoversClass(RestaurarPastaUseCase::class)]
 final class RestaurarPastaUseCaseTest extends TestCase
@@ -50,49 +50,42 @@ final class RestaurarPastaUseCaseTest extends TestCase
         return $pasta;
     }
 
-    #[TestDox('Número livre: trava a numeração, restaura e grava')]
+    #[TestDox('Número livre: trava a numeração, restaura com o mesmo número e grava')]
     public function testNumeroLivreRestaura(): void
     {
         $pasta = $this->lapide('1239');
         $this->numeracao->expects($this->once())->method('travar')->with($this->tenant);
+        $this->numeracao->expects($this->never())->method('maiorNumero');
         $this->pastas->expects($this->once())->method('findDoEscritorioPorNup')->with('1239', $this->tenant)->willReturn(null);
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($pasta, $this->tenant);
+        $resultado = $this->useCase->executar($pasta, $this->tenant);
 
         self::assertFalse($pasta->estaExcluida());
+        self::assertSame('1239', $pasta->getNup());
+        self::assertSame('1239', $resultado->numeroAntes);
+        self::assertSame('1239', $resultado->numeroAgora);
+        self::assertFalse($resultado->mudouDeNumero());
     }
 
-    #[TestDox('Número reusado por outra pasta viva: recusa com a mensagem e a pasta fica na lixeira')]
-    public function testNumeroReusadoRecusa(): void
+    #[TestDox('Número ocupado por outra pasta viva: volta com maior + 1 e a outra pasta não muda')]
+    public function testNumeroOcupadoVoltaComProximoLivre(): void
     {
         $pasta    = $this->lapide('1239');
         $ocupante = (new Pasta())->setNup('1239')->setNomeCliente('MARIA NOVA')->setTenant($this->tenant);
         $this->pastas->method('findDoEscritorioPorNup')->willReturn($ocupante);
-        $this->em->expects($this->never())->method('flush');
+        $this->numeracao->expects($this->once())->method('travar');
+        $this->numeracao->expects($this->once())->method('maiorNumero')->with($this->tenant)->willReturn(1240);
+        $this->em->expects($this->once())->method('flush');
 
-        try {
-            $this->useCase->executar($pasta, $this->tenant);
-            self::fail('Devia recusar.');
-        } catch (\InvalidArgumentException $e) {
-            self::assertSame(
-                'O número 1239 já é usado por outra pasta (MARIA NOVA). Mude o número dela antes de restaurar esta.',
-                $e->getMessage(),
-            );
-        }
+        $resultado = $this->useCase->executar($pasta, $this->tenant);
 
-        self::assertTrue($pasta->estaExcluida());
-    }
-
-    #[TestDox('Ocupante sem nome de cliente: a mensagem sai sem o parêntese')]
-    public function testOcupanteSemNomeDeCliente(): void
-    {
-        $ocupante = (new Pasta())->setNup('1239')->setTenant($this->tenant);
-        $this->pastas->method('findDoEscritorioPorNup')->willReturn($ocupante);
-
-        $this->expectExceptionMessage('O número 1239 já é usado por outra pasta. Mude o número dela antes de restaurar esta.');
-
-        $this->useCase->executar($this->lapide('1239'), $this->tenant);
+        self::assertFalse($pasta->estaExcluida());
+        self::assertSame('1241', $pasta->getNup());
+        self::assertSame('1239', $ocupante->getNup());
+        self::assertSame('1239', $resultado->numeroAntes);
+        self::assertSame('1241', $resultado->numeroAgora);
+        self::assertTrue($resultado->mudouDeNumero());
     }
 
     #[TestDox('Pasta que não está na lixeira: recusa antes de travar a numeração')]
