@@ -6,10 +6,12 @@ namespace App\Conector\Service;
 
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\TabelaDeAbaEChave;
 use App\Master\Service\RecursosDoSistema;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 
@@ -23,6 +25,9 @@ use App\Service\PermissionChecker;
  *     com a chave desligada, porque o conector não tem a marcação vermelha da tela); senão, "função desligada";
  *  3. a pessoa tem um dos módulos da linha ({@see PermissionChecker::canAccessModule()}, com a pessoa e o escritório da
  *     chamada e o modo do conector já ligado pelo portão, 6.3); senão, "sem permissão";
+ *  3b. no acesso restrito (spec acesso-restrito-e-compartilhar, fatia 3), as ações que a tela fecha pela barreira do
+ *     restrito mesmo com o módulo liberado ({@see FECHADAS_NO_ACESSO_RESTRITO}: a lixeira do escritório); senão,
+ *     "sem permissão". O escopo das pastas já vem pelo `PermissionChecker` e pelo {@see AcessoAPasta}, como na tela;
  *  4. com pasta: a pasta é do escritório da chamada e a pessoa pode vê-la ({@see AcessoAPasta::podeVer()}, com o cadeado);
  *     senão, "não encontrado", a mesma resposta de alheia e inexistente (6.2, regra 1);
  *  5. com pasta: nenhuma aba da linha está oculta para a pessoa ({@see VisibilidadeDasAbasDaPasta::abasOcultasPara()});
@@ -36,11 +41,15 @@ use App\Service\PermissionChecker;
  */
 final class GuardaDaAcaoDoConector
 {
+    /** Ferramenta => ações que a barreira do restrito fecha na tela (`expediente_lixeira`). */
+    public const FECHADAS_NO_ACESSO_RESTRITO = [BuscarPastasFerramenta::NOME => ['lixeira']];
+
     public function __construct(
         private readonly PermissionChecker $permissoes,
         private readonly RecursosDoSistema $recursos,
         private readonly VisibilidadeDasAbasDaPasta $abas,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly EscopoDePastas $escopo,
     ) {
     }
 
@@ -56,6 +65,11 @@ final class GuardaDaAcaoDoConector
         }
 
         if ($linha->modulos !== [] && !$this->temUmDosModulos($chamada, $linha->modulos)) {
+            throw ErroDaFerramenta::semPermissao();
+        }
+
+        if (\in_array($acao, self::FECHADAS_NO_ACESSO_RESTRITO[$ferramenta] ?? [], true)
+            && $this->escopo->ehRestritoNoEscritorio($chamada->contexto->pessoa, $chamada->contexto->escritorio)) {
             throw ErroDaFerramenta::semPermissao();
         }
 

@@ -64,6 +64,9 @@ final class BarreiraDoAcessoRestritoListener
         'notificacao_', 'auth_', 'termo_', 'legal_',
         // Públicas (link de e-mail, rastreio, comprovante).
         'comercial_', 'push_compartilhado', 'validacao_',
+        // Autorizar o conector de I.A. (OAuth): a tela só mostra os escritórios da pessoa; o que o conector lê depois
+        // passa pelo escopo do restrito na guarda e nas ferramentas (fatia 3).
+        'conector_oauth_', 'conector_metadado_',
         // Barra de depuração e páginas de erro (só em dev).
         '_',
     ];

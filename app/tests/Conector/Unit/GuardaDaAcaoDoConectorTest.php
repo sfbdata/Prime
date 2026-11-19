@@ -22,6 +22,7 @@ use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\AbaOcultaDaPastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\Service\EquipeQuePodeTerAbaOculta;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
@@ -322,6 +323,18 @@ final class GuardaDaAcaoDoConectorTest extends TestCase
             $this->recursos(),
             new VisibilidadeDasAbasDaPasta($regras, $primarios, new EquipeQuePodeTerAbaOculta($vinculos, $primarios)),
             new AcessoAPasta((new \ReflectionClass(NivelNoCadeado::class))->newInstanceWithoutConstructor(), $permissoes),
+            $this->escopoSemRestrito($vinculos),
         );
+    }
+
+    /** Escopo cujo vínculo nunca é achado: ninguém aqui é restrito (o restrito tem teste de integração próprio). */
+    private function escopoSemRestrito(UserTenantRepository $vinculos): EscopoDePastas
+    {
+        $escopo = (new \ReflectionClass(EscopoDePastas::class))->newInstanceWithoutConstructor();
+        \Closure::bind(function () use ($vinculos): void {
+            $this->userTenantRepository = $vinculos;
+        }, $escopo, EscopoDePastas::class)();
+
+        return $escopo;
     }
 }

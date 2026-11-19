@@ -332,3 +332,12 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
   `/tarefas/<id>`, que é "Fora do seu acesso" para o restrito; agora (`LinkDoAviso`, no dropdown do sino e no "Ver
   todas") leva à aba Metas da pasta já na meta (`/pasta/<id>?meta=<id>#tarefas`), e o aviso de metas sem meta
   própria (metas redistribuídas, menção no despacho) fica sem link. Quem não é restrito não muda.
+- 18/11: fatia 3, parte do conector (depois do PR 7, #777). Mapa: as 6 ferramentas já respeitam o escopo, porque o
+  portão fixa o escritório do token e tudo passa pelo `PastaRepository` com `soNoEscopo`, pelo `BuscarRapidoUseCase`
+  (`idsNoEscopo`), pelo `AcessoAPasta::podeVer` e pelo `NivelNoCadeado` (`idsDosProcessosOcultos` soma os processos
+  fora do escopo); `ler_agenda` fica fechada pela lista de liberação (`agenda` e `tarefas`). Corrigido: (1) a ação
+  `lixeira` do `buscar_pastas`, aberta pelo módulo `expediente`, fecha para o restrito como a tela
+  (`GuardaDaAcaoDoConector::FECHADAS_NO_ACESSO_RESTRITO`, "sem permissão"); (2) a tela de autorizar o conector
+  (`conector_oauth_*`, `conector_metadado_*`) passa na barreira do restrito: ela só mostra os escritórios da pessoa,
+  e o conector já valia para ele por outros caminhos (token de antes do perfil, sessão em outro escritório).
+  `opcoes` continua listando responsáveis e marcadores do escritório, como os filtros da Lista.
