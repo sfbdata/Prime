@@ -134,6 +134,85 @@ final class PastaClienteDesvincularPrincipalControllerTest extends JusPrimeWebTe
         ));
     }
 
+    #[TestDox('cliente que não está na pasta: 422 no XHR e aviso no form, nada muda')]
+    public function testClienteNaoVinculado(): void
+    {
+        [$client, , $tenant] = $this->preparar();
+
+        $vinculado = $this->novoCliente($tenant, 'Vinculado Fica');
+        $fora      = $this->novoCliente($tenant, 'Fora Da Pasta');
+        $pasta     = $this->criarPasta($tenant, null);
+        $pasta->addCliente($vinculado);
+        $this->em()->flush();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/{$fora->getId()}/desvincular", [
+            '_token' => "TOKEN_pasta_cliente_desvincular_{$pasta->getId()}_{$fora->getId()}",
+        ], [], self::XHR);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Cliente não vinculado a esta pasta.'], json_decode((string) $client->getResponse()->getContent(), true));
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/{$fora->getId()}/desvincular", [
+            '_token' => "TOKEN_pasta_cliente_desvincular_{$pasta->getId()}_{$fora->getId()}",
+        ]);
+        self::assertResponseRedirects('/pasta/' . $pasta->getId() . '#partes');
+        self::assertSame(1, $this->vinculosDaPasta($pasta));
+    }
+
+    #[TestDox('form sem XHR: desvincula e volta para a aba Partes')]
+    public function testFormSemXhrDesvincula(): void
+    {
+        [$client, , $tenant] = $this->preparar();
+
+        $cliente = $this->novoCliente($tenant, 'Form Comum');
+        $pasta   = $this->criarPasta($tenant, null);
+        $pasta->addCliente($cliente);
+        $this->em()->flush();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/{$cliente->getId()}/desvincular", [
+            '_token' => "TOKEN_pasta_cliente_desvincular_{$pasta->getId()}_{$cliente->getId()}",
+        ]);
+
+        self::assertResponseRedirects('/pasta/' . $pasta->getId() . '#partes');
+        self::assertSame(0, $this->vinculosDaPasta($pasta));
+    }
+
+    #[TestDox('CSRF inválido: 400 no XHR, nada é desvinculado')]
+    public function testCsrfInvalido(): void
+    {
+        [$client, , $tenant] = $this->preparar();
+
+        $cliente = $this->novoCliente($tenant, 'Csrf Errado');
+        $pasta   = $this->criarPasta($tenant, null);
+        $pasta->addCliente($cliente);
+        $this->em()->flush();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/{$cliente->getId()}/desvincular", ['_token' => 'errado'], [], self::XHR);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(1, $this->vinculosDaPasta($pasta));
+    }
+
+    #[TestDox('sem permissão de editar a pasta: vai para o pedido de acesso e nada é desvinculado')]
+    public function testSemPermissao(): void
+    {
+        [$client, , $tenant] = $this->preparar();
+
+        $cliente = $this->novoCliente($tenant, 'Sem Permissao');
+        $pasta   = $this->criarPasta($tenant, null);
+        $pasta->addCliente($cliente);
+        $this->em()->flush();
+        $semPapel = $this->usuarioSemPapel($tenant);
+        $this->logarComTenant($client, $semPapel, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/{$cliente->getId()}/desvincular", [
+            '_token' => "TOKEN_pasta_cliente_desvincular_{$pasta->getId()}_{$cliente->getId()}",
+        ], [], self::XHR);
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('requestAccess=1', (string) $client->getResponse()->headers->get('Location'));
+        self::assertSame(1, $this->vinculosDaPasta($pasta));
+    }
+
     // ── apoio ────────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed> */
@@ -188,6 +267,28 @@ final class PastaClienteDesvincularPrincipalControllerTest extends JusPrimeWebTe
         $em->flush();
 
         return [$user, $tenant];
+    }
+
+    private function vinculosDaPasta(Pasta $pasta): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_cliente WHERE pasta_id = :p', ['p' => $pasta->getId()]);
+    }
+
+    /** Vínculo no escritório sem papel nenhum: sem `resources.pasta.edit`. */
+    private function usuarioSemPapel(Tenant $tenant): User
+    {
+        $em   = $this->em();
+        $user = new User();
+        $user->setEmail('desv_sem_papel_' . uniqid() . '@test.com');
+        $user->setFullName('Sem Papel');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword(static::getContainer()->get(UserPasswordHasherInterface::class)->hashPassword($user, 'senha123'));
+        $em->persist($user);
+        $em->persist(new UserTenant($user, $tenant));
+        $em->flush();
+
+        return $user;
     }
 
     private function criarPasta(Tenant $tenant, ?string $valorCausa): Pasta
