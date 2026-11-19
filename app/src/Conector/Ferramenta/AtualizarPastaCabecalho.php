@@ -13,6 +13,7 @@ use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\CarteiraDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarResponsavelDaPastaUseCase;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -28,7 +29,7 @@ use App\Repository\UserRepository;
  * - `situacao` para Ativo recusa quando o cliente principal tem o envio automático ligado ({@see EnvioAutomaticoDaPasta}).
  *   Arquivar leva o andamento a Finalizada e pode marcar o contrato do Financeiro como assinado, mesmo para quem não o
  *   vê; a resposta fala do contrato só para quem vê o Financeiro da pasta (6.2, regra 5), como a `mudar_andamento`.
- * - `responsavel` só aceita colega com vínculo ATIVO no escritório (`UserRepository::findColaboradorAtivoPorIdETenant`);
+ * - `responsavel` não vale para quem tem o acesso restrito ({@see AtualizarPastaFerramenta::RESPONSAVEL_FIXO_NO_RESTRITO}); só aceita colega com vínculo ATIVO no escritório (`UserRepository::findColaboradorAtivoPorIdETenant`);
  *   `responsavel_id` nulo tira o responsável.
  *
  * Nenhuma destas ações propõe: {@see reconferir()} e {@see executarConfirmada()} recusam.
@@ -50,6 +51,7 @@ final class AtualizarPastaCabecalho implements AtualizarPastaGrupo
         private readonly AlterarResponsavelDaPastaUseCase $alterarResponsavel,
         private readonly AlterarPrioridadeUseCase $alterarPrioridade,
         private readonly MoverPastaDeCarteiraUseCase $moverDeCarteira,
+        private readonly EscopoDePastas $escopo,
     ) {
     }
 
@@ -118,6 +120,11 @@ final class AtualizarPastaCabecalho implements AtualizarPastaGrupo
     private function responsavel(Pasta $pasta, ?int $responsavelId, ChamadaDoConector $chamada): array
     {
         $contexto = $chamada->contexto;
+        // Acesso restrito (spec acesso-restrito-e-compartilhar, regra 5 e 4.3.4): antes de olhar o colega pedido, para
+        // a resposta não depender de quem existe no escritório. A mesma frase da tela (L7).
+        if ($this->escopo->ehRestritoNoEscritorio($contexto->pessoa, $contexto->escritorio)) {
+            throw ErroDaFerramenta::recusada(AtualizarPastaFerramenta::RESPONSAVEL_FIXO_NO_RESTRITO);
+        }
         $novo = $responsavelId === null
             ? null
             : ($this->usuarios->findColaboradorAtivoPorIdETenant($responsavelId, $contexto->escritorio) ?? throw ErroDaFerramenta::recusada(self::RESPONSAVEL_INVALIDO));

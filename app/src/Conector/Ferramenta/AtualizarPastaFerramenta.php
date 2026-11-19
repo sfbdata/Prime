@@ -8,6 +8,7 @@ use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\DTO\ResultadoDaConfirmacao;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 
 /**
  * `atualizar_pasta` (`docs/specs/mcp-remoto-oauth.md`, 6.6, PR 10): o que se muda na pasta fora do andamento, dos
@@ -34,6 +35,7 @@ final class AtualizarPastaFerramenta implements FerramentaDoConector
 {
     public const NOME = 'atualizar_pasta';
 
+    public const RESPONSAVEL_FIXO_NO_RESTRITO = ResponsavelFixoNoAcessoRestritoException::MENSAGEM;
     public const NADA_A_MUDAR = 'Nada a mudar: a pasta já está assim.';
     public const MUDOU = 'A pasta mudou desde a proposta. Peça de novo.';
 

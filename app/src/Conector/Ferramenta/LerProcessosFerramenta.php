@@ -409,12 +409,14 @@ final class LerProcessosFerramenta implements FerramentaDoConector
         $pastaId = self::inteiroOpcional($argumentos, 'pasta_id') ?? throw ErroDaFerramenta::entradaInvalida();
         $contexto = $chamada->contexto;
         $this->pastaParaVincular($pastaId, 'cnj', $chamada);
-        $doEscritorio = $this->processos->findByNumeroProcessoDoTenant((string) preg_replace('/\D+/', '', $numero), $contexto->escritorio);
-        if ($doEscritorio instanceof Processo && $doEscritorio->emSegredoDeJustica()) {
+        $achado = $this->processos->findByNumeroProcessoDoTenant((string) preg_replace('/\D+/', '', $numero), $contexto->escritorio);
+        // O processo que a pessoa não alcança (cadeado ou fora do escopo do acesso restrito) é tratado como inexistente,
+        // inclusive no segredo: a resposta não diz que ele existe.
+        $visivel = $achado instanceof Processo && !\in_array($achado->getId(), $this->acessoAPasta->idsDosProcessosOcultos($contexto->pessoa, $contexto->escritorio), true) ? $achado : null;
+        if ($visivel?->emSegredoDeJustica() === true) {
             throw ErroDaFerramenta::emSegredo();
         }
         $resultado = $this->consultarNoCnj->executar($numero, $contexto->escritorio, $contexto->pessoa);
-        $visivel = $doEscritorio instanceof Processo && !\in_array($doEscritorio->getId(), $this->acessoAPasta->idsDosProcessosOcultos($contexto->pessoa, $contexto->escritorio), true) ? $doEscritorio : null;
 
         return $this->respostaDoCnj($resultado, $visivel, $contexto->escritorio);
     }
