@@ -40,8 +40,40 @@ final class ConfigurarCampanhaUseCase
             throw new \DomainException('Não há campanha configurada.');
         }
         $atual = $campanha->valores();
-        $novo = $atual;
+        $novo = $this->aplicarCampos($atual, $campos);
 
+        if ($this->vigente->estado($campanha) === EstadoDaCampanha::Ativa && $this->reduzAPromessa($atual, $novo)) {
+            throw new \DomainException('Com a campanha no ar, não dá para reduzir os benefícios. Mudanças valem só para novas inscrições.');
+        }
+        $this->gravar($campanha, $master, $novo);
+
+        return 'Campanha atualizada.';
+    }
+
+    /**
+     * Só os campos enviados mudam; a ordem dos grupos é a das validações.
+     *
+     * @param array<string, mixed> $novo
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function aplicarCampos(array $novo, array $campos): array
+    {
+        $novo = $this->aplicarIdentidadeEPreco($novo, $campos);
+        $novo = $this->aplicarDatasEPrazos($novo, $campos);
+
+        return $this->aplicarVagasEExibicao($novo, $campos);
+    }
+
+    /**
+     * @param array<string, mixed> $novo
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function aplicarIdentidadeEPreco(array $novo, array $campos): array
+    {
         if (\array_key_exists('ligada', $campos)) {
             $novo['ligada'] = $this->booleano($campos['ligada']);
         }
@@ -58,6 +90,18 @@ final class ConfigurarCampanhaUseCase
         if (\array_key_exists('multiplicador', $campos)) {
             $novo['multiplicador'] = $this->inteiro($campos['multiplicador'], 'A devolução é em dobro ou em triplo.');
         }
+
+        return $novo;
+    }
+
+    /**
+     * @param array<string, mixed> $novo
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function aplicarDatasEPrazos(array $novo, array $campos): array
+    {
         if (\array_key_exists('inicio', $campos)) {
             $novo['inicio'] = $this->data($this->texto($campos['inicio']), 'Informe a data inicial.');
         }
@@ -70,6 +114,18 @@ final class ConfigurarCampanhaUseCase
         if (\array_key_exists('prazoPagto', $campos)) {
             $novo['prazoPagamentoDiasUteis'] = $this->inteiro($campos['prazoPagto'], 'Informe o prazo para pagar a devolução, em dias úteis.');
         }
+
+        return $novo;
+    }
+
+    /**
+     * @param array<string, mixed> $novo
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function aplicarVagasEExibicao(array $novo, array $campos): array
+    {
         if (\array_key_exists('vagas', $campos)) {
             $novo['vagas'] = $this->inteiro($campos['vagas'], 'Informe o número de vagas (0 = sem limite).');
         }
@@ -83,12 +139,7 @@ final class ConfigurarCampanhaUseCase
             $novo['beneficios'] = array_values(array_filter(array_map('trim', preg_split('/\R/', $this->texto($campos['beneficios'])) ?: []), static fn (string $b): bool => $b !== ''));
         }
 
-        if ($this->vigente->estado($campanha) === EstadoDaCampanha::Ativa && $this->reduzAPromessa($atual, $novo)) {
-            throw new \DomainException('Com a campanha no ar, não dá para reduzir os benefícios. Mudanças valem só para novas inscrições.');
-        }
-        $this->gravar($campanha, $master, $novo);
-
-        return 'Campanha atualizada.';
+        return $novo;
     }
 
     /** Volta tudo aos valores padrão do desenho, mantendo ligada ou desligada. Com a campanha no ar, a regra 3 também vale aqui. */

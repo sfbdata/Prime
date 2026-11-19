@@ -45,6 +45,17 @@ final class InscreverNaCampanhaUseCase
         if ($this->participacoes->daPessoa($campanha, $quem->usuario) !== null) {
             throw new \DomainException('Você já está no Desafio.');
         }
+        $oab = $this->validarDados($aceite, $cpf, $oab);
+        $nome = mb_substr(trim($nome) !== '' ? trim($nome) : $quem->nome(), 0, 120);
+
+        $this->registrarSobTrava($campanha, $quem, $nome, $this->cpfs->hash($cpf), $cpf, $oab, $this->vigente->agora(), $ip);
+
+        return 'Inscrição registrada. Pague ' . FormatoDaCampanha::reais($campanha->getPrecoCentavos()) . ' com o Pix para entrar no Desafio.';
+    }
+
+    /** Confere aceite, CPF e OAB (nessa ordem) e devolve a OAB normalizada. */
+    private function validarDados(bool $aceite, string $cpf, string $oab): string
+    {
         if (!$aceite) {
             throw new \DomainException('Para entrar, marque que leu e aceita as regras.');
         }
@@ -58,10 +69,12 @@ final class InscreverNaCampanhaUseCase
         if (mb_strlen($oab) > 20) {
             throw new \DomainException('A inscrição na OAB pode ter até 20 caracteres.');
         }
-        $nome = mb_substr(trim($nome) !== '' ? trim($nome) : $quem->nome(), 0, 120);
-        $hash = $this->cpfs->hash($cpf);
-        $agora = $this->vigente->agora();
 
+        return $oab;
+    }
+
+    private function registrarSobTrava(Campanha $campanha, Solicitante $quem, string $nome, string $hash, string $cpf, string $oab, \DateTimeImmutable $agora, ?string $ip): void
+    {
         $this->em->wrapInTransaction(function () use ($campanha, $quem, $nome, $hash, $cpf, $oab, $agora, $ip): void {
             $this->conexao->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [self::CHAVE_DA_TRAVA, $campanha->getId()]);
             // Já dentro da trava: o que outra inscrição gravou um instante atrás já vale.
@@ -77,8 +90,6 @@ final class InscreverNaCampanhaUseCase
             $participacao->gerarTxid();
             $this->em->flush();
         });
-
-        return 'Inscrição registrada. Pague ' . FormatoDaCampanha::reais($campanha->getPrecoCentavos()) . ' com o Pix para entrar no Desafio.';
     }
 
     private function exigirAberta(EstadoDaCampanha $estado): void

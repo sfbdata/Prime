@@ -56,13 +56,7 @@ final class MontarCampanhaViewUseCase
             fim: $fim,
             estado: $estado->value,
             ehMaster: $ehMaster,
-            statusTexto: match ($estado) {
-                EstadoDaCampanha::Ativa => 'Inscrições abertas até ' . $fim,
-                EstadoDaCampanha::Esgotada => 'Vagas esgotadas',
-                EstadoDaCampanha::Agendada => 'Prévia do Master · começa em ' . $inicio,
-                EstadoDaCampanha::Encerrada => 'Prévia do Master · encerrada em ' . $fim,
-                EstadoDaCampanha::Desligada => '',
-            },
+            statusTexto: $this->textoDoStatus($estado, $inicio, $fim),
             mostrarAba: $campanha->isAbaNoTopo() && ($aoPublico || ($ehMaster && $estado !== EstadoDaCampanha::Ativa)),
             abaPrevia: !$aoPublico,
             abaTitulo: $aoPublico
@@ -70,10 +64,24 @@ final class MontarCampanhaViewUseCase
                 : 'Prévia do Master: campanha ' . $estado->value . ' (só você vê)',
             mostrarFaixa: $aoPublico || ($ehMaster && $estado !== EstadoDaCampanha::Desligada),
             mostrarFaq: $mostrarFaq,
-            faqPago: $mostrarFaq
-                ? ' Durante a campanha ' . $campanha->getNome() . ', existe também a inscrição opcional no Desafio, de ' . $preco . ', com devolução de ' . FormatoDaCampanha::reais($campanha->valorDaDevolucaoCentavos()) . ' se você não gostar.'
-                : '',
+            faqPago: $mostrarFaq ? $this->textoFaqPago($campanha, $preco) : '',
             botao: $temParticipacao ? 'Minha participação' : 'Conhecer o Desafio',
         );
+    }
+
+    private function textoDoStatus(EstadoDaCampanha $estado, string $inicio, string $fim): string
+    {
+        return match ($estado) {
+            EstadoDaCampanha::Ativa => 'Inscrições abertas até ' . $fim,
+            EstadoDaCampanha::Esgotada => 'Vagas esgotadas',
+            EstadoDaCampanha::Agendada => 'Prévia do Master · começa em ' . $inicio,
+            EstadoDaCampanha::Encerrada => 'Prévia do Master · encerrada em ' . $fim,
+            EstadoDaCampanha::Desligada => '',
+        };
+    }
+
+    private function textoFaqPago(Campanha $campanha, string $preco): string
+    {
+        return ' Durante a campanha ' . $campanha->getNome() . ', existe também a inscrição opcional no Desafio, de ' . $preco . ', com devolução de ' . FormatoDaCampanha::reais($campanha->valorDaDevolucaoCentavos()) . ' se você não gostar.';
     }
 }
