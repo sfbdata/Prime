@@ -13,6 +13,7 @@ use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\UseCase\AlterarLinkDaEntradaUseCase;
 use App\Auth\UseCase\DefinirDestinatarioSuporteUseCase;
 use App\Auth\UseCase\EnviarMensagemSuporteUseCase;
+use App\Auth\UseCase\MarcarRespostaDoSuporteUseCase;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\JsonException;
@@ -40,6 +41,7 @@ final class SuporteEntradaController extends AbstractController
         private readonly AlterarLinkDaEntradaUseCase $alterarLink,
         private readonly PaginaDeEntrada $paginaDeEntrada,
         private readonly MensagemSuporteRepository $mensagens,
+        private readonly MarcarRespostaDoSuporteUseCase $marcarResposta,
         private readonly ValidatorInterface $validator,
         private readonly RateLimiterFactoryInterface $suporteEntradaLimiter,
     ) {
@@ -114,15 +116,39 @@ final class SuporteEntradaController extends AbstractController
     #[Route('/suporte/mensagens', name: 'auth_suporte_mensagens', methods: ['GET'])]
     public function mensagens(): Response
     {
-        $user = $this->getUser();
-        $ehDestinatario = $user instanceof User && $this->paginaDeEntrada->destinatarioDoSuporte()?->getId() === $user->getId();
-        if (!$this->isGranted('ROLE_SUPER_ADMIN') && !$ehDestinatario) {
-            throw $this->createNotFoundException();
-        }
+        $this->garantirLeitorDoSuporte();
 
         return $this->render('auth/suporte/mensagens.html.twig', [
             'mensagens' => array_map(MensagemSuporteItem::fromEntity(...), $this->mensagens->recentes()),
         ]);
+    }
+
+    /**
+     * "Responder por e-mail" marca a mensagem como respondida (`respondida=1`, enviado pelo JS da lista antes de abrir
+     * o e-mail) e "Desfazer" volta para pendente (`respondida=0`, formulário). Mesma regra de acesso da lista.
+     */
+    #[Route('/suporte/mensagens/{id}/resposta', name: 'auth_suporte_resposta', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function resposta(int $id, Request $request): Response
+    {
+        $this->garantirLeitorDoSuporte();
+        if (!$this->isCsrfTokenValid('suporte_resposta_' . $id, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $this->marcarResposta->executar($id, $request->request->get('respondida') === '1', new \DateTimeImmutable());
+
+        return $this->redirectToRoute('auth_suporte_mensagens', [], Response::HTTP_SEE_OTHER);
+    }
+
+    /** Só o Master ou o destinatário escolhido; para os outros a página não existe. */
+    private function garantirLeitorDoSuporte(): void
+    {
+        $user = $this->getUser();
+        if ($this->isGranted('ROLE_SUPER_ADMIN') || ($user instanceof User && $this->paginaDeEntrada->ehDestinatarioDoSuporte($user))) {
+            return;
+        }
+
+        throw $this->createNotFoundException();
     }
 
     /** @param array<mixed> $dados */

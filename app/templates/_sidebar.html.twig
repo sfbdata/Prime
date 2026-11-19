@@ -215,7 +215,9 @@
                     can_administer('admin.inteligencia.manage') or
                     can_administer('admin.audit.view')
                 %}
-                {% if hasAnyAdminPerm %}
+                {# Suporte: só o Master e o destinatário do suporte (mesma regra de /suporte/mensagens); null para os outros. #}
+                {% set suportePendentes = suporte_no_menu() %}
+                {% if hasAnyAdminPerm or suportePendentes is not null %}
                     <li class="pje-menu-separator">{{ 'moldura.menu_lateral.secao_admin'|trans }}</li>
 
                     {% if can_administer('admin.users.invite') %}
@@ -264,6 +266,19 @@
                                class="pje-menu-link {{ currentRoute starts with 'app_access_request_' ? 'active' : '' }}">
                                 <i class="bi bi-key pje-nav-icon"></i>
                                 <span>{{ 'moldura.menu_lateral.solicitacoes_acesso'|trans }}</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if suportePendentes is not null %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('auth_suporte_mensagens') }}"
+                               class="pje-menu-link {{ currentRoute == 'auth_suporte_mensagens' ? 'active' : '' }}">
+                                <i class="bi bi-life-preserver pje-nav-icon"></i>
+                                <span>{{ 'moldura.menu_lateral.suporte'|trans }}</span>
+                                {% if suportePendentes > 0 %}
+                                    <span class="pje-menu-contador" title="{{ 'moldura.menu_lateral.suporte_pendentes'|trans({n: suportePendentes}) }}" style="margin-left:auto; min-width:18px; text-align:center; font-size:10px; font-weight:bold; color:#fff; background:#c0392b; padding:1px 6px; border-radius:4px;">{{ suportePendentes }}</span>
+                                {% endif %}
                             </a>
                         </li>
                     {% endif %}

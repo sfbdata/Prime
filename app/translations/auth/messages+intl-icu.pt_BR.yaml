@@ -123,6 +123,10 @@ auth:
         responder: Responder por e-mail
         assunto_do_email: Suporte BlueJus
         origem_login: Tela de entrada
+        situacao: Situação
+        pendente: Pendente
+        respondida_em: 'Respondida em {data}'
+        desfazer: Desfazer
     js:
         forca:
             fraca: Fraca

@@ -77,6 +77,8 @@ moldura:
         perfis: Perfis
         solicitacoes_acesso: Solicitações de Acesso
         service_desk_ti: Service Desk (TI)
+        suporte: Suporte
+        suporte_pendentes: '{n, plural, one {# mensagem pendente} other {# mensagens pendentes}}'
         sedes_ponto: Sedes (Ponto)
         feriados_folgas: Feriados e Folgas
         bluejus_ia: BlueJus IA
