@@ -72,6 +72,7 @@ final class PaginaDoChatTest extends JusPrimeWebTestCase
         $css = (string) file_get_contents(__DIR__ . '/../../../public/css/chat-ia.css');
         self::assertStringContainsString('.ci-principal > .ias-barra { background: transparent; border-bottom: 0; color: var(--ci-apoio); }', $css);
         self::assertStringContainsString('.ci-principal > .ias-barra .ias-trilho { background: var(--ci-borda); }', $css);
+        self::assertStringContainsString('.ci-principal > .ias-barra--perto .ias-texto { color: var(--ci-aviso); }', $css, 'o aviso de perto do limite segue em âmbar');
     }
 
     #[TestDox('Sem chave de IA: a página abre com o banner "A IA ainda não está conectada"')]

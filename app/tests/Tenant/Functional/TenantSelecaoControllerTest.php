@@ -108,6 +108,8 @@ final class TenantSelecaoControllerTest extends JusPrimeWebTestCase
         self::assertCount(2, $crawler->filter('button.sel-conta > .sel-conta-texto > b'));
         self::assertCount(0, $crawler->filter('.sel-contas .bjp-btn'));
         self::assertCount(1, $crawler->filter('link[href*="css/tenant-selecionar.css"]'));
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/tenant-selecionar.css');
+        self::assertStringContainsString('html[data-bs-theme="dark"] .sel-conta:hover .sel-conta-texto > span,', $css, 'perfil branco no hover do tema escuro');
         $nomes = $linhas->each(static fn ($b) => trim($b->filter('.sel-conta-texto > b')->text()));
         self::assertContains($tenantA->getName(), $nomes);
         self::assertContains($tenantB->getName(), $nomes);
