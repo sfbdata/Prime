@@ -75,6 +75,15 @@ final class CentralRealceDaLinhaCssTest extends TestCase
         }
     }
 
+    /** O selo de não lidas tem o fundo quase igual ao do realce: no hover ele vira branco com o número azul. */
+    public function testSeloVisivelNoRealce(): void
+    {
+        $selo = $this->regras('.bj-central-linha:hover .bj-central-linha-textos .bj-central-selo');
+        self::assertMatchesRegularExpression('/background:\s*#fff;/', $selo);
+        self::assertMatchesRegularExpression('/color:\s*var\(--bjc-linha-hv\);/', $selo);
+        self::assertMatchesRegularExpression('/background:\s*rgba\(255, 255, 255, \.7\);/', $this->regras('.bj-central-linha:focus-visible .bj-central-linha-textos .bj-central-selo--mudo'));
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function raios(): iterable
     {

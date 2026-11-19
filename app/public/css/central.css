@@ -323,6 +323,18 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     color: #fff;
 }
 
+/* O selo de não lidas (#3b6e8f) sumiria no azul do realce: vira branco com o número em azul. */
+.bj-central-linha:hover .bj-central-linha-textos .bj-central-selo,
+.bj-central-linha:focus-visible .bj-central-linha-textos .bj-central-selo {
+    background: #fff;
+    color: var(--bjc-linha-hv);
+}
+
+.bj-central-linha:hover .bj-central-linha-textos .bj-central-selo--mudo,
+.bj-central-linha:focus-visible .bj-central-linha-textos .bj-central-selo--mudo {
+    background: rgba(255, 255, 255, .7);
+}
+
 .bj-central-linha-textos {
     display: flex;
     flex-direction: column;
@@ -1564,6 +1576,10 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
 
 .bj-central-equipe-linha--eu:hover {
     background: transparent;
+}
+
+.bj-central-equipe-linha--eu:focus-visible {
+    outline: none;
 }
 
 .bj-central-equipe-av {
