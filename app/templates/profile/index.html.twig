@@ -384,6 +384,24 @@ input[type="range"].img-slider {
         {% endfor %}
     </section>
 
+    {# ── Meu código BlueJus (pedido do Farlei, 19/11/2026): sem desenho, pela convenção do perfil (cartão igual ao
+       "Segurança"). O código pessoal com que a pessoa recebe pastas de outros escritórios; a janela "Compartilhar
+       pasta", aba "Outra conta (código)", traz o atalho para cá (#mpMeuCodigo). ── #}
+    <section class="mp-card" data-screen-label="Meu código BlueJus" id="mpMeuCodigo">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-upc"></i></span>
+            <div><b>{{ 'perfil.codigo.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.codigo.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-seguranca">
+            <div>
+                <span class="mp-codigo" data-mp-meu-codigo>{{ meuCodigo }}</span><br>
+                {{ 'perfil.codigo.orientacao'|trans }}
+            </div>
+            <button class="mp-btn-azul" type="button" data-mp-copiar="{{ meuCodigo }}"><i class="bi bi-copy" aria-hidden="true"></i>{{ 'perfil.codigo.copiar'|trans }}</button>
+            <button class="mp-btn-contorno" type="button" data-mp-compartilhar-codigo="{{ meuCodigo }}"><i class="bi bi-share" aria-hidden="true"></i>{{ 'perfil.codigo.compartilhar'|trans }}</button>
+        </div>
+    </section>
+
     {# ── Preferências ── #}
     <section class="mp-card" data-screen-label="Preferências">
         <div class="mp-card-topo">

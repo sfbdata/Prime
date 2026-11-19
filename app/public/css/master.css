@@ -167,7 +167,7 @@
 
 /* ---------- linhas com hover azul (data-lin / data-hv do desenho) ---------- */
 .mp-lin { transition: background .15s; }
-.mp-lin:hover { background: #3b8fc2 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.mp-lin:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
 .mp-lin:hover .mp-hv, .mp-lin:hover .mp-hv * { color: #fff !important; background: transparent !important; border-color: transparent !important; }
 
 /* ---------- Contas e escritórios ---------- */

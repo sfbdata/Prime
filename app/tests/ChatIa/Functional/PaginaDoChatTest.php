@@ -66,6 +66,14 @@ final class PaginaDoChatTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('adminlte', strtolower($twig));
     }
 
+    #[TestDox('Barra da I.A. gratuita no Chat: sem faixa de fundo, só o texto e a barrinha nas cores do tema (A8, 19/11)')]
+    public function testBarraDeUsoSemFaixa(): void
+    {
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/chat-ia.css');
+        self::assertStringContainsString('.ci-principal > .ias-barra { background: transparent; border-bottom: 0; color: var(--ci-apoio); }', $css);
+        self::assertStringContainsString('.ci-principal > .ias-barra .ias-trilho { background: var(--ci-borda); }', $css);
+    }
+
     #[TestDox('Sem chave de IA: a página abre com o banner "A IA ainda não está conectada"')]
     public function testSemChaveMostraAviso(): void
     {
