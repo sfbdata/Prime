@@ -20,6 +20,7 @@ use App\Conector\Service\RequisicaoDoConector;
 use App\Conector\Service\SegredoOpaco;
 use App\Conector\UseCase\ConfirmarPropostaDoConectorUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Master\Entity\RecursoEstado;
@@ -29,6 +30,7 @@ use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
@@ -233,7 +235,7 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
             $resposta = $this->executar(['acao' => 'salvar_prazo', 'pasta_id' => $this->pasta->getId(), 'prazo_id' => $prazo->getId(), 'texto' => 'Texto novo ' . uniqid()]);
             $dados = $this->dadosDaProposta($resposta);
 
-            $prazo->definir('prazo', $texto ?? 'Protocolar a contestação', new \DateTimeImmutable($data ?? '2026-11-20'), null, 'Pessoa do Conector');
+            $this->gerenciado($prazo)->definir('prazo', $texto ?? 'Protocolar a contestação', new \DateTimeImmutable($data ?? '2026-11-20'), null, 'Pessoa do Conector');
             $this->em()->flush();
 
             $erro = $this->recusa(fn () => $this->ferramenta()->reconferir('salvar_prazo', $dados, $this->chamada()));
@@ -246,7 +248,7 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
     {
         $prazo = $this->prazo();
         $resposta = $this->executar(['acao' => 'cumprir_prazo', 'pasta_id' => $this->pasta->getId(), 'prazo_id' => $prazo->getId(), 'excluir' => true]);
-        $prazo->definir('prazo', 'Protocolar a contestação', new \DateTimeImmutable('2026-11-30'), null, 'Pessoa do Conector');
+        $this->gerenciado($prazo)->definir('prazo', 'Protocolar a contestação', new \DateTimeImmutable('2026-11-30'), null, 'Pessoa do Conector');
         $this->em()->flush();
 
         $erro = $this->recusa(fn () => $this->confirmar($resposta));
@@ -263,7 +265,8 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
         $exclusao = $this->dadosDaProposta($this->executar(['acao' => 'cumprir_prazo', 'pasta_id' => $this->pasta->getId(), 'prazo_id' => $prazo->getId(), 'excluir' => true]));
 
         // Colega que saiu: o responsável deixa de ser colega ativo.
-        $this->colega->setIsActive(false);
+        // "Colega ativo" é o vínculo com o escritório (`findColaboradorAtivoPorIdETenant`), não a conta.
+        $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $this->colega->getId(), 'tenant' => $this->escritorio->getId()])?->alterarSituacao(SituacaoNaEquipe::Suspenso);
         $this->em()->flush();
         $erro = $this->recusa(fn () => $this->ferramenta()->reconferir('salvar_prazo', $edicao, $this->chamada()));
         self::assertSame(PrazosEMetasDaPastaFerramenta::RESPONSAVEL_INVALIDO, $erro->getMessage());
@@ -272,7 +275,7 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
         $erro = $this->recusa(fn () => $this->ferramenta()->reconferir('cumprir_prazo', $exclusao, $this->chamada()));
         self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $erro->motivo);
 
-        $this->pasta->marcarExcluida($this->pessoa, new \DateTimeImmutable());
+        $this->gerenciado($this->pasta)->marcarExcluida($this->gerenciado($this->pessoa), new \DateTimeImmutable());
         $this->em()->flush();
         $erro = $this->recusa(fn () => $this->ferramenta()->reconferir('cumprir_prazo', $exclusao, $this->chamada()));
         self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $erro->motivo);
@@ -625,7 +628,7 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
 
     private function prazo(?Pasta $pasta = null, ?Tenant $escritorio = null): PastaPrazo
     {
-        $prazo = new PastaPrazo($escritorio ?? $this->escritorio, $pasta ?? $this->pasta, $this->pessoa);
+        $prazo = new PastaPrazo($this->gerenciado($escritorio ?? $this->escritorio), $this->gerenciado($pasta ?? $this->pasta), $this->gerenciado($this->pessoa));
         $prazo->definir('prazo', 'Protocolar a contestação', new \DateTimeImmutable('2026-11-20'), null, 'Pessoa do Conector');
         $this->em()->persist($prazo);
         $this->em()->flush();
@@ -712,7 +715,26 @@ final class PrazosEMetasDaPastaFerramentaTest extends KernelTestCase
 
     private function ocultar(Pasta $pasta, AbaDaPasta $aba): void
     {
-        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $pasta, $aba, $this->pessoa(), new \DateTimeImmutable()));
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->gerenciado($this->escritorio), $this->gerenciado($pasta), $aba, $this->pessoa(), new \DateTimeImmutable()));
         $this->em()->flush();
+    }
+
+    /**
+     * A mesma entidade, presa ao EntityManager de agora: cada chamada reinicia os serviços (`services_resetter`), e o
+     * que o teste mudar numa entidade solta não chega ao banco no `flush`.
+     *
+     * @template T of object
+     *
+     * @param T $entidade
+     *
+     * @return T
+     */
+    private function gerenciado(object $entidade): object
+    {
+        if ($this->em()->contains($entidade)) {
+            return $entidade;
+        }
+
+        return $this->em()->find($entidade::class, $entidade->getId()) ?? throw new \LogicException('entidade sumiu');
     }
 }
