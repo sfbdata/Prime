@@ -25,7 +25,8 @@ use App\Conector\Ferramenta\MudarAndamentoFerramenta;
 use App\Conector\Ferramenta\PrazosEMetasDaPastaFerramenta;
 use App\Conector\Ferramenta\ProcessosDaPastaFerramenta;
 use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
-use App\Conector\Service\GuardaDaAcaoDoConector;
+use App\Conector\Exception\AcessoDoConectorRecusado;
+use App\Conector\Service\PortaoDoConector;
 use App\Conector\Service\PropostasDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -36,6 +37,7 @@ use App\Pasta\Entity\PastaCompartilhamento;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Entity\PermissoesDoCompartilhamento;
+use App\Pasta\Service\PastaRecebidaDoUsuario;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
@@ -55,7 +57,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * A foto de A é tirada pela conexão (sem o filtro do Doctrine): cada tabela com `pasta_id` na linha de P, a própria
  * pasta, o processo dela e as propostas do conector.
  */
-#[CoversClass(GuardaDaAcaoDoConector::class)]
+// O que barra B é o portão (filtro de tenant ligado no escritório do token) somado à busca de cada ferramenta pelo
+// escritório da chamada; a guarda nunca chega a receber a pasta de A.
+#[CoversClass(PortaoDoConector::class)]
 final class ConectorNaPastaRecebidaTest extends KernelTestCase
 {
     use CenarioDoConectorTrait;
@@ -75,6 +79,7 @@ final class ConectorNaPastaRecebidaTest extends KernelTestCase
     private Pasta $pasta;
     private Processo $processo;
     private PastaDocumento $documento;
+    private PastaCompartilhamento $convite;
     private string $classe;
     /** @var array<int, int> consentimento por pessoa */
     private array $consentimentos = [];
@@ -133,7 +138,7 @@ final class ConectorNaPastaRecebidaTest extends KernelTestCase
         $disco->memoria->semear(ChavesDePasta::documento($this->documento), self::PDF);
 
         // O convite de outra conta, aceito, com as três caixas: o caso mais forte.
-        $convite = PastaCompartilhamento::externo($this->pasta, $this->olga, $this->bia, new PermissoesDoCompartilhamento(true, true, true), null, null, new \DateTimeImmutable('-2 days'));
+        $this->convite = $convite = PastaCompartilhamento::externo($this->pasta, $this->olga, $this->bia, new PermissoesDoCompartilhamento(true, true, true), null, null, new \DateTimeImmutable('-2 days'));
         $this->em()->persist($convite);
         $this->em()->flush();
         $convite->aceitar($this->bia, new \DateTimeImmutable('-1 day'));
@@ -152,6 +157,19 @@ final class ConectorNaPastaRecebidaTest extends KernelTestCase
         $c = $this->em()->getConnection();
         self::assertSame(1, (int) $c->fetchOne("SELECT COUNT(*) FROM pasta_compartilhamento WHERE pasta_id = :p AND usuario_destino_id = :b AND status = :aceita AND interno = false AND pode_movimentar AND pode_enviar_documentos AND pode_baixar_documentos", ['p' => $this->pasta->getId(), 'b' => $this->bia->getId(), 'aceita' => EstadoDoCompartilhamento::Aceita->value]));
         self::assertSame(0, (int) $c->fetchOne('SELECT COUNT(*) FROM user_tenant WHERE user_id = :b AND tenant_id = :a', ['b' => $this->bia->getId(), 'a' => $this->contaA->getId()]));
+
+        // E o convite abre de verdade na tela: sem cadeado, a Olga com vínculo ativo, sem restrição e editando P.
+        $recebida = static::getContainer()->get(PastaRecebidaDoUsuario::class)->localizar((int) $this->convite->getId(), $this->bia);
+        self::assertSame($this->pasta->getId(), $recebida->pasta->getId());
+        self::assertFalse($recebida->soLeitura);
+    }
+
+    #[TestDox('o portão do conector não abre para a Bia no escritório A: o convite não é vínculo')]
+    public function testPortaoNaoAbreEmA(): void
+    {
+        $this->expectException(AcessoDoConectorRecusado::class);
+
+        static::getContainer()->get(PortaoDoConector::class)->abrir((int) $this->bia->getId(), (int) $this->contaA->getId());
     }
 
     /** @return iterable<string, array{0: class-string<FerramentaDoConector>, 1: string, 2: bool}> */
