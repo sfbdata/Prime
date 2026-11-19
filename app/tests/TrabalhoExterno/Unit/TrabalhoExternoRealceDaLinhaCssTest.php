@@ -85,6 +85,26 @@ final class TrabalhoExternoRealceDaLinhaCssTest extends TestCase
         self::assertMatchesRegularExpression('/color:\s*#2b7ab0;/', $corpo);
     }
 
+    #[TestDox('marcar e estrela: na linha realçada, ligado e desligado continuam diferentes')]
+    public function testMarcadaDiferenteDaDesmarcada(): void
+    {
+        foreach (['.te-linha:hover', '.te-cv-linha:hover'] as $linha) {
+            self::assertStringContainsString('rgba(255, 255, 255, .6) !important', $this->regras($linha . ' .te-sel-btn'));
+            self::assertStringContainsString('color: #fff !important', $this->regras($linha . ' .te-sel-btn.is-on'));
+            self::assertStringContainsString('rgba(255, 255, 255, .6) !important', $this->regras($linha . ' .te-estrela'));
+            self::assertStringContainsString('color: #ffd24a !important', $this->regras($linha . ' .te-estrela.is-on'));
+        }
+    }
+
+    #[TestDox('botão sob o cursor dentro da linha realçada: fundo branco translúcido, ícone continua visível')]
+    public function testBotaoSobOCursorNaLinha(): void
+    {
+        foreach (['.te-linha:hover .te-btn-mais:hover', '.te-linha:hover .te-sel-btn:hover', '.te-cv-linha:hover .te-cv-mais:hover', '.te-cv-linha:hover .te-sel-btn:hover'] as $seletor) {
+            self::assertStringContainsString('rgba(255, 255, 255, .2) !important', $this->regras($seletor));
+        }
+        self::assertStringContainsString('color: #fff', $this->regras('.te-cv-linha:hover .te-cv-mais:hover'));
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function raios(): iterable
     {

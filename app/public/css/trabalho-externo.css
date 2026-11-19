@@ -266,10 +266,19 @@
 /* Guia visual v30: texto branco na linha realçada. As cores de prazo e de situação vêm inline do JS, por isso o !important. */
 .te-linha:hover .te-l-id, .te-linha:hover .te-l-tipo, .te-linha:hover .te-l-desc, .te-linha:hover .te-l-rota, .te-linha:hover .te-l-destino,
 .te-linha:hover .te-l-destino > .bi, .te-linha:hover .te-l-prazo, .te-linha:hover .te-l-resp, .te-linha:hover .te-l-resp.is-vazio,
-.te-linha:hover .te-l-chat > .bi, .te-linha:hover .te-btn-mais, .te-linha:hover .te-sel-btn,
+.te-linha:hover .te-l-chat > .bi, .te-linha:hover .te-btn-mais,
 .te-linha:hover .te-l-prazo-txt, .te-linha:hover .te-l-prazo-txt *, .te-linha:hover .te-l-sit > span, .te-linha:hover .te-l-sit > span * { color: #fff !important; }
 /* O contador de mensagens (#0a6fa0) sumiria no azul do realce: vira branco com o número azul. */
 .te-linha:hover .te-l-chat-n { background: #fff; color: #2b7ab0; }
+/* Marcar e estrela na linha realçada: apagado em branco translúcido, ligado em branco cheio (estrela em amarelo
+   claro), para a marcada continuar diferente da desmarcada. Botão sob o cursor: fundo branco translúcido, sem o
+   fundo claro de fora da linha, que apagaria o ícone branco. */
+.te-linha:hover .te-sel-btn, .te-cv-linha:hover .te-sel-btn,
+.te-linha:hover .te-estrela, .te-cv-linha:hover .te-estrela { color: rgba(255, 255, 255, .6) !important; }
+.te-linha:hover .te-sel-btn.is-on, .te-cv-linha:hover .te-sel-btn.is-on { color: #fff !important; }
+.te-linha:hover .te-estrela.is-on, .te-cv-linha:hover .te-estrela.is-on { color: #ffd24a !important; }
+.te-linha:hover .te-btn-mais:hover, .te-linha:hover .te-sel-btn:hover, .te-linha:hover .te-estrela:hover:not(:disabled),
+.te-cv-linha:hover .te-cv-mais:hover, .te-cv-linha:hover .te-sel-btn:hover, .te-cv-linha:hover .te-estrela:hover:not(:disabled) { background: rgba(255, 255, 255, .2) !important; }
 .te-l-id { padding: 12px 14px; font-weight: normal; font-size: 13.5px; color: var(--te-azul); }
 /* Não lida: o desenho põe o peso da linha no ID (`l.negrito`, linha 138). */
 .te-linha.is-naolida .te-l-id { font-weight: bold; }
@@ -953,7 +962,7 @@ textarea.te-vf-ctl { height: auto; padding: 9px 10px; resize: vertical; line-hei
 .te-cv-linha { border-bottom: 1px solid var(--te-div-2); font-size: 13.5px; cursor: pointer; transition: background .15s; }
 .te-cv-linha:hover, .te-cv-linha.is-sel:hover, .te-cv-linha:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; color: #fff; }
 .te-cv-linha:hover .te-cv-nome, .te-cv-linha:hover .te-cv-cargo, .te-cv-linha:hover .te-cv-cel, .te-cv-linha:hover .te-cv-cel.is-fraco,
-.te-cv-linha:hover .te-cv-mais, .te-cv-linha:hover .te-sel-btn { color: #fff; }
+.te-cv-linha:hover .te-cv-mais, .te-cv-linha:hover .te-cv-mais:hover { color: #fff; }
 .te-cv-linha:hover .te-cv-av { box-shadow: 0 0 0 2px #fff; }
 .te-cv-linha.is-sel { background: var(--te-sel-bg); }
 .te-cv-marca { padding: 0 4px; display: flex; align-items: center; gap: 1px; }
