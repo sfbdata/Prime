@@ -2,7 +2,7 @@
 tipo: correcao
 ---
 ## Changelog
-- Ponto, janela "Antes de registrar": no retorno antes do mínimo do intervalo, a resposta da batida leva `contador: intervalo` (`IntervaloDaBatida::doIntervaloMinimo`) e a janela mostra um contador regressivo HH:MM:SS em destaque, ao vivo, com a mesma conta do aviso do dia (`segundosParaOMinimoDoIntervalo`). Zerou com a janela aberta: texto de intervalo cumprido. "x", "Aguardar" e "Registrar assim mesmo" continuam.
+- Ponto, janela "Antes de registrar": no retorno antes do mínimo do intervalo, a resposta da batida leva `contador: intervalo` e `faltamSegundos` (`IntervaloDaBatida::faltamDoIntervalo`, na hora do servidor) e a janela mostra um contador regressivo HH:MM:SS em destaque, ao vivo, com a mesma conta do aviso do dia (`segundosParaOMinimoDoIntervalo`), acertada pelo `faltamSegundos` (relógio do aparelho fora da hora não abre a janela em "cumprido" logo depois da recusa). Zerou com a janela aberta: texto de intervalo cumprido. "x", "Aguardar" e "Registrar assim mesmo" continuam.
 - Aviso azul do intervalo no cartão: "Em intervalo desde 12:00 (há 00:04:22). Faltam 00:55:38 para completar o mínimo de 1h." O que falta passa a HH:MM:SS (antes "se completa em 00:56", que parecia segundos) e sem arredondar, igual ao contador da janela (antes 56 no aviso e 57 na janela).
 - Textos novos no catálogo `ponto_intervalo.js` (português e inglês), pelo `BJ_T`.
 

@@ -94,6 +94,10 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         self::assertFalse($alerta['success']);
         self::assertSame(self::ALERTA_DO_INTERVALO, $alerta['alerta']);
         self::assertSame('intervalo', $alerta['contador'] ?? null, 'a janela mostra o contador regressivo do intervalo');
+        // 30 min de mínimo, repouso há 12 min: faltam uns 18 min, na hora do servidor (a tela acerta a conta por eles).
+        self::assertIsInt($alerta['faltamSegundos'] ?? null);
+        self::assertGreaterThan(17 * 60, $alerta['faltamSegundos']);
+        self::assertLessThanOrEqual(18 * 60, $alerta['faltamSegundos']);
         self::assertSame(0, $this->batidas('retorno'), 'o alerta não grava');
 
         $gravou = $this->bater('retorno', true);
@@ -129,6 +133,7 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
             (string) $alerta['alerta'],
         );
         self::assertArrayNotHasKey('contador', $alerta, 'o contador é só do intervalo');
+        self::assertArrayNotHasKey('faltamSegundos', $alerta);
         self::assertSame(1, $this->batidas('entrada'), 'só a de ontem');
 
         self::assertTrue($this->bater('entrada', true)['success']);

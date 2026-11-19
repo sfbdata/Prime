@@ -181,7 +181,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
 
         // O início do intervalo é a hora da batida de repouso que o cartão já tem (`data-ponto-do-dia`); o aparelho
         // atrasado não mostra tempo negativo.
-        self::assertStringContainsString('const decorrido = Math.max(0, Math.floor((agora - tRepouso) / 1000));', $aviso);
+        self::assertStringContainsString('const decorrido = Math.max(0, Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000));', $aviso);
         self::assertStringContainsString('decorrido: formatarTempo(decorrido),', $aviso, 'o tempo do intervalo em HH:MM:SS');
         // "Desde 12:00 (há 00:04:22)": com a hora de início, o tempo passado não se lê como o que falta.
         self::assertStringContainsString('inicio: formatarHoraDoDia(tRepouso),', $aviso);
@@ -223,7 +223,7 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertSame(1, substr_count($tela, 'tiqueDoContador = setInterval(desenhar, 1000);'), 'o contador da janela tem um tique só');
         self::assertLessThan(
             (int) strpos($tela, 'tiqueDoContador = setInterval(desenhar, 1000);'),
-            (int) strpos($tela, 'clearInterval(tiqueDoContador);', (int) strpos($tela, 'function mostrarContadorDoIntervalo(fundo)')),
+            (int) strpos($tela, 'clearInterval(tiqueDoContador);', (int) strpos($tela, 'function mostrarContadorDoIntervalo(fundo, faltamNoServidor)')),
             'o contador da janela empilhava um tique a cada alerta'
         );
         self::assertSame(1, substr_count($tela, 'setInterval(() => { if (filaTemPendentes) { enviarFila(); } }, FILA_INTERVALO_MS);'), 'o reenvio da fila tem um tique só');
@@ -327,15 +327,22 @@ final class CartaoDoPontoNoJsTest extends TestCase
         self::assertStringNotContainsString('formatarHorasMinutos', $aviso, 'o HH:MM sem segundos parecia minutos e segundos');
         self::assertStringNotContainsString('Math.ceil', $aviso, 'o arredondamento separava o aviso da janela');
 
-        $janela = $this->corpoDaFuncao('function mostrarContadorDoIntervalo(fundo)');
+        $janela = $this->corpoDaFuncao('function mostrarContadorDoIntervalo(fundo, faltamNoServidor)');
         self::assertStringContainsString('const restante = segundosParaOMinimoDoIntervalo(new Date());', $janela, 'a janela usa a conta do aviso');
         self::assertStringContainsString('valor.textContent = formatarContadorDoIntervalo(restante);', $janela);
         self::assertStringContainsString("BJ_T.t(cumprido ? 'ponto_intervalo.js.janela_cumprido' : 'ponto_intervalo.js.janela_faltam', textos)", $janela, 'zerou com a janela aberta: o texto de cumprido');
         self::assertStringContainsString('tiqueDoContador = setInterval(desenhar, 1000);', $janela, 'ao vivo, a cada segundo');
         self::assertStringContainsString('if (fundo.hidden || restante === null) {', $janela, 'o tique para quando a janela fecha');
         self::assertStringContainsString('formatarContadorDoIntervalo = formatarTempo;', $this->tela());
+        // O aparelho adiantado abria a janela em "cumprido" logo depois da recusa: a conta passa a bater com o servidor.
+        self::assertStringContainsString('acertoDoIntervaloMs += (naConta - faltamNoServidor) * 1000;', $janela);
         self::assertStringContainsString(
-            "mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo');",
+            'Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000)',
+            $this->corpoDaFuncao('segundosParaOMinimoDoIntervalo = function (agora)'),
+        );
+        self::assertStringContainsString('Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000)', $aviso, 'o aviso do dia usa o mesmo acerto');
+        self::assertStringContainsString(
+            "mostrarAntesDeRegistrar(resultado.data.alerta, payload, resultado.data.contador === 'intervalo' ? resultado.data.faltamSegundos : null);",
             $this->tela(),
             'só o alerta do intervalo abre o contador'
         );

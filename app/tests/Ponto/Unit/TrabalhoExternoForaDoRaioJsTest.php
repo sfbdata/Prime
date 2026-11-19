@@ -760,7 +760,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
     #[TestDox('"Registrar assim mesmo" (E11) de uma batida de trabalho externo refaz o toque externo, com o tipo e o motivo, e não deixa a marca para o próximo toque')]
     public function testAlertaDaBatidaExternaMantemOTrabalhoExterno(): void
     {
-        $abrir = self::corpo(self::tela(), 'function abrirAntesDeRegistrar(texto, payload, doIntervalo) {');
+        $abrir = self::corpo(self::tela(), 'function abrirAntesDeRegistrar(texto, payload, faltamDoIntervalo) {');
         self::assertMatchesRegularExpression(
             '/if \(payload\.trabalhoExterno === true\) \{\s*alertaEmEspera\.externo = \{ tipo: payload\.tipo, motivo: payload\.motivoTrabalhoExterno \};\s*\}/',
             $abrir,
