@@ -1,0 +1,167 @@
+# ---- entrada: sign-in screen and veil (security/login, security/entrando, registration/confirm, auth/entrada.js). What
+# comes from PHP stays out: the banner phrases (SecurityController::FRASES), the ContaAConfirmar texts, the footer
+# links and the support recipients (PaginaDeEntrada), the flashes and endpoint responses. The security texts are
+# those of design 10, confirmed by the owner. The support subjects are data (the server compares the Portuguese,
+# EnviarMensagemSuporteInput::ASSUNTOS): only the label comes from here. The strength meter uses auth.js.forca.*.
+entrada:
+    # Inactivity expiration notice (spec login-sessao-expiracao): flash on /login.
+    sessao:
+        expirada: Your session expired due to inactivity. Sign in again.
+        # "Sign out of all devices" in My Profile: the device that was left out sees this on /login.
+        encerrada_em_todos: Your session was ended on all devices. Sign in again.
+    # Master sign-up policy notice (spec login-config-cadastro): in place of "Create account" and when the entrances refuse.
+    cadastro:
+        aviso:
+            convite: Sign-up is available by invitation only.
+            'off': Sign-up is closed at the moment.
+    login:
+        titulo_pagina: 'Sign in | BlueJus'
+        logo_alt: 'BlueJus · legal management and file system'
+        como_protegemos: How we protect your data
+        conexao_segura: Secure connection
+        criptografia: End-to-end encryption
+        bem_vindo: Welcome back
+        acesse: Access your account to continue
+        email: Email
+        email_exemplo: nome@escritorio.com.br
+        senha: Password
+        mostrar_senha: Show password
+        caps_lock: Caps Lock is on.
+        manter_conectado: Stay signed in
+        esqueceu: Forgot your password?
+        entrar: Sign in
+        ou: or
+        entrar_google: Sign in with Google
+        google_nao_configurado: Google sign-in is not set up in this environment yet. Use your email.
+        selo_texto: BlueJus has no access to your files or to the contents of your matters.
+        sem_conta: Do not have an account?
+        criar_conta: Create my account and firm
+        fechar: Close
+        direitos: '© {ano} BlueJus'
+        link_do_master: '{rotulo} · right-click to edit'
+    link:
+        titulo: Edit link
+        so_master: '{papel} ONLY'
+        endereco: Link address
+        salvar: Save
+        abrir: Open
+        restaurar: Restore
+        ocultar: Hide from footer
+    seguranca:
+        rotulo: Security and privacy
+        tag: SECURITY AND PRIVACY
+        titulo: Your firm confidentiality starts here.
+        lead: 'Practicing law is built on trust. BlueJus was built so that your client information stays only with those entitled to it: you and the team you authorize.'
+        criptografia_texto: Documents, records and conversations are encrypted before leaving your device and are only opened by those the firm authorized. Not even the BlueJus team has access to the contents of your matters.
+        terceiros: No third party sees your data
+        terceiros_texto: We do not sell, share or use the firm information for advertising. Each account is isolated from the others.
+        controle: You control who has access
+        controle_texto: The primary user sets permissions, hides tabs and locks confidential matters. Every access and change is logged with date, time and author.
+        conexao: Protected connection
+        conexao_texto: All traffic uses HTTPS with a valid certificate, and sessions on idle devices are ended automatically.
+        lgpd:
+            titulo: Compliant with the LGPD (Brazilian General Data Protection Law, Lei nº 13.709/2018)
+            controlador: The firm is the controller; BlueJus acts as the processor.
+            finalidade: Data used only to provide the contracted service.
+            direitos: 'Data subject rights: access, correction, portability and deletion.'
+            incidentes: Incidents reported to the firm and to the ANPD.
+            encarregado: Data protection officer (DPO) available.
+            exportacao: Full export of your data whenever you want.
+        cresce: Security that helps the firm grow
+        cresce_texto: Showing clients that their data is protected is a differentiator when closing a contract. With BlueJus you comply with the LGPD and convey professionalism from the first meeting.
+        entrar: Sign in securely
+        privacidade: Privacy policy
+        termos: Terms of use
+        falar_com_encarregado: Contact the data protection officer
+    modal:
+        recuperar_texto: Enter your account email. We will send a 6-digit code to create a new password.
+        enviamos_antes: We sent the code to
+        enviamos_depois: '. It is valid for 15 minutes.'
+        codigo: Code
+        nova_senha: New password
+        minimo: Minimum of 8 characters
+        confirmar_nova: Confirm new password
+        reenviar_codigo: Resend code
+        senha_alterada: Password changed
+        senha_alterada_texto: Sign in with the new password. For security, the other sessions were ended.
+        cadastro_texto: Create your digital firm in 1 minute. You join as the primary user and then invite your team.
+        continuar_google: Continue with Google
+        ou_outro_email: or with another email
+        conectado_pelo: '{email} · connected through {provedor}'
+        usar_outro_email: Use another email
+        nome_completo: Your full name
+        escritorio: Firm name
+        escritorio_exemplo: 'E.g., BlueJus Attorneys at Law'
+        genero: Gender
+        genero_escolha: Select
+        genero_feminino: Female
+        genero_masculino: Male
+        li_e_aceito_os: I have read and accept the
+        e_a: and the
+        ja_tem_conta: Already have an account?
+        cupom: I have a referral coupon
+        cupom_exemplo: BJ-XXXXXX
+        continuar_facebook: Continue with Facebook
+        conectado_pelo_sem_email: 'Connected through {provedor}'
+        cupom_valido: Valid coupon · you get {gb} GB extra in the 1st month
+        cupom_nao_encontrado: Coupon not found. Check with whoever referred you.
+    abrindo: Opening your digital firm…
+    suporte:
+        falar: Contact support
+        titulo: BlueJus Support
+        subtitulo: Your message goes straight to the team
+        quem_recebe: Who receives support
+        quem_recebe_titulo: 'WHO RECEIVES SUPPORT MESSAGES · ONLY {papel} SEES'
+        enviada: Message sent
+        enviada_texto: The BlueJus team received it in the chat and will reply by email
+        seu_nome: Your name
+        email_resposta: Email for reply
+        assunto:
+            nao_consigo_entrar: I cannot sign in
+            esqueci_a_senha: I forgot my password
+            criar_conta: Create account
+            outro: Other subject
+        como_ajudar: How can we help?
+        enviar: Send to support
+        aviso: Do not send passwords or client data here.
+    entrando:
+        titulo_pagina: 'Signing in | BlueJus'
+        ola: 'Hello, {nome}!'
+        ola_sem_nome: Hello!
+        continuar: Continue
+    js:
+        erro_generico: Could not complete. Try again.
+        email_invalido: Enter a valid email.
+        informe_a_senha: Enter the password.
+        mostrar_senha: Show password
+        ocultar_senha: Hide password
+        passo:
+            recuperar: Recover password
+            enviar_codigo: Send code
+            criar_nova: Create new password
+            salvar_nova: Save new password
+            pronto: Done
+            voltar: Back to sign in
+            cadastro: Create account and firm
+            criar_gratis: Create my free account
+        codigo_incorreto: Incorrect code. Check your email or resend.
+        senha_curta: Use at least 8 characters, with letters and numbers.
+        senhas_diferentes: The passwords do not match.
+        informe_nome: Enter your full name.
+        informe_escritorio: Enter the firm name.
+        informe_genero: Select your gender.
+        aceite: You must accept the Terms and the Privacy Policy.
+        saudacao:
+            bom_dia: Good morning
+            boa_tarde: Good afternoon
+            boa_noite: Good evening
+            com_nome: '{saudacao}, {nome}!'
+            sem_nome: '{saudacao}!'
+        link_do_master: '{rotulo} · right-click to edit'
+        editar_link: 'Edit link · {rotulo}'
+        mostrar_no_rodape: Show in footer
+        ocultar_do_rodape: Hide from footer
+        endereco_invalido: 'Enter an address starting with https://'
+        suporte:
+            email_invalido: Enter a valid email for the reply.
+            escreva: Write your message.

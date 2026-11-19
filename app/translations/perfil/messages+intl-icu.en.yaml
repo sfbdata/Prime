@@ -1,0 +1,195 @@
+# ---- My Profile (profile/*, meu-perfil.js)
+perfil:
+    titulo: My Profile
+    nao_informado: Not provided
+    abas:
+        rotulo: Profile tabs
+        meu_perfil: My Profile
+        convites: Firm invitations
+        trocar_conta: Switch account
+        exclusivo_master: MASTER ONLY
+        fechar_menu: Close menu
+    acoes:
+        fechar: Close
+        cancelar: Cancel
+        salvar: Save
+    identificacao:
+        trocar_foto: Change photo
+        foto_alt: Profile photo
+        usuario_primario: PRIMARY USER
+        cargo_nao_definido: Position not set
+        lotacao_nao_definida: Office not set
+        editar: Edit information
+        frase_vazia: Add a tagline to your profile
+    incompleto:
+        titulo: Your profile is incomplete
+        percentual: '{pct}% complete'
+        falta: 'Missing:'
+        completar: Complete now
+    grade:
+        email: Email
+        vinculo: Employment type
+        vinculo_bate_ponto: '{vinculo} · clocks in'
+        vinculo_sem_ponto: '{vinculo} · no time clock'
+        cpf: CPF
+        ctps: CTPS
+        serie: Series
+        admissao: Hire date
+        cnpj: CNPJ
+        nascimento: Birth date
+        membro_desde: Member since
+        telefone: Phone
+        copiar: Copy
+        copiar_campo: 'Copy {campo}'
+    oab:
+        titulo: OAB Registration
+        sub_varias: '{total} registrations · {suplementares} supplementary'
+        sub_ordem: Brazilian Bar Association
+        adicionar_titulo: Add supplementary registration
+        adicionar: Add OAB
+        verificada_em: 'Verified on {data}'
+        aguardando_validacao: Awaiting Master validation
+        selo_principal: PRIMARY
+        selo_suplementar: SUPPLEMENTARY
+        vazio: 'No registration provided. Use "Add OAB" to register the primary one.'
+        modal:
+            titulo: OAB Registration
+            tipo: REGISTRATION TYPE
+            tipo_principal: Primary
+            tipo_suplementar: Supplementary
+            ajuda_principal: 'Chapter of your professional domicile. There can be only one; if you change it, the current one becomes supplementary.'
+            ajuda_suplementar: To practice regularly in another state. One per chapter.
+            numero: OAB NUMBER
+            numero_placeholder: Numbers only
+            uf: STATE (CHAPTER)
+            uf_vazio: State
+            remover: Remove this registration
+    preferencias:
+        titulo: Preferences
+        sub: Apply only to you
+        idioma_rotulo: System language
+        idioma_sub: Changes all screens, menus and the AI Chat
+        notificacoes_rotulo: In-system notifications
+        notificacoes_sub: Bell for deadlines, goals and mentions
+        sons_rotulo: Alert sounds
+        sons_sub: Sound when you receive a message or alert
+        ouvir_rotulo: 'Listen to the time clock sounds:'
+        ouvir_titulo: Play this sound now
+        ouvir_repouso: Break start
+        ouvir_retorno: Break end
+        ouvir_saida: End of shift
+        resumo_email_rotulo: Daily email summary
+        resumo_email_sub: Deadlines and goals for the day, at 8 AM
+        sugestoes_despachos_rotulo: Suggestions based on my orders
+        sugestoes_despachos_sub: Phrases, nature and usual deadline in goals, just for you
+        apagar_aprendizado_rotulo: Erase what was learned
+        apagar_aprendizado_sub: The orders and pending items stored in this firm
+        apagar_aprendizado_confirmar: Erase everything learned from your orders in this firm? Suggestions start from scratch.
+        apagar_aprendizado_feito: What was learned from your orders has been erased.
+    seguranca:
+        titulo: Security
+        sub: Your account sign-in password
+        aviso: 'When you change the password, all other connected sessions are ended, including those using "stay signed in".'
+        alterar_senha: Change password
+        sair_todos: Sign out of all devices
+    # Confirmation modal for "Sign out of all devices" (no design; approved by Samuel on 11/05/2026).
+    sair_todos:
+        titulo: Sign out of all devices
+        texto: 'All other devices where you signed in are signed out, including those using "stay signed in". On this device you stay signed in until you sign out or close the browser; after that, sign in with your password. The password does not change.'
+        confirmar: Sign out of all
+    exclusao:
+        titulo: Delete firm account
+        pendente_sub: 'Request made on {data} · reason: {motivo}. The team has no access until the Master finishes.'
+        sub: Suspends the account for the whole team and sends the request to the BlueJus Master, who decides on the deletion. Primary user only.
+        suspensa: Suspended · awaiting the Master
+        desistir: Cancel and reactivate
+        excluir: Delete account
+        motivo:
+            nao_uso: I no longer use it
+            caro: Found it expensive
+            faltou_recurso: Missing a feature
+            mudei_sistema: Switched systems
+            encerrando: Closing the firm
+            outro: Other reason
+        modal:
+            etapa_antes: Delete account · step
+            etapa_depois: of 2
+            motivo_pedido: Tell us the reason in a few words. It helps us improve.
+            motivo_rotulo: Reason
+            observacao: Anything else? (optional)
+            info_antes: The account stays
+            info_suspensa: suspended
+            info_depois: 'until BlueJus reviews the request. After deletion, the data is kept for 365 days and BlueJus support can recover it within that period; after that, everything is erased. Users are not erased.'
+            codigo_enviado: We sent a 6-digit code to
+            codigo_digite: '. Enter the code and the word'
+            codigo_palavra: EXCLUIR
+            codigo_confirmar: to confirm.
+            codigo_rotulo: CODE
+            palavra_rotulo: TYPE EXCLUIR
+            manter: Keep account
+            continuar: Continue
+    foto:
+        titulo: Profile photo
+        atual_alt: Current photo
+        alterar: Change image
+        editar: Edit image
+        editar_titulo: Edit image
+        cropper_alt: Edit photo
+        zoom: Zoom
+        rotacao: Rotation
+        salvar: Save photo
+    editar:
+        titulo: Edit information
+        vinculo: EMPLOYMENT TYPE WITH THE FIRM
+        vinculo_travado: Set by the firm. To change it, contact the primary user.
+        nome_completo: FULL NAME
+        frase: PROFILE TAGLINE
+        telefone: PHONE / WHATSAPP
+        cpf: CPF
+        pix_recompensa: PIX KEY FOR REWARDS
+        pix_recompensa_placeholder: CPF, email, mobile or random key
+        cpf_placeholder: Numbers only
+        cpf_ajuda: Used in the firm reports and statistics
+        nascimento: BIRTH DATE
+        genero: GENDER
+        genero_ajuda: Used in the firm statistics
+        atuacao: PRACTICE AREA
+        atuacao_sugestao: 'System suggestion: {rotulo}.'
+        atuacao_usar: Use
+        ctps: CTPS
+        ctps_ajuda: Only for CLT employees
+        serie: SERIES
+        data_admissao: HIRE DATE
+        cnpj: CNPJ (IF ANY)
+        contrato_inicio_ajuda: Date the relationship started
+    revisao:
+        titulo: Is your profile up to date?
+        mensal: Monthly review
+        ultima_confirmacao: 'Last confirmation: {data}'
+        primeira: First profile review
+        texto_completo: Check that your phone, employment type and documents are still correct. This data feeds the firm reports, statistics and time clock control.
+        texto_faltam: 'Missing: {itens}. This data feeds the firm reports, statistics and time clock control.'
+        telefone: Phone
+        vinculo: Employment type
+        oab_principal: Primary OAB
+        oab_nao_informada: Not provided
+        tudo_certo: All good
+        atualizar: Update now
+    senha:
+        titulo: Change password
+        atual: CURRENT PASSWORD
+        nova: NEW PASSWORD
+        nova_placeholder: Minimum 8 characters
+        confirmar: CONFIRM NEW PASSWORD
+    js:
+        confirmar_remover_oab: 'Remove the OAB/{uf} registration?'
+        preferencia_falhou: Could not save the preference right now.
+        revisao_confirmada: Thank you! Profile confirmed for this month.
+        revisao_falhou: Could not confirm right now. Try again.
+        copiado: Copied
+        imagem_carregando: The image is still loading. Wait a moment and try again.
+        imagem_falhou: Could not process the image. Try again.
+        foto_alt: Profile photo
+        foto_atual_alt: Current photo
+        erro_salvar_foto: Error saving photo.
+        erro_comunicacao: Communication error.

@@ -1,0 +1,3 @@
+ponto_folha:
+    registro_em_outro_escritorio: There was an entry at another firm in this period
+    registro_em_outro_escritorio_dica: 'While the time clock at this firm was open, the person clocked in at another firm. Check the punches for the day.'

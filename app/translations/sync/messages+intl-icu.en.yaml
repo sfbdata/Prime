@@ -1,0 +1,34 @@
+# ---- Sync: firm Drive connection
+sync:
+    drive:
+        titulo: Connect my Drive
+        cartao: Google Drive sync
+        explicacao: Connect the firm''s Google account to sync matters and documents with your Google Drive. Only firm administrators can change this connection.
+        conta_conectada: Connected account
+        conta_padrao: Google account
+        status: Status
+        ativa: Active
+        falta_pasta_raiz: Root folder missing
+        pasta_raiz: Root folder
+        nao_informado: Not provided
+        conectado_em: Connected on
+        pasta_raiz_rotulo: Root folder of the archive in Drive (ID or link)
+        salvar_pasta: Save folder
+        pasta_raiz_ajuda: Paste the link of the Drive folder that is the root of this firm''s archive.
+        reconectar: Reconnect account
+        desconectar_confirmar: Disconnect this firm''s Drive? Sync stops until you reconnect.
+        desconectar: Disconnect
+        conectar: Connect Google account
+        reconhecimento:
+            cartao: Folders that were already in Drive
+            explicacao: When you connect, the system looks in the root folder for folders that already exist and links each one to the firm matter with the same name, to avoid creating duplicate folders. When it is not sure, the folder appears here for you to decide. Until you decide, the upload does not create a new Drive folder for the suggested matters.
+            vazio: No Drive folders waiting for a decision.
+            aguardando: Drive folders are being matched. Until it finishes, the upload does not create a new Drive folder.
+            falhou: 'Matching failed and the upload does not create a new Drive folder until it finishes. Click "Match again" to try again.'
+            nome_no_drive: Drive folder
+            ligar_a: Firm matter
+            candidata: "No. {numero}: {cliente}"
+            numero_da_pasta: Matter no.
+            ligar: Link to this matter
+            ignorar: Ignore
+            reconhecer_de_novo: Match again

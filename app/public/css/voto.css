@@ -322,3 +322,6 @@ body.voto-ata { margin: 0; background: #f3f6f8; font-family: Arial, Helvetica, s
 .voto-tela .voto-avaliacao-corpo { color: #34505f; line-height: 1.45; }
 .voto-tela .voto-avaliacao-decisao { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; }
 .voto-tela .voto-avaliacao-decisao .vF { flex: 1 1 260px; width: auto; }
+.voto-tela .voto-editar-unidade { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 10px; align-items: end; }
+.voto-tela .voto-editar-unidade[hidden] { display: none; }
+.voto-tela .voto-editar-unidade-acoes { display: flex; gap: 7px; }

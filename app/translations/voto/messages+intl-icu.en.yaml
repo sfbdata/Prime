@@ -1,0 +1,925 @@
+voto:
+    titulo: Voting
+    demonstracao:
+        rotulo: Demo environment.
+        texto: Data and voters are fictitious. This is not an official vote of any organization and the system has no certification from an electoral authority.
+    abas:
+        rotulo: Voting tabs
+        ele: Vote
+        tra: Results
+        ges: Election Management
+        aco: Follow
+    votar:
+        lista: 'All published votes of the organization. Click Vote to open the voter screen; whoever receives the link or QR Code sees only the votes they are listed in.'
+        vazio: 'No published vote yet. Create and publish one in Election Management.'
+        votar: Vote
+        periodo: '{inicio} to {fim}'
+        periodo_aberto: 'Open since {inicio}'
+        simulacao: SIMULATION
+        codigo: 'Verification code {codigo}'
+        gerenciar: Manage in the Dashboard
+        todos_os_grupos: All groups
+        modalidade:
+            pauta: Assembly agenda items
+            individual: Individual election
+            chapa: Slate election
+            consulta: Poll
+        aviso:
+            suspensa: Vote suspended by the board. Wait for it to resume.
+            cancelada: Vote canceled by the committee.
+            encerrada: Vote tallied. The result is in Results.
+            aberta: Vote open. Click Vote to open the voter screen, the same as the link and the QR Code.
+            aguardando: Waiting for the board to open it.
+    acompanhar:
+        titulo: Follow in real time
+        texto: 'Click Watch to open a separate window, which can be moved to another screen. Watch shows participation and quorum and can be projected. The named list and the Audit document are restricted to the committee, the audit team, and the Master Manager; they never show how anyone voted.'
+        vazio: No published vote.
+    recusa:
+        nao_liberado: BlueJus Voting has not been enabled for this firm yet.
+    equipe:
+        titulo: Roles per assembly or vote
+        texto: Each vote can have its own team, with the organization positions. In each vote, a person has a single role. The administration assigns the roles but does not run the election.
+        grupo_padrao: Default team (votes without their own team)
+        padrao_aviso: Default team. To build a dedicated team, choose the vote in the field above.
+        votacao: Vote
+        abrir: Open
+        qtd: '{n, plural, one {# representative} other {# representatives}}'
+        sem_equipe: No dedicated team
+        sem_assembleias: No vote yet. Use New assembly.
+        categoria: Category with ready-made positions
+        aplicar: Apply category positions
+        nome: Name
+        email: Email
+        cargo: Position
+        cargo_exemplo: 'E.g.: Board chair'
+        permissoes: Permissions
+        designar: Assign
+        editar: Edit
+        remover: Remove
+        salvar: Save
+        cancelar: Cancel
+        a_designar: To be assigned
+        sem_conta: No account in this firm (gives no access)
+        acesso_por_email: Access applies to whoever has an account in this firm with the same email.
+        bloqueada: The team can only change while the assembly is a draft.
+        aviso:
+            designado: Role assigned.
+            alterado: Role changed.
+            removido: Role removed.
+            cargos_aplicados: Category positions applied.
+            padrao: The vote is using the default team again.
+        recusa:
+            oculto: Your role does not act in this vote.
+            somente_leitura: Your role does not have permission for this action.
+            so_administracao: Your role does not have permission for this action.
+    assembleia.portal:
+        comprovante:
+            titulo: Voting receipt
+            campo: Check your receipt
+            conferir: Check
+            valido: 'Valid receipt: the unit voted on the agenda item "{pauta}" on {data} at {hora}. The receipt does not reveal the vote.'
+            invalido: Receipt not found. Check the code and try again.
+    assembleia.cedula:
+        titulo_pagina: Assembly voting
+        portal: Voter Portal
+        titulo: Voting
+        aviso_sigilo: 'Your vote is secret: the system records that the unit voted, but not what for.'
+        nao_apto: Not eligible
+        vazio: No vote available for your registration. If you should be on the list, contact the responsible committee.
+        status:
+            rascunho: Draft
+            publicada: Published
+            aberta: Vote open
+            encerrada: Closed
+            suspensa: Suspended
+            cancelada: Canceled
+        grupos: All groups
+        grupos_da_pauta: 'Groups: {grupos}'
+        aviso_voto_aberto: 'OPEN VOTE: your name and your vote will be visible'
+        mensagem:
+            aguardando: Voting on this agenda item has not been opened yet.
+            inapta: Your unit is not eligible to vote in this assembly.
+            ocorrencia: 'Occurrence: {texto}.'
+            ocorrencia_em_avaliacao: 'Occurrence: {texto} (under review by the council).'
+            ja_votou: You have already voted on this agenda item.
+            hora: 'Recorded at {hora}.'
+            encerra_em: 'Closes in {tempo}.'
+            suspensa: Vote suspended by the board. Wait for it to resume.
+            cancelada: Vote canceled by the committee.
+        dica: 'Choose an option. To abstain, choose ABSTENTION.'
+        abstencao: ABSTENTION
+        voto_em_branco: BLANK VOTE
+        dica_eleicao: 'Choose a name. To cast a blank vote, choose BLANK VOTE.'
+        opcoes: Agenda item options
+        resultado:
+            un: '{unidades} units · {peso}'
+            abstencoes: 'Abstentions {abstencoes} · Null {nulos}'
+            brancos: 'Blank {abstencoes} · Null {nulos}'
+            decidido: 'Result: {numero} {rotulo}'
+        toast:
+            registrado: Vote recorded.
+            expirada: The page has expired. Choose again and confirm the vote.
+        nulo_numero: 'Number does not exist for a null vote'
+        nulo_confirmar: 'Confirm null vote'
+        comprovante:
+            campo: Email to receive the receipt
+            enviar: Send by email
+            erro: Could not send the receipt. Try again.
+        cabine:
+            aria: Voting booth
+            votar: Vote
+            simular: Simulate voting
+            conhecer: View candidates
+            faixa_simulacao: 'SIMULATION: no vote is recorded'
+            faixa_treino: 'SIMULATION: practice vote, no validity'
+            inicio_aperte: 'Press {confirma} to start'
+            seu_voto_para: YOUR VOTE FOR
+            numero: 'Number:'
+            numero_invalido: WRONG NUMBER
+            voto_nulo: NULL VOTE
+            numero_invalido_dica: 'Press CORRECT and enter a valid number.'
+            abstencao: ABSTENTION
+            voto_em_branco: BLANK VOTE
+            rodape_titulo: 'Press the key:'
+            rodape_confirma: 'CONFIRM to CONFIRM this vote'
+            rodape_corrige: 'CORRECT to RESTART this vote'
+            dica: 'Type the number on the keypad or press BLANK to abstain.'
+            dica_branco: 'Type the number on the keypad or press BLANK.'
+            dica_varios: 'Type the number of each name and press CONFIRM. You can choose up to {n} names; to finish early, press CONFIRM without a number.'
+            escolha_de: 'Choose {k} of {n}'
+            nome_repetido: 'You have already chosen this name.'
+            numero_repetido: 'You have already chosen this number.'
+            foto_alt: 'Photo of {nome}'
+            grava_titulo: Recording your vote
+            grava_subtitulo: Sending your vote and separating it from your identity
+            grava_titulo_simulacao: Simulating the recording
+            grava_subtitulo_simulacao: Nothing is sent in this simulation
+            fim: END
+            fim_voto: Vote recorded
+            fim_simulacao: Simulation completed
+            erro_titulo: Vote not recorded
+            erro_generico: Could not record the vote. Try again.
+            erro_rede: 'No response from the server. Some votes may already have been recorded: reload the page to check.'
+            voltar: Back
+            concluir: Finish
+            simular_de_novo: Simulate again
+            candidaturas: Candidates
+            rodape_demo: 'BlueJus virtual device, inspired by the familiarity of the Brazilian ballot box. No connection with the Electoral Court. Physical keyboard: numbers, B, Backspace, and Enter.'
+            som_desligar: Turn sounds off
+            som_ligar: Turn sounds on
+            numero_tecla: 'Number {n}'
+            fala_digite: 'Vote for {pauta}. Type the number.'
+            fala_abstencao: Abstention. Confirm or correct.
+            fala_branco: Blank vote. Confirm or correct.
+            fala_invalido: 'Wrong number, null vote. Confirm or correct.'
+            comprovante_titulo: 'Ballot deposit receipt (does not reveal your vote)'
+            comprovante_imagem: Receipt as image
+            imagem_titulo: Voting receipt
+            imagem_rodape: 'This receipt proves that the unit voted. It does not reveal the vote.'
+            imagem_arquivo: voting-receipt.png
+            fala_opcao: '{opcao}. Confirm or correct.'
+            fala_fim: Vote recorded. End.
+            fala_fim_simulacao: Simulation completed. No vote was recorded.
+            branco: BLANK
+            corrige: CORRECT
+            confirma: CONFIRM
+        indisponivel: Invalid link or election unavailable.
+        limite: Too many requests. Try again in a few minutes.
+    assembleia:
+        gestor:
+            nova: New assembly
+            rascunho: 'Draft: {titulo}'
+            sub:
+                rotulo: Assembly steps
+                painel: Dashboard
+                assembleia: Assembly
+                pautas: Agenda items
+                unidades: Units and links
+                conferencia: Review
+                perfis: Roles
+                avaliacoes: Reviews
+            assistente:
+                rotulo: Assembly setup steps
+                nao_salvas: Changes not saved yet
+                passo_1: Category
+                passo_2: Rules and deadline
+                passo_3: Access
+                passo_4: Positions
+                passo_5: Eligible list
+                passo_6: Team
+                passo_7: Review
+                titulo_1: What type of vote are you going to create?
+                titulo_2: Rules and deadline
+                titulo_3: How the voter gets in
+                titulo_4: Positions and candidates
+                titulo_5: Who can vote
+                titulo_6: Who runs the vote
+                titulo_7: Review and publish
+                descricao_1: The category already brings ready-made rules, documents, and positions. Everything can be adjusted.
+                descricao_2: Define how the vote works and when it takes place.
+                descricao_3: The suggested setup fits most cases.
+                descricao_4: Add positions, agenda items, or questions and their options.
+                descricao_5: Import the list of who is eligible.
+                descricao_6: The vote is run by the firm team with access to Voting.
+                descricao_7: Once published, the setup is locked.
+                acesso_texto: 'Each unit gets in through its own link or QR Code, without a BlueJus account. The links are generated when the assembly is published.'
+                equipe_texto: 'The board (firm team with access to Voting) opens, suspends, and closes each agenda item after publishing. The call and the deadline are chosen when each agenda item is opened.'
+                equipe_padrao: Use the default team
+                equipe_propria: Dedicated team with the positions of this category
+                a_designar: To be assigned
+                indicar_texto: The Administration enters the name and email for each position.
+                indicar_pessoas: Assign people
+                revisao_equipe: Team
+                revisao_equipe_padrao: Default team
+                revisao_equipe_propria: 'Dedicated, {n, plural, one {# position} other {# positions}}'
+                cargos_sem_pessoa: '{n} position(s) still without a person assigned by the Administration.'
+                regras_das_pautas: Rules for each agenda item
+                regras_das_pautas_dica: 'Secrecy, opening and closing times, groups, and candidate order are set in each agenda item, in the Positions step.'
+                sem_pautas: No agenda item added yet.
+                pauta_programada: 'Scheduled: {abre} to {encerra}'
+                ver_na_urna: View on ballot box
+                sem_urna: Add at least one agenda item with options to view on the ballot box.
+                ver_na_urna_dica: 'View on ballot box saves the draft and opens the ballot box in simulation mode: no vote is recorded.'
+                revisao_entidade: Organization
+                revisao_votacao: Vote
+                revisao_cargos: Positions
+                revisao_lista: Eligible list
+                revisao_sem_cargos: None
+                revisao_lista_resumo: '{aptos} eligible, {inaptos} not eligible'
+                revisao_sem_lista: No list
+                revisao_soma: Sum of fractions
+                pronto: All set to publish.
+                publicar: Publish vote
+            andamento:
+                rascunho: Draft
+                publicada: Published, waiting to open
+                aberta: Vote open
+                encerrada: Closed
+            etapas:
+                criar: Create
+                lista_de_aptos: Eligible list
+                publicar: Publish
+                votacao: Voting
+                apuracao: Tally
+                relatorio: Report
+            filtros:
+                buscar: Search
+                buscar_dica: 'Name, organization, event, or CNPJ'
+                entidade: Organization
+                situacao: Status
+                todas: All
+                em_andamento: In progress
+                rascunhos: Drafts
+                concluidas: Completed
+                limpar: Clear
+                filtrar: Filter
+                expandir: Expand all organizations
+                recolher: Collapse all organizations
+                vazio_filtros: No votes match these filters.
+                vazio_inicial: No vote yet. Use New assembly.
+            grupo:
+                sem_entidade: No organization provided
+                cnpj: 'CNPJ {cnpj}'
+                resumo_aberta: '{n} open'
+                resumo_publicada: '{n} published'
+                resumo_rascunho: '{n} draft(s)'
+                resumo_encerrada: '{n} completed'
+                votacoes: '{n} vote(s)'
+            kpi:
+                ver_detalhes: View details
+                abertas: Open votes
+                cedulas: Ballots deposited
+                titulo_cedulas: Ballots deposited per vote
+                nada: Nothing to show right now.
+                mostrando: 'Showing {n} of {total}.'
+                fechar: Close details
+                acompanhar: Follow in real time
+                resultados: View Results
+                detalhe_aberta: '{n} of {aptos} voted · {tempo}'
+                detalhe_cedula: '{n} ballot(s) · {situacao}'
+                em_andamento: in progress
+                suspensa: suspended
+                situacao:
+                    aberta: Vote open
+                    suspensa: Suspended
+                    encerrada: Closed
+                    cancelada: Canceled
+            conferencia:
+                aviso: Once confirmed, the agenda items and their rules are locked. Votes will be received after you open each agenda item.
+                peso: Vote weight
+                aptos: Eligible units
+                inaptos: Ineligible units
+                fracoes: Sum of eligible fractions
+                pauta: Agenda item and candidates
+                primeira: Quorum for the 1st call
+                segunda: Quorum for the 2nd call
+                convocacao: The call and the deadline are chosen when each agenda item is opened.
+                tipo: Type
+                tipo_simulacao: Simulation (can be deleted)
+                alterar: Change
+                alterar_campo: 'Change {campo}'
+                abrir_agora: Do you want to open the vote now?
+                escolher_pauta: Choose below the agenda item, the call, and the deadline to start receiving votes.
+                escolher: Choose agenda item
+                agora_nao: Not now
+            situacao:
+                rascunho: Draft
+                publicada: Published
+                aberta: Vote open
+                encerrada: Closed
+            painel:
+                votacoes: Votes
+                sem_pautas: No agenda item added.
+                participacao: 'Participation {n} of {aptos} eligible ({pct}%). Run by the board.'
+                editar: Edit
+                pautas: Agenda items
+                unidades: Units and links
+                publicar: Publish
+                resultados: Results
+                relatorio: Consolidated report
+            form:
+                cenario: Organization type
+                cnpj: 'CNPJ (optional, separates organizations with similar names)'
+                evento: Event
+                peso: Vote weight
+                peso_fracao: Ideal fraction
+                peso_unidade: One unit, one vote
+                simulacao_destaque: Simulation vote
+                simulacao_texto: ': to train the board and test the link. It can be restarted and deleted later; it does not count in the statistics.'
+                salvar_sair: Save and exit
+                continuar: Continue
+                voltar: Back
+            pautas:
+                tipo: 'Type'
+                tipo_deliberacao: 'Agenda item or question (Yes / No)'
+                tipo_eleicao: 'Election of people (with photo)'
+                dica_eleicao: 'Fill in at least two candidates before publishing.'
+                regra_pronta: 'Ready-made rule'
+                preset_personalizada: 'Custom'
+                preset_simples: 'Majority of those present; 1st call with half of the fractions'
+                preset_absoluta: 'Absolute majority of all eligible voters (e.g., removal)'
+                preset_dois: 'Two thirds of the owners votes (e.g., bylaws)'
+                preset_unanime: 'Unanimity'
+                vagas: 'Seats'
+                digitos: 'Digits'
+                criterio: 'Criterion'
+                criterio_mais: 'Most votes'
+                criterio_absoluta: 'Absolute majority'
+                criterio_dois: 'Two thirds'
+                criterio_unanime: 'Unanimity'
+                base: 'Calculated over'
+                base_validos: 'Valid votes'
+                base_presentes: 'Present'
+                base_aptos: 'Total eligible'
+                quorum_primeira: 'Quorum (%)'
+                quorum_segunda: 'Quorum 2nd call'
+                participacao: 'Time, groups, order, and secrecy'
+                sigilo: 'Vote secrecy'
+                sigilo_secreto: Secret
+                sigilo_aberto: 'Open: named, visible after closing'
+                sigilo_aberto_vivo: 'Open: named, visible in real time'
+                sigilo_aviso: 'In an open vote, each person name and vote are visible. Use only when the bylaws, the convention, or the regulation allow it. The voter is warned before voting.'
+                modo_horario: 'Opening and closing'
+                modo_horario_programado: 'Scheduled by time'
+                modo_horario_mesa: 'Run by the board'
+                abre_em: Start
+                encerra_em: Closing
+                grupos: 'Eligible groups (comma-separated; empty for all)'
+                ordem_candidaturas: 'Order in the candidate list'
+                ordem_fixa: 'Registration order'
+                ordem_sorteada: 'Shuffled on each view'
+                numerar: 'Number'
+                numerar_titulo: 'Number the options in sequence'
+                titulo: Positions and candidates
+                subtitulo: Add positions, agenda items, or questions and their options.
+                frequentes: 'Common positions and agenda items:'
+                pauta: Position, agenda item, or question
+                descricao: Description
+                numero: Number
+                numero_ph: No.
+                nome: Name
+                nome_ph_pessoa: Candidate or slate name
+                nome_ph_pauta: 'Option text (e.g., Yes)'
+                candidatura: Add candidate
+                opcao_nova: Add option
+                remover_opcao: Remove
+                remover_pauta: Remove position
+                salvar: Save
+                outra: Another position or agenda item
+                menu_numerar: Number in sequence
+                menu_duplicar: Duplicate
+                menu_para_cima: Move up
+                menu_para_baixo: Move down
+                menu_remover_cargo: Remove position
+                menu_remover_pauta: Remove agenda item
+                menu_subir: Up
+                menu_descer: Down
+                menu_remover_foto: Remove photo
+                menu_remover_candidatura: Remove candidate
+                foto_titulo: Photo shown on the ballot box when the number is typed
+                foto_aria: Candidate photo for the ballot box
+                foto_enviar: Photo for the ballot box
+                foto_formato: 3x4 format
+                foto_trocar: Change photo
+                foto_alt: 'Photo of {nome}'
+                menu_remover_opcao: Remove option
+                detalhe_pessoa: Description, proposals, and slate composition
+                detalhe_opcao: Option description
+                descricao_candidatura_ph: Description (shown on the ballot box below the name)
+                descricao_candidatura: Description
+                propostas: Proposals
+                composicao_ph: 'Slate composition (one position per line, e.g., President: Name)'
+                composicao: Composition
+                unidade_ph: 'Candidate unit (optional, matches the list)'
+                unidade: Candidate unit
+            pautas_regra:
+                resumo: 'Detailed rule: {texto}'
+                sobre: over
+                quorum: quorum
+                digitos: digit(s)
+                criterio_mais: most votes
+                criterio_absoluta: absolute majority
+                criterio_dois: two thirds
+                criterio_unanime: unanimity
+                base_validos: valid votes
+                base_presentes: present
+                base_aptos: total eligible
+            modelos:
+                prontos: 'Ready-made templates:'
+                aplicado: 'Template applied: {pautas}. Adjust whatever you need.'
+            resultado_por_tipo:
+                aprovada: Approved
+                rejeitada: Rejected
+                rejeitada_criterio: 'Rejected: did not meet the required criterion'
+                sem_vencedor: 'No winner: criterion not met'
+                nao_deliberada: 'Not decided: quorum not reached'
+                opcao_vencedora: 'Winning option: {numero} {rotulo}'
+                eleito: 'Elected: {numero} {rotulo}'
+                abstencoes: Abstentions
+                brancos: Blank votes
+                abstencoes_e_nulos: 'Abstentions {n} · Null {nulos}'
+                brancos_e_nulos: 'Blank {n} · Null {nulos}'
+            mesa:
+                convocacao: Call
+                conv1: 1st call
+                conv2: 2nd call
+                minutos_rotulo: Minutes
+                minutos: minutes
+                encerra_em: 'Closes in {tempo}'
+                sem_prazo_definido: Open, no deadline set
+                definir_prazo: Set deadline
+                sem_prazo: No deadline
+                motivo: Reason for early closing
+                encerrar: Close
+            menu:
+                mais_opcoes: More options
+                editar_config: Edit setup
+                link_qr: Link and QR Code
+                duplicar: Duplicate vote
+            lembrar:
+                menu: Remind those who have not voted
+                titulo: Remind those who have not voted
+                fechar: Close
+                resumo: '{n} eligible voter(s) have not voted yet; {tel} with a phone number on the list.'
+                todos_votaram: All eligible voters have voted.
+                copiar: Copy message
+                baixar: Download list
+                enviar: Send reminder
+                sem_telefone: No phone number on the list
+                sem_nome: No name on the list
+                abertura_com_nome: 'Hello, {nome}. Reminder: the vote is open and you have not voted yet.'
+                abertura: 'Hello. Reminder: the vote is open and you have not voted yet.'
+                copiar_texto: 'Reminder: the vote is open. {mensagem}'
+                mensagem: 'Vote: {titulo}. Open the link {link} , find your name, and confirm your identity. You do not need a BlueJus account. Verification code: {codigo}.'
+                rodape: Each button opens WhatsApp with the message ready; you send it yourself. The list does not show who voted for whom.
+            janela_abrir:
+                titulo: Open vote
+                fechar: Close
+                cancelar: Cancel
+                abrir: Open vote
+                duracao: Duration
+                sem_prazo: 'No deadline: the board closes it when it decides'
+                por_tempo: For a set time
+            minuta:
+                botao: Draft minutes
+                botao_pdf: Draft minutes as PDF
+                timbre: Letterhead for minutes
+                timbre_dica: .docx template with the letterhead for the draft minutes
+                timbre_escolhido: 'Letterhead: {nome}'
+                timbre_salvo: Letterhead saved in this browser.
+                timbre_so_pagina: Letterhead kept only until this page is closed.
+                sucesso: Draft minutes generated.
+                sucesso_timbrado: Draft minutes generated on the letterhead.
+                falhou: 'Could not generate the minutes.'
+                sem_votacao: There is no tallied vote for the draft minutes yet.
+                modelo_grande: Template above 2.5 MB.
+                modelo_invalido: Invalid .docx template.
+                modelo_sem_documento: Template without word/document.xml.
+                modelo_nao_reconhecido: .docx template not recognized.
+                titulo: 'MINUTES OF {evento}'
+                aviso: Draft generated by BlueJus Voting. Review and complete the highlighted fields before signing.
+                abertura: 'On {quando}, in the virtual environment of the BlueJus Voting platform, the participants of {entidade} met at call no. {convocacao} to deliberate on the agenda. The proceedings were chaired by {presidente} and recorded by {secretario}.'
+                quando_data: '{data}, at {hora}'
+                marca_data_hora: date and time
+                marca_hora: time
+                marca_entidade: organization
+                marca_presidente: chair name
+                marca_secretario: secretary name # segredo:permitido secretário da ata, não credencial
+                marca_nao_apurada: vote not tallied
+                ordem_do_dia: Agenda
+                deliberacoes: Resolutions
+                item: '{n}. {texto}'
+                item_com_descricao: '{titulo}: {descricao}'
+                item_cancelado: '{n}. {pauta}: {cancelada}'
+                item_nao_apurado: '{n}. {pauta}: {marca}'
+                coluna_opcao: Option
+                coluna_votos: Votes
+                coluna_fracoes: Fractions
+                comparecimento: 'Attendance over the eligible base: {pc}% (required {q}%). Result: {resultado}.'
+                sigilo: 'The vote was secret: the tally does not identify the voter.'
+                encerramento: 'There being nothing further to discuss, the session was closed {quando}, and I, {secretario}, drew up these minutes, to be signed by me and by the chair.'
+                encerramento_em: 'on {data}, at {hora}'
+                encerramento_as: 'at {hora}'
+                assinatura: '{nome}, {funcao}'
+            relatorio:
+                titulo: 'Report: {titulo}'
+                fechar: Close
+                completo_titulo: Full, for notary registration
+                completo_texto: Result, participation by block, and the list of voters (who and when, never what for), on a printable page for the committee, the audit team, and the notary.
+                imagem_titulo: Summary to share in groups (image)
+                imagem_texto: Result of each agenda item or position, participation, and quorum, as an image ready for WhatsApp. No personal data, with a QR Code for verification.
+                pdf_titulo: Summary to share (PDF)
+                pdf_texto: The same summary as a PDF, for email or bulletin board.
+                aviso: 'The full report contains personal data: deliver it only to the committee, the audit team, and the notary.'
+                sucesso_completo: Full report generated.
+                sucesso_imagem: Result image generated for sharing.
+                sucesso_pdf: PDF summary generated.
+                sem_apurada: There is no tallied vote to share yet. The summary is only available after a vote is closed.
+                falhou: Could not generate the file. Try again.
+                muitas_pautas: 'Too many votes to fit in one image: use the PDF summary.'
+                entidade_nao_informada: Not provided
+                imagem_titulo_pagina: Voting result
+                pdf_titulo_pagina: Voting result
+                imagem_qr: Point the camera to verify
+                codigo_conferencia: 'Verification code: {codigo}'
+                pdf_codigo_validacao: Verification code
+                participacao: '{n} of {aptos} eligible ({pc}%)'
+                rotulo_participacao: Participation
+                rotulo_situacao: Status
+                rotulo_resultado: Result
+                apurada_em: 'Tallied on {data}'
+                quorum_atingido: Quorum reached
+                quorum_nao_atingido: Quorum not reached
+                quorum_nao_exigido: Quorum not required
+                nulos: 'Null'
+                coluna_opcao: Option
+                coluna_votos: Votes
+                nota: Summary for sharing. It contains no personal data of the voters and does not show how anyone voted. The full document, for notary registration, stays with the committee. Check authenticity with the QR Code or the verification code.
+                emitido_em: 'Issued on {data}. Valid only with a matching record in BlueJus.'
+                rodape_legal: 'Basis: Lei 14.063/2020 (electronic signatures) · Lei 13.709/2018 (LGPD) · voting rules of the convention or bylaws'
+            aviso:
+                publicada: Vote published. The setup is now locked.
+                aberta: Vote opened by the board.
+                prazo_definido: Deadline set.
+                prazo_retirado: Deadline removed.
+                encerrada: Vote closed.
+                pauta_incluida: Agenda item added.
+                pauta_salva: Agenda item saved.
+                pauta_removida: Agenda item removed.
+                pauta_movida: Agenda item moved.
+                pauta_duplicada: Agenda item duplicated.
+                pauta_nao_encontrada: This agenda item no longer exists. Reload the page.
+                unidade_removida: Unit removed.
+                novo_link: New link generated. The previous one is no longer valid.
+                sessao_expirada: The session has expired. Reload the page and try again.
+                copia_criada: Copy created as a draft, without votes. Check name, event, and dates.
+                copia_com_lista: Eligible list copied.
+                copia_com_lista_sem_emails: Eligible list copied, without the emails (reimport the spreadsheet for code access).
+                falha_ao_salvar: Could not save. Check your connection and try again.
+                repetir_sem_a_pauta: Fix the agenda item or click again to continue without saving it.
+                link_copiado: Link copied.
+                mensagem_copiada: Message copied.
+            unidades:
+                titulo: Units and links
+                texto: 'Paste the list, one line per record: {identificacao}; {grupo}; status; fraction; contact person; email; phone (optional); occurrence (optional, up to 80 characters). Without a status, the record is eligible; with one, only "apto", "adimplente", "regular", or "quite" allow voting. A weighted vote requires the fraction. The list is locked after opening.'
+                importacao_arquivo: You can also import an XLSX or CSV file. A second import adds units and keeps the ones already registered.
+                arquivo: XLSX or CSV file (up to 10 MB)
+                baixar_modelo: Download template spreadsheet
+                primeira_aba: 'The XLSX uses the first sheet. Columns: {identificacao}, {grupo}, Situação, Fração, Responsável, E-mail, Telefone, and Ocorrência.'
+                lista: Unit list
+                importar: Import list
+                resumo: '{aptos} eligible and {inaptos} not eligible imported.'
+                obrigatoria: List required in this vote.
+                importadas: '{total} records imported. Invalid: {invalidas}. Duplicates: {duplicadas}.'
+                nenhuma_valida: No valid line in the list.
+                invalida: 'Line {linha}: {motivo}'
+                duplicadas: 'Duplicates: lines {linhas}.'
+                bloqueada: The list is locked after the vote is opened.
+                apto: Eligible
+                nao_apto: Not eligible
+                fracao: 'Fraction {fracao}'
+                vazio: No unit in the list.
+                remover: Remove
+                soma_fora: 'The sum of the fractions in the list is {soma}; 1 (or 100%) is expected. Check the spreadsheet.'
+            ocorrencia:
+                busca: Search by name or unit...
+                campo: 'Occurrence, e.g., outdated record'
+                rotulo: Occurrence
+                registrar: Record
+                registrada: Occurrence recorded.
+                texto: 'Occurrence: {texto}'
+                historico_registrada: 'Recorded on {data} by {por}.'
+                historico_pendente: 'Recorded on {data} by {por}. Review pending with the council.'
+                historico_concedida: 'Recorded on {data} by {por}. Eligibility granted on {decisao}: {justificativa}'
+                historico_mantida: 'Recorded on {data} by {por}. Ineligibility upheld on {decisao}: {justificativa}'
+                hash: 'List hash: {hash}'
+                alteracoes: '{n} change(s) by council decision.'
+                nenhuma_unidade: No record to show.
+            avaliacoes:
+                titulo: Council reviews
+                texto: Each occurrence recorded for an ineligible person opens a review. The decision is kept in the audit trail, with date and time down to the second.
+                vazio: No review recorded.
+                ocorrencia: 'Occurrence: {texto} (recorded on {data} by {por})'
+                aberta: 'Review opened on {data}.'
+                concedida: 'Eligibility granted on {data} by {por}: {justificativa}'
+                mantida: 'Ineligibility upheld on {data} by {por}: {justificativa}'
+                justificativa: Reason for the decision
+                justificativa_rotulo: Reason
+                manter: Keep ineligible
+                alterar: Make eligible
+                decisao_registrada: Decision recorded.
+                encerrada: 'Vote closed: eligibility can no longer be changed.'
+            links:
+                titulo: Unit links
+                texto: 'Each unit votes from its own phone, without a BlueJus account, through the personal link. Whoever has the link votes for the unit: send it only to the contact person.'
+                antes_de_publicar: The links appear after the assembly is published.
+                enviar: Send links by email
+                faltam: '{n} remaining.'
+                enviados: '{enviados} sent. Failures: {falhas}. Remaining: {faltam}.'
+                copiar_link: Copy link
+                copiar_mensagem: Copy message
+                reenviar: Resend
+                novo_link: Generate new link
+                enviado_em: 'Link sent on {data}.'
+                mensagem: '{assembleia}. Unit {unidade}: this is your unit personal link to vote. Do not forward it. {link}'
+            acompanhar:
+                texto: 'Click Watch to open a separate window, which can be moved to another screen. Watch shows participation and quorum and can be projected.'
+                detalhe: '{assembleia} · {n} of {aptos} voted'
+                assistir: Watch
+                unidades: Units
+            unidades_ao_vivo:
+                titulo: 'Units: {pauta}'
+                votaram: '{n} of {aptos} voted'
+                votou: Voted
+                nao_votou: Has not voted yet
+                inapta: Ineligible
+                vazio: No unit in this agenda item.
+                legenda: Legend
+                grade: Agenda item units
+            assistir:
+                titulo: 'Live: {pauta}'
+                votaram: voted
+                aptos: eligible
+                do_peso: of the eligible weight
+                de_participacao: participation
+                quorum_atingido: 'Quorum reached: {q}%'
+                quorum_exigido: 'Quorum required: {q}%'
+                atualizado: 'Updated at {hora}.'
+            resultados:
+                cedulas: Ballots in the box
+                participacoes: Participations recorded
+                abstencoes: 'Abstentions {n} · Null {nulos}'
+                resultado: 'Result: {numero} {rotulo}'
+                eleitos: 'Elected: {nomes}'
+                valor_peso: '{votos} units · {peso}'
+            nominal:
+                titulo: 'Open vote: who voted for what'
+                texto: 'This vote was set up as an open vote before publishing. The list shows the unit name, the vote, and the time, down to the second.'
+                ao_vivo: 'Open vote in real time: the list already shows the votes cast so far.'
+                responsavel: Contact person
+                voto: Vote
+                peso: Weight
+                hora: Time
+                nulo: 'Null (no. {numero})'
+                vazia: No vote recorded.
+            ata:
+                titulo: CONSOLIDATED VOTING REPORT
+                imprimir: Print
+                resumo: Voting summary
+                resumo_pauta: '{pauta}: {n} of {aptos} eligible voted ({pc}%).'
+                resumo_resultado: 'Result of {pauta}: {resultado}. Quorum: {quorum}.'
+                quorum_atingido: reached
+                quorum_nao_atingido: not reached
+                quorum_nao_exigido: not required
+                nao_apurada: Not tallied yet.
+                identificacao: Identification
+                evento: Event
+                votacoes: Votes in this report
+                emitido_em: Issued on
+                emitido_por: Issued by
+                modalidade: Type
+                modalidade_valor: Assembly agenda items
+                peso: Vote weight
+                criterios: Criteria
+                item: Item
+                regra: Rule
+                criterio: '{criterio} over {base}, quorum {q}%'
+                abertura: Opening bulletin
+                conducao: Conduct
+                conducao_valor: 'By the board, call no. {c}'
+                aberta_em: Opened on
+                aberta_por: Opened by
+                situacao: Status
+                nao_aberta: Vote not opened
+                eleitorado: Electorate and participation
+                aptos: Eligible voters
+                comparecimento: Attendance
+                faltosos: Absent
+                inaptos: Ineligible on the list
+                peso_apto: Total eligible weight
+                por_grupo: 'Participation by {grupo}'
+                sem_bloco: No block
+                sem_grupo: 'No {grupo}'
+                simulacao: (SIMULATION)
+                eleitores: Voters
+                peso_coluna: Weight
+                encerramento: Closing
+                encerrada_em: Closed on
+                encerrada_por: Closed by
+                cedulas: Ballots
+                motivo: Reason recorded
+                apuracao: Tally
+                opcao: Option
+                votos: Votes
+                abstencoes: Abstentions
+                nulos: 'Null'
+                total: Total
+                quorum_linha: 'Quorum: {pc}% (required {q}%)'
+                atingido: Reached
+                nao_atingido: Not reached
+                resultado: Result
+                nao_apurada_data: Vote not yet tallied on the issue date of this report.
+                votantes: List of voters
+                votantes_texto: Shows who took part. It does not show whom each person voted for.
+                votantes_texto_aberto: Shows who took part. In this open vote, each person vote appears in the named list below.
+                nome: Name
+                votou_faixa: 'Voted {de}h to {ate}h'
+                nao_votou: Did not vote
+                inapto: Ineligible
+                sem_votantes: No participation recorded.
+                termo: Closing statement
+                termo_1: This report consolidates the data extracted from the voting records on the issue date.
+                termo_2: The signatories declare that they have reviewed the content of this report.
+                ocorrencias_titulo: Occurrences and eligibility reviews
+                ocorrencia_item: '{nome} ({assembleia}). Occurrence on {data}: {texto}.'
+                ocorrencia_pendente: Review pending.
+                ocorrencia_tornado_apto: 'Made eligible on {data}: {justificativa}.'
+                ocorrencia_mantida: 'Ineligibility upheld on {data}: {justificativa}.'
+            email:
+                assunto: 'Your link to vote: {assembleia}'
+                titulo: Link to vote
+                ola: 'Hello, {nome}.'
+                ola_sem_nome: Hello.
+                texto: 'This is the personal link of unit {unidade} to vote in {assembleia}.'
+                botao: Vote
+                aviso: 'Do not forward this link: whoever has it votes for your unit.'
+                nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+            telao:
+                titulo: 'Assembly mode: {assembleia}'
+                rotulo: Assembly mode
+                conduzir: Run on the big screen
+                conduzir_menu: Run on the big screen (assembly mode)
+                tela_cheia: Full screen
+                sair: Exit
+                ordem_do_dia: AGENDA
+                qr_alt: QR Code to vote
+                aponte: Point the camera to vote
+                codigo: 'Verification code {codigo}'
+                votaram: voted
+                aptos: eligible
+                de_participacao: participation
+                das_fracoes: of the fractions
+                quorum_atingido: 'Quorum {q}%: reached'
+                quorum_nao_atingido: 'Quorum {q}%: not reached yet'
+                aguardando_abertura: Waiting for the board to open it
+                abstencoes: Abstentions
+                brancos: Blank
+                nulos: 'Null'
+                encerrar: Close vote
+                encerrar_pergunta: Close now? Once closed, it no longer accepts votes.
+                continuar: Continue vote
+                confirmar_encerramento: Confirm closing
+                motivo_padrao: Board decision
+                ir_apuracao: Go to the tally
+                proxima: 'Next: {pauta}'
+            ciclo:
+                suspensa: Vote suspended. Resume when the board decides.
+                retomada: Vote resumed.
+                cancelada: Vote canceled. The votes stay sealed, without a tally.
+                retirada: Agenda item withdrawn. Undo it in Election Management, Show archived.
+                arquivada: Vote archived. Use Show archived to see it.
+                desarquivada: Vote unarchived.
+                rascunho_excluido: Draft deleted.
+                simulacao_reiniciada: 'Simulation restarted: votes deleted, back to draft.'
+                simulacao_apagada: Simulation deleted.
+            chip_ciclo:
+                arquivada: Archived
+                cancelada: Canceled
+                suspensa: Suspended
+            menu_ciclo:
+                retirar_ou_cancelar: Withdraw from agenda or cancel
+                suspender: Suspend vote
+                retomar: Resume vote
+                cancelar: Cancel vote
+                excluir_rascunho: Delete draft
+                reiniciar_simulacao: Restart simulation
+                apagar_simulacao: Delete simulation
+                arquivar: Archive
+                desarquivar: Unarchive
+            janela_ciclo:
+                fechar: Close
+                cancelar: Cancel
+                o_que_acontece: 'What happens:'
+                motivo: Reason (goes into the minutes and the audit trail)
+                motivo_curto: Enter the reason for the withdrawal.
+                outras: 'The other {n} agenda item(s) of the event continue normally, with the same link and QR Code.'
+                unica: This was the only published agenda item of this event.
+                ret:
+                    titulo: Withdraw from agenda
+                    exemplo: 'E.g.: matter postponed to the next assembly'
+                    efeito_1: It leaves the voting screen, the event QR Code and link, Results, Follow, and the big screen.
+                    efeito_2: It can no longer be opened or receive votes.
+                    efeito_3: In the event minutes, it appears as withdrawn from the agenda, with the reason, without a resolution.
+                    efeito_4: Setup, eligible list, attendance, and audit trail are kept.
+                    efeito_5: It can be undone in Election Management, Show archived, Unarchive.
+                sus:
+                    titulo: Suspend vote
+                    exemplo: 'E.g.: power outage in the hall'
+                    efeito_1: It stops accepting votes now, until the board resumes it.
+                    efeito_2: Votes already deposited stay in the box, intact.
+                    efeito_3: The deadline set by the board is frozen during the suspension.
+                    efeito_4: Anyone who tries to vote sees the suspended vote notice.
+                    efeito_5: Resume it from the three-dot menu or on the big screen. Everything is kept in the audit trail.
+                can:
+                    titulo: Cancel vote
+                    exemplo: 'E.g.: irregular call'
+                    efeito_1: It stops accepting votes immediately.
+                    efeito_2: 'Votes already received stay sealed in the box and are not tallied: there will be no result.'
+                    efeito_3: In the minutes, it appears as a canceled vote, with the reason.
+                    efeito_4: Box, trail, and data are kept as proof; it can be archived afterwards.
+                    efeito_5: It cannot be undone. To repeat it, use Duplicate vote.
+            arquivar:
+                titulo_sem_deliberar: 'Archive without a resolution: the vote cannot be opened and leaves the lists.'
+                titulo_deliberada: 'Archive a decided vote: result, minutes, report, and audit trail are kept.'
+                motivo: Reason
+                exemplo: 'E.g.: agenda item withdrawn from the agenda'
+                cancelar: Cancel
+                sim: Archive
+                faixa: 'Archived on {em}{sem}. Reason: {motivo}. Data and evidence preserved; it does not appear in Vote, Results, and Follow.'
+                sem_deliberacao: ', without a resolution'
+                retirada_motivo: 'Withdrawn from the agenda: {motivo}'
+                excluir_pergunta: Delete this draft? It was never published and the deletion is recorded in the audit trail.
+                excluir_manter: Keep
+                excluir_sim: Delete draft
+                simulacao_pergunta: Delete this simulation and all practice votes?
+                simulacao_manter: Keep
+                simulacao_sim: Confirm deletion
+                mostrar: 'Show archived ({n})'
+                ocultar: Hide archived
+                selecionar: 'Select {titulo}'
+            proximo_passo:
+                cancelada: 'Canceled on {em}. Reason: {motivo}. The ballots stay sealed and will not be tallied.'
+                suspensa: 'Suspended by the board since {em}. Reason: {motivo}. Resume from the menu.'
+            lote:
+                selecionar_todas: Select all
+                selecionadas: '{n} selected'
+                arquivar: 'Archive ({n})'
+                excluir: 'Delete ({n})'
+                limpar: Clear selection
+                arquivar_titulo: 'Archive {n} vote(s).'
+                arquivar_texto: Archived votes leave the lists and are kept indefinitely, with result, minutes, report, and trail; they can be seen in Show archived and unarchived.
+                arquivar_aberta: An open vote must be closed before archiving.
+                motivo: Reason (applies to all)
+                exemplo: 'E.g.: 2025 assembly completed'
+                cancelar: Cancel
+                arquivar_sim: Archive selected
+                excluir_titulo: 'Permanently delete {n} item(s): never-published drafts and simulations.'
+                excluir_obs: 'A published vote is not deleted, so proof is not erased: use Archive.'
+                excluir_sim: Delete selected
+                fora: '{n} selected item(s) do not qualify and will be kept as they are.'
+                fora_feito: '{n} selected item(s) did not qualify and were kept as they are.'
+                arquivadas: '{n} vote(s) archived.'
+                excluidas: '{n} item(s) deleted.'
+                nenhuma: Select at least one vote.
+                nenhuma_arquivar: 'None of the selected items can be archived: only published votes without an open vote.'
+                nenhuma_excluir: 'None of the selected items can be deleted: only never-published drafts and simulations. Use Archive.'
+                motivo_curto: Enter the reason for archiving.
+            ata_ciclo:
+                retirada: 'Withdrawn from the agenda: {pauta}, by a decision recorded on {em}. Reason: {motivo}. There was no resolution on this matter.'
+                cancelada: 'Vote canceled by the board on {em}. Reason: {motivo}. The votes received stayed sealed and were not tallied.'
+                ordem_do_dia: Agenda
+            telao_ciclo:
+                suspender: Suspend
+                retomar: Resume vote
+                suspensa: 'Vote suspended by the board. Wait for it to resume.'
+                cancelada: Vote canceled by the committee.

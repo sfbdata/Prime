@@ -1,0 +1,271 @@
+comercial:
+    campanha:
+        titulo: Mailing Center · new campaign
+        descadastrados: Unsubscribed
+        descadastrados_dica: Emails that asked not to receive
+        sub: invitations, offers, thank-yous, and news · individual or large scale
+        passo_modelo: 1 · TEMPLATE
+        novo_modelo: New template
+        duplicar: Duplicate
+        importar_html: Import HTML
+        salvar_como_meu: Save as my template
+        salvar_modelo: Save template
+        excluir: Delete
+        passo_para: · RECIPIENTS
+        cadastrar_email: Add email
+        cadastrar_email_dica: Only add people who agreed to receive (LGPD)
+        publico:
+            leads: Contact base
+            leads_desc: Contacts who agreed to campaigns
+            leads_venda: New contacts (base)
+            leads_venda_desc: Interested people without an account yet
+            prim: Primary users
+            prim_desc: Those who opened an account, across all accounts
+            sec: Secondary users
+            sec_desc: Invited users from all accounts
+            todos: All registered
+            todos_desc: Primary and secondary
+            csv: Import list (CSV)
+            csv_desc: Spreadsheet with email and name
+            indiv: Individual
+            indiv_desc: Type one or more emails
+        csv_selecionar: Select .csv file
+        individual: Emails separated by commas
+        passo_msg: · MESSAGE
+        assunto: SUBJECT
+        selo: BADGE (ABOVE THE TITLE)
+        selo_exemplo: 'E.g.: INVITATION · BLUEJUS'
+        nome_previa: NAME IN THE PREVIEW
+        nome_previa_dica: "replaces '{nome}' here only"
+        nome_previa_exemplo: Dr. Ana
+        titulo_email: TITLE
+        nome_modelo: TEMPLATE NAME
+        texto: TEXT
+        texto_dica: "use '{nome}' for the first name"
+        inserir: 'Insert:'
+        imagem_adicionar: Add image
+        imagem_remover: Remove
+        imagem_remover_dica: Remove image
+        emoji:
+            balanca: Scales
+            agenda: Calendar
+            confirmado: Confirmed
+            destaque: Highlight
+            comemoracao: Celebration
+            trabalho: Work
+            crescimento: Growth
+            seguranca: Security
+            indicacao: Referral
+            agradecimento: Thank you
+        botao: BUTTON
+        blocos: BLOCKS
+        blocos_dica: build the layout; the preview updates instantly
+        html_importado: IMPORTED HTML
+        previa: EMAIL PREVIEW
+        previa_titulo: Email preview
+        enviar: Send
+        programar_e_frequencia: Schedule sending and frequency
+        ver_como_chega: See how it will arrive
+        enviar_teste: Send test
+        baixar_html: Download HTML
+        lgpd: "LGPD: only people who signed up or agreed will receive it. Every email carries the ''Unsubscribe'' link, duplicates and unsubscribed addresses are removed, and the server sends in batches so it does not land in spam."
+        programar_envio: Schedule sending
+        programar_envio_rotulo: SCHEDULE SENDING
+        agenda_data: Sending date and time
+        repetir: Repeat
+        repetir_rotulo: REPEAT
+        freq:
+            unica: Single send
+            semanal: Weekly
+            quinzenal: Every two weeks
+            mensal: Monthly
+        concluir: Finish
+        ver_titulo: How the recipient will receive it
+        aparelho: Device
+        computador: Computer
+        celular: Phone
+        fechar: Close
+        de: 'From:'
+        para: 'To:'
+        email: Email
+    filtro:
+        titulo: FILTER RECIPIENTS
+        busca: 'Specific email or name (separate several with commas)'
+        busca_rotulo: Specific email or name
+        atalho:
+            todos: All
+            so_mulheres: Women only
+            so_homens: Men only
+            advogados: Attorneys
+            estagiarios: Interns
+            primarios: Primary
+            aniversariantes: Birthdays this month
+        genero: 'Gender: all'
+        genero_f: Female
+        genero_m: Male
+        idade: 'Age: all'
+        idade_a: 18 to 24
+        idade_b: 25 to 34
+        idade_c: 35 to 44
+        idade_d: 45 to 54
+        idade_e: 55 or older
+        estado: 'State: all'
+        perfil: 'Role: all'
+        perfil_prim: Primary user
+        perfil_sec: Secondary user
+        cargo: 'Position: all'
+        cargo_adv: Attorney
+        cargo_est: Intern
+        cargo_ctl: Docket control
+        cargo_fin: Finance
+        cargo_adm: Administrative / assistant
+        cargo_out: Others
+        oab: 'OAB: all'
+        oab_conf: OAB confirmed
+        oab_pend: OAB pending
+        oab_sem: No OAB
+        plano: 'Plan: all'
+        aniversario: 'Birthday: all'
+        aniversario_mes: Birthdays this month
+        aniversario_prox: Birthdays next month
+        limpar: Clear filter
+    automacoes:
+        titulo: Automations
+        sub: emails sent automatically on every signup and confirmation
+        simular: Simulate new signup
+        ultimos: LATEST SENDS
+        fechar_previa: Close the preview
+    kpis:
+        campanhas: CAMPAIGNS
+        campanhas_desc: sent or scheduled
+        na_fila: EMAILS IN QUEUE
+        na_fila_desc: adding up all campaigns
+        base: CONTACT BASE
+        base_desc: subscribers who agreed (LGPD)
+        descadastrados: UNSUBSCRIBED
+        descadastrados_desc: asked not to receive · click to view
+    descadastrados:
+        titulo: Unsubscribed
+        sub: 'clicked "Unsubscribe" and are removed from all lists automatically'
+        buscar: Search email
+        registrar: Record request
+        limpar_dica: Clearing the whole list is not available yet (LGPD). For now, deletion is done one at a time.
+        limpar: Clear list
+        csv: CSV
+        fechar: Close
+        vazio: Nobody has unsubscribed yet.
+    teste:
+        titulo: Send test email
+        fechar: Close
+        enviar_para: SEND TO
+        separe: (separate several with commas)
+        trava: The test goes only to your email. Sending to other addresses is not available yet.
+        nota: The test arrives with [TEST] in the subject and does not count in the campaign metrics.
+        cancelar: Cancel
+        enviar: Send test
+        ok_titulo: Test sent
+        ok_para: To
+        ok_resto: . Check your inbox (and spam) shortly.
+        ok: OK
+    datas:
+        titulo: Commemorative dates
+        sub: automatic messages on national holidays
+        ativas: active
+        chave_desligada: 'Campaign sending is turned off in this installation: no commemorative date goes out until it is turned on.'
+    leitura:
+        ligada: Read receipt
+        desligada: No read receipt
+        dica_ligada: Tracking reads (✓✓). Click to send only
+        dica_desligada: 'Read receipt is off: read tracking stays off until the Privacy Policy covers it. The campaign goes out without a read receipt.'
+    js:
+        atraso_dias: '{n} days'
+        auto_obrigatoria: 'Required: without it nobody can create an account'
+        auto_alternar: Turn on or off
+        auto_quando: When to send
+        fila_vazia: No sends yet.
+        auto_erro_carregar: Could not load the automations. Reload the page.
+        erro_salvar: Could not save.
+        auto_editando: 'Editing the automation template "{titulo}". Duplicate it to adjust the text.'
+        tipo_titulo: Title
+        tipo_texto: Text
+        tipo_imagem: Image
+        tipo_botao: Button
+        tipo_noticias: News
+        tipo_colunas: 2 columns
+        tipo_divisor: Divider
+        ph_noticias: 'One news item per line: Title|Summary'
+        ph_imagem: Image address (https://...)
+        ph_botao: Button text
+        ph_colunas: Left column
+        ph_botao_link: Button link
+        ph_colunas_direita: Right column
+        ph_imagem_descricao: Image description
+        erro_concluir: Could not complete.
+        dest_descadastrados: '{n} unsubscribed removed'
+        dest_repetidos: '{n} duplicate(s) removed'
+        dest_invalidos: '{n} invalid ignored'
+        dest_sem_autorizacao: '{n} without consent removed'
+        dest_total: '{n} recipient(s)'
+        dest_lista_limpa: list cleared
+        csv_lido: '{nome} · {n} email(s)'
+        csv_selecionar: Select .csv file
+        filtro_curto: '{n} of {m} with filter'
+        filtro_todos: 'All ({m})'
+        filtro_atendem: '{n} of {m} match the filter'
+        filtro_sem_info: '{n} without this information on record (left out)'
+        filtro_todos_lista: 'Sending to everyone on the list ({m})'
+        programar_envio: Schedule sending
+        enviar: Send
+        freq_semanal: weekly
+        freq_quinzenal: every two weeks
+        freq_mensal: monthly
+        exemplo_nome: Dr. Ana
+        salvar_como_pergunta: 'Name of your template (the default template stays saved):'
+        modelo: Template
+        modelo_meu: '{nome} (mine)'
+        contatos_pergunta: 'Email(s) of new contacts (separate with commas). Only add people who agreed to receive (LGPD):'
+        sem_destinatario: No recipient in this list.
+        confirmar_envio_agora: 'Send "{assunto}" to {n} recipient(s) now?'
+        confirmar_envio_em: 'Send "{assunto}" to {n} recipient(s) on {quando}?'
+        modelos_erro_carregar: Could not load the templates. Reload the page.
+        modelo_padrao: Default templates are not changed. Use Duplicate to create your own version.
+        confirmar_excluir_modelo: 'Delete the template "{nome}"?'
+        bloco_subir: Up
+        bloco_descer: Down
+        bloco_remover: Remove
+        imagem_adicionar: Add image
+        imagem_trocar: Change image
+        imagem_invalida: Upload a JPG or PNG image.
+        leitura_ligada: Read receipt
+        leitura_desligada: No read receipt
+        leitura_dica_ligada: Tracking reads (✓✓). Click to send only
+        leitura_dica_desligada: Click to track reads (✓✓)
+        teste_sem_modelo: Open a template in the editor before sending the test.
+        teste_erro: Could not send the test.
+        datas_hoje: today
+        datas_amanha: tomorrow
+        datas_em_dias: 'in {n} days'
+        datas_envio: 'sends {data} at 9 AM'
+        datas_alternar: Turn on or off
+        datas_quando: When to send
+        datas_ant_0: On the day
+        datas_ant_1: 1 day before
+        datas_ant_3: 3 days before
+        datas_para_quem: To whom
+        datas_pub_todos: All
+        datas_pub_prim: Primary
+        datas_pub_leads: Contact base
+        datas_ver: View message
+        datas_previa: 'Preview of the message for {nome}. Use Duplicate to customize the text.'
+        datas_erro_carregar: Could not load the commemorative dates. Reload the page.
+        datas_sem_0: Sun
+        datas_sem_1: Mon
+        datas_sem_2: Tue
+        datas_sem_3: Wed
+        datas_sem_4: Thu
+        datas_sem_5: Fri
+        datas_sem_6: Sat
+        dsc_erro: Could not complete. Try again.
+        dsc_excluir: Delete
+        dsc_confirmar_excluir: 'Delete {email} from the unsubscribed list? They will be able to receive emails again. Do this only if the contact asked for it themselves (LGPD).'
+        dsc_registrar_pergunta: 'Email that asked not to receive (by phone, WhatsApp, etc.):'

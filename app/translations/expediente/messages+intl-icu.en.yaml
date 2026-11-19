@@ -1,0 +1,641 @@
+# ---- Docket (list, archive, pagination, modals, rail, case report, idle matters)
+expediente:
+    titulo: Docket
+    # Firm trash (11/03/2026): the header button and the window (expediente/_lixeira_modal.html.twig).
+    lixeira:
+        botao: Trash
+        botao_dica: See what was deleted in the firm matters
+        titulo: Firm trash
+        nota: 'Here appear the matters with items in the trash that you can restore, from the most recent deletion to the oldest. Items stay in the trash for 30 days; after that, they are permanently deleted automatically.'
+        vazia: No items in the trash of the matters you can restore.
+        carregar_mais: Load more matters
+        fechar: Close
+    lista:
+        arquivada_dica: Archived matter
+        placeholder: Select a group to view the dockets
+        drawer_abrir: Open navigation menu
+        drawer_fechar_menu: Close menu
+        ordenar:
+            rotulo: Sort by
+            escolher: Sort by…
+            nup_asc: NUP (ascending)
+            nup_desc: NUP (descending)
+            cliente_asc: Client (A-Z)
+            cliente_desc: Client (Z-A)
+            prioridade_desc: Priority (highest first)
+            prioridade_asc: Priority (lowest first)
+            acao_asc: Action (A-Z)
+            responsavel_asc: Assignee (A-Z)
+            situacao_asc: Status
+        visualizar:
+            rotulo: View
+            dica: Choose how to display the matters
+            modo:
+                tabela: Details
+                compacto: Compact details
+                simples: List
+                lista: Cards
+                grandes: Large cards
+            modo_dica:
+                tabela: Table with all columns
+                compacto: Table with shorter rows
+                simples: One line per matter
+                lista: Matters as cards
+                grandes: Larger, more readable cards
+            por_pagina: Matters per page
+            painel_marcadores: Tags panel
+        colunas: Table columns
+        resumo:
+            intervalo: '{inicio} to {fim}'
+            total_uma: 'Total: {total} matter'
+            total_varias: 'Total: {total} matters'
+            contagem_uma: '{n} matter'
+            contagem_varias: '{n} matters'
+        prioridade:
+            normal: Normal
+            alta: High
+            urgente: Urgent
+        prioridade_dica:
+            normal: 'Normal priority: follows the standard flow'
+            alta: 'High priority: handle before the others'
+            urgente: 'Urgent: requires immediate action'
+        situacao:
+            ativo: Active
+            suspenso: Suspended
+            cancelado: Canceled
+            arquivado: Archived
+        situacao_dica:
+            ativo: Matter in progress
+            suspenso: Progress temporarily suspended
+            cancelado: Matter canceled
+            arquivado: Matter closed and archived
+        situacao_dica_aberta: '{situacao} · opened on {data}'
+        situacao_dica_alternar: '{situacao} · opened on {data} · double-click toggles between active and archived'
+        coluna:
+            nup: NUP
+            cliente: Client
+            reu: Defendant
+            acao: Action
+            prioridade: Priority
+            responsavel: Assignee
+            metas: Goals
+            marcadores: Tags
+            situacao: Status
+        coluna_dica:
+            nup: Unique matter number
+            cliente: Sort by client
+            reu: Opposing party · sort by defendant
+            acao: Sort by action
+            prioridade: Sort by priority
+            responsavel: Sort by assignee
+            metas: Open goals in the matter
+            marcadores: Sort by tag
+            situacao: Sort by status
+        favorita: Pinned to favorites
+        favorito_tirar: Remove from favorites
+        favorito_marcar: Mark as favorite
+        pasta_trancada: Locked matter
+        compartilhar_aria: Share matter
+        compartilhar_dica_sem: Share matter (team or another account)
+        compartilhar_dica_com: Shared with {n} team member(s) · click to manage
+        compartilhada_comigo: Shared with you
+        compartilhada_comigo_dica: Reshared by {de} (team). You collaborate on this matter with the permissions granted.
+        cadeado_dica_por: Confidential documents · matter locked by {por} on {em}
+        cadeado_dica_primario: Confidential documents · matter locked by the primary user on {em}
+        sem_cliente: No client
+        repetidas: '{n}x'
+        repetidas_dica: '{n} matters with the same name and CPF'
+        reus_dica: 'Defendants: {reus}'
+        reu_e_outros: and others
+        reu_vazio: Not provided
+        reu_vazio_dica: Defendant not provided in the matter record
+        acao_vazia: Not provided
+        sem_metas: No open goals
+        metas_dica: '{n} open goal(s) in this matter'
+        adicionar_marcador: Add tag
+        excluida: Deleted
+        excluida_em: Deleted on {data}
+        excluida_em_por: Deleted on {data} by {nome}
+        sem_responsavel: No assignee
+        cartao_pasta: MATTER {nup}
+        vazio_filtros: No matters found with these filters.
+        vazio: No matters registered.
+    acervo:
+        voltar_dica: Back to the general archive (default order)
+        nova_pasta: New Matter
+        nova_pasta_dica: Open a new matter (the number is generated automatically)
+        recebidas: Received
+        recebidas_dica: Matters that other users reshared with you
+        titulo:
+            geral: General archive
+            resp10: Answered in the last 10 days
+            findou: Deadline ended without a response
+            aud: Hearing
+            prazo: Docket with deadline
+            metas: Unanswered goals
+            protocolar: To file
+    paginacao:
+        rotulo: Pagination
+        primeira: First page
+        anterior: Previous page
+        pagina_n_de_m: Page {pagina} of {total}
+        proxima: Next page
+        ultima: Last page
+    modais:
+        fechar: Close
+        cancelar: Cancel
+        salvar: Save
+        marcador:
+            titulo_novo: New tag
+            campo_nome: NAME
+            campo_nome_exemplo: 'E.g., 7. Review'
+            campo_descricao: DESCRIPTION (OPTIONAL)
+            campo_descricao_exemplo: What this tag is for
+            campo_pai: INSIDE (SUBTAG)
+            pai_nenhum: None · main tag
+            campo_cor: COLOR
+            cor: Color
+            previa: Preview
+            previa_nome: Tag name
+        sigilo:
+            titulo_inicio: Matter
+            titulo_fim: protected
+            texto_inicio: This matter contains
+            texto_destaque: confidential documents
+            texto_fim: . Access is not recommended at the moment.
+            nota: Only the primary user can grant access.
+            entendi: Got it
+            pedir_acesso: Request access
+    # Matter page received from another account (spec acesso-restrito-e-compartilhar §4.5.1, slice 9a): read only,
+    # with nothing that leads to another screen of the source account.
+    recebida:
+        titulo: 'Received matter {nup}'
+        marca: 'Received · {conta}'
+        marca_dica: 'Reshared by {de} ({conta}). You collaborate on this matter with the permissions granted.'
+        republicada_por: Reshared by
+        voce_pode: 'You can:'
+        pertence: The matter belongs to another account. You collaborate only on it, and the owner can end access at any time.
+        fase: Current stage
+        acao: Action
+        aba_andamentos: Updates
+        aba_documentos: Documents
+        aba_metas: Goals
+        andamentos_vazio: No updates recorded in this matter.
+        documentos_vazio: No documents in this matter.
+        metas_vazio: No open goals
+        sem_abas: No part of this matter is available to you.
+        registro_sistema: Update
+        ver: View
+        ver_dica: Open the document in a new tab
+        baixar: Download
+        baixar_dica: Download the document
+        sem_prazo: No deadline
+        prazo: 'Deadline: {data}'
+        anotar_rotulo: New note
+        anotar_placeholder: Write a note for the matter team
+        anotar_nota: 'The note stays in the matter of {conta}, with your name.'
+        anotar_enviar: Record
+        fase_trocar_rotulo: Change to
+        fase_escolher: Choose the stage
+        fase_trocar: Change stage
+        fase_dica: Only the stages on the same side of the Contract. Closing and reactivating stay with the matter account.
+        fase_invalida: Choose a stage from the list.
+        enviar_categoria: Category
+        enviar_arquivo_rotulo: File to upload
+        enviar_arquivo: Upload file
+        sem_arquivo: Choose a file to upload.
+        token_invalido: The page expired. Reload and try again.
+        sem_permissao: You do not have permission for this action in this matter.
+        erro_envio: Could not complete. Try again.
+    js:
+        lixeira:
+            carregando: Loading the trash…
+            erro_carregar: Could not open the firm trash.
+            erro_comunicacao: Communication failure with the server.
+            pasta: 'Matter {nup}'
+            sem_nome: No client
+            documentos_um: 1 document
+            documentos_n: '{n} documents'
+            subpastas_um: 1 subfolder
+            subpastas_n: '{n} subfolders'
+            conjunto: '{a} and {b}'
+            excluido_em: 'Deleted on {data}'
+            excluidos_entre: 'Deleted between {antiga} and {recente}'
+            por: 'By {nomes}'
+            sem_registro: 'Deleted by: no record'
+            abrir: Open the matter trash
+            restaurar_tudo: Restore all
+            restaurar_tudo_titulo: Each item goes back to where it came from
+            excluir_de_vez_tudo: Delete all permanently
+            excluir_de_vez_titulo: 'Deletes now from the system, with no way to restore'
+            lapide: 'This matter is deleted: restore the matter to restore its documents.'
+            confirmar_restaurar: 'Restore everything in the trash of matter {nup}? In total: {n} item(s). Each item goes back to where it came from.'
+            confirmar_excluir_de_vez: 'Permanently delete {n} item(s)? They leave the system and cannot be restored.'
+            restaurando: Restoring…
+            restaurar_pasta: Restore matter
+            restaurar_pasta_titulo: 'Takes the matter out of the trash and it goes back to the Docket'
+            confirmar_restaurar_pasta: 'Restore matter {nup}?'
+            numero_ocupado: 'Number {nup} already belongs to another matter. It comes back with the next free number.'
+            restaurando_pasta: Restoring the matter…
+            restaurada_pasta: 'Matter {nup} restored.'
+            erro_restaurar_pasta: Could not restore the matter. Try again.
+            excluindo_de_vez: Deleting permanently…
+            restaurados: '{n} item(s) restored in matter {nup}.'
+            excluidos_de_vez: '{n} item(s) permanently deleted in matter {nup}.'
+            pulados: '{texto} {n} item(s) could not be deleted and remain in the trash.'
+            ja_vazia: The trash of this matter is already empty.
+            erro_restaurar: Could not restore.
+            erro_excluir_de_vez: Could not delete permanently.
+        lista:
+            situacao:
+                titulo: MATTER STATUS
+                todas: All
+                todas_desc: All statuses
+                ativo: Active
+                ativo_desc: Matter in progress
+                suspenso: Suspended
+                suspenso_desc: Temporarily paused
+                cancelado: Canceled
+                cancelado_desc: Closed without completion
+                arquivado: Archived
+                arquivado_desc: Leaves the work lists
+                erro: Could not change the status
+                falha_conexao: Connection failure while changing the status
+            prioridade:
+                titulo: PRIORITY
+                rotulo: Priority
+                todas: All
+                todas_desc: All priorities
+                normal: Normal
+                normal_desc: Follows the standard flow
+                alta: High
+                alta_desc: Handle before the others
+                urgente: Urgent
+                urgente_desc: Requires immediate action
+            responsavel:
+                rotulo: Assignee
+                sem: No assignee
+                filtrar: Filter assignee
+                nenhum: No assignee found
+            drawer_abrir: Open navigation menu
+            drawer_fechar: Close navigation menu
+            todas_as_pastas: All matters
+            criado_por: Created by
+            buscando: Just a moment, we are searching the whole system…
+            carregando: Loading...
+            erro_carregar: Error loading the content.
+            equipe: Team
+            equipe_cargo: Team · {cargo}
+            sem_cargo: No position
+            colaborador_id: 'team member #{id}'
+            chip_remover: Remove
+            chip_remover_filtro: Remove filter
+            limpar_tudo: Clear all
+            pasta_criada: Matter {nup} opened for {cliente}
+            favoritos_erro: Could not change the favorites.
+            favorito_tirar: Remove from favorites
+            favorito_marcar: Mark as favorite
+            favorita: Pinned to favorites
+            erro_comunicacao: Communication error. Try again.
+            editar_nome: Quick edit name
+            fechar: Close
+            nada_encontrado: Nothing found
+            cor:
+                amarelo: Yellow
+                verde: Green
+                azul: Blue
+                rosa: Pink
+                laranja: Orange
+                lilas: Lilac
+            sigilo:
+                erro_pedir: Could not request access
+                pedido_enviado: Access request sent to the primary user
+                sem_primario: No active primary user in the firm to receive the request
+                falha_conexao: Connection failure while requesting access
+            editor:
+                rotulo: CLIENT NAME · MATTER {nup}
+                campo: Client name
+                cancelar: Cancel
+                salvar: Save
+                vazio: The client name cannot be empty
+                erro: Could not save the name
+                atualizado: Client name of matter {nup} updated
+                falha_conexao: Connection failure while saving the name
+            destaque:
+                nenhum: No highlight
+                erro: Could not highlight
+                aplicado: Matter {nup} highlighted in {cor}
+                removido: Highlight removed from matter {nup}
+                falha_conexao: Connection failure while highlighting
+            trancar:
+                so_primario_aviso: Only the primary user can lock or unlock matters
+                erro: Could not lock the matter
+                pasta_trancada: Locked matter
+                dica: Confidential documents · matter locked
+                dica_por: '{dica} by {por}'
+                dica_em: '{dica} on {em}'
+                trancada_aviso: Matter {nup} locked · confidential documents protected
+                destrancada_aviso: Matter {nup} unlocked
+                falha_conexao: Connection failure while locking the matter
+            menu:
+                abrir: Open matter
+                abrir_nova_aba: Open in new tab
+                da_cobranca: from collections
+                nome_da_cobranca: The name of this matter is built from the portfolio creditor and is not edited here
+                alterar_responsavel: Change assignee
+                alterar_marcador: Change tag
+                copiar_numero: Copy matter number
+                numero_copiado: Number {nup} copied
+                copiar_nome: Copy client name
+                nome_copiado: Client name copied
+                destrancar: Unlock matter
+                trancar: Lock matter
+                so_primario: primary only
+                destacar_linha: HIGHLIGHT ROW
+                titulo: Matter {nup}
+                titulo_com_nome: Matter {nup} · {nome}
+            coluna:
+                nup: NUP
+                cliente: Client
+                reu: Defendant
+                acao: Action
+                prio: Priority
+                resp: Assignee
+                metas: Goals
+                marc: Tags
+                sit: Status
+                mod: Modified
+            colunas:
+                nup_fixo: The NUP is always visible
+                mostrar_todas: Show all
+                essenciais: Essentials only
+                restaurar: Restore default
+                exportar_csv: Export visible columns (CSV)
+                titulo: Table columns · {n} visible
+                ajuste_seu: 'Your own setting: it does not change for the rest of the team'
+                falha_gravar: Connection failure while saving the columns
+            marcador:
+                titulo: TAG
+                nenhum: No tag
+                remover: Remove tag
+                erro: Could not change the tag
+                falha_conexao: Connection failure while changing the tag
+            ia:
+                rotulo: BlueJus AI · {nome}
+                assistente: Matter assistant
+            nova:
+                acao_exemplo: 'E.g., Child support review'
+                acao_sem_cliente: Enter the client name first
+                cliente_existe: Client already registered in {total} matter(s).
+                cliente_vinculo: The new matter will be linked to the same record.
+                proximo_numero: MATTER {numero}
+            concluida_no_periodo: Completed in the period
+        compartilhar:
+            titulo: Share matter {nup}
+            fechar: Close
+            intro: The team member sees only this matter and its goals, with no access to the rest of the firm. The matter remains yours and you can end access whenever you want.
+            compartilhar_com: SHARE WITH
+            destino_equipe: Firm team
+            destino_outra: Another account (code)
+            usuario: TEAM USER
+            escolha: Choose who will collaborate
+            dica_sem_aceite: 'No acceptance needed: the matter appears for them right away. It also works for those with restricted access (partner, prospector).'
+            pode_fazer: WHAT THEY CAN DO
+            sempre: View the matter, the documents and the goals (always)
+            movimentar: Open and update goals, updates and deadlines
+            enviar_docs: Upload documents
+            baixar_docs: Download documents
+            validade: VALIDITY
+            sem_prazo: No deadline
+            dias: '{n} days'
+            mensagem: MESSAGE (OPTIONAL)
+            mensagem_exemplo: 'E.g., follow the deadlines of this collection'
+            compartilhar: Share
+            quem_colabora_titulo: Who already collaborates on this matter
+            equipe_do_escritorio: '{nome} · firm team'
+            perm_ver: View the matter and the documents
+            perm_mov: open and update goals, updates and deadlines
+            perm_metas: view the goals
+            perm_enviar: upload documents
+            perm_baixar: download documents
+            quando: 'since {desde}'
+            quando_ate: 'since {desde} · until {ate}'
+            estado_colaborando: Collaborating
+            estado_aguardando: Awaiting acceptance
+            estado_expirada: Expired
+            estado_encerrada: Access ended
+            encerrar: End access
+            escolha_usuario: Choose the team user.
+            falha_conexao: Could not reach the server. Try again.
+            erro_carregar: Could not open the matter sharing.
+            menu_secao: SHARE
+            menu_recebida: RECEIVED FROM TEAM
+            menu_um_clique: 1 click
+            menu_recente_dica: 'Share now with {nome} (team): view, goals and documents'
+            menu_com_equipe: Share with the team…
+            menu_quem_colabora: Who collaborates
+            menu_deixar: Stop collaborating
+            menu_compartilhada: Matter {nup} shared with {nome}.
+            menu_deixou: You stopped collaborating on matter {nup}.
+            codigo_rotulo: CODE OF THE USER WHO WILL COLLABORATE
+            codigo_valido: Valid code. The recipient confirms when accepting.
+            codigo_invalido: Invalid code. Use the format BJ-XXXX-XXXX-XXXX.
+            outra_conta: another account
+            menu_recente_dica_conta: 'Share now with {nome} · {conta}: view, goals and documents'
+            menu_outra_conta: Reshare to another account…
+            menu_copiar_codigo: Copy my code
+            menu_codigo_copiado: Your code {codigo} was copied.
+            menu_republicada: Matter {nup} reshared to {nome}. Awaiting acceptance.
+        recebidas:
+            rotulo: Received matters
+            titulo: Matters received from other accounts
+            seu_codigo: 'Your code to receive matters:'
+            copiar: Copy code
+            copiado: Your code was copied. Send it to whoever will reshare matters to you.
+            vazio: No matters received yet. Send your code to whoever wants to reshare matters to you.
+            republicada_por: Reshared by
+            quando: 'Received on {em}'
+            quando_ate: 'Received on {em} · valid until {ate}'
+            estado_aguardando: Awaiting you
+            estado_colaborando: Collaborating
+            estado_expirada: Expired
+            recusar: Decline
+            aceitar: Accept and collaborate
+            deixar: Stop collaborating
+            aceita: Matter {nup} added to your matters, marked as Received.
+            erro_carregar: Could not open the received matters.
+            ver_pasta: View matter
+            janela_titulo: 'Received matter {nup}'
+            voce_pode: 'You can:'
+            metas_abertas: '{n} open goal(s) in this matter'
+            sem_metas: No open goals
+            abrir_metas: Open goals
+            pertence: The matter belongs to another account. You collaborate only on it, and the owner can end access at any time.
+            abrir_pasta: Open matter
+            erro_abrir: Could not open the received matter.
+            marca: 'Received · {conta}'
+            marca_dica: 'Reshared by {de} ({conta}). You collaborate on this matter with the permissions granted.'
+            dono: '{de} (owner)'
+            dono_dica: 'Matter from another account: the assignee is set by the owner'
+            reu_vazio: Not provided
+        trilho:
+            expandir_painel: Expand panel
+            recolher_painel: Collapse panel
+            recolher_submarcadores: Collapse subtags
+            ver_n_submarcadores: View {n} subtag(s)
+            todas_as_pastas: All matters
+            lista_atualizada: List updated · all visible matters
+            fechar: Close
+            novo_marcador: New tag
+            menu_titulo_marcador: '{nome} · {n} matter(s)'
+            menu_titulo_cabecalho: Tags · {n} tag(s)
+            menu_ver_pastas_do_marcador: View matters with the tag
+            menu_novo_submarcador: New subtag
+            menu_mover_para_cima: Move up
+            menu_mover_para_baixo: Move down
+            menu_editar: Edit
+            menu_duplicar: Duplicate
+            menu_excluir_marcador: Delete tag
+            menu_ver_todas_as_pastas: View all matters
+            reordenar_erro: Could not reorder
+            reordenar_ok: Tag order updated
+            reordenar_falha_conexao: Connection failure while reordering
+            arrastar_sub_mesmo_marcador: Subtags can only be reordered within the same tag
+            arrastar_principal: Drag above or below another main tag
+            modal_previa_nome: Tag name
+            modal_titulo_editar: Edit tag
+            modal_titulo_novo_sub: New subtag in {nome}
+            modal_nome_obrigatorio: Enter the tag name
+            modal_salvar_erro: Could not save
+            modal_atualizado: Tag updated
+            modal_criado: Tag "{nome}" created
+            modal_falha_conexao: Connection failure. Try again.
+            duplicar_copia: '{nome} (copy)'
+            duplicar_copia_n: '{nome} (copy {n})'
+            excluir_irreversivel: This action cannot be undone.
+            excluir_com_pastas: The {n} matter(s) with this tag remain in the system, but are left without this tag.
+            excluir_sem_pastas: No matter has this tag.
+            excluir_subs: The {n} subtag(s) ({nomes}) are also deleted, and the matters tagged with them no longer have them.
+            excluir_titulo: Delete the tag "{nome}"?
+            excluir_confirmar: Delete anyway
+            excluir_erro: Could not delete
+            excluir_ok: Tag deleted · {n} matter(s) were left without a tag
+            excluir_falha_conexao: Connection failure while deleting
+    trilho:
+        filtro:
+            resp10:
+                nome: Answered in the last 10 days
+                nota: Matters with a comment, goal, deadline or action recorded in the last 10 days (each matter counts once)
+            findou:
+                nome: Deadline ended in the last 10 days without a response
+                nota: A deadline (recorded in the matter, from Case Push or from a goal) expired in the last 10 days and there was no action in the matter after the date
+            aud:
+                nome: Hearing
+                nota: Matters with a scheduled hearing (today or future), recorded in the matter Upcoming deadlines or read from Case Push
+            prazo:
+                nome: Docket with deadline
+                nota: 'Matters with an open deadline from today onward: recorded in the matter, from Case Push or from a goal'
+            metas:
+                nome: Unanswered goals
+                nota: Matters with an open goal still without a response or completion
+            protocolar:
+                nome: To file
+                nota: 'Matters pending filing: the Filing stage was not marked in the progress and the matter is not set as Administrative with no case. A matter with a linked case and no progress marked counts as already filed'
+        todas_as_pastas: All matters
+        todas_dica: All matters · {total}
+        atualizar_dica: Refresh and go back to the start (all matters, no filters)
+        atualizar_rotulo: Refresh and go back to the start
+        expedientes: Dockets
+        cadeado_dica: 'System filters: cannot be edited or deleted'
+        filtros_do_sistema: System filters
+        em_breve: coming soon
+        em_breve_dica: '{nome} · coming soon'
+        marcadores: Tags
+        opcoes_dos_marcadores: Tag options
+        recolher_painel: Collapse panel
+        recolher_ou_expandir: Collapse or expand the panel
+        ver_n_submarcadores: View {n} subtag(s)
+        ver_submarcadores: View subtags
+        opcoes_do_marcador: Tag options
+    relatorio:
+        impressao:
+            imprimir: Print
+            incluir_na_folha: Include on the sheet
+            cabecalho_do_escritorio: Firm header
+            tamanho_do_texto: Text size
+            diminuir: Decrease
+            aumentar: Increase
+            nota_papel_inicio: A4 paper. To generate a PDF, choose
+            nota_papel_salvar_pdf: Save as PDF
+            nota_papel_fim: in the print window.
+            baixar_pdf: Download PDF
+            copiar_texto: Copy text
+        folha:
+            gestao_juridica: Legal management
+            impresso_em: Printed on {data}
+            impresso_por: by {nome}
+            rodape: Internal firm document · BlueJus
+        barra:
+            rotulo: General case report
+            voltar_ao_expediente: Back to Docket
+        resumo_para_despacho: Summary for the order
+        abertura: Status of the matters regarding the linked case on {data}. BlueJus checks, by rules, the records, documents, goals and checklist of each matter to indicate where the registration needs the attention of Docket control.
+        evolucao:
+            titulo: Progress
+            mes: Month
+            sem_processo: No case
+            deveriam_ter: Should have one
+            rever_cadastro: Review registration
+            sem_classificacao: Unclassified
+            hoje: Today
+            legenda: Green = improved since the last submission; red = got worse.
+        secao:
+            titulo_deveria: 'Should have a case: register'
+            titulo_rever: Marked as administrative, but worth reviewing
+            titulo_classificar: 'Unclassified: link a case or mark as administrative'
+            titulo_admin: Administrative with no case (consistent)
+            pasta: Matter
+            cliente_responsavel: Client / assignee
+            analise_e_sugestao: Analysis and suggestion
+            metas_sugeridas: Suggested goals (schedule)
+            confianca: Confidence
+            evidencias: 'Evidence:'
+            decisao_anterior: 'Previous decision: {decisao} by {por}'
+        com_processo_vinculado: With linked case ({n})
+        nota_final:
+            inicio: Classification made by rules with the data available in the system;
+            provavel: Probable
+            e: and
+            hipotese: Hypothesis
+            exigem_conferencia: require checking.
+            decisoes_consideradas: '{n} team decision(s) have already been considered to adjust the reading.'
+            cada_vez_inicio: Each time the team checks or unchecks
+            administrativo_sem_processo: Administrative with no case
+            cada_vez_fim: ', the reading is adjusted.'
+            nao_substitui_pje: Does not replace checking PJe.
+    paradas:
+        barra:
+            rotulo: Idle matters
+        abertura:
+            inicio: List of matters with no activity for more than 30 days on {data}. For each one, tell the assignee whether the matter should
+            receber_movimentacao: receive activity
+            ou_ser: or be
+            arquivada: archived
+        tabela:
+            pasta: Matter
+            cliente: Client
+            responsavel: Assignee
+            processo: Case
+            ultima_mov: Last activity
+            parada: Idle
+            sem_processo: no case
+            nenhuma: none
+            dias: '{n} days'
+        cartao:
+            pasta_cliente: Matter {numero} · {cliente}
+            responsavel: 'Assignee: {nome}'
+            pre_analise: Pre-analysis
+            sugestao: Suggestion
+            movimentar: Update
+            arquivar: Archive
+            responsavel_pela_decisao: 'Decision maker: ____________________'

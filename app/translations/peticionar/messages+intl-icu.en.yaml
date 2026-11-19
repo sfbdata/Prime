@@ -1,0 +1,11 @@
+peticionar:
+    titulo: File
+    cabecalho:
+        numero_pasta: 'Matter Number: {nup}'
+        cliente: 'Client: {cliente}'
+    processo:
+        dica: Target case of the petition
+        sem_processo: No case
+        principal: Main
+        erro_destino: Could not save the target case of this document.
+        nenhum: No linked case. Link one in the Case menu of the matter.

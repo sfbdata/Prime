@@ -1,0 +1,355 @@
+# ---- Matter: documents, goals and notes (pasta/_documentos_*, _metas, _dados_anotacoes)
+pasta_documentos:
+    fechar: Close
+    sugeridos:
+        titulo: Suggested documents
+        sub: Suggestions from the document catalog for the phase and action type · rule-based
+        sub_push: Suggestions from the document catalog for the phase and action type and from the orders read in Case Push · rule-based
+        processo_vinculado: 'Case {numero} · linked to the matter'
+        processo_nao_identificado: 'Case not identified: link a case to the matter'
+        atualizar_dica: Recalculates the suggestions with the current documents and checklist (reloads the tab)
+        atualizar: Refresh
+        fechar_sugestoes: Close suggestions
+        sem_catalogo: 'There is no document catalog for this matter: it has no action registered and no case with a case class. Register the action or link the case to see suggestions.'
+        contexto: Case context
+        confianca_media_dica: 'Only the text of the Push publications was read, by rules; the case PDF was not'
+        confianca_media: Medium confidence
+        confianca_baixa_dica: 'The case was not read: the phase comes from the case class and the list from the catalog'
+        confianca_baixa: Low confidence
+        resumo_acao: 'Action: {acao}'
+        resumo_sem_acao: Action not registered
+        resumo_fase: 'Phase: {fase} ({base}).'
+        prazos_dica: Deadline written in the text of the publication. It counts from the publication; check the final date in the case.
+        prazos: 'Deadlines running: {prazos}'
+        motivo_lido_uma: 'Read by rules the text of {total} Case Push publication; the case PDF was not read.'
+        motivo_lido_varias: 'Read by rules the text of {total} Case Push publications; the case PDF was not read.'
+        motivo_catalogo: 'Fixed catalog, with no reading of the decisions: nothing here is a court requirement.'
+        grupo:
+            juizo: Required by the court
+            juizo_sub: express order in a decision or court order
+            req: Mandatory
+            req_sub: legal requirement for the next act
+            rec: Recommended
+            rec_sub: 'usual practice for this phase, not a requirement'
+            opc: Optional
+            opc_sub: only if the situation calls for it
+            existe: Already on file
+            existe_sub_lido: found in the matter or in the case
+            existe_sub: found in the matter documents
+            na: Not applicable
+            na_sub_lido: depends on a case document that did not appear in the publications read
+            na_sub: 'depends on reading the case, which was not done'
+        origem_dica: Open the text of this publication in the Case Push tab
+        adicionar_um_dica: Add to checklist
+        adicionar_um: Checklist
+        conferido_no_checklist: checked in the checklist
+        ja_no_checklist: already in the checklist
+        duplicados_titulo: Possible duplicate files
+        duplicado_par: '{a}  ≈  {b} ({percentual}% similar; check whether it is the same document)'
+        duplicados_mais_um: 'and {total} more similar pair'
+        duplicados_mais_varios: 'and {total} more similar pairs'
+        organizacao: Suggested organization for this phase
+        por_regras: '· rule-based'
+        adicionar_faltantes: 'Add {total} missing item(s) to the checklist'
+        nota_lido: 'Required by the court comes from a rule on the text of the publications (order verbs): check the source. Mandatory comes from law; recommended and optional are phase practice.'
+        nota: 'Mandatory comes from law; recommended and optional are phase practice. Fixed document catalog: the case content is not read.'
+    explorador:
+        titulo: Documents
+        buscar_placeholder: Search files and folders…
+        buscar: Search files and folders
+        limpar_busca: Clear search
+        nova_pasta: New folder
+        anexar: Attach
+        organizar_dica: Arrange columns and filter by type
+        organizar: Arrange
+        um_filtro_ativo: 1 active filter
+        ordem_colunas: Column order
+        ordem_colunas_nota: You can also drag the column title sideways.
+        classificar_por: Sort by
+        manual: Manual
+        nome: Name
+        tipo: Type
+        tamanho: Size
+        modificado: Modified
+        categoria: Category
+        colunas: Columns
+        categoria_dica: 'Shows the legal category of the document (Power of Attorney, ID…) as the 5th column'
+        tipo_documento: Document type
+        filtro:
+            todos: All items
+            pastas: Folders
+            pdf: PDF
+            word: Word
+            excel: Excel
+            img: Images
+            zip: Compressed
+            outros: Others
+        restaurar_padrao: Restore default
+        lixeira: Trash
+        visualizar: View
+        modo_exibicao: View mode
+        modo:
+            xg: Extra large icons
+            g: Large icons
+            m: Medium icons
+            p: Small icons
+            lista: List
+            det: Details
+            blocos: Tiles
+            cont: Content
+        painel_detalhes: Details panel
+        progresso_upload: Upload progress
+        duplicado_aviso: An identical file already exists in the firm.
+        mostrando_somente: Showing only
+        mostrar_todos: Show all
+        remover_filtro: Remove filter
+        acoes_selecao: Selection actions
+        limpar_selecao_dica: Clear selection (Esc)
+        limpar_selecao: Clear selection
+        selecao:
+            baixar_dica: Download the file
+            baixar: Download
+            copiar_dica: Copy (Ctrl+C)
+            copiar: Copy
+            recortar_dica: Cut (Ctrl+X)
+            recortar: Cut
+            renomear_dica: Rename (F2)
+            renomear: Rename
+            selecionar_tudo_dica: Select all (Ctrl+A)
+            selecionar_tudo: Select all
+            excluir_dica: Delete (Del)
+            excluir: Delete
+        subir_dica: Back to the previous folder (Backspace)
+        subir: Back to the previous folder
+        selecionar_visiveis: Select all visible items
+        selecionar_todos: Select all
+        classificar:
+            nome: Sort by name
+            tipo: Sort by type
+            tamanho: Sort by size
+            data: Sort by modified date
+        limpeza:
+            regiao: Rule-based cleanup suggestions
+            dica: 'Fixed rules: identical content copy, empty file, case copy with more than 100 pages or 50 MB, and file over 100 MB. This is not artificial intelligence.'
+            titulo: Cleanup suggestions (rule-based)
+            revisar: Review
+            agora_nao: Not now
+            dispensar: Dismiss suggestion
+            nota: Nothing is deleted without your confirmation. Deletion can be undone.
+        lista: Files and folders
+        painel: Selected item details
+        painel_vazio: Select a folder or file to see its details.
+        acoes: Actions
+        desfazer: Undo
+        visor:
+            rotulo: Preview file
+            anterior_dica: Previous file (←)
+            anterior: Previous file
+            proximo_dica: Next file (→)
+            proximo: Next file
+            menos_dica: Zoom out (−)
+            menos: Zoom out
+            mais_dica: Zoom in (+)
+            mais: Zoom in
+            zoom_dica: 'Back to 100%'
+            zoom: 'Current zoom; click to go back to 100%'
+            imprimir: Print
+            nova_aba: Open in new tab
+            fechar_dica: Close (Esc)
+        sem_arquivos: No files in this folder.
+    checklist:
+        titulo: Documentation checklist
+        selo: '{concluidos}/{total} items'
+        barra: Completed checklist items
+        sugerir_dica: Compares the document catalog for the phase and action type with what the matter already has
+        sugerir: Suggest documents
+        modelos_dica: Checklist templates
+        editar_dica: 'Edit checklist (remove, rename and reorder items)'
+        adicionar_item: Add item
+        desativar_dica: Turn off the checklist for this matter
+        reativar_dica: Turn the checklist back on
+        ativo: Active
+        desativado: Off
+        desativar_texto: 'The checklist is what ensures the matter has the documents to support the case. With it off, reminders for pending items, the audit of items marked without an attachment and the Documents tab alert are paused.'
+        pendentes_um: 'Today there is {total} pending document in this matter.'
+        pendentes_varios: 'Today there are {total} pending documents in this matter.'
+        desativar_preferir: Prefer updating the items instead of turning it off.
+        motivo: Reason for turning it off
+        atualizar: Update the checklist
+        manter_ativo: Keep active
+        desativar: Turn off
+        modelos_titulo: Firm templates
+        carregando: Loading…
+        modelos_vazio: No templates saved yet. Build the checklist of this matter and save it below to reuse it in the next ones.
+        salvar_modelo_rotulo: Save the checklist of this matter as a template
+        nome_modelo: Template name...
+        salvar_modelo: Save as template
+        novo_placeholder: 'Document name, e.g.: Marriage certificate'
+        novo_rotulo: New checklist item
+        adicionar: Add
+        arrastar: Drag to reorder
+        marcar_pendente: Mark as pending
+        marcar_concluido: Mark as done
+        sem_anexo_dica: 'Marked as delivered, but no file in the matter has a name matching this item (rule-based check: file name × item title).'
+        sem_anexo: no attachment
+        renomear_rotulo: Rename checklist item
+        remover_item: Remove item
+        vazio_antes: No items. Click
+        vazio_depois: to add one.
+        desativado_titulo: Checklist turned off
+        usuario_removido: removed user
+        desativado_em: 'on {data}'
+        desativado_nota: 'Reminders, audit and tab alert paused. The system reminds you to review every 30 days.'
+        reativar: Turn back on
+    metas:
+        status:
+            pendente: Pending
+            em_revisao: For Review
+            concluida: Completed
+            atrasada: Overdue
+        titulo: Matter goals
+        filtrar: Filter goals
+        filtro:
+            abertas: Open
+            atrasadas: Overdue
+            concluidas: Completed
+            todas: All
+        nova_dica: New goal for this matter
+        nova: New goal
+        abrir_relatorio_dica: Open the goal report
+        meta_concluida: Goal completed
+        numero_dica: 'Goal {numero} of this matter'
+        autor: Author
+        nao_informado: Not provided
+        responsaveis: Assignees
+        responsavel: Assignee
+        prazo_concluida_em: 'Deadline: {prazo} · completed on {data}'
+        prazo_dica: 'Deadline: {prazo}'
+        atraso_um: '{total} day overdue'
+        atraso_varios: '{total} days overdue'
+        vence_hoje: due today
+        vence: 'due {data}'
+        prazo: Deadline
+        criada_em: Created on
+        ultima_alteracao: last change
+        modificada: 'mod. {data}'
+        alertar: Alert to check
+        alertar_meta: 'Alert to check goal {numero}'
+        alertar_responsavel: '{nome} · assignee'
+        mais_acoes: More goal actions
+        acoes_meta: 'Actions for goal {numero}'
+        abrir_relatorio: Open report
+        reabrir: Reopen goal
+        concluir: Mark as completed
+        editar_nome: Edit name
+        duplicar: Duplicate
+        encaminhar: Forward via AI Chat
+        link_copiado: Goal link copied
+        copiar_link: Copy link
+        abrir_em_metas: Open in Goals
+        excluir_confirmar: 'Delete this goal? This action cannot be undone.'
+        excluir: Delete
+        nome: Goal name
+        despacho:
+            titulo: Delete goal with a recorded order
+            aviso: This goal has a recorded order and cannot be deleted.
+            ciente: I understand the official record will be erased
+            cancelar: Cancel
+            excluir: Delete goal
+        salvar: Save
+        cancelar: Cancel
+        filtro_vazio: No goals in this filter
+        filtro_vazio_nota: Change the filter above or create a new goal.
+        vazio: No goals created for this matter
+        vazio_nota: Create the first one with the button above.
+        andamento: Goal progress
+        concluidas: completed
+        legenda:
+            concluida_um: '{total} completed'
+            concluida_varios: '{total} completed'
+            pendente_um: '{total} pending'
+            pendente_varios: '{total} pending'
+            atrasada_um: '{total} overdue'
+            atrasada_varios: '{total} overdue'
+        atencao: Needs attention
+        atencao_um: 'deadline {prazo} · {total} day overdue'
+        atencao_varios: 'deadline {prazo} · {total} days overdue'
+        atencao_vazio: No overdue goals in this matter.
+        atencao_nota: Overdue goals keep counting days until they are completed.
+        pessoas: Assignees on goals
+        conversar: 'Chat with {nome}'
+        pessoas_vazio: No goals with an assignee.
+        relatorio: Goal report
+        anterior: Previous goal
+        proxima: Next goal
+        historico: History
+        outras: Other goals in this matter
+    anotacoes:
+        linha_do_tempo: Matter timeline
+        marcadores: System markers
+        marcadores_ligar: Show the automatic system markers
+        marcadores_desligar: Hide the automatic markers (contract, pro bono, progress…). Only the dot stays on the line.
+        marcador_ponto_dica: '{titulo} · click to view'
+        marcador_grupo_dica: '{total} system actions ({titulos}) · click to view'
+        marcador_titulo:
+            fase: Matter progress
+            proc: Case
+            resp: Responsible
+            situacao: Matter status
+            contrato: Contract
+            probono: Pro bono
+            pasta: Matter details
+            cadastro: Client record
+        mes:
+            jan: jan
+            fev: feb
+            mar: mar
+            abr: apr
+            mai: may
+            jun: jun
+            jul: jul
+            ago: aug
+            set: sep
+            out: oct
+            nov: nov
+            dez: dec
+        titulo: Docket log
+        contagem_dica: Main entries (replies do not count)
+        somente_leitura: 'Matter deleted: the log is read-only.'
+        placeholder: Add…
+        visivel_equipe: Visible to the team
+        enviar_dica: Send (Ctrl+Enter)
+        enviar: Send
+        vazio: No entries yet
+        vazio_nota: 'Record above what was agreed, called about or done in the case.'
+        ver_anteriores: 'View earlier notes ({total})'
+        responder: Reply
+        copiar_texto: Copy text
+        encaminhar: Forward via AI Chat
+        editar: Edit
+        excluir_comentario: Delete comment
+        resposta_a: 'Reply to {nome}'
+        resposta_excluida: Reply to a deleted message
+        autor_desconhecido: Unknown author
+        editado_dica: 'Posted at {hora} · last edited {data} at {hora_edicao}'
+        editado: edited
+        editavel_um: 'Editable for {total} more minute'
+        editavel_varios: 'Editable for {total} more minutes'
+        editar_registro: Edit entry
+        excluir_registro: Delete entry
+        mais_acoes: More entry actions
+    js:
+        visor_pasta: 'Matter {pasta}'
+        visor_preparando: Preparing to print…
+        visor_sem_impressao: This file type has no content to print from here. Download the file to print it.
+        visor_abra_conteudo: Open the file content to print
+        visor_falha_impressao: Could not print in this browser. Download the file to print it.
+        visor_posicao: '{n} of {total}'
+        visor_imprimir: Print
+        visor_imprimir_indisponivel: 'Print (unavailable): {motivo}'
+        visor_sem_previa: Could not open the preview of this file.
+        visor_baixar_arquivo: Download file
+        visor_tarja: 'BlueJus · Matter {pasta} · {nome} · printed on {quando}'
+        visor_impressao_de: 'Printout of {nome}'
+        visor_falha_imagem: Could not load the image to print.
+        sugeridos_erro_adicionar: 'Could not add "{titulo}" to the checklist.'

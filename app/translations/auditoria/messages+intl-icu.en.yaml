@@ -1,0 +1,43 @@
+auditoria:
+    titulo: Audit Trail
+    filtros: Filters
+    entidade: Entity
+    todas: All
+    usuario: User
+    todos: All
+    data_inicial: Start date
+    data_final: End date
+    filtrar: Filter
+    limpar: Clear
+    resultados_pagina: '{n} result(s) on this page'
+    resultados_total: '({total} total)'
+    col_data_hora: Date/Time
+    col_acao: Action
+    col_resumo: Summary
+    col_alteracoes: Changes
+    id_usuario: 'ID {id}'
+    campos_alterados: '{n} field(s) changed'
+    campos_inicializados: '{n} field(s) initialized'
+    campos_removidos: '{n} field(s) removed'
+    pasta_trancada: Matter locked by the primary user
+    sem_diff: No detailed diff
+    ver_detalhes: View details
+    ver_detalhes_log: View log details
+    confirmar_desfazer: Undo this change? The entity will return to its previous state.
+    desfazer: Undo this change
+    rota: 'Route:'
+    ip: 'IP:'
+    # Entity references (label or Class #id) stay in the template, around these pieces.
+    evento:
+        removido_de: 'was removed from {campo} of'
+        associado_em: 'was associated in {campo} with'
+        alterada_entre: Association changed between
+        e: and
+        associacao: association
+    sem_alteracoes: No detailed changes.
+    nenhum_registro: No records found for the given filters.
+    paginacao: Audit trail pagination
+    anterior: Previous
+    proxima: Next
+    js:
+        selecione: Select...

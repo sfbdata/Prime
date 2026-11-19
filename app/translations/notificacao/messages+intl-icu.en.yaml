@@ -1,0 +1,25 @@
+# ---- Standalone screens: Notifications, What's New, Access Requests and Audit Trail
+notificacao:
+    titulo: Notifications
+    inicio: Home
+    central: Notification Center
+    subtitulo: Follow requests, deadlines and firm updates
+    aba_minhas: Mine
+    aba_gestao: Management
+    selecionar: Select notification
+    tarefa_numero: 'Task #{id}'
+    ver_detalhes: View details
+    nova: New
+    marcar_lida: Mark as read
+    lida: Read
+    paginacao: Notification pagination
+    anterior: Previous
+    proxima: Next
+    selecionar_todos: Select all
+    marcar_todas_lidas: Mark all as read
+    vazio_titulo: All caught up here
+    vazio_texto: You have no notifications in this tab.
+    js:
+        lida: Read
+        confirmar_exclusao: 'Delete {n} notification(s)? This action cannot be undone.'
+        erro_excluir: Error deleting notifications.

@@ -1,0 +1,8 @@
+# ---- Matter, Details tab: "Upcoming deadlines" in the rail (pasta/_dados_trilho)
+pasta_dados:
+    prazos:
+        origem_push: Case Push
+        selo_push: calculated deadline, please check
+        selo_push_dica: 'Counted from the DJEN publication, in business days by the calendar of the firm state. Does not account for municipal or district holidays, court suspension of business, double deadlines or notices served outside the DJEN.'
+        selo_push_dobro: 'calculated deadline, please check; may be a double deadline'
+        selo_push_dobro_dica: 'The party appears to be the Public Treasury, Public Prosecutor or Public Defender. The deadline was counted as a single period: check whether the double period applies (CPC, arts. 180, 183 and 186). It also does not account for municipal or district holidays or court suspension of business.'

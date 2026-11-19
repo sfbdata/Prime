@@ -1,0 +1,239 @@
+# ---- Matter: header and Details tab rail (pasta/_cabecalho, _dados_trilho, _dados_trilho_topo)
+pasta_cabecalho:
+    cabecalho:
+        voltar: Back
+        voltar_dica: Back to the matter list
+        pasta: MATTER
+        prioridade:
+            alterar: Change priority
+            dica: Priority
+            normal: Normal
+            prioridade: Priority
+            urgente: Urgent
+        marcadores_editar: Edit matter tags
+        marcadores: Matter tags
+        navegar: Navigate between matters in the collection
+        posicao: '{posicao} of {total}'
+        restaurar: Restore
+        restaurar_dica: Restore deleted matter
+        historico: History
+        historico_sistema: System history
+        menu:
+            mais_acoes: More actions
+            tarja: 'Matter {nup}'
+            editar: Edit details
+            editar_dica: Edit details (E)
+            historico_dica: History (H)
+            timeline: Smart timeline
+            timeline_dica: Smart timeline (T)
+            duplicar: Duplicate matter
+            duplicar_confirmar: 'Duplicate matter {nup}? The copy carries the client, action, responsible party and checklist; documents, goals and financial data are not copied.'
+            vincular_processo: Link case
+            trocar_responsavel: Change responsible
+            mover_carteira: Move to another portfolio
+            carteira_titulo: 'Move matter {nup} to'
+            carteira_atual: '{carteira} · current'
+            compartilhar: Share
+            copiar_link: Copy matter link
+            link_push: External Push link
+            imprimir: Print summary
+            preferencias: Preferences
+            acompanhar: Follow changes
+            favoritos: Pin to favorites
+            arquivar: Archive matter
+            desarquivar: Unarchive matter
+            excluir: Delete matter
+            excluir_pergunta: 'Delete matter {nup}?'
+            excluir_pergunta_cliente: 'Delete matter {nup} ({cliente})?'
+            excluir_aviso: 'The matter leaves the lists and goes to the firm trash. Number {nup} becomes free for another matter. It can be restored from the Docket Trash.'
+            excluir_digite: 'To confirm, type {nup} (the matter NUP, not the URL number)'
+            excluir_nao_confere: 'Number does not match. Type {nup} (the matter NUP, not the URL number). The matter was not deleted.'
+            excluir_cancelar: Cancel
+        excluida:
+            titulo: Matter deleted
+            quando: 'on {data} at {hora}.'
+            quando_por: 'on {data} at {hora} by {nome}.'
+            motivo: 'Matter {nup} is in the trash: read-only until restored.'
+        cliente_nao_informado: Client not provided
+        movimentacao:
+            dica: 'Latest update: {quando}'
+            hoje: 'Updated today, {hora}'
+            em: 'Updated on {data}'
+        nao_vinculado: not linked to the client records
+        dica_cliente: 'Details: right-click'
+        foto:
+            rotulo: Client photo
+            carregar: Upload photo
+            carregar_nova: Upload new photo
+            ajustar: Adjust photo
+            remover: Remove photo
+            editor_aria: Adjust photo
+            editor_titulo: Adjust client photo
+            fechar: Close
+            arrastar: Drag to position
+            dica: 'Drag to position · scroll to zoom in'
+            zoom: Zoom
+            girar: Rotate
+            girar_dica: 'Rotate 90°'
+            trocar: Change image
+            cancelar: Cancel
+            salvar: Save photo
+        ia_dica: 'BlueJus AI · read documents, summarize and generate reports'
+        ia_aria: Open BlueJus AI
+        ia_marca: BlueJus
+        selo:
+            arquivado: ARCHIVED
+            suspenso: SUSPENDED
+            cancelado: CANCELED
+            ativo: ACTIVE
+            aria_arquivado: Archived matter
+            aria_suspenso: Suspended matter
+            aria_cancelado: Canceled matter
+            aria_ativo: Active matter
+        cadeado: Matter lock
+        abas:
+            dados: Matter details
+            tarefas: Goals
+            processo: Case
+            financeiro: Financial
+            detalhes: Templates
+            documentos: Documents
+            push: Case Push
+        cadastro:
+            rotulo: Record
+            completo: Record complete · open client profile
+            incompleto_um: 'Record incomplete: {n} pending item · click to complete'
+            incompleto_varios: 'Record incomplete: {n} pending items · click to complete'
+            sem_cliente: No client on file · click to add
+        situacao:
+            titulo: Matter status
+            dica: 'Matter status: {situacao}'
+            ativo: Active
+            suspenso: Suspended
+            cancelado: Canceled
+            arquivado: Archived
+            desc_ativo: Matter in progress
+            desc_suspenso: Temporarily paused
+            desc_cancelado: Closed without completion
+            desc_arquivado: Leaves the work lists
+    topo:
+        acao: Action
+        extraido_dica: Extracted from the linked case
+        nao_informada: Not provided
+        vincule: Link a case to set it
+        processo_vinculado: Linked case
+        abrir_processo: Open case
+        copiar: Copy
+        ir_aba_processo: Go to the Case tab
+        trocar: change
+        apensados_ver: View related cases
+        apensados_recolher: Collapse related cases
+        apensado_um: '{n} related'
+        apensado_varios: '{n} related'
+        apensado_tipo: 'Related · {tipo}'
+        abrir_apensado: Open related case
+        nenhum_processo: No cases.
+        vincular: link
+        cobranca: Collections
+        abrir_cobrada: Open the billed unit
+    trilho:
+        prazos:
+            titulo: Upcoming deadlines
+            adicionar: Add deadline or hearing
+            abrir_metas: Open open goals
+            vazio: No deadlines or hearings. Use + to add one or wait for Case Push to read them.
+            mais_opcoes: More options
+            mais_opcoes_rotulo: More deadline options
+            cumprir: Mark as met
+            editar: Edit
+            excluir: Delete
+            ver_metas: View in goals
+            encaminhar: Forward via AI Chat
+            alertar: 'Alert {nome}'
+            alertar_dica: 'Alert {nome} to check the goal'
+            ics: Add to calendar (.ics)
+            copiar: Copy
+            copiar_texto: '{titulo} · {selo} · {meta} · Matter {nup}'
+            copiado: Deadline copied
+        janela:
+            novo: New deadline or hearing
+            fechar: Close
+            tipo: Type
+            prazo: Deadline
+            audiencia: Hearing
+            descricao: DESCRIPTION
+            descricao_exemplo: 'E.g.: File the answer'
+            data: DATE
+            hora: TIME
+            opcional: (optional)
+            responsavel: ASSIGNEE
+            responsavel_exemplo: Assignee name
+            nota: Deadlines from Case Push and from Goals appear in this list automatically.
+            cancelar: Cancel
+            salvar: Save
+        clientes:
+            titulo: Clients
+            vincular: Link client
+            busca: Client name or CPF
+            busca_rotulo: Search client by name or CPF
+            encontrados: Clients found
+            nao_cadastrado: Client not registered yet.
+            cadastrar: Register client
+            nao_vinculado: not linked
+            nenhum: No client linked
+            nenhum_nota: Link the client to calculate the average by CPF.
+        documentos:
+            titulo: Documents
+            abrir_todos: Open all documents
+            nenhum: No documents
+            nenhum_nota: Upload files in the Documents tab.
+    js:
+        cabecalho:
+            restaurar_pergunta: 'Restore matter {nup}?'
+            restaurar_numero_ocupado: 'Number {nup} already belongs to another matter. It comes back with the next free number.'
+            restaurar: Restore
+            favoritos_erro: Could not change the favorites.
+            acompanhar_erro: Could not change following.
+            acompanhar_ligado: 'You will receive changes to matter {nup} in AI Chat'
+            acompanhar_desligado: 'You stopped following matter {nup}'
+            erro_comunicacao: Communication error. Please try again.
+            carteira_movida: 'Matter {nup} moved to portfolio {carteira}'
+            carteira_erro: Could not move the matter to another portfolio.
+        prazos:
+            titulo_novo: New deadline or hearing
+            titulo_editar: Edit deadline
+            informe: Enter the description and the date
+            erro_salvar: Could not save
+            registrado: Deadline recorded
+            falha_conexao: Connection failure. Please try again.
+            erro_alterar: Could not change the deadline
+        clientes:
+            copiar_erro: Could not copy
+            sem_data: Deadline without date
+            ics_resumo: '{titulo} (Matter {pasta})'
+            ics_responsavel: 'Assignee: {nome}'
+            detalhes_erro: Could not open the client details
+            telefone: Phone with area code
+            email: Email
+            salvar: Save
+            remover: Remove
+            cancelar: Cancel
+            sessao_expirada: Your session expired; reload the page
+            email_obrigatorio: Email is required in the record
+            contato_erro: Could not save the contact
+            contato_removido: Contact removed
+            contato_salvo: Contact saved
+        busca:
+            selo_completo: Complete
+            selo_incompleto: Incomplete
+            selo_ja_vinculado: Already linked
+            documento: Document
+            erro_busca: Could not search now. Please try again.
+            erro_vincular: Could not link the client.
+        foto:
+            carregar: Upload photo
+            carregar_nova: Upload new photo
+            salva: Client photo saved
+            removida: Photo removed
+            erro: Could not save the photo. Please try again.
+            erro_remover: Could not remove the photo. Please try again.

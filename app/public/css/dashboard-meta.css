@@ -110,15 +110,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 28px;
-    padding: 0 10px 0 8px;
+    height: 32px;
+    padding: 0 14px 0 12px;
     white-space: nowrap;
     flex-shrink: 0;
     max-width: 100%;
     border: 0;
     border-radius: 4px;
     background: rgba(12, 122, 156, .07);
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--db-azul);
     cursor: pointer;
