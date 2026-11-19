@@ -7,6 +7,7 @@ namespace App\Tests\Contribua\Functional;
 use App\Contribua\Controller\CampanhaController;
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\Campanha;
+use App\Contribua\UseCase\CancelarInscricaoDaCampanhaUseCase;
 use App\Contribua\UseCase\ConfigurarCampanhaUseCase;
 use App\Contribua\UseCase\InscreverNaCampanhaUseCase;
 use App\Contribua\UseCase\MontarJanelaDaCampanhaUseCase;
@@ -32,6 +33,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(InscreverNaCampanhaUseCase::class)]
 #[CoversClass(PedirDevolucaoDaCampanhaUseCase::class)]
 #[CoversClass(ConfigurarCampanhaUseCase::class)]
+#[CoversClass(CancelarInscricaoDaCampanhaUseCase::class)]
 #[CoversClass(MontarJanelaDaCampanhaUseCase::class)]
 #[CoversClass(MontarPainelDaCampanhaUseCase::class)]
 final class CampanhaControllerTest extends JusPrimeWebTestCase
@@ -80,7 +82,7 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertIsArray($linha);
         self::assertSame('aguardando_pagamento', $linha['situacao']);
         self::assertSame('BJB' . $linha['id'], $linha['txid']);
-        self::assertSame('12345/DF', $linha['oab']);
+        self::assertSame('12345DF', $linha['oab']);
         self::assertSame('25', $linha['cpf_final']);
         self::assertSame(64, \strlen((string) $linha['cpf_hash']));
         self::assertStringNotContainsString(self::CPF_A, implode('|', array_map('strval', $linha)));
@@ -132,6 +134,70 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
 
         $this->logar($this->beto, $this->outro);
         $this->recusa('/contribua/campanha/inscrever', ['nome' => 'Beto', 'cpf' => self::CPF_B, 'oab' => '2/DF', 'aceite' => '1'], 'Vagas esgotadas.');
+    }
+
+    #[TestDox('OAB: barra, hífen, ponto e caixa não separam pessoas (12345/DF, 12345-df e 12345.DF são a mesma)')]
+    public function testOabNormalizadaNaUnicidade(): void
+    {
+        $this->inscreverComo($this->ana, $this->escritorio, self::CPF_A, '12345/DF');
+        self::assertSame('12345DF', $this->db->fetchOne('SELECT oab FROM contribua_campanha_participacao WHERE campanha_id = ?', [$this->campanha->getId()]));
+
+        $this->logar($this->beto, $this->outro);
+        foreach (['12345-df', '12345.DF'] as $oab) {
+            $this->recusa('/contribua/campanha/inscrever', ['nome' => 'Beto', 'cpf' => self::CPF_B, 'oab' => $oab, 'aceite' => '1'], 'Este CPF ou esta inscrição na OAB já está no Desafio.');
+        }
+        self::assertSame(1, $this->contarParticipacoes());
+    }
+
+    #[TestDox('Esgotada: quem já está no Desafio ouve "Você já está", não "Vagas esgotadas"')]
+    public function testJaEstaAntesDeEsgotada(): void
+    {
+        $v = $this->campanha->valores();
+        $this->campanha->aplicar($v['nome'], $v['chamada'], 100, 2, 30, 7, $this->campanha->getInicio(), $this->campanha->getFim(), 1, false, true, $this->campanha->getBeneficios(), true, null, new \DateTimeImmutable());
+        $this->em->flush();
+        $this->inscreverComo($this->ana, $this->escritorio, self::CPF_A, '1/DF');
+
+        $this->recusa('/contribua/campanha/inscrever', ['nome' => 'Ana', 'cpf' => self::CPF_B, 'oab' => '2/DF', 'aceite' => '1'], 'Você já está no Desafio.');
+    }
+
+    #[TestDox('Rotas do Master: usuário comum recebe 403 em configurar, padrao, confirmar, devolvida e cancelar')]
+    public function testUsuarioComumNaoAdministra(): void
+    {
+        $id = $this->inscreverComo($this->ana, $this->escritorio, self::CPF_A, '1/DF');
+
+        foreach (['/configurar', '/padrao', "/participacoes/{$id}/confirmar", "/devolucoes/{$id}/devolvida", "/participacoes/{$id}/cancelar"] as $rota) {
+            $this->client->request('POST', '/contribua/campanha' . $rota, ['_token' => self::TOKEN]);
+            self::assertResponseStatusCodeSame(403, $rota);
+        }
+        self::assertSame('aguardando_pagamento', $this->situacao($id));
+    }
+
+    #[TestDox('Cancelar: o Master remove a inscrição aguardando Pix e a pessoa (CPF, OAB e vaga) pode se inscrever de novo')]
+    public function testCancelarLiberaAPessoa(): void
+    {
+        $id = $this->inscreverComo($this->ana, $this->escritorio, self::CPF_A, '1/DF');
+
+        $this->logar($this->master, $this->escritorio);
+        $r = $this->post("/contribua/campanha/participacoes/{$id}/cancelar", []);
+
+        self::assertSame(['ok' => true, 'mensagem' => 'Inscrição cancelada.'], $r);
+        self::assertSame(0, $this->contarParticipacoes());
+        $this->post('/contribua/campanha/participacoes/99999999/cancelar', []);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->logar($this->ana, $this->escritorio);
+        $this->inscrever(self::CPF_A, '1/DF');
+        self::assertSame(1, $this->contarParticipacoes());
+    }
+
+    #[TestDox('Cancelar: inscrição já ativa é recusada com 422 e continua ativa')]
+    public function testCancelarRecusaInscricaoAtiva(): void
+    {
+        $id = $this->inscreverComo($this->ana, $this->escritorio, self::CPF_A, '1/DF');
+        $this->confirmar($id);
+
+        $this->recusa("/contribua/campanha/participacoes/{$id}/cancelar", [], 'Só dá para cancelar inscrição que ainda aguarda o Pix.');
+        self::assertSame('ativa', $this->situacao($id));
     }
 
     #[TestDox('Confirmar pagamento: só o Master; passa a ativa com pago_em; duas vezes é 422; inexistente é 404')]
@@ -357,6 +423,9 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/contribua');
 
         self::assertResponseIsSuccessful();
+        self::assertSelectorExists('link[href*="contribua-campanha.css"]');
+        self::assertSelectorExists('script[src*="contribua-campanha.js"]');
+        self::assertSelectorExists('[data-url-cancelar]');
     }
 
     private function configurarDatas(int $inicioEmDias, int $fimEmDias): void

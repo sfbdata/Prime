@@ -1,13 +1,14 @@
 {#
     Painel do Master do modo campanha (#campanha). Recebe `painel` (PainelDaCampanhaView).
     Desenho: seção id="campanha" do 08 - Contribua. Cada campo grava ao mudar (contribua-campanha.js).
-    As urls de confirmar e devolvida vêm com o id 0; o JS troca o "/0/" pelo id da linha.
+    As urls de confirmar, cancelar e devolvida vêm com o id 0; o JS troca o "/0/" pelo id da linha.
 #}
 <section id="campanha" class="cp-painel" data-screen-label="Modo campanha" data-cp-painel
          data-csrf="{{ csrf_token('contribua') }}"
          data-url-configurar="{{ painel.urls.configurar }}"
          data-url-padrao="{{ painel.urls.padrao }}"
          data-url-confirmar="{{ painel.urls.confirmar }}"
+         data-url-cancelar="{{ painel.urls.cancelar }}"
          data-url-devolvida="{{ painel.urls.devolvida }}">
     <div class="cp-painel-topo">
         <span class="cp-painel-selo">MASTER</span>
@@ -55,6 +56,7 @@
                         <div class="cp-ped-texto"><b>{{ a.nome }}</b> · OAB {{ a.oab }}<div>{{ a.valor }} · CPF final {{ a.cpfFinal }} · Pix {{ a.txid }} · inscrito em {{ a.em }}</div></div>
                         <span class="cp-ped-selo" style="background: #9a5b00">Aguardando Pix</span>
                         <button type="button" class="cp-ped-botao" data-cp-confirmar="{{ a.id }}">Confirmar pagamento</button>
+                        <button type="button" class="cp-ped-botao" style="border-color: #a3232b; color: #a3232b" data-cp-cancelar="{{ a.id }}">Cancelar</button>
                     </div>
                 {% endfor %}
             {% endif %}

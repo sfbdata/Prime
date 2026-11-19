@@ -11,7 +11,7 @@ final readonly class PainelDaCampanhaView
      * @param list<string>                         $regras
      * @param list<LinhaDeDevolucaoDaCampanhaView> $devolucoes
      * @param list<LinhaAguardandoDaCampanhaView>  $aguardando
-     * @param array<string, string>                $urls       configurar, padrao, confirmar e devolvida (com id 0)
+     * @param array<string, string>                $urls       configurar, padrao, confirmar, cancelar e devolvida (com id 0)
      */
     public function __construct(
         public string $nome,

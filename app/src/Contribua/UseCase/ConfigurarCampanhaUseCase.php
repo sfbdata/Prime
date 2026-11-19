@@ -10,6 +10,7 @@ use App\Contribua\Enum\EstadoDaCampanha;
 use App\Contribua\Repository\CampanhaAlteracaoRepository;
 use App\Contribua\Service\CampanhaVigente;
 use App\Entity\Auth\User;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -25,6 +26,7 @@ final class ConfigurarCampanhaUseCase
         private readonly CampanhaVigente $vigente,
         private readonly CampanhaAlteracaoRepository $alteracoes,
         private readonly EntityManagerInterface $em,
+        private readonly Connection $conexao,
     ) {
     }
 
@@ -39,15 +41,42 @@ final class ConfigurarCampanhaUseCase
         if ($campanha === null) {
             throw new \DomainException('Não há campanha configurada.');
         }
-        $atual = $campanha->valores();
-        $novo = $this->aplicarCampos($atual, $campos);
 
+        return $this->sobTrava($campanha, function () use ($campanha, $master, $campos): string {
+            $atual = $campanha->valores();
+            $novo = $this->aplicarCampos($atual, $campos);
+            $this->exigirSemReducaoNoAr($campanha, $atual, $novo);
+            $this->gravar($campanha, $master, $novo);
+
+            return 'Campanha atualizada.';
+        });
+    }
+
+    /**
+     * Mesma trava da inscrição: a configuração é lida e gravada sem uma inscrição congelar valores no meio. Dentro da
+     * trava, a campanha é recarregada do banco (a memória da requisição pode estar velha).
+     *
+     * @param callable(): string $acao
+     */
+    private function sobTrava(Campanha $campanha, callable $acao): string
+    {
+        return $this->em->wrapInTransaction(function () use ($campanha, $acao): string {
+            $this->conexao->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [InscreverNaCampanhaUseCase::CHAVE_DA_TRAVA, $campanha->getId()]);
+            $this->em->refresh($campanha);
+
+            return $acao();
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $atual
+     * @param array<string, mixed> $novo
+     */
+    private function exigirSemReducaoNoAr(Campanha $campanha, array $atual, array $novo): void
+    {
         if ($this->vigente->estado($campanha) === EstadoDaCampanha::Ativa && $this->reduzAPromessa($atual, $novo)) {
             throw new \DomainException('Com a campanha no ar, não dá para reduzir os benefícios. Mudanças valem só para novas inscrições.');
         }
-        $this->gravar($campanha, $master, $novo);
-
-        return 'Campanha atualizada.';
     }
 
     /**
@@ -149,16 +178,16 @@ final class ConfigurarCampanhaUseCase
         if ($campanha === null) {
             throw new \DomainException('Não há campanha configurada.');
         }
-        $atual = $campanha->valores();
-        $novo = Campanha::padrao()->valores();
-        $novo['ligada'] = $atual['ligada'];
 
-        if ($this->vigente->estado($campanha) === EstadoDaCampanha::Ativa && $this->reduzAPromessa($atual, $novo)) {
-            throw new \DomainException('Com a campanha no ar, não dá para reduzir os benefícios. Mudanças valem só para novas inscrições.');
-        }
-        $this->gravar($campanha, $master, $novo);
+        return $this->sobTrava($campanha, function () use ($campanha, $master): string {
+            $atual = $campanha->valores();
+            $novo = Campanha::padrao()->valores();
+            $novo['ligada'] = $atual['ligada'];
+            $this->exigirSemReducaoNoAr($campanha, $atual, $novo);
+            $this->gravar($campanha, $master, $novo);
 
-        return 'Campanha atualizada.';
+            return 'Campanha atualizada.';
+        });
     }
 
     /**

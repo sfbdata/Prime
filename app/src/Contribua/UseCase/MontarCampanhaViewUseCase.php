@@ -31,7 +31,11 @@ final class MontarCampanhaViewUseCase
             return null;
         }
 
-        return $this->montar($campanha, $this->vigente->estado($campanha), $ehMaster, $this->participacoes->daPessoa($campanha, $usuario) !== null);
+        $estado = $this->vigente->estado($campanha);
+        // Aba, faixa e FAQ só aparecem ao público (ativa ou esgotada) ou ao Master: sem isso, nem consulta a participação.
+        $aparece = $estado->aoPublico() || $ehMaster;
+
+        return $this->montar($campanha, $estado, $ehMaster, $aparece && $this->participacoes->daPessoa($campanha, $usuario) !== null);
     }
 
     public function montar(Campanha $campanha, EstadoDaCampanha $estado, bool $ehMaster, bool $temParticipacao): CampanhaView

@@ -217,6 +217,8 @@
                 enviar(painel.dataset.urlPadrao, {}, alvo);
             } else if (alvo.hasAttribute('data-cp-confirmar')) {
                 enviar(urlDe(painel.dataset.urlConfirmar, alvo.dataset.cpConfirmar), {}, alvo);
+            } else if (alvo.hasAttribute('data-cp-cancelar')) {
+                enviar(urlDe(painel.dataset.urlCancelar, alvo.dataset.cpCancelar), {}, alvo);
             } else if (alvo.hasAttribute('data-cp-devolvida')) {
                 enviar(urlDe(painel.dataset.urlDevolvida, alvo.dataset.cpDevolvida), {}, alvo);
             }

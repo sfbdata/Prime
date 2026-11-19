@@ -41,8 +41,9 @@ final class InscreverNaCampanhaUseCase
         if ($campanha === null) {
             throw new \DomainException('A campanha não está aberta para inscrições.');
         }
-        $this->exigirAberta($this->vigente->estado($campanha));
-        if ($this->participacoes->daPessoa($campanha, $quem->usuario) !== null) {
+        $jaEsta = $this->participacoes->daPessoa($campanha, $quem->usuario) !== null;
+        $this->exigirAberta($this->vigente->estado($campanha), $jaEsta);
+        if ($jaEsta) {
             throw new \DomainException('Você já está no Desafio.');
         }
         $oab = $this->validarDados($aceite, $cpf, $oab);
@@ -62,7 +63,7 @@ final class InscreverNaCampanhaUseCase
         if (!$this->cpfs->valido($cpf)) {
             throw new \DomainException('Informe um CPF válido.');
         }
-        $oab = (string) preg_replace('/\s+/', '', mb_strtoupper(trim($oab)));
+        $oab = (string) preg_replace('/[^\p{L}\p{N}]/u', '', mb_strtoupper(trim($oab)));
         if ($oab === '') {
             throw new \DomainException('Informe sua inscrição na OAB.');
         }
@@ -77,9 +78,11 @@ final class InscreverNaCampanhaUseCase
     {
         $this->em->wrapInTransaction(function () use ($campanha, $quem, $nome, $hash, $cpf, $oab, $agora, $ip): void {
             $this->conexao->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [self::CHAVE_DA_TRAVA, $campanha->getId()]);
-            // Já dentro da trava: o que outra inscrição gravou um instante atrás já vale.
-            $this->exigirAberta($this->vigente->estado($campanha));
-            if ($this->participacoes->daPessoa($campanha, $quem->usuario) !== null) {
+            // Já dentro da trava: o que outra inscrição ou o Master gravou um instante atrás já vale.
+            $this->em->refresh($campanha);
+            $jaEsta = $this->participacoes->daPessoa($campanha, $quem->usuario) !== null;
+            $this->exigirAberta($this->vigente->estado($campanha), $jaEsta);
+            if ($jaEsta) {
                 throw new \DomainException('Você já está no Desafio.');
             }
             if ($this->participacoes->cpfOuOabJaInscritos($campanha, $hash, $oab)) {
@@ -92,8 +95,12 @@ final class InscreverNaCampanhaUseCase
         });
     }
 
-    private function exigirAberta(EstadoDaCampanha $estado): void
+    /** Com vagas esgotadas, quem já está no Desafio ouve "Você já está", não "Vagas esgotadas". */
+    private function exigirAberta(EstadoDaCampanha $estado, bool $jaEsta): void
     {
+        if ($estado === EstadoDaCampanha::Esgotada && $jaEsta) {
+            throw new \DomainException('Você já está no Desafio.');
+        }
         if ($estado === EstadoDaCampanha::Esgotada) {
             throw new \DomainException('Vagas esgotadas.');
         }

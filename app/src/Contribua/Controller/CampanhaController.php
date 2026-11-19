@@ -6,6 +6,7 @@ namespace App\Contribua\Controller;
 
 use App\Contribua\Exception\CampanhaItemNaoEncontrado;
 use App\Contribua\Service\SolicitanteDaSessao;
+use App\Contribua\UseCase\CancelarInscricaoDaCampanhaUseCase;
 use App\Contribua\UseCase\ConfigurarCampanhaUseCase;
 use App\Contribua\UseCase\ConfirmarPagamentoDaCampanhaUseCase;
 use App\Contribua\UseCase\InscreverNaCampanhaUseCase;
@@ -88,6 +89,13 @@ final class CampanhaController extends AbstractController
     public function confirmar(int $id, Request $request, ConfirmarPagamentoDaCampanhaUseCase $confirmar): JsonResponse
     {
         return $this->acao($request, fn (): string => $confirmar->executar($this->sessao->usuario(), $id));
+    }
+
+    #[Route('/participacoes/{id}/cancelar', name: 'contribua_campanha_cancelar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_SUPER_ADMIN')]
+    public function cancelar(int $id, Request $request, CancelarInscricaoDaCampanhaUseCase $cancelar): JsonResponse
+    {
+        return $this->acao($request, fn (): string => $cancelar->executar($id));
     }
 
     #[Route('/devolucoes/{id}/devolvida', name: 'contribua_campanha_devolvida', requirements: ['id' => '\d+'], methods: ['POST'])]

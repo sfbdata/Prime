@@ -124,6 +124,7 @@ final class MontarPainelDaCampanhaUseCase
             'configurar' => $this->urls->generate('contribua_campanha_configurar'),
             'padrao' => $this->urls->generate('contribua_campanha_padrao'),
             'confirmar' => $this->urls->generate('contribua_campanha_confirmar', ['id' => 0]),
+            'cancelar' => $this->urls->generate('contribua_campanha_cancelar', ['id' => 0]),
             'devolvida' => $this->urls->generate('contribua_campanha_devolvida', ['id' => 0]),
         ];
     }
