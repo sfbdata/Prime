@@ -1,14 +1,14 @@
 /* Sub-aba "Acervo por jurisdição" do Push (desenho 11). Valores do CSS do desenho. */
 .pp-acv-layout { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 .pp-acv-layout__lista { flex: 1 1 640px; min-width: 0; }
-.pp-acv { flex: 0 0 380px; min-width: 280px; max-height: 680px; overflow: auto; background: #eef2f5; border: 1px solid #d3dde4; border-radius: 2px; }
-.pp-acv__topo { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; padding: 10px; background: #fff; border-bottom: 1px solid #d3dde4; margin: 0; }
-.pp-acv__busca { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; height: 36px; margin: 0; padding: 0 10px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; }
+.pp-acv { flex: 0 0 380px; min-width: 280px; max-height: 680px; overflow: auto; background: #eef2f5; border: 1px solid #d6e0e7; border-radius: 2px; }
+.pp-acv__topo { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; padding: 10px; background: #fff; border-bottom: 1px solid #d6e0e7; margin: 0; }
+.pp-acv__busca { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; height: 36px; margin: 0; padding: 0 10px; border: 1px solid #7b93a2; border-radius: 2px; background: #fff; }
 .pp-acv__busca i { color: #5b7383; }
 .pp-acv__busca input { flex: 1; min-width: 0; border: none; outline: none; font-size: 14px; background: transparent; }
 .pp-acv__atualizar { width: 36px; height: 36px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; cursor: pointer; }
 .pp-acv__atualizar:hover { background: #e5f1f7; }
-.pp-acv__grupo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #eef2f5; color: #243845; font-size: 14px; text-decoration: none; border-bottom: 1px solid #d3dde4; }
+.pp-acv__grupo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #eef2f5; color: #243845; font-size: 14px; text-decoration: none; border-bottom: 1px solid #d6e0e7; }
 .pp-acv__grupo.is-aberto { background: #fff; }
 .pp-acv__grupo { transition: background .18s; }
 .pp-acv__grupo:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }

@@ -13,20 +13,23 @@
 .pp-kpi--ativo.pp-kpi--vermelho { border-bottom-color: #c0392b; }
 .pp-kpi--ativo.pp-kpi--ambar { border-bottom-color: #9a5b00; }
 .pp-kpi--ativo.pp-kpi--roxo { border-bottom-color: #5b3f9e; }
+/* guia v30 (A3): o filtro ativo não é marcado só pela cor da borda; ganha o sinal ✓ e o rótulo em negrito. */
+.pp-kpi--ativo .pp-kpi__rotulo { font-weight: 700; }
+.pp-kpi--ativo .pp-kpi__rotulo::before { content: "\2713\00a0"; }
 .pp-kpi__valor--alerta { color: #c0392b; }
 
 .pp-inclusao { padding: 14px 18px; }
 .pp-inclusao__titulo { font-size: 15px; color: #0b4f75; margin-bottom: 10px; }
 .pp-inclusao__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start; margin: 0; }
 .pp-rotulo2 { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: bold; color: #243845; margin: 0; }
-.pp-entrada { width: 100%; box-sizing: border-box; height: 38px; border: 1px solid #c5d2db; border-radius: 2px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; background: #fff; }
+.pp-entrada { width: 100%; box-sizing: border-box; height: 38px; border: 1px solid #7b93a2; border-radius: 2px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; background: #fff; }
 .pp-entrada--numero { font-variant-numeric: tabular-nums; }
 .pp-inclusao__acao { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
 .pp-btn--incluir { height: 36px; padding: 0 18px; border-radius: 2px; font-size: 13.5px; letter-spacing: .4px; text-transform: uppercase; }
 .pp-inclusao__dica { font-size: 12px; color: #5b7383; }
 .pp-inclusao__contador { align-self: flex-end; font-weight: normal; font-size: 11px; color: #7a8e9b; }
 
-.pp-subabas { display: flex; gap: 2px; border-bottom: 1px solid #d3dde4; overflow-x: auto; }
+.pp-subabas { display: flex; gap: 2px; border-bottom: 1px solid #d6e0e7; overflow-x: auto; }
 .pp-subaba { height: 40px; padding: 0 14px; border-bottom: 3px solid transparent; color: #5b7383; font-size: 12.5px; font-weight: bold; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap; text-decoration: none; display: flex; align-items: center; gap: 4px; }
 .pp-subaba:hover { color: #0a6fa0; }
 .pp-subaba.is-ativa { border-bottom-color: #0a6fa0; color: #0a6fa0; }
