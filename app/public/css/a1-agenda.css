@@ -120,7 +120,7 @@
 .a1-barra > .a1-vao { min-width: 20px; }
 .a1-busca { position: relative; display: flex; align-items: center; margin: 0; }
 .a1-busca i { position: absolute; left: 11px; font-size: 12.5px; color: var(--a1-apagado); }
-.a1-busca input { height: 34px; border: 1px solid var(--a1-ctl); border-radius: 999px; padding: 0 13px 0 30px; font-size: 13px; color: var(--a1-corpo); background: var(--a1-card); min-width: 250px; outline: none; }
+.a1-busca input { height: 34px; border: 1px solid var(--a1-ctl); border-radius: 4px; padding: 0 13px 0 30px; font-size: 13px; color: var(--a1-corpo); background: var(--a1-card); min-width: 250px; outline: none; }
 .a1-seg { display: flex; background: var(--a1-seg-fundo); border: 1px solid var(--a1-seg-borda); border-radius: 4px; padding: 3px; gap: 2px; }
 .a1-seg-bt { border: none; cursor: pointer; padding: 5px 13px; border-radius: 4px; font-size: 12.5px; font-weight: 500; color: var(--a1-t3); background: transparent; box-shadow: none; transition: color .25s, background .25s; }
 .a1-seg-bt.is-on { font-weight: 600; color: var(--a1-texto); background: rgba(255, 255, 255, .96); box-shadow: 0 1px 3px rgba(16, 42, 58, .12); }
@@ -210,7 +210,11 @@
 .a1-grupo-rot { font-size: 13px; font-weight: 600; color: var(--a1-texto); }
 .a1-grupo-n { font-size: 12px; color: var(--a1-fraco); }
 .a1-lin { display: grid; grid-template-columns: 8px 46px minmax(0, 1fr) auto auto; gap: 11px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--a1-div); cursor: pointer; transition: background .15s; }
-.a1-lin:hover { background: var(--a1-hover); }
+.a1-lin:hover, .a1-lin:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; transition: background .18s, color .18s; }
+/* Guia visual v30: linha sob o cursor azul com texto branco; a etiqueta e o status têm fundo próprio e ficam como estão. */
+.a1-lin:hover .a1-lin-hora, .a1-lin:hover .a1-lin-tit, .a1-lin:hover .a1-lin-meta,
+.a1-lin:focus-visible .a1-lin-hora, .a1-lin:focus-visible .a1-lin-tit, .a1-lin:focus-visible .a1-lin-meta { color: #fff; }
+.a1-lin:hover .a1-lin-ponto, .a1-lin:focus-visible .a1-lin-ponto { box-shadow: 0 0 0 2px #fff; }
 .a1-lin-ponto, .a1-ponto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--cor); }
 .is-cancelado > .a1-lin-ponto { background: #c3d2dd; }
 .a1-lin-hora { font-size: 13px; font-weight: 600; color: var(--a1-t2); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -219,7 +223,7 @@
 .is-cancelado .a1-lin-tit { color: #7b93a2; text-decoration: line-through; }
 .a1-lin-meta { font-size: 11.5px; color: var(--a1-mudo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .a1-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap; color: var(--ink); background: var(--tint); }
-.a1-st { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; color: #455c6b; background: #f1f5f8; border: 1px solid #dde5eb; }
+.a1-st { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; color: #455c6b; background: #f1f5f8; border: 1px solid #dde5eb; }
 .a1-st.is-concluido { color: #146b45; background: #eefaf3; border-color: #c6e8d6; }
 .a1-st.is-cancelado { color: #8f2f1f; background: #fdeeea; border-color: #f3ccc4; }
 .a1-lista-vazia { padding: 52px 20px; text-align: center; }
@@ -282,7 +286,9 @@
 .a1-hoje-lista { display: flex; flex-direction: column; }
 .a1-hoje-lin { display: flex; align-items: center; gap: 9px; padding: 9px 16px; border-bottom: 1px solid var(--a1-div); cursor: pointer; transition: background .15s; }
 .a1-hoje-lin.is-cancelado { opacity: .7; }
-.a1-hoje-lin:hover { background: var(--a1-hover); }
+.a1-hoje-lin:hover, .a1-hoje-lin:focus-visible { background: #2b7ab0; box-shadow: inset 4px 0 0 #1f6f9c; transition: background .18s, color .18s; }
+.a1-hoje-lin:hover .a1-hoje-hora, .a1-hoje-lin:hover .a1-hoje-tit, .a1-hoje-lin:hover .a1-lin-meta, .a1-hoje-lin:hover .a1-agora-tag,
+.a1-hoje-lin:focus-visible .a1-hoje-hora, .a1-hoje-lin:focus-visible .a1-hoje-tit, .a1-hoje-lin:focus-visible .a1-lin-meta, .a1-hoje-lin:focus-visible .a1-agora-tag { color: #fff; }
 .a1-hoje-hora { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--a1-t2); min-width: 34px; flex-shrink: 0; }
 .a1-hoje-bloco { min-width: 0; flex: 1; }
 .a1-hoje-tit { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--a1-texto); }
