@@ -5237,7 +5237,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 }
 /* A3a (guia v30): o estado nao fica so na cor, o icone muda (check = completo, exclamacao = pendente). */
 .ps-cad-ponto--completo { color: var(--ps-l2-cad-ok); }
-.ps-cad-ponto--pendente { color: var(--ps-l2-cad-pend); }
+.ps-cad-ponto--pendente { color: #a86d00; } /* guia v30 (A3): ícone com 4,3:1 no claro */
+[data-bs-theme="dark"] .ps-cad-ponto--pendente { color: var(--ps-l2-cad-pend); }
 @media (max-width: 767.98px) {
     .ps-cad-btn { margin-left: 0; }
     .ps-cad-btn + .ps-situacao-wrap { margin-left: 0; }

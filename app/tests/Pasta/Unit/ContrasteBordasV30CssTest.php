@@ -52,7 +52,8 @@ final class ContrasteBordasV30CssTest extends TestCase
     public function testAndamentoSemCinzaClaro(): void
     {
         $css = $this->ler('public/css/pasta-andamento.css');
-        self::assertStringNotContainsString('#9aabb7', $css);
+        $claro = (string) preg_replace('/^\[data-bs-theme="dark"\].*$/m', '', $css);
+        self::assertStringNotContainsString('#9aabb7', $claro, 'no tema claro');
         self::assertStringNotContainsString('opacity: .55', $css);
         self::assertMatchesRegularExpression('/\.ps-and-rotulo \{[^}]*color: #5f7684/', $css);
     }
@@ -73,5 +74,15 @@ final class ContrasteBordasV30CssTest extends TestCase
         self::assertStringContainsString('bi-bank2', $twig);
         self::assertStringContainsString('bi-building', $twig);
         self::assertStringNotContainsString('<span class="ps-push-ponto', $twig);
+    }
+
+    #[TestDox('Tema escuro mantém os textos claros; ícone de cadastro pendente com 4,3:1; campo da pasta recebida com borda #7b93a2')]
+    public function testEscuroPendenteECampo(): void
+    {
+        $css = static fn (string $a): string => (string) file_get_contents(__DIR__ . '/../../../public/css/' . $a);
+        self::assertStringContainsString('[data-bs-theme="dark"] .ps-and-pop-cont { color: #9aabb7; }', $css('pasta-andamento.css'));
+        self::assertStringContainsString('[data-bs-theme="dark"] .mdl-bloco-total { color: #9aabb7; }', $css('pasta-modelos.css'));
+        self::assertStringContainsString('.ps-cad-ponto--pendente { color: #a86d00; }', $css('pasta-show.css'));
+        self::assertMatchesRegularExpression('/height: 34px; padding: 0 10px; border: 1px solid #7b93a2;/', $css('pasta-recebida.css'));
     }
 }

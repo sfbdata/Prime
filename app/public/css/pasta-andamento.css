@@ -91,3 +91,6 @@
 .ps-and-hist-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-bs-theme="dark"] .ps-and-gap-txt, [data-bs-theme="dark"] .ps-and-gap-mais, [data-bs-theme="dark"] .ps-and-gap-pt { background: var(--bs-body-bg); }
 [data-bs-theme="dark"] .ps-and-pop, [data-bs-theme="dark"] .ps-and-pop-campo, [data-bs-theme="dark"] .ps-and-pop-cancelar, [data-bs-theme="dark"] .ps-and-hist-item { background: var(--bs-body-bg); color: var(--bs-body-color); }
+
+/* Guia v30 (A3, 19/11): o #5f7684 dos textos acima vale para o tema claro; no escuro volta o tom claro, legível no fundo escuro. */
+[data-bs-theme="dark"] .ps-and-rotulo, [data-bs-theme="dark"] .ps-and-int, [data-bs-theme="dark"] .ps-and-rot, [data-bs-theme="dark"] .ps-and-dia, [data-bs-theme="dark"] .ps-and-total, [data-bs-theme="dark"] .ps-and-gap-txt, [data-bs-theme="dark"] .ps-and-pop-cont { color: #9aabb7; }

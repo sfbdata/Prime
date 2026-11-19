@@ -330,3 +330,6 @@
 [data-bs-theme="dark"] #modalVincularProcesso .mp-linha { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-lixeira { color: var(--bs-secondary-color); }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-cnj-ok { color: #6fcf97; }
+
+/* Guia v30 (A3, 19/11): no tema escuro o placeholder volta ao tom claro. */
+[data-bs-theme="dark"] #modalVincularProcesso .mp-ctrl::placeholder { color: #95a6b2; }

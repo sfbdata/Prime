@@ -58,3 +58,6 @@
 /* Só o meu rótulo é clicável (abre a Central). O desenho não muda o cursor; o foco por teclado precisa
    aparecer. */
 .ppa-rotulo[role="button"]:focus-visible { outline: 2px solid #0a7aad; outline-offset: 2px; border-radius: 3px; }
+
+/* Guia v30 (A3, 19/11): no tema escuro o rótulo volta ao tom claro. */
+[data-bs-theme="dark"] .ppa-rotulo:not(.ppa--disponivel):not(.ppa--ocupado):not(.ppa--ausente):not(.ppa--offline) { color: #8a9aa6; }
