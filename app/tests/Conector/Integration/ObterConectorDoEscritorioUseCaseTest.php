@@ -31,7 +31,7 @@ final class ObterConectorDoEscritorioUseCaseTest extends KernelTestCase
         return static::getContainer()->get(ObterConectorDoEscritorioUseCase::class);
     }
 
-    #[TestDox('sem linha: tudo falso; a linha liberada de OUTRO escritório não vaza')]
+    #[TestDox('sem linha: ligado e aceite falsos (a chave geral vale ligada); a linha ligada de OUTRO escritório não vaza')]
     public function testSemLinha(): void
     {
         $tenant = $this->escritorio();
@@ -40,10 +40,10 @@ final class ObterConectorDoEscritorioUseCaseTest extends KernelTestCase
 
         $saida = $this->sut()->executar($tenant);
 
-        self::assertSame([(int) $tenant->getId(), $tenant->getName(), false, false, null, false, 0], [$saida->tenantId, $saida->nome, $saida->liberado, $saida->ligado, $saida->aceiteEm, $saida->aceiteVigente, $saida->conexoesAtivas]);
+        self::assertSame([(int) $tenant->getId(), $tenant->getName(), true, false, null, false, 0], [$saida->tenantId, $saida->nome, $saida->chaveGeralLigada, $saida->ligado, $saida->aceiteEm, $saida->aceiteVigente, $saida->conexoesAtivas]);
     }
 
-    #[TestDox('liberado, ligado e com aceite: os três aparecem; a contagem das conexões fica de fora (zero)')]
+    #[TestDox('ligado e com aceite: aparecem, com a chave geral ligada; a contagem das conexões fica de fora (zero)')]
     public function testLigado(): void
     {
         $tenant = $this->escritorio();
@@ -51,14 +51,14 @@ final class ObterConectorDoEscritorioUseCaseTest extends KernelTestCase
 
         $saida = $this->sut()->executar($tenant);
 
-        self::assertTrue($saida->liberado);
+        self::assertTrue($saida->chaveGeralLigada);
         self::assertTrue($saida->ligado);
         self::assertTrue($saida->aceiteVigente);
         self::assertEquals($linha->getAceiteEm(), $saida->aceiteEm);
         self::assertSame(0, $saida->conexoesAtivas);
     }
 
-    #[TestDox('chave geral desligada pelo Master: o cartão sai como não liberado (aguardando liberação), mesmo com a linha ligada')]
+    #[TestDox('chave geral desligada pelo Master: o cartão sai com a chave geral desligada (fora do ar), mesmo com a linha ligada')]
     public function testChaveGeralDesligada(): void
     {
         $tenant = $this->escritorio();
@@ -72,7 +72,7 @@ final class ObterConectorDoEscritorioUseCaseTest extends KernelTestCase
 
         $saida = $this->sut()->executar($tenant);
 
-        self::assertFalse($saida->liberado);
+        self::assertFalse($saida->chaveGeralLigada);
         self::assertTrue($saida->ligado);
     }
 }

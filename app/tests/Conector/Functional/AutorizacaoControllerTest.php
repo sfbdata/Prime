@@ -476,7 +476,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
     public static function semLiberacao(): iterable
     {
         yield 'chave geral desligada' => ['chave'];
-        yield 'escritório não liberado pelo Master' => ['nao_liberado'];
+        yield 'escritório sem nenhuma linha (nunca ligou)' => ['sem_linha'];
         yield 'conector não ligado' => ['nao_ligado'];
         yield 'aceite em versão antiga' => ['aceite_antigo'];
     }
@@ -491,7 +491,7 @@ final class AutorizacaoControllerTest extends JusPrimeWebTestCase
         $this->vinculo($pessoa, $tenant);
         match ($caso) {
             'chave' => [$this->liberarConector($tenant), $this->desligarChaveGeral()],
-            'nao_liberado' => $this->liberarConector($tenant, liberado: false),
+            'sem_linha' => null,
             'nao_ligado' => $this->liberarConector($tenant, ligado: false),
             'aceite_antigo' => $this->aceiteEmVersaoAntiga($this->liberarConector($tenant)),
         };

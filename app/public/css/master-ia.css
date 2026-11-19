@@ -18,8 +18,8 @@
 .mp-ia-grade { min-width: 1160px; }
 .mp-ia-cab, .mp-ia-lin { display: grid; grid-template-columns: minmax(220px,2fr) 140px 150px minmax(190px,1.2fr) 170px 110px 150px 110px; align-items: center; }
 /* Conector de I.A. (master/_conector.html.twig): a mesma grade com as 5 colunas dele, em vez das 8 da BlueJus I.A. */
-.mp-ia-grade.mp-ia-grade-conector { min-width: 880px; }
-.mp-ia-grade-conector .mp-ia-cab, .mp-ia-grade-conector .mp-ia-lin { grid-template-columns: minmax(220px,2fr) 170px 150px minmax(190px,1.2fr) 150px; }
+.mp-ia-grade.mp-ia-grade-conector { min-width: 710px; }
+.mp-ia-grade-conector .mp-ia-cab, .mp-ia-grade-conector .mp-ia-lin { grid-template-columns: minmax(220px,2fr) 150px minmax(190px,1.2fr) 150px; }
 .mp-ia-cab { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #34505f; border-bottom: 2px solid #e2e9ee; text-transform: uppercase; }
 .mp-ia-cab > div { padding: 11px 8px; }
 .mp-ia-cab > div:first-child, .mp-ia-nome { padding-left: 18px; }

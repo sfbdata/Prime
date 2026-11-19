@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * A porta do conector na consulta de prazos e metas sem banco (spec mcp-remoto-oauth 6.4 e 14.i): pede o módulo Tarefas
- * e a liberação do conector nos três níveis, e não olha o aceite da BlueJus I.A.
+ * e a liberação do conector nos dois níveis, e não olha o aceite da BlueJus I.A.
  */
 #[CoversClass(PortaDoConectorNaConsultaDePrazos::class)]
 final class PortaDoConectorNaConsultaDePrazosTest extends TestCase
@@ -47,7 +47,6 @@ final class PortaDoConectorNaConsultaDePrazosTest extends TestCase
         $this->escritorio = (new Tenant())->setName('Escritório da Porta');
         $this->pessoa = (new User())->setFullName('Pessoa da Porta');
         $this->doConector = new EscritorioDoConector($this->escritorio);
-        $this->doConector->liberarPeloMaster();
         $this->doConector->ligar(new User(), new \DateTimeImmutable('2026-11-16 09:00:00'));
     }
 
@@ -71,15 +70,6 @@ final class PortaDoConectorNaConsultaDePrazosTest extends TestCase
     public function testSemLinhaDoConector(): void
     {
         $this->doConector = null;
-
-        $this->exigirRecusa();
-    }
-
-    #[TestDox('a linha do conector existe e está ligada, mas o Master não liberou o escritório: sem permissão')]
-    public function testMasterNaoLiberou(): void
-    {
-        $this->doConector = new EscritorioDoConector($this->escritorio);
-        $this->doConector->ligar(new User(), new \DateTimeImmutable('2026-11-16 09:00:00'));
 
         $this->exigirRecusa();
     }

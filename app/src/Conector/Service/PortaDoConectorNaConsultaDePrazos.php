@@ -17,7 +17,7 @@ use App\Tarefa\Service\AcessoAoModuloTarefas;
  * chat), vale o que cobre o conector:
  *
  *  - o módulo das metas ({@see AcessoAoModuloTarefas}, a mesma guarda da tela Minhas Metas);
- *  - a liberação do conector nos três níveis ({@see LiberacaoDoConector}, decisão 14.a), que o portão já conferiu na
+ *  - a liberação do conector nos dois níveis ({@see LiberacaoDoConector}, decisão 14.a), que o portão já conferiu na
  *    requisição e que aqui se confere de novo, porque a permissão pode mudar no meio.
  *
  * Recusa com {@see ErroDaFerramenta::semPermissao()}, a mensagem fixa que vai ao app de I.A.: a recusa da liberação não

@@ -7,8 +7,10 @@ namespace App\Tests\Conector\Functional;
 use App\Conector\Controller\ConectorDoEscritorioController;
 use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Enum\VersaoDoAceiteDoConector;
+use App\Conector\Service\LiberacaoDoConector;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Entity\RecursoEstado;
 use App\Tests\Conector\Support\CenarioDoServidorDeAutorizacaoTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,7 +20,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * O administrador liga (com o aceite) ou desliga o conector de I.A. no cartão da tela "BlueJus IA" (spec
- * mcp-remoto-oauth 14.a nível 3; PR 8). Guarda `admin.inteligencia.manage`, CSRF `_token`, escritório sempre o da
+ * mcp-remoto-oauth 14.a; PR 8; sem liberação do Master, decisão do Samuel de 19/11). Guarda `admin.inteligencia.manage`, CSRF `_token`, escritório sempre o da
  * sessão, flash e volta para a tela. O token CSRF vem do próprio formulário da tela (armazém real).
  */
 #[CoversClass(ConectorDoEscritorioController::class)]
@@ -39,7 +41,7 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
     public function testSemPermissao403(): void
     {
         $tenant = $this->escritorio();
-        $this->liberadoSemLigar($tenant);
+        $this->linhaSemLigar($tenant);
         $pessoa = $this->pessoa();
         $this->vinculo($pessoa, $tenant, permissoes: ['modules.inteligencia.view']);
         $this->logarComTenant($this->client, $pessoa, $tenant);
@@ -55,7 +57,7 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
     {
         $meu = $this->escritorio();
         $alheio = $this->escritorio();
-        $this->liberadoSemLigar($alheio);
+        $this->linhaSemLigar($alheio);
         $admin = $this->administrador($meu);
 
         // Sem vínculo: o listener do escritório devolve à escolha do escritório antes do controller.
@@ -74,17 +76,17 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/admin/inteligencia/conector', ['acao' => 'ligar', 'aceite' => '1', '_token' => $token, 'tenantId' => (string) $alheio->getId(), 'tenant' => (string) $alheio->getId()]);
 
         self::assertResponseRedirects('/admin/inteligencia');
-        self::assertStringContainsString('ainda não foi liberado pelo Master', $this->flashDepoisDoRedirect());
+        self::assertStringContainsString('Conector de I.A. ligado neste escritório.', $this->flashDepoisDoRedirect());
         self::assertFalse($this->linhaNoBanco($alheio)?->isLigado(), 'o alheio continua desligado');
         self::assertNull($this->linhaNoBanco($alheio)?->getAceiteEm());
-        self::assertNull($this->linhaNoBanco($meu), 'o meu não estava liberado: nenhuma linha nasce');
+        self::assertTrue($this->linhaNoBanco($meu)?->isLigado(), 'quem liga é sempre o escritório da sessão');
     }
 
     #[TestDox('CSRF inválido: flash de erro, volta para a tela e nada muda')]
     public function testCsrfInvalido(): void
     {
         $tenant = $this->escritorio();
-        $this->liberadoSemLigar($tenant);
+        $this->linhaSemLigar($tenant);
         $this->logarComTenant($this->client, $this->administrador($tenant), $tenant);
 
         $this->client->request('POST', '/admin/inteligencia/conector', ['acao' => 'ligar', 'aceite' => '1', '_token' => 'errado']);
@@ -94,8 +96,8 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->linhaNoBanco($tenant)?->isLigado());
     }
 
-    #[TestDox('sem liberação do Master: o cartão mostra "aguardando", a caixa e o botão Ligar desabilitados e o link do passo a passo')]
-    public function testAguardandoLiberacao(): void
+    #[TestDox('escritório sem nenhuma linha e sem ação do Master: o cartão mostra "desligado", com a caixa e o Ligar habilitados e o link do passo a passo')]
+    public function testSemLinhaPodeLigar(): void
     {
         $tenant = $this->escritorio();
         $this->logarComTenant($this->client, $this->administrador($tenant), $tenant);
@@ -104,19 +106,20 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $card = $this->card($crawler);
-        self::assertSame('aguardando_master', $card->filter('[data-conector-estado]')->attr('data-conector-estado'));
-        self::assertStringContainsString('Aguardando a liberação do Master do BlueJus', $card->text());
-        self::assertNotNull($card->filter('#conector-ligar')->attr('disabled'));
-        self::assertNotNull($card->filter('#conector-aceite')->attr('disabled'));
+        self::assertSame('desligado', $card->filter('[data-conector-estado]')->attr('data-conector-estado'));
+        self::assertStringNotContainsString('Master', $card->text());
+        self::assertNull($card->filter('#conector-ligar')->attr('disabled'));
+        self::assertNull($card->filter('#conector-aceite')->attr('disabled'));
         self::assertCount(0, $card->filter('#conector-desligar'));
         self::assertSame('/perfil/conexoes-de-ia/como-conectar', $card->filter('#conector-guia')->attr('href'), 'o passo a passo para repassar à equipe');
+        self::assertNull($this->linhaNoBanco($tenant), 'só ver a tela não cria linha');
     }
 
     #[TestDox('sem marcar "Li e aceito": flash de erro e continua desligado')]
     public function testSemAceite(): void
     {
         $tenant = $this->escritorio();
-        $this->liberadoSemLigar($tenant);
+        $this->linhaSemLigar($tenant);
         $this->logarComTenant($this->client, $this->administrador($tenant), $tenant);
 
         $this->client->request('POST', '/admin/inteligencia/conector', ['acao' => 'ligar', '_token' => $this->tokenDaTela()]);
@@ -126,11 +129,10 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->linhaNoBanco($tenant)?->isLigado());
     }
 
-    #[TestDox('caminho feliz: liberado, o admin liga com o aceite (versão vigente e autor), vê "ligado" e desliga sem perder o aceite')]
+    #[TestDox('caminho feliz: sem nenhuma linha antes, o admin liga com o aceite (versão vigente e autor), vê "ligado" e desliga sem perder o aceite')]
     public function testLigarEDesligar(): void
     {
         $tenant = $this->escritorio();
-        $this->liberadoSemLigar($tenant);
         $admin = $this->administrador($tenant);
         $this->logarComTenant($this->client, $admin, $tenant);
 
@@ -165,24 +167,27 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($linha?->getAceiteEm(), 'desligar não apaga o aceite');
     }
 
-    #[TestDox('bloqueado pelo Master depois do aceite: o cartão diz que o Master bloqueou e o admin ainda pode desligar')]
-    public function testBloqueadoPeloMaster(): void
+    #[TestDox('chave geral desligada pelo Master (emergência): o cartão avisa que o conector está fora do ar e o admin ainda pode desligar')]
+    public function testChaveGeralDesligada(): void
     {
         $tenant = $this->escritorio();
         $admin = $this->administrador($tenant);
-        $linha = $this->liberar($tenant, $admin);
-        $linha->bloquearPeloMaster();
+        $this->liberar($tenant, $admin);
+        $estado = $this->em()->getRepository(RecursoEstado::class)->findOneBy(['chave' => LiberacaoDoConector::CHAVE_GERAL])
+            ?? new RecursoEstado(LiberacaoDoConector::CHAVE_GERAL);
+        $estado->desativar('Pausa', null, null, new \DateTimeImmutable());
+        $this->em()->persist($estado);
         $this->em()->flush();
         $this->logarComTenant($this->client, $admin, $tenant);
 
         $card = $this->card($this->client->request('GET', '/admin/inteligencia'));
 
-        self::assertSame('bloqueado_master', $card->filter('[data-conector-estado]')->attr('data-conector-estado'));
-        self::assertNotNull($card->filter('#conector-ligar')->attr('disabled'));
+        self::assertSame('fora_do_ar', $card->filter('[data-conector-estado]')->attr('data-conector-estado'));
+        self::assertStringContainsString('fora do ar', $card->text());
         self::assertCount(1, $card->filter('#conector-desligar'));
     }
 
-    #[TestDox('ligado e liberado com o aceite de versão antiga: o cartão pede um novo aceite (caixa e Ligar habilitados) e mostra o Desligar, nunca "desligado"')]
+    #[TestDox('ligado com o aceite de versão antiga: o cartão pede um novo aceite (caixa e Ligar habilitados) e mostra o Desligar, nunca "desligado"')]
     public function testAceiteDeVersaoAntigaPedeNovoAceite(): void
     {
         $tenant = $this->escritorio();
@@ -211,10 +216,9 @@ final class ConectorDoEscritorioControllerTest extends JusPrimeWebTestCase
         return $admin;
     }
 
-    private function liberadoSemLigar(Tenant $tenant): EscritorioDoConector
+    private function linhaSemLigar(Tenant $tenant): EscritorioDoConector
     {
         $linha = new EscritorioDoConector($tenant);
-        $linha->liberarPeloMaster();
         $this->em()->persist($linha);
         $this->em()->flush();
 

@@ -95,7 +95,7 @@ final class AutorizarConexaoUseCaseTest extends KernelTestCase
         return $input;
     }
 
-    /** @return array{0: Tenant, 1: User} escritório liberado e pessoa com vínculo ativo nele */
+    /** @return array{0: Tenant, 1: User} escritório ligado e pessoa com vínculo ativo nele */
     private function cenario(): array
     {
         $this->clienteValido();
@@ -269,19 +269,18 @@ final class AutorizarConexaoUseCaseTest extends KernelTestCase
         $this->exigirRecusa(AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO, self::input((int) $tenant->getId()), $pessoa);
     }
 
-    #[TestDox('12.24: escritório não liberado pelo Master recusa')]
-    public function testNaoLiberado(): void
+    #[TestDox('12.24: escritório que nunca ligou o conector (sem linha) recusa')]
+    public function testSemLinha(): void
     {
         $this->clienteValido();
         $tenant = $this->escritorio();
         $pessoa = $this->pessoa();
         $this->vinculo($pessoa, $tenant);
-        $this->liberarConector($tenant, liberado: false);
 
         $this->exigirRecusa(AcessoDoConectorRecusado::CONECTOR_NAO_LIBERADO, self::input((int) $tenant->getId()), $pessoa);
     }
 
-    #[TestDox('12.24: escritório liberado e não ligado recusa')]
+    #[TestDox('12.24: escritório com linha e não ligado recusa')]
     public function testNaoLigado(): void
     {
         $this->clienteValido();

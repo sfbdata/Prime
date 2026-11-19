@@ -374,7 +374,7 @@ final class PortaoNoMcpTest extends KernelTestCase
                 (new \ReflectionProperty(EscritorioDoConector::class, 'aceiteVersao'))->setValue($conexao['liberacao'], 0);
                 break;
             case 'liberacao_bloqueada':
-                $conexao['liberacao']->bloquearPeloMaster();
+                $conexao['liberacao']->desligar();
                 break;
             case 'liberacao_desligada':
                 $conexao['liberacao']->desligar();

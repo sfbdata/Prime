@@ -15,7 +15,7 @@ use App\Master\Entity\RecursoEstado;
 
 /**
  * O que a autorização do conector precisa no banco (spec mcp-remoto-oauth 3.4 e 14.a), sem depender do bloco C (busca
- * do documento CIMD): o cliente gravado com o cache dos metadados ainda válido, e o escritório liberado e ligado.
+ * do documento CIMD): o cliente gravado com o cache dos metadados ainda válido, e o escritório ligado com o aceite.
  * Usa o {@see CenarioDoConectorTrait} para escritório, pessoa e vínculo.
  */
 trait CenarioDaAutorizacaoTrait
@@ -45,12 +45,9 @@ trait CenarioDaAutorizacaoTrait
     }
 
     /** Os níveis 2 e 3 da liberação (decisão 14.a) neste escritório. */
-    private function liberarConector(Tenant $tenant, bool $liberado = true, bool $ligado = true): EscritorioDoConector
+    private function liberarConector(Tenant $tenant, bool $ligado = true): EscritorioDoConector
     {
         $escritorio = new EscritorioDoConector($tenant);
-        if ($liberado) {
-            $escritorio->liberarPeloMaster();
-        }
         if ($ligado) {
             $escritorio->ligar($this->administradorQualquer(), new \DateTimeImmutable());
         }

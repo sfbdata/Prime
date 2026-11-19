@@ -16,7 +16,7 @@ use App\Repository\UserTenantRepository;
  * Os escritórios que a tela de autorização do conector mostra (`docs/specs/mcp-remoto-oauth.md`, 4 e 14.a): os
  * vínculos ativos da pessoa, cada um conferido pelas MESMAS regras da autorização, sem o passe do Master (4.1): o
  * {@see PortaoDoConector::conferir()} (pessoa, barreiras do escritório, vínculo aprovado, termos) e a
- * {@see LiberacaoDoConector::exigir()} (os três níveis). O que não passa aparece desabilitado, com o motivo.
+ * {@see LiberacaoDoConector::exigir()} (os dois níveis). O que não passa aparece desabilitado, com o motivo.
  *
  * Só mostra: quem decide no POST é o {@see AutorizarConexaoUseCase}, que confere tudo de novo.
  */

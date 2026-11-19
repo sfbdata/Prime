@@ -21,7 +21,7 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
 /**
  * O administrador liga (com o aceite) ou desliga o conector no próprio escritório (spec mcp-remoto-oauth 14.a, nível
- * 3; PR 8). Ligar exige a caixa marcada e a liberação do Master (decisão 3); o aceite grava a versão vigente e o autor
+ * 3; PR 8). Ligar exige só a caixa marcada, sem liberação do Master (decisão do Samuel, 19/11); o aceite grava a versão vigente e o autor
  * e não é regravado ao religar. Desligar só suspende (decisão 4): a liberação recusa e o mesmo token recebe 403 na
  * chamada seguinte (sem `invalid_token`, então o app não reconecta); religar volta a aceitar sem reconectar.
  */
@@ -57,7 +57,6 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
     private function liberadoSemLigar(Tenant $tenant): EscritorioDoConector
     {
         $linha = new EscritorioDoConector($tenant);
-        $linha->liberarPeloMaster();
         $this->em()->persist($linha);
         $this->em()->flush();
 
@@ -84,20 +83,28 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
         }
     }
 
-    #[TestDox('nível 2 falso recusa ligar, mesmo com a caixa marcada: sem linha (nenhuma é criada) e com a linha bloqueada')]
-    public function testSemLiberacaoDoMasterRecusa(): void
+    #[TestDox('escritório sem nenhuma linha liga só com a caixa marcada: a linha nasce, com o aceite, sem ação do Master')]
+    public function testSemLinhaLigaSemMaster(): void
     {
         $semLinha = $this->escritorio();
-        $this->ligarRecusado(true, $semLinha, AlterarConectorDoEscritorioUseCase::AGUARDANDO_MASTER);
         self::assertNull($this->linhaDe($semLinha));
 
-        $bloqueado = $this->escritorio();
-        $linha = new EscritorioDoConector($bloqueado);
-        $this->em()->persist($linha);
-        $this->em()->flush();
-        $this->ligarRecusado(true, $bloqueado, AlterarConectorDoEscritorioUseCase::AGUARDANDO_MASTER);
-        self::assertFalse($linha->isLigado());
-        self::assertNull($linha->getAceiteEm());
+        $this->sut()->ligar(true, $this->pessoa(), $semLinha);
+
+        $linha = $this->linhaDe($semLinha);
+        self::assertTrue($linha?->isLigado());
+        self::assertNotNull($linha->getAceiteEm());
+        $this->liberacao()->exigir($semLinha);
+    }
+
+    #[TestDox('sem linha e sem a caixa marcada, ligar é recusado e nenhuma linha nasce')]
+    public function testSemLinhaSemAceiteNaoCria(): void
+    {
+        $semLinha = $this->escritorio();
+
+        $this->ligarRecusado(false, $semLinha, AlterarConectorDoEscritorioUseCase::SEM_ACEITE);
+
+        self::assertNull($this->linhaDe($semLinha));
     }
 
     #[TestDox('sem a caixa "Li e aceito" marcada, ligar é recusado e nada muda')]
@@ -163,7 +170,6 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
         $this->sut()->desligar($tenant);
 
         self::assertFalse($linha->isLigado());
-        self::assertTrue($linha->isLiberadoPeloMaster(), 'desligar não mexe na liberação do Master');
         self::assertNotNull($linha->getAceiteEm(), 'o aceite é histórico');
         $this->exigirRecusa($tenant, 'desligado');
         $this->liberacao()->exigir($outro);

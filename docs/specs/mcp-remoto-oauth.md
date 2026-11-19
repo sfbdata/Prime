@@ -46,7 +46,7 @@ revisão de protocolo foram lidas nesse dia.
 - **Tabelas**: sete, com a cadeia (`conector_ia_concessao`) e um token único com `tipo` (acesso ou renovação), janela de
   cerca de 60 s na rotação, `tenant_id` em toda tabela com dado de escritório, FKs em cascata e comando de faxina agendado
   (9.1, 13.2).
-- **Telas e ordem**: comando de console do Master para liberar o escritório já no PR 3; CSRF e escritório conferido no
+- **Telas e ordem**: comando de console do Master para ligar o escritório já no PR 3; CSRF e escritório conferido no
   servidor na tela de consentimento; ponto de smoke do Samuel depois do PR 5 (9.4, 13.1).
 - **Sem estimativa em dias** no plano: ficam dependências, risco e o caminho crítico como sequência de PRs (13.1).
 
@@ -617,7 +617,7 @@ entre ler e gravar).
    escritório. Todo id (pasta, processo, documento, modelo, meta, cliente, compromisso, publicação) é buscado por id **e**
    escritório; alheio, inexistente ou oculto dá a mesma resposta "não encontrado".
 2. **Permissão**: módulo para lista e criação, recurso para item (5); as guardas de 5.2; o escopo (5.1); o teto (6.3); a
-   liberação em três níveis (14.a).
+   liberação em dois níveis (14.a).
 3. **Segredo de justiça nunca sai, e pasta ou processo em segredo não existe para o conector** (regra 4 de
    `app/src/Inteligencia/CLAUDE.md`, a regra D4; `Processo::emSegredoDeJustica()`,
    `app/src/Processo/Entity/Processo.php:686-689`: `nivelSigilo > 0` do tribunal **ou** `segredoManual` marcado no cartão).
@@ -1274,8 +1274,8 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 **Aba e chave do Master por ferramenta e ação** (regra 11 da 6.2). A coluna "rota da tela" diz o que a barreira de hoje cobre;
 "nenhuma" quer dizer que a tela também não barra. `BarreiraDeAbaOcultaListener::MAPA` está em
 `app/src/Pasta/EventListener/BarreiraDeAbaOcultaListener.php:49-80`; `CatalogoDeRecursos::ROTAS`, em
-`app/src/Master/Service/CatalogoDeRecursos.php:91`. Toda ferramenta exige também a liberação do conector nos três níveis
-(14.a), conferida pelo portão.
+`app/src/Master/Service/CatalogoDeRecursos.php:91`. Toda ferramenta exige também a liberação do conector nos dois níveis
+(14.a, decisão do Samuel de 19/11), conferida pelo portão.
 
 | Ferramenta e ação | Rota da tela | Aba (`AbaDaPasta`) | Chave do Master |
 |---|---|---|---|
@@ -1551,7 +1551,7 @@ extrair UseCase e dizer isso no PR.
    - troca de senha: impressão da senha gravada na concessão diferente da do hash atual é recusada (seção 4, regra 3);
    - consentimento, concessão e token não revogados, e a concessão dentro dos 7 dias (um `JOIN` token, concessão,
      consentimento);
-   - a liberação do conector nos três níveis (chave geral, escritório liberado pelo Master, ligado com o aceite vigente,
+   - a liberação do conector nos dois níveis (chave geral de emergência e ligado pelo escritório com o aceite vigente,
      14.a).
 
    Tudo isso vale também no `/oauth/token` ao trocar a renovação: renovação que falha em qualquer item tem a concessão
@@ -1584,8 +1584,8 @@ extrair UseCase e dizer isso no PR.
 7. **Auditoria**: escrita registrada pelo `audit_log` com o escritório certo, pelo escritório fixado no `TenantContext` pelo
    portão (4.1, 4.3); chamadas no canal `mcp` sem conteúdo, e o SDK com `NullLogger` (6.2.9). Correção da spec de agosto:
    "registrar os argumentos" vira registrar ids e valores de lista, nunca texto (regra 3 da Inteligencia).
-8. **Dado pessoal e provedor do modelo**: decisão 14.a (piloto num escritório, liberação pelo Master, aceite próprio do
-   conector) e as regras de saída da 6.2.
+8. **Dado pessoal e provedor do modelo**: decisão 14.a (o administrador de cada escritório liga com o aceite próprio do
+   conector; chave geral do Master só de emergência) e as regras de saída da 6.2.
 9. **Purga, exclusão e faxina**: toda tabela nova com dado de escritório tem `tenant_id` e FKs `ON DELETE CASCADE` para
    `tenant`, `user` e a tabela pai (13.2). A purga do escritório acha as tabelas pela coluna `tenant_id`
    (`PurgarEscritorioUseCase.php:441-450`), e a exclusão da conta (quarentena) precisa das FKs de `user_id`;
@@ -1644,7 +1644,7 @@ extrair UseCase e dizer isso no PR.
 | **Injeção indireta** | Texto de documento pode instruir o assistente a gravar (6.7). |
 | **Limites de tamanho por cliente** | Resposta grande demais é cortada ou recusada pelo cliente (6.2, regra 7). |
 | **PDF e imagem grandes na resposta** | O arquivo vai fora do teto de 50 mil caracteres (decisão 24): um PDF de 10 MB passa de 13 milhões de caracteres em base64, acima do que o Claude aceita por resultado (cerca de 150 mil). O app pode recusar ou cortar; o piloto confere, e se não lerem, extrair o texto do PDF no servidor vira pergunta nova (6.5). |
-| **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Piloto num escritório, liberação pelo Master, aceite próprio do conector (14.a) e máscara de CPF, CNPJ, telefone e e-mail sempre ligada no texto livre (6.2.6); o texto está com o jurídico. |
+| **Dado pessoal saindo para o provedor do modelo** | O provedor é o da conta da pessoa, sem contrato com o BlueJus. Cada escritório liga por conta própria, com o aceite próprio do conector (14.a, decisão do Samuel de 19/11; a chave geral do Master é só de emergência) e máscara de CPF, CNPJ, telefone e e-mail sempre ligada no texto livre (6.2.6); o texto está com o jurídico. |
 | **Arquivo malicioso na leitura** | DOCX, planilha, apresentação e ZIP são pacotes: arquivo forjado pode estourar memória. Mesma proteção de pacote da prévia, tetos de tamanho, XML lido como texto (6.5). |
 | **Dependência nova para TIFF e HEIC** | Converter exige extensão nova na imagem PHP (arquivo quente, passo de deploy). Se não puder entrar, esses dois tipos ficam recusados com mensagem fixa (6.5). |
 | **Google Agenda dos colegas** | Compromisso gravado pelo conector vai para a agenda Google de quem criou e dos participantes que ligaram a conta, como na tela (6.6, `gravar_na_agenda`). É a única exceção à regra de não mandar nada para fora (14.h). |
@@ -1763,11 +1763,11 @@ erradas do plano, todas invisíveis à leitura):
     proposta e a confirmação recusa na confirmação; `cadastrar`, `criar` e `duplicar` não são afetados.
 23. **Publicações**: ler a lista e o texto não muda o `lida` de nenhuma publicação; publicação de processo de outra pasta é
     recusada; aba Push oculta recusa.
-24. **Liberação** (14.a): chave geral desligada, escritório não liberado pelo Master, conector não ligado no escritório ou
+24. **Liberação** (14.a): chave geral desligada, conector não ligado no escritório ou
     aceite em versão antiga: cada um recusa no `/oauth/authorize` e no `/mcp`; desligar depois de conectar suspende na
-    requisição seguinte (403 no `/mcp`, sem revogar; decisão 11 do PR 8); liberar o escritório A não libera o B. Sem registro, a chave geral vale como ligada e o escritório,
-    como não liberado (o nível 2 nasce falso). O comando `conector:liberar` (PR 3) liga a liberação, o "ligado" e o aceite
-    de um escritório, grava auditoria e não toca outro escritório.
+    requisição seguinte (403 no `/mcp`, sem revogar; decisão 11 do PR 8); ligar o escritório A não liga o B. Sem registro, a chave geral vale como ligada e o escritório,
+    como desligado. Escritório com o conector ligado e o aceite vigente funciona sem nenhuma ação do Master. O comando
+    `conector:liberar` (PR 3) liga o "ligado" e o aceite de um escritório, grava auditoria e não toca outro escritório.
 25. **Tela que ganhou UseCase**: cada UseCase extraído de controller (6.4 e 6.6, "Falta") tem os testes funcionais da tela
     escritos antes e verdes depois, sem mudar o comportamento.
 26. **Minhas Metas** (`ler_agenda`, `minhas_metas`, 14.i): só as metas da própria pessoa, na aba e no período pedidos, sem
@@ -1797,14 +1797,14 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 |---|---|---|---|---|
 | 1 | `conector-portao` | Portão sem HTTP: barreiras do escritório extraídas do `TenantContextValidatorListener` para um serviço sem sessão que recebe se o passe do Master vale (o listener passa a usá-lo com o passe, sem mudar comportamento; o portão, sem o passe, 4.1), com o primário de escritório suspenso a pedido recusado no conector (seção 4, regra 1) e a conferência dos termos de uso (5.2); escritório e vínculo do token fixados no `TenantContext` sem sessão por um método que só o portão chama (`fixarSemSessao`, 4.1), o que resolve a auditoria (4.3); filtro ligado e conferido (fail-closed); **modo do conector** (6.3, item 2) com o perfil de sistema por regra fixa (tudo menos `admin.*`, sujeito a cadeado e abas, 6.3, item 3) e o teste de que o navegador não muda, com `disableReboot()`; teste de arquitetura | nada | ALTO, com re-revisão |
 | 2 | `conector-tabelas` | `composer`: `mcp/sdk` **0.10.0** (versão exata) e `symfony/psr-http-message-bridge`, sem biblioteca OAuth (3.2); ajuste da v1 STDIO (`app/src/Mcp/`) às quebras de namespace da 0.10.0, com o `mcp:server` testado; entidades e **a única migration** (número dado pelo Coordenador) com as 7 tabelas de 13.2, FKs em cascata e purga do escritório coberta | nada (paralelo ao 1) | ALTO |
-| 3 | `conector-autorizacao` | Servidor de autorização próprio: `/oauth/authorize` (login, escolha do escritório conferida no servidor, consentimento com escopos, CSRF e parâmetros na sessão, host do `client_id` na tela, tela pela convenção do sistema, 14.e, 9.4), `/oauth/token` com token opaco de 1 hora e renovação com rotação até 7 dias, janela de tolerância e trava de linha (14.c, 9.1), metadado RFC 8414, PKCE só S256, `resource` obrigatório, `iss` em toda resposta, concessão com `autorizado_em` e impressão da senha (seção 4, regra 3); **registro do cliente por CIMD** (busca segura, hosts de `client_id` em configuração, lista exata de `redirect_uri`, cache, recusa com o host no log; 3.4); liberação nos três níveis conferida na autorização (14.a) e o comando de console do Master `conector:liberar <tenant>` (liga a liberação, o "ligado" e o aceite, auditado), para conectar um cliente real antes do PR 8; comando de faxina no Scheduler (13.2); rotas nas listas dos dois listeners (8); conferência: o `client_id` e o `redirect_uri` reais que Claude e ChatGPT mandam | 1, 2 | ALTO, com re-revisão |
+| 3 | `conector-autorizacao` | Servidor de autorização próprio: `/oauth/authorize` (login, escolha do escritório conferida no servidor, consentimento com escopos, CSRF e parâmetros na sessão, host do `client_id` na tela, tela pela convenção do sistema, 14.e, 9.4), `/oauth/token` com token opaco de 1 hora e renovação com rotação até 7 dias, janela de tolerância e trava de linha (14.c, 9.1), metadado RFC 8414, PKCE só S256, `resource` obrigatório, `iss` em toda resposta, concessão com `autorizado_em` e impressão da senha (seção 4, regra 3); **registro do cliente por CIMD** (busca segura, hosts de `client_id` em configuração, lista exata de `redirect_uri`, cache, recusa com o host no log; 3.4); liberação conferida na autorização (14.a; eram três níveis, hoje dois, decisão do Samuel de 19/11) e o comando de console do Master `conector:liberar <tenant>` (liga o "ligado" e o aceite, auditado), para conectar um cliente real antes do PR 8; comando de faxina no Scheduler (13.2); rotas nas listas dos dois listeners (8); conferência: o `client_id` e o `redirect_uri` reais que Claude e ChatGPT mandam | 1, 2 | ALTO, com re-revisão |
 | 4 | (entrou no PR 3) | CIMD e lista de `redirect_uri` estão no PR 3; DCR fora do piloto (3.4) | | |
-| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token opaco com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos", impressão da senha e liberação nos três níveis), metadado RFC 9728 por controller nosso nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport` do SDK 0.10.0 **sem sessão**, `AuthorizationMiddleware` com `ScopePolicy` (403 `insufficient_scope` antes do SDK), `securitySchemes` e `_meta["mcp/www_authenticate"]` para o ChatGPT (5.1), `NullLogger` no SDK, nginx (3.3), limites de taxa (por pessoa, por escritório, documento e confirmação, 8), log `mcp`, rota com nome próprio para a auditoria, chave `conector_ia` no catálogo, `quem_sou_eu`, teste de arquitetura da lista fechada e das anotações | 1, 3 | ALTO, com re-revisão |
+| 5 | `conector-mcp` | Firewall do `/mcp`, validador do token opaco com o portão a cada requisição (inclusive corte de "Sair de todos os aparelhos", impressão da senha e liberação nos dois níveis), metadado RFC 9728 por controller nosso nas duas URLs, `/mcp` nas listas dos dois listeners (8), `StreamableHttpTransport` do SDK 0.10.0 **sem sessão**, `AuthorizationMiddleware` com `ScopePolicy` (403 `insufficient_scope` antes do SDK), `securitySchemes` e `_meta["mcp/www_authenticate"]` para o ChatGPT (5.1), `NullLogger` no SDK, nginx (3.3), limites de taxa (por pessoa, por escritório, documento e confirmação, 8), log `mcp`, rota com nome próprio para a auditoria, chave `conector_ia` no catálogo, `quem_sou_eu`, teste de arquitetura da lista fechada e das anotações | 1, 3 | ALTO, com re-revisão |
 | 6 | `conector-leitura-pasta` | Registro de ferramentas próprio do conector (o compartilhado com o chat fica para depois do piloto, 6.8; o PR não mexe no despacho do chat); `buscar_pastas`, `ler_pasta` (menos publicações, timeline e controladoria), `ler_agenda` (com `minhas_metas` e a porta do aceite na guarda da consulta de prazos, 14.i); `LerAndamentoDaPastaUseCase`; segredo nas listas; máscara sempre ligada (6.2.6); tabela de aba e chave (6.6) com o teste que a percorre | 5 | MÉDIO |
 | 7 | `conector-leitura-documentos` | `ler_documentos_e_modelos` com PDF e imagem (porta do aceite do conector, barreira da aba Documentos); `ler_pasta` parte `publicacoes`, sem marcar lida; `ler_processos` (buscar, detalhar, para vincular), com UseCase de leitura e movimentações paginadas | 6 | MÉDIO |
 | 7b | `conector-leitura-texto` | Peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML como texto (6.5): método novo no leitor, `ExtratorDeTextoDocx` num lugar comum | 7 | MÉDIO |
 | 7c | `conector-leitura-formatos` | XLSX, XLS, ODS, PPTX, ODP, EML, ZIP, `.p7s`, TIFF e HEIC (6.5); a extensão de imagem nova é arquivo quente e passo de deploy | 7b | MÉDIO |
-| 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); liberar por escritório na aba "Configurações da I.A." do Master; ligar e dar o aceite do conector, para o administrador do escritório. O comando `conector:liberar` do PR 3 continua | 2, 3 | MÉDIO |
+| 8 | `conector-telas` | Pela convenção do sistema (14.e): "Conexões de I.A." no Meu Perfil (listar e revogar); tabela de leitura dos escritórios na aba "Configurações da I.A." do Master (sem liberar por escritório, decisão do Samuel de 19/11); ligar e dar o aceite do conector, para o administrador do escritório. O comando `conector:liberar` do PR 3 continua | 2, 3 | MÉDIO |
 | 9 | `conector-confirmacao` | Proposta (`conector_ia_proposta`), `confirmar_acao`, `_meta` de interação, escopo `mcp:escrita`, varredura das vencidas (6.7); sem elicitation (6.7, item 2) | 5 | ALTO, com re-revisão |
 | 10 | `conector-escrita-pasta` | `atualizar_pasta`, `mudar_andamento`, `registrar_na_pasta`, `prazos_e_metas_da_pasta` (com o `CriarMetaUseCase` extraído do `TarefaController`) | 6, 9 | ALTO |
 | 11 | `conector-escrita-clientes` | `ler_clientes` (UseCases de leitura extraídos) e `atualizar_cliente` (cadastro em lote por proposta, completar, contato, vincular extraído, principal, ligar documento) | 6, 9 | ALTO |
@@ -1837,9 +1837,10 @@ Regras do plano:
   `nginx.prod.conf` (PR 5), o `Dockerfile` da imagem PHP (PR 7c).
 - Os PRs 1, 3, 5 e 9 mexem em identidade ou na garantia da confirmação: revisão contra esta spec e re-revisão antes do
   seguinte. Os de gravação (10 a 14) são revisados contra a tabela da 6.6 e a lista de exclusões da 6.7.
-- **Liberação no piloto:** a chave geral `conector_ia` já nasce ligada (14.a, nível 1); o Master libera só o escritório do
-  Farlei (o nível 2, que nasce falso), pelo `conector:liberar` até o PR 8 e pela tela depois, e o administrador dele liga o
-  conector e dá o aceite. Abrir a outro escritório espera o texto dos advogados (14.a).
+- **Liberação (decisão do Samuel, 19/11):** a chave geral `conector_ia` já nasce ligada (14.a, nível 1) e fica como
+  interruptor de emergência do Master; não há mais liberação por escritório. O administrador de cada escritório liga o
+  conector e dá o aceite, pela tela (ou pelo `conector:liberar`, no console). O piloto deixa de ser só o escritório do
+  Farlei. O texto definitivo do aceite continua com os advogados (14.a).
 
 ### 13.2 Tabelas novas
 
@@ -1862,7 +1863,7 @@ Regras de todas:
 | Tabela | Para quê | Colunas principais | Escritório |
 |---|---|---|---|
 | `conector_ia_cliente` | o app de I.A. registrado por CIMD | `identificador` (único; a URL do documento CIMD), `tipo` (`cimd` no piloto; `dcr` e `pre_registrado` ficam reservados para depois, 3.4), `nome` (o `client_name`, autodeclarado; a tela mostra o host do `identificador`, 9.4), `redirect_uris` (JSON, do documento), `metadados_buscados_em`, `metadados_validos_ate`, `ativo`, `criado_em` | **global por natureza** (o ChatGPT é o mesmo cliente para todos os escritórios): exceção declarada à regra "toda consulta filtra tenant"; nenhum dado de escritório passa por ela |
-| `conector_ia_escritorio` | liberação do Master e aceite do escritório (14.a) | `tenant_id` (único), `liberado_pelo_master` (padrão falso), `ligado` (padrão falso), `aceite_em`, `aceite_versao`, `aceito_por_user_id`; `Auditavel` (quem liberou, ligou ou aceitou, e quando, fica no `audit_log`, como na `ConfiguracaoDeInteligencia`) | sim |
+| `conector_ia_escritorio` | ligação e aceite do escritório (14.a) | `tenant_id` (único), `ligado` (padrão falso), `aceite_em`, `aceite_versao`, `aceito_por_user_id`; a coluna `liberado_pelo_master` saiu em 19/11 (migration `Version20261119100000`); `Auditavel` (quem ligou ou aceitou, e quando, fica no `audit_log`, como na `ConfiguracaoDeInteligencia`) | sim |
 | `conector_ia_consentimento` | a "conexão" que a pessoa vê e revoga | `user_id`, `tenant_id`, `cliente_id`, `escopos`, `concedido_em`, `revogado_em`, `ultimo_uso_em` (gravado no máximo uma vez por minuto); uma ativa por pessoa, escritório e cliente; `Auditavel` (conceder, revogar) | sim |
 | `conector_ia_concessao` | a cadeia: uma por autorização na tela (9.1) | `consentimento_id`, `tenant_id`, `user_id`, `escopos` (concedidos), `resource`, `autorizado_em` (instante da autorização; é o `criado_em`), `impressao_da_senha` (HMAC do hash da senha), `expira_em` (limite absoluto: 7 dias do `autorizado_em`), `revogada_em`, `motivo` (da revogação, de lista fechada) | sim |
 | `conector_ia_codigo` | código de autorização | `identificador_hash` (único), `concessao_id`, `tenant_id`, `redirect_uri`, `code_challenge` (só S256), `criado_em`, `expira_em` (até 10 min), `usado_em` | sim |
@@ -1906,21 +1907,18 @@ Pelo conector, o provedor é o que a pessoa escolheu (Anthropic ou OpenAI), pela
 não tem contrato, ZDR nem DPA com esse provedor, e um plano de consumidor pode usar a conversa para treino, conforme a
 configuração da conta. O aceite da BlueJus I.A. não cobre isso, porque o texto dele fala do provedor que o BlueJus contrata.
 
-Como fica, no mesmo molde da BlueJus I.A. (`DisponibilidadeDeInteligencia`, três níveis, todos conferidos na autorização e a
-cada requisição):
+Como fica, no mesmo molde da BlueJus I.A. (`DisponibilidadeDeInteligencia`), em **dois níveis** desde a decisão do Samuel de 19/11 (antes eram três, com a
+liberação do Master por escritório, que saiu), conferidos na autorização e a cada requisição:
 
 1. **Chave geral** do Master: `conector_ia` no `CatalogoDeRecursos`, que desliga o conector de todos de uma vez. **Nasce
    ligada**: sem registro, `RecursosDoSistema::estado` devolve ativo (`app/src/Master/Service/RecursosDoSistema.php:53`),
-   como toda chave do catálogo. O que nasce falso é o nível 2.
-2. **Liberação por escritório, pelo Master**, quando ele quiser, na aba "Configurações da I.A." do painel Master, ao lado da
-   liberação da BlueJus I.A. (`master_ia_escritorio`): `conector_ia_escritorio.liberado_pelo_master`, padrão falso, como o campo `liberadaPeloMaster` da
-   `ConfiguracaoDeInteligencia` (`ConfiguracaoDeInteligencia::isLiberadaPeloMaster`). Sem a liberação, o aceite do administrador não basta.
-3. **Ligado pelo administrador do escritório**, com um **aceite próprio do conector**, com versão (enum novo, nome sugerido
+   como toda chave do catálogo. É o interruptor de emergência: desligada, corta tudo, inclusive para o Master.
+2. **Ligado pelo administrador do escritório**, com um **aceite próprio do conector**, com versão (enum novo, nome sugerido
    `VersaoDoAceiteDoConector`; a versão 1 já cobre documentos, porque a 14.f os inclui). O texto diz que o dado vai para a
    conta de I.A. de cada pessoa e recomenda plano empresarial ou sem treino. A guarda é a mesma da tela da BlueJus I.A.
    (`admin.inteligencia.manage`).
 
-Piloto no escritório do Farlei. Regras de saída da 6.2, com a máscara de CPF, CNPJ, telefone e e-mail **sempre ligada** no
+Sem piloto restrito a um escritório (decisão do Samuel, 19/11): cada escritório liga quando quiser. Regras de saída da 6.2, com a máscara de CPF, CNPJ, telefone e e-mail **sempre ligada** no
 texto livre, sem seguir a preferência da BlueJus I.A. (6.2.6). O conector não reaproveita o aceite da BlueJus I.A. A chave é do
 escritório, não um filtro por pessoa, então não contraria a decisão 1. O texto do aceite e a linha nos termos de uso vão para
 o pacote jurídico (`bluejus-coordenacao/pacote-juridico.md`) sem travar a implementação; abrir a outro escritório espera o
@@ -1958,7 +1956,7 @@ completar 7 dias da autorização. A pessoa faz login uma vez por semana, e um t
 (3.4; revisão de 16/11/2026, que tirou o DCR do piloto). Sem cliente pré-registrado e sem diretórios no piloto.
 
 **e) Telas sem desenho. Decidido em 08/11/2026: opção 2.** As quatro telas (a de autorização, no PR 3, e as três do PR 8:
-"Conexões de I.A." no Meu Perfil, a liberação por escritório na aba "Configurações da I.A." do Master e a tela em que o
+"Conexões de I.A." no Meu Perfil, a tabela de leitura dos escritórios na aba "Configurações da I.A." do Master e a tela em que o
 administrador do escritório liga o conector e dá o aceite) saem pela convenção do sistema, sem esperar desenho. Se um
 desenho vier depois, troca-se a tela.
 
@@ -2077,7 +2075,7 @@ entra num PR próprio depois de testada nos dois clientes.
    `^/\.well-known/oauth-authorization-server$` (o `/oauth/authorize` fica no `ROLE_USER`), e os limites de taxa
    `conector_token` (por cliente e IP) e `conector_cimd` (por domínio do `client_id`). Os do `/mcp` ficam no PR 5.
 2. **A chave `conector_ia` entra no catálogo no PR 3**, sem rota no mapa de rotas: o guarda de rota não pode
-   redirecionar o `/oauth/*` nem o `/mcp`; quem confere a chave é a liberação nos três níveis, no código. A rota do
+   redirecionar o `/oauth/*` nem o `/mcp`; quem confere a chave é a liberação nos dois níveis, no código. A rota do
    Master que liga e desliga uma chave passa a aceitar sublinhado, senão o Master não conseguiria desligar esta.
 3. **Depois do login, a pessoa volta ao `/oauth/authorize`** com o pedido inteiro, também quando tem vários
    escritórios (teste de identidade). Se ela ainda precisar aceitar os Termos de Uso, o pedido se perde depois do
@@ -2180,9 +2178,9 @@ Coordenador):**
 
 1. **Meu Perfil** lista as conexões de I.A. de todos os escritórios da pessoa, com o escritório na linha.
 2. Conexão de escritório com **vínculo caído** (suspenso ou removido) aparece marcada e pode ser revogada.
-3. O administrador **só dá o aceite depois da liberação do Master**: sem o nível 2, botão Ligar desabilitado e aviso de
-   aguardando liberação.
-4. **Desligar ou bloquear não revoga** as conexões: só suspende (ver 11).
+3. O administrador **liga e dá o aceite sem depender do Master** (decisão do Samuel, 19/11, que tirou o antigo nível 2).
+   Com a chave geral desligada, o cartão avisa que o conector está fora do ar.
+4. **Desligar não revoga** as conexões: só suspende (ver 11).
 5. O administrador **não vê nem revoga** as conexões da equipe no piloto.
 6. O Master vê só a **contagem** de conexões ativas por escritório, nunca as pessoas.
 7. **Texto do aceite provisório** (versão 1) até o jurídico; não abrir a outro escritório antes dele.
@@ -2192,7 +2190,7 @@ Coordenador):**
    `revogada_pela_pessoa`, e trava a conexão para dois cliques não gravarem duas vezes.
 10. **Exclusão de conta ou vínculo** (9.9, `conta_ou_vinculo_encerrado`) fica fora do PR 8; o CASCADE cobre a exclusão
     física.
-11. **Suspensão sem revogar** (aprovada pelo Coordenador). Liberação desligada (chave geral, nível 2, nível 3 ou aceite
+11. **Suspensão sem revogar** (aprovada pelo Coordenador). Liberação desligada (chave geral, escritório desligado ou aceite
     antigo) é zero acesso na hora e não derruba a conexão:
     - a renovação (`refresh_token`) não confere a liberação (`ConferenciaDaConcessao::exigirNaRenovacao`); continua
       conferindo pessoa, vínculo, senha, "Sair de todos", termos, `resource` e o limite de 7 dias, que corre durante a

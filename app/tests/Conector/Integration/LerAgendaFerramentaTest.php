@@ -579,7 +579,6 @@ final class LerAgendaFerramentaTest extends KernelTestCase
     private function liberarConector(Tenant $escritorio): void
     {
         $doConector = new EscritorioDoConector($escritorio);
-        $doConector->liberarPeloMaster();
         $doConector->ligar($this->pessoa(), new \DateTimeImmutable());
         $this->em()->persist($doConector);
         $this->em()->flush();

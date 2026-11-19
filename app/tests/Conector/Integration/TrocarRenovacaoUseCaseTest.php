@@ -245,7 +245,7 @@ final class TrocarRenovacaoUseCaseTest extends KernelTestCase
         if ($como === 'desligar') {
             $conexao['liberacao']->desligar();
         } else {
-            $conexao['liberacao']->bloquearPeloMaster();
+            $conexao['liberacao']->desligar();
         }
         $this->em()->flush();
     }

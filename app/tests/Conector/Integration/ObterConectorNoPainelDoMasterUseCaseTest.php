@@ -74,10 +74,10 @@ final class ObterConectorNoPainelDoMasterUseCaseTest extends KernelTestCase
 
         $vazia = $this->linhaDe($linhas, $semLinha);
         self::assertNotNull($vazia);
-        self::assertSame([$semLinha->getName(), false, false, null, false, 0], [$vazia->nome, $vazia->liberado, $vazia->ligado, $vazia->aceiteEm, $vazia->aceiteVigente, $vazia->conexoesAtivas]);
+        self::assertSame([$semLinha->getName(), false, null, false, 0], [$vazia->nome, $vazia->ligado, $vazia->aceiteEm, $vazia->aceiteVigente, $vazia->conexoesAtivas]);
         $cheia = $this->linhaDe($linhas, $ligado);
         self::assertNotNull($cheia);
-        self::assertTrue($cheia->liberado);
+        self::assertTrue($cheia->chaveGeralLigada);
         self::assertTrue($cheia->ligado);
         self::assertTrue($cheia->aceiteVigente);
         self::assertSame($this->agora()->format('Y-m-d'), $cheia->aceiteEm?->format('Y-m-d'));

@@ -61,7 +61,6 @@ final class ExcluirDeVezPeloConectorTest extends KernelTestCase
         $this->pessoa = $this->pessoa();
         $this->vinculo($this->pessoa, $this->escritorio, permissoes: self::EDITOR);
         $this->doConector = new EscritorioDoConector($this->escritorio);
-        $this->doConector->liberarPeloMaster();
         $this->doConector->ligar($this->pessoa, new \DateTimeImmutable());
         $this->em()->persist($this->doConector);
         $app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable());

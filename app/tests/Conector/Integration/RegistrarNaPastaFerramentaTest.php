@@ -94,7 +94,6 @@ final class RegistrarNaPastaFerramentaTest extends KernelTestCase
         $this->colega->setFullName('Maria Colega');
         $this->vinculo($this->colega, $this->escritorio, permissoes: self::EDITOR);
         $doConector = new EscritorioDoConector($this->escritorio);
-        $doConector->liberarPeloMaster();
         $doConector->ligar($this->pessoa, new \DateTimeImmutable());
         $this->em()->persist($doConector);
         $this->app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable('-1 hour'));

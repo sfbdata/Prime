@@ -53,9 +53,9 @@ final class AcessoDoConectorRecusado extends \RuntimeException
     }
 
     /**
-     * A liberação do conector nos três níveis (decisão 14.a) não está completa: chave geral `conector_ia` desligada
-     * pelo Master, escritório não liberado pelo Master, ou conector desligado ou sem o aceite vigente no escritório. A
-     * mensagem é uma só para os três: o app de I.A. não precisa saber qual nível faltou.
+     * A liberação do conector nos dois níveis (decisão 14.a) não está completa: chave geral `conector_ia` desligada
+     * pelo Master, ou conector desligado ou sem o aceite vigente no escritório. A mensagem é uma só para os dois: o
+     * app de I.A. não precisa saber qual nível faltou.
      */
     public static function liberacao(): self
     {
