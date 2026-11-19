@@ -41,7 +41,16 @@ final class CatalogoDeTraducaoTest extends KernelTestCase
         self::assertInstanceOf(TranslatorBagInterface::class, $tradutor);
         $catalogo = $tradutor->getCatalogue('pt_BR');
 
-        $faltam = array_values(array_filter(self::chavesUsadas(), static fn (string $chave): bool => !$catalogo->has($chave)));
+        // Chave que termina em "." é prefixo de chave montada na hora (`BJ_T.t('bloco.js.x.' + sufixo)`): vale se o
+        // catálogo tem alguma chave embaixo dele.
+        $todas = array_keys($catalogo->all('messages+intl-icu') + $catalogo->all('messages'));
+        $faltam = array_values(array_filter(self::chavesUsadas(), static function (string $chave) use ($catalogo, $todas): bool {
+            if (str_ends_with($chave, '.')) {
+                return [] === array_filter($todas, static fn (string $existente): bool => str_starts_with((string) $existente, $chave));
+            }
+
+            return !$catalogo->has($chave);
+        }));
 
         self::assertSame([], $faltam, 'chave usada sem texto em translations/<bloco>/messages+intl-icu.pt_BR.yaml');
     }

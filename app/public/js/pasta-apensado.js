@@ -18,7 +18,7 @@
 (function () {
     'use strict';
 
-    var AVISO_APENSO = 'Apensado vinculado · aparece em Processo, Dados da pasta e Push processual';
+    /* O aviso do modo apenso sai do catálogo na hora do uso (este script pode rodar antes do bj-traducao.js). */
 
     /* ── 1. Modo apenso do modal ─────────────────────────────────────────── */
     function modoDoModal() {
@@ -39,8 +39,8 @@
             // Desabilitado no modo de sempre: o `tipo_apenso` nem vai no POST.
             selectTipo.disabled = !apenso;
             if (apenso) { selectTipo.selectedIndex = 0; }
-            titulo.textContent = apenso ? 'Vincular apensado' : tituloPadrao;
-            salvar.textContent = apenso ? 'Vincular apensado' : salvarPadrao;
+            titulo.textContent = apenso ? BJ_T.t('pasta_show.js.apensado.vincular') : tituloPadrao;
+            salvar.textContent = apenso ? BJ_T.t('pasta_show.js.apensado.vincular') : salvarPadrao;
         }
 
         // A janela do desenho (show.html.twig) avisa a abertura com o botão que a abriu.
@@ -50,19 +50,19 @@
         });
 
         document.addEventListener('mp:processo-vinculado', function () {
-            if (campoModo.value === 'apenso' && window.avisarPs) { window.avisarPs(AVISO_APENSO); }
+            if (campoModo.value === 'apenso' && window.avisarPs) { window.avisarPs(BJ_T.t('pasta_show.js.apensado.aviso')); }
         });
     }
 
     /* ── 2. Desvincular o apensado ───────────────────────────────────────── */
     function perguntar(form, botao) {
-        var texto = form.getAttribute('data-confirmar-texto') || 'Desvincular este apensado da pasta?';
+        var texto = form.getAttribute('data-confirmar-texto') || BJ_T.t('pasta_show.js.apensado.confirmar');
         if (!window.confirmarPs) { return Promise.resolve(window.confirm(texto)); }
 
         return window.confirmarPs({
-            titulo: 'Desvincular apensado',
+            titulo: BJ_T.t('pasta_show.js.apensado.desvincular_titulo'),
             texto: texto,
-            rotulo: 'Desvincular',
+            rotulo: BJ_T.t('pasta_show.js.apensado.desvincular'),
             icone: 'bi-x-lg',
             foco: botao
         });
@@ -86,9 +86,9 @@
 
                 return;
             }
-            avisarErro(dados.erro || 'Erro ao desvincular o apensado.');
+            avisarErro(dados.erro || BJ_T.t('pasta_show.js.apensado.erro'));
         } catch (err) {
-            avisarErro('Erro de comunicação. Tente novamente.');
+            avisarErro(BJ_T.t('pasta_show.js.apensado.erro_comunicacao'));
         } finally {
             if (botao && document.contains(botao)) { botao.disabled = false; }
         }

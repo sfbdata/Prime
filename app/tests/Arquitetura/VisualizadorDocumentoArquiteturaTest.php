@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Arquitetura;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -27,6 +28,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class VisualizadorDocumentoArquiteturaTest extends TestCase
 {
+    use TextoDoCatalogo;
+
+    /** Chave do catálogo do visualizador (comum.js.visualizador.<chave>). */
+    private const CAT = 'comum.js.visualizador.';
+
     private const MODULO = 'public/js/visualizador-documento.js';
 
     private static function raiz(): string
@@ -159,7 +165,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
 
         $bloco = self::corpoDaFuncao($js, 'blocoAssinatura');
         // DOC-141: "(P7S, 12 KB)" como o desenho (bj-visualizar.js:87) quando quem abre passa o tamanho; "(P7S)" sem ele.
-        self::assertStringContainsString("'Envelope de assinatura digital (' + ext + (tam ? ', ' + tam : '') + '). Para conferir a assinatura, use o validador oficial do ITI.'", $bloco);
+        self::assertStringContainsString("T('assinatura_envelope', { info: ext + (tam ? ', ' + tam : '') })", $bloco);
+        self::assertSame('Envelope de assinatura digital ({info}). Para conferir a assinatura, use o validador oficial do ITI.', self::ptBr(self::CAT . 'assinatura_envelope'));
         self::assertStringContainsString("const tam = typeof tamanho === 'number' ? (tamanho > 0 ? formatarTamanho(tamanho) : '') : String(tamanho == null ? '' : tamanho).trim();", $bloco);
         self::assertStringContainsString('bi-patch-check-fill', $bloco);
         self::assertStringNotContainsString('No sistema', $bloco, 'o sistema não abre o envelope nem mostra o certificado');
@@ -180,7 +187,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString("img.addEventListener('error', function () {", $render);
         self::assertLessThan(strpos($render, 'img.src = o.url;'), strpos($render, "img.addEventListener('error'"), 'o listener entra antes do src: o erro não escapa');
         self::assertStringContainsString('if (!vivo()) { return; }', $render, 'abrir outro arquivo antes do erro não troca a tela do novo');
-        self::assertStringContainsString("'Imagem HEIC (iPhone). Este navegador não abre esse formato. Use Baixar.'", $render);
+        self::assertStringContainsString("T('heic')", $render);
+        self::assertSame('Imagem HEIC (iPhone). Este navegador não abre esse formato. Use Baixar.', self::ptBr(self::CAT . 'heic'));
         self::assertStringContainsString("blocoAviso('bi-image', '#7a4bb0',", $render, 'ícone e cor do grupo heic do desenho (bj-visualizar.js L62)');
         self::assertStringContainsString('blocoNaoDisponivel(o.urlDownload,', $render, 'imagem comum que não carrega também sai do ícone quebrado');
         self::assertStringNotContainsString('servidor', $render, 'o sistema não converte HEIC');
@@ -206,9 +214,12 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString("const partes = [ext.toUpperCase(), tam].filter(Boolean);", $bloco);
         self::assertStringContainsString("const tam = textoDoTamanho(o.tamanho);", $bloco, 'DOC-141: o tamanho que quem abre já tem');
         // Textos do desenho (bj-visualizar.js L86, L88, L90) sem a frase do servidor.
-        self::assertStringContainsString("'Este tipo de arquivo' + rotulo + ' não tem visualização. Use Baixar.'", $bloco);
-        self::assertStringContainsString("'Arquivo ' + ext.toUpperCase() + (tam ? ' (' + tam + ')' : '') + '. O navegador não abre este formato.'", $bloco);
-        self::assertStringContainsString("'Formato antigo da Microsoft' + rotulo + '. O navegador não lê este formato.'", $bloco);
+        self::assertStringContainsString("T('sem_viz_outro', { rotulo: rotulo })", $bloco);
+        self::assertStringContainsString("T('sem_viz_compactado', { ext: ext.toUpperCase(), tam: tam ? ' (' + tam + ')' : '' })", $bloco);
+        self::assertStringContainsString("T('sem_viz_microsoft', { rotulo: rotulo })", $bloco);
+        self::assertSame('Este tipo de arquivo{rotulo} não tem visualização. Use Baixar.', self::ptBr(self::CAT . 'sem_viz_outro'));
+        self::assertSame('Arquivo {ext}{tam}. O navegador não abre este formato.', self::ptBr(self::CAT . 'sem_viz_compactado'));
+        self::assertSame('Formato antigo da Microsoft{rotulo}. O navegador não lê este formato.', self::ptBr(self::CAT . 'sem_viz_microsoft'));
         self::assertStringContainsString("blocoAviso('bi-file-earmark-zip-fill', '#b7791f',", $bloco);
         self::assertStringContainsString("ext === 'msg' ? 'bi-envelope-paper-fill' : 'bi-file-earmark-slides-fill', '#c0571d'", $bloco);
         self::assertStringContainsString("blocoAviso('bi-file-earmark', '#6b8494',", $bloco);
@@ -331,8 +342,10 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
 
         $bloco = self::corpoDaFuncao($js, 'blocoSlides');
         self::assertStringContainsString('function blocoSlides(slides, total, textoCortado)', $bloco);
-        self::assertStringContainsString("(textoCortado ? ' O texto é longo: só o começo aparece aqui.' : '')", $bloco);
-        self::assertStringContainsString("(cortou || textoCortado ? ' Baixe para ver tudo.' : '')", $bloco);
+        self::assertStringContainsString("(textoCortado ? ' ' + T('texto_longo') : '')", $bloco);
+        self::assertStringContainsString("(cortou || textoCortado ? ' ' + T('baixar_tudo') : '')", $bloco);
+        self::assertSame('O texto é longo: só o começo aparece aqui.', self::ptBr(self::CAT . 'texto_longo'));
+        self::assertSame('Baixe para ver tudo.', self::ptBr(self::CAT . 'baixar_tudo'));
     }
 
     #[TestDox('ZIP64: lerZip lê o EOCD64 (locator 0x07064b50 → registro 0x06064b50) e o extra 0x0001, sem recusar o formato')]
@@ -426,7 +439,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         $render = self::corpoDaFuncao($js, 'renderDoc');
         self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_DOC, false, o.sinal)', $render, 'o .doc inteiro ou nada: o índice OLE2 pode estar no fim');
         self::assertStringContainsString('textoDoDoc(arq.bytes, LIMITE_CARACTERES)', $render);
-        self::assertStringContainsString("'Formato antigo do Word (.doc): mostrando só o texto.'", $render, 'texto da faixa do desenho (bj-visualizar.js L68)');
+        self::assertStringContainsString("T('doc_faixa')", $render, 'texto da faixa do desenho (bj-visualizar.js L68)');
+        self::assertSame('Formato antigo do Word (.doc): mostrando só o texto.', self::ptBr(self::CAT . 'doc_faixa'));
         self::assertStringContainsString('background:#fff7e6;color:#7a4b00;border-radius:4px;padding:8px 12px;margin-bottom:16px;font-size:12px', $render, 'as cores e medidas da faixa do desenho');
         self::assertStringContainsString('fl.folha.appendChild(faixa);', $render, 'a faixa fica DENTRO da folha, como no desenho');
         self::assertStringContainsString("el('div', 'vd-folha-pre', r.texto)", $render, 'o texto entra por textContent');
@@ -450,7 +464,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         $doc = self::corpoDaFuncao($js, 'textoDoDoc');
         self::assertStringContainsString("cfb.stream('WordDocument')", $doc);
         self::assertStringContainsString('lerU16(wd, 0) !== 0xa5ec', $doc, 'wIdent do FIB');
-        self::assertStringContainsString("if (flags & 0x0100) { throw falha('O documento está protegido por senha. Baixe para abrir.'); }", $doc);
+        self::assertStringContainsString("if (flags & 0x0100) { throw falha(T('protegido_doc')); }", $doc);
+        self::assertSame('O documento está protegido por senha. Baixe para abrir.', self::ptBr(self::CAT . 'protegido_doc'));
         self::assertStringContainsString('if (lerU16(wd, 2) < 0xc1) {', $doc, 'Word 6/95 tem outro FIB: recusa em vez de ler errado');
         self::assertStringContainsString("cfb.stream(flags & 0x0200 ? '1Table' : '0Table')", $doc, 'fWhichTblStm escolhe o stream da tabela');
         self::assertStringContainsString('const fcClx = lerU32(wd, rgFc + 33 * 8);', $doc);
@@ -526,7 +541,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('i < total && i < LIMITE_PAGINAS_TIFF', $render);
         self::assertStringContainsString('w > LIMITE_LADO_TIFF || h > LIMITE_LADO_TIFF || w * h > LIMITE_PIXELS_PAGINA_TIFF', $render);
         self::assertStringContainsString('if (bytesPagina > LIMITE_BYTES_PAGINA_TIFF) { break; }', $render);
-        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+        self::assertStringContainsString("T('tiff_paginas', { n: desenhadas, total: total })", $render);
+        self::assertSame('Aparecem as {n} primeiras de {total} páginas. Baixe para ver tudo.', self::ptBr(self::CAT . 'tiff_paginas'));
         self::assertStringContainsString("lista.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px';", $render, 'as páginas uma embaixo da outra, com 14 px (bj-visualizar.js L66)');
         self::assertStringContainsString('await new Promise(function (ok) { setTimeout(ok, 0); });', $render, 'cede a thread entre uma página e outra');
         foreach (['innerHTML', 'srcdoc', 'montarSrcdoc', 'neutralizar'] as $proibido) {
@@ -537,7 +553,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertStringContainsString('putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, w * h * 4), w, h), 0, 0)', $pagina);
         self::assertStringContainsString('const escala = Math.min(1, LARGURA_MAX_TIFF / w);', $pagina, 'página grande é reduzida para a tela');
         self::assertStringContainsString("c.style.cssText = 'display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)';", $pagina, 'página branca com a sombra do desenho');
-        self::assertStringContainsString("c.title = 'Página ' + numero;", $pagina);
+        self::assertStringContainsString("c.title = T('pagina_n', { n: numero });", $pagina);
+        self::assertSame('Página {n}', self::ptBr(self::CAT . 'pagina_n'));
     }
 
     #[TestDox('DOC-112b: teto de pixels EXIBIDOS somado entre as páginas do TIFF, conferido antes de decodificar a página; passando dele, o aviso "Aparecem as N primeiras"')]
@@ -552,7 +569,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
             $render,
             'o teto somado vem antes do decodeImage, e só a página desenhada entra na soma',
         );
-        self::assertStringContainsString("'Aparecem as ' + desenhadas + ' primeiras de ' + total + ' páginas. Baixe para ver tudo.'", $render);
+        self::assertStringContainsString("T('tiff_paginas', { n: desenhadas, total: total })", $render);
+        self::assertSame('Aparecem as {n} primeiras de {total} páginas. Baixe para ver tudo.', self::ptBr(self::CAT . 'tiff_paginas'));
 
         // A conta é a mesma redução do canvas da página.
         $pixels = self::corpoDaFuncao($js, 'pixelsExibidosTiff');
@@ -587,7 +605,8 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         $js = self::modulo();
 
         $envelope = self::corpoDaFuncao($js, 'pakoComTeto');
-        self::assertStringContainsString('if (total > orcamentoInflateTiff) { throw falha(MSG_TIFF_GRANDE); }', $envelope);
+        self::assertStringContainsString("if (total > orcamentoInflateTiff) { throw falha(T('tiff_grande')); }", $envelope);
+        self::assertSame('Imagem grande demais para pré-visualizar. Baixe para abrir.', self::ptBr(self::CAT . 'tiff_grande'));
         self::assertStringContainsString('inf.push(dados, true);', $envelope);
 
         $carregar = self::corpoDaFuncao($js, 'carregarUtif');

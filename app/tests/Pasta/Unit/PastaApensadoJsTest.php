@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('pasta')]
 final class PastaApensadoJsTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const JS        = __DIR__ . '/../../../public/js/pasta-apensado.js';
     private const SHOW      = __DIR__ . '/../../../templates/pasta/show.html.twig';
     private const PROCESSOS = __DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig';
@@ -64,8 +67,10 @@ final class PastaApensadoJsTest extends TestCase
         self::assertStringContainsString('js-desvincular-apensado', $processos);
         self::assertStringContainsString("getAttribute('data-confirmar-texto')", $js);
         self::assertStringContainsString('data-confirmar-texto=', $processos);
-        self::assertStringContainsString("titulo: 'Desvincular apensado'", $js);
-        self::assertStringContainsString("rotulo: 'Desvincular'", $js);
+        self::assertStringContainsString("titulo: BJ_T.t('pasta_show.js.apensado.desvincular_titulo')", $js);
+        self::assertStringContainsString("rotulo: BJ_T.t('pasta_show.js.apensado.desvincular')", $js);
+        self::assertSame('Desvincular apensado', self::ptBr('pasta_show.js.apensado.desvincular_titulo'));
+        self::assertSame('Desvincular', self::ptBr('pasta_show.js.apensado.desvincular'));
         self::assertStringContainsString('window.mpSwapProcessos(dados.html)', $js);
     }
 

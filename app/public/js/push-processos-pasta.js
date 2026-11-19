@@ -31,9 +31,9 @@
 
     function excluirProcesso(linha) {
         if (!window.confirm(texto('confirma-excluir', { processo: linha.dataset.numeroExibicao }))) { return; }
-        var digitado = window.prompt('Confirmação de segurança: digite EXCLUIR.', '');
-        if (String(digitado || '').trim().toUpperCase() !== 'EXCLUIR') {
-            window.ppToast('Exclusão cancelada: a confirmação não conferiu.');
+        var digitado = window.prompt(BJ_T.t('comum.js.push.confirma_digite', { palavra: BJ_T.t('comum.js.push.palavra_excluir') }), '');
+        if (String(digitado || '').trim().toUpperCase() !== BJ_T.t('comum.js.push.palavra_excluir').toUpperCase()) {
+            window.ppToast(BJ_T.t('comum.js.push.exclusao_cancelada'));
             return;
         }
         var f = document.querySelector('[data-pp-excluir-form]');

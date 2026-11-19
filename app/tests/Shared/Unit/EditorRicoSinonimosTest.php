@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Shared\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class EditorRicoSinonimosTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
 
     private function js(): string
@@ -110,10 +113,11 @@ final class EditorRicoSinonimosTest extends TestCase
     {
         $menu = $this->funcao('abrirMenuContexto');
 
-        $bloco = strpos($menu, "cabecalhoDaJanela('Sinônimos de \"' + palavra.texto + '\"')");
+        $bloco = strpos($menu, "cabecalhoDaJanela(T('menu.sinonimos', { palavra: palavra.texto }))");
+        self::assertSame('Sinônimos de "{palavra}"', self::ptBr('comum.js.editor.' . 'menu.sinonimos'));
         self::assertNotFalse($bloco);
-        self::assertGreaterThan(strpos($menu, "'Aumentar recuo'"), $bloco);
-        self::assertLessThan(strpos($menu, "'Localizar e substituir'"), $bloco);
+        self::assertGreaterThan(strpos($menu, "T('menu.aumentar')"), $bloco);
+        self::assertLessThan(strpos($menu, "T('menu.localizar')"), $bloco);
         self::assertStringContainsString("itemDoMenu('bi-arrow-left-right', sinonimo, '', false, executar(function () {", $menu);
         self::assertStringContainsString('trocarPorSinonimo(quill, palavra, sinonimo);', $menu);
         self::assertStringContainsString('if (sinonimos.length) {', $menu, 'sem sinônimo, o bloco não aparece');

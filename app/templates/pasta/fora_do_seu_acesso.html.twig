@@ -23,8 +23,8 @@
     <main class="bje-fora" role="alert" data-fora-do-seu-acesso>
         <div class="bje-fora-icone" aria-hidden="true">🔒</div>
         <h1 class="bje-fora-titulo">{{ titulo }}</h1>
-        <p class="bje-fora-texto">Seu perfil tem <b>acesso restrito às pastas sob sua responsabilidade</b>. Esta área do escritório não está disponível para você.</p>
-        <a class="bje-fora-botao" href="{{ urlDaLista }}">Ir para minhas pastas</a>
+        <p class="bje-fora-texto">{{ 'pasta_avisos.fora.texto'|trans({destaque: '<b>' ~ ('pasta_avisos.fora.destaque'|trans|e) ~ '</b>'})|raw }}</p>
+        <a class="bje-fora-botao" href="{{ urlDaLista }}">{{ 'pasta_avisos.fora.botao'|trans }}</a>
     </main>
 </body>
 </html>

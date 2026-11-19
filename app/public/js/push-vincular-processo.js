@@ -199,7 +199,7 @@
             return;
         }
         if (!numeroOk()) { aba('info'); mostrarErro(t('numero-invalido')); return; }
-        var falta = [['orgaoJulgador', 'órgão julgador'], ['classeProcessual', 'classe processual'], ['assuntoProcessual', 'assunto processual']]
+        var falta = [['orgaoJulgador', BJ_T.t('comum.js.push.campo_orgao')], ['classeProcessual', BJ_T.t('comum.js.push.campo_classe')], ['assuntoProcessual', BJ_T.t('comum.js.push.campo_assunto')]]
             .filter(function (c) { return !String(campo(c[0]).value).trim(); }).map(function (c) { return c[1]; });
         if (falta.length) { aba('info'); mostrarErro(t('preencha', { campos: falta.join(', ') })); return; }
         renumerar();

@@ -333,9 +333,12 @@ final class ArtigosDoBlogMasterControllerTest extends JusPrimeWebTestCase
         }
         // As dicas são as do editor da pasta (editor-rico.js), e o Ctrl+H abre o Localizar.
         $pasta = (string) file_get_contents(__DIR__ . '/../../../public/js/editor-rico.js');
-        foreach (["'Revisar texto'", "'Localizar e substituir (Ctrl+H)'", "'Diminuir recuo (Shift+Tab)'", "'Aumentar recuo (Tab)'", "'Inserir símbolo'"] as $dica) {
-            self::assertStringContainsString($dica, $js);
-            self::assertStringContainsString($dica, $pasta);
+        // O texto da dica agora mora no catálogo (comum.js.editor.d.*): o editor da pasta chama a chave, o do blog traz o mesmo português.
+        $catalogo = \App\Tests\Support\CatalogoPtBr::carregar()['comum']['js']['editor']['d'];
+        foreach (['revisar' => 'Revisar texto', 'localizar_atalho' => 'Localizar e substituir (Ctrl+H)', 'diminuir_tab' => 'Diminuir recuo (Shift+Tab)', 'aumentar_tab' => 'Aumentar recuo (Tab)', 'simbolo' => 'Inserir símbolo'] as $chave => $dica) {
+            self::assertStringContainsString("'" . $dica . "'", $js);
+            self::assertSame($dica, $catalogo[$chave], "o português de d.{$chave} no catálogo mudou");
+            self::assertStringContainsString("T('d.{$chave}')", $pasta);
         }
         self::assertStringContainsString("ed.addShortcut('meta+h'", $js);
         self::assertStringContainsString('browser_spellcheck: true', $js);

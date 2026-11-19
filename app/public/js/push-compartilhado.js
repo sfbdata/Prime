@@ -16,7 +16,7 @@
     var veu = document.querySelector('[data-pc-oculto]');
     var aviso = document.querySelector('[data-pc-aviso]');
     var timerAviso = null;
-    var CAPTURA = 'Captura bloqueada pelo BlueJus.';
+    var CAPTURA = BJ_T.t('pasta_push.js.compartilhado.captura');
 
     function emCampo(alvo) {
         return !!(alvo && alvo.closest && alvo.closest('input,textarea'));

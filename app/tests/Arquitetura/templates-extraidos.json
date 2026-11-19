@@ -274,13 +274,21 @@
             "pasta/_push_cliente.html.twig",
             "pasta/_push_cliente_modal.html.twig",
             "pasta/_push_teor.html.twig",
-            "pasta/_push_link_externo.html.twig"
+            "pasta/_push_link_externo.html.twig",
+            "push_compartilhado/show.html.twig"
         ],
         "js": [
             "pasta-push.js",
             "pasta-push-painel.js",
             "pasta-push-cliente.js",
-            "pasta-push-link.js"
+            "pasta-push-link.js",
+            "push-compartilhado.js",
+            "push-oabs.js",
+            "push-diario.js",
+            "push-publicacoes.js",
+            "push-processos.js",
+            "push-processos-pasta.js",
+            "push-vincular-processo.js"
         ],
         "permitidos": [
             "Accept",
@@ -298,7 +306,15 @@
             "í",
             "ó",
             "õ",
-            "ú"
+            "ú",
+            "Vincular",
+            "Desvincular",
+            "Polo ativo",
+            "Polo passivo",
+            "Content-Type",
+            "BlueJus",
+            "· BlueJus",
+            "BlueJus · "
         ]
     },
 
@@ -774,14 +790,70 @@
         ],
         "js": [
             "filtro-tabela.js",
-            "pasta-dialogos.js"
+            "pasta-dialogos.js",
+            "pasta-busca-rapida.js",
+            "pasta-mencoes.js",
+            "pasta-arquivos.js",
+            "visualizador-documento.js",
+            "editor-rico.js"
         ],
         "permitidos": [
             "= total_paginas ? 'disabled' : '' }} aria-label=\"\">",
             "App\\\\Expediente\\\\Service\\\\CoresDoMarcador::DESENHO",
             "Enter",
             "Escape",
-            "ArrowDown"
+            "ArrowDown",
+            "Accept",
+            "AbortError",
+            "ArrowUp",
+            "Tab",
+            "(?![A-Za-zÀ-ÿ0-9\\\\]])",
+            "Files",
+            "Content-Type",
+            "Content-Length",
+            "Relationship",
+            "Target",
+            "Id",
+            "WordDocument",
+            "ArrowRight",
+            "ArrowLeft",
+            "Nikon",
+            "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐",
+            "└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\\u00ad±‗¾¶§÷¸°¨·¹³²■\\u00a0",
+            "prioritário",
+            "inadiável",
+            "período",
+            "ação",
+            "peça",
+            "questão",
+            "pendência",
+            "ágil",
+            "célere",
+            "composição",
+            "transação",
+            "conferência",
+            "solicitação",
+            "deliberação",
+            "indispensável",
+            "imprescindível",
+            "viável",
+            "factível",
+            "quitação",
+            "liquidação",
+            "avença",
+            "causídico",
+            "comunicação",
+            "diligência",
+            "começar",
+            "dar início",
+            " × ",
+            "Ctrl+X",
+            "Ctrl+C",
+            "Ctrl+V",
+            "Ctrl+Shift+V",
+            "Ctrl+H",
+            "Ctrl+A",
+            "editor-rico: Quill não carregado; a textarea segue funcionando como texto puro."
         ]
     },
 
@@ -811,7 +883,8 @@
             "pasta/_cadeado_pedidos.html.twig",
             "pasta/confirmar_duplicada.html.twig",
             "pasta/trancada.html.twig",
-            "pasta/zip_recusado.html.twig"
+            "pasta/zip_recusado.html.twig",
+            "pasta/fora_do_seu_acesso.html.twig"
         ],
         "js": [
             "pasta-abas-ocultas.js",
@@ -1112,7 +1185,20 @@
 
     "pasta_show": {
         "templates": [
-            "pasta/show.html.twig"
+            "pasta/show.html.twig",
+            "pasta/recebida.html.twig"
+        ],
+        "js": [
+            "pasta-show.js",
+            "pasta-destaque.js",
+            "pasta-presenca-autor.js",
+            "pasta-apensado.js",
+            "pasta-meta-analise-prazo.js",
+            "pasta-controladoria.js",
+            "pasta-registro-marcadores.js",
+            "pasta-clientes-duplicados.js",
+            "pasta-recebida.js",
+            "pasta-lixeira.js"
         ],
         "permitidos": [
             "ps-body",
@@ -1125,7 +1211,17 @@
             "SP",
             "R$ 0,00",
             "App\\\\Pasta\\\\Entity\\\\TipoDeApenso",
-            "App\\\\Pasta\\\\Entity\\\\Pasta::ROTULOS_SITUACAO"
+            "App\\\\Pasta\\\\Entity\\\\Pasta::ROTULOS_SITUACAO",
+            "Content-Type",
+            "Accept",
+            "Escape",
+            "Enter",
+            "Crítico",
+            "Urgente",
+            "Importante",
+            "Atenção",
+            "Normal",
+            "App\\\\Pasta\\\\DTO\\\\ExploradorDeDocumentosOutput::CATEGORIAS"
         ]
     },
 
@@ -1169,7 +1265,8 @@
             "pasta-prazos.js",
             "pasta-clientes.js",
             "pasta-clientes-busca.js",
-            "pasta-foto-cliente.js"
+            "pasta-foto-cliente.js",
+            "pasta-excluir-pasta.js"
         ],
         "permitidos": [
             "BLUEJUS",
@@ -1221,5 +1318,23 @@
             "assinatura-publica.js"
         ],
         "permitidos": ["Content-Type", "Escape"]
+    },
+
+    "pasta_modelos": {
+        "templates": [
+            "pasta/modelos/_banco.html.twig"
+        ],
+        "js": [
+            "pasta-modelos.js"
+        ],
+        "permitidos": [
+            "Content-Type",
+            "Escape",
+            "App\\\\Pasta\\\\Enum\\\\TipoDePeca",
+            "App\\\\Pasta\\\\Enum\\\\OrdemDosModelos",
+            "App\\\\Pasta\\\\Enum\\\\MateriaDeModelo",
+            "Arial=arial,helvetica,sans-serif;Times New Roman=times new roman,times,serif;Calibri=calibri,sans-serif;Georgia=georgia,serif",
+            "Content-Disposition"
+        ]
     }
 }
