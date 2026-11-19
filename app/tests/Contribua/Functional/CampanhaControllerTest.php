@@ -416,6 +416,44 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    #[TestDox('Escritório criado há mais de 5 dias: sem aba, sem janela e sem inscrição; o Master e quem já se inscreveu continuam vendo')]
+    public function testSoEscritorioDeAteCincoDias(): void
+    {
+        $this->inscreverComo($this->beto, $this->outro, self::CPF_B, '2/DF');
+        $this->envelhecer($this->escritorio, '6 days');
+        $this->envelhecer($this->outro, '6 days');
+
+        $this->logar($this->ana, $this->escritorio);
+        $this->client->request('GET', '/contribua');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('#cp-aba');
+        self::assertSelectorNotExists('script[src*="contribua-campanha.js"]');
+        $this->client->request('GET', '/contribua/campanha/janela');
+        self::assertResponseStatusCodeSame(404);
+        $this->recusa('/contribua/campanha/inscrever', ['nome' => 'Ana', 'cpf' => self::CPF_A, 'oab' => '1/DF', 'aceite' => '1'], 'O Desafio é só para escritórios criados há até 5 dias.');
+        self::assertSame(1, $this->contarParticipacoes());
+
+        $this->logar($this->beto, $this->outro);
+        $this->client->request('GET', '/contribua');
+        self::assertSelectorExists('#cp-aba');
+        $this->client->request('GET', '/contribua/campanha/janela');
+        self::assertResponseIsSuccessful();
+
+        $this->logar($this->master, $this->escritorio);
+        $this->client->request('GET', '/contribua/campanha/janela');
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Escritório criado há 4 dias ainda vê a aba')]
+    public function testEscritorioDeQuatroDiasVe(): void
+    {
+        $this->envelhecer($this->escritorio, '4 days');
+        $this->logar($this->ana, $this->escritorio);
+        $this->client->request('GET', '/contribua');
+
+        self::assertSelectorExists('#cp-aba');
+    }
+
     #[TestDox('O Contribua do Master abre com o painel da campanha montado')]
     public function testIndexDoMaster(): void
     {
@@ -511,6 +549,11 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         $this->em->clear();
         $this->logarComTenant($this->client, $this->em->find(User::class, $quem->getId()), $this->em->find(Tenant::class, $escritorio->getId()));
         $this->campanha = $this->em->find(Campanha::class, $this->campanha->getId());
+    }
+
+    private function envelhecer(Tenant $escritorio, string $idade): void
+    {
+        $this->db->executeStatement("UPDATE tenant SET created_at = NOW() - CAST(? AS INTERVAL) WHERE id = ?", [$idade, $escritorio->getId()]);
     }
 
     private function tenant(string $nome): Tenant

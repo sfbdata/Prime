@@ -46,6 +46,9 @@ final class InscreverNaCampanhaUseCase
         if ($jaEsta) {
             throw new \DomainException('Você já está no Desafio.');
         }
+        if (!$this->vigente->contaNova($quem->escritorio)) {
+            throw new \DomainException('O Desafio é só para escritórios criados há até ' . CampanhaVigente::DIAS_DA_CONTA_NOVA . ' dias.');
+        }
         $oab = $this->validarDados($aceite, $cpf, $oab);
         $nome = mb_substr(trim($nome) !== '' ? trim($nome) : $quem->nome(), 0, 120);
 

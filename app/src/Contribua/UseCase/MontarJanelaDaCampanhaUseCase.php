@@ -19,7 +19,10 @@ use App\Contribua\Service\RegrasDaCampanha;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
-/** Os dados da janela da campanha (a que abre pela aba, pela faixa, pelo FAQ e por `#black`). Null sem campanha. */
+/**
+ * Os dados da janela da campanha (a que abre pela aba, pela faixa, pelo FAQ e por `#black`). Null sem campanha e
+ * para o escritório criado há mais de 5 dias, salvo o Master (prévia) e quem já se inscreveu.
+ */
 final class MontarJanelaDaCampanhaUseCase
 {
     private const CSRF = 'contribua';
@@ -43,6 +46,9 @@ final class MontarJanelaDaCampanhaUseCase
         }
         $estado = $this->vigente->estado($campanha);
         $participacao = $this->participacoes->daPessoa($campanha, $quem->usuario);
+        if (!$quem->ehMaster && $participacao === null && !$this->vigente->contaNova($quem->escritorio)) {
+            return null;
+        }
 
         return new JanelaDaCampanhaView(
             campanha: $this->montarView->montar($campanha, $estado, $quem->ehMaster, $participacao !== null),

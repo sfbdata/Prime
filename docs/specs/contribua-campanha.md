@@ -25,6 +25,12 @@ Risco BAIXO (Contribua), mas mexe com dinheiro: uma revisão no fim.
   `bluejus-coordenacao/pacote-juridico.md` (jurídico não trava, regra de 04/11).
 - D6. A aba do topo entra pelo `templates/layout/_globais.html.twig` (parcial `layout/_globais/campanha.html.twig`),
   sem tocar no `base.html.twig`.
+- D6b. **Só para escritório novo** (pedido do Farlei, 19/11): aba, faixa, item do FAQ, janela e inscrição valem só
+  para o escritório criado há até 5 dias (`CampanhaVigente::DIAS_DA_CONTA_NOVA`, contados em horas a partir de
+  `tenant.created_at`; sem data, não vale). Escritório mais antigo recebe `campanha()` null, `/janela` 404 e a
+  inscrição é recusada ("O Desafio é só para escritórios criados há até 5 dias."). Exceções: o Master continua vendo
+  a prévia e a janela (mas, em escritório antigo, também não se inscreve); quem já se inscreveu continua vendo a aba e a própria participação (pagar o Pix, pedir a
+  devolução) mesmo depois que o escritório passa dos 5 dias. Sem migration.
 - D7. Fora do sistema real (só do protótipo): "Zerar participação de teste" e "Simular pagamento confirmado".
   O estado "arrependimento" da ESPEC não ganha fluxo próprio: o prazo do Desafio (mínimo 7 dias) cobre o art. 49 e
   devolve mais; a regra 5 continua publicada.
@@ -75,7 +81,8 @@ Serviço `RegrasDaCampanha::gerar(Campanha): list<string>`: as 10 frases do `reg
 literais, com os valores da configuração (preço e devolução em "R$ 1,00", datas dd/mm/aaaa, "o dobro"/"o triplo").
 
 Twig function global `campanha()` (extensão em `app/src/Contribua/Twig/`), memorizada por requisição; devolve
-`?CampanhaView` para o usuário logado com escritório (null sem campanha, sem usuário ou sem escritório):
+`?CampanhaView` para o usuário logado com escritório (null sem campanha, sem usuário, sem escritório ou, ativa ou
+esgotada, para escritório com mais de 5 dias sem inscrição da pessoa: D6b):
 
 ```
 CampanhaView (readonly):
@@ -156,8 +163,11 @@ Valores, cores e textos do CSS e do JS do desenho; componentes do desenho, não 
    "Aguardando Pix" (mesmo componente de linha dos pedidos, selo "Aguardando Pix" #9a5b00) com "Confirmar pagamento".
    Cada campo grava ao mudar (POST `/configurar` só com o campo).
 4. **Aba do topo** (todas as telas logadas): parcial `layout/_globais/campanha.html.twig`, botão fixo do desenho
-   (`aba()` do `bj-campanha.js`: preto, `right:24px`, abaixo do cabeçalho, selo azul `#3aa0d8`, preço `#7fd0ff`,
-   prévia com borda tracejada `#f0b429` e "PRÉVIA"). Some com a janela de manutenção aberta não se aplica aqui.
+   (`aba()` do `bj-campanha.js`: preto, abaixo do cabeçalho, selo azul `#3aa0d8`, preço `#7fd0ff`,
+   prévia com borda tracejada `#f0b429` e "PRÉVIA"). Pedido do Farlei (19/11): a aba fica **no centro do topo**
+   (`left:50%`, `translateX(-50%)`, em vez de `right:24px`, que caía sobre o nome e o avatar) e **some sozinha 5 s**
+   depois de a tela abrir (some com transição de opacidade e é removida; a faixa, o FAQ e `#black` continuam abrindo
+   a janela). Some com a janela de manutenção aberta não se aplica aqui.
 5. **Janela da campanha**: aberta pela aba, pela faixa, pelo FAQ e por `#black` no endereço (em qualquer tela);
    carrega o HTML de `/contribua/campanha/janela` e o põe num overlay do desenho (`abrir()` do `bj-campanha.js`):
    cabeçalho com gradiente, 3 passos, caixa da ação conforme a situação, "O QUE O DESAFIO INCLUI" (+ "Todo o sistema,

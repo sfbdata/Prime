@@ -12,16 +12,20 @@ use App\Contribua\Service\CampanhaVigente;
 use App\Contribua\Service\CofreDaChavePixDaCampanha;
 use App\Contribua\Service\CpfDaCampanha;
 use App\Contribua\Service\RegrasDaCampanha;
+use App\Contribua\Repository\CampanhaRepository;
 use App\Contribua\UseCase\MontarCampanhaViewUseCase;
+use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(RegrasDaCampanha::class)]
 #[CoversClass(CpfDaCampanha::class)]
 #[CoversClass(CofreDaChavePixDaCampanha::class)]
 #[CoversClass(MontarCampanhaViewUseCase::class)]
+#[CoversClass(CampanhaVigente::class)]
 final class CampanhaServicosTest extends TestCase
 {
     #[TestDox('As 10 regras da campanha padrão, literais do desenho')]
@@ -136,6 +140,31 @@ final class CampanhaServicosTest extends TestCase
         self::assertSame('Minha participação', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Ativa, false, true)->botao);
         self::assertSame('Prévia do Master: campanha agendada (só você vê)', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Agendada, true, false)->abaTitulo);
         self::assertSame('', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Encerrada, true, false)->faqPago);
+    }
+
+    #[TestDox('Conta nova: escritório criado há até 5 dias (em horas); sem data de criação, não vale')]
+    #[DataProvider('idadesDoEscritorio')]
+    public function testContaNova(?string $criadoEm, bool $esperado): void
+    {
+        $vigente = new CampanhaVigente(
+            $this->createStub(CampanhaRepository::class),
+            $this->createStub(CampanhaParticipacaoRepository::class),
+            new MockClock('2026-11-20 12:00:00 UTC'),
+        );
+        $escritorio = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'createdAt'))->setValue($escritorio, $criadoEm === null ? null : new \DateTimeImmutable($criadoEm));
+
+        self::assertSame($esperado, $vigente->contaNova($escritorio));
+    }
+
+    /** @return iterable<string, array{?string, bool}> */
+    public static function idadesDoEscritorio(): iterable
+    {
+        yield 'criado hoje' => ['2026-11-20 08:00:00 UTC', true];
+        yield 'exatamente 5 dias' => ['2026-11-15 12:00:00 UTC', true];
+        yield '5 dias e 1 hora' => ['2026-11-15 11:00:00 UTC', false];
+        yield 'antigo' => ['2025-01-01 00:00:00 UTC', false];
+        yield 'sem data' => [null, false];
     }
 
     private function montar(): MontarCampanhaViewUseCase

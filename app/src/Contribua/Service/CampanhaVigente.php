@@ -8,6 +8,7 @@ use App\Contribua\Entity\Campanha;
 use App\Contribua\Enum\EstadoDaCampanha;
 use App\Contribua\Repository\CampanhaParticipacaoRepository;
 use App\Contribua\Repository\CampanhaRepository;
+use App\Entity\Tenant\Tenant;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -15,6 +16,9 @@ use Symfony\Contracts\Service\ResetInterface;
 // Não-final: os testes de UseCase a dublam.
 class CampanhaVigente implements ResetInterface
 {
+    /** A campanha só vale para escritório criado há até este número de dias (pedido do Farlei, 19/11/2026). */
+    public const DIAS_DA_CONTA_NOVA = 5;
+
     private bool $lida = false;
     private ?Campanha $vigente = null;
 
@@ -59,5 +63,13 @@ class CampanhaVigente implements ResetInterface
     public function agora(): \DateTimeImmutable
     {
         return $this->relogio->now();
+    }
+
+    /** Escritório criado há até 5 dias (contados em horas, de agora para trás): só ele vê a campanha e se inscreve. */
+    public function contaNova(Tenant $escritorio): bool
+    {
+        $criadoEm = $escritorio->getCreatedAt();
+
+        return $criadoEm !== null && $criadoEm >= $this->agora()->modify('-' . self::DIAS_DA_CONTA_NOVA . ' days');
     }
 }
