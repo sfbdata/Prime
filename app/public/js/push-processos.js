@@ -51,10 +51,10 @@
     raiz.querySelectorAll('[data-pp-confirmar]').forEach(function (form) {
         form.addEventListener('submit', function (e) {
             if (!window.confirm(form.getAttribute('data-pp-confirmar'))) { e.preventDefault(); return; }
-            var digitado = window.prompt('Confirmação de segurança: digite EXCLUIR.', '');
-            if (String(digitado || '').trim().toUpperCase() !== 'EXCLUIR') {
+            var digitado = window.prompt(BJ_T.t('comum.js.push.confirma_digite', { palavra: BJ_T.t('comum.js.push.palavra_excluir') }), '');
+            if (String(digitado || '').trim().toUpperCase() !== BJ_T.t('comum.js.push.palavra_excluir')) {
                 e.preventDefault();
-                window.alert('Cancelado: a confirmação não conferiu.');
+                window.alert(BJ_T.t('comum.js.push.cancelado'));
             }
         });
     });

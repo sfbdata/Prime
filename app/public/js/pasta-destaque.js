@@ -92,8 +92,8 @@
     function garantirItens(menu) {
         var destacar = menu.querySelector('.js-destacar');
         if (destacar) { return destacar; }
-        destacar = item(menu, 'js-destacar', 'bi-highlighter', 'Destacar');
-        var remover = item(menu, 'js-destacar-remover', 'bi-eraser', 'Remover destaque');
+        destacar = item(menu, 'js-destacar', 'bi-highlighter', BJ_T.t('pasta_show.js.destaque.destacar'));
+        var remover = item(menu, 'js-destacar-remover', 'bi-eraser', BJ_T.t('pasta_show.js.destaque.remover'));
         var depois = menu.querySelector('[class*="-encaminhar"]') || menu.querySelector('[class*="-copiar"]');
         if (depois && depois.parentNode === menu) {
             depois.after(destacar, remover);
@@ -115,7 +115,7 @@
         var cor = corDe(aba, idDoCartao(cartao, aba));
         destacar.hidden = !pode;
         remover.hidden = !pode || !cor;
-        destacar.querySelector('span').textContent = cor ? 'Destacar · ' + nomeDaCor(cor).toLowerCase() : 'Destacar';
+        destacar.querySelector('span').textContent = cor ? BJ_T.t('pasta_show.js.destaque.destacar_cor', { cor: nomeDaCor(cor).toLowerCase() }) : BJ_T.t('pasta_show.js.destaque.destacar');
     }
 
     /* Como o Esc: cada menu (Dados, Detalhes e Financeiro) fecha e limpa o próprio estado. */
@@ -149,13 +149,13 @@
         paleta = document.createElement('div');
         paleta.className = 'ps-destaque-paleta';
         paleta.setAttribute('role', 'dialog');
-        paleta.setAttribute('aria-label', 'Cor do destaque');
+        paleta.setAttribute('aria-label', BJ_T.t('pasta_show.js.destaque.paleta'));
         /* dc L262: a paleta não tem X; fecha no fundo (abrirFundo) e no Esc. */
         paleta.setAttribute('data-sem-x', '1');
         paleta.tabIndex = -1;
         var titulo = document.createElement('div');
         titulo.className = 'ps-destaque-paleta-titulo';
-        titulo.textContent = 'Destacar comentário';
+        titulo.textContent = BJ_T.t('pasta_show.js.destaque.titulo');
         paleta.appendChild(titulo);
         var grade = document.createElement('div');
         grade.className = 'ps-destaque-paleta-grade';
@@ -176,7 +176,7 @@
         var amostra = document.createElement('span');
         amostra.setAttribute('aria-hidden', 'true');
         semCor.appendChild(amostra);
-        semCor.appendChild(document.createTextNode('Sem cor'));
+        semCor.appendChild(document.createTextNode(BJ_T.t('pasta_show.js.destaque.sem_cor')));
         semCor.addEventListener('click', function () { gravar(cartao, aba, ''); });
         paleta.appendChild(semCor);
         document.body.appendChild(paleta);
@@ -201,9 +201,9 @@
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
         }).then(function (res) {
-            if (!res.ok) { avisar(res.j.erro || 'Não foi possível salvar o destaque.', 'erro'); return; }
+            if (!res.ok) { avisar(res.j.erro || BJ_T.t('pasta_show.js.destaque.erro_salvar'), 'erro'); return; }
             aplicar(aba, id, res.j);
-        }).catch(function () { avisar('Não foi possível salvar o destaque.', 'erro'); });
+        }).catch(function () { avisar(BJ_T.t('pasta_show.js.destaque.erro_salvar'), 'erro'); });
     }
 
     function aplicar(aba, id, resposta) {
@@ -219,14 +219,15 @@
             delete mapa[aba][id];
         }
         pintarCartao(cartao, cor);
-        if (!cor) { avisar('Destaque removido'); return; }
+        if (!cor) { avisar(BJ_T.t('pasta_show.js.destaque.removido')); return; }
         var nome = nomeDaCor(cor).toLowerCase();
         if (resposta.desfeito) {
-            avisar('Comentário destacado em ' + nome + '. O destaque anterior' + (resposta.desfeito.autor ? ' (comentário de ' + resposta.desfeito.autor + ')' : '')
-                + ' foi desfeito: só o último destaque desta aba prevalece.');
+            avisar(resposta.desfeito.autor
+                ? BJ_T.t('pasta_show.js.destaque.desfeito_autor', { cor: nome, autor: resposta.desfeito.autor })
+                : BJ_T.t('pasta_show.js.destaque.desfeito', { cor: nome }));
             return;
         }
-        avisar('Comentário destacado em ' + nome);
+        avisar(BJ_T.t('pasta_show.js.destaque.destacado', { cor: nome }));
     }
 
     /* Em captura: lê o cartão e a posição antes de o próprio menu tratar o clique e fechar. */

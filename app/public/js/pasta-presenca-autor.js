@@ -19,7 +19,8 @@
     var urlEquipe = central.getAttribute('data-url-equipe');
 
     // bluejus-central.js L45 (STATUS) e L288 (off-line): rótulo de cada status.
-    var ROTULO = { disponivel: 'Disponível', ocupado: 'Ocupado', ausente: 'Ausente', offline: 'Off-line' };
+    // Pedido na hora do uso: este script pode rodar antes do bj-traducao.js.
+    function rotuloDe(st) { return BJ_T.t('pasta_show.js.presenca.' + st); }
     var CLASSES = ['ppa--disponivel', 'ppa--ocupado', 'ppa--ausente', 'ppa--offline'];
 
     var online = null;       // Map id -> status efetivo, do último batimento (null = nenhum batimento ainda)
@@ -40,9 +41,9 @@
     function hm(ms) {   // bluejus-central.js L289 `hm`: "hoje às HH:MM" ou "dd/mm às HH:MM"
         var d = new Date(ms);
         var hoje = new Date();
-        var dia = d.toDateString() === hoje.toDateString() ? 'hoje' : doisDigitos(d.getDate()) + '/' + doisDigitos(d.getMonth() + 1);
+        var dia = d.toDateString() === hoje.toDateString() ? BJ_T.t('pasta_show.js.presenca.hoje') : doisDigitos(d.getDate()) + '/' + doisDigitos(d.getMonth() + 1);
 
-        return dia + ' às ' + hora(d);
+        return BJ_T.t('pasta_show.js.presenca.dia_hora', { dia: dia, hora: hora(d) });
     }
     function instante(iso) {
         var t = iso ? Date.parse(iso) : NaN;
@@ -101,15 +102,15 @@
         var det;
         if (st === 'offline') {
             var visto = Math.max(vistoAqui[id] || 0, (m && m.vistoEm) || 0);
-            det = visto ? 'visto por último ' + hm(visto) : 'sem atividade recente';
+            det = visto ? BJ_T.t('pasta_show.js.presenca.visto', { quando: hm(visto) }) : BJ_T.t('pasta_show.js.presenca.sem_atividade');
         } else {
             var d = desde[id];
-            det = d && d.t ? 'desde ' + hora(new Date(d.t)) : 'on-line agora';
+            det = d && d.t ? BJ_T.t('pasta_show.js.presenca.desde', { hora: hora(new Date(d.t)) }) : BJ_T.t('pasta_show.js.presenca.online_agora');
         }
         var nome = (m && m.nome) || nomeDoCartao;
-        var dica = nome + ' · ' + ROTULO[st] + ' · ' + det + (id === euId ? ' · clique para mudar no Chat I.A' : ' · definido no Chat I.A');
+        var dica = nome + ' · ' + rotuloDe(st) + ' · ' + det + ' · ' + (id === euId ? BJ_T.t('pasta_show.js.presenca.dica_eu') : BJ_T.t('pasta_show.js.presenca.dica_outro'));
 
-        return { st: st, rot: ROTULO[st], dica: dica };
+        return { st: st, rot: rotuloDe(st), dica: dica };
     }
 
     /* Abre a Central flutuante (dc L6302 `presIr`: só para o próprio autor). Aberta, fica como está. */
