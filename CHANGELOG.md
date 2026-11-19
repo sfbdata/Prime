@@ -8,6 +8,16 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.63.1] - 2026-11-19
+
+### Corrigido
+
+- Contribua, conferência com o desenho "08 - Contribua - VS 03.11.26" (pedido do Farlei, 19/11): o texto de cada pergunta do FAQ vai num `<span>` só dentro do `summary` (flex com `gap:8px`). Preventivo: o HTML do repositório já sai como um texto só e a causa do espaço do print ("Desafio de  R$ 1,00  ?") não se reproduziu na fonte; com o span, nada injetado no meio da frase vira item flex com espaço próprio.
+- FAQ: sem o anel de foco do navegador ao clicar (`.ct-faq summary:focus`); pelo teclado, `:focus-visible` com contorno de 2px `#2b7ab0`.
+- Janela da campanha: status com os textos do `abrir()` do `bj-campanha.js` (`CampanhaView::statusJanela`): "Começa em <data>", "Campanha encerrada em <data>", "Campanha desligada"; a faixa continua com "Prévia do Master · ...".
+- Sugestões: a linha não abre o menu do botão direito (`contextmenu` como no desenho).
+- Painel do Master: nome da campanha em branco volta para "BlueJus Black", como a chamada.
+
 ## [2.63.0] - 2026-11-19
 
 ### Adicionado
@@ -2313,7 +2323,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.1...HEAD
+[2.63.1]: https://github.com/sfbdata/Prime/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/sfbdata/Prime/compare/v2.62.0...v2.63.0
 [2.62.0]: https://github.com/sfbdata/Prime/compare/v2.61.0...v2.62.0
 [2.61.0]: https://github.com/sfbdata/Prime/compare/v2.60.0...v2.61.0
