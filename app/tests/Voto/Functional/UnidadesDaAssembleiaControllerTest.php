@@ -67,6 +67,24 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $lista->filter('[data-voto-soma-fracoes]'), 'a lista inteira (aptas e não aptas) fecha 1');
     }
 
+    #[TestDox('Lista mista (apta com CPF e apta sem): avisa quantas estão sem CPF; sem CPF nenhum ou todas com, não avisa')]
+    public function testAvisoDeUnidadeAptaSemCpf(): void
+    {
+        [$a] = $this->cenario();
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '1']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertCount(0, $lista->filter('[data-voto-cpf-faltando]'), 'lista sem CPF nenhum segue no modo antigo, sem aviso');
+
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '2', 'cpf' => '52998224725']);
+        UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '3', 'situacao' => 'inadimplente']);
+        $lista = $this->client->request('GET', $this->base($a));
+        self::assertSame(
+            '1 unidade apta está sem CPF. Enquanto faltar, o portal do eleitor pede nome, unidade e bloco, e não nome e CPF.',
+            trim($lista->filter('[data-voto-cpf-faltando]')->text()),
+            'a inapta sem CPF não conta',
+        );
+    }
+
     #[TestDox('Peso por unidade: não há aviso de soma')]
     public function testSemAvisoNoPesoPorUnidade(): void
     {

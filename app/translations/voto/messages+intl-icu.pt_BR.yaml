@@ -644,6 +644,7 @@ voto:
                 fracao: 'Fração {fracao}'
                 vazio: Nenhuma unidade na lista.
                 remover: Remover
+                cpf_faltando: '{n, plural, one {# unidade apta está sem CPF} other {# unidades aptas estão sem CPF}}. Enquanto faltar, o portal do eleitor pede nome, unidade e bloco, e não nome e CPF.'
                 soma_fora: 'A soma das frações da lista é {soma}; o esperado é 1 (ou 100%). Confira a planilha.'
             # Ocorrências da unidade na Lista de aptos e as avaliações do conselho (spec voto-avaliacoes-do-conselho-1611; desenho 18, H249/H462/H273/H469): textos literais do desenho.
             ocorrencia:

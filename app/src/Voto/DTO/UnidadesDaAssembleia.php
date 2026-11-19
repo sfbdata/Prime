@@ -20,6 +20,8 @@ final readonly class UnidadesDaAssembleia
         public int $alteracoesDoConselho = 0,
         /** A assembleia ainda não acabou: dá para registrar ocorrência (a pessoa pode, ver `voto_edita`). */
         public bool $aceitaOcorrencia = true,
+        /** Lista mista: aptas sem CPF enquanto outras têm. O portal fica no modo antigo (nome, unidade e bloco). */
+        public int $aptasSemCpf = 0,
     ) {
     }
 }

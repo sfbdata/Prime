@@ -42,6 +42,7 @@ final class ObterUnidadesDaAssembleiaUseCase
         $soma = PesoDoVoto::Fracao === $assembleia->getPeso() ? $this->unidades->somarFracoes($assembleia) : null;
 
         $ultimas = $this->ocorrencias->ultimaPorUnidade($assembleia);
+        $cpfs = $this->unidades->contarAptasPorCpf($assembleia);
 
         return new UnidadesDaAssembleia(
             assembleia: $this->leitura->montar($assembleia),
@@ -52,6 +53,7 @@ final class ObterUnidadesDaAssembleiaUseCase
             hashDaLista: $assembleia->getHashDaLista(),
             alteracoesDoConselho: $this->ocorrencias->contarAlteracoesDepoisDaTrava($assembleia),
             aceitaOcorrencia: !$assembleia->acabou(),
+            aptasSemCpf: $cpfs['com'] > 0 ? $cpfs['sem'] : 0,
         );
     }
 

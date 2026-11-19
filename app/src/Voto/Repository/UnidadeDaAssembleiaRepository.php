@@ -232,14 +232,30 @@ class UnidadeDaAssembleiaRepository extends ServiceEntityRepository
             ->getQuery()->getResult());
     }
 
-    /** A assembleia identifica o eleitor por CPF quando ao menos uma unidade da lista tem CPF. */
-    public function algumaComCpf(Assembleia $assembleia): bool
+    /**
+     * Unidades aptas com e sem CPF. O portal pede CPF só quando TODAS as aptas têm (com > 0 e sem = 0): numa lista
+     * mista, quem está sem CPF ficaria sem entrar, então o portal segue no modo antigo e a tela de unidades avisa.
+     *
+     * @return array{com: int, sem: int}
+     */
+    public function contarAptasPorCpf(Assembleia $assembleia): array
     {
-        return null !== $this->createQueryBuilder('u')
-            ->select('u.id')
-            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.cpf IS NOT NULL')
+        /** @var array{com: int|string|null, sem: int|string|null} $linha */
+        $linha = $this->createQueryBuilder('u')
+            ->select('COUNT(u.cpf) AS com', 'SUM(CASE WHEN u.cpf IS NULL THEN 1 ELSE 0 END) AS sem')
+            ->andWhere('u.assembleia = :assembleia AND u.tenant = :tenant AND u.apta = true')
             ->setParameter('assembleia', $assembleia)->setParameter('tenant', $assembleia->getTenant())
-            ->setMaxResults(1)->getQuery()->getOneOrNullResult();
+            ->getQuery()->getSingleResult();
+
+        return ['com' => (int) $linha['com'], 'sem' => (int) $linha['sem']];
+    }
+
+    /** O portal identifica o eleitor por nome e CPF: todas as unidades aptas têm CPF (ver contarAptasPorCpf). */
+    public function portalPedeCpf(Assembleia $assembleia): bool
+    {
+        $contagem = $this->contarAptasPorCpf($assembleia);
+
+        return $contagem['com'] > 0 && 0 === $contagem['sem'];
     }
 
     /** A trava serializa tentativas simultâneas e pedidos, inclusive com a purga da unidade. */

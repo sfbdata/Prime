@@ -48,6 +48,9 @@
                 <div class="voto-texto" data-voto-alteracoes>{{ 'voto.assembleia.gestor.ocorrencia.alteracoes'|trans({n: tela.alteracoesDoConselho}) }}</div>
             {% endif %}
         {% endif %}
+        {% if tela.aptasSemCpf > 0 %}
+            <div class="vAviso" data-voto-cpf-faltando>{{ 'voto.assembleia.gestor.unidades.cpf_faltando'|trans({n: tela.aptasSemCpf}) }}</div>
+        {% endif %}
         {% if tela.somaForaDoEsperado %}
             <div class="vAviso" data-voto-soma-fracoes>{{ 'voto.assembleia.gestor.unidades.soma_fora'|trans({soma: tela.somaDasFracoes|voto_fracao}) }}</div>
         {% endif %}

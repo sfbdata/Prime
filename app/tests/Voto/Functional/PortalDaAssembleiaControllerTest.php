@@ -176,13 +176,41 @@ final class PortalDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.vpContexto', 'AGO Ipê');
     }
 
-    public function testLimiteDoIpRecusaLocalizacaoEEnvio(): void
+    public function testLimiteDoIpRecusaEnvio(): void
     {
         static::getContainer()->set('limiter.voto_portal_envio', new RateLimiterFactoryEspiao(false));
-        $crawler = $this->client->request('GET', $this->link());
-        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'unidade' => '101', 'bloco' => 'A']));
+        $this->localizar();
+        $crawler = $this->client->followRedirect();
+        $this->client->submit($crawler->selectButton('Receber código por e-mail')->form(['email' => 'ana@example.com']));
         self::assertResponseStatusCodeSame(429);
         self::assertEmailCount(0);
+    }
+
+    public function testLocalizarComCpfTemLimiteProprioPorIp(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        static::getContainer()->set('limiter.voto_portal_localizar', new RateLimiterFactoryEspiao(false));
+        $crawler = $this->client->request('GET', $this->link());
+        $this->client->submit($crawler->selectButton('Continuar')->form(['nome' => 'Ana Silva', 'cpf' => '52998224725']));
+        self::assertResponseStatusCodeSame(429);
+    }
+
+    public function testListaMistaComUnidadeAptaSemCpfFicaNoModoAntigo(): void
+    {
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '101', 'bloco' => 'B',
+            'responsavel' => 'Ana Silva', 'email' => 'ana@example.com', 'cpf' => '52998224725',
+        ]);
+        UnidadeDaAssembleiaFactory::createOne([
+            'assembleia' => $this->assembleia, 'identificacao' => '102', 'bloco' => 'B',
+            'responsavel' => 'Beto Souza', 'email' => 'beto@example.com',
+        ]);
+        $crawler = $this->client->request('GET', $this->link());
+        self::assertCount(0, $crawler->filter('input[name="cpf"]'), 'quem está sem CPF não pode ficar sem entrar');
+        self::assertCount(1, $crawler->filter('input[name="unidade"]'));
     }
 
     public function testComCpfNaListaOPassoUmPedeNomeECpfESoOPassoDoisMostraUnidadeEBloco(): void

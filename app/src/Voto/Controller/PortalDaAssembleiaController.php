@@ -32,6 +32,7 @@ final class PortalDaAssembleiaController extends AbstractController
         private readonly \App\Voto\Service\EnderecoPublicoDaAssembleia $endereco,
         private readonly \App\Voto\UseCase\ConferirComprovanteUseCase $conferirComprovante,
         private readonly LocalizarEleitorNoPortalUseCase $localizarEleitor,
+        private readonly RateLimiterFactoryInterface $votoPortalLocalizarLimiter,
     ) {
     }
 
@@ -52,8 +53,9 @@ final class PortalDaAssembleiaController extends AbstractController
      *
      * Privacidade: nunca se diz "não encontrado". Nome e CPF que não casam seguem ao passo 2 só com o nome, e o código não
      * chega a ninguém. Quando casam, o passo 2 mostra a unidade e o bloco do cadastro (pedido do dono), o que confirma
-     * que o cadastro existe para quem sabe nome e CPF dele. Por isso cada tentativa consome uma ficha do limitador
-     * `votoPortalEnvioLimiter` do IP (a mesma do envio do código), que barra a varredura de CPFs.
+     * que o cadastro existe para quem sabe nome e CPF dele. Por isso cada tentativa com CPF consome uma ficha do limitador
+     * próprio `votoPortalLocalizarLimiter` do IP (60 em 10 minutos, folga para o terminal da mesa), que barra a
+     * varredura de CPFs. O modo antigo (sem CPF) não revela nada neste passo e não consome.
      */
     #[Route('/localizar', name: 'voto_assembleia_portal_localizar', methods: ['POST'])]
     public function localizar(Request $request, string $codigo): Response
@@ -62,12 +64,12 @@ final class PortalDaAssembleiaController extends AbstractController
         if (!$this->csrfValido($request, $codigo)) {
             return $this->pagina($request, $codigo, 'A página expirou. Tente novamente.', 400);
         }
-        if (!$this->votoPortalEnvioLimiter->create($request->getClientIp())->consume()->isAccepted()) {
-            return $this->pagina($request, $codigo, 'Muitas solicitações. Aguarde alguns minutos e tente novamente.', 429);
-        }
         $portal = $this->montar->executar($codigo);
         $nome = trim($request->request->getString('nome'));
         if ($portal?->pedeCpf === true) {
+            if (!$this->votoPortalLocalizarLimiter->create($request->getClientIp())->consume()->isAccepted()) {
+                return $this->pagina($request, $codigo, 'Muitas solicitações. Aguarde alguns minutos e tente novamente.', 429);
+            }
             $cpf = DigitoVerificador::digitos($request->request->getString('cpf'));
             $input = new SolicitarCodigoDaAssembleiaInput($nome, '', '', 'localizacao@example.com', str_repeat('a', 32), $cpf);
             if (\count($this->validator->validate($input)) > 0) {

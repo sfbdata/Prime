@@ -35,7 +35,7 @@ final class MontarPortalDaAssembleiaUseCase
         return new PortalDaAssembleiaOutput(
             $assembleia->getTitulo(),
             $assembleia->getCodigoPublico(),
-            $this->unidades->algumaComCpf($assembleia),
+            $this->unidades->portalPedeCpf($assembleia),
             $assembleia->getRotuloUnidade(),
             $assembleia->getRotuloBloco(),
         );
