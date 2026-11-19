@@ -6,6 +6,7 @@ namespace App\ChatIa\UseCase;
 
 use App\ChatIa\DTO\ConfirmacaoDaProposta;
 use App\ChatIa\DTO\ConfirmarPropostaInput;
+use App\ChatIa\DTO\ResultadoDoCadastro;
 use App\ChatIa\Entity\PropostaDeCadastro;
 use App\ChatIa\Enum\TipoDaProposta;
 use App\ChatIa\Exception\CadastroJaExisteNaPropostaException;
@@ -27,6 +28,7 @@ use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\NumeroDePastaEmUsoException;
 use App\Pasta\Repository\PastaRepository;
 use Psr\Clock\ClockInterface;
 
@@ -116,10 +118,28 @@ final class ConfirmarPropostaDeCadastroUseCase
             return $recusa;
         }
 
-        $criado = $this->executor->executar($proposta->getTipo(), $dados, $eu, $tenant, $existente);
+        $criado = $this->criar($proposta, $dados, $eu, $tenant, $existente);
+        if ($criado instanceof PropostaInvalidaException) {
+            return $criado;
+        }
         $proposta->confirmar($criado->tipo, $criado->id, $agora);
 
         return new ConfirmacaoDaProposta($this->cartao->montar($proposta, $agora), $criado->pasta);
+    }
+
+    /**
+     * O número da pasta é conferido sob a trava da numeração na hora de gravar (o mesmo do Editar dados): se outra pasta
+     * viva já o tem, nada foi gravado e a proposta segue pendente, com o erro no campo.
+     *
+     * @param array<string, mixed> $dados
+     */
+    private function criar(PropostaDeCadastro $proposta, array $dados, User $eu, Tenant $tenant, ?Cliente $existente): ResultadoDoCadastro|PropostaInvalidaException
+    {
+        try {
+            return $this->executor->executar($proposta->getTipo(), $dados, $eu, $tenant, $existente);
+        } catch (NumeroDePastaEmUsoException $emUso) {
+            return new PropostaInvalidaException(['pasta.nup' => $emUso->getMessage()]);
+        }
     }
 
     /**

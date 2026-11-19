@@ -80,6 +80,18 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
         return (int) $maior;
     }
 
+    public function emUsoPorOutraPasta(Tenant $tenant, string $nup, ?int $excetoPastaId): bool
+    {
+        // SQL cru de propósito: lê o que está gravado agora, não o UnitOfWork. O `tenant_id = ?` é o isolamento.
+        // O NUP é gravado em maiúsculas e sem espaços nas pontas (`Pasta::setNup`); a comparação segue a mesma regra.
+        $achou = $this->em->getConnection()->fetchOne(
+            'SELECT 1 FROM pasta WHERE tenant_id = ? AND nup = ? AND excluida_em IS NULL AND id <> ? LIMIT 1',
+            [$this->idDo($tenant), mb_strtoupper(trim($nup)), $excetoPastaId ?? 0]
+        );
+
+        return $achou !== false;
+    }
+
     private function idDo(Tenant $tenant): int
     {
         $id = $tenant->getId();
