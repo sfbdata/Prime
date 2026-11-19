@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
-use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\DTO\PastaRecebida;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
@@ -85,7 +84,7 @@ final class PastaRecebidaController extends AbstractController
 
             throw $this->createAccessDeniedException();
         }
-        $chave = ChavesDePasta::documentoPorNome($documento->tenantId, $documento->caminho);
+        $chave = $documento->chave;
         if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException();
         }

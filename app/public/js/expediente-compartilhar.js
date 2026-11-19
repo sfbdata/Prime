@@ -681,13 +681,43 @@
         }
 
         /* ── Linhas das pastas recebidas na Lista (L12, dc `rpRows()`) ──
-           No topo do acervo geral, em todo carregamento (fora da paginação e dos filtros do escritório, que não alcançam
-           a pasta de outra conta), com a marca L2 e o responsável "<quem republicou> (dono)". Sem `pasta-row-link` nem
-           `data-href`: o clique abre a janela L11, e o menu de contexto, a seleção e as ações da linha (todas da pasta do
-           escritório) não as alcançam. Só as que o servidor diz que abrem (`abre`). */
+           No topo do acervo geral, em todo carregamento (fora da paginação), com a marca L2, o responsável "<quem
+           republicou> (dono)" e as metas abertas. Passam pela busca e pelos filtros de situação e prioridade da Lista,
+           como no desenho (dc L.661, `filtrados()`); com filtro que a linha não tem como cumprir (responsável, período,
+           filtro do trilho), saem, como lá. Sem `pasta-row-link` nem `data-href`: o clique abre a janela L11, e o menu de
+           contexto, a seleção e as ações da linha (todas da pasta do escritório) não as alcançam. Só as que o servidor
+           diz que abrem (`abre`). */
         var PRIO = { normal: 'normal', prioridade: 'alta', urgente: 'urgente' };
         function abertas() {
             return dados ? dados.itens.filter(function (r) { return r.estado === 'colaborando' && r.abre; }) : [];
+        }
+        function semAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+        /* Os filtros da Lista como estão no formulário (`#formFiltrosPasta`; a situação usa `form=`). */
+        function filtrosDaLista(w) {
+            var f = w.querySelector('#formFiltrosPasta');
+            function valor(nome) {
+                var c = f ? f.elements.namedItem(nome) : null;
+                return c && typeof c.value === 'string' ? c.value.trim() : '';
+            }
+            return {
+                busca: semAcento(valor('busca')), status: valor('status'), prioridade: valor('prioridade'),
+                semComoCumprir: !!(valor('responsavel') || valor('expediente') || valor('data_de') || valor('data_ate'))
+            };
+        }
+        function passaNosFiltros(r, f) {
+            return !f.semComoCumprir
+                && (!f.status || r.situacao === f.status)
+                && (!f.prioridade || r.prioridade === f.prioridade)
+                && (!f.busca || semAcento(r.nup + ' ' + r.cliente + ' ' + (r.acao || '')).indexOf(f.busca) >= 0);
+        }
+        function celulaDeMetas(r) {
+            if (!(r.metas > 0)) { return el('span', 'exp-sem-metas'); }
+            var b = el('span', 'badge exp-metas');
+            b.setAttribute('data-metas', 'abertas');
+            b.setAttribute('data-tip', BJ_T.t('expediente.js.recebidas.metas_abertas', { n: r.metas }));
+            b.appendChild(icone('bi-check2-square me-1'));
+            b.appendChild(document.createTextNode(String(r.metas)));
+            return b;
         }
         function rotuloPrio(v) { return BJ_T.t('expediente.js.lista.prioridade.' + (PRIO[v] || 'normal')); }
         function rotuloSit(v) { return ['ativo', 'suspenso', 'cancelado', 'arquivado'].indexOf(v) >= 0 ? BJ_T.t('expediente.js.lista.situacao.' + v) : v; }
@@ -729,7 +759,7 @@
             prio.appendChild(document.createTextNode(rotuloPrio(r.prioridade)));
             tr.appendChild(celula('prio', null, prio));
             tr.appendChild(celula('resp', 'col-resp-tabela', comDica('span', 'exp-rv-dono', BJ_T.t('expediente.js.recebidas.dono', { de: r.de }), BJ_T.t('expediente.js.recebidas.dono_dica'))));
-            tr.appendChild(celula('metas', 'col-tarefas-tabela'));
+            tr.appendChild(celula('metas', 'col-tarefas-tabela', celulaDeMetas(r)));
             tr.appendChild(celula('marc', 'col-marc-tabela'));
             var sit = el('span', 'badge exp-sit-fixa', rotuloSit(r.situacao));
             sit.setAttribute('data-situacao', r.situacao);
@@ -789,7 +819,8 @@
             var w = acervo();
             if (!w) { return; }
             w.querySelectorAll('.js-recebida-linha').forEach(function (n) { n.remove(); });
-            var itens = abertas();
+            var filtros = filtrosDaLista(w);
+            var itens = abertas().filter(function (r) { return passaNosFiltros(r, filtros); });
             if (!itens.length) { return; }
             var tbody = w.querySelector('#tabelaPastas tbody');
             var comModificada = !!w.querySelector('#tabelaPastas thead th[data-col="mod"]');

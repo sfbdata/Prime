@@ -85,6 +85,7 @@ final class PastaRecebidaDoUsuarioTest extends KernelTestCase
         yield '1. convite: pendente' => ['pendente'];
         yield '1. convite: de outra pessoa' => ['outra pessoa'];
         yield '1. convite: interno' => ['interno'];
+        yield '1. convite: vencido' => ['vencido'];
         yield '2. pasta: na lixeira' => ['pasta excluída'];
         yield '2. pasta: com cadeado' => ['cadeado'];
         yield '3. conta A: excluída' => ['A excluído'];
@@ -108,6 +109,21 @@ final class PastaRecebidaDoUsuarioTest extends KernelTestCase
         } catch (PastaRecebidaNaoEncontradaException $e) {
             self::assertSame('', $e->getMessage());
         }
+        $this->assertFiltroLigadoEmB();
+    }
+
+    #[DataProvider('condicoes')]
+    #[TestDox('quaisAbrem bate com localizar ($caso): o convite não abre, e o filtro volta ligado em B')]
+    public function testQuaisAbremBateComLocalizar(string $caso): void
+    {
+        $id = $this->quebrar($caso);
+        // Como na caixa: o convite chega de outra consulta, com as relações por carregar.
+        $this->em()->clear();
+        $convite = $this->em()->find(PastaCompartilhamento::class, $id);
+        self::assertInstanceOf(PastaCompartilhamento::class, $convite);
+        $this->ligarFiltroEmB();
+
+        self::assertSame([], $this->localizador()->quaisAbrem([$convite], $this->bia), $caso);
         $this->assertFiltroLigadoEmB();
     }
 
@@ -144,6 +160,13 @@ final class PastaRecebidaDoUsuarioTest extends KernelTestCase
                 $this->em()->flush();
 
                 return (int) $c->getId();
+            case 'vencido':
+                $id = $this->convite();
+                $c = $this->em()->find(PastaCompartilhamento::class, $id);
+                (new \ReflectionProperty(PastaCompartilhamento::class, 'validoAte'))->setValue($c, new \DateTimeImmutable('-1 day'));
+                $this->em()->flush();
+
+                return $id;
             case 'pasta excluída':
                 $this->pasta->marcarExcluida($this->donoA, $agora);
                 $this->em()->flush();

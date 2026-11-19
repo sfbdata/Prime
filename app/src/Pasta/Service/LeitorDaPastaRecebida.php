@@ -6,11 +6,14 @@ namespace App\Pasta\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\DTO\DocumentoDaPastaRecebida;
 use App\Pasta\DTO\PastaRecebida;
 use App\Pasta\DTO\PastaRecebidaOutput;
 use App\Pasta\DTO\ResumoDaPastaRecebidaOutput;
 use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
+use App\Pasta\Entity\PastaCompartilhamento;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
 use App\ServiceDesk\Repository\SemFiltroDeTenant;
@@ -29,6 +32,9 @@ use Doctrine\ORM\QueryBuilder;
  * O que entra (e só isto): número, cliente, ação, fase atual, as anotações e os registros de andamento (os outros
  * cartões do sistema falam de responsável, cadeado, cobrança, carteira: ficam de fora), documentos fora da lixeira e
  * metas abertas. A aba oculta para quem recebeu não traz nada.
+ *
+ * Cobrança fica fora sempre: o contrato de honorários (o documento da aba Financeiro, categoria `CONTRATO`) nunca
+ * aparece para quem recebeu, nem com a aba Financeiro visível.
  */
 final class LeitorDaPastaRecebida
 {
@@ -42,6 +48,7 @@ final class LeitorDaPastaRecebida
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AndamentoDaPasta $andamento,
+        private readonly VisibilidadeDasAbasDaPasta $abas,
     ) {
     }
 
@@ -100,7 +107,8 @@ final class LeitorDaPastaRecebida
 
     /**
      * Um documento desta pasta, fora da lixeira e visível para quem recebeu (aba Documentos; o contrato de honorários
-     * some com o Financeiro oculto). De outra pasta, de outro escritório ou na lixeira: nulo.
+     * nunca). De outra pasta, de outro escritório ou na lixeira: nulo. A chave do arquivo sai da entidade
+     * (`ChavesDePasta::documento`), montada aqui dentro da janela sem filtro.
      */
     public function documento(PastaRecebida $recebida, int $documentoId): ?DocumentoDaPastaRecebida
     {
@@ -111,12 +119,84 @@ final class LeitorDaPastaRecebida
         return $this->semFiltroDeTenant(function () use ($recebida, $documentoId): ?DocumentoDaPastaRecebida {
             /** @var PastaDocumento|null $doc */
             $doc = $this->documentosQb($recebida)->andWhere('d.id = :doc')->setParameter('doc', $documentoId)->getQuery()->getOneOrNullResult();
-            if ($doc === null || !VisibilidadeDasAbasDaPasta::documentoVisivel($doc->getCategoria(), $recebida->abasOcultas)) {
+            if ($doc === null) {
                 return null;
             }
 
-            return new DocumentoDaPastaRecebida((int) $doc->getId(), (int) $recebida->tenant->getId(), $doc->getCaminhoArquivo(), $doc->getNomeOriginal());
+            return new DocumentoDaPastaRecebida((int) $doc->getId(), ChavesDePasta::documento($doc), $doc->getNomeOriginal());
         });
+    }
+
+    /**
+     * A coluna Metas das linhas da Lista (L12): metas abertas de cada pasta, no escritório dela, para os convites que
+     * já passaram pelo `PastaRecebidaDoUsuario::quaisAbrem()`. Duas consultas no lote (regras da aba Metas e contagem);
+     * aba Metas oculta para quem recebeu (a regra "para todos" ou a que alcança quem republicou): nulo, como na janela.
+     *
+     * @param list<PastaCompartilhamento> $convites
+     *
+     * @return array<int, ?int> id do convite → metas abertas (nulo com a aba Metas oculta)
+     */
+    public function metasAbertasDaLista(array $convites): array
+    {
+        if ($convites === []) {
+            return [];
+        }
+
+        return $this->semFiltroDeTenant(function () use ($convites): array {
+            $ids = array_map(static fn (PastaCompartilhamento $c): int => (int) $c->getPasta()->getId(), $convites);
+            $contagem = $this->contagemDeMetasAbertas($ids);
+            $regras = [];
+            /** @var list<AbaOcultaDaPasta> $achadas */
+            $achadas = $this->em->createQueryBuilder()
+                ->select('r')->from(AbaOcultaDaPasta::class, 'r')->join('r.pasta', 'p')
+                ->andWhere('p.id IN (:ids)')->andWhere('r.tenant = p.tenant')->andWhere('r.aba = :aba')
+                ->setParameter('ids', $ids)->setParameter('aba', AbaDaPasta::Tarefas->value)
+                ->getQuery()->getResult();
+            foreach ($achadas as $r) {
+                $regras[(int) $r->getPasta()->getId()] = $r;
+            }
+
+            $metas = [];
+            foreach ($convites as $c) {
+                $pastaId = (int) $c->getPasta()->getId();
+                $metas[(int) $c->getId()] = $this->metasOcultas($regras[$pastaId] ?? null, $c) ? null : ($contagem[$pastaId] ?? 0);
+            }
+
+            return $metas;
+        });
+    }
+
+    /**
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, int> id da pasta → metas abertas
+     */
+    private function contagemDeMetasAbertas(array $pastaIds): array
+    {
+        /** @var list<array{pasta: int|string, n: int|string}> $linhas */
+        $linhas = $this->em->createQueryBuilder()
+            ->select('IDENTITY(t.pasta) AS pasta', 'COUNT(t.id) AS n')->from(Tarefa::class, 't')->join('t.pasta', 'p')
+            ->andWhere('p.id IN (:ids)')->andWhere('t.tenant = p.tenant')->andWhere('t.status <> :concluida')
+            ->setParameter('ids', $pastaIds)->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->groupBy('t.pasta')
+            ->getQuery()->getArrayResult();
+        $contagem = [];
+        foreach ($linhas as $l) {
+            $contagem[(int) $l['pasta']] = (int) $l['n'];
+        }
+
+        return $contagem;
+    }
+
+    /** A regra de `PastaRecebidaDoUsuario::abasOcultasParaQuemRecebeu()` só para a aba Metas. */
+    private function metasOcultas(?AbaOcultaDaPasta $regra, PastaCompartilhamento $c): bool
+    {
+        if ($regra === null) {
+            return false;
+        }
+
+        return $regra->isParaTodos()
+            || ($regra->alcanca((int) $c->getOrigem()->getId()) && !$this->abas->podeConfigurar($c->getOrigem(), $c->getTenant()));
     }
 
     private function faseAtual(PastaRecebida $recebida): string
@@ -160,7 +240,7 @@ final class LeitorDaPastaRecebida
             'nome'    => $d->getTitulo() !== '' ? $d->getTitulo() : $d->getNomeOriginal(),
             'em'      => $d->getCarregadoEm(),
             'tamanho' => $d->getTamanhoBytes(),
-        ], VisibilidadeDasAbasDaPasta::documentosVisiveis($docs, $recebida->abasOcultas));
+        ], $docs);
     }
 
     /** @return list<array{titulo: string, prazo: ?\DateTimeImmutable, situacao: string}> */
@@ -178,7 +258,8 @@ final class LeitorDaPastaRecebida
 
     /**
      * Documentos vivos da pasta do convite, no escritório dela; o da subpasta que foi para a lixeira também sai (com o
-     * filtro da lixeira ligado, a subpasta na lixeira nem entra no LEFT JOIN; sem ele, o `s.excluidoEm` decide).
+     * filtro da lixeira ligado, a subpasta na lixeira nem entra no LEFT JOIN; sem ele, o `s.excluidoEm` decide). O
+     * contrato de honorários (aba Financeiro) nunca entra.
      */
     private function documentosQb(PastaRecebida $recebida): QueryBuilder
     {
@@ -186,7 +267,9 @@ final class LeitorDaPastaRecebida
             ->select('d')->from(PastaDocumento::class, 'd')->leftJoin('d.secao', 's')
             ->andWhere('d.pasta = :pasta')->andWhere('d.tenant = :tenant')->andWhere('d.excluidoEm IS NULL')
             ->andWhere('(IDENTITY(d.secao) IS NULL OR (s.id IS NOT NULL AND s.excluidoEm IS NULL AND s.pasta = :pasta))')
-            ->setParameter('pasta', $recebida->pasta)->setParameter('tenant', $recebida->tenant);
+            ->andWhere('(d.categoria IS NULL OR d.categoria <> :contrato)')
+            ->setParameter('pasta', $recebida->pasta)->setParameter('tenant', $recebida->tenant)
+            ->setParameter('contrato', PastaDocumento::CATEGORIA_CONTRATO);
     }
 
     private function metasAbertasQb(PastaRecebida $recebida): QueryBuilder

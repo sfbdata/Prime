@@ -97,12 +97,11 @@ final class PastaRecebidaDoUsuario
      */
     public function quaisAbrem(array $convites, User $usuario): array
     {
-        $candidatos = array_values(array_filter($convites, fn (PastaCompartilhamento $c): bool => $c->getStatus() === EstadoDoCompartilhamento::Aceita && $this->abreSemOlharAConta($c, $usuario)));
-        if ($candidatos === []) {
-            return [];
-        }
-
-        return $this->semFiltroDeTenant(function () use ($candidatos, $usuario): array {
+        return $this->semFiltroDeTenant(function () use ($convites, $usuario): array {
+            $candidatos = array_values(array_filter($convites, fn (PastaCompartilhamento $c): bool => $c->getStatus() === EstadoDoCompartilhamento::Aceita && $this->abreSemOlharAConta($c, $usuario)));
+            if ($candidatos === []) {
+                return [];
+            }
             $porEscritorio = [];
             foreach ($candidatos as $c) {
                 $porEscritorio[(int) $c->getTenant()->getId()][] = $c;
@@ -175,7 +174,13 @@ final class PastaRecebidaDoUsuario
         return $abrem;
     }
 
-    /** Condições 1 a 4 que não pedem consulta: convite vigente de quem pede, pasta viva, conta A não excluída, origem ativa. */
+    /**
+     * Condições 1 a 4 que não pedem consulta: convite vigente de quem pede, pasta viva, conta A não excluída, origem ativa.
+     *
+     * Só roda DENTRO da janela sem filtro (`localizar()` e `quaisAbrem()` a chamam de lá): pasta, conta e origem podem
+     * chegar como proxies ainda não carregados (o convite que veio de outra consulta), e a pasta de A, carregada com o
+     * filtro de B ligado, não existiria.
+     */
     private function abreSemOlharAConta(PastaCompartilhamento $c, User $usuario): bool
     {
         $pasta = $c->getPasta();

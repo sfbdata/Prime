@@ -9,7 +9,8 @@ namespace App\Pasta\DTO;
  * §4.5.1). Só dados: nada leva a outra tela da conta de origem (sem cliente, processo, cobrança, push, marcadores,
  * responsável nem vizinhas). As listas da aba oculta chegam vazias e com `abaX = false`.
  *
- * `andamentos`: `{autor, em, texto (HTML do editor rico, já sanitizado), sistema (bool), resposta (bool)}`;
+ * `andamentos`: `{autor, em, texto (o conteúdo gravado, cru: quem sanitiza na saída é o filtro Twig `registro_texto`),
+ * sistema (bool), resposta (bool)}`;
  * `documentos`: `{id, nome, em, tamanho}`; `metas`: `{titulo, prazo, situacao}`.
  */
 final readonly class PastaRecebidaOutput

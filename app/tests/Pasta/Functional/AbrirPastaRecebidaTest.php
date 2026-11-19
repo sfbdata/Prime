@@ -212,6 +212,10 @@ final class AbrirPastaRecebidaTest extends JusPrimeWebTestCase
         $this->entrar($this->bia, $this->contaB);
 
         self::assertNull($this->ver($id)['metas'], 'aba Metas oculta: a janela não conta as metas');
+        $item = $this->itensDaCaixa()[$id];
+        self::assertTrue($item['abre']);
+        self::assertArrayHasKey('metas', $item);
+        self::assertNull($item['metas'], 'aba Metas oculta: a linha da Lista também não conta');
         $this->client->request('GET', '/expediente/recebidas/' . $id . '/pasta?aba=metas');
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('#documentos-tab');
@@ -222,20 +226,21 @@ final class AbrirPastaRecebidaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('contrato com a aba Financeiro oculta: 404 e fora da lista')]
-    public function testContratoComFinanceiroOculto(): void
+    #[TestDox('o contrato de honorários (aba Financeiro) nunca aparece para quem recebeu, nem com a aba visível: 404 e fora da lista')]
+    public function testContratoNuncaAparece(): void
     {
         $contrato = $this->documento($this->pasta, 'CONTRATO DE HONORÁRIOS', PastaDocumento::CATEGORIA_CONTRATO);
-        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->contaA, $this->pasta, AbaDaPasta::Financeiro, $this->donoA, new \DateTimeImmutable()));
-        $this->em()->flush();
-        $id = $this->convite();
+        $id = $this->convite(permissoes: new PermissoesDoCompartilhamento(false, false, true));
         $this->entrar($this->bia, $this->contaB);
 
         $this->client->request('GET', '/expediente/recebidas/' . $id . '/pasta');
+        self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('CONTRATO DE HONORÁRIOS', $this->conteudo());
         self::assertStringContainsString('PETIÇÃO INICIAL', $this->conteudo());
-        $this->client->request('GET', $this->urlDocumento($id, (int) $contrato->getId(), 'ver'));
-        self::assertResponseStatusCodeSame(404);
+        foreach (['ver', 'baixar'] as $modo) {
+            $this->client->request('GET', $this->urlDocumento($id, (int) $contrato->getId(), $modo));
+            self::assertResponseStatusCodeSame(404, $modo);
+        }
     }
 
     #[TestDox('documento de outra pasta de A, de B e na lixeira: 404; baixar sem a caixa: 403 e "negado" na trilha de A')]
@@ -284,9 +289,12 @@ final class AbrirPastaRecebidaTest extends JusPrimeWebTestCase
         $this->assertFiltroLigadoEmB();
     }
 
-    #[TestDox('a caixa Recebidas marca "abre" só no convite que abre')]
+    #[TestDox('a caixa Recebidas marca "abre" só no convite que abre; só ele leva ação, prioridade, situação e metas')]
     public function testCaixaMarcaAbre(): void
     {
+        $this->meta($this->pasta, 'META ABERTA');
+        $this->meta($this->pasta, 'OUTRA META ABERTA');
+        $this->meta($this->pasta, 'META CONCLUÍDA', Tarefa::STATUS_CONCLUIDA);
         $trancada = $this->criarPasta($this->contaA, 'PASTA TRANCADA');
         $this->trancar($trancada, $this->donoA);
         $abre = $this->convite();
@@ -295,17 +303,20 @@ final class AbrirPastaRecebidaTest extends JusPrimeWebTestCase
         $pendente = $this->convite(aceito: false, pasta: $this->criarPasta($this->contaA, 'PASTA PENDENTE'));
         $this->entrar($this->bia, $this->contaB);
 
-        $this->client->request('GET', '/expediente/recebidas');
-        self::assertResponseIsSuccessful();
-        $abrem = [];
-        foreach (json_decode($this->conteudo(), true, flags: JSON_THROW_ON_ERROR)['itens'] as $item) {
-            $abrem[$item['id']] = $item['abre'];
-        }
+        $itens = $this->itensDaCaixa();
+        $abrem = array_map(static fn (array $item): bool => $item['abre'], $itens);
 
         self::assertSame(
             [$abre => true, $comCadeado => false, $semEdicao => false, $pendente => false],
             [$abre => $abrem[$abre] ?? null, $comCadeado => $abrem[$comCadeado] ?? null, $semEdicao => $abrem[$semEdicao] ?? null, $pendente => $abrem[$pendente] ?? null],
         );
+        $linha = $itens[$abre];
+        self::assertSame(['AÇÃO DE COBRANÇA', 'normal', 'ativo', 2], [$linha['acao'], $linha['prioridade'], $linha['situacao'], $linha['metas']]);
+        foreach ([$comCadeado, $semEdicao, $pendente] as $naoAbre) {
+            foreach (['acao', 'prioridade', 'situacao', 'metas'] as $chave) {
+                self::assertArrayNotHasKey($chave, $itens[$naoAbre], 'o convite que não abre fica com o que a caixa já mostrava');
+            }
+        }
     }
 
     /** Monta o caso que não abre e devolve o id do compartilhamento que a Bia vai tentar. */
@@ -478,6 +489,19 @@ final class AbrirPastaRecebidaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         return json_decode($this->conteudo(), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /** @return array<int, array<string, mixed>> os itens da caixa Recebidas, por id do convite */
+    private function itensDaCaixa(): array
+    {
+        $this->client->request('GET', '/expediente/recebidas');
+        self::assertResponseIsSuccessful();
+        $itens = [];
+        foreach (json_decode($this->conteudo(), true, flags: JSON_THROW_ON_ERROR)['itens'] as $item) {
+            $itens[(int) $item['id']] = $item;
+        }
+
+        return $itens;
     }
 
     private function urlDocumento(int $id, int $documentoId, string $modo): string

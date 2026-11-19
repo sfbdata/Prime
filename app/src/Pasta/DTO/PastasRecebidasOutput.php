@@ -23,23 +23,27 @@ final readonly class PastasRecebidasOutput
     }
 
     /**
-     * `abre`: o convite abre a pasta agora (fatia 9a, o critério do `PastaRecebidaDoUsuario`); `acao`, `prioridade` e
-     * `situacao` são os da linha da Lista (L12).
+     * `abre`: o convite abre a pasta agora (fatia 9a, o critério do `PastaRecebidaDoUsuario`). Só no que abre saem
+     * `acao`, `prioridade`, `situacao` e `metas` (as abertas; nulo com a aba Metas oculta), os da linha da Lista (L12):
+     * o convite que não abre fica com o que a caixa da fatia 8 já mostrava.
      *
      * @return array<string, mixed>
      */
-    public static function item(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $abre = false): array
+    public static function item(PastaCompartilhamento $c, \DateTimeImmutable $hoje, bool $abre = false, ?int $metas = null): array
     {
         $permissoes = $c->permissoes();
         $pasta = $c->getPasta();
+        $daLista = $abre ? [
+            'acao'       => (string) $pasta->getNomeAcao(),
+            'prioridade' => $pasta->getPrioridade()->value,
+            'situacao'   => $pasta->getSituacao(),
+            'metas'      => $metas,
+        ] : [];
 
-        return [
+        return $daLista + [
             'id'               => (int) $c->getId(),
             'nup'              => (string) $pasta->getNup(),
             'cliente'          => (string) $pasta->getNomeCliente(),
-            'acao'             => (string) $pasta->getNomeAcao(),
-            'prioridade'       => $pasta->getPrioridade()->value,
-            'situacao'         => $pasta->getSituacao(),
             'de'               => self::nome($c->getOrigem()),
             'conta'            => (string) $c->getTenant()->getName(),
             'movimentar'       => $permissoes->movimentar,
