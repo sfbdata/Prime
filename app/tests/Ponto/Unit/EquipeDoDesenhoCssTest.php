@@ -84,7 +84,7 @@ final class EquipeDoDesenhoCssTest extends TestCase
         $tokens = self::declaracoes(self::semMedia(self::css()), '.pe-page,.pe-folha');
 
         self::assertSame(
-            ['#e6edf2', '#fff', '#4a6373', '#1e7b45', '#0a6fa0', '#8a6200', '#34505f', '#a3232b', '#5b7383', '#d3dde4', '#12242f', '#eef3f6', '#145a32'],
+            ['#e6edf2', '#fff', '#4a6373', '#1e7b45', '#0a6fa0', '#8a6200', '#34505f', '#a3232b', '#5b7383', '#d6e0e7', '#12242f', '#eef3f6', '#145a32'],
             array_map(static fn (string $t): ?string => $tokens[$t] ?? null, [
                 '--pe-div', '--pe-card', '--pe-texto-3', '--pe-ok-forte', '--pe-link', '--pe-num-pend', '--pe-texto-2', '--pe-perigo',
                 '--pe-mudo', '--pe-borda', '--pe-texto', '--pe-th-bg', '--pe-ok-cor',

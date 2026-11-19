@@ -37,7 +37,7 @@ final class JanelasDoDesenhoCssTest extends TestCase
     public static function regras(): iterable
     {
         yield 'Horário e Data (L277, L281)' => ['.pe-janela-entrada', ['height' => '36px', 'border' => '1px solid var(--pe-borda)', 'border-radius' => '3px', 'padding' => '0 10px', 'font' => 'inherit', 'font-size' => '14px', 'font-weight' => 'normal']];
-        yield 'seleção (L290, a da janela de assinar a folha)' => ['.pe-janela-select', ['height' => '34px', 'width' => '100%', 'box-sizing' => 'border-box', 'border' => '1px solid var(--pe-borda)', 'border-radius' => '3px', 'padding' => '0 8px', 'font' => 'inherit', 'font-size' => '13.5px', 'font-weight' => 'normal']];
+        yield 'seleção (L290, a da janela de assinar a folha)' => ['.pe-janela-select', ['height' => '34px', 'width' => '100%', 'box-sizing' => 'border-box', 'border' => '1px solid var(--pe-borda-campo)', 'border-radius' => '3px', 'padding' => '0 8px', 'font' => 'inherit', 'font-size' => '13.5px', 'font-weight' => 'normal']];
         yield 'atestado (L283)' => ['.pe-janela-arquivo', ['font' => 'inherit', 'font-size' => '13px', 'font-weight' => 'normal']];
         yield 'caixa de marcar (L308, "Cadastro facial")' => ['.pe-janela-marca', ['display' => 'flex', 'align-items' => 'flex-start', 'gap' => '8px', 'padding' => '9px 11px', 'background' => 'var(--pe-rodape-bg)', 'border' => '1px solid var(--pe-borda)', 'border-radius' => '3px']];
         yield 'marca da caixa (L308)' => ['.pe-janela-marca > input', ['width' => '16px', 'height' => '16px', 'margin' => '2px 0 0']];
