@@ -49,8 +49,13 @@ final class CodigoPessoal
                     'UPDATE "user" SET codigo_pessoal = ? WHERE id = ? AND codigo_pessoal IS NULL',
                     [$codigo, $pessoa->getId()],
                 );
-            } catch (UniqueConstraintViolationException) {
-                continue;   // outra pessoa levou o mesmo código entre a consulta e o UPDATE: sorteia de novo
+            } catch (UniqueConstraintViolationException $e) {
+                // Outra pessoa levou o mesmo código entre a consulta e o UPDATE: sorteia de novo. Dentro de uma
+                // transação do chamador não dá: no Postgres o erro aborta a transação inteira.
+                if ($conexao->isTransactionActive()) {
+                    throw $e;
+                }
+                continue;
             }
             $gravado = $conexao->fetchOne('SELECT codigo_pessoal FROM "user" WHERE id = ?', [$pessoa->getId()]);
             if (!\is_string($gravado)) {
