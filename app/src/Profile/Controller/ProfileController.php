@@ -10,6 +10,7 @@ use App\Auth\UseCase\VerificarOabUseCase;
 use App\Conector\UseCase\ListarConexoesDaPessoaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Pasta\Service\CodigoPessoal;
 use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\DTO\AtualizarStatusInput;
@@ -58,6 +59,7 @@ final class ProfileController extends AbstractController
         private readonly AlterarSenhaUseCase $alterarSenha,
         private readonly VinculoNoEscritorioRepository $vinculos,
         private readonly ObterPreferenciasDoPerfilUseCase $obterPreferencias,
+        private readonly CodigoPessoal $codigoPessoal,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly SairDeTodosOsAparelhosUseCase $sairDeTodos,
         private readonly ListarConexoesDaPessoaUseCase $listarConexoesDeIa,
@@ -96,6 +98,9 @@ final class ProfileController extends AbstractController
             'form_senha' => $formSenha->createView(),
             // Cartão "Conexões de I.A." (conector de I.A., PR 8): as da pessoa em todos os escritórios dela.
             'conexoesDeIa' => $this->listarConexoesDeIa->executar($user),
+            // Cartão "Meu código BlueJus" (pedido do Farlei, 19/11/2026): o mesmo código pessoal com que a pessoa recebe
+            // pastas de outras contas. Nasce na primeira vez que ela o vê, aqui ou na janela Recebidas.
+            'meuCodigo' => $this->codigoPessoal->garantir($user),
         ]);
     }
 

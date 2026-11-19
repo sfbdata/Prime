@@ -137,6 +137,8 @@
     function grupoDoCodigo() {
         var g = el('label', 'exp-cp-grupo');
         g.appendChild(rotulo(BJ_T.t('expediente.js.compartilhar.codigo_rotulo')));
+        /* Orientação e atalho para o Perfil, onde fica o "Meu código BlueJus" (pedido do Farlei, 19/11/2026). */
+        g.appendChild(el('span', 'exp-cp-dica', BJ_T.t('expediente.js.compartilhar.codigo_orientacao')));
         var campo = el('input', 'exp-cp-campo exp-cp-campo--alto exp-cp-codigo');
         campo.type = 'text';
         campo.autocomplete = 'off';
@@ -155,6 +157,14 @@
         g.appendChild(campo);
         g.appendChild(quem);
         pintarQuem();
+        var t = tabela();
+        var onde = el('a', 'exp-cp-onde');
+        onde.href = (t && t.getAttribute('data-url-meu-codigo')) || '/perfil#mpMeuCodigo';
+        onde.target = '_blank';
+        onde.rel = 'noopener';
+        onde.appendChild(icone('bi-question-circle'));
+        onde.appendChild(document.createTextNode(' ' + BJ_T.t('expediente.js.compartilhar.codigo_onde')));
+        g.appendChild(onde);
         return g;
     }
 

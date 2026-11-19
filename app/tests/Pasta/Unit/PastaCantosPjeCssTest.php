@@ -68,6 +68,8 @@ final class PastaCantosPjeCssTest extends TestCase
         yield 'Mostrando somente (L2294)' => ['pasta-explorador.css', '.pex-filtro-chip'];
         yield 'selo do checklist (L6821)' => ['pasta-explorador.css', '.pex-ck-selo'];
         yield 'trilho do checklist (L2186)' => ['pasta-explorador.css', '.pex-ck-barra'];
+        // Guia visual v30 (19/11): contador de filtros deixa de ser pílula.
+        yield 'número de filtros (guia v30)' => ['pasta-explorador.css', '.pex-selo-filtro'];
         yield 'motivos de desligar o checklist (L4178)' => ['pasta-checklist.css', '#pexChecklist .pex-ck-motivo'];
     }
 
@@ -90,9 +92,13 @@ final class PastaCantosPjeCssTest extends TestCase
         yield 'tipo da comunicação do Push (tipoSt L5629)' => ['pasta-show.css', '.ps-push-titulo'];
         yield 'confiança da sugestão (confSt L4156)' => ['pasta-documentos-sugeridos.css', '.ds-sug-conf'];
         yield 'contagens da sugestão (L4159)' => ['pasta-documentos-sugeridos.css', '.ds-sug-chip'];
-        yield 'número de filtros (L2141)' => ['pasta-explorador.css', '.pex-selo-filtro'];
-        yield 'preenchimento do checklist (L6823)' => ['pasta-explorador.css', '.pex-ck-barra-fill'];
         yield 'interruptor do checklist (sw L4166)' => ['pasta-checklist.css', '#pexChecklist .pex-ck-interruptor-trilho'];
+    }
+
+    #[TestDox('preenchimento fino do checklist com 2px (guia v30)')]
+    public function testPreenchimentoFinoDoChecklistComDoisPixels(): void
+    {
+        self::assertSame(['2px'], $this->raios('pasta-explorador.css', '.pex-ck-barra-fill'));
     }
 
     #[DataProvider('continuaPilula')]

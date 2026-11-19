@@ -40,7 +40,10 @@
 .mdl-editor-rodape .mdl-btn-primario { padding: 0 16px; font-size: 13.5px; }
 .mdl-btn-quadrado { width: 32px; height: 32px; flex: none; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; color: #34505f; cursor: pointer; }
 .mdl-linha { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f0f4f7; cursor: pointer; }
-.mdl-linha:hover { background: #eaf3f9; }
+.mdl-linha { transition: background .18s; }
+.mdl-linha:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
+.mdl-linha:hover, .mdl-linha:hover * { color: #fff !important; }
+.mdl-linha:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .mdl-fav { border: none; background: none; cursor: pointer; font-size: 15px; color: #b7c6d1; padding: 0; }
 .mdl-fav--on { color: #e0a106; }
 .mdl-linha-icone { font-size: 19px; color: var(--mdl-azul); }

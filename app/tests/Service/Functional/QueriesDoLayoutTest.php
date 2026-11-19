@@ -41,8 +41,10 @@ final class QueriesDoLayoutTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{string, int}> */
     public static function pessoas(): iterable
     {
-        yield 'primário' => ['primario', 40];
-        yield 'colaborador' => ['colaborador', 37];
+        // 19/11/2026: +4 do cartão "Meu código BlueJus" (o sorteio do código pessoal, que só acontece na primeira
+        // visita da pessoa: confere se está livre na conta e nas pessoas, e grava).
+        yield 'primário' => ['primario', 44];
+        yield 'colaborador' => ['colaborador', 41];
     }
 
     #[DataProvider('pessoas')]

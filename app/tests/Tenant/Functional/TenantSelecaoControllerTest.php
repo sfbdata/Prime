@@ -89,6 +89,30 @@ final class TenantSelecaoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('expediente', (string) $client->getResponse()->headers->get('Location'));
     }
 
+    #[TestDox('Com duas contas, cada escritório é uma linha de conta: nome em cima e o botão sem o estilo de botão (A6, 19/11)')]
+    public function testDuasContasEmLinhasDeConta(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant('Escritório A');
+        $tenantB = $this->criarTenant('Escritório B');
+        $user    = $this->criarUsuario();
+        $this->vincular($user, $tenantA);
+        $this->vincular($user, $tenantB);
+
+        $this->logarComTenant($client, $user, $tenantA);
+        $crawler = $client->request('GET', '/escritorio/selecionar');
+
+        self::assertResponseIsSuccessful();
+        $linhas = $crawler->filter('.sel-contas > form[action="/escritorio/selecionar"] > button.sel-conta');
+        self::assertCount(2, $linhas);
+        self::assertCount(2, $crawler->filter('button.sel-conta > .sel-conta-texto > b'));
+        self::assertCount(0, $crawler->filter('.sel-contas .bjp-btn'));
+        self::assertCount(1, $crawler->filter('link[href*="css/tenant-selecionar.css"]'));
+        $nomes = $linhas->each(static fn ($b) => trim($b->filter('.sel-conta-texto > b')->text()));
+        self::assertContains($tenantA->getName(), $nomes);
+        self::assertContains($tenantB->getName(), $nomes);
+    }
+
     #[TestDox('POST trocar para escritório sem vínculo é negado e volta à seleção')]
     public function testTrocaSemVinculoNegada(): void
     {
