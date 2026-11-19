@@ -1,0 +1,198 @@
+# ---- emails: system emails (email/*; those in email/comercial are in the emails.comercial sub-block)
+# Also rendered outside a request (Messenger worker, commands): the translator falls back to default_locale (pt_BR).
+# Today they go out in the language of the request of whoever triggered them; the recipient language is delivery E (spec §5). A sentence with
+# <b>/<strong>/link in the middle is split into keys, with the markup in the template. Counts come in as text (no
+# thousands separator, as before). Subjects built in PHP stay with the PHP of the area.
+emails:
+    cadastro_confirmacao:
+        titulo: Confirm your BlueJus sign-up
+        ola: 'Hello, {nome}!'
+        # We received your sign-up on <strong>BlueJus</strong> for the firm <strong>{firm}</strong>. Just confirm...
+        recebemos: We received your sign-up on
+        para_o_escritorio: for the firm
+        falta_confirmar: You just need to confirm your email to activate the account.
+        clique: Click the button below to confirm. The link expires in 24 hours.
+        botao: Confirm my sign-up
+        nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        ignore: If you did not sign up, ignore this email.
+    # New sign-in notice (spec login-aviso-novo): the subject "New access to your account" stays in AvisoDeAcessoNovoMailer.
+    acesso_novo:
+        titulo: New access to your account
+        ola: 'Hello, {nome}!'
+        aviso: 'We detected access to your BlueJus account from a browser or network we did not recognize:'
+        quando: Date and time
+        navegador: Browser
+        sistema: System
+        desconhecido: Not identified
+        se_foi_voce: If it was you, you do not need to do anything.
+        se_nao_foi: If it was not you, change your password now.
+        botao: Change password
+        nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+    codigo_exclusao_conta:
+        titulo: Code to delete the account
+        ola: 'Hello, {nome}!'
+        # We received a request to delete the account of the firm <strong>{firm}</strong> on BlueJus.
+        pedido_inicio: We received a request to delete the account of the firm
+        pedido_fim: on BlueJus.
+        use_codigo: 'To confirm, use this code:'
+        vale: The code is valid for 15 minutes.
+        digite: Enter it in My Profile, with the word EXCLUIR.
+        nao_foi_voce: 'If it was not you, ignore this email: the account stays as it is.'
+    codigo_senha:
+        titulo: 'Your BlueJus code: {codigo}'
+        ola: 'Hello, {nome}!'
+        # Use this code to create a new password on <strong>BlueJus</strong>:
+        use_codigo: Use this code to create a new password on
+        vale: It is valid for 15 minutes.
+        nao_pediu: If you did not request a new password, ignore this email. Your current password remains valid.
+    teto_codigo_senha:
+        titulo: Attempts to change your password
+        ola: 'Hello, {nome}!'
+        aconteceu: Someone entered the wrong code too many times while trying to change your BlueJus account password.
+        fechou: For security, changing the password by code was locked for a while. Your current password remains valid and you can sign in with it as usual.
+        nao_foi_voce: If it was not you, nothing needs to be done now. If you forgot your password, request a new code later.
+    convite_escritorio:
+        titulo: Invitation to collaborate on BlueJus
+        ola_nome: 'Hello, {nome}!'
+        ola: Hello!
+        # <strong>{firm}</strong> invited you...; with no firm, <strong>A firm</strong>
+        um_escritorio: A firm
+        convidou: invited you to collaborate as a member on BlueJus.
+        # Invitation sent by <strong>{name}</strong>.; with no creator, <strong>an administrator</strong>
+        enviado_por: Invitation sent by
+        um_administrador: an administrator
+        ver_convite: View invitation
+        # This invitation expires on <strong>{date}</strong>.
+        expira: This invitation expires on
+        nao_funcionar: 'If the button does not work, copy and paste this link into your browser:'
+        nao_esperava: If you were not expecting this invitation, you can safely ignore it. No action will be taken without your confirmation.
+    convite_plataforma:
+        titulo: Invitation to BlueJus
+        ola_nome: 'Hello, {nome}!'
+        ola: Hello!
+        # You have been invited to create your account on <strong>BlueJus</strong>, the platform...
+        convidado_inicio: You have been invited to create your account on
+        convidado_fim: ', the legal management platform for attorneys and law firms.'
+        oab: To complete your sign-up, you will need to provide your OAB registration number.
+        criar_conta: Create my account
+        # This invitation expires on <strong>{date} at {time}</strong>.
+        expira: This invitation expires on
+        data_as_hora: '{data} at {hora}'
+        nao_funcionar: 'If the button does not work, copy and paste this link into your browser:'
+        nao_solicitou: If you did not request this invitation, ignore this email. No account will be created unless you click the link above.
+    indicacao:
+        convite:
+            ola: Hello!
+            # <b>{referrer}</b> referred BlueJus to you...
+            indicou: referred BlueJus to you. BlueJus brings the firm deadlines, cases and documents together in one place, and it is free to start.
+            crie: Create your account through the invitation. You open your own firm on BlueJus.
+            criar_conta: Create my account
+            nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+    perfil:
+        resumo_diario:
+            bom_dia_nome: 'Good morning, {nome}.'
+            bom_dia: Good morning.
+            seu_dia: 'This is your day at {escritorio}, {dia}.'
+            prazos: 'Deadlines and hearings today ({quantos})'
+            metas: 'Goals due today ({quantos})'
+            pasta: 'Matter {pasta}'
+            agenda: Calendar
+            abrir: Open BlueJus
+    push_aviso_equipe:
+        ola: 'Hello, {nome}!'
+        tipo_de_data: '{tipo} from {data}'
+        restantes: 'And {quantas} more update(s) on the matter.'
+        abrir_pasta: Open the matter
+        motivo: You receive this notice because you are responsible for the matter and the email notice is turned on in the Push tab.
+        descadastro: I do not want to receive these notices anymore
+    push_cliente:
+        motivo: 'You receive this email because you are a client of {escritorio}. To reply, use the Reply button in your email.'
+        um_escritorio: a firm
+        descadastro: I do not want to receive these notices anymore
+    redefinicao_senha:
+        titulo: Password reset on BlueJus
+        ola: 'Hello, {nome}!'
+        # We received a request to reset the password of your account on <strong>BlueJus</strong>.
+        recebemos: We received a request to reset the password of your account on
+        # Click the button below to create a new password. <strong>The link is valid for 1 hour</strong> and can only be used once.
+        clique: Click the button below to create a new password.
+        vale: The link is valid for 1 hour
+        uma_vez: and can only be used once.
+        botao: Create new password
+        nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        nao_pediu: If you did not request the reset, ignore this email. Your current password remains valid.
+    trabalho_externo_convite:
+        titulo: Invitation to a field work request
+        ola: 'Hello, {nome}!'
+        # The BlueJus Field Work Center invited you to perform <strong>{service}</strong> at <strong>{place}</strong>, as {role}.
+        convidou: The BlueJus Field Work Center invited you to perform
+        em: at
+        como: ', as {funcao}'
+        acesso: 'You will have access only to this request: instructions, authorized documents, checklist and chat. If you do not have a BlueJus account yet, you can create one when you open the invitation.'
+        ver_convite: View invitation
+        # This invitation is valid until <strong>{date}</strong>.
+        vale: This invitation is valid until
+        nao_funcionar: 'If the button does not work, copy and paste this link into your browser:'
+        nao_esperava: If you were not expecting this invitation, you can safely ignore it. No action will be taken without your confirmation.
+    # The Commercial emails (email/comercial/*, spec idioma-do-sistema §25.C). The layout serves every Carteiro
+    # email, including the Master campaigns: only its fixed text is here; the campaign content belongs to the user.
+    # Subject, badge and title of the automations (ModelosDeAutomacao), the confirmation subject and the
+    # RotulosDoConsentimento phrases stay in PHP. The text passed to the _blocos macros is escaped in the macro, as before.
+    comercial:
+        layout:
+            enviado_por: 'Sent by {escritorio} through BlueJus.'
+            razao_social: BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF
+            motivo_lista: You received this email because you signed up for BlueJus or authorized receiving news.
+            motivo_conta: You received this email because of your BlueJus account.
+            descadastro_lista: I do not want to receive these anymore
+            descadastro_escritorio: 'I do not want to receive emails from {escritorio} anymore'
+            descadastro_plataforma: I do not want to receive BlueJus news
+            politica: Privacy Policy
+        confirmacao_endereco:
+            confirme: 'Confirm that you want to receive {lista}'
+            clique: Click the button below to confirm your email. The link is valid for 7 days.
+            botao: Confirm my email
+            nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        boas_vindas:
+            texto: Your email has been confirmed and your account is ready. From now on, deadlines, cases, documents and team are in one place.
+            comece: Start here
+            pasta_titulo: 1. Open your first matter
+            pasta_resumo: Register the client and the system numbers the matter automatically.
+            processo_titulo: 2. Link the case
+            processo_resumo: Case Push starts following the updates.
+            equipe_titulo: 3. Invite your team
+            equipe_resumo: Each person joins as a secondary user and you set the permissions.
+            botao: Open BlueJus
+        espaco_100:
+            texto: Storage reached 100%. Your files remain stored and available to view and download, but new uploads are paused until you add more space.
+            botao: Request more storage
+        espaco_90:
+            # {limite} is the percentage chosen in the automation (80, 85 or 90), as text.
+            texto: 'Your firm storage on BlueJus is {limite}% full. When it reaches 100%, uploading new documents is paused (viewing and downloading stay available).'
+            aumente_titulo: Increase your space
+            aumente_resumo: Switch to a larger plan in a few clicks, without losing anything.
+            libere_titulo: Or free up space
+            libere_resumo: Use the suggestion to delete duplicate and empty documents inside the matters.
+            botao: Increase my space
+        lembrete_confirmacao:
+            texto: We received the sign-up for your BlueJus account. To protect access and unlock all features, confirm that this email is yours.
+            botao: Confirm and create my password
+            # The blank line (\n\n) separates the paragraphs: the _blocos text macro splits on it.
+            validade: "The link is valid for 7 days.\n\nIf you did not create this account, ignore this email."
+        opcoes_liberadas:
+            texto: "The BlueJus team unlocked the extra storage options for your firm.\n\nBlueJus stays free: extra storage is optional and no file is deleted."
+            botao: View storage options
+        pedido_respondido:
+            texto: "The BlueJus team reviewed your request for more storage and did not unlock the extra storage options this time.\n\nYour files remain stored and available to view and download. You can make a new request whenever you need."
+            botao: View my storage
+        pedido_espaco:
+            texto: We received your request to expand the account storage. The BlueJus team will confirm the new plan with you, and no file is deleted in the meantime.
+            botao: Open BlueJus
+        primeiros_passos:
+            prazos_titulo: Deadlines read from matters
+            prazos_resumo: Write the date in the record and it becomes a deadline automatically.
+            chat_titulo: AI Chat
+            chat_resumo: Ask which matters are idle or what is due today.
+            perfil_titulo: My Profile
+            perfil_resumo: Register your primary and supplementary OAB registrations.
+            botao: Continue on BlueJus

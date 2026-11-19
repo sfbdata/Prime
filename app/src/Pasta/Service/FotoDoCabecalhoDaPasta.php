@@ -39,14 +39,14 @@ final class FotoDoCabecalhoDaPasta
             && $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $cliente->getId(), AccessRequest::ACTION_VIEW)) {
             return ['url' => $this->urls->generate('cliente_foto', [
                 'id'   => $cliente->getId(),
-                'nome' => $cliente->getFoto(),
+                'nome' => pathinfo($cliente->getFoto(), \PATHINFO_FILENAME),
                 'v'    => $cliente->getFotoAtualizadaEm()?->getTimestamp(),
             ]), 'origem' => self::ORIGEM_CLIENTE];
         }
         if ($pasta->getFoto() !== null) {
             return ['url' => $this->urls->generate('pasta_foto', [
                 'id'   => $pasta->getId(),
-                'nome' => $pasta->getFoto(),
+                'nome' => pathinfo($pasta->getFoto(), \PATHINFO_FILENAME),
                 'v'    => $pasta->getFotoAtualizadaEm()?->getTimestamp(),
             ]), 'origem' => self::ORIGEM_PASTA];
         }

@@ -48,6 +48,9 @@ Decisões (pela recomendação, avisadas ao Coordenador em 19/11):
    `|date('d/m/Y')` e `number_format` fixos que restam (cerca de 250) passam aos filtros nos PRs de tradução, área por
    área, junto com o texto (regra da entrega 2 da spec `idioma-do-sistema`).
 4. Sem requisição (e-mail em comando) vale o padrão: português, Brasília, automático.
+5. Brasília escolhida no modal fica gravada (não vira nulo): o `<html>` leva `data-bj-fuso` e a hora do `BJFormato`
+   sai em Brasília, igual à do servidor. Sem escolha gravada, o JS segue o relógio do navegador, como antes
+   (revisão do PR 1).
 
 Técnica:
 

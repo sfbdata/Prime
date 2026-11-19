@@ -48,7 +48,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function valores(): iterable
     {
-        yield 'hover da linha #3b8fc2 (dc L.31)' => ['--ex-linha-hover:  #3b8fc2;'];
+        yield 'hover da linha #2b7ab0 (guia visual v30)' => ['--ex-linha-hover:  #2b7ab0;'];
         yield 'faixa do hover #1f6f9c' => ['--ex-linha-barra:  #1f6f9c;'];
         yield 'prioridade normal #eef2f5/#1f3644 (dc L.431)' => ['--ex-prio-normal-bg: #eef2f5;  --ex-prio-normal-tx: #1f3644;'];
         yield 'prioridade "alta" (= Prioridade do sistema) #fdf0e1/#9a5208' => ['--ex-prio-alta-bg:   #fdf0e1;  --ex-prio-alta-tx:   #9a5208;'];

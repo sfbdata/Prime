@@ -47,7 +47,9 @@ final class SalvarOpcoesAvancadasUseCase
 
         $perfil = $this->obterOuCriarPerfil->executar($usuario);
         $perfil->setIdioma($escolhido)
-            ->setFusoHorario($fusoEscolhido === FusoHorario::PADRAO ? null : $fusoEscolhido)
+            // Brasília escolhida fica gravada: o <html> leva data-bj-fuso e a hora do JS sai em Brasília, igual à do
+            // servidor (sem escolha, o JS segue o relógio do navegador, como antes).
+            ->setFusoHorario($fusoEscolhido)
             ->setFormatoData($dataEscolhida)
             ->setFormatoNumero($numeroEscolhido);
         $this->perfis->salvar($perfil, flush: true);

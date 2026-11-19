@@ -1,6 +1,8 @@
 /*
- * Componentes do "Guia visual BlueJus" (docs/design/redesign-04-11-26/Guia visual BlueJus.dc.html), criados UMA vez
- * e aplicados tela a tela pela padronização visual de 18/11 (relatório bluejus-coordenacao/auditoria-visual-1811.md).
+ * Componentes do "Guia visual BlueJus" (versão 30: docs/design/guia-visual-v30/Guia visual BlueJus.dc.html), criados
+ * UMA vez e aplicados tela a tela pela padronização visual de 18/11 (relatório bluejus-coordenacao/auditoria-visual-1811.md).
+ * Ajuste de 19/11 (guia v30): etiqueta, contador e prazo retangulares (raio 4px), Sucesso #18804f, desativado legível
+ * com borda tracejada e rótulo #5f7684 (contraste 4,8:1).
  * Valores copiados do código do guia (funções btn, ico e dis; listas B, ET e PZ; seções Painéis e Tipografia).
  * O texto do guia fala em raio 8px, mas o código dele usa 4px em tudo: vale o código.
  *
@@ -43,12 +45,14 @@
 .bjp-btn--discreto:hover, .bjp-btn--discreto:focus { background: #eef4f8; color: #0f6fc4; }
 .bjp-btn--destrutivo { background: #fdeceb; color: #a3232b; }
 .bjp-btn--destrutivo:hover, .bjp-btn--destrutivo:focus { background: #f9d9d6; color: #a3232b; }
-.bjp-btn--sucesso { background: #1f9d61; color: #fff; }
-.bjp-btn--sucesso:hover, .bjp-btn--sucesso:focus { background: #18804f; color: #fff; }
+.bjp-btn--sucesso { background: #18804f; color: #fff; }
+.bjp-btn--sucesso:hover, .bjp-btn--sucesso:focus { background: #136a41; color: #fff; }
 
+/* Desativado (guia v30): legível, borda tracejada e o motivo no title; nunca apagado a ponto de sumir. */
 .bjp-btn:disabled, .bjp-btn.disabled, .bjp-btn[aria-disabled="true"] {
+    border: 1px dashed #93a7b4;
     background: #eef2f5;
-    color: #a9b8c2;
+    color: #5f7684;
     cursor: not-allowed;
     transform: none;
 }
@@ -81,7 +85,7 @@
 .bjp-ico.bjp-btn--discreto:hover { background: #eef4f8; color: #0f6fc4; }
 .bjp-ico.bjp-btn--destrutivo { background: #fdeceb; color: #a3232b; }
 .bjp-ico.bjp-btn--destrutivo:hover { background: #f9d9d6; }
-.bjp-ico:disabled, .bjp-ico.disabled { background: transparent; color: #a9b8c2; cursor: not-allowed; }
+.bjp-ico:disabled, .bjp-ico.disabled { border: 1px dashed #93a7b4; background: #eef2f5; color: #5f7684; cursor: not-allowed; }
 
 /* Painel: raio 4px, sem borda, sombra suave; cabeçalho com ícone 16px e título 14px/700 petróleo. */
 .bjp-painel {
@@ -105,16 +109,16 @@
 .bjp-painel-cabeca .bjp-painel-acoes { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bjp-painel-corpo { padding: 14px 16px; }
 .bjp-painel-pe { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid #eef2f5; }
-.bjp-contagem { font-size: 12px; font-weight: 700; color: #0b5f86; background: #e8f2fa; padding: 1px 8px; border-radius: 999px; }
+.bjp-contagem { font-size: 12px; font-weight: 700; color: #0b5f86; background: #e8f2fa; padding: 1px 8px; border-radius: 4px; }
 
-/* Etiqueta de situação: pílula 24px, 12px/700, bolinha 6px. */
+/* Etiqueta de situação: retangular (raio 4px), 24px, 12px/700, bolinha 6px. */
 .bjp-etiqueta {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     height: 24px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
@@ -135,8 +139,8 @@
 .bjp-etiqueta--info { color: #0b5f86; background: #e8f2fa; }
 .bjp-etiqueta--info::before { background: #0f6fc4; }
 
-/* Prazo: 12px/700, pílula; vencido ou até 3 dias crítico, até 7 dias atenção, depois neutro. */
-.bjp-prazo { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: #455c6b; background: #eef2f5; }
+/* Prazo: 12px/700, retangular (raio 4px); vencido ou até 3 dias crítico, até 7 dias atenção, depois neutro. */
+.bjp-prazo { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 4px; white-space: nowrap; color: #455c6b; background: #eef2f5; }
 .bjp-prazo--critico { color: #a3232b; background: #fdeceb; }
 .bjp-prazo--atencao { color: #8a5a12; background: #fdf1dc; }
 
@@ -144,7 +148,7 @@
 .bjp-titulo-tela { font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: #12242f; }
 .bjp-titulo-painel { font-size: 15px; font-weight: 700; color: #0b5f86; }
 .bjp-texto-apoio { font-size: 12px; color: #5f7684; }
-.bjp-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7b93a2; }
+.bjp-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5f7684; }
 
 /* Grupo de botões (barra de ações). */
 .bjp-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

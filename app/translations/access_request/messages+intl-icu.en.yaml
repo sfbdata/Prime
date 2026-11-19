@@ -1,0 +1,20 @@
+access_request:
+    titulo: Access Requests
+    titulo_pendentes: Pending Access Requests
+    nenhuma: No pending requests at the moment.
+    col_solicitante: Requester
+    col_recurso: Resource
+    col_id: ID
+    col_acao: Requested Action
+    col_solicitado_em: Requested on
+    col_decisao: Decision
+    aprovar: Approve
+    negar: Deny
+    confirmar_negar: 'Deny {nome} access to {recurso} #{id}?'
+    modal_titulo: Approve Access
+    solicitante: 'Requester:'
+    recurso: 'Resource:'
+    instrucao: Select the actions to be granted. At least one must be checked.
+    visualizar: View
+    editar: Edit
+    confirmar_aprovacao: Confirm Approval

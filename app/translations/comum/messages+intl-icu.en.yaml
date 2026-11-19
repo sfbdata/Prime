@@ -1,0 +1,96 @@
+# ---- Common partials (_partials/_avatar_usuario, _filtro_barra, _filtro_paginacao, _janela_confirmacao,
+# modal_access_request, modal_mover_marcador, modal_nova_pasta; filtro-tabela.js, pasta-dialogos.js). The JS reads comum.js,
+# delivered by base to any screen.
+comum:
+    cancelar: Cancel
+    salvar: Save
+    fechar: Close
+    excluir: Delete
+    filtro:
+        busca: Search
+        buscar: Search…
+        filtrar_por: 'Filter by {rotulo}'
+        abrir_calendario: Open calendar
+    paginacao:
+        rotulo: Pagination
+        anterior: Previous page
+        proxima: Next page
+    acesso:
+        titulo: Request Access
+        explicacao: You do not have permission to access this item. Describe the reason for your request so the administrator can review it.
+        motivo: Reason for the request
+        motivo_placeholder: Describe why you need to access this item...
+        enviar: Send Request
+    nova_pasta:
+        titulo: New Matter
+        numero_automatico: The matter number is generated automatically by the system.
+        nome_cliente: Client name
+        nome_acao: Action Name
+        cliente_placeholder: Enter the client name
+        acao_placeholder: Enter the client name first
+        importar_lote: Bulk import
+        importar_lote_dica: 'Import several matters at once: each subfolder becomes a new matter with the attached documents'
+        importar_drive: Import from Google Drive
+        importar_drive_dica: 'Import a folder from the firm Google Drive, with the same rules as Bulk import'
+    mover_marcador:
+        titulo: Matter tags
+        buscar: Search tag…
+        limpar_busca: Clear search
+        nenhum_criado: No tags created yet.
+    js:
+        fechar: Close
+        # filtro-tabela.js
+        filtro:
+            busca: Search
+            remover: Remove
+            limpar_tudo: Clear all
+        # modal_access_request (inline script)
+        acesso:
+            acao_visualizar: view
+            acao_editar: edit
+            acao_excluir: delete
+            recurso_cliente: client
+            descricao_padrao: 'I request to {acao} the {recurso}{identificador}.'
+            enviando: Sending...
+            enviar: Send Request
+            descreva_motivo: Please describe the reason for the request.
+            enviada: Request sent.
+            erro_enviar: Error sending request. Try again.
+        # modal_nova_pasta (inline script)
+        nova_pasta:
+            erro_criar: Could not create the matter.
+            erro_conexao: Connection failure while creating the matter. Try again.
+        # modal_mover_marcador (inline script)
+        mover_marcador:
+            selecionado: '{n} selected'
+            selecionados: '{n} selected'
+            nenhum_encontrado: 'No tags found for "{busca}".'
+            nenhum_criado: No tags created yet.
+            criar: 'Create tag "{nome}"'
+            resposta_invalida: Invalid response from the server.
+            erro_criar: Could not create the tag.
+            erro_salvar: Error saving.
+            erro_comunicacao: Communication error.
+        # pasta-dialogos.js (confirmation window, assignees and New goal calendar)
+        dialogos:
+            remover: Remove
+            remover_nome: 'Remove {nome}'
+            data_vazia: dd/mm/yyyy
+            mes_ano: '{mes} {ano}'
+            dia_indisponivel: '{dia}, unavailable'
+            confirmar: Confirm
+            excluir: Delete
+            confirmar_exclusao: Confirm deletion
+            mes:
+                janeiro: January
+                fevereiro: February
+                marco: March
+                abril: April
+                maio: May
+                junho: June
+                julho: July
+                agosto: August
+                setembro: September
+                outubro: October
+                novembro: November
+                dezembro: December

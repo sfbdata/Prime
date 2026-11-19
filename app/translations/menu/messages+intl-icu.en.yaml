@@ -1,0 +1,113 @@
+# ---- user menu (menu_usuario/*, menu-usuario.js)
+menu:
+    usuario:
+        dropdown:
+            selo_primario: PRIMARY USER
+            fechar_menu: Close menu
+            meu_perfil: My Profile
+            convites: Firm invitations
+            convites_dir: team
+            indicar: Refer BlueJus
+            indicar_dir: new account
+            trocar_conta: Switch account
+            exclusivo_master: MASTER ONLY
+            tema_escuro: Dark theme
+            idioma: Language
+            instalar: Install app
+            novidades: What''s New
+            novidades_selo: new
+            ajuda: Help and shortcuts
+            privacidade: Privacy Policy
+            contribua: Contribute
+            sair: Sign out
+        master:
+            painel:
+                titulo: Master Panel
+                sub: System overview
+            contas:
+                titulo: Accounts and firms
+                sub: Suspend, reactivate and limits
+            armazenamento:
+                titulo: Plans and storage
+                sub: Allowances and usage by account
+            auditoria:
+                titulo: Security and audit
+                sub: Action log and PDF
+            permissoes:
+                titulo: Permissions and Masters
+                sub: Promote or remove Master
+            vagas:
+                titulo: Jobs and resumes center
+                sub: Posting requests and candidates
+            campanha:
+                titulo: Email campaign
+                sub: Send job posts to the contact base
+            configuracoes:
+                titulo: Global settings
+                sub: Rules that apply to all accounts
+        minha_conta:
+            escritorio: Firm
+            voce: You
+            papel_primario: Primary user
+            equipe_rotulo: ACCOUNT TEAM ({n})
+            selo_primario: PRIMARY
+            situacao: Status
+            opcoes: Options
+            opcoes_de: Options for {nome}
+            convidar_rotulo: INVITE (JOINS AS SECONDARY)
+            ver_convites: View pending invitations
+            nota_convidar: Right-click (or use ⋮) on a person to approve, suspend, send back to review or dismiss.
+            sem_perfil: To invite, first register a secondary role in
+            sem_perfil_link: Firm Roles
+            campo_nome: Name
+            campo_email: Email
+            campo_perfil: Role
+            enviar_convite: Send invitation
+        conta:
+            titulo: Firm account
+            aba_minha_conta: My account
+            aba_abrir_conta: Open account
+            aba_trocar_conta: Switch account
+            carregando: Loading…
+            nova_texto_antes: Whoever opens the account becomes the
+            nova_texto_destaque: primary user
+            nova_texto_depois: (firm manager). People invited later join as secondary users. Each account''s data is kept separate and is not visible to other accounts.
+            botao_abrir_conta: Open account
+        modal:
+            fechar: Close
+        idioma:
+            titulo: System language
+            em_breve: coming soon
+            regra: Applies only to you and changes all screens, menus, notices and the AI Chat. For now only Portuguese (Brazil) is available; the other languages are coming soon.
+        preparacao:
+            titulo_sufixo: in preparation
+            texto: We are finishing this screen so it arrives with everything working. Check back soon.
+        presenca:
+            selo: 'Who is online: {n}'
+        trocar_conta:
+            usuarios: '{n} user(s)'
+            primario: 'primary: {nome}'
+            atual: CURRENT
+            vazio: You are not part of any account yet.
+            nota: Each person only sees the accounts they belong to. Each account''s data is kept separate.
+            sair_confirmar: Do you really want to leave {nome}? You will lose access to this firm.
+            sair: Leave this firm
+        js:
+            idioma_erro: Could not change the language.
+            aba_erro: Could not load right now. Reload the page and try again.
+            situacao:
+                aprovado: approved
+                em_analise: under review
+                suspenso: suspended
+            acao_reativar: Reactivate (approve)
+            acao_aprovar: Approve
+            acao_voltar_analise: Send back to review
+            acao_suspender: Suspend access
+            acao_demitir: Dismiss (remove from account)
+            sem_acoes: No actions available
+            confirmar_demitir: Dismiss {nome}? The person loses access to this account. It is the same action as "Remove from firm" on the team screen.
+            confirmar_suspender: Suspend {nome}'s access? Data and history are kept.
+            feito: Done
+            acao_erro: Could not complete right now.
+            ajuda: 'Shortcuts: right-click a row for actions, Esc closes windows, ⋮ opens the options of each area.'
+            confirmar_sair: Sign out of BlueJus?

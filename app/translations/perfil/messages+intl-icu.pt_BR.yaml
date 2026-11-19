@@ -86,6 +86,13 @@ perfil:
         apagar_aprendizado_sub: Os despachos e as pendências guardados neste escritório
         apagar_aprendizado_confirmar: Apagar tudo o que foi aprendido com seus despachos neste escritório? As sugestões começam do zero.
         apagar_aprendizado_feito: O que foi aprendido com seus despachos foi apagado.
+    # Cartão "Meu código BlueJus" (pedido do Farlei, 19/11/2026).
+    codigo:
+        titulo: MEU CÓDIGO BLUEJUS
+        sub: Único e permanente, da sua conta
+        orientacao: Informe este código para receber compartilhamento de pastas de outros escritórios.
+        copiar: Copiar
+        compartilhar: Compartilhar
     seguranca:
         titulo: Segurança
         sub: Senha de acesso à sua conta
@@ -187,6 +194,8 @@ perfil:
         revisao_confirmada: Obrigado! Cadastro confirmado para este mês.
         revisao_falhou: Não foi possível confirmar agora. Tente de novo.
         copiado: Copiado
+        codigo_compartilhar_texto: 'Meu código BlueJus é {codigo}. Use-o para compartilhar pastas comigo no BlueJus.'
+        codigo_compartilhar_copiado: Texto com o seu código copiado. Cole na conversa com quem vai compartilhar a pasta.
         imagem_carregando: A imagem ainda está carregando. Aguarde um instante e tente novamente.
         imagem_falhou: Não foi possível processar a imagem. Tente novamente.
         foto_alt: Foto de perfil

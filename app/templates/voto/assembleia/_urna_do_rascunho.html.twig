@@ -8,7 +8,7 @@
 {% for p in a.pautas %}
     {% set opcoes = [] %}
     {% for o in p.opcoes|filter(o => o.rotulo is not empty) %}
-        {% set opcoes = opcoes|merge([{id: 0, numero: o.numero, rotulo: o.rotulo, abstencao: false, descricao: o.descricao ?? null, composicao: o.composicao ?? null, foto: (o.foto ?? null) ? path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto}) : null}]) %}
+        {% set opcoes = opcoes|merge([{id: 0, numero: o.numero, rotulo: o.rotulo, abstencao: false, descricao: o.descricao ?? null, composicao: o.composicao ?? null, foto: (o.foto ?? null) ? path('voto_assembleia_foto_candidatura', {id: a.id, nome: o.foto|split('.')|first}) : null}]) %}
     {% endfor %}
     {% if opcoes is not empty %}
         {% set opcoes = opcoes|merge([{id: 0, numero: 0, rotulo: (p.tipo.eleitoral ? 'voto.assembleia.cedula.voto_em_branco' : 'voto.assembleia.cedula.abstencao')|trans, abstencao: true, descricao: null, composicao: null, foto: null}]) %}
