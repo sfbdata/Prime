@@ -16,6 +16,9 @@ use Doctrine\ORM\Mapping as ORM;
  * janela "Compartilhar pasta"). O interno (equipe do escritório) nasce aceito e vale na hora: a pasta entra no escopo
  * de quem tem acesso restrito e, para os demais, vale como permissão de ver a pasta. Nunca fura o cadeado.
  *
+ * Com outra conta (fatia 8) nasce pendente e só vale depois do aceite; até a fatia 9 abrir as rotas da pasta recebida,
+ * ele não dá acesso a nada no escritório da pasta (as consultas do escopo e das permissões só olham o interno).
+ *
  * Ativo = `Aceita` e dentro da validade (vencido fica inativo na hora, sem job). Um ativo (pendente ou aceito) por
  * pasta + destino: índice único parcial. Tudo vai para a auditoria (`Auditavel`).
  */
@@ -111,6 +114,63 @@ class PastaCompartilhamento implements Auditavel, TenantAware
         return $compartilhamento;
     }
 
+    /**
+     * Com outra conta, pelo código pessoal (§4.5, fatia 8): nasce `Pendente` e só vale depois que o destino aceita em
+     * "Recebidas". O destino não tem vínculo com o escritório da pasta.
+     */
+    public static function externo(
+        Pasta $pasta,
+        User $origem,
+        User $destino,
+        PermissoesDoCompartilhamento $permissoes,
+        ?\DateTimeImmutable $validoAte,
+        ?string $mensagem,
+        \DateTimeImmutable $agora,
+    ): self {
+        $tenant = $pasta->getTenant() ?? throw new \InvalidArgumentException('Pasta sem escritório.');
+        if ($origem === $destino) {
+            throw new \InvalidArgumentException('Ninguém compartilha a pasta consigo mesmo.');
+        }
+        $mensagem = $mensagem !== null ? trim($mensagem) : null;
+
+        return new self(
+            $tenant,
+            $pasta,
+            $origem,
+            $destino,
+            false,
+            $permissoes->movimentar,
+            $permissoes->enviarDocumentos,
+            $permissoes->baixarDocumentos,
+            $validoAte,
+            $mensagem === '' || $mensagem === null ? null : mb_substr($mensagem, 0, self::MENSAGEM_MAXIMA),
+            $agora,
+        );
+    }
+
+    /** O convite de outra conta espera o destino: pendente e dentro da validade. */
+    public function aguardaAceite(\DateTimeImmutable $hoje): bool
+    {
+        return $this->status === EstadoDoCompartilhamento::Pendente && !$this->venceuEm($hoje);
+    }
+
+    /** "Aceitar e colaborar" (L10): só o destino, só o convite que ainda aguarda. */
+    public function aceitar(User $quem, \DateTimeImmutable $agora): void
+    {
+        $this->exigirDestinoEPendente($quem, $agora);
+        $this->status   = EstadoDoCompartilhamento::Aceita;
+        $this->aceitoEm = $agora;
+    }
+
+    /** "Recusar" (L10): só o destino, só o convite que ainda aguarda. */
+    public function recusar(User $quem, \DateTimeImmutable $agora): void
+    {
+        $this->exigirDestinoEPendente($quem, $agora);
+        $this->status       = EstadoDoCompartilhamento::Recusada;
+        $this->encerradoEm  = $agora;
+        $this->encerradoPor = $quem;
+    }
+
     /** Encerrar (quem compartilhou, responsável, primário ou Master) ou deixar de colaborar (o próprio destino). */
     public function encerrar(User $quem, \DateTimeImmutable $agora): void
     {
@@ -125,8 +185,20 @@ class PastaCompartilhamento implements Auditavel, TenantAware
     /** Vale agora: aceito e dentro da validade (o último dia conta). */
     public function estaAtivo(\DateTimeImmutable $hoje): bool
     {
-        return $this->status === EstadoDoCompartilhamento::Aceita
-            && ($this->validoAte === null || $this->validoAte->format('Y-m-d') >= $hoje->format('Y-m-d'));
+        return $this->status === EstadoDoCompartilhamento::Aceita && !$this->venceuEm($hoje);
+    }
+
+    /** A validade já passou (o último dia conta). */
+    public function venceuEm(\DateTimeImmutable $hoje): bool
+    {
+        return $this->validoAte !== null && $this->validoAte->format('Y-m-d') < $hoje->format('Y-m-d');
+    }
+
+    private function exigirDestinoEPendente(User $quem, \DateTimeImmutable $agora): void
+    {
+        if ($quem->getId() === null || $quem->getId() !== $this->destino->getId() || !$this->aguardaAceite($agora)) {
+            throw new \DomainException('Este convite não está aguardando você.');
+        }
     }
 
     public function getId(): ?int
