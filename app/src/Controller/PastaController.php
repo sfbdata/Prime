@@ -19,7 +19,6 @@ use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\ResponsavelFixoNoAcessoRestritoException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
-use App\Pasta\Service\EscopoDePastas;
 use App\Pasta\UseCase\LerPontosDoRelatorioInicialUseCase;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -31,7 +30,9 @@ use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
 use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Controller\ProcessoController;
 use App\Processo\Entity\Processo;
+use App\Cliente\DTO\ClienteAchadoNaBusca;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\UseCase\BuscarClientesUseCase;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
 use App\Cliente\Service\HistoricoDoCliente;
@@ -953,25 +954,6 @@ class PastaController extends AbstractController
     }
 
     /**
-     * Acesso restrito (spec acesso-restrito-e-compartilhar §4.3): os clientes das pastas sob a responsabilidade de
-     * quem busca; `null` para quem não é restrito.
-     *
-     * @return list<int>|null
-     */
-    private function clientesNoEscopo(EscopoDePastas $escopo, Tenant $tenant): ?array
-    {
-        $usuario = $this->getUser();
-
-        return $usuario instanceof User ? $escopo->idsDosClientesNoEscopo($usuario, $tenant) : null;
-    }
-
-    /** @param list<int>|null $clientesNoEscopo `null` = sem restrição */
-    private static function foraDosClientes(Cliente $cliente, ?array $clientesNoEscopo): bool
-    {
-        return $clientesNoEscopo !== null && !in_array($cliente->getId(), $clientesNoEscopo, true);
-    }
-
-    /**
      * Busca de cliente para vincular à pasta — usada pelo modal "Adicionar Cliente" e pela busca
      * inline do cartão Clientes do trilho (desenho 1.2.3, L.1357-1372 e L.3304).
      *
@@ -979,10 +961,8 @@ class PastaController extends AbstractController
      * Documento), `completo` (bool, PendenciasDoCadastro), `jaVinculado` (bool) e `selo`
      * (`completo` | `incompleto` | `ja_vinculado`).
      *
-     * Casamento: o NOME casa por trecho; o DOCUMENTO só casa quando os dígitos do termo são o
-     * documento inteiro (11 para CPF, 14 para CNPJ) e iguais a ele. Trecho de dígitos não casa com
-     * documento: se casasse, buscas por pedaços ("456", "4567", …) confirmariam dígito a dígito o
-     * que a máscara esconde.
+     * Casamento, ordem e escopo do acesso restrito: {@see BuscarClientesUseCase} (o mesmo da `ler_clientes`
+     * do conector). Aqui ficam a guarda, os vinculados, o limite de 10 e a máscara.
      *
      * PII: `documento` sai MASCARADO (`***.456.789-**`) e só vem inteiro quando o termo digitado
      * é o próprio documento inteiro — quem já sabe o CPF não aprende nada; quem digita um nome
@@ -996,7 +976,7 @@ class PastaController extends AbstractController
      * (`podeMexerNoCliente`). Pasta de outro escritório: 404.
      */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
-    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias, EscopoDePastas $escopo): JsonResponse
+    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias, BuscarClientesUseCase $buscar): JsonResponse
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || $pasta->getTenant()->getId() !== $tenant->getId()) {
@@ -1005,78 +985,41 @@ class PastaController extends AbstractController
         if ($recusa = $this->recusaDaBuscaParaVincular($pasta, $tenant)) {
             return $recusa;
         }
-
-        $termo = trim((string) $request->query->get('q', ''));
-        if (mb_strlen($termo) < 2) {
-            return $this->json([]);
+        $usuario = $this->getUser();
+        if (!$usuario instanceof User) {
+            throw $this->createAccessDeniedException();
         }
 
         $incluirVinculados  = $request->query->getBoolean('incluirVinculados');
         $clientesVinculados = array_values($pasta->getClientes()->map(fn($c) => $c->getId())->toArray());
-        $termoMinusculo     = mb_strtolower($termo);
-        $termoDigitos       = (string) preg_replace('/\D/', '', $termo);
-        $documentoInteiroDigitado = in_array(strlen($termoDigitos), [11, 14], true);
-        $clientesNoEscopo = $this->clientesNoEscopo($escopo, $tenant);
-
-        $achados = [];
-        foreach ($this->clienteRepository->findAll() as $cliente) {
-            // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
-            // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
-            // Acesso restrito: só os clientes das pastas sob a responsabilidade de quem busca.
-            if ($cliente->getTenant()?->getId() !== $tenant->getId() || self::foraDosClientes($cliente, $clientesNoEscopo)) {
-                continue;
-            }
-
-            $jaVinculado = in_array($cliente->getId(), $clientesVinculados, true);
+        $resultado = [];
+        foreach ($buscar->executar((string) $request->query->get('q', ''), $usuario, $tenant) as $achado) {
+            $jaVinculado = in_array($achado->cliente->getId(), $clientesVinculados, true);
             if ($jaVinculado && !$incluirVinculados) {
                 continue;
             }
-
-            $nome = $cliente instanceof ClientePF
-                ? $cliente->getNomeCompleto()
-                : ($cliente instanceof ClientePJ ? $cliente->getRazaoSocial() : '');
-
-            $documento = $cliente instanceof ClientePF
-                ? ($cliente->getCpf() ?? '')
-                : ($cliente instanceof ClientePJ ? ($cliente->getCnpj() ?? '') : '');
-            $documentoDigitos = (string) preg_replace('/\D/', '', $documento);
-
-            // Documento só casa INTEIRO (11 dígitos de CPF, 14 de CNPJ, iguais ao gravado): trecho
-            // de dígitos não casa, senão buscas sucessivas por pedaços revelariam o documento
-            // apesar da máscara. O nome continua casando por trecho. Documento 2, nome 1.
-            $pontos = 0;
-            if ($documentoInteiroDigitado && $documentoDigitos === $termoDigitos) {
-                $pontos = 2;
-            } elseif (str_contains(mb_strtolower($nome), $termoMinusculo)) {
-                $pontos = 1;
+            $resultado[] = self::itemDaBusca($achado, $jaVinculado, $pendencias->estaCompleto($achado->cliente));
+            if (count($resultado) === 10) {
+                break;
             }
-
-            if ($pontos > 0) {
-                $achados[] = [$pontos, $cliente, $nome, $documento, $documentoDigitos, $jaVinculado];
-            }
-        }
-
-        // Ordenação estável: empate mantém a ordem do repositório.
-        usort($achados, static fn(array $a, array $b) => $b[0] <=> $a[0]);
-
-        $resultado = [];
-        foreach (array_slice($achados, 0, 10) as [, $cliente, $nome, $documento, $documentoDigitos, $jaVinculado]) {
-            $documentoInteiro = $documentoInteiroDigitado && $documentoDigitos === $termoDigitos;
-            $completo         = $pendencias->estaCompleto($cliente);
-
-            $resultado[] = [
-                'id'              => $cliente->getId(),
-                'nome'            => $nome,
-                'documento'       => $documentoInteiro ? $documento : self::mascararDocumento($documentoDigitos),
-                'documentoRotulo' => match (strlen($documentoDigitos)) { 11 => 'CPF', 14 => 'CNPJ', default => 'Documento' },
-                'tipo'            => $cliente instanceof ClientePF ? 'PF' : 'PJ',
-                'completo'        => $completo,
-                'jaVinculado'     => $jaVinculado,
-                'selo'            => $jaVinculado ? 'ja_vinculado' : ($completo ? 'completo' : 'incompleto'),
-            ];
         }
 
         return $this->json($resultado);
+    }
+
+    /** @return array<string, mixed> o item do JSON da busca de clientes, com o documento mascarado */
+    private static function itemDaBusca(ClienteAchadoNaBusca $achado, bool $jaVinculado, bool $completo): array
+    {
+        return [
+            'id'              => $achado->cliente->getId(),
+            'nome'            => $achado->nome,
+            'documento'       => $achado->documentoInteiro ? $achado->documento : self::mascararDocumento($achado->documentoDigitos),
+            'documentoRotulo' => match (strlen($achado->documentoDigitos)) { 11 => 'CPF', 14 => 'CNPJ', default => 'Documento' },
+            'tipo'            => $achado->ehPessoaFisica() ? 'PF' : 'PJ',
+            'completo'        => $completo,
+            'jaVinculado'     => $jaVinculado,
+            'selo'            => $jaVinculado ? 'ja_vinculado' : ($completo ? 'completo' : 'incompleto'),
+        ];
     }
 
     /**

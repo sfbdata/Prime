@@ -14,14 +14,14 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * O contrato de entrada de `ler_clientes` neste PR (spec mcp-remoto-oauth, 6.4): as quatro ações, o esquema fechado,
- * `buscar` fora do esquema (tem linha na tabela, chega depois) e o pedido recusado antes da
- * guarda. As regras que dependem do banco estão no teste de integração.
+ * O contrato de entrada de `ler_clientes` (spec mcp-remoto-oauth, 6.4): as cinco ações, o esquema fechado, todas as
+ * linhas da tabela no esquema e o pedido recusado antes da guarda. As regras que dependem do banco estão no teste de
+ * integração.
  */
 #[CoversClass(LerClientesFerramenta::class)]
 final class LerClientesFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema lista só ler, conferir_documento, documentos_de_identidade e documentos_do_cliente, exige a ação e fecha os campos')]
+    #[TestDox('o esquema lista buscar, ler, conferir_documento, documentos_de_identidade e documentos_do_cliente, exige a ação e fecha os campos')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -29,19 +29,19 @@ final class LerClientesFerramentaTest extends TestCase
         self::assertSame('object', $esquema['type']);
         self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
-        self::assertSame(['ler', 'conferir_documento', 'documentos_de_identidade', 'documentos_do_cliente'], $esquema['properties']['acao']['enum']);
-        self::assertSame(['acao', 'cliente_id', 'documento'], array_keys($esquema['properties']));
+        self::assertSame(['buscar', 'ler', 'conferir_documento', 'documentos_de_identidade', 'documentos_do_cliente'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['acao', 'termo', 'cliente_id', 'documento'], array_keys($esquema['properties']));
         self::assertSame('ler_clientes', $this->ferramenta()->nome());
         self::assertSame('Ler clientes', $this->ferramenta()->titulo());
     }
 
-    #[TestDox('as ações que ficam para depois têm linha na tabela, mas não estão no esquema')]
+    #[TestDox('a ação que fica para depois tem linha na tabela, mas não está no esquema')]
     public function testAcoesQueChegamDepois(): void
     {
         $doEsquema = $this->ferramenta()->esquemaDeEntrada()['properties']['acao']['enum'];
 
         self::assertSame([], array_diff($doEsquema, TabelaDeAbaEChave::acoes('ler_clientes')));
-        self::assertSame(['buscar'], array_values(array_diff(TabelaDeAbaEChave::acoes('ler_clientes'), $doEsquema)));
+        self::assertSame([], array_values(array_diff(TabelaDeAbaEChave::acoes('ler_clientes'), $doEsquema)));
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
@@ -50,7 +50,13 @@ final class LerClientesFerramentaTest extends TestCase
         $invalido = ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA;
         yield 'sem ação' => [[], $invalido];
         yield 'ação não texto' => [['acao' => 1], $invalido];
-        yield 'buscar ainda não existe' => [['acao' => 'buscar', 'nome' => 'Maria'], $invalido];
+        yield 'buscar com nome em vez de termo' => [['acao' => 'buscar', 'nome' => 'Maria'], $invalido];
+        yield 'buscar sem termo' => [['acao' => 'buscar'], $invalido];
+        yield 'buscar com termo número' => [['acao' => 'buscar', 'termo' => 52998224725], $invalido];
+        yield 'buscar com cliente_id' => [['acao' => 'buscar', 'termo' => 'Maria', 'cliente_id' => 1], $invalido];
+        yield 'buscar com uma letra' => [['acao' => 'buscar', 'termo' => 'a'], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
+        yield 'buscar só com espaços' => [['acao' => 'buscar', 'termo' => '    '], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
+        yield 'buscar com termo longo demais' => [['acao' => 'buscar', 'termo' => str_repeat('5', 101)], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
         yield 'documentos_do_cliente sem cliente_id' => [['acao' => 'documentos_do_cliente'], $invalido];
         yield 'documentos_do_cliente com documento' => [['acao' => 'documentos_do_cliente', 'cliente_id' => 1, 'documento' => 'x'], $invalido];
         yield 'ação fora da lista' => [['acao' => 'apagar']];

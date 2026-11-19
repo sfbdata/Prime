@@ -13,6 +13,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\SemPermissaoParaVerClienteException;
 use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\UseCase\BuscarClientesUseCase;
 use App\Cliente\UseCase\ConferirDocumentoDoClienteUseCase;
 use App\Cliente\UseCase\LerClienteUseCase;
 use App\Cliente\UseCase\MontarInteligenciaCadastralUseCase;
@@ -21,14 +22,18 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Service\GuardaDaAcaoDoConector;
 use App\Conector\Service\SegredoNasListas;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Service\PermissionChecker;
 
 /**
- * `ler_clientes` (`docs/specs/mcp-remoto-oauth.md`, 6.4, e 6.2, regras 1, 3 e 4). Quatro ações da
- * {@see TabelaDeAbaEChave}; `buscar` (espera a busca de clientes da pasta sair do controller) fica fora do esquema e,
- * pedida, dá "pedido inválido", como a `controladoria` da `ler_pasta`.
+ * `ler_clientes` (`docs/specs/mcp-remoto-oauth.md`, 6.4, e 6.2, regras 1, 3 e 4). Cinco ações da
+ * {@see TabelaDeAbaEChave}:
+ *  - `buscar`: os clientes do escritório pelo trecho do nome ou pelo CPF ou CNPJ inteiro ({@see BuscarClientesUseCase}, a
+ *    mesma busca da tela da pasta, com o escopo do acesso restrito), só os que a pessoa vê (recurso `cliente`), até
+ *    {@see LIMITE_DA_BUSCA}. Sai só id, nome e tipo: nenhum documento, nem mascarado (a tela mostra o miolo; aqui não);
  *  - `ler`: o cliente pelo id ({@see LerClienteUseCase}: escritório e recurso `cliente` de ver). Sai nome, tipo, estado
  *    civil, profissão, nacionalidade, cidade e UF; QUAIS campos de {@see CamposDoCadastro::ROTULOS} estão preenchidos e
  *    quais faltam (só a chave, nunca o valor); as pendências (texto fixo e aba); e as pastas que a pessoa abre, só por id,
@@ -56,8 +61,13 @@ final class LerClientesFerramenta implements FerramentaDoConector
     public const LIMITE_DE_PASTAS = 50;
     private const TAMANHO_MAXIMO_DO_DOCUMENTO = 30;
 
+    /** Os clientes do `buscar`; mais que isso, `mais_resultados` e a pessoa refina o termo. */
+    public const LIMITE_DA_BUSCA = 20;
+    private const TAMANHO_MAXIMO_DO_TERMO = 100;
+
     /** As ações deste PR e os campos de cada uma, além de `acao` (6.2, regra 10: o resto é recusado). */
     private const CAMPOS_DA_ACAO = [
+        'buscar' => ['termo'],
         'ler' => ['cliente_id'],
         'conferir_documento' => ['documento'],
         'documentos_de_identidade' => ['cliente_id'],
@@ -74,6 +84,8 @@ final class LerClientesFerramenta implements FerramentaDoConector
         private readonly CamposDoCadastro $campos,
         private readonly PastaDocumentoRepository $documentosDaPasta,
         private readonly LerClientesNosDocumentos $documentosDoCliente,
+        private readonly BuscarClientesUseCase $buscarClientes,
+        private readonly PermissionChecker $permissoes,
     ) {
     }
 
@@ -89,7 +101,8 @@ final class LerClientesFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Lê os clientes do escritório. Ações: ler (um cliente pelo cliente_id: nome, tipo PF ou PJ, estado civil, profissão, nacionalidade, cidade e UF, '
+        return 'Lê os clientes do escritório. Ações: buscar (pelo termo: um trecho do nome ou o CPF ou CNPJ inteiro; devolve id, nome e tipo de até '
+            . self::LIMITE_DA_BUSCA . ' clientes), ler (um cliente pelo cliente_id: nome, tipo PF ou PJ, estado civil, profissão, nacionalidade, cidade e UF, '
             . 'quais campos do cadastro estão preenchidos e quais faltam, as pendências e as pastas do cliente que a pessoa abre), '
             . 'conferir_documento (diz se um CPF ou CNPJ já é de um cliente do escritório, e de qual), '
             . 'documentos_de_identidade (os documentos de identificação e comprovante de residência achados nas pastas do cliente, sem o conteúdo; '
@@ -106,6 +119,7 @@ final class LerClientesFerramenta implements FerramentaDoConector
             'type' => 'object',
             'properties' => [
                 'acao' => ['type' => 'string', 'enum' => array_keys(self::CAMPOS_DA_ACAO), 'description' => 'O que fazer.'],
+                'termo' => ['type' => 'string', 'minLength' => BuscarClientesUseCase::MINIMO_DE_CARACTERES, 'maxLength' => self::TAMANHO_MAXIMO_DO_TERMO, 'description' => 'Na ação buscar: um trecho do nome (2 letras ou mais) ou o CPF ou CNPJ inteiro.'],
                 'cliente_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Nas ações ler, documentos_de_identidade e documentos_do_cliente: o id do cliente.'],
                 'documento' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_DOCUMENTO, 'description' => 'Na ação conferir_documento: o CPF (11 dígitos) ou o CNPJ (14 dígitos), com ou sem pontuação.'],
             ],
@@ -125,10 +139,15 @@ final class LerClientesFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::entradaInvalida();
         }
         // A entrada inteira é conferida antes da guarda: pedido inválido não depende de permissão.
-        $valor = $acao === 'conferir_documento' ? self::documento($argumentos) : self::inteiro($argumentos, 'cliente_id');
+        $valor = match ($acao) {
+            'buscar' => self::termo($argumentos),
+            'conferir_documento' => self::documento($argumentos),
+            default => self::inteiro($argumentos, 'cliente_id'),
+        };
         $this->guarda->exigir($chamada, self::NOME, $acao);
 
         return match ($acao) {
+            'buscar' => $this->buscar((string) $valor, $chamada),
             'ler' => $this->ler((int) $valor, $chamada),
             'conferir_documento' => $this->conferir((string) $valor, $chamada),
             'documentos_do_cliente' => $this->documentosDoCliente->ler((int) $valor, $chamada),
@@ -218,6 +237,34 @@ final class LerClientesFerramenta implements FerramentaDoConector
         }
 
         return [$preenchidos, $faltam];
+    }
+
+    /**
+     * Os achados da busca que a pessoa vê (recurso `cliente`, a regra da ficha, que também tem o escopo do restrito), na
+     * ordem da busca. O nome passa pela proteção do texto; documento nenhum sai.
+     */
+    private function buscar(string $termo, ChamadaDoConector $chamada): RespostaDaFerramenta
+    {
+        $contexto = $chamada->contexto;
+        $clientes = [];
+        $mais = false;
+        foreach ($this->buscarClientes->executar($termo, $contexto->pessoa, $contexto->escritorio) as $achado) {
+            $id = (int) $achado->cliente->getId();
+            if (!$this->permissoes->canAccessResource($contexto->pessoa, $contexto->escritorio, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW)) {
+                continue;
+            }
+            if (\count($clientes) === self::LIMITE_DA_BUSCA) {
+                $mais = true;
+                break;
+            }
+            $clientes[] = ['id' => $id, 'nome' => $this->protecao->rotulo($contexto->escritorio, $achado->cliente->getNomeExibicao(), 'sem nome'), 'tipo' => $achado->ehPessoaFisica() ? 'PF' : 'PJ'];
+        }
+
+        return new RespostaDaFerramenta(
+            ['clientes' => $clientes, 'mais_resultados' => $mais],
+            contagens: ['clientes' => \count($clientes)],
+            ids: ['cliente' => array_column($clientes, 'id')],
+        );
     }
 
     /** @param string $documento só os dígitos, 11 ou 14 */
@@ -364,6 +411,28 @@ final class LerClientesFerramenta implements FerramentaDoConector
         }
 
         return $digitos;
+    }
+
+    /**
+     * O termo da busca, sem os espaços das pontas, de 2 a {@see TAMANHO_MAXIMO_DO_TERMO} caracteres; senão, filtro
+     * inválido no campo (o termo nunca entra na mensagem).
+     *
+     * @param array<string, mixed> $argumentos
+     *
+     * @throws ErroDaFerramenta
+     */
+    private static function termo(array $argumentos): string
+    {
+        $termo = $argumentos['termo'] ?? null;
+        if (!\is_string($termo)) {
+            throw ErroDaFerramenta::entradaInvalida();
+        }
+        $termo = trim($termo);
+        if (mb_strlen($termo) < BuscarClientesUseCase::MINIMO_DE_CARACTERES || mb_strlen($termo) > self::TAMANHO_MAXIMO_DO_TERMO) {
+            throw ErroDaFerramenta::filtroInvalido('termo');
+        }
+
+        return $termo;
     }
 
     /**
