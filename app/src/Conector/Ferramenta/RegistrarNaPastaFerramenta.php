@@ -181,7 +181,7 @@ final class RegistrarNaPastaFerramenta implements FerramentaDoConector
         $id = (int) $registro->getId();
         $base = ['lugar' => $acao, 'pasta_id' => (int) $pasta->getId()];
         if (($dados['operacao'] ?? null) === self::OPERACAO_EXCLUIR) {
-            $this->gravando(fn () => $this->lugares->excluir($registro, $pessoa, $escritorio));
+            $this->gravando(fn () => $this->lugares->apagarORegistro($registro, $pessoa, $escritorio));
 
             return self::resultado(['operacao' => self::OPERACAO_EXCLUIR] + $base + ['registro_excluido' => $id], $pasta, $id);
         }

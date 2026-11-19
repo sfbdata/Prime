@@ -152,7 +152,7 @@ final class RegistrarNaPastaLugares
     }
 
     /** @throws \DomainException quem não pode excluir (o UseCase confere de novo) */
-    public function excluir(PastaMensagem|PastaObservacaoDetalhes|PastaObservacaoFinanceira $registro, User $pessoa, Tenant $escritorio): void
+    public function apagarORegistro(PastaMensagem|PastaObservacaoDetalhes|PastaObservacaoFinanceira $registro, User $pessoa, Tenant $escritorio): void
     {
         if ($registro instanceof PastaMensagem) {
             $this->excluirMensagem->executar($registro, $pessoa, $escritorio);
