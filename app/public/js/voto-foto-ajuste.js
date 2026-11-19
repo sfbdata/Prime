@@ -19,6 +19,7 @@
 
     var janela = null, area, imagem, zoom, aplicar;
     var estado = null;          // { url, w, h, zoom, x, y, rot, terminar, volta }
+    var pendente = null;        // URL da imagem ainda carregando (uma segunda escolha a descarta)
 
     function preparar() {
         if (janela) {
@@ -171,6 +172,22 @@
                 fechar(null);
                 return;
             }
+            // Tab e Shift+Tab ficam dentro da janela, como num diálogo modal.
+            if (ev.key === 'Tab') {
+                var focaveis = janela.querySelectorAll('button:not([disabled]), input:not([disabled])');
+                var primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+                if (!janela.contains(document.activeElement)) {
+                    ev.preventDefault();
+                    primeiro.focus();
+                } else if (ev.shiftKey && document.activeElement === primeiro) {
+                    ev.preventDefault();
+                    ultimo.focus();
+                } else if (!ev.shiftKey && document.activeElement === ultimo) {
+                    ev.preventDefault();
+                    primeiro.focus();
+                }
+                return;
+            }
             // Teclado: as setas movem a foto quando o foco não está na barra de zoom.
             var passo = { ArrowLeft: [-6, 0], ArrowRight: [6, 0], ArrowUp: [0, -6], ArrowDown: [0, 6] }[ev.key];
             if (passo && ev.target !== zoom) {
@@ -190,11 +207,16 @@
         if (estado) {
             fechar(null);
         }
+        // Outra foto escolhida antes de a anterior carregar: a anterior é descartada sem aviso a quem chamou
+        // (o endereço dela é liberado depois de a imagem trocar de origem).
+        var anterior = pendente;
         var url = window.URL.createObjectURL(arquivo);
+        pendente = url;
         var volta = document.activeElement;
         imagem.onload = function () {
             imagem.onload = null;
             imagem.onerror = null;
+            pendente = null;
             estado = { url: url, w: imagem.naturalWidth, h: imagem.naturalHeight, zoom: 1, x: 0, y: 0, rot: 0, terminar: terminar, volta: volta };
             janela.hidden = false;
             aplicar.disabled = false;
@@ -204,11 +226,15 @@
         imagem.onerror = function () {
             imagem.onload = null;
             imagem.onerror = null;
+            pendente = null;
             imagem.removeAttribute('src');
             window.URL.revokeObjectURL(url);
             terminar(undefined);
         };
         imagem.src = url;
+        if (anterior) {
+            window.URL.revokeObjectURL(anterior);
+        }
     }
 
     window.VotoFotoAjuste = { abrir: abrir };
