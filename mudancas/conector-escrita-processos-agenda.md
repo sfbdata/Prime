@@ -14,4 +14,4 @@ tipo: novidade
 - Na Agenda, o app de I.A. pode criar compromissos, marcar como concluído ou cancelado e avisar colegas. Mudar, mover ou excluir só vale para compromisso que você mesmo criou.
 - O app de I.A. também pode consultar um processo no CNJ pelo número, como o botão da tela da pasta. Processo em segredo de justiça não é consultado.
 - Trocar o que já estava preenchido, desvincular ou excluir nunca acontece direto: o BlueJus mostra um resumo e só grava depois da sua confirmação.
-- Para a tela de Processos nada muda: a consulta ao CNJ continua igual, com as mesmas mensagens.
+- A consulta ao CNJ da tela de Processos e da pasta segue igual, com as mesmas mensagens, e agora usa o mesmo caminho do app de I.A.
