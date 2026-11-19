@@ -1,0 +1,212 @@
+escritorio:
+    lista:
+        titulo_pagina: Tenants
+        titulo: My Firm
+        id: ID
+        nome: Name
+        criado_em: Created on
+        status: Status
+        acoes: Actions
+        ativo: Active
+        inativo: Inactive
+        editar: 'Edit {termo}'
+        sem_permissoes: No permissions
+    novo:
+        titulo_pagina: New Tenant
+        titulo: Create new firm
+        nome: Firm Name
+        email_admin: Administrator E-mail
+        criar: Create Firm
+        voltar: Back
+    criar:
+        titulo: 'Create {termo}'
+        subtitulo: You will be the administrator of the new firm.
+        oab_titulo: Your OAB
+        oab_dica: Required to open a firm.
+        cancelar: Cancel
+    ver:
+        titulo: My Firm
+        informacoes: Firm Information
+        drive: Connect my Drive
+        perfis: Roles
+        editar: Edit
+        perigo: Danger zone
+        perigo_antes: Deleting the firm
+        perigo_destaque: immediately turns off access for all team members
+        perigo_depois: The data is kept in quarantine and can be recovered for a period before permanent removal.
+        confirmar_antes: Type
+        confirmar_depois: 'to confirm:'
+        excluir: 'Delete {termo}'
+    editar:
+        titulo: Edit Firm
+        aba_dados: Firm Details
+        aba_cargos: Job Titles
+        aba_lotacoes: Assignments
+        endereco: Address
+        salvar_dados: Save Details
+        cargos_dica: Define the job titles available to the employees of this firm.
+        remover: Remove
+        adicionar_cargo: Add Job Title
+        salvar_cargos: Save Job Titles
+        lotacoes_dica: Define the assignments (departments, branches, divisions) available to employees.
+        adicionar_lotacao: Add Assignment
+        salvar_lotacoes: Save Assignments
+        voltar: Back
+    form:
+        salvar: Save
+        excluir: Delete
+    selecionar:
+        titulo_pagina: 'Select {termo}'
+        titulo: Select a firm
+        acesso: 'You have access to {n} firm(s).'
+        nenhum: You are not part of any firm yet.
+        peca_convite: Ask an administrator to invite you.
+        convites: 'You have {n} pending invitation(s):'
+        ver_convite: View invitation
+        criar: Create my firm
+    indisponivel:
+        titulo: Firm unavailable
+        outro: Select another firm
+    usuarios:
+        titulo_pagina: Team Members
+        titulo: 'Team Members - {nome}'
+        jornada: Set Up Work Schedule
+        voltar: Back
+        codigo: Code
+        nome: Name
+        email: E-mail
+        perfil: Role
+        acessos: Specific access
+        criado_em: Created on
+        acoes: Actions
+        nao_informado: Not provided
+        nenhum: None
+        itens: '{n, plural, one {{qtd} item} other {{qtd} items}}'
+        ver_dica: View
+        ver: View
+        editar: Edit
+        excluir: Delete
+        concedido_por: Granted by
+        editar_dica: Edit user roles
+        vazio: No team members found.
+    editar_usuario:
+        titulo_pagina: Edit Permissions
+        titulo: 'Edit Permissions: {nome}'
+        aba_perfil: Role and Password
+        aba_dados: Personal Details
+        aba_acessos: Specific Access
+        aba_jornada: Custom Work Schedule
+        aba_home_office: Remote Work
+        aba_ponto: Time Clock Punches
+        aba_justificativas: Justifications
+        aba_horas_pagas: Paid hours
+        alterar_nome: Change name
+        codigo_dica: Generated automatically. Can be edited (letters and numbers).
+        folha_dica: Used on the timesheet.
+        troca_titulo: Change Password (optional)
+        troca_dica: Fill in the fields below only if you want to change the password.
+        remover: 'Remove from {termo}'
+        voltar: Back
+        salvar: Save
+        salvar_dados: Save Personal Details
+        acessos_titulo: Specific access by item
+        acessos_vazio: No specific access granted to this user.
+        tipo: Type
+        item: Item
+        permissoes: Permissions
+        remover_acesso: Remove access
+        batidas_titulo: Time clock punches
+        batida_titulo: Add punch
+        batida_incluir: Add
+        batida_data: Date
+        batida_hora: Time
+        batida_tipo: Type
+        batida_entrada: Clock-in
+        batida_repouso: Break
+        batida_retorno: Return
+        batida_saida: Clock-out
+        batida_motivo: Reason
+        opcional: (optional)
+        batida_motivo_dica: Why the punch goes on the timesheet
+        desconsiderar_titulo: Disregard punch
+        desconsiderar_texto: The punch is removed from the timesheet calculation. The original record is kept.
+        desconsiderar_motivo_dica: Why the punch is removed from the calculation
+        desconsiderar_botao: Disregard
+        restaurar_titulo: Restore punch
+        restaurar_texto: The punch goes back into the timesheet calculation as it was before being disregarded.
+        restaurar_motivo_dica: Why the punch goes back into the calculation
+        restaurar_botao: Restore
+        cancelar: Cancel
+        nome_completo: Full name
+        remocao_antes: When removing
+        remocao_depois: ', they lose access to this firm and leave your team member list. Their account keeps existing, and they can be invited back, returning without the previous access.'
+        substituto: Who takes over what was theirs?
+        sem_responsavel: Leave unassigned
+        substituto_dica: If selected, this team member will take over all active responsibilities of the person leaving.
+        ponto_eletronico:
+            rotulo: Clocks in electronically
+            ajuda: 'When off, the person does not clock in at this firm, even with the time clock module permission.'
+            falha: Communication failure with the server.
+        recusa:
+            gerir_primarios: Only the firm primary user or the Master can grant or remove the primary user role.
+            conta_do_master: The Master account can only be changed by the Master.
+            titular: The primary owner (whoever opened the account) cannot stop being primary.
+            ultimo_primario: This is the last primary user of the firm. Promote another primary user before removing this one.
+            troca_de_primario: 'A primary user password can only be changed by a primary user or the Master; the primary owner password, only by themselves or the Master.'
+    sedes:
+        titulo: Locations
+        voltar: Back
+        nova_sede: New Location
+        editar_sede: Edit Location
+        identificacao: Identification
+        nome: Location Name
+        nome_exemplo: 'E.g.: Downtown Office'
+        localizacao: Location on the Map
+        cep_ou_endereco: CEP or address
+        buscar: Search
+        preencher_manualmente: Fill in manually
+        logradouro: Street
+        numero: Number
+        cidade: City
+        uf: State
+        usar_localizacao: Use my location
+        dica_mapa: Click on the map to mark the exact location of the office.
+        raio: Validation Radius
+        raio_dica: Maximum distance from the office to validate the punch via GPS (meters).
+        atualizar: Update Location
+        salvar: Save Location
+        cancelar: Cancel
+        cadastradas: Registered Locations
+        contagem: '{n, plural, one {{qtd} location} other {{qtd} locations}}'
+        sem_coordenadas: No coordinates
+        raio_metros: '{raio}m'
+        editar_dica: Edit location
+        excluir_dica: Delete location
+        vazio_titulo: No location registered
+        vazio_sub: Create the first location using the form beside.
+    flash:
+        email_em_uso: This e-mail is already in use. Enter another e-mail for the administrator.
+        email_cadastrado: This e-mail is already registered. Enter another e-mail for the administrator.
+        criado_sem_email: Firm created. The administrator activation e-mail was not sent right now; the invitation can be resent.
+        link_dev: 'Confirmation link (dev): {link}'
+        criado: Tenant created successfully! The administrator will receive an e-mail to create a password.
+        nome_atualizado: Tenant name updated successfully!
+        cargos_atualizados: Job titles updated successfully!
+        lotacoes_atualizadas: Assignments updated successfully!
+        lotacao_com_feriado: This assignment has holidays in the Time Clock and cannot be deleted.
+        escritorio_criado: Firm created successfully. You are already inside it.
+        escritorio_excluido: Firm deleted. The data is kept in quarantine and can be recovered.
+        confirmacao_nao_confere: The confirmation does not match the firm name.
+        selecione_valido: Select a valid firm.
+        sem_acesso: You do not have access to this firm.
+        usuario_atualizado: User updated successfully!
+        token_invalido: Invalid token.
+        nome_vazio: The name cannot be empty.
+        nome_do_usuario_atualizado: Name updated successfully!
+        colaborador_removido: '{nome} was removed from the firm.'
+        acesso_removido: Specific access removed successfully.
+        sede_cadastrada: Location registered successfully!
+        sede_atualizada: Location updated successfully!
+        sede_removida: Location removed successfully.
+        sede_batidas_mantidas: Punches already made at this location stay in the history under its name.
+        sede_nao_removida: Could not remove the location at this time. Try again.

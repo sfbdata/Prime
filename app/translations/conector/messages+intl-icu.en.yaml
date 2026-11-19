@@ -1,0 +1,150 @@
+conector:
+    perfil:
+        titulo: AI Connections
+        sub: The AI apps you have authorized to use BlueJus on your behalf
+        vazio: No AI app connected to your account.
+        col_app: App
+        col_escritorio: Firm
+        col_escopos: Permissions
+        col_concedido: Connected on
+        col_ultimo_uso: Last used
+        nunca_usado: not used yet
+        escopo:
+            leitura: Read
+            escrita: Read and write
+            renovacao: Stay connected
+        vinculo_encerrado: 'Your link with this firm has ended: the connection no longer works. Revoke it to remove it from the list.'
+        revogar: Revoke
+        revogar_rotulo: 'Revoke the connection of {app} with {escritorio}'
+        revogar_modal:
+            titulo: Revoke the connection
+            texto: 'The app {app} loses access to the firm {escritorio} immediately. To use it again, connect once more through the app.'
+            confirmar: Revoke
+            cancelar: Cancel
+        revogada: 'The connection with {app} was revoked.'
+        nao_encontrada: Connection not found.
+        token_invalido: Invalid CSRF token. Reload the page.
+        como_conectar: How to connect
+    guia:
+        titulo: How to connect Claude or ChatGPT
+        sub: 'Step by step to use BlueJus from inside your AI app, with your account.'
+        voltar: Back to My Profile
+        antes:
+            titulo: Before you start
+            ligado: 'The administrator of your firm must turn on the connector on the BlueJus AI screen. If they have not yet, the app shows a notice when you try to sign in.'
+            url: 'Use the address below exactly as it is: no trailing slash, no spaces and without changing any letter. With a different address, the sign-in does not finish.'
+            permissoes: 'When connecting, BlueJus asks for your e-mail and password, you choose the firm and see what the app wants to do: only read, or read and write. Write comes unchecked; check it only if you are going to use it.'
+            url_rotulo: Connector address
+        claude:
+            titulo: Claude (claude.ai site and Claude desktop app)
+            sub: Free, Pro, Max, Team and Enterprise plans
+            pessoal_titulo: Free, Pro or Max plan
+            pessoal:
+                1: 'In Claude, click "Customize" and then "Connectors".'
+                2: 'Click "+ Add" and choose "Add custom connector".'
+                3: 'Type a name (for example, BlueJus), paste the connector address and click "Continue".'
+                4: 'On sign-in, leave "Sign in now". Do not fill in anything under "OAuth client" or "Request headers".'
+                5: 'Click "Add". The BlueJus page opens: sign in with your e-mail and password, choose the firm and click to authorize.'
+            equipe_titulo: Team or Enterprise plan
+            equipe:
+                1: 'The owner of the team account in Claude (Owner) adds BlueJus just once: "Organization settings", then "Connectors" and "Add", with the same address.'
+                2: 'After that, each person opens "Customize" and "Connectors", finds BlueJus and clicks "Connect" to sign in with their own BlueJus account.'
+            conversa_titulo: Use in a conversation
+            conversa: 'In the conversation, click the "+" button in the bottom corner, open "Connectors" and turn on BlueJus. Then just ask, for example: find the matter of the client Maria da Silva and tell me the status.'
+        codigo:
+            titulo: Claude Code (in the terminal)
+            sub: For those who use Claude Code
+            1: 'In the terminal, run this command:'
+            2: 'Open Claude Code, type /mcp, choose BlueJus and sign in through the browser. If the browser does not open by itself, copy the address shown on the screen.'
+        chatgpt:
+            titulo: ChatGPT
+            sub: Only on the Business, Enterprise and Edu plans
+            1: 'The ChatGPT workspace administrator adds it: they create a custom MCP server with the connector address and OAuth sign-in, and release it to the team.'
+            2: 'After that, each person calls BlueJus in the conversation (type @ and choose BlueJus) and, the first time, signs in with their own BlueJus account.'
+            em_breve: 'Coming soon: writing to BlueJus through ChatGPT, use on the Plus and Pro plans and BlueJus in the ChatGPT app store. For now, use ChatGPT to look things up.'
+        seguranca:
+            titulo: Writing safely
+            sub: How BlueJus asks for your confirmation
+            proposta: 'Filling in an empty field or adding a note is saved directly. When the request deletes something, replaces data that already exists or registers a client, BlueJus does not save right away: it builds a proposal with a summary of what it will do, and the app shows that summary. Only after you review and confirm does the "Confirm the proposed action" tool save it. The proposal is valid for 10 minutes and only once.'
+            nunca_titulo: So the confirmation is always yours
+            nunca:
+                sempre_permitir: 'When the app asks whether it can use "Confirm the proposed action", allow it just this once. Never check "Always allow" for it.'
+                skip_approvals: 'If the BlueJus connector in Claude has the "Skip approvals" option, leave it off.'
+                auto: 'Do not use the "Auto" mode of the Claude conversation with BlueJus turned on.'
+                lembrar: 'In ChatGPT, do not check the option to remember approval for BlueJus actions.'
+            porque: 'With any of these options, the app itself can confirm without you reading the summary.'
+        ferramentas:
+            titulo: What you can ask for
+            sub: What BlueJus does through the app, always within the permissions you already have
+            leitura: Look up
+            gravacao: Write
+        ferramenta:
+            quem_sou_eu: See which account and firm the app is connected to
+            buscar_pastas: 'Search matters by number, client or action, and see reports such as the one on stalled matters'
+            ler_pasta: 'Read the matter: details, status, record, deadlines, goals and Docket control alerts'
+            ler_documentos_e_modelos: Read the documents, editor pieces and templates of the matter
+            ler_processos: Look up cases, updates and the number in the public CNJ database
+            ler_clientes: 'Search clients and look up their record and document list, without showing CPF, CNPJ, contact or address'
+            ler_agenda: See the calendar and your goals
+            atualizar_pasta: Update the matter details
+            mudar_andamento: Change the status of the matter
+            registrar_na_pasta: Record notes in the matter
+            prazos_e_metas_da_pasta: Create deadlines and goals for the matter
+            documentos_e_pecas: Organize the documents and pieces of the matter
+            financeiro_da_pasta: Post to the financials of the matter
+            atualizar_cliente: 'Register, complete and update clients, link the client to the matter and delete a record or document'
+            processos_da_pasta: Link and update the cases of the matter
+            gravar_na_agenda: Create and change your appointments on the calendar and notify colleagues
+            confirmar_acao: Confirm the proposed action
+        desconectar:
+            titulo: Disconnect
+            texto: 'To remove an app access, click "Revoke" on the AI Connections card in My Profile. Access ends immediately. Changing your password or using "Sign out of all devices" also disconnects all apps.'
+    master:
+        titulo: AI Connector
+        nota: 'Each firm turns on the connector on its own: the administrator turns it on and gives consent. Here you only monitor. To take the connector offline in all firms at once, turn off the "AI Connector" feature in the feature catalog.'
+        col_nome: Firm
+        col_ligado: Turned on by the firm
+        col_aceite: Firm consent
+        col_conexoes: Active connections
+        ligado: On
+        desligado: Off
+        sem_aceite: no consent
+        aceite_antigo: consent to a previous version
+        vazio: No active firm.
+    admin:
+        titulo: AI Connector
+        sub: Lets each person at the firm use BlueJus through Claude or ChatGPT, with their own AI account
+        estado:
+            ligado: Connector on in this firm.
+            desligado: Connector off in this firm.
+            fora_do_ar: 'The AI connector is offline at BlueJus for now. When it returns, what the firm turned on applies again.'
+            novo_aceite: 'The consent text changed: the connector is suspended until someone reads and accepts the new text.'
+        aceite:
+            intro: 'By turning it on, the firm agrees that each team member connects their own AI account to BlueJus:'
+            conta_da_pessoa: 'the data the person asks for leaves BlueJus to the AI provider of their account (Anthropic or OpenAI), under the contract they have with that provider; BlueJus has no contract with that provider;'
+            treino: 'depending on the plan and account settings, the provider may use the conversations to train its models; we recommend a business plan or one with training turned off;'
+            o_que_sai: 'what leaves is the data on matters, cases, clients and calendar that the permission of the person already shows, and the documents of the matter they ask for (except audio and video);'
+            mascara: 'CPF, CNPJ, phone and e-mail are always masked in free text;'
+            gravacao: 'the person only writes to BlueJus what their permission already allows, and registering a client or deleting asks for confirmation in the chat itself.'
+            fim: 'Each person sees and revokes their own connections in My Profile. Turning off here suspends everyone access immediately.'
+            caixa: I have read and accept
+            registrado: 'Consent recorded on {quando}.'
+            registrado_por: 'Consent recorded on {quando} by {nome}.'
+            versao_antiga: 'The consent text changed. To turn it on again, read and accept the new text.'
+        ligar: Turn on
+        desligar: Turn off
+        guia: Step by step for the team to connect Claude or ChatGPT
+        ligou: AI Connector turned on in this firm.
+        desligou: 'AI Connector turned off: the team connections stop immediately and return if you turn it on again.'
+        recusa:
+            token_invalido: Invalid CSRF token. Reload the page.
+            sem_aceite: Check "I have read and accept" to turn on the connector.
+    js:
+        master:
+            sem_aceite: no consent
+            aceite_antigo: previous version
+            ligado: On
+            desligado: Off
+            contagem: '{n} active'
+            vazio: No active firm.
+            erro_carregar: Could not load the AI connector. Reload the page.

@@ -1,0 +1,95 @@
+tenant:
+    meu_escritorio:
+        titulo: My Firm
+        informacoes: Firm Information
+        nao_informado: Not provided
+        copiar: Copy
+        logo:
+            titulo: Firm logo
+            sub: Used on the letterhead of Templates and on generated documents.
+            enviar: Upload logo
+            trocar: Change logo
+            remover: Remove logo
+        linha:
+            codigo: Account code
+            nome: Name
+            doc: CNPJ / CPF
+            oab: OAB registration
+            email: E-mail
+            telefone: Phone
+            endereco: Address
+            criado_em: Created on
+            status: Status
+        status:
+            ativo: Active
+            quarentena: In quarantine
+        rodape:
+            alterado: 'Changed by {nome} on {data}'
+            sem_alteracoes: No changes recorded
+            perfis: Roles
+            editar: Edit
+            cancelar: Cancel
+            salvar: Save
+        campo:
+            nome: FIRM NAME
+            doc: CNPJ OR CPF
+            oab: OAB REGISTRATION
+            email: E-MAIL
+            telefone: PHONE
+            cep: CEP
+            endereco: ADDRESS
+            cidade_uf: CITY / STATE
+        placeholder:
+            doc: Numbers only
+            oab: 'E.g.: OAB/DF 1234'
+            email: contato@escritorio.com.br
+            telefone: (00) 00000-0000
+            cep: Fills in the address
+            endereco: Street, number, suite
+            cidade_uf: Brasília/DF
+        backup:
+            titulo: File backup
+            texto: Make a backup copy of the matter documents (petitions, powers of attorney, contracts and attachments) on the Google Drive of the firm. With Drive connected, each BlueJus matter gets a matching folder on Drive and new files are copied automatically.
+            conectado: Connected
+            nao_conectado: Not connected
+            conectar: Connect my Drive
+            drive_conectado: Drive connected
+            desativado: 'Backup off: connect Drive to start'
+        exclusao:
+            titulo: Delete account
+            fechado: Options to delete the firm. Use only if you are sure.
+            mostrar: Show deletion options
+            ocultar: Hide
+            texto_antes: Deleting the firm
+            texto_destaque: turns off access for all team members
+            texto_meio: '. The request goes to BlueJus for a decision and the data is kept for'
+            texto_dias: 365 days
+            texto_depois: ', and can be recovered by support or the Master before permanent removal.'
+            senha: 'Primary user password:' # segredo:permitido rótulo do campo, não é credencial
+            digite_antes: Type
+            digite_depois: 'to confirm:'
+            botao: Delete firm
+        js:
+            copiado: '{rotulo} copied.'
+            salvo: Information saved and synced across the whole system.
+            logo_atualizada: Logo updated. It already applies to the letterhead.
+            logo_removida: Logo removed.
+            logo_remover_confirmar: Remove the firm logo?
+            alterado: 'Changed by {nome} on {data}'
+            nao_informado: Not provided
+            sem_alteracoes: No changes recorded
+            erro_nome: Enter the firm name.
+            erro_doc_tamanho: CNPJ must have 14 digits (or CPF, 11).
+            erro_cnpj: 'Invalid CNPJ: check the digits.'
+            erro_email: Invalid e-mail.
+            erro_cep: CEP not found.
+            cep_preenchido: Address filled in from the CEP. Complete the number and suite.
+            receita_preenchida: Data filled in by the Receita Federal. Check it before saving.
+            erro_senha: Enter the primary user password.
+            erro_comunicacao: Communication error. Try again.
+            erro_salvar: Could not save right now.
+            erro_logo: Could not upload the logo.
+            erro_exclusao: Could not check right now.
+            exclusao_confirmar: 'Final confirmation: delete "{nome}"? You will go on to the deletion request and, once you complete it, all team members lose access.'
+            logo_trocar: Change logo
+            logo_enviar: Upload logo

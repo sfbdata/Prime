@@ -1,0 +1,70 @@
+publicas:
+    confirmacao:
+        confirmado:
+            titulo: Address confirmed
+            texto: 'Address confirmed. You will receive {lista}.'
+            mudou_de_ideia: Changed your mind?
+            nao_quero_mais: I no longer want to receive them
+        confirmar:
+            titulo: Confirm your e-mail
+            csrf_invalido: Could not confirm. Click Confirm again.
+            texto: Click the button below to confirm that you want to receive the e-mails you asked for.
+            botao: Confirm
+            nao_foi_voce: If it was not you who asked, just close this page.
+        vencido:
+            titulo: Could not confirm
+            texto: This link has expired or was already used. Ask for the confirmation again.
+    descadastro:
+        confirmado:
+            titulo: Done, you will no longer receive them
+            todos: 'You will no longer receive any e-mail from {remetente}.'
+            estes_avisos: 'You will no longer receive these e-mail notices from {remetente}.'
+            ver_vagas: See open positions
+            demais: 'The other e-mails from {remetente} will keep coming.'
+        confirmar:
+            titulo: Do you no longer want to receive our e-mails?
+            endereco: The address
+            deixara: 'will stop receiving these e-mail notices from {remetente}.'
+            nenhum: 'I do not want to receive any e-mail from {remetente}'
+            botao: Confirm unsubscribe
+            continuar: Keep receiving
+            motivo_rotulo: IF YOU WISH, TELL US WHY
+            fechar: If you do not want to stop receiving them, just close this page.
+        motivos:
+            demais: I receive too many e-mails
+            sem_interesse: I am no longer interested
+            nao_cadastrei: I did not sign up
+            outro: Other reason
+    indicacao:
+        titulo: Refer BlueJus
+        fechar: Close
+        dica:
+            inicio: Invite colleagues and other firms to
+            negrito: create their own account
+            fim: on BlueJus. Whoever accepts opens a new firm and does not join your team.
+            equipe_inicio: To bring someone onto
+            equipe_negrito: your team
+            equipe_use: ', use'
+            equipe_convites: Firm invitations
+            secundario: Whoever invites people to the team of this firm is the primary user.
+        pendencias:
+            titulo: Complete your profile to send invitations
+            completar: Complete my profile
+        envio:
+            em_seu_nome: 'The invitation is sent on your behalf:'
+            link_curto: short link
+            nome: Name (optional)
+            email: E-mail
+            mensagem: Invitation message
+            por_email: Send invitation by e-mail
+            copiar: Copy short link
+        lista:
+            titulo: YOUR REFERRALS
+            vazio: No referrals yet.
+    js:
+        indicacao:
+            conta_criada: ACCOUNT CREATED
+            enviada: SENT
+            vazio: No referrals yet.
+            falhou: Could not complete right now. Reload the page and try again.
+            abrir_falhou: Could not open the window right now. Reload the page and try again.

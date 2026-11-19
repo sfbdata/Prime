@@ -1,0 +1,131 @@
+perfis:
+    titulo: Firm Roles
+    voltar: Back
+    cancelar: Cancel
+    lista:
+        ver_como_dica: 'Simulation: the Master role only appears to the Master'
+        ver_como: View as
+        novo_perfil: New Role
+        chip:
+            perfis: roles
+            usuarios: users
+            fixos: fixed system roles
+            personalizados: custom
+        coluna:
+            perfil: ROLE
+            classificacao: CLASSIFICATION
+            permissoes: PERMISSIONS
+            usuarios: USERS
+            acoes: ACTIONS
+        acesso_total: Full access
+        sistema: system
+        permissoes: '{n} permissions'
+        permissoes_de: 'of {total}'
+        editar: Edit role
+        excluir: Delete role
+        vazio: No roles found.
+        fixo: FIXED
+        fixo_dica: 'System role: cannot be deleted'
+        master_nome: '{papel} of the System'
+        descricao_master: The creator of BlueJus (primary Master) and whoever they promote (secondary Master).
+        descricao_primario: Whoever opened the account. Firm manager; creates and manages the secondary users. Cannot be deleted.
+        descricao_secundario_vazia: Secondary user
+        restrito_selo: ACCESS RESTRICTED TO ASSIGNED MATTERS
+        restrito_dica: Only sees the matters they are responsible for
+        descricao_restrito_vazia: Access restricted to assigned matters
+    novo:
+        titulo: New Role
+        salvar: Save role
+    editar:
+        titulo: 'Edit Role: {nome}'
+        salvar: Save changes
+        primarios_titulo: Firm primary users
+        primarios_contagem: '{n} primary user(s)'
+        oab: 'OAB {numero}'
+        sem_oab: no OAB
+        sem_perfil: no role
+        tag_titular: '{papel} owner'
+        tag_socio: '{papel} partner'
+        titular_dica: The primary owner (whoever opened the account) cannot be deleted
+        remover_primario: Remove this primary user
+        promover_titulo: Promote to primary (firm partner)
+        promover_campo: Secondary user to promote
+        promover_escolha: Choose a secondary user from the account *
+        promover_info: Only users already registered in this account can be promoted.
+        promover_msg: The promoted partner has the same firm management powers, but cannot delete the primary owner. Promotions and removals go to the account audit log.
+        promover: Promote
+        destino_rotulo: WILL HAVE THE ROLE
+        sem_destino: There is no secondary role for this user. Create a secondary role before removing a primary user.
+        nota_primario: 'The primary user has full access to the firm: all {total} permissions are always on and cannot be unchecked.'
+        sem_prazo:
+            titulo: Editing with no time limit
+            rotulo: Primary user can edit and delete any record with no time limit
+            salvo: The no-time-limit editing option was saved.
+    form:
+        faixa: Secondary user role (team member). Define what they can access.
+        nome: ROLE NAME
+        descricao: DESCRIPTION
+        marcar_todos: Check all
+        resumo: '{ativos} of {total} permissions on'
+        nome_repetido: A role with that name already exists.
+        acesso_restrito:
+            aria: Access restricted to assigned matters
+            titulo: ACCESS RESTRICTED TO ASSIGNED MATTERS
+            ativado: ON
+            desativado: OFF
+            texto: The user will have access only to the matters where they are registered as responsible, without seeing the other files and information of the firm. Suited for the sales team, prospectors and external partners.
+            regra_pastas: Sees, opens and updates only the matters they are responsible for
+            regra_compartilhadas: Also sees the matters the firm shares with them (share icon in the list), with their goals
+            regra_responsavel: When they open a matter, they automatically become responsible for it
+            regra_buscas: Searches, counts, downloads, exports and reports show only their matters
+            regra_sem_acesso: No access to the firm dashboard, general reports, financials, roles and settings
+            regra_transferir: Cannot transfer responsibility for the matter to another person
+            regra_auditoria: Every access and every blocked attempt is kept in the audit trail
+            regra_troca: If the responsible person is changed, they are unlinked and lose access, unless kept as a team member
+            identificacao: ROLE LABEL
+            identificacao_dica: Shown prominently in the role list and in the user record, to identify who is on the sales team or a partner.
+            aviso: The permissions below apply only within those matters. Administrative items stay blocked while restricted access is on. Current roles do not change.
+            item_bloqueado: Blocked under access restricted to assigned matters
+            grupo_bloqueado: Blocked under restricted access
+            escopo: Applies only to the matters the user is responsible for
+            escopo_cliente: Applies only to the matters the user is responsible for (clients of those matters)
+            escopo_documento: Applies only to the matters the user is responsible for (documents of those matters)
+            escopo_processo: Applies only to the matters the user is responsible for (cases of those matters)
+    restrito:
+        titulo: Restricted access
+        texto: The Roles menu is exclusive to the firm primary user and the Master. To use it, ask the primary user for permission.
+        enviado: Request sent to the primary user
+        pedir: Request access
+    flash:
+        criado: Role created successfully!
+        atualizado: Role updated successfully!
+        excluido: Role deleted.
+        sistema_nao_exclui: System roles cannot be deleted.
+        escolha_secundario: Choose a secondary user from the account.
+        promovido: '"{nome}" is now a primary partner of the firm.'
+        removido: '"{nome}" is no longer a primary user and is a secondary user again.'
+        sem_primario: There is no active primary user to receive the request.
+    aviso_pedido:
+        titulo: Request for access to Roles
+        texto: '{nome} requested access to the Firm Roles menu.'
+        sem_nome: A team member
+    recusa:
+        mesmo_nivel_ou_acima: Your role cannot edit a role of the same level or higher.
+        proprio_perfil: Your role cannot change your own role. Ask the firm primary user.
+        perfil_acima_do_seu: Your role can only assign roles with permissions it also has.
+        alvo_acima_do_seu: Your role cannot change someone who has permissions it does not have.
+        senha_de_outro_escritorio: This person also uses another firm. The password can only be changed by them, in My Profile, or by support.
+    js:
+        excluir_titulo: Delete role
+        excluir_texto: 'The role "{nome}" will be deleted.'
+        excluir_usuarios: The {n} user(s) with this role will have no role until you assign another.
+        marcar_todos: Check all
+        desmarcar_todos: Uncheck all
+        grupo_bloqueado: Blocked under restricted access
+        resumo: '{ativos} of {total} permissions on'
+        escolha_secundario: Choose a secondary user from the account.
+        promover_titulo: Promote to primary
+        promover_texto: '"{nome}" will manage the firm as a primary partner: secondary users, roles, permissions and modules. They will not be able to delete the primary owner.'
+        promover_confirmar: Confirm promotion
+        remover_titulo: Remove primary user
+        remover_texto: '"{nome}" is no longer a primary user and is a secondary user again. The removal is kept in the account audit log.'

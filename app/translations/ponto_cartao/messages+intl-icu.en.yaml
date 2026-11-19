@@ -1,0 +1,8 @@
+ponto_cartao:
+    rotulo: 'TIME CLOCK · {n, plural, one {# pending item} other {# pending items}}'
+    titulo: Pending time clock entry
+    linha: '{dia}: {falta}'
+    linha_outro: '{dia}: {falta}, at {escritorio}'
+    adiar: Remind me in 10 min
+    dispensar: Dismiss until tomorrow
+    regiao: Time clock reminder
