@@ -41,6 +41,9 @@ final class JornadaDaAssembleiaTest extends JusPrimeWebTestCase
     private EntityManagerInterface $em;
     private Tenant $escritorio;
     private string $dirTemp;
+    /** @var list<string> */
+    private array $fotosGravadas = [];
+    private ?int $sindicaId = null;
 
     protected function setUp(): void
     {
@@ -74,10 +77,6 @@ final class JornadaDaAssembleiaTest extends JusPrimeWebTestCase
         parent::tearDown();
     }
 
-    /** @var list<string> */
-    private array $fotosGravadas = [];
-    private ?int $sindicaId = null;
-
     #[TestDox('Jornada: criar, importar unidades, eleição com foto, publicar, abrir, eleitor entra e vota, encerrar, telão e apuração')]
     public function testJornadaCompletaDaAssembleia(): void
     {
@@ -110,10 +109,12 @@ final class JornadaDaAssembleiaTest extends JusPrimeWebTestCase
         $valores['opcao_rotulo'] = ['Marta Alves', 'Paulo Reis'];
         $arquivos = ['opcao_foto_arquivo' => [0 => $this->fotoEnviada()]];
         $this->client->request('POST', $formDaPauta->getUri(), $valores, $arquivos, ['HTTP_X-Requested-With' => 'XMLHttpRequest']);
-        self::assertResponseStatusCodeSame(200);
         $foto = $this->em->getConnection()->fetchOne('SELECT foto FROM voto.assembleia_opcao WHERE pauta_id = ? AND numero = 1', [$pautaId]);
+        if (\is_string($foto)) {
+            $this->fotosGravadas[] = $foto; // antes das asserções: o tearDown apaga o arquivo mesmo se algo falhar
+        }
+        self::assertResponseStatusCodeSame(200);
         self::assertIsString($foto, 'a foto da primeira candidatura foi gravada');
-        $this->fotosGravadas[] = $foto;
         $pautas = $this->client->request('GET', '/voto/assembleias/' . $id . '/pautas');
         $urlDaFotoNaTela = $pautas->filter('#pauta-' . $pautaId . ' label.vFotoU img')->attr('src');
         self::assertSame('/voto/assembleias/' . $id . '/fotos/' . pathinfo($foto, \PATHINFO_FILENAME), $urlDaFotoNaTela, 'a tela da síndica mostra a foto sem extensão');
@@ -197,8 +198,14 @@ final class JornadaDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertContains('2 Paulo Reis0', $linhas);
         $apuracao = $this->client->request('GET', '/voto?aba=tra');
         $cartao = $apuracao->filter('#assembleia-' . $id);
-        self::assertStringContainsString('Marta Alves', $cartao->text());
-        self::assertStringContainsString('1 un', $cartao->filter('.voto-resultado-valor')->first()->text());
+        $resultado = $cartao->filter('.voto-resultado-opcao')->each(static fn (Crawler $o): array => [
+            preg_replace('/\s+/u', ' ', trim($o->filter('.voto-resultado-nome')->text())),
+            trim($o->filter('.voto-resultado-valor')->text()),
+        ]);
+        self::assertSame('1 Marta Alves', $resultado[0][0] ?? null, 'a apuração lista Marta Alves primeiro');
+        self::assertStringStartsWith('1 un', $resultado[0][1] ?? '', 'Marta Alves com 1 voto');
+        self::assertSame('2 Paulo Reis', $resultado[1][0] ?? null);
+        self::assertStringStartsWith('0 un', $resultado[1][1] ?? '', 'Paulo Reis sem voto');
     }
 
     private function fotoEnviada(): UploadedFile
