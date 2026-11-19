@@ -48,8 +48,7 @@ final class CampanhaExtension extends AbstractExtension implements ResetInterfac
         }
         $this->montada = true;
         try {
-            $quem = $this->sessao->atual();
-            $this->view = $this->montar->executar($quem->usuario, $quem->ehMaster);
+            $this->view = $this->montar->executar($this->sessao->usuarioNoEscritorio(), $this->sessao->ehMaster());
         } catch (AccessDeniedException) {
             $this->view = null;
         } catch (\Throwable $falha) {
