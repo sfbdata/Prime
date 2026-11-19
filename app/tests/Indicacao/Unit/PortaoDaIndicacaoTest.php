@@ -79,13 +79,16 @@ final class PortaoDaIndicacaoTest extends TestCase
         self::assertSame([PortaoDaIndicacao::TELEFONE], $this->portao()->pendenciasDoCadastro($user));
     }
 
-    #[TestDox('o texto das pendências junta a lista com vírgula, como no desenho')]
+    #[TestDox('o texto das pendências junta a lista com vírgulas e "e" antes do último item')]
     public function testTextoDasPendencias(): void
     {
+        $inicio = 'Por segurança, o convite sempre leva o seu nome, então precisamos do seu ';
         self::assertNull(PortaoDaIndicacao::textoDasPendencias([]));
+        self::assertSame($inicio . 'CPF.', PortaoDaIndicacao::textoDasPendencias(['CPF']));
+        self::assertSame($inicio . 'telefone e CPF.', PortaoDaIndicacao::textoDasPendencias(['telefone', 'CPF']));
         self::assertSame(
-            'Por segurança, o convite sempre leva o seu nome, então precisamos do seu nome completo, CPF.',
-            PortaoDaIndicacao::textoDasPendencias(['nome completo', 'CPF']),
+            $inicio . 'nome completo, telefone e CPF.',
+            PortaoDaIndicacao::textoDasPendencias(['nome completo', 'telefone', 'CPF']),
         );
     }
 

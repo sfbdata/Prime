@@ -1,0 +1,8 @@
+{# Botão "Recebidas" da barra (spec acesso-restrito-e-compartilhar L9; desenho 03, dc L.134): abre a janela das pastas
+   que outras contas republicaram para a pessoa (expediente-compartilhar.js). O número dos convites que aguardam chega
+   pelo GET da janela. #}
+<button type="button" class="exp-nova-pasta exp-rc-btn js-recebidas" aria-haspopup="dialog"
+        data-url="{{ path('expediente_recebidas') }}"
+        data-tip="{{ 'expediente.acervo.recebidas_dica'|trans }}">
+    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'expediente.acervo.recebidas'|trans }}
+</button>

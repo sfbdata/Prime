@@ -16,6 +16,15 @@ final class CompartilhamentoRecusadoException extends \RuntimeException
     public const VALIDADE_PASSADA = 'A validade não pode ser anterior a hoje.';
     public const SEM_PERMISSAO = 'Você não pode compartilhar esta pasta.';
     public const NAO_ENCERRA = 'Você não pode encerrar este acesso.';
+    // Outra conta (fatia 8, desenho L5); os dois últimos não estão no desenho e são necessários (código que não
+    // existe e código de quem já é da equipe).
+    public const CODIGO_INVALIDO = 'Código inválido. Use o formato BJ-XXXX-XXXX-XXXX.';
+    public const CODIGO_PROPRIO = 'Este é o seu próprio código.';
+    public const JA_REPUBLICADA = 'Esta pasta já está republicada para esse usuário.';
+    public const CODIGO_NAO_ENCONTRADO = 'Nenhum usuário com este código. Confira com quem vai colaborar.';
+    public const CODIGO_DA_EQUIPE = 'Este código é de alguém da equipe do escritório. Use Equipe do escritório.';
+    // Caixa "Recebidas" (L10): convite que não é da pessoa, já respondido ou vencido.
+    public const CONVITE_INDISPONIVEL = 'Este convite não está mais disponível.';
 
     public function __construct(string $mensagem, private readonly bool $daPessoa = false)
     {

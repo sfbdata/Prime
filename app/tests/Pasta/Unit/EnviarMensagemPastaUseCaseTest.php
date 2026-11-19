@@ -33,6 +33,7 @@ use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -1125,6 +1126,77 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         self::assertSame(950, $msg->getId());
         self::assertSame($raiz, $msg->getRespostaA());
         self::assertCount(1, $this->logger->doNivel('error'));
+    }
+
+    // ── Autor de outra conta (pasta recebida, fatia 9b) ──────────────────────
+
+    /** @return iterable<string, array{0: string, 1: string}> o texto enviado e o trecho esperado no gravado */
+    public static function mencoesDeOutraConta(): iterable
+    {
+        yield '@ em texto puro' => ['Veja @[Rotulo Falso](user:2) agora', 'Veja @Rotulo Falso agora'];
+        yield '@ no HTML' => ['<p>Veja @[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
+        yield '&#64; no HTML' => ['<p>Veja &#64;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
+        yield '&commat; no HTML' => ['<p>Veja &commat;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
+        yield '&#x40; no HTML' => ['<p>Veja &#x40;[Rotulo Falso](user:2) agora</p>', '@Rotulo Falso agora'];
+        // Token aninhado: trocar o de dentro fecha o de fora, que também precisa sair.
+        yield 'aninhado em texto puro' => ['Veja @[Fulano @[x](user:1)](user:6) hoje', 'Veja @Fulano @x hoje'];
+        yield 'aninhado no HTML' => ['<p>&#64;[Fulano &#64;[x](user:1)](user:6)</p>', '@Fulano @x'];
+        yield 'aninhado três vezes' => ['@[a @[b @[c](user:3)](user:2)](user:1)', '@a @b @c'];
+    }
+
+    #[DataProvider('mencoesDeOutraConta')]
+    #[TestDox('Autor de outra conta ($_dataName): o token vira @rótulo puro, depois do sanitizador; os colegas nem são consultados e ninguém é avisado por menção')]
+    public function testAutorDeOutraContaNaoMenciona(string $enviado, string $esperado): void
+    {
+        $this->cenarioDeMencao();
+        $this->userRepository->expects($this->never())->method('findColaboradoresAtivosPorTenant');
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, $enviado, $this->tenant, null, autorDeOutraConta: true);
+
+        self::assertSame(0, preg_match(MencoesDoRegistro::PADRAO, $msg->getConteudo()), $msg->getConteudo());
+        self::assertStringNotContainsString('](user:', $msg->getConteudo());
+        self::assertStringContainsString($esperado, $msg->getConteudo());
+    }
+
+    #[TestDox('Autor de outra conta: a mensagem segue avisando quem acompanha a pasta, menos ele')]
+    public function testAutorDeOutraContaAvisaQuemAcompanha(): void
+    {
+        $this->cenarioDeMencao();
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->acompanham([$bruno]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([]);
+        $this->notificacaoService->expects($this->once())->method('prepararNotificacao')
+            ->with($this->identicalTo($bruno), $this->identicalTo($this->tenant), Notificacao::TIPO_PASTA_ACOMPANHADA, 'Nova mensagem na pasta 1232', '/pasta/41#pasta-msg-950')
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Veja @[Bruno Lima](user:2)', $this->tenant, null, autorDeOutraConta: true);
+    }
+
+    #[TestDox('Autor de outra conta não responde a registro: recusado e nada é gravado')]
+    public function testAutorDeOutraContaNaoResponde(): void
+    {
+        $original = $this->mensagemDe($this->pasta, $this->tenant);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($this->pasta, $this->autor, 'Respondendo', $this->tenant, $original, autorDeOutraConta: true);
+    }
+
+    #[TestDox('Sem o parâmetro, o autor da casa continua mencionando como antes')]
+    public function testSemOParametroMencionaComoAntes(): void
+    {
+        $this->cenarioDeMencao();
+        $this->colegasDoEscritorio([$this->autor, $this->pessoa(2, 'Bruno Lima')]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+        $this->notificacaoService->expects($this->once())->method('criar')->willReturn(new Notificacao());
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Veja @[Bru](user:2)', $this->tenant);
+
+        self::assertStringContainsString('@[Bruno Lima](user:2)', $msg->getConteudo());
     }
 
     /**

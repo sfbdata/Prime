@@ -155,7 +155,7 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
 
         $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertSame(['nome completo', 'CPF'], $dados['pendencias']);
-        self::assertSame('Por segurança, o convite sempre leva o seu nome, então precisamos do seu nome completo, CPF.', $dados['textoDasPendencias']);
+        self::assertSame('Por segurança, o convite sempre leva o seu nome, então precisamos do seu nome completo e CPF.', $dados['textoDasPendencias']);
     }
 
     #[TestDox('POST sem token CSRF válido: 403 e nada gravado')]

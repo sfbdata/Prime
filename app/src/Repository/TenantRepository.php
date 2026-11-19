@@ -25,7 +25,9 @@ class TenantRepository extends ServiceEntityRepository
             ->andWhere('t.codigoConta = :codigo')
             ->setParameter('codigo', $codigo)
             ->getQuery()
-            ->getSingleScalarResult() > 0;
+            ->getSingleScalarResult() > 0
+            // Único também entre os códigos pessoais (spec acesso-restrito-e-compartilhar §4.5).
+            || $this->getEntityManager()->getConnection()->fetchOne('SELECT 1 FROM "user" WHERE codigo_pessoal = ?', [$codigo]) !== false;
     }
 
     /**

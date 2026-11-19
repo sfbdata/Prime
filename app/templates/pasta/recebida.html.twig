@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Pasta recebida de outra conta, só leitura (spec acesso-restrito-e-compartilhar §4.5.1, fatia 9a).
+
+  O desenho ("Abrir pasta" e "Abrir metas" da janela L11) aponta para a página da pasta, que não tem tratamento de
+  pasta recebida: esta é uma página própria e REDUZIDA, com os componentes visuais da página da pasta (cartão do
+  cabeçalho, abas, painéis em cartão) e só com o que o `PastaRecebidaOutput` traz. Nada aqui leva a outra tela da
+  conta de origem: sem cliente, processo, metas, cobrança, push, marcadores, responsável nem vizinhas. O único link
+  que sai daqui volta à Lista de quem recebeu. `pasta` é o DTO, nunca a entidade.
+
+  Fatia 9b (escrita): só com a caixa do convite e a conta da pasta no ar, entram o campo de anotação (aba Andamentos,
+  o compositor da página da pasta), a troca de fase (cabeçalho; só as fases do mesmo lado do Contrato) e o envio de
+  arquivo (aba Documentos). Os três são formulários POST com CSRF; o `pasta-recebida.js` envia, mostra a recusa e
+  recarrega a página no sucesso. Sem a caixa, nada aparece.
+#}
+
+{% block title %}{{ 'expediente.recebida.titulo'|trans({nup: pasta.nup}) }}{% endblock %}
+
+{% block body_class %}ps-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="/css/pasta-show.css">
+<link rel="stylesheet" href="{{ asset('css/pasta-recebida.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/pasta-recebida.js') }}"></script>
+{% endblock %}
+
+{% block body %}
+{% set ROTULO_ABA = {andamentos: 'expediente.recebida.aba_andamentos', documentos: 'expediente.recebida.aba_documentos', metas: 'expediente.recebida.aba_metas'} %}
+{% set ICONE_ABA = {andamentos: 'bi-journal-text', documentos: 'bi-paperclip', metas: 'bi-check2-square'} %}
+{% set abas = [] %}
+{% if pasta.abaAndamentos %}{% set abas = abas|merge([{id: 'andamentos', contagem: pasta.andamentos|length}]) %}{% endif %}
+{% if pasta.abaDocumentos %}{% set abas = abas|merge([{id: 'documentos', contagem: pasta.documentos|length}]) %}{% endif %}
+{% if pasta.abaMetas %}{% set abas = abas|merge([{id: 'metas', contagem: pasta.metas|length}]) %}{% endif %}
+{% set permissoes = ['expediente.js.compartilhar.perm_ver'|trans]
+    |merge([pasta.movimentar ? 'expediente.js.compartilhar.perm_mov'|trans : 'expediente.js.compartilhar.perm_metas'|trans])
+    |merge(pasta.enviarDocumentos ? ['expediente.js.compartilhar.perm_enviar'|trans] : [])
+    |merge(pasta.baixarDocumentos ? ['expediente.js.compartilhar.perm_baixar'|trans] : []) %}
+
+<div class="ps-page pr-page" data-recebida="{{ pasta.compartilhamentoId }}" data-erro="{{ 'expediente.recebida.erro_envio'|trans }}">
+    <header class="ps-card ps-cabecalho">
+        <div class="ps-cab-linha1">
+            <div class="ps-cab-identidade">
+                <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="{{ 'pasta_cabecalho.cabecalho.voltar_dica'|trans }}">
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i><span>{{ 'pasta_cabecalho.cabecalho.voltar'|trans }}</span>
+                </a>
+                <span class="ps-cab-nup"><span>{{ 'pasta_cabecalho.cabecalho.pasta'|trans }}</span> <span class="ps-num">{{ pasta.nup }}</span></span>
+                <span class="pr-marca" data-tip="{{ 'expediente.recebida.marca_dica'|trans({de: pasta.de, conta: pasta.conta}) }}" title="{{ 'expediente.recebida.marca_dica'|trans({de: pasta.de, conta: pasta.conta}) }}">
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'expediente.recebida.marca'|trans({conta: pasta.conta}) }}
+                </span>
+            </div>
+        </div>
+
+        <div class="ps-cab-cliente">
+            <div class="ps-cab-cliente-corpo">
+                <div class="ps-cab-cliente-linha">
+                    <h1 class="ps-cab-titulo">{% if pasta.cliente %}{{ pasta.cliente }}{% else %}<span class="ps-dado--vazio">{{ 'pasta_cabecalho.cabecalho.cliente_nao_informado'|trans }}</span>{% endif %}</h1>
+                </div>
+                <div class="pr-dados">
+                    <span><span class="pr-rotulo">{{ 'expediente.recebida.acao'|trans }}</span> {{ pasta.acao ?: 'expediente.lista.acao_vazia'|trans }}</span>
+                    {% if pasta.fase %}<span><span class="pr-rotulo">{{ 'expediente.recebida.fase'|trans }}</span> <span class="pr-fase">{{ pasta.fase }}</span></span>{% endif %}
+                </div>
+                {% if pasta.podeMovimentar and pasta.fasesAoAlcance is not empty %}
+                <form class="pr-form pr-fase-form" method="post" data-pr-form
+                      action="{{ path('expediente_recebida_fase', {compartilhamentoId: pasta.compartilhamentoId}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('expediente_recebida_fase_' ~ pasta.compartilhamentoId) }}">
+                    <label class="pr-rotulo" for="prFase">{{ 'expediente.recebida.fase_trocar_rotulo'|trans }}</label>
+                    <select class="pr-campo" id="prFase" name="fase" required>
+                        <option value="">{{ 'expediente.recebida.fase_escolher'|trans }}</option>
+                        {% for f in pasta.fasesAoAlcance %}<option value="{{ f.indice }}">{{ f.nome }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="ps-btn" title="{{ 'expediente.recebida.fase_dica'|trans }}"><i class="bi bi-signpost-split" aria-hidden="true"></i>{{ 'expediente.recebida.fase_trocar'|trans }}</button>
+                    <span class="pr-erro" data-pr-erro role="alert" hidden></span>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pr-colabora">
+            <div>{{ 'expediente.recebida.republicada_por'|trans }} <b>{{ pasta.de }} · {{ pasta.conta }}</b></div>
+            <div><b>{{ 'expediente.recebida.voce_pode'|trans }}</b> {{ permissoes|join(', ') }}.</div>
+            <div class="pr-pertence">{{ 'expediente.recebida.pertence'|trans }}</div>
+        </div>
+
+        {% if abas is not empty %}
+        <div class="ps-abas-faixa">
+            <div class="ps-abas ps-abas--sem-js" id="recebidaTabs" role="tablist">
+                {% for a in abas %}
+                    {% set ativa = a.id == aba %}
+                    <button class="ps-aba{{ ativa ? ' active' : '' }}" id="{{ a.id }}-tab" data-bs-toggle="tab" data-bs-target="#{{ a.id }}"
+                            type="button" role="tab" aria-controls="{{ a.id }}" aria-selected="{{ ativa ? 'true' : 'false' }}">
+                        <i class="bi {{ ICONE_ABA[a.id] }}" aria-hidden="true"></i>
+                        <span>{{ ROTULO_ABA[a.id]|trans }}</span>
+                        {% if a.contagem %}<span class="ps-aba-badge ps-num">{{ a.contagem }}</span>{% endif %}
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </header>
+
+    {% if abas is empty %}
+        <div class="ps-card pr-vazio pr-vazio--sem-abas">{{ 'expediente.recebida.sem_abas'|trans }}</div>
+    {% else %}
+    <div class="tab-content ps-paineis">
+        {% if pasta.abaAndamentos %}
+        <div class="tab-pane fade{{ aba == 'andamentos' ? ' show active' }}" id="andamentos" role="tabpanel" aria-labelledby="andamentos-tab">
+            {% if pasta.podeMovimentar %}
+            <div class="ps-compositor pr-compositor">
+                <form class="pr-form" method="post" data-pr-form
+                      action="{{ path('expediente_recebida_anotar', {compartilhamentoId: pasta.compartilhamentoId}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('expediente_recebida_anotar_' ~ pasta.compartilhamentoId) }}">
+                    <div class="ps-compositor-caixa">
+                        <textarea class="pr-compositor-campo" name="conteudo" rows="3" maxlength="5000" required
+                                  aria-label="{{ 'expediente.recebida.anotar_rotulo'|trans }}"
+                                  placeholder="{{ 'expediente.recebida.anotar_placeholder'|trans }}"></textarea>
+                        <div class="ps-compositor-rodape">
+                            <span class="ps-compositor-nota">{{ 'expediente.recebida.anotar_nota'|trans({conta: pasta.conta}) }}</span>
+                            <span class="ps-cab-espaco"></span>
+                            <button type="submit" class="ps-btn ps-btn--primario">{{ 'expediente.recebida.anotar_enviar'|trans }}</button>
+                        </div>
+                    </div>
+                    <span class="pr-erro" data-pr-erro role="alert" hidden></span>
+                </form>
+            </div>
+            {% endif %}
+            {% for a in pasta.andamentos %}
+                <article class="pr-andamento{{ a.sistema ? ' pr-andamento--sistema' : '' }}{{ a.resposta ? ' pr-andamento--resposta' : '' }}">
+                    <div class="pr-andamento-topo">
+                        {% if a.sistema %}<i class="bi bi-signpost-split" aria-hidden="true"></i> <span class="pr-rotulo">{{ 'expediente.recebida.registro_sistema'|trans }}</span>{% endif %}
+                        <span class="pr-andamento-autor">{{ a.autor }}</span>
+                        <span class="pr-andamento-data ps-num">{{ a.em|data_hora }}</span>
+                    </div>
+                    <div class="pr-andamento-texto editor-rico-conteudo"><span class="ql-editor">{{ a.texto|registro_texto }}</span></div>
+                </article>
+            {% else %}
+                <div class="pr-vazio">{{ 'expediente.recebida.andamentos_vazio'|trans }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if pasta.abaDocumentos %}
+        <div class="tab-pane fade{{ aba == 'documentos' ? ' show active' }}" id="documentos" role="tabpanel" aria-labelledby="documentos-tab">
+            {% if pasta.podeEnviarDocumentos %}
+            <form class="pr-form pr-envio" method="post" enctype="multipart/form-data" data-pr-form
+                  action="{{ path('expediente_recebida_documento_enviar', {compartilhamentoId: pasta.compartilhamentoId}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('expediente_recebida_documento_' ~ pasta.compartilhamentoId) }}">
+                <label class="pr-rotulo" for="prCategoria">{{ 'expediente.recebida.enviar_categoria'|trans }}</label>
+                <select class="pr-campo" id="prCategoria" name="categoria">
+                    {% for valor, rotulo in constant('App\\Pasta\\DTO\\ExploradorDeDocumentosOutput::CATEGORIAS') %}
+                        <option value="{{ valor }}"{{ valor == 'DEMAIS' ? ' selected' }}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+                <input class="pr-arquivo" type="file" id="prArquivo" name="arquivo" required aria-label="{{ 'expediente.recebida.enviar_arquivo_rotulo'|trans }}">
+                <button type="submit" class="ps-btn ps-btn--primario"><i class="bi bi-upload" aria-hidden="true"></i>{{ 'expediente.recebida.enviar_arquivo'|trans }}</button>
+                <span class="pr-erro" data-pr-erro role="alert" hidden></span>
+            </form>
+            {% endif %}
+            {% for d in pasta.documentos %}
+                <div class="pr-doc">
+                    <i class="bi bi-file-earmark-text pr-doc-icone" aria-hidden="true"></i>
+                    <span class="pr-doc-nome" title="{{ d.nome }}">{{ d.nome }}</span>
+                    <span class="pr-doc-meta ps-num">{{ d.em|data }} · {{ d.tamanho|formatar_bytes }}</span>
+                    <a class="ps-btn pr-doc-acao" target="_blank" rel="noopener" title="{{ 'expediente.recebida.ver_dica'|trans }}"
+                       href="{{ path('expediente_recebida_documento', {compartilhamentoId: pasta.compartilhamentoId, documentoId: d.id, modo: 'ver'}) }}"><i class="bi bi-eye" aria-hidden="true"></i>{{ 'expediente.recebida.ver'|trans }}</a>
+                    {% if pasta.baixarDocumentos %}
+                    <a class="ps-btn pr-doc-acao" title="{{ 'expediente.recebida.baixar_dica'|trans }}"
+                       href="{{ path('expediente_recebida_documento', {compartilhamentoId: pasta.compartilhamentoId, documentoId: d.id, modo: 'baixar'}) }}"><i class="bi bi-download" aria-hidden="true"></i>{{ 'expediente.recebida.baixar'|trans }}</a>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="pr-vazio">{{ 'expediente.recebida.documentos_vazio'|trans }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if pasta.abaMetas %}
+        <div class="tab-pane fade{{ aba == 'metas' ? ' show active' }}" id="metas" role="tabpanel" aria-labelledby="metas-tab">
+            {% for m in pasta.metas %}
+                <div class="pr-meta">
+                    <i class="bi bi-check2-square pr-meta-icone" aria-hidden="true"></i>
+                    <span class="pr-meta-titulo">{{ m.titulo }}</span>
+                    <span class="pr-meta-prazo ps-num">{{ m.prazo ? 'expediente.recebida.prazo'|trans({data: m.prazo|data}) : 'expediente.recebida.sem_prazo'|trans }}</span>
+                    <span class="pr-meta-situacao">{{ m.situacao }}</span>
+                </div>
+            {% else %}
+                <div class="pr-vazio">{{ 'expediente.recebida.metas_vazio'|trans }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -67,7 +67,7 @@ final class ObterMinhasIndicacoesUseCaseTest extends TestCase
         $saida = $this->useCase()->executar(Pessoas::usuario(7, 'Ana', null));
 
         self::assertSame(['nome completo', 'CPF'], $saida->pendencias);
-        self::assertSame('Por segurança, o convite sempre leva o seu nome, então precisamos do seu nome completo, CPF.', $saida->textoDasPendencias);
+        self::assertSame('Por segurança, o convite sempre leva o seu nome, então precisamos do seu nome completo e CPF.', $saida->textoDasPendencias);
         self::assertNull($saida->trava);
         self::assertStringStartsWith('Olá! Aqui é Ana. ', $saida->mensagem);
     }

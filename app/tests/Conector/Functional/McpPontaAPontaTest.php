@@ -13,6 +13,7 @@ use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
 use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
 use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
+use App\Conector\Ferramenta\GravarNaAgendaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
 use App\Conector\Ferramenta\LerClientesFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
@@ -20,6 +21,7 @@ use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
 use App\Conector\Ferramenta\MudarAndamentoFerramenta;
 use App\Conector\Ferramenta\PrazosEMetasDaPastaFerramenta;
+use App\Conector\Ferramenta\ProcessosDaPastaFerramenta;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
 use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
 use App\Conector\Mcp\RegistroDaChamadaMiddleware;
@@ -62,6 +64,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         ConfirmarAcaoFerramenta::NOME,
         DocumentosEPecasFerramenta::NOME,
         FinanceiroDaPastaFerramenta::NOME,
+        GravarNaAgendaFerramenta::NOME,
         LerAgendaFerramenta::NOME,
         LerClientesFerramenta::NOME,
         LerDocumentosEModelosFerramenta::NOME,
@@ -69,6 +72,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         LerProcessosFerramenta::NOME,
         MudarAndamentoFerramenta::NOME,
         PrazosEMetasDaPastaFerramenta::NOME,
+        ProcessosDaPastaFerramenta::NOME,
         QuemSouEuFerramenta::NOME,
         RegistrarNaPastaFerramenta::NOME,
     ];
