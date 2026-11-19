@@ -267,7 +267,8 @@ linha e o código do documento perde a unicidade). Por isso:
   de contrato e todas as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro, para a
   equipe de A que acompanha (nunca para B). O upload comum não envia nada ao Drive (só o contrato e a criação da pasta
   sincronizam), então nada muda ali.
-- **Metas: só leitura para B (desvio do desenho, registrado).** O desenho diz "abrir e movimentar metas". A meta é
+- **Metas: só leitura para B (desvio do desenho, decidido pelo Samuel em 18/11, opção (a): o botão "Concluir meta"
+  não aparece para a outra conta).** O desenho diz "abrir e movimentar metas". A meta é
   trabalho atribuído dentro da equipe de A (responsável, criador, esteira e prazo); B não é da equipe, não aparece
   como responsável e não recebe meta. Concluir e reabrir já esbarram na D3 (só o responsável ou quem criou); despachar
   e comentar na meta também ficam fora, porque escreveriam na esteira de quem é de A. "Movimentar" fica coberto pela
