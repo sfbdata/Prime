@@ -102,7 +102,7 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame('pasta', $j['origem']);
         $nome = $this->fotoNoBanco($pasta);
         self::assertNotNull($nome);
-        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/' . preg_quote($nome, '#') . '\?v=\d+$#', $j['url']);
+        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/' . preg_quote(self::semExtensao($nome), '#') . '\?v=\d+$#', $j['url']);
         self::assertFileExists($this->caminho($nome));
         $cartao = (string) $this->em()->getConnection()->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'pasta'", [$pasta->getId()]);
         self::assertStringContainsString('Dados da pasta:', $cartao);
@@ -128,7 +128,7 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringStartsWith('image/png', (string) $this->client->getResponse()->headers->get('Content-Type'));
         self::assertStringStartsWith('inline', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
-        $this->client->request('GET', '/pasta/' . $pasta->getId() . '/foto/' . $primeira);
+        $this->client->request('GET', '/pasta/' . $pasta->getId() . '/foto/' . self::semExtensao($primeira));
         self::assertResponseStatusCodeSame(404, 'o nome que a pasta já não guarda não é entregue');
     }
 
@@ -219,7 +219,7 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', $urlDoB);
         self::assertResponseStatusCodeSame(404, 'a foto do B não sai para o A');
-        $this->client->request('GET', '/pasta/' . $pastaA->getId() . '/foto/' . $nomeDoB);
+        $this->client->request('GET', '/pasta/' . $pastaA->getId() . '/foto/' . self::semExtensao($nomeDoB));
         self::assertResponseStatusCodeSame(404, 'o nome do B pela pasta do A');
 
         self::assertNull($this->fotoNoBanco($pastaA));
@@ -302,6 +302,24 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/pasta/' . $pasta->getId() . '/foto/' . bin2hex(random_bytes(16)) . '.jpg');
         self::assertResponseStatusCodeSame(404);
+        // O nome guardado, com a extensão, também não serve: a URL é sem extensão.
+        $this->client->request('GET', '/pasta/' . $pasta->getId() . '/foto/' . $this->fotoNoBanco($pasta));
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('a URL da foto não termina em extensão de imagem (o nginx de produção responderia 404 sem passar pelo PHP) e entrega a imagem')]
+    public function testUrlDaFotoSemExtensao(): void
+    {
+        [$tenant, $gestor, $pasta] = $this->cenario();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->trocar($pasta, $this->jpeg());
+        $url = (string) $this->json()['url'];
+
+        self::assertDoesNotMatchRegularExpression('#\.(?:jpe?g|png|webp|gif)(?:\?|$)#i', $url);
+        $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertStringStartsWith('image/', (string) $this->client->getResponse()->headers->get('Content-Type'));
+        self::assertStringContainsString((string) $this->fotoNoBanco($pasta), (string) $this->client->getResponse()->headers->get('Content-Disposition'));
     }
 
     // ---------------------------------------------------------------- helpers
@@ -522,5 +540,11 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    /** A URL da foto leva o nome sem a extensão (o nginx de produção responde 404 a caminho terminado em .jpg/.png). */
+    private static function semExtensao(string $nome): string
+    {
+        return pathinfo($nome, \PATHINFO_FILENAME);
     }
 }

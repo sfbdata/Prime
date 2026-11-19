@@ -101,7 +101,7 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         self::assertSame('cliente', $j['origem']);
         $nome = $this->fotoNoBanco($cliente);
         self::assertNotNull($nome);
-        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/' . preg_quote($nome, '#') . '\?v=\d+$#', $j['url']);
+        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/' . preg_quote(self::semExtensao($nome), '#') . '\?v=\d+$#', $j['url']);
         self::assertFileExists($this->caminho($nome));
 
         $conn = $this->em()->getConnection();
@@ -133,7 +133,7 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('image/png', (string) $this->client->getResponse()->headers->get('Content-Type'));
         self::assertStringStartsWith('inline', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
 
-        $this->client->request('GET', '/clientes/' . $cliente->getId() . '/foto/' . $primeira);
+        $this->client->request('GET', '/clientes/' . $cliente->getId() . '/foto/' . self::semExtensao($primeira));
         self::assertResponseStatusCodeSame(404, 'o nome que o cliente já não guarda não é entregue');
     }
 
@@ -308,10 +308,17 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         [$tenant, $gestor, $cliente, $pasta] = $this->cenario();
         $this->logarComTenant($this->client, $gestor, $tenant);
         $this->trocar($pasta, $cliente, $this->jpeg());
+        $url = (string) $this->json()['url'];
 
         $this->client->request('GET', '/clientes/' . $cliente->getId() . '/foto/..%2F..%2Fsegredo.jpg');
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/clientes/' . $cliente->getId() . '/foto/' . bin2hex(random_bytes(16)) . '.jpg');
+        self::assertResponseStatusCodeSame(404);
+        // O nome guardado, com a extensão, também não serve: a URL é sem extensão.
+        self::assertDoesNotMatchRegularExpression('#\.(?:jpe?g|png|webp|gif)(?:\?|$)#i', $url, 'o nginx de produção responderia 404 sem passar pelo PHP');
+        $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        $this->client->request('GET', (string) preg_replace('#\?.*$#', '', $url) . '.jpg');
         self::assertResponseStatusCodeSame(404);
     }
 
@@ -506,5 +513,11 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    /** A URL da foto leva o nome sem a extensão (o nginx de produção responde 404 a caminho terminado em .jpg/.png). */
+    private static function semExtensao(string $nome): string
+    {
+        return pathinfo($nome, \PATHINFO_FILENAME);
     }
 }

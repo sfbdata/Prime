@@ -81,7 +81,7 @@ final class AcessoRestritoClienteEProcessoTest extends JusPrimeWebTestCase
         yield 'cliente_contatos' => ['POST', '/clientes/{cliente}/contatos'];
         yield 'cliente_delete' => ['POST', '/clientes/{cliente}/deletar'];
         yield 'cliente_documento_upload' => ['POST', '/clientes/{cliente}/documento/upload'];
-        yield 'cliente_foto' => ['GET', '/clientes/{cliente}/foto/x.jpg'];
+        yield 'cliente_foto' => ['GET', '/clientes/{cliente}/foto/x'];
         yield 'cliente_resumo' => ['GET', '/clientes/{cliente}/resumo'];
         yield 'cliente_inteligencia_cadastral' => ['GET', '/cliente/{cliente}/inteligencia-cadastral'];
         yield 'cliente_documento_view' => ['GET', '/clientes/documento/{documento}/visualizar'];
