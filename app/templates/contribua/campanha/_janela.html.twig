@@ -5,7 +5,7 @@
 #}
 {% set c = janela.campanha %}
 {% set pt = janela.participacao %}
-{% set status = c.statusTexto != '' ? c.statusTexto : 'Campanha desligada' %}
+{% set status = c.statusJanela %}
 <div class="cp-jan" data-cp-janela data-cp-nome="{{ c.nome }}">
     <div class="cp-jan-topo">
         <button type="button" class="cp-jan-fechar" data-cp-a="fechar" aria-label="Fechar">×</button>

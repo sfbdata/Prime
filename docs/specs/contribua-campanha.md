@@ -91,6 +91,8 @@ CampanhaView (readonly):
   inicio, fim ("dd/mm/aaaa"), estado (string do enum), ehMaster (bool)
   statusTexto: ativa "Inscrições abertas até <fim>" · esgotada "Vagas esgotadas" ·
                agendada "Prévia do Master · começa em <inicio>" · encerrada "Prévia do Master · encerrada em <fim>" · desligada ""
+  statusJanela (o `stTx` do `abrir()`, na janela): ativa e esgotada como acima · agendada "Começa em <inicio>" ·
+               encerrada "Campanha encerrada em <fim>" · desligada "Campanha desligada"
   mostrarAba: abaNoTopo && (ativa || esgotada || (ehMaster && estado != ativa))
   abaPrevia: estado não é ativa nem esgotada (só o Master chega a ver)
   abaTitulo: prévia "Prévia do Master: campanha <estado> (só você vê)" senão "<chamada>: Desafio <preco>"
@@ -176,7 +178,7 @@ Valores, cores e textos do CSS e do JS do desenho; componentes do desenho, não 
    aceite, "Pagar <preco> com Pix e entrar"); `aguardando_pagamento` = Pix copia e cola + QR (mesma lib do
    Contribua), "Copiar código" e texto "Sua inscrição vale quando o pagamento for confirmado. Valor: <preco>.";
    `ativa` = "Você está no Desafio desde..." com o formulário de devolução; `devolucao_pedida` = caixa âmbar;
-   `devolvida` = caixa verde; senão a caixa cinza com o `statusTexto` (ou "Campanha desligada"). Erro em toast
+   `devolvida` = caixa verde; senão a caixa cinza com o `statusJanela` (conferência de 19/11). Erro em toast
    vermelho do desenho (`#a3232b`, embaixo, 3,5 s). Depois de cada ação, recarrega a janela.
 6. **Raio dos selos do desenho novo**: selo GRATUITO 4px; botões de contato do Suporte 4px; selo de estado da
    Integração bancária 4px.

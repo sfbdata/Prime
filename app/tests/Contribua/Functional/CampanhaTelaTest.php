@@ -86,6 +86,8 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         );
         self::assertSame('Existe alguma coisa paga?', $perguntas[2]);
         self::assertSame('Se o BlueJus é gratuito, por que o Desafio de R$ 1,00?', $perguntas[3]);
+        // O texto da pergunta é um item flex só (o summary tem gap de 8px): nada no meio dele ganha espaço extra.
+        self::assertSelectorCount(6, '#faq details.ct-faq > summary > span');
         self::assertStringContainsString('em até 30 dias e recebe R$ 2,00, o dobro do que pagou', $this->client->getCrawler()->filter('#faq details.ct-faq > div')->eq(3)->text());
         self::assertSelectorExists('#faq details.ct-faq > div > a[data-campanha-abrir][href="#black"]');
     }

@@ -22,6 +22,8 @@ final readonly class CampanhaView
         public string $estado,
         public bool $ehMaster,
         public string $statusTexto,
+        /** O status na janela da campanha (`stTx` do `abrir()` do desenho): sem o "Prévia do Master" da faixa. */
+        public string $statusJanela,
         public bool $mostrarAba,
         public bool $abaPrevia,
         public string $abaTitulo,

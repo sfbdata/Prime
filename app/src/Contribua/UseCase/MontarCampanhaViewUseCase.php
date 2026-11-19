@@ -68,6 +68,7 @@ final class MontarCampanhaViewUseCase
             estado: $estado->value,
             ehMaster: $ehMaster,
             statusTexto: $this->textoDoStatus($estado, $inicio, $fim),
+            statusJanela: $this->textoDoStatusDaJanela($estado, $inicio, $fim),
             mostrarAba: $campanha->isAbaNoTopo() && ($aoPublico || ($ehMaster && $estado !== EstadoDaCampanha::Ativa)),
             abaPrevia: !$aoPublico,
             abaTitulo: $aoPublico
@@ -88,6 +89,17 @@ final class MontarCampanhaViewUseCase
             EstadoDaCampanha::Agendada => 'Prévia do Master · começa em ' . $inicio,
             EstadoDaCampanha::Encerrada => 'Prévia do Master · encerrada em ' . $fim,
             EstadoDaCampanha::Desligada => '',
+        };
+    }
+
+    private function textoDoStatusDaJanela(EstadoDaCampanha $estado, string $inicio, string $fim): string
+    {
+        return match ($estado) {
+            EstadoDaCampanha::Ativa => 'Inscrições abertas até ' . $fim,
+            EstadoDaCampanha::Esgotada => 'Vagas esgotadas',
+            EstadoDaCampanha::Agendada => 'Começa em ' . $inicio,
+            EstadoDaCampanha::Encerrada => 'Campanha encerrada em ' . $fim,
+            EstadoDaCampanha::Desligada => 'Campanha desligada',
         };
     }
 
