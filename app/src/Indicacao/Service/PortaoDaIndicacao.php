@@ -65,7 +65,19 @@ final class PortaoDaIndicacao
             return null;
         }
 
-        return 'Por segurança, o convite sempre leva o seu nome, então precisamos do seu ' . implode(', ', $pendencias) . '.';
+        return 'Por segurança, o convite sempre leva o seu nome, então precisamos do seu ' . self::emLista($pendencias) . '.';
+    }
+
+    /**
+     * "telefone e CPF"; "nome completo, telefone e CPF": vírgulas entre os itens e "e" antes do último.
+     *
+     * @param non-empty-list<string> $itens
+     */
+    private static function emLista(array $itens): string
+    {
+        $ultimo = array_pop($itens);
+
+        return $itens === [] ? $ultimo : implode(', ', $itens) . ' e ' . $ultimo;
     }
 
     /**
