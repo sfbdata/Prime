@@ -75,6 +75,8 @@
 </div>
 
 {{ catalogo_js('escritorio.home_office.js') }}
+{# O texto é lido depois do fetch, que pode voltar antes do bj-traducao.js do fim do base: ele vem aqui também (ignora a segunda carga). #}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script>
 (function () {
     'use strict';

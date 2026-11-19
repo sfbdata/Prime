@@ -124,7 +124,7 @@
                                     <form method="post"
                                           action="{{ path('app_tenant_user_justificativa_aprovar_todos', {tenantId: tenantId, id: user.id, batchId: primeiraJust.batchId}) }}"
                                           class="mb-3"
-                                          onsubmit="return confirm({{ 'escritorio.justificativas_tab.aprovar_todos_confirmar'|trans({qtd: qtdPendente})|e('js') }})">
+                                          onsubmit="return confirm('{{ 'escritorio.justificativas_tab.aprovar_todos_confirmar'|trans({qtd: qtdPendente})|e('js') }}')">
                                         <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_todos_' ~ primeiraJust.batchId) }}">
                                         <button type="submit" class="bjp-btn bjp-btn--sucesso">
                                             <i class="bi bi-check-all"></i>{{ 'escritorio.justificativas_tab.aprovar_todos'|trans({qtd: qtdPendente}) }}
@@ -159,7 +159,7 @@
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
                                                            style="max-width: 220px" placeholder="{{ 'escritorio.justificativas_tab.obs_abono'|trans }}">
                                                     <button type="submit" class="bjp-btn bjp-btn--sucesso"
-                                                            onclick="return confirm({{ 'escritorio.justificativas_tab.abonar_confirmar'|trans({data: j.data|date('d/m/Y')})|e('js') }})">
+                                                            onclick="return confirm('{{ 'escritorio.justificativas_tab.abonar_confirmar'|trans({data: j.data|date('d/m/Y')})|e('js') }}')">
                                                         <i class="bi bi-check-lg"></i>{{ 'escritorio.justificativas_tab.abonar'|trans }}
                                                     </button>
                                                 </form>

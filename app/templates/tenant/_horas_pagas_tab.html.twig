@@ -125,7 +125,7 @@
                                 </button>
                                 <form method="post" class="d-inline"
                                       action="{{ path('ponto_horas_pagas_excluir', {tenantId: tenantId, id: user.id, lancamentoId: lancamento.id}) }}"
-                                      onsubmit="return confirm({{ 'escritorio.horas_pagas.excluir_confirmar'|trans|e('js') }})">
+                                      onsubmit="return confirm('{{ 'escritorio.horas_pagas.excluir_confirmar'|trans|e('js') }}')">
                                     <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_excluir_' ~ lancamento.id) }}">
                                     <button type="submit" class="bjp-ico bjp-btn--destrutivo" title="{{ 'escritorio.horas_pagas.excluir'|trans }}">
                                         <i class="bi bi-trash"></i>

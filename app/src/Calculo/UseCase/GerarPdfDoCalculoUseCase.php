@@ -42,17 +42,18 @@ final class GerarPdfDoCalculoUseCase
     /** @return ErroDoCalculo|array{conteudo: string, nome: string} */
     public function executar(CalculoInput $in, User $usuario, Tenant $tenant): ErroDoCalculo|array
     {
-        return $this->idiomaDoDocumento->runWithLocale('pt_BR', fn (): ErroDoCalculo|array => $this->executarEmPortugues($in, $usuario, $tenant));
-    }
-
-    /** @return ErroDoCalculo|array{conteudo: string, nome: string} */
-    private function executarEmPortugues(CalculoInput $in, User $usuario, Tenant $tenant): ErroDoCalculo|array
-    {
+        // O erro de validação volta para a tela, no idioma de quem pede; só o documento sai em português.
         $resultado = $this->calcular->executar($in);
         if ($resultado instanceof ErroDoCalculo) {
             return $resultado;
         }
 
+        return $this->idiomaDoDocumento->runWithLocale('pt_BR', fn (): array => $this->gerarEmPortugues($in, $resultado, $usuario, $tenant));
+    }
+
+    /** @return array{conteudo: string, nome: string} */
+    private function gerarEmPortugues(CalculoInput $in, ResultadoDoCalculo $resultado, User $usuario, Tenant $tenant): array
+    {
         $agora = $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'));
         $codigo = $this->codigoNovo();
         $t = fn (string $chave, array $p = []): string => $this->tradutor->trans('calculo.pdf.' . $chave, $p);
