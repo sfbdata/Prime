@@ -16,6 +16,8 @@
     <div class="mp-card-topo">
         <span class="mp-card-selo"><i class="bi bi-plug"></i></span>
         <div><b>{{ 'conector.perfil.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.perfil.sub'|trans }}</div></div>
+        {# Passo a passo do PR 15 (conector-abertura): o botão de contorno do próprio perfil. #}
+        <a class="mp-btn-contorno mp-guia-topo-link" href="{{ path('conector_perfil_guia') }}" data-guia-do-conector><i class="bi bi-question-circle" aria-hidden="true"></i>{{ 'conector.perfil.como_conectar'|trans }}</a>
     </div>
     {% for conexao in conexoesDeIa %}
         {# "Ler e gravar" já inclui o "Ler": não repete. #}

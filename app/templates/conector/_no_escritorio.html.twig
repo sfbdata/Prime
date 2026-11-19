@@ -10,6 +10,8 @@
     <div class="bjp-painel-cabeca"><h3 class="bjp-painel-titulo">{{ 'conector.admin.titulo'|trans }}</h3></div>
     <div class="bjp-painel-corpo">
         <p class="text-muted small mb-2">{{ 'conector.admin.sub'|trans }}</p>
+        {# Passo a passo do PR 15 (conector-abertura), para o administrador repassar à equipe. #}
+        <p class="small mb-2"><a href="{{ path('conector_perfil_guia') }}" id="conector-guia">{{ 'conector.admin.guia'|trans }}</a></p>
 
         {% if conector_ativo %}
             <p class="text-success mb-2" data-conector-estado="ligado">{{ 'conector.admin.estado.ligado'|trans }}</p>

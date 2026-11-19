@@ -28,6 +28,83 @@ conector:
         revogada: 'A conexão com {app} foi revogada.'
         nao_encontrada: Conexão não encontrada.
         token_invalido: Token CSRF inválido. Recarregue a página.
+        como_conectar: Como conectar
+    # Guia "Como conectar o Claude ou o ChatGPT" (PR 15, conector-abertura): página do Meu Perfil, sem desenho.
+    # Nomes de botão do Claude e do ChatGPT em inglês, como aparecem no app (conferidos em 18/11/2026 na ajuda oficial).
+    guia:
+        titulo: Como conectar o Claude ou o ChatGPT
+        sub: 'Passo a passo para usar o BlueJus de dentro do seu app de I.A., com a sua conta.'
+        voltar: Voltar ao Meu Perfil
+        antes:
+            titulo: Antes de começar
+            ligado: 'O administrador do seu escritório precisa ligar o conector na tela BlueJus IA. Se ainda não ligou, o app mostra um aviso quando você tentar entrar.'
+            url: 'Use o endereço abaixo exatamente como está: sem barra no fim, sem espaço e sem trocar nenhuma letra. Com outro endereço, o login não termina.'
+            permissoes: 'Ao conectar, o BlueJus pede o seu e-mail e a sua senha, você escolhe o escritório e vê o que o app quer fazer: só ler, ou ler e gravar. Gravar vem desmarcado; marque só se for usar.'
+            url_rotulo: Endereço do conector
+        claude:
+            titulo: Claude (site claude.ai e app Claude no computador)
+            sub: Planos Free, Pro, Max, Team e Enterprise
+            pessoal_titulo: Plano Free, Pro ou Max
+            pessoal:
+                1: 'No Claude, clique em "Customize" e depois em "Connectors".'
+                2: 'Clique em "+ Add" e escolha "Add custom connector".'
+                3: 'Escreva um nome (por exemplo, BlueJus), cole o endereço do conector e clique em "Continue".'
+                4: 'No login, deixe "Sign in now". Não preencha nada em "OAuth client" nem em "Request headers".'
+                5: 'Clique em "Add". A página do BlueJus abre: entre com o seu e-mail e a sua senha, escolha o escritório e clique para autorizar.'
+            equipe_titulo: Plano Team ou Enterprise
+            equipe:
+                1: 'O dono da conta da equipe no Claude (Owner) adiciona o BlueJus uma vez só: "Organization settings", depois "Connectors" e "Add", com o mesmo endereço.'
+                2: 'Depois, cada pessoa abre "Customize" e "Connectors", acha o BlueJus e clica em "Connect" para entrar com a própria conta do BlueJus.'
+            conversa_titulo: Usar numa conversa
+            conversa: 'Na conversa, clique no botão "+" no canto de baixo, abra "Connectors" e ligue o BlueJus. Depois é só pedir, por exemplo: busque a pasta da cliente Maria da Silva e me diga o andamento.'
+        codigo:
+            titulo: Claude Code (no terminal)
+            sub: Para quem usa o Claude Code
+            1: 'No terminal, rode este comando:'
+            2: 'Abra o Claude Code, digite /mcp, escolha o BlueJus e entre pelo navegador. Se o navegador não abrir sozinho, copie o endereço que aparece na tela.'
+        chatgpt:
+            titulo: ChatGPT
+            sub: Só nos planos Business, Enterprise e Edu
+            1: 'Quem adiciona é o administrador do workspace do ChatGPT: ele cria um servidor MCP personalizado com o endereço do conector e o login por OAuth, e libera para a equipe.'
+            2: 'Depois, cada pessoa chama o BlueJus na conversa (digite @ e escolha o BlueJus) e, na primeira vez, entra com a própria conta do BlueJus.'
+            em_breve: 'Em breve: gravar no BlueJus pelo ChatGPT, o uso nos planos Plus e Pro e o BlueJus na loja de apps do ChatGPT. Por enquanto, use o ChatGPT para consultar.'
+        seguranca:
+            titulo: Gravar com segurança
+            sub: Como o BlueJus pede a sua confirmação
+            proposta: 'Preencher um campo vazio ou acrescentar uma anotação é gravado direto. Quando o pedido apaga algo, troca um dado que já existe ou cadastra um cliente, o BlueJus não grava na hora: ele monta uma proposta com o resumo do que vai fazer, e o app mostra esse resumo. Só depois que você confere e confirma, a ferramenta "Confirmar a ação proposta" grava. A proposta vale por 10 minutos e uma vez só.'
+            nunca_titulo: Para a confirmação ser sempre sua
+            nunca:
+                sempre_permitir: 'Quando o app perguntar se pode usar "Confirmar a ação proposta", permita só desta vez. Nunca marque "Always allow" (permitir sempre) nela.'
+                skip_approvals: 'Se o conector do BlueJus no Claude tiver a opção "Skip approvals", deixe desligada.'
+                auto: 'Não use o modo "Auto" da conversa do Claude com o BlueJus ligado.'
+                lembrar: 'No ChatGPT, não marque para lembrar a aprovação nas ações do BlueJus.'
+            porque: 'Com qualquer uma dessas opções, o próprio app pode confirmar sem você ler o resumo.'
+        ferramentas:
+            titulo: O que dá para pedir
+            sub: O que o BlueJus faz pelo app, sempre dentro das permissões que você já tem
+            leitura: Consultar
+            gravacao: Gravar
+        ferramenta:
+            quem_sou_eu: Ver com qual conta e escritório o app está conectado
+            buscar_pastas: Buscar pastas pelo número, pelo cliente ou pela ação
+            ler_pasta: 'Ler a pasta: dados, andamento, anotações e publicações'
+            ler_documentos_e_modelos: Ler os documentos e os modelos da pasta
+            ler_processos: Consultar os processos e as movimentações
+            ler_clientes: 'Consultar o cadastro dos clientes, sem CPF, CNPJ, contato nem endereço'
+            ler_agenda: Ver a agenda e as suas metas
+            atualizar_pasta: Atualizar os dados da pasta
+            mudar_andamento: Mudar o andamento da pasta
+            registrar_na_pasta: Registrar anotações na pasta
+            prazos_e_metas_da_pasta: Criar prazos e metas da pasta
+            documentos_e_pecas: Organizar os documentos e as peças da pasta
+            financeiro_da_pasta: Lançar no financeiro da pasta
+            atualizar_cliente: Completar e atualizar o cadastro dos clientes
+            processos_da_pasta: Vincular e atualizar os processos da pasta
+            gravar_na_agenda: Gravar compromissos na agenda
+            confirmar_acao: Confirmar a ação proposta
+        desconectar:
+            titulo: Desconectar
+            texto: 'Para tirar o acesso de um app, clique em "Revogar" no cartão Conexões de I.A. do Meu Perfil. O acesso cai na hora. Trocar a sua senha ou usar "Sair de todos os aparelhos" também desconecta todos os apps.'
     master:
         titulo: Conector de I.A.
         nota: 'Para usar o conector, o escritório precisa estar liberado aqui e o administrador dele precisa ligar o conector e dar o aceite. Bloquear suspende o acesso na hora, sem apagar o aceite nem as conexões.'
@@ -74,6 +151,7 @@ conector:
             versao_antiga: 'O texto do aceite mudou. Para ligar de novo, leia e aceite o texto novo.'
         ligar: Ligar
         desligar: Desligar
+        guia: Passo a passo para a equipe conectar o Claude ou o ChatGPT
         ligou: Conector de I.A. ligado neste escritório.
         desligou: 'Conector de I.A. desligado: as conexões da equipe param na hora e voltam se ligar de novo.'
         recusa:

@@ -1,0 +1,140 @@
+{% extends 'base.html.twig' %}
+
+{#
+    "Como conectar o Claude ou o ChatGPT" (docs/specs/mcp-remoto-oauth.md, 13.1 linha do PR 15; 6.7 e 9.3): sem desenho, pela
+    convenção do Meu Perfil (14.e), com os cartões .mp-card e o CSS de meu-perfil.css. Textos no catálogo conector.guia.*.
+
+    Variáveis (ConexoesNoPerfilController::guia):
+    - urlDoConector: o `resource` exato (ServidorDeAutorizacao::RESOURCE), em caixa para copiar à mão.
+    - ferramentas: {leitura: list<string>, gravacao: list<string>}, só as registradas no servidor (GuiaDoConector).
+
+    O que a spec manda dizer: colar a URL exata; nunca "sempre permitir" na confirmar_acao; não ligar "Skip approvals";
+    não usar o modo "Auto"; o que é a proposta. ChatGPT: só Business, Enterprise e Edu; gravar e a loja ficam "em breve".
+#}
+
+{% block title %}{{ 'conector.guia.titulo'|trans }}{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/meu-perfil.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="mp-pagina" id="guiaDoConector">
+    <div>
+        <a href="{{ path('app_profile') }}" class="mp-btn-contorno" id="guiaVoltar"><i class="bi bi-arrow-left" aria-hidden="true"></i>{{ 'conector.guia.voltar'|trans }}</a>
+    </div>
+
+    <section class="mp-card" data-screen-label="Antes de começar" data-guia="antes">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-plug"></i></span>
+            <div><b>{{ 'conector.guia.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <h4>{{ 'conector.guia.antes.titulo'|trans }}</h4>
+            <ol>
+                <li>{{ 'conector.guia.antes.ligado'|trans }}</li>
+                <li>{{ 'conector.guia.antes.url'|trans }}</li>
+                <li>{{ 'conector.guia.antes.permissoes'|trans }}</li>
+            </ol>
+            <h4>{{ 'conector.guia.antes.url_rotulo'|trans }}</h4>
+            <code class="mp-guia-url" data-guia-url>{{ urlDoConector }}</code>
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="Claude" data-guia="claude">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-chat-dots"></i></span>
+            <div><b>{{ 'conector.guia.claude.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.claude.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <h4>{{ 'conector.guia.claude.pessoal_titulo'|trans }}</h4>
+            <ol>
+                <li>{{ 'conector.guia.claude.pessoal.1'|trans }}</li>
+                <li>{{ 'conector.guia.claude.pessoal.2'|trans }}</li>
+                <li>{{ 'conector.guia.claude.pessoal.3'|trans }}</li>
+                <li>{{ 'conector.guia.claude.pessoal.4'|trans }}</li>
+                <li>{{ 'conector.guia.claude.pessoal.5'|trans }}</li>
+            </ol>
+            <h4>{{ 'conector.guia.claude.equipe_titulo'|trans }}</h4>
+            <ol>
+                <li>{{ 'conector.guia.claude.equipe.1'|trans }}</li>
+                <li>{{ 'conector.guia.claude.equipe.2'|trans }}</li>
+            </ol>
+            <h4>{{ 'conector.guia.claude.conversa_titulo'|trans }}</h4>
+            <p>{{ 'conector.guia.claude.conversa'|trans }}</p>
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="Claude Code" data-guia="claude-code">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-terminal"></i></span>
+            <div><b>{{ 'conector.guia.codigo.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.codigo.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <ol>
+                <li>{{ 'conector.guia.codigo.1'|trans }}<code class="mp-guia-url" data-guia-comando>claude mcp add --transport http bluejus {{ urlDoConector }}</code></li>
+                <li>{{ 'conector.guia.codigo.2'|trans }}</li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="ChatGPT" data-guia="chatgpt">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-chat-square-text"></i></span>
+            <div><b>{{ 'conector.guia.chatgpt.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.chatgpt.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <ol>
+                <li>{{ 'conector.guia.chatgpt.1'|trans }}</li>
+                <li>{{ 'conector.guia.chatgpt.2'|trans }}</li>
+            </ol>
+            <div class="mp-guia-aviso" data-guia-em-breve>{{ 'conector.guia.chatgpt.em_breve'|trans }}</div>
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="Gravar com segurança" data-guia="seguranca">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-shield-check"></i></span>
+            <div><b>{{ 'conector.guia.seguranca.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.seguranca.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <p>{{ 'conector.guia.seguranca.proposta'|trans }}</p>
+            <h4>{{ 'conector.guia.seguranca.nunca_titulo'|trans }}</h4>
+            <ul data-guia-nunca>
+                <li>{{ 'conector.guia.seguranca.nunca.sempre_permitir'|trans }}</li>
+                <li>{{ 'conector.guia.seguranca.nunca.skip_approvals'|trans }}</li>
+                <li>{{ 'conector.guia.seguranca.nunca.auto'|trans }}</li>
+                <li>{{ 'conector.guia.seguranca.nunca.lembrar'|trans }}</li>
+            </ul>
+            <div class="mp-guia-aviso">{{ 'conector.guia.seguranca.porque'|trans }}</div>
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="O que dá para pedir" data-guia="ferramentas">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-tools"></i></span>
+            <div><b>{{ 'conector.guia.ferramentas.titulo'|trans }}</b><div class="mp-card-sub">{{ 'conector.guia.ferramentas.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-guia">
+            <h4>{{ 'conector.guia.ferramentas.leitura'|trans }}</h4>
+            <ul data-guia-leitura>
+                {% for nome in ferramentas.leitura %}<li data-ferramenta="{{ nome }}">{{ ('conector.guia.ferramenta.' ~ nome)|trans }}</li>{% endfor %}
+            </ul>
+            {% if ferramentas.gravacao is not empty %}
+                <h4>{{ 'conector.guia.ferramentas.gravacao'|trans }}</h4>
+                <ul data-guia-gravacao>
+                    {% for nome in ferramentas.gravacao %}<li data-ferramenta="{{ nome }}">{{ ('conector.guia.ferramenta.' ~ nome)|trans }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="mp-card" data-screen-label="Desconectar" data-guia="desconectar">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-x-circle"></i></span>
+            <div><b>{{ 'conector.guia.desconectar.titulo'|trans }}</b></div>
+        </div>
+        <div class="mp-guia"><p>{{ 'conector.guia.desconectar.texto'|trans }}</p></div>
+    </section>
+</div>
+{% endblock %}
