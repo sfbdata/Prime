@@ -7,6 +7,8 @@ namespace App\Conector\Ferramenta;
 use App\ChatIa\Service\ProtecaoDoTextoDoChat;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
+use App\Cliente\Exception\ClienteComVinculosException;
+use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\UseCase\ExcluirClienteUseCase;
 use App\Cliente\UseCase\ExcluirDocumentoDoClienteUseCase;
@@ -141,7 +143,14 @@ final class AtualizarClienteExclusoes
         $nome = $this->nome($cliente, $chamada);
         $escritorio = $chamada->contexto->escritorio;
         // O ids e o nome antes: o UseCase dá `clear()` e as entidades ficam desanexadas.
-        $chaves = AtualizarClienteAcesso::gravando(fn (): array => $this->excluirCliente->executar($clienteId, $escritorio), self::RECUSADO);
+        try {
+            $chaves = $this->excluirCliente->executar($clienteId, $escritorio);
+        } catch (ClienteComVinculosException) {
+            // A carteira nasceu entre a conferência e a gravação: a confirmação desfaz a transação.
+            throw ErroDaFerramenta::recusada(self::COM_CARTEIRA);
+        } catch (ClienteNaoEncontradoException) {
+            throw ErroDaFerramenta::naoEncontrado();
+        }
 
         return new ResultadoDaConfirmacao(
             ['operacao' => 'excluir_cliente', 'cliente' => ['id' => $clienteId, 'nome' => $nome]],

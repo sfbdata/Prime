@@ -6,6 +6,7 @@ namespace App\Cliente\UseCase;
 
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Exception\ClienteComVinculosException;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cobranca\Entity\Carteira;
@@ -20,8 +21,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * O que sai junto vem do mapeamento e das chaves do banco: os documentos do cadastro (cascata do ORM), os vínculos com
  * as pastas (`pasta_cliente`, cascata) e, nas pastas em que era o principal, `cliente_principal_id` vira nulo. A única
  * chave que recusa é `cobranca_carteira.cliente_id` (NO ACTION): quem chama pergunta {@see temCarteiraDeCobranca()}
- * antes, para não deixar a FK estourar (ela fecha o EntityManager); a tela ainda pega a
- * {@see ForeignKeyConstraintViolationException} que escapar.
+ * antes, para não deixar a FK estourar (ela fecha o EntityManager). Se ainda assim estourar (a carteira criada entre a
+ * pergunta e a gravação), a {@see ForeignKeyConstraintViolationException} vira {@see ClienteComVinculosException}.
  *
  * NÃO apaga arquivo: devolve as chaves dos arquivos próprios do cadastro para quem chama remover DEPOIS do COMMIT
  * (E2.5, INV-6). O vinculado do menu Documentos não tem arquivo próprio: o da pasta fica.
@@ -54,7 +55,7 @@ final class ExcluirClienteUseCase
      * @return list<ChaveDeArquivo> os arquivos a remover depois do COMMIT
      *
      * @throws ClienteNaoEncontradoException       de outro escritório ou inexistente
-     * @throws ForeignKeyConstraintViolationException o banco recusou (carteira de cobrança)
+     * @throws ClienteComVinculosException      o banco recusou (carteira de cobrança)
      */
     public function executar(int $clienteId, Tenant $escritorio): array
     {
@@ -66,7 +67,11 @@ final class ExcluirClienteUseCase
         // As chaves antes de remover; os arquivos só saem depois de o banco aceitar (E2.5).
         $chaves = $this->chavesDosArquivosProprios($cliente);
         $this->em->remove($cliente);
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (ForeignKeyConstraintViolationException $recusa) {
+            throw new ClienteComVinculosException($clienteId, $recusa);
+        }
         // O cliente removido ainda é apontado por pastas e vínculos já carregados na memória de quem chama (o banco
         // já pôs `cliente_principal_id` em nulo); um `flush` depois deles poderia falhar. Como o
         // `ExcluirProcessoUseCase`: quem chama relê o que ainda usa, e as entidades recebidas ficam desanexadas.

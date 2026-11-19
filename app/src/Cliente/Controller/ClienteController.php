@@ -8,6 +8,7 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cliente\Exception\ClienteComVinculosException;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\DocumentoDoClienteNaoEncontradoException;
 use App\Cliente\Form\ClientePFType;
@@ -31,7 +32,6 @@ use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Http\NomeSeguroDeArquivo;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -240,7 +240,7 @@ class ClienteController extends AbstractController
                 $chaves = $this->excluirCliente->executar($id, $tenant ?? throw $this->createNotFoundException('Cliente não encontrado'));
             } catch (ClienteNaoEncontradoException) {
                 throw $this->createNotFoundException('Cliente não encontrado');
-            } catch (ForeignKeyConstraintViolationException) {
+            } catch (ClienteComVinculosException) {
                 $this->addFlash('error', 'Não é possível excluir este cliente porque ele está vinculado a outros registros (ex.: pré-cadastro).');
 
                 return $this->redirectToRoute('homepage');

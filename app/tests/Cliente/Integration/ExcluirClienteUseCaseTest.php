@@ -7,6 +7,7 @@ namespace App\Tests\Cliente\Integration;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
+use App\Cliente\Exception\ClienteComVinculosException;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\UseCase\ExcluirClienteUseCase;
 use App\Pasta\Entity\Pasta;
@@ -86,6 +87,19 @@ final class ExcluirClienteUseCaseTest extends KernelTestCase
 
         self::assertTrue($usecase->temCarteiraDeCobranca($com, $tenant));
         self::assertFalse($usecase->temCarteiraDeCobranca($sem, $tenant));
+    }
+
+    #[TestDox('a FK da carteira que escapa da pergunta (carteira criada entre ela e a gravação) vira ClienteComVinculosException, não o erro do banco')]
+    public function testCarteiraQueEscapaViraRecusaDeRegra(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne()->_real();
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant])->_real();
+        CarteiraFactory::createOne(['tenant' => $tenant, 'cliente' => $cliente]);
+
+        $this->expectException(ClienteComVinculosException::class);
+
+        static::getContainer()->get(ExcluirClienteUseCase::class)->executar((int) $cliente->getId(), $tenant);
     }
 
     private function documento(Cliente $cliente, string $nome): ClienteDocumento
