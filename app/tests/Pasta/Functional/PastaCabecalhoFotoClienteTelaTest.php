@@ -121,7 +121,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         self::assertSame('1', $botao->attr('data-tem-foto'));
         $img = $botao->filter('button.ps-cab-foto > img.ps-cab-foto-img');
         self::assertNull($img->attr('hidden'));
-        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/a1b2c3\.jpg\?v=\d+$#', (string) $img->attr('src'));
+        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/a1b2c3\?v=\d+$#', (string) $img->attr('src'));
         $menu = $c->filter('.ps-cab-cliente > [data-ps-foto-menu]');
         self::assertSame('Carregar nova foto', trim($menu->filter('.js-ps-foto-carregar')->text()));
         self::assertNull($menu->filter('.js-ps-foto-ajustar')->attr('hidden'));
@@ -143,7 +143,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $c->filter('[data-ps-foto-menu], [data-ps-foto-editor], [data-ps-foto-arquivo]'));
         $span = $c->filter(self::SPAN . '.ps-cab-foto');
         self::assertCount(1, $span);
-        self::assertStringStartsWith('/clientes/' . $cliente->getId() . '/foto/a1b2c3.jpg', (string) $span->filter('span.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
+        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/a1b2c3(?:\?|$)#', (string) $span->filter('span.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
     }
 
     #[TestDox('quem não vê o cliente: o ícone, sem a foto')]
@@ -240,7 +240,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
 
         $botao = $c->filter(self::BOTAO);
         self::assertSame(['1', 'pasta'], [$botao->attr('data-tem-foto'), $botao->attr('data-origem')]);
-        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/p1a2\.jpg\?v=\d+$#', (string) $botao->filter('button.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
+        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/p1a2\?v=\d+$#', (string) $botao->filter('button.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
         $menu = $c->filter('.ps-cab-cliente > [data-ps-foto-menu]');
         self::assertSame('Carregar nova foto', trim($menu->filter('.js-ps-foto-carregar')->text()));
         self::assertNull($menu->filter('.js-ps-foto-ajustar')->attr('hidden'));
@@ -261,7 +261,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
 
         $botao = $c->filter(self::BOTAO);
         self::assertSame(['1', 'pasta'], [$botao->attr('data-tem-foto'), $botao->attr('data-origem')]);
-        self::assertStringStartsWith('/pasta/' . $pasta->getId() . '/foto/p1a2.jpg', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
+        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/p1a2(?:\?|$)#', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
         self::assertSame('/pasta/' . $pasta->getId() . '/clientes/' . $cliente->getId() . '/foto', $botao->attr('data-url-trocar'));
         self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
     }
@@ -315,7 +315,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         $botao = $this->abrir($client, $pasta)->filter(self::BOTAO);
 
         self::assertSame('cliente', $botao->attr('data-origem'));
-        self::assertStringStartsWith('/clientes/' . $cliente->getId() . '/foto/a1b2c3.jpg', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
+        self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/a1b2c3(?:\?|$)#', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
     }
 
     #[TestDox('pasta sem cliente, quem só VÊ a pasta: a foto da pasta num span, sem botão nem menu')]
@@ -332,7 +332,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         $c = $this->abrir($client, $pasta);
 
         self::assertCount(0, $c->filter(self::BOTAO . ', [data-ps-foto-menu], [data-ps-foto-editor]'));
-        self::assertStringStartsWith('/pasta/' . $pasta->getId() . '/foto/p1a2.jpg', (string) $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
+        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/p1a2(?:\?|$)#', (string) $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
     }
 
     private function abrir(KernelBrowser $client, Pasta $pasta): Crawler

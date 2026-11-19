@@ -79,15 +79,18 @@ final class FotoDoClienteController extends AbstractController
         return $this->executar($request, $id, $cliente, $this->remover->executar(...));
     }
 
-    #[Route('/clientes/{id}/foto/{nome}', name: 'cliente_foto', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/clientes/{id}/foto/{nome}', name: 'cliente_foto', requirements: ['id' => '\d+', 'nome' => '[^/]+'], methods: ['GET'])]
     public function entregar(int $id, string $nome): Response
     {
-        // Nome com caminho é recusado antes de qualquer acesso ao banco ou ao disco.
+        // A URL leva o nome SEM a extensão: o nginx de produção responde sozinho (404, sem passar pelo PHP) a todo
+        // caminho terminado em .jpg/.png, e a foto aparecia quebrada. Nome com caminho é recusado antes de qualquer
+        // acesso ao banco ou ao disco.
         if (basename($nome) !== $nome) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
         $cliente = $this->clienteVisivel($id);
-        if ($cliente === null || $cliente->getFoto() !== $nome) {
+        $foto = $cliente?->getFoto();
+        if ($foto === null || pathinfo($foto, \PATHINFO_FILENAME) !== $nome) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 
@@ -100,7 +103,7 @@ final class FotoDoClienteController extends AbstractController
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 
-        return $this->entrega->resposta($chave, $nome, inline: true);
+        return $this->entrega->resposta($chave, $foto, inline: true);
     }
 
     /** @param \Closure(FotoDoClienteInput): FotoDoClienteOutput $acao */
