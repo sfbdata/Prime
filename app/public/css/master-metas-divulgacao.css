@@ -62,7 +62,9 @@
 .mmd-uf-cab { font-size: 10.5px; font-weight: bold; letter-spacing: .5px; color: var(--mmd-suave); padding-bottom: 4px; border-bottom: 1px solid #eef2f5; text-transform: uppercase; }
 .mmd-uf-cab span:nth-child(n+4) { text-align: right; }
 .mmd-uf { align-items: center; padding: 9px 6px; margin: 0 -6px; border-bottom: 1px solid #f4f6f8; font-size: 12.5px; cursor: pointer; transition: background .12s; }
-.mmd-uf:hover, .mmd-uf.mmd-mh { background: #eaf3f9; }
+.mmd-uf:hover, .mmd-uf.mmd-mh { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
+.mmd-uf:hover *:not(.mmd-mini-barra):not(.mmd-barra), .mmd-uf.mmd-mh *:not(.mmd-mini-barra):not(.mmd-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+.mmd-uf:hover .mmd-chip, .mmd-uf.mmd-mh .mmd-chip { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .mmd-uf-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mmd-uf-nome .bi { font-size: 10px; color: var(--mmd-mudo); margin-right: 4px; }
 .mmd-uf-meta { display: flex; flex-direction: column; line-height: 1.25; }
@@ -81,10 +83,11 @@
 .mmd-cid-busca > span { font-size: 11.5px; color: var(--mmd-mudo); }
 .mmd-cid-aviso { font-size: 12px; color: var(--mmd-mudo); padding: 3px 0; }
 .mmd-cid-lin { align-items: center; padding: 7px 6px; margin: 0 -6px; font-size: 12.5px; border-top: 1px solid #eef2f5; transition: background .12s; }
-.mmd-cid-lin:hover, .mmd-cid-lin.mmd-mh { background: #efe9f8; }
+.mmd-cid-lin:hover, .mmd-cid-lin.mmd-mh { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
+.mmd-cid-lin:hover *:not(.mmd-mini-barra), .mmd-cid-lin.mmd-mh *:not(.mmd-mini-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
 .mmd-cid-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mmd-mini { display: flex; align-items: center; gap: 5px; }
-.mmd-mini-barra { flex: 1; height: 5px; border-radius: 3px; background: #e6edf2; overflow: hidden; }
+.mmd-mini-barra { flex: 1; height: 5px; border-radius: 2px; background: #e6edf2; overflow: hidden; }
 .mmd-mini-barra > span { display: block; height: 100%; }
 .mmd-mini-txt { font-size: 11px; color: #34505f; text-align: right; }
 .mmd-cid-meta { border: none; background: none; padding: 0; text-align: right; font-size: 12.5px; font-weight: normal; color: var(--mmd-mudo); }
