@@ -1,29 +1,29 @@
 <div class="bjp-painel mb-3">
     <div class="bjp-painel-cabeca d-flex justify-content-between align-items-center">
-        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-house-laptop me-2"></i>Home Office</h3>
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-house-laptop me-2"></i>{{ 'escritorio.home_office.titulo'|trans }}</h3>
         <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="hoAtivo" checked>
-            <label class="form-check-label" for="hoAtivo">Habilitado</label>
+            <label class="form-check-label" for="hoAtivo">{{ 'escritorio.home_office.habilitado'|trans }}</label>
         </div>
     </div>
     <div class="bjp-painel-corpo">
 
         <p class="text-muted small mb-3">
             <i class="bi bi-info-circle me-1"></i>
-            Nos dias liberados, o colaborador registra o ponto <strong>sem exigência de GPS/localização</strong>
-            (fora do raio das sedes). As batidas remotas ficam sinalizadas no espelho de ponto.
+            {{ 'escritorio.home_office.explicacao_antes'|trans }} <strong>{{ 'escritorio.home_office.explicacao_destaque'|trans }}</strong>
+            {{ 'escritorio.home_office.explicacao_depois'|trans }}
         </p>
 
         <div id="hoLoading" class="text-center py-4">
             <div class="spinner-border text-info" role="status"></div>
-            <p class="mt-2 text-muted">Carregando configuração...</p>
+            <p class="mt-2 text-muted">{{ 'escritorio.home_office.carregando'|trans }}</p>
         </div>
 
         <div id="hoForm" class="d-none">
             <div class="mb-3">
-                <label class="form-label fw-semibold">Dias da semana</label>
+                <label class="form-label fw-semibold">{{ 'escritorio.home_office.dias_semana'|trans }}</label>
                 <div class="d-flex flex-wrap gap-2" id="hoDias">
-                    {% set nomesDias = {1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb', 7: 'Dom'} %}
+                    {% set nomesDias = {1: 'escritorio.home_office.dia_seg'|trans, 2: 'escritorio.home_office.dia_ter'|trans, 3: 'escritorio.home_office.dia_qua'|trans, 4: 'escritorio.home_office.dia_qui'|trans, 5: 'escritorio.home_office.dia_sex'|trans, 6: 'escritorio.home_office.dia_sab'|trans, 7: 'escritorio.home_office.dia_dom'|trans} %}
                     {% for valor, nome in nomesDias %}
                         <div class="form-check form-check-inline">
                             <input class="form-check-input dia-check-ho" type="checkbox" value="{{ valor }}" id="hoDia{{ valor }}">
@@ -31,30 +31,30 @@
                         </div>
                     {% endfor %}
                 </div>
-                <div class="form-text">Marque todos para 100% home office.</div>
+                <div class="form-text">{{ 'escritorio.home_office.marque_todos'|trans }}</div>
             </div>
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Vigência: início <span class="text-muted fw-normal small">(opcional)</span></label>
+                    <label class="form-label fw-semibold">{{ 'escritorio.home_office.vigencia_inicio'|trans }} <span class="text-muted fw-normal small">{{ 'escritorio.home_office.opcional'|trans }}</span></label>
                     <input type="date" id="hoVigInicio" class="form-control">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Vigência: fim <span class="text-muted fw-normal small">(opcional)</span></label>
+                    <label class="form-label fw-semibold">{{ 'escritorio.home_office.vigencia_fim'|trans }} <span class="text-muted fw-normal small">{{ 'escritorio.home_office.opcional'|trans }}</span></label>
                     <input type="date" id="hoVigFim" class="form-control">
                 </div>
                 <div class="form-text">
-                    Sem datas = permanente. A vigência limita apenas os <strong>dias da semana</strong>;
-                    as datas avulsas valem por si.
+                    {{ 'escritorio.home_office.vig_ajuda_antes'|trans }} <strong>{{ 'escritorio.home_office.vig_ajuda_destaque'|trans }}</strong>;
+                    {{ 'escritorio.home_office.vig_ajuda_depois'|trans }}
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label fw-semibold">Datas avulsas</label>
+                <label class="form-label fw-semibold">{{ 'escritorio.home_office.datas_avulsas'|trans }}</label>
                 <div class="input-group">
                     <input type="date" id="hoDataAvulsa" class="form-control">
                     <button type="button" class="bjp-btn bjp-btn--secundario" id="hoAddData">
-                        <i class="bi bi-plus-lg"></i>Adicionar
+                        <i class="bi bi-plus-lg"></i>{{ 'escritorio.home_office.adicionar'|trans }}
                     </button>
                 </div>
                 <div id="hoDatasLista" class="d-flex flex-wrap gap-2 mt-2"></div>
@@ -66,14 +66,17 @@
     </div>
     <div class="bjp-painel-pe d-flex justify-content-between gap-2">
         <button type="button" class="bjp-btn bjp-btn--destrutivo" id="hoBtnLimpar">
-            <i class="bi bi-trash"></i>Remover configuração
+            <i class="bi bi-trash"></i>{{ 'escritorio.home_office.remover_config'|trans }}
         </button>
         <button type="button" class="bjp-btn bjp-btn--secundario" id="hoBtnSalvar">
-            <i class="bi bi-save"></i>Salvar
+            <i class="bi bi-save"></i>{{ 'escritorio.home_office.salvar'|trans }}
         </button>
     </div>
 </div>
 
+{{ catalogo_js('escritorio.home_office.js') }}
+{# O texto é lido depois do fetch, que pode voltar antes do bj-traducao.js do fim do base: ele vem aqui também (ignora a segunda carga). #}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -91,7 +94,7 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn-close btn-close-white btn-sm';
-            btn.setAttribute('aria-label', 'Remover');
+            btn.setAttribute('aria-label', BJ_T.t('escritorio.home_office.js.remover'));
             btn.addEventListener('click', () => { datasAvulsas.splice(idx, 1); renderDatas(); });
             chip.appendChild(btn);
             container.appendChild(chip);
@@ -130,7 +133,8 @@
             document.getElementById('hoForm').classList.remove('d-none');
         } catch (err) {
             document.getElementById('hoLoading').innerHTML =
-                '<p class="text-danger">Erro ao carregar a configuração. Tente novamente.</p>';
+                '<p class="text-danger"></p>';
+            document.querySelector('#hoLoading p').textContent = BJ_T.t('escritorio.home_office.js.erro_carregar');
         }
     }
 
@@ -158,7 +162,7 @@
         };
 
         this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + BJ_T.t('escritorio.home_office.js.salvando');
 
         try {
             const resp = await fetch(hoUrl, {
@@ -169,22 +173,22 @@
             const result = await resp.json();
 
             if (!resp.ok) {
-                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.textContent = result.erro || BJ_T.t('escritorio.home_office.js.erro_salvar');
                 erroEl.classList.remove('d-none');
             } else {
                 window.location.href = window.location.pathname + '?tab=home-office';
             }
         } catch (err) {
-            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.textContent = BJ_T.t('escritorio.home_office.js.falha_servidor');
             erroEl.classList.remove('d-none');
         } finally {
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar';
+            this.innerHTML = '<i class="bi bi-save me-1"></i>' + BJ_T.t('escritorio.home_office.js.salvar');
         }
     });
 
     document.getElementById('hoBtnLimpar').addEventListener('click', async function () {
-        if (!confirm('Remover a configuração de home office deste colaborador? Ele voltará a exigir localização em todas as batidas.')) return;
+        if (!confirm(BJ_T.t('escritorio.home_office.js.remover_confirmar'))) return;
 
         this.disabled = true;
         try {
@@ -192,11 +196,11 @@
             if (resp.ok) {
                 window.location.href = window.location.pathname + '?tab=home-office';
             } else {
-                alert('Erro ao remover a configuração.');
+                alert(BJ_T.t('escritorio.home_office.js.erro_remover'));
                 this.disabled = false;
             }
         } catch (err) {
-            alert('Falha na comunicação com o servidor.');
+            alert(BJ_T.t('escritorio.home_office.js.falha_servidor'));
             this.disabled = false;
         }
     });

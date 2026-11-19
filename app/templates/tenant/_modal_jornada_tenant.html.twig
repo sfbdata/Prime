@@ -3,47 +3,47 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalJornadaTenantLabel">
-                    <i class="bi bi-clock-history me-2"></i>Configurar Jornada do Escritório
+                    <i class="bi bi-clock-history me-2"></i>{{ 'escritorio.jornada_tenant.titulo'|trans }}
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'escritorio.justificativas_tab.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div id="jornadaLoadingMsg" class="text-center py-4">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Carregando configurações...</p>
+                    <p class="mt-2 text-muted">{{ 'escritorio.jornada_tenant.carregando'|trans }}</p>
                 </div>
                 <div id="jornadaFormContainer" class="d-none">
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Carga horária semanal</label>
+                            <label class="form-label fw-semibold">{{ 'escritorio.jornada_colab.carga_semanal'|trans }}</label>
                             <input type="text" id="jornadaCargaSemanal" class="form-control" placeholder="40:00" maxlength="5">
-                            <div class="form-text">Formato HH:MM (ex.: 40:00 para 40 horas)</div>
+                            <div class="form-text">{{ 'escritorio.jornada_colab.carga_ajuda'|trans }}</div>
                         </div>
                         <div class="col-md-6 d-flex align-items-center">
                             <div class="form-check mt-4">
                                 <input class="form-check-input" type="checkbox" id="jornadaAlertaHabilitado">
                                 <label class="form-check-label" for="jornadaAlertaHabilitado">
-                                    Habilitar alertas de ponto
+                                    {{ 'escritorio.jornada_colab.alertas'|trans }}
                                 </label>
                             </div>
                         </div>
                     </div>
 
                     <hr class="my-3">
-                    <h6 class="mb-3">Validações de ponto</h6>
+                    <h6 class="mb-3">{{ 'escritorio.jornada_tenant.validacoes'|trans }}</h6>
 
                     <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="jornadaValidacaoRepousoHabilitada">
                             <label class="form-check-label fw-semibold" for="jornadaValidacaoRepousoHabilitada">
-                                Validar intervalo mínimo de repouso
+                                {{ 'escritorio.jornada_tenant.validar_repouso'|trans }}
                             </label>
                         </div>
                         <div class="ms-4 mt-2" id="jornadaRepousoConfig">
                             <div class="d-flex align-items-center gap-2">
-                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoMinutosRepouso">Tempo mínimo:</label>
+                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoMinutosRepouso">{{ 'escritorio.jornada_tenant.tempo_minimo'|trans }}</label>
                                 <input type="number" id="jornadaMinimoMinutosRepouso" class="form-control form-control-sm" style="width:90px" min="1" max="480" value="60">
-                                <span class="text-muted small">minutos</span>
+                                <span class="text-muted small">{{ 'escritorio.jornada_tenant.minutos'|trans }}</span>
                             </div>
                         </div>
                     </div>
@@ -52,14 +52,14 @@
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="jornadaValidacaoInterjornadaHabilitada">
                             <label class="form-check-label fw-semibold" for="jornadaValidacaoInterjornadaHabilitada">
-                                Validar interjornada mínima entre saída e próxima entrada
+                                {{ 'escritorio.jornada_tenant.validar_interjornada'|trans }}
                             </label>
                         </div>
                         <div class="ms-4 mt-2" id="jornadaInterjornadaConfig">
                             <div class="d-flex align-items-center gap-2">
-                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoHorasInterjornada">Tempo mínimo:</label>
+                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoHorasInterjornada">{{ 'escritorio.jornada_tenant.tempo_minimo'|trans }}</label>
                                 <input type="number" id="jornadaMinimoHorasInterjornada" class="form-control form-control-sm" style="width:90px" min="1" max="24" value="11" step="0.5">
-                                <span class="text-muted small">horas</span>
+                                <span class="text-muted small">{{ 'escritorio.jornada_tenant.horas'|trans }}</span>
                             </div>
                         </div>
                     </div>
@@ -67,16 +67,16 @@
                     <hr class="mb-3">
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Blocos de horário</h6>
+                        <h6 class="mb-0">{{ 'escritorio.jornada_colab.blocos'|trans }}</h6>
                         <button type="button" class="bjp-btn bjp-btn--secundario" id="btnAdicionarBloco">
-                            <i class="bi bi-plus-lg"></i>Adicionar bloco
+                            <i class="bi bi-plus-lg"></i>{{ 'escritorio.jornada_colab.adicionar_bloco'|trans }}
                         </button>
                     </div>
 
                     <div id="jornadaBlocos"></div>
 
                     <div class="mt-3 p-3 rounded border bg-body-tertiary d-flex justify-content-between align-items-center">
-                        <span class="fw-semibold">Total acumulado:</span>
+                        <span class="fw-semibold">{{ 'escritorio.jornada_colab.total'|trans }}</span>
                         <span id="jornadaTotalAcumulado" class="fw-bold fs-5">00:00 / 00:00</span>
                     </div>
 
@@ -84,9 +84,9 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                 <button type="button" class="bjp-btn bjp-btn--primario" id="btnSalvarJornada" disabled>
-                    <i class="bi bi-save"></i>Salvar Jornada
+                    <i class="bi bi-save"></i>{{ 'escritorio.jornada_colab.salvar'|trans }}
                 </button>
             </div>
         </div>
@@ -98,69 +98,70 @@
     <div class="bjp-painel bloco-jornada mb-3" data-bloco-idx="">
         <div class="bjp-painel-corpo pb-2">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <span class="fw-semibold text-muted small">Bloco <span class="bloco-num"></span></span>
+                <span class="fw-semibold text-muted small">{{ 'escritorio.jornada_colab.bloco'|trans }} <span class="bloco-num"></span></span>
                 <button type="button" class="bjp-ico bjp-btn--destrutivo btn-remover-bloco">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
             <div class="mb-3">
-                <label class="form-label small fw-semibold">Dias da semana</label>
+                <label class="form-label small fw-semibold">{{ 'escritorio.jornada_colab.dias_semana'|trans }}</label>
                 <div class="d-flex flex-wrap gap-2 bloco-dias">
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="1">
-                        <label class="form-check-label small">Seg</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_seg'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="2">
-                        <label class="form-check-label small">Ter</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_ter'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="3">
-                        <label class="form-check-label small">Qua</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_qua'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="4">
-                        <label class="form-check-label small">Qui</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_qui'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="5">
-                        <label class="form-check-label small">Sex</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_sex'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="6">
-                        <label class="form-check-label small">Sáb</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_sab'|trans }}</label>
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input dia-check" type="checkbox" value="7">
-                        <label class="form-check-label small">Dom</label>
+                        <label class="form-check-label small">{{ 'escritorio.jornada_colab.dia_dom'|trans }}</label>
                     </div>
                 </div>
             </div>
             <div class="row g-2">
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Entrada</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.entrada'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-entrada" required>
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Repouso</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.repouso'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-repouso">
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Retorno</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.retorno'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-retorno">
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label small">Saída</label>
+                    <label class="form-label small">{{ 'escritorio.jornada_colab.saida'|trans }}</label>
                     <input type="time" class="form-control form-control-sm bloco-saida" required>
                 </div>
             </div>
             <div class="mt-2 text-end text-muted small">
-                Carga do bloco: <span class="bloco-carga-display fw-semibold">0:00</span>/dia
+                {{ 'escritorio.jornada_colab.carga_bloco'|trans }} <span class="bloco-carga-display fw-semibold">0:00</span>{{ 'escritorio.jornada_colab.por_dia'|trans }}
             </div>
         </div>
     </div>
 </template>
 
+{{ catalogo_js('escritorio.jornada_colab.js', 'escritorio.jornada_tenant.js') }}
 <script>
 (function () {
     'use strict';
@@ -304,7 +305,7 @@
         const container = document.getElementById('jornadaBlocos');
         const totalBlocos = container.querySelectorAll('.bloco-jornada').length;
         if (totalBlocos >= 7) {
-            alert('Máximo de 7 blocos de jornada.');
+            alert(BJ_T.t('escritorio.jornada_colab.js.max_blocos'));
             return;
         }
         const el = criarBlocoEl(dados || null);
@@ -349,7 +350,8 @@
             atualizarAcumulador();
         } catch (err) {
             document.getElementById('jornadaLoadingMsg').innerHTML =
-                '<p class="text-danger">Erro ao carregar configurações. Tente novamente.</p>';
+                '<p class="text-danger"></p>';
+            document.querySelector('#jornadaLoadingMsg p').textContent = BJ_T.t('escritorio.jornada_tenant.js.erro_carregar');
         }
     });
 
@@ -375,7 +377,7 @@
         });
 
         this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + BJ_T.t('escritorio.jornada_colab.js.salvando');
 
         try {
             const resp = await fetch(urlBase, {
@@ -395,17 +397,17 @@
             const result = await resp.json();
 
             if (!resp.ok) {
-                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.textContent = result.erro || BJ_T.t('escritorio.jornada_colab.js.erro_salvar');
                 erroEl.classList.remove('d-none');
             } else {
                 bootstrap.Modal.getInstance(modalEl).hide();
             }
         } catch (err) {
-            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.textContent = BJ_T.t('escritorio.jornada_colab.js.falha_servidor');
             erroEl.classList.remove('d-none');
         } finally {
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Jornada';
+            this.innerHTML = '<i class="bi bi-save me-1"></i>' + BJ_T.t('escritorio.jornada_colab.js.salvar');
             atualizarAcumulador();
         }
     });

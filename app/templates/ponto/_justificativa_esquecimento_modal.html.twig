@@ -11,7 +11,7 @@
     Recebe `competenciaSelecionada` e `abaAberta` (a aba para onde a janela volta).
 #}
 <div class="pe-janela-fundo" id="ponto-janela-esquecimento" hidden>
-    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="Registro de esquecimento"
+    <form class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_pendencias.justificativa.esquecimento.titulo'|trans }}"
           method="post" action="{{ path('ponto_justificativa_nova') }}" data-janela-form="esquecimento" novalidate>
         <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
         <input type="hidden" name="justificativa_ponto[tipo]" value="esquecimento_registro">
@@ -22,24 +22,24 @@
         <input type="hidden" name="aba" value="{{ abaAberta|default('pendencias') }}" data-aba-da-volta>
 
         <div class="pe-janela-topo">
-            <i class="bi bi-plus-circle" aria-hidden="true"></i><b class="pe-janela-titulo">Registro de esquecimento</b>
-            <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <i class="bi bi-plus-circle" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_pendencias.justificativa.esquecimento.titulo'|trans }}</b>
+            <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_pendencias.justificativa.form.fechar'|trans }}" data-janela-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
 
         <div class="pe-janela-corpo">
             <div class="pe-janela-info" id="esquecimentoResumo" data-janela-info></div>
-            <label class="pe-janela-rotulo">Horário
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.horario'|trans }}
                 <input type="time" step="1" name="justificativa_ponto[horaRegistroEsquecido]" id="esquecimentoHora" class="pe-janela-entrada">
             </label>
-            <label class="pe-janela-rotulo">Motivo
+            <label class="pe-janela-rotulo">{{ 'ponto_pendencias.justificativa.form.motivo'|trans }}
                 <textarea name="justificativa_ponto[motivo]" rows="3" maxlength="{{ constant('App\\Ponto\\Form\\JustificativaPontoType::MOTIVO_MAXIMO') }}" class="pe-janela-campo" data-janela-motivo></textarea>
             </label>
         </div>
 
         <div class="pe-janela-erro" data-janela-erro hidden></div>
         <div class="pe-janela-rodape">
-            <button type="button" class="pe-janela-cancelar" data-janela-fechar>Cancelar</button>
-            <button type="submit" class="pe-janela-acao" data-janela-enviar>Enviar</button>
+            <button type="button" class="pe-janela-cancelar" data-janela-fechar>{{ 'ponto_pendencias.justificativa.cancelar'|trans }}</button>
+            <button type="submit" class="pe-janela-acao" data-janela-enviar>{{ 'ponto_pendencias.justificativa.form.enviar'|trans }}</button>
         </div>
     </form>
 </div>
@@ -64,7 +64,7 @@
         url.searchParams.delete('esquecimento');
         window.history.replaceState(null, '', url.toString());
         if (alvo) { alvo.scrollIntoView({ block: 'center' }); alvo.click(); return; }
-        if (window.bjAviso) { window.bjAviso('Não há pedido de esquecimento a fazer para ' + formatarData(pedido[1]) + ': confira a folha abaixo.'); }
+        if (window.bjAviso) { window.bjAviso({{ 'ponto_pendencias.justificativa.esquecimento.sem_pedido'|trans({data: '__DATA__'})|json_encode|raw }}.replace('__DATA__', formatarData(pedido[1]))); }
     }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', abrirPedidoDoLink); } else { abrirPedidoDoLink(); }
 }());

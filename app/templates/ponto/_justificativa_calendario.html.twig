@@ -10,7 +10,7 @@
 <input type="hidden" name="{{ campoDatas }}" id="{{ p }}-datas">
 
 <div class="mb-3">
-    <label class="form-label fw-semibold">Selecione os dias da ausência</label>
+    <label class="form-label fw-semibold">{{ 'ponto_pendencias.justificativa.calendario.selecione_dias'|trans }}</label>
     <div class="d-flex align-items-center gap-2 mb-2">
         <button type="button" class="bjp-ico bjp-btn--secundario" id="{{ p }}-cal-prev">
             <i class="bi bi-chevron-left"></i>
@@ -22,7 +22,7 @@
     </div>
     <div id="{{ p }}-calendar" class="border rounded p-2"></div>
     <div class="mt-2 small text-muted">
-        Dias selecionados: <span id="{{ p }}-cal-selected-label" class="fw-semibold text-dark">nenhum</span>
+        {{ 'ponto_pendencias.justificativa.form.dias_selecionados'|trans }} <span id="{{ p }}-cal-selected-label" class="fw-semibold text-dark">{{ 'ponto_pendencias.justificativa.form.nenhum'|trans }}</span>
     </div>
 </div>
 
@@ -90,8 +90,9 @@
     let viewMes = hoje.getMonth();
     const selectedDates = new Set();
 
-    const meses      = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const meses      = {{ ['ponto_pendencias.justificativa.calendario.m1'|trans, 'ponto_pendencias.justificativa.calendario.m2'|trans, 'ponto_pendencias.justificativa.calendario.m3'|trans, 'ponto_pendencias.justificativa.calendario.m4'|trans, 'ponto_pendencias.justificativa.calendario.m5'|trans, 'ponto_pendencias.justificativa.calendario.m6'|trans, 'ponto_pendencias.justificativa.calendario.m7'|trans, 'ponto_pendencias.justificativa.calendario.m8'|trans, 'ponto_pendencias.justificativa.calendario.m9'|trans, 'ponto_pendencias.justificativa.calendario.m10'|trans, 'ponto_pendencias.justificativa.calendario.m11'|trans, 'ponto_pendencias.justificativa.calendario.m12'|trans]|json_encode|raw }};
+    const diasSemana = {{ ['ponto_pendencias.justificativa.calendario.d0'|trans, 'ponto_pendencias.justificativa.calendario.d1'|trans, 'ponto_pendencias.justificativa.calendario.d2'|trans, 'ponto_pendencias.justificativa.calendario.d3'|trans, 'ponto_pendencias.justificativa.calendario.d4'|trans, 'ponto_pendencias.justificativa.calendario.d5'|trans, 'ponto_pendencias.justificativa.calendario.d6'|trans]|json_encode|raw }};
+    const textoNenhum = {{ 'ponto_pendencias.justificativa.form.nenhum'|trans|json_encode|raw }};
 
     function toYMD(d) {
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -154,7 +155,7 @@
     function updateHiddenInput() {
         const sorted = Array.from(selectedDates).sort();
         hiddenInput.value = sorted.join(',');
-        calSelectedLabel.textContent = sorted.length === 0 ? 'nenhum' : sorted.map(formatDisplay).join(', ');
+        calSelectedLabel.textContent = sorted.length === 0 ? textoNenhum : sorted.map(formatDisplay).join(', ');
     }
 
     document.getElementById('{{ p }}-cal-prev').addEventListener('click', function() {
@@ -176,7 +177,7 @@
         viewMes = hoje.getMonth();
         selectedDates.clear();
         hiddenInput.value = '';
-        calSelectedLabel.textContent = 'nenhum';
+        calSelectedLabel.textContent = textoNenhum;
         renderCalendar();
     });
 

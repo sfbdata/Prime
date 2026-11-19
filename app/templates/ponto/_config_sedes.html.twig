@@ -12,15 +12,15 @@
 #}
 <section class="pe-sf-secao" aria-labelledby="ponto-sedes-titulo" data-pc-sedes data-pc-sede-url-criar="{{ path('ponto_configuracoes_sede_criar') }}">
     <div class="pe-sedes-cabeca">
-        <b class="pe-sedes-titulo" id="ponto-sedes-titulo">Sedes e raio de registro</b>
+        <b class="pe-sedes-titulo" id="ponto-sedes-titulo">{{ 'ponto_config.sedes.titulo'|trans }}</b>
         {# E12 (P74, desenho L253): a caixa "Permitir trabalho externo", entre o título e os botões. #}
         {{ include('ponto/_config_trabalho_externo.html.twig') }}
-        <a class="pe-sf-contorno" href="{{ path('app_tenant_sedes', {tenantId: tenantIdDoPonto}) }}"><i class="bi bi-geo-alt" aria-hidden="true"></i>Mapa e busca por endereço</a>
-        <button type="button" class="pe-sf-contorno" data-pc-sede-adicionar><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar sede</button>
+        <a class="pe-sf-contorno" href="{{ path('app_tenant_sedes', {tenantId: tenantIdDoPonto}) }}"><i class="bi bi-geo-alt" aria-hidden="true"></i>{{ 'ponto_config.sedes.mapa'|trans }}</a>
+        <button type="button" class="pe-sf-contorno" data-pc-sede-adicionar><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'ponto_config.sedes.adicionar'|trans }}</button>
     </div>
     <div class="pe-sedes-rolagem">
         <table class="pe-tab pe-sedes-tab">
-            <thead><tr><th>Sede</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th></th></tr></thead>
+            <thead><tr><th>{{ 'ponto_config.sedes.col_sede'|trans }}</th><th>{{ 'ponto_config.sede_linha.latitude'|trans }}</th><th>{{ 'ponto_config.sede_linha.longitude'|trans }}</th><th>{{ 'ponto_config.sedes.col_raio'|trans }}</th><th></th></tr></thead>
             <tbody data-pc-sedes-corpo>
                 {% for sede in sedesDoPonto %}
                     {{ include('ponto/_config_sede_linha.html.twig', {sede: sede}) }}
@@ -31,20 +31,21 @@
     <template data-pc-sede-modelo>{{ include('ponto/_config_sede_linha.html.twig', {sede: null}) }}</template>
 
     <div class="pe-janela-fundo" id="ponto-janela-remover-sede" hidden data-pc-sf-janela>
-        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="Remover sede">
+        <div class="pe-janela" role="dialog" aria-modal="true" aria-label="{{ 'ponto_config.sede_linha.remover'|trans }}">
             <div class="pe-janela-topo">
-                <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">Remover sede</b>
-                <button type="button" class="pe-janela-fechar" aria-label="Fechar" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <i class="bi bi-trash3" aria-hidden="true"></i><b class="pe-janela-titulo">{{ 'ponto_config.sede_linha.remover'|trans }}</b>
+                <button type="button" class="pe-janela-fechar" aria-label="{{ 'ponto_config.feriados.fechar'|trans }}" data-pc-sf-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             <div class="pe-janela-corpo">
                 <div class="pe-janela-info" data-pc-sf-info></div>
-                <div class="pe-janela-texto">A sede sai da lista e deixa de valer para registrar o ponto. As batidas feitas nela continuam na folha, com o nome da sede guardado. Não é possível desfazer.</div>
+                <div class="pe-janela-texto">{{ 'ponto_config.sedes.remover_texto'|trans }}</div>
             </div>
             <div class="pe-janela-erro" data-pc-sf-erro hidden></div>
             <div class="pe-janela-rodape">
-                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>Cancelar</button>
-                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="sede">Remover</button>
+                <button type="button" class="pe-janela-cancelar" data-pc-sf-fechar>{{ 'ponto_config.feriados.cancelar'|trans }}</button>
+                <button type="button" class="pe-janela-acao" data-pc-sf-confirmar="sede">{{ 'ponto_config.feriados.remover'|trans }}</button>
             </div>
         </div>
     </div>
+    {{ catalogo_js('ponto_config.js') }}
 </section>

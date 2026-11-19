@@ -14,7 +14,7 @@
 #}
 {% if funcoesDoPonto|default(null) %}
     <div class="pe-config-externo" data-config-externo data-url="{{ path('ponto_configuracao_trabalho_externo') }}">
-        <label class="pe-config-externo-marca"><input type="checkbox" data-config-externo-caixa{{ permite_trabalho_externo|default(false) ? ' checked' }}>Permitir trabalho externo, com motivo e análise</label>
+        <label class="pe-config-externo-marca"><input type="checkbox" data-config-externo-caixa{{ permite_trabalho_externo|default(false) ? ' checked' }}>{{ 'ponto_config.externo.permitir'|trans }}</label>
         <span class="pe-config-externo-erro" role="alert" data-config-externo-erro hidden></span>
     </div>
 {% endif %}

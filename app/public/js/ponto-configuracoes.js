@@ -29,7 +29,8 @@
 
     // Sem resposta até aqui, a gravação desiste e avisa (a tela não tem `fetch` sem prazo).
     const GRAVAR_PRAZO_MS = 15000;
-    const TEXTO_FALHA = 'Não foi possível salvar agora. Tente de novo.';
+    // Texto pelo catálogo do idioma (BJ_T), lido na hora do uso: o script carrega antes do catálogo da página.
+    const TEXTO_FALHA = function () { return BJ_T.t('ponto_config.js.falha_salvar'); };
 
     function elemento(alvo, seletor) {
         return alvo instanceof Element ? alvo.closest(seletor) : null;
@@ -91,12 +92,12 @@
                 dados = null;
             }
             if (!resposta.ok || !dados) {
-                return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA, dados: dados };
+                return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA(), dados: dados };
             }
 
             return { ok: true, dados: dados };
         } catch (erro) {
-            return { ok: false, erro: TEXTO_FALHA };
+            return { ok: false, erro: TEXTO_FALHA() };
         } finally {
             clearTimeout(prazo);
         }
@@ -136,7 +137,7 @@
         const ativo = resultado.dados.ativo === true;
         botao.setAttribute('aria-checked', ativo ? 'true' : 'false');
         desenharEscritorio(linha, ativo);
-        const aviso = (linha.dataset.titulo || '') + (ativo ? ' liberado para todos os escritórios.' : ' desativado para todos os escritórios.');
+        const aviso = (linha.dataset.titulo || '') + ' ' + (ativo ? BJ_T.t('ponto_config.js.liberado') : BJ_T.t('ponto_config.js.desativado'));
         if (window.PontoAvisoFlutuante) {
             window.PontoAvisoFlutuante.mostrar(aviso, 'ok');
         } else if (window.bjAviso) {

@@ -23,19 +23,19 @@
     "Recusar". Sem o campo (antes da E12), como sempre.
 #}
 {% if justificativas is empty %}
-    <div class="pe-abas-vazio">Nenhuma justificativa enviada nesta competência.</div>
+    <div class="pe-abas-vazio">{{ 'ponto_pendencias.justificativa.lista.vazia'|trans }}</div>
 {% else %}
     {% import 'ponto/_justificativa_macros.html.twig' as jm %}
     <div class="pe-abas-rolagem">
         <table class="pe-tab pe-just-tab">
             <thead>
                 <tr>
-                    <th>Data(s)</th>
-                    <th>Tipo</th>
-                    <th>Status</th>
-                    <th>Atestado</th>
-                    <th>Obs. da Análise</th>
-                    <th>Analisado em</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_datas'|trans }}</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_tipo'|trans }}</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_status'|trans }}</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_atestado'|trans }}</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_obs'|trans }}</th>
+                    <th>{{ 'ponto_pendencias.justificativa.lista.col_analisado'|trans }}</th>
                     <th></th>
                 </tr>
             </thead>
@@ -44,13 +44,13 @@
                     {% set sub = jm.subtitulo(j) %}
                     {% set info %}{{ j.data|date('d/m/Y') }}{% if j.labelTipo %} · {{ j.labelTipo }}{% endif %}{% if sub %} · {{ sub }}{% endif %}{% endset %}
                     {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
-                        {% set selo = ['nao-abonada', 'bi-x-circle', 'Não abonado'] %}
+                        {% set selo = ['nao-abonada', 'bi-x-circle', 'ponto_pendencias.justificativa.lista.nao_abonado'|trans] %}
                     {% elseif j.status == 'abonado' %}
-                        {% set selo = ['abonada', 'bi-check-circle', 'Abonado'] %}
+                        {% set selo = ['abonada', 'bi-check-circle', 'ponto_pendencias.justificativa.lista.abonado'|trans] %}
                     {% elseif j.status == 'pendente' %}
-                        {% set selo = ['analise', 'bi-hourglass-split', 'Em análise'] %}
+                        {% set selo = ['analise', 'bi-hourglass-split', 'ponto_pendencias.justificativa.abas.em_analise'|trans] %}
                     {% else %}
-                        {% set selo = ['recusada', 'bi-x-circle', 'Recusado'] %}
+                        {% set selo = ['recusada', 'bi-x-circle', 'ponto_pendencias.justificativa.abas.recusado'|trans] %}
                     {% endif %}
                     <tr class="pe-just-lin" data-justificativa="{{ j.id }}">
                         <td><span class="pe-just-data">{{ j.data|date('d/m/Y') }}</span></td>
@@ -64,36 +64,36 @@
                         <td><span class="pe-just pe-just--{{ selo[0] }}"><i class="bi {{ selo[1] }}" aria-hidden="true"></i>{{ selo[2] }}</span></td>
                         <td class="pe-just-cel">
                             {%- if j.anexoPath -%}
-                                <a class="pe-just-anexo" href="{{ path('ponto_justificativa_anexo', {id: j.id}) }}" target="_blank" rel="noopener"><i class="bi bi-paperclip" aria-hidden="true"></i>Ver</a>
+                                <a class="pe-just-anexo" href="{{ path('ponto_justificativa_anexo', {id: j.id}) }}" target="_blank" rel="noopener"><i class="bi bi-paperclip" aria-hidden="true"></i>{{ 'ponto_pendencias.justificativa.lista.ver'|trans }}</a>
                             {%- else -%}
-                                Sem anexo
+                                {{ 'ponto_pendencias.justificativa.lista.sem_anexo'|trans }}
                             {%- endif -%}
                         </td>
-                        <td class="pe-just-cel">{{ j.status == 'pendente' ? 'Aguardando análise' : (j.observacaoAnalise ?: 'Não informado') }}</td>
+                        <td class="pe-just-cel">{{ j.status == 'pendente' ? 'ponto_pendencias.justificativa.abas.aguardando'|trans : (j.observacaoAnalise ?: 'ponto_pendencias.justificativa.lista.nao_informado'|trans) }}</td>
                         <td class="pe-just-cel">{{ j.dataAnalise ? j.dataAnalise|date('d/m/Y') : '' }}</td>
                         <td class="pe-just-acoes">
                             {%- if j.status != 'pendente' -%}
-                                <span class="pe-just-trava" data-justificativa-bloqueada aria-label="Análise concluída" title="Análise concluída: não pode ser alterada."><i class="bi bi-lock" aria-hidden="true"></i></span>
+                                <span class="pe-just-trava" data-justificativa-bloqueada aria-label="{{ 'ponto_pendencias.justificativa.abas.concluida'|trans }}" title="{{ 'ponto_pendencias.justificativa.abas.concluida_dica'|trans }}"><i class="bi bi-lock" aria-hidden="true"></i></span>
                             {%- else -%}
                                 {%- if podeAnalisarAPropria -%}
                                     <span class="pe-just-analise">
                                         <button type="button" class="pe-just-btn pe-just-btn--abonar" data-analisar="abonar" data-info="{{ info }}"
                                                 data-url="{{ path('app_tenant_user_justificativa_aprovar', {tenantId: j.tenant.id, id: j.user.id, justificativaId: j.id}) }}"
-                                                data-token="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">Abonar</button>
+                                                data-token="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">{{ 'ponto_pendencias.justificativa.janelas.abonar'|trans }}</button>
                                         <button type="button" class="pe-just-btn pe-just-btn--recusar" data-analisar="recusar" data-info="{{ info }}"
                                                 data-url="{{ path('app_tenant_user_justificativa_rejeitar', {tenantId: j.tenant.id, id: j.user.id, justificativaId: j.id}) }}"
-                                                data-token="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">Recusar</button>
+                                                data-token="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">{{ 'ponto_pendencias.justificativa.abas.recusar'|trans }}</button>
                                     </span>
                                 {%- endif -%}
                                 {%- if j.registroPonto is defined and j.registroPonto is not null -%}
                                     {%- if not podeAnalisarAPropria -%}
-                                        <span class="pe-just-segue" data-justificativa-da-batida>Segue para a análise do gestor.</span>
+                                        <span class="pe-just-segue" data-justificativa-da-batida>{{ 'ponto_pendencias.justificativa.lista.segue'|trans }}</span>
                                     {%- endif -%}
                                 {%- else -%}
                                 {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa). #}
                                 <button type="button" class="pe-just-icone pe-just-icone--editar"
-                                        title="Editar justificativa"
-                                        aria-label="Editar justificativa"
+                                        title="{{ 'ponto_pendencias.justificativa.lista.editar'|trans }}"
+                                        aria-label="{{ 'ponto_pendencias.justificativa.lista.editar'|trans }}"
                                         data-id="{{ j.id }}"
                                         data-tipo="{{ j.tipo }}"
                                         data-abono-parcial="{{ j.abonoParcial ? '1' : '0' }}"
@@ -111,7 +111,7 @@
                                     <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </button>
                                 {%- if j.id not in justificativasComAjuste|default([]) -%}
-                                <button type="button" class="pe-just-icone" aria-label="Excluir justificativa" title="Excluir enquanto não analisada"
+                                <button type="button" class="pe-just-icone" aria-label="{{ 'ponto_pendencias.justificativa.janelas.excluir_titulo'|trans }}" title="{{ 'ponto_pendencias.justificativa.abas.excluir_dica'|trans }}"
                                         data-excluir-url="{{ path('ponto_justificativa_excluir', {id: j.id}) }}" data-info="{{ info }}">
                                     <i class="bi bi-trash3" aria-hidden="true"></i>
                                 </button>

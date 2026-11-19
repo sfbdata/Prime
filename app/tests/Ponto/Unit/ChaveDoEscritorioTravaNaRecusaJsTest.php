@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -27,10 +28,12 @@ final class ChaveDoEscritorioTravaNaRecusaJsTest extends TestCase
         $js = (string) file_get_contents(self::JS);
 
         self::assertStringContainsString(
-            "return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA, dados: dados };",
+            "return { ok: false, erro: dados && typeof dados.erro === 'string' ? dados.erro : TEXTO_FALHA(), dados: dados };",
             $js,
             'o corpo da recusa chega a quem chamou',
         );
+        self::assertStringContainsString("BJ_T.t('ponto_config.js.falha_salvar')", $js, 'o texto da falha vem do catálogo');
+        self::assertSame('Não foi possível salvar agora. Tente de novo.', CatalogoPtBr::carregar()['ponto_config']['js']['falha_salvar'], 'o português continua o mesmo');
         self::assertMatchesRegularExpression(
             '/if \(resultado\.ok === false && resultado\.dados && resultado\.dados\.global === false\) \{\s*travarPeloGlobal\(linha\);\s*return;\s*\}\s*if \(!resultado\.ok\) \{\s*mostrarErro\(linha, resultado\.erro\);/',
             $js,

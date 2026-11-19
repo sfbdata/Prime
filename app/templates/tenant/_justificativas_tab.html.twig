@@ -1,11 +1,11 @@
 <div class="bjp-painel mb-3">
     <div class="bjp-painel-cabeca d-flex align-items-center justify-content-between">
-        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta: {{ user.fullName }}</h3>
+        <h3 class="bjp-painel-titulo mb-0"><i class="bi bi-calendar-x me-2"></i>{{ 'escritorio.justificativas_tab.titulo'|trans({nome: user.fullName}) }}</h3>
         {# P43 a: `podeAnalisar` é a decisão do servidor (AnaliseDaPropriaJustificativa). Na própria, quem gere pelo
            perfil e não é primário nem Master não abona, não recusa, não volta para análise nem lança para si. #}
         {% if podeAnalisar %}
         <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
-            <i class="bi bi-plus-circle"></i>Justificar Falta
+            <i class="bi bi-plus-circle"></i>{{ 'escritorio.justificativas_tab.justificar'|trans }}
         </button>
         {% endif %}
     </div>
@@ -14,7 +14,7 @@
     {% endif %}
     <div class="bjp-painel-corpo p-0">
         {% if justificativas is empty %}
-            <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada por este usuário.</p>
+            <p class="text-muted small p-3 mb-0">{{ 'escritorio.justificativas_tab.vazia'|trans }}</p>
         {% else %}
             {# Agrupar por batchId. A chave leva o prefixo "lote_": um batchId só de dígitos que cabe num inteiro viraria
                chave numérica, e o merge do Twig a renumeraria (batches[batchKey] sumiria). O batchKey só vai para os ids
@@ -53,11 +53,11 @@
                                         {% endfor %}
                                     </span>
                                     {% if hasAnyPendente and qtdPendente < batch|length %}
-                                        <span class="bjp-etiqueta bjp-etiqueta--info ms-auto"><i class="bi bi-hourglass-split me-1"></i>Análise parcial</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--info ms-auto"><i class="bi bi-hourglass-split me-1"></i>{{ 'escritorio.justificativas_tab.analise_parcial'|trans }}</span>
                                     {% elseif primeiraJust.status == 'abonado' and primeiraJust.tipo == 'falta_nao_justificada' %}
-                                        <span class="bjp-etiqueta bjp-etiqueta--critico ms-auto"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--critico ms-auto"><i class="bi bi-x-circle me-1"></i>{{ 'escritorio.justificativas_tab.nao_abonado'|trans }}</span>
                                     {% elseif primeiraJust.status == 'abonado' %}
-                                        <span class="bjp-etiqueta bjp-etiqueta--ok ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
+                                        <span class="bjp-etiqueta bjp-etiqueta--ok ms-auto"><i class="bi bi-check-circle me-1"></i>{{ 'escritorio.justificativas_tab.abonado'|trans }}</span>
                                     {% elseif primeiraJust.status == 'pendente' %}
                                         <span class="bjp-etiqueta bjp-etiqueta--atencao ms-auto"><i class="bi bi-hourglass-split me-1"></i>{{ nome_da_situacao('situacao.pendente') }}</span>
                                     {% else %}
@@ -70,18 +70,18 @@
                              data-bs-parent="#accordionJustificativas">
                             <div class="accordion-body">
                                 <dl class="row mb-3">
-                                    <dt class="col-sm-3">Tipo</dt>
+                                    <dt class="col-sm-3">{{ 'escritorio.justificativas_tab.tipo'|trans }}</dt>
                                     <dd class="col-sm-9">
                                         {% if primeiraJust.labelTipo %}
                                             <span class="bjp-etiqueta bjp-etiqueta--info">{{ primeiraJust.labelTipo }}</span>
                                         {% else %}
-                                            <span class="text-muted">Não informado</span>
+                                            <span class="text-muted">{{ 'escritorio.justificativas_tab.nao_informado'|trans }}</span>
                                         {% endif %}
                                         {% if primeiraJust.abonoParcial %}
-                                            <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">Abono Parcial</span>
+                                            <span class="bjp-etiqueta bjp-etiqueta--neutro ms-1">{{ 'escritorio.justificativas_tab.abono_parcial'|trans }}</span>
                                             {% if primeiraJust.horaInicioAbono and primeiraJust.horaFimAbono %}
                                                 <span class="small text-muted ms-1">
-                                                    {{ primeiraJust.horaInicioAbono|date('H:i') }} às {{ primeiraJust.horaFimAbono|date('H:i') }}
+                                                    {{ 'escritorio.justificativas_tab.intervalo'|trans({inicio: primeiraJust.horaInicioAbono|date('H:i'), fim: primeiraJust.horaFimAbono|date('H:i')}) }}
                                                     ({{ primeiraJust.minutosAbonados // 60 }}h{{ '%02d'|format(primeiraJust.minutosAbonados % 60) }}m)
                                                 </span>
                                             {% endif %}
@@ -89,32 +89,32 @@
                                     </dd>
 
                                     {% if primeiraJust.tipo == 'esquecimento_registro' and primeiraJust.tipoRegistroEsquecido %}
-                                        <dt class="col-sm-3">Registro esquecido</dt>
+                                        <dt class="col-sm-3">{{ 'escritorio.justificativas_tab.registro_esquecido'|trans }}</dt>
                                         <dd class="col-sm-9">
                                             <span class="bjp-etiqueta bjp-etiqueta--atencao">
-                                                {{ {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'}[primeiraJust.tipoRegistroEsquecido] ?? primeiraJust.tipoRegistroEsquecido }}
+                                                {{ {'entrada': 'escritorio.justificativas_tab.batida_entrada'|trans, 'repouso': 'escritorio.justificativas_tab.batida_repouso'|trans, 'retorno': 'escritorio.justificativas_tab.batida_retorno'|trans, 'saida': 'escritorio.justificativas_tab.batida_saida'|trans}[primeiraJust.tipoRegistroEsquecido] ?? primeiraJust.tipoRegistroEsquecido }}
                                             </span>
                                             {% if primeiraJust.horaRegistroEsquecido %}
-                                                às {{ primeiraJust.horaRegistroEsquecido|date('H:i') }}
+                                                {{ 'escritorio.justificativas_tab.as_hora'|trans({hora: primeiraJust.horaRegistroEsquecido|date('H:i')}) }}
                                             {% endif %}
                                         </dd>
                                     {% endif %}
 
                                     {# Ponto E4: o motivo que o colaborador escreveu na janela da /ponto (as de antes e as do gestor não têm). #}
                                     {% if primeiraJust.motivo is not empty %}
-                                        <dt class="col-sm-3">Motivo</dt>
+                                        <dt class="col-sm-3">{{ 'escritorio.justificativas_tab.motivo'|trans }}</dt>
                                         <dd class="col-sm-9" style="white-space: pre-line;">{{ primeiraJust.motivo }}</dd>
                                     {% endif %}
 
-                                    <dt class="col-sm-3">Atestado</dt>
+                                    <dt class="col-sm-3">{{ 'escritorio.justificativas_tab.atestado'|trans }}</dt>
                                     <dd class="col-sm-9">
                                         {% if primeiraJust.anexoPath %}
                                             <a href="{{ path('app_tenant_user_justificativa_anexo', {tenantId: tenantId, id: user.id, justificativaId: primeiraJust.id}) }}"
                                                target="_blank" class="bjp-btn bjp-btn--secundario">
-                                                <i class="bi bi-paperclip"></i>Visualizar atestado
+                                                <i class="bi bi-paperclip"></i>{{ 'escritorio.justificativas_tab.ver_atestado'|trans }}
                                             </a>
                                         {% else %}
-                                            <span class="text-muted">Sem atestado</span>
+                                            <span class="text-muted">{{ 'escritorio.justificativas_tab.sem_atestado'|trans }}</span>
                                         {% endif %}
                                     </dd>
                                 </dl>
@@ -124,10 +124,10 @@
                                     <form method="post"
                                           action="{{ path('app_tenant_user_justificativa_aprovar_todos', {tenantId: tenantId, id: user.id, batchId: primeiraJust.batchId}) }}"
                                           class="mb-3"
-                                          onsubmit="return confirm('Aprovar todos os {{ qtdPendente }} dias pendentes deste lote?')">
+                                          onsubmit="return confirm('{{ 'escritorio.justificativas_tab.aprovar_todos_confirmar'|trans({qtd: qtdPendente})|e('js') }}')">
                                         <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_todos_' ~ primeiraJust.batchId) }}">
                                         <button type="submit" class="bjp-btn bjp-btn--sucesso">
-                                            <i class="bi bi-check-all"></i>Aprovar Todos ({{ qtdPendente }} dias pendentes)
+                                            <i class="bi bi-check-all"></i>{{ 'escritorio.justificativas_tab.aprovar_todos'|trans({qtd: qtdPendente}) }}
                                         </button>
                                     </form>
                                 {% endif %}
@@ -140,9 +140,9 @@
                                             {% if j.status == 'pendente' %}
                                                 <span class="bjp-etiqueta bjp-etiqueta--atencao">{{ nome_da_situacao('situacao.pendente') }}</span>
                                             {% elseif j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
-                                                <span class="bjp-etiqueta bjp-etiqueta--critico">Não abonado</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--critico">{{ 'escritorio.justificativas_tab.nao_abonado'|trans }}</span>
                                             {% elseif j.status == 'abonado' %}
-                                                <span class="bjp-etiqueta bjp-etiqueta--ok">Abonado</span>
+                                                <span class="bjp-etiqueta bjp-etiqueta--ok">{{ 'escritorio.justificativas_tab.abonado'|trans }}</span>
                                             {% else %}
                                                 <span class="bjp-etiqueta bjp-etiqueta--critico">{{ nome_da_situacao('situacao.rejeitado') }}</span>
                                             {% endif %}
@@ -157,10 +157,10 @@
                                                       class="d-flex gap-2 align-items-center">
                                                     <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
-                                                           style="max-width: 220px" placeholder="Obs. abono (opcional)">
+                                                           style="max-width: 220px" placeholder="{{ 'escritorio.justificativas_tab.obs_abono'|trans }}">
                                                     <button type="submit" class="bjp-btn bjp-btn--sucesso"
-                                                            onclick="return confirm('Abonar justificativa de {{ j.data|date('d/m/Y') }}?')">
-                                                        <i class="bi bi-check-lg"></i>Abonar
+                                                            onclick="return confirm('{{ 'escritorio.justificativas_tab.abonar_confirmar'|trans({data: j.data|date('d/m/Y')})|e('js') }}')">
+                                                        <i class="bi bi-check-lg"></i>{{ 'escritorio.justificativas_tab.abonar'|trans }}
                                                     </button>
                                                 </form>
 
@@ -186,8 +186,8 @@
                                             {% endif %}
                                         {% else %}
                                             <div class="small text-muted mb-2">
-                                                Analisado por {{ j.analisadoPor ? j.analisadoPor.fullName : 'usuário não informado' }}
-                                                {% if j.dataAnalise %} em {{ j.dataAnalise|date('d/m/Y') }}{% endif %}
+                                                {{ 'escritorio.justificativas_tab.analisado_por'|trans({nome: j.analisadoPor ? j.analisadoPor.fullName : 'escritorio.justificativas_tab.usuario_nao_informado'|trans}) }}
+                                                {% if j.dataAnalise %} {{ 'escritorio.justificativas_tab.em_data'|trans({data: j.dataAnalise|date('d/m/Y')}) }}{% endif %}
                                                 {% if j.observacaoAnalise %}: {{ j.observacaoAnalise }}{% endif %}
                                             </div>
                                             {# Reverter para pendente. Nomes das situações pelo ponto único do P40 (NomesDasSituacoesDaJustificativa). #}
@@ -223,9 +223,9 @@
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalAdminNovaJustificativaLabel">
-                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta: {{ user.fullName }}
+                        <i class="bi bi-calendar-x me-2"></i>{{ 'escritorio.justificativas_tab.justificar_titulo'|trans({nome: user.fullName}) }}
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'escritorio.justificativas_tab.fechar'|trans }}"></button>
                 </div>
 
                 <div class="modal-body">
@@ -239,14 +239,14 @@
                         nomePrefixo: '',
                         idModal: 'modalAdminNovaJustificativa',
                         tiposJustificativa: tiposJustificativa,
-                        textoInfoAdicional: 'Justificativas lançadas pelo administrador são aprovadas automaticamente.'
+                        textoInfoAdicional: 'escritorio.justificativas_tab.info_admin'|trans
                     } only %}
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="bjp-btn bjp-btn--secundario" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                     <button type="submit" class="bjp-btn bjp-btn--secundario">
-                        <i class="bi bi-send"></i>Lançar Justificativa
+                        <i class="bi bi-send"></i>{{ 'escritorio.justificativas_tab.lancar'|trans }}
                     </button>
                 </div>
             </form>

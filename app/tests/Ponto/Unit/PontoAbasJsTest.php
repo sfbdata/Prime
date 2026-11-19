@@ -100,7 +100,8 @@ final class PontoAbasJsTest extends TestCase
         self::assertStringContainsString("const textoSemJustificativas = function () { return BJ_T.t('ponto_cartao.js.abas.sem_justificativas'); };", $js);
         $frase = self::ptBr('ponto_cartao.js.abas.sem_justificativas');
         $twig = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/_abas_justificativas.html.twig');
-        self::assertStringContainsString('<div class="pe-abas-vazio">' . $frase . '</div>', $twig, 'a mesma frase e o mesmo molde do servidor');
+        self::assertStringContainsString("<div class=\"pe-abas-vazio\">{{ 'ponto_pendencias.justificativa.lista.vazia'|trans }}</div>", $twig, 'o mesmo molde do servidor, com a frase do catálogo');
+        self::assertSame($frase, self::ptBr('ponto_pendencias.justificativa.lista.vazia'), 'a mesma frase do servidor');
         foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, $proibido);
         }

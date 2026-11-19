@@ -15,10 +15,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\GeradorDePdf;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
-/** Calcula e devolve o demonstrativo em PDF (conteúdo e nome do arquivo). Nada é gravado. */
+/**
+ * Calcula e devolve o demonstrativo em PDF (conteúdo e nome do arquivo). Nada é gravado.
+ * O demonstrativo vai para processo no Brasil: sai sempre em português, qualquer que seja o idioma de quem pede.
+ */
 final class GerarPdfDoCalculoUseCase
 {
     public function __construct(
@@ -31,17 +35,25 @@ final class GerarPdfDoCalculoUseCase
         private readonly TranslatorInterface $tradutor,
         private readonly GeradorDePdf $logos,
         private readonly CalculoEmitidoRepository $emitidos,
+        private readonly LocaleSwitcher $idiomaDoDocumento,
     ) {
     }
 
     /** @return ErroDoCalculo|array{conteudo: string, nome: string} */
     public function executar(CalculoInput $in, User $usuario, Tenant $tenant): ErroDoCalculo|array
     {
+        // O erro de validação volta para a tela, no idioma de quem pede; só o documento sai em português.
         $resultado = $this->calcular->executar($in);
         if ($resultado instanceof ErroDoCalculo) {
             return $resultado;
         }
 
+        return $this->idiomaDoDocumento->runWithLocale('pt_BR', fn (): array => $this->gerarEmPortugues($in, $resultado, $usuario, $tenant));
+    }
+
+    /** @return array{conteudo: string, nome: string} */
+    private function gerarEmPortugues(CalculoInput $in, ResultadoDoCalculo $resultado, User $usuario, Tenant $tenant): array
+    {
         $agora = $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'));
         $codigo = $this->codigoNovo();
         $t = fn (string $chave, array $p = []): string => $this->tradutor->trans('calculo.pdf.' . $chave, $p);
