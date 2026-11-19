@@ -66,6 +66,20 @@ final class PaginaDeEntrada
         return $this->escolhidoEntre($this->opcoesDeDestinatario());
     }
 
+    /**
+     * Se `$user` é o destinatário do suporte. Vai no menu de toda página: só monta as opções (consultas da equipe
+     * do Master) quando o ajuste aponta para essa pessoa.
+     */
+    public function ehDestinatarioDoSuporte(User $user): bool
+    {
+        $id = $this->ajustes->find(AjusteEntrada::SUPORTE_DESTINATARIO)?->getValor();
+        if ($id === null || $user->getId() === null || $id !== (string) $user->getId()) {
+            return false;
+        }
+
+        return $this->destinatarioDoSuporte()?->getId() === $user->getId();
+    }
+
     /** @param array<int, array{nome: string, cargo: string}> $opcoes */
     private function escolhidoEntre(array $opcoes): ?User
     {

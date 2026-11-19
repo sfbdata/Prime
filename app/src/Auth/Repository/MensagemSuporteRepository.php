@@ -28,6 +28,16 @@ class MensagemSuporteRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Mensagens ainda sem resposta: o contador do item "Suporte" do menu. */
+    public function contarPendentes(): int
+    {
+        return (int) $this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->andWhere('m.respondidaEm IS NULL')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function salvar(MensagemSuporte $mensagem, bool $flush = false): void
     {
         $this->getEntityManager()->persist($mensagem);

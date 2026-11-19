@@ -455,6 +455,129 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         self::assertNotContains($escolhida->getId(), array_column($pagina->destinatarios, 'id'));
     }
 
+    // ------------------------------------------------- menu e resposta (F1, F2)
+
+    #[TestDox('Menu: o Master vê o item "Suporte" na seção ADMIN com o número de pendentes')]
+    public function testMenuDoMasterMostraSuporteComPendentes(): void
+    {
+        $this->soEstasMensagens(['a@adv.com', 'b@adv.com']);
+        $this->entrarComo($this->master());
+
+        $crawler = $this->client->request('GET', '/suporte/mensagens');
+
+        $item = $crawler->filter('.pje-menu-item > a.pje-menu-link[href="/suporte/mensagens"]');
+        self::assertCount(1, $item);
+        self::assertStringContainsString('Suporte', $item->text());
+        self::assertSame('2', trim($item->filter('.pje-menu-contador')->text()));
+        self::assertStringContainsString('active', (string) $item->attr('class'));
+    }
+
+    #[TestDox('Menu: o destinatário do suporte também vê o item')]
+    public function testMenuDoDestinatarioMostraSuporte(): void
+    {
+        $this->soEstasMensagens(['a@adv.com']);
+        $escolhida = $this->naEquipeDoMaster($this->master(), 'Carla Escolhida');
+        $this->escolherDestinatario($escolhida);
+        $this->entrarComo($escolhida);
+
+        $crawler = $this->client->request('GET', '/suporte/mensagens');
+
+        self::assertSame('1', trim($crawler->filter('a.pje-menu-link[href="/suporte/mensagens"] .pje-menu-contador')->text()));
+        // Sem permissão admin, a seção ADMIN aparece só com o item "Suporte".
+        self::assertCount(0, $crawler->filter('a.pje-menu-link[href="/servicedesk"]'));
+        self::assertCount(1, $crawler->filter('.pje-menu-separator'));
+    }
+
+    #[TestDox('Resposta: o destinatário do suporte também marca a mensagem como respondida')]
+    public function testDestinatarioMarcaResposta(): void
+    {
+        [$id] = $this->soEstasMensagens(['a@adv.com']);
+        $escolhida = $this->naEquipeDoMaster($this->master(), 'Carla Escolhida');
+        $this->escolherDestinatario($escolhida);
+        $this->entrarComo($escolhida);
+
+        $this->client->request('POST', '/suporte/mensagens/' . $id . '/resposta', ['_token' => 'TOKEN_suporte_resposta_' . $id, 'respondida' => '1']);
+
+        self::assertResponseRedirects('/suporte/mensagens', 303);
+        self::assertNotNull($this->respondidaEm($id));
+    }
+
+    #[TestDox('Menu: outro usuário não vê o item "Suporte"')]
+    public function testMenuDoComumNaoMostraSuporte(): void
+    {
+        $this->entrarComo($this->pessoa('Carla Comum'));
+
+        $crawler = $this->client->request('GET', '/novidades');
+
+        self::assertCount(0, $crawler->filter('a.pje-menu-link[href="/suporte/mensagens"]'));
+    }
+
+    #[TestDox('Responder por e-mail marca a mensagem como respondida; Desfazer volta para pendente')]
+    public function testMarcarEDesfazerResposta(): void
+    {
+        [$id] = $this->soEstasMensagens(['a@adv.com', 'b@adv.com']);
+        $this->entrarComo($this->master());
+        $crawler = $this->client->request('GET', '/suporte/mensagens');
+        $responder = $crawler->filter('a[data-suporte-marcar="/suporte/mensagens/' . $id . '/resposta"]');
+        self::assertCount(1, $responder);
+
+        $this->client->request('POST', '/suporte/mensagens/' . $id . '/resposta', ['_token' => 'TOKEN_suporte_resposta_' . $id, 'respondida' => '1']);
+
+        self::assertResponseRedirects('/suporte/mensagens', 303);
+        self::assertNotNull($this->respondidaEm($id));
+        $crawler = $this->client->followRedirect();
+        self::assertSame('1', trim($crawler->filter('a.pje-menu-link[href="/suporte/mensagens"] .pje-menu-contador')->text()));
+        self::assertCount(0, $crawler->filter('a[data-suporte-marcar="/suporte/mensagens/' . $id . '/resposta"]'));
+        self::assertCount(1, $crawler->filter('form[action="/suporte/mensagens/' . $id . '/resposta"] input[name="respondida"][value="0"]'));
+        self::assertStringContainsString('Respondida em', (string) $crawler->filter('form[action="/suporte/mensagens/' . $id . '/resposta"]')->closest('td.suporte-situacao')?->text());
+
+        $this->client->request('POST', '/suporte/mensagens/' . $id . '/resposta', ['_token' => 'TOKEN_suporte_resposta_' . $id, 'respondida' => '0']);
+
+        self::assertNull($this->respondidaEm($id));
+    }
+
+    #[TestDox('Resposta: outro usuário recebe 404 e CSRF errado não grava')]
+    public function testRespostaSoParaQuemLeEComCsrf(): void
+    {
+        [$id] = $this->soEstasMensagens(['a@adv.com']);
+        $this->entrarComo($this->pessoa('Carla Comum'));
+        $this->client->request('POST', '/suporte/mensagens/' . $id . '/resposta', ['_token' => 'TOKEN_suporte_resposta_' . $id, 'respondida' => '1']);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->entrarComo($this->master());
+        $this->client->request('POST', '/suporte/mensagens/' . $id . '/resposta', ['_token' => 'errado', 'respondida' => '1']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertNull($this->respondidaEm($id));
+    }
+
+    /**
+     * Apaga as mensagens que houver e grava uma por e-mail, todas pendentes.
+     *
+     * @param list<string> $emails
+     *
+     * @return list<int> ids, na ordem dos e-mails
+     */
+    private function soEstasMensagens(array $emails): array
+    {
+        $this->em()->getConnection()->executeStatement('DELETE FROM mensagem_suporte');
+        $ids = [];
+        foreach ($emails as $email) {
+            $mensagem = new MensagemSuporte('Cliente', $email, null, 'Mensagem longa o bastante.', '1.2.3.4');
+            $this->em()->persist($mensagem);
+            $this->em()->flush();
+            $ids[] = (int) $mensagem->getId();
+        }
+
+        return $ids;
+    }
+
+    private function respondidaEm(int $id): ?string
+    {
+        $valor = $this->em()->getConnection()->fetchOne('SELECT respondida_em FROM mensagem_suporte WHERE id = :id', ['id' => $id]);
+
+        return \is_string($valor) ? $valor : null;
+    }
+
     #[TestDox('/suporte/mensagens: outro usuário recebe 404')]
     public function testComumNaoVeAsMensagens(): void
     {

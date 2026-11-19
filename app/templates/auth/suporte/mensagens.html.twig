@@ -28,6 +28,7 @@
                                 <th>{{ 'auth.suporte.assunto'|trans }}</th>
                                 <th>{{ 'auth.suporte.mensagem'|trans }}</th>
                                 <th>{{ 'auth.suporte.origem'|trans }}</th>
+                                <th>{{ 'auth.suporte.situacao'|trans }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -35,10 +36,22 @@
                                 <tr>
                                     <td class="text-nowrap">{{ m.criadaEm|data_hora }}</td>
                                     <td>{{ m.nome is empty ? 'auth.suporte.sem_nome'|trans : m.nome }}</td>
-                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="bjp-btn bjp-btn--secundario mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ ('auth.suporte.assunto_do_email'|trans)|url_encode }}"><i class="bi bi-reply"></i> {{ 'auth.suporte.responder'|trans }}</a></td>
+                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="bjp-btn bjp-btn--secundario mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ ('auth.suporte.assunto_do_email'|trans)|url_encode }}"{% if m.respondidaEm is null %} data-suporte-marcar="{{ path('auth_suporte_resposta', {id: m.id}) }}" data-suporte-token="{{ csrf_token('suporte_resposta_' ~ m.id) }}"{% endif %}><i class="bi bi-reply"></i> {{ 'auth.suporte.responder'|trans }}</a></td>
                                     <td>{{ m.assunto ?? 'auth.suporte.sem_assunto'|trans }}</td>
                                     <td>{{ m.mensagem|nl2br }}</td>
                                     <td>{{ m.origem == 'login' ? 'auth.suporte.origem_login'|trans : m.origem }}</td>
+                                    <td class="text-nowrap suporte-situacao">
+                                        {% if m.respondidaEm is null %}
+                                            <span class="suporte-pendente">{{ 'auth.suporte.pendente'|trans }}</span>
+                                        {% else %}
+                                            <span class="suporte-respondida">{{ 'auth.suporte.respondida_em'|trans({data: m.respondidaEm|data_hora}) }}</span>
+                                            <form method="post" action="{{ path('auth_suporte_resposta', {id: m.id}) }}" class="mt-1">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('suporte_resposta_' ~ m.id) }}">
+                                                <input type="hidden" name="respondida" value="0">
+                                                <button type="submit" class="bjp-btn bjp-btn--discreto"><i class="bi bi-arrow-counterclockwise"></i> {{ 'auth.suporte.desfazer'|trans }}</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -48,4 +61,9 @@
         {% endif %}
     </div>
 </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/suporte-mensagens.js') }}" defer></script>
 {% endblock %}

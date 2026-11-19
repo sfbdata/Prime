@@ -25,6 +25,10 @@ class MensagemSuporte
     #[ORM\Column]
     private ?int $id = null;
 
+    /** Quando foi respondida (ao clicar em "Responder por e-mail" na lista). Nula = pendente, conta no menu. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $respondidaEm = null;
+
     public function __construct(
         #[ORM\Column(length: 120)]
         private string $nome,
@@ -96,5 +100,21 @@ class MensagemSuporte
     public function getCriadaEm(): \DateTimeImmutable
     {
         return $this->criadaEm;
+    }
+
+    public function getRespondidaEm(): ?\DateTimeImmutable
+    {
+        return $this->respondidaEm;
+    }
+
+    /** Marcar de novo não troca a data da primeira resposta. */
+    public function marcarRespondida(\DateTimeImmutable $quando): void
+    {
+        $this->respondidaEm ??= $quando;
+    }
+
+    public function desfazerResposta(): void
+    {
+        $this->respondidaEm = null;
     }
 }

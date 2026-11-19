@@ -16,6 +16,8 @@ final class MensagemSuporteItem
         public readonly ?string $assunto,
         public readonly string $mensagem,
         public readonly string $origem,
+        public readonly int $id = 0,
+        public readonly ?\DateTimeImmutable $respondidaEm = null,
     ) {
     }
 
@@ -28,6 +30,8 @@ final class MensagemSuporteItem
             assunto: $mensagem->getAssunto(),
             mensagem: $mensagem->getMensagem(),
             origem: $mensagem->getOrigem(),
+            id: (int) $mensagem->getId(),
+            respondidaEm: $mensagem->getRespondidaEm(),
         );
     }
 }

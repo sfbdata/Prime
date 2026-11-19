@@ -33,8 +33,10 @@ final class ExpedienteQueriesDaPaginaTest extends JusPrimeWebTestCase
      * Teto medido em 06/11/2026 neste cenário, já com as contagens EXPEDIENTES numa consulta (#679): subir exige motivo.
      * +1 em 19/11/2026 (#829): a aba da campanha BlueJus Black lê a campanha vigente uma vez por tela (memorizada na
      * requisição); desligada, não há outra consulta. Zerar pediria cache entre requisições, com risco de valor velho.
+     * +1 em 19/11/2026 (#852): o item "Suporte" do menu lê o ajuste do destinatário do suporte (uma busca pela chave
+     * primária) para saber se a pessoa o vê. Guardar entre requisições deixaria valer uma escolha já trocada pelo Master.
      */
-    private const TETO = ['primario' => 31, 'colaborador' => 27];
+    private const TETO = ['primario' => 32, 'colaborador' => 28];
 
     /** @return iterable<string, array{string}> */
     public static function personas(): iterable

@@ -77,6 +77,8 @@ moldura:
         perfis: Roles
         solicitacoes_acesso: Access Requests
         service_desk_ti: Service Desk (IT)
+        suporte: Support
+        suporte_pendentes: '{n, plural, one {# pending message} other {# pending messages}}'
         sedes_ponto: Offices (Time Clock)
         feriados_folgas: Holidays and Days Off
         bluejus_ia: BlueJus AI
