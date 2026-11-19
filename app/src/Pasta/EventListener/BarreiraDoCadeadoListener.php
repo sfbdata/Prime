@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Pasta\Service\EscopoDePastas;
+use App\Pasta\Service\NivelNoCadeado;
+use App\Pasta\Service\TrilhaDoAcessoRestrito;
+use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
@@ -54,7 +59,9 @@ final class BarreiraDoCadeadoListener
      *    `expediente_pasta_destaque` (destaque de linha na Lista);
      *  - leituras por POST: `pasta_documentos_zip` (baixar o que se vê; a seleção vai no corpo) e
      *    `inteligencia_analise_registro` (grava só a linha de auditoria de baixar ou imprimir a análise);
-     *  - o pedido: `pasta_acesso_pedir` ("Pedir para editar"; a mesma rota serve à Lista e à busca).
+     *  - o pedido: `pasta_acesso_pedir` ("Pedir para editar"; a mesma rota serve à Lista e à busca);
+     *  - `pasta_compartilhamento_encerrar`: "Deixar de colaborar" de quem recebeu a pasta só para ver (quem pode
+     *    encerrar o use case decide).
      *
      * Ficam de FORA (recusadas): `pasta_push_lida` e `inteligencia_analise_lida`/`_nao_lida`, que marcam
      * para o escritório inteiro (lida por quem, quando), não para a pessoa.
@@ -70,6 +77,7 @@ final class BarreiraDoCadeadoListener
         'pasta_documentos_zip',
         'inteligencia_analise_registro',
         'pasta_acesso_pedir',
+        'pasta_compartilhamento_encerrar',
     ];
 
     /**
@@ -89,6 +97,26 @@ final class BarreiraDoCadeadoListener
 
     public const MENSAGEM_VISUALIZAR = 'Somente visualização: o usuário primário trancou esta pasta.';
 
+    /**
+     * Pasta compartilhada com quem tem acesso restrito (spec acesso-restrito-e-compartilhar §4.4): "Baixar documentos"
+     * e "Enviar documentos" valem por rota. "Abrir e movimentar" é o teto `Visualizar` do `NivelNoCadeado`; o envio
+     * passa por cima dele só quando o cadeado deixaria editar.
+     *
+     * @var list<string>
+     */
+    public const ROTAS_DE_BAIXAR = ['pasta_documento_download', 'pasta_documentos_zip', 'pasta_financeiro_documento_download'];
+
+    /** @var list<string> */
+    public const ROTAS_DE_ENVIAR = [
+        'pasta_peticionar_upload',
+        'pasta_peticionar_upload_drive',
+        'pasta_peticionar_upload_imagem',
+        'pasta_peticionar_texto',
+        'pasta_financeiro_upload',
+    ];
+
+    public const MENSAGEM_COMPARTILHAMENTO = 'O compartilhamento desta pasta não permite esta ação.';
+
     private const METODOS_DE_LEITURA = ['GET', 'HEAD', 'OPTIONS'];
 
     public function __construct(
@@ -97,6 +125,9 @@ final class BarreiraDoCadeadoListener
         private readonly Security $security,
         private readonly RequestStack $requestStack,
         private readonly RouterInterface $router,
+        private readonly ?EscopoDePastas $escopoDePastas = null,
+        private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+        private readonly ?TrilhaDoAcessoRestrito $trilha = null,
     ) {
     }
 
@@ -112,16 +143,103 @@ final class BarreiraDoCadeadoListener
         if ($pasta === null || !$user instanceof User) {
             return;
         }
+        $tenant = $this->tenantDoRestrito($user, $pasta);
+        try {
+            $resposta = $this->recusaPara($user, $pasta, $request);
+        } catch (NotFoundHttpException $foraDoEscopo) {
+            $this->anotarNaTrilha($tenant, $user, $request, $pasta, negado: true);
 
-        $nivel = $this->acessoAPasta->nivel($user, $pasta);
-        if (!$this->recusa($nivel, $request)) {
+            throw $foraDoEscopo;
+        }
+        $this->anotarNaTrilha($tenant, $user, $request, $pasta, negado: $resposta !== null);
+        if ($resposta === null) {
             return;
         }
 
         // Curto-circuito: troca o controller por quem só devolve a recusa, com os argumentos zerados.
-        $resposta = $this->resposta($request, $pasta, $nivel);
         $event->setController(static fn (): Response => $resposta);
         $event->setArguments([]);
+    }
+
+    /**
+     * A recusa da barreira para esta rota, ou `null` quando ela passa. Pasta fora do escopo do restrito é 404 em toda
+     * rota (spec acesso-restrito-e-compartilhar §5.1), inclusive a tela e o pedido de acesso: não confirma que a pasta
+     * existe nem oferece pedir.
+     */
+    private function recusaPara(User $user, Pasta $pasta, Request $request): ?Response
+    {
+        if ($this->escopoDePastas?->pastaForaDoEscopo($user, $pasta) === true) {
+            throw new NotFoundHttpException('Pasta não encontrada.');
+        }
+        $peloCompartilhamento = $this->decisaoDoCompartilhamento($user, $pasta, (string) $request->attributes->get('_route'));
+        if ($peloCompartilhamento === true) {
+            return null;
+        }
+        $nivel = $this->acessoAPasta->nivel($user, $pasta);
+        if ($peloCompartilhamento === null && !$this->recusa($nivel, $request)) {
+            return null;
+        }
+        $limitaPeloCompartilhamento = $peloCompartilhamento === false || $this->soOCompartilhamentoLimita($user, $pasta, $nivel);
+
+        return $this->resposta($request, $pasta, $nivel, $limitaPeloCompartilhamento ? self::MENSAGEM_COMPARTILHAMENTO : null);
+    }
+
+    /** Regra 7: a recusa sempre; a passagem só quando abre a pasta (a tela, o download ou o ZIP). */
+    private function anotarNaTrilha(?Tenant $tenant, User $user, Request $request, Pasta $pasta, bool $negado): void
+    {
+        if ($tenant === null || $this->trilha === null) {
+            return;
+        }
+        if ($negado) {
+            $this->trilha->negado($user, $tenant, $request, Pasta::class, (int) $pasta->getId());
+
+            return;
+        }
+        if (TrilhaDoAcessoRestrito::contaComoLeitura($request)) {
+            $this->trilha->leitura($user, $tenant, $request, Pasta::class, (int) $pasta->getId());
+        }
+    }
+
+    /** O escritório da pasta quando quem pede tem o perfil restrito nele (a trilha da regra 7); senão, `null`. */
+    private function tenantDoRestrito(User $user, Pasta $pasta): ?Tenant
+    {
+        $tenant = $pasta->getTenant();
+        if ($this->trilha === null || $tenant === null || $this->escopoDePastas?->ehRestritoNoEscritorio($user, $tenant) !== true) {
+            return null;
+        }
+
+        return $tenant;
+    }
+
+    /**
+     * `false` recusa pelo compartilhamento; `true` libera o envio (caixa marcada e o cadeado deixaria editar); `null`
+     * segue a regra do cadeado. Só para o restrito que vê a pasta pelo compartilhamento.
+     */
+    private function decisaoDoCompartilhamento(User $user, Pasta $pasta, string $rota): ?bool
+    {
+        $baixar = in_array($rota, self::ROTAS_DE_BAIXAR, true);
+        $enviar = in_array($rota, self::ROTAS_DE_ENVIAR, true);
+        $compartilhamento = $baixar || $enviar ? $this->escopoDePastas?->compartilhamentoQueDaAcesso($user, $pasta) : null;
+        if ($compartilhamento === null) {
+            return null;
+        }
+        $permissoes = $compartilhamento->permissoes();
+        if ($baixar) {
+            return $permissoes->baixarDocumentos ? null : false;
+        }
+        if (!$permissoes->enviarDocumentos) {
+            return false;
+        }
+
+        return $this->nivelNoCadeado?->nivelSoDoCadeado($user, $pasta) === NivelDeAcesso::Editar ? true : null;
+    }
+
+    /** O `Visualizar` veio do compartilhamento sem "Abrir e movimentar", não do cadeado: a recusa diz isso. */
+    private function soOCompartilhamentoLimita(User $user, Pasta $pasta, NivelDeAcesso $nivel): bool
+    {
+        return $nivel === NivelDeAcesso::Visualizar
+            && $this->nivelNoCadeado?->nivelSoDoCadeado($user, $pasta) === NivelDeAcesso::Editar
+            && $this->escopoDePastas?->compartilhamentoQueDaAcesso($user, $pasta) !== null;
     }
 
     private function pastaDoEscritorio(ControllerArgumentsEvent $event): ?Pasta
@@ -155,9 +273,9 @@ final class BarreiraDoCadeadoListener
      * 403 para a navegação por GET (documento em aba nova, Peticionar); e, num formulário comum, volta para
      * a pasta com o aviso (a tela trancada, para quem está `Oculto`).
      */
-    private function resposta(Request $request, Pasta $pasta, NivelDeAcesso $nivel): Response
+    private function resposta(Request $request, Pasta $pasta, NivelDeAcesso $nivel, ?string $mensagem = null): Response
     {
-        $mensagem = $nivel === NivelDeAcesso::Oculto ? self::MENSAGEM_OCULTO : self::MENSAGEM_VISUALIZAR;
+        $mensagem ??= $nivel === NivelDeAcesso::Oculto ? self::MENSAGEM_OCULTO : self::MENSAGEM_VISUALIZAR;
         if ($request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept'), 'json')) {
             return new JsonResponse(['status' => 'erro', 'erro' => $mensagem, 'mensagem' => $mensagem], Response::HTTP_FORBIDDEN);
         }

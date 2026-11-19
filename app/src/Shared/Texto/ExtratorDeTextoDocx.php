@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\ChatIa\Service;
+namespace App\Shared\Texto;
 
-use App\ChatIa\Exception\AnexoDoChatInvalidoException;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 
 /**
- * Extrai o TEXTO de um DOCX (Chat I.A, spec chat-pagina-inteira decisão 6): `word/document.xml` do ZIP, só parágrafos,
+ * Extrai o TEXTO de um DOCX (Chat I.A, spec chat-pagina-inteira decisão 6, e conector de I.A., spec mcp-remoto-oauth 6.5): `word/document.xml` do ZIP, só parágrafos,
  * tabulações e quebras; nada de estilo, imagem, macro, cabeçalho ou comentário.
  *
  * Defesas, nesta ordem:
@@ -31,11 +30,11 @@ final class ExtratorDeTextoDocx
 
     private const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
-    /** @throws AnexoDoChatInvalidoException */
+    /** @throws ArquivoSemTextoException */
     public function extrair(string $bytes): string
     {
         if (!str_starts_with($bytes, "PK\x03\x04")) {
-            throw new AnexoDoChatInvalidoException('O arquivo não é um DOCX válido.');
+            throw new ArquivoSemTextoException('O arquivo não é um DOCX válido.');
         }
 
         $area = AreaTemporariaPrivada::criar('chatiadocx');
@@ -52,7 +51,7 @@ final class ExtratorDeTextoDocx
     {
         $zip = new \ZipArchive();
         if ($zip->open($caminho, \ZipArchive::RDONLY) !== true) {
-            throw new AnexoDoChatInvalidoException('O arquivo não é um DOCX válido.');
+            throw new ArquivoSemTextoException('O arquivo não é um DOCX válido.');
         }
 
         try {
@@ -66,7 +65,7 @@ final class ExtratorDeTextoDocx
             $zip->close();
         }
         if (!\is_string($xml) || $xml === '' || \strlen($xml) > self::TAMANHO_MAXIMO_DESCOMPACTADO) {
-            throw new AnexoDoChatInvalidoException('O arquivo é grande demais depois de aberto ou não tem texto.');
+            throw new ArquivoSemTextoException('O arquivo é grande demais depois de aberto ou não tem texto.');
         }
 
         return $xml;
@@ -77,26 +76,26 @@ final class ExtratorDeTextoDocx
         if ($zip->numFiles > self::MAXIMO_DE_ENTRADAS
             || $zip->locateName('[Content_Types].xml') === false
             || $zip->locateName('word/document.xml') === false) {
-            throw new AnexoDoChatInvalidoException('O arquivo não é um DOCX válido.');
+            throw new ArquivoSemTextoException('O arquivo não é um DOCX válido.');
         }
         $declarado = $zip->statName('word/document.xml');
         $tamanho = \is_array($declarado) ? (int) $declarado['size'] : 0;
         if ($tamanho > self::TAMANHO_MAXIMO_DESCOMPACTADO || $tamanho > max(1, $tamanhoDoZip) * self::RAZAO_MAXIMA_DE_COMPRESSAO) {
-            throw new AnexoDoChatInvalidoException('O arquivo é grande demais depois de aberto.');
+            throw new ArquivoSemTextoException('O arquivo é grande demais depois de aberto.');
         }
     }
 
     private function textoDo(string $xml): string
     {
         if (preg_match('/<!(DOCTYPE|ENTITY)/i', $xml) === 1) {
-            throw new AnexoDoChatInvalidoException('O arquivo não é um DOCX válido.');
+            throw new ArquivoSemTextoException('O arquivo não é um DOCX válido.');
         }
 
         $leitor = new \XMLReader();
         $anterior = libxml_use_internal_errors(true);
         try {
             if (!$leitor->XML($xml, null, LIBXML_NONET | LIBXML_NOCDATA)) {
-                throw new AnexoDoChatInvalidoException('O arquivo não é um DOCX válido.');
+                throw new ArquivoSemTextoException('O arquivo não é um DOCX válido.');
             }
             $texto = $this->percorrer($leitor);
         } finally {
@@ -145,7 +144,7 @@ final class ExtratorDeTextoDocx
             return mb_substr($texto, 0, self::MAXIMO_DE_CARACTERES) . self::AVISO_DE_CORTE;
         }
         if ($texto === '') {
-            throw new AnexoDoChatInvalidoException('O DOCX não tem texto para ler.');
+            throw new ArquivoSemTextoException('O DOCX não tem texto para ler.');
         }
 
         return $texto;

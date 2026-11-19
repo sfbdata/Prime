@@ -92,8 +92,12 @@ final class EnviarMensagemPastaUseCase
      * @param PastaMensagem|null $respostaA o registro que esta mensagem responde. Tem de ser da
      *        MESMA pasta e do MESMO escritório — o id veio do navegador, então a posse é conferida
      *        aqui. Responder a uma resposta liga à RAIZ dela: a conversa tem um nível só.
+     * @param bool $autorDeOutraConta quem escreve é de OUTRA conta, pela pasta recebida (spec acesso-restrito-e-compartilhar
+     *        §4.5.1, fatia 9b): menção não existe para ele. Depois do sanitizador (que converte `&commat;` e `&#x40;` em
+     *        `&#64;`, forma que o padrão aceita), todo token vira `@rótulo` puro, sem resolver nem avisar ninguém: nenhum
+     *        token fica gravado, senão a tela da conta da pasta desenharia uma menção falsa a um colega. Não responde.
      */
-    public function executar(Pasta $pasta, User $autor, string $conteudo, Tenant $tenant, ?PastaMensagem $respostaA = null): PastaMensagem
+    public function executar(Pasta $pasta, User $autor, string $conteudo, Tenant $tenant, ?PastaMensagem $respostaA = null, bool $autorDeOutraConta = false): PastaMensagem
     {
         // A pasta tem de ser DESTE escritório: a mensagem nasce com o tenant da sessão, e gravá-la
         // numa pasta alheia misturaria os dois escritórios. O controller já responde 404 antes;
@@ -111,23 +115,11 @@ final class EnviarMensagemPastaUseCase
             throw new \InvalidArgumentException('Conteúdo inválido: deve ter entre 1 e 5000 caracteres.');
         }
 
-        $raiz = null;
-        if ($respostaA !== null) {
-            $raiz = $respostaA->getRespostaA() ?? $respostaA;
+        $raiz = $this->raizRespondida($respostaA, $pasta, $tenant, $autorDeOutraConta);
 
-            // A raiz também é conferida: barato, e não depende de o vínculo antigo estar são.
-            foreach ([$respostaA, $raiz] as $alvo) {
-                if (!self::mesmo($alvo->getTenant(), $tenant) || !self::mesmo($alvo->getPasta(), $pasta)) {
-                    throw new \InvalidArgumentException('Só é possível responder a um registro desta pasta.');
-                }
-            }
-            // Cartão do sistema (andamento, prazo) não se responde (E12b).
-            if ($raiz->isDoSistema()) {
-                throw new \InvalidArgumentException('Registros automáticos do sistema não podem ser respondidos.');
-            }
-        }
-
-        [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
+        [$conteudo, $mencionados] = $autorDeOutraConta
+            ? [$this->mencoes->semMarcacao($conteudo), []]
+            : $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
         $mensagem = new PastaMensagem();
         $mensagem->setPasta($pasta);
@@ -162,6 +154,34 @@ final class EnviarMensagemPastaUseCase
         $this->avisarQuemAcompanha($mensagem, $pasta, $tenant, $jaAvisados);
 
         return $mensagem;
+    }
+
+    /**
+     * A raiz da conversa que a mensagem responde (responder a uma resposta liga à raiz), com a posse conferida: mesma
+     * pasta e mesmo escritório, nos dois. Quem é de outra conta não responde.
+     */
+    private function raizRespondida(?PastaMensagem $respostaA, Pasta $pasta, Tenant $tenant, bool $autorDeOutraConta): ?PastaMensagem
+    {
+        if ($respostaA === null) {
+            return null;
+        }
+        if ($autorDeOutraConta) {
+            throw new \InvalidArgumentException('Quem colabora pela pasta recebida não responde a registro.');
+        }
+        $raiz = $respostaA->getRespostaA() ?? $respostaA;
+
+        // A raiz também é conferida: barato, e não depende de o vínculo antigo estar são.
+        foreach ([$respostaA, $raiz] as $alvo) {
+            if (!self::mesmo($alvo->getTenant(), $tenant) || !self::mesmo($alvo->getPasta(), $pasta)) {
+                throw new \InvalidArgumentException('Só é possível responder a um registro desta pasta.');
+            }
+        }
+        // Cartão do sistema (andamento, prazo) não se responde (E12b).
+        if ($raiz->isDoSistema()) {
+            throw new \InvalidArgumentException('Registros automáticos do sistema não podem ser respondidos.');
+        }
+
+        return $raiz;
     }
 
     /**

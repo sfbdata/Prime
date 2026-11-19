@@ -8,6 +8,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\ResultadoDaRemocao;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -27,6 +29,10 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * Não duplica a lógica: delega a {@see PurgarLixeiraUseCase::purgarSelecao()}, o mesmo laço da
  * purga agendada. Com o espelho R2 ligado o arquivo sai de lá pelo decorador do armazenamento.
+ *
+ * Dois caminhos, com as mesmas conferências: {@see executar()} (a tela) confirma cada lote e já remove os arquivos;
+ * {@see excluirDoBanco()} (o conector de I.A., dentro da transação da `confirmar_acao`) só apaga as linhas e devolve
+ * as chaves livres, que quem chama entrega a {@see removerArquivos()} depois do COMMIT de fora (INV-6).
  */
 final class ExcluirDeVezDaLixeiraUseCase
 {
@@ -45,6 +51,48 @@ final class ExcluirDeVezDaLixeiraUseCase
      */
     public function executar(Pasta $pasta, array $documentos, array $secoes, Tenant $tenant): ResultadoPurgaDaLixeira
     {
+        [$idsSecoes, $idsDocumentos] = $this->idsConferidos($pasta, $documentos, $secoes, $tenant);
+
+        return $this->purga->purgarSelecao($idsSecoes, $idsDocumentos, (int) $pasta->getId(), (int) $tenant->getId());
+    }
+
+    /**
+     * As mesmas conferências e o mesmo laço, para quem está DENTRO de uma transação que confirma depois: só a parte do
+     * banco. Nenhum arquivo sai aqui; as chaves livres voltam em {@see ResultadoPurgaDaLixeira::$arquivosARemover}.
+     * Dá `clear()` no EntityManager, como a purga: as entidades recebidas ficam desanexadas.
+     *
+     * @param list<PastaDocumento> $documentos
+     * @param list<PastaSecao>     $secoes
+     *
+     * @throws AccessDeniedException     item de outro escritório
+     * @throws \InvalidArgumentException item de outra pasta, fora da lixeira, ou seleção vazia
+     * @throws \Doctrine\DBAL\Exception  banco que recusa a exclusão (nada saiu do disco)
+     */
+    public function excluirDoBanco(Pasta $pasta, array $documentos, array $secoes, Tenant $tenant): ResultadoPurgaDaLixeira
+    {
+        [$idsSecoes, $idsDocumentos] = $this->idsConferidos($pasta, $documentos, $secoes, $tenant);
+
+        return $this->purga->purgarSelecaoSemRemoverArquivos($idsSecoes, $idsDocumentos, (int) $pasta->getId(), (int) $tenant->getId());
+    }
+
+    /**
+     * Depois do COMMIT de quem chamou {@see excluirDoBanco()}: remove os arquivos e descarta os registros deles.
+     *
+     * @param list<ChaveDeArquivo> $chaves
+     */
+    public function removerArquivos(array $chaves): ResultadoDaRemocao
+    {
+        return $this->purga->removerArquivosLivres($chaves);
+    }
+
+    /**
+     * @param list<PastaDocumento> $documentos
+     * @param list<PastaSecao>     $secoes
+     *
+     * @return array{list<int>, list<int>} os ids das seções e dos documentos
+     */
+    private function idsConferidos(Pasta $pasta, array $documentos, array $secoes, Tenant $tenant): array
+    {
         if ($documentos === [] && $secoes === []) {
             throw new \InvalidArgumentException('Nenhum item selecionado.');
         }
@@ -53,12 +101,10 @@ final class ExcluirDeVezDaLixeiraUseCase
             $this->conferir($item, $pasta, $tenant);
         }
 
-        return $this->purga->purgarSelecao(
+        return [
             array_map(static fn (PastaSecao $s): int => (int) $s->getId(), $secoes),
             array_map(static fn (PastaDocumento $d): int => (int) $d->getId(), $documentos),
-            (int) $pasta->getId(),
-            (int) $tenant->getId(),
-        );
+        ];
     }
 
     private function conferir(PastaSecao|PastaDocumento $item, Pasta $pasta, Tenant $tenant): void

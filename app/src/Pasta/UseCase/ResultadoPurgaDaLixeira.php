@@ -21,11 +21,17 @@ namespace App\Pasta\UseCase;
  *  - `simulacao`: `--dry-run` — nada saiu do banco nem do disco;
  *  - `nadaVenceAntesDe`: preenchido quando a execução caiu no prazo do deploy (a contagem dos 30
  *    dias começou em `lixeira_purga_inicio`): nada foi lido nem apagado, e esta é a primeira data
- *    em que algo pode vencer.
+ *    em que algo pode vencer;
+ *  - `arquivosARemover`: só no caminho sem remoção (`purgarSelecaoSemRemoverArquivos`, de quem está dentro de uma
+ *    transação de fora): as chaves que nenhuma linha referencia mais e que ainda NÃO saíram do storage. Quem chama as
+ *    entrega a `removerArquivosLivres` depois do COMMIT de fora. Nos outros caminhos, sempre vazio.
  */
 final readonly class ResultadoPurgaDaLixeira
 {
-    /** @param list<string> $arquivosNaoRemovidos */
+    /**
+     * @param list<string>                                     $arquivosNaoRemovidos
+     * @param list<\App\Shared\Armazenamento\ChaveDeArquivo> $arquivosARemover
+     */
     public function __construct(
         public bool $simulacao,
         public \DateTimeImmutable $corte,
@@ -38,6 +44,7 @@ final readonly class ResultadoPurgaDaLixeira
         public int $secoesPuladas = 0,
         public int $documentosPulados = 0,
         public ?\DateTimeImmutable $nadaVenceAntesDe = null,
+        public array $arquivosARemover = [],
     ) {
     }
 }

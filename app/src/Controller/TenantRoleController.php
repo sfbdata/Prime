@@ -21,6 +21,7 @@ use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\GruposDePermissaoDoPerfil;
 use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Repository\ConfiguracaoDeEdicaoRepository;
+use App\Tenant\Service\PermissoesDoAcessoRestrito;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Tenant\UseCase\PromoverPrimarioSocioUseCase;
@@ -51,6 +52,8 @@ final class TenantRoleController extends AbstractController
     private const DESCRICAO_MASTER   = 'perfis.lista.descricao_master';
     private const DESCRICAO_PRIMARIO = 'perfis.lista.descricao_primario';
     private const DESCRICAO_SECUNDARIO_VAZIA = 'perfis.lista.descricao_secundario_vazia';
+    /** Desenho Perfis 1.2 (03.11), `salvar`: a descrição vazia do perfil restrito (P11). */
+    private const DESCRICAO_RESTRITO_VAZIA = 'perfis.lista.descricao_restrito_vazia';
 
 
     public function __construct(
@@ -174,7 +177,8 @@ final class TenantRoleController extends AbstractController
                 'classificacao' => $role->isSystem() ? 'primario' : 'secundario',
                 'descricao'     => $role->isSystem()
                     ? $this->traduzir(self::DESCRICAO_PRIMARIO)
-                    : ($descricao !== '' ? $descricao : $this->traduzir(self::DESCRICAO_SECUNDARIO_VAZIA)),
+                    : ($descricao !== '' ? $descricao : $this->traduzir($role->temAcessoRestrito() ? self::DESCRICAO_RESTRITO_VAZIA : self::DESCRICAO_SECUNDARIO_VAZIA)),
+                'restrito'      => $role->temAcessoRestrito(),
                 'permissoes'    => $role->isSystem() ? $totalDoCatalogo : $role->getTenantRolePermissions()->count(),
                 'usuarios'      => $usuarios,
                 'vinculos'      => $vinculosPorPerfil[(int) $role->getId()] ?? 0,
@@ -309,7 +313,7 @@ final class TenantRoleController extends AbstractController
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $selectedCodes = $form->get('permissions')->getData() ?? [];
+            $selectedCodes = $this->aplicarAcessoRestrito($form, $role, $form->get('permissions')->getData() ?? []);
             $this->syncPermissions($role, $selectedCodes, $permissionRepository, $em);
 
             $em->persist($role);
@@ -327,6 +331,7 @@ final class TenantRoleController extends AbstractController
             'form'     => $form,
             'cartoes'  => $cartoes,
             'total'    => $this->gruposDePermissao->total($cartoes),
+            'liberadas' => PermissoesDoAcessoRestrito::LIBERADAS,
         ]);
     }
 
@@ -378,7 +383,7 @@ final class TenantRoleController extends AbstractController
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $selectedCodes = $form->get('permissions')->getData() ?? [];
+            $selectedCodes = $this->aplicarAcessoRestrito($form, $role, $form->get('permissions')->getData() ?? []);
             $this->syncPermissions($role, $selectedCodes, $permissionRepository, $em);
             $role->setUpdatedAt(new \DateTimeImmutable());
 
@@ -395,6 +400,7 @@ final class TenantRoleController extends AbstractController
             'form'     => $form,
             'cartoes'  => $cartoes,
             'total'    => $this->gruposDePermissao->total($cartoes),
+            'liberadas' => PermissoesDoAcessoRestrito::LIBERADAS,
         ]);
     }
 
@@ -667,6 +673,26 @@ final class TenantRoleController extends AbstractController
      *
      * @param string[] $selectedCodes
      */
+    /**
+     * Acesso restrito às pastas sob responsabilidade (spec acesso-restrito-e-compartilhar, P1 a P7): liga ou desliga no
+     * perfil. Ligado, só as permissões da lista de liberação ficam gravadas (as travadas chegam desmarcadas da tela).
+     *
+     * @param list<string> $codigos
+     *
+     * @return list<string>
+     */
+    private function aplicarAcessoRestrito(FormInterface $form, TenantRole $role, array $codigos): array
+    {
+        if ($form->get('acessoRestrito')->getData() !== true) {
+            $role->liberarTodasAsPastas();
+
+            return $codigos;
+        }
+        $role->restringirAsPastasSobResponsabilidade((string) $form->get('rotulo')->getData());
+
+        return array_values(array_intersect($codigos, PermissoesDoAcessoRestrito::LIBERADAS));
+    }
+
     private function syncPermissions(
         TenantRole $role,
         array $selectedCodes,

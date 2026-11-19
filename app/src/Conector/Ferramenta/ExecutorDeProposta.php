@@ -36,6 +36,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *     exceção daqui (inclusive de banco) desfaz TUDO o que a confirmação gravou, e a proposta continua pendente.
  *  4. O resultado ({@see ResultadoDaConfirmacao}) segue as regras de toda resposta e precisa caber no teto: ele é
  *     medido antes de confirmar, e o que passa do teto desfaz a gravação.
+ *  5. O que só pode acontecer com a gravação já confirmada (apagar arquivo, INV-6) nunca roda aqui dentro: vai no
+ *     {@see ResultadoDaConfirmacao::$depoisDoCommit}, que a `confirmar_acao` roda depois do COMMIT. O executor pode dar
+ *     `clear()` no EntityManager (a purga da lixeira dá): a confirmação relê a proposta antes de confirmá-la.
  *
  * Pessoa, escritório e escopo vêm só da {@see ChamadaDoConector} da confirmação, nunca da proposta: a
  * `confirmar_acao` já conferiu que são os mesmos.

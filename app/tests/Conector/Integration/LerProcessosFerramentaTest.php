@@ -20,9 +20,14 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
+use App\Processo\Enum\MotivoFalhaDatajud;
+use App\Processo\Exception\ConsultaDatajudException;
+use App\Processo\Exception\TribunalNaoIdentificadoException;
+use App\Processo\Service\DatajudClient;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -379,6 +384,183 @@ final class LerProcessosFerramentaTest extends KernelTestCase
         }
         $this->assertMotivo(['acao' => 'para_vincular', 'pasta_id' => 999999999], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         $this->assertMotivo(['acao' => 'para_vincular', 'pasta_id' => $secreta->getId()], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
+    #[TestDox('cnj: acha no CNJ um número que o escritório não tem: dados, partes só pelo nome e CPF mascarado, movimentações recentes, sem processo_id; nada é gravado')]
+    public function testCnjAchou(): void
+    {
+        $this->datajudRetorna(['hits' => ['hits' => [['_source' => $this->fonteDoCnj()]]]]);
+        $pasta = $this->pasta();
+        $antes = $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM processo');
+
+        $resposta = $this->ler(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta->getId()]);
+
+        self::assertSame('achou', $resposta->dados['desfecho']);
+        self::assertFalse($resposta->dados['ja_no_escritorio']);
+        self::assertNull($resposta->dados['processo_id']);
+        self::assertSame('07011345720258070007', $resposta->dados['processo']['numero']);
+        self::assertSame('TJDFT', $resposta->dados['processo']['tribunal']);
+        self::assertSame(['tipo', 'papel', 'nome'], array_keys($resposta->dados['processo']['partes'][0]));
+        $json = json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('99988877766', $json, 'o documento da parte nunca sai');
+        self::assertStringNotContainsString(self::CPF, $json);
+        self::assertSame(['MOVIMENTO RECENTE', 'MOVIMENTO ANTIGO'], array_column($resposta->dados['movimentacoes'], 'descricao'));
+        self::assertSame(['encontrados' => 1, 'movimentacoes' => 2], $resposta->contagens);
+        self::assertSame($antes, $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM processo'));
+    }
+
+    #[TestDox('cnj: o número que já é de um processo do escritório volta com processo_id; o oculto pelo cadeado para a pessoa não é revelado')]
+    public function testCnjJaNoEscritorio(): void
+    {
+        $this->datajudRetorna(['hits' => ['hits' => [['_source' => $this->fonteDoCnj()]]]]);
+        $processo = $this->processo(numero: '07011345720258070007');
+        $pasta = $this->pasta();
+
+        $resposta = $this->ler(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta->getId()]);
+        self::assertTrue($resposta->dados['ja_no_escritorio']);
+        self::assertSame($processo->getId(), $resposta->dados['processo_id']);
+        self::assertSame(['processo' => [$processo->getId()]], $resposta->ids);
+
+        $this->pastaDo($processo, trancada: true);
+        static::getContainer()->get('services_resetter')->reset();
+        $oculto = $this->ler(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta->getId()]);
+        self::assertFalse($oculto->dados['ja_no_escritorio']);
+        self::assertNull($oculto->dados['processo_id']);
+    }
+
+    #[TestDox('cnj: número inválido, não encontrado e falha do CNJ voltam como desfecho e mensagem, sem erro do pedido')]
+    public function testCnjOutrosDesfechos(): void
+    {
+        $this->datajudComo(static function (string $numero): array {
+            if ($numero === '07011345820258070007') {
+                return ['hits' => ['hits' => []]];
+            }
+            if (\strlen($numero) !== 20) {
+                throw new TribunalNaoIdentificadoException('fora do padrão');
+            }
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::Indisponivel);
+        });
+        $pasta = $this->pasta()->getId();
+
+        $invalido = $this->ler(['acao' => 'cnj', 'numero_processo' => '123', 'pasta_id' => $pasta]);
+        self::assertSame('numero_invalido', $invalido->dados['desfecho']);
+        self::assertStringContainsString('3 dígito(s)', $invalido->dados['mensagem']);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $naoAchou = $this->ler(['acao' => 'cnj', 'numero_processo' => '07011345820258070007', 'pasta_id' => $pasta]);
+        self::assertSame('nao_encontrado', $naoAchou->dados['desfecho']);
+        self::assertStringContainsString('dígito verificador', $naoAchou->dados['mensagem']);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $falhou = $this->ler(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta]);
+        self::assertSame('falha', $falhou->dados['desfecho']);
+        self::assertSame(MotivoFalhaDatajud::Indisponivel->mensagemUsuario('TJDFT'), $falhou->dados['mensagem']);
+        self::assertSame(1, $falhou->contagens['falhou']);
+    }
+
+    #[TestDox('cnj: o número de processo em segredo do escritório recusa (6.2.3) e o CNJ NÃO é chamado; o segredo de outro escritório não vale; o sigilo vindo do CNJ também recusa')]
+    public function testCnjSegredoNaoChamaOCnj(): void
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->expects(self::once())->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => [['_source' => $this->fonteDoCnj(sigilo: 2)]]]]);
+        static::getContainer()->set(DatajudClient::class, $cliente);
+        $pasta = $this->pasta()->getId();
+        $this->processo(numero: '07011345720258070008', nivelSigilo: 1);
+        $this->processo(numero: '07011345720258070007', nivelSigilo: 1, escritorio: $this->escritorio('Outro'));
+
+        $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => '0701134-57.2025.8.07.0008', 'pasta_id' => $pasta], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+        // O segredo de outro escritório não bloqueia; é o CNJ (1 chamada permitida) que diz o sigilo.
+        $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
+    #[TestDox('cnj: segredo no escritório recusa antes de qualquer chamada (never)')]
+    public function testCnjSegredoSemNenhumaChamada(): void
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->expects(self::never())->method('searchByNumeroProcesso');
+        static::getContainer()->set(DatajudClient::class, $cliente);
+        $pasta = $this->pasta()->getId();
+        $this->processo(numero: '07011345720258070007', nivelSigilo: 1);
+
+        $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
+    #[TestDox('cnj: quem só vê a pasta, a pasta de outro escritório, na lixeira ou trancada, e a aba Processo oculta recusam sem chamar o CNJ')]
+    public function testCnjGuardaDaPasta(): void
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->expects(self::never())->method('searchByNumeroProcesso');
+        static::getContainer()->set(DatajudClient::class, $cliente);
+        $pasta = $this->pasta();
+        $deOutro = $this->pasta($this->escritorio('Outro'));
+        $naLixeira = $this->pasta();
+        $naLixeira->marcarExcluida($this->colega, new \DateTimeImmutable());
+        $trancada = $this->pasta();
+        $this->em()->persist(new CadeadoDaPasta($this->escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $semAba = $this->pasta();
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->escritorio, $semAba, AbaDaPasta::Processo, $this->colega, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $pasta->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $this->colega);
+        foreach ([$deOutro, $naLixeira, $trancada, $semAba] as $recusada) {
+            $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => $recusada->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        }
+        $this->assertMotivo(['acao' => 'cnj', 'numero_processo' => self::CNJ, 'pasta_id' => 999999999], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[TestDox('cnj: pedido inválido (sem número, sem pasta, número não texto, vazio ou comprido) recusa sem chamar o CNJ')]
+    public function testCnjPedidoInvalido(): void
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->expects(self::never())->method('searchByNumeroProcesso');
+        static::getContainer()->set(DatajudClient::class, $cliente);
+        $pasta = $this->pasta()->getId();
+
+        foreach ([
+            ['acao' => 'cnj', 'pasta_id' => $pasta],
+            ['acao' => 'cnj', 'numero_processo' => self::CNJ],
+            ['acao' => 'cnj', 'numero_processo' => 7011345720258070007, 'pasta_id' => $pasta],
+            ['acao' => 'cnj', 'numero_processo' => '  ', 'pasta_id' => $pasta],
+            ['acao' => 'cnj', 'numero_processo' => str_repeat('1', 31), 'pasta_id' => $pasta],
+        ] as $pedido) {
+            $this->assertMotivo($pedido, ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        }
+    }
+
+    /** @param array<string, mixed> $resposta */
+    private function datajudRetorna(array $resposta): MockObject
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->method('searchByNumeroProcesso')->willReturn($resposta);
+        static::getContainer()->set(DatajudClient::class, $cliente);
+
+        return $cliente;
+    }
+
+    /** @param callable(string): array<string, mixed> $resposta */
+    private function datajudComo(callable $resposta): void
+    {
+        $cliente = $this->createMock(DatajudClient::class);
+        $cliente->method('searchByNumeroProcesso')->willReturnCallback($resposta);
+        $cliente->method('contarPosterioresNoForo')->willReturn(0);
+        static::getContainer()->set(DatajudClient::class, $cliente);
+    }
+
+    /** @return array<string, mixed> o `_source` do Datajud, com uma parte com CPF no nome e documento, e dois movimentos fora de ordem */
+    private function fonteDoCnj(int $sigilo = 0): array
+    {
+        return [
+            'numeroProcesso' => '07011345720258070007',
+            'classe' => ['codigo' => 7, 'nome' => 'Procedimento Comum Cível'],
+            'tribunal' => 'TJDFT',
+            'nivelSigilo' => $sigilo,
+            'id' => 'TJDFT_G1_07011345720258070007',
+            'partes' => [['nome' => 'Maria da Parte ' . self::CPF, 'documento' => '99988877766', 'tipo' => 'FISICA', 'papel' => 'AUTOR']],
+            'movimentos' => [
+                ['nome' => 'Movimento antigo', 'dataHora' => '2025-01-10T10:00:00', 'codigo' => 1],
+                ['nome' => 'Movimento recente', 'dataHora' => '2025-06-10T10:00:00', 'codigo' => 2],
+            ],
+        ];
     }
 
     /** @param array<string, mixed> $argumentos */

@@ -7,6 +7,7 @@ namespace App\Tests\Conector\Integration;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cliente\UseCase\BuscarClientesUseCase;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
@@ -34,6 +35,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * aba Documentos oculta.
  */
 #[CoversClass(LerClientesFerramenta::class)]
+#[CoversClass(BuscarClientesUseCase::class)]
 final class LerClientesFerramentaTest extends KernelTestCase
 {
     use CenarioDoConectorTrait;
@@ -211,6 +213,96 @@ final class LerClientesFerramentaTest extends KernelTestCase
         $noOutro = $this->ler(['acao' => 'conferir_documento', 'documento' => self::CPF], $deOutro, $outro);
         self::assertTrue($noOutro->dados['encontrado'], 'controle: no outro escritório há um cadastro com o mesmo CPF');
         self::assertNotSame((int) $cliente->getId(), $noOutro->dados['cliente']['id'], 'e é o dele, nunca o meu');
+    }
+
+    #[TestDox('buscar: acha pelo trecho do nome (sem ligar para maiúsculas) e pelo CPF ou CNPJ inteiro, que vem primeiro; sai só id, nome e tipo')]
+    public function testBuscar(): void
+    {
+        $maria = $this->clientePF();
+        $empresa = (new ClientePJ())->setRazaoSocial('Maria Comércio Ltda')->setCnpj(self::CNPJ_DIGITOS)->setRepresentanteLegal('')->setRepresentanteCpf('')
+            ->setRepresentanteRg('')->setRepresentanteCargo('')->setEnderecSede('');
+        $this->contatoEEndereco($empresa);
+        $this->clientePF($this->escritorio('Outro'));
+
+        $porNome = $this->ler(['acao' => 'buscar', 'termo' => '  sigilosa ']);
+        self::assertSame(['clientes' => [['id' => (int) $maria->getId(), 'nome' => 'MARIA SIGILOSA DA SILVA', 'tipo' => 'PF']], 'mais_resultados' => false], $porNome->dados, 'o cliente de mesmo nome do outro escritório não sai');
+        self::assertSemValoresDoCliente($porNome);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $porCnpj = $this->ler(['acao' => 'buscar', 'termo' => self::CNPJ]);
+        self::assertSame([(int) $empresa->getId()], array_column($porCnpj->dados['clientes'], 'id'));
+        self::assertSame('PJ', $porCnpj->dados['clientes'][0]['tipo']);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $porCpf = $this->ler(['acao' => 'buscar', 'termo' => self::CPF_DIGITOS]);
+        self::assertSame([(int) $maria->getId()], array_column($porCpf->dados['clientes'], 'id'));
+        self::assertSemValoresDoCliente($porCpf);
+        static::getContainer()->get('services_resetter')->reset();
+
+        $ambos = $this->ler(['acao' => 'buscar', 'termo' => 'maria']);
+        self::assertEqualsCanonicalizing([(int) $maria->getId(), (int) $empresa->getId()], array_column($ambos->dados['clientes'], 'id'));
+        static::getContainer()->get('services_resetter')->reset();
+
+        $trecho = $this->ler(['acao' => 'buscar', 'termo' => '982.247']);
+        self::assertSame([], $trecho->dados['clientes'], 'trecho do documento não casa: buscas por pedaços revelariam o CPF');
+    }
+
+    #[TestDox('buscar: quem não vê clientes não acha nenhum; o restrito só acha os clientes das pastas dele')]
+    public function testBuscarSoOQueAPessoaVe(): void
+    {
+        $meu = $this->clientePF();
+        $alheio = $this->clientePF(cpf: self::CPF_DO_REPRESENTANTE)->setNomeCompleto('Maria Alheia');
+        $this->em()->flush();
+        $semVer = $this->pessoa();
+        $this->vinculo($semVer, $this->escritorio, permissoes: ['modules.clientes.view']);
+        $restrito = $this->pessoa();
+        $vinculo = $this->vinculo($restrito, $this->escritorio, permissoes: self::LEITOR);
+        $vinculo->getTenantRole()?->restringirAsPastasSobResponsabilidade('Parceiro');
+        $this->pasta($meu)->setResponsavel($restrito);
+        $this->pasta($alheio)->setResponsavel($this->colega);
+        $this->em()->flush();
+
+        self::assertSame([], $this->ler(['acao' => 'buscar', 'termo' => 'maria'], $semVer)->dados['clientes']);
+        static::getContainer()->get('services_resetter')->reset();
+        self::assertSame([(int) $meu->getId()], array_column($this->ler(['acao' => 'buscar', 'termo' => 'maria'], $restrito)->dados['clientes'], 'id'));
+        static::getContainer()->get('services_resetter')->reset();
+        self::assertSame([], $this->ler(['acao' => 'buscar', 'termo' => self::CPF_DO_REPRESENTANTE], $restrito)->dados['clientes'], 'nem pelo CPF inteiro');
+        static::getContainer()->get('services_resetter')->reset();
+        self::assertCount(2, $this->ler(['acao' => 'buscar', 'termo' => 'maria'], $this->colega)->dados['clientes'], 'controle: quem não é restrito acha os dois');
+    }
+
+    #[TestDox('buscar: até 20 clientes; o resto avisa em mais_resultados')]
+    public function testBuscarLimite(): void
+    {
+        for ($i = 1; $i <= LerClientesFerramenta::LIMITE_DA_BUSCA + 1; ++$i) {
+            $this->clientePF(cpf: '')->setNomeCompleto(sprintf('Homônimo %02d', $i));
+        }
+        $this->em()->flush();
+
+        $resposta = $this->ler(['acao' => 'buscar', 'termo' => 'homônimo']);
+
+        self::assertCount(LerClientesFerramenta::LIMITE_DA_BUSCA, $resposta->dados['clientes']);
+        self::assertTrue($resposta->dados['mais_resultados']);
+    }
+
+    #[TestDox('buscar: o limite conta só os clientes que a pessoa vê; 20 vistos e 5 fora do escopo dão 20, sem mais_resultados')]
+    public function testBuscarLimiteDepoisDoEscopo(): void
+    {
+        $restrito = $this->pessoa();
+        $this->vinculo($restrito, $this->escritorio, permissoes: self::LEITOR)->getTenantRole()?->restringirAsPastasSobResponsabilidade('Parceiro');
+        $minha = $this->pasta($this->clientePF(cpf: '')->setNomeCompleto('Homônimo 00'))->setResponsavel($restrito);
+        $alheia = $this->pasta($this->clientePF(cpf: '')->setNomeCompleto('Homônimo de fora'))->setResponsavel($this->colega);
+        // Mais 19 na pasta da restrita (20 com o primeiro) e 4 na alheia (5 com o primeiro), intercalados.
+        for ($i = 1; $i <= 23; ++$i) {
+            $cliente = $this->clientePF(cpf: '')->setNomeCompleto(sprintf('Homônimo %02d', $i));
+            ($i % 5 === 0 ? $alheia : $minha)->addCliente($cliente);
+        }
+        $this->em()->flush();
+
+        $resposta = $this->ler(['acao' => 'buscar', 'termo' => 'homônimo'], $restrito);
+
+        self::assertCount(LerClientesFerramenta::LIMITE_DA_BUSCA, $resposta->dados['clientes']);
+        self::assertFalse($resposta->dados['mais_resultados']);
     }
 
     #[TestDox('documentos_de_identidade: metadados dos achados nas pastas; sem a pasta em segredo (contada) nem a pasta com a aba Documentos oculta')]

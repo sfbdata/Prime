@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\ChatIa\Unit;
+namespace App\Tests\Shared\Unit\Texto;
 
-use App\ChatIa\Exception\AnexoDoChatInvalidoException;
-use App\ChatIa\Service\ExtratorDeTextoDocx;
+use App\Shared\Texto\ArquivoSemTextoException;
+use App\Shared\Texto\ExtratorDeTextoDocx;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -81,7 +81,7 @@ final class ExtratorDeTextoDocxTest extends TestCase
             try {
                 $extrator->extrair($bytes);
                 self::fail("Devia recusar: $rotulo");
-            } catch (AnexoDoChatInvalidoException) {
+            } catch (ArquivoSemTextoException) {
                 $this->addToAssertionCount(1);
             }
         }

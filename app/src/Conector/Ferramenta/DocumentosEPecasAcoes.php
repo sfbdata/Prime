@@ -20,6 +20,7 @@ final class DocumentosEPecasAcoes
     public const GRUPO_DOCUMENTOS = 'documentos';
     public const GRUPO_PECAS = 'pecas';
     public const GRUPO_CHECKLIST = 'checklist';
+    public const GRUPO_LIXEIRA = 'lixeira';
 
     /** O teto de itens de uma chamada em lote (6.2, regra 12). */
     public const TETO_DO_LOTE = 50;
@@ -55,6 +56,9 @@ final class DocumentosEPecasAcoes
         ],
         'restaurar' => [
             'restaurar' => ['proposta' => false, 'obrigatorios' => [], 'opcionais' => self::ITENS_DA_SELECAO, 'um_de' => self::ITENS_DA_SELECAO],
+        ],
+        'excluir_de_vez' => [
+            'excluir' => ['proposta' => true, 'obrigatorios' => [], 'opcionais' => self::ITENS_DA_SELECAO, 'um_de' => self::ITENS_DA_SELECAO],
         ],
         'escrever_peca' => [
             'escrever' => ['proposta' => false, 'obrigatorios' => ['titulo', 'conteudo'], 'opcionais' => ['categoria', 'subpasta_id'], 'um_de' => []],
@@ -101,6 +105,7 @@ final class DocumentosEPecasAcoes
         'subpasta' => self::GRUPO_DOCUMENTOS,
         'reordenar' => self::GRUPO_DOCUMENTOS,
         'restaurar' => self::GRUPO_DOCUMENTOS,
+        'excluir_de_vez' => self::GRUPO_LIXEIRA,
         'escrever_peca' => self::GRUPO_PECAS,
         'editar_peca' => self::GRUPO_PECAS,
         'destino_da_peca' => self::GRUPO_PECAS,

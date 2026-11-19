@@ -173,6 +173,156 @@ Tabela `pasta_compartilhamento`: `id`, `tenant_id` (conta de origem), `pasta_id`
   contra as permissões do compartilhamento. Nunca abre outra pasta, cliente, processo ou tela de A.
 - Antes de codar a fatia 9, adendo desta spec com as rotas exatas e re-revisão (risco ALTO).
 
+#### 4.5.1 Adendo da fatia 9 (18/11, revisto após a re-revisão): abrir a pasta recebida
+
+**Substitui** o terceiro item do §4.5 (`_sem_escritorio` e filtro ligado no escritório da pasta): a sessão continua
+no escritório do destino (B) e a pasta de A é lida por um leitor próprio. Consequência aceita: quem não está em
+nenhum escritório ativo (sem vínculo, ou com B suspenso) cai na escolha de escritório e não abre a recebida.
+
+**Por que não `pasta_show`.** Investigação de 18/11: `pasta_show` e as rotas que a página chama (mensagem, andamento,
+upload, documento, ZIP, metas) leem tudo pelo escritório da sessão (`TenantContext`, `PermissionChecker` exige
+`UserTenant` ativo no escritório da pasta, `PastaDaRota`/`#[PastaPorId]` só acham pasta do escritório da sessão,
+`can_access_*` no Twig), e a página tem links para cliente, processo, metas, cobrança, push e vizinhas ‹ ›. Abrir a
+pasta de A ali pede desligar o filtro em dezenas de pontos ou dar vínculo em A: os dois furam a regra "nunca abre
+outra pasta, cliente, processo ou tela de A". O molde do Trabalho Externo também não serve como está: lá a
+`DemandaExterna` não é `TenantAware`; aqui `Pasta`, `PastaDocumento`, `PastaAndamento` e as metas são.
+
+**Desenho.** "Abrir pasta" (dc `rvAbrir`) e "Abrir metas" (`rvMetasIr`) apontam para a página da pasta (02), que não
+tem tratamento de pasta recebida (conferido em `redesign-04-11-26/02 - EXPEDIENTES - VS 31.10.26`). A pasta recebida
+abre numa **página própria e reduzida**, com os componentes visuais da página da pasta (cabeçalho, abas Andamentos,
+Documentos e Metas), sem nada que leve a outra tela de A. Desvio necessário (regra 3 de 09/11), **aceito pelo
+Samuel em 18/11** (com o teto da origem e a divisão 9a/9b). ZIP fica fora (a recebida do desenho não o mostra).
+
+**O teto é a origem (regra nova, pela recomendação).** B nunca faz mais do que quem republicou, e só enquanto quem
+republicou ainda poderia republicar. Por isso o localizador confere, a cada requisição:
+
+1. o compartilhamento: destino = usuário logado; `interno = false`; status `Aceita`; não venceu;
+2. a pasta: não excluída; **sem cadeado ativo** (qualquer modo: o destino não tem vínculo em A e não pode estar na
+   lista do cadeado; D3 "compartilhamento nunca fura o cadeado");
+3. o escritório A: ativo (suspenso: só leitura, como o `donoForaDoAr` do Trabalho Externo; excluído: 404);
+4. a origem: conta ativa (`User::isActive`), vínculo ativo em A, não restrita lá, e `AcessoAPasta::podeEditar(origem, pasta)` (a mesma regra de quem
+   republica); se a origem sai de A, perde a edição ou vira restrita, a recebida fecha sozinha;
+5. o destino: **sem** vínculo ativo em A (quem entrou em A depois usa o acesso de lá, com o escopo de lá).
+
+Falhou qualquer um: 404, sem dizer por quê. Tudo isso roda com o filtro desligado (o cadeado e o vínculo de A ficam
+invisíveis com o filtro em B: lido com filtro, "sem cadeado" seria falso positivo). O localizador é a **primeira**
+consulta de A na requisição: `PermissionChecker`, `EscopoDePastas` e `VisibilidadeDasAbasDaPasta` guardam o resultado
+por pessoa e escritório durante a requisição, e um resultado nascido com o filtro de B ligado ("sem regra", "sem
+vínculo") valeria até o fim dela.
+
+**Abas.** Some para B, na página e nas rotas dela, a aba oculta para a origem
+(`VisibilidadeDasAbasDaPasta::ocultaPara(pasta, aba, origem)`) **e** a aba com a regra "para todos" ligada, mesmo que
+a origem seja primária ou Master (quem configura vê a própria aba oculta; B não configura nada em A).
+
+**Uma porta só.** Toda rota nova tem nome `expediente_recebida_*` (prefixo liberado pela barreira do restrito, fora de
+`pasta_*`, logo fora de `PastaDaRota`, do cadeado e da aba oculta, que o localizador substitui), caminho
+`/expediente/recebidas/{compartilhamentoId}/…`, e a primeira coisa que faz é
+`PastaRecebidaDoUsuario::localizar(compartilhamentoId, usuário logado)`. Um teste de arquitetura (molde
+`TrabalhoExternoSemEscritorioArquiteturaTest`) recusa rota `expediente_recebida*` cuja ação não chame o localizador,
+com duas exceções nomeadas: `expediente_recebidas` (a caixa) e `expediente_recebida_responder` (aceitar um pendente).
+
+**Leitura.** O leitor (`LeitorDaPastaRecebida`) desliga o `TenantFilter` (`SemFiltroDeTenant`) durante a leitura
+**e a montagem do DTO** (proxies preguiçosos morrem com o filtro ligado em B) e filtra **sempre** por `tenant = A` **e**
+`pasta = a do compartilhamento`; nenhuma consulta por id solto. Devolve DTO (nunca entidade ao Twig): NUP, cliente,
+ação, fase atual, andamentos e anotações, documentos (nome, data, tamanho; sem os da lixeira) e metas abertas (título,
+prazo, situação). Fora: link para cliente, processo, cobrança, push, IA, marcadores, responsável, atribuíveis,
+vizinhas e "N de M".
+
+**Rotas (fatia 9a, leitura).**
+
+| Nome | Método e caminho | Exige | Faz |
+|---|---|---|---|
+| `expediente_recebida_ver` | GET `…/{compartilhamentoId}` | localizar | JSON da janela L11: de, conta, cliente, ação, permissões, número de metas abertas, só leitura |
+| `expediente_recebida_pasta` | GET `…/{compartilhamentoId}/pasta` | localizar | página reduzida (`?aba=metas` para "Abrir metas") |
+| `expediente_recebida_documento` | GET `…/{compartilhamentoId}/documento/{documentoId}/{modo}` | localizar + documento desta pasta, fora da lixeira, aba Documentos visível; `baixar` exige `baixarDocumentos` | `ver` mostra (o desenho dá "Ver a pasta e os documentos" a todo convite, como o `pasta_documento_view` interno); `baixar` entrega o arquivo pela chave |
+
+**Fatia 9b (escrita): mini-adendo (18/11, pela recomendação).** Investigação de 18/11: nenhuma escrita da pasta
+funciona com a sessão em B como está (as rotas leem `TenantContext` e `canAccessResource` exige vínculo em A; com o
+filtro de B ligado, o prazo do texto não nasce, a fase cria andamento duplicado, o `refresh` com trava não acha a
+linha e o código do documento perde a unicidade). Por isso:
+
+- **Molde comum.** Toda rota de escrita é POST com CSRF, nome `expediente_recebida_*`, chama primeiro o localizador e
+  recusa (403) com A suspenso (`soLeitura`) ou sem a caixa do convite. O trabalho **e o flush** rodam inteiros dentro
+  de `semFiltroDeTenant`, sempre com o escritório A e a pasta do convite que o localizador devolveu (nada por id
+  solto: resposta, documento e fase são lidos com `tenant = A` e `pasta = a do convite`). A auditoria vai para A, com
+  o ator de B (a trilha da outra conta que A precisa ver).
+- **`expediente_recebida_anotar`** (POST `…/{compartilhamentoId}/anotacao`; caixa `movimentar`; aba Dados visível):
+  `EnviarMensagemPastaUseCase::executar(pasta, B, conteúdo, A, null)`. Só anotação nova (responder a registro fica
+  fora; um `respostaA` na requisição é ignorado). **Menção não existe para autor de outra conta:** o UseCase ganha o
+  parâmetro que desliga a resolução e o aviso de menção, aplicado **depois** do sanitizador (cortar antes não segura:
+  `&commat;` e `&#x40;` viram `&#64;` no sanitizador e o padrão aceita as duas formas), e o token vira `@rótulo` puro
+  (como `MencoesDoRegistro::reescrever($conteudo, [])`): nenhum token fica gravado, senão a tela de A desenharia uma
+  menção falsa a um colega com o rótulo que B escolheu. B não conhece nem notifica a equipe de A. O
+  prazo escrito no texto nasce como hoje (`PrazosDosRegistrosListener`, que precisa do flush sem filtro). O aviso a
+  quem acompanha a pasta segue a regra de hoje, calculado sem filtro (quem desligou o acompanhamento não recebe).
+- **`expediente_recebida_fase`** (POST `…/{compartilhamentoId}/fase`; caixa `movimentar`): UseCase próprio e fino
+  sobre `AndamentoDaPasta::marcar(pasta, B, A, fase, semPular, motivo, sincronizarContrato: false)` (o
+  `MudarFaseDaPastaUseCase` barra quem não tem vínculo, e a sincronização do contrato mexeria no Financeiro, que fica
+  fora para B). B **não cruza a fase Contrato** (nem para frente nem para trás, e sair da própria fase Contrato conta como cruzar; o contrato assinado é dado do
+  Financeiro e ficaria divergente) e **não finaliza nem reativa** a pasta (mexe em "Pastas concluídas" de A): a troca
+  de fase da tela só oferece as fases do mesmo lado do Contrato, e o servidor recusa (422) o resto.
+- **`expediente_recebida_documento_enviar`** (POST `…/{compartilhamentoId}/documento`; caixa `enviarDocumentos`; aba
+  Documentos visível): só arquivo (sem Drive, texto, imagem nem seção), pelo `UploadPecaUseCase` com o escritório A e
+  dentro de `TransacaoComArquivoNovo` (o arquivo só é apagado se o COMMIT comprovadamente não aconteceu); categoria
+  de contrato e todas as do Financeiro recusadas. O aviso a quem acompanha sai depois do COMMIT, sem filtro, para a
+  equipe de A que acompanha (nunca para B). O upload comum não envia nada ao Drive (só o contrato e a criação da pasta
+  sincronizam), então nada muda ali.
+- **Metas: só leitura para B (desvio do desenho, decidido pelo Samuel em 18/11, opção (a): o botão "Concluir meta"
+  não aparece para a outra conta).** O desenho diz "abrir e movimentar metas". A meta é
+  trabalho atribuído dentro da equipe de A (responsável, criador, esteira e prazo); B não é da equipe, não aparece
+  como responsável e não recebe meta. Concluir e reabrir já esbarram na D3 (só o responsável ou quem criou); despachar
+  e comentar na meta também ficam fora, porque escreveriam na esteira de quem é de A. "Movimentar" fica coberto pela
+  anotação e pela fase; abrir a meta para outra conta é decisão de negócio nova.
+- **Volume.** Sem teto de quantidade na 9b (decisão escrita): cada arquivo segue o limite de tamanho de hoje, os avisos
+  a quem acompanha já se juntam num não lido por pasta, e A encerra o convite quando quiser. Se o uso mostrar abuso, um
+  teto por convite e por dia entra depois.
+- **Tela.** A página reduzida ganha, só com a caixa marcada: o campo de anotação (aba Andamentos), a troca de fase
+  (cabeçalho) e o envio de arquivo (aba Documentos), com os componentes da página da pasta. Sem caixa, nada aparece.
+  Decisões da revisão (18/11, pela recomendação): (1) a anotação de B usa um campo de texto simples, sem o editor da
+  pasta, porque B não tem a lista de menção da equipe de A; (2) quando o espaço de A acaba, B vê a mesma mensagem de
+  espaço esgotado que a equipe de A vê, e A recebe o aviso de sempre; (3) sem a caixa, a recusa (403) vem antes da
+  validação do campo, para a resposta não revelar a regra a quem não pode escrever; (4) a menção de B sai do texto
+  mesmo quando vem aninhada (`@[Fulano @[x](user:1)](user:6)`): a limpeza repete até não sobrar marca nenhuma.
+- **Testes obrigatórios (9b).** Cada rota: grava em A com a caixa; 403 sem a caixa, com A suspenso e sem CSRF; 404
+  nos casos do localizador; anotação com prazo no texto cria o prazo; menção some e ninguém de A é notificado por
+  ela, inclusive escrita como `&commat;` e `&#x40;`, e nenhum token nem nome de A fica no texto gravado; `respostaA` da requisição é
+  ignorado; fase não duplica andamento e não mexe no contrato; cruzar o Contrato (inclusive a partir dele) e Finalizar/Reativar dão 422; documento grava a chave pelo escritório A, código único com
+  outro documento de A, contrato e as categorias do Financeiro recusados, aviso de acompanhamento chega a quem acompanha em A e nunca a B, arquivo apagado se o flush falha; auditoria em A com o ator de B; filtro
+  de B religado depois de cada escrita, inclusive em erro.
+
+**Lista (L2, L12).** Como no desenho (`rpRows()` concatena as recebidas às linhas), as pastas que o localizador abre
+entram **na própria Lista** do destinatário, no topo, com a mesma linha, a marca "Recebida · <conta>", a dica L2 e o
+responsável "<origem> (dono)"; clicar abre a janela L11. A ordem (no topo, fora da ordenação e da paginação do
+acervo) é o único desvio. A fonte é o JSON `expediente_recebidas`, que passa a marcar em cada item `abre`
+(o mesmo critério do localizador, conferido em lote: cadeados, vínculos e contas das origens numa consulta cada,
+para os até 100 itens da caixa); a Lista só mostra os que abrem, e "Ver pasta" da caixa só aparece neles. Não
+entram no `findByFilters` (escopado ao escritório B). Limites da 9a: a recebida não entra no `findByFilters` do restrito em B, então
+ele chega a ela só pela caixa "Recebidas" ("Ver pasta"); com a Lista vazia (sem tabela) as linhas não aparecem, e a
+caixa continua sendo o caminho.
+
+**Trilha (§4.6).** Abrir a página, `ver` e `baixar` gravam `leitura` no `audit_log` de A (`TrilhaDoAcessoRestrito`
+com o escritório A, só ids, rota, IP e o usuário de B); o 403 de `baixar` sem a caixa grava `negado`. A recusa do
+localizador não grava (não há pasta a quem mostrar). A janela L11 (`expediente_recebida_ver`) não grava: é um
+resumo (permissões e contagem de metas), não leitura do conteúdo (decisão de 18/11, pela recomendação).
+
+**Cobrança fica fora.** Contrato de honorários e qualquer documento da aba Financeiro nunca aparecem para B, nem com a
+aba visível (decisão de 18/11, pela recomendação). Na caixa "Recebidas", ação, prioridade, situação e metas só saem
+no item que abre.
+
+**Testes obrigatórios (9a).**
+- Abre: convite aceito, página, `expediente_recebida_ver`, `ver` e `baixar` com a caixa; restrito em B também abre.
+- 404 na página, no `ver` da janela e no documento: pendente, recusado, encerrado, vencido, de outra pessoa, pasta
+  excluída, pasta com cadeado (`Todos` e `PorPessoa`), A excluído, origem removida ou inativa em A, origem sem edição,
+  origem restrita, origem com a conta desativada, destino com vínculo ativo em A.
+- A suspenso: abre só leitura.
+- Aba "para todos" oculta por origem primária: some para B.
+- Documento de outra pasta de A pelo mesmo compartilhamento, documento na lixeira e documento de aba oculta: 404;
+  `baixar` sem `baixarDocumentos`: 403 e linha `negado` em A.
+- O leitor não traz andamento, meta ou documento de outra pasta de A nem de B com o mesmo id; o filtro volta ligado
+  em B depois de cada leitura.
+- A página não tem link para `cliente_*`, `processo_*`, `tarefa_*`, `cobranca_*`, `push_*`.
+- A trilha em A registra a leitura; ninguém de B sem convite chega a nada; a Lista e a caixa só mostram `abre` certo.
+
 ### 4.6 Trilha (regra 7)
 
 Só para vínculo restrito e para quem entra por compartilhamento de outra conta: uma linha em `audit_log` por
@@ -194,7 +344,44 @@ aplicar o escopo daria a falsa impressão de restrição.
 | 6 | Trilha do restrito | BAIXO | não | §4.6 |
 | 7 | Troca de responsável com confirmação | MÉDIO | não | L8 com "Manter como colaborador" (compartilhamento interno), cartão no Registro |
 | 8 | Outra conta: código e convite | ALTO | sim | Código pessoal, aba "Outra conta (código)", "Recebidas" (L9, L10), aceitar/recusar/deixar, aviso na Central |
-| 9 | Outra conta: abrir a pasta recebida | ALTO | não | Adendo §4.5, rotas sem escritório, L2, L11, L12, permissões por ação, re-revisão |
+| 9 | Outra conta: abrir a pasta recebida | ALTO | não | Adendo §4.5.1. 9a: localizador, leitura, página reduzida, documento, L2, L11, L12, trilha. 9b: anotar e enviar documento. Re-revisão em cada uma |
+
+## 5.1 Fatia 2 em detalhe (núcleo do escopo no servidor)
+
+Migration `Version20261118100000` (número do Coordenador). Tudo abaixo vale só para vínculo cujo perfil tem
+`escopo_pasta = 'responsavel'`; ninguém liga isso antes da fatia 4.
+
+1. **Permissões por lista de liberação** (`App\Tenant\Service\PermissoesDoAcessoRestrito`, chamada no
+   `PermissionChecker::hasPermissionFromUserTenant`, o ponto por onde passam módulo, admin e recurso): o restrito só
+   tem, das permissões do perfil, `modules.{expediente,pastas,processos,clientes}.view` e
+   `resources.{pasta,cliente,processo}.{view,edit,delete}`. Todo o resto é negado, inclusive código novo que entrar
+   no catálogo depois (D4, Q2: BlueJus IA, Chat I.A, Voto, Assinatura, Agenda e `resources.agenda.ver_prazos`,
+   Cobrança e "Outros recursos", todo `admin.*`). Lista de liberação, e não de bloqueio: o que ninguém lembrou fica
+   fechado.
+2. **Barreira de rotas** (`App\Pasta\EventListener\BarreiraDoAcessoRestritoListener`, `kernel.request`, depois do
+   escritório da sessão): o restrito só alcança as rotas da Lista e da pasta (Expediente, pasta e filhas, processo,
+   cliente), Meu Perfil, Contribua, sair e a troca de escritório; o resto recebe a tela "Fora do seu acesso" (403,
+   textos do `bj-escopo.js`), e a página inicial manda para a Lista. É a segunda camada: módulo sem permissão já
+   recusa, mas tela sem módulo (Painel, Central) não. Também passam o que não mostra dado do escritório (sino,
+   convites recebidos, termos, política, páginas públicas). Dentro do Expediente ficam fechados os relatórios
+   gerais (pastas paradas, relatório de processos), a lixeira, a importação em lote e o cadastro de
+   marcadores; os convites da equipe também. O painel `expediente_acervo_geral` fica aberto: é por ele que todos os
+   painéis da Lista carregam, e a consulta já vem escopada (`findByFilters`/`countByFilters` com o escopo; achado do
+   smoke de 19/11, fechado dava "Erro ao carregar o conteúdo"). Rota sem sessão (o conector MCP, por token) fica fora desta barreira: lá valem a lista de liberação e o teto do `NivelNoCadeado` com o escritório do token, e o resto do conector é da fatia 3.
+3. **Teto por pasta** (`NivelNoCadeado`): para o restrito, pasta em que ele não é o responsável é `Oculto`, antes do
+   cadeado. Por aí já fecham `canAccessResource`, `BarreiraDoCadeadoListener`, `AcessoAMeta`, documento, ZIP, e o
+   processo cujas pastas são todas ocultas (K3). `idsDasPastasOcultas` passa a incluir as fora do escopo (metas,
+   agenda, auditoria, processos). `pasta_show` responde 404 para o restrito em pasta fora do escopo (não desenha
+   "Pasta trancada" nem oferece pedido).
+4. **Listas**: na Lista do Expediente, no acervo, no trilho, no CSV e na busca Ctrl+K a pasta fora do escopo não
+   aparece nem por número e cliente (`EscopoDePastas::restringir` no `PastaRepository` e no `BuscarRapidoUseCase`).
+   As setas ‹ › e o "N de M" do cabeçalho da pasta andam só pelas pastas do restrito (senão mostrariam número e
+   cliente da vizinha).
+5. **Troca de responsável**: o restrito recebe 403 com "No acesso restrito, a pasta fica sob a sua responsabilidade.
+   Peça ao escritório para transferir." (`AlterarResponsavelDaPastaUseCase`).
+6. **Testes**: unit da lista de liberação; functional: restrito não abre pasta alheia (404), não a vê na Lista, no
+   CSV, na contagem nem na busca; abre a própria; recebe "Fora do seu acesso" no Painel; não troca responsável;
+   perfil comum sem mudança nenhuma.
 
 ## 6. Decisões de implementação (tomadas aqui; o Coordenador pode rever)
 
@@ -222,3 +409,104 @@ Registro: `~/projetos/bluejus-coordenacao/decisoes-acesso-restrito-1811.md`.
 
 - 18/11: inventário e plano (este arquivo, PR #768). Q1 a Q3 decididas. Fatia 1 liberada. Fatia 2: pedir o número da
   migration ao Coordenador. Fatia 3: só depois do smoke do conector (combina com o #763).
+- 18/11: frente única na branch `acesso-restrito` (PR #770 em rascunho), um commit por fatia. Fatia 1 feita. Fatia 2
+  feita (migration `Version20261118100000`); ninguém liga o restrito antes da fatia 4.
+- 18/11: revisão de vazamento da fatia 2. Corrigidos nela: sugestões da Nova pasta (nome e total de pastas de
+  cliente alheio), total do trilho e liberação item a item (`ResourceAccess`) que passava da lista de liberação.
+- 18/11: fatia 2b (decisão do Coordenador: não esperar a fatia 3, que fica só com o conector). O restrito só
+  alcança o cliente que está numa pasta dele (principal ou vinculado) e o processo ligado a uma pasta dele: o resto
+  dá 404 em toda rota `cliente_*` e `processo_*` por id (inclusive documento do cliente e nota técnica), some da
+  lista de processos (também o processo sem pasta) e da busca de cliente para vincular; nas telas do cliente e do
+  processo a pasta alheia nem aparece. Rotas `pasta_*` por id de filha: cobertas pelo
+  `BarreiraDoCadeadoRotasArquiteturaTest` e pelo 404 do escopo na barreira do cadeado. Ainda a conferir na fatia 3:
+  o aviso de meta sem link no sino.
+- 18/11: fatia 4 (tela de Perfis). Cartão "ACESSO RESTRITO ÀS PASTAS SOB RESPONSABILIDADE" no formulário do
+  secundário (P1 a P4, P6 a P9), com as 8 regras, a IDENTIFICAÇÃO DO PERFIL (os 5 rótulos do desenho) e o aviso;
+  ligado, os itens fora de `PermissoesDoAcessoRestrito::LIBERADAS` ficam desmarcados e travados (cadeado), o
+  grupo todo travado mostra "Bloqueado no acesso restrito" com opacidade .6 e os grupos de Cliente, Pasta e
+  Processo ganham a faixa "Vale só para as pastas sob responsabilidade do usuário". Desligar devolve as marcações de
+  antes (só na tela). O servidor decide: ligado, grava só as liberadas. Lista: selo com o texto fixo do desenho
+  (L63; o desenho manda sobre o "rótulo em maiúsculas" da P10) e descrição vazia "Acesso restrito às pastas sob
+  responsabilidade" (P11). P12: rótulo em maiúsculas (badge do padrão da tela, sem desenho) na lista de usuários e
+  na ficha do usuário. Simular fora (Q1).
+- 18/11: fatia 5a (servidor do compartilhar com a equipe; migration `Version20261118110000`, tabela
+  `pasta_compartilhamento`). O escopo do restrito soma as pastas compartilhadas e ativas (aceito e dentro da
+  validade, sem job). Caixas: sem "Abrir e movimentar" o restrito fica em `Visualizar` (`NivelNoCadeado`), "Baixar
+  documentos" e "Enviar documentos" valem por rota na barreira do cadeado (`ROTAS_DE_BAIXAR`, `ROTAS_DE_ENVIAR`; o
+  envio passa por cima do `Visualizar` do compartilhamento só se o cadeado deixaria editar), recusa com "O
+  compartilhamento desta pasta não permite esta ação.". Decisão: as caixas só limitam quem chega à pasta pelo
+  compartilhamento (o restrito que não é o responsável); para quem não é restrito o compartilhamento vale só como
+  ver a pasta (§4.4). Rotas JSON `pasta_compartilhamento_ver|criar|encerrar` (o GET devolve o token dos POSTs).
+  Encerrar: quem compartilhou, o responsável, o destino (deixar de colaborar), o primário e o Master. A tela (L1,
+  L3, L4, L5, L6) vem na 5b.
+- 18/11: fatia 5b (tela do compartilhar na Lista do Expediente). Ícone da linha (L1: verde com a contagem e a dica
+  "Compartilhada com N colaborador(es)", só para quem pode compartilhar; o restrito não vê), janela Compartilhar
+  pasta (L3 a L6: equipe sem o responsável e sem quem pede, os 3 recentes, as caixas, validade, mensagem, quem
+  colabora e o histórico) e a seção COMPARTILHAR do menu ⋮ (1 clique com um recente e "Deixar de colaborar" para
+  quem recebeu). Decisões, todas seguindo o desenho: (1) validade num select "Sem prazo / 7 / 30 / 90 dias"; (2) o
+  1 clique dá movimentar e enviar documentos, sem baixar (L830; `PermissoesDoCompartilhamento::umClique()` alinhado);
+  (3) dicas com `data-tip`, não `title`; (4) o menu reabre sozinho quando chega o GET da pasta; (5) o GET marca o
+  compartilhamento de quem pergunta (`meu`) e o "Deixar de colaborar" usa esse, nunca outro que a pessoa apenas
+  possa encerrar; (6) Demandas fica sem a mudança (o desenho é da Lista), o ícone verde do recebido continua.
+  Revisão da 5b, corrigido: os recentes do 1 clique só trazem quem pode receber (vínculo ativo, sem o responsável e
+  sem quem pede) e ainda não colabora na pasta (L826-827); quem não pode compartilhar (o destino, inclusive o
+  restrito) recebe no GET só a própria linha; o ícone da linha só sai para quem edita a pasta (`pastasEditaveis`,
+  mesmo critério do servidor); as cores do JS e da janela passaram para os tokens `--cp-*` com versão escura.
+  Ficam para depois: "Ver permissões e metas" da recebida (janela L11, fatia 9); "Outra conta (código)" desabilitado
+  com a dica "Em breve" até a fatia 8 (texto fora do desenho, sai na fatia 8); armadilha de foco da janela e aviso
+  quando o GET do menu falha (baixos).
+- 18/11: fatia 6 (trilha do restrito, regra 7). `TrilhaDoAcessoRestrito` grava direto no `audit_log` (pela conexão,
+  fica mesmo com 404 ou 403): ação `leitura` ao abrir a pasta (`pasta_show`, download de documento, ZIP e documento
+  do financeiro, só GET) e `negado` em toda recusa: pasta fora do escopo (404) e recusa do cadeado ou do
+  compartilhamento (`BarreiraDoCadeadoListener`), tela "Fora do seu acesso" (`entity_class` = `rota`) e cliente ou
+  processo fora do escopo (`BarreiraDoAcessoRestritoListener`, com a classe e o id). `changes` só com o evento, a rota
+  e o método; IP e escritório nas colunas próprias. Quem não é restrito não ganha trilha. A trilha de quem entra pela
+  outra conta vem com a fatia 9.
+- 18/11: fatia 7 (troca de responsável com confirmação, regra 5 e L8). No chip do responsável (pasta e Lista), escolher
+  outra pessoa quando a pasta já tem responsável abre a janela L8 do desenho 03 (valores do CSS do desenho, prefixo
+  `resp-troca-*`); pasta sem responsável troca direto, a mesma pessoa só fecha. "Manter {de} como colaborador" começa
+  desmarcado; marcado, o servidor (`manter_colaborador=1` no PATCH) cria o compartilhamento interno pelo
+  `CompartilharPastaComAEquipeUseCase` (1 clique, sem validade, mensagem "Mantido como colaborador na troca de
+  responsável"), na mesma transação da troca. O aviso segue o que o servidor fez (`colaboradorMantido`): sem vínculo
+  ativo, o anterior não fica e o aviso diz "foi desvinculado". Quem já colabora não ganha outro e conta como mantido
+  (conferido no banco, não pelo texto da recusa); quem passa a própria pasta adiante segue vendo a pasta e também
+  conta como mantido. Se outra aba já fez a mesma troca (`mudou` falso), não há aviso.
+  Decisões: (1) "Sem responsável", que o sistema tem e o desenho não, também passa pela L8, com o texto "a pasta fica
+  sem responsável" (e o aviso "A pasta {nup} ficou sem responsável."); (2) o restrito vê o aviso do desenho (L877) sem abrir a L8 (`acesso_restrito()` no Twig, o
+  servidor recusa do mesmo jeito); (3) o ícone L1 da linha se atualiza pelo `ExpCompartilhar.atualizar`, que a fatia
+  8 acrescenta (até lá, só no recarregar). O cartão "Responsável" do Registro já existia.
+- 18/11: fatia 3, parte dos avisos (o conector espera o PR 7 do conector). Mapa: os avisos e e-mails da pasta já
+  respeitam o escopo sem mudança, porque passam pelo `NivelNoCadeado` (que devolve `Oculto` fora do escopo):
+  `QuemAcompanhaAPasta` (pasta acompanhada), os avisos de meta (`NotificacaoService::veAPastaDaMeta` na criação),
+  menções do Registro, "Avisar quando chegar" do Push, relatórios de pastas paradas e sem processo, e o corte do
+  sino na leitura (`idsDasPastasOcultasNaSessao` soma `idsForaDoEscopo`). O aviso de prazo pelo chat não filtra o
+  destinatário na criação, mas o link `/pasta/<id>` o tira do sino na leitura. Corrigido: o aviso de meta levava a
+  `/tarefas/<id>`, que é "Fora do seu acesso" para o restrito; agora (`LinkDoAviso`, no dropdown do sino e no "Ver
+  todas") leva à aba Metas da pasta já na meta (`/pasta/<id>?meta=<id>#tarefas`), e o aviso de metas sem meta
+  própria (metas redistribuídas, menção no despacho) fica sem link. Quem não é restrito não muda.
+- 18/11: fatia 3, parte do conector (depois do PR 7, #777). Mapa: as 6 ferramentas já respeitam o escopo, porque o
+  portão fixa o escritório do token e tudo passa pelo `PastaRepository` com `soNoEscopo`, pelo `BuscarRapidoUseCase`
+  (`idsNoEscopo`), pelo `AcessoAPasta::podeVer` e pelo `NivelNoCadeado` (`idsDosProcessosOcultos` soma os processos
+  fora do escopo); `ler_agenda` fica fechada pela lista de liberação (`agenda` e `tarefas`). Corrigido: (1) a ação
+  `lixeira` do `buscar_pastas`, aberta pelo módulo `expediente`, fecha para o restrito como a tela
+  (`GuardaDaAcaoDoConector::FECHADAS_NO_ACESSO_RESTRITO`, "sem permissão"); (2) a tela de autorizar o conector
+  (`conector_oauth_*`, `conector_metadado_*`) passa na barreira do restrito: ela só mostra os escritórios da pessoa,
+  e o conector já valia para ele por outros caminhos (token de antes do perfil, sessão em outro escritório).
+  `opcoes` continua listando responsáveis e marcadores do escritório, como os filtros da Lista.
+- 18/11: fatia 8 (outra conta: código e convite; migration `Version20261118120000`, `user.codigo_pessoal`). Código
+  pessoal sorteado na primeira vez que a pessoa o vê (`CodigoPessoal::garantir`), único também contra o código da
+  conta (as duas gerações conferem as duas colunas) e fora da auditoria. Aba "Outra conta (código)" na janela, convite
+  `Pendente` (`PastaCompartilhamento::externo`), caixa "Recebidas" (L9, L10) nas rotas `expediente_recebidas` e
+  `expediente_recebida_responder` (aceitar, recusar, deixar; só o destino; alheio = 404). Decisões: (1) **o convite de
+  outra conta não abre nada no escritório da pasta**: o escopo do restrito, o `PermissionChecker` e a barreira só
+  olham `interno = true` (a abertura é da fatia 9, com o adendo); (2) o servidor não diz de quem é um código antes do
+  envio (a tela mostra só "Código válido. O destinatário confirma ao aceitar."); depois do envio, quem republicou vê
+  "Nome · Conta" (o código foi dado por ela); (3) código de quem tem qualquer vínculo com o escritório da pasta é
+  recusado ("use Equipe do escritório"), e código inexistente tem mensagem própria (os dois textos fora do desenho,
+  necessários); (4) o 1 clique para outra conta manda o `destinoId` e só vale para quem já recebeu desta pessoa por
+  código neste escritório; (5) o aviso vai para o sino do primeiro escritório ativo do destino, sem número da pasta
+  nem nome da conta, com link para `?recebidas=1`; a trilha da conta destino registra o aviso **sem** quem agiu na
+  origem (e-mail, IP e rota vazios: `AuditLogSubscriber::avisoParaOutraConta`); (6) "Ver pasta" da caixa e a janela
+  L11 ficam para a fatia 9; (7) como no desenho, a caixa só traz pendente e aceito (recusado e encerrado saem; estados
+  Aguardando, Colaborando, Expirada) e quem recusou não volta ao 1 clique; (8) o aviso "Aceita: adicionada às suas
+  pastas" é o texto do desenho e só fica verdadeiro com a fatia 9 (as duas vão juntas para o master).

@@ -95,6 +95,11 @@ expediente:
         favorito_tirar: Tirar dos favoritos
         favorito_marcar: Marcar como favorito
         pasta_trancada: Pasta trancada
+        compartilhar_aria: Compartilhar pasta
+        compartilhar_dica_sem: Compartilhar pasta (equipe ou outra conta)
+        compartilhar_dica_com: Compartilhada com {n} colaborador(es) · clique para gerenciar
+        compartilhada_comigo: Compartilhada com você
+        compartilhada_comigo_dica: Republicada por {de} (equipe). Você colabora nesta pasta com as permissões concedidas.
         cadeado_dica_por: Documentos sigilosos · pasta trancada por {por} em {em}
         cadeado_dica_primario: Documentos sigilosos · pasta trancada pelo usuário primário em {em}
         sem_cliente: Sem cliente
@@ -119,6 +124,8 @@ expediente:
         voltar_dica: Voltar ao acervo geral (ordem padrão)
         nova_pasta: Nova Pasta
         nova_pasta_dica: Abrir uma nova pasta (o número é gerado automaticamente)
+        recebidas: Recebidas
+        recebidas_dica: Pastas que outros usuários republicaram para você
         titulo:
             geral: Acervo geral
             resp10: Respondidos nos últimos 10 dias
@@ -159,6 +166,47 @@ expediente:
             nota: Somente o usuário primário pode liberar o acesso.
             entendi: Entendi
             pedir_acesso: Pedir acesso
+    # Página da pasta recebida de outra conta (spec acesso-restrito-e-compartilhar §4.5.1, fatia 9a): só leitura,
+    # sem nada que leve a outra tela da conta de origem.
+    recebida:
+        titulo: 'Pasta recebida {nup}'
+        marca: 'Recebida · {conta}'
+        marca_dica: 'Republicada por {de} ({conta}). Você colabora nesta pasta com as permissões concedidas.'
+        republicada_por: Republicada por
+        voce_pode: 'Você pode:'
+        pertence: A pasta pertence à outra conta. Você colabora só nela, e o dono pode encerrar o acesso a qualquer momento.
+        fase: Fase atual
+        acao: Ação
+        aba_andamentos: Andamentos
+        aba_documentos: Documentos
+        aba_metas: Metas
+        andamentos_vazio: Nenhum andamento registrado nesta pasta.
+        documentos_vazio: Nenhum documento nesta pasta.
+        metas_vazio: Nenhuma meta aberta
+        sem_abas: Nenhuma parte desta pasta está disponível para você.
+        registro_sistema: Andamento
+        ver: Visualizar
+        ver_dica: Abrir o documento numa aba nova
+        baixar: Baixar
+        baixar_dica: Baixar o documento
+        sem_prazo: Sem prazo
+        prazo: 'Prazo: {data}'
+        anotar_rotulo: Nova anotação
+        anotar_placeholder: Escreva uma anotação para a equipe da pasta
+        anotar_nota: 'A anotação fica na pasta de {conta}, com o seu nome.'
+        anotar_enviar: Registrar
+        fase_trocar_rotulo: Mudar para
+        fase_escolher: Escolha a fase
+        fase_trocar: Mudar fase
+        fase_dica: Só as fases do mesmo lado do Contrato. Finalizar e reativar ficam com a conta da pasta.
+        fase_invalida: Escolha uma fase da lista.
+        enviar_categoria: Categoria
+        enviar_arquivo_rotulo: Arquivo para enviar
+        enviar_arquivo: Enviar arquivo
+        sem_arquivo: Escolha um arquivo para enviar.
+        token_invalido: A página expirou. Recarregue e tente de novo.
+        sem_permissao: Você não tem permissão para esta ação nesta pasta.
+        erro_envio: Não foi possível concluir. Tente de novo.
     js:
         lixeira:
             carregando: Carregando a lixeira…
@@ -342,6 +390,94 @@ expediente:
                 cliente_vinculo: A nova pasta será vinculada ao mesmo cadastro.
                 proximo_numero: PASTA {numero}
             concluida_no_periodo: Concluídas no período
+        compartilhar:
+            titulo: Compartilhar pasta {nup}
+            fechar: Fechar
+            intro: O colaborador vê só esta pasta e as metas dela, sem acesso ao resto do escritório. A pasta continua sua e você encerra o acesso quando quiser.
+            compartilhar_com: COMPARTILHAR COM
+            destino_equipe: Equipe do escritório
+            destino_outra: Outra conta (código)
+            usuario: USUÁRIO DA EQUIPE
+            escolha: Escolha quem vai colaborar
+            dica_sem_aceite: 'Sem aceite: a pasta aparece para ele na hora. Vale também para quem tem acesso restrito (parceiro, prospectador).'
+            pode_fazer: O QUE ELE PODE FAZER
+            sempre: Ver a pasta, os documentos e as metas (sempre)
+            movimentar: Abrir e movimentar metas, andamentos e prazos
+            enviar_docs: Enviar documentos
+            baixar_docs: Baixar documentos
+            validade: VALIDADE
+            sem_prazo: Sem prazo
+            dias: '{n} dias'
+            mensagem: MENSAGEM (OPCIONAL)
+            mensagem_exemplo: 'Ex.: acompanhe os prazos desta cobrança'
+            compartilhar: Compartilhar
+            quem_colabora_titulo: Quem já colabora nesta pasta
+            equipe_do_escritorio: '{nome} · equipe do escritório'
+            perm_ver: Ver a pasta e os documentos
+            perm_mov: abrir e movimentar metas, andamentos e prazos
+            perm_metas: ver as metas
+            perm_enviar: enviar documentos
+            perm_baixar: baixar documentos
+            quando: 'desde {desde}'
+            quando_ate: 'desde {desde} · até {ate}'
+            estado_colaborando: Colaborando
+            estado_aguardando: Aguardando aceite
+            estado_expirada: Expirada
+            estado_encerrada: Acesso encerrado
+            encerrar: Encerrar acesso
+            escolha_usuario: Escolha o usuário da equipe.
+            falha_conexao: Não foi possível falar com o servidor. Tente de novo.
+            erro_carregar: Não foi possível abrir o compartilhamento da pasta.
+            menu_secao: COMPARTILHAR
+            menu_recebida: RECEBIDA DE EQUIPE
+            menu_um_clique: 1 clique
+            menu_recente_dica: 'Compartilhar agora com {nome} (equipe): ver, metas e documentos'
+            menu_com_equipe: Compartilhar com a equipe…
+            menu_quem_colabora: Quem colabora
+            menu_deixar: Deixar de colaborar
+            menu_compartilhada: Pasta {nup} compartilhada com {nome}.
+            menu_deixou: Você deixou de colaborar na pasta {nup}.
+            codigo_rotulo: CÓDIGO DO USUÁRIO QUE VAI COLABORAR
+            codigo_valido: Código válido. O destinatário confirma ao aceitar.
+            codigo_invalido: Código inválido. Use o formato BJ-XXXX-XXXX-XXXX.
+            outra_conta: outra conta
+            menu_recente_dica_conta: 'Compartilhar agora com {nome} · {conta}: ver, metas e documentos'
+            menu_outra_conta: Republicar para outra conta…
+            menu_copiar_codigo: Copiar meu código
+            menu_codigo_copiado: Seu código {codigo} foi copiado.
+            menu_republicada: Pasta {nup} republicada para {nome}. Aguardando aceite.
+        recebidas:
+            rotulo: Pastas recebidas
+            titulo: Pastas recebidas de outras contas
+            seu_codigo: 'Seu código para receber pastas:'
+            copiar: Copiar código
+            copiado: Seu código foi copiado. Envie a quem vai republicar pastas para você.
+            vazio: Nenhuma pasta recebida ainda. Envie seu código a quem quiser republicar pastas para você.
+            republicada_por: Republicada por
+            quando: 'Recebida em {em}'
+            quando_ate: 'Recebida em {em} · válida até {ate}'
+            estado_aguardando: Aguardando você
+            estado_colaborando: Colaborando
+            estado_expirada: Expirada
+            recusar: Recusar
+            aceitar: Aceitar e colaborar
+            deixar: Deixar de colaborar
+            aceita: Pasta {nup} adicionada às suas pastas, marcada como Recebida.
+            erro_carregar: Não foi possível abrir as pastas recebidas.
+            ver_pasta: Ver pasta
+            janela_titulo: 'Pasta recebida {nup}'
+            voce_pode: 'Você pode:'
+            metas_abertas: '{n} meta(s) aberta(s) nesta pasta'
+            sem_metas: Nenhuma meta aberta
+            abrir_metas: Abrir metas
+            pertence: A pasta pertence à outra conta. Você colabora só nela, e o dono pode encerrar o acesso a qualquer momento.
+            abrir_pasta: Abrir pasta
+            erro_abrir: Não foi possível abrir a pasta recebida.
+            marca: 'Recebida · {conta}'
+            marca_dica: 'Republicada por {de} ({conta}). Você colabora nesta pasta com as permissões concedidas.'
+            dono: '{de} (dono)'
+            dono_dica: 'Pasta de outra conta: o responsável é definido pelo dono'
+            reu_vazio: Não informado
         trilho:
             expandir_painel: Expandir painel
             recolher_painel: Recolher painel

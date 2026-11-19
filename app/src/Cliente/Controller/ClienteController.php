@@ -8,15 +8,21 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cliente\Exception\ClienteComVinculosException;
+use App\Cliente\Exception\ClienteNaoEncontradoException;
+use App\Cliente\Exception\DocumentoDoClienteNaoEncontradoException;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Service\CamposDoCadastro;
 use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
+use App\Cliente\UseCase\ExcluirClienteUseCase;
+use App\Cliente\UseCase\ExcluirDocumentoDoClienteUseCase;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -26,7 +32,6 @@ use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Http\NomeSeguroDeArquivo;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -109,10 +114,12 @@ class ClienteController extends AbstractController
         private readonly HistoricoDoCliente $historico,
         private readonly CamposDoCadastro $campos,
         private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
+        private readonly ExcluirClienteUseCase $excluirCliente,
+        private readonly ExcluirDocumentoDoClienteUseCase $excluirDocumento,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(int $id, AcessoAPasta $acessoAPasta): Response
+    public function show(int $id, AcessoAPasta $acessoAPasta, EscopoDePastas $escopo): Response
     {
         $cliente = $this->clienteRepository->find($id);
 
@@ -130,7 +137,7 @@ class ClienteController extends AbstractController
 
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
-            'pastas' => $this->pastasQueAPessoaVe($cliente, $currentUser, $tenant),
+            'pastas' => $this->pastasQueAPessoaVe($cliente, $currentUser, $tenant, $escopo),
             // Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número (sem a situação).
             'pastasOcultas' => $tenant !== null ? array_flip($acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId())) : [],
             'documentTypeOptions' => self::DOCUMENT_TYPES,
@@ -150,14 +157,16 @@ class ClienteController extends AbstractController
     /**
      * As pastas do cliente que a pessoa pode ver, a mesma regra da janela do cliente (auditoria 1.06): a permissão de
      * ver a pasta, SEM o teto do cadeado. A pasta trancada continua na lista só com o número (D1, `pastasOcultas`).
+     * No acesso restrito, a pasta fora do escopo nem aparece (spec acesso-restrito-e-compartilhar §4.3).
      *
      * @return list<Pasta>
      */
-    private function pastasQueAPessoaVe(Cliente $cliente, User $usuario, ?Tenant $tenant): array
+    private function pastasQueAPessoaVe(Cliente $cliente, User $usuario, ?Tenant $tenant, EscopoDePastas $escopo): array
     {
         return array_values(array_filter(
             $this->pastaRepository->findByCliente($cliente, $tenant),
-            fn (Pasta $pasta): bool => $this->permissionChecker->canAccessResourceIgnoringPastaLock($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW),
+            fn (Pasta $pasta): bool => !$escopo->pastaForaDoEscopo($usuario, $pasta)
+                && $this->permissionChecker->canAccessResourceIgnoringPastaLock($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW),
         ));
     }
 
@@ -224,15 +233,14 @@ class ClienteController extends AbstractController
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {
-            // As chaves saem antes; os arquivos, só depois de o banco aceitar a exclusão (E2.5).
-            // Antes, os arquivos eram apagados aqui e o flush vinha depois: quando uma FK recusava
-            // (cobranca_carteira → cliente é NO ACTION), o cliente ficava — sem os documentos.
-            $chaves = $this->chavesDosArquivosProprios($cliente);
-
             try {
-                $this->em->remove($cliente);
-                $this->em->flush();
-            } catch (ForeignKeyConstraintViolationException) {
+                // As chaves saem do UseCase; os arquivos, só depois de o banco aceitar a exclusão (E2.5).
+                // Antes, os arquivos eram apagados aqui e o flush vinha depois: quando uma FK recusava
+                // (cobranca_carteira → cliente é NO ACTION), o cliente ficava — sem os documentos.
+                $chaves = $this->excluirCliente->executar($id, $tenant ?? throw $this->createNotFoundException('Cliente não encontrado'));
+            } catch (ClienteNaoEncontradoException) {
+                throw $this->createNotFoundException('Cliente não encontrado');
+            } catch (ClienteComVinculosException) {
                 $this->addFlash('error', 'Não é possível excluir este cliente porque ele está vinculado a outros registros (ex.: pré-cadastro).');
 
                 return $this->redirectToRoute('homepage');
@@ -243,23 +251,6 @@ class ClienteController extends AbstractController
         }
 
         return $this->redirectToRoute('homepage');
-    }
-
-    /**
-     * As chaves dos arquivos do próprio cadastro. O vinculado do menu Documentos não tem arquivo próprio: o da pasta fica.
-     *
-     * @return list<\App\Shared\Armazenamento\ChaveDeArquivo>
-     */
-    private function chavesDosArquivosProprios(Cliente $cliente): array
-    {
-        $chaves = [];
-        foreach ($cliente->getDocumentos() as $doc) {
-            if (!$doc->isVinculado()) {
-                $chaves[] = ChavesDeCliente::documento($doc);
-            }
-        }
-
-        return $chaves;
     }
 
     // -------------------------------------------------------------------------
@@ -536,11 +527,12 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        // Vinculado do menu Documentos: sai só o vínculo; o arquivo é da pasta e fica.
-        $chaves = $doc->isVinculado() ? [] : [ChavesDeCliente::documento($doc)];
-        $this->historico->documentoRemovido($doc, $currentUser);
-        $this->em->remove($doc);
-        $this->em->flush();
+        // Vinculado do menu Documentos: sai só o vínculo; o arquivo é da pasta e fica (o UseCase não devolve chave).
+        try {
+            $chaves = $this->excluirDocumento->executar($doc, $currentUser, $tenant ?? throw $this->createNotFoundException());
+        } catch (DocumentoDoClienteNaoEncontradoException) {
+            throw $this->createNotFoundException();
+        }
 
         // Só depois do COMMIT (E2.5, INV-6); falha física vira registro, não 500.
         $this->remocao->remover($chaves, 'ClienteController::deleteDocumento');

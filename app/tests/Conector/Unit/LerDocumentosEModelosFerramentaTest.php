@@ -29,7 +29,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
 
         self::assertSame('ler_documentos_e_modelos', $this->ferramenta()->nome());
         self::assertSame(CatalogoFechadoDoConector::TITULOS['ler_documentos_e_modelos'], $this->ferramenta()->titulo());
-        self::assertSame(['listar', 'ler', 'lixeira', 'modelos', 'modelo'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['listar', 'ler', 'lixeira', 'modelos', 'modelo', 'modelos_de_checklist'], $esquema['properties']['acao']['enum']);
         self::assertSame(['acao', 'pasta_id'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame('integer', $esquema['properties']['documento_id']['type']);
@@ -63,6 +63,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
         yield 'modelos com modelo_id' => [['acao' => 'modelos', 'pasta_id' => 1, 'modelo_id' => 2]];
         yield 'modelos com busca que não é texto' => [['acao' => 'modelos', 'pasta_id' => 1, 'busca' => 12]];
         yield 'modelos com busca enorme' => [['acao' => 'modelos', 'pasta_id' => 1, 'busca' => str_repeat('a', 101)]];
+        yield 'checklist com busca' => [['acao' => 'modelos_de_checklist', 'pasta_id' => 1, 'busca' => 'x']];
         yield 'página zero' => [['acao' => 'listar', 'pasta_id' => 1, 'pagina' => 0]];
         yield 'página acima do teto' => [['acao' => 'listar', 'pasta_id' => 1, 'pagina' => 10_001]];
         yield 'campo fora do esquema' => [['acao' => 'listar', 'pasta_id' => 1, 'caminho' => '/etc/passwd']];
@@ -81,7 +82,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
         }
     }
 
-    #[TestDox('as mensagens fixas de tipo, áudio e vídeo e limite não trazem travessão nem dado do banco')]
+    #[TestDox('as mensagens fixas de tipo, áudio e vídeo, limite e corte não trazem travessão nem dado do banco')]
     public function testMensagensFixas(): void
     {
         foreach ([
@@ -90,6 +91,7 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
             LerDocumentosEModelosFerramenta::ILEGIVEL,
             LerDocumentosEModelosFerramenta::LIMITE,
             LerDocumentosEModelosFerramenta::INDISPONIVEL,
+            LerDocumentosEModelosFerramenta::AVISO_DE_CORTE,
         ] as $mensagem) {
             self::assertStringNotContainsString("\u{2014}", $mensagem);
             self::assertStringNotContainsString("\u{2013}", $mensagem);

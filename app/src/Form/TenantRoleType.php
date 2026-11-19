@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Tenant\TenantRole;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -18,6 +19,7 @@ class TenantRoleType extends AbstractType
         /** @var array<string, \App\Entity\Permission\Permission[]> $allPermissions */
         $allPermissions = $options['permissions'];
         $selectedCodes  = $options['selected_codes'];
+        $perfil         = $builder->getData();
 
         // Constrói as choices agrupadas por group
         $choices = [];
@@ -59,6 +61,29 @@ class TenantRoleType extends AbstractType
                 'multiple' => true,
                 'choices'  => $choices,
                 'data'     => $selectedCodes,
+            ]);
+        $this->adicionarAcessoRestrito($builder, $perfil);
+    }
+
+    /**
+     * Acesso restrito às pastas sob responsabilidade (spec acesso-restrito-e-compartilhar, P1 a P4): o controller
+     * liga ou desliga na entidade e, ligado, só grava as permissões da lista de liberação.
+     */
+    private function adicionarAcessoRestrito(FormBuilderInterface $builder, mixed $perfil): void
+    {
+        $builder
+            ->add('acessoRestrito', CheckboxType::class, [
+                'label'    => false,
+                'mapped'   => false,
+                'required' => false,
+                'data'     => $perfil instanceof TenantRole && $perfil->temAcessoRestrito(),
+            ])
+            ->add('rotulo', ChoiceType::class, [
+                'label'   => false,
+                'mapped'  => false,
+                'choices' => array_combine(TenantRole::ROTULOS_DO_ACESSO_RESTRITO, TenantRole::ROTULOS_DO_ACESSO_RESTRITO),
+                'data'    => $perfil instanceof TenantRole && in_array($perfil->getRotulo(), TenantRole::ROTULOS_DO_ACESSO_RESTRITO, true)
+                    ? $perfil->getRotulo() : TenantRole::ROTULOS_DO_ACESSO_RESTRITO[0],
             ]);
     }
 

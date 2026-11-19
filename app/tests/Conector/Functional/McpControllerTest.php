@@ -4,13 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Conector\Functional;
 
+use App\Cliente\Entity\ClientePF;
 use App\Conector\Controller\McpController;
+use App\Conector\DTO\ChamadaDoConector;
+use App\Conector\Entity\ClienteDoConector;
+use App\Conector\Entity\ConsentimentoDoConector;
+use App\Conector\Enum\TipoDeClienteDoConector;
+use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Ferramenta\AtualizarClienteFerramenta;
+use App\Conector\Ferramenta\AtualizarPastaFerramenta;
+use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\QuemSouEuFerramenta;
+use App\Conector\Ferramenta\RegistrarNaPastaFerramenta;
 use App\Conector\Mcp\ServidorMcpDoConector;
 use App\Conector\Service\RequisicaoDoConector;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
+use App\Tests\Conector\Support\FerramentaQueGuardaOsArgumentos;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -24,6 +36,7 @@ use Symfony\Component\HttpFoundation\Response;
  * registro e o log `mcp` de verdade.
  */
 #[CoversClass(McpController::class)]
+#[CoversClass(DespachoDasFerramentas::class)]
 final class McpControllerTest extends WebTestCase
 {
     use CenarioDoConectorTrait;
@@ -157,6 +170,133 @@ final class McpControllerTest extends WebTestCase
         }
     }
 
+    #[TestDox('12.15, caso próprio: atualizar_cliente com CPF nos argumentos grava, e nenhum dígito dele fica no mcp.log (nem na linha do registro da chamada) nem na resposta')]
+    public function testCpfDaAtualizarClienteNaoVaiAoLog(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $arquivo = static::getContainer()->getParameter('kernel.logs_dir') . '/mcp_test' . (string) getenv('TESTE_PROCESSO') . '.log';
+        @unlink($arquivo);
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit']);
+        $cliente = (new ClientePF())->setNomeCompleto('Cliente Do Log')->setCpf('')->setRg('')->setRgOrgaoExpedidor('')->setNacionalidade('brasileira');
+        $cliente->setEmail('')->setCep('')->setEndereco('')->setCidade('Brasília')->setEstado('DF')->setTenant($escritorio);
+        $this->em()->persist($cliente);
+        $this->em()->flush();
+        $escopos = ['mcp:leitura', 'mcp:escrita'];
+        $c = static::getContainer();
+        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, 42, 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+        $c->set(ServidorMcpDoConector::class, $this->servidor($escopos, [$c->get(AtualizarClienteFerramenta::class)], $c->get(RequisicaoDoConector::class), $c->get('monolog.logger.mcp'), $chamada));
+
+        $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 13, 'method' => 'tools/call', 'params' => ['name' => AtualizarClienteFerramenta::NOME, 'arguments' => [
+            'acao' => 'completar', 'cliente_id' => $cliente->getId(), 'campos' => ['cpf' => self::CPF, 'bairro' => 'Bairro 52998224725'],
+        ]]], self::TOKEN);
+
+        self::assertSame(200, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertFalse($corpo['result']['isError'], mb_substr((string) $resposta->getContent(), 0, 600));
+        self::assertEqualsCanonicalizing(['cpf', 'bairro'], $corpo['result']['structuredContent']['campos_alterados']);
+        self::assertSame('52998224725', preg_replace('/\D/', '', (string) $this->em()->getConnection()->fetchOne('SELECT cpf FROM cliente_pf WHERE id = ?', [$cliente->getId()])), 'a chamada gravou o CPF');
+        $log = (string) @file_get_contents($arquivo);
+        self::assertStringContainsString('conector: chamada ao /mcp', $log);
+        self::assertStringContainsString(AtualizarClienteFerramenta::NOME, $log, 'a linha é a da chamada da atualizar_cliente');
+        foreach ([$log, (string) $resposta->getContent()] as $texto) {
+            foreach (['52998224725', '529.982.247-25', '529982', '24725'] as $pedaco) {
+                self::assertStringNotContainsString($pedaco, $texto);
+            }
+        }
+    }
+
+    #[TestDox('cadastrar pelo /mcp: a lista de clientes chega como lista de objetos (stdClass no SDK) e vira uma proposta com os dois, sem gravar')]
+    public function testCadastrarPeloMcpViraProposta(): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $escritorio = $this->escritorio();
+        $pessoa = $this->pessoa();
+        $this->vinculo($pessoa, $escritorio, permissoes: ['modules.clientes.view', 'resources.cliente.view', 'resources.cliente.edit', 'resources.carteira.gerenciar']);
+        $escopos = ['mcp:leitura', 'mcp:escrita'];
+        $c = static::getContainer();
+        // A proposta guarda o consentimento da chamada: aqui ele existe de verdade.
+        $app = new ClienteDoConector('https://claude.ai/oauth/' . uniqid() . '/client.json', TipoDeClienteDoConector::Cimd, 'Claude', ['https://claude.ai/api/mcp/auth_callback'], new \DateTimeImmutable('-1 hour'));
+        $consentimento = new ConsentimentoDoConector($pessoa, $escritorio, $app, $escopos, new \DateTimeImmutable('-1 hour'));
+        $this->em()->persist($app);
+        $this->em()->persist($consentimento);
+        $this->em()->flush();
+        $chamada = new ChamadaDoConector($this->portao()->abrir((int) $pessoa->getId(), (int) $escritorio->getId()), 41, (int) $consentimento->getId(), 'claude.ai', $escopos, new \DateTimeImmutable('+7 days'));
+        $c->set(ServidorMcpDoConector::class, $this->servidor($escopos, [$c->get(AtualizarClienteFerramenta::class)], $c->get(RequisicaoDoConector::class), $c->get('monolog.logger.mcp'), $chamada));
+        $antes = (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_pf');
+
+        $resposta = $this->postar($client, ['jsonrpc' => '2.0', 'id' => 14, 'method' => 'tools/call', 'params' => ['name' => AtualizarClienteFerramenta::NOME, 'arguments' => [
+            'acao' => 'cadastrar', 'clientes' => [
+                ['tipo' => 'pf', 'campos' => ['nome' => 'Joana Pelo Mcp', 'cpf' => '390.533.447-05']],
+                ['tipo' => 'pf', 'campos' => ['nome' => 'Pedro Pelo Mcp', 'cpf' => '111.444.777-35']],
+            ],
+        ]]], self::TOKEN);
+
+        self::assertSame(200, $resposta->getStatusCode(), mb_substr((string) $resposta->getContent(), 0, 600));
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertFalse($corpo['result']['isError'], mb_substr((string) $resposta->getContent(), 0, 600));
+        self::assertSame('aguardando_confirmacao', $corpo['result']['structuredContent']['estado']);
+        $resumo = $corpo['result']['structuredContent']['proposta']['resumo'];
+        self::assertStringContainsString('Cadastrar 2 clientes no escritório:', $resumo);
+        self::assertStringContainsString('Joana Pelo Mcp', $resumo);
+        self::assertStringContainsString('Pedro Pelo Mcp', $resumo);
+        self::assertSame($antes, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_pf'), 'propor não grava cliente');
+    }
+
+    /**
+     * Um objeto em cada nível (no campo, dentro dele e dentro de uma lista), como o assistente pode mandar, e os campos
+     * onde ele vai.
+     *
+     * @return iterable<string, array{class-string<\App\Conector\Ferramenta\FerramentaDoConector>, string, list<string>}>
+     */
+    public static function chamadasComObjetoAninhado(): iterable
+    {
+        yield 'atualizar_pasta' => [AtualizarPastaFerramenta::class, '{"acao":"editar_dados","pasta_id":1,"nup":{"numero":{"digitos":"0001"}},"nome_cliente":[{"nome":"MARIA"}]}', ['nup', 'nome_cliente']];
+        yield 'registrar_na_pasta' => [RegistrarNaPastaFerramenta::class, '{"lugar":"registro","acao":"escrever","pasta_id":1,"texto":{"parte":{"linha":"oi"}},"mencoes":{"primeiro":5,"outros":[{"id":6}]}}', ['texto', 'mencoes']];
+    }
+
+    /**
+     * @param class-string<\App\Conector\Ferramenta\FerramentaDoConector> $classe
+     * @param list<string>                                                $campos
+     */
+    #[DataProvider('chamadasComObjetoAninhado')]
+    #[TestDox('objeto aninhado em campo que o esquema não aceita como objeto ($_dataName): o SDK recusa com -32602 e a ferramenta nem é chamada')]
+    public function testObjetoAninhadoForaDoEsquemaNemChegaAFerramenta(string $classe, string $argumentos, array $campos): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $espia = new FerramentaQueGuardaOsArgumentos(static::getContainer()->get($classe));
+        $this->trocarServidor(['mcp:leitura', 'mcp:escrita'], [$espia]);
+
+        $corpo = $this->chamarComObjeto($client, $espia->nome(), $argumentos);
+
+        self::assertSame(-32602, $corpo['error']['code'] ?? null, json_encode($corpo, \JSON_THROW_ON_ERROR));
+        self::assertNull($espia->recebidos);
+    }
+
+    /**
+     * @param class-string<\App\Conector\Ferramenta\FerramentaDoConector> $classe
+     * @param list<string>                                                $campos
+     */
+    #[DataProvider('chamadasComObjetoAninhado')]
+    #[TestDox('objeto aninhado que o esquema deixa passar ($_dataName): o despacho entrega só arrays à ferramenta, em todo nível, e a recusa sai com a mensagem fixa, sem erro interno')]
+    public function testObjetoAninhadoChegaComoArray(string $classe, string $argumentos, array $campos): void
+    {
+        $client = self::cliente();
+        $client->disableReboot();
+        $espia = new FerramentaQueGuardaOsArgumentos(static::getContainer()->get($classe), $campos);
+        $this->trocarServidor(['mcp:leitura', 'mcp:escrita'], [$espia]);
+
+        $corpo = $this->chamarComObjeto($client, $espia->nome(), $argumentos);
+
+        self::assertSame(json_decode($argumentos, true, 512, \JSON_THROW_ON_ERROR), $espia->recebidos, json_encode($corpo, \JSON_THROW_ON_ERROR));
+        self::assertTrue($corpo['result']['isError'] ?? false);
+        self::assertSame(ErroDaFerramenta::ENTRADA_INVALIDA, $corpo['result']['content'][0]['text'] ?? null);
+    }
+
     #[TestDox('com bearer aceito e um cookie de sessão de outro escritório: nada liga o filtro da sessão nem toca na sessão (debug ligado: o Symfony lança se a sessão for usada)')]
     public function testNadaTocaNaSessaoNemLigaOFiltro(): void
     {
@@ -181,16 +321,33 @@ final class McpControllerTest extends WebTestCase
         self::assertSemSessao($resposta);
     }
 
-    /** @param list<string> $escopos */
-    private function trocarServidor(array $escopos): void
+    /**
+     * @param list<string>                                              $escopos
+     * @param list<\App\Conector\Ferramenta\FerramentaDoConector>|null $ferramentas sem a lista, só a quem_sou_eu
+     */
+    private function trocarServidor(array $escopos, ?array $ferramentas = null): void
     {
         $c = static::getContainer();
         $c->set(ServidorMcpDoConector::class, $this->servidor(
             $escopos,
-            [$c->get(QuemSouEuFerramenta::class)],
+            $ferramentas ?? [$c->get(QuemSouEuFerramenta::class)],
             $c->get(RequisicaoDoConector::class),
             $c->get('monolog.logger.mcp'),
         ));
+    }
+
+    /**
+     * Um tools/call com os argumentos em JSON, decodificados com objetos (como chegam do assistente).
+     *
+     * @return array<string, mixed> a resposta JSON-RPC
+     */
+    private function chamarComObjeto(KernelBrowser $client, string $nome, string $argumentos): array
+    {
+        $mensagem = ['jsonrpc' => '2.0', 'id' => 31, 'method' => 'tools/call', 'params' => ['name' => $nome, 'arguments' => json_decode($argumentos, false, 512, \JSON_THROW_ON_ERROR)]];
+        $resposta = $this->postar($client, $mensagem, self::TOKEN);
+        self::assertSame(200, $resposta->getStatusCode());
+
+        return json_decode((string) $resposta->getContent(), true, 512, \JSON_THROW_ON_ERROR);
     }
 
     /** @param array<mixed> $mensagem uma mensagem JSON-RPC, ou a lista de um lote */

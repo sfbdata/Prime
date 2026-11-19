@@ -77,9 +77,13 @@ final class TabelaDeAbaEChave
             'lixeira' => ['modulos' => self::EXPEDIENTE, 'abas' => [], 'chaves' => self::NENHUMA],
             'numero' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
             'minhas_demandas' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
+            // Os relatórios do Expediente (PR 14): módulo `expediente`, como as rotas `expediente_pastas_paradas` e
+            // `expediente_relatorio_processos`; nenhuma chave (nenhuma das duas casa com a chave `expedientes`, que é do `pasta_show`).
+            'pastas_paradas' => ['modulos' => self::EXPEDIENTE, 'abas' => [], 'chaves' => self::NENHUMA],
+            'pastas_sem_processo' => ['modulos' => self::EXPEDIENTE, 'abas' => [], 'chaves' => self::NENHUMA],
         ],
         // Por parte (`partes`), sem módulo: como a tela da pasta (`pasta_show`), quem lê é quem pode ver a pasta. O Registro barra pela aba Dados (decisão do PR 6: a mensagem do Registro mora na aba
-        // Dados, mesmo sem rota no `MAPA`). Timeline fica para o PR 14, sem linha até lá.
+        // Dados, mesmo sem rota no `MAPA`).
         'ler_pasta' => [
             'resumo' => ['modulos' => [], 'abas' => [], 'chaves' => self::EXPEDIENTES],
             'andamento' => ['modulos' => [], 'abas' => [], 'chaves' => self::EXPEDIENTES],
@@ -93,6 +97,9 @@ final class TabelaDeAbaEChave
             'checklist' => ['modulos' => [], 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'financeiro' => ['modulos' => [], 'abas' => self::FINANCEIRO, 'chaves' => self::EXPEDIENTES],
             'publicacoes' => ['modulos' => [], 'abas' => self::PUSH, 'chaves' => self::EXPEDIENTES],
+            // A Timeline inteligente (`pasta_timeline`) não tem barreira de aba na rota: o montador tira de cada evento a aba
+            // oculta e o financeiro de quem não o vê. Como as vizinhas, a chave do Master é a da tela da pasta.
+            'timeline' => ['modulos' => [], 'abas' => [], 'chaves' => self::EXPEDIENTES],
         ],
         'ler_documentos_e_modelos' => [
             'listar' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
@@ -100,6 +107,7 @@ final class TabelaDeAbaEChave
             'lixeira' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'modelos' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
             'modelo' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
+            'modelos_de_checklist' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
         ],
         'ler_processos' => [
             'buscar' => ['modulos' => self::PROCESSOS, 'abas' => [], 'chaves' => self::NENHUMA],
@@ -107,12 +115,12 @@ final class TabelaDeAbaEChave
             'para_vincular' => ['modulos' => self::PROCESSOS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'cnj' => ['modulos' => self::PROCESSOS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
         ],
-        // `documentos_de_identidade`: a aba Documentos de cada pasta da lista (a pasta com a aba oculta sai).
+        // `documentos_de_identidade` e `documentos_do_cliente`: a aba Documentos de cada pasta da lista (a pasta com a aba oculta sai).
         'ler_clientes' => [
             'buscar' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
             'ler' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
             'conferir_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
-            'documentos_do_cliente' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
+            'documentos_do_cliente' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
             'documentos_de_identidade' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
         ],
         // `agenda`: módulo `agenda` (`AgendaNovaController` :58). `minhas_metas` (14.i): módulo `tarefas` e a chave `metas`
@@ -175,6 +183,7 @@ final class TabelaDeAbaEChave
             'subpasta' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'reordenar' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'restaurar' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
+            'excluir_de_vez' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
             'escrever_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => ['peticionar', 'expedientes']],
             'editar_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => ['peticionar', 'expedientes']],
             'destino_da_peca' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
@@ -201,8 +210,11 @@ final class TabelaDeAbaEChave
             'vincular_a_pasta' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
             'principal' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
             'ligar_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
+            // Excluir (por proposta): o documento do cadastro (o vinculado de pasta passa pela aba Documentos da pasta) e o cliente.
+            'excluir_documento' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
+            'excluir_cliente' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::EXPEDIENTES, 'so_com_pasta' => true],
         ],
-        // Nota técnica: sem aba nem chave (é do processo, não da tela da pasta).
+        // Nota técnica: sem aba nem chave (é do processo, não da tela da pasta). Excluir processo: aba Processo e `expedientes`.
         'processos_da_pasta' => [
             'vincular' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'principal' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
@@ -210,6 +222,7 @@ final class TabelaDeAbaEChave
             'acao_da_pasta' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'via_administrativa' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
             'nota_tecnica' => ['modulos' => self::PASTAS, 'abas' => [], 'chaves' => self::NENHUMA],
+            'excluir_processo' => ['modulos' => self::PASTAS, 'abas' => self::PROCESSO, 'chaves' => self::EXPEDIENTES],
         ],
         'gravar_na_agenda' => [
             'salvar' => ['modulos' => self::AGENDA, 'abas' => [], 'chaves' => self::NENHUMA],

@@ -94,6 +94,30 @@ final class MencoesDoRegistro
     }
 
     /**
+     * Sem nenhuma marcação de menção (autor de outra conta, pela pasta recebida): todo token vira `@rótulo`, repetido
+     * até não sobrar nenhum. Uma passada só não basta: num token aninhado (`@[Fulano @[x](user:1)](user:6)`) só o de
+     * dentro casa, e trocá-lo fecha o de fora. Cada passada troca ao menos um token e encurta o texto; a que não muda
+     * nada (token dentro de um atributo de tag, que a troca por trechos não alcança) encerra, e o que sobrou perde a
+     * marcação no texto inteiro.
+     */
+    public function semMarcacao(string $conteudo): string
+    {
+        while (preg_match(self::PADRAO, $conteudo) === 1) {
+            $trocado = $this->reescrever($conteudo, []);
+            if ($trocado === $conteudo) {
+                do {
+                    $conteudo = (string) preg_replace(self::PADRAO, '@$1', $conteudo);
+                } while (preg_match(self::PADRAO, $conteudo) === 1);
+
+                return $conteudo;
+            }
+            $conteudo = $trocado;
+        }
+
+        return $conteudo;
+    }
+
+    /**
      * HTML seguro para a tela: o mesmo do `texto_rico` com cada token trocado pelo destaque.
      */
     public function exibir(?string $conteudo): string

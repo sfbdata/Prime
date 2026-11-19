@@ -11,7 +11,6 @@ use App\ChatIa\Exception\AnexoDoChatInvalidoException;
 use App\ChatIa\Exception\SemAceiteNoChatException;
 use App\ChatIa\Repository\AnexoDeChatRepository;
 use App\ChatIa\Service\AcessoAoChat;
-use App\ChatIa\Service\ExtratorDeTextoDocx;
 use App\ChatIa\Service\MontadorDoPedidoDoChat;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -19,6 +18,8 @@ use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Shared\Texto\ArquivoSemTextoException;
+use App\Shared\Texto\ExtratorDeTextoDocx;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -87,7 +88,11 @@ final class AnexarArquivoAoChatUseCase
         }
         $tipo = RegraDaLeituraDeDocumentos::tipoPeloConteudo($bytes);
         if ($tipo === null && str_starts_with($bytes, "PK\x03\x04")) {
-            $this->docx->extrair($bytes);
+            try {
+                $this->docx->extrair($bytes);
+            } catch (ArquivoSemTextoException $e) {
+                throw new AnexoDoChatInvalidoException($e->getMessage());
+            }
             $tipo = MontadorDoPedidoDoChat::TIPO_DOCX;
         }
 

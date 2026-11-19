@@ -373,12 +373,77 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
         }
     }
 
-    #[TestDox('renomear_documento fica fora deste PR: pedido inválido')]
+    #[TestDox('renomear_documento: é proposta, o resumo leva o nome antigo mascarado e o novo; só grava depois do confirmar')]
     public function testRenomearDocumento(): void
     {
         $pasta = $this->pasta();
+        $documento = $this->contrato($pasta, 'Contrato do 123.456.789-09.pdf');
 
-        $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId()], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        $proposta = $this->executar(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId(), 'titulo' => '  Contrato assinado.pdf ']);
+
+        self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
+        $resumo = $proposta->dados['proposta']['resumo'];
+        self::assertStringContainsString('para "CONTRATO ASSINADO.PDF"', $resumo);
+        self::assertStringNotContainsString('123.456.789-09', $resumo, 'o nome antigo sai mascarado');
+        self::assertSame('CONTRATO DO 123.456.789-09.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo(), 'a proposta não grava');
+
+        $confirmada = $this->confirmar($proposta);
+        self::assertSame('confirmada', $confirmada->dados['estado']);
+        self::assertSame('CONTRATO ASSINADO.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
+    }
+
+    #[TestDox('renomear_documento: o nome mudou depois da proposta, a confirmação é recusada e nada grava')]
+    public function testRenomearDocumentoQueMudou(): void
+    {
+        $pasta = $this->pasta();
+        $documento = $this->contrato($pasta, 'antigo.pdf');
+        $proposta = $this->executar(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId(), 'titulo' => 'novo.pdf']);
+
+        $this->em()->getConnection()->executeStatement('UPDATE pasta_documento SET titulo = ? WHERE id = ?', ['outro.pdf', $documento->getId()]);
+
+        try {
+            $this->confirmar($proposta);
+            self::fail('deveria recusar');
+        } catch (ErroDaFerramenta $e) {
+            self::assertSame(FinanceiroDaPastaFerramenta::MOTIVO_MUDOU, $e->motivo);
+        }
+        self::assertSame('outro.pdf', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
+    }
+
+    #[TestDox('renomear_documento: nome vazio, longo, igual ao atual e documento que não serve são recusados')]
+    public function testRenomearDocumentoRecusas(): void
+    {
+        $pasta = $this->pasta();
+        $documento = $this->contrato($pasta, 'a.pdf');
+        // Tudo criado antes da primeira chamada: o services_resetter solta as entidades a cada uma.
+        $demais = $this->contrato($pasta, 'peticao.pdf', PastaDocumento::CATEGORIA_DEMAIS);
+        $daOutraPasta = $this->contrato($this->pasta(), 'outro.pdf');
+        $outroEscritorio = $this->escritorio();
+        $alheio = $this->contrato($this->pasta($outroEscritorio), 'alheio.pdf', PastaDocumento::CATEGORIA_CONTRATO, $outroEscritorio);
+        $base = ['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()];
+
+        $this->assertMotivo($base + ['titulo' => '   '], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        $this->assertMotivo($base + ['titulo' => str_repeat('a', 256)], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        $this->assertMotivo($base + ['titulo' => 'a.pdf'], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+        $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId()], ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA);
+
+        foreach ([$demais, $daOutraPasta, $alheio] as $naoServe) {
+            $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $naoServe->getId(), 'titulo' => 'novo.pdf'], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+        }
+        self::assertSame('A.PDF', $this->recarregar(PastaDocumento::class, (int) $documento->getId())->getTitulo());
+    }
+
+    #[TestDox('renomear_documento: quem só vê a pasta (sem editar) recebe não encontrado')]
+    public function testRenomearDocumentoSemEditar(): void
+    {
+        $pasta = $this->pasta();
+        $documento = $this->contrato($pasta, 'a.pdf');
+        $leitor = $this->pessoa();
+        $this->vinculo($leitor, $this->escritorio, permissoes: self::LEITOR);
+        $this->pessoa = $leitor;
+        $this->consentimentoDe($leitor);
+
+        $this->assertMotivo(['acao' => 'renomear_documento', 'pasta_id' => $pasta->getId(), 'documento_id' => $documento->getId(), 'titulo' => 'b.pdf'], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */
@@ -428,6 +493,7 @@ final class FinanceiroDaPastaFerramentaTest extends KernelTestCase
         yield 'registrar pagamento' => [['acao' => 'pagamento', 'operacao' => 'registrar', 'descricao' => 'a', 'valor' => '1,00', 'vencimento' => '2026-12-10']];
         yield 'parcelar' => [['acao' => 'pagamento', 'operacao' => 'parcelar', 'tipo' => 'contrato', 'valor' => '10,00', 'parcelas' => '2', 'vencimento' => '2026-12-10']];
         yield 'assinatura' => [['acao' => 'documento_assinado', 'operacao' => 'marcar', 'documento_id' => 1]];
+        yield 'renomear documento' => [['acao' => 'renomear_documento', 'documento_id' => 1, 'titulo' => 'novo.pdf']];
     }
 
     /** @param array<string, mixed> $argumentos */

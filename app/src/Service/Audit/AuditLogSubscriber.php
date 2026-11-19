@@ -8,7 +8,9 @@ use App\ChatIa\Entity\ConversaDeChat;
 use App\ChatIa\Entity\PropostaDeCadastro;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Notificacao;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -63,6 +65,8 @@ class AuditLogSubscriber
         // Meu Escritório: a chave da logo e o carimbo de "alterado por/em" não são diff útil; o nome, CNPJ, OAB, e-mail,
         // telefone e endereço seguem na trilha como os demais campos do Tenant.
         Tenant::class => ['logoChave', 'alteradoEm', 'alteradoPor'],
+        // O código pessoal com que a pessoa recebe pastas de outras contas: quem o lê pode republicar pastas para ela.
+        User::class => ['codigoPessoal'],
         // Chat I.A: o título da conversa pode conter dado de cliente (nasce da pergunta) e o nome do arquivo anexado
         // também. A trilha guarda quem criou, renomeou (a marca `tituloManual`), fixou, trocou o modelo e excluiu,
         // nunca o texto. `atualizadaEm` muda a cada pergunta e só faria ruído.
@@ -421,6 +425,11 @@ class AuditLogSubscriber
         $tenantId = $this->escopoDePlataforma->estaLigado()
             ? $this->escopoDePlataforma->contaAlvo()
             : self::tenantDoRegistro(fn (): ?int => $this->tenantContext->getCurrentTenant()?->getId(), $entity);
+        if ($this->avisoParaOutraConta($entity, $tenantId)) {
+            // Aviso no sino de outra conta (pasta republicada, fatia 8): a trilha dela não mostra quem agiu na conta de
+            // origem (e-mail, IP, rota), como o próprio aviso, que não leva dado da origem.
+            [$actorUserId, $actorEmail, $request] = [null, null, null];
+        }
 
         return (new AuditLog())
             ->setAction($action)
@@ -432,6 +441,21 @@ class AuditLogSubscriber
             ->setTenantId(is_int($tenantId) ? $tenantId : null)
             ->setIpAddress($request?->getClientIp())
             ->setRoute($request?->attributes->get('_route'));
+    }
+
+    /** A notificação gravada no escritório de outra pessoa, que não é o da sessão (fora do ato de plataforma). */
+    private function avisoParaOutraConta(object $entity, ?int $tenantId): bool
+    {
+        if (!$entity instanceof Notificacao || $this->escopoDePlataforma->estaLigado()) {
+            return false;
+        }
+        try {
+            $daSessao = $this->tenantContext->getCurrentTenant()?->getId();
+        } catch (\RuntimeException) {
+            return false;
+        }
+
+        return $daSessao !== null && $tenantId !== $daSessao;
     }
 
     /**

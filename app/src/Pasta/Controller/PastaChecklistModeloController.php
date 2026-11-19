@@ -12,6 +12,7 @@ use App\Pasta\Exception\ChecklistModeloJaExisteException;
 use App\Pasta\Repository\PastaChecklistModeloRepository;
 use App\Pasta\UseCase\AplicarChecklistModeloUseCase;
 use App\Pasta\UseCase\ExcluirChecklistModeloUseCase;
+use App\Pasta\UseCase\ListarModelosDeChecklistUseCase;
 use App\Pasta\UseCase\RenomearChecklistModeloUseCase;
 use App\Pasta\UseCase\SalvarChecklistComoModeloUseCase;
 use App\Service\PermissionChecker;
@@ -43,6 +44,7 @@ final class PastaChecklistModeloController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly PastaChecklistModeloRepository $modeloRepository,
+        private readonly ListarModelosDeChecklistUseCase $listarUseCase,
         private readonly SalvarChecklistComoModeloUseCase $salvarUseCase,
         private readonly AplicarChecklistModeloUseCase $aplicarUseCase,
         private readonly RenomearChecklistModeloUseCase $renomearUseCase,
@@ -60,9 +62,9 @@ final class PastaChecklistModeloController extends AbstractController
         $tenant  = $this->tenantContext->getCurrentTenant();
         $modelos = [];
 
-        foreach ($this->modeloRepository->listarDoTenant($tenant) as $modelo) {
-            $linha         = ChecklistModeloOutput::fromEntity($modelo)->toArray();
-            $linha['csrf'] = $this->tokenDoModelo($modelo);
+        foreach ($this->listarUseCase->executar($tenant) as $modelo) {
+            $linha         = $modelo->toArray();
+            $linha['csrf'] = $this->csrfTokenManager->getToken('checklist_modelo_' . $modelo->id)->getValue();
             $modelos[]     = $linha;
         }
 

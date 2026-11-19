@@ -21,6 +21,8 @@ use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
@@ -114,6 +116,25 @@ final class LerPastaFerramentaTest extends KernelTestCase
         $json = json_encode($dados + ['proxima_pagina' => $resposta->proximaPagina], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
         self::assertLessThan(LerPastaFerramenta::TETO_DA_RESPOSTA + 1, mb_strlen($json));
         self::assertLessThan(DespachoDasFerramentas::TETO_DE_CARACTERES, mb_strlen($json));
+    }
+
+    #[TestDox('detalhes e financeiro: cada observação sai com o [registro_id N] dela, para o registrar_na_pasta; as outras linhas do financeiro não')]
+    public function testObservacoesComId(): void
+    {
+        $pasta = $this->pasta();
+        $pasta->setValorCausa('1000.00');
+        $detalhes = (new PastaObservacaoDetalhes())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('Cliente trouxe os documentos');
+        $financeira = (new PastaObservacaoFinanceira())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('Pagamento combinado em 3 vezes');
+        $this->em()->persist($detalhes);
+        $this->em()->persist($financeira);
+        $this->em()->flush();
+
+        $dados = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['detalhes', 'financeiro']])->dados;
+
+        self::assertStringContainsString('• [registro_id ' . $detalhes->getId() . '] ', $dados['detalhes']['texto']);
+        self::assertStringContainsString('Cliente trouxe os documentos', $dados['detalhes']['texto']);
+        self::assertStringContainsString('• [registro_id ' . $financeira->getId() . '] observação financeira', $dados['financeiro']['texto']);
+        self::assertSame(1, substr_count($dados['financeiro']['texto'], '[registro_id '), 'o valor da causa não ganha id');
     }
 
     #[TestDox('registro: a máscara vem antes do corte; CPF e e-mail no limite dos 500 saem mascarados, não pela metade')]
@@ -254,6 +275,7 @@ final class LerPastaFerramentaTest extends KernelTestCase
         yield 'detalhes pela aba Detalhes' => [AbaDaPasta::Detalhes, 'detalhes'];
         yield 'checklist pela aba Documentos' => [AbaDaPasta::Documentos, 'checklist'];
         yield 'metas pela aba Tarefas' => [AbaDaPasta::Tarefas, 'metas'];
+        yield 'controladoria pela aba Detalhes' => [AbaDaPasta::Detalhes, 'controladoria'];
         yield 'prazos pela aba Tarefas (Metas)' => [AbaDaPasta::Tarefas, 'prazos'];
     }
 
@@ -293,6 +315,157 @@ final class LerPastaFerramentaTest extends KernelTestCase
         $this->assertMotivo(['pasta_id' => $pasta->getId()], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
         static::getContainer()->get('services_resetter')->reset();
         $this->assertMotivo(['pasta_id' => $pasta->getId(), 'partes' => ['registro']], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
+    #[TestDox('timeline: os acontecimentos da pasta com o texto mascarado, sem link nem texto de antes da edição')]
+    public function testTimeline(): void
+    {
+        $pasta = $this->pasta();
+        $this->mensagem($pasta, '<p>Registro do CPF ' . self::CPF . ' e nota UNICA-REGISTRO</p>');
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['timeline']]);
+
+        self::assertSame(['pasta_id', 'timeline'], array_keys($resposta->dados));
+        $timeline = $resposta->dados['timeline'];
+        self::assertSame(['eventos', 'total', 'truncado', 'contagens_por_categoria', 'resumo', 'precisa_de_atencao'], array_keys($timeline));
+        self::assertSame(['id', 'tipo', 'categoria', 'quando', 'titulo', 'texto', 'autor', 'fonte', 'prioridade', 'pendente', 'editado', 'cortado'], array_keys($timeline['eventos'][0]));
+        $json = json_encode($timeline, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
+        self::assertStringContainsString('UNICA-REGISTRO', $json);
+        self::assertStringNotContainsString(self::CPF, $json, 'no conector o CPF sai mascarado');
+        self::assertStringNotContainsString('"link"', $json);
+        self::assertStringNotContainsString('"antes"', $json);
+        self::assertSame(['pasta' => [(int) $pasta->getId()]], $resposta->ids);
+    }
+
+    #[TestDox('timeline: com a aba Dados oculta, o registro some da linha do tempo e a parte continua; sem a visibilidade do financeiro, a observação financeira não sai')]
+    public function testTimelineRespeitaAbasEFinanceiro(): void
+    {
+        $pasta = $this->pasta();
+        $this->mensagem($pasta, 'UNICA-REGISTRO');
+        $financeira = (new PastaObservacaoFinanceira())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('UNICA-FINANCEIRA');
+        $this->em()->persist($financeira);
+        $this->em()->flush();
+        $nega = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $nega->method('podeVer')->willReturn(false);
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $nega);
+        $this->ocultar($pasta, AbaDaPasta::Dados);
+
+        $json = json_encode($this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['timeline']])->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
+
+        self::assertStringNotContainsString('UNICA-REGISTRO', $json);
+        self::assertStringNotContainsString('UNICA-FINANCEIRA', $json);
+    }
+
+    #[TestDox('timeline: 80 registros longos viram no máximo 30 eventos, truncado, e a resposta com o Registro junto cabe no teto')]
+    public function testTimelineCabeNoTeto(): void
+    {
+        $pasta = $this->pasta();
+        $longa = str_repeat('Linha longa com acento ção. ', 40);
+        for ($i = 1; $i <= 80; ++$i) {
+            $this->mensagem($pasta, '<p>' . $i . ' ' . $longa . '</p>');
+        }
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['timeline', 'registro']]);
+
+        self::assertLessThanOrEqual(LerPastaFerramenta::EVENTOS_DA_LINHA_DO_TEMPO, \count($resposta->dados['timeline']['eventos']));
+        self::assertTrue($resposta->dados['timeline']['truncado']);
+        $json = json_encode($resposta->dados + ['proxima_pagina' => $resposta->proximaPagina], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR);
+        self::assertLessThan(LerPastaFerramenta::TETO_DA_RESPOSTA + 1, mb_strlen($json));
+    }
+
+    #[TestDox('timeline e controladoria: pasta trancada, de outro escritório, na lixeira ou inexistente são não encontrado; em segredo é em_segredo')]
+    public function testTimelineEControladoriaBarreiras(): void
+    {
+        $naLixeira = $this->pasta();
+        $naLixeira->marcarExcluida($this->pessoa, new \DateTimeImmutable());
+        $deOutro = $this->pasta($this->escritorio('Outro'));
+        $trancada = $this->pasta();
+        $this->em()->persist(new CadeadoDaPasta($this->escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $secreta = $this->pasta(comSegredo: true);
+        $this->em()->flush();
+
+        foreach (['timeline', 'controladoria'] as $parte) {
+            foreach ([$naLixeira->getId(), $deOutro->getId(), $trancada->getId(), 999_999_999] as $id) {
+                $this->assertMotivo(['pasta_id' => $id, 'partes' => [$parte]], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+                static::getContainer()->get('services_resetter')->reset();
+            }
+            $this->assertMotivo(['pasta_id' => $secreta->getId(), 'partes' => [$parte]], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+            static::getContainer()->get('services_resetter')->reset();
+        }
+    }
+
+    #[TestDox('controladoria: o prazo vencido vira alerta e os pontos do relatório inicial dizem o que está registrado')]
+    public function testControladoria(): void
+    {
+        $pasta = $this->pasta();
+        $this->prazo($pasta, 'Contestação UNICA-PRAZO', '-3 days');
+        $detalhes = (new PastaObservacaoDetalhes())->setTenant($this->escritorio)->setPasta($pasta)->setAutor($this->colega)->setConteudo('<p>O objetivo do cliente é revisar o contrato</p>');
+        $this->em()->persist($detalhes);
+        $this->em()->flush();
+
+        $resposta = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['controladoria']]);
+
+        $controladoria = $resposta->dados['controladoria'];
+        self::assertSame(['alertas', 'urgentes', 'pontos_do_relatorio_inicial'], array_keys($controladoria));
+        $porTipo = array_column($controladoria['alertas'], null, 'tipo');
+        self::assertSame('alta', $porTipo['prazos']['nivel']);
+        self::assertStringContainsString('UNICA-PRAZO', $porTipo['prazos']['detalhe']);
+        self::assertGreaterThanOrEqual(1, $controladoria['urgentes']);
+        $pontos = array_column($controladoria['pontos_do_relatorio_inicial']['itens'], 'registrado', 'ponto');
+        self::assertTrue($pontos['objetivos']);
+        self::assertFalse($pontos['acordos']);
+        self::assertFalse($controladoria['pontos_do_relatorio_inicial']['completo']);
+    }
+
+    #[TestDox('controladoria: com a aba Metas oculta, o alerta de prazo vencido não sai e a parte continua')]
+    public function testControladoriaSemMetas(): void
+    {
+        $pasta = $this->pasta();
+        $this->prazo($pasta, 'Contestação UNICA-PRAZO', '-3 days');
+        $this->ocultar($pasta, AbaDaPasta::Tarefas);
+
+        $alertas = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['controladoria']])->dados['controladoria']['alertas'];
+
+        self::assertArrayNotHasKey('prazos', array_column($alertas, null, 'tipo'));
+        self::assertStringNotContainsString('UNICA-PRAZO', json_encode($alertas, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
+    }
+
+    #[TestDox('controladoria: o alerta de contrato repetido só sai a quem vê o financeiro, e nunca com o detalhe (cita outra pasta e o contrato)')]
+    public function testControladoriaContratoRepetido(): void
+    {
+        $pasta = $this->pasta();
+        $outra = $this->pasta();
+        $pasta->setContrato('CONTRATO-UNICO-77');
+        $outra->setContrato('CONTRATO-UNICO-77');
+        $this->em()->flush();
+        $ve = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $ve->method('podeVer')->willReturn(true);
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $ve);
+
+        $comFinanceiro = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['controladoria']])->dados['controladoria'];
+
+        $porTipo = array_column($comFinanceiro['alertas'], null, 'tipo');
+        self::assertSame('', $porTipo['contrato']['detalhe']);
+        $json = json_encode($comFinanceiro, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('CONTRATO-UNICO-77', $json);
+        self::assertStringNotContainsString((string) $outra->getNup(), $json);
+    }
+
+    #[TestDox('controladoria: sem a visibilidade do financeiro, o alerta de contrato repetido não sai')]
+    public function testControladoriaContratoSemFinanceiro(): void
+    {
+        $pasta = $this->pasta();
+        $outra = $this->pasta();
+        $pasta->setContrato('CONTRATO-UNICO-77');
+        $outra->setContrato('CONTRATO-UNICO-77');
+        $this->em()->flush();
+        $nega = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $nega->method('podeVer')->willReturn(false);
+        static::getContainer()->set(VisibilidadeDoFinanceiroDaPasta::class, $nega);
+
+        $alertas = $this->ler(['pasta_id' => $pasta->getId(), 'partes' => ['controladoria']])->dados['controladoria']['alertas'];
+
+        self::assertArrayNotHasKey('contrato', array_column($alertas, null, 'tipo'));
     }
 
     #[TestDox('prazos: só os em aberto, com tipo, título e data')]

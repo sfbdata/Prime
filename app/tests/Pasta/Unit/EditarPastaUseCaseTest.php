@@ -9,8 +9,11 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\DTO\EditarPastaDTO;
+use App\Pasta\Exception\NumeroDePastaEmUsoException;
+use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Pasta\UseCase\EditarPastaUseCase;
+use App\Pasta\UseCase\GerarNumeroDePasta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -23,10 +26,40 @@ final class EditarPastaUseCaseTest extends TestCase
     private EntityManagerInterface&MockObject $em;
     private EditarPastaUseCase $useCase;
 
+    /** O número que outra pasta viva do escritório já tem (o que `emUsoPorOutraPasta` responde). */
+    private ?string $numeroDeOutra = null;
+    /** @var list<string> */
+    private array $chamadasDaNumeracao = [];
+
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarPastaUseCase($this->em);
+        $this->numeroDeOutra = null;
+        $this->chamadasDaNumeracao = [];
+        $this->useCase = $this->useCase($this->em);
+    }
+
+    private function useCase(EntityManagerInterface&MockObject $em, ?RegistroDoSistemaNaPasta $registro = null): EditarPastaUseCase
+    {
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $trabalho): mixed => $trabalho($em));
+        $numeracao = $this->createStub(NumeracaoDePastaInterface::class);
+        $numeracao->method('travar')->willReturnCallback(function (): void {
+            $this->chamadasDaNumeracao[] = 'travar';
+        });
+        $numeracao->method('emUsoPorOutraPasta')->willReturnCallback(function (Tenant $t, string $nup): bool {
+            $this->chamadasDaNumeracao[] = 'emUso ' . $nup;
+
+            return $nup === $this->numeroDeOutra;
+        });
+
+        return new EditarPastaUseCase($em, new GerarNumeroDePasta($numeracao), $registro);
+    }
+
+    private static function pasta(?string $nup = null): Pasta
+    {
+        $pasta = (new Pasta())->setTenant(new Tenant());
+
+        return $nup === null ? $pasta : $pasta->setNup($nup);
     }
 
     #[TestDox('NUP vazio lança InvalidArgumentException e não persiste')]
@@ -43,10 +76,10 @@ final class EditarPastaUseCaseTest extends TestCase
         $this->useCase->executar($dto, $pasta);
     }
 
-    #[TestDox('NUP repetido agora é permitido: persiste sem lançar')]
-    public function testNupRepetidoEhPermitido(): void
+    #[TestDox('Número novo e livre: trava a numeração, confere e grava')]
+    public function testNumeroNovoLivreEhGravado(): void
     {
-        $pasta = new Pasta();
+        $pasta = self::pasta('NUP-000');
         $dto   = new EditarPastaDTO(nup: 'NUP-001', nomeCliente: 'Cliente X', situacao: Pasta::SITUACAO_ATIVA);
 
         $this->em->expects($this->once())->method('flush');
@@ -54,12 +87,45 @@ final class EditarPastaUseCaseTest extends TestCase
         $this->useCase->executar($dto, $pasta);
 
         self::assertSame('NUP-001', $pasta->getNup());
+        self::assertSame(['travar', 'emUso NUP-001'], $this->chamadasDaNumeracao, 'a trava vem antes da conferência');
+    }
+
+    #[TestDox('Número novo que é de outra pasta viva: recusa com a mensagem, e nada muda nem é gravado')]
+    public function testNumeroDeOutraPastaEhRecusado(): void
+    {
+        $this->numeroDeOutra = '1240';
+        $pasta = self::pasta('1239')->setNomeCliente('Ana');
+
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar(new EditarPastaDTO(nup: ' 1240 ', nomeCliente: 'Ana Maria', situacao: Pasta::SITUACAO_ARQUIVADA), $pasta);
+            self::fail('Deveria recusar o número.');
+        } catch (NumeroDePastaEmUsoException $e) {
+            self::assertSame('O número 1240 já é de outra pasta do escritório. Escolha outro número.', $e->getMessage());
+            self::assertInstanceOf(\InvalidArgumentException::class, $e, 'cai no catch que a tela já tem');
+        }
+        self::assertSame('1239', $pasta->getNup());
+        self::assertSame('ANA', $pasta->getNomeCliente());
+        self::assertSame(Pasta::SITUACAO_ATIVA, $pasta->getSituacao());
+    }
+
+    #[TestDox('Mesmo número (só muda caixa ou espaço): não confere, e a pasta do legado que divide o número segue editável')]
+    public function testMesmoNumeroNaoConfere(): void
+    {
+        $this->numeroDeOutra = '10A';
+        $pasta = self::pasta('10A');
+
+        $this->useCase->executar(new EditarPastaDTO(nup: ' 10a ', nomeCliente: 'Bia', situacao: Pasta::SITUACAO_ATIVA), $pasta);
+
+        self::assertSame([], $this->chamadasDaNumeracao);
+        self::assertSame('BIA', $pasta->getNomeCliente());
     }
 
     #[TestDox('Situação inválida é ignorada')]
     public function testSituacaoInvalidaEhIgnorada(): void
     {
-        $pasta = new Pasta();
+        $pasta = self::pasta();
         $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
         $dto = new EditarPastaDTO(nup: 'NUP-002', situacao: 'xpto');
 
@@ -73,7 +139,7 @@ final class EditarPastaUseCaseTest extends TestCase
     #[TestDox('Situação válida ARQUIVADA é setada')]
     public function testSituacaoValidaEhSetada(): void
     {
-        $pasta = new Pasta();
+        $pasta = self::pasta();
         $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
         $dto = new EditarPastaDTO(nup: 'NUP-003', situacao: Pasta::SITUACAO_ARQUIVADA);
 
@@ -88,7 +154,7 @@ final class EditarPastaUseCaseTest extends TestCase
     public function testSuspensoECanceladoSaoAceitos(): void
     {
         foreach ([Pasta::SITUACAO_SUSPENSA, Pasta::SITUACAO_CANCELADA] as $situacao) {
-            $pasta = new Pasta();
+            $pasta = self::pasta();
             $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
 
             $this->useCase->executar(new EditarPastaDTO(nup: 'NUP-004', situacao: $situacao), $pasta);
@@ -111,7 +177,7 @@ final class EditarPastaUseCaseTest extends TestCase
         });
         $em->expects($this->once())->method('flush');
 
-        (new EditarPastaUseCase($em, new RegistroDoSistemaNaPasta($em)))
+        $this->useCase($em, new RegistroDoSistemaNaPasta($em))
             ->executar(new EditarPastaDTO(nup: ' 11 ', nomeCliente: 'Ana Maria', nomeAcao: 'Revisional', situacao: Pasta::SITUACAO_ATIVA), $pasta, $autor);
 
         self::assertCount(1, $persistidos);
@@ -134,7 +200,7 @@ final class EditarPastaUseCaseTest extends TestCase
         $em->method('persist')->willReturnCallback(static function (object $o) use (&$persistidos): void {
             $persistidos[] = $o;
         });
-        $uc = new EditarPastaUseCase($em, new RegistroDoSistemaNaPasta($em));
+        $uc = $this->useCase($em, new RegistroDoSistemaNaPasta($em));
 
         $uc->executar(new EditarPastaDTO(nup: '20', nomeCliente: 'Bia', nomeAcao: null, situacao: Pasta::SITUACAO_ATIVA), $pasta, $autor);
         self::assertCount(1, $persistidos);

@@ -508,6 +508,7 @@ class PastaRepository extends ServiceEntityRepository
         if ($quemBusca !== null) {
             // Cadeado: vincular escreve na pasta, então só é oferecida a que a pessoa EDITA (não a oculta nem a de só visualizar).
             $this->nivelNoCadeado?->restringirAoEditavel($qb, 'p', $quemBusca);
+            $this->soNoEscopo($qb, $quemBusca);
         }
 
         $termo = trim($termo);
@@ -539,7 +540,7 @@ class PastaRepository extends ServiceEntityRepository
      */
     public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant, ?User $quemVe = null): array
     {
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select(
                 'p.id AS id',
                 'p.nup AS nup',
@@ -556,9 +557,10 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('pp.principal', 'DESC')
-            ->addOrderBy('p.id', 'DESC')
-            ->getQuery()
-            ->getArrayResult();
+            ->addOrderBy('p.id', 'DESC');
+        // Acesso restrito: a pasta fora do escopo nem aparece (o cadeado mostra o número; o escopo, nada).
+        $this->soNoEscopo($qb, $quemVe);
+        $linhas = $qb->getQuery()->getArrayResult();
 
         return array_map(function (array $linha) use ($tenant, $quemVe): PastaVinculadaOutput {
             $pasta = PastaVinculadaOutput::fromRow($linha);
@@ -967,6 +969,15 @@ class PastaRepository extends ServiceEntityRepository
     {
         if ($quemBusca !== null) {
             $this->nivelNoCadeado?->restringirAoVisivel($qb, 'p', $quemBusca);
+            $this->nivelNoCadeado?->restringirAoEscopo($qb, 'p', $quemBusca);
+        }
+    }
+
+    /** Acesso restrito (spec acesso-restrito-e-compartilhar §5.1): fora do escopo, a pasta não aparece de jeito nenhum. */
+    private function soNoEscopo(QueryBuilder $qb, ?User $quemBusca): void
+    {
+        if ($quemBusca !== null) {
+            $this->nivelNoCadeado?->restringirAoEscopo($qb, 'p', $quemBusca);
         }
     }
 
@@ -995,6 +1006,8 @@ class PastaRepository extends ServiceEntityRepository
     {
         if (self::temFiltroDeAtributo($filters)) {
             $this->soAsVisiveis($qb, $quemBusca);
+        } else {
+            $this->soNoEscopo($qb, $quemBusca);
         }
         if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
             $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
@@ -1456,20 +1469,23 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * Clientes já usados em pastas cujo nome contém o termo, com quantas pastas cada um tem: as sugestões e o
-     * aviso "Cliente já cadastrado em N pasta(s)" da Nova Pasta (E12). Casa pelo identificador da pasta.
+     * aviso "Cliente já cadastrado em N pasta(s)" da Nova Pasta (E12). Casa pelo identificador da pasta. Com
+     * `quemBusca` no acesso restrito, só as pastas sob a responsabilidade dele contam (nome e total).
      *
      * @return array<string, int> nome => total
      */
-    public function nomesDeClienteParecidos(string $termo, Tenant $tenant, int $limite = 8): array
+    public function nomesDeClienteParecidos(string $termo, Tenant $tenant, int $limite = 8, ?User $quemBusca = null): array
     {
         $termo = mb_strtoupper(trim($termo));
         if (mb_strlen($termo) < 2) {
             return [];
         }
 
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemBusca);
+        $linhas = $qb
             ->select('p.nomeCliente AS nome', 'COUNT(p.id) AS total')
-            ->where('p.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')
             ->andWhere('UPPER(p.nomeCliente) LIKE :termo')
             ->setParameter('tenant', $tenant)
@@ -1499,7 +1515,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<string, int> nome em maiúsculas => id do cliente
      */
-    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant): array
+    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant, ?User $quemBusca = null): array
     {
         $nomes = array_values(array_unique(array_filter(array_map(
             static fn (string $n): string => mb_strtoupper(trim($n)),
@@ -1509,10 +1525,12 @@ class PastaRepository extends ServiceEntityRepository
             return [];
         }
 
-        $linhas = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemBusca);
+        $linhas = $qb
             ->select('UPPER(p.nomeCliente) AS nome', 'MIN(c.id) AS cliente')
             ->join('p.clientePrincipal', 'c')
-            ->where('p.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')
             ->andWhere('UPPER(p.nomeCliente) IN (:nomes)')
@@ -1576,7 +1594,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array{anterior: ?array{id: int, nup: ?string}, proxima: ?array{id: int, nup: ?string}}
      */
-    public function vizinhasNoAcervo(Pasta $pasta): array
+    public function vizinhasNoAcervo(Pasta $pasta, ?User $quemVe = null): array
     {
         $tenant = $pasta->getTenant();
         $id     = $pasta->getId();
@@ -1590,8 +1608,8 @@ class PastaRepository extends ServiceEntityRepository
         $nup = (string) $pasta->getNup();
 
         return [
-            'anterior' => $this->vizinha($tenant, $nup, $id, 'ASC'),
-            'proxima'  => $this->vizinha($tenant, $nup, $id, 'DESC'),
+            'anterior' => $this->vizinha($tenant, $nup, $id, 'ASC', $quemVe),
+            'proxima'  => $this->vizinha($tenant, $nup, $id, 'DESC', $quemVe),
         ];
     }
 
@@ -1604,9 +1622,10 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return ?array{id: int, nup: ?string, nomeCliente: ?string}
      */
-    private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao): ?array
+    private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao, ?User $quemVe): ?array
     {
         $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemVe);
 
         $comparar = $direcao === 'ASC'
             ? static fn (string $campo, string $parametro) => $qb->expr()->gt($campo, $parametro)
@@ -1670,11 +1689,12 @@ class PastaRepository extends ServiceEntityRepository
      * pasta que não é a 2ª — por isso as duas leem as mesmas constantes da classe.
      *
      * Devolve nulo quando a pasta não tem tenant, ainda não foi persistida ou está excluída
-     * (lápide): não há linha da lista que ela ocupe.
+     * (lápide): não há linha da lista que ela ocupe. Com `quemVe` no acesso restrito, o conjunto
+     * é só o das pastas sob a responsabilidade dele (setas e "N de M" iguais à Lista que ele vê).
      *
      * @return ?array{posicao: int, total: int}
      */
-    public function posicaoNoAcervo(Pasta $pasta): ?array
+    public function posicaoNoAcervo(Pasta $pasta, ?User $quemVe = null): ?array
     {
         $tenant = $pasta->getTenant();
         $id     = $pasta->getId();
@@ -1690,6 +1710,7 @@ class PastaRepository extends ServiceEntityRepository
         $nupCru  = self::EXPR_NUP_CRU;
 
         $qb = $this->createQueryBuilder('p');
+        $this->soNoEscopo($qb, $quemVe);
 
         $acima = (int) $qb
             ->select('COUNT(p.id)')
@@ -1715,7 +1736,9 @@ class PastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
 
-        $total = (int) $this->createQueryBuilder('p')
+        $todas = $this->createQueryBuilder('p');
+        $this->soNoEscopo($todas, $quemVe);
+        $total = (int) $todas
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.excluidaEm IS NULL')

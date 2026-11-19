@@ -35,6 +35,15 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
     /** @var array<string, mixed>|null troca os dados do resultado (para passar do teto) */
     public ?array $dadosDoResultado = null;
 
+    /** @var (\Closure(): void)|null vai no resultado como o passo depois do COMMIT */
+    public ?\Closure $depoisDoCommit = null;
+
+    /** Com verdadeiro, dá `clear()` no EntityManager depois de gravar, como a purga da lixeira. */
+    public bool $limparAoExecutar = false;
+
+    /** O nível de transação da conexão quando o executor gravou (para provar que o passo roda depois do COMMIT). */
+    public ?int $nivelAoExecutar = null;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly string $ferramenta = 'atualizar_pasta',
@@ -61,6 +70,7 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
     public function executarConfirmada(string $acao, array $dados, ChamadaDoConector $chamada): ResultadoDaConfirmacao
     {
         $this->executadas[] = ['acao' => $acao, 'dados' => $dados];
+        $this->nivelAoExecutar = $this->em->getConnection()->getTransactionNestingLevel();
         $gravado = (new Tenant())->setName($this->nomeDoEscritorioGravado !== '' ? $this->nomeDoEscritorioGravado : 'Gravado ' . uniqid())->setIsActive(true);
         $this->em->persist($gravado);
         if ($this->falhaAoExecutar !== null && !$this->flushAntesDeFalhar) {
@@ -70,12 +80,16 @@ final class ExecutorDePropostaDeTeste implements ExecutorDeProposta
         if ($this->falhaAoExecutar !== null) {
             throw $this->falhaAoExecutar;
         }
+        if ($this->limparAoExecutar) {
+            $this->em->clear();
+        }
 
         return new ResultadoDaConfirmacao(
             $this->dadosDoResultado ?? ['excluidos' => [['id' => $gravado->getId()]]],
             [(int) $gravado->getId()],
             ['excluidos' => 1],
             ['pasta' => [(int) $gravado->getId()]],
+            $this->depoisDoCommit,
         );
     }
 }

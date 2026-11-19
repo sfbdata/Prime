@@ -217,7 +217,12 @@ final class CorrigirPastaJudicialDuplicadaUseCase
             return new Pasta();
         }
 
-        return $this->criarPasta->executar(new CriarPastaDTO(nomeCliente: null, nomeAcao: null), $usuario, $tenant);
+        // Correção de duplicidade: quem corrige não abre pasta para si, então ela nasce sem responsável, como antes.
+        return $this->criarPasta->executar(
+            new CriarPastaDTO(nomeCliente: null, nomeAcao: null, criadorComoResponsavel: false),
+            $usuario,
+            $tenant,
+        );
     }
 
     private function registrarEventoDeCorrecao(

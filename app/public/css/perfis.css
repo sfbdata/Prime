@@ -330,3 +330,63 @@
 [data-bs-theme="dark"] .pf-page .pf-restrito-cartao { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
 [data-bs-theme="dark"] .pf-page .pf-restrito-titulo { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .pf-page .pf-restrito-texto, [data-bs-theme="dark"] .pf-page .pf-restrito-voltar { color: var(--bs-secondary-color); }
+
+/* ── Acesso restrito às pastas sob responsabilidade ───────────────────────────
+   Desenho "05 - Perfis 1.2 - VS 03.11.26" (docs/design/acesso-restrito-18-11-26): cartão do editor (L499,
+   `rsBg`/`rsBd`/`rsChip`), itens e grupos travados (L569-570, `travado`, `tudoTrav`, `escopoTx`) e o selo da
+   lista (L63). Spec acesso-restrito-e-compartilhar, P1 a P11. */
+.pf-page {
+    --pf-rs:            #c0392b;
+    --pf-rs-bg:         #fff6f5;
+    --pf-rs-borda-off:  #e3c6c6;
+    --pf-rs-titulo:     #7a1b22;
+    --pf-rs-linha:      #f1d3d0;
+    --pf-rs-off:        #9aabb7;
+    --pf-rs-faixa-bg:   #fff6f5;
+}
+[data-bs-theme="dark"] .pf-page {
+    --pf-rs-bg:         rgba(192,57,43,.10);
+    --pf-rs-borda-off:  rgba(192,57,43,.35);
+    --pf-rs-titulo:     #f1a9a0;
+    --pf-rs-linha:      rgba(192,57,43,.35);
+    --pf-rs-faixa-bg:   rgba(192,57,43,.12);
+}
+.pf-page .pf-rs { background: var(--pf-card); border: 2px solid var(--pf-rs-borda-off); border-radius: 4px; box-shadow: var(--pf-sombra); padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.pf-page .pf-rs.is-ligado { background: var(--pf-rs-bg); border-color: var(--pf-rs); }
+.pf-page .pf-rs-liga { display: flex; gap: 14px; align-items: flex-start; cursor: pointer; margin: 0; font-weight: normal; }
+.pf-page .pf-rs-liga input[type=checkbox] { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--pf-rs); flex: none; }
+.pf-page .pf-rs-corpo { flex: 1; min-width: 0; }
+.pf-page .pf-rs-cab { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.pf-page .pf-rs-cab > .bi { color: var(--pf-rs); font-size: 18px; }
+.pf-page .pf-rs-cab > b { font-size: 15px; letter-spacing: .4px; color: var(--pf-rs-titulo); }
+.pf-page .pf-rs-chip { height: 20px; padding: 0 8px; border-radius: 3px; background: var(--pf-rs-off); color: #fff; font-size: 10.5px; font-weight: bold; letter-spacing: .5px; display: inline-flex; align-items: center; }
+.pf-page .pf-rs.is-ligado .pf-rs-chip { background: var(--pf-rs); }
+.pf-page .pf-rs-chip-on { display: none; }
+.pf-page .pf-rs.is-ligado .pf-rs-chip-on { display: inline; }
+.pf-page .pf-rs.is-ligado .pf-rs-chip-off { display: none; }
+.pf-page .pf-rs-texto { display: block; font-size: 13.5px; color: var(--pf-rotulo); margin-top: 5px; line-height: 1.5; }
+.pf-page .pf-rs-ligado { display: none; flex-direction: column; gap: 14px; }
+.pf-page .pf-rs.is-ligado .pf-rs-ligado { display: flex; }
+.pf-page .pf-rs-regras { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 18px; padding: 12px 14px; background: var(--pf-card); border: 1px solid var(--pf-rs-linha); border-radius: 4px; }
+.pf-page .pf-rs-regra { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; color: var(--pf-corpo); line-height: 1.4; }
+.pf-page .pf-rs-regra > .bi { color: var(--pf-rs); font-size: 15px; margin-top: 1px; }
+.pf-page .pf-rs-linha { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.pf-page .pf-rs-rotulo { display: flex; flex-direction: column; gap: 6px; flex: 0 1 260px; margin: 0; font-weight: normal; }
+.pf-page .pf-rs-rotulo > span { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: var(--pf-suave); }
+.pf-page .pf-rs-rotulo select { height: 38px; border: 1px solid var(--pf-borda-ctl); border-radius: 4px; padding: 0 10px; font: inherit; font-size: 14px; background: var(--pf-card); color: var(--pf-texto); }
+.pf-page .pf-rs-dica { flex: 1 1 200px; font-size: 12.5px; color: var(--pf-mudo); line-height: 1.45; }
+.pf-page .pf-rs-aviso { font-size: 12.5px; color: var(--pf-rs-titulo); line-height: 1.5; }
+
+/* Itens e grupos travados (L569-570): texto #9aabb7, cadeado #c0392b 12px, grupo todo travado com opacidade .6. */
+.pf-page .pf-item-texto { flex: 1; }
+.pf-page .pf-item-trava { display: none; color: var(--pf-rs); font-size: 12px; }
+.pf-page .pf-item.is-travado-rs { color: var(--pf-rs-off); cursor: default; }
+.pf-page .pf-item.is-travado-rs:hover { background: transparent; }
+.pf-page .pf-item.is-travado-rs .pf-item-trava { display: inline; }
+.pf-page .pf-cartao.is-travado-rs { opacity: .6; }
+.pf-page .pf-cartao.is-travado-rs .pf-marcar-todos { color: var(--pf-perigo); cursor: default; }
+.pf-page .pf-escopo { display: none; gap: 7px; align-items: center; padding: 8px 18px; background: var(--pf-rs-faixa-bg); border-bottom: 1px solid var(--pf-rs-linha); font-size: 12px; font-weight: bold; color: var(--pf-perigo); }
+.pf-page .pf-form-perfil.is-restrito .pf-escopo { display: flex; }
+
+/* Selo da lista (L63, `p.restr`). */
+.pf-page .pf-selo-restrito { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; height: 20px; padding: 0 8px; border-radius: 3px; background: var(--pf-perigo-bg); color: var(--pf-perigo); font-size: 10.5px; font-weight: bold; letter-spacing: .4px; }

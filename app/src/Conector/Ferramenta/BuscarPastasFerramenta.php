@@ -39,7 +39,9 @@ use App\Service\PermissionChecker;
  *  - `lixeira`: a lixeira do escritório agrupada por pasta ({@see ListarLixeiraDoEscritorioUseCase}), sem conteúdo;
  *  - `numero`: a busca rápida por número da pasta, cliente ou processo ({@see BuscarRapidoUseCase}), presa ao escopo da
  *    pessoa e sem pasta na lixeira;
- *  - `minhas_demandas`: as pastas em que a pessoa é a responsável ({@see ListarMinhasDemandasUseCase}).
+ *  - `minhas_demandas`: as pastas em que a pessoa é a responsável ({@see ListarMinhasDemandasUseCase});
+ *  - `pastas_paradas` e `pastas_sem_processo`: os relatórios do Expediente, os mesmos UseCases das folhas da tela, 20 por
+ *    página ({@see RelatoriosDoExpedienteNoConector}).
  *
  * Regras (todas sobre a pessoa e o escritório da {@see ChamadaDoConector}, nunca de sessão):
  *  - a {@see GuardaDaAcaoDoConector} confere a ação, a chave do Master e o módulo antes de tudo;
@@ -65,6 +67,8 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         'lixeira' => ['pagina'],
         'numero' => ['numero'],
         'minhas_demandas' => ['busca', 'situacao', 'prioridade', 'desde', 'ate', 'pagina'],
+        'pastas_paradas' => ['pagina'],
+        'pastas_sem_processo' => ['pagina', 'categoria'],
     ];
 
     /** Campo do esquema → chave do filtro do Agente ({@see FiltroDoAgenteInput::daQuery()}). */
@@ -92,6 +96,7 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         private readonly ListarMinhasDemandasUseCase $minhasDemandas,
         private readonly BuscarRapidoUseCase $buscaRapida,
         private readonly ListarLixeiraDoEscritorioUseCase $lixeira,
+        private readonly RelatoriosDoExpedienteNoConector $relatorios,
     ) {
     }
 
@@ -111,6 +116,8 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             . 'contar (o total do mesmo filtro, contando também as pastas trancadas e as em segredo de justiça, que nunca aparecem por inteiro), '
             . 'opcoes (responsáveis, marcadores, situações e prioridades para montar o filtro), lixeira (o que foi excluído nas pastas, sem conteúdo), '
             . 'numero (procura pelo número da pasta, do processo ou pelo cliente) e minhas_demandas (as pastas em que a pessoa é a responsável). '
+            . 'pastas_paradas (o relatório das pastas sem movimentação há mais de 30 dias, da mais parada para a menos, com a pré-análise e a sugestão, 20 por página) '
+            . 'e pastas_sem_processo (o relatório das pastas que deveriam ter processo ou estão sem classificação, 20 por página; categoria filtra). '
             . 'Pasta trancada aparece só com número, cliente e trancada: true. Pasta em segredo de justiça não aparece: a resposta diz quantas foram omitidas. '
             . 'Para continuar a lista, mande em pagina o valor de proxima_pagina.';
     }
@@ -129,6 +136,7 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
                 'desde' => ['type' => 'string', 'format' => 'date', 'description' => 'Aberta a partir de (AAAA-MM-DD).'],
                 'ate' => ['type' => 'string', 'format' => 'date', 'description' => 'Aberta até (AAAA-MM-DD).'],
                 'numero' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_NUMERO, 'description' => 'Na acao numero: o número da pasta, do processo ou o nome do cliente.'],
+                'categoria' => ['type' => 'string', 'enum' => RelatoriosDoExpedienteNoConector::categorias(), 'description' => 'Na acao pastas_sem_processo: só as pastas desta categoria.'],
                 'pagina' => ['type' => ['integer', 'string'], 'description' => 'A página seguinte: o valor de proxima_pagina da resposta anterior.'],
             ],
             'required' => ['acao'],
@@ -155,11 +163,24 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
                 'opcoes' => $this->opcoes($chamada->contexto->escritorio),
                 'lixeira' => $this->lixeiraDoEscritorio($argumentos, $chamada),
                 'numero' => $this->porNumero($argumentos, $chamada),
+                'pastas_paradas' => $this->relatorios->pastasParadas($chamada, RelatoriosDoExpedienteNoConector::pagina($argumentos['pagina'] ?? null)),
+                'pastas_sem_processo' => $this->relatorios->pastasSemProcesso($chamada, RelatoriosDoExpedienteNoConector::pagina($argumentos['pagina'] ?? null), $this->categoria($argumentos)),
                 default => $this->minhas($argumentos, $chamada),
             };
         } catch (FiltroDoAgenteInvalidoException $e) {
             throw ErroDaFerramenta::filtroInvalido(array_flip(self::CHAVE_DO_FILTRO)[$e->campo] ?? '');
         }
+    }
+
+    /** @param array<string, mixed> $argumentos */
+    private function categoria(array $argumentos): ?string
+    {
+        $categoria = $argumentos['categoria'] ?? null;
+        if ($categoria !== null && (!\is_string($categoria) || !\in_array($categoria, RelatoriosDoExpedienteNoConector::categorias(), true))) {
+            throw ErroDaFerramenta::filtroInvalido('categoria');
+        }
+
+        return $categoria;
     }
 
     /** @param array<string, mixed> $argumentos */
