@@ -22,6 +22,7 @@ use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -267,6 +268,32 @@ final class LerClientesFerramentaTest extends KernelTestCase
         $daPessoa = $this->ler(['acao' => 'documentos_de_identidade', 'cliente_id' => $cliente->getId()], $soCliente);
         self::assertSame([], $daPessoa->dados['documentos']);
         self::assertStringNotContainsString('rg-fechado', self::json($daPessoa));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string}> ação e o texto que prova que o campo livre saiu */
+    public static function acoesComTextoLivre(): iterable
+    {
+        yield 'ler (nome)' => ['ler', 'MARIA [CPF]'];
+        yield 'documentos_de_identidade (arquivo)' => ['documentos_de_identidade', 'RG'];
+        yield 'conferir_documento (nome)' => ['conferir_documento', 'MARIA [CPF]'];
+    }
+
+    #[DataProvider('acoesComTextoLivre')]
+    #[TestDox('o texto livre (nome do cliente, nome do arquivo) passa pela máscara: CPF e e-mail escritos nele não saem')]
+    public function testTextoLivreMascarado(string $acao, string $controle): void
+    {
+        $outroCpf = '529.982.247-25';
+        $cliente = $this->clientePF()->setNomeCompleto('Maria ' . $outroCpf);
+        $this->em()->flush();
+        $this->documento($this->pasta($cliente), 'RG ' . $outroCpf . ' maria.arquivo@exemplo.com.pdf');
+        $argumentos = $acao === 'conferir_documento' ? ['acao' => $acao, 'documento' => self::CPF] : ['acao' => $acao, 'cliente_id' => $cliente->getId()];
+
+        $json = self::json($this->ler($argumentos));
+
+        self::assertStringContainsString($controle, $json, 'controle: o campo livre sai');
+        self::assertStringNotContainsString($outroCpf, $json);
+        self::assertStringNotContainsString('52998224725', (string) preg_replace('#[.\-]#', '', $json));
+        self::assertStringNotContainsString('maria.arquivo@exemplo.com', $json);
     }
 
     /**

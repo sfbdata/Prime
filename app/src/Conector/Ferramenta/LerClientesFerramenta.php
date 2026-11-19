@@ -101,8 +101,8 @@ final class LerClientesFerramenta implements FerramentaDoConector
             'type' => 'object',
             'properties' => [
                 'acao' => ['type' => 'string', 'enum' => array_keys(self::CAMPOS_DA_ACAO), 'description' => 'O que fazer.'],
-                'cliente_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Nas acoes ler e documentos_de_identidade: o id do cliente.'],
-                'documento' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_DOCUMENTO, 'description' => 'Na acao conferir_documento: o CPF (11 dígitos) ou o CNPJ (14 dígitos), com ou sem pontuação.'],
+                'cliente_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Nas ações ler e documentos_de_identidade: o id do cliente.'],
+                'documento' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_DOCUMENTO, 'description' => 'Na ação conferir_documento: o CPF (11 dígitos) ou o CNPJ (14 dígitos), com ou sem pontuação.'],
             ],
             'required' => ['acao'],
             'additionalProperties' => false,

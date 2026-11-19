@@ -924,7 +924,8 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   `pastasVisiveis` (`:67-73`) e só filtra `canAccessResource` view (`:72`); não tira segredo nem aba oculta. A ferramenta tira também as pastas ligadas a processo
   em segredo (`ProcessoRepository::idsDasPastasEmSegredoDeJustica`, `:148`; contadas) e as pastas em que a aba Documentos
   está oculta para a pessoa (`VisibilidadeDasAbasDaPasta::abasOcultasPara`, `:115`), antes de buscar os documentos. Como o
-  filtro entra (parâmetro novo no UseCase ou recorte na ferramenta) o PR decide, sem mudar a tela do cliente.
+  filtro entra (parâmetro novo no UseCase ou recorte na ferramenta) o PR decide, sem mudar a tela do cliente. *(PR 11: recorte na ferramenta. A resposta diz também `documento_do_cadastro_valido`, se o CPF ou CNPJ do
+  cadastro passa no dígito verificador, sem o valor: sem ele, a busca não roda e a lista vazia pareceria "nenhum documento".)*
 - Permissão: recurso `cliente` view; buscar e conferir documento, módulo `clientes`; `documentos_de_identidade`, também a
   aba Documentos de cada pasta (6.6, tabela).
 
