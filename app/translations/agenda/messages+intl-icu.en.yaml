@@ -1,0 +1,475 @@
+# ---- Calendar (agenda/nova, lista, novo, editar, show; agenda-nova.js)
+agenda:
+    comum:
+        home: Home
+        agenda: Calendar
+        status: Status
+        titulo: Title
+        inicio: Start
+        fim: End
+        local: Location
+        participantes: Participants
+        acoes: Actions
+        recorrencia: Recurrence
+        editar: Edit
+        editar_evento: Edit event
+        informacoes: Information
+        criado_por: 'Created by:'
+        criado_em: 'Created on:'
+        modificado_em: 'Modified on:'
+        cancelar_evento: Cancel Event
+        cancelar_confirmar: Are you sure you want to cancel this event?
+        excluir_evento: Delete Event
+        excluir_permanentemente: Delete event permanently
+        excluir_confirmar: Are you sure you want to permanently DELETE this event?
+    nova:
+        titulo_pagina: Calendar · BlueJus
+        titulo: Calendar
+        novo_compromisso: New appointment
+        calendarios: CALENDARS
+        feriados_estaduais_de: 'State holidays for:'
+        feriados_estaduais_origem: from the office in My Profile and the firm state
+        testar_lembretes: TEST REMINDERS
+        teste_audiencia: Hearing
+        teste_reuniao: Meeting
+        teste_prazo: Deadline
+        teste_compromisso: Appointment
+        google_agenda: GOOGLE CALENDAR
+        google_sincronizado: Synced with Google Calendar
+        google_sincronizar: Sync with Google Calendar
+        google_conectado: Connected · updates automatically
+        google_nao_conectado: Not connected
+        google_indisponivel: Available when the server enables the connection
+        google_desconectar: Disconnect
+        google_explicacao_inicio: 'When you connect your Google account, appointments stay the same on both sides: what you create, edit or delete here appears in Google Calendar and vice versa. Appointments marked'
+        google_explicacao_so_eu: Only me
+        google_explicacao_fim: remain private. Holidays, recesses and system dates are also sent, as all-day events, without taking up your calendar.
+        hoje: Today
+        anterior: Previous
+        proximo: Next
+        buscar: Search the calendar
+        proximos_feriados: Upcoming holidays
+        proximos_feriados_regra: deadlines that fall on a holiday move to the next business day
+    lista:
+        titulo: Event List
+        ver_calendario: View Calendar
+        novo_evento: New Event
+        filtros: Filters
+        status_todos: All
+        status_agendado: Scheduled
+        status_concluido: Completed
+        status_cancelado: Canceled
+        filtrar: Filter
+        limpar: Clear
+        encontrados: '{total} event(s) found'
+        na_agenda_de: on the calendar of {nome}
+        pessoa_nao_encontrada: person not found in this firm
+        periodo_de: from {data}
+        periodo_ate: to {data}
+        filtro_criadora_ou_participante: where the person is the creator or a participant, without canceled events and without the
+        filtro_somente_para_mim: Only for me
+        filtro_so_os_que_voce_ve: only the events you can see
+        criador: Creator
+        dia_inteiro: (all day)
+        pessoas: '{total} person(s)'
+        visualizar_evento: View event
+        cancelar_evento: Cancel event
+        cancelar_confirmar: Cancel this event?
+        nenhum_evento: No events found.
+    form:
+        novo_titulo: New Event
+        novo_cartao: Event Information
+        editar_titulo: Edit Event
+        editar_cartao: Edit Event Information
+        visibilidade: Visibility
+        salvar_evento: Save Event
+        salvar_alteracoes: Save Changes
+        salvar_alteracoes_rotulo: Save changes
+        cancelar: Cancel
+        dicas: Tips
+        dica_titulo_datas: Fill in the event title and dates.
+        dica_participantes: Add participants to notify them.
+        dica_cores: Use different colors to categorize events.
+        dica_recorrencia: Set up recurrence for repeating events.
+        js:
+            participantes_placeholder: Select participants...
+    show:
+        titulo_pagina: Event - {titulo}
+        detalhes: Details
+        cancelado_inicio: This event was
+        cancelado_destaque: canceled
+        cancelado_fim: .
+        detalhes_evento: Event Details
+        descricao: Description
+        sem_descricao: No description.
+        repetir: 'Repeat:'
+        repetir_ate: until {data}
+        voltar_calendario: Back to Calendar
+        cor: 'Color:'
+        dia_inteiro: All-day event
+    um_a:
+        buscar: Search event, location or person
+        vista_mes: Month
+        vista_semana: Week
+        vista_lista: List
+        novo_evento: New event
+        hoje_rotulo: Today
+        a_seguir: Up next
+        legendas: Legend
+        mostrar_todas: show all
+        gerenciar_legendas: Manage legend
+        filtros: Filters
+        pessoa: Person
+        todo_escritorio: Whole firm
+        status: Status
+        st_todos: All
+        st_agendados: Scheduled
+        st_concluidos: Completed
+        mostrar_cancelados: Show canceled
+        limpar_filtros: Clear filters
+    js:
+        comum:
+            dia_inteiro: All day
+            fechar: Close
+            cancelar: Cancel
+            salvar: Save
+            excluir: Delete
+            minha_agenda: My calendar
+            equipe_escritorio: Firm team
+            avisar_chat_ia: NOTIFY IN AI CHAT
+        calendario:
+            meus: My appointments
+            aud: Hearings
+            prazo: Matter deadlines
+            reun: Meetings
+            fer: National holidays
+            est: State holidays
+            forense: Court recess
+            com: Commemorative dates
+            trib: Courts and elections
+            aniv: Team birthdays
+            urg: Urgent
+            pess: Personal
+            lemb: Reminders
+        datas:
+            mes:
+                janeiro: January
+                fevereiro: February
+                marco: March
+                abril: April
+                maio: May
+                junho: June
+                julho: July
+                agosto: August
+                setembro: September
+                outubro: October
+                novembro: November
+                dezembro: December
+            semana:
+                dom: SUN
+                seg: MON
+                ter: TUE
+                qua: WED
+                qui: THU
+                sex: FRI
+                sab: SAT
+            letra:
+                dom: S
+                seg: M
+                ter: T
+                qua: W
+                qui: T
+                sex: F
+                sab: S
+        periodo:
+            mes: '{mes} {ano}'
+            dia: '{mes} {dia}, {ano}'
+            semana: '{mes2} {dia1} to {dia2}, {ano}'
+            semana_dois_meses: '{mes1} {dia1} to {mes2} {dia2}, {ano}'
+            lista: Next 60 days
+        grade:
+            hora_ate: '{inicio} to {fim}'
+            mais: + {n} more
+        lateral:
+            ufs_separador: ' and '
+            nenhum_estado: no state registered
+        resumo:
+            prazos_hoje: Deadlines today
+            prazos_hoje_dica: Deadlines due today
+            amanha: Tomorrow
+            amanha_dica: Deadlines due tomorrow
+            proximos_7: In the next 7 days
+            proximos_7_dica: Deadlines from today to {data}
+            audiencias_hoje: Hearings today
+            audiencias_hoje_dica: Hearings scheduled for today
+        mini:
+            mes_anterior: Previous month
+            proximo_mes: Next month
+        vista:
+            dia: DAY
+            semana: WEEK
+            mes: MONTH
+            lista: LIST
+        aniversario:
+            hoje: Today is the birthday of {nomes}!
+            parabens: How about sending your wishes in the Chat?
+        lista:
+            completa: Full list, with past events and filters
+            vazia: No appointments in the next 60 days.
+        feriados:
+            inicio_recesso: Start of the court recess
+            titulo: Upcoming holidays · {mes1} and {mes2}
+            vazio: No holidays this month or the next.
+            hoje: today
+            amanha: tomorrow
+            em_dias: in {n} days
+            ponte: BRIDGE
+            ponte_dica: 'Holiday on a Tuesday or Thursday: possible long weekend'
+        tipo_feriado:
+            estadual: State · {uf}
+            forense: Court
+            ponto_facultativo: Optional day off
+            escritorio: Firm
+            nacional: National
+        origem:
+            nome_alterado: Name changed by the firm.
+            dica_botao_direito: Right-click the day to edit or hide.
+            conta_no_ponto: Counts as a holiday on the time clock.
+            nao_conta_no_ponto: 'Does not count on the time clock: to count it, register it in Holidays and Days Off.'
+            acrescentada: 'Added by the firm to the Calendar. Does not count on the time clock: to count it, register it in Holidays and Days Off.'
+            pasta: Comes from the deadlines and hearings recorded in the matter. To change it, edit it in the matter.
+            feriado_escritorio: Holiday registered by the firm in Holidays and Days Off. Counts as a holiday on the time clock.
+            ponto_facultativo: Optional day off, already included by the system.
+            feriado_nacional: National holiday, already included by the system.
+            feriado_estadual: State holiday included based on the registered location ({uf}).
+            recesso: Court recess included by the system.
+            comemorativa: Commemorative date included by the system.
+            tribunais: Court date included by the system.
+            aniversario: Birthday registered in My Profile.
+            google: Imported from Google Calendar.
+            bluejus: Created in the BlueJus calendar.
+        detalhe:
+            titulo: Appointment
+            fonte: 'Source: {fonte}.'
+            google_pasta: Matter {nup} · BlueJus
+            ate_data: until {data}
+            ate_data_hora: until {data} at {hora}
+            dia_inteiro: all day
+            as_hora: at {hora}
+            agenda_de: Calendar of {nome}
+            so_voce_ve: Only you can see it
+            visivel_equipe: Visible to the firm team
+            repete: 'Repeats: {frequencia}'
+            repete_ate: 'Repeats: {frequencia} until {data}'
+            frequencia:
+                diario: every day
+                semanal: every week
+                mensal: every month
+                anual: every year
+                sim: yes
+            abrir_pasta: Open Matter {nup}
+            avisados_chat: 'Notified in the Chat: {nomes}'
+            cadastrar_feriado: Register in Holidays and Days Off, to count on the time clock
+            google_agenda: Google Calendar
+        situacao:
+            concluido: Completed
+            cancelado: Canceled
+        acoes:
+            avisar_chat: Notify in Chat
+            concluir: Complete
+            cancelar_compromisso: Cancel appointment
+            reabrir: Reopen
+            editar: Edit
+        menu:
+            abrir_compromisso: Open appointment
+            ver_detalhes: View details
+            editar_nome: Edit name
+            ocultar: Hide from calendar
+            acrescentar_em: Add a holiday or date on {data}
+            novo_em: New appointment on {data}
+            restaurar: Restore system dates
+        form:
+            novo_titulo: New appointment
+            editar_titulo: Edit appointment
+            titulo_placeholder: Title
+            tipo_prazo: Deadline
+            vis:
+                participantes_veem: Only participants and you can see it
+                todos_veem: Everyone on the account can see it
+                so_eu: Only me
+                ninguem_ve: No one else sees it, not even the primary user
+            rotulo:
+                data: DATE
+                inicio: START
+                fim: END
+                pasta: MATTER (NUP, OPTIONAL)
+                lembrete: REMINDER
+                repetir: REPEAT
+                repetir_ate: UNTIL (OPTIONAL)
+            lembrete:
+                sem: No reminder
+                min_10: 10 min before
+                min_15: 15 min before
+                min_30: 30 min before
+                hora_1: 1 hour before
+                dia_1: 1 day before
+            repetir:
+                nao: Does not repeat
+                diario: Every day
+                semanal: Every week
+                mensal: Every month
+                anual: Every year
+            termina_em: Ends on {data} ({dias} day(s) after the start).
+            mesmo_dia: End on the same day
+            serie: 'This appointment repeats: the change applies to all repetitions.'
+            pasta_placeholder: 'E.g., matter number'
+            participantes: PARTICIPANTS
+            participantes_dica_privado: with "Only me" participants do not see it and are not notified
+            participantes_dica: only they and you can see the appointment
+            avisar_dica_privado: with "Only me" no one is notified
+            avisar_dica: each @person receives the summary and the shortcut
+            obs_placeholder: Location, meeting link or notes
+            serao_avisados: 'Will be notified: {nomes}'
+            arroba_vazio: No team member with that name
+        erros:
+            salvar: Could not save. Try again.
+            titulo: Enter the title.
+            data: Enter the date.
+            fim_antes: The end must be after the start.
+            repeticao_antes: The repetition must end after the start.
+            nome: Enter the name.
+        compartilhar:
+            titulo: Share with the team?
+            texto: You are in {agenda}. Do you want {titulo} to also appear in {equipe}?
+            nao: No, only me
+            sim: Yes, share
+        confirmar:
+            excluir: Delete this appointment?
+            excluir_serie: Delete this appointment and all repetitions?
+            concluir: Complete this appointment?
+            reabrir: Reopen this appointment?
+            cancelar: Cancel this appointment?
+            participantes_avisados: Participants will be notified.
+            vale_serie: Applies to all repetitions.
+            restaurar: Restore all holidays and dates you hid or edited?
+        aviso_chat:
+            dica: each person receives the summary and the shortcut
+            sem_colegas: No colleagues in the firm.
+            ja_avisado: Already notified
+            avisar: Notify
+            avisar_n: Notify {n}
+        avisos:
+            carregar_falhou: Could not load the calendar. Try again in a moment.
+            salvo: Appointment saved.
+            lembrete: You will be reminded with a notice and a sound.
+            pessoas_avisadas: '{n} person(s) notified in the AI Chat.'
+            ja_avisadas: These people were already notified.
+            excluido: Appointment deleted.
+            concluido: Appointment completed.
+            cancelado: Appointment canceled.
+            reaberto: Appointment reopened.
+            movido: Appointment moved to {data}.
+            movido_hora: Appointment moved to {data} at {hora}.
+            incluido_em: Added on {data}.
+            removido: '"{titulo}" removed from the calendar.'
+            restaure: Restore it whenever you want.
+            continua_no_ponto: It still counts on the time clock.
+            restauradas: System dates restored.
+            nao_encontrado: Appointment not found. It may have been deleted or may not be visible to you.
+        data_form:
+            acrescentar_titulo: Add a holiday or date
+            tipo_rotulo: TYPE
+            tipo:
+                fer: National
+                est: State
+                trib: Court
+                com: Commemorative
+            nome_rotulo: NAME
+            nome_placeholder: 'E.g., Municipal holiday, Court closure at TJ'
+            fonte_rotulo: SOURCE (OPTIONAL)
+            fonte_placeholder: Ordinance, law or link
+            nota: 'Applies to the Calendar of the whole firm. Does not change the time clock: to count as a holiday in the workday, register it in Holidays and Days Off.'
+            incluir: Add
+        google:
+            volta:
+                conectado: Google Calendar connected. Appointments are already being synced.
+                cancelado: The connection to Google Calendar was canceled.
+                falhou: Could not connect to Google Calendar. Try again.
+                limite: Too many attempts with Google Calendar. Try again in a few minutes.
+            nao_configurado: Google Calendar sync will be available as soon as the connection is set up on the BlueJus server.
+            conectar_titulo: Connect Google Calendar
+            conectar_texto: 'On the next screen, Google asks you to check the calendar permission. Leave it checked: it is what lets BlueJus create the firm calendar in your account.'
+            continuar: Continue to Google
+            nome_padrao: of the firm
+            desconectar_titulo: Disconnect Google Calendar?
+            desconectar_texto: Appointments stop syncing. Also delete the calendar “{nome}” from your Google account?
+            manter: No, keep it
+            apagar: Yes, delete the calendar “{nome}” from Google
+            desconectar: Disconnect
+            sem_permissao_titulo: Calendar permission missing
+            sem_permissao_texto: Check the calendar permission on the Google screen and try again. Without it, BlueJus cannot create the firm calendar in your Google account.
+            agora_nao: Not now
+            tentar_de_novo: Try again
+            aviso:
+                titulo: Sync with Google Calendar
+                texto: Connect your Google account to see BlueJus appointments in your Google Calendar and receive reminders on your phone. Use the Sync with Google Calendar button, here in the Calendar.
+                nao_mostrar: Do not show this message again
+                agora_nao: Not now
+                sincronizar: Sync now
+        um_a:
+            legenda:
+                aud: Hearing
+                prazo: Deadline
+                reun: Meeting
+                urg: Urgent
+                pess: Personal
+                lemb: Reminder
+            dia_longo:
+                dom: Sunday
+                seg: Monday
+                ter: Tuesday
+                qua: Wednesday
+                qui: Thursday
+                sex: Friday
+                sab: Saturday
+            status:
+                agendado: Scheduled
+                concluido: Completed
+                cancelado: Canceled
+            resumo:
+                evento_um: 1 event
+                evento_n: '{n} events'
+                cancelado_um: 1 canceled
+                cancelado_n: '{n} canceled'
+                oculta_um: 1 hidden legend item
+                oculta_n: '{n} hidden legend items'
+            data_longa: '{semana}, {mes} {dia}'
+            dia_inteiro_curto: all day
+            meta:
+                participantes: '{n} participants'
+            mes:
+                mais: '+{n} more'
+            lista:
+                hoje_dia: 'Today · {dia}'
+                evento_um: 1 event
+                evento_n: '{n} events'
+                vazio: No events in this period with these filters.
+            hoje:
+                agora: now
+                vazio: No appointments today.
+            proximos:
+                amanha: tomorrow
+            detalhe:
+                duracao_minutos: '{n} minutes'
+                duracao_hora: 1 hour
+                duracao_horas: '{n} hours'
+                repete_diario: Repeats daily
+                repete_semanal: Repeats weekly
+                repete_mensal: Repeats monthly
+                repete_anual: Repeats yearly
+                repete_outro: Recurring event
+                so_eu: Only for me
+                escritorio: Visible to the firm
+                participantes: Participants
+                organizador: organizer
+                cancelar_evento: Cancel event

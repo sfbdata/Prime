@@ -1,0 +1,5 @@
+oab_status:
+    confirmada: Confirmed
+    divergente: Mismatch
+    nao_verificada: Not verified
+    sem_oab: No OAB
