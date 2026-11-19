@@ -17,6 +17,9 @@ final readonly class CriarPastaDTO
      * @param bool $criadorComoResponsavel A Nova demanda das Minhas Demandas (desenho 15, dc `salvarNovaFn`): quem
      *                     cria entra como responsável, senão a pasta não apareceria na própria lista. Os outros
      *                     caminhos (Expediente, acervo, Drive, cobrança) criam sem responsável, como sempre.
+     * @param bool $recusarNumeroEmUso Número digitado por uma pessoa (a proposta de pasta do Chat I.A): recusa se outra
+     *                     pasta viva do escritório já o tem, sob a trava da numeração. O acervo e o Drive não ligam,
+     *                     porque trazem o número da origem (10A/10B e repetidos do legado) e ele precisa ser preservado.
      */
     public function __construct(
         public ?string $nup = null,
@@ -24,5 +27,6 @@ final readonly class CriarPastaDTO
         public ?string $nomeAcao = null,
         public bool $vincularAoCadastroDoMesmoNome = false,
         public bool $criadorComoResponsavel = false,
+        public bool $recusarNumeroEmUso = false,
     ) {}
 }

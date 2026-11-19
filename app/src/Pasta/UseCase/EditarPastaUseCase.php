@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\DTO\EditarPastaDTO;
+use App\Pasta\Exception\NumeroDePastaEmUsoException;
 use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,10 +25,12 @@ final class EditarPastaUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly GerarNumeroDePasta $numeracao,
         private readonly ?RegistroDoSistemaNaPasta $registro = null,
         private readonly ?AndamentoDaPasta $andamento = null,
     ) {}
 
+    /** @throws NumeroDePastaEmUsoException se o número novo já é de outra pasta viva do escritório (nada é gravado) */
     public function executar(EditarPastaDTO $dto, Pasta $pasta, ?User $autor = null): void
     {
         $nup = trim($dto->nup);
@@ -36,9 +39,25 @@ final class EditarPastaUseCase
             throw new \InvalidArgumentException('O NUP é obrigatório.');
         }
 
+        // Sem troca de número, a edição segue como sempre foi, sem transação nem trava.
+        if (mb_strtoupper($nup) === mb_strtoupper(trim((string) $pasta->getNup()))) {
+            $this->aplicar($dto, $pasta, $autor, $nup);
+
+            return;
+        }
+
+        // A transação é o que dá validade à trava da numeração. A recusa sai dela como valor e só é lançada aqui fora:
+        // lançada lá dentro, fecharia o EntityManager antes de a tela responder.
+        $recusa = $this->em->wrapInTransaction(fn (): ?NumeroDePastaEmUsoException => $this->recusaDoNumeroNovo($pasta, $nup) ?? $this->aplicar($dto, $pasta, $autor, $nup));
+        if ($recusa instanceof NumeroDePastaEmUsoException) {
+            throw $recusa;
+        }
+    }
+
+    private function aplicar(EditarPastaDTO $dto, Pasta $pasta, ?User $autor, string $nup): null
+    {
         $antes = [$pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao()];
 
-        // NUP pode repetir (sync Drive): a identidade é o driveFolderId, não o NUP.
         $pasta->setNup($nup);
         $pasta->setNomeCliente($dto->nomeCliente);
         $pasta->setNomeAcao($dto->nomeAcao);
@@ -55,6 +74,22 @@ final class EditarPastaUseCase
         }
 
         $this->em->flush();
+
+        return null;
+    }
+
+    /**
+     * Só o número que MUDA passa pela conferência, sob a trava da numeração: a pasta do legado que já divide o número com
+     * outra (acervo, Drive) continua editável nos outros campos. Número novo de outra pasta viva é recusado (18/11/2026).
+     */
+    private function recusaDoNumeroNovo(Pasta $pasta, string $nup): ?NumeroDePastaEmUsoException
+    {
+        $tenant = $pasta->getTenant();
+        if ($tenant === null) {
+            throw new \LogicException('A pasta precisa de escritório para trocar de número.');
+        }
+
+        return $this->numeracao->recusaDoNumero($tenant, $nup, $pasta->getId());
     }
 
     /** O mesmo que a pílula faz ({@see DefinirSituacaoDaPastaUseCase}), sem o flush (quem dá é o executar). */
