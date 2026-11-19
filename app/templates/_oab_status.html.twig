@@ -11,7 +11,7 @@
     'nao_verificada': {label: 'oab_status.nao_verificada'|trans, v: 'warning',   icon: 'clock-history'},
 } -%}
 {%- set _c = _map[_s]|default({label: 'oab_status.sem_oab'|trans, v: 'secondary', icon: 'dash-circle'}) -%}
-<span class="badge rounded-pill bg-{{ _c.v }}-subtle text-{{ _c.v }}-emphasis border border-{{ _c.v }}-subtle d-inline-flex align-items-center gap-1"
+<span class="badge rounded-1 bg-{{ _c.v }}-subtle text-{{ _c.v }}-emphasis border border-{{ _c.v }}-subtle d-inline-flex align-items-center gap-1"
       style="font-weight:600;{{ (size|default('')) == 'sm' ? 'font-size:.72rem;padding:.3rem .6rem' : 'font-size:.8rem;padding:.4rem .8rem' }}">
     <i class="bi bi-{{ _c.icon }}"></i>{{ _c.label }}
 </span>
