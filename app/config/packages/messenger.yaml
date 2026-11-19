@@ -48,6 +48,7 @@ framework:
             App\Comercial\Message\EnviarEmail: comercial
             App\Comercial\Message\VarrerAutomacoes: comercial
             App\Comercial\Message\ExpandirCampanhas: comercial
+            App\Blog\Message\EnviarArtigoPorEmail: comercial
 
 # Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
 when@test:

@@ -30,6 +30,12 @@ publicas:
             continuar: Keep receiving
             motivo_rotulo: IF YOU WISH, TELL US WHY
             fechar: If you do not want to stop receiving them, just close this page.
+        artigos:
+            titulo: Do you no longer want to receive the blog articles?
+            deixara: will stop receiving the new BlueJus blog articles by e-mail. The other BlueJus e-mails will keep coming.
+            botao: Stop receiving articles
+            feito: Done, you will no longer receive the blog articles.
+            ler_blog: Go to the blog
         motivos:
             demais: I receive too many e-mails
             sem_interesse: I am no longer interested

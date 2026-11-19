@@ -24,6 +24,7 @@ use App\Blog\UseCase\PublicarArtigoDoBlogUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tests\Blog\ArtigosDeTeste;
 use App\Tests\Blog\Doubles\BusQueGuarda;
+use App\Blog\Message\EnviarArtigoPorEmail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -43,6 +44,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
     private PublicacaoDosBlogsRepository&MockObject $publicacoes;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private BusQueGuarda $bus;
+    private BusQueGuarda $busDoEmail;
     private MockClock $relogio;
 
     /** @var list<PublicacaoDosBlogs> gravadas pelo flush, em ordem */
@@ -64,6 +66,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         });
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
         $this->bus = new BusQueGuarda();
+        $this->busDoEmail = new BusQueGuarda();
         $this->relogio = new MockClock('2026-11-03 14:05:00', 'America/Sao_Paulo');
     }
 
@@ -71,7 +74,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
     {
         $versao = new VersaoPublicadaDoArtigo($this->createStub(ImagemDoArtigoRepository::class), new ExportadorDeArtigo());
 
-        return new PublicarArtigoDoBlogUseCase($this->artigos, new ValidadorDoArtigo(), $versao, $this->pedir(), $this->relogio);
+        return new PublicarArtigoDoBlogUseCase($this->artigos, new ValidadorDoArtigo(), $versao, $this->pedir(), $this->relogio, $this->busDoEmail);
     }
 
     private function despublicar(): DespublicarArtigoDoBlogUseCase
@@ -111,6 +114,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         self::assertSame(MotivoDaPublicacao::Publicar, $this->gravadas[0]->getMotivo());
         self::assertSame(SituacaoDaPublicacao::NaFila, $this->gravadas[0]->getSituacao());
         self::assertEquals([new MontarPacoteDosBlogs(40)], $this->bus->mensagens);
+        self::assertEquals([new EnviarArtigoPorEmail(7)], $this->busDoEmail->mensagens, 'primeira ida ao ar: o artigo vai por e-mail');
         self::assertSame('publicado', $saida->situacao);
         self::assertSame(40, $saida->publicacao->id);
         self::assertSame('na_fila', $saida->publicacao->situacao);
@@ -190,6 +194,7 @@ final class PublicarArtigoDoBlogUseCaseTest extends TestCase
         self::assertEquals($this->relogio->now(), $artigo->getAtualizadoEm());
         self::assertStringContainsString('Título novo', $artigo->getVersaoPublicada()['arquivos']['blog'] ?? '');
         self::assertFalse($saida->alteracoesPendentes);
+        self::assertSame([], $this->busDoEmail->mensagens, 'republicação não manda o artigo por e-mail de novo');
     }
 
     #[TestDox('Despublicar: o artigo sai do ar e um pedido com motivo despublicar vai para a fila')]

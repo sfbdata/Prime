@@ -1,5 +1,6 @@
 {# Confirmação do descadastro de e-mail (POST da rota pública `email_descadastro`, spec push-avisar-quando-chegar D3).
-   Contexto: `remetente` (escritório ou "BlueJus"), `todos` (opt-out total gravado).
+   Contexto: `remetente` (escritório ou "BlueJus"), `todos` (opt-out total gravado), `artigos` (só os artigos dos
+   blogs, spec blog-artigos-por-email).
    Página avulsa, sem o layout do sistema: quem chega aqui pode não estar logado.
    Visual do desenho Vagas Públicas (tela Descadastro, estado "feito"). #}
 <!DOCTYPE html>
@@ -22,12 +23,12 @@
     <main style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px 16px;">
         <div style="width:min(480px, 100%); background:#fff; border:1px solid #dde5eb; border-radius:8px; padding:30px 28px; text-align:center; animation:vpUp .4s ease both;">
             <span style="width:60px; height:60px; margin:0 auto 12px; border-radius:50%; background:#e9f6ee; color:#1e7b45; font-size:28px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-check2-circle"></i></span>
-            <h1 style="font-size:19px; font-weight:bold; margin:0 0 6px;">{{ 'publicas.descadastro.confirmado.titulo'|trans }}</h1>
+            <h1 style="font-size:19px; font-weight:bold; margin:0 0 6px;">{{ (artigos ? 'publicas.descadastro.artigos.feito' : 'publicas.descadastro.confirmado.titulo')|trans }}</h1>
             <p style="margin:0; font-size:14px; color:#4a6373; line-height:1.55;">
-                {% if todos %}{{ 'publicas.descadastro.confirmado.todos'|trans({remetente: remetente}) }}{% else %}{{ 'publicas.descadastro.confirmado.estes_avisos'|trans({remetente: remetente}) }}{% endif %}
-                {% if not todos %}{{ 'publicas.descadastro.confirmado.demais'|trans({remetente: remetente}) }}{% endif %}
+                {% if artigos %}{{ 'publicas.descadastro.confirmado.demais'|trans({remetente: remetente}) }}{% elseif todos %}{{ 'publicas.descadastro.confirmado.todos'|trans({remetente: remetente}) }}{% else %}{{ 'publicas.descadastro.confirmado.estes_avisos'|trans({remetente: remetente}) }}{% endif %}
+                {% if not todos and not artigos %}{{ 'publicas.descadastro.confirmado.demais'|trans({remetente: remetente}) }}{% endif %}
             </p>
-            <a href="/vagas-juridicas" style="display:inline-flex; align-items:center; margin-top:18px; height:38px; box-sizing:border-box; padding:0 16px; border-radius:3px; background:#0a6fa0; color:#fff; font-size:14px; font-weight:bold; text-decoration:none;">{{ 'publicas.descadastro.confirmado.ver_vagas'|trans }}</a>
+            <a href="{{ artigos ? 'https://bluejus.com.br/blog' : '/vagas-juridicas' }}" style="display:inline-flex; align-items:center; margin-top:18px; height:38px; box-sizing:border-box; padding:0 16px; border-radius:3px; background:#0a6fa0; color:#fff; font-size:14px; font-weight:bold; text-decoration:none;">{{ (artigos ? 'publicas.descadastro.artigos.ler_blog' : 'publicas.descadastro.confirmado.ver_vagas')|trans }}</a>
         </div>
     </main>
 </body>

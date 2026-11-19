@@ -408,4 +408,18 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
     {
         return $em->format('Y-m-d H:i:s');
     }
+
+    /**
+     * Destinatários que já têm envio desta origem, em qualquer situação: quem dispara um envio idempotente (artigo
+     * dos blogs por e-mail) pula quem já está na fila ou já recebeu.
+     *
+     * @return list<string> em minúsculas
+     */
+    public function destinatariosDaOrigem(string $origem): array
+    {
+        return array_map('strval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT LOWER(destinatario) FROM comercial_envio WHERE origem = :origem',
+            ['origem' => $origem],
+        ));
+    }
 }

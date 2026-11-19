@@ -44,6 +44,17 @@ class CadastradosRepository
     }
 
     /**
+     * Todos os cadastrados com vínculo válido e e-mail confirmado (`email_a_confirmar_desde` nulo), sem repetidos: o
+     * público dos artigos dos blogs por e-mail (spec blog-artigos-por-email).
+     *
+     * @return list<array{email: string, nome: string}>
+     */
+    public function comEmailConfirmado(): array
+    {
+        return $this->lista('AND u.email_a_confirmar_desde IS NULL');
+    }
+
+    /**
      * B1: quais destes endereços são de usuário ativo cadastrado, com o mesmo vínculo válido dos públicos de sistema.
      *
      * @param list<string> $emails já em minúsculas
