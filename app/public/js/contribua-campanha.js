@@ -37,15 +37,22 @@
     }
 
     /* ---------- Aba fixa: logo abaixo do cabeçalho da tela (cabecalho() do desenho) ---------- */
+    // O cabeçalho do sistema é o `nav.app-header` (#mainHeader): o `cabecalho()` do desenho só procura `header` e
+    // `[role=banner]`, não o achava e a aba ia para o topo (top 0), por cima do nome e do avatar (print do Farlei).
     function baseDoCabecalho() {
-        const achados = Array.from(document.querySelectorAll('header, [role=banner], .main-header')).filter((h) => {
+        const barra = document.getElementById('mainHeader');
+        if (barra) {
+            const r = barra.getBoundingClientRect();
+            if (r.height > 0) { return Math.max(0, r.bottom); }
+        }
+        const achados = Array.from(document.querySelectorAll('header, [role=banner], .main-header, .app-header')).filter((h) => {
             const r = h.getBoundingClientRect();
             return r.top <= 2 && r.height >= 40 && r.height <= 140 && r.width >= window.innerWidth * 0.8;
         });
         return achados[0] ? achados[0].getBoundingClientRect().bottom : 0;
     }
 
-    // A aba fica no centro do topo, logo abaixo do cabeçalho (não cobre o nome nem o avatar), e some sozinha.
+    // A aba fica pendurada no canto direito, logo abaixo da barra azul (right:24px do desenho), e some sozinha em 5 s.
     const ABA_SOME_EM_MS = 5000;
 
     function posicionarAba() {

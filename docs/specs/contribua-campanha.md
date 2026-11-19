@@ -166,9 +166,11 @@ Valores, cores e textos do CSS e do JS do desenho; componentes do desenho, não 
    Cada campo grava ao mudar (POST `/configurar` só com o campo).
 4. **Aba do topo** (todas as telas logadas): parcial `layout/_globais/campanha.html.twig`, botão fixo do desenho
    (`aba()` do `bj-campanha.js`: preto, abaixo do cabeçalho, selo azul `#3aa0d8`, preço `#7fd0ff`,
-   prévia com borda tracejada `#f0b429` e "PRÉVIA"). Pedido do Farlei (19/11): a aba fica **no centro do topo**
-   (`left:50%`, `translateX(-50%)`, em vez de `right:24px`, que caía sobre o nome e o avatar) e **some sozinha 5 s**
-   depois de a tela abrir (some com transição de opacidade e é removida; a faixa, o FAQ e `#black` continuam abrindo
+   prévia com borda tracejada `#f0b429` e "PRÉVIA"). Posição do desenho: **pendurada no canto direito**
+   (`right:24px`), com o topo na base da barra azul (`#mainHeader`, o `nav.app-header` do sistema; o `cabecalho()` do
+   desenho só procura `header`/`[role=banner]` e, sem achar, punha a aba em `top:0`, por cima do nome e do avatar: o
+   print do Farlei). O centro do topo (#851) foi desfeito a pedido do Samuel (19/11). Pedido do Farlei mantido: **some
+   sozinha 5 s** depois de a tela abrir (some com transição de opacidade e é removida; a faixa, o FAQ e `#black` continuam abrindo
    a janela). Some com a janela de manutenção aberta não se aplica aqui.
 5. **Janela da campanha**: aberta pela aba, pela faixa, pelo FAQ e por `#black` no endereço (em qualquer tela);
    carrega o HTML de `/contribua/campanha/janela` e o põe num overlay do desenho (`abrir()` do `bj-campanha.js`):
