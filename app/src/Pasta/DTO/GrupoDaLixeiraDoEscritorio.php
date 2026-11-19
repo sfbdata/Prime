@@ -29,6 +29,10 @@ final class GrupoDaLixeiraDoEscritorio
         public readonly \DateTimeImmutable $maisAntiga,
         public readonly array $excluidoPor,
         public readonly bool $autorSemRegistro,
+        /** Pasta excluída que quem lê pode restaurar (DELETE na pasta). */
+        public readonly bool $podeRestaurarPasta = false,
+        /** O número da lápide já é de outra pasta viva: ela voltaria com o próximo livre. */
+        public readonly bool $numeroOcupado = false,
     ) {
     }
 
@@ -46,6 +50,7 @@ final class GrupoDaLixeiraDoEscritorio
             'maisAntiga'       => $this->maisAntiga->format(\DateTimeInterface::ATOM),
             'excluidoPor'      => $this->excluidoPor,
             'autorSemRegistro' => $this->autorSemRegistro,
+            'numeroOcupado'    => $this->numeroOcupado,
         ];
     }
 }

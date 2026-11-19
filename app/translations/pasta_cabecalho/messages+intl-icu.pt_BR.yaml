@@ -190,6 +190,7 @@ pasta_cabecalho:
     js:
         cabecalho:
             restaurar_pergunta: 'Restaurar a pasta {nup}?'
+            restaurar_numero_ocupado: 'O número {nup} já é de outra pasta. Ela volta com o próximo número livre.'
             restaurar: Restaurar
             favoritos_erro: Não foi possível alterar os favoritos.
             acompanhar_erro: Não foi possível alterar o acompanhamento.
