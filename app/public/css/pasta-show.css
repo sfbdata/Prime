@@ -33,7 +33,7 @@
     --ps-card:          #fff;
     --ps-soft:          #fafcfd;
     --ps-border:        #dde5eb;
-    --ps-border-ctl:    #cdd7de;
+    --ps-border-ctl:    #d6e0e7;
     --ps-div-strong:    #eef2f5;
     --ps-div-weak:      #f4f7f9;
     --ps-hover:         #eef5fa;
@@ -41,9 +41,9 @@
     --ps-text:          #12242f;
     --ps-body:          #243845;
     --ps-text-2:        #455c6b;
-    --ps-muted:         #6b8494;
+    --ps-muted:         #5f7684;
     --ps-label:         #7b93a2;
-    --ps-faint:         #8496a3;
+    --ps-faint:         #5f7684;
     --ps-placeholder:   #95a6b2;
 
     --ps-accent:        #0a7aad;
@@ -140,7 +140,7 @@
     --ps-resp-grad:     linear-gradient(135deg,#1597bd,#0c7a9c);
     --ps-resp-sombra:   0 4px 10px -5px rgba(12,122,156,.7);
     --ps-push-bg:       #e9eef1;
-    --ps-push-linha:    #d0d8dd;
+    --ps-push-linha:    #d6e0e7;
     --ps-push-dia-bg:   #d9e0e4;
     --ps-push-dia-tx:   #3f4f59;
     --ps-push-txt:      #2c3a42;
@@ -2807,7 +2807,7 @@ span.ps-situacao-pill { cursor: default; }
     width: 38px;
     height: 22px;
     border-radius: 999px;
-    background: var(--ps-border-ctl);
+    background: #7b93a2;
     padding: 2px;
     flex-shrink: 0;
     transition: background .26s var(--ps-ease);
@@ -3200,8 +3200,11 @@ span.ps-situacao-pill { cursor: default; }
 /* Cor por quem praticou o ato (dc 5365 `COR`, 5375 `cursor:help`; FPN-019). A dica e o `title`. */
 .ps-push-ponto--juizo,
 .ps-push-ponto--cartorio { cursor: help; }
-.ps-push-ponto--juizo { background: var(--ps-push-ponto-juizo); }
-.ps-push-ponto--cartorio { background: var(--ps-push-ponto-cartorio); }
+/* A3a (guia v30): icone por tipo (juizo = bank2, cartorio = building), na mesma cor. */
+.ps-push-ponto--juizo,
+.ps-push-ponto--cartorio { display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; background: var(--ps-push-bg); }
+.ps-push-ponto--juizo { color: var(--ps-push-ponto-juizo); }
+.ps-push-ponto--cartorio { color: var(--ps-push-ponto-cartorio); }
 .ps-push-cartao > .ps-push-cab { margin-top: 0; }
 .ps-push-cab {
     position: relative;
@@ -5223,17 +5226,18 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-cad-btn + .ps-situacao-wrap { margin-left: -2px; }
 .ps-cad-btn-icone { position: relative; display: flex; }
 .ps-cad-btn-icone > i { font-size: 15px; line-height: 1; }
+.ps-cad-btn-icone > i.ps-cad-ponto { font-size: 11px; }
 .ps-cad-ponto {
     position: absolute;
     right: -4px;
     top: -3px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px var(--ps-trilho-cab-bg);
+    font-size: 11px;
+    line-height: 1;
+    background: transparent;
 }
-.ps-cad-ponto--completo { background: var(--ps-l2-cad-ok); }
-.ps-cad-ponto--pendente { background: var(--ps-l2-cad-pend); }
+/* A3a (guia v30): o estado nao fica so na cor, o icone muda (check = completo, exclamacao = pendente). */
+.ps-cad-ponto--completo { color: var(--ps-l2-cad-ok); }
+.ps-cad-ponto--pendente { color: var(--ps-l2-cad-pend); }
 @media (max-width: 767.98px) {
     .ps-cad-btn { margin-left: 0; }
     .ps-cad-btn + .ps-situacao-wrap { margin-left: 0; }
@@ -5286,7 +5290,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-np-cab-borda:   #e0e7ec;
     --ps-np-icone:       #0a7aad;
     --ps-np-titulo:      #12242f;
-    --ps-np-sub:         #6b8494;
+    --ps-np-sub:         #5f7684;
     --ps-np-fechar:      #4f6878;
     --ps-np-fechar-hv:   #dfe8ee;
     --ps-np-rotulo:      #6b8494;
@@ -5551,7 +5555,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-tl-texto:     #243845;
     --ps-tl-forte:     #12242f;
     --ps-tl-suave:     #6b8494;
-    --ps-tl-fraco:     #8496a3;
+    --ps-tl-fraco:     #5f7684;
     --ps-tl-barra-bg:  #fff;
     --ps-tl-linha:     #e1e6ea;
     --ps-tl-campo-bd:  #cfdae2;

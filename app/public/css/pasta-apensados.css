@@ -130,7 +130,7 @@
     background: #fff;
 }
 #modalVincularProcesso .mp-ctrl:focus { outline: 0; border-color: #0a6fa0; box-shadow: 0 0 0 3px rgba(10, 111, 160, .15); }
-#modalVincularProcesso .mp-ctrl::placeholder { color: #95a6b2; }
+#modalVincularProcesso .mp-ctrl::placeholder { color: #5f7684; }
 #modalVincularProcesso .mp-ctrl--num { font-variant-numeric: tabular-nums; }
 /* Tribunal só leitura (N:312). */
 #modalVincularProcesso .mp-ctrl--leitura { background: #f6f8fa; color: #34505f; }

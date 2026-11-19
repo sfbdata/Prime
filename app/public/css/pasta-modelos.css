@@ -21,12 +21,12 @@
 .mdl-chip--ativo { background: #e5f1f7; color: var(--mdl-azul); font-weight: bold; border-left-color: var(--mdl-azul); }
 .mdl-chip-rotulo { flex: 1; min-width: 0; }
 .mdl-chip-contador { font-size: 11.5px; color: #7a8e9b; min-width: 14px; text-align: right; }
-.mdl-estrela { font-size: 12px; padding: 2px; color: #b7c6d1; }
+.mdl-estrela { font-size: 12px; padding: 2px; color: #7b93a2; }
 .mdl-estrela--on { color: #f4b400; }
 .mdl-bloco-tit { display: flex; align-items: center; gap: 6px; width: 100%; border: none; background: transparent; padding: 8px 12px 4px; font: bold 10.5px Arial, Helvetica, sans-serif; letter-spacing: .8px; text-transform: uppercase; color: #5b7383; cursor: pointer; text-align: left; }
 .mdl-bloco-tit > i { font-size: 10px; }
 .mdl-bloco-tit > span:first-of-type { flex: 1; }
-.mdl-bloco-total { font-weight: normal; color: #9aabb7; }
+.mdl-bloco-total { font-weight: normal; color: #5f7684; }
 .mdl-divisor { height: 1px; background: #eef2f5; margin: 6px 0; }
 
 /* Lista */
@@ -44,7 +44,7 @@
 .mdl-linha:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
 .mdl-linha:hover, .mdl-linha:hover * { color: #fff !important; }
 .mdl-linha:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
-.mdl-fav { border: none; background: none; cursor: pointer; font-size: 15px; color: #b7c6d1; padding: 0; }
+.mdl-fav { border: none; background: none; cursor: pointer; font-size: 15px; color: #7b93a2; padding: 0; }
 .mdl-fav--on { color: #e0a106; }
 .mdl-linha-icone { font-size: 19px; color: var(--mdl-azul); }
 .mdl-linha-texto { flex: 1; min-width: 0; }
@@ -76,7 +76,7 @@
 .mdl-rotulo { font: bold 11.5px Arial, Helvetica, sans-serif; color: #4a6373; display: flex; flex-direction: column; gap: 4px; margin: 0; }
 .mdl-campo { height: 34px; border: 1px solid #d3dde4; border-radius: 2px; padding: 0 9px; font: 14px Arial, Helvetica, sans-serif; font-weight: normal; width: 100%; background: #fff; color: var(--mdl-texto); }
 .mdl-editor-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.mdl-moldura { border: 1px solid #c5d2db; border-radius: 2px; overflow: hidden; font-weight: normal; }
+.mdl-moldura { border: 1px solid #d6e0e7; border-radius: 2px; overflow: hidden; font-weight: normal; }
 .mdl-erro { font-size: 12.5px; color: #a3232b; }
 .mdl-editor-rodape { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -108,7 +108,7 @@
 .mdl-dado { display: flex; flex-direction: column; gap: 3px; font: bold 11px Arial, Helvetica, sans-serif; color: #4a6373; margin: 0; }
 .mdl-dado input { height: 30px; border: 1px solid #d3dde4; border-radius: 2px; padding: 0 8px; font: 13px Arial, Helvetica, sans-serif; font-weight: normal; background: #fff; color: var(--mdl-texto); }
 .mdl-dados-nota { margin-top: 8px; font-size: 11.5px; color: #5b7383; }
-.mdl-btn-acao { height: 32px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: 13px Arial, Helvetica, sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.mdl-btn-acao { height: 32px; padding: 0 11px; border: 1px solid #d6e0e7; border-radius: 2px; background: #fff; color: #34505f; font: 13px Arial, Helvetica, sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .mdl-btn-acao--azul { padding: 0 13px; border: none; background: var(--mdl-azul); color: #fff; font-weight: bold; }
 .mdl-dica { font-weight: normal; color: #7a8e9b; }
 .mdl-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 2147483000; max-width: min(560px, 92vw); background: #12242f; color: #fff; font: 13.5px Arial, Helvetica, sans-serif; padding: 11px 18px; border-radius: 3px; box-shadow: 0 10px 28px rgba(18, 36, 47, .3); }

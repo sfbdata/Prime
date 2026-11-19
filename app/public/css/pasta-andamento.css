@@ -1,6 +1,6 @@
 /* Andamento da pasta em fases, desenho 1.2.3 (dc L.1298-1321), E12b. */
 .ps-and { min-width: 0; padding: 0 16px; margin: 4px 150px 0 0; }
-.ps-and-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9aabb7; margin: 0 0 6px 2px; opacity: 0; transition: opacity .25s; }
+.ps-and-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #5f7684; margin: 0 0 6px 2px; opacity: 0; transition: opacity .25s; }
 /* Título da linha do tempo só aparece com o mouse (ou o foco) na faixa, desenho 02 VS 28.10.26. */
 .bjLinhaT:hover .bjLinhaTit,
 .bjLinhaT:focus-within .bjLinhaTit { opacity: 1; }
@@ -14,10 +14,10 @@
 .ps-and-linha--d { right: 0; }
 .ps-and-linha.is-feita { background: #2b8ac0; }
 .ps-and-linha.is-nada { background: transparent; }
-.ps-and-int { position: absolute; top: 9px; left: 0; transform: translateX(-50%); font-size: 10px; line-height: 1; color: #9aabb7; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: default; }
+.ps-and-int { position: absolute; top: 9px; left: 0; transform: translateX(-50%); font-size: 10px; line-height: 1; color: #5f7684; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: default; }
 .ps-and-bola {
     position: relative; width: 26px; height: 26px; border-radius: 50%;
-    border: 1.5px solid #d6dee4; background: #fff; color: #b3c0c9;
+    border: 1.5px solid #d6dee4; background: #fff; color: #7b93a2;
     display: flex; align-items: center; justify-content: center; font-size: 12px; padding: 0; cursor: pointer;
     transition: transform .15s, box-shadow .15s;
 }
@@ -33,13 +33,13 @@
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black' transform='rotate(-45 12 12)'%3E%3Crect x='6' y='3' width='12' height='6.5' rx='1.6'/%3E%3Crect x='10.6' y='9' width='2.8' height='12.5' rx='1.4'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='black' transform='rotate(-45 12 12)'%3E%3Crect x='6' y='3' width='12' height='6.5' rx='1.6'/%3E%3Crect x='10.6' y='9' width='2.8' height='12.5' rx='1.4'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat; }
 .ps-and-n { position: absolute; top: -5px; right: -7px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: 7px; background: #0a6fa0; color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.ps-and-rot { margin-top: 7px; font-size: 11.5px; color: #9aabb7; text-align: center; line-height: 1.15; white-space: nowrap; max-width: 100%; padding: 0 2px; }
+.ps-and-rot { margin-top: 7px; font-size: 11.5px; color: #5f7684; text-align: center; line-height: 1.15; white-space: nowrap; max-width: 100%; padding: 0 2px; }
 .ps-and-rot[data-estado="feita"] { color: #34505f; }
 .ps-and-rot[data-estado="atual"] { color: #2b8ac0; font-weight: 700; }
 .ps-and-rot[data-estado="pulada"], .ps-and-rot[data-estado="reativada"] { color: #c0392b; }
 .ps-and-rot[data-estado="fim"] { color: #1e7b45; font-weight: 700; }
-.ps-and-dia { margin-top: 1px; font-size: 10px; line-height: 1.2; color: #9aabb7; text-align: center; min-height: 12px; max-width: 100%; font-variant-numeric: tabular-nums; }
-.ps-and-total { flex: none; align-self: flex-start; margin-top: 18px; padding: 0 4px 0 10px; font-size: 10px; color: #9aabb7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ps-and-dia { margin-top: 1px; font-size: 10px; line-height: 1.2; color: #5f7684; text-align: center; min-height: 12px; max-width: 100%; font-variant-numeric: tabular-nums; }
+.ps-and-total { flex: none; align-self: flex-start; margin-top: 18px; padding: 0 4px 0 10px; font-size: 10px; color: #5f7684; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ps-and-sug { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 16px 0; padding: 7px 10px; background: #f2f8fc; border: 1px solid #d6e7f2; border-radius: 4px; font-size: 12.5px; color: #0b4f73; max-width: 720px; }
 .ps-and-sug[hidden] { display: none; }
 .ps-and-sug > .bi { font-size: 14px; }
@@ -56,21 +56,21 @@
 [data-bs-theme="dark"] .ps-and-bola:not([data-estado="feita"]):not([data-estado="fim"]):not([data-estado="reativada"]) { background: var(--bs-body-bg); }
 /* Etapa entre fases e faixa histórico, desenho 02 VS 31.10.26 (dc L.1326-1342). */
 .ps-and-gap, .ps-and-gap-mais { position: absolute; right: 0; top: 17px; transform: translateX(50%); z-index: 2; width: 16px; height: 16px; }
-.ps-and-gap-mais { box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid #9aabb7; border-radius: 50%; background: #fff; color: #5b7383; font-size: 12px; line-height: 1; opacity: .55; cursor: pointer; transition: opacity .15s; }
+.ps-and-gap-mais { box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid #7b93a2; border-radius: 50%; background: #fff; color: #5b7383; font-size: 12px; line-height: 1; cursor: pointer; transition: opacity .15s; }
 .ps-and-gap-mais:hover, .ps-and-gap-mais:focus-visible { opacity: 1; border-color: #0a6fa0; color: #0a6fa0; }
-.ps-and-gap-pt { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 1.5px solid #9aabb7; border-radius: 50%; background: #fff; cursor: pointer; }
+.ps-and-gap-pt { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 1.5px solid #7b93a2; border-radius: 50%; background: #fff; cursor: pointer; }
 .ps-and-gap-pt:disabled { cursor: default; }
-.ps-and-gap-ponto { width: 6px; height: 6px; border-radius: 50%; background: #9aabb7; }
+.ps-and-gap-ponto { width: 6px; height: 6px; border-radius: 50%; background: #7b93a2; }
 .ps-and-gap-pt.is-feita { border-color: #2b8ac0; }
 .ps-and-gap-pt.is-feita .ps-and-gap-ponto { background: #2b8ac0; }
-.ps-and-gap-txt { position: absolute; right: 0; top: -9px; transform: translateX(50%); z-index: 2; padding: 0 3px; background: #fff; font-size: 10px; font-weight: 700; color: #9aabb7; white-space: nowrap; pointer-events: none; }
+.ps-and-gap-txt { position: absolute; right: 0; top: -9px; transform: translateX(50%); z-index: 2; padding: 0 3px; background: #fff; font-size: 10px; font-weight: 700; color: #5f7684; white-space: nowrap; pointer-events: none; }
 .ps-and-gap-txt.is-feita { color: #2b8ac0; }
 .ps-and-pop-fundo { position: fixed; inset: 0; z-index: 40; }
 .ps-and-pop { position: fixed; z-index: 41; box-sizing: border-box; width: 200px; display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; background: #fff; border: 1px solid #c9d6df; border-radius: 4px; box-shadow: 0 8px 22px rgba(18,36,47,.18); }
 .ps-and-pop-entre { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #5b7383; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-and-pop-campo { box-sizing: border-box; width: 100%; height: 30px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 3px; font: inherit; font-size: 13px; color: #12242f; background: #fff; }
 .ps-and-pop-campo:focus { outline: 2px solid #0a6fa0; outline-offset: -1px; }
-.ps-and-pop-cont { font-size: 11px; color: #9aabb7; }
+.ps-and-pop-cont { font-size: 11px; color: #5f7684; }
 .ps-and-pop-acoes { display: flex; gap: 6px; }
 .ps-and-pop-cancelar, .ps-and-pop-salvar { flex: 1; height: 26px; border-radius: 3px; font: inherit; font-size: 12px; cursor: pointer; }
 .ps-and-pop-cancelar { border: 1px solid #d3dde4; background: #fff; color: #34505f; }

@@ -619,7 +619,7 @@
                     data-url="{{ path('cliente_cadastro', {id: cliente.id, pasta: pasta.id}) }}"
                     data-pendencias="{{ cadPendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}">
-                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>
+                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><i class="bi {{ cadCompleto ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill' }} ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}" aria-hidden="true"></i></span>
                 <span>{{ 'pasta_cabecalho.cabecalho.cadastro.rotulo'|trans }}</span>
             </button>
         {% elseif podeEditarPasta and not pasta.estaExcluida %}
@@ -630,7 +630,7 @@
                     data-url="{{ path('pasta_cadastro_novo', {id: pasta.id}) }}"
                     data-pendencias="1"
                     title="{{ 'pasta_cabecalho.cabecalho.cadastro.sem_cliente'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.cadastro.sem_cliente'|trans }}">
-                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--pendente"></span></span>
+                <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><i class="bi bi-exclamation-circle-fill ps-cad-ponto ps-cad-ponto--pendente" aria-hidden="true"></i></span>
                 <span>{{ 'pasta_cabecalho.cabecalho.cadastro.rotulo'|trans }}</span>
             </button>
         {% endif %}
