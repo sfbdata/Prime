@@ -8,12 +8,15 @@ use App\Blog\DTO\ArtigoPublicadoOutput;
 use App\Blog\Enum\MotivoDaPublicacao;
 use App\Blog\Exception\ArtigoDoBlogNaoEncontrado;
 use App\Blog\Exception\ArtigoDoBlogNaoPublicavel;
+use App\Blog\Message\EnviarArtigoPorEmail;
 use App\Blog\Repository\ArtigoDoBlogRepository;
 use App\Blog\Service\PedirPublicacaoDosBlogs;
 use App\Blog\Service\ValidadorDoArtigo;
 use App\Blog\Service\VersaoPublicadaDoArtigo;
 use App\Entity\Auth\User;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 /**
  * "Publicar agora" (spec painel-artigos-blogs, seções 1, 2.2 e 6.1).
@@ -28,16 +31,21 @@ use Psr\Clock\ClockInterface;
  * ({@see PedirPublicacaoDosBlogs}, que grava tudo num flush só, no escopo de plataforma).
  * Fluxos alternativos: id inexistente (404); regras do zod (422 com os erros por campo); artigo publicado sem
  * alterações (409, \DomainException da entidade).
- * Pós-condições: artigo publicado e um pedido na fila; o site muda quando o builder terminar.
+ * Pós-condições: artigo publicado e um pedido na fila; o site muda quando o builder terminar. Na PRIMEIRA ida ao ar
+ * (republicação não), o envio do artigo por e-mail entra na fila `comercial` com {@see self::ATRASO_DO_EMAIL_MS} de
+ * atraso, para o site já estar no ar quando o e-mail chegar (spec blog-artigos-por-email).
  */
 final class PublicarArtigoDoBlogUseCase
 {
+    public const ATRASO_DO_EMAIL_MS = 15 * 60 * 1000;
+
     public function __construct(
         private readonly ArtigoDoBlogRepository $artigos,
         private readonly ValidadorDoArtigo $validador,
         private readonly VersaoPublicadaDoArtigo $versaoPublicada,
         private readonly PedirPublicacaoDosBlogs $pedir,
         private readonly ClockInterface $relogio,
+        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -55,9 +63,13 @@ final class PublicarArtigoDoBlogUseCase
         }
 
         $agora = $this->relogio->now();
+        $primeiraVez = $artigo->getPublicadoEm() === null;
         $artigo->publicar($agora);
         $this->versaoPublicada->congelar($artigo);
         $publicacao = $this->pedir->pedir(MotivoDaPublicacao::Publicar, $ator, $agora);
+        if ($primeiraVez) {
+            $this->bus->dispatch(new EnviarArtigoPorEmail($id), [new DelayStamp(self::ATRASO_DO_EMAIL_MS)]);
+        }
 
         return ArtigoPublicadoOutput::de($artigo, $publicacao);
     }

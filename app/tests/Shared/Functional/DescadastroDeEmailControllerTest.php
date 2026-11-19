@@ -183,6 +183,25 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->linhas($tenant, $email));
     }
 
+    #[TestDox('Artigos dos blogs: página só dos artigos, sem a opção "nenhum"; o botão grava só blog_artigos, mesmo se mandar "todos"')]
+    public function testArtigosDosBlogs(): void
+    {
+        $email = 'artigos_' . uniqid() . '@gmail.com';
+        $url = $this->descadastro()->gerarLink(null, $email, 'blog_artigos');
+
+        $crawler = $this->client->request('GET', $url);
+        self::assertSelectorTextContains('h1', 'Não quer mais receber os artigos dos blogs?');
+        self::assertCount(0, $crawler->filter('input[name="todos"]'));
+        self::assertSame([], $this->linhas(null, $email), 'o GET não grava');
+        self::assertCount(1, $crawler->selectButton('Não receber mais artigos'));
+        $this->client->request('POST', $url, ['confirmar' => '1', 'todos' => '1']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Pronto, você não vai mais receber os artigos dos blogs.');
+        self::assertSame([['assunto' => 'blog_artigos', 'origem' => 'link_do_email']], $this->linhas(null, $email));
+        self::assertFalse($this->descadastro()->estaDescadastrado(null, $email, 'comercial_campanhas'), 'os outros e-mails continuam');
+    }
+
     #[TestDox('Assinatura inválida, ausente ou de escritório que não existe: 404 no GET e no POST, e nada gravado')]
     public function testLinkInvalido(): void
     {

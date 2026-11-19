@@ -34,6 +34,12 @@ publicas:
             continuar: Continuar recebendo
             motivo_rotulo: SE QUISER, CONTE O MOTIVO
             fechar: Se não quiser deixar de receber, é só fechar esta página.
+        artigos:
+            titulo: Não quer mais receber os artigos dos blogs?
+            deixara: deixará de receber os artigos novos dos blogs do BlueJus por e-mail. Os outros e-mails do BlueJus continuam chegando.
+            botao: Não receber mais artigos
+            feito: Pronto, você não vai mais receber os artigos dos blogs.
+            ler_blog: Ir para o blog
         motivos:
             demais: Recebo e-mails demais
             sem_interesse: Não me interessa mais

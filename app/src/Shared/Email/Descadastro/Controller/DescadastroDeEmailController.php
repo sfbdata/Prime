@@ -41,6 +41,12 @@ final class DescadastroDeEmailController extends AbstractController
     /** Motivos oferecidos na página (chips do desenho); o texto gravado vem da tradução da chave. */
     private const MOTIVOS = ['demais', 'sem_interesse', 'nao_cadastrei', 'outro'];
 
+    /**
+     * Assunto dos artigos dos blogs por e-mail (spec blog-artigos-por-email): a página fala só dos artigos e não
+     * oferece o opt-out total; o descadastro vale só para eles.
+     */
+    private const ASSUNTO_ARTIGOS = 'blog_artigos';
+
     public function __construct(
         private readonly LinkDeDescadastro $link,
         private readonly DescadastroDeEmailInterface $descadastro,
@@ -65,20 +71,25 @@ final class DescadastroDeEmailController extends AbstractController
                 'email' => $pedido->emailMascarado(),
                 'acao' => $request->getRequestUri(),
                 'motivos' => self::MOTIVOS,
+                'artigos' => $pedido->assunto === self::ASSUNTO_ARTIGOS,
             ]);
         }
 
         // Botão da página: grava o assunto e, com a opção marcada, o opt-out total. One-click do
         // provedor (RFC 8058): só o assunto do link.
         $doBotao = $request->request->has('confirmar');
-        $todos = $doBotao && $request->request->getBoolean('todos');
+        $todos = $doBotao && $pedido->assunto !== self::ASSUNTO_ARTIGOS && $request->request->getBoolean('todos');
         $motivo = $doBotao ? $this->motivo($request) : null;
         $this->gravar($tenant, $pedido->email, $pedido->assunto, $doBotao ? 'link_do_email' : 'one_click', $motivo);
         if ($todos) {
             $this->gravar($tenant, $pedido->email, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
         }
 
-        return $this->pagina('email_descadastro/confirmado.html.twig', ['remetente' => $remetente, 'todos' => $todos]);
+        return $this->pagina('email_descadastro/confirmado.html.twig', [
+            'remetente' => $remetente,
+            'todos' => $todos,
+            'artigos' => $pedido->assunto === self::ASSUNTO_ARTIGOS,
+        ]);
     }
 
     /** O escritório do link, ou null para a plataforma; escritório que não existe mais é 404. */
