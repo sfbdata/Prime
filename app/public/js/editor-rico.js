@@ -65,40 +65,44 @@
     var PALETA_REALCE = ['amarelo', 'menta', 'celeste', 'rosa', 'lilas', 'pessego', 'nevoa', 'limao', false];
 
     /** Dica de cada controle da barra (o Quill não põe `title` sozinho). */
-    var DICAS = {
-        'ql-undo': 'Desfazer (Ctrl+Z)',
-        'ql-redo': 'Refazer (Ctrl+Y)',
-        'ql-bold': 'Negrito (Ctrl+B)',
-        'ql-italic': 'Itálico (Ctrl+I)',
-        'ql-underline': 'Sublinhado (Ctrl+U)',
-        'ql-strike': 'Tachado',
-        'ql-blockquote': 'Citação',
-        'ql-simbolo': 'Inserir símbolo',
-        'ql-tabela': 'Inserir tabela',
-        'ql-data': 'Inserir data de hoje',
-        'ql-revisar': 'Revisar texto',
-        'ql-localizar': 'Localizar e substituir (Ctrl+H)',
-        'ql-clean': 'Limpar formatação',
-        'ql-color': 'Cor da fonte',
-        'ql-background': 'Cor do realce',
-        'ql-header': 'Estilo do parágrafo',
-        'ql-align': 'Alinhamento',
-    };
+    function dicas() {
+        return {
+            'ql-undo': T('d.desfazer'),
+            'ql-redo': T('d.refazer'),
+            'ql-bold': T('d.negrito_atalho'),
+            'ql-italic': T('d.italico_atalho'),
+            'ql-underline': T('d.sublinhado_atalho'),
+            'ql-strike': T('d.tachado'),
+            'ql-blockquote': T('d.citacao'),
+            'ql-simbolo': T('d.simbolo'),
+            'ql-tabela': T('d.tabela'),
+            'ql-data': T('d.data'),
+            'ql-revisar': T('d.revisar'),
+            'ql-localizar': T('d.localizar_atalho'),
+            'ql-clean': T('d.limpar'),
+            'ql-color': T('d.cor_fonte'),
+            'ql-background': T('d.cor_realce'),
+            'ql-header': T('d.estilo'),
+            'ql-align': T('d.alinhamento'),
+        };
+    }
 
     /** Controles que se repetem com valores diferentes (lista, recuo, alinhamento, cores). */
-    var DICAS_POR_VALOR = {
-        'ql-list': { ordered: 'Numeração', bullet: 'Marcadores' },
-        'ql-indent': { '+1': 'Aumentar recuo (Tab)', '-1': 'Diminuir recuo (Shift+Tab)' },
-        'ql-align': { '': 'À esquerda', center: 'Centralizado', right: 'À direita', justify: 'Justificado' },
-        'ql-color': {
-            grafite: 'Grafite', azul: 'Azul', petroleo: 'Petróleo', verde: 'Verde',
-            ocre: 'Ocre', vermelho: 'Vermelho', roxo: 'Roxo', cinza: 'Cinza', '': 'Automática',
-        },
-        'ql-background': {
-            amarelo: 'Amarelo', menta: 'Verde', celeste: 'Azul', rosa: 'Rosa',
-            lilas: 'Lilás', pessego: 'Pêssego', nevoa: 'Cinza', limao: 'Limão', '': 'Sem realce',
-        },
-    };
+    function dicasPorValor() {
+        return {
+            'ql-list': { ordered: T('d.numeracao'), bullet: T('d.marcadores') },
+            'ql-indent': { '+1': T('d.aumentar_tab'), '-1': T('d.diminuir_tab') },
+            'ql-align': { '': T('d.esquerda'), center: T('d.centralizado'), right: T('d.direita'), justify: T('d.justificado') },
+            'ql-color': {
+                grafite: T('d.c_grafite'), azul: T('d.c_azul'), petroleo: T('d.c_petroleo'), verde: T('d.c_verde'),
+                ocre: T('d.c_ocre'), vermelho: T('d.c_vermelho'), roxo: T('d.c_roxo'), cinza: T('d.c_cinza'), '': T('d.c_automatica'),
+            },
+            'ql-background': {
+                amarelo: T('d.r_amarelo'), menta: T('d.r_menta'), celeste: T('d.r_celeste'), rosa: T('d.r_rosa'),
+                lilas: T('d.r_lilas'), pessego: T('d.r_pessego'), nevoa: T('d.r_nevoa'), limao: T('d.r_limao'), '': T('d.r_sem'),
+            },
+        };
+    }
 
     /**
      * Ícones da barra (Bootstrap Icons, já carregado pelo `base.html.twig`), no lugar dos SVG do
@@ -197,6 +201,9 @@
         registrado = true;
     }
 
+    /* Texto do catálogo na hora do uso (comum.js.editor): este script pode carregar antes do bj-traducao.js. */
+    function T(chave, params) { return BJ_T.t('comum.js.editor.' + chave, params); }
+
     function el(tag, classe, texto) {
         var e = document.createElement(tag);
         if (classe) { e.className = classe; }
@@ -230,8 +237,8 @@
             if (!classe) { return; }
 
             var valor = controle.tagName === 'BUTTON' ? controle.value : null;
-            var porValor = DICAS_POR_VALOR[classe];
-            var dica = (porValor && valor !== null && porValor[valor]) || DICAS[classe];
+            var porValor = dicasPorValor()[classe];
+            var dica = (porValor && valor !== null && porValor[valor]) || dicas()[classe];
 
             if (dica) {
                 controle.setAttribute('title', dica);
@@ -246,12 +253,12 @@
             var seletor = item.closest('.ql-picker');
             var classe = seletor && classeDoControle(seletor);
             var valor = item.getAttribute('data-value') || '';
-            var porValor = classe && DICAS_POR_VALOR[classe];
+            var porValor = classe && dicasPorValor()[classe];
 
             if (porValor && porValor[valor]) {
                 item.setAttribute('title', porValor[valor]);
             } else if (classe === 'ql-header') {
-                item.setAttribute('title', { '': 'Normal', '2': 'Título 1', '3': 'Título 2', citacao: 'Citação' }[valor] || valor);
+                item.setAttribute('title', { '': T('estilo_normal'), '2': T('estilo_titulo1'), '3': T('estilo_titulo2'), citacao: T('d.citacao') }[valor] || valor);
             }
         });
     }
@@ -543,13 +550,13 @@
         refs.faixaSalva = quill.getSelection(true);
         alternarJanela(refs, refs.botaoSimbolo, function () {
             var caixa = el('div');
-            caixa.appendChild(cabecalhoDaJanela('Símbolos'));
+            caixa.appendChild(cabecalhoDaJanela(T('simbolos')));
             var grade = el('div', 'editor-rico-simbolos');
             SIMBOLOS.forEach(function (s) {
                 var b = semRoubarFoco(el('button', '', s));
                 b.type = 'button';
-                b.title = 'Inserir ' + s;
-                b.setAttribute('aria-label', 'Inserir ' + s);
+                b.title = T('inserir_s', { s: s });
+                b.setAttribute('aria-label', T('inserir_s', { s: s }));
                 b.addEventListener('click', function () {
                     fecharJanela(refs);
                     quill.focus();
@@ -573,17 +580,17 @@
     var TABELA_MAX = 8;
 
     var ACOES_DA_TABELA = [
-        ['bi-arrow-bar-up', 'Inserir linha acima', 'insertRowAbove'],
-        ['bi-arrow-bar-down', 'Inserir linha abaixo', 'insertRowBelow'],
-        ['bi-arrow-bar-left', 'Inserir coluna à esquerda', 'insertColumnLeft'],
-        ['bi-arrow-bar-right', 'Inserir coluna à direita', 'insertColumnRight'],
-        ['bi-dash-square', 'Remover linha', 'deleteRow'],
-        ['bi-dash-square-dotted', 'Remover coluna', 'deleteColumn'],
-        ['bi-trash3', 'Remover tabela', 'deleteTable'],
+        ['bi-arrow-bar-up', 'linha_acima', 'insertRowAbove'],
+        ['bi-arrow-bar-down', 'linha_abaixo', 'insertRowBelow'],
+        ['bi-arrow-bar-left', 'coluna_esq', 'insertColumnLeft'],
+        ['bi-arrow-bar-right', 'coluna_dir', 'insertColumnRight'],
+        ['bi-dash-square', 'remover_linha', 'deleteRow'],
+        ['bi-dash-square-dotted', 'remover_coluna', 'deleteColumn'],
+        ['bi-trash3', 'remover_tabela', 'deleteTable'],
     ];
 
     function rotuloDaTabela(linhas, colunas) {
-        return linhas + (linhas === 1 ? ' linha' : ' linhas') + ' × ' + colunas + (colunas === 1 ? ' coluna' : ' colunas');
+        return T(linhas === 1 ? 'tabela.n_linha' : 'tabela.n_linhas', { n: linhas }) + ' × ' + T(colunas === 1 ? 'tabela.n_coluna' : 'tabela.n_colunas', { n: colunas });
     }
 
     function abrirTabela(refs) {
@@ -595,13 +602,13 @@
         alternarJanela(refs, refs.botaoTabela, function () {
             var caixa = el('div');
             if (naTabela) {
-                caixa.appendChild(cabecalhoDaJanela('Tabela'));
+                caixa.appendChild(cabecalhoDaJanela(T('tabela.titulo')));
                 var lista = el('div', 'editor-rico-tabela-acoes');
                 ACOES_DA_TABELA.forEach(function (acao) {
                     var b = semRoubarFoco(el('button'));
                     b.type = 'button';
                     b.innerHTML = icone(acao[0]);
-                    b.appendChild(document.createTextNode(' ' + acao[1]));
+                    b.appendChild(document.createTextNode(' ' + T('tabela.' + acao[1])));
                     b.addEventListener('click', function () {
                         fecharJanela(refs);
                         quill.focus();
@@ -615,22 +622,22 @@
                 return caixa;
             }
 
-            caixa.appendChild(cabecalhoDaJanela('Inserir tabela'));
+            caixa.appendChild(cabecalhoDaJanela(T('tabela.inserir')));
             var grade = el('div', 'editor-rico-tabela-grade');
-            var legenda = el('div', 'editor-rico-tabela-legenda', 'Escolha linhas e colunas');
+            var legenda = el('div', 'editor-rico-tabela-legenda', T('tabela.escolha'));
             var celulas = [];
             var marcar = function (linhas, colunas) {
                 celulas.forEach(function (c) {
                     c.botao.classList.toggle('on', c.linha <= linhas && c.coluna <= colunas);
                 });
-                legenda.textContent = linhas ? rotuloDaTabela(linhas, colunas) : 'Escolha linhas e colunas';
+                legenda.textContent = linhas ? rotuloDaTabela(linhas, colunas) : T('tabela.escolha');
             };
             for (var l = 1; l <= TABELA_MAX; l++) {
                 for (var c = 1; c <= TABELA_MAX; c++) {
                     (function (linha, coluna) {
                         var b = semRoubarFoco(el('button'));
                         b.type = 'button';
-                        b.setAttribute('aria-label', 'Inserir tabela de ' + rotuloDaTabela(linha, coluna));
+                        b.setAttribute('aria-label', T('tabela.inserir_de', { tamanho: rotuloDaTabela(linha, coluna) }));
                         b.addEventListener('mouseenter', function () { marcar(linha, coluna); });
                         b.addEventListener('focus', function () { marcar(linha, coluna); });
                         b.addEventListener('click', function () {
@@ -670,13 +677,13 @@
     function conteudoDaRevisao(refs) {
         var quill = refs.quill;
         var caixa = el('div', 'editor-rico-revisao');
-        caixa.appendChild(cabecalhoDaJanela('Revisão do texto'));
+        caixa.appendChild(cabecalhoDaJanela(T('revisao.titulo')));
         var problemas = problemasDoTexto(quill.getText());
 
         if (problemas.length === 0) {
             var ok = el('div', 'editor-rico-revisao-ok');
             ok.innerHTML = icone('bi-check-circle-fill');
-            ok.appendChild(document.createTextNode('Nenhum problema encontrado.'));
+            ok.appendChild(document.createTextNode(T('revisao.nenhum')));
             caixa.appendChild(ok);
 
             return caixa;
@@ -693,7 +700,7 @@
             troca.appendChild(el('b', 'editor-rico-revisao-para', p.para));
             corpo.appendChild(troca);
             item.appendChild(corpo);
-            item.appendChild(el('span', 'editor-rico-revisao-acao', 'Corrigir'));
+            item.appendChild(el('span', 'editor-rico-revisao-acao', T('revisao.corrigir')));
             item.addEventListener('click', function () {
                 corrigirProblema(quill, p);
                 abrirJanela(refs, refs.botaoRevisar, conteudoDaRevisao(refs));
@@ -702,7 +709,7 @@
         });
 
         var todos = semRoubarFoco(el('button', 'editor-rico-busca-botao editor-rico-busca-botao-principal editor-rico-revisao-todos',
-            'Corrigir tudo (' + problemas.length + ')'));
+            T('revisao.corrigir_tudo', { n: problemas.length })));
         todos.type = 'button';
         todos.addEventListener('click', function () {
             // Recalcula a cada regra: a troca anterior pode ter mudado as posições.
@@ -803,7 +810,7 @@
             var passos = pilha ? pilha.undo.length : -1;
             mostrarChip(refs, inicio, textoDoChip('bi-magic', [
                 { texto: palavra, negrito: true }, { texto: ' → ' + saida },
-            ]), [{ rotulo: 'Desfazer', acao: function () {
+            ]), [{ rotulo: T('revisao.desfazer'), acao: function () {
                 if (pilha && pilha.undo.length === passos) { quill.history.undo(); }
             } }], 3600);
 
@@ -813,14 +820,14 @@
         var sugestao = sugestaoDe(palavra);
         if (sugestao) {
             mostrarChip(refs, inicio, textoDoChip('bi-spellcheck', [
-                { texto: 'Você quis dizer ' }, { texto: sugestao, negrito: true }, { texto: '?' },
+                { texto: T('revisao.quis_dizer') + ' ' }, { texto: sugestao, negrito: true }, { texto: '?' },
             ]), [
-                { rotulo: 'Corrigir', acao: function () {
+                { rotulo: T('revisao.corrigir'), acao: function () {
                     // A palavra pode ter mudado de lugar desde o aviso: troca a última ocorrência dela.
                     var ocorrencias = trechosDaPalavra(quill.getText(), palavra, sugestao);
                     if (ocorrencias.length) { trocarTrechos(quill, [ocorrencias[ocorrencias.length - 1]]); }
                 } },
-                { rotulo: 'Ignorar', acao: function () {} },
+                { rotulo: T('revisao.ignorar'), acao: function () {} },
             ], 6000);
         }
     }
@@ -862,8 +869,8 @@
         // "Desfazer" só volta a conversão se ela ainda for o último passo do histórico.
         var pilha = quill.history && quill.history.stack;
         var passos = pilha ? pilha.undo.length : -1;
-        mostrarChip(refs, inicio, textoDoChip('bi-magic', [{ texto: 'Formatação automática aplicada' }]), [
-            { rotulo: 'Desfazer', acao: function () {
+        mostrarChip(refs, inicio, textoDoChip('bi-magic', [{ texto: T('chip.formatacao_auto') }]), [
+            { rotulo: T('revisao.desfazer'), acao: function () {
                 if (pilha && pilha.undo.length === passos) { quill.history.undo(); }
             } },
         ], 3600);
@@ -965,8 +972,8 @@
         if (!faixa || faixa.length === 0) { return; }
         var falhou = function () {
             avisar(refs, recortar
-                ? 'Use Ctrl+X para recortar (o navegador bloqueou o acesso direto)'
-                : 'Use Ctrl+C para copiar (o navegador bloqueou o acesso direto)');
+                ? T('copiar.recortar_bloqueado')
+                : T('copiar.copiar_bloqueado'));
         };
         var depois = function () {
             if (!recortar) { return; }
@@ -1022,7 +1029,7 @@
 
     function colarDaAreaDeTransferencia(refs, faixa, somenteTexto) {
         var api = navigator.clipboard;
-        var bloqueado = function () { avisar(refs, 'Use Ctrl+V para colar (o navegador bloqueou o acesso direto)'); };
+        var bloqueado = function () { avisar(refs, T('copiar.colar_bloqueado')); };
         if (!api || !api.readText) { bloqueado(); return; }
 
         var soTexto = function () {
@@ -1198,7 +1205,7 @@
         var faixa = quill.getSelection();
         if (texto === '') {
             mostrarChip(refs, faixa ? faixa.index : 0, textoDoChip('bi-person-vcard', [
-                { texto: 'Cliente sem cadastro. Abra a qualificação pelo botão ao lado do nome.' },
+                { texto: T('qualif.sem_cadastro') },
             ]), [], 3600);
 
             return;
@@ -1207,8 +1214,8 @@
         var pendencias = Number(fonte.getAttribute('data-pendencias') || 0);
         var primeiro = (fonte.getAttribute('data-nome') || '').trim().split(/\s+/)[0] || '';
         var aviso = pendencias > 0
-            ? 'Qualificação inserida com ' + pendencias + ' pendência(s) no cadastro'
-            : 'Qualificação de ' + primeiro + ' inserida';
+            ? T('qualif.com_pendencias', { n: pendencias })
+            : T('qualif.inserida', { nome: primeiro });
         var depois = quill.getSelection();
         mostrarChip(refs, depois ? depois.index : 0, textoDoChip('bi-person-vcard', [{ texto: aviso }]), [], 3600);
     }
@@ -1240,20 +1247,20 @@
 
         var menu = el('div', 'editor-rico-menu');
         menu.setAttribute('role', 'menu');
-        menu.setAttribute('aria-label', 'Menu do editor');
+        menu.setAttribute('aria-label', T('menu.titulo'));
 
         var barra = el('div', 'editor-rico-menu-barra');
         [
-            [icone('bi-type-bold'), 'Negrito', !!formatos.bold, function () { quill.format('bold', !formatos.bold, 'user'); }],
-            [icone('bi-type-italic'), 'Itálico', !!formatos.italic, function () { quill.format('italic', !formatos.italic, 'user'); }],
-            [icone('bi-type-underline'), 'Sublinhado', !!formatos.underline, function () { quill.format('underline', !formatos.underline, 'user'); }],
-            [icone('bi-type-strikethrough'), 'Tachado', !!formatos.strike, function () { quill.format('strike', !formatos.strike, 'user'); }],
-            [iconeComCor('bi-highlighter', '--er-realce-' + realce), 'Realçar com a última cor', false, function () { quill.format('background', realce, 'user'); }],
-            [iconeComCor('bi-fonts', '--er-cor-' + cor), 'Cor da fonte (última usada)', false, function () { quill.format('color', cor, 'user'); }],
-            [icone('bi-list-ul'), 'Marcadores', formatos.list === 'bullet', function () { quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user'); }],
-            [icone('bi-list-ol'), 'Numeração', formatos.list === 'ordered', function () { quill.format('list', formatos.list === 'ordered' ? false : 'ordered', 'user'); }],
-            [icone('bi-type-h2'), 'Título', formatos.header === 2, function () { quill.format('header', formatos.header === 2 ? false : 2, 'user'); }],
-            [icone('bi-eraser'), 'Limpar formatação', false, function () { limparFormatacao(quill, quill.getSelection()); }],
+            [icone('bi-type-bold'), T('menu.negrito'), !!formatos.bold, function () { quill.format('bold', !formatos.bold, 'user'); }],
+            [icone('bi-type-italic'), T('menu.italico'), !!formatos.italic, function () { quill.format('italic', !formatos.italic, 'user'); }],
+            [icone('bi-type-underline'), T('menu.sublinhado'), !!formatos.underline, function () { quill.format('underline', !formatos.underline, 'user'); }],
+            [icone('bi-type-strikethrough'), T('menu.tachado'), !!formatos.strike, function () { quill.format('strike', !formatos.strike, 'user'); }],
+            [iconeComCor('bi-highlighter', '--er-realce-' + realce), T('menu.realcar'), false, function () { quill.format('background', realce, 'user'); }],
+            [iconeComCor('bi-fonts', '--er-cor-' + cor), T('menu.cor_ultima'), false, function () { quill.format('color', cor, 'user'); }],
+            [icone('bi-list-ul'), T('menu.marcadores'), formatos.list === 'bullet', function () { quill.format('list', formatos.list === 'bullet' ? false : 'bullet', 'user'); }],
+            [icone('bi-list-ol'), T('menu.numeracao'), formatos.list === 'ordered', function () { quill.format('list', formatos.list === 'ordered' ? false : 'ordered', 'user'); }],
+            [icone('bi-type-h2'), T('menu.titulo_h'), formatos.header === 2, function () { quill.format('header', formatos.header === 2 ? false : 2, 'user'); }],
+            [icone('bi-eraser'), T('menu.limpar'), false, function () { limparFormatacao(quill, quill.getSelection()); }],
         ].forEach(function (b) { barra.appendChild(botaoDoMenu(b[0], b[1], b[2], executar(b[3]))); });
         menu.appendChild(barra);
 
@@ -1263,7 +1270,7 @@
         var palavra = palavraDoMenu(quill, faixa);
         var correcoes = palavra ? correcoesDoMenu(palavra.texto) : [];
         if (correcoes.length) {
-            menu.appendChild(cabecalhoDaJanela('Sugestões de correção'));
+            menu.appendChild(cabecalhoDaJanela(T('menu.correcoes')));
             correcoes.forEach(function (correcao) {
                 var item = itemDoMenu('bi-spellcheck', correcao, '', false, executar(function () {
                     trocarPorSinonimo(quill, palavra, correcao);
@@ -1274,28 +1281,28 @@
             menu.appendChild(el('div', 'editor-rico-menu-separador'));
         }
 
-        menu.appendChild(itemDoMenu('bi-scissors', 'Recortar', 'Ctrl+X', !temSelecao, executar(function () { copiarSelecao(refs, faixa, true); })));
-        menu.appendChild(itemDoMenu('bi-copy', 'Copiar', 'Ctrl+C', !temSelecao, executar(function () { copiarSelecao(refs, faixa, false); })));
-        menu.appendChild(itemDoMenu('bi-clipboard', 'Colar', 'Ctrl+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, false); })));
-        menu.appendChild(itemDoMenu('bi-clipboard-check', 'Colar somente texto', 'Ctrl+Shift+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, true); })));
+        menu.appendChild(itemDoMenu('bi-scissors', T('menu.recortar'), 'Ctrl+X', !temSelecao, executar(function () { copiarSelecao(refs, faixa, true); })));
+        menu.appendChild(itemDoMenu('bi-copy', T('menu.copiar'), 'Ctrl+C', !temSelecao, executar(function () { copiarSelecao(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard', T('menu.colar'), 'Ctrl+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, false); })));
+        menu.appendChild(itemDoMenu('bi-clipboard-check', T('menu.colar_texto'), 'Ctrl+Shift+V', false, executar(function () { colarDaAreaDeTransferencia(refs, faixa, true); })));
         menu.appendChild(el('div', 'editor-rico-menu-separador'));
 
-        menu.appendChild(cabecalhoDaJanela('Parágrafo'));
+        menu.appendChild(cabecalhoDaJanela(T('menu.paragrafo')));
         var paragrafo = el('div', 'editor-rico-menu-barra editor-rico-menu-barra-paragrafo');
         [
-            ['bi-text-left', 'À esquerda', !formatos.align, function () { quill.format('align', false, 'user'); }],
-            ['bi-text-center', 'Centralizado', formatos.align === 'center', function () { quill.format('align', 'center', 'user'); }],
-            ['bi-text-right', 'À direita', formatos.align === 'right', function () { quill.format('align', 'right', 'user'); }],
-            ['bi-justify', 'Justificado', formatos.align === 'justify', function () { quill.format('align', 'justify', 'user'); }],
-            ['bi-text-indent-right', 'Diminuir recuo', false, function () { recuar(quill, -1); }],
-            ['bi-text-indent-left', 'Aumentar recuo', false, function () { recuar(quill, 1); }],
+            ['bi-text-left', T('menu.esquerda'), !formatos.align, function () { quill.format('align', false, 'user'); }],
+            ['bi-text-center', T('menu.centralizado'), formatos.align === 'center', function () { quill.format('align', 'center', 'user'); }],
+            ['bi-text-right', T('menu.direita'), formatos.align === 'right', function () { quill.format('align', 'right', 'user'); }],
+            ['bi-justify', T('menu.justificado'), formatos.align === 'justify', function () { quill.format('align', 'justify', 'user'); }],
+            ['bi-text-indent-right', T('menu.diminuir'), false, function () { recuar(quill, -1); }],
+            ['bi-text-indent-left', T('menu.aumentar'), false, function () { recuar(quill, 1); }],
         ].forEach(function (b) { paragrafo.appendChild(botaoDoMenu(icone(b[0]), b[1], b[2], executar(b[3]))); });
         menu.appendChild(paragrafo);
         menu.appendChild(el('div', 'editor-rico-menu-separador'));
 
         var sinonimos = palavra ? sinonimosDe(palavra.texto) : [];
         if (sinonimos.length) {
-            menu.appendChild(cabecalhoDaJanela('Sinônimos de "' + palavra.texto + '"'));
+            menu.appendChild(cabecalhoDaJanela(T('menu.sinonimos', { palavra: palavra.texto })));
             sinonimos.forEach(function (sinonimo) {
                 menu.appendChild(itemDoMenu('bi-arrow-left-right', sinonimo, '', false, executar(function () {
                     trocarPorSinonimo(quill, palavra, sinonimo);
@@ -1308,16 +1315,16 @@
         // do cliente — e ela só vem para quem pode ver o cliente.
         var qualificacao = document.querySelector('[data-editor-qualificacao]');
         if (qualificacao) {
-            menu.appendChild(itemDoMenu('bi-person-vcard', 'Inserir qualificação do cliente', '', false, executar(function () {
+            menu.appendChild(itemDoMenu('bi-person-vcard', T('menu.inserir_qualif'), '', false, executar(function () {
                 inserirQualificacao(refs, qualificacao);
             })));
         }
 
-        menu.appendChild(itemDoMenu('bi-search', 'Localizar e substituir', 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));
-        menu.appendChild(itemDoMenu('bi-spellcheck', 'Revisar texto', '', false, executar(function () {
+        menu.appendChild(itemDoMenu('bi-search', T('menu.localizar'), 'Ctrl+H', false, executar(function () { refs.busca.abrir(); })));
+        menu.appendChild(itemDoMenu('bi-spellcheck', T('menu.revisar'), '', false, executar(function () {
             abrirJanela(refs, refs.botaoRevisar, conteudoDaRevisao(refs));
         })));
-        menu.appendChild(itemDoMenu('bi-check2-all', 'Selecionar tudo', 'Ctrl+A', false, function () {
+        menu.appendChild(itemDoMenu('bi-check2-all', T('menu.selecionar_tudo'), 'Ctrl+A', false, function () {
             fecharMenuContexto(refs);
             quill.focus();
             quill.setSelection(0, Math.max(quill.getLength() - 1, 0), 'user');
@@ -1425,13 +1432,13 @@
 
         var faixaDeOpcoes = el('div', 'editor-rico-colar');
         faixaDeOpcoes.setAttribute('role', 'toolbar');
-        faixaDeOpcoes.setAttribute('aria-label', 'Opções de colagem');
+        faixaDeOpcoes.setAttribute('aria-label', T('colagem.titulo'));
         var rotulo = el('span', 'editor-rico-colar-rotulo');
         rotulo.innerHTML = icone('bi-clipboard editor-rico-colar-icone');
-        rotulo.appendChild(document.createTextNode('Colar'));
+        rotulo.appendChild(document.createTextNode(T('menu.colar')));
         faixaDeOpcoes.appendChild(rotulo);
 
-        [['manter', 'Manter formatação'], ['mesclar', 'Mesclar formatação'], ['texto', 'Somente texto']].forEach(function (o) {
+        [['manter', T('colagem.manter')], ['mesclar', T('colagem.mesclar')], ['texto', T('colagem.texto')]].forEach(function (o) {
             var b = semRoubarFoco(el('button', '', o[1]));
             b.type = 'button';
             b.addEventListener('click', function () { aplicarOpcaoDeColar(refs, o[0]); });
@@ -1580,7 +1587,7 @@
         fecharSugestoes(refs);
         var lista = el('div', 'editor-rico-sugestoes');
         lista.setAttribute('role', 'listbox');
-        lista.setAttribute('aria-label', 'Sugestões de palavras');
+        lista.setAttribute('aria-label', T('sugestoes.lista'));
         opcoes.forEach(function (o, i) {
             var palavra = mesmaCaixa(w.palavra, o);
             var b = semRoubarFoco(el('button', 'editor-rico-sugestao'));
@@ -1655,14 +1662,14 @@
         // Sem `name`: estes campos moram dentro do <form> da tela e não podem ir no FormData.
         var campoBusca = el('input', 'editor-rico-busca-campo');
         campoBusca.type = 'search';
-        campoBusca.placeholder = 'Localizar';
-        campoBusca.setAttribute('aria-label', 'Localizar');
+        campoBusca.placeholder = T('busca.localizar');
+        campoBusca.setAttribute('aria-label', T('busca.localizar'));
         campoBusca.autocomplete = 'off';
 
         var campoTroca = el('input', 'editor-rico-busca-campo');
         campoTroca.type = 'text';
-        campoTroca.placeholder = 'Substituir por';
-        campoTroca.setAttribute('aria-label', 'Substituir por');
+        campoTroca.placeholder = T('busca.substituir_por');
+        campoTroca.setAttribute('aria-label', T('busca.substituir_por'));
         campoTroca.autocomplete = 'off';
 
         var contador = el('span', 'editor-rico-busca-contador');
@@ -1677,10 +1684,10 @@
             return b;
         }
 
-        var bProxima = botao(icone('bi-chevron-down'), 'Próxima (Enter)');
-        var bUm = botao('Substituir');
-        var bTodos = botao('Substituir todos', null, ' editor-rico-busca-botao-principal');
-        var bFechar = botao(icone('bi-x-lg'), 'Fechar (Esc)', ' editor-rico-busca-botao-fechar');
+        var bProxima = botao(icone('bi-chevron-down'), T('busca.proxima'));
+        var bUm = botao(T('busca.substituir'));
+        var bTodos = botao(T('busca.substituir_todos'), null, ' editor-rico-busca-botao-principal');
+        var bFechar = botao(icone('bi-x-lg'), T('busca.fechar'), ' editor-rico-busca-botao-fechar');
 
         [campoBusca, campoTroca, contador, bProxima, bUm, bTodos, bFechar].forEach(function (e) { barra.appendChild(e); });
 
@@ -1739,11 +1746,11 @@
             if (campoBusca.value === '') {
                 contador.textContent = '';
             } else if (n === 0) {
-                contador.textContent = 'Nada encontrado';
+                contador.textContent = T('busca.nada');
             } else if (estado.atual >= 0 && estado.atual < n) {
-                contador.textContent = (estado.atual + 1) + ' de ' + n;
+                contador.textContent = T('busca.de', { i: estado.atual + 1, n: n });
             } else {
-                contador.textContent = n + (n === 1 ? ' ocorrência' : ' ocorrências');
+                contador.textContent = T(n === 1 ? 'busca.ocorrencia' : 'busca.ocorrencias', { n: n });
             }
             desenharMarca();
         }
@@ -1795,7 +1802,7 @@
 
             estado.atual = -1;
             atualizarContador();
-            contador.textContent = lista.length + (lista.length === 1 ? ' substituição' : ' substituições');
+            contador.textContent = T(lista.length === 1 ? 'busca.substituicao' : 'busca.substituicoes', { n: lista.length });
         }
 
         function abrir() {
@@ -1873,9 +1880,9 @@
         var n = comprimento(refs.quill);
         var palavras = contarPalavras(refs.quill);
 
-        r.contagem.textContent = (palavras > 0 ? formatarNumero(palavras) + (palavras === 1 ? ' palavra · ' : ' palavras · ') : '')
+        r.contagem.textContent = (palavras > 0 ? T(palavras === 1 ? 'rodape.palavra' : 'rodape.palavras', { n: formatarNumero(palavras) }) + ' · ' : '')
             + formatarNumero(n) + ' / ' + formatarNumero(MAX_CARACTERES);
-        r.contagem.title = 'Caracteres usados / limite';
+        r.contagem.title = T('rodape.contagem_dica');
 
         var acima = n > MAX_CARACTERES;
         r.elemento.classList.toggle('editor-rico-rodape-excedido', acima || n === MAX_CARACTERES);
@@ -1883,10 +1890,9 @@
 
         clearTimeout(r.temporizador);
         if (acima) {
-            r.aviso.textContent = 'Acima do limite de ' + formatarNumero(MAX_CARACTERES) + ' caracteres. Reduza '
-                + formatarNumero(n - MAX_CARACTERES) + ' para salvar.';
+            r.aviso.textContent = T('rodape.acima', { limite: formatarNumero(MAX_CARACTERES), excesso: formatarNumero(n - MAX_CARACTERES) });
         } else if (cortou) {
-            r.aviso.textContent = 'Limite de ' + formatarNumero(MAX_CARACTERES) + ' caracteres atingido: o excedente não foi inserido.';
+            r.aviso.textContent = T('rodape.limite', { limite: formatarNumero(MAX_CARACTERES) });
             r.temporizador = setTimeout(function () { r.aviso.textContent = ''; }, 6000);
         } else if (n < MAX_CARACTERES) {
             r.aviso.textContent = '';
@@ -1962,7 +1968,7 @@
         quill.focus();
         quill.setSelection(cursor, 0, 'user');
         refs.casca.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        mostrarChip(refs, cursor, textoDoChip('bi-quote', [{ texto: 'Citação inserida no editor' }]), [], 3600);
+        mostrarChip(refs, cursor, textoDoChip('bi-quote', [{ texto: T('chip.citacao_inserida') }]), [], 3600);
 
         return true;
     }

@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Unit;
 
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,6 +21,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class EditorRicoTecladoTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     use CriaSanitizadorTextoRico;
 
     private const JS = __DIR__ . '/../../../public/js/editor-rico.js';
@@ -67,7 +70,8 @@ final class EditorRicoTecladoTest extends TestCase
         );
         self::assertStringNotContainsString('navigator.platform', $bindings, 'o atalho não pode depender do sistema');
         // A dica da barra continua prometendo o mesmo atalho que agora existe.
-        self::assertStringContainsString("'ql-redo': 'Refazer (Ctrl+Y)',", $this->js());
+        self::assertStringContainsString("'ql-redo': T('d.refazer'),", $this->js());
+        self::assertSame('Refazer (Ctrl+Y)', self::ptBr('comum.js.editor.' . 'd.refazer'));
     }
 
     #[TestDox('EDT-020: o binding "tab" substitui o do Quill (mesmo nome) e só pega Tab sem Shift')]

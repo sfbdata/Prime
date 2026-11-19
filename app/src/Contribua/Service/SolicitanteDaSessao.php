@@ -30,7 +30,25 @@ final class SolicitanteDaSessao
         }
         $papel = $this->tenantContext->getCurrentUserTenant()?->getTenantRole();
 
-        return new Solicitante($this->usuario(), $escritorio, $this->security->isGranted('ROLE_SUPER_ADMIN'), $papel?->isSystem() === true);
+        return new Solicitante($this->usuario(), $escritorio, $this->ehMaster(), $papel?->isSystem() === true);
+    }
+
+    /**
+     * O usuário logado, exigindo escritório escolhido, sem ler o papel dele no escritório: a aba da campanha roda em
+     * toda tela e não precisa saber se é primário (uma consulta a menos por tela).
+     */
+    public function usuarioNoEscritorio(): User
+    {
+        if ($this->tenantContext->getCurrentTenant() === null) {
+            throw new AccessDeniedException('Escolha um escritório para abrir o Contribua.');
+        }
+
+        return $this->usuario();
+    }
+
+    public function ehMaster(): bool
+    {
+        return $this->security->isGranted('ROLE_SUPER_ADMIN');
     }
 
     public function usuario(): User

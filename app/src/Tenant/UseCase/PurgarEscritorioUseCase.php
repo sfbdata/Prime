@@ -86,8 +86,10 @@ final class PurgarEscritorioUseCase
     /**
      * Tabelas com coluna tenant_id que NÃO são apagadas na purga (retidas por decisão de produto).
      * comercial_consentimento: prova de consentimento, 5 anos depois do término (Política L379); tenant_id sem FK.
+     * contribua_campanha_participacao: inscrição paga da PESSOA no Desafio BlueJus Black (spec contribua-campanha), com
+     * a devolução que lhe é devida; o tenant_id só diz de onde ela se inscreveu e vira NULL (FK ON DELETE SET NULL).
      */
-    private const TABELAS_RETIDAS = ['audit_log', 'comercial_consentimento'];
+    private const TABELAS_RETIDAS = ['audit_log', 'comercial_consentimento', 'contribua_campanha_participacao'];
 
     /**
      * Ordem de deleção (do filho para o pai), verificada contra o grafo de FKs do banco.

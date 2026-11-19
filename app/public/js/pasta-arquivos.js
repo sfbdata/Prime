@@ -54,7 +54,7 @@
     function escapeHtml(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            .replace(/\x22/g, '&quot;').replace(/\x27/g, '&#39;');
     }
     function todasPastas() { return Array.prototype.slice.call(elPastas ? elPastas.querySelectorAll('.fm-pasta') : []); }
     function todosArquivos() { return Array.prototype.slice.call(elArquivos.querySelectorAll('.fm-arquivo')); }
@@ -73,7 +73,7 @@
     function pastaAtualId() { return caminho.length ? caminho[caminho.length - 1] : 'geral'; }
 
     function caminhoLegivel(secaoId) {
-        if (!secaoId || secaoId === 'geral') return 'Documentação Geral';
+        if (!secaoId || secaoId === 'geral') return BJ_T.t('comum.js.arquivos.documentacao_geral');
         const nomes = [];
         let atual = String(secaoId);
         let voltas = 0;
@@ -126,7 +126,7 @@
         }));
 
         if (elArquivosTitulo) {
-            elArquivosTitulo.textContent = buscando ? 'Resultados' : (naRaiz ? 'Arquivos' : nomePasta(atual));
+            elArquivosTitulo.textContent = buscando ? BJ_T.t('comum.js.arquivos.resultados') : (naRaiz ? BJ_T.t('comum.js.arquivos.arquivos') : nomePasta(atual));
         }
 
         const termo = termoBusca.trim().toLowerCase();
@@ -164,7 +164,7 @@
         if (termoBusca.trim() !== '') {
             elCrumbSep && elCrumbSep.classList.remove('fm-oculto');
             elCrumbAtual.classList.remove('fm-oculto');
-            elCrumbAtual.textContent = 'Resultados da busca';
+            elCrumbAtual.textContent = BJ_T.t('comum.js.arquivos.resultados_busca');
             return;
         }
         if (caminho.length === 0) {
@@ -367,7 +367,8 @@
                 html += destinoBtn(p.dataset.secaoId, '<i class="bi bi-folder-fill me-2 text-warning"></i>' + escapeHtml(p.dataset.nome));
             }
         });
-        lista.innerHTML = html || '<div class="text-muted small p-2">Nenhum outro destino disponível.</div>';
+        lista.innerHTML = html || '<div class="text-muted small p-2"></div>';
+        if (!html) { lista.firstChild.textContent = BJ_T.t('comum.js.arquivos.sem_destino'); }
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('fmMoverModal'));
         lista.querySelectorAll('[data-destino]').forEach(function (b) {
             b.addEventListener('click', function () { moverArquivo(arqEl, b.dataset.destino).then(function () { modal.hide(); }); });
@@ -385,7 +386,7 @@
         return fetch(arqEl.dataset.urlMover, { method: 'POST', body: fd })
             .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('comum.js.arquivos.falha_mover'));
                 arqEl.dataset.secao = destino;
                 atualizarContagem(origem);
                 atualizarContagem(destino);
@@ -398,7 +399,7 @@
     const btnNovaPasta = document.getElementById('fmNovaPasta');
     if (btnNovaPasta) {
         btnNovaPasta.addEventListener('click', function () {
-            pedirTexto('Nova pasta', '', 'Nome da pasta…').then(function (nome) {
+            pedirTexto(BJ_T.t('comum.js.arquivos.nova_pasta'), '', BJ_T.t('comum.js.arquivos.nome_pasta')).then(function (nome) {
                 if (nome == null) return;
                 const fd = new FormData();
                 fd.append('_token', cfg.csrfCriarSecao);
@@ -407,7 +408,7 @@
                 fetch(cfg.urlCriarSecao, { method: 'POST', body: fd })
                     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
                     .then(function (res) {
-                        if (!res.ok) throw new Error(res.j.erro || 'Falha ao criar a pasta.');
+                        if (!res.ok) throw new Error(res.j.erro || BJ_T.t('comum.js.arquivos.falha_criar'));
                         adicionarCartaoPasta(res.j);
                     })
                     .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
@@ -459,7 +460,7 @@
     }
 
     function renomearPasta(card) {
-        pedirTexto('Renomear pasta', card.dataset.nome, 'Nome da pasta…').then(function (nome) {
+        pedirTexto(BJ_T.t('comum.js.arquivos.renomear_pasta'), card.dataset.nome, BJ_T.t('comum.js.arquivos.nome_pasta')).then(function (nome) {
             if (nome == null) return;
             const fd = new FormData();
             fd.append('_token', card.dataset.csrfRenomear);
@@ -467,7 +468,7 @@
             fetch(card.dataset.urlRenomear, { method: 'POST', body: fd })
                 .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
                 .then(function (res) {
-                    if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
+                    if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('comum.js.arquivos.falha_renomear'));
                     card.dataset.nome = res.j.nome;
                     card.querySelector('.fm-pasta-nome').textContent = res.j.nome;
                     if (pastaAtualId() === card.dataset.secaoId) render();
@@ -479,7 +480,7 @@
     // Monta o aviso a partir de data-subpastas/data-arquivos, gravados no HTML pelo servidor (e
     // zerados na criação, em adicionarCartaoPasta) — o número tem de estar disponível ANTES do
     // clique de excluir, não só na resposta dele (D3).
-    function pluralizar(n, singular, plural) { return n + ' ' + (n === 1 ? singular : plural); }
+    function pluralizar(n, singular, plural) { return BJ_T.t('comum.js.arquivos.' + (n === 1 ? singular : plural), { n: n }); }
 
     function avisoExclusao(card) {
         const subpastas = Number(card.dataset.subpastas) || 0;
@@ -487,17 +488,17 @@
         const nome      = card.dataset.nome;
 
         if (subpastas === 0 && arquivos === 0) {
-            return 'A pasta "' + nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
+            return BJ_T.t('comum.js.arquivos.excluir_vazia', { nome: nome });
         }
 
         const partes = [];
-        if (subpastas > 0) partes.push(pluralizar(subpastas, 'subpasta', 'subpastas'));
-        if (arquivos > 0) partes.push(pluralizar(arquivos, 'arquivo', 'arquivos'));
+        if (subpastas > 0) partes.push(pluralizar(subpastas, 'n_subpasta', 'n_subpastas'));
+        if (arquivos > 0) partes.push(pluralizar(arquivos, 'n_arquivo', 'n_arquivos'));
 
         // "Ao todo:" em vez de "São N..." — sem isso "1 subpasta" cai num verbo no plural
         // ("São 1 subpasta") e "2 subpastas" cai num particípio no masculino ("excluídos"), dois
         // erros de concordância que a contagem dinâmica não deixa fixar com uma frase só.
-        return 'Excluir a pasta "' + nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+        return BJ_T.t('comum.js.arquivos.excluir_cheia', { nome: nome, partes: partes.join(' ' + BJ_T.t('comum.js.arquivos.e') + ' ') });
     }
 
     function excluirPasta(card) {
@@ -507,7 +508,7 @@
         fetch(card.dataset.urlExcluir, { method: 'POST', body: fd })
             .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('comum.js.arquivos.falha_excluir'));
                 const secaoId = card.dataset.secaoId;
                 // O back apaga a ÁRVORE inteira (cascade). Sem remover as filhas/netas do DOM aqui,
                 // os cartões e arquivos delas ficam apontando para linhas já apagadas até um reload.
@@ -527,7 +528,7 @@
         return fetch(card.dataset.urlMover, { method: 'POST', body: fd })
             .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('comum.js.arquivos.falha_mover'));
                 card.dataset.paiId = res.j.paiId ? String(res.j.paiId) : '';
                 render();
             })
@@ -554,7 +555,7 @@
             // "01 - ", "01.4 - "): caminhoLegivel() mostra os ancestrais, igual ao Peticionar.
             .map(function (el) { return { id: el.dataset.secaoId, nome: caminhoLegivel(el.dataset.secaoId) }; });
 
-        pedirDestino('Mover "' + card.dataset.nome + '" para', opcoes).then(function (destinoId) {
+        pedirDestino(BJ_T.t('comum.js.arquivos.mover_para', { nome: card.dataset.nome }), opcoes).then(function (destinoId) {
             if (destinoId === undefined) return;             // cancelou
             moverPasta(card, destinoId);                      // null = raiz da pasta
         });
@@ -583,7 +584,7 @@
     if (inputModalEl) {
         const confirmar = function () {
             const v = (inputCampo.value || '').trim();
-            if (v === '') { inputErro.textContent = 'Informe um nome.'; inputErro.classList.remove('d-none'); return; }
+            if (v === '') { inputErro.textContent = BJ_T.t('comum.js.arquivos.informe_nome'); inputErro.classList.remove('d-none'); return; }
             const r = promptResolve; promptResolve = null;
             inputModal.hide();
             if (r) r(v);
@@ -659,14 +660,14 @@
     }
 
     function enviarArquivos(arquivos) {
-        if (typeof window.enviarArquivoComProgresso !== 'function') { (window.avisarErroPs || window.alert)('Upload indisponível.'); return; }
+        if (typeof window.enviarArquivoComProgresso !== 'function') { (window.avisarErroPs || window.alert)(BJ_T.t('comum.js.arquivos.upload_indisponivel')); return; }
         const destino = pastaAtualId() === 'geral' ? null : pastaAtualId();
         let i = 0, houveErro = false;
         uploadBar.classList.add('ativo');
 
         function proximo() {
             if (i >= arquivos.length) {
-                uploadCont.textContent = houveErro ? 'Concluído com erros' : 'Concluído';
+                uploadCont.textContent = houveErro ? BJ_T.t('comum.js.arquivos.concluido_erros') : BJ_T.t('comum.js.arquivos.concluido');
                 // Recarrega para renderizar as linhas novas com todos os tokens/ações do servidor.
                 sessionStorage.setItem('fmFolder_' + pastaId, JSON.stringify(caminho));
                 sessionStorage.setItem('fmTab_' + pastaId, '1');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Tests\Support\CatalogoPtBr;
+use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversNothing]
 final class PastaCabecalhoL7FolhaTest extends TestCase
 {
+    use TextoDoCatalogo;
+
     private const CSS        = __DIR__ . '/../../../public/css/pasta-show.css';
     private const PASTA_JS   = __DIR__ . '/../../../public/js/pasta-show.js';
     private const CABECALHO  = __DIR__ . '/../../../templates/pasta/_cabecalho.html.twig';
@@ -61,8 +64,10 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringContainsString("classList.replace('bi-check2', 'bi-link')", $bloco, 'o ícone volta ao fechar');
         self::assertStringContainsString('}, 900);', $bloco);
         self::assertStringNotContainsString('1600', $bloco);
-        self::assertStringContainsString("avisar('Link copiado', true)", $bloco);
-        self::assertStringContainsString("avisar('Não foi possível copiar', false)", $bloco, 'na falha não há check');
+        self::assertStringContainsString("avisar(BJ_T.t('pasta_show.js.show.link_copiado'), true)", $bloco);
+        self::assertStringContainsString("avisar(BJ_T.t('pasta_show.js.show.copiar_falhou'), false)", $bloco, 'na falha não há check');
+        self::assertSame('Link copiado', self::ptBr('pasta_show.js.show.link_copiado'));
+        self::assertSame('Não foi possível copiar', self::ptBr('pasta_show.js.show.copiar_falhou'));
         self::assertStringContainsString('if (iconeCopiar && copiou)', $bloco);
 
         self::assertStringContainsString('<i class="bi bi-link"></i><span class="js-copiar-link-rotulo">', self::ler(self::CABECALHO));
@@ -176,7 +181,8 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringContainsString("painel.querySelector('.ps-pop-x')", $x, 'sem X duplicado');
         self::assertStringContainsString("painel.querySelector(':scope > .ps-pop-tarja')", $x);
         self::assertStringContainsString("'ps-pop-x' + (tarja ? ' ps-pop-x--tarja' : '')", $x);
-        self::assertStringContainsString("botao.setAttribute('aria-label', 'Fechar');", $x);
+        self::assertStringContainsString("botao.setAttribute('aria-label', BJ_T.t('comum.js.fechar'));", $x);
+        self::assertSame('Fechar', self::ptBr('comum.js.fechar'));
         self::assertStringContainsString("botao.type      = 'button';", $x, 'não submete o form em volta');
         self::assertStringContainsString('e.stopPropagation();', $x);
         self::assertStringContainsString('(tarja || painel).appendChild(botao);', $x);

@@ -31,9 +31,7 @@
 
     var ICONES = { Pasta: 'bi bi-folder2', Cliente: 'bi bi-person', Processo: 'bi bi-bank' };
     var ESPERA_MS = 200;
-    var TEXTO_VAZIO = 'Nada encontrado.';
-    var TEXTO_SESSAO = 'Sessão expirada. Recarregue a página.';
-    var TEXTO_ERRO = 'Não foi possível buscar. Tente de novo.';
+    /* Os textos saem do catálogo na hora de usar: este script roda antes do bj-traducao.js. */
 
     var resultados = [];
     var selecionado = 0;
@@ -88,11 +86,11 @@
             if (!j || !Array.isArray(j.resultados)) { throw new Error('json'); }
             resultados = j.resultados.slice(0, 8);
             selecionado = 0;
-            desenhar(TEXTO_VAZIO);
+            desenhar(BJ_T.t('comum.js.busca_rapida.vazio'));
         }).catch(function (e) {
             if (e && e.name === 'AbortError') { return; }
             resultados = [];
-            desenhar(e && e.message === 'sessao' ? TEXTO_SESSAO : TEXTO_ERRO);
+            desenhar(e && e.message === 'sessao' ? BJ_T.t('comum.js.busca_rapida.sessao') : BJ_T.t('comum.js.busca_rapida.erro'));
         });
     }
 
@@ -129,7 +127,7 @@
             var cadeado = document.createElement('i');
             cadeado.className = 'bi bi-lock pbr-cadeado';
             cadeado.setAttribute('role', 'img');
-            cadeado.setAttribute('aria-label', 'Pasta trancada');
+            cadeado.setAttribute('aria-label', BJ_T.t('comum.js.busca_rapida.trancada'));
             titulo.appendChild(cadeado);
         }
         var sub = document.createElement('span');

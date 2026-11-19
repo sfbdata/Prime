@@ -52,7 +52,7 @@ final class EditorRicoBarraTest extends TestCase
 
         // Sem handler, o Quill ignora o botão (não é formato registrado) — botão morto.
         self::assertMatchesRegularExpression('/\n\s+' . $nome . ': function \(\) \{/', $js, "botão {$nome} sem ação");
-        self::assertMatchesRegularExpression("/'ql-" . $nome . "': '[^']+'/", $js, "botão {$nome} sem dica");
+        self::assertMatchesRegularExpression("/'ql-" . $nome . "': T\\('d\\.[a-z_]+'\\)/", $js, "botão {$nome} sem dica");
     }
 
     #[TestDox('a ordem dos grupos segue o desenho: citação, símbolo, tabela (pedido do Samuel, 04/11/2026) e data; depois revisão, localizar e limpar')]
