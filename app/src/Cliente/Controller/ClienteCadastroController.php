@@ -11,12 +11,11 @@ use App\Cliente\Exception\CadastroInvalidoException;
 use App\Cliente\Exception\DocumentoJaCadastradoException;
 use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Repository\ClienteRepository;
-use App\Cliente\Repository\ClientePFRepository;
-use App\Cliente\Repository\ClientePJRepository;
 use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
+use App\Cliente\UseCase\ConferirDocumentoDoClienteUseCase;
 use App\Cliente\UseCase\CriarClienteAvulsoUseCase;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
 use App\Cliente\UseCase\SalvarCadastroDoClienteUseCase;
@@ -32,7 +31,6 @@ use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Repository\PastaReuRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\DigitoVerificador;
 use App\Twig\DocumentoBrExtension;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -56,8 +54,6 @@ final class ClienteCadastroController extends AbstractController
 
     public function __construct(
         private readonly ClienteRepository $clienteRepository,
-        private readonly ClientePFRepository $pfRepository,
-        private readonly ClientePJRepository $pjRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -69,6 +65,7 @@ final class ClienteCadastroController extends AbstractController
         private readonly HistoricoDoCliente $historico,
         private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
         private readonly CriarClienteAvulsoUseCase $criarAvulso,
+        private readonly ConferirDocumentoDoClienteUseCase $conferirDocumento,
     ) {}
 
     /**
@@ -327,19 +324,17 @@ final class ClienteCadastroController extends AbstractController
         return $this->json(['existente' => $this->existenteVisivel((string) $request->query->get('doc', ''), $cliente, $usuario, $tenant)]);
     }
 
-    /** @return array{id: int, nome: string, documento: string, completo: bool}|null */
+    /**
+     * O cadastro do escritório com esse CPF ou CNPJ, se a pessoa o vê: a regra mora no
+     * {@see ConferirDocumentoDoClienteUseCase}, o mesmo da ferramenta `ler_clientes` do conector de I.A.
+     *
+     * @return array{id: int, nome: string, documento: string, completo: bool}|null
+     */
     private function existenteVisivel(string $doc, ?Cliente $excluir, User $usuario, Tenant $tenant): ?array
     {
-        $digitos = DigitoVerificador::digitos($doc);
-        $outro = match (true) {
-            strlen($digitos) === 11 => $this->pfRepository->findOneByCpfDoTenant($digitos, $tenant),
-            strlen($digitos) === 14 => $this->pjRepository->findOneByCnpjDoTenant($digitos, $tenant),
-            default => null,
-        };
-        $visivel = $outro !== null && ($excluir === null || $outro->getId() !== $excluir->getId())
-            && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $outro->getId(), AccessRequest::ACTION_VIEW);
+        $outro = $this->conferirDocumento->executar($doc, $usuario, $tenant, $excluir?->getId());
 
-        return $visivel ? $this->resumoDe($outro) : null;
+        return $outro !== null ? $this->resumoDe($outro) : null;
     }
 
     /** @return array{0: Pasta, 1: Tenant} */
