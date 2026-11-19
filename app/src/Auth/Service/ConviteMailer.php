@@ -10,6 +10,7 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Twig\Environment;
 
 final class ConviteMailer
@@ -19,11 +20,18 @@ final class ConviteMailer
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly IdentidadeDeEmail $identidadeDeEmail,
+        private readonly LocaleSwitcher $idiomaDoEmail,
     ) {
     }
 
     /** O token puro vem do caso de uso que o gerou (`ConviteEmitido`): o banco só tem o hash. */
     public function enviarConvitePlataforma(Invitation $invitation, #[\SensitiveParameter] string $token): void
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        $this->idiomaDoEmail->runWithLocale('pt_BR', fn () => $this->enviarConvitePlataformaEmPortugues($invitation, $token));
+    }
+
+    private function enviarConvitePlataformaEmPortugues(Invitation $invitation, #[\SensitiveParameter] string $token): void
     {
         $link = $this->urlGenerator->generate(
             'auth_aceite_convite',
@@ -53,6 +61,12 @@ final class ConviteMailer
 
     /** O token puro vem do caso de uso que o gerou (`ConviteEmitido`): o banco só tem o hash. */
     public function enviarConviteEscritorio(Invitation $invitation, #[\SensitiveParameter] string $token): void
+    {
+        // E-mail para outra pessoa sai em português, nunca no idioma de quem disparou (spec sistema-em-ingles §3).
+        $this->idiomaDoEmail->runWithLocale('pt_BR', fn () => $this->enviarConviteEscritorioEmPortugues($invitation, $token));
+    }
+
+    private function enviarConviteEscritorioEmPortugues(Invitation $invitation, #[\SensitiveParameter] string $token): void
     {
         $link = $this->urlGenerator->generate(
             'auth_aceite_convite',

@@ -10,12 +10,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Email\IdentidadeDeEmail;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Twig\Environment;
 
 #[CoversClass(ConviteMailer::class)]
@@ -25,6 +27,7 @@ final class ConviteMailerTest extends TestCase
     private Environment&MockObject $twig;
     private UrlGeneratorInterface&MockObject $urlGenerator;
     private ConviteMailer $service;
+    private LocaleSwitcher $idioma;
 
     private const MAILER_FROM = 'BlueJus <test@bluejus.test>';
     private const MAILER_REPLY_TO = 'infra@bluejus.test';
@@ -37,11 +40,13 @@ final class ConviteMailerTest extends TestCase
         $this->twig         = $this->createMock(Environment::class);
         $this->urlGenerator = $this->createMock(UrlGeneratorInterface::class);
 
+        $this->idioma = new LocaleSwitcher('pt_BR', []);
         $this->service = new ConviteMailer(
             $this->mailer,
             $this->twig,
             $this->urlGenerator,
             new IdentidadeDeEmail(self::MAILER_FROM, self::MAILER_REPLY_TO),
+            $this->idioma,
         );
     }
 
@@ -88,6 +93,27 @@ final class ConviteMailerTest extends TestCase
     }
 
     // --- Convite de Plataforma ---
+
+    #[TestDox('quem convida usa o sistema em inglês: o convite sai em português (renderizado em pt_BR) e o idioma de quem convidou volta depois')]
+    public function testConviteSaiEmPortuguesMesmoComQuemConvidaEmIngles(): void
+    {
+        $this->configurarUrlGenerator();
+        $this->idioma->setLocale('en');
+        $localeNoRender = [];
+        $this->twig->method('render')->willReturnCallback(function () use (&$localeNoRender): string {
+            $localeNoRender[] = $this->idioma->getLocale();
+
+            return '<html>test</html>';
+        });
+        $this->mailer->method('send');
+
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
+        $this->service->enviarConviteEscritorio($this->criarConviteEscritorio(), self::TOKEN);
+
+        self::assertSame(['pt_BR', 'pt_BR'], $localeNoRender);
+        self::assertSame('en', $this->idioma->getLocale());
+    }
+
 
     public function testEnviarConvitePlataformaSubjectCorreto(): void
     {

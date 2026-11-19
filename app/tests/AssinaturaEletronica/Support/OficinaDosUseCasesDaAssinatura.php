@@ -48,6 +48,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Translation\IdentityTranslator;
 use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Component\Translation\Translator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
@@ -196,6 +197,7 @@ trait OficinaDosUseCasesDaAssinatura
             $this->documentos,
             $this->trilha(),
             $this->logger,
+            new LocaleSwitcher('pt_BR', []),
         );
     }
 

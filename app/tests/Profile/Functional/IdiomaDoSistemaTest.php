@@ -24,8 +24,8 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * Idioma do sistema, entrega 1 (spec docs/specs/idioma-do-sistema.md): o idioma fica no perfil, vale para a
  * requisição (`<html lang/dir>`), o Meu Perfil mostra o nome e o modal sai da lista do enum. O seletor oferece só
- * Português (Brasil), Inglês e Espanhol (decisão do dono, 23/10/2026), com o português e o inglês liberados (spec
- * sistema-em-ingles); quem tem outro
+ * Português (Brasil), Inglês e Espanhol (decisão do dono, 23/10/2026), com o português e o inglês liberados
+ * (spec sistema-em-ingles); quem tem outro
  * idioma gravado vale como português. Os Termos de Uso e a Política de Privacidade ficam sempre em português.
  */
 #[CoversClass(PreferenciasDoPerfilController::class)]

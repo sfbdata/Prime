@@ -70,7 +70,11 @@ Técnica:
   revisável depois; nada de tradução automática na tela (spec `idioma-do-sistema` §3.1).
 - Guarda de teste: todo arquivo `en` tem exatamente as chaves do `pt_BR` do mesmo bloco, e os parâmetros `{x}` iguais.
 - **Liberação:** o inglês sai do "em breve" (`Idioma::ativo()`) só no último lote, com tudo traduzido: o cliente
-  nunca vê tela meio em inglês, meio em português (Coordenador, 19/11). Até lá a bandeira mostra o Brasil e o modal
+  nunca vê tela meio em inglês, meio em português (Coordenador, 19/11). Atualizado em 19/11 (Samuel): o inglês entra
+  no seletor no mesmo dia, depois dos lotes 1 e 2; a revisão da tradução fica para depois.
+- **E-mail para outra pessoa** (convite, Trabalho Externo, link do Voto, assinatura eletrônica, aviso do Push) sai
+  sempre em português, nunca no idioma de quem disparou (`LocaleSwitcher::runWithLocale('pt_BR')` no mailer). E-mail
+  para a própria pessoa (redefinir senha, código de exclusão) segue o idioma dela. Até lá a bandeira mostra o Brasil e o modal
   mostra o inglês "em breve".
 
 ## 4. Arquivos quentes
