@@ -6,6 +6,9 @@ namespace App\Tests\Voto\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
@@ -17,6 +20,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -33,6 +37,7 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
 
     private TenantRepository&MockObject $tenants;
     private LiberacaoDoVotoRepository&MockObject $liberacoes;
+    private ContratacoesDoEscritorio&MockObject $contratacoes;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private Tenant $tenant;
     private User $master;
@@ -45,12 +50,14 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
         $this->tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === self::ID_DO_ESCRITORIO ? $this->tenant : null);
         $this->liberacoes = $this->createMock(LiberacaoDoVotoRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
+        $this->contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
     }
 
     private function sut(): AlterarLiberacaoDoVotoUseCase
     {
-        return new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo);
+        return new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo, $this->contratacoes, new MockClock('2026-11-23 10:00:00'));
     }
 
     #[TestDox('a liberação nasce não liberada, com a data de criação e a de atualização iguais')]
@@ -78,6 +85,10 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
             $salva = $l;
             $contaDoEscopo = $this->escopo->estaLigado() ? $this->escopo->contaAlvo() : 'fora do escopo';
         });
+        // D16: liberar reabre a contratação com origem master (o serviço não grava se o Voto já está incluído).
+        $this->contratacoes->expects($this->once())->method('incluir')
+            ->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, new \DateTimeImmutable('2026-11-23 10:00:00'));
+        $this->contratacoes->expects($this->never())->method('excluir');
 
         $this->sut()->executar(self::ID_DO_ESCRITORIO, true, $this->master);
 
@@ -95,6 +106,9 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
         $existente->liberar();
         $this->liberacoes->method('findDoTenantParaOMaster')->with($this->tenant)->willReturn($existente);
         $this->liberacoes->expects($this->once())->method('salvar')->with($existente, true);
+        // D16: bloquear vira trava do Master.
+        $this->contratacoes->expects($this->once())->method('excluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master);
+        $this->contratacoes->expects($this->never())->method('incluir');
 
         $this->sut()->executar(self::ID_DO_ESCRITORIO, false, $this->master);
 
@@ -105,6 +119,7 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
     public function testEscritorioInvalido(): void
     {
         $this->liberacoes->expects($this->never())->method('salvar');
+        $this->contratacoes->expects($this->never())->method('sobTrava');
         $casos = [
             [99, static fn (): null => null],
             [0, static fn (): null => null],
@@ -128,6 +143,7 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
     {
         $this->tenants->expects($this->never())->method('find');
         $this->liberacoes->expects($this->never())->method('salvar');
+        $this->contratacoes->expects($this->never())->method('sobTrava');
 
         $this->expectException(AccessDeniedException::class);
         $this->sut()->executar(self::ID_DO_ESCRITORIO, true, (new User())->setRoles(['ROLE_USER', 'ROLE_MASTER_PRIMARIO']));

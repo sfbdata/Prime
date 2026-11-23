@@ -6,12 +6,16 @@ namespace App\Voto\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Exception\EscritorioNaoEncontradoException;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
 use App\Voto\Service\GuardaDoMasterDoVoto;
+use Psr\Clock\ClockInterface;
 
 /**
  * O Master libera (ou bloqueia) o BlueJus Voto para UM escritório (spec docs/specs/bluejus-voto.md, D5 e D7, fase A1b).
@@ -20,6 +24,10 @@ use App\Voto\Service\GuardaDoMasterDoVoto;
  *
  * Escritório inexistente, suspenso ou excluído: {@see EscritorioNaoEncontradoException} (404). Sem linha de liberação,
  * ela nasce aqui.
+ *
+ * Trava do Master (spec docs/specs/multiproduto-contratacao-e-voto.md, D16): bloquear também encerra a contratação do
+ * Voto com origem `master` (materializando, se preciso), e o dono não religa pelo Meu Perfil; liberar reabre a
+ * contratação com origem `master` quando o Voto não está incluído. Tudo sob a trava das contratações do escritório.
  */
 final class AlterarLiberacaoDoVotoUseCase
 {
@@ -27,6 +35,8 @@ final class AlterarLiberacaoDoVotoUseCase
         private readonly TenantRepository $tenants,
         private readonly LiberacaoDoVotoRepository $liberacoes,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+        private readonly ContratacoesDoEscritorio $contratacoes,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -45,8 +55,24 @@ final class AlterarLiberacaoDoVotoUseCase
         // A auditoria vai para o escritório alterado, não para o da sessão do Master.
         $this->escopoDePlataforma->executarComoConta(
             (int) $tenant->getId(),
-            fn () => $this->liberacoes->salvar($liberacao, flush: true),
+            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $liberacao, $liberado, $master): void {
+                $this->liberacoes->salvar($liberacao, flush: true);
+                $this->ajustarContratacao($tenant, $liberado, $master);
+            }),
         );
+    }
+
+    /** D16: o bloqueio do Master vira trava; a liberação dele desfaz. */
+    private function ajustarContratacao(Tenant $tenant, bool $liberado, User $master): void
+    {
+        $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
+        if ($liberado) {
+            $this->contratacoes->incluir($tenant, Produto::Voto, OrigemDaContratacao::Master, $master, $agora);
+
+            return;
+        }
+
+        $this->contratacoes->excluir($tenant, Produto::Voto, OrigemDaContratacao::Master, $master, $agora);
     }
 
     private function escritorioAtivo(int $tenantId): Tenant

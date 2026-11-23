@@ -133,6 +133,15 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
         $this->liberadaPeloMaster = true;
     }
 
+    /**
+     * O dono ligou a I.A. no Meu Perfil (spec multiproduto, §9, regra 3): grava o mesmo campo da liberação do Master, por
+     * um método próprio, para a auditoria mostrar quem ligou. Não grava aceite: o aceite continua com o admin.
+     */
+    public function liberarPeloDono(): void
+    {
+        $this->liberadaPeloMaster = true;
+    }
+
     /** Bloquear não mexe no aceite do escritório: ele é histórico e volta a valer se o Master liberar de novo. */
     public function bloquearPeloMaster(): void
     {

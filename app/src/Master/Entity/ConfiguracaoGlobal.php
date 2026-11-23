@@ -34,8 +34,11 @@ class ConfiguracaoGlobal implements Auditavel
     private const PREFIXO_REVISAO_OAB = 'revisaoOab.';
     private const PREFIXO_COMERCIAL = 'comercial.';
     private const ENVIO_DE_CAMPANHAS = self::PREFIXO_COMERCIAL . 'campanhasLigadas';
+    private const PREFIXO_IA = 'ia.';
+    /** O teto mensal (centavos de dólar) que a I.A. ligada pelo dono recebe (spec multiproduto, §9, regra 3, e §10). */
+    private const TETO_PADRAO_DA_IA = self::PREFIXO_IA . 'tetoPadraoCentavos';
     /** Chaves com estes prefixos não são campos do catálogo: a tela de configurações não as mostra nem as apaga. */
-    private const PREFIXOS_FORA_DO_CATALOGO = [self::PREFIXO_REVISAO_OAB, self::PREFIXO_COMERCIAL];
+    private const PREFIXOS_FORA_DO_CATALOGO = [self::PREFIXO_REVISAO_OAB, self::PREFIXO_COMERCIAL, self::PREFIXO_IA];
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
@@ -94,6 +97,12 @@ class ConfiguracaoGlobal implements Auditavel
     public static function chaveDoEnvioDeCampanhas(): string
     {
         return self::ENVIO_DE_CAMPANHAS;
+    }
+
+    /** O nome da chave do teto padrão da I.A. dentro do JSON `valores`, para a leitura direta do banco. */
+    public static function chaveDoTetoPadraoDaIa(): string
+    {
+        return self::TETO_PADRAO_DA_IA;
     }
 
     /**

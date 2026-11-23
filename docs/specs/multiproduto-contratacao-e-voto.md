@@ -349,6 +349,14 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 11. **Perfis próprios não ganham módulo sozinhos.** Ao ligar, aparece o aviso "Ajuste o acesso em Perfis", com link para `app_tenant_role_index`. O perfil primário já tem todas as permissões (bootstrap `attachAllPermissions`).
 12. **Auditoria:** `Contratacao` e `ConfiguracaoDeInteligencia` são `Auditavel` (:36), com `origem = dono` e `alterada_por`.
 
+**Como ficou no PR 8a (regra e rota; o cartão é o PR 8b):**
+
+- **Trava por escritório:** `ContratacoesDoEscritorio::CLASSE_TRAVA = 4801`, `pg_advisory_xact_lock(4801, tenant_id)` numa transação da conexão. O mesmo serviço serve ao dono e às abas do Master.
+- **Marcador do Master (D16):** quando o Master desliga um produto que não tem linha ativa (já encerrado pelo dono, ou sem linha), grava uma linha aberta e encerrada no mesmo instante, com origem `master`. Desligar de novo não duplica.
+- **Desligar o Voto também bloqueia a `LiberacaoDoVoto`** (muda a D6): o cartão e a liberação andam juntos; religar pelo dono libera de novo.
+- **Ligar o Voto com a chave global `voto` desligada é aceito:** grava a contratação e a liberação, mas o Voto só funciona quando o Master ligar a chave.
+- **Não entrou no 8a:** a D7 (não desligar o último produto) e as ações "para todos" das abas do Master (liberar ou bloquear todos não mexe na contratação).
+
 ## 10. Master (PR 9, MÉDIO)
 
 **Molde:**
