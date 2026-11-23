@@ -175,6 +175,12 @@ parameters:
     # do de cima. Na suíte, localhost (bloco when@test).
     conector.mcp_hosts: '%env(csv:default:default_conector_mcp_hosts:CONECTOR_MCP_HOSTS)%'
     default_conector_mcp_hosts: 'bluejus.com.br'
+    # Multiproduto (spec multiproduto-contratacao-e-voto §11, D2 e D3): `desligado` (padrão, tudo como hoje),
+    # `observacao` (a guarda do produto registra no canal de log `multiproduto` e deixa seguir) ou `bloqueio` (404).
+    # Valor desconhecido vale `desligado` (App\Produto\Enum\ModoDoMultiproduto). O padrão mora AQUI porque o build de
+    # produção faz `rm .env`; trocar exige reiniciar o php.
+    multiproduto.modo: '%env(string:default:default_multiproduto_modo:MULTIPRODUTO_MODO)%'
+    default_multiproduto_modo: 'desligado'
 
 services:
     # default configuration for services in *this* file

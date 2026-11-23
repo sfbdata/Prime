@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Produto\Functional;
+
+use App\Produto\Enum\Produto;
+use App\Produto\EventListener\GuardaDoProduto;
+use App\Tests\Factory\Voto\AssembleiaFactory;
+use App\Tests\Factory\Voto\PautaDaAssembleiaFactory;
+use App\Tests\Factory\Voto\UnidadeDaAssembleiaFactory;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Zenstruck\Foundry\Test\Factories;
+
+/**
+ * A guarda do produto em bloqueio não age nas rotas públicas nem nas do Trabalho Externo liberadas sem escritório
+ * (spec multiproduto, §6.1, e a decisão do PR 3 sobre o `_sem_escritorio`). A assinatura pública fica em
+ * {@see GuardaDoProdutoNaAssinaturaPublicaTest}.
+ */
+#[CoversClass(GuardaDoProduto::class)]
+final class GuardaDoProdutoNasPublicasTest extends JusPrimeWebTestCase
+{
+    use Factories;
+    use ComEscritoriosPorProduto;
+
+    private KernelBrowser $client;
+
+    protected function setUp(): void
+    {
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->modo('bloqueio');
+    }
+
+    #[TestDox('bloqueio: a cédula abre sem login e para quem está logado num escritório sem o Voto')]
+    public function testCedulaPassa(): void
+    {
+        $link = $this->linkDaCedula();
+
+        $this->client->request('GET', $link);
+        self::assertResponseIsSuccessful('anônimo');
+
+        $soExpediente = $this->escritorio(Produto::Expediente);
+        $this->logarComTenant($this->client, $this->primario($soExpediente), $soExpediente);
+        $this->client->request('GET', $link);
+        self::assertResponseIsSuccessful('logado num escritório sem o Voto');
+    }
+
+    #[TestDox('bloqueio: rota do Trabalho Externo com _sem_escritorio passa para quem está num escritório sem o Expediente')]
+    public function testTrabalhoExternoSemEscritorioPassa(): void
+    {
+        $soVoto = $this->escritorio(Produto::Voto);
+        $this->logarComTenant($this->client, $this->primario($soVoto), $soVoto);
+
+        $this->client->request('GET', '/trabalho-externo/api/painel');
+
+        self::assertResponseIsSuccessful();
+    }
+
+    /** Assembleia publicada, com pauta aberta e uma unidade, num escritório só Voto com o Voto liberado. */
+    private function linkDaCedula(): string
+    {
+        $soVoto = $this->escritorio(Produto::Voto);
+        $this->liberarOVoto($soVoto);
+        $assembleia = AssembleiaFactory::new()->publicada()->create(['tenant' => $soVoto, 'titulo' => 'AGO da guarda'])->_real();
+        PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->aberta()->create(['assembleia' => $assembleia]);
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => 'A-101'])->_real();
+
+        return '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade);
+    }
+}
