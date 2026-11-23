@@ -28,6 +28,7 @@
   const elRetencao = qs('[data-mp-ia-retencao]');
   const elLinhas = qs('[data-mp-ia-linhas]');
   const elContagem = qs('[data-mp-ia-contagem]');
+  const botoesTodos = raiz.querySelectorAll('[data-mp-ia-todos]');
   // O catálogo e o BJ_T entram depois deste arquivo (fim da página): ler só na hora de usar.
   const T = (chave, params) => window.BJ_T.t(chave, params);
   const dinheiro = n => window.BJFormato.numero(n, 2);
@@ -46,6 +47,7 @@
     elGeral.disabled = sim;
     elModelo.disabled = sim;
     elRetencao.disabled = sim;
+    botoesTodos.forEach(b => { b.disabled = sim || !estado || !estado.escritorios.length; });
     raiz.querySelectorAll('[data-mp-ia-linha] input, [data-mp-ia-linha] select, [data-mp-ia-linha] button').forEach(c => { c.disabled = sim; });
   }
 
@@ -163,7 +165,8 @@
       .catch(() => { carregado = false; avisar(T('master.js.ia.erro_carregar'), true); });
   }
 
-  function postar(url, corpo, aoSalvar) {
+  // `reler`: em erro, relê a grade do servidor em vez de redesenhar o estado antigo (o lote do "todos" pode parar no meio).
+  function postar(url, corpo, aoSalvar, reler = false) {
     if (ocupado) return;
     travar(true);
     avisar('');
@@ -173,8 +176,8 @@
       body: JSON.stringify(corpo),
     })
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('master.js.ia.erro_salvar'))))))
-      .then(d => { desenhar(d); avisar(aoSalvar); })
-      .catch(e => { if (estado) desenhar(estado); avisar(e.message || T('master.js.ia.erro_salvar'), true); })
+      .then(d => { desenhar(d); avisar(typeof aoSalvar === 'function' ? aoSalvar(d) : aoSalvar); })
+      .catch(e => { if (reler) carregar(); else if (estado) desenhar(estado); avisar(e.message || T('master.js.ia.erro_salvar'), true); })
       .finally(() => travar(false));
   }
 
@@ -195,6 +198,32 @@
       aoConfirmar: () => { window.BJMasterConf.fechar(); postar(raiz.dataset.urlChaveGeral, { ligada: true }, T('master.js.ia.ligou')); },
     });
   });
+
+  // "Liberar todos" / "Bloquear todos" (M5.9): confirma na confirmação interna do painel, com a quantidade de
+  // escritórios que vão mudar, e aplica a liberação a todos os ativos de uma vez. Não mexe na chave geral nem na cobrança.
+  botoesTodos.forEach(b => b.addEventListener('click', () => {
+    if (!estado || ocupado) return;
+    const liberada = b.dataset.mpIaTodos === '1';
+    const n = estado.escritorios.filter(e => e.liberada !== liberada).length;
+    if (n === 0) { avisar(T('master.js.ia.todos_nenhum')); return; }
+    const textos = liberada ? {
+      titulo: T('master.js.ia.todos_liberar_titulo'), botao: T('master.js.ia.todos_liberar_botao'),
+      texto: T('master.js.ia.todos_liberar_texto', { n }),
+    } : {
+      titulo: T('master.js.ia.todos_bloquear_titulo'), botao: T('master.js.ia.todos_bloquear_botao'),
+      texto: T('master.js.ia.todos_bloquear_texto', { n }),
+    };
+    window.BJMasterConf.abrir({
+      titulo: textos.titulo, icone: liberada ? 'bi-unlock' : 'bi-lock', cor: '#7a3e8f', botao: textos.botao, texto: textos.texto,
+      aoConfirmar: () => {
+        window.BJMasterConf.fechar();
+        postar(raiz.dataset.urlTodos, { liberada }, d => {
+          const n = d.alterados || 0;
+          return n === 0 ? T('master.js.ia.todos_nenhum') : (liberada ? T('master.js.ia.todos_liberou', { n }) : T('master.js.ia.todos_bloqueou', { n }));
+        }, true);
+      },
+    });
+  }));
 
   elModelo.addEventListener('change', () => {
     if (!estado) return;

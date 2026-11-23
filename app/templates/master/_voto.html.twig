@@ -2,7 +2,8 @@
    escritório. Nenhum desenho tem esta tela: os componentes são os que o painel já usa (.mp-card, .mp-cab-roxo, a chave
    do .mp-rec-item com role="switch", a grade com .mp-lin), como na aba da I.A.
    Incluída pelo painel.html.twig dentro de <div class="mp-voto" data-painel-aba="voto">. A grade vem por JSON quando a
-   aba abre (public/js/master/voto.js); clicar na chave grava na hora, sem botão Salvar. As regras moram nos UseCases
+   aba abre (public/js/master/voto.js); clicar na chave grava na hora, sem botão Salvar. "Liberar todos" e "Bloquear todos"
+   (M5.9) aplicam o estado aos escritórios ativos de uma vez, depois da confirmação interna do painel. As regras moram nos UseCases
    do domínio Voto.
    Estatísticas de todas as votações (W2-7, bloco C): o desenho 18 (H245) manda; os componentes .vC, .vH, .vB, .vL, .vF,
    .vKpis, .vKpi, .vLin e .vChip são os dele, copiados com o escopo .mp-voto-est em master-voto.css. A lista vem por
@@ -12,6 +13,7 @@
 <div class="mp-voto-raiz" data-mp-voto
      data-url-dados="{{ path('master_voto_dados') }}"
      data-url-escritorio="{{ path('master_voto_escritorio', {tenantId: 0}) }}"
+     data-url-todos="{{ path('master_voto_todos') }}"
      data-token="{{ csrf_token('master_voto') }}">
 
     <div class="mp-voto-msg" data-mp-voto-msg role="status" hidden></div>
@@ -19,6 +21,10 @@
     <section class="mp-card mp-voto-card" aria-labelledby="mp-voto-liberacao">
         <div class="mp-cab-roxo"><i class="bi bi-archive"></i><b id="mp-voto-liberacao">{{ 'master.voto.liberacao.titulo'|trans }}</b><span data-mp-voto-contagem></span></div>
         <p class="mp-voto-nota">{{ 'master.voto.liberacao.nota'|trans }}</p>
+        <div class="mp-voto-acoes">
+            <button type="button" class="mp-btn-roxo" id="mp-voto-liberar-todos" data-mp-voto-todos="1" disabled><i class="bi bi-unlock" aria-hidden="true"></i>{{ 'master.voto.liberacao.liberar_todos'|trans }}</button>
+            <button type="button" class="mp-btn-cinza" id="mp-voto-bloquear-todos" data-mp-voto-todos="0" disabled><i class="bi bi-lock" aria-hidden="true"></i>{{ 'master.voto.liberacao.bloquear_todos'|trans }}</button>
+        </div>
         <div class="mp-rolagem">
             <div class="mp-voto-grade">
                 <div class="mp-voto-cab">

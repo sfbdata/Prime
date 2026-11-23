@@ -328,6 +328,8 @@ master:
             col_orcamento: Monthly budget (US$)
             col_analises_mes: Analyses this month
             col_gasto_mes: Spending this month (US$)
+            liberar_todos: Enable all
+            bloquear_todos: Block all
         recusa:
             token_invalido: Invalid CSRF token. Reload the page.
             informe_ligada: Indicate whether the master switch is on or off.
@@ -375,6 +377,8 @@ master:
             nota: Voting only appears for the firm enabled here and while it is turned on in Screens and features. Every firm starts in demo mode.
             col_nome: Firm
             col_liberado: Enabled
+            liberar_todos: Enable all
+            bloquear_todos: Block all
         estatisticas:
             titulo: Statistics for all votes
             exportar: Export CSV
@@ -1120,6 +1124,15 @@ master:
             vazio: No active firm.
             erro_carregar: Could not load the AI settings. Reload the page.
             erro_salvar: Could not save.
+            todos_liberar_titulo: Enable AI for all
+            todos_liberar_botao: Enable all
+            todos_liberar_texto: 'Enable AI for {n} active firm(s) that are blocked now? Each firm keeps its billing and budget. Firms created later are not included.'
+            todos_bloquear_titulo: Block AI for all
+            todos_bloquear_botao: Block all
+            todos_bloquear_texto: 'Block AI for {n} active firm(s) that are enabled now? Each firm keeps its billing and budget.'
+            todos_liberou: 'AI enabled for {n} firm(s).'
+            todos_bloqueou: 'AI blocked for {n} firm(s).'
+            todos_nenhum: No firm needed to change.
         ia_juridico:
             em_aberto: 'Open: {n}'
             status_salvo: 'Status of "{titulo}": {status}.'
@@ -1143,6 +1156,15 @@ master:
             vazio: No active firm.
             erro_carregar: Could not load the Voting enablement. Reload the page.
             erro_salvar: Could not save.
+            todos_liberar_titulo: Enable Voting for all
+            todos_liberar_botao: Enable all
+            todos_liberar_texto: 'Enable Voting for {n} active firm(s) that are blocked now? Firms created later are not included: enable them with their own switch.'
+            todos_bloquear_titulo: Block Voting for all
+            todos_bloquear_botao: Block all
+            todos_bloquear_texto: 'Block Voting for {n} active firm(s) that are enabled now? What they already have in Voting is kept.'
+            todos_liberou: 'Voting enabled for {n} firm(s).'
+            todos_bloqueou: 'Voting blocked for {n} firm(s).'
+            todos_nenhum: No firm needed to change.
             est_kpi_votacoes: Votes
             est_kpi_realizadas: Held
             est_kpi_andamento: In progress

@@ -17,6 +17,7 @@
   const elContagem = raiz.querySelector('[data-mp-voto-contagem]');
   // O catálogo e o BJ_T entram depois deste arquivo (fim da página): ler só na hora de usar.
   const T = (chave, params) => window.BJ_T.t(chave, params);
+  const botoesTodos = raiz.querySelectorAll('[data-mp-voto-todos]');
   let estado = null;
   let carregado = false;
   let ocupado = false;
@@ -30,6 +31,7 @@
   function travar(sim) {
     ocupado = sim;
     raiz.querySelectorAll('[data-mp-voto-liberado]').forEach(b => { b.disabled = sim; });
+    botoesTodos.forEach(b => { b.disabled = sim || !estado || !estado.escritorios.length; });
   }
 
   function el(tag, classe, texto) {
@@ -66,6 +68,7 @@
     elLinhas.textContent = '';
     if (!d.escritorios.length) elLinhas.appendChild(el('div', 'mp-carregando', T('master.js.voto.vazio')));
     d.escritorios.forEach(e => elLinhas.appendChild(linha(e)));
+    botoesTodos.forEach(b => { b.disabled = ocupado || !d.escritorios.length; });
   }
 
   // A grade é redesenhada depois de cada gravação: devolve o foco à chave do mesmo escritório, para o teclado e o
@@ -102,6 +105,46 @@
       .catch(erro => { if (estado) { desenhar(estado); focar(e.tenantId); } avisar(erro.message || T('master.js.voto.erro_salvar'), true); })
       .finally(() => travar(false));
   }
+
+  // "Liberar todos" / "Bloquear todos" (M5.9): confirma na confirmação interna do painel (nunca confirm() do navegador),
+  // com a quantidade de escritórios que vão mudar, e aplica o estado a todos os ativos de uma vez. Se o lote falhar no
+// meio, quem já foi gravado fica gravado (cada escritório grava a própria auditoria): a grade é relida do servidor.
+  function aplicarATodos(liberado) {
+    if (ocupado) return;
+    travar(true);
+    avisar('');
+    fetch(raiz.dataset.urlTodos, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+      body: JSON.stringify({ liberado }),
+    })
+      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('master.js.voto.erro_salvar'))))))
+      .then(d => {
+        desenhar(d);
+        const n = d.alterados || 0;
+        avisar(n === 0 ? T('master.js.voto.todos_nenhum') : (liberado ? T('master.js.voto.todos_liberou', { n }) : T('master.js.voto.todos_bloqueou', { n })));
+      })
+      .catch(erro => { carregar(); avisar(erro.message || T('master.js.voto.erro_salvar'), true); })
+      .finally(() => travar(false));
+  }
+
+  botoesTodos.forEach(b => b.addEventListener('click', () => {
+    if (!estado || ocupado) return;
+    const liberado = b.dataset.mpVotoTodos === '1';
+    const n = estado.escritorios.filter(e => e.liberado !== liberado).length;
+    if (n === 0) { avisar(T('master.js.voto.todos_nenhum')); return; }
+    const textos = liberado ? {
+      titulo: T('master.js.voto.todos_liberar_titulo'), botao: T('master.js.voto.todos_liberar_botao'),
+      texto: T('master.js.voto.todos_liberar_texto', { n }),
+    } : {
+      titulo: T('master.js.voto.todos_bloquear_titulo'), botao: T('master.js.voto.todos_bloquear_botao'),
+      texto: T('master.js.voto.todos_bloquear_texto', { n }),
+    };
+    window.BJMasterConf.abrir({
+      titulo: textos.titulo, icone: liberado ? 'bi-unlock' : 'bi-lock', cor: '#7a3e8f', botao: textos.botao, texto: textos.texto,
+      aoConfirmar: () => { window.BJMasterConf.fechar(); aplicarATodos(liberado); },
+    });
+  }));
 
   // Estatísticas de todas as votações (W2-7, bloco C): só leitura. Carrega com a aba e de novo ao trocar a categoria;
   // o CSV é o link do botão, com a mesma categoria. Tudo por textContent (títulos vêm de usuários de escritório).
