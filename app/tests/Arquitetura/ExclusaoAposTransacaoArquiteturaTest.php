@@ -44,9 +44,9 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      *    linha de acompanhamento, não toca em arquivo;
      *  - `ArmazenamentoComCota` (Contribua) — decorador do storage: o `excluir()` dele só repassa ao
      *    interno quem já chamou pela remoção; ele não decide remover nada;
-     *  - `AlterarIaDoEscritorioUseCase`, `AlterarLiberacaoDoVotoUseCase`, `DesligarFerramentaUseCase` e
-     *    `AlterarFerramentaDoEscritorioPeloMasterUseCase` (multiproduto) — `ContratacoesDoEscritorio::excluir()` encerra a
-     *    linha de contratação de um produto (muda a situação), não toca em arquivo.
+     *  - `AlterarIaDoEscritorioUseCase`, `AlterarLiberacaoDoVotoUseCase` e `DesligarFerramentaUseCase` (multiproduto,
+     *    PR 8a) — `ContratacoesDoEscritorio::excluir()` encerra a contratação de um produto, não toca em arquivo;
+     *  - `AlterarFerramentaDoEscritorioPeloMasterUseCase` (multiproduto, PR 9) — o mesmo `excluir()` da contratação.
      */
     private const QUEM_CHAMA_EXCLUIR = [
         'src/Central/UseCase/ExcluirAvisoUseCase.php',
