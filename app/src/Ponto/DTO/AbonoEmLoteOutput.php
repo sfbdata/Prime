@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Ponto\DTO;
 
+use App\Ponto\Service\TextoDoPonto;
+
 /**
  * O resultado do "Abonar selecionadas" da aba Equipe: quantas foram abonadas e, de cada uma que não foi, o motivo
  * (uma mensagem por recusa, na ordem em que vieram).
  */
 final readonly class AbonoEmLoteOutput
 {
-    /** @param list<string> $recusas */
+    /**
+     * @param list<string>          $recusas        o português de cada recusa, na ordem dos ids
+     * @param list<TextoDoPonto>    $recusasComChave as mesmas recusas, com a chave no catálogo, para o controller traduzir
+     */
     public function __construct(
         public int $abonadas,
         public array $recusas,
+        public array $recusasComChave = [],
     ) {
     }
 

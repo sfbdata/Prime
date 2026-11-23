@@ -39,6 +39,7 @@ use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\HorarioFuturoDaBatida;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Ponto\UseCase\AnalisarJustificativaUseCase;
 use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
@@ -172,8 +173,8 @@ final class TenantController extends AbstractController
     {
         $seguem = [];
         foreach ($pendentes as $justificativa) {
-            if (($recusa = $registrar->recusa($justificativa, $tenant)) !== null) {
-                $this->addFlash('warning', $recusa);
+            if (($recusa = $registrar->recusaComChave($justificativa, $tenant)) !== null) {
+                $this->addFlash('warning', $recusa->traduzir($this->tradutor));
                 continue;
             }
             $seguem[] = $justificativa;
@@ -188,13 +189,13 @@ final class TenantController extends AbstractController
      *
      * @param iterable<\DateTimeInterface|null> $dias
      */
-    private function esquecimentoJaBatido(User $pessoa, Tenant $tenant, ?string $tipo, ?string $tipoRegistro, iterable $dias): ?string
+    private function esquecimentoJaBatido(User $pessoa, Tenant $tenant, ?string $tipo, ?string $tipoRegistro, iterable $dias): ?TextoDoPonto
     {
         if ($tipo !== 'esquecimento_registro' || $tipoRegistro === null || $tipoRegistro === '') {
             return null;
         }
         foreach ($dias as $dia) {
-            if ($dia !== null && ($recusa = $this->batidaJaRegistrada->mensagem($pessoa, $tenant, $tipoRegistro, $dia)) !== null) {
+            if ($dia !== null && ($recusa = $this->batidaJaRegistrada->mensagemComChave($pessoa, $tenant, $tipoRegistro, $dia)) !== null) {
                 return $recusa;
             }
         }
@@ -1185,17 +1186,17 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::textoDaTela('analise.so_para_abonar')->traduzir($this->tradutor));
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
-        if (($jaBatida = $registrarBatidaDoEsquecimento->recusa($justificativa, $tenant)) !== null) {
-            $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
+        if (($jaBatida = $registrarBatidaDoEsquecimento->recusaComChave($justificativa, $tenant)) !== null) {
+            $this->addFlash('warning', $jaBatida->traduzir($this->tradutor));   // o pedido fica pendente: o admin decide (R1)
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
         // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
         if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa)) {
-            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            $this->addFlash('warning', HorarioFuturoDaBatida::texto(HorarioFuturoDaBatida::MENSAGEM)->traduzir($this->tradutor));
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
@@ -1203,7 +1204,7 @@ final class TenantController extends AbstractController
         try {
             $analisar->abonar($justificativa, $tenant, $currentUser, trim((string) $request->request->get('observacaoAnalise', '')));
         } catch (AnaliseDeJustificativaRecusadaException $e) {
-            $this->addFlash('warning', $e->getMessage());
+            $this->addFlash('warning', $e->texto()->traduzir($this->tradutor));
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
@@ -1272,7 +1273,7 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('analise.so_para_recusar'));
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::textoDaTela('analise.so_para_recusar')->traduzir($this->tradutor));
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
@@ -1285,7 +1286,7 @@ final class TenantController extends AbstractController
         try {
             $batidaSaiuDaConta = $analisar->recusar($justificativa, $tenant, $currentUser, $observacao);   // relê sob a trava (P41); E12: a batida externa sai da conta
         } catch (AnaliseDeJustificativaRecusadaException $e) {
-            $this->addFlash('warning', $e->getMessage());
+            $this->addFlash('warning', $e->texto()->traduzir($this->tradutor));
             return $this->voltaDaAnalise($request, $tenantId, $user);
         }
 
@@ -1418,7 +1419,7 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() === 'pendente') {
-            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::texto('reverter.ja_esta'));
+            $this->addFlash('warning', NomesDasSituacoesDaJustificativa::textoDaTela('reverter.ja_esta')->traduzir($this->tradutor));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
@@ -1426,7 +1427,7 @@ final class TenantController extends AbstractController
             // Relê sob a trava (P41); do esquecimento abonado, a inclusão do abono sai da conta na mesma transação (E10).
             $reversao = $analisar->reverter($justificativa, $tenant, $currentUser);
         } catch (AnaliseDeJustificativaRecusadaException $e) {
-            $this->addFlash('warning', $e->getMessage());
+            $this->addFlash('warning', $e->texto()->traduzir($this->tradutor));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
@@ -1491,7 +1492,7 @@ final class TenantController extends AbstractController
             return true;
         }
         if ($horaEsquecida !== null && $this->horarioFuturo->estaNoFuturo($data, $horaEsquecida)) {
-            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            $this->addFlash('warning', HorarioFuturoDaBatida::texto(HorarioFuturoDaBatida::MENSAGEM)->traduzir($this->tradutor));
 
             return true;
         }
@@ -1513,7 +1514,7 @@ final class TenantController extends AbstractController
             static fn (JustificativaPonto $j): bool => !$registrar->pedeHorarioFuturo($j),
         ));
         if (count($aprovaveis) < count($pendentes)) {
-            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            $this->addFlash('warning', HorarioFuturoDaBatida::texto(HorarioFuturoDaBatida::MENSAGEM)->traduzir($this->tradutor));
         }
 
         return $aprovaveis;
@@ -1624,7 +1625,7 @@ final class TenantController extends AbstractController
             return $redirect();
         }
         if (($jaBatida = $this->esquecimentoJaBatido($user, $tenant, $tipo, $tipoRegEsquecido, $datasValidas)) !== null) {
-            $this->addFlash('danger', $jaBatida);   // o esquecimento é só da batida que falta (R1)
+            $this->addFlash('danger', $jaBatida->traduzir($this->tradutor));   // o esquecimento é só da batida que falta (R1)
             return $redirect();
         }
 

@@ -36,6 +36,8 @@ final class TextoDoPhpDoPontoTest extends TestCase
         yield 'comum.numero_inteiro' => ['Informe um número inteiro.', []];
         yield 'ponto.esquecido_incompleto' => ['Informe o tipo e o horário do registro esquecido.', []];
         yield 'ponto.sem_data' => ['Selecione ao menos uma data para justificar.', []];
+        yield 'ponto.motivo_vazio' => ['Informe o motivo.', []];
+        yield 'ponto.motivo_longo' => ['O motivo pode ter até 2000 caracteres.', ['maximo' => '2000']];
         yield 'ponto.abono_uma_data' => ['Abono parcial só pode ser aplicado a uma única data.', []];
         yield 'ponto.esquecimento_uma_data' => ['Esquecimento de Registro só pode ser aplicado a uma única data.', []];
         yield 'ponto.abono_horarios' => ['Informe os horários de saída e retorno corretamente para o abono parcial.', []];

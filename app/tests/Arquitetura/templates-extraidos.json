@@ -684,8 +684,7 @@
         "js": [],
         "permitidos": [
             "· BlueJus",
-            "(hm)",
-            "App\\\\Ponto\\\\Service\\\\AnaliseDaPropriaJustificativa::RECUSA"
+            "(hm)"
         ]
     },
 
@@ -1439,8 +1438,7 @@
             "Assinar folha",
             "0 ? ' pe-cor--pos' : ' pe-cor--zero')) }}\" data-r=\"\">",
             "0 ? 'pe-cor--pos' : 'pe-cor--zero') }}\">",
-            "0 or diaTemBatida ? 'pe-cor--pos' : 'pe-cor--zero') }}\">",
-            "App\\\\Ponto\\\\Exception\\\\AjusteDeBatidaRecusadoException::MENSAGEM_LIGADA_A_JUSTIFICATIVA"
+            "0 or diaTemBatida ? 'pe-cor--pos' : 'pe-cor--zero') }}\">"
         ]
     },
     "assinatura_eletronica_publica": {

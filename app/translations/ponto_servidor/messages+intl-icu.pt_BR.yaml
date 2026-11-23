@@ -9,6 +9,8 @@ ponto_servidor:
     ponto:
         esquecido_incompleto: "Informe o tipo e o horário do registro esquecido."
         sem_data: "Selecione ao menos uma data para justificar."
+        motivo_vazio: "Informe o motivo."
+        motivo_longo: "O motivo pode ter até {maximo} caracteres."
         abono_uma_data: "Abono parcial só pode ser aplicado a uma única data."
         esquecimento_uma_data: "Esquecimento de Registro só pode ser aplicado a uma única data."
         abono_horarios: "Informe os horários de saída e retorno corretamente para o abono parcial."
@@ -169,3 +171,28 @@ ponto_servidor:
             ja_analisada: "Esta justificativa não está mais em análise e não pode ser excluída."
             da_batida_externa: "A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor."
             mexeu_na_folha: "Esta justificativa já mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor."
+        ajuste:
+            mudou: "Esta batida mudou desde que a folha foi aberta. Confira a folha e tente de novo."
+            nao_encontrada: "Batida não encontrada nesta folha."
+            nada_mudou: "O ajuste não muda nada: a batida já tem este tipo, esta data e esta hora."
+            sem_motivo: "Informe o motivo da correção."
+            motivo_longo: "O motivo da correção passa de 2000 caracteres. Resuma o texto."
+            ligada_a_justificativa: "Esta batida saiu da conta pela análise da justificativa e só volta por ela: com um novo abono ou, no trabalho externo, quando a justificativa volta para análise."
+            da_propria_batida: "Só o usuário primário do escritório ou o Master pode corrigir a própria batida."
+            em_analise: "Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de corrigir a batida."
+        analise:
+            excluida: "Esta justificativa foi excluída pelo colaborador."
+            nao_encontrada: "Justificativa não encontrada."
+            propria: "Só o usuário primário do escritório ou o Master pode analisar a própria justificativa."
+            so_para_abonar: "Apenas justificativas em análise podem ser abonadas."
+            so_para_recusar: "Apenas justificativas em análise podem ser recusadas."
+            ja_em_analise: "Esta justificativa já está em análise."
+        edicao:
+            ja_analisada: "Esta justificativa não está mais em análise (já foi analisada pelo gestor ou registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para voltá-la para análise."
+        anexo:
+            travado: "O atestado não pode ser trocado: este lançamento já está abonado ou recusado em pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar para análise. Fale com o administrador."
+            tamanho: "O arquivo não pode exceder 10 MB."
+            tipo: "Somente PDF, JPEG ou PNG são aceitos."
+        abono:
+            nao_encontrada: "Justificativa não encontrada neste escritório."
+            pessoa: "{pessoa} ({dia}): {motivo}"
