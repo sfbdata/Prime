@@ -43,7 +43,10 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      *  - `ExcluirProcessoDoPushUseCase` (Djen) — `ProcessoAcompanhado::excluir()` marca excluido_em na
      *    linha de acompanhamento, não toca em arquivo;
      *  - `ArmazenamentoComCota` (Contribua) — decorador do storage: o `excluir()` dele só repassa ao
-     *    interno quem já chamou pela remoção; ele não decide remover nada.
+     *    interno quem já chamou pela remoção; ele não decide remover nada;
+     *  - `AlterarIaDoEscritorioUseCase`, `AlterarLiberacaoDoVotoUseCase`, `DesligarFerramentaUseCase` e
+     *    `AlterarFerramentaDoEscritorioPeloMasterUseCase` (multiproduto) — `ContratacoesDoEscritorio::excluir()` encerra a
+     *    linha de contratação de um produto (muda a situação), não toca em arquivo.
      */
     private const QUEM_CHAMA_EXCLUIR = [
         'src/Central/UseCase/ExcluirAvisoUseCase.php',
@@ -51,11 +54,15 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
         'src/Contribua/Armazenamento/ArmazenamentoComCota.php',
         'src/Controller/NotificacaoController.php',
         'src/Djen/UseCase/ExcluirProcessoDoPushUseCase.php',
+        'src/Inteligencia/UseCase/AlterarIaDoEscritorioUseCase.php',
         'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
+        'src/Produto/UseCase/AlterarFerramentaDoEscritorioPeloMasterUseCase.php',
+        'src/Produto/UseCase/DesligarFerramentaUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
         'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
         // Frente D6: o worker apaga no R2 o que já saiu do disco (excluir() do espelho, não do disco).
         'src/Shared/EspelhoRemoto/Replica/ReplicadorDeArquivos.php',
+        'src/Voto/UseCase/AlterarLiberacaoDoVotoUseCase.php',
     ];
 
     #[TestDox('só a remoção pós-transação chama excluir() — o resto pede a ela')]

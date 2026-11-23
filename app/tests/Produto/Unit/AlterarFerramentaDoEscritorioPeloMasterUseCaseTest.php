@@ -10,12 +10,14 @@ use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Produto\Enum\OrigemDaContratacao;
 use App\Produto\Enum\Produto;
 use App\Produto\Exception\EscritorioNaoEncontradoException;
 use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Produto\UseCase\AlterarFerramentaDoEscritorioPeloMasterUseCase;
 use App\Repository\TenantRepository;
+use App\Service\TenantBootstrapService;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
@@ -42,6 +44,8 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
     private TenantRepository&MockObject $tenants;
     private LiberacaoDoVotoRepository&MockObject $liberacoes;
     private ConfiguracaoDeInteligenciaRepository&MockObject $configuracoes;
+    private ConfiguracaoGlobalRepository&MockObject $global;
+    private TenantBootstrapService&MockObject $bootstrap;
     private Tenant $tenant;
     private User $master;
 
@@ -56,6 +60,8 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->liberacoes = $this->createMock(LiberacaoDoVotoRepository::class);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
+        $this->global = $this->createMock(ConfiguracaoGlobalRepository::class);
+        $this->bootstrap = $this->createMock(TenantBootstrapService::class);
     }
 
     private function sut(): AlterarFerramentaDoEscritorioPeloMasterUseCase
@@ -69,6 +75,10 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
             $escopo,
             new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $escopo, $this->contratacoes, $relogio),
             new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, $escopo, $this->contratacoes, $relogio),
+            $this->liberacoes,
+            $this->configuracoes,
+            $this->global,
+            $this->bootstrap,
             $relogio,
         );
     }
@@ -141,14 +151,15 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         $this->sut()->executar(7, Produto::Expediente, false, $this->master);
     }
 
-    #[TestDox('Voto: ligar libera a LiberacaoDoVoto (D10) e inclui a contratação com origem master; desligar bloqueia e exclui')]
+    #[TestDox('Voto: ligar libera a LiberacaoDoVoto (D10) e deixa a contratação ativa com origem master; desligar bloqueia e encerra')]
     public function testVoto(): void
     {
         $liberacao = new LiberacaoDoVoto($this->tenant);
         $this->liberacoes->method('findDoTenantParaOMaster')->willReturn($liberacao);
         $this->liberacoes->expects($this->exactly(2))->method('salvar');
-        $this->contratacoes->expects($this->once())->method('incluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
-        $this->contratacoes->expects($this->once())->method('excluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
+        // O UseCase da aba inclui/exclui ao mudar a liberação e este completa: duas chamadas, idempotentes.
+        $this->contratacoes->expects($this->exactly(2))->method('incluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
+        $this->contratacoes->expects($this->exactly(2))->method('excluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
         $sut = $this->sut();
 
         $sut->executar(7, Produto::Voto, true, $this->master);
@@ -157,15 +168,40 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         self::assertFalse($liberacao->isLiberado());
     }
 
-    #[TestDox('I.A.: ligar libera pelo Master e inclui a contratação; desligar bloqueia e exclui; o teto do escritório não muda')]
+    #[TestDox('Voto já liberado mas com a contratação encerrada pelo dono: ligar e desligar mexem na contratação mesmo sem a liberação mudar')]
+    public function testVotoComLiberacaoJaNoValor(): void
+    {
+        $liberacao = new LiberacaoDoVoto($this->tenant);
+        $liberacao->liberar();
+        $this->liberacoes->method('findDoTenantParaOMaster')->willReturn($liberacao);
+        $this->contratacoes->expects($this->once())->method('incluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
+        $this->sut()->executar(7, Produto::Voto, true, $this->master);
+
+        $this->contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
+        $this->contratacoes->expects($this->atLeastOnce())->method('excluir')->with($this->tenant, Produto::Voto, OrigemDaContratacao::Master, $this->master, self::agora());
+        $this->sut()->executar(7, Produto::Voto, false, $this->master);
+    }
+
+    #[TestDox('desligar o Voto que nunca foi liberado não é trava (D16): nenhuma contratação é encerrada')]
+    public function testVotoNuncaLiberadoNaoTrava(): void
+    {
+        $this->liberacoes->method('findDoTenantParaOMaster')->willReturn(null);
+        $this->contratacoes->expects($this->never())->method('excluir');
+
+        $this->sut()->executar(7, Produto::Voto, false, $this->master);
+    }
+
+    #[TestDox('I.A.: ligar libera pelo Master e inclui a contratação; desligar bloqueia e encerra; o teto já gravado não muda')]
     public function testIa(): void
     {
         $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
         $configuracao->definirCobranca(ModoDeCobrancaDaIa::Incluso, 900);
         $this->configuracoes->method('findDoTenantParaOMaster')->willReturn($configuracao);
+        $this->global->method('tetoPadraoDaIaCentavos')->willReturn(1234);
         $this->configuracoes->expects($this->exactly(2))->method('salvar');
-        $this->contratacoes->expects($this->once())->method('incluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, self::agora());
-        $this->contratacoes->expects($this->once())->method('excluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, self::agora());
+        $this->contratacoes->expects($this->exactly(2))->method('incluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, self::agora());
+        $this->contratacoes->expects($this->exactly(2))->method('excluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, self::agora());
         $sut = $this->sut();
 
         $sut->executar(7, Produto::Ia, true, $this->master);
@@ -173,5 +209,42 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         $sut->executar(7, Produto::Ia, false, $this->master);
         self::assertFalse($configuracao->isLiberadaPeloMaster());
         self::assertSame(900, $configuracao->getOrcamentoMensalCentavos());
+    }
+
+    #[TestDox('I.A. já liberada com a contratação encerrada: ligar conclui a contratação; e com o orçamento nulo grava Incluso com o teto padrão (D14)')]
+    public function testIaOrcamentoNuloRecebeOPadrao(): void
+    {
+        $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $configuracao->liberarPeloMaster();
+        $this->configuracoes->method('findDoTenantParaOMaster')->willReturn($configuracao);
+        $this->global->method('tetoPadraoDaIaCentavos')->willReturn(1234);
+        $this->contratacoes->expects($this->once())->method('incluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, self::agora());
+
+        $this->sut()->executar(7, Produto::Ia, true, $this->master);
+
+        self::assertSame(1234, $configuracao->getOrcamentoMensalCentavos());
+        self::assertSame(ModoDeCobrancaDaIa::Incluso, $configuracao->getModoDeCobranca());
+    }
+
+    #[TestDox('I.A. sem padrão gravado: vale a reserva de 500')]
+    public function testIaReserva(): void
+    {
+        $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $this->configuracoes->method('findDoTenantParaOMaster')->willReturn($configuracao);
+        $this->global->method('tetoPadraoDaIaCentavos')->willReturn(null);
+
+        $this->sut()->executar(7, Produto::Ia, true, $this->master);
+
+        self::assertSame(500, $configuracao->getOrcamentoMensalCentavos());
+    }
+
+    #[TestDox('ligar o Expediente semeia os marcadores (§9, regra 10); desligar não')]
+    public function testExpedienteSemeia(): void
+    {
+        $this->bootstrap->expects($this->once())->method('semearMarcadoresSeFaltarem')->with($this->tenant, $this->master);
+        $sut = $this->sut();
+
+        $sut->executar(7, Produto::Expediente, true, $this->master);
+        $sut->executar(7, Produto::Expediente, false, $this->master);
     }
 }

@@ -127,8 +127,8 @@ final class IaDoMasterController extends AbstractController
         }
         try {
             $alterar->executar($centavos, $this->master());
-        } catch (\InvalidArgumentException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (\InvalidArgumentException) {
+            return $this->recusa('master.ia.recusa.teto_padrao_fora_da_faixa', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json($this->estado());

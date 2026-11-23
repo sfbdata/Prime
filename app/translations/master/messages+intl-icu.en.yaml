@@ -345,6 +345,7 @@ master:
             escritorio_nao_encontrado: Firm not found.
             retencao_invalida: Enter the months as a whole number.
             teto_padrao_invalido: Enter the default cap in dollars, with up to two decimal places.
+            teto_padrao_fora_da_faixa: The default cap must be between US$ 0.00 and US$ 100,000.00.
         juridico:
             titulo: Legal issues
             em_aberto: 'Open: {n}'

@@ -308,6 +308,88 @@ final class FerramentasDoMasterTest extends JusPrimeWebTestCase
         self::assertNotContains((int) $outro->getId(), array_map(static fn (array $l): int => (int) $l['tenant_id'], $linhas));
     }
 
+    #[TestDox('Voto liberado mas sem contratação (o dono encerrou): ligar pelo Master reabre a contratação com origem master; desligar trava')]
+    public function testVotoComLiberacaoJaDadaELinhaEncerrada(): void
+    {
+        $tenant = $this->escritorio(Produto::Expediente);
+        $this->liberarNoBanco($tenant, Produto::Voto);
+        $this->comoMaster();
+
+        $this->client->request('GET', '/master/produtos', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertNotContains('voto', $this->linhaDe($this->respostaJson(), $tenant)['ligadas'], 'a grade diz desligada');
+
+        $this->postar($tenant, ['produto' => 'voto', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['expediente', 'voto'], $this->ativosDo($tenant));
+        self::assertContains('voto', $this->linhaDe($this->respostaJson(), $tenant)['ligadas']);
+
+        $this->em()->clear();
+        $this->postar($tenant, ['produto' => 'voto', 'ligado' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['expediente'], $this->ativosDo($tenant));
+        self::assertSame(['voto'], $this->linhaDe($this->respostaJson(), $tenant)['travadas']);
+    }
+
+    #[TestDox('Voto liberado e sem linha ativa: desligar pelo Master mesmo assim grava a trava (o dono leva 422)')]
+    public function testDesligarComLiberacaoJaDadaTrava(): void
+    {
+        $tenant = $this->escritorio(Produto::Expediente);
+        $this->liberarNoBanco($tenant, Produto::Voto);
+        $dono = $this->dono($tenant);
+        $this->comoMaster();
+
+        $this->postar($tenant, ['produto' => 'voto', 'ligado' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->liberacaoDoVoto($tenant));
+
+        $this->logarComTenant($this->client, $dono, $tenant);
+        $this->postarFerramenta('voto', ['ligar' => true]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('I.A. liberada e sem linha ativa: ligar reabre a contratação; com o orçamento nulo grava Incluso com o teto padrão; orçamento gravado não muda')]
+    public function testIaComLiberacaoJaDadaETeto(): void
+    {
+        $semTeto = $this->escritorio(Produto::Expediente);
+        $this->liberarNoBanco($semTeto, Produto::Ia);
+        $comTeto = $this->escritorio(Produto::Expediente);
+        $configuracao = new ConfiguracaoDeInteligencia($comTeto);
+        $configuracao->liberarPeloMaster();
+        $configuracao->definirCobranca(ModoDeCobrancaDaIa::Adicional, 900);
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+        $this->comoMaster();
+
+        $this->postar($semTeto, ['produto' => 'ia', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        $this->postar($comTeto, ['produto' => 'ia', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['expediente', 'ia'], $this->ativosDo($semTeto));
+        $a = $this->configuracaoDaIa($semTeto);
+        self::assertSame(500, $a?->getOrcamentoMensalCentavos(), 'sem padrão gravado vale a reserva');
+        self::assertSame(ModoDeCobrancaDaIa::Incluso, $a?->getModoDeCobranca());
+        $b = $this->configuracaoDaIa($comTeto);
+        self::assertSame(900, $b?->getOrcamentoMensalCentavos());
+        self::assertSame(ModoDeCobrancaDaIa::Adicional, $b?->getModoDeCobranca());
+    }
+
+    #[TestDox('ligar o Expediente pelo Master semeia os marcadores do escritório que não tem nenhum; desligar não apaga')]
+    public function testExpedienteSemeiaMarcadores(): void
+    {
+        $tenant = $this->escritorio(Produto::Cobrancas);
+        $this->comoMaster();
+
+        $this->postar($tenant, ['produto' => 'expediente', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        $depois = $this->marcadoresDo($tenant);
+        self::assertGreaterThan(0, $depois);
+
+        $this->postar($tenant, ['produto' => 'expediente', 'ligado' => false]);
+        $this->postar($tenant, ['produto' => 'expediente', 'ligado' => true]);
+        self::assertSame($depois, $this->marcadoresDo($tenant), 'idempotente: não duplica');
+    }
+
     /** @return iterable<string, array{Produto}> */
     public static function produtosDaTrava(): iterable
     {
@@ -450,6 +532,11 @@ final class FerramentasDoMasterTest extends JusPrimeWebTestCase
             $this->em()->persist($configuracao);
         }
         $this->em()->flush();
+    }
+
+    private function marcadoresDo(Tenant $tenant): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM marcador WHERE tenant_id = ?', [$tenant->getId()]);
     }
 
     private function liberacaoDoVoto(Tenant $tenant): bool

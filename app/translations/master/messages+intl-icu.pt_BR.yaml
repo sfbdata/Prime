@@ -371,6 +371,7 @@ master:
             escritorio_nao_encontrado: Escritório não encontrado.
             retencao_invalida: Informe os meses em número inteiro.
             teto_padrao_invalido: Informe o teto padrão em dólares, com até duas casas decimais.
+            teto_padrao_fora_da_faixa: O teto padrão precisa ficar entre US$ 0,00 e US$ 100.000,00.
         # Bloco "Questões jurídicas" (master/_ia_juridico.html.twig; o JS em master.js.ia_juridico.*).
         juridico:
             titulo: Questões jurídicas
