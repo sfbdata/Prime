@@ -18,6 +18,14 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
  */
 final class PoliticaDeEspelhamento
 {
+    /**
+     * Categorias que NUNCA vão ao R2, mesmo listadas na variável: o ZIP de backup é descartável (7 dias) e carrega os dados
+     * de uma pessoa inteira. Entrada assim é ignorada em silêncio, não conta como inválida nem liga nada.
+     *
+     * @var list<CategoriaDeArquivo>
+     */
+    public const NUNCA_ESPELHADAS = [CategoriaDeArquivo::BACKUP_ZIP];
+
     /** @var array<string, true> */
     private array $ligadas = [];
 
@@ -40,6 +48,10 @@ final class PoliticaDeEspelhamento
                 $this->invalidas[]         = $entrada;
                 $this->posicoesInvalidas[] = $indice + 1;
 
+                continue;
+            }
+
+            if (\in_array($categoria, self::NUNCA_ESPELHADAS, true)) {
                 continue;
             }
 

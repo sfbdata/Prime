@@ -38,10 +38,17 @@
   // "2026-12-25" vira "25/12" (dc L679, `day: '2-digit', month: '2-digit'`).
   const ddmm = iso => { const p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; };
 
-  function avisar(texto) {
+  // Linha de retorno fixa (M5.14): `tipo` 'ok' ou 'erro'; fica até a próxima ação.
+  function avisar(texto, tipo) {
     elMsg.textContent = texto;
     elMsg.hidden = !texto;
+    elMsg.classList.toggle('is-ok', tipo === 'ok');
+    elMsg.classList.toggle('is-erro', tipo === 'erro');
+    elMsg.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
   }
+
+  // Parte estável de um id (M5.13): só letras minúsculas, números e hífen.
+  const slug = t => String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   // dc L680: "hoje", "amanhã" ou "em N dias".
   function falta(n) {
@@ -51,17 +58,18 @@
   }
 
   function linha(d) {
-    const ants = ANTECEDENCIAS.map(([v, r]) => '<button type="button" class="mc-atraso" data-mc-dt-ant="' + v + '" aria-pressed="' + (d.antecedencia === v) + '">' + esc(r) + '</button>').join('');
+    const id = 'mc-dt-' + slug(d.chave);
+    const ants = ANTECEDENCIAS.map(([v, r]) => '<button type="button" class="mc-atraso" id="' + id + '-ant-' + v + '" name="' + id + '-ant-' + v + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_ant_de', { nome: d.nome, ant: r })) + '" data-mc-dt-ant="' + v + '" aria-pressed="' + (d.antecedencia === v) + '">' + esc(r) + '</button>').join('');
     const pubs = PUBLICOS.map(([v, r]) => '<option value="' + v + '"' + (d.publico === v ? ' selected' : '') + '>' + esc(r) + '</option>').join('');
     return '<div class="mc-dt-linha' + (d.ligada ? '' : ' is-desligada') + '" data-mc-dt-chave="' + esc(d.chave) + '">'
-      + '<button type="button" class="mc-chave" role="switch" aria-checked="' + d.ligada + '" title="' + esc(BJ_T.t('comercial.js.datas_alternar')) + '" aria-label="' + esc(d.nome) + '" data-mc-dt-alternar></button>'
+      + '<button type="button" class="mc-chave" role="switch" id="' + id + '-alternar" name="' + id + '-alternar" aria-checked="' + d.ligada + '" title="' + esc(BJ_T.t('comercial.js.datas_alternar')) + '" aria-label="' + esc(d.nome) + '" data-mc-dt-alternar></button>'
       + '<span class="mc-dt-selo"><span class="mc-dt-sem">' + esc(SEMANA[d.diaDaSemana] || '') + '</span><b class="mc-dt-dia">' + esc(ddmm(d.data)) + '</b></span>'
       + '<i class="bi ' + icone(d.icone) + ' mc-dt-icone" aria-hidden="true"></i>'
       + '<span class="mc-dt-texto"><b class="mc-dt-nome">' + esc(d.nome) + '</b><span class="mc-dt-quando' + (d.perto ? ' is-perto' : '') + '">'
       + esc(falta(d.diasQueFaltam)) + ' · ' + esc(BJ_T.t('comercial.js.datas_envio', { data: ddmm(d.envio) })) + '</span></span>'
       + '<div class="mc-atrasos" role="group" aria-label="' + esc(BJ_T.t('comercial.js.datas_quando')) + '">' + ants + '</div>'
-      + '<select class="mc-dt-publico" title="' + esc(BJ_T.t('comercial.js.datas_para_quem')) + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_para_quem')) + '" data-mc-dt-publico>' + pubs + '</select>'
-      + '<button type="button" class="mc-dt-ver" data-mc-dt-ver><i class="bi bi-envelope-paper" aria-hidden="true"></i>' + esc(BJ_T.t('comercial.js.datas_ver')) + '</button>'
+      + '<select class="mc-dt-publico" id="' + id + '-publico" name="' + id + '-publico" title="' + esc(BJ_T.t('comercial.js.datas_para_quem')) + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_para_quem_de', { nome: d.nome })) + '" data-mc-dt-publico>' + pubs + '</select>'
+      + '<button type="button" class="mc-dt-ver" id="' + id + '-ver" name="' + id + '-ver" aria-label="' + esc(BJ_T.t('comercial.js.datas_ver_de', { nome: d.nome })) + '" data-mc-dt-ver><i class="bi bi-envelope-paper" aria-hidden="true"></i>' + esc(BJ_T.t('comercial.js.datas_ver')) + '</button>'
       + '</div>';
   }
 
@@ -89,21 +97,26 @@
     return fetch(URL_LISTA, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(r => { carregado = true; desenhar(r); })
-      .catch(() => avisar(BJ_T.t('comercial.js.datas_erro_carregar')));
+      .catch(() => avisar(BJ_T.t('comercial.js.datas_erro_carregar'), 'erro'));
   }
 
   function alterar(chave, mudanca) {
     const atual = datas.find(d => d.chave === chave);
     if (!atual || ocupado) return;
     ocupado = true;
+    avisar(BJ_T.t('comercial.js.salvando'));
     const corpo = Object.assign({ ligada: atual.ligada, antecedencia: atual.antecedencia, publico: atual.publico }, mudanca);
     fetch(URL_ALTERAR.replace('xchavex', encodeURIComponent(chave)), {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
       body: JSON.stringify(corpo),
     }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_salvar'))))))
-      .then(() => { avisar(''); return carregar(); })
-      .catch(e => { avisar(e.message); return carregar(); })
+      .then(() => {
+        const sufixo = mudanca.ligada === undefined ? 'datas_ok_atualizada' : mudanca.ligada ? 'datas_ok_ligada' : 'datas_ok_desligada';
+        avisar(BJ_T.t('comercial.js.' + sufixo, { nome: atual.nome }), 'ok');
+        return carregar();
+      })
+      .catch(e => { avisar(e.message, 'erro'); return carregar(); })
       .finally(() => { ocupado = false; });
   }
 

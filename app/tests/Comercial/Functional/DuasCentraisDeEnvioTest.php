@@ -75,7 +75,7 @@ final class DuasCentraisDeEnvioTest extends KernelTestCase
     public function testChaveNasDuas(): void
     {
         foreach (self::CENTRAIS as $modo => $central) {
-            self::assertCount(1, $this->doc->filter($central . ' .mc-cp-barra > .mc-cp-vao + button.mc-cp-leitura[data-mc-cp-rastrear] + .mc-cp-lgpd'), $modo);
+            self::assertCount(1, $this->doc->filter($central . ' .mc-cp-barra > .mc-cp-vao + button.mc-cp-leitura[data-mc-cp-rastrear] ~ .mc-cp-lgpd'), $modo);
         }
     }
 

@@ -26,7 +26,6 @@ final readonly class PainelDaCampanhaView
         public int $prazoPedido,
         public int $prazoPagto,
         public int $vagas,
-        public bool $abaNoTopo,
         public bool $mostrarContador,
         public bool $ligada,
         /** Um benefício por linha. */

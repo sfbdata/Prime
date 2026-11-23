@@ -11,7 +11,6 @@ final readonly class CampanhaView
         public string $nome,
         public string $chamada,
         public string $chamadaSelo,
-        public string $chamadaAba,
         public string $preco,
         public string $devolve,
         public string $multTx,
@@ -24,9 +23,6 @@ final readonly class CampanhaView
         public string $statusTexto,
         /** O status na janela da campanha (`stTx` do `abrir()` do desenho): sem o "Prévia do Master" da faixa. */
         public string $statusJanela,
-        public bool $mostrarAba,
-        public bool $abaPrevia,
-        public string $abaTitulo,
         public bool $mostrarFaixa,
         public bool $mostrarFaq,
         public string $faqPago,

@@ -50,7 +50,7 @@ final class ComercialImagemJsTest extends TestCase
         $js = self::js();
         self::assertStringContainsString("texto.textContent = tem ? BJ_T.t('comercial.js.imagem_trocar') : BJ_T.t('comercial.js.imagem_adicionar');", $js);
         self::assertStringContainsString('remover.hidden = !tem;', $js);
-        self::assertStringContainsString("avisar(BJ_T.t('comercial.js.imagem_invalida'))", $js);
+        self::assertStringContainsString("avisar(BJ_T.t('comercial.js.imagem_invalida'), 'erro')", $js);
         self::assertStringContainsString("el('[data-mc-cp-html]').hidden = m.modo !== 'html';\n      desenharImagem();", $js, 'o editor redesenha os botões da imagem');
     }
 }

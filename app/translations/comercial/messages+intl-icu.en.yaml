@@ -285,3 +285,32 @@ comercial:
         dsc_excluir: Delete
         dsc_confirmar_excluir: 'Delete {email} from the unsubscribed list? They will be able to receive emails again. Do this only if the contact asked for it themselves (LGPD).'
         dsc_registrar_pergunta: 'Email that asked not to receive (by phone, WhatsApp, etc.):'
+        # M5.13 and M5.14: fixed feedback for actions and labels with the item name
+        salvando: Saving…
+        enviando: Sending…
+        auto_atraso_de: '{titulo}: {atraso}'
+        auto_ok_ligada: 'Automation "{titulo}" turned on.'
+        auto_ok_desligada: 'Automation "{titulo}" turned off.'
+        auto_ok_atraso: 'Automation "{titulo}" updated: {atraso}.'
+        datas_ant_de: '{nome}: {ant}'
+        datas_para_quem_de: '{nome}: audience'
+        datas_ver_de: 'View message for {nome}'
+        datas_ok_ligada: 'Date "{nome}" turned on.'
+        datas_ok_desligada: 'Date "{nome}" turned off.'
+        datas_ok_atualizada: 'Date "{nome}" updated.'
+        dsc_erro_resumo: Could not load the numbers. Reload the page.
+        dsc_excluir_de: 'Delete {email}'
+        dsc_ok_excluido: '{email} was removed from the unsubscribed list.'
+        dsc_ok_registrado: 'Request from {email} registered.'
+        envio_salvando: Saving…
+        teste_enviando: Sending…
+        imagem_enviando: Uploading the image…
+        imagem_ok: Image added to the email.
+        modelo_salvo: Template saved.
+        rascunho_recuperado: 'Draft recovered (saved at {quando}). To start over, choose a template.'
+        rascunho_confirmar_troca: 'The message being edited has not been sent or saved as a template. Switching discards the text. Continue?'
+        rascunho_mantido: 'The message being edited was kept.'
+        modelo_excluido: 'Template "{nome}" deleted.'
+        baixar_ok: 'HTML downloaded: {arquivo}.'
+        bloco_campo_a: 'Block {n} ({tipo}): text'
+        bloco_campo_b: 'Block {n} ({tipo}): second field'

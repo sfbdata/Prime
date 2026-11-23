@@ -367,3 +367,12 @@
 .ct-pedido-selo--recusado { background: #7a8e9b; }
 .ct-pedido-liberar { height: 32px; padding: 0 12px; border: none; border-radius: 3px; background: #1e7b45; color: #fff; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }
 .ct-pedido-recusar { height: 32px; padding: 0 12px; border: 1px solid #b02a37; border-radius: 3px; background: #fff; color: #b02a37; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }
+
+/* Lilás do Master (M5.2): botões e interruptores que só o Master vê no Contribua. */
+.ct-botao-azul[data-master-salvar] { background: var(--bj-master); color: #fff; border: 1px solid var(--bj-master); }
+.ct-botao-azul[data-master-salvar]:hover, .ct-botao-azul[data-master-salvar]:focus { background: var(--bj-master-escuro); }
+.ct-pedido-liberar { background: var(--bj-master); color: #fff; border: 1px solid var(--bj-master); }
+.ct-pedido-liberar:hover, .ct-pedido-liberar:focus { background: var(--bj-master-escuro); }
+.ct-pedido-recusar, .ct-sug-atender { background: var(--bj-master-claro); color: var(--bj-master-texto); border: 1px solid var(--bj-master-borda); }
+.ct-pedido-recusar:hover, .ct-sug-atender:hover { background: var(--bj-master-claro); border-color: var(--bj-master-icone); color: var(--bj-master-icone); }
+.ct-indique-chave[aria-checked="true"] .ct-indique-trilho { background: var(--bj-master); }
