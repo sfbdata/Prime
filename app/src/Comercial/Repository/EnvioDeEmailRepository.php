@@ -194,6 +194,15 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         $this->conexao()->executeStatement('DELETE FROM comercial_envio_conteudo WHERE envio_id = :id', ['id' => $id]);
     }
 
+    /** Quantos envios da origem foram registrados desde o instante dado, em qualquer situação. */
+    public function contarDaOrigemDesde(string $origem, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            'SELECT COUNT(*) FROM comercial_envio WHERE origem = :origem AND criado_em >= :desde',
+            ['origem' => $origem, 'desde' => self::data($desde)],
+        );
+    }
+
     /** A vazão (§3.6): quantos saíram de fato desde o instante dado (inclusive). */
     public function contarEnviadosDesde(\DateTimeImmutable $desde): int
     {
