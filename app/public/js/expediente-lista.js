@@ -389,7 +389,7 @@
                 cad = document.createElement('i');
                 cad.className = 'bi bi-lock exp-cadeado js-cadeado';
                 cad.setAttribute('aria-label', BJ_T.t('expediente.js.lista.trancar.pasta_trancada'));
-                cel.appendChild(cad);
+                cel.insertBefore(cad, cel.firstChild);
             }
             if (cad) {
                 if (r.j.trancada) {

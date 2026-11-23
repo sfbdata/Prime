@@ -58,7 +58,7 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'cabeçalho da tabela #f4f7f9' => ['--ex-cab-tabela:   #f4f7f9;'];
         yield 'barra do acervo #f7f9fb' => ['--ex-barra:        #f7f9fb;'];
         yield 'Nova Pasta #e2e9ee' => ['--ex-botao:        #e2e9ee;'];
-        yield 'colunas do desenho VS 18.10.26 (dc L.594 COLW: fixas no mínimo 74 (124 desde o M5.7) · 105 · 82 · 98)' => ['col[data-col="resp"]    { width: 20.8% !important; }'];
+        yield 'colunas do desenho VS 18.10.26 (dc L.594 COLW: fixas no mínimo 74 · 105 · 82 · 98)' => ['col[data-col="resp"]    { width: 20.8% !important; }'];
         // E8b: Cliente e Ação em 2fr:1.5fr. `calc` com % é ignorado no <col>; em percentual, as duas dividem a sobra
         // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
         yield 'Cliente 2fr (dc L.594)' => ['col[data-col="cliente"] { width: 26% !important; }'];
