@@ -12,6 +12,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,7 +39,8 @@ final class JornadaTenantController extends AbstractController
     public function get(
         Tenant $tenant,
         PermissionChecker $permissionChecker,
-        JornadaTenantRepository $jornadaTenantRepository
+        JornadaTenantRepository $jornadaTenantRepository,
+        EntityManagerInterface $entityManager
     ): JsonResponse {
         $user = $this->getUser();
 
@@ -53,6 +55,7 @@ final class JornadaTenantController extends AbstractController
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $jornada = $jornadaTenantRepository->findOneBy(['tenant' => $tenant]);
 
@@ -110,6 +113,7 @@ final class JornadaTenantController extends AbstractController
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
@@ -217,6 +221,17 @@ final class JornadaTenantController extends AbstractController
         $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
 
         return $bloco;
+    }
+
+    /**
+     * Fixa o TenantFilter no escritório da URL, como `HorasPagasController::escoparFiltroNoTenant`. A rota é `/{id}`,
+     * não `{tenantId}`, e o `TenantUrlScopeListener` não a alcança: o super admin com a sessão em outro escritório lia
+     * a padrão do escritório da URL como inexistente (a tela vinha vazia) e, ao salvar, tentava criar uma segunda,
+     * que batia no índice único. Chamar depois do guard de acesso e antes de tocar em entidade TenantAware.
+     */
+    private function escoparFiltroNoTenant(EntityManagerInterface $entityManager, Tenant $tenant): void
+    {
+        $entityManager->getFilters()->enable('tenant')->setParameter('tenant', (int) $tenant->getId(), Types::INTEGER);
     }
 
     private function gravarJornada(EntityManagerInterface $entityManager): JsonResponse
