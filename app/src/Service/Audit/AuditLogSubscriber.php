@@ -92,6 +92,12 @@ class AuditLogSubscriber
      */
     private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class, PropostaDeCadastro::class];
 
+    /** Cadastros que a auditoria abre sem o filtro da sessão só para ler o nome ({@see abrirSemFiltroDaSessao}). */
+    private const CADASTROS_ABERTOS_SEM_FILTRO = [Sede::class, Cargo::class, Lotacao::class];
+
+    /** EntityManager do flush em curso: abre, sem o filtro da sessão, o cadastro que só aparece por referência. */
+    private ?EntityManagerInterface $emDoFlush = null;
+
     public function __construct(
         private readonly Security $security,
         private readonly RequestStack $requestStack,
@@ -111,6 +117,7 @@ class AuditLogSubscriber
             return;
         }
 
+        $this->emDoFlush = $entityManager;
         $unitOfWork = $entityManager->getUnitOfWork();
         $auditMetadata = $entityManager->getClassMetadata(AuditLog::class);
         $loggedFingerprints = [];
@@ -288,7 +295,53 @@ class AuditLogSubscriber
             }
         }
 
+        if (!$this->abrirSemFiltroDaSessao($entity)) {
+            return null;
+        }
+
         return $this->entityLabelResolver->resolve($entity);
+    }
+
+    /**
+     * O cadastro referenciado (o cargo do vínculo que sai) pode ser de um escritório diferente do filtro da sessão:
+     * quem sai do escritório B com a sessão em A apaga o vínculo de B, e o cargo de B não abre pelo TenantFilter de A
+     * (a EntityNotFoundException derrubava a saída inteira). O rótulo vai para o log do dono do registro, então o
+     * cadastro é aberto sem o filtro, só para ler o nome. Se nem assim existir, fica sem rótulo.
+     *
+     * Só os cadastros do escritório (CADASTROS_ABERTOS_SEM_FILTRO), que quem os referencia (vínculo, feriado,
+     * lotação com vigência, batida) leva ao log do mesmo dono. Qualquer outra classe segue com o filtro: abrir
+     * sem ele trocaria "a gravação estoura" por "o nome de outro escritório vai para o log da sessão".
+     */
+    private function abrirSemFiltroDaSessao(object $entity): bool
+    {
+        $em = $this->emDoFlush;
+        if ($em === null || !$em->getUnitOfWork()->isUninitializedObject($entity)) {
+            return true;
+        }
+        $cadastroDoEscritorio = false;
+        foreach (self::CADASTROS_ABERTOS_SEM_FILTRO as $classe) {
+            $cadastroDoEscritorio = $cadastroDoEscritorio || $entity instanceof $classe;
+        }
+        if (!$cadastroDoEscritorio) {
+            return true;
+        }
+
+        $filtros = $em->getFilters();
+        $suspender = $filtros->isEnabled('tenant');
+        if ($suspender) {
+            $filtros->suspend('tenant');
+        }
+        try {
+            $em->getUnitOfWork()->initializeObject($entity);
+
+            return true;
+        } catch (EntityNotFoundException) {
+            return false;
+        } finally {
+            if ($suspender) {
+                $filtros->restore('tenant');
+            }
+        }
     }
 
     /** Dono de uma mudança de coleção: "Só eu" antes ou depois desta mudança leva o rótulo particular. */
@@ -459,8 +512,8 @@ class AuditLogSubscriber
     }
 
     /**
-     * O escritório do registro de auditoria: o da sessão, salvo quando a entidade tem dono (TenantAware, ou os cadastros
-     * Cargo, Sede e Lotação, que têm escritório sem ser TenantAware) e a sessão tem escritório: aí vale o DONO
+     * O escritório do registro de auditoria: o da sessão, salvo quando a entidade tem dono (TenantAware, como os
+     * cadastros Cargo, Sede e Lotação, ou o vínculo UserTenant) e a sessão tem escritório: aí vale o DONO
      * (auditoria 3.01). Quem tem vínculo em A e B edita, com a sessão em A, a sede de B pela URL de B, e o log nascia em
      * A, visível e desfazível pela trilha de A. Lista fechada, como a posse do desfazer: classe nova só entra depois de
      * conferida.
@@ -493,8 +546,7 @@ class AuditLogSubscriber
         if ($entity instanceof Tenant) {
             return $entity->getId(); // o próprio escritório é o dono do seu registro
         }
-        if ($entity instanceof TenantAware || $entity instanceof Cargo || $entity instanceof Sede || $entity instanceof Lotacao
-            || $entity instanceof UserTenant) {
+        if ($entity instanceof TenantAware || $entity instanceof UserTenant) {
             return $entity->getTenant()?->getId();
         }
 
