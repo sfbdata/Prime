@@ -98,6 +98,26 @@ final class CadastroPeloVotoTest extends JusPrimeWebTestCase
         self::assertSame(13, $this->marcadores($tenant), 'os 13 marcadores padrão, como hoje');
     }
 
+    #[TestDox('E-mail que já tem conta, com o Voto na sessão: a mesma resposta neutra do cadastro novo, nada gravado na conta existente, e a chave sai da sessão')]
+    public function testRespostaNeutraComVoto(): void
+    {
+        $client = $this->cliente();
+        $email = 'existente_' . uniqid() . '@adv.com';
+        $client->jsonRequest('POST', '/cadastro/criar', $this->campos($client) + ['email' => $email]);
+        self::assertResponseIsSuccessful();
+        $respostaNova = (string) $client->getResponse()->getContent();
+        [, $tenant] = $this->contaCriada($email);
+
+        $client->request('GET', '/cadastro?produto=voto');
+        $client->jsonRequest('POST', '/cadastro/criar', $this->campos($client) + ['email' => $email]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($respostaNova, (string) $client->getResponse()->getContent(), 'a resposta não revela que o e-mail já tem conta');
+        self::assertSame([], $this->contratacoes($tenant), 'a conta existente não ganha o Voto');
+        self::assertFalse($this->votoLiberado($tenant));
+        self::assertNull($this->naSessao($client));
+    }
+
     #[TestDox('Recusa de validação mantém o Voto na sessão, para a pessoa corrigir e tentar de novo')]
     public function testErroMantemOProduto(): void
     {
@@ -165,6 +185,25 @@ final class CadastroPeloVotoTest extends JusPrimeWebTestCase
         self::assertTrue($this->votoLiberado($tenant));
         self::assertSame(0, $this->marcadores($tenant));
         self::assertNull($this->naSessao($client));
+    }
+
+    #[TestDox('Pelo Facebook sem o Voto na sessão, o "produto" do JSON é ignorado (D9)')]
+    public function testFacebookProdutoDoJsonEIgnorado(): void
+    {
+        $client = $this->cliente();
+        $client->request('GET', '/login');
+        $sessao = $client->getRequest()->getSession();
+        $sessao->set(CadastroPeloFacebook::CHAVE_SESSAO, ['id' => 'fb-json-' . uniqid(), 'nome' => 'Ana Json', 'email' => null, 'em' => time()]);
+        $sessao->save();
+        $email = 'fb_json_' . uniqid() . '@adv.com';
+
+        $client->jsonRequest('POST', '/cadastro/facebook/criar', $this->campos($client) + ['email' => $email, 'produto' => 'voto']);
+
+        self::assertResponseIsSuccessful();
+        [, $tenant] = $this->contaCriada($email);
+        self::assertSame([], $this->contratacoes($tenant));
+        self::assertFalse($this->votoLiberado($tenant));
+        self::assertSame(13, $this->marcadores($tenant));
     }
 
     private function naSessao(KernelBrowser $client): mixed
