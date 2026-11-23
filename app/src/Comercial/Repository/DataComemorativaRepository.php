@@ -13,7 +13,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * `datas` da varredura, que roda no worker sem sessão); a alteração do Master é pela entidade, auditada
  * ({@see \App\Comercial\UseCase\AlterarDataComemorativaUseCase}). Plataforma: a tabela não tem `tenant_id`.
  *
- * @phpstan-type EstadoDaData array{ligada: bool, antecedencia: int, publico: string}
+ * @phpstan-type EstadoDaData array{ligada: bool, antecedencia: int, publico: string, modelo: ?string}
  *
  * @extends ServiceEntityRepository<DataComemorativa>
  */
@@ -28,11 +28,11 @@ class DataComemorativaRepository extends ServiceEntityRepository
     public function estados(): array
     {
         $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT chave, ligada, antecedencia, publico FROM comercial_data_comemorativa',
+            'SELECT chave, ligada, antecedencia, publico, modelo_chave FROM comercial_data_comemorativa',
         );
         $estados = [];
         foreach ($linhas as $l) {
-            $estados[(string) $l['chave']] = ['ligada' => (bool) $l['ligada'], 'antecedencia' => (int) $l['antecedencia'], 'publico' => (string) $l['publico']];
+            $estados[(string) $l['chave']] = ['ligada' => (bool) $l['ligada'], 'antecedencia' => (int) $l['antecedencia'], 'publico' => (string) $l['publico'], 'modelo' => $l['modelo_chave'] === null ? null : (string) $l['modelo_chave']];
         }
 
         return $estados;

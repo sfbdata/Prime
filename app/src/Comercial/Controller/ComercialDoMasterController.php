@@ -25,6 +25,7 @@ use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Comercial\UseCase\ConsultarEnvioDeCampanhasUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\ListarDatasComemorativasUseCase;
+use App\Comercial\UseCase\ListarModelosDasDatasUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -109,18 +110,19 @@ final class ComercialDoMasterController extends AbstractController
      * (desligada, a tela avisa que nada sai).
      */
     #[Route('/master/comercial/datas', name: 'master_comercial_datas', methods: ['GET'])]
-    public function datas(ListarDatasComemorativasUseCase $listar, ChaveDasCampanhas $chave): JsonResponse
+    public function datas(ListarDatasComemorativasUseCase $listar, ChaveDasCampanhas $chave, ListarModelosDasDatasUseCase $modelos): JsonResponse
     {
         $saida = $listar->executar();
 
         return $this->json([
             'datas' => array_map(static fn (DataComemorativaOutput $d): array => $d->paraArray(), $saida->datas),
             'ativas' => $saida->ativas,
+            'modelos' => $modelos->executar(),
             'chaveLigada' => $chave->ligada(),
         ]);
     }
 
-    /** `{ligada, antecedencia, publico}`: o interruptor, "No dia / 1 dia antes / 3 dias antes" e o "Para quem". */
+    /** `{ligada, antecedencia, publico, modelo}`: o interruptor, "No dia / 1 dia antes / 3 dias antes", o "Para quem" e o modelo (vazio ou nulo = padrão da data). */
     #[Route('/master/comercial/datas/{chave}', name: 'master_comercial_data', requirements: ['chave' => '[a-z]{2,20}'], methods: ['POST'])]
     public function alterarData(string $chave, Request $request, AlterarDataComemorativaUseCase $alterar): JsonResponse
     {
@@ -128,12 +130,13 @@ final class ComercialDoMasterController extends AbstractController
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
         $corpo = json_decode($request->getContent(), true);
-        if (!is_array($corpo) || !is_bool($corpo['ligada'] ?? null) || !is_int($corpo['antecedencia'] ?? null) || !is_string($corpo['publico'] ?? null)) {
-            return $this->json(['erro' => 'Informe se a data fica ligada, a antecedência e para quem.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        if (!is_array($corpo) || !is_bool($corpo['ligada'] ?? null) || !is_int($corpo['antecedencia'] ?? null) || !is_string($corpo['publico'] ?? null) || !array_key_exists('modelo', $corpo) || ($corpo['modelo'] !== null && !is_string($corpo['modelo']))) {
+            // `modelo` é obrigatório (nulo = padrão da data): o POST é a linha inteira, e a falta dele apagaria a escolha.
+            return $this->json(['erro' => 'Informe se a data fica ligada, a antecedência, para quem e o modelo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         $usuario = $this->getUser();
         try {
-            $linha = $alterar->executar($chave, $corpo['ligada'], $corpo['antecedencia'], $corpo['publico'], $usuario instanceof User ? $usuario : throw new DataComemorativaRecusada('Sessão inválida.'));
+            $linha = $alterar->executar($chave, $corpo['ligada'], $corpo['antecedencia'], $corpo['publico'], $usuario instanceof User ? $usuario : throw new DataComemorativaRecusada('Sessão inválida.'), $corpo['modelo']);
         } catch (DataComemorativaRecusada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

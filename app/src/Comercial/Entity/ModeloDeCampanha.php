@@ -15,10 +15,14 @@ use Doctrine\ORM\Mapping as ORM;
  * NÃO é `Auditavel`: o AuditLogSubscriber gravaria até 500 caracteres do conteúdo no audit_log. A trilha é manual, no
  * repositório ({@see ModeloDeCampanhaRepository::salvar()}), com `changes` só `{nome, modo}` (R6).
  *
+ * `fixoChave`: preenchida, a linha é a versão do Master de um modelo padrão do sistema (convite, `data-natal`...), uma por
+ * chave; não é um modelo próprio e não aparece em "Meus modelos".
+ *
  * `conteudo`: o JSON dos campos do simples, o JSON dos blocos, ou o HTML já sanitizado (modo `html`).
  */
 #[ORM\Entity(repositoryClass: ModeloDeCampanhaRepository::class)]
 #[ORM\Table(name: 'comercial_modelo')]
+#[ORM\UniqueConstraint(name: 'uniq_comercial_modelo_fixo_chave', columns: ['fixo_chave'])]
 class ModeloDeCampanha
 {
     public const ICONE_PADRAO = 'bi-file-earmark';
@@ -51,6 +55,9 @@ class ModeloDeCampanha
     #[ORM\Column(type: 'text')]
     private string $conteudo;
 
+    #[ORM\Column(name: 'fixo_chave', length: 40, nullable: true)]
+    private ?string $fixoChave = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'criado_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $criadoPor;
@@ -73,6 +80,15 @@ class ModeloDeCampanha
         $this->criadoPor = $por;
         $this->criadoEm = $agora;
         $this->alteradoEm = $agora;
+    }
+
+    /** A versão do Master do modelo padrão `$chave`: o nome e o ícone são os do padrão. */
+    public static function paraFixo(string $chave, string $nome, string $icone, string $modo, User $por, \DateTimeImmutable $agora): self
+    {
+        $modelo = new self($nome, $icone, $modo, $por, $agora);
+        $modelo->fixoChave = $chave;
+
+        return $modelo;
     }
 
     /** O nome entre 1 e 40 caracteres (cortado, como o dc corta o do HTML importado em L.553). */
@@ -106,6 +122,11 @@ class ModeloDeCampanha
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getFixoChave(): ?string
+    {
+        return $this->fixoChave;
     }
 
     public function getNome(): string

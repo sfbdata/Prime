@@ -41,6 +41,6 @@ final class ListarDatasComemorativasUseCase
     /** O que o estado guardado vira na tela (o mesmo da listagem), para a resposta da alteração. */
     public static function linha(DataComemorativa $d, \DateTimeImmutable $hoje): DataComemorativaOutput
     {
-        return DataComemorativaOutput::deEstado($d->getChave(), ['ligada' => $d->isLigada(), 'antecedencia' => $d->getAntecedencia(), 'publico' => $d->getPublico()], $hoje);
+        return DataComemorativaOutput::deEstado($d->getChave(), ['ligada' => $d->isLigada(), 'antecedencia' => $d->getAntecedencia(), 'publico' => $d->getPublico(), 'modelo' => $d->getModeloChave()], $hoje);
     }
 }
