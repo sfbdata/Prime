@@ -72,7 +72,7 @@ final class EquipeDoPontoController extends AbstractController
         } catch (EscalaDesconhecidaException $recusada) {
             return $this->json(['erro' => $this->tradutor->trans($recusada->chave())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (ChoqueDeJornadaException $choque) {
-            return $this->json(['erro' => $choque->getMessage()], Response::HTTP_CONFLICT);
+            return $this->json(['erro' => $choque->texto()->traduzir($this->tradutor)], Response::HTTP_CONFLICT);
         } catch (UniqueConstraintViolationException) {
             return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
         }

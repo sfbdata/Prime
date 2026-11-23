@@ -33,9 +33,26 @@ final class SaidaDeEsquecimento
     /** O aviso da entrada que passou apesar da interjornada (R4): o dia e a hora da saída e o mínimo em horas. */
     public const AVISO_INTERJORNADA = 'A entrada foi registrada. O descanso desde a saída de %s às %s, informada por registro de esquecimento, ficou abaixo da interjornada mínima de %dh.';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::AVISO_INTERJORNADA => 'ponto_servidor.batida.esquecimento.aviso_interjornada',
+    ];
+
     public function __construct(
         private readonly JustificativaPontoRepository $justificativas,
     ) {
+    }
+
+    /** A chave no catálogo do aviso (a constante AVISO_INTERJORNADA); qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto da saída de esquecimento sem chave no catálogo: "%s".', $texto));
+    }
+
+    /** O aviso da entrada com a chave (`{dia}`, `{hora}` e `{horas}`, o mínimo em horas) para o controller traduzir. */
+    public static function avisoDaInterjornada(string $dia, string $hora, int $horas): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe(self::AVISO_INTERJORNADA), self::AVISO_INTERJORNADA, ['dia' => $dia, 'hora' => $hora, 'horas' => (string) $horas]);
     }
 
     public function veioDeEsquecimento(MarcacaoDoPonto $saida): bool
