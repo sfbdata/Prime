@@ -5,8 +5,8 @@
    As URLs com id levam o marcador 999999999 (casa com o requisito `RelatorioDoMasterController::ID`; o JS o troca).
    F3e (spec docs/specs/comercial-marcas.md): a estrela, o arquivo e a remoção (marcas de cada Master, no servidor), os
    botões da seleção, as abas Com estrela e Arquivadas, o menu do botão direito (dc L504), "Reenviar a quem não leu"
-   (só aviso) e "Exportar destinatários" (CSV pelo servidor). "Encaminhar para um e-mail" fica no menu, desabilitado,
-   até o dono decidir.
+   (só aviso), "Exportar destinatários" (CSV pelo servidor) e "Encaminhar para um e-mail" (a campanha sai como teste
+   para até 5 endereços, M5.17).
    Duas instâncias (spec docs/specs/comercial-relatorio-venda.md): `secao` ('com' na seção Comercial, 'ind' na seção
    Indicações) vai no data-mc-relatorio e no sufixo dos ids; `recursos` (só na da seção Comercial) traz o <link>, o
    <script> e o catálogo do JS, para não repetirem na página.
@@ -23,6 +23,7 @@
          data-url-lista="{{ path('master_comercial_relatorio') }}"
          data-url-campanha="{{ path('master_comercial_campanha', {id: 999999999}) }}"
          data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 999999999}) }}"
+         data-url-encaminhar="{{ path('master_comercial_campanha_encaminhar', {id: 999999999}) }}"
          data-url-marcas="{{ path('master_comercial_relatorio_marcas') }}"
          data-url-csv="{{ path('master_comercial_campanha_destinatarios', {id: 999999999}) }}"
          data-token="{{ csrf_token('master_comercial') }}">
@@ -96,8 +97,7 @@
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-duplicar-{{ secao }}" name="mc-rl-ctx-duplicar-{{ secao }}" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.duplicar'|trans }}</button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-reenviar-{{ secao }}" name="mc-rl-ctx-reenviar-{{ secao }}" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.reenviar'|trans }}</button>
             <div class="mc-rl-ctx-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-off" id="mc-rl-ctx-encaminhar-{{ secao }}" name="mc-rl-ctx-encaminhar-{{ secao }}" disabled aria-disabled="true" aria-describedby="mc-rl-ctx-encaminhar-motivo-{{ secao }}" title="{{ 'comercial_relatorio.menu.encaminhar_motivo'|trans }}"><i class="bi bi-forward" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.encaminhar'|trans }}</button>
-            <div class="mc-motivo mc-rl-ctx-motivo" id="mc-rl-ctx-encaminhar-motivo-{{ secao }}">{{ 'comercial_relatorio.menu.encaminhar_motivo'|trans }}</div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-encaminhar-{{ secao }}" name="mc-rl-ctx-encaminhar-{{ secao }}" data-mc-rl-ctx-acao="encaminhar"><i class="bi bi-forward" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.encaminhar'|trans }}</button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-estrela-{{ secao }}" name="mc-rl-ctx-estrela-{{ secao }}" data-mc-rl-ctx-acao="estrela"><i class="bi bi-star" aria-hidden="true" data-mc-rl-ctx-estrela-ic></i><span data-mc-rl-ctx-estrela-txt>{{ 'comercial_relatorio.menu.estrela'|trans }}</span></button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-arquivar-{{ secao }}" name="mc-rl-ctx-arquivar-{{ secao }}" data-mc-rl-ctx-acao="arquivar"><i class="bi bi-archive" aria-hidden="true"></i><span data-mc-rl-ctx-arq-txt>{{ 'comercial_relatorio.menu.arquivar'|trans }}</span></button>
             <div class="mc-rl-ctx-sep" role="separator"></div>

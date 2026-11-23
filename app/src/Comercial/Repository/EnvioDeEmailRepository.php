@@ -243,18 +243,6 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quantos envios desta origem para este endereço foram registrados desde o instante dado (inclusive), em qualquer
-     * situação: o teto de testes de campanha por Master (spec §8.4) conta também o bloqueado.
-     */
-    public function contarDaOrigemParaDesde(string $origem, string $destinatario, \DateTimeImmutable $desde): int
-    {
-        return (int) $this->conexao()->fetchOne(
-            'SELECT COUNT(*) FROM comercial_envio WHERE origem = :origem AND destinatario = :para AND criado_em >= :desde',
-            ['origem' => $origem, 'para' => MensagemDeEmail::normalizar($destinatario), 'desde' => self::data($desde)],
-        );
-    }
-
-    /**
      * O envio com o conteúdo, para o handler montar o e-mail. `tem_conteudo` falso = o conteúdo já foi apagado.
      *
      * @return EnvioParaMandar|null

@@ -19,7 +19,8 @@ use Doctrine\Persistence\ManagerRegistry;
  *
  * A trilha manual (R6) vai ao `audit_log` na mesma transação: `camp_conf` na confirmação e `camp_fim` no encerramento,
  * com `changes` só `{publico, frequencia, total}` (sem o assunto, por minimização), e `camp_canc` em cada cancelamento
- * automático (a chave desligada, o atraso de mais de 24 h), com `{motivo, total}`.
+ * automático (a chave desligada, o atraso de mais de 24 h), com `{motivo, total}`. `camp_teste` em cada clique de
+ * "Enviar teste" que saiu, só com `{total}` (os endereços ficam no destino, que a retenção anonimiza).
  *
  * @phpstan-type Campanha array{
  *     id: int, chave_idempotencia: string, nome: string, modelo_chave: string, modelo_nome: string, modo: string,
@@ -34,9 +35,13 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class CampanhaDeEmailRepository extends ServiceEntityRepository
 {
+    /** Classe da trava advisory do teste de campanha (primeiro argumento; o segundo é o id do Master). */
+    public const TRAVA_DO_TESTE = 4740;
+
     public const CONFIRMADA = 'camp_conf';
     public const ENCERRADA = 'camp_fim';
     public const CANCELADA = 'camp_canc';
+    public const TESTADA = 'camp_teste';
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
@@ -57,6 +62,28 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     public function emTransacao(\Closure $trabalho): mixed
     {
         return $this->conexao()->transactional(static fn (): mixed => $trabalho());
+    }
+
+    /**
+     * O teste de campanha de um Master, um por vez (pedido do Farlei M5.17): conferir o teto, enviar e registrar ficam
+     * sob a trava advisory de SESSÃO `(4740, master)`, para cliques em paralelo não lerem o mesmo "resta" e furarem os
+     * 10 por hora. De sessão, e não de transação, porque o Carteiro fecha a própria transação no meio; solta no finally.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $trabalho
+     *
+     * @return T
+     */
+    public function comTravaDoTesteDoMaster(int $masterId, \Closure $trabalho): mixed
+    {
+        $conexao = $this->conexao();
+        $conexao->executeStatement('SELECT pg_advisory_lock(?, ?)', [self::TRAVA_DO_TESTE, $masterId]);
+        try {
+            return $trabalho();
+        } finally {
+            $conexao->executeStatement('SELECT pg_advisory_unlock(?, ?)', [self::TRAVA_DO_TESTE, $masterId]);
+        }
     }
 
     /** @return Campanha|null */
@@ -117,6 +144,18 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
             "UPDATE comercial_campanha SET proxima_execucao = :agora
              WHERE estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao < :agora AND modelo_chave NOT LIKE :datas",
             ['agora' => self::data($agora), 'datas' => ModelosDeCampanha::PREFIXO_DE_DATA . '%'],
+        );
+    }
+
+    /**
+     * Quantos endereços já receberam teste deste Master desde o instante dado: a soma do `total` das linhas de teste
+     * dele (o teto de 10 por hora, que sobrevive a deploy porque mora no banco).
+     */
+    public function somarTestesDoMasterDesde(int $masterId, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COALESCE(SUM(total), 0) FROM comercial_campanha WHERE estado = 'teste' AND criada_por_id = :master AND criada_em >= :desde",
+            ['master' => $masterId, 'desde' => self::data($desde)],
         );
     }
 

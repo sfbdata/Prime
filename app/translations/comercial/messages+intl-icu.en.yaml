@@ -159,7 +159,7 @@ comercial:
         fechar: Close
         enviar_para: SEND TO
         separe: (separate several with commas)
-        trava: The test goes only to your email. Sending to other addresses is not available yet.
+        dica: 'Up to 5 addresses, separated by commas. Limit of 10 tests per hour (each address counts 1).'
         nota: The test arrives with [TEST] in the subject and does not count in the campaign metrics.
         cancelar: Cancel
         enviar: Send test

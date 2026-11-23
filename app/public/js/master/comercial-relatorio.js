@@ -246,6 +246,20 @@
         .catch(err => { fechar(); avisar(err.message, 'erro'); });
     }
 
+    // ---- Encaminhar (M5.17): a campanha sai como teste para até 5 endereços (o servidor valida e aplica o teto) ----
+    function encaminhar(id) {
+      const para = window.prompt(BJ_T.t('comercial_relatorio.js.encaminhar_pergunta'), '');
+      if (para === null) return;
+      pedir(url(raiz.dataset.urlEncaminhar, id), Object.assign(POST(), { body: JSON.stringify({ para: para }) }))
+        .then(r => {
+          const aviso = r.aviso ? ' ' + r.aviso : '';
+          avisar(BJ_T.t('comercial_relatorio.js.encaminhado', { para: (r.enviados || []).join(', ') }) + aviso, 'ok');
+          carregar();
+          recarregarOutras(instancia);
+        })
+        .catch(err => avisar(err.message, 'erro'));
+    }
+
     // ---- Marcas (F3e): estrela, arquivo e remoção, de cada Master ----
     function marcar(ids, acao) {
       return pedir(raiz.dataset.urlMarcas, Object.assign(POST(), { body: JSON.stringify({ ids: ids.map(Number), acao: acao }) }))
@@ -326,6 +340,7 @@
       else if (acao === 'reenviar') reenviar(c, true);
       else if (acao === 'estrela') marcar([id], c.estrela ? 'sem_estrela' : 'estrela');
       else if (acao === 'arquivar') marcar([id], estado.aba === 'arq' ? 'desarquivar' : 'arquivar');
+      else if (acao === 'encaminhar') encaminhar(id);
       else if (acao === 'csv') exportar(id, 'emails');
       else if (acao === 'excluir' && window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_excluir'))) marcar([id], 'remover');
     }
