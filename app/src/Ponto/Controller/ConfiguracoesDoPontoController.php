@@ -126,7 +126,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         return $this->responder(function () use ($cadastrar, $request, $escritorio): array {
             $cadastrar->executar(FeriadoDoPontoInput::daRequisicao($request), $escritorio);
 
-            return ['mensagem' => 'Feriado cadastrado.', 'lista' => $this->listaDeFeriados($escritorio)];
+            return ['mensagem' => $this->tradutor->trans('ponto_servidor.configuracoes.feriado_cadastrado'), 'lista' => $this->listaDeFeriados($escritorio)];
         });
     }
 
@@ -138,7 +138,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         return $this->responder(function () use ($remover, $id, $escritorio): array {
             $remover->executar($id, $escritorio);
 
-            return ['mensagem' => 'Feriado removido.', 'lista' => $this->listaDeFeriados($escritorio)];
+            return ['mensagem' => $this->tradutor->trans('ponto_servidor.configuracoes.feriado_removido'), 'lista' => $this->listaDeFeriados($escritorio)];
         });
     }
 
