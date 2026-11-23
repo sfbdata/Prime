@@ -1481,3 +1481,34 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   igual; (3) todo trecho de frase do catálogo novo existe no script antigo. `ScriptDaTelaDoPontoLeODoCatalogoTest` guarda
   isso: chaves em pt_BR e en, texto exato, catálogo entregue na página e literais ausentes do script. Sete testes
   de `tests/Ponto/Unit` que conferiam o literal no template passaram a conferir a chamada `BJ_T.t(...)`.
+
+## 29. Formatos e frases dos ponto-*.js (idioma-ponto-js-2, 23/11)
+
+- **Formatos trocados (exibição):** o `'pt-BR'` fixo do relógio, da data por extenso, da hora e do dia/mês da recusa da
+  fila no script de `ponto/index.html.twig` passou a `IDIOMA_DA_TELA` (`BJFormato.idioma()`); o fuso do servidor
+  (`FUSO_DO_SERVIDOR`) e as opções (`2-digit`, `hourCycle: 'h23'`) não mudaram. A precisão do GPS (inline) e a distância
+  e o raio da frase de "fora do raio" (`ponto-batida.js`) usam `BJFormato.numero(Math.round(x))`, que honra também a
+  opção de número da pessoa (`br`/`us`). O fuso da pessoa (`data-bj-fuso`) NÃO se aplica: o Ponto mostra a hora do servidor.
+- **Mantidos em pt-BR (máquina), com `IDIOMA_DE_MAQUINA`:** `FORMATO_DIA_DO_LEMBRETE` (chave do `localStorage` e
+  comparação do "uma vez por dia") e `FORMATO_DIA_DA_FILA` (comparado com `DIA_DA_TELA`, dd/mm/aaaa montado à mão, e
+  com o dia gravado da batida). Mudar o formato repetiria o lembrete e faria batida guardada parecer de outro dia.
+  `toLocaleDateString('sv-SE')` do `ponto-pendente.js` também fica (data ISO aaaa-mm-dd).
+- **Ordem de carga:** o relógio é montado no carregamento do script da tela, antes do `bj-formato.js` do `base`; por isso
+  `ponto/index.html.twig` carrega o `bj-formato.js` ao lado do `bj-traducao.js` (a segunda carga é ignorada). O
+  `ponto-batida.js` só formata na hora do uso (o `base` já carregou).
+- **Sem mudança em português:** em Node, as 4 opções de `Intl.DateTimeFormat` (6 instantes de borda: virada de ano e de
+  dia em UTC-3, 29/02, 01/03) e `numero(Math.round(n))` (0, 999, 1000, 1200, 1234,5, 1000000...) com locale pt-BR saem
+  idênticos aos da expressão antiga. Em inglês: `1,200`, `Monday, 11/23/2026`, `08:07:09` (24 h mantido).
+- **Frases:** os `ponto-*.js` já passavam todos por `BJ_T.t('ponto_cartao.js.*')` (e `ponto_config.js`, `ponto_folha.js`):
+  nenhuma chave nova. O que sobra fixo é técnico (`console.*`, `new Error`, cabeçalhos, teclas) e duas frases de janela de
+  documento legal, que ficam sempre em pt_BR por decisão anterior: "Sem resposta do servidor..." (validar comprovante,
+  `ponto-comprovantes.js`) e "Descreva a ressalva." (aceite da folha, `ponto-folha.js`). Chaves por arquivo hoje: abas 7
+  usos, janelas 11, batida 4, sedes 9, folha 5, comprovantes 3, configurações 3, equipe 3, paineis 3, sons 2, tela cheia 1.
+- **Catálogo entregue:** `ponto/index` (`ponto_cartao.js`), `_config_funcoes` (`ponto_config.js`), `_folha_table`
+  (`ponto_folha.js`, também usada na ficha do `tenant/edit_user_role`) e o cabeçalho (`_presenca`, só `presenca` e `batida`,
+  o que o `ponto-batida.js` lê). Os fragmentos de aba são buscados dentro da `/ponto`, que já tem o catálogo.
+- **Guardas:** `FormatosEFrasesDoJsDoPontoTest` (sem `'pt-BR'` nos `ponto-*.js`; exceções de máquina nomeadas; lista
+  fechada de frases técnicas/legais) e `ponto-alerta-som.js`, `ponto-aviso-flutuante.js`, `ponto-auditoria.js` entraram
+  em `templates-extraidos.json` (`ponto_cartao`).
+- **Ficou de fora:** as duas frases legais acima (decisão do dono para virarem chave); texto do servidor; a hora gravada
+  pelo servidor (`data.hora`) segue o formato dele.
