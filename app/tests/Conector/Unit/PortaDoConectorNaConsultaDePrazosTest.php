@@ -8,6 +8,7 @@ use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Repository\EscritorioDoConectorRepository;
 use App\Conector\Service\LiberacaoDoConector;
+use App\Tests\Conector\Support\LiberacaoDoConectorDeTeste;
 use App\Conector\Service\PortaDoConectorNaConsultaDePrazos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -114,7 +115,7 @@ final class PortaDoConectorNaConsultaDePrazosTest extends TestCase
         $escritorios = $this->createStub(EscritorioDoConectorRepository::class);
         $escritorios->method('buscarDoEscritorio')->willReturnCallback(fn (): ?EscritorioDoConector => $this->doConector);
 
-        return new PortaDoConectorNaConsultaDePrazos(new AcessoAoModuloTarefas($permissoes), new LiberacaoDoConector($this->recursos(), $escritorios));
+        return new PortaDoConectorNaConsultaDePrazos(new AcessoAoModuloTarefas($permissoes), LiberacaoDoConectorDeTeste::montar($this->recursos(), $escritorios));
     }
 
     private function recursos(): RecursosDoSistema

@@ -9,6 +9,7 @@ use App\Conector\Enum\VersaoDoAceiteDoConector;
 use App\Conector\Exception\AcessoDoConectorRecusado;
 use App\Conector\Repository\EscritorioDoConectorRepository;
 use App\Conector\Service\LiberacaoDoConector;
+use App\Tests\Conector\Support\LiberacaoDoConectorDeTeste;
 use App\Conector\Service\ValidadorDoTokenDoConector;
 use App\Conector\UseCase\AlterarConectorDoEscritorioUseCase;
 use App\Entity\Tenant\Tenant;
@@ -43,7 +44,7 @@ final class AlterarConectorDoEscritorioUseCaseTest extends KernelTestCase
 
     private function liberacao(): LiberacaoDoConector
     {
-        return new LiberacaoDoConector(
+        return LiberacaoDoConectorDeTeste::montar(
             static::getContainer()->get(RecursosDoSistema::class),
             static::getContainer()->get(EscritorioDoConectorRepository::class),
         );
