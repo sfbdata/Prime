@@ -354,6 +354,8 @@ master:
             col_orcamento: Orçamento mensal (US$)
             col_analises_mes: Análises no mês
             col_gasto_mes: Gasto no mês (US$)
+            liberar_todos: Liberar todos
+            bloquear_todos: Bloquear todos
         recusa:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_ligada: Informe se a chave geral fica ligada ou desligada.
@@ -403,6 +405,8 @@ master:
             nota: O Voto só aparece para o escritório liberado aqui e enquanto estiver ligado em Telas e recursos. Todo escritório começa em modo demonstração.
             col_nome: Escritório
             col_liberado: Liberado
+            liberar_todos: Liberar todos
+            bloquear_todos: Bloquear todos
         # "Estatísticas de todas as votações" (W2-7 bloco C; textos do desenho 18, H245).
         estatisticas:
             titulo: Estatísticas de todas as votações
@@ -1167,6 +1171,15 @@ master:
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar as configurações da I.A. Recarregue a página.
             erro_salvar: Não foi possível salvar.
+            todos_liberar_titulo: Liberar a I.A. para todos
+            todos_liberar_botao: Liberar todos
+            todos_liberar_texto: 'Liberar a I.A. para {n} escritório(s) ativo(s) que hoje estão bloqueados? A cobrança e o orçamento de cada um ficam como estão. Escritórios criados depois não entram.'
+            todos_bloquear_titulo: Bloquear a I.A. para todos
+            todos_bloquear_botao: Bloquear todos
+            todos_bloquear_texto: 'Bloquear a I.A. para {n} escritório(s) ativo(s) que hoje estão liberados? A cobrança e o orçamento de cada um ficam como estão.'
+            todos_liberou: 'I.A. liberada para {n} escritório(s).'
+            todos_bloqueou: 'I.A. bloqueada para {n} escritório(s).'
+            todos_nenhum: Nenhum escritório precisou mudar.
         # Bloco "Questões jurídicas" da aba "Configurações da I.A." (public/js/master/ia-juridico.js).
         ia_juridico:
             em_aberto: 'Em aberto: {n}'
@@ -1192,6 +1205,15 @@ master:
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar a liberação do Voto. Recarregue a página.
             erro_salvar: Não foi possível salvar.
+            todos_liberar_titulo: Liberar o Voto para todos
+            todos_liberar_botao: Liberar todos
+            todos_liberar_texto: 'Liberar o Voto para {n} escritório(s) ativo(s) que hoje estão bloqueados? Escritórios criados depois não entram: libere pela chave deles.'
+            todos_bloquear_titulo: Bloquear o Voto para todos
+            todos_bloquear_botao: Bloquear todos
+            todos_bloquear_texto: 'Bloquear o Voto para {n} escritório(s) ativo(s) que hoje estão liberados? O que eles já têm no Voto fica guardado.'
+            todos_liberou: 'Voto liberado para {n} escritório(s).'
+            todos_bloqueou: 'Voto bloqueado para {n} escritório(s).'
+            todos_nenhum: Nenhum escritório precisou mudar.
             est_kpi_votacoes: Votações
             est_kpi_realizadas: Realizadas
             est_kpi_andamento: Em andamento

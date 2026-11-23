@@ -12,6 +12,7 @@
      data-url-modelo="{{ path('master_ia_modelo') }}"
      data-url-retencao="{{ path('master_ia_retencao') }}"
      data-url-escritorio="{{ path('master_ia_escritorio', {tenantId: 0}) }}"
+     data-url-todos="{{ path('master_ia_todos') }}"
      data-token="{{ csrf_token('master_ia') }}">
 
     <div class="mp-ia-msg" data-mp-ia-msg role="status" hidden></div>
@@ -61,6 +62,10 @@
     <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-escritorios">
         <div class="mp-cab-roxo"><i class="bi bi-building"></i><b id="mp-ia-escritorios">{{ 'master.ia.escritorios.titulo'|trans }}</b><span data-mp-ia-contagem></span></div>
         <p class="mp-ia-nota mp-ia-nota-tabela">{{ 'master.ia.escritorios.nota'|trans }}</p>
+        <div class="mp-ia-acoes">
+            <button type="button" class="mp-btn-roxo" id="mp-ia-liberar-todos" data-mp-ia-todos="1" disabled><i class="bi bi-unlock" aria-hidden="true"></i>{{ 'master.ia.escritorios.liberar_todos'|trans }}</button>
+            <button type="button" class="mp-btn-cinza" id="mp-ia-bloquear-todos" data-mp-ia-todos="0" disabled><i class="bi bi-lock" aria-hidden="true"></i>{{ 'master.ia.escritorios.bloquear_todos'|trans }}</button>
+        </div>
         <div class="mp-rolagem">
             <div class="mp-ia-grade">
                 <div class="mp-ia-cab">

@@ -39,3 +39,8 @@
 .mp-ia-num { font-size: 13px; color: #243845; font-variant-numeric: tabular-nums; }
 .mp-ia-selo-atingido { --cor: #a3232b; }
 .mp-ia-selo-gratis { --cor: #8a5a12; }
+
+/* "Liberar todos" e "Bloquear todos" (M5.9): os botões do painel (.mp-btn-roxo e .mp-btn-cinza) numa faixa acima da tabela. */
+.mp-ia-acoes { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; }
+.mp-ia-acoes button { padding: 0 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
+.mp-ia-acoes button:disabled { opacity: .6; cursor: not-allowed; }
