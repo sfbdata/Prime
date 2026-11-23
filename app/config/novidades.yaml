@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.63.2"
+  data: "2026-11-23"
+  itens:
+    - "A aba da campanha BlueJus Black volta para o canto direito, pendurada logo abaixo da barra azul do topo, sem cobrir o seu nome nem a sua foto. Ela continua sumindo sozinha depois de alguns segundos."
+    - "A conferência automática do \"Duplicar meta\" ficou mais confiável: ela agora cria a meta de exemplo com prazo para daqui a 30 dias, em vez de uma data fixa do calendário, e volta a validar cada nova versão antes de ir ao ar."
 - versao: "2.63.1"
   data: "2026-11-19"
   itens:
