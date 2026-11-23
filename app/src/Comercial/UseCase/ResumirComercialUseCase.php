@@ -14,7 +14,8 @@ use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 /**
  * Os KPIs do fim da seção Comercial (spec comercial-e-emails §10, item 10; desenho 05 VS 21.10.26, L325 e L690), só
  * leitura, para o Master:
- *   - Campanhas: enviadas ou agendadas (todas menos as canceladas), com as de teste;
+ *   - Campanhas: enviadas ou agendadas (todas menos as canceladas), SEM as de teste, que vão à parte em `testes`
+ *     (pedido do Farlei M8.3, 23/11/2026);
  *   - E-mails na fila: os envios de campanha ainda por sair (enfileirados ou saindo);
  *   - Base de contatos: os confirmados da lista `comercial_campanhas`, sem os descadastrados (o repositório da
  *     confirmação deixa essa retirada para quem chama);
@@ -39,6 +40,7 @@ final class ResumirComercialUseCase
             $this->envios->contarDeCampanhaNaFila(),
             $this->base(),
             $this->descadastro->listar(null, null, 1, 1, self::ASSUNTOS_DA_LISTA)->total,
+            $this->campanhas->contarTestes(),
         );
     }
 

@@ -1,7 +1,5 @@
-# Bandeira do idioma no topo e "Opções avançadas" do Meu Perfil (spec docs/specs/sistema-em-ingles.md).
+# "Opções avançadas" do Meu Perfil (spec docs/specs/sistema-em-ingles.md).
 opcoes_avancadas:
-    bandeira:
-        rotulo: 'Idioma: {idioma}'
     rotulo: Opções avançadas
     sub: Idioma, fuso horário, formato de data e de valores
     titulo: Opções avançadas

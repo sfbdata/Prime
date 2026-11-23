@@ -1,5 +1,5 @@
-/* Modo campanha "BlueJus Black": aba do topo, janela da campanha e painel do Master.
-   Desenho: bj-campanha.js (aba, abrir, alerta). A janela vem do servidor (GET contribua_campanha_janela);
+/* Modo campanha "BlueJus Black": janela da campanha e painel do Master.
+   Desenho: bj-campanha.js (abrir, alerta). A janela vem do servidor (GET contribua_campanha_janela);
    o JS só monta o overlay, envia os formulários e mostra o erro em toast. */
 (function () {
     'use strict';
@@ -34,38 +34,6 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
         }).then((r) => r.json().catch(() => ({ ok: false, erro: ERRO_PADRAO })))
             .catch(() => ({ ok: false, erro: ERRO_PADRAO }));
-    }
-
-    /* ---------- Aba fixa: logo abaixo do cabeçalho da tela (cabecalho() do desenho) ---------- */
-    // O cabeçalho do sistema é o `nav.app-header` (#mainHeader): o `cabecalho()` do desenho só procura `header` e
-    // `[role=banner]`, não o achava e a aba ia para o topo (top 0), por cima do nome e do avatar (print do Farlei).
-    function baseDoCabecalho() {
-        const barra = document.getElementById('mainHeader');
-        if (barra) {
-            const r = barra.getBoundingClientRect();
-            if (r.height > 0) { return Math.max(0, r.bottom); }
-        }
-        const achados = Array.from(document.querySelectorAll('header, [role=banner], .main-header, .app-header')).filter((h) => {
-            const r = h.getBoundingClientRect();
-            return r.top <= 2 && r.height >= 40 && r.height <= 140 && r.width >= window.innerWidth * 0.8;
-        });
-        return achados[0] ? achados[0].getBoundingClientRect().bottom : 0;
-    }
-
-    // A aba fica pendurada no canto direito, logo abaixo da barra azul (right:24px do desenho), e some sozinha em 5 s.
-    const ABA_SOME_EM_MS = 5000;
-
-    function posicionarAba() {
-        const aba = document.getElementById('cp-aba');
-        if (aba) { aba.style.top = baseDoCabecalho() + 'px'; }
-    }
-
-    function esconderAba() {
-        const aba = document.getElementById('cp-aba');
-        if (!aba) { return; }
-        window.removeEventListener('resize', posicionarAba);
-        aba.classList.add('cp-aba--saindo');
-        setTimeout(() => aba.remove(), 450);
     }
 
     /* ---------- Janela ---------- */
@@ -243,7 +211,8 @@
         });
     }
 
-    /* ---------- Abertura: aba, faixa, FAQ ([data-campanha-abrir]) e #black em qualquer tela ---------- */
+    /* ---------- Abertura: faixa, FAQ ([data-campanha-abrir]) e #black em qualquer tela ---------- */
+    // A aba fixa do topo saiu (pedido M5.6 do dono, 23/11): a campanha aparece só na página Contribua.
     document.addEventListener('click', (e) => {
         const gatilho = e.target.closest('[data-campanha-abrir]');
         if (!gatilho) { return; }
@@ -252,10 +221,6 @@
     });
 
     function iniciar() {
-        posicionarAba();
-        setTimeout(posicionarAba, 600);
-        window.addEventListener('resize', posicionarAba);
-        setTimeout(esconderAba, ABA_SOME_EM_MS);
         const painel = document.querySelector('[data-cp-painel]');
         if (painel) { iniciarPainel(painel); }
         if (/[#&]black\b/.test(window.location.hash)) { abrir(); }

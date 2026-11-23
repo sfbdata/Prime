@@ -48,7 +48,6 @@ final class MontarPainelDaCampanhaUseCase
             prazoPedido: $campanha->getPrazoPedidoDias(),
             prazoPagto: $campanha->getPrazoPagamentoDiasUteis(),
             vagas: $vagas,
-            abaNoTopo: $campanha->isAbaNoTopo(),
             mostrarContador: $campanha->isMostrarContador(),
             ligada: $campanha->isLigada(),
             beneficiosTexto: implode("\n", $campanha->getBeneficios()),

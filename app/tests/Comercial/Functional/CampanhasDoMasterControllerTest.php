@@ -71,15 +71,15 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('comercial_campanha'));
     }
 
-    #[TestDox('Chave da instalação desligada (padrão): "Enviar campanha" é recusado com a mensagem da spec e nada é gravado')]
-    public function testChaveDesligadaRecusa(): void
+    #[TestDox('Chave desligada (M8.4): a campanha é gravada do mesmo jeito e fica esperando; nada sai')]
+    public function testChaveDesligadaGravaEEspera(): void
     {
         $client = $this->clienteMaster(ligada: false);
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $this->cadastradoAtivo()->getEmail()]));
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('O envio de campanhas está desligado nesta instalação.', $this->json($client)['erro']);
-        self::assertSame(0, $this->contar('comercial_campanha'));
+        self::assertResponseIsSuccessful();
+        self::assertSame(['na_fila'], $this->conexao()->fetchFirstColumn('SELECT estado FROM comercial_campanha'));
+        self::assertEmailCount(0);
     }
 
     #[TestDox('Confirmar: nasce na fila com a cópia do conteúdo, audita camp_conf só com {publico, frequencia, total}; nada sai (o expansor a pega na volta do minuto)')]

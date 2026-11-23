@@ -80,6 +80,7 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         yield 'POST modelo' => ['POST', '/master/ia/modelo'];
         yield 'POST retenção' => ['POST', '/master/ia/retencao'];
         yield 'POST escritório' => ['POST', '/master/ia/escritorios/1'];
+        yield 'POST todos' => ['POST', '/master/ia/todos'];
     }
 
     #[DataProvider('rotas')]
@@ -398,6 +399,70 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         foreach (['desenvolvedor', 'peça ao', 'Peça ao', 'avise', 'suporte', 'IA_HABILITADA', '.env'] as $proibido) {
             self::assertStringNotContainsString($proibido, $texto, 'texto do Master não manda acionar ninguém: ' . $proibido);
         }
+    }
+
+    #[TestDox('liberar todos: os ativos mudam, `alterados` vem na resposta, cobrança e orçamento ficam, a auditoria cai em cada escritório, suspenso fica de fora; a chave geral não muda')]
+    public function testLiberarEBloquearTodos(): void
+    {
+        $master = $this->entrarComoMaster();
+        $semLinha = $this->escritorio('IA todos sem linha ' . uniqid());
+        $comOrcamento = $this->escritorioComOrcamento('IA todos orçamento ' . uniqid(), ModoDeCobrancaDaIa::Adicional, 900);
+        $this->configuracaoDo($comOrcamento)?->bloquearPeloMaster();
+        $this->em->flush();
+        $suspenso = $this->escritorio('IA todos suspenso ' . uniqid());
+        $suspenso->setIsActive(false);
+        $this->em->flush();
+        $geralAntes = $this->plataformaNoBanco();
+        // O preparo acima grava direto pelo EntityManager (fora do escopo da plataforma): só conta a auditoria do lote.
+        $ultimaAuditoria = (int) $this->em->getConnection()->fetchOne('SELECT COALESCE(MAX(id), 0) FROM audit_log');
+
+        $this->postar('/master/ia/todos', ['liberada' => true]);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertGreaterThanOrEqual(2, $d['alterados']);
+        self::assertTrue($this->linhaDe($d, $semLinha)['liberada']);
+        $linha = $this->linhaDe($d, $comOrcamento);
+        self::assertTrue($linha['liberada']);
+        self::assertSame('adicional', $linha['modoDeCobranca']);
+        self::assertSame('9.00', $linha['orcamento']);
+        self::assertNull($this->configuracaoDo($suspenso), 'suspenso não entra no lote');
+        self::assertSame($geralAntes, $this->plataformaNoBanco(), 'a chave geral da plataforma não muda');
+        $auditados = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ? AND id > ?',
+            [ConfiguracaoDeInteligencia::class, $master->getId(), $ultimaAuditoria],
+        );
+        $auditados = array_map('intval', $auditados);
+        self::assertContains((int) $semLinha->getId(), $auditados, 'a auditoria cai no escritório alterado');
+        self::assertContains((int) $comOrcamento->getId(), $auditados);
+        self::assertNotContains(0, $auditados, 'nenhuma mudança do lote fica sem escritório');
+
+        $this->postar('/master/ia/todos', ['liberada' => false]);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertFalse($this->linhaDe($d, $semLinha)['liberada']);
+        self::assertFalse($this->linhaDe($d, $comOrcamento)['liberada']);
+        $this->postar('/master/ia/todos', ['liberada' => false]);
+        self::assertSame(0, $this->json()['alterados'], 'já no estado pedido: ninguém muda');
+    }
+
+    #[TestDox('liberar todos: CSRF errado é 403 e corpo inválido é 422, sem gravar nada')]
+    public function testTodosCsrfECorpo(): void
+    {
+        $this->entrarComoMaster();
+        $tenant = $this->escritorio('IA todos recusa ' . uniqid());
+
+        $this->postar('/master/ia/todos', ['liberada' => true], 'errado');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
+
+        foreach ([['liberada' => 'sim'], ['liberada' => 1], ['liberado' => true], []] as $corpo) {
+            $this->postar('/master/ia/todos', $corpo);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame('Informe se o escritório fica liberado ou bloqueado.', $this->json()['erro']);
+        }
+        self::assertNull($this->configuracaoDo($tenant));
     }
 
     private function entrarComoMaster(): User

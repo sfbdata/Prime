@@ -137,6 +137,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         $filhos = $this->doc->filter($caixa . ' > *')->each(static fn (Crawler $c): string => match ($c->attr('class')) {
             'mc-rl-ctx-sep' => '---',
             'mc-rl-ctx-titulo' => 'título',
+            'mc-motivo mc-rl-ctx-motivo' => 'motivo',
             default => trim((string) preg_replace('/\s+/', ' ', $c->text())) . ' ' . (string) $c->filter('i')->attr('class'),
         });
         self::assertSame([
@@ -146,6 +147,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
             'Reenviar a quem não leu bi bi-arrow-repeat',
             '---',
             'Encaminhar para um e-mail bi bi-forward',
+            'motivo',
             'Marcar com estrela bi bi-star',
             'Arquivar bi bi-archive',
             '---',

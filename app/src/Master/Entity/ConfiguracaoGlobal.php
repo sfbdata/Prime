@@ -21,6 +21,9 @@ use Doctrine\ORM\Mapping as ORM;
  * Na mesma linha, com prefixo próprio, mora a validação automática da Revisão de OAB (desenho 05 - Perfis 1.2 de
  * 31/10). Ela não é campo do catálogo: {@see getValores()} não a devolve e {@see definirValores()} a preserva, para
  * que salvar a tela de configurações não a apague nem a mostre.
+ *
+ * Do mesmo jeito, com o prefixo `comercial.`, mora a chave do envio de campanhas (pedido do Farlei M8.1, 23/11/2026): a
+ * Central de envios a liga e desliga, e cada troca entra na Trilha de Auditoria pelo AuditLogSubscriber.
  */
 #[ORM\Entity(repositoryClass: ConfiguracaoGlobalRepository::class)]
 #[ORM\Table(name: 'configuracao_global')]
@@ -29,6 +32,10 @@ class ConfiguracaoGlobal implements Auditavel
 {
     public const ID_UNICO = 1;
     private const PREFIXO_REVISAO_OAB = 'revisaoOab.';
+    private const PREFIXO_COMERCIAL = 'comercial.';
+    private const ENVIO_DE_CAMPANHAS = self::PREFIXO_COMERCIAL . 'campanhasLigadas';
+    /** Chaves com estes prefixos não são campos do catálogo: a tela de configurações não as mostra nem as apaga. */
+    private const PREFIXOS_FORA_DO_CATALOGO = [self::PREFIXO_REVISAO_OAB, self::PREFIXO_COMERCIAL];
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
@@ -53,7 +60,7 @@ class ConfiguracaoGlobal implements Auditavel
     /** @param array<string, string> $valores já validados pelo catálogo */
     public function definirValores(array $valores, ?User $por, \DateTimeImmutable $em): void
     {
-        $this->valores = $valores + $this->getRevisaoOab(comPrefixo: true);
+        $this->valores = $valores + $this->foraDoCatalogo();
         $this->alteradoPor = $por;
         $this->alteradoEm = $em;
     }
@@ -61,7 +68,32 @@ class ConfiguracaoGlobal implements Auditavel
     /** @return array<string, string> */
     public function getValores(): array
     {
-        return array_filter($this->valores, static fn (string $chave): bool => !str_starts_with($chave, self::PREFIXO_REVISAO_OAB), ARRAY_FILTER_USE_KEY);
+        return array_diff_key($this->valores, $this->foraDoCatalogo());
+    }
+
+    /**
+     * Liga ou desliga o envio de campanhas. Registra quem e quando, como a tela de configurações: o estado mostrado na
+     * Central de envios e a trilha dizem quem mexeu por último.
+     */
+    public function definirEnvioDeCampanhas(bool $ligado, ?User $por, \DateTimeImmutable $em): void
+    {
+        $this->valores[self::ENVIO_DE_CAMPANHAS] = $ligado ? '1' : '0';
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $em;
+    }
+
+    /** Null: ninguém mexeu na chave pelo painel ainda (vale o padrão do ambiente). */
+    public function getEnvioDeCampanhas(): ?bool
+    {
+        $valor = $this->valores[self::ENVIO_DE_CAMPANHAS] ?? null;
+
+        return $valor === null ? null : $valor === '1';
+    }
+
+    /** O nome da chave dentro do JSON `valores`, para a leitura direta do banco (o worker não guarda a entidade). */
+    public static function chaveDoEnvioDeCampanhas(): string
+    {
+        return self::ENVIO_DE_CAMPANHAS;
     }
 
     /**
@@ -88,6 +120,20 @@ class ConfiguracaoGlobal implements Auditavel
         }
 
         return $saida;
+    }
+
+    /** @return array<string, string> as chaves fora do catálogo, com o prefixo, para preservar ao salvar o catálogo */
+    private function foraDoCatalogo(): array
+    {
+        return array_filter($this->valores, static function (string $chave): bool {
+            foreach (self::PREFIXOS_FORA_DO_CATALOGO as $prefixo) {
+                if (str_starts_with($chave, $prefixo)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }, ARRAY_FILTER_USE_KEY);
     }
 
     public function getAlteradoPor(): ?User

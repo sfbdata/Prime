@@ -11,6 +11,7 @@ use App\Voto\DTO\EstatisticasDoVotoOutput;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Exception\EscritorioNaoEncontradoException;
 use App\Voto\Service\CsvDasEstatisticasDoVoto;
+use App\Voto\UseCase\AlterarLiberacaoDoVotoParaTodosUseCase;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
 use App\Voto\UseCase\ObterEstatisticasDoVotoUseCase;
 use App\Voto\UseCase\ObterLiberacoesDoVotoUseCase;
@@ -67,6 +68,22 @@ final class VotoDoMasterController extends AbstractController
         }
 
         return $this->json($this->estado());
+    }
+
+    /** Todos os escritórios ativos de uma vez (M5.9). Corpo `{liberado: bool}`; a resposta é a grade nova mais `alterados`. */
+    #[Route('/master/voto/todos', name: 'master_voto_todos', methods: ['POST'])]
+    public function todos(Request $request, AlterarLiberacaoDoVotoParaTodosUseCase $alterar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->recusa('master.voto.recusa.token_invalido', Response::HTTP_FORBIDDEN);
+        }
+        $liberado = self::corpo($request)['liberado'] ?? null;
+        if (!is_bool($liberado)) {
+            return $this->recusa('master.voto.recusa.informe_liberado', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $alterados = $alterar->executar($liberado, $this->master());
+
+        return $this->json($this->estado() + ['alterados' => $alterados]);
     }
 
     /**

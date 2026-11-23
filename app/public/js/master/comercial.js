@@ -27,22 +27,32 @@
   // Os rótulos do dc (L.564): 24h · 3 dias · 80%; "imediato" quando não há escolha.
   const rotulo = v => /^\d+d$/.test(v) ? BJ_T.t('comercial.js.atraso_dias', { n: parseInt(v, 10) }) : /^\d+$/.test(v) ? v + '%' : v;
 
-  function avisar(texto) {
+  // Linha de retorno fixa (M5.14): `tipo` 'ok' ou 'erro' (sem tipo = informação); fica até a próxima ação.
+  function avisar(texto, tipo) {
     elMsg.textContent = texto;
     elMsg.hidden = false;
+    elMsg.classList.toggle('is-ok', tipo === 'ok');
+    elMsg.classList.toggle('is-erro', tipo === 'erro');
+    elMsg.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
   }
+
+  // Parte estável de um id (M5.13): só letras minúsculas, números e hífen.
+  const slug = t => String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   function linha(a) {
     const dica = a.obrigatoria ? BJ_T.t('comercial.js.auto_obrigatoria') : BJ_T.t('comercial.js.auto_alternar');
+    const id = 'mc-auto-' + slug(a.chave);
     const atrasos = a.opcoes.length > 1
       ? '<div class="mc-atrasos" role="group" aria-label="' + esc(BJ_T.t('comercial.js.auto_quando')) + '">' + a.opcoes.map(v =>
-        '<button type="button" class="mc-atraso" data-mc-atraso="' + esc(v) + '" aria-pressed="' + (a.atraso === v) + '">' + esc(rotulo(v)) + '</button>').join('') + '</div>'
+        '<button type="button" class="mc-atraso" id="' + id + '-atraso-' + slug(v) + '" name="' + id + '-atraso-' + slug(v) + '" aria-label="' + esc(BJ_T.t('comercial.js.auto_atraso_de', { titulo: a.titulo, atraso: rotulo(v) })) + '" data-mc-atraso="' + esc(v) + '" aria-pressed="' + (a.atraso === v) + '">' + esc(rotulo(v)) + '</button>').join('') + '</div>'
       : '';
+    // O motivo do switch bloqueado fica escrito ao lado (M5.14), ligado ao botão por aria-describedby.
+    const motivo = a.obrigatoria ? '<span class="mc-motivo" id="' + id + '-motivo">' + esc(dica) + '</span>' : '';
     return '<div class="mc-auto" data-mc-chave="' + esc(a.chave) + '">'
-      + '<button type="button" class="mc-chave" role="switch" aria-checked="' + a.ligada + '" title="' + esc(dica) + '" aria-label="' + esc(a.titulo) + '"' + (a.obrigatoria ? ' disabled' : '') + ' data-mc-alternar></button>'
-      + '<span class="mc-auto-texto"><b class="mc-auto-titulo">' + esc(a.titulo) + '</b><span class="mc-auto-desc">' + esc(a.descricao) + '</span></span>'
+      + '<button type="button" class="mc-chave" role="switch" id="' + id + '-alternar" name="' + id + '-alternar" aria-checked="' + a.ligada + '" title="' + esc(dica) + '" aria-label="' + esc(a.titulo) + '"' + (a.obrigatoria ? ' disabled aria-describedby="' + id + '-motivo"' : '') + ' data-mc-alternar></button>'
+      + '<span class="mc-auto-texto"><b class="mc-auto-titulo">' + esc(a.titulo) + '</b><span class="mc-auto-desc">' + esc(a.descricao) + '</span>' + motivo + '</span>'
       + atrasos
-      + '<button type="button" class="mc-modelo" data-mc-modelo><i class="bi bi-envelope-paper" aria-hidden="true"></i>' + esc(a.modelo) + '</button>'
+      + '<button type="button" class="mc-modelo" id="' + id + '-modelo" name="' + id + '-modelo" data-mc-modelo><i class="bi bi-envelope-paper" aria-hidden="true"></i>' + esc(a.modelo) + '</button>'
       + '</div>';
   }
 
@@ -64,7 +74,7 @@
     return fetch(URL_LISTAR, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => { carregado = true; desenhar(d); })
-      .catch(() => avisar(BJ_T.t('comercial.js.auto_erro_carregar')));
+      .catch(() => avisar(BJ_T.t('comercial.js.auto_erro_carregar'), 'erro'));
   }
 
   function postar(url, corpo) {
@@ -80,9 +90,14 @@
     const atual = (raiz._automacoes || []).find(a => a.chave === chave);
     if (!atual) return;
     ocupado = true;
+    avisar(BJ_T.t('comercial.js.salvando'));
     postar(URL_ALTERAR.replace('xchavex', encodeURIComponent(chave)), Object.assign({ ligada: atual.ligada, atraso: atual.atraso }, mudanca))
-      .then(() => carregar())
-      .catch(e => avisar(e.message))
+      .then(() => {
+        const chaveDoTexto = 'comercial.js.' + (mudanca.atraso !== undefined ? 'auto_ok_atraso' : mudanca.ligada ? 'auto_ok_ligada' : 'auto_ok_desligada');
+        avisar(BJ_T.t(chaveDoTexto, { titulo: atual.titulo, atraso: rotulo(String(mudanca.atraso)) }), 'ok');
+        return carregar();
+      })
+      .catch(e => avisar(e.message, 'erro'))
       .finally(() => { ocupado = false; });
   }
 
@@ -105,7 +120,7 @@
     if (e.target.closest('[data-mc-modelo]') && chave) { abrirPrevia(chave); return; }
     if (e.target.closest('[data-mc-previa-fechar]')) { elPrevia.hidden = true; return; }
     if (e.target.closest('[data-mc-simular]')) {
-      postar(URL_SIMULAR).then(r => { avisar(r.mensagem); return carregar(); }).catch(err => avisar(err.message));
+      postar(URL_SIMULAR).then(r => { avisar(r.mensagem, 'ok'); return carregar(); }).catch(err => avisar(err.message, 'erro'));
     }
   });
 

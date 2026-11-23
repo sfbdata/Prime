@@ -95,28 +95,26 @@ final class CampanhaServicosTest extends TestCase
         self::assertNull($cofre->decifrar('lixo'));
     }
 
-    /** @return iterable<string, array{EstadoDaCampanha, bool, bool, bool, bool, bool, string}> */
+    /** @return iterable<string, array{EstadoDaCampanha, bool, bool, bool, string}> */
     public static function visoes(): iterable
     {
-        //                           estado                   master  aba    previa faixa  faq    status
-        yield 'ativa, usuário' => [EstadoDaCampanha::Ativa, false, true, false, true, true, 'Inscrições abertas até 30/11/2026'];
-        yield 'ativa, master' => [EstadoDaCampanha::Ativa, true, true, false, true, true, 'Inscrições abertas até 30/11/2026'];
-        yield 'esgotada, usuário' => [EstadoDaCampanha::Esgotada, false, true, false, true, true, 'Vagas esgotadas'];
-        yield 'agendada, usuário' => [EstadoDaCampanha::Agendada, false, false, true, false, false, 'Prévia do Master · começa em 19/11/2026'];
-        yield 'agendada, master' => [EstadoDaCampanha::Agendada, true, true, true, true, false, 'Prévia do Master · começa em 19/11/2026'];
-        yield 'encerrada, master' => [EstadoDaCampanha::Encerrada, true, true, true, true, false, 'Prévia do Master · encerrada em 30/11/2026'];
-        yield 'desligada, master' => [EstadoDaCampanha::Desligada, true, true, true, false, false, ''];
-        yield 'desligada, usuário' => [EstadoDaCampanha::Desligada, false, false, true, false, false, ''];
+        //                           estado                   master  faixa  faq    status
+        yield 'ativa, usuário' => [EstadoDaCampanha::Ativa, false, true, true, 'Inscrições abertas até 30/11/2026'];
+        yield 'ativa, master' => [EstadoDaCampanha::Ativa, true, true, true, 'Inscrições abertas até 30/11/2026'];
+        yield 'esgotada, usuário' => [EstadoDaCampanha::Esgotada, false, true, true, 'Vagas esgotadas'];
+        yield 'agendada, usuário' => [EstadoDaCampanha::Agendada, false, false, false, 'Prévia do Master · começa em 19/11/2026'];
+        yield 'agendada, master' => [EstadoDaCampanha::Agendada, true, true, false, 'Prévia do Master · começa em 19/11/2026'];
+        yield 'encerrada, master' => [EstadoDaCampanha::Encerrada, true, true, false, 'Prévia do Master · encerrada em 30/11/2026'];
+        yield 'desligada, master' => [EstadoDaCampanha::Desligada, true, false, false, ''];
+        yield 'desligada, usuário' => [EstadoDaCampanha::Desligada, false, false, false, ''];
     }
 
     #[DataProvider('visoes')]
     #[TestDox('CampanhaView em $estado (master=$master)')]
-    public function testView(EstadoDaCampanha $estado, bool $master, bool $aba, bool $previa, bool $faixa, bool $faq, string $status): void
+    public function testView(EstadoDaCampanha $estado, bool $master, bool $faixa, bool $faq, string $status): void
     {
         $view = $this->montar()->montar(Campanha::padrao(), $estado, $master, false);
 
-        self::assertSame($aba, $view->mostrarAba, 'mostrarAba');
-        self::assertSame($previa, $view->abaPrevia, 'abaPrevia');
         self::assertSame($faixa, $view->mostrarFaixa, 'mostrarFaixa');
         self::assertSame($faq, $view->mostrarFaq, 'mostrarFaq');
         self::assertSame($status, $view->statusTexto);
@@ -142,15 +140,12 @@ final class CampanhaServicosTest extends TestCase
 
         self::assertSame('BlueJus Black', $view->nome);
         self::assertSame('BLACK FRIDAY BLUEJUS', $view->chamadaSelo);
-        self::assertSame('BLACK FRIDAY', $view->chamadaAba);
         self::assertSame('R$ 1,00', $view->preco);
         self::assertSame('R$ 2,00', $view->devolve);
         self::assertSame('o dobro', $view->multTx);
-        self::assertSame('Black Friday BlueJus: Desafio R$ 1,00', $view->abaTitulo);
         self::assertSame(' Durante a campanha BlueJus Black, existe também a inscrição opcional no Desafio, de R$ 1,00, com devolução de R$ 2,00 se você não gostar.', $view->faqPago);
         self::assertSame('Conhecer o Desafio', $view->botao);
         self::assertSame('Minha participação', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Ativa, false, true)->botao);
-        self::assertSame('Prévia do Master: campanha agendada (só você vê)', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Agendada, true, false)->abaTitulo);
         self::assertSame('', $this->montar()->montar(Campanha::padrao(), EstadoDaCampanha::Encerrada, true, false)->faqPago);
     }
 

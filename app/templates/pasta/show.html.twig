@@ -2231,7 +2231,9 @@
 .cliente-linha:last-child { border-bottom: none; }
 .cliente-linha { transition: background .18s; }
 .cliente-linha:hover { background-color: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
-.cliente-linha:hover, .cliente-linha:hover *:not(.cliente-avatar) { color: #fff !important; }
+.cliente-linha:hover, .cliente-linha:hover *:not(.cliente-avatar):not(:is(.bjp-btn, .bjp-btn *, .bjp-ico, .bjp-ico *)) { color: #fff !important; }
+/* M6: o fundo claro do hover de "Abrir cliente" apagava o ícone branco; na linha azul ele acende em branco translúcido. */
+.cliente-linha:hover a.cliente-abrir:hover { background: rgba(255,255,255,.2) !important; }
 .cliente-linha:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .cliente-nome { font-size: .82rem; font-weight: 600; line-height: 1.25; }
 .cliente-doc { font-size: .72rem; color: var(--bs-secondary-color); line-height: 1.25; }

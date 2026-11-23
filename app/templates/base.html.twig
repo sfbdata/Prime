@@ -286,14 +286,8 @@
                             </button>
                             {% endif %}
 
-                            {# Bandeira do idioma (spec sistema-em-ingles §1): abre o modal "Idioma do sistema", o mesmo do menu
-                               do usuário; some junto com o item do menu quando o Master esconde o recurso. #}
-                            {% if recurso_visivel('idioma') %}
-                            <button type="button" class="navtop-action-btn navtop-idioma" data-mu-idioma
-                                    aria-label="{{ 'opcoes_avancadas.bandeira.rotulo'|trans({idioma: idioma_atual().nome}) }}" data-tip="{{ 'opcoes_avancadas.bandeira.rotulo'|trans({idioma: idioma_atual().nome}) }}">
-                                {% include 'menu_usuario/_bandeira.html.twig' with {idioma: idioma_atual()} only %}
-                            </button>
-                            {% endif %}
+                            {# A bandeira do idioma saiu do topo (pedido M7/M5.5 do dono, 23/11): o idioma fica só no menu do
+                               perfil (menu_usuario/_dropdown.html.twig), que abre o mesmo modal "Idioma do sistema". #}
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
@@ -353,6 +347,14 @@
                             <a href="{{ path('tarefa_minhas') }}"
                                class="navtop-subnav-link {{ recurso_marca('metas') }} {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
                                 {{ 'moldura.cabecalho.subnav.minhas_metas'|trans }}
+                            </a>
+                        {% endif %}
+                        {# Push Processual entre Minhas Metas e Agenda (pedido M7 do dono, 23/11); mesma trava e mesmo
+                           realce do item da barra lateral (_sidebar.html.twig). #}
+                        {% if can_access_module('djen') %}
+                            <a href="{{ path('push_processual_index') }}"
+                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'push_processual_' or app.request.attributes.get('_route') starts with 'processo_' ? 'active' : '' }}">
+                                {{ 'moldura.cabecalho.subnav.push_processual'|trans }}
                             </a>
                         {% endif %}
                         {% if can_access_module('agenda') %}

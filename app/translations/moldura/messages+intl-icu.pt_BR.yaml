@@ -29,6 +29,7 @@ moldura:
             expediente: Expediente
             demandas: Demandas
             minhas_metas: Minhas Metas
+            push_processual: Push Processual
             agenda: Agenda
             trabalho_externo: Trabalho Externo
         indicar_botao: Indicar o BlueJus

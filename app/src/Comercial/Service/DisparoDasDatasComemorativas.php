@@ -26,7 +26,8 @@ use Psr\Log\LoggerInterface;
  *    "1 dia antes" sai em 31/12 com o ano seguinte. As voltas seguintes do mesmo dia não criam outra.
  *  - Janela: das 9h às 23:59 do dia de envio. Ligar a data nesse dia, depois das 9h, ainda manda; passado o dia, nada
  *    é recuperado.
- *  - Chave geral (`COMERCIAL_CAMPANHAS_LIGADAS`) desligada: não cria nada, não represa nada e não registra log.
+ *  - Chave do envio de campanhas desligada (o interruptor da Central de envios; sem ele, `COMERCIAL_CAMPANHAS_LIGADAS`):
+ *    não cria nada, não represa nada e não registra log. Religada no mesmo dia, a data devida sai na volta seguinte.
  *  - As 17 do calendário, com o estado do banco ou, sem linha, o {@see DataComemorativa::PADRAO}.
  *
  * A trilha é a manual das campanhas (`camp_conf`, `{publico, frequencia, total}`), sem autor. O total nasce 0: quem
