@@ -275,13 +275,13 @@
       $('[data-nf-est-um-ic]').className = 'bi ' + (nova ? 'bi-star-fill' : 'bi-star');
     });
   });
-  // "Abrir Indicações": já no painel, troca a seção pelo botão dela (o painel.js lê o hash só ao carregar).
+  // "Abrir Indicações": já no painel, troca a seção pelo botão dela. O painel.js escreve a âncora (M5.16), com entrada
+  // no histórico: o Voltar do navegador volta às Notificações.
   $('[data-nf-ir-ind]').addEventListener('click', e => {
     const botao = document.querySelector('#mp-secs [data-sec="ind"]');
     if (!botao) return;
     e.preventDefault();
     fecharVer();
-    history.replaceState(null, '', e.currentTarget.getAttribute('href'));
     botao.click();
   });
   $('[data-nf-enviar]').addEventListener('click', responder);
