@@ -50,6 +50,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         yield 'cobranca_documento'  => [CategoriaDeArquivo::COBRANCA_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/cobrancas/7/a1.pdf'];
         yield 'kanban_anexo'        => [CategoriaDeArquivo::KANBAN_ANEXO, $t7, 'a1.pdf', 'core/t/7/uploads/kanban/a1.pdf'];
         yield 'assinatura_documento' => [CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/pastas/assinatura/7/a1.pdf'];
+        yield 'backup_zip' => [CategoriaDeArquivo::BACKUP_ZIP, $t7, 'a1.zip', 'core/t/7/uploads/pastas/backups/7/a1.zip'];
         yield 'tarefa_anexo'        => [CategoriaDeArquivo::TAREFA_ANEXO, $t7, 'arquivo_6abab5669fac90.42347212.pdf', 'core/t/7/uploads/tarefas/chat/arquivo_6abab5669fac90.42347212.pdf'];
         yield 'foto_perfil (global)' => [CategoriaDeArquivo::FOTO_PERFIL, EscopoDeArquivo::global(), 'a1.jpg', 'core/g/uploads/perfil/a1.jpg'];
         yield 'trabalho_externo_documento' => [CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/trabalho-externo/a1.pdf'];
