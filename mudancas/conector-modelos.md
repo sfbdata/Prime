@@ -3,7 +3,7 @@ tipo: novidade
 ---
 ## Changelog
 - Conector de I.A. (Painel do Master): nova ferramenta `modelos_de_email`, só para o Master da plataforma (some do `tools/list`, da `quem_sou_eu` e do guia para os demais). Ações: `criar`, `duplicar`, `salvar_como` (diretas), `editar`, `voltar_ao_padrao` e `excluir` (por proposta e `confirmar_acao`, com assunto e texto puro no resumo e o hash do modelo conferido na confirmação). `editar` vale também para os padrões do sistema, inclusive `data-<id>`, e grava a versão do Master (M5.8).
-- Reusa os UseCases do Comercial; toda gravação vai ao `audit_log` com rota `conector_mcp` e escritório nulo. Importar HTML e editar o HTML de modelo HTML ficam fora (decisão 41).
+- Reusa os UseCases do Comercial; toda gravação vai ao `audit_log` com rota `conector_mcp` e escritório nulo. Importar HTML fica fora (decisão 41); editar o HTML de um modelo HTML vale (sanitizado ao gravar). Campo acima do limite é recusado, e o resumo de texto grande é cortado (o modelo é gravado inteiro).
 - `ler_comercial` (`modelos` e `previa`) passa a ler a versão efetiva por `ModelosEfetivos`, e o conector vê o padrão editado.
 
 ## Para o cliente

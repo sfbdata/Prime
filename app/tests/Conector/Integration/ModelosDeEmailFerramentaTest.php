@@ -102,7 +102,8 @@ final class ModelosDeEmailFerramentaTest extends KernelTestCase
         $esquema = static::getContainer()->get(ModelosDeEmailFerramenta::class)->esquemaDeEntrada();
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame(['acao'], $esquema['required']);
-        self::assertArrayNotHasKey('html', $esquema['properties'], 'importar e editar HTML ficam fora (decisão 41)');
+        self::assertArrayHasKey('html', $esquema['properties'], 'editar o HTML de modelo HTML vale; só importar fica fora (decisão 41)');
+        self::assertArrayNotHasKey('importar', array_flip(ModelosDeEmailFerramenta::ACOES));
     }
 
     #[TestDox('entrada: ação fora da lista, modelo faltando ou malformado, campo de outra ação ou de tipo errado é entrada inválida')]
@@ -111,7 +112,7 @@ final class ModelosDeEmailFerramentaTest extends KernelTestCase
         $invalidas = [
             [], ['acao' => 'importar_html'], ['acao' => 'duplicar'], ['acao' => 'excluir', 'modelo' => 'Cu 1; DROP'], ['acao' => 'criar', 'modelo' => 'convite'],
             ['acao' => 'duplicar', 'modelo' => 'convite', 'assunto' => 'x'], ['acao' => 'salvar_como', 'modelo' => 'convite'],
-            ['acao' => 'editar', 'modelo' => 'convite', 'html' => '<p>x</p>'], ['acao' => 'editar', 'modelo' => 'convite', 'assunto' => 3],
+            ['acao' => 'editar', 'modelo' => 'convite', 'html' => 3], ['acao' => 'editar', 'modelo' => 'convite', 'assunto' => 3],
             ['acao' => 'editar', 'modelo' => 'convite', 'itens' => 'a'], ['acao' => 'editar', 'modelo' => 'validar', 'blocos' => ['x']],
         ];
         foreach ($invalidas as $argumentos) {
@@ -258,6 +259,60 @@ final class ModelosDeEmailFerramentaTest extends KernelTestCase
         self::assertSame(0, $this->contarPropostas());
     }
 
+    #[TestDox('editar o HTML de um modelo HTML: o resumo traz o texto puro e, depois do sim, o script some do que fica gravado')]
+    public function testEditarHtml(): void
+    {
+        $id = $this->inserirModelo('html', 'Modelo HTML', '<p>Antigo</p>');
+        $proposta = $this->executar(['acao' => 'editar', 'modelo' => 'cu' . $id, 'html' => '<p>Texto HTML novo</p><script>alert(1)</script>']);
+
+        self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
+        self::assertStringContainsString('Texto HTML novo', $proposta->dados['proposta']['resumo']);
+        self::assertStringNotContainsString('<p>', $proposta->dados['proposta']['resumo']);
+        self::assertSame('<p>Antigo</p>', $this->linha($id)['conteudo'], 'propor não grava');
+
+        $this->confirmar($proposta);
+
+        $conteudo = (string) $this->linha($id)['conteudo'];
+        self::assertStringContainsString('Texto HTML novo', $conteudo);
+        self::assertStringNotContainsString('<script', $conteudo);
+        $this->assertRecusa(['acao' => 'editar', 'modelo' => 'cu' . $id, 'corpo' => 'x'], ModelosDeEmailFerramenta::CAMPO_DE_OUTRO_MODO);
+    }
+
+    #[TestDox('modelo grande: editar só o assunto vira proposta com o resumo cortado, e o modelo é gravado inteiro')]
+    public function testModeloGrandeEditarSoOAssunto(): void
+    {
+        $blocos = array_fill(0, 40, ['t' => 'texto', 'a' => str_repeat('palavra ', 2500), 'b' => '']);
+        $id = $this->inserirModelo('blocos', 'Modelo grande', json_encode($blocos, \JSON_THROW_ON_ERROR));
+        $tamanho = \strlen((string) $this->linha($id)['conteudo']);
+
+        $proposta = $this->executar(['acao' => 'editar', 'modelo' => 'cu' . $id, 'assunto' => 'Só o assunto']);
+
+        self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
+        self::assertStringContainsString(trim(\App\Conector\Ferramenta\ModelosDeEmailResumos::CORTADO_NO_RESUMO), $proposta->dados['proposta']['resumo']);
+        $this->confirmar($proposta);
+        $linha = $this->linha($id);
+        self::assertSame('Só o assunto', $linha['assunto']);
+        self::assertSame($tamanho, \strlen((string) $linha['conteudo']), 'o modelo é gravado inteiro');
+    }
+
+    #[TestDox('campo acima do limite do esquema é recusado com o nome e o limite, não cortado em silêncio')]
+    public function testAcimaDoLimiteRecusa(): void
+    {
+        $proprio = $this->criarProprio();
+        $casos = [
+            [['assunto' => str_repeat('a', 256)], 'O campo assunto passa do limite de 255 caracteres. Encurte e peça de novo.'],
+            [['nome' => str_repeat('a', 201)], 'O campo nome passa do limite de 200 caracteres. Encurte e peça de novo.'],
+            [['blocos' => array_fill(0, 61, ['t' => 'texto', 'a' => 'x', 'b' => ''])], 'O campo blocos passa do limite de 60 blocos. Encurte e peça de novo.'],
+            [['blocos' => [['t' => 'texto', 'a' => str_repeat('a', 20001), 'b' => '']]], 'O campo blocos (campo a de cada bloco) passa do limite de 20000 caracteres. Encurte e peça de novo.'],
+            [['itens' => array_fill(0, 31, 'x')], 'O campo itens passa do limite de 30 itens. Encurte e peça de novo.'],
+            [['html' => str_repeat('a', 150001)], 'O campo html passa do limite de 150000 bytes. Encurte e peça de novo.'],
+        ];
+        foreach ($casos as [$campos, $mensagem]) {
+            $this->assertRecusa(['acao' => 'editar', 'modelo' => $proprio['chave']] + $campos, $mensagem);
+        }
+        self::assertSame(0, $this->contarPropostas());
+    }
+
     #[TestDox('o texto do resumo nunca leva e-mail inteiro: endereço no modelo sai mascarado')]
     public function testResumoMascaraEmail(): void
     {
@@ -274,7 +329,10 @@ final class ModelosDeEmailFerramentaTest extends KernelTestCase
         $proposta = $this->executar(['acao' => 'voltar_ao_padrao', 'modelo' => 'convite']);
 
         self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
-        self::assertStringContainsString('Seu escritório 100% digital, de graça', $proposta->dados['proposta']['resumo']);
+        $resumo = $proposta->dados['proposta']['resumo'];
+        self::assertStringContainsString('Seu escritório 100% digital, de graça', $resumo);
+        self::assertStringContainsString('Assunto editado que se perde: Convite do Master', $resumo);
+        self::assertStringContainsString('Texto editado que se perde:', $resumo);
         self::assertSame(1, $this->contar('comercial_modelo', "fixo_chave = 'convite'"), 'propor não apaga');
 
         $this->confirmar($proposta);
@@ -382,6 +440,18 @@ final class ModelosDeEmailFerramentaTest extends KernelTestCase
             self::assertSame(ModelosDeEmailFerramenta::MOTIVO_SO_DO_MASTER, $e->motivo);
         }
         self::assertSame(1, $this->contar('comercial_modelo', 'id = ' . $proprio['id']));
+    }
+
+    /** Um modelo próprio direto no banco, para os modos que a ferramenta não cria. */
+    private function inserirModelo(string $modo, string $nome, string $conteudo): int
+    {
+        $agora = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->conexao()->executeStatement(
+            'INSERT INTO comercial_modelo (nome, icone, modo, assunto, selo, titulo, conteudo, criado_em, alterado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$nome, 'bi-file-earmark', $modo, 'Assunto original', 'SELO', 'Título', $conteudo, $agora, $agora],
+        );
+
+        return (int) $this->conexao()->lastInsertId();
     }
 
     /** @return array{id: int, chave: string} */

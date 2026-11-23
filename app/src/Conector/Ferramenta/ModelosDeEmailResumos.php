@@ -17,9 +17,10 @@ use App\Conector\Service\MascaraDeEmailDoConector;
  */
 final class ModelosDeEmailResumos
 {
-    /** O texto inteiro do que será gravado tem de caber no resumo (teto de 30 mil da proposta). */
+    /** O texto do resumo da edição cabe nos 30 mil da proposta; passando, o resumo é cortado e o modelo é gravado inteiro. */
     public const TETO_DO_TEXTO = 20_000;
-    public const TEXTO_GRANDE_DEMAIS = 'O texto deste modelo é grande demais para conferir numa proposta. Encurte o texto.';
+    public const CORTADO_NO_RESUMO = ' (texto cortado no resumo; o modelo é gravado inteiro)';
+    public const CORTADO = ' (texto cortado no resumo)';
     public const SEM_PREVIA = 'Este modelo não monta uma prévia.';
 
     public function __construct(private readonly PreviaDaCampanhaUseCase $previa)
@@ -33,11 +34,11 @@ final class ModelosDeEmailResumos
     }
 
     /**
-     * O texto puro do e-mail do modelo. Com `$cortarEm`, corta e avisa; sem ele, passar do teto recusa.
+     * O texto puro do e-mail do modelo, cortado em `$cortarEm` caracteres com a marca `$marca`.
      *
      * @throws ErroDaFerramenta
      */
-    public function texto(MensagemDaCampanha $mensagem, ?int $cortarEm = null): string
+    public function texto(MensagemDaCampanha $mensagem, int $cortarEm = self::TETO_DO_TEXTO, string $marca = self::CORTADO_NO_RESUMO): string
     {
         try {
             $html = $this->previa->executar($mensagem);
@@ -49,14 +50,8 @@ final class ModelosDeEmailResumos
             static fn (array $m): string => MascaraDeEmailDoConector::mascarar($m[0]),
             HtmlParaTextoDoConector::converter($html),
         );
-        if ($cortarEm !== null && mb_strlen($texto) > $cortarEm) {
-            return mb_substr($texto, 0, $cortarEm) . ' (texto cortado)';
-        }
-        if ($cortarEm === null && mb_strlen($texto) > self::TETO_DO_TEXTO) {
-            throw ErroDaFerramenta::recusada(self::TEXTO_GRANDE_DEMAIS);
-        }
 
-        return $texto;
+        return mb_strlen($texto) > $cortarEm ? mb_substr($texto, 0, $cortarEm) . $marca : $texto;
     }
 
     /**

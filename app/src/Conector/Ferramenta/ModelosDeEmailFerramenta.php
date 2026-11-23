@@ -32,8 +32,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * Ações: `criar`, `duplicar` e `salvar_como` não mandam nada a ninguém e gravam na hora. `editar`, `voltar_ao_padrao` e
  * `excluir` viram proposta (decisão 37), com assunto e texto em texto puro no resumo; o hash do modelo vai na proposta e
- * o {@see reconferir} recusa se ele mudou. Fora (decisão 41): importar HTML (o `html` de um modelo HTML não se edita por
- * aqui; só nome, assunto, selo e título). Toda gravação roda dentro de {@see EscopoDeAuditoriaDePlataforma::executar()}
+ * o {@see reconferir} recusa se ele mudou. Fora (decisão 41): importar HTML. A proposta guarda só os campos que a pessoa
+ * mandou (o modelo vem inteiro do banco, conferido pelo hash); o resumo é cortado se o texto for grande. Toda gravação roda dentro de {@see EscopoDeAuditoriaDePlataforma::executar()}
  * (`audit_log` sem escritório, rota `conector_mcp`). Reusa os UseCases do Comercial; nada de SQL.
  */
 // Não implementa o ExecutorDeProposta (as duas interfaces declaram `TAG`): o ModelosDeEmailExecutor repassa.
@@ -58,8 +58,6 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
     public const NADA_A_VOLTAR = 'Este modelo já está no padrão.';
     public const SO_PADRAO = 'Só os modelos padrão voltam ao padrão.';
 
-    /** Acima disto os dados da proposta correm risco de passar do teto do {@see PropostasDoConector::TETO_DOS_DADOS}. */
-    private const TETO_DOS_DADOS_DA_EDICAO = 150_000;
     private const TRECHO_DO_QUE_SAI = 2_000;
 
     public function __construct(
@@ -89,7 +87,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Cria, copia, edita e apaga os modelos de e-mail do Comercial (só para o Master da plataforma). O modelo é o id (12), a chave de um próprio (cu12) ou a chave de um padrão do sistema (convite, data-natal), como veio na ação modelos de ler_comercial. Ações: "criar" (um modelo próprio novo, em blocos), "duplicar" (modelo) e "salvar_como" (modelo e nome) gravam na hora, sem mandar nada a ninguém. "editar" (modelo e os campos a trocar: nome só em próprio, assunto, selo, titulo, corpo, itens, cta e link nos de modo simples, blocos nos de modo blocos; campo que não vier fica como está) vale também para os padrões do sistema, e grava a versão do Master. "voltar_ao_padrao" apaga a versão editada de um padrão. "excluir" apaga um modelo próprio. Editar, voltar ao padrão e excluir esperam o sim da pessoa: mostre o resumo (assunto e texto) e chame confirmar_acao só se ela disser sim. Importar HTML não está disponível, e o HTML de um modelo HTML não se edita por aqui.';
+        return 'Cria, copia, edita e apaga os modelos de e-mail do Comercial (só para o Master da plataforma). O modelo é o id (12), a chave de um próprio (cu12) ou a chave de um padrão do sistema (convite, data-natal), como veio na ação modelos de ler_comercial. Ações: "criar" (um modelo próprio novo, em blocos), "duplicar" (modelo) e "salvar_como" (modelo e nome) gravam na hora, sem mandar nada a ninguém. "editar" (modelo e os campos a trocar: nome só em próprio, assunto, selo, titulo, corpo, itens, cta e link nos de modo simples, blocos nos de modo blocos, html nos de modo html; campo que não vier fica como está) vale também para os padrões do sistema, e grava a versão do Master. "voltar_ao_padrao" apaga a versão editada de um padrão. "excluir" apaga um modelo próprio. Editar, voltar ao padrão e excluir esperam o sim da pessoa: mostre o resumo (assunto e texto) e chame confirmar_acao só se ela disser sim. Importar HTML não está disponível. Campo acima do limite é recusado, não cortado.';
     }
 
     public function esquemaDeEntrada(): array
@@ -109,6 +107,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
                 'itens' => ['type' => 'array', 'maxItems' => 30, 'items' => ['type' => 'string', 'maxLength' => 500], 'description' => 'Só em editar, em modelo de modo simples. A lista de itens.'],
                 'cta' => $texto('Só em editar, em modelo de modo simples. O texto do botão.', 120),
                 'link' => $texto('Só em editar, em modelo de modo simples. O endereço do botão.', 2000),
+                'html' => $texto('Só em editar, em modelo de modo html. O HTML inteiro do e-mail (é sanitizado ao gravar; script e estilo perigoso saem).', ModelosDeEmailEntrada::LIMITES['html']),
                 'blocos' => ['type' => 'array', 'maxItems' => 60, 'items' => ['type' => 'object', 'properties' => ['t' => ['type' => 'string'], 'a' => ['type' => 'string', 'maxLength' => 20000], 'b' => ['type' => 'string', 'maxLength' => 2000]], 'required' => ['t'], 'additionalProperties' => false], 'description' => 'Só em editar, em modelo de modo blocos. A lista inteira de blocos (t: tipo, a: texto, b: complemento); substitui a atual.'],
             ],
             'required' => ['acao'],
@@ -145,7 +144,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::recusada(self::MUDOU);
         }
         if ($acao === self::EDITAR) {
-            ModelosDeEmailResumos::mensagem(self::dadosDaMensagem($dados));
+            ModelosDeEmailResumos::mensagem(self::comEdicao($atual, self::camposDosDados($dados)));
         } else {
             $this->exigirAcaoPossivel($acao, $chave);
         }
@@ -157,7 +156,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
         $chave = self::texto($dados, 'modelo');
         $pessoa = $chamada->contexto->pessoa;
         $resposta = $this->recusando(fn (): array => $this->plataforma->executar(fn (): array => match ($acao) {
-            self::EDITAR => self::saidaDoModelo(self::EDITAR, $this->salvar->executar(self::idParaOUseCase($chave), ModelosDeEmailResumos::mensagem(self::dadosDaMensagem($dados)), $pessoa)),
+            self::EDITAR => $this->gravarEdicao($chave, self::camposDosDados($dados), $pessoa),
             self::VOLTAR_AO_PADRAO => ['estado' => 'concluida', 'acao' => $acao, 'modelo' => self::resumoDoModelo($this->voltar->executar($chave, $pessoa))],
             self::EXCLUIR => $this->excluirModelo($chave, $pessoa),
             default => throw ErroDaFerramenta::entradaInvalida(),
@@ -187,10 +186,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
         if ($depois->paraArray() === ModelosDeEmailResumos::mensagem($atual)->paraArray()) {
             return new RespostaDaFerramenta(['estado' => 'nada_a_fazer', 'modelo' => $entrada->modelo, 'mensagem' => 'Já está assim: nada foi alterado.']);
         }
-        $dados = ['modelo' => $entrada->modelo, 'antes' => ModelosDeEmailResumos::hash($atual), 'depois' => $depois->paraArray()];
-        if (\strlen(json_encode($dados, \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR)) > self::TETO_DOS_DADOS_DA_EDICAO) {
-            throw ErroDaFerramenta::recusada(ModelosDeEmailResumos::TEXTO_GRANDE_DEMAIS);
-        }
+        $dados = ['modelo' => $entrada->modelo, 'antes' => ModelosDeEmailResumos::hash($atual), 'campos' => $entrada->campos];
         $resumo = sprintf(
             "Editar o modelo \"%s\" (%s). %s\nAssunto novo: %s\nTexto novo:\n%s",
             (string) $atual['nome'],
@@ -203,6 +199,21 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
         return $this->propostas->propor($chamada, self::NOME, self::EDITAR, $dados, $resumo);
     }
 
+    /**
+     * Grava a edição: o modelo atual (já conferido pelo hash no reconferir) com os campos da proposta por cima.
+     *
+     * @param array<string, mixed> $campos
+     *
+     * @return array<string, mixed>
+     */
+    private function gravarEdicao(string $chave, array $campos, User $pessoa): array
+    {
+        $atual = $this->efetivos->porChave($chave) ?? throw ErroDaFerramenta::recusada(self::MUDOU);
+        $mensagem = ModelosDeEmailResumos::mensagem(self::comEdicao($atual, $campos));
+
+        return self::saidaDoModelo(self::EDITAR, $this->salvar->executar(self::idParaOUseCase($chave), $mensagem, $pessoa));
+    }
+
     /** @param array<string, mixed> $atual */
     private function proporVoltar(ModelosDeEmailEntrada $entrada, array $atual, ChamadaDoConector $chamada): RespostaDaFerramenta
     {
@@ -210,12 +221,13 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
         $this->exigirAcaoPossivel(self::VOLTAR_AO_PADRAO, $chave);
         $padrao = ModelosDeEmailResumos::mensagem(ModeloDaGrade::deFixo((array) $this->fixos->fixo($chave)));
         $resumo = sprintf(
-            "Voltar o modelo padrão \"%s\" (%s) ao texto do sistema. A versão editada (assunto \"%s\") é apagada.\nAssunto que volta: %s\nTexto que volta:\n%s",
+            "Voltar o modelo padrão \"%s\" (%s) ao texto do sistema. A versão editada é apagada.\nAssunto editado que se perde: %s\nTexto editado que se perde:\n%s\nAssunto que volta: %s\nTexto que volta:\n%s",
             (string) $atual['nome'],
             $chave,
             (string) $atual['assunto'],
+            $this->resumos->texto(ModelosDeEmailResumos::mensagem($atual), self::TRECHO_DO_QUE_SAI, ModelosDeEmailResumos::CORTADO),
             $padrao->assunto,
-            $this->resumos->texto($padrao, self::TRECHO_DO_QUE_SAI),
+            $this->resumos->texto($padrao, self::TRECHO_DO_QUE_SAI, ModelosDeEmailResumos::CORTADO),
         );
 
         return $this->propostas->propor($chamada, self::NOME, self::VOLTAR_AO_PADRAO, ['modelo' => $chave, 'antes' => ModelosDeEmailResumos::hash($atual)], $resumo);
@@ -232,7 +244,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
             (string) $atual['nome'],
             $chave,
             $mensagem->assunto,
-            $this->resumos->texto($mensagem, self::TRECHO_DO_QUE_SAI),
+            $this->resumos->texto($mensagem, self::TRECHO_DO_QUE_SAI, ModelosDeEmailResumos::CORTADO),
         );
 
         return $this->propostas->propor($chamada, self::NOME, self::EXCLUIR, ['modelo' => $chave, 'antes' => ModelosDeEmailResumos::hash($atual)], $resumo);
@@ -277,6 +289,7 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
         $validos = match ($modo) {
             'simples' => ['corpo', 'itens', 'cta', 'link'],
             'blocos' => ['blocos'],
+            'html' => ['html'],
             default => [],
         };
         foreach (array_keys($campos) as $campo) {
@@ -299,11 +312,11 @@ final class ModelosDeEmailFerramenta implements FerramentaDoConector
      *
      * @return array<string, mixed>
      */
-    private static function dadosDaMensagem(array $dados): array
+    private static function camposDosDados(array $dados): array
     {
-        $depois = $dados['depois'] ?? null;
+        $campos = $dados['campos'] ?? null;
 
-        return \is_array($depois) ? $depois : throw ErroDaFerramenta::entradaInvalida();
+        return \is_array($campos) ? $campos : throw ErroDaFerramenta::entradaInvalida();
     }
 
     /** `cu12` vira `12`; a chave de um padrão fica. */
