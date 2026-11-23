@@ -35,6 +35,21 @@ final class PoliticaDeEspelhamentoTest extends TestCase
         self::assertSame(['foto_perfil', 'cliente_documento'], $politica->categoriasLigadas());
     }
 
+    #[TestDox('backup_zip nunca espelha, mesmo listado na variável, e não conta como entrada inválida')]
+    public function testBackupZipNuncaEspelha(): void
+    {
+        $politica = new PoliticaDeEspelhamento('foto_perfil,backup_zip');
+
+        self::assertFalse($politica->espelha(CategoriaDeArquivo::BACKUP_ZIP));
+        self::assertTrue($politica->espelha(CategoriaDeArquivo::FOTO_PERFIL));
+        self::assertSame(['foto_perfil'], $politica->categoriasLigadas());
+        self::assertSame([], $politica->entradasInvalidas());
+
+        $so = new PoliticaDeEspelhamento('backup_zip');
+        self::assertFalse($so->estaLigada());
+        self::assertFalse($so->espelha(CategoriaDeArquivo::BACKUP_ZIP));
+    }
+
     #[TestDox('entrada que não é categoria não liga nada e fica registrada como inválida')]
     public function testInvalidaNaoLiga(): void
     {

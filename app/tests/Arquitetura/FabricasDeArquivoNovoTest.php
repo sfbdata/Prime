@@ -9,6 +9,8 @@ use App\AssinaturaEletronica\Entity\ConfiguracaoDaAssinatura;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Entity\Signatario;
 use App\AssinaturaEletronica\Enum\NivelDeAssinatura;
+use App\Backup\Armazenamento\ChavesDeBackup;
+use App\Backup\Entity\PedidoDeBackup;
 use App\Blog\Armazenamento\ChavesDoBlog;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
@@ -318,6 +320,28 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('webp', $novo->extensao);
     }
 
+    #[TestDox('ZIP novo de backup: categoria própria, extensão zip e escopo tirado do pedido')]
+    public function testZipNovoDeBackupSaiDoPedido(): void
+    {
+        $novo = ChavesDeBackup::novoZip(self::pedido(self::tenant(7)));
+
+        self::assertSame(CategoriaDeArquivo::BACKUP_ZIP, $novo->categoria);
+        self::assertSame(7, $novo->escopo->tenantIdOuNull());
+        self::assertSame('zip', $novo->extensao);
+    }
+
+    #[TestDox('ZIP novo de backup: pedido de escritório sem id é recusado antes de qualquer gravação')]
+    public function testZipNovoDeBackupSemTenantEhRecusado(): void
+    {
+        $this->expectException(ChaveDeArquivoInvalida::class);
+        ChavesDeBackup::novoZip(self::pedido(new Tenant()));
+    }
+
+    private static function pedido(Tenant $tenant): PedidoDeBackup
+    {
+        return new PedidoDeBackup($tenant, new User(), new \DateTimeImmutable());
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
@@ -328,6 +352,7 @@ final class FabricasDeArquivoNovoTest extends TestCase
         $cobertas[] = ChavesDeInteligencia::class . '::novaVersaoDeDocumentoJuridico';
         $cobertas[] = ChavesDeRecompensa::class . '::novoComprovante';
         $cobertas[] = ChavesDoBlog::class . '::novaImagem';
+        $cobertas[] = ChavesDeBackup::class . '::novoZip';
 
         $encontradas = [];
 

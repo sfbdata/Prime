@@ -11,7 +11,7 @@ namespace App\Shared\Armazenamento;
  * `ResolvedorDeCaminhoLocal` e outra no `MapaDeChaveParaCaminhoLocalTest`. Sem isso, um arquivo
  * novo nasceria sem lugar definido em disco e o defeito só apareceria em produção.
  *
- * **Isolamento físico não mora aqui.** Só três categorias têm subpasta por tenant no disco atual,
+ * **Isolamento físico não mora aqui.** Só quatro categorias têm subpasta por tenant no disco atual,
  * e a lista delas é o enum SEPARADO `CategoriaComIsolamentoFisico` — é ele, e não este, que as
  * operações por prefixo aceitam (D7). A razão de serem dois tipos e não uma flag neste: uma flag
  * seria consultável mas esquecível; um tipo separado torna a categoria plana **irrepresentável**
@@ -71,6 +71,10 @@ enum CategoriaDeArquivo: string
     // pasta; o escopo é o escritório dono da assembleia (`ChavesDoVoto::fotoDaCandidatura`), e a purga a leva pelos
     // registros de `voto.assembleia_opcao`. Entregue ao gestor (equipe) e à urna (link da unidade), nunca por caminho.
     case VOTO_FOTO_CANDIDATURA = 'voto_foto_candidatura';
+    // O ZIP de backup dos dados de uma pessoa (spec backup-e-exportacao-de-dados.md). Descartável: vence em 7 dias. ISOLADA
+    // por escritório em disco (`uploads/pastas/backups/<tenantId>/`), está no enum restrito `CategoriaComIsolamentoFisico`
+    // e NUNCA vai ao R2 (`PoliticaDeEspelhamento::NUNCA_ESPELHADAS`). A purga leva o diretório inteiro do escritório.
+    case BACKUP_ZIP = 'backup_zip';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.
