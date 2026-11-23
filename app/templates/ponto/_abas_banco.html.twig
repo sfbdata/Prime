@@ -39,7 +39,7 @@
                     <td>{{ lote.compensadoMinutos > 0 ? folha.horas(lote.compensadoMinutos) : '0h' }}</td>
                     <td class="pe-bh-saldo">{{ folha.saldo(lote.saldoMinutos) }}</td>
                     <td>{{ lote.venceEm is not null ? lote.venceEm|date('d/m/Y') : 'ponto_cartao.banco.sem_prazo'|trans }}</td>
-                    <td><span class="pe-bh-selo" style="background-color: {{ lote.cor|e('html_attr') }};">{{ lote.situacao }}</span></td>
+                    <td><span class="pe-bh-selo" style="background-color: {{ lote.cor|e('html_attr') }};">{{ lote.textoDaSituacao is not null ? lote.textoDaSituacao.chave|trans(lote.textoDaSituacao.parametros) : lote.situacao }}</span></td>
                 </tr>
             {% else %}
                 {# O desenho não tem o vazio; a convenção das abas (E3) é a frase no lugar da lista. #}

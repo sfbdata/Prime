@@ -151,6 +151,17 @@ final class ComposicaoDaCampanha
         return [$primeiroNome !== '' ? $primeiroNome : self::NOME_DE_EXEMPLO, $exemplo->email];
     }
 
+    /**
+     * O miolo e o layout de uma mensagem, para quem monta o envio por conta própria: as automações que usam a versão
+     * editada de um padrão (M5.8, {@see \App\Comercial\Service\ModelosDeAutomacao}).
+     *
+     * @return array{string, LayoutDoEmail}
+     */
+    public function corpoELayout(MensagemDaCampanha $m): array
+    {
+        return [$this->corpo($m), self::layout($m)];
+    }
+
     private function corpo(MensagemDaCampanha $m): string
     {
         return match ($m->modo) {

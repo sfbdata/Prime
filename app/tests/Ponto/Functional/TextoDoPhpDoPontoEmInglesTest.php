@@ -7,6 +7,9 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\RegistroPonto;
 use App\Profile\EventListener\IdiomaDaRequisicaoListener;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -219,6 +222,120 @@ final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         $json = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame(['success' => false, 'message' => $semMotivo, 'recusaDoMotivo' => 'sem_motivo'], $json);
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string}> idioma => [ajuste recusado ("mudou"), recusa do abono em lote] */
+    public static function idiomasDasRecusasDeAjusteEDeAbono(): iterable
+    {
+        yield 'en' => [
+            'en',
+            'This punch changed since the timesheet was opened. Check the timesheet and try again.',
+            'Justification not found in this firm.',
+        ];
+        yield 'pt-BR' => [
+            'pt-BR',
+            'Esta batida mudou desde que a folha foi aberta. Confira a folha e tente de novo.',
+            'Justificativa não encontrada neste escritório.',
+        ];
+    }
+
+    #[DataProvider('idiomasDasRecusasDeAjusteEDeAbono')]
+    #[TestDox('Ajuste de batida recusado (cabeça velha) e recusa do abono em lote no idioma da pessoa ($idioma)')]
+    public function testAjusteRecusadoEAbonoEmLoteNoIdiomaDaPessoa(string $idioma, string $ajusteRecusado, string $abonoRecusado): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Ajuste');
+        $primario = $this->pessoa('idioma_ajuste_primario');
+        $this->vincularPrimario($primario, $escritorio);
+        $colaborador = $this->pessoa('idioma_ajuste_colaborador');
+        $this->vincularColaborador($colaborador, $escritorio);
+        $this->logarNoIdioma($client, $primario, $escritorio, $idioma);
+
+        $em = $this->em();
+        $batida = (new RegistroPonto())
+            ->setTenant($em->getReference(Tenant::class, $escritorio->getId()))
+            ->setUser($em->getReference(User::class, $colaborador->getId()))
+            ->setTipo('saida')
+            ->setDataHora(new \DateTime('2026-10-21 18:00:00'));
+        $em->persist($batida);
+        $em->flush();
+
+        $ajustar = static fn (string $hora) => $client->request(
+            'POST',
+            sprintf('/tenant/%d/user/%d/ponto/b%d/ajustar', $escritorio->getId(), $colaborador->getId(), $batida->getId()),
+            [
+                'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => $hora, 'tipo' => 'saida', 'motivo' => 'Bateu atrasado.'],
+                'cabeca' => '',
+                'competencia' => '2026-10',
+                '_token' => 'TOKEN_ponto_ajustar',
+            ],
+        );
+        $ajustar('18:30:00');
+        $ajustar('19:00:00');   // a cabeça da tela ficou velha: o primeiro ajuste já entrou
+        self::assertResponseRedirects();
+        self::assertSame([$ajusteRecusado], $client->getRequest()->getSession()->getFlashBag()->peek('danger'));
+
+        $client->request('POST', '/ponto/equipe/abonar', ['_token' => 'TOKEN_ponto_equipe_abonar', 'ids' => ['999999999']]);
+        self::assertResponseRedirects();
+        self::assertSame([$abonoRecusado], $client->getRequest()->getSession()->getFlashBag()->peek('warning'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string}> idioma => lembrete do /ponto/alerta-horario sem entrada hoje */
+    public static function idiomasDoLembrete(): iterable
+    {
+        yield 'en' => ['en', 'You have not clocked in yet today!'];
+        yield 'pt-BR' => ['pt-BR', 'Você ainda não registrou sua entrada hoje!'];
+    }
+
+    #[DataProvider('idiomasDoLembrete')]
+    #[TestDox('Lembrete do /ponto/alerta-horario (sem entrada hoje) no idioma da pessoa ($idioma), com o tipo e o status de sempre')]
+    public function testLembreteDoAlertaNoIdiomaDaPessoa(string $idioma, string $esperado): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Alerta');
+        $ana = $this->pessoa('idioma_alerta');
+        $this->vincularColaborador($ana, $escritorio);
+        $em = $this->em();
+        $jornada = (new JornadaColaborador())
+            ->setUser($em->getReference(User::class, $ana->getId()))
+            ->setTenant($em->getReference(Tenant::class, $escritorio->getId()))
+            ->setAlertaHabilitado(true);
+        $jornada->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1, 2, 3, 4, 5, 6, 7])->setEntrada('08:00')
+            ->setRepouso('12:00')->setRetorno('13:00')->setSaida('17:00')->setMinutosBloco(480));
+        $em->persist($jornada);
+        $em->flush();
+        $this->logarNoIdioma($client, $ana, $escritorio, $idioma);
+
+        $client->request('GET', '/ponto/alerta-horario');
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['alertar' => true, 'tipo' => 'entrada', 'mensagem' => $esperado, 'horario' => ''], $json);
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string}> idioma => [título e ajuda da função, o selo do lote não entra] */
+    public static function idiomasDasFuncoes(): iterable
+    {
+        yield 'en' => ['en', 'Full-screen confirmation', 'Clock completing the circle and confirmation taking up the whole screen.'];
+        yield 'pt-BR' => ['pt-BR', 'Validação em tela cheia', 'Relógio completando a volta e confirmação ocupando toda a tela.'];
+    }
+
+    #[DataProvider('idiomasDasFuncoes')]
+    #[TestDox('Aba Configurações: título e ajuda de uma função do Ponto no idioma da pessoa ($idioma)')]
+    public function testFuncoesDaAbaConfiguracoesNoIdiomaDaPessoa(string $idioma, string $titulo, string $ajuda): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Funções');
+        $primario = $this->pessoa('idioma_funcoes_primario');
+        $this->vincularPrimario($primario, $escritorio);
+        $this->logarNoIdioma($client, $primario, $escritorio, $idioma);
+
+        $client->request('GET', '/ponto/configuracoes');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<b>' . $titulo . '</b><span>' . $ajuda . '</span>', $html);
+        self::assertStringContainsString('data-titulo="' . $titulo . '"', $html);
     }
 
     private function logarNoIdioma(KernelBrowser $client, User $user, Tenant $tenant, string $idioma): void

@@ -19,6 +19,10 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
  */
 final class EscalaDaPessoaNaEquipe
 {
+    /** As chaves no catálogo `ponto_servidor` dos dois rótulos da jornada atual (o português: "Personalizada (44h)", "Jornada do escritório (40h)"). */
+    public const PERSONALIZADA = 'ponto_servidor.rotulo.escala.personalizada';
+    public const DO_ESCRITORIO = 'ponto_servidor.rotulo.escala.do_escritorio';
+
     /** Uma segunda-feira qualquer: o dia N da semana é esta data mais N - 1 dias (molde de IntervalosDeTrabalho). */
     private const UMA_SEGUNDA = '2024-01-01';
 
@@ -36,9 +40,10 @@ final class EscalaDaPessoaNaEquipe
         $minutos = $this->minutosDaSemana($pessoal, $padrao);
         $marcada = CatalogoDeEscalas::correspondente($minutos);
 
-        $opcoes = $marcada === null ? [new OpcaoDeEscalaOutput('', $this->rotuloDaAtual($pessoal, $padrao, $minutos), true)] : [];
+        $atual = $marcada === null ? $this->rotuloDaAtual($pessoal, $padrao, $minutos) : null;
+        $opcoes = $atual !== null ? [new OpcaoDeEscalaOutput('', $atual->portugues, true, $atual)] : [];
         foreach (CatalogoDeEscalas::todas() as $escala) {
-            $opcoes[] = new OpcaoDeEscalaOutput($escala->id, $escala->rotulo, $escala->id === $marcada?->id);
+            $opcoes[] = new OpcaoDeEscalaOutput($escala->id, $escala->rotulo, $escala->id === $marcada?->id, TextoDoPonto::de(CatalogoDeEscalas::chaveDoRotulo($escala->id), $escala->rotulo));
         }
 
         return $opcoes;
@@ -61,12 +66,12 @@ final class EscalaDaPessoaNaEquipe
      *
      * @param array<int, int> $minutos
      */
-    private function rotuloDaAtual(?JornadaColaborador $pessoal, ?JornadaTenant $padrao, array $minutos): string
+    private function rotuloDaAtual(?JornadaColaborador $pessoal, ?JornadaTenant $padrao, array $minutos): TextoDoPonto
     {
         if ($pessoal !== null && !$pessoal->getBlocos()->isEmpty()) {
-            return sprintf('Personalizada (%s)', CatalogoDeEscalas::horas($pessoal->getCargaHorariaSemanal() ?? array_sum($minutos)));
+            return TextoDoPonto::de(self::PERSONALIZADA, 'Personalizada (%s)', ['carga' => CatalogoDeEscalas::horas($pessoal->getCargaHorariaSemanal() ?? array_sum($minutos))]);
         }
 
-        return sprintf('Jornada do escritório (%s)', CatalogoDeEscalas::horas($padrao?->getCargaHorariaSemanal() ?? array_sum($minutos)));
+        return TextoDoPonto::de(self::DO_ESCRITORIO, 'Jornada do escritório (%s)', ['carga' => CatalogoDeEscalas::horas($padrao?->getCargaHorariaSemanal() ?? array_sum($minutos))]);
     }
 }

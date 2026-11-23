@@ -81,7 +81,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
             }
         }
         self::assertStringContainsString('JOANA SIGILOSA', $linha->filter('td[data-col="cliente"]')->text());
-        self::assertCount(1, $linha->filter('td[data-col="nup"] > .exp-nup-cel > span.exp-nup + i.js-cadeado'));
+        self::assertCount(1, $linha->filter('td[data-col="nup"] > .exp-nup-cel > i.js-cadeado + span.exp-nup'));
         self::assertSame('', trim($linha->filter('td[data-col="acao"]')->text()), 'sem ação');
         self::assertStringNotContainsString('Ação sigilosa', (string) $this->client->getResponse()->getContent());
 

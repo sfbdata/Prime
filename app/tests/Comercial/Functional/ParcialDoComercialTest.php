@@ -121,11 +121,13 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringContainsString('.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 18px; align-items: start; }', $css, 'os 340px do dc, sem passar da caixa em tela estreita');
     }
 
-    #[TestDox('As ações do modelo (dc 21.10 L256): no fixo, "Salvar como meu modelo"; no próprio, Salvar e Excluir')]
+    #[TestDox('As ações do modelo (dc 21.10 L256; M5.8): "Salvar modelo" no padrão e no próprio; "Voltar ao padrão" só no padrão editado; Excluir só no próprio')]
     public function testAcoesDoModelo(): void
     {
-        self::assertSame(['Novo modelo', 'Duplicar', 'Importar HTML', 'Salvar como meu modelo', 'Salvar modelo', 'Excluir'], $this->textos('.mc-cp-editor > .mc-cp-acoes > .mc-cp-acao'));
-        self::assertSame(2, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-proprio][hidden]')->count());
+        self::assertSame(['Novo modelo', 'Duplicar', 'Importar HTML', 'Salvar como meu modelo', 'Salvar modelo', 'Voltar ao padrão', 'Excluir'], $this->textos('.mc-cp-editor > .mc-cp-acoes > .mc-cp-acao'));
+        self::assertSame(1, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-proprio][hidden]')->count());
+        self::assertSame(1, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-editado][hidden][data-mc-cp-voltar-padrao]')->count());
+        self::assertSame(0, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-salvar][hidden]')->count(), 'Salvar modelo aparece também no padrão');
         self::assertSame(1, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-fixo][data-mc-cp-salvar-como]')->count());
         self::assertSame('.html,.htm', $this->doc->filter('.mc-cp-acoes > label > input[type="file"]')->attr('accept'));
     }

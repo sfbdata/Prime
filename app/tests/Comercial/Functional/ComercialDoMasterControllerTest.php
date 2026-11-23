@@ -156,6 +156,25 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    #[TestDox('M5.8: com o padrão da Central editado, a prévia da automação mostra a versão do Master')]
+    public function testPreviaComVersaoEditada(): void
+    {
+        $client = $this->clienteMaster();
+        $this->conexao()->executeStatement(
+            "INSERT INTO comercial_modelo (nome, icone, modo, assunto, selo, titulo, conteudo, fixo_chave, criado_em, alterado_em)
+             VALUES ('Boas-vindas', 'bi-stars', 'blocos', 'Assunto do Master', 'OLÁ', 'Oi, {nome}, versão do Master', :conteudo, 'boasvindas', NOW(), NOW())",
+            ['conteudo' => json_encode([['t' => 'texto', 'a' => 'Texto que o Master escreveu']])],
+        );
+
+        $client->request('GET', '/master/comercial/automacoes/val/previa');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Oi, Dra., versão do Master', $html);
+        self::assertStringContainsString('Texto que o Master escreveu', $html);
+        self::assertStringNotContainsString('Comece por aqui', $html);
+    }
+
     /** @param array<string, mixed> $corpo */
     private function postar(KernelBrowser $client, string $url, array $corpo): void
     {

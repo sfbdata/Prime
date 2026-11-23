@@ -229,6 +229,7 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
             'ligada' => $campos['ligada'] ?? $antes['ligada'],
             'antecedencia' => $campos['antecedencia'] ?? $antes['antecedencia'],
             'publico' => $campos['publico'] ?? $antes['publico'],
+            'modelo' => $antes['modelo'], // o modelo escolhido (M5.12) não muda por aqui
         ];
         self::validarData($chave, $depois['antecedencia'], $depois['publico']);
         if ($depois === $antes) {
@@ -290,7 +291,7 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
         return ['ligada' => $estado->ligada, 'atraso' => $automacao->opcoesDeAtraso() === [] ? null : $estado->atraso];
     }
 
-    /** @return array{ligada: bool, antecedencia: int, publico: string} a data sem linha no banco vale o padrão */
+    /** @return array{ligada: bool, antecedencia: int, publico: string, modelo: ?string} a data sem linha no banco vale o padrão */
     private function estadoDaData(string $chave): array
     {
         return DataComemorativa::estadoOuPadrao($this->datas->estados(), $chave);
@@ -306,7 +307,7 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
         return $estado['atraso'] === null ? 'ligada' : 'ligada, atraso ' . $estado['atraso'];
     }
 
-    /** @param array{ligada: bool, antecedencia: int, publico: string} $estado */
+    /** @param array{ligada: bool, antecedencia: int, publico: string, modelo: ?string} $estado */
     private static function fraseDaData(array $estado): string
     {
         if (!$estado['ligada']) {
@@ -347,7 +348,9 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
     private function gravarData(string $chave, bool $ligada, int $antecedencia, string $publico, ChamadaDoConector $chamada): array
     {
         try {
-            $linha = $this->plataforma->executar(fn () => $this->alterarData->executar($chave, $ligada, $antecedencia, $publico, $chamada->contexto->pessoa));
+            // Mantém o modelo escolhido para a data (M5.12): o conector não o troca, e nulo voltaria ao padrão da data.
+            $modelo = $this->estadoDaData($chave)['modelo'];
+            $linha = $this->plataforma->executar(fn () => $this->alterarData->executar($chave, $ligada, $antecedencia, $publico, $chamada->contexto->pessoa, $modelo));
         } catch (DataComemorativaRecusada $e) {
             throw ErroDaFerramenta::recusada($e->getMessage());
         }

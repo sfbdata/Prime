@@ -13,6 +13,19 @@ namespace App\Ponto\Service;
  */
 final class CatalogoDeEscalas
 {
+    /** @var array<string, string> id da escala => chave do rótulo no catálogo `ponto_servidor` (a tela traduz; o português segue em `rotulo`) */
+    public const CHAVE_DO_ROTULO = [
+        '44-6' => 'ponto_servidor.rotulo.escala.e44_6',
+        '44-5' => 'ponto_servidor.rotulo.escala.e44_5',
+        '40-5' => 'ponto_servidor.rotulo.escala.e40_5',
+        '30-5' => 'ponto_servidor.rotulo.escala.e30_5',
+    ];
+
+    public static function chaveDoRotulo(string $id): string
+    {
+        return self::CHAVE_DO_ROTULO[$id] ?? throw new \LogicException(sprintf('Escala sem rótulo no catálogo: "%s".', $id));
+    }
+
     /** @return list<EscalaDoCatalogo> */
     public static function todas(): array
     {

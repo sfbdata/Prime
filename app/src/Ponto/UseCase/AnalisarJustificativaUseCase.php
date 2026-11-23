@@ -19,7 +19,6 @@ use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
 use App\Ponto\Service\GravacaoDoAjusteDoPonto;
-use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Service\TrilhaDoPonto;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -295,7 +294,7 @@ final class AnalisarJustificativaUseCase
                 return AnaliseDeJustificativaRecusadaException::excluida();
             }
             if (($status === self::EM_ANALISE) !== $querEmAnalise) {
-                return AnaliseDeJustificativaRecusadaException::situacaoMudou(NomesDasSituacoesDaJustificativa::texto($recusa));
+                return AnaliseDeJustificativaRecusadaException::situacaoMudou($recusa);
             }
 
             $anterior = $status;
@@ -343,7 +342,7 @@ final class AnalisarJustificativaUseCase
     /** As recusas da batida do esquecimento, na ordem da ficha: já registrada no dia (R1) e horário que não chegou. */
     private function recusaDaBatida(JustificativaPonto $justificativa, Tenant $escritorio): ?AnaliseDeJustificativaRecusadaException
     {
-        if (($jaBatida = $this->registrarBatida->recusa($justificativa, $escritorio)) !== null) {
+        if (($jaBatida = $this->registrarBatida->recusaComChave($justificativa, $escritorio)) !== null) {
             return AnaliseDeJustificativaRecusadaException::batidaJaRegistrada($jaBatida);
         }
 
@@ -352,7 +351,7 @@ final class AnalisarJustificativaUseCase
 
     private static function foraDeAnalise(): AnaliseDeJustificativaRecusadaException
     {
-        return AnaliseDeJustificativaRecusadaException::situacaoMudou(NomesDasSituacoesDaJustificativa::texto('analise.so_para_abonar'));
+        return AnaliseDeJustificativaRecusadaException::situacaoMudou('analise.so_para_abonar');
     }
 
     /**

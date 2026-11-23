@@ -261,6 +261,19 @@ final class AutomacoesDeEmailFerramentaTest extends KernelTestCase
         self::assertSame(0, $this->contarPropostas());
     }
 
+    #[TestDox('alterar_data mantém o modelo escolhido para a data (M5.12), ao gravar na hora e ao confirmar')]
+    public function testAlterarDataMantemOModeloEscolhido(): void
+    {
+        $this->conexao()->executeStatement("UPDATE comercial_data_comemorativa SET modelo_chave = 'convite' WHERE chave IN ('natal', 'carnaval')");
+        $this->conexao()->executeStatement("UPDATE comercial_data_comemorativa SET ligada = false WHERE chave = 'carnaval'");
+
+        $this->executar(['acao' => 'alterar_data', 'chave' => 'natal', 'ligada' => false]);
+        $this->confirmar($this->executar(['acao' => 'alterar_data', 'chave' => 'carnaval', 'ligada' => true]));
+
+        $modelos = $this->conexao()->fetchAllKeyValue("SELECT chave, modelo_chave FROM comercial_data_comemorativa WHERE chave IN ('natal', 'carnaval') ORDER BY chave");
+        self::assertSame(['carnaval' => 'convite', 'natal' => 'convite'], $modelos);
+    }
+
     #[TestDox('alterar_data: ligar e mudar antecedência ou público viram proposta; confirmar grava; a data sem linha vale o padrão no "antes"')]
     public function testLigarDataPorProposta(): void
     {

@@ -303,7 +303,7 @@
                             exportarFolhaParametros: {userId: user.id},
                             mostrarBancoHoras: true,
                             editarBatidasHabilitado: podeAnalisarJustificativas,
-                            avisoSemCorrecao: podeAnalisarJustificativas ? null : constant('App\\Ponto\\Exception\\AjusteDeBatidaRecusadoException::MENSAGEM_DA_PROPRIA_BATIDA'),
+                            avisoSemCorrecao: podeAnalisarJustificativas ? null : 'ponto_servidor.recusa.ajuste.da_propria_batida'|trans,
                             editarBatidasRotaAdd: 'app_tenant_user_ponto_add',
                             editarBatidasRotaAjustar: 'app_tenant_user_ponto_ajustar',
                             editarBatidasRotaDesconsiderar: 'app_tenant_user_ponto_desconsiderar',

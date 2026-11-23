@@ -6,6 +6,8 @@
      (laranja a 7 dias ou menos), a antecedência (No dia, 1 dia antes, 3 dias antes), o "Para quem" e o "Ver mensagem".
    - Mudar qualquer um: POST JSON com X-CSRF-Token (o `master_comercial` da raiz [data-mc]) com o estado inteiro da
      linha; depois recarrega a lista (a ordem e o "N ativas" vêm do servidor).
+   - M5.12: cada linha tem o seletor "Modelo" ("Padrão da data", os modelos do sistema e os próprios do Master; a lista vem
+     do servidor junto com as datas). Escolher manda `modelo` no mesmo POST (vazio = padrão da data).
    - "Ver mensagem" abre o modelo `data-<id>` na Central de envios (evento `mc:modelo-abrir`, dc L680 `cmM`) com o
      aviso "Prévia da mensagem de X. Use Duplicar para personalizar o texto.".
    Nenhuma regra mora só aqui: o servidor recusa chave desconhecida, antecedência e público fora da lista. */
@@ -29,6 +31,7 @@
     BJ_T.t('comercial.js.datas_sem_4'), BJ_T.t('comercial.js.datas_sem_5'), BJ_T.t('comercial.js.datas_sem_6'),
   ];
   let datas = [];
+  let modelos = []; // [{ chave, nome, proprio }] do servidor, para o seletor "Modelo" de cada data
   let envioLigado = null; // último estado da chave do envio (evento `mc:envio`); null até chegar
   let carregado = false;
   let ocupado = false;
@@ -57,6 +60,16 @@
     return BJ_T.t('comercial.js.datas_em_dias', { n });
   }
 
+  // M5.12: "Padrão da data" (valor vazio), depois os modelos do sistema e os próprios; o escolhido que sumiu volta ao padrão.
+  function opcoesDeModelo(d) {
+    const op = (m, rot) => '<option value="' + esc(m) + '"' + ((d.modelo || '') === m ? ' selected' : '') + '>' + esc(rot) + '</option>';
+    const grupo = (proprio, rot) => {
+      const itens = modelos.filter(m => !!m.proprio === proprio).map(m => op(m.chave, m.nome)).join('');
+      return itens ? '<optgroup label="' + esc(BJ_T.t(rot)) + '">' + itens + '</optgroup>' : '';
+    };
+    return op('', BJ_T.t('comercial.js.datas_modelo_padrao')) + grupo(false, 'comercial.js.datas_modelo_grupo_padroes') + grupo(true, 'comercial.js.datas_modelo_grupo_proprios');
+  }
+
   function linha(d) {
     const id = 'mc-dt-' + slug(d.chave);
     const ants = ANTECEDENCIAS.map(([v, r]) => '<button type="button" class="mc-atraso" id="' + id + '-ant-' + v + '" name="' + id + '-ant-' + v + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_ant_de', { nome: d.nome, ant: r })) + '" data-mc-dt-ant="' + v + '" aria-pressed="' + (d.antecedencia === v) + '">' + esc(r) + '</button>').join('');
@@ -69,12 +82,14 @@
       + esc(falta(d.diasQueFaltam)) + ' · ' + esc(BJ_T.t('comercial.js.datas_envio', { data: ddmm(d.envio) })) + '</span></span>'
       + '<div class="mc-atrasos" role="group" aria-label="' + esc(BJ_T.t('comercial.js.datas_quando')) + '">' + ants + '</div>'
       + '<select class="mc-dt-publico" id="' + id + '-publico" name="' + id + '-publico" title="' + esc(BJ_T.t('comercial.js.datas_para_quem')) + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_para_quem_de', { nome: d.nome })) + '" data-mc-dt-publico>' + pubs + '</select>'
+      + '<select class="mc-dt-modelo" id="' + id + '-modelo" name="' + id + '-modelo" title="' + esc(BJ_T.t('comercial.js.datas_modelo')) + '" aria-label="' + esc(BJ_T.t('comercial.js.datas_modelo_de', { nome: d.nome })) + '" data-mc-dt-modelo>' + opcoesDeModelo(d) + '</select>'
       + '<button type="button" class="mc-dt-ver" id="' + id + '-ver" name="' + id + '-ver" aria-label="' + esc(BJ_T.t('comercial.js.datas_ver_de', { nome: d.nome })) + '" data-mc-dt-ver><i class="bi bi-envelope-paper" aria-hidden="true"></i>' + esc(BJ_T.t('comercial.js.datas_ver')) + '</button>'
       + '</div>';
   }
 
   function desenhar(r) {
     datas = r.datas || [];
+    modelos = r.modelos || [];
     elLista.innerHTML = datas.map(linha).join('');
     elLista.removeAttribute('aria-busy');
     caixa.querySelector('[data-mc-dt-n]').textContent = String(r.ativas || 0);
@@ -105,7 +120,7 @@
     if (!atual || ocupado) return;
     ocupado = true;
     avisar(BJ_T.t('comercial.js.salvando'));
-    const corpo = Object.assign({ ligada: atual.ligada, antecedencia: atual.antecedencia, publico: atual.publico }, mudanca);
+    const corpo = Object.assign({ ligada: atual.ligada, antecedencia: atual.antecedencia, publico: atual.publico, modelo: atual.modelo || null }, mudanca);
     fetch(URL_ALTERAR.replace('xchavex', encodeURIComponent(chave)), {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
@@ -136,9 +151,11 @@
     if (e.target.closest('[data-mc-dt-ver]')) verMensagem(d);
   });
   caixa.addEventListener('change', e => {
-    const sel = e.target.closest('[data-mc-dt-publico]');
+    const sel = e.target.closest('[data-mc-dt-publico], [data-mc-dt-modelo]');
     const el = sel ? sel.closest('[data-mc-dt-chave]') : null;
-    if (el) alterar(el.dataset.mcDtChave, { publico: sel.value });
+    if (!el) return;
+    if (sel.hasAttribute('data-mc-dt-modelo')) alterar(el.dataset.mcDtChave, { modelo: sel.value || null });
+    else alterar(el.dataset.mcDtChave, { publico: sel.value });
   });
 
   const painel = document.getElementById('master-painel');

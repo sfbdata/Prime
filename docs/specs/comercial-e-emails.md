@@ -715,6 +715,23 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
   "NOME"?')`), "Importar HTML" (L553), com as mensagens do dc. Editar um fixo vale para a prévia e o envio, sem guardar;
   trocar de modelo descarta a edição sem aviso (dc). Excluir um próprio não mexe em campanha confirmada (ela guarda a
   cópia, 8.4).
+- **Fixos editáveis** (pedido M5.8 do Farlei, 23/11/2026; supera o "Salvar modelo" só no próprio acima): "Salvar modelo"
+  num fixo (inclusive os `data-<id>`) grava a **versão do Master** numa linha de `comercial_modelo` com `fixo_chave`
+  (única; upsert; nome e ícone seguem os do padrão; o modo não muda). Essa linha não aparece em "Meus modelos" nem
+  responde por id de próprio. Um serviço único (`ModelosEfetivos`) resolve o modelo de uma chave: a versão editada se
+  existir, senão `ModelosDeCampanha::fixo()` (que continua puro); a grade e as datas leem por ele. Na grade, o fixo
+  editado traz `editado: true`, e "Voltar ao padrão" (só nele, com confirmação; POST
+  `/master/comercial/modelos/{chave}/padrao`) apaga a versão. Trilha: `modelo_upd` (com `fixo_chave` no `changes`) e
+  `modelo_pad` (o `audit_log.action` tem 10 caracteres). "Salvar como meu" segue; nome e "Excluir" só no próprio.
+- **Automações com a versão editada** (M5.8, decisão do coordenador 23/11/2026): editado o padrão da Central que é cópia
+  de uma automação, ela passa a enviar a versão do Master (`ModelosDeAutomacao::FIXO_DA_CENTRAL`): `boasvindas` (val,
+  conv), `primeiros` (dica), `espaco90` (e90; `{limite}` no assunto, no título e no texto vira o limite escolhido; o padrão da Central traz "90%"
+  escrito, então quem edita usa `{limite}` para acompanhar o percentual), `espaco100`
+  (e100) e `pedido` (ped). Assunto, selo, título (com `{nome}`) e miolo saem da versão editada, no layout da campanha
+  (`ComposicaoDaCampanha::corpoELayout`); a prévia do Master mostra o mesmo. Sem versão editada, com "Voltar ao
+  padrão" ou com versão que não compõe (sem assunto ou sem conteúdo), vale o texto de sempre (Twig + tradução): a
+  automação nunca deixa de sair. Ficam sempre no texto do sistema o lembrete de confirmação (cad/lemb, leva o link
+  único de cada pessoa) e os dois do espaço extra (lib, resp), que não têm cópia na Central.
 - **Auditoria** (R6): `comercial_modelo` **não** é `Auditavel` (o subscriber gravaria 500 caracteres do conteúdo).
   Linha manual no `audit_log` (`action` até 10 caracteres: `modelo_new`, `modelo_upd`, `modelo_del`), entidade e id,
   `changes` só `{nome, modo}`.
@@ -1142,6 +1159,14 @@ L678-682 (estado). Risco MÉDIO. Migration `Version20261020149800`.
   - título: o título sem "!" + ", {nome}!";
   - blocos: o texto mais o botão "Abrir o BlueJus".
   As datas também entram na grade de modelos (dc L627), para o "Duplicar".
+- **Modelo por data** (pedido M5.12 do Farlei, 23/11/2026): cada data ganha o seletor "Modelo" ("Padrão da data" =
+  vazio/nulo, os 11 padrões do sistema e os próprios `cu<id>`; as 17 `data-<id>` ficam de fora do seletor). A escolha
+  mora em `comercial_data_comemorativa.modelo_chave` e é validada na alteração (chave que existe; senão 422). O disparo
+  usa o modelo escolhido, na versão editada se houver, e grava a chave usada em `modelo_chave` da campanha. Se o próprio
+  escolhido foi excluído, ou o escolhido não compõe campanha válida (`vagas` editado sem o botão das vagas, §11), vale o
+  padrão da data e o log avisa, sem quebrar a varredura. Como o `modelo_chave` deixa de ser `data-<id>`, "campanha de
+  data" passa a ser reconhecida pela `chave_idempotencia` `data:%` (KPI "esperando" e religar a chave). Escolher `vagas`
+  traz junto a regra de lista de vagas do §11 (decisão herdada do modelo, não da data).
 
 ### Regras
 - **Estado no servidor:** a tabela `comercial_data_comemorativa` (chave, ligada, antecedência 0/1/3, público
@@ -1149,7 +1174,7 @@ L678-682 (estado). Risco MÉDIO. Migration `Version20261020149800`.
   O `localStorage` do dc vira servidor.
 - **Disparo:** o passo `datas` no `VarrerAutomacoesHandler`. Para cada data ligada cujo dia de envio é hoje e que já
   passou das 9h (America/Sao_Paulo), cria uma campanha única do sistema (`criada_por` nulo, `modelo_chave =
-  data-<id>`, o público da data). Ela herda o expansor: vazão, teto, B1, descadastro, Relatório e Cancelar.
+  data-<id>` ou o modelo escolhido para a data, o público da data). Ela herda o expansor: vazão, teto, B1, descadastro, Relatório e Cancelar.
 - **Uma vez por ano:** `chave_idempotencia = data:<id>:<ano da data>`. O ano é o da data, então o Ano Novo "1 dia
   antes" sai em 31/12 com o ano seguinte.
 - **Janela:** até 23:59 do dia de envio. Ligar a data nesse dia, depois das 9h, ainda manda. Passado o dia, nada é
