@@ -118,6 +118,8 @@
 .ps-push-cliente-item { transition: background .18s; }
 .ps-push-cliente-item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
 .ps-push-cliente-item:hover, .ps-push-cliente-item:hover * { color: #fff !important; }
+/* M6: na linha azul o fundo claro do hover do botão apagava o ícone branco. */
+.ps-push-cliente-item:hover :is(.ps-push-cliente-estrela, .ps-push-cliente-remover):hover:not(:disabled) { background: rgba(255,255,255,.2); }
 .ps-push-cliente-item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .ps-push-cliente-ico { font-size: 15px; flex-shrink: 0; color: var(--pc-icone-off); }
 .ps-push-cliente-ico.is-on { color: var(--ps-accent); }

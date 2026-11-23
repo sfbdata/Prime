@@ -13,6 +13,7 @@ use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Exception\EscritorioNaoEncontradoException;
 use App\Inteligencia\UseCase\AlterarChaveGeralDaIaUseCase;
 use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
+use App\Inteligencia\UseCase\AlterarLiberacaoDaIaParaTodosUseCase;
 use App\Inteligencia\UseCase\AlterarRetencaoDaIaUseCase;
 use App\Inteligencia\UseCase\EscolherModeloDaIaUseCase;
 use App\Inteligencia\UseCase\ObterPainelDaIaDoMasterUseCase;
@@ -130,6 +131,22 @@ final class IaDoMasterController extends AbstractController
         }
 
         return $this->json($this->estado());
+    }
+
+    /** Todos os escritórios ativos de uma vez (M5.9). Corpo `{liberada: bool}`; a resposta é o estado novo mais `alterados`. */
+    #[Route('/master/ia/todos', name: 'master_ia_todos', methods: ['POST'])]
+    public function todos(Request $request, AlterarLiberacaoDaIaParaTodosUseCase $alterar): JsonResponse
+    {
+        if (!$this->tokenValido($request)) {
+            return $this->recusa(self::CSRF_INVALIDO, Response::HTTP_FORBIDDEN);
+        }
+        $liberada = self::corpo($request)['liberada'] ?? null;
+        if (!is_bool($liberada)) {
+            return $this->recusa('master.ia.recusa.informe_liberada', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $alterados = $alterar->executar($liberada, $this->master());
+
+        return $this->json($this->estado() + ['alterados' => $alterados]);
     }
 
     /** @param array<mixed> $corpo */

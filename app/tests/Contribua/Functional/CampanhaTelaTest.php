@@ -58,7 +58,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         self::assertSame(['', 'black', 'convenio'], \array_slice($ids, 0, 3), 'Apresentação, faixa, Convênio');
     }
 
-    #[TestDox('Campanha desligada: sem faixa, sem item do FAQ, sem aba e sem frase paga para o usuário comum')]
+    #[TestDox('Campanha desligada: sem faixa, sem item do FAQ e sem frase paga para o usuário comum')]
     public function testSemCampanhaLigada(): void
     {
         $this->campanha(false);
@@ -66,7 +66,6 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('section#black');
-        self::assertSelectorNotExists('#cp-aba');
         self::assertSelectorNotExists('section#campanha');
         self::assertSelectorCount(5, '#faq details.ct-faq');
         self::assertStringNotContainsString('inscrição opcional no Desafio', $html);
@@ -120,34 +119,30 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         self::assertCount($campanha + 2, $filhos, 'depois dele só a Integração bancária');
     }
 
-    #[TestDox('A aba do topo aparece em outra tela logada e abre a janela; desligada, some')]
-    public function testAbaNoTopoEmOutraTela(): void
+    #[TestDox('Sem aba no topo (pedido M5.6, 23/11): outra tela logada não mostra a campanha, mas a janela segue abrindo pelo link #black')]
+    public function testSemAbaNoTopoEmOutraTela(): void
     {
         $this->campanha(true);
         $this->abrir($this->comum, '/perfil');
 
-        self::assertSelectorCount(1, 'button#cp-aba.cp-aba[data-campanha-abrir]');
-        self::assertSelectorTextContains('#cp-aba', 'BLACK FRIDAY');
-        self::assertSelectorTextContains('#cp-aba', 'BlueJus Black');
-        self::assertSelectorTextContains('#cp-aba > .cp-aba-preco', 'R$ 1,00');
+        self::assertSelectorNotExists('#cp-aba');
+        self::assertSelectorNotExists('.cp-aba');
         self::assertSelectorExists('#cp-raiz[data-url-janela="/contribua/campanha/janela"]');
-
-        $this->campanha(false);
-        $this->abrir($this->comum, '/perfil');
-        self::assertSelectorNotExists('#cp-aba');
-    }
-
-    #[TestDox('Campanha desligada: o Master vê a aba em prévia (borda tracejada e selo PRÉVIA), o comum não')]
-    public function testAbaPreviaDoMaster(): void
-    {
-        $this->campanha(false);
-
-        $this->abrir($this->comum, '/perfil');
-        self::assertSelectorNotExists('#cp-aba');
+        self::assertSelectorExists('script[src*="contribua-campanha.js"]');
 
         $this->abrir($this->master, '/dashboard');
-        self::assertSelectorCount(1, '#cp-aba.cp-aba--previa');
-        self::assertSelectorTextContains('#cp-aba > .cp-aba-previa', 'PRÉVIA');
+        self::assertSelectorNotExists('#cp-aba', 'nem a prévia do Master');
+    }
+
+    #[TestDox('O painel do Master não tem mais a caixa "Aba no topo de todas as telas"')]
+    public function testPainelSemCaixaDaAba(): void
+    {
+        $this->campanha(true);
+        $html = $this->abrir($this->master, '/contribua');
+
+        self::assertSelectorExists('[data-cp-painel]');
+        self::assertSelectorNotExists('[data-cp-campo="abaNoTopo"]');
+        self::assertStringNotContainsString('Aba no topo de todas as telas', $html);
     }
 
     private function abrir(User $quem, string $url): string

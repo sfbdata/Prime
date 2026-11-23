@@ -119,6 +119,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::ASSINATURA_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/pastas/assinatura/7/a1b2.pdf',
         ];
+        yield 'backup_zip (subpasta do tenant)' => [
+            CategoriaDeArquivo::BACKUP_ZIP, $tenant, 'a1b2.zip',
+            $raiz . '/pastas/backups/7/a1b2.zip',
+        ];
         // E2.7: o caminho que `TarefaController::uploadFiles()` montava — `kernel.project_dir` +
         // `/public/uploads/tarefas/chat/` + nome — e que `CaminhoDeAnexoDeTarefa` resolvia.
         yield 'tarefa_anexo (plano, subpasta chat)' => [

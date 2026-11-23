@@ -39,6 +39,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Agenda/Entity'
                 prefix: 'App\Agenda\Entity'
                 alias: AppAgenda
+            # Backup e Exportação de Dados (docs/specs/backup-e-exportacao-de-dados.md).
+            AppBackup:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Backup/Entity'
+                prefix: 'App\Backup\Entity'
+                alias: AppBackup
             AppBlog:
                 type: attribute
                 is_bundle: false

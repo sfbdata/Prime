@@ -52,16 +52,16 @@ final class OpcoesAvancadasTest extends JusPrimeWebTestCase
         $this->em->flush();
     }
 
-    #[TestDox('a bandeira do Brasil fica no topo, antes da tela cheia, e abre o modal de idioma; sem opções gravadas, o <html> não leva atributos e o modal marca Brasília e automático')]
+    #[TestDox('a bandeira do Brasil fica no item Idioma do menu do perfil (saiu do topo no M7), que abre o modal de idioma; sem opções gravadas, o <html> não leva atributos e o modal marca Brasília e automático')]
     public function testBandeiraEPadrao(): void
     {
         $tela = $this->abrir();
 
-        $bandeira = $tela->filter('.navtop-right > button.navtop-idioma[data-mu-idioma]');
-        self::assertCount(1, $bandeira);
-        self::assertSame('Idioma: Português (Brasil)', $bandeira->attr('aria-label'));
-        self::assertCount(1, $bandeira->filter('.navtop-bandeira > svg'));
-        self::assertCount(1, $tela->filter('.navtop-right > button.navtop-idioma + a[data-lte-toggle="fullscreen"]'), 'a bandeira vem logo antes da tela cheia');
+        self::assertCount(0, $tela->filter('.navtop-right > [data-mu-idioma], .navtop-right > .navtop-action > [data-mu-idioma]'), 'a bandeira saiu do topo');
+        $item = $tela->filter('.usuario-dropdown .mu-grupo > button.mu-item[data-mu-idioma]');
+        self::assertCount(1, $item);
+        self::assertCount(1, $item->filter('.mu-item-dir > .navtop-bandeira > svg'));
+        self::assertSame('Português (Brasil)', trim($item->filter('.mu-item-dir')->text()));
 
         $html = $tela->filter('html');
         self::assertNull($html->attr('data-bj-fuso'));

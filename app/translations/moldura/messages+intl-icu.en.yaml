@@ -29,6 +29,7 @@ moldura:
             expediente: Docket
             demandas: Requests
             minhas_metas: My Goals
+            push_processual: Case Push
             agenda: Calendar
             trabalho_externo: Field Work
         indicar_botao: Refer BlueJus

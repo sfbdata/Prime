@@ -14,7 +14,8 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
- * A campanha como o usuário logado a enxerga (aba do topo, faixa, FAQ): o que mostrar e com quais textos.
+ * A campanha como o usuário logado a enxerga (faixa e FAQ do Contribua, janela): o que mostrar e com quais textos.
+ * A aba fixa do topo saiu (pedido M5.6 do dono, 23/11): a campanha aparece só na página Contribua.
  * Null quando não existe campanha. Quem decide o que o Master vê a mais (prévia) é `ehMaster`.
  * Também null para o escritório criado há mais de 5 dias (`CampanhaVigente::contaNova`), salvo para quem já se
  * inscreveu: essa pessoa continua vendo a própria participação (pagar o Pix, pedir a devolução).
@@ -35,7 +36,7 @@ final class MontarCampanhaViewUseCase
         }
 
         $estado = $this->vigente->estado($campanha);
-        // Aba, faixa e FAQ só aparecem ao público (ativa ou esgotada) ou ao Master: sem isso, nem consulta a participação.
+        // Faixa, FAQ e janela só aparecem ao público (ativa ou esgotada) ou ao Master: sem isso, nem consulta a participação.
         $aparece = $estado->aoPublico() || $ehMaster;
         $participa = $aparece && $this->participacoes->daPessoa($campanha, $usuario) !== null;
         if ($estado->aoPublico() && !$ehMaster && !$participa && !$this->vigente->contaNova($escritorio)) {
@@ -57,7 +58,6 @@ final class MontarCampanhaViewUseCase
             nome: $campanha->getNome(),
             chamada: $campanha->getChamada(),
             chamadaSelo: mb_strtoupper($campanha->getChamada()),
-            chamadaAba: mb_strtoupper(implode(' ', \array_slice(explode(' ', $campanha->getChamada()), 0, 2))),
             preco: $preco,
             devolve: FormatoDaCampanha::reais($campanha->valorDaDevolucaoCentavos()),
             multTx: FormatoDaCampanha::multiplicador($campanha->getMultiplicador()),
@@ -69,11 +69,6 @@ final class MontarCampanhaViewUseCase
             ehMaster: $ehMaster,
             statusTexto: $this->textoDoStatus($estado, $inicio, $fim),
             statusJanela: $this->textoDoStatusDaJanela($estado, $inicio, $fim),
-            mostrarAba: $campanha->isAbaNoTopo() && ($aoPublico || ($ehMaster && $estado !== EstadoDaCampanha::Ativa)),
-            abaPrevia: !$aoPublico,
-            abaTitulo: $aoPublico
-                ? $campanha->getChamada() . ': Desafio ' . $preco
-                : 'Prévia do Master: campanha ' . $estado->value . ' (só você vê)',
             mostrarFaixa: $aoPublico || ($ehMaster && $estado !== EstadoDaCampanha::Desligada),
             mostrarFaq: $mostrarFaq,
             faqPago: $mostrarFaq ? $this->textoFaqPago($campanha, $preco) : '',

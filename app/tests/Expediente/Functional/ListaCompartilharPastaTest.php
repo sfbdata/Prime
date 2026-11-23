@@ -59,7 +59,7 @@ final class ListaCompartilharPastaTest extends JusPrimeWebTestCase
 
         $nup = $this->celulaDoNup($this->pasta);
 
-        $botao = $nup->filter('td[data-col="nup"] > button.js-compartilhar.exp-rp.exp-rp--tem');
+        $botao = $nup->filter('td[data-col="nup"] > .exp-nup-cel > button.js-compartilhar.exp-rp.exp-rp--tem');
         self::assertCount(1, $botao, 'o ícone é filho direto da célula do NUP');
         self::assertSame('Compartilhada com 2 colaborador(es) · clique para gerenciar', $botao->attr('data-tip'));
         self::assertSame((string) $this->pasta->getId(), $botao->attr('data-pasta-id'));
@@ -72,7 +72,7 @@ final class ListaCompartilharPastaTest extends JusPrimeWebTestCase
     {
         $this->entrar($this->primario, $this->tenant);
 
-        $botao = $this->celulaDoNup($this->pasta)->filter('td[data-col="nup"] > button.js-compartilhar.exp-rp');
+        $botao = $this->celulaDoNup($this->pasta)->filter('td[data-col="nup"] > .exp-nup-cel > button.js-compartilhar.exp-rp');
 
         self::assertCount(1, $botao);
         self::assertStringNotContainsString('exp-rp--tem', (string) $botao->attr('class'));
@@ -88,7 +88,7 @@ final class ListaCompartilharPastaTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $this->entrar($this->primario, $this->tenant);
 
-        $botao = $this->celulaDoNup($this->pasta)->filter('td[data-col="nup"] > button.js-compartilhar');
+        $botao = $this->celulaDoNup($this->pasta)->filter('td[data-col="nup"] > .exp-nup-cel > button.js-compartilhar');
 
         self::assertSame(self::DICA_SEM, $botao->attr('data-tip'));
     }
@@ -114,12 +114,12 @@ final class ListaCompartilharPastaTest extends JusPrimeWebTestCase
         self::assertCount(0, $c->filter('#tabelaPastas tr[data-compartilhar]'), 'a linha não oferece o menu de compartilhar');
         $propria = $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $minha->getId() . '"]');
         self::assertCount(1, $propria);
-        self::assertCount(0, $propria->filter('td[data-col="nup"] > i.exp-rp-recebida'));
+        self::assertCount(0, $propria->filter('td[data-col="nup"] > .exp-nup-cel > i.exp-rp-recebida'));
         self::assertNull($propria->attr('data-compartilhada-comigo'));
 
         $recebida = $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $this->pasta->getId() . '"]');
         self::assertSame('1', $recebida->attr('data-compartilhada-comigo'));
-        self::assertCount(1, $recebida->filter('td[data-col="nup"] > i.exp-rp-recebida'));
+        self::assertCount(1, $recebida->filter('td[data-col="nup"] > .exp-nup-cel > i.exp-rp-recebida'));
     }
 
     #[TestDox('L1: a linha de pasta oculta pelo cadeado não leva o ícone')]
