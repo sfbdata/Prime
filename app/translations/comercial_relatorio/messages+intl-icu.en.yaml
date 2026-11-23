@@ -43,12 +43,13 @@ comercial_relatorio:
         duplicar: Duplicate as new
         reenviar: Resend to those who did not read
         encaminhar: Forward to an email
-        encaminhar_motivo: Test sending to other addresses is not available yet.
         estrela: Mark with a star
         arquivar: Archive
         exportar: Export recipients (CSV)
         excluir: Delete from report
     js:
+        encaminhar_pergunta: 'Forward this campaign (as a test) to:'
+        encaminhado: 'Forwarded to {para}.'
         erro_concluir: Could not complete. Reload the page.
         linha_dica: Open · right-click for more options
         selecionar: Select

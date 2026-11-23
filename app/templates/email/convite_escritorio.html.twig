@@ -1,66 +1,42 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ 'emails.convite_escritorio.titulo'|trans }}</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
-                    <tr>
-                        <td style="background-color:#1a56db;padding:24px 32px;">
-                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">BlueJus</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:32px;">
-                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">
-                                {{ invitation.fullName ? 'emails.convite_escritorio.ola_nome'|trans({nome: invitation.fullName}) : 'emails.convite_escritorio.ola'|trans }}
-                            </p>
+{% extends 'email/_moldura.html.twig' %}
 
-                            <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
-                                <strong>{{ invitation.tenant ? invitation.tenant.name : 'emails.convite_escritorio.um_escritorio'|trans }}</strong> {{ 'emails.convite_escritorio.convidou'|trans }}
-                            </p>
+{% block titulo_documento %}{{ 'emails.convite_escritorio.titulo'|trans }}{% endblock %}
 
-                            <p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
-                                {{ 'emails.convite_escritorio.enviado_por'|trans }} <strong>{{ invitation.createdBy ? invitation.createdBy.fullName : 'emails.convite_escritorio.um_administrador'|trans }}</strong>.
-                            </p>
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">
+    {{ invitation.fullName ? 'emails.convite_escritorio.ola_nome'|trans({nome: invitation.fullName}) : 'emails.convite_escritorio.ola'|trans }}
+</p>
 
-                            <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-                                <tr>
-                                    <td style="border-radius:6px;background-color:#1a56db;">
-                                        <a href="{{ link }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
-                                            {{ 'emails.convite_escritorio.ver_convite'|trans }}
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
+<p style="margin:0 0 16px;font-size:15px;color:#34505f;line-height:1.6;">
+    <strong>{{ invitation.tenant ? invitation.tenant.name : 'emails.convite_escritorio.um_escritorio'|trans }}</strong> {{ 'emails.convite_escritorio.convidou'|trans }}
+</p>
 
-                            <p style="margin:0 0 8px;font-size:13px;color:#888888;">
-                                {{ 'emails.convite_escritorio.expira'|trans }} <strong>{{ invitation.expiresAt|data }}</strong>.
-                            </p>
+<p style="margin:0 0 24px;font-size:15px;color:#34505f;line-height:1.6;">
+    {{ 'emails.convite_escritorio.enviado_por'|trans }} <strong>{{ invitation.createdBy ? invitation.createdBy.fullName : 'emails.convite_escritorio.um_administrador'|trans }}</strong>.
+</p>
 
-                            <p style="margin:0;font-size:13px;color:#888888;">
-                                {{ 'emails.convite_escritorio.nao_funcionar'|trans }}
-                            </p>
-                            <p style="margin:4px 0 0;font-size:12px;color:#1a56db;word-break:break-all;">
-                                {{ link }}
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
-                            <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
-                                {{ 'emails.convite_escritorio.nao_esperava'|trans }}
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+    <tr>
+        <td style="border-radius:4px;background-color:#0a6fa0;">
+            <a href="{{ link }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">
+                {{ 'emails.convite_escritorio.ver_convite'|trans }}
+            </a>
+        </td>
+    </tr>
+</table>
+
+<p style="margin:0 0 8px;font-size:13px;color:#5f7684;">
+    {{ 'emails.convite_escritorio.expira'|trans }} <strong>{{ invitation.expiresAt|data }}</strong>.
+</p>
+
+<p style="margin:0;font-size:13px;color:#5f7684;">
+    {{ 'emails.convite_escritorio.nao_funcionar'|trans }}
+</p>
+<p style="margin:4px 0 0;font-size:12px;color:#0a6fa0;word-break:break-all;">
+    {{ link }}
+</p>
+{% endblock %}
+
+{% block rodape %}
+{{ 'emails.convite_escritorio.nao_esperava'|trans }}
+{% endblock %}

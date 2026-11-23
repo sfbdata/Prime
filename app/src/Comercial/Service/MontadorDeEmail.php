@@ -36,7 +36,8 @@ final class MontadorDeEmail
     public const ROTA_ABERTURA = 'comercial_rastreio_abertura';
     public const ROTA_CLIQUE = 'comercial_rastreio_clique';
     private const ROTA_POLITICA = 'legal_politica_privacidade';
-    private const LOGO = '/images/logo/bluejus-white-transparent-nav.png';
+    /** Logo colorido em 2x (239 x 72) para o cabeçalho branco do layout (M5.4); 18 KB em vez dos 216 KB do original. */
+    private const LOGO = '/images/logo/bluejus-logo-email.png';
 
     private readonly SanitizadorDeHtmlDeEmail $sanitizador;
 
@@ -174,7 +175,8 @@ final class MontadorDeEmail
         $comQuebras = (string) preg_replace('{<br\s*/?>|</(p|div|tr|li|h[1-6])>}i', "\n", $semCabeca);
         $comLinks = (string) preg_replace('{<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>}is', '$2 ($1)', $comQuebras);
         $texto = html_entity_decode(strip_tags($comLinks), ENT_QUOTES | ENT_HTML5);
-        $linhas = array_map('trim', explode("\n", $texto));
+        // O NBSP das células espaçadoras do layout (faixa e divisória) não pode sobrar como linha "em branco".
+        $linhas = array_map(static fn (string $l): string => (string) preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', $l), explode("\n", $texto));
 
         return trim((string) preg_replace("/\n{3,}/", "\n\n", implode("\n", $linhas)));
     }
