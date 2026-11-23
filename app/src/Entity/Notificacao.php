@@ -91,6 +91,12 @@ class Notificacao implements Auditavel, TenantAware
         self::TIPO_TRABALHO_EXTERNO_TERMO_ACEITO => 'bi-file-earmark-check text-success',
     ];
 
+    /** Os ícones dos avisos do Backup do Meu Perfil (o ZIP ficou pronto ou a montagem falhou; os tipos são os de `GerarBackupHandler::TIPO_PRONTO` e `TIPO_FALHOU`). */
+    public const ICONES_DO_BACKUP = [
+        'backup_pronto' => 'bi-cloud-arrow-down text-success',
+        'backup_falhou' => 'bi-exclamation-triangle text-warning',
+    ];
+
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
     public const CATEGORIA_GESTAO  = 'gestao';
@@ -255,7 +261,7 @@ class Notificacao implements Auditavel, TenantAware
     public function getIcone(): string
     {
         // Trabalho Externo (F4): avisos de vagas e candidaturas.
-        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? $this->iconeDosDemaisTipos();
+        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? self::ICONES_DO_BACKUP[$this->tipo] ?? $this->iconeDosDemaisTipos();
     }
 
     private function iconeDosDemaisTipos(): string

@@ -40,7 +40,8 @@ auth:
             usado_titulo: Convite já utilizado
             usado_texto: Este convite já foi aceito, recusado ou revogado e não pode ser usado novamente.
             nao_encontrado_titulo: Convite não encontrado
-            nao_encontrado_texto: O link que você usou é inválido ou não existe. Verifique se copiou o link completo do e-mail.
+            nao_encontrado_texto: 'O link que você usou não vale mais ou está incompleto. Quando um convite é reenviado, o link do e-mail anterior deixa de valer: abra o e-mail mais recente do convite. Se você já tem conta no BlueJus, os convites pendentes para o seu e-mail ficam em Meus convites.'
+            ver_meus_convites: Ver meus convites
         nao_pertence:
             titulo: Convite de outra conta
             enviado_para: Este convite foi enviado para
@@ -95,6 +96,7 @@ auth:
             expirado: Expirado
         reenviar: Reenviar
         confirmar_reenviar: Reenviar convite para
+        reenviar_troca_link: O link enviado antes deixa de valer.
         revogar: Revogar
         confirmar_revogar: Revogar convite de
         vazio: Nenhum convite enviado ainda.

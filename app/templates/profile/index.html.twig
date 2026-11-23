@@ -511,6 +511,42 @@ input[type="range"].img-slider {
         </div>
     </section>
     {% endif %}
+
+    {# ── Backup e Exportação de Dados (docs/specs/backup-e-exportacao-de-dados.md, seção 6) ──
+       Sem desenho: seção discreta no fim do perfil, com as classes do próprio Meu Perfil. Vale para toda pessoa com
+       escritório (não só o primário); a lista é só dela. O aviso do sino (backup_pronto/backup_falhou) abre aqui (#mpBackup). #}
+    {% set _backups = backup_da_pessoa() %}
+    {% if _backups is not null %}
+    <section class="mp-card mp-bk" data-screen-label="Backup" id="mpBackup"
+             data-url-pedir="{{ path('backup_pedir') }}"
+             data-token="{{ csrf_token('backup_pedir') }}"
+             data-msg-erro="{{ 'perfil.backup.erro_generico'|trans }}">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo" aria-hidden="true"><i class="bi bi-cloud-arrow-down"></i></span>
+            <div><b>{{ 'perfil.backup.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.backup.sub'|trans }}</div></div>
+        </div>
+        <div class="mp-seguranca">
+            <div>{{ 'perfil.backup.explicacao'|trans }}</div>
+            <button class="mp-btn-azul" type="button" data-mp-bk-gerar><i class="bi bi-cloud-arrow-down"></i>{{ 'perfil.backup.gerar'|trans }}</button>
+        </div>
+        <div class="mp-bk-msg" data-mp-bk-msg role="status" hidden></div>
+        {% if _backups %}
+        <ul class="mp-bk-lista">
+            {% for _b in _backups %}
+            <li class="mp-bk-item">
+                <span class="mp-bk-sit mp-bk-sit-{{ _b.situacao }}">{{ ('perfil.backup.situacao.' ~ _b.situacao)|trans }}</span>
+                <span class="mp-bk-data">{{ _b.pedidoEm|data_hora }}</span>
+                {% if _b.tamanhoBytes is not null %}<span class="mp-bk-tam">{{ _b.tamanhoBytes|formatar_bytes }}</span>{% endif %}
+                {% if _b.podeBaixar %}
+                    <a class="mp-bk-baixar" href="{{ path('backup_baixar', {id: _b.id}) }}"><i class="bi bi-download"></i>{{ 'perfil.backup.baixar'|trans }}</a>
+                    <span class="mp-bk-validade">{{ 'perfil.backup.valido_ate'|trans({data: _b.validoAte|data}) }}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+    {% endif %}
 </div>
 
 {% if _exclusao and not _exclusao.pendente %}
@@ -882,6 +918,7 @@ input[type="range"].img-slider {
 <script src="{{ asset('js/ponto-alerta-som.js') }}" defer></script>
 {% endif %}
 <script src="{{ asset('js/conta-exclusao.js') }}" defer></script>
+<script src="{{ asset('js/backup-pedido.js') }}" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>
 

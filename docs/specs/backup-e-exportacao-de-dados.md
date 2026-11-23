@@ -89,6 +89,11 @@ copiar, `CM_STORE` para formato já comprimido) sem alterar o UseCase existente.
   (libzip faz ZIP64); dividir em partes fica para quando aparecer escritório que precise.
 - **Validade: 7 dias.** Tarefa agendada nova marca `vencido` e apaga o arquivo.
 - **Um pedido aberto por vez por usuário e escritório, e no máximo 1 por dia** (contado em 24h corridas).
+  - **Pedido `falhou` não conta** no limite do dia: a falha é do sistema, a pessoa pede de novo.
+  - **Corrida de dois cliques:** `PedirBackupUseCase` checa e grava dentro de uma transação com
+    `pg_advisory_xact_lock(4432, hashtext('tenant:usuario'))`; o `GerarBackup` só é despachado depois do commit.
+  - **EntityManager fechado no worker:** erro de banco fecha o EM; o handler chama `resetManager()`, recarrega o pedido
+    pelo id e marca `falhou` com aviso no sino (inclusive quando o flush do `pronto` falha, depois de apagar o ZIP).
 - Aviso de pronto pelo sino (`Notificacao`); sem e-mail em lote (cota da Hostinger).
 
 ## 6. Tela (PR 4)

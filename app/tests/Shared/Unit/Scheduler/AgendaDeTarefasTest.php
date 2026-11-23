@@ -68,6 +68,8 @@ final class AgendaDeTarefasTest extends TestCase
             'blog:conferir-publicacoes' => ['blog:conferir-publicacoes --no-interaction', '* * * * *', '* * * * *'],
             // Nova (Voto, horário programado): abre e encerra as pautas programadas, a cada minuto.
             'voto:executar-programacao' => ['voto:executar-programacao --no-interaction', '* * * * *', '* * * * *'],
+            // Nova (Backup, PR 3): vence os backups prontos e marca como falhou os presos em preparo, de hora em hora.
+            'app:backup:vencer' => ['app:backup:vencer --no-interaction', '25 * * * *', '25 * * * *'],
             // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
             'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],
         ];

@@ -96,6 +96,7 @@ final class ListarRelatorioDeCampanhasUseCase
             $data,
             self::metricas($c, $m, $rastreiaLeitura),
             $c['estrela'],
+            $c['editavel'],
         );
     }
 }

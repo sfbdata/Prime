@@ -23,6 +23,7 @@
          data-url-lista="{{ path('master_comercial_relatorio') }}"
          data-url-campanha="{{ path('master_comercial_campanha', {id: 999999999}) }}"
          data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 999999999}) }}"
+         data-url-excluir="{{ path('master_comercial_campanha_excluir', {id: 999999999}) }}"
          data-url-encaminhar="{{ path('master_comercial_campanha_encaminhar', {id: 999999999}) }}"
          data-url-marcas="{{ path('master_comercial_relatorio_marcas') }}"
          data-url-csv="{{ path('master_comercial_campanha_destinatarios', {id: 999999999}) }}"
@@ -95,6 +96,11 @@
             <div class="mc-rl-ctx-titulo" id="mc-rl-ctx-titulo-{{ secao }}" data-mc-rl-ctx-titulo></div>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-abrir-{{ secao }}" name="mc-rl-ctx-abrir-{{ secao }}" data-mc-rl-ctx-acao="abrir"><i class="bi bi-envelope-open" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.abrir'|trans }}</button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-duplicar-{{ secao }}" name="mc-rl-ctx-duplicar-{{ secao }}" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.duplicar'|trans }}</button>
+            {# Pedido do Farlei M5.3: "Editar campanha" (conteúdo, data e frequência) só antes de a campanha começar a sair. Sem
+               condição, o item fica desabilitado com o motivo ao lado (aria-describedby). O editor está na seção Comercial: na
+               instância das Indicações o JS esconde o item (o HTML das duas instâncias é o mesmo). #}
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-editar-{{ secao }}" name="mc-rl-ctx-editar-{{ secao }}" data-mc-rl-ctx-acao="editar" aria-describedby="mc-rl-ctx-editar-motivo-{{ secao }}"><i class="bi bi-pencil-square" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.editar'|trans }}</button>
+            <span class="mc-motivo mc-rl-ctx-motivo" id="mc-rl-ctx-editar-motivo-{{ secao }}" data-mc-rl-ctx-editar-motivo hidden>{{ 'comercial_relatorio.js.editar_motivo'|trans }}</span>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-reenviar-{{ secao }}" name="mc-rl-ctx-reenviar-{{ secao }}" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.reenviar'|trans }}</button>
             <div class="mc-rl-ctx-sep" role="separator"></div>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-encaminhar-{{ secao }}" name="mc-rl-ctx-encaminhar-{{ secao }}" data-mc-rl-ctx-acao="encaminhar"><i class="bi bi-forward" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.encaminhar'|trans }}</button>

@@ -172,7 +172,7 @@ final class GerenciarConvitesController extends AbstractController
                 return $this->redirectToRoute('auth_gerenciar_convites');
             }
 
-            $this->addFlash('sucesso', 'Convite reenviado.');
+            $this->addFlash('sucesso', 'Convite reenviado com um link novo. O link enviado antes deixa de valer.');
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }

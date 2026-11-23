@@ -163,7 +163,7 @@ final class ExpansorDeCampanhas
             return;
         }
         $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte, $filtro): void {
-            if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes']) === null) {
+            if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes'], $agora) === null) {
                 return;
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);

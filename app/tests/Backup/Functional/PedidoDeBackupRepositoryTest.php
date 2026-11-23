@@ -153,6 +153,11 @@ final class PedidoDeBackupRepositoryTest extends KernelTestCase
         self::assertSame(1, $this->repo->quantosDaPessoaDesde((int) $a->getId(), (int) $beto->getId(), $desde));
         self::assertSame(1, $this->repo->quantosDaPessoaDesde((int) $b->getId(), (int) $ana->getId(), $desde));
         self::assertSame(0, $this->repo->quantosDaPessoaDesde((int) $b->getId(), (int) $beto->getId(), $desde));
+
+        $falho = $this->pedido($b, $beto, $this->agora->modify('-30 minutes'));
+        $falho->falhar('erro', $this->agora);
+        $this->em->flush();
+        self::assertSame(0, $this->repo->quantosDaPessoaDesde((int) $b->getId(), (int) $beto->getId(), $desde), 'pedido falhou não conta no limite');
     }
 
     #[TestDox('ultimosDaPessoa isola por pessoa e escritório, o mais novo primeiro, respeitando o limite')]

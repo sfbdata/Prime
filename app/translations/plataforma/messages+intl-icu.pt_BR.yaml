@@ -34,7 +34,7 @@ plataforma:
         revogado: Revogado
         expirado: Expirado
         reenviar: Reenviar
-        confirmar_reenviar: 'Reenviar convite para {email}?'
+        confirmar_reenviar: 'Reenviar convite para {email}? O link enviado antes deixa de valer.'
         revogar: Revogar
         confirmar_revogar: 'Revogar convite de {email}?'
         vazio: Nenhum convite enviado ainda.
@@ -77,7 +77,7 @@ plataforma:
         convite_enviado: 'Convite enviado para {email}.'
         convite_revogado: Convite revogado.
         convite_email_nao_enviado: Não foi possível enviar o email. Tente novamente.
-        convite_reenviado: Convite reenviado.
+        convite_reenviado: Convite reenviado com um link novo. O link enviado antes deixa de valer.
         oab_confirmada: OAB confirmada.
         oab_destino_invalido: Destino inválido.
         oab_revertida: OAB revertida.

@@ -43,6 +43,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     public const ENCERRADA = 'camp_fim';
     public const CANCELADA = 'camp_canc';
     public const TESTADA = 'camp_teste';
+    /** A edição do conteúdo e da agenda antes de sair (pedido do Farlei M5.3), com `{frequencia, agendada}`. */
+    public const EDITADA = 'camp_edit';
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
@@ -196,7 +198,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      * automáticas do `AuditLogSubscriber`: na tela, a do controller; pelo conector de I.A., `conector_mcp`
      * (`docs/specs/mcp-remoto-oauth.md`, 6.9, decisão 36). Fora de requisição (worker, console), nula.
      *
-     * @param array<string, string|int> $changes `{publico, frequencia, total}` ou, no cancelamento, `{motivo, total}`
+     * @param array<string, string|int|null> $changes `{publico, frequencia, total}`; no cancelamento, `{motivo, total}`; na edição, `{frequencia, agendada}`
      */
     public function auditar(int $id, string $acao, array $changes, ?int $porId, ?string $porEmail, \DateTimeImmutable $agora): void
     {
@@ -207,6 +209,61 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
                 'acao' => $acao, 'classe' => CampanhaDeEmail::class, 'id' => (string) $id,
                 'changes' => json_encode($changes, JSON_THROW_ON_ERROR), 'por' => $porId, 'email' => $porEmail, 'agora' => self::data($agora),
                 'rota' => $this->rota(),
+            ],
+        );
+    }
+
+    /**
+     * A regra de "ainda dá para editar" (pedido do Farlei M5.3), num lugar só, em SQL, para a lista e o caso de uso: a
+     * única (`agendada` ou `na_fila`) que o expansor ainda não pegou (`execucoes = 0` e nenhum destino materializado), ou a
+     * `recorrente` entre duas execuções (sem lote da execução corrente por materializar nem envio ainda na fila do
+     * Carteiro). `$alias` é o alias da tabela `comercial_campanha` na consulta; vem de quem escreve o SQL, nunca do pedido.
+     */
+    public static function condicaoEditavel(string $alias): string
+    {
+        return "(({$alias}.estado IN ('agendada', 'na_fila') AND {$alias}.execucoes = 0
+                  AND NOT EXISTS (SELECT 1 FROM comercial_campanha_destino dd WHERE dd.campanha_id = {$alias}.id))
+                 OR ({$alias}.estado = 'recorrente'
+                  AND NOT EXISTS (SELECT 1 FROM comercial_campanha_destino dd
+                                  WHERE dd.campanha_id = {$alias}.id AND dd.execucao = {$alias}.execucoes AND dd.envio_id IS NULL)
+                  AND NOT EXISTS (SELECT 1 FROM comercial_envio ee
+                                  WHERE ee.origem = 'campanha:' || {$alias}.id AND ee.situacao IN ('enfileirado', 'enviando'))))";
+    }
+
+    /**
+     * Trava a campanha para a edição (`FOR UPDATE`, na transação do chamador): o expansor também a trava para
+     * materializar, então um dos dois espera o outro. Null se não existe.
+     *
+     * @return Campanha|null
+     */
+    public function travarParaEdicao(int $id): ?array
+    {
+        return $this->uma('WHERE id = :id FOR UPDATE', ['id' => $id]);
+    }
+
+    /** Se a campanha ainda cabe na edição agora ({@see self::condicaoEditavel()}). */
+    public function editavel(int $id): bool
+    {
+        return $this->conexao()->fetchOne('SELECT 1 FROM comercial_campanha c WHERE c.id = :id AND ' . self::condicaoEditavel('c'), ['id' => $id]) !== false;
+    }
+
+    /**
+     * Regrava a cópia congelada e a agenda (a edição). O público, os parâmetros dele, a chave do modelo e o total não mudam.
+     *
+     * @param array{assunto: string, modelo_nome: string, modo: string, selo: string, titulo: string, conteudo: string,
+     *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string} $c
+     */
+    public function regravar(int $id, array $c): void
+    {
+        $this->conexao()->executeStatement(
+            'UPDATE comercial_campanha SET nome = :nome, assunto = :assunto, modelo_nome = :mnome, modo = :modo, selo = :selo,
+                 titulo = :titulo, conteudo = :conteudo, frequencia = :frequencia, agendada_para = :agendada,
+                 proxima_execucao = :proxima, estado = :estado WHERE id = :id',
+            [
+                'id' => $id, 'nome' => mb_substr($c['assunto'], 0, 255), 'assunto' => mb_substr($c['assunto'], 0, 255),
+                'mnome' => mb_substr($c['modelo_nome'], 0, 200), 'modo' => $c['modo'], 'selo' => mb_substr($c['selo'], 0, 120),
+                'titulo' => mb_substr($c['titulo'], 0, 255), 'conteudo' => $c['conteudo'], 'frequencia' => $c['frequencia'],
+                'agendada' => self::dataOuNulo($c['agendada_para']), 'proxima' => self::data($c['proxima']), 'estado' => $c['estado'],
             ],
         );
     }
@@ -300,9 +357,14 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      *
      * @return Campanha|null
      */
-    public function travarDevida(int $id, string $estado, int $execucoes): ?array
+    public function travarDevida(int $id, string $estado, int $execucoes, \DateTimeImmutable $agora): ?array
     {
-        return $this->uma('WHERE id = :id AND estado = :estado AND execucoes = :execucoes FOR UPDATE', ['id' => $id, 'estado' => $estado, 'execucoes' => $execucoes]);
+        // `proxima_execucao` conferida de novo sob a trava: a edição (M5.3) pode ter adiado a campanha entre a leitura das
+        // devidas e esta trava, sem mudar estado nem execuções.
+        return $this->uma(
+            'WHERE id = :id AND estado = :estado AND execucoes = :execucoes AND proxima_execucao <= :agora FOR UPDATE',
+            ['id' => $id, 'estado' => $estado, 'execucoes' => $execucoes, 'agora' => self::data($agora)],
+        );
     }
 
     /** Registra a execução materializada: o número, o total, o estado seguinte e a próxima data (null na única). */

@@ -46,7 +46,8 @@ comercial_relatorio:
         estrela: Mark with a star
         arquivar: Archive
         exportar: Export recipients (CSV)
-        excluir: Delete from report
+        excluir: Delete campaign
+        editar: Edit campaign
     js:
         encaminhar_pergunta: 'Forward this campaign (as a test) to:'
         encaminhado: 'Forwarded to {para}.'
@@ -71,7 +72,9 @@ comercial_relatorio:
         confirmar_cancelar: Cancel the scheduled sending of this campaign?
         confirmar_cancelar_fila: Cancel the sending of this campaign? What is still in the queue will not go out.
         confirmar_remover: 'Remove {n} campaign(s) from the report?'
-        confirmar_excluir: Delete this campaign from the report?
+        confirmar_excluir_ativa: 'Delete this campaign? Sending will be canceled (what is still queued will not go out) and it leaves the report. The audit trail is kept.'
+        confirmar_excluir_encerrada: 'Delete this campaign from the report? It was already sent or canceled: it just stops showing in the list.'
+        editar_motivo: Only before it starts sending.
         reenvio_menu_rastreada: Resending is available as soon as the reads are recorded.
         reenvio_menu_sem_rastreio: This campaign did not track reads.
         reenvio_rastreada: Resending to those who did not read is available as soon as the reads are recorded.
