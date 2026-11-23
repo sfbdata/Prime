@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\Repository;
 
+use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
@@ -70,10 +71,53 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         return $this->uma('WHERE id = :id', ['id' => $id]);
     }
 
-    /** As campanhas enviadas ou agendadas, com as de teste: todas menos as canceladas (o KPI "Campanhas" do Comercial). */
+    /**
+     * As campanhas reais enviadas ou agendadas: todas menos as canceladas e os testes (o KPI "Campanhas" do Comercial;
+     * pedido do Farlei M8.3, 23/11/2026: o contador mostrava 4 e eram todas testes).
+     */
     public function contarNaoCanceladas(): int
     {
-        return (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha WHERE estado <> :cancelada', ['cancelada' => CampanhaDeEmail::CANCELADA]);
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_campanha WHERE estado NOT IN (:cancelada, 'teste')",
+            ['cancelada' => CampanhaDeEmail::CANCELADA],
+        );
+    }
+
+    /** Os e-mails de teste gravados como campanha (estado `teste`), contados à parte no KPI "Campanhas". */
+    public function contarTestes(): int
+    {
+        return (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_campanha WHERE estado = 'teste'");
+    }
+
+    /**
+     * As campanhas paradas pela chave do envio desligada: as que já estão saindo e as do Master que já deviam ter saído
+     * (as agendadas para depois não contam: ainda não estão esperando nada). As das datas comemorativas vencidas ficam
+     * de fora: ao religar elas não saem ({@see self::trazerParaAgoraAsVencidas()}), e o aviso não pode prometê-las.
+     */
+    public function contarEsperandoOEnvio(\DateTimeImmutable $agora): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_campanha
+             WHERE estado = 'enviando'
+                OR (estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao <= :agora AND modelo_chave NOT LIKE :datas)",
+            ['agora' => self::data($agora), 'datas' => ModelosDeCampanha::PREFIXO_DE_DATA . '%'],
+        );
+    }
+
+    /**
+     * Ao religar a chave: as campanhas do Master que venceram com ela desligada passam a valer agora, para a tolerância
+     * de 24 h do expansor não as cancelar (pedido do Farlei M8.4). As das datas comemorativas ficam como estão: uma
+     * felicitação que perdeu o dia não deve sair atrasada, e o expansor a cancela pela tolerância.
+     *
+     * @return int quantas foram trazidas para agora
+     */
+    public function trazerParaAgoraAsVencidas(\DateTimeImmutable $agora): int
+    {
+        return $this->conexao()->executeStatement(
+            "UPDATE comercial_campanha SET proxima_execucao = :agora
+             WHERE estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao < :agora AND modelo_chave NOT LIKE :datas",
+            ['agora' => self::data($agora), 'datas' => ModelosDeCampanha::PREFIXO_DE_DATA . '%'],
+        );
     }
 
     /**
@@ -131,23 +175,6 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
             ['ativas' => CampanhaDeEmail::ATIVAS],
             ['ativas' => ArrayParameterType::STRING],
         ) !== false;
-    }
-
-    /**
-     * A parada de emergência (§8.1.2): toda campanha ativa vira `cancelada` com o motivo.
-     *
-     * @return list<array{id: int, total: int}> as canceladas
-     */
-    public function cancelarAtivas(string $motivo): array
-    {
-        $linhas = $this->conexao()->fetchAllAssociative(
-            "UPDATE comercial_campanha SET estado = 'cancelada', motivo = :motivo, publico_parametros = NULL, proxima_execucao = NULL
-             WHERE estado IN (:ativas) RETURNING id, total",
-            ['motivo' => $motivo, 'ativas' => CampanhaDeEmail::ATIVAS],
-            ['ativas' => ArrayParameterType::STRING],
-        );
-
-        return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'total' => (int) $l['total']], $linhas);
     }
 
     /**

@@ -171,7 +171,9 @@ comercial:
         titulo: Commemorative dates
         sub: automatic messages on national holidays
         ativas: active
-        chave_desligada: 'Campaign sending is turned off in this installation: no commemorative date goes out until it is turned on.'
+        chave_desligada: 'Campaign sending is off: no commemorative date goes out until it is turned on at the top of the sending center.'
+    envio:
+        rotulo: Campaign sending
     leitura:
         ligada: Read receipt
         desligada: No read receipt
@@ -257,6 +259,20 @@ comercial:
         datas_pub_leads: Contact base
         datas_ver: View message
         datas_previa: 'Preview of the message for {nome}. Use Duplicate to customize the text.'
+        envio_ligado: On
+        envio_desligado: Off
+        envio_aviso_n: 'Campaign sending is off. {n} campaign(s) waiting: they go out when sending is turned on.'
+        envio_aviso_zero: 'Campaign sending is off. Confirmed campaigns wait until it is turned on.'
+        envio_confirmar_ligar: 'Turn campaign sending on? The {n} waiting campaigns start going out within 1 minute.'
+        envio_confirmar_ligar_zero: 'Turn campaign sending on? No campaign is waiting right now.'
+        envio_confirmar_desligar: 'Turn campaign sending off? No campaign goes out until it is turned on again; scheduled ones wait.'
+        envio_ok_ligado: 'Campaign sending turned on.'
+        envio_ok_desligado: 'Campaign sending turned off.'
+        envio_erro_carregar: 'Could not load the sending state. Reload the page.'
+        envio_erro_salvar: 'Could not change campaign sending.'
+        envio_campanha_esperando: 'Campaign sending is off: this campaign waits and only goes out when sending is turned on.'
+        kpi_teste_um: 'sent or scheduled · 1 test apart'
+        kpi_testes_n: 'sent or scheduled · {n} tests apart'
         datas_erro_carregar: Could not load the commemorative dates. Reload the page.
         datas_sem_0: Sun
         datas_sem_1: Mon
