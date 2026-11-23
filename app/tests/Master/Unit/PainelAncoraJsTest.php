@@ -11,7 +11,8 @@ use PHPUnit\Framework\TestCase;
  * Âncora do Painel do Master (#aba=...&sec=...), lida como FOLHA: não há navegador no PHPUnit, então o que
  * se prova é o contrato do public/js/master/painel.js. Os itens "Exclusivo do Master" do menu do usuário
  * apontam para /master#aba=...&sec=...; com a página já aberta, só o hashchange muda a tela, e ele usa a
- * mesma leitura da âncora do carregamento.
+ * mesma leitura da âncora do carregamento. Desde o M5.16 (23/11/2026) o painel também ESCREVE a âncora ao trocar
+ * de aba ou de seção, para cada uma ter endereço próprio.
  */
 final class PainelAncoraJsTest extends TestCase
 {
@@ -27,7 +28,7 @@ final class PainelAncoraJsTest extends TestCase
 
         self::assertSame(1, substr_count($js, 'function aplicarAncora()'), 'uma única função lê a âncora');
         self::assertMatchesRegularExpression('/^\s*aplicarAncora\(\);$/m', $js, 'o carregamento lê a âncora');
-        self::assertStringContainsString("window.addEventListener('hashchange', () => { if (aplicarAncora()) irPara(S.sec); });", $js);
+        self::assertStringContainsString("window.addEventListener('hashchange', () => { if (aplicarAncora()) irPara(S.sec, true); else escreverAncora(true); });", $js);
         self::assertSame(1, substr_count($js, "location.hash.match("), 'a leitura do hash não é duplicada');
     }
 
@@ -37,8 +38,28 @@ final class PainelAncoraJsTest extends TestCase
         $js = self::js();
 
         self::assertStringContainsString("if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;", $js);
-        self::assertStringNotContainsString('location.hash =', $js, 'o painel não escreve no hash');
-        self::assertStringNotContainsString('history.replaceState', $js);
-        self::assertStringNotContainsString('history.pushState', $js);
+    }
+
+    #[TestDox('aba ausente ou desconhecida abre o Painel do sistema; âncora vazia volta à Visão geral')]
+    public function testAbaAusenteVoltaAoPainel(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("S.aba = aba && raiz.querySelector('[data-aba=\"' + aba + '\"]') ? aba : 'painel';", $js);
+        self::assertStringContainsString("const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');", $js);
+    }
+
+    #[TestDox('M5.16: trocar a aba ou a seção escreve a âncora canônica no endereço, com entrada no histórico')]
+    public function testTrocarAbaOuSecaoEscreveAAncora(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec : '');", $js);
+        self::assertStringContainsString("S.aba = b.dataset.aba; mostrarAba(); escreverAncora(); }));", $js, 'clique na aba');
+        self::assertMatchesRegularExpression('/function irPara\(sec, trocar\) \{[^\n]*renderSecao\(\); escreverAncora\(trocar\); \}/', $js, 'troca de seção');
+        self::assertStringContainsString("history[trocar ? 'replaceState' : 'pushState'](null, '', alvo);", $js);
+        // Sem laço: pushState e replaceState não disparam o hashchange; e a âncora igual não escreve de novo.
+        self::assertDoesNotMatchRegularExpression('/location\.hash\s*=[^=]/', $js, 'nunca atribui ao hash');
+        self::assertStringContainsString("if (location.hash === alvo || location.hash.indexOf(alvo + '&') === 0) return;", $js);
     }
 }
