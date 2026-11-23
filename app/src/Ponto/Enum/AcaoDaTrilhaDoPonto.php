@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ponto\Enum;
 
+use Symfony\Contracts\Translation\TranslatorInterface;
+
 /**
  * Os eventos que entram na trilha de auditoria do Ponto (spec `ponto-desenho-0811.md`, E9). O código é o que a coluna
  * `acao` guarda (e o selo cobre), então um código gravado nunca muda; o rótulo é o texto da coluna "Ação" da aba
@@ -62,6 +64,20 @@ enum AcaoDaTrilhaDoPonto: string
             self::FolhaAssinada         => 'Folha assinada',
             self::FolhaAssinadaComRessalva => 'Folha assinada com ressalva',
         };
+    }
+
+    /** A chave do rótulo no catálogo `ponto_servidor`: a tela traduz por ela; `rotulo()` é o português de referência. */
+    public function chaveDoRotulo(): string
+    {
+        return 'ponto_servidor.rotulo.trilha_acao.' . $this->value;
+    }
+
+    /** O rótulo traduzido de um código gravado; um código que esta versão não conhece aparece como está. */
+    public static function rotuloTraduzidoDe(string $codigo, TranslatorInterface $tradutor): string
+    {
+        $acao = self::tryFrom($codigo);
+
+        return $acao === null ? $codigo : $tradutor->trans($acao->chaveDoRotulo());
     }
 
     /** O rótulo de um código gravado; um código que esta versão não conhece aparece como está. */

@@ -174,7 +174,9 @@ final class TextoDoPhpDoPontoTest extends TestCase
             // `recusa` guarda o texto das exceções de domínio (chave citada em CHAVE_DA_RECUSA); quem confere é o
             // RecusasDoPontoNoCatalogoTest; `batida` guarda o texto dos Services da batida (CHAVE_DO_TEXTO de cada um),
             // conferido pelo TextosDaBatidaNoCatalogoTest.
-            if ($grupo === 'recusa' || $grupo === 'batida') {
+            // `rotulo` (rótulos de Service: funções, banco de horas, escala, trilha) e `lembrete` (avisos do /ponto/alerta-horario)
+            // são conferidos pelo RotulosDoPontoNoCatalogoTest.
+            if ($grupo === 'recusa' || $grupo === 'batida' || $grupo === 'rotulo' || $grupo === 'lembrete') {
                 continue;
             }
             foreach (array_keys($itens) as $item) {

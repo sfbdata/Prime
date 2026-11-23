@@ -53,6 +53,7 @@ final class DisparadorDeAutomacao
             selo: $modelo->selo,
             titulo: $modelo->titulo,
             rastrear: $ehDica,
+            layout: $modelo->layout,
         ));
 
         return true;

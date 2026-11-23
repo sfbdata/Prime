@@ -1627,3 +1627,27 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   o aceite, o selo e a folha (documento legal). Com este PR, o texto do PHP do Ponto que vai à tela está todo no
   catálogo, salvo os rótulos de Service listados no §32 (`FuncoesDoPonto`, `BancoDeHorasPorLotes`,
   `EscalaDaPessoaNaEquipe`, trilha) e os lembretes do `JornadaResolver`/`VerificadorAlertaPonto`.
+
+## 34. Texto do PHP do Ponto, PR B3: rótulos de Service e lembretes (idioma-ponto-php-b3, 23/11)
+
+- **O que entrou:** o resto do texto do PHP do Ponto que vai à tela, no padrão dos §31 a §33 (constantes e métodos em
+  português ficam; a versão com chave é traduzida no ponto de saída). Blocos novos `ponto_servidor.rotulo.*` e
+  `ponto_servidor.lembrete.*`. Risco ALTO: nenhuma condição, ordem, status HTTP, chave de JSON ou regra mudou.
+  - `FuncoesDoPonto`: título e ajuda das 7 funções (`chaveDoTitulo()`, `chaveDaAjuda()`), pelo `|trans` do
+    `_config_funcoes` (inclusive `data-titulo` e `aria-label`). O `FuncaoDoPontoOutput` segue em português.
+  - `BancoDeHorasPorLotes`: as 7 situações do lote (vence hoje, no prazo, vencido, compensado, compensação, vence em
+    1 dia / N dias), no selo do `_abas_banco`. `LoteDoBancoDeHorasOutput->situacao` segue em português, ao lado do
+    `textoDaSituacao`.
+  - `EscalaDaPessoaNaEquipe` e os 4 rótulos fixos do `CatalogoDeEscalas` ("44h · seg a sáb (7h20)"...), no `<select>`
+    da aba Equipe (sem o catálogo de escalas, o `<select>` ficaria misto).
+  - Trilha da aba Auditoria: `DetalheDaTrilhaDoPonto` monta o texto por uma tabela de pedaços (`PORTUGUES`), e o
+    `textoTraduzido()` usa o catálogo; a ação (`AcaoDaTrilhaDoPonto::chaveDoRotulo()`) e o "Sistema" também. O
+    `texto()` continua em português. `ListarTrilhaDoPontoUseCase` recebe o tradutor como argumento opcional.
+  - Lembretes do `/ponto/alerta-horario`: `JornadaResolver::LEMBRETE_*` e `VerificadorAlertaPonto::AVISO_*`, com 8 chaves;
+    o `verificar()` continua em português e o controller traduz só a `mensagem` do JSON. Nenhum desses textos vai a
+    `Notification` ou ao banco.
+- **Fica em português:** o que vem do banco selado na trilha (nome da pessoa, código da folha, a escala e o título da
+  função gravados no evento), o tipo da justificativa (`TipoJustificativa::label()`, enum compartilhado), e o que os
+  §31 a §33 já deixaram em português. "home office" na trilha virou "working from home" em en.
+- **Com este PR:** o texto do PHP do Ponto que vai à tela está todo no catálogo, salvo os itens de propósito listados
+  nos §30 a §34 (documento legal, texto gravado no banco, 404/403, textos próprios do `TenantController`).
