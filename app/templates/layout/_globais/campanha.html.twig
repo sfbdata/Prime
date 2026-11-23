@@ -1,13 +1,11 @@
 {#
-    Modo campanha "BlueJus Black": aba fixa do topo de toda tela logada + CSS e JS da janela da campanha.
-    Desenho: bj-campanha.js (aba, abrir, alerta). A janela é buscada em contribua_campanha_janela.
+    Modo campanha "BlueJus Black": CSS e JS da janela da campanha em toda tela logada (abre pelo link #black).
+    A aba fixa do topo saiu (pedido M5.6 do dono, 23/11): a campanha aparece só na página Contribua (faixa e FAQ).
+    Desenho: bj-campanha.js (abrir, alerta). A janela é buscada em contribua_campanha_janela.
 #}
 {% set cp = campanha() %}
 {% if cp %}
     <link rel="stylesheet" href="{{ asset('css/contribua-campanha.css') }}">
     <div id="cp-raiz" hidden data-url-janela="{{ path('contribua_campanha_janela') }}" data-url-qr="{{ asset('js/vendor/qrcode-generator/qrcode.js') }}"></div>
-    {% if cp.mostrarAba %}
-        <button type="button" id="cp-aba" class="cp-aba{{ cp.abaPrevia ? ' cp-aba--previa' }}" data-print="hide" data-campanha-abrir title="{{ cp.abaTitulo }}"><span class="cp-aba-selo">{{ cp.chamadaAba }}</span>{{ cp.nome }}<span class="cp-aba-preco">{{ cp.preco }}</span>{% if cp.abaPrevia %}<span class="cp-aba-previa">PRÉVIA</span>{% endif %}</button>
-    {% endif %}
     <script src="{{ asset('js/contribua-campanha.js') }}" defer></script>
 {% endif %}

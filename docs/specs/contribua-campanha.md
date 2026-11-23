@@ -7,6 +7,11 @@ Desenho: `docs/design/contribua-19-11-26/` (cópia do projeto "Redesign de pasta
 Branch `contribua-campanha`, um PR. Migration `Version20261119120000` (número dado pelo Coordenador).
 Risco BAIXO (Contribua), mas mexe com dinheiro: uma revisão no fim.
 
+> **Atualização 23/11/2026 (pedido M5.6 do Farlei):** a aba fixa do topo saiu. A campanha aparece só na página
+> Contribua (faixa, FAQ, janela) e pelo link `#black`. Saíram `chamadaAba`, `mostrarAba`, `abaPrevia` e `abaTitulo`
+> da `CampanhaView`, e a caixa "Aba no topo de todas as telas" do painel (`abaNoTopo` fica na entidade e no banco,
+> sem efeito). O que este documento diz da aba vale só como histórico.
+
 ## Decisões (Coordenador aprovou o plano em 19/11)
 
 - D1. Pix do Desafio pelo `CodigoPixDaConta` que já existe (estático, chave CNPJ). O txid é da inscrição:
