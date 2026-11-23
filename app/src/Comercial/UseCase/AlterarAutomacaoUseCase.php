@@ -19,6 +19,10 @@ use Psr\Clock\ClockInterface;
  */
 final class AlterarAutomacaoUseCase
 {
+    public const DESCONHECIDA = 'Automação desconhecida.';
+    public const OBRIGATORIA = 'Esta automação é obrigatória: sem ela ninguém consegue criar conta.';
+    public const ATRASO_INVALIDO = 'Escolha um dos atrasos da lista.';
+
     public function __construct(
         private readonly AutomacaoDeEmailRepository $automacoes,
         private readonly EntityManagerInterface $em,
@@ -28,11 +32,11 @@ final class AlterarAutomacaoUseCase
 
     public function executar(string $chave, bool $ligada, ?string $atraso, User $por): EstadoDaAutomacao
     {
-        $automacao = Automacao::tryFrom($chave) ?? throw new AutomacaoRecusada('Automação desconhecida.');
+        $automacao = Automacao::tryFrom($chave) ?? throw new AutomacaoRecusada(self::DESCONHECIDA);
         $this->exigirAlteracaoValida($automacao, $ligada, $atraso);
         $entidade = $this->automacoes->find($automacao->value);
         if (!$entidade instanceof AutomacaoDeEmail) {
-            throw new AutomacaoRecusada('Automação desconhecida.');
+            throw new AutomacaoRecusada(self::DESCONHECIDA);
         }
         $entidade->alterar($ligada, $automacao->opcoesDeAtraso() === [] ? null : $atraso, $por, $this->clock->now());
         $this->em->flush();
@@ -43,11 +47,11 @@ final class AlterarAutomacaoUseCase
     private function exigirAlteracaoValida(Automacao $automacao, bool $ligada, ?string $atraso): void
     {
         if ($automacao->obrigatoria() && !$ligada) {
-            throw new AutomacaoRecusada('Esta automação é obrigatória: sem ela ninguém consegue criar conta.');
+            throw new AutomacaoRecusada(self::OBRIGATORIA);
         }
         $opcoes = $automacao->opcoesDeAtraso();
         if ($opcoes !== [] && !in_array($atraso, $opcoes, true)) {
-            throw new AutomacaoRecusada('Escolha um dos atrasos da lista.');
+            throw new AutomacaoRecusada(self::ATRASO_INVALIDO);
         }
     }
 }
