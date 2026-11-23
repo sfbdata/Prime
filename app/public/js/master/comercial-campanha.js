@@ -21,6 +21,9 @@
    que fica no modelo em edição (`imagem`). A prévia mostra a imagem porque vem do servidor. */
 (() => {
   'use strict';
+  // O último estado da chave do envio (evento `mc:envio` do comercial-envio.js); null até chegar.
+  let envioLigado = null;
+  document.addEventListener('mc:envio', e => { if (e.detail && typeof e.detail.ligada === 'boolean') envioLigado = e.detail.ligada; });
   /* A tabela única dos modos (dc L627-645): os modelos (null = todos; na venda os quatro do dc, mais os próprios), os
      públicos, as chaves do filtro que a tela manda, os números dos passos (`cmNPara`/`cmNMsg`), a seção do painel que
      carrega a instância e se ela responde pelos ganchos globais. */
@@ -350,7 +353,9 @@
         const pergunta = agenda
           ? BJ_T.t('comercial.js.confirmar_envio_em', { assunto: m.assunto || '', n: contagem.destinatarios, quando: agenda.replace('T', ' ') })
           : BJ_T.t('comercial.js.confirmar_envio_agora', { assunto: m.assunto || '', n: contagem.destinatarios });
-        if (!window.confirm(pergunta)) return;
+        // Chave desligada: não bloqueia, só avisa que a campanha fica esperando.
+        const aviso = envioLigado === false ? BJ_T.t('comercial.js.envio_campanha_esperando') + '\n\n' : '';
+        if (!window.confirm(aviso + pergunta)) return;
         if (!chave) chave = novaChave();
         const botao = el('[data-mc-cp-enviar]');
         botao.disabled = true;

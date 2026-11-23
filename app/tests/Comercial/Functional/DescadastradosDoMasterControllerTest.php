@@ -128,7 +128,7 @@ final class DescadastradosDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/comercial/resumo');
         self::assertResponseIsSuccessful();
         $antes = $this->json($client);
-        self::assertSame(['campanhas', 'naFila', 'base', 'descadastrados'], array_keys($antes));
+        self::assertSame(['campanhas', 'naFila', 'base', 'descadastrados', 'testes'], array_keys($antes));
 
         foreach (['a', 'b', 'c'] as $l) {
             $this->conexao()->insert('comercial_confirmacao_endereco', ['lista' => 'comercial_campanhas', 'email' => "$l.$marca@ex.com", 'pedido_em' => '2026-10-01 10:00:00', 'confirmado_em' => '2026-10-01 10:05:00', 'tenant_id' => null]);

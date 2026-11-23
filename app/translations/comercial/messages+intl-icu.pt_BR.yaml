@@ -172,7 +172,9 @@ comercial:
         titulo: Datas comemorativas
         sub: mensagens automáticas nas datas nacionais
         ativas: ativas
-        chave_desligada: 'O envio de campanhas está desligado nesta instalação: nenhuma data comemorativa sai até ele ser ligado.'
+        chave_desligada: 'O envio de campanhas está desligado: nenhuma data comemorativa sai até ele ser ligado no topo da Central de envios.'
+    envio:
+        rotulo: Envio de campanhas
     leitura:
         ligada: Confirmação de leitura
         desligada: Sem confirmação de leitura
@@ -263,6 +265,20 @@ comercial:
         datas_pub_leads: Base de contatos
         datas_ver: Ver mensagem
         datas_previa: 'Prévia da mensagem de {nome}. Use Duplicar para personalizar o texto.'
+        envio_ligado: Ligado
+        envio_desligado: Desligado
+        envio_aviso_n: 'O envio de campanhas está desligado. {n} campanha(s) esperando: saem quando o envio for ligado.'
+        envio_aviso_zero: 'O envio de campanhas está desligado. Campanhas confirmadas ficam esperando até ele ser ligado.'
+        envio_confirmar_ligar: 'Ligar o envio de campanhas? As {n} campanhas esperando começam a sair em até 1 minuto.'
+        envio_confirmar_ligar_zero: 'Ligar o envio de campanhas? Nenhuma campanha está esperando agora.'
+        envio_confirmar_desligar: 'Desligar o envio de campanhas? Nenhuma campanha sai até ele ser ligado de novo; as agendadas ficam esperando.'
+        envio_ok_ligado: 'Envio de campanhas ligado.'
+        envio_ok_desligado: 'Envio de campanhas desligado.'
+        envio_erro_carregar: 'Não foi possível carregar o estado do envio. Recarregue a página.'
+        envio_erro_salvar: 'Não foi possível alterar o envio de campanhas.'
+        envio_campanha_esperando: 'O envio de campanhas está desligado: esta campanha fica esperando e só sai quando o envio for ligado.'
+        kpi_teste_um: 'enviadas ou agendadas · 1 teste à parte'
+        kpi_testes_n: 'enviadas ou agendadas · {n} testes à parte'
         datas_erro_carregar: Não foi possível carregar as datas comemorativas. Recarregue a página.
         datas_sem_0: dom
         datas_sem_1: seg
