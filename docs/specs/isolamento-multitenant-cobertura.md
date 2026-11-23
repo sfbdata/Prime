@@ -170,7 +170,7 @@ Cada fatia entrega software revisável sozinho. **Uma por vez**, com a suíte ve
 | 1 | **Rede de segurança** ✅ | `TenantAwareCoberturaTest` espelhando `AuditavelCoberturaTest` — ver §4.1. | BAIXO |
 | 2 | **Kanban** ✅ | Entregue — ver §4.3. | BAIXO |
 | 3 | **ServiceDesk** | `chamado_interacao` e `chamado_anexo`. Zero linhas — backfill trivial. | BAIXO |
-| 4 | **Tenant** | `sede`, `cargo`, `lotacao`. Ver §5.2 — mexe em tela de administração. | MÉDIO |
+| 4 | **Tenant** ✅ | Entregue — ver §4.4. | MÉDIO |
 | 5 | **Permission** | `tenant_role` (etiqueta) e `tenant_role_permission` (coluna + backfill). | MÉDIO |
 | 6 | **Ponto** | `bloco_jornada`, `jornada_colaborador`, `bloco_jornada_colaborador`. **Re-revisão obrigatória.** Inclui corrigir os **21** comentários errados sobre `find()` por PK (§2). | **ALTO** |
 | 7 | **Auditoria e Termo** | decisão dos nulos (§5.1) e execução. | MÉDIO |
@@ -283,6 +283,37 @@ Daí a fatia 8:
 framework (`doctrine:mapping:info`, `getAllMetadata()`), como manda o CLAUDE.md.
 
 ---
+
+
+### 4.4 Fatia 4: Sede, Cargo e Lotacao (entregue 23/11/2026)
+
+As três já tinham `tenant_id NOT NULL`: ganharam só a etiqueta, sem migration. Antes, conferido em
+produção (MCP, 23/11): **zero** referência cruzada entre escritórios em `user_tenant.cargo_id`,
+`user_tenant.lotacao_id`, `invitation.cargo_id/lotacao_id`, `feriado.lotacao_id`,
+`lotacao_vigencia.lotacao_id` e `registro_ponto.sede_id`. Com uma referência cruzada, o proxy da
+associação daria `EntityNotFoundException` na tela; sem nenhuma, o filtro só tira o que não era
+do escritório.
+
+A medição não cobre um caso sem referência cruzada nenhuma: **sair do escritório B com a sessão em
+A** (`/escritorio/{id}/sair`, rota sem `{tenantId}`). O vínculo de B traz o cargo e a lotação **de
+B**; a auditoria da exclusão lê o nome deles, e o proxy não abria pelo filtro de A
+(`EntityNotFoundException`, a saída voltava inteira). Correção no `AuditLogSubscriber`: Sede, Cargo
+e Lotacao só referenciados são abertos sem o filtro da sessão, apenas para ler o rótulo. Quem os
+referencia (vínculo, feriado, lotação com vigência, batida) tem dono, e o log vai para ele (B).
+As outras classes seguem com o filtro: falhar é melhor que gravar nome de outro escritório no log
+da sessão. Teste: `EscritorioControllerTest::testSaiDeNaoAtivoComCargoELotacaoDoOutroEscritorio`.
+
+A §5.2 virou teste (`CadastrosDoEscritorioIsolamentoTest`): um admin dos dois escritórios, com a
+sessão em A, abre a edição e as sedes de B pela URL e vê os cadastros de B (é o
+`TenantUrlScopeListener` que aponta o filtro para o `{tenantId}` da rota; sem ele, os de B sumiriam).
+As frases "nenhum de A aparece" são só guarda: a tela lê as coleções do escritório e nunca mostrou
+os de A. A prova do isolamento é a negativa por entidade, no mesmo teste (`findBy` e `find` por PK
+do vizinho).
+
+**Atenção para quem mexer depois:** tela que mostre cargo ou lotação de vínculo de **outro**
+escritório com o filtro ligado no escritório da sessão (por exemplo, equipe de uma pasta recebida
+de outra conta) vai encontrar `null` no JOIN e `EntityNotFoundException` no proxy. Ali a consulta
+tem de levar o escritório dono explicitamente ou ligar o filtro nele.
 
 ## 5. Decisões que ainda faltam
 
