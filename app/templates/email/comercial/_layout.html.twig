@@ -1,19 +1,25 @@
 {# Layout base dos e-mails do Carteiro (spec comercial-e-emails §3.7 e §8.3; desenho 05, dc L496-502).
-   Tabelas e estilo inline (clientes de e-mail ignoram <style> e CSS externo).
+   Visual (pedido M5.4 do Farlei, 23/11: "mais sofisticado e suave"): o bloco azul em degradê do desenho 05 deu lugar
+   a um cabeçalho branco com o logo colorido, uma faixa fina azul no topo do cartão, o selo como etiqueta clara e o
+   título no tamanho de título de tela do Guia visual. Valores do Guia visual BlueJus: raio 4px, sombra suave de painel,
+   divisórias #e3eaef/#e6edf2, título 22px #12242f, rótulo #0b5f86, texto de apoio #5f7684 (contraste 4,8:1).
+   Tabelas e estilo inline (clientes de e-mail ignoram <style> e CSS externo); bgcolor repete o fundo para o Outlook.
    Contexto (montado por App\Comercial\Service\MontadorDeEmail):
-     assunto, selo?, titulo?, corpo (HTML já pronto do chamador), logo (URL absoluta),
+     assunto, selo?, titulo?, corpo (HTML já pronto do chamador), logo (URL absoluta do logo colorido),
      layout ('padrao' | 'linhas' | 'cru'; App\Comercial\Envio\LayoutDoEmail):
        padrao: o miolo num <td> com a fonte do corpo (a 1a: automações, 0d e a7);
        linhas: o corpo já são as linhas <tr> da tabela de 600 px (campanhas em blocos e no modo simples, dc L499-500);
-       cru:    o HTML importado (já sanitizado pelo montador), sem o cabeçalho azul, com só o rodapé legal (B3);
+       cru:    o HTML importado (já sanitizado pelo montador), sem o cabeçalho, com só o rodapé legal (B3);
      tipo ('lista' | 'transacional'), escritorio? (nome; null = plataforma),
      linkDescadastro, linkPolitica, pixel? (URL do pixel, só com o rastreio ligado),
      motivoDoEnvio? (MensagemDeEmail::motivoDoEnvio: a frase de por que a pessoa recebeu; troca só essa frase do rodapé).
+   O cabeçalho inteiro é UMA linha da tabela de 600 px (data-cabecalho): no layout `linhas`, as linhas do corpo vêm
+   logo depois dele e o rodapé por último.
    O rodapé sai SEMPRE (B3) e não é editável: razão social, a frase do escopo e do tipo, o link de
    descadastro (M1) e o da Política de Privacidade (B4). #}
 {% set layout = layout|default('padrao') %}
 {% set rodape %}
-<tr><td style="background:#f7f9fb;border-top:1px solid #e6edf2;padding:18px 30px;font:12px/1.6 Arial,Helvetica,sans-serif;color:#7a8e9b;" class="rodape-legal">
+<tr><td bgcolor="#f7f9fb" style="background:#f7f9fb;border-top:1px solid #e6edf2;padding:20px 30px 22px;font:12px/1.65 Arial,Helvetica,sans-serif;color:#5f7684;" class="rodape-legal">
 {% if escritorio %}{{ 'emails.comercial.layout.enviado_por'|trans({escritorio: escritorio}) }}<br>{% endif %}
 {{ 'emails.comercial.layout.razao_social'|trans }}<br>
 {% if motivoDoEnvio is defined and motivoDoEnvio %}
@@ -39,6 +45,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>{{ assunto }}</title>
 </head>
 {% if layout == 'cru' %}
@@ -53,18 +61,26 @@
 </table>
 {% else %}
 <body style="margin:0;padding:0;background:#eef2f5;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f5;">
-<tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
-<tr><td style="background:#0a6fa0;background-image:linear-gradient(135deg,#0a6fa0,#0b4f75);padding:26px 30px;">
-<img src="{{ logo }}" alt="BlueJus" height="34" style="display:block;height:34px;border:0;">
-<div style="font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:1.5px;color:#cfe6f4;margin-top:16px;">{{ selo ?? '' }}</div>
-<div style="font:bold 24px/1.25 Arial,Helvetica,sans-serif;color:#ffffff;margin-top:6px;">{{ titulo ?? '' }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef2f5" style="background:#eef2f5;">
+<tr><td align="center" style="padding:32px 12px 40px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 1px 2px rgba(16,42,58,.06),0 10px 26px -18px rgba(10,50,80,.35);">
+<tr><td data-cabecalho style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td height="4" bgcolor="#0a6fa0" style="height:4px;line-height:4px;font-size:0;background:#0a6fa0;">&nbsp;</td></tr>
+<tr><td style="padding:26px 30px 0;"><img src="{{ logo }}" alt="BlueJus" width="120" height="36" style="display:block;width:120px;height:36px;border:0;"></td></tr>
+{% if selo or titulo %}
+<tr><td style="padding:24px 30px 0;">
+{% if selo %}<div style="margin:0 0 12px;"><span data-selo style="display:inline-block;font:bold 11px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#0b5f86;background:#e8f2fa;border-radius:4px;padding:5px 8px;">{{ selo }}</span></div>{% endif %}
+{% if titulo %}<div data-titulo style="font:bold 22px/1.3 Arial,Helvetica,sans-serif;letter-spacing:-.01em;color:#12242f;">{{ titulo }}</div>{% endif %}
+</td></tr>
+{% endif %}
+<tr><td style="padding:22px 30px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td height="1" bgcolor="#e3eaef" style="height:1px;line-height:1px;font-size:0;background:#e3eaef;">&nbsp;</td></tr></table></td></tr>
+</table>
 </td></tr>
 {% if layout == 'linhas' %}
 {{ corpo|raw }}
 {% else %}
-<tr><td style="padding:28px 30px 8px;font:15px/1.6 Arial,Helvetica,sans-serif;color:#34505f;">
+<tr><td style="padding:22px 30px 14px;font:15px/1.65 Arial,Helvetica,sans-serif;color:#34505f;">
 {{ corpo|raw }}
 </td></tr>
 {% endif %}
