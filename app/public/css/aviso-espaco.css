@@ -58,3 +58,7 @@ a.ae-aumentar:hover, button.ae-aumentar:hover { background: #0b5f86; color: #fff
 .es-trilho-cheio { height: 100%; background: #c08a12; }
 .es-trilho-cheio--vermelho { background: #b02a37; }
 @media print { .ae-aviso, .es-ov { display: none !important; } }
+
+/* Lilás do Master (M5.2): o aviso de pedidos de espaço só aparece para o Master; o botão "Analisar" é cheio. */
+.ae-aviso--pedidos a.ae-aumentar { background: var(--bj-master); color: #fff; }
+.ae-aviso--pedidos a.ae-aumentar:hover, .ae-aviso--pedidos a.ae-aumentar:focus { background: var(--bj-master-escuro); color: #fff; }

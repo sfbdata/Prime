@@ -3,3 +3,7 @@
 .af-form { margin: 0; }
 .af-dispensar { height: 34px; padding: 0 14px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: bold 13px Arial, Helvetica, sans-serif; display: inline-flex; align-items: center; cursor: pointer; }
 .af-dispensar:hover { background: #0b5f86; }
+
+/* Lilás do Master (M5.2): "dispensar" do aviso da cota de envio (só Master), contorno. A classe bj-master vem do template. */
+.af-dispensar.bj-master { background: var(--bj-master-claro); color: var(--bj-master-texto); border: 1px solid var(--bj-master-borda); }
+.af-dispensar.bj-master:hover { background: var(--bj-master-claro); border-color: var(--bj-master-icone); color: var(--bj-master-icone); }

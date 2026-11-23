@@ -170,20 +170,25 @@
 .mu-aba-perfil:hover, .mu-aba-perfil[aria-expanded="true"] { background: rgba(255, 255, 255, .14); color: #fff; opacity: 1; }
 .mu-aba-perfil.on { background: rgba(255, 255, 255, .16); font-weight: 700; opacity: 1; }
 .mu-aba-perfil.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 2px 2px 0 0; background: #fff; }
-.mu-aba-perfil-master > .bi-star-fill { color: #ffd770; }
+.mu-aba-perfil-master > .bi-star-fill { color: #e3c8ee; } /* lilás claro: o lilás do Master some sobre a barra azul */
 .mu-aba-perfil .bi-chevron-down { font-size: 10px; transition: transform .2s; }
 .mu-aba-perfil[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
-.mu-master-menu { width: 290px; padding: 6px 0; border: none; border-radius: 0 0 4px 4px; background: #0b5f86; box-shadow: 0 14px 34px rgba(18, 36, 47, .3); }
-.mu-master-menu .mu-grupo-rotulo { color: #ffd770; padding: 6px 14px 8px; }
+.mu-master-menu { width: 290px; padding: 6px 0; border: none; border-radius: 0 0 4px 4px; background: var(--bj-master); box-shadow: 0 14px 34px rgba(18, 36, 47, .3); }
+.mu-master-menu .mu-grupo-rotulo { color: #e3c8ee; padding: 6px 14px 8px; }
 .mu-menu-x-escuro { top: 6px; right: 8px; width: 26px; height: 26px; background: rgba(255, 255, 255, .15); color: #fff; }
 .mu-menu-x-escuro:hover { background: rgba(255, 255, 255, .28); }
 .mu-master-menu { position: relative; }
 .mu-master-menu .mu-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 14px; border: none; background: transparent;
   color: #fff; text-align: left; text-decoration: none; cursor: pointer; }
-.mu-master-menu .mu-item:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+.mu-master-menu .mu-item:hover { background: var(--bj-master-escuro); color: #fff; }
 .mu-master-menu .mu-item > .bi { width: 18px; font-size: 15px; opacity: .9; }
 .mu-master-menu .mu-item-titulo { font-size: 13.5px; }
 .mu-master-menu .mu-item-sub { color: #fff; opacity: .72; }
+
+/* Lilás do Master (M5.2): no menu do usuário, ícone e ★ do grupo exclusivo. O texto do item fica como está.
+   Dentro do menu do Meu Perfil (fundo lilás) os ícones ficam claros, por isso o :not(.mu-master-menu). */
+.mu-menu:not(.mu-master-menu) .mu-grupo-master .mu-grupo-rotulo { color: var(--bj-master-icone); }
+.mu-menu:not(.mu-master-menu) .mu-grupo-master .mu-item[data-item-master] > .bi { color: var(--bj-master-icone); }
 
 /* ---------- tema escuro ---------- */
 html[data-bs-theme="dark"] .usuario-dropdown.mu-menu { border-color: var(--bs-border-color); color: var(--bs-body-color); }
