@@ -22,6 +22,8 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Query\FilterCollection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -46,6 +48,8 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
     private ConfiguracaoDeInteligenciaRepository&MockObject $configuracoes;
     private ConfiguracaoGlobalRepository&MockObject $global;
     private TenantBootstrapService&MockObject $bootstrap;
+    private EntityManagerInterface&MockObject $em;
+    private FilterCollection&MockObject $filtros;
     private Tenant $tenant;
     private User $master;
 
@@ -62,6 +66,10 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $this->global = $this->createMock(ConfiguracaoGlobalRepository::class);
         $this->bootstrap = $this->createMock(TenantBootstrapService::class);
+        $this->filtros = $this->createMock(FilterCollection::class);
+        $this->filtros->method('isEnabled')->with('tenant')->willReturn(true);
+        $this->em = $this->createMock(EntityManagerInterface::class);
+        $this->em->method('getFilters')->willReturn($this->filtros);
     }
 
     private function sut(): AlterarFerramentaDoEscritorioPeloMasterUseCase
@@ -79,6 +87,7 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
             $this->configuracoes,
             $this->global,
             $this->bootstrap,
+            $this->em,
             $relogio,
         );
     }
@@ -238,13 +247,27 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCaseTest extends TestCase
         self::assertSame(500, $configuracao->getOrcamentoMensalCentavos());
     }
 
-    #[TestDox('ligar o Expediente semeia os marcadores (§9, regra 10); desligar não')]
+    #[TestDox('ligar o Expediente semeia os marcadores (§9, regra 10) com o tenant filter suspenso e o dono como criador; desligar não')]
     public function testExpedienteSemeia(): void
     {
-        $this->bootstrap->expects($this->once())->method('semearMarcadoresSeFaltarem')->with($this->tenant, $this->master);
+        $dono = (new User())->setRoles(['ROLE_USER']);
+        $this->tenant->setCriadoPor($dono);
+        $this->filtros->expects($this->once())->method('suspend')->with('tenant');
+        $this->filtros->expects($this->once())->method('restore')->with('tenant');
+        $this->bootstrap->expects($this->once())->method('semearMarcadoresSeFaltarem')->with($this->tenant, $dono);
         $sut = $this->sut();
 
         $sut->executar(7, Produto::Expediente, true, $this->master);
         $sut->executar(7, Produto::Expediente, false, $this->master);
+    }
+
+    #[TestDox('escritório sem dono: o Master é o criador dos marcadores, e o filtro volta mesmo se a semeadura falhar')]
+    public function testExpedienteSemDono(): void
+    {
+        $this->filtros->expects($this->once())->method('restore')->with('tenant');
+        $this->bootstrap->expects($this->once())->method('semearMarcadoresSeFaltarem')->with($this->tenant, $this->master)->willThrowException(new \RuntimeException('falhou'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->sut()->executar(7, Produto::Expediente, true, $this->master);
     }
 }

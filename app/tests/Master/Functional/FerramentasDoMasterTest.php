@@ -390,6 +390,29 @@ final class FerramentasDoMasterTest extends JusPrimeWebTestCase
         self::assertSame($depois, $this->marcadoresDo($tenant), 'idempotente: não duplica');
     }
 
+    #[TestDox('com a sessão do Master em OUTRO escritório: ligar, desligar e religar o Expediente do alvo não duplica os marcadores, e o criador é o dono do alvo')]
+    public function testSemeiaOAlvoComASessaoEmOutroEscritorio(): void
+    {
+        $alvo = $this->escritorio(Produto::Cobrancas);
+        $dono = $this->dono($alvo);
+        $outro = $this->escritorio();
+        $master = $this->comoMaster();
+        $this->em()->persist(new \App\Entity\Auth\UserTenant($this->em()->getReference(User::class, $master->getId()), $this->em()->getReference(Tenant::class, $outro->getId())));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $master, $outro);
+
+        $this->postar($alvo, ['produto' => 'expediente', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        $primeira = $this->marcadoresDo($alvo);
+        self::assertGreaterThan(0, $primeira);
+        self::assertSame([(int) $dono->getId()], array_map('intval', $this->em()->getConnection()->fetchFirstColumn('SELECT DISTINCT criado_por_id FROM marcador WHERE tenant_id = ?', [$alvo->getId()])));
+
+        $this->postar($alvo, ['produto' => 'expediente', 'ligado' => false]);
+        $this->postar($alvo, ['produto' => 'expediente', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertSame($primeira, $this->marcadoresDo($alvo));
+    }
+
     /** @return iterable<string, array{Produto}> */
     public static function produtosDaTrava(): iterable
     {

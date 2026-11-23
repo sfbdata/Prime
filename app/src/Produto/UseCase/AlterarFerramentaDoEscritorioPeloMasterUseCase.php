@@ -20,6 +20,7 @@ use App\Service\TenantBootstrapService;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -34,7 +35,9 @@ use Psr\Clock\ClockInterface;
  *   valor pedido (ex.: liberada, mas o dono encerrou a contratação). Exceção da D16: desligar o que nunca foi liberado
  *   não é trava. Ligar a I.A. segue a regra do dono (§9, regra 3): com o orçamento nulo, grava `Incluso` com o teto
  *   padrão (D14); o orçamento já gravado não muda.
- * - Expediente: ligar também semeia os marcadores padrão se faltarem (§9, regra 10).
+ * - Expediente: ligar também semeia os marcadores padrão se faltarem (§9, regra 10). O criador é o dono do escritório (o
+ *   Master é de fora dele; sem dono, vale o Master) e o `tenant` filter fica suspenso na chamada: a sessão do Master pode
+ *   estar em outro escritório e a contagem de marcadores do alvo daria zero (duplicaria a cada religada).
  * - As demais, e `completo`: incluir ou excluir a contratação. Tirar o `completo` materializa uma linha por ferramenta (D5).
  *
  * A D7 (não desligar a única ferramenta ligada) não vale para o Master: o veto é dele.
@@ -56,6 +59,7 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCase
         private readonly ConfiguracaoDeInteligenciaRepository $configuracoesDaIa,
         private readonly ConfiguracaoGlobalRepository $configuracaoGlobal,
         private readonly TenantBootstrapService $bootstrap,
+        private readonly EntityManagerInterface $em,
         private readonly ClockInterface $relogio,
     ) {
     }
@@ -98,10 +102,26 @@ final class AlterarFerramentaDoEscritorioPeloMasterUseCase
     private function aoLigar(Tenant $tenant, Produto $produto, User $master): void
     {
         if (Produto::Expediente === $produto) {
-            $this->bootstrap->semearMarcadoresSeFaltarem($tenant, $master);
+            $this->semearMarcadores($tenant, $tenant->getCriadoPor() ?? $master);
         }
         if (Produto::Ia === $produto) {
             $this->darOTetoPadraoSeFaltar($tenant);
+        }
+    }
+
+    private function semearMarcadores(Tenant $tenant, User $criador): void
+    {
+        $filtros = $this->em->getFilters();
+        $estavaLigado = $filtros->isEnabled('tenant');
+        if ($estavaLigado) {
+            $filtros->suspend('tenant');
+        }
+        try {
+            $this->bootstrap->semearMarcadoresSeFaltarem($tenant, $criador);
+        } finally {
+            if ($estavaLigado) {
+                $filtros->restore('tenant');
+            }
         }
     }
 
