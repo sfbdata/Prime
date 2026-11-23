@@ -464,10 +464,11 @@
 /* ── Células novas (dc L.202-205) ───────────────────────────────────── */
 .exp-body #tabelaPastas td[data-col="nup"] { white-space: nowrap; }
 .exp-body .exp-cadeado { font-size: 16px; color: #141e5c; line-height: 1; -webkit-text-stroke: .4px #141e5c; margin-left: 7px; vertical-align: -2px; }
-/* M5.7 (23/11): o cadeado ficava mais baixo que o número e, com o compartilhar, passava dos 74px da coluna e
-   invadia a coluna Cliente. Na célula do número, número e ícones ficam num flex alinhado ao centro; o que não
-   cabe desce para a linha de baixo. O espaço entre eles vem do gap, não da margem. */
-.exp-body #tabelaPastas td[data-col="nup"] > .exp-nup-cel { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 4px; min-width: 0; }
+/* M5.7 (23/11): o cadeado ficava mais baixo que o número. Na célula do número, número e ícones ficam num flex
+   alinhado ao centro, sempre numa linha só (nowrap), para a linha da tabela não crescer. A coluna NUP tem 110px
+   (expediente-lista.css) para caber NUP de 4 dígitos + estrela + compartilhar + cadeado sem invadir o Cliente.
+   O espaço entre eles vem do gap, não da margem. */
+.exp-body #tabelaPastas td[data-col="nup"] > .exp-nup-cel { display: flex; flex-wrap: nowrap; align-items: center; column-gap: 6px; min-width: 0; }
 .exp-body #tabelaPastas td[data-col="nup"] > .exp-nup-cel > :is(.exp-cadeado, .exp-rp, .exp-rp-recebida) { margin-left: 0; vertical-align: middle; }
 .exp-body #tabelaPastas td[data-col="nup"] > .exp-nup-cel > .exp-nup { white-space: nowrap; }
 .exp-body .exp-cliente-linha { display: flex; align-items: center; gap: 7px; min-width: 0; }
