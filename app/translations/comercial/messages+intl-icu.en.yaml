@@ -71,6 +71,8 @@ comercial:
         lgpd: "LGPD: only people who signed up or agreed will receive it. Every email carries the ''Unsubscribe'' link, duplicates and unsubscribed addresses are removed, and the server sends in batches so it does not land in spam."
         programar_envio: Schedule sending
         programar_envio_rotulo: SCHEDULE SENDING
+        edicao_cancelar: Cancel editing
+        edicao_publico_motivo: 'The audience does not change when editing: for another audience, cancel and create a new one.'
         agenda_data: Sending date and time
         repetir: Repeat
         repetir_rotulo: REPEAT
@@ -310,6 +312,12 @@ comercial:
         rascunho_recuperado: 'Draft recovered (saved at {quando}). To start over, choose a template.'
         rascunho_confirmar_troca: 'The message being edited has not been sent or saved as a template. Switching discards the text. Continue?'
         rascunho_mantido: 'The message being edited was kept.'
+        edicao_faixa: 'Editing the campaign "{nome}"'
+        edicao_salvar: Save changes
+        edicao_confirmar_sair: 'The changes to this campaign have not been saved. Leaving the edit discards what was changed. Continue?'
+        edicao_bloqueio: Leave the edit to switch models or change models.
+        edicao_cancelada: Edit canceled. The campaign was not changed.
+        edicao_aberta: 'Edit the content, the date or the frequency and click Save changes.'
         modelo_excluido: 'Template "{nome}" deleted.'
         baixar_ok: 'HTML downloaded: {arquivo}.'
         bloco_campo_a: 'Block {n} ({tipo}): text'

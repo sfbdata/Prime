@@ -19,11 +19,17 @@
    raízes ainda não iniciadas. Os ganchos globais (window.McCampanha) são só da instância `com`.
    F3i (spec §12; dc 05 VS 21.10.26 L274, L596 e L659): a imagem do modo simples. O navegador reduz a no máximo 1080 px
    e converte em JPEG 0,85 num canvas, como o dc, e envia por FormData; o servidor confere, regrava e devolve o token,
-   que fica no modelo em edição (`imagem`). A prévia mostra a imagem porque vem do servidor. */
+   que fica no modelo em edição (`imagem`). A prévia mostra a imagem porque vem do servidor.
+   M5.3 (pedido do Farlei, 23/11/2026): o modo edição. O "Editar campanha" do menu do Relatório dispara `mc:editar-campanha`
+   (document, detail { id }); só a instância `com` atende. O editor carrega a cópia congelada (GET data-url-edicao), mostra a faixa
+   "Editando a campanha", troca "Enviar campanha" por "Salvar alterações" (POST data-url-editar {modelo, agendar, frequencia}), deixa
+   data e frequência editáveis e trava o público e os modelos. Em modo edição o rascunho automático não grava nem apaga. */
 (() => {
   'use strict';
   // O último estado da chave do envio (evento `mc:envio` do comercial-envio.js); null até chegar.
   let envioLigado = null;
+  // O marcador de id das URLs da edição (casa com o requisito da rota; o JS o troca pelo id da campanha).
+  const MARCADOR_DO_ID = '999999999';
   document.addEventListener('mc:envio', e => { if (e.detail && typeof e.detail.ligada === 'boolean') envioLigado = e.detail.ligada; });
   /* A tabela única dos modos (dc L627-645): os modelos (null = todos; na venda os quatro do dc, mais os próprios), os
      públicos, as chaves do filtro que a tela manda, os números dos passos (`cmNPara`/`cmNMsg`), a seção do painel que
@@ -84,6 +90,8 @@
     let pedidoDaContagem = 0;
     let esperaDaContagem = null;
     let chave = '';
+    // M5.3: a campanha em edição ({ id, nome, antes }), ou null no uso normal.
+    let edicao = null;
     // Prefixo dos ids desta instância (M5.13): `mc` na seção Comercial, `mc-venda` no modo venda.
     const P = raiz.dataset.ids || 'mc';
     // Parte estável de um id: só letras minúsculas, números e hífen.
@@ -110,7 +118,7 @@
     function gravarRascunho() {
       clearTimeout(esperaDoRascunho);
       esperaDoRascunho = null;
-      if (!rascunhoLido) return;
+      if (!rascunhoLido || edicao) return;
       try {
         if (ed && sujo) window.localStorage.setItem(CHAVE_DO_RASCUNHO, JSON.stringify({ mk, ed, em: Date.now() }));
         else window.localStorage.removeItem(CHAVE_DO_RASCUNHO);
@@ -306,7 +314,7 @@
     function desenharFrequencia() {
       raiz.querySelectorAll('[data-mc-cp-freq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpFreq === frequencia)));
       const agenda = el('[data-mc-cp-agenda]').value;
-      el('[data-mc-cp-enviar-txt]').textContent = agenda ? BJ_T.t('comercial.js.programar_envio') : BJ_T.t('comercial.js.enviar');
+      el('[data-mc-cp-enviar-txt]').textContent = edicao ? BJ_T.t('comercial.js.edicao_salvar') : agenda ? BJ_T.t('comercial.js.programar_envio') : BJ_T.t('comercial.js.enviar');
       const quando = agenda ? new Date(agenda).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
       const repete = { semanal: BJ_T.t('comercial.js.freq_semanal'), quinzenal: BJ_T.t('comercial.js.freq_quinzenal'), mensal: BJ_T.t('comercial.js.freq_mensal') }[frequencia] || '';
       const texto = [quando, repete].filter(Boolean).join(' · ');
@@ -365,6 +373,7 @@
     }
 
     function contar() {
+      if (edicao) return Promise.resolve(false); // o público não muda na edição: nada a contar
       clearTimeout(esperaDaContagem);
       esperaDaContagem = null;
       const numero = ++pedidoDaContagem;
@@ -391,6 +400,7 @@
 
     // dc L.560: sem destinatário, a mensagem; senão o confirm literal e o pedido ao servidor.
     function enviarCampanha() {
+      if (edicao) { salvarEdicao(); return; }
       const pronto = esperaDaContagem !== null || !contagem ? contar() : Promise.resolve(true);
       pronto.then(valeu => {
         if (!valeu) return;
@@ -425,6 +435,87 @@
           .catch(e => avisar(e.message, 'erro'))
           .finally(() => { botao.disabled = false; });
       });
+    }
+
+    /* M5.3: "Salvar alterações". O servidor confere de novo que a campanha ainda não começou a sair; a recusa vai à mensagem e o
+       editor continua em edição. */
+    function salvarEdicao() {
+      if (!edicao) return;
+      const botao = el('[data-mc-cp-enviar]');
+      botao.disabled = true;
+      avisar(BJ_T.t('comercial.js.salvando'));
+      postar(ROTAS.urlEditar.replace(MARCADOR_DO_ID, String(edicao.id)), { modelo: pedido(), frequencia, agendar: el('[data-mc-cp-agenda]').value })
+        .then(r => {
+          sairDaEdicao();
+          avisar(r.mensagem, 'ok');
+          // O Relatório recarrega na aba em que está (a editada continua à vista); `mc:relatorio-recarregar` iria para Enviadas.
+          document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
+        })
+        .catch(e => avisar(e.message, 'erro'))
+        .finally(() => { botao.disabled = false; });
+    }
+
+    // O público fica travado (desabilitado, sem seleção) com o motivo escrito ao lado; sair da edição o devolve.
+    function travarPublico(travar) {
+      raiz.querySelectorAll('[data-mc-cp-publico], [data-mc-cf-abrir], [data-mc-cf-campo], [data-mc-cf-atalho], [data-mc-cf-limpar], [data-mc-cp-csv-arquivo], [data-mc-cp-individual], [data-mc-cp-lead-add]').forEach(x => { x.disabled = travar; });
+      if (travar) {
+        raiz.querySelectorAll('[data-mc-cp-publico]').forEach(b => { b.setAttribute('aria-pressed', 'false'); const n = b.querySelector('[data-mc-cp-n]'); if (n) n.textContent = ''; });
+        el('[data-mc-cp-dest]').textContent = '';
+      }
+      const motivo = el('[data-mc-cp-publico-motivo]');
+      if (motivo) motivo.hidden = !travar;
+    }
+
+    function entrarNaEdicao(id, d) {
+      const m = d.modelo || {};
+      clearTimeout(esperaDoRascunho);
+      esperaDoRascunho = null;
+      edicao = { id: id, nome: d.nome || m.assunto || '', antes: { mk: mk } };
+      if (modelos.some(x => x.chave === m.chave)) mk = m.chave;
+      // O modelo próprio não é o desta cópia: sem `proprio`, os botões de salvar e excluir modelo não aparecem.
+      ed = Object.assign({}, m, { proprio: false });
+      sujo = false;
+      frequencia = ['unica', 'semanal', 'quinzenal', 'mensal'].includes(d.frequencia) ? d.frequencia : 'unica';
+      el('[data-mc-cp-agenda]').value = d.agendar || '';
+      contagem = null;
+      pedidoDaContagem++;
+      clearTimeout(esperaDaContagem);
+      esperaDaContagem = null;
+      raiz.classList.add('mc-cp-em-edicao');
+      el('[data-mc-cp-edicao-txt]').textContent = BJ_T.t('comercial.js.edicao_faixa', { nome: edicao.nome });
+      el('[data-mc-cp-edicao]').hidden = false;
+      travarPublico(true);
+      programar(false);
+      desenhar();
+      desenharFrequencia();
+      avisar(BJ_T.t('comercial.js.edicao_aberta'));
+      raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Volta ao editor normal: sem campanha em edição, sem mensagem a perder, o modelo de antes e o público de volta.
+    function sairDaEdicao() {
+      const antes = edicao ? edicao.antes : { mk: mk };
+      edicao = null;
+      raiz.classList.remove('mc-cp-em-edicao');
+      el('[data-mc-cp-edicao]').hidden = true;
+      travarPublico(false);
+      programar(false);
+      frequencia = 'unica';
+      el('[data-mc-cp-agenda]').value = '';
+      mk = modelos.some(x => x.chave === antes.mk) ? antes.mk : 'convite';
+      ed = null;
+      sujo = false;
+      desenhar();
+      desenharFrequencia();
+      desenharPublicos();
+      contar();
+    }
+
+    function cancelarEdicao() {
+      if (!edicao) return;
+      if (sujo && !window.confirm(BJ_T.t('comercial.js.edicao_confirmar_sair'))) return;
+      sairDaEdicao();
+      avisar(BJ_T.t('comercial.js.edicao_cancelada'));
     }
 
     function lerCsv(arquivo) {
@@ -582,6 +673,9 @@
     }
 
     raiz.addEventListener('click', e => {
+      if (e.target.closest('[data-mc-cp-edicao-cancelar]')) { cancelarEdicao(); return; }
+      // M5.3: na edição, o modelo da campanha não troca e os modelos não são mexidos (a troca zeraria a cópia em edição).
+      if (edicao && e.target.closest('[data-mc-cp-modelo], [data-mc-cp-novo], [data-mc-cp-duplicar], [data-mc-cp-salvar], [data-mc-cp-salvar-como], [data-mc-cp-excluir]')) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); return; }
       const modelo = e.target.closest('[data-mc-cp-modelo]');
       // dc L.542: trocar de modelo não limpa a mensagem.
       if (modelo) {
@@ -592,7 +686,7 @@
       if (botaoDoPublico) { publico = botaoDoPublico.dataset.mcCpPublico; desenharPublicos(); contar(); return; }
       if (e.target.closest('[data-mc-cp-lead-add]')) { cadastrarContatos(); return; }
       const botaoDaFrequencia = e.target.closest('[data-mc-cp-freq]');
-      if (botaoDaFrequencia) { frequencia = botaoDaFrequencia.dataset.mcCpFreq; desenharFrequencia(); return; }
+      if (botaoDaFrequencia) { frequencia = botaoDaFrequencia.dataset.mcCpFreq; if (edicao) sujo = true; desenharFrequencia(); return; }
       if (e.target.closest('[data-mc-cp-enviar]')) { enviarCampanha(); return; }
       if (e.target.closest('[data-mc-cf-abrir]')) { abrirFiltro(); return; }
       if (e.target.closest('[data-mc-cp-descad]')) { document.dispatchEvent(new CustomEvent('mc:descadastrados-abrir')); return; }
@@ -658,7 +752,7 @@
     });
 
     raiz.addEventListener('change', e => {
-      if (e.target.closest('[data-mc-cp-agenda]')) { desenharFrequencia(); return; }
+      if (e.target.closest('[data-mc-cp-agenda]')) { if (edicao) sujo = true; desenharFrequencia(); return; }
       const selectDoFiltro = e.target.closest('select[data-mc-cf-campo]');
       if (selectDoFiltro) { filtro[selectDoFiltro.dataset.mcCfCampo] = selectDoFiltro.value; desenharFiltro(); contar(); return; }
       const csv = e.target.closest('[data-mc-cp-csv-arquivo]');
@@ -675,6 +769,7 @@
       }
       const entrada = e.target.closest('[data-mc-cp-importar]');
       if (!entrada || !entrada.files || !entrada.files[0]) return;
+      if (edicao) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); entrada.value = ''; return; }
       // Importar abre o modelo novo no editor: com edição a perder, pergunta antes (M5.15).
       if (!podeDescartar()) { entrada.value = ''; return; }
       importar(entrada.files[0]);
@@ -715,6 +810,7 @@
         // M5.15: "Ver mensagem" não substitui o editor sem avisar; com edição (ou rascunho recuperado), pergunta antes.
         const abrir = () => {
           if (!modelos.some(m => m.chave === d.chave)) return;
+          if (edicao) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); return; }
           if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
           mk = d.chave;
           ed = null;
@@ -724,6 +820,22 @@
           raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
         // Antes da grade carregar, carrega primeiro (o rascunho volta) e só então pergunta e abre.
+        if (carregado) abrir(); else carregarPrimeira().then(abrir);
+      });
+    }
+
+    if (M.ganchos) {
+      /* M5.3: o "Editar campanha" do Relatório. Antes de entrar, a regra do rascunho (M5.15): com mensagem a perder, pergunta. */
+      document.addEventListener('mc:editar-campanha', e => {
+        const id = e.detail ? Number(e.detail.id) : 0;
+        if (!Number.isInteger(id) || id <= 0) return;
+        const abrir = () => {
+          if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
+          fetch(ROTAS.urlEdicao.replace(MARCADOR_DO_ID, String(id)), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_concluir'))))))
+            .then(d => entrarNaEdicao(id, d))
+            .catch(err => { avisar(err.message, 'erro'); raiz.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        };
         if (carregado) abrir(); else carregarPrimeira().then(abrir);
       });
     }

@@ -665,6 +665,28 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
    `cancelado`. (A10) É o freio enquanto A3 (Pausar e Encerrar na tela) espera o dono;
    a tela da 2b mostra as campanhas ativas (lista do dc L586). **A confirmar com o dono** (A3). (R2)
 
+6. **Editar, reprogramar e excluir uma campanha** (pedido do Farlei M5.3, 23/11/2026; decisões do Coordenador). Hoje a
+   campanha criada só se cancela; passa a ter três operações, no menu de contexto do Relatório:
+   - **Editar campanha** (conteúdo, data e frequência, numa ação só) vale só antes de começar a sair: `agendada` e
+     `na_fila` que o expansor ainda não pegou (`execucoes = 0` e nenhum destino materializado) e `recorrente` entre duas
+     execuções (sem lote da execução corrente por materializar nem envio ainda `enfileirado` ou `enviando`). Fora disso o
+     item fica desabilitado, com "Só antes de começar a sair." ao lado. A regra mora num lugar só
+     (`CampanhaDeEmailRepository::condicaoEditavel`), usada pela lista (`editavel` em cada linha) e pelo caso de uso.
+   - O editor entra em **modo edição** (`GET /master/comercial/campanhas/{id}/edicao`): faixa "Editando a campanha", botão
+     "Salvar alterações", data e frequência editáveis e o público travado ("O público não muda na edição: para outro
+     público, cancele e crie de novo."). O modelo escolhido também não troca. O rascunho do navegador (M5.15) não grava nem
+     apaga durante a edição.
+   - **Salvar** (`POST /master/comercial/campanhas/{id}/editar`, `{modelo, agendar, frequencia}`): numa transação, trava a
+     campanha (`FOR UPDATE`), reconfere a regra, valida o conteúdo como a confirmação (mensagem, âncora de vagas, imagem
+     vigente) e a data (só futura), regrava a cópia congelada e a agenda com o estado coerente (única com data =
+     `agendada`; única sem data = `na_fila`, agora; outra frequência = `recorrente`) e grava a trilha manual `camp_edit`
+     com só `{frequencia, agendada}`. Público, parâmetros dele e `modelo_chave` não mudam. Resposta: "Campanha atualizada."
+   - **Excluir campanha** (`POST /master/comercial/campanhas/{id}/excluir`; antes "Excluir do relatório"): pede
+     confirmação; se a campanha está ativa (ou `enviada` com envio ainda na fila) cancela o envio (mesmo
+     `EncerrarCampanhaUseCase`, trilha `camp_fim`) e a esconde do Relatório (marca `remover`); se já enviada ou cancelada, só
+     esconde. Nada é apagado do banco: a trilha e a retenção de 24 meses ficam. A lixeira da seleção múltipla segue só
+     escondendo.
+
 ### 8.2 Modelos (2a)
 
 - **Fixos** (`ModelosDeCampanha`, dc L504-507 e L514): `convite`, `vagas`, `obrigado`, `novidades` (simples: corpo,
@@ -802,6 +824,9 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
 /master/comercial/modelos/{id}` (salvar), `POST /master/comercial/modelos/{id}/excluir`, `POST
 /master/comercial/previa-campanha` (HTML, CSP sandbox), `POST /master/comercial/teste`. 2b: `POST
 /master/comercial/publicos/contagem`, `POST /master/comercial/campanhas` (confirmar), `GET /master/comercial/campanhas`.
+
+Pedido do Farlei M5.3 (23/11/2026): `GET /master/comercial/campanhas/{id}/edicao`, `POST /master/comercial/campanhas/{id}/editar` e
+`POST /master/comercial/campanhas/{id}/excluir` (item 6 do §8.1).
 
 ### 8.7 Testes
 

@@ -87,6 +87,15 @@ Não há desfazer na tela (o desenho não tem).
      (até 50 ids; id inexistente é ignorado; ação inválida 422);
    - `GET /master/comercial/campanhas/{id}/destinatarios.csv?formato=completo|emails` (404 se não existe).
 
+9. **Excluir, editar e reprogramar uma campanha** (pedido do Farlei M5.3, 23/11/2026; decisões do Coordenador; regras em
+   `comercial-e-emails.md` §8.1 item 6). No menu de uma campanha: "Excluir do relatório" vira **"Excluir campanha"**, com
+   confirmação que diz o que acontece em cada caso: se a campanha está ativa (ou `enviada` com envio na fila), o envio é
+   cancelado (trilha `camp_fim`) e ela sai do Relatório (marca `remover`); se já enviada ou cancelada, só sai do Relatório.
+   Nada é apagado do banco. A lixeira da seleção múltipla ("Remover do relatório") continua só escondendo. Novo item **"Editar
+   campanha"** (conteúdo, data e frequência), só antes de a campanha começar a sair; senão desabilitado com o motivo. Rotas
+   novas (`ROLE_SUPER_ADMIN`, CSRF `master_comercial`): `GET .../campanhas/{id}/edicao`, `POST .../campanhas/{id}/editar` e
+   `POST .../campanhas/{id}/excluir`.
+
 ## Fora
 
 - "Reenviar a quem não leu" de verdade (depende do rastreio, F3g e Política).
