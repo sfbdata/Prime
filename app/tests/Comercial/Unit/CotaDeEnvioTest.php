@@ -124,6 +124,22 @@ final class CotaDeEnvioTest extends TestCase
         self::assertSame('pausadas:2030-01-16', $situacao->chaveDoEpisodio(new \DateTimeImmutable(self::AGORA)));
     }
 
+    #[TestDox('Acima de 2.000 em 24 h o aviso vira "trocar de serviço" (manda sobre perto; pausadas manda sobre ele); 2.000 exatos ainda não')]
+    public function testTrocarDeServico(): void
+    {
+        $hoje = new \DateTimeImmutable(self::AGORA);
+        $exato = new SituacaoDaCota(CotaDeEnvio::TROCAR_DE_SERVICO_ACIMA_DE, 2400, 80, true, false, null, false);
+        self::assertSame('perto', $exato->estado());
+
+        $acima = new SituacaoDaCota(2001, 2400, 80, true, false, null, true);
+        self::assertSame('trocar', $acima->estado());
+        self::assertSame('trocar:2030-01-15', $acima->chaveDoEpisodio($hoje));
+        self::assertMatchesRegularExpression(SituacaoDaCota::CHAVE_VALIDA, (string) $acima->chaveDoEpisodio($hoje));
+
+        $pausadas = new SituacaoDaCota(2001, 2400, 80, true, true, new \DateTimeImmutable('2030-01-16 08:00'), true);
+        self::assertSame('pausadas', $pausadas->estado());
+    }
+
     /** @return iterable<string, array{int, bool}> enviados gerais e se as campanhas ficam pausadas */
     public static function situacoesComPendente(): iterable
     {

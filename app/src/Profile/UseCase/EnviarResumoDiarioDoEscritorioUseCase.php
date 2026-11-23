@@ -12,6 +12,8 @@ use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\DiaUtilDoEscritorio;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ProdutosDoEscritorio;
 use App\Profile\DTO\ItensDoResumoDiario;
 use App\Profile\DTO\ResultadoDoResumoDiario;
 use App\Profile\Preferencia\CatalogoDePreferenciasDoPerfil;
@@ -39,6 +41,7 @@ final class EnviarResumoDiarioDoEscritorioUseCase
     public const LISTA    = 'resumo_diario';
     public const TEMPLATE = 'email/perfil/resumo_diario.html.twig';
     public const MOTIVO   = 'Você recebe este resumo porque deixou ligado o Resumo diário por e-mail no Meu Perfil. Para parar, desligue lá.';
+    public const SEM_EXPEDIENTE = 'O escritório não tem o Expediente.';
 
     public function __construct(
         private readonly UserTenantRepository $vinculos,
@@ -51,11 +54,17 @@ final class EnviarResumoDiarioDoEscritorioUseCase
         private readonly UrlGeneratorInterface $urls,
         private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
+        private readonly ProdutosDoEscritorio $produtos,
     ) {
     }
 
     public function executar(Tenant $tenant, bool $simular = false): ResultadoDoResumoDiario
     {
+        // Prazos, metas e agenda são do Expediente (multiproduto, §5): sem ele, nada a resumir. Tenant explícito: o
+        // comando roda fora de requisição, sem a guarda de rota.
+        if (!$this->produtos->inclui($tenant, Produto::Expediente)) {
+            return ResultadoDoResumoDiario::semEnvio(self::SEM_EXPEDIENTE);
+        }
         $agora = $this->relogio->now();
         if (!$this->diaUtil->ehDiaUtil($tenant, $agora)) {
             return ResultadoDoResumoDiario::semEnvio('Hoje não é dia útil no escritório.');

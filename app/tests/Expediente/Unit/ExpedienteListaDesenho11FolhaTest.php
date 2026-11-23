@@ -240,11 +240,21 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('function linhaDaTabela(item)', $js);
     }
 
+    #[TestDox('Célula NUP: número, compartilhar e cadeado numa linha só (nowrap) e coluna de 124px, sem a linha da tabela crescer')]
+    public function testCelulaNupNumaLinhaSo(): void
+    {
+        $css12 = (string) preg_replace('/\s+/', ' ', (string) preg_replace('#/\*.*?\*/#s', '', self::ler('public/css/expediente-lista-12.css')));
+
+        self::assertStringContainsString('td[data-col="nup"] > .exp-nup-cel { display: flex; flex-wrap: nowrap; align-items: center;', $css12);
+        self::assertStringNotContainsString('flex-wrap: wrap', substr($css12, (int) strpos($css12, '.exp-nup-cel {'), 140));
+        self::assertStringContainsString('col[data-col="nup"] { width: 124px !important; }', self::css());
+    }
+
     #[TestDox('VS 18.10.26, conferido no navegador: colunas do COLW, rótulo do cabeçalho com reticências e seta sempre, filtros com o recuo da label, passo da paginação, cartão e lista sem o 1.5 do Bootstrap, menu de colunas à esquerda do botão')]
     public function testMedidasDoVs181026(): void
     {
         $css = self::css();
-        foreach (['nup" { width: 74px', 'prio" { width: 105px', 'metas" { width: 82px', 'sit" { width: 98px', 'reu" { width: 19.5%', 'marc" { width: 15.5%'] as $col) {
+        foreach (['nup" { width: 124px', 'prio" { width: 105px', 'metas" { width: 82px', 'sit" { width: 98px', 'reu" { width: 19.5%', 'marc" { width: 15.5%'] as $col) {
             self::assertStringContainsString(str_replace('" {', '"] {', '.exp-body #tabelaPastas col[data-col="' . $col), preg_replace('/\s+/', ' ', $css));
         }
         self::assertStringContainsString('.exp-body #tabelaPastas thead th > .exp-th > .exp-th-rot { min-width: 0; overflow: hidden; text-overflow: ellipsis; }', $css);

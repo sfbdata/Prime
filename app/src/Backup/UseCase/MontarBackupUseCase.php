@@ -9,11 +9,14 @@ use App\Backup\Coletor\ColetorDoBackup;
 use App\Backup\DTO\ResultadoDoBackup;
 use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Service\ZipDoBackup;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -37,13 +40,14 @@ final class MontarBackupUseCase
         private readonly ClockInterface $clock,
         #[AutowireIterator(ColetorDoBackup::TAG)]
         private readonly iterable $coletores,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
     public function executar(PedidoDeBackup $pedido): ResultadoDoBackup
     {
-        $usuario = $pedido->getUsuario();
-        $tenant  = $pedido->getTenant();
+        $usuarioId = (int) $pedido->getUsuario()->getId();
+        $tenantId  = (int) $pedido->getTenant()->getId();
         $agora   = $this->clock->now();
 
         $area = AreaTemporariaPrivada::criar(self::FINALIDADE_DA_AREA);
@@ -53,10 +57,7 @@ final class MontarBackupUseCase
             $caminhoDoZip = $area->caminho() . '/backup.zip';
             $zip          = ZipDoBackup::criar($caminhoDoZip, $this->materializador, 'backup-bluejus-' . $agora->format('Y-m-d'));
 
-            foreach ($this->coletores as $coletor) {
-                $coletor->coletar($usuario, $tenant, $zip);
-            }
-            $zip->finalizar($usuario, $tenant, $agora);
+            $this->coletar($zip, $usuarioId, $tenantId, $agora);
 
             $sha256 = @hash_file('sha256', $caminhoDoZip);
             if ($sha256 === false) {
@@ -79,5 +80,28 @@ final class MontarBackupUseCase
             $zip?->descartar();
             $area->liberar();
         }
+    }
+
+    /**
+     * Um coletor pode soltar o EntityManager (`clear()`) em lotes: a pessoa e o escritório são recarregados por id
+     * antes de CADA coletor e do `finalizar`, para nenhum receber entidade destacada.
+     */
+    private function coletar(ZipDoBackup $zip, int $usuarioId, int $tenantId, \DateTimeImmutable $agora): void
+    {
+        foreach ($this->coletores as $coletor) {
+            [$usuario, $tenant] = $this->recarregar($usuarioId, $tenantId);
+            $coletor->coletar($usuario, $tenant, $zip);
+        }
+        [$usuario, $tenant] = $this->recarregar($usuarioId, $tenantId);
+        $zip->finalizar($usuario, $tenant, $agora);
+    }
+
+    /** @return array{0: User, 1: Tenant} */
+    private function recarregar(int $usuarioId, int $tenantId): array
+    {
+        $usuario = $this->em->find(User::class, $usuarioId) ?? throw new \LogicException('Usuário do backup sumiu.');
+        $tenant  = $this->em->find(Tenant::class, $tenantId) ?? throw new \LogicException('Escritório do backup sumiu.');
+
+        return [$usuario, $tenant];
     }
 }

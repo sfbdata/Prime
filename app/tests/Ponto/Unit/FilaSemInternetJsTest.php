@@ -430,7 +430,7 @@ final class FilaSemInternetJsTest extends TestCase
             $recusa
         );
         self::assertStringContainsString('Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, recusa.tipo) ? ROTULOS_TIPO[recusa.tipo]', $recusa, 'o rótulo do tipo (Entrada, Saída)');
-        self::assertStringContainsString("const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit' });", $tela);
+        self::assertStringContainsString("const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor(IDIOMA_DA_TELA, { day: '2-digit', month: '2-digit' });", $tela);
 
         $escrever = self::corpo($tela, 'function escreverAvisoDaFila(linhas, tom) {');
         self::assertStringContainsString("if (!avisoNaTela || avisoBatida.dataset.origem === 'rodada') {", $escrever, 'só troca o aviso de uma rodada anterior');

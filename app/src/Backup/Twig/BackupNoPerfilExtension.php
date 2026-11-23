@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Backup\Twig;
 
 use App\Backup\DTO\PedidoDeBackupLinha;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Backup\UseCase\ListarPedidosDeBackupUseCase;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
@@ -14,7 +15,7 @@ use Twig\TwigFunction;
 
 /**
  * `backup_da_pessoa()`: a lista de pedidos de backup da pessoa logada no escritório atual, para a seção do Meu Perfil.
- * Sem pessoa ou sem escritório (conta do Master sem escritório) devolve nulo e a seção não aparece.
+ * Sem pessoa, sem escritório (conta do Master) ou quando a pessoa não é o dono do escritório devolve nulo e a seção não aparece.
  */
 final class BackupNoPerfilExtension extends AbstractExtension
 {
@@ -22,6 +23,7 @@ final class BackupNoPerfilExtension extends AbstractExtension
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly ListarPedidosDeBackupUseCase $listar,
+        private readonly DonoDoEscritorio $dono,
     ) {
     }
 
@@ -35,7 +37,7 @@ final class BackupNoPerfilExtension extends AbstractExtension
     {
         $usuario = $this->security->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$usuario instanceof User || null === $tenant) {
+        if (!$usuario instanceof User || null === $tenant || !$this->dono->ehDono($usuario, $tenant)) {
             return null;
         }
 
