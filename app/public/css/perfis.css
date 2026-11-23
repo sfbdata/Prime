@@ -397,3 +397,9 @@
 
 /* Selo da lista (L63, `p.restr`). */
 .pf-page .pf-selo-restrito { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; height: 20px; padding: 0 8px; border-radius: 3px; background: var(--pf-perigo-bg); color: var(--pf-perigo); font-size: 10.5px; font-weight: bold; letter-spacing: .4px; }
+
+/* Lilás do Master (M5.2): "Ver como" só existe para o Master. Ativo = cheio, inativo = contorno. */
+.pf-page .pf-ver-como-btn { background: var(--bj-master-claro); color: var(--bj-master-texto); box-shadow: inset 0 0 0 1px var(--bj-master-borda); }
+.pf-page .pf-ver-como-btn:hover { color: var(--bj-master-icone); box-shadow: inset 0 0 0 1px var(--bj-master-icone); }
+.pf-page .pf-ver-como-btn.is-ativo, .pf-page .pf-ver-como-btn.is-ativo:hover, .pf-page .pf-ver-como-btn.is-ativo:focus { background: var(--bj-master); color: #fff; box-shadow: inset 0 0 0 1px var(--bj-master); }
+.pf-page .pf-ver-como-btn.is-ativo:hover, .pf-page .pf-ver-como-btn.is-ativo:focus { background: var(--bj-master-escuro); }

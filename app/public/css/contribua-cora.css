@@ -82,3 +82,16 @@
 @keyframes ccConf { 0% { transform: translateY(-20px) rotate(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(420px) rotate(540deg); opacity: 0; } }
 @keyframes ccGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 180, 41, .5); } 50% { box-shadow: 0 0 0 14px rgba(240, 180, 41, 0); } }
 @media (prefers-reduced-motion: reduce) { .cc-premio-caixa, .cc-premio-item, .cc-premio-trofeu, .cc-premio-confete span { animation: none !important; } }
+
+/* Lilás do Master (M5.2): integração bancária só aparece para o Master. Cheio = salvar; contorno = demais botões. */
+.cc-btn { background: var(--bj-master-claro); color: var(--bj-master-texto); border-color: var(--bj-master-borda); }
+.cc-btn:hover { background: var(--bj-master-claro); border-color: var(--bj-master-icone); color: var(--bj-master-icone); }
+.cc-btn.cc-btn-azul { background: var(--bj-master); color: #fff; border: none; }
+.cc-btn.cc-btn-azul:hover, .cc-btn.cc-btn-azul:focus { background: var(--bj-master-escuro); color: #fff; }
+.cc-modo.is-on { border-color: var(--bj-master-icone); background: var(--bj-master-claro); }
+.cc-modo.is-on b { color: var(--bj-master-icone); }
+.cc-recurso[aria-pressed="true"] { border-color: var(--bj-master-borda); background: var(--bj-master-claro); color: var(--bj-master-texto); }
+.cc-recurso[aria-pressed="true"] > i { color: var(--bj-master-icone); }
+.cc-recurso[aria-pressed="true"] .cc-chave { background: var(--bj-master); }
+.cc-simular button { background: var(--bj-master-claro); color: var(--bj-master-texto); border-color: var(--bj-master-borda); }
+.cc-simular button:hover { border-color: var(--bj-master-icone); color: var(--bj-master-icone); }

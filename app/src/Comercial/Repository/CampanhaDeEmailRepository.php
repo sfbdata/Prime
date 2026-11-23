@@ -10,6 +10,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * As campanhas de e-mail (spec `comercial-e-emails.md` §8.4 e §8.5), por SQL na conexão DBAL, como o resto do
@@ -47,7 +48,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
         rastrear_leitura';
 
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(ManagerRegistry $registry, private readonly ?RequestStack $requisicoes = null)
     {
         parent::__construct($registry, CampanhaDeEmail::class);
     }
@@ -191,20 +192,30 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * A linha manual da trilha (R6): sem o assunto nem os endereços.
+     * A linha manual da trilha (R6): sem o assunto nem os endereços. Leva a rota da requisição principal, como as linhas
+     * automáticas do `AuditLogSubscriber`: na tela, a do controller; pelo conector de I.A., `conector_mcp`
+     * (`docs/specs/mcp-remoto-oauth.md`, 6.9, decisão 36). Fora de requisição (worker, console), nula.
      *
      * @param array<string, string|int> $changes `{publico, frequencia, total}` ou, no cancelamento, `{motivo, total}`
      */
     public function auditar(int $id, string $acao, array $changes, ?int $porId, ?string $porEmail, \DateTimeImmutable $agora): void
     {
         $this->conexao()->executeStatement(
-            'INSERT INTO audit_log (action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at)
-             VALUES (:acao, :classe, :id, :changes, :por, :email, :agora)',
+            'INSERT INTO audit_log (action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at, route)
+             VALUES (:acao, :classe, :id, :changes, :por, :email, :agora, :rota)',
             [
                 'acao' => $acao, 'classe' => CampanhaDeEmail::class, 'id' => (string) $id,
                 'changes' => json_encode($changes, JSON_THROW_ON_ERROR), 'por' => $porId, 'email' => $porEmail, 'agora' => self::data($agora),
+                'rota' => $this->rota(),
             ],
         );
+    }
+
+    private function rota(): ?string
+    {
+        $rota = $this->requisicoes?->getMainRequest()?->attributes->get('_route');
+
+        return \is_string($rota) ? $rota : null;
     }
 
     public function haAtivas(): bool

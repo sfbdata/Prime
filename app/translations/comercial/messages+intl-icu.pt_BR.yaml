@@ -314,6 +314,9 @@ comercial:
         imagem_enviando: Enviando a imagem…
         imagem_ok: Imagem adicionada ao e-mail.
         modelo_salvo: Modelo salvo.
+        rascunho_recuperado: 'Rascunho recuperado (salvo em {quando}). Para começar do zero, escolha um modelo.'
+        rascunho_confirmar_troca: 'A mensagem em edição ainda não foi enviada nem salva como modelo. Trocar descarta o texto. Continuar?'
+        rascunho_mantido: 'A mensagem em edição foi mantida.'
         modelo_excluido: 'Modelo "{nome}" excluído.'
         baixar_ok: 'HTML baixado: {arquivo}.'
         bloco_campo_a: 'Bloco {n} ({tipo}): texto'

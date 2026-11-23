@@ -261,6 +261,7 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Campanha ' . $id . ' encerrada.', (string) $this->json($client)['mensagem']);
         self::assertSame(['cancelada', 'Cancelada pelo Master'], array_values((array) $this->conexao()->fetchAssociative('SELECT estado, motivo FROM comercial_campanha WHERE id = ?', [$id])));
         self::assertSame((string) $this->master->getId(), (string) $this->conexao()->fetchOne("SELECT actor_user_id FROM audit_log WHERE action = 'camp_fim' AND entity_id = ?", [(string) $id]));
+        self::assertSame('master_comercial_campanha_cancelar', $this->conexao()->fetchOne("SELECT route FROM audit_log WHERE action = 'camp_fim' AND entity_id = ?", [(string) $id]), 'a trilha manual leva a rota da requisição (6.9, decisão 36)');
 
         $this->cancelar($client, $id);
         self::assertResponseStatusCodeSame(422);

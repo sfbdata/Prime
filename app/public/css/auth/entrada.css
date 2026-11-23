@@ -280,3 +280,9 @@ html:has(#bjtCss) .lg-seg__item-icone{color:var(--bjt-p)}
 @media (prefers-reduced-motion: reduce){
   .lg-raiz *, .lg-camada *, .lg-raiz, .lg-camada{animation:none !important; transition:none !important}
 }
+
+/* Lilás do Master (M5.2): botões de editar o link de suporte, que só o Master vê. Salvar = cheio; demais = contorno. */
+.lg-lk__salvar{background:var(--bj-master); color:#fff; border:1px solid var(--bj-master)}
+.lg-lk__salvar:hover,.lg-lk__salvar:focus{background:var(--bj-master-escuro)}
+.lg-lk__btn{background:var(--bj-master-claro); color:var(--bj-master-texto); border:1px solid var(--bj-master-borda)}
+.lg-lk__btn:hover{border-color:var(--bj-master-icone); color:var(--bj-master-icone)}
