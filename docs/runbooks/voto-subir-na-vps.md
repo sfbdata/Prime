@@ -206,6 +206,21 @@ docker exec -w /var/www/app jusprime_voto_prod php -d memory_limit=256M bin/cons
 
 ## 8. Ligar o endereço no nginx (só depois do certificado do passo 3)
 
+**Antes, publique a página do Voto** (a que abre em `https://voto.bluejus.com.br/`). Ela vem do repositório
+dos sites (`sfbdata/sites-bluejus`, pasta `voto/`) e é enviada do **seu computador**, não da VPS:
+
+```bash
+cd ~/projetos/sites
+scripts/publicar.sh            # simula: confira que aparece sites-publicados/voto/
+scripts/publicar.sh --enviar   # envia de verdade
+```
+
+O bloco do nginx entrega do disco só a raiz (`/`) e `/_voto/` (CSS, JS e imagens da página); todo o resto vai
+para o container do Voto. Sem a página publicada, a raiz responde 404 e o resto funciona normalmente.
+
+A página nasce fora do Google (`noindex`). Quando quiser que ela apareça na busca, peça a troca de `INDEXAR` em
+`voto/src/lib/voto.ts` no repositório dos sites e publique de novo.
+
 ```bash
 cp scripts/vps/vhosts/voto.conf.https-pendente nginx/conf.d/voto.conf
 docker exec jusprime_nginx_prod nginx -t
@@ -244,6 +259,15 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://bluejus.com.br/saude-do-voto
 ```
 
 **Esperado:** `404` nas duas. O endereço do Voto não abre o BlueJus, e o BlueJus não responde pelo Voto.
+
+E a página do Voto:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' https://voto.bluejus.com.br/
+curl -sS -o /dev/null -w '%{http_code}\n' https://voto.bluejus.com.br/_voto/imagens/logo-bluejus.png
+```
+
+**Esperado:** `200` nas duas. Se vier `404`, a página não foi publicada (início do passo 8).
 
 ## 10. O que muda nos deploys seguintes
 
