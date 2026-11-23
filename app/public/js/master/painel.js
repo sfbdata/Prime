@@ -2,6 +2,9 @@
    Abas abertas pelo hash como no desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (linha 481):
    #aba=perm abre Permissões, #aba=rec abre Telas e recursos e #sec=contas abre a seção (é para onde voltam promover e
    remover Master). Vale qualquer aba que exista no HTML ([data-aba]).
+   Endereço próprio por aba e por seção (M5.16 do Farlei, 23/11/2026): trocar a aba ou a seção escreve a âncora
+   (#aba=ia, #aba=painel&sec=contas) no endereço, com entrada no histórico; o link copiado da barra abre direto ali e
+   o Voltar do navegador volta à aba ou seção anterior.
    O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js; a aba Telas e recursos, do recursos.js.
    Lógica portada do componente do desenho (kpis, gráfico com curva monotônica, mapa, faltam, auditoria, PDF).
    Regra do dono: nada inventado. Dado que não existe aparece como "sem informação" ou no estado vazio do desenho.
@@ -110,22 +113,35 @@
     raiz.querySelectorAll('[data-aba]').forEach(x => { const on = x.dataset.aba === S.aba; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
     raiz.querySelectorAll('[data-painel-aba]').forEach(p => { p.hidden = p.dataset.painelAba !== S.aba; });
   }
-  raiz.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => { S.aba = b.dataset.aba; mostrarAba(); }));
+  raiz.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => { S.aba = b.dataset.aba; mostrarAba(); escreverAncora(); }));
 
-  // Aba e seção pelo hash (desenho 1.2): aba=(\w+) e sec=(\w+). Valor desconhecido é ignorado (no carregamento, fica no padrão).
-  // Vale no carregamento e no hashchange (itens "Exclusivo do Master" do menu do usuário com a página já aberta).
-  // Devolve true quando a seção mudou; o painel não escreve no hash, então não há laço.
+  // Aba e seção pelo hash (desenho 1.2): aba=(\w+) e sec=(\w+). Aba desconhecida ou ausente abre o Painel do sistema;
+  // seção desconhecida é ignorada e âncora vazia volta à Visão geral (é o Voltar até o /master sem âncora).
+  // Vale no carregamento e no hashchange (itens "Exclusivo do Master" do menu do usuário com a página já aberta, e o
+  // Voltar e o Avançar do navegador). Devolve true quando a seção mudou.
   const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
   function aplicarAncora() {
-    if (raiz.querySelector('[data-aba="' + doHash('aba') + '"]')) S.aba = doHash('aba');
+    const aba = doHash('aba');
+    S.aba = aba && raiz.querySelector('[data-aba="' + aba + '"]') ? aba : 'painel';
     mostrarAba();
-    const sec = doHash('sec');
+    const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');
     if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;
     S.sec = sec;
     return true;
   }
   aplicarAncora();
-  window.addEventListener('hashchange', () => { if (aplicarAncora()) irPara(S.sec); });
+  // Âncora curta ou de outro formato (#sec=contas) vira a canônica sem entrada nova no histórico.
+  window.addEventListener('hashchange', () => { if (aplicarAncora()) irPara(S.sec, true); else escreverAncora(true); });
+
+  // M5.16: a âncora canônica da tela aberta. pushState e replaceState não disparam o hashchange, então não há laço.
+  // `trocar` (replaceState) é para quando o endereço já mudou por fora (link, Voltar) e só falta o formato canônico.
+  const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec : '');
+  function escreverAncora(trocar) {
+    const alvo = ancoraAtual();
+    // Parâmetro a mais de outra tela (ex.: &bloco= da I.A.) fica até a aba ou a seção mudar.
+    if (location.hash === alvo || location.hash.indexOf(alvo + '&') === 0) return;
+    history[trocar ? 'replaceState' : 'pushState'](null, '', alvo);
+  }
 
   /* ---------- seções ---------- */
   function renderSecs() {
@@ -136,7 +152,7 @@
       + (k === 'audit' && nAud > 0 ? '<span class="mp-sec-n">' + num(nAud) + '</span>' : '') + '</button>').join('');
   }
   elSecs.addEventListener('click', e => { const b = e.target.closest('[data-sec]'); if (b) irPara(b.dataset.sec); });
-  function irPara(sec) { S.sec = sec; S.menu = null; S.menuPos = null; S.aviso = null; S.fxMsg = null; renderSecs(); renderSecao(); }
+  function irPara(sec, trocar) { S.sec = sec; S.menu = null; S.menuPos = null; S.aviso = null; S.fxMsg = null; renderSecs(); renderSecao(); escreverAncora(trocar); }
 
   function renderSecao() {
     const sec = S.sec, falta = deps(sec).filter(d => !D[d]);
