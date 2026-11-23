@@ -140,6 +140,11 @@ final class TabelaDeAbaEChave
             'contar_publico' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
             'previa' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
         ],
+        // Gravação do Painel do Master (6.9): mesma regra, a guarda do Master decide; a ação fina vem no campo `acao`.
+        'automacoes_de_email' => [
+            'alterar_automacao' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'alterar_data' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+        ],
 
         // Gravação (6.6).
         // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é
