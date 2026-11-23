@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
+use App\Comercial\DTO\DestinosDoTeste;
 use App\Comercial\DTO\PedidoDeMarcas;
 use App\Comercial\DTO\PedidoDoRelatorio;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
+use App\Comercial\UseCase\EncaminharCampanhaDoRelatorioUseCase;
 use App\Comercial\UseCase\EncerrarCampanhaUseCase;
 use App\Comercial\UseCase\ExportarDestinatariosUseCase;
 use App\Comercial\UseCase\ListarRelatorioDeCampanhasUseCase;
@@ -20,6 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * O "Relatório como caixa de entrada" da Central de envios do /master (desenho 05 VS 21.10.26, L300-305 e L502-514;
@@ -112,6 +115,34 @@ final class RelatorioDoMasterController extends AbstractController
         }
 
         return new JsonResponse(['mensagem' => $mensagem]);
+    }
+
+    /**
+     * "Encaminhar para um e-mail" (comercial-marcas.md; pedido do Farlei M5.17): `{para}` com de 1 a 5 endereços; a cópia
+     * congelada da campanha sai como teste, pelo mesmo caminho do "Enviar teste". Sem `para`: 422.
+     */
+    #[Route('/master/comercial/campanhas/{id}/encaminhar', name: 'master_comercial_campanha_encaminhar', requirements: ['id' => self::ID], methods: ['POST'])]
+    public function encaminhar(int $id, Request $request, EncaminharCampanhaDoRelatorioUseCase $encaminhar, ValidatorInterface $validador): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(ComercialDoMasterController::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return new JsonResponse(['erro' => self::CSRF_INVALIDO], Response::HTTP_FORBIDDEN);
+        }
+        $master = $this->getUser();
+        $json = json_decode($request->getContent(), true);
+        try {
+            $destinos = DestinosDoTeste::deEntrada(\is_array($json) ? ($json['para'] ?? null) : null, $validador);
+            if ($destinos->vazio() || !$master instanceof User) {
+                throw new CampanhaRecusada(DestinosDoTeste::FORA_DO_LIMITE);
+            }
+            $saida = $encaminhar->executar($id, $master, $destinos->enderecos);
+        } catch (CampanhaRecusada $e) {
+            return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if ($saida === null) {
+            return new JsonResponse(['erro' => self::NAO_ENCONTRADA], Response::HTTP_NOT_FOUND);
+        }
+
+        return new JsonResponse(['mensagem' => $saida->mensagem(), 'enviados' => $saida->enviados, 'aviso' => $saida->aviso()]);
     }
 
     private function masterId(): int

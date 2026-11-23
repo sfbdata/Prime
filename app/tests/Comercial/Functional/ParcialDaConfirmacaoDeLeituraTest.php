@@ -24,7 +24,7 @@ final class ParcialDaConfirmacaoDeLeituraTest extends KernelTestCase
     #[TestDox('Hoje (rastreio global desligado): "Sem confirmação de leitura", desabilitada, valor 0 e a explicação da Política no title')]
     public function testDesligadaComAExplicacao(): void
     {
-        $chave = $this->renderizar()->filter('.mc-cp-lado > .mc-cp-barra > .mc-cp-vao + button.mc-cp-leitura + .mc-cp-lgpd');
+        $chave = $this->renderizar()->filter('.mc-cp-lado > .mc-cp-barra > .mc-cp-vao + button.mc-cp-leitura + .mc-motivo + .mc-cp-lgpd');
         self::assertCount(1, $chave, 'entre o segundo vão e o escudo de LGPD, como no dc');
 
         $chave = $this->renderizar()->filter('button.mc-cp-leitura');

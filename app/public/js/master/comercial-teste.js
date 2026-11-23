@@ -1,7 +1,7 @@
 /* "Enviar e-mail de teste" (desenho 05 VS 21.10.26, L497-498 e L668-669; F3f). O botão [data-mc-cp-teste] do editor
    abre o modal; "Enviar teste" posta o modelo da seção do clique (mcModeloAtual() da section[data-mc-campanha], contrato
-   com a 5d; window.McCampanha.modeloAtual() por compatibilidade) na rota de teste, que grava o teste como campanha e o
-   manda só ao Master logado. Depois, "Teste enviado" e o Relatório volta a carregar (a linha nova com o selo "Teste" e o
+   com a 5d; window.McCampanha.modeloAtual() por compatibilidade) na rota de teste, junto do campo "Enviar para" (`para`, até 5 endereços; o servidor valida), que grava o teste como
+   campanha e o manda a esses endereços (vazio = só o Master). Depois, "Teste enviado" e o Relatório volta a carregar (a linha nova com o selo "Teste" e o
    KPI "Campanhas").
    A Central de envios existe em dois modos no /master (seção Comercial e seção Indicações, uma escondida): cada raiz .mc
    tem o seu modal e o seu token, e o clique usa os da raiz de onde veio. O _comercial.html.twig carrega este script nos
@@ -21,10 +21,13 @@
     return raiz && ok ? { raiz, ok, token: mc.dataset.token || '' } : null;
   }
 
-  function erro(texto) {
+  // Linha de retorno fixa do modal (M5.14): `tipo` 'erro' (padrão) ou 'info' ("Enviando…"); fica até a próxima ação.
+  function erro(texto, tipo) {
     const el = atual.raiz.querySelector('[data-mc-tst-erro]');
     el.textContent = texto || '';
     el.hidden = !texto;
+    el.classList.toggle('is-info', tipo === 'info');
+    el.setAttribute('role', tipo === 'info' ? 'status' : 'alert');
   }
 
   function abrir(e) {
@@ -57,15 +60,20 @@
     const aberto = atual;
     const botao = aberto.raiz.querySelector('[data-mc-tst-enviar]');
     botao.disabled = true;
+    erro(BJ_T.t('comercial.js.teste_enviando'), 'info');
     fetch(aberto.raiz.dataset.url, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': aberto.token },
-      body: JSON.stringify(modelo),
+      body: JSON.stringify(Object.assign({}, modelo, { para: aberto.raiz.querySelector('[data-mc-tst-para]').value })),
     })
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.teste_erro'))))))
-      .then(() => {
+      .then(r => {
+        aberto.raiz.querySelector('[data-mc-tst-erro]').hidden = true;
         aberto.raiz.hidden = true;
-        aberto.ok.querySelector('[data-mc-tst-ok-para]').textContent = aberto.raiz.querySelector('[data-mc-tst-para]').value;
+        aberto.ok.querySelector('[data-mc-tst-ok-para]').textContent = (r.enviados || []).join(', ');
+        const aviso = aberto.ok.querySelector('[data-mc-tst-ok-aviso]');
+        aviso.textContent = r.aviso || '';
+        aviso.hidden = !r.aviso;
         aberto.ok.hidden = false;
         aberto.ok.querySelector('[data-mc-tst-fechar].mc-tst-enviar').focus();
         document.dispatchEvent(new CustomEvent('mc:relatorio-recarregar'));

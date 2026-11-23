@@ -7,6 +7,7 @@ namespace App\Conector\Ferramenta;
 use App\ChatIa\Service\ProtecaoDoTextoDoChat;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
+use App\Conector\Service\VisibilidadeDasFerramentasDoMaster;
 use App\Service\PermissionChecker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -81,7 +82,8 @@ final class QuemSouEuFerramenta implements FerramentaDoConector
         $lista = [];
         foreach ($this->ferramentas as $ferramenta) {
             $nome = $ferramenta->nome();
-            if (!CatalogoFechadoDoConector::existe($nome) || !$this->temOModulo($chamada, $nome)) {
+            if (!CatalogoFechadoDoConector::existe($nome) || !$this->temOModulo($chamada, $nome)
+                || !VisibilidadeDasFerramentasDoMaster::visivelPara($nome, $chamada->contexto->pessoa)) {
                 continue;
             }
             $lista[] = [

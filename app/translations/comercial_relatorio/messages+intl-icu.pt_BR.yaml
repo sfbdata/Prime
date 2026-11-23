@@ -45,12 +45,13 @@ comercial_relatorio:
         duplicar: Duplicar como nova
         reenviar: Reenviar a quem não leu
         encaminhar: Encaminhar para um e-mail
-        encaminhar_motivo: Envio de teste para outros endereços ainda não disponível.
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
         excluir: Excluir do relatório
     js:
+        encaminhar_pergunta: 'Encaminhar esta campanha (como teste) para:'
+        encaminhado: 'Encaminhado para {para}.'
         erro_concluir: Não foi possível concluir. Recarregue a página.
         linha_dica: Abrir · botão direito para mais opções
         selecionar: Selecionar
@@ -78,3 +79,12 @@ comercial_relatorio:
         reenvio_rastreada: Reenvio para quem não leu fica disponível assim que as leituras forem registradas.
         reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
         erro_exportar: Não foi possível exportar. Recarregue a página.
+        marca_ok: Alteração feita.
+        marca_ok_estrela: Estrela marcada.
+        marca_ok_sem_estrela: Estrela removida.
+        marca_ok_arquivar: Campanha(s) arquivada(s).
+        marca_ok_desarquivar: Campanha(s) desarquivada(s).
+        marca_ok_remover: Campanha(s) removida(s) do relatório.
+        cancelar_ok: Envio cancelado.
+        exportando: Preparando o arquivo…
+        exportar_ok: 'Destinatários exportados: {arquivo}.'

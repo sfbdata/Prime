@@ -97,12 +97,12 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
         ) !== false;
     }
 
-    /** O envio de teste (F3f): a campanha tem um destinatário só, e o envio dele vem do Carteiro na hora. */
-    public function vincularEnvioDaCampanha(int $campanhaId, int $envioId): void
+    /** O envio de um destinatário do teste (um clique pode levar até 5): liga o envio ao destino daquele endereço. */
+    public function vincularEnvioDoEndereco(int $campanhaId, string $email, int $envioId): void
     {
         $this->conexao()->executeStatement(
-            'UPDATE comercial_campanha_destino SET envio_id = :envio WHERE campanha_id = :campanha AND envio_id IS NULL',
-            ['campanha' => $campanhaId, 'envio' => $envioId],
+            'UPDATE comercial_campanha_destino SET envio_id = :envio WHERE campanha_id = :campanha AND email = :email AND envio_id IS NULL',
+            ['campanha' => $campanhaId, 'email' => $email, 'envio' => $envioId],
         );
     }
 

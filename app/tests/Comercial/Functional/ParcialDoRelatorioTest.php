@@ -154,21 +154,21 @@ final class ParcialDoRelatorioTest extends KernelTestCase
             'Excluir do relatório bi bi-trash3',
         ], $filhos);
         self::assertSame(1, $this->doc->filter($caixa . ' > .mc-rl-ctx-titulo[data-mc-rl-ctx-titulo]:first-child')->count());
-        self::assertSame(['abrir', 'duplicar', 'reenviar', 'estrela', 'arquivar', 'csv', 'excluir'], $this->doc->filter($caixa . ' > button[data-mc-rl-ctx-acao]')->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-rl-ctx-acao')));
+        self::assertSame(['abrir', 'duplicar', 'reenviar', 'encaminhar', 'estrela', 'arquivar', 'csv', 'excluir'], $this->doc->filter($caixa . ' > button[data-mc-rl-ctx-acao]')->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-rl-ctx-acao')));
         self::assertSame(1, $this->doc->filter($caixa . ' > button.mc-rl-ctx-excluir[data-mc-rl-ctx-acao="excluir"]')->count());
     }
 
-    #[TestDox('"Encaminhar para um e-mail" está no menu, desabilitado, com o motivo no title e sem ação')]
-    public function testEncaminharDesabilitado(): void
+    #[TestDox('"Encaminhar para um e-mail" está no menu, habilitado, com a ação e a URL, sem motivo nem aria-describedby')]
+    public function testEncaminharHabilitado(): void
     {
-        $item = $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > button.mc-rl-ctx-off');
+        $item = $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > button[data-mc-rl-ctx-acao="encaminhar"]');
         self::assertSame(1, $item->count());
         self::assertSame('Encaminhar para um e-mail', trim($item->text()));
-        self::assertNotNull($item->attr('disabled'));
-        self::assertSame('true', $item->attr('aria-disabled'));
-        self::assertSame('Envio de teste para outros endereços ainda não disponível.', $item->attr('title'));
-        self::assertNull($item->attr('data-mc-rl-ctx-acao'));
-        self::assertSame(0, $this->doc->filter('[data-url-encaminhar]')->count());
+        self::assertNull($item->attr('disabled'));
+        self::assertNull($item->attr('aria-disabled'));
+        self::assertNull($item->attr('aria-describedby'));
+        self::assertSame(0, $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > .mc-rl-ctx-motivo, button.mc-rl-ctx-off')->count());
+        self::assertSame(1, $this->doc->filter('section.mc-rl[data-url-encaminhar*="/encaminhar"]')->count());
     }
 
     #[TestDox('O JS: o contrato do Duplicar (evento mc:duplicar-campanha), os textos do dc pelo catálogo e sem travessão no texto')]
@@ -197,9 +197,11 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         ] as $chave => $texto) {
             self::assertSame($texto, static::getContainer()->get('translator')->trans('comercial_relatorio.js.' . $chave, [], null, 'pt_BR'), $chave);
         }
-        self::assertStringNotContainsString('urlEncaminhar', $js, 'o Encaminhar não envia: sem rota nem ação no JS');
-        self::assertStringNotContainsString("'encaminhar'", $js);
-        self::assertStringNotContainsString('prompt(', $js);
+        self::assertStringContainsString('raiz.dataset.urlEncaminhar', $js, 'o Encaminhar posta na rota nova');
+        self::assertStringContainsString("acao === 'encaminhar'", $js);
+        self::assertStringContainsString("BJ_T.t('comercial_relatorio.js.encaminhar_pergunta')", $js);
+        self::assertSame('Encaminhar esta campanha (como teste) para:', static::getContainer()->get('translator')->trans('comercial_relatorio.js.encaminhar_pergunta', [], null, 'pt_BR'));
+        self::assertSame('Encaminhado para a@x.com.', static::getContainer()->get('translator')->trans('comercial_relatorio.js.encaminhado', ['para' => 'a@x.com'], null, 'pt_BR'));
         self::assertSame(0, preg_match('/[—–]/u', $js));
         self::assertFileDoesNotExist(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-monitoramento.js');
     }

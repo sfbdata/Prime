@@ -37,7 +37,7 @@ final class EmailsDaAssinaturaTest extends KernelTestCase
     {
         $html = self::renderizar($tipo);
 
-        self::assertStringContainsString('color:#ffffff;">' . self::ESCAPADO . '</p>', $html, 'o cabeçalho é o nome do escritório');
+        self::assertStringContainsString('<div data-escritorio style="font:bold 20px/1.3 Arial,Helvetica,sans-serif;letter-spacing:-.01em;color:#12242f;">' . self::ESCAPADO . '</div>', $html, 'o cabeçalho é o nome do escritório');
         self::assertStringNotContainsString('&amp;amp;', $html);
         self::assertStringNotContainsString('&amp;#039;', $html);
         self::assertStringNotContainsString(self::ESCRITORIO, $html, 'nada sai sem escapar');
@@ -56,7 +56,8 @@ final class EmailsDaAssinaturaTest extends KernelTestCase
     {
         $html = self::renderizar($tipo);
 
-        self::assertStringContainsString('color:#ffffff;">BlueJus</p>', $html);
+        self::assertStringNotContainsString('data-escritorio', $html);
+        self::assertStringContainsString('alt="BlueJus"', $html, 'sem escritório, a moldura mostra o logo do BlueJus');
         self::assertStringNotContainsString('&amp;amp;', $html);
     }
 

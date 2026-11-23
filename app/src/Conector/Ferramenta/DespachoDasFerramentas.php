@@ -7,8 +7,12 @@ namespace App\Conector\Ferramenta;
 use App\Conector\DTO\ArquivoNaResposta;
 use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
+use App\Conector\Mcp\FerramentaEscondidaDaPessoa;
+use App\Conector\Mcp\ListaDasFerramentasDaPessoa;
 use App\Conector\Mcp\RegistroDasFerramentas;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Conector\Service\VisibilidadeDasFerramentasDoMaster;
+use App\Entity\Auth\User;
 use Mcp\Schema\Content\BlobResourceContents;
 use Mcp\Schema\Content\EmbeddedResource;
 use Mcp\Schema\Content\ImageContent;
@@ -51,11 +55,28 @@ final class DespachoDasFerramentas implements RegistroDasFerramentas
     ) {
     }
 
+    /**
+     * Registra as ferramentas e os dois handlers que escondem da pessoa do token o que ela não vê (6.9, decisão 38): o
+     * `tools/list` filtrado e o `tools/call` de ferramenta escondida respondido como nome desconhecido. A pessoa só é
+     * conhecida na hora da resposta (o servidor é montado antes do portão), então a pergunta vai numa closure.
+     */
     public function registrarNo(Builder $construtor): void
     {
+        $definicoes = [];
         foreach ($this->registradas() as $ferramenta) {
-            $construtor->add(self::definicao($ferramenta), $this->manipulador($ferramenta));
+            $definicao = self::definicao($ferramenta);
+            $construtor->add($definicao, $this->manipulador($ferramenta));
+            $definicoes[] = $definicao;
         }
+        $visivel = fn (string $nome): bool => VisibilidadeDasFerramentasDoMaster::visivelPara($nome, $this->pessoaDaRequisicao());
+        $construtor->addRequestHandler(new ListaDasFerramentasDaPessoa($definicoes, $visivel));
+        $construtor->addRequestHandler(new FerramentaEscondidaDaPessoa($visivel));
+    }
+
+    /** A pessoa do token, se o portão já abriu a requisição; sem ela, nenhuma ferramenta do Master aparece. */
+    private function pessoaDaRequisicao(): ?User
+    {
+        return $this->requisicao->estaAberta() ? $this->requisicao->atual()->contexto->pessoa : null;
     }
 
     /**
