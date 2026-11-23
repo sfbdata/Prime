@@ -294,10 +294,19 @@ produção (MCP, 23/11): **zero** referência cruzada entre escritórios em `use
 associação daria `EntityNotFoundException` na tela; sem nenhuma, o filtro só tira o que não era
 do escritório.
 
+A medição não cobre um caso sem referência cruzada nenhuma: **sair do escritório B com a sessão em
+A** (`/escritorio/{id}/sair`, rota sem `{tenantId}`). O vínculo de B traz o cargo e a lotação **de
+B**; a auditoria da exclusão lê o nome deles, e o proxy não abria pelo filtro de A
+(`EntityNotFoundException`, a saída voltava inteira). Correção no `AuditLogSubscriber`: o cadastro
+só referenciado é aberto sem o filtro da sessão, apenas para ler o rótulo, que vai para o log do
+dono do registro (B). Teste: `EscritorioControllerTest::testSaiDeNaoAtivoComCargoELotacaoDoOutroEscritorio`.
+
 A §5.2 virou teste (`CadastrosDoEscritorioIsolamentoTest`): um admin dos dois escritórios, com a
-sessão em A, abre a edição e as sedes de B pela URL e vê os cadastros de B e nenhum de A (é o
-`TenantUrlScopeListener` que aponta o filtro para o `{tenantId}` da rota). O mesmo teste prova a
-negativa por entidade (`findBy` e `find` por PK do vizinho).
+sessão em A, abre a edição e as sedes de B pela URL e vê os cadastros de B (é o
+`TenantUrlScopeListener` que aponta o filtro para o `{tenantId}` da rota; sem ele, os de B sumiriam).
+As frases "nenhum de A aparece" são só guarda: a tela lê as coleções do escritório e nunca mostrou
+os de A. A prova do isolamento é a negativa por entidade, no mesmo teste (`findBy` e `find` por PK
+do vizinho).
 
 **Atenção para quem mexer depois:** tela que mostre cargo ou lotação de vínculo de **outro**
 escritório com o filtro ligado no escritório da sessão (por exemplo, equipe de uma pasta recebida

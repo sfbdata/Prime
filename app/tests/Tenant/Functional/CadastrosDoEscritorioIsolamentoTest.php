@@ -27,7 +27,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * As três já tinham tenant_id NOT NULL; faltava a etiqueta, e sem ela uma consulta devolvia os
  * cadastros de todos os escritórios. Aqui se prova a negativa cross-tenant por entidade e, como a
  * spec manda (§5.2), que as telas de administração continuam mostrando os cadastros do escritório
- * da URL, mesmo quando a sessão está em outro escritório.
+ * da URL, mesmo quando a sessão está em outro escritório (as frases positivas; as negativas da tela
+ * são só guarda, porque a tela lê as coleções do escritório e nunca mostrou os do vizinho).
  */
 #[CoversClass(TenantController::class)]
 final class CadastrosDoEscritorioIsolamentoTest extends JusPrimeWebTestCase

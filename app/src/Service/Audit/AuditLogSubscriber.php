@@ -89,6 +89,9 @@ class AuditLogSubscriber
      */
     private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class, PropostaDeCadastro::class];
 
+    /** EntityManager do flush em curso: abre, sem o filtro da sessão, o cadastro que só aparece por referência. */
+    private ?EntityManagerInterface $emDoFlush = null;
+
     public function __construct(
         private readonly Security $security,
         private readonly RequestStack $requestStack,
@@ -108,6 +111,7 @@ class AuditLogSubscriber
             return;
         }
 
+        $this->emDoFlush = $entityManager;
         $unitOfWork = $entityManager->getUnitOfWork();
         $auditMetadata = $entityManager->getClassMetadata(AuditLog::class);
         $loggedFingerprints = [];
@@ -285,7 +289,42 @@ class AuditLogSubscriber
             }
         }
 
+        if (!$this->abrirSemFiltroDaSessao($entity)) {
+            return null;
+        }
+
         return $this->entityLabelResolver->resolve($entity);
+    }
+
+    /**
+     * O cadastro referenciado (o cargo do vínculo que sai) pode ser de um escritório diferente do filtro da sessão:
+     * quem sai do escritório B com a sessão em A apaga o vínculo de B, e o cargo de B não abre pelo TenantFilter de A
+     * (a EntityNotFoundException derrubava a saída inteira). O rótulo vai para o log do dono do registro, então o
+     * cadastro é aberto sem o filtro, só para ler o nome. Se nem assim existir, fica sem rótulo.
+     */
+    private function abrirSemFiltroDaSessao(object $entity): bool
+    {
+        $em = $this->emDoFlush;
+        if ($em === null || !$em->getUnitOfWork()->isUninitializedObject($entity)) {
+            return true;
+        }
+
+        $filtros = $em->getFilters();
+        $suspender = $filtros->isEnabled('tenant');
+        if ($suspender) {
+            $filtros->suspend('tenant');
+        }
+        try {
+            $em->getUnitOfWork()->initializeObject($entity);
+
+            return true;
+        } catch (EntityNotFoundException) {
+            return false;
+        } finally {
+            if ($suspender) {
+                $filtros->restore('tenant');
+            }
+        }
     }
 
     /** Dono de uma mudança de coleção: "Só eu" antes ou depois desta mudança leva o rótulo particular. */
