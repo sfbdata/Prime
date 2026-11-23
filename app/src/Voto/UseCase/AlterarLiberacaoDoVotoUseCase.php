@@ -70,6 +70,7 @@ final class AlterarLiberacaoDoVotoUseCase
         }
     }
 
+    /** D16: o bloqueio do Master vira trava; a liberação dele desfaz. */
     private function ajustarContratacao(Tenant $tenant, bool $liberado, User $master): void
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());

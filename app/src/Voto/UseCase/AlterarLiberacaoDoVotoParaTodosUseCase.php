@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
+use App\Voto\Exception\EscritorioNaoEncontradoException;
 use App\Voto\Service\GuardaDoMasterDoVoto;
 
 /**
@@ -43,7 +44,12 @@ final class AlterarLiberacaoDoVotoParaTodosUseCase
             }
             // Um escritório por vez pelo mesmo caminho da aba (trava do escritório, auditoria nele e a trava do Master da
             // D16): "bloquear todos" também trava a contratação, e "liberar todos" destrava.
-            $this->porEscritorio->executar((int) $tenant->getId(), $liberado, $master);
+            // Suspenso no meio do laço: pula, como os de cima.
+            try {
+                $this->porEscritorio->executar((int) $tenant->getId(), $liberado, $master);
+            } catch (EscritorioNaoEncontradoException) {
+                continue;
+            }
             ++$alterados;
         }
 

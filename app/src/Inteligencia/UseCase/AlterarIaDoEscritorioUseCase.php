@@ -53,28 +53,47 @@ final class AlterarIaDoEscritorioUseCase
         // trava do escritório: duas trocas ao mesmo tempo (Master e dono) decidem sobre o estado já gravado.
         $this->escopoDePlataforma->executarComoConta(
             (int) $tenant->getId(),
-            fn () => $this->contratacoes->sobTrava($tenant, fn () => $this->alterarSobTrava($tenant, $input, $modo, $master)),
+            fn () => $this->contratacoes->sobTrava($tenant, fn () => $this->alterarSobTrava($tenant, $input->liberada, $master, $modo, $input->orcamentoMensalCentavos)),
         );
     }
 
-    private function alterarSobTrava(Tenant $tenant, AlterarIaDoEscritorioInput $input, ModoDeCobrancaDaIa $modo, User $master): void
+    /**
+     * "Liberar/bloquear todos" do Master, um escritório por vez: troca só a liberação. O modo e o teto ficam como estão,
+     * lidos dentro da trava (nunca de uma leitura feita antes dela).
+     */
+    public function alterarLiberacao(int $tenantId, bool $liberada, User $master): void
+    {
+        GuardaDoMasterDaIa::exigir($master);
+        $tenant = $this->escritorioAtivo($tenantId);
+
+        $this->escopoDePlataforma->executarComoConta(
+            (int) $tenant->getId(),
+            fn () => $this->contratacoes->sobTrava($tenant, fn () => $this->alterarSobTrava($tenant, $liberada, $master)),
+        );
+    }
+
+    /** `$modo` nulo: a cobrança do escritório não muda. */
+    private function alterarSobTrava(Tenant $tenant, bool $liberada, User $master, ?ModoDeCobrancaDaIa $modo = null, ?int $orcamento = null): void
     {
         $configuracao = $this->configuracoes->findDoTenantParaOMaster($tenant) ?? new ConfiguracaoDeInteligencia($tenant);
         // D16: só a TROCA de estado mexe na contratação. Trocar só o teto, ou salvar "bloqueada" num escritório que nunca
         // foi liberado, não é trava (o estado de hoje deixa o dono ligar).
         $estava = $configuracao->isLiberadaPeloMaster();
-        if ($input->liberada) {
+        if ($liberada) {
             $configuracao->liberarPeloMaster();
         } else {
             $configuracao->bloquearPeloMaster();
         }
-        $configuracao->definirCobranca($modo, $input->orcamentoMensalCentavos);
+        if ($modo !== null) {
+            $configuracao->definirCobranca($modo, $orcamento);
+        }
         $this->configuracoes->salvar($configuracao, flush: true);
-        if ($estava !== $input->liberada) {
-            $this->ajustarContratacao($tenant, $input->liberada, $master);
+        if ($estava !== $liberada) {
+            $this->ajustarContratacao($tenant, $liberada, $master);
         }
     }
 
+    /** D16: o bloqueio do Master vira trava; a liberação dele desfaz. */
     private function ajustarContratacao(Tenant $tenant, bool $liberada, User $master): void
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());

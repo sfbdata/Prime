@@ -6,8 +6,7 @@ namespace App\Inteligencia\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Inteligencia\DTO\AlterarIaDoEscritorioInput;
-use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Exception\EscritorioNaoEncontradoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\GuardaDoMasterDaIa;
 use App\Repository\TenantRepository;
@@ -45,12 +44,13 @@ final class AlterarLiberacaoDaIaParaTodosUseCase
                 continue;
             }
             // Um escritório por vez pelo mesmo caminho da aba (trava do escritório, auditoria nele e a trava do Master da
-            // D16), mantendo o modo e o teto de cada um: "bloquear todos" também trava a contratação.
-            $atual = $this->configuracoes->findDoTenantParaOMaster($tenant) ?? new ConfiguracaoDeInteligencia($tenant);
-            $this->porEscritorio->executar(
-                new AlterarIaDoEscritorioInput((int) $tenant->getId(), $liberada, $atual->getModoDeCobranca()->value, $atual->getOrcamentoMensalCentavos()),
-                $master,
-            );
+            // D16), mantendo o modo e o teto de cada um: "bloquear todos" também trava a contratação. Suspenso no meio do
+            // laço: pula, como os de cima.
+            try {
+                $this->porEscritorio->alterarLiberacao((int) $tenant->getId(), $liberada, $master);
+            } catch (EscritorioNaoEncontradoException) {
+                continue;
+            }
             ++$alterados;
         }
 
