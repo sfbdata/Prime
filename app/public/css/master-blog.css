@@ -47,7 +47,8 @@
 .mp .bja-linha { align-items: center; padding: 10px 18px; border-bottom: 1px solid #eef2f5; font-size: 13px; background: #fff; }
 .mp .bja-linha:nth-child(even) { background: #f7f9fb; }
 .mp .bja-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
-.mp .bja-linha:hover * { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+/* M6: os botões de ação (fundo branco) guardam a cor própria na linha azul. */
+.mp .bja-linha:hover *:not(:is(.bja-acao, .bja-acao *)) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
 .mp .bja-linha:hover .bja-pub, .mp .bja-linha:hover .bja-st, .mp .bja-linha:hover .bja-destaque { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .mp .bja-tit { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .mp .bja-tit > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

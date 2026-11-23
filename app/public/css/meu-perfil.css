@@ -105,7 +105,7 @@ html[data-bs-theme="dark"] .mp-codigo { color: #6cb6e0; }
 .mp-oab-linha { width: 100%; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; border: none; border-bottom: 1px solid #f0f2f4; background: #fff; text-align: left; cursor: pointer; transition: background .15s; }
 .mp-oab-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
 .mp-oab-linha:hover * { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
-.mp-oab-linha:hover .mp-oab-situacao { background: rgba(255,255,255,.2) !important; color: #fff !important; }
+.mp-oab-linha:hover .mp-oab-situacao, .mp-oab-linha:hover .mp-oab-tipo { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .mp-oab-num { min-width: 120px; display: flex; flex-direction: column; }
 .mp-oab-num b { font-size: 17px; color: #212529; }
 .mp-oab-num b.grande { font-size: 21px; }
