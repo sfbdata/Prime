@@ -716,7 +716,15 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
   editado traz `editado: true`, e "Voltar ao padrão" (só nele, com confirmação; POST
   `/master/comercial/modelos/{chave}/padrao`) apaga a versão. Trilha: `modelo_upd` (com `fixo_chave` no `changes`) e
   `modelo_pad` (o `audit_log.action` tem 10 caracteres). "Salvar como meu" segue; nome e "Excluir" só no próprio.
-  As **automações** (boas-vindas val/conv, dica, espaço) ainda leem os templates Twig: ler a versão editada é o PR B.
+- **Automações com a versão editada** (M5.8, decisão do coordenador 23/11/2026): editado o padrão da Central que é cópia
+  de uma automação, ela passa a enviar a versão do Master (`ModelosDeAutomacao::FIXO_DA_CENTRAL`): `boasvindas` (val,
+  conv), `primeiros` (dica), `espaco90` (e90; `{limite}` no assunto, no título e no texto vira o limite escolhido; o padrão da Central traz "90%"
+  escrito, então quem edita usa `{limite}` para acompanhar o percentual), `espaco100`
+  (e100) e `pedido` (ped). Assunto, selo, título (com `{nome}`) e miolo saem da versão editada, no layout da campanha
+  (`ComposicaoDaCampanha::corpoELayout`); a prévia do Master mostra o mesmo. Sem versão editada, com "Voltar ao
+  padrão" ou com versão que não compõe (sem assunto ou sem conteúdo), vale o texto de sempre (Twig + tradução): a
+  automação nunca deixa de sair. Ficam sempre no texto do sistema o lembrete de confirmação (cad/lemb, leva o link
+  único de cada pessoa) e os dois do espaço extra (lib, resp), que não têm cópia na Central.
 - **Auditoria** (R6): `comercial_modelo` **não** é `Auditavel` (o subscriber gravaria 500 caracteres do conteúdo).
   Linha manual no `audit_log` (`action` até 10 caracteres: `modelo_new`, `modelo_upd`, `modelo_del`), entidade e id,
   `changes` só `{nome, modo}`.

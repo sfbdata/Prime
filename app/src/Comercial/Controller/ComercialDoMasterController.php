@@ -208,6 +208,7 @@ final class ComercialDoMasterController extends AbstractController
             nome: 'Dra. Ana',
             selo: $modelo->selo,
             titulo: $modelo->titulo,
+            layout: $modelo->layout,
         ), 'previa');
 
         return new Response((string) $email->getHtmlBody());

@@ -10,8 +10,10 @@ namespace App\Comercial\Campanha;
  *  - os simples (corpo, itens, botão e link): `convite`, `vagas`, `obrigado`, `novidades`;
  *  - o `news` em blocos;
  *  - as cópias em blocos dos 6 modelos de automação (dc L.508-513). São independentes dos templates Twig das
- *    automações da 1a: o que as automações enviam não muda. Do `validar` sai a frase "Ou use o código 482 917 na tela
- *    de confirmação." (Q5, o código é da frente do desenho 10), e o botão `validar` vira `app` no renderizador.
+ *    automações da 1a enquanto o Master não os edita; editados (M5.8), as automações correspondentes passam a enviar a
+ *    versão do Master ({@see \App\Comercial\Service\ModelosDeAutomacao}). Do `validar` sai a frase "Ou use o código
+ *    482 917 na tela de confirmação." (Q5, o código é da frente do desenho 10), e o botão `validar` vira `app` no
+ *    renderizador.
  * As 17 datas comemorativas (F4, spec §13; desenho 05 VS 21.10.26 L626) são os modelos `data-<id>`, montados do
  * {@see CalendarioDasDatasComemorativas}: assunto = título + " · BlueJus", selo = o nome em maiúsculas, título = o
  * título sem o "!" final + ", {nome}!", e os blocos = o texto e o botão "Abrir o BlueJus" para o app. Na grade vêm

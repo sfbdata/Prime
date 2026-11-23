@@ -59,6 +59,18 @@ final class ModelosEfetivos
     }
 
     /**
+     * Só a versão editada de um padrão; sem ela, nulo (quem chama segue com o próprio texto, como as automações).
+     *
+     * @return ModeloEmJson|null
+     */
+    public function editadoDoFixo(string $chave): ?array
+    {
+        $editado = $this->fixos->fixo($chave) === null ? null : $this->modelos->doFixo($chave);
+
+        return $editado === null ? null : ModeloDaGrade::deEditado($editado);
+    }
+
+    /**
      * @param list<array<string, mixed>> $padroes
      *
      * @return list<ModeloEmJson>
