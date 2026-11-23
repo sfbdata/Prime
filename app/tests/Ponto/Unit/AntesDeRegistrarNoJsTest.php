@@ -128,8 +128,8 @@ final class AntesDeRegistrarNoJsTest extends TestCase
     {
         $tela = $this->tela();
 
-        self::assertStringContainsString("const AVISO_ALERTA_DURANTE_ENVIO = 'A batida não foi registrada: outro registro estava sendo enviado. Espere terminar e toque no botão de novo.';", $tela);
-        self::assertStringContainsString("const AVISO_ALERTA_DIA_CONCLUIDO = 'A batida não foi registrada: a jornada de hoje já está concluída.';", $tela);
+        self::assertStringContainsString("const AVISO_ALERTA_DURANTE_ENVIO = BJ_T.t('ponto_cartao.js.aviso.durante_envio');", $tela);
+        self::assertStringContainsString("const AVISO_ALERTA_DIA_CONCLUIDO = BJ_T.t('ponto_cartao.js.aviso.dia_concluido');", $tela);
         self::assertMatchesRegularExpression(
             "/if \(btnPonto\.disabled\) \{\s*mostrarAvisoBatida\(envioEmAndamento \? AVISO_ALERTA_DURANTE_ENVIO : AVISO_ALERTA_DIA_CONCLUIDO, 'warning'\);\s*return;\s*\}/",
             $tela,

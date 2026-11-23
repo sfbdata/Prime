@@ -236,5 +236,74 @@ ponto_cartao:
             fora_da_cerca: 'Not recorded: you are {distancia} m from the {nome} location, outside the allowed area. If you are working off-site today, ask your manager to release the day.'
             entrada_registrada: 'Clock-in recorded at {hora}'
             saida_registrada: 'Clock-out recorded at {hora}'
+        # ---- inline script of the clock-in screen (index.html.twig): reminder, clock, GPS, punch notices, offline queue
+        lembrete:
+            aviso_saida: The expected time has passed. Do not forget to clock out.
+            notificacao_corpo: Do not forget to clock out.
+            passou_da_saida: 'The expected clock-out time ({hora}) has passed. Do not forget to clock out.'
+            saida_prevista: 'Expected clock-out at {hora}.'
+        relogio:
+            aguardando: Waiting for clock-in
+            encerrada: Workday ended
+            repouso: On break
+            jornada: On shift
+        gps:
+            confirmada: 'Location confirmed. Accuracy of {precisao} m.'
+            impreciso: 'Inaccurate GPS ({precisao} m). The system will still check whether you are within range of one of the locations.'
+            fora_da_area: 'You are {distancia}m from {sede}, outside the area allowed for clocking in.'
+            fora_sem_externo: If you are working off-site or from home, ask your manager to release the day and then refresh this page.
+            verbo_toque: Tap
+            verbo_clique: Click
+            indisponivel: We could not find your location right now. Try again; on a computer, keep Wi-Fi on.
+            demorou: The search for your location took too long. Try again; on a computer, keep Wi-Fi on.
+            pedir: 'To record your time, the browser needs your location. {verbo} "Allow location" and choose Allow in the browser window.'
+            sistema: 'The browser has permission, but the device location is turned off or blocked for the browser. Turn on location in the device settings and {verbo} "Try again".'
+            api: Browser location is not working on this screen. Try another browser or talk to your manager.
+            bloqueado: 'Location is blocked for this site. To allow it:'
+            passo_computador_1: Click the icon to the left of the site address (the padlock or the controls).
+            passo_computador_2: Under Location, choose Allow.
+            passo_computador_3: Reload this page.
+            outro_computador: 'In Safari on Mac: Safari menu, Settings, Websites, Location, and choose Allow for this site.'
+            passo_celular_1: Tap the icon to the left of the site address (the padlock or the controls).
+            passo_celular_2: Tap Permissions (or Site settings) and then Location.
+            passo_celular_3: Choose Allow and reload this page.
+            outro_celular: 'On iPhone or iPad, if it does not appear: Settings, Privacy and Security, Location Services, turn it on and choose "While Using the App" for the browser.'
+            obtendo: Getting your location...
+            permitir: Allow location
+            sem_suporte: Your browser does not support geolocation.
+            sem_localizacao_titulo: We could not get your location
+            sem_localizacao_detalhe: Turn on the device GPS, allow location in the browser and try again.
+        aviso:
+            sem_confirmacao: 'We did not receive confirmation from the server and the clock-in MAY have been recorded. The times on the buttons above are from before the attempt: refresh the page and check BEFORE pressing again.'
+            sem_rede: 'You are offline and there is no way to know whether the clock-in went through. Do NOT close this screen. When the connection is back, refresh the page and check before pressing again.'
+            virada_do_dia: 'The day changed while this page was open: the buttons above are now for the new day, but the timesheet and the hour bank are still from yesterday. Refresh the page before checking.'
+            pagina_incompleta: The page did not load completely and the clock-in was not sent. Refresh the page and try again.
+            internet_voltou: The internet is back. Refresh the page and check your clock-ins before pressing again.
+            atrasado: It took too long to send and the clock-in time would have been wrong. Press again with the screen on.
+            selecione_tipo: Select the record type (Clock-in, Break, Return or Clock-out).
+            durante_envio: 'The clock-in was not recorded: another record was being sent. Wait for it to finish and tap the button again.'
+            dia_concluido: 'The clock-in was not recorded: the workday for today is already complete.'
+            registrando: Recording...
+        externo:
+            registrar: Record as off-site work
+            em_andamento: A record is still in progress. Wait for the response and record the off-site work again.
+            dia_completo: There is no free record today. The off-site work was not sent.
+            sem_fila: Offline, the off-site work could not be saved. Try again when the connection is back.
+            informe: Enter the place and the reason.
+        toque:
+            registrada_fem: '{tipo} recorded at {hora}'
+            registrada_masc: '{tipo} recorded at {hora}'
+            comprovante: Receipt in the Receipts tab.
+            nao_registrada_fem: '{tipo} not recorded: {motivo}.'
+            nao_registrada_masc: '{tipo} not recorded: {motivo}.'
+            ja_registrada_fem: '{tipo} already recorded.'
+            ja_registrada_masc: '{tipo} already recorded.'
+        fila:
+            guardada_sem_internet: Offline. The clock-in was saved on this device and will be sent when the internet is back.
+            guardada_sem_conexao: No connection to the server. The clock-in was saved on this device and will be sent automatically when the connection is back.
+            enviada: Offline clock-ins sent.
+            pendentes: 'Offline: {n} clock-in(s) waiting to be sent.'
+            outro_escritorio: '{n} clock-in(s) saved offline in another office. Sign in to it to send them.'
+            recusa: '{tipo} of {dia} at {hora}, saved offline, was not recorded: {mensagem}'
 
 # ---- fim

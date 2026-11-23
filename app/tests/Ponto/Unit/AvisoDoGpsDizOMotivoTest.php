@@ -62,13 +62,13 @@ final class AvisoDoGpsDizOMotivoTest extends TestCase
         self::assertStringContainsString('const GPS_PERMISSAO_NEGADA = 1;', $tela);
         self::assertStringContainsString('const GPS_POSICAO_INDISPONIVEL = 2;', $tela);
         self::assertStringContainsString('const GPS_DEMOROU = 3;', $tela);
-        self::assertStringContainsString("'Não foi possível descobrir sua localização agora. Tente de novo; no computador, deixe o Wi-Fi ligado.'", $tela);
-        self::assertStringContainsString("'A busca pela sua localização demorou demais. Tente de novo; no computador, deixe o Wi-Fi ligado.'", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.indisponivel')", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.demorou')", $tela);
 
         $erro = self::funcao('erroGps');
         self::assertStringContainsString('codigo === GPS_PERMISSAO_NEGADA', $erro);
         self::assertStringContainsString('codigo === GPS_DEMOROU ? TEXTO_GPS_DEMOROU : TEXTO_GPS_INDISPONIVEL', $erro);
-        self::assertStringContainsString("botaoDoGps('btn-gps-tentar', 'Tentar de novo', tentarGpsDeNovo)", self::funcao('mostrarErroDeBusca'));
+        self::assertStringContainsString("botaoDoGps('btn-gps-tentar', BJ_T.t('ponto_cartao.js.paineis.tentar'), tentarGpsDeNovo)", self::funcao('mostrarErroDeBusca'));
     }
 
     #[TestDox('erro 1 consulta a permissão e reage à troca')]
@@ -90,7 +90,7 @@ final class AvisoDoGpsDizOMotivoTest extends TestCase
     public function testPrompt(): void
     {
         $pedido = self::funcao('mostrarPedidoDePermissao');
-        self::assertStringContainsString("botaoDoGps('btn-gps-permitir', 'Permitir localização', () => {", $pedido);
+        self::assertStringContainsString("botaoDoGps('btn-gps-permitir', BJ_T.t('ponto_cartao.js.gps.permitir'), () => {", $pedido);
         self::assertStringContainsString('jaPediuPeloBotao = true;', $pedido);
         self::assertStringContainsString('tentarGpsDeNovo();', $pedido);
         // O erro 1 que volta em "prompt" depois do clique vai ao passo a passo, não ao mesmo botão.
@@ -103,15 +103,15 @@ final class AvisoDoGpsDizOMotivoTest extends TestCase
     public function testDenied(): void
     {
         $tela = self::tela();
-        self::assertStringContainsString("'Clique no ícone à esquerda do endereço do site (o cadeado ou os controles).'", $tela);
-        self::assertStringContainsString("'Em Localização, escolha Permitir.'", $tela);
-        self::assertStringContainsString("'Recarregue esta página.'", $tela);
-        self::assertStringContainsString("const OUTRO_CAMINHO_GPS_COMPUTADOR = 'No Safari do Mac: menu Safari, Ajustes, Sites, Localização, e escolha Permitir para este site.';", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.passo_computador_1')", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.passo_computador_2')", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.passo_computador_3')", $tela);
+        self::assertStringContainsString("const OUTRO_CAMINHO_GPS_COMPUTADOR = BJ_T.t('ponto_cartao.js.gps.outro_computador');", $tela);
         self::assertStringContainsString('ehCelular ? OUTRO_CAMINHO_GPS_CELULAR : OUTRO_CAMINHO_GPS_COMPUTADOR', self::funcao('mostrarPermissaoBloqueada'));
         // iPad se identifica como Macintosh: a tela de toque decide.
         self::assertStringContainsString("navigator.maxTouchPoints > 1", $tela);
-        self::assertStringContainsString("const VERBO_TOQUE = ehCelular ? 'Toque' : 'Clique';", $tela);
-        self::assertStringContainsString("'Toque em Permissões (ou Configurações do site) e depois em Localização.'", $tela);
+        self::assertStringContainsString("const VERBO_TOQUE = BJ_T.t(ehCelular ? 'ponto_cartao.js.gps.verbo_toque' : 'ponto_cartao.js.gps.verbo_clique');", $tela);
+        self::assertStringContainsString("BJ_T.t('ponto_cartao.js.gps.passo_celular_2')", $tela);
         self::assertStringContainsString('(ehCelular ? PASSOS_GPS_CELULAR : PASSOS_GPS_COMPUTADOR)', self::funcao('mostrarPermissaoBloqueada'));
     }
 

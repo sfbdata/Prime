@@ -517,7 +517,7 @@
     // navegador, se ela já foi permitida (o pedido é feito no toque, `PontoBatida.pedirPermissaoDeNotificacao`). "Uma vez
     // por dia" é por aparelho: fica no `localStorage` (por pessoa, escritório e dia do servidor), para recarregar a
     // página não repetir o lembrete; sem armazenamento, vale enquanto a página está aberta.
-    const AVISO_LEMBRETE_DE_SAIDA = 'Passou do horário previsto. Não esqueça de registrar a saída.';
+    const AVISO_LEMBRETE_DE_SAIDA = BJ_T.t('ponto_cartao.js.lembrete.aviso_saida');
     const FORMATO_DIA_DO_LEMBRETE = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
     let lembreteDadoNoDia = '';
 
@@ -561,7 +561,7 @@
         });
         try {
             if (window.Notification && Notification.permission === 'granted') {
-                new Notification('BlueJus Ponto', { body: 'Não esqueça de registrar a saída.' });
+                new Notification('BlueJus Ponto', { body: BJ_T.t('ponto_cartao.js.lembrete.notificacao_corpo') });
             }
         } catch (erro) {
             /* Navegador que só notifica pelo service worker (Chrome do Android): fica o aviso na tela. */
@@ -827,10 +827,10 @@
             }
             const hora = formatarHoraDoDia(previsao);
             if (agora > previsao) {
-                mostrarAvisoDoDia('warning', 'bi-bell', 'Passou da saída prevista (' + hora + '). Não esqueça de registrar a saída.');
+                mostrarAvisoDoDia('warning', 'bi-bell', BJ_T.t('ponto_cartao.js.lembrete.passou_da_saida', { hora }));
                 return;
             }
-            mostrarAvisoDoDia('info', 'bi-bell', 'Saída prevista às ' + hora + '.');
+            mostrarAvisoDoDia('info', 'bi-bell', BJ_T.t('ponto_cartao.js.lembrete.saida_prevista', { hora }));
         }
 
         // E8 (desenho L437 e L454, `checarLembrete`): o lembrete de saída é conferido pelo relógio, a cada segundo, fora
@@ -855,19 +855,19 @@
 
             if (!tEntrada) {
                 clockEl.textContent = '00:00:00';
-                label = 'Aguardando entrada';
+                label = BJ_T.t('ponto_cartao.js.relogio.aguardando');
             } else if (tSaida) {
                 const segundos = calcSegundosTrabalhados(agora);
                 clockEl.textContent = formatarTempo(segundos);
-                label = 'Jornada encerrada';
+                label = BJ_T.t('ponto_cartao.js.relogio.encerrada');
             } else if (tRepouso && !tRetorno) {
                 const segundos = calcSegundosTrabalhados(agora);
                 clockEl.textContent = formatarTempo(segundos);
-                label = 'Em repouso';
+                label = BJ_T.t('ponto_cartao.js.relogio.repouso');
             } else {
                 const segundos = calcSegundosTrabalhados(agora);
                 clockEl.textContent = formatarTempo(segundos);
-                label = 'Em jornada';
+                label = BJ_T.t('ponto_cartao.js.relogio.jornada');
             }
 
             labelEl.textContent = label;
@@ -1094,10 +1094,10 @@
 
         // P11 (desenho): os textos das duas situações da posição, montados por DOM.
         if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
-            mostrarGps('success', 'bi-geo-alt-fill', 'Localização confirmada. Precisão de ' + Math.round(accuracy) + ' m.');
+            mostrarGps('success', 'bi-geo-alt-fill', BJ_T.t('ponto_cartao.js.gps.confirmada', { precisao: Math.round(accuracy) }));
             return;
         }
-        mostrarGps('warning', 'bi-exclamation-triangle', 'GPS impreciso (' + Math.round(accuracy).toLocaleString('pt-BR') + ' m). O sistema ainda validará se você está dentro do raio de alguma sede.');
+        mostrarGps('warning', 'bi-exclamation-triangle', BJ_T.t('ponto_cartao.js.gps.impreciso', { precisao: Math.round(accuracy).toLocaleString('pt-BR') }));
     }
 
     // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor. A mensagem é
@@ -1112,14 +1112,16 @@
         const nomeDaSede = document.createElement('strong');
         nomeDaSede.textContent = onde.sede.nome;
         const mensagemDaCerca = document.createElement('span');
+        // O nome da sede é um nó (<strong>): a frase vem do catálogo com o marcador `{sede}` mantido e é partida nele.
+        const [antesDaSede, depoisDaSede] = BJ_T.t('ponto_cartao.js.gps.fora_da_area', { distancia: Math.round(onde.distancia), sede: '{sede}' }).split('{sede}');
         mensagemDaCerca.append(
-            `Você está a ${Math.round(onde.distancia)}m de `,
+            antesDaSede,
             nomeDaSede,
-            ', fora da área permitida para bater o ponto.',
+            depoisDaSede,
             document.createElement('br'),
             TRABALHO_EXTERNO_PERMITIDO
-                ? 'Aproxime-se ou informe o trabalho externo.'
-                : 'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
+                ? BJ_T.t('ponto_cartao.js.batida.aproxime_se')
+                : BJ_T.t('ponto_cartao.js.gps.fora_sem_externo')
         );
         mostrarGps('danger', 'bi-geo-alt-fill', mensagemDaCerca);
     }
@@ -1143,27 +1145,27 @@
     // iPad com iPadOS 13 ou mais novo se identifica como "Macintosh": a tela de toque denuncia.
     const ehCelular = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
         || (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1);
-    const VERBO_TOQUE = ehCelular ? 'Toque' : 'Clique';
+    const VERBO_TOQUE = BJ_T.t(ehCelular ? 'ponto_cartao.js.gps.verbo_toque' : 'ponto_cartao.js.gps.verbo_clique');
 
-    const TEXTO_GPS_INDISPONIVEL = 'Não foi possível descobrir sua localização agora. Tente de novo; no computador, deixe o Wi-Fi ligado.';
-    const TEXTO_GPS_DEMOROU = 'A busca pela sua localização demorou demais. Tente de novo; no computador, deixe o Wi-Fi ligado.';
-    const TEXTO_GPS_PEDIR = 'Para registrar o ponto, o navegador precisa da sua localização. ' + VERBO_TOQUE + ' em "Permitir localização" e escolha Permitir na janela do navegador.';
-    const TEXTO_GPS_SISTEMA = 'O navegador tem permissão, mas a localização do aparelho está desligada ou bloqueada para o navegador. Ligue a localização nas configurações do aparelho e ' + VERBO_TOQUE.toLowerCase() + ' em "Tentar de novo".';
-    const TEXTO_GPS_API = 'A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.';
-    const TEXTO_GPS_BLOQUEADO = 'A localização está bloqueada para este site. Para liberar:';
+    const TEXTO_GPS_INDISPONIVEL = BJ_T.t('ponto_cartao.js.gps.indisponivel');
+    const TEXTO_GPS_DEMOROU = BJ_T.t('ponto_cartao.js.gps.demorou');
+    const TEXTO_GPS_PEDIR = BJ_T.t('ponto_cartao.js.gps.pedir', { verbo: VERBO_TOQUE });
+    const TEXTO_GPS_SISTEMA = BJ_T.t('ponto_cartao.js.gps.sistema', { verbo: VERBO_TOQUE.toLowerCase() });
+    const TEXTO_GPS_API = BJ_T.t('ponto_cartao.js.gps.api');
+    const TEXTO_GPS_BLOQUEADO = BJ_T.t('ponto_cartao.js.gps.bloqueado');
     const PASSOS_GPS_COMPUTADOR = [
-        'Clique no ícone à esquerda do endereço do site (o cadeado ou os controles).',
-        'Em Localização, escolha Permitir.',
-        'Recarregue esta página.',
+        BJ_T.t('ponto_cartao.js.gps.passo_computador_1'),
+        BJ_T.t('ponto_cartao.js.gps.passo_computador_2'),
+        BJ_T.t('ponto_cartao.js.gps.passo_computador_3'),
     ];
     // Caminho alternativo, fora da lista numerada (não é o passo seguinte).
-    const OUTRO_CAMINHO_GPS_COMPUTADOR = 'No Safari do Mac: menu Safari, Ajustes, Sites, Localização, e escolha Permitir para este site.';
+    const OUTRO_CAMINHO_GPS_COMPUTADOR = BJ_T.t('ponto_cartao.js.gps.outro_computador');
     const PASSOS_GPS_CELULAR = [
-        'Toque no ícone à esquerda do endereço do site (o cadeado ou os controles).',
-        'Toque em Permissões (ou Configurações do site) e depois em Localização.',
-        'Escolha Permitir e recarregue esta página.',
+        BJ_T.t('ponto_cartao.js.gps.passo_celular_1'),
+        BJ_T.t('ponto_cartao.js.gps.passo_celular_2'),
+        BJ_T.t('ponto_cartao.js.gps.passo_celular_3'),
     ];
-    const OUTRO_CAMINHO_GPS_CELULAR = 'No iPhone ou iPad, se não aparecer: Ajustes, Privacidade e Segurança, Serviços de Localização, ligue e escolha "Ao Usar o App" para o navegador.';
+    const OUTRO_CAMINHO_GPS_CELULAR = BJ_T.t('ponto_cartao.js.gps.outro_celular');
 
     // Monta `#gps-status` por DOM, na caixa do desenho (ícone, texto e o botão redondo de atualizar):
     // texto só por `textContent` (ou um nó já montado), botão com handler próprio.
@@ -1193,7 +1195,7 @@
     }
 
     function tentarGpsDeNovo() {
-        mostrarGps('info', 'bi-crosshair', 'Obtendo a sua localização...');
+        mostrarGps('info', 'bi-crosshair', BJ_T.t('ponto_cartao.js.gps.obtendo'));
         // Mesma guarda da carga: a API pode lançar de forma síncrona.
         try {
             iniciarGps();
@@ -1204,13 +1206,13 @@
     }
 
     function mostrarErroDeBusca(texto) {
-        mostrarGps('danger', 'bi-exclamation-triangle', texto, botaoDoGps('btn-gps-tentar', 'Tentar de novo', tentarGpsDeNovo));
+        mostrarGps('danger', 'bi-exclamation-triangle', texto, botaoDoGps('btn-gps-tentar', BJ_T.t('ponto_cartao.js.paineis.tentar'), tentarGpsDeNovo));
     }
 
     // Estado "prompt": o navegador ainda pergunta. O botão chama `getCurrentPosition`, que é o que
     // abre a janela de permissão.
     function mostrarPedidoDePermissao() {
-        mostrarGps('warning', 'bi-geo-alt', TEXTO_GPS_PEDIR, botaoDoGps('btn-gps-permitir', 'Permitir localização', () => {
+        mostrarGps('warning', 'bi-geo-alt', TEXTO_GPS_PEDIR, botaoDoGps('btn-gps-permitir', BJ_T.t('ponto_cartao.js.gps.permitir'), () => {
             jaPediuPeloBotao = true;
             tentarGpsDeNovo();
         }));
@@ -1327,20 +1329,20 @@
     // botões dos tipos vêm do servidor e só mudam depois de uma batida CONFIRMADA, então ainda diriam
     // "--:--:--" e confirmariam a conclusão errada (falso com cara de verificado). Por isso o texto
     // manda ATUALIZAR primeiro, e o botão de atualizar aparece junto.
-    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Os horários nos botões acima são de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
+    const AVISO_SEM_CONFIRMACAO = BJ_T.t('ponto_cartao.js.aviso.sem_confirmacao');
 
     // 🪤 Sem internet, mandar atualizar é conselho que destrói prova: o recarregamento entrega a
     // página de erro do navegador e leva junto o aviso, os horários e o estado inteiro da tela. Por isso
     // este caso tem texto próprio e NÃO oferece o botão de atualizar enquanto a conexão não voltar.
-    const AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. NÃO feche esta tela. Quando a conexão voltar, atualize a página e confira antes de apertar de novo.';
+    const AVISO_SEM_REDE = BJ_T.t('ponto_cartao.js.aviso.sem_rede');
 
     // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
-    const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
+    const AVISO_NAO_ENTROU = BJ_T.t('ponto_cartao.js.presenca.nao_entrou');
     // Virada do dia com a página aberta: os botões dos tipos já começam o dia novo, mas a folha e o banco são de ontem.
-    const AVISO_VIRADA_DO_DIA = 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.';
+    const AVISO_VIRADA_DO_DIA = BJ_T.t('ponto_cartao.js.aviso.virada_do_dia');
     // O módulo da batida (`ponto-batida.js`) é arquivo à parte: se ele não carregou (rede, cache, bloqueador), o toque
     // responde em vez de ficar mudo.
-    const AVISO_PAGINA_INCOMPLETA = 'A página não carregou por inteiro e a batida não foi enviada. Atualize a página e tente de novo.';
+    const AVISO_PAGINA_INCOMPLETA = BJ_T.t('ponto_cartao.js.aviso.pagina_incompleta');
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
 
@@ -1364,7 +1366,7 @@
     // aparece. Sem isto a pessoa ficaria olhando um aviso que pede uma ação indisponível.
     window.addEventListener('online', function () {
         if (!avisoBatida.classList.contains('d-none') && avisoBatida.textContent === AVISO_SEM_REDE) {
-            mostrarAvisoBatida('A internet voltou. Atualize a página e confira suas batidas antes de apertar de novo.', 'warning', true);
+            mostrarAvisoBatida(BJ_T.t('ponto_cartao.js.aviso.internet_voltou'), 'warning', true);
         }
     });
 
@@ -1434,7 +1436,7 @@
             const icone = document.createElement('i');
             icone.className = 'bi bi-briefcase';
             icone.setAttribute('aria-hidden', 'true');
-            botao.append(icone, 'Registrar como trabalho externo');
+            botao.append(icone, BJ_T.t('ponto_cartao.js.externo.registrar'));
             botao.addEventListener('click', () => abrirJanelaDoTrabalhoExterno(botao, tipo));
             partes.push(botao);
         }
@@ -1449,7 +1451,7 @@
             return PontoBatida.textosDoForaDoRaio(posicao, SEDES, TRABALHO_EXTERNO_PERMITIDO);
         }
 
-        return { titulo: 'Você está fora do raio permitido', detalhe: '', trabalhoExterno: false };
+        return { titulo: BJ_T.t('ponto_cartao.js.batida.fora_do_raio'), detalhe: '', trabalhoExterno: false };
     }
 
     function foraDoRaioDaResposta(data) {
@@ -1469,9 +1471,9 @@
     let soltarAEsperaDaJanela = function () {};
     // Os dois porquês de o envio não sair pelo caminho externo (o botão de bater ocupado ou o dia completo) e o da fila
     // antiga (ponto-fila.js de antes da E12 no cache do navegador), que guardaria a batida sem a marca e sem o texto.
-    const AVISO_EXTERNO_EM_ANDAMENTO = 'Um registro ainda está em andamento. Espere a resposta e registre o trabalho externo de novo.';
-    const AVISO_EXTERNO_DIA_COMPLETO = 'Não há registro livre hoje. O trabalho externo não foi enviado.';
-    const AVISO_EXTERNO_SEM_FILA = 'Sem internet, o trabalho externo não pôde ser guardado. Tente de novo quando a conexão voltar.';
+    const AVISO_EXTERNO_EM_ANDAMENTO = BJ_T.t('ponto_cartao.js.externo.em_andamento');
+    const AVISO_EXTERNO_DIA_COMPLETO = BJ_T.t('ponto_cartao.js.externo.dia_completo');
+    const AVISO_EXTERNO_SEM_FILA = BJ_T.t('ponto_cartao.js.externo.sem_fila');
     // As recusas do servidor ao local e ao motivo (`TrabalhoExternoDaBatida`, 422): voltam para a linha de erro da janela.
     const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];
 
@@ -1571,7 +1573,7 @@
         const botoes = [];
         if (foraDoRaio.trabalhoExterno === true) {
             botoes.push({
-                texto: 'Registrar como trabalho externo',
+                texto: BJ_T.t('ponto_cartao.js.externo.registrar'),
                 icone: 'bi-briefcase',
                 classe: 'pe-tc-btn--externo',
                 // O foco volta ao título do cartão quando a janela fecha (não ao "Bater Ponto", revisão da E8), e o alerta
@@ -1631,7 +1633,7 @@
             textoDoTrabalhoExterno = campo.value;
             const motivo = campo.value.trim();
             if (motivo === '') {
-                window.PontoAbas.mostrarErro(fundo, 'Informe o local e o motivo.');
+                window.PontoAbas.mostrarErro(fundo, BJ_T.t('ponto_cartao.js.externo.informe'));
                 campo.focus();
                 return;
             }
@@ -1667,20 +1669,20 @@
     // recusou antes de gravar) fecha a validação e fica na caixa de hoje, com o botão de conferir (P11 b). O gênero segue
     // o tipo (decisão do dono, corrige o desenho): "Entrada registrada", "Repouso registrado".
     const TIPO_MASCULINO = { repouso: true, retorno: true };
-    const TITULO_SEM_LOCALIZACAO = 'Não foi possível obter a sua localização';
-    const DETALHE_SEM_LOCALIZACAO = 'Ative o GPS do aparelho, permita a localização no navegador e tente de novo.';
-    const AVISO_ATRASADO = 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.';
+    const TITULO_SEM_LOCALIZACAO = BJ_T.t('ponto_cartao.js.gps.sem_localizacao_titulo');
+    const DETALHE_SEM_LOCALIZACAO = BJ_T.t('ponto_cartao.js.gps.sem_localizacao_detalhe');
+    const AVISO_ATRASADO = BJ_T.t('ponto_cartao.js.aviso.atrasado');
     // A batida que já tinha entrado com o mesmo envio (`data.jaRegistrada`): o texto do sistema (`EnvioDaBatida`).
     const AVISO_JA_REGISTRADA = '{{ constant('App\\Ponto\\Service\\EnvioDaBatida::MENSAGEM_JA_REGISTRADA')|e('js') }}';
     // E15 (desenho L533): o fim do aviso do sucesso sem a tela cheia, quando a batida tem comprovante.
-    const AVISO_COMPROVANTE_NA_ABA = 'Comprovante na aba Comprovantes.';
+    const AVISO_COMPROVANTE_NA_ABA = BJ_T.t('ponto_cartao.js.toque.comprovante');
 
     function rotuloDoTipo(tipo) {
         return Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, tipo) ? ROTULOS_TIPO[tipo] : String(tipo);
     }
 
-    function registradoDoTipo(tipo) {
-        return TIPO_MASCULINO[tipo] === true ? 'registrado' : 'registrada';
+    function generoDoTipo(tipo) {
+        return TIPO_MASCULINO[tipo] === true ? 'masc' : 'fem';
     }
 
     function horaOficialAgora() {
@@ -1739,7 +1741,7 @@
             return;
         }
         tocarResultado('ok');
-        const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');
+        const texto = jaRegistrada ? AVISO_JA_REGISTRADA : BJ_T.t('ponto_cartao.js.toque.registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo), hora: horaDaBatida }) + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');
         if (!avisarFlutuante(texto, 'ok')) {
             mostrarAvisoBatida(texto, 'success');
         }
@@ -1776,7 +1778,7 @@
             return;
         }
         tocarResultado('erro');
-        const texto = rotuloDoTipo(tipo) + ' não ' + registradoDoTipo(tipo) + ': ' + String(titulo || '').replace(/[.\s]+$/, '') + '.';
+        const texto = BJ_T.t('ponto_cartao.js.toque.nao_registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo), motivo: String(titulo || '').replace(/[.\s]+$/, '') });
         if (!avisarFlutuante(texto, 'erro')) {
             mostrarAvisoBatida(String(titulo || '') + (detalhe ? ' ' + detalhe : ''), 'danger');
         }
@@ -1790,7 +1792,7 @@
     function tentarDeNovo(tipo, externo) {
         const botao = document.querySelector('#ponto-tipos > button[role="radio"][data-tipo="' + tipo + '"]');
         if (!botao || botao.disabled) {
-            avisarFlutuante(rotuloDoTipo(tipo) + ' já ' + registradoDoTipo(tipo) + '.', 'ok');
+            avisarFlutuante(BJ_T.t('ponto_cartao.js.toque.ja_registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo) }), 'ok');
             return;
         }
         if (externo) {
@@ -1965,7 +1967,7 @@
             console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
         }
     } else {
-        mostrarGps('danger', 'bi-exclamation-triangle', 'Seu navegador não suporta geolocalização.');
+        mostrarGps('danger', 'bi-exclamation-triangle', BJ_T.t('ponto_cartao.js.gps.sem_suporte'));
     }
 
     // Botão de Bater Ponto
@@ -2098,9 +2100,9 @@
     // Dois textos para a batida guardada: o aparelho sabe que está sem internet (`navigator.onLine === false`), ou diz
     // que tem rede e o envio ficou sem resposta (prazo estourado, servidor fora). No segundo, "Sem internet" mandaria a
     // pessoa olhar um sinal que está bom.
-    const AVISO_GUARDADA_SEM_INTERNET = 'Sem internet. A batida ficou guardada neste aparelho e será enviada quando a internet voltar.';
-    const AVISO_GUARDADA_SEM_CONEXAO = 'Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha quando a conexão voltar.';
-    const AVISO_FILA_ENVIADA = 'Batidas sem internet enviadas.';
+    const AVISO_GUARDADA_SEM_INTERNET = BJ_T.t('ponto_cartao.js.fila.guardada_sem_internet');
+    const AVISO_GUARDADA_SEM_CONEXAO = BJ_T.t('ponto_cartao.js.fila.guardada_sem_conexao');
+    const AVISO_FILA_ENVIADA = BJ_T.t('ponto_cartao.js.fila.enviada');
     // A hora e o dia da batida guardada são os do aparelho no toque, mostrados no fuso do servidor, como a hora oficial.
     const FORMATO_HORA_DA_FILA = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit' });
@@ -2141,9 +2143,9 @@
         const pendentesEl = document.getElementById('ponto-fila-pendentes');
         const outroEl = document.getElementById('ponto-fila-outro-escritorio');
         filaTemPendentes = contagem.pendentes > 0;
-        pendentesEl.textContent = 'Sem internet: ' + contagem.pendentes + ' batida(s) aguardando envio.';
+        pendentesEl.textContent = BJ_T.t('ponto_cartao.js.fila.pendentes', { n: contagem.pendentes });
         pendentesEl.classList.toggle('d-none', contagem.pendentes === 0);
-        outroEl.textContent = contagem.emOutroEscritorio + ' batida(s) guardada(s) sem internet em outro escritório. Entre nele para enviar.';
+        outroEl.textContent = BJ_T.t('ponto_cartao.js.fila.outro_escritorio', { n: contagem.emOutroEscritorio });
         outroEl.classList.toggle('d-none', contagem.emOutroEscritorio === 0);
         caixaDaFila.classList.toggle('d-none', contagem.pendentes === 0 && contagem.emOutroEscritorio === 0);
     }
@@ -2358,8 +2360,12 @@
         const quando = new Date(recusa.horaAparelho);
         const tipo = Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, recusa.tipo) ? ROTULOS_TIPO[recusa.tipo] : String(recusa.tipo);
 
-        return 'Batida de ' + tipo + ' de ' + FORMATO_DIA_E_MES_DA_FILA.format(quando) + ' às ' + FORMATO_HORA_DA_FILA.format(quando)
-            + ' guardada sem internet não foi registrada: ' + recusa.mensagem;
+        return BJ_T.t('ponto_cartao.js.fila.recusa', {
+            tipo: tipo,
+            dia: FORMATO_DIA_E_MES_DA_FILA.format(quando),
+            hora: FORMATO_HORA_DA_FILA.format(quando),
+            mensagem: recusa.mensagem,
+        });
     }
 
     function juntarPartesDaFila(antes, depois) {
@@ -2654,8 +2660,8 @@
 
     // Botão cinza na hora do "Registrar assim mesmo" (outro envio no meio, ou o dia completou com a janela aberta): o
     // click() num botão desabilitado não dispara nada e a confirmação sumia calada. O aviso da batida diz que não saiu.
-    const AVISO_ALERTA_DURANTE_ENVIO = 'A batida não foi registrada: outro registro estava sendo enviado. Espere terminar e toque no botão de novo.';
-    const AVISO_ALERTA_DIA_CONCLUIDO = 'A batida não foi registrada: a jornada de hoje já está concluída.';
+    const AVISO_ALERTA_DURANTE_ENVIO = BJ_T.t('ponto_cartao.js.aviso.durante_envio');
+    const AVISO_ALERTA_DIA_CONCLUIDO = BJ_T.t('ponto_cartao.js.aviso.dia_concluido');
 
     if (janelaDoAlerta) {
         janelaDoAlerta.querySelector('[data-alerta-registrar]').addEventListener('click', function () {
@@ -2695,7 +2701,7 @@
             window.PontoSons.liberar();
         }
         if (!tipoRegistro.value) {
-            mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
+            mostrarAvisoBatida(BJ_T.t('ponto_cartao.js.aviso.selecione_tipo'), 'warning');
             return;
         }
 
@@ -2724,7 +2730,7 @@
         limparAvisoBatida();
         envioEmAndamento = true;
         btnPonto.disabled = true;
-        btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
+        btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> ' + BJ_T.t('ponto_cartao.js.aviso.registrando');
 
         // `performance.now()` e nao `Date.now()`: e relogio monotonico de tempo decorrido.
         // Acerto de relogio do aparelho para tras mascararia o congelamento que esta guarda
