@@ -86,6 +86,8 @@ conector:
             ler_processos: Look up cases, updates and the number in the public CNJ database
             ler_clientes: 'Search clients and look up their record and document list, without showing CPF, CNPJ, contact or address'
             ler_agenda: See the calendar and your goals
+            ler_comercial: 'See the Master Panel Commercial area: campaigns, templates, automations and the sending quota, without showing the recipient list'
+            automacoes_de_email: 'Turn on, turn off and adjust the Master Panel email automations and commemorative dates'
             atualizar_pasta: Update the matter details
             mudar_andamento: Change the status of the matter
             registrar_na_pasta: Record notes in the matter

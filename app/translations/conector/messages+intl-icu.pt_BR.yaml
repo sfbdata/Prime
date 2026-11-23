@@ -92,6 +92,8 @@ conector:
             ler_processos: Consultar os processos, as movimentações e o número na base pública do CNJ
             ler_clientes: 'Buscar os clientes e consultar o cadastro e a lista de documentos deles, sem mostrar CPF, CNPJ, contato nem endereço'
             ler_agenda: Ver a agenda e as suas metas
+            ler_comercial: 'Ver o Comercial do Painel do Master: campanhas, modelos, automações e a cota de envio, sem mostrar a lista de destinatários'
+            automacoes_de_email: 'Ligar, desligar e ajustar as automações de e-mail e as datas comemorativas do Painel do Master'
             atualizar_pasta: Atualizar os dados da pasta
             mudar_andamento: Mudar o andamento da pasta
             registrar_na_pasta: Registrar anotações na pasta
