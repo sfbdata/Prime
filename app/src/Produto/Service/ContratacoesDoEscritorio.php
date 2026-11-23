@@ -65,6 +65,21 @@ class ContratacoesDoEscritorio
     }
 
     /** D16: a última linha do produto (por id) está encerrada com origem `master`. Só o Master religa. */
+    /**
+     * Os produtos travados pelo Master (D16), numa consulta só: o cartão do Meu Perfil olha todas as ferramentas.
+     *
+     * @return list<Produto>
+     */
+    public function travadosPeloMaster(Tenant $tenant): array
+    {
+        $linhas = $this->contratacoes->todasDoTenant($tenant);
+
+        return array_values(array_filter(
+            Produto::ferramentas(),
+            static fn (Produto $produto): bool => self::encerradaPeloMaster(self::ultimaDo($linhas, $produto)),
+        ));
+    }
+
     public function travadoPeloMaster(Tenant $tenant, Produto $produto): bool
     {
         return self::encerradaPeloMaster(self::ultimaDo($this->contratacoes->todasDoTenant($tenant), $produto));

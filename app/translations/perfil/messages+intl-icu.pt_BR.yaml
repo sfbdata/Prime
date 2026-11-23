@@ -125,6 +125,30 @@ perfil:
             pronto: Pronto
             falhou: Falhou
             vencido: Vencido
+    ferramentas:
+        titulo: Ferramentas do escritório
+        sub: Escolha o que o escritório usa
+        explicacao: Desligar uma ferramenta não apaga nada. Ao ligar de novo, tudo volta como estava.
+        ligar: Ligar
+        desligar: Desligar
+        ligou: 'Ferramenta ligada. Os perfis próprios não ganham acesso sozinhos:'
+        ajuste_perfis: Ajuste o acesso em Perfis
+        aceite_ia: Falta o aceite da I.A.
+        erro_generico: Não foi possível mudar a ferramenta agora. Tente de novo.
+        estado:
+            ligada: Ligada
+            desligada: Desligada
+            travada: Desligada pelo BlueJus
+            indisponivel: Indisponível no momento
+        produto:
+            expediente: Expediente
+            ia: I.A.
+            cobrancas: Cobranças
+            calculo: Cálculo
+            kanban: Kanban
+            assinatura: Assinatura
+            ponto: Ponto
+            voto: Voto
     exclusao:
         titulo: Excluir conta do escritório
         pendente_sub: 'Pedido feito em {data} · motivo: {motivo}. A equipe está sem acesso até o Master concluir.'

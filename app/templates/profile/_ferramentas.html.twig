@@ -1,0 +1,45 @@
+{# ── Ferramentas do escritório (docs/specs/multiproduto-contratacao-e-voto.md, §9) ──
+   Sem desenho: seção discreta do Meu Perfil, com as classes do próprio Meu Perfil (molde #mpBackup). Só o dono do
+   escritório da sessão vê. Ligar ou desligar recarrega a página (o menu muda junto) e, ao ligar, mostra o aviso dos
+   Perfis (regra 11). #}
+{% set _ferramentas = ferramentas_do_escritorio() %}
+{% if _ferramentas is not null %}
+{% set _ligou = app.request.query.get('ferramenta_ligada') %}
+<section class="mp-card mp-fe" data-screen-label="Ferramentas" id="mpFerramentas"
+         data-token="{{ csrf_token('perfil_ferramentas') }}"
+         data-msg-erro="{{ 'perfil.ferramentas.erro_generico'|trans }}">
+    <div class="mp-card-topo">
+        <span class="mp-card-selo" aria-hidden="true"><i class="bi bi-grid"></i></span>
+        <div><b>{{ 'perfil.ferramentas.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.ferramentas.sub'|trans }}</div></div>
+    </div>
+    <div class="mp-seguranca">
+        <div>{{ 'perfil.ferramentas.explicacao'|trans }}</div>
+    </div>
+    {% if _ligou %}
+    <div class="mp-bk-msg" data-mp-fe-ligou role="status">
+        {{ 'perfil.ferramentas.ligou'|trans }}
+        <a class="mp-fe-link" href="{{ path('app_tenant_role_index', {tenantId: current_tenant().id}) }}">{{ 'perfil.ferramentas.ajuste_perfis'|trans }}</a>
+    </div>
+    {% endif %}
+    <div class="mp-bk-msg" data-mp-fe-msg role="status" hidden></div>
+    <ul class="mp-bk-lista mp-fe-lista">
+        {% for _f in _ferramentas %}
+        <li class="mp-bk-item mp-fe-item" data-produto="{{ _f.produto }}">
+            <i class="bi {{ _f.icone }} mp-fe-icone" aria-hidden="true"></i>
+            <span class="mp-fe-nome">{{ ('perfil.ferramentas.produto.' ~ _f.produto)|trans }}</span>
+            <span class="mp-bk-sit mp-fe-sit-{{ _f.estado }}">{{ ('perfil.ferramentas.estado.' ~ _f.estado)|trans }}</span>
+            {% if _f.precisaAceite %}
+                <a class="mp-fe-link" href="{{ path('inteligencia_admin_config') }}">{{ 'perfil.ferramentas.aceite_ia'|trans }}</a>
+            {% endif %}
+            {% if _f.temBotao %}
+                <button class="mp-bk-baixar mp-fe-alternar" type="button" data-mp-fe-alternar
+                        data-url="{{ path('app_profile_ferramenta', {produto: _f.produto}) }}"
+                        data-ligar="{{ _f.estado == 'ligada' ? '0' : '1' }}">
+                    {{ (_f.estado == 'ligada' ? 'perfil.ferramentas.desligar' : 'perfil.ferramentas.ligar')|trans }}
+                </button>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
