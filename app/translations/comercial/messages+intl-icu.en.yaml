@@ -10,6 +10,7 @@ comercial:
         importar_html: Import HTML
         salvar_como_meu: Save as my template
         salvar_modelo: Save template
+        voltar_padrao: Back to default
         excluir: Delete
         passo_para: · RECIPIENTS
         cadastrar_email: Add email
@@ -232,7 +233,8 @@ comercial:
         confirmar_envio_agora: 'Send "{assunto}" to {n} recipient(s) now?'
         confirmar_envio_em: 'Send "{assunto}" to {n} recipient(s) on {quando}?'
         modelos_erro_carregar: Could not load the templates. Reload the page.
-        modelo_padrao: Default templates are not changed. Use Duplicate to create your own version.
+        confirmar_voltar_padrao: 'Return the template "{nome}" to the system default text? Your version will be deleted.'
+        modelo_voltou_padrao: 'The template "{nome}" is back to the default.'
         confirmar_excluir_modelo: 'Delete the template "{nome}"?'
         bloco_subir: Up
         bloco_descer: Down
@@ -260,7 +262,12 @@ comercial:
         datas_pub_prim: Primary
         datas_pub_leads: Contact base
         datas_ver: View message
-        datas_previa: 'Preview of the message for {nome}. Use Duplicate to customize the text.'
+        datas_modelo: Template
+        datas_modelo_de: 'Message template for {nome}'
+        datas_modelo_padrao: Date default
+        datas_modelo_grupo_padroes: System templates
+        datas_modelo_grupo_proprios: My templates
+        datas_previa: 'Preview of the message for {nome}. Edit the text and use Save template to change what goes out on this date.'
         envio_ligado: On
         envio_desligado: Off
         envio_aviso_n: 'Campaign sending is off. {n} campaign(s) waiting: they go out when sending is turned on.'

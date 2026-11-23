@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Comercial\Repository;
 
-use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
@@ -45,6 +44,9 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     public const TESTADA = 'camp_teste';
     /** A edição do conteúdo e da agenda antes de sair (pedido do Farlei M5.3), com `{frequencia, agendada}`. */
     public const EDITADA = 'camp_edit';
+
+    /** As campanhas das datas comemorativas nascem com `chave_idempotencia = data:<id>:<ano>`, qualquer que seja o modelo escolhido. */
+    private const CHAVE_DAS_DATAS = 'data:';
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
@@ -129,8 +131,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         return (int) $this->conexao()->fetchOne(
             "SELECT COUNT(*) FROM comercial_campanha
              WHERE estado = 'enviando'
-                OR (estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao <= :agora AND modelo_chave NOT LIKE :datas)",
-            ['agora' => self::data($agora), 'datas' => ModelosDeCampanha::PREFIXO_DE_DATA . '%'],
+                OR (estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao <= :agora AND chave_idempotencia NOT LIKE :datas)",
+            ['agora' => self::data($agora), 'datas' => self::CHAVE_DAS_DATAS . '%'],
         );
     }
 
@@ -145,8 +147,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     {
         return $this->conexao()->executeStatement(
             "UPDATE comercial_campanha SET proxima_execucao = :agora
-             WHERE estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao < :agora AND modelo_chave NOT LIKE :datas",
-            ['agora' => self::data($agora), 'datas' => ModelosDeCampanha::PREFIXO_DE_DATA . '%'],
+             WHERE estado IN ('na_fila', 'agendada', 'recorrente') AND proxima_execucao < :agora AND chave_idempotencia NOT LIKE :datas",
+            ['agora' => self::data($agora), 'datas' => self::CHAVE_DAS_DATAS . '%'],
         );
     }
 

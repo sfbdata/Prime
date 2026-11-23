@@ -8,6 +8,7 @@ use App\Comercial\Campanha\CalendarioDasDatasComemorativas as Calendario;
 use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\ModelosDeCampanha;
+use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
 use App\Comercial\Entity\DataComemorativa;
@@ -18,7 +19,7 @@ use Psr\Log\LoggerInterface;
 /**
  * O passo `datas` da varredura de 15 min (spec `comercial-e-emails.md` §13, F4): para cada data comemorativa ligada
  * cujo dia de envio (a data menos a antecedência, America/Sao_Paulo) é hoje e que já passou das 9h, cria uma campanha
- * única do sistema, na fila: sem autor (`criada_por` nulo), `modelo_chave = data-<id>`, o modelo congelado e o público
+ * única do sistema, na fila: sem autor (`criada_por` nulo), `modelo_chave` = a chave do modelo escolhido para a data (M5.12; sem escolha, `data-<id>`), o modelo congelado e o público
  * da data. Daí em diante é o expansor: vazão, teto, B1, descadastro (lista `comercial_campanhas`), Relatório e
  * Cancelar.
  *
@@ -38,7 +39,7 @@ final class DisparoDasDatasComemorativas
     public function __construct(
         private readonly DataComemorativaRepository $datas,
         private readonly CampanhaDeEmailRepository $campanhas,
-        private readonly ModelosDeCampanha $modelos,
+        private readonly ModelosEfetivos $modelos,
         private readonly ComposicaoDaCampanha $composicao,
         private readonly ChaveDasCampanhas $chave,
         private readonly LoggerInterface $logger,
@@ -61,14 +62,14 @@ final class DisparoDasDatasComemorativas
             return 0;
         }
         $criadas = 0;
-        foreach ($devidas as $chave => [$data, $publico]) {
-            $criadas += $this->criar($chave, $data, $publico, $agora) ? 1 : 0;
+        foreach ($devidas as $chave => [$data, $publico, $escolhido]) {
+            $criadas += $this->criar($chave, $data, $publico, $escolhido, $agora) ? 1 : 0;
         }
 
         return $criadas;
     }
 
-    /** @return array<string, array{\DateTimeImmutable, string}> as datas ligadas com envio hoje: a data e o público */
+    /** @return array<string, array{\DateTimeImmutable, string, ?string}> as datas ligadas com envio hoje: a data, o público e o modelo escolhido */
     private function devidasHoje(\DateTimeImmutable $local): array
     {
         $devidas = [];
@@ -77,21 +78,48 @@ final class DisparoDasDatasComemorativas
             $estado = DataComemorativa::estadoOuPadrao($estados, $chave);
             $data = $estado['ligada'] ? Calendario::devidaEm($chave, $estado['antecedencia'], $local) : null;
             if ($data !== null) {
-                $devidas[$chave] = [$data, $estado['publico']];
+                $devidas[$chave] = [$data, $estado['publico'], $estado['modelo']];
             }
         }
 
         return $devidas;
     }
 
-    private function criar(string $chave, \DateTimeImmutable $data, string $publico, \DateTimeImmutable $agora): bool
+    /**
+     * O modelo da mensagem: o escolhido para a data (versão editada, se houver) ou o `data-<id>` dela. O escolhido que
+     * não existe mais (próprio excluído) ou que não compõe uma campanha válida volta ao padrão da data, com log.
+     *
+     * @return array{MensagemDaCampanha, string, string} a mensagem, a chave do modelo e o conteúdo congelado
+     */
+    private function mensagem(string $chave, ?string $escolhido): array
     {
-        $modelo = $this->modelos->fixo(ModelosDeCampanha::PREFIXO_DE_DATA . $chave) ?? throw new \LogicException('Modelo da data ausente: ' . $chave);
-        $mensagem = MensagemDaCampanha::deArray($modelo);
+        $padrao = ModelosDeCampanha::PREFIXO_DE_DATA . $chave;
+        foreach ($escolhido !== null && $escolhido !== $padrao ? [$escolhido, $padrao] : [$padrao] as $tentativa) {
+            $modelo = $this->modelos->porChave($tentativa);
+            if ($modelo === null) {
+                $this->logger->warning('Comercial: modelo escolhido da data comemorativa não existe mais; vale o padrão da data.', ['data' => $chave, 'modelo' => $tentativa]);
+                continue;
+            }
+            try {
+                $mensagem = MensagemDaCampanha::deArray($modelo);
+                ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem); // o `vagas` editado sem o botão das vagas não sai (§11)
+
+                return [$mensagem, $modelo['chave'], $this->composicao->congelar($mensagem)];
+            } catch (CampanhaRecusada $e) {
+                $this->logger->warning('Comercial: modelo escolhido da data comemorativa não compõe uma campanha; vale o padrão da data.', ['data' => $chave, 'modelo' => $tentativa, 'motivo' => $e->getMessage()]);
+            }
+        }
+
+        throw new \LogicException('Modelo da data ausente: ' . $chave);
+    }
+
+    private function criar(string $chave, \DateTimeImmutable $data, string $publico, ?string $escolhido, \DateTimeImmutable $agora): bool
+    {
+        [$mensagem, $modeloChave, $conteudo] = $this->mensagem($chave, $escolhido);
         $linha = [
-            'chave' => 'data:' . $chave . ':' . $data->format('Y'), 'assunto' => $mensagem->assunto, 'modelo_chave' => $modelo['chave'],
+            'chave' => 'data:' . $chave . ':' . $data->format('Y'), 'assunto' => $mensagem->assunto, 'modelo_chave' => $modeloChave,
             'modelo_nome' => $mensagem->nome, 'modo' => $mensagem->modo, 'selo' => $mensagem->selo, 'titulo' => $mensagem->titulo,
-            'conteudo' => $this->composicao->congelar($mensagem), 'publico' => $publico, 'parametros' => null,
+            'conteudo' => $conteudo, 'publico' => $publico, 'parametros' => null,
             'frequencia' => CampanhaDeEmail::UNICA, 'agendada_para' => null, 'proxima' => $agora, 'estado' => CampanhaDeEmail::NA_FILA,
             'total' => 0, 'criada_por' => null, 'agora' => $agora,
         ];

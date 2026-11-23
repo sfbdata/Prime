@@ -42,7 +42,7 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
         self::assertFalse($dados['chaveLigada']);
         $natal = array_column($dados['datas'], null, 'chave')['natal'];
         self::assertSame(['Natal', 'bi-gift', true, 0, 'todos'], [$natal['nome'], $natal['icone'], $natal['ligada'], $natal['antecedencia'], $natal['publico']]);
-        self::assertSame(['chave', 'nome', 'icone', 'ligada', 'antecedencia', 'publico', 'data', 'diaDaSemana', 'diasQueFaltam', 'envio', 'perto'], array_keys($natal));
+        self::assertSame(['chave', 'nome', 'icone', 'ligada', 'antecedencia', 'publico', 'modelo', 'data', 'diaDaSemana', 'diasQueFaltam', 'envio', 'perto'], array_keys($natal));
         $faltam = array_column($dados['datas'], 'diasQueFaltam');
         $ordenado = $faltam;
         sort($ordenado);
@@ -85,6 +85,48 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
             self::assertSame($erro, $this->json($client)['erro']);
         }
         self::assertSame(['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'], $this->estado('natal'));
+    }
+
+    #[TestDox('M5.12: escolher o modelo da data grava a chave; a lista traz o modelo e os modelos do seletor; vazio volta ao padrão da data')]
+    public function testModeloDaData(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => 'obrigado']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('obrigado', $this->json($client)['modelo']);
+        self::assertSame('obrigado', $this->conexao()->fetchOne("SELECT modelo_chave FROM comercial_data_comemorativa WHERE chave = 'natal'"));
+
+        $client->request('GET', '/master/comercial/datas');
+        $dados = $this->json($client);
+        self::assertSame('obrigado', array_column($dados['datas'], null, 'chave')['natal']['modelo']);
+        self::assertNull(array_column($dados['datas'], null, 'chave')['pascoa']['modelo']);
+        self::assertSame(['convite', 'vagas'], \array_slice(array_column($dados['modelos'], 'chave'), 0, 2));
+        self::assertCount(11, $dados['modelos'], 'os 11 padrões; as 17 mensagens das datas ficam de fora');
+
+        $this->postar($client, '/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => '']);
+        self::assertNull($this->json($client)['modelo']);
+        self::assertNull($this->conexao()->fetchOne("SELECT modelo_chave FROM comercial_data_comemorativa WHERE chave = 'natal'"));
+    }
+
+    #[TestDox('M5.12: o modelo próprio entra no seletor e vale como escolha; modelo que não existe, ou fora do formato: 422 e nada muda')]
+    public function testModeloProprioEInvalido(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/modelos', ['acao' => 'novo']);
+        $proprio = 'cu' . $this->json($client)['modelo']['id'];
+
+        $this->postar($client, '/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => $proprio]);
+        self::assertResponseIsSuccessful();
+        $client->request('GET', '/master/comercial/datas');
+        self::assertSame([$proprio, true], [array_column($this->json($client)['modelos'], 'chave')[11], array_column($this->json($client)['modelos'], 'proprio')[11]]);
+
+        foreach ([['zzz', AlterarDataComemorativaUseCase::MODELO_INVALIDO], ['cu99999', AlterarDataComemorativaUseCase::MODELO_INVALIDO], [5, 'Informe se a data fica ligada, a antecedência e para quem.']] as [$modelo, $erro]) {
+            $this->postar($client, '/master/comercial/datas/pascoa', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => $modelo]);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame($erro, $this->json($client)['erro']);
+        }
+        self::assertNull($this->conexao()->fetchOne("SELECT modelo_chave FROM comercial_data_comemorativa WHERE chave = 'pascoa'"));
     }
 
     #[TestDox('Sem o token CSRF: 403 e nada muda')]

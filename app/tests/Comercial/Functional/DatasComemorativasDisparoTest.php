@@ -8,11 +8,16 @@ use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\ExpansorDeCampanhas;
 use App\Comercial\Campanha\ModelosDeCampanha;
+use App\Comercial\DTO\MensagemDaCampanha;
+use App\Comercial\DTO\ModeloDaGrade;
+use App\Comercial\Entity\ModeloDeCampanha;
 use App\Comercial\Message\ExpandirCampanhas;
 use App\Comercial\Message\VarrerAutomacoes;
 use App\Comercial\MessageHandler\VarrerAutomacoesHandler;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DataComemorativaRepository;
+use App\Comercial\Repository\ModeloDeCampanhaRepository;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\Service\DisparoDasDatasComemorativas;
 use App\Comercial\Service\RecuperacaoDeEnvios;
 use App\Comercial\Service\VarreduraDeAutomacoes;
@@ -165,6 +170,90 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         self::assertSame('prim', $this->conexao->fetchOne('SELECT publico FROM comercial_campanha WHERE id = ?', [$id]));
     }
 
+    #[TestDox('M5.12: o modelo escolhido para a data é o que sai (modelo_chave e conteúdo congelado); o padrão da data continua sendo data-<id>')]
+    public function testModeloEscolhido(): void
+    {
+        $this->conexao->executeStatement("UPDATE comercial_data_comemorativa SET modelo_chave = 'obrigado' WHERE chave = 'natal'");
+
+        self::assertSame(1, $this->disparo()->disparar(new \DateTimeImmutable('2026-12-25 09:00')));
+
+        $c = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'");
+        self::assertIsArray($c);
+        self::assertSame(['obrigado', 'Agradecimento · contribuição', 'simples', 'Obrigado por apoiar o BlueJus'], [$c['modelo_chave'], $c['modelo_nome'], $c['modo'], $c['assunto']]);
+    }
+
+    #[TestDox('M5.12: o padrão editado pelo Master vale na data (o modelo escolhido e o data-<id> editado)')]
+    public function testFixoEditadoValeNaData(): void
+    {
+        $this->editarFixo('data-natal', ['modo' => 'blocos', 'assunto' => 'Natal do Master', 'selo' => 'NATAL', 'titulo' => 'Boas festas, {nome}', 'blocos' => [['t' => 'texto', 'a' => 'Texto editado do Natal']]]);
+        $this->editarFixo('obrigado', ['modo' => 'simples', 'assunto' => 'Obrigado editado', 'selo' => 'OBRIGADO', 'titulo' => 'Valeu', 'corpo' => 'Corpo editado']);
+
+        $this->disparo()->disparar(new \DateTimeImmutable('2026-12-25 09:00'));
+        $c = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'");
+        self::assertIsArray($c);
+        self::assertSame(['data-natal', 'Natal do Master'], [$c['modelo_chave'], $c['assunto']]);
+        self::assertStringContainsString('Texto editado do Natal', (string) $c['conteudo']);
+
+        $this->conexao->executeStatement("UPDATE comercial_data_comemorativa SET modelo_chave = 'obrigado' WHERE chave = 'pascoa'");
+        $this->disparo()->disparar(new \DateTimeImmutable('2027-03-28 09:00'));
+        $p = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:pascoa:2027'");
+        self::assertIsArray($p);
+        self::assertSame(['obrigado', 'Obrigado editado'], [$p['modelo_chave'], $p['assunto']]);
+        self::assertStringContainsString('Corpo editado', (string) $p['conteudo']);
+    }
+
+    #[TestDox('M5.12: o modelo próprio escolhido sai com o conteúdo dele; excluído, a data volta ao padrão dela e o log avisa, sem quebrar')]
+    public function testProprioEscolhidoEExcluido(): void
+    {
+        $master = $this->usuario('dt.master');
+        $modelos = static::getContainer()->get(ModeloDeCampanhaRepository::class);
+        $proprio = new ModeloDeCampanha('Meu Natal', 'bi-gift', 'blocos', $master, new \DateTimeImmutable());
+        $proprio->preencher('Assunto do meu Natal', 'NATAL', 'Meu título', (string) json_encode([['t' => 'texto', 'a' => 'Meu texto de Natal']]), new \DateTimeImmutable());
+        $modelos->salvar($proprio, ModeloDeCampanhaRepository::NOVO, $master);
+        $chaveDoProprio = 'cu' . $proprio->getId();
+        $this->conexao->executeStatement('UPDATE comercial_data_comemorativa SET modelo_chave = ? WHERE chave = ?', [$chaveDoProprio, 'natal']);
+
+        $this->disparo()->disparar(new \DateTimeImmutable('2026-12-25 09:00'));
+        $c = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'");
+        self::assertIsArray($c);
+        self::assertSame([$chaveDoProprio, 'Meu Natal', 'Assunto do meu Natal'], [$c['modelo_chave'], $c['modelo_nome'], $c['assunto']]);
+        self::assertStringContainsString('Meu texto de Natal', (string) $c['conteudo']);
+
+        $modelos->remover($proprio, $master);
+        $this->conexao->executeStatement('UPDATE comercial_data_comemorativa SET modelo_chave = ? WHERE chave = ?', [$chaveDoProprio, 'pascoa']);
+        $log = new LogEmMemoria();
+        self::assertSame(1, $this->disparo(true, $log)->disparar(new \DateTimeImmutable('2027-03-28 09:00')));
+
+        $p = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:pascoa:2027'");
+        self::assertIsArray($p);
+        self::assertSame('data-pascoa', $p['modelo_chave'], 'voltou ao padrão da data');
+        self::assertStringContainsString('não existe mais', $log->tudo);
+    }
+
+    #[TestDox('M5.12: o escolhido que não compõe campanha válida (vagas sem o botão) volta ao padrão da data, com log')]
+    public function testEscolhidoInvalidoVoltaAoPadrao(): void
+    {
+        $this->editarFixo('vagas', ['modo' => 'simples', 'assunto' => 'Vagas', 'selo' => 'VAGAS', 'titulo' => 'Vagas', 'corpo' => 'Sem botão', 'cta' => '', 'link' => '']);
+        $this->conexao->executeStatement("UPDATE comercial_data_comemorativa SET modelo_chave = 'vagas' WHERE chave = 'natal'");
+        $log = new LogEmMemoria();
+
+        self::assertSame(1, $this->disparo(true, $log)->disparar(new \DateTimeImmutable('2026-12-25 09:00')));
+
+        self::assertSame('data-natal', $this->conexao->fetchOne("SELECT modelo_chave FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'"));
+        self::assertStringContainsString('não compõe uma campanha', $log->tudo);
+    }
+
+    /** @param array<string, mixed> $mensagem */
+    private function editarFixo(string $chave, array $mensagem): void
+    {
+        $master = $this->usuario('dt.ed');
+        $base = (array) (new ModelosDeCampanha())->fixo($chave);
+        $modelo = ModeloDeCampanha::paraFixo($chave, (string) $base['nome'], (string) $base['icone'], (string) $mensagem['modo'], $master, new \DateTimeImmutable());
+        $m = MensagemDaCampanha::deArray($mensagem);
+        $modelo->preencher($m->assunto, $m->selo, $m->titulo, ModeloDaGrade::conteudoParaGravar($m), new \DateTimeImmutable());
+        static::getContainer()->get(ModeloDeCampanhaRepository::class)->salvar($modelo, ModeloDeCampanhaRepository::ALTERADO, $master);
+    }
+
     #[TestDox('O passo `datas` roda na varredura de 15 min, com o relógio dela')]
     public function testPassoNaVarredura(): void
     {
@@ -192,7 +281,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         return new DisparoDasDatasComemorativas(
             $c->get(DataComemorativaRepository::class),
             $c->get(CampanhaDeEmailRepository::class),
-            new ModelosDeCampanha(),
+            $c->get(ModelosEfetivos::class),
             $c->get(ComposicaoDaCampanha::class),
             new ChaveDasCampanhas($ligada),
             $log ?? new NullLogger(),

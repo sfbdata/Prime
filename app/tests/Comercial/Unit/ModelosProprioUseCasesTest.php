@@ -14,12 +14,14 @@ use App\Comercial\Entity\ModeloDeCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\ImagemDaCampanhaRepository;
 use App\Comercial\Repository\ModeloDeCampanhaRepository;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\UseCase\CriarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\DuplicarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ExcluirModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ImportarModeloHtmlUseCase;
 use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
+use App\Comercial\UseCase\VoltarModeloAoPadraoUseCase;
 use App\Entity\Auth\User;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -30,7 +32,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Os modelos próprios (dc L.549-553, spec §8.2): novo, duplicar (o simples vira blocos), importar (sanitizado, até
- * 200 KB), salvar (só o próprio; o fixo recebe a mensagem do dc) e excluir. A trilha manual é do repositório (o teste
+ * 200 KB), salvar (o próprio ou a versão do Master de um padrão, M5.8), voltar ao padrão e excluir. A trilha manual é do repositório (o teste
  * dele está no functional); aqui se confere a ação pedida.
  */
 #[CoversClass(CriarModeloDeCampanhaUseCase::class)]
@@ -39,6 +41,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[CoversClass(SalvarModeloDeCampanhaUseCase::class)]
 #[CoversClass(SalvarComoMeuModeloUseCase::class)]
 #[CoversClass(ExcluirModeloDeCampanhaUseCase::class)]
+#[CoversClass(VoltarModeloAoPadraoUseCase::class)]
+#[CoversClass(ModelosEfetivos::class)]
 #[CoversClass(ModeloDeCampanha::class)]
 #[CoversClass(ModeloDaGrade::class)]
 final class ModelosProprioUseCasesTest extends TestCase
@@ -121,13 +125,95 @@ final class ModelosProprioUseCasesTest extends TestCase
         $this->importar()->executar('x.html', str_repeat('a', 204801), $this->master);
     }
 
-    #[TestDox('"Salvar modelo" num fixo: a mensagem do dc (L.551), nada gravado')]
-    public function testSalvarFixo(): void
+    #[TestDox('M5.8, "Salvar modelo" num padrão: cria a versão do Master (fixo_chave, nome e ícone do padrão), modelo_upd; o nome digitado não vale')]
+    public function testSalvarFixoCriaAVersao(): void
     {
-        $this->repositorio->expects(self::never())->method('salvar');
+        $saida = $this->salvar()->executar('news', MensagemDaCampanha::deArray(['modo' => 'blocos', 'nome' => 'Outro nome', 'assunto' => 'Editado', 'selo' => 'S', 'titulo' => 'T', 'blocos' => [['t' => 'texto', 'a' => 'Texto novo']]]), $this->master);
 
-        $this->expectExceptionMessage(SalvarModeloDeCampanhaUseCase::FIXO_NAO_SE_ALTERA);
-        $this->salvar()->executar('news', MensagemDaCampanha::deArray(['modo' => 'blocos']), $this->master);
+        self::assertNotNull($this->gravado);
+        self::assertSame(['news', 'Newsletter mensal', 'bi-newspaper', 'blocos', ModeloDeCampanhaRepository::ALTERADO], [$this->gravado->getFixoChave(), $this->gravado->getNome(), $this->gravado->getIcone(), $this->gravado->getModo(), $this->acao]);
+        self::assertSame(['news', true, false, null], [$saida->modelo['chave'], $saida->modelo['editado'], $saida->modelo['proprio'], $saida->modelo['id']]);
+        self::assertSame('Editado', $saida->modelo['assunto']);
+        self::assertSame(SalvarModeloDeCampanhaUseCase::MENSAGEM, $saida->mensagem);
+    }
+
+    #[TestDox('M5.8: salvar de novo o padrão já editado atualiza a mesma linha; o data-<id> também vale; outro modo é recusado')]
+    public function testSalvarFixoJaEditado(): void
+    {
+        $versao = ModeloDeCampanha::paraFixo('data-natal', 'Natal', 'bi-gift', 'blocos', $this->master, $this->relogio->now());
+        $this->repositorio->method('doFixo')->willReturnMap([['data-natal', $versao]]);
+
+        $saida = $this->salvar()->executar('data-natal', MensagemDaCampanha::deArray(['modo' => 'blocos', 'assunto' => 'Segunda', 'blocos' => [['t' => 'texto', 'a' => 'Oi']]]), $this->master);
+
+        self::assertSame($versao, $this->gravado);
+        self::assertSame(['data-natal', 'Segunda'], [$saida->modelo['chave'], $saida->modelo['assunto']]);
+
+        $this->gravado = null;
+        try {
+            $this->salvar()->executar('data-natal', MensagemDaCampanha::deArray(['modo' => 'html', 'html' => '<p>x</p>']), $this->master);
+            self::fail('o modo do padrão não muda');
+        } catch (CampanhaRecusada) {
+            self::assertNull($this->gravado);
+        }
+    }
+
+    #[TestDox('M5.8: a chave que não é padrão nem id de próprio é recusada; o id da versão editada não se alcança como próprio')]
+    public function testSalvarChaveInexistente(): void
+    {
+        $this->repositorio->method('porId')->willReturn(null);
+        foreach (['zzz', 'data-zzz', '99', 'cu3'] as $chave) {
+            try {
+                $this->salvar()->executar($chave, MensagemDaCampanha::deArray(['modo' => 'blocos']), $this->master);
+                self::fail('deveria recusar ' . $chave);
+            } catch (CampanhaRecusada $e) {
+                self::assertSame('Modelo não encontrado.', $e->getMessage());
+            }
+        }
+        self::assertNull($this->gravado);
+    }
+
+    #[TestDox('M5.8, "Voltar ao padrão": apaga a versão editada (modelo_pad) e devolve o padrão; sem versão, chave que não é padrão e próprio são recusados')]
+    public function testVoltarAoPadrao(): void
+    {
+        $versao = ModeloDeCampanha::paraFixo('news', 'Newsletter mensal', 'bi-newspaper', 'blocos', $this->master, $this->relogio->now());
+        $this->repositorio->method('doFixo')->willReturnMap([['news', $versao], ['convite', null]]);
+        $this->repositorio->expects(self::once())->method('remover')->with($versao, $this->master, ModeloDeCampanhaRepository::VOLTOU_AO_PADRAO);
+        $voltar = new VoltarModeloAoPadraoUseCase($this->repositorio, new ModelosDeCampanha());
+
+        $modelo = $voltar->executar('news', $this->master);
+
+        self::assertSame(['news', false, 'BlueJus em dia · informativo do mês'], [$modelo['chave'], $modelo['editado'], $modelo['assunto']]);
+        foreach (['convite' => 'Este modelo já está no padrão.', 'zzz' => 'Só os modelos padrão voltam ao padrão.', '5' => 'Só os modelos padrão voltam ao padrão.'] as $chave => $mensagem) {
+            try {
+                $voltar->executar((string) $chave, $this->master);
+                self::fail('deveria recusar ' . $chave);
+            } catch (CampanhaRecusada $e) {
+                self::assertSame($mensagem, $e->getMessage());
+            }
+        }
+    }
+
+    #[TestDox('M5.8: o serviço do modelo efetivo dá a versão editada se houver, senão o padrão; cu<id> é o próprio; o que não existe é nulo')]
+    public function testModelosEfetivos(): void
+    {
+        $versao = ModeloDeCampanha::paraFixo('convite', 'Convite · novos escritórios', 'bi-envelope-heart', 'simples', $this->master, $this->relogio->now());
+        $versao->preencher('Assunto editado', 'S', 'T', (string) json_encode(['corpo' => 'Corpo editado', 'itens' => [], 'cta' => '', 'link' => '']), $this->relogio->now());
+        $proprio = new ModeloDeCampanha('Meu', 'bi-stars', 'blocos', $this->master, $this->relogio->now());
+        $this->repositorio->method('editados')->willReturn(['convite' => $versao]);
+        $this->repositorio->method('doFixo')->willReturnMap([['convite', $versao], ['vagas', null]]);
+        $this->repositorio->method('porId')->willReturnMap([[7, $proprio], [8, null]]);
+        $efetivos = new ModelosEfetivos(new ModelosDeCampanha(), $this->repositorio);
+
+        $fixos = $efetivos->fixos();
+        self::assertSame(['convite', true, 'Assunto editado'], [$fixos[0]['chave'], $fixos[0]['editado'], $fixos[0]['assunto']]);
+        self::assertSame(['vagas', false], [$fixos[1]['chave'], $fixos[1]['editado']]);
+        self::assertCount(11, $fixos);
+        self::assertCount(17, $efetivos->datas());
+        self::assertSame('Assunto editado', $efetivos->porChave('convite')['assunto'] ?? null);
+        self::assertFalse($efetivos->porChave('vagas')['editado'] ?? null);
+        self::assertSame(['cu', true], [substr((string) ($efetivos->porChave('cu7')['chave'] ?? ''), 0, 2), $efetivos->porChave('cu7')['proprio'] ?? null]);
+        self::assertNull($efetivos->porChave('cu8'));
+        self::assertNull($efetivos->porChave('zzz'));
     }
 
     #[TestDox('"Salvar modelo" no próprio: grava nome e conteúdo, auditado como modelo_upd; outro modo é recusado')]

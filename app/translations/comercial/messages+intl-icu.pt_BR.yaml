@@ -11,6 +11,7 @@ comercial:
         importar_html: Importar HTML
         salvar_como_meu: Salvar como meu modelo
         salvar_modelo: Salvar modelo
+        voltar_padrao: Voltar ao padrão
         excluir: Excluir
         passo_para: · PARA QUEM
         cadastrar_email: Cadastrar e-mail
@@ -235,7 +236,8 @@ comercial:
         confirmar_envio_agora: 'Enviar "{assunto}" para {n} destinatário(s) agora?'
         confirmar_envio_em: 'Enviar "{assunto}" para {n} destinatário(s) em {quando}?'
         modelos_erro_carregar: Não foi possível carregar os modelos. Recarregue a página.
-        modelo_padrao: Modelos padrão não são alterados. Use Duplicar para criar a sua versão.
+        confirmar_voltar_padrao: 'Voltar o modelo "{nome}" ao texto padrão do sistema? A sua versão será apagada.'
+        modelo_voltou_padrao: 'O modelo "{nome}" voltou ao padrão.'
         confirmar_excluir_modelo: 'Excluir o modelo "{nome}"?'
         bloco_subir: Subir
         bloco_descer: Descer
@@ -266,7 +268,12 @@ comercial:
         datas_pub_prim: Primários
         datas_pub_leads: Base de contatos
         datas_ver: Ver mensagem
-        datas_previa: 'Prévia da mensagem de {nome}. Use Duplicar para personalizar o texto.'
+        datas_modelo: Modelo
+        datas_modelo_de: 'Modelo da mensagem de {nome}'
+        datas_modelo_padrao: Padrão da data
+        datas_modelo_grupo_padroes: Modelos do sistema
+        datas_modelo_grupo_proprios: Meus modelos
+        datas_previa: 'Prévia da mensagem de {nome}. Edite o texto e use Salvar modelo para mudar o que sai nesta data.'
         envio_ligado: Ligado
         envio_desligado: Desligado
         envio_aviso_n: 'O envio de campanhas está desligado. {n} campanha(s) esperando: saem quando o envio for ligado.'

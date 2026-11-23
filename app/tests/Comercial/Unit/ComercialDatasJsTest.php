@@ -37,7 +37,7 @@ final class ComercialDatasJsTest extends TestCase
 
         self::assertStringContainsString("const TOKEN = raiz.dataset.token || '';", $js);
         self::assertStringContainsString("'X-CSRF-Token': TOKEN", $js);
-        self::assertStringContainsString('{ ligada: atual.ligada, antecedencia: atual.antecedencia, publico: atual.publico }', $js);
+        self::assertStringContainsString('{ ligada: atual.ligada, antecedencia: atual.antecedencia, publico: atual.publico, modelo: atual.modelo || null }', $js);
         self::assertStringContainsString("<b class=\"mc-dt-nome\">' + esc(d.nome) + '</b>", $js);
     }
 
@@ -47,7 +47,7 @@ final class ComercialDatasJsTest extends TestCase
         $catalogo = CatalogoPtBr::carregar()['comercial']['js'];
 
         self::assertSame(
-            ['hoje', 'amanhã', 'em {n} dias', 'envio {data} às 9h', 'No dia', '1 dia antes', '3 dias antes', 'Todos', 'Primários', 'Base de contatos', 'Ver mensagem', 'Prévia da mensagem de {nome}. Use Duplicar para personalizar o texto.'],
+            ['hoje', 'amanhã', 'em {n} dias', 'envio {data} às 9h', 'No dia', '1 dia antes', '3 dias antes', 'Todos', 'Primários', 'Base de contatos', 'Ver mensagem', 'Prévia da mensagem de {nome}. Edite o texto e use Salvar modelo para mudar o que sai nesta data.'],
             [$catalogo['datas_hoje'], $catalogo['datas_amanha'], $catalogo['datas_em_dias'], $catalogo['datas_envio'], $catalogo['datas_ant_0'], $catalogo['datas_ant_1'], $catalogo['datas_ant_3'], $catalogo['datas_pub_todos'], $catalogo['datas_pub_prim'], $catalogo['datas_pub_leads'], $catalogo['datas_ver'], $catalogo['datas_previa']],
         );
         self::assertSame(['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'], array_map(static fn (int $i): string => $catalogo['datas_sem_' . $i], range(0, 6)));
