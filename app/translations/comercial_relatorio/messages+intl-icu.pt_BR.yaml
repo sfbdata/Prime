@@ -48,7 +48,8 @@ comercial_relatorio:
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
-        excluir: Excluir do relatório
+        excluir: Excluir campanha
+        editar: Editar campanha
     js:
         encaminhar_pergunta: 'Encaminhar esta campanha (como teste) para:'
         encaminhado: 'Encaminhado para {para}.'
@@ -73,7 +74,9 @@ comercial_relatorio:
         confirmar_cancelar: Cancelar o envio programado desta campanha?
         confirmar_cancelar_fila: Cancelar o envio desta campanha? O que ainda está na fila não sai.
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
-        confirmar_excluir: Excluir esta campanha do relatório?
+        confirmar_excluir_ativa: 'Excluir esta campanha? O envio será cancelado (o que ainda está na fila não sai) e ela sai do relatório. A trilha de auditoria é mantida.'
+        confirmar_excluir_encerrada: 'Excluir esta campanha do relatório? Ela já foi enviada ou cancelada: só deixa de aparecer na lista.'
+        editar_motivo: Só antes de começar a sair.
         reenvio_menu_rastreada: Reenvio disponível assim que as leituras forem registradas.
         reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
         reenvio_rastreada: Reenvio para quem não leu fica disponível assim que as leituras forem registradas.

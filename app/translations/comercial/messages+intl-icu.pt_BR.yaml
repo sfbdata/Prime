@@ -72,6 +72,8 @@ comercial:
         lgpd: "LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link ''Não quero mais receber'', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."
         programar_envio: Programar envio
         programar_envio_rotulo: PROGRAMAR ENVIO
+        edicao_cancelar: Cancelar edição
+        edicao_publico_motivo: 'O público não muda na edição: para outro público, cancele e crie de novo.'
         agenda_data: Data e hora do envio
         repetir: Repetir
         repetir_rotulo: REPETIR
@@ -317,6 +319,12 @@ comercial:
         rascunho_recuperado: 'Rascunho recuperado (salvo em {quando}). Para começar do zero, escolha um modelo.'
         rascunho_confirmar_troca: 'A mensagem em edição ainda não foi enviada nem salva como modelo. Trocar descarta o texto. Continuar?'
         rascunho_mantido: 'A mensagem em edição foi mantida.'
+        edicao_faixa: 'Editando a campanha "{nome}"'
+        edicao_salvar: Salvar alterações
+        edicao_confirmar_sair: 'As alterações desta campanha ainda não foram salvas. Sair da edição descarta o que foi mudado. Continuar?'
+        edicao_bloqueio: Saia da edição para trocar de modelo ou mexer nos modelos.
+        edicao_cancelada: Edição cancelada. Nada foi alterado na campanha.
+        edicao_aberta: 'Edite o conteúdo, a data ou a frequência e clique em Salvar alterações.'
         modelo_excluido: 'Modelo "{nome}" excluído.'
         baixar_ok: 'HTML baixado: {arquivo}.'
         bloco_campo_a: 'Bloco {n} ({tipo}): texto'

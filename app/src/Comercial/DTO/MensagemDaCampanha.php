@@ -92,6 +92,22 @@ final class MensagemDaCampanha
         };
     }
 
+    /**
+     * A mensagem no formato que o editor da Central manda e recebe (`pedido()` do comercial-campanha.js): serve para
+     * devolver ao editor a cópia congelada de uma campanha (edição, pedido do Farlei M5.3). `icone` não é guardado na
+     * campanha: vai vazio.
+     *
+     * @return array<string, mixed>
+     */
+    public function paraArray(): array
+    {
+        return [
+            'chave' => $this->chave, 'modo' => $this->modo, 'nome' => $this->nome, 'icone' => $this->icone, 'assunto' => $this->assunto,
+            'selo' => $this->selo, 'titulo' => $this->titulo, 'corpo' => $this->corpo, 'itens' => $this->itens, 'cta' => $this->cta,
+            'link' => $this->link, 'blocos' => $this->blocos, 'html' => $this->html, 'imagem' => $this->imagem,
+        ];
+    }
+
     /** @param array<mixed> $dados */
     private static function texto(array $dados, string $campo, int $maximo): string
     {
