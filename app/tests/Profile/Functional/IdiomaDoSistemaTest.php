@@ -99,7 +99,7 @@ final class IdiomaDoSistemaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('inglês gravado: a página sai com lang="en", locale en, a bandeira dos Estados Unidos com o nome em inglês e o inglês marcado no modal')]
+    #[TestDox('inglês gravado: a página sai com lang="en", locale en, o item Idioma do menu com o nome em inglês e o inglês marcado no modal')]
     public function testTelaEmIngles(): void
     {
         $this->em->persist((new UserProfile($this->usuario))->setIdioma(Idioma::Ingles));
@@ -109,7 +109,7 @@ final class IdiomaDoSistemaTest extends JusPrimeWebTestCase
 
         self::assertSame('en', $tela->filter('html')->attr('lang'));
         self::assertSame('en', $this->client->getRequest()->getLocale());
-        self::assertSame('Language: English', $tela->filter('.navtop-right > button.navtop-idioma[data-mu-idioma]')->attr('aria-label'));
+        self::assertSame('English', trim($tela->filter('.usuario-dropdown .mu-grupo > button.mu-item[data-mu-idioma] > .mu-item-dir')->text()));
         self::assertSame('English', trim($tela->filter('.mp-prefs > button[data-mu-idioma] > .mp-pref-valor')->text()));
         self::assertCount(1, $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma.atual[data-mu-idioma-escolher="en"]'));
     }

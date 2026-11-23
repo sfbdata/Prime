@@ -132,7 +132,8 @@
 
 /* Bandeira do idioma no topo (spec sistema-em-ingles §1; sem desenho: botão da barra, bandeira 20x14 com o raio da
    sigla do modal, 2px). O contorno separa o branco da bandeira dos EUA do fundo claro (pedido A3, contraste). */
-.navtop-idioma { border: 0; background: transparent; padding: 0; cursor: pointer; }
+/* A bandeira mora no item Idioma do menu do perfil (M7/M5.5, 23/11), à esquerda do nome do idioma. */
+.mu-item-dir .navtop-bandeira { vertical-align: -2px; margin-right: 6px; }
 .navtop-bandeira { display: inline-flex; width: 20px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(18, 36, 47, .25); }
 .navtop-bandeira > svg { display: block; }
 .navtop-bandeira-sigla { width: 20px; height: 14px; background: #0a6fa0; color: #fff; font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
