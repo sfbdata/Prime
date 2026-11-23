@@ -35,16 +35,18 @@ final class DocumentoProcessoSemEscritorTest extends TestCase
      * Quem cita a classe hoje, e por quê:
      *
      *  - a entidade, o repositório (vazio) e a coleção em `Processo`;
-     *  - `AppFixtures` — só dev/test (`config/bundles.php`), grava `fixtures/<nome>`.
+     *  - `AppFixtures` — só dev/test (`config/bundles.php`), grava `fixtures/<nome>`;
+     *  - `ColetorDeProcessos` (backup) — só LÊ os metadados para o JSON; não grava nem lê arquivo.
      */
     private const QUEM_CITA_A_CLASSE = [
+        'src/Backup/Coletor/ColetorDeProcessos.php',
         'src/DataFixtures/AppFixtures.php',
         'src/Processo/Entity/DocumentoProcesso.php',
         'src/Processo/Entity/Processo.php',
         'src/Processo/Repository/DocumentoProcessoRepository.php',
     ];
 
-    #[TestDox('só a entidade, o repositório, o Processo e a fixture citam DocumentoProcesso')]
+    #[TestDox('só a entidade, o repositório, o Processo, a fixture e o coletor do backup (só leitura) citam DocumentoProcesso')]
     public function testQuemCitaAClasseEhAListaConhecida(): void
     {
         self::assertSame(
