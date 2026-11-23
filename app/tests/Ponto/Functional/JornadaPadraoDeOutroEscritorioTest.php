@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
-use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Controller\JornadaTenantController;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -74,6 +73,35 @@ final class JornadaPadraoDeOutroEscritorioTest extends JusPrimeWebTestCase
             [$idDaUrl],
         ), 'a jornada do escritório da URL não ficou com o horário novo');
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM jornada_tenant WHERE tenant_id = ?', [$this->daSessao->getId()]), 'gravou no escritório da sessão');
+    }
+
+    #[TestDox('Administrador comum com a sessão em outro escritório recebe 403 ao abrir ou salvar a jornada padrão do escritório da URL, sem gravar nada')]
+    public function testAdministradorComumDeOutroEscritorioContinuaBarrado(): void
+    {
+        // O setUp limpou o EntityManager: o escritório da sessão volta do banco antes de ganhar vínculo novo.
+        $daSessao = $this->em()->find(Tenant::class, $this->daSessao->getId());
+        self::assertNotNull($daSessao);
+        $admin = $this->pessoa('Administrador do escritório da sessão');
+        $this->vincular($admin, $daSessao, ['admin.users.manage', 'modules.ponto.view'], true);
+        $this->logarComTenant($this->client, $admin, $daSessao);
+        $this->em()->clear();
+
+        // Controle: no próprio escritório ele administra a jornada; o 403 abaixo vem do escritório da URL.
+        $this->chamarJson($this->client, 'GET', sprintf('/tenant/%d/jornada', $daSessao->getId()));
+        self::assertResponseIsSuccessful();
+
+        $this->chamarJson($this->client, 'GET', $this->url());
+        self::assertResponseStatusCodeSame(403);
+
+        $this->chamarJson($this->client, 'POST', $this->url(), $this->corpoDaJornada(self::TARDE));
+        self::assertResponseStatusCodeSame(403);
+
+        $conn = $this->em()->getConnection();
+        self::assertSame(['08:00'], $conn->fetchFirstColumn(
+            'SELECT b.entrada FROM bloco_jornada b JOIN jornada_tenant j ON j.id = b.jornada_tenant_id WHERE j.tenant_id = ?',
+            [$this->daUrl->getId()],
+        ), 'a jornada do escritório da URL mudou com um pedido barrado');
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM jornada_tenant WHERE tenant_id = ?', [$this->daSessao->getId()]));
     }
 
     private function url(): string
