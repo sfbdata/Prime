@@ -60,7 +60,7 @@ final class ColetorDeCalculos implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/calculos.json', $linhas);
     }
 }

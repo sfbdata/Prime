@@ -9,7 +9,10 @@ use App\Backup\Service\ZipDoBackup;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Entity\DocumentoProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
@@ -43,6 +46,7 @@ final class ColetorDeProcessos implements ColetorDoBackup
     public function __construct(
         private readonly PermissionChecker $permissoes,
         private readonly AcessoAPasta $acesso,
+        private readonly VisibilidadeDasAbasDaPasta $abas,
         private readonly EntityManagerInterface $em,
         private readonly int $processosPorLote = self::PROCESSOS_POR_LOTE,
     ) {
@@ -58,11 +62,16 @@ final class ColetorDeProcessos implements ColetorDoBackup
         $tenantId  = (int) $tenant->getId();
         $dados     = [];
         $lidos     = 0;
-        foreach ($this->processosVisiveis($usuario, $tenant) as $processo) {
+        $ocultos   = $this->acesso->idsDosProcessosOcultos($usuario, $tenant);
+        $pastasOcultas = $this->acesso->idsDasPastasOcultas($usuario, $tenant);
+        $abasOcultas   = $this->abas->abasOcultasPorPasta($usuario, $tenant);
+        $veemPasta     = [];
+        foreach ($this->processosVisiveis($tenant, $ocultos) as $processo) {
             if (!$this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PROCESSO, (int) $processo->getId(), AccessRequest::ACTION_VIEW)) {
                 continue;
             }
-            $dados[] = $this->dadosDoProcesso($processo, $tenant);
+            $notas = $this->vePush($processo, $usuario, $tenant, $pastasOcultas, $abasOcultas, $veemPasta);
+            $dados[] = $this->dadosDoProcesso($processo, $tenant, $ocultos, $notas);
             $zip->contar('Processos');
 
             if (++$lidos % $this->processosPorLote === 0) {
@@ -73,15 +82,17 @@ final class ColetorDeProcessos implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/processos.json', $dados);
     }
 
-    /** @return iterable<Processo> */
-    private function processosVisiveis(User $usuario, Tenant $tenant): iterable
+    /**
+     * @param list<int> $ocultos
+     *
+     * @return iterable<Processo>
+     */
+    private function processosVisiveis(Tenant $tenant, array $ocultos): iterable
     {
-        $ocultos = $this->acesso->idsDosProcessosOcultos($usuario, $tenant);
-
         $qb = $this->em->createQueryBuilder()
             ->select('p')->from(Processo::class, 'p')
             ->andWhere('p.tenant = :tenant')->setParameter('tenant', $tenant)
@@ -93,8 +104,12 @@ final class ColetorDeProcessos implements ColetorDoBackup
         yield from $qb->getQuery()->toIterable();
     }
 
-    /** @return array<string, mixed> */
-    private function dadosDoProcesso(Processo $processo, Tenant $tenant): array
+    /**
+     * @param list<int> $ocultos
+     *
+     * @return array<string, mixed>
+     */
+    private function dadosDoProcesso(Processo $processo, Tenant $tenant, array $ocultos, bool $comNotas): array
     {
         return [
             'numero'          => $processo->getNumeroProcesso(),
@@ -107,14 +122,67 @@ final class ColetorDeProcessos implements ColetorDoBackup
             'distribuido_em'  => ValoresDoBackup::dia($processo->getDataDistribuicao()),
             'baixado_em'      => ValoresDoBackup::dia($processo->getDataBaixa()),
             'segredo_de_justica' => $processo->emSegredoDeJustica(),
-            'processo_pai'    => $processo->getProcessoPai(),
+            'processo_pai'    => $this->processoPai($processo, $tenant, $ocultos),
             'criado_em'       => ValoresDoBackup::data($processo->getCriadoAt()),
             'partes'          => $this->partes($processo, $tenant),
             'assuntos'        => $this->assuntos($processo, $tenant),
             'movimentacoes'   => $this->movimentacoes($processo, $tenant),
-            'notas_tecnicas'  => $this->notas($processo, $tenant),
+            'notas_tecnicas'  => $comNotas ? $this->notas($processo, $tenant) : [],
             'documentos'      => $this->documentos($processo, $tenant),
         ];
+    }
+
+    /**
+     * O número do processo pai só sai se o pai não estiver entre os processos que a pessoa não pode ver (a tela
+     * não mostra o vínculo com um processo que o cadeado esconde).
+     *
+     * @param list<int> $ocultos
+     */
+    private function processoPai(Processo $processo, Tenant $tenant, array $ocultos): ?string
+    {
+        $pai = $processo->getProcessoPai();
+        if ($pai === null || $pai === '' || $ocultos === []) {
+            return $pai;
+        }
+        $escondido = $this->em->createQueryBuilder()
+            ->select('COUNT(x.id)')->from(Processo::class, 'x')
+            ->andWhere('x.tenant = :tenant')->andWhere('x.numeroProcesso = :numero')->andWhere('x.id IN (:ocultos)')
+            ->setParameter('tenant', $tenant)->setParameter('numero', $pai)->setParameter('ocultos', $ocultos)
+            ->getQuery()->getSingleScalarResult();
+
+        return (int) $escondido > 0 ? null : $pai;
+    }
+
+    /**
+     * A nota técnica é LIDA nos cartões da aba Push da pasta (`PastaController.php:473-486`, a rota de nota só
+     * escreve): entra quando alguma pasta do escritório que contém o processo é visível à pessoa (sem cadeado
+     * oculto, `canAccessResource` de ver) e não esconde dela a aba Push. As rotas de nota (`NotaTecnicaController`)
+     * exigem `edit` só para criar, editar e excluir.
+     *
+     * @param list<int>                  $pastasOcultas
+     * @param array<int, list<AbaDaPasta>> $abasOcultas
+     * @param array<int, bool>           $veemPasta cache por pasta
+     */
+    private function vePush(Processo $processo, User $usuario, Tenant $tenant, array $pastasOcultas, array $abasOcultas, array &$veemPasta): bool
+    {
+        /** @var list<PastaProcesso> $vinculos */
+        $vinculos = $this->em->createQueryBuilder()
+            ->select('v', 'p')->from(PastaProcesso::class, 'v')->join('v.pasta', 'p')
+            ->andWhere('v.processo = :processo')->andWhere('p.tenant = :tenant')->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('processo', $processo->getId())->setParameter('tenant', $tenant)
+            ->getQuery()->getResult();
+        foreach ($vinculos as $v) {
+            $pastaId = (int) $v->getPasta()->getId();
+            if (in_array($pastaId, $pastasOcultas, true) || in_array(AbaDaPasta::Push, $abasOcultas[$pastaId] ?? [], true)) {
+                continue;
+            }
+            $veemPasta[$pastaId] ??= $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW);
+            if ($veemPasta[$pastaId]) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<array<string, mixed>> */

@@ -55,7 +55,7 @@ final class ColetorDoServiceDesk implements ColetorDoBackup
             'chamados_antigos' => $this->chamadosAntigos($tenantId, $usuarioId, $zip),
         ];
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/service_desk.json', $dados);
     }
 

@@ -67,7 +67,7 @@ final class ColetorDoTrabalhoExterno implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/trabalho_externo.json', $linhas);
     }
 

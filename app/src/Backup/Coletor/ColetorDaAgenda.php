@@ -69,7 +69,7 @@ final class ColetorDaAgenda implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/agenda.json', ['compromissos' => $compromissos, 'prazos' => $prazos]);
     }
 

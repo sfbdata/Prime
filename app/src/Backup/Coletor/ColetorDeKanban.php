@@ -77,7 +77,7 @@ final class ColetorDeKanban implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/kanban.json', $dados);
     }
 
@@ -147,12 +147,38 @@ final class ColetorDeKanban implements ColetorDoBackup
             'data_vencimento' => ValoresDoBackup::data($cartao->getDataVencimento()),
             'criado_por'     => $cartao->getCriadoPor()?->getFullName(),
             'criado_em'      => ValoresDoBackup::data($cartao->getCriadoEm()),
-            'responsaveis'   => array_values(array_map(static fn (User $u): ?string => $u->getFullName(), $cartao->getResponsaveis()->toArray())),
-            'marcadores'     => array_values(array_map(static fn (KanbanMarcador $m): string => $m->getNome(), $cartao->getMarcadores()->toArray())),
+            'responsaveis'   => $this->responsaveis($cartao, $tenant),
+            'marcadores'     => $this->marcadores($cartao, $tenant),
             'checklists'     => $this->checklists($cartao, $tenant),
             'comentarios'    => $this->comentarios($cartao, $tenant),
             'anexos'         => array_map(static fn (KanbanAnexo $a): string => $a->getNomeOriginal(), $this->anexos($cartao, $tenant)),
         ];
+    }
+
+    /** @return list<string|null> consulta com o escritório escrito (sem a coleção lazy do cartão) */
+    private function responsaveis(KanbanCard $cartao, Tenant $tenant): array
+    {
+        /** @var list<string|null> $nomes */
+        $nomes = $this->em->createQueryBuilder()
+            ->select('u.fullName')->from(KanbanCard::class, 'c')->join('c.responsaveis', 'u')
+            ->andWhere('c.id = :cartao')->andWhere('c.tenant = :tenant')
+            ->setParameter('cartao', $cartao->getId())->setParameter('tenant', $tenant)
+            ->orderBy('u.id')->getQuery()->getSingleColumnResult();
+
+        return $nomes;
+    }
+
+    /** @return list<string> consulta com o escritório escrito (cartão e marcador), sem a coleção lazy */
+    private function marcadores(KanbanCard $cartao, Tenant $tenant): array
+    {
+        /** @var list<string> $nomes */
+        $nomes = $this->em->createQueryBuilder()
+            ->select('m.nome')->from(KanbanCard::class, 'c')->join('c.marcadores', 'm')
+            ->andWhere('c.id = :cartao')->andWhere('c.tenant = :tenant')->andWhere('m.tenant = :tenant')
+            ->setParameter('cartao', $cartao->getId())->setParameter('tenant', $tenant)
+            ->orderBy('m.id')->getQuery()->getSingleColumnResult();
+
+        return $nomes;
     }
 
     /** @return list<array<string, mixed>> */

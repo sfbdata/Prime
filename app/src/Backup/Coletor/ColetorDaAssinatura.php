@@ -39,8 +39,8 @@ final class ColetorDaAssinatura implements ColetorDoBackup
 
     public const DOCUMENTOS_POR_PAGINA = 20;
 
-    /** Chaves de `dados` do evento que nunca saem (evidência de terceiro ou segredo). */
-    private const DADOS_PROIBIDOS = '/latitude|longitude|precisao|selfie|rubrica|^ip$|token|codigo|link|user_agent|navegador/i';
+    /** Chaves de `dados` do evento que podem sair (allowlist). Rubrica, selfie, localização, porta, IP e navegador não estão aqui. */
+    private const DADOS_PERMITIDOS = ['metodo', 'modo', 'cpf_confere', 'hash', 'motivo', 'nup', 'sha256', 'nome', 'chave'];
 
     public function __construct(
         private readonly PermissionChecker $permissoes,
@@ -70,7 +70,7 @@ final class ColetorDaAssinatura implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/assinaturas.json', $dados);
     }
 
@@ -196,25 +196,31 @@ final class ColetorDaAssinatura implements ColetorDoBackup
             'em'          => ValoresDoBackup::data($e->getCriadoEm()),
             'signatario'  => $e->getSignatario()?->getNome(),
             'usuario'     => $e->getUsuario()?->getFullName(),
-            'dados'       => $this->semEvidencia($e->getDados()),
+            'dados'       => $this->soOPermitido($e->getDados()),
             'hash'        => $e->getHash(),
             'hash_anterior' => $e->getHashAnterior(),
         ], $eventos);
     }
 
     /**
+     * ALLOWLIST: só as chaves conhecidas e inofensivas da trilha saem; qualquer chave nova (evidência futura) fica
+     * de fora até ser liberada aqui. Origem: `AssinarDocumentoUseCase::evidencias`, `TrilhaDoDocumento::acrescentar` e
+     * os `acrescentar(...)` dos UseCases.
+     *
      * @param array<mixed> $dados
      *
-     * @return array<mixed>
+     * @return array<string, mixed>
      */
-    private function semEvidencia(array $dados): array
+    private function soOPermitido(array $dados): array
     {
         $limpo = [];
-        foreach ($dados as $chave => $valor) {
-            if (is_string($chave) && preg_match(self::DADOS_PROIBIDOS, $chave) === 1) {
-                continue;
+        foreach (self::DADOS_PERMITIDOS as $chave) {
+            if (array_key_exists($chave, $dados) && !is_array($dados[$chave])) {
+                $limpo[$chave] = $dados[$chave];
             }
-            $limpo[$chave] = is_array($valor) ? $this->semEvidencia($valor) : $valor;
+        }
+        if (isset($dados['aceite']) && is_array($dados['aceite'])) {
+            $limpo['aceite'] = array_intersect_key($dados['aceite'], ['versao' => 1, 'sha256' => 1]);
         }
 
         return $limpo;

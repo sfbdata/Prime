@@ -81,7 +81,7 @@ final class ColetorDaCobranca implements ColetorDoBackup
         ];
         $this->documentos($tenantId, $zip);
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/cobranca.json', $dados);
     }
 

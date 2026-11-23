@@ -63,7 +63,7 @@ final class ColetorDoPonto implements ColetorDoBackup
             'comprovantes'    => $this->comprovantes($usuarioId, $tenantId),
         ];
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/ponto.json', $dados);
     }
 

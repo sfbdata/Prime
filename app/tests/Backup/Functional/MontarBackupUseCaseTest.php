@@ -236,6 +236,7 @@ final class MontarBackupUseCaseTest extends KernelTestCase
                 new ColetorDePastas($permissao, $acesso, $escopo, $c->get(VisibilidadeDasAbasDaPasta::class), new DadosDaPastaParaBackup($this->em()), $this->em(), $lote),
                 new ColetorDeClientes($permissao, $escopo, $acesso, $c->get(VisibilidadeDasAbasDaPasta::class), $this->em(), $lote),
             ],
+            $this->em(),
         );
     }
 

@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Processo\Entity\DocumentoProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\NotaTecnica;
@@ -56,7 +57,7 @@ final class ColetorDeProcessosTest extends KernelTestCase
     {
         $c = static::getContainer();
 
-        return [new ColetorDeProcessos($c->get(PermissionChecker::class), $c->get(AcessoAPasta::class), $this->em(), $lote)];
+        return [new ColetorDeProcessos($c->get(PermissionChecker::class), $c->get(AcessoAPasta::class), $c->get(VisibilidadeDasAbasDaPasta::class), $this->em(), $lote)];
     }
 
     private function semear(): void
@@ -66,7 +67,7 @@ final class ColetorDeProcessosTest extends KernelTestCase
         $p3 = $this->pasta($this->t1, 'P3 COM CADEADO', $this->r);
         $pb = $this->pasta($this->t2, 'PB DO B', $this->b);
 
-        $this->processo($this->t1, '0000001-00.2026.8.26.0001', $p1, 'PARTE DO PROCESSO UM');
+        $this->processo($this->t1, '0000001-00.2026.8.26.0001', $p1, 'PARTE DO PROCESSO UM')->setProcessoPai('0000003-00.2026.8.26.0003');
         $this->processo($this->t1, '0000002-00.2026.8.26.0002', $p2, 'PARTE DO PROCESSO DOIS');
         $this->processo($this->t1, '0000003-00.2026.8.26.0003', $p3, 'PARTE DO PROCESSO TRES');
         $this->processo($this->t1, '0000004-00.2026.8.26.0004', null, 'PARTE DO PROCESSO SEM PASTA');
@@ -141,6 +142,18 @@ final class ColetorDeProcessosTest extends KernelTestCase
         foreach (['0000003-00', 'PARTE DO PROCESSO TRES', 'MOVIMENTO 0000003', 'NOTA 0000003', 'doc-0000003'] as $oculto) {
             self::assertStringNotContainsString($oculto, $tudo, $oculto);
         }
+    }
+
+    #[TestDox('processo_pai: o primário vê o número do pai; quem não vê o pai (cadeado) não o recebe pelo filho. Nota técnica só com pasta que mostra a aba Push')]
+    public function testProcessoPaiOcultoENotaSemPasta(): void
+    {
+        $a = array_column(self::json($this->backupDe($this->a, $this->t1), 'dados/processos.json'), null, 'numero');
+        $c = array_column(self::json($this->backupDe($this->c, $this->t1), 'dados/processos.json'), null, 'numero');
+
+        self::assertSame('0000003-00.2026.8.26.0003', $a['0000001-00.2026.8.26.0001']['processo_pai']);
+        self::assertNull($c['0000001-00.2026.8.26.0001']['processo_pai']);
+        self::assertCount(1, $a['0000001-00.2026.8.26.0001']['notas_tecnicas']);
+        self::assertSame([], $a['0000004-00.2026.8.26.0004']['notas_tecnicas'], 'processo sem pasta: nenhuma tela mostra a nota');
     }
 
     #[TestDox('R (acesso restrito): só o processo da pasta sob a responsabilidade dela; sem o alheio, o do cadeado e o sem pasta')]

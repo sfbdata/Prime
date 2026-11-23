@@ -36,7 +36,7 @@ final class DocumentoProcessoSemEscritorTest extends TestCase
      *
      *  - a entidade, o repositório (vazio) e a coleção em `Processo`;
      *  - `AppFixtures` — só dev/test (`config/bundles.php`), grava `fixtures/<nome>`;
-     *  - `ColetorDeProcessos` (backup) — só LÊ os metadados para o JSON; não grava nem lê arquivo.
+     *  - `ColetorDeProcessos` (backup): só LÊ os metadados para o JSON; não grava nem lê arquivo.
      */
     private const QUEM_CITA_A_CLASSE = [
         'src/Backup/Coletor/ColetorDeProcessos.php',

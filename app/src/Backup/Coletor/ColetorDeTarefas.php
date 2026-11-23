@@ -7,17 +7,19 @@ namespace App\Backup\Coletor;
 use App\Backup\Service\ValoresDoBackup;
 use App\Backup\Service\ZipDoBackup;
 use App\Entity\Auth\User;
-use App\Entity\Permission\AccessRequest;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\AcessoAPasta;
 use App\Service\PermissionChecker;
 use App\Tarefa\Armazenamento\ChavesDeTarefa;
+use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\AcessoAoModuloTarefas;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Tarefas (metas) no backup: `dados/tarefas.json` (a meta, as mensagens e os despachos) e
@@ -41,7 +43,7 @@ final class ColetorDeTarefas implements ColetorDoBackup
     public function __construct(
         private readonly PermissionChecker $permissoes,
         private readonly AcessoAPasta $acesso,
-        private readonly QuemCuidaDaMeta $quemCuida,
+        private readonly AcessoAMeta $guardaDaMeta,
         private readonly EntityManagerInterface $em,
         private readonly int $metasPorLote = self::METAS_POR_LOTE,
     ) {
@@ -56,14 +58,15 @@ final class ColetorDeTarefas implements ColetorDoBackup
         $usuarioId = (int) $usuario->getId();
         $tenantId  = (int) $tenant->getId();
         $ocultas   = $this->acesso->idsDasPastasOcultas($usuario, $tenant);
-        $veemPasta = [];
         $dados     = [];
         $raiz      = null;
         $lidas     = 0;
         foreach ($this->metas($tenant, $ocultas) as $meta) {
-            $pastaId = (int) $meta->getPasta()->getId();
-            $veemPasta[$pastaId] ??= $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW);
-            if (!$veemPasta[$pastaId] && !$this->quemCuida->ehResponsavelOuCriador($meta, $usuario)) {
+            // A MESMA guarda da tela da meta: cadeado, ver a pasta ou cuidar da meta, e criador ou responsável da pasta
+            // com vínculo ativo no escritório. A meta que a tela barra (404/403) não entra.
+            try {
+                $this->guardaDaMeta->exigir($meta, $tenant, $usuario);
+            } catch (NotFoundHttpException|AccessDeniedException) {
                 continue;
             }
 
@@ -80,7 +83,7 @@ final class ColetorDeTarefas implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/tarefas.json', $dados);
     }
 

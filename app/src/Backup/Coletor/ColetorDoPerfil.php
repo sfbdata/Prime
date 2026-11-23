@@ -48,7 +48,7 @@ final class ColetorDoPerfil implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/perfil.json', $dados);
     }
 }

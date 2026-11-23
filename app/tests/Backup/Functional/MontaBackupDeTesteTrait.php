@@ -44,7 +44,7 @@ trait MontaBackupDeTesteTrait
     {
         self::assertNull(static::getContainer()->get(TenantContext::class)->getCurrentTenant(), 'o worker não tem escritório na sessão');
 
-        $caso = new MontarBackupUseCase($this->duble->memoria, $this->duble->memoria, new MockClock('2026-11-23 10:00:00'), $this->coletores($lote));
+        $caso = new MontarBackupUseCase($this->duble->memoria, $this->duble->memoria, new MockClock('2026-11-23 10:00:00'), $this->coletores($lote), $this->em());
         $resultado = $caso->executar(new PedidoDeBackup($tenant, $usuario, new \DateTimeImmutable('2026-11-23 10:00:00')));
 
         self::assertInstanceOf(ResultadoDoBackup::class, $resultado);

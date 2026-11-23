@@ -15,7 +15,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\AcessoAPasta;
 use App\Service\PermissionChecker;
 use App\Tarefa\Armazenamento\ChavesDeTarefa;
-use App\Tarefa\Service\QuemCuidaDaMeta;
+use App\Tarefa\Service\AcessoAMeta;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -55,7 +55,7 @@ final class ColetorDeTarefasTest extends KernelTestCase
     {
         $c = static::getContainer();
 
-        return [new ColetorDeTarefas($c->get(PermissionChecker::class), $c->get(AcessoAPasta::class), new QuemCuidaDaMeta(), $this->em(), $lote)];
+        return [new ColetorDeTarefas($c->get(PermissionChecker::class), $c->get(AcessoAPasta::class), $c->get(AcessoAMeta::class), $this->em(), $lote)];
     }
 
     private function semear(): void
@@ -64,6 +64,11 @@ final class ColetorDeTarefasTest extends KernelTestCase
         $p3 = $this->criarPasta($this->t1, 'P3 COM CADEADO');
         $p4 = $this->criarPasta($this->t1, 'P4 NA LIXEIRA');
         $pb = $this->criarPasta($this->t2, 'PB DO B');
+        $p5 = $this->criarPasta($this->t1, 'P5 SEM RESPONSAVEL');
+        foreach ([$p1, $p3, $p4] as $pasta) {
+            $pasta->setResponsavel($this->a);
+        }
+        $pb->setResponsavel($this->b);
         $p4->marcarExcluida($this->a, new \DateTimeImmutable());
         $this->trancar($p3, $this->a);
 
@@ -74,6 +79,7 @@ final class ColetorDeTarefasTest extends KernelTestCase
         $this->meta($this->t1, $p1, 'META CINCO DA DIANA', $this->a, $this->d);
         $seis = $this->meta($this->t1, $p1, 'META SEIS SO ACOMPANHADA', $this->a, $this->a);
         $seis->alternarAcompanhamento($this->d);
+        $this->meta($this->t1, $p5, 'META SETE PASTA SEM DONO', $this->a, $this->a);
         $this->meta($this->t2, $pb, 'META DO ESCRITORIO B', $this->b, $this->b, 'b.pdf', 'CONTEUDO DO ANEXO B');
         $this->em()->flush();
     }
@@ -107,7 +113,7 @@ final class ColetorDeTarefasTest extends KernelTestCase
         self::assertSame('CONTEUDO DO ANEXO UM', self::entradaCom($zip, 'tarefas/META UM DO CARLOS/anexos/'));
         self::assertSame('CONTEUDO DO ANEXO DOIS', self::entradaCom($zip, 'tarefas/META DOIS DO PRIMARIO/anexos/'));
         self::assertStringContainsString('Tarefas: 5', $zip['LEIA-ME.txt']);
-        foreach (['META QUATRO NA LIXEIRA', 'ESCRITORIO B', 'ANEXO B', 'P4 NA LIXEIRA'] as $fora) {
+        foreach (['META QUATRO NA LIXEIRA', 'ESCRITORIO B', 'ANEXO B', 'P4 NA LIXEIRA', 'META SETE'] as $fora) {
             self::assertStringNotContainsString($fora, $tudo, $fora);
         }
     }
@@ -168,6 +174,7 @@ final class ColetorDeTarefasTest extends KernelTestCase
     public function testAnexoInvalidoVaiAoLeiaMe(): void
     {
         $pasta = $this->criarPasta($this->t1, 'P1 ABERTA');
+        $pasta->setResponsavel($this->a);
         $meta  = $this->meta($this->t1, $pasta, 'META COM ANEXO RUIM', $this->a, $this->a);
         $this->em()->persist((new TarefaMensagem())->setTarefa($meta)->setTenant($this->t1)->setUsuario($this->a)->setMensagem('ruim')->setArquivoAnexo('/uploads/tarefas/admin/x.pdf'));
         $this->em()->persist((new TarefaMensagem())->setTarefa($meta)->setTenant($this->t1)->setUsuario($this->a)->setMensagem('juntado')->juntarDocumentoDaPasta(99));

@@ -8,6 +8,7 @@ use App\Backup\Coletor\ColetorDoBackup;
 use App\Backup\Coletor\ColetorDoPonto;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Entity\ComprovanteDoPonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -41,10 +42,15 @@ final class ColetorDoPontoTest extends KernelTestCase
         $this->c = $this->criarColaborador($this->t1, 'Carlos', ['modules.ponto.view']);
         $this->s = $this->criarColaborador($this->t1, 'Sem Modulo', []);
 
-        $this->bater($this->t1, $this->a, '2026-09-10 08:00', 'OBS-BATIDA-DO-A', 1, '-23.5500000');
+        $primeira = $this->bater($this->t1, $this->a, '2026-09-10 08:00', 'OBS-BATIDA-DO-A', 1, '-23.5500000');
         $this->bater($this->t1, $this->a, '2026-11-02 12:00', 'OBS-BATIDA-DO-A-2', 2, '-23.5500000');
         $this->bater($this->t1, $this->c, '2026-10-05 09:00', 'OBS-BATIDA-DO-C', 3, '-22.9000000');
         $this->bater($this->t2, $this->b, '2026-10-06 09:00', 'OBS-BATIDA-DO-B', 1, '-10.1234567');
+        $this->vincular($this->a, $this->t2, false, ['modules.ponto.view']);
+        $this->bater($this->t2, $this->a, '2026-10-07 09:00', 'OBS-DO-A-NO-ESCRITORIO-2', 5, '-1.1111111');
+        $this->justificar($this->t2, $this->a, 'MOTIVO-DO-A-NO-ESCRITORIO-2');
+        $this->em()->flush();
+        $this->em()->persist(new ComprovanteDoPonto($this->t1, $primeira, 77, 'CODIGO-COMP', 'HMAC-SECRETO-XYZ', 1, new \DateTimeImmutable('2026-09-10 08:00:05'), 'DADOS-ASSINADOS-SECRETOS'));
         $this->justificar($this->t1, $this->a, 'MOTIVO-DO-A');
         $this->justificar($this->t1, $this->c, 'MOTIVO-DO-C');
         $this->em()->flush();
@@ -58,11 +64,13 @@ final class ColetorDoPontoTest extends KernelTestCase
         return [new ColetorDoPonto($c->get(PermissionChecker::class), $c->get(RegistroPontoRepository::class), $c->get(EntityManagerInterface::class), $lote)];
     }
 
-    private function bater(Tenant $tenant, User $user, string $quando, string $obs, int $nsr, string $latitude): void
+    private function bater(Tenant $tenant, User $user, string $quando, string $obs, int $nsr, string $latitude): RegistroPonto
     {
         $registro = (new RegistroPonto())->setUser($user)->setTenant($tenant)->setDataHora(new \DateTime($quando))->setTipo('entrada')
             ->setObservacao($obs)->setNsr($nsr)->setLatitude($latitude)->setLongitude('-46.6000000')->setPrecisaoGps('12.5');
         $this->em()->persist($registro);
+
+        return $registro;
     }
 
     private function justificar(Tenant $tenant, User $user, string $motivo): void
@@ -106,6 +114,34 @@ final class ColetorDoPontoTest extends KernelTestCase
         self::assertStringContainsString('OBS-BATIDA-DO-B', $b);
         self::assertStringNotContainsString('OBS-BATIDA-DO-C', $b);
         self::assertStringNotContainsString('OBS-BATIDA-DO-A', $b);
+    }
+
+    #[TestDox('A mesma pessoa com ponto em dois escritórios: o ZIP de cada escritório leva só as batidas dele')]
+    public function testMesmaPessoaEmDoisEscritorios(): void
+    {
+        $um   = self::tudo($this->backupDe($this->a, $this->t1));
+        $dois = self::tudo($this->backupDe($this->a, $this->t2));
+
+        self::assertStringNotContainsString('ESCRITORIO-2', $um);
+        self::assertStringContainsString('OBS-DO-A-NO-ESCRITORIO-2', $dois);
+        self::assertStringContainsString('MOTIVO-DO-A-NO-ESCRITORIO-2', $dois);
+        self::assertStringNotContainsString('OBS-BATIDA-DO-A', $dois);
+        self::assertStringNotContainsString('MOTIVO-DO-A"', $dois);
+    }
+
+    #[TestDox('Comprovante: sai nsr, código e emissão; nunca o hmac nem os dados assinados')]
+    public function testComprovanteSemHmac(): void
+    {
+        $zip  = $this->backupDe($this->a, $this->t1);
+        $tudo = self::tudo($zip);
+        $comp = self::json($zip, 'dados/ponto.json')['comprovantes'];
+
+        self::assertCount(1, $comp);
+        self::assertSame(77, $comp[0]['nsr']);
+        self::assertSame('CODIGO-COMP', $comp[0]['codigo']);
+        self::assertNotNull($comp[0]['emitido_em']);
+        self::assertStringNotContainsString('HMAC-SECRETO', $tudo);
+        self::assertStringNotContainsString('DADOS-ASSINADOS', $tudo);
     }
 
     #[TestDox('Sem o módulo ponto não leva nada')]

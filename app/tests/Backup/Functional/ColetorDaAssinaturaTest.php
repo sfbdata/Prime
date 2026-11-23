@@ -68,8 +68,12 @@ final class ColetorDaAssinaturaTest extends KernelTestCase
         $this->duble->memoria->semear(ChavesDeAssinaturaEletronica::arquivo($doc), $pdf);
 
         $signatario = new Signatario($doc, 1, 'SIGNATARIO ' . $nome, 'sig@example.com', null, 'Contratante', NivelDeAssinatura::Simples);
+        foreach (['tokenHash' => 'TOKEN-HASH-SECRETO-' . md5($nome), 'codigoHash' => 'CODIGO-HASH-SECRETO', 'ip' => '203.0.113.9', 'userAgent' => 'NAVEGADOR-SECRETO', 'latitude' => '-23.5111', 'longitude' => '-46.6222', 'precisao' => '77.7', 'selfieChave' => 'SELFIE-CHAVE-SECRETA', 'selfieSha256' => 'SELFIE-SHA-SECRETO', 'rubricaChave' => 'RUBRICA-CHAVE-SECRETA'] as $campo => $valor) {
+            (new \ReflectionProperty(Signatario::class, $campo))->setValue($signatario, $valor);
+        }
         $this->em()->persist($signatario);
-        $this->em()->persist(new EventoDaTrilha($doc, TipoDeEvento::DocumentoCriado, ['latitude' => '-23.5', 'longitude' => '-46.6', 'ip' => '203.0.113.9', 'navegador' => 'NAVEGADOR-SECRETO', 'nota' => 'NOTA ' . $nome], $agora, null, null, $signatario, '203.0.113.9', 'NAVEGADOR-SECRETO'));
+        $evidencias = ['metodo' => 'simples', 'rubrica_sha256' => 'RUBRICA-SHA-SECRETO', 'selfie_sha256' => 'SELFIE-SHA-SECRETO', 'selfie_versao' => 1, 'latitude' => '-23.5111', 'longitude' => '-46.6222', 'precisao' => '77.7', 'porta' => 'PORTA-SECRETA', 'ip' => '203.0.113.9', 'chave_nova_de_evidencia' => 'CHAVE-FUTURA-SECRETA', 'aceite' => ['versao' => 'v1', 'sha256' => 'ACEITE-SHA', 'ip' => 'IP-NO-ACEITE'], 'nota' => 'NOTA ' . $nome];
+        $this->em()->persist(new EventoDaTrilha($doc, TipoDeEvento::DocumentoCriado, $evidencias, $agora, null, null, $signatario, '203.0.113.9', 'NAVEGADOR-SECRETO'));
         if ($lixeira) {
             $doc->moverParaLixeira($dono, $agora);
         }
@@ -83,7 +87,7 @@ final class ColetorDaAssinaturaTest extends KernelTestCase
             $zip  = $this->backupDe($quem, $this->t1);
             $tudo = self::tudo($zip);
 
-            foreach (['CONTRATO UM', 'CONTRATO DO COLEGA', 'SIGNATARIO CONTRATO UM', 'NOTA CONTRATO UM'] as $esperado) {
+            foreach (['CONTRATO UM', 'CONTRATO DO COLEGA', 'SIGNATARIO CONTRATO UM', 'ACEITE-SHA'] as $esperado) {
                 self::assertStringContainsString($esperado, $tudo, $esperado);
             }
             self::assertSame('PDF-DO-UM', self::entradaCom($zip, 'assinaturas/CONTRATO UM/'));
@@ -98,9 +102,11 @@ final class ColetorDaAssinaturaTest extends KernelTestCase
     {
         $tudo = self::tudo($this->backupDe($this->a, $this->t1));
 
-        foreach (['203.0.113.9', 'NAVEGADOR-SECRETO', '-23.5', '-46.6', 'latitude', 'longitude'] as $proibido) {
+        foreach (['203.0.113.9', 'NAVEGADOR-SECRETO', '-23.5', '-46.6', '77.7', 'latitude', 'longitude', 'precisao', 'TOKEN-HASH', 'CODIGO-HASH', 'SELFIE', 'RUBRICA', 'rubrica', 'selfie', 'PORTA-SECRETA', 'porta', 'CHAVE-FUTURA', 'IP-NO-ACEITE', 'token_hash'] as $proibido) {
             self::assertStringNotContainsString($proibido, $tudo, $proibido);
         }
+        // O que é inofensivo da trilha continua saindo (allowlist): método e o sha256 do aceite.
+        self::assertStringContainsString('ACEITE-SHA', $tudo);
     }
 
     #[TestDox('B (escritório 2) leva só o dele')]
