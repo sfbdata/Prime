@@ -167,6 +167,7 @@ moldura:
             blog_conferir_publicacoes: Blog article publishing
             voto_executar_programacao: Scheduled opening and closing of Voting
             conector_faxinar: Cleanup of expired AI connector connections
+            backup_vencer: Expired backups cleanup
             outra: Scheduled task
         dispensar: Dismiss
     # Email sending quota notice (layout/_globais/aviso_cota_de_envio)
