@@ -22,6 +22,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Aba "Equipe" da tela /ponto (spec `docs/specs/ponto-desenho-0811.md`, E5; desenho 16 L210 a L219). O painel é buscado
@@ -39,6 +40,7 @@ final class EquipeDoPontoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissoes,
         private readonly GestaoDoPonto $gestao,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -60,7 +62,7 @@ final class EquipeDoPontoController extends AbstractController
         $this->validarCsrfAjax($request);
         $dados = json_decode((string) $request->getContent(), true);
         if (!is_array($dados) || !is_string($dados['escala'] ?? null)) {
-            return $this->json(['erro' => 'Escolha uma das escalas da lista.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.equipe.escala_da_lista')], Response::HTTP_BAD_REQUEST);
         }
 
         try {
@@ -72,7 +74,7 @@ final class EquipeDoPontoController extends AbstractController
         } catch (ChoqueDeJornadaException $choque) {
             return $this->json(['erro' => $choque->getMessage()], Response::HTTP_CONFLICT);
         } catch (UniqueConstraintViolationException) {
-            return $this->json(['erro' => JornadaColaboradorController::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
         }
 
         return $this->json(['ok' => true]);
@@ -97,7 +99,7 @@ final class EquipeDoPontoController extends AbstractController
             $this->addFlash('warning', $recusa);
         }
         if ($ids === []) {
-            $this->addFlash('warning', 'Selecione ao menos uma justificativa.');
+            $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.equipe.selecione_justificativa'));
         }
 
         return $this->redirectToRoute('ponto_index', ['aba' => 'equipe']);
