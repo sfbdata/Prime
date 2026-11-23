@@ -53,7 +53,8 @@
 .pp-linha--dado:nth-child(even) { background: #fafcfd; }
 .pp-linha--dado { transition: background .18s; }
 .pp-linha--dado:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
-.pp-linha--dado:hover, .pp-linha--dado:hover * { color: #fff !important; }
+/* M6: na linha azul, os botões de fundo branco (vincular, desvincular, Ver, ações) guardam a cor própria; branco sobre branco some. */
+.pp-linha--dado:hover, .pp-linha--dado:hover *:not(:is(.pp-icone, .pp-icone *, .pp-ver, .pp-ver *, .pp-acao, .pp-acao *)) { color: #fff !important; }
 .pp-linha--dado:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-linha--nova { font-weight: bold; }
 .pp-linha--dado > span { padding: 11px 8px; min-width: 0; }
@@ -103,7 +104,7 @@
 .pp-linha--oab > b, .pp-linha--oab > span:first-child { padding-left: 18px; }
 .pp-linha--oab { transition: background .18s; }
 .pp-linha--oab:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
-.pp-linha--oab:hover, .pp-linha--oab:hover * { color: #fff !important; }
+.pp-linha--oab:hover, .pp-linha--oab:hover *:not(:is(.pp-icone, .pp-icone *, .pp-ver, .pp-ver *, .pp-acao, .pp-acao *)) { color: #fff !important; }
 .pp-linha--oab:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pp-selo--status { height: 20px; padding: 0 8px; font-size: 11px; }
 .pp-selo--pausada { background: #7a8e9b; }
