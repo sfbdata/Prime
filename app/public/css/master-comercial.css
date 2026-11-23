@@ -342,7 +342,7 @@
 /* L680: laranja a 7 dias ou menos */
 .mc-dt-quando { font-size: 12px; color: var(--mc-sub); }
 .mc-dt-quando.is-perto { color: var(--mc-raio); }
-.mc-dt-publico { height: 28px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; font: inherit; font-size: 12px; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-dt-publico, .mc-dt-modelo { height: 28px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; font: inherit; font-size: 12px; background: var(--mc-fundo); max-width: 190px; color: var(--mc-texto); }
 .mc-dt-ver { height: 28px; padding: 0 10px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-azul); font: inherit; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
 .mc-dt-ver:hover, .mc-dt-ver:focus-visible { background: var(--mc-dt-ver-bg); }
 

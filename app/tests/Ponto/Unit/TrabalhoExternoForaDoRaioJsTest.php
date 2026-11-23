@@ -75,11 +75,11 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringContainsString(
             "detalhe = BJ_T.t('ponto_cartao.js.batida.sede_mais_proxima', {\n"
             . "                sede: String(maisProxima.sede.nome),\n"
-            . "                distancia: Math.round(maisProxima.distancia).toLocaleString('pt-BR'),\n"
-            . "                raio: Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR'),\n"
+            . "                distancia: window.BJFormato.numero(Math.round(maisProxima.distancia)),\n"
+            . "                raio: window.BJFormato.numero(Math.round(Number(maisProxima.sede.raio))),\n"
             . '            });',
             $textos,
-            'a sede, a distância e o raio com o milhar em pt-BR, como o servidor (PosicaoNaCerca)'
+            'a sede, a distância e o raio com o milhar do idioma da pessoa (em pt-BR, igual ao servidor, PosicaoNaCerca)'
         );
         self::assertSame('A sede mais próxima é {sede}, a {distancia} m. O raio permitido é de {raio} m.', self::ptBr('ponto_cartao.js.batida.sede_mais_proxima'));
         self::assertSame('Aproxime-se ou informe o trabalho externo.', self::ptBr('ponto_cartao.js.batida.aproxime_se'));

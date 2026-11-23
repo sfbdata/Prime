@@ -24,7 +24,7 @@ final class ModeloDaGrade
      */
     public static function deFixo(array $modelo): array
     {
-        return self::completo($modelo + ['id' => null, 'proprio' => false]);
+        return self::completo($modelo + ['id' => null, 'proprio' => false, 'editado' => false]);
     }
 
     /** @return ModeloEmJson */
@@ -44,6 +44,17 @@ final class ModeloDaGrade
         return self::completo($base + ($m->getModo() === 'blocos' ? ['blocos' => array_values($conteudo)] : $conteudo));
     }
 
+    /**
+     * A versão editada de um padrão: a chave é a do padrão (`convite`, `data-natal`), não é própria (sem `id`, sem nome
+     * a editar nem exclusão) e leva `editado: true` (a tela mostra "Voltar ao padrão").
+     *
+     * @return ModeloEmJson
+     */
+    public static function deEditado(ModeloDeCampanha $m): array
+    {
+        return ['chave' => (string) $m->getFixoChave(), 'id' => null, 'proprio' => false, 'editado' => true] + self::deEntidade($m);
+    }
+
     /** O conteúdo como `comercial_modelo.conteudo` guarda: o HTML puro, ou o JSON do simples e dos blocos. */
     public static function conteudoParaGravar(MensagemDaCampanha $m, string $htmlSanitizado = ''): string
     {
@@ -57,6 +68,6 @@ final class ModeloDaGrade
      */
     private static function completo(array $modelo): array
     {
-        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => '', 'imagem' => ''];
+        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => '', 'imagem' => '', 'editado' => false];
     }
 }

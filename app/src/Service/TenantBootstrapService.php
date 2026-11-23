@@ -66,7 +66,11 @@ class TenantBootstrapService
         ['nome' => 'Natal',                                 'mes' => 12, 'dia' => 25],
     ];
 
-    public function bootstrap(Tenant $tenant, ?User $creator = null): TenantRole
+    /**
+     * `$semearMarcadores` falso: o escritório nasce sem os marcadores padrão do Expediente (cadastro pelo Voto, spec
+     * docs/specs/multiproduto-contratacao-e-voto.md, §5). O padrão segue semeando, como sempre.
+     */
+    public function bootstrap(Tenant $tenant, ?User $creator = null, bool $semearMarcadores = true): TenantRole
     {
         $adminRole = $this->findOrCreateAdminRole($tenant);
 
@@ -88,7 +92,7 @@ class TenantBootstrapService
 
         $this->seedFeriadosNacionais($tenant);
 
-        if ($creator !== null) {
+        if ($creator !== null && $semearMarcadores) {
             $this->seedMarcadoresPadrao($tenant, $creator);
         }
 

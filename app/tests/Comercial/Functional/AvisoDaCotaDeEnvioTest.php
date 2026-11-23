@@ -68,6 +68,24 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter(self::AVISO . ' > form[method="post"] > button.af-dispensar'));
     }
 
+    #[TestDox('Acima de 2.000 e-mails em 24 h (todos, também os do sistema) o Master vê "hora de contratar outro serviço de e-mail", e o Dispensar aceita a chave')]
+    public function testMasterVeTrocarDeServico(): void
+    {
+        $this->semearEmLote(CotaDeEnvio::TROCAR_DE_SERVICO_ACIMA_DE + 1, new \DateTimeImmutable('-1 hour'));
+        $this->entrar($this->usuario(['ROLE_SUPER_ADMIN']));
+
+        $crawler = $this->client->request('GET', '/novidades');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(self::AVISO . '[data-aviso-cota-de-envio="trocar"]:not(.ae-aviso--cheio)'));
+        self::assertStringContainsString('Hora de contratar outro serviço de e-mail', $crawler->filter(self::AVISO)->text());
+        self::assertStringContainsString('E-mails: 2.001 enviados nas últimas 24 horas, mais de 2.000.', $crawler->filter(self::AVISO)->text());
+
+        $this->dispensar('/novidades', 'trocar:' . date('Y-m-d'));
+        self::assertResponseRedirects('/novidades');
+        self::assertCount(0, $this->client->request('GET', '/novidades')->filter('[data-aviso-cota-de-envio]'));
+    }
+
     #[TestDox('Abaixo de 80% não há aviso')]
     public function testAbaixoDoPercentualSemAviso(): void
     {
@@ -178,6 +196,15 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
                 ],
             );
         }
+    }
+
+    private function semearEmLote(int $quantos, \DateTimeImmutable $em): void
+    {
+        $this->conexao()->executeStatement(
+            "INSERT INTO comercial_envio (token, destinatario, assunto, tipo, origem, situacao, criado_em, enviado_em, aberturas, cliques)
+             SELECT md5(random()::text || n), 'sistema', 'x', 'transacional', 'sistema', 'enviado', :em, :em, 0, 0 FROM generate_series(1, :quantos) AS n",
+            ['em' => $em->format('Y-m-d H:i:s'), 'quantos' => $quantos],
+        );
     }
 
     private function dispensar(string $voltar, ?string $chave = null): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\MessageHandler;
 
 use App\Comercial\Message\VarrerAutomacoes;
+use App\Comercial\Service\AvisoDeTrocaDoServicoDeEmail;
 use App\Comercial\Service\DisparoDasDatasComemorativas;
 use App\Comercial\Service\RecuperacaoDeEnvios;
 use App\Comercial\Service\VarreduraDeAutomacoes;
@@ -18,7 +19,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * ({@see \App\Shared\Scheduler\AgendaDasCadeias}); o handler não se reagenda. Reivindica a vez na linha 1 de
  * `comercial_varredura` (zero linhas = outra volta acabou de passar, e esta não faz nada) e roda a `dica`, a
  * recuperação de envios parados e as datas comemorativas (§13, F4: a campanha do dia, depois das 9h, com a chave
- * geral ligada).
+ * geral ligada) e o aviso de troca do serviço de e-mail (acima de 2.000 em 24 h, no máximo 1 por dia).
  */
 #[AsMessageHandler]
 final class VarrerAutomacoesHandler
@@ -37,6 +38,7 @@ final class VarrerAutomacoesHandler
         private readonly VarreduraDeAutomacoes $varredura,
         private readonly RecuperacaoDeEnvios $recuperacao,
         private readonly DisparoDasDatasComemorativas $datas,
+        private readonly AvisoDeTrocaDoServicoDeEmail $troca,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
     ) {
@@ -52,6 +54,7 @@ final class VarrerAutomacoesHandler
         $this->passo('dica', fn () => $this->varredura->mandarDicas($agora));
         $this->passo('recuperacao', fn () => $this->recuperacao->recuperar($agora));
         $this->passo('datas', fn () => $this->datas->disparar($agora));
+        $this->passo('troca', fn () => $this->troca->avisarSePreciso($agora));
     }
 
     private function passo(string $nome, callable $passo): void

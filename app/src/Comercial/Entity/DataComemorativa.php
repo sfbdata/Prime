@@ -26,7 +26,7 @@ class DataComemorativa implements Auditavel
      * A regra única da data do calendário sem linha no banco (a tela, o disparo e a alteração): o padrão do dc, ligada,
      * no dia, para Todos. Os valores iniciais das propriedades são os mesmos.
      */
-    public const PADRAO = ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'];
+    public const PADRAO = ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => null];
 
     #[ORM\Id]
     #[ORM\Column(length: 20)]
@@ -43,6 +43,10 @@ class DataComemorativa implements Auditavel
     #[ORM\Column(length: 10)]
     private string $publico = 'todos';
 
+    /** A chave do modelo escolhido (um padrão ou `cu<id>`); nula, a data usa o `data-<chave>` dela. */
+    #[ORM\Column(name: 'modelo_chave', length: 40, nullable: true)]
+    private ?string $modeloChave = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'alterada_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $alteradaPor = null;
@@ -57,9 +61,9 @@ class DataComemorativa implements Auditavel
     }
 
     /**
-     * @param array<string, array{ligada: bool, antecedencia: int, publico: string}> $estados os do banco, por chave
+     * @param array<string, array{ligada: bool, antecedencia: int, publico: string, modelo: ?string}> $estados os do banco, por chave
      *
-     * @return array{ligada: bool, antecedencia: int, publico: string}
+     * @return array{ligada: bool, antecedencia: int, publico: string, modelo: ?string}
      */
     public static function estadoOuPadrao(array $estados, string $chave): array
     {
@@ -86,8 +90,14 @@ class DataComemorativa implements Auditavel
         return $this->publico;
     }
 
-    public function alterar(bool $ligada, int $antecedencia, string $publico, User $por, \DateTimeImmutable $agora): void
+    public function getModeloChave(): ?string
     {
+        return $this->modeloChave;
+    }
+
+    public function alterar(bool $ligada, int $antecedencia, string $publico, User $por, \DateTimeImmutable $agora, ?string $modeloChave = null): void
+    {
+        $this->modeloChave = $modeloChave;
         $this->ligada = $ligada;
         $this->antecedencia = $antecedencia;
         $this->publico = $publico;

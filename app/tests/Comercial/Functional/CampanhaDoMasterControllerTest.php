@@ -10,7 +10,7 @@ use App\Comercial\Repository\ModeloDeCampanhaRepository;
 use App\Comercial\UseCase\EnviarTesteDaCampanhaUseCase;
 use App\Comercial\UseCase\ListarModelosDeCampanhaUseCase;
 use App\Comercial\UseCase\PreviaDaCampanhaUseCase;
-use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
+use App\Comercial\UseCase\VoltarModeloAoPadraoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -35,6 +35,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(EnviarTesteDaCampanhaUseCase::class)]
 #[CoversClass(ComposicaoDaCampanha::class)]
 #[CoversClass(ModeloDeCampanhaRepository::class)]
+#[CoversClass(VoltarModeloAoPadraoUseCase::class)]
 final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
 {
     private User $master;
@@ -58,7 +59,12 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         $this->postar($client, '/master/comercial/teste', $this->convite());
         self::assertResponseStatusCodeSame(403);
+        $this->postar($client, '/master/comercial/modelos/convite', $this->convite());
+        self::assertResponseStatusCodeSame(403);
+        $this->postar($client, '/master/comercial/modelos/convite/padrao', []);
+        self::assertResponseStatusCodeSame(403);
         self::assertSame(0, $this->contar('comercial_envio'));
+        self::assertSame(0, $this->contar('comercial_modelo'), 'nada gravado pelo não Master');
     }
 
     #[TestDox('Sem o token CSRF: 403 em criar, salvar, excluir, prévia e teste; pedido inválido: 422 com {erro}')]
@@ -98,13 +104,13 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('master_comercial_modelo_criar', $this->conexao()->fetchOne("SELECT route FROM audit_log WHERE action = 'modelo_new' AND entity_id = ?", [(string) $novo['modelo']['id']]), 'a trilha manual leva a rota da requisição (6.9, decisão 36)');
     }
 
-    #[TestDox('Salvar: num fixo, a mensagem do dc (422); no próprio, grava; a trilha nunca leva o conteúdo')]
+    #[TestDox('Salvar: num fixo com outro modo, recusa (422); no próprio, grava; a trilha nunca leva o conteúdo')]
     public function testSalvar(): void
     {
         $client = $this->clienteMaster();
         $this->postar($client, '/master/comercial/modelos/news', $this->convite());
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(SalvarModeloDeCampanhaUseCase::FIXO_NAO_SE_ALTERA, $this->json($client)['erro']);
+        self::assertSame('Modo do modelo inválido.', $this->json($client)['erro'], 'o modo do padrão (blocos) não muda');
 
         $this->postar($client, '/master/comercial/modelos', ['acao' => 'novo']);
         $id = (int) $this->json($client)['modelo']['id'];
@@ -116,6 +122,61 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['nome' => 'Promoção', 'modo' => 'blocos'], json_decode($trilha, true));
         self::assertStringNotContainsString('sigiloso', $trilha);
         self::assertStringNotContainsString('Oferta secreta', $trilha);
+    }
+
+    #[TestDox('M5.8: "Salvar modelo" num padrão grava a versão do Master (uma linha, fora de "meus modelos"), a grade a mostra editada e a trilha leva a chave')]
+    public function testSalvarFixoEVoltarAoPadrao(): void
+    {
+        $client = $this->clienteMaster();
+        $convite = ['assunto' => 'Convite do Master', 'corpo' => 'Texto sigiloso do convite'] + $this->convite();
+        $this->postar($client, '/master/comercial/modelos/convite', $convite);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame(['convite', true, false, null, 'Convite do Master', 'Modelo salvo.'], [$saida['modelo']['chave'], $saida['modelo']['editado'], $saida['modelo']['proprio'], $saida['modelo']['id'], $saida['modelo']['assunto'], $saida['mensagem']]);
+        $this->postar($client, '/master/comercial/modelos/convite', ['assunto' => 'Segunda versão'] + $convite);
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_modelo WHERE fixo_chave = 'convite'"), 'upsert: uma linha por chave');
+        $id = (int) $this->conexao()->fetchOne("SELECT id FROM comercial_modelo WHERE fixo_chave = 'convite'");
+        $trilha = $this->trilha('modelo_upd', $id);
+        self::assertSame(['nome' => 'Convite · novos escritórios', 'modo' => 'simples', 'fixo_chave' => 'convite'], $trilha);
+        self::assertStringNotContainsString('sigiloso', (string) json_encode($trilha));
+
+        $client->request('GET', '/master/comercial/modelos');
+        $grade = $this->json($client)['modelos'];
+        self::assertCount(28, $grade, 'a versão editada não vira um modelo a mais');
+        self::assertSame(['convite', true, false, 'Segunda versão'], [$grade[0]['chave'], $grade[0]['editado'], $grade[0]['proprio'], $grade[0]['assunto']]);
+        self::assertSame(1, \count(array_filter($grade, static fn (array $m): bool => $m['editado'] === true)));
+        self::assertSame([], array_filter($grade, static fn (array $m): bool => $m['proprio'] === true), 'nada em meus modelos');
+
+        $this->postar($client, '/master/comercial/modelos/' . $id, $convite);
+        self::assertResponseStatusCodeSame(422, 'a linha da versão não se alcança pelo id de um próprio');
+        $this->postar($client, '/master/comercial/modelos/convite/padrao', []);
+        self::assertResponseIsSuccessful();
+        $volta = $this->json($client);
+        self::assertSame(['convite', false, 'Seu escritório 100% digital, de graça', 'O modelo voltou ao padrão.'], [$volta['modelo']['chave'], $volta['modelo']['editado'], $volta['modelo']['assunto'], $volta['mensagem']]);
+        self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_modelo WHERE fixo_chave = 'convite'"));
+        self::assertSame(['nome' => 'Convite · novos escritórios', 'modo' => 'simples', 'fixo_chave' => 'convite'], $this->trilha('modelo_pad', $id));
+        $client->request('GET', '/master/comercial/modelos');
+        self::assertFalse($this->json($client)['modelos'][0]['editado']);
+    }
+
+    #[TestDox('M5.8: o modelo de uma data também se edita (data-<id>), e "Voltar ao padrão" recusa sem versão, chave desconhecida, id de próprio, sem CSRF e quem não é Master')]
+    public function testVoltarAoPadraoRecusas(): void
+    {
+        $client = $this->clienteMaster();
+        $data = (array) (new \App\Comercial\Campanha\ModelosDeCampanha())->fixo('data-advogado');
+        $this->postar($client, '/master/comercial/modelos/data-advogado', ['assunto' => 'Parabéns, advogado'] + $data);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['data-advogado', true], [$this->json($client)['modelo']['chave'], $this->json($client)['modelo']['editado']]);
+
+        foreach (['convite' => 'Este modelo já está no padrão.', 'zzz' => 'Só os modelos padrão voltam ao padrão.', '9999' => 'Só os modelos padrão voltam ao padrão.', 'cu1' => 'Só os modelos padrão voltam ao padrão.'] as $chave => $erro) {
+            $this->postar($client, '/master/comercial/modelos/' . $chave . '/padrao', []);
+            self::assertResponseStatusCodeSame(422, (string) $chave);
+            self::assertSame($erro, $this->json($client)['erro']);
+        }
+        $client->request('POST', '/master/comercial/modelos/data-advogado/padrao', [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_modelo WHERE fixo_chave = 'data-advogado'"), 'sem CSRF, nada muda');
     }
 
     #[TestDox('Importar HTML: guardado sanitizado, com o aviso do <style>; Excluir apaga e audita')]

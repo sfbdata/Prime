@@ -18,13 +18,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * "Backup e Exportação de Dados" no Meu Perfil (spec backup-e-exportacao-de-dados, seção 6): pedir o backup e baixar o
  * ZIP pronto. Sempre o escritório da SESSÃO e a pessoa logada, nunca ids do formulário. O pedido sai em JSON (a tela
  * recarrega ao ter sucesso, como a exclusão da conta); o download é rota autenticada e responde 404 a tudo que não for
- * do dono, pronto e dentro da validade.
+ * da pessoa, pronto e dentro da validade. As duas rotas são só do DONO do escritório (`DonoDoEscritorio`): outra pessoa
+ * recebe 403.
  */
 #[Route('/perfil/backup')]
 final class BackupController extends AbstractController
@@ -60,6 +62,8 @@ final class BackupController extends AbstractController
 
         try {
             $this->pedir->executar($usuario, $tenant);
+        } catch (AccessDeniedException) {
+            return $this->json(['erro' => $this->t('so_o_dono')], Response::HTTP_FORBIDDEN);
         } catch (PedidoDeBackupNaoPermitido $e) {
             return $this->json(['erro' => $this->tradutor->trans($e->chaveDeTraducao)], Response::HTTP_CONFLICT);
         }

@@ -35,7 +35,16 @@ final class CotaDeEnvio
         'teste_campanha',
         // Resumo diário do Meu Perfil (decisão do coordenador, 21/10/2026): não disputa o teto com as campanhas.
         'resumo_diario',
+        // O aviso ao Master de que passou da hora de trocar de serviço (Service\AvisoDeTrocaDoServicoDeEmail::ORIGEM):
+        // sai justamente com o volume alto.
+        'aviso_troca_servico',
     ];
+
+    /**
+     * Acima deste total de e-mails em 24 h (todos: campanha, automação e os do sistema), o Master é avisado de que é hora
+     * de contratar outro serviço de e-mail (pedido do Farlei, 23/11/2026). Só avisa: nada é segurado por isso.
+     */
+    public const TROCAR_DE_SERVICO_ACIMA_DE = 2000;
 
     public const JANELA = '-24 hours';
     private const VOLTA = '+24 hours 60 seconds';
@@ -90,6 +99,7 @@ final class CotaDeEnvio
             $enviados * 100 >= $this->tetoDiario * $this->avisoDaCotaPercentual,
             $liberaEm !== null,
             $liberaEm,
+            $enviados > self::TROCAR_DE_SERVICO_ACIMA_DE,
         );
     }
 

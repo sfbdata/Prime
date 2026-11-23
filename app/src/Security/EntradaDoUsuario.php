@@ -7,6 +7,7 @@ namespace App\Security;
 use App\Auth\Service\DestinoPosLogin;
 use App\Conector\Service\ServidorDeAutorizacao;
 use App\Entity\Auth\User;
+use App\Produto\Service\PaginaInicialDoEscritorio;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
@@ -34,6 +35,7 @@ final class EntradaDoUsuario
         private readonly TenantContext $tenantContext,
         private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
         private readonly DestinoPosLogin $destinoPosLogin,
+        private readonly PaginaInicialDoEscritorio $paginaInicial,
     ) {
     }
 
@@ -83,7 +85,8 @@ final class EntradaDoUsuario
             $userTenant->setLastLoginAt(new \DateTimeImmutable());
             $this->em->flush();
 
-            return $alvo ?? $this->router->generate('expediente_index');
+            // A tela inicial do produto do escritório (multiproduto, §5); o completo segue no Expediente.
+            return $alvo ?? $this->router->generate($this->paginaInicial->rota($userTenant->getTenant()));
         }
 
         $this->em->flush();

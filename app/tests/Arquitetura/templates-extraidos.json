@@ -1380,7 +1380,10 @@
             "ponto-tela-cheia.js",
             "ponto-paineis.js",
             "ponto-equipe.js",
-            "ponto-sons.js"
+            "ponto-sons.js",
+            "ponto-alerta-som.js",
+            "ponto-aviso-flutuante.js",
+            "ponto-auditoria.js"
         ],
         "permitidos": [
             "pe-body",

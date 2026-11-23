@@ -111,6 +111,7 @@ perfil:
             muitos_pedidos: Too many requests in a row. Wait a few minutes and try again.
             token_invalido: Invalid token. Reload the page and try again.
             selecione_escritorio: Select a firm.
+            so_o_dono: Only the firm owner can request the backup.
             pedido_recebido: Request received. We will notify you in the bell when the backup is ready.
         situacao:
             em_preparo: In progress

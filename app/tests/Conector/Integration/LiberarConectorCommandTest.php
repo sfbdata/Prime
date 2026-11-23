@@ -8,7 +8,7 @@ use App\Conector\Command\LiberarConectorCommand;
 use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Enum\VersaoDoAceiteDoConector;
 use App\Conector\Repository\EscritorioDoConectorRepository;
-use App\Conector\Service\LiberacaoDoConector;
+use App\Tests\Conector\Support\LiberacaoDoConectorDeTeste;
 use App\Conector\UseCase\LiberarConectorNoEscritorioUseCase;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Tenant\Tenant;
@@ -71,7 +71,7 @@ final class LiberarConectorCommandTest extends KernelTestCase
         self::assertSame($master->getId(), $escritorio->getAceitoPor()?->getId());
         self::assertNull($this->doEscritorio($outro), 'o outro escritório não ganhou linha');
 
-        $liberacao = new LiberacaoDoConector(static::getContainer()->get(RecursosDoSistema::class), static::getContainer()->get(EscritorioDoConectorRepository::class));
+        $liberacao = LiberacaoDoConectorDeTeste::montar(static::getContainer()->get(RecursosDoSistema::class), static::getContainer()->get(EscritorioDoConectorRepository::class));
         $liberacao->exigir($this->em()->find(Tenant::class, $alvo->getId()) ?? self::fail('alvo sumiu'));
     }
 
