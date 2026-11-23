@@ -1,6 +1,23 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.3.0"
+  data: "2026-11-23"
+  itens:
+    - "O assistente de I.A. conectado ao BlueJus passa a ajudar o administrador da plataforma a cuidar dos modelos de e-mail do Comercial: criar um modelo novo, copiar um que já existe, mudar o texto e apagar o que não serve mais."
+    - "Antes de mudar ou apagar um modelo, o assistente mostra o assunto e o texto que ficarão e só faz depois que a pessoa disser sim."
+    - "Esse recurso é de quem administra a plataforma: os demais usuários do conector não veem essa ferramenta."
+    - "No Ponto, os avisos ao bater o ponto (fora do raio da sede, GPS impreciso, ponto sem internet, trabalho externo, intervalo e interjornada, horário futuro, registro repetido) passam a aparecer em inglês para quem usa o sistema em inglês, com a distância no formato do idioma. Em português, os textos seguem os mesmos."
+    - "No Ponto, os avisos ao corrigir uma batida, analisar ou editar uma justificativa, trocar o anexo e abonar justificativas da equipe passam a aparecer em inglês para quem usa o sistema em inglês. Em português, os textos seguem os mesmos."
+    - "No Ponto, os nomes e as explicações das funções nas Configurações, a situação do banco de horas, as escalas da equipe, a trilha da Auditoria e os lembretes de bater o ponto passam a aparecer em inglês para quem usa o sistema em inglês. Em português, os textos seguem os mesmos."
+    - "O suporte do BlueJus volta a conseguir abrir e corrigir a jornada padrão de um escritório quando está trabalhando a partir de outro escritório."
+    - "No Painel do Master, quem edita a mensagem de boas-vindas, a de primeiros passos ou os avisos de espaço na Central de envios passa a ver essa versão nos e-mails automáticos que o BlueJus manda. \"Voltar ao padrão\" devolve o texto original."
+    - "No Painel do Master, as mensagens de boas-vindas e as comerciais agora podem ser editadas mesmo quando são as que vêm prontas com o sistema. Basta mudar o texto e clicar em \"Salvar modelo\". Para desfazer, o botão \"Voltar ao padrão\" traz de volta o texto original."
+    - "Nas datas comemorativas, cada data ganhou a escolha do modelo da mensagem: dá para usar o texto padrão da data, outro modelo do sistema ou um modelo seu."
+    - "Preparamos o BlueJus para abrir a cada escritório só as ferramentas que ele usa: quando esta trava for ligada, quem tentar abrir uma tela de ferramenta que o escritório não tem verá a página de \"não encontrada\". Por enquanto ela fica desligada, e todos continuam vendo as mesmas telas de sempre."
+    - "Quem chega pelo site do BlueJus Voto vê, na tela de criar conta, que a conta vai nascer só com o Voto, e pode escolher a conta com todas as ferramentas com um clique."
+    - "Preparamos o menu para mostrar a cada escritório só as ferramentas que ele usa. Por enquanto isso fica desligado: o menu continua com os mesmos itens de sempre, e o logo do topo continua levando ao Expediente (só a conta criada pelo site do Voto abre no Voto)."
+    - "Na lista de pastas, o cadeado das pastas com acesso restrito agora aparece à esquerda do número da pasta, um pouco menor. A coluna do número voltou ao tamanho de antes, então o nome do cliente começa no mesmo lugar de antes e as linhas não crescem."
 - versao: "3.2.0"
   data: "2026-11-23"
   itens:

@@ -8,6 +8,44 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.3.0] - 2026-11-23
+
+### Adicionado
+
+- Conector de I.A. (Painel do Master): nova ferramenta `modelos_de_email`, só para o Master da plataforma (some do `tools/list`, da `quem_sou_eu` e do guia para os demais). Ações: `criar`, `duplicar`, `salvar_como` (diretas), `editar`, `voltar_ao_padrao` e `excluir` (por proposta e `confirmar_acao`, com assunto e texto puro no resumo e o hash do modelo conferido na confirmação). `editar` vale também para os padrões do sistema, inclusive `data-<id>`, e grava a versão do Master (M5.8).
+- Reusa os UseCases do Comercial; toda gravação vai ao `audit_log` com rota `conector_mcp` e escritório nulo. Importar HTML fica fora (decisão 41); editar o HTML de um modelo HTML vale (sanitizado ao gravar). Campo acima do limite é recusado, e o resumo de texto grande é cortado (o modelo é gravado inteiro).
+- `ler_comercial` (`modelos` e `previa`) passa a ler a versão efetiva por `ModelosEfetivos`, e o conector vê o padrão editado.
+- Automações de e-mail: com o padrão da Central editado pelo Master (`boasvindas`, `primeiros`, `espaco90`, `espaco100`, `pedido`), as automações correspondentes (val, conv, dica, e90, e100, ped) enviam a versão do Master (assunto, selo, título com `{nome}` e `{limite}`, conteúdo no layout da campanha); sem versão editada, com "Voltar ao padrão" ou com versão sem assunto ou conteúdo, sai o texto de sempre. O lembrete de confirmação e os avisos de espaço extra continuam no texto do sistema (M5.8).
+- Comercial do Master: "Salvar modelo" passa a valer também nos modelos padrão do sistema (boas-vindas, comerciais e as 17 mensagens das datas comemorativas). A versão do Master fica em `comercial_modelo` com `fixo_chave` (uma linha por chave, fora de "Meus modelos") e é a que a grade mostra; "Voltar ao padrão" (POST `master_comercial_modelo_padrao`, trilha `modelo_pad`) apaga a versão e devolve o texto do sistema.
+- Datas comemorativas: novo seletor "Modelo" em cada data (`comercial_data_comemorativa.modelo_chave`; vazio é o "Padrão da data"). O disparo usa o modelo escolhido, na versão editada se houver; se o modelo próprio escolhido foi excluído, vale o padrão da data e o log avisa. As campanhas das datas passam a ser reconhecidas pela chave de idempotência `data:`, e não mais pelo modelo.
+- Migration `Version20261123200000`: `comercial_modelo.fixo_chave` (único) e `comercial_data_comemorativa.modelo_chave`.
+- Função Twig `produto_inclui('x')` (aceita lista; basta um) e `produto_rota_inicial()` em `App\Produto\Twig\ProdutoExtension`, sobre o serviço `ProdutosNaTela` (mesma régua da guarda: tudo com a chave `MULTIPRODUTO_MODO` desligada, sem login, para o Master ou sem escritório na sessão).
+- Menu lateral, barra secundária do Expediente, modal, atalho e pendência do Ponto, lembretes da Agenda e busca rápida passam a seguir os produtos do escritório quando a chave estiver ligada. A barra secundária fica, vazia, para manter a altura do cabeçalho.
+- O logo leva a `/inicio` (`homepage`), que redireciona para a tela inicial do escritório (`PaginaInicialDoEscritorio`): o Expediente para todos os escritórios de hoje, o Voto para quem nasceu pelo site do Voto. O destino só é calculado no clique, sem consulta a mais em cada página.
+- `ia_disponibilidade()` responde "desligada no escritório" para escritório sem a I.A. (chave ligada).
+- Cadastro: o "Criar conta" avisa quando a conta vai nascer só com o Voto e oferece a conta com todas as ferramentas (`/cadastro?produto=completo` tira o produto da sessão).
+
+### Alterado
+
+- Ponto: os textos da batida que vêm dos Services (cerca, fila sem internet, trabalho externo, chave do ponto, choque de jornada entre escritórios, entrada e turno abertos, alertas antes da batida, horário futuro e batida já registrada) passam pelo tradutor com a chave no Service (`TextoDoPonto`). As recusas do motivo do trabalho externo levam um código (`recusaDoMotivo`) que o JS compara no lugar do texto. O português fica idêntico, cada texto é conferido contra a constante.
+- Ponto: as recusas do ajuste de batida, da análise e da edição de justificativa, da troca de anexo e do abono em lote da equipe passam pelo tradutor, com a chave na exceção (`RecusaDoPonto`, `TextoDoPonto`). Os avisos do Twig que liam a constante (`constant()`) passam a ler o catálogo. O português fica idêntico, cada recusa é conferida contra o texto antigo.
+- Ponto: os rótulos que vêm dos Services (título e ajuda das funções do ponto, situação dos lotes do banco de horas, escalas da equipe, texto e ação da trilha da Auditoria) e os lembretes do alerta de horário passam pelo tradutor. O que vem gravado no evento da trilha fica como está. O português fica idêntico, conferido contra o texto antigo.
+
+### Corrigido
+
+- Ponto: `JornadaTenantController` (`GET` e `POST /tenant/{id}/jornada`) fixa o `TenantFilter` no escritório da URL logo depois do guard de acesso. A rota usa `{id}`, que o `TenantUrlScopeListener` não alcança: o super admin com a sessão em outro escritório via a jornada padrão do escritório da URL como inexistente e, ao salvar, a tela tentava criar uma segunda (índice único, resposta 409).
+- Lista de pastas do Expediente: a coluna NUP volta a 74px (revertendo o alargamento para 124px) e a coluna Cliente volta ao lugar de antes.
+- O cadeado de pasta com acesso restrito passa para o lado esquerdo do número do NUP e fica menor (11px). Ele ocupa o recuo à esquerda da célula, sem empurrar o número, sem invadir a coluna Cliente e sem aumentar a altura da linha.
+- O cadeado criado ao trancar a pasta na lista (JS) também entra antes do número. Estrela de favorito e ícone de compartilhar seguem como estavam.
+
+### Segurança
+
+- Guarda do produto (`App\Produto\EventListener\GuardaDoProduto`, `kernel.request`, prioridade 3): rota de um produto que o escritório não tem responde 404, fora do `PermissionChecker` (o primário também leva 404; só o Master passa). Não age em sub-requisição, rota de núcleo, pública ou plataforma, sem usuário logado nem sem escritório na sessão (é por aqui que passa o Convidado do Trabalho Externo; com escritório na sessão, o Trabalho Externo segue o Expediente). O escritório é o do `{tenantId}` da URL quando existe; senão, o da sessão.
+- Chave `MULTIPRODUTO_MODO` (parâmetro `multiproduto.modo`, `App\Produto\Service\ChaveDoMultiproduto` e enum `ModoDoMultiproduto`): `desligado` (padrão), `observacao` (registra no canal de log `multiproduto`, sem dado pessoal, e deixa seguir) e `bloqueio` (404). Valor desconhecido vale `desligado`.
+- Canal de log `multiproduto`; em produção com handler próprio em stderr (JSON), porque o `main` só grava a partir de erro.
+- Conector de I.A. (D11): `LiberacaoDoConector::exigir` passa a exigir o Expediente do escritório em `bloqueio` (recusa como os outros níveis da liberação) e só registra em `observacao`. Desligada, tudo como antes.
+- Tipo `seguranca`: é uma camada nova de autorização por escritório (risco ALTO na spec), mesmo nascendo desligada.
+
 ## [3.2.0] - 2026-11-23
 
 ### Alterado
@@ -2409,7 +2447,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.2.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/sfbdata/Prime/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/sfbdata/Prime/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/sfbdata/Prime/compare/v2.63.2...v3.0.0
