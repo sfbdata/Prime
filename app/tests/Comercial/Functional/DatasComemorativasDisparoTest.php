@@ -24,6 +24,7 @@ use App\Comercial\Service\VarreduraDeAutomacoes;
 use App\Tests\Comercial\Support\CriaCampanhas;
 use App\Tests\Comercial\Support\LogEmMemoria;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Log\NullLogger;
@@ -241,6 +242,29 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
 
         self::assertSame('data-natal', $this->conexao->fetchOne("SELECT modelo_chave FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'"));
         self::assertStringContainsString('não compõe uma campanha', $log->tudo);
+    }
+
+    #[TestDox('M5.12: a versão editada do padrão da data que não compõe (bloco desconhecido) cai no texto do sistema; a data não fica sem envio')]
+    public function testPadraoEditadoInvalidoVaiNoTextoDoSistema(): void
+    {
+        $this->editarFixo('data-natal', ['modo' => 'blocos', 'assunto' => 'Natal do Master', 'blocos' => [['t' => 'texto', 'a' => 'x']]]);
+        $this->conexao->executeStatement("UPDATE comercial_modelo SET conteudo = '[{\"t\":\"desconhecido\"}]' WHERE fixo_chave = 'data-natal'");
+        static::getContainer()->get(EntityManagerInterface::class)->clear(); // a versão em memória ainda tem o assunto
+        $log = new LogEmMemoria();
+
+        self::assertSame(1, $this->disparo(true, $log)->disparar(new \DateTimeImmutable('2026-12-25 09:00')));
+
+        $c = $this->conexao->fetchAssociative("SELECT * FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'");
+        self::assertIsArray($c);
+        self::assertSame(['data-natal', (string) ((array) (new ModelosDeCampanha())->fixo('data-natal'))['assunto']], [$c['modelo_chave'], $c['assunto']]);
+        self::assertStringContainsString('vale o texto do sistema', $log->tudo);
+
+        // Assunto vazio também não compõe (a campanha não sairia): vale o texto do sistema.
+        $this->editarFixo('data-pascoa', ['modo' => 'blocos', 'assunto' => 'Páscoa do Master', 'blocos' => [['t' => 'texto', 'a' => 'x']]]);
+        $this->conexao->executeStatement("UPDATE comercial_modelo SET assunto = '' WHERE fixo_chave = 'data-pascoa'");
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        self::assertSame(1, $this->disparo()->disparar(new \DateTimeImmutable('2027-03-28 09:00')));
+        self::assertSame((string) ((array) (new ModelosDeCampanha())->fixo('data-pascoa'))['assunto'], $this->conexao->fetchOne("SELECT assunto FROM comercial_campanha WHERE chave_idempotencia = 'data:pascoa:2027'"));
     }
 
     /** @param array<string, mixed> $mensagem */

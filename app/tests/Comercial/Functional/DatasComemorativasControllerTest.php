@@ -29,6 +29,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(AlterarDataComemorativaUseCase::class)]
 final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
 {
+    private const INCOMPLETO = 'Informe se a data fica ligada, a antecedência, para quem e o modelo.';
+
     #[TestDox('Lista as 17 da migration (ligadas, no dia, para Todos), o "N ativas" e a chave geral desligada por padrão')]
     public function testLista(): void
     {
@@ -53,7 +55,7 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
     public function testAlterar(): void
     {
         $client = $this->clienteMaster();
-        $this->postar($client, '/master/comercial/datas/natal', ['ligada' => false, 'antecedencia' => 3, 'publico' => 'leads']);
+        $this->postar($client, '/master/comercial/datas/natal', ['ligada' => false, 'antecedencia' => 3, 'publico' => 'leads', 'modelo' => null]);
 
         self::assertResponseIsSuccessful();
         $linha = $this->json($client);
@@ -74,11 +76,14 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
     {
         $client = $this->clienteMaster();
         foreach ([
-            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 2, 'publico' => 'todos'], AlterarDataComemorativaUseCase::ANTECEDENCIA_INVALIDA],
-            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'sec'], AlterarDataComemorativaUseCase::PUBLICO_INVALIDO],
-            ['/master/comercial/datas/zzz', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'], AlterarDataComemorativaUseCase::DESCONHECIDA],
-            ['/master/comercial/datas/natal', ['ligada' => 'sim', 'antecedencia' => 0, 'publico' => 'todos'], 'Informe se a data fica ligada, a antecedência e para quem.'],
-            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => '1', 'publico' => 'todos'], 'Informe se a data fica ligada, a antecedência e para quem.'],
+            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 2, 'publico' => 'todos', 'modelo' => null], AlterarDataComemorativaUseCase::ANTECEDENCIA_INVALIDA],
+            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'sec', 'modelo' => null], AlterarDataComemorativaUseCase::PUBLICO_INVALIDO],
+            ['/master/comercial/datas/zzz', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => null], AlterarDataComemorativaUseCase::DESCONHECIDA],
+            ['/master/comercial/datas/natal', ['ligada' => 'sim', 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => null], self::INCOMPLETO],
+            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => '1', 'publico' => 'todos', 'modelo' => null], self::INCOMPLETO],
+            // Sem `modelo`, o POST apagaria a escolha da data: recusado.
+            ['/master/comercial/datas/natal', ['ligada' => false, 'antecedencia' => 0, 'publico' => 'todos'], self::INCOMPLETO],
+            ['/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => 3], self::INCOMPLETO],
         ] as [$url, $corpo, $erro]) {
             $this->postar($client, $url, $corpo);
             self::assertResponseStatusCodeSame(422, json_encode($corpo) ?: '');
@@ -121,7 +126,7 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/comercial/datas');
         self::assertSame([$proprio, true], [array_column($this->json($client)['modelos'], 'chave')[11], array_column($this->json($client)['modelos'], 'proprio')[11]]);
 
-        foreach ([['zzz', AlterarDataComemorativaUseCase::MODELO_INVALIDO], ['cu99999', AlterarDataComemorativaUseCase::MODELO_INVALIDO], [5, 'Informe se a data fica ligada, a antecedência e para quem.']] as [$modelo, $erro]) {
+        foreach ([['zzz', AlterarDataComemorativaUseCase::MODELO_INVALIDO], ['cu99999', AlterarDataComemorativaUseCase::MODELO_INVALIDO], [5, self::INCOMPLETO]] as [$modelo, $erro]) {
             $this->postar($client, '/master/comercial/datas/pascoa', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => $modelo]);
             self::assertResponseStatusCodeSame(422);
             self::assertSame($erro, $this->json($client)['erro']);

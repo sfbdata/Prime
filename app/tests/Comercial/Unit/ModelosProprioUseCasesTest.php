@@ -23,6 +23,8 @@ use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\VoltarModeloAoPadraoUseCase;
 use App\Entity\Auth\User;
+use Doctrine\DBAL\Driver\Exception as DriverException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -52,11 +54,15 @@ final class ModelosProprioUseCasesTest extends TestCase
     private User $master;
     private ?ModeloDeCampanha $gravado = null;
     private ?string $acao = null;
+    private bool $outraAbaGravouAntes = false;
 
     protected function setUp(): void
     {
         $this->repositorio = $this->createMock(ModeloDeCampanhaRepository::class);
         $this->repositorio->method('salvar')->willReturnCallback(function (ModeloDeCampanha $m, string $acao): void {
+            if ($this->outraAbaGravouAntes) {
+                throw new UniqueConstraintViolationException($this->createStub(DriverException::class), null);
+            }
             $this->gravado = $m;
             $this->acao = $acao;
         });
@@ -135,6 +141,16 @@ final class ModelosProprioUseCasesTest extends TestCase
         self::assertSame(['news', true, false, null], [$saida->modelo['chave'], $saida->modelo['editado'], $saida->modelo['proprio'], $saida->modelo['id']]);
         self::assertSame('Editado', $saida->modelo['assunto']);
         self::assertSame(SalvarModeloDeCampanhaUseCase::MENSAGEM, $saida->mensagem);
+    }
+
+    #[TestDox('M5.8: duas abas salvando o mesmo padrão pela primeira vez: a segunda bate no índice único e recebe a recusa (422), não um erro 500')]
+    public function testSalvarFixoEmDuasAbas(): void
+    {
+        $this->outraAbaGravouAntes = true;
+
+        $this->expectException(CampanhaRecusada::class);
+        $this->expectExceptionMessage(SalvarModeloDeCampanhaUseCase::SALVO_EM_OUTRA_ABA);
+        $this->salvar()->executar('news', MensagemDaCampanha::deArray(['modo' => 'blocos', 'assunto' => 'Editado', 'blocos' => [['t' => 'texto', 'a' => 'Oi']]]), $this->master);
     }
 
     #[TestDox('M5.8: salvar de novo o padrão já editado atualiza a mesma linha; o data-<id> também vale; outro modo é recusado')]

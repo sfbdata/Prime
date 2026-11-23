@@ -36,6 +36,8 @@ use Psr\Log\LoggerInterface;
  */
 final class DisparoDasDatasComemorativas
 {
+    private const ENDERECO_DE_CONFERENCIA = 'conferencia@bluejus.com.br';
+
     public function __construct(
         private readonly DataComemorativaRepository $datas,
         private readonly CampanhaDeEmailRepository $campanhas,
@@ -63,7 +65,12 @@ final class DisparoDasDatasComemorativas
         }
         $criadas = 0;
         foreach ($devidas as $chave => [$data, $publico, $escolhido]) {
-            $criadas += $this->criar($chave, $data, $publico, $escolhido, $agora) ? 1 : 0;
+            // Uma data que falha não segura as outras do dia; a volta seguinte tenta de novo (a chave de idempotência barra o repetido).
+            try {
+                $criadas += $this->criar($chave, $data, $publico, $escolhido, $agora) ? 1 : 0;
+            } catch (\Throwable $erro) {
+                $this->logger->error('Comercial: campanha da data comemorativa não criada.', ['data' => $chave, 'erro' => $erro::class]);
+            }
         }
 
         return $criadas;
@@ -103,6 +110,8 @@ final class DisparoDasDatasComemorativas
             try {
                 $mensagem = MensagemDaCampanha::deArray($modelo);
                 ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem); // o `vagas` editado sem o botão das vagas não sai (§11)
+                // Monta uma vez para um endereço de conferência: assunto ou conteúdo vazio não vira campanha que não sai.
+                $this->composicao->mensagemPara($mensagem, self::ENDERECO_DE_CONFERENCIA, null, 'campanha:0');
 
                 return [$mensagem, $modelo['chave'], $this->composicao->congelar($mensagem)];
             } catch (CampanhaRecusada $e) {
@@ -110,7 +119,11 @@ final class DisparoDasDatasComemorativas
             }
         }
 
-        throw new \LogicException('Modelo da data ausente: ' . $chave);
+        // A versão editada do padrão também não compõe: vale o texto do sistema, que sempre compõe (a data não fica sem envio).
+        $this->logger->warning('Comercial: versão editada do padrão da data comemorativa não compõe; vale o texto do sistema.', ['data' => $chave]);
+        $mensagem = MensagemDaCampanha::deArray((array) (new ModelosDeCampanha())->fixo($padrao));
+
+        return [$mensagem, $padrao, $this->composicao->congelar($mensagem)];
     }
 
     private function criar(string $chave, \DateTimeImmutable $data, string $publico, ?string $escolhido, \DateTimeImmutable $agora): bool

@@ -130,12 +130,13 @@ final class ComercialDoMasterController extends AbstractController
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
         $corpo = json_decode($request->getContent(), true);
-        if (!is_array($corpo) || !is_bool($corpo['ligada'] ?? null) || !is_int($corpo['antecedencia'] ?? null) || !is_string($corpo['publico'] ?? null) || (isset($corpo['modelo']) && !is_string($corpo['modelo']))) {
-            return $this->json(['erro' => 'Informe se a data fica ligada, a antecedência e para quem.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        if (!is_array($corpo) || !is_bool($corpo['ligada'] ?? null) || !is_int($corpo['antecedencia'] ?? null) || !is_string($corpo['publico'] ?? null) || !array_key_exists('modelo', $corpo) || ($corpo['modelo'] !== null && !is_string($corpo['modelo']))) {
+            // `modelo` é obrigatório (nulo = padrão da data): o POST é a linha inteira, e a falta dele apagaria a escolha.
+            return $this->json(['erro' => 'Informe se a data fica ligada, a antecedência, para quem e o modelo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         $usuario = $this->getUser();
         try {
-            $linha = $alterar->executar($chave, $corpo['ligada'], $corpo['antecedencia'], $corpo['publico'], $usuario instanceof User ? $usuario : throw new DataComemorativaRecusada('Sessão inválida.'), $corpo['modelo'] ?? null);
+            $linha = $alterar->executar($chave, $corpo['ligada'], $corpo['antecedencia'], $corpo['publico'], $usuario instanceof User ? $usuario : throw new DataComemorativaRecusada('Sessão inválida.'), $corpo['modelo']);
         } catch (DataComemorativaRecusada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

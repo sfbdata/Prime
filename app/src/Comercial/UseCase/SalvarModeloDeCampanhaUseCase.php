@@ -14,6 +14,7 @@ use App\Comercial\Entity\ModeloDeCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\ModeloDeCampanhaRepository;
 use App\Entity\Auth\User;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -27,6 +28,7 @@ use Psr\Clock\ClockInterface;
 final class SalvarModeloDeCampanhaUseCase
 {
     public const MENSAGEM = 'Modelo salvo.';
+    public const SALVO_EM_OUTRA_ABA = 'Este modelo acabou de ser salvo em outra aba. Abra-o de novo e salve.';
 
     public function __construct(
         private readonly ModeloDeCampanhaRepository $modelos,
@@ -51,7 +53,12 @@ final class SalvarModeloDeCampanhaUseCase
             $modelo->renomear($m->nome);
         }
         $modelo->preencher($m->assunto, $m->selo, $m->titulo, ModeloDaGrade::conteudoParaGravar($m, $html), $agora);
-        $this->modelos->salvar($modelo, ModeloDeCampanhaRepository::ALTERADO, $por);
+        try {
+            $this->modelos->salvar($modelo, ModeloDeCampanhaRepository::ALTERADO, $por);
+        } catch (UniqueConstraintViolationException) {
+            // Duas abas salvando o mesmo padrão pela primeira vez: a outra gravou antes (índice único de `fixo_chave`).
+            throw new CampanhaRecusada(self::SALVO_EM_OUTRA_ABA);
+        }
         $this->imagens->renovarPeloModelo($m, $agora);
         $aviso = $m->modo === 'html' && SanitizadorDeHtmlDeEmail::temEstiloEmBloco($m->html) ? ' ' . SanitizadorDeHtmlDeEmail::AVISO_DE_ESTILO : '';
         $saida = $padrao === null ? ModeloDaGrade::deEntidade($modelo) : ModeloDaGrade::deEditado($modelo);
