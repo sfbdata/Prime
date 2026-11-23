@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: remocao
 ---
 ## Changelog
 - A aba da campanha BlueJus Black (Black Friday) saiu do topo de todas as telas logadas, inclusive a prévia do Master. A campanha segue na página Contribua (faixa, FAQ e janela) e o link #black continua abrindo a janela em qualquer tela.
