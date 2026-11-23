@@ -42,6 +42,8 @@ final class GerarBackupHandler
     public const VALIDADE = '+7 days';
     public const TIPO_PRONTO = 'backup_pronto';
     public const TIPO_FALHOU = 'backup_falhou';
+    /** O aviso do sino abre o Meu Perfil na seção "Backup e Exportação de Dados" (`id="mpBackup"`). */
+    public const URL_DA_SECAO = '/perfil#mpBackup';
     public const MOTIVO_INTERROMPIDO = 'A montagem foi interrompida. Peça um novo backup.';
     private const MOTIVO_GENERICO = 'Não foi possível montar o backup. Peça um novo backup.';
 
@@ -142,8 +144,7 @@ final class GerarBackupHandler
     private function avisar(int $id, User $usuario, Tenant $tenant, string $tipo, string $texto): void
     {
         try {
-            // Sem link: a tela de backup chega no PR 4.
-            $this->notificacoes->criarNotificacao($usuario, $tenant, $tipo, $texto);
+            $this->notificacoes->criarNotificacao($usuario, $tenant, $tipo, $texto, self::URL_DA_SECAO);
         } catch (\Throwable $e) {
             $this->registrarErro($id, $e);
         }

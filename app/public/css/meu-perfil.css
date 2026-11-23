@@ -253,3 +253,19 @@ html[data-bs-theme="dark"] .mp-guia-url { background: var(--bs-tertiary-bg); bor
 html[data-bs-theme="dark"] .mp-guia-aviso { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
 
 @media (prefers-reduced-motion: reduce) { .mp-card, .mp-barra > div { animation: none; } }
+
+/* Backup e Exportação de Dados (spec backup-e-exportacao-de-dados, seção 6): seção discreta no fim do perfil; usa o cartão, o topo e os botões da página. */
+.mp-bk-msg { margin: 0 20px 14px; padding: 9px 12px; border-radius: 3px; font-size: 13px; background: #f7f9fb; border: 1px solid #e6edf2; color: #34505f; }
+.mp-bk-msg.is-erro { background: #fdf1f2; border-color: #f1c4c9; color: #a3232b; }
+.mp-bk-msg[hidden] { display: none; }
+.mp-bk-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid #eef2f5; }
+.mp-bk-item { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 20px; border-bottom: 1px solid #f0f4f7; font-size: 13px; color: #34505f; }
+.mp-bk-item:last-child { border-bottom: none; }
+.mp-bk-sit { min-width: 84px; height: 22px; padding: 0 10px; border-radius: 4px; background: #eef2f5; color: #4a6373; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; }
+.mp-bk-sit-pronto { background: #e3f4ea; color: #1e7b45; }
+.mp-bk-sit-falhou { background: #fdf1f2; color: #a3232b; }
+.mp-bk-sit-em_preparo { background: #fff3cd; color: #664d03; }
+.mp-bk-data { flex: 1; min-width: 130px; }
+.mp-bk-tam, .mp-bk-validade { color: #5b7383; font-size: 12.5px; }
+.mp-bk-baixar { height: 28px; padding: 0 12px; border: 1px solid #0a6fa0; border-radius: 3px; color: #0a6fa0; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
+.mp-bk-baixar:hover, .mp-bk-baixar:focus-visible { background: #0a6fa0; color: #fff; }

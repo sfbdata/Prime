@@ -192,6 +192,12 @@ framework:
             policy: sliding_window
             limit: 3
             interval: '1 minute'
+        # "Gerar backup" do Meu Perfil (spec backup-e-exportacao-de-dados): chave = id do USUÁRIO. Só freia o clique
+        # repetido; o limite de 1 pedido por dia é do PedirBackupUseCase.
+        backup_pedido:
+            policy: sliding_window
+            limit: 5
+            interval: '10 minutes'
         # Avisos no sino disparados pelo Registro da pasta — @menção e "respondeu seu comentário"
         # (SEC-008): chave = id do AUTOR. Limita a NOTIFICAÇÃO, não a mensagem: estourou, a
         # mensagem é gravada e o aviso é suprimido (com log). Cada mensagem pode avisar até 20

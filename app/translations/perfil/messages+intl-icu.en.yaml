@@ -97,6 +97,26 @@ perfil:
         titulo: Sign out of all devices
         texto: 'All other devices where you signed in are signed out, including those using "stay signed in". On this device you stay signed in until you sign out or close the browser; after that, sign in with your password. The password does not change.'
         confirmar: Sign out of all
+    backup:
+        titulo: Backup and Data Export
+        sub: A copy of what you can see in the firm
+        explicacao: The backup gathers what you can see in the firm (cases, clients and documents). It is prepared in the background, we notify you in the bell when it finishes and the file stays available for 7 days.
+        gerar: Create backup
+        baixar: Download
+        valido_ate: 'Available until {data}'
+        erro_generico: Could not request the backup right now. Try again.
+        recusa:
+            ja_tem_aberto: You already have a backup being prepared. Wait for it to be ready.
+            limite_do_dia: You already requested a backup in the last 24 hours. Try again later.
+            muitos_pedidos: Too many requests in a row. Wait a few minutes and try again.
+            token_invalido: Invalid token. Reload the page and try again.
+            selecione_escritorio: Select a firm.
+            pedido_recebido: Request received. We will notify you in the bell when the backup is ready.
+        situacao:
+            em_preparo: In progress
+            pronto: Ready
+            falhou: Failed
+            vencido: Expired
     exclusao:
         titulo: Delete firm account
         pendente_sub: 'Request made on {data} · reason: {motivo}. The team has no access until the Master finishes.'
