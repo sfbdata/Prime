@@ -12,6 +12,7 @@ use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\Service\PoliticaDeCadastro;
+use App\Auth\Service\ProdutoDoCadastro;
 use App\Entity\Auth\User;
 use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Service\CodigoDeIndicacao;
@@ -75,6 +76,8 @@ final class SecurityController extends AbstractController
             // cadastro, só para o anônimo. No Google o e-mail provado esconde o campo; no Facebook o campo segue visível,
             // com o e-mail só como sugestão.
             'cadastroSocial' => $usuario === null && $request->hasSession() ? $this->cadastroSocial($request, $cadastroPeloGoogle, $cadastroPeloFacebook) : null,
+            // Produto com que a conta nasce (spec multiproduto, §5): o "Criar conta" avisa e oferece desfazer.
+            'produtoDoCadastro' => $request->hasSession() ? ProdutoDoCadastro::ler($request->getSession())?->value : null,
         ]);
     }
 

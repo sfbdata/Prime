@@ -7,7 +7,7 @@
    (spec pasta-cadeado K3), com o "Pedir acesso" de lá. A janela não tem aviso de sigilo próprio.
    O CSS vem aqui, no body (rel=stylesheet é permitido no body), para não mexer no base: a janela nasce
    escondida, então não há salto visual até ele chegar. #}
-{% if app.user and current_tenant() and can_access_module('pastas') %}
+{% if app.user and current_tenant() and produto_inclui('expediente') and can_access_module('pastas') %}
 <link rel="stylesheet" href="{{ asset('css/pasta-busca-rapida.css') }}">
 <div class="pbr" id="pastaBuscaRapida" hidden data-url="{{ path('expediente_busca_rapida') }}">
     <div class="pbr-fundo"></div>

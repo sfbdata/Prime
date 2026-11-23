@@ -51,6 +51,33 @@ final class CadastroPeloVotoTest extends JusPrimeWebTestCase
         self::assertSame('voto', $this->naSessao($client));
     }
 
+    #[TestDox('O "Criar conta" avisa que a conta nasce só com o Voto e oferece desfazer; sem o Voto guardado, nenhum aviso')]
+    public function testAvisoNoCriarConta(): void
+    {
+        $client = $this->cliente();
+        $semVoto = $client->request('GET', '/login?abrir=cadastro');
+        self::assertCount(0, $semVoto->filter('#lgCdProduto'));
+
+        $client->request('GET', '/cadastro?produto=voto');
+        $comVoto = $client->request('GET', '/login?abrir=cadastro');
+
+        self::assertCount(1, $comVoto->filter('.lg-md__passo[data-passo="cad"] > #lgCdProduto'));
+        self::assertSame('/cadastro?produto=completo', $comVoto->filter('#lgCdProdutoCompleto')->attr('href'));
+    }
+
+    #[TestDox('?produto=completo (o link do aviso) tira o Voto da sessão: a conta nasce completa')]
+    public function testCompletoApagaOVoto(): void
+    {
+        $client = $this->cliente();
+        $client->request('GET', '/cadastro?produto=voto');
+
+        $client->request('GET', '/cadastro?produto=completo');
+
+        self::assertResponseRedirects('/login?abrir=cadastro');
+        self::assertNull($this->naSessao($client));
+        self::assertCount(0, $client->request('GET', '/login?abrir=cadastro')->filter('#lgCdProduto'));
+    }
+
     #[TestDox('Valor fora da lista, vazio, em lista ou ausente é ignorado e não apaga o Voto já guardado')]
     public function testValorForaDaListaNaoApaga(): void
     {

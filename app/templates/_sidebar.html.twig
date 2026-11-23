@@ -26,7 +26,7 @@
         <nav>
             <ul class="pje-menu-list">
 
-                {% if can_access_module('bi') and recurso_visivel('dashboard') %}
+                {% if produto_inclui('expediente') and can_access_module('bi') and recurso_visivel('dashboard') %}
                     <li class="pje-menu-item {{ recurso_marca('dashboard') }}">
                         <a href="{{ path('dashboard_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'dashboard_' ? 'active' : '' }}">
@@ -36,19 +36,21 @@
                     </li>
                 {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('expediente_index') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'expediente_' ? 'active' : '' }}">
-                        <i class="bi bi-inbox-fill pje-nav-icon"></i>
-                        <span>{{ 'moldura.menu_lateral.expediente'|trans }}</span>
-                    </a>
-                </li>
+                {% if produto_inclui('expediente') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('expediente_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'expediente_' ? 'active' : '' }}">
+                            <i class="bi bi-inbox-fill pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.expediente'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
 
                 {# Processos e Push Processual foram UNIFICADOS (16/10, pedido do dono): o cadastro de
                    processos mora dentro do Push Processual, e as telas de processo acendem este item.
                    Quem só tem o módulo de processos (sem o Push) não pode perder o caminho até eles:
                    para esse perfil o item continua sendo "Processos". #}
-                {% if can_access_module('djen') %}
+                {% if produto_inclui('expediente') and can_access_module('djen') %}
                     <li class="pje-menu-item">
                         {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
                            usuários conhecem, e o que as notificações antigas dizem) não acha nada.
@@ -73,7 +75,7 @@
                 {# Trabalho Externo: logo abaixo do Push Processual, com o selo "NOVO" do desenho
                    (`06 - Trabalho Externo 1.0`, menu lateral). O Master global passa pelo bypass de
                    super admin; a tela decide o resto (aba suspensa, só equipe etc.). #}
-                {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
+                {% if produto_inclui('expediente') and can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
                     <li class="pje-menu-item {{ recurso_marca('trabalho') }}">
                         <a href="{{ path('trabalho_externo_index') }}"
                            data-busca-alias="correspondente diligência demanda externa"
@@ -85,7 +87,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('cobrancas') %}
+                {% if produto_inclui('cobrancas') and can_access_module('cobrancas') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('cobranca_carteira_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'cobranca_' ? 'active' : '' }}">
@@ -95,7 +97,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('calculo') %}
+                {% if produto_inclui('calculo') and can_access_module('calculo') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('calculo_index') }}"
                            data-busca-alias="atualização monetária correção juros inpc ipca"
@@ -106,7 +108,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('assinatura_eletronica') and recurso_visivel('assinatura') %}
+                {% if produto_inclui('assinatura') and can_access_module('assinatura_eletronica') and recurso_visivel('assinatura') %}
                     <li class="pje-menu-item {{ recurso_marca('assinatura') }}">
                         <a href="{{ path('assinatura_eletronica_index') }}"
                            data-busca-alias="assinatura eletrônica assinar documento contrato procuração signatário"
@@ -117,7 +119,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('tarefas') and recurso_visivel('metas') %}
+                {% if produto_inclui('expediente') and can_access_module('tarefas') and recurso_visivel('metas') %}
                     <li class="pje-menu-item {{ recurso_marca('metas') }}">
                         <a href="{{ path('tarefa_minhas') }}"
                            class="pje-menu-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}">
@@ -127,15 +129,17 @@
                     </li>
                 {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('demandas_index') }}"
-                       class="pje-menu-link {{ currentRoute == 'demandas_index' ? 'active' : '' }}">
-                        <i class="bi bi-inbox pje-nav-icon"></i>
-                        <span>{{ 'moldura.menu_lateral.demandas'|trans }}</span>
-                    </a>
-                </li>
+                {% if produto_inclui('expediente') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('demandas_index') }}"
+                           class="pje-menu-link {{ currentRoute == 'demandas_index' ? 'active' : '' }}">
+                            <i class="bi bi-inbox pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.demandas'|trans }}</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                {% if can_access_module('agenda') %}
+                {% if produto_inclui('expediente') and can_access_module('agenda') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('agenda_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'agenda_' ? 'active' : '' }}">
@@ -145,7 +149,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('kanban') %}
+                {% if produto_inclui('kanban') and can_access_module('kanban') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('kanban_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'kanban_' ? 'active' : '' }}">
@@ -155,7 +159,7 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('servicedesk') %}
+                {% if produto_inclui('expediente') and can_access_module('servicedesk') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('service_desk_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'service_desk_' or currentRoute starts with 'servicedesk_' ? 'active' : '' }}">
@@ -167,7 +171,7 @@
 
                 {# Ponto Eletrônico: a tela liga e desliga no catálogo do Master (E7); `recurso_marca` mostra ao Master
                    que ela está desligada. #}
-                {% if can_access_module('ponto') and recurso_visivel('ponto') %}
+                {% if produto_inclui('ponto') and can_access_module('ponto') and recurso_visivel('ponto') %}
                     <li class="pje-menu-item {{ recurso_marca('ponto') }}">
                         <a href="{{ path('ponto_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'ponto_' ? 'active' : '' }}">
@@ -180,7 +184,7 @@
                 {# BlueJus Voto (spec bluejus-voto.md): logo depois do Ponto, como no menu do desenho 18. Nasce desligado
                    no catálogo do Master; `recurso_marca` mostra ao Master que a tela está desligada. `voto_liberado()`:
                    o Master liberou o Voto para este escritório (A1b; o Master passa sempre). #}
-                {% if can_access_module('voto') and recurso_visivel('voto') and voto_liberado() %}
+                {% if produto_inclui('voto') and can_access_module('voto') and recurso_visivel('voto') and voto_liberado() %}
                     <li class="pje-menu-item {{ recurso_marca('voto') }}">
                         <a href="{{ path('voto_index') }}"
                            data-busca-alias="eleição votação assembleia urna"
@@ -192,7 +196,7 @@
                 {% endif %}
 
                 {# Chat I.A em página inteira (spec chat-pagina-inteira): mesmo módulo de permissão que o próprio chat exige. #}
-                {% if can_access_module('inteligencia') %}
+                {% if produto_inclui('ia') and can_access_module('inteligencia') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('chat_ia_pagina') }}"
                            data-busca-alias="chat ia inteligência artificial"
@@ -284,7 +288,7 @@
                     {% endif %}
 
 
-                    {% if can_administer('admin.servicedesk.manage') %}
+                    {% if produto_inclui('expediente') and can_administer('admin.servicedesk.manage') %}
                         <li class="pje-menu-item">
                             <a href="{{ path('servicedesk_index') }}"
                                class="pje-menu-link {{ currentRoute == 'servicedesk_index' ? 'active' : '' }}">
@@ -294,7 +298,7 @@
                         </li>
                     {% endif %}
 
-                    {% if can_administer('admin.ponto.manage') %}
+                    {% if produto_inclui('ponto') and can_administer('admin.ponto.manage') %}
                         <li class="pje-menu-item">
                             <a href="{{ path('app_tenant_sedes', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_sedes' ? 'active' : '' }}">
@@ -314,7 +318,7 @@
                         </li>
                     {% endif %}
 
-                    {% if can_administer('admin.inteligencia.manage') %}
+                    {% if produto_inclui('ia') and can_administer('admin.inteligencia.manage') %}
                         <li class="pje-menu-item">
                             <a href="{{ path('inteligencia_admin_config') }}"
                                class="pje-menu-link {{ currentRoute starts with 'inteligencia_admin_' ? 'active' : '' }}">
