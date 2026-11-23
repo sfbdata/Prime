@@ -1,8 +1,11 @@
-<!DOCTYPE html>
-<html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#12242f">
-<h1>Código de acesso à votação</h1>
-<p>{{ assembleia }}</p>
-<p>Seu código é:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ codigo }}</p>
-<p>Ele vale por 10 minutos e só pode ser usado uma vez. Informe-o no mesmo navegador em que solicitou.</p>
-<p>Se você não solicitou este código, ignore esta mensagem. Não compartilhe o código.</p>
-</body></html>
+{% extends 'email/_moldura.html.twig' %}
+
+{% block titulo_documento %}Código de acesso à votação{% endblock %}
+
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">Código de acesso à votação</p>
+<p style="margin:0 0 14px;">{{ assembleia }}</p>
+<p style="margin:0 0 14px;">Seu código é:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">{{ codigo }}</p>
+<p style="margin:0 0 14px;">Ele vale por 10 minutos e só pode ser usado uma vez. Informe-o no mesmo navegador em que solicitou.</p>
+<p style="margin:0 0 14px;">Se você não solicitou este código, ignore esta mensagem. Não compartilhe o código.</p>
+{% endblock %}
