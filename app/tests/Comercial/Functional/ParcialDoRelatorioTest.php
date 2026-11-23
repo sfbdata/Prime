@@ -137,12 +137,15 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         $filhos = $this->doc->filter($caixa . ' > *')->each(static fn (Crawler $c): string => match ($c->attr('class')) {
             'mc-rl-ctx-sep' => '---',
             'mc-rl-ctx-titulo' => 'título',
+            'mc-motivo mc-rl-ctx-motivo' => 'motivo: ' . trim($c->text()),
             default => trim((string) preg_replace('/\s+/', ' ', $c->text())) . ' ' . (string) $c->filter('i')->attr('class'),
         });
         self::assertSame([
             'título',
             'Abrir campanha bi bi-envelope-open',
             'Duplicar como nova bi bi-files',
+            'Editar campanha bi bi-pencil-square',
+            'motivo: Só antes de começar a sair.',
             'Reenviar a quem não leu bi bi-arrow-repeat',
             '---',
             'Encaminhar para um e-mail bi bi-forward',
@@ -151,11 +154,24 @@ final class ParcialDoRelatorioTest extends KernelTestCase
             '---',
             'Exportar destinatários (CSV) bi bi-filetype-csv',
             '---',
-            'Excluir do relatório bi bi-trash3',
+            'Excluir campanha bi bi-trash3',
         ], $filhos);
         self::assertSame(1, $this->doc->filter($caixa . ' > .mc-rl-ctx-titulo[data-mc-rl-ctx-titulo]:first-child')->count());
-        self::assertSame(['abrir', 'duplicar', 'reenviar', 'encaminhar', 'estrela', 'arquivar', 'csv', 'excluir'], $this->doc->filter($caixa . ' > button[data-mc-rl-ctx-acao]')->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-rl-ctx-acao')));
+        self::assertSame(['abrir', 'duplicar', 'editar', 'reenviar', 'encaminhar', 'estrela', 'arquivar', 'csv', 'excluir'], $this->doc->filter($caixa . ' > button[data-mc-rl-ctx-acao]')->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-rl-ctx-acao')));
         self::assertSame(1, $this->doc->filter($caixa . ' > button.mc-rl-ctx-excluir[data-mc-rl-ctx-acao="excluir"]')->count());
+    }
+
+    #[TestDox('M5.3: "Editar campanha" está no menu da seção Comercial com o motivo escrito (escondido) e aria-describedby apontando para ele')]
+    public function testEditarNoMenu(): void
+    {
+        $item = $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > button[data-mc-rl-ctx-acao="editar"]');
+        self::assertSame(1, $item->count());
+        self::assertSame('Editar campanha', trim($item->text()));
+        $motivo = $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > .mc-motivo[data-mc-rl-ctx-editar-motivo][hidden]');
+        self::assertSame(1, $motivo->count());
+        self::assertSame($motivo->attr('id'), $item->attr('aria-describedby'));
+        self::assertSame('Só antes de começar a sair.', trim($motivo->text()));
+        self::assertSame(1, $this->doc->filter('section.mc-rl[data-url-excluir*="/excluir"]')->count());
     }
 
     #[TestDox('"Encaminhar para um e-mail" está no menu, habilitado, com a ação e a URL, sem motivo nem aria-describedby')]
@@ -167,7 +183,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         self::assertNull($item->attr('disabled'));
         self::assertNull($item->attr('aria-disabled'));
         self::assertNull($item->attr('aria-describedby'));
-        self::assertSame(0, $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > .mc-rl-ctx-motivo, button.mc-rl-ctx-off')->count());
+        self::assertSame(0, $this->doc->filter('section.mc-rl > .mc-rl-ctx > .mc-rl-ctx-caixa > .mc-rl-ctx-motivo:not([data-mc-rl-ctx-editar-motivo]), button.mc-rl-ctx-off')->count());
         self::assertSame(1, $this->doc->filter('section.mc-rl[data-url-encaminhar*="/encaminhar"]')->count());
     }
 
@@ -177,7 +193,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
         self::assertStringContainsString("raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }))", $js);
         foreach (["BJ_T.t('comercial_relatorio.js.vazia')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila')",
-            "BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length })", "BJ_T.t('comercial_relatorio.js.confirmar_excluir')",
+            "BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length })", "BJ_T.t('comercial_relatorio.js.confirmar_excluir_ativa')", "BJ_T.t('comercial_relatorio.js.confirmar_excluir_encerrada')",
             "BJ_T.t('comercial_relatorio.js.duplicada_menu')", "BJ_T.t('comercial_relatorio.js.reenvio_menu_sem_rastreio')",
             "BJ_T.t('comercial_relatorio.js.reenvio_sem_rastreio')", "BJ_T.t('comercial_relatorio.js.linha_dica')",
             "'bi-star-fill' : 'bi-star'", "estado.aba === 'arq' ? BJ_T.t('comercial_relatorio.js.desarquivar') : BJ_T.t('comercial_relatorio.js.arquivar')"] as $trecho) {
@@ -189,7 +205,8 @@ final class ParcialDoRelatorioTest extends KernelTestCase
             'confirmar_cancelar' => 'Cancelar o envio programado desta campanha?',
             'confirmar_cancelar_fila' => 'Cancelar o envio desta campanha? O que ainda está na fila não sai.',
             'confirmar_remover' => 'Remover {n} campanha(s) do relatório?',
-            'confirmar_excluir' => 'Excluir esta campanha do relatório?',
+            'confirmar_excluir_encerrada' => 'Excluir esta campanha do relatório? Ela já foi enviada ou cancelada: só deixa de aparecer na lista.',
+            'editar_motivo' => 'Só antes de começar a sair.',
             'duplicada_menu' => 'Campanha duplicada: ajuste e envie.',
             'reenvio_menu_sem_rastreio' => 'Esta campanha não rastreou leitura.',
             'reenvio_sem_rastreio' => 'Esta campanha não rastreou leitura; não dá para saber quem não leu.',

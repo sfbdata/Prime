@@ -25,7 +25,7 @@ use Doctrine\DBAL\Connection;
  *
  * @phpstan-type LinhaDaCampanha array{
  *     id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string,
- *     estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, rastrear_leitura: bool, estrela: bool
+ *     estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, rastrear_leitura: bool, estrela: bool, editavel: bool
  * }
  * @phpstan-type Metricas array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}
  * @phpstan-type Destinatario array{email: string, situacao: ?string, aberto: bool, clicou: bool}
@@ -90,7 +90,8 @@ class RelatorioDeCampanhasRepository
         [$onde, $parametros] = self::filtro($masterId, $aba, $busca);
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT c.id, c.nome, c.assunto, c.titulo, c.modelo_nome, c.publico, c.frequencia, c.estado, c.total, c.execucoes,
-                    c.agendada_para, c.criada_em, c.rastrear_leitura, ' . self::ESTRELA . ' AS estrela
+                    c.agendada_para, c.criada_em, c.rastrear_leitura, ' . self::ESTRELA . ' AS estrela,
+                    ' . CampanhaDeEmailRepository::condicaoEditavel('c') . ' AS editavel
              FROM ' . self::MARCAS . ' WHERE ' . $onde . ' ORDER BY c.id DESC LIMIT ' . max(1, $limite) . ' OFFSET ' . max(0, $deslocamento),
             $parametros,
         );
@@ -254,6 +255,7 @@ class RelatorioDeCampanhasRepository
             'agendada_para' => $l['agendada_para'] === null ? null : (string) $l['agendada_para'], 'criada_em' => (string) $l['criada_em'],
             'rastrear_leitura' => (bool) $l['rastrear_leitura'],
             'estrela' => (bool) ($l['estrela'] ?? false),
+            'editavel' => (bool) ($l['editavel'] ?? false),
         ];
     }
 }
