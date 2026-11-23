@@ -197,13 +197,13 @@
                     {#- Pasta arquivada (desenho 03 VS 30.10.26 dc L.211 e L.795): a linha esmaece, com a dica. #}
                     {% if not oculta and pasta.situacao == 'arquivado' %}data-arquivada="1" title="{{ 'expediente.lista.arquivada_dica'|trans }}" {% endif %}{% if dest %}data-dest="{{ dest }}"{% endif %}>
                     <td data-col="nup" class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">
-                        {#- M5.7 (23/11): número e ícones num contêiner flexível, alinhados ao centro; sempre numa linha só;
-                            a coluna NUP (110px) comporta número, estrela, compartilhar e cadeado. -#}
-                        <div class="exp-nup-cel"><span class="exp-nup">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="{{ 'expediente.lista.favorita'|trans }}" aria-label="{{ 'expediente.lista.favorita'|trans }}"></i>{% endif %}{{ pasta.nup }}</span>
-                        {%- if cad %}
+                        {#- M5.7 (23/11): cadeado, número e ícones num contêiner flexível, sempre numa linha só; o cadeado (à esquerda do
+                            número) fica no recuo esquerdo da célula e a coluna NUP tem 74px. -#}
+                        <div class="exp-nup-cel">{%- if cad %}
                             <i class="bi bi-lock exp-cadeado js-cadeado" aria-label="{{ 'expediente.lista.pasta_trancada'|trans }}"
                                data-tip="{{ cad.por ? 'expediente.lista.cadeado_dica_por'|trans({por: cad.por, em: cad.em}) : 'expediente.lista.cadeado_dica_primario'|trans({em: cad.em}) }}"></i>
                         {%- endif %}
+                        <span class="exp-nup">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="{{ 'expediente.lista.favorita'|trans }}" aria-label="{{ 'expediente.lista.favorita'|trans }}"></i>{% endif %}{{ pasta.nup }}</span>
                         {%- if not oculta and podeCompartilharNaLista and (pastasEditaveis ?? {})[pasta.id] is defined %}
                             {%- set nComp = compartilhamentos[pasta.id] ?? 0 %}
                             <button type="button" class="exp-rp js-compartilhar{{ nComp ? ' exp-rp--tem' : '' }}" data-pasta-id="{{ pasta.id }}" aria-label="{{ 'expediente.lista.compartilhar_aria'|trans }}"

@@ -16,6 +16,8 @@ use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Inteligencia\UseCase\ListarDocumentosDoIndiceUseCase;
 use App\Inteligencia\UseCase\ObterAnalisesRecolhidasUseCase;
 use App\Pasta\Entity\Pasta;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ProdutosNaTela;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Service\ResetInterface;
@@ -69,6 +71,7 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
         private readonly VisibilidadeDaAnaliseDaPasta $visibilidadeDaAnalise,
         private readonly SaldoDeIaDaPessoa $saldo,
         private readonly PlanoPagoDoEscritorio $planos,
+        private readonly ProdutosNaTela $produtosNaTela,
     ) {
     }
 
@@ -136,6 +139,11 @@ final class InteligenciaExtension extends AbstractExtension implements ResetInte
 
         if (!$user instanceof User || $tenant === null) {
             return Disponibilidade::SemPermissao;
+        }
+
+        // Escritório sem o produto I.A. (multiproduto §7, só com a chave ligada): as telas mostram o motivo, sem botão.
+        if (!$this->produtosNaTela->inclui(Produto::Ia)) {
+            return Disponibilidade::DesligadaNoEscritorio;
         }
 
         $chave = $user->getId() . ':' . $tenant->getId();

@@ -5,7 +5,7 @@
     JS pede no máximo uma vez por dia (fechar esconde até amanhã; adiar, 10 min). Textos pelo catálogo, já traduzidos na
     resposta; o JS só usa textContent. Lógica em public/js/ponto-pendente.js.
 #}
-{% if app.user and current_tenant() and can_access_module('ponto') and recebe_avisos_de_ponto() %}
+{% if app.user and current_tenant() and produto_inclui('ponto') and can_access_module('ponto') and recebe_avisos_de_ponto() %}
     <div id="bjPontoPendente" hidden
          data-url="{{ path('ponto_pendencia_do_dia') }}"
          data-eu="{{ app.user.id }}:{{ current_tenant().id }}"></div>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ponto\DTO;
 
+use App\Ponto\Service\TextoDoPonto;
+
 /**
  * Um lote do banco de horas (spec ponto-desenho-0811, P51 a; desenho 16 L206 e L776): o saldo de uma competência.
  * Mês com saldo positivo é crédito, que vence; mês com saldo negativo é débito ("Compensação"), que abate os créditos
@@ -18,6 +20,7 @@ final class LoteDoBancoDeHorasOutput
      * @param int $saldoMinutos o crédito que sobra para compensar; 0 no lote de compensação
      * @param ?\DateTimeImmutable $venceEm último dia do mês "competência mais prazo"; nulo no lote de compensação
      * @param string $situacao "No prazo", "Vence em N dias", "Vencido", "Compensado" ou "Compensação"
+     * @param ?TextoDoPonto $textoDaSituacao a situação com a chave do catálogo, para a tela traduzir; `situacao` é o português dele
      * @param string $cor fundo do selo da situação, a cor do desenho
      */
     public function __construct(
@@ -28,6 +31,7 @@ final class LoteDoBancoDeHorasOutput
         public readonly ?\DateTimeImmutable $venceEm,
         public readonly string $situacao,
         public readonly string $cor,
+        public readonly ?TextoDoPonto $textoDaSituacao = null,
     ) {
     }
 }

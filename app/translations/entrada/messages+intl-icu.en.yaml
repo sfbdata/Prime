@@ -85,6 +85,8 @@ entrada:
         senha_alterada: Password changed
         senha_alterada_texto: Sign in with the new password. For security, the other sessions were ended.
         cadastro_texto: Create your digital firm in 1 minute. You join as the primary user and then invite your team.
+        cadastro_produto_voto: 'This account will start with BlueJus Voto only, for meetings and votes.'
+        cadastro_produto_completo: I prefer the account with all the tools
         continuar_google: Continue with Google
         ou_outro_email: or with another email
         conectado_pelo: '{email} · connected through {provedor}'

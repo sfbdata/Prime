@@ -880,7 +880,12 @@ final class PontoController extends AbstractController
             return $this->json(['alertar' => false]);   // fora do público dos avisos de ponto
         }
 
-        return $this->json($this->verificadorAlerta->verificar($user, $tenant, new \DateTimeImmutable(), $jornadaTenant, $jornada));
+        $aviso = $this->verificadorAlerta->verificar($user, $tenant, new \DateTimeImmutable(), $jornadaTenant, $jornada);
+        if ($aviso['mensagem'] !== '') {
+            $aviso['mensagem'] = $this->tradutor->trans(VerificadorAlertaPonto::chaveDe($aviso['mensagem']));
+        }
+
+        return $this->json($aviso);
     }
 
     /**
