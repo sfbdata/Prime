@@ -2,7 +2,7 @@
     Menu do usuário (clique no nome/avatar do cabeçalho). Desenho "03 - EXPEDIENTE - VS 18.10.26",
     linhas 310 a 345: ordem, ícones, rótulos à direita e quem vê cada item.
       - todos: Meu Perfil, Trocar de conta, Tema escuro, Idioma, Instalar aplicativo, Novidades,
-        Ajuda e atalhos, Política de Privacidade, Sair
+        Manual do usuário, Ajuda e atalhos, Política de Privacidade, Sair
       - só o primário (ou o Master): Convites do escritório
       - só o Master (ROLE_SUPER_ADMIN): seção "Exclusivo do Master"
     Recebe do base: `_iniciais`, `_ehPrimario`, `_ehMaster`, `fotoPerfilUrl`.
@@ -77,7 +77,8 @@
         {% if recurso_visivel('idioma') %}
         <button type="button" class="dropdown-item mu-item {{ recurso_marca('idioma') }}" role="menuitem" data-mu-idioma>
             <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.idioma'|trans }}</span></span>
-            <span class="mu-item-dir">{{ idioma_atual().nome }}</span>
+            {# A bandeira veio do topo junto com o idioma (pedido M7/M5.5 do dono, 23/11). #}
+            <span class="mu-item-dir">{% include 'menu_usuario/_bandeira.html.twig' with {idioma: idioma_atual()} only %}{{ idioma_atual().nome }}</span>
         </button>
         {% endif %}
         {% if recurso_visivel('instalar') %}
@@ -89,7 +90,7 @@
     </div>
     {% endif %}
 
-    {% if recurso_visivel('novidades') or recurso_visivel('ajuda') or recurso_visivel('privacidade') %}
+    {# O grupo sempre aparece: o Manual não tem chave no Master (no topo também não tinha). #}
     <div class="mu-grupo">
         {% if recurso_visivel('novidades') %}
         {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
@@ -99,6 +100,10 @@
             <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">{{ 'menu.usuario.dropdown.novidades_selo'|trans }}</span>
         </a>
         {% endif %}
+        {# Manual do usuário: o "?" do topo mudou para cá (pedido M7/M5.5 do dono, 23/11). Abre a página /ajuda. #}
+        <a href="{{ path('ajuda_index') }}" class="dropdown-item mu-item" role="menuitem" data-mu-manual>
+            <i class="bi bi-book"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.manual'|trans }}</span></span>
+        </a>
         {% if recurso_visivel('ajuda') %}
         <button type="button" class="dropdown-item mu-item {{ recurso_marca('ajuda') }}" role="menuitem" data-mu-ajuda>
             <i class="bi bi-question-circle"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.ajuda'|trans }}</span></span>
@@ -110,7 +115,6 @@
         </a>
         {% endif %}
     </div>
-    {% endif %}
 
     {# Contribua (desenho 03: entre Política de Privacidade e Sair, com "PIX" à direita). #}
     <div class="mu-grupo">

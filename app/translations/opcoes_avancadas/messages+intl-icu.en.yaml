@@ -1,7 +1,5 @@
-# Language flag on the top bar and "Advanced options" in My Profile (spec docs/specs/sistema-em-ingles.md).
+# "Advanced options" in My Profile (spec docs/specs/sistema-em-ingles.md).
 opcoes_avancadas:
-    bandeira:
-        rotulo: 'Language: {idioma}'
     rotulo: Advanced options
     sub: Language, time zone, date and number format
     titulo: Advanced options
