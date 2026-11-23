@@ -11,8 +11,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A lista fechada do conector (spec mcp-remoto-oauth 6, 6.2 regra 8, 6.3 item 1, 5.1 e 12.14): 17 ferramentas, 7 de
- * leitura, 9 de gravação e a confirmação; a política de escopo do SDK pede `mcp:escrita` para gravar e confirmar; toda
+ * A lista fechada do conector (spec mcp-remoto-oauth 6, 6.2 regra 8, 6.3 item 1, 5.1 e 12.14): 17 ferramentas de escritório (7 de
+ * leitura, 9 de gravação e a confirmação) mais as do Painel do Master que já entraram (6.9; hoje a `ler_comercial`); a política de escopo do SDK pede `mcp:escrita` para gravar e confirmar; toda
  * ferramenta tem `title` e as quatro dicas com valor explícito; `_meta` com `securitySchemes`.
  */
 #[CoversClass(CatalogoFechadoDoConector::class)]
@@ -20,16 +20,18 @@ use PHPUnit\Framework\TestCase;
 final class CatalogoFechadoDoConectorTest extends TestCase
 {
     private const LEITURA = ['quem_sou_eu', 'buscar_pastas', 'ler_pasta', 'ler_documentos_e_modelos', 'ler_processos', 'ler_clientes', 'ler_agenda'];
+    /** A 18ª ferramenta é só do Master (6.9): fica no catálogo, depois das 7 de leitura de escritório. */
+    private const DO_MASTER = ['ler_comercial'];
     private const GRAVACAO = ['atualizar_pasta', 'mudar_andamento', 'registrar_na_pasta', 'prazos_e_metas_da_pasta', 'documentos_e_pecas', 'financeiro_da_pasta', 'atualizar_cliente', 'processos_da_pasta', 'gravar_na_agenda'];
 
-    #[TestDox('são exatamente 17 ferramentas: as 7 de leitura da 6.4, as 9 de gravação da 6.6 e a confirmar_acao')]
+    #[TestDox('são exatamente 18 ferramentas: as 7 de leitura da 6.4, a ler_comercial (só do Master, 6.9), as 9 de gravação da 6.6 e a confirmar_acao')]
     public function testListaFechada(): void
     {
-        self::assertCount(17, CatalogoFechadoDoConector::FERRAMENTAS);
-        self::assertSame([...self::LEITURA, ...self::GRAVACAO, 'confirmar_acao'], CatalogoFechadoDoConector::nomes());
+        self::assertCount(18, CatalogoFechadoDoConector::FERRAMENTAS);
+        self::assertSame([...self::LEITURA, ...self::DO_MASTER, ...self::GRAVACAO, 'confirmar_acao'], CatalogoFechadoDoConector::nomes());
 
         $porTipo = array_count_values(array_map(static fn (TipoDeFerramenta $t): string => $t->value, CatalogoFechadoDoConector::FERRAMENTAS));
-        self::assertSame(['leitura' => 7, 'gravacao' => 9, 'confirmacao' => 1], $porTipo);
+        self::assertSame(['leitura' => 8, 'gravacao' => 9, 'confirmacao' => 1], $porTipo);
         foreach (self::GRAVACAO as $nome) {
             self::assertSame(TipoDeFerramenta::Gravacao, CatalogoFechadoDoConector::tipo($nome), $nome);
         }
@@ -43,6 +45,8 @@ final class CatalogoFechadoDoConectorTest extends TestCase
     {
         self::assertFalse(CatalogoFechadoDoConector::existe('consultar_sql'));
         self::assertTrue(CatalogoFechadoDoConector::existe('quem_sou_eu'));
+        self::assertTrue(CatalogoFechadoDoConector::existe('ler_comercial'));
+        self::assertTrue(CatalogoFechadoDoConector::soDoMaster('ler_comercial'));
 
         $this->expectException(\InvalidArgumentException::class);
         CatalogoFechadoDoConector::anotacoes('consultar_sql');
@@ -56,7 +60,7 @@ final class CatalogoFechadoDoConectorTest extends TestCase
         self::assertTrue($politica->inspectsBody());
         self::assertSame(['mcp:leitura'], $politica->requiredFor(['method' => 'tools/list']));
         self::assertSame(['mcp:leitura'], $politica->requiredFor(null), 'requisição sem corpo JSON-RPC: o mínimo');
-        foreach (self::LEITURA as $nome) {
+        foreach ([...self::LEITURA, ...self::DO_MASTER] as $nome) {
             self::assertSame(['mcp:leitura'], $politica->requiredFor(self::chamada($nome)), $nome);
             self::assertSame(['mcp:leitura'], CatalogoFechadoDoConector::escoposExigidos($nome), $nome);
         }
