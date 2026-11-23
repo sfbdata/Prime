@@ -9,9 +9,13 @@ namespace App\Ponto\Service;
  */
 final readonly class RecusaDoEnvio
 {
+    /** O português da recusa (a mensagem de sempre); quem a leva à tela traduz o {@see self::$texto}. */
+    public string $mensagem;
+
     public function __construct(
         public int $status,
-        public string $mensagem,
+        public TextoDoPonto $texto,
     ) {
+        $this->mensagem = $texto->portugues;
     }
 }

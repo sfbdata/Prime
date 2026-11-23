@@ -1,6 +1,24 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.2.0"
+  data: "2026-11-23"
+  itens:
+    - "No Ponto, os avisos de erro ao configurar sedes, feriados, funções, limites do banco de horas, horas pagas e jornadas, e o aviso de justificativas abonadas da equipe, passam a aparecer em inglês para quem usa o sistema em inglês. Em português, os textos seguem os mesmos."
+- versao: "3.1.0"
+  data: "2026-11-23"
+  itens:
+    - "O Master passa a ser avisado, na tela e por e-mail (no máximo uma vez por dia), quando o BlueJus manda mais de 2.000 e-mails em 24 horas: é a hora de contratar outro serviço de e-mail. Nenhum e-mail deixa de sair por causa desse aviso."
+    - "No Ponto, as mensagens de confirmação e de erro que vêm do servidor (salvar configurações, feriados, jornada, ajustes de batida, horas pagas e justificativas) passam a aparecer em inglês para quem usa o sistema em inglês. Em português, os textos seguem os mesmos."
+    - "As sedes, os cargos e as lotações de cada escritório ficam protegidos automaticamente: o sistema só consegue ler os do escritório em que você está. As telas continuam iguais."
+    - "Quem cria a conta pelo site do BlueJus Voto ganha um escritório pronto para assembleias e votações: o Voto já vem liberado e, ao entrar, a pessoa cai direto na tela do Voto."
+    - "Os escritórios que já usam o BlueJus continuam abrindo no Expediente, com todas as ferramentas de sempre."
+    - "Começamos a organizar o BlueJus em ferramentas (Expediente, Voto, I.A., Ponto, Cálculo, Kanban, Assinatura e Cobranças), para que cada escritório possa escolher, mais adiante, quais delas usa. Por enquanto as telas continuam iguais para todos."
+    - "O BlueJus passa a guardar quais ferramentas cada escritório usa (Expediente, Voto, I.A., Ponto, Cálculo, Kanban, Assinatura e Cobranças). Quem já tem conta fica com todas as ferramentas que já usava."
+    - "Preparamos o plano para cada escritório escolher as ferramentas que usa. O dono do escritório vai poder ligar e desligar ferramentas (Expediente, Cobranças, Cálculo, Kanban, Assinatura, Ponto, Voto e I.A.) no Meu Perfil, sem perder dados ao desligar. Também vai ser possível criar uma conta só com o BlueJus Voto, para assembleias de condomínio."
+    - "Na lista de pastas do Expediente, o número da pasta, o ícone de compartilhar e o cadeado voltam a aparecer lado a lado, na mesma linha. As linhas da tabela voltam à altura normal e nada invade a coluna do cliente."
+    - "Os horários de trabalho do escritório e de cada pessoa ficam protegidos automaticamente: um escritório nunca enxerga os horários de outro. As telas do ponto continuam iguais."
+    - "O endereço voto.bluejus.com.br passa a abrir a página de apresentação do BlueJus Voto, com o botão para criar a conta gratuita, quando o Voto for ligado."
 - versao: "3.0.0"
   data: "2026-11-23"
   itens:

@@ -28,17 +28,27 @@ final class ChoqueDaJornadaProposta
     }
 
     /**
-     * A recusa, ou null quando não há choque.
+     * A recusa em português, ou null quando não há choque.
      *
      * @param list<BlocoJornadaColaborador> $blocos os blocos propostos; vazio é "sem jornada pessoal em blocos"
      */
     public function mensagem(User $user, Tenant $tenant, ?JornadaColaborador $atual, array $blocos): ?string
+    {
+        return $this->texto($user, $tenant, $atual, $blocos)?->portugues;
+    }
+
+    /**
+     * A mesma recusa de {@see self::mensagem()}, com a chave para quem a leva à tela traduzir.
+     *
+     * @param list<BlocoJornadaColaborador> $blocos
+     */
+    public function texto(User $user, Tenant $tenant, ?JornadaColaborador $atual, array $blocos): ?TextoDoPonto
     {
         if ($this->vinculos->findAtivoPorUserETenant($user, $tenant)?->isRegistraPonto() !== true) {
             return null;
         }
         $proposta = ($atual ?? new JornadaColaborador())->propostaComBlocos($blocos);
 
-        return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
+        return $this->choque->textoDoChoque($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
     }
 }

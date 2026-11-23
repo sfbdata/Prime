@@ -34,7 +34,7 @@ final class LancarHorasPagasUseCase
         // colaborador dentro do tenant, mas o UseCase não confia nisso — User não carrega tenant
         // direto (o vínculo é a pivot user_tenant), então confere aqui antes de gravar.
         if ($this->userTenantRepository->existeVinculoAtivo($colaborador, $tenant) === false) {
-            throw new HorasPagasInvalidaException('Colaborador não pertence a este escritório.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_COLABORADOR_OUTRO_ESCRITORIO);
         }
 
         $lancamento = new LancamentoHorasPagas();

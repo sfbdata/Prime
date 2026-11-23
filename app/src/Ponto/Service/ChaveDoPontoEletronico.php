@@ -17,9 +17,30 @@ final class ChaveDoPontoEletronico
 {
     public const MENSAGEM_DESLIGADA = 'O registro de ponto eletrônico está desligado para você neste escritório. Fale com o administrador.';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM_DESLIGADA => 'ponto_servidor.batida.chave.desligada',
+    ];
+
     public function __construct(
         private readonly UserTenantRepository $vinculos,
     ) {
+    }
+
+    /** A chave no catálogo de uma das constantes de texto; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto da chave do ponto sem chave no catálogo: "%s".', $texto));
+    }
+
+    /**
+     * O texto de uma das constantes, com a chave para o controller traduzir.
+     *
+     * @param array<string, string> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
     }
 
     public function estaDesligada(User $user, Tenant $tenant): bool

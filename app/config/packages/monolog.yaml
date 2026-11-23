@@ -6,6 +6,10 @@ monolog:
         # BlueJus IA: ids, tenant, provedor, tokens, duração, classe do erro — NUNCA o prompt.
         # Sem handler próprio: cai no `main` de cada ambiente, como os demais canais de aplicação.
         - inteligencia
+        # Guarda do produto (spec multiproduto §6): rota, id do escritório e produtos exigidos, sem dado pessoal. Em dev e
+        # teste cai no `main`; em produção tem handler próprio (abaixo), porque o `main` só grava a partir de erro e o
+        # modo `observacao` registra em nível info.
+        - multiproduto
 
 when@dev:
     monolog:
@@ -78,7 +82,7 @@ when@prod:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!deprecation", "!audit", "!mcp"]
+                channels: ["!deprecation", "!audit", "!mcp", "!multiproduto"]
                 buffer_size: 50 # How many messages should be saved? Prevent memory leaks
             nested:
                 type: stream
@@ -90,6 +94,12 @@ when@prod:
                 path: php://stderr
                 level: info
                 channels: ["audit"]
+                formatter: monolog.formatter.json
+            multiproduto:
+                type: stream
+                path: php://stderr
+                level: info
+                channels: ["multiproduto"]
                 formatter: monolog.formatter.json
             # Ver o comentário do handler "mcp" em when@dev: arquivo, não stderr, porque o
             # stderr de um `docker exec` some no cano do SSH antes de chegar a algum lugar útil.

@@ -46,10 +46,10 @@ final class SalvarVersaoDaJornadaUseCase
 
         $alvo = $input->versaoId === null ? $naData : $this->versaoPeloId($versoes, $input->versaoId);
         if ($naData !== null && $naData !== $alvo) {
-            throw new VersaoDaJornadaRecusadaException(sprintf(
-                'Já existe uma versão da jornada que começa em %s.',
-                $input->valeAPartirDe->format('d/m/Y'),
-            ));
+            throw new VersaoDaJornadaRecusadaException(
+                VersaoDaJornadaRecusadaException::RECUSA_DATA_REPETIDA,
+                ['data' => $input->valeAPartirDe->format('d/m/Y')],
+            );
         }
 
         if ($alvo === null) {

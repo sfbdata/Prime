@@ -22,6 +22,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 {
+    use CenarioDeJustificativaTrait;
+
     /** @return iterable<string, array{0: string, 1: string}> idioma da sessão => texto esperado */
     public static function idiomas(): iterable
     {
@@ -73,6 +75,150 @@ final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame([$esperado], $client->getRequest()->getSession()->getFlashBag()->peek('warning'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string}> idioma => [mensagem do 404, mensagem do campo] */
+    public static function idiomasDaRecusa(): iterable
+    {
+        yield 'en' => ['en', 'Holiday not found.', 'Enter the date and the name of the holiday.'];
+        yield 'pt-BR' => ['pt-BR', 'Feriado não encontrado.', 'Informe a data e o nome do feriado.'];
+    }
+
+    #[DataProvider('idiomasDaRecusa')]
+    #[TestDox('JSON de recusa da exceção de domínio (feriado inexistente e feriado sem nome) no idioma da pessoa ($idioma)')]
+    public function testJsonDaRecusaDeDominioNoIdiomaDaPessoa(string $idioma, string $naoEncontrado, string $faltaDado): void
+    {
+        $client = $this->clientePreparado();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarUsuario($tenant, ['ROLE_SUPER_ADMIN']);
+        $this->logarNoIdioma($client, $admin, $tenant, $idioma);
+        $cabecalhos = ['CONTENT_TYPE' => 'application/x-www-form-urlencoded', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'];
+
+        $client->request('POST', '/ponto/configuracoes/feriados/999999999/remover', [], [], $cabecalhos);
+        self::assertResponseStatusCodeSame(404);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($naoEncontrado, $json['mensagem']);
+
+        $client->request('POST', '/ponto/configuracoes/feriados', ['data' => '', 'nome' => ''], [], $cabecalhos);
+        self::assertResponseStatusCodeSame(422);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($faltaDado, $json['mensagem']);
+        self::assertSame($faltaDado, array_values($json['erros'])[0]);
+    }
+
+    /** @return iterable<string, array{0: string, 1: list<string>}> idioma => [erros por campo da sede, em ordem de texto] */
+    public static function idiomasDaSedeInvalida(): iterable
+    {
+        yield 'en' => ['en', [
+            'Allowed radius must be between 10 and 500 meters.',
+            'Enter the office name.',
+            'Latitude must be between -90 and 90.',
+            'Longitude must be a number.',
+        ]];
+        yield 'pt-BR' => ['pt-BR', [
+            'Informe o nome da sede.',
+            'Latitude deve estar entre -90 e 90.',
+            'Longitude deve ser um número.',
+            'Raio permitido deve estar entre 10 e 500 metros.',
+        ]];
+    }
+
+    /** @param list<string> $esperados */
+    #[DataProvider('idiomasDaSedeInvalida')]
+    #[TestDox('Sede inválida: os erros por campo da RestricoesDaSede (passados pelo validador) saem no idioma da pessoa ($idioma), sem 500')]
+    public function testErrosDaSedeNoIdiomaDaPessoa(string $idioma, array $esperados): void
+    {
+        $client = $this->clientePreparado();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarUsuario($tenant, ['ROLE_SUPER_ADMIN']);
+        $this->logarNoIdioma($client, $admin, $tenant, $idioma);
+
+        $client->request('POST', '/ponto/configuracoes/sedes', ['nome' => '', 'latitude' => '100', 'longitude' => 'abc', 'raio' => '5'], [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        $erros = array_values($json['erros']);
+        sort($erros);
+        self::assertSame($esperados, $erros);
+        self::assertSame(implode(' ', array_values($json['erros'])), $json['mensagem']);
+    }
+
+    /** @return iterable<string, array{0: string, 1: string}> */
+    public static function idiomasDoFlashDeHorasPagas(): iterable
+    {
+        yield 'en' => ['en', 'The period cannot be in the future.'];
+        yield 'pt-BR' => ['pt-BR', 'A competência não pode ser futura.'];
+    }
+
+    #[DataProvider('idiomasDoFlashDeHorasPagas')]
+    #[TestDox('Flash da recusa de horas pagas (competência futura) no idioma da pessoa ($idioma)')]
+    public function testFlashDeHorasPagasInvalidaNoIdiomaDaPessoa(string $idioma, string $esperado): void
+    {
+        $client = $this->clientePreparado();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarUsuario($tenant, ['ROLE_SUPER_ADMIN']);
+        $colaborador = $this->criarUsuario($tenant, ['ROLE_USER']);
+        $this->logarNoIdioma($client, $admin, $tenant, $idioma);
+        $futuro = new \DateTimeImmutable('first day of next month');
+
+        $client->request('POST', sprintf('/tenant/%d/users/%d/horas-pagas', $tenant->getId(), $colaborador->getId()), [
+            '_token' => 'TOKEN_horas_pagas_lancar_' . $colaborador->getId(),
+            'lancamento_horas_pagas' => [
+                'ano' => (int) $futuro->format('Y'),
+                'mes' => (int) $futuro->format('n'),
+                'operacao' => 'descontar',
+                'horas' => 1,
+                'minutos' => 0,
+                'motivo' => 'Horas pagas na folha',
+            ],
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertSame([$esperado], $client->getRequest()->getSession()->getFlashBag()->peek('error'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string, 3: string}> idioma => [mensagem da cerca, detalhe, mensagem sem motivo] */
+    public static function idiomasDaBatidaRecusada(): iterable
+    {
+        yield 'en' => [
+            'en',
+            'You are outside the allowed radius',
+            "Clocking in requires being within the radius of one of the firm's offices. Move closer or report external work.",
+            'Enter the location and the reason.',
+        ];
+        yield 'pt-BR' => [
+            'pt-BR',
+            'Você está fora do raio permitido',
+            'O registro exige estar dentro do raio de uma sede do escritório. Aproxime-se ou informe o trabalho externo.',
+            'Informe o local e o motivo.',
+        ];
+    }
+
+    #[DataProvider('idiomasDaBatidaRecusada')]
+    #[TestDox('Batida recusada fora da cerca e trabalho externo sem motivo (com o código `recusaDoMotivo`) no idioma da pessoa ($idioma)')]
+    public function testBatidaRecusadaNoIdiomaDaPessoa(string $idioma, string $titulo, string $detalhe, string $semMotivo): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Batida');   // sem sede: a batida fica fora do raio
+        $ana = $this->pessoa('idioma_batida');
+        $this->vincularColaborador($ana, $escritorio);
+        $this->logarNoIdioma($client, $ana, $escritorio, $idioma);
+        $cabecalhos = ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'];
+        $corpo = ['tipo' => 'entrada', 'latitude' => -23.55, 'longitude' => -46.63, 'precisaoGps' => 10.0];
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo));
+        self::assertResponseStatusCodeSame(403);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['titulo' => $titulo, 'detalhe' => $detalhe, 'trabalhoExterno' => true], $json['foraDoRaio']);
+        self::assertSame($titulo . '. ' . $detalhe, $json['message']);
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo + ['trabalhoExterno' => true, 'motivoTrabalhoExterno' => '']));
+        self::assertResponseStatusCodeSame(422);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['success' => false, 'message' => $semMotivo, 'recusaDoMotivo' => 'sem_motivo'], $json);
     }
 
     private function logarNoIdioma(KernelBrowser $client, User $user, Tenant $tenant, string $idioma): void

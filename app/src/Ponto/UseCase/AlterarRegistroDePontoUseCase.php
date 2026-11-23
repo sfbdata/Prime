@@ -53,9 +53,9 @@ final class AlterarRegistroDePontoUseCase
     private function exigirSemChoque(AlterarRegistroDePontoInput $input): void
     {
         $trechos = $this->intervalos->daPessoaNoEscritorio($input->pessoa, $input->escritorio);
-        $mensagem = $this->choque->mensagem($input->pessoa, $input->escritorio, $trechos);
-        if ($mensagem !== null) {
-            throw new ChoqueDeJornadaException($mensagem);
+        $texto = $this->choque->textoDoChoque($input->pessoa, $input->escritorio, $trechos);
+        if ($texto !== null) {
+            throw new ChoqueDeJornadaException($texto);
         }
     }
 }
