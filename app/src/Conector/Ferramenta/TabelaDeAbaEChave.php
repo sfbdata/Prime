@@ -130,6 +130,17 @@ final class TabelaDeAbaEChave
             'minhas_metas' => ['modulos' => self::TAREFAS, 'abas' => [], 'chaves' => ['metas']],
         ],
 
+        // Painel do Master (6.9): módulo e chave vazios, como a `confirmar_acao`; quem passa é a guarda do Master, não a tabela.
+        'ler_comercial' => [
+            'resumo' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'modelos' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'automacoes' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'campanhas' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'campanha' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'contar_publico' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'previa' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+        ],
+
         // Gravação (6.6).
         // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é
         // `pasta_show`).

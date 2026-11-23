@@ -47,7 +47,7 @@ final class FerramentasDoMasterNoMcpTest extends TestCase
         }
     }
 
-    #[TestDox('catálogo: as quatro do Master não colidem com as ferramentas de escritório')]
+    #[TestDox('catálogo: as quatro do Master são uma lista à parte; as que já entraram no catálogo (hoje a ler_comercial) são as únicas de FERRAMENTAS marcadas como do Master')]
     public function testCatalogoDoMaster(): void
     {
         self::assertCount(4, CatalogoFechadoDoConector::SO_DO_MASTER);
@@ -55,7 +55,7 @@ final class FerramentasDoMasterNoMcpTest extends TestCase
             self::assertTrue(CatalogoFechadoDoConector::soDoMaster($nome));
         }
         foreach (array_keys(CatalogoFechadoDoConector::FERRAMENTAS) as $nome) {
-            self::assertFalse(CatalogoFechadoDoConector::soDoMaster($nome), $nome);
+            self::assertSame($nome === 'ler_comercial', CatalogoFechadoDoConector::soDoMaster($nome), $nome);
         }
     }
 

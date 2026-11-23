@@ -25,7 +25,7 @@ use Mcp\Server\Transport\Http\OAuth\ScopePolicy;
  */
 final class CatalogoFechadoDoConector
 {
-    /** As 17 ferramentas e o tipo de cada uma, na ordem da spec. */
+    /** As ferramentas e o tipo de cada uma, na ordem da spec: 17 de escritório e as do Painel do Master que já entraram. */
     public const FERRAMENTAS = [
         // Leitura (6.4).
         'quem_sou_eu' => TipoDeFerramenta::Leitura,
@@ -35,6 +35,8 @@ final class CatalogoFechadoDoConector
         'ler_processos' => TipoDeFerramenta::Leitura,
         'ler_clientes' => TipoDeFerramenta::Leitura,
         'ler_agenda' => TipoDeFerramenta::Leitura,
+        // Painel do Master (6.9): só o Master da plataforma a vê e a chama ({@see SO_DO_MASTER}).
+        'ler_comercial' => TipoDeFerramenta::Leitura,
         // Gravação (6.6).
         'atualizar_pasta' => TipoDeFerramenta::Gravacao,
         'mudar_andamento' => TipoDeFerramenta::Gravacao,
@@ -58,6 +60,7 @@ final class CatalogoFechadoDoConector
         'ler_processos' => 'Ler processos',
         'ler_clientes' => 'Ler clientes',
         'ler_agenda' => 'Ler a agenda',
+        'ler_comercial' => 'Ler o Comercial do Painel do Master',
         'atualizar_pasta' => 'Atualizar a pasta',
         'mudar_andamento' => 'Mudar o andamento da pasta',
         'registrar_na_pasta' => 'Registrar na pasta',

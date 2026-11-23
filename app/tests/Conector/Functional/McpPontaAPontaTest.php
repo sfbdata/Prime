@@ -16,6 +16,7 @@ use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
 use App\Conector\Ferramenta\GravarNaAgendaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
 use App\Conector\Ferramenta\LerClientesFerramenta;
+use App\Conector\Ferramenta\LerComercialFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
@@ -161,6 +162,58 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         ], $dados['ferramentas']);
     }
 
+    /**
+     * 6.9 (decisões 34 e 38) e 12.30: a `ler_comercial` é só do Master. A pessoa comum não a vê no `tools/list` nem na
+     * `quem_sou_eu` e, se chamar pelo nome, recebe a resposta de ferramenta desconhecida do SDK; o Master a vê e a chama.
+     */
+    #[TestDox('6.9: pessoa comum não vê a ler_comercial no tools/list nem na quem_sou_eu, e chamá-la dá Tool not found; o Master vê e chama')]
+    public function testLerComercialSoParaOMaster(): void
+    {
+        [, $comum] = $this->conectado();
+
+        $nomes = array_column($this->resultado($this->mcp($comum['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertNotContains(LerComercialFerramenta::NOME, $nomes);
+        $dados = $this->resultado($this->chamarQuemSouEu($comum['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertNotContains(LerComercialFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $resposta = $this->mcp($comum['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'resumo']], self::ERA_DO_INITIALIZE, 3, LerComercialFerramenta::NOME);
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertSame(-32602, $corpo['error']['code'] ?? null, (string) $resposta->getContent());
+        self::assertSame('Tool not found: "ler_comercial".', $corpo['error']['message'] ?? null);
+        self::assertArrayNotHasKey('result', $corpo);
+    }
+
+    #[TestDox('6.9: o Master vê a ler_comercial no tools/list e na quem_sou_eu, e a chamada devolve o resumo sem e-mail nem nome')]
+    public function testLerComercialParaOMaster(): void
+    {
+        [, $master] = $this->conectado(master: true);
+
+        $lista = $this->resultado($this->mcp($master['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'];
+        $nomes = array_column($lista, 'name');
+        self::assertContains(LerComercialFerramenta::NOME, $nomes);
+        $ferramenta = $lista[array_search(LerComercialFerramenta::NOME, $nomes, true)];
+        self::assertSame(CatalogoFechadoDoConector::TITULOS[LerComercialFerramenta::NOME], $ferramenta['title']);
+        self::assertTrue($ferramenta['annotations']['readOnlyHint']);
+        self::assertSame(['resumo', 'modelos', 'automacoes', 'campanhas', 'campanha', 'contar_publico', 'previa'], $ferramenta['inputSchema']['properties']['acao']['enum']);
+        self::assertSame(['leads', 'prim', 'sec', 'todos'], $ferramenta['inputSchema']['properties']['publico']['enum'], 'csv e indiv ficam fora pelo esquema');
+
+        $dados = $this->resultado($this->chamarQuemSouEu($master['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertContains(LerComercialFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $resposta = $this->resultado($this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'resumo']], self::ERA_DO_INITIALIZE, 3, LerComercialFerramenta::NOME), 3);
+        self::assertFalse($resposta['isError'] ?? null);
+        self::assertSame('resumo', $resposta['structuredContent']['acao']);
+        self::assertIsBool($resposta['structuredContent']['envio_de_campanhas']['ligado']);
+        self::assertSame($resposta['structuredContent'], json_decode((string) $resposta['content'][0]['text'], true));
+
+        $campanhas = $this->resultado($this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'campanhas']], self::ERA_DO_INITIALIZE, 4, LerComercialFerramenta::NOME), 4);
+        self::assertFalse($campanhas['isError'] ?? null);
+
+        $csv = json_decode((string) $this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'contar_publico', 'publico' => 'csv']], self::ERA_DO_INITIALIZE, 5, LerComercialFerramenta::NOME)->getContent(), true);
+        self::assertSame(-32602, $csv['error']['code'] ?? null, 'público csv é recusado pelo esquema, antes da ferramenta');
+        self::assertArrayNotHasKey('result', $csv);
+    }
+
     #[TestDox('12.1 e 12.19: sessão no A, autoriza o B, cookie junto; quem_sou_eu mostra só o B e a tela seguinte do navegador continua no A')]
     public function testEscritorioDoTokenNaoMisturaComODaSessao(): void
     {
@@ -303,11 +356,11 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
      *
      * @return array{Tenant, array{access_token: string, refresh_token: string}, int} o escritório, o par e o id da pessoa
      */
-    private function conectado(bool $escrita = true, array $permissoes = []): array
+    private function conectado(bool $escrita = true, array $permissoes = [], bool $master = false): array
     {
         $this->clienteValido();
         $tenant = $this->escritorio();
-        $pessoa = $this->pessoa();
+        $pessoa = $this->pessoa($master ? ['ROLE_USER', 'ROLE_SUPER_ADMIN'] : ['ROLE_USER']);
         $this->vinculo($pessoa, $tenant, permissoes: $permissoes);
         $this->liberarConector($tenant);
         $this->logarComTenant($this->client, $pessoa, $tenant);
