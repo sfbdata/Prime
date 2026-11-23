@@ -27,7 +27,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
 {
     private bool $montado = false;
 
-    /** @var array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @var array{estado: string, chave: string, enviados: string, teto: string, limite: string, hora: string, data: string, voltar: string}|null */
     private ?array $aviso = null;
 
     public function __construct(
@@ -45,7 +45,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
         return [new TwigFunction('aviso_da_cota_de_envio', $this->avisoDaCotaDeEnvio(...))];
     }
 
-    /** @return array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @return array{estado: string, chave: string, enviados: string, teto: string, limite: string, hora: string, data: string, voltar: string}|null */
     public function avisoDaCotaDeEnvio(): ?array
     {
         if (!$this->montado) {
@@ -62,7 +62,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
         $this->aviso   = null;
     }
 
-    /** @return array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @return array{estado: string, chave: string, enviados: string, teto: string, limite: string, hora: string, data: string, voltar: string}|null */
     private function montarSemDerrubar(): ?array
     {
         try {
@@ -82,6 +82,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
             'chave'    => $chave,
             'enviados' => number_format($situacao->enviados24h, 0, ',', '.'),
             'teto'     => number_format($situacao->teto, 0, ',', '.'),
+            'limite'   => number_format(CotaDeEnvio::TROCAR_DE_SERVICO_ACIMA_DE, 0, ',', '.'),
             'hora'     => $situacao->liberaEm?->format('H:i') ?? '',
             'data'     => $situacao->liberaEm?->format('d/m') ?? '',
             'voltar'   => $this->voltar(),
