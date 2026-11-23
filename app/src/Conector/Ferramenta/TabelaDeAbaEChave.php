@@ -153,6 +153,12 @@ final class TabelaDeAbaEChave
             'voltar_ao_padrao' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
             'excluir' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
         ],
+        'campanhas_de_email' => [
+            'criar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'editar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'cancelar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'enviar_teste' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+        ],
 
         // Gravação (6.6).
         // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é
