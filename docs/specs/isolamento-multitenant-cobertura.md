@@ -103,9 +103,9 @@ derivado do pai, e implementar `TenantAware`.
 | `pasta_processo` | Pasta | 75 | `pasta` | MÉDIO |
 | `invitation`\* | Auth | 10 | já tem coluna, nullable — **0 nulos** | MÉDIO |
 | `tenant_role_permission` | Permission | 154 | `tenant_role` | MÉDIO |
-| `bloco_jornada` | Ponto | 1 | a confirmar | **ALTO** |
-| `jornada_colaborador` | Ponto | 8 | a confirmar | **ALTO** |
-| `bloco_jornada_colaborador` | Ponto | 9 | a confirmar | **ALTO** |
+| `bloco_jornada` | Ponto | 1 | `jornada_tenant` ✅ | **ALTO** |
+| `jornada_colaborador` | Ponto | 8 | já tinha a coluna e a etiqueta (medido 23/11) | **ALTO** |
+| `bloco_jornada_colaborador` | Ponto | 9 | `jornada_colaborador` ✅ | **ALTO** |
 
 \* `invitation` está na tabela por ser furo da mesma fatia, mas **não** é Categoria B: a coluna já
 existe e **não tem nulo nenhum** (0 de 10). O trabalho lá é só pôr a etiqueta e trancar a coluna.
@@ -172,7 +172,7 @@ Cada fatia entrega software revisável sozinho. **Uma por vez**, com a suíte ve
 | 3 | **ServiceDesk** | `chamado_interacao` e `chamado_anexo`. Zero linhas — backfill trivial. | BAIXO |
 | 4 | **Tenant** | `sede`, `cargo`, `lotacao`. Ver §5.2 — mexe em tela de administração. | MÉDIO |
 | 5 | **Permission** | `tenant_role` (etiqueta) e `tenant_role_permission` (coluna + backfill). | MÉDIO |
-| 6 | **Ponto** | `bloco_jornada`, `jornada_colaborador`, `bloco_jornada_colaborador`. **Re-revisão obrigatória.** Inclui corrigir os **21** comentários errados sobre `find()` por PK (§2). | **ALTO** |
+| 6 | **Ponto** | Blocos ✅ (ver §4.5). Falta corrigir os comentários errados sobre `find()` por PK (§2), em PR próprio. **Re-revisão obrigatória.** | **ALTO** |
 | 7 | **Auditoria e Termo** | decisão dos nulos (§5.1) e execução. | MÉDIO |
 | 8 | **Pasta e Auth** | `pasta_processo` e `invitation` — ver §4.2. | MÉDIO |
 
@@ -264,6 +264,27 @@ por cascata — e a cascata foi **provada no grafo de FKs do banco** (`delete_ru
 elo até `kanban_board`, que já está na `ORDEM_DELECAO`), não aceita pelo comentário existente.
 `PurgarEscritorioUseCaseTest` também precisou de ajuste: ele insere por SQL cru, que não passa
 pelos construtores e por isso não herdava o tenant.
+
+### 4.5 Fatia 6: blocos de horário do Ponto (23/11/2026)
+
+`bloco_jornada` (horário do escritório) e `bloco_jornada_colaborador` (horário de cada pessoa)
+ganharam `tenant_id NOT NULL` (Version20261123190000, aprovada pelo Samuel em 23/11), com backfill
+pela jornada dona. Volume em produção (MCP, 23/11): 1 e 12 linhas, todas com pai e escritório.
+`jornada_colaborador` já tinha a coluna e a etiqueta: saiu da lista sem trabalho.
+
+Mesmo molde do Kanban (§4.3): o escritório do bloco nunca vem de fora. O setter do pai copia o
+escritório dele, e um `PrePersist` grava o do pai de novo e recusa (`LogicException`) bloco cujo
+pai não tem escritório. FK de tenant sem CASCADE, com índice.
+
+A purga do escritório (`PurgarEscritorioUseCase::ORDEM_DELECAO`) apaga os blocos pela coluna **ou**
+pelo pai: o pai garante que a jornada sai, a coluna garante que o escritório sai.
+
+Teste: `BlocosDaJornadaIsolamentoTest` (negativa por entidade com `findBy` e `find` por PK do
+vizinho; herança do pai mesmo com o bloco adicionado antes de a jornada ter escritório; recusa do
+bloco sem escritório).
+
+Ficou de fora, de propósito: os comentários "filtro SQL do Doctrine NÃO se aplica a `find()` por
+PK" (22 hoje, em vários domínios). Só comentário, sem efeito no código; vão num PR próprio.
 
 ### 4.2 Entidades que só apareceram com a medição
 

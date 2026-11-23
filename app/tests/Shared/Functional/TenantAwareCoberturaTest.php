@@ -23,8 +23,6 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\PastaProcesso;
-use App\Ponto\Entity\BlocoJornada;
-use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Attribute\SemIsolamentoDeTenant;
 use App\Shared\Contract\TenantAware;
@@ -329,7 +327,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     /** Tamanho mínimo do motivo de #[SemIsolamentoDeTenant]: "é global" não explica nada. */
     private const MOTIVO_MINIMO = 30;
 
-    private const MAX_PENDENTE = 13;
+    private const MAX_PENDENTE = 11;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
@@ -417,10 +415,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Fatia 5 — Permission (risco MÉDIO).
         TenantRole::class,
         TenantRolePermission::class,
-
-        // Fatia 6 — Ponto eletrônico (risco ALTO, re-revisão obrigatória).
-        BlocoJornada::class,
-        BlocoJornadaColaborador::class,
 
         // Fatia 7 — depende de decisão do dono sobre os nulos (§5.1 da spec):
         // audit_log tem 19.390 de 29.791 linhas com tenant_id nulo, aceite_termo 7 de 10.

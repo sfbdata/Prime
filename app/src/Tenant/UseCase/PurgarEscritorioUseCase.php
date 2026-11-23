@@ -94,8 +94,9 @@ final class PurgarEscritorioUseCase
     /**
      * Ordem de deleção (do filho para o pai), verificada contra o grafo de FKs do banco.
      * Cada item é [tabela, condição WHERE com :tenant]. Tabelas com tenant_id usam o
-     * escopo direto; filhas sem tenant_id (bloco_jornada, tenant_role_permission) usam
-     * subquery escopada pelo pai. As tabelas ausentes daqui caem por CASCADE do banco ao
+     * escopo direto; filhas sem tenant_id (tenant_role_permission) usam subquery escopada
+     * pelo pai. Os blocos do Ponto têm tenant_id copiado do pai (Version20261123190000) e
+     * usam os dois: o pai garante que a jornada sai, a coluna garante que o escritório sai. As tabelas ausentes daqui caem por CASCADE do banco ao
      * apagar a raiz do seu subsistema (ex.: pasta_secao, documento_processo, kanban_*).
      * O nome segue {@see SQL_TABELAS_COM_TENANT_ID}: sem prefixo no `public`, qualificado fora
      * dele (`voto.liberacao`).
@@ -104,8 +105,8 @@ final class PurgarEscritorioUseCase
      */
     private const ORDEM_DELECAO = [
         // Fase 1 — bloqueadores intermediários (NO ACTION): apagar antes do pai.
-        ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
-        ['bloco_jornada_colaborador', 'jornada_colaborador_id IN (SELECT id FROM jornada_colaborador WHERE tenant_id = :tenant)'],
+        ['bloco_jornada', 'tenant_id = :tenant OR jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
+        ['bloco_jornada_colaborador', 'tenant_id = :tenant OR jornada_colaborador_id IN (SELECT id FROM jornada_colaborador WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
         // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
@@ -938,7 +939,7 @@ final class PurgarEscritorioUseCase
     /**
      * Contagem do dry-run: usa as MESMAS cláusulas WHERE da ORDEM_DELECAO, então o número
      * por tabela espelha exatamente o que a execução real apaga diretamente (inclui as
-     * tabelas-ponte sem tenant_id, como bloco_jornada e tenant_role_permission). As
+     * tabelas-ponte sem tenant_id, como tenant_role_permission, e os blocos do Ponto). As
      * linhas-filhas removidas por CASCADE do banco não são itemizadas aqui (nem no real).
      *
      * @return array<string,int>
