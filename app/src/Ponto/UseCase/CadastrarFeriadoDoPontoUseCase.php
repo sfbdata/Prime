@@ -20,7 +20,7 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class CadastrarFeriadoDoPontoUseCase
 {
-    public const FALTA_DATA_OU_NOME = 'Informe a data e o nome do feriado.';
+    public const FALTA_DATA_OU_NOME = ConfiguracaoDoPontoRecusadaException::RECUSA_FALTA_DATA_OU_NOME;
     public const NOME_MAXIMO = 255;
 
     public function __construct(
@@ -37,7 +37,7 @@ final class CadastrarFeriadoDoPontoUseCase
             throw ConfiguracaoDoPontoRecusadaException::invalida([($dados->nome === '' ? 'nome' : 'data') => self::FALTA_DATA_OU_NOME]);
         }
         if (mb_strlen($dados->nome) > self::NOME_MAXIMO) {
-            throw ConfiguracaoDoPontoRecusadaException::invalida(['nome' => 'O nome do feriado pode ter até 255 caracteres.']);
+            throw ConfiguracaoDoPontoRecusadaException::invalida(['nome' => ConfiguracaoDoPontoRecusadaException::RECUSA_FERIADO_NOME_LONGO]);
         }
 
         $feriado = (new Feriado())
@@ -59,6 +59,6 @@ final class CadastrarFeriadoDoPontoUseCase
         }
 
         return (ctype_digit($abrangencia) ? $this->lotacoes->findOneBy(['id' => (int) $abrangencia, 'tenant' => $escritorio]) : null)
-            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada('Lotação não encontrada.');
+            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada(ConfiguracaoDoPontoRecusadaException::RECUSA_LOTACAO_NAO_ENCONTRADA);
     }
 }

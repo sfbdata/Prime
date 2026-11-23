@@ -26,6 +26,7 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Ajuste manual do banco de horas (horas pagas em dinheiro ou bonificação). Só escreve — a leitura
@@ -48,6 +49,7 @@ final class HorasPagasController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly LancamentoHorasPagasRepository $lancamentoRepository,
         private readonly BancoDeHorasPorLotes $bancoDeHoras,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route(
@@ -78,10 +80,10 @@ final class HorasPagasController extends AbstractController
 
         try {
             $lancarHorasPagas($input, $colaborador, $autor, $tenant);
-            $this->addFlash('success', 'Lançamento de horas pagas registrado.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.registrado'));
             $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
@@ -117,10 +119,10 @@ final class HorasPagasController extends AbstractController
 
         try {
             $editarHorasPagas($lancamento, $input, $autor, $tenant);
-            $this->addFlash('success', 'Lançamento de horas pagas atualizado.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.atualizado'));
             $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
@@ -146,9 +148,9 @@ final class HorasPagasController extends AbstractController
 
         try {
             $excluirHorasPagas($lancamento, $autor, $tenant);
-            $this->addFlash('success', 'Lançamento de horas pagas excluído.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.excluido'));
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
@@ -192,7 +194,7 @@ final class HorasPagasController extends AbstractController
         }
 
         $abs = abs($saldoDepois);
-        $this->addFlash('warning', sprintf('Atenção: este desconto deixou o banco de horas negativo em -%dh%02d.', intdiv($abs, 60), $abs % 60));
+        $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.horas_pagas.banco_negativo', ['saldo' => sprintf('%dh%02d', intdiv($abs, 60), $abs % 60)]));
     }
 
     /**
@@ -285,7 +287,7 @@ final class HorasPagasController extends AbstractController
             }
         }
 
-        return 'Erro ao registrar horas pagas. Verifique os campos.';
+        return $this->tradutor->trans('ponto_servidor.horas_pagas.erro_dos_campos');
     }
 
     private function voltarParaFicha(int $tenantId, int $colaboradorId): Response

@@ -68,7 +68,7 @@ class Contratacao implements TenantAware, Auditavel
         $this->atualizadaEm = $inicio;
     }
 
-    /** Liga o produto no escritório a partir de `agora`. `alteradaPor` é nulo quando ninguém logado agiu (cadastro). */
+    /** Liga o produto no escritório a partir de `agora`. `alteradaPor` é quem agiu: no cadastro, o dono recém-criado; nulo só quando não há pessoa (rotina do sistema). */
     public static function ativar(Tenant $tenant, Produto $produto, OrigemDaContratacao $origem, ?User $alteradaPor, \DateTimeImmutable $agora): self
     {
         return new self($tenant, $produto, $origem, $alteradaPor, $agora);

@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/tenant')]
 final class JornadaTenantController extends AbstractController
@@ -30,6 +31,7 @@ final class JornadaTenantController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly ChoqueDeJornadaEntreEscritorios $choque,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('/{id}/jornada', name: 'app_jornada_tenant_get', methods: ['GET'])]
@@ -115,7 +117,7 @@ final class JornadaTenantController extends AbstractController
         $data = json_decode((string) $request->getContent(), true);
 
         if (!is_array($data)) {
-            return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.payload_invalido')], Response::HTTP_BAD_REQUEST);
         }
 
         $carga              = (int) ($data['cargaHorariaSemanal'] ?? 0);
@@ -127,19 +129,19 @@ final class JornadaTenantController extends AbstractController
         $minimoInterjornada = (int) ($data['minimoMinutosInterjornada'] ?? 660);
 
         if ($carga < 60 || $carga > 2640) {
-            return $this->json(['erro' => 'Carga horária semanal deve estar entre 1h e 44h.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.jornada.carga_semanal')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         if ($minimoRepouso < 1 || $minimoRepouso > 480) {
-            return $this->json(['erro' => 'Intervalo mínimo de repouso deve estar entre 1 e 480 minutos.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.jornada.repouso_minimo')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         if ($minimoInterjornada < 60 || $minimoInterjornada > 1440) {
-            return $this->json(['erro' => 'Interjornada mínima deve estar entre 1 e 24 horas.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.jornada.interjornada_minima')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         if (!is_array($blocos) || count($blocos) > 7) {
-            return $this->json(['erro' => 'Máximo de 7 blocos de jornada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.jornada.max_blocos')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $erros = $this->validarBlocos($blocos, $carga);
@@ -222,7 +224,7 @@ final class JornadaTenantController extends AbstractController
         try {
             $entityManager->flush();
         } catch (UniqueConstraintViolationException) {
-            return $this->json(['erro' => self::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
         }
 
         return $this->json(['ok' => true]);
@@ -237,15 +239,15 @@ final class JornadaTenantController extends AbstractController
             $dias = array_map('intval', (array) ($b['diasSemana'] ?? []));
 
             if (empty($dias)) {
-                return sprintf('Bloco %d não tem dias da semana definidos.', $i + 1);
+                return $this->tradutor->trans('ponto_servidor.jornada.bloco_sem_dias', ['n' => $i + 1]);
             }
 
             foreach ($dias as $dia) {
                 if ($dia < 1 || $dia > 7) {
-                    return sprintf('Dia inválido no bloco %d: %d.', $i + 1, $dia);
+                    return $this->tradutor->trans('ponto_servidor.jornada.dia_invalido', ['n' => $i + 1, 'dia' => $dia]);
                 }
                 if (in_array($dia, $diasUsados, true)) {
-                    return sprintf('Dia %d aparece em mais de um bloco.', $dia);
+                    return $this->tradutor->trans('ponto_servidor.jornada.dia_repetido', ['dia' => $dia]);
                 }
                 $diasUsados[] = $dia;
             }
@@ -259,18 +261,17 @@ final class JornadaTenantController extends AbstractController
             $minutos = $this->calcularMinutosBloco($bloco);
 
             if ($minutos <= 0) {
-                return sprintf('Bloco %d tem carga horária inválida (deve ser positiva).', $i + 1);
+                return $this->tradutor->trans('ponto_servidor.jornada.bloco_carga_invalida', ['n' => $i + 1]);
             }
 
             $totalMinutos += $minutos * count($dias);
         }
 
         if (!empty($blocos) && $totalMinutos !== $cargaSemanal) {
-            return sprintf(
-                'Soma dos blocos (%dh%02dm) não bate com a carga semanal (%dh%02dm).',
-                intdiv($totalMinutos, 60), $totalMinutos % 60,
-                intdiv($cargaSemanal, 60), $cargaSemanal % 60
-            );
+            return $this->tradutor->trans('ponto_servidor.jornada.soma_blocos', [
+                'soma' => sprintf('%dh%02dm', intdiv($totalMinutos, 60), $totalMinutos % 60),
+                'carga' => sprintf('%dh%02dm', intdiv($cargaSemanal, 60), $cargaSemanal % 60),
+            ]);
         }
 
         return null;

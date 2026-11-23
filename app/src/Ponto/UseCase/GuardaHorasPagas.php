@@ -15,7 +15,7 @@ final class GuardaHorasPagas
     public static function recusarOutroTenant(LancamentoHorasPagas $lancamento, Tenant $tenant): void
     {
         if ($lancamento->getTenant()?->getId() !== $tenant->getId()) {
-            throw new HorasPagasInvalidaException('Lançamento não pertence a este escritório.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_OUTRO_ESCRITORIO);
         }
     }
 
@@ -28,11 +28,11 @@ final class GuardaHorasPagas
             LancamentoHorasPagasInput::OPERACAO_DESCONTAR,
             LancamentoHorasPagasInput::OPERACAO_ACRESCENTAR,
         ], true)) {
-            throw new HorasPagasInvalidaException('Operação inválida.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_OPERACAO_INVALIDA);
         }
 
         if (($input->horas * 60) + $input->minutos <= 0) {
-            throw new HorasPagasInvalidaException('Informe uma quantidade de horas maior que zero.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_QUANTIDADE_ZERO);
         }
 
         // Teto de SANIDADE (não de negócio, que o dono recusou): sem ele, `horas=100000000` gera
@@ -40,32 +40,32 @@ final class GuardaHorasPagas
         // lugar de uma recusa legível. A mesma regra está no DTO — aqui porque quem valida
         // quantidade/competência é o UseCase, e o formulário não é a única porta.
         if ($input->horas > LancamentoHorasPagasInput::HORAS_MAXIMAS) {
-            throw new HorasPagasInvalidaException(sprintf(
-                'A quantidade de horas não pode passar de %d.',
-                LancamentoHorasPagasInput::HORAS_MAXIMAS,
-            ));
+            throw new HorasPagasInvalidaException(
+                HorasPagasInvalidaException::RECUSA_QUANTIDADE_MAXIMA,
+                ['limite' => LancamentoHorasPagasInput::HORAS_MAXIMAS],
+            );
         }
 
         $motivo = trim($input->motivo);
 
         if ($motivo === '') {
-            throw new HorasPagasInvalidaException('Informe o motivo do lançamento.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_MOTIVO_OBRIGATORIO);
         }
 
         // Mínimo da spec §3: o motivo é a única defesa documental de um lançamento que altera verba
         // trabalhista. Conta DEPOIS do trim — senão "  x" passaria com um caractere só.
         if (mb_strlen($motivo) < LancamentoHorasPagasInput::MOTIVO_MINIMO) {
-            throw new HorasPagasInvalidaException(sprintf(
-                'O motivo precisa ter ao menos %d caracteres.',
-                LancamentoHorasPagasInput::MOTIVO_MINIMO,
-            ));
+            throw new HorasPagasInvalidaException(
+                HorasPagasInvalidaException::RECUSA_MOTIVO_CURTO,
+                ['minimo' => LancamentoHorasPagasInput::MOTIVO_MINIMO],
+            );
         }
 
         $competencia = new \DateTimeImmutable(sprintf('%04d-%02d-01', $input->ano, $input->mes));
         $mesAtual    = new \DateTimeImmutable('first day of this month 00:00:00');
 
         if ($competencia > $mesAtual) {
-            throw new HorasPagasInvalidaException('A competência não pode ser futura.');
+            throw new HorasPagasInvalidaException(HorasPagasInvalidaException::RECUSA_COMPETENCIA_FUTURA);
         }
     }
 }

@@ -1512,3 +1512,72 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   em `templates-extraidos.json` (`ponto_cartao`).
 - **Ficou de fora:** as duas frases legais acima (decisão do dono para virarem chave); texto do servidor; a hora gravada
   pelo servidor (`data.hora`) segue o formato dele.
+
+## 30. Texto do PHP do Ponto, PR A (idioma-ponto-php, 23/11)
+
+- **O que entrou:** os flashes (`addFlash`) e as respostas JSON (`mensagem`, `erro`, `message`) de texto fixo dos
+  controllers de `app/src/Ponto/Controller/` traduzem no ponto de saída (`TranslatorInterface` no construtor, o locale é o
+  da requisição, posto pelo `IdiomaDaRequisicaoListener`). Bloco novo `ponto_servidor` (`translations/ponto_servidor/`,
+  pt_BR e en): 59 chaves. Risco ALTO (ponto eletrônico), mas só o texto de saída muda: nenhuma condição, status HTTP ou
+  regra foi tocada.
+- **Chaves por bloco:** `comum` 4 (payload inválido, não autenticado, sem permissão de registrar, jornada alterada ao
+  mesmo tempo), `ponto` 22, `equipe` 2, `feriado` 3, `configuracoes` 4, `home_office` 4, `jornada` 10, `ajuste` 5,
+  `horas_pagas` 5.
+- **Textos por controller (pontos trocados no código):** `PontoController` 31 (justificativa e esquecimento, edição da
+  justificativa, e os `message` do estado do dia e da batida), `JornadaColaboradorController` 12, `JornadaTenantController`
+  11, `HomeOfficeConfigController` 5, `HorasPagasController` 5, `AjusteDeBatidaController` 5, `EquipeDoPontoController` 3,
+  `FeriadoController` 3, `ConfiguracoesDoPontoController` 2, `FuncaoDoPontoController` 1,
+  `TrabalhoExternoDoPontoController` 1. As frases com número ou nome viraram parâmetro (`{n}`, `{dia}`, `{soma}`,
+  `{carga}`, `{saldo}`, `{data}`, `{dias}`); o tempo "8h05m" é montado em PHP e entra por `{soma}`, `{carga}` e `{saldo}`.
+  "dia(s)" ficou como estava, sem plural ICU (o pt_BR não muda).
+- **Constantes mantidas:** `JORNADA_ALTERADA_AO_MESMO_TEMPO` (dois controllers) e `PontoController::AVISO_ENVIADO_AO_GESTOR`
+  seguem no código só para os testes fixarem o texto em pt_BR; a tela usa as chaves. `AjusteDeBatidaController::ERRO_DOS_CAMPOS`
+  saiu (virou a chave `ajuste.erro_dos_campos`).
+- **Sem mudança visível:** `TextoDoPhpDoPontoTest` confere, para cada uma das 59 chaves, que o pt_BR é o literal antigo
+  (inclusive o `sprintf` antigo, nas com parâmetro), que o en é outro texto, que as chaves do pt_BR e do en são as mesmas
+  e que cada chave tem uso em um controller.
+- **Ficou em português, de propósito:** (1) o `AceiteDaFolhaController` e o `ValidacaoDoComprovanteController` (documento
+  legal, decisão de 19/11); (2) o que o JS compara com a resposta do servidor: `RECUSAS_DO_TEXTO_EXTERNO`
+  (`index.html.twig`, compara `resultado.mensagem` com `TrabalhoExternoDaBatida::MENSAGEM_SEM_MOTIVO` e a do limite de 500
+  caracteres, que chegam por `recusaDoMotivo` do Service, fora deste PR); o `AVISO_JA_REGISTRADA` do template (a
+  `EnvioDaBatida::MENSAGEM_JA_REGISTRADA`, const de Service, que o `respostaJaRegistrada` devolve igual); (3) o
+  `FilaDoPontoController` (`/ponto/fila/sincronizada` é chamado só pela máquina, sem mostrar a resposta); (4) as
+  `createAccessDeniedException`/`createNotFoundException` com texto (404 e 403 que o Symfony renderiza, não resposta da
+  tela); (5) texto de auditoria ou de log (nenhum dos tocados grava o texto no banco).
+- **Ficou para o PR B:** mensagens de exceção de domínio repassadas por `$e->getMessage()` (`ForaDaEquipeException`,
+  `EscalaDesconhecidaException`, `ChoqueDeJornadaException`, `VersaoDaJornada*Exception`, `FuncaoDoPontoRecusadaException`,
+  `AjusteDeBatidaRecusadoException`, `JustificativaJaAnalisadaException`, `TrocaDeAnexoRecusadaException`, o
+  `GuardaHorasPagas`), as consts de texto de `Service/` (`TrabalhoExternoDaBatida`, `EnvioDaBatida`,
+  `ChoqueDeJornadaEntreEscritorios::MENSAGEM_PADRAO`, `AlertasAntesDaBatida`, a recusa da cerca), o
+  `mensagemDasAbonadas` e as recusas por pessoa do UseCase de abonar da equipe, e os lembretes do `JornadaResolver`.
+  Enquanto isso, uma resposta do servidor pode misturar as duas línguas (por exemplo a batida de trabalho externo
+  confirma com a frase do Service em português e o complemento "Comprovante na aba Comprovantes." já traduzido).
+
+## 31. Texto do PHP do Ponto, PR B1: recusas de gestão e configuração (idioma-ponto-php-b, 23/11)
+
+- **O que entrou:** as exceções de domínio do Ponto que os controllers repassavam por `$e->getMessage()`, nas telas de
+  gestão e configuração, ganharam as constantes `RECUSA_*` (o português de sempre, que continua sendo a mensagem da
+  exceção) e o `CHAVE_DA_RECUSA`, no padrão das recusas das seccionais (P2b) e do Master (P3). Base nova
+  `Ponto/Exception/RecusaDoPonto` (`chave()`, `parametros()`; recusa fora das constantes dá `LogicException`). Os
+  lançadores usam as constantes; os controllers traduzem pela `chave()` com os `parametros()`. Chaves em
+  `ponto_servidor.recusa.<area>.*`. Risco ALTO: nenhuma condição, status HTTP ou regra mudou.
+- **Exceções:** `ConfiguracaoDoPontoRecusadaException` 16 (sede, feriado, lotação e os 9 da `RestricoesDaSede`; não
+  estende a base porque a mensagem é a junção dos erros por campo: `chaveDe()` estático traduz cada erro, e o 422 junta
+  os traduzidos como antes), `FuncaoDoPontoRecusadaException` 3, `LimitesDoBancoRecusadosException` 3 (`{minimo}`,
+  `{maximo}`), `HorasPagasInvalidaException` 8 (`{limite}`, `{minimo}`), `VersaoDaJornada*Exception` 3 (`{data}`),
+  `ForaDaEquipeException` 1, `ExclusaoDeJustificativaRecusadaException` 5. `EscalaDesconhecidaException` reusa a chave
+  `equipe.escala_da_lista` (mesmo texto).
+- **Abono em lote:** "N justificativas abonadas." vira plural ICU (`ponto_servidor.equipe.abonadas`); o número entra
+  como texto em `{numero}`, sem separador de milhar, igual ao `sprintf` antigo (o `#` do ICU escreveria "1.000").
+  `AbonoEmLoteOutput::mensagemDasAbonadas()` fica como o português de referência.
+- **Sobra do PR A:** `LimitesDoBancoDoPontoController::SEM_NUMERO_INTEIRO` sai por `comum.numero_inteiro`.
+- **Sem mudança visível:** `RecusasDoPontoNoCatalogoTest` amarra cada `RECUSA_*` ao pt_BR do catálogo (formatado com
+  os mesmos parâmetros do `sprintf`), confere que o en é outro texto e que não sobra chave; nenhum teste existente mudou
+  o texto esperado.
+- **Fica para o PR B2:** batida e justificativa (`PosicaoNaCerca`, `EnvioDaBatida`, `TrabalhoExternoDaBatida`, a chave
+  do ponto, `ChoqueDeJornada*`, entrada e turno abertos, `AlertasAntesDaBatida`, interjornada, horário futuro, batida já
+  registrada, `AjusteDeBatidaRecusadoException`, `AnaliseDeJustificativaRecusadaException` e as recusas por pessoa do
+  abono), os lembretes do `JornadaResolver`/`VerificadorAlertaPonto` e os rótulos de Service (`FuncoesDoPonto`,
+  `BancoDeHorasPorLotes`, `EscalaDaPessoaNaEquipe`, trilha). Ficam em português: `NomesDasSituacoesDaJustificativa`
+  (também vai para a notificação e o XLSX), `OBSERVACAO`/`MOTIVO_*` (gravados no banco e comparados) e o aceite, o selo
+  e a folha (documento legal).
