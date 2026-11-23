@@ -48,8 +48,12 @@ final class ProdutoresDeAnexoPathTest extends TestCase
      * `ChavesDePonto` (E2.2) lê o getter para montar a `ChaveDeArquivo` da própria justificativa —
      * o valor vai para o storage como endereço e nunca para `setAnexoPath()` de outro registro.
      * Leitor legítimo; a monotonicidade das referências continua de pé.
+     *
+     * `ColetorDoPonto` (backup) lê o getter só para pôr o atestado da PRÓPRIA pessoa no ZIP (cópia de bytes para o
+     * arquivo de saída, via `ChavesDePonto`); nunca repassa o valor a `setAnexoPath()`.
      */
     private const LEITORES = [
+        'src/Backup/Coletor/ColetorDoPonto.php',
         'src/Controller/TenantController.php',
         'src/Ponto/Armazenamento/ChavesDePonto.php',
         'src/Ponto/Controller/PontoController.php',

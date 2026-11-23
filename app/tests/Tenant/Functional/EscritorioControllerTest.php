@@ -6,6 +6,8 @@ namespace App\Tests\Tenant\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
@@ -279,6 +281,49 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
             (int) $conn->fetchOne('SELECT responsavel_id FROM pasta WHERE id = ?', [$pastaAId]),
             'a pasta do escritório A não podia ter sido desatribuída — a saída foi do B'
         );
+    }
+
+    #[TestDox('Sair do escritório B com a sessão em A funciona mesmo com cargo e lotação de B no vínculo, e o log guarda os nomes')]
+    public function testSaiDeNaoAtivoComCargoELotacaoDoOutroEscritorio(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        [$user]  = $this->criarUsuarioComVinculo($tenantA);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $nomeCargo   = 'Cargo de B ' . uniqid();
+        $nomeLotacao = 'Lotação de B ' . uniqid();
+        $cargo = (new Cargo())->setNome($nomeCargo);
+        $cargo->setTenant($tenantB);
+        $lotacao = (new Lotacao())->setNome($nomeLotacao);
+        $lotacao->setTenant($tenantB);
+        $em->persist($cargo);
+        $em->persist($lotacao);
+        $em->persist((new UserTenant($user, $tenantB))->setCargo($cargo)->setLotacao($lotacao));
+        $em->flush();
+        $idB = (int) $tenantB->getId();
+
+        // Sessão (e o TenantFilter) em A. O vínculo de B chega do banco com o cargo e a lotação de B ainda fechados,
+        // e o filtro de A não os abre: a auditoria da exclusão precisa abrir sem o filtro para ler os nomes.
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenantA);
+        $em->clear();
+        $client->request('POST', "/escritorio/{$idB}/sair", ['_token' => $this->gerarCsrf('sair_' . $idB)]);
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertFalse(
+            $conn->fetchOne('SELECT 1 FROM user_tenant WHERE user_id = ? AND tenant_id = ?', [$user->getId(), $idB]),
+            'o vínculo com o escritório B continuou: a saída voltou atrás',
+        );
+        $log = json_decode((string) $conn->fetchOne(
+            "SELECT changes FROM audit_log WHERE action = 'delete' AND entity_class = ? AND tenant_id = ? ORDER BY id DESC LIMIT 1",
+            [UserTenant::class, $idB],
+        ), true);
+        self::assertSame($nomeCargo, $log['diff']['before']['cargo']['label'] ?? null, 'o log da saída perdeu o nome do cargo de B');
+        self::assertSame($nomeLotacao, $log['diff']['before']['lotacao']['label'] ?? null, 'o log da saída perdeu o nome da lotação de B');
     }
 
     private function criarPasta(EntityManagerInterface $em, Tenant $tenant, User $responsavel): Pasta
