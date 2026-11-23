@@ -219,6 +219,7 @@ Nos demais casos, se nenhum produto da rota estiver incluído:
 
 ### 6.1 Riscos multi-tenant e de autorização
 
+- **Quem é das duas pontas (aceito no PR 6):** a pessoa com escritório próprio sem o Expediente que também é Convidada numa demanda de outro escritório perde o Trabalho Externo em `bloqueio` enquanto esse escritório estiver na sessão. É a mesma regra do `TenantContextValidatorListener` (o atalho `_sem_escritorio` só vale sem escritório na sessão). Rever quando o PR 7 der a troca de escritório no menu.
 - **`{tenantId}` de outro escritório (risco aceito no PR 6):** a guarda usa o escritório da URL, e o `TenantUrlScopeListener` não confere vínculo (quem nega é o controller). Em `bloqueio`, uma URL de escritório alheio responde 404 se ele não tem o produto e 403 do controller se tem: dá para deduzir o contrato de outro escritório pelo código da resposta. Não há escalada (o controller nega nos dois casos) e a existência do escritório já se deduzia antes. Fechar exige o legado responder 404 também; fica para quando essas telas forem para o domínio.
 
 - **Worker:** a guarda não roda. Para a I.A., quem trava o segundo plano é a `DisponibilidadeDeInteligencia`, que exige `liberadaPeloMaster` (Inteligencia/Service/DisponibilidadeDeInteligencia.php:104). Por isso existe a D15.
