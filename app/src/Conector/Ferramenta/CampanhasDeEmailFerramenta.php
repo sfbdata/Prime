@@ -59,6 +59,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
     public const MOTIVO_SO_DO_MASTER = 'so_do_master';
     public const NAO_DISPONIVEL = 'Ferramenta não disponível.';
     public const MUDOU = 'A campanha ou o modelo mudou desde a proposta. Peça de novo.';
+    public const PUBLICO_MUDOU = 'O público mudou de %d para %d destinatários. Peça de novo para ver o resumo atualizado.';
     public const ENVIO_DESLIGADO = 'Atenção: o envio de campanhas está desligado. A campanha fica esperando até o Master ligar o envio.';
 
     public function __construct(
@@ -129,7 +130,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         $this->exigirMaster($chamada);
         $this->recusando(function () use ($acao, $dados): void {
             match ($acao) {
-                self::CRIAR => $this->exigirModeloIgual($dados),
+                self::CRIAR => $this->reconferirCriacao($dados),
                 self::EDITAR => $this->reconferirEdicao($dados),
                 self::CANCELAR => $this->exigirIgual(self::hash(self::estadoDaCampanha($this->relatorio(self::inteiro($dados, 'campanha_id')))), $dados),
                 default => throw ErroDaFerramenta::entradaInvalida(),
@@ -167,7 +168,15 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         if ($total === 0) {
             throw ErroDaFerramenta::recusada(ConfirmarCampanhaUseCase::SEM_DESTINATARIOS);
         }
-        $dados = ['modelo' => $mensagem->chave, 'antes' => ModelosDeEmailResumos::hash($modelo), 'publico' => $publico, 'frequencia' => $frequencia, 'agendar' => $agendar, 'chave' => bin2hex(random_bytes(16))];
+        $dados = [
+            'modelo' => $mensagem->chave,
+            'antes' => ModelosDeEmailResumos::hash($modelo),
+            'publico' => $publico,
+            'total' => $total,
+            'frequencia' => $frequencia,
+            'agendar' => $agendar,
+            'chave' => bin2hex(random_bytes(16)),
+        ];
         $resumo = sprintf(
             "Criar campanha do modelo \"%s\" (%s).\nPúblico: %s, %d destinatário(s).\nEnvio: %s.\n%sAssunto: %s\nTexto:\n%s",
             (string) $modelo['nome'],
@@ -195,7 +204,15 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
             return new RespostaDaFerramenta(['estado' => 'nada_a_fazer', 'campanha_id' => $id, 'mensagem' => 'Já está assim: nada foi alterado.']);
         }
         $this->exigirDataFutura($agendar);
-        $dados = ['campanha_id' => $id, 'antes' => self::hash($edicao->paraArray()), 'frequencia' => $frequencia, 'agendar' => $agendar, 'atualizar_do_modelo' => $atualizar, 'modelo' => null, 'modelo_antes' => null];
+        $dados = [
+            'campanha_id' => $id,
+            'antes' => self::hash($edicao->paraArray()),
+            'frequencia' => $frequencia,
+            'agendar' => $agendar,
+            'atualizar_do_modelo' => $atualizar,
+            'modelo' => null,
+            'modelo_antes' => null,
+        ];
         $resumo = sprintf(
             "Editar a campanha %d (\"%s\", %s).\nAgenda: de %s para %s.\n%s",
             $id,
@@ -279,6 +296,17 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         $mensagem = $this->encerrar->executar($id, EncerrarCampanhaUseCase::MOTIVO_DO_MASTER, $pessoa->getId(), $pessoa->getEmail());
 
         return ['estado' => 'concluida', 'acao' => self::CANCELAR, 'campanha_id' => $id, 'mensagem' => $mensagem];
+    }
+
+    /** @param array<string, mixed> $dados */
+    private function reconferirCriacao(array $dados): void
+    {
+        $this->exigirModeloIgual($dados);
+        $total = $this->contar->executar(new PedidoDePublico(self::texto($dados, 'publico'), modelo: self::texto($dados, 'modelo')))->destinatarios;
+        $visto = self::inteiro($dados, 'total');
+        if ($total !== $visto) {
+            throw ErroDaFerramenta::recusada(sprintf(self::PUBLICO_MUDOU, $visto, $total));
+        }
     }
 
     /** @param array<string, mixed> $dados */

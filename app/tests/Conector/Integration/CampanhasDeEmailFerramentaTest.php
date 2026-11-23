@@ -198,6 +198,35 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
         self::assertSame(0, $this->contar('comercial_campanha'));
     }
 
+    #[TestDox('reconferir: entrou destinatário depois da proposta, o total mudou e a confirmação recusa com a frase do público, sem criar campanha')]
+    public function testCriarPublicoMudou(): void
+    {
+        $this->semearLead();
+        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads']);
+        $agora = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->conexao()->executeStatement("INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, ?, ?)", ['outro_' . uniqid() . '@exemplo.com', $agora, $agora]);
+
+        $erro = $this->recusaDaConfirmacao($proposta);
+
+        self::assertSame('O público mudou de 1 para 2 destinatários. Peça de novo para ver o resumo atualizado.', $erro->getMessage());
+        self::assertSame(0, $this->contar('comercial_campanha'));
+    }
+
+    #[TestDox('idempotência: executarConfirmada duas vezes com os mesmos dados (a mesma chave) gera uma campanha só')]
+    public function testCriarIdempotente(): void
+    {
+        $this->semearLead();
+        $dados = ['modelo' => 'convite', 'publico' => 'leads', 'total' => 1, 'frequencia' => 'unica', 'agendar' => '', 'chave' => bin2hex(random_bytes(16))];
+        static::getContainer()->get('services_resetter')->reset();
+        $ferramenta = static::getContainer()->get(CampanhasDeEmailFerramenta::class);
+        $chamada = $this->chamada();
+
+        $ferramenta->executarConfirmada('criar', $dados, $chamada);
+        $ferramenta->executarConfirmada('criar', $dados, $chamada);
+
+        self::assertSame(1, $this->contar('comercial_campanha'));
+    }
+
     #[TestDox('executarConfirmada também confere o Master, mesmo sem passar pelo reconferir')]
     public function testConfirmadaSemMaster(): void
     {
