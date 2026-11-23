@@ -3,12 +3,15 @@
 namespace App\Ponto\Entity;
 
 use App\Ponto\Repository\BlocoJornadaColaboradorRepository;
+use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: BlocoJornadaColaboradorRepository::class)]
 #[ORM\Table(name: 'bloco_jornada_colaborador')]
-class BlocoJornadaColaborador implements Auditavel
+#[ORM\HasLifecycleCallbacks]
+class BlocoJornadaColaborador implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -18,6 +21,15 @@ class BlocoJornadaColaborador implements Auditavel
     #[ORM\ManyToOne(inversedBy: 'blocos')]
     #[ORM\JoinColumn(nullable: false)]
     private ?JornadaColaborador $jornadaColaborador = null;
+
+    /**
+     * Escritório dono, denormalizado do pai (jornada da pessoa (JornadaColaborador)) para o TenantFilter alcançar o bloco
+     * (fatia 6 de docs/specs/isolamento-multitenant-cobertura.md). Nunca recebido de fora: sem setter,
+     * copiado do pai ao ligar o bloco a ele e conferido ao gravar.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private Tenant $tenant; // sem valor até o pai ter escritório; o PrePersist garante antes de gravar
 
     #[ORM\Column(type: 'json')]
     private array $diasSemana = []; // [1-7], 1=Segunda ... 7=Domingo
@@ -50,7 +62,33 @@ class BlocoJornadaColaborador implements Auditavel
     public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
     {
         $this->jornadaColaborador = $jornadaColaborador;
+        // Ligado a um pai com escritório, o bloco passa a ser desse escritório. Desligado (null, a caminho do
+        // orphanRemoval), fica com o que tinha.
+        if ($jornadaColaborador?->getTenant() !== null) {
+            $this->tenant = $jornadaColaborador->getTenant();
+        }
+
         return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant ?? null;
+    }
+
+    /**
+     * Ao gravar, o escritório é sempre o do pai: o pai pode ter ganhado o escritório depois de receber o bloco
+     * (addBloco antes de setTenant). Pai sem escritório é erro de montagem, e falhar aqui é melhor que gravar um
+     * bloco que o filtro não sabe a quem pertence.
+     */
+    #[ORM\PrePersist]
+    public function herdarEscritorioDoPai(): void
+    {
+        $dono = $this->jornadaColaborador?->getTenant();
+        if ($dono === null) {
+            throw new \LogicException('BlocoJornadaColaborador sem escritório: o pai precisa ter escritório antes de gravar.');
+        }
+        $this->tenant = $dono;
     }
 
     public function getDiasSemana(): array

@@ -12,10 +12,12 @@ use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\LinkDeConfirmacaoDeEmail;
 use App\Auth\Service\PaginaDeEntrada;
+use App\Auth\Service\ProdutoDoCadastro;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Auth\UseCase\CriarSenhaPeloLinkUseCase;
 use App\Indicacao\Service\CodigoDeIndicacao;
+use App\Produto\Enum\Produto;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -56,6 +58,9 @@ final class CadastroController extends AbstractController
         if ($this->getUser() !== null) {
             return $this->redirectToRoute('tenant_selecionar');
         }
+        // O site do Voto manda `?produto=voto` (spec multiproduto, §5): fica na sessão, por lista fechada; outro valor
+        // é ignorado e não apaga o guardado. `all()` pelo mesmo motivo do cupom.
+        ProdutoDoCadastro::guardar($request->getSession(), $request->query->all()['produto'] ?? null);
         // O cupom do link curto segue para o "Criar conta" (desenho 10 VS 25.10.26); `all()` para `?ind[]=` não lançar.
         $cupom = CodigoDeIndicacao::doCupom($request->query->all()['ind'] ?? null);
 
@@ -80,7 +85,7 @@ final class CadastroController extends AbstractController
             return $this->json(['erro' => 'Muitas tentativas. Tente de novo mais tarde.'], Response::HTTP_TOO_MANY_REQUESTS);
         }
 
-        $input = self::input($dados);
+        $input = self::input($dados, ProdutoDoCadastro::ler($request->getSession()));
         try {
             $conta = $this->criarConta->executar($input, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
         } catch (CadastroNaoDisponivel $e) {
@@ -89,6 +94,7 @@ final class CadastroController extends AbstractController
         } catch (\InvalidArgumentException | \DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+        ProdutoDoCadastro::esquecer($request->getSession()); // vale um cadastro só; sai também na resposta neutra
 
         // Sem login: a tela mostra "Confirme seu e-mail". A sessão guarda a conta para o botão de reenviar o link.
         // E-mail que já tinha conta (null): a mesma resposta, e na sessão o marcador neutro no lugar da conta de outra
@@ -227,8 +233,8 @@ final class CadastroController extends AbstractController
         }
     }
 
-    /** @param array<string, mixed> $dados */
-    private static function input(array $dados): CriarContaEEscritorioInput
+    /** @param array<string, mixed> $dados o produto vem da sessão, nunca de `$dados` (D9) */
+    private static function input(array $dados, ?Produto $produto): CriarContaEEscritorioInput
     {
         return new CriarContaEEscritorioInput(
             nome: self::texto($dados, 'nome'),
@@ -237,6 +243,7 @@ final class CadastroController extends AbstractController
             senha: self::texto($dados, 'senha'),
             aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
             genero: self::texto($dados, 'genero'),
+            produto: $produto,
         );
     }
 

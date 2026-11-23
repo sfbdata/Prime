@@ -177,7 +177,7 @@
      * permitido é de R m."; sem sede, "O registro exige estar dentro do raio de uma sede do escritório."; com o trabalho
      * externo permitido no escritório (P74), mais " Aproxime-se ou informe o trabalho externo.".
      *
-     * Distância e raio saem com o ponto de milhar do pt-BR, como no servidor (`PosicaoNaCerca`, `number_format`); abaixo
+     * Distância e raio saem com o ponto de milhar do idioma da pessoa (`BJFormato.numero`); em português é o do servidor (`PosicaoNaCerca`, `number_format`). Abaixo
      * de 1000 m, o texto é o do desenho.
      *
      * A sede citada é a de `sedeMaisProxima` (a válida mais próxima em metros, como o servidor), e não a decisiva de
@@ -190,8 +190,8 @@
         if (maisProxima) {
             detalhe = BJ_T.t('ponto_cartao.js.batida.sede_mais_proxima', {
                 sede: String(maisProxima.sede.nome),
-                distancia: Math.round(maisProxima.distancia).toLocaleString('pt-BR'),
-                raio: Math.round(Number(maisProxima.sede.raio)).toLocaleString('pt-BR'),
+                distancia: window.BJFormato.numero(Math.round(maisProxima.distancia)),
+                raio: window.BJFormato.numero(Math.round(Number(maisProxima.sede.raio))),
             });
         }
         const permitido = trabalhoExternoPermitido === true;

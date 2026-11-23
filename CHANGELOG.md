@@ -8,6 +8,85 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.2.0] - 2026-11-23
+
+### Alterado
+
+- Ponto: as recusas das regras de gestão e configuração (sede, feriado, função do ponto, limites do banco de horas, horas pagas, versão da jornada, equipe, exclusão de justificativa) e o aviso do abono em lote passam pelo tradutor, com a chave na exceção (`RecusaDoPonto`). O português fica idêntico, cada recusa é conferida contra o texto antigo. Batida e justificativa ficam para o PR B2.
+
+## [3.1.0] - 2026-11-23
+
+### Adicionado
+
+- Cota de e-mail: acima de 2.000 e-mails enviados em 24 h (todos, também os do sistema), o aviso do Master no topo da tela passa ao estado `trocar` ("Hora de contratar outro serviço de e-mail") e a varredura de 15 min manda um e-mail a cada Master ativo, no máximo um a cada 24 h (origem `aviso_troca_servico`, isenta do teto diário). Nada é bloqueado.
+- Cadastro pelo Voto: `GET /cadastro?produto=voto` guarda o produto na sessão por lista fechada (só `voto`; outro valor é ignorado e não apaga o guardado). Os três caminhos de criação (e-mail, Google e Facebook) leem o produto só da sessão, nunca do JSON, e a chave sai da sessão depois de criar.
+- Com o Voto, na mesma transação do `CriarContaEEscritorioUseCase`: o escritório nasce sem os marcadores padrão do Expediente (`TenantBootstrapService::bootstrap(..., semearMarcadores: false)`), com a contratação `voto` (origem `cadastro`) e a `LiberacaoDoVoto` liberada; a I.A. não é ligada. Sem produto, o cadastro é o de sempre, sem linha em `contratacao`.
+- `PaginaInicialDoEscritorio`: a primeira tela depois do login, do `/inicio` e da escolha do escritório segue os produtos do escritório (Expediente; depois Voto, Cobranças, Ponto, Cálculo, Kanban e Assinatura; sem nenhum, Meu Perfil). O escritório completo continua no `expediente_index`. `voto_index` entra nos destinos aceitos depois do login.
+- Resumo diário por e-mail: escritório sem o Expediente fica de fora (`semEnvio`).
+
+### Alterado
+
+- Ponto: os flashes e as respostas JSON de texto fixo dos controllers (justificativa, batida, feriados, jornada, home office, ajuste de batida, horas pagas e equipe) passam pelo tradutor no ponto de saída, no bloco novo `ponto_servidor`. O português fica idêntico, cada chave é conferida contra o texto antigo. As recusas das regras (exceções e Services) e o aceite da folha ficam como estão (PR B).
+
+### Corrigido
+
+- Expediente, lista de pastas: a coluna do número da pasta (NUP) passa de 74px para 124px (cabe a estrela, o número de 4 dígitos, o compartilhar e o cadeado, com o espaço interno da célula) e o número, o ícone de compartilhar e o cadeado voltam a ficar lado a lado, sem quebrar linha (`flex-wrap: nowrap` em `.exp-nup-cel`). A correção M5.7 (#869) deixava os ícones descerem para baixo do número e a linha da tabela ficava muito alta.
+
+### Segurança
+
+- Isolamento multi-tenant, fatia 4: `Sede`, `Cargo` e `Lotacao` passam a `TenantAware` (o TenantFilter escopa toda consulta pelo escritório). Saem da lista de pendentes do `TenantAwareCoberturaTest` (teto 13 para 10). Teste novo `CadastrosDoEscritorioIsolamentoTest` cobre a negativa por entidade e as telas de administração pelo escritório da URL.
+- Ponto: `bloco_jornada` e `bloco_jornada_colaborador` ganham `tenant_id NOT NULL` (Version20261123190000), copiado da jornada dona no backfill e em toda gravação (`PrePersist`; bloco sem escritório é recusado). As duas entidades passam a `TenantAware` e entram no `TenantFilter`; saem da lista de pendentes do `TenantAwareCoberturaTest`. A purga do escritório apaga os blocos pela coluna ou pelo pai.
+
+## [3.0.0] - 2026-11-23
+
+### Adicionado
+
+- Backup: base do Backup e Exportação de Dados. Tabela `pedido_de_backup` (estado, validade e chave do ZIP por pessoa e escritório), categoria de arquivo `BACKUP_ZIP` isolada por escritório no disco e nunca espelhada no R2, e a purga do escritório levando os pedidos e os ZIPs.
+- Backup: o pedido agora roda em segundo plano. `PedirBackupUseCase` cria o pedido (um aberto por pessoa e escritório, no máximo 1 a cada 24 h) e despacha `GerarBackup` no transport `async`; `GerarBackupHandler` monta o ZIP, marca `pronto` (validade de 7 dias) e avisa pelo sino, ou marca `falhou` sem derrubar a fila (reentrega em `montando` também vira `falhou`). Nova tarefa agendada `app:backup:vencer` (de hora em hora): vence o backup pronto fora da validade e apaga o ZIP depois do commit; pedido preso em `montando` há mais de 2 h vira `falhou`.
+- Backup: o ZIP passa a levar também os processos (`dados/processos.json`), as tarefas (`dados/tarefas.json` e os anexos em `tarefas/`), os quadros do Kanban (`dados/kanban.json` e os anexos em `kanban/`), a agenda (`dados/agenda.json`), a cobrança (`dados/cobranca.json` e os documentos em `cobranca/`), as assinaturas eletrônicas (`dados/assinaturas.json` e os PDFs em `assinaturas/`), os cálculos emitidos (`dados/calculos.json`), o ponto da própria pessoa (`dados/ponto.json`), o Trabalho Externo (`dados/trabalho_externo.json` e os documentos em `trabalho_externo/`), o Service Desk (`dados/service_desk.json` e os anexos em `service_desk/`) e o perfil (`dados/perfil.json` e a foto em `perfil/`). Cada módulo só entra para quem tem acesso a ele e só com o que a pessoa vê na tela: processos e metas de pasta oculta ficam de fora, o quadro só vai para quem criou ou participa, o compromisso privado de outra pessoa não entra, e o ponto, os cálculos e as demandas do Trabalho Externo são só os da própria pessoa. Nunca vão no arquivo: tokens e conexão do Google Agenda, selfie, rubrica, IP, localização e navegador de quem assina, coordenadas do GPS do ponto, notas internas da equipe, senha e códigos de acesso.
+- Backup: montagem do ZIP com as pastas e os clientes. Cada pessoa leva só o que pode ver no escritório (acesso restrito, cadeado, abas ocultas e lixeira respeitados), com `LEIA-ME.txt`, `manifesto.json` (tamanho e sha256 de cada arquivo), `dados.json` por pasta e os documentos na árvore de seções. Teto de 5 GB de arquivos por pedido; o que passar vai listado no LEIA-ME.
+- Backup: passa a ser só do dono do escritório (`Tenant::getCriadoPor()`). Regra única em `App\Backup\Service\DonoDoEscritorio`, usada em `PedirBackupUseCase`, `BaixarBackupUseCase` (403 para os demais, sem auditoria), `BackupController`, `BackupNoPerfilExtension` (a seção "Backup e Exportação de Dados" some) e `GerarBackupHandler` (quem deixou de ser dono tem o pedido marcado como `falhou`). Escritório sem criador: ninguém é dono.
+- Meu Perfil: nova seção "Backup e Exportação de Dados" no fim da página, para qualquer pessoa com escritório. O botão "Gerar backup" pede o ZIP em segundo plano (limite de 1 pedido por dia e um por vez), a lista mostra os últimos 5 pedidos da pessoa com situação, data, tamanho e o "Baixar" (7 dias de validade). O download é por rota autenticada, só para quem pediu, e grava `backup_dl` no audit_log. Os avisos do sino `backup_pronto` e `backup_falhou` agora abrem essa seção.
+- Relatório de campanhas: "Editar campanha" abre a campanha no editor da Central em modo edição (conteúdo, data e frequência; público e modelo travados), só antes de começar a sair (`agendada`, `na_fila` antes do expansor, `recorrente` entre execuções); `POST /master/comercial/campanhas/{id}/editar` reconfere sob `FOR UPDATE`, valida como a confirmação e grava a trilha `camp_edit` com `{frequencia, agendada}` (M5.3).
+- "Excluir campanha" no menu de uma campanha: se ativa, cancela o envio (`camp_fim`) e a esconde do Relatório; se encerrada, só esconde. Nada é apagado do banco (M5.3).
+- Central de envios: rascunho automático da mensagem em edição no navegador (`localStorage`, uma chave por modo: `bj-mc-rascunho-mc` e `bj-mc-rascunho-mc-venda`), recuperado ao recarregar com aviso de quando foi salvo; só a mensagem (modelo e edições), sem as listas de e-mails. Apagado quando a campanha é confirmada ou o modelo é salvo (M5.15).
+- Trocar de modelo, "Ver mensagem" das Datas comemorativas e "Novo modelo" pedem confirmação antes de descartar a mensagem em edição (M5.15).
+- Central de envios: "Enviar e-mail de teste" aceita de 1 a 5 endereços (vírgula, ponto e vírgula ou espaço), validados no servidor; o teto continua 10 testes por hora por Master, agora somando cada endereço pelas linhas de teste dele; descadastrado é bloqueado por endereço e a resposta diz quem não recebeu; cada teste entra na trilha como `camp_teste` só com `{total}`. Cai a regra C4 da spec (pedido do Farlei M5.17, 23/11/2026).
+- Relatório de campanhas: "Encaminhar para um e-mail" deixa de estar bloqueado; `POST /master/comercial/campanhas/{id}/encaminhar` manda a cópia congelada da campanha como teste, pelas mesmas regras.
+- Conector de I.A.: nova ferramenta só do Master `automacoes_de_email` (spec 6.9), de gravação. Liga, desliga e ajusta as automações de e-mail (atraso) e as datas comemorativas (antecedência e público). Desligar acontece na hora. Ligar, ou mudar o que continua ligado, só grava depois do "sim" da pessoa, porque passa a mandar e-mail. Pedir o que já está assim não muda nada, e a automação de abrir conta não desliga. A alteração entra na auditoria da plataforma, sem escritório.
+- Conector de I.A.: nova ferramenta só do Master `ler_comercial` (spec 6.9), de leitura. Mostra o resumo do Comercial, os modelos e as automações de e-mail, as campanhas (lista e detalhe), quantos contatos um público alcança e a prévia de um modelo em texto. E-mails saem mascarados, o assunto dos últimos envios não sai e os links da prévia saem só com o texto.
+- Painel do Master: as abas Voto e Configurações da I.A. ganham os botões "Liberar todos" e "Bloquear todos", que aplicam a liberação a todos os escritórios ativos de uma vez, com confirmação interna e auditoria por escritório. A chave individual de cada escritório continua. A chave geral da I.A. não muda.
+
+### Alterado
+
+- Central de envios: chave "Envio de campanhas" no topo (só Master), com o estado atual; a troca grava em `configuracao_global` (prefixo `comercial.`) e entra na Trilha de Auditoria. Enquanto o painel não grava nada, vale `COMERCIAL_CAMPANHAS_LIGADAS` (M8.1, M8.2).
+- Com o envio desligado nada é recusado nem cancelado: "Enviar campanha" grava e a campanha espera; o e-mail de campanha já na fila volta a ela e confere de novo a cada 5 minutos; ao religar, as campanhas do Master que venceram no meio passam a valer agora e saem na volta seguinte. Datas comemorativas obedecem à mesma chave (M8.4, M5.1).
+- Aviso fixo no topo com quantas campanhas estão esperando e aviso na confirmação de "Enviar campanha" quando o envio está desligado (M8.2, M5.11).
+- KPI "Campanhas" deixa de contar os e-mails de teste; a descrição mostra quantos testes ficaram à parte (M8.3).
+- Central de envios: todo campo e botão com `id` estável (prefixo do modo `mc` ou `mc-venda`), `name` e rótulo associado (`label for`, `aria-label` com o nome do item nos repetidos); `CentralDeEnviosAcessivelTest` confere os dois modos (M5.13).
+- Botões bloqueados (Limpar lista, Encaminhar, leitura desligada, automação obrigatória) mostram o motivo escrito ao lado, ligado por `aria-describedby` (M5.14).
+- Toda ação da Central termina com mensagem fixa de sucesso (`is-ok`) ou erro (`is-erro`) na linha do próprio bloco; "Enviando…" e "Salvando…" enquanto o botão está travado; o erro do resumo dos KPIs deixa de ser engolido (M5.14).
+- Na tela do Ponto, números, datas e horas passam a seguir o idioma escolhido (relógio, data por extenso, distância e raio da sede, precisão do GPS e dia e hora das batidas recusadas). Em português, nada muda.
+- Os textos do script da tela do Ponto (localização, erros de GPS, batidas guardadas sem internet, lembrete de saída, avisos de batida e trabalho externo) passam pelo catálogo de idiomas, com a versão em inglês. O português não muda.
+- Botões e interruptores exclusivos do Master, fora do Painel do Master, ficam lilás: itens do menu do usuário e do Meu Perfil, "Ver como" dos Perfis, Contribua (pagamento, pedidos de espaço, sugestões, Indique e Ganhe, integração bancária), painel e janela da campanha, interruptor global do Ponto, avisos de pedidos de espaço e da cota de envio, link de suporte da tela de login e opções do Master no Trabalho Externo. Ação principal é lilás cheia, ação secundária é contorno lilás. Cores novas em tokens `--bj-master*` do bj-padrao.css, com tema escuro.
+- Layout base dos e-mails do Carteiro (`email/comercial/_layout.html.twig`: boas-vindas, automações, campanhas e avisos): o bloco azul em degradê deu lugar a um cabeçalho branco com o logo colorido, faixa azul fina no topo do cartão, selo como etiqueta clara, título de 22px, divisória suave, raio de 4px e sombra de painel do Guia visual; rodapé legal com o texto de apoio #5f7684 (contraste 4,8:1). Logo novo leve para e-mail (`images/logo/bluejus-logo-email.png`, 18 KB). Conteúdo dos modelos e do editor da Central sem mudança (M5.4).
+- E-mails transacionais (acesso novo, cadastro, códigos e redefinição de senha, código de exclusão da conta, convites de escritório, da plataforma e do Trabalho Externo, avisos do Push à equipe e ao cliente, Voto e Assinatura) passam a estender a moldura comum `email/_moldura.html.twig`, com o mesmo visual do layout do Carteiro (M5.4): faixa fina no topo, cabeçalho branco com o logo colorido ou o nome do escritório, raio de 4px, sombra suave e rodapé claro. Cores do miolo harmonizadas com o Guia visual. Textos e links sem mudança.
+- Barra de abas do topo ganha "Push Processual", entre Minhas Metas e Agenda, para quem tem o módulo; acende no Push e nas telas de processo.
+- O "?" do Manual e a bandeira do idioma saem do canto superior. O Manual do usuário vira item do menu do perfil (ao lado de "Ajuda e atalhos") e a bandeira passa para o item Idioma do mesmo menu.
+- Painel do Master: trocar de aba ou de seção escreve a âncora canônica no endereço (`#aba=ia`, `#aba=painel&sec=contas`) com entrada no histórico; o Voltar do navegador volta à aba ou seção anterior e a âncora curta (`#sec=contas`) vira a canônica (M5.16).
+
+### Removido
+
+- A aba da campanha BlueJus Black (Black Friday) saiu do topo de todas as telas logadas, inclusive a prévia do Master. A campanha segue na página Contribua (faixa, FAQ e janela) e o link #black continua abrindo a janela em qualquer tela.
+- O painel da campanha do Master perde a caixa "Aba no topo de todas as telas", que ficaria sem efeito.
+
+### Corrigido
+
+- Link de convite que deixou de valer (o convite foi reenviado e o e-mail anterior ficou com o link antigo, spec seguranca-a-convites B2): a tela "Convite não encontrado" passa a explicar que o reenvio troca o link, pede o e-mail mais recente e leva a "Meus convites" (`/convites`). O aviso do botão Reenviar (escritório e plataforma) e a mensagem de sucesso dizem que o link enviado antes deixa de valer. A regra de segurança continua igual: o link antigo não é aceito.
+- Expediente, lista de pastas: na célula do número, o número, o cadeado da pasta trancada e os ícones de compartilhar ficam num contêiner flexível alinhado ao centro. O cadeado não fica mais abaixo do número nem invade a coluna Cliente; se não couber na coluna, desce para baixo do número.
+- A estrela de favorita criada na hora (ao favoritar) entra dentro do número, como a que vem do servidor.
+- Linha azul sob o mouse: botões de fundo branco guardam a cor própria em vez de ficar branco sobre branco (Push Processual: publicações e OABs; arquivos da pasta e do caso; clientes da pasta; Master: blog e revisão da OAB). Botões sem fundo acendem em branco translúcido no hover (Push do cliente na pasta, abrir cliente na pasta, menu de três pontos do explorador da pasta, perfis de acesso, análise da pessoa no Painel). Etiqueta de tipo da OAB no Meu Perfil fica translúcida como a de situação.
+
 ## [2.63.2] - 2026-11-23
 
 ### Corrigido
@@ -2330,7 +2409,10 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.2...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/sfbdata/Prime/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/sfbdata/Prime/compare/v2.63.2...v3.0.0
 [2.63.2]: https://github.com/sfbdata/Prime/compare/v2.63.1...v2.63.2
 [2.63.1]: https://github.com/sfbdata/Prime/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/sfbdata/Prime/compare/v2.62.0...v2.63.0
