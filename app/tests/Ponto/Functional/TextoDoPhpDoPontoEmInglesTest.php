@@ -22,6 +22,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 {
+    use CenarioDeJustificativaTrait;
+
     /** @return iterable<string, array{0: string, 1: string}> idioma da sessão => texto esperado */
     public static function idiomas(): iterable
     {
@@ -176,6 +178,47 @@ final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame([$esperado], $client->getRequest()->getSession()->getFlashBag()->peek('error'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string, 3: string}> idioma => [mensagem da cerca, detalhe, mensagem sem motivo] */
+    public static function idiomasDaBatidaRecusada(): iterable
+    {
+        yield 'en' => [
+            'en',
+            'You are outside the allowed radius',
+            "Clocking in requires being within the radius of one of the firm's offices. Move closer or report external work.",
+            'Enter the location and the reason.',
+        ];
+        yield 'pt-BR' => [
+            'pt-BR',
+            'Você está fora do raio permitido',
+            'O registro exige estar dentro do raio de uma sede do escritório. Aproxime-se ou informe o trabalho externo.',
+            'Informe o local e o motivo.',
+        ];
+    }
+
+    #[DataProvider('idiomasDaBatidaRecusada')]
+    #[TestDox('Batida recusada fora da cerca e trabalho externo sem motivo (com o código `recusaDoMotivo`) no idioma da pessoa ($idioma)')]
+    public function testBatidaRecusadaNoIdiomaDaPessoa(string $idioma, string $titulo, string $detalhe, string $semMotivo): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Batida');   // sem sede: a batida fica fora do raio
+        $ana = $this->pessoa('idioma_batida');
+        $this->vincularColaborador($ana, $escritorio);
+        $this->logarNoIdioma($client, $ana, $escritorio, $idioma);
+        $cabecalhos = ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'];
+        $corpo = ['tipo' => 'entrada', 'latitude' => -23.55, 'longitude' => -46.63, 'precisaoGps' => 10.0];
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo));
+        self::assertResponseStatusCodeSame(403);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['titulo' => $titulo, 'detalhe' => $detalhe, 'trabalhoExterno' => true], $json['foraDoRaio']);
+        self::assertSame($titulo . '. ' . $detalhe, $json['message']);
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo + ['trabalhoExterno' => true, 'motivoTrabalhoExterno' => '']));
+        self::assertResponseStatusCodeSame(422);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['success' => false, 'message' => $semMotivo, 'recusaDoMotivo' => 'sem_motivo'], $json);
     }
 
     private function logarNoIdioma(KernelBrowser $client, User $user, Tenant $tenant, string $idioma): void
