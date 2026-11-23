@@ -17,7 +17,7 @@ use App\Conector\Repository\ConcessaoDoConectorRepository;
 use App\Conector\Repository\ConsentimentoDoConectorRepository;
 use App\Conector\Repository\EscritorioDoConectorRepository;
 use App\Conector\Service\ImpressaoDaSenha;
-use App\Conector\Service\LiberacaoDoConector;
+use App\Tests\Conector\Support\LiberacaoDoConectorDeTeste;
 use App\Conector\Service\RegistroDeClientes;
 use App\Conector\Service\SegredoOpaco;
 use App\Conector\Service\ServidorDeAutorizacao;
@@ -66,7 +66,7 @@ final class AutorizarConexaoUseCaseTest extends KernelTestCase
         return new AutorizarConexaoUseCase(
             $c->get(UserTenantRepository::class),
             $this->portao(),
-            new LiberacaoDoConector($c->get(RecursosDoSistema::class), $c->get(EscritorioDoConectorRepository::class)),
+            LiberacaoDoConectorDeTeste::montar($c->get(RecursosDoSistema::class), $c->get(EscritorioDoConectorRepository::class)),
             $c->get(RegistroDeClientes::class),
             $c->get(ConsentimentoDoConectorRepository::class),
             $c->get(ConcessaoDoConectorRepository::class),

@@ -47,6 +47,7 @@
              data-url-criar="{{ path('master_comercial_modelo_criar') }}"
              data-url-salvar="{{ path('master_comercial_modelo_salvar', {id: 'xidx'}) }}"
              data-url-excluir="{{ path('master_comercial_modelo_excluir', {id: 'xidx'}) }}"
+             data-url-padrao="{{ path('master_comercial_modelo_padrao', {chave: 'xchavex'}) }}"
              data-url-previa="{{ path('master_comercial_previa_campanha') }}"
              data-url-teste="{{ path('master_comercial_teste') }}"
              data-url-contagem="{{ path('master_comercial_publicos_contagem') }}"
@@ -82,9 +83,10 @@
                     <button type="button" class="mc-cp-acao" id="{{ ids }}-cp-novo" name="{{ ids }}-cp-novo" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'comercial.campanha.novo_modelo'|trans }}</button>
                     <button type="button" class="mc-cp-acao" id="{{ ids }}-cp-duplicar" name="{{ ids }}-cp-duplicar" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>{{ 'comercial.campanha.duplicar'|trans }}</button>
                     <label class="mc-cp-acao" for="{{ ids }}-cp-importar"><i class="bi bi-upload" aria-hidden="true"></i>{{ 'comercial.campanha.importar_html'|trans }}<input type="file" accept=".html,.htm" class="mc-cp-arquivo" id="{{ ids }}-cp-importar" name="{{ ids }}-cp-importar" data-mc-cp-importar></label>
-                    {# dc 21.10 L256/L653: no fixo, "Salvar como meu modelo" (pede o nome; o fixo continua guardado); no próprio, "Salvar modelo". #}
+                    {# dc 21.10 L256/L653: no fixo, "Salvar como meu modelo" (pede o nome; o fixo continua guardado); o "Salvar modelo" vale para o próprio e para o padrão (grava a versão do Master, M5.8); no padrão editado, "Voltar ao padrão". #}
                     <button type="button" class="mc-cp-acao mc-cp-acao-salvar" id="{{ ids }}-cp-salvar-como" name="{{ ids }}-cp-salvar-como" data-mc-cp-salvar-como data-mc-cp-so-fixo><i class="bi bi-check2" aria-hidden="true"></i>{{ 'comercial.campanha.salvar_como_meu'|trans }}</button>
-                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" id="{{ ids }}-cp-salvar" name="{{ ids }}-cp-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>{{ 'comercial.campanha.salvar_modelo'|trans }}</button>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" id="{{ ids }}-cp-salvar" name="{{ ids }}-cp-salvar" data-mc-cp-salvar><i class="bi bi-check2" aria-hidden="true"></i>{{ 'comercial.campanha.salvar_modelo'|trans }}</button>
+                    <button type="button" class="mc-cp-acao" id="{{ ids }}-cp-voltar-padrao" name="{{ ids }}-cp-voltar-padrao" data-mc-cp-voltar-padrao data-mc-cp-so-editado hidden><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{{ 'comercial.campanha.voltar_padrao'|trans }}</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-excluir" id="{{ ids }}-cp-excluir" name="{{ ids }}-cp-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>{{ 'comercial.campanha.excluir'|trans }}</button>
                 </div>
                 {% endif %}

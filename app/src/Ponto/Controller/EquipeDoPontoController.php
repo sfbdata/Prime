@@ -10,6 +10,7 @@ use App\Ponto\Exception\ChoqueDeJornadaException;
 use App\Ponto\Exception\EscalaDesconhecidaException;
 use App\Ponto\Exception\ForaDaEquipeException;
 use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\UseCase\AbonarJustificativasDaEquipeUseCase;
 use App\Ponto\UseCase\ConsultarEquipeDoPontoUseCase;
 use App\Ponto\UseCase\TrocarEscalaNaEquipeUseCase;
@@ -68,11 +69,11 @@ final class EquipeDoPontoController extends AbstractController
         try {
             $trocar->executar($id, $escritorio, $dados['escala']);
         } catch (ForaDaEquipeException $fora) {
-            return $this->json(['erro' => $fora->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($fora->chave())], Response::HTTP_NOT_FOUND);
         } catch (EscalaDesconhecidaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (ChoqueDeJornadaException $choque) {
-            return $this->json(['erro' => $choque->getMessage()], Response::HTTP_CONFLICT);
+            return $this->json(['erro' => $choque->texto()->traduzir($this->tradutor)], Response::HTTP_CONFLICT);
         } catch (UniqueConstraintViolationException) {
             return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
         }
@@ -92,10 +93,14 @@ final class EquipeDoPontoController extends AbstractController
 
         $resultado = $abonar->executar($this->eu(), $escritorio, array_values($ids));
         // E8 (P80): as abonadas no aviso flutuante da /ponto; as recusas, uma por pessoa e dia, ficam no flash do topo.
-        if (($abonadas = $resultado->mensagemDasAbonadas()) !== null) {
-            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $abonadas);
+        if ($resultado->abonadas > 0) {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $this->tradutor->trans('ponto_servidor.equipe.abonadas', ['quantidade' => $resultado->abonadas, 'numero' => (string) $resultado->abonadas]));
         }
-        foreach ($resultado->recusas as $recusa) {
+        // Cada recusa traduz pela chave (a pessoa, o dia e o motivo entram como parâmetro); sem as versões com chave, o português.
+        $recusas = $resultado->recusasComChave !== []
+            ? array_map(fn (TextoDoPonto $recusa): string => $recusa->traduzir($this->tradutor), $resultado->recusasComChave)
+            : $resultado->recusas;
+        foreach ($recusas as $recusa) {
             $this->addFlash('warning', $recusa);
         }
         if ($ids === []) {

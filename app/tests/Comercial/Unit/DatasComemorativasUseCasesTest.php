@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\DTO\DataComemorativaOutput;
 use App\Comercial\Entity\DataComemorativa;
 use App\Comercial\Exception\DataComemorativaRecusada;
+use App\Comercial\Entity\ModeloDeCampanha;
 use App\Comercial\Repository\DataComemorativaRepository;
+use App\Comercial\Repository\ModeloDeCampanhaRepository;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\UseCase\AlterarDataComemorativaUseCase;
 use App\Comercial\UseCase\ListarDatasComemorativasUseCase;
 use App\Entity\Auth\User;
@@ -26,18 +30,20 @@ use Symfony\Component\Clock\MockClock;
 final class DatasComemorativasUseCasesTest extends TestCase
 {
     private DataComemorativaRepository&MockObject $repositorio;
+    private ModeloDeCampanhaRepository&MockObject $modelos;
 
     protected function setUp(): void
     {
         $this->repositorio = $this->createMock(DataComemorativaRepository::class);
+        $this->modelos = $this->createMock(ModeloDeCampanhaRepository::class);
     }
 
     #[TestDox('As 17 na ordem da próxima data a partir de hoje, com a data, o dia da semana, os dias que faltam, o envio e o "perto"')]
     public function testListarEmOrdem(): void
     {
         $this->repositorio->method('estados')->willReturn([
-            'finados' => ['ligada' => true, 'antecedencia' => 1, 'publico' => 'prim'],
-            'natal' => ['ligada' => false, 'antecedencia' => 0, 'publico' => 'todos'],
+            'finados' => ['ligada' => true, 'antecedencia' => 1, 'publico' => 'prim', 'modelo' => null],
+            'natal' => ['ligada' => false, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => 'cu7'],
         ]);
         $saida = (new ListarDatasComemorativasUseCase($this->repositorio, new MockClock('2026-10-28 08:00', 'America/Sao_Paulo')))->executar();
 
@@ -46,7 +52,7 @@ final class DatasComemorativasUseCasesTest extends TestCase
             array_map(static fn (DataComemorativaOutput $d): string => $d->chave, $saida->datas),
         );
         self::assertSame([
-            'chave' => 'finados', 'nome' => 'Finados', 'icone' => 'bi-flower3', 'ligada' => true, 'antecedencia' => 1, 'publico' => 'prim',
+            'chave' => 'finados', 'nome' => 'Finados', 'icone' => 'bi-flower3', 'ligada' => true, 'antecedencia' => 1, 'publico' => 'prim', 'modelo' => null,
             'data' => '2026-11-02', 'diaDaSemana' => 1, 'diasQueFaltam' => 5, 'envio' => '2026-11-01', 'perto' => true,
         ], $saida->datas[0]->paraArray());
         self::assertFalse($saida->datas[1]->perto, 'Consciência Negra a 23 dias');
@@ -125,6 +131,47 @@ final class DatasComemorativasUseCasesTest extends TestCase
         self::assertSame(['natal', 1, 'prim'], [$linha->chave, $linha->antecedencia, $linha->publico]);
     }
 
+    #[TestDox('M5.12: o modelo escolhido (padrão do sistema ou próprio) é gravado; vazio volta ao padrão da data')]
+    public function testModeloEscolhido(): void
+    {
+        $natal = new DataComemorativa('natal');
+        $this->repositorio->method('porChave')->willReturn($natal);
+        $proprio = new ModeloDeCampanha('Meu', 'bi-stars', 'blocos', new User(), new \DateTimeImmutable());
+        $this->modelos->method('porId')->with(7)->willReturn($proprio);
+
+        $linha = $this->alterar()->executar('natal', true, 0, 'todos', new User(), 'convite');
+        self::assertSame(['convite', 'convite'], [$natal->getModeloChave(), $linha->modelo]);
+
+        $this->alterar()->executar('natal', true, 0, 'todos', new User(), 'cu7');
+        self::assertSame('cu7', $natal->getModeloChave());
+
+        $linha = $this->alterar()->executar('natal', true, 0, 'todos', new User(), '');
+        self::assertSame([null, null], [$natal->getModeloChave(), $linha->modelo], 'vazio é o padrão da data');
+        $this->alterar()->executar('natal', true, 0, 'todos', new User());
+        self::assertNull($natal->getModeloChave());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function modelosInvalidos(): iterable
+    {
+        yield 'chave que não existe' => ['zzz'];
+        yield 'próprio que não existe' => ['cu99'];
+        yield 'próprio sem número' => ['cuabc'];
+        yield 'maiúscula' => ['Convite'];
+    }
+
+    #[TestDox('M5.12: recusa o modelo $_dataName, sem gravar')]
+    #[DataProvider('modelosInvalidos')]
+    public function testModeloInvalido(string $modelo): void
+    {
+        $this->repositorio->method('porChave')->willReturn(new DataComemorativa('natal'));
+        $this->repositorio->expects(self::never())->method('salvar');
+        $this->expectException(DataComemorativaRecusada::class);
+        $this->expectExceptionMessage(AlterarDataComemorativaUseCase::MODELO_INVALIDO);
+
+        $this->alterar()->executar('natal', true, 0, 'todos', new User(), $modelo);
+    }
+
     #[TestDox('A chave fora das 17 não cria linha')]
     public function testForaDoCalendarioNaoCria(): void
     {
@@ -139,13 +186,13 @@ final class DatasComemorativasUseCasesTest extends TestCase
     {
         $nova = new DataComemorativa('ano');
 
-        self::assertSame(['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'], DataComemorativa::PADRAO);
-        self::assertSame(DataComemorativa::PADRAO, ['ligada' => $nova->isLigada(), 'antecedencia' => $nova->getAntecedencia(), 'publico' => $nova->getPublico()]);
+        self::assertSame(['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => null], DataComemorativa::PADRAO);
+        self::assertSame(DataComemorativa::PADRAO, ['ligada' => $nova->isLigada(), 'antecedencia' => $nova->getAntecedencia(), 'publico' => $nova->getPublico(), 'modelo' => $nova->getModeloChave()]);
         self::assertSame(DataComemorativa::PADRAO, DataComemorativa::estadoOuPadrao([], 'ano'));
     }
 
     private function alterar(): AlterarDataComemorativaUseCase
     {
-        return new AlterarDataComemorativaUseCase($this->repositorio, new MockClock('2026-10-21 10:00', 'America/Sao_Paulo'));
+        return new AlterarDataComemorativaUseCase($this->repositorio, new MockClock('2026-10-21 10:00', 'America/Sao_Paulo'), new ModelosEfetivos(new ModelosDeCampanha(), $this->modelos));
     }
 }

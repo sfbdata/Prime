@@ -24,6 +24,7 @@ use App\Comercial\UseCase\ListarModelosDeCampanhaUseCase;
 use App\Comercial\UseCase\PreviaDaCampanhaUseCase;
 use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
+use App\Comercial\UseCase\VoltarModeloAoPadraoUseCase;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -70,10 +71,17 @@ final class CampanhaDoMasterController extends AbstractController
         });
     }
 
-    #[Route('/master/comercial/modelos/{id}', name: 'master_comercial_modelo_salvar', requirements: ['id' => '[a-z0-9]{1,20}'], methods: ['POST'])]
+    #[Route('/master/comercial/modelos/{id}', name: 'master_comercial_modelo_salvar', requirements: ['id' => '[a-z0-9-]{1,40}'], methods: ['POST'])]
     public function salvar(string $id, Request $request, SalvarModeloDeCampanhaUseCase $salvar): JsonResponse
     {
         return $this->protegido($request, fn (array $corpo): JsonResponse => self::salvo($salvar->executar($id, MensagemDaCampanha::deArray($corpo), $this->master())));
+    }
+
+    /** "Voltar ao padrão": apaga a versão editada de um modelo padrão do sistema (`{chave}` = `convite`, `data-natal`...). */
+    #[Route('/master/comercial/modelos/{chave}/padrao', name: 'master_comercial_modelo_padrao', requirements: ['chave' => '[a-z0-9-]{1,40}'], methods: ['POST'])]
+    public function voltarAoPadrao(string $chave, Request $request, VoltarModeloAoPadraoUseCase $voltar): JsonResponse
+    {
+        return $this->protegido($request, fn (): JsonResponse => new JsonResponse(['modelo' => $voltar->executar($chave, $this->master()), 'mensagem' => VoltarModeloAoPadraoUseCase::MENSAGEM]));
     }
 
     #[Route('/master/comercial/modelos/{id}/excluir', name: 'master_comercial_modelo_excluir', requirements: ['id' => '[a-z0-9]{1,20}'], methods: ['POST'])]

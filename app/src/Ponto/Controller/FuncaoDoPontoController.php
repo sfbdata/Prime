@@ -48,7 +48,7 @@ final class FuncaoDoPontoController extends AbstractController
         $escritorio = $this->tenantContext->getCurrentTenant();
         if (!$eu instanceof User || $escritorio === null || !$this->permissoes->canAccessModule($eu, $escritorio, 'ponto')
             || !$this->funcoes->podeConfigurar($eu, $escritorio)) {
-            return $this->json(['erro' => FuncaoDoPontoRecusadaException::semPermissao()->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans(FuncaoDoPontoRecusadaException::semPermissao()->chave())], Response::HTTP_FORBIDDEN);
         }
 
         $this->validarCsrfAjax($request);
@@ -74,9 +74,9 @@ final class FuncaoDoPontoController extends AbstractController
     private function recusa(FuncaoDoPontoRecusadaException $e): JsonResponse
     {
         if ($e->motivo === FuncaoDoPontoRecusadaException::SEM_PERMISSAO) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans($e->chave(), $e->parametros())], Response::HTTP_FORBIDDEN);
         }
-        $corpo = ['erro' => $e->getMessage()];
+        $corpo = ['erro' => $this->tradutor->trans($e->chave(), $e->parametros())];
         if ($e->motivo === FuncaoDoPontoRecusadaException::TRAVADA_PELO_MASTER) {
             $corpo['global'] = false;
         }

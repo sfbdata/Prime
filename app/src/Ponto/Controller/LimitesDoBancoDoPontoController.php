@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Os campos "Limite do banco (horas)" e "Prazo de compensação (meses)" da aba Configurações (spec
@@ -33,6 +34,7 @@ final class LimitesDoBancoDoPontoController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
 
+    /** Português de referência; a resposta sai traduzida por `ponto_servidor.comum.numero_inteiro`. */
     public const SEM_NUMERO_INTEIRO = 'Informe um número inteiro.';
 
     public function __construct(
@@ -40,6 +42,7 @@ final class LimitesDoBancoDoPontoController extends AbstractController
         private readonly PermissionChecker $permissoes,
         private readonly FuncoesDoPonto $funcoes,
         private readonly AlterarLimitesDoBancoDoEscritorioUseCase $alterar,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -50,22 +53,22 @@ final class LimitesDoBancoDoPontoController extends AbstractController
         $escritorio = $this->tenantContext->getCurrentTenant();
         if (!$eu instanceof User || $escritorio === null || !$this->permissoes->canAccessModule($eu, $escritorio, 'ponto')
             || !$this->funcoes->podeConfigurar($eu, $escritorio)) {
-            return $this->json(['erro' => FuncaoDoPontoRecusadaException::semPermissao()->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans(FuncaoDoPontoRecusadaException::semPermissao()->chave())], Response::HTTP_FORBIDDEN);
         }
 
         $this->validarCsrfAjax($request);
 
         $input = AlterarLimitesDoBancoInput::doJson($eu, $escritorio, $this->corpo($request));
         if ($input === null) {
-            return $this->json(['erro' => self::SEM_NUMERO_INTEIRO], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.numero_inteiro')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
             return $this->json($this->alterar->executar($input)->paraJson());
         } catch (FuncaoDoPontoRecusadaException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans($e->chave(), $e->parametros())], Response::HTTP_FORBIDDEN);
         } catch (LimitesDoBancoRecusadosException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($e->chave(), $e->parametros())], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
     }
 

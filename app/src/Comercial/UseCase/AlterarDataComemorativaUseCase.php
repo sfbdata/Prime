@@ -9,12 +9,14 @@ use App\Comercial\DTO\DataComemorativaOutput;
 use App\Comercial\Entity\DataComemorativa;
 use App\Comercial\Exception\DataComemorativaRecusada;
 use App\Comercial\Repository\DataComemorativaRepository;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Entity\Auth\User;
 use Psr\Clock\ClockInterface;
 
 /**
  * O Master liga ou desliga uma data comemorativa, troca a antecedência (No dia, 1 dia antes, 3 dias antes) ou o "Para
- * quem" (Todos, Primários, Base de contatos) (desenho 05 VS 21.10.26 L337 e L681-682; spec §13, F4). Grava quem e
+ * quem" (Todos, Primários, Base de contatos) ou o modelo da mensagem (M5.12: "Padrão da data", um padrão do sistema ou um
+ * modelo próprio; chave que não existe é recusada) (desenho 05 VS 21.10.26 L337 e L681-682; spec §13, F4). Grava quem e
  * quando; auditado pela entidade. O resto é recusado. Uma das 17 sem linha no banco (que valia o
  * {@see DataComemorativa::PADRAO}) ganha a linha aqui.
  */
@@ -23,14 +25,16 @@ final class AlterarDataComemorativaUseCase
     public const DESCONHECIDA = 'Data comemorativa desconhecida.';
     public const ANTECEDENCIA_INVALIDA = 'Escolha No dia, 1 dia antes ou 3 dias antes.';
     public const PUBLICO_INVALIDO = 'Escolha Todos, Primários ou Base de contatos.';
+    public const MODELO_INVALIDO = 'Escolha um modelo que existe ou o padrão da data.';
 
     public function __construct(
         private readonly DataComemorativaRepository $datas,
         private readonly ClockInterface $relogio,
+        private readonly ModelosEfetivos $modelos,
     ) {
     }
 
-    public function executar(string $chave, bool $ligada, int $antecedencia, string $publico, User $por): DataComemorativaOutput
+    public function executar(string $chave, bool $ligada, int $antecedencia, string $publico, User $por, ?string $modelo = null): DataComemorativaOutput
     {
         if (!CalendarioDasDatasComemorativas::existe($chave)) {
             throw new DataComemorativaRecusada(self::DESCONHECIDA);
@@ -41,9 +45,14 @@ final class AlterarDataComemorativaUseCase
         if (!\in_array($publico, DataComemorativa::PUBLICOS, true)) {
             throw new DataComemorativaRecusada(self::PUBLICO_INVALIDO);
         }
+        // Nulo (ou vazio) é o padrão da data; senão tem de ser um modelo padrão ou próprio que existe.
+        $modelo = $modelo === '' ? null : $modelo;
+        if ($modelo !== null && $this->modelos->porChave($modelo) === null) {
+            throw new DataComemorativaRecusada(self::MODELO_INVALIDO);
+        }
         $data = $this->datas->porChave($chave) ?? $this->datas->adicionar(new DataComemorativa($chave));
         $agora = $this->relogio->now();
-        $data->alterar($ligada, $antecedencia, $publico, $por, $agora);
+        $data->alterar($ligada, $antecedencia, $publico, $por, $agora, $modelo);
         $this->datas->salvar();
 
         return ListarDatasComemorativasUseCase::linha($data, $agora);

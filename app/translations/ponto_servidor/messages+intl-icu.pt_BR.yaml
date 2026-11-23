@@ -1,13 +1,16 @@
-# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. Texto de exceção de domínio e de Service fica fora (PR B).
+# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. O texto de exceção de domínio fica em `recusa` e o de Service em `batida` (PR B).
 ponto_servidor:
     comum:
         payload_invalido: "Payload inválido."
         nao_autenticado: "Usuário não autenticado."
         sem_permissao_registrar: "Sem permissão para registrar ponto."
         jornada_alterada: "Esta jornada acabou de ser alterada; recarregue e tente de novo."
+        numero_inteiro: "Informe um número inteiro."
     ponto:
         esquecido_incompleto: "Informe o tipo e o horário do registro esquecido."
         sem_data: "Selecione ao menos uma data para justificar."
+        motivo_vazio: "Informe o motivo."
+        motivo_longo: "O motivo pode ter até {maximo} caracteres."
         abono_uma_data: "Abono parcial só pode ser aplicado a uma única data."
         esquecimento_uma_data: "Esquecimento de Registro só pode ser aplicado a uma única data."
         abono_horarios: "Informe os horários de saída e retorno corretamente para o abono parcial."
@@ -31,6 +34,7 @@ ponto_servidor:
     equipe:
         escala_da_lista: "Escolha uma das escalas da lista."
         selecione_justificativa: "Selecione ao menos uma justificativa."
+        abonadas: "{quantidade, plural, one {{numero} justificativa abonada.} other {{numero} justificativas abonadas.}}"
     feriado:
         cadastrado: "Feriado cadastrado com sucesso."
         atualizado: "Feriado atualizado com sucesso."
@@ -68,3 +72,127 @@ ponto_servidor:
         excluido: "Lançamento de horas pagas excluído."
         erro_dos_campos: "Erro ao registrar horas pagas. Verifique os campos."
         banco_negativo: "Atenção: este desconto deixou o banco de horas negativo em -{saldo}."
+    batida:
+        cerca:
+            titulo_fora: "Você está fora do raio permitido"
+            titulo_incerta: "GPS impreciso"
+            detalhe_fora_com_sede: "A sede mais próxima é {sede}, a {distancia, number, integer} m. O raio permitido é de {raio, number, integer} m."
+            detalhe_fora_sem_sede: "O registro exige estar dentro do raio de uma sede do escritório."
+            detalhe_incerta: "A precisão do GPS ({precisao, number, integer} m) não basta para confirmar que você está no raio da sede. Atualize a localização e tente de novo."
+            saida_fora: " Aproxime-se ou informe o trabalho externo."
+            saida_incerta: " Se está fora da sede, informe o trabalho externo."
+        externo:
+            sem_motivo: "Informe o local e o motivo."
+            motivo_longo: "O local e o motivo podem ter até 500 caracteres."
+            registrada: "Ponto registrado como trabalho externo. Ele segue para a análise do gestor."
+            edicao_recusada: "A justificativa da batida de trabalho externo não pode ser editada. Ela segue para a análise do gestor."
+        envio:
+            id_invalido: "Identificador do envio inválido."
+            ja_registrada: "Esta batida já tinha sido registrada."
+            fila_incompleta: "A batida guardada sem internet chegou incompleta e não foi registrada."
+            outra_conta: "Esta batida foi guardada em outra conta ou escritório e não foi enviada."
+            fila_vencida: "Esta batida ficou guardada sem internet por mais de {horas} horas e não pode mais ser enviada. Peça o esquecimento de registro do dia."
+            relogio_adiantado: "O relógio deste aparelho está adiantado em relação à hora oficial, e a batida guardada sem internet não pôde ser enviada. Acerte o relógio e peça o esquecimento de registro do dia."
+        chave:
+            desligada: "O registro de ponto eletrônico está desligado para você neste escritório. Fale com o administrador."
+        choque:
+            choque: "Esta pessoa já registra ponto das {inicio} às {fim} em outro escritório."
+            padrao: "A jornada padrão bate com o horário de outro escritório para estas pessoas deste escritório:"
+            batida: "Agora é seu horário de trabalho em outro escritório (das {inicio} às {fim}). O ponto não pode ser registrado aqui."
+        entrada_aberta:
+            rotulo_trocar: "Trocar de escritório"
+            aviso_pendencia: "Ficou um registro em aberto em {escritorio} no dia {dia}. Envie o registro de esquecimento por lá."
+        turno:
+            aviso_sem_entrada: "Faltou a entrada neste dia. Envie o registro de esquecimento."
+            rotulo_enviar: "Enviar registro de esquecimento"
+        alertas:
+            nota: "O alerta não impede o registro: a folha deve refletir o horário real."
+            intrajornada: "Faltam {faltam} para completar o intervalo mínimo de {minimo}. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme."
+            interjornada: "Faltam {faltam} para completar {minimo} de descanso desde a saída {dia}. Se registrar agora, a folha marcará a interjornada como não conforme."
+            interjornada_de_hoje: "Faltam {faltam} para completar {minimo} de descanso desde a saída de hoje."
+            descanso_semanal: "Este será o {dias}º dia seguido com registro, sem o descanso semanal."
+            dia_de_ontem: "de ontem"
+            dia_da_data: "de {data}"
+            minutos: "{minutos, plural, one {# minuto} other {# minutos}}"
+        esquecimento:
+            aviso_interjornada: "A entrada foi registrada. O descanso desde a saída de {dia} às {hora}, informada por registro de esquecimento, ficou abaixo da interjornada mínima de {horas}h."
+        horario_futuro:
+            mensagem: "Não é possível registrar batida em horário futuro."
+        ja_registrada:
+            mensagem: "Já existe um registro de {tipo} neste dia."
+            tipo_entrada: "entrada"
+            tipo_repouso: "repouso"
+            tipo_retorno: "retorno"
+            tipo_saida: "saída"
+    recusa:
+        configuracao:
+            sede_nao_encontrada: "Sede não encontrada."
+            feriado_nao_encontrado: "Feriado não encontrado."
+            lotacao_nao_encontrada: "Lotação não encontrada."
+            falta_data_ou_nome: "Informe a data e o nome do feriado."
+            feriado_nome_longo: "O nome do feriado pode ter até 255 caracteres."
+            sede_nome_obrigatorio: "Informe o nome da sede."
+            sede_nome_longo: "O nome da sede pode ter até 255 caracteres."
+            latitude_obrigatoria: "Latitude é obrigatória."
+            latitude_faixa: "Latitude deve estar entre -90 e 90."
+            latitude_numero: "Latitude deve ser um número."
+            longitude_obrigatoria: "Longitude é obrigatória."
+            longitude_faixa: "Longitude deve estar entre -180 e 180."
+            longitude_numero: "Longitude deve ser um número."
+            raio_numero: "Raio permitido deve ser um número."
+            raio_faixa: "Raio permitido deve estar entre 10 e 500 metros."
+            raio_inteiro: "Raio permitido deve ser um número inteiro de metros."
+        funcao:
+            sem_permissao: "Só quem administra o ponto do escritório pode mudar esta configuração."
+            desconhecida: "Função do ponto desconhecida."
+            travada_pelo_master: "Desativado pelo Master para todos os escritórios."
+        limites_banco:
+            limite_minimo: "O limite do banco precisa ser de pelo menos {minimo} hora."
+            limite_maximo: "O limite do banco pode ser de até {maximo} horas."
+            prazo: "O prazo de compensação precisa ser de {minimo} a {maximo} meses."
+        horas_pagas:
+            outro_escritorio: "Lançamento não pertence a este escritório."
+            operacao_invalida: "Operação inválida."
+            quantidade_zero: "Informe uma quantidade de horas maior que zero."
+            quantidade_maxima: "A quantidade de horas não pode passar de {limite}."
+            motivo_obrigatorio: "Informe o motivo do lançamento."
+            motivo_curto: "O motivo precisa ter ao menos {minimo} caracteres."
+            competencia_futura: "A competência não pode ser futura."
+            colaborador_outro_escritorio: "Colaborador não pertence a este escritório."
+        versao_jornada:
+            nao_encontrada: "Versão da jornada não encontrada."
+            versao_unica: "A jornada tem uma versão só. Para tirar a jornada personalizada, use \"Limpar escala\"."
+            data_repetida: "Já existe uma versão da jornada que começa em {data}."
+        equipe:
+            fora_da_equipe: "Pessoa não encontrada na equipe deste escritório."
+        exclusao_justificativa:
+            nao_encontrada: "Justificativa não encontrada."
+            de_outra_pessoa: "Só quem enviou a justificativa pode excluí-la."
+            ja_analisada: "Esta justificativa não está mais em análise e não pode ser excluída."
+            da_batida_externa: "A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor."
+            mexeu_na_folha: "Esta justificativa já mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor."
+        ajuste:
+            mudou: "Esta batida mudou desde que a folha foi aberta. Confira a folha e tente de novo."
+            nao_encontrada: "Batida não encontrada nesta folha."
+            nada_mudou: "O ajuste não muda nada: a batida já tem este tipo, esta data e esta hora."
+            sem_motivo: "Informe o motivo da correção."
+            motivo_longo: "O motivo da correção passa de 2000 caracteres. Resuma o texto."
+            ligada_a_justificativa: "Esta batida saiu da conta pela análise da justificativa e só volta por ela: com um novo abono ou, no trabalho externo, quando a justificativa volta para análise."
+            da_propria_batida: "Só o usuário primário do escritório ou o Master pode corrigir a própria batida."
+            em_analise: "Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de corrigir a batida."
+        analise:
+            excluida: "Esta justificativa foi excluída pelo colaborador."
+            nao_encontrada: "Justificativa não encontrada."
+            propria: "Só o usuário primário do escritório ou o Master pode analisar a própria justificativa."
+            so_para_abonar: "Apenas justificativas em análise podem ser abonadas."
+            so_para_recusar: "Apenas justificativas em análise podem ser recusadas."
+            ja_em_analise: "Esta justificativa já está em análise."
+        edicao:
+            ja_analisada: "Esta justificativa não está mais em análise (já foi analisada pelo gestor ou registrada como falta) e não pode ser alterada. Para corrigi-la, peça ao administrador para voltá-la para análise."
+        anexo:
+            travado: "O atestado não pode ser trocado: este lançamento já está abonado ou recusado em pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar para análise. Fale com o administrador."
+            tamanho: "O arquivo não pode exceder 10 MB."
+            tipo: "Somente PDF, JPEG ou PNG são aceitos."
+        abono:
+            nao_encontrada: "Justificativa não encontrada neste escritório."
+            pessoa: "{pessoa} ({dia}): {motivo}"

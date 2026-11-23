@@ -8,6 +8,35 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.2.0] - 2026-11-23
+
+### Alterado
+
+- Ponto: as recusas das regras de gestão e configuração (sede, feriado, função do ponto, limites do banco de horas, horas pagas, versão da jornada, equipe, exclusão de justificativa) e o aviso do abono em lote passam pelo tradutor, com a chave na exceção (`RecusaDoPonto`). O português fica idêntico, cada recusa é conferida contra o texto antigo. Batida e justificativa ficam para o PR B2.
+
+## [3.1.0] - 2026-11-23
+
+### Adicionado
+
+- Cota de e-mail: acima de 2.000 e-mails enviados em 24 h (todos, também os do sistema), o aviso do Master no topo da tela passa ao estado `trocar` ("Hora de contratar outro serviço de e-mail") e a varredura de 15 min manda um e-mail a cada Master ativo, no máximo um a cada 24 h (origem `aviso_troca_servico`, isenta do teto diário). Nada é bloqueado.
+- Cadastro pelo Voto: `GET /cadastro?produto=voto` guarda o produto na sessão por lista fechada (só `voto`; outro valor é ignorado e não apaga o guardado). Os três caminhos de criação (e-mail, Google e Facebook) leem o produto só da sessão, nunca do JSON, e a chave sai da sessão depois de criar.
+- Com o Voto, na mesma transação do `CriarContaEEscritorioUseCase`: o escritório nasce sem os marcadores padrão do Expediente (`TenantBootstrapService::bootstrap(..., semearMarcadores: false)`), com a contratação `voto` (origem `cadastro`) e a `LiberacaoDoVoto` liberada; a I.A. não é ligada. Sem produto, o cadastro é o de sempre, sem linha em `contratacao`.
+- `PaginaInicialDoEscritorio`: a primeira tela depois do login, do `/inicio` e da escolha do escritório segue os produtos do escritório (Expediente; depois Voto, Cobranças, Ponto, Cálculo, Kanban e Assinatura; sem nenhum, Meu Perfil). O escritório completo continua no `expediente_index`. `voto_index` entra nos destinos aceitos depois do login.
+- Resumo diário por e-mail: escritório sem o Expediente fica de fora (`semEnvio`).
+
+### Alterado
+
+- Ponto: os flashes e as respostas JSON de texto fixo dos controllers (justificativa, batida, feriados, jornada, home office, ajuste de batida, horas pagas e equipe) passam pelo tradutor no ponto de saída, no bloco novo `ponto_servidor`. O português fica idêntico, cada chave é conferida contra o texto antigo. As recusas das regras (exceções e Services) e o aceite da folha ficam como estão (PR B).
+
+### Corrigido
+
+- Expediente, lista de pastas: a coluna do número da pasta (NUP) passa de 74px para 124px (cabe a estrela, o número de 4 dígitos, o compartilhar e o cadeado, com o espaço interno da célula) e o número, o ícone de compartilhar e o cadeado voltam a ficar lado a lado, sem quebrar linha (`flex-wrap: nowrap` em `.exp-nup-cel`). A correção M5.7 (#869) deixava os ícones descerem para baixo do número e a linha da tabela ficava muito alta.
+
+### Segurança
+
+- Isolamento multi-tenant, fatia 4: `Sede`, `Cargo` e `Lotacao` passam a `TenantAware` (o TenantFilter escopa toda consulta pelo escritório). Saem da lista de pendentes do `TenantAwareCoberturaTest` (teto 13 para 10). Teste novo `CadastrosDoEscritorioIsolamentoTest` cobre a negativa por entidade e as telas de administração pelo escritório da URL.
+- Ponto: `bloco_jornada` e `bloco_jornada_colaborador` ganham `tenant_id NOT NULL` (Version20261123190000), copiado da jornada dona no backfill e em toda gravação (`PrePersist`; bloco sem escritório é recusado). As duas entidades passam a `TenantAware` e entram no `TenantFilter`; saem da lista de pendentes do `TenantAwareCoberturaTest`. A purga do escritório apaga os blocos pela coluna ou pelo pai.
+
 ## [3.0.0] - 2026-11-23
 
 ### Adicionado
@@ -2380,7 +2409,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.0.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/sfbdata/Prime/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/sfbdata/Prime/compare/v2.63.2...v3.0.0
 [2.63.2]: https://github.com/sfbdata/Prime/compare/v2.63.1...v2.63.2
 [2.63.1]: https://github.com/sfbdata/Prime/compare/v2.63.0...v2.63.1

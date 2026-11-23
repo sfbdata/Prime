@@ -1,13 +1,16 @@
-# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. Texto de exceção de domínio e de Service fica fora (PR B).
+# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. O texto de exceção de domínio fica em `recusa` e o de Service em `batida` (PR B).
 ponto_servidor:
     comum:
         payload_invalido: "Invalid payload."
         nao_autenticado: "User not signed in."
         sem_permissao_registrar: "You do not have permission to clock in."
         jornada_alterada: "This workday was just changed; reload and try again."
+        numero_inteiro: "Enter a whole number."
     ponto:
         esquecido_incompleto: "Enter the type and time of the forgotten punch."
         sem_data: "Select at least one date to justify."
+        motivo_vazio: "Enter the reason."
+        motivo_longo: "The reason can have up to {maximo} characters."
         abono_uma_data: "A partial excuse can only be applied to a single date."
         esquecimento_uma_data: "A Forgotten Punch can only be applied to a single date."
         abono_horarios: "Enter the departure and return times correctly for the partial excuse."
@@ -31,6 +34,7 @@ ponto_servidor:
     equipe:
         escala_da_lista: "Choose one of the schedules in the list."
         selecione_justificativa: "Select at least one justification."
+        abonadas: "{quantidade, plural, one {{numero} justification excused.} other {{numero} justifications excused.}}"
     feriado:
         cadastrado: "Holiday added successfully."
         atualizado: "Holiday updated successfully."
@@ -68,3 +72,127 @@ ponto_servidor:
         excluido: "Paid hours entry deleted."
         erro_dos_campos: "Error recording paid hours. Check the fields."
         banco_negativo: "Warning: this deduction left the hour bank negative by -{saldo}."
+    batida:
+        cerca:
+            titulo_fora: "You are outside the allowed radius"
+            titulo_incerta: "GPS not precise enough"
+            detalhe_fora_com_sede: "The nearest office is {sede}, {distancia, number, integer} m away. The allowed radius is {raio, number, integer} m."
+            detalhe_fora_sem_sede: "Clocking in requires being within the radius of one of the firm's offices."
+            detalhe_incerta: "The GPS accuracy ({precisao, number, integer} m) is not enough to confirm that you are within the office radius. Update your location and try again."
+            saida_fora: " Move closer or report external work."
+            saida_incerta: " If you are away from the office, report external work."
+        externo:
+            sem_motivo: "Enter the location and the reason."
+            motivo_longo: "The location and the reason can have up to 500 characters."
+            registrada: "Time clock entry recorded as external work. It goes to the manager for review."
+            edicao_recusada: "The justification for an external work punch cannot be edited. It goes to the manager for review."
+        envio:
+            id_invalido: "Invalid submission identifier."
+            ja_registrada: "This punch had already been recorded."
+            fila_incompleta: "The punch saved offline arrived incomplete and was not recorded."
+            outra_conta: "This punch was saved in another account or firm and was not sent."
+            fila_vencida: "This punch was saved offline for more than {horas} hours and can no longer be sent. Submit a Forgotten Punch request for the day."
+            relogio_adiantado: "This device's clock is ahead of the official time, and the punch saved offline could not be sent. Set the clock correctly and submit a Forgotten Punch request for the day."
+        chave:
+            desligada: "Electronic time clock is turned off for you in this firm. Contact the administrator."
+        choque:
+            choque: "This person already clocks in from {inicio} to {fim} at another firm."
+            padrao: "The default workday overlaps with the hours at another firm for these people in this firm:"
+            batida: "It is now your working time at another firm ({inicio} to {fim}). The time clock entry cannot be recorded here."
+        entrada_aberta:
+            rotulo_trocar: "Switch firm"
+            aviso_pendencia: "A record was left open at {escritorio} on {dia}. Submit the Forgotten Punch request there."
+        turno:
+            aviso_sem_entrada: "The clock-in is missing for this day. Submit a Forgotten Punch request."
+            rotulo_enviar: "Submit Forgotten Punch request"
+        alertas:
+            nota: "The alert does not prevent the punch: the timesheet must reflect the real time."
+            intrajornada: "{faltam} left to complete the minimum break of {minimo}. If you clock in now, the timesheet will mark the intra-shift break as non-compliant."
+            interjornada: "{faltam} left to complete {minimo} of rest since the clock-out {dia}. If you clock in now, the timesheet will mark the inter-shift rest as non-compliant."
+            interjornada_de_hoje: "{faltam} left to complete {minimo} of rest since today's clock-out."
+            descanso_semanal: "This will be day {dias} in a row with a record, with no weekly rest."
+            dia_de_ontem: "from yesterday"
+            dia_da_data: "from {data}"
+            minutos: "{minutos, plural, one {# minute} other {# minutes}}"
+        esquecimento:
+            aviso_interjornada: "The clock-in was recorded. The rest since the clock-out on {dia} at {hora}, reported by a Forgotten Punch request, was below the minimum inter-shift rest of {horas}h."
+        horario_futuro:
+            mensagem: "A punch cannot be recorded for a future time."
+        ja_registrada:
+            mensagem: "There is already a {tipo} record for this day."
+            tipo_entrada: "clock-in"
+            tipo_repouso: "break"
+            tipo_retorno: "return"
+            tipo_saida: "clock-out"
+    recusa:
+        configuracao:
+            sede_nao_encontrada: "Office not found."
+            feriado_nao_encontrado: "Holiday not found."
+            lotacao_nao_encontrada: "Assignment not found."
+            falta_data_ou_nome: "Enter the date and the name of the holiday."
+            feriado_nome_longo: "The holiday name can have up to 255 characters."
+            sede_nome_obrigatorio: "Enter the office name."
+            sede_nome_longo: "The office name can have up to 255 characters."
+            latitude_obrigatoria: "Latitude is required."
+            latitude_faixa: "Latitude must be between -90 and 90."
+            latitude_numero: "Latitude must be a number."
+            longitude_obrigatoria: "Longitude is required."
+            longitude_faixa: "Longitude must be between -180 and 180."
+            longitude_numero: "Longitude must be a number."
+            raio_numero: "Allowed radius must be a number."
+            raio_faixa: "Allowed radius must be between 10 and 500 meters."
+            raio_inteiro: "Allowed radius must be a whole number of meters."
+        funcao:
+            sem_permissao: "Only those who manage the firm's time clock can change this setting."
+            desconhecida: "Unknown time clock function."
+            travada_pelo_master: "Turned off by the Master for all firms."
+        limites_banco:
+            limite_minimo: "The bank limit must be at least {minimo} hour."
+            limite_maximo: "The bank limit can be up to {maximo} hours."
+            prazo: "The offset period must be from {minimo} to {maximo} months."
+        horas_pagas:
+            outro_escritorio: "This entry does not belong to this firm."
+            operacao_invalida: "Invalid operation."
+            quantidade_zero: "Enter an amount of hours greater than zero."
+            quantidade_maxima: "The amount of hours cannot exceed {limite}."
+            motivo_obrigatorio: "Enter the reason for the entry."
+            motivo_curto: "The reason must have at least {minimo} characters."
+            competencia_futura: "The period cannot be in the future."
+            colaborador_outro_escritorio: "This employee does not belong to this firm."
+        versao_jornada:
+            nao_encontrada: "Workday version not found."
+            versao_unica: "The workday has only one version. To remove the custom workday, use \"Clear schedule\"."
+            data_repetida: "A workday version starting on {data} already exists."
+        equipe:
+            fora_da_equipe: "Person not found in this firm's team."
+        exclusao_justificativa:
+            nao_encontrada: "Justification not found."
+            de_outra_pessoa: "Only the person who sent the justification can delete it."
+            ja_analisada: "This justification is no longer under review and cannot be deleted."
+            da_batida_externa: "The justification for an external work punch cannot be deleted. It goes to the manager for review."
+            mexeu_na_folha: "This justification has already changed the timesheet, so it cannot be deleted. It remains under review with the manager."
+        ajuste:
+            mudou: "This punch changed since the timesheet was opened. Check the timesheet and try again."
+            nao_encontrada: "Punch not found in this timesheet."
+            nada_mudou: "The adjustment changes nothing: the punch already has this type, date and time."
+            sem_motivo: "Enter the reason for the correction."
+            motivo_longo: "The reason for the correction is over 2000 characters. Shorten the text."
+            ligada_a_justificativa: "This punch was taken out of the count by the justification review and only comes back through it: with a new excuse or, for external work, when the justification goes back to review."
+            da_propria_batida: "Only the firm's primary user or the Master can correct their own punch."
+            em_analise: "This punch has a justification under review. Excuse or reject the justification before correcting the punch."
+        analise:
+            excluida: "This justification was deleted by the employee."
+            nao_encontrada: "Justification not found."
+            propria: "Only the firm's primary user or the Master can review their own justification."
+            so_para_abonar: "Only justifications under review can be excused."
+            so_para_recusar: "Only justifications under review can be rejected."
+            ja_em_analise: "This justification is already under review."
+        edicao:
+            ja_analisada: "This justification is no longer under review (it was already reviewed by the manager or recorded as an absence) and cannot be changed. To correct it, ask the administrator to send it back to review."
+        anexo:
+            travado: "The medical certificate cannot be replaced: this entry is already excused or rejected on at least one of the days. To replace it, all days must go back to review. Contact the administrator."
+            tamanho: "The file cannot exceed 10 MB."
+            tipo: "Only PDF, JPEG or PNG files are accepted."
+        abono:
+            nao_encontrada: "Justification not found in this firm."
+            pessoa: "{pessoa} ({dia}): {motivo}"

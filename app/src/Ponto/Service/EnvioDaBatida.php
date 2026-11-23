@@ -34,11 +34,37 @@ final class EnvioDaBatida
     public const MENSAGEM_FILA_VENCIDA = 'Esta batida ficou guardada sem internet por mais de %d horas e não pode mais ser enviada. Peça o esquecimento de registro do dia.';
     public const MENSAGEM_RELOGIO_ADIANTADO = 'O relógio deste aparelho está adiantado em relação à hora oficial, e a batida guardada sem internet não pôde ser enviada. Acerte o relógio e peça o esquecimento de registro do dia.';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM_ID_INVALIDO => 'ponto_servidor.batida.envio.id_invalido',
+        self::MENSAGEM_JA_REGISTRADA => 'ponto_servidor.batida.envio.ja_registrada',
+        self::MENSAGEM_FILA_INCOMPLETA => 'ponto_servidor.batida.envio.fila_incompleta',
+        self::MENSAGEM_OUTRA_CONTA => 'ponto_servidor.batida.envio.outra_conta',
+        self::MENSAGEM_FILA_VENCIDA => 'ponto_servidor.batida.envio.fila_vencida',
+        self::MENSAGEM_RELOGIO_ADIANTADO => 'ponto_servidor.batida.envio.relogio_adiantado',
+    ];
+
     /** UUID v4, já em minúsculas. */
     private const FORMATO_DO_ID = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/';
 
     /** O maior epoch em milissegundos com o ano em quatro dígitos (9999-12-31 23:59:59.999 UTC). */
     private const MAIOR_HORA_EM_MS = 253402300799999;
+
+    /** A chave no catálogo de uma das constantes MENSAGEM_*; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto do envio sem chave no catálogo: "%s".', $texto));
+    }
+
+    /**
+     * O texto de uma das constantes MENSAGEM_*, com a chave para o controller traduzir; `{horas}` na da fila vencida.
+     *
+     * @param array<string, string> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
+    }
 
     /**
      * @param array<mixed> $dados        o JSON da batida
@@ -49,7 +75,7 @@ final class EnvioDaBatida
     {
         $idEnvio = $this->idEnvio($dados['idEnvio'] ?? null);
         if ($idEnvio === false) {
-            return EnvioLidoDaBatida::recusado($chegada, new RecusaDoEnvio(422, self::MENSAGEM_ID_INVALIDO));
+            return EnvioLidoDaBatida::recusado($chegada, new RecusaDoEnvio(422, self::texto(self::MENSAGEM_ID_INVALIDO)));
         }
         $horaAparelho = $this->horaAparelho($dados['horaAparelho'] ?? null);
         if (($dados['semInternet'] ?? false) !== true) {
@@ -58,7 +84,7 @@ final class EnvioDaBatida
         $conta = $dados['usuarioId'] ?? null;
         $escritorio = $dados['escritorioId'] ?? null;
         if ($idEnvio === null || $horaAparelho === null || !is_int($conta) || !is_int($escritorio)) {
-            return EnvioLidoDaBatida::recusado($chegada, new RecusaDoEnvio(422, self::MENSAGEM_FILA_INCOMPLETA));
+            return EnvioLidoDaBatida::recusado($chegada, new RecusaDoEnvio(422, self::texto(self::MENSAGEM_FILA_INCOMPLETA)));
         }
         $recusa = $this->deOutraConta($dados, $usuarioId, $escritorioId) ?? $this->recusaPelaHora($horaAparelho, $chegada);
         $momento = $horaAparelho > $chegada ? $chegada : $horaAparelho;
@@ -83,7 +109,7 @@ final class EnvioDaBatida
         $escritorio = $dados['escritorioId'] ?? null;
         $outra = (is_int($conta) && $conta !== $usuarioId) || (is_int($escritorio) && $escritorio !== $escritorioId);
 
-        return $outra ? new RecusaDoEnvio(409, self::MENSAGEM_OUTRA_CONTA) : null;
+        return $outra ? new RecusaDoEnvio(409, self::texto(self::MENSAGEM_OUTRA_CONTA)) : null;
     }
 
     /** A batida guardada além do teto de idade, ou com o relógio do aparelho adiantado além da tolerância. */
@@ -91,10 +117,10 @@ final class EnvioDaBatida
     {
         $atrasoEmMicrossegundos = self::microssegundos($chegada) - self::microssegundos($horaAparelho);
         if ($atrasoEmMicrossegundos > self::TETO_DA_FILA_HORAS * 3600 * 1_000_000) {
-            return new RecusaDoEnvio(422, sprintf(self::MENSAGEM_FILA_VENCIDA, self::TETO_DA_FILA_HORAS));
+            return new RecusaDoEnvio(422, self::texto(self::MENSAGEM_FILA_VENCIDA, ['horas' => (string) self::TETO_DA_FILA_HORAS]));
         }
         if (-$atrasoEmMicrossegundos > self::TOLERANCIA_DO_RELOGIO_SEGUNDOS * 1_000_000) {
-            return new RecusaDoEnvio(422, self::MENSAGEM_RELOGIO_ADIANTADO);
+            return new RecusaDoEnvio(422, self::texto(self::MENSAGEM_RELOGIO_ADIANTADO));
         }
 
         return null;

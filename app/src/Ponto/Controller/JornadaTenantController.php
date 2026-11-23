@@ -8,6 +8,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaTenantRepository;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\TextoDoPonto;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -155,7 +156,9 @@ final class JornadaTenantController extends AbstractController
 
         $afetadas = $this->pessoasEmChoque($tenant, $jornadaTenantRepository->doEscritorio($tenant), $blocos);
         if ($afetadas !== []) {
-            return $this->json(['erro' => $this->recusaDasPessoas($afetadas), 'pessoas' => $afetadas], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $traduzidas = array_map(fn (array $p): array => ['nome' => $p['nome'], 'mensagem' => $p['texto']->traduzir($this->tradutor)], $afetadas);
+
+            return $this->json(['erro' => $this->recusaDasPessoas($traduzidas), 'pessoas' => $traduzidas], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $jornada = $jornadaTenantRepository->findOneBy(['tenant' => $tenant]);
@@ -191,14 +194,14 @@ final class JornadaTenantController extends AbstractController
      *
      * @param array<int, array<string, mixed>> $blocos
      *
-     * @return list<array{nome: string, mensagem: string}>
+     * @return list<array{nome: string, texto: TextoDoPonto}>
      */
     private function pessoasEmChoque(Tenant $tenant, ?JornadaTenant $atual, array $blocos): array
     {
         $proposta = ($atual ?? (new JornadaTenant())->setTenant($tenant))
             ->propostaComBlocos(array_map($this->blocoDaRequisicao(...), $blocos));
 
-        return $this->choque->pessoasEmChoqueComPadrao($tenant, $proposta);
+        return $this->choque->pessoasEmChoqueComPadraoComChave($tenant, $proposta);
     }
 
     /** @param list<array{nome: string, mensagem: string}> $afetadas */
@@ -206,7 +209,7 @@ final class JornadaTenantController extends AbstractController
     {
         $linhas = array_map(static fn (array $p): string => $p['nome'] . ': ' . $p['mensagem'], $afetadas);
 
-        return ChoqueDeJornadaEntreEscritorios::MENSAGEM_PADRAO . "\n" . implode("\n", $linhas);
+        return ChoqueDeJornadaEntreEscritorios::texto(ChoqueDeJornadaEntreEscritorios::MENSAGEM_PADRAO)->traduzir($this->tradutor) . "\n" . implode("\n", $linhas);
     }
 
     /** @param array<string, mixed> $blocoData */

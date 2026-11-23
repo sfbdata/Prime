@@ -32,6 +32,21 @@ final class RestricoesAnexoJustificativa
 
     public const MENSAGEM_TIPO = 'Somente PDF, JPEG ou PNG são aceitos.';
 
+    /** @var array<string, string> texto da constante MENSAGEM_* => chave no catálogo `ponto_servidor` */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM_TAMANHO => 'ponto_servidor.recusa.anexo.tamanho',
+        self::MENSAGEM_TIPO => 'ponto_servidor.recusa.anexo.tipo',
+    ];
+
+    /**
+     * A chave no catálogo de uma das duas mensagens desta regra (a que a validação do anexo devolve); null para
+     * qualquer outro texto, que quem chama mostra como veio.
+     */
+    public static function chaveDe(string $texto): ?string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? null;
+    }
+
     public static function constraint(): File
     {
         return new File(

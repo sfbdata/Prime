@@ -16,6 +16,7 @@ use App\Ponto\Exception\ChoqueDeJornadaException;
 use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
 use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
 use App\Ponto\Service\ChoqueDaJornadaProposta;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\Service\HistoricoDeJornadas;
 use App\Ponto\UseCase\AlterarRegistroDePontoUseCase;
 use App\Ponto\UseCase\ExcluirVersaoDaJornadaUseCase;
@@ -181,21 +182,21 @@ final class JornadaColaboradorController extends AbstractController
 
         $blocosPropostos = array_map($this->blocoDaRequisicao(...), $blocos);
         $historico       = $this->jornadas->historicoDe($user, $urlTenant);
-        if (($choque = $this->choqueDaProposta->mensagem($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
-            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
+        if (($choque = $this->choqueDaProposta->texto($user, $urlTenant, $historico?->vigenteEm($valeAPartirDe), $blocosPropostos)) !== null) {
+            return $this->json(['erro' => $choque->traduzir($this->tradutor)], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
         }
         // Mudar a data de uma versão pode deixar valendo hoje outra (a anterior): ela também passa pela conferência.
         if ($historico !== null && $versaoId !== null
             && ($choque = $this->choqueDoQueValeHojeDepoisDeMudarAData($user, $urlTenant, $historico, $versaoId, $valeAPartirDe)) !== null) {
-            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $choque->traduzir($this->tradutor)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
             $salvarVersao->executar($user, $urlTenant, new VersaoDaJornadaInput($valeAPartirDe, $carga, $alerta, $blocosPropostos, $versaoId));
         } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
-            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($naoEncontrada->chave())], Response::HTTP_NOT_FOUND);
         } catch (VersaoDaJornadaRecusadaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave(), $recusada->parametros())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (UniqueConstraintViolationException) {
             // Dois salvamentos ao mesmo tempo na mesma data: 409, não 500.
             return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
@@ -238,8 +239,8 @@ final class JornadaColaboradorController extends AbstractController
 
         // Spec ponto-jornada-vigencia §10.2.5: apaga todas as versões; a folha volta a usar a padrão.
         $vigenteHoje = $this->jornadas->findByUserETenant($user, $urlTenant);
-        if ($vigenteHoje !== null && ($choque = $this->choqueDaProposta->mensagem($user, $urlTenant, $vigenteHoje, [])) !== null) {
-            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
+        if ($vigenteHoje !== null && ($choque = $this->choqueDaProposta->texto($user, $urlTenant, $vigenteHoje, [])) !== null) {
+            return $this->json(['erro' => $choque->traduzir($this->tradutor)], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
         }
 
         $limparJornada->executar($user, $urlTenant);
@@ -267,15 +268,15 @@ final class JornadaColaboradorController extends AbstractController
         $vigenteHoje = $historico?->vigenteEm($this->relogio->now());
         if ($historico !== null && $vigenteHoje !== null && $vigenteHoje->getId() === $versaoId
             && ($choque = $this->choqueDoQuePassaAValerHoje($user, $urlTenant, $historico, $vigenteHoje)) !== null) {
-            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $choque->traduzir($this->tradutor)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
             $excluirVersao->executar($user, $urlTenant, $versaoId);
         } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
-            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($naoEncontrada->chave())], Response::HTTP_NOT_FOUND);
         } catch (VersaoDaJornadaRecusadaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave(), $recusada->parametros())], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['ok' => true]);
@@ -305,7 +306,7 @@ final class JornadaColaboradorController extends AbstractController
         try {
             $alterarRegistroDePonto->executar(new AlterarRegistroDePontoInput($user, $urlTenant, $data['registraPonto']));
         } catch (ChoqueDeJornadaException $choque) {
-            return $this->json(['erro' => $choque->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $choque->texto()->traduzir($this->tradutor)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['ok' => true, 'registraPonto' => $data['registraPonto']]);
@@ -333,11 +334,11 @@ final class JornadaColaboradorController extends AbstractController
     }
 
     /** Sem a versão de hoje (excluída), vale hoje a vizinha, ou a padrão: ela não pode bater com outro escritório. */
-    private function choqueDoQuePassaAValerHoje(User $user, Tenant $tenant, HistoricoDeJornadas $historico, JornadaColaborador $sai): ?string
+    private function choqueDoQuePassaAValerHoje(User $user, Tenant $tenant, HistoricoDeJornadas $historico, JornadaColaborador $sai): ?TextoDoPonto
     {
         $passaAValer = $historico->semA($sai)?->vigenteEm($this->relogio->now());
 
-        return $this->choqueDaProposta->mensagem($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
+        return $this->choqueDaProposta->texto($user, $tenant, $passaAValer, $passaAValer?->getBlocos()->toArray() ?? []);
     }
 
     /**
@@ -351,7 +352,7 @@ final class JornadaColaboradorController extends AbstractController
         HistoricoDeJornadas $historico,
         int $versaoId,
         \DateTimeImmutable $data,
-    ): ?string {
+    ): ?TextoDoPonto {
         $editada = null;
         foreach ($historico->versoes() as $versao) {
             if ($versao->getId() === $versaoId) {
@@ -369,7 +370,7 @@ final class JornadaColaboradorController extends AbstractController
             return null;
         }
 
-        return $this->choqueDaProposta->mensagem($user, $tenant, $depois, $depois?->getBlocos()->toArray() ?? []);
+        return $this->choqueDaProposta->texto($user, $tenant, $depois, $depois?->getBlocos()->toArray() ?? []);
     }
 
     /** @param array<string, mixed> $blocoData */

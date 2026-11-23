@@ -10,7 +10,9 @@ use App\Ponto\DTO\AbonoEmLoteOutput;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Service\AbonoDeJustificativa;
+use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Service\AnaliseDaPropriaJustificativa;
+use App\Ponto\Service\TextoDoPonto;
 use App\Repository\UserTenantRepository;
 
 /**
@@ -30,6 +32,15 @@ use App\Repository\UserTenantRepository;
 final class AbonarJustificativasDaEquipeUseCase
 {
     public const NAO_ENCONTRADA = 'Justificativa não encontrada neste escritório.';
+
+    /** A recusa de cada pessoa: o nome, o dia e o motivo (o português de {@see self::comPessoaEDia()}). */
+    public const RECUSA_DA_PESSOA = '%s (%s): %s';
+
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (spec idioma-do-sistema §33) */
+    public const CHAVE_DO_TEXTO = [
+        self::NAO_ENCONTRADA => 'ponto_servidor.recusa.abono.nao_encontrada',
+        self::RECUSA_DA_PESSOA => 'ponto_servidor.recusa.abono.pessoa',
+    ];
 
     public function __construct(
         private readonly JustificativaPontoRepository $justificativas,
@@ -57,15 +68,21 @@ final class AbonarJustificativasDaEquipeUseCase
         }
         $recusas += $this->abonar($aAbonar, $analista, $escritorio);
 
-        return new AbonoEmLoteOutput(\count($ids) - \count($recusas), self::naOrdem($ids, $recusas));
+        $emOrdem = self::naOrdem($ids, $recusas);
+
+        return new AbonoEmLoteOutput(
+            \count($ids) - \count($recusas),
+            array_map(static fn (TextoDoPonto $recusa): string => $recusa->portugues, $emOrdem),
+            $emOrdem,
+        );
     }
 
-    /** Null quando passa pelas portas; senão, a recusa já em texto de tela. */
-    private function recusaDaPorta(?JustificativaPonto $justificativa, User $analista, Tenant $escritorio): ?string
+    /** Null quando passa pelas portas; senão, a recusa já com a pessoa e o dia. */
+    private function recusaDaPorta(?JustificativaPonto $justificativa, User $analista, Tenant $escritorio): ?TextoDoPonto
     {
         $dono = $justificativa?->getUser();
         if ($justificativa === null || $dono === null || !$this->vinculos->existeVinculoAtivo($dono, $escritorio)) {
-            return self::NAO_ENCONTRADA;
+            return TextoDoPonto::de(self::CHAVE_DO_TEXTO[self::NAO_ENCONTRADA], self::NAO_ENCONTRADA);
         }
 
         return $this->analiseDaPropria->permite($analista, $dono, $escritorio)
@@ -78,7 +95,7 @@ final class AbonarJustificativasDaEquipeUseCase
      *
      * @param array<int, JustificativaPonto> $aAbonar pelo id, todas já pelas portas
      *
-     * @return array<int, string> as recusas do abono, pelo id, com a pessoa e o dia
+     * @return array<int, TextoDoPonto> as recusas do abono, pelo id, com a pessoa e o dia
      */
     private function abonar(array $aAbonar, User $analista, Tenant $escritorio): array
     {
@@ -97,25 +114,34 @@ final class AbonarJustificativasDaEquipeUseCase
             $recusas += array_intersect_key($this->abono->abonarDaEquipe(array_values($daEquipe), $escritorio, $analista), $daEquipe);
         }
 
+        $comPessoaEDia = [];
         foreach ($recusas as $id => $recusa) {
-            $recusas[$id] = self::comPessoaEDia($aAbonar[$id], $recusa);
+            $comPessoaEDia[$id] = self::comPessoaEDia($aAbonar[$id], $recusa);
         }
 
-        return $recusas;
+        return $comPessoaEDia;
     }
 
-    private static function comPessoaEDia(JustificativaPonto $justificativa, string $recusa): string
+    /**
+     * A recusa com a pessoa e o dia. O motivo chega como português (a recusa do abono da ficha viaja como texto) e volta
+     * a ter chave quando é uma recusa conhecida da análise; outro texto entra como veio.
+     */
+    private static function comPessoaEDia(JustificativaPonto $justificativa, string $motivo): TextoDoPonto
     {
         $dono = $justificativa->getUser();
 
-        return sprintf('%s (%s): %s', $dono?->getFullName() ?? $dono?->getEmail(), $justificativa->getData()?->format('d/m/Y'), $recusa);
+        return TextoDoPonto::de(self::CHAVE_DO_TEXTO[self::RECUSA_DA_PESSOA], self::RECUSA_DA_PESSOA, [
+            'pessoa' => (string) ($dono?->getFullName() ?? $dono?->getEmail()),
+            'dia' => (string) $justificativa->getData()?->format('d/m/Y'),
+            'motivo' => AnaliseDeJustificativaRecusadaException::textoDaMensagem($motivo) ?? $motivo,
+        ]);
     }
 
     /**
      * @param list<int>          $ids
-     * @param array<int, string> $recusas pelo id
+     * @param array<int, TextoDoPonto> $recusas pelo id
      *
-     * @return list<string> na ordem em que os ids vieram
+     * @return list<TextoDoPonto> na ordem em que os ids vieram
      */
     private static function naOrdem(array $ids, array $recusas): array
     {

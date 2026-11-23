@@ -25,7 +25,7 @@ final class RemoverFeriadoDoPontoUseCase
     public function executar(int $id, Tenant $escritorio): void
     {
         $feriado = $this->feriados->findOneBy(['id' => $id, 'tenant' => $escritorio])
-            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada('Feriado não encontrado.');
+            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada(ConfiguracaoDoPontoRecusadaException::RECUSA_FERIADO_NAO_ENCONTRADO);
 
         $this->em->remove($feriado);
         $this->em->flush();
