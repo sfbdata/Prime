@@ -89,13 +89,11 @@ final class CartaoDoPontoNoJsTest extends TestCase
         $tela = $this->tela();
 
         self::assertStringContainsString(
-            "const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. "
-            . "Os horários nos botões acima são de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';",
+            "const AVISO_SEM_CONFIRMACAO = BJ_T.t('ponto_cartao.js.aviso.sem_confirmacao');",
             $tela
         );
         self::assertStringContainsString(
-            "const AVISO_VIRADA_DO_DIA = 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a "
-            . "folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.';",
+            "const AVISO_VIRADA_DO_DIA = BJ_T.t('ponto_cartao.js.aviso.virada_do_dia');",
             $tela
         );
         self::assertStringNotContainsStringIgnoringCase('lista abaixo', $tela);

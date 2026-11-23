@@ -193,11 +193,11 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $tela = self::tela();
 
         self::assertStringContainsString('const TIPO_MASCULINO = { repouso: true, retorno: true };', $tela, 'Entrada e Saída registradas; Repouso e Retorno registrados');
-        self::assertStringContainsString("return TIPO_MASCULINO[tipo] === true ? 'registrado' : 'registrada';", $tela);
-        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $tela);
-        self::assertStringContainsString("const texto = rotuloDoTipo(tipo) + ' não ' + registradoDoTipo(tipo) + ': ' + String(titulo || '').replace(/[.\\s]+$/, '') + '.';", $tela);
-        self::assertStringContainsString("const TITULO_SEM_LOCALIZACAO = 'Não foi possível obter a sua localização';", $tela);
-        self::assertStringContainsString("const DETALHE_SEM_LOCALIZACAO = 'Ative o GPS do aparelho, permita a localização no navegador e tente de novo.';", $tela);
+        self::assertStringContainsString("return TIPO_MASCULINO[tipo] === true ? 'masc' : 'fem';", $tela);
+        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : BJ_T.t('ponto_cartao.js.toque.registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo), hora: horaDaBatida }) + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $tela);
+        self::assertStringContainsString("const texto = BJ_T.t('ponto_cartao.js.toque.nao_registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo), motivo: String(titulo || '').replace(/[.\\s]+$/, '') });", $tela);
+        self::assertStringContainsString("const TITULO_SEM_LOCALIZACAO = BJ_T.t('ponto_cartao.js.gps.sem_localizacao_titulo');", $tela);
+        self::assertStringContainsString("const DETALHE_SEM_LOCALIZACAO = BJ_T.t('ponto_cartao.js.gps.sem_localizacao_detalhe');", $tela);
 
         // Com a chave valendo e a tela cheia na página, a validação abre no toque e o resultado sai nela.
         self::assertStringContainsString('return ANIMACAO_LIGADA && !!window.PontoTelaCheia && window.PontoTelaCheia.disponivel();', $tela);
@@ -235,9 +235,9 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
             $aviso,
             'desligado: some a saída prevista, antes de qualquer conta',
         );
-        self::assertMatchesRegularExpression("/if \\(agora > previsao\\) \\{\\s*mostrarAvisoDoDia\\('warning', 'bi-bell', 'Passou da saída prevista \\(' \\+ hora \\+ '\\)\\. Não esqueça de registrar a saída\\.'\\);\\s*return;/", $aviso);
+        self::assertMatchesRegularExpression("/if \\(agora > previsao\\) \\{\\s*mostrarAvisoDoDia\\('warning', 'bi-bell', BJ_T\\.t\\('ponto_cartao\\.js\\.lembrete\\.passou_da_saida', \\{ hora \\}\\)\\);\\s*return;/", $aviso);
         self::assertStringNotContainsString('dispararLembreteDeSaida();', $aviso, 'o lembrete não depende da escolha da caixa');
-        self::assertStringContainsString("mostrarAvisoDoDia('info', 'bi-bell', 'Saída prevista às ' + hora + '.');", $aviso);
+        self::assertStringContainsString("mostrarAvisoDoDia('info', 'bi-bell', BJ_T.t('ponto_cartao.js.lembrete.saida_prevista', { hora }));", $aviso);
 
         $lembrete = self::corpo($tela, 'function dispararLembreteDeSaida() {');
         self::assertMatchesRegularExpression('/^\{\s*if \(!LEMBRETE_LIGADO\) \{\s*return;/', $lembrete);
@@ -246,8 +246,8 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         self::assertStringContainsString("'bj-ponto-lembrete:' + (caixaDaPessoa ? caixaDaPessoa.dataset.usuarioId + ':' + caixaDaPessoa.dataset.escritorioId : '')", $lembrete, 'por pessoa e escritório');
         self::assertMatchesRegularExpression('/window\.PontoSons\.liberar\(\);\s*window\.PontoSons\.ok\(\);/', $lembrete);
         self::assertStringContainsString("avisarFlutuante(AVISO_LEMBRETE_DE_SAIDA, 'lembrete');", $lembrete);
-        self::assertMatchesRegularExpression("/try \\{\\s*if \\(window\\.Notification && Notification\\.permission === 'granted'\\) \\{\\s*new Notification\\('BlueJus Ponto', \\{ body: 'Não esqueça de registrar a saída\\.' \\}\\);/", $lembrete);
-        self::assertStringContainsString("const AVISO_LEMBRETE_DE_SAIDA = 'Passou do horário previsto. Não esqueça de registrar a saída.';", $tela);
+        self::assertMatchesRegularExpression("/try \\{\\s*if \\(window\\.Notification && Notification\\.permission === 'granted'\\) \\{\\s*new Notification\\('BlueJus Ponto', \\{ body: BJ_T\\.t\\('ponto_cartao\\.js\\.lembrete\\.notificacao_corpo'\\) \\}\\);/", $lembrete);
+        self::assertStringContainsString("const AVISO_LEMBRETE_DE_SAIDA = BJ_T.t('ponto_cartao.js.lembrete.aviso_saida');", $tela);
 
         // As chaves são declaradas antes do relógio, que já chama o lembrete na carga (`const` não é içado).
         self::assertLessThan(strpos($tela, 'setInterval(updateClock, 1000);'), strpos($tela, 'const LEMBRETE_LIGADO = '));
@@ -345,7 +345,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $tela = self::tela();
 
         $tentar = self::corpo($tela, 'function tentarDeNovo(tipo, externo) {');
-        self::assertMatchesRegularExpression("/if \\(!botao \\|\\| botao\\.disabled\\) \\{\\s*avisarFlutuante\\(rotuloDoTipo\\(tipo\\) \\+ ' já ' \\+ registradoDoTipo\\(tipo\\) \\+ '\\.', 'ok'\\);\\s*return;\\s*\\}/", $tentar);
+        self::assertMatchesRegularExpression("/if \\(!botao \\|\\| botao\\.disabled\\) \\{\\s*avisarFlutuante\\(BJ_T\\.t\\('ponto_cartao\\.js\\.toque\\.ja_registrada_' \\+ generoDoTipo\\(tipo\\), \\{ tipo: rotuloDoTipo\\(tipo\\) \\}\\), 'ok'\\);\\s*return;\\s*\\}/", $tentar);
         // O toque só sai depois da guarda (com o tipo livre).
         self::assertGreaterThan((int) strpos($tentar, 'return;'), (int) strpos($tentar, 'btnPonto.click();'));
         self::assertSame(1, substr_count($tentar, 'btnPonto.click();'));
@@ -547,7 +547,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
         self::assertStringContainsString('const jaRegistrada = gravada.jaRegistrada === true;', $registrada);
         self::assertStringContainsString("met: jaRegistrada ? AVISO_JA_REGISTRADA : ''", $registrada);
-        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : rotuloDoTipo(tipo) + ' ' + registradoDoTipo(tipo) + ' às ' + horaDaBatida + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $registrada);
+        self::assertStringContainsString("const texto = jaRegistrada ? AVISO_JA_REGISTRADA : BJ_T.t('ponto_cartao.js.toque.registrada_' + generoDoTipo(tipo), { tipo: rotuloDoTipo(tipo), hora: horaDaBatida }) + (comprovante ? '. ' + AVISO_COMPROVANTE_NA_ABA : '.');", $registrada);
 
         $tc = self::arquivo('public/js/ponto-tela-cheia.js');
         self::assertStringContainsString("no.textContent = dados.met ? String(dados.met) : String(no.getAttribute('data-padrao') || '');", $tc);
@@ -562,7 +562,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
         $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
 
         self::assertStringContainsString("met: jaRegistrada ? AVISO_JA_REGISTRADA : '', comprovante: comprovante });", $registrada);
-        self::assertStringContainsString("const AVISO_COMPROVANTE_NA_ABA = 'Comprovante na aba Comprovantes.';", $tela, 'o desenho, L533');
+        self::assertStringContainsString("const AVISO_COMPROVANTE_NA_ABA = BJ_T.t('ponto_cartao.js.toque.comprovante');", $tela, 'o desenho, L533');
         self::assertStringNotContainsString('Sem o comprovante', $tela);
         $daBatida = self::corpo($tela, 'function comprovanteDaBatida(gravada) {');
         self::assertStringContainsString("typeof comprovante.codigo !== 'string' || comprovante.codigo === '' || typeof comprovante.url !== 'string' || comprovante.url === ''", $daBatida);

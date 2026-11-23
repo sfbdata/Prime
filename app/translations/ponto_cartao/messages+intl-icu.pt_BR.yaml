@@ -237,5 +237,74 @@ ponto_cartao:
             fora_da_cerca: 'Não registrou: você está a {distancia} m da sede {nome}, fora da área permitida. Se hoje é trabalho fora da sede, peça a liberação do dia ao gestor.'
             entrada_registrada: 'Ponto de entrada registrado às {hora}'
             saida_registrada: 'Saída registrada às {hora}'
+        # ---- script inline da tela do ponto (index.html.twig): lembrete, relógio, GPS, avisos da batida, fila sem internet
+        lembrete:
+            aviso_saida: Passou do horário previsto. Não esqueça de registrar a saída.
+            notificacao_corpo: Não esqueça de registrar a saída.
+            passou_da_saida: 'Passou da saída prevista ({hora}). Não esqueça de registrar a saída.'
+            saida_prevista: 'Saída prevista às {hora}.'
+        relogio:
+            aguardando: Aguardando entrada
+            encerrada: Jornada encerrada
+            repouso: Em repouso
+            jornada: Em jornada
+        gps:
+            confirmada: 'Localização confirmada. Precisão de {precisao} m.'
+            impreciso: 'GPS impreciso ({precisao} m). O sistema ainda validará se você está dentro do raio de alguma sede.'
+            fora_da_area: 'Você está a {distancia}m de {sede}, fora da área permitida para bater o ponto.'
+            fora_sem_externo: Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.
+            verbo_toque: Toque
+            verbo_clique: Clique
+            indisponivel: Não foi possível descobrir sua localização agora. Tente de novo; no computador, deixe o Wi-Fi ligado.
+            demorou: A busca pela sua localização demorou demais. Tente de novo; no computador, deixe o Wi-Fi ligado.
+            pedir: 'Para registrar o ponto, o navegador precisa da sua localização. {verbo} em "Permitir localização" e escolha Permitir na janela do navegador.'
+            sistema: 'O navegador tem permissão, mas a localização do aparelho está desligada ou bloqueada para o navegador. Ligue a localização nas configurações do aparelho e {verbo} em "Tentar de novo".'
+            api: A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.
+            bloqueado: 'A localização está bloqueada para este site. Para liberar:'
+            passo_computador_1: Clique no ícone à esquerda do endereço do site (o cadeado ou os controles).
+            passo_computador_2: Em Localização, escolha Permitir.
+            passo_computador_3: Recarregue esta página.
+            outro_computador: 'No Safari do Mac: menu Safari, Ajustes, Sites, Localização, e escolha Permitir para este site.'
+            passo_celular_1: Toque no ícone à esquerda do endereço do site (o cadeado ou os controles).
+            passo_celular_2: Toque em Permissões (ou Configurações do site) e depois em Localização.
+            passo_celular_3: Escolha Permitir e recarregue esta página.
+            outro_celular: 'No iPhone ou iPad, se não aparecer: Ajustes, Privacidade e Segurança, Serviços de Localização, ligue e escolha "Ao Usar o App" para o navegador.'
+            obtendo: Obtendo a sua localização...
+            permitir: Permitir localização
+            sem_suporte: Seu navegador não suporta geolocalização.
+            sem_localizacao_titulo: Não foi possível obter a sua localização
+            sem_localizacao_detalhe: Ative o GPS do aparelho, permita a localização no navegador e tente de novo.
+        aviso:
+            sem_confirmacao: 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. Os horários nos botões acima são de antes da tentativa: atualize a página e confira ANTES de apertar de novo.'
+            sem_rede: 'Você está sem internet e não dá para saber se a batida saiu. NÃO feche esta tela. Quando a conexão voltar, atualize a página e confira antes de apertar de novo.'
+            virada_do_dia: 'O dia virou com esta página aberta: os botões acima já são do dia novo, mas a folha e o banco de horas ainda são de ontem. Atualize a página antes de conferir.'
+            pagina_incompleta: A página não carregou por inteiro e a batida não foi enviada. Atualize a página e tente de novo.
+            internet_voltou: A internet voltou. Atualize a página e confira suas batidas antes de apertar de novo.
+            atrasado: Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.
+            selecione_tipo: Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).
+            durante_envio: 'A batida não foi registrada: outro registro estava sendo enviado. Espere terminar e toque no botão de novo.'
+            dia_concluido: 'A batida não foi registrada: a jornada de hoje já está concluída.'
+            registrando: Registrando...
+        externo:
+            registrar: Registrar como trabalho externo
+            em_andamento: Um registro ainda está em andamento. Espere a resposta e registre o trabalho externo de novo.
+            dia_completo: Não há registro livre hoje. O trabalho externo não foi enviado.
+            sem_fila: Sem internet, o trabalho externo não pôde ser guardado. Tente de novo quando a conexão voltar.
+            informe: Informe o local e o motivo.
+        toque:
+            registrada_fem: '{tipo} registrada às {hora}'
+            registrada_masc: '{tipo} registrado às {hora}'
+            comprovante: Comprovante na aba Comprovantes.
+            nao_registrada_fem: '{tipo} não registrada: {motivo}.'
+            nao_registrada_masc: '{tipo} não registrado: {motivo}.'
+            ja_registrada_fem: '{tipo} já registrada.'
+            ja_registrada_masc: '{tipo} já registrado.'
+        fila:
+            guardada_sem_internet: Sem internet. A batida ficou guardada neste aparelho e será enviada quando a internet voltar.
+            guardada_sem_conexao: Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha quando a conexão voltar.
+            enviada: Batidas sem internet enviadas.
+            pendentes: 'Sem internet: {n} batida(s) aguardando envio.'
+            outro_escritorio: '{n} batida(s) guardada(s) sem internet em outro escritório. Entre nele para enviar.'
+            recusa: 'Batida de {tipo} de {dia} às {hora} guardada sem internet não foi registrada: {mensagem}'
 
 # ---- fim

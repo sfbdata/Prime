@@ -297,11 +297,11 @@ final class FilaSemInternetJsTest extends TestCase
     {
         $tela = self::tela();
 
-        self::assertStringContainsString("pendentesEl.textContent = 'Sem internet: ' + contagem.pendentes + ' batida(s) aguardando envio.';", $tela);
-        self::assertStringContainsString("outroEl.textContent = contagem.emOutroEscritorio + ' batida(s) guardada(s) sem internet em outro escritório. Entre nele para enviar.';", $tela);
+        self::assertStringContainsString("pendentesEl.textContent = BJ_T.t('ponto_cartao.js.fila.pendentes', { n: contagem.pendentes });", $tela);
+        self::assertStringContainsString("outroEl.textContent = BJ_T.t('ponto_cartao.js.fila.outro_escritorio', { n: contagem.emOutroEscritorio });", $tela);
         self::assertStringContainsString("caixaDaFila.classList.toggle('d-none', contagem.pendentes === 0 && contagem.emOutroEscritorio === 0);", $tela, 'some com a fila vazia');
-        self::assertStringContainsString("const AVISO_GUARDADA_SEM_INTERNET = 'Sem internet. A batida ficou guardada neste aparelho e será enviada quando a internet voltar.';", $tela);
-        self::assertStringContainsString("const AVISO_FILA_ENVIADA = 'Batidas sem internet enviadas.';", $tela);
+        self::assertStringContainsString("const AVISO_GUARDADA_SEM_INTERNET = BJ_T.t('ponto_cartao.js.fila.guardada_sem_internet');", $tela);
+        self::assertStringContainsString("const AVISO_FILA_ENVIADA = BJ_T.t('ponto_cartao.js.fila.enviada');", $tela);
 
         $avisar = self::corpo($tela, 'function avisarResultadoDaFila(parte) {');
         // E8: "Batidas sem internet enviadas." é o aviso flutuante do desenho (L438); vai à caixa só sem o módulo dele.
@@ -426,7 +426,7 @@ final class FilaSemInternetJsTest extends TestCase
 
         $recusa = self::corpo($tela, 'function linhaDaRecusaDaFila(recusa) {');
         self::assertStringContainsString(
-            "return 'Batida de ' + tipo + ' de ' + FORMATO_DIA_E_MES_DA_FILA.format(quando) + ' às ' + FORMATO_HORA_DA_FILA.format(quando)\n            + ' guardada sem internet não foi registrada: ' + recusa.mensagem;",
+            "return BJ_T.t('ponto_cartao.js.fila.recusa', {\n            tipo: tipo,\n            dia: FORMATO_DIA_E_MES_DA_FILA.format(quando),\n            hora: FORMATO_HORA_DA_FILA.format(quando),\n            mensagem: recusa.mensagem,\n        });",
             $recusa
         );
         self::assertStringContainsString('Object.prototype.hasOwnProperty.call(ROTULOS_TIPO, recusa.tipo) ? ROTULOS_TIPO[recusa.tipo]', $recusa, 'o rótulo do tipo (Entrada, Saída)');
@@ -447,7 +447,7 @@ final class FilaSemInternetJsTest extends TestCase
     {
         $tela = self::tela();
 
-        self::assertStringContainsString("const AVISO_GUARDADA_SEM_CONEXAO = 'Sem conexão com o servidor. A batida ficou guardada neste aparelho e será enviada sozinha quando a conexão voltar.';", $tela);
+        self::assertStringContainsString("const AVISO_GUARDADA_SEM_CONEXAO = BJ_T.t('ponto_cartao.js.fila.guardada_sem_conexao');", $tela);
         self::assertStringContainsString(
             'const aviso = navigator.onLine === false ? AVISO_GUARDADA_SEM_INTERNET : AVISO_GUARDADA_SEM_CONEXAO;',
             self::corpo($tela, 'async function guardarNaFila(payload) {')

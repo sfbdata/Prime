@@ -28,7 +28,7 @@ final class TelaDoPontoTraduzAClassificacaoTest extends TestCase
         // atrasada (ou com o texto recusado) volta para a janela, sem a tela vermelha; a recusa com `foraDoRaio` vai à
         // porta do fora do raio (TrabalhoExternoForaDoRaioJsTest).
         self::assertMatchesRegularExpression("/if \\(resultado\\.tipo === 'atrasado'\\) \\{\\s+(?:\\/\\/[^\\n]*\\n\\s+)*if \\(payload\\.trabalhoExterno === true\\) \\{\\s+devolverExternoParaAJanela\\(payload, AVISO_ATRASADO, false\\);\\s+\\} else \\{\\s+mostrarFalhaDoToque\\(payload\\.tipo, AVISO_ATRASADO, ''\\);\\s+\\}/", $tela);
-        self::assertStringContainsString("const AVISO_ATRASADO = 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.';", $tela);
+        self::assertStringContainsString("const AVISO_ATRASADO = BJ_T.t('ponto_cartao.js.aviso.atrasado');", $tela);
         self::assertMatchesRegularExpression("/'recusa'\\) \\{.*?\\} else \\{\\s+mostrarFalhaDoToque\\(payload\\.tipo, resultado\\.mensagem, '', \\[\\], externo\\);\\s+\\}\\s+\\} else if \\(resultado\\.tipo === 'nao_entrou'\\)/s", $tela);
         self::assertMatchesRegularExpression("/\\} else if \\(resultado\\.tipo === 'sucesso'\\) \\{\\s+sucesso = true;/", $tela);
         self::assertSame(1, substr_count($tela, 'sucesso = true;'), 'sucesso só no ramo de sucesso');

@@ -139,7 +139,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         );
         $caixa = self::corpo($tela, 'function mostrarForaDaArea(onde) {');
         self::assertStringContainsString('nomeDaSede.textContent = onde.sede.nome;', $caixa);
-        self::assertStringContainsString('`Você está a ${Math.round(onde.distancia)}m de `,', $caixa, 'a distância é a da sede citada');
+        self::assertStringContainsString('{ distancia: Math.round(onde.distancia), sede: \'{sede}\' }', $caixa, 'a distância é a da sede citada');
 
         // O bloco (na tela vermelha da E8 ou, sem ela, na caixa): a mesma posição e as mesmas sedes, pela mesma função do
         // módulo (textosDoForaDoRaio usa sedeMaisProxima).
@@ -175,15 +175,15 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
 
         $botao = self::corpo($bloco, 'if (foraDoRaio.trabalhoExterno === true) {');
         self::assertStringContainsString("icone.className = 'bi bi-briefcase';", $botao, 'o ícone do desenho (L385)');
-        self::assertStringContainsString("botao.append(icone, 'Registrar como trabalho externo');", $botao, 'o rótulo do desenho');
+        self::assertStringContainsString("botao.append(icone, BJ_T.t('ponto_cartao.js.externo.registrar'));", $botao, 'o rótulo do desenho');
         self::assertStringContainsString("botao.className = 'pe-fora-externo';", $botao);
         self::assertStringContainsString("botao.type = 'button';", $botao);
         self::assertStringContainsString('abrirJanelaDoTrabalhoExterno(botao, tipo)', $botao, 'abre a janela "Trabalho externo" para o tipo que falhou');
         // Dois lugares: o bloco da caixa (função `ponto-animacao` desligada) e o botão da tela vermelha da E8, os dois só
         // com `trabalhoExterno` true (ver testBotaoExternoNaTelaVermelha).
-        self::assertSame(2, substr_count(self::tela(), "'Registrar como trabalho externo'"), 'o bloco da caixa e a tela vermelha');
+        self::assertSame(2, substr_count(self::tela(), "BJ_T.t('ponto_cartao.js.externo.registrar')"), 'o bloco da caixa e a tela vermelha');
         self::assertStringContainsString(
-            "'Registrar como trabalho externo'",
+            "BJ_T.t('ponto_cartao.js.externo.registrar')",
             self::corpo(self::corpo(self::tela(), 'function mostrarForaDoRaioDoToque(foraDoRaio, tipo, externo) {'), 'if (foraDoRaio.trabalhoExterno === true) {')
         );
 
@@ -274,8 +274,8 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             $registrar,
             'durante um envio ou com o dia completo, nada sai, e a caixa do resultado diz por quê'
         );
-        self::assertStringContainsString("const AVISO_EXTERNO_EM_ANDAMENTO = 'Um registro ainda está em andamento. Espere a resposta e registre o trabalho externo de novo.';", self::tela());
-        self::assertStringContainsString("const AVISO_EXTERNO_DIA_COMPLETO = 'Não há registro livre hoje. O trabalho externo não foi enviado.';", self::tela());
+        self::assertStringContainsString("const AVISO_EXTERNO_EM_ANDAMENTO = BJ_T.t('ponto_cartao.js.externo.em_andamento');", self::tela());
+        self::assertStringContainsString("const AVISO_EXTERNO_DIA_COMPLETO = BJ_T.t('ponto_cartao.js.externo.dia_completo');", self::tela());
         self::assertSame(1, substr_count(self::tela(), 'trabalhoExternoDoToque = {'), 'só a janela põe o tipo e o motivo');
     }
 
@@ -294,7 +294,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $registrar = self::corpo(self::tela(), "botaoRegistrarExterno.addEventListener('click', function () {");
         self::assertStringContainsString('const motivo = campo.value.trim();', $registrar);
         self::assertMatchesRegularExpression(
-            "/if \(motivo === ''\) \{\s+window\.PontoAbas\.mostrarErro\(fundo, 'Informe o local e o motivo\.'\);\s+campo\.focus\(\);\s+return;\s+\}/",
+            "/if \(motivo === ''\) \{\s+window\.PontoAbas\.mostrarErro\(fundo, BJ_T\.t\('ponto_cartao\.js\.externo\.informe'\)\);\s+campo\.focus\(\);\s+return;\s+\}/",
             $registrar,
             'vazio: a frase do desenho na linha de erro da janela, e nada sai'
         );
@@ -395,7 +395,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             $clique
         );
         self::assertStringContainsString(
-            "const AVISO_ATRASADO = 'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.';",
+            "const AVISO_ATRASADO = BJ_T.t('ponto_cartao.js.aviso.atrasado');",
             $tela,
             'o porquê do atraso é o mesmo texto da E12'
         );
@@ -440,7 +440,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             'o botão só com trabalhoExterno true (o do servidor ou o da opção do escritório, no local)'
         );
         $botao = self::corpo($porta, 'if (foraDoRaio.trabalhoExterno === true) {');
-        self::assertStringContainsString("texto: 'Registrar como trabalho externo',", $botao, 'o rótulo do desenho');
+        self::assertStringContainsString("texto: BJ_T.t('ponto_cartao.js.externo.registrar'),", $botao, 'o rótulo do desenho');
         self::assertStringContainsString("icone: 'bi-briefcase',", $botao, 'a maleta do desenho (L385)');
         self::assertStringContainsString("classe: 'pe-tc-btn--externo',", $botao, 'o botão de borda branca do desenho');
         self::assertStringContainsString(
@@ -653,7 +653,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
             self::corpo(self::tela(), 'function filaAntigaParaOExterno(payload) {')
         );
         self::assertStringContainsString(
-            "const AVISO_EXTERNO_SEM_FILA = 'Sem internet, o trabalho externo não pôde ser guardado. Tente de novo quando a conexão voltar.';",
+            "const AVISO_EXTERNO_SEM_FILA = BJ_T.t('ponto_cartao.js.externo.sem_fila');",
             self::tela()
         );
         self::assertSame(2, substr_count(self::tela(), 'AVISO_EXTERNO_SEM_FILA'), 'a declaração e o uso no guardarNaFila');
@@ -688,7 +688,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         $fora = self::corpo($tela, 'function mostrarForaDaArea(onde) {');
 
         self::assertMatchesRegularExpression(
-            "/TRABALHO_EXTERNO_PERMITIDO\s+\? 'Aproxime-se ou informe o trabalho externo\.'\s+: 'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página\.'/",
+            "/TRABALHO_EXTERNO_PERMITIDO\s+\? BJ_T\.t\('ponto_cartao\.js\.batida\.aproxime_se'\)\s+: BJ_T\.t\('ponto_cartao\.js\.gps\.fora_sem_externo'\)/",
             $fora
         );
         self::assertStringContainsString("const TRABALHO_EXTERNO_PERMITIDO = (document.getElementById('ponto-fila') || { dataset: {} }).dataset.trabalhoExterno === '1';", $tela);

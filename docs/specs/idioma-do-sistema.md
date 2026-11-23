@@ -1449,3 +1449,35 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   o `lang="pt-BR"` fixo do `_layout_simples`, do `aceite` e da casca do PDF (páginas soltas, sem o base); o título e
   o motivo da tela em preparação, que vêm do PHP (`BloqueioDeRecursoDesativado`, catálogo de recursos do Master); o
   flash de erro do aceite (`TermoController`); e o JS inline do `aceite` (sem texto visível).
+
+## 28. Script inline da tela do Ponto (idioma-ponto-js, 23/11)
+
+- **O que entrou:** os textos fixos do `<script>` inline de `ponto/index.html.twig` (risco ALTO: tela de bater ponto)
+  passaram por `BJ_T.t()`. 61 chaves novas em `ponto_cartao.js.*` (arquivos `translations/ponto_cartao/`, pt_BR e en),
+  entregues pelo `catalogo_js('ponto_cartao.js')` que a tela já tinha. Mais 4 chaves já existentes reaproveitadas
+  (`batida.fora_do_raio`, `batida.aproxime_se`, `presenca.nao_entrou`, `paineis.tentar`) e as `cartao.tipo_*`.
+  Nenhum texto em português mudou.
+- **Chaves por sub-bloco:** `lembrete` 4 (aviso e notificação do lembrete de saída, "Passou da saída prevista", "Saída
+  prevista às"), `relogio` 4 (situação do dia), `gps` 25 (precisão, raio, erros 1 a 3, passo a passo do navegador no
+  computador e no celular, "Permitir localização", sem suporte, sem localização na batida), `aviso` 10 (sem confirmação,
+  sem rede, virada do dia, página incompleta, internet voltou, atrasado, tipo não escolhido, envio em andamento,
+  jornada concluída, "Registrando..."), `externo` 5, `toque` 7 e `fila` 6 (guardada sem internet e sem conexão, enviadas,
+  contagens da caixa, recusa definitiva). Total de pontos trocados no script: 57 (alguns repetidos, como "Registrar
+  como trabalho externo").
+- **Regras aplicadas:** o gênero ("registrada"/"registrado") escolhe entre duas chaves inteiras (`..._fem` e `..._masc`),
+  pela mesma condição `TIPO_MASCULINO`; o verbo do navegador ("Toque"/"Clique") é chave própria, passada como `{verbo}`
+  (a segunda ocorrência vai em minúscula pelo `toLowerCase()` do JS, que vale para pt e en); a frase do raio, com o nome
+  da sede em `<strong>`, vem com o marcador `{sede}` preservado e é partida nele, como a frase partida do §8; "batida(s)"
+  continua como estava (sem plural novo).
+- **Ficou para depois:** `toLocaleString('pt-BR')` da precisão do GPS e `Intl.DateTimeFormat('pt-BR')` do relógio, da
+  data e da fila (formato, sem `BJFormato` pronto aqui); `RECUSAS_DO_TEXTO_EXTERNO` (compara com a mensagem que o servidor
+  devolve em português, enquanto o servidor não responder no idioma da pessoa ela não pode virar chave); "BlueJus Ponto"
+  da notificação (marca); `console.*` e `throw new Error` (texto técnico); o texto do servidor (`AVISO_JA_REGISTRADA`,
+  `resultado.mensagem`, avisos da batida). Os `public/js/ponto-*.js` não foram tocados: a guarda
+  (`SemTextoFixoNosExtraidosArquiteturaTest`) já os cobre e não acha frase fixa neles.
+- **Sem mudança visível:** (1) cada chave simples do script foi trocada de volta pelo valor pt_BR e o resultado comparado
+  com o script de antes: só sobraram as linhas com parâmetro; (2) cada chave com parâmetro (15) foi calculada em Node com
+  o valor pt_BR e comparada com a concatenação antiga, nas duas variantes de gênero e de celular ou computador, e saiu
+  igual; (3) todo trecho de frase do catálogo novo existe no script antigo. `ScriptDaTelaDoPontoLeODoCatalogoTest` guarda
+  isso: chaves em pt_BR e en, texto exato, catálogo entregue na página e literais ausentes do script. Sete testes
+  de `tests/Ponto/Unit` que conferiam o literal no template passaram a conferir a chamada `BJ_T.t(...)`.
