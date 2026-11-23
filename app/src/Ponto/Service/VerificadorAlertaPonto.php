@@ -27,6 +27,27 @@ use App\Ponto\Repository\RegistroPontoRepository;
  */
 class VerificadorAlertaPonto
 {
+    public const AVISO_SEM_ENTRADA = 'Você ainda não registrou sua entrada hoje!';
+    public const AVISO_SEIS_HORAS_SEM_REPOUSO = 'Você está trabalhando há mais de 6 horas sem registrar repouso. Registre o repouso ou encerre a jornada.';
+    public const AVISO_INTERVALO_CONCLUIDO = 'Intervalo mínimo concluído. Hora de registrar seu retorno!';
+    public const AVISO_JORNADA_CONCLUIDA = 'Jornada concluída. Hora de registrar sua saída!';
+
+    /**
+     * @var array<string, string> mensagem em português => chave no catálogo `ponto_servidor`. `verificar()` segue
+     *     devolvendo o português; o controller da resposta de tela (/ponto/alerta-horario) traduz pela chave. Nenhum
+     *     desses textos é gravado (nem em Notification): só a resposta JSON os leva.
+     */
+    public const CHAVE_DO_TEXTO = [
+        JornadaResolver::LEMBRETE_ENTRADA => 'ponto_servidor.lembrete.hora_entrada',
+        JornadaResolver::LEMBRETE_REPOUSO => 'ponto_servidor.lembrete.hora_repouso',
+        JornadaResolver::LEMBRETE_RETORNO => 'ponto_servidor.lembrete.hora_retorno',
+        JornadaResolver::LEMBRETE_SAIDA => 'ponto_servidor.lembrete.hora_saida',
+        self::AVISO_SEM_ENTRADA => 'ponto_servidor.lembrete.sem_entrada',
+        self::AVISO_SEIS_HORAS_SEM_REPOUSO => 'ponto_servidor.lembrete.seis_horas_sem_repouso',
+        self::AVISO_INTERVALO_CONCLUIDO => 'ponto_servidor.lembrete.intervalo_concluido',
+        self::AVISO_JORNADA_CONCLUIDA => 'ponto_servidor.lembrete.jornada_concluida',
+    ];
+
     private const TOLERANCIA_MINUTOS = 5;
     private const LIMITE_CLT_MINUTOS = 360; // 6h CLT
 
@@ -38,6 +59,12 @@ class VerificadorAlertaPonto
         private readonly CalculadoraJornada $calculadora,
         private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
     ) {}
+
+    /** A chave no catálogo de uma das mensagens do aviso; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $mensagem): string
+    {
+        return self::CHAVE_DO_TEXTO[$mensagem] ?? throw new \LogicException(sprintf('Aviso do ponto sem chave no catálogo: "%s".', $mensagem));
+    }
 
     /**
      * @return array{alertar: bool, mensagem: string, tipo: string, horario: string}
@@ -72,7 +99,7 @@ class VerificadorAlertaPonto
             return !$diaDaEscala ? $this->semAlerta() : [
                 'alertar'  => true,
                 'tipo'     => 'entrada',
-                'mensagem' => 'Você ainda não registrou sua entrada hoje!',
+                'mensagem' => self::AVISO_SEM_ENTRADA,
                 'horario'  => '',
             ];
         }
@@ -93,7 +120,7 @@ class VerificadorAlertaPonto
                 return [
                     'alertar'  => true,
                     'tipo'     => 'aviso_repouso_6h',
-                    'mensagem' => 'Você está trabalhando há mais de 6 horas sem registrar repouso. Registre o repouso ou encerre a jornada.',
+                    'mensagem' => self::AVISO_SEIS_HORAS_SEM_REPOUSO,
                     'horario'  => '',
                 ];
             }
@@ -109,7 +136,7 @@ class VerificadorAlertaPonto
                 return [
                     'alertar'  => true,
                     'tipo'     => 'retorno',
-                    'mensagem' => 'Intervalo mínimo concluído. Hora de registrar seu retorno!',
+                    'mensagem' => self::AVISO_INTERVALO_CONCLUIDO,
                     'horario'  => '',
                 ];
             }
@@ -136,7 +163,7 @@ class VerificadorAlertaPonto
                     return [
                         'alertar'  => true,
                         'tipo'     => 'saida',
-                        'mensagem' => 'Jornada concluída. Hora de registrar sua saída!',
+                        'mensagem' => self::AVISO_JORNADA_CONCLUIDA,
                         'horario'  => '',
                     ];
                 }
