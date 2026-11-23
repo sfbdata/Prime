@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Controller;
 
 use App\Auth\Service\DestinoPosLogin;
+use App\Produto\Service\PaginaInicialDoEscritorio;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Entity\Auth\User;
@@ -16,7 +17,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Véu "Abrindo o seu escritório digital…" entre o login e o destino (spec login-desenho-10,
  * comportamento 2). O `?para=` vem da barra de endereço, então é revalidado aqui: o que não
- * passa no `DestinoPosLogin` vira o Expediente.
+ * passa no `DestinoPosLogin` vira a tela inicial do escritório (o Expediente, no completo; multiproduto, §5).
  *
  * A rota fica sob `^/login` (PUBLIC_ACCESS no security.yaml); por isso a exigência de usuário
  * logado é feita aqui mesmo.
@@ -27,6 +28,7 @@ final class EntradaController extends AbstractController
         private readonly DestinoPosLogin $destinoPosLogin,
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly PaginaInicialDoEscritorio $paginaInicial,
     ) {
     }
 
@@ -40,7 +42,7 @@ final class EntradaController extends AbstractController
 
         $para = $request->query->get('para');
         $destino = $this->destinoPosLogin->validar(is_string($para) ? $para : null, $request)
-            ?? $this->generateUrl('expediente_index');
+            ?? $this->generateUrl($this->paginaInicial->rotaOuPadrao($this->tenantContext->getCurrentTenant()));
         // Sem escritório na sessão (vários vínculos, ou o "lembrar-me", que não passa pelo autenticador) e com
         // vínculo ativo: a seleção vem antes de qualquer tela do escritório.
         if (!$this->tenantContext->hasCurrentTenant() && $this->userTenantRepository->findActiveByUser($user) !== []) {

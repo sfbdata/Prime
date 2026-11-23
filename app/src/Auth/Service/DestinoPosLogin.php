@@ -97,6 +97,8 @@ final class DestinoPosLogin
         'servicedesk_show',
         // Ponto
         'ponto_index',
+        // Voto: a tela inicial do escritório que só tem o Voto (multiproduto, §5)
+        'voto_index',
         // Meu Perfil, convites, Contribua, Google Drive
         'app_profile',
         'auth_meus_convites',

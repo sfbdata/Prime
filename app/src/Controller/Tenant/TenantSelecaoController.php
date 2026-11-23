@@ -6,6 +6,7 @@ namespace App\Controller\Tenant;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Produto\Service\PaginaInicialDoEscritorio;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
@@ -27,6 +28,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
         private readonly \App\Tenant\Repository\EquipeDoEscritorioRepository $equipe,
         private readonly TranslatorInterface $tradutor,
+        private readonly PaginaInicialDoEscritorio $paginaInicial,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -52,7 +54,7 @@ final class TenantSelecaoController extends AbstractController
                 return $this->redirectToRoute('tenant_selecionar');
             }
 
-            return $this->redirectToRoute('expediente_index');
+            return $this->redirectToRoute($this->paginaInicial->rotaOuPadrao($this->tenantContext->getCurrentTenant()));
         }
 
         $user = $this->getUser();
@@ -65,7 +67,7 @@ final class TenantSelecaoController extends AbstractController
         if (count($vinculos) === 1 && $suspensosAPedido === []) {
             $this->tenantContext->setCurrentTenant($vinculos[0]->getTenant()->getId());
 
-            return $this->redirectToRoute('expediente_index');
+            return $this->redirectToRoute($this->paginaInicial->rota($vinculos[0]->getTenant()));
         }
 
         if (count($vinculos) === 0 && $this->isGranted('ROLE_SUPER_ADMIN')) {
