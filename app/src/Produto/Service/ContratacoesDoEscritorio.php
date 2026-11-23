@@ -113,7 +113,9 @@ class ContratacoesDoEscritorio
         if (null !== $ativa) {
             $ativa->encerrar($origem, $por, $agora);
         }
-        if (null === $ativa && OrigemDaContratacao::Master === $origem && !self::encerradaPeloMaster(self::ultimaDo($linhas, $produto))) {
+        // A marca da trava (D16) é só de ferramenta: o `completo` não se religa pelo dono, e a marca dele seria lixo.
+        if (null === $ativa && OrigemDaContratacao::Master === $origem && \in_array($produto, Produto::ferramentas(), true)
+            && !self::encerradaPeloMaster(self::ultimaDo($linhas, $produto))) {
             $this->marcarTravaDoMaster($tenant, $produto, $por, $agora);
         }
         $this->em->flush();

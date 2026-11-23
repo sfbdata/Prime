@@ -205,6 +205,18 @@ final class ContratacoesDoEscritorioTest extends KernelTestCase
         self::assertTrue($this->servico->travadoPeloMaster($tenant, Produto::Ia));
     }
 
+    #[TestDox('o Master encerrando o `completo` num escritório sem linhas: materializa as ferramentas e não grava marca de trava do `completo`')]
+    public function testMasterCompletoSemMarca(): void
+    {
+        $tenant = $this->escritorio();
+
+        $this->servico->sobTrava($tenant, fn () => $this->servico->excluir($tenant, Produto::Completo, OrigemDaContratacao::Master, null, $this->agora));
+
+        self::assertSame(self::ferramentasMenos(Produto::Completo), $this->ativos($tenant));
+        $doCompleto = array_filter($this->linhas($tenant), static fn ($l): bool => Produto::Completo === $l->getProduto());
+        self::assertSame([], $doCompleto, 'nenhuma linha `completo` aberta e fechada no mesmo instante');
+    }
+
     #[TestDox('o Master religando desfaz a trava: linha nova, ativa, origem master')]
     public function testMasterReligaDestrava(): void
     {
