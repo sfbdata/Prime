@@ -1566,3 +1566,7 @@ textarea.te-vf-ctl { font-family: inherit; }
 [data-bs-theme="dark"] .te-page .te-tm-aviso { border-color: var(--te-border); }
 [data-bs-theme="dark"] .te-page .te-tm-li { background: rgba(30, 123, 69, .15); border-color: rgba(30, 123, 69, .4); }
 [data-bs-theme="dark"] .te-page .te-tm-botao:hover { background: var(--te-hover); }
+
+/* Lilás do Master (M5.2): botão "Opções do Master" (classe posta pelo trabalho-externo.js). */
+.te-btn-icone.te-btn-master { color: var(--bj-master-icone); }
+.te-btn-icone.te-btn-master:hover { border-color: var(--bj-master-icone); color: var(--bj-master-icone); background: var(--bj-master-claro); }
