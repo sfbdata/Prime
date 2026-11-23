@@ -264,6 +264,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Conector/Entity'
                 prefix: 'App\Conector\Entity'
                 alias: AppConector
+            # Contratação de produtos por escritório (docs/specs/multiproduto-contratacao-e-voto.md, §4).
+            AppProduto:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Produto/Entity'
+                prefix: 'App\Produto\Entity'
+                alias: AppProduto
         controller_resolver:
             auto_mapping: false
         dql:

@@ -413,6 +413,8 @@
 {{ catalogo_js('ponto_cartao.js') }}
 {# O script da tela e o ponto-sons.js pedem texto já no carregamento: o bj-traducao.js do base vem depois do corpo, então vem aqui também (ele mesmo ignora a segunda carga). #}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>
+{# O relógio e a data oficiais são montados no carregamento do script da tela: o bj-formato.js (também do base, que o ignora na segunda carga) vem antes. #}
+<script src="{{ asset('js/bj-formato.js') }}"></script>
 <script src="{{ asset('js/ponto-batida.js') }}"></script>
 {# E8: o aviso flutuante, os sons e a tela cheia vêm antes do script da tela, que os usa. #}
 <script src="{{ asset('js/ponto-aviso-flutuante.js') }}"></script>
@@ -475,16 +477,21 @@
         desenharHoraOficial();
     }
 
-    function formatoNoFusoDoServidor(opcoes) {
+    // `idioma`: o locale do formato. Texto que a pessoa lê usa `IDIOMA_DA_TELA` (o idioma dela); o que vira chave, vai
+    // para o `localStorage` ou é comparado com o dia do servidor usa `IDIOMA_DE_MAQUINA` e nunca muda de formato.
+    const IDIOMA_DA_TELA = window.BJFormato ? window.BJFormato.idioma() : 'pt-BR';
+    const IDIOMA_DE_MAQUINA = 'pt-BR';
+
+    function formatoNoFusoDoServidor(idioma, opcoes) {
         try {
-            return new Intl.DateTimeFormat('pt-BR', Object.assign({ timeZone: FUSO_DO_SERVIDOR }, opcoes));
+            return new Intl.DateTimeFormat(idioma, Object.assign({ timeZone: FUSO_DO_SERVIDOR }, opcoes));
         } catch (erro) {
-            return new Intl.DateTimeFormat('pt-BR', opcoes);
+            return new Intl.DateTimeFormat(idioma, opcoes);
         }
     }
 
-    const FORMATO_HORA_OFICIAL = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-    const FORMATO_DATA_OFICIAL = formatoNoFusoDoServidor({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const FORMATO_HORA_OFICIAL = formatoNoFusoDoServidor(IDIOMA_DA_TELA, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+    const FORMATO_DATA_OFICIAL = formatoNoFusoDoServidor(IDIOMA_DA_TELA, { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
     // E8: as funções da tela, cada uma Global E Escritório (`PontoController::index`). `ponto-animacao`: o resultado do
     // toque na tela cheia (desligada, no aviso flutuante); `ponto-sons`: o som do resultado e o botão de som;
@@ -518,7 +525,8 @@
     // por dia" é por aparelho: fica no `localStorage` (por pessoa, escritório e dia do servidor), para recarregar a
     // página não repetir o lembrete; sem armazenamento, vale enquanto a página está aberta.
     const AVISO_LEMBRETE_DE_SAIDA = BJ_T.t('ponto_cartao.js.lembrete.aviso_saida');
-    const FORMATO_DIA_DO_LEMBRETE = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
+    // Máquina: é a chave do `localStorage` e a comparação do "uma vez por dia"; mudar o formato repetiria o lembrete.
+    const FORMATO_DIA_DO_LEMBRETE = formatoNoFusoDoServidor(IDIOMA_DE_MAQUINA, { day: '2-digit', month: '2-digit', year: 'numeric' });
     let lembreteDadoNoDia = '';
 
     function dispararLembreteDeSaida() {
@@ -1097,7 +1105,7 @@
             mostrarGps('success', 'bi-geo-alt-fill', BJ_T.t('ponto_cartao.js.gps.confirmada', { precisao: Math.round(accuracy) }));
             return;
         }
-        mostrarGps('warning', 'bi-exclamation-triangle', BJ_T.t('ponto_cartao.js.gps.impreciso', { precisao: Math.round(accuracy).toLocaleString('pt-BR') }));
+        mostrarGps('warning', 'bi-exclamation-triangle', BJ_T.t('ponto_cartao.js.gps.impreciso', { precisao: window.BJFormato.numero(Math.round(accuracy)) }));
     }
 
     // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor. A mensagem é
@@ -2104,9 +2112,10 @@
     const AVISO_GUARDADA_SEM_CONEXAO = BJ_T.t('ponto_cartao.js.fila.guardada_sem_conexao');
     const AVISO_FILA_ENVIADA = BJ_T.t('ponto_cartao.js.fila.enviada');
     // A hora e o dia da batida guardada são os do aparelho no toque, mostrados no fuso do servidor, como a hora oficial.
-    const FORMATO_HORA_DA_FILA = formatoNoFusoDoServidor({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-    const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit' });
-    const FORMATO_DIA_DA_FILA = formatoNoFusoDoServidor({ day: '2-digit', month: '2-digit', year: 'numeric' });
+    const FORMATO_HORA_DA_FILA = formatoNoFusoDoServidor(IDIOMA_DA_TELA, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const FORMATO_DIA_E_MES_DA_FILA = formatoNoFusoDoServidor(IDIOMA_DA_TELA, { day: '2-digit', month: '2-digit' });
+    // Máquina: é comparado com `DIA_DA_TELA` (dd/mm/aaaa montado à mão) para saber se a batida é do dia da tela.
+    const FORMATO_DIA_DA_FILA = formatoNoFusoDoServidor(IDIOMA_DE_MAQUINA, { day: '2-digit', month: '2-digit', year: 'numeric' });
     const DIA_DA_TELA = String(diaHoje).padStart(2, '0') + '/' + String(mesHoje).padStart(2, '0') + '/' + anoHoje;
     let filaTemPendentes = false;
     // As guardadas desta pessoa neste escritório (pendentes e retidas por 409), da última leitura da fila. Só

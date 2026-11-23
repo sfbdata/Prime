@@ -455,6 +455,9 @@ final class PurgarEscritorioUseCase
         ['voto.assembleia_pauta', 'tenant_id = :tenant'],
         ['voto.assembleia', 'tenant_id = :tenant'],
         ['voto.liberacao', 'tenant_id = :tenant'],
+        // Produtos do escritório (spec multiproduto, §4): a FK de tenant é CASCADE, mas a conferência roda antes do
+        // DELETE FROM tenant (mesmo motivo do `voto.liberacao`).
+        ['contratacao', 'tenant_id = :tenant'],
     ];
 
     /**

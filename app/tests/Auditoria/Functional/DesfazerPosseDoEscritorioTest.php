@@ -109,7 +109,9 @@ final class DesfazerPosseDoEscritorioTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         $this->client->followRedirect();
-        self::assertStringContainsString('Registro não encontrado.', (string) $this->client->getResponse()->getContent());
+        // Sede é TenantAware (fatia 4 do isolamento): com a sessão em A, o find() já não alcança a sede de B, e a
+        // recusa vem antes da prova de posse, como em toda entidade TenantAware de outro escritório.
+        self::assertStringContainsString('Entidade não existe mais.', (string) $this->client->getResponse()->getContent());
         self::assertSame(self::LAT_ANTIGA, $this->em->getConnection()->fetchOne('SELECT latitude FROM sede WHERE id = ?', [$sede->getId()]));
         self::assertSame($antes, $this->logsDaSede($sede), 'nenhum log novo de update para a sede de B');
     }

@@ -84,6 +84,22 @@ server {
     resolver 127.0.0.11 valid=10s;
     set $voto_fpm voto:9000;
 
+    # ---- Página do Voto (repositório sfbdata/sites-bluejus, projeto voto/, publicada em
+    # ./sites-publicados/voto no host, o mesmo volume dos outros sites: /var/www/sites) ----
+    # Só a raiz e /_voto/ (CSS, JS e imagens da página) saem do disco; todo o resto continua
+    # no PHP do Voto. `=` e `^~` vencem os regex de css/js/imagens abaixo, e o `=404` garante
+    # que arquivo da página que falta é 404, nunca cai no PHP. Sem add_header aqui de
+    # propósito: um add_header dentro do location apagaria os cabeçalhos herdados do server.
+    # Sem a página publicada, a raiz responde 404 (o PHP do Voto não tem rota em "/").
+    location = / {
+        root /var/www/sites/voto;
+        try_files /index.html =404;
+    }
+    location ^~ /_voto/ {
+        root /var/www/sites/voto;
+        try_files $uri =404;
+    }
+
     location / {
         try_files $uri /index.php$is_args$args;
     }

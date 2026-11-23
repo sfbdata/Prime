@@ -4,10 +4,11 @@ namespace App\Entity\Tenant;
 
 use App\Repository\SedeRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: SedeRepository::class)]
-class Sede implements Auditavel
+class Sede implements Auditavel, TenantAware
 {
     /** Raio da sede nova, em metros (spec ponto-desenho-0811.md, P70 a: 150 m; as sedes que já existem não mudam). */
     public const RAIO_PADRAO = 150;

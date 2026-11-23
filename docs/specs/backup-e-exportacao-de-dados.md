@@ -31,6 +31,10 @@ baixar por alguns dias. O ZIP traz os arquivos (documentos) e os dados (registro
    dados de outros escritórios, painel do Master, selfies de signatários da Assinatura.
 7. **Auditoria** de cada pedido e de cada download no `audit_log`: o `PedidoDeBackup` é `Auditavel` (criação e
    mudanças de situação entram pela trilha automática) e o download é registrado à mão (ação curta `backup_dl`).
+8. **Só o dono do escritório** (decisão do Samuel, 23/11). Dono = `Tenant::getCriadoPor()`, comparado por id; sem
+   criador, ninguém é dono. A regra mora em `App\Backup\Service\DonoDoEscritorio` e vale em todo ponto: pedir e
+   baixar (403 para os demais, antes de qualquer outra checagem e sem auditoria), a seção do Meu Perfil (some) e o
+   worker (quem pediu e deixou de ser dono: o pedido vira `falhou` e nada é montado).
 
 ## 3. Modelo (PR 1)
 
@@ -101,6 +105,9 @@ copiar, `CM_STORE` para formato já comprimido) sem alterar o UseCase existente.
 Seção discreta "Backup e Exportação de Dados": botão "Gerar backup", situação do último pedido, lista dos
 últimos pedidos com download. Local e desenho: a confirmar com o Coordenador antes do PR 4 (não há desenho
 de Backup em `docs/design/`).
+
+**Só o dono (decisão do Samuel, 23/11):** a seção só aparece para o dono do escritório (`Tenant::getCriadoPor()`);
+os demais não veem nada, nem a seção vazia. As rotas de pedir e baixar respondem 403 a quem não é o dono.
 
 ## 7. Decisões tomadas pela recomendação (23/11)
 

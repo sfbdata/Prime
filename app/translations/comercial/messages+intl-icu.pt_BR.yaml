@@ -182,6 +182,13 @@ comercial:
         desligada: Sem confirmação de leitura
         dica_ligada: Rastreando leitura (✓✓). Clique para somente enviar
         dica_desligada: 'Confirmação de leitura desligada: o rastreio de leitura fica desligado até a Política de Privacidade tratar dele. A campanha sai sem confirmação de leitura.'
+    # E-mail ao Master quando o sistema passa de 2.000 e-mails em 24 h (Service/AvisoDeTrocaDoServicoDeEmail)
+    aviso_troca:
+        assunto: Hora de contratar outro serviço de e-mail
+        titulo: Volume de e-mail alto
+        corpo: 'O BlueJus mandou {enviados} e-mails nas últimas 24 horas, mais de {limite}. É hora de contratar outro serviço de e-mail. Nada foi segurado por isso: os e-mails continuam saindo dentro do limite diário.'
+        fecho: 'Este aviso vem no máximo uma vez por dia, enquanto o volume continuar alto.'
+        motivo_do_envio: Você recebeu este aviso porque é Master do BlueJus.
     js:
         # comercial.js (Automações)
         atraso_dias: '{n} dias'
