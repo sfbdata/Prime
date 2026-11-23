@@ -543,7 +543,7 @@ final class TelaCheiaEAvisosDoPontoJsTest extends TestCase
     {
         $tela = self::tela();
 
-        self::assertStringContainsString("const AVISO_JA_REGISTRADA = '{{ constant('App\\\\Ponto\\\\Service\\\\EnvioDaBatida::MENSAGEM_JA_REGISTRADA')|e('js') }}';", $tela);
+        self::assertStringContainsString("const AVISO_JA_REGISTRADA = '{{ 'ponto_servidor.batida.envio.ja_registrada'|trans|e('js') }}';", $tela);
         $registrada = self::corpo($tela, 'function mostrarBatidaRegistrada(tipoDoToque, dados) {');
         self::assertStringContainsString('const jaRegistrada = gravada.jaRegistrada === true;', $registrada);
         self::assertStringContainsString("met: jaRegistrada ? AVISO_JA_REGISTRADA : ''", $registrada);

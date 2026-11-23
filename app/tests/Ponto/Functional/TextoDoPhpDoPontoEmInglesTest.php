@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Entity\RegistroPonto;
 use App\Profile\EventListener\IdiomaDaRequisicaoListener;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 {
+    use CenarioDeJustificativaTrait;
+
     /** @return iterable<string, array{0: string, 1: string}> idioma da sessão => texto esperado */
     public static function idiomas(): iterable
     {
@@ -176,6 +179,103 @@ final class TextoDoPhpDoPontoEmInglesTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame([$esperado], $client->getRequest()->getSession()->getFlashBag()->peek('error'));
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string, 3: string}> idioma => [mensagem da cerca, detalhe, mensagem sem motivo] */
+    public static function idiomasDaBatidaRecusada(): iterable
+    {
+        yield 'en' => [
+            'en',
+            'You are outside the allowed radius',
+            "Clocking in requires being within the radius of one of the firm's offices. Move closer or report external work.",
+            'Enter the location and the reason.',
+        ];
+        yield 'pt-BR' => [
+            'pt-BR',
+            'Você está fora do raio permitido',
+            'O registro exige estar dentro do raio de uma sede do escritório. Aproxime-se ou informe o trabalho externo.',
+            'Informe o local e o motivo.',
+        ];
+    }
+
+    #[DataProvider('idiomasDaBatidaRecusada')]
+    #[TestDox('Batida recusada fora da cerca e trabalho externo sem motivo (com o código `recusaDoMotivo`) no idioma da pessoa ($idioma)')]
+    public function testBatidaRecusadaNoIdiomaDaPessoa(string $idioma, string $titulo, string $detalhe, string $semMotivo): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Batida');   // sem sede: a batida fica fora do raio
+        $ana = $this->pessoa('idioma_batida');
+        $this->vincularColaborador($ana, $escritorio);
+        $this->logarNoIdioma($client, $ana, $escritorio, $idioma);
+        $cabecalhos = ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'];
+        $corpo = ['tipo' => 'entrada', 'latitude' => -23.55, 'longitude' => -46.63, 'precisaoGps' => 10.0];
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo));
+        self::assertResponseStatusCodeSame(403);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['titulo' => $titulo, 'detalhe' => $detalhe, 'trabalhoExterno' => true], $json['foraDoRaio']);
+        self::assertSame($titulo . '. ' . $detalhe, $json['message']);
+
+        $client->request('POST', '/ponto/batida', server: $cabecalhos, content: (string) json_encode($corpo + ['trabalhoExterno' => true, 'motivoTrabalhoExterno' => '']));
+        self::assertResponseStatusCodeSame(422);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['success' => false, 'message' => $semMotivo, 'recusaDoMotivo' => 'sem_motivo'], $json);
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string}> idioma => [ajuste recusado ("mudou"), recusa do abono em lote] */
+    public static function idiomasDasRecusasDeAjusteEDeAbono(): iterable
+    {
+        yield 'en' => [
+            'en',
+            'This punch changed since the timesheet was opened. Check the timesheet and try again.',
+            'Justification not found in this firm.',
+        ];
+        yield 'pt-BR' => [
+            'pt-BR',
+            'Esta batida mudou desde que a folha foi aberta. Confira a folha e tente de novo.',
+            'Justificativa não encontrada neste escritório.',
+        ];
+    }
+
+    #[DataProvider('idiomasDasRecusasDeAjusteEDeAbono')]
+    #[TestDox('Ajuste de batida recusado (cabeça velha) e recusa do abono em lote no idioma da pessoa ($idioma)')]
+    public function testAjusteRecusadoEAbonoEmLoteNoIdiomaDaPessoa(string $idioma, string $ajusteRecusado, string $abonoRecusado): void
+    {
+        $client = $this->clientePreparado();
+        $escritorio = $this->escritorio('Escritório Idioma Ajuste');
+        $primario = $this->pessoa('idioma_ajuste_primario');
+        $this->vincularPrimario($primario, $escritorio);
+        $colaborador = $this->pessoa('idioma_ajuste_colaborador');
+        $this->vincularColaborador($colaborador, $escritorio);
+        $this->logarNoIdioma($client, $primario, $escritorio, $idioma);
+
+        $em = $this->em();
+        $batida = (new RegistroPonto())
+            ->setTenant($em->getReference(Tenant::class, $escritorio->getId()))
+            ->setUser($em->getReference(User::class, $colaborador->getId()))
+            ->setTipo('saida')
+            ->setDataHora(new \DateTime('2026-10-21 18:00:00'));
+        $em->persist($batida);
+        $em->flush();
+
+        $ajustar = static fn (string $hora) => $client->request(
+            'POST',
+            sprintf('/tenant/%d/user/%d/ponto/b%d/ajustar', $escritorio->getId(), $colaborador->getId(), $batida->getId()),
+            [
+                'registro_ponto_manual' => ['data' => '2026-10-21', 'hora' => $hora, 'tipo' => 'saida', 'motivo' => 'Bateu atrasado.'],
+                'cabeca' => '',
+                'competencia' => '2026-10',
+                '_token' => 'TOKEN_ponto_ajustar',
+            ],
+        );
+        $ajustar('18:30:00');
+        $ajustar('19:00:00');   // a cabeça da tela ficou velha: o primeiro ajuste já entrou
+        self::assertResponseRedirects();
+        self::assertSame([$ajusteRecusado], $client->getRequest()->getSession()->getFlashBag()->peek('danger'));
+
+        $client->request('POST', '/ponto/equipe/abonar', ['_token' => 'TOKEN_ponto_equipe_abonar', 'ids' => ['999999999']]);
+        self::assertResponseRedirects();
+        self::assertSame([$abonoRecusado], $client->getRequest()->getSession()->getFlashBag()->peek('warning'));
     }
 
     private function logarNoIdioma(KernelBrowser $client, User $user, Tenant $tenant, string $idioma): void

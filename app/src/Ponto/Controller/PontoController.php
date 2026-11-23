@@ -7,6 +7,7 @@ namespace App\Ponto\Controller;
 use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
+use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
@@ -33,6 +34,7 @@ use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\Service\AbaDosComprovantes;
 use App\Ponto\Service\CercaDoPonto;
 use App\Ponto\Service\PosicaoNaCerca;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDaPessoaUseCase;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
@@ -578,11 +580,11 @@ final class PontoController extends AbstractController
      */
     private function recusaDoEsquecimento(User $user, Tenant $tenant, string $tipo, \DateTimeInterface $dia, ?\DateTimeInterface $hora): ?string
     {
-        if (($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipo, $dia)) !== null) {
-            return $jaBatida;
+        if (($jaBatida = $this->batidaJaRegistrada->mensagemComChave($user, $tenant, $tipo, $dia)) !== null) {
+            return $jaBatida->traduzir($this->tradutor);
         }
 
-        return $hora !== null && $this->horarioFuturo->estaNoFuturo($dia, $hora) ? HorarioFuturoDaBatida::MENSAGEM : null;
+        return $hora !== null && $this->horarioFuturo->estaNoFuturo($dia, $hora) ? $this->tradutor->trans(HorarioFuturoDaBatida::chaveDe(HorarioFuturoDaBatida::MENSAGEM)) : null;
     }
 
     #[Route('/justificativa/{id}/editar', name: 'ponto_justificativa_editar', methods: ['GET', 'POST'])]
@@ -608,13 +610,13 @@ final class PontoController extends AbstractController
         // recusa rápida, pelo estado carregado no começo da requisição; sem atestado, a que vale contra
         // uma análise simultânea é a do ConfirmarEdicaoDeJustificativaUseCase, com a linha travada.
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
+            $this->addFlash('warning', $this->tradutor->trans(JustificativaJaAnalisadaException::CHAVE_DA_RECUSA[JustificativaJaAnalisadaException::MENSAGEM]));
 
             return $this->voltaDaEdicao($justificativa);
         }
         // E12: a da batida de trabalho externo é a análise daquela batida; o colaborador não a muda.
         if ($justificativa->analisaUmaBatida()) {
-            $this->addFlash('warning', TrabalhoExternoDaBatida::MENSAGEM_EDICAO_RECUSADA);
+            $this->addFlash('warning', TrabalhoExternoDaBatida::texto(TrabalhoExternoDaBatida::MENSAGEM_EDICAO_RECUSADA)->traduzir($this->tradutor));
 
             return $this->voltaDaEdicao($justificativa);
         }
@@ -665,13 +667,15 @@ final class PontoController extends AbstractController
             try {
                 $atingidos = $this->substituirAnexoDoLote->executar($justificativa, $anexoFile, $tenant);
             } catch (\InvalidArgumentException $e) {
-                $this->addFlash('warning', $e->getMessage());
+                // Só os dois textos da regra do anexo (tamanho e tipo) têm tradução; outro texto sai como veio.
+                $chaveDoAnexo = RestricoesAnexoJustificativa::chaveDe($e->getMessage());
+                $this->addFlash('warning', $chaveDoAnexo !== null ? $this->tradutor->trans($chaveDoAnexo) : $e->getMessage());
 
                 return $this->voltaDaEdicao($justificativa);
             } catch (TrocaDeAnexoRecusadaException $e) {
                 // Lote já analisado: a recusa descarta a edição inteira, como o anexo inválido
                 // acima. A transação que recusou já fechou o EntityManager — só resta avisar.
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $this->tradutor->trans($e->chave(), $e->parametros()));
 
                 return $this->voltaDaEdicao($justificativa);
             }
@@ -684,7 +688,7 @@ final class PontoController extends AbstractController
                 $this->confirmarEdicao->executar($justificativa, $tenant);
             } catch (JustificativaJaAnalisadaException $e) {
                 // Analisada entre o carregamento e a gravação: nada foi gravado.
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $this->tradutor->trans($e->chave(), $e->parametros()));
 
                 return $this->voltaDaEdicao($justificativa);
             }
@@ -725,10 +729,11 @@ final class PontoController extends AbstractController
             return null;
         }
         if ($motivo === '') {
-            return 'Informe o motivo.';
+            return $this->tradutor->trans('ponto_servidor.ponto.motivo_vazio');
         }
         if (mb_strlen($motivo) > JustificativaPontoType::MOTIVO_MAXIMO) {
-            return sprintf('O motivo pode ter até %d caracteres.', JustificativaPontoType::MOTIVO_MAXIMO);
+            // O máximo entra como texto, sem separador de milhar, como o sprintf de antes ("2000").
+            return $this->tradutor->trans('ponto_servidor.ponto.motivo_longo', ['maximo' => (string) JustificativaPontoType::MOTIVO_MAXIMO]);
         }
         foreach ($this->diasEmAnaliseDoLote($justificativa, $user, $tenant) as $dia) {
             $dia->setMotivo($motivo);
@@ -778,8 +783,8 @@ final class PontoController extends AbstractController
             if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
                 return $this->tradutor->trans('ponto_servidor.ponto.esquecido_incompleto');
             }
-            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
-                return $jaBatida;   // a edição não troca para uma batida que existe
+            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagemComChave($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
+                return $jaBatida->traduzir($this->tradutor);   // a edição não troca para uma batida que existe
             }
             $gravada = $justificativa->getHoraRegistroEsquecido();
             $mesmoHorario = $gravada !== null
@@ -987,7 +992,7 @@ final class PontoController extends AbstractController
 
         $hoje = $envio->momento;   // todas as regras abaixo valem no momento da batida
         if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque, $registroRepository)) !== null) {
-            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
+            return $this->json(['success' => false, 'message' => $recusa->traduzir($this->tradutor)], 422);   // chave ou choque de horário
         }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
@@ -1050,13 +1055,16 @@ final class PontoController extends AbstractController
             if (!$posicao->estaDentro()) {
                 $permitido = $this->trabalhoExterno->permitido($tenant);
                 if (!$permitido || !TrabalhoExternoDaBatida::foiPedido($data)) {
-                    $recusa = $posicao->recusa($permitido);
+                    $recusa = $posicao->recusaComChave($permitido);
+                    $titulo = $recusa['titulo']->traduzir($this->tradutor);
+                    $detalhe = $recusa['detalhe']->traduzir($this->tradutor) . ($recusa['saida']?->traduzir($this->tradutor) ?? '');
 
-                    return $this->json(['success' => false, 'message' => $recusa['titulo'] . '. ' . $recusa['detalhe'], 'foraDoRaio' => $recusa], $posicao->statusDaRecusa());
+                    return $this->json(['success' => false, 'message' => $titulo . '. ' . $detalhe, 'foraDoRaio' => ['titulo' => $titulo, 'detalhe' => $detalhe, 'trabalhoExterno' => $permitido]], $posicao->statusDaRecusa());
                 }
                 $motivoExterno = TrabalhoExternoDaBatida::motivoDo($data);
-                if (($recusaDoMotivo = TrabalhoExternoDaBatida::recusaDoMotivo($motivoExterno)) !== null) {
-                    return $this->json(['success' => false, 'message' => $recusaDoMotivo], 422);
+                if (($recusaDoMotivo = TrabalhoExternoDaBatida::recusaDoMotivoComCodigo($motivoExterno)) !== null) {
+                    // `recusaDoMotivo` é o código que o JS da tela compara para reabrir a janela do motivo; a `message` sai traduzida.
+                    return $this->json(['success' => false, 'message' => $recusaDoMotivo['texto']->traduzir($this->tradutor), 'recusaDoMotivo' => $recusaDoMotivo['codigo']], 422);
                 }
             }
         }
@@ -1104,12 +1112,12 @@ final class PontoController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => match (true) {
-                $justificativaExterna !== null => TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA,
+                $justificativaExterna !== null => TrabalhoExternoDaBatida::texto(TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA)->traduzir($this->tradutor),
                 $homeOfficeHoje                => $this->tradutor->trans('ponto_servidor.ponto.registrado_home_office'),
                 default                        => $this->tradutor->trans('ponto_servidor.ponto.registrado'),
             } . ($comprovante !== null ? ' ' . $this->tradutor->trans('ponto_servidor.ponto.comprovante_na_aba') : ''),
             'data'    => $this->dadosDaBatida($registro, $posicao, $justificativaExterna !== null, $comprovante),
-            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $intervalo->avisoDepois, $semEntrada),
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $intervalo->textoDoAviso, $semEntrada),
         ]);
     }
 
@@ -1123,7 +1131,7 @@ final class PontoController extends AbstractController
         $dados = json_decode($request->getContent(), true);
         $recusa = is_array($dados) ? $this->envioDaBatida->deOutraConta($dados, (int) $user->getId(), $tenant?->getId()) : null;
 
-        return $recusa === null ? null : $this->json(['success' => false, 'message' => $recusa->mensagem], $recusa->status);
+        return $recusa === null ? null : $this->json(['success' => false, 'message' => $recusa->texto->traduzir($this->tradutor)], $recusa->status);
     }
 
     /**
@@ -1134,14 +1142,14 @@ final class PontoController extends AbstractController
     private function respostaAntesDasRegras(EnvioLidoDaBatida $envio, User $user, Tenant $tenant, RegistroPontoRepository $registros): ?JsonResponse
     {
         if ($envio->recusaDoPedido !== null) {
-            return $this->json(['success' => false, 'message' => $envio->recusaDoPedido->mensagem], $envio->recusaDoPedido->status);
+            return $this->json(['success' => false, 'message' => $envio->recusaDoPedido->texto->traduzir($this->tradutor)], $envio->recusaDoPedido->status);
         }
         $jaRegistrada = $envio->idEnvio !== null ? $registros->doEnvio($user, $tenant, $envio->idEnvio) : null;
         if ($jaRegistrada !== null) {
             return $this->respostaJaRegistrada((string) $jaRegistrada->getTipo(), $jaRegistrada->getDataHora());
         }
         if ($envio->recusaDaFila !== null) {
-            return $this->json(['success' => false, 'message' => $envio->recusaDaFila->mensagem], $envio->recusaDaFila->status);
+            return $this->json(['success' => false, 'message' => $envio->recusaDaFila->texto->traduzir($this->tradutor)], $envio->recusaDaFila->status);
         }
 
         return null;
@@ -1219,7 +1227,7 @@ final class PontoController extends AbstractController
 
         return $this->json([
             'success' => true,
-            'message' => EnvioDaBatida::MENSAGEM_JA_REGISTRADA,
+            'message' => EnvioDaBatida::texto(EnvioDaBatida::MENSAGEM_JA_REGISTRADA)->traduzir($this->tradutor),
             'data'    => $dados + ['tipo' => $tipo, 'jaRegistrada' => true],
             'avisos'  => [],
         ]);
@@ -1255,21 +1263,21 @@ final class PontoController extends AbstractController
      *
      * @return list<array{texto: string, link: ?string, rotulo: ?string}>
      */
-    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada, bool $semEntrada): array
+    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?TextoDoPonto $interjornada, bool $semEntrada): array
     {
         $avisos = [];
         if (!$this->publico->recebe($user, $tenant)) {
             return [];   // R7: fora do público dos avisos de ponto
         }
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->aviso($user, $tenant, $agora)) !== null) {
-            $avisos[] = ['texto' => $aberto, 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR];
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->avisoComChave($user, $tenant, $agora)) !== null) {
+            $avisos[] = ['texto' => $aberto->traduzir($this->tradutor), 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::texto(EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR)->traduzir($this->tradutor)];
         }
         if ($interjornada !== null) {
-            $avisos[] = ['texto' => $interjornada, 'link' => null, 'rotulo' => null];
+            $avisos[] = ['texto' => $interjornada->traduzir($this->tradutor), 'link' => null, 'rotulo' => null];
         }
         if ($semEntrada) {
             $link = $this->generateUrl('ponto_index', ['competencia' => $agora->format('Y-m'), 'esquecimento' => $agora->format('Y-m-d') . ':' . RegistroPonto::TIPO_ENTRADA]);
-            $avisos[] = ['texto' => TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA, 'link' => $link, 'rotulo' => TurnoAbertoNoEscritorio::ROTULO_ENVIAR];
+            $avisos[] = ['texto' => TurnoAbertoNoEscritorio::texto(TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA)->traduzir($this->tradutor), 'link' => $link, 'rotulo' => TurnoAbertoNoEscritorio::texto(TurnoAbertoNoEscritorio::ROTULO_ENVIAR)->traduzir($this->tradutor)];
         }
 
         return $avisos;
@@ -1309,11 +1317,12 @@ final class PontoController extends AbstractController
      */
     private function respostaDoIntervalo(IntervaloDaBatida $intervalo, EnvioLidoDaBatida $envio, array $dados): ?JsonResponse
     {
-        if ($intervalo->alerta === null || $envio->semInternet || AlertasAntesDaBatida::confirmou($dados)) {
+        if ($intervalo->textoDoAlerta === null || $envio->semInternet || AlertasAntesDaBatida::confirmou($dados)) {
             return null;
         }
 
-        $resposta = ['success' => false, 'alerta' => $intervalo->alerta, 'message' => $intervalo->alerta];
+        $alerta = $intervalo->textoDoAlerta->traduzir($this->tradutor);
+        $resposta = ['success' => false, 'alerta' => $alerta, 'message' => $alerta];
         if ($intervalo->faltamDoIntervalo !== null) {
             // O retorno antes do mínimo: a janela mostra o contador regressivo no lugar do texto, a partir do que falta
             // na hora do servidor.
@@ -1339,16 +1348,16 @@ final class PontoController extends AbstractController
         \DateTimeImmutable $agora,
         ChoqueDeJornadaEntreEscritorios $choque,
         RegistroPontoRepository $registros,
-    ): ?string {
+    ): ?TextoDoPonto {
         if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)
             && ($this->turnoAberto->estaAberto($user, $tenant, $agora) || !$this->temEntradaNoDia($user, $tenant, $agora, $registros))) {
             return null;
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
-            return ChaveDoPontoEletronico::MENSAGEM_DESLIGADA;
+            return ChaveDoPontoEletronico::texto(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA);
         }
 
-        return $choque->naBatida($user, $tenant, $agora);
+        return $choque->textoNaBatida($user, $tenant, $agora);
     }
 
     /**

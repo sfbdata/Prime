@@ -30,6 +30,13 @@ final class ChoqueDeJornadaEntreEscritorios
     /** A recusa da batida dentro do horário de trabalho de hoje em outro escritório. */
     public const MENSAGEM_BATIDA = 'Agora é seu horário de trabalho em outro escritório (das %s às %s). O ponto não pode ser registrado aqui.';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM_CHOQUE => 'ponto_servidor.batida.choque.choque',
+        self::MENSAGEM_PADRAO => 'ponto_servidor.batida.choque.padrao',
+        self::MENSAGEM_BATIDA => 'ponto_servidor.batida.choque.batida',
+    ];
+
     public function __construct(
         private readonly IntervalosDeTrabalho $intervalos,
         private readonly JornadaColaboradorRepository $jornadas,
@@ -37,16 +44,50 @@ final class ChoqueDeJornadaEntreEscritorios
     ) {
     }
 
+    /** A chave no catálogo de uma das constantes MENSAGEM_*; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto do choque sem chave no catálogo: "%s".', $texto));
+    }
+
     /**
-     * A recusa para os trechos propostos da pessoa em `$escritorio`, ou null quando não há choque.
+     * O texto de uma das constantes MENSAGEM_*, com a chave para o controller traduzir.
+     *
+     * @param array<string, string> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
+    }
+
+    /**
+     * A recusa para os trechos propostos da pessoa em `$escritorio`, em português, ou null quando não há choque.
      *
      * @param list<IntervaloDeTrabalho> $propostos
      */
     public function mensagem(User $user, Tenant $escritorio, array $propostos): ?string
     {
+        return $this->textoDoChoque($user, $escritorio, $propostos)?->portugues;
+    }
+
+    /**
+     * A mesma recusa de {@see self::mensagem()}, com a chave (`{inicio}` e `{fim}`) para quem a leva à tela traduzir.
+     *
+     * @param list<IntervaloDeTrabalho> $propostos
+     */
+    public function textoDoChoque(User $user, Tenant $escritorio, array $propostos): ?TextoDoPonto
+    {
         $conflito = $this->primeiroConflito($user, $escritorio, $propostos);
 
-        return $conflito === null ? null : sprintf(self::MENSAGEM_CHOQUE, ...$conflito->horario());
+        return $conflito === null ? null : self::texto(self::MENSAGEM_CHOQUE, self::horarioDo($conflito));
+    }
+
+    /** @return array{inicio: string, fim: string} */
+    private static function horarioDo(IntervaloDeTrabalho $trecho): array
+    {
+        [$inicio, $fim] = $trecho->horario();
+
+        return ['inicio' => $inicio, 'fim' => $fim];
     }
 
     /**
@@ -57,6 +98,12 @@ final class ChoqueDeJornadaEntreEscritorios
      */
     public function naBatida(User $user, Tenant $escritorio, \DateTimeImmutable $agora): ?string
     {
+        return $this->textoNaBatida($user, $escritorio, $agora)?->portugues;
+    }
+
+    /** A mesma recusa de {@see self::naBatida()}, com a chave (`{inicio}` e `{fim}`) para o controller traduzir. */
+    public function textoNaBatida(User $user, Tenant $escritorio, \DateTimeImmutable $agora): ?TextoDoPonto
+    {
         $dia = (int) $agora->format('N');
         $segundos = (int) $agora->format('H') * 3600 + (int) $agora->format('i') * 60 + (int) $agora->format('s');
         $doOutro = $this->trechoDeOutroEscritorio($user, $escritorio, $dia, $segundos);
@@ -64,7 +111,7 @@ final class ChoqueDeJornadaEntreEscritorios
             return null;
         }
 
-        return sprintf(self::MENSAGEM_BATIDA, ...$doOutro->horario());
+        return self::texto(self::MENSAGEM_BATIDA, self::horarioDo($doOutro));
     }
 
     private function trechoDeOutroEscritorio(User $user, Tenant $escritorio, int $dia, int $segundos): ?IntervaloDeTrabalho
@@ -100,13 +147,26 @@ final class ChoqueDeJornadaEntreEscritorios
      */
     public function pessoasEmChoqueComPadrao(Tenant $escritorio, JornadaTenant $padraoProposto): array
     {
+        return array_map(
+            static fn (array $afetada): array => ['nome' => $afetada['nome'], 'mensagem' => $afetada['texto']->portugues],
+            $this->pessoasEmChoqueComPadraoComChave($escritorio, $padraoProposto),
+        );
+    }
+
+    /**
+     * As mesmas pessoas de {@see self::pessoasEmChoqueComPadrao()}, com o texto traduzível do choque de cada uma.
+     *
+     * @return list<array{nome: string, texto: TextoDoPonto}>
+     */
+    public function pessoasEmChoqueComPadraoComChave(Tenant $escritorio, JornadaTenant $padraoProposto): array
+    {
         $afetadas = [];
         foreach ($this->vinculos->findAtivosQueRegistramPonto($escritorio) as $vinculo) {
             $pessoa = $vinculo->getUser();
             $trechos = $this->intervalos->daJornada($this->jornadas->findByUserETenant($pessoa, $escritorio), $padraoProposto);
-            $mensagem = $this->mensagem($pessoa, $escritorio, $trechos);
-            if ($mensagem !== null) {
-                $afetadas[] = ['nome' => (string) $pessoa->getFullName(), 'mensagem' => $mensagem];
+            $texto = $this->textoDoChoque($pessoa, $escritorio, $trechos);
+            if ($texto !== null) {
+                $afetadas[] = ['nome' => (string) $pessoa->getFullName(), 'texto' => $texto];
             }
         }
 

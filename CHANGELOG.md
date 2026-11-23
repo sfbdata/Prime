@@ -8,6 +8,12 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.2.0] - 2026-11-23
+
+### Alterado
+
+- Ponto: as recusas das regras de gestão e configuração (sede, feriado, função do ponto, limites do banco de horas, horas pagas, versão da jornada, equipe, exclusão de justificativa) e o aviso do abono em lote passam pelo tradutor, com a chave na exceção (`RecusaDoPonto`). O português fica idêntico, cada recusa é conferida contra o texto antigo. Batida e justificativa ficam para o PR B2.
+
 ## [3.1.0] - 2026-11-23
 
 ### Adicionado
@@ -2403,7 +2409,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.1.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/sfbdata/Prime/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/sfbdata/Prime/compare/v2.63.2...v3.0.0
 [2.63.2]: https://github.com/sfbdata/Prime/compare/v2.63.1...v2.63.2

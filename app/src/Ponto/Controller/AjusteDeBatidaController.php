@@ -106,7 +106,7 @@ final class AjusteDeBatidaController extends AbstractController
         $competencia = self::competenciaDaTela($request) ?? $batida->dataHoraAtual?->format('Y-m');
         $recusa = $this->recusaDaPagina($batida);
         if ($recusa !== null) {
-            $this->addFlash('danger', $recusa);
+            $this->addFlash('danger', $this->tradutor->trans(AjusteDeBatidaRecusadoException::CHAVE_DA_RECUSA[$recusa]));
 
             return $this->voltarParaFicha($tenantId, $user, $competencia);
         }
@@ -248,7 +248,7 @@ final class AjusteDeBatidaController extends AbstractController
         } catch (AjusteDeBatidaRecusadoException $recusa) {
             if (\array_key_exists($recusa->motivo, self::RECUSAS_DO_FORMULARIO)) {
                 $campo = self::RECUSAS_DO_FORMULARIO[$recusa->motivo];
-                ($campo !== null ? $form->get($campo) : $form)->addError(new FormError($recusa->getMessage()));
+                ($campo !== null ? $form->get($campo) : $form)->addError(new FormError($this->tradutor->trans($recusa->chave(), $recusa->parametros())));
 
                 return null;
             }
@@ -275,7 +275,7 @@ final class AjusteDeBatidaController extends AbstractController
         match ($recusa->motivo) {
             AjusteDeBatidaRecusadoException::NAO_ENCONTRADA => throw $this->createNotFoundException($recusa->getMessage(), $recusa),
             AjusteDeBatidaRecusadoException::DA_PROPRIA_BATIDA => throw $this->createAccessDeniedException($recusa->getMessage(), $recusa),
-            default => $this->addFlash('danger', $recusa->getMessage()),
+            default => $this->addFlash('danger', $this->tradutor->trans($recusa->chave(), $recusa->parametros())),
         };
     }
 
@@ -335,7 +335,7 @@ final class AjusteDeBatidaController extends AbstractController
     private function erroDoFormulario(FormInterface $form): string
     {
         return $form->isSubmitted() && !$form->get('motivo')->isValid() && self::soOMotivoFalhou($form)
-            ? AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO
+            ? $this->tradutor->trans(AjusteDeBatidaRecusadoException::CHAVE_DA_RECUSA[AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO])
             : $this->tradutor->trans('ponto_servidor.ajuste.erro_dos_campos');
     }
 

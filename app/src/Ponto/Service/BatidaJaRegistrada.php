@@ -27,18 +27,47 @@ final class BatidaJaRegistrada
         RegistroPonto::TIPO_SAIDA => 'saída',
     ];
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM => 'ponto_servidor.batida.ja_registrada.mensagem',
+    ];
+
+    /** @var array<string, string> rótulo em português do tipo => chave no catálogo */
+    public const CHAVE_DO_ROTULO = [
+        'entrada' => 'ponto_servidor.batida.ja_registrada.tipo_entrada',
+        'repouso' => 'ponto_servidor.batida.ja_registrada.tipo_repouso',
+        'retorno' => 'ponto_servidor.batida.ja_registrada.tipo_retorno',
+        'saída' => 'ponto_servidor.batida.ja_registrada.tipo_saida',
+    ];
+
     public function __construct(
         private readonly RegistroPontoRepository $registros,
     ) {
     }
 
-    /** A recusa do pedido de esquecimento de `$tipo` em `$dia`, ou null quando a batida falta de fato. */
+    /** A chave no catálogo da frase (a constante MENSAGEM); qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto da batida já registrada sem chave no catálogo: "%s".', $texto));
+    }
+
+    /** A recusa do pedido de esquecimento de `$tipo` em `$dia`, em português, ou null quando a batida falta de fato. */
     public function mensagem(User $user, Tenant $tenant, string $tipo, \DateTimeInterface $dia): ?string
+    {
+        return $this->mensagemComChave($user, $tenant, $tipo, $dia)?->portugues;
+    }
+
+    /** A mesma recusa de {@see self::mensagem()}, com a chave; o tipo (`{tipo}`) é um texto traduzível à parte. */
+    public function mensagemComChave(User $user, Tenant $tenant, string $tipo, \DateTimeInterface $dia): ?TextoDoPonto
     {
         $batidas = $this->registros->batidasDoDiaNoEscritorio($user, $tenant, \DateTimeImmutable::createFromInterface($dia));
         foreach ($batidas as $batida) {
             if ($batida->getTipo() === $tipo) {
-                return sprintf(self::MENSAGEM, self::ROTULOS[$tipo] ?? $tipo);
+                $rotulo = self::ROTULOS[$tipo] ?? null;
+
+                return TextoDoPonto::de(self::chaveDe(self::MENSAGEM), self::MENSAGEM, [
+                    'tipo' => $rotulo === null ? $tipo : TextoDoPonto::de(self::CHAVE_DO_ROTULO[$rotulo], $rotulo),
+                ]);
             }
         }
 
