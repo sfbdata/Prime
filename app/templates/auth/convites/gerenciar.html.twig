@@ -98,7 +98,7 @@
                                 {% if convite.podeReenviar %}
                                     {# data-confirmar: a pergunta sai do JavaScript inline (menu-usuario.js; achado de auditoria interna F3). #}
                                     <form method="post" action="{{ path('auth_gerenciar_convites_reenviar', {id: convite.id}) }}" class="d-inline"
-                                          data-confirmar="{{ 'auth.gerenciar.confirmar_reenviar'|trans }} {{ convite.email }}?">
+                                          data-confirmar="{{ 'auth.gerenciar.confirmar_reenviar'|trans }} {{ convite.email }}? {{ 'auth.gerenciar.reenviar_troca_link'|trans }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.id) }}">
                                         <button type="submit" class="bjp-btn bjp-btn--secundario me-1">
                                             {{ 'auth.gerenciar.reenviar'|trans }}

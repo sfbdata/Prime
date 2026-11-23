@@ -30,7 +30,7 @@ plataforma:
         revogado: Revoked
         expirado: Expired
         reenviar: Resend
-        confirmar_reenviar: 'Resend invitation to {email}?'
+        confirmar_reenviar: 'Resend invitation to {email}? The link sent earlier will stop working.'
         revogar: Revoke
         confirmar_revogar: 'Revoke invitation for {email}?'
         vazio: No invitation sent yet.
@@ -72,7 +72,7 @@ plataforma:
         convite_enviado: 'Invitation sent to {email}.'
         convite_revogado: Invitation revoked.
         convite_email_nao_enviado: Could not send the e-mail. Try again.
-        convite_reenviado: Invitation resent.
+        convite_reenviado: Invitation resent with a new link. The link sent earlier stops working.
         oab_confirmada: OAB confirmed.
         oab_destino_invalido: Invalid destination.
         oab_revertida: OAB reverted.

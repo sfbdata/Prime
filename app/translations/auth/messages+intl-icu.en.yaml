@@ -40,7 +40,8 @@ auth:
             usado_titulo: Invitation already used
             usado_texto: This invitation has already been accepted, declined or revoked and cannot be used again.
             nao_encontrado_titulo: Invitation not found
-            nao_encontrado_texto: The link you used is invalid or does not exist. Check that you copied the full link from the email.
+            nao_encontrado_texto: 'The link you used is no longer valid or is incomplete. When an invitation is resent, the link in the earlier email stops working: open the most recent invitation email. If you already have a BlueJus account, the pending invitations for your email are in My invitations.'
+            ver_meus_convites: See my invitations
         nao_pertence:
             titulo: Invitation for another account
             enviado_para: This invitation was sent to
@@ -95,6 +96,7 @@ auth:
             expirado: Expired
         reenviar: Resend
         confirmar_reenviar: Resend invitation to
+        reenviar_troca_link: The link sent earlier will stop working.
         revogar: Revoke
         confirmar_revogar: Revoke invitation for
         vazio: No invitations sent yet.
