@@ -10,6 +10,7 @@ use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Enum\SituacaoDoBackup;
 use App\Backup\Message\GerarBackup;
 use App\Backup\MessageHandler\GerarBackupHandler;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Backup\Service\ZipDoBackup;
 use App\Backup\UseCase\MontarBackupUseCase;
 use App\Backup\UseCase\PedirBackupUseCase;
@@ -62,6 +63,10 @@ final class GerarBackupHandlerTest extends KernelTestCase
 
     private function pedido(Tenant $tenant, User $dono): PedidoDeBackup
     {
+        // Backup é só do dono: o criador do escritório é quem pede (o que não for definido aqui vira o dono).
+        if (null === $tenant->getCriadoPor()) {
+            $tenant->setCriadoPor($dono);
+        }
         $pedido = new PedidoDeBackup($tenant, $dono, new \DateTimeImmutable(self::AGORA));
         $this->em->persist($pedido);
         $this->em->flush();
@@ -84,6 +89,7 @@ final class GerarBackupHandlerTest extends KernelTestCase
             static::getContainer()->get('doctrine'),
             $relogio,
             new NullLogger(),
+            new DonoDoEscritorio(),
         );
     }
 
@@ -117,6 +123,25 @@ final class GerarBackupHandlerTest extends KernelTestCase
         self::assertTrue($this->duble->memoria->existe(ChavesDeBackup::zip($pedido)));
         self::assertSame(1, $this->sinos($dono, GerarBackupHandler::TIPO_PRONTO));
         self::assertSame('/perfil#mpBackup', $this->em->getConnection()->fetchOne('SELECT url FROM notificacao WHERE usuario_id = ? AND tipo = ?', [$dono->getId(), GerarBackupHandler::TIPO_PRONTO]));
+    }
+
+    #[TestDox('Quem pediu deixou de ser dono: falhou com motivo genérico, nada montado, sem ZIP')]
+    public function testQuemPediuDeixouDeSerDono(): void
+    {
+        $dono = UserFactory::createOne()->_real();
+        $outro = UserFactory::createOne()->_real();
+        $tenant = $this->escritorio();
+        $pedido = $this->pedido($tenant, $dono);
+        $tenant->setCriadoPor($outro);
+        $this->em->flush();
+
+        ($this->handler([$this->falhoNaMontagem()]))(new GerarBackup((int) $pedido->getId()));
+
+        $this->em->refresh($pedido);
+        self::assertSame(SituacaoDoBackup::Falhou, $pedido->getSituacao());
+        self::assertSame(GerarBackupHandler::MOTIVO_NAO_E_DONO, $pedido->getErro());
+        self::assertSame(0, $this->sinos($dono, GerarBackupHandler::TIPO_PRONTO));
+        self::assertSame(1, $this->sinos($dono, GerarBackupHandler::TIPO_FALHOU));
     }
 
     #[TestDox('Reentrega em montando vira falhou e não monta de novo')]
@@ -248,9 +273,11 @@ final class GerarBackupHandlerTest extends KernelTestCase
     {
         $dono = UserFactory::createOne()->_real();
         $tenant = $this->escritorio();
+        $tenant->setCriadoPor($dono);
+        $this->em->flush();
 
         $c = static::getContainer();
-        $pedido = (new PedirBackupUseCase($this->em->getRepository(PedidoDeBackup::class), $this->em, $c->get(MessageBusInterface::class), new MockClock(self::AGORA)))->executar($dono, $tenant);
+        $pedido = (new PedirBackupUseCase($this->em->getRepository(PedidoDeBackup::class), $this->em, $c->get(MessageBusInterface::class), new MockClock(self::AGORA), new DonoDoEscritorio()))->executar($dono, $tenant);
 
         /** @var InMemoryTransport $async */
         $async = static::getContainer()->get('messenger.transport.async');
@@ -266,8 +293,10 @@ final class GerarBackupHandlerTest extends KernelTestCase
     {
         $dono = UserFactory::createOne()->_real();
         $tenant = $this->escritorio();
+        $tenant->setCriadoPor($dono);
+        $this->em->flush();
         $c = static::getContainer();
-        $pedir = new PedirBackupUseCase($this->em->getRepository(PedidoDeBackup::class), $this->em, $c->get(MessageBusInterface::class), new MockClock(self::AGORA));
+        $pedir = new PedirBackupUseCase($this->em->getRepository(PedidoDeBackup::class), $this->em, $c->get(MessageBusInterface::class), new MockClock(self::AGORA), new DonoDoEscritorio());
 
         $pedir->executar($dono, $tenant);
 

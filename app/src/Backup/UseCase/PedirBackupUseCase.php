@@ -8,11 +8,13 @@ use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Exception\PedidoDeBackupNaoPermitido;
 use App\Backup\Message\GerarBackup;
 use App\Backup\Repository\PedidoDeBackupRepository;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * A pessoa pede um backup do escritório (spec backup-e-exportacao-de-dados, seção 5): no máximo um pedido aberto
@@ -31,12 +33,20 @@ final class PedirBackupUseCase
         private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
         private readonly ClockInterface $clock,
+        private readonly DonoDoEscritorio $dono,
     ) {
     }
 
-    /** @throws PedidoDeBackupNaoPermitido */
+    /**
+     * @throws AccessDeniedException quem não é o dono do escritório (nada é criado nem despachado)
+     * @throws PedidoDeBackupNaoPermitido
+     */
     public function executar(User $usuario, Tenant $tenant): PedidoDeBackup
     {
+        if (!$this->dono->ehDono($usuario, $tenant)) {
+            throw new AccessDeniedException('Só o dono do escritório pode pedir o backup.');
+        }
+
         $agora = \DateTimeImmutable::createFromInterface($this->clock->now());
 
         $pedido = $this->gravarSobTrava($usuario, $tenant, $agora);

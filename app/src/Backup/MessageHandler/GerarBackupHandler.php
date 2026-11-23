@@ -10,6 +10,7 @@ use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Enum\SituacaoDoBackup;
 use App\Backup\Message\GerarBackup;
 use App\Backup\Repository\PedidoDeBackupRepository;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Backup\UseCase\MontarBackupUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -27,7 +28,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * Roda no worker, sem sessão: nada de `TenantContext` nem `Security`; o pedido é recarregado pelo id da mensagem.
  * Pedido inexistente ou que já terminou: ignora. Pedido já em `montando` (o worker caiu depois de começar e a fila
  * reentregou): vira `falhou`, não monta de novo. Em `pedido`: marca `montando`, monta, marca `pronto` (validade de 7
- * dias) e avisa pelo sino.
+ * dias) e avisa pelo sino. Quem pediu e deixou de ser dono do escritório: vira `falhou` e nada é montado.
  *
  * Qualquer erro da montagem marca `falhou` com motivo genérico e NÃO sobe para o Messenger: sem retry e sem derrubar a
  * fila. O log leva só o id do pedido, a classe da exceção e arquivo:linha, nunca a mensagem dela (pode ter nome de
@@ -45,6 +46,7 @@ final class GerarBackupHandler
     /** O aviso do sino abre o Meu Perfil na seção "Backup e Exportação de Dados" (`id="mpBackup"`). */
     public const URL_DA_SECAO = '/perfil#mpBackup';
     public const MOTIVO_INTERROMPIDO = 'A montagem foi interrompida. Peça um novo backup.';
+    public const MOTIVO_NAO_E_DONO = 'Só o dono do escritório pode gerar o backup.';
     private const MOTIVO_GENERICO = 'Não foi possível montar o backup. Peça um novo backup.';
 
     public function __construct(
@@ -56,6 +58,7 @@ final class GerarBackupHandler
         private readonly ManagerRegistry $doctrine,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
+        private readonly DonoDoEscritorio $dono,
     ) {
     }
 
@@ -74,6 +77,12 @@ final class GerarBackupHandler
             return;
         }
         if ($pedido->getSituacao() !== SituacaoDoBackup::Pedido) {
+            return;
+        }
+
+        if (!$this->dono->ehDono($pedido->getUsuario(), $pedido->getTenant())) {
+            $this->falhar($id, self::MOTIVO_NAO_E_DONO);
+
             return;
         }
 

@@ -101,7 +101,8 @@ final class BackupControllerTest extends JusPrimeWebTestCase
         return $t;
     }
 
-    private function pessoa(Tenant $tenant): User
+    /** A primeira pessoa criada num escritório vira o dono (`criadoPor`); as seguintes são colegas. */
+    private function pessoa(Tenant $tenant, bool $viraDono = true): User
     {
         $u = (new User())->setEmail('bk_' . uniqid() . '@test.com')->setFullName('Pessoa Backup')->setRoles(['ROLE_USER'])->setIsActive(true);
         $u->setPassword(static::getContainer()->get(UserPasswordHasherInterface::class)->hashPassword($u, 'senha123'));
@@ -110,6 +111,9 @@ final class BackupControllerTest extends JusPrimeWebTestCase
         $this->em->persist($u);
         $this->em->persist($papel);
         $this->em->persist((new UserTenant($u, $tenant))->setTenantRole($papel));
+        if ($viraDono && null === $tenant->getCriadoPor()) {
+            $tenant->setCriadoPor($u);
+        }
         $this->em->flush();
 
         return $u;
@@ -385,14 +389,14 @@ final class BackupControllerTest extends JusPrimeWebTestCase
 
         $tradutor = static::getContainer()->get('translator');
         foreach (['pt_BR', 'en'] as $locale) {
-            foreach (['ja_tem_aberto', 'limite_do_dia', 'muitos_pedidos', 'token_invalido', 'selecione_escritorio', 'pedido_recebido'] as $chave) {
+            foreach (['ja_tem_aberto', 'limite_do_dia', 'muitos_pedidos', 'token_invalido', 'selecione_escritorio', 'pedido_recebido', 'so_o_dono'] as $chave) {
                 $id = 'perfil.backup.recusa.' . $chave;
                 self::assertNotSame($id, $tradutor->trans($id, [], null, $locale), "$locale $id");
             }
         }
     }
 
-    #[TestDox('Download: outro usuário do escritório, outro escritório, vencido, não pronto e arquivo sumido dão 404 e nenhuma auditoria')]
+    #[TestDox('Download: outro escritório, vencido, não pronto e arquivo sumido dão 404; quem não é dono, 403; nenhuma auditoria')]
     public function testDownloadNegado(): void
     {
         $t = $this->escritorio();
@@ -407,17 +411,17 @@ final class BackupControllerTest extends JusPrimeWebTestCase
 
         $this->entrar($colega, $t);
         $this->client->request('GET', '/perfil/backup/' . $pronto->getId() . '/baixar');
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseStatusCodeSame(403);
 
         $this->entrar($forasteiro, $outro);
         $this->client->request('GET', '/perfil/backup/' . $pronto->getId() . '/baixar');
         self::assertResponseStatusCodeSame(404);
 
         // O dono logado, mas com a sessão no escritório errado, também não baixa.
-        $donoNoOutro = $this->pessoa($outro);
-        $this->entrar($donoNoOutro, $outro);
+        $colegaDoOutro = $this->pessoa($outro);
+        $this->entrar($colegaDoOutro, $outro);
         $this->client->request('GET', '/perfil/backup/' . $pronto->getId() . '/baixar');
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseStatusCodeSame(403);
 
         $this->entrar($dono, $t);
         foreach ([$vencido, $naoPronto, $semArquivo] as $p) {
@@ -426,5 +430,72 @@ final class BackupControllerTest extends JusPrimeWebTestCase
         }
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM audit_log WHERE action = ?', ['backup_dl']));
         self::assertSame(SituacaoDoBackup::Pronto, $pronto->getSituacao());
+    }
+
+    #[TestDox('Colega que não é o dono: pedir dá 403 em JSON sem criar pedido nem despachar')]
+    public function testColegaNaoPede(): void
+    {
+        $t = $this->escritorio();
+        $this->pessoa($t);
+        $colega = $this->pessoa($t);
+        $this->entrar($colega, $t);
+
+        $this->postarPedido();
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringContainsString('dono do escritório', (string) $this->json()['erro']);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM pedido_de_backup WHERE tenant_id = ?', [$t->getId()]));
+        /** @var InMemoryTransport $async */
+        $async = static::getContainer()->get('messenger.transport.async');
+        self::assertCount(0, $async->getSent());
+    }
+
+    #[TestDox('Colega que não é o dono: não baixa nem o pedido antigo dele mesmo (403) e nada é auditado')]
+    public function testColegaNaoBaixaNemOPedidoAntigoDele(): void
+    {
+        $t = $this->escritorio();
+        $this->pessoa($t);
+        $colega = $this->pessoa($t);
+        $antigo = $this->pedido($t, $colega);
+        $this->entrar($colega, $t);
+
+        $this->client->request('GET', '/perfil/backup/' . $antigo->getId() . '/baixar');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM audit_log WHERE action = ?', ['backup_dl']));
+    }
+
+    #[TestDox('Meu Perfil: o colega que não é dono não vê a seção; o dono vê')]
+    public function testColegaNaoVeASecao(): void
+    {
+        $t = $this->escritorio();
+        $dono = $this->pessoa($t);
+        $colega = $this->pessoa($t);
+
+        $this->entrar($colega, $t);
+        $tela = $this->client->request('GET', '/perfil');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $tela->filter('#mpBackup'));
+        self::assertStringNotContainsString('Backup e Exportação de Dados', (string) $this->client->getResponse()->getContent());
+
+        $this->entrar($dono, $t);
+        $tela = $this->client->request('GET', '/perfil');
+        self::assertCount(1, $tela->filter('#mpBackup'));
+    }
+
+    #[TestDox('Escritório sem criador: ninguém vê a seção, pede ou baixa')]
+    public function testEscritorioSemCriadorNinguem(): void
+    {
+        $t = $this->escritorio();
+        $u = $this->pessoa($t, viraDono: false);
+        $p = $this->pedido($t, $u);
+        $this->entrar($u, $t);
+
+        $tela = $this->client->request('GET', '/perfil');
+        self::assertCount(0, $tela->filter('#mpBackup'));
+        $this->postarPedido();
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', '/perfil/backup/' . $p->getId() . '/baixar');
+        self::assertResponseStatusCodeSame(403);
     }
 }
