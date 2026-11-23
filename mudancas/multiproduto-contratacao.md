@@ -8,4 +8,4 @@ tipo: interno
 - A purga do escritório apaga as linhas de `contratacao` pela ordem de deleção.
 
 ## Para o cliente
-- Preparamos o registro de quais ferramentas cada escritório usa. Todos os escritórios de hoje continuam com tudo o que já tinham, sem nenhuma mudança na tela.
+- O BlueJus passa a guardar quais ferramentas cada escritório usa (Expediente, Voto, I.A., Ponto, Cálculo, Kanban, Assinatura e Cobranças). Quem já tem conta fica com todas as ferramentas que já usava.
