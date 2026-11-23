@@ -69,7 +69,7 @@ final class DesligarFerramentaUseCaseTest extends TestCase
             $this->assembleias,
             $this->liberacoes,
             $this->configuracoes,
-            new MockClock(self::AGORA),
+            new MockClock(new \DateTimeImmutable(self::AGORA)),
         );
     }
 

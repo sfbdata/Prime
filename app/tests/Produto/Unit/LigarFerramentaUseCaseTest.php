@@ -75,7 +75,7 @@ final class LigarFerramentaUseCaseTest extends TestCase
             $this->configuracoes,
             $this->configuracaoGlobal,
             $this->bootstrap,
-            new MockClock(self::AGORA),
+            new MockClock(new \DateTimeImmutable(self::AGORA)),
         );
     }
 

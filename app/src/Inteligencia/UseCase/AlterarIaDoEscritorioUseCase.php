@@ -50,7 +50,7 @@ final class AlterarIaDoEscritorioUseCase
         $configuracao = $this->configuracoes->findDoTenantParaOMaster($tenant) ?? new ConfiguracaoDeInteligencia($tenant);
         // D16: só a TROCA de estado mexe na contratação. Trocar só o teto, ou salvar "bloqueada" num escritório que nunca
         // foi liberado, não é trava (o estado de hoje deixa o dono ligar).
-        $estava = null !== $configuracao->getId() && $configuracao->isLiberadaPeloMaster();
+        $estava = $configuracao->isLiberadaPeloMaster();
 
         if ($input->liberada) {
             $configuracao->liberarPeloMaster();

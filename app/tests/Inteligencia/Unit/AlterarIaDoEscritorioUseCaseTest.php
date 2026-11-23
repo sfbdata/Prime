@@ -48,7 +48,7 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
 
     private function sut(): AlterarIaDoEscritorioUseCase
     {
-        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, new EscopoDeAuditoriaDePlataforma(), $this->contratacoes, new MockClock('2026-11-23 10:00:00'));
+        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, new EscopoDeAuditoriaDePlataforma(), $this->contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
     }
 
     #[TestDox('escritório sem linha: a configuração nasce aqui, liberada, com o modo e o orçamento, e a IA segue desligada no escritório')]

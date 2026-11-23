@@ -57,7 +57,7 @@ final class AlterarLiberacaoDoVotoUseCaseTest extends TestCase
 
     private function sut(): AlterarLiberacaoDoVotoUseCase
     {
-        return new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo, $this->contratacoes, new MockClock('2026-11-23 10:00:00'));
+        return new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo, $this->contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
     }
 
     #[TestDox('a liberação nasce não liberada, com a data de criação e a de atualização iguais')]

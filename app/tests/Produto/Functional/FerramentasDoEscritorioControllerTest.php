@@ -107,7 +107,7 @@ final class FerramentasDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->linhasDo($tenant));
     }
 
-    #[TestDox('sem escritório na sessão: 404')]
+    #[TestDox('sem escritório na sessão: o validador do escritório manda para a seleção antes do controller; nada é gravado')]
     public function testSemEscritorio(): void
     {
         $tenant = $this->escritorio();
@@ -116,7 +116,7 @@ final class FerramentasDoEscritorioControllerTest extends JusPrimeWebTestCase
 
         $this->postarFerramenta('kanban', ['ligar' => false]);
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseRedirects('/escritorio/selecionar');
         self::assertSame([], $this->linhasDo($tenant));
     }
 

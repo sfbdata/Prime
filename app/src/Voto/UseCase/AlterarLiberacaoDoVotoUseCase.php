@@ -47,7 +47,7 @@ final class AlterarLiberacaoDoVotoUseCase
         $liberacao = $this->liberacoes->findDoTenantParaOMaster($tenant) ?? new LiberacaoDoVoto($tenant);
         // D16: só a TROCA de estado mexe na contratação. Salvar "bloqueado" num escritório que nunca foi liberado não é
         // trava (o estado de hoje deixa o dono ligar).
-        $estava = null !== $liberacao->getId() && $liberacao->isLiberado();
+        $estava = $liberacao->isLiberado();
 
         if ($liberado) {
             $liberacao->liberar();
