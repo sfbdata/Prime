@@ -8,7 +8,6 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
-use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
@@ -217,7 +216,7 @@ final class SubstituirAnexoDoLoteUseCase
 
         foreach ($status as $statusDoDia) {
             if ($statusDoDia !== self::STATUS_EDITAVEL) {
-                throw new TrocaDeAnexoRecusadaException(NomesDasSituacoesDaJustificativa::texto('anexo.travado'));
+                throw new TrocaDeAnexoRecusadaException(TrocaDeAnexoRecusadaException::RECUSA_LOTE_ANALISADO);
             }
         }
     }
