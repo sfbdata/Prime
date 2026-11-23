@@ -92,6 +92,7 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'servicedesk_novo' => ['servicedesk_novo', '/servicedesk/novo'];
         yield 'servicedesk_show' => ['servicedesk_show', '/servicedesk/7'];
         yield 'ponto_index' => ['ponto_index', '/ponto/'];
+        yield 'voto_index' => ['voto_index', '/voto'];
         yield 'app_profile' => ['app_profile', '/perfil'];
         yield 'auth_meus_convites' => ['auth_meus_convites', '/convites'];
         yield 'contribua_index' => ['contribua_index', '/contribua'];

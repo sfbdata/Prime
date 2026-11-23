@@ -19,6 +19,8 @@ use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacaoDoCadastro;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Enum\Genero;
 use App\Repository\UserRepository;
@@ -67,6 +69,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  *
  * Política de cadastro (configuração `cadastro` do Master, spec `login-config-cadastro.md`): as duas portas públicas
  * lançam CadastroNaoDisponivel, antes de qualquer leitura ou gravação, quando o cadastro não está aberto.
+ *
+ * Cadastro pelo Voto (spec `multiproduto-contratacao-e-voto.md`, §5): com `produto` = Voto no input (lido só da sessão
+ * pelo controller, D9), na mesma transação o escritório nasce sem os marcadores do Expediente, com a contratação do
+ * Voto (origem `cadastro`) e a `LiberacaoDoVoto` liberada; a I.A. não é ligada. Qualquer outro produto é ignorado e
+ * o escritório nasce completo, sem linha de contratação, como hoje.
  */
 final class CriarContaEEscritorioUseCase
 {
@@ -92,6 +99,7 @@ final class CriarContaEEscritorioUseCase
         private readonly ReenviarConfirmacaoDeEmailUseCase $reenviarConfirmacao,
         private readonly TetoDoReenvioDeConfirmacao $teto,
         private readonly PoliticaDeCadastro $politicaDeCadastro,
+        private readonly ContratacaoDoCadastro $contratacaoDoCadastro,
     ) {
     }
 
@@ -166,7 +174,7 @@ final class CriarContaEEscritorioUseCase
         if (!$identidade->emailComGarantia()) {
             throw new \DomainException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
         }
-        $input = new CriarContaEEscritorioInput($input->nome, $input->escritorio, $identidade->email, '', $input->aceite, $input->genero);
+        $input = new CriarContaEEscritorioInput($input->nome, $input->escritorio, $identidade->email, '', $input->aceite, $input->genero, $input->produto);
         self::validar($input);
         $email = self::normalizarEmail($identidade->email);
 
@@ -252,8 +260,12 @@ final class CriarContaEEscritorioUseCase
         $tenant->setName(trim($input->escritorio));
         $this->em->persist($tenant);
 
-        // bootstrap seta criadoPor, cria perfil admin + vínculo dono + seed, e faz flush().
-        $this->bootstrap->bootstrap($tenant, $user);
+        // bootstrap seta criadoPor, cria perfil admin + vínculo dono + seed, e faz flush(). Só Voto: sem os marcadores.
+        $soVoto = Produto::Voto === $input->produto;
+        $this->bootstrap->bootstrap($tenant, $user, semearMarcadores: !$soVoto);
+        if ($soVoto) {
+            $this->contratacaoDoCadastro->contratar($tenant, $user, Produto::Voto, $agora);
+        }
         $this->registrarAceiteECiencia($user, $tenant, $ip, $userAgent, $agora);
         if ($token !== null) {
             $this->confirmacaoEmailRepository->salvar(new ConfirmacaoEmail(
