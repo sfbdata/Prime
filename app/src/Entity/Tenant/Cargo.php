@@ -4,10 +4,11 @@ namespace App\Entity\Tenant;
 
 use App\Repository\CargoRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CargoRepository::class)]
-class Cargo implements Auditavel
+class Cargo implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

@@ -520,6 +520,13 @@ seguintes), com:
     `master_comercial_cota_dispensar`) manda a chave do episódio que o Master viu (`perto:AAAA-MM-DD` com o dia de hoje,
     ou `pausadas:AAAA-MM-DD` com o dia da volta); o controller só aceita esse formato, grava na sessão sem recalcular
     a situação, e o aviso some até o episódio mudar. Sem origem na Central de Notificações.
+  - **Hora de trocar de serviço (pedido do Farlei, 23/11/2026):** com **mais de 2.000** e-mails enviados em 24 h
+    (`CotaDeEnvio::TROCAR_DE_SERVICO_ACIMA_DE`, todos: campanha, automação e `sistema`), o aviso ganha o estado
+    `trocar` (atenção, "Hora de contratar outro serviço de e-mail"; `pausadas` manda sobre ele, e ele sobre `perto`;
+    chave `trocar:AAAA-MM-DD`), e a varredura de 15 min (`VarrerAutomacoesHandler`, passo `troca`) manda um e-mail a
+    cada Master ativo pelo `AvisoDeTrocaDoServicoDeEmail` (origem `aviso_troca_servico`, transacional, isenta do teto
+    diário). No máximo um a cada 24 h corridas: a guarda é o próprio registro dessa origem em `comercial_envio`. Só
+    avisa: nada é segurado por isso.
 
 ### 3.7 Layout base e rodapé
 

@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A chave "Escritório" de uma função do Ponto, na aba Configurações (spec docs/specs/ponto-desenho-0811.md, E7 e
@@ -36,6 +37,7 @@ final class FuncaoDoPontoController extends AbstractController
         private readonly PermissionChecker $permissoes,
         private readonly FuncoesDoPonto $funcoes,
         private readonly AlterarFuncaoDoPontoNoEscritorioUseCase $alterar,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -53,7 +55,7 @@ final class FuncaoDoPontoController extends AbstractController
 
         $input = AlterarFuncaoDoPontoInput::doJson($eu, $escritorio, $chave, $this->corpo($request));
         if ($input === null) {
-            return $this->json(['erro' => 'Informe se a função fica ligada ou desligada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.configuracoes.funcao_ligada_ou_desligada')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {

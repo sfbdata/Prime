@@ -575,8 +575,8 @@ final class DesfazerAlteracaoAuditLogUseCase
     }
 
     /**
-     * A entidade do log é do escritório? `pertenceAoTenant()` cobre a TenantAware e os cadastros Cargo, Sede e
-     * Lotação; o anexo e a interação do chamado não têm escritório próprio e provam pelo chamado (TenantAware).
+     * A entidade do log é do escritório? `pertenceAoTenant()` cobre a TenantAware (inclusive os cadastros Cargo, Sede e
+     * Lotação); o anexo e a interação do chamado não têm escritório próprio e provam pelo chamado (TenantAware).
      * Classe reversível sem dono conhecido não prova posse e recusa (o teste percorre `ENTIDADES_REVERSIVEIS`).
      */
     private function entidadeDoTenant(object $entity, int $tenantId): bool
@@ -603,16 +603,6 @@ final class DesfazerAlteracaoAuditLogUseCase
 
         if ($relacionado instanceof TenantAware) {
             return $relacionado->getTenant()?->getId() === $tenantId;
-        }
-
-        // Cadastros do escritório que têm dono (`getTenant()`) mas NÃO são `TenantAware` — de
-        // propósito: torná-los TenantAware os poria sob o TenantFilter e mudaria as consultas do
-        // admin (frente própria). Lista fechada, não "qualquer objeto com getTenant()": classe nova
-        // só entra aqui depois de conferida. Sem tenant (null) não prova posse e recusa.
-        if ($relacionado instanceof Cargo || $relacionado instanceof Sede || $relacionado instanceof Lotacao) {
-            $dono = $relacionado->getTenant()?->getId();
-
-            return $dono !== null && $dono === $tenantId;
         }
 
         if ($relacionado instanceof User) {

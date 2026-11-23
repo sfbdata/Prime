@@ -37,7 +37,7 @@ Como cada escritório fica:
 2. **A guarda do produto fica fora do `PermissionChecker`.** O primário (`isSystem`) e o Master passam em toda checagem de módulo (Service/PermissionChecker.php:44-58, :311, :330; relatório D2, P1). O produto é uma pergunta anterior; as camadas de hoje (docs/AUTORIZACAO.md §1) não mudam.
 3. **Produto não contratado = 404**, nunca 403 nem 503. O Master passa.
 4. **Desligar não apaga dado.** As rotas viram 404; religar devolve tudo.
-5. **Tudo nasce desligado** por `MULTIPRODUTO_MODO`. Desligados, a guarda, o menu, o destino pós-login e o resumo diário ficam como hoje (§11, D3).
+5. **Tudo nasce desligado** por `MULTIPRODUTO_MODO`. Desligados, a guarda e o menu ficam como hoje; o destino pós-login e o resumo diário seguem os produtos desde o PR 5, sem mudar nada para escritório sem linha (§11, D3).
 6. **No worker e na linha de comando a guarda não existe** (ela é `kernel.request`). Quem age por escritório fora de uma requisição pergunta ao serviço de produtos com o `Tenant` explícito e `tenant_id = :tenant` escrito à mão.
 7. **Dono = `DonoDoEscritorio::ehDono(User, Tenant)`** (Backup/Service/DonoDoEscritorio.php:17-24): compara `Tenant::getCriadoPor()` por id. Sem criador, ninguém é dono.
 8. **As travas que já existem continuam e somam-se à contratação:**
@@ -181,6 +181,7 @@ CREATE INDEX idx_contratacao_tenant ON contratacao (tenant_id);
 5. **Resumo diário.** O comando `app:perfil:resumo-diario` (Profile/Command/ResumoDiarioCommand.php:25) ainda não está agendado (Shared/Scheduler/AgendaDeTarefas.php:48-49). `EnviarResumoDiarioDoEscritorioUseCase::executar` (Profile/UseCase/EnviarResumoDiarioDoEscritorioUseCase.php:57) passa a devolver `semEnvio` quando o escritório não tem Expediente, com o tenant explícito.
 6. **Pré-requisito do lançamento:** a chave global `voto` ligada. Sem ela, o `BloqueioDeRecursoDesativado` responde 503.
 7. **Automações do Comercial.** As que o cadastro dispara (Comercial/EventListener/CicloDaContaListener.php:41) usam texto jurídico. O PR 5 confere quais disparam e pula o escritório só Voto, ou registra a pendência.
+   **Conferido no PR 5:** nos três caminhos atuais (e-mail, Google, Facebook) o `CicloDaContaListener` não dispara nada. `CadastroConfirmado` só sai do legado `ConfirmarCadastroUseCase`; `ConfirmacaoDeCadastroEnviada` só sai de `CadastroMailer::enviarConfirmacao` (legado; o cadastro novo usa `enviarConfirmacaoDeEmail`, sem evento); os convites não passam pelo cadastro. Sem linha em `ciclo_da_conta`, a dica de 7 dias também não alcança essas contas. **Pendência:** o e-mail de boas-vindas (`val`/`conv`) fala só do Expediente; se um dia for ligado ao cadastro novo, precisa de versão para o Voto. Os Termos de Uso e a Política gerais aceitos no cadastro ficam para os advogados conferirem.
 
 ## 6. Guarda do produto (PR 6, ALTO, desligada)
 
@@ -393,7 +394,7 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 
 - **D1.** Domínio novo `app/src/Produto/`.
 - **D2.** `MULTIPRODUTO_MODO` com três valores: `desligado`, `observacao` (registra sem bloquear) e `bloqueio`.
-- **D3.** A mesma chave governa a guarda, o menu, o destino pós-login e o resumo diário. Desligada, tudo fica como hoje.
+- **D3.** A mesma chave governa a guarda e o menu. Desligada, os dois ficam como hoje. **Ajuste do PR 5:** o destino pós-login e o resumo diário seguem os produtos sem esperar a chave. Escritório sem linha (todos os de hoje) continua indo ao Expediente e recebendo o resumo; só o escritório nascido pelo Voto, que só existe depois do PR 5, abre no Voto e fica sem o resumo. O PR 6 não liga a chave a esses dois.
 - **D4.** "Sem linha" = nenhuma linha em qualquer situação; só linhas encerradas deixam só o núcleo.
 - **D5.** (Samuel, 23/11: o cartão vale para todos.) Escritório sem linhas só ganha linhas na primeira vez que o dono **desliga** algo: o UseCase grava uma linha ativa para cada produto do catálogo, menos o escolhido (Voto e I.A. inclusive, porque a liberação continua valendo à parte), na mesma transação e sob trava por escritório. Escritório com linha `completo` (posta pelo Master) segue a mesma regra: a `completo` é encerrada e trocada pelas linhas. Consequência aceita: depois disso, um produto novo que entrar no catálogo não liga sozinho para esse escritório; o dono liga no cartão ou o Master põe `completo` de novo.
 - **D6.** O Voto entra no cartão: liga (contratação e `LiberacaoDoVoto`) e desliga sem assembleia aberta. Desligar encerra só a contratação e não mexe na `LiberacaoDoVoto`; com a contratação encerrada, a guarda fecha as rotas e o cartão mostra desligado.
