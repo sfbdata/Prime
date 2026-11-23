@@ -9,6 +9,7 @@ use App\Backup\Enum\SituacaoDoBackup;
 use App\Backup\Repository\PedidoDeBackupRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -18,13 +19,14 @@ use Doctrine\ORM\Mapping as ORM;
  * escritório do pedido; a coluna guarda só o nome).
  *
  * Ciclo: pedido, montando, pronto (até `expira_em`) e vencido; ou falhou. Só quem pediu, no mesmo escritório, baixa
- * ({@see podeSerBaixadoPor()}). Não é `Auditavel`: o worker grava sem usuário logado, e o pedido e o download são
- * auditados à mão pelos UseCases (ações `backup` e `backup_dl`).
+ * ({@see podeSerBaixadoPor()}). É `Auditavel`: o pedido fica na trilha com quem pediu e o escritório; as mudanças de
+ * situação feitas pelo worker entram sem pessoa logada, como as de outras tarefas em segundo plano. O download não muda a
+ * entidade e é auditado à mão (ação `backup_dl`).
  */
 #[ORM\Entity(repositoryClass: PedidoDeBackupRepository::class)]
 #[ORM\Table(name: 'pedido_de_backup')]
 #[ORM\Index(name: 'idx_pedido_de_backup_pessoa', columns: ['tenant_id', 'usuario_id', 'pedido_em'])]
-class PedidoDeBackup implements TenantAware
+class PedidoDeBackup implements TenantAware, Auditavel
 {
     /** Tamanho da coluna `erro`: o motivo é curto e nunca leva dado de cliente. */
     public const TAMANHO_DO_ERRO = 255;

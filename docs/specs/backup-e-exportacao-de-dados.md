@@ -29,7 +29,8 @@ baixar por alguns dias. O ZIP traz os arquivos (documentos) e os dados (registro
 5. **Nunca link público.** Download só por rota autenticada.
 6. **Fora do ZIP, sempre:** senhas e hashes, tokens (Google, integrações), segredos, `audit_log` bruto,
    dados de outros escritórios, painel do Master, selfies de signatários da Assinatura.
-7. **Auditoria** de cada pedido e de cada download no `audit_log` (ação curta: `backup` e `backup_dl`).
+7. **Auditoria** de cada pedido e de cada download no `audit_log`: o `PedidoDeBackup` é `Auditavel` (criação e
+   mudanças de situação entram pela trilha automática) e o download é registrado à mão (ação curta `backup_dl`).
 
 ## 3. Modelo (PR 1)
 
