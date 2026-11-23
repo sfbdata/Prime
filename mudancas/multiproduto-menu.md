@@ -4,7 +4,7 @@ tipo: novidade
 ## Changelog
 - Função Twig `produto_inclui('x')` (aceita lista; basta um) e `produto_rota_inicial()` em `App\Produto\Twig\ProdutoExtension`, sobre o serviço `ProdutosNaTela` (mesma régua da guarda: tudo com a chave `MULTIPRODUTO_MODO` desligada, sem login, para o Master ou sem escritório na sessão).
 - Menu lateral, barra secundária do Expediente, modal, atalho e pendência do Ponto, lembretes da Agenda e busca rápida passam a seguir os produtos do escritório quando a chave estiver ligada. A barra secundária fica, vazia, para manter a altura do cabeçalho.
-- O logo leva à tela inicial do escritório (`PaginaInicialDoEscritorio`): o Expediente para todos os escritórios de hoje, o Voto para quem nasceu pelo site do Voto.
+- O logo leva a `/inicio` (`homepage`), que redireciona para a tela inicial do escritório (`PaginaInicialDoEscritorio`): o Expediente para todos os escritórios de hoje, o Voto para quem nasceu pelo site do Voto. O destino só é calculado no clique, sem consulta a mais em cada página.
 - `ia_disponibilidade()` responde "desligada no escritório" para escritório sem a I.A. (chave ligada).
 - Cadastro: o "Criar conta" avisa quando a conta vai nascer só com o Voto e oferece a conta com todas as ferramentas (`/cadastro?produto=completo` tira o produto da sessão).
 
