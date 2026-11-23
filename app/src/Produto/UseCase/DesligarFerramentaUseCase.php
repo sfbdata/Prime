@@ -56,6 +56,9 @@ final class DesligarFerramentaUseCase
         if (Produto::Voto === $produto && $this->assembleias->existeAbertaNoEscritorio($tenant)) {
             throw FerramentaRecusadaException::assembleiaAberta();
         }
+        if ($this->contratacoes->eOUnicoLigado($tenant, $produto)) {
+            throw FerramentaRecusadaException::ultimaFerramenta();
+        }
 
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());
         $this->contratacoes->excluir($tenant, $produto, OrigemDaContratacao::Dono, $dono, $agora);

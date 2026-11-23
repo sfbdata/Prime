@@ -50,6 +50,9 @@ final class TravaDoMasterNasAbasTest extends JusPrimeWebTestCase
         $master = $this->master();
 
         $this->comoMaster($master);
+        $this->postarNoMaster('/master/voto/escritorios/' . $tenant->getId(), ['liberado' => true], VotoDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->linhasDo($tenant), 'liberar num escritório sem linhas não grava linha');
         $this->postarNoMaster('/master/voto/escritorios/' . $tenant->getId(), ['liberado' => false], VotoDoMasterController::TOKEN);
         self::assertResponseIsSuccessful();
         self::assertTrue($this->trava()->travadoPeloMaster($this->tenantDoBanco($tenant), Produto::Voto));
@@ -97,6 +100,26 @@ final class TravaDoMasterNasAbasTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertFalse($this->trava()->travadoPeloMaster($this->tenantDoBanco($tenant), Produto::Ia));
         self::assertSame(['expediente', 'ia'], $this->ativosDo($tenant));
+    }
+
+    #[TestDox('D16: salvar "bloqueado" num escritório que nunca foi liberado não é trava; o dono liga o Voto e a I.A.')]
+    public function testNuncaLiberadoNaoTrava(): void
+    {
+        $tenant = $this->escritorio();
+        $dono = $this->dono($tenant);
+
+        $this->comoMaster($this->master());
+        $this->postarNoMaster('/master/voto/escritorios/' . $tenant->getId(), ['liberado' => false], VotoDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        $this->postarNoMaster('/master/ia/escritorios/' . $tenant->getId(), ['liberada' => false, 'modoDeCobranca' => 'incluso', 'orcamento' => '7'], IaDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([], $this->linhasDo($tenant), 'nenhuma linha: o escritório continua completo');
+        $this->logarComTenant($this->client, $dono, $tenant);
+        $this->postarFerramenta('voto', ['ligar' => true]);
+        self::assertResponseIsSuccessful();
+        $this->postarFerramenta('ia', ['ligar' => true]);
+        self::assertResponseIsSuccessful();
     }
 
     private function master(): User

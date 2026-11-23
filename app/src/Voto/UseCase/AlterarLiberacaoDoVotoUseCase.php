@@ -45,6 +45,9 @@ final class AlterarLiberacaoDoVotoUseCase
         GuardaDoMasterDoVoto::exigir($master);
         $tenant = $this->escritorioAtivo($tenantId);
         $liberacao = $this->liberacoes->findDoTenantParaOMaster($tenant) ?? new LiberacaoDoVoto($tenant);
+        // D16: só a TROCA de estado mexe na contratação. Salvar "bloqueado" num escritório que nunca foi liberado não é
+        // trava (o estado de hoje deixa o dono ligar).
+        $estava = null !== $liberacao->getId() && $liberacao->isLiberado();
 
         if ($liberado) {
             $liberacao->liberar();
@@ -55,9 +58,11 @@ final class AlterarLiberacaoDoVotoUseCase
         // A auditoria vai para o escritório alterado, não para o da sessão do Master.
         $this->escopoDePlataforma->executarComoConta(
             (int) $tenant->getId(),
-            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $liberacao, $liberado, $master): void {
+            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $liberacao, $liberado, $estava, $master): void {
                 $this->liberacoes->salvar($liberacao, flush: true);
-                $this->ajustarContratacao($tenant, $liberado, $master);
+                if ($estava !== $liberado) {
+                    $this->ajustarContratacao($tenant, $liberado, $master);
+                }
             }),
         );
     }

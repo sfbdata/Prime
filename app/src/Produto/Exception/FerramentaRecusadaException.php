@@ -40,4 +40,10 @@ final class FerramentaRecusadaException extends \DomainException
     {
         return new self('O Voto tem uma assembleia em andamento. Desligue depois que ela acabar.', Response::HTTP_UNPROCESSABLE_ENTITY);
     }
+
+    /** D7: o escritório fica com pelo menos uma ferramenta ligada. */
+    public static function ultimaFerramenta(): self
+    {
+        return new self('Esta é a última ferramenta ligada do escritório. Ligue outra antes de desligar esta.', Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
 }

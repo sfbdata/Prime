@@ -71,6 +71,22 @@ class ContratacoesDoEscritorio
     }
 
     /** Liga o produto. Sem linha nenhuma, com `completo` ativa ou com o produto já ativo, não grava nada. */
+    /**
+     * D7: o produto é o único ligado? Conta os produtos ligados de fato (sem linha ou com `completo` ativa, todos),
+     * nunca o número de linhas.
+     */
+    public function eOUnicoLigado(Tenant $tenant, Produto $produto): bool
+    {
+        $ativos = [];
+        foreach ($this->contratacoes->todasDoTenant($tenant) as $linha) {
+            if (SituacaoDaContratacao::Ativa === $linha->getSituacao()) {
+                $ativos[$linha->getProduto()->value] = $linha->getProduto();
+            }
+        }
+
+        return [$produto->value] === array_keys($ativos);
+    }
+
     public function incluir(Tenant $tenant, Produto $produto, OrigemDaContratacao $origem, ?User $por, \DateTimeImmutable $agora): void
     {
         $linhas = $this->contratacoes->todasDoTenant($tenant);

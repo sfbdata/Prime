@@ -48,6 +48,9 @@ final class AlterarIaDoEscritorioUseCase
         GuardaDoMasterDaIa::exigir($master);
         $tenant = $this->escritorioAtivo($input->tenantId);
         $configuracao = $this->configuracoes->findDoTenantParaOMaster($tenant) ?? new ConfiguracaoDeInteligencia($tenant);
+        // D16: só a TROCA de estado mexe na contratação. Trocar só o teto, ou salvar "bloqueada" num escritório que nunca
+        // foi liberado, não é trava (o estado de hoje deixa o dono ligar).
+        $estava = null !== $configuracao->getId() && $configuracao->isLiberadaPeloMaster();
 
         if ($input->liberada) {
             $configuracao->liberarPeloMaster();
@@ -59,9 +62,11 @@ final class AlterarIaDoEscritorioUseCase
         // A auditoria vai para o escritório alterado, não para o da sessão do Master.
         $this->escopoDePlataforma->executarComoConta(
             (int) $tenant->getId(),
-            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $configuracao, $input, $master): void {
+            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $configuracao, $input, $estava, $master): void {
                 $this->configuracoes->salvar($configuracao, flush: true);
-                $this->ajustarContratacao($tenant, $input->liberada, $master);
+                if ($estava !== $input->liberada) {
+                    $this->ajustarContratacao($tenant, $input->liberada, $master);
+                }
             }),
         );
     }

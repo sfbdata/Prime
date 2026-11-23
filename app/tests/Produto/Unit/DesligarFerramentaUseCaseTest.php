@@ -111,6 +111,15 @@ final class DesligarFerramentaUseCaseTest extends TestCase
         self::assertSame(422, $this->recusa($this->dono, Produto::Voto)->status);
     }
 
+    #[TestDox('D7: a última ferramenta ligada não desliga (422) e nada é encerrado')]
+    public function testUltimaFerramentaNaoDesliga(): void
+    {
+        $this->contratacoes->method('eOUnicoLigado')->with($this->tenant, Produto::Ponto)->willReturn(true);
+        $this->contratacoes->expects($this->never())->method('excluir');
+
+        self::assertSame(422, $this->recusa($this->dono, Produto::Ponto)->status);
+    }
+
     #[TestDox('desligar o Voto: encerra a contratação (origem dono) e bloqueia a liberação existente')]
     public function testDesligaOVoto(): void
     {
