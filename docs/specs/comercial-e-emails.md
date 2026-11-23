@@ -33,7 +33,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
     rigor ALTO; o e-mail sai do ouvinte, e a falha dele não desfaz o cadastro.
   - C2: aberturas (pixel) e cliques (link rastreado) entram, em números e CSV por campanha, sem gráfico; a Política de
     Privacidade precisa citar o rastreio (rascunho da f6, com o advogado).
-  - C4: "Enviar teste" vai ao Master logado.
+  - C4 (caiu em 23/11/2026, pedido do Farlei M5 item 8, decisão do Coordenador): "Enviar teste" vai a até 5 endereços
+    digitados (sem endereço, só ao Master logado); ver §8.4.
   - P3a: o `e90` oferece 80, 85 e 90% como no dc. P3b: o `lemb` manda um link novo, uma vez só.
   - P5: migrar os e-mails antigos para o Carteiro é follow-up fora desta frente.
   - Vazão 20/min e 1.500/dia, configurável, até o dono responder. **Revisto em 23/10/2026** (Q1 respondida: Hostinger
@@ -719,11 +720,10 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
 
 ### 8.4 Enviar teste (2a) e campanha (2b)
 
-**Enviar teste (C4):** monta como a campanha e manda ao Master logado, `tipo = lista`, lista `comercial_campanhas`,
+**Enviar teste (a C4, "só ao Master", caiu em 23/11/2026: pedido do Farlei M5 item 8, decisão do Coordenador):** monta como a campanha e manda a de 1 a 5 endereços do campo "Enviar para" (vírgula, ponto e vírgula ou espaço; sem endereço, só ao Master logado), `tipo = lista`, lista `comercial_campanhas`,
 origem `teste_campanha` (fora do prefixo `campanha:` que o Monitoramento agrupa), `layout` conforme o modo. Isento do
 teto diário: a lista `EnviarEmailHandler::ORIGENS_DO_CICLO_DA_CONTA` vira `ORIGENS_ISENTAS_DO_TETO_DIARIO` (ciclo da
-conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master. Mensagens: "Teste enviado para EMAIL.";
-descadastrado da lista: "Você está descadastrado da lista de campanhas; o teste não foi enviado."; teto: "Limite de 10
+conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master, em que cada endereço conta 1 (soma do `total` das linhas de teste dele; pedido que passa do que resta é recusado inteiro). Descadastro é por endereço: o teste sai para os outros. Cada clique grava uma linha `teste` com os destinos ligados aos envios e `camp_teste` `{total}` na trilha. Mensagens: "Teste enviado para A, B." e "Não enviado para C (descadastrado da lista)."; todos descadastrados: recusa; endereço: "Informe de 1 a 5 endereços." / "Endereço inválido: X."; teto: "Limite de 10
 testes por hora atingido." (R13, R14)
 
 **`comercial_campanha` (2b):** `id`, `chave_idempotencia` (UNIQUE), `nome` (= assunto, como o dc), cópia congelada do
@@ -920,7 +920,8 @@ comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedi
 - "Cancelar envio" de recorrente = Encerrar (A3); o dc não tem "Pausar".
 
 ### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
-- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): contraria a C4 (só o Master logado).
+- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): resolvido em 23/11/2026 (pedido do Farlei M5 item 8;
+  a C4 caiu). Está implementado: até 5 endereços, 10 testes por hora por Master.
 - Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
   retenção e URL pública.
 - "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).

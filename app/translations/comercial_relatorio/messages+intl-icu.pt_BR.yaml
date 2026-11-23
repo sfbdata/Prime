@@ -45,12 +45,13 @@ comercial_relatorio:
         duplicar: Duplicar como nova
         reenviar: Reenviar a quem não leu
         encaminhar: Encaminhar para um e-mail
-        encaminhar_motivo: Envio de teste para outros endereços ainda não disponível.
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
         excluir: Excluir do relatório
     js:
+        encaminhar_pergunta: 'Encaminhar esta campanha (como teste) para:'
+        encaminhado: 'Encaminhado para {para}.'
         erro_concluir: Não foi possível concluir. Recarregue a página.
         linha_dica: Abrir · botão direito para mais opções
         selecionar: Selecionar
