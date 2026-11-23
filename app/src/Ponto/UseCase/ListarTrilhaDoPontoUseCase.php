@@ -9,10 +9,14 @@ use App\Ponto\DTO\PaginaDaTrilhaDoPontoOutput;
 use App\Ponto\Enum\AcaoDaTrilhaDoPonto;
 use App\Ponto\Repository\TrilhaDoPontoRepository;
 use App\Ponto\Service\DetalheDaTrilhaDoPonto;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Uma página da aba Auditoria do Ponto (E9, P64): os eventos do escritório, o mais recente primeiro, em texto de tela
  * (rótulo da ação, detalhe legível, selo abreviado), e a conferência da cadeia para o cabeçalho.
+ *
+ * Com o tradutor (a tela), o rótulo da ação, o "Sistema" e o detalhe saem no idioma da pessoa; sem ele (testes de banco),
+ * em português. Nada do que sai daqui é gravado: o detalhe do banco segue selado e é redigido de novo a cada leitura.
  *
  * Quem: só lê; a permissão (`GestaoDoPonto::veAuditoria`) é de quem chama. Página fora do intervalo cai na última.
  */
@@ -27,6 +31,7 @@ final class ListarTrilhaDoPontoUseCase
     public function __construct(
         private readonly TrilhaDoPontoRepository $trilha,
         private readonly ConferirTrilhaDoPontoUseCase $conferir,
+        private readonly ?TranslatorInterface $tradutor = null,
     ) {
     }
 
@@ -37,12 +42,13 @@ final class ListarTrilhaDoPontoUseCase
         $paginas  = max(1, (int) ceil($total / self::POR_PAGINA));
         $pagina   = min(max(1, $pagina), $paginas);
 
+        $tradutor = $this->tradutor;
         $eventos = array_map(static fn (array $linha): array => [
             'sequencia' => $linha['sequencia'],
             'dataHora'  => (new \DateTimeImmutable($linha['em']))->format('d/m/Y, H:i:s'),
-            'autor'     => $linha['autor_nome'] ?? 'Sistema',
-            'acao'      => AcaoDaTrilhaDoPonto::rotuloDe($linha['acao']),
-            'detalhe'   => DetalheDaTrilhaDoPonto::texto($linha['acao'], $linha['detalhe']),
+            'autor'     => $linha['autor_nome'] ?? ($tradutor?->trans(DetalheDaTrilhaDoPonto::chaveDoTexto('sistema')) ?? 'Sistema'),
+            'acao'      => $tradutor === null ? AcaoDaTrilhaDoPonto::rotuloDe($linha['acao']) : AcaoDaTrilhaDoPonto::rotuloTraduzidoDe($linha['acao'], $tradutor),
+            'detalhe'   => $tradutor === null ? DetalheDaTrilhaDoPonto::texto($linha['acao'], $linha['detalhe']) : DetalheDaTrilhaDoPonto::textoTraduzido($linha['acao'], $linha['detalhe'], $tradutor),
             'selo'      => $linha['selo'],
             'seloCurto' => $linha['selo'] === null ? null : substr($linha['selo'], 0, self::SELO_CURTO),
         ], $this->trilha->pagina($tenantId, ($pagina - 1) * self::POR_PAGINA, self::POR_PAGINA));
