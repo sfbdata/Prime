@@ -382,7 +382,8 @@
                 }
                 if (!r.j.trancada && cadCartao) { cadCartao.remove(); }
             });
-            var cel = linha.querySelector('td[data-col="nup"]');
+            // M5.7: o número e os ícones moram no contêiner flexível da célula (.exp-nup-cel).
+            var cel = linha.querySelector('td[data-col="nup"] > .exp-nup-cel') || linha.querySelector('td[data-col="nup"]');
             var cad = cel ? cel.querySelector('.js-cadeado') : null;
             if (r.j.trancada && cel && !cad) {
                 cad = document.createElement('i');
