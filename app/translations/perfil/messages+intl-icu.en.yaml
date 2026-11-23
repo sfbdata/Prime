@@ -126,7 +126,7 @@ perfil:
         desligar: Turn off
         ligou: 'Tool turned on. Custom roles do not get access on their own:'
         ajuste_perfis: Adjust access in Roles
-        aceite_ia: A.I. consent pending
+        aceite_ia: BlueJus AI consent pending
         erro_generico: Could not change the tool right now. Try again.
         estado:
             ligada: On
@@ -135,13 +135,13 @@ perfil:
             indisponivel: Unavailable at the moment
         produto:
             expediente: Docket
-            ia: A.I.
+            ia: BlueJus AI
             cobrancas: Collections
             calculo: Calculation
             kanban: Kanban
             assinatura: Signature
             ponto: Time Clock
-            voto: Vote
+            voto: Voting
     exclusao:
         titulo: Delete firm account
         pendente_sub: 'Request made on {data} · reason: {motivo}. The team has no access until the Master finishes.'

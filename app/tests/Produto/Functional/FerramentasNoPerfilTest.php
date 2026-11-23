@@ -86,15 +86,61 @@ final class FerramentasNoPerfilTest extends JusPrimeWebTestCase
     public function testTravadaPeloMaster(): void
     {
         $tenant = $this->escritorio();
-        $servico = static::getContainer()->get(ContratacoesDoEscritorio::class);
-        $real = $this->em()->find(Tenant::class, $tenant->getId());
-        self::assertNotNull($real);
-        $servico->sobTrava($real, fn () => $servico->excluir($real, Produto::Kanban, OrigemDaContratacao::Master, null, new \DateTimeImmutable()));
+        $this->mexer($tenant, Produto::Kanban, OrigemDaContratacao::Master, false);
         $cartao = $this->cartaoDo($tenant);
 
         self::assertSame('travada', $this->estado($cartao, 'kanban'));
         self::assertCount(0, $this->botao($cartao, 'kanban'));
         self::assertSame('ligada', $this->estado($cartao, 'expediente'));
+    }
+
+    #[TestDox('`completo` ativa (posta pelo Master): as ferramentas aparecem ligadas, como no escritório sem linhas')]
+    public function testCompletoAtiva(): void
+    {
+        $tenant = $this->escritorio(Produto::Completo);
+        $cartao = $this->cartaoDo($tenant);
+
+        self::assertSame('ligada', $this->estado($cartao, 'kanban'));
+        self::assertSame('ligada', $this->estado($cartao, 'expediente'));
+    }
+
+    #[TestDox('desligada pelo dono: "Desligada" com o botão Ligar, nunca a trava do Master; o Master religando destrava')]
+    public function testDonoDesligouEMasterReligou(): void
+    {
+        $tenant = $this->escritorio(Produto::Expediente, Produto::Kanban, Produto::Ponto);
+        $this->mexer($tenant, Produto::Kanban, OrigemDaContratacao::Dono, false);
+        $cartao = $this->cartaoDo($tenant);
+        self::assertSame('desligada', $this->estado($cartao, 'kanban'));
+        self::assertSame('1', $this->botao($cartao, 'kanban')->attr('data-ligar'));
+
+        $this->mexer($tenant, Produto::Ponto, OrigemDaContratacao::Master, false);
+        $this->mexer($tenant, Produto::Ponto, OrigemDaContratacao::Master, true);
+        self::assertSame('ligada', $this->estado($this->cartaoDo($tenant), 'ponto'), 'a última linha do Ponto é a religada pelo Master');
+    }
+
+    #[TestDox('o cartão é do escritório da sessão: o dono de A, entrando em B (onde não é o dono), não o vê')]
+    public function testEscritorioDaSessao(): void
+    {
+        $a = $this->escritorio();
+        $b = $this->escritorio();
+        $pessoa = $this->primario($a, $b);
+        $this->em()->find(Tenant::class, $a->getId())?->setCriadoPor($pessoa);
+        $this->em()->flush();
+
+        $this->logarComTenant($this->client, $pessoa, $b);
+        self::assertCount(0, $this->client->request('GET', '/perfil')->filter('#mpFerramentas'));
+
+        $this->logarComTenant($this->client, $pessoa, $a);
+        self::assertCount(1, $this->client->request('GET', '/perfil')->filter('#mpFerramentas'));
+    }
+
+    #[TestDox('escritório sem dono gravado (sem criador): ninguém vê o cartão')]
+    public function testSemDono(): void
+    {
+        $tenant = $this->escritorio();
+        $this->logarComTenant($this->client, $this->primario($tenant), $tenant);
+
+        self::assertCount(0, $this->client->request('GET', '/perfil')->filter('#mpFerramentas'));
     }
 
     #[TestDox('quem não é o dono (outro primário do escritório) não vê o cartão')]
@@ -141,6 +187,16 @@ final class FerramentasNoPerfilTest extends JusPrimeWebTestCase
             $estado->desativar(null, null, null, new \DateTimeImmutable());
         }
         $this->em()->flush();
+    }
+
+    private function mexer(Tenant $tenant, Produto $produto, OrigemDaContratacao $origem, bool $ligar): void
+    {
+        $servico = static::getContainer()->get(ContratacoesDoEscritorio::class);
+        $real = $this->em()->find(Tenant::class, $tenant->getId());
+        self::assertNotNull($real);
+        $servico->sobTrava($real, fn () => $ligar
+            ? $servico->incluir($real, $produto, $origem, null, new \DateTimeImmutable())
+            : $servico->excluir($real, $produto, $origem, null, new \DateTimeImmutable()));
     }
 
     private function cartaoDo(Tenant $tenant): Crawler

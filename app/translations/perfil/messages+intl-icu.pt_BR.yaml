@@ -133,7 +133,7 @@ perfil:
         desligar: Desligar
         ligou: 'Ferramenta ligada. Os perfis próprios não ganham acesso sozinhos:'
         ajuste_perfis: Ajuste o acesso em Perfis
-        aceite_ia: Falta o aceite da I.A.
+        aceite_ia: Falta o aceite da BlueJus IA
         erro_generico: Não foi possível mudar a ferramenta agora. Tente de novo.
         estado:
             ligada: Ligada
@@ -142,12 +142,12 @@ perfil:
             indisponivel: Indisponível no momento
         produto:
             expediente: Expediente
-            ia: I.A.
+            ia: BlueJus IA
             cobrancas: Cobranças
             calculo: Cálculo
             kanban: Kanban
             assinatura: Assinatura
-            ponto: Ponto
+            ponto: Ponto Eletrônico
             voto: Voto
     exclusao:
         titulo: Excluir conta do escritório

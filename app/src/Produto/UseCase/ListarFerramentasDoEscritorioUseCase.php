@@ -7,6 +7,7 @@ namespace App\Produto\UseCase;
 use App\Backup\Service\DonoDoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Master\Service\RecursosDoSistema;
@@ -48,22 +49,28 @@ final class ListarFerramentasDoEscritorioUseCase
         }
 
         $travados = $this->contratacoes->travadosPeloMaster($tenant);
+        $ia = $this->configuracoes->findDoTenant($tenant);
         $lista = [];
         foreach (Produto::ferramentas() as $produto) {
-            $estado = $this->estado($tenant, $produto, $travados);
+            $estado = $this->estado($tenant, $produto, $travados, $ia);
             $lista[] = new FerramentaDoCartaoOutput(
                 $produto->value,
                 CatalogoDeProdutos::icone($produto),
                 $estado,
-                Produto::Ia === $produto && FerramentaDoCartaoOutput::LIGADA === $estado && !$this->iaComAceite($tenant),
+                Produto::Ia === $produto && FerramentaDoCartaoOutput::LIGADA === $estado && !self::comAceite($ia),
             );
         }
 
         return $lista;
     }
 
-    /** @param list<Produto> $travados */
-    private function estado(Tenant $tenant, Produto $produto, array $travados): string
+    /**
+     * Indisponível vem antes de tudo: com a chave global desligada nem o Desligar aparece (o dono não mexe durante a
+     * pausa; a contratação fica como está).
+     *
+     * @param list<Produto> $travados
+     */
+    private function estado(Tenant $tenant, Produto $produto, array $travados, ?ConfiguracaoDeInteligencia $ia): string
     {
         if (!$this->disponivelNaPlataforma($produto)) {
             return FerramentaDoCartaoOutput::INDISPONIVEL;
@@ -72,7 +79,7 @@ final class ListarFerramentasDoEscritorioUseCase
             return FerramentaDoCartaoOutput::TRAVADA;
         }
 
-        return $this->produtos->inclui($tenant, $produto) && $this->liberadoHoje($tenant, $produto)
+        return $this->produtos->inclui($tenant, $produto) && $this->liberadoHoje($tenant, $produto, $ia)
             ? FerramentaDoCartaoOutput::LIGADA
             : FerramentaDoCartaoOutput::DESLIGADA;
     }
@@ -86,19 +93,17 @@ final class ListarFerramentasDoEscritorioUseCase
         };
     }
 
-    private function liberadoHoje(Tenant $tenant, Produto $produto): bool
+    private function liberadoHoje(Tenant $tenant, Produto $produto, ?ConfiguracaoDeInteligencia $ia): bool
     {
         return match ($produto) {
             Produto::Voto => true === $this->liberacoes->findDoTenant($tenant)?->isLiberado(),
-            Produto::Ia => true === $this->configuracoes->findDoTenant($tenant)?->isLiberadaPeloMaster(),
+            Produto::Ia => true === $ia?->isLiberadaPeloMaster(),
             default => true,
         };
     }
 
-    private function iaComAceite(Tenant $tenant): bool
+    private static function comAceite(?ConfiguracaoDeInteligencia $ia): bool
     {
-        $configuracao = $this->configuracoes->findDoTenant($tenant);
-
-        return null !== $configuracao && $configuracao->isHabilitada() && null !== $configuracao->getConsentimentoEnvioExternoEm();
+        return null !== $ia && $ia->isHabilitada() && null !== $ia->getConsentimentoEnvioExternoEm();
     }
 }
