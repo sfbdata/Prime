@@ -210,7 +210,7 @@ Na mesma prioridade a ordem não é garantida, por isso a guarda não depende de
 2. rota de núcleo, pública ou plataforma;
 3. ninguém logado (o firewall já barra rota não pública);
 4. Master;
-5. sem escritório. O escritório é o `{tenantId}` da rota, quando existe (TenantUrlScopeListener.php:38-45); senão, `TenantContext::getCurrentTenant()` (Service/Tenant/TenantContext.php:37). Rota sem escritório fica com a guarda da própria ação (AUTORIZACAO.md, "Rotas que funcionam sem escritório").
+5. sem escritório. O escritório é o `{tenantId}` da rota, quando existe (TenantUrlScopeListener.php:38-45); senão, `TenantContext::getCurrentTenant()` (Service/Tenant/TenantContext.php:37). Rota sem escritório fica com a guarda da própria ação (AUTORIZACAO.md, "Rotas que funcionam sem escritório"). É por aqui que o Convidado do Trabalho Externo (rotas com `_sem_escritorio`) passa: sem escritório na sessão, a guarda não age; com escritório, as rotas `trabalho_externo_*` são do Expediente (§3.1), como no `TenantContextValidatorListener`.
 
 Nos demais casos, se nenhum produto da rota estiver incluído:
 
@@ -218,6 +218,8 @@ Nos demais casos, se nenhum produto da rota estiver incluído:
 - no modo `bloqueio`, lança `NotFoundHttpException` (como PapelDoContainer.php:58-61).
 
 ### 6.1 Riscos multi-tenant e de autorização
+
+- **`{tenantId}` de outro escritório (risco aceito no PR 6):** a guarda usa o escritório da URL, e o `TenantUrlScopeListener` não confere vínculo (quem nega é o controller). Em `bloqueio`, uma URL de escritório alheio responde 404 se ele não tem o produto e 403 do controller se tem: dá para deduzir o contrato de outro escritório pelo código da resposta. Não há escalada (o controller nega nos dois casos) e a existência do escritório já se deduzia antes. Fechar exige o legado responder 404 também; fica para quando essas telas forem para o domínio.
 
 - **Worker:** a guarda não roda. Para a I.A., quem trava o segundo plano é a `DisponibilidadeDeInteligencia`, que exige `liberadaPeloMaster` (Inteligencia/Service/DisponibilidadeDeInteligencia.php:104). Por isso existe a D15.
 - **Rotas públicas:**
@@ -405,7 +407,7 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 - **D10.** Ligar o Voto pelo Master também libera a `LiberacaoDoVoto`.
 - **D11.** O Conector (`conector_admin_`, `conector_perfil_` e `LiberacaoDoConector::exigir`) fica no **Expediente**. Ele usa a I.A. da conta da própria pessoa, sem custo Anthropic para o BlueJus (CatalogoDeRecursos.php:93), e as ferramentas dele leem pastas e clientes.
 - **D12.** Rotas ambíguas como na §3.1.
-- **D13.** O Master em produto não contratado vai só para o log de observação, não para o `audit_log`.
+- **D13.** O Master em produto não contratado não vai para o `audit_log`. **Ajuste do PR 6:** também não vai para o log de observação; a guarda sai antes de conferir o produto (§6, caso 4), como o molde `BloqueioDeRecursoDesativado`.
 - **D14.** O teto padrão só é gravado quando o `orcamentoMensalCentavos` do escritório está nulo. Desligar e religar não muda o teto que o Master ajustou, e trocar o padrão não mexe nos tetos já gravados.
 - **D16. Veto do Master.** O Samuel quer o dono ligando Voto e I.A. sozinho, mas o Master precisa poder travar um escritório. A trava é a última linha do produto **encerrada com `origem = 'master'`** (marca estável, já no CHECK, sem coluna nova; não depende de o usuário Master continuar existindo, porque `alterada_por_id` é `ON DELETE SET NULL`). Com ela, o dono não religa o produto (422) e o cartão mostra "Desligada pelo BlueJus"; só o Master religa. O estado de hoje (Voto ou I.A. nunca liberados) **não** é trava: o dono pode ligar. **No PR 8** (junto com o cartão, para não abrir janela em que o dono desfaz um bloqueio do Master): os bloqueios das abas de hoje "Voto" e "I.A." (`AlterarLiberacaoDoVotoUseCase`, `AlterarIaDoEscritorioUseCase`) passam a encerrar também a contratação do produto com `origem = 'master'` (materializando, se preciso), e a liberação feita pelo Master nessas abas reabre a contratação com `origem = 'master'`. A aba Produtos do PR 9 usa a mesma regra.
 - **D15.** Desligar a I.A. também desliga `liberadaPeloMaster` (`bloquearPeloMaster()`). Os trabalhos em segundo plano não passam pela guarda e só olham `isLiberadaPeloMaster()` (DisponibilidadeDeInteligencia.php:104); só encerrar a contratação deixaria o gasto correr. O aceite fica guardado.

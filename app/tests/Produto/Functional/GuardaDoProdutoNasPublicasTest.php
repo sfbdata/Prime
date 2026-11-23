@@ -49,15 +49,15 @@ final class GuardaDoProdutoNasPublicasTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful('logado num escritório sem o Voto');
     }
 
-    #[TestDox('bloqueio: rota do Trabalho Externo com _sem_escritorio passa para quem está num escritório sem o Expediente')]
-    public function testTrabalhoExternoSemEscritorioPassa(): void
+    #[TestDox('bloqueio: com escritório só Voto na sessão, a rota _sem_escritorio do Trabalho Externo dá 404 (o Convidado, sem escritório na sessão, passa pela saída "sem escritório", como no TenantContextValidatorListener)')]
+    public function testTrabalhoExternoComEscritorioSemExpediente(): void
     {
         $soVoto = $this->escritorio(Produto::Voto);
         $this->logarComTenant($this->client, $this->primario($soVoto), $soVoto);
 
         $this->client->request('GET', '/trabalho-externo/api/painel');
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(404);
     }
 
     /** Assembleia publicada, com pauta aberta e uma unidade, num escritório só Voto com o Voto liberado. */

@@ -6,7 +6,6 @@ namespace App\Produto\EventListener;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\EventListener\TenantContextValidatorListener;
 use App\Master\Service\RegraDosMasters;
 use App\Produto\DTO\ClassificacaoDaRota;
 use App\Produto\Enum\ModoDoMultiproduto;
@@ -33,9 +32,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * camadas de permissão de hoje (docs/AUTORIZACAO.md) continuam iguais e vêm depois desta pergunta.
  *
  * Sai sem agir quando: o modo é `desligado`; a requisição não é a principal (a página de erro é sub-requisição);
- * a rota é de núcleo, pública ou plataforma (ou interna do framework, começada por `_`); a rota leva o default
- * `_sem_escritorio` (o Convidado do Trabalho Externo, sem vínculo com escritório, nunca leva 404); ninguém está
- * logado; é o Master; não há escritório.
+ * a rota é de núcleo, pública ou plataforma (ou interna do framework, começada por `_`); ninguém está logado; é o
+ * Master; não há escritório. O Convidado do Trabalho Externo (rotas com `_sem_escritorio`) passa por esta última
+ * saída, como no TenantContextValidatorListener: sem escritório na sessão, nunca leva 404; com escritório, a rota é
+ * do Expediente como qualquer outra.
  *
  * O escritório é o do `{tenantId}` da URL quando a rota o tem (o mesmo que o TenantUrlScopeListener fixa no filtro);
  * senão, o da sessão. No modo `observacao` só registra no canal `multiproduto` (rota, id do escritório e produtos
@@ -85,9 +85,6 @@ final class GuardaDoProduto
     private function classificacaoQueExigeProduto(Request $requisicao, string $rota): ?ClassificacaoDaRota
     {
         if ('' === $rota || str_starts_with($rota, '_')) {
-            return null;
-        }
-        if (true === $requisicao->attributes->get(TenantContextValidatorListener::ATRIBUTO_SEM_ESCRITORIO)) {
             return null;
         }
         $classificacao = CatalogoDeProdutos::classificar($rota);
