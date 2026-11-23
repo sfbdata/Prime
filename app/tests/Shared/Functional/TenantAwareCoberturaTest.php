@@ -15,9 +15,6 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
 use App\Entity\ServiceDesk\ChamadoAnexo;
 use App\Entity\ServiceDesk\ChamadoInteracao;
-use App\Entity\Tenant\Cargo;
-use App\Entity\Tenant\Lotacao;
-use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
@@ -327,7 +324,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     /** Tamanho mínimo do motivo de #[SemIsolamentoDeTenant]: "é global" não explica nada. */
     private const MOTIVO_MINIMO = 30;
 
-    private const MAX_PENDENTE = 11;
+    private const MAX_PENDENTE = 8; // fatia 4 (Sede, Cargo, Lotacao) e fatia 6 (os dois blocos do Ponto) saíram
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
@@ -405,12 +402,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Fatia 3 — ServiceDesk. Sem coluna; backfill pelo chamado dono.
         ChamadoInteracao::class,
         ChamadoAnexo::class,
-
-        // Fatia 4 — Tenant. Já têm tenant_id NOT NULL; ligar o filtro muda toda query
-        // existente, inclusive as telas de administração (ver §5.2 da spec).
-        Sede::class,
-        Cargo::class,
-        Lotacao::class,
 
         // Fatia 5 — Permission (risco MÉDIO).
         TenantRole::class,
