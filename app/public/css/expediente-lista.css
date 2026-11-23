@@ -409,7 +409,7 @@
    do dc deixa NUP, Prioridade, Metas e Situação no mínimo (medido: 74, 105, 82, 98) e reparte o resto entre as
    outras na razão 2:1.5:1.4:1.6:1.2. `calc` e `max()` com % são ignorados no <col>; em percentual o navegador
    mantém as fixas e reparte a sobra nessa razão, o que dá as larguras medidas do dc (222, 166, 155, 177, 133). */
-.exp-body #tabelaPastas col[data-col="nup"]     { width: 110px !important; }   /* NUP+compartilhar+cadeado numa linha só (antes 74px, ver M5.7 em expediente-lista-12.css) */
+.exp-body #tabelaPastas col[data-col="nup"]     { width: 124px !important; }   /* Estrela + NUP de 4 dígitos + compartilhar + cadeado numa linha só, com os 28px de padding da célula (antes 74px; ver M5.7 em expediente-lista-12.css). Mínimos da tabela conferidos: a 742px sobram 415px para Cliente, Réu e Marcadores, acima dos 376px do dc. */
 .exp-body #tabelaPastas col[data-col="cliente"] { width: 26% !important; }
 .exp-body #tabelaPastas col[data-col="reu"]     { width: 19.5% !important; }
 .exp-body #tabelaPastas col[data-col="acao"]    { width: 18.2% !important; }
@@ -422,7 +422,7 @@
    sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
    Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
 /* AUD-29, decisão do dono (19/10, substitui a de 15/10): de 901 a 1280px segue o desenho 03. Saem Ação,
-   Responsável e Metas (célula, cabeçalho e <col>), e o Réu aparece. Piso = as fixas que ficam (NUP 74, Prioridade
+   Responsável e Metas (célula, cabeçalho e <col>), e o Réu aparece. Piso = as fixas que ficam (NUP 74, hoje 124 pelo M5.7, Prioridade
    105, Situação 98: 277px) + a sobra em que Cliente, Réu e Marcadores, na razão 2:1.5:1.2, passam dos mínimos do dc
    (140, 120, 116): 465px. Dá 742px, o mesmo piso de até 900px.
    Em cada corte as porcentagens das colunas que ficam voltam a somar 100%, na mesma razão de cima: somando menos, o
