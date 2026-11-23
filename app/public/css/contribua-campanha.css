@@ -1,4 +1,4 @@
-/* Modo campanha "BlueJus Black": faixa, painel do Master, aba do topo, janela e toast.
+/* Modo campanha "BlueJus Black": faixa, painel do Master, janela e toast.
    Valores copiados do desenho (08 - Contribua VS 03.11.26 e bj-campanha.js). Prefixo .cp- para não herdar .card/.btn/.row. */
 
 /* ---------- Faixa #black ---------- */
@@ -52,15 +52,8 @@
 .cp-ped-botao { height: 30px; padding: 0 10px; border: 1px solid #1e7b45; border-radius: 4px; background: #fff; color: #1e7b45; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; margin: 0; }
 .cp-painel button:disabled { opacity: .6; cursor: default; }
 
-/* ---------- Aba fixa do topo ---------- */
-.cp-aba { font-family: Arial, Helvetica, sans-serif; line-height: normal; position: fixed; z-index: 2147483000; right: 24px; top: 0; transition: opacity .4s ease; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border: 0; border-top: 0; border-radius: 0 0 4px 4px; background: #0d0d0d; color: #fff; font-size: 13px; font-weight: bold; letter-spacing: .5px; cursor: pointer; box-shadow: 0 6px 16px rgba(0, 0, 0, .28); margin: 0; }
-/* Some sozinha 5 s depois de abrir a tela (pedido do Farlei, 19/11): o JS põe esta classe e depois remove a aba. */
-.cp-aba--saindo { opacity: 0; pointer-events: none; }
-.cp-aba--previa { border: 2px dashed #f0b429; border-top: 0; }
-.cp-aba-selo { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 6px; border-radius: 3px; background: #3aa0d8; color: #0d0d0d; font-size: 11px; }
-.cp-aba-preco { color: #7fd0ff; }
-.cp-aba-previa { font-size: 11px; color: #f0b429; }
-@media print { .cp-aba, .cp-ov, .cp-toast { display: none !important; } }
+/* A aba fixa do topo saiu (pedido M5.6 do dono, 23/11): a campanha aparece só na página Contribua. */
+@media print { .cp-ov, .cp-toast { display: none !important; } }
 
 /* ---------- Janela (overlay) ---------- */
 .cp-ov { font-family: Arial, Helvetica, sans-serif; line-height: normal; position: fixed; inset: 0; z-index: 2147483300; background: rgba(5, 10, 15, .62); display: flex; align-items: flex-start; justify-content: center; padding: 18px 12px; overflow: auto; }

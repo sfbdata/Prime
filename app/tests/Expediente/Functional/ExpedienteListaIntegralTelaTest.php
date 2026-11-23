@@ -129,7 +129,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         self::assertSame('1', $linha->attr('data-trancada'));
         self::assertSame('0', $linha->attr('data-oculta'), 'quem configura nunca fica oculto');
         self::assertSame('verde', $linha->attr('data-dest'));
-        self::assertStringContainsString('pasta trancada por Admin E12 em 10/10/2026', (string) $linha->filter('td[data-col="nup"] > i.js-cadeado')->attr('data-tip'));
+        self::assertStringContainsString('pasta trancada por Admin E12 em 10/10/2026', (string) $linha->filter('td[data-col="nup"] > .exp-nup-cel > i.js-cadeado')->attr('data-tip'));
         $reu = $linha->filter('td[data-col="reu"] > .exp-reu');
         self::assertSame('BANCO DO BRASIL S.A. e outros', trim($reu->text()), 'só o polo passivo; o ativo não entra');
         self::assertSame('Réus: BANCO DO BRASIL S.A. · INSS', $reu->attr('data-tip'));

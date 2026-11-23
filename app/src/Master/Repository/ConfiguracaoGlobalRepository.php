@@ -55,6 +55,26 @@ class ConfiguracaoGlobalRepository extends ServiceEntityRepository
         return $this->find(ConfiguracaoGlobal::ID_UNICO);
     }
 
+    /**
+     * O envio de campanhas gravado pelo painel, lido direto do banco a cada chamada: o worker do Messenger vive horas e
+     * a entidade em memória ficaria velha. Null: ninguém mexeu ainda, ou a leitura falhou (quem chama usa o padrão).
+     */
+    public function envioDeCampanhas(): ?bool
+    {
+        try {
+            $valor = $this->getEntityManager()->getConnection()->fetchOne(
+                'SELECT valores ->> :chave FROM configuracao_global WHERE id = :id',
+                ['chave' => ConfiguracaoGlobal::chaveDoEnvioDeCampanhas(), 'id' => ConfiguracaoGlobal::ID_UNICO],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->warning('Configurações globais: falha ao ler a chave do envio de campanhas; vale o padrão do ambiente.', ['exception' => $e]);
+
+            return null;
+        }
+
+        return \is_string($valor) ? $valor === '1' : null;
+    }
+
     public function salvar(ConfiguracaoGlobal $configuracao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($configuracao);

@@ -44,7 +44,6 @@ final class ConfirmarCampanhaConcorrenteTest extends KernelTestCase
         $repositorio->expects(self::never())->method('auditar');
 
         $casoDeUso = new ConfirmarCampanhaUseCase(
-            new ChaveDasCampanhas(true),
             $repositorio,
             $c->get(PublicosDaCampanha::class),
             $c->get(ComposicaoDaCampanha::class),

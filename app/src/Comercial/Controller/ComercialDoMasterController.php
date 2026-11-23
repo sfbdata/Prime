@@ -20,7 +20,9 @@ use App\Comercial\Service\ModelosDeAutomacao;
 use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
 use App\Comercial\UseCase\AlterarDataComemorativaUseCase;
+use App\Comercial\UseCase\AlterarEnvioDeCampanhasUseCase;
 use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
+use App\Comercial\UseCase\ConsultarEnvioDeCampanhasUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\ListarDatasComemorativasUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
@@ -36,7 +38,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * O bloco "Automações" da seção "Comercial e e-mails" do /master (desenho 05 L.262-268; spec
  * comercial-e-emails.md §3.5), o bloco "Datas comemorativas" (F4, §13; desenho 05 VS 21.10.26 L335-339) e o
- * "Cadastrar e-mail" da Central em modo venda (F3h, seção Indicações). Só o Master.
+ * "Cadastrar e-mail" da Central em modo venda (F3h, seção Indicações) e a chave do envio de campanhas da Central
+ * (pedido do Farlei M8.1). Só o Master.
  * JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token`.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
@@ -73,6 +76,32 @@ final class ComercialDoMasterController extends AbstractController
         }
 
         return $this->json(self::automacaoEmJson($estado));
+    }
+
+    /** A chave do envio de campanhas na Central de envios (pedido do Farlei M8.1): `{ligada, origem, esperando}`. */
+    #[Route('/master/comercial/envio', name: 'master_comercial_envio', methods: ['GET'])]
+    public function envio(ConsultarEnvioDeCampanhasUseCase $consultar): JsonResponse
+    {
+        return $this->json($consultar->executar()->paraJson());
+    }
+
+    /** `{ligada}`: liga ou desliga o envio de campanhas; a troca vai para a Trilha de Auditoria. */
+    #[Route('/master/comercial/envio', name: 'master_comercial_envio_alterar', methods: ['POST'])]
+    public function alterarEnvio(Request $request, AlterarEnvioDeCampanhasUseCase $alterar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        $corpo = json_decode($request->getContent(), true);
+        if (!is_array($corpo) || !is_bool($corpo['ligada'] ?? null)) {
+            return $this->json(['erro' => 'Informe se o envio de campanhas fica ligado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $usuario = $this->getUser();
+        if (!$usuario instanceof User) {
+            return $this->json(['erro' => 'Sessão inválida. Entre de novo.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json($alterar->executar($corpo['ligada'], $usuario)->paraJson());
     }
 
     /**

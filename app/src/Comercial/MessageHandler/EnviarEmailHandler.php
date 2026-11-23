@@ -27,8 +27,10 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 /**
  * Envia um e-mail registrado pelo Carteiro (spec `comercial-e-emails.md` §3.1 e §3.6):
  *   1. reivindica (UPDATE atômico; zero linhas = outro worker pegou ou já saiu: para);
- *   2. de campanha (origem `campanha:<id>`) com a chave da instalação desligada ou a campanha encerrada (spec §8.1.2 e
- *      §8.1.5): vira `cancelado`, não sai, e o conteúdo some (sem esperar a volta do expansor);
+ *   2. de campanha (origem `campanha:<id>`) com a campanha encerrada (spec §8.1.5): vira `cancelado`, não sai, e o
+ *      conteúdo some (sem esperar a volta do expansor). Com a chave do envio de campanhas desligada, volta a
+ *      `enfileirado` e tenta de novo a cada {@see self::ESPERA_DA_CHAVE_SEGUNDOS} s: espera a religação, sem cancelar
+ *      (pedido do Farlei M8.4, 23/11/2026);
  *      em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
  *   3. vazão por contagem em `comercial_envio` ({@see CotaDeEnvio}, 24 h corridas): sem vaga, volta a `enfileirado` e
  *      reenfileira com DelayStamp;
@@ -46,6 +48,8 @@ final class EnviarEmailHandler
 {
     /** As origens que só respeitam o limite por minuto (a lista mora na {@see CotaDeEnvio}). */
     public const ORIGENS_ISENTAS_DO_TETO_DIARIO = CotaDeEnvio::ORIGENS_ISENTAS;
+    /** De quanto em quanto o e-mail de campanha parado pela chave desligada confere se ela foi religada. */
+    public const ESPERA_DA_CHAVE_SEGUNDOS = 300;
 
     public function __construct(
         private readonly EnvioDeEmailRepository $envios,
@@ -77,26 +81,38 @@ final class EnviarEmailHandler
 
             return;
         }
-        if ($this->campanhaEncerrada($id, $email->origem) || $this->bloqueadoPeloDescadastro($id, $email) || $this->adiadoPelaVazao($id, $email->origem)) {
+        if ($this->campanhaEncerrada($id, $email->origem) || $this->esperandoAChave($id, $email->origem) || $this->bloqueadoPeloDescadastro($id, $email) || $this->adiadoPelaVazao($id, $email->origem)) {
             return;
         }
         $this->mandar($id, $email, $envio['token']);
     }
 
-    /**
-     * A chave da instalação e o freio do console (spec §8.1.2 e §8.1.5): com a chave desligada, nada de campanha sai,
-     * mesmo o que já estava na fila; com a campanha encerrada, também não.
-     */
+    /** O freio do console (spec §8.1.5): com a campanha encerrada, nada dela sai, mesmo o que já estava na fila. */
     private function campanhaEncerrada(int $id, string $origem): bool
     {
         if (preg_match('/^campanha:(\d{1,10})$/', $origem, $achado) !== 1) {
             return false;
         }
-        if ($this->chaveDasCampanhas->ligada() && !$this->campanhas->estaCancelada((int) $achado[1])) {
+        if (!$this->campanhas->estaCancelada((int) $achado[1])) {
             return false;
         }
         $this->envios->marcarCancelado($id);
         $this->envios->apagarConteudo($id);
+
+        return true;
+    }
+
+    /**
+     * A chave do envio de campanhas (spec §8.1.2): desligada, o e-mail de campanha que já estava na fila volta para ela
+     * e confere de novo daqui a pouco. Não conta na cota (não saiu) e sai sozinho quando a chave for religada.
+     */
+    private function esperandoAChave(int $id, string $origem): bool
+    {
+        if (!str_starts_with($origem, 'campanha:') || $this->chaveDasCampanhas->ligada()) {
+            return false;
+        }
+        $this->envios->devolverAFila($id, $this->relogio->now()->modify('+' . self::ESPERA_DA_CHAVE_SEGUNDOS . ' seconds'));
+        $this->bus->dispatch(new EnviarEmail($id), [new DelayStamp(self::ESPERA_DA_CHAVE_SEGUNDOS * 1000)]);
 
         return true;
     }

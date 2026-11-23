@@ -48,6 +48,12 @@
           if (valor) valor.textContent = numero(r[chave] || 0);
         });
       }
+      const desc = kpis ? kpis.querySelector('[data-mc-kpi="campanhas"] [data-mc-kpi-desc]') : null;
+      if (desc) {
+        if (desc.dataset.base === undefined) desc.dataset.base = desc.textContent;
+        const t = parseInt(r.testes, 10) || 0;
+        desc.textContent = t > 0 ? BJ_T.t(t === 1 ? 'comercial.js.kpi_teste_um' : 'comercial.js.kpi_testes_n', { n: numero(t) }) : desc.dataset.base;
+      }
       document.dispatchEvent(new CustomEvent('mc:resumo', { detail: { campanhas: r.campanhas, naFila: r.naFila, base: r.base, descadastrados: r.descadastrados } }));
     }).catch(() => {});
   }

@@ -345,3 +345,12 @@
 .mc-dt-publico { height: 28px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; font: inherit; font-size: 12px; background: var(--mc-fundo); color: var(--mc-texto); }
 .mc-dt-ver { height: 28px; padding: 0 10px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-azul); font: inherit; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
 .mc-dt-ver:hover, .mc-dt-ver:focus-visible { background: var(--mc-dt-ver-bg); }
+
+/* Chave "Envio de campanhas" no topo da Central de envios (comercial-envio.js). */
+.mc-envio { background: var(--mc-fundo); border: 1px solid var(--mc-borda); border-radius: 4px; margin-bottom: 14px; padding: 10px 18px 12px; color: var(--mc-texto); }
+.mc-envio-linha { display: flex; align-items: center; gap: 10px; }
+.mc-envio-rotulo { margin: 0; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.mc-envio-estado { font-size: 12.5px; color: var(--mc-sub); }
+.mc-envio .mc-envio-aviso { margin: 10px 0 0; }
+.mc-envio-retorno { margin-top: 8px; font-size: 12.5px; color: var(--mc-sub); }
+.mc-envio-retorno.is-erro { color: #b3261e; }

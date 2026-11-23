@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Comercial\UseCase;
 
-use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\ImagensDaCampanha;
 use App\Comercial\Campanha\PublicosDaCampanha;
@@ -22,7 +21,8 @@ use Psr\Clock\ClockInterface;
  * "Enviar campanha" (dc L.254 e L.560; spec §8.1, §8.4 e §8.5), depois da confirmação literal na tela. A campanha só
  * nasce aqui (não há rascunho) e nada sai daqui: o expansor entrega em lotes.
  *
- *   1. a chave da instalação desligada recusa ("O envio de campanhas está desligado nesta instalação.");
+ *   1. a chave do envio de campanhas não entra aqui: desligada, a campanha é gravada do mesmo jeito e fica esperando
+ *      até ser religada (pedido do Farlei M8.4, 23/11/2026; a tela avisa antes do clique);
  *   2. a chave de idempotência já usada devolve a mesma campanha (clique duplo não cria duas);
  *   3. confere a mensagem, a âncora do modelo `vagas` (§11: só no modo simples com o botão para as vagas), a data
  *      ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista."), resolvido com o modelo;
@@ -42,7 +42,6 @@ final class ConfirmarCampanhaUseCase
     private const ENDERECO_DE_CONFERENCIA = 'conferencia@bluejus.com.br';
 
     public function __construct(
-        private readonly ChaveDasCampanhas $chave,
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly PublicosDaCampanha $publicos,
         private readonly ComposicaoDaCampanha $composicao,
@@ -54,9 +53,6 @@ final class ConfirmarCampanhaUseCase
 
     public function executar(PedidoDeCampanha $pedido, User $master): CampanhaConfirmada
     {
-        if (!$this->chave->ligada()) {
-            throw new CampanhaRecusada(ChaveDasCampanhas::DESLIGADA);
-        }
         $existente = $this->campanhas->porChave($pedido->chave);
         if ($existente !== null) {
             return $this->confirmada($existente['id'], $existente['total'], $pedido);

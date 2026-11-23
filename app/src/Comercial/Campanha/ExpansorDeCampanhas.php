@@ -19,7 +19,9 @@ use Psr\Log\LoggerInterface;
 /**
  * O trabalho de cada volta do expansor (spec `comercial-e-emails.md` §8.1 e §8.5), chamado pelo
  * {@see \App\Comercial\MessageHandler\ExpandirCampanhasHandler}:
- *   1. a chave da instalação: desligada, toda campanha ativa vira `cancelada` (parada de emergência);
+ *   1. a chave do envio de campanhas: desligada, nada mais roda na volta e as campanhas ativas ficam esperando, sem
+ *      cancelar (pedido do Farlei M8.4, 23/11/2026). Ao religar, {@see \App\Comercial\UseCase\AlterarEnvioDeCampanhasUseCase}
+ *      traz para agora as que venceram no meio, para a tolerância de 24 h abaixo não as cancelar;
  *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo pelo modelo
  *      gravado (`modelo_chave`; B1 e descadastro reaplicados) e a lista de cada destinatário (§11). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
  *      que perdeu a vez pula para a próxima data futura;
@@ -65,29 +67,10 @@ final class ExpansorDeCampanhas
     ) {
     }
 
-    /**
-     * A parada de emergência (§8.1.2). Devolve se a chave está desligada (e então nada mais roda nesta volta). Cada
-     * campanha cancelada ganha a linha `camp_canc` na trilha, na mesma transação.
-     */
-    public function pararSeDesligada(\DateTimeImmutable $agora): bool
+    /** Devolve se a chave está desligada: então nada mais roda nesta volta e as campanhas ativas esperam a religação. */
+    public function envioDesligado(): bool
     {
-        if ($this->chave->ligada()) {
-            return false;
-        }
-        $motivo = ChaveDasCampanhas::MOTIVO_DO_CANCELAMENTO;
-        $canceladas = $this->campanhas->emTransacao(function () use ($motivo, $agora): int {
-            $linhas = $this->campanhas->cancelarAtivas($motivo);
-            foreach ($linhas as $linha) {
-                $this->auditarCancelamento($linha['id'], $motivo, $linha['total'], $agora);
-            }
-
-            return \count($linhas);
-        });
-        if ($canceladas > 0) {
-            $this->logger->warning('Comercial: chave das campanhas desligada; campanhas ativas canceladas.', ['canceladas' => $canceladas]);
-        }
-
-        return true;
+        return !$this->chave->ligada();
     }
 
     /** Cada campanha devida isolada: uma falha não segura as outras. Devolve quantas tiveram a vez tratada. */

@@ -208,7 +208,8 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
     public function testTesteGravado(): void
     {
         $client = $this->clienteMaster();
-        $antes = static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class)->contarNaoCanceladas();
+        $repositorio = static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class);
+        [$antes, $testesAntes] = [$repositorio->contarNaoCanceladas(), $repositorio->contarTestes()];
         $this->postar($client, '/master/comercial/teste', $this->convite());
 
         self::assertResponseIsSuccessful();
@@ -220,7 +221,8 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         $destino = $this->conexao()->fetchAssociative('SELECT email, envio_id FROM comercial_campanha_destino WHERE campanha_id = ?', [$campanha['id']]);
         self::assertSame([$this->master->getEmail(), (int) $envio['id']], [$destino['email'], (int) $destino['envio_id']]);
         self::assertNotContains('teste', \App\Comercial\Entity\CampanhaDeEmail::ATIVAS, 'o expansor nunca pega o teste');
-        self::assertSame($antes + 1, static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class)->contarNaoCanceladas(), 'o KPI Campanhas conta o teste');
+        self::assertSame($antes, $repositorio->contarNaoCanceladas(), 'o KPI Campanhas não conta o teste (M8.3)');
+        self::assertSame($testesAntes + 1, $repositorio->contarTestes(), 'o teste vai à parte');
 
         $client->request('GET', '/master/comercial/relatorio?aba=env&q=&p=1');
         $linha = array_column((array) $this->json($client)['campanhas'], null, 'id')[(int) $campanha['id']] ?? null;

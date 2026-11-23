@@ -56,21 +56,22 @@ final class AjudaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
     }
 
-    #[TestDox('o "?" fica no cabeçalho junto do sino, antes do Indicar (o link do Service Desk está no ServiceDeskControllerTest)')]
-    public function testCabecalho(): void
+    #[TestDox('o Manual do usuário fica só no menu do perfil (o "?" saiu do topo no M7) e leva a /ajuda; "Ajuda e atalhos" continua ao lado')]
+    public function testManualNoMenuDoPerfil(): void
     {
         $client = static::createClient();
         $this->logar($client);
 
         $crawler = $client->request('GET', '/novidades');
         self::assertResponseIsSuccessful();
-        $ajuda = $crawler->filter('.navtop-action > a.navtop-action-btn[data-ajuda-topo][href="/ajuda"]');
-        self::assertCount(1, $ajuda);
-        self::assertCount(1, $ajuda->filter('i.bi-question-circle'));
-        // Ordem: "?", "Indicar" (o desenho o põe colado no sino) e o sino.
-        $depois = $ajuda->ancestors()->first()->nextAll();
-        self::assertCount(1, $depois->eq(0)->filter('[data-bj-share]'), 'o "Indicar" vem logo depois do "?"');
-        self::assertCount(1, $depois->eq(1)->filter('#notificacaoDropdownToggle'), 'e o sino logo depois do "Indicar"');
+        self::assertCount(0, $crawler->filter('[data-ajuda-topo]'), 'o "?" saiu do topo');
+        self::assertCount(0, $crawler->filter('.navtop-right > a[href="/ajuda"], .navtop-right > .navtop-action > a[href="/ajuda"]'), 'nenhum atalho do Manual no topo');
+
+        $manual = $crawler->filter('.usuario-dropdown .mu-grupo > a.mu-item[data-mu-manual][href="/ajuda"]');
+        self::assertCount(1, $manual);
+        self::assertSame('Manual do usuário', trim($manual->text()));
+        self::assertCount(1, $manual->filter('i.bi-book'));
+        self::assertCount(1, $crawler->filter('.usuario-dropdown a[data-mu-manual] + button[data-mu-ajuda]'), '"Ajuda e atalhos" vem logo depois do Manual');
     }
 
     private function logar(KernelBrowser $client): void

@@ -29,6 +29,7 @@
     BJ_T.t('comercial.js.datas_sem_4'), BJ_T.t('comercial.js.datas_sem_5'), BJ_T.t('comercial.js.datas_sem_6'),
   ];
   let datas = [];
+  let envioLigado = null; // último estado da chave do envio (evento `mc:envio`); null até chegar
   let carregado = false;
   let ocupado = false;
 
@@ -69,8 +70,20 @@
     elLista.innerHTML = datas.map(linha).join('');
     elLista.removeAttribute('aria-busy');
     caixa.querySelector('[data-mc-dt-n]').textContent = String(r.ativas || 0);
-    caixa.querySelector('[data-mc-dt-desligada]').hidden = r.chaveLigada === true;
+    if (typeof r.chaveLigada === 'boolean') envioLigado = r.chaveLigada;
+    avisoDesligada();
   }
+
+  function avisoDesligada() {
+    caixa.querySelector('[data-mc-dt-desligada]').hidden = envioLigado !== false;
+  }
+
+  // A chave do topo da Central mudou: atualiza o aviso sem recarregar.
+  document.addEventListener('mc:envio', e => {
+    if (!e.detail || typeof e.detail.ligada !== 'boolean') return;
+    envioLigado = e.detail.ligada;
+    avisoDesligada();
+  });
 
   function carregar() {
     return fetch(URL_LISTA, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
