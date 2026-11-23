@@ -95,6 +95,21 @@ final class ArmazenamentoLocalPrefixoTest extends TestCase
         self::assertFileExists($this->raiz . '/cobrancas/import-tmp/5/previa.xlsx');
     }
 
+    #[TestDox('BACKUP_ZIP: o prefixo é pastas/backups/<tenant> e a purga não toca o vizinho nem a raiz plana')]
+    public function testPrefixoDeBackupZipIsolaOEscritorio(): void
+    {
+        $this->arquivo($this->raiz . '/pastas/backups/5/a.zip');
+        $this->arquivo($this->raiz . '/pastas/backups/6/a.zip', 'do escritório 6');
+        $this->arquivo($this->raiz . '/pastas/doc.pdf', 'documento de pasta, raiz compartilhada');
+
+        $resultado = $this->backend->excluirPrefixo($this->escopo(5), CategoriaComIsolamentoFisico::BACKUP_ZIP);
+
+        self::assertSame(1, $resultado->removidos);
+        self::assertDirectoryDoesNotExist($this->raiz . '/pastas/backups/5');
+        self::assertStringEqualsFile($this->raiz . '/pastas/backups/6/a.zip', 'do escritório 6');
+        self::assertStringEqualsFile($this->raiz . '/pastas/doc.pdf', 'documento de pasta, raiz compartilhada');
+    }
+
     #[TestDox('prefixo ausente, ou raiz ausente, é zero — e não erro')]
     public function testPrefixoOuRaizAusenteEhZero(): void
     {

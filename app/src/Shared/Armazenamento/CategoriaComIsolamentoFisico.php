@@ -9,13 +9,14 @@ namespace App\Shared\Armazenamento;
  *
  * É a barreira estrutural de D7. Operação por prefixo (listar/apagar tudo de um escopo) só é
  * segura quando o prefixo resolvido pertence exclusivamente àquele escopo — e isso hoje só vale
- * para três categorias:
+ * para quatro categorias:
  *
  *  - `PASTA_IMAGEM_EDITOR` → `uploads/pastas/<tenantId>/`
  *  - `COBRANCA_DOCUMENTO`  → `uploads/cobrancas/<tenantId>/`
  *  - `ASSINATURA_DOCUMENTO` → `uploads/pastas/assinatura/<tenantId>/`
+ *  - `BACKUP_ZIP` → `uploads/pastas/backups/<tenantId>/`
  *
- * Nas outras sete, o diretório é **compartilhado por todos os escritórios**
+ * Nas outras categorias, o diretório é **compartilhado por todos os escritórios**
  * (`uploads/clientes`, `uploads/justificativas`, …). Um "apagar o prefixo do tenant 5" ali
  * destruiria o acervo alheio. Isolamento lógico **não se infere de diretório compartilhado**.
  *
@@ -33,6 +34,7 @@ enum CategoriaComIsolamentoFisico: string
     case PASTA_IMAGEM_EDITOR = 'pasta_imagem_editor';
     case COBRANCA_DOCUMENTO  = 'cobranca_documento';
     case ASSINATURA_DOCUMENTO = 'assinatura_documento';
+    case BACKUP_ZIP = 'backup_zip';
 
     public function paraCategoria(): CategoriaDeArquivo
     {
@@ -40,11 +42,12 @@ enum CategoriaComIsolamentoFisico: string
             self::PASTA_IMAGEM_EDITOR => CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             self::COBRANCA_DOCUMENTO  => CategoriaDeArquivo::COBRANCA_DOCUMENTO,
             self::ASSINATURA_DOCUMENTO => CategoriaDeArquivo::ASSINATURA_DOCUMENTO,
+            self::BACKUP_ZIP => CategoriaDeArquivo::BACKUP_ZIP,
         };
     }
 
     /**
-     * Conversão de mão única e explícita: devolve null para as sete categorias planas.
+     * Conversão de mão única e explícita: devolve null para as categorias planas.
      *
      * Não existe `deCategoria()` que lance — quem precisa disto está descrevendo o layout, não
      * apagando arquivo. Quem apaga recebe este tipo pronto e nunca converte.

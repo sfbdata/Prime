@@ -60,6 +60,7 @@ final class ColunasDeChaveNoEspelhoArquiteturaTest extends KernelTestCase
         'artigo_blog.imagem_chave'                     => 'guarda o id da ImagemDoArtigo da capa; o arquivo é o de artigo_blog_imagem.chave',
         'assinatura_eletronica_documento.modelo_chave' => 'identificador do modelo de documento escolhido na tela, não arquivo',
         'comercial_campanha.modelo_chave'              => 'identificador do modelo de e-mail da campanha, não arquivo',
+        'pedido_de_backup.chave_arquivo'               => 'ZIP de backup: descartável (7 dias) e NUNCA espelhado no R2 (PoliticaDeEspelhamento::NUNCA_ESPELHADAS); não há o que reconciliar',
     ];
 
     private const ONDE_ACRESCENTAR = 'Acrescente uma fonte em FONTES de src/Shared/EspelhoRemoto/Reconciliacao/FontesDeReferencia.php '

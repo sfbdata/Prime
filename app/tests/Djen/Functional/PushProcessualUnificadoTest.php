@@ -57,6 +57,44 @@ final class PushProcessualUnificadoTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function pushProcessualNaBarraSuperiorEntreMinhasMetasEAgenda(): void
+    {
+        // Pedido M7 do dono (23/11): a aba "Push Processual" entra entre Minhas Metas e Agenda e acende no Push e nos processos.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual');
+
+        self::assertResponseIsSuccessful();
+        $abas = $crawler->filter('.navtop-subnav > a')->each(static fn ($a): string => trim($a->text()));
+        $posicao = array_search('Push Processual', $abas, true);
+        self::assertIsInt($posicao, 'Push Processual na barra superior');
+        self::assertSame(['Minhas Metas', 'Push Processual', 'Agenda'], array_slice($abas, $posicao - 1, 3));
+        self::assertCount(1, $crawler->filter('.navtop-subnav > a.active[href="/push-processual"]'));
+
+        $crawler = $client->request('GET', '/processos/');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.navtop-subnav > a.active[href="/push-processual"]'), 'acende também nos processos');
+    }
+
+    #[Test]
+    public function pushProcessualNaoApareceNaBarraParaQuemNaoTemOModulo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view']), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/tarefas/minhas');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.navtop-subnav > a[href="/tarefas/minhas"]'));
+        self::assertCount(0, $crawler->filter('.navtop-subnav a[href="/push-processual"]'));
+    }
+
+    #[Test]
     public function minhasMetasNaBarraSuperiorAcendeNaTelaDeMetas(): void
     {
         $client = static::createClient();

@@ -318,6 +318,9 @@ final class PurgarEscritorioUseCase
         ['chat_ia_anexo', 'tenant_id = :tenant'],
         ['chat_ia_mensagem', 'tenant_id = :tenant'],
         ['chat_ia_conversa', 'tenant_id = :tenant'],
+        // Backup dos dados de uma pessoa (spec backup-e-exportacao-de-dados.md): a FK de tenant é CASCADE, mas a purga é explícita. O ZIP sai
+        // com o diretório do escritório (`uploads/pastas/backups/<tenantId>/`): a categoria é isolada.
+        ['pedido_de_backup', 'tenant_id = :tenant'],
         // Conector de I.A. (spec mcp-remoto-oauth, 13.2): as FKs para o escritório, a pessoa e a tabela pai são CASCADE, mas a
         // purga é explícita, de baixo para cima (proposta e token, depois código, concessão, consentimento). O cliente
         // OAuth é global (sem tenant_id: o mesmo ChatGPT serve a todos os escritórios) e fica.

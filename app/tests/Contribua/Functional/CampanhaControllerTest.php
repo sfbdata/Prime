@@ -422,7 +422,7 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    #[TestDox('Escritório criado há mais de 5 dias: sem aba, sem janela e sem inscrição; o Master e quem já se inscreveu continuam vendo')]
+    #[TestDox('Escritório criado há mais de 5 dias: sem faixa, sem janela e sem inscrição; o Master e quem já se inscreveu continuam vendo')]
     public function testSoEscritorioDeAteCincoDias(): void
     {
         $this->inscreverComo($this->beto, $this->outro, self::CPF_B, '2/DF');
@@ -432,7 +432,7 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         $this->logar($this->ana, $this->escritorio);
         $this->client->request('GET', '/contribua');
         self::assertResponseIsSuccessful();
-        self::assertSelectorNotExists('#cp-aba');
+        self::assertSelectorNotExists('section#black');
         self::assertSelectorNotExists('script[src*="contribua-campanha.js"]');
         $this->client->request('GET', '/contribua/campanha/janela');
         self::assertResponseStatusCodeSame(404);
@@ -441,7 +441,7 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
 
         $this->logar($this->beto, $this->outro);
         $this->client->request('GET', '/contribua');
-        self::assertSelectorExists('#cp-aba');
+        self::assertSelectorExists('section#black');
         $this->client->request('GET', '/contribua/campanha/janela');
         self::assertResponseIsSuccessful();
 
@@ -450,14 +450,14 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    #[TestDox('Escritório criado há 4 dias ainda vê a aba')]
+    #[TestDox('Escritório criado há 4 dias ainda vê a campanha no Contribua')]
     public function testEscritorioDeQuatroDiasVe(): void
     {
         $this->envelhecer($this->escritorio, '4 days');
         $this->logar($this->ana, $this->escritorio);
         $this->client->request('GET', '/contribua');
 
-        self::assertSelectorExists('#cp-aba');
+        self::assertSelectorExists('section#black');
     }
 
     #[TestDox('O Contribua do Master abre com o painel da campanha montado')]

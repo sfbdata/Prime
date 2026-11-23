@@ -118,6 +118,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::CHAT_IA_ANEXO       => 'pastas/chat-ia',
             CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA => 'pastas/voto-fotos',
             CategoriaDeArquivo::ASSINATURA_DOCUMENTO => 'pastas/assinatura/' . $tenant,
+            CategoriaDeArquivo::BACKUP_ZIP => 'pastas/backups/' . $tenant,
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
             CategoriaDeArquivo::COMERCIAL_IMAGEM,
