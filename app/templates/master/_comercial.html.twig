@@ -39,6 +39,8 @@
      data-token="{{ csrf_token('master_comercial') }}">
     {{ include('master/_comercial_descadastrados.html.twig') }}
 {% endif %}
+    {# Chave do envio de campanhas, no topo da Central (nos dois modos; ids com o prefixo do modo). #}
+    {{ include('master/_comercial_envio.html.twig') }}
     {# Nova campanha de e-mail (dc L.229-260). Os textos e a ordem são do dc; o JS desenha a grade e os blocos. #}
     <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="{{ ids }}-cp-titulo"
              data-url-modelos="{{ path('master_comercial_modelos') }}"

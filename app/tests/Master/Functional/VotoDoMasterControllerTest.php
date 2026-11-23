@@ -12,6 +12,7 @@ use App\Master\Controller\VotoDoMasterController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
+use App\Voto\UseCase\AlterarLiberacaoDoVotoParaTodosUseCase;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
 use App\Voto\UseCase\ObterLiberacoesDoVotoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +31,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(VotoDoMasterController::class)]
 #[CoversClass(AlterarLiberacaoDoVotoUseCase::class)]
+#[CoversClass(AlterarLiberacaoDoVotoParaTodosUseCase::class)]
 #[CoversClass(ObterLiberacoesDoVotoUseCase::class)]
 #[CoversClass(LiberacaoDoVotoRepository::class)]
 final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
@@ -76,6 +78,7 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
     {
         yield 'GET dados' => ['GET', '/master/voto'];
         yield 'POST escritório' => ['POST', '/master/voto/escritorios/1'];
+        yield 'POST todos' => ['POST', '/master/voto/todos'];
     }
 
     #[DataProvider('rotas')]
@@ -87,7 +90,7 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
         if ($metodo === 'GET') {
             $this->client->request('GET', $url, server: ['HTTP_ACCEPT' => 'application/json']);
         } else {
-            $this->postar('/master/voto/escritorios/' . $tenant->getId(), ['liberado' => true]);
+            $this->postar($url === '/master/voto/todos' ? $url : '/master/voto/escritorios/' . $tenant->getId(), ['liberado' => true]);
         }
 
         self::assertResponseStatusCodeSame(403);
@@ -270,7 +273,9 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
             $card->filter('section > p.mp-voto-nota')->text(),
         );
         self::assertSame(['Escritório', 'Liberado'], $card->filter('div.mp-rolagem > div.mp-voto-grade > div.mp-voto-cab > div')->each(static fn ($c): string => trim($c->text())));
-        self::assertCount(0, $card->filter('button'), 'sem botão Salvar: a chave de cada linha grava na hora (montada pelo voto.js)');
+        self::assertSame(['mp-voto-liberar-todos', 'mp-voto-bloquear-todos'], $card->filter('section > div.mp-voto-acoes > button')->each(static fn ($b): string => (string) $b->attr('id')), 'só os dois botões em lote, sem botão Salvar: a chave de cada linha grava na hora (montada pelo voto.js)');
+        self::assertSame(['Liberar todos', 'Bloquear todos'], $card->filter('div.mp-voto-acoes > button')->each(static fn ($b): string => trim($b->text())));
+        self::assertCount(2, $card->filter('button'));
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $raiz->text());
 
         self::assertCount(1, $crawler->filter('script[src*="js/master/voto.js"]'));
@@ -291,6 +296,64 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
             self::assertNotSame($chave, $tradutor->trans($chave, [], null, 'pt_BR'), $chave . ' existe no catálogo');
             self::assertDoesNotMatchRegularExpression('/[—–]/u', $tradutor->trans($chave, [], null, 'pt_BR'));
         }
+    }
+
+    #[TestDox('liberar todos: os ativos mudam e a resposta traz `alterados`; suspenso e excluído ficam de fora; bloquear todos desfaz')]
+    public function testLiberarEBloquearTodos(): void
+    {
+        $this->entrarComoMaster();
+        $semLinha = $this->escritorio('Todos sem linha ' . uniqid());
+        $bloqueado = $this->escritorio('Todos bloqueado ' . uniqid());
+        $this->liberacaoGravada($bloqueado, false);
+        $jaLiberado = $this->escritorio('Todos já liberado ' . uniqid());
+        $this->liberacaoGravada($jaLiberado, true);
+        $suspenso = $this->escritorio('Todos suspenso ' . uniqid());
+        $suspenso->setIsActive(false);
+        $excluido = $this->escritorio('Todos excluído ' . uniqid());
+        $excluido->setExcluidoEm(new \DateTimeImmutable('-1 day'));
+        $this->em->flush();
+
+        $this->postar('/master/voto/todos', ['liberado' => true]);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertGreaterThanOrEqual(2, $d['alterados'], 'ao menos o sem linha e o bloqueado mudaram');
+        self::assertTrue($this->linhaDe($d, $semLinha)['liberado']);
+        self::assertTrue($this->linhaDe($d, $bloqueado)['liberado']);
+        self::assertTrue($this->linhaDe($d, $jaLiberado)['liberado']);
+        self::assertTrue($this->liberacaoDo($semLinha)?->isLiberado());
+        self::assertNull($this->liberacaoDo($suspenso), 'suspenso não entra no lote');
+        self::assertNull($this->liberacaoDo($excluido), 'excluído não entra no lote');
+
+        $this->postar('/master/voto/todos', ['liberado' => false]);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertGreaterThanOrEqual(3, $d['alterados']);
+        foreach ([$semLinha, $bloqueado, $jaLiberado] as $t) {
+            self::assertFalse($this->linhaDe($d, $t)['liberado']);
+        }
+
+        $this->postar('/master/voto/todos', ['liberado' => false]);
+        self::assertSame(0, $this->json()['alterados'], 'já no estado pedido: ninguém muda');
+    }
+
+    #[TestDox('liberar todos: CSRF errado é 403 e corpo inválido é 422, sem gravar nada')]
+    public function testTodosCsrfECorpo(): void
+    {
+        $this->entrarComoMaster();
+        $tenant = $this->escritorio('Todos recusa ' . uniqid());
+
+        $this->postar('/master/voto/todos', ['liberado' => true], 'errado');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
+
+        foreach ([['liberado' => 'sim'], ['liberado' => 1], [], 'liberado=true'] as $corpo) {
+            $this->postar('/master/voto/todos', $corpo);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame('Informe se o escritório fica liberado ou bloqueado.', $this->json()['erro']);
+        }
+        self::assertNull($this->liberacaoDo($tenant));
     }
 
     private function entrarComoMaster(): User

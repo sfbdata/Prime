@@ -294,7 +294,9 @@
 }
 .fm-arquivo { transition: background .18s; }
 .fm-arquivo:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
-.fm-arquivo:hover, .fm-arquivo:hover * { color: #fff !important; }
+/* M6: o menu que abre dentro da linha tem fundo branco e guarda a cor própria; o botão de três pontos acende em branco translúcido. */
+.fm-arquivo:hover, .fm-arquivo:hover *:not(:is(.dropdown-menu, .dropdown-menu *)) { color: #fff !important; }
+.fm-arquivo:hover .fm-arq-menu:hover { background: rgba(255,255,255,.2); }
 .fm-arquivo:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .fm-arquivo.arrastando { opacity: .5; }
 

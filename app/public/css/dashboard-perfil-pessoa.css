@@ -23,6 +23,9 @@
 }
 .db-page .db-pf-abrir:hover,
 .db-page .db-pf-abrir:focus-visible { background: var(--db-ia-dica-bg); opacity: 1; transform: scale(1.15); outline: none; }
+/* M6: na linha azul o fundo claro do hover apagava a estrela branca. */
+.db-page .db-table tbody tr:hover .db-pf-abrir:hover:not(:disabled),
+.db-page .db-table tbody tr:hover .db-pf-abrir:focus-visible:not(:disabled) { background: rgba(255,255,255,.2); }
 .db-page .db-pf-abrir:disabled { cursor: not-allowed; opacity: .35; transform: none; background: transparent; }
 
 /* ── modo individual do painel: o corpo da equipe, o teaser e o rodapé saem; o perfil entra ───── */
