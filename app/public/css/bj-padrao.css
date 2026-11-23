@@ -10,6 +10,26 @@
  * outra classe do Bootstrap/AdminLTE.
  */
 
+/*
+ * Lilás do Master (pedido M5.2): tudo que só o Master (ROLE_SUPER_ADMIN) vê, nas telas comuns, usa estes tokens para se
+ * distinguir do resto. Cheio = ação principal; contorno = ação secundária; ícone = ícone/★/switch sobre o fundo da tela.
+ * Cores do desenho "05 - Perfis 1.2" (as mesmas de master.css e perfis.css .pf-selo-master).
+ */
+:root {
+    --bj-master: #7a3e8f;
+    --bj-master-escuro: #5f2f70;
+    --bj-master-claro: #f3e9f7;
+    --bj-master-borda: #e6d6ee;
+    --bj-master-texto: #4b2259;
+    --bj-master-icone: #7a3e8f;
+}
+html[data-bs-theme="dark"] {
+    --bj-master-claro: rgba(122, 62, 143, .22);
+    --bj-master-borda: rgba(199, 154, 216, .45);
+    --bj-master-texto: #e3c8ee;
+    --bj-master-icone: #c79ad8;
+}
+
 /* Botão: 32px, raio 4px, sem borda, 13px/600, ícone bi 14px. Máximo de 1 Primário por área. */
 .bjp-btn {
     display: inline-flex;

@@ -373,7 +373,7 @@
             alvo.appendChild(el('span', { class: 'te-pilula-disp' }, [ic('bi-circle-fill', { color: dispCor }), 'Central ' + dispTxt]));
 
             var hm = el('div', { class: 'te-hm' }, [
-                el('button', { type: 'button', class: 'te-btn-icone', title: 'Opções do Master', onclick: function () { S.hm = !S.hm; renderTitulo(); } }, ic('bi-three-dots-vertical'))
+                el('button', { type: 'button', class: 'te-btn-icone te-btn-master', title: 'Opções do Master', onclick: function () { S.hm = !S.hm; renderTitulo(); } }, ic('bi-three-dots-vertical'))
             ]);
             if (S.hm) {
                 hm.appendChild(el('div', { class: 'te-hm-fundo', onclick: fecharHm }));
