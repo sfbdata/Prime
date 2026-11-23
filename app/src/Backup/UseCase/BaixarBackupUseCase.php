@@ -9,12 +9,14 @@ use App\Backup\DTO\BackupParaBaixar;
 use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Exception\BackupIndisponivel;
 use App\Backup\Repository\PedidoDeBackupRepository;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Autoriza o download do ZIP de um backup (spec backup-e-exportacao-de-dados, seção 2, regras 4, 5 e 7). O pedido é
@@ -34,12 +36,20 @@ final class BaixarBackupUseCase
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $clock,
+        private readonly DonoDoEscritorio $dono,
     ) {
     }
 
-    /** @throws BackupIndisponivel */
+    /**
+     * @throws AccessDeniedException quem não é o dono do escritório (403, antes de qualquer outra checagem)
+     * @throws BackupIndisponivel
+     */
     public function executar(int $pedidoId, User $usuario, Tenant $tenant): BackupParaBaixar
     {
+        if (!$this->dono->ehDono($usuario, $tenant)) {
+            throw new AccessDeniedException('Só o dono do escritório pode baixar o backup.');
+        }
+
         $agora = \DateTimeImmutable::createFromInterface($this->clock->now());
         $pedido = $this->pedidos->doEscritorio($pedidoId, (int) $tenant->getId());
         if (null === $pedido || !$pedido->podeSerBaixadoPor($usuario, $tenant, $agora)) {

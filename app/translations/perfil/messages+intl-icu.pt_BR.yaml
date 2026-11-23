@@ -118,6 +118,7 @@ perfil:
             muitos_pedidos: Muitos pedidos em sequência. Aguarde alguns minutos e tente de novo.
             token_invalido: Token inválido. Recarregue a página e tente de novo.
             selecione_escritorio: Selecione um escritório.
+            so_o_dono: Só o dono do escritório pode pedir o backup.
             pedido_recebido: Pedido recebido. Avisamos no sino quando o backup estiver pronto.
         situacao:
             em_preparo: Em preparo

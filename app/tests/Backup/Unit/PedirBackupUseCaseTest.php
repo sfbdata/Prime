@@ -9,6 +9,7 @@ use App\Backup\Enum\SituacaoDoBackup;
 use App\Backup\Exception\PedidoDeBackupNaoPermitido;
 use App\Backup\Message\GerarBackup;
 use App\Backup\Repository\PedidoDeBackupRepository;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Backup\UseCase\PedirBackupUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[CoversClass(PedirBackupUseCase::class)]
 final class PedirBackupUseCaseTest extends TestCase
@@ -39,12 +41,13 @@ final class PedirBackupUseCaseTest extends TestCase
         $this->conexao = $this->createMock(Connection::class);
         $em = $this->createMock(EntityManagerInterface::class);
         $em->method('getConnection')->willReturn($this->conexao);
-        $this->useCase = new PedirBackupUseCase($this->pedidos, $em, $this->bus, new MockClock('2026-11-23 10:00:00'));
+        $this->useCase = new PedirBackupUseCase($this->pedidos, $em, $this->bus, new MockClock('2026-11-23 10:00:00'), new DonoDoEscritorio());
 
         $this->usuario = new User();
         (new \ReflectionProperty(User::class, 'id'))->setValue($this->usuario, 7);
         $this->tenant = new Tenant();
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 3);
+        $this->tenant->setCriadoPor($this->usuario); // a pessoa do teste é a dona do escritório
     }
 
     #[TestDox('Cria o pedido, grava com flush e despacha GerarBackup com o id')]
@@ -93,6 +96,30 @@ final class PedirBackupUseCaseTest extends TestCase
 
         self::assertSame(SituacaoDoBackup::Pedido, $pedido->getSituacao());
         self::assertSame($this->tenant, $pedido->getTenant());
+    }
+
+    #[TestDox('Quem não é o dono: acesso negado, sem transação, pedido nem despacho')]
+    public function testNaoDonoNaoPede(): void
+    {
+        $outro = new User();
+        (new \ReflectionProperty(User::class, 'id'))->setValue($outro, 8);
+        $this->conexao->expects(self::never())->method('beginTransaction');
+        $this->pedidos->expects(self::never())->method('salvar');
+        $this->bus->expects(self::never())->method('dispatch');
+
+        $this->expectException(AccessDeniedException::class);
+        $this->useCase->executar($outro, $this->tenant);
+    }
+
+    #[TestDox('Escritório sem criador: ninguém pede')]
+    public function testSemCriadorNinguemPede(): void
+    {
+        $this->tenant->setCriadoPor(null);
+        $this->pedidos->expects(self::never())->method('salvar');
+        $this->bus->expects(self::never())->method('dispatch');
+
+        $this->expectException(AccessDeniedException::class);
+        $this->useCase->executar($this->usuario, $this->tenant);
     }
 
     #[TestDox('Recusa quando já existe pedido aberto, sem criar nem despachar')]

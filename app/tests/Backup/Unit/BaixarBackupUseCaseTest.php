@@ -8,6 +8,7 @@ use App\Backup\DTO\ResultadoDoBackup;
 use App\Backup\Entity\PedidoDeBackup;
 use App\Backup\Exception\BackupIndisponivel;
 use App\Backup\Repository\PedidoDeBackupRepository;
+use App\Backup\Service\DonoDoEscritorio;
 use App\Backup\UseCase\BaixarBackupUseCase;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[CoversClass(BaixarBackupUseCase::class)]
 final class BaixarBackupUseCaseTest extends TestCase
@@ -38,9 +40,10 @@ final class BaixarBackupUseCaseTest extends TestCase
         $this->pedidos = $this->createMock(PedidoDeBackupRepository::class);
         $this->armazenamento = $this->createMock(ArmazenamentoDeArquivos::class);
         $this->em = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new BaixarBackupUseCase($this->pedidos, $this->armazenamento, $this->em, new MockClock(self::AGORA));
+        $this->useCase = new BaixarBackupUseCase($this->pedidos, $this->armazenamento, $this->em, new MockClock(self::AGORA), new DonoDoEscritorio());
         $this->dono = self::usuario(7);
         $this->tenant = self::tenant(3);
+        $this->tenant->setCriadoPor($this->dono);
     }
 
     private static function usuario(int $id): User
@@ -107,13 +110,14 @@ final class BaixarBackupUseCaseTest extends TestCase
         $this->useCase->executar(55, $this->dono, $this->tenant);
     }
 
-    #[TestDox('Outro usuário do mesmo escritório: indisponível, sem auditoria')]
+    #[TestDox('Quem não é o dono (inclusive de pedido antigo dele): acesso negado antes de tudo, sem auditoria')]
     public function testOutroUsuario(): void
     {
-        $this->pedidos->method('doEscritorio')->willReturn($this->pronto());
+        $this->pedidos->expects(self::never())->method('doEscritorio');
+        $this->armazenamento->expects(self::never())->method('existe');
         $this->em->expects(self::never())->method('persist');
 
-        $this->expectException(BackupIndisponivel::class);
+        $this->expectException(AccessDeniedException::class);
         $this->useCase->executar(55, self::usuario(8), $this->tenant);
     }
 
