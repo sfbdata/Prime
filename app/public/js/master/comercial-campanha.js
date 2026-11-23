@@ -2,8 +2,9 @@
    (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup L.229-260 e lógica L.530-560;
    spec docs/specs/comercial-e-emails.md §8.2 a §8.6).
    - A grade de modelos vem do servidor (os fixos do dc e os próprios do Master, em comercial_modelo).
-   - Editar um modelo (fixo ou próprio) vale para a prévia e o teste, sem guardar; trocar de modelo descarta a
-     edição sem aviso (dc L.542, `cmEd: null`). "Salvar modelo" só no próprio.
+   - Editar um modelo (fixo ou próprio) vale para a prévia e o teste, sem guardar no servidor; trocar de modelo descarta a
+     edição (dc L.542, `cmEd: null`), mas pergunta antes (M5.15). A edição fica como rascunho no navegador e volta ao
+     recarregar. "Salvar modelo" só no próprio.
    - A prévia é o HTML do servidor (o mesmo montador do envio) num iframe sandbox="" (srcdoc), pedida com 400 ms de
      espera entre teclas. "Baixar HTML" baixa o mesmo e-mail como email-CHAVE.html (dc L.558), sempre com o exemplo fixo.
    - "Enviar teste" manda ao Master logado; as recusas (teto, descadastro) vêm do servidor.
@@ -88,6 +89,41 @@
     // Parte estável de um id: só letras minúsculas, números e hífen.
     const slug = t => String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+    /* M5.15 (pedido do Farlei, 23/11/2026): o rascunho automático. A mensagem em edição (o modelo escolhido e as edições
+       por cima dele) fica no navegador, por modo (`mc` e `mc-venda`), e volta ao recarregar. Só a mensagem: as listas de
+       e-mails (CSV, individual) não ficam guardadas no aparelho. Sem armazenamento (janela privada, bloqueio), segue sem
+       rascunho. Nada grava antes do primeiro carregamento, para o `ed = null` dele não apagar o rascunho que vai voltar. */
+    const CHAVE_DO_RASCUNHO = 'bj-mc-rascunho-' + P;
+    let rascunhoLido = false;
+    let esperaDoRascunho = null;
+    // Se a edição tem algo a perder: liga ao editar e no rascunho recuperado, desliga quando a campanha é confirmada.
+    let sujo = false;
+    // A primeira carga em voo: os gatilhos (endereço, troca de seção, "Ver mensagem") dividem a mesma, para uma segunda
+    // não zerar a edição que a primeira acabou de recuperar.
+    let primeiraCarga = null;
+    function lerRascunho() {
+      try {
+        const r = JSON.parse(window.localStorage.getItem(CHAVE_DO_RASCUNHO) || 'null');
+        return r && typeof r.mk === 'string' && r.ed && typeof r.ed === 'object' ? r : null;
+      } catch (x) { return null; }
+    }
+    function gravarRascunho() {
+      clearTimeout(esperaDoRascunho);
+      esperaDoRascunho = null;
+      if (!rascunhoLido) return;
+      try {
+        if (ed && sujo) window.localStorage.setItem(CHAVE_DO_RASCUNHO, JSON.stringify({ mk, ed, em: Date.now() }));
+        else window.localStorage.removeItem(CHAVE_DO_RASCUNHO);
+      } catch (x) { /* sem armazenamento: segue sem rascunho */ }
+    }
+    function agendarRascunho() {
+      sujo = true;
+      clearTimeout(esperaDoRascunho);
+      esperaDoRascunho = setTimeout(gravarRascunho, 800);
+    }
+    // Antes de qualquer troca que descarta a edição (outro modelo, "Ver mensagem", "Novo modelo"): pergunta.
+    const podeDescartar = () => !ed || !sujo || window.confirm(BJ_T.t('comercial.js.rascunho_confirmar_troca'));
+
     const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     const base = () => modelos.find(m => m.chave === mk) || modelos[0] || null;
     // O modelo em edição: o escolhido com as edições por cima (dc L.530).
@@ -106,6 +142,7 @@
 
     function editar(campo, valor) {
       ed = Object.assign({}, ed, { [campo]: valor });
+      agendarRascunho();
       agendarPrevia();
     }
 
@@ -380,6 +417,9 @@
             el('[data-mc-cp-agenda]').value = '';
             desenharFrequencia();
             avisar(r.mensagem, 'ok');
+            // A mensagem já saiu (ou está programada): nada a perder, e o rascunho dela não volta ao recarregar.
+            sujo = false;
+            gravarRascunho();
             document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
           })
           .catch(e => avisar(e.message, 'erro'))
@@ -439,6 +479,7 @@
       desenharGrade();
       desenharEditor();
       atualizarPrevia();
+      gravarRascunho();
     }
 
     function agendarPrevia() {
@@ -461,7 +502,14 @@
     function trocarBlocos(lista) {
       ed = Object.assign({}, ed, { blocos: lista });
       desenharBlocos();
+      agendarRascunho();
       agendarPrevia();
+    }
+
+    function carregarPrimeira() {
+      if (carregado) return Promise.resolve();
+      if (!primeiraCarga) primeiraCarga = carregar().finally(() => { primeiraCarga = null; });
+      return primeiraCarga;
     }
 
     function carregar(escolher) {
@@ -473,7 +521,18 @@
           if (escolher) mk = escolher;
           if (!modelos.some(m => m.chave === mk)) mk = 'convite';
           ed = null;
+          const recuperado = rascunhoLido ? null : lerRascunho();
+          rascunhoLido = true;
+          if (recuperado && modelos.some(m => m.chave === recuperado.mk)) {
+            mk = recuperado.mk;
+            ed = recuperado.ed;
+            sujo = true;
+          }
           desenhar();
+          if (ed && recuperado) {
+            const quando = new Date(Number(recuperado.em) || Date.now()).toLocaleString(document.documentElement.lang || 'pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+            avisar(BJ_T.t('comercial.js.rascunho_recuperado', { quando }));
+          }
           // spec §11: a contagem depende do modelo, que o carregamento pode ter trocado.
           contar();
         })
@@ -525,7 +584,10 @@
     raiz.addEventListener('click', e => {
       const modelo = e.target.closest('[data-mc-cp-modelo]');
       // dc L.542: trocar de modelo não limpa a mensagem.
-      if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); contar(); return; }
+      if (modelo) {
+        if (!podeDescartar()) return;
+        mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); contar(); return;
+      }
       const botaoDoPublico = e.target.closest('[data-mc-cp-publico]');
       if (botaoDoPublico) { publico = botaoDoPublico.dataset.mcCpPublico; desenharPublicos(); contar(); return; }
       if (e.target.closest('[data-mc-cp-lead-add]')) { cadastrarContatos(); return; }
@@ -561,7 +623,7 @@
       if (e.target.closest('[data-mc-cp-remover]') && i >= 0) { trocarBlocos(blocos().filter((_, j) => j !== i)); return; }
       const novo = e.target.closest('[data-mc-cp-novo-bloco]');
       if (novo) { trocarBlocos(blocos().concat({ t: novo.dataset.mcCpNovoBloco, a: '', b: '' })); return; }
-      if (e.target.closest('[data-mc-cp-novo]')) { postar(ROTAS.urlCriar, { acao: 'novo' }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
+      if (e.target.closest('[data-mc-cp-novo]')) { if (!podeDescartar()) return; postar(ROTAS.urlCriar, { acao: 'novo' }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
       if (e.target.closest('[data-mc-cp-duplicar]')) { postar(ROTAS.urlCriar, { acao: 'duplicar', modelo: pedido() }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
       if (e.target.closest('[data-mc-cp-salvar]')) { salvar(); return; }
       if (e.target.closest('[data-mc-cp-excluir]')) { excluir(); return; }
@@ -590,6 +652,7 @@
         if (!lista[i]) return;
         lista[i][lado.dataset.mcCpLado] = lado.value;
         ed = Object.assign({}, ed, { blocos: lista });
+        agendarRascunho();
         agendarPrevia();
       }
     });
@@ -612,6 +675,8 @@
       }
       const entrada = e.target.closest('[data-mc-cp-importar]');
       if (!entrada || !entrada.files || !entrada.files[0]) return;
+      // Importar abre o modelo novo no editor: com edição a perder, pergunta antes (M5.15).
+      if (!podeDescartar()) { entrada.value = ''; return; }
       importar(entrada.files[0]);
       entrada.value = '';
     });
@@ -647,8 +712,10 @@
       document.addEventListener('mc:modelo-abrir', e => {
         const d = e.detail || {};
         if (typeof d.chave !== 'string' || !d.chave) return;
+        // M5.15: "Ver mensagem" não substitui o editor sem avisar; com edição (ou rascunho recuperado), pergunta antes.
         const abrir = () => {
           if (!modelos.some(m => m.chave === d.chave)) return;
+          if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
           mk = d.chave;
           ed = null;
           desenhar();
@@ -656,7 +723,8 @@
           avisar(String(d.aviso || ''));
           raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
-        if (carregado) abrir(); else carregar(d.chave).then(abrir);
+        // Antes da grade carregar, carrega primeiro (o rascunho volta) e só então pergunta e abre.
+        if (carregado) abrir(); else carregarPrimeira().then(abrir);
       });
     }
 
@@ -666,9 +734,11 @@
     desenharFrequencia();
     const painel = document.getElementById('master-painel');
     if (painel) {
-      painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === M.secao && !carregado) carregar(); });
+      painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === M.secao && !carregado) carregarPrimeira(); });
     }
-    if (new RegExp('[#&]sec=' + M.secao + '\\b').test(location.hash)) carregar();
+    if (new RegExp('[#&]sec=' + M.secao + '\\b').test(location.hash)) carregarPrimeira();
+    // Recarregar ou fechar logo depois da última tecla: grava o que o atraso de 800 ms ainda não gravou.
+    window.addEventListener('pagehide', () => { if (esperaDoRascunho) gravarRascunho(); });
   }
 
   document.querySelectorAll('[data-mc-campanha]').forEach(iniciar);

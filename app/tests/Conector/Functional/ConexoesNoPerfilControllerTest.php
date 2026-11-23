@@ -214,12 +214,14 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
 
     private const GUIA = '/perfil/conexoes-de-ia/como-conectar';
 
-    private function logadoSemConexao(): void
+    private function logadoSemConexao(): User
     {
         $escritorio = $this->escritorio();
         $pessoa = $this->pessoa();
         $this->vinculo($pessoa, $escritorio);
         $this->logarComTenant($this->client, $pessoa, $escritorio);
+
+        return $pessoa;
     }
 
     #[TestDox('Cartão "Conexões de I.A." do Meu Perfil leva ao passo a passo, no topo do cartão')]
@@ -276,8 +278,8 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
     #[TestDox('Guia: "O que dá para pedir" lista só as ferramentas registradas, sem a confirmar_acao, com texto traduzido')]
     public function testGuiaListaAsFerramentasRegistradas(): void
     {
-        $this->logadoSemConexao();
-        $esperado = static::getContainer()->get(GuiaDoConector::class)->ferramentas();
+        $pessoa = $this->logadoSemConexao();
+        $esperado = static::getContainer()->get(GuiaDoConector::class)->ferramentas($pessoa);
 
         $tela = $this->client->request('GET', self::GUIA);
         $nomes = static fn (string $lista): array => $tela->filter($lista . ' > li')->each(static fn ($li): string => (string) $li->attr('data-ferramenta'));
