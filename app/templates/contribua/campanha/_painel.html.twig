@@ -34,7 +34,7 @@
                 <label class="cp-l">Pagar a devolução em até (dias úteis)<input class="cp-i" type="number" min="1" value="{{ painel.prazoPagto }}" data-cp-campo="prazoPagto"></label>
                 <label class="cp-l">Limite de vagas (0 = sem limite)<input class="cp-i" type="number" min="0" value="{{ painel.vagas }}" data-cp-campo="vagas"></label>
                 <div class="cp-l">Exibição
-                    <label class="cp-marca"><input type="checkbox" {{ painel.abaNoTopo ? 'checked' }} data-cp-campo="abaNoTopo">Aba no topo de todas as telas</label>
+                    {# "Aba no topo de todas as telas" saiu com a aba (pedido M5.6 do dono, 23/11); a coluna fica no banco. #}
                     <label class="cp-marca"><input type="checkbox" {{ painel.mostrarContador ? 'checked' }} data-cp-campo="mostrarContador">Mostrar nº de inscritos (real)</label>
                 </div>
             </div>
