@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * `campanhas_de_email` com o banco e o portão de verdade (spec mcp-remoto-oauth 6.9, decisões 36 a 41): só o Master
- * passa, na chamada e na reconferência; criar, editar, cancelar e enviar teste viram proposta e só gravam confirmados;
+ * passa, na chamada e na reconferência; criar, editar e cancelar viram proposta e só gravam confirmados; enviar teste é direto, só ao Master;
  * modelo ou campanha mudados entre propor e confirmar recusam; a trilha sai com a rota `conector_mcp` e sem escritório.
  */
 #[CoversClass(CampanhasDeEmailFerramenta::class)]
@@ -298,20 +298,17 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
         self::assertSame(ErroDaFerramenta::MOTIVO_RECUSADA, $erro->motivo);
     }
 
-    #[TestDox('enviar_teste vira proposta, só envia depois do sim, só ao próprio Master, e a resposta não traz e-mail; o registro é a linha de teste')]
-    public function testEnviarTeste(): void
+    #[TestDox('enviar_teste é direto: envia na hora só ao próprio Master, sem proposta, e a resposta não traz e-mail; o registro é a linha de teste')]
+    public function testEnviarTesteDireto(): void
     {
-        $proposta = $this->executar(['acao' => 'enviar_teste', 'modelo' => 'convite']);
+        $resposta = $this->executar(['acao' => 'enviar_teste', 'modelo' => 'convite']);
 
-        self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
-        self::assertStringContainsString('só para o seu e-mail de Master', $proposta->dados['proposta']['resumo']);
-        self::assertSame(0, $this->contar('comercial_campanha'), 'propor não envia');
-
-        $confirmada = $this->confirmar($proposta);
-
+        self::assertSame('concluida', $resposta->dados['estado']);
+        self::assertSame(1, $resposta->dados['enviados']);
+        self::assertSame(0, $this->contarPropostas());
         self::assertSame(1, $this->contar('comercial_campanha', "estado = 'teste'"));
-        self::assertSame(1, $confirmada->dados['resultado']['enviados']);
-        self::assertDoesNotMatchRegularExpression('/[\w.+-]+@[\w-]+\.[\w.-]+/u', json_encode($confirmada->dados, \JSON_THROW_ON_ERROR));
+        self::assertDoesNotMatchRegularExpression('/[\w.+-]+@[\w-]+\.[\w.-]+/u', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+        $this->assertRecusaDeEntrada(['acao' => 'enviar_teste', 'modelo' => 'convite', 'para' => 'outro@exemplo.com']);
     }
 
     private function semearLead(): void
@@ -374,6 +371,19 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
             return $e;
         }
         self::fail('a confirmação deveria recusar');
+    }
+
+    /** @param array<string, mixed> $argumentos */
+    private function assertRecusaDeEntrada(array $argumentos): void
+    {
+        try {
+            $this->executar($argumentos);
+        } catch (ErroDaFerramenta $e) {
+            self::assertSame(ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA, $e->motivo);
+
+            return;
+        }
+        self::fail('deveria recusar a entrada');
     }
 
     /** @param array<string, mixed> $argumentos */

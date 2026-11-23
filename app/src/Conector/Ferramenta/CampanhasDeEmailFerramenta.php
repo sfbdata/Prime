@@ -37,10 +37,10 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * testa as campanhas de e-mail do Comercial do Painel do Master. Só para o Master da plataforma: a guarda é a primeira
  * coisa do {@see executar}, do {@see reconferir} e do {@see executarConfirmada}.
  *
- * Tudo vira proposta (decisão 37, um "sim" por ação), porque tudo manda e-mail de verdade ou para o envio e não volta:
+ * Vira proposta (decisão 37, um "sim" por ação) o que manda e-mail a terceiros ou para o envio e não volta:
  * `criar` (só de modelo salvo, nunca a mensagem inteira: o resumo traz modelo, assunto, texto, público, total, data e
  * frequência), `editar` (agenda e, se pedido, o conteúdo regravado a partir do modelo salvo; só antes de a campanha
- * começar a sair), `cancelar` e `enviar_teste` (só ao e-mail do próprio Master). A proposta guarda o hash do modelo ou
+ * começar a sair), `cancelar`. `enviar_teste` é direto (spec 6.9): só ao e-mail do próprio Master, sem campo de destinatário, com o teto de 10 por hora do UseCase. A proposta guarda o hash do modelo ou
  * do estado da campanha, e o {@see reconferir} recusa se mudou. Chave do envio desligada não recusa (o UseCase grava e
  * a campanha espera): o resumo avisa. Toda gravação roda dentro de {@see EscopoDeAuditoriaDePlataforma::executar()}.
  * Nenhuma resposta traz e-mail de destinatário; os públicos `csv` e `indiv` não existem aqui.
@@ -90,7 +90,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Cria, edita, cancela e testa as campanhas de e-mail do Comercial (só para o Master da plataforma). Toda ação espera o sim da pessoa: mostre o resumo e chame confirmar_acao só se ela disser sim. "criar" (modelo: id, cu12 ou chave de um modelo salvo, como veio em ler_comercial; publico: leads, prim, sec ou todos; frequencia: unica, semanal, quinzenal ou mensal; agendar: AAAA-MM-DDTHH:MM, hora de Brasília, ou vazio para enviar já) usa só o modelo salvo, nunca texto solto. "editar" (campanha_id; agendar, frequencia e atualizar_do_modelo, que regrava o conteúdo com a versão atual do modelo; só antes de a campanha começar a sair; o que não vier fica como está). "cancelar" (campanha_id) para o envio e não volta. "enviar_teste" (modelo) manda um teste só para o e-mail do próprio Master, no máximo 10 por hora. Lista de e-mails de destinatários nunca sai, e os públicos de CSV e individual não existem aqui.';
+        return 'Cria, edita, cancela e testa as campanhas de e-mail do Comercial (só para o Master da plataforma). Criar, editar e cancelar esperam o sim da pessoa: mostre o resumo e chame confirmar_acao só se ela disser sim. "criar" (modelo: id, cu12 ou chave de um modelo salvo, como veio em ler_comercial; publico: leads, prim, sec ou todos; frequencia: unica, semanal, quinzenal ou mensal; agendar: AAAA-MM-DDTHH:MM, hora de Brasília, ou vazio para enviar já) usa só o modelo salvo, nunca texto solto. "editar" (campanha_id; agendar, frequencia e atualizar_do_modelo, que regrava o conteúdo com a versão atual do modelo; só antes de a campanha começar a sair; o que não vier fica como está). "cancelar" (campanha_id) para o envio e não volta. "enviar_teste" (modelo) manda na hora um teste só para o e-mail do próprio Master, no máximo 10 por hora. Lista de e-mails de destinatários nunca sai, e os públicos de CSV e individual não existem aqui.';
     }
 
     public function esquemaDeEntrada(): array
@@ -120,7 +120,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
             self::CRIAR => $this->proporCriacao($entrada->campos, $chamada),
             self::EDITAR => $this->proporEdicao($entrada->campos, $chamada),
             self::CANCELAR => $this->proporCancelamento((int) $entrada->campos['campanha_id'], $chamada),
-            default => $this->proporTeste((string) $entrada->campos['modelo'], $chamada),
+            default => $this->enviarTeste((string) $entrada->campos['modelo'], $chamada),
         });
     }
 
@@ -129,7 +129,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         $this->exigirMaster($chamada);
         $this->recusando(function () use ($acao, $dados): void {
             match ($acao) {
-                self::CRIAR, self::ENVIAR_TESTE => $this->exigirModeloIgual($dados),
+                self::CRIAR => $this->exigirModeloIgual($dados),
                 self::EDITAR => $this->reconferirEdicao($dados),
                 self::CANCELAR => $this->exigirIgual(self::hash(self::estadoDaCampanha($this->relatorio(self::inteiro($dados, 'campanha_id')))), $dados),
                 default => throw ErroDaFerramenta::entradaInvalida(),
@@ -148,7 +148,6 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
             self::CRIAR => $this->gravarCriacao($dados, $pessoa),
             self::EDITAR => $this->gravarEdicao($dados, $pessoa),
             self::CANCELAR => $this->gravarCancelamento(self::inteiro($dados, 'campanha_id'), $pessoa),
-            self::ENVIAR_TESTE => $this->gravarTeste(self::texto($dados, 'modelo'), $pessoa),
             default => throw ErroDaFerramenta::entradaInvalida(),
         }));
 
@@ -232,20 +231,15 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         return $this->propostas->propor($chamada, self::NOME, self::CANCELAR, ['campanha_id' => $id, 'antes' => self::hash(self::estadoDaCampanha($campanha))], $resumo);
     }
 
-    private function proporTeste(string $chave, ChamadaDoConector $chamada): RespostaDaFerramenta
+    private function enviarTeste(string $chave, ChamadaDoConector $chamada): RespostaDaFerramenta
     {
-        $modelo = $this->modelo($chave);
-        $mensagem = ModelosDeEmailResumos::mensagem($modelo);
-        $resumo = sprintf(
-            "Enviar um e-mail de teste do modelo \"%s\" (%s) só para o seu e-mail de Master (no máximo %d testes por hora).\nAssunto: %s\nTexto:\n%s",
-            (string) $modelo['nome'],
-            $chave,
-            EnviarTesteDaCampanhaUseCase::TETO_POR_HORA,
-            $mensagem->assunto,
-            $this->resumos->texto($mensagem),
-        );
+        $mensagem = ModelosDeEmailResumos::mensagem($this->modelo($chave));
+        $enviado = $this->plataforma->executar(fn () => $this->teste->executar($mensagem, $chamada->contexto->pessoa));
 
-        return $this->propostas->propor($chamada, self::NOME, self::ENVIAR_TESTE, ['modelo' => $chave, 'antes' => ModelosDeEmailResumos::hash($modelo)], $resumo);
+        return new RespostaDaFerramenta(
+            ['estado' => 'concluida', 'acao' => self::ENVIAR_TESTE, 'enviados' => \count($enviado->enviados), 'bloqueados' => \count($enviado->bloqueados), 'mensagem' => 'Teste enviado para o seu e-mail de Master.'],
+            contagens: ['alteracao' => 1],
+        );
     }
 
     /**
@@ -285,14 +279,6 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         $mensagem = $this->encerrar->executar($id, EncerrarCampanhaUseCase::MOTIVO_DO_MASTER, $pessoa->getId(), $pessoa->getEmail());
 
         return ['estado' => 'concluida', 'acao' => self::CANCELAR, 'campanha_id' => $id, 'mensagem' => $mensagem];
-    }
-
-    /** @return array<string, mixed> */
-    private function gravarTeste(string $chave, User $pessoa): array
-    {
-        $enviado = $this->teste->executar(ModelosDeEmailResumos::mensagem($this->modelo($chave)), $pessoa);
-
-        return ['estado' => 'concluida', 'acao' => self::ENVIAR_TESTE, 'enviados' => \count($enviado->enviados), 'bloqueados' => \count($enviado->bloqueados), 'mensagem' => 'Teste enviado para o seu e-mail de Master.'];
     }
 
     /** @param array<string, mixed> $dados */
