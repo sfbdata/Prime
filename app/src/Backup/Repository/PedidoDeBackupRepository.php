@@ -13,7 +13,7 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Pedidos de backup. Toda consulta leva o escritório ESCRITO NA MÃO (`tenant = :tenant`), nunca o `TenantFilter`: o
  * worker do Messenger e o agendador rodam fora de request, onde o filtro não liga (spec backup-e-exportacao-de-dados,
- * seção 2, regra 2). A única consulta sem escritório é a dos vencidos, que só lê para a tarefa agendada vencer.
+ * seção 2, regra 2). As únicas consultas sem escritório são a dos vencidos e a dos presos em `montando`, que só leem para a tarefa agendada vencer.
  *
  * @extends ServiceEntityRepository<PedidoDeBackup>
  */
@@ -72,13 +72,18 @@ class PedidoDeBackupRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Quantos pedidos a pessoa fez neste escritório desde `$desde` (o limite de 1 por dia conta 24h corridas). */
+    /**
+     * Quantos pedidos a pessoa fez neste escritório desde `$desde` (o limite de 1 por dia conta 24h corridas). Pedido
+     * `falhou` não conta: a falha é do sistema e a pessoa pode pedir de novo.
+     */
     public function quantosDaPessoaDesde(int $tenantId, int $usuarioId, \DateTimeImmutable $desde): int
     {
         return (int) $this->daPessoa($tenantId, $usuarioId)
             ->select('COUNT(p.id)')
             ->andWhere('p.pedidoEm >= :desde')
+            ->andWhere('p.situacao != :falhou')
             ->setParameter('desde', $desde)
+            ->setParameter('falhou', SituacaoDoBackup::Falhou)
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -99,6 +104,26 @@ class PedidoDeBackupRepository extends ServiceEntityRepository
             ->setParameter('agora', $agora)
             ->orderBy('p.id', 'ASC')
             ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Os pedidos em preparo desde antes de `$limite`, de qualquer escritório: o worker caiu e eles ficaram presos. Só a
+     * tarefa agendada os lê, para marcar `falhou`.
+     *
+     * @return list<PedidoDeBackup>
+     */
+    public function montandoIniciadosAntesDe(\DateTimeImmutable $limite, int $maximo = 200): array
+    {
+        /** @var list<PedidoDeBackup> */
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.situacao = :montando')
+            ->andWhere('p.iniciadoEm <= :limite')
+            ->setParameter('montando', SituacaoDoBackup::Montando)
+            ->setParameter('limite', $limite)
+            ->orderBy('p.id', 'ASC')
+            ->setMaxResults($maximo)
             ->getQuery()
             ->getResult();
     }
