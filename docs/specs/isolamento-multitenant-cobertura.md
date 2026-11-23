@@ -297,9 +297,11 @@ do escritório.
 A medição não cobre um caso sem referência cruzada nenhuma: **sair do escritório B com a sessão em
 A** (`/escritorio/{id}/sair`, rota sem `{tenantId}`). O vínculo de B traz o cargo e a lotação **de
 B**; a auditoria da exclusão lê o nome deles, e o proxy não abria pelo filtro de A
-(`EntityNotFoundException`, a saída voltava inteira). Correção no `AuditLogSubscriber`: o cadastro
-só referenciado é aberto sem o filtro da sessão, apenas para ler o rótulo, que vai para o log do
-dono do registro (B). Teste: `EscritorioControllerTest::testSaiDeNaoAtivoComCargoELotacaoDoOutroEscritorio`.
+(`EntityNotFoundException`, a saída voltava inteira). Correção no `AuditLogSubscriber`: Sede, Cargo
+e Lotacao só referenciados são abertos sem o filtro da sessão, apenas para ler o rótulo. Quem os
+referencia (vínculo, feriado, lotação com vigência, batida) tem dono, e o log vai para ele (B).
+As outras classes seguem com o filtro: falhar é melhor que gravar nome de outro escritório no log
+da sessão. Teste: `EscritorioControllerTest::testSaiDeNaoAtivoComCargoELotacaoDoOutroEscritorio`.
 
 A §5.2 virou teste (`CadastrosDoEscritorioIsolamentoTest`): um admin dos dois escritórios, com a
 sessão em A, abre a edição e as sedes de B pela URL e vê os cadastros de B (é o

@@ -11,6 +11,9 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
@@ -88,6 +91,9 @@ class AuditLogSubscriber
      * (o anexo aponta a conversa, que tem `getTitulo`). Fica só a classe e o id.
      */
     private const SEM_ROTULO = [ConversaDeChat::class, AnexoDeChat::class, PropostaDeCadastro::class];
+
+    /** Cadastros que a auditoria abre sem o filtro da sessão só para ler o nome ({@see abrirSemFiltroDaSessao}). */
+    private const CADASTROS_ABERTOS_SEM_FILTRO = [Sede::class, Cargo::class, Lotacao::class];
 
     /** EntityManager do flush em curso: abre, sem o filtro da sessão, o cadastro que só aparece por referência. */
     private ?EntityManagerInterface $emDoFlush = null;
@@ -301,11 +307,22 @@ class AuditLogSubscriber
      * quem sai do escritório B com a sessão em A apaga o vínculo de B, e o cargo de B não abre pelo TenantFilter de A
      * (a EntityNotFoundException derrubava a saída inteira). O rótulo vai para o log do dono do registro, então o
      * cadastro é aberto sem o filtro, só para ler o nome. Se nem assim existir, fica sem rótulo.
+     *
+     * Só os cadastros do escritório (CADASTROS_ABERTOS_SEM_FILTRO), que quem os referencia (vínculo, feriado,
+     * lotação com vigência, batida) leva ao log do mesmo dono. Qualquer outra classe segue com o filtro: abrir
+     * sem ele trocaria "a gravação estoura" por "o nome de outro escritório vai para o log da sessão".
      */
     private function abrirSemFiltroDaSessao(object $entity): bool
     {
         $em = $this->emDoFlush;
         if ($em === null || !$em->getUnitOfWork()->isUninitializedObject($entity)) {
+            return true;
+        }
+        $cadastroDoEscritorio = false;
+        foreach (self::CADASTROS_ABERTOS_SEM_FILTRO as $classe) {
+            $cadastroDoEscritorio = $cadastroDoEscritorio || $entity instanceof $classe;
+        }
+        if (!$cadastroDoEscritorio) {
             return true;
         }
 
