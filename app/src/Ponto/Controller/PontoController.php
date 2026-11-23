@@ -822,7 +822,7 @@ final class PontoController extends AbstractController
         try {
             $excluir->executar($id, $user, $tenant);
         } catch (ExclusaoDeJustificativaRecusadaException $e) {
-            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
+            return $this->json(['ok' => false, 'mensagem' => $this->tradutor->trans($e->chave(), $e->parametros())], self::RESPOSTA_DA_RECUSA[$e->motivo]);
         }
 
         return $this->json(['ok' => true]);

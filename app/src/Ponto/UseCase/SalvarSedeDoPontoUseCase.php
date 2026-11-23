@@ -63,14 +63,14 @@ final class SalvarSedeDoPontoUseCase
     private function daSessao(int $id, Tenant $escritorio): Sede
     {
         return $this->sedes->ativaDoEscritorio($id, $escritorio)
-            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada('Sede não encontrada.');
+            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada(ConfiguracaoDoPontoRecusadaException::RECUSA_SEDE_NAO_ENCONTRADA);
     }
 
     /** @return array<string, string> campo => primeira mensagem */
     private function erros(string $nome, ?string $latitude, ?string $longitude, string $raio): array
     {
         $regras = [
-            'nome'      => [$nome, [new NotBlank(message: 'Informe o nome da sede.'), new Length(max: self::NOME_MAXIMO, maxMessage: 'O nome da sede pode ter até 255 caracteres.')]],
+            'nome'      => [$nome, [new NotBlank(message: ConfiguracaoDoPontoRecusadaException::RECUSA_SEDE_NOME_OBRIGATORIO), new Length(max: self::NOME_MAXIMO, maxMessage: ConfiguracaoDoPontoRecusadaException::RECUSA_SEDE_NOME_LONGO)]],
             'latitude'  => [$latitude, RestricoesDaSede::latitude()],
             'longitude' => [$longitude, RestricoesDaSede::longitude()],
             'raio'      => [is_numeric($raio) ? (float) $raio : null, RestricoesDaSede::raio()],

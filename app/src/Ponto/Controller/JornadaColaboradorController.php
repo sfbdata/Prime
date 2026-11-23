@@ -193,9 +193,9 @@ final class JornadaColaboradorController extends AbstractController
         try {
             $salvarVersao->executar($user, $urlTenant, new VersaoDaJornadaInput($valeAPartirDe, $carga, $alerta, $blocosPropostos, $versaoId));
         } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
-            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($naoEncontrada->chave())], Response::HTTP_NOT_FOUND);
         } catch (VersaoDaJornadaRecusadaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave(), $recusada->parametros())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (UniqueConstraintViolationException) {
             // Dois salvamentos ao mesmo tempo na mesma data: 409, não 500.
             return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
@@ -273,9 +273,9 @@ final class JornadaColaboradorController extends AbstractController
         try {
             $excluirVersao->executar($user, $urlTenant, $versaoId);
         } catch (VersaoDaJornadaNaoEncontradaException $naoEncontrada) {
-            return $this->json(['erro' => $naoEncontrada->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($naoEncontrada->chave())], Response::HTTP_NOT_FOUND);
         } catch (VersaoDaJornadaRecusadaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave(), $recusada->parametros())], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['ok' => true]);

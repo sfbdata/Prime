@@ -5,6 +5,7 @@ ponto_servidor:
         nao_autenticado: "User not signed in."
         sem_permissao_registrar: "You do not have permission to clock in."
         jornada_alterada: "This workday was just changed; reload and try again."
+        numero_inteiro: "Enter a whole number."
     ponto:
         esquecido_incompleto: "Enter the type and time of the forgotten punch."
         sem_data: "Select at least one date to justify."
@@ -31,6 +32,7 @@ ponto_servidor:
     equipe:
         escala_da_lista: "Choose one of the schedules in the list."
         selecione_justificativa: "Select at least one justification."
+        abonadas: "{quantidade, plural, one {{numero} justification excused.} other {{numero} justifications excused.}}"
     feriado:
         cadastrado: "Holiday added successfully."
         atualizado: "Holiday updated successfully."
@@ -68,3 +70,50 @@ ponto_servidor:
         excluido: "Paid hours entry deleted."
         erro_dos_campos: "Error recording paid hours. Check the fields."
         banco_negativo: "Warning: this deduction left the hour bank negative by -{saldo}."
+    recusa:
+        configuracao:
+            sede_nao_encontrada: "Office not found."
+            feriado_nao_encontrado: "Holiday not found."
+            lotacao_nao_encontrada: "Assignment not found."
+            falta_data_ou_nome: "Enter the date and the name of the holiday."
+            feriado_nome_longo: "The holiday name can have up to 255 characters."
+            sede_nome_obrigatorio: "Enter the office name."
+            sede_nome_longo: "The office name can have up to 255 characters."
+            latitude_obrigatoria: "Latitude is required."
+            latitude_faixa: "Latitude must be between -90 and 90."
+            latitude_numero: "Latitude must be a number."
+            longitude_obrigatoria: "Longitude is required."
+            longitude_faixa: "Longitude must be between -180 and 180."
+            longitude_numero: "Longitude must be a number."
+            raio_numero: "Allowed radius must be a number."
+            raio_faixa: "Allowed radius must be between 10 and 500 meters."
+            raio_inteiro: "Allowed radius must be a whole number of meters."
+        funcao:
+            sem_permissao: "Only those who manage the firm's time clock can change this setting."
+            desconhecida: "Unknown time clock function."
+            travada_pelo_master: "Turned off by the Master for all firms."
+        limites_banco:
+            limite_minimo: "The bank limit must be at least {minimo} hour."
+            limite_maximo: "The bank limit can be up to {maximo} hours."
+            prazo: "The offset period must be from {minimo} to {maximo} months."
+        horas_pagas:
+            outro_escritorio: "This entry does not belong to this firm."
+            operacao_invalida: "Invalid operation."
+            quantidade_zero: "Enter an amount of hours greater than zero."
+            quantidade_maxima: "The amount of hours cannot exceed {limite}."
+            motivo_obrigatorio: "Enter the reason for the entry."
+            motivo_curto: "The reason must have at least {minimo} characters."
+            competencia_futura: "The period cannot be in the future."
+            colaborador_outro_escritorio: "This employee does not belong to this firm."
+        versao_jornada:
+            nao_encontrada: "Workday version not found."
+            versao_unica: "The workday has only one version. To remove the custom workday, use \"Clear schedule\"."
+            data_repetida: "A workday version starting on {data} already exists."
+        equipe:
+            fora_da_equipe: "Person not found in this firm's team."
+        exclusao_justificativa:
+            nao_encontrada: "Justification not found."
+            de_outra_pessoa: "Only the person who sent the justification can delete it."
+            ja_analisada: "This justification is no longer under review and cannot be deleted."
+            da_batida_externa: "The justification for an external work punch cannot be deleted. It goes to the manager for review."
+            mexeu_na_folha: "This justification has already changed the timesheet, so it cannot be deleted. It remains under review with the manager."

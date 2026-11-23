@@ -6,6 +6,7 @@ namespace App\Tests\Ponto\Unit;
 
 use App\Ponto\Controller\JornadaColaboradorController;
 use App\Ponto\Controller\JornadaTenantController;
+use App\Ponto\Controller\LimitesDoBancoDoPontoController;
 use App\Ponto\Controller\PontoController;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -32,6 +33,7 @@ final class TextoDoPhpDoPontoTest extends TestCase
         yield 'comum.nao_autenticado' => ['Usuário não autenticado.', []];
         yield 'comum.sem_permissao_registrar' => ['Sem permissão para registrar ponto.', []];
         yield 'comum.jornada_alterada' => ['Esta jornada acabou de ser alterada; recarregue e tente de novo.', []];
+        yield 'comum.numero_inteiro' => ['Informe um número inteiro.', []];
         yield 'ponto.esquecido_incompleto' => ['Informe o tipo e o horário do registro esquecido.', []];
         yield 'ponto.sem_data' => ['Selecione ao menos uma data para justificar.', []];
         yield 'ponto.abono_uma_data' => ['Abono parcial só pode ser aplicado a uma única data.', []];
@@ -56,6 +58,7 @@ final class TextoDoPhpDoPontoTest extends TestCase
         yield 'ponto.comprovante_na_aba' => ['Comprovante na aba Comprovantes.', []];
         yield 'equipe.escala_da_lista' => ['Escolha uma das escalas da lista.', []];
         yield 'equipe.selecione_justificativa' => ['Selecione ao menos uma justificativa.', []];
+        yield 'equipe.abonadas' => ['2 justificativas abonadas.', ['quantidade' => 2, 'numero' => '2']];
         yield 'feriado.cadastrado' => ['Feriado cadastrado com sucesso.', []];
         yield 'feriado.atualizado' => ['Feriado atualizado com sucesso.', []];
         yield 'feriado.excluido' => ['Feriado excluído.', []];
@@ -157,6 +160,7 @@ final class TextoDoPhpDoPontoTest extends TestCase
         self::assertSame($tradutor->trans('ponto_servidor.comum.jornada_alterada', [], null, 'pt_BR'), JornadaTenantController::JORNADA_ALTERADA_AO_MESMO_TEMPO);
         self::assertSame($tradutor->trans('ponto_servidor.comum.jornada_alterada', [], null, 'pt_BR'), JornadaColaboradorController::JORNADA_ALTERADA_AO_MESMO_TEMPO);
         self::assertSame($tradutor->trans('ponto_servidor.ponto.enviado_ao_gestor', [], null, 'pt_BR'), PontoController::AVISO_ENVIADO_AO_GESTOR);
+        self::assertSame($tradutor->trans('ponto_servidor.comum.numero_inteiro', [], null, 'pt_BR'), LimitesDoBancoDoPontoController::SEM_NUMERO_INTEIRO);
     }
 
     /** @return list<string> */
@@ -165,6 +169,11 @@ final class TextoDoPhpDoPontoTest extends TestCase
         $bloco = Yaml::parseFile(self::arquivo($locale))['ponto_servidor'];
         $chaves = [];
         foreach ($bloco as $grupo => $itens) {
+            // `recusa` guarda o texto das exceções de domínio (chave citada em CHAVE_DA_RECUSA); quem confere é o
+            // RecusasDoPontoNoCatalogoTest.
+            if ($grupo === 'recusa') {
+                continue;
+            }
             foreach (array_keys($itens) as $item) {
                 $chaves[] = $grupo . '.' . $item;
             }

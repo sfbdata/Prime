@@ -1521,3 +1521,32 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `mensagemDasAbonadas` e as recusas por pessoa do UseCase de abonar da equipe, e os lembretes do `JornadaResolver`.
   Enquanto isso, uma resposta do servidor pode misturar as duas línguas (por exemplo a batida de trabalho externo
   confirma com a frase do Service em português e o complemento "Comprovante na aba Comprovantes." já traduzido).
+
+## 31. Texto do PHP do Ponto, PR B1: recusas de gestão e configuração (idioma-ponto-php-b, 23/11)
+
+- **O que entrou:** as exceções de domínio do Ponto que os controllers repassavam por `$e->getMessage()`, nas telas de
+  gestão e configuração, ganharam as constantes `RECUSA_*` (o português de sempre, que continua sendo a mensagem da
+  exceção) e o `CHAVE_DA_RECUSA`, no padrão das recusas das seccionais (P2b) e do Master (P3). Base nova
+  `Ponto/Exception/RecusaDoPonto` (`chave()`, `parametros()`; recusa fora das constantes dá `LogicException`). Os
+  lançadores usam as constantes; os controllers traduzem pela `chave()` com os `parametros()`. Chaves em
+  `ponto_servidor.recusa.<area>.*`. Risco ALTO: nenhuma condição, status HTTP ou regra mudou.
+- **Exceções:** `ConfiguracaoDoPontoRecusadaException` 16 (sede, feriado, lotação e os 9 da `RestricoesDaSede`; não
+  estende a base porque a mensagem é a junção dos erros por campo: `chaveDe()` estático traduz cada erro, e o 422 junta
+  os traduzidos como antes), `FuncaoDoPontoRecusadaException` 3, `LimitesDoBancoRecusadosException` 3 (`{minimo}`,
+  `{maximo}`), `HorasPagasInvalidaException` 8 (`{limite}`, `{minimo}`), `VersaoDaJornada*Exception` 3 (`{data}`),
+  `ForaDaEquipeException` 1, `ExclusaoDeJustificativaRecusadaException` 5. `EscalaDesconhecidaException` reusa a chave
+  `equipe.escala_da_lista` (mesmo texto).
+- **Abono em lote:** "N justificativas abonadas." vira plural ICU (`ponto_servidor.equipe.abonadas`); o número entra
+  como texto em `{numero}`, sem separador de milhar, igual ao `sprintf` antigo (o `#` do ICU escreveria "1.000").
+  `AbonoEmLoteOutput::mensagemDasAbonadas()` fica como o português de referência.
+- **Sobra do PR A:** `LimitesDoBancoDoPontoController::SEM_NUMERO_INTEIRO` sai por `comum.numero_inteiro`.
+- **Sem mudança visível:** `RecusasDoPontoNoCatalogoTest` amarra cada `RECUSA_*` ao pt_BR do catálogo (formatado com
+  os mesmos parâmetros do `sprintf`), confere que o en é outro texto e que não sobra chave; nenhum teste existente mudou
+  o texto esperado.
+- **Fica para o PR B2:** batida e justificativa (`PosicaoNaCerca`, `EnvioDaBatida`, `TrabalhoExternoDaBatida`, a chave
+  do ponto, `ChoqueDeJornada*`, entrada e turno abertos, `AlertasAntesDaBatida`, interjornada, horário futuro, batida já
+  registrada, `AjusteDeBatidaRecusadoException`, `AnaliseDeJustificativaRecusadaException` e as recusas por pessoa do
+  abono), os lembretes do `JornadaResolver`/`VerificadorAlertaPonto` e os rótulos de Service (`FuncoesDoPonto`,
+  `BancoDeHorasPorLotes`, `EscalaDaPessoaNaEquipe`, trilha). Ficam em português: `NomesDasSituacoesDaJustificativa`
+  (também vai para a notificação e o XLSX), `OBSERVACAO`/`MOTIVO_*` (gravados no banco e comparados) e o aceite, o selo
+  e a folha (documento legal).

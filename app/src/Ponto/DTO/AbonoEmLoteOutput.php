@@ -17,7 +17,11 @@ final readonly class AbonoEmLoteOutput
     ) {
     }
 
-    /** "1 justificativa abonada." ou "N justificativas abonadas."; nenhuma, null. */
+    /**
+     * "1 justificativa abonada." ou "N justificativas abonadas."; nenhuma, null. É o português de referência: o
+     * controller traduz pela chave `ponto_servidor.equipe.abonadas` (plural ICU), com `abonadas` como quantidade e,
+     * em texto, como `numero` (sem separador de milhar, igual ao sprintf).
+     */
     public function mensagemDasAbonadas(): ?string
     {
         if ($this->abonadas === 0) {
