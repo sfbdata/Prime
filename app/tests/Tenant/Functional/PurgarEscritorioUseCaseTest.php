@@ -486,6 +486,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Jornada + bloco (bloqueador intermediário)
         $jt = $this->ins('jornada_tenant', ['carga_horaria_semanal' => 40, 'alerta_habilitado' => true, 'tenant_id' => $t, 'validacao_repouso_habilitada' => false, 'minimo_minutos_repouso' => 0, 'validacao_interjornada_habilitada' => false, 'minimo_minutos_interjornada' => 0]);
         $this->ins('bloco_jornada', ['dias_semana' => '[1,2,3,4,5]', 'entrada' => '08:00', 'saida' => '17:00', 'minutos_bloco' => 480, 'jornada_tenant_id' => $jt, 'tenant_id' => $t]);
+        // Jornada da pessoa + bloco: o bloco tem escritório próprio (fatia 6) e sai antes da jornada
+        $jc = $this->ins('jornada_colaborador', ['alerta_habilitado' => true, 'carga_horaria_diaria' => 480, 'dias_semana' => '[1,2,3,4,5]', 'vale_a_partir_de' => '2026-01-01', 'user_id' => $u, 'tenant_id' => $t]);
+        $this->ins('bloco_jornada_colaborador', ['dias_semana' => '[1,2,3,4,5]', 'entrada' => '08:00', 'saida' => '17:00', 'minutos_bloco' => 480, 'jornada_colaborador_id' => $jc, 'tenant_id' => $t]);
 
         // Cliente + documento (bloqueador intermediário)
         $cli = $this->ins('cliente', $this->dadosCliente($t));

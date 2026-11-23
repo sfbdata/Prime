@@ -265,6 +265,23 @@ elo até `kanban_board`, que já está na `ORDEM_DELECAO`), não aceita pelo com
 `PurgarEscritorioUseCaseTest` também precisou de ajuste: ele insere por SQL cru, que não passa
 pelos construtores e por isso não herdava o tenant.
 
+### 4.2 Entidades que só apareceram com a medição
+
+O levantamento por `grep` classificou errado dois arquivos — `PastaProcesso` e `CadastroPendente`
+apenas **mencionam** `TenantAware` num comentário e foram contados como cobertos. A lista
+autoritativa veio do metadata do Doctrine (`getAllMetadata()` + `is_a()`), e é a que o teste usa.
+
+Daí a fatia 8:
+
+- **`PastaProcesso`** — associação Pasta↔Processo, hoje isolada só pela Pasta dona. Mesmo padrão
+  da Categoria B.
+- **`Invitation`** — tem `tenant_id` nullable. Convite vazado expõe e-mail de outro escritório.
+
+`CadastroPendente` é exceção legítima (pré-conta) e entrou em `FORA_DO_ESCOPO`.
+
+**Lição para as próximas fatias:** não classificar entidade por `grep`. A pergunta é para o
+framework (`doctrine:mapping:info`, `getAllMetadata()`), como manda o CLAUDE.md.
+
 ### 4.5 Fatia 6: blocos de horário do Ponto (23/11/2026)
 
 `bloco_jornada` (horário do escritório) e `bloco_jornada_colaborador` (horário de cada pessoa)
@@ -283,25 +300,19 @@ Teste: `BlocosDaJornadaIsolamentoTest` (negativa por entidade com `findBy` e `fi
 vizinho; herança do pai mesmo com o bloco adicionado antes de a jornada ter escritório; recusa do
 bloco sem escritório).
 
+**Achado da revisão:** o choque de jornada entre escritórios lê a jornada padrão de outro escritório
+com o filtro suspenso (`JornadaTenantRepository::doEscritorio`), mas a coleção de blocos carregava
+depois, já com o filtro de volta no escritório da sessão, e chegava vazia: o horário de B pela
+padrão deixava de ser respeitado. Os blocos agora vêm na mesma consulta (fetch join), como já fazia
+a jornada da pessoa (`historicoDe`). Teste:
+`ChoqueDeJornadaEntreEscritoriosHttpTest::testHorarioDeBPelaJornadaPadrao`. **Regra para quem
+mexer depois:** quem lê jornada de outro escritório traz os blocos na mesma consulta sem filtro.
+
+Sem `PreUpdate`: nenhum código troca o escritório de uma jornada já gravada (versão nova mantém o
+escritório). Se um dia trocar, o bloco precisa acompanhar.
+
 Ficou de fora, de propósito: os comentários "filtro SQL do Doctrine NÃO se aplica a `find()` por
-PK" (22 hoje, em vários domínios). Só comentário, sem efeito no código; vão num PR próprio.
-
-### 4.2 Entidades que só apareceram com a medição
-
-O levantamento por `grep` classificou errado dois arquivos — `PastaProcesso` e `CadastroPendente`
-apenas **mencionam** `TenantAware` num comentário e foram contados como cobertos. A lista
-autoritativa veio do metadata do Doctrine (`getAllMetadata()` + `is_a()`), e é a que o teste usa.
-
-Daí a fatia 8:
-
-- **`PastaProcesso`** — associação Pasta↔Processo, hoje isolada só pela Pasta dona. Mesmo padrão
-  da Categoria B.
-- **`Invitation`** — tem `tenant_id` nullable. Convite vazado expõe e-mail de outro escritório.
-
-`CadastroPendente` é exceção legítima (pré-conta) e entrou em `FORA_DO_ESCOPO`.
-
-**Lição para as próximas fatias:** não classificar entidade por `grep`. A pergunta é para o
-framework (`doctrine:mapping:info`, `getAllMetadata()`), como manda o CLAUDE.md.
+PK" (22 hoje; a §2 mediu 21 em 12/08). Só comentário, sem efeito no código; vão num PR próprio.
 
 ---
 
