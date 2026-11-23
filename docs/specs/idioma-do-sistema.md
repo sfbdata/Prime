@@ -1550,3 +1550,26 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `BancoDeHorasPorLotes`, `EscalaDaPessoaNaEquipe`, trilha). Ficam em português: `NomesDasSituacoesDaJustificativa`
   (também vai para a notificação e o XLSX), `OBSERVACAO`/`MOTIVO_*` (gravados no banco e comparados) e o aceite, o selo
   e a folha (documento legal).
+
+## 32. Texto do PHP do Ponto, PR B2b: textos da batida (idioma-ponto-php-b2, 23/11)
+
+- **O que entrou:** os textos que os Services da batida devolvem e que os controllers do Ponto põem no JSON ou no flash
+  saem traduzidos. Objeto de valor novo `Ponto/Service/TextoDoPonto` (`chave`, `parametros`, `portugues`; `traduzir()`
+  traduz também o parâmetro que é outro texto, como o rótulo do tipo da batida e "N minutos"). Cada Service ganhou o
+  `CHAVE_DO_TEXTO` e o `chaveDe()` (texto fora do mapa dá `LogicException`); as constantes em português e os métodos de
+  antes (`mensagem()`, `aviso()`, `naBatida()`, `recusa()`) continuam iguais, ao lado das versões com chave. Bloco
+  `ponto_servidor.batida.*`, 47 chaves: cerca 7, trabalho externo 4, envio da fila 6, chave do ponto 1, choque de jornada
+  3, entrada aberta 2, turno aberto 2, alertas antes da batida 8, esquecimento 1, horário futuro 1, batida já registrada
+  5, e o plural dos minutos. Controllers: `PontoController`, `EquipeDoPontoController`, `JornadaColaboradorController`,
+  `JornadaTenantController`; o `ChoqueDeJornadaException` leva o `TextoDoPonto`. Risco ALTO: nenhuma condição, ordem,
+  status HTTP ou regra mudou.
+- **Contrato novo do JS:** as duas recusas do motivo do trabalho externo (sem motivo e motivo longo) levam
+  `recusaDoMotivo: 'sem_motivo' | 'motivo_longo'` no JSON, e o `RECUSAS_DO_TEXTO_EXTERNO` do `ponto/index` compara o
+  código, não mais o texto (que agora sai traduzido). O `AVISO_JA_REGISTRADA` e a nota da janela "antes de registrar"
+  saem pelo `|trans` em vez do `constant()`.
+- **Metros da cerca:** a distância, o raio e a precisão do GPS vão como número (`{distancia, number, integer}`): o pt_BR
+  escreve "1.234 m", como antes, e o en "1,234 m" (o "1.234 m" se leria como pouco mais de um metro em inglês).
+- **Ficam como estão:** o `TenantController` e a `AnaliseDeJustificativaRecusadaException` (PR B2a), o
+  `AjusteDeBatidaRecusadoException` (B2a), o `RegistrarBatidaDoEsquecimentoUseCase::recusa()`; os horários (`HH:MM`) e
+  o dia (`dd/mm`) dentro das frases seguem no formato brasileiro também em en; nenhum texto do escopo é gravado em banco,
+  log, auditoria ou notificação.

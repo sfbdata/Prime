@@ -29,6 +29,12 @@ final class EntradaAbertaEmOutroEscritorio
     /** A frase da spec (R2): o escritório e o dia (dd/mm). */
     public const AVISO_PENDENCIA = 'Ficou um registro em aberto em %s no dia %s. Envie o registro de esquecimento por lá.';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::ROTULO_TROCAR => 'ponto_servidor.batida.entrada_aberta.rotulo_trocar',
+        self::AVISO_PENDENCIA => 'ponto_servidor.batida.entrada_aberta.aviso_pendencia',
+    ];
+
     public function __construct(
         private readonly RegistroPontoRepository $registros,
         private readonly UserTenantRepository $vinculos,
@@ -36,15 +42,37 @@ final class EntradaAbertaEmOutroEscritorio
     ) {
     }
 
-    /** O aviso para a entrada em `$atual`, ou null quando não há ponto aberto em outro escritório. Nunca recusa. */
+    /** A chave no catálogo de uma das constantes de texto; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto da entrada aberta sem chave no catálogo: "%s".', $texto));
+    }
+
+    /**
+     * O texto de uma das constantes, com a chave para o controller traduzir.
+     *
+     * @param array<string, string> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
+    }
+
+    /** O aviso para a entrada em `$atual`, em português, ou null quando não há ponto aberto em outro escritório. Nunca recusa. */
     public function aviso(User $user, Tenant $atual, \DateTimeImmutable $agora): ?string
+    {
+        return $this->avisoComChave($user, $atual, $agora)?->portugues;
+    }
+
+    /** O mesmo aviso de {@see self::aviso()}, com a chave (`{escritorio}` e `{dia}`) para o controller traduzir. */
+    public function avisoComChave(User $user, Tenant $atual, \DateTimeImmutable $agora): ?TextoDoPonto
     {
         $nome = $this->onde($user, $atual, $agora);
         if ($nome === null) {
             return null;
         }
 
-        return sprintf(self::AVISO_PENDENCIA, $nome, $agora->format('d/m'));
+        return self::texto(self::AVISO_PENDENCIA, ['escritorio' => $nome, 'dia' => $agora->format('d/m')]);
     }
 
     /** O nome do escritório em que o ponto está aberto hoje, ou null. */

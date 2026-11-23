@@ -161,12 +161,12 @@ final class TrabalhoExternoNaBatidaTest extends JusPrimeWebTestCase
         foreach (['', '    ', null] as $motivo) {
             $resposta = $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => $motivo]);
             self::assertResponseStatusCodeSame(422);
-            self::assertSame(['success' => false, 'message' => 'Informe o local e o motivo.'], $resposta);
+            self::assertSame(['success' => false, 'message' => 'Informe o local e o motivo.', 'recusaDoMotivo' => 'sem_motivo'], $resposta);
         }
 
         $resposta = $this->bater(['tipo' => 'entrada', 'latitude' => self::FORA, 'longitude' => self::LNG, 'precisaoGps' => 10.0, 'trabalhoExterno' => true, 'motivoTrabalhoExterno' => str_repeat('m', 501)]);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(['success' => false, 'message' => 'O local e o motivo podem ter até 500 caracteres.'], $resposta);
+        self::assertSame(['success' => false, 'message' => 'O local e o motivo podem ter até 500 caracteres.', 'recusaDoMotivo' => 'motivo_longo'], $resposta);
 
         self::assertSame([0, 0, []], [$this->contar('registro_ponto'), $this->contar('justificativa_ponto'), $this->eventos()]);
     }

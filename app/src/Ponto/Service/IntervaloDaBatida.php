@@ -19,11 +19,19 @@ namespace App\Ponto\Service;
  */
 final readonly class IntervaloDaBatida
 {
+    /** O português do alerta (o texto de sempre); o controller traduz o {@see self::$textoDoAlerta}. */
+    public ?string $alerta;
+
+    /** O português do aviso de depois; o controller traduz o {@see self::$textoDoAviso}. */
+    public ?string $avisoDepois;
+
     public function __construct(
-        public ?string $alerta = null,
-        public ?string $avisoDepois = null,
+        public ?TextoDoPonto $textoDoAlerta = null,
+        public ?TextoDoPonto $textoDoAviso = null,
         public ?int $faltamDoIntervalo = null,
     ) {
+        $this->alerta = $textoDoAlerta?->portugues;
+        $this->avisoDepois = $textoDoAviso?->portugues;
     }
 
     public static function livre(): self

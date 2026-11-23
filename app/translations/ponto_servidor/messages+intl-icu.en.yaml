@@ -1,4 +1,4 @@
-# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. Texto de exceção de domínio e de Service fica fora (PR B).
+# ---- ponto_servidor: texto fixo que os controllers do Ponto (app/src/Ponto/Controller/) devolvem à tela: flashes e respostas JSON de erro ou confirmação. O texto de exceção de domínio fica em `recusa` e o de Service em `batida` (PR B).
 ponto_servidor:
     comum:
         payload_invalido: "Invalid payload."
@@ -70,6 +70,58 @@ ponto_servidor:
         excluido: "Paid hours entry deleted."
         erro_dos_campos: "Error recording paid hours. Check the fields."
         banco_negativo: "Warning: this deduction left the hour bank negative by -{saldo}."
+    batida:
+        cerca:
+            titulo_fora: "You are outside the allowed radius"
+            titulo_incerta: "GPS not precise enough"
+            detalhe_fora_com_sede: "The nearest office is {sede}, {distancia, number, integer} m away. The allowed radius is {raio, number, integer} m."
+            detalhe_fora_sem_sede: "Clocking in requires being within the radius of one of the firm's offices."
+            detalhe_incerta: "The GPS accuracy ({precisao, number, integer} m) is not enough to confirm that you are within the office radius. Update your location and try again."
+            saida_fora: " Move closer or report external work."
+            saida_incerta: " If you are away from the office, report external work."
+        externo:
+            sem_motivo: "Enter the location and the reason."
+            motivo_longo: "The location and the reason can have up to 500 characters."
+            registrada: "Time clock entry recorded as external work. It goes to the manager for review."
+            edicao_recusada: "The justification for an external work punch cannot be edited. It goes to the manager for review."
+        envio:
+            id_invalido: "Invalid submission identifier."
+            ja_registrada: "This punch had already been recorded."
+            fila_incompleta: "The punch saved offline arrived incomplete and was not recorded."
+            outra_conta: "This punch was saved in another account or firm and was not sent."
+            fila_vencida: "This punch was saved offline for more than {horas} hours and can no longer be sent. Submit a Forgotten Punch request for the day."
+            relogio_adiantado: "This device's clock is ahead of the official time, and the punch saved offline could not be sent. Set the clock correctly and submit a Forgotten Punch request for the day."
+        chave:
+            desligada: "Electronic time clock is turned off for you in this firm. Contact the administrator."
+        choque:
+            choque: "This person already clocks in from {inicio} to {fim} at another firm."
+            padrao: "The default workday overlaps with the hours at another firm for these people in this firm:"
+            batida: "It is now your working time at another firm ({inicio} to {fim}). The time clock entry cannot be recorded here."
+        entrada_aberta:
+            rotulo_trocar: "Switch firm"
+            aviso_pendencia: "A record was left open at {escritorio} on {dia}. Submit the Forgotten Punch request there."
+        turno:
+            aviso_sem_entrada: "The clock-in is missing for this day. Submit a Forgotten Punch request."
+            rotulo_enviar: "Submit Forgotten Punch request"
+        alertas:
+            nota: "The alert does not prevent the punch: the timesheet must reflect the real time."
+            intrajornada: "{faltam} left to complete the minimum break of {minimo}. If you clock in now, the timesheet will mark the intra-shift break as non-compliant."
+            interjornada: "{faltam} left to complete {minimo} of rest since the clock-out {dia}. If you clock in now, the timesheet will mark the inter-shift rest as non-compliant."
+            interjornada_de_hoje: "{faltam} left to complete {minimo} of rest since today's clock-out."
+            descanso_semanal: "This will be day {dias} in a row with a record, with no weekly rest."
+            dia_de_ontem: "from yesterday"
+            dia_da_data: "from {data}"
+            minutos: "{minutos, plural, one {# minute} other {# minutes}}"
+        esquecimento:
+            aviso_interjornada: "The clock-in was recorded. The rest since the clock-out on {dia} at {hora}, reported by a Forgotten Punch request, was below the minimum inter-shift rest of {horas}h."
+        horario_futuro:
+            mensagem: "A punch cannot be recorded for a future time."
+        ja_registrada:
+            mensagem: "There is already a {tipo} record for this day."
+            tipo_entrada: "clock-in"
+            tipo_repouso: "break"
+            tipo_retorno: "return"
+            tipo_saida: "clock-out"
     recusa:
         configuracao:
             sede_nao_encontrada: "Office not found."

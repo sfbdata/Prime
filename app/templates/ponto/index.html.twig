@@ -1475,7 +1475,8 @@
     const AVISO_EXTERNO_DIA_COMPLETO = BJ_T.t('ponto_cartao.js.externo.dia_completo');
     const AVISO_EXTERNO_SEM_FILA = BJ_T.t('ponto_cartao.js.externo.sem_fila');
     // As recusas do servidor ao local e ao motivo (`TrabalhoExternoDaBatida`, 422): voltam para a linha de erro da janela.
-    const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];
+    // O servidor manda o código em `recusaDoMotivo` (a `mensagem` sai no idioma da pessoa, então não dá para comparar o texto).
+    const RECUSAS_DO_TEXTO_EXTERNO = ['sem_motivo', 'motivo_longo'];
 
     // Abre a janela da batida `tipo` com o texto guardado e o foco no campo; `erro`, quando há, vai na linha de erro.
     function abrirJanelaDoTrabalhoExterno(origem, tipo, erro) {
@@ -1673,7 +1674,7 @@
     const DETALHE_SEM_LOCALIZACAO = BJ_T.t('ponto_cartao.js.gps.sem_localizacao_detalhe');
     const AVISO_ATRASADO = BJ_T.t('ponto_cartao.js.aviso.atrasado');
     // A batida que já tinha entrado com o mesmo envio (`data.jaRegistrada`): o texto do sistema (`EnvioDaBatida`).
-    const AVISO_JA_REGISTRADA = '{{ constant('App\\Ponto\\Service\\EnvioDaBatida::MENSAGEM_JA_REGISTRADA')|e('js') }}';
+    const AVISO_JA_REGISTRADA = '{{ 'ponto_servidor.batida.envio.ja_registrada'|trans|e('js') }}';
     // E15 (desenho L533): o fim do aviso do sucesso sem a tela cheia, quando a batida tem comprovante.
     const AVISO_COMPROVANTE_NA_ABA = BJ_T.t('ponto_cartao.js.toque.comprovante');
 
@@ -2852,7 +2853,7 @@
                 const foraDoRaio = foraDoRaioDaResposta(resultado.data);
                 if (foraDoRaio) {
                     mostrarForaDoRaioDoToque(foraDoRaio, payload.tipo, externo);
-                } else if (payload.trabalhoExterno === true && resultado.status === 422 && RECUSAS_DO_TEXTO_EXTERNO.includes(resultado.mensagem)) {
+                } else if (payload.trabalhoExterno === true && resultado.status === 422 && RECUSAS_DO_TEXTO_EXTERNO.includes(resultado.data && resultado.data.recusaDoMotivo)) {
                     devolverExternoParaAJanela(payload, resultado.mensagem, false);
                 } else {
                     mostrarFalhaDoToque(payload.tipo, resultado.mensagem, '', [], externo);
