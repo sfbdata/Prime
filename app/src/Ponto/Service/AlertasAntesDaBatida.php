@@ -51,6 +51,23 @@ final class AlertasAntesDaBatida
     public const ALERTA_INTERJORNADA_DE_HOJE = 'Faltam %s para completar %s de descanso desde a saída de hoje.';
     public const ALERTA_DESCANSO_SEMANAL = 'Este será o %dº dia seguido com registro, sem o descanso semanal.';
 
+    private const DE_ONTEM = 'de ontem';
+    private const DA_DATA = 'de %s';
+
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::NOTA => 'ponto_servidor.batida.alertas.nota',
+        self::ALERTA_INTRAJORNADA => 'ponto_servidor.batida.alertas.intrajornada',
+        self::ALERTA_INTERJORNADA => 'ponto_servidor.batida.alertas.interjornada',
+        self::ALERTA_INTERJORNADA_DE_HOJE => 'ponto_servidor.batida.alertas.interjornada_de_hoje',
+        self::ALERTA_DESCANSO_SEMANAL => 'ponto_servidor.batida.alertas.descanso_semanal',
+        self::DE_ONTEM => 'ponto_servidor.batida.alertas.dia_de_ontem',
+        self::DA_DATA => 'ponto_servidor.batida.alertas.dia_da_data',
+    ];
+
+    /** A chave do "N minutos" do tempo que falta (plural ICU, `{minutos}`); o português é o de {@see self::tempoQueFalta()}. */
+    public const CHAVE_DOS_MINUTOS = 'ponto_servidor.batida.alertas.minutos';
+
     /** Dias seguidos com registro antes de hoje a partir dos quais a entrada avisa (desenho L461: `run >= 6`). */
     public const DIAS_SEGUIDOS_PARA_AVISAR = 6;
 
@@ -94,6 +111,22 @@ final class AlertasAntesDaBatida
         return ($dados[self::CAMPO_DA_CONFIRMACAO] ?? false) === true;
     }
 
+    /** A chave no catálogo de uma das constantes de texto; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto do alerta sem chave no catálogo: "%s".', $texto));
+    }
+
+    /**
+     * O texto de uma das constantes, com a chave para o controller traduzir.
+     *
+     * @param array<string, scalar|TextoDoPonto> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
+    }
+
     /** O mínimo no formato do aviso do intervalo do cartão (E1, `formatarMinimo`): "1h", "30min", "1h30", "11h". */
     public static function duracao(int $minutos): string
     {
@@ -112,12 +145,23 @@ final class AlertasAntesDaBatida
      */
     public static function tempoQueFalta(int $segundos): string
     {
+        $tempo = self::textoDoTempoQueFalta($segundos);
+
+        return $tempo instanceof TextoDoPonto ? $tempo->portugues : $tempo;
+    }
+
+    /**
+     * O mesmo tempo de {@see self::tempoQueFalta()}: "2h10" (igual em qualquer idioma) ou, abaixo de 60 minutos, o texto
+     * "N minutos" com a chave (plural ICU) para o controller traduzir.
+     */
+    public static function textoDoTempoQueFalta(int $segundos): string|TextoDoPonto
+    {
         $minutos = intdiv(max($segundos, 1) + 59, 60);
         if ($minutos >= 60) {
             return sprintf('%dh%02d', intdiv($minutos, 60), $minutos % 60);
         }
 
-        return $minutos . ' minuto' . ($minutos > 1 ? 's' : '');
+        return new TextoDoPonto(self::CHAVE_DOS_MINUTOS, ['minutos' => $minutos], $minutos . ' minuto' . ($minutos > 1 ? 's' : ''));
     }
 
     /** O retorno com o primeiro repouso de hoje, até o momento da batida (a da fila não mede contra um repouso posterior). */
@@ -131,7 +175,7 @@ final class AlertasAntesDaBatida
         $faltam = $minimo * 60 - ($momento->getTimestamp() - $repouso->getDataHora()->getTimestamp());
 
         return $faltam > 0
-            ? new IntervaloDaBatida(alerta: sprintf(self::ALERTA_INTRAJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo)), faltamDoIntervalo: $faltam)
+            ? new IntervaloDaBatida(textoDoAlerta: self::texto(self::ALERTA_INTRAJORNADA, ['faltam' => self::textoDoTempoQueFalta($faltam), 'minimo' => self::duracao($minimo)]), faltamDoIntervalo: $faltam)
             : IntervaloDaBatida::livre();
     }
 
@@ -144,11 +188,11 @@ final class AlertasAntesDaBatida
         $interjornada = ($jornada?->isValidacaoInterjornadaHabilitada() ?? true)
             ? $this->interjornada($user, $tenant, $jornada, $momento, $avisa)
             : IntervaloDaBatida::livre();
-        if ($interjornada->alerta !== null || !$avisa) {
+        if ($interjornada->textoDoAlerta !== null || !$avisa) {
             return $interjornada;
         }
 
-        return new IntervaloDaBatida(alerta: $this->descansoSemanal($user, $tenant, $momento), avisoDepois: $interjornada->avisoDepois);
+        return new IntervaloDaBatida(textoDoAlerta: $this->descansoSemanal($user, $tenant, $momento), textoDoAviso: $interjornada->textoDoAviso);
     }
 
     /**
@@ -169,32 +213,32 @@ final class AlertasAntesDaBatida
             return IntervaloDaBatida::livre();
         }
         if ($this->saidaDeEsquecimento->veioDeEsquecimento($saida)) {
-            return (int) round($passados / 60) < $minimo ? new IntervaloDaBatida(avisoDepois: $this->avisoDoEsquecimento($saida, $minimo)) : IntervaloDaBatida::livre();
+            return (int) round($passados / 60) < $minimo ? new IntervaloDaBatida(textoDoAviso: $this->avisoDoEsquecimento($saida, $minimo)) : IntervaloDaBatida::livre();
         }
         if (!$avisa) {
             return IntervaloDaBatida::livre();
         }
         $dia = self::diaDaSaida($saida, $momento);
 
-        return new IntervaloDaBatida(alerta: $dia === self::DE_HOJE
-            ? sprintf(self::ALERTA_INTERJORNADA_DE_HOJE, self::tempoQueFalta($faltam), self::duracao($minimo))
-            : sprintf(self::ALERTA_INTERJORNADA, self::tempoQueFalta($faltam), self::duracao($minimo), $dia));
+        return new IntervaloDaBatida(textoDoAlerta: $dia === self::DE_HOJE
+            ? self::texto(self::ALERTA_INTERJORNADA_DE_HOJE, ['faltam' => self::textoDoTempoQueFalta($faltam), 'minimo' => self::duracao($minimo)])
+            : self::texto(self::ALERTA_INTERJORNADA, ['faltam' => self::textoDoTempoQueFalta($faltam), 'minimo' => self::duracao($minimo), 'dia' => $dia]));
     }
 
-    private function avisoDoEsquecimento(MarcacaoDoPonto $saida, int $minimo): string
+    private function avisoDoEsquecimento(MarcacaoDoPonto $saida, int $minimo): TextoDoPonto
     {
-        return sprintf(SaidaDeEsquecimento::AVISO_INTERJORNADA, $saida->getDataHora()->format('d/m'), $saida->getDataHora()->format('H:i'), intdiv($minimo, 60));
+        return SaidaDeEsquecimento::avisoDaInterjornada($saida->getDataHora()->format('d/m'), $saida->getDataHora()->format('H:i'), intdiv($minimo, 60));
     }
 
     /** "de ontem", como o desenho; a saída do mesmo dia (dois turnos) diz "de hoje"; outra data, "de dd/mm". */
-    private static function diaDaSaida(MarcacaoDoPonto $saida, \DateTimeImmutable $momento): string
+    private static function diaDaSaida(MarcacaoDoPonto $saida, \DateTimeImmutable $momento): string|TextoDoPonto
     {
         $dia = $saida->getDataHora()->format('Y-m-d');
 
         return match ($dia) {
             $momento->format('Y-m-d') => self::DE_HOJE,
-            $momento->modify('-1 day')->format('Y-m-d') => 'de ontem',
-            default => 'de ' . $saida->getDataHora()->format('d/m'),
+            $momento->modify('-1 day')->format('Y-m-d') => self::texto(self::DE_ONTEM),
+            default => self::texto(self::DA_DATA, ['data' => $saida->getDataHora()->format('d/m')]),
         };
     }
 
@@ -203,7 +247,7 @@ final class AlertasAntesDaBatida
      * sem batida, olhando no máximo 7. Com 6 ou mais, "Este será o Nº dia seguido". Só na primeira batida do dia: a
      * entrada do segundo turno não repete o alerta, porque hoje já conta.
      */
-    private function descansoSemanal(User $user, Tenant $tenant, \DateTimeImmutable $momento): ?string
+    private function descansoSemanal(User $user, Tenant $tenant, \DateTimeImmutable $momento): ?TextoDoPonto
     {
         $hoje = $momento->setTime(0, 0);
         $batidas = $this->registros->batidasDoPeriodoNoEscritorio($user, $tenant, $hoje->modify(sprintf('-%d days', self::DIAS_OLHADOS)), $momento);
@@ -219,6 +263,6 @@ final class AlertasAntesDaBatida
             ++$seguidos;
         }
 
-        return $seguidos >= self::DIAS_SEGUIDOS_PARA_AVISAR ? sprintf(self::ALERTA_DESCANSO_SEMANAL, $seguidos + 1) : null;
+        return $seguidos >= self::DIAS_SEGUIDOS_PARA_AVISAR ? self::texto(self::ALERTA_DESCANSO_SEMANAL, ['dias' => (string) ($seguidos + 1)]) : null;
     }
 }

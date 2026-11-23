@@ -29,9 +29,31 @@ final class TurnoAbertoNoEscritorio
     /** O rótulo do link do aviso: abre o modal de esquecimento da entrada do dia na tela do ponto. */
     public const ROTULO_ENVIAR = 'Enviar registro de esquecimento';
 
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::AVISO_SEM_ENTRADA => 'ponto_servidor.batida.turno.aviso_sem_entrada',
+        self::ROTULO_ENVIAR => 'ponto_servidor.batida.turno.rotulo_enviar',
+    ];
+
     public function __construct(
         private readonly RegistroPontoRepository $registros,
     ) {
+    }
+
+    /** A chave no catálogo de uma das constantes de texto; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto do turno aberto sem chave no catálogo: "%s".', $texto));
+    }
+
+    /**
+     * O texto de uma das constantes, com a chave para o controller traduzir.
+     *
+     * @param array<string, string> $parametros
+     */
+    public static function texto(string $texto, array $parametros = []): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto, $parametros);
     }
 
     public function estaAberto(User $user, Tenant $tenant, \DateTimeImmutable $agora): bool

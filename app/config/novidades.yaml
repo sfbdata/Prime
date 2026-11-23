@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.2.0"
+  data: "2026-11-23"
+  itens:
+    - "No Ponto, os avisos de erro ao configurar sedes, feriados, funções, limites do banco de horas, horas pagas e jornadas, e o aviso de justificativas abonadas da equipe, passam a aparecer em inglês para quem usa o sistema em inglês. Em português, os textos seguem os mesmos."
 - versao: "3.1.0"
   data: "2026-11-23"
   itens:

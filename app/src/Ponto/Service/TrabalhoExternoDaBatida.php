@@ -34,6 +34,24 @@ final class TrabalhoExternoDaBatida
     /** A justificativa ligada à batida é só do gestor: o colaborador não a edita (nem exclui, ver a recusa da exclusão). */
     public const MENSAGEM_EDICAO_RECUSADA = 'A justificativa da batida de trabalho externo não pode ser editada. Ela segue para a análise do gestor.';
 
+    /** O código que a resposta JSON da recusa do motivo leva em `recusaDoMotivo` (o JS da tela compara o código, não o texto). */
+    public const CODIGO_SEM_MOTIVO = 'sem_motivo';
+    public const CODIGO_MOTIVO_LONGO = 'motivo_longo';
+
+    /** @var array<string, string> texto da constante => chave no catálogo `ponto_servidor` (idioma-ponto-php B2) */
+    public const CHAVE_DO_TEXTO = [
+        self::MENSAGEM_SEM_MOTIVO => 'ponto_servidor.batida.externo.sem_motivo',
+        self::MENSAGEM_MOTIVO_LONGO => 'ponto_servidor.batida.externo.motivo_longo',
+        self::MENSAGEM_REGISTRADA => 'ponto_servidor.batida.externo.registrada',
+        self::MENSAGEM_EDICAO_RECUSADA => 'ponto_servidor.batida.externo.edicao_recusada',
+    ];
+
+    /** @var array<string, string> texto da recusa do motivo => código */
+    private const CODIGO_DA_RECUSA_DO_MOTIVO = [
+        self::MENSAGEM_SEM_MOTIVO => self::CODIGO_SEM_MOTIVO,
+        self::MENSAGEM_MOTIVO_LONGO => self::CODIGO_MOTIVO_LONGO,
+    ];
+
     public function __construct(
         private readonly ConfiguracaoDoPontoRepository $configuracoes,
         private readonly NotificacaoService $notificacoes,
@@ -78,6 +96,31 @@ final class TrabalhoExternoDaBatida
         }
 
         return mb_strlen($motivo) > self::LIMITE_DO_MOTIVO ? self::MENSAGEM_MOTIVO_LONGO : null;
+    }
+
+    /** A chave no catálogo de uma das constantes MENSAGEM_*; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Texto do trabalho externo sem chave no catálogo: "%s".', $texto));
+    }
+
+    /** O texto de uma das constantes MENSAGEM_*, com a chave para o controller traduzir. */
+    public static function texto(string $texto): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::chaveDe($texto), $texto);
+    }
+
+    /**
+     * A recusa do local e motivo com o texto traduzível e o código dela (`sem_motivo` ou `motivo_longo`), ou null quando
+     * ele serve. É a mesma conta de {@see self::recusaDoMotivo()}.
+     *
+     * @return array{texto: TextoDoPonto, codigo: string}|null
+     */
+    public static function recusaDoMotivoComCodigo(string $motivo): ?array
+    {
+        $recusa = self::recusaDoMotivo($motivo);
+
+        return $recusa === null ? null : ['texto' => self::texto($recusa), 'codigo' => self::CODIGO_DA_RECUSA_DO_MOTIVO[$recusa]];
     }
 
     /** Marca a batida como trabalho externo: sem sede e sem o nome dela, com o local e o motivo. */

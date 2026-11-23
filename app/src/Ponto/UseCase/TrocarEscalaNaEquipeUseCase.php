@@ -76,7 +76,7 @@ final class TrocarEscalaNaEquipeUseCase
     /** @param list<BlocoJornadaColaborador> $blocos */
     private function exigirSemChoque(User $pessoa, Tenant $escritorio, ?JornadaColaborador $atual, array $blocos): void
     {
-        $recusa = $this->choque->mensagem($pessoa, $escritorio, $atual, $blocos);
+        $recusa = $this->choque->texto($pessoa, $escritorio, $atual, $blocos);
         if ($recusa !== null) {
             throw new ChoqueDeJornadaException($recusa);
         }
