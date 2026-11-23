@@ -102,9 +102,10 @@ final class CentralDeEnviosAcessivelTest extends KernelTestCase
     #[TestDox('O botão bloqueado de nascença mostra o motivo escrito ao lado, ligado por aria-describedby')]
     public function testBloqueadosMostramOMotivo(): void
     {
-        $bloqueados = $this->doc->filter('#mc-dsc-limpar, #mc-rl-ctx-encaminhar-com, #mc-rl-ctx-encaminhar-ind, [data-mc-cp-rastrear][disabled]');
-        // Limpar lista e os dois Encaminhar existem sempre; a leitura vem desligada conforme o rastreio global.
-        self::assertGreaterThanOrEqual(3, $bloqueados->count());
+        $bloqueados = $this->doc->filter('#mc-dsc-limpar, [data-mc-cp-rastrear][disabled]');
+        // Limpar lista existe sempre; a leitura vem desligada conforme o rastreio global. O Encaminhar já não é bloqueado (M5.17).
+        self::assertGreaterThanOrEqual(1, $bloqueados->count());
+        self::assertCount(0, $this->doc->filter('#mc-rl-ctx-encaminhar-com[disabled], #mc-rl-ctx-encaminhar-ind[disabled]'));
 
         foreach ($bloqueados as $botao) {
             $alvo = $botao->getAttribute('aria-describedby');

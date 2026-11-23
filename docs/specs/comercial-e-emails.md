@@ -33,7 +33,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
     rigor ALTO; o e-mail sai do ouvinte, e a falha dele não desfaz o cadastro.
   - C2: aberturas (pixel) e cliques (link rastreado) entram, em números e CSV por campanha, sem gráfico; a Política de
     Privacidade precisa citar o rastreio (rascunho da f6, com o advogado).
-  - C4: "Enviar teste" vai ao Master logado.
+  - C4 (caiu em 23/11/2026, pedido do Farlei M5 item 8, decisão do Coordenador): "Enviar teste" vai a até 5 endereços
+    digitados (sem endereço, só ao Master logado); ver §8.4.
   - P3a: o `e90` oferece 80, 85 e 90% como no dc. P3b: o `lemb` manda um link novo, uma vez só.
   - P5: migrar os e-mails antigos para o Carteiro é follow-up fora desta frente.
   - Vazão 20/min e 1.500/dia, configurável, até o dono responder. **Revisto em 23/10/2026** (Q1 respondida: Hostinger
@@ -664,6 +665,28 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
    `cancelado`. (A10) É o freio enquanto A3 (Pausar e Encerrar na tela) espera o dono;
    a tela da 2b mostra as campanhas ativas (lista do dc L586). **A confirmar com o dono** (A3). (R2)
 
+6. **Editar, reprogramar e excluir uma campanha** (pedido do Farlei M5.3, 23/11/2026; decisões do Coordenador). Hoje a
+   campanha criada só se cancela; passa a ter três operações, no menu de contexto do Relatório:
+   - **Editar campanha** (conteúdo, data e frequência, numa ação só) vale só antes de começar a sair: `agendada` e
+     `na_fila` que o expansor ainda não pegou (`execucoes = 0` e nenhum destino materializado) e `recorrente` entre duas
+     execuções (sem lote da execução corrente por materializar nem envio ainda `enfileirado` ou `enviando`). Fora disso o
+     item fica desabilitado, com "Só antes de começar a sair." ao lado. A regra mora num lugar só
+     (`CampanhaDeEmailRepository::condicaoEditavel`), usada pela lista (`editavel` em cada linha) e pelo caso de uso.
+   - O editor entra em **modo edição** (`GET /master/comercial/campanhas/{id}/edicao`): faixa "Editando a campanha", botão
+     "Salvar alterações", data e frequência editáveis e o público travado ("O público não muda na edição: para outro
+     público, cancele e crie de novo."). O modelo escolhido também não troca. O rascunho do navegador (M5.15) não grava nem
+     apaga durante a edição.
+   - **Salvar** (`POST /master/comercial/campanhas/{id}/editar`, `{modelo, agendar, frequencia}`): numa transação, trava a
+     campanha (`FOR UPDATE`), reconfere a regra, valida o conteúdo como a confirmação (mensagem, âncora de vagas, imagem
+     vigente) e a data (só futura), regrava a cópia congelada e a agenda com o estado coerente (única com data =
+     `agendada`; única sem data = `na_fila`, agora; outra frequência = `recorrente`) e grava a trilha manual `camp_edit`
+     com só `{frequencia, agendada}`. Público, parâmetros dele e `modelo_chave` não mudam. Resposta: "Campanha atualizada."
+   - **Excluir campanha** (`POST /master/comercial/campanhas/{id}/excluir`; antes "Excluir do relatório"): pede
+     confirmação; se a campanha está ativa (ou `enviada` com envio ainda na fila) cancela o envio (mesmo
+     `EncerrarCampanhaUseCase`, trilha `camp_fim`) e a esconde do Relatório (marca `remover`); se já enviada ou cancelada, só
+     esconde. Nada é apagado do banco: a trilha e a retenção de 24 meses ficam. A lixeira da seleção múltipla segue só
+     escondendo.
+
 ### 8.2 Modelos (2a)
 
 - **Fixos** (`ModelosDeCampanha`, dc L504-507 e L514): `convite`, `vagas`, `obrigado`, `novidades` (simples: corpo,
@@ -719,11 +742,10 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
 
 ### 8.4 Enviar teste (2a) e campanha (2b)
 
-**Enviar teste (C4):** monta como a campanha e manda ao Master logado, `tipo = lista`, lista `comercial_campanhas`,
+**Enviar teste (a C4, "só ao Master", caiu em 23/11/2026: pedido do Farlei M5 item 8, decisão do Coordenador):** monta como a campanha e manda a de 1 a 5 endereços do campo "Enviar para" (vírgula, ponto e vírgula ou espaço; sem endereço, só ao Master logado), `tipo = lista`, lista `comercial_campanhas`,
 origem `teste_campanha` (fora do prefixo `campanha:` que o Monitoramento agrupa), `layout` conforme o modo. Isento do
 teto diário: a lista `EnviarEmailHandler::ORIGENS_DO_CICLO_DA_CONTA` vira `ORIGENS_ISENTAS_DO_TETO_DIARIO` (ciclo da
-conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master. Mensagens: "Teste enviado para EMAIL.";
-descadastrado da lista: "Você está descadastrado da lista de campanhas; o teste não foi enviado."; teto: "Limite de 10
+conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master, em que cada endereço conta 1 (soma do `total` das linhas de teste dele; pedido que passa do que resta é recusado inteiro). Descadastro é por endereço: o teste sai para os outros. Cada clique grava uma linha `teste` com os destinos ligados aos envios e `camp_teste` `{total}` na trilha. Mensagens: "Teste enviado para A, B." e "Não enviado para C (descadastrado da lista)."; todos descadastrados: recusa; endereço: "Informe de 1 a 5 endereços." / "Endereço inválido: X."; teto: "Limite de 10
 testes por hora atingido." (R13, R14)
 
 **`comercial_campanha` (2b):** `id`, `chave_idempotencia` (UNIQUE), `nome` (= assunto, como o dc), cópia congelada do
@@ -802,6 +824,9 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
 /master/comercial/modelos/{id}` (salvar), `POST /master/comercial/modelos/{id}/excluir`, `POST
 /master/comercial/previa-campanha` (HTML, CSP sandbox), `POST /master/comercial/teste`. 2b: `POST
 /master/comercial/publicos/contagem`, `POST /master/comercial/campanhas` (confirmar), `GET /master/comercial/campanhas`.
+
+Pedido do Farlei M5.3 (23/11/2026): `GET /master/comercial/campanhas/{id}/edicao`, `POST /master/comercial/campanhas/{id}/editar` e
+`POST /master/comercial/campanhas/{id}/excluir` (item 6 do §8.1).
 
 ### 8.7 Testes
 
@@ -920,7 +945,8 @@ comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedi
 - "Cancelar envio" de recorrente = Encerrar (A3); o dc não tem "Pausar".
 
 ### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
-- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): contraria a C4 (só o Master logado).
+- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): resolvido em 23/11/2026 (pedido do Farlei M5 item 8;
+  a C4 caiu). Está implementado: até 5 endereços, 10 testes por hora por Master.
 - Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
   retenção e URL pública.
 - "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).

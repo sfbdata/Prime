@@ -132,6 +132,21 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
 
+    #[TestDox('A campanha adiada pela edição (M5.3) entre a leitura do expansor e a trava não é materializada: travarDevida reconfere a data')]
+    public function testAdiadaDepoisDaLeituraNaoTrava(): void
+    {
+        $id = $this->campanha($this->emailsDeAtivos(1));
+        $agora = new \DateTimeImmutable();
+        $repositorio = static::getContainer()->get(CampanhaDeEmailRepository::class);
+        self::assertNotNull($repositorio->travarDevida($id, 'na_fila', 0, $agora), 'devida agora');
+
+        $this->conexao->executeStatement('UPDATE comercial_campanha SET proxima_execucao = ? WHERE id = ?', [$agora->modify('+3 days')->format('Y-m-d H:i:s'), $id]);
+
+        self::assertNull($repositorio->travarDevida($id, 'na_fila', 0, $agora));
+        self::assertSame(0, $this->expansor()->materializarDevidas($agora));
+        self::assertSame(['estado' => 'na_fila', 'execucoes' => 0], $this->estado($id, ['estado', 'execucoes']));
+    }
+
     #[TestDox('O envio da campanha: lista comercial_campanhas, origem campanha:<id>, rastrear pedido (a confirmação de leitura da campanha), layout do modo, reply-to da política (null)')]
     public function testFormaDoEnvio(): void
     {

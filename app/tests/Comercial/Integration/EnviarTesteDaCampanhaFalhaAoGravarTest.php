@@ -12,7 +12,6 @@ use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
-use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\UseCase\EnviarTesteDaCampanhaUseCase;
 use App\Entity\Auth\User;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -33,16 +32,16 @@ final class EnviarTesteDaCampanhaFalhaAoGravarTest extends KernelTestCase
         self::bootKernel();
         $carteiro = $this->createMock(CarteiroInterface::class);
         $carteiro->expects(self::once())->method('enviar')->willReturn(new ResultadoDoEnvio(7, ResultadoDoEnvio::ENFILEIRADO));
-        $envios = $this->createStub(EnvioDeEmailRepository::class);
-        $envios->method('contarDaOrigemParaDesde')->willReturn(0);
         $campanhas = $this->createStub(CampanhaDeEmailRepository::class);
         $campanhas->method('emTransacao')->willThrowException(new \RuntimeException('banco fora'));
         $master = (new User())->setEmail('master@bluejus.test')->setFullName('Master');
+        $campanhas->method('somarTestesDoMasterDesde')->willReturn(0);
+        // A trava do teste por Master (conferir o teto, enviar e registrar um por vez) roda o trabalho.
+        $campanhas->method('comTravaDoTesteDoMaster')->willReturnCallback(static fn (int $id, \Closure $trabalho): mixed => $trabalho());
 
         $caso = new EnviarTesteDaCampanhaUseCase(
             static::getContainer()->get(ComposicaoDaCampanha::class),
             $carteiro,
-            $envios,
             new MockClock(),
             $campanhas,
             $this->createStub(DestinoDaCampanhaRepository::class),

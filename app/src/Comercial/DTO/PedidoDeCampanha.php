@@ -64,7 +64,8 @@ final class PedidoDeCampanha
         );
     }
 
-    private static function data(mixed $valor): ?\DateTimeImmutable
+    /** A data de "Agendar" (`datetime-local`): vazio é sem data; fora do formato, recusa. Também usada pela edição. */
+    public static function data(mixed $valor): ?\DateTimeImmutable
     {
         if ($valor === null || $valor === '') {
             return null;

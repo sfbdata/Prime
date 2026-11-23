@@ -51,7 +51,9 @@
              data-url-teste="{{ path('master_comercial_teste') }}"
              data-url-contagem="{{ path('master_comercial_publicos_contagem') }}"
              data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}"
-             data-url-imagem="{{ path('master_comercial_imagem_enviar') }}"{% if venda %}
+             data-url-imagem="{{ path('master_comercial_imagem_enviar') }}"{% if not venda %}
+             data-url-edicao="{{ path('master_comercial_campanha_edicao', {id: 999999999}) }}"
+             data-url-editar="{{ path('master_comercial_campanha_editar', {id: 999999999}) }}"{% endif %}{% if venda %}
              data-url-contatos="{{ path('master_comercial_contatos_cadastrar') }}"{% endif %}>
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
@@ -62,6 +64,14 @@
             <button type="button" class="mc-cp-descad" id="{{ ids }}-cp-descad" name="{{ ids }}-cp-descad" data-mc-cp-descad title="{{ 'comercial.campanha.descadastrados_dica'|trans }}"><i class="bi bi-slash-circle" aria-hidden="true"></i>{{ 'comercial.campanha.descadastrados'|trans }} (<span data-mc-cp-descad-n>0</span>)</button>
             <span class="mc-cabeca-sub">{{ 'comercial.campanha.sub'|trans }}</span>
         </div>
+        {# Pedido do Farlei M5.3: a faixa do modo edição (aberto pelo "Editar campanha" do Relatório). Fixa no topo do bloco enquanto
+           dura a edição; "Cancelar edição" volta ao editor normal. Só na seção Comercial. #}
+        {% if not venda %}
+        <div class="mc-cp-edicao" data-mc-cp-edicao role="status" hidden>
+            <i class="bi bi-pencil-square" aria-hidden="true"></i><span class="mc-cp-edicao-txt" data-mc-cp-edicao-txt></span>
+            <button type="button" class="mc-cp-acao mc-cp-edicao-sair" id="{{ ids }}-cp-edicao-cancelar" name="{{ ids }}-cp-edicao-cancelar" data-mc-cp-edicao-cancelar>{{ 'comercial.campanha.edicao_cancelar'|trans }}</button>
+        </div>
+        {% endif %}
         <div class="mc-cp-grade">
             <div class="mc-cp-col mc-cp-editor">
                 {# dc L254 `cmMostraModelo`: o seletor de modelo e as ações dele só na seção Comercial. #}
@@ -90,7 +100,7 @@
                 <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> {{ 'comercial.campanha.passo_para'|trans }}</div>
                 {% endif %}
                 {# dc L640-645: no modo venda, só a base (com o rótulo e a descrição da venda), o CSV e o Individual, em 3 colunas. #}
-                <div class="mc-cp-publicos{{ venda ? ' mc-cp-publicos-3' }}" data-mc-cp-publicos>
+                <div class="mc-cp-publicos{{ venda ? ' mc-cp-publicos-3' }}" data-mc-cp-publicos{% if not venda %} aria-describedby="{{ ids }}-cp-publico-motivo"{% endif %}>
                     {% for p in [
                         ['leads', venda ? 'comercial.campanha.publico.leads_venda'|trans : 'comercial.campanha.publico.leads'|trans, 'bi-person-lines-fill', venda ? 'comercial.campanha.publico.leads_venda_desc'|trans : 'comercial.campanha.publico.leads_desc'|trans],
                         ['prim', 'comercial.campanha.publico.prim'|trans, 'bi-person-badge', 'comercial.campanha.publico.prim_desc'|trans],
@@ -101,6 +111,9 @@
                     ]|filter(p => not venda or p[0] in ['leads', 'csv', 'indiv']) %}
                         <button type="button" class="mc-cp-publico" id="{{ ids }}-cp-publico-{{ p[0] }}" name="{{ ids }}-cp-publico-{{ p[0] }}" data-mc-cp-publico="{{ p[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ p[2] }}" aria-hidden="true"></i><span class="mc-cp-publico-texto"><span class="mc-cp-publico-rot">{{ p[1] }}</span><span class="mc-cp-publico-desc">{{ p[3] }}</span></span><b class="mc-cp-publico-n" data-mc-cp-n></b></button>
                     {% endfor %}
+                    {% if not venda %}
+                    <span class="mc-motivo mc-cp-publico-motivo" id="{{ ids }}-cp-publico-motivo" data-mc-cp-publico-motivo hidden>{{ 'comercial.campanha.edicao_publico_motivo'|trans }}</span>
+                    {% endif %}
                 </div>
                 {# Filtrar destinatários (desenho 05 VS 21.10.26, L260-264; spec §9): fechado, mostra o selo com quantos
                    campos estão preenchidos e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os atalhos (L664), os

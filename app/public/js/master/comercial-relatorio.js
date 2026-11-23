@@ -12,6 +12,10 @@
      O editor que tratar o evento chama `preventDefault()` e preenche a si mesmo. Se ninguém tratar, o relatório
      preenche os campos [data-mc-cp-campo="assunto"] e [data-mc-cp-campo="titulo"] da mesma seção (a raiz
      `.mc[data-modo]` que o contém) com um evento `input` (o editor escuta `input` neles) e rola até o editor.
+   - Pedido do Farlei M5.3 (23/11/2026), no menu de uma campanha: "Editar campanha" (habilitado só com `editavel` do servidor, antes de
+     a campanha começar a sair; senão desabilitado com o motivo ao lado) dispara no document o evento `mc:editar-campanha`, detail
+     { id }, que o editor da seção Comercial atende; "Excluir campanha" (antes "Excluir do relatório") pede confirmação com o texto
+     de cada caso e manda POST data-url-excluir: cancela o envio, se ativo, e esconde do relatório.
    - "Cancelar envio" pede confirmação e manda POST com o token no header X-CSRF-Token; a recusa vem em {erro}.
    - Recarrega quando a seção abre e depois de cada "Enviar campanha" aceito (evento `mc:campanha-confirmada`).
    F3e (spec docs/specs/comercial-marcas.md):
@@ -246,6 +250,20 @@
         .catch(err => { fechar(); avisar(err.message, 'erro'); });
     }
 
+    // ---- Encaminhar (M5.17): a campanha sai como teste para até 5 endereços (o servidor valida e aplica o teto) ----
+    function encaminhar(id) {
+      const para = window.prompt(BJ_T.t('comercial_relatorio.js.encaminhar_pergunta'), '');
+      if (para === null) return;
+      pedir(url(raiz.dataset.urlEncaminhar, id), Object.assign(POST(), { body: JSON.stringify({ para: para }) }))
+        .then(r => {
+          const aviso = r.aviso ? ' ' + r.aviso : '';
+          avisar(BJ_T.t('comercial_relatorio.js.encaminhado', { para: (r.enviados || []).join(', ') }) + aviso, 'ok');
+          carregar();
+          recarregarOutras(instancia);
+        })
+        .catch(err => avisar(err.message, 'erro'));
+    }
+
     // ---- Marcas (F3e): estrela, arquivo e remoção, de cada Master ----
     function marcar(ids, acao) {
       return pedir(raiz.dataset.urlMarcas, Object.assign(POST(), { body: JSON.stringify({ ids: ids.map(Number), acao: acao }) }))
@@ -295,6 +313,23 @@
         .catch(err => avisar(err.message, 'erro'));
     }
 
+    // ---- Editar e excluir uma campanha (pedido do Farlei M5.3, 23/11/2026) ----
+    // "Editar campanha": o editor da seção Comercial entra em modo edição pelo evento `mc:editar-campanha` no document, detail { id }.
+    function editarCampanha(c) {
+      if (c.editavel !== true) return;
+      document.dispatchEvent(new CustomEvent('mc:editar-campanha', { detail: { id: c.id } }));
+    }
+
+    // Ativa (na fila, agendada, enviando, recorrente, ou enviada com envio ainda na fila): cancela o envio e esconde; senão, só esconde.
+    const ATIVAS = ['na_fila', 'agendada', 'enviando', 'recorrente'];
+    function excluirCampanha(c) {
+      const ativa = ATIVAS.includes(c.estado) || (c.estado === 'enviada' && ((c.metricas || {}).naFila || 0) > 0);
+      if (!window.confirm(ativa ? BJ_T.t('comercial_relatorio.js.confirmar_excluir_ativa') : BJ_T.t('comercial_relatorio.js.confirmar_excluir_encerrada'))) return;
+      pedir(url(raiz.dataset.urlExcluir, c.id), Object.assign(POST(), { body: '{}' }))
+        .then(r => { avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.marca_ok_remover'), 'ok'); carregar(); recarregarOutras(instancia); })
+        .catch(err => { avisar(err.message, 'erro'); carregar(); recarregarOutras(instancia); });
+    }
+
     // ---- Menu do botão direito (dc L504 e L704) ----
     function abrirMenu(id, x, y) {
       const c = estado.linhas[id];
@@ -304,11 +339,23 @@
       menu.querySelector('[data-mc-rl-ctx-estrela-txt]').textContent = c.estrela ? BJ_T.t('comercial_relatorio.js.estrela_remover') : BJ_T.t('comercial_relatorio.js.estrela_marcar');
       menu.querySelector('[data-mc-rl-ctx-estrela-ic]').className = 'bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star');
       menu.querySelector('[data-mc-rl-ctx-arq-txt]').textContent = estado.aba === 'arq' ? BJ_T.t('comercial_relatorio.js.desarquivar') : BJ_T.t('comercial_relatorio.js.arquivar');
+      const editar = menu.querySelector('[data-mc-rl-ctx-acao="editar"]');
+      if (editar) {
+        // Pedido do Farlei M5.3: só antes de a campanha começar a sair (o servidor diz em `editavel`); senão, desabilitado com o motivo.
+        const pode = c.editavel === true;
+        // O editor é da seção Comercial: na instância das Indicações (`ind`) o item não aparece.
+        const noEditor = secao === 'com';
+        editar.hidden = !noEditor;
+        editar.disabled = !pode;
+        editar.classList.toggle('mc-rl-ctx-off', !pode);
+        const motivo = menu.querySelector('[data-mc-rl-ctx-editar-motivo]');
+        if (motivo) motivo.hidden = pode || !noEditor;
+      }
       const caixa = menu.querySelector('.mc-rl-ctx-caixa');
       caixa.style.left = Math.max(0, Math.min(x, window.innerWidth - 270)) + 'px';
       caixa.style.top = Math.max(0, Math.min(y, window.innerHeight - 330)) + 'px';
       menu.hidden = false;
-      menu.querySelector('[data-mc-rl-ctx-acao]').focus();
+      menu.querySelector('[data-mc-rl-ctx-acao]:not(:disabled)').focus();
     }
 
     function fecharMenu() {
@@ -326,8 +373,10 @@
       else if (acao === 'reenviar') reenviar(c, true);
       else if (acao === 'estrela') marcar([id], c.estrela ? 'sem_estrela' : 'estrela');
       else if (acao === 'arquivar') marcar([id], estado.aba === 'arq' ? 'desarquivar' : 'arquivar');
+      else if (acao === 'encaminhar') encaminhar(id);
       else if (acao === 'csv') exportar(id, 'emails');
-      else if (acao === 'excluir' && window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_excluir'))) marcar([id], 'remover');
+      else if (acao === 'editar') editarCampanha(c);
+      else if (acao === 'excluir') excluirCampanha(c);
     }
 
     raiz.addEventListener('click', e => {

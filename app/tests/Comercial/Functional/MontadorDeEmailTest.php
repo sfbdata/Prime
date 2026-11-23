@@ -148,7 +148,7 @@ final class MontadorDeEmailTest extends KernelTestCase
     {
         $email = $this->montador()->montar(self::mensagem(TipoDeEnvio::Lista), self::TOKEN);
 
-        self::assertStringContainsString('linear-gradient(135deg,#0a6fa0,#0b4f75)', (string) $email->getHtmlBody());
+        self::assertStringContainsString('/images/logo/bluejus-logo-email.png', (string) $email->getHtmlBody());
         self::assertStringContainsString('NOVIDADE', (string) $email->getHtmlBody());
         self::assertStringContainsString('Olá, Ana', (string) $email->getHtmlBody());
         self::assertSame('Ana Souza', $email->getTo()[0]->getName());

@@ -8,6 +8,7 @@ use App\Conector\Controller\McpController;
 use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Ferramenta\AtualizarClienteFerramenta;
 use App\Conector\Ferramenta\AtualizarPastaFerramenta;
+use App\Conector\Ferramenta\AutomacoesDeEmailFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
@@ -16,6 +17,7 @@ use App\Conector\Ferramenta\FinanceiroDaPastaFerramenta;
 use App\Conector\Ferramenta\GravarNaAgendaFerramenta;
 use App\Conector\Ferramenta\LerAgendaFerramenta;
 use App\Conector\Ferramenta\LerClientesFerramenta;
+use App\Conector\Ferramenta\LerComercialFerramenta;
 use App\Conector\Ferramenta\LerDocumentosEModelosFerramenta;
 use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Conector\Ferramenta\LerProcessosFerramenta;
@@ -35,6 +37,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Conector\Support\CenarioDaAutorizacaoTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -159,6 +162,114 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
             ['nome' => LerPastaFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[LerPastaFerramenta::NOME], 'liberada_nesta_conexao' => true],
             ['nome' => QuemSouEuFerramenta::NOME, 'titulo' => CatalogoFechadoDoConector::TITULOS[QuemSouEuFerramenta::NOME], 'liberada_nesta_conexao' => true],
         ], $dados['ferramentas']);
+    }
+
+    /**
+     * 6.9 (decisões 34 e 38) e 12.30: a `ler_comercial` é só do Master. A pessoa comum não a vê no `tools/list` nem na
+     * `quem_sou_eu` e, se chamar pelo nome, recebe a resposta de ferramenta desconhecida do SDK; o Master a vê e a chama.
+     */
+    #[TestDox('6.9: pessoa comum não vê a ler_comercial no tools/list nem na quem_sou_eu, e chamá-la dá Tool not found; o Master vê e chama')]
+    public function testLerComercialSoParaOMaster(): void
+    {
+        [, $comum] = $this->conectado();
+
+        $nomes = array_column($this->resultado($this->mcp($comum['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertNotContains(LerComercialFerramenta::NOME, $nomes);
+        $dados = $this->resultado($this->chamarQuemSouEu($comum['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertNotContains(LerComercialFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $resposta = $this->mcp($comum['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'resumo']], self::ERA_DO_INITIALIZE, 3, LerComercialFerramenta::NOME);
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertSame(-32602, $corpo['error']['code'] ?? null, (string) $resposta->getContent());
+        self::assertSame('Tool not found: "ler_comercial".', $corpo['error']['message'] ?? null);
+        self::assertArrayNotHasKey('result', $corpo);
+    }
+
+    #[TestDox('6.9: o Master vê a ler_comercial no tools/list e na quem_sou_eu, e a chamada devolve o resumo sem e-mail nem nome')]
+    public function testLerComercialParaOMaster(): void
+    {
+        [, $master] = $this->conectado(master: true);
+
+        $lista = $this->resultado($this->mcp($master['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'];
+        $nomes = array_column($lista, 'name');
+        self::assertContains(LerComercialFerramenta::NOME, $nomes);
+        $ferramenta = $lista[array_search(LerComercialFerramenta::NOME, $nomes, true)];
+        self::assertSame(CatalogoFechadoDoConector::TITULOS[LerComercialFerramenta::NOME], $ferramenta['title']);
+        self::assertTrue($ferramenta['annotations']['readOnlyHint']);
+        self::assertSame(['resumo', 'modelos', 'automacoes', 'campanhas', 'campanha', 'contar_publico', 'previa'], $ferramenta['inputSchema']['properties']['acao']['enum']);
+        self::assertSame(['leads', 'prim', 'sec', 'todos'], $ferramenta['inputSchema']['properties']['publico']['enum'], 'csv e indiv ficam fora pelo esquema');
+
+        $dados = $this->resultado($this->chamarQuemSouEu($master['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertContains(LerComercialFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $resposta = $this->resultado($this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'resumo']], self::ERA_DO_INITIALIZE, 3, LerComercialFerramenta::NOME), 3);
+        self::assertFalse($resposta['isError'] ?? null);
+        self::assertSame('resumo', $resposta['structuredContent']['acao']);
+        self::assertIsBool($resposta['structuredContent']['envio_de_campanhas']['ligado']);
+        self::assertSame($resposta['structuredContent'], json_decode((string) $resposta['content'][0]['text'], true));
+
+        $campanhas = $this->resultado($this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'campanhas']], self::ERA_DO_INITIALIZE, 4, LerComercialFerramenta::NOME), 4);
+        self::assertFalse($campanhas['isError'] ?? null);
+
+        $csv = json_decode((string) $this->mcp($master['access_token'], 'tools/call', ['name' => LerComercialFerramenta::NOME, 'arguments' => ['acao' => 'contar_publico', 'publico' => 'csv']], self::ERA_DO_INITIALIZE, 5, LerComercialFerramenta::NOME)->getContent(), true);
+        self::assertSame(-32602, $csv['error']['code'] ?? null, 'público csv é recusado pelo esquema, antes da ferramenta');
+        self::assertArrayNotHasKey('result', $csv);
+    }
+
+    #[TestDox('6.9: pessoa comum não vê a automacoes_de_email no tools/list nem na quem_sou_eu, e chamá-la dá Tool not found')]
+    public function testAutomacoesDeEmailSoParaOMaster(): void
+    {
+        [, $comum] = $this->conectado();
+
+        $nomes = array_column($this->resultado($this->mcp($comum['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertNotContains(AutomacoesDeEmailFerramenta::NOME, $nomes);
+        $dados = $this->resultado($this->chamarQuemSouEu($comum['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertNotContains(AutomacoesDeEmailFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $resposta = $this->chamarAutomacoes($comum['access_token'], ['acao' => 'alterar_automacao', 'chave' => 'lemb', 'ligada' => false], 3);
+        $corpo = json_decode((string) $resposta->getContent(), true);
+        self::assertSame(-32602, $corpo['error']['code'] ?? null, (string) $resposta->getContent());
+        self::assertSame('Tool not found: "automacoes_de_email".', $corpo['error']['message'] ?? null);
+        self::assertSame('1', (string) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_automacao WHERE chave = 'lemb' AND ligada"));
+    }
+
+    #[TestDox('6.9 e 12.30: o Master vê a automacoes_de_email; desligar pelo /mcp grava e o audit_log sai com route conector_mcp e tenant_id nulo')]
+    public function testDesligarAutomacaoPeloMcpAuditaComoPlataforma(): void
+    {
+        [, $master] = $this->conectado(master: true);
+
+        $lista = $this->resultado($this->mcp($master['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'];
+        $nomes = array_column($lista, 'name');
+        self::assertContains(AutomacoesDeEmailFerramenta::NOME, $nomes);
+        self::assertFalse($lista[array_search(AutomacoesDeEmailFerramenta::NOME, $nomes, true)]['annotations']['readOnlyHint']);
+
+        $ultimo = $this->ultimoIdDaAuditoria();
+        $resposta = $this->resultado($this->chamarAutomacoes($master['access_token'], ['acao' => 'alterar_automacao', 'chave' => 'lemb', 'ligada' => false], 2), 2);
+
+        self::assertFalse($resposta['isError'] ?? null);
+        self::assertSame('concluida', $resposta['structuredContent']['estado']);
+        self::assertSame('0', (string) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_automacao WHERE chave = 'lemb' AND ligada"));
+        $this->exigirAuditoriaDaPlataforma($ultimo);
+    }
+
+    #[TestDox('6.9 e 12.30: ligar pelo /mcp devolve proposta sem gravar; confirmar_acao grava e o audit_log sai com route conector_mcp e tenant_id nulo')]
+    public function testLigarAutomacaoPelaPropostaAuditaComoPlataforma(): void
+    {
+        [, $master] = $this->conectado(master: true);
+        $ultimo = $this->ultimoIdDaAuditoria();
+
+        $proposta = $this->resultado($this->chamarAutomacoes($master['access_token'], ['acao' => 'alterar_automacao', 'chave' => 'dica', 'ligada' => true], 1), 1)['structuredContent'];
+
+        self::assertSame('aguardando_confirmacao', $proposta['estado']);
+        self::assertSame('0', (string) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_automacao WHERE chave = 'dica' AND ligada"));
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM audit_log WHERE id > ? AND entity_class LIKE ?', [$ultimo, '%AutomacaoDeEmail']));
+
+        $argumentos = ['proposta_id' => $proposta['proposta']['proposta_id'], 'resumo' => $proposta['proposta']['resumo']];
+        $confirmada = $this->resultado($this->mcp($master['access_token'], 'tools/call', ['name' => ConfirmarAcaoFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, 2, ConfirmarAcaoFerramenta::NOME), 2);
+
+        self::assertFalse($confirmada['isError'] ?? null);
+        self::assertSame('1', (string) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_automacao WHERE chave = 'dica' AND ligada"));
+        $this->exigirAuditoriaDaPlataforma($ultimo);
     }
 
     #[TestDox('12.1 e 12.19: sessão no A, autoriza o B, cookie junto; quem_sou_eu mostra só o B e a tela seguinte do navegador continua no A')]
@@ -303,11 +414,11 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
      *
      * @return array{Tenant, array{access_token: string, refresh_token: string}, int} o escritório, o par e o id da pessoa
      */
-    private function conectado(bool $escrita = true, array $permissoes = []): array
+    private function conectado(bool $escrita = true, array $permissoes = [], bool $master = false): array
     {
         $this->clienteValido();
         $tenant = $this->escritorio();
-        $pessoa = $this->pessoa();
+        $pessoa = $this->pessoa($master ? ['ROLE_USER', 'ROLE_SUPER_ADMIN'] : ['ROLE_USER']);
         $this->vinculo($pessoa, $tenant, permissoes: $permissoes);
         $this->liberarConector($tenant);
         $this->logarComTenant($this->client, $pessoa, $tenant);
@@ -433,6 +544,33 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/mcp', server: $cabecalhos, content: json_encode($mensagem, \JSON_THROW_ON_ERROR));
 
         return $this->client->getResponse();
+    }
+
+    /** @param array<string, mixed> $argumentos */
+    private function chamarAutomacoes(string $token, array $argumentos, int $id): Response
+    {
+        return $this->mcp($token, 'tools/call', ['name' => AutomacoesDeEmailFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, $id, AutomacoesDeEmailFerramenta::NOME);
+    }
+
+    private function conexao(): Connection
+    {
+        return static::getContainer()->get(Connection::class);
+    }
+
+    private function ultimoIdDaAuditoria(): int
+    {
+        return (int) $this->conexao()->fetchOne('SELECT COALESCE(MAX(id), 0) FROM audit_log');
+    }
+
+    /** As linhas novas da automação saem com a rota do conector e sem escritório: ato de plataforma. */
+    private function exigirAuditoriaDaPlataforma(int $ultimo): void
+    {
+        $linhas = $this->conexao()->fetchAllAssociative('SELECT route, tenant_id FROM audit_log WHERE id > ? AND entity_class LIKE ?', [$ultimo, '%AutomacaoDeEmail']);
+        self::assertNotSame([], $linhas, 'a gravação precisa deixar linha no audit_log');
+        foreach ($linhas as $linha) {
+            self::assertSame('conector_mcp', $linha['route']);
+            self::assertNull($linha['tenant_id']);
+        }
     }
 
     private function chamarQuemSouEu(string $token, string $versao, int $id): Response

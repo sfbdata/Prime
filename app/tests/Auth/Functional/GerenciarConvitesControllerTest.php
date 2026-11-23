@@ -656,11 +656,18 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         ]);
         self::assertResponseRedirects('/escritorio/convites');
         $novo = $this->tokenDoUltimoEmail();
+        // Quem reenvia fica sabendo que o link anterior deixou de valer (no aviso do botão e na mensagem de sucesso).
+        $client->followRedirect();
+        self::assertSelectorTextContains('body', 'Convite reenviado com um link novo. O link enviado antes deixa de valer.');
+        self::assertSelectorExists(sprintf('form[action="/escritorio/convites/%d/reenviar"][data-confirmar$="? O link enviado antes deixa de valer."]', $convite->getId()));
 
         self::assertNotSame($anterior, $novo);
         $client->request('GET', '/convite/' . $anterior);
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Convite não encontrado');
+        // Caso de 19/11: quem abre o e-mail antigo entende por que o link não vale e acha o convite em Meus convites.
+        self::assertSelectorTextContains('.login-container p', 'o link do e-mail anterior deixa de valer');
+        self::assertSelectorExists('.login-container > a[data-meus-convites][href="/convites"]');
         $client->request('GET', '/convite/' . $novo);
         self::assertSelectorExists(sprintf('form[action="/convite/%s/criar-conta"]', $novo));
     }

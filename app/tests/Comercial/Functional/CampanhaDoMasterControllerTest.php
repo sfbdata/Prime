@@ -235,36 +235,141 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['E-mail de teste', 'Teste · 1 e-mail(s)'], [$visto['situacao'] ?? null, $visto['publico'] ?? null], 'o visualizador mostra o mesmo público da lista (L709)');
     }
 
-    #[TestDox('Enviar teste: o 11º na mesma hora é recusado com a mensagem da spec')]
+    #[TestDox('Enviar teste: sem `para` ou vazio vai só ao Master (compatível)')]
+    public function testSemParaVaiSoAoMaster(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => '  ']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$this->master->getEmail()], $this->json($client)['enviados']);
+        self::assertSame(1, $this->contar('comercial_envio'));
+        self::assertSame(0, (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND pid = pg_backend_pid()",
+            [\App\Comercial\Repository\CampanhaDeEmailRepository::TRAVA_DO_TESTE],
+        ), 'a trava do teste por Master é solta no fim');
+    }
+
+    #[TestDox('Enviar teste: vários endereços (vírgula, ponto e vírgula, espaço), um registro com N destinos ligados e a trilha camp_teste só com o total')]
+    public function testVariosEnderecos(): void
+    {
+        $client = $this->clienteMaster();
+        $meu = (string) $this->master->getEmail();
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => $meu . ', Ana@Exemplo.com; bia@exemplo.com  ANA@exemplo.com']);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame([$meu, 'ana@exemplo.com', 'bia@exemplo.com'], $saida['enviados'], 'duplicado ignorando caixa');
+        self::assertSame('Teste enviado para ' . $meu . ', ana@exemplo.com, bia@exemplo.com.', $saida['mensagem']);
+        self::assertSame('', $saida['aviso']);
+        self::assertSame(3, $this->contar('comercial_envio'));
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_campanha WHERE estado = 'teste'"), 'uma linha por clique');
+        $campanha = $this->conexao()->fetchAssociative("SELECT id, total, execucoes FROM comercial_campanha WHERE estado = 'teste'");
+        self::assertSame([3, 1], [(int) $campanha['total'], (int) $campanha['execucoes']]);
+        $destinos = $this->conexao()->fetchAllKeyValue('SELECT d.email, e.destinatario FROM comercial_campanha_destino d JOIN comercial_envio e ON e.id = d.envio_id WHERE d.campanha_id = ?', [$campanha['id']]);
+        ksort($destinos);
+        $esperado = ['ana@exemplo.com' => 'ana@exemplo.com', 'bia@exemplo.com' => 'bia@exemplo.com', $meu => $meu];
+        ksort($esperado);
+        self::assertSame($esperado, $destinos, 'cada destino ligado ao próprio envio');
+        $nomes = $this->conexao()->fetchAllKeyValue('SELECT email, nome FROM comercial_campanha_destino WHERE campanha_id = ?', [$campanha['id']]);
+        self::assertSame('Pessoa Master', $nomes[$meu]);
+        self::assertNull($nomes['ana@exemplo.com'], 'sem nome: o montador usa "colega"');
+        $trilha = $this->conexao()->fetchAssociative("SELECT changes, actor_email FROM audit_log WHERE action = 'camp_teste' AND entity_id = ?", [(string) $campanha['id']]);
+        self::assertIsArray($trilha);
+        self::assertSame(['total' => 3], json_decode((string) $trilha['changes'], true), 'sem e-mails na trilha');
+        self::assertSame($meu, $trilha['actor_email']);
+    }
+
+    #[TestDox('Enviar teste: endereço inválido e mais de 5 endereços são recusados em 422 e nada sai')]
+    public function testInvalidosEExcesso(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'ana@exemplo.com, isto-nao-e-email']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Endereço inválido: isto-nao-e-email.', $this->json($client)['erro']);
+
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'a@x.com,b@x.com,c@x.com,d@x.com,e@x.com,f@x.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe de 1 a 5 endereços.', $this->json($client)['erro']);
+
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => ['x']]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->contar('comercial_envio'));
+        self::assertSame(0, $this->contar('comercial_campanha'));
+    }
+
+    #[TestDox('Enviar teste: o teto é de 10 por hora por Master e cada endereço conta 1; passou do que resta, recusa inteira')]
     public function testTetoPorHora(): void
     {
         $client = $this->clienteMaster();
-        for ($i = 0; $i < 10; ++$i) {
-            $this->conexao()->executeStatement(
-                "INSERT INTO comercial_envio (token, destinatario, assunto, tipo, lista, origem, situacao, criado_em, aberturas, cliques)
-                 VALUES (:token, :para, 'x', 'lista', 'comercial_campanhas', 'teste_campanha', 'enviado', :em, 0, 0)",
-                ['token' => bin2hex(random_bytes(16)), 'para' => $this->master->getEmail(), 'em' => (new \DateTimeImmutable('-10 minutes'))->format('Y-m-d H:i:s')],
-            );
-        }
-        $this->postar($client, '/master/comercial/teste', $this->convite());
+        $this->testesDoMaster(8, '-10 minutes');
+        $this->testesDoMaster(5, '-2 hours');
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'a@x.com, b@x.com, c@x.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Limite de 10 testes por hora: restam 2.', $this->json($client)['erro']);
+        self::assertSame(0, $this->contar('comercial_envio'));
 
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'a@x.com, b@x.com']);
+        self::assertResponseIsSuccessful();
+
+        $this->postar($client, '/master/comercial/teste', $this->convite());
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Limite de 10 testes por hora atingido.', $this->json($client)['erro']);
-        self::assertSame(10, $this->contar('comercial_envio'));
+        self::assertSame(2, $this->contar('comercial_envio'));
     }
 
-    #[TestDox('Enviar teste: descadastrado da lista de campanhas não recebe e a tela diz por quê')]
+    #[TestDox('Enviar teste: o teto de um Master não vale para outro')]
+    public function testTetoEPorMaster(): void
+    {
+        $client = $this->clienteMaster();
+        $this->testesDoMaster(10, '-10 minutes', $this->usuario(['ROLE_SUPER_ADMIN']));
+        $this->postar($client, '/master/comercial/teste', $this->convite());
+
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Enviar teste: descadastrado parcial sai para os outros e avisa; descadastrado de todos é recusado sem linha de teste')]
     public function testDescadastrado(): void
     {
         $client = $this->clienteMaster();
-        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar(null, (string) $this->master->getEmail(), ComposicaoDaCampanha::LISTA, 'teste');
-        $this->postar($client, '/master/comercial/teste', $this->convite());
+        $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
+        $descadastro->descadastrar(null, 'fora@exemplo.com', ComposicaoDaCampanha::LISTA, 'teste');
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'fora@exemplo.com, dentro@exemplo.com']);
 
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame('Teste enviado para dentro@exemplo.com. Não enviado para fora@exemplo.com (descadastrado da lista).', $saida['mensagem']);
+        self::assertSame(['dentro@exemplo.com'], $saida['enviados']);
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT total FROM comercial_campanha WHERE estado = 'teste'"), 'total = quantos saíram');
+        self::assertSame(1, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino'));
+
+        $this->conexao()->executeStatement('DELETE FROM comercial_campanha_destino');
+        $this->conexao()->executeStatement('DELETE FROM comercial_campanha');
+        $descadastro->descadastrar(null, (string) $this->master->getEmail(), ComposicaoDaCampanha::LISTA, 'teste');
+        $this->postar($client, '/master/comercial/teste', $this->convite());
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Você está descadastrado da lista de campanhas; o teste não foi enviado.', $this->json($client)['erro']);
-        self::assertSame('bloqueado_descadastro', $this->conexao()->fetchOne('SELECT situacao FROM comercial_envio'));
-        self::assertSame(0, $this->contar('comercial_envio_conteudo'));
+        self::assertSame('O endereço está descadastrado da lista de campanhas; o teste não foi enviado.', $this->json($client)['erro']);
         self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_campanha WHERE estado = 'teste'"), 'sem envio, sem linha de teste');
+
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'fora@exemplo.com, ' . $this->master->getEmail()]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Os endereços estão descadastrados da lista de campanhas; o teste não foi enviado.', $this->json($client)['erro']);
+    }
+
+    /** Linhas de teste já gravadas pelo Master (1 endereço cada), na hora dada: o que o teto lê. */
+    private function testesDoMaster(int $quantos, string $quando, ?User $de = null): void
+    {
+        $de ??= $this->master;
+        $repositorio = static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class);
+        $em = new \DateTimeImmutable($quando);
+        for ($i = 0; $i < $quantos; ++$i) {
+            $repositorio->inserir([
+                'chave' => 'teste_' . bin2hex(random_bytes(8)), 'assunto' => '[TESTE] x', 'modelo_chave' => 'convite', 'modelo_nome' => 'Convite',
+                'modo' => 'simples', 'selo' => '', 'titulo' => 'x', 'conteudo' => '{}', 'publico' => 'teste', 'parametros' => null,
+                'frequencia' => 'unica', 'agendada_para' => null, 'proxima' => $em, 'estado' => 'teste', 'total' => 1,
+                'criada_por' => $de->getId(), 'agora' => $em,
+            ]);
+        }
     }
 
     /** @return array<string, mixed> o fixo "convite" como a tela manda */

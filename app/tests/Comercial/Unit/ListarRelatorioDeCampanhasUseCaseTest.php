@@ -69,7 +69,7 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
         $repo->method('contar')->willReturn(2);
         $repo->method('pagina')->willReturn([
             self::campanha(5, ['estado' => 'teste', 'frequencia' => 'mensal', 'agendada_para' => '2031-04-05 08:30:00', 'estrela' => true]),
-            self::campanha(4, ['execucoes' => 0, 'total' => 12]),
+            self::campanha(4, ['execucoes' => 0, 'total' => 12, 'editavel' => true]),
         ]);
         $repo->expects(self::once())->method('metricas')->with([5, 4])->willReturn([
             5 => ['destinatarios' => 4, 'na_fila' => 0, 'enviados' => 4, 'entregues' => 4, 'lidos' => 1, 'rejeitados' => 0, 'clicaram' => 0],
@@ -80,20 +80,21 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
         self::assertSame(['Teste', 'Convite · mensal', 'Individual', '2031-04-05T08:30:00', '25%'], [$teste->rotulo, $teste->sub, $teste->publico, $teste->data, $teste->metricas->taxaDeLeitura()]);
         self::assertSame(['Na fila', 'Convite', 12, 12], [$naFila->rotulo, $naFila->sub, $naFila->metricas->destinatarios, $naFila->metricas->naFila]);
         self::assertSame([true, false], [$teste->paraArray()['estrela'], $naFila->paraArray()['estrela']], 'a estrela do Master (F3e)');
+        self::assertSame([false, true], [$teste->paraArray()['editavel'], $naFila->paraArray()['editavel']], 'editável (M5.3) vem do repositório');
     }
 
     /**
      * @param array<string, mixed> $troca
      *
-     * @return array{id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string, estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, estrela: bool}
+     * @return array{id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string, estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, estrela: bool, editavel: bool}
      */
     private static function campanha(int $id, array $troca = []): array
     {
-        /** @var array{id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string, estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, estrela: bool} */
+        /** @var array{id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string, estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, estrela: bool, editavel: bool} */
         return array_merge([
             'id' => $id, 'nome' => 'Assunto ' . $id, 'assunto' => 'Assunto ' . $id, 'titulo' => 'Título', 'modelo_nome' => 'Convite',
             'publico' => 'indiv', 'frequencia' => 'unica', 'estado' => 'na_fila', 'total' => 4, 'execucoes' => 1,
-            'agendada_para' => null, 'criada_em' => '2026-10-21 10:00:00', 'rastrear_leitura' => true, 'estrela' => false,
+            'agendada_para' => null, 'criada_em' => '2026-10-21 10:00:00', 'rastrear_leitura' => true, 'estrela' => false, 'editavel' => false,
         ], $troca);
     }
 }
