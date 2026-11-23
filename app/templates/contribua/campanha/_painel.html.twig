@@ -47,7 +47,7 @@
         <div class="cp-painel-col">
             <div class="cp-resumo"><b>Custo máximo de devolução:</b> {{ painel.custo }}<br><b>Pedidos:</b> {{ painel.pedidosResumo }}</div>
             <details class="cp-painel-regras"><summary>Regras publicadas (geradas desta configuração)</summary><ol>{% for r in painel.regras %}<li>{{ r }}</li>{% endfor %}</ol></details>
-            <div class="cp-nota">As regras, a aba do topo, a página da campanha e os textos desta tela saem desta mesma configuração, para não haver divergência.</div>
+            <div class="cp-nota">As regras, a página da campanha e os textos desta tela saem desta mesma configuração, para não haver divergência.</div>
 
             {% if painel.aguardando|length %}
                 <b class="cp-subtitulo">Aguardando Pix</b>
