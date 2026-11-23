@@ -70,7 +70,6 @@ class ContratacoesDoEscritorio
         return self::encerradaPeloMaster(self::ultimaDo($this->contratacoes->todasDoTenant($tenant), $produto));
     }
 
-    /** Liga o produto. Sem linha nenhuma, com `completo` ativa ou com o produto já ativo, não grava nada. */
     /**
      * D7: o produto é o único ligado? Conta os produtos ligados de fato (sem linha ou com `completo` ativa, todos),
      * nunca o número de linhas.
@@ -87,6 +86,7 @@ class ContratacoesDoEscritorio
         return [$produto->value] === array_keys($ativos);
     }
 
+    /** Liga o produto. Sem linha nenhuma, com `completo` ativa ou com o produto já ativo, não grava nada. */
     public function incluir(Tenant $tenant, Produto $produto, OrigemDaContratacao $origem, ?User $por, \DateTimeImmutable $agora): void
     {
         $linhas = $this->contratacoes->todasDoTenant($tenant);

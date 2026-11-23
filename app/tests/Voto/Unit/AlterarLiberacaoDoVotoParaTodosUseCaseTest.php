@@ -6,16 +6,19 @@ namespace App\Tests\Voto\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
 use App\Voto\Service\GuardaDoMasterDoVoto;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoParaTodosUseCase;
+use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -41,7 +44,12 @@ final class AlterarLiberacaoDoVotoParaTodosUseCaseTest extends TestCase
 
     private function sut(): AlterarLiberacaoDoVotoParaTodosUseCase
     {
-        return new AlterarLiberacaoDoVotoParaTodosUseCase($this->tenants, $this->liberacoes, $this->escopo);
+        // A aba "para todos" passa pelo UseCase de um escritório (trava do escritório e trava do Master da D16).
+        $contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
+        $porEscritorio = new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo, $contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
+
+        return new AlterarLiberacaoDoVotoParaTodosUseCase($this->tenants, $this->liberacoes, $porEscritorio);
     }
 
     private function tenant(int $id): Tenant

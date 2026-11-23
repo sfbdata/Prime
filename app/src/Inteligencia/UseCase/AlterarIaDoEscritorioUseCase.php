@@ -47,31 +47,34 @@ final class AlterarIaDoEscritorioUseCase
     {
         GuardaDoMasterDaIa::exigir($master);
         $tenant = $this->escritorioAtivo($input->tenantId);
+        $modo = $this->modo($input->modoDeCobranca);
+
+        // A auditoria vai para o escritório alterado, não para o da sessão do Master. A configuração é lida DENTRO da
+        // trava do escritório: duas trocas ao mesmo tempo (Master e dono) decidem sobre o estado já gravado.
+        $this->escopoDePlataforma->executarComoConta(
+            (int) $tenant->getId(),
+            fn () => $this->contratacoes->sobTrava($tenant, fn () => $this->alterarSobTrava($tenant, $input, $modo, $master)),
+        );
+    }
+
+    private function alterarSobTrava(Tenant $tenant, AlterarIaDoEscritorioInput $input, ModoDeCobrancaDaIa $modo, User $master): void
+    {
         $configuracao = $this->configuracoes->findDoTenantParaOMaster($tenant) ?? new ConfiguracaoDeInteligencia($tenant);
         // D16: só a TROCA de estado mexe na contratação. Trocar só o teto, ou salvar "bloqueada" num escritório que nunca
         // foi liberado, não é trava (o estado de hoje deixa o dono ligar).
         $estava = $configuracao->isLiberadaPeloMaster();
-
         if ($input->liberada) {
             $configuracao->liberarPeloMaster();
         } else {
             $configuracao->bloquearPeloMaster();
         }
-        $configuracao->definirCobranca($this->modo($input->modoDeCobranca), $input->orcamentoMensalCentavos);
-
-        // A auditoria vai para o escritório alterado, não para o da sessão do Master.
-        $this->escopoDePlataforma->executarComoConta(
-            (int) $tenant->getId(),
-            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $configuracao, $input, $estava, $master): void {
-                $this->configuracoes->salvar($configuracao, flush: true);
-                if ($estava !== $input->liberada) {
-                    $this->ajustarContratacao($tenant, $input->liberada, $master);
-                }
-            }),
-        );
+        $configuracao->definirCobranca($modo, $input->orcamentoMensalCentavos);
+        $this->configuracoes->salvar($configuracao, flush: true);
+        if ($estava !== $input->liberada) {
+            $this->ajustarContratacao($tenant, $input->liberada, $master);
+        }
     }
 
-    /** D16: o bloqueio do Master vira trava; a liberação dele desfaz. */
     private function ajustarContratacao(Tenant $tenant, bool $liberada, User $master): void
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());

@@ -44,30 +44,32 @@ final class AlterarLiberacaoDoVotoUseCase
     {
         GuardaDoMasterDoVoto::exigir($master);
         $tenant = $this->escritorioAtivo($tenantId);
+
+        // A auditoria vai para o escritório alterado, não para o da sessão do Master. A liberação é lida DENTRO da trava
+        // do escritório: duas trocas ao mesmo tempo (Master e dono) decidem sobre o estado já gravado.
+        $this->escopoDePlataforma->executarComoConta(
+            (int) $tenant->getId(),
+            fn () => $this->contratacoes->sobTrava($tenant, fn () => $this->alterarSobTrava($tenant, $liberado, $master)),
+        );
+    }
+
+    private function alterarSobTrava(Tenant $tenant, bool $liberado, User $master): void
+    {
         $liberacao = $this->liberacoes->findDoTenantParaOMaster($tenant) ?? new LiberacaoDoVoto($tenant);
         // D16: só a TROCA de estado mexe na contratação. Salvar "bloqueado" num escritório que nunca foi liberado não é
         // trava (o estado de hoje deixa o dono ligar).
         $estava = $liberacao->isLiberado();
-
         if ($liberado) {
             $liberacao->liberar();
         } else {
             $liberacao->bloquear();
         }
-
-        // A auditoria vai para o escritório alterado, não para o da sessão do Master.
-        $this->escopoDePlataforma->executarComoConta(
-            (int) $tenant->getId(),
-            fn () => $this->contratacoes->sobTrava($tenant, function () use ($tenant, $liberacao, $liberado, $estava, $master): void {
-                $this->liberacoes->salvar($liberacao, flush: true);
-                if ($estava !== $liberado) {
-                    $this->ajustarContratacao($tenant, $liberado, $master);
-                }
-            }),
-        );
+        $this->liberacoes->salvar($liberacao, flush: true);
+        if ($estava !== $liberado) {
+            $this->ajustarContratacao($tenant, $liberado, $master);
+        }
     }
 
-    /** D16: o bloqueio do Master vira trava; a liberação dele desfaz. */
     private function ajustarContratacao(Tenant $tenant, bool $liberado, User $master): void
     {
         $agora = \DateTimeImmutable::createFromInterface($this->relogio->now());

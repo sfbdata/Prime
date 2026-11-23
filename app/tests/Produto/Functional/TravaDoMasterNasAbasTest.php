@@ -6,6 +6,7 @@ namespace App\Tests\Produto\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
 use App\Master\Controller\IaDoMasterController;
 use App\Master\Controller\VotoDoMasterController;
@@ -120,6 +121,50 @@ final class TravaDoMasterNasAbasTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $this->postarFerramenta('ia', ['ligar' => true]);
         self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('"bloquear todos" do Voto também trava (o dono leva 422); "liberar todos" destrava')]
+    public function testVotoParaTodos(): void
+    {
+        $tenant = $this->escritorio();
+        $dono = $this->dono($tenant);
+        $master = $this->master();
+
+        $this->comoMaster($master);
+        $this->postarNoMaster('/master/voto/todos', ['liberado' => true], VotoDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        $this->postarNoMaster('/master/voto/todos', ['liberado' => false], VotoDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->trava()->travadoPeloMaster($this->tenantDoBanco($tenant), Produto::Voto));
+
+        $this->logarComTenant($this->client, $dono, $tenant);
+        $this->postarFerramenta('voto', ['ligar' => true]);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->comoMaster($master);
+        $this->postarNoMaster('/master/voto/todos', ['liberado' => true], VotoDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->trava()->travadoPeloMaster($this->tenantDoBanco($tenant), Produto::Voto));
+        self::assertContains('voto', $this->ativosDo($tenant));
+    }
+
+    #[TestDox('"bloquear todos" da I.A. também trava e mantém o modo e o teto do escritório')]
+    public function testIaParaTodos(): void
+    {
+        $tenant = $this->escritorio(Produto::Expediente, Produto::Ia);
+        $master = $this->master();
+
+        $this->comoMaster($master);
+        $this->postarNoMaster('/master/ia/escritorios/' . $tenant->getId(), ['liberada' => true, 'modoDeCobranca' => 'incluso', 'orcamento' => '7'], IaDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+        $this->postarNoMaster('/master/ia/todos', ['liberada' => false], IaDoMasterController::TOKEN);
+        self::assertResponseIsSuccessful();
+
+        self::assertTrue($this->trava()->travadoPeloMaster($this->tenantDoBanco($tenant), Produto::Ia));
+        self::assertSame(['expediente'], $this->ativosDo($tenant));
+        $configuracao = static::getContainer()->get(ConfiguracaoDeInteligenciaRepository::class)->findDoTenantParaOMaster($this->tenantDoBanco($tenant));
+        self::assertNotNull($configuracao);
+        self::assertSame(700, $configuracao->getOrcamentoMensalCentavos(), 'o teto do escritório fica como estava');
     }
 
     private function master(): User
