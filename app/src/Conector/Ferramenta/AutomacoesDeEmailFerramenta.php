@@ -291,7 +291,7 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
         return ['ligada' => $estado->ligada, 'atraso' => $automacao->opcoesDeAtraso() === [] ? null : $estado->atraso];
     }
 
-    /** @return array{ligada: bool, antecedencia: int, publico: string} a data sem linha no banco vale o padrão */
+    /** @return array{ligada: bool, antecedencia: int, publico: string, modelo: ?string} a data sem linha no banco vale o padrão */
     private function estadoDaData(string $chave): array
     {
         return DataComemorativa::estadoOuPadrao($this->datas->estados(), $chave);
@@ -307,7 +307,7 @@ final class AutomacoesDeEmailFerramenta implements FerramentaDoConector
         return $estado['atraso'] === null ? 'ligada' : 'ligada, atraso ' . $estado['atraso'];
     }
 
-    /** @param array{ligada: bool, antecedencia: int, publico: string} $estado */
+    /** @param array{ligada: bool, antecedencia: int, publico: string, modelo: ?string} $estado */
     private static function fraseDaData(array $estado): string
     {
         if (!$estado['ligada']) {
