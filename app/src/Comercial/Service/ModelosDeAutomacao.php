@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Comercial\Service;
 
+use App\Comercial\Campanha\ComposicaoDaCampanha;
+use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Enum\Automacao;
+use App\Comercial\Exception\CampanhaRecusada;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
@@ -26,9 +29,24 @@ final class ModelosDeAutomacao
         'pedido_espaco' => ['Recebemos seu pedido de mais espaço no BlueJus', 'PEDIDO RECEBIDO', 'Obrigado, {nome}! Já estamos cuidando disso'],
     ];
 
+    /**
+     * O padrão da Central que é a cópia de cada modelo de automação (M5.8): editado pelo Master, a automação passa a
+     * enviar a versão dele. Fora daqui (o lembrete de confirmação, que leva o link único de cada pessoa, e os dois do
+     * espaço extra, sem cópia na Central), o texto é sempre o do sistema.
+     */
+    public const FIXO_DA_CENTRAL = [
+        'boas_vindas' => 'boasvindas',
+        'primeiros_passos' => 'primeiros',
+        'espaco_90' => 'espaco90',
+        'espaco_100' => 'espaco100',
+        'pedido_espaco' => 'pedido',
+    ];
+
     public function __construct(
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urls,
+        private readonly ModelosEfetivos $efetivos,
+        private readonly ComposicaoDaCampanha $composicao,
     ) {
     }
 
@@ -38,8 +56,12 @@ final class ModelosDeAutomacao
     public function montar(Automacao $automacao, ?string $nomeCompleto, array $variaveis = []): ModeloMontado
     {
         $chave = self::chaveDoModelo($automacao);
-        [$assunto, $selo, $titulo] = self::MODELOS[$chave];
         $primeiroNome = self::primeiroNome($nomeCompleto);
+        $editado = $this->editado($chave, $primeiroNome, $variaveis['limite'] ?? '');
+        if ($editado !== null) {
+            return $editado;
+        }
+        [$assunto, $selo, $titulo] = self::MODELOS[$chave];
         $corpo = $this->twig->render('email/comercial/automacao/' . $chave . '.html.twig', $variaveis + [
             'urlDoApp' => $this->urls->generate('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL),
             'urlDoEspaco' => $this->urls->generate('contribua_index', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#espaco',
@@ -47,6 +69,33 @@ final class ModelosDeAutomacao
         $titulo = str_replace(['{nome}', '{limite}'], [$primeiroNome, $variaveis['limite'] ?? ''], $titulo);
 
         return new ModeloMontado($assunto, $selo, $titulo, $corpo);
+    }
+
+    /**
+     * A versão do Master do padrão correspondente, ou nulo (sem cópia na Central, sem versão editada, ou versão que não
+     * compõe: aí vale o texto do sistema, e a automação nunca deixa de sair). `{nome}` no corpo o montador troca.
+     */
+    private function editado(string $chave, string $primeiroNome, string $limite): ?ModeloMontado
+    {
+        $fixo = self::FIXO_DA_CENTRAL[$chave] ?? null;
+        $versao = $fixo === null ? null : $this->efetivos->editadoDoFixo($fixo);
+        if ($versao === null) {
+            return null;
+        }
+        try {
+            $m = MensagemDaCampanha::deArray($versao);
+            [$corpo, $layout] = $this->composicao->corpoELayout($m);
+        } catch (CampanhaRecusada) {
+            return null;
+        }
+        if (trim($m->assunto) === '' || trim(strip_tags($corpo)) === '') {
+            return null;
+        }
+
+        // `{limite}` (o percentual do aviso de 90%) vale no assunto, no título e no texto; `{nome}` no corpo o montador troca.
+        $limitar = static fn (string $texto): string => str_replace('{limite}', $limite, $texto);
+
+        return new ModeloMontado($limitar($m->assunto), $m->selo, $limitar(str_replace('{nome}', $primeiroNome, $m->titulo)), $limitar($corpo), $layout);
     }
 
     public static function primeiroNome(?string $nomeCompleto): string

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Comercial\Service;
 
-/** Um modelo pronto para o Carteiro: assunto, selo e título do cabeçalho, e o miolo. */
+use App\Comercial\Envio\LayoutDoEmail;
+
+/** Um modelo pronto para o Carteiro: assunto, selo e título do cabeçalho, o miolo e o layout do miolo. */
 final class ModeloMontado
 {
     public function __construct(
@@ -12,6 +14,7 @@ final class ModeloMontado
         public readonly string $selo,
         public readonly string $titulo,
         public readonly string $corpoHtml,
+        public readonly LayoutDoEmail $layout = LayoutDoEmail::Padrao,
     ) {
     }
 }
