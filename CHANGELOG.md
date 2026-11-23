@@ -8,6 +8,13 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.63.2] - 2026-11-23
+
+### Corrigido
+
+- Campanha BlueJus Black, aba do topo (`contribua-campanha.css/js`): volta à posição do desenho (`right:24px`, sem o centro do #851), com o topo na base da barra azul. `baseDoCabecalho()` passa a achar o `#mainHeader` (`nav.app-header`), que o seletor do desenho (`header`, `[role=banner]`) não achava: a aba caía em `top:0`, por cima do nome e do avatar. Continua sumindo em 5 s; regra dos 5 dias e prévia do Master sem mudança.
+- `DuplicarMetaControllerTest`: a meta de teste tinha prazo fixo em 20/11/2026; depois dessa data ela nascia "atrasada" e o teste da aba quebrava (a Suíte completa do master e do PR #858 ficaram vermelhas em 23/11). O prazo passa a ser daqui a 30 dias e a cópia é comparada com o prazo da original.
+
 ## [2.63.1] - 2026-11-19
 
 ### Corrigido
@@ -2323,7 +2330,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.63.2...HEAD
+[2.63.2]: https://github.com/sfbdata/Prime/compare/v2.63.1...v2.63.2
 [2.63.1]: https://github.com/sfbdata/Prime/compare/v2.63.0...v2.63.1
 [2.63.0]: https://github.com/sfbdata/Prime/compare/v2.62.0...v2.63.0
 [2.62.0]: https://github.com/sfbdata/Prime/compare/v2.61.0...v2.62.0
