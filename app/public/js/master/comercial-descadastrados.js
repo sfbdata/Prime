@@ -22,10 +22,18 @@
   const numero = n => (window.BJFormato ? window.BJFormato.numero(n) : String(n));
   const dataHora = iso => (window.BJFormato ? window.BJFormato.dataHora(iso) : new Date(iso).toLocaleString('pt-BR').slice(0, 16));
 
-  function avisar(texto) {
+  // Linha de retorno fixa (M5.14): `tipo` 'ok', 'erro' ou 'info'; fica até a próxima ação.
+  function avisar(texto, tipo) {
     elAviso.textContent = texto || '';
     elAviso.hidden = !texto;
+    elAviso.classList.toggle('is-ok', tipo === 'ok');
+    elAviso.classList.toggle('is-info', tipo === 'info');
+    elAviso.classList.toggle('is-erro', tipo === 'erro');
+    elAviso.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
   }
+
+  // Parte estável de um id (M5.13): só letras minúsculas, números e hífen.
+  const elKpisMsg = document.querySelector('[data-mc-kpis-msg]');
 
   function pedir(url, opcoes) {
     return fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, opcoes)).then(r => r.json().catch(() => ({})).then(d => {
@@ -55,11 +63,18 @@
         desc.textContent = t > 0 ? BJ_T.t(t === 1 ? 'comercial.js.kpi_teste_um' : 'comercial.js.kpi_testes_n', { n: numero(t) }) : desc.dataset.base;
       }
       document.dispatchEvent(new CustomEvent('mc:resumo', { detail: { campanhas: r.campanhas, naFila: r.naFila, base: r.base, descadastrados: r.descadastrados } }));
-    }).catch(() => {});
+      if (elKpisMsg) { elKpisMsg.textContent = ''; elKpisMsg.hidden = true; }
+    }).catch(() => {
+      // Erro fixo (M5.14): nos números da seção e, com o bloco aberto, também nele.
+      const texto = BJ_T.t('comercial.js.dsc_erro_resumo');
+      if (elKpisMsg) { elKpisMsg.textContent = texto; elKpisMsg.hidden = false; }
+      if (!bloco.hidden) avisar(texto, 'erro');
+    });
   }
 
   /* ---------- Lista ---------- */
-  function linha(item) {
+  /* `i` é a posição na lista desenhada: o id não leva o e-mail (dado pessoal) e não colide entre e-mails parecidos. */
+  function linha(item, i) {
     const el = document.createElement('div');
     el.className = 'mc-dsc-linha';
     const email = document.createElement('b'); email.className = 'mc-dsc-email'; email.textContent = item.email; email.title = item.email;
@@ -68,6 +83,8 @@
     const origem = document.createElement('span'); origem.className = 'mc-dsc-origem'; origem.textContent = item.origem;
     const excluir = document.createElement('button');
     excluir.type = 'button'; excluir.className = 'mc-dsc-excluir'; excluir.textContent = BJ_T.t('comercial.js.dsc_excluir');
+    excluir.id = 'mc-dsc-excluir-' + i; excluir.name = excluir.id;
+    excluir.setAttribute('aria-label', BJ_T.t('comercial.js.dsc_excluir_de', { email: item.email }));
     excluir.addEventListener('click', () => reativar(item));
     el.append(email, em, motivo, origem, excluir);
 
@@ -84,7 +101,7 @@
     return pagina(1).then(todos => {
       elLinhas.replaceChildren(...todos.map(linha));
       elVazio.hidden = todos.length > 0;
-    }).catch(err => avisar(err.message));
+    }).catch(err => avisar(err.message, 'erro'));
   }
 
   function recarregar() {
@@ -93,13 +110,15 @@
 
   function reativar(item) {
     if (!window.confirm(BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }))) return;
-    postar(bloco.dataset.urlReativar, { email: item.email, assunto: item.assunto }).then(() => { avisar(''); recarregar(); }).catch(err => avisar(err.message));
+    avisar(BJ_T.t('comercial.js.salvando'), 'info');
+    postar(bloco.dataset.urlReativar, { email: item.email, assunto: item.assunto }).then(() => { avisar(BJ_T.t('comercial.js.dsc_ok_excluido', { email: item.email }), 'ok'); recarregar(); }).catch(err => avisar(err.message, 'erro'));
   }
 
   function registrar() {
     const email = String(window.prompt(BJ_T.t('comercial.js.dsc_registrar_pergunta'), '') || '').trim().toLowerCase();
     if (!email) return;
-    postar(bloco.dataset.urlRegistrar, { email }).then(() => { avisar(''); recarregar(); }).catch(err => avisar(err.message));
+    avisar(BJ_T.t('comercial.js.salvando'), 'info');
+    postar(bloco.dataset.urlRegistrar, { email }).then(() => { avisar(BJ_T.t('comercial.js.dsc_ok_registrado', { email }), 'ok'); recarregar(); }).catch(err => avisar(err.message, 'erro'));
   }
 
   /* ---------- Abrir e fechar ---------- */

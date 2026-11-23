@@ -12,14 +12,15 @@
         <i class="bi bi-envelope-slash mc-dsc-ic" aria-hidden="true"></i>
         <b class="mc-dsc-titulo" id="mc-dsc-titulo">{{ 'comercial.descadastrados.titulo'|trans }}</b>
         <span class="mc-dsc-sub">{{ 'comercial.descadastrados.sub'|trans }}</span>
-        <input type="search" class="mc-dsc-busca" placeholder="{{ 'comercial.descadastrados.buscar'|trans }}" aria-label="{{ 'comercial.descadastrados.buscar'|trans }}" data-mc-dsc-busca>
-        <button type="button" class="mc-dsc-botao" data-mc-dsc-registrar><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'comercial.descadastrados.registrar'|trans }}</button>
-        <button type="button" class="mc-dsc-botao mc-dsc-botao-perigo" disabled aria-disabled="true"
-                title="{{ 'comercial.descadastrados.limpar_dica'|trans }}"><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'comercial.descadastrados.limpar'|trans }}</button>
-        <a class="mc-dsc-botao" href="{{ path('master_comercial_descadastrados_csv') }}" data-mc-dsc-csv download><i class="bi bi-download" aria-hidden="true"></i> {{ 'comercial.descadastrados.csv'|trans }}</a>
-        <button type="button" class="mc-dsc-fechar" aria-label="{{ 'comercial.descadastrados.fechar'|trans }}" data-mc-dsc-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <input type="search" class="mc-dsc-busca" id="mc-dsc-busca" name="mc-dsc-busca" placeholder="{{ 'comercial.descadastrados.buscar'|trans }}" aria-label="{{ 'comercial.descadastrados.buscar'|trans }}" data-mc-dsc-busca>
+        <button type="button" class="mc-dsc-botao" id="mc-dsc-registrar" name="mc-dsc-registrar" data-mc-dsc-registrar><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'comercial.descadastrados.registrar'|trans }}</button>
+        <button type="button" class="mc-dsc-botao mc-dsc-botao-perigo" id="mc-dsc-limpar" name="mc-dsc-limpar" disabled aria-disabled="true"
+                aria-describedby="mc-dsc-limpar-motivo" title="{{ 'comercial.descadastrados.limpar_dica'|trans }}"><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'comercial.descadastrados.limpar'|trans }}</button>
+        <span class="mc-motivo" id="mc-dsc-limpar-motivo">{{ 'comercial.descadastrados.limpar_dica'|trans }}</span>
+        <a class="mc-dsc-botao" id="mc-dsc-csv" href="{{ path('master_comercial_descadastrados_csv') }}" data-mc-dsc-csv download><i class="bi bi-download" aria-hidden="true"></i> {{ 'comercial.descadastrados.csv'|trans }}</a>
+        <button type="button" class="mc-dsc-fechar" id="mc-dsc-fechar" name="mc-dsc-fechar" aria-label="{{ 'comercial.descadastrados.fechar'|trans }}" data-mc-dsc-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
-    <div class="mc-dsc-aviso" role="status" data-mc-dsc-aviso hidden></div>
+    <div class="mc-dsc-aviso" role="status" aria-live="polite" data-mc-dsc-aviso hidden></div>
     <div class="mc-dsc-vazio" data-mc-dsc-vazio hidden>{{ 'comercial.descadastrados.vazio'|trans }}</div>
     <div class="mc-dsc-linhas" data-mc-dsc-linhas aria-labelledby="mc-dsc-titulo"></div>
 </div>

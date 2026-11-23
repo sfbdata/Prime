@@ -36,6 +36,12 @@
 (() => {
   'use strict';
   const MARCADOR = '999999999';
+  // O texto de sucesso de cada marca (chaves literais, para o catálogo achar o uso).
+  const MARCA_OK = {
+    estrela: 'comercial_relatorio.js.marca_ok_estrela', sem_estrela: 'comercial_relatorio.js.marca_ok_sem_estrela',
+    arquivar: 'comercial_relatorio.js.marca_ok_arquivar', desarquivar: 'comercial_relatorio.js.marca_ok_desarquivar',
+    remover: 'comercial_relatorio.js.marca_ok_remover',
+  };
   const instancias = [];
 
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -67,11 +73,17 @@
         .then(r => r.json().catch(() => ({})).then(d => (r.ok ? d : Promise.reject(new Error(d.erro || BJ_T.t('comercial_relatorio.js.erro_concluir'))))));
     }
 
-    function avisar(texto) {
+    // Sufixo dos ids desta instância (M5.13: `-com` ou `-ind`) e linha de retorno fixa (M5.14): `tipo` 'ok' ou 'erro' (sem tipo =
+    // informação); a mensagem fica até a próxima ação.
+    const S = '-' + secao;
+    const avisar = (texto, tipo) => {
       const caixa = el('[data-mc-rl-msg]');
       el('[data-mc-rl-msg-texto]').textContent = texto || '';
       caixa.hidden = !texto;
-    }
+      caixa.classList.toggle('is-ok', tipo === 'ok');
+      caixa.classList.toggle('is-erro', tipo === 'erro');
+      caixa.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
+    };
 
     // dc L702: "14:30" se for hoje; senão "21 out". A hora vem do BJFormato (idioma da página); o "21 out" (dia e mês
     // curto sem ponto) ele ainda não cobre e fica no formato fixo.
@@ -88,8 +100,8 @@
       const icone = m.leitura === 'lido' ? 'bi-check2-all' : 'bi-check2';
       const marcada = !!estado.sel[c.id];
       return '<div class="mc-rl-linha' + (marcada ? ' mc-rl-marcada' : '') + '" data-mc-rl-id="' + esc(c.id) + '" title="' + esc(BJ_T.t('comercial_relatorio.js.linha_dica')) + '">'
-        + '<button type="button" class="mc-rl-sel" data-mc-rl-sel aria-label="' + esc(BJ_T.t('comercial_relatorio.js.selecionar')) + '" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
-        + '<button type="button" class="mc-rl-estrela' + (c.estrela ? ' mc-rl-com-estrela' : '') + '" data-mc-rl-estrela aria-label="' + esc(c.estrela ? BJ_T.t('comercial_relatorio.js.estrela_remover') : BJ_T.t('comercial_relatorio.js.estrela_marcar')) + '" aria-pressed="' + !!c.estrela + '"><i class="bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star') + '" aria-hidden="true"></i></button>'
+        + '<button type="button" class="mc-rl-sel" id="mc-rl-linha-' + esc(c.id) + '-sel' + S + '" name="mc-rl-linha-' + esc(c.id) + '-sel' + S + '" data-mc-rl-sel aria-label="' + esc(BJ_T.t('comercial_relatorio.js.selecionar') + ': ' + c.nome) + '" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
+        + '<button type="button" class="mc-rl-estrela' + (c.estrela ? ' mc-rl-com-estrela' : '') + '" id="mc-rl-linha-' + esc(c.id) + '-estrela' + S + '" name="mc-rl-linha-' + esc(c.id) + '-estrela' + S + '" data-mc-rl-estrela aria-label="' + esc((c.estrela ? BJ_T.t('comercial_relatorio.js.estrela_remover') : BJ_T.t('comercial_relatorio.js.estrela_marcar')) + ': ' + c.nome) + '" aria-pressed="' + !!c.estrela + '"><i class="bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star') + '" aria-hidden="true"></i></button>'
         + '<span class="mc-rl-publico">' + esc(c.publico) + ' <span class="mc-rl-total">' + esc(c.total) + '</span></span>'
         + '<span class="mc-rl-meio"><span class="mc-rl-st mc-rl-st-' + esc(c.estado) + '">' + esc(c.rotulo) + '</span>'
         + '<span class="mc-rl-nome"><b>' + esc(c.nome) + '</b><span class="mc-rl-sub"> · ' + esc(c.sub) + '</span></span></span>'
@@ -149,7 +161,11 @@
       lista.setAttribute('aria-busy', 'true');
       return pedir(raiz.dataset.urlLista + '?' + q.toString())
         .then(d => { carregado = true; desenhar(d); })
-        .catch(() => { lista.removeAttribute('aria-busy'); lista.innerHTML = '<div class="mc-rl-vazio">' + esc(BJ_T.t('comercial_relatorio.js.erro_carregar')) + '</div>'; });
+        .catch(() => {
+          lista.removeAttribute('aria-busy');
+          lista.innerHTML = '<div class="mc-rl-vazio">' + esc(BJ_T.t('comercial_relatorio.js.erro_carregar')) + '</div>';
+          avisar(BJ_T.t('comercial_relatorio.js.erro_carregar'), 'erro');
+        });
     }
 
     // ---- Visualizador (dc L502-514) ----
@@ -182,7 +198,7 @@
     function abrir(id) {
       return pedir(url(raiz.dataset.urlCampanha, id))
         .then(c => { preencher(c); ver.hidden = false; ver.querySelector('.mc-rl-ver-voltar').focus(); })
-        .catch(err => avisar(err.message));
+        .catch(err => avisar(err.message, 'erro'));
     }
 
     function fechar() {
@@ -212,10 +228,10 @@
         entrada.dispatchEvent(new Event('input', { bubbles: true }));
         primeiro = primeiro || entrada;
       });
-      if (!primeiro) { avisar(BJ_T.t('comercial_relatorio.js.editor_indisponivel')); return; }
+      if (!primeiro) { avisar(BJ_T.t('comercial_relatorio.js.editor_indisponivel'), 'erro'); return; }
       primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
       primeiro.focus({ preventScroll: true });
-      avisar(detalhe.mensagem);
+      avisar(detalhe.mensagem, 'ok');
     }
 
     function cancelar() {
@@ -226,15 +242,15 @@
         : BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila');
       if (!window.confirm(pergunta)) return;
       pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))
-        .then(r => { fechar(); avisar(r.mensagem); carregar(); recarregarOutras(instancia); })
-        .catch(err => { fechar(); avisar(err.message); });
+        .then(r => { fechar(); avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.cancelar_ok'), 'ok'); carregar(); recarregarOutras(instancia); })
+        .catch(err => { fechar(); avisar(err.message, 'erro'); });
     }
 
     // ---- Marcas (F3e): estrela, arquivo e remoção, de cada Master ----
     function marcar(ids, acao) {
       return pedir(raiz.dataset.urlMarcas, Object.assign(POST(), { body: JSON.stringify({ ids: ids.map(Number), acao: acao }) }))
-        .then(() => { carregar(); recarregarOutras(instancia); })
-        .catch(err => { avisar(err.message); carregar(); recarregarOutras(instancia); });
+        .then(() => { avisar(BJ_T.t(MARCA_OK[acao] || 'comercial_relatorio.js.marca_ok'), 'ok'); carregar(); recarregarOutras(instancia); })
+        .catch(err => { avisar(err.message, 'erro'); carregar(); recarregarOutras(instancia); });
     }
 
     function marcarSelecao(acao) {
@@ -263,6 +279,7 @@
 
     // "Exportar destinatários": o CSV vem pronto do servidor (com o BOM); aqui só vira download.
     function exportar(id, formato) {
+      avisar(BJ_T.t('comercial_relatorio.js.exportando'));
       fetch(url(raiz.dataset.urlCsv, id) + '?formato=' + encodeURIComponent(formato), { credentials: 'same-origin' })
         .then(r => (r.ok ? r.blob() : r.json().catch(() => ({})).then(d => Promise.reject(new Error(d.erro || BJ_T.t('comercial_relatorio.js.erro_exportar'))))))
         .then(b => {
@@ -273,8 +290,9 @@
           a.click();
           a.remove();
           window.setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+          avisar(BJ_T.t('comercial_relatorio.js.exportar_ok', { arquivo: a.download }), 'ok');
         })
-        .catch(err => avisar(err.message));
+        .catch(err => avisar(err.message, 'erro'));
     }
 
     // ---- Menu do botão direito (dc L504 e L704) ----
@@ -304,7 +322,7 @@
       if (!c) return;
       const id = String(c.id);
       if (acao === 'abrir') abrir(id);
-      else if (acao === 'duplicar') pedir(url(raiz.dataset.urlCampanha, id)).then(d => duplicarCampanha(d, BJ_T.t('comercial_relatorio.js.duplicada_menu'))).catch(err => avisar(err.message));
+      else if (acao === 'duplicar') pedir(url(raiz.dataset.urlCampanha, id)).then(d => duplicarCampanha(d, BJ_T.t('comercial_relatorio.js.duplicada_menu'))).catch(err => avisar(err.message, 'erro'));
       else if (acao === 'reenviar') reenviar(c, true);
       else if (acao === 'estrela') marcar([id], c.estrela ? 'sem_estrela' : 'estrela');
       else if (acao === 'arquivar') marcar([id], estado.aba === 'arq' ? 'desarquivar' : 'arquivar');
