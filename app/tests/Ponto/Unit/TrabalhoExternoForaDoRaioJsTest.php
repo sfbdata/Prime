@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
+use App\Ponto\Service\TrabalhoExternoDaBatida;
 use App\Tests\Support\TextoDoCatalogo;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -234,7 +235,7 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertMatchesRegularExpression(
             "/\} else if \(resultado\.tipo === 'recusa'\) \{\s+(?:\/\/[^\n]*\n\s+)*"
             . "const foraDoRaio = foraDoRaioDaResposta\(resultado\.data\);\s+if \(foraDoRaio\) \{\s+mostrarForaDoRaioDoToque\(foraDoRaio, payload\.tipo, externo\);\s+\}"
-            . " else if \(payload\.trabalhoExterno === true && resultado\.status === 422 && RECUSAS_DO_TEXTO_EXTERNO\.includes\(resultado\.mensagem\)\) \{\s+devolverExternoParaAJanela\(payload, resultado\.mensagem, false\);\s+\}"
+            . " else if \(payload\.trabalhoExterno === true && resultado\.status === 422 && RECUSAS_DO_TEXTO_EXTERNO\.includes\(resultado\.data && resultado\.data\.recusaDoMotivo\)\) \{\s+devolverExternoParaAJanela\(payload, resultado\.mensagem, false\);\s+\}"
             . " else \{\s+mostrarFalhaDoToque\(payload\.tipo, resultado\.mensagem, '', \[\], externo\);\s+\}\s+\} else if/",
             $clique,
             'sem foraDoRaio, a frase do servidor; com ele, o bloco do tipo deste envio; a recusa do texto externo reabre a janela'
@@ -407,9 +408,14 @@ final class TrabalhoExternoForaDoRaioJsTest extends TestCase
         self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_CONFIRMACAO)', $tela, 'sem confirmação a batida pode ter entrado: um Registrar novo, com outro idEnvio, duplicaria');
         self::assertStringNotContainsString('reabrirTrabalhoExterno(payload, AVISO_SEM_REDE)', $tela, 'sem rede também: a batida pode ter entrado');
         self::assertStringContainsString(
-            "const RECUSAS_DO_TEXTO_EXTERNO = ['Informe o local e o motivo.', 'O local e o motivo podem ter até 500 caracteres.'];",
+            "const RECUSAS_DO_TEXTO_EXTERNO = ['sem_motivo', 'motivo_longo'];",
             $tela,
-            'as duas recusas do texto no servidor (TrabalhoExternoDaBatida); as outras 422 ficam na caixa'
+            'os dois códigos de recusa do texto no servidor (`recusaDoMotivo`, TrabalhoExternoDaBatida); as outras 422 ficam na caixa'
+        );
+        self::assertSame(
+            ['sem_motivo', 'motivo_longo'],
+            [TrabalhoExternoDaBatida::CODIGO_SEM_MOTIVO, TrabalhoExternoDaBatida::CODIGO_MOTIVO_LONGO],
+            'o JS compara o mesmo código que o servidor manda'
         );
 
         $reabrir = self::corpo($tela, 'function reabrirTrabalhoExterno(payload, porque) {');

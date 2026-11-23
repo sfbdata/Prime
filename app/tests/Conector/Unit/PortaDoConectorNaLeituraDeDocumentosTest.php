@@ -7,6 +7,7 @@ namespace App\Tests\Conector\Unit;
 use App\Conector\Entity\EscritorioDoConector;
 use App\Conector\Repository\EscritorioDoConectorRepository;
 use App\Conector\Service\LiberacaoDoConector;
+use App\Tests\Conector\Support\LiberacaoDoConectorDeTeste;
 use App\Conector\Service\PortaDoConectorNaLeituraDeDocumentos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -89,6 +90,6 @@ final class PortaDoConectorNaLeituraDeDocumentosTest extends TestCase
             new NullLogger(),
         );
 
-        return new PortaDoConectorNaLeituraDeDocumentos(new LiberacaoDoConector($recursos, $escritorios));
+        return new PortaDoConectorNaLeituraDeDocumentos(LiberacaoDoConectorDeTeste::montar($recursos, $escritorios));
     }
 }
