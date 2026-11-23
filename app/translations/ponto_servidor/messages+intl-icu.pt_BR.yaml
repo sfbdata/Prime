@@ -5,6 +5,7 @@ ponto_servidor:
         nao_autenticado: "Usuário não autenticado."
         sem_permissao_registrar: "Sem permissão para registrar ponto."
         jornada_alterada: "Esta jornada acabou de ser alterada; recarregue e tente de novo."
+        numero_inteiro: "Informe um número inteiro."
     ponto:
         esquecido_incompleto: "Informe o tipo e o horário do registro esquecido."
         sem_data: "Selecione ao menos uma data para justificar."
@@ -31,6 +32,7 @@ ponto_servidor:
     equipe:
         escala_da_lista: "Escolha uma das escalas da lista."
         selecione_justificativa: "Selecione ao menos uma justificativa."
+        abonadas: "{quantidade, plural, one {{numero} justificativa abonada.} other {{numero} justificativas abonadas.}}"
     feriado:
         cadastrado: "Feriado cadastrado com sucesso."
         atualizado: "Feriado atualizado com sucesso."
@@ -68,3 +70,50 @@ ponto_servidor:
         excluido: "Lançamento de horas pagas excluído."
         erro_dos_campos: "Erro ao registrar horas pagas. Verifique os campos."
         banco_negativo: "Atenção: este desconto deixou o banco de horas negativo em -{saldo}."
+    recusa:
+        configuracao:
+            sede_nao_encontrada: "Sede não encontrada."
+            feriado_nao_encontrado: "Feriado não encontrado."
+            lotacao_nao_encontrada: "Lotação não encontrada."
+            falta_data_ou_nome: "Informe a data e o nome do feriado."
+            feriado_nome_longo: "O nome do feriado pode ter até 255 caracteres."
+            sede_nome_obrigatorio: "Informe o nome da sede."
+            sede_nome_longo: "O nome da sede pode ter até 255 caracteres."
+            latitude_obrigatoria: "Latitude é obrigatória."
+            latitude_faixa: "Latitude deve estar entre -90 e 90."
+            latitude_numero: "Latitude deve ser um número."
+            longitude_obrigatoria: "Longitude é obrigatória."
+            longitude_faixa: "Longitude deve estar entre -180 e 180."
+            longitude_numero: "Longitude deve ser um número."
+            raio_numero: "Raio permitido deve ser um número."
+            raio_faixa: "Raio permitido deve estar entre 10 e 500 metros."
+            raio_inteiro: "Raio permitido deve ser um número inteiro de metros."
+        funcao:
+            sem_permissao: "Só quem administra o ponto do escritório pode mudar esta configuração."
+            desconhecida: "Função do ponto desconhecida."
+            travada_pelo_master: "Desativado pelo Master para todos os escritórios."
+        limites_banco:
+            limite_minimo: "O limite do banco precisa ser de pelo menos {minimo} hora."
+            limite_maximo: "O limite do banco pode ser de até {maximo} horas."
+            prazo: "O prazo de compensação precisa ser de {minimo} a {maximo} meses."
+        horas_pagas:
+            outro_escritorio: "Lançamento não pertence a este escritório."
+            operacao_invalida: "Operação inválida."
+            quantidade_zero: "Informe uma quantidade de horas maior que zero."
+            quantidade_maxima: "A quantidade de horas não pode passar de {limite}."
+            motivo_obrigatorio: "Informe o motivo do lançamento."
+            motivo_curto: "O motivo precisa ter ao menos {minimo} caracteres."
+            competencia_futura: "A competência não pode ser futura."
+            colaborador_outro_escritorio: "Colaborador não pertence a este escritório."
+        versao_jornada:
+            nao_encontrada: "Versão da jornada não encontrada."
+            versao_unica: "A jornada tem uma versão só. Para tirar a jornada personalizada, use \"Limpar escala\"."
+            data_repetida: "Já existe uma versão da jornada que começa em {data}."
+        equipe:
+            fora_da_equipe: "Pessoa não encontrada na equipe deste escritório."
+        exclusao_justificativa:
+            nao_encontrada: "Justificativa não encontrada."
+            de_outra_pessoa: "Só quem enviou a justificativa pode excluí-la."
+            ja_analisada: "Esta justificativa não está mais em análise e não pode ser excluída."
+            da_batida_externa: "A justificativa da batida de trabalho externo não pode ser excluída. Ela segue para a análise do gestor."
+            mexeu_na_folha: "Esta justificativa já mexeu na folha do ponto, por isso não pode ser excluída. Ela continua em análise com o gestor."

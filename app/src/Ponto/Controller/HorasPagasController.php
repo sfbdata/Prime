@@ -83,7 +83,7 @@ final class HorasPagasController extends AbstractController
             $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.registrado'));
             $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
@@ -122,7 +122,7 @@ final class HorasPagasController extends AbstractController
             $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.atualizado'));
             $this->avisarSeODescontoDeixouOBancoNegativo($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
@@ -150,7 +150,7 @@ final class HorasPagasController extends AbstractController
             $excluirHorasPagas($lancamento, $autor, $tenant);
             $this->addFlash('success', $this->tradutor->trans('ponto_servidor.horas_pagas.excluido'));
         } catch (HorasPagasInvalidaException $excecao) {
-            $this->addFlash('error', $excecao->getMessage());
+            $this->addFlash('error', $this->tradutor->trans($excecao->chave(), $excecao->parametros()));
         }
 
         return $this->voltarParaFicha($tenantId, $id);
