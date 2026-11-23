@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Barra de abas do topo ganha "Push Processual", entre Minhas Metas e Agenda, para quem tem o módulo; acende no Push e nas telas de processo.
