@@ -11,6 +11,7 @@
      data-url-chave-geral="{{ path('master_ia_chave_geral') }}"
      data-url-modelo="{{ path('master_ia_modelo') }}"
      data-url-retencao="{{ path('master_ia_retencao') }}"
+     data-url-teto-padrao="{{ path('master_ia_teto_padrao') }}"
      data-url-escritorio="{{ path('master_ia_escritorio', {tenantId: 0}) }}"
      data-url-todos="{{ path('master_ia_todos') }}"
      data-token="{{ csrf_token('master_ia') }}">
@@ -56,6 +57,15 @@
         <div class="mp-ia-corpo mp-ia-modelo">
             <label class="mp-ia-campo">{{ 'master.ia.retencao.campo'|trans }}<input type="number" min="1" max="120" step="1" inputmode="numeric" class="mp-ia-entrada mp-ia-meses" data-mp-ia-retencao disabled></label>
             <p class="mp-ia-nota">{{ 'master.ia.retencao.aviso'|trans }}</p>
+        </div>
+    </section>
+
+    {# Teto padrão (spec multiproduto, §10): o orçamento mensal que a I.A. recebe quando o dono a liga sozinho. #}
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-teto-padrao">
+        <div class="mp-cab-roxo"><i class="bi bi-cash-coin"></i><b id="mp-ia-teto-padrao">{{ 'master.ia.teto_padrao.titulo'|trans }}</b></div>
+        <div class="mp-ia-corpo mp-ia-modelo">
+            <label class="mp-ia-campo">{{ 'master.ia.teto_padrao.campo'|trans }}<input type="text" inputmode="decimal" autocomplete="off" class="mp-ia-entrada mp-ia-meses" data-mp-ia-teto-padrao disabled></label>
+            <p class="mp-ia-nota">{{ 'master.ia.teto_padrao.aviso'|trans }}</p>
         </div>
     </section>
 

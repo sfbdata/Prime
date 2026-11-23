@@ -241,7 +241,7 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame([(int) $tenant->getId()], array_values(array_unique(array_map(static fn (array $l): int => (int) $l['tenant_id'], $linhas))));
     }
 
-    #[TestDox('tela: a aba "Voto" é a quinta do painel, depois da I.A.; o parcial é filho direto do painel da aba, com a nota e a grade Escritório | Liberado')]
+    #[TestDox('tela: a aba "Voto" é a quinta do painel, depois da I.A. (a sexta, Ferramentas, vem depois dela); o parcial é filho direto do painel da aba, com a nota e a grade Escritório | Liberado')]
     public function testAbaNoPainel(): void
     {
         $this->entrarComoMaster();
@@ -250,7 +250,7 @@ final class VotoDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $abas = $crawler->filter('div.mp-abas > button.mp-aba');
-        self::assertCount(5, $abas);
+        self::assertCount(6, $abas);
         self::assertSame('voto', $abas->eq(4)->attr('data-aba'));
         self::assertSame('Voto', trim($abas->eq(4)->text()));
         self::assertCount(1, $abas->eq(4)->filter('i.bi.bi-archive'));

@@ -5,6 +5,8 @@
    - Chave geral: ligar pede confirmação (window.BJMasterConf, a confirmação interna do painel); desligar é direto.
    - Modelo: grava ao mudar o select; o preço por milhão de tokens vem do servidor.
    - Retenção: por quantos meses as respostas da IA ficam guardadas (1 a 120), grava ao mudar o campo.
+   - Teto padrão: o orçamento mensal (US$) que a I.A. recebe quando o dono a liga sozinho; grava ao mudar o campo e só
+     vale para quem o dono ligar depois (os tetos já gravados não mudam).
    - Escritórios: uma linha por escritório ativo, com o botão Salvar da própria linha (liberado, cobrança, orçamento),
      e o consumo do mês (análises e gasto estimado em US$), com o selo "orçamento atingido" (incluso e adicional) ou
      "acima do grátis" (limite grátis). Quem decide o selo é o servidor.
@@ -26,6 +28,7 @@
   const elModelo = qs('[data-mp-ia-modelo]');
   const elPreco = qs('[data-mp-ia-preco]');
   const elRetencao = qs('[data-mp-ia-retencao]');
+  const elTetoPadrao = qs('[data-mp-ia-teto-padrao]');
   const elLinhas = qs('[data-mp-ia-linhas]');
   const elContagem = qs('[data-mp-ia-contagem]');
   const botoesTodos = raiz.querySelectorAll('[data-mp-ia-todos]');
@@ -47,6 +50,7 @@
     elGeral.disabled = sim;
     elModelo.disabled = sim;
     elRetencao.disabled = sim;
+    elTetoPadrao.disabled = sim;
     botoesTodos.forEach(b => { b.disabled = sim || !estado || !estado.escritorios.length; });
     raiz.querySelectorAll('[data-mp-ia-linha] input, [data-mp-ia-linha] select, [data-mp-ia-linha] button').forEach(c => { c.disabled = sim; });
   }
@@ -150,6 +154,7 @@
     desenharInstalacao(d);
     desenharModelo(d);
     elRetencao.value = String(d.mesesDeRetencao);
+    elTetoPadrao.value = d.tetoPadrao;
     elContagem.textContent = T('master.js.ia.contagem', { n: d.escritorios.length });
     elLinhas.textContent = '';
     if (!d.escritorios.length) elLinhas.appendChild(el('div', 'mp-carregando', T('master.js.ia.vazio')));
@@ -228,6 +233,11 @@
   elModelo.addEventListener('change', () => {
     if (!estado) return;
     postar(raiz.dataset.urlModelo, { modelo: elModelo.value }, T('master.js.ia.modelo_salvo'));
+  });
+
+  elTetoPadrao.addEventListener('change', () => {
+    if (!estado) return;
+    postar(raiz.dataset.urlTetoPadrao, { tetoPadrao: elTetoPadrao.value.trim() }, T('master.js.ia.teto_padrao_salvo'));
   });
 
   elRetencao.addEventListener('change', () => {
