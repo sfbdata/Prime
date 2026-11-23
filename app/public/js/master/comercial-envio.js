@@ -21,10 +21,13 @@
     const retorno = raiz.querySelector('[data-mc-envio-retorno]');
     let atual = null;
 
-    function falar(texto, erro) {
+    // Linha de retorno fixa (M5.14): `tipo` 'ok', 'erro' ou vazio (informação, ex.: "Salvando…").
+    function falar(texto, tipo) {
       retorno.textContent = texto || '';
       retorno.hidden = !texto;
-      retorno.classList.toggle('is-erro', !!erro);
+      retorno.classList.toggle('is-ok', tipo === 'ok');
+      retorno.classList.toggle('is-erro', tipo === 'erro');
+      retorno.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
     }
 
     function desenhar(d) {
@@ -56,16 +59,17 @@
         : T('envio_confirmar_desligar');
       if (!window.confirm(pergunta)) return;
       chave.disabled = true;
+      falar(T('envio_salvando'));
       pedir(URL_ALTERAR, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
         body: JSON.stringify({ ligada: ligar }),
       }).then(d => {
         desenhar(d);
-        falar(T(atual.ligada ? 'envio_ok_ligado' : 'envio_ok_desligado'), false);
+        falar(T(atual.ligada ? 'envio_ok_ligado' : 'envio_ok_desligado'), 'ok');
         avisarTela();
       }).catch(e => {
-        falar(e.message, true);
+        falar(e.message, 'erro');
         chave.disabled = false;
       });
     });
@@ -76,7 +80,7 @@
     });
 
     pedir(URL_ESTADO).then(d => { desenhar(d); avisarTela(); })
-      .catch(() => falar(T('envio_erro_carregar'), true));
+      .catch(() => falar(T('envio_erro_carregar'), 'erro'));
   }
 
   document.querySelectorAll('[data-mc-envio]').forEach(iniciar);

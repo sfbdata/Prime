@@ -292,3 +292,29 @@ comercial:
         dsc_excluir: Excluir
         dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
+        # M5.13 e M5.14: retorno fixo das ações e rótulos com o nome do item
+        salvando: Salvando…
+        enviando: Enviando…
+        auto_atraso_de: '{titulo}: {atraso}'
+        auto_ok_ligada: 'Automação "{titulo}" ligada.'
+        auto_ok_desligada: 'Automação "{titulo}" desligada.'
+        auto_ok_atraso: 'Automação "{titulo}" atualizada: {atraso}.'
+        datas_ant_de: '{nome}: {ant}'
+        datas_para_quem_de: '{nome}: para quem'
+        datas_ver_de: 'Ver mensagem de {nome}'
+        datas_ok_ligada: 'Data "{nome}" ligada.'
+        datas_ok_desligada: 'Data "{nome}" desligada.'
+        datas_ok_atualizada: 'Data "{nome}" atualizada.'
+        dsc_erro_resumo: Não foi possível carregar os números. Recarregue a página.
+        dsc_excluir_de: 'Excluir {email}'
+        dsc_ok_excluido: '{email} saiu da lista de descadastrados.'
+        dsc_ok_registrado: 'Pedido de {email} registrado.'
+        envio_salvando: Salvando…
+        teste_enviando: Enviando…
+        imagem_enviando: Enviando a imagem…
+        imagem_ok: Imagem adicionada ao e-mail.
+        modelo_salvo: Modelo salvo.
+        modelo_excluido: 'Modelo "{nome}" excluído.'
+        baixar_ok: 'HTML baixado: {arquivo}.'
+        bloco_campo_a: 'Bloco {n} ({tipo}): texto'
+        bloco_campo_b: 'Bloco {n} ({tipo}): segundo campo'

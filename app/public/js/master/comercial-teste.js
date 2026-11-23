@@ -21,10 +21,13 @@
     return raiz && ok ? { raiz, ok, token: mc.dataset.token || '' } : null;
   }
 
-  function erro(texto) {
+  // Linha de retorno fixa do modal (M5.14): `tipo` 'erro' (padrão) ou 'info' ("Enviando…"); fica até a próxima ação.
+  function erro(texto, tipo) {
     const el = atual.raiz.querySelector('[data-mc-tst-erro]');
     el.textContent = texto || '';
     el.hidden = !texto;
+    el.classList.toggle('is-info', tipo === 'info');
+    el.setAttribute('role', tipo === 'info' ? 'status' : 'alert');
   }
 
   function abrir(e) {
@@ -57,6 +60,7 @@
     const aberto = atual;
     const botao = aberto.raiz.querySelector('[data-mc-tst-enviar]');
     botao.disabled = true;
+    erro(BJ_T.t('comercial.js.teste_enviando'), 'info');
     fetch(aberto.raiz.dataset.url, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': aberto.token },
@@ -64,6 +68,7 @@
     })
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.teste_erro'))))))
       .then(() => {
+        aberto.raiz.querySelector('[data-mc-tst-erro]').hidden = true;
         aberto.raiz.hidden = true;
         aberto.ok.querySelector('[data-mc-tst-ok-para]').textContent = aberto.raiz.querySelector('[data-mc-tst-para]').value;
         aberto.ok.hidden = false;

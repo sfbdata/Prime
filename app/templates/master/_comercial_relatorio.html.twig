@@ -14,6 +14,8 @@
    estado, KPIs, dica e leitura) fica como está. #}
 {% set secao = secao|default('com') %}
 {% set recursos = recursos is defined ? recursos : true %}
+{# Ids dos controles (M5.13): terminam em -{{ secao }}, único por instância (a lista aparece duas vezes na página). #}
+
 {% if recursos %}
 <link rel="stylesheet" href="{{ asset('css/master-comercial-relatorio.css') }}">
 {% endif %}
@@ -27,17 +29,17 @@
     {# L301: selecionar, atualizar, com algo selecionado Arquivar (Desarquivar na aba Arquivadas), Estrela e a lixeira,
        a contagem da seleção, a busca e a faixa da página. #}
     <div class="mc-rl-barra">
-        <button type="button" class="mc-rl-ic" title="{{ 'comercial_relatorio.barra.selecionar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.selecionar'|trans }}" data-mc-rl-sel-todos><i class="bi bi-square" aria-hidden="true" data-mc-rl-sel-ic></i></button>
-        <button type="button" class="mc-rl-ic mc-rl-redondo" title="{{ 'comercial_relatorio.barra.atualizar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.atualizar'|trans }}" data-mc-rl-atualizar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
-        <button type="button" class="mc-rl-acao" title="{{ 'comercial_relatorio.barra.arquivar'|trans }}" data-mc-rl-marcar="arquivar" hidden><i class="bi bi-archive" aria-hidden="true"></i> <span data-mc-rl-arq-txt>{{ 'comercial_relatorio.barra.arquivar'|trans }}</span></button>
-        <button type="button" class="mc-rl-acao" title="{{ 'comercial_relatorio.barra.estrela_dica'|trans }}" data-mc-rl-marcar="estrela" hidden><i class="bi bi-star" aria-hidden="true"></i> {{ 'comercial_relatorio.barra.estrela'|trans }}</button>
-        <button type="button" class="mc-rl-ic mc-rl-redondo mc-rl-lixeira" title="{{ 'comercial_relatorio.barra.remover'|trans }}" aria-label="{{ 'comercial_relatorio.barra.remover'|trans }}" data-mc-rl-marcar="remover" hidden><i class="bi bi-trash3" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-ic" id="mc-rl-sel-todos-{{ secao }}" name="mc-rl-sel-todos-{{ secao }}" title="{{ 'comercial_relatorio.barra.selecionar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.selecionar'|trans }}" data-mc-rl-sel-todos><i class="bi bi-square" aria-hidden="true" data-mc-rl-sel-ic></i></button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" id="mc-rl-atualizar-{{ secao }}" name="mc-rl-atualizar-{{ secao }}" title="{{ 'comercial_relatorio.barra.atualizar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.atualizar'|trans }}" data-mc-rl-atualizar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-acao" id="mc-rl-marcar-arquivar-{{ secao }}" name="mc-rl-marcar-arquivar-{{ secao }}" title="{{ 'comercial_relatorio.barra.arquivar'|trans }}" data-mc-rl-marcar="arquivar" hidden><i class="bi bi-archive" aria-hidden="true"></i> <span data-mc-rl-arq-txt>{{ 'comercial_relatorio.barra.arquivar'|trans }}</span></button>
+        <button type="button" class="mc-rl-acao" id="mc-rl-marcar-estrela-{{ secao }}" name="mc-rl-marcar-estrela-{{ secao }}" title="{{ 'comercial_relatorio.barra.estrela_dica'|trans }}" data-mc-rl-marcar="estrela" hidden><i class="bi bi-star" aria-hidden="true"></i> {{ 'comercial_relatorio.barra.estrela'|trans }}</button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo mc-rl-lixeira" id="mc-rl-marcar-remover-{{ secao }}" name="mc-rl-marcar-remover-{{ secao }}" title="{{ 'comercial_relatorio.barra.remover'|trans }}" aria-label="{{ 'comercial_relatorio.barra.remover'|trans }}" data-mc-rl-marcar="remover" hidden><i class="bi bi-trash3" aria-hidden="true"></i></button>
         <span class="mc-rl-sel-n" data-mc-rl-sel-n hidden></span>
         <span class="mc-rl-vao"></span>
-        <label class="mc-rl-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="{{ 'comercial_relatorio.barra.buscar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.buscar'|trans }}" maxlength="120" data-mc-rl-busca></label>
+        <label class="mc-rl-busca" for="mc-rl-busca-{{ secao }}"><i class="bi bi-search" aria-hidden="true"></i><input type="search" id="mc-rl-busca-{{ secao }}" name="mc-rl-busca-{{ secao }}" placeholder="{{ 'comercial_relatorio.barra.buscar'|trans }}" aria-label="{{ 'comercial_relatorio.barra.buscar'|trans }}" maxlength="120" data-mc-rl-busca></label>
         <span class="mc-rl-faixa" data-mc-rl-faixa>{{ 'comercial_relatorio.barra.faixa_vazia'|trans }}</span>
-        <button type="button" class="mc-rl-ic mc-rl-redondo" title="{{ 'comercial_relatorio.barra.pagina_anterior'|trans }}" aria-label="{{ 'comercial_relatorio.barra.pagina_anterior'|trans }}" data-mc-rl-pagina="-1" disabled><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
-        <button type="button" class="mc-rl-ic mc-rl-redondo" title="{{ 'comercial_relatorio.barra.proxima_pagina'|trans }}" aria-label="{{ 'comercial_relatorio.barra.proxima_pagina'|trans }}" data-mc-rl-pagina="1" disabled><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" id="mc-rl-pagina-anterior-{{ secao }}" name="mc-rl-pagina-anterior-{{ secao }}" title="{{ 'comercial_relatorio.barra.pagina_anterior'|trans }}" aria-label="{{ 'comercial_relatorio.barra.pagina_anterior'|trans }}" data-mc-rl-pagina="-1" disabled><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" id="mc-rl-pagina-proxima-{{ secao }}" name="mc-rl-pagina-proxima-{{ secao }}" title="{{ 'comercial_relatorio.barra.proxima_pagina'|trans }}" aria-label="{{ 'comercial_relatorio.barra.proxima_pagina'|trans }}" data-mc-rl-pagina="1" disabled><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
     </div>
     {# L302: as abas com a contagem, os rótulos, os ícones, os subtítulos e as cores do dc (L700). #}
     <div class="mc-rl-abas" role="tablist" aria-label="{{ 'comercial_relatorio.abas.rotulo'|trans }}">
@@ -48,22 +50,22 @@
             ['est', 'comercial_relatorio.abas.est.rotulo'|trans, 'bi-star', 'comercial_relatorio.abas.est.sub'|trans],
             ['arq', 'comercial_relatorio.abas.arq.rotulo'|trans, 'bi-archive', 'comercial_relatorio.abas.arq.sub'|trans],
         ] %}
-            <button type="button" role="tab" class="mc-rl-aba mc-rl-aba-{{ a[0] }}" data-mc-rl-aba="{{ a[0] }}" aria-selected="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ a[2] }}" aria-hidden="true"></i><span class="mc-rl-aba-texto"><b class="mc-rl-aba-rot">{{ a[1] }}<span class="mc-rl-aba-n" data-mc-rl-n hidden></span></b><span class="mc-rl-aba-sub">{{ a[3] }}</span></span></button>
+            <button type="button" role="tab" class="mc-rl-aba mc-rl-aba-{{ a[0] }}" id="mc-rl-aba-{{ a[0] }}-{{ secao }}" name="mc-rl-aba-{{ a[0] }}-{{ secao }}" data-mc-rl-aba="{{ a[0] }}" aria-selected="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ a[2] }}" aria-hidden="true"></i><span class="mc-rl-aba-texto"><b class="mc-rl-aba-rot">{{ a[1] }}<span class="mc-rl-aba-n" data-mc-rl-n hidden></span></b><span class="mc-rl-aba-sub">{{ a[3] }}</span></span></button>
         {% endfor %}
     </div>
-    <div class="mc-rl-msg" role="status" data-mc-rl-msg hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-rl-msg-texto></span></div>
+    <div class="mc-rl-msg" role="status" aria-live="polite" data-mc-rl-msg hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-rl-msg-texto></span></div>
     <div class="mc-rl-lista" role="tabpanel" data-mc-rl-lista aria-busy="true"></div>
     {# L502-514: o visualizador da campanha, preenchido pelo JS. #}
     <div class="mc-rl-ver" data-mc-rl-ver hidden>
         <div class="mc-rl-ver-fundo" data-mc-rl-fechar></div>
         <div class="mc-rl-ver-caixa" role="dialog" aria-modal="true" aria-labelledby="mc-rl-ver-assunto-{{ secao }}">
             <div class="mc-rl-ver-barra">
-                <button type="button" class="mc-rl-ver-voltar" title="{{ 'comercial_relatorio.ver.voltar'|trans }}" aria-label="{{ 'comercial_relatorio.ver.voltar'|trans }}" data-mc-rl-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+                <button type="button" class="mc-rl-ver-voltar" id="mc-rl-ver-voltar-{{ secao }}" name="mc-rl-ver-voltar-{{ secao }}" title="{{ 'comercial_relatorio.ver.voltar'|trans }}" aria-label="{{ 'comercial_relatorio.ver.voltar'|trans }}" data-mc-rl-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
                 <span class="mc-rl-vao"></span>
-                <button type="button" class="mc-rl-ver-acao" data-mc-rl-duplicar><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.duplicar'|trans }}</button>
-                <button type="button" class="mc-rl-ver-acao" data-mc-rl-reenviar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.reenviar'|trans }}</button>
-                <button type="button" class="mc-rl-ver-acao" data-mc-rl-csv="completo"><i class="bi bi-filetype-csv" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.exportar'|trans }}</button>
-                <button type="button" class="mc-rl-ver-acao mc-rl-ver-cancelar" data-mc-rl-cancelar hidden><i class="bi bi-x-circle" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.cancelar'|trans }}</button>
+                <button type="button" class="mc-rl-ver-acao" id="mc-rl-ver-duplicar-{{ secao }}" name="mc-rl-ver-duplicar-{{ secao }}" data-mc-rl-duplicar><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.duplicar'|trans }}</button>
+                <button type="button" class="mc-rl-ver-acao" id="mc-rl-ver-reenviar-{{ secao }}" name="mc-rl-ver-reenviar-{{ secao }}" data-mc-rl-reenviar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.reenviar'|trans }}</button>
+                <button type="button" class="mc-rl-ver-acao" id="mc-rl-ver-csv-{{ secao }}" name="mc-rl-ver-csv-{{ secao }}" data-mc-rl-csv="completo"><i class="bi bi-filetype-csv" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.exportar'|trans }}</button>
+                <button type="button" class="mc-rl-ver-acao mc-rl-ver-cancelar" id="mc-rl-ver-cancelar-{{ secao }}" name="mc-rl-ver-cancelar-{{ secao }}" data-mc-rl-cancelar hidden><i class="bi bi-x-circle" aria-hidden="true"></i>{{ 'comercial_relatorio.ver.cancelar'|trans }}</button>
             </div>
             <div class="mc-rl-ver-corpo">
                 <div class="mc-rl-ver-titulo"><span id="mc-rl-ver-assunto-{{ secao }}" data-mc-rl-v="assunto"></span> <span class="mc-rl-ver-st" data-mc-rl-v="situacao"></span></div>
@@ -90,17 +92,18 @@
         <div class="mc-rl-ctx-fundo" data-mc-rl-ctx-fechar></div>
         <div class="mc-rl-ctx-caixa" role="menu" aria-labelledby="mc-rl-ctx-titulo-{{ secao }}">
             <div class="mc-rl-ctx-titulo" id="mc-rl-ctx-titulo-{{ secao }}" data-mc-rl-ctx-titulo></div>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="abrir"><i class="bi bi-envelope-open" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.abrir'|trans }}</button>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.duplicar'|trans }}</button>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.reenviar'|trans }}</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-abrir-{{ secao }}" name="mc-rl-ctx-abrir-{{ secao }}" data-mc-rl-ctx-acao="abrir"><i class="bi bi-envelope-open" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.abrir'|trans }}</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-duplicar-{{ secao }}" name="mc-rl-ctx-duplicar-{{ secao }}" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.duplicar'|trans }}</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-reenviar-{{ secao }}" name="mc-rl-ctx-reenviar-{{ secao }}" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.reenviar'|trans }}</button>
             <div class="mc-rl-ctx-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-off" disabled aria-disabled="true" title="{{ 'comercial_relatorio.menu.encaminhar_motivo'|trans }}"><i class="bi bi-forward" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.encaminhar'|trans }}</button>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="estrela"><i class="bi bi-star" aria-hidden="true" data-mc-rl-ctx-estrela-ic></i><span data-mc-rl-ctx-estrela-txt>{{ 'comercial_relatorio.menu.estrela'|trans }}</span></button>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="arquivar"><i class="bi bi-archive" aria-hidden="true"></i><span data-mc-rl-ctx-arq-txt>{{ 'comercial_relatorio.menu.arquivar'|trans }}</span></button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-off" id="mc-rl-ctx-encaminhar-{{ secao }}" name="mc-rl-ctx-encaminhar-{{ secao }}" disabled aria-disabled="true" aria-describedby="mc-rl-ctx-encaminhar-motivo-{{ secao }}" title="{{ 'comercial_relatorio.menu.encaminhar_motivo'|trans }}"><i class="bi bi-forward" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.encaminhar'|trans }}</button>
+            <div class="mc-motivo mc-rl-ctx-motivo" id="mc-rl-ctx-encaminhar-motivo-{{ secao }}">{{ 'comercial_relatorio.menu.encaminhar_motivo'|trans }}</div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-estrela-{{ secao }}" name="mc-rl-ctx-estrela-{{ secao }}" data-mc-rl-ctx-acao="estrela"><i class="bi bi-star" aria-hidden="true" data-mc-rl-ctx-estrela-ic></i><span data-mc-rl-ctx-estrela-txt>{{ 'comercial_relatorio.menu.estrela'|trans }}</span></button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-arquivar-{{ secao }}" name="mc-rl-ctx-arquivar-{{ secao }}" data-mc-rl-ctx-acao="arquivar"><i class="bi bi-archive" aria-hidden="true"></i><span data-mc-rl-ctx-arq-txt>{{ 'comercial_relatorio.menu.arquivar'|trans }}</span></button>
             <div class="mc-rl-ctx-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="csv"><i class="bi bi-filetype-csv" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.exportar'|trans }}</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" id="mc-rl-ctx-csv-{{ secao }}" name="mc-rl-ctx-csv-{{ secao }}" data-mc-rl-ctx-acao="csv"><i class="bi bi-filetype-csv" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.exportar'|trans }}</button>
             <div class="mc-rl-ctx-sep" role="separator"></div>
-            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-excluir" data-mc-rl-ctx-acao="excluir"><i class="bi bi-trash3" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.excluir'|trans }}</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-excluir" id="mc-rl-ctx-excluir-{{ secao }}" name="mc-rl-ctx-excluir-{{ secao }}" data-mc-rl-ctx-acao="excluir"><i class="bi bi-trash3" aria-hidden="true"></i>{{ 'comercial_relatorio.menu.excluir'|trans }}</button>
         </div>
     </div>
 </section>

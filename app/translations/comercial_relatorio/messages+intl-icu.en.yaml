@@ -76,3 +76,12 @@ comercial_relatorio:
         reenvio_rastreada: Resending to those who did not read is available as soon as the reads are recorded.
         reenvio_sem_rastreio: 'This campaign did not track reads; there is no way to know who did not read.'
         erro_exportar: Could not export. Reload the page.
+        marca_ok: Change saved.
+        marca_ok_estrela: Star added.
+        marca_ok_sem_estrela: Star removed.
+        marca_ok_arquivar: Campaign(s) archived.
+        marca_ok_desarquivar: Campaign(s) unarchived.
+        marca_ok_remover: Campaign(s) removed from the report.
+        cancelar_ok: Sending canceled.
+        exportando: Preparing the file…
+        exportar_ok: 'Recipients exported: {arquivo}.'
