@@ -1040,6 +1040,8 @@
 .pex-item { transition: background .18s; }
 .pex-item:hover { background: #2b7ab0 !important; color: #fff !important; box-shadow: inset 4px 0 0 #1f6f9c !important; }
 .pex-item:hover, .pex-item:hover * { color: #fff !important; }
+/* M6: o fundo claro do hover/menu aberto do ⋮ apagava o ícone branco; na linha azul ele acende em branco translúcido. */
+.pex-item:hover :is(.pex-menu:hover, .pex-menu[aria-expanded="true"]) { background: rgba(255,255,255,.2); }
 .pex-item:hover :is([class*="selo"], [class*="chip"], [class*="badge"], [class*="etiqueta"], [class*="-tag"], .badge) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.5) !important; }
 .pex-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--pex-cab-on); }
 .pex-item--pasta { cursor: pointer; }

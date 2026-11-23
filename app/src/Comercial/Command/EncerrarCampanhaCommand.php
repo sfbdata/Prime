@@ -14,7 +14,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * O freio de console das campanhas (spec comercial-e-emails.md §8.1.5): `app:comercial:encerrar-campanha <id>` encerra
- * qualquer campanha ativa, sem deploy. A chave `COMERCIAL_CAMPANHAS_LIGADAS` é a parada de emergência de todas.
+ * qualquer campanha ativa, sem deploy. A chave "Envio de campanhas" da Central de envios ({@see \App\Comercial\Campanha\ChaveDasCampanhas})
+ * segura todas sem cancelar: desligada, elas esperam a religação.
  */
 #[AsCommand(name: 'app:comercial:encerrar-campanha', description: 'Encerra uma campanha de e-mail ativa (o que estava na fila não sai)')]
 final class EncerrarCampanhaCommand extends Command

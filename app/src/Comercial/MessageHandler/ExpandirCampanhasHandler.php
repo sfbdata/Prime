@@ -48,8 +48,8 @@ final class ExpandirCampanhasHandler
         if (!$this->reivindicar($agora)) {
             return;
         }
-        // A chave primeiro; se ela falhar ou estiver desligada, nada mais roda nesta volta.
-        if ($this->passo('chave', fn (): bool => $this->expansor->pararSeDesligada($agora)) === false) {
+        // A chave primeiro; se ela falhar ou estiver desligada, nada mais roda nesta volta (as campanhas esperam).
+        if ($this->passo('chave', fn (): bool => $this->expansor->envioDesligado()) === false) {
             $this->passo('materializar', fn (): int => $this->expansor->materializarDevidas($agora));
             $this->passo('lote', fn (): int => $this->expansor->liberarLote($agora));
             $this->passo('concluir', fn (): int => $this->expansor->concluir());

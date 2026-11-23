@@ -164,6 +164,8 @@
    desenho é resto do 1.0; no 1.2 as células perderam o data-hv e o texto escuro fica legível. */
 .pf-page .pf-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
 .pf-page .pf-linha:hover *:not(.pf-avatar):not(.pf-perm-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+/* M6: na linha azul o fundo claro do hover do botão apagava o ícone branco. */
+.pf-page .pf-linha:hover .pf-col-acoes :is(.pf-acao-editar, .pf-acao-excluir):hover { background: rgba(255,255,255,.2); }
 .pf-page .pf-linha:hover .pf-chip, .pf-page .pf-linha:hover .pf-rs-chip, .pf-page .pf-linha:hover .pf-selo, .pf-page .pf-linha:hover .pf-tag { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .pf-page .pf-linha.is-oculta { display: none; }
 

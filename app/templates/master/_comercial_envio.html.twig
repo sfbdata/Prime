@@ -1,0 +1,19 @@
+{# Chave "Envio de campanhas" no topo da Central de envios (nos dois modos, `com` e `venda`).
+   Com a chave desligada nada é recusado: campanhas confirmadas ou agendadas esperam e saem quando o envio for religado.
+   Variável: `ids` (prefixo por modo: `mc` ou `mc-venda`). Estado e alteração por JSON (master_comercial_envio e
+   master_comercial_envio_alterar), pelo comercial-envio.js, que avisa as outras partes da tela pelo evento `mc:envio`. #}
+<div class="mc-envio" role="group" aria-labelledby="{{ ids }}-envio-rotulo" data-mc-envio
+         data-url-estado="{{ path('master_comercial_envio') }}"
+         data-url-alterar="{{ path('master_comercial_envio_alterar') }}"
+         data-token="{{ csrf_token('master_comercial') }}">
+    <div class="mc-envio-linha">
+        <button type="button" class="mc-chave" role="switch" aria-checked="false" disabled
+                id="{{ ids }}-envio-chave" name="{{ ids }}-envio-chave"
+                aria-labelledby="{{ ids }}-envio-rotulo {{ ids }}-envio-estado" data-mc-envio-chave></button>
+        <label class="mc-envio-rotulo" id="{{ ids }}-envio-rotulo" for="{{ ids }}-envio-chave">{{ 'comercial.envio.rotulo'|trans }}</label>
+        <span class="mc-envio-estado" id="{{ ids }}-envio-estado" data-mc-envio-estado>…</span>
+    </div>
+    <div class="mc-msg mc-envio-aviso" role="status" data-mc-envio-aviso hidden><i class="bi bi-pause-circle" aria-hidden="true"></i> <span data-mc-envio-aviso-texto></span></div>
+    <div class="mc-envio-retorno" role="status" data-mc-envio-retorno hidden></div>
+</div>
+<script src="{{ asset('js/master/comercial-envio.js') }}"></script>

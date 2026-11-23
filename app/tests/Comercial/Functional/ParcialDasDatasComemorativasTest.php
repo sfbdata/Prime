@@ -73,7 +73,7 @@ final class ParcialDasDatasComemorativasTest extends KernelTestCase
     {
         $aviso = $this->doc->filter(self::BLOCO . ' > .mc-msg[data-mc-dt-desligada][hidden]');
         self::assertCount(1, $aviso);
-        self::assertSame('O envio de campanhas está desligado nesta instalação: nenhuma data comemorativa sai até ele ser ligado.', trim($aviso->text()));
+        self::assertSame('O envio de campanhas está desligado: nenhuma data comemorativa sai até ele ser ligado no topo da Central de envios.', trim($aviso->text()));
     }
 
     #[TestDox('O script vem com os da seção Comercial; no modo venda não há o bloco nem o script')]

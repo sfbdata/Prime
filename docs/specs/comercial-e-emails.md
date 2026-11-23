@@ -646,12 +646,15 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
 1. **Não há rascunho.** A campanha só nasce no "Enviar campanha", depois da confirmação literal do dc (L560:
    `Enviar "ASSUNTO" para N destinatário(s) agora?` ou `em AAAA-MM-DD HH:MM?`). O pedido leva uma chave de
    idempotência gerada na tela (UNIQUE): clique duplo não cria duas campanhas. (R5)
-2. **Chave da instalação** `COMERCIAL_CAMPANHAS_LIGADAS` (padrão `0`). Desligada, **"Enviar campanha" é recusado**
-   ("O envio de campanhas está desligado nesta instalação."). **Desligar é parada de emergência:** na volta seguinte
-   o expansor cancela TODA campanha ativa (`na_fila`, `agendada`, `enviando`, `recorrente`) com o motivo "Envio de
-   campanhas desligado na instalação"; religar não solta nada represado (cada campanha precisa ser confirmada de novo).
-   A chave é variável de ambiente: trocar exige reiniciar o worker (em produção, deploy); **não** é o freio do dia a dia
-   (item 5). **A confirmar com o dono.** (R3, A2)
+2. **Chave do envio de campanhas** (revista pelo pedido do Farlei de 23/11/2026, M8.1 a M8.4). Quem manda é o
+   interruptor "Envio de campanhas" no topo da Central de envios (só Master), gravado em `configuracao_global`
+   (`comercial.campanhasLigadas`) e registrado na Trilha de Auditoria; enquanto o painel não gravou nada, vale a
+   variável `COMERCIAL_CAMPANHAS_LIGADAS` (padrão `0`). A leitura é a cada chamada: a troca vale sem reiniciar o worker.
+   Desligada, **nada é recusado nem cancelado**: "Enviar campanha" grava (a confirmação avisa que vai esperar), o
+   expansor não roda a volta e o e-mail de campanha já na fila do Carteiro volta a `enfileirado` e confere de novo a
+   cada 5 min. A tela mostra quantas campanhas estão esperando. Ao religar, as campanhas do Master que venceram no meio
+   passam a valer agora (a tolerância de 24 h do item 4 não as cancela) e saem na volta seguinte; as das datas
+   comemorativas não (felicitação fora do dia não sai). O freio de uma campanha só continua sendo o item 5. (R3, A2)
 3. Deploy, migration e semeadura nunca criam campanha nem envio.
 4. **Nada é recuperado:** a recorrente que perdeu execuções (worker parado) pula para a próxima data futura; a
    `agendada` que acordar mais de 24 h atrasada vira `cancelada` com o motivo, sem enviar. (R3)
@@ -811,7 +814,8 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 
 ### 8.8 Decisões provisórias (coordenador e orquestrador, 19/10): todas "a confirmar" com o dono
 
-1. `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada e recusa o envio enquanto desligada (nada represado).
+1. `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada. **Revista em 23/11/2026 (M8.4):** desligada não recusa mais; as
+   campanhas esperam a religação pelo painel (§8.1.2).
 2. B1 restritivo no CSV e no Individual, com "sem autorização fora da lista".
 3. **Revista na v2 (R1):** "Base de contatos" = confirmados em `comercial_campanhas` (hoje 0), não `vagas_alerta`.
    Nenhum desenho colhe consentimento para campanhas (busca em todos os `.dc.html`, 19/10): só "Autorizo o BlueJus a me
