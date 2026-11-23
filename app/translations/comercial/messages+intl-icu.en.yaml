@@ -307,6 +307,9 @@ comercial:
         imagem_enviando: Uploading the image…
         imagem_ok: Image added to the email.
         modelo_salvo: Template saved.
+        rascunho_recuperado: 'Draft recovered (saved at {quando}). To start over, choose a template.'
+        rascunho_confirmar_troca: 'The message being edited has not been sent or saved as a template. Switching discards the text. Continue?'
+        rascunho_mantido: 'The message being edited was kept.'
         modelo_excluido: 'Template "{nome}" deleted.'
         baixar_ok: 'HTML downloaded: {arquivo}.'
         bloco_campo_a: 'Block {n} ({tipo}): text'
