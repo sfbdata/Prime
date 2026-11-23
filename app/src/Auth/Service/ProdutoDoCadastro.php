@@ -12,7 +12,8 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
  *
  * O site do Voto leva a `/cadastro?produto=voto`; o valor fica na sessão, por lista fechada, como o cupom da indicação.
  * Os três caminhos de criação (e-mail, Google e Facebook) leem o produto SÓ daqui, nunca do corpo do POST. Valor fora
- * da lista é ignorado e não apaga o que já estava guardado. Depois de criar a conta, a chave sai da sessão.
+ * da lista é ignorado e não apaga o que já estava guardado, salvo `completo`, que apaga (o link do aviso no "Criar conta").
+ * Depois de criar a conta, a chave sai da sessão.
  */
 final class ProdutoDoCadastro
 {
@@ -21,9 +22,15 @@ final class ProdutoDoCadastro
     /** Os únicos produtos com que o cadastro público pode nascer. */
     private const PERMITIDOS = ['voto'];
 
-    /** Guarda o valor da URL se estiver na lista; qualquer outro (inclusive lista ou vazio) não muda nada. */
+    /** Guarda o valor da URL se estiver na lista; `completo` apaga; qualquer outro (inclusive lista ou vazio) não muda nada. */
     public static function guardar(SessionInterface $sessao, mixed $valor): void
     {
+        // `completo` é o "Prefiro a conta com todas as ferramentas" do aviso: tira o produto guardado.
+        if (Produto::Completo->value === $valor) {
+            self::esquecer($sessao);
+
+            return;
+        }
         $produto = self::daLista($valor);
         if (null !== $produto) {
             $sessao->set(self::CHAVE_SESSAO, $produto->value);

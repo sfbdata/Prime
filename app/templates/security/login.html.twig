@@ -222,6 +222,11 @@
                     </div>
                     <div class="lg-md__passo" data-passo="cad" hidden>
                         <div class="lg-md__texto">{{ 'entrada.modal.cadastro_texto'|trans }}</div>
+                        {# Multiproduto §5: quem veio pelo site do Voto (`?produto=voto`, guardado na sessão) vê com que produto a conta
+                           nasce e pode desfazer (`?produto=completo` tira o produto da sessão). #}
+                        {% if (produtoDoCadastro ?? null) == 'voto' %}
+                        <div class="lg-md__texto" id="lgCdProduto">{{ 'entrada.modal.cadastro_produto_voto'|trans }} <a href="{{ path('auth_cadastro', {produto: 'completo'}) }}" id="lgCdProdutoCompleto">{{ 'entrada.modal.cadastro_produto_completo'|trans }}</a></div>
+                        {% endif %}
                         {# Desenho 10 VS 24.10.26: Continuar com Google acima dos campos; conectado, o cartão da conta no lugar dos
                            botões e sem o campo E-mail (spec entrar-com-google, entrega 2). O Google só aparece com o cliente OAuth
                            configurado (decisão do dono de 24/10: nenhum botão que não funciona). O Facebook (PR B da spec

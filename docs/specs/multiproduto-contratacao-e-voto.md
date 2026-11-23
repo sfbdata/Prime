@@ -255,6 +255,14 @@ Nos demais casos, se nenhum produto da rota estiver incluído:
 - `menu_usuario/_presenca.html.twig:13`: `ponto`;
 - `menu_usuario/_dropdown.html.twig` (:36-128): não tem item de produto; o PR só confere.
 
+**Como ficou no PR 7:**
+
+- `produto_inclui` e `ia_disponibilidade()` usam o mesmo `ProdutosNaTela`, com a régua da guarda: mostra tudo com a chave `desligada`, sem login, para o Master ou sem escritório na sessão. Em `observacao` o menu já segue os produtos (D3).
+- A barra secundária fica, vazia, para escritório sem o Expediente: a altura do cabeçalho é fixa no CSS (`--subnav-height`).
+- O ServiceDesk da área de administração (`servicedesk_index`) também leva `expediente`, como no catálogo.
+- `ia_disponibilidade()` responde `DesligadaNoEscritorio` para escritório sem `ia`.
+- Cadastro (pergunta da revisão do PR 5): o "Criar conta" avisa quando a conta vai nascer só com o Voto e oferece "Prefiro a conta com todas as ferramentas", que leva a `/cadastro?produto=completo` e tira o produto da sessão (ajuste da D9).
+
 **I.A. dentro de outras telas** (drawer da pasta, Push, janela da Central: `templates/pasta/_push_processual.html.twig`, `templates/inteligencia/_conversa_rodape.html.twig`, `templates/central/_janela.html.twig`):
 
 - o ponto único é `ia_disponibilidade()` (Inteligencia/Twig/InteligenciaExtension.php:78);
@@ -405,7 +413,7 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 - **D8.** Rotas públicas:
   - os verificadores (`calculo_verificar`, `validacao_comprovante_ponto*`, `assinatura_eletronica_publica_validar*`) ficam sempre abertos;
   - `push_compartilhado`, a assinatura pública e as vagas conferem o produto do escritório do token, na própria ação, num PR pequeno logo depois do PR 6.
-- **D9.** O produto do cadastro vem só da sessão.
+- **D9.** O produto do cadastro vem só da sessão. **Ajuste do PR 7:** `?produto=completo` (o link do aviso no "Criar conta") tira o produto guardado; os outros valores fora da lista continuam sem apagar.
 - **D10.** Ligar o Voto pelo Master também libera a `LiberacaoDoVoto`.
 - **D11.** O Conector (`conector_admin_`, `conector_perfil_` e `LiberacaoDoConector::exigir`) fica no **Expediente**. Ele usa a I.A. da conta da própria pessoa, sem custo Anthropic para o BlueJus (CatalogoDeRecursos.php:93), e as ferramentas dele leem pastas e clientes.
 - **D12.** Rotas ambíguas como na §3.1.

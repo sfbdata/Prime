@@ -85,6 +85,8 @@ entrada:
         senha_alterada: Senha alterada
         senha_alterada_texto: Entre com a nova senha. Por segurança, as outras sessões foram encerradas.
         cadastro_texto: Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.
+        cadastro_produto_voto: 'Esta conta vai nascer só com o BlueJus Voto, para assembleias e votações.'
+        cadastro_produto_completo: Prefiro a conta com todas as ferramentas
         continuar_google: Continuar com Google
         ou_outro_email: ou com outro e-mail
         conectado_pelo: '{email} · conectado pelo {provedor}'
