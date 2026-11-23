@@ -40,7 +40,7 @@ final class MenuPorProdutoTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
     }
 
-    #[TestDox('desligado: escritório só Voto vê o menu de hoje (Expediente e Demandas) ')]
+    #[TestDox('desligado: escritório só Voto vê o menu de hoje (Expediente e Demandas); o logo já leva ao Voto, como o destino pós-login')]
     public function testDesligadoMenuDeHoje(): void
     {
         $this->modo('desligado');
@@ -49,6 +49,8 @@ final class MenuPorProdutoTest extends JusPrimeWebTestCase
         foreach (self::LINKS_DO_EXPEDIENTE as $href) {
             self::assertCount(1, $this->linkDoMenu($menu, $href), $href);
         }
+        // O logo segue a tela inicial mesmo desligado, como o destino pós-login (D3, ajuste do PR 5).
+        self::assertSame($this->caminho('voto_index'), $menu->filter('a.navtop-brand')->attr('href'));
     }
 
     #[TestDox('bloqueio: escritório só Voto fica sem os links do Expediente e da I.A., sem a barra do Expediente, e o logo leva ao Voto')]
@@ -63,6 +65,7 @@ final class MenuPorProdutoTest extends JusPrimeWebTestCase
         self::assertCount(0, $menu->filter('.navtop-subnav > a.navtop-subnav-link'), 'barra secundária vazia');
         self::assertCount(1, $menu->filter('.navtop-subnav'), 'a barra fica: a altura do cabeçalho conta com ela');
         self::assertSame($this->caminho('voto_index'), $menu->filter('a.navtop-brand')->attr('href'));
+        self::assertCount(0, $menu->filter('#bjLembretes, #pastaBuscaRapida'), 'lembretes da Agenda e busca rápida chamam rotas do Expediente');
     }
 
     #[TestDox('observacao: o menu já segue os produtos (a mesma chave governa a guarda e o menu, D3)')]
@@ -85,6 +88,7 @@ final class MenuPorProdutoTest extends JusPrimeWebTestCase
         }
         self::assertSame($this->caminho('expediente_index'), $menu->filter('a.navtop-brand')->attr('href'));
         self::assertGreaterThan(0, $menu->filter('.navtop-subnav > a.navtop-subnav-link')->count());
+        self::assertCount(2, $menu->filter('#bjLembretes, #pastaBuscaRapida'));
     }
 
     #[TestDox('bloqueio: escritório sem I.A. fica sem o Chat I.A. e com ia_disponibilidade() "desligada no escritório"')]

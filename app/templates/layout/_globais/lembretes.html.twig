@@ -4,7 +4,7 @@
     notificação do navegador só aparece se ela já tiver permitido (o pedido vem de um clique: "Testar
     lembretes" ou "Salvar" na Agenda). Lógica em public/js/lembretes.js.
 #}
-{% if app.user and can_access_module('agenda') %}
+{% if app.user and produto_inclui('expediente') and can_access_module('agenda') %}
     <div id="bjLembretes" hidden
          data-url-lembretes="{{ path('app_agenda_lembretes') }}"
          data-url-agenda="{{ path('agenda_index') }}"
