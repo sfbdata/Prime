@@ -15,12 +15,14 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/tenant/{tenantId}/feriados')]
 final class FeriadoController extends AbstractController
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     private function assertAccess(int $tenantId, PermissionChecker $checker): Tenant
@@ -86,7 +88,7 @@ final class FeriadoController extends AbstractController
             $em->persist($feriado);
             $em->flush();
 
-            $this->addFlash('success', 'Feriado cadastrado com sucesso.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.feriado.cadastrado'));
 
             return $this->redirectToRoute('app_feriado_index', ['tenantId' => $tenantId]);
         }
@@ -117,7 +119,7 @@ final class FeriadoController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $em->flush();
 
-            $this->addFlash('success', 'Feriado atualizado com sucesso.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.feriado.atualizado'));
 
             return $this->redirectToRoute('app_feriado_index', ['tenantId' => $tenantId]);
         }
@@ -147,7 +149,7 @@ final class FeriadoController extends AbstractController
             $em->remove($feriado);
             $em->flush();
 
-            $this->addFlash('success', 'Feriado excluído.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.feriado.excluido'));
         }
 
         return $this->redirectToRoute('app_feriado_index', ['tenantId' => $tenantId]);

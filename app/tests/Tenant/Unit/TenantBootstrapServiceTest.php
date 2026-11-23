@@ -11,10 +11,12 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Expediente\Entity\Marcador;
+use App\Ponto\Entity\Feriado;
 use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -155,5 +157,23 @@ final class TenantBootstrapServiceTest extends TestCase
         $marcadores = array_filter($persistidos, fn ($o) => $o instanceof Marcador);
 
         self::assertEmpty($marcadores);
+    }
+
+    #[TestDox('Cadastro pelo Voto: com semearMarcadores falso, nenhum marcador; o vínculo do dono e os feriados continuam')]
+    public function testBootstrapSemSemearMarcadores(): void
+    {
+        $persistidos = [];
+        $this->em->method('persist')->willReturnCallback(
+            function (object $obj) use (&$persistidos): void {
+                $persistidos[] = $obj;
+            }
+        );
+
+        $this->service->bootstrap($this->tenant, $this->criador, semearMarcadores: false);
+
+        self::assertSame([], array_values(array_filter($persistidos, fn ($o) => $o instanceof Marcador)));
+        self::assertNotSame([], array_filter($persistidos, fn ($o) => $o instanceof Feriado), 'os feriados nacionais seguem');
+        self::assertNotSame([], array_filter($persistidos, fn ($o) => $o instanceof UserTenant), 'o dono continua vinculado');
+        self::assertSame($this->criador, $this->tenant->getCriadoPor());
     }
 }

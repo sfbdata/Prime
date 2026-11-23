@@ -31,6 +31,7 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * As correções do gestor nas batidas, pela ficha do colaborador (E10, plano-e10-ponto §6): incluir a batida que falta,
@@ -50,8 +51,6 @@ final class AjusteDeBatidaController extends AbstractController
 {
     private const ALVO = '[ba]\d+';
 
-    private const ERRO_DOS_CAMPOS = 'Erro ao registrar batida. Verifique os campos.';
-
     /** As recusas que são do que foi digitado: a página de ajuste volta com o erro, sem perder o formulário. */
     private const RECUSAS_DO_FORMULARIO = [
         AjusteDeBatidaRecusadoException::FUTURO => 'hora',
@@ -67,6 +66,7 @@ final class AjusteDeBatidaController extends AbstractController
         private readonly RegistroPontoRepository $registros,
         private readonly AnaliseDaPropriaJustificativa $analiseDaPropria,
         private readonly JustificativaPontoRepository $justificativas,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -82,9 +82,9 @@ final class AjusteDeBatidaController extends AbstractController
         $form->handleRequest($request);
         if ($form->isSubmitted() && $form->isValid()) {
             $input = new IncluirBatidaInput($tenant, $user, self::tipoDo($form), self::dataHoraDo($form), self::motivoDo($form), $autor);
-            $this->tentar(static fn () => $incluirBatida->executar($input), 'Batida incluída na folha.');
+            $this->tentar(static fn () => $incluirBatida->executar($input), $this->tradutor->trans('ponto_servidor.ajuste.incluida'));
         } else {
-            $this->addFlash('danger', self::erroDoFormulario($form));
+            $this->addFlash('danger', $this->erroDoFormulario($form));
         }
 
         return $this->voltarParaFicha($tenantId, $user, self::competenciaDaTela($request));
@@ -138,7 +138,7 @@ final class AjusteDeBatidaController extends AbstractController
         $this->escoparFiltroNoTenant($tenant);
 
         $input = DesconsiderarBatidaInput::daTela($tenant, $user, $alvo, self::cabecaDaTela($request), self::motivoDaTela($request), $autor);
-        $this->tentar(static fn () => $desconsiderarBatida->executar($input), 'Batida desconsiderada. O registro original fica guardado.');
+        $this->tentar(static fn () => $desconsiderarBatida->executar($input), $this->tradutor->trans('ponto_servidor.ajuste.desconsiderada'));
 
         return $this->voltarParaFicha($tenantId, $user, self::competenciaDaTela($request));
     }
@@ -152,7 +152,7 @@ final class AjusteDeBatidaController extends AbstractController
         $this->escoparFiltroNoTenant($tenant);
 
         $input = new RestaurarBatidaInput($tenant, $user, $ajusteId, self::motivoDaTela($request), $autor);
-        $this->tentar(static fn () => $restaurarBatida->executar($input), 'Batida restaurada.');
+        $this->tentar(static fn () => $restaurarBatida->executar($input), $this->tradutor->trans('ponto_servidor.ajuste.restaurada'));
 
         return $this->voltarParaFicha($tenantId, $user, self::competenciaDaTela($request));
     }
@@ -244,7 +244,7 @@ final class AjusteDeBatidaController extends AbstractController
     {
         try {
             $gravacao();
-            $this->addFlash('success', 'Batida ajustada. O registro original fica guardado.');
+            $this->addFlash('success', $this->tradutor->trans('ponto_servidor.ajuste.ajustada'));
         } catch (AjusteDeBatidaRecusadoException $recusa) {
             if (\array_key_exists($recusa->motivo, self::RECUSAS_DO_FORMULARIO)) {
                 $campo = self::RECUSAS_DO_FORMULARIO[$recusa->motivo];
@@ -332,11 +332,11 @@ final class AjusteDeBatidaController extends AbstractController
     }
 
     /** Motivo em branco tem a frase dele; o resto, o aviso de sempre. */
-    private static function erroDoFormulario(FormInterface $form): string
+    private function erroDoFormulario(FormInterface $form): string
     {
         return $form->isSubmitted() && !$form->get('motivo')->isValid() && self::soOMotivoFalhou($form)
             ? AjusteDeBatidaRecusadoException::MENSAGEM_SEM_MOTIVO
-            : self::ERRO_DOS_CAMPOS;
+            : $this->tradutor->trans('ponto_servidor.ajuste.erro_dos_campos');
     }
 
     private static function soOMotivoFalhou(FormInterface $form): bool

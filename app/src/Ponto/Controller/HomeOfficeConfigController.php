@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Admin: configura a regra de home office de um colaborador em um escritório (tenant) — em quais dias
@@ -35,6 +36,7 @@ final class HomeOfficeConfigController extends AbstractController
         private readonly TenantRepository $tenantRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly HomeOfficeConfigRepository $configRepository,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -61,26 +63,26 @@ final class HomeOfficeConfigController extends AbstractController
 
         $data = json_decode((string) $request->getContent(), true);
         if (!is_array($data)) {
-            return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.payload_invalido')], Response::HTTP_BAD_REQUEST);
         }
 
         $dias = $this->normalizarDias($data['diasSemana'] ?? []);
         if ($dias === null) {
-            return $this->json(['erro' => 'Dias da semana inválidos (use inteiros de 1 a 7).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.home_office.dias_invalidos')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $datas = $this->normalizarDatas($data['datasAvulsas'] ?? []);
         if ($datas === null) {
-            return $this->json(['erro' => 'Datas avulsas inválidas (use o formato AAAA-MM-DD).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.home_office.datas_invalidas')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $inicio = $this->parseData($data['vigenciaInicio'] ?? null);
         $fim    = $this->parseData($data['vigenciaFim'] ?? null);
         if ($inicio === false || $fim === false) {
-            return $this->json(['erro' => 'Vigência inválida (use o formato AAAA-MM-DD).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.home_office.vigencia_invalida')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         if ($inicio !== null && $fim !== null && $inicio > $fim) {
-            return $this->json(['erro' => 'A data inicial da vigência não pode ser maior que a final.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.home_office.vigencia_invertida')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $config = $this->configRepository->findByUserETenant($user, $urlTenant);

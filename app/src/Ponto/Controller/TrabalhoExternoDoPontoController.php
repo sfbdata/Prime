@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A caixa "Permitir trabalho externo, com motivo e análise" da aba Configurações (spec docs/specs/ponto-desenho-0811.md,
@@ -35,6 +36,7 @@ final class TrabalhoExternoDoPontoController extends AbstractController
         private readonly PermissionChecker $permissoes,
         private readonly FuncoesDoPonto $funcoes,
         private readonly AlterarTrabalhoExternoDoEscritorioUseCase $alterar,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -52,7 +54,7 @@ final class TrabalhoExternoDoPontoController extends AbstractController
 
         $input = AlterarTrabalhoExternoInput::doJson($eu, $escritorio, $this->corpo($request));
         if ($input === null) {
-            return $this->json(['erro' => 'Informe se o trabalho externo fica permitido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.configuracoes.externo_permitido')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {

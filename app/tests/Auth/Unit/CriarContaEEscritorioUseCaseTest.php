@@ -21,6 +21,12 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Produto\Entity\Contratacao;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Enum\SituacaoDaContratacao;
+use App\Produto\Repository\ContratacaoRepository;
+use App\Produto\Service\ContratacaoDoCadastro;
 use App\Profile\Enum\Genero;
 use App\Repository\UserRepository;
 use App\Service\TenantBootstrapService;
@@ -32,6 +38,8 @@ use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\Repository\CienciaPoliticaRepository;
 use App\Termo\TermoVigente;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
+use App\Voto\Entity\LiberacaoDoVoto;
+use App\Voto\Repository\LiberacaoDoVotoRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -62,6 +70,7 @@ use Twig\Loader\ArrayLoader;
  * mentira; o evento pelo EventDispatcher real. O caminho com banco está no CadastroControllerTest.
  */
 #[CoversClass(CriarContaEEscritorioUseCase::class)]
+#[CoversClass(ContratacaoDoCadastro::class)]
 final class CriarContaEEscritorioUseCaseTest extends TestCase
 {
     private const AGORA = '2026-10-19 10:00:00';
@@ -77,6 +86,17 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
     private AbstractLogger $logger;
     private UserPasswordHasher $hasher;
     private ConfiguracaoDaPlataformaFalsa $configuracao;
+    private ContratacaoRepository&MockObject $contratacaoRepository;
+    private LiberacaoDoVotoRepository&MockObject $liberacaoRepository;
+
+    /** @var list<Contratacao> */
+    private array $contratacoes = [];
+
+    /** @var list<LiberacaoDoVoto> */
+    private array $liberacoes = [];
+
+    /** O `semearMarcadores` com que o bootstrap foi chamado (nulo: não foi chamado). */
+    private ?bool $semeou = null;
 
     /** @var list<object> */
     private array $despachados = [];
@@ -95,6 +115,14 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->cienciaRepository = $this->createMock(CienciaPoliticaRepository::class);
         $this->confirmacaoRepository = $this->createMock(ConfirmacaoEmailRepository::class);
         $this->configuracao = new ConfiguracaoDaPlataformaFalsa(['cadastro' => 'on']);
+        $this->contratacaoRepository = $this->createMock(ContratacaoRepository::class);
+        $this->contratacaoRepository->method('salvar')->willReturnCallback(function (Contratacao $c): void {
+            $this->contratacoes[] = $c;
+        });
+        $this->liberacaoRepository = $this->createMock(LiberacaoDoVotoRepository::class);
+        $this->liberacaoRepository->method('salvar')->willReturnCallback(function (LiberacaoDoVoto $l): void {
+            $this->liberacoes[] = $l;
+        });
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(ContaCriadaPeloCadastro::class, function (object $evento): void {
             $this->despachados[] = $evento;
@@ -126,6 +154,7 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
             new ReenviarConfirmacaoDeEmailUseCase($this->confirmacaoRepository, $this->mailer(), $this->logger, new MockClock(new \DateTimeImmutable(self::AGORA))),
             new TetoDoReenvioDeConfirmacao($this->confirmacaoRepository, new MockClock(new \DateTimeImmutable(self::AGORA))),
             new PoliticaDeCadastro($this->configuracao),
+            new ContratacaoDoCadastro($this->contratacaoRepository, $this->liberacaoRepository),
         );
     }
 
@@ -190,9 +219,10 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
     private function transacaoExecuta(): void
     {
         $this->em->method('wrapInTransaction')->willReturnCallback(static fn (callable $cb) => $cb());
-        $this->bootstrap->method('bootstrap')->willReturnCallback(function (Tenant $tenant, User $user): TenantRole {
+        $this->bootstrap->method('bootstrap')->willReturnCallback(function (Tenant $tenant, User $user, bool $semearMarcadores = true): TenantRole {
             self::definirId($tenant, 7);
             self::definirId($user, 42);
+            $this->semeou = $semearMarcadores;
 
             return $this->createStub(TenantRole::class);
         });
@@ -210,8 +240,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         string $senha = 'segredo123',
         bool $aceite = true,
         string $genero = 'feminino',
+        ?Produto $produto = null,
     ): CriarContaEEscritorioInput {
-        return new CriarContaEEscritorioInput($nome, $escritorio, $email, $senha, $aceite, $genero);
+        return new CriarContaEEscritorioInput($nome, $escritorio, $email, $senha, $aceite, $genero, $produto);
     }
 
     #[TestDox('Cria User ativo sem OAB com e-mail a confirmar, Tenant, aceite dos Termos, ciência da Política e o link')]
@@ -613,5 +644,94 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
 
         self::assertNotNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
+    }
+
+    #[TestDox('Cadastro pelo Voto: na mesma transação, contratação do Voto (origem cadastro, pelo dono) e liberação do Voto; sem marcadores e sem I.A.')]
+    public function testCadastroPeloVoto(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $conta = $this->useCase()->executar(self::input(produto: Produto::Voto), '10.0.0.1', null);
+
+        self::assertFalse($this->semeou, 'o escritório só Voto nasce sem os marcadores do Expediente');
+        self::assertCount(1, $this->contratacoes, 'uma linha só: nada de I.A. nem de outro produto');
+        $linha = $this->contratacoes[0];
+        self::assertSame(Produto::Voto, $linha->getProduto());
+        self::assertSame(OrigemDaContratacao::Cadastro, $linha->getOrigem());
+        self::assertSame(SituacaoDaContratacao::Ativa, $linha->getSituacao());
+        self::assertSame($conta->tenant, $linha->getTenant());
+        self::assertSame($conta->user, $linha->getAlteradaPor());
+        self::assertEquals(new \DateTimeImmutable(self::AGORA), $linha->getInicio());
+        self::assertCount(1, $this->liberacoes);
+        self::assertSame($conta->tenant, $this->liberacoes[0]->getTenant());
+        self::assertTrue($this->liberacoes[0]->isLiberado());
+    }
+
+    #[TestDox('Sem produto, o cadastro fica igual a hoje: marcadores semeados, nenhuma linha de contratação nem liberação do Voto')]
+    public function testSemProdutoIgualAHoje(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $this->useCase()->executar(self::input(), '10.0.0.1', null);
+
+        self::assertTrue($this->semeou);
+        self::assertSame([], $this->contratacoes);
+        self::assertSame([], $this->liberacoes);
+    }
+
+    /** @return iterable<string, array{Produto}> */
+    public static function produtosForaDoCadastro(): iterable
+    {
+        yield 'I.A.' => [Produto::Ia];
+        yield 'Expediente' => [Produto::Expediente];
+        yield 'Completo' => [Produto::Completo];
+        yield 'Ponto' => [Produto::Ponto];
+    }
+
+    #[DataProvider('produtosForaDoCadastro')]
+    #[TestDox('Produto fora da lista do cadastro ($produto) é ignorado: o escritório nasce completo, como hoje')]
+    public function testProdutoForaDaListaEIgnorado(Produto $produto): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $this->useCase()->executar(self::input(produto: $produto), '10.0.0.1', null);
+
+        self::assertTrue($this->semeou);
+        self::assertSame([], $this->contratacoes);
+        self::assertSame([], $this->liberacoes);
+    }
+
+    #[TestDox('Pelo Google com o Voto: o produto do input chega à criação (o input é refeito com o e-mail do Google)')]
+    public function testPeloGoogleComVoto(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $this->useCase()->executarPeloGoogle(self::input(produto: Produto::Voto), new IdentidadeDoGoogle('sub-9', 'ana@gmail.com', 'Ana'), '10.0.0.1', null);
+
+        self::assertFalse($this->semeou);
+        self::assertCount(1, $this->contratacoes);
+        self::assertSame(Produto::Voto, $this->contratacoes[0]->getProduto());
+        self::assertCount(1, $this->liberacoes);
+    }
+
+    #[TestDox('Cadastro pelo Voto com e-mail que já tem conta: nada é gravado, nem contratação nem liberação')]
+    public function testVotoComEmailExistenteNaoGrava(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([(new User())->setEmail('ana@adv.com')->setIsActive(false)]);
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        self::assertNull($this->useCase()->executar(self::input(email: 'ana@adv.com', produto: Produto::Voto), '10.0.0.1', null));
+
+        self::assertSame([], $this->contratacoes);
+        self::assertSame([], $this->liberacoes);
     }
 }

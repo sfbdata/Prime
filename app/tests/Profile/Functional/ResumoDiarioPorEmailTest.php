@@ -14,6 +14,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Service\DiaUtilDoEscritorio;
+use App\Produto\Entity\Contratacao;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ProdutosDoEscritorio;
 use App\Profile\Preferencia\CatalogoDePreferenciasDoPerfil;
 use App\Profile\Repository\ResumoDiarioEnvioRepository;
 use App\Profile\Service\ColetorDoResumoDiario;
@@ -116,6 +120,29 @@ final class ResumoDiarioPorEmailTest extends JusPrimeWebTestCase
         self::assertFalse($this->envioPara($this->ana), 'a Ana desligou');
     }
 
+    #[TestDox('escritório só Voto (sem o Expediente) fica de fora: nenhum envio, com o motivo; com o Expediente contratado, envia')]
+    public function testEscritorioSemExpediente(): void
+    {
+        $this->contratar(Produto::Voto);
+
+        $r = $this->executar(self::QUARTA);
+
+        self::assertSame(EnviarResumoDiarioDoEscritorioUseCase::SEM_EXPEDIENTE, $r->motivo);
+        self::assertSame(0, $r->enviados);
+        self::assertSame(0, $this->enviosDoEscritorio());
+
+        $this->contratar(Produto::Expediente);
+        self::assertSame(2, $this->executar(self::QUARTA)->enviados, 'Voto e Expediente: o resumo volta');
+    }
+
+    private function contratar(Produto $produto): void
+    {
+        $this->em()->persist(Contratacao::ativar($this->tenant, $produto, OrigemDaContratacao::Cadastro, null, new \DateTimeImmutable('2026-01-01')));
+        $this->em()->flush();
+        // A leitura fica em memória durante a requisição; aqui o teste troca a contratação no meio.
+        static::getContainer()->get(ProdutosDoEscritorio::class)->reset();
+    }
+
     #[TestDox('sábado não envia')]
     public function testFimDeSemana(): void
     {
@@ -154,6 +181,7 @@ final class ResumoDiarioPorEmailTest extends JusPrimeWebTestCase
             $c->get(UrlGeneratorInterface::class),
             new MockClock(new \DateTimeImmutable($agora)),
             new NullLogger(),
+            $c->get(ProdutosDoEscritorio::class),
         );
 
         return $sut->executar($this->tenant, $simular);
