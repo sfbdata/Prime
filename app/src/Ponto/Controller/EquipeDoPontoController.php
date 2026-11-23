@@ -22,6 +22,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Aba "Equipe" da tela /ponto (spec `docs/specs/ponto-desenho-0811.md`, E5; desenho 16 L210 a L219). O painel é buscado
@@ -39,6 +40,7 @@ final class EquipeDoPontoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissoes,
         private readonly GestaoDoPonto $gestao,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -60,19 +62,19 @@ final class EquipeDoPontoController extends AbstractController
         $this->validarCsrfAjax($request);
         $dados = json_decode((string) $request->getContent(), true);
         if (!is_array($dados) || !is_string($dados['escala'] ?? null)) {
-            return $this->json(['erro' => 'Escolha uma das escalas da lista.'], Response::HTTP_BAD_REQUEST);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.equipe.escala_da_lista')], Response::HTTP_BAD_REQUEST);
         }
 
         try {
             $trocar->executar($id, $escritorio, $dados['escala']);
         } catch (ForaDaEquipeException $fora) {
-            return $this->json(['erro' => $fora->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans($fora->chave())], Response::HTTP_NOT_FOUND);
         } catch (EscalaDesconhecidaException $recusada) {
-            return $this->json(['erro' => $recusada->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans($recusada->chave())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (ChoqueDeJornadaException $choque) {
             return $this->json(['erro' => $choque->getMessage()], Response::HTTP_CONFLICT);
         } catch (UniqueConstraintViolationException) {
-            return $this->json(['erro' => JornadaColaboradorController::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.comum.jornada_alterada')], Response::HTTP_CONFLICT);
         }
 
         return $this->json(['ok' => true]);
@@ -90,14 +92,14 @@ final class EquipeDoPontoController extends AbstractController
 
         $resultado = $abonar->executar($this->eu(), $escritorio, array_values($ids));
         // E8 (P80): as abonadas no aviso flutuante da /ponto; as recusas, uma por pessoa e dia, ficam no flash do topo.
-        if (($abonadas = $resultado->mensagemDasAbonadas()) !== null) {
-            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $abonadas);
+        if ($resultado->abonadas > 0) {
+            $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $this->tradutor->trans('ponto_servidor.equipe.abonadas', ['quantidade' => $resultado->abonadas, 'numero' => (string) $resultado->abonadas]));
         }
         foreach ($resultado->recusas as $recusa) {
             $this->addFlash('warning', $recusa);
         }
         if ($ids === []) {
-            $this->addFlash('warning', 'Selecione ao menos uma justificativa.');
+            $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.equipe.selecione_justificativa'));
         }
 
         return $this->redirectToRoute('ponto_index', ['aba' => 'equipe']);

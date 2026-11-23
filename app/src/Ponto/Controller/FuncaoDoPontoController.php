@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A chave "Escritório" de uma função do Ponto, na aba Configurações (spec docs/specs/ponto-desenho-0811.md, E7 e
@@ -36,6 +37,7 @@ final class FuncaoDoPontoController extends AbstractController
         private readonly PermissionChecker $permissoes,
         private readonly FuncoesDoPonto $funcoes,
         private readonly AlterarFuncaoDoPontoNoEscritorioUseCase $alterar,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -46,14 +48,14 @@ final class FuncaoDoPontoController extends AbstractController
         $escritorio = $this->tenantContext->getCurrentTenant();
         if (!$eu instanceof User || $escritorio === null || !$this->permissoes->canAccessModule($eu, $escritorio, 'ponto')
             || !$this->funcoes->podeConfigurar($eu, $escritorio)) {
-            return $this->json(['erro' => FuncaoDoPontoRecusadaException::semPermissao()->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans(FuncaoDoPontoRecusadaException::semPermissao()->chave())], Response::HTTP_FORBIDDEN);
         }
 
         $this->validarCsrfAjax($request);
 
         $input = AlterarFuncaoDoPontoInput::doJson($eu, $escritorio, $chave, $this->corpo($request));
         if ($input === null) {
-            return $this->json(['erro' => 'Informe se a função fica ligada ou desligada.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('ponto_servidor.configuracoes.funcao_ligada_ou_desligada')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
@@ -72,9 +74,9 @@ final class FuncaoDoPontoController extends AbstractController
     private function recusa(FuncaoDoPontoRecusadaException $e): JsonResponse
     {
         if ($e->motivo === FuncaoDoPontoRecusadaException::SEM_PERMISSAO) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans($e->chave(), $e->parametros())], Response::HTTP_FORBIDDEN);
         }
-        $corpo = ['erro' => $e->getMessage()];
+        $corpo = ['erro' => $this->tradutor->trans($e->chave(), $e->parametros())];
         if ($e->motivo === FuncaoDoPontoRecusadaException::TRAVADA_PELO_MASTER) {
             $corpo['global'] = false;
         }

@@ -69,6 +69,25 @@ final class ChoqueDeJornadaEntreEscritoriosHttpTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    #[TestDox('Horário de B vindo só da jornada padrão de B também é respeitado: a pessoal em A que bate é recusada')]
+    public function testHorarioDeBPelaJornadaPadrao(): void
+    {
+        $outra = $this->pessoa('Pessoa da padrão de B');
+        $this->vincular($outra, $this->a);
+        $this->vincular($outra, $this->b);
+        $this->jornadaPadrao($this->b, [self::MANHA_EM_B]);
+        $this->entrarComoAdminDe($this->a);
+        // Os blocos da padrão de B saem do banco, não da memória do teste: o filtro do escritório da rota (A) não
+        // pode esvaziá-los (fatia 6 de docs/specs/isolamento-multitenant-cobertura.md).
+        $this->em()->clear();
+        $url = sprintf('/tenant/%d/user/%d/jornada-colaborador', $this->a->getId(), $outra->getId());
+
+        $recusa = $this->chamarJson($this->client, 'POST', $url, $this->corpoDaJornada([[[1], '10:00', null, null, '14:00']]));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => $this->mensagem('08:00', '12:00')], $recusa);
+    }
+
     #[TestDox('Quem marcou primeiro fica: B não amplia a manhã para dentro da tarde que A já marcou')]
     public function testAmpliarParaDentroDoOutroEhRecusado(): void
     {

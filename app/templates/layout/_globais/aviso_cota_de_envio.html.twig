@@ -2,7 +2,8 @@
     Aviso da cota de envio de e-mail (spec comercial-e-emails §3.6), no topo de toda tela, com o componente do
     aviso do desenho 08 (o mesmo .ae-aviso do espaço e da falha do agendador). Só para o Master;
     aviso_da_cota_de_envio() devolve null para os demais sem consultar o banco. Perto do limite: visual de
-    atenção (⚠️); campanhas pausadas: visual cheio (⛔) com a hora em que a vaga volta. "Dispensar" esconde o
+    atenção (⚠️); campanhas pausadas: visual cheio (⛔) com a hora em que a vaga volta. Acima de 2.000 e-mails em 24 h
+    (trocar): atenção (⚠️), hora de contratar outro serviço de e-mail. "Dispensar" esconde o
     aviso na sessão até o estado mudar.
 #}
 {% set cota_de_envio = aviso_da_cota_de_envio() %}
@@ -16,6 +17,9 @@
             {% if pausadas %}
                 <b>{{ 'moldura.aviso_cota_de_envio.titulo_pausadas'|trans }}</b>
                 <div>{{ 'moldura.aviso_cota_de_envio.texto_pausadas'|trans({hora: cota_de_envio.hora, data: cota_de_envio.data}) }}</div>
+            {% elseif cota_de_envio.estado == 'trocar' %}
+                <b>{{ 'moldura.aviso_cota_de_envio.titulo_trocar'|trans }}</b>
+                <div>{{ 'moldura.aviso_cota_de_envio.texto_trocar'|trans({enviados: cota_de_envio.enviados, limite: cota_de_envio.limite}) }}</div>
             {% else %}
                 <b>{{ 'moldura.aviso_cota_de_envio.titulo_perto'|trans }}</b>
                 <div>{{ 'moldura.aviso_cota_de_envio.texto_perto'|trans({enviados: cota_de_envio.enviados, teto: cota_de_envio.teto}) }}</div>

@@ -36,7 +36,7 @@ final class RemoverSedeDoPontoUseCase
     public function executar(int $id, Tenant $escritorio): bool
     {
         $sede = $this->sedes->ativaDoEscritorio($id, $escritorio)
-            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada('Sede não encontrada.');
+            ?? throw ConfiguracaoDoPontoRecusadaException::naoEncontrada(ConfiguracaoDoPontoRecusadaException::RECUSA_SEDE_NAO_ENCONTRADA);
 
         // Transação na conexão (não `wrapInTransaction`): uma falha volta tudo sem fechar o EntityManager do request.
         $conexao = $this->em->getConnection();

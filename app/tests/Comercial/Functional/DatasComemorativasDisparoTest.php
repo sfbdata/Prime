@@ -17,8 +17,9 @@ use App\Comercial\MessageHandler\VarrerAutomacoesHandler;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DataComemorativaRepository;
 use App\Comercial\Repository\ModeloDeCampanhaRepository;
-use App\Comercial\Service\ModelosEfetivos;
+use App\Comercial\Service\AvisoDeTrocaDoServicoDeEmail;
 use App\Comercial\Service\DisparoDasDatasComemorativas;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\Service\RecuperacaoDeEnvios;
 use App\Comercial\Service\VarreduraDeAutomacoes;
 use App\Tests\Comercial\Support\CriaCampanhas;
@@ -288,6 +289,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
             $c->get(VarreduraDeAutomacoes::class),
             $c->get(RecuperacaoDeEnvios::class),
             $this->disparo(),
+            $c->get(AvisoDeTrocaDoServicoDeEmail::class),
             new MockClock('2026-12-25 09:10', 'America/Sao_Paulo'),
             $log = new LogEmMemoria(),
         );

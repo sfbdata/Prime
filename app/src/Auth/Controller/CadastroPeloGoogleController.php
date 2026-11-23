@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Auth\Controller;
 
 use App\Auth\DTO\CriarContaEEscritorioInput;
+use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloGoogle;
+use App\Auth\Service\ProdutoDoCadastro;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Produto\Enum\Produto;
 use App\Security\GoogleAuthenticator;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -55,14 +58,7 @@ final class CadastroPeloGoogleController extends AbstractController
             return $this->json(['erro' => CadastroPeloGoogle::EXPIROU, 'googleExpirou' => true], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $input = new CriarContaEEscritorioInput(
-            nome: self::texto($dados, 'nome'),
-            escritorio: self::texto($dados, 'escritorio'),
-            email: $identidade->email,
-            senha: '',
-            aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
-            genero: self::texto($dados, 'genero'),
-        );
+        $input = self::input($dados, $identidade, ProdutoDoCadastro::ler($request->getSession()));
         try {
             $conta = $this->criarConta->executarPeloGoogle($input, $identidade, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
         } catch (CadastroNaoDisponivel $e) {
@@ -71,6 +67,7 @@ final class CadastroPeloGoogleController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         CadastroPeloGoogle::esquecer($request->getSession());
+        ProdutoDoCadastro::esquecer($request->getSession());
 
         // A resposta do autenticador é o redirecionamento ao véu com o destino já validado (EntradaDoUsuario).
         $resposta = $this->security->login($conta->user, GoogleAuthenticator::class, 'main');
@@ -97,6 +94,24 @@ final class CadastroPeloGoogleController extends AbstractController
         CadastroPeloGoogle::esquecer($request->getSession());
 
         return $this->json(['ok' => true]);
+    }
+
+    /**
+     * O e-mail vem da identidade do Google e o produto da sessão (D9, spec multiproduto §5); do JSON, só o formulário.
+     *
+     * @param array<string, mixed> $dados
+     */
+    private static function input(array $dados, IdentidadeDoGoogle $identidade, ?Produto $produto): CriarContaEEscritorioInput
+    {
+        return new CriarContaEEscritorioInput(
+            nome: self::texto($dados, 'nome'),
+            escritorio: self::texto($dados, 'escritorio'),
+            email: $identidade->email,
+            senha: '',
+            aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
+            genero: self::texto($dados, 'genero'),
+            produto: $produto,
+        );
     }
 
     /** @return array<string, mixed> */

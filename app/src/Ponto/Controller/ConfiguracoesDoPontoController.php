@@ -126,7 +126,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         return $this->responder(function () use ($cadastrar, $request, $escritorio): array {
             $cadastrar->executar(FeriadoDoPontoInput::daRequisicao($request), $escritorio);
 
-            return ['mensagem' => 'Feriado cadastrado.', 'lista' => $this->listaDeFeriados($escritorio)];
+            return ['mensagem' => $this->tradutor->trans('ponto_servidor.configuracoes.feriado_cadastrado'), 'lista' => $this->listaDeFeriados($escritorio)];
         });
     }
 
@@ -138,7 +138,7 @@ final class ConfiguracoesDoPontoController extends AbstractController
         return $this->responder(function () use ($remover, $id, $escritorio): array {
             $remover->executar($id, $escritorio);
 
-            return ['mensagem' => 'Feriado removido.', 'lista' => $this->listaDeFeriados($escritorio)];
+            return ['mensagem' => $this->tradutor->trans('ponto_servidor.configuracoes.feriado_removido'), 'lista' => $this->listaDeFeriados($escritorio)];
         });
     }
 
@@ -210,7 +210,16 @@ final class ConfiguracoesDoPontoController extends AbstractController
         try {
             return $this->json(['ok' => true, 'erros' => []] + $acao());
         } catch (ConfiguracaoDoPontoRecusadaException $recusa) {
-            return $this->json(['ok' => false, 'mensagem' => $recusa->getMessage(), 'erros' => $recusa->erros()], $recusa->status());
+            // Cada erro por campo é uma das constantes RECUSA_* da exceção: traduz pelo mapa dela.
+            $erros = array_map(
+                fn (string $texto): string => $this->tradutor->trans(ConfiguracaoDoPontoRecusadaException::chaveDe($texto)),
+                $recusa->erros(),
+            );
+            $mensagem = $erros === []
+                ? $this->tradutor->trans(ConfiguracaoDoPontoRecusadaException::chaveDe($recusa->getMessage()))
+                : implode(' ', array_unique(array_values($erros)));
+
+            return $this->json(['ok' => false, 'mensagem' => $mensagem, 'erros' => $erros], $recusa->status());
         }
     }
 }

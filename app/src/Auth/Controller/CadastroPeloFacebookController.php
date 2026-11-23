@@ -8,7 +8,9 @@ use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\ContaAConfirmar;
+use App\Auth\Service\ProdutoDoCadastro;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Produto\Enum\Produto;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -55,7 +57,7 @@ final class CadastroPeloFacebookController extends AbstractController
             return $this->json(['erro' => CadastroPeloFacebook::EXPIROU, 'facebookExpirou' => true], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $input = self::input($dados);
+        $input = self::input($dados, ProdutoDoCadastro::ler($request->getSession()));
         try {
             $conta = $this->criarConta->executar($input, (string) $request->getClientIp(), $request->headers->get('User-Agent'), $identidade->id);
         } catch (CadastroNaoDisponivel $e) {
@@ -64,6 +66,7 @@ final class CadastroPeloFacebookController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         CadastroPeloFacebook::esquecer($request->getSession());
+        ProdutoDoCadastro::esquecer($request->getSession());
 
         // Igual ao cadastro por e-mail: sem login; a sessão guarda a conta (ou o marcador neutro) para o reenvio.
         $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
@@ -98,8 +101,8 @@ final class CadastroPeloFacebookController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    /** @param array<string, mixed> $dados */
-    private static function input(array $dados): CriarContaEEscritorioInput
+    /** @param array<string, mixed> $dados o produto vem da sessão, nunca de `$dados` (D9) */
+    private static function input(array $dados, ?Produto $produto): CriarContaEEscritorioInput
     {
         return new CriarContaEEscritorioInput(
             nome: self::texto($dados, 'nome'),
@@ -108,6 +111,7 @@ final class CadastroPeloFacebookController extends AbstractController
             senha: '',
             aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
             genero: self::texto($dados, 'genero'),
+            produto: $produto,
         );
     }
 

@@ -95,6 +95,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/ponto')]
 final class PontoController extends AbstractController
@@ -133,7 +134,10 @@ final class PontoController extends AbstractController
         self::FLASH_AVISO_FLUTUANTE_ERRO => 'erro',
     ];
 
-    /** O aviso flutuante do envio da justificativa (desenho L768, `addJ`). */
+    /**
+     * O aviso flutuante do envio da justificativa (desenho L768, `addJ`), em pt_BR. A tela diz a chave
+     * `ponto_servidor.ponto.enviado_ao_gestor` no idioma da pessoa; a constante fica para o teste fixar o texto em pt_BR.
+     */
     public const AVISO_ENVIADO_AO_GESTOR = 'Enviado para aprovação do gestor.';
 
     /** Os avisos flutuantes da análise de uma justificativa (desenho L601, `analisar`): verde e vermelho. */
@@ -164,6 +168,7 @@ final class PontoController extends AbstractController
         private readonly CercaDoPonto $cerca,
         private readonly TrabalhoExternoDaBatida $trabalhoExterno,
         private readonly PassagemPeloEscritorio $passagemPeloEscritorio,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -413,7 +418,7 @@ final class PontoController extends AbstractController
                 $tipoRegEsquecido = $form->get('tipoRegistroEsquecido')->getData();
                 $horaRegEsquecida = $form->get('horaRegistroEsquecido')->getData();
                 if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaRegEsquecida === null) {
-                    $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
+                    $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.esquecido_incompleto'));
                     return $this->redirectToRoute('ponto_index', $voltaParaFolha);
                 }
             }
@@ -421,22 +426,22 @@ final class PontoController extends AbstractController
             $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
 
             if (empty($datasArray)) {
-                $this->addFlash('warning', 'Selecione ao menos uma data para justificar.');
+                $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.sem_data'));
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($abonoParcial && count($datasArray) > 1) {
-                $this->addFlash('warning', 'Abono parcial só pode ser aplicado a uma única data.');
+                $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.abono_uma_data'));
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($tipo === 'esquecimento_registro' && count($datasArray) > 1) {
-                $this->addFlash('warning', 'Esquecimento de Registro só pode ser aplicado a uma única data.');
+                $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.esquecimento_uma_data'));
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($abonoParcial && ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim)) {
-                $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
+                $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.abono_horarios'));
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
@@ -450,7 +455,7 @@ final class PontoController extends AbstractController
                 }
                 // Não permitir datas futuras
                 if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
-                    $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
+                    $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.data_futura', ['data' => $dataObj->format('d/m/Y')]));
                     continue;
                 }
                 $datasValidas[] = $dataObj;
@@ -523,13 +528,10 @@ final class PontoController extends AbstractController
             }
 
             if ($isFaltaNaoJustificada) {
-                $this->addFlash('success', sprintf(
-                    'Falta registrada como não justificada para %d dia(s).',
-                    count($datasValidas)
-                ));
+                $this->addFlash('success', $this->tradutor->trans('ponto_servidor.ponto.falta_nao_justificada', ['dias' => count($datasValidas)]));
             } else {
                 // E8 (P80, decisão do Coordenador de 09/11/2026): o aviso flutuante do desenho no lugar do flash do topo.
-                $this->addFlash(self::FLASH_AVISO_FLUTUANTE, self::AVISO_ENVIADO_AO_GESTOR);
+                $this->addFlash(self::FLASH_AVISO_FLUTUANTE, $this->tradutor->trans('ponto_servidor.ponto.enviado_ao_gestor'));
             }
         } elseif ($form->isSubmitted() && !$form->isValid()) {
             foreach ($form->getErrors(true) as $error) {
@@ -597,7 +599,7 @@ final class PontoController extends AbstractController
         }
 
         if (!$this->isCsrfTokenValid('editar_justificativa_' . $justificativa->getId(), $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
+            $this->addFlash('danger', $this->tradutor->trans('ponto_servidor.ponto.token_invalido'));
             return $this->voltaDaEdicao($justificativa);
         }
 
@@ -634,7 +636,7 @@ final class PontoController extends AbstractController
             $horaFim = $horaFimRaw !== null ? \DateTime::createFromFormat('H:i', $horaFimRaw) ?: null : null;
 
             if ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim) {
-                $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
+                $this->addFlash('warning', $this->tradutor->trans('ponto_servidor.ponto.abono_horarios'));
                 return $this->voltaDaEdicao($justificativa);
             }
         }
@@ -675,10 +677,7 @@ final class PontoController extends AbstractController
             }
 
             if ($atingidos > 1) {
-                $this->addFlash('info', sprintf(
-                    'O anexo foi trocado nos %d dias deste abono.',
-                    $atingidos,
-                ));
+                $this->addFlash('info', $this->tradutor->trans('ponto_servidor.ponto.anexo_trocado_lote', ['dias' => $atingidos]));
             }
         } else {
             try {
@@ -691,7 +690,7 @@ final class PontoController extends AbstractController
             }
         }
 
-        $this->addFlash('success', 'Justificativa atualizada com sucesso.');
+        $this->addFlash('success', $this->tradutor->trans('ponto_servidor.ponto.justificativa_atualizada'));
         return $this->voltaDaEdicao($justificativa);
     }
 
@@ -777,7 +776,7 @@ final class PontoController extends AbstractController
             $horaRegRaw = $request->request->get('horaRegistroEsquecido');
             $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
             if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
-                return 'Informe o tipo e o horário do registro esquecido.';
+                return $this->tradutor->trans('ponto_servidor.ponto.esquecido_incompleto');
             }
             if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
                 return $jaBatida;   // a edição não troca para uma batida que existe
@@ -823,7 +822,7 @@ final class PontoController extends AbstractController
         try {
             $excluir->executar($id, $user, $tenant);
         } catch (ExclusaoDeJustificativaRecusadaException $e) {
-            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], self::RESPOSTA_DA_RECUSA[$e->motivo]);
+            return $this->json(['ok' => false, 'mensagem' => $this->tradutor->trans($e->chave(), $e->parametros())], self::RESPOSTA_DA_RECUSA[$e->motivo]);
         }
 
         return $this->json(['ok' => true]);
@@ -905,14 +904,14 @@ final class PontoController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return $this->json(['success' => false, 'message' => 'Usuário não autenticado.'], 401);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.comum.nao_autenticado')], 401);
         }
         $tenant = $this->tenantContext->getCurrentTenant();
         if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.comum.sem_permissao_registrar')], 403);
         }
         if ($tenant === null) {
-            return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.ponto.sem_tenant')], 403);
         }
 
         return $this->json($estadoDoDia->executar($user, $tenant));
@@ -935,7 +934,7 @@ final class PontoController extends AbstractController
         $user = $this->getUser();
 
         if (!$user) {
-            return $this->json(['success' => false, 'message' => 'Usuário não autenticado.'], 401);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.comum.nao_autenticado')], 401);
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
@@ -943,11 +942,11 @@ final class PontoController extends AbstractController
             return $deOutraConta;   // E14: antes da permissão, do escritório e do CSRF, para a fila não apagar a batida
         }
         if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.comum.sem_permissao_registrar')], 403);
         }
 
         if ($tenant === null) {
-            return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
+            return $this->json(['success' => false, 'message' => $this->tradutor->trans('ponto_servidor.ponto.sem_tenant')], 403);
         }
 
         // CSRF após os guards de autorização (a falha de autz tem prioridade e fica testável).
@@ -958,7 +957,7 @@ final class PontoController extends AbstractController
         if (!is_array($data)) {
             return $this->json([
                 'success' => false,
-                'message' => 'Payload invalido.',
+                'message' => $this->tradutor->trans('ponto_servidor.ponto.payload_invalido_batida'),
             ], 400);
         }
 
@@ -975,14 +974,14 @@ final class PontoController extends AbstractController
         if ($tipo === null || $tipo === '') {
             return $this->json([
                 'success' => false,
-                'message' => 'Tipo de registro e obrigatorio (Entrada, Repouso, Retorno ou Saida).',
+                'message' => $this->tradutor->trans('ponto_servidor.ponto.tipo_obrigatorio'),
             ], 422);
         }
 
         if (!in_array($tipo, RegistroPonto::TIPOS_VALIDOS, true)) {
             return $this->json([
                 'success' => false,
-                'message' => 'Tipo de registro invalido. Selecione Entrada, Repouso, Retorno ou Saida.',
+                'message' => $this->tradutor->trans('ponto_servidor.ponto.tipo_invalido'),
             ], 422);
         }
 
@@ -1008,14 +1007,14 @@ final class PontoController extends AbstractController
             if ($latitude === null || $longitude === null) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Geolocalização é obrigatória para registrar o ponto.',
+                    'message' => $this->tradutor->trans('ponto_servidor.ponto.geo_obrigatoria'),
                 ], 422);
             }
 
             if (!is_numeric($latitude) || !is_numeric($longitude)) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Coordenadas inválidas para registro do ponto.',
+                    'message' => $this->tradutor->trans('ponto_servidor.ponto.coordenadas_invalidas'),
                 ], 422);
             }
 
@@ -1025,14 +1024,14 @@ final class PontoController extends AbstractController
             if (!is_finite($latitudeFloat) || !is_finite($longitudeFloat) || $latitudeFloat < -90 || $latitudeFloat > 90 || $longitudeFloat < -180 || $longitudeFloat > 180) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Coordenadas fora da faixa válida.',
+                    'message' => $this->tradutor->trans('ponto_servidor.ponto.coordenadas_fora_da_faixa'),
                 ], 422);
             }
 
             if (!is_numeric($precisaoGps)) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Precisão do GPS inválida.',
+                    'message' => $this->tradutor->trans('ponto_servidor.ponto.precisao_invalida'),
                 ], 422);
             }
 
@@ -1041,7 +1040,7 @@ final class PontoController extends AbstractController
             if (!is_finite($precisaoGpsFloat) || $precisaoGpsFloat <= 0) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Precisão do GPS inválida.',
+                    'message' => $this->tradutor->trans('ponto_servidor.ponto.precisao_invalida'),
                 ], 422);
             }
 
@@ -1106,9 +1105,9 @@ final class PontoController extends AbstractController
             'success' => true,
             'message' => match (true) {
                 $justificativaExterna !== null => TrabalhoExternoDaBatida::MENSAGEM_REGISTRADA,
-                $homeOfficeHoje                => 'Ponto (home office) registrado com sucesso!',
-                default                        => 'Ponto registrado com sucesso!',
-            } . ($comprovante !== null ? ' Comprovante na aba Comprovantes.' : ''),
+                $homeOfficeHoje                => $this->tradutor->trans('ponto_servidor.ponto.registrado_home_office'),
+                default                        => $this->tradutor->trans('ponto_servidor.ponto.registrado'),
+            } . ($comprovante !== null ? ' ' . $this->tradutor->trans('ponto_servidor.ponto.comprovante_na_aba') : ''),
             'data'    => $this->dadosDaBatida($registro, $posicao, $justificativaExterna !== null, $comprovante),
             'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $intervalo->avisoDepois, $semEntrada),
         ]);

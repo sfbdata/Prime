@@ -50,7 +50,7 @@ final class ExcluirVersaoDaJornadaUseCase
             throw new VersaoDaJornadaNaoEncontradaException();
         }
         if ($restantes === []) {
-            throw new VersaoDaJornadaRecusadaException('A jornada tem uma versão só. Para tirar a jornada personalizada, use "Limpar escala".');
+            throw new VersaoDaJornadaRecusadaException(VersaoDaJornadaRecusadaException::RECUSA_VERSAO_UNICA);
         }
 
         if ($alvo->cobreDiasAnteriores()) {
