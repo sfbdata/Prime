@@ -104,6 +104,26 @@ perfil:
         titulo: Sair de todos os aparelhos
         texto: 'Todos os outros aparelhos onde você entrou saem da conta, inclusive os que usam "manter conectado". Neste aparelho você continua conectado até sair ou fechar o navegador; depois, entre com a senha. A senha não muda.'
         confirmar: Sair de todos
+    backup:
+        titulo: Backup e Exportação de Dados
+        sub: Uma cópia do que você pode ver no escritório
+        explicacao: O backup reúne o que você pode ver no escritório (pastas, clientes e documentos). Ele fica pronto em segundo plano, avisamos no sino quando terminar e o arquivo fica disponível por 7 dias.
+        gerar: Gerar backup
+        baixar: Baixar
+        valido_ate: 'Disponível até {data}'
+        erro_generico: Não foi possível pedir o backup agora. Tente de novo.
+        recusa:
+            ja_tem_aberto: Você já tem um backup sendo preparado. Aguarde ele ficar pronto.
+            limite_do_dia: Você já pediu um backup nas últimas 24 horas. Tente de novo mais tarde.
+            muitos_pedidos: Muitos pedidos em sequência. Aguarde alguns minutos e tente de novo.
+            token_invalido: Token inválido. Recarregue a página e tente de novo.
+            selecione_escritorio: Selecione um escritório.
+            pedido_recebido: Pedido recebido. Avisamos no sino quando o backup estiver pronto.
+        situacao:
+            em_preparo: Em preparo
+            pronto: Pronto
+            falhou: Falhou
+            vencido: Vencido
     exclusao:
         titulo: Excluir conta do escritório
         pendente_sub: 'Pedido feito em {data} · motivo: {motivo}. A equipe está sem acesso até o Master concluir.'

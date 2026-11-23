@@ -116,6 +116,7 @@ final class GerarBackupHandlerTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-11-30 10:00:00'), $pedido->getExpiraEm());
         self::assertTrue($this->duble->memoria->existe(ChavesDeBackup::zip($pedido)));
         self::assertSame(1, $this->sinos($dono, GerarBackupHandler::TIPO_PRONTO));
+        self::assertSame('/perfil#mpBackup', $this->em->getConnection()->fetchOne('SELECT url FROM notificacao WHERE usuario_id = ? AND tipo = ?', [$dono->getId(), GerarBackupHandler::TIPO_PRONTO]));
     }
 
     #[TestDox('Reentrega em montando vira falhou e não monta de novo')]
