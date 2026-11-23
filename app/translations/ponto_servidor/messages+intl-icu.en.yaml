@@ -9,6 +9,8 @@ ponto_servidor:
     ponto:
         esquecido_incompleto: "Enter the type and time of the forgotten punch."
         sem_data: "Select at least one date to justify."
+        motivo_vazio: "Enter the reason."
+        motivo_longo: "The reason can have up to {maximo} characters."
         abono_uma_data: "A partial excuse can only be applied to a single date."
         esquecimento_uma_data: "A Forgotten Punch can only be applied to a single date."
         abono_horarios: "Enter the departure and return times correctly for the partial excuse."
@@ -169,3 +171,28 @@ ponto_servidor:
             ja_analisada: "This justification is no longer under review and cannot be deleted."
             da_batida_externa: "The justification for an external work punch cannot be deleted. It goes to the manager for review."
             mexeu_na_folha: "This justification has already changed the timesheet, so it cannot be deleted. It remains under review with the manager."
+        ajuste:
+            mudou: "This punch changed since the timesheet was opened. Check the timesheet and try again."
+            nao_encontrada: "Punch not found in this timesheet."
+            nada_mudou: "The adjustment changes nothing: the punch already has this type, date and time."
+            sem_motivo: "Enter the reason for the correction."
+            motivo_longo: "The reason for the correction is over 2000 characters. Shorten the text."
+            ligada_a_justificativa: "This punch was taken out of the count by the justification review and only comes back through it: with a new excuse or, for external work, when the justification goes back to review."
+            da_propria_batida: "Only the firm's primary user or the Master can correct their own punch."
+            em_analise: "This punch has a justification under review. Excuse or reject the justification before correcting the punch."
+        analise:
+            excluida: "This justification was deleted by the employee."
+            nao_encontrada: "Justification not found."
+            propria: "Only the firm's primary user or the Master can review their own justification."
+            so_para_abonar: "Only justifications under review can be excused."
+            so_para_recusar: "Only justifications under review can be rejected."
+            ja_em_analise: "This justification is already under review."
+        edicao:
+            ja_analisada: "This justification is no longer under review (it was already reviewed by the manager or recorded as an absence) and cannot be changed. To correct it, ask the administrator to send it back to review."
+        anexo:
+            travado: "The medical certificate cannot be replaced: this entry is already excused or rejected on at least one of the days. To replace it, all days must go back to review. Contact the administrator."
+            tamanho: "The file cannot exceed 10 MB."
+            tipo: "Only PDF, JPEG or PNG files are accepted."
+        abono:
+            nao_encontrada: "Justification not found in this firm."
+            pessoa: "{pessoa} ({dia}): {motivo}"

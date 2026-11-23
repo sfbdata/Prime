@@ -7,6 +7,7 @@ namespace App\Ponto\Controller;
 use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
+use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\Exception\CompetenciaDaFolhaInvalidaException;
 use App\Ponto\UseCase\ExcluirJustificativaEmAnaliseUseCase;
@@ -609,7 +610,7 @@ final class PontoController extends AbstractController
         // recusa rápida, pelo estado carregado no começo da requisição; sem atestado, a que vale contra
         // uma análise simultânea é a do ConfirmarEdicaoDeJustificativaUseCase, com a linha travada.
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
+            $this->addFlash('warning', $this->tradutor->trans(JustificativaJaAnalisadaException::CHAVE_DA_RECUSA[JustificativaJaAnalisadaException::MENSAGEM]));
 
             return $this->voltaDaEdicao($justificativa);
         }
@@ -666,13 +667,15 @@ final class PontoController extends AbstractController
             try {
                 $atingidos = $this->substituirAnexoDoLote->executar($justificativa, $anexoFile, $tenant);
             } catch (\InvalidArgumentException $e) {
-                $this->addFlash('warning', $e->getMessage());
+                // Só os dois textos da regra do anexo (tamanho e tipo) têm tradução; outro texto sai como veio.
+                $chaveDoAnexo = RestricoesAnexoJustificativa::chaveDe($e->getMessage());
+                $this->addFlash('warning', $chaveDoAnexo !== null ? $this->tradutor->trans($chaveDoAnexo) : $e->getMessage());
 
                 return $this->voltaDaEdicao($justificativa);
             } catch (TrocaDeAnexoRecusadaException $e) {
                 // Lote já analisado: a recusa descarta a edição inteira, como o anexo inválido
                 // acima. A transação que recusou já fechou o EntityManager — só resta avisar.
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $this->tradutor->trans($e->chave(), $e->parametros()));
 
                 return $this->voltaDaEdicao($justificativa);
             }
@@ -685,7 +688,7 @@ final class PontoController extends AbstractController
                 $this->confirmarEdicao->executar($justificativa, $tenant);
             } catch (JustificativaJaAnalisadaException $e) {
                 // Analisada entre o carregamento e a gravação: nada foi gravado.
-                $this->addFlash('warning', $e->getMessage());
+                $this->addFlash('warning', $this->tradutor->trans($e->chave(), $e->parametros()));
 
                 return $this->voltaDaEdicao($justificativa);
             }
@@ -726,10 +729,11 @@ final class PontoController extends AbstractController
             return null;
         }
         if ($motivo === '') {
-            return 'Informe o motivo.';
+            return $this->tradutor->trans('ponto_servidor.ponto.motivo_vazio');
         }
         if (mb_strlen($motivo) > JustificativaPontoType::MOTIVO_MAXIMO) {
-            return sprintf('O motivo pode ter até %d caracteres.', JustificativaPontoType::MOTIVO_MAXIMO);
+            // O máximo entra como texto, sem separador de milhar, como o sprintf de antes ("2000").
+            return $this->tradutor->trans('ponto_servidor.ponto.motivo_longo', ['maximo' => (string) JustificativaPontoType::MOTIVO_MAXIMO]);
         }
         foreach ($this->diasEmAnaliseDoLote($justificativa, $user, $tenant) as $dia) {
             $dia->setMotivo($motivo);

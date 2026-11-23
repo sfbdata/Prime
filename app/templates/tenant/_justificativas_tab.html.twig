@@ -10,7 +10,7 @@
         {% endif %}
     </div>
     {% if not podeAnalisar %}
-        <p class="small text-muted px-3 pt-2 mb-0">{{ constant('App\\Ponto\\Service\\AnaliseDaPropriaJustificativa::RECUSA') }}</p>
+        <p class="small text-muted px-3 pt-2 mb-0">{{ 'ponto_servidor.recusa.analise.propria'|trans }}</p>
     {% endif %}
     <div class="bjp-painel-corpo p-0">
         {% if justificativas is empty %}

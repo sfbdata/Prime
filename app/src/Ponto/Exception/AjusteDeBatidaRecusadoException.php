@@ -9,9 +9,10 @@ use App\Ponto\Service\HorarioFuturoDaBatida;
 /**
  * O ajuste de batida não foi gravado (E10, plano-e10-ponto §5). Nada mudou no banco nem na trilha; a mensagem é escrita
  * para o usuário final e vai direto para a tela. O `motivo` deixa quem chama escolher a resposta (a ficha volta com
- * aviso; a própria batida de quem não é primário nem Master responde 403, P43).
+ * aviso; a própria batida de quem não é primário nem Master responde 403, P43). Os MENSAGEM_* são o português (a fonte, e
+ * a mensagem da exceção); o controller traduz pela chave() (spec idioma-do-sistema §33).
  */
-final class AjusteDeBatidaRecusadoException extends \DomainException
+final class AjusteDeBatidaRecusadoException extends RecusaDoPonto
 {
     /** A batida ganhou outro ajuste entre a abertura da folha e a gravação (a cabeça esperada não é mais a cabeça). */
     public const MUDOU = 'mudou';
@@ -58,6 +59,19 @@ final class AjusteDeBatidaRecusadoException extends \DomainException
     public const MENSAGEM_DA_PROPRIA_BATIDA = 'Só o usuário primário do escritório ou o Master pode corrigir a própria batida.';
 
     public const MENSAGEM_EM_ANALISE = 'Esta batida tem uma justificativa em análise. Abone ou recuse a justificativa antes de corrigir a batida.';
+
+    /** @var array<string, string> mensagem (o texto da constante MENSAGEM_*) => chave no catálogo `ponto_servidor` */
+    public const CHAVE_DA_RECUSA = [
+        self::MENSAGEM_MUDOU => 'ponto_servidor.recusa.ajuste.mudou',
+        self::MENSAGEM_NAO_ENCONTRADA => 'ponto_servidor.recusa.ajuste.nao_encontrada',
+        HorarioFuturoDaBatida::MENSAGEM => HorarioFuturoDaBatida::CHAVE_DO_TEXTO[HorarioFuturoDaBatida::MENSAGEM],
+        self::MENSAGEM_NADA_MUDOU => 'ponto_servidor.recusa.ajuste.nada_mudou',
+        self::MENSAGEM_SEM_MOTIVO => 'ponto_servidor.recusa.ajuste.sem_motivo',
+        self::MENSAGEM_MOTIVO_LONGO => 'ponto_servidor.recusa.ajuste.motivo_longo',
+        self::MENSAGEM_LIGADA_A_JUSTIFICATIVA => 'ponto_servidor.recusa.ajuste.ligada_a_justificativa',
+        self::MENSAGEM_DA_PROPRIA_BATIDA => 'ponto_servidor.recusa.ajuste.da_propria_batida',
+        self::MENSAGEM_EM_ANALISE => 'ponto_servidor.recusa.ajuste.em_analise',
+    ];
 
     private function __construct(public readonly string $motivo, string $mensagem)
     {

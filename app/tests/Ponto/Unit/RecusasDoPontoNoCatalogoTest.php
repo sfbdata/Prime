@@ -5,16 +5,23 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Ponto\DTO\AbonoEmLoteOutput;
+use App\Ponto\Exception\AjusteDeBatidaRecusadoException;
+use App\Ponto\Exception\AnaliseDeJustificativaRecusadaException;
 use App\Ponto\Exception\ConfiguracaoDoPontoRecusadaException;
 use App\Ponto\Exception\EscalaDesconhecidaException;
 use App\Ponto\Exception\ExclusaoDeJustificativaRecusadaException;
 use App\Ponto\Exception\ForaDaEquipeException;
 use App\Ponto\Exception\FuncaoDoPontoRecusadaException;
 use App\Ponto\Exception\HorasPagasInvalidaException;
+use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\Exception\LimitesDoBancoRecusadosException;
 use App\Ponto\Exception\RecusaDoPonto;
+use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Exception\VersaoDaJornadaNaoEncontradaException;
 use App\Ponto\Exception\VersaoDaJornadaRecusadaException;
+use App\Ponto\Service\NomesDasSituacoesDaJustificativa;
+use App\Ponto\UseCase\AbonarJustificativasDaEquipeUseCase;
+use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -30,6 +37,9 @@ final class RecusasDoPontoNoCatalogoTest extends TestCase
 {
     /** @var list<class-string> */
     private const EXCECOES = [
+        AjusteDeBatidaRecusadoException::class,
+        JustificativaJaAnalisadaException::class,
+        TrocaDeAnexoRecusadaException::class,
         EscalaDesconhecidaException::class,
         ExclusaoDeJustificativaRecusadaException::class,
         ForaDaEquipeException::class,
@@ -94,7 +104,16 @@ final class RecusasDoPontoNoCatalogoTest extends TestCase
                 $citadas[] = $chave;
             }
         }
-        $citadas = array_values(array_filter($citadas, static fn (string $chave): bool => str_starts_with($chave, 'ponto_servidor.recusa.')));
+        // Textos de recusa que não são de uma exceção RecusaDoPonto (a análise, os nomes de tela, o anexo e o abono em lote):
+        // o pt_BR e o en deles são conferidos no RecusasDaJustificativaNoCatalogoTest.
+        $citadas = [
+            ...$citadas,
+            ...array_values(AnaliseDeJustificativaRecusadaException::CHAVE_DO_TEXTO),
+            ...array_values(NomesDasSituacoesDaJustificativa::CHAVE_DA_TELA),
+            ...array_values(RestricoesAnexoJustificativa::CHAVE_DO_TEXTO),
+            ...array_values(AbonarJustificativasDaEquipeUseCase::CHAVE_DO_TEXTO),
+        ];
+        $citadas = array_values(array_unique(array_filter($citadas, static fn (string $chave): bool => str_starts_with($chave, 'ponto_servidor.recusa.'))));
 
         foreach (['pt_BR', 'en'] as $locale) {
             $catalogo = self::tradutor()->getCatalogue($locale)->all('messages+intl-icu');
@@ -122,6 +141,7 @@ final class RecusasDoPontoNoCatalogoTest extends TestCase
         yield HorasPagasInvalidaException::class => [HorasPagasInvalidaException::class];
         yield VersaoDaJornadaRecusadaException::class => [VersaoDaJornadaRecusadaException::class];
         yield LimitesDoBancoRecusadosException::class => [LimitesDoBancoRecusadosException::class];
+        yield TrocaDeAnexoRecusadaException::class => [TrocaDeAnexoRecusadaException::class];
     }
 
     #[TestDox('Configuração do ponto: texto fora das constantes dá LogicException (não encontrada, inválida e chaveDe)')]
