@@ -231,6 +231,10 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em->clear();
         $atualizado = $em->find(Invitation::class, $invitation->getId());
         self::assertSame(1, $atualizado->getReenvioCount());
+
+        // O reenvio troca o link (spec seguranca-a-convites B2): quem reenviou fica sabendo.
+        $client->followRedirect();
+        self::assertSelectorTextContains('body', 'Convite reenviado com um link novo. O link enviado antes deixa de valer.');
     }
 
     #[TestDox('POST revogar convite de escritório pelo SuperAdmin retorna 404')]
@@ -284,7 +288,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString($convite->getEmail(), $html);
         self::assertStringNotContainsString($convite->getTokenHash(), $html);
         self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/revogar"][data-confirmar="Revogar convite de %s?"]', $convite->getId(), $convite->getEmail()));
-        self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/reenviar"][data-confirmar="Reenviar convite para %s?"]', $convite->getId(), $convite->getEmail()));
+        self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/reenviar"][data-confirmar="Reenviar convite para %s? O link enviado antes deixa de valer."]', $convite->getId(), $convite->getEmail()));
         self::assertSelectorNotExists(sprintf('[onclick*="%s"]', $convite->getEmail()));
     }
 

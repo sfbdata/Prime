@@ -41,7 +41,7 @@ final class ComercialRascunhoJsTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString('if (!rascunhoLido) return;', $js);
+        self::assertStringContainsString('if (!rascunhoLido || edicao) return;', $js, 'em modo edição (M5.3) o rascunho não grava nem apaga');
         self::assertStringContainsString('const recuperado = rascunhoLido ? null : lerRascunho();', $js);
         self::assertStringContainsString("avisar(BJ_T.t('comercial.js.rascunho_recuperado', { quando }));", $js);
     }
@@ -92,6 +92,20 @@ final class ComercialRascunhoJsTest extends TestCase
             }
             self::assertStringContainsString('{quando}', $js['rascunho_recuperado']);
         }
+    }
+
+    #[TestDox('Salvar a edição (M5.3) recarrega o Relatório na aba em que está, sem pular para Enviadas')]
+    public function testSalvarEdicaoFicaNaAba(): void
+    {
+        $js = $this->js();
+        $inicio = strpos($js, 'function salvarEdicao()');
+        self::assertNotFalse($inicio);
+        $fim = strpos($js, "\n    }\n", $inicio);
+        self::assertNotFalse($fim);
+        $corpo = substr($js, $inicio, $fim - $inicio);
+
+        self::assertStringContainsString("dispatchEvent(new CustomEvent('mc:campanha-confirmada'))", $corpo);
+        self::assertStringNotContainsString("new CustomEvent('mc:relatorio-recarregar')", $corpo);
     }
 
     private function js(): string

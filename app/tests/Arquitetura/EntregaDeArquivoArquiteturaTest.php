@@ -97,6 +97,11 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * que o `chroot` do Dompdf pode ser um diretório que só tem o que este export colocou lá.
      */
     private const QUEM_PODE_MATERIALIZAR = [
+        // O .zip do backup (Frente D): `ZipArchive::addFile` só lê por caminho local; cada arquivo entra
+        // EMPRESTADO (`paraLeitura`, cópia zero) até o `close()`. O UseCase só entrega o materializador ao
+        // ZipDoBackup. Nada é apagado nem reescrito; o .zip nasce numa área temporária própria.
+        'src/Backup/Service/ZipDoBackup.php',
+        'src/Backup/UseCase/MontarBackupUseCase.php',
         // "Ler N documentos" (PR F da spec ia-anthropic-ligar): o PDF sem contagem do upload é contado no
         // worker com o MESMO `ContadorDePaginasDePdf` (Ghostscript, só por caminho local); o arquivo é
         // EMPRESTADO (`paraLeitura`, cópia zero, sem posse), nada é apagado nem reescrito.

@@ -54,6 +54,8 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Shared/Service/ValidadorDeArquivoComprimido.php'      => 'lê o resultado da compressão no temporário',
         'src/Shared/Service/ExecucaoDoGhostscript.php'             => 'processo do Ghostscript: escreve só no TMPDIR privado e na cópia gravável',
         'src/Pasta/Service/ContadorDePaginasPorGhostscript.php'    => 'só lê: confere o upload em trânsito ou o materializado antes do Ghostscript',
+        // Backup (Frente D): o .zip nasce na área temporária; arquivos entram emprestados, medidos e com sha256.
+        'src/Backup/Service/ZipDoBackup.php'                       => 'monta o .zip do backup (ZipArchive), mede e calcula o sha256 de arquivo emprestado, na área temporária',
         // Zip da aba Documentos: lock por escritório e o tamanho do .zip gerado.
         'src/Pasta/Service/VagasDeZipDoEscritorio.php'             => 'lock files das vagas de zip',
         'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php'       => 'monta e mede o .zip gerado (ZipArchive), na área temporária',

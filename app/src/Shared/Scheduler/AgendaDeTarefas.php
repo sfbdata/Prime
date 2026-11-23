@@ -173,6 +173,13 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'voto:executar-programacao --no-interaction',
             'cron'    => '* * * * *',
         ],
+        // Aos 25 minutos de cada hora: vence os backups prontos que passaram de 7 dias (apaga o ZIP depois do commit) e
+        // marca como falhou o que ficou mais de 2 h em preparo (worker caiu). De hora em hora, fora dos minutos já
+        // ocupados (:00 Drive, :15 Contribua); sem pedido para vencer, termina na hora (spec backup, seção 5).
+        'app:backup:vencer' => [
+            'comando' => 'app:backup:vencer --no-interaction',
+            'cron'    => '25 * * * *',
+        ],
         // De hora em hora: envio do sistema para o Drive (só sistema para Drive; importar nunca
         // é automático). Sem --tenant-id: percorre todos os escritórios com Drive conectado; o
         // escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum

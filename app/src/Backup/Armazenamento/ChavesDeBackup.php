@@ -34,6 +34,12 @@ final class ChavesDeBackup
         return new ChaveDeArquivo(self::escopoDe($pedido), CategoriaDeArquivo::BACKUP_ZIP, $nome);
     }
 
+    /** O ZIP recém-gravado de um pedido que ainda não aponta para ele (para apagar o órfão se o `pronto` não gravou). */
+    public static function zipPorNome(PedidoDeBackup $pedido, string $nome): ChaveDeArquivo
+    {
+        return new ChaveDeArquivo(self::escopoDe($pedido), CategoriaDeArquivo::BACKUP_ZIP, $nome);
+    }
+
     private static function escopoDe(PedidoDeBackup $pedido): EscopoDeArquivo
     {
         return EscopoDeArquivo::deTenant((int) $pedido->getTenant()->getId());

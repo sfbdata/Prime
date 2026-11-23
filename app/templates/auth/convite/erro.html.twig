@@ -16,6 +16,8 @@
         {% else %}
             <h1>{{ 'auth.convite.erro.nao_encontrado_titulo'|trans }}</h1>
             <p>{{ 'auth.convite.erro.nao_encontrado_texto'|trans }}</p>
+            {# O reenvio troca o link (spec seguranca-a-convites B2): quem abriu o e-mail antigo acha o convite por aqui. #}
+            <a href="{{ path('auth_meus_convites') }}" class="btn-login d-block text-center mt-3" data-meus-convites>{{ 'auth.convite.erro.ver_meus_convites'|trans }}</a>
         {% endif %}
 
         <a href="{{ path('app_login') }}" class="btn-login d-block text-center mt-3">{{ 'auth.comum.ir_para_login'|trans }}</a>

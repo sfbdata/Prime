@@ -49,6 +49,9 @@ framework:
             App\Comercial\Message\VarrerAutomacoes: comercial
             App\Comercial\Message\ExpandirCampanhas: comercial
             App\Blog\Message\EnviarArtigoPorEmail: comercial
+            # Backup: montar o ZIP de uma pessoa leva minutos e arquivos grandes, então vai para o worker. Fica no `async`
+            # (que também leva o Drive e a IA) porque o backup aceita atraso.
+            App\Backup\Message\GerarBackup: async
 
 # Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
 when@test:

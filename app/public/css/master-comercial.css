@@ -369,3 +369,15 @@
 .mc-cp-msg.is-ok, .mc-rl-msg.is-ok { border-color: var(--mc-ok-borda); }
 .mc-cp-msg.is-erro, .mc-rl-msg.is-erro { border-color: var(--mc-erro-borda); }
 .mc-dsc-aviso.is-info, .mc-tst-erro.is-info { color: var(--mc-sub); }
+/* Pedido do Farlei M5.3 (23/11/2026): "Editar campanha". A faixa do modo edição, o público travado com o motivo escrito e o
+   motivo do item desabilitado no menu do Relatório (padrão .mc-motivo). */
+.mc-cp-edicao { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 18px; background: var(--mc-selo-bg); color: var(--mc-selo-tx); border-bottom: 1px solid var(--mc-div); font-size: 13px; }
+.mc-cp-edicao[hidden] { display: none; }
+.mc-cp-edicao-txt { flex: 1; min-width: 200px; font-weight: bold; }
+.mc-cp-publicos > .mc-cp-publico-motivo { display: block; grid-column: 1 / -1; }
+.mc-cp-publico-motivo[hidden] { display: none; }
+.mc-cp-em-edicao .mc-cp-modelos, .mc-cp-em-edicao .mc-cp-publicos, .mc-cp-em-edicao .mc-cf, .mc-cp-em-edicao .mc-cp-csv, .mc-cp-em-edicao .mc-cp-individual { opacity: .55; }
+.mc-cp-em-edicao .mc-cp-publico:disabled, .mc-cp-em-edicao .mc-cp-modelo { cursor: not-allowed; }
+.mc-rl-ctx-motivo { display: block; padding: 0 16px 6px 46px; }
+.mc-rl-ctx-motivo[hidden] { display: none; }
+.mc-rl-ctx-item[hidden] { display: none; }
