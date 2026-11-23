@@ -94,6 +94,7 @@ conector:
             ler_agenda: Ver a agenda e as suas metas
             ler_comercial: 'Ver o Comercial do Painel do Master: campanhas, modelos, automações e a cota de envio, sem mostrar a lista de destinatários'
             automacoes_de_email: 'Ligar, desligar e ajustar as automações de e-mail e as datas comemorativas do Painel do Master'
+            modelos_de_email: 'Criar, copiar, editar e apagar os modelos de e-mail do Painel do Master, inclusive os modelos padrão do sistema'
             atualizar_pasta: Atualizar os dados da pasta
             mudar_andamento: Mudar o andamento da pasta
             registrar_na_pasta: Registrar anotações na pasta

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Conector\Ferramenta;
 
-use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\DTO\CampanhaDoRelatorio;
 use App\Comercial\DTO\DataComemorativaOutput;
 use App\Comercial\DTO\DisparoOutput;
@@ -12,12 +11,10 @@ use App\Comercial\DTO\EstadoDaAutomacao;
 use App\Comercial\DTO\LinhaDoRelatorio;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\MetricasDaCampanha;
-use App\Comercial\DTO\ModeloDaGrade;
 use App\Comercial\DTO\PedidoDePublico;
 use App\Comercial\DTO\PedidoDoRelatorio;
 use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Exception\CampanhaRecusada;
-use App\Comercial\Repository\ModeloDeCampanhaRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
 use App\Comercial\UseCase\ConsultarEnvioDeCampanhasUseCase;
@@ -27,6 +24,7 @@ use App\Comercial\UseCase\ListarDatasComemorativasUseCase;
 use App\Comercial\UseCase\ListarModelosDeCampanhaUseCase;
 use App\Comercial\UseCase\ListarRelatorioDeCampanhasUseCase;
 use App\Comercial\UseCase\PreviaDaCampanhaUseCase;
+use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\UseCase\ResumirComercialUseCase;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
@@ -91,8 +89,7 @@ final class LerComercialFerramenta implements FerramentaDoConector
         private readonly AbrirCampanhaDoRelatorioUseCase $campanha,
         private readonly ContarPublicosUseCase $publicos,
         private readonly PreviaDaCampanhaUseCase $previa,
-        private readonly ModelosDeCampanha $fixos,
-        private readonly ModeloDeCampanhaRepository $proprios,
+        private readonly ModelosEfetivos $efetivos,
     ) {
     }
 
@@ -445,16 +442,13 @@ final class LerComercialFerramenta implements FerramentaDoConector
     private function dadosDoModelo(string $modelo): array
     {
         if (preg_match('/^(?:cu)?(\d{1,9})$/', $modelo, $partes) === 1) {
-            $entidade = $this->proprios->porId((int) $partes[1]);
-
-            return $entidade === null ? throw ErroDaFerramenta::naoEncontrado() : ModeloDaGrade::deEntidade($entidade);
+            $modelo = 'cu' . $partes[1];
         }
         if (preg_match('/^[a-z0-9-]{1,40}$/', $modelo) !== 1) {
             throw ErroDaFerramenta::filtroInvalido('modelo');
         }
-        $fixo = $this->fixos->fixo($modelo);
 
-        return $fixo === null ? throw ErroDaFerramenta::naoEncontrado() : ModeloDaGrade::deFixo($fixo);
+        return $this->efetivos->porChave($modelo) ?? throw ErroDaFerramenta::naoEncontrado();
     }
 
     /** @return array<string, int|bool|string> */
