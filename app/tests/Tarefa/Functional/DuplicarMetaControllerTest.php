@@ -160,7 +160,7 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         $meta = new Tarefa();
         $meta->setTitulo($titulo);
         $meta->setDescricao('Prazo de 15 dias úteis da intimação');
-        $meta->setPrazo(new \DateTimeImmutable('2026-11-20'));
+        $meta->setPrazo(new \DateTimeImmutable('+30 days'));
         $meta->setPrioridade(PrioridadeDaMeta::Urgente);
         $meta->setTipoDeDemanda(TipoDeDemanda::Consultoria);
         $meta->setStatus(Tarefa::STATUS_CONCLUIDA);
@@ -263,7 +263,7 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($copia);
         self::assertSame('Protocolar recurso (cópia)', $copia->getTitulo());
         self::assertSame('Prazo de 15 dias úteis da intimação', $copia->getDescricao());
-        self::assertSame('2026-11-20', $copia->getPrazo()?->format('Y-m-d'));
+        self::assertSame($original->getPrazo()?->format('Y-m-d'), $copia->getPrazo()?->format('Y-m-d'), 'a cópia leva o prazo da original');
         self::assertSame(PrioridadeDaMeta::Urgente, $copia->getPrioridade());
         self::assertSame(TipoDeDemanda::Consultoria, $copia->getTipoDeDemanda());
         self::assertSame(Tarefa::STATUS_PENDENTE, $copia->getStatus());
