@@ -56,22 +56,11 @@ final class EditarCampanhaUseCase
             // A chave do pedido não vale: o modelo da campanha não muda (nem a regra do público que ele decide).
             $mensagem = MensagemDaCampanha::deArray(array_merge($pedido->modelo, ['chave' => $campanha['modelo_chave']]));
             $this->exigirValido($mensagem, $pedido, $agora);
-            $recorrente = $pedido->frequencia !== CampanhaDeEmail::UNICA;
-            $agendada = $pedido->agendarPara ?? ($recorrente ? $agora : null);
-            $proxima = $pedido->agendarPara ?? $agora;
-            if ($recorrente && $campanha['estado'] === CampanhaDeEmail::RECORRENTE && self::mesmaData($pedido->agendarPara, $campanha['proxima_execucao'])) {
-                // Recorrente que continua recorrente sem mexer na data: a âncora (o dia 31 da mensal, por exemplo) e a
-                // próxima execução ficam como estavam; a tela só devolve a próxima, e trocar a âncora por ela a mudaria.
-                $agendada = $campanha['agendada_para'] !== null ? new \DateTimeImmutable($campanha['agendada_para'], $agora->getTimezone()) : $agendada;
-                $proxima = $campanha['proxima_execucao'] !== null ? new \DateTimeImmutable($campanha['proxima_execucao'], $agora->getTimezone()) : $proxima;
-            }
             $this->campanhas->regravar($id, [
                 'assunto' => $mensagem->assunto, 'modelo_nome' => $mensagem->nome !== '' ? $mensagem->nome : $campanha['modelo_nome'],
                 'modo' => $mensagem->modo, 'selo' => $mensagem->selo, 'titulo' => $mensagem->titulo,
                 'conteudo' => $this->composicao->congelar($mensagem), 'frequencia' => $pedido->frequencia,
-                'agendada_para' => $agendada, 'proxima' => $proxima,
-                'estado' => $recorrente ? CampanhaDeEmail::RECORRENTE : ($pedido->agendarPara !== null ? CampanhaDeEmail::AGENDADA : CampanhaDeEmail::NA_FILA),
-            ]);
+            ] + self::agendaDaEdicao($campanha, $pedido, $agora));
             $this->imagens->renovarPeloEnvio($mensagem, $agora);
             $this->campanhas->auditar(
                 $id,
@@ -84,6 +73,32 @@ final class EditarCampanhaUseCase
 
             return self::ATUALIZADA;
         });
+    }
+
+    /**
+     * A agenda regravada, com o estado coerente: única com data = `agendada`; única sem data = `na_fila`, agora; outra
+     * frequência = `recorrente`.
+     *
+     * @param array<string, mixed> $campanha
+     *
+     * @return array{agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string}
+     */
+    private static function agendaDaEdicao(array $campanha, PedidoDeEdicao $pedido, \DateTimeImmutable $agora): array
+    {
+        $recorrente = $pedido->frequencia !== CampanhaDeEmail::UNICA;
+        $agendada = $pedido->agendarPara ?? ($recorrente ? $agora : null);
+        $proxima = $pedido->agendarPara ?? $agora;
+        if ($recorrente && $campanha['estado'] === CampanhaDeEmail::RECORRENTE && self::mesmaData($pedido->agendarPara, $campanha['proxima_execucao'])) {
+            // Recorrente que continua recorrente sem mexer na data: a âncora (o dia 31 da mensal, por exemplo) e a
+            // próxima execução ficam como estavam; a tela só devolve a próxima, e trocar a âncora por ela a mudaria.
+            $agendada = $campanha['agendada_para'] !== null ? new \DateTimeImmutable($campanha['agendada_para'], $agora->getTimezone()) : $agendada;
+            $proxima = $campanha['proxima_execucao'] !== null ? new \DateTimeImmutable($campanha['proxima_execucao'], $agora->getTimezone()) : $proxima;
+        }
+
+        return [
+            'agendada_para' => $agendada, 'proxima' => $proxima,
+            'estado' => $recorrente ? CampanhaDeEmail::RECORRENTE : ($pedido->agendarPara !== null ? CampanhaDeEmail::AGENDADA : CampanhaDeEmail::NA_FILA),
+        ];
     }
 
     /**
