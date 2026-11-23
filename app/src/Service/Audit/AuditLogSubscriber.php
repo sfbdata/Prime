@@ -11,9 +11,6 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
-use App\Entity\Tenant\Cargo;
-use App\Entity\Tenant\Lotacao;
-use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
@@ -459,8 +456,8 @@ class AuditLogSubscriber
     }
 
     /**
-     * O escritório do registro de auditoria: o da sessão, salvo quando a entidade tem dono (TenantAware, ou os cadastros
-     * Cargo, Sede e Lotação, que têm escritório sem ser TenantAware) e a sessão tem escritório: aí vale o DONO
+     * O escritório do registro de auditoria: o da sessão, salvo quando a entidade tem dono (TenantAware, como os
+     * cadastros Cargo, Sede e Lotação, ou o vínculo UserTenant) e a sessão tem escritório: aí vale o DONO
      * (auditoria 3.01). Quem tem vínculo em A e B edita, com a sessão em A, a sede de B pela URL de B, e o log nascia em
      * A, visível e desfazível pela trilha de A. Lista fechada, como a posse do desfazer: classe nova só entra depois de
      * conferida.
@@ -493,8 +490,7 @@ class AuditLogSubscriber
         if ($entity instanceof Tenant) {
             return $entity->getId(); // o próprio escritório é o dono do seu registro
         }
-        if ($entity instanceof TenantAware || $entity instanceof Cargo || $entity instanceof Sede || $entity instanceof Lotacao
-            || $entity instanceof UserTenant) {
+        if ($entity instanceof TenantAware || $entity instanceof UserTenant) {
             return $entity->getTenant()?->getId();
         }
 
