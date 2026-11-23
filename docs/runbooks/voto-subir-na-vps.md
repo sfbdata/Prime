@@ -207,7 +207,8 @@ docker exec -w /var/www/app jusprime_voto_prod php -d memory_limit=256M bin/cons
 ## 8. Ligar o endereço no nginx (só depois do certificado do passo 3)
 
 **Antes, publique a página do Voto** (a que abre em `https://voto.bluejus.com.br/`). Ela vem do repositório
-dos sites (`sfbdata/sites-bluejus`, pasta `voto/`) e é enviada do **seu computador**, não da VPS:
+dos sites (`sfbdata/sites-bluejus`, pasta `voto/`, que entra pelo PR #27 de lá; sem ele mergeado, o
+`publicar.sh` não conhece o Voto) e é enviada do **seu computador**, não da VPS:
 
 ```bash
 cd ~/projetos/sites
@@ -218,8 +219,13 @@ scripts/publicar.sh --enviar   # envia de verdade
 O bloco do nginx entrega do disco só a raiz (`/`) e `/_voto/` (CSS, JS e imagens da página); todo o resto vai
 para o container do Voto. Sem a página publicada, a raiz responde 404 e o resto funciona normalmente.
 
-A página nasce fora do Google (`noindex`). Quando quiser que ela apareça na busca, peça a troca de `INDEXAR` em
-`voto/src/lib/voto.ts` no repositório dos sites e publique de novo.
+Na VPS, confira que a página chegou:
+
+```bash
+ls sites-publicados/voto/index.html sites-publicados/voto/_voto/imagens/logo-bluejus.png
+```
+
+**Esperado:** os dois arquivos listados. Depois, ligue o bloco do nginx:
 
 ```bash
 cp scripts/vps/vhosts/voto.conf.https-pendente nginx/conf.d/voto.conf
@@ -239,6 +245,9 @@ docker exec jusprime_nginx_prod nginx -t
   ```
 
 O `nginx/conf.d/voto.conf` fica fora do git, e o deploy não o apaga (ele só confere arquivos versionados).
+
+A página nasce fora do Google (`noindex`). Quando quiser que ela apareça na busca, peça a troca de `INDEXAR` em
+`voto/src/lib/voto.ts` no repositório dos sites e publique de novo.
 
 ## 9. Conferir o endereço
 
