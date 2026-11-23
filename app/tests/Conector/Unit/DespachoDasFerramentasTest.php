@@ -9,11 +9,21 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
+use App\Conector\Mcp\FerramentaEscondidaDaPessoa;
+use App\Conector\Mcp\ListaDasFerramentasDaPessoa;
 use App\Conector\Service\RequisicaoDoConector;
+use App\Entity\Auth\User;
 use App\Tests\Conector\Support\DublesDoMcpTrait;
 use Mcp\Schema\Content\EmbeddedResource;
 use Mcp\Schema\Content\ImageContent;
 use Mcp\Schema\Content\TextContent;
+use Mcp\Schema\Request\CallToolRequest;
+use Mcp\Schema\Request\ListToolsRequest;
+use Mcp\Schema\Tool;
+use Mcp\Server\Builder;
+use Mcp\Server\Server;
+use Mcp\Server\Session\InMemorySessionStore;
+use Mcp\Server\Session\Session;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +38,35 @@ use PHPUnit\Framework\TestCase;
 final class DespachoDasFerramentasTest extends TestCase
 {
     use DublesDoMcpTrait;
+
+    #[TestDox('registrarNo liga os handlers do tools/list e do tools/call à pessoa da requisição: a ferramenta do Master fica escondida sem requisição aberta e para quem não é Master, e aparece para o Master (6.9, decisão 38)')]
+    public function testHandlersLigadosAPessoaDaRequisicao(): void
+    {
+        $requisicao = new RequisicaoDoConector();
+        $despacho = new DespachoDasFerramentas([self::ferramenta('buscar_pastas', new RespostaDaFerramenta([]))], $requisicao);
+        $construtor = Server::builder();
+        $despacho->registrarNo($construtor);
+        // O Builder não expõe os handlers próprios: a reflexão só lê o que o registrarNo acabou de pôr lá.
+        $handlers = (array) (new \ReflectionProperty(Builder::class, 'requestHandlers'))->getValue($construtor);
+        $listas = array_values(array_filter($handlers, static fn (object $h): bool => $h instanceof ListaDasFerramentasDaPessoa));
+        $escondidas = array_values(array_filter($handlers, static fn (object $h): bool => $h instanceof FerramentaEscondidaDaPessoa));
+        self::assertCount(1, $listas);
+        self::assertCount(1, $escondidas);
+        $escondida = $escondidas[0];
+        $chamarDoMaster = (new CallToolRequest('ler_comercial', []))->withId(1);
+        $chamarComum = (new CallToolRequest('buscar_pastas', []))->withId(2);
+        $listar = (new ListToolsRequest())->withId(3);
+
+        self::assertTrue($escondida->supports($chamarDoMaster), 'sem requisição aberta, nenhuma do Master aparece');
+        $requisicao->abrir(self::chamada());
+        self::assertTrue($escondida->supports($chamarDoMaster), 'pessoa comum não vê a do Master');
+        self::assertFalse($escondida->supports($chamarComum), 'a ferramenta comum segue para o SDK');
+        $lista = $listas[0]->handle($listar, new Session(new InMemorySessionStore()));
+        self::assertSame(['buscar_pastas'], array_map(static fn (Tool $t): string => $t->name, $lista->result->tools));
+        $requisicao->reset();
+        $requisicao->abrir(self::chamada(pessoa: (new User())->setFullName('Master Dublê')->setRoles(['ROLE_SUPER_ADMIN'])));
+        self::assertFalse($escondida->supports($chamarDoMaster), 'o Master vê a do Master');
+    }
 
     #[TestDox('nome fora do catálogo derruba a montagem (6.3, item 1)')]
     public function testForaDoCatalogoRecusa(): void

@@ -95,6 +95,7 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(17, array_filter(\array_slice($modelos, 11, 17), static fn (array $m): bool => str_starts_with($m['chave'], 'data-') && $m['proprio'] === false));
         self::assertSame(['cu' . $novo['modelo']['id'], true], [$modelos[28]['chave'], $modelos[28]['proprio']]);
         self::assertSame(['nome' => 'Novo modelo', 'modo' => 'blocos'], $this->trilha('modelo_new', (int) $novo['modelo']['id']));
+        self::assertSame('master_comercial_modelo_criar', $this->conexao()->fetchOne("SELECT route FROM audit_log WHERE action = 'modelo_new' AND entity_id = ?", [(string) $novo['modelo']['id']]), 'a trilha manual leva a rota da requisição (6.9, decisão 36)');
     }
 
     #[TestDox('Salvar: num fixo, a mensagem do dc (422); no próprio, grava; a trilha nunca leva o conteúdo')]

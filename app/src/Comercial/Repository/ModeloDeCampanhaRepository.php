@@ -9,6 +9,7 @@ use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Os modelos próprios do Master (spec `comercial-e-emails.md` §8.2). Plataforma, sem escritório: só o Master chega
@@ -25,7 +26,7 @@ class ModeloDeCampanhaRepository extends ServiceEntityRepository
     public const ALTERADO = 'modelo_upd';
     public const EXCLUIDO = 'modelo_del';
 
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(ManagerRegistry $registry, private readonly ?RequestStack $requisicoes = null)
     {
         parent::__construct($registry, ModeloDeCampanha::class);
     }
@@ -45,10 +46,11 @@ class ModeloDeCampanhaRepository extends ServiceEntityRepository
     public function salvar(ModeloDeCampanha $modelo, string $acao, User $por): void
     {
         $em = $this->getEntityManager();
-        $em->wrapInTransaction(static function () use ($em, $modelo, $acao, $por): void {
+        $rota = $this->rota();
+        $em->wrapInTransaction(static function () use ($em, $modelo, $acao, $por, $rota): void {
             $em->persist($modelo);
             $em->flush();
-            $em->persist(self::trilha($modelo, (string) $modelo->getId(), $acao, $por));
+            $em->persist(self::trilha($modelo, (string) $modelo->getId(), $acao, $por, $rota));
             $em->flush();
         });
     }
@@ -57,17 +59,30 @@ class ModeloDeCampanhaRepository extends ServiceEntityRepository
     {
         $em = $this->getEntityManager();
         $id = (string) $modelo->getId();
-        $em->wrapInTransaction(static function () use ($em, $modelo, $id, $por): void {
+        $rota = $this->rota();
+        $em->wrapInTransaction(static function () use ($em, $modelo, $id, $por, $rota): void {
             $em->remove($modelo);
-            $em->persist(self::trilha($modelo, $id, self::EXCLUIDO, $por));
+            $em->persist(self::trilha($modelo, $id, self::EXCLUIDO, $por, $rota));
             $em->flush();
         });
     }
 
-    private static function trilha(ModeloDeCampanha $modelo, string $id, string $acao, User $por): AuditLog
+    /**
+     * A rota da requisição principal, como o `AuditLogSubscriber` grava nas linhas automáticas: na tela, a do controller;
+     * pelo conector de I.A., `conector_mcp` (`docs/specs/mcp-remoto-oauth.md`, 6.9, decisão 36). Fora de requisição, nula.
+     */
+    private function rota(): ?string
+    {
+        $rota = $this->requisicoes?->getMainRequest()?->attributes->get('_route');
+
+        return \is_string($rota) ? $rota : null;
+    }
+
+    private static function trilha(ModeloDeCampanha $modelo, string $id, string $acao, User $por, ?string $rota): AuditLog
     {
         return (new AuditLog())
             ->setAction($acao)
+            ->setRoute($rota)
             ->setEntityClass(ModeloDeCampanha::class)
             ->setEntityId($id)
             ->setActorUserId($por->getId())

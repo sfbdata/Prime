@@ -8,6 +8,7 @@ use App\Conector\Enum\TipoDeFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
 use App\Conector\Ferramenta\FerramentaDoConector;
+use App\Entity\Auth\User;
 
 /**
  * O que a página "Como conectar o Claude ou o ChatGPT" (Meu Perfil; spec mcp-remoto-oauth, 13.1 linha do PR 15) lista em
@@ -22,13 +23,17 @@ final class GuiaDoConector
     ) {
     }
 
-    /** @return array{leitura: list<string>, gravacao: list<string>} os nomes das ferramentas, na ordem do catálogo */
-    public function ferramentas(): array
+    /**
+     * As ferramentas do Painel do Master (6.9) só entram na lista do Master ({@see VisibilidadeDasFerramentasDoMaster}).
+     *
+     * @return array{leitura: list<string>, gravacao: list<string>} os nomes das ferramentas, na ordem do catálogo
+     */
+    public function ferramentas(User $pessoa): array
     {
         $registradas = array_map(static fn (FerramentaDoConector $f): string => $f->nome(), $this->despacho->registradas());
         $grupos = ['leitura' => [], 'gravacao' => []];
         foreach (CatalogoFechadoDoConector::FERRAMENTAS as $nome => $tipo) {
-            if (!\in_array($nome, $registradas, true)) {
+            if (!\in_array($nome, $registradas, true) || !VisibilidadeDasFerramentasDoMaster::visivelPara($nome, $pessoa)) {
                 continue;
             }
             match ($tipo) {

@@ -91,6 +91,18 @@ final class CatalogoFechadoDoConector
         return \array_key_exists($nome, self::FERRAMENTAS);
     }
 
+    /**
+     * As ferramentas do Painel do Master (6.9, M5.10): só o Master da plataforma as vê no `tools/list`, na `quem_sou_eu`
+     * e no guia, e só ele as chama ({@see \App\Conector\Service\VisibilidadeDasFerramentasDoMaster}). Cada uma entra em
+     * {@see FERRAMENTAS} no PR que a implementa; a lista daqui já vale para o filtro.
+     */
+    public const SO_DO_MASTER = ['ler_comercial', 'automacoes_de_email', 'modelos_de_email', 'campanhas_de_email'];
+
+    public static function soDoMaster(string $nome): bool
+    {
+        return \in_array($nome, self::SO_DO_MASTER, true);
+    }
+
     /** @throws \InvalidArgumentException ferramenta fora da lista fechada */
     public static function tipo(string $nome): TipoDeFerramenta
     {
