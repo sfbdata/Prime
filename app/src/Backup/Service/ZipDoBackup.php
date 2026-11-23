@@ -67,6 +67,7 @@ final class ZipDoBackup
     private int $bytesDeArquivos = 0;
     private int $arquivos = 0;
     private bool $fechado = false;
+    private ?string $diretorioDeDados = null;
 
     private function __construct(
         private readonly \ZipArchive $zip,
@@ -98,6 +99,12 @@ final class ZipDoBackup
     public function raiz(): string
     {
         return $this->raiz;
+    }
+
+    /** A pasta `dados` única do ZIP: todos os coletores gravam os JSONs nela (reservar de novo geraria `dados (2)`). */
+    public function diretorioDeDados(): string
+    {
+        return $this->diretorioDeDados ??= $this->reservarDiretorio('', 'dados');
     }
 
     /**

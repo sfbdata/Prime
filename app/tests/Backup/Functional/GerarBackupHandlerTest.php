@@ -77,7 +77,7 @@ final class GerarBackupHandlerTest extends KernelTestCase
 
         return new GerarBackupHandler(
             $this->em->getRepository(PedidoDeBackup::class),
-            new MontarBackupUseCase($this->duble->memoria, $this->duble->memoria, $relogio, $coletores),
+            new MontarBackupUseCase($this->duble->memoria, $this->duble->memoria, $relogio, $coletores, $this->em),
             new RemocaoAposTransacao($this->duble->memoria, new NullLogger()),
             $c->get(NotificacaoService::class),
             $em ?? $this->em,

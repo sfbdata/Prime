@@ -83,7 +83,7 @@ final class ColetorDeClientes implements ColetorDoBackup
             }
         }
 
-        $dir = $zip->reservarDiretorio('', 'dados');
+        $dir = $zip->diretorioDeDados();
         $zip->adicionarJson($dir . '/clientes.json', $dados);
     }
 
