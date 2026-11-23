@@ -214,12 +214,15 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
 
     private const GUIA = '/perfil/conexoes-de-ia/como-conectar';
 
-    private function logadoSemConexao(): void
+    /** @param list<string> $papeis */
+    private function logadoSemConexao(array $papeis = ['ROLE_USER']): User
     {
         $escritorio = $this->escritorio();
-        $pessoa = $this->pessoa();
+        $pessoa = $this->pessoa($papeis);
         $this->vinculo($pessoa, $escritorio);
         $this->logarComTenant($this->client, $pessoa, $escritorio);
+
+        return $pessoa;
     }
 
     #[TestDox('Cartão "Conexões de I.A." do Meu Perfil leva ao passo a passo, no topo do cartão')]
@@ -276,8 +279,8 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
     #[TestDox('Guia: "O que dá para pedir" lista só as ferramentas registradas, sem a confirmar_acao, com texto traduzido')]
     public function testGuiaListaAsFerramentasRegistradas(): void
     {
-        $this->logadoSemConexao();
-        $esperado = static::getContainer()->get(GuiaDoConector::class)->ferramentas();
+        $pessoa = $this->logadoSemConexao();
+        $esperado = static::getContainer()->get(GuiaDoConector::class)->ferramentas($pessoa);
 
         $tela = $this->client->request('GET', self::GUIA);
         $nomes = static fn (string $lista): array => $tela->filter($lista . ' > li')->each(static fn ($li): string => (string) $li->attr('data-ferramenta'));
@@ -287,6 +290,20 @@ final class ConexoesNoPerfilControllerTest extends JusPrimeWebTestCase
         self::assertContains('buscar_pastas', $esperado['leitura']);
         self::assertNotContains('confirmar_acao', array_merge($esperado['leitura'], $esperado['gravacao']));
         self::assertSame('Buscar pastas pelo número, pelo cliente ou pela ação, e ver relatórios como o das pastas paradas', $tela->filter('[data-ferramenta="buscar_pastas"]')->text());
+    }
+
+    #[TestDox('Guia (6.9): pessoa comum não vê a ler_comercial; o Master a vê, com o texto traduzido')]
+    public function testGuiaDaLerComercialSoParaOMaster(): void
+    {
+        $this->logadoSemConexao();
+        $tela = $this->client->request('GET', self::GUIA);
+        self::assertCount(0, $tela->filter('[data-ferramenta="ler_comercial"]'));
+        self::assertStringNotContainsString('Comercial do Painel do Master', (string) $this->client->getResponse()->getContent());
+
+        $this->logadoSemConexao(['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $tela = $this->client->request('GET', self::GUIA);
+        self::assertCount(1, $tela->filter('[data-guia-leitura] > li[data-ferramenta="ler_comercial"]'));
+        self::assertStringStartsWith('Ver o Comercial do Painel do Master', $tela->filter('[data-ferramenta="ler_comercial"]')->text());
     }
 
     #[TestDox('Toda ferramenta do catálogo fechado tem o texto do guia: a que entrar depois aparece traduzida')]

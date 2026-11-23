@@ -25,7 +25,7 @@
             <input type="hidden" name="_token" value="{{ csrf_token('dispensar_aviso_da_cota') }}">
             <input type="hidden" name="chave" value="{{ cota_de_envio.chave }}">
             <input type="hidden" name="voltar" value="{{ cota_de_envio.voltar }}">
-            <button type="submit" class="af-dispensar">{{ 'moldura.aviso_cota_de_envio.dispensar'|trans }}</button>
+            <button type="submit" class="af-dispensar bj-master">{{ 'moldura.aviso_cota_de_envio.dispensar'|trans }}</button>
         </form>
     </div>
 {% endif %}

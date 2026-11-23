@@ -1765,3 +1765,6 @@
 .pe-janela-contador-valor { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: .5px; font-variant-numeric: tabular-nums; color: var(--pe-alerta-cor); }
 .pe-janela-contador-rotulo { margin-top: 4px; color: var(--pe-corpo); }
 .pe-janela-contador--cumprido .pe-janela-contador-valor { color: var(--pe-ok-cor); }
+
+/* Lilás do Master (M5.2): só o interruptor global (do Master) ligado; o do escritório continua como está. */
+.pe-config-switch[data-config-global][aria-checked="true"] { background: var(--bj-master); }

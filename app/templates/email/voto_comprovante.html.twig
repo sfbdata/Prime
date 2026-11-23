@@ -1,8 +1,11 @@
-<!DOCTYPE html>
-<html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#12242f">
-<h1>Comprovante de participação</h1>
-<p>Seu comprovante de participação está anexado em PDF.</p>
-<p>Votação: {{ comprovante.assembleia }}<br>Pauta: {{ comprovante.pauta }}<br>{{ comprovante.identificacao }}: {{ comprovante.unidade }}<br>Data e hora: {{ comprovante.registradaEm|date('d/m/Y H:i:s') }}</p>
-<p>Código: <strong>{{ comprovante.codigo }}</strong></p>
-<p>Este comprovante confirma somente a participação. O voto é secreto e não é informado aqui.</p>
-</body></html>
+{% extends 'email/_moldura.html.twig' %}
+
+{% block titulo_documento %}Comprovante de participação{% endblock %}
+
+{% block corpo %}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">Comprovante de participação</p>
+<p style="margin:0 0 14px;">Seu comprovante de participação está anexado em PDF.</p>
+<p style="margin:0 0 14px;">Votação: {{ comprovante.assembleia }}<br>Pauta: {{ comprovante.pauta }}<br>{{ comprovante.identificacao }}: {{ comprovante.unidade }}<br>Data e hora: {{ comprovante.registradaEm|date('d/m/Y H:i:s') }}</p>
+<p style="margin:0 0 14px;">Código: <strong>{{ comprovante.codigo }}</strong></p>
+<p style="margin:0 0 14px;">Este comprovante confirma somente a participação. O voto é secreto e não é informado aqui.</p>
+{% endblock %}

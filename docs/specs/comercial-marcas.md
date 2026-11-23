@@ -13,7 +13,7 @@ linha) e L503-514 (visualizador e menu do botão direito), lógica L698-717. Con
   contagens por Master, a estrela da linha, os botões da seleção, o menu do botão direito, "Reenviar a quem não leu"
   (só aviso) e "Exportar destinatários" (CSV pelo servidor, com a auditoria `camp_csv`). Rotas novas em
   `RelatorioDoMasterController`. "Encaminhar para um e-mail" ficou desabilitado no menu (regra 7, decisão do
-  coordenador em 21/10).
+  coordenador em 21/10) e passou a funcionar em 23/11/2026 (pedido do Farlei M5 item 8; a C4 caiu).
 - Desvios e preenchimentos: do visualizador, "Reenviar a quem não leu" segue o dc L713 (sem rastreio só avisa e o
   visualizador fica aberto; o aviso fica atrás dele, como no dc, e o `role="status"` o anuncia). As rotas com `{id}`
   aceitam até 9 dígitos (`RelatorioDoMasterController::ID`): acima do INT do Postgres seria 500, agora é 404. Se o
@@ -77,8 +77,10 @@ Não há desfazer na tela (o desenho não tem).
    `@`, fica de fora). Célula que começa com `=`, `+`, `-`, `@`, tab ou CR leva `'` na frente (injeção de fórmula).
    Cada exportação grava no `audit_log` (`camp_csv`, entidade `CampanhaDeEmail`, `changes` = {linhas, formato}, o
    Master como autor), sem os e-mails.
-7. **Encaminhar para um e-mail: desabilitado** até o dono decidir (é a pergunta 1 da 5d: teste para qualquer
-   endereço contraria a C4). O item aparece no menu, desabilitado, com o motivo no title. Sem rota de envio.
+7. **Encaminhar para um e-mail: funciona** (23/11/2026, pedido do Farlei M5 item 8; a C4 caiu). Prompt "Encaminhar esta
+   campanha (como teste) para:" e aviso "Encaminhado para {e-mail}.". `POST /master/comercial/campanhas/{id}/encaminhar`
+   `{para}` (de 1 a 5 endereços; CSRF `master_comercial`) relê a cópia congelada de qualquer campanha que o visualizador
+   abre e passa pelo mesmo caminho do "Enviar teste" ([TESTE] no assunto, teto de 10 por hora, descadastro por endereço).
 8. **Rotas** (todas `ROLE_SUPER_ADMIN`; POST com CSRF `master_comercial` no header `X-CSRF-Token`):
    - `GET /master/comercial/relatorio?aba=est|arq` (as abas novas na rota da F3d);
    - `POST /master/comercial/relatorio/marcas` com JSON `{ids: [..], acao: estrela|sem_estrela|arquivar|desarquivar|remover}`
@@ -89,7 +91,5 @@ Não há desfazer na tela (o desenho não tem).
 
 - "Reenviar a quem não leu" de verdade (depende do rastreio, F3g e Política).
 - Desfazer a remoção.
-- "Encaminhar para um e-mail" de verdade (envio da campanha a um endereço digitado): espera a decisão do dono sobre
-  a C4 (pergunta 1 da 5d).
 - Limpeza do comentário solto em `RelatorioDeCampanhasRepository` (sobra da F3d, antes do `filtro()`): sai nesta
   frente.

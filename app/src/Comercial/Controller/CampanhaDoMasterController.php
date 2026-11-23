@@ -6,6 +6,7 @@ namespace App\Comercial\Controller;
 
 use App\Comercial\Campanha\PreparadorDeImagemDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\DestinosDoTeste;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloSalvoOutput;
 use App\Comercial\DTO\PedidoDeCampanha;
@@ -30,11 +31,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * O bloco "Nova campanha de e-mail" da seção "Comercial e e-mails" do /master (desenho 05 L.229-260 e L.282-286;
- * spec comercial-e-emails.md §8.2 a §8.6). Fatia 2a: modelos, prévia e "Enviar teste" (só ao Master logado). Fatia 2b:
+ * spec comercial-e-emails.md §8.2 a §8.6). Fatia 2a: modelos, prévia e "Enviar teste" (a até 5 endereços). Fatia 2b:
  * a contagem dos públicos, o "Enviar campanha" (a campanha nasce confirmada; o expansor entrega em lotes) e a lista
  * de campanhas. Só o Master. JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token` (o padrão da 1a); recusa em 422
  * com `{erro}`.
@@ -98,9 +100,14 @@ final class CampanhaDoMasterController extends AbstractController
     }
 
     #[Route('/master/comercial/teste', name: 'master_comercial_teste', methods: ['POST'])]
-    public function teste(Request $request, EnviarTesteDaCampanhaUseCase $teste): JsonResponse
+    public function teste(Request $request, EnviarTesteDaCampanhaUseCase $teste, ValidatorInterface $validador): JsonResponse
     {
-        return $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse(['mensagem' => $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master())]));
+        return $this->protegido($request, function (array $corpo) use ($teste, $validador): JsonResponse {
+            $destinos = DestinosDoTeste::deEntrada($corpo['para'] ?? null, $validador);
+            $saida = $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master(), $destinos->enderecos);
+
+            return new JsonResponse(['mensagem' => $saida->mensagem(), 'enviados' => $saida->enviados, 'aviso' => $saida->aviso()]);
+        });
     }
 
     /** Os números de "2 · PARA QUEM" e da linha de destinatários (dc L.237, L.252), com o exemplo da prévia. */

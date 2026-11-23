@@ -39,13 +39,14 @@ final class ConexoesNoPerfilController extends AbstractController
     #[Route('/perfil/conexoes-de-ia/como-conectar', name: 'conector_perfil_guia', methods: ['GET'])]
     public function guia(): Response
     {
-        if (!$this->getUser() instanceof User) {
+        $pessoa = $this->getUser();
+        if (!$pessoa instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
         return $this->render('conector/guia.html.twig', [
             'urlDoConector' => ServidorDeAutorizacao::RESOURCE,
-            'ferramentas' => $this->guia->ferramentas(),
+            'ferramentas' => $this->guia->ferramentas($pessoa),
         ]);
     }
 

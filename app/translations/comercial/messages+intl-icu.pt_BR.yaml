@@ -160,7 +160,7 @@ comercial:
         fechar: Fechar
         enviar_para: ENVIAR PARA
         separe: (separe vários por vírgula)
-        trava: O teste vai só para o seu e-mail. O envio para outros endereços ainda não está disponível.
+        dica: 'Até 5 endereços, separados por vírgula. Limite de 10 testes por hora (cada endereço conta 1).'
         nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
         cancelar: Cancelar
         enviar: Enviar teste
@@ -314,6 +314,9 @@ comercial:
         imagem_enviando: Enviando a imagem…
         imagem_ok: Imagem adicionada ao e-mail.
         modelo_salvo: Modelo salvo.
+        rascunho_recuperado: 'Rascunho recuperado (salvo em {quando}). Para começar do zero, escolha um modelo.'
+        rascunho_confirmar_troca: 'A mensagem em edição ainda não foi enviada nem salva como modelo. Trocar descarta o texto. Continuar?'
+        rascunho_mantido: 'A mensagem em edição foi mantida.'
         modelo_excluido: 'Modelo "{nome}" excluído.'
         baixar_ok: 'HTML baixado: {arquivo}.'
         bloco_campo_a: 'Bloco {n} ({tipo}): texto'

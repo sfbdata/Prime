@@ -67,6 +67,9 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('POST', '/master/comercial/campanhas/' . $id . '/cancelar', [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
         self::assertResponseStatusCodeSame(403);
         self::assertSame('na_fila', $this->estado($id));
+        $client->request('POST', '/master/comercial/campanhas/' . $id . '/encaminhar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_master_comercial'], '{"para":"a@exemplo.com"}');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
         $client->request('POST', '/master/comercial/relatorio/marcas', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['ids' => [$id], 'acao' => 'estrela']));
         self::assertResponseStatusCodeSame(403);
         $client->request('GET', '/master/comercial/campanhas/' . $id . '/destinatarios.csv');
@@ -84,6 +87,62 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertSame('na_fila', $this->estado($id));
+    }
+
+    #[TestDox('Encaminhar: sem o token CSRF, 403 e nada sai')]
+    public function testEncaminharSemCsrf(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada']);
+        $client->request('POST', '/master/comercial/campanhas/' . $id . '/encaminhar', [], [], ['CONTENT_TYPE' => 'application/json'], '{"para":"a@exemplo.com"}');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
+    }
+
+    #[TestDox('Encaminhar: campanha inexistente é 404')]
+    public function testEncaminharInexistente(): void
+    {
+        $client = $this->clienteMaster();
+        $this->encaminhar($client, 987654, 'a@exemplo.com');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
+    }
+
+    #[TestDox('Encaminhar: a cópia congelada sai como teste ([TESTE] no assunto), com a linha de teste, o destino ligado e camp_teste; a original não muda')]
+    public function testEncaminharSai(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'total' => 1]);
+        $this->encaminhar($client, $id, 'Dra.Ana@Exemplo.com, bia@exemplo.com');
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame(['dra.ana@exemplo.com', 'bia@exemplo.com'], $saida['enviados']);
+        $envios = $this->conexao()->fetchFirstColumn("SELECT assunto FROM comercial_envio WHERE origem = 'teste_campanha'");
+        self::assertCount(2, $envios);
+        foreach ($envios as $assunto) {
+            self::assertStringStartsWith('[TESTE] ', (string) $assunto);
+        }
+        $teste = $this->conexao()->fetchAssociative("SELECT id, total FROM comercial_campanha WHERE estado = 'teste'");
+        self::assertSame(2, (int) $teste['total']);
+        self::assertSame(2, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NOT NULL', [$teste['id']]));
+        self::assertSame(1, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM audit_log WHERE action = 'camp_teste' AND entity_id = ?", [(string) $teste['id']]));
+        self::assertSame('enviada', $this->estado($id), 'a campanha original segue como estava');
+    }
+
+    #[TestDox('Encaminhar: sem endereço, inválido ou mais de 5 é 422')]
+    public function testEncaminharRecusas(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada']);
+        foreach (['' => 'Informe de 1 a 5 endereços.', 'nao-e-email' => 'Endereço inválido: nao-e-email.', 'a@x.com,b@x.com,c@x.com,d@x.com,e@x.com,f@x.com' => 'Informe de 1 a 5 endereços.'] as $para => $erro) {
+            $this->encaminhar($client, $id, (string) $para);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame($erro, $this->json($client)['erro']);
+        }
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
     }
 
     #[TestDox('A lista: contagem das 3 abas (o "teste" cai em Enviadas), selo e métricas agregadas de comercial_envio')]
@@ -202,6 +261,7 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Campanha ' . $id . ' encerrada.', (string) $this->json($client)['mensagem']);
         self::assertSame(['cancelada', 'Cancelada pelo Master'], array_values((array) $this->conexao()->fetchAssociative('SELECT estado, motivo FROM comercial_campanha WHERE id = ?', [$id])));
         self::assertSame((string) $this->master->getId(), (string) $this->conexao()->fetchOne("SELECT actor_user_id FROM audit_log WHERE action = 'camp_fim' AND entity_id = ?", [(string) $id]));
+        self::assertSame('master_comercial_campanha_cancelar', $this->conexao()->fetchOne("SELECT route FROM audit_log WHERE action = 'camp_fim' AND entity_id = ?", [(string) $id]), 'a trilha manual leva a rota da requisição (6.9, decisão 36)');
 
         $this->cancelar($client, $id);
         self::assertResponseStatusCodeSame(422);
@@ -347,6 +407,11 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/comercial/relatorio?aba=' . $aba);
 
         return $this->json($client);
+    }
+
+    private function encaminhar(KernelBrowser $client, int $id, string $para): void
+    {
+        $client->request('POST', '/master/comercial/campanhas/' . $id . '/encaminhar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_master_comercial'], (string) json_encode(['para' => $para]));
     }
 
     private function cancelar(KernelBrowser $client, int $id): void

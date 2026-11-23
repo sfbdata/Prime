@@ -14,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Twig\Environment;
+use Twig\TwigFunction;
 use Twig\Loader\FilesystemLoader;
 
 #[CoversClass(CorreioDoComprovantePorEmail::class)]
@@ -43,7 +44,11 @@ final class CorreioDoComprovantePorEmailTest extends TestCase
             return true;
         }));
         $app = \dirname(__DIR__, 3);
-        $correio = new CorreioDoComprovantePorEmail($mailer, new Environment(new FilesystemLoader($app . '/templates'), ['autoescape' => 'html']), new IdentidadeDeEmail('BlueJus <teste@example.invalid>', ''), new GeradorDePdfComDompdf($app));
+        // A moldura comum dos e-mails usa asset() e absolute_url() para o logo: sem o kernel, funções de mentira.
+        $twig = new Environment(new FilesystemLoader($app . '/templates'), ['autoescape' => 'html']);
+        $twig->addFunction(new TwigFunction('asset', static fn (string $caminho): string => '/' . $caminho));
+        $twig->addFunction(new TwigFunction('absolute_url', static fn (string $caminho): string => 'https://bluejus.test' . $caminho));
+        $correio = new CorreioDoComprovantePorEmail($mailer, $twig, new IdentidadeDeEmail('BlueJus <teste@example.invalid>', ''), new GeradorDePdfComDompdf($app));
         $correio->enviar('editado@example.invalid', $comprovante);
     }
 }
