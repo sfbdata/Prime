@@ -6,6 +6,8 @@
 **Revisão:** 16/11/2026, conferida contra o `origin/master` atual (`6ba739883`). Motivo: revisão de protocolo (MCP, OAuth,
 Claude, ChatGPT e bibliotecas) e revisão de código (código, multi-tenant e tabelas), com as decisões do Coordenador na
 seção 14 (`bluejus-coordenacao/revisao-spec-mcp-protocolo-1611.md` e `revisao-spec-mcp-codigo-1611.md`).
+**Revisão:** 23/11/2026, seção 6.9 (Painel do Master pelo conector, pedido M5.10), conferida contra o `origin/master`
+(`2e6320216`), com as decisões 34 a 41 da seção 14 e os PRs 16 a 20 de 13.1.
 **Risco:** **ALTO**. Mexe em identidade (`User`/`Tenant`) e abre um caminho novo de acesso aos dados de todos os
 escritórios, fora do navegador. Pelo ciclo do projeto: spec (este documento), revisão contra a spec e **re-revisão antes de
 seguir** em cada PR de identidade.
@@ -583,7 +585,7 @@ menos as funções de administrador, mais as partes de outros módulos que a dec
 comum nos quatro módulos (51 de leitura, 136 de gravação), mais 13 de administrador (seção 5 dele) e 24 de outros módulos
 que aparecem dentro da pasta (seção 1.13 dele).
 
-**17 ferramentas, não 187.** Clientes de I.A. escolhem pior com dezenas de ferramentas (inventário, seção 6, item 9), então
+**17 ferramentas, não 187** (mais as quatro só do Master, 6.9). Clientes de I.A. escolhem pior com dezenas de ferramentas (inventário, seção 6, item 9), então
 as ações se agrupam pelo que o advogado pede, com um parâmetro `acao`. Duas regras dos clientes decidem o corte:
 
 - **Leitura e gravação nunca na mesma ferramenta.** O diretório da Anthropic exige `title` e as anotações em toda
@@ -728,9 +730,9 @@ esse passe entre as funções de administrador ("Ver e mexer em qualquer pasta, 
 no piloto isso pesa já, porque o Farlei é Master. Pela decisão 14.b, o teto vale **mesmo para Master e primário**, em
 quatro partes:
 
-1. **Lista fechada.** Só existem as 17 ferramentas desta seção, e nenhuma ação delas chama um UseCase da lista de
+1. **Lista fechada.** Só existem as 17 ferramentas desta seção (21 com as quatro do Master, 6.9, que são a exceção da decisão 34), e nenhuma ação delas chama um UseCase da lista de
    administrador da 6.1. Teste de arquitetura: nenhuma classe do conector depende desses UseCases, e ferramenta nova sem
-   linha na tabela da 6.6 derruba o teste.
+   linha na tabela da 6.6 (ou da 6.9, para as do Master) derruba o teste.
 2. **Modo do conector: sem os bypasses, para a pessoa do token.** Um serviço por requisição (nome sugerido `ModoDoConector`,
    com `ResetInterface`), ligado pelo portão com a pessoa e o vínculo do token, faz responder falso, **só quando a pergunta é
    sobre essa pessoa**:
@@ -1444,6 +1446,125 @@ registro dele, e o PR 6 não mexe no despacho do chat. A proposta do conector (6
 reaproveita a `PropostaDeCadastro`, que é presa a uma conversa do chat (`ConversaDeChat` no construtor) e só cadastra; os
 validadores e o conversor do chat (`ValidadorDaProposta`, `ConversorDaProposta`) são reaproveitados no cadastro.
 
+### 6.9 Painel do Master: o Comercial pelo conector (M5.10, revisão de 23/11/2026)
+
+**Origem:** pedido M5.10 do Farlei: pelo conector, o Master lista e edita os modelos de e-mail, cria e programa campanha,
+acompanha a fila e o status de envio e liga ou desliga as automações. **Só o Master da plataforma**, toda gravação na
+auditoria. É uma **exceção explícita à 14.b** (pelo conector, o Master age como um colega comum): vale só para as quatro
+ferramentas desta seção, só para o Comercial, e não reabre nada da lista de administrador da 6.1 nem os bypasses do teto
+(6.3). Decisões 34 a 41 da seção 14. Mapa do código conferido em 23/11/2026 no `origin/master` (`2e6320216`); caminhos
+relativos a `app/src/`.
+
+**Quem passa.** A guarda reusa a que já existe, `GuardaDoMasterDoConector::exigir`
+(`Conector/Service/GuardaDoMasterDoConector.php:17`, hoje usada pela tela do conector no painel,
+`ObterConectorNoPainelDoMasterUseCase.php:33`), que confere o papel `ROLE_SUPER_ADMIN` da pessoa do token, a mesma regra de
+`RegraDosMasters::ehMaster` (`Master/Service/RegraDosMasters.php:42`). Nenhuma guarda nova. Essa conferência **não** consulta o
+`ModoDoConector` (o teto continua desligando `isGlobalSuperAdmin` e `RegraDosPrimarios::ehMaster`, 6.3 item 2): o passe do
+Master não volta; só as ferramentas desta seção perguntam, de propósito, se a pessoa é Master. A guarda roda no `executar`
+de cada ferramenta e no `reconferir` de cada executor de proposta (o Master pode perder o papel entre propor e confirmar).
+Os UseCases que as ferramentas usam não conferem Master: a guarda fica só no controller (`#[IsGranted('ROLE_SUPER_ADMIN')]` em
+`Comercial/Controller/CampanhaDoMasterController.php:42`, `ComercialDoMasterController.php:42` e
+`RelatorioDoMasterController.php:31`). A ferramenta é a segunda porta, como o controller; o PR 16 não muda os UseCases.
+O escritório do token não importa para o Comercial (é da plataforma), mas o portão continua exigindo o vínculo ativo
+(decisão 1). A chave `conector_ia` desligada desliga também estas ferramentas; não há chave própria do Comercial no
+`CatalogoDeRecursos`. Na `TabelaDeAbaEChave`, as quatro têm módulo e chave vazios (como a `confirmar_acao`).
+
+**Quem vê.** As quatro ferramentas existem no catálogo fechado (`CatalogoFechadoDoConector::FERRAMENTAS`, que passa de 17
+para 21), mas só aparecem para o Master: o `tools/list`, a `quem_sou_eu` e o guia das "Conexões de I.A."
+(`GuiaDoConector`) as escondem de quem não é Master. O servidor é montado antes do portão
+(`Conector/Mcp/ServidorMcpDoConector.php:103` e `:135`), então o filtro do `tools/list` é um middleware depois do portão.
+O filtro é **requisito**: o PR 16 prova primeiro que o SDK permite; se não permitir, o PR para e volta ao Coordenador antes de
+qualquer ferramenta do Master. Quem não é Master e chama uma delas pelo nome recebe a mesma recusa de ferramenta
+desconhecida, sem dizer que ela existe para outro perfil.
+
+**Dado pessoal (LGPD).** Nenhuma ferramenta devolve a lista de destinatários. Saem só contagens e e-mail mascarado (letra
+inicial do nome e do domínio, mais o final do domínio: `j***@g***.com`). É uma máscara nova, do PR 16: a que a tela das
+automações usa (`ListarAutomacoesUseCase::mascarar`, `Comercial/UseCase/ListarAutomacoesUseCase.php:58-65`) mostra o domínio
+inteiro, que no caso de escritório identifica o cliente.
+
+- `ContarPublicosUseCase` devolve `ContagemDosPublicos.exemplo` com e-mail e nome do primeiro destinatário
+  (`Comercial/DTO/ContagemDosPublicos.php:20`): sai só o e-mail mascarado, sem o nome;
+- o detalhe da campanha (`AbrirCampanhaDoRelatorioUseCase`, `CampanhaDoRelatorio.destinatarios`, com e-mail): sai a contagem
+  por situação; para a situação de erro ou devolvido, no máximo 10 e-mails mascarados;
+- o CSV dos destinatários (`ExportarDestinatariosUseCase`) fica fora;
+- público `csv` e `indiv` (lista informada, `PublicosDaCampanha.php:15-27`) fica fora: pelo conector só `leads`, `prim`,
+  `sec` e `todos`. Assim o modelo nunca manda nem recebe uma lista de e-mails.
+
+A máscara sempre ligada da 6.2 (regra 6) continua valendo por cima.
+
+**Auditoria.** Leitura não vai para a Trilha (fica no log `mcp`, `RegistroDaChamadaMiddleware`). Toda gravação vai para o
+`audit_log` com `route = conector_mcp` e `tenant_id` nulo (ato de plataforma, que a Trilha do Master mostra como
+"Plataforma (sem conta)"), como a mesma ação feita na tela:
+
+- entidades `Auditavel` (`AutomacaoDeEmail`, `DataComemorativa`): o `AuditLogSubscriber` pegaria o escritório do token
+  (4.3); a ferramenta roda o UseCase dentro de `EscopoDeAuditoriaDePlataforma::executar`
+  (`Shared/Audit/EscopoDeAuditoriaDePlataforma.php:35`), que grava sem escritório; a rota sai sozinha (`:443`);
+- trilhas manuais de modelo (`ModeloDeCampanhaRepository::trilha`, `:68-77`, ações `modelo_new`, `modelo_upd`,
+  `modelo_del`) e de campanha (`CampanhaDeEmailRepository::auditar`, `:115-125`, ações `camp_conf`, `camp_fim`,
+  `camp_canc`): hoje não gravam a rota (`trilha` é `private static`, `:67`; `auditar` é INSERT cru, `:115`). O PR 16
+  injeta o `RequestStack` nos dois repositórios e grava o `_route` da requisição principal, como o `AuditLogSubscriber`
+  (`:443`): na tela, a rota do controller; no conector, `conector_mcp`. Nenhum chamador muda de assinatura;
+- `enviar_teste` não grava no `audit_log`, como na tela: o registro é a própria linha `comercial_campanha` com estado
+  `teste`, mais o log `mcp`. Só vai ao e-mail do próprio Master, com o teto de 10 por hora
+  (`TETO_POR_HORA`, `EnviarTesteDaCampanhaUseCase.php:41`, conferido em `:62-64`).
+
+O rótulo visível "feito por I.A. sob supervisão" fica para o M5.18 (perfil próprio da I.A.).
+
+**Confirmação (6.7).** Tudo que manda e-mail a terceiro, grava por cima ou apaga vai por proposta e `confirmar_acao`, um
+"sim" por ação, com o resumo que a pessoa vê antes. Valem o escopo `mcp:escrita` (5.1) e os tetos de volume das outras
+ferramentas de gravação (6.2).
+
+**Campanha só de modelo salvo.** O `ConfirmarCampanhaUseCase` aceita a mensagem inteira (`PedidoDeCampanha`, com
+`MensagemDaCampanha`: assunto, título, corpo, itens, chamada e link). Pelo conector, **não**: a `criar` recebe só o modelo
+(id ou chave), o público, a frequência e a data, e a ferramenta monta a mensagem a partir do modelo salvo. O resumo da
+proposta traz o **assunto e o corpo em texto** do modelo, além de público, total, data e frequência, para a pessoa ver o que
+vai sair antes do "sim" (texto que veio do modelo de I.A. nunca sai sem ser visto). A proposta guarda o hash do conteúdo do
+modelo; o `reconferir` relê o modelo e recusa se ele mudou desde a proposta. O mesmo vale para `editar` modelo: o resumo
+traz o texto novo inteiro. Criar, duplicar e salvar como não mandam nada a ninguém, então são diretos.
+
+**Automação e data comemorativa:** a chamada é direta **só quando o estado final é desligado**; qualquer chamada que deixa a
+automação ou a data ligada e muda algo (ligar, ou mudar atraso, antecedência ou público com ela ligada) vai por proposta.
+Pedir o estado que já está vale como nada a fazer.
+
+| Ferramenta | Ação | Tipo | UseCase | Direto ou proposta |
+|---|---|---|---|---|
+| `ler_comercial` | `resumo` | Leitura | `ResumirComercialUseCase` (só contagens: campanhas, fila, base e descadastrados), mais `ChaveDasCampanhas::ligada()` (`Comercial/Campanha/ChaveDasCampanhas.php:22`) e `CotaDeEnvio::situacao()` (`Comercial/Envio/CotaDeEnvio.php:80`), que o resumo da tela não traz | n/a |
+| `ler_comercial` | `modelos` | Leitura | `ListarModelosDeCampanhaUseCase` (fixos e próprios) | n/a |
+| `ler_comercial` | `automacoes` | Leitura | `ListarAutomacoesUseCase` e `ListarDatasComemorativasUseCase` | n/a |
+| `ler_comercial` | `campanhas` | Leitura | `ListarRelatorioDeCampanhasUseCase` (estado, totais e métricas; sem e-mail) | n/a |
+| `ler_comercial` | `campanha` | Leitura | `AbrirCampanhaDoRelatorioUseCase` (KPIs, fila e situação por contagem, LGPD acima) | n/a |
+| `ler_comercial` | `contar_publico` | Leitura | `ContarPublicosUseCase` (exemplo mascarado) | n/a |
+| `ler_comercial` | `previa` | Leitura | `PreviaDaCampanhaUseCase` sem destinatário de exemplo; sai assunto e corpo em texto, dentro do teto de 50 mil caracteres | n/a |
+| `automacoes_de_email` | `alterar_automacao` | Gravação | `AlterarAutomacaoUseCase` | direta só se o estado final é desligado; o resto, proposta (passa a mandar e-mail). A `cad` não desliga (o UseCase recusa) |
+| `automacoes_de_email` | `alterar_data` | Gravação | `AlterarDataComemorativaUseCase` | direta só se o estado final é desligado; o resto, proposta |
+| `modelos_de_email` | `criar`, `duplicar`, `salvar_como` | Gravação | `CriarModeloDeCampanhaUseCase`, `DuplicarModeloDeCampanhaUseCase`, `SalvarComoMeuModeloUseCase` | direto (acrescenta) |
+| `modelos_de_email` | `editar` | Gravação | `SalvarModeloDeCampanhaUseCase` | proposta (grava por cima), com o texto novo inteiro no resumo; modelo padrão só depois da Frente B (M5.8) |
+| `modelos_de_email` | `excluir` | Gravação | `ExcluirModeloDeCampanhaUseCase` | proposta; modelo fixo recusa |
+| `campanhas_de_email` | `criar` | Gravação | `ConfirmarCampanhaUseCase` (cria e agenda) | proposta, só de modelo salvo: o resumo mostra modelo, assunto, **corpo em texto**, público, **total** do público, data e frequência; modelo mudado desde a proposta recusa; a chave de idempotência é o id da proposta |
+| `campanhas_de_email` | `cancelar` | Gravação | `EncerrarCampanhaUseCase` (cancela a fila da origem) | proposta (não volta) |
+| `campanhas_de_email` | `enviar_teste` | Gravação | `EnviarTesteDaCampanhaUseCase` | direto: só ao e-mail do próprio Master |
+
+Fica fora do conector o resto do Comercial: importar modelo HTML (`ImportarModeloHtmlUseCase`) e a imagem do modelo ou da
+campanha (`EnviarImagemDaCampanhaUseCase`), por serem arquivo (6.1); o CSV dos destinatários e os descadastrados (listar,
+reativar, registrar e exportar), por serem lista de dado pessoal; cadastrar contato do Master
+(`CadastrarContatoDoMasterUseCase`) e simular novo cadastro; as marcas do relatório (`MarcarCampanhasDoRelatorioUseCase`); a
+prévia da automação; os públicos `csv` e `indiv`.
+
+**Envio ligado (contrato com a Frente B).** O conector lê o estado do envio **só** por `ChaveDasCampanhas::ligada()`. Hoje
+ela devolve a variável `COMERCIAL_CAMPANHAS_LIGADAS` (`config/services.yaml:164`, padrão desligada); a Frente B troca por
+dentro o que a classe lê (chave no painel) e mantém a classe como ponto único. Desligada, `ConfirmarCampanhaUseCase` recusa
+(`:57-58`), e a ferramenta devolve a recusa com o texto da tela. Campanha agendada com o envio desligado e editar ou
+reprogramar campanha (M5.3) seguem os UseCases que a Frente B criar; a ferramenta `campanhas_de_email` só sai depois deles.
+
+**Testes (12.30).** Não Master recebe recusa em cada ferramenta e cada ação, e não vê as quatro no `tools/list`, na
+`quem_sou_eu` nem no guia; Master que perde o papel entre propor e confirmar é recusado no `reconferir`; com o modo do
+conector ligado, o Master continua sem os bypasses fora destas ferramentas (o teste da 6.3 segue verde); nenhuma resposta
+traz e-mail sem máscara nem nome de destinatário; toda gravação sai com `route = conector_mcp` e `tenant_id` nulo, e a mesma
+ação pela tela sai com a rota do controller; criar campanha, ligar automação, editar e excluir modelo e cancelar campanha
+não gravam sem a confirmação; criar campanha com corpo livre recusa, e com o modelo mudado entre propor e confirmar
+também; o resumo da proposta traz o corpo do modelo; com `ChaveDasCampanhas::ligada()` falso, criar campanha recusa; o
+teste de arquitetura da 6.3 (item 1) aceita as quatro ferramentas pela tabela da 6.9.
+
 ---
 
 ## 7. Legado que a feature encosta
@@ -1783,6 +1904,9 @@ erradas do plano, todas invisíveis à leitura):
     levam as linhas pela cascata; a faxina apaga o que venceu além do prazo e não toca o que está em uso.
 29. **Resposta** (6.2, regra 7): o `content` de cada ferramenta traz o mesmo dado do `structuredContent`; nenhuma
     ferramenta declara `outputSchema`; cada campo respeita o teto de 50 mil caracteres, com paginação.
+30. **Painel do Master** (6.9): os testes listados no fim da 6.9 e o teste de arquitetura da 6.3 (item 1) com as quatro
+    ferramentas, provados reintroduzindo o defeito (tirar a guarda do Master, o filtro do `tools/list`, a máscara do
+    e-mail, a recusa do corpo livre e o escopo de plataforma da auditoria, um de cada vez).
 
 ---
 
@@ -1812,6 +1936,11 @@ no PR 3, e os números dos outros ficam iguais para não mudar as referências.
 | 13 | `conector-escrita-processos-agenda` | `processos_da_pasta`, `gravar_na_agenda` (com o teto da Agenda) e a consulta ao CNJ com UseCase extraído | 7, 9 | MÉDIO |
 | 14 | `conector-legado-restante` | UseCases extraídos de controller e as ações que dependem deles: relatórios do Expediente, timeline e controladoria da pasta, documentos do cliente (lista e exclusão), excluir cliente, excluir processo (feito), renomear documento do Financeiro (feito), lista de modelos de checklist (feita), excluir de vez da lixeira pelo conector (feito) | 11, 12, 13 | MÉDIO |
 | 15 | `conector-abertura` | Guia passo a passo do usuário (Claude e ChatGPT, com a orientação sobre "sempre permitir", "Skip approvals" e o modo "Auto", a URL exata e o plano do ChatGPT para gravação, se confirmado), novidades, `mudancas/`, ajuste de limites depois do teste com os clientes reais (smoke do Samuel) | 1 a 13 (sem o 4) | BAIXO |
+| 16 | `conector-master` | Base do Painel do Master (6.9, M5.10 PR 1): `GuardaDoMasterDoConector` no `executar` e no `reconferir`, filtro do `tools/list` (provado primeiro; é requisito), da `quem_sou_eu` e do guia para quem não é Master, máscara nova de e-mail, rota da requisição nas trilhas manuais de modelo e campanha, escopo de plataforma para as entidades `Auditavel` do Comercial | 9 | MÉDIO |
+| 17 | `conector-master` | `ler_comercial` (resumo com envio ligado e cota, modelos, automações, campanhas, campanha, contar público, prévia) | 16 | MÉDIO |
+| 18 | `conector-master` | `automacoes_de_email` (alterar automação e data comemorativa; ligar por proposta) | 16 | MÉDIO |
+| 19 | `conector-master` | `modelos_de_email` (criar, duplicar, salvar como, editar e excluir por proposta); editar modelo padrão depende da Frente B (M5.8) | 16 | MÉDIO |
+| 20 | `conector-master` | `campanhas_de_email` (criar e agendar por proposta, cancelar, enviar teste); depende da Frente B (chave do envio no painel, agendada com envio desligado, editar e reprogramar, M5.3) | 16, Frente B | MÉDIO |
 
 **Ponto de conferência do Samuel depois do PR 5, antes do PR 6:** o risco maior do piloto é interoperar (CIMD, `iss`,
 `resource`, redirect, step-up), e o primeiro teste real só viria no PR 15. Com o PR 5 integrado e o escritório piloto
@@ -2315,3 +2444,26 @@ Coordenador):**
     `MontadorDeContextoDaPasta` já monta com cada linha (`observacao:ID` e `obsfin:ID`), então só ganha id o que o montador
     já mostra, com a mesma visibilidade da tela (abas ocultas, `VisibilidadeDoFinanceiroDaPasta`, segredo); o montador e o
     contexto do chat não mudam. Teste: `LerPastaFerramentaTest::testObservacoesComId`.
+
+**Decidido em 23/11/2026 (Frente C, M5.10, pela recomendação; a exceção à 14.b foi pedida pelo Farlei):**
+
+34. **Painel do Master pelo conector** (6.9): exceção à 14.b só para as quatro ferramentas do Comercial e só para o Master
+    da plataforma (`RegraDosMasters::ehMaster`, que não passa pelo `ModoDoConector`). O teto da 6.3 continua para todo o
+    resto: o Master não ganha de volta nenhum bypass de escritório.
+35. **Destinatários**: só contagens e e-mail mascarado (`j***@g***.com`, domínio também), nunca a lista inteira nem o nome; o CSV
+    dos destinatários e os públicos `csv` e `indiv` ficam fora do conector.
+36. **Auditoria**: leitura só no log `mcp`; toda gravação no `audit_log` com `route = conector_mcp` e `tenant_id` nulo
+    (escopo de plataforma). As trilhas manuais de modelo e campanha passam a gravar a rota da requisição, na tela também.
+    O envio de teste segue a tela (sem `audit_log`; o registro é a linha da campanha de teste).
+37. **Disparo em massa**: criar ou agendar campanha, cancelar campanha, ligar automação ou data comemorativa (ou mudar
+    atraso, antecedência ou público com ela ligada), editar e excluir modelo vão por `confirmar_acao`, um "sim" por ação.
+    Campanha pelo conector só de modelo salvo, com assunto e corpo em texto no resumo, mais público, total, data e
+    frequência; modelo mudado entre propor e confirmar recusa. Só é direta a chamada cujo estado final é desligado.
+38. **Quem vê**: as quatro ferramentas somem do `tools/list`, da `quem_sou_eu` e do guia para quem não é Master. É
+    requisito: se o SDK não deixar filtrar, o PR 16 para e volta ao Coordenador.
+39. **Guarda nos dois tempos**: no `executar` e no `reconferir` do executor de proposta, reusando
+    `GuardaDoMasterDoConector` (sem guarda nova).
+40. **Envio ligado**: o conector lê só `ChaveDasCampanhas::ligada()`; a Frente B troca por dentro o que a classe lê. Os
+    UseCases novos da Frente B (modelo padrão editável, editar e reprogramar campanha) entram nas ferramentas quando
+    existirem; o PR 20 espera por eles.
+41. **Fora do piloto do Master**: importar modelo HTML, marcas do relatório e prévia da automação.
