@@ -24,7 +24,7 @@ final class GuardaDoMasterDoConector
 
     /**
      * O papel da pessoa, a mesma regra de {@see \App\Master\Service\RegraDosMasters::ehMaster}. Não passa pelo
-     * {@see ModoDoConector}, de propósito: as ferramentas do Painel do Master (6.9) perguntam se a pessoa do token é
+     * modo do conector (teto da 6.3), de propósito: as ferramentas do Painel do Master (6.9) perguntam se a pessoa do token é
      * Master; o teto da 6.3 continua tirando o passe do Master de todo o resto.
      */
     public static function ehMaster(User $user): bool
