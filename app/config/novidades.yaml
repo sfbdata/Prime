@@ -1,6 +1,13 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.8.0"
+  data: "2026-11-24"
+  itens:
+    - "O BlueJus passa a ter convênios com outras instituições além da OAB, cadastrados pela equipe do BlueJus."
+    - "Se um convênio da sua conta for terminar, os usuários principais do escritório recebem um e-mail com a data do fim, com pelo menos 30 dias de antecedência quando o convênio dá desconto ou espaço a mais. Nenhum dado é apagado e o plano continua o mesmo. Se o fim for cancelado, chega um e-mail avisando que o convênio continua."
+    - "No Ponto, durante o intervalo, o aviso do cartão ficou mais curto: mostra em destaque a hora de voltar (por exemplo, \"Volte às 14:17\") e, embaixo, há quanto tempo você está em repouso. Quando o intervalo mínimo se completa, aparece \"Já pode voltar\"."
+    - "A saída prevista do dia deixa de aparecer nesse aviso durante o intervalo e volta a aparecer depois que você registra o retorno."
 - versao: "3.7.0"
   data: "2026-11-24"
   itens:

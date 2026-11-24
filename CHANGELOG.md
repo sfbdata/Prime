@@ -8,6 +8,24 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.8.0] - 2026-11-24
+
+### Adicionado
+
+- Convênios, PR 4 da spec `docs/specs/convenios.md`: lista de convênios no painel do Master (link "Convênios" ao lado de "Convênio OAB por estado", em Planos e limites), com criar, editar, ligar, desligar com aviso prévio e desligar por instituição.
+- Rotas `master_convenio_lista`, `master_convenio_salvar`, `master_convenio_ligar` e `master_convenio_instituicao_desligar` (só o Master, CSRF por header).
+- Convênio novo é por código de convite (8 letras e números, sem 0, O, 1 e I), com "Gerar outro".
+- Desligar marca o fim: 30 dias de aviso com benefício real; gratuidade pode desligar na hora. E-mail aos primários dos escritórios vinculados, dentro da transação (falha desfaz). Religar antes do dia cancela o fim e avisa "o convênio continua".
+- A tarefa diária desliga o convênio no dia do fim e fecha os vínculos com `convenio_desligado`.
+- Trilha: convênio e vínculo ganham rótulos; o aviso gravado no vínculo fica na Trilha do escritório.
+
+### Alterado
+
+- Ponto, cartão "Registrar Ponto": o balão azul do intervalo em andamento passa a ter duas linhas. Em destaque "Volte às HH:MM" (início do repouso mais o mínimo da Jornada, arredondado para o minuto seguinte quando a batida tem segundos) e, embaixo, "Em repouso há HH:MM:SS" ao vivo.
+- Cumprido o mínimo, o destaque vira "Já pode voltar" (balão verde). Sem o mínimo (validação do repouso ou chave `ponto-alertas` desligada), só "Em repouso há HH:MM:SS".
+- A "Saída prevista" sai do balão durante o repouso e continua aparecendo depois do retorno, como antes.
+- Saem do catálogo `ponto_intervalo` os textos longos (`aviso_em_andamento`, `aviso_faltam`, `aviso_cumprido`, `saida_prevista`); entram `volte_as`, `ja_pode_voltar` e `em_repouso_ha`. A janela "Antes de registrar" não muda.
+
 ## [3.7.0] - 2026-11-24
 
 ### Alterado
@@ -2513,7 +2531,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.7.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.8.0...HEAD
+[3.8.0]: https://github.com/sfbdata/Prime/compare/v3.7.0...v3.8.0
 [3.7.0]: https://github.com/sfbdata/Prime/compare/v3.6.0...v3.7.0
 [3.6.0]: https://github.com/sfbdata/Prime/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/sfbdata/Prime/compare/v3.4.0...v3.5.0
