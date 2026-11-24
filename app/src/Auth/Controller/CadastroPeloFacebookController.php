@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\Controller;
 
+use App\Auth\DTO\ContaCriadaOutput;
 use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloFacebook;
@@ -16,6 +17,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -73,15 +75,21 @@ final class CadastroPeloFacebookController extends AbstractController
         // Igual ao cadastro por e-mail: sem login; a sessão guarda a conta (ou o marcador neutro) para o reenvio.
         $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
         if (null !== $conta) {
-            $this->convenioDoCadastro->aplicar($request->getSession(), $conta);
-            $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
-            // Só o link aberto nesta sessão mantém o facebook_id (pré-sequestro, spec login-cupom-e-facebook).
-            CadastroPeloFacebook::marcarConta($request->getSession(), (int) $conta->user->getId());
+            $this->guardarContaNova($request->getSession(), $conta);
         } else {
             $this->contaAConfirmar->guardarNeutro($request->getSession(), $email);
         }
 
         return $this->json(['ok' => true, 'confirmar' => true, 'email' => $email]);
+    }
+
+    /** A conta que acabou de nascer: entra no convênio do link (spec convenios §5.3) e fica na sessão para o reenvio. */
+    private function guardarContaNova(SessionInterface $sessao, ContaCriadaOutput $conta): void
+    {
+        $this->convenioDoCadastro->aplicar($sessao, $conta);
+        $this->contaAConfirmar->guardar($sessao, $conta->user);
+        // Só o link aberto nesta sessão mantém o facebook_id (pré-sequestro, spec login-cupom-e-facebook).
+        CadastroPeloFacebook::marcarConta($sessao, (int) $conta->user->getId());
     }
 
     /** Política do Master (spec login-config-cadastro): a identidade do Facebook sai da sessão e nada é criado. */

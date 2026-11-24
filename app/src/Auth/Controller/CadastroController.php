@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\Controller;
 
+use App\Auth\DTO\ContaCriadaOutput;
 use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\DTO\CriarSenhaPeloLinkInput;
 use App\Auth\Enum\SituacaoDoLinkDeConfirmacao;
@@ -23,6 +24,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -105,8 +107,7 @@ final class CadastroController extends AbstractController
         // pessoa (achado de auditoria interna F14). Ele também substitui a chave de um cadastro anterior deste navegador.
         $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
         if ($conta !== null) {
-            $this->convenioDoCadastro->aplicar($request->getSession(), $conta);
-            $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
+            $this->guardarContaNova($request->getSession(), $conta);
         } else {
             $this->contaAConfirmar->guardarNeutro($request->getSession(), $email);
         }
@@ -125,6 +126,13 @@ final class CadastroController extends AbstractController
         }
 
         return $this->telaDoLink(['situacao' => $situacao, 'token' => $token]);
+    }
+
+    /** A conta que acabou de nascer: entra no convênio do link (spec convenios §5.3) e fica na sessão para o reenvio. */
+    private function guardarContaNova(SessionInterface $sessao, ContaCriadaOutput $conta): void
+    {
+        $this->convenioDoCadastro->aplicar($sessao, $conta);
+        $this->contaAConfirmar->guardar($sessao, $conta->user);
     }
 
     /**
