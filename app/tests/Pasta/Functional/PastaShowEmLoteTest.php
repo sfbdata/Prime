@@ -201,7 +201,9 @@ final class PastaShowEmLoteTest extends JusPrimeWebTestCase
         $mensagem = (new TarefaMensagem())->setUsuario($autor)->setTenant($tenant)->setMensagem('<p>Despacho</p>');
         $meta->addMensagem($mensagem);
         if ($registrado) {
-            $mensagem->registrar(sprintf('2026.%04d', ++$this->codigo + random_int(0, 8000)), (string) $autor->getFullName(), null);
+            // Código só pelo contador: com o sorteio somado, 1+5 e 2+4 davam o mesmo código e a chave única
+            // (tenant_id, codigo) derrubava o teste de vez em quando (run 45410942732).
+            $mensagem->registrar(sprintf('2026.%04d', ++$this->codigo), (string) $autor->getFullName(), null);
         }
         $this->em()->persist($mensagem);
         $this->em()->flush();
