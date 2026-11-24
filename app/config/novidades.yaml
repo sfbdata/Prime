@@ -1,6 +1,25 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.5.0"
+  data: "2026-11-24"
+  itens:
+    - "No Painel do Master, em Planos e limites, há agora uma chave para ligar e desligar o Convênio OAB no sistema inteiro, com um atalho para o convênio por estado."
+    - "Com o convênio desligado, a página \"Quem somos e contribua\" deixa de mostrar a parceria com a OAB, a pergunta sobre o convênio e o selo do plano gratuito. Os planos e os valores continuam os mesmos."
+    - "Na Central do Master, em Armazenamento, a lista \"Contas por consumo\" agora destaca a linha ao passar o mouse, o que facilita ler a conta certa."
+    - "A lista ganhou um campo de busca por nome, primário, número ou código da conta."
+    - "Também dá para escolher a ordem: maior consumo, nome de A a Z ou situação (as contas mais perto do limite primeiro)."
+    - "Na Central do Master, a trilha de Segurança e auditoria ganhou um campo de busca: basta digitar 3 letras de um nome, de uma conta ou de uma ação para achar o registro, sem precisar folhear as páginas. O PDF sai com o resultado da busca."
+    - "Na aba de Permissões, a lista de Masters e a escolha de quem promover a Master também ganharam busca por nome, e-mail ou OAB."
+    - "Telas do Master: o BlueJus passou a ver e mudar, escritório por escritório, quais ferramentas cada escritório tem (Expediente, I.A., Cobranças, Cálculo, Kanban, Assinatura, Ponto e Voto), numa aba nova chamada Ferramentas."
+    - "Quando a equipe do BlueJus desliga uma ferramenta de um escritório, o dono do escritório não consegue ligar de novo pelo Meu Perfil: ele vê \"Desligada pelo BlueJus\". Só a equipe do BlueJus liga de novo."
+    - "Também ficou possível definir o limite mensal de gasto que a I.A. recebe quando o dono do escritório a liga sozinho. Quem já usa a I.A. mantém o limite que já tem."
+    - "O dono do escritório ganhou, no Meu Perfil, o cartão \"Ferramentas do escritório\": ali ele liga e desliga sozinho o Expediente, a I.A., as Cobranças, o Cálculo, o Kanban, a Assinatura, o Ponto e o Voto."
+    - "Desligar não apaga nada: ao ligar de novo, tudo volta como estava. O menu muda na hora."
+    - "Ao ligar uma ferramenta, o cartão lembra de ajustar o acesso nos Perfis da equipe, porque os perfis criados pelo escritório não ganham acesso sozinhos."
+    - "Quando a equipe do BlueJus desligar uma ferramenta, ela aparece como \"Desligada pelo BlueJus\" e só a equipe liga de novo."
+    - "No Voto, na Gestão eleitoral, cada assembleia agora aparece num quadro separado, com um espaço entre um e outro, como já acontece em Votar e Resultados. Fica mais fácil ver onde termina uma assembleia e começa a próxima."
+    - "O filtro (Buscar, Entidade e Situação) também ganhou um quadro só dele."
 - versao: "3.4.0"
   data: "2026-11-24"
   itens:

@@ -17,5 +17,5 @@ namespace App\Shared;
  */
 final class VersaoDoSistema
 {
-    public const ATUAL = '3.4.0';
+    public const ATUAL = '3.5.0';
 }
