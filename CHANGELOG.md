@@ -8,6 +8,15 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.6.0] - 2026-11-24
+
+### Alterado
+
+- Convênios, PR 2 da spec `docs/specs/convenios.md`: migration `Version20261124120000` cria as tabelas `convenio` (global) e `convenio_vinculo` (escritório num convênio, com histórico) e grava a linha do Convênio OAB de hoje.
+- Entidades `Convenio` e `ConvenioVinculo`, enums, repositórios e a leitura única `ConveniosDoEscritorio`. Sem vínculo gravado, o convênio OAB vale implícito (decisão de 24/11): nada muda na cobrança nem no Contribua.
+- Painel do Master, seção Contas: o rótulo de convênio de cada conta passa a ser lido pela `ConveniosDoEscritorio` e some quando a chave geral do Convênio OAB está desligada.
+- A purga do escritório apaga os vínculos; `ConvenioVinculo` só é consultado pelo próprio repositório (teste de arquitetura). A linha `oab` entrou nos dados de referência do CI.
+
 ## [3.5.0] - 2026-11-24
 
 ### Adicionado
@@ -2495,7 +2504,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.5.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.6.0...HEAD
+[3.6.0]: https://github.com/sfbdata/Prime/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/sfbdata/Prime/compare/v3.4.0...v3.5.0
 [3.4.0]: https://github.com/sfbdata/Prime/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/sfbdata/Prime/compare/v3.2.0...v3.3.0
