@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.7.0"
+  data: "2026-11-24"
+  itens:
+    - "O BlueJus passou a registrar quais escritórios estão no Convênio OAB, conferindo todo dia o estado do escritório e a OAB de quem o criou. Quem tem OAB válida continua com o convênio como antes."
+    - "Na área do Master, o aviso verde de convênio embaixo do plano aparece só nas contas que estão no Convênio OAB."
 - versao: "3.6.0"
   data: "2026-11-24"
   itens:
