@@ -233,6 +233,9 @@
 }
 .pe-caixa > .bi { font-size: 15px; }
 .pe-caixa-texto { flex: 1; min-width: 0; }
+/* Aviso do intervalo em duas linhas: a hora de voltar em destaque e, embaixo, há quanto tempo está em repouso. */
+.pe-caixa-destaque { display: block; font-size: 15px; font-weight: 700; }
+.pe-caixa-detalhe { display: block; }
 .pe-caixa--info    { --pe-caixa-bd: var(--pe-info-bd);   --pe-caixa-esq: var(--pe-info-bd);   --pe-caixa-bg: var(--pe-info-bg);   --pe-caixa-cor: var(--pe-info-cor); }
 .pe-caixa--success { --pe-caixa-bd: var(--pe-ok-bd);     --pe-caixa-esq: var(--pe-ok-bd);     --pe-caixa-bg: var(--pe-ok-bg);     --pe-caixa-cor: var(--pe-ok-cor); }
 .pe-caixa--warning { --pe-caixa-bd: var(--pe-alerta-bd); --pe-caixa-esq: var(--pe-alerta-bd); --pe-caixa-bg: var(--pe-alerta-bg); --pe-caixa-cor: var(--pe-alerta-cor); }
