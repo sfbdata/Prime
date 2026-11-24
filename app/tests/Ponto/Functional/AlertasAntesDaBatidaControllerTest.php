@@ -330,7 +330,10 @@ final class AlertasAntesDaBatidaControllerTest extends JusPrimeWebTestCase
         )->text(), true, 512, \JSON_THROW_ON_ERROR);
         self::assertSame('Faltam para completar o intervalo mínimo de {minimo}. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.', $catalogo['ponto_intervalo.js.janela_faltam']);
         self::assertSame('Intervalo mínimo de {minimo} cumprido. Pode registrar o retorno.', $catalogo['ponto_intervalo.js.janela_cumprido']);
-        self::assertSame('Em intervalo desde {inicio} (há {decorrido}). Faltam {faltam} para completar o mínimo de {minimo}.{saida}', $catalogo['ponto_intervalo.js.aviso_faltam']);
+        self::assertSame('Volte às {hora}', $catalogo['ponto_intervalo.js.volte_as']);
+        self::assertSame('Já pode voltar', $catalogo['ponto_intervalo.js.ja_pode_voltar']);
+        self::assertSame('Em repouso há {decorrido}', $catalogo['ponto_intervalo.js.em_repouso_ha']);
+        self::assertArrayNotHasKey('ponto_intervalo.js.aviso_faltam', $catalogo, 'o texto longo do intervalo voltou');
         self::assertSame('', trim($janela->filter('#ponto-alerta-texto')->text()), 'o alerta entra pelo script (textContent)');
         self::assertSame(AlertasAntesDaBatida::NOTA, trim($janela->filter('.pe-janela-alerta-nota')->text()));
         $rodape = $janela->filter('div.pe-janela-rodape');

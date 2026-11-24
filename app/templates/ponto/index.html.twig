@@ -138,9 +138,10 @@
                         </div>
                     {% endif %}
 
-                    {# P12: intervalo em andamento ou cumprido, saída prevista e saída passada. Desenhada pelo JS. O mínimo
+                    {# P12: intervalo em andamento ("Volte às 14:17" ou "Já pode voltar", e há quanto tempo está em
+                       repouso), saída prevista e saída passada. Desenhada pelo JS. O mínimo
                        do intervalo é o da Jornada do escritório e só vale com a validação do repouso ligada (regra em
-                       vigor); desligada, vai 0 e o aviso mostra só o tempo do intervalo, sem o mínimo. E11: com a chave
+                       vigor); desligada, vai 0 e o aviso mostra só o tempo do intervalo, sem a hora de voltar. E11: com a chave
                        `ponto-alertas` desligada também vai 0: some o mínimo (o aviso, spec §7) e fica só o tempo. #}
                     <div id="ponto-aviso-dia" class="pe-caixa d-none"
                          data-intervalo-minimo-minutos="{{ validacaoRepousoHabilitada and alertasLigados ? minimoMinutosRepouso : 0 }}"></div>
@@ -713,9 +714,9 @@
             excedenteEl.classList.add('d-none');
         }
 
-        // P12 (desenho, decisão do dono de 09/11/2026): o aviso do dia no cartão. Em repouso, o tempo do intervalo ao
-        // vivo, quanto falta para o mínimo do escritório e a saída prevista; depois da entrada, a saída prevista e o
-        // lembrete quando ela passa.
+        // P12 (desenho, decisão do dono de 09/11/2026): o aviso do dia no cartão. Em repouso, a hora de voltar e o tempo
+        // do intervalo ao vivo (pedido do Samuel de 24/11/2026); depois da entrada, a saída prevista e o lembrete quando
+        // ela passa.
         // Usa a mesma hora do aparelho que o relógio; a regra do intervalo continua no servidor.
         const avisoDiaEl = document.getElementById('ponto-aviso-dia');
         // O mínimo do aviso vem do servidor já com a chave do escritório: 0 com a validação do repouso desligada.
@@ -747,7 +748,8 @@
         // que o servidor aplica (o da Jornada do escritório com a validação do repouso ligada; 0 desligada) e o almoço da
         // escala (duração menos meta), com ou sem almoço. Escala 08-12/14-18 (meta 480, mínimo 60): 18:00 antes e no
         // começo do repouso, 18:10 com 2h10 de repouso. Escala de 8h sem almoço e mínimo 60 ligado: 17:00 até 1h de
-        // repouso. Quem chama no repouso passa `agora`, a cada tique do relógio. No repouso com a meta já coberta até
+        // repouso. Quem chama no repouso pode passar `agora` (o aviso do dia deixou de chamar: no repouso o balão não mostra
+        // a saída, pedido do Samuel de 24/11/2026; o lembrete chama sem ele e fica com o piso). No repouso com a meta já coberta até
         // ele (decisão do Coordenador de 09/11/2026), nenhuma: o aviso mostra só o intervalo (dc L771), em vez de uma
         // hora já passada que andava com o relógio. Depois do retorno, a conta do intervalo batido dá uma hora fixa e o
         // aviso segue "Passou da saída prevista".
@@ -768,10 +770,11 @@
             return new Date(tEntrada.getTime() + metaDiaMinutos * 60000 + Math.max(feitoMs, pisoMs));
         }
 
-        // Redesenha só quando o texto muda (o relógio chama a cada segundo). Texto e ícone via DOM, sem innerHTML.
-        function mostrarAvisoDoDia(tom, icone, texto) {
+        // Redesenha só quando o texto muda (o relógio chama a cada segundo). Texto e ícone via DOM, sem innerHTML. Com
+        // `detalhe`, duas linhas: o texto em destaque e o detalhe embaixo (o intervalo em andamento).
+        function mostrarAvisoDoDia(tom, icone, texto, detalhe) {
             if (!avisoDiaEl) return;
-            const chave = texto ? tom + '|' + texto : '';
+            const chave = texto ? tom + '|' + texto + '|' + (detalhe || '') : '';
             if (avisoDiaEl.dataset.chave === chave) return;
             avisoDiaEl.dataset.chave = chave;
             if (!texto) {
@@ -783,7 +786,17 @@
             iconeEl.setAttribute('aria-hidden', 'true');
             const textoEl = document.createElement('span');
             textoEl.className = 'pe-caixa-texto';
-            textoEl.textContent = texto;
+            if (detalhe) {
+                const destaqueEl = document.createElement('strong');
+                destaqueEl.className = 'pe-caixa-destaque';
+                destaqueEl.textContent = texto;
+                const detalheEl = document.createElement('span');
+                detalheEl.className = 'pe-caixa-detalhe';
+                detalheEl.textContent = detalhe;
+                textoEl.replaceChildren(destaqueEl, detalheEl);
+            } else {
+                textoEl.textContent = texto;
+            }
             avisoDiaEl.replaceChildren(iconeEl, textoEl);
             avisoDiaEl.className = 'pe-caixa pe-caixa--' + tom;
         }
@@ -792,34 +805,37 @@
             return String(data.getHours()).padStart(2, '0') + ':' + String(data.getMinutes()).padStart(2, '0');
         }
 
+        // A hora de voltar do intervalo: o início do repouso mais o mínimo, arredondada para o minuto seguinte quando a
+        // batida tem segundos (repouso 13:17:30 e mínimo de 1h: "Volte às 14:18", porque às 14:17 o mínimo ainda não
+        // se completou e a janela "Antes de registrar" ainda avisaria). É a hora do servidor, a da batida de repouso: o
+        // "Já pode voltar" usa a hora do aparelho com `acertoDoIntervaloMs`, que a leva para a do servidor, e vira no
+        // mesmo instante (no máximo 59 s antes da hora mostrada, pelo arredondamento).
+        function horaDeVoltarDoIntervalo() {
+            return new Date(Math.ceil((tRepouso.getTime() + minimoRepousoMinutos * 60000) / 60000) * 60000);
+        }
+
         function atualizarAvisoDoDia(agora) {
             // Em repouso: o tempo do intervalo ao vivo, em HH:MM:SS, durante todo o repouso, com ou sem a validação do
             // repouso (função do sistema que volta: o contador do repouso de antes da E1). O tique é o do relógio
-            // (`updateClock`, a cada segundo); o início é a hora da batida de repouso que o cartão já tem. Com a
-            // validação, também o mínimo do escritório. E a saída prevista, quando houver (também função que volta).
+            // (`updateClock`, a cada segundo); o início é a hora da batida de repouso que o cartão já tem.
+            // Pedido do Samuel (24/11/2026): de relance, só duas coisas. Em destaque a hora de voltar ("Volte às 14:17")
+            // ou "Já pode voltar" depois do mínimo, e embaixo há quanto tempo está em repouso. Sem o mínimo (validação
+            // do repouso ou chave `ponto-alertas` desligada), só o tempo. A saída prevista sai do balão no repouso e
+            // volta depois do retorno, no ramo de fora dele.
             if (tRepouso && !tRetorno && !tSaida) {
                 const decorrido = Math.max(0, Math.floor((agora - tRepouso + acertoDoIntervaloMs) / 1000));
-                const previstaNoRepouso = saidaPrevista(agora);
-                // "Desde 12:00 (há 00:04:22)": a hora de início deixa claro que o contador do intervalo é o tempo passado,
-                // não o que falta (quem leu "há 00:04:22" como tempo restante achou o "faltam" errado).
-                const textos = {
-                    inicio: formatarHoraDoDia(tRepouso),
-                    decorrido: formatarTempo(decorrido),
-                    saida: previstaNoRepouso ? BJ_T.t('ponto_intervalo.js.saida_prevista', { hora: formatarHoraDoDia(previstaNoRepouso) }) : '',
-                };
+                const emRepouso = BJ_T.t('ponto_intervalo.js.em_repouso_ha', { decorrido: formatarTempo(decorrido) });
                 if (minimoRepousoMinutos <= 0) {
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', BJ_T.t('ponto_intervalo.js.aviso_em_andamento', textos));
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', emRepouso);
                     return;
                 }
-                textos.minimo = formatarMinimo(minimoRepousoMinutos);
                 const restante = segundosParaOMinimoDoIntervalo(agora);
                 if (restante > 0) {
-                    // Ao vivo, em HH:MM:SS, o mesmo número do contador da janela "Antes de registrar".
-                    textos.faltam = formatarTempo(restante);
-                    mostrarAvisoDoDia('info', 'bi-hourglass-split', BJ_T.t('ponto_intervalo.js.aviso_faltam', textos));
+                    const hora = formatarHoraDoDia(horaDeVoltarDoIntervalo());
+                    mostrarAvisoDoDia('info', 'bi-hourglass-split', BJ_T.t('ponto_intervalo.js.volte_as', { hora }), emRepouso);
                     return;
                 }
-                mostrarAvisoDoDia('success', 'bi-check-circle', BJ_T.t('ponto_intervalo.js.aviso_cumprido', textos));
+                mostrarAvisoDoDia('success', 'bi-check-circle', BJ_T.t('ponto_intervalo.js.ja_pode_voltar'), emRepouso);
                 return;
             }
             // E8 (P83): com a função `ponto-lembrete` desligada, sem "Saída prevista" e sem o lembrete (aviso, som e

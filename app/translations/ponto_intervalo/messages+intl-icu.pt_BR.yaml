@@ -1,10 +1,9 @@
 # ---- Ponto: o intervalo em andamento (aviso do dia no cartão e contador da janela "Antes de registrar")
 ponto_intervalo:
     js:
-        aviso_em_andamento: 'Em intervalo desde {inicio} (há {decorrido}).{saida}'
-        aviso_faltam: 'Em intervalo desde {inicio} (há {decorrido}). Faltam {faltam} para completar o mínimo de {minimo}.{saida}'
-        aviso_cumprido: 'Intervalo mínimo de {minimo} cumprido. Em intervalo desde {inicio} (há {decorrido}).{saida}'
-        saida_prevista: ' Saída prevista às {hora}.'
+        volte_as: 'Volte às {hora}'
+        ja_pode_voltar: 'Já pode voltar'
+        em_repouso_ha: 'Em repouso há {decorrido}'
         janela_faltam: 'Faltam para completar o intervalo mínimo de {minimo}. Se registrar agora, a folha marcará o intervalo intrajornada como não conforme.'
         janela_cumprido: 'Intervalo mínimo de {minimo} cumprido. Pode registrar o retorno.'
 
