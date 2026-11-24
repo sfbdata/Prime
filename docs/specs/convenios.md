@@ -276,6 +276,13 @@ Regras:
   lista de contas depois de gravar uma UF.
 - **Trilha:** cada escritório numa transação com trava própria; a linha da Trilha fica no escritório do vínculo
   (`executarComoConta`).
+- **Falhas (revisão do PR 3):** na volta diária, o escritório que falha vai para o log, a volta segue com os outros e
+  o comando termina com falha (o aviso de tarefa agendada aparece); só para se a falha fechou o EntityManager. Depois
+  da trava, o escritório é relido (um gancho pode ter mudado o estado no meio da volta).
+- **Limites conhecidos:** nos ganchos, uma falha de banco ao gravar o vínculo fecha o EntityManager da requisição; os
+  dados do escritório e da UF já estão gravados, mas a resposta pode dar erro (raro: a trava e a regra evitam as
+  recusas). A volta diária faz uma transação e duas leituras por escritório: serve para milhares de contas; acima
+  disso, ler em lote. A aprovação da OAB pelo Master não tem gancho: o vínculo aparece na volta das 2h10 seguinte.
 
 ### 5.2 OAB divergente
 

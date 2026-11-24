@@ -36,7 +36,8 @@ final class RegraDosVinculosDeConvenio
         foreach ($abertos as $vinculo) {
             $motivo = $this->motivoDoFim($vinculo, $escritorio, $contexto, $mudancas);
             if ($motivo !== null) {
-                $vinculo->encerrar($motivo, $contexto->agora);
+                // Nunca antes do início (relógio para trás): encerrar não pode recusar no meio da volta.
+                $vinculo->encerrar($motivo, max($contexto->agora, $vinculo->getInicio()));
                 ++$mudancas->encerrados;
                 continue;
             }

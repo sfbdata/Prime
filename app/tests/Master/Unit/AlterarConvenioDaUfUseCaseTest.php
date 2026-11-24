@@ -89,6 +89,7 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
             $this->createStub(EntityManagerInterface::class),
             $conexao,
             new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')),
+            new NullLogger(),
         );
     }
 

@@ -12,6 +12,8 @@ final class ResultadoDaSincronizacao
     public int $encerrados = 0;
     public int $provasPendentes = 0;
     public int $provasDeVolta = 0;
+    /** Escritórios que falharam (estão no log); a volta seguiu. */
+    public int $falhas = 0;
 
     public function somar(MudancasDoVinculo $mudancas): void
     {

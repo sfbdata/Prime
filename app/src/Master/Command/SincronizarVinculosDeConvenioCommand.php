@@ -29,14 +29,16 @@ final class SincronizarVinculosDeConvenioCommand extends Command
     {
         $r = $this->useCase->executar();
         $output->writeln(sprintf(
-            'escritorios: %d · criados: %d · encerrados: %d · provas pendentes: %d · provas de volta: %d',
+            'escritorios: %d · criados: %d · encerrados: %d · provas pendentes: %d · provas de volta: %d · falhas: %d',
             $r->escritorios,
             $r->criados,
             $r->encerrados,
             $r->provasPendentes,
             $r->provasDeVolta,
+            $r->falhas,
         ));
 
-        return Command::SUCCESS;
+        // Falha de um escritório não para a volta, mas a tarefa acusa: o aviso de tarefa agendada com falha aparece.
+        return $r->falhas > 0 ? Command::FAILURE : Command::SUCCESS;
     }
 }

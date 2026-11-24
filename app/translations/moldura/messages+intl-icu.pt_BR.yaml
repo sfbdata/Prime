@@ -151,6 +151,7 @@ moldura:
             desempenho_purgar: Limpeza dos registros de desempenho
             documentos_purgar_lixeira: Limpeza da lixeira dos documentos (30 dias)
             importar_indices_monetarios: Importação dos índices monetários
+            convenios_sincronizar_vinculos: Vínculos dos escritórios com os convênios
             djen_sincronizar: Captação das publicações do DJEN
             push_resumo_semanal_cliente: Resumo semanal ao cliente
             pastas_rotina_controladoria: Rotina de segunda-feira da Controladoria

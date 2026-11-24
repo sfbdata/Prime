@@ -151,6 +151,7 @@ moldura:
             desempenho_purgar: Performance records cleanup
             documentos_purgar_lixeira: Documents trash cleanup (30 days)
             importar_indices_monetarios: Monetary index import
+            convenios_sincronizar_vinculos: Office partnership links
             djen_sincronizar: DJEN publication capture
             push_resumo_semanal_cliente: Weekly client summary
             pastas_rotina_controladoria: Monday Docket control routine

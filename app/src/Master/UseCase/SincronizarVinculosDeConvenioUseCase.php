@@ -21,6 +21,7 @@ use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Grava os vínculos dos escritórios com os convênios (spec docs/specs/convenios.md, §5.1 e §5.2, PR 3). Idempotente;
@@ -47,16 +48,20 @@ final class SincronizarVinculosDeConvenioUseCase
         private readonly EntityManagerInterface $em,
         private readonly Connection $conexao,
         private readonly ClockInterface $relogio,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
-    /** A volta diária, para todos os escritórios. */
+    /**
+     * A volta diária, para todos os escritórios. Um escritório que falha vai para o log e a volta segue (o comando
+     * acusa a falha); só para se a falha fechou o EntityManager.
+     */
     public function executar(): ResultadoDaSincronizacao
     {
-        $contexto = $this->contexto(MotivoDoFimDoVinculo::UfDesligada);
-        $resultado = $this->sincronizar($this->vinculos->escritoriosParaConvenio(), $contexto);
-        if ($contexto->chaveLigada) {
-            $this->marcarSincronizados($contexto->agora);
+        $ids = array_map(static fn (EscritorioParaConvenio $e): int => $e->tenantId, $this->vinculos->escritoriosParaConvenio());
+        $resultado = $this->sincronizar($ids, MotivoDoFimDoVinculo::UfDesligada, seguirAposFalha: true);
+        if ($this->chave->ativo()) {
+            $this->marcarSincronizados(\DateTimeImmutable::createFromInterface($this->relogio->now()));
         }
 
         return $resultado;
@@ -65,38 +70,52 @@ final class SincronizarVinculosDeConvenioUseCase
     /** Um escritório só, logo depois de ele mudar de estado. */
     public function doEscritorio(int $tenantId, MotivoDoFimDoVinculo $motivoDaUf = MotivoDoFimDoVinculo::EstadoMudou): ResultadoDaSincronizacao
     {
-        return $this->sincronizar($this->vinculos->escritoriosParaConvenio([$tenantId]), $this->contexto($motivoDaUf));
+        return $this->sincronizar([$tenantId], $motivoDaUf, seguirAposFalha: false);
     }
 
     /** Os escritórios de uma UF, logo depois de o Master mudar o convênio dela. */
     public function daUf(string $uf): ResultadoDaSincronizacao
     {
-        $daUf = array_values(array_filter($this->vinculos->escritoriosParaConvenio(), static fn (EscritorioParaConvenio $e): bool => $e->uf === $uf));
+        $daUf = array_filter($this->vinculos->escritoriosParaConvenio(), static fn (EscritorioParaConvenio $e): bool => $e->uf === $uf);
 
-        return $this->sincronizar($daUf, $this->contexto(MotivoDoFimDoVinculo::UfDesligada));
+        return $this->sincronizar(array_values(array_map(static fn (EscritorioParaConvenio $e): int => $e->tenantId, $daUf)), MotivoDoFimDoVinculo::UfDesligada, seguirAposFalha: false);
     }
 
-    /** @param list<EscritorioParaConvenio> $escritorios */
-    private function sincronizar(array $escritorios, ContextoDosVinculos $contexto): ResultadoDaSincronizacao
+    /** @param list<int> $tenantIds */
+    private function sincronizar(array $tenantIds, MotivoDoFimDoVinculo $motivoDaUf, bool $seguirAposFalha): ResultadoDaSincronizacao
     {
         $resultado = new ResultadoDaSincronizacao();
-        foreach ($escritorios as $escritorio) {
-            $this->conexao->transactional(function () use ($escritorio, $contexto, $resultado): void {
-                $this->conexao->executeQuery("SELECT pg_advisory_xact_lock(hashtextextended('convenio_vinculo:' || ?, 0))", [$escritorio->tenantId]);
-                $this->sincronizarUm($escritorio, $contexto, $resultado);
-            });
+        $contexto = $this->contexto($motivoDaUf);
+        foreach ($tenantIds as $tenantId) {
+            try {
+                $this->conexao->transactional(fn () => $this->sincronizarUm($tenantId, $contexto, $resultado));
+            } catch (\Throwable $e) {
+                $this->logger->error('Convênios: falha ao sincronizar os vínculos de um escritório.', ['tenantId' => $tenantId, 'erro' => $e::class, 'mensagem' => $e->getMessage()]);
+                if (!$seguirAposFalha || !$this->em->isOpen()) {
+                    throw $e;
+                }
+                ++$resultado->falhas;
+                // Descarta o que ficou pela metade, para o próximo escritório não gravar junto; o contexto é relido.
+                $this->em->clear();
+                $contexto = $this->contexto($motivoDaUf);
+            }
         }
 
         return $resultado;
     }
 
-    private function sincronizarUm(EscritorioParaConvenio $escritorio, ContextoDosVinculos $contexto, ResultadoDaSincronizacao $resultado): void
+    /** Depois da trava, relê o escritório: um gancho pode ter mudado o estado enquanto a volta diária andava. */
+    private function sincronizarUm(int $tenantId, ContextoDosVinculos $contexto, ResultadoDaSincronizacao $resultado): void
     {
-        $abertos = $this->vinculos->abertosDosTenants([$escritorio->tenantId])[$escritorio->tenantId] ?? [];
-        $tenant = $this->em->getReference(Tenant::class, $escritorio->tenantId);
-        $mudancas = $this->regra->aplicar($tenant, $escritorio, $abertos, $contexto);
+        $this->conexao->executeQuery("SELECT pg_advisory_xact_lock(hashtextextended('convenio_vinculo:' || ?, 0))", [$tenantId]);
+        $escritorio = $this->vinculos->escritoriosParaConvenio([$tenantId])[0] ?? null;
+        if ($escritorio === null) {
+            return;
+        }
+        $abertos = $this->vinculos->abertosDosTenants([$tenantId])[$tenantId] ?? [];
+        $mudancas = $this->regra->aplicar($this->em->getReference(Tenant::class, $tenantId), $escritorio, $abertos, $contexto);
         if ($mudancas->houveMudanca()) {
-            $this->escopoDePlataforma->executarComoConta($escritorio->tenantId, function () use ($mudancas): void {
+            $this->escopoDePlataforma->executarComoConta($tenantId, function () use ($mudancas): void {
                 if ($mudancas->novo !== null) {
                     $this->vinculos->salvar($mudancas->novo);
                 }

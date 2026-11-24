@@ -143,6 +143,35 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         self::assertEquals($antes, $configuracoes->buscarUnica()?->getVinculosDeConvenioSincronizadosEm());
     }
 
+    #[TestDox('consulta em lote: OAB válida pela inscrição (uma não divergente basta) ou, sem inscrição, pelo espelho do usuário')]
+    public function testOabValidaNaConsulta(): void
+    {
+        $semCriador = $this->escritorio('Goiânia/GO', null);
+        $espelhoConfirmado = $this->escritorio('Goiânia/GO', $this->criador(StatusOab::Confirmada));
+        $espelhoDivergente = $this->escritorio('Goiânia/GO', $this->criador(StatusOab::Divergente));
+        $mista = $this->criadorComInscricao(StatusOab::Divergente);
+        $suplementar = new InscricaoOab($mista, (string) random_int(10000, 99999), 'SP', TipoInscricaoOab::Suplementar);
+        $suplementar->registrarVerificacao(StatusOab::Confirmada, null);
+        $this->em->persist($suplementar);
+        $this->em->flush();
+        $inscricaoMista = $this->escritorio('Goiânia/GO', $mista);
+        $emQuarentena = $this->escritorio('Goiânia/GO', $this->criador(StatusOab::Confirmada));
+        $emQuarentena->setExcluidoEm(new \DateTimeImmutable());
+        $this->em->flush();
+
+        $lidos = static::getContainer()->get(ConvenioVinculoRepository::class)->escritoriosParaConvenio(array_map(static fn (Tenant $t): int => (int) $t->getId(), [$semCriador, $espelhoConfirmado, $espelhoDivergente, $inscricaoMista, $emQuarentena]));
+        $porId = [];
+        foreach ($lidos as $e) {
+            $porId[$e->tenantId] = [$e->uf, $e->oabValida, $e->emQuarentena];
+        }
+
+        self::assertSame(['GO', false, false], $porId[$semCriador->getId()]);
+        self::assertSame(['GO', true, false], $porId[$espelhoConfirmado->getId()]);
+        self::assertSame(['GO', false, false], $porId[$espelhoDivergente->getId()]);
+        self::assertSame(['GO', true, false], $porId[$inscricaoMista->getId()]);
+        self::assertSame(['GO', true, true], $porId[$emQuarentena->getId()]);
+    }
+
     private function useCase(): SincronizarVinculosDeConvenioUseCase
     {
         return static::getContainer()->get(SincronizarVinculosDeConvenioUseCase::class);
@@ -176,7 +205,7 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function escritorio(?string $cidadeUf, User $criador): Tenant
+    private function escritorio(?string $cidadeUf, ?User $criador): Tenant
     {
         $tenant = (new Tenant())->setName('Escritório do convênio ' . uniqid())->setEstado($cidadeUf === null ? null : substr($cidadeUf, -2))->setCriadoPor($criador);
         $this->em->persist($tenant);
