@@ -82,6 +82,27 @@ final class FuncoesDoPonto
         ],
     ];
 
+    /** A chave do título da função no catálogo `ponto_servidor`; função fora de {@see self::COM_CAMADA_ESCRITORIO} é erro de programação. */
+    public static function chaveDoTitulo(string $funcao): string
+    {
+        return self::chaveBase($funcao) . '.titulo';
+    }
+
+    /** A chave da ajuda da função no catálogo `ponto_servidor`. */
+    public static function chaveDaAjuda(string $funcao): string
+    {
+        return self::chaveBase($funcao) . '.ajuda';
+    }
+
+    private static function chaveBase(string $funcao): string
+    {
+        if (!isset(self::COM_CAMADA_ESCRITORIO[$funcao])) {
+            throw new \LogicException(sprintf('Função do Ponto sem texto no catálogo: "%s".', $funcao));
+        }
+
+        return 'ponto_servidor.rotulo.funcao.' . substr($funcao, \strlen('ponto-'));
+    }
+
     public function __construct(
         private readonly RecursosDoSistema $recursos,
         private readonly ConfiguracaoDoPontoRepository $configuracoes,

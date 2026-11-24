@@ -107,7 +107,9 @@ final class EnvioDeCampanhasDoMasterTest extends JusPrimeWebTestCase
         $tresDias = new \DateTimeImmutable('-3 days');
         $vencida = $this->campanha($emails, ['proxima' => $tresDias]);
         $recorrente = $this->campanha($emails, ['estado' => 'recorrente', 'frequencia' => 'semanal', 'agendada_para' => $tresDias, 'proxima' => $tresDias]);
-        $daData = $this->campanha($emails, ['proxima' => $tresDias, 'modelo_chave' => 'data-natal']);
+        $daData = $this->campanha($emails, ['proxima' => $tresDias, 'chave' => 'data:natal:2026', 'modelo_chave' => 'data-natal']);
+        // M5.12: a data com outro modelo escolhido continua sendo da data (a chave de idempotência, não o modelo, a marca).
+        $daDataComOutroModelo = $this->campanha($emails, ['proxima' => $tresDias, 'chave' => 'data:pais:2026', 'modelo_chave' => 'convite']);
         $futura = $this->campanha($emails, ['estado' => 'agendada', 'agendada_para' => new \DateTimeImmutable('+2 days'), 'proxima' => new \DateTimeImmutable('+2 days')]);
         $saindo = $this->campanha($emails, ['estado' => 'enviando']);
         $this->postar($client, ['ligada' => false]);
@@ -121,6 +123,7 @@ final class EnvioDeCampanhasDoMasterTest extends JusPrimeWebTestCase
             self::assertGreaterThanOrEqual($antes, $this->proxima($id), 'trazida para agora: o expansor não a cancela pelo atraso');
         }
         self::assertSame($tresDias->format('Y-m-d H:i'), $this->proxima($daData)->format('Y-m-d H:i'), 'a felicitação que perdeu o dia não sai atrasada');
+        self::assertSame($tresDias->format('Y-m-d H:i'), $this->proxima($daDataComOutroModelo)->format('Y-m-d H:i'), 'nem a que usa outro modelo');
         self::assertGreaterThan(new \DateTimeImmutable('+1 day'), $this->proxima($futura));
         self::assertSame('enviando', $this->conexao()->fetchOne('SELECT estado FROM comercial_campanha WHERE id = ?', [$saindo]));
     }

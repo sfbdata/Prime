@@ -10,6 +10,7 @@ use App\Ponto\Exception\ChoqueDeJornadaException;
 use App\Ponto\Exception\EscalaDesconhecidaException;
 use App\Ponto\Exception\ForaDaEquipeException;
 use App\Ponto\Service\GestaoDoPonto;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\UseCase\AbonarJustificativasDaEquipeUseCase;
 use App\Ponto\UseCase\ConsultarEquipeDoPontoUseCase;
 use App\Ponto\UseCase\TrocarEscalaNaEquipeUseCase;
@@ -95,7 +96,11 @@ final class EquipeDoPontoController extends AbstractController
         if ($resultado->abonadas > 0) {
             $this->addFlash(PontoController::FLASH_AVISO_FLUTUANTE, $this->tradutor->trans('ponto_servidor.equipe.abonadas', ['quantidade' => $resultado->abonadas, 'numero' => (string) $resultado->abonadas]));
         }
-        foreach ($resultado->recusas as $recusa) {
+        // Cada recusa traduz pela chave (a pessoa, o dia e o motivo entram como parâmetro); sem as versões com chave, o português.
+        $recusas = $resultado->recusasComChave !== []
+            ? array_map(fn (TextoDoPonto $recusa): string => $recusa->traduzir($this->tradutor), $resultado->recusasComChave)
+            : $resultado->recusas;
+        foreach ($recusas as $recusa) {
             $this->addFlash('warning', $recusa);
         }
         if ($ids === []) {

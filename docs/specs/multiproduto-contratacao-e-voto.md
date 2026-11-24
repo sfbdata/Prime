@@ -261,7 +261,7 @@ Nos demais casos, se nenhum produto da rota estiver incluído:
 - A barra secundária fica, vazia, para escritório sem o Expediente: a altura do cabeçalho é fixa no CSS (`--subnav-height`).
 - O ServiceDesk da área de administração (`servicedesk_index`) também leva `expediente`, como no catálogo.
 - Os avisos globais que chamam rotas de produto também seguem: lembretes da Agenda e busca rápida (`expediente`), pendência do Ponto (`ponto`).
-- O logo segue a tela inicial mesmo com a chave desligada, como o destino pós-login (D3): para os escritórios de hoje continua o Expediente.
+- O logo segue a tela inicial mesmo com a chave desligada, como o destino pós-login (D3): para os escritórios de hoje continua o Expediente. Ele aponta para `/inicio` (`homepage`), que redireciona; assim a página não faz consulta a mais (`ExpedienteQueriesDaPaginaTest`).
 - O menu usa o escritório da sessão, também nas telas `/tenant/{tenantId}/...` (o `TenantUrlScopeListener` só fixa o filtro do Doctrine): os links do menu são do escritório em que a pessoa está.
 - `ia_disponibilidade()` responde `DesligadaNoEscritorio` para escritório sem `ia`.
 - Cadastro (pergunta da revisão do PR 5): o "Criar conta" avisa quando a conta vai nascer só com o Voto e oferece "Prefiro a conta com todas as ferramentas", que leva a `/cadastro?produto=completo` e tira o produto da sessão (ajuste da D9).

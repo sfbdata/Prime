@@ -12,6 +12,7 @@ use App\Ponto\Exception\BatidaEmHorarioFuturoException;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\GravacaoDoAjusteDoPonto;
 use App\Ponto\Service\HorarioFuturoDaBatida;
+use App\Ponto\Service\TextoDoPonto;
 use App\Ponto\Service\TrilhaDoPonto;
 
 /**
@@ -51,6 +52,12 @@ final class RegistrarBatidaDoEsquecimentoUseCase
     /** A recusa da aprovação quando a batida pedida já existe no dia; null quando segue ou não é esquecimento. */
     public function recusa(JustificativaPonto $justificativa, Tenant $tenant): ?string
     {
+        return $this->recusaComChave($justificativa, $tenant)?->portugues;
+    }
+
+    /** A mesma recusa de {@see self::recusa()}, com a chave no catálogo, para o controller traduzir. */
+    public function recusaComChave(JustificativaPonto $justificativa, Tenant $tenant): ?TextoDoPonto
+    {
         $user = $justificativa->getUser();
         $tipo = $justificativa->getTipoRegistroEsquecido();
         $dia = $justificativa->getData();
@@ -58,7 +65,7 @@ final class RegistrarBatidaDoEsquecimentoUseCase
             return null;
         }
 
-        return $this->batidaJaRegistrada->mensagem($user, $tenant, $tipo, $dia);
+        return $this->batidaJaRegistrada->mensagemComChave($user, $tenant, $tipo, $dia);
     }
 
     /**

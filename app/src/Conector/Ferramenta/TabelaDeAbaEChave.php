@@ -145,6 +145,20 @@ final class TabelaDeAbaEChave
             'alterar_automacao' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
             'alterar_data' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
         ],
+        'modelos_de_email' => [
+            'criar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'duplicar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'salvar_como' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'editar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'voltar_ao_padrao' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'excluir' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+        ],
+        'campanhas_de_email' => [
+            'criar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'editar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'cancelar' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+            'enviar_teste' => ['modulos' => self::NENHUM, 'abas' => [], 'chaves' => self::NENHUMA],
+        ],
 
         // Gravação (6.6).
         // `criar`: módulo `pastas`, como a tela (`pasta_new` e o lote de importação), e nenhuma chave (`pasta_new` não é

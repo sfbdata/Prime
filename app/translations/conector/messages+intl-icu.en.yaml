@@ -88,6 +88,8 @@ conector:
             ler_agenda: See the calendar and your goals
             ler_comercial: 'See the Master Panel Commercial area: campaigns, templates, automations and the sending quota, without showing the recipient list'
             automacoes_de_email: 'Turn on, turn off and adjust the Master Panel email automations and commemorative dates'
+            modelos_de_email: 'Create, copy, edit and delete the Master Panel email templates, including the system default templates'
+            campanhas_de_email: 'Create, edit, cancel and test the Master Panel email campaigns'
             atualizar_pasta: Update the matter details
             mudar_andamento: Change the status of the matter
             registrar_na_pasta: Record notes in the matter

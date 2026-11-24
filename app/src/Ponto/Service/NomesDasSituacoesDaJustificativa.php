@@ -85,8 +85,34 @@ final class NomesDasSituacoesDaJustificativa
     // Pública para quem precisa do texto numa constante (JustificativaJaAnalisadaException::MENSAGEM).
     public const VIGENTES = self::DO_DESENHO;
 
+    /**
+     * Os textos desta classe que um controller do Ponto leva à tela por recusa, e a chave de cada um no catálogo
+     * `ponto_servidor` (spec idioma-do-sistema §33). A classe continua em português para a notificação e o XLSX: só o
+     * uso de tela passa por {@see self::textoDaTela()}. O catálogo pt_BR é o conjunto DO_DESENHO.
+     *
+     * @var array<string, string> chave de VIGENTES => chave no catálogo
+     */
+    public const CHAVE_DA_TELA = [
+        'analise.so_para_abonar' => 'ponto_servidor.recusa.analise.so_para_abonar',
+        'analise.so_para_recusar' => 'ponto_servidor.recusa.analise.so_para_recusar',
+        'reverter.ja_esta' => 'ponto_servidor.recusa.analise.ja_em_analise',
+        'edicao.ja_analisada' => 'ponto_servidor.recusa.edicao.ja_analisada',
+        'anexo.travado' => 'ponto_servidor.recusa.anexo.travado',
+    ];
+
     private function __construct()
     {
+    }
+
+    /**
+     * O texto de uma das chaves de {@see self::CHAVE_DA_TELA} com a chave do catálogo, para o controller traduzir;
+     * qualquer outra é erro de programação.
+     */
+    public static function textoDaTela(string $chave): TextoDoPonto
+    {
+        $chaveNoCatalogo = self::CHAVE_DA_TELA[$chave] ?? throw new \LogicException(sprintf('Nome de situação sem chave de tela: "%s".', $chave));
+
+        return TextoDoPonto::de($chaveNoCatalogo, self::texto($chave));
     }
 
     /** O texto da chave no conjunto vigente; `%s` recebe os valores (a data, nas mensagens da análise). */

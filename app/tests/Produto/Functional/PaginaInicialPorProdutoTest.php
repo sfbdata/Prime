@@ -45,6 +45,23 @@ final class PaginaInicialPorProdutoTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/expediente');
     }
 
+    #[TestDox('/inicio sem escritório na sessão (o link do logo): redireciona, sem erro, para a rota de hoje ou para a escolha do escritório')]
+    public function testInicioSemEscritorio(): void
+    {
+        $client = static::createClient();
+        [$user] = $this->escritorio([Produto::Voto]);
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+
+        $client->request('GET', '/inicio');
+
+        self::assertTrue($client->getResponse()->isRedirect(), 'o logo nunca leva a erro');
+        self::assertContains(
+            parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_PATH),
+            ['/expediente', '/escritorio/selecionar'],
+        );
+    }
+
     #[TestDox('Véu sem destino (ou com destino recusado): só Voto vai a /voto; completo segue em /expediente')]
     public function testVeuSemDestino(): void
     {

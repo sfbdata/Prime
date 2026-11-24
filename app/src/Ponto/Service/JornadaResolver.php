@@ -13,6 +13,12 @@ use App\Ponto\Entity\RegistroPonto;
  */
 class JornadaResolver
 {
+    /** Os lembretes das batidas esperadas do dia; a tela os traduz pela chave de {@see VerificadorAlertaPonto::chaveDe()}. */
+    public const LEMBRETE_ENTRADA = 'Hora de registrar sua entrada!';
+    public const LEMBRETE_REPOUSO = 'Hora de registrar sua saída para o intervalo!';
+    public const LEMBRETE_RETORNO = 'Hora de registrar seu retorno do intervalo!';
+    public const LEMBRETE_SAIDA = 'Hora de registrar sua saída!';
+
     public function resolverMetaDia(?JornadaColaborador $jornada, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): int
     {
         $indiceDia = (int) $data->format('N');
@@ -153,10 +159,10 @@ class JornadaResolver
     private function batidasDeBloco(?string $entrada, ?string $repouso, ?string $retorno, ?string $saida): array
     {
         return [
-            ['horario' => $entrada, 'tipo' => 'entrada',  'mensagem' => 'Hora de registrar sua entrada!'],
-            ['horario' => $repouso, 'tipo' => 'repouso',  'mensagem' => 'Hora de registrar sua saída para o intervalo!'],
-            ['horario' => $retorno, 'tipo' => 'retorno',  'mensagem' => 'Hora de registrar seu retorno do intervalo!'],
-            ['horario' => $saida,   'tipo' => 'saida',    'mensagem' => 'Hora de registrar sua saída!'],
+            ['horario' => $entrada, 'tipo' => 'entrada',  'mensagem' => self::LEMBRETE_ENTRADA],
+            ['horario' => $repouso, 'tipo' => 'repouso',  'mensagem' => self::LEMBRETE_REPOUSO],
+            ['horario' => $retorno, 'tipo' => 'retorno',  'mensagem' => self::LEMBRETE_RETORNO],
+            ['horario' => $saida,   'tipo' => 'saida',    'mensagem' => self::LEMBRETE_SAIDA],
         ];
     }
 }

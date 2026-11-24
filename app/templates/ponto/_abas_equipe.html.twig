@@ -40,7 +40,7 @@
                             <select class="pe-eq-escala" aria-label="{{ 'ponto_cartao.equipe.escala_de'|trans({nome: m.nome}) }}" data-nome="{{ m.nome }}"
                                     data-url="{{ path('ponto_equipe_escala', {id: m.userId}) }}">
                                 {%- for o in m.escalas -%}
-                                    <option value="{{ o.id }}"{{ o.marcada ? ' selected' }}{{ o.id is same as('') ? ' disabled' }}>{{ o.rotulo }}</option>
+                                    <option value="{{ o.id }}"{{ o.marcada ? ' selected' }}{{ o.id is same as('') ? ' disabled' }}>{{ o.texto is not null ? o.texto.chave|trans(o.texto.parametros) : o.rotulo }}</option>
                                 {%- endfor -%}
                             </select>
                         </td>

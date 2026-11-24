@@ -9,6 +9,8 @@ use App\Conector\Entity\ConsentimentoDoConector;
 use App\Conector\Ferramenta\AtualizarClienteFerramenta;
 use App\Conector\Ferramenta\AtualizarPastaFerramenta;
 use App\Conector\Ferramenta\AutomacoesDeEmailFerramenta;
+use App\Conector\Ferramenta\CampanhasDeEmailFerramenta;
+use App\Conector\Ferramenta\ModelosDeEmailFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\CatalogoFechadoDoConector;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
@@ -231,6 +233,89 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         self::assertSame(-32602, $corpo['error']['code'] ?? null, (string) $resposta->getContent());
         self::assertSame('Tool not found: "automacoes_de_email".', $corpo['error']['message'] ?? null);
         self::assertSame('1', (string) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_automacao WHERE chave = 'lemb' AND ligada"));
+    }
+
+    #[TestDox('6.9: pessoa comum não vê a modelos_de_email no tools/list nem na quem_sou_eu, e chamá-la dá Tool not found')]
+    public function testModelosDeEmailSoParaOMaster(): void
+    {
+        [, $comum] = $this->conectado();
+        $nomes = array_column($this->resultado($this->mcp($comum['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertNotContains(ModelosDeEmailFerramenta::NOME, $nomes);
+        $dados = $this->resultado($this->chamarQuemSouEu($comum['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertNotContains(ModelosDeEmailFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $recusa = json_decode((string) $this->chamarModelos($comum['access_token'], ['acao' => 'criar'], 3)->getContent(), true);
+
+        self::assertSame('Tool not found: "modelos_de_email".', $recusa['error']['message'] ?? null);
+        self::assertSame('0', (string) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_modelo'));
+    }
+
+    #[TestDox('6.9 e 12.30: o Master vê a modelos_de_email; criar pelo /mcp e editar com confirmar_acao deixam a trilha com route conector_mcp e tenant_id nulo')]
+    public function testModelosDeEmailCriarEEditarPeloMcp(): void
+    {
+        [, $master] = $this->conectado(master: true);
+        $token = $master['access_token'];
+        $nomes = array_column($this->resultado($this->mcp($token, 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertContains(ModelosDeEmailFerramenta::NOME, $nomes);
+        $ultimo = $this->ultimoIdDaAuditoria();
+
+        $criado = $this->resultado($this->chamarModelos($token, ['acao' => 'criar'], 2), 2);
+        self::assertFalse($criado['isError'] ?? null);
+        $id = $criado['structuredContent']['modelo']['id'];
+        $this->exigirTrilhaDoModelo($ultimo, 'modelo_new');
+
+        $proposta = $this->resultado($this->chamarModelos($token, ['acao' => 'editar', 'modelo' => 'cu' . $id, 'assunto' => 'Assunto pelo conector'], 3), 3)['structuredContent'];
+        self::assertSame('aguardando_confirmacao', $proposta['estado']);
+        self::assertSame('Novo informativo', (string) $this->conexao()->fetchOne('SELECT assunto FROM comercial_modelo WHERE id = ?', [$id]));
+
+        $argumentos = ['proposta_id' => $proposta['proposta']['proposta_id'], 'resumo' => $proposta['proposta']['resumo']];
+        $confirmada = $this->resultado($this->mcp($token, 'tools/call', ['name' => ConfirmarAcaoFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, 4, ConfirmarAcaoFerramenta::NOME), 4);
+
+        self::assertFalse($confirmada['isError'] ?? null);
+        self::assertSame('Assunto pelo conector', (string) $this->conexao()->fetchOne('SELECT assunto FROM comercial_modelo WHERE id = ?', [$id]));
+        $this->exigirTrilhaDoModelo($ultimo, 'modelo_upd');
+    }
+
+    #[TestDox('6.9: pessoa comum não vê a campanhas_de_email no tools/list nem na quem_sou_eu, e chamá-la dá Tool not found')]
+    public function testCampanhasDeEmailSoParaOMaster(): void
+    {
+        [, $comum] = $this->conectado();
+        $nomes = array_column($this->resultado($this->mcp($comum['access_token'], 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertNotContains(CampanhasDeEmailFerramenta::NOME, $nomes);
+        $dados = $this->resultado($this->chamarQuemSouEu($comum['access_token'], self::ERA_DO_INITIALIZE, 2), 2)['structuredContent'];
+        self::assertNotContains(CampanhasDeEmailFerramenta::NOME, array_column($dados['ferramentas'], 'nome'));
+
+        $recusa = json_decode((string) $this->chamarCampanhas($comum['access_token'], ['acao' => 'cancelar', 'campanha_id' => 1], 3)->getContent(), true);
+
+        self::assertSame('Tool not found: "campanhas_de_email".', $recusa['error']['message'] ?? null);
+    }
+
+    #[TestDox('6.9 e 12.30: o Master vê a campanhas_de_email; criar vira proposta e confirmar_acao grava a campanha com a trilha camp_conf, route conector_mcp e tenant_id nulo')]
+    public function testCampanhasDeEmailCriarPeloMcp(): void
+    {
+        [, $master] = $this->conectado(master: true);
+        $token = $master['access_token'];
+        $nomes = array_column($this->resultado($this->mcp($token, 'tools/list', [], self::ERA_DO_INITIALIZE, 1), 1)['tools'], 'name');
+        self::assertContains(CampanhasDeEmailFerramenta::NOME, $nomes);
+        $agora = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->conexao()->executeStatement("INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, ?, ?)", ['lead_' . uniqid() . '@exemplo.com', $agora, $agora]);
+        $ultimo = $this->ultimoIdDaAuditoria();
+        $antes = (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha');
+
+        $proposta = $this->resultado($this->chamarCampanhas($token, ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')], 2), 2)['structuredContent'];
+
+        self::assertSame('aguardando_confirmacao', $proposta['estado']);
+        self::assertSame($antes, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha'), 'propor não cria campanha');
+
+        $argumentos = ['proposta_id' => $proposta['proposta']['proposta_id'], 'resumo' => $proposta['proposta']['resumo']];
+        $confirmada = $this->resultado($this->mcp($token, 'tools/call', ['name' => ConfirmarAcaoFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, 3, ConfirmarAcaoFerramenta::NOME), 3);
+
+        self::assertFalse($confirmada['isError'] ?? null);
+        self::assertSame($antes + 1, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha'));
+        $linha = $this->conexao()->fetchAssociative("SELECT route, tenant_id FROM audit_log WHERE id > ? AND entity_class LIKE '%CampanhaDeEmail' AND action = 'camp_conf'", [$ultimo]);
+        self::assertIsArray($linha, 'a gravação precisa deixar a trilha camp_conf');
+        self::assertSame('conector_mcp', $linha['route']);
+        self::assertNull($linha['tenant_id']);
     }
 
     #[TestDox('6.9 e 12.30: o Master vê a automacoes_de_email; desligar pelo /mcp grava e o audit_log sai com route conector_mcp e tenant_id nulo')]
@@ -552,6 +637,18 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         return $this->mcp($token, 'tools/call', ['name' => AutomacoesDeEmailFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, $id, AutomacoesDeEmailFerramenta::NOME);
     }
 
+    /** @param array<string, mixed> $argumentos */
+    private function chamarModelos(string $token, array $argumentos, int $id): Response
+    {
+        return $this->mcp($token, 'tools/call', ['name' => ModelosDeEmailFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, $id, ModelosDeEmailFerramenta::NOME);
+    }
+
+    /** @param array<string, mixed> $argumentos */
+    private function chamarCampanhas(string $token, array $argumentos, int $id): Response
+    {
+        return $this->mcp($token, 'tools/call', ['name' => CampanhasDeEmailFerramenta::NOME, 'arguments' => $argumentos], self::ERA_DO_INITIALIZE, $id, CampanhasDeEmailFerramenta::NOME);
+    }
+
     private function conexao(): Connection
     {
         return static::getContainer()->get(Connection::class);
@@ -560,6 +657,15 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
     private function ultimoIdDaAuditoria(): int
     {
         return (int) $this->conexao()->fetchOne('SELECT COALESCE(MAX(id), 0) FROM audit_log');
+    }
+
+    /** A trilha manual do modelo sai com a rota do conector e sem escritório: ato de plataforma. */
+    private function exigirTrilhaDoModelo(int $ultimo, string $acao): void
+    {
+        $linha = $this->conexao()->fetchAssociative('SELECT route, tenant_id FROM audit_log WHERE id > ? AND entity_class LIKE ? AND action = ?', [$ultimo, '%ModeloDeCampanha', $acao]);
+        self::assertIsArray($linha, 'a gravação precisa deixar a trilha ' . $acao);
+        self::assertSame('conector_mcp', $linha['route']);
+        self::assertNull($linha['tenant_id']);
     }
 
     /** As linhas novas da automação saem com a rota do conector e sem escritório: ato de plataforma. */

@@ -19,6 +19,8 @@ final class DataComemorativaOutput
         public readonly bool $ligada,
         public readonly int $antecedencia,
         public readonly string $publico,
+        /** O modelo escolhido para a data (um padrão ou `cu<id>`); nulo, o padrão da data. */
+        public readonly ?string $modelo,
         public readonly string $data,
         public readonly int $diaDaSemana,
         public readonly int $diasQueFaltam,
@@ -31,7 +33,7 @@ final class DataComemorativaOutput
     /**
      * A linha da data a partir de hoje: a próxima ocorrência (hoje incluído), os dias que faltam e o dia do envio.
      *
-     * @param array{ligada: bool, antecedencia: int, publico: string} $estado
+     * @param array{ligada: bool, antecedencia: int, publico: string, modelo: ?string} $estado
      */
     public static function deEstado(string $chave, array $estado, \DateTimeImmutable $hoje): self
     {
@@ -47,6 +49,7 @@ final class DataComemorativaOutput
             $estado['ligada'],
             $estado['antecedencia'],
             $estado['publico'],
+            $estado['modelo'],
             $data->format('Y-m-d'),
             (int) $data->format('w'),
             $falta,
@@ -55,7 +58,7 @@ final class DataComemorativaOutput
         );
     }
 
-    /** @return array<string, string|int|bool> */
+    /** @return array<string, string|int|bool|null> */
     public function paraArray(): array
     {
         return get_object_vars($this);

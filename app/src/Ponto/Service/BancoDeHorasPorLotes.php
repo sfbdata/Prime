@@ -31,6 +31,17 @@ final class BancoDeHorasPorLotes
     private const COR_VENCENDO = '#8a6200';
     private const COR_NO_PRAZO = '#1e7b45';
 
+    /** @var array<string, string> situação em português => chave no catálogo `ponto_servidor` (a tela traduz; o português segue em `situacao`) */
+    public const CHAVE_DO_TEXTO = [
+        'Compensado' => 'ponto_servidor.rotulo.banco.compensado',
+        'Compensação' => 'ponto_servidor.rotulo.banco.compensacao',
+        'Vencido' => 'ponto_servidor.rotulo.banco.vencido',
+        'Vence hoje' => 'ponto_servidor.rotulo.banco.vence_hoje',
+        'Vence em 1 dia' => 'ponto_servidor.rotulo.banco.vence_em_1_dia',
+        'Vence em %d dias' => 'ponto_servidor.rotulo.banco.vence_em_dias',
+        'No prazo' => 'ponto_servidor.rotulo.banco.no_prazo',
+    ];
+
     /** "Vence em N dias" até este número de dias (desenho L776). */
     private const DIAS_DO_AVISO = 30;
 
@@ -79,7 +90,7 @@ final class BancoDeHorasPorLotes
             $usado = min($debito, $credito);
             $debito -= $usado;
             $lotes[] = $credito === 0
-                ? new LoteDoBancoDeHorasOutput($this->rotulo($competencia), 0, -$valor, 0, null, 'Compensação', self::COR_NEUTRA)
+                ? new LoteDoBancoDeHorasOutput($this->rotulo($competencia), 0, -$valor, 0, null, 'Compensação', self::COR_NEUTRA, TextoDoPonto::de(self::CHAVE_DO_TEXTO['Compensação'], 'Compensação'))
                 : $this->loteDeCredito($competencia, $credito, $usado, $prazo, $hoje);
         }
 
@@ -93,25 +104,36 @@ final class BancoDeHorasPorLotes
         $saldo = $credito - $usado;
         [$situacao, $cor] = $this->situacao($saldo, (int) $hoje->diff($venceEm)->format('%r%a'));
 
-        return new LoteDoBancoDeHorasOutput($this->rotulo($competencia), $credito, $usado, $saldo, $venceEm, $situacao, $cor);
+        return new LoteDoBancoDeHorasOutput($this->rotulo($competencia), $credito, $usado, $saldo, $venceEm, $situacao->portugues, $cor, $situacao);
     }
 
     /**
      * A situação do lote com crédito e a cor do selo (desenho L776). Dias de calendário até o vencimento; o português
      * do "Vence em N dias" no 0 e no 1 é decisão do Coordenador (E17): "Vence hoje" e "Vence em 1 dia".
      *
-     * @return array{string, string}
+     * @return array{TextoDoPonto, string} o texto (a chave e o português de sempre) e a cor
      */
     private function situacao(int $saldo, int $diasAteVencer): array
     {
         return match (true) {
-            $saldo === 0 => ['Compensado', self::COR_NEUTRA],
-            $diasAteVencer < 0 => ['Vencido', self::COR_VENCIDO],
-            $diasAteVencer === 0 => ['Vence hoje', self::COR_VENCENDO],
-            $diasAteVencer === 1 => ['Vence em 1 dia', self::COR_VENCENDO],
-            $diasAteVencer <= self::DIAS_DO_AVISO => [sprintf('Vence em %d dias', $diasAteVencer), self::COR_VENCENDO],
-            default => ['No prazo', self::COR_NO_PRAZO],
+            $saldo === 0 => [self::texto('Compensado'), self::COR_NEUTRA],
+            $diasAteVencer < 0 => [self::texto('Vencido'), self::COR_VENCIDO],
+            $diasAteVencer === 0 => [self::texto('Vence hoje'), self::COR_VENCENDO],
+            $diasAteVencer === 1 => [self::texto('Vence em 1 dia'), self::COR_VENCENDO],
+            $diasAteVencer <= self::DIAS_DO_AVISO => [TextoDoPonto::de(self::CHAVE_DO_TEXTO['Vence em %d dias'], 'Vence em %d dias', ['dias' => (string) $diasAteVencer]), self::COR_VENCENDO],
+            default => [self::texto('No prazo'), self::COR_NO_PRAZO],
         };
+    }
+
+    private static function texto(string $portugues): TextoDoPonto
+    {
+        return TextoDoPonto::de(self::CHAVE_DO_TEXTO[$portugues], $portugues);
+    }
+
+    /** A chave no catálogo de uma situação em português; qualquer outro texto é erro de programação. */
+    public static function chaveDe(string $texto): string
+    {
+        return self::CHAVE_DO_TEXTO[$texto] ?? throw new \LogicException(sprintf('Situação do lote sem chave no catálogo: "%s".', $texto));
     }
 
     /** 'AAAA-MM' vira "MM/AAAA", como a coluna Competência do desenho. */

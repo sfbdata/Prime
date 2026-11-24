@@ -4,7 +4,8 @@
    - A grade de modelos vem do servidor (os fixos do dc e os próprios do Master, em comercial_modelo).
    - Editar um modelo (fixo ou próprio) vale para a prévia e o teste, sem guardar no servidor; trocar de modelo descarta a
      edição (dc L.542, `cmEd: null`), mas pergunta antes (M5.15). A edição fica como rascunho no navegador e volta ao
-     recarregar. "Salvar modelo" só no próprio.
+     recarregar. "Salvar modelo" vale para o próprio e para o padrão do sistema (M5.8: grava a versão do Master); no padrão
+     editado aparece "Voltar ao padrão" (com confirmação), que apaga a versão e devolve o texto do sistema.
    - A prévia é o HTML do servidor (o mesmo montador do envio) num iframe sandbox="" (srcdoc), pedida com 400 ms de
      espera entre teclas. "Baixar HTML" baixa o mesmo e-mail como email-CHAVE.html (dc L.558), sempre com o exemplo fixo.
    - "Enviar teste" manda ao Master logado; as recusas (teto, descadastro) vêm do servidor.
@@ -473,7 +474,7 @@
       edicao = { id: id, nome: d.nome || m.assunto || '', antes: { mk: mk } };
       if (modelos.some(x => x.chave === m.chave)) mk = m.chave;
       // O modelo próprio não é o desta cópia: sem `proprio`, os botões de salvar e excluir modelo não aparecem.
-      ed = Object.assign({}, m, { proprio: false });
+      ed = Object.assign({}, m, { proprio: false, editado: false });
       sujo = false;
       frequencia = ['unica', 'semanal', 'quinzenal', 'mensal'].includes(d.frequencia) ? d.frequencia : 'unica';
       el('[data-mc-cp-agenda]').value = d.agendar || '';
@@ -559,6 +560,8 @@
       raiz.querySelectorAll('[data-mc-cp-campo]').forEach(c => { c.value = m[c.dataset.mcCpCampo] || ''; });
       raiz.querySelectorAll('[data-mc-cp-so-proprio]').forEach(x => { x.hidden = !m.proprio; });
       raiz.querySelectorAll('[data-mc-cp-so-fixo]').forEach(x => { x.hidden = !!m.proprio; });
+      // M5.8: "Voltar ao padrão" só no modelo padrão que o Master já editou.
+      raiz.querySelectorAll('[data-mc-cp-so-editado]').forEach(x => { x.hidden = !m.editado; });
       el('[data-mc-cp-simples]').hidden = m.modo !== 'simples';
       el('[data-mc-cp-blocos]').hidden = m.modo !== 'blocos';
       el('[data-mc-cp-html]').hidden = m.modo !== 'html';
@@ -637,9 +640,19 @@
 
     function salvar() {
       const m = atual();
-      if (!m.proprio) { avisar(BJ_T.t('comercial.js.modelo_padrao'), 'erro'); return; }
       avisar(BJ_T.t('comercial.js.salvando'));
-      postar(ROTAS.urlSalvar.replace('xidx', encodeURIComponent(m.id)), pedido()).then(aposSalvar).catch(e => avisar(e.message, 'erro'));
+      // M5.8: o próprio salva pelo id; o padrão (editado ou não) pelo código dele, e o servidor grava a versão do Master.
+      postar(ROTAS.urlSalvar.replace('xidx', encodeURIComponent(m.proprio ? m.id : m.chave)), pedido()).then(aposSalvar).catch(e => avisar(e.message, 'erro'));
+    }
+
+    // M5.8: apaga a versão do Master de um modelo padrão (com confirmação); o texto do sistema volta.
+    function voltarAoPadrao() {
+      const m = atual();
+      if (m.proprio || !m.editado || !window.confirm(BJ_T.t('comercial.js.confirmar_voltar_padrao', { nome: m.nome }))) return;
+      avisar(BJ_T.t('comercial.js.salvando'));
+      postar(ROTAS.urlPadrao.replace('xchavex', encodeURIComponent(m.chave)))
+        .then(() => { ed = null; avisar(BJ_T.t('comercial.js.modelo_voltou_padrao', { nome: m.nome }), 'ok'); return carregar(m.chave); })
+        .catch(e => avisar(e.message, 'erro'));
     }
 
     function excluir() {
@@ -675,7 +688,7 @@
     raiz.addEventListener('click', e => {
       if (e.target.closest('[data-mc-cp-edicao-cancelar]')) { cancelarEdicao(); return; }
       // M5.3: na edição, o modelo da campanha não troca e os modelos não são mexidos (a troca zeraria a cópia em edição).
-      if (edicao && e.target.closest('[data-mc-cp-modelo], [data-mc-cp-novo], [data-mc-cp-duplicar], [data-mc-cp-salvar], [data-mc-cp-salvar-como], [data-mc-cp-excluir]')) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); return; }
+      if (edicao && e.target.closest('[data-mc-cp-modelo], [data-mc-cp-novo], [data-mc-cp-duplicar], [data-mc-cp-salvar], [data-mc-cp-salvar-como], [data-mc-cp-voltar-padrao], [data-mc-cp-excluir]')) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); return; }
       const modelo = e.target.closest('[data-mc-cp-modelo]');
       // dc L.542: trocar de modelo não limpa a mensagem.
       if (modelo) {
@@ -720,6 +733,7 @@
       if (e.target.closest('[data-mc-cp-novo]')) { if (!podeDescartar()) return; postar(ROTAS.urlCriar, { acao: 'novo' }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
       if (e.target.closest('[data-mc-cp-duplicar]')) { postar(ROTAS.urlCriar, { acao: 'duplicar', modelo: pedido() }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
       if (e.target.closest('[data-mc-cp-salvar]')) { salvar(); return; }
+      if (e.target.closest('[data-mc-cp-voltar-padrao]')) { voltarAoPadrao(); return; }
       if (e.target.closest('[data-mc-cp-excluir]')) { excluir(); return; }
       if (e.target.closest('[data-mc-cp-baixar]')) { baixar(); return; }
       // O ícone de teste abre o modal do comercial-teste.js (F3f, dc L497-498); o envio é feito lá.

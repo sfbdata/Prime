@@ -38,6 +38,8 @@ final class CatalogoFechadoDoConector
         // Painel do Master (6.9): só o Master da plataforma a vê e a chama ({@see SO_DO_MASTER}).
         'ler_comercial' => TipoDeFerramenta::Leitura,
         'automacoes_de_email' => TipoDeFerramenta::Gravacao,
+        'modelos_de_email' => TipoDeFerramenta::Gravacao,
+        'campanhas_de_email' => TipoDeFerramenta::Gravacao,
         // Gravação (6.6).
         'atualizar_pasta' => TipoDeFerramenta::Gravacao,
         'mudar_andamento' => TipoDeFerramenta::Gravacao,
@@ -63,6 +65,8 @@ final class CatalogoFechadoDoConector
         'ler_agenda' => 'Ler a agenda',
         'ler_comercial' => 'Ler o Comercial do Painel do Master',
         'automacoes_de_email' => 'Automações de e-mail do Painel do Master',
+        'modelos_de_email' => 'Modelos de e-mail do Painel do Master',
+        'campanhas_de_email' => 'Campanhas de e-mail do Painel do Master',
         'atualizar_pasta' => 'Atualizar a pasta',
         'mudar_andamento' => 'Mudar o andamento da pasta',
         'registrar_na_pasta' => 'Registrar na pasta',
