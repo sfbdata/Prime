@@ -11,6 +11,8 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\Convenio;
+use App\Master\Entity\ConvenioVinculo;
 use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\IncidenteDeDesempenho;
 use App\Master\Entity\NotaDaCidadeOab;
@@ -92,6 +94,8 @@ final class RotuloDeAuditoria
         IncidenteDeDesempenho::class => ['Incidente aberto', 'Incidente alterado', 'Incidente removido'],
         LancamentoDeCusto::class    => ['Custo lançado', 'Custo alterado', 'Custo removido'],
         RegistroDeBackup::class     => ['Backup ou teste registrado', 'Registro de backup alterado', 'Registro de backup removido'],
+        Convenio::class             => ['Convênio criado', 'Convênio alterado', 'Convênio removido'],
+        ConvenioVinculo::class      => ['Escritório vinculado a convênio', 'Vínculo com convênio alterado', 'Vínculo com convênio removido'],
     ];
 
     /**

@@ -81,6 +81,51 @@ class ConvenioVinculoRepository extends ServiceEntityRepository
         return array_map('intval', $ids);
     }
 
+    /**
+     * Os vínculos abertos dos convênios pedidos (aviso prévio e fim pelo Master, §6.2), com o escritório.
+     *
+     * @param list<int> $convenioIds
+     *
+     * @return list<ConvenioVinculo>
+     */
+    public function abertosDosConvenios(array $convenioIds): array
+    {
+        if ($convenioIds === []) {
+            return [];
+        }
+
+        /** @var list<ConvenioVinculo> $lista */
+        $lista = $this->createQueryBuilder('v')
+            ->addSelect('t')
+            ->join('v.tenant', 't')
+            ->andWhere('IDENTITY(v.convenio) IN (:convenios)')
+            ->andWhere('v.fim IS NULL')
+            ->setParameter('convenios', $convenioIds)
+            ->orderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $lista;
+    }
+
+    /**
+     * Os escritórios com vínculo aberto, por convênio (a lista de convênios do Master, §7.2).
+     *
+     * @return array<int, list<int>> convenioId => tenantIds
+     */
+    public function tenantsAbertosPorConvenio(): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT convenio_id, tenant_id FROM convenio_vinculo WHERE fim IS NULL ORDER BY convenio_id, tenant_id',
+        );
+        $porConvenio = [];
+        foreach ($linhas as $linha) {
+            $porConvenio[(int) $linha['convenio_id']][] = (int) $linha['tenant_id'];
+        }
+
+        return $porConvenio;
+    }
+
     public function salvar(ConvenioVinculo $vinculo, bool $flush = false): void
     {
         $this->getEntityManager()->persist($vinculo);

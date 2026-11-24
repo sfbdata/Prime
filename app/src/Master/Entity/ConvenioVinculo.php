@@ -114,6 +114,29 @@ class ConvenioVinculo implements Auditavel
         return true;
     }
 
+    /** O convênio vai terminar (§6.2): grava o dia previsto e quando o aviso saiu. Devolve se o dia mudou. */
+    public function avisarFim(\DateTimeImmutable $fimPrevisto, \DateTimeImmutable $avisoEm): bool
+    {
+        if ($this->fimPrevisto?->format('Y-m-d') === $fimPrevisto->format('Y-m-d')) {
+            return false;
+        }
+        $this->fimPrevisto = $fimPrevisto;
+        $this->avisoEnviadoEm = $avisoEm;
+
+        return true;
+    }
+
+    /** O fim foi cancelado (§6.2, item 5). Devolve se havia fim previsto (quem foi avisado recebe o "continua"). */
+    public function cancelarFimPrevisto(): bool
+    {
+        if ($this->fimPrevisto === null) {
+            return false;
+        }
+        $this->fimPrevisto = null;
+
+        return true;
+    }
+
     public function estaAberto(): bool
     {
         return $this->fim === null;

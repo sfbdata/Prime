@@ -1166,7 +1166,8 @@
   const chaveDoConvenio = on => '<div class="mp-convenio-chave"><button type="button" class="mp-convenio-alternar' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" data-convenio-alternar'
     + (S.convenioEnviando ? ' disabled' : '') + '><span class="mp-convenio-trilho"><span></span></span>' + T('master.js.planos.convenio_chave') + '</button>'
     + '<span class="mp-convenio-estado">' + T(on ? 'master.js.planos.convenio_ligado' : 'master.js.planos.convenio_desligado') + '</span>'
-    + '<button type="button" class="mp-convenio-link" data-ir="contas">' + T('master.js.planos.convenio_por_estado') + ' <i class="bi bi-arrow-right"></i></button></div>';
+    + '<button type="button" class="mp-convenio-link" data-ir="contas">' + T('master.js.planos.convenio_por_estado') + ' <i class="bi bi-arrow-right"></i></button>'
+    + '<button type="button" class="mp-convenio-link" data-convenios-abrir>' + T('master.js.planos.convenios_link') + ' <i class="bi bi-arrow-right"></i></button></div>';
 
   function montarPlanos() {
     const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA), convenio = convenioAtivo();
@@ -1185,6 +1186,17 @@
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
+  }
+
+  // Janela "Convênios" (spec convenios §6.2): o módulo convenios.js cuida de tudo; o painel só passa as URLs e recarrega
+  // planos, contas, visão e trilha depois de cada gravação (selo e faixa de cada conta podem mudar).
+  function abrirConvenios() {
+    if (!window.BJConvenios) return;
+    window.BJConvenios.abrir({
+      lista: URLS.conveniosLista, salvar: URLS.convenioSalvar, ligar: URLS.convenioLigar, instituicao: URLS.convenioInstituicao, token: URLS.conveniosListaToken,
+      irParaContas: () => irPara('contas'),
+      aoGravar: () => { D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha(); renderSecao(); },
+    });
   }
 
   function alternarConvenio() {
@@ -1495,6 +1507,7 @@
     const limArm = t.closest('[data-lim-arm]'); if (limArm) return abrirLimite('arm', +limArm.dataset.limArm);
     const plano = t.closest('[data-plano-editar]'); if (plano) return abrirPlano(plano.dataset.planoEditar);
     if (t.closest('[data-convenio-alternar]')) return alternarConvenio();
+    if (t.closest('[data-convenios-abrir]')) return abrirConvenios();
     if (t.closest('[data-faixas-salvar]')) return salvarFaixas();
     if (t.closest('[data-pdf]')) return gerarPdf();
     if (t.closest('[data-aud-todas]')) { S.audConta = null; return recarregarTrilha(); }

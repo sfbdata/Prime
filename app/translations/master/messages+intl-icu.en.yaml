@@ -859,6 +859,7 @@ master:
             convenio_ligado: on across the system
             convenio_desligado: 'off: banner, Free tag and Contribua badges hidden'
             convenio_por_estado: OAB agreement by state
+            convenios_link: Agreements
             nota: Every new account joins the Free Plan (10 GB) through the OAB agreement. From 90% usage, the primary user receives a notice in the system and by email suggesting more space; at 100%, new uploads are paused, but viewing and downloading files stays available and nothing is deleted. The storage subscription is monthly on a credit card, with no lock-in. Plan changes are recorded in the audit trail.
             nota_sem_convenio: Every new account joins the Free Plan (10 GB). From 90% usage, the primary user receives a notice in the system and by email suggesting more space; at 100%, new uploads are paused, but viewing and downloading files stays available and nothing is deleted. The storage subscription is monthly on a credit card, with no lock-in. Plan changes are recorded in the audit trail.
         limite:
@@ -972,6 +973,76 @@ master:
             rotulo_conta: 'OAB/{uf} agreement'
             rotulo_conta_dif: 'OAB/{uf} agreement · special price {valor}/month'
             rotulo_conta_sem: 'No agreement ({uf}) · {valor}/month'
+        # Agreements (spec convenios 6.2, PR 4): convenios.js, "Agreements" window opened from the Plans section.
+        convenios:
+            titulo: Agreements
+            titulo_novo: New agreement
+            titulo_editar: Edit agreement
+            carregando: Loading agreements...
+            erro_carregar: Could not load the agreements.
+            erro_salvar: Could not save. Try again.
+            valor_invalido: Enter a valid value for the benefit.
+            vazio: No agreements registered.
+            novo: New agreement
+            voltar: Back
+            fechar: Close
+            cancelar: Cancel
+            salvar: Save
+            editar: Edit
+            por_estado: By state
+            abr_nacional: Nationwide
+            abr_uf: 'State {uf}'
+            abr_instituicao: Institution members
+            abr_op_nacional: Nationwide
+            abr_op_uf: One state
+            abr_op_instituicao: Institution members
+            ben_gratuidade: Free
+            ben_percentual: '{n}% off'
+            ben_fixo: '{valor} off'
+            ben_espaco: '{n} GB extra'
+            ben_op_gratuidade: Free of charge
+            ben_op_desconto_percentual: Percentage discount
+            ben_op_desconto_fixo: Discount in reais
+            ben_op_espaco_extra: Extra space
+            contas: '{n} linked account(s)'
+            validade: 'from {de} to {ate}'
+            validade_sem_prazo: 'from {de}, no end date'
+            st_ligado: On
+            st_termina: 'ends on {data}'
+            st_desligado: Off
+            cancelar_fim: Cancel end
+            dica_desligar: Turn this agreement off
+            dica_ligar: Turn this agreement back on
+            campo_nome: NAME
+            campo_instituicao: INSTITUTION
+            campo_abrangencia: COVERAGE
+            campo_uf: STATE
+            campo_beneficio: BENEFIT
+            valor_percentual: DISCOUNT (%, 1 TO 100)
+            valor_fixo: DISCOUNT (R$ PER MONTH)
+            valor_espaco: EXTRA SPACE (GB)
+            campo_selo: BADGE TEXT (UP TO 40 CHARACTERS)
+            campo_de: VALID FROM
+            campo_ate: VALID UNTIL (OPTIONAL)
+            campo_limite: USAGE LIMIT (OPTIONAL)
+            limite_dica: No limit
+            codigo: INVITE CODE
+            gerar_outro: Generate another code
+            gerar_outro_nota: The previous code stops working for new uses.
+            nota_oab: In this agreement the coverage and the benefit do not change here. For the value of each state, use "By state".
+            desligar_titulo: Turn off agreement
+            desligar_data: 'THE BENEFIT ENDS ON'
+            desligar_motivo: REASON (OPTIONAL)
+            desligar_motivo_dica: Up to 200 characters
+            desligar_nao: Back
+            desligar_um: Turn off this agreement
+            desligar_todos: 'Turn off all from {instituicao}'
+            nota_prazo: 'The benefit already billed only ends from {data}.'
+            data_invalida: 'Pick a date from {data}.'
+            previa: '{contas} linked account(s) · {quando} · {emails} email(s) will be sent'
+            previa_agora: turns off now
+            previa_termina: 'benefit ends on {data}'
+            previa_instituicao: 'All {n} agreements of {instituicao}:'
         metas:
             titulo: Outreach goals
             mercado_pre: 'Market:'
@@ -1409,6 +1480,32 @@ master:
         fecho: If you have questions, use the Help menu inside BlueJus.
         motivo_do_envio: 'You are receiving this notice because you are a primary user of a firm in {uf} on BlueJus.'
         falha_ao_enfileirar: Could not queue the notices. Nothing was changed.
+    convenios:
+        mensagem:
+            criado: '{nome} agreement created.'
+            salvo: '{nome} agreement saved.'
+            fim_marcado: '{n, plural, =0 {End date set. No linked account to notify.} one {End date set. # email notice was queued.} other {End date set. # email notices were queued.}}'
+            desligado: '{n, plural, =0 {Agreement turned off.} one {Agreement turned off. # email notice was queued.} other {Agreement turned off. # email notices were queued.}}'
+            fim_cancelado: '{n, plural, =0 {End cancelled. The agreement continues.} one {End cancelled. The agreement continues; # email notice was queued.} other {End cancelled. The agreement continues; # email notices were queued.}}'
+            ligado: Agreement turned on again.
+            nada: The agreement was already on. Nothing changed.
+            instituicao: '{n, plural, =0 {Institution agreements turned off.} one {Institution agreements turned off. # email notice was queued.} other {Institution agreements turned off. # email notices were queued.}}'
+    convenios_email:
+        titulo: '{nome} agreement'
+        ola: 'Hello, {nome}.'
+        assunto_fim: 'Notice: the {nome} agreement ends on {data}'
+        corpo_fim: 'The {nome} agreement on your BlueJus account ends on {data}. Until then, everything stays as it is.'
+        corpo_fim_beneficio: 'After that date, the benefit ({beneficio}) no longer applies. No data in your account is deleted and your plan stays the same.'
+        assunto_continua: 'The {nome} agreement continues'
+        corpo_continua: 'The end of the {nome} agreement, announced earlier, was cancelled. The agreement still applies to your account.'
+        motivo: 'Reason: {motivo}'
+        fecho: If you have questions, use the Help menu inside BlueJus.
+        motivo_do_envio: 'You are receiving this notice because you are a primary user of a firm with the {nome} agreement on BlueJus.'
+        beneficio:
+            gratuidade: free use
+            desconto_percentual: '{valor}% off the monthly fee'
+            desconto_fixo: 'R$ {valor} off the monthly fee'
+            espaco_extra: '{valor} GB of extra space'
     desempenho:
         periodo: Period
         periodo_24h: 24 hours

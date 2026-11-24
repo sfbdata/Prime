@@ -897,6 +897,7 @@ master:
             convenio_ligado: ligado em todo o sistema
             convenio_desligado: 'desligado: faixa, tag do Free e selos do Contribua ocultos'
             convenio_por_estado: Convênio OAB por estado
+            convenios_link: Convênios
             nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
             nota_sem_convenio: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
         # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
@@ -1016,6 +1017,76 @@ master:
             rotulo_conta: 'Convênio OAB/{uf}'
             rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
             rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
+        # Convênios (spec convenios §6.2, PR 4): convenios.js, janela "Convênios" aberta da seção Planos.
+        convenios:
+            titulo: Convênios
+            titulo_novo: Novo convênio
+            titulo_editar: Editar convênio
+            carregando: Carregando os convênios...
+            erro_carregar: Não foi possível carregar os convênios.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            valor_invalido: Informe um valor válido para o benefício.
+            vazio: Nenhum convênio cadastrado.
+            novo: Novo convênio
+            voltar: Voltar
+            fechar: Fechar
+            cancelar: Cancelar
+            salvar: Salvar
+            editar: Editar
+            por_estado: Por estado
+            abr_nacional: Nacional
+            abr_uf: 'Estado {uf}'
+            abr_instituicao: Membros da instituição
+            abr_op_nacional: Nacional
+            abr_op_uf: Um estado
+            abr_op_instituicao: Membros da instituição
+            ben_gratuidade: Grátis
+            ben_percentual: '{n}% de desconto'
+            ben_fixo: '{valor} de desconto'
+            ben_espaco: '{n} GB a mais'
+            ben_op_gratuidade: Gratuidade
+            ben_op_desconto_percentual: Desconto em porcentagem
+            ben_op_desconto_fixo: Desconto em reais
+            ben_op_espaco_extra: Espaço extra
+            contas: '{n} conta(s) vinculada(s)'
+            validade: 'de {de} até {ate}'
+            validade_sem_prazo: 'de {de}, sem prazo'
+            st_ligado: Ligado
+            st_termina: 'termina em {data}'
+            st_desligado: Desligado
+            cancelar_fim: Cancelar fim
+            dica_desligar: Desligar este convênio
+            dica_ligar: Ligar este convênio de novo
+            campo_nome: NOME
+            campo_instituicao: INSTITUIÇÃO
+            campo_abrangencia: ABRANGÊNCIA
+            campo_uf: ESTADO
+            campo_beneficio: BENEFÍCIO
+            valor_percentual: DESCONTO (%, DE 1 A 100)
+            valor_fixo: DESCONTO (R$, POR MÊS)
+            valor_espaco: ESPAÇO A MAIS (GB)
+            campo_selo: TEXTO DO SELO (ATÉ 40 CARACTERES)
+            campo_de: VÁLIDO DE
+            campo_ate: VÁLIDO ATÉ (OPCIONAL)
+            campo_limite: LIMITE DE USOS (OPCIONAL)
+            limite_dica: Sem limite
+            codigo: CÓDIGO DO CONVITE
+            gerar_outro: Gerar outro código
+            gerar_outro_nota: O código anterior deixa de valer para novos usos.
+            nota_oab: Neste convênio a abrangência e o benefício não mudam aqui. Para o valor de cada estado, use "Por estado".
+            desligar_titulo: Desligar convênio
+            desligar_data: 'O BENEFÍCIO TERMINA EM'
+            desligar_motivo: MOTIVO (OPCIONAL)
+            desligar_motivo_dica: Até 200 caracteres
+            desligar_nao: Voltar
+            desligar_um: Desligar este convênio
+            desligar_todos: 'Desligar todos de {instituicao}'
+            nota_prazo: 'O benefício já cobrado só termina a partir de {data}.'
+            data_invalida: 'Escolha uma data a partir de {data}.'
+            previa: '{contas} conta(s) vinculada(s) · {quando} · {emails} e-mail(s) serão enviados'
+            previa_agora: desliga agora
+            previa_termina: 'benefício termina em {data}'
+            previa_instituicao: 'Todos os {n} convênios de {instituicao}:'
         # P3: metas-divulgacao.js (Metas de divulgação, na Visão geral).
         metas:
             titulo: Metas de divulgação
@@ -1468,6 +1539,34 @@ master:
         fecho: Em caso de dúvida, use o menu Ajuda dentro do BlueJus.
         motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório de {uf} no BlueJus.'
         falha_ao_enfileirar: Não foi possível enfileirar os avisos. Nada foi alterado.
+    # Convênios (spec docs/specs/convenios.md, §6.2, PR 4): aviso aos primários dos escritórios vinculados (AvisoDeConvenio).
+    # Respostas da lista de convênios do Master (ConveniosController, spec convenios §7, PR 4).
+    convenios:
+        mensagem:
+            criado: 'Convênio {nome} criado.'
+            salvo: 'Convênio {nome} salvo.'
+            fim_marcado: '{n, plural, =0 {Fim marcado. Nenhuma conta vinculada para avisar.} one {Fim marcado. # aviso por e-mail entrou na fila.} other {Fim marcado. # avisos por e-mail entraram na fila.}}'
+            desligado: '{n, plural, =0 {Convênio desligado.} one {Convênio desligado. # aviso por e-mail entrou na fila.} other {Convênio desligado. # avisos por e-mail entraram na fila.}}'
+            fim_cancelado: '{n, plural, =0 {Fim cancelado. O convênio continua.} one {Fim cancelado. O convênio continua; # aviso por e-mail entrou na fila.} other {Fim cancelado. O convênio continua; # avisos por e-mail entraram na fila.}}'
+            ligado: Convênio ligado de novo.
+            nada: O convênio já estava ligado. Nada mudou.
+            instituicao: '{n, plural, =0 {Convênios da instituição desligados.} one {Convênios da instituição desligados. # aviso por e-mail entrou na fila.} other {Convênios da instituição desligados. # avisos por e-mail entraram na fila.}}'
+    convenios_email:
+        titulo: 'Convênio {nome}'
+        ola: 'Olá, {nome}.'
+        assunto_fim: 'Aviso: o convênio {nome} termina em {data}'
+        corpo_fim: 'O convênio {nome} da sua conta no BlueJus termina em {data}. Até lá, tudo continua como está.'
+        corpo_fim_beneficio: 'Depois dessa data, o benefício ({beneficio}) deixa de valer. Nenhum dado da sua conta é apagado e o seu plano continua o mesmo.'
+        assunto_continua: 'O convênio {nome} continua'
+        corpo_continua: 'O fim do convênio {nome}, avisado antes, foi cancelado. O convênio continua valendo para a sua conta.'
+        motivo: 'Motivo: {motivo}'
+        fecho: Em caso de dúvida, use o menu Ajuda dentro do BlueJus.
+        motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório com o convênio {nome} no BlueJus.'
+        beneficio:
+            gratuidade: uso grátis
+            desconto_percentual: 'desconto de {valor}% na mensalidade'
+            desconto_fixo: 'desconto de R$ {valor} na mensalidade'
+            espaco_extra: '{valor} GB de espaço a mais'
     # Seção Desempenho (master/_desempenho; desenho 05 Perfis 1.2 VS 25.10.26, L271-280; spec master-desempenho, PR 3).
     # Os textos do JS ficam em master.desempenho.js.*.
     desempenho:
