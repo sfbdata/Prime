@@ -8,6 +8,16 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.9.0] - 2026-11-24
+
+### Adicionado
+
+- Convênios, PR 5 da spec `docs/specs/convenios.md`: código de convite. O primário do escritório digita o código no Meu Perfil (bloco "Tenho um código de convênio", `POST /perfil/convenio/codigo`) e o escritório entra no convênio.
+- `/cadastro?convenio=CODIGO` guarda o código e o aplica ao criar a conta (formulário, Google e Facebook); código que não vale não trava o cadastro.
+- `AplicarCodigoDeConvenioUseCase`: confere chave geral, convênio ligado, validade, fim marcado, limite de usos e estado; toda recusa diz "Código inválido ou encerrado.". Trava do escritório e do convênio; Trilha no escritório.
+- Limitador `convenio_codigo`: 5 tentativas por hora por escritório.
+- Convênio de um estado: o vínculo fecha com `estado_mudou` se o escritório passar a ter outro estado.
+
 ## [3.8.0] - 2026-11-24
 
 ### Adicionado
@@ -2531,7 +2541,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.8.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.9.0...HEAD
+[3.9.0]: https://github.com/sfbdata/Prime/compare/v3.8.0...v3.9.0
 [3.8.0]: https://github.com/sfbdata/Prime/compare/v3.7.0...v3.8.0
 [3.7.0]: https://github.com/sfbdata/Prime/compare/v3.6.0...v3.7.0
 [3.6.0]: https://github.com/sfbdata/Prime/compare/v3.5.0...v3.6.0
