@@ -1,0 +1,9 @@
+# Código de convênio digitado no Meu Perfil (spec docs/specs/convenios.md, §5.3, PR 5): 5 tentativas por hora por
+# escritório, contra adivinhação. Bloco próprio, fora do framework.yaml (arquivo quente entre sessões); o Symfony junta
+# os limitadores dos arquivos.
+framework:
+    rate_limiter:
+        convenio_codigo:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'

@@ -1,0 +1,19 @@
+{# "Tenho um código de convênio" do Meu Perfil (spec docs/specs/convenios.md, §5.3 e §8, PR 5): só para o primário do
+   escritório, com a chave geral do convênio ligada (convenio_no_perfil()). O desenho 07 é omisso: marcação mp-card do
+   Meu Perfil, como o bloco "Assinatura". POST normal; o aviso volta pelo flash. #}
+{% if convenio_no_perfil() %}
+    <section class="mp-card" data-screen-label="Convênio" data-convenio-perfil>
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-patch-check"></i></span>
+            <div><b>{{ 'perfil.convenio.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.convenio.sub'|trans }}</div></div>
+        </div>
+        <form class="mp-seguranca" method="post" action="{{ path('app_profile_convenio_codigo') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('profile_convenio_codigo') }}">
+            <label class="mp-campo mp-convenio-codigo">
+                <span>{{ 'perfil.convenio.rotulo'|trans }}</span>
+                <input type="text" name="codigo" maxlength="20" autocomplete="off" spellcheck="false" required placeholder="{{ 'perfil.convenio.dica'|trans }}">
+            </label>
+            <button class="mp-btn-azul" type="submit"><i class="bi bi-check2-circle"></i>{{ 'perfil.convenio.aplicar'|trans }}</button>
+        </form>
+    </section>
+{% endif %}

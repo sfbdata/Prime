@@ -10,6 +10,7 @@ use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ProdutoDoCadastro;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Master\Service\ConvenioDoCadastro;
 use App\Produto\Enum\Produto;
 use App\Security\GoogleAuthenticator;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,6 +38,7 @@ final class CadastroPeloGoogleController extends AbstractController
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
         private readonly Security $security,
         private readonly TranslatorInterface $tradutor,
+        private readonly ConvenioDoCadastro $convenioDoCadastro,
     ) {
     }
 
@@ -68,6 +70,7 @@ final class CadastroPeloGoogleController extends AbstractController
         }
         CadastroPeloGoogle::esquecer($request->getSession());
         ProdutoDoCadastro::esquecer($request->getSession());
+        $this->convenioDoCadastro->aplicar($request->getSession(), $conta);
 
         // A resposta do autenticador é o redirecionamento ao véu com o destino já validado (EntradaDoUsuario).
         $resposta = $this->security->login($conta->user, GoogleAuthenticator::class, 'main');

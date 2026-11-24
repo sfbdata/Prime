@@ -126,6 +126,15 @@ class ConvenioVinculoRepository extends ServiceEntityRepository
         return $porConvenio;
     }
 
+    /** Quantas vezes o código do convênio já foi usado (vínculos de origem `codigo`, abertos e fechados). */
+    public function usosDoCodigo(int $convenioId): int
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM convenio_vinculo WHERE convenio_id = ? AND origem = 'codigo'",
+            [$convenioId],
+        );
+    }
+
     public function salvar(ConvenioVinculo $vinculo, bool $flush = false): void
     {
         $this->getEntityManager()->persist($vinculo);

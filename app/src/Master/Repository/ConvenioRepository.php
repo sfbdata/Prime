@@ -67,6 +67,12 @@ class ConvenioRepository extends ServiceEntityRepository
         return $lista;
     }
 
+    /** O convênio do código de convite (já normalizado: maiúsculas, sem espaço nem hífen). */
+    public function porCodigo(string $codigo): ?Convenio
+    {
+        return $this->findOneBy(['codigoConvite' => $codigo]);
+    }
+
     public function existeChave(string $chave): bool
     {
         return $this->count(['chave' => $chave]) > 0;

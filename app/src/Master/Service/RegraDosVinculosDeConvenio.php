@@ -59,7 +59,11 @@ final class RegraDosVinculosDeConvenio
             return $vencido ? MotivoDoFimDoVinculo::Validade : MotivoDoFimDoVinculo::ConvenioDesligado;
         }
         if (!$convenio->ehOab()) {
-            return null;
+            // Convênio de um estado (por código): fecha quando o escritório passa a ter outro estado. Sem estado ainda
+            // (o escritório nasce sem), segue: o estado é conferido quando existe (spec §5.3, decisão do PR 5).
+            $outroEstado = $convenio->getUf() !== null && $escritorio->uf !== null && $escritorio->uf !== $convenio->getUf();
+
+            return $outroEstado ? MotivoDoFimDoVinculo::EstadoMudou : null;
         }
         if ($escritorio->uf === null) {
             return MotivoDoFimDoVinculo::EstadoMudou;

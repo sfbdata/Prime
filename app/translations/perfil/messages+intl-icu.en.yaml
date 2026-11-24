@@ -9,6 +9,14 @@ perfil:
         trocar_conta: Switch account
         exclusivo_master: MASTER ONLY
         fechar_menu: Close menu
+    convenio:
+        titulo: Agreement
+        sub: Do you have an agreement code from an institution? Enter it here to add your firm to the agreement.
+        rotulo: Agreement code
+        dica: E.g.  ABCD2345
+        aplicar: Apply code
+        aplicado: 'Done: your firm joined the {nome} agreement.'
+        muitas_tentativas: Too many attempts. Try again in an hour.
     acoes:
         fechar: Close
         cancelar: Cancel
