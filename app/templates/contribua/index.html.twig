@@ -33,7 +33,7 @@
             <div class="ct-apresentacao-sub">Prazos, processos, documentos, metas e equipe em um só lugar, com inteligência para que nada fique para trás.</div>
         </div>
         <nav class="ct-atalhos">
-            <a href="#convenio"><i class="bi bi-patch-check"></i>Por que é gratuito</a>
+            {% if p.convenioAtivo %}<a href="#convenio"><i class="bi bi-patch-check"></i>Por que é gratuito</a>{% endif %}
             <a href="#faq"><i class="bi bi-patch-question"></i>Dúvidas</a>
             <a href="#espaco"><i class="bi bi-hdd-stack"></i>Meu espaço</a>
             <a href="#sug"><i class="bi bi-lightbulb"></i>Sugestões</a>
@@ -64,7 +64,9 @@
     </section>
     {% endif %}
 
-    {# Convênio OAB: o botão "Ver benefícios" abre o modal que já existe (_convenio_oab). O endereço do sistema na mensagem vem da requisição (D8). #}
+    {# Convênio OAB: o botão "Ver benefícios" abre o modal que já existe (_convenio_oab). O endereço do sistema na mensagem vem da requisição (D8).
+       Some inteiro com a chave geral do convênio desligada pelo Master (M2.1), junto com o atalho, o selo do plano gratuito e o modal. #}
+    {% if p.convenioAtivo %}
     {% set convenio_mensagem = 'Olá! Sou advogado(a) e uso o BlueJus, sistema gratuito de gestão para escritórios de advocacia (prazos, processos, documentos e equipe). Sugiro que a nossa subseção da OAB firme convênio com o BlueJus, para fortalecer o acesso gratuito à tecnologia para os advogados da região. Conheça: ' ~ app.request.schemeAndHttpHost %}
     <section id="convenio" class="ct-convenio">
         <span class="ct-convenio-logo"><img src="{{ asset('images/logo/oab-logo.png') }}" alt="OAB"></span>
@@ -77,6 +79,7 @@
             <button type="button" class="ct-convenio-ver" data-abrir-oab>Ver benefícios</button>
         </div>
     </section>
+    {% endif %}
 
     {# Perguntas frequentes #}
     <section id="faq" class="ct-cartao">
@@ -375,7 +378,7 @@
 {# Prêmio do apoiador (modal com confete quando o banco confirma um apoio): C4 (sessão 4b). #}
 {% include 'contribua/_premio.html.twig' ignore missing %}
 
-{% include 'contribua/_convenio_oab.html.twig' %}
+{% if p.convenioAtivo %}{% include 'contribua/_convenio_oab.html.twig' %}{% endif %}
 
 <div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
 {% endblock %}

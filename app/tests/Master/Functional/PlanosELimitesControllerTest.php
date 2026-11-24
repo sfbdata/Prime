@@ -19,7 +19,10 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Controller\PainelMasterDadosController;
 use App\Master\Controller\PlanosELimitesController;
+use App\Master\Entity\ConfiguracaoGlobal;
 use App\Master\EventListener\AlertaDeConsumoNaTrilha;
+use App\Master\Service\ChaveDoConvenio;
+use App\Master\UseCase\AlterarConvenioAtivoUseCase;
 use App\Master\UseCase\ConsultarPlanosUseCase;
 use App\Master\UseCase\DefinirLimiteDaContaUseCase;
 use App\Tests\Factory\Auth\UserFactory;
@@ -47,6 +50,8 @@ use Zenstruck\Foundry\Test\Factories;
 #[CoversClass(DefinirLimiteDaContaUseCase::class)]
 #[CoversClass(ConsultarPlanosUseCase::class)]
 #[CoversClass(AlertaDeConsumoNaTrilha::class)]
+#[CoversClass(AlterarConvenioAtivoUseCase::class)]
+#[CoversClass(ChaveDoConvenio::class)]
 final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
 {
     use Factories;
@@ -323,6 +328,38 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertSame($antes['bytesSemLimite'], $depois['bytesSemLimite'], 'o uso dela (zero) vai para o sufixo das contas sem limite');
     }
 
+    #[TestDox('chave geral do Convênio OAB (M2.1): ligada por padrão; desligar e religar gravam na Trilha sem escritório; só o Master, com CSRF')]
+    public function testChaveDoConvenio(): void
+    {
+        $this->entrar($this->titular, $this->alvo);
+        $this->client->request('POST', '/master/convenio', ['_token' => 'TOKEN_master_convenio', 'ativo' => '0']);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->entrar($this->master, $this->contaDoMaster);
+        $dados = $this->dadosDosPlanos();
+        self::assertTrue($dados['convenioAtivo'], 'ninguém mexeu: vale ligado');
+        self::assertNotSame('', (string) $dados['tokenConvenio']);
+
+        self::assertSame(['erro' => 'Sessão expirada. Recarregue a página.'], $this->postar('/master/convenio', ['_token' => 'TOKEN_master_faixas', 'ativo' => '0']));
+        self::assertResponseStatusCodeSame(403);
+        self::assertTrue($this->dadosDosPlanos()['convenioAtivo'], 'CSRF errado não grava');
+
+        $resposta = $this->postar('/master/convenio', ['_token' => 'TOKEN_master_convenio', 'ativo' => '0']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'Convênio OAB desligado. A faixa e os selos saíram das telas; a cobrança não muda.', 'convenioAtivo' => false], $resposta);
+        self::assertFalse($this->dadosDosPlanos()['convenioAtivo']);
+        $linha = $this->em->getRepository(AuditLog::class)->findOneBy(['entityClass' => ConfiguracaoGlobal::class], ['id' => 'DESC']);
+        self::assertNotNull($linha);
+        self::assertNull($linha->getTenantId(), 'vale para a plataforma: a linha da trilha fica sem escritório');
+        self::assertStringContainsString('convenio.ativo', (string) json_encode($linha->getChanges()));
+
+        $resposta = $this->postar('/master/convenio', ['_token' => 'TOKEN_master_convenio', 'ativo' => '1']);
+        self::assertSame(['mensagem' => 'Convênio OAB ligado. A faixa e os selos voltaram a aparecer.', 'convenioAtivo' => true], $resposta);
+        self::assertTrue($this->dadosDosPlanos()['convenioAtivo']);
+        self::assertSame(10, $this->plano('free')->getCotaGb(), 'a cobrança não muda');
+        self::assertSame(0, $this->plano('free')->getPrecoCentavos());
+    }
+
     #[TestDox('alerta de consumo (P11): subir de faixa grava a linha do Sistema na trilha da conta, "Passou de 90% do armazenamento"')]
     public function testAlertaDeConsumo(): void
     {
@@ -355,6 +392,15 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
     private function postar(string $url, array $corpo): array
     {
         $this->client->request('POST', $url, $corpo);
+
+        return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    /** @return array<string, mixed> */
+    private function dadosDosPlanos(): array
+    {
+        $this->client->request('GET', '/master/dados/planos');
+        self::assertResponseIsSuccessful();
 
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
     }

@@ -327,6 +327,17 @@
 .mp-convenio-faixa b { display: block; font-size: 14.5px; color: #0b3550; }
 .mp-convenio-faixa span { display: block; font-size: 12.5px; color: #4a6373; line-height: 1.5; }
 .mp-planos-rotulo { font-size: 11.5px; font-weight: bold; letter-spacing: .8px; color: #4a6373; margin-bottom: 8px; }
+/* Chave geral do Convênio OAB (M2.1): discreta e em lilás, porque é só do Master (M5.2). Trilho no molde da .roab-chave. */
+.mp-convenio-chave { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-bottom: 10px; font-size: 12px; color: #4a6373; }
+.mp-convenio-alternar { display: inline-flex; align-items: center; gap: 7px; border: none; background: transparent; font: inherit; font-size: 12px; font-weight: bold; color: var(--bj-master-texto); cursor: pointer; padding: 0; }
+.mp-convenio-alternar:disabled { cursor: wait; opacity: .6; }
+.mp-convenio-trilho { width: 30px; height: 16px; border-radius: 8px; background: #c9d3da; position: relative; flex: none; transition: background .2s; }
+.mp-convenio-alternar.on .mp-convenio-trilho { background: var(--bj-master); }
+.mp-convenio-trilho > span { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.mp-convenio-alternar.on .mp-convenio-trilho > span { left: 16px; }
+.mp-convenio-alternar:focus-visible { outline: 2px solid var(--bj-master-borda); outline-offset: 2px; border-radius: 3px; }
+.mp-convenio-link { border: none; background: transparent; font: inherit; font-size: 12px; color: var(--bj-master); cursor: pointer; padding: 0; text-decoration: underline; }
+.mp-convenio-link:hover, .mp-convenio-link:focus { color: var(--bj-master-escuro); }
 
 /* ---------- Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" no mesmo molde ---------- */
 .mp-lim-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }

@@ -25,6 +25,9 @@ use App\Contribua\Service\VisaoDoMaster;
 use App\Contribua\UseCase\MontarPaginaDoContribuaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Entity\ConfiguracaoGlobal;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
+use App\Master\Service\ChaveDoConvenio;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -121,6 +124,19 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame(['free' => true, 'essencial' => false, 'profissional' => false, 'avancado' => false], $pacotes);
     }
 
+    #[TestDox('Convênio OAB desligado pelo Master (M2.1): nenhum pacote leva o selo e a página avisa o template; os pacotes seguem iguais')]
+    public function testConvenioDesligado(): void
+    {
+        $ligado = $this->pagina((int) (9.3 * RetratoDoEspaco::BYTES_POR_GB));
+        $desligado = $this->pagina((int) (9.3 * RetratoDoEspaco::BYTES_POR_GB), convenioAtivo: false);
+
+        self::assertTrue($ligado['convenioAtivo']);
+        self::assertFalse($desligado['convenioAtivo']);
+        self::assertSame(['free' => false, 'essencial' => false, 'profissional' => false, 'avancado' => false], array_column($desligado['pacotes'], 'oab', 'codigo'));
+        $semSelo = static fn (array $pacotes): array => array_map(static fn (array $p): array => array_diff_key($p, ['oab' => true]), $pacotes);
+        self::assertSame($semSelo($ligado['pacotes']), $semSelo($desligado['pacotes']), 'preço, botão e espaço não mudam: a cobrança é a mesma');
+    }
+
     #[TestDox('Nuvem "+ Espaço" só nos pagos maiores que o plano atual, verde só no recomendado')]
     public function testNuvemNosPagosMaioresQueOAtual(): void
     {
@@ -190,7 +206,7 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame('92%', $pagina['espaco']['largura']);
     }
 
-    private function pagina(int $usados, ?string $planoAtual = null, ?int $limiteDoMaster = null, bool $comBonus = false, bool $semLimite = false): array
+    private function pagina(int $usados, ?string $planoAtual = null, ?int $limiteDoMaster = null, bool $comBonus = false, bool $semLimite = false, bool $convenioAtivo = true): array
     {
         $planos = [
             new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1),
@@ -239,8 +255,19 @@ final class PacotesDaPaginaTest extends TestCase
             // Quem pede não é o Master: a visão de todos os escritórios nunca é usada aqui.
             (new \ReflectionClass(VisaoDoMaster::class))->newInstanceWithoutConstructor(),
             new CodigoPixDaContaEstatico(),
+            new ChaveDoConvenio($this->configuracaoGlobal($convenioAtivo)),
         );
 
         return $useCase->executar(new Solicitante(new User(), $escritorio->setName('Escritório'), false, true));
+    }
+
+    private function configuracaoGlobal(bool $convenioAtivo): ConfiguracaoGlobalRepository
+    {
+        $linha = new ConfiguracaoGlobal();
+        $linha->definirConvenioAtivo($convenioAtivo, null, new \DateTimeImmutable());
+        $repo = $this->createStub(ConfiguracaoGlobalRepository::class);
+        $repo->method('atual')->willReturn($linha);
+
+        return $repo;
     }
 }

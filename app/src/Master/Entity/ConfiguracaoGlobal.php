@@ -24,6 +24,9 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Do mesmo jeito, com o prefixo `comercial.`, mora a chave do envio de campanhas (pedido do Farlei M8.1, 23/11/2026): a
  * Central de envios a liga e desliga, e cada troca entra na Trilha de Auditoria pelo AuditLogSubscriber.
+ *
+ * Com o prefixo `convenio.` mora a chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): o Master a liga e
+ * desliga em Planos e limites; desligada, a faixa, a tag do Free e os selos do Contribua somem. A cobrança não muda.
  */
 #[ORM\Entity(repositoryClass: ConfiguracaoGlobalRepository::class)]
 #[ORM\Table(name: 'configuracao_global')]
@@ -35,10 +38,13 @@ class ConfiguracaoGlobal implements Auditavel
     private const PREFIXO_COMERCIAL = 'comercial.';
     private const ENVIO_DE_CAMPANHAS = self::PREFIXO_COMERCIAL . 'campanhasLigadas';
     private const PREFIXO_IA = 'ia.';
+    private const PREFIXO_CONVENIO = 'convenio.';
+    /** A chave geral do Convênio OAB (M2.1). O nome é o ponto de partida da spec docs/specs/convenios.md: não renomear. */
+    private const CONVENIO_ATIVO = self::PREFIXO_CONVENIO . 'ativo';
     /** O teto mensal (centavos de dólar) que a I.A. ligada pelo dono recebe (spec multiproduto, §9, regra 3, e §10). */
     private const TETO_PADRAO_DA_IA = self::PREFIXO_IA . 'tetoPadraoCentavos';
     /** Chaves com estes prefixos não são campos do catálogo: a tela de configurações não as mostra nem as apaga. */
-    private const PREFIXOS_FORA_DO_CATALOGO = [self::PREFIXO_REVISAO_OAB, self::PREFIXO_COMERCIAL, self::PREFIXO_IA];
+    private const PREFIXOS_FORA_DO_CATALOGO = [self::PREFIXO_REVISAO_OAB, self::PREFIXO_COMERCIAL, self::PREFIXO_IA, self::PREFIXO_CONVENIO];
 
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
@@ -89,6 +95,25 @@ class ConfiguracaoGlobal implements Auditavel
     public function getEnvioDeCampanhas(): ?bool
     {
         $valor = $this->valores[self::ENVIO_DE_CAMPANHAS] ?? null;
+
+        return $valor === null ? null : $valor === '1';
+    }
+
+    /**
+     * Liga ou desliga o Convênio OAB na plataforma inteira. Registra quem e quando, como a chave das campanhas: a troca
+     * entra na Trilha de Auditoria pelo AuditLogSubscriber.
+     */
+    public function definirConvenioAtivo(bool $ativo, ?User $por, \DateTimeImmutable $em): void
+    {
+        $this->valores[self::CONVENIO_ATIVO] = $ativo ? '1' : '0';
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $em;
+    }
+
+    /** Null: ninguém mexeu na chave ainda (vale o padrão, ligado, que é como o sistema sempre foi). */
+    public function getConvenioAtivo(): ?bool
+    {
+        $valor = $this->valores[self::CONVENIO_ATIVO] ?? null;
 
         return $valor === null ? null : $valor === '1';
     }

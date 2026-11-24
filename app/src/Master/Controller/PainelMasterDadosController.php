@@ -100,8 +100,8 @@ final class PainelMasterDadosController extends AbstractController
     }
 
     /**
-     * Planos do catálogo e faixas de alerta (spec perfis-1.2-planos-e-limites P1 e P6), com o token CSRF de
-     * cada plano e o das faixas ({@see PlanosELimitesController}).
+     * Planos do catálogo e faixas de alerta (spec perfis-1.2-planos-e-limites P1 e P6) e a chave geral do Convênio OAB
+     * (M2.1), com o token CSRF de cada plano, o das faixas e o da chave ({@see PlanosELimitesController}).
      */
     #[Route('/planos', name: 'master_dados_planos', methods: ['GET'])]
     public function planos(ConsultarPlanosUseCase $useCase, CsrfTokenManagerInterface $csrf): JsonResponse
@@ -112,7 +112,10 @@ final class PainelMasterDadosController extends AbstractController
             $dados['planos'],
         );
 
-        return $this->json($dados + ['tokenFaixas' => $csrf->getToken(PlanosELimitesController::CSRF_FAIXAS)->getValue()]);
+        return $this->json($dados + [
+            'tokenFaixas' => $csrf->getToken(PlanosELimitesController::CSRF_FAIXAS)->getValue(),
+            'tokenConvenio' => $csrf->getToken(PlanosELimitesController::CSRF_CONVENIO)->getValue(),
+        ]);
     }
 
     #[Route('/usuarios-oab', name: 'master_dados_usuarios_oab', methods: ['GET'])]

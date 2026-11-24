@@ -18,6 +18,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Entity\RecursoEstado;
+use App\Master\UseCase\AlterarConvenioAtivoUseCase;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
@@ -320,6 +321,31 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorCount(8, '[data-modal-oab] .ct-oab-beneficio');
         self::assertSelectorExists('.ct-pacote > .ct-nuvem');
         self::assertSelectorNotExists('.ct-pacote--atual > .ct-nuvem');
+    }
+
+    #[TestDox('Convênio OAB desligado pelo Master (M2.1): somem a seção, o atalho, o selo do Free e o modal; os pacotes continuam')]
+    public function testConvenioDesligadoSomeDoContribua(): void
+    {
+        $this->liberarOpcoes($this->escritorio);
+        static::getContainer()->get(AlterarConvenioAtivoUseCase::class)->executar(false, $this->master);
+
+        $this->abrir($this->primario);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('#convenio');
+        self::assertSelectorNotExists('.ct-atalhos a[href="#convenio"]');
+        self::assertSelectorNotExists('.ct-oab-selo');
+        self::assertSelectorNotExists('[data-modal-oab]');
+        self::assertSelectorNotExists('[data-abrir-oab]');
+        self::assertSelectorExists('.ct-pacote > .ct-nuvem', 'os planos pagos seguem à venda');
+
+        static::getContainer()->get(AlterarConvenioAtivoUseCase::class)->executar(true, $this->master);
+        $this->abrir($this->primario);
+
+        self::assertSelectorExists('#convenio');
+        self::assertSelectorExists('.ct-atalhos a[href="#convenio"]');
+        self::assertSelectorCount(1, '.ct-pacote > .ct-oab-selo[data-abrir-oab]');
+        self::assertSelectorExists('[data-modal-oab]');
     }
 
     #[TestDox('O escritório não vê as sugestões de outro; o Master vê todas e pode atender')]

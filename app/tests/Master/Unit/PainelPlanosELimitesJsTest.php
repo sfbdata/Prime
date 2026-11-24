@@ -156,7 +156,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertSame('de {cota} GB contratados · livre {livre}', $kpi['arm_desc']);
         self::assertSame('+ {gb} em {n} conta(s) sem limite', $kpi['arm_sem_limite']);
         self::assertStringContainsString("return Object.assign(base, { n: gb(a.bytesUsados), desc:", $js, 'o número grande soma só as contas com limite');
-        self::assertSame(3, substr_count($js, 'recarregarVisaoETrilha();'), 'limite, faixas e plano recarregam o KPI e o selo');
+        self::assertSame(4, substr_count($js, 'recarregarVisaoETrilha();'), 'limite, faixas, plano e a chave do convênio (M2.1) recarregam o KPI e o selo');
         self::assertStringContainsString(': S.nAud || 0;', $js, 'o selo fica com o último número enquanto recarrega');
         self::assertStringContainsString("D.visao ? D.visao.registrosDeAuditoria || 0", $js);
         self::assertStringContainsString("carregar('visao', URLS.visao);", $js);
@@ -189,5 +189,31 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertNotFalse($fim);
 
         self::assertDoesNotMatchRegularExpression('/[—–]/u', substr($js, $inicio, $fim - $inicio));
+    }
+
+    #[TestDox('M2.1: chave geral do Convênio OAB em lilás, com atalho para o painel por estado; desligada, somem a faixa e a tag do Free')]
+    public function testChaveDoConvenio(): void
+    {
+        $js = self::js();
+
+        self::textoNoCatalogo($js, 'master.js.planos.convenio_chave', 'Convênio OAB');
+        self::textoNoCatalogo($js, 'master.js.planos.convenio_por_estado', 'Convênio OAB por estado');
+        self::assertStringContainsString("T(on ? 'master.js.planos.convenio_ligado' : 'master.js.planos.convenio_desligado')", $js);
+        self::assertStringContainsString('role="switch" aria-checked="\' + on + \'" data-convenio-alternar', $js);
+        self::assertStringContainsString('data-ir="contas"', $js, 'o atalho abre a seção Contas, onde mora o painel "Convênio OAB por estado"');
+        self::assertStringContainsString("(convenio ? '<div class=\"mp-convenio-faixa\">", $js, 'a faixa só com o convênio ligado');
+        self::assertStringContainsString("(TAG_PLANO[p.codigo] && (p.codigo !== 'free' || convenio) ?", $js, 'a tag do Free só com o convênio ligado; "Mais escolhido" fica');
+        self::assertStringContainsString("postar(URLS.convenioAlterar, corpo", $js);
+        self::assertStringContainsString("corpo.append('_token', D.planos.tokenConvenio", $js);
+        self::assertStringContainsString("if (t.closest('[data-convenio-alternar]')) return alternarConvenio();", $js);
+
+        $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
+        self::assertStringContainsString("convenioAlterar: path('master_convenio_alterar')", $twig);
+        $css = self::css();
+        self::assertMatchesRegularExpression('/\.mp-convenio-alternar\.on \.mp-convenio-trilho \{ background: var\(--bj-master\); \}/', $css, 'lilás do Master (M5.2)');
+        foreach (['convenio_chave', 'convenio_ligado', 'convenio_desligado', 'convenio_por_estado'] as $chave) {
+            self::assertStringNotContainsString('—', self::catalogo('master.js.planos.' . $chave));
+            self::assertStringNotContainsString('–', self::catalogo('master.js.planos.' . $chave));
+        }
     }
 }

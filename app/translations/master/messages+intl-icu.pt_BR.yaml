@@ -126,6 +126,8 @@ master:
         informe_espaco_e_preco: Informe o espaço em GB e o preço em reais.
         plano_atualizado: 'Plano "{nome}" atualizado.'
         faixas_atualizadas: Faixas de alerta atualizadas.
+        convenio_ligado: Convênio OAB ligado. A faixa e os selos voltaram a aparecer.
+        convenio_desligado: 'Convênio OAB desligado. A faixa e os selos saíram das telas; a cobrança não muda.'
         limite_arm_atualizado: Limite de armazenamento atualizado.
         limite_usu_atualizado: Limite de usuários atualizado.
     # P2b: rótulo das faixas etárias da Visão geral (FaixaEtaria::FAIXAS é o português), traduzido no
@@ -856,6 +858,11 @@ master:
             rotulo: PLANOS DE ESPAÇO
             faixa_titulo: Convênio OAB · BlueJus gratuito para advogados
             faixa_texto: Todos os recursos do sistema ficam liberados em todas as contas, sem limite de usuários. A cobrança existe só para quem quiser mais espaço de armazenamento, em assinatura mensal no cartão de crédito, que pode ser cancelada a qualquer momento.
+            # Chave geral do Convênio OAB (M2.1): só do Master, em lilás; o atalho abre o painel por estado na seção Contas.
+            convenio_chave: Convênio OAB
+            convenio_ligado: ligado em todo o sistema
+            convenio_desligado: 'desligado: faixa, tag do Free e selos do Contribua ocultos'
+            convenio_por_estado: Convênio OAB por estado
             nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
         # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
         limite:

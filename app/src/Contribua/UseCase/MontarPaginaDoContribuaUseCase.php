@@ -20,6 +20,7 @@ use App\Contribua\Service\CodigoPixDaConta;
 use App\Contribua\Service\LiberacaoDasOpcoesDeEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\Service\VisaoDoMaster;
+use App\Master\Service\ChaveDoConvenio;
 
 /**
  * Tudo o que a página "Quem somos e contribua" (desenho 08) mostra, já calculado: espaço, pacotes,
@@ -41,6 +42,7 @@ final class MontarPaginaDoContribuaUseCase
         private readonly MotivoDeNaoApoiarRepository $motivos,
         private readonly VisaoDoMaster $visaoDoMaster,
         private readonly CodigoPixDaConta $codigoPix,
+        private readonly ChaveDoConvenio $convenio,
     ) {
     }
 
@@ -53,13 +55,20 @@ final class MontarPaginaDoContribuaUseCase
         $respondeu = $this->motivos->respondeuDesde($quem->tenantId(), $faz30Dias);
         // D2: quem já paga um plano continua vendo e gerindo o próprio plano; os demais só com as opções liberadas.
         $pagaPlano = $retrato->planoCodigo !== $this->planos->free()->getCodigo();
+        // Chave geral do Convênio OAB (M2.1): desligada, somem a seção, o selo do plano gratuito e o modal. A cobrança não muda.
+        $convenioAtivo = $this->convenio->ativo();
+        $pacotes = self::pacotes($planos = $this->planos->ativosEmOrdem(), $retrato);
+        if (!$convenioAtivo) {
+            $pacotes = array_map(static fn (array $pacote): array => ['oab' => false] + $pacote, $pacotes);
+        }
 
         return [
             'escritorio' => $quem->escritorio->getName(),
             'ehMaster' => $quem->ehMaster,
             'podePedirEspaco' => $quem->ehPrimario || $quem->ehMaster,
-            'espaco' => self::cabecalhoDoEspaco($retrato, $planos = $this->planos->ativosEmOrdem(), $retrato->opcoesLiberadas || $pagaPlano),
-            'pacotes' => self::pacotes($planos, $retrato),
+            'espaco' => self::cabecalhoDoEspaco($retrato, $planos, $retrato->opcoesLiberadas || $pagaPlano),
+            'pacotes' => $pacotes,
+            'convenioAtivo' => $convenioAtivo,
             // N5: os cartões só existem na tela com as opções liberadas (ou plano pago); o Master os vê em "prévia".
             'pacotesVisiveis' => $retrato->opcoesLiberadas || $pagaPlano,
             'liberadaPor' => $retrato->liberadaPor?->value,
