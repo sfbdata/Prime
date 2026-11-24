@@ -349,6 +349,18 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 11. **Perfis próprios não ganham módulo sozinhos.** Ao ligar, aparece o aviso "Ajuste o acesso em Perfis", com link para `app_tenant_role_index`. O perfil primário já tem todas as permissões (bootstrap `attachAllPermissions`).
 12. **Auditoria:** `Contratacao` e `ConfiguracaoDeInteligencia` são `Auditavel` (:36), com `origem = dono` e `alterada_por`.
 
+**Como ficou no PR 8a (regra e rota; o cartão é o PR 8b):**
+
+- **Trava por escritório:** `ContratacoesDoEscritorio::CLASSE_TRAVA = 4801`, `pg_advisory_xact_lock(4801, tenant_id)` numa transação da conexão. O mesmo serviço serve ao dono e às abas do Master.
+- **Marcador do Master (D16):** quando o Master desliga um produto que não tem linha ativa (já encerrado pelo dono, ou sem linha), grava uma linha aberta e encerrada no mesmo instante, com origem `master`. Desligar de novo não duplica.
+- **Desligar o Voto também bloqueia a `LiberacaoDoVoto`** (muda a D6): o cartão e a liberação andam juntos; religar pelo dono libera de novo.
+- **Ligar o Voto com a chave global `voto` desligada é aceito:** grava a contratação e a liberação, mas o Voto só funciona quando o Master ligar a chave.
+- **D7 entrou:** o dono não desliga a última ferramenta ligada (422, `FerramentaRecusadaException::ultimaFerramenta`). Conta produtos ativos de fato (`ContratacoesDoEscritorio::eOUnicoLigado`); escritório sem linhas ou com `completo` ativa nunca é "último".
+- **D7 e o Master:** a trava do Master não confere a D7. Se o Master bloqueia o Voto num escritório que só tem o Voto, o escritório fica sem ferramenta até o Master liberar. Aceito: o veto é do Master, e o PR 9 mostra isso no painel.
+- **Trava só na troca:** salvar a aba sem mudar o estado (ou "bloqueado" num escritório que nunca foi liberado) não cria linha nem trava. O estado anterior é lido dentro da trava do escritório (`sobTrava`), para Master e dono ao mesmo tempo decidirem sobre o que está gravado.
+- **"Para todos" do Master:** liberar ou bloquear todos passa, escritório por escritório, pelo mesmo UseCase da aba de um escritório. "Bloquear todos" também trava a contratação, e "liberar todos" destrava. Na I.A., o modo e o teto de cada escritório ficam como estão.
+- **Sem escritório na sessão:** o validador do escritório manda para `/escritorio/selecionar` antes do controller; a checagem de dono (403) vale para quem já tem escritório.
+
 ## 10. Master (PR 9, MÉDIO)
 
 **Molde:**

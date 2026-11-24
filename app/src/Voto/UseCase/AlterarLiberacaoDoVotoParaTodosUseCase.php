@@ -7,9 +7,8 @@ namespace App\Voto\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
-use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
-use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
+use App\Voto\Exception\EscritorioNaoEncontradoException;
 use App\Voto\Service\GuardaDoMasterDoVoto;
 
 /**
@@ -26,7 +25,7 @@ final class AlterarLiberacaoDoVotoParaTodosUseCase
     public function __construct(
         private readonly TenantRepository $tenants,
         private readonly LiberacaoDoVotoRepository $liberacoes,
-        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+        private readonly AlterarLiberacaoDoVotoUseCase $porEscritorio,
     ) {
     }
 
@@ -43,18 +42,14 @@ final class AlterarLiberacaoDoVotoParaTodosUseCase
             if (!$tenant instanceof Tenant || $tenant->isActive() !== true || $tenant->getExcluidoEm() !== null) {
                 continue;
             }
-            $liberacao = $this->liberacoes->findDoTenantParaOMaster($tenant) ?? new LiberacaoDoVoto($tenant);
-            if ($liberado) {
-                $liberacao->liberar();
-            } else {
-                $liberacao->bloquear();
+            // Um escritório por vez pelo mesmo caminho da aba (trava do escritório, auditoria nele e a trava do Master da
+            // D16): "bloquear todos" também trava a contratação, e "liberar todos" destrava.
+            // Suspenso no meio do laço: pula, como os de cima.
+            try {
+                $this->porEscritorio->executar((int) $tenant->getId(), $liberado, $master);
+            } catch (EscritorioNaoEncontradoException) {
+                continue;
             }
-
-            // A auditoria vai para o escritório alterado, não para o da sessão do Master.
-            $this->escopoDePlataforma->executarComoConta(
-                (int) $tenant->getId(),
-                fn () => $this->liberacoes->salvar($liberacao, flush: true),
-            );
             ++$alterados;
         }
 

@@ -82,6 +82,28 @@ class AssembleiaRepository extends ServiceEntityRepository
         return $assembleias;
     }
 
+    /**
+     * O escritório tem assembleia em andamento: publicada e que ainda não acabou ({@see Assembleia::acabou()}). Com ela
+     * o dono não desliga o Voto (spec docs/specs/multiproduto-contratacao-e-voto.md, §9, regra 7). O filtro do "acabou"
+     * é no PHP: depende das pautas e do relógio, e um escritório tem poucas publicadas.
+     */
+    public function existeAbertaNoEscritorio(Tenant $tenant): bool
+    {
+        /** @var list<Assembleia> $publicadas */
+        $publicadas = $this->createQueryBuilder('a')
+            ->andWhere('a.tenant = :tenant')->setParameter('tenant', $tenant)
+            ->andWhere('a.estado = :publicada')->setParameter('publicada', EstadoDaAssembleia::Publicada)
+            ->getQuery()
+            ->getResult();
+        foreach ($publicadas as $assembleia) {
+            if (!$assembleia->acabou()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Guarda de posse: a assembleia pelo id, só se for do escritório (senão null, e quem chama responde 404). */
     public function buscarDoEscritorio(int $id, Tenant $tenant): ?Assembleia
     {

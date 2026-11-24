@@ -39,6 +39,8 @@ use App\Cobranca\UseCase\MarcarTelefoneAtualUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Cobranca\UseCase\MontarFichaPessoaUseCase;
 use App\Entity\Tenant\Tenant;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ProdutosNaTela;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -91,6 +93,8 @@ final class ObjetoController extends AbstractController
         // da pessoa usa — aqui muda só o HTTP (fragmento em AJAX no lugar do redirect para a ficha).
         private readonly MarcarTelefoneAtualUseCase $marcarTelefoneAtual,
         private readonly ValidatorInterface $validator,
+        // Judicializar só com o Expediente (spec multiproduto, §9, regra 9); respeita a chave MULTIPRODUTO_MODO.
+        private readonly ProdutosNaTela $produtosNaTela,
     ) {
     }
 
@@ -117,7 +121,7 @@ final class ObjetoController extends AbstractController
         }
 
         // Modais de mutação só para quem tem a capacidade — mesmo gate que os esconde no Twig. Movimentação
-        // financeira é capacidade SEPARADA de gerenciar (SPEC §22). Judicializar exige o módulo `pastas`.
+        // financeira é capacidade SEPARADA de gerenciar (SPEC §22). Judicializar exige o módulo `pastas` e o Expediente.
         //
         // ⚠️ `$podeGerenciar` AQUI é só a CAPACIDADE. O `podeGerenciar` do Twig
         // (`show.html.twig`) é capacidade **E** caso aberto — mesmo nome, semânticas diferentes. Quem
@@ -125,7 +129,8 @@ final class ObjetoController extends AbstractController
         $usuario = $this->usuarioLogado();
         $podeGerenciar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.gerenciar');
         $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
-        $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS);
+        $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS)
+            && $this->produtosNaTela->inclui(Produto::Expediente);
 
         // B5: se a última mutação falhou na validação, reabrimos aquele modal com o digitado e o erro.
         // One-shot (some na leitura) e por objeto. Consumido sob QUALQUER das duas capacidades porque o

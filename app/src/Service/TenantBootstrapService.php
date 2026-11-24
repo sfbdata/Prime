@@ -101,6 +101,20 @@ class TenantBootstrapService
         return $adminRole;
     }
 
+    /**
+     * Ligar o Expediente pelo Meu Perfil (spec docs/specs/multiproduto-contratacao-e-voto.md, §9, regra 10): semeia os
+     * marcadores padrão só se o escritório não tem nenhum. Idempotente: chamar de novo não duplica.
+     */
+    public function semearMarcadoresSeFaltarem(Tenant $tenant, User $criador): void
+    {
+        if ($this->entityManager->getRepository(Marcador::class)->count(['tenant' => $tenant]) > 0) {
+            return;
+        }
+
+        $this->seedMarcadoresPadrao($tenant, $criador);
+        $this->entityManager->flush();
+    }
+
     private function seedFeriadosNacionais(Tenant $tenant): void
     {
         foreach (self::FERIADOS_NACIONAIS as $dado) {

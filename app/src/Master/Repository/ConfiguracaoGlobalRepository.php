@@ -75,6 +75,26 @@ class ConfiguracaoGlobalRepository extends ServiceEntityRepository
         return \is_string($valor) ? $valor === '1' : null;
     }
 
+    /**
+     * O teto mensal (centavos de dólar) que a I.A. ligada pelo dono recebe, lido direto do banco (spec multiproduto,
+     * §9, regra 3). Null: ninguém gravou ainda, o valor não é um inteiro, ou a leitura falhou (quem chama usa a reserva).
+     */
+    public function tetoPadraoDaIaCentavos(): ?int
+    {
+        try {
+            $valor = $this->getEntityManager()->getConnection()->fetchOne(
+                'SELECT valores ->> :chave FROM configuracao_global WHERE id = :id',
+                ['chave' => ConfiguracaoGlobal::chaveDoTetoPadraoDaIa(), 'id' => ConfiguracaoGlobal::ID_UNICO],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->warning('Configurações globais: falha ao ler o teto padrão da I.A.; vale a reserva.', ['exception' => $e]);
+
+            return null;
+        }
+
+        return \is_string($valor) && ctype_digit($valor) ? (int) $valor : null;
+    }
+
     public function salvar(ConfiguracaoGlobal $configuracao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($configuracao);

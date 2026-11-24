@@ -6,16 +6,21 @@ namespace App\Tests\Voto\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Repository\LiberacaoDoVotoRepository;
 use App\Voto\Service\GuardaDoMasterDoVoto;
 use App\Voto\UseCase\AlterarLiberacaoDoVotoParaTodosUseCase;
+use App\Voto\UseCase\AlterarLiberacaoDoVotoUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -30,9 +35,12 @@ final class AlterarLiberacaoDoVotoParaTodosUseCaseTest extends TestCase
     private LiberacaoDoVotoRepository&MockObject $liberacoes;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private User $master;
+    private ContratacoesDoEscritorio&MockObject $contratacoes;
 
     protected function setUp(): void
     {
+        $this->contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->tenants = $this->createMock(TenantRepository::class);
         $this->liberacoes = $this->createMock(LiberacaoDoVotoRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
@@ -41,7 +49,10 @@ final class AlterarLiberacaoDoVotoParaTodosUseCaseTest extends TestCase
 
     private function sut(): AlterarLiberacaoDoVotoParaTodosUseCase
     {
-        return new AlterarLiberacaoDoVotoParaTodosUseCase($this->tenants, $this->liberacoes, $this->escopo);
+        // A aba "para todos" passa pelo UseCase de um escritório (trava do escritório e trava do Master da D16).
+        $porEscritorio = new AlterarLiberacaoDoVotoUseCase($this->tenants, $this->liberacoes, $this->escopo, $this->contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
+
+        return new AlterarLiberacaoDoVotoParaTodosUseCase($this->tenants, $this->liberacoes, $porEscritorio);
     }
 
     private function tenant(int $id): Tenant
@@ -95,6 +106,9 @@ final class AlterarLiberacaoDoVotoParaTodosUseCaseTest extends TestCase
         $existente->liberar();
         $this->liberacoes->method('findDoTenantParaOMaster')->with($um)->willReturn($existente);
         $this->liberacoes->expects($this->once())->method('salvar')->with($existente, true);
+
+        // D16: "bloquear todos" também trava a contratação, com origem `master`.
+        $this->contratacoes->expects($this->once())->method('excluir')->with($um, Produto::Voto, OrigemDaContratacao::Master, $this->master);
 
         self::assertSame(1, $this->sut()->executar(false, $this->master));
         self::assertFalse($existente->isLiberado());

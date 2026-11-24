@@ -10,13 +10,18 @@ use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\GuardaDoMasterDaIa;
+use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
 use App\Inteligencia\UseCase\AlterarLiberacaoDaIaParaTodosUseCase;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -31,9 +36,12 @@ final class AlterarLiberacaoDaIaParaTodosUseCaseTest extends TestCase
     private ConfiguracaoDeInteligenciaRepository&MockObject $configuracoes;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private User $master;
+    private ContratacoesDoEscritorio&MockObject $contratacoes;
 
     protected function setUp(): void
     {
+        $this->contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->tenants = $this->createMock(TenantRepository::class);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
@@ -42,7 +50,10 @@ final class AlterarLiberacaoDaIaParaTodosUseCaseTest extends TestCase
 
     private function sut(): AlterarLiberacaoDaIaParaTodosUseCase
     {
-        return new AlterarLiberacaoDaIaParaTodosUseCase($this->tenants, $this->configuracoes, $this->escopo);
+        // A aba "para todos" passa pelo UseCase de um escritório (trava do escritório e trava do Master da D16).
+        $porEscritorio = new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, $this->escopo, $this->contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
+
+        return new AlterarLiberacaoDaIaParaTodosUseCase($this->tenants, $this->configuracoes, $porEscritorio);
     }
 
     private function tenant(int $id): Tenant
@@ -104,6 +115,9 @@ final class AlterarLiberacaoDaIaParaTodosUseCaseTest extends TestCase
         $existente->atualizar(true, 50, 500, true, new User());
         $this->configuracoes->method('findDoTenantParaOMaster')->with($um)->willReturn($existente);
         $this->configuracoes->expects($this->once())->method('salvar')->with($existente, true);
+
+        // D16: "bloquear todos" também trava a contratação, com origem `master`.
+        $this->contratacoes->expects($this->once())->method('excluir')->with($um, Produto::Ia, OrigemDaContratacao::Master, $this->master);
 
         self::assertSame(1, $this->sut()->executar(false, $this->master));
         self::assertFalse($existente->isLiberadaPeloMaster());

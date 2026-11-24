@@ -13,11 +13,15 @@ use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Exception\EscritorioNaoEncontradoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
+use App\Produto\Enum\OrigemDaContratacao;
+use App\Produto\Enum\Produto;
+use App\Produto\Service\ContratacoesDoEscritorio;
 use App\Repository\TenantRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Validator\Validation;
 
@@ -27,6 +31,7 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
 {
     private TenantRepository&MockObject $tenants;
     private ConfiguracaoDeInteligenciaRepository&MockObject $configuracoes;
+    private ContratacoesDoEscritorio&MockObject $contratacoes;
     private Tenant $tenant;
     private User $master;
 
@@ -36,12 +41,14 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
         $this->tenants = $this->createMock(TenantRepository::class);
         $this->tenants->method('find')->willReturnCallback(fn (mixed $id): ?Tenant => $id === 7 ? $this->tenant : null);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
+        $this->contratacoes = $this->createMock(ContratacoesDoEscritorio::class);
+        $this->contratacoes->method('sobTrava')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
     }
 
     private function sut(): AlterarIaDoEscritorioUseCase
     {
-        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, new EscopoDeAuditoriaDePlataforma());
+        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, new EscopoDeAuditoriaDePlataforma(), $this->contratacoes, new MockClock(new \DateTimeImmutable('2026-11-23 10:00:00')));
     }
 
     #[TestDox('escritório sem linha: a configuração nasce aqui, liberada, com o modo e o orçamento, e a IA segue desligada no escritório')]
@@ -53,6 +60,10 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
             self::assertTrue($flush);
             $salva = $c;
         });
+        // D16: liberar reabre a contratação com origem master (o serviço não grava se a I.A. já está incluída).
+        $this->contratacoes->expects($this->once())->method('incluir')
+            ->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master, new \DateTimeImmutable('2026-11-23 10:00:00'));
+        $this->contratacoes->expects($this->never())->method('excluir');
 
         $this->sut()->executar(new AlterarIaDoEscritorioInput(7, true, 'limite_gratis', 2550), $this->master);
 
@@ -73,6 +84,9 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
         $existente->definirCobranca(ModoDeCobrancaDaIa::Adicional, 900);
         $this->configuracoes->method('findDoTenantParaOMaster')->with($this->tenant)->willReturn($existente);
         $this->configuracoes->expects($this->once())->method('salvar')->with($existente, true);
+        // D16: bloquear vira trava do Master.
+        $this->contratacoes->expects($this->once())->method('excluir')->with($this->tenant, Produto::Ia, OrigemDaContratacao::Master, $this->master);
+        $this->contratacoes->expects($this->never())->method('incluir');
 
         $this->sut()->executar(new AlterarIaDoEscritorioInput(7, false, 'incluso', null), $this->master);
 
@@ -87,6 +101,7 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
     public function testEscritorioInvalido(): void
     {
         $this->configuracoes->expects($this->never())->method('salvar');
+        $this->contratacoes->expects($this->never())->method('sobTrava');
         foreach ([fn () => null, fn () => $this->tenant->setIsActive(false), fn () => $this->tenant->setIsActive(true)->setExcluidoEm(new \DateTimeImmutable())] as $i => $preparar) {
             $preparar();
             $id = $i === 0 ? 99 : 7;
