@@ -90,6 +90,34 @@
     });
   }
 
+  /* ---------- busca (pedido M3 do Farlei, 24/11): filtra no navegador, a lista inteira já está na página ---------- */
+  // Masters: esconde as linhas que não casam com nome, e-mail ou OAB; sem nenhuma, mostra "Nenhum Master encontrado.".
+  const buscaMasters = qs('[data-mp-masters-busca]');
+  if (buscaMasters) {
+    buscaMasters.addEventListener('input', () => {
+      const t = window.BJBusca.termo(buscaMasters.value);
+      let algum = false;
+      raiz.querySelectorAll('[data-mp-master-busca]').forEach(lin => {
+        lin.hidden = !window.BJBusca.casa(lin.getAttribute('data-mp-master-busca'), t);
+        algum = algum || !lin.hidden;
+      });
+      const nenhum = qs('[data-mp-masters-nenhum]');
+      if (nenhum) nenhum.hidden = algum || !raiz.querySelector('[data-mp-master-busca]');
+    });
+  }
+  // Promover: o select guarda todos os usuários; a busca esconde as opções que não casam (o escolhido fica sempre).
+  const buscaPromover = form && qs('[data-mp-promover-busca]', form);
+  if (buscaPromover) {
+    const sel = qs('[data-mp-promover-select]', form);
+    buscaPromover.addEventListener('input', () => {
+      const t = window.BJBusca.termo(buscaPromover.value);
+      Array.from(sel.options).forEach(op => {
+        // hidden esconde no Chrome e no Firefox; o Safari ignora hidden em <option>, então ela também fica desabilitada.
+        if (op.value) op.hidden = op.disabled = op.selected ? false : !window.BJBusca.casa(op.getAttribute('data-busca'), t);
+      });
+    });
+  }
+
   /* ---------- remover Master secundário (só no HTML do Master primário) ---------- */
   raiz.querySelectorAll('[data-mp-remover-master]').forEach(btn => btn.addEventListener('click', () => {
     abrirConf({

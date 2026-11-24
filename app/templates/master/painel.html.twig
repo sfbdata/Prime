@@ -94,10 +94,11 @@
 
     <div class="mp-perm" data-painel-aba="perm" hidden>
         <div class="mp-card mp-masters" data-mp-masters>
-            <div class="mp-cab-roxo"><i class="bi bi-people-fill"></i><b>{{ 'master.painel.masters.titulo'|trans }}</b><span>{{ 'master.painel.masters.contagem'|trans({n: masters|length}) }}</span></div>
+            <div class="mp-cab-roxo"><i class="bi bi-people-fill"></i><b>{{ 'master.painel.masters.titulo'|trans }}</b><span>{{ 'master.painel.masters.contagem'|trans({n: masters|length}) }}</span>
+                <label class="mp-busca"><i class="bi bi-search"></i><input data-mp-masters-busca placeholder="{{ 'master.painel.masters.busca'|trans }}" aria-label="{{ 'master.painel.masters.busca'|trans }}"></label></div>
             {% for m in masters %}
                 {% set partes = m.nome|split(' ')|filter(p => p is not empty) %}
-                <div class="mp-master{{ m.primario ? ' mp-master-primario' : ' mp-master-secundario' }}">
+                <div class="mp-master{{ m.primario ? ' mp-master-primario' : ' mp-master-secundario' }}" data-mp-master-busca="{{ m.nome }} {{ m.email }} {{ m.oabNumero }} {{ m.oabUf }}">
                     <span class="mp-avatar{{ m.primario ? '' : ' mp-avatar-sec' }}">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
                     <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · {{ 'master.painel.masters.oab'|trans({numero: m.oabNumero ~ (m.oabUf ? '/' ~ m.oabUf)}) }}{% endif %}</span></span>
                     {% if m.primario %}
@@ -118,6 +119,7 @@
             {% else %}
                 <div class="mp-vazio-linha">{{ 'master.painel.masters.vazio'|trans }}</div>
             {% endfor %}
+            <div class="mp-vazio-linha" data-mp-masters-nenhum hidden>{{ 'master.painel.masters.nenhum_encontrado'|trans }}</div>
 
             {% if souPrimario %}
                 {% set pmInfo = 'master.painel.masters.promover_info'|trans %}
@@ -125,11 +127,12 @@
                 <form method="post" action="{{ path('master_promover') }}" class="mp-promover" data-mp-form-promover>
                     <input type="hidden" name="_token" value="{{ csrf_token('master_promover') }}">
                     <b>{{ 'master.painel.masters.promover_titulo'|trans({papel: 'termos.master'|trans}) }}</b>
+                    <label class="mp-busca mp-promover-busca"><i class="bi bi-search"></i><input data-mp-promover-busca placeholder="{{ 'master.painel.masters.promover_busca'|trans }}" aria-label="{{ 'master.painel.masters.promover_busca'|trans }}"></label>
                     <div class="mp-promover-grade">
                         <select name="usuario" data-mp-promover-select aria-label="{{ 'master.painel.masters.promover_campo'|trans }}">
                             <option value="">{{ 'master.painel.masters.promover_escolha'|trans }}</option>
                             {% for c in candidatos %}
-                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-info="{{ c.email }} · {{ c.oabNumero ? 'master.painel.masters.oab'|trans({numero: c.oabNumero ~ (c.oabUf ? '/' ~ c.oabUf)}) : 'master.painel.masters.sem_oab'|trans }}">{{ c.nome }} · {{ c.perfil ?? 'master.painel.masters.sem_perfil'|trans }}</option>
+                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-busca="{{ c.nome }} {{ c.email }} {{ c.oabNumero }} {{ c.oabUf }}" data-info="{{ c.email }} · {{ c.oabNumero ? 'master.painel.masters.oab'|trans({numero: c.oabNumero ~ (c.oabUf ? '/' ~ c.oabUf)}) : 'master.painel.masters.sem_oab'|trans }}">{{ c.nome }} · {{ c.perfil ?? 'master.painel.masters.sem_perfil'|trans }}</option>
                             {% endfor %}
                         </select>
                         <span class="mp-promover-info" data-mp-promover-info data-padrao="{{ pmInfo }}">{{ pmInfo }}</span>
@@ -237,6 +240,7 @@
 
 {% block javascripts %}
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
+    <script src="{{ asset('js/master/bj-busca.js') }}"></script>
     {{ catalogo_js('master.js', 'termos', 'master.blog.js') }}
     <script src="{{ asset('js/master/convenio-oab.js') }}"></script>
     <script src="{{ asset('js/master/metas-divulgacao.js') }}"></script>

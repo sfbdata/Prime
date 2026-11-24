@@ -23,6 +23,11 @@ use Psr\Clock\ClockInterface;
  * (até {@see self::LIMITE} linhas, últimos {@see self::MESES} meses) é traduzida inteira, filtrada por ação e conta
  * e só a página pedida sai na resposta. Os totais, a lista de ações e as pílulas do resumo valem para o filtro
  * inteiro, não só para a página. `todas` devolve o filtro inteiro (o PDF).
+ *
+ * Busca (pedido M3 do Farlei, 24/11): procura o termo no que a tela mostra (responsável, conta, ação e detalhe), sem
+ * acento e sem diferença de maiúsculas, na mesma janela traduzida. Não vai ao SQL de propósito: a ação e o detalhe
+ * são rótulos montados aqui, e procurar no `changes` cru acharia valores que a tela nunca mostra. Termo com menos de
+ * {@see self::BUSCA_MINIMO} letras não filtra.
  */
 final class ConsultarAuditoriaUseCase
 {
@@ -31,6 +36,12 @@ final class ConsultarAuditoriaUseCase
     public const MESES = 12;
 
     public const POR_PAGINA_PADRAO = 50;
+
+    /** Letras mínimas para a busca filtrar (menos que isso mostra a trilha sem busca). */
+    public const BUSCA_MINIMO = 3;
+
+    /** Teto do termo: o que passar disso é cortado (ninguém digita um detalhe inteiro). */
+    public const BUSCA_MAXIMO = 100;
 
     /** Opções do "por página" da tela; valor fora da lista cai no padrão. */
     public const POR_PAGINA_OPCOES = [20, 50, 100];
@@ -55,10 +66,11 @@ final class ConsultarAuditoriaUseCase
      * @param string   $tipo  rótulo exato da ação ('' = todas as ações)
      * @param int|null $conta id do escritório (null = todas as contas)
      * @param bool     $todas true devolve o filtro inteiro, sem paginar (PDF)
+     * @param string   $busca termo procurado em responsável, conta, ação e detalhe ('' ou curto demais = sem busca)
      *
      * @return array{registros: list<array{quando: string, quem: string, acao: string, conta: string, contaId: ?int, detalhe: string}>, total: int, totalGeral: int, pagina: int, porPagina: int, paginas: int, tipos: list<string>, resumo: array<string, int>, limite: int, meses: int, truncado: bool}
      */
-    public function executar(int $pagina = 1, int $porPagina = self::POR_PAGINA_PADRAO, string $tipo = '', ?int $conta = null, bool $todas = false): array
+    public function executar(int $pagina = 1, int $porPagina = self::POR_PAGINA_PADRAO, string $tipo = '', ?int $conta = null, bool $todas = false, string $busca = ''): array
     {
         $linhas = $this->repositorio->trilhaAdministrativa(self::LIMITE, $this->relogio->now()->modify(sprintf('-%d months', self::MESES)));
         $planos = $this->planosDasContas($linhas);
@@ -77,9 +89,11 @@ final class ConsultarAuditoriaUseCase
             ];
         }
 
+        $termo = self::termoDaBusca($busca);
         $filtrados = array_values(array_filter(
             $registros,
-            static fn (array $r): bool => ($conta === null || $r['contaId'] === $conta) && ($tipo === '' || $r['acao'] === $tipo),
+            static fn (array $r): bool => ($conta === null || $r['contaId'] === $conta) && ($tipo === '' || $r['acao'] === $tipo)
+                && ($termo === '' || str_contains(self::semAcento($r['quem'] . ' ' . $r['conta'] . ' ' . $r['acao'] . ' ' . $r['detalhe']), $termo)),
         ));
 
         return self::paginar($filtrados, $pagina, $porPagina, $todas) + [
@@ -178,6 +192,22 @@ final class ConsultarAuditoriaUseCase
         }
 
         return $planos;
+    }
+
+    /** Termo da busca já sem acento e em minúsculas; '' quando tem menos de {@see self::BUSCA_MINIMO} letras. */
+    private static function termoDaBusca(string $busca): string
+    {
+        $termo = self::semAcento(mb_substr($busca, 0, self::BUSCA_MAXIMO));
+
+        return mb_strlen($termo) >= self::BUSCA_MINIMO ? $termo : '';
+    }
+
+    /** Minúsculas, sem acento e sem espaço nas pontas: a mesma regra do `BJBusca.normalizar` da tela. */
+    private static function semAcento(string $texto): string
+    {
+        $decomposto = \Normalizer::normalize($texto, \Normalizer::FORM_D);
+
+        return trim(mb_strtolower((string) preg_replace('/\p{Mn}/u', '', $decomposto === false ? $texto : $decomposto)));
     }
 
     /** Nome do responsável; sem nome, o número do usuário; sem ator, "Sistema". Nunca o e-mail. */

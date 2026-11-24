@@ -26,12 +26,15 @@ master:
             primario_dica: O Master primário não pode ser excluído
             remover: Remover este Master
             vazio: Nenhum usuário com o papel de Master.
+            busca: Buscar Master
+            nenhum_encontrado: Nenhum Master encontrado.
             oab: 'OAB {numero}'
             sem_oab: sem OAB
             sem_perfil: sem perfil
             promover_titulo: 'Promover a {papel}'
             promover_campo: Usuário a promover a Master
             promover_escolha: Escolha um usuário da conta *
+            promover_busca: Buscar usuário por nome, e-mail ou OAB
             promover_info: Precisa estar cadastrado antes como usuário da conta.
             promover_msg: Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.
             promover: Promover
@@ -908,6 +911,9 @@ master:
                 acao: AÇÃO E CONTA
                 detalhe: DETALHE
             vazio: Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.
+            busca: Buscar na trilha
+            busca_dica: 'Procura em responsável, conta, ação e detalhe, a partir de 3 letras'
+            vazio_busca: Nenhum registro encontrado com essa busca.
             # Paginação no servidor (mesmo componente da lista de artigos do Blog: Anterior, Página X de Y, Próxima).
             por_pagina: Por página
             pagina: 'Página {pagina} de {paginas}'
@@ -921,6 +927,7 @@ master:
             titulo: Trilha de auditoria do sistema
             gerado: 'Gerado em {quando} por {quem} ({papel}) · {n} registro(s)'
             filtro: 'filtro: {filtro}'
+            busca: 'busca: {termo}'
             conta: 'conta: {conta}'
             rodape: 'BlueJus · documento gerado pelo painel do {papel}. Contém apenas metadados administrativos.'
         # P3: notificacoes.js (Central de Notificações). O rótulo do tipo, o remetente e o assunto vêm do servidor.
