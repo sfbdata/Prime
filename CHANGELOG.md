@@ -8,6 +8,39 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.5.0] - 2026-11-24
+
+### Adicionado
+
+- Painel do Master, Planos e limites: chave geral do Convênio OAB (pedido do Farlei M2.1), gravada em `configuracao_global` como `convenio.ativo` (prefixo `convenio.`, fora do catálogo, como `ia.` e `comercial.`). `POST /master/convenio` (`AlterarConvenioAtivoUseCase`, CSRF `master_convenio`, só `ROLE_SUPER_ADMIN`), com registro na Trilha de Auditoria no escopo de plataforma. A leitura é da `ChaveDoConvenio`: sem nada gravado, vale ligada.
+- Desligada: somem a faixa e a tag do Plano Free no painel, e a nota dos planos troca para `nota_sem_convenio` (sem "pelo convênio OAB"); no Contribua somem a seção "Convênio OAB", o atalho "Por que é gratuito", a pergunta "Por que é gratuito?" da FAQ, o selo do plano gratuito e o modal de benefícios. Planos, preços e assinaturas não mudam.
+- `POST /master/convenio` sem `ativo` (ou com valor que não é 0 nem 1) responde 400 e não grava.
+- A chave é discreta, em lilás (só do Master), com o atalho para o painel "Convênio OAB por estado" da seção Contas.
+- Sem tabela, coluna nem migration.
+- Master > Segurança e auditoria: busca na trilha (`q` em `GET /master/dados/auditoria`, `ConsultarAuditoriaUseCase::executar(busca:)`). Procura em responsável, conta, ação e detalhe, sem acento e sem maiúsculas, a partir de 3 letras (`BUSCA_MINIMO`; o termo é cortado em 100). Filtra a mesma janela traduzida (até 1000 linhas, 12 meses) junto com ação e conta, então paginação, pílulas e PDF valem para o resultado da busca. Não vai ao SQL: ação e detalhe são rótulos montados no PHP.
+- Tela da trilha: campo de busca no cabeçalho, com atraso de 300 ms; a lista atual fica na tela até a resposta e o foco volta ao campo; resposta antiga que chega atrasada é descartada. O PDF diz a busca usada.
+- Helper `public/js/master/bj-busca.js` (`window.BJBusca`: normalizar, termo, casa, atrasar), carregado antes do `painel.js` e do `masters.js`.
+- Permissões > Masters: busca no navegador na lista de Masters (nome, e-mail, OAB) e no select "Promover a Master" (esconde as opções que não casam; a escolhida fica).
+- Sem tabela, coluna nem migration.
+- Aba "Ferramentas" no Painel do Master (`GET /master/produtos`, `master_produtos_dados`, e `POST /master/produtos/escritorios/{tenantId}`, `master_produtos_escritorio`, `App\Master\Controller\FerramentasDoMasterController`): grade dos escritórios ativos com as ferramentas de cada um (ligada, desligada, "desligada pelo BlueJus" quando travada). Corpo `{produto, ligado}` com CSRF `master_ferramentas` no header `X-CSRF-Token`; 403 (não Master ou CSRF), 404 (escritório inexistente, suspenso ou excluído) e 422 (produto fora da lista ou `ligado` que não é booleano).
+- `AlterarFerramentaDoEscritorioPeloMasterUseCase` e `ObterFerramentasDosEscritoriosUseCase` (domínio Produto): o Master grava com origem `master`, auditoria no escritório alterado (`EscopoDeAuditoriaDePlataforma::executarComoConta`) e sob a trava das contratações. Desligar vira a trava da D16 e ligar a desfaz. `completo` pode ser posto e tirado. A D7 não vale para o Master. Voto e I.A. passam por `AlterarLiberacaoDoVotoUseCase` e `AlterarIaDoEscritorioUseCase::alterarLiberacao` (liberação e contratação andam juntas; ligar o Voto libera a `LiberacaoDoVoto`, D10).
+- Ligar pelo Master termina sempre com a contratação ativa e desligar com a trava (origem `master`), mesmo com a liberação do Voto ou da I.A. já no valor pedido; ligar a I.A. com orçamento nulo grava `Incluso` com o teto padrão (D14); ligar o Expediente semeia os marcadores se faltarem.
+- Teto padrão da I.A. na aba "I.A." do Master: `POST /master/ia/teto-padrao` (`master_ia_teto_padrao`, CSRF `master_ia`), `AlterarTetoPadraoDaIaUseCase`, `ConfiguracaoGlobal::definirTetoPadraoDaIa`/`getTetoPadraoDaIa` e o estado da aba com `tetoPadrao` (US$). Faixa de 0 a US$ 100.000,00 (fora dela, 422); a chave `ia.tetoPadraoCentavos` fica fora da tela de configurações. Vale só para quem o dono ligar depois: os tetos já gravados não mudam (D14).
+- Sem tabela, coluna nem migration nova.
+- Meu Perfil: cartão "Ferramentas do escritório" (`templates/profile/_ferramentas.html.twig`, spec multiproduto §9, PR 8b), só para o dono do escritório da sessão (função Twig `ferramentas_do_escritorio()`, `ListarFerramentasDoEscritorioUseCase`). Cada ferramenta aparece ligada, desligada, "Desligada pelo BlueJus" (trava do Master, D16) ou "Indisponível no momento" (chave global do Voto ou plataforma da I.A.); o Voto e a I.A. só aparecem ligados com a liberação de hoje.
+- Os botões chamam `POST /perfil/ferramentas/{produto}` (PR 8a) e recarregam a página; ao ligar, aparece o aviso para ajustar o acesso em Perfis (regra 11). A I.A. ligada sem o aceite mostra o link para a página do aceite (regra 4).
+- `ContratacoesDoEscritorio::travadosPeloMaster()` (uma consulta para o cartão inteiro) e `CatalogoDeProdutos::icone()`.
+- Sem tabela, coluna nem migration.
+
+### Alterado
+
+- Master > Armazenamento > "Contas por consumo" (`public/js/master/painel.js`, `renderRanking`): a linha realça ao passar o mouse com o mesmo `.mp-lin` das Contas e da Segurança (#2b7ab0). Nome, % e faixa usam `.mp-hv`; a barra e o botão "Editar limite" ficam fora dele, e o botão vira branco na linha realçada para não sumir.
+- Busca no cabeçalho do cartão com a mesma regra da lista de Contas (`casaNaBusca`: nome, primário, nº e código da conta), em estado próprio (`S.rBusca`).
+- Ordem: maior consumo (a de antes, padrão), nome A-Z e situação (faixa mais grave primeiro, sem limite no fim). Empate pelo nº da conta.
+- Sem tabela, coluna nem migration.
+- Voto, Gestão eleitoral: o filtro e cada assembleia ganham um cartão `.vC` próprio, com 12px entre os cartões, como nas abas Votar e Resultados (pedido M1.1 de 24/11, muda o desenho 18, que emendava tudo num `.vC` só). `_painel.html.twig` (`.voto-gestao` vira coluna sem moldura, `.voto-gestao-filtro` com o `.vFil` e o vazio), `_assembleia_cartao.html.twig` (`.vC.voto-assembleia`) e `voto-painel.css` (cabeçalho do grupo `.vGrH` com a borda e a sombra do `.vC`; sem a linha de baixo do `.vFil` e do `.vGr`).
+- `voto-painel.js` e `voto-ciclo.js` sem mudança: os seletores são por `data-voto-*`. Teste de arranjo por filho direto em `PainelPorEntidadeTest`.
+
 ## [3.4.0] - 2026-11-24
 
 ### Adicionado
@@ -2462,7 +2495,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.4.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.5.0...HEAD
+[3.5.0]: https://github.com/sfbdata/Prime/compare/v3.4.0...v3.5.0
 [3.4.0]: https://github.com/sfbdata/Prime/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/sfbdata/Prime/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
