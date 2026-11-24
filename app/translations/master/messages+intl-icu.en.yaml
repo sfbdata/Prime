@@ -801,6 +801,10 @@ master:
                 arquivos_desc: '{reais} real · {virtuais} virtual'
                 arquivos_dica: 'Real: stored on the server. Virtual: points to an identical real file'
             ranking: Accounts by usage
+            ordenar: Sort accounts by usage
+            ordem_cons: 'Order: highest usage'
+            ordem_nome: 'Order: name (A-Z)'
+            ordem_sit: 'Order: status'
             nenhuma: No account.
             editar_limite: Edit limit
             nota: 'Sum of files with a stored size (matters outside the trash, clients, cases, collections, tickets, and kanban). Time clock justifications and task attachments have no size in the database: not measured.'
