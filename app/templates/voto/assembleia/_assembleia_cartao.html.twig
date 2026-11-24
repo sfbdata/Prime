@@ -1,12 +1,12 @@
 {#
-    Uma assembleia no painel da Gestão eleitoral: evento .vEvH do desenho (bi-calendar-event, nome, data, "N votação(ões)", chip da
+    Uma assembleia no painel da Gestão eleitoral, num cartão .vC próprio (pedido M1.1, 24/11): evento .vEvH do desenho (bi-calendar-event, nome, data, "N votação(ões)", chip da
     assembleia e, à direita, o menu de três pontos com Editar configuração, Pautas, Unidades e links, Link e QR
     Code, Resultados, Conduzir no telão, Lembrar quem não votou e Duplicar votação), a linha enxuta do desenho (Publicar ou Relatório consolidado) e uma .vLin por pauta (_pauta_linha). Contexto: `a` (AssembleiaNoPainel), `agora`,
     `arquivadas` (bool: "Mostrar arquivadas" ligado, mostra também as pautas retiradas) e `selecao` (bool: caixa de seleção do lote).
     Ciclo de vida (F1-3, desenho 18): no menu, Excluir rascunho (vermelho, rascunho nunca publicado), Arquivar e Desarquivar;
     faixa da assembleia arquivada (arqTx), confirmações de excluir (exAsk) e de arquivar (arAsk) como faixas escondidas que o menu revela.
 #}
-<div class="voto-assembleia" id="assembleia-{{ a.id }}">
+<div class="vC voto-assembleia" id="assembleia-{{ a.id }}">
     {# Editar, Pautas, Unidades e links, Link e QR Code e Resultados saíram da linha visível (A2) e moram no menu. #}
     {% set itens = [] %}
     {% if a.podeAlterarPautas %}

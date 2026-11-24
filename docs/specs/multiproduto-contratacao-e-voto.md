@@ -371,7 +371,7 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 - Os nomes seguem o menu (`translations/moldura`): "BlueJus IA", "Ponto Eletrônico"; em inglês "BlueJus AI", "Voting", "Time Clock".
 - Desligar a última ferramenta ligada ou o Voto com assembleia em andamento mostra a recusa do servidor (422) na própria seção.
 
-## 10. Master (PR 9, MÉDIO)
+## 10. Master (PR 9, MÉDIO, feito)
 
 **Molde:**
 
@@ -406,6 +406,18 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
   - validação: de 0 a `ConfiguracaoDeInteligencia::ORCAMENTO_MAXIMO_CENTAVOS` (:41); fora disso, 422.
 - **Alcance:** vale só para quem o dono ligar depois da troca. Os tetos já gravados por escritório não mudam (§9, regra 3, só grava quando o teto está nulo).
 - **Valor padrão:** 500. O PR 8 funciona sem o PR 9, usando a reserva.
+
+**Como ficou no PR 9 (feito):**
+
+- **Rótulo:** a aba se chama **"Ferramentas"** (o mesmo termo do cartão do Meu Perfil, PR 8a). A rota e as chaves técnicas seguem em "produtos" (`/master/produtos`).
+- **Rotas e classes:** `FerramentasDoMasterController` (Master), com `GET /master/produtos` (`master_produtos_dados`) e `POST /master/produtos/escritorios/{tenantId}` (`master_produtos_escritorio`, CSRF `master_ferramentas`); `ObterFerramentasDosEscritoriosUseCase` e `AlterarFerramentaDoEscritorioPeloMasterUseCase` (Produto). Ordem das recusas: CSRF (403), corpo (422), escritório (404).
+- **Grade:** uma linha por escritório ativo, uma chave por ferramenta mais "Completo". "Ligada" segue a régua do cartão (§9): contratação incluída e, no Voto e na I.A., liberação dada. "Desligada pelo BlueJus" é a D16. Mostra o aviso de que o Master pode deixar o escritório sem nenhuma ferramenta (D7 não vale para ele).
+- **Gravação:** tudo sob `sobTrava` e dentro de `executarComoConta`. Voto e I.A. passam por `AlterarLiberacaoDoVotoUseCase` e `AlterarIaDoEscritorioUseCase::alterarLiberacao` e, como eles só mexem na contratação quando a liberação muda, o UseCase do Master completa depois: **ligar** termina com a liberação dada e a contratação ativa com origem `master`; **desligar** termina com a contratação encerrada com origem `master` (a trava da D16), mesmo que a liberação já estivesse no valor pedido. As demais ferramentas, e `completo`, vão por `incluir`/`excluir` com origem `master`. Tirar `completo` materializa uma linha para cada ferramenta (D5).
+- **Ligar `ia` segue a regra do dono (§9, regra 3):** com o orçamento nulo, o Master também grava `Incluso` com o teto padrão (reserva de 500); o orçamento já gravado não muda (D14). O aceite continua com o admin.
+- **Ligar o Expediente pelo Master semeia os marcadores** se o escritório não tem nenhum, pela mesma semeadura do dono (`TenantBootstrapService::semearMarcadoresSeFaltarem`, §9, regra 10). Desligar não apaga nada. O criador dos marcadores é o dono do escritório alvo (`Tenant::getCriadoPor()`); sem dono, vale o Master. O filtro `tenant` fica suspenso na chamada (a sessão do Master pode estar em outro escritório; com o filtro a contagem do alvo daria zero e cada religada duplicaria os marcadores).
+- **Só a troca vale como trava:** como nas abas de hoje, bloquear o Voto ou a I.A. que nunca foram liberados não grava trava (D16). Na grade eles aparecem desligados e o clique liga.
+- **Teto padrão:** `POST /master/ia/teto-padrao` (`master_ia_teto_padrao`, CSRF `master_ia`), corpo `{tetoPadrao: "12.50"}` em US$; `AlterarTetoPadraoDaIaUseCase` (Inteligencia); `ConfiguracaoGlobal::definirTetoPadraoDaIa` e `getTetoPadraoDaIa` (o prefixo `ia.` já estava fora do catálogo desde o PR 8a). O estado da aba traz `tetoPadrao` (a reserva de 500 quando ninguém gravou). Campo no cartão "Teto padrão da I.A. ligada pelo escritório", entre Retenção e Escritórios.
+- **Testes:** `tests/Master/Functional/FerramentasDoMasterTest.php`, `tests/Master/Functional/TetoPadraoDaIaTest.php` e os unit dos dois UseCases novos.
 
 ## 11. Decisões (23/11)
 
