@@ -86,6 +86,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:importar-indices-monetarios --no-interaction',
             'cron'    => '0 1 11 * *',
         ],
+        // 2h10: vínculos dos escritórios com os convênios (docs/specs/convenios.md, §5.1). Cria o vínculo OAB de quem
+        // cabe, marca a prova pendente e encerra o que saiu (estado, UF sem convênio, 30 dias sem prova, validade).
+        'app:convenios:sincronizar-vinculos' => [
+            'comando' => 'app:convenios:sincronizar-vinculos --no-interaction',
+            'cron'    => '10 2 * * *',
+        ],
         // 3h: captação das comunicações do DJEN dos últimos 2 dias (como no crontab real, 06h UTC).
         'app:djen:sincronizar' => [
             'comando' => 'app:djen:sincronizar --dias=2 --no-interaction',

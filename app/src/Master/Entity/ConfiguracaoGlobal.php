@@ -41,6 +41,8 @@ class ConfiguracaoGlobal implements Auditavel
     private const PREFIXO_CONVENIO = 'convenio.';
     /** A chave geral do Convênio OAB (M2.1). O nome é o ponto de partida da spec docs/specs/convenios.md: não renomear. */
     private const CONVENIO_ATIVO = self::PREFIXO_CONVENIO . 'ativo';
+    /** Quando a primeira sincronização completa dos vínculos terminou: daí em diante o convênio OAB não vale mais implícito. */
+    private const CONVENIO_VINCULOS_SINCRONIZADOS_EM = self::PREFIXO_CONVENIO . 'vinculosSincronizadosEm';
     /** O teto mensal (centavos de dólar) que a I.A. ligada pelo dono recebe (spec multiproduto, §9, regra 3, e §10). */
     private const TETO_PADRAO_DA_IA = self::PREFIXO_IA . 'tetoPadraoCentavos';
     /** Chaves com estes prefixos não são campos do catálogo: a tela de configurações não as mostra nem as apaga. */
@@ -116,6 +118,23 @@ class ConfiguracaoGlobal implements Auditavel
         $valor = $this->valores[self::CONVENIO_ATIVO] ?? null;
 
         return $valor === null ? null : $valor === '1';
+    }
+
+    /**
+     * A sincronização diária dos vínculos de convênio terminou (spec docs/specs/convenios.md, §3.4, decisão de 24/11). Ato
+     * do sistema: não muda quem alterou por último.
+     */
+    public function marcarVinculosDeConvenioSincronizados(\DateTimeImmutable $em): void
+    {
+        $this->valores[self::CONVENIO_VINCULOS_SINCRONIZADOS_EM] = $em->format(\DateTimeInterface::ATOM);
+    }
+
+    /** Null: a primeira sincronização completa ainda não rodou (o convênio OAB vale implícito). */
+    public function getVinculosDeConvenioSincronizadosEm(): ?\DateTimeImmutable
+    {
+        $valor = $this->valores[self::CONVENIO_VINCULOS_SINCRONIZADOS_EM] ?? null;
+
+        return $valor === null ? null : new \DateTimeImmutable($valor);
     }
 
     /** O nome da chave dentro do JSON `valores`, para a leitura direta do banco (o worker não guarda a entidade). */

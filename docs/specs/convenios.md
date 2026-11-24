@@ -257,6 +257,26 @@ Regras:
   migration (a UF sai de texto livre, `LocalizacaoDaPessoa` é PHP); a primeira volta do agendador faz.
 - **Mudou de estado:** fecha o vínculo com `estado_mudou` e abre o da UF nova, se couber.
 
+**Decisões de implementação do PR 3 (24/11, pela recomendação):**
+
+- **Fim do OAB implícito:** a primeira volta completa da tarefa diária, com a chave geral ligada, grava
+  `convenio.vinculosSincronizadosEm` em `ConfiguracaoGlobal`. Daí em diante só vale o vínculo gravado: conta sem
+  vínculo OAB (sem OAB válida do criador, sem estado) perde o rótulo verde no painel; a UF `sem` continua com o
+  vermelho. Com a chave desligada, nada é criado e a marca não é gravada.
+- **Estado:** o convênio OAB é nacional. Mudar de um estado com convênio para outro não fecha o vínculo (fechar e
+  reabrir o mesmo convênio não diz nada). Fecha com `estado_mudou` quando o escritório fica sem estado válido ou vai
+  para uma UF `sem`; a tarefa diária e a mudança da UF pelo Master fecham com `uf_desligada`. A UF `sem` vale a partir
+  da data `desde` dela.
+- **Sem OAB válida:** o criador sem inscrição (ou só com divergente) segue o caminho da prova pendente (§5.2): a marca,
+  30 dias, depois `prova_divergente`. Escritório em quarentena não ganha vínculo; o aberto segue até a purga.
+- **Validade:** vínculo aberto de convênio fora da validade fecha com `validade`; desligado, com `convenio_desligado`
+  (o aviso prévio é do PR 4).
+- **Ganchos:** mudança de estado nos dados do escritório e mudança da UF pelo Master, depois de gravar, como melhor
+  esforço (a tarefa diária corrige). O cadastro não precisa: o escritório nasce sem estado. O painel recarrega a
+  lista de contas depois de gravar uma UF.
+- **Trilha:** cada escritório numa transação com trava própria; a linha da Trilha fica no escritório do vínculo
+  (`executarComoConta`).
+
 ### 5.2 OAB divergente
 
 **Recomendação:** não corta na hora. A CNA tem falso negativo e o Master já revisa a OAB.

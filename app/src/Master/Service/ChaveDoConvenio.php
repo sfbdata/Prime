@@ -25,4 +25,13 @@ final class ChaveDoConvenio
     {
         return $this->configuracoes->atual()?->getConvenioAtivo() ?? true;
     }
+
+    /**
+     * A primeira sincronização completa dos vínculos já rodou: daí em diante só vale o vínculo gravado (spec
+     * docs/specs/convenios.md, §3.4, decisão de 24/11). Antes dela, o convênio OAB vale implícito.
+     */
+    public function vinculosSincronizados(): bool
+    {
+        return $this->configuracoes->atual()?->getVinculosDeConvenioSincronizadosEm() !== null;
+    }
 }

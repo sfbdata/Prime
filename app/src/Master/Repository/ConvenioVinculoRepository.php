@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Master\Repository;
 
+use App\Master\DTO\EscritorioParaConvenio;
 use App\Master\Entity\ConvenioVinculo;
+use App\Master\Service\LocalizacaoDaPessoa;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -84,5 +87,45 @@ class ConvenioVinculoRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Os escritórios com o que a sincronização dos vínculos precisa (spec docs/specs/convenios.md, §5.1), numa consulta.
+     * A OAB válida é a do criador do escritório: uma inscrição em `inscricao_oab` que não está divergente ou, para quem
+     * ainda não tem linha lá (fluxos antigos gravam só no usuário), o espelho `user.oab_*`.
+     *
+     * @param list<int>|null $tenantIds null: todos
+     *
+     * @return list<EscritorioParaConvenio>
+     */
+    public function escritoriosParaConvenio(?array $tenantIds = null): array
+    {
+        if ($tenantIds === []) {
+            return [];
+        }
+        $sql = <<<'SQL'
+            SELECT t.id, t.estado, t.excluido_em IS NOT NULL AS em_quarentena,
+                   (EXISTS (SELECT 1 FROM inscricao_oab i WHERE i.user_id = t.criado_por_id AND i.status <> 'divergente')
+                    OR (NOT EXISTS (SELECT 1 FROM inscricao_oab i WHERE i.user_id = t.criado_por_id)
+                        AND COALESCE(TRIM(u.oab_numero), '') <> ''
+                        AND COALESCE(u.oab_status, 'nao_verificada') <> 'divergente')) AS oab_valida
+              FROM tenant t
+              LEFT JOIN "user" u ON u.id = t.criado_por_id
+            SQL;
+        $parametros = [];
+        $tipos = [];
+        if ($tenantIds !== null) {
+            $sql .= ' WHERE t.id IN (:tenants)';
+            $parametros['tenants'] = $tenantIds;
+            $tipos['tenants'] = ArrayParameterType::INTEGER;
+        }
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative($sql . ' ORDER BY t.id', $parametros, $tipos);
+
+        return array_map(static fn (array $l): EscritorioParaConvenio => new EscritorioParaConvenio(
+            (int) $l['id'],
+            LocalizacaoDaPessoa::uf($l['estado']),
+            (bool) $l['em_quarentena'],
+            (bool) $l['oab_valida'],
+        ), $linhas);
     }
 }

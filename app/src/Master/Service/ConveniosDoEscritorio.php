@@ -18,7 +18,8 @@ use Psr\Clock\ClockInterface;
  *
  * 1. vínculos abertos do escritório cujo convênio está ligado e dentro da validade;
  * 2. escritório sem vínculo nenhum gravado (nem aberto nem fechado): o convênio OAB vale implícito. É como o sistema
- *    sempre foi, e vale até a sincronização do PR 3 gravar os vínculos (decisão de implementação de 24/11);
+ *    sempre foi, e vale só até a primeira sincronização completa dos vínculos terminar
+ *    ({@see ChaveDoConvenio::vinculosSincronizados}); daí em diante vale só o vínculo gravado (decisão de 24/11);
  * 3. no convênio OAB, a exceção do estado do escritório em `convenio_uf`: `sem` tira o convênio, `dif` o mantém com o
  *    valor diferenciado (só para a receita estimada);
  * 4. chave geral `convenio.ativo` desligada ({@see ChaveDoConvenio}): sai tudo o que é só exibição (gratuidade); um
@@ -60,7 +61,7 @@ final class ConveniosDoEscritorio
         $ids = array_keys($ufPorTenant);
         $abertos = $this->vinculos->abertosDosTenants($ids);
         $comVinculo = array_flip($this->vinculos->tenantsComVinculo($ids));
-        $oab = $this->convenios->porChave(Convenio::CHAVE_OAB);
+        $oab = $this->chave->vinculosSincronizados() ? null : $this->convenios->porChave(Convenio::CHAVE_OAB);
         $excecoes = $this->excecoesPorUf->todosPorUf();
         $chaveLigada = $this->chave->ativo();
 

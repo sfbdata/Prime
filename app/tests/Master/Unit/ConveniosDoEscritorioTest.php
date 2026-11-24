@@ -124,6 +124,19 @@ final class ConveniosDoEscritorioTest extends TestCase
         self::assertSame([], $servico->doTenant(2, 'SP'), 'OAB implícito com início amanhã não vale');
     }
 
+    #[TestDox('depois da primeira sincronização completa, sem vínculo não há OAB implícito; o vínculo aberto vale')]
+    public function testDepoisDaSincronizacao(): void
+    {
+        $oab = $this->oab();
+        $servico = $this->servico(oab: $oab, abertos: [1 => [$this->vinculo($oab)]], comVinculo: [1], sincronizado: true);
+
+        $vigentes = $servico->dosTenants([1 => 'SP', 2 => 'SP']);
+
+        self::assertCount(1, $vigentes[1]);
+        self::assertFalse($vigentes[1][0]->implicito);
+        self::assertSame([], $vigentes[2]);
+    }
+
     #[TestDox('sem a linha do convênio OAB no banco, nada de implícito')]
     public function testSemLinhaOab(): void
     {
@@ -147,7 +160,7 @@ final class ConveniosDoEscritorioTest extends TestCase
      * @param list<int>                         $comVinculo
      * @param array<string, ConvenioDaUf>       $excecoes
      */
-    private function servico(Convenio|false|null $oab = null, array $abertos = [], array $comVinculo = [], array $excecoes = [], bool $chaveLigada = true): ConveniosDoEscritorio
+    private function servico(Convenio|false|null $oab = null, array $abertos = [], array $comVinculo = [], array $excecoes = [], bool $chaveLigada = true, bool $sincronizado = false): ConveniosDoEscritorio
     {
         $vinculos = $this->createStub(ConvenioVinculoRepository::class);
         $vinculos->method('abertosDosTenants')->willReturn($abertos);
@@ -155,7 +168,7 @@ final class ConveniosDoEscritorioTest extends TestCase
         $porUf = $this->createStub(ConvenioDaUfRepository::class);
         $porUf->method('todosPorUf')->willReturn($excecoes);
 
-        return new ConveniosDoEscritorio($this->convenios($oab === false ? null : ($oab ?? $this->oab())), $vinculos, $porUf, $this->chave($chaveLigada), new MockClock(self::HOJE));
+        return new ConveniosDoEscritorio($this->convenios($oab === false ? null : ($oab ?? $this->oab())), $vinculos, $porUf, $this->chave($chaveLigada, $sincronizado), new MockClock(self::HOJE));
     }
 
     private function convenios(?Convenio $oab): ConvenioRepository
@@ -166,10 +179,13 @@ final class ConveniosDoEscritorioTest extends TestCase
         return $convenios;
     }
 
-    private function chave(bool $ligada): ChaveDoConvenio
+    private function chave(bool $ligada, bool $sincronizado = false): ChaveDoConvenio
     {
         $configuracao = new ConfiguracaoGlobal();
         $configuracao->definirConvenioAtivo($ligada, null, new \DateTimeImmutable(self::HOJE));
+        if ($sincronizado) {
+            $configuracao->marcarVinculosDeConvenioSincronizados(new \DateTimeImmutable(self::HOJE));
+        }
         $configuracoes = $this->createStub(ConfiguracaoGlobalRepository::class);
         $configuracoes->method('atual')->willReturn($configuracao);
 

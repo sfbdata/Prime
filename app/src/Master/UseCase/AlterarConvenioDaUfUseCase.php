@@ -35,6 +35,7 @@ final class AlterarConvenioDaUfUseCase
         private readonly AvisoDeConvenioDaUf $aviso,
         private readonly Connection $conexao,
         private readonly LoggerInterface $logger,
+        private readonly SincronizarVinculosDeConvenioUseCase $vinculosDeConvenio,
     ) {
     }
 
@@ -51,7 +52,7 @@ final class AlterarConvenioDaUfUseCase
         $novo = $input->modo === 'livre' ? null : $this->convenioPedido($uf, $input);
 
         try {
-            return $this->conexao->transactional(function () use ($uf, $novo, $input): int {
+            $avisos = $this->conexao->transactional(function () use ($uf, $novo, $input): int {
                 $this->conexao->executeQuery("SELECT pg_advisory_xact_lock(hashtextextended('convenio_oab:' || ?, 0))", [$uf]);
 
                 return $this->aplicar($uf, $this->convenios->buscar($uf), $novo, $input);
@@ -62,6 +63,22 @@ final class AlterarConvenioDaUfUseCase
             $this->logger->error('Convênio OAB: a mudança foi desfeita porque os avisos não entraram na fila.', ['uf' => $uf, 'erro' => $e::class]);
 
             throw new AvisoDeConvenioNaoEnfileirado('Avisos não enfileirados.', 0, $e);
+        }
+        $this->sincronizarVinculos($uf);
+
+        return $avisos;
+    }
+
+    /**
+     * Os vínculos OAB dos escritórios da UF acompanham na hora (spec docs/specs/convenios.md, §6.1). Melhor esforço,
+     * depois do commit: a mudança e os avisos já valeram, e a tarefa diária corrige o que falhar aqui.
+     */
+    private function sincronizarVinculos(string $uf): void
+    {
+        try {
+            $this->vinculosDeConvenio->daUf($uf);
+        } catch (\Throwable $e) {
+            $this->logger->error('Convênios: os vínculos não acompanharam a mudança da UF; a tarefa diária confere.', ['uf' => $uf, 'erro' => $e::class]);
         }
     }
 

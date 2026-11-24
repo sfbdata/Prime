@@ -36,7 +36,7 @@
     if (ocupado) return;
     ocupado = true;
     fetchJson(ctx.url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': ctx.token }, body: JSON.stringify(corpo) })
-      .then(d => { E = d.estados; if (ctx.aoMudar) ctx.aoMudar(E); })
+      .then(d => { E = d.estados; if (ctx.aoMudar) ctx.aoMudar(E); if (ctx.aoGravar) ctx.aoGravar(); })
       .catch(e => { window.alert(e.message || T('erro_salvar')); })
       .finally(() => { ocupado = false; desenhar(); });
   }
@@ -108,7 +108,7 @@
   }
 
   window.BJConvenioOab = {
-    // ctx: { url, token, aoMudar(estados) }
+    // ctx: { url, token, aoMudar(estados), aoGravar() }: aoGravar só depois de uma mudança gravada
     montar(el, contexto) {
       raiz = el; ctx = contexto;
       el.classList.add('mco');
