@@ -10,6 +10,7 @@ use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\ProdutoDoCadastro;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Master\Service\ConvenioDoCadastro;
 use App\Produto\Enum\Produto;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -36,6 +37,7 @@ final class CadastroPeloFacebookController extends AbstractController
         private readonly ContaAConfirmar $contaAConfirmar,
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
         private readonly TranslatorInterface $tradutor,
+        private readonly ConvenioDoCadastro $convenioDoCadastro,
     ) {
     }
 
@@ -71,6 +73,7 @@ final class CadastroPeloFacebookController extends AbstractController
         // Igual ao cadastro por e-mail: sem login; a sessão guarda a conta (ou o marcador neutro) para o reenvio.
         $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
         if (null !== $conta) {
+            $this->convenioDoCadastro->aplicar($request->getSession(), $conta);
             $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
             // Só o link aberto nesta sessão mantém o facebook_id (pré-sequestro, spec login-cupom-e-facebook).
             CadastroPeloFacebook::marcarConta($request->getSession(), (int) $conta->user->getId());

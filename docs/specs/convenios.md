@@ -312,6 +312,28 @@ Para o benefício `gratuidade` isso só muda rótulo; o rigor importa quando hou
   além de "Código inválido ou encerrado." O Master pode encerrar o vínculo (`master`).
 - Tentativas: limitar a 5 por hora por escritório (o RateLimiter do Symfony), contra adivinhação.
 
+**Decisões de implementação do PR 5 (24/11, pela recomendação):**
+
+- **Escritório sem estado aceita o código do convênio de um estado.** O escritório nasce sem estado (o cadastro não
+  pergunta). Recusar travaria todo cadastro pelo link `?convenio=` de uma caixa estadual. O estado é conferido quando
+  existe: a tarefa diária fecha o vínculo com `estado_mudou` se o escritório passar a ter outro estado
+  (`RegraDosVinculosDeConvenio::motivoDoFim`, que antes só olhava o estado no convênio OAB).
+- **Cadastro:** `GET /cadastro?convenio=` guarda o código na sessão (só se tiver a forma de um: 4 a 16 letras e números,
+  sem espaço nem hífen). Ao criar a conta (formulário, Google e Facebook) o código é aplicado com quem criou, que já é o
+  primário. Melhor esforço: código que não vale fica no log (`info`) e a conta nasce sem convênio; a chave sai da sessão
+  nos dois casos.
+- **Meu Perfil:** bloco "Tenho um código de convênio" só para o primário e com a chave geral ligada; `POST
+  /perfil/convenio/codigo` (CSRF `profile_convenio_codigo`), aviso pelo flash. Secundário recebe 403.
+- **Tentativas:** limitador `convenio_codigo` (janela deslizante, 5 por hora, chave `escritorio-<id>`), consumido antes
+  de conferir o código. Só o Meu Perfil conta: o cadastro já tem o limitador próprio por IP.
+- **Recusas:** código que não existe, convênio desligado, fora da validade, com fim marcado, no limite de usos (conta
+  vínculos por código abertos e fechados), estado diferente e chave geral desligada dão o mesmo "Código inválido ou
+  encerrado.". O convênio que já vale para o escritório diz isso ("Este convênio já vale para o seu escritório.").
+- **Concorrência:** a trava do escritório (a mesma da sincronização) e a do convênio, nesta ordem, seguram o limite de
+  usos e o vínculo duplicado. O vínculo grava na Trilha do escritório.
+- **Fica para o PR 6 (§8):** a linha "Convênio X aplicado" no fim do cadastro e o convênio atual no Meu Perfil. O Master
+  encerrar um vínculo pela tela fica fora desta frente.
+
 ## 6. Desligar
 
 ### 6.1 Os quatro jeitos

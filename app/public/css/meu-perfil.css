@@ -156,6 +156,9 @@ html[data-bs-theme="dark"] .mp-codigo { color: #6cb6e0; }
 .mp-campo-inteiro { grid-column: 1 / -1; }
 .mp-campo input { height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font-size: 14px; color: #12242f; width: 100%; }
 .mp-campo input:focus { outline: none; border-color: #0a6fa0; box-shadow: 0 0 0 2px rgba(10, 111, 160, .15); }
+/* Código de convênio (spec convenios §5.3, PR 5): o campo divide a linha com o botão, como o bloco Segurança. */
+.mp-convenio-codigo { flex: 1; min-width: 240px; font-size: 13px; color: #34505f; }
+.mp-convenio-codigo input { text-transform: uppercase; letter-spacing: .06em; }
 .mp-campo > small { font-size: 11.5px; color: #7a8e9b; }
 .mp-modal-rodape { padding: 12px 18px; border-top: 1px solid #eef2f5; display: flex; justify-content: flex-end; gap: 8px; }
 .mp-rodape-solto { border-top: none; padding: 4px 0 0; flex-wrap: wrap; }

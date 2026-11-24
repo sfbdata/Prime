@@ -6,6 +6,7 @@ namespace App\Tests\Master\Unit;
 
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\ContextoDosVinculos;
+use App\Master\DTO\DadosDoConvenio;
 use App\Master\DTO\EscritorioParaConvenio;
 use App\Master\DTO\MudancasDoVinculo;
 use App\Master\Entity\Convenio;
@@ -144,6 +145,21 @@ final class RegraDosVinculosDeConvenioTest extends TestCase
         $futuro = $this->convenio('futuro', BeneficioDoConvenio::EspacoExtra, validoDe: '2026-12-01');
         $this->aplicar($this->escritorio(), [$naoComecou = $this->vinculo($futuro)]);
         self::assertSame(MotivoDoFimDoVinculo::ConvenioDesligado, $naoComecou->getMotivoFim());
+    }
+
+    #[TestDox('convênio de um estado por código: fecha ("estado_mudou") se o escritório for de outro estado; sem estado ou no mesmo, segue')]
+    public function testConvenioDeUmEstado(): void
+    {
+        $dados = new DadosDoConvenio('Convênio CAAGO', 'CAAGO', 'caago', AbrangenciaDoConvenio::Uf, 'GO', BeneficioDoConvenio::EspacoExtra, 1, 'CONVÊNIO', new \DateTimeImmutable('2026-10-26'), null, null);
+        $doGo = Convenio::novoPorCodigo('caago', $dados, 'ABCD2345', null, new \DateTimeImmutable('2026-10-01'));
+
+        $this->aplicar($this->escritorio('SP'), [$outro = $this->vinculo($doGo)]);
+        $this->aplicar($this->escritorio(null), [$semEstado = $this->vinculo($doGo)]);
+        $this->aplicar($this->escritorio('GO'), [$mesmo = $this->vinculo($doGo)]);
+
+        self::assertSame(MotivoDoFimDoVinculo::EstadoMudou, $outro->getMotivoFim());
+        self::assertTrue($semEstado->estaAberto());
+        self::assertTrue($mesmo->estaAberto());
     }
 
     #[TestDox('escritório em quarentena: o vínculo aberto segue até a purga')]

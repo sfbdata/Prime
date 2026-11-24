@@ -9,6 +9,14 @@ perfil:
         trocar_conta: Trocar de conta
         exclusivo_master: EXCLUSIVO DO MASTER
         fechar_menu: Fechar menu
+    convenio:
+        titulo: Convênio
+        sub: Tem um código de convênio de uma instituição? Digite aqui para o escritório entrar no convênio.
+        rotulo: Código do convênio
+        dica: Ex.  ABCD2345
+        aplicar: Aplicar código
+        aplicado: 'Pronto: o escritório entrou no convênio {nome}.'
+        muitas_tentativas: Muitas tentativas. Tente de novo daqui a uma hora.
     acoes:
         fechar: Fechar
         cancelar: Cancelar
