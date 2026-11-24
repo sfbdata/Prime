@@ -4,8 +4,8 @@
     (bi-archive / bi-eye-slash, por parâmetro de URL, sem JS), a barra de seleção em lote do desenho (.vSelBar, L241:
     "Selecionar todas" / "N selecionada(s)", "Arquivar (n)", "Excluir (n)", "Limpar seleção", com as faixas de confirmação
     de arquivar e de excluir; public/js/voto-ciclo.js) e as assembleias agrupadas por entidade (F1-4, desenho 18):
-    KPIs clicáveis (.vKpiB, com o painel de lista), filtros .vFil (formulário GET: funciona sem JavaScript), grupos .vGr
-    com a entidade (.vGrH: nome, CNPJ e resumo) e, em cada assembleia, o evento (.vEvH, que é a faixa do próprio cartão).
+    KPIs clicáveis (.vKpiB, com o painel de lista), filtros .vFil num .vC próprio (formulário GET: funciona sem JavaScript),
+    grupos .vGr com a entidade (.vGrH: nome, CNPJ e resumo) e cada assembleia num .vC próprio, aberto pelo evento (.vEvH).
     Contexto: `painel` (PainelAgrupado), `kpis` (KpisDoPainel), `kpi` (abe | ced | ''), `filtro` (FiltroDoPainel), `agora`,
     `arquivadas` (bool: mostra também as arquivadas e as pautas retiradas) e `totalArquivadas` (int: assembleias
     arquivadas mais pautas retiradas).
@@ -84,35 +84,39 @@
             </form>
         </div>
     {% endif %}
-    <div class="vC voto-gestao">
-        <form class="vFil" method="get" action="{{ path('voto_index') }}" data-voto-filtros>
-            <input type="hidden" name="aba" value="ges">
-            {% if arquivadas %}<input type="hidden" name="arquivadas" value="1">{% endif %}
-            <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.buscar'|trans }}<input class="vF" type="search" name="q" maxlength="120" autocomplete="off" placeholder="{{ 'voto.assembleia.gestor.filtros.buscar_dica'|trans }}" value="{{ filtro.busca }}"></label>
-            {% if painel.temFiltroDeEntidade %}
-                <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.entidade'|trans }}<select class="vF" name="entidade" data-voto-filtro-auto>
+    {# Pedido M1.1 (24/11, aprovado): o desenho 18 emendava filtro e assembleias num .vC só; agora o filtro tem cartão
+       próprio e cada assembleia é um .vC separado, com 12px entre os cartões, como nas abas Votar e Resultados. #}
+    <div class="voto-gestao">
+        <div class="vC voto-gestao-filtro">
+            <form class="vFil" method="get" action="{{ path('voto_index') }}" data-voto-filtros>
+                <input type="hidden" name="aba" value="ges">
+                {% if arquivadas %}<input type="hidden" name="arquivadas" value="1">{% endif %}
+                <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.buscar'|trans }}<input class="vF" type="search" name="q" maxlength="120" autocomplete="off" placeholder="{{ 'voto.assembleia.gestor.filtros.buscar_dica'|trans }}" value="{{ filtro.busca }}"></label>
+                {% if painel.temFiltroDeEntidade %}
+                    <label class="vL voto-fil-busca">{{ 'voto.assembleia.gestor.filtros.entidade'|trans }}<select class="vF" name="entidade" data-voto-filtro-auto>
+                        <option value="">{{ 'voto.assembleia.gestor.filtros.todas'|trans }}</option>
+                        {% for e in painel.entidades %}
+                            <option value="{{ e.chave }}"{{ e.chave == filtro.entidade ? ' selected' : '' }}>{{ e.nome != '' ? e.nome : 'voto.assembleia.gestor.grupo.sem_entidade'|trans }}{{ e.cnpj != '' ? ' · ' ~ e.cnpj : '' }}</option>
+                        {% endfor %}
+                    </select></label>
+                {% endif %}
+                <label class="vL voto-fil-situacao">{{ 'voto.assembleia.gestor.filtros.situacao'|trans }}<select class="vF" name="situacao" data-voto-filtro-auto>
                     <option value="">{{ 'voto.assembleia.gestor.filtros.todas'|trans }}</option>
-                    {% for e in painel.entidades %}
-                        <option value="{{ e.chave }}"{{ e.chave == filtro.entidade ? ' selected' : '' }}>{{ e.nome != '' ? e.nome : 'voto.assembleia.gestor.grupo.sem_entidade'|trans }}{{ e.cnpj != '' ? ' · ' ~ e.cnpj : '' }}</option>
-                    {% endfor %}
+                    <option value="and"{{ filtro.situacao == 'and' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.em_andamento'|trans }}</option>
+                    <option value="ras"{{ filtro.situacao == 'ras' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.rascunhos'|trans }}</option>
+                    <option value="con"{{ filtro.situacao == 'con' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.concluidas'|trans }}</option>
                 </select></label>
+                <div class="voto-fil-acoes">
+                    <noscript><button type="submit" class="vB vP">{{ 'voto.assembleia.gestor.filtros.filtrar'|trans }}</button></noscript>
+                    {% if filtro.ativo %}<a class="vB" data-voto-filtro-limpar href="{{ path('voto_index', arquivadas ? {aba: 'ges', arquivadas: 1} : {aba: 'ges'}) }}">{{ 'voto.assembleia.gestor.filtros.limpar'|trans }}</a>{% endif %}
+                    <button type="button" class="vB" data-voto-grupos="abrir" title="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" hidden><i class="bi bi-arrows-expand"></i></button>
+                    <button type="button" class="vB" data-voto-grupos="fechar" title="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" hidden><i class="bi bi-arrows-collapse"></i></button>
+                </div>
+            </form>
+            {% if painel.vazio %}
+                <div class="vLin voto-vazio">{{ (painel.haAssembleias ? 'voto.assembleia.gestor.filtros.vazio_filtros' : 'voto.assembleia.gestor.filtros.vazio_inicial')|trans }}</div>
             {% endif %}
-            <label class="vL voto-fil-situacao">{{ 'voto.assembleia.gestor.filtros.situacao'|trans }}<select class="vF" name="situacao" data-voto-filtro-auto>
-                <option value="">{{ 'voto.assembleia.gestor.filtros.todas'|trans }}</option>
-                <option value="and"{{ filtro.situacao == 'and' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.em_andamento'|trans }}</option>
-                <option value="ras"{{ filtro.situacao == 'ras' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.rascunhos'|trans }}</option>
-                <option value="con"{{ filtro.situacao == 'con' ? ' selected' : '' }}>{{ 'voto.assembleia.gestor.filtros.concluidas'|trans }}</option>
-            </select></label>
-            <div class="voto-fil-acoes">
-                <noscript><button type="submit" class="vB vP">{{ 'voto.assembleia.gestor.filtros.filtrar'|trans }}</button></noscript>
-                {% if filtro.ativo %}<a class="vB" data-voto-filtro-limpar href="{{ path('voto_index', arquivadas ? {aba: 'ges', arquivadas: 1} : {aba: 'ges'}) }}">{{ 'voto.assembleia.gestor.filtros.limpar'|trans }}</a>{% endif %}
-                <button type="button" class="vB" data-voto-grupos="abrir" title="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.expandir'|trans }}" hidden><i class="bi bi-arrows-expand"></i></button>
-                <button type="button" class="vB" data-voto-grupos="fechar" title="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" aria-label="{{ 'voto.assembleia.gestor.filtros.recolher'|trans }}" hidden><i class="bi bi-arrows-collapse"></i></button>
-            </div>
-        </form>
-        {% if painel.vazio %}
-            <div class="vLin voto-vazio">{{ (painel.haAssembleias ? 'voto.assembleia.gestor.filtros.vazio_filtros' : 'voto.assembleia.gestor.filtros.vazio_inicial')|trans }}</div>
-        {% endif %}
+        </div>
         {% for g in painel.grupos %}
             <details class="vGr"{{ g.aberto ? ' open' : '' }} data-voto-grupo>
                 <summary class="vGrH">

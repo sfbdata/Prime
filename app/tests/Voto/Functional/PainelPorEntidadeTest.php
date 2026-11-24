@@ -79,6 +79,23 @@ final class PainelPorEntidadeTest extends JusPrimeWebTestCase
         self::assertStringContainsString((new \DateTimeImmutable())->format('d/m/Y'), $sol->filter('.vEvH')->text());
     }
 
+    #[TestDox('Cartões separados (M1.1): filtro num .vC próprio, cada assembleia num .vC filho direto do grupo, nada num .vC em volta')]
+    public function testCadaAssembleiaNumCartaoProprio(): void
+    {
+        $this->assembleia('AGO Jardim', 'Residencial Jardim', '11222333000181');
+        $this->assembleia('AGE Jardim', 'Residencial Jardim', '11222333000181');
+
+        $tela = $this->painel();
+
+        self::assertCount(0, $tela->filter('.voto-gestao.vC'), 'a lista não fica mais emendada num cartão só');
+        self::assertCount(1, $tela->filter('.voto-painel > .voto-gestao > .vC.voto-gestao-filtro > form.vFil[data-voto-filtros]'));
+        self::assertCount(1, $tela->filter('.voto-gestao > .voto-gestao-filtro'), 'o filtro tem cartão próprio');
+        self::assertCount(0, $tela->filter('.voto-gestao-filtro .voto-assembleia'), 'nenhuma assembleia dentro do cartão do filtro');
+        self::assertCount(2, $tela->filter('.voto-gestao > details.vGr > .vC.voto-assembleia'), 'cada assembleia é um .vC filho direto do grupo');
+        self::assertCount(0, $tela->filter('.voto-assembleia .voto-assembleia'), 'um cartão não fica dentro do outro');
+        self::assertCount(2, $tela->filter('.vC.voto-assembleia > .vEvH:first-child'), 'o evento abre o cartão');
+    }
+
     #[TestDox('Assembleia sem nome de entidade cai em "Sem entidade informada"')]
     public function testSemEntidade(): void
     {
@@ -139,12 +156,12 @@ final class PainelPorEntidadeTest extends JusPrimeWebTestCase
     #[TestDox('Vazios literais do desenho: com filtros e sem nenhuma assembleia')]
     public function testVazios(): void
     {
-        self::assertSame('Nenhuma votação ainda. Use Nova assembleia.', trim($this->painel()->filter('.voto-gestao > .voto-vazio')->text()));
+        self::assertSame('Nenhuma votação ainda. Use Nova assembleia.', trim($this->painel()->filter('.voto-gestao > .voto-gestao-filtro > .voto-vazio')->text()));
 
         $this->assembleia('AGO Jardim', 'Residencial Jardim', null);
         $tela = $this->painel('&q=nao-existe');
 
-        self::assertSame('Nenhuma votação com esses filtros.', trim($tela->filter('.voto-gestao > .voto-vazio')->text()));
+        self::assertSame('Nenhuma votação com esses filtros.', trim($tela->filter('.voto-gestao > .voto-gestao-filtro > .voto-vazio')->text()));
         self::assertCount(0, $tela->filter('.vGr'));
         self::assertCount(0, $tela->filter('[data-voto-lote]'), 'sem assembleia na tela, sem barra de seleção');
     }
