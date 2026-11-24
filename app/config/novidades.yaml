@@ -1,6 +1,13 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.6.0"
+  data: "2026-11-24"
+  itens:
+    - "O BlueJus ganhou a base para cadastrar convênios com outras instituições além da OAB. Para os escritórios, tudo continua igual: quem tem o Convênio OAB segue com ele, do mesmo jeito."
+    - "Na área do Master, quando o Convênio OAB é desligado, o aviso de convênio embaixo do plano de cada conta também sai."
+    - "Ficou registrado o plano dos convênios do BlueJus: o Master vai poder cadastrar novos convênios, ligar e desligar cada um e avisar os escritórios com 30 dias de antecedência antes de um benefício terminar."
+    - "Corrigimos um teste automático da tela da pasta que às vezes falhava por sorteio. Com isso, as próximas versões saem sem atraso por causa desse alarme falso."
 - versao: "3.5.0"
   data: "2026-11-24"
   itens:
