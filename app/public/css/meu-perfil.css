@@ -269,3 +269,14 @@ html[data-bs-theme="dark"] .mp-guia-aviso { background: var(--bs-tertiary-bg); c
 .mp-bk-tam, .mp-bk-validade { color: #5b7383; font-size: 12.5px; }
 .mp-bk-baixar { height: 28px; padding: 0 12px; border: 1px solid #0a6fa0; border-radius: 3px; color: #0a6fa0; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
 .mp-bk-baixar:hover, .mp-bk-baixar:focus-visible { background: #0a6fa0; color: #fff; }
+
+/* ── Ferramentas do escritório (multiproduto, §9): sem desenho, mesmas medidas do Backup (.mp-bk-*) ── */
+.mp-fe-icone { width: 18px; text-align: center; color: #0a6fa0; font-size: 15px; }
+.mp-fe-nome { flex: 1; min-width: 130px; font-weight: bold; }
+.mp-fe-sit-ligada { background: #e3f4ea; color: #1e7b45; }
+.mp-fe-sit-desligada { background: #eef2f5; color: #4a6373; }
+.mp-fe-sit-travada { background: #fdf1f2; color: #a3232b; }
+.mp-fe-sit-indisponivel { background: #fff3cd; color: #664d03; }
+.mp-fe-link { color: #0a6fa0; font-size: 12.5px; text-decoration: underline; }
+.mp-fe-alternar { background: #fff; cursor: pointer; }
+.mp-fe-alternar:disabled { opacity: .6; cursor: default; }

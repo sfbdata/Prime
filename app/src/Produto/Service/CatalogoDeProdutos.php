@@ -157,6 +157,12 @@ final class CatalogoDeProdutos
         return self::PRODUTOS[$produto->value]['titulo'];
     }
 
+    /** Classe do ícone Bootstrap Icons do produto (o cartão do Meu Perfil). */
+    public static function icone(Produto $produto): string
+    {
+        return self::PRODUTOS[$produto->value]['icone'];
+    }
+
     public static function rotaInicial(Produto $produto): string
     {
         return self::PRODUTOS[$produto->value]['rotaInicial'];

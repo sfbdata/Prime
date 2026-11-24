@@ -512,6 +512,8 @@ input[type="range"].img-slider {
     </section>
     {% endif %}
 
+    {% include 'profile/_ferramentas.html.twig' %}
+
     {# ── Backup e Exportação de Dados (docs/specs/backup-e-exportacao-de-dados.md, seção 6) ──
        Sem desenho: seção discreta no fim do perfil, com as classes do próprio Meu Perfil. Vale para toda pessoa com
        escritório (não só o primário); a lista é só dela. O aviso do sino (backup_pronto/backup_falhou) abre aqui (#mpBackup). #}
@@ -919,6 +921,7 @@ input[type="range"].img-slider {
 {% endif %}
 <script src="{{ asset('js/conta-exclusao.js') }}" defer></script>
 <script src="{{ asset('js/backup-pedido.js') }}" defer></script>
+<script src="{{ asset('js/perfil-ferramentas.js') }}" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>
 
