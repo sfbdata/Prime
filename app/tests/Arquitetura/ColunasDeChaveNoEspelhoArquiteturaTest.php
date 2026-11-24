@@ -62,6 +62,7 @@ final class ColunasDeChaveNoEspelhoArquiteturaTest extends KernelTestCase
         'comercial_campanha.modelo_chave'              => 'identificador do modelo de e-mail da campanha, não arquivo',
         'comercial_data_comemorativa.modelo_chave'     => 'identificador do modelo de e-mail escolhido para a data, não arquivo',
         'comercial_modelo.fixo_chave'                  => 'identificador do modelo padrão cuja versão o Master editou, não arquivo',
+        'convenio.instituicao_chave'                   => 'identificador da instituição do convênio (agrupa os convênios dela), não arquivo',
         'pedido_de_backup.chave_arquivo'               => 'ZIP de backup: descartável (7 dias) e NUNCA espelhado no R2 (PoliticaDeEspelhamento::NUNCA_ESPELHADAS); não há o que reconciliar',
     ];
 

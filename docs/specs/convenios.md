@@ -208,6 +208,15 @@ Lote para o painel (uma consulta para todas as contas), como `retratarVarios` (S
 
 A linha `oab` também entra em `scripts/ci-dados-de-referencia.sql`, para o banco montado só com `schema:create`.
 
+Para os próximos PRs (revisão do PR 2, 24/11):
+
+- **Trilha no escritório certo (PR 3 e PR 4).** `ConvenioVinculo` não é `TenantAware` e `Convenio` é global: o
+  `AuditLogSubscriber` grava o log com o escritório da sessão. Os UseCases que gravam ligam o `escopoDePlataforma` com
+  a `contaAlvo` do vínculo (precedente: `AlterarLiberacaoDoVotoUseCase`), com teste do `tenant_id` da linha da Trilha.
+- **Rótulo vermelho depois dos vínculos (PR 3).** Conta com o vínculo OAB fechado vem com `convenio` nulo; se o Master
+  marca `sem` na UF dentro da tela, o rótulo só aparece ao recarregar. O PR 3 recarrega a lista de contas ao gravar a
+  UF (ou devolve o `sem` também para essas contas).
+
 ## 4. Benefício
 
 | Benefício | O que faz | Onde entra |

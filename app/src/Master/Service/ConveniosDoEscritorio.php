@@ -48,7 +48,7 @@ final class ConveniosDoEscritorio
     }
 
     /**
-     * Em lote, para o painel do Master: três consultas para todas as contas, não três por conta.
+     * Em lote, para o painel do Master: quatro consultas para todas as contas, não quatro por conta.
      *
      * @param array<int, ?string> $ufPorTenant tenantId => UF do escritório (null sem estado válido)
      *

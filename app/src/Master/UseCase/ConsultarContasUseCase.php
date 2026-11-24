@@ -64,9 +64,7 @@ final class ConsultarContasUseCase
 
         $escritorios = $this->comCodigo([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()]);
         $retratos = $this->retratos($escritorios, $consumo);
-        $convenios = $this->convenios->todosPorUf();
-        $vigentes = $this->conveniosDoEscritorio->dosTenants(self::ufPorConta($escritorios));
-        $exibir = $this->conveniosDoEscritorio->exibicaoLigada();
+        $rotulos = $this->rotulosDeConvenio($escritorios);
 
         $contas = [];
         // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. Pastas e
@@ -90,7 +88,7 @@ final class ConsultarContasUseCase
                 'ehDoMaster'    => $e['do_master'],
                 'purgaEm'       => $this->purgaEm($e['excluido_em']),
                 'espaco'        => EspacoDaContaOutput::doRetrato($retratos[$id])->paraArray(),
-                ...self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $exibir ? $convenios : [], $exibir ? ($vigentes[$id] ?? []) : []),
+                ...$rotulos[$id],
             ];
         }
 
@@ -147,6 +145,28 @@ final class ConsultarContasUseCase
     private function purgaEm(?string $excluidoEm): ?string
     {
         return $excluidoEm !== null ? (new \DateTimeImmutable($excluidoEm))->modify(sprintf('+%d days', $this->carenciaPurgaDias))->format('Y-m-d') : null;
+    }
+
+    /**
+     * O rótulo de convênio de cada conta, em lote (spec docs/specs/convenios.md, §3.4). Com a chave geral desligada,
+     * nem o convênio vigente nem a exceção da UF entram: `convenio` sai nulo.
+     *
+     * @param list<array{id: int, estado: ?string}> $escritorios
+     *
+     * @return array<int, array{uf: ?string, convenio: ?array{modo: string, valor: float}}>
+     */
+    private function rotulosDeConvenio(array $escritorios): array
+    {
+        $exibir = $this->conveniosDoEscritorio->exibicaoLigada();
+        $excecoes = $exibir ? $this->convenios->todosPorUf() : [];
+        $vigentes = $this->conveniosDoEscritorio->dosTenants(self::ufPorConta($escritorios));
+
+        $rotulos = [];
+        foreach ($escritorios as $e) {
+            $rotulos[$e['id']] = self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $excecoes, $exibir ? ($vigentes[$e['id']] ?? []) : []);
+        }
+
+        return $rotulos;
     }
 
     /**
