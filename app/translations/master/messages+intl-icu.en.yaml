@@ -10,6 +10,7 @@ master:
             recursos: Screens and features
             ia: AI settings
             voto: Voting
+            ferramentas: Tools
         faixa: Master-only dashboard. It shows account metadata (counts, usage, status), never the legal content of the firms.
         carregando: Loading the dashboard…
         masters:
@@ -318,6 +319,10 @@ master:
             titulo: Response retention
             campo: KEEP AI RESPONSES FOR N MONTHS
             aviso: 'BlueJus AI responses and questions older than this are deleted every day at 00:20; only the cost figures remain.'
+        teto_padrao:
+            titulo: Default cap for AI turned on by the firm
+            campo: DEFAULT MONTHLY CAP (US$)
+            aviso: 'This is the monthly budget AI gets when the firm owner turns it on alone in My Profile, in the "Included in the plan" mode. It only applies to firms that turn it on after the change: budgets already saved for each firm do not change. With no adjustment, the default is US$ 5.00.'
         escritorios:
             titulo: Firms
             nota: 'To use AI, the firm must be enabled here and its administrator must turn AI on and give consent. In "Included in the plan" and "Paid add-on", AI stops when the month spending reaches the budget and returns on the 1st; in "Free limit, then charge", the budget is the free portion and AI keeps running. With no budget, there is no dollar cap. Values are estimated at Anthropic list price.'
@@ -339,6 +344,8 @@ master:
             orcamento_invalido: Enter the budget in dollars, with up to two decimal places.
             escritorio_nao_encontrado: Firm not found.
             retencao_invalida: Enter the months as a whole number.
+            teto_padrao_invalido: Enter the default cap in dollars, with up to two decimal places.
+            teto_padrao_fora_da_faixa: The default cap must be between US$ 0.00 and US$ 100,000.00.
         juridico:
             titulo: Legal issues
             em_aberto: 'Open: {n}'
@@ -399,6 +406,24 @@ master:
             token_invalido: Invalid CSRF token. Reload the page.
             informe_liberado: Indicate whether the firm is enabled or blocked.
             categoria_invalida: Choose a category from the list.
+            escritorio_nao_encontrado: Firm not found.
+    produtos:
+        titulo: Tools by firm
+        nota: 'Turn the tools of each firm on or off. "Full" gives the firm every tool, like the firms that already existed. Turning one off here locks it: the firm owner cannot turn it back on in My Profile, only BlueJus can. Turning on Voting also enables it for the firm; turning on AI enables it, and the acceptance stays with the administrator. If the only tool turned on is turned off, the firm has no tool until it is turned back on.'
+        nome:
+            completo: Full
+            voto: Voting
+            expediente: Docket
+            ia: AI
+            ponto: Time Clock
+            calculo: Calculation
+            kanban: Kanban
+            assinatura: E-signature
+            cobrancas: Collections
+        recusa:
+            token_invalido: Invalid CSRF token. Reload the page.
+            produto_invalido: Choose a tool from the list.
+            informe_ligado: Say whether the tool is turned on or off.
             escritorio_nao_encontrado: Firm not found.
     masters:
         promovido: '"{nome}" is now a secondary {papel}.'
@@ -1120,6 +1145,7 @@ master:
             salvo: '"{nome}" saved.'
             modelo_salvo: Model saved.
             retencao_salva: Retention saved.
+            teto_padrao_salvo: Default cap saved. It applies to firms that turn on AI from now on.
             ligou: BlueJus AI was turned on for the enabled firms.
             desligou: BlueJus AI was turned off for everyone.
             ligar_titulo: Turn on BlueJus AI for everyone
@@ -1150,6 +1176,21 @@ master:
             sem_versao: No version uploaded.
             historico_item: '{de} to {para}, by {por} on {quando}'
             sem_historico: No status changes.
+        produtos:
+            contagem: '{n} active'
+            col_nome: Firm
+            completo: Full
+            sim: 'Yes'
+            nao: 'No'
+            ligada: On
+            desligada: Off
+            travada: Turned off by BlueJus
+            chave_rotulo: '{produto} in {nome}'
+            ligou: 'Tool "{produto}" turned on in "{nome}".'
+            desligou: 'Tool "{produto}" turned off in "{nome}".'
+            vazio: No active firm.
+            erro_carregar: Could not load the tools. Reload the page.
+            erro_salvar: Could not save.
         voto:
             contagem: '{n} active'
             liberado: Enabled

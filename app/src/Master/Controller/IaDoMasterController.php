@@ -15,8 +15,11 @@ use App\Inteligencia\UseCase\AlterarChaveGeralDaIaUseCase;
 use App\Inteligencia\UseCase\AlterarIaDoEscritorioUseCase;
 use App\Inteligencia\UseCase\AlterarLiberacaoDaIaParaTodosUseCase;
 use App\Inteligencia\UseCase\AlterarRetencaoDaIaUseCase;
+use App\Inteligencia\UseCase\AlterarTetoPadraoDaIaUseCase;
 use App\Inteligencia\UseCase\EscolherModeloDaIaUseCase;
 use App\Inteligencia\UseCase\ObterPainelDaIaDoMasterUseCase;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
+use App\Produto\UseCase\LigarFerramentaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,6 +46,7 @@ final class IaDoMasterController extends AbstractController
 
     public function __construct(
         private readonly ObterPainelDaIaDoMasterUseCase $painel,
+        private readonly ConfiguracaoGlobalRepository $configuracaoGlobal,
         private readonly TranslatorInterface $tradutor,
     ) {
     }
@@ -103,6 +107,29 @@ final class IaDoMasterController extends AbstractController
             return $this->json(['erro' => (string) $violacoes->get(0)->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         $alterar->executar($input, $this->master());
+
+        return $this->json($this->estado());
+    }
+
+    /**
+     * O teto mensal padrão da I.A. que o dono liga sozinho (spec multiproduto, §10). Corpo `{tetoPadrao: "5.00"}` (US$,
+     * até duas casas); vazio, formato inválido ou fora da faixa é 422. Só vale para quem o dono ligar depois.
+     */
+    #[Route('/master/ia/teto-padrao', name: 'master_ia_teto_padrao', methods: ['POST'])]
+    public function tetoPadrao(Request $request, AlterarTetoPadraoDaIaUseCase $alterar): JsonResponse
+    {
+        if (!$this->tokenValido($request)) {
+            return $this->recusa(self::CSRF_INVALIDO, Response::HTTP_FORBIDDEN);
+        }
+        $centavos = self::centavos(self::corpo($request)['tetoPadrao'] ?? null);
+        if (!is_int($centavos)) {
+            return $this->recusa('master.ia.recusa.teto_padrao_invalido', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        try {
+            $alterar->executar($centavos, $this->master());
+        } catch (\InvalidArgumentException) {
+            return $this->recusa('master.ia.recusa.teto_padrao_fora_da_faixa', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json($this->estado());
     }
@@ -176,6 +203,7 @@ final class IaDoMasterController extends AbstractController
             'ligadaParaTodos' => $saida->ligadaParaTodos,
             'modelo' => $saida->modelo?->value,
             'mesesDeRetencao' => $saida->mesesDeRetencao,
+            'tetoPadrao' => self::dolares($this->configuracaoGlobal->tetoPadraoDaIaCentavos() ?? LigarFerramentaUseCase::TETO_PADRAO_DE_RESERVA),
             'modelos' => array_map(static fn (ModeloDeIa $m): array => ['valor' => $m->value, 'rotulo' => $m->rotulo()] + $m->precoPorMilhao(), ModeloDeIa::cases()),
             'modos' => array_map(static fn (ModoDeCobrancaDaIa $m): array => ['valor' => $m->value, 'rotulo' => $m->rotulo()], ModoDeCobrancaDaIa::cases()),
             'escritorios' => array_map(self::escritorioEmJson(...), $saida->escritorios),

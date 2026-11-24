@@ -340,8 +340,8 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('contact-sales', $raiz->text());
 
         $cards = $raiz->filter('div.mp-ia-raiz > section.mp-card');
-        self::assertCount(5, $cards);
-        self::assertSame(['Instalação', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
+        self::assertCount(6, $cards);
+        self::assertSame(['Instalação', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Teto padrão da I.A. ligada pelo escritório', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
         self::assertStringContainsString('Esta tela não mostra nem recebe a chave da API.', $cards->eq(0)->text());
         self::assertStringContainsString('A BlueJus IA só funciona com ela e com a chave geral ligadas; a parte técnica fica com a equipe BlueJus.', $cards->eq(0)->text());
         self::assertDoMasterSoOEstado($raiz->text());
@@ -350,7 +350,9 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $cards->eq(2)->filter('label.mp-ia-campo > select[data-mp-ia-modelo]'));
         self::assertCount(1, $cards->eq(3)->filter('label.mp-ia-campo > input[type="number"][min="1"][max="120"][data-mp-ia-retencao]'));
         self::assertStringContainsString('As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.', $cards->eq(3)->text());
-        self::assertSame(['Escritório', 'Liberado', 'Aceite do escritório', 'Cobrança', 'Orçamento mensal (US$)', 'Análises no mês', 'Gasto no mês (US$)', ''], $cards->eq(4)->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
+        self::assertCount(1, $cards->eq(4)->filter('label.mp-ia-campo > input[type="text"][data-mp-ia-teto-padrao]'));
+        self::assertSame('/master/ia/teto-padrao', $raiz->attr('data-url-teto-padrao'));
+        self::assertSame(['Escritório', 'Liberado', 'Aceite do escritório', 'Cobrança', 'Orçamento mensal (US$)', 'Análises no mês', 'Gasto no mês (US$)', ''], $cards->eq(5)->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
 
         self::assertCount(1, $crawler->filter('script[src*="js/master/ia.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="css/master-ia.css"]'));
