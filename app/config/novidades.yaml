@@ -1,6 +1,15 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.4.0"
+  data: "2026-11-24"
+  itens:
+    - "O assistente de I.A. conectado ao BlueJus passa a ajudar o administrador da plataforma a cuidar das campanhas de e-mail: criar e agendar uma campanha a partir de um modelo salvo, mudar a data ou a frequência, cancelar e mandar um teste para o próprio e-mail dele."
+    - "Antes de criar, mudar ou cancelar uma campanha, o assistente mostra o que vai acontecer (modelo, assunto, texto, para quem e quando) e só faz depois que a pessoa disser sim."
+    - "Esse recurso é de quem administra a plataforma: os demais usuários do conector não veem essa ferramenta, e a lista de e-mails dos destinatários nunca aparece."
+    - "Preparamos o BlueJus para o dono do escritório ligar e desligar sozinho as ferramentas que usa (Expediente, I.A., Cobranças, Cálculo, Kanban, Assinatura, Ponto e Voto). O botão no Meu Perfil chega na próxima versão; até lá, quem não mexer continua com as mesmas ferramentas de sempre."
+    - "Desligar uma ferramenta não apaga nada: ao ligar de novo, tudo volta como estava. O Voto não desliga enquanto houver uma assembleia em andamento, e a última ferramenta ligada também não desliga."
+    - "Quando a equipe do BlueJus desligar o Voto ou a I.A. de um escritório, só ela pode ligar de novo."
 - versao: "3.3.0"
   data: "2026-11-23"
   itens:
