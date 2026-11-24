@@ -361,6 +361,16 @@ O Ponto é autoativável, então esta fatia entra **antes** do PR 8, num PR pró
 - **"Para todos" do Master:** liberar ou bloquear todos passa, escritório por escritório, pelo mesmo UseCase da aba de um escritório. "Bloquear todos" também trava a contratação, e "liberar todos" destrava. Na I.A., o modo e o teto de cada escritório ficam como estão.
 - **Sem escritório na sessão:** o validador do escritório manda para `/escritorio/selecionar` antes do controller; a checagem de dono (403) vale para quem já tem escritório.
 
+**Como ficou no PR 8b (o cartão):**
+
+- `templates/profile/_ferramentas.html.twig`, incluído antes do Backup; função Twig `ferramentas_do_escritorio()` (`Produto/Twig/FerramentasNoPerfilExtension`), que só o Meu Perfil chama (nenhuma consulta a mais nas outras páginas). Null para quem não é o dono: o cartão some.
+- `ListarFerramentasDoEscritorioUseCase` decide o estado na ordem: indisponível (chave `voto` do Master; `DisponibilidadeDeInteligencia::plataformaConfigurada()` para a I.A.), travada (D16, `ContratacoesDoEscritorio::travadosPeloMaster()`, uma consulta), ligada (produto incluído e, no Voto e na I.A., a liberação de hoje) e desligada.
+- Ligar ou desligar recarrega a página (o menu muda junto). Ao ligar, a página volta com `?ferramenta_ligada=1` e mostra o aviso dos Perfis (regra 11). A I.A. ligada sem o aceite mostra o link para `inteligencia_admin_config` (regra 4).
+- Sem desenho: classes do Meu Perfil (molde `.mp-bk-*`), CSS `.mp-fe-*` em `meu-perfil.css`.
+- "Indisponível" vem antes da trava e do estado: com a chave global desligada nem o Desligar aparece, e a contratação fica como está durante a pausa.
+- Os nomes seguem o menu (`translations/moldura`): "BlueJus IA", "Ponto Eletrônico"; em inglês "BlueJus AI", "Voting", "Time Clock".
+- Desligar a última ferramenta ligada ou o Voto com assembleia em andamento mostra a recusa do servidor (422) na própria seção.
+
 ## 10. Master (PR 9, MÉDIO)
 
 **Molde:**
