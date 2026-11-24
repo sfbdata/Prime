@@ -5,8 +5,8 @@ Spec do pedido do Farlei de 24/11/2026 (via Samuel), sobre /master > Planos e li
 > "deveria ter o modo de desativar convênio, geral ou por estado ou por instituição, sugestão que fosse discreto,
 > evitar poluição visual, considerando que poderia ter funcionalidade de adicionar novos convênios."
 
-**Aprovado pelo Samuel em 24/11:** as tabelas novas `convenio` e `convenio_vinculo` (§3). O resto segue a
-recomendação de cada regra; o Samuel aprova em bloco pela lista do §12.
+**Aprovado pelo Samuel em 24/11:** as tabelas novas `convenio` e `convenio_vinculo` (§3) e as 13 decisões do §12
+(D1 a D13), todas pela recomendação; D3 = não cobrar.
 
 **Risco: MÉDIO** no conjunto (mexe no Meu Perfil e no cadastro). O PR 8 (desconto no valor cobrado) é tratado como
 **ALTO**: re-revisão antes de seguir.
@@ -270,9 +270,9 @@ Para o benefício `gratuidade` isso só muda rótulo; o rigor importa quando hou
 
 | Jeito | Onde | Efeito em quem já tem | Efeito em cadastro novo |
 |---|---|---|---|
-| **Geral** (Etapa 1) | chave `convenio.ativo` em `ConfiguracaoGlobal` | Textos, selos e rótulos somem na hora. Benefício real (desconto, espaço) **continua** até o Master desligar cada convênio. Sem e-mail. | Nenhum vínculo novo. |
+| **Geral** (Etapa 1, PR #922) | chave `convenio.ativo` em `ConfiguracaoGlobal` | Textos e selos somem na hora (os rótulos das contas no painel, a partir do PR 2). Benefício real (desconto, espaço) **continua** até o Master desligar cada convênio. Sem e-mail. | Nenhum vínculo novo. |
 | **Por UF** (OAB) | `convenio_uf`, `modo = sem` (já existe) | Como hoje: e-mail imediato aos primários da UF (AvisoDeConvenioDaUf). Vínculos OAB da UF fecham em `desde` com `uf_desligada`. | Escritório da UF não ganha vínculo OAB. |
-| **Por convênio** | `convenio.ativo` / `encerra_em` | Aviso prévio (§6.2), depois fecha com `convenio_desligado`. | Código recusado; sem vínculo automático desde o clique. |
+| **Por convênio** | coluna `ativo` da tabela `convenio` / `encerra_em` | Aviso prévio (§6.2), depois fecha com `convenio_desligado`. | Código recusado; sem vínculo automático desde o clique. |
 | **Por instituição** | todos os convênios com a mesma `instituicao_chave` | Igual ao por convênio, em cada um, numa transação só. | Igual. |
 
 **Recomendação:** a chave geral é chave de **exibição e de emergência** (desliga e religa sem efeito em dinheiro);
@@ -300,8 +300,10 @@ encerrar benefício real é sempre por convênio ou instituição, com aviso.
 Não há desenho para estas telas. **Recomendação:** convenção do painel, discreta, sem cartão novo em Planos e limites;
 se o Farlei quiser desenho, ele pede no Claude Design antes do PR 4 (D10).
 
-1. **Planos e limites** (Etapa 1): a faixa (painel.js:1143) e a tag do Free (painel.js:1138) obedecem à chave geral; no
-   canto da faixa, uma chave pequena "Convênio ligado" e um link de texto "Convênios" (nada mais na seção).
+1. **Planos e limites** (Etapa 1, feito no PR #922): acima da faixa, à direita, uma chave pequena e lilás "Convênio OAB"
+   com o estado ("ligado em todo o sistema" ou "desligado: ...") e o link de texto "Convênio OAB por estado", que abre a
+   seção Contas. Desligada, somem a faixa e a tag do Free, e a nota dos planos troca para `nota_sem_convenio` (sem
+   "pelo convênio OAB"). O link de texto "Convênios" (lista do item 2) entra ao lado no PR 4; nada mais na seção.
 2. **Lista de convênios** (PR 4), aberta pelo link: janela no host `#mp-modal` (o mesmo do modal de limite), cabeçalho
    `.mp-cab-roxo`, linhas `.mp-lin` (master.css:169-171): nome, instituição, abrangência, benefício, contas vinculadas,
    validade e a chave ligado/desligado. Botão `.mp-btn-roxo` (master.css:415) "Novo convênio": roxo porque é só do
@@ -330,7 +332,7 @@ Tudo depende de `ConveniosDoEscritorio`; sem convênio vigente, o texto some (n�
 | Onde | Hoje | Proposta |
 |---|---|---|
 | Contribua, selo do pacote gratuito (index.html.twig:168-171) | sempre "CONVÊNIO OAB · Gratuito para advogados" | `texto_selo` do convênio de gratuidade vigente; nenhum, sem selo |
-| Contribua, seção `#convenio`, link "Por que é gratuito" e pergunta (index.html.twig:36, :67-80, :87) | sempre | só com a chave geral ligada; o texto fala da OAB só se o escritório tem vínculo OAB |
+| Contribua, seção `#convenio`, link "Por que é gratuito" e pergunta (index.html.twig:36, :67-80, :87) | sempre | só com a chave geral ligada (feito no PR #922, com o modal de benefícios); o texto fala da OAB só se o escritório tem vínculo OAB (PR 6) |
 | Contribua, pacotes pagos | nada | com desconto vigente: "Com o convênio {nome}: R$ {valor}/mês" sob o preço |
 | Meu Perfil, sob "Assinatura de espaço" (_assinatura_no_perfil.html.twig:10; profile/index.html.twig:463) | nada | uma linha: "Convênio {nome} · {benefício}"; com fim marcado, "termina em {data}"; para primário, o link "Tenho um código de convênio" |
 | Cadastro (`/cadastro?convenio=CODIGO`) | nada | uma linha discreta sob o formulário: "Convênio {nome} aplicado". Sem código, nada muda |
@@ -377,8 +379,8 @@ Um PR por etapa, cada um com seu arquivo em `mudancas/` (validar com `scripts/mu
 
 | PR | O quê | Migration | Testes |
 |---|---|---|---|
-| **1 (Etapa 1, em andamento)** | chave geral `convenio.ativo` (prefixo `convenio.` em ConfiguracaoGlobal.php:39, sem chave = ligado); faixa, tag, selos, seção do Contribua e rótulos somem quando desligado; link discreto para o painel por estado; Trilha | não | unit da chave em ConfiguracaoGlobal; functional do POST (Master 200, outros 403); functional do Contribua sem selo com a chave desligada |
-| **2** | tabelas `convenio` e `convenio_vinculo`, linha `oab`, entidades, repositórios, `ConveniosDoEscritorio`; `ConsultarContasUseCase` e o selo do Contribua passam a ler por ele, mesma saída | **sim** | `down()` testado; unit de `ConveniosDoEscritorio` (chave geral, `sem`, `dif`, validade, inativo); teste de arquitetura do repositório; resultado igual ao de hoje nos testes do painel e do Contribua |
+| **1 (Etapa 1, PR #922)** | chave geral `convenio.ativo` (prefixo `convenio.` em ConfiguracaoGlobal, sem chave = ligado), lida pela `ChaveDoConvenio`; `POST /master/convenio` (`AlterarConvenioAtivoUseCase`, CSRF, sem `ativo` = 400); desligada: somem a faixa, a tag do Free e a menção na nota de Planos e limites, e no Contribua a seção, o atalho, a pergunta da FAQ, o selo e o modal; link discreto para o painel por estado; Trilha | não | unit da chave e do UseCase (`ChaveDoConvenioTest`); functional do POST (Master 200, outros 403, CSRF, 400); functional do Contribua com a chave desligada e religada |
+| **2** | tabelas `convenio` e `convenio_vinculo`, linha `oab`, entidades, repositórios, `ConveniosDoEscritorio`; `ConsultarContasUseCase` e o selo do Contribua passam a ler por ele, mesma saída; o rótulo de convênio das contas no painel passa a obedecer à chave geral (ficou fora do PR #922) | **sim** | `down()` testado; unit de `ConveniosDoEscritorio` (chave geral, `sem`, `dif`, validade, inativo); teste de arquitetura do repositório; resultado igual ao de hoje nos testes do painel e do Contribua |
 | **3** | `SincronizarVinculosDeConvenioUseCase`, tarefa diária, gancho na mudança de estado e no cadastro; prova pendente da OAB divergente | não | unit: cria, não duplica, fecha por estado, por `sem`, por divergente após 30 dias; functional da tarefa no agendador |
 | **4** | telas do Master (§7): lista, criar, editar, ligar, desligar com aviso, por instituição; e-mails | não | unit dos UseCases (aviso só com benefício real, desfaz se o e-mail falha, instituição numa transação); functional das rotas; textos sem travessão (`SemTravessaoNovoArquiteturaTest`) |
 | **5** | código de convite: Meu Perfil e `/cadastro?convenio=` | não | unit da validação (inativo, vencido, limite, UF errada); functional: primário 200, secundário 403, RateLimiter |
@@ -391,6 +393,8 @@ Ordem: 1 → 2 → 3 → (4, 5, 6 em paralelo depois do 3, cada um em sua worktr
 o que olhar na tela.
 
 ## 12. Decisões para o Samuel aprovar
+
+**Aprovado pelo Samuel em 24/11:** D1 a D13, todas pela recomendação (D3 = não cobrar).
 
 - D1. Manter `convenio_uf` como exceções por UF do convênio `oab`, sem mover dado. **Recomendo: sim.**
 - D2. Instituição como texto + `instituicao_chave` no convênio, sem tabela própria. **Recomendo: sim.**
