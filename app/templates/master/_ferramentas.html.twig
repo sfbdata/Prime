@@ -1,0 +1,27 @@
+{# Aba "Ferramentas" do /master (spec docs/specs/multiproduto-contratacao-e-voto.md, §10): o Master vê e muda as
+   ferramentas de cada escritório. Nenhum desenho tem esta tela: os componentes são os que o painel já usa (.mp-card,
+   .mp-cab-roxo, a chave do .mp-rec-item com role="switch", a grade com .mp-lin), como na aba do Voto.
+   Incluída pelo painel.html.twig dentro de <div class="mp-ferramentas" data-painel-aba="ferramentas">. A grade vem por JSON
+   quando a aba abre (public/js/master/ferramentas.js); clicar na chave grava na hora, sem botão Salvar. As regras moram
+   nos UseCases do domínio Produto. O termo da tela é "Ferramentas", o mesmo do cartão do Meu Perfil.
+   Textos no catálogo (master.produtos.*; os do JS em master.js.produtos.*, entregues pelo catalogo_js do painel). #}
+<link rel="stylesheet" href="{{ asset('css/master-ferramentas.css') }}">
+<div class="mp-fer-raiz" data-mp-fer
+     data-url-dados="{{ path('master_produtos_dados') }}"
+     data-url-escritorio="{{ path('master_produtos_escritorio', {tenantId: 0}) }}"
+     data-token="{{ csrf_token('master_ferramentas') }}">
+
+    <div class="mp-fer-msg" data-mp-fer-msg role="status" hidden></div>
+
+    <section class="mp-card mp-fer-card" aria-labelledby="mp-fer-titulo">
+        <div class="mp-cab-roxo"><i class="bi bi-grid"></i><b id="mp-fer-titulo">{{ 'master.produtos.titulo'|trans }}</b><span data-mp-fer-contagem></span></div>
+        <p class="mp-fer-nota">{{ 'master.produtos.nota'|trans }}</p>
+        <div class="mp-rolagem">
+            <div class="mp-fer-grade" data-mp-fer-grade>
+                <div class="mp-fer-cab" data-mp-fer-cab></div>
+                <div data-mp-fer-linhas><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="{{ asset('js/master/ferramentas.js') }}"></script>

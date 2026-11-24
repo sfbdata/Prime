@@ -3,14 +3,20 @@
 .voto-tela .vPasOk { background: #dcefe3; color: #1e7b45; }
 
 /* Filtros (.vFil) */
-.voto-tela .vFil { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding: 11px 15px; background: #fff; border-bottom: 1px solid #d3dde4; margin: 0; }
+.voto-tela .vFil { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding: 11px 15px; background: #fff; margin: 0; }
 .voto-tela .voto-fil-busca { flex: 1 1 220px; }
 .voto-tela .voto-fil-situacao { flex: 0 1 200px; }
 .voto-tela .voto-fil-acoes { display: flex; gap: 6px; }
 
-/* Grupos por entidade (.vGr, .vGrH, .vEvH); o desenho usa botão, aqui é <details>/<summary> para abrir sem JavaScript */
-.voto-tela .vGr { border-bottom: 1px solid #d3dde4; }
-.voto-tela .vGrH { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; padding: 12px 15px; background: #f2f7fa; border: 0; border-left: 4px solid #0a6fa0; font: inherit; cursor: pointer; text-align: left; list-style: none; box-sizing: border-box; }
+/* Cartões separados (pedido M1.1, 24/11, muda o desenho 18): filtro e cada assembleia num .vC próprio, com 12px entre
+   eles, como em Votar e Resultados. O espaço dentro do grupo é margem: <details> não serve de caixa flex em todo navegador. */
+.voto-tela .voto-gestao { display: flex; flex-direction: column; gap: 12px; }
+.voto-tela .vGr > .voto-assembleia { margin-top: 12px; }
+.voto-tela .voto-assembleia > .vEvH:first-child { border-top: 0; border-radius: 3px 3px 0 0; }
+
+/* Grupos por entidade (.vGr, .vGrH, .vEvH); o desenho usa botão, aqui é <details>/<summary> para abrir sem JavaScript.
+   O cabeçalho do grupo tem a borda e a sombra do .vC, já que não há mais um cartão em volta. */
+.voto-tela .vGrH { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; padding: 12px 15px; background: #f2f7fa; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; box-shadow: 0 1px 3px rgba(18,36,47,.06); font: inherit; cursor: pointer; text-align: left; list-style: none; box-sizing: border-box; }
 .voto-tela .vGrH::-webkit-details-marker { display: none; }
 .voto-tela .vGrH:hover { background: #e7f2f9; }
 .voto-tela .vGr[open] .vGrLado, .voto-tela .vGr:not([open]) .vGrBaixo { display: none; }

@@ -106,6 +106,25 @@ class ConfiguracaoGlobal implements Auditavel
     }
 
     /**
+     * Grava o teto mensal padrão (centavos de dólar) da I.A. ligada pelo dono (spec multiproduto, §10). Registra quem e
+     * quando, como a chave das campanhas. A faixa é conferida por quem chama; não mexe nos tetos já gravados por escritório.
+     */
+    public function definirTetoPadraoDaIa(int $centavos, ?User $por, \DateTimeImmutable $em): void
+    {
+        $this->valores[self::TETO_PADRAO_DA_IA] = (string) $centavos;
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $em;
+    }
+
+    /** Null: o Master ainda não mexeu (vale a reserva do PR 8). */
+    public function getTetoPadraoDaIa(): ?int
+    {
+        $valor = $this->valores[self::TETO_PADRAO_DA_IA] ?? null;
+
+        return \is_string($valor) && ctype_digit($valor) ? (int) $valor : null;
+    }
+
+    /**
      * Grava a configuração da Revisão de OAB sem mexer nos campos do catálogo nem em alteradoPor/alteradoEm (que são
      * da tela de configurações).
      *

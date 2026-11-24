@@ -17,6 +17,7 @@ master:
             recursos: Telas e recursos
             ia: Configurações da I.A.
             voto: Voto
+            ferramentas: Ferramentas
         faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
         carregando: Carregando o painel…
         masters:
@@ -347,6 +348,10 @@ master:
             titulo: Retenção das respostas
             campo: GUARDAR AS RESPOSTAS DA IA POR N MESES
             aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
+        teto_padrao:
+            titulo: Teto padrão da I.A. ligada pelo escritório
+            campo: TETO MENSAL PADRÃO (US$)
+            aviso: 'É o orçamento mensal que a I.A. recebe quando o dono do escritório a liga sozinho no Meu Perfil, no modo "Incluso no plano". Vale só para quem ligar depois da troca: os orçamentos já gravados em cada escritório não mudam. Sem ajuste, o padrão é US$ 5,00.'
         escritorios:
             titulo: Escritórios
             nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
@@ -368,6 +373,8 @@ master:
             orcamento_invalido: Informe o orçamento em dólares, com até duas casas decimais.
             escritorio_nao_encontrado: Escritório não encontrado.
             retencao_invalida: Informe os meses em número inteiro.
+            teto_padrao_invalido: Informe o teto padrão em dólares, com até duas casas decimais.
+            teto_padrao_fora_da_faixa: O teto padrão precisa ficar entre US$ 0,00 e US$ 100.000,00.
         # Bloco "Questões jurídicas" (master/_ia_juridico.html.twig; o JS em master.js.ia_juridico.*).
         juridico:
             titulo: Questões jurídicas
@@ -431,6 +438,25 @@ master:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_liberado: Informe se o escritório fica liberado ou bloqueado.
             categoria_invalida: Escolha uma categoria da lista.
+            escritorio_nao_encontrado: Escritório não encontrado.
+    # Aba "Ferramentas" (master/_ferramentas, spec multiproduto-contratacao-e-voto §10) e as recusas do FerramentasDoMasterController.
+    produtos:
+        titulo: Ferramentas por escritório
+        nota: 'Ligue ou desligue as ferramentas de cada escritório. "Completo" dá ao escritório todas as ferramentas, como os que já existiam. Desligar aqui trava a ferramenta: o dono do escritório não consegue religar no Meu Perfil, só o BlueJus. Ligar o Voto também o libera para o escritório; ligar a I.A. a libera, e o aceite continua com o administrador. Se a única ferramenta ligada for desligada, o escritório fica sem ferramenta até ela ser religada.'
+        nome:
+            completo: Completo
+            voto: Voto
+            expediente: Expediente
+            ia: I.A.
+            ponto: Ponto
+            calculo: Cálculo
+            kanban: Kanban
+            assinatura: Assinatura
+            cobrancas: Cobranças
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            produto_invalido: Escolha uma ferramenta da lista.
+            informe_ligado: Informe se a ferramenta fica ligada ou desligada.
             escritorio_nao_encontrado: Escritório não encontrado.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
@@ -841,6 +867,10 @@ master:
                 arquivos_desc: '{reais} real(is) · {virtuais} virtual(is)'
                 arquivos_dica: 'Real: gravado no servidor. Virtual: aponta para um arquivo real idêntico'
             ranking: Contas por consumo
+            ordenar: Ordenar contas por consumo
+            ordem_cons: 'Ordem: maior consumo'
+            ordem_nome: 'Ordem: nome (A-Z)'
+            ordem_sit: 'Ordem: situação'
             nenhuma: Nenhuma conta.
             editar_limite: Editar limite
             nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
@@ -1170,6 +1200,7 @@ master:
             salvo: '"{nome}" salvo.'
             modelo_salvo: Modelo salvo.
             retencao_salva: Retenção salva.
+            teto_padrao_salvo: Teto padrão salvo. Vale para quem ligar a I.A. daqui em diante.
             ligou: A BlueJus IA foi ligada para os escritórios liberados.
             desligou: A BlueJus IA foi desligada para todos.
             ligar_titulo: Ligar a BlueJus IA para todos
@@ -1201,6 +1232,22 @@ master:
             sem_versao: Nenhuma versão enviada.
             historico_item: '{de} para {para}, por {por} em {quando}'
             sem_historico: Sem mudanças de status.
+        # Aba "Ferramentas" (public/js/master/ferramentas.js).
+        produtos:
+            contagem: '{n} ativo(s)'
+            col_nome: Escritório
+            completo: Completo
+            sim: Sim
+            nao: Não
+            ligada: Ligada
+            desligada: Desligada
+            travada: Desligada pelo BlueJus
+            chave_rotulo: '{produto} em {nome}'
+            ligou: 'Ferramenta "{produto}" ligada em "{nome}".'
+            desligou: 'Ferramenta "{produto}" desligada em "{nome}".'
+            vazio: Nenhum escritório ativo.
+            erro_carregar: Não foi possível carregar as ferramentas. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
         # Aba "Voto" (public/js/master/voto.js).
         voto:
             contagem: '{n} ativo(s)'

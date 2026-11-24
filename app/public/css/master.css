@@ -275,7 +275,8 @@
 
 /* ---------- Armazenamento ---------- */
 .mp-ranking { overflow: hidden; }
-.mp-ranking > .mp-cab-simples { padding: 13px 20px; }
+.mp-ranking > .mp-cab-simples { padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mp-ranking > .mp-cab-simples > b { flex: 1; }
 .mp-rank { display: flex; align-items: center; gap: 14px; padding: 11px 20px; border-bottom: 1px solid #eef2f5; }
 .mp-rank > span:first-child { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-rank > .mp-barra-8 { flex: none; width: 240px; }
@@ -284,6 +285,8 @@
 /* "Editar limite" do ranking (desenho 1.2, linha 201); o mesmo botão abre "Editar plano" nos cartões (convenção). */
 .mp .mp-rank-btn { height: 30px; border: none; border-radius: 4px; background: #e2e9ee; color: #243845; font-size: 12.5px; font-weight: bold; padding: 0 12px; cursor: pointer; }
 .mp .mp-rank-btn:hover { background: #0a6fa0; color: #fff; }
+/* Linha realçada (#2b7ab0): o botão vira claro para não sumir no azul; o próprio hover dele continua o de cima. */
+.mp .mp-rank.mp-lin:hover > .mp-rank-btn:not(:hover) { background: #fff; color: #1f6f9c; }
 
 /* Faixas de alerta de consumo (desenho 1.2, linhas 195-198). Chave do bloqueio, aviso e "Salvar faixas": convenção (spec P6). */
 .mp-dup { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); background: #fff; border: 1px solid #d3dde4; border-radius: 3px; margin-bottom: 14px; }

@@ -43,7 +43,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grAce: false, grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -1090,7 +1090,10 @@
       + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>' + T('master.js.arm.bloquear', { faixa: T('master.js.faixa.chip_bloqueio') }) + '</span></label>'
       + '<span class="mp-faixas-aviso"><i class="bi bi-exclamation-triangle"></i>' + esc(AVISO_BLOQUEIO) + '</span></div>'
       + '<div class="mp-faixas-rodape"><span class="mp-faixas-msg" data-faixas-msg></span><button type="button" class="mp-btn-azul" data-faixas-salvar>' + T('master.js.arm.salvar_faixas') + '</button></div></div>'
-      + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>' + T('master.js.arm.ranking') + '</b></div><div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
+      + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>' + T('master.js.arm.ranking') + '</b>'
+      + '<select class="mp-select mp-select-34" data-r-ord title="' + esc(T('master.js.arm.ordenar')) + '" aria-label="' + esc(T('master.js.arm.ordenar')) + '">' + ORDENS_RANKING.map(o => '<option value="' + o[0] + '"' + (S.rOrd === o[0] ? ' selected' : '') + '>' + o[1]() + '</option>').join('') + '</select>'
+      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-r-busca value="' + esc(S.rBusca) + '" placeholder="' + esc(T('master.js.contas.busca')) + '" aria-label="' + esc(T('master.js.contas.busca')) + '"></label></div>'
+      + '<div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
       + '<span class="mp-nota">' + T('master.js.arm.nota') + '</span>';
     atualizarFaixas();
     renderRanking();
@@ -1104,17 +1107,31 @@
     btn.disabled = !valida || !fxMudou() || !!S.fxEnviando;
   }
 
-  // Ranking (desenho, linhas 200-201 e 696): por % da cota, decrescente; sem limite no fim, pelo uso. "Editar limite" abre o modal.
+  // Ordem do ranking (pedido M3 do Farlei, 24/11; o desenho só mostra a de consumo): maior consumo (por % da cota,
+  // decrescente; sem limite no fim, pelo uso), nome A-Z em pt-BR e situação (a faixa mais grave primeiro, sem limite
+  // no fim; na mesma faixa, por nome). Empate final: pelo nº da conta, como nas Contas.
+  const consumo = c => (c.espaco.percentual === null ? -1 : c.bytes / (c.espaco.limiteGb * GB));
+  const gravidade = c => (c.espaco.percentual === null ? -1 : ORDEM_FAIXA[c.espaco.faixa] || 0);
+  const ORDENS_RANKING = [['cons', () => T('master.js.arm.ordem_cons')], ['nome', () => T('master.js.arm.ordem_nome')], ['sit', () => T('master.js.arm.ordem_sit')]];
+  const COMPARA_RANKING = {
+    cons: (a, b) => consumo(b) - consumo(a) || b.bytes - a.bytes,
+    nome: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR'),
+    sit: (a, b) => gravidade(b) - gravidade(a) || a.nome.localeCompare(b.nome, 'pt-BR'),
+  };
+
+  // Ranking (desenho, linhas 200-201 e 696). A linha realça ao passar o mouse (.mp-lin, como Contas e Segurança); a
+  // barra e o "Editar limite" ficam fora do .mp-hv para não sumirem no realce. A busca é a das Contas (casaNaBusca).
   function renderRanking() {
     const el = document.getElementById('mp-ranking-lista'); if (!el) return;
-    const chave = c => (c.espaco.percentual === null ? -1 : c.bytes / (c.espaco.limiteGb * GB));
-    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort((a, b) => chave(b) - chave(a) || b.bytes - a.bytes);
+    const b = S.rBusca.toLowerCase().trim();
+    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!b || casaNaBusca(c, b)))
+      .sort((x, y) => (COMPARA_RANKING[S.rOrd] || COMPARA_RANKING.cons)(x, y) || x.id - y.id);
     document.getElementById('mp-arm-aviso').innerHTML = avisoHtml();
     el.innerHTML = contas.length ? contas.map(c => {
       const sem = c.espaco.percentual === null, [rotulo, cor] = sem ? [T('master.js.sem_limite'), '#4a6373'] : faixaDe(c), p = sem ? 0 : c.bytes / (c.espaco.limiteGb * GB) * 100;
-      return '<div class="mp-rank" style="--cor:' + cor + '"><span title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
-        + '<b>' + (sem ? '' : c.espaco.percentual + '%') + '</b><span>' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">' + T('master.js.arm.editar_limite') + '</button></div>';
-    }).join('') : '<div class="mp-vazio-linha">' + T('master.js.arm.nenhuma') + '</div>';
+      return '<div class="mp-rank mp-lin" style="--cor:' + cor + '"><span class="mp-hv" title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
+        + '<b class="mp-hv">' + (sem ? '' : c.espaco.percentual + '%') + '</b><span class="mp-hv">' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">' + T('master.js.arm.editar_limite') + '</button></div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T(b ? 'master.js.contas.nenhuma' : 'master.js.arm.nenhuma') + '</div>';
   }
 
   function salvarFaixas() {
@@ -1459,12 +1476,14 @@
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
     if (t.matches('[data-c-ord]')) { S.cOrd = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
+    if (t.matches('[data-r-ord]')) { S.rOrd = t.value; return renderRanking(); }
     if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return recarregarTrilha(); }
     if (t.matches('[data-aud-por]')) { S.audPor = +t.value; return recarregarTrilha(); }
     if (t.matches('[data-faixa-bloqueio]')) { S.fx.bloqueioAtivo = t.checked; S.fxMsg = null; return atualizarFaixas(); }
   });
   elSecao.addEventListener('input', e => {
     if (e.target.matches('[data-busca]')) { S.busca = e.target.value; fecharMenuDaConta(); renderContasLista(); }
+    if (e.target.matches('[data-r-busca]')) { S.rBusca = e.target.value; renderRanking(); }
     if (e.target.matches('[data-aud-busca]')) { S.audBusca = e.target.value; buscarNaTrilha(); }
     if (e.target.matches('[data-faixa]')) { S.fx[e.target.dataset.faixa] = +e.target.value || 0; S.fxMsg = null; atualizarFaixas(); }
   });

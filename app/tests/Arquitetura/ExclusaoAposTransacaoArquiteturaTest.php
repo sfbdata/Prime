@@ -45,7 +45,8 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      *  - `ArmazenamentoComCota` (Contribua) — decorador do storage: o `excluir()` dele só repassa ao
      *    interno quem já chamou pela remoção; ele não decide remover nada;
      *  - `AlterarIaDoEscritorioUseCase`, `AlterarLiberacaoDoVotoUseCase` e `DesligarFerramentaUseCase` (multiproduto,
-     *    PR 8a) — `ContratacoesDoEscritorio::excluir()` encerra a contratação de um produto, não toca em arquivo.
+     *    PR 8a) — `ContratacoesDoEscritorio::excluir()` encerra a contratação de um produto, não toca em arquivo;
+     *  - `AlterarFerramentaDoEscritorioPeloMasterUseCase` (multiproduto, PR 9) — o mesmo `excluir()` da contratação.
      */
     private const QUEM_CHAMA_EXCLUIR = [
         'src/Central/UseCase/ExcluirAvisoUseCase.php',
@@ -55,6 +56,7 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
         'src/Djen/UseCase/ExcluirProcessoDoPushUseCase.php',
         'src/Inteligencia/UseCase/AlterarIaDoEscritorioUseCase.php',
         'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
+        'src/Produto/UseCase/AlterarFerramentaDoEscritorioPeloMasterUseCase.php',
         'src/Produto/UseCase/DesligarFerramentaUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
         'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
