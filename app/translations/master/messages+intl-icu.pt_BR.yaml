@@ -1549,6 +1549,7 @@ master:
             desligado: '{n, plural, =0 {Convênio desligado.} one {Convênio desligado. # aviso por e-mail entrou na fila.} other {Convênio desligado. # avisos por e-mail entraram na fila.}}'
             fim_cancelado: '{n, plural, =0 {Fim cancelado. O convênio continua.} one {Fim cancelado. O convênio continua; # aviso por e-mail entrou na fila.} other {Fim cancelado. O convênio continua; # avisos por e-mail entraram na fila.}}'
             ligado: Convênio ligado de novo.
+            nada: O convênio já estava ligado. Nada mudou.
             instituicao: '{n, plural, =0 {Convênios da instituição desligados.} one {Convênios da instituição desligados. # aviso por e-mail entrou na fila.} other {Convênios da instituição desligados. # avisos por e-mail entraram na fila.}}'
     convenios_email:
         titulo: 'Convênio {nome}'

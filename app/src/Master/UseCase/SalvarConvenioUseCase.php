@@ -11,6 +11,8 @@ use App\Master\Enum\AbrangenciaDoConvenio;
 use App\Master\Enum\BeneficioDoConvenio;
 use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\ConvenioRepository;
+use App\Master\Repository\ConvenioVinculoRepository;
+use App\Master\Service\FimDoConvenio;
 use App\Master\Service\SorteioDeCodigoDeConvite;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
@@ -32,6 +34,7 @@ final class SalvarConvenioUseCase
 
     public function __construct(
         private readonly ConvenioRepository $convenios,
+        private readonly ConvenioVinculoRepository $vinculos,
         private readonly SorteioDeCodigoDeConvite $sorteio,
         private readonly SluggerInterface $slugger,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
@@ -48,6 +51,7 @@ final class SalvarConvenioUseCase
             $convenio = Convenio::novoPorCodigo($this->chaveNova($dados->nome), $dados, $this->codigoNovo(), $input->ator, $agora);
         } else {
             $convenio = $this->convenios->find($input->id) ?? throw new ConvenioRecusado('Convênio não encontrado.');
+            $this->exigirSemCorteSemAviso($convenio, $dados, $agora);
             $convenio->editar($dados, $input->ator, $agora);
             if ($input->gerarOutroCodigo) {
                 $convenio->trocarCodigo($this->codigoNovo(), $input->ator, $agora);
@@ -77,6 +81,27 @@ final class SalvarConvenioUseCase
             $this->data($input->validoAte),
             $input->limiteDeUsos,
         );
+    }
+
+    /**
+     * Benefício real de quem já está vinculado só termina com aviso (§6.2): editar não troca o benefício, não baixa o
+     * valor, não muda onde vale e não antecipa a validade para antes de 30 dias. Para isso, desligar com aviso.
+     */
+    private function exigirSemCorteSemAviso(Convenio $convenio, DadosDoConvenio $dados, \DateTimeImmutable $agora): void
+    {
+        if (!$convenio->getBeneficio()->ehReal() || $this->vinculos->abertosDosConvenios([(int) $convenio->getId()]) === []) {
+            return;
+        }
+        $corta = $dados->beneficio !== $convenio->getBeneficio()
+            || $dados->beneficioValor < $convenio->getBeneficioValor()
+            || $dados->abrangencia !== $convenio->getAbrangencia()
+            || $dados->uf !== $convenio->getUf();
+        $ateNovo = $dados->validoAte?->format('Y-m-d');
+        $ateAntigo = $convenio->getValidoAte()?->format('Y-m-d');
+        $antecipa = $ateNovo !== null && ($ateAntigo === null || $ateNovo < $ateAntigo) && $ateNovo < FimDoConvenio::prazoMinimo($agora)->format('Y-m-d');
+        if ($corta || $antecipa) {
+            throw new ConvenioRecusado('Este convênio tem contas vinculadas com benefício real: para reduzir ou encerrar o benefício, desligue com aviso de 30 dias.');
+        }
     }
 
     private function data(?string $texto): ?\DateTimeImmutable

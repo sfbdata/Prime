@@ -1488,6 +1488,7 @@ master:
             desligado: '{n, plural, =0 {Agreement turned off.} one {Agreement turned off. # email notice was queued.} other {Agreement turned off. # email notices were queued.}}'
             fim_cancelado: '{n, plural, =0 {End cancelled. The agreement continues.} one {End cancelled. The agreement continues; # email notice was queued.} other {End cancelled. The agreement continues; # email notices were queued.}}'
             ligado: Agreement turned on again.
+            nada: The agreement was already on. Nothing changed.
             instituicao: '{n, plural, =0 {Institution agreements turned off.} one {Institution agreements turned off. # email notice was queued.} other {Institution agreements turned off. # email notices were queued.}}'
     convenios_email:
         titulo: '{nome} agreement'

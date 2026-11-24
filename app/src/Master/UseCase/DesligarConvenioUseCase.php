@@ -32,6 +32,7 @@ final class DesligarConvenioUseCase
     public const FIM_MARCADO = 'fim_marcado';
     public const FIM_CANCELADO = 'fim_cancelado';
     public const LIGADO = 'ligado';
+    public const NADA = 'nada';
 
     public function __construct(
         private readonly ConvenioRepository $convenios,
@@ -91,6 +92,9 @@ final class DesligarConvenioUseCase
         if ($dia === null) {
             $ligado = !$convenio->isAtivo();
             $avisados = $this->fim->cancelarOuLigar($convenio, $input->ator, $agora);
+            if ($avisados === null) {
+                return [['acao' => self::NADA, 'avisados' => 0], []];
+            }
 
             return [['acao' => $ligado ? self::LIGADO : self::FIM_CANCELADO, 'avisados' => $avisados], []];
         }

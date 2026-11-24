@@ -61,7 +61,7 @@ final class RegraDosVinculosDeConvenioTest extends TestCase
         self::assertTrue($aberto->estaAberto());
     }
 
-    #[TestDox('não cria: sem OAB válida, sem estado, em quarentena, chave desligada, UF sem convênio ou OAB fora da validade')]
+    #[TestDox('não cria: sem OAB válida, sem estado, em quarentena, chave desligada, UF sem convênio, OAB fora da validade ou com fim marcado')]
     public function testNaoCria(): void
     {
         self::assertNull($this->aplicar($this->escritorio(oabValida: false), [])->novo);
@@ -71,6 +71,9 @@ final class RegraDosVinculosDeConvenioTest extends TestCase
         self::assertNull($this->aplicar($this->escritorio(), [], excecoes: ['GO' => $this->sem('GO', '2026-11-01')])->novo);
         $this->oab = $this->convenio(Convenio::CHAVE_OAB, BeneficioDoConvenio::Gratuidade, validoDe: '2026-12-01');
         self::assertNull($this->aplicar($this->escritorio(), [])->novo);
+        $this->oab = $this->convenio(Convenio::CHAVE_OAB, BeneficioDoConvenio::Gratuidade);
+        $this->oab->marcarFim(new \DateTimeImmutable('2026-12-24'), null, null, new \DateTimeImmutable(self::AGORA));
+        self::assertNull($this->aplicar($this->escritorio(), [])->novo, 'com o fim marcado, ninguém novo entra');
     }
 
     #[TestDox('UF "sem convênio" com data futura ainda não fecha nem impede')]

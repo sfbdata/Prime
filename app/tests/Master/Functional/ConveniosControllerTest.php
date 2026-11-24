@@ -189,6 +189,50 @@ final class ConveniosControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->em->find(ConvenioVinculo::class, $vinculo->getId())?->getFimPrevisto());
     }
 
+    #[TestDox('repetir a mesma data não reavisa; ligar o que já está ligado não muda nada; religar o desligado não manda e-mail')]
+    public function testRepeticoesEReligar(): void
+    {
+        $this->entrarComoMaster();
+        $convenio = $this->convenio('Caixa G', 'Caixa G', BeneficioDoConvenio::Gratuidade);
+        $this->vincular($convenio, $tenant = $this->escritorioComPrimario());
+        $url = '/master/convenios/' . $convenio->getId() . '/ligar';
+        $dia = $this->hoje->modify('+7 days')->format('Y-m-d');
+
+        $this->postar($url, ['ligado' => true]);
+        self::assertSame('O convênio já estava ligado. Nada mudou.', $this->json()['mensagem']);
+
+        $this->postar($url, ['ligado' => false, 'encerraEm' => $dia]);
+        $this->postar($url, ['ligado' => false, 'encerraEm' => $dia]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([0, 1], [$this->json()['avisados'], $this->avisos($tenant)]);
+
+        $this->postar($url, ['ligado' => false, 'encerraEm' => $this->hoje->format('Y-m-d')]);
+        self::assertFalse($this->linha($convenio)['ativo']);
+        $antes = $this->avisos($tenant);
+        $this->postar($url, ['ligado' => true]);
+        self::assertSame([true, null, 'Convênio ligado de novo.'], [$this->linha($convenio)['ativo'], $this->linha($convenio)['encerraEm'], $this->json()['mensagem']]);
+        self::assertSame($antes, $this->avisos($tenant));
+    }
+
+    #[TestDox('editar não corta benefício real de quem está vinculado: baixar o valor ou antecipar a validade recusa')]
+    public function testEditarNaoCortaSemAviso(): void
+    {
+        $this->entrarComoMaster();
+        $convenio = $this->convenio('Caixa H', 'Caixa H', BeneficioDoConvenio::DescontoPercentual, 20);
+        $base = ['id' => $convenio->getId(), 'nome' => 'Caixa H', 'instituicao' => 'Caixa H', 'abrangencia' => 'nacional', 'beneficio' => 'desconto_percentual', 'textoSelo' => 'CONVÊNIO', 'validoDe' => $this->hoje->modify('-1 day')->format('Y-m-d')];
+
+        $this->postar('/master/convenios/salvar', ['beneficioValor' => 10] + $base);
+        self::assertResponseIsSuccessful('sem vínculo, edita à vontade');
+
+        $this->vincular($convenio, $this->escritorioComPrimario());
+        $this->postar('/master/convenios/salvar', ['beneficioValor' => 5] + $base);
+        self::assertResponseStatusCodeSame(422);
+        $this->postar('/master/convenios/salvar', ['beneficioValor' => 10, 'validoAte' => $this->hoje->modify('+3 days')->format('Y-m-d')] + $base);
+        self::assertResponseStatusCodeSame(422);
+        $this->postar('/master/convenios/salvar', ['beneficioValor' => 15, 'validoAte' => $this->hoje->modify('+60 days')->format('Y-m-d')] + $base);
+        self::assertResponseIsSuccessful('aumentar e pôr validade com folga pode');
+    }
+
     #[TestDox('por instituição: todos os ligados numa transação; benefício real em um deles exige 30 dias para todos')]
     public function testInstituicao(): void
     {

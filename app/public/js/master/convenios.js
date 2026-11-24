@@ -175,12 +175,12 @@
   }
 
   function corpoDoForm(f, gerarOutro) {
-    const valor = valorEmNumero(f);
-    if (valor === null) return null;
+    const valor = valorEmNumero(f), limite = String(f.limite == null ? '' : f.limite).trim();
+    if (valor === null || (limite !== '' && !/^[1-9]\d{0,8}$/.test(limite))) return null;
     return {
       id: f.id, nome: f.nome.trim(), instituicao: f.instituicao.trim(), abrangencia: f.abrangencia, uf: f.abrangencia === 'uf' ? f.uf : null,
       beneficio: f.beneficio, beneficioValor: valor, textoSelo: f.textoSelo.trim(), validoDe: f.validoDe, validoAte: f.validoAte || null,
-      limiteDeUsos: String(f.limite).trim() === '' ? null : parseInt(f.limite, 10), gerarOutroCodigo: !!gerarOutro,
+      limiteDeUsos: limite === '' ? null : parseInt(limite, 10), gerarOutroCodigo: !!gerarOutro,
     };
   }
 

@@ -84,10 +84,12 @@ final class RegraDosVinculosDeConvenio
         return $vinculo->getProvaPendenteDesde() <= $prazo ? MotivoDoFimDoVinculo::ProvaDivergente : null;
     }
 
+    /** Com o fim marcado (aviso prévio correndo), o convênio não ganha vínculo novo: só segue com quem já tem (§6.1). */
     private function cabeOab(EscritorioParaConvenio $escritorio, ContextoDosVinculos $contexto): bool
     {
         return $contexto->chaveLigada
             && $contexto->oab?->vigenteEm($contexto->agora) === true
+            && $contexto->oab->getEncerraEm() === null
             && !$escritorio->emQuarentena
             && $escritorio->uf !== null
             && !$contexto->ufDesligada($escritorio->uf)

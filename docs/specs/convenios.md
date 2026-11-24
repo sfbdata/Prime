@@ -391,6 +391,12 @@ Rotas (proposta, prefixo `master_`, fora da guarda de produto): `master_convenio
 - **Por instituição:** todos os convênios ligados da instituição, numa transação, com a trava de cada um; um benefício
   real em qualquer deles exige os 30 dias para todos.
 - O rótulo "prova pendente" nas contas (item 6) fica para o PR 6, com os outros textos de convênio das contas.
+- **Revisão do PR 4:** com o fim marcado, o convênio OAB não ganha vínculo novo (só segue com quem já tem). Editar
+  um convênio com benefício real e contas vinculadas não troca o benefício, não baixa o valor, não muda onde vale e
+  não antecipa a validade para antes de 30 dias (para isso, desligar com aviso). Repetir o fim com a mesma data não
+  reenvia o aviso. Por instituição, quem está em dois convênios dela recebe um e-mail por convênio (cada um fala do
+  seu). Os UseCases gravam com transação e trava no banco: são cobertos pelo teste funcional das rotas
+  (`ConveniosControllerTest`), não por unit com dublês.
 
 ## 8. Textos para o cliente
 

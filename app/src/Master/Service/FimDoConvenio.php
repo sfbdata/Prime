@@ -78,12 +78,12 @@ final class FimDoConvenio
         }
         $this->escopoDePlataforma->executar(fn () => $this->convenios->salvar($convenio, flush: true));
 
+        // Desligou na hora: avisa todos os vinculados. Fim marcado: só os escritórios cujo dia previsto mudou (repetir o
+        // pedido com a mesma data não reenvia o aviso).
         $vinculos = $this->vinculos->abertosDosConvenios([(int) $convenio->getId()]);
-        if (!$desligouAgora) {
-            $this->gravarPorEscritorio($vinculos, static fn (ConvenioVinculo $v): bool => $v->avisarFim($dia, $agora));
-        }
         $tenants = self::tenants($vinculos);
-        $avisados = $this->aviso->avisar($convenio, $dia, $this->aviso->destinatarios($tenants));
+        $avisar = $desligouAgora ? $tenants : $this->gravarPorEscritorio($vinculos, static fn (ConvenioVinculo $v): bool => $v->avisarFim($dia, $agora));
+        $avisados = $this->aviso->avisar($convenio, $dia, $this->aviso->destinatarios($avisar));
 
         return ['avisados' => $avisados, 'tenants' => $tenants, 'desligouAgora' => $desligouAgora];
     }
@@ -91,9 +91,9 @@ final class FimDoConvenio
     /**
      * Religa: cancela o fim marcado (avisa quem tinha sido avisado) ou liga de novo o desligado (sem e-mail).
      *
-     * @return int quantos avisos "o convênio continua" entraram na fila
+     * @return int|null quantos avisos "o convênio continua" entraram na fila; null: já estava ligado, sem fim marcado
      */
-    public function cancelarOuLigar(Convenio $convenio, ?User $ator, \DateTimeImmutable $agora): int
+    public function cancelarOuLigar(Convenio $convenio, ?User $ator, \DateTimeImmutable $agora): ?int
     {
         if (!$convenio->isAtivo()) {
             $convenio->ligar($ator, $agora);
@@ -102,7 +102,7 @@ final class FimDoConvenio
             return 0;
         }
         if (!$convenio->cancelarFim($ator, $agora)) {
-            return 0;
+            return null;
         }
         $this->escopoDePlataforma->executar(fn () => $this->convenios->salvar($convenio, flush: true));
         $avisados = $this->gravarPorEscritorio($this->vinculos->abertosDosConvenios([(int) $convenio->getId()]), static fn (ConvenioVinculo $v): bool => $v->cancelarFimPrevisto());
