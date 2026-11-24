@@ -802,8 +802,10 @@
 
   // Rótulo do convênio sob o plano da conta (desenho L194): verde (grátis), azul (valor diferenciado) ou vermelho
   // (sem convênio). Conta sem estado válido não tem rótulo.
+  // Sem `convenio` do servidor (chave geral desligada ou conta sem convênio OAB, spec convenios §3.4), nada de rótulo:
+  // o painel por estado não traz o rótulo de volta.
   function rotuloDoConvenio(c) {
-    const v = c.uf && (CONVENIO[c.uf] || c.convenio);
+    const v = c.uf && c.convenio && (CONVENIO[c.uf] || c.convenio);
     if (!v) return '';
     const p = { uf: c.uf, valor: 'R$ ' + window.BJFormato.numero(v.valor, 2) };
     const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]

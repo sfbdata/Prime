@@ -98,6 +98,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
         // (BonusDeEspacoSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\BonusDeEspaco::class,
+        // Convênios (spec convenios, §3): o convênio é configuração global da plataforma, como o ConvenioDaUf; o
+        // vínculo é do escritório, mas não é TenantAware pelo mesmo motivo do bônus (D12: o Master lê e encerra o de
+        // outro escritório e a sincronização roda no worker). Só o ConvenioVinculoRepository consulta o vínculo
+        // (ConvenioVinculoSoNoRepositorioArquiteturaTest).
+        \App\Master\Entity\Convenio::class,
+        \App\Master\Entity\ConvenioVinculo::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -388,7 +394,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 93 → 94 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
     // 94 → 95 com o Termo de Voluntariado do Trabalho Externo (27/10/2026): TermoDeVoluntariado, justificado acima.
     // 95 → 97 com o gráfico Crescimento do Master (04/11/2026): MetricaDiariaDoSistema e AcessoDiario, justificados acima.
-    private const MAX_FORA_DO_ESCOPO = 97;
+    // 97 → 99 com os convênios (24/11/2026): Convenio (plataforma) e ConvenioVinculo, justificados acima.
+    private const MAX_FORA_DO_ESCOPO = 99;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

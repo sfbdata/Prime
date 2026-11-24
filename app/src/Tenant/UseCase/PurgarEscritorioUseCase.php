@@ -459,6 +459,9 @@ final class PurgarEscritorioUseCase
         // Produtos do escritório (spec multiproduto, §4): a FK de tenant é CASCADE, mas a conferência roda antes do
         // DELETE FROM tenant (mesmo motivo do `voto.liberacao`).
         ['contratacao', 'tenant_id = :tenant'],
+        // Vínculos do escritório com os convênios (spec convenios, §3.2): FK de tenant CASCADE, mas a conferência roda
+        // antes do DELETE FROM tenant (mesmo motivo do `voto.liberacao`). O convênio em si é global e fica.
+        ['convenio_vinculo', 'tenant_id = :tenant'],
     ];
 
     /**

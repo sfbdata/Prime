@@ -16,6 +16,11 @@ use App\Entity\Tenant\Tenant;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\UseCase\ConsultarContasUseCase;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
+use App\Master\Repository\ConvenioRepository;
+use App\Master\Repository\ConvenioVinculoRepository;
+use App\Master\Service\ChaveDoConvenio;
+use App\Master\Service\ConveniosDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Tenant\Service\CodigoDaContaDoEscritorio;
 use App\Tenant\Service\GeradorDeCodigoDaConta;
@@ -100,6 +105,7 @@ final class ConsultarContasCodigoTest extends TestCase
             new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->tenants),
             $this->tenants,
             $this->em,
+            $this->conveniosDoEscritorio(),
         );
     }
 
@@ -107,5 +113,11 @@ final class ConsultarContasCodigoTest extends TestCase
     private function escritorio(int $id, ?string $codigo): array
     {
         return ['id' => $id, 'nome' => 'Conta ' . $id, 'cidade' => null, 'estado' => null, 'criado_em' => '2026-01-01 00:00:00', 'ativo' => true, 'titular' => null, 'do_master' => false, 'excluido_em' => $id === 4 ? '2026-10-01 00:00:00' : null, 'codigo_conta' => $codigo];
+    }
+
+    /** Sem convênio cadastrado: o rótulo das contas não interessa a este teste. */
+    private function conveniosDoEscritorio(): ConveniosDoEscritorio
+    {
+        return new ConveniosDoEscritorio($this->createStub(ConvenioRepository::class), $this->createStub(ConvenioVinculoRepository::class), $this->createStub(ConvenioDaUfRepository::class), new ChaveDoConvenio($this->createStub(ConfiguracaoGlobalRepository::class)), new MockClock());
     }
 }

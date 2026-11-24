@@ -14,3 +14,8 @@ INSERT INTO contribua_plano (codigo, nome, cota_gb, preco_centavos, descricao, o
     ('avancado', 'Avançado', 100, 6990, 'Alto volume de processos e digitalizações', 4, NULL, (NOW() AT TIME ZONE 'America/Sao_Paulo'));
 
 INSERT INTO contribua_configuracao (id) VALUES (1);
+
+-- O Convênio OAB de hoje (app/migrations/Version20261124120000.php, spec docs/specs/convenios.md §3.1). Sem esta linha
+-- o rótulo de convênio das contas no painel do Master some, porque o convênio OAB implícito sai dela.
+INSERT INTO convenio (chave, nome, instituicao, instituicao_chave, abrangencia, prova, beneficio, beneficio_valor, texto_selo, valido_de, ativo, criado_em, alterado_em) VALUES
+    ('oab', 'Convênio OAB', 'OAB', 'oab', 'nacional', 'oab', 'gratuidade', 0, 'CONVÊNIO OAB', '2026-10-26', TRUE, NOW(), NOW());
