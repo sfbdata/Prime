@@ -15,10 +15,15 @@ use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Tenant\Tenant;
 use App\Indicacao\Repository\IndicacaoRepository;
-use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\AcessoDiarioRepository;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
+use App\Master\Repository\ConvenioDaUfRepository;
+use App\Master\Repository\ConvenioRepository;
+use App\Master\Repository\ConvenioVinculoRepository;
 use App\Master\Repository\MetricaDiariaDoSistemaRepository;
 use App\Master\Repository\PainelMasterRepository;
+use App\Master\Service\ChaveDoConvenio;
+use App\Master\Service\ConveniosDoEscritorio;
 use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
 use App\Repository\TenantRepository;
@@ -70,7 +75,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
     #[TestDox('lista de contas: uma consulta de espaços para as três contas, o Free uma vez, e o espaço de cada uma')]
     public function testContas(): void
     {
-        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class)))->executar(), null, 'id');
+        $contas = array_column((new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class), $this->conveniosDoEscritorio()))->executar(), null, 'id');
 
         self::assertSame([10, 90, 'alerta'], [$contas[1]['espaco']['limiteGb'], $contas[1]['espaco']['percentual'], $contas[1]['espaco']['faixa']]);
         self::assertSame(10, $contas[2]['espaco']['limiteGb']);
@@ -80,7 +85,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
     #[TestDox('lista de contas: cada linha leva o número da conta, o mesmo "conta Nº" da Contribua (spec perfis-1.2-permissoes-e-hierarquia A3)')]
     public function testNumeroDaConta(): void
     {
-        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class)))->executar();
+        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao, $this->createStub(ConvenioDaUfRepository::class), new CodigoDaContaDoEscritorio(new GeradorDeCodigoDaConta(), $this->createStub(TenantRepository::class)), $this->createStub(TenantRepository::class), $this->createStub(EntityManagerInterface::class), $this->conveniosDoEscritorio()))->executar();
 
         self::assertSame(['000001', '000002', '000003'], array_column($contas, 'numero'));
     }
@@ -108,5 +113,11 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         $relogio->method('now')->willReturn(new \DateTimeImmutable('2026-10-19 12:00:00'));
 
         return $relogio;
+    }
+
+    /** Sem convênio cadastrado: o rótulo das contas não interessa a este teste. */
+    private function conveniosDoEscritorio(): ConveniosDoEscritorio
+    {
+        return new ConveniosDoEscritorio($this->createStub(ConvenioRepository::class), $this->createStub(ConvenioVinculoRepository::class), $this->createStub(ConvenioDaUfRepository::class), new ChaveDoConvenio($this->createStub(ConfiguracaoGlobalRepository::class)), new MockClock());
     }
 }

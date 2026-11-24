@@ -185,7 +185,7 @@ Usar a skill `criar-migration` (`make:migration` e limpeza do lixo de outra fren
 
 ### 3.4 Leitura única: `ConveniosDoEscritorio` (proposta, PR 2)
 
-`Master/Service/ConveniosDoEscritorio::doTenant(int $tenantId): ConvenioVigente[]` é a única porta de leitura para
+`Master/Service/ConveniosDoEscritorio::doTenant(int $tenantId, ?string $uf): list<ConvenioVigente>` (e `dosTenants` em lote) é a única porta de leitura para
 telas, cobrança e espaço. Decide nesta ordem:
 
 1. chave geral `convenio.ativo` desligada (Etapa 1) → nenhum convênio vale para exibição nem para vínculo novo;
@@ -195,6 +195,27 @@ telas, cobrança e espaço. Decide nesta ordem:
    só para a receita estimada, como hoje).
 
 Lote para o painel (uma consulta para todas as contas), como `retratarVarios` (SituacaoDoEspaco.php:62).
+
+**Decisão de implementação (Coordenador, 24/11, pela recomendação).** O PR 2 não muda nada na tela:
+
+- escritório **sem vínculo nenhum gravado** (nem aberto nem fechado): o convênio `oab` vale **implícito**. É o caso
+  de todos até o PR 3, que troca o implícito pelos vínculos gravados pela sincronização;
+- o `sem` e o `dif` da UF mexem só no rótulo das contas no painel do Master (`sem` tira o `oab` dos vigentes, mas a
+  conta segue com o rótulo vermelho "sem convênio" do estado);
+- o selo do Contribua segue só a chave geral até o PR 6;
+- coberto por teste "mesma saída": o rótulo das contas (`livre`, `dif`, `sem`) sai igual ao de antes; com a chave
+  geral desligada, sai nulo (sem rótulo).
+
+A linha `oab` também entra em `scripts/ci-dados-de-referencia.sql`, para o banco montado só com `schema:create`.
+
+Para os próximos PRs (revisão do PR 2, 24/11):
+
+- **Trilha no escritório certo (PR 3 e PR 4).** `ConvenioVinculo` não é `TenantAware` e `Convenio` é global: o
+  `AuditLogSubscriber` grava o log com o escritório da sessão. Os UseCases que gravam ligam o `escopoDePlataforma` com
+  a `contaAlvo` do vínculo (precedente: `AlterarLiberacaoDoVotoUseCase`), com teste do `tenant_id` da linha da Trilha.
+- **Rótulo vermelho depois dos vínculos (PR 3).** Conta com o vínculo OAB fechado vem com `convenio` nulo; se o Master
+  marca `sem` na UF dentro da tela, o rótulo só aparece ao recarregar. O PR 3 recarrega a lista de contas ao gravar a
+  UF (ou devolve o `sem` também para essas contas).
 
 ## 4. Benefício
 
@@ -380,7 +401,7 @@ Um PR por etapa, cada um com seu arquivo em `mudancas/` (validar com `scripts/mu
 | PR | O quê | Migration | Testes |
 |---|---|---|---|
 | **1 (Etapa 1, PR #922)** | chave geral `convenio.ativo` (prefixo `convenio.` em ConfiguracaoGlobal, sem chave = ligado), lida pela `ChaveDoConvenio`; `POST /master/convenio` (`AlterarConvenioAtivoUseCase`, CSRF, sem `ativo` = 400); desligada: somem a faixa, a tag do Free e a menção na nota de Planos e limites, e no Contribua a seção, o atalho, a pergunta da FAQ, o selo e o modal; link discreto para o painel por estado; Trilha | não | unit da chave e do UseCase (`ChaveDoConvenioTest`); functional do POST (Master 200, outros 403, CSRF, 400); functional do Contribua com a chave desligada e religada |
-| **2** | tabelas `convenio` e `convenio_vinculo`, linha `oab`, entidades, repositórios, `ConveniosDoEscritorio`; `ConsultarContasUseCase` e o selo do Contribua passam a ler por ele, mesma saída; o rótulo de convênio das contas no painel passa a obedecer à chave geral (ficou fora do PR #922) | **sim** | `down()` testado; unit de `ConveniosDoEscritorio` (chave geral, `sem`, `dif`, validade, inativo); teste de arquitetura do repositório; resultado igual ao de hoje nos testes do painel e do Contribua |
+| **2** | tabelas `convenio` e `convenio_vinculo`, linha `oab`, entidades, repositórios, `ConveniosDoEscritorio`; `ConsultarContasUseCase` passa a ler por ele, mesma saída (o selo do Contribua fica para o PR 6, decisão de 24/11 em §3.4); o rótulo de convênio das contas no painel passa a obedecer à chave geral (ficou fora do PR #922) | **sim** | `down()` testado; unit de `ConveniosDoEscritorio` (chave geral, `sem`, `dif`, validade, inativo); teste de arquitetura do repositório; resultado igual ao de hoje nos testes do painel e do Contribua |
 | **3** | `SincronizarVinculosDeConvenioUseCase`, tarefa diária, gancho na mudança de estado e no cadastro; prova pendente da OAB divergente | não | unit: cria, não duplica, fecha por estado, por `sem`, por divergente após 30 dias; functional da tarefa no agendador |
 | **4** | telas do Master (§7): lista, criar, editar, ligar, desligar com aviso, por instituição; e-mails | não | unit dos UseCases (aviso só com benefício real, desfaz se o e-mail falha, instituição numa transação); functional das rotas; textos sem travessão (`SemTravessaoNovoArquiteturaTest`) |
 | **5** | código de convite: Meu Perfil e `/cadastro?convenio=` | não | unit da validação (inativo, vencido, limite, UF errada); functional: primário 200, secundário 403, RateLimiter |

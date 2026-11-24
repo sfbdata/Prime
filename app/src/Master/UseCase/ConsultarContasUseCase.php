@@ -7,10 +7,12 @@ namespace App\Master\UseCase;
 use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\DTO\ContaAlteradaOutput;
+use App\Master\DTO\ConvenioVigente;
 use App\Master\DTO\EspacoDaContaOutput;
 use App\Master\Entity\ConvenioDaUf;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
+use App\Master\Service\ConveniosDoEscritorio;
 use App\Master\Service\LocalizacaoDaPessoa;
 use App\Repository\TenantRepository;
 use App\Tenant\Service\CodigoDaContaDoEscritorio;
@@ -45,11 +47,12 @@ final class ConsultarContasUseCase
         private readonly CodigoDaContaDoEscritorio $codigos,
         private readonly TenantRepository $tenants,
         private readonly EntityManagerInterface $em,
+        private readonly ConveniosDoEscritorio $conveniosDoEscritorio,
     ) {
     }
 
     /**
-     * @return list<array{id: int, numero: string, codigo: ?string, nome: string, desde: string, criadoEm: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>, uf: ?string, convenio: array{modo: string, valor: float}}>
+     * @return list<array{id: int, numero: string, codigo: ?string, nome: string, desde: string, criadoEm: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>, uf: ?string, convenio: ?array{modo: string, valor: float}}>
      */
     public function executar(): array
     {
@@ -61,7 +64,7 @@ final class ConsultarContasUseCase
 
         $escritorios = $this->comCodigo([...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()]);
         $retratos = $this->retratos($escritorios, $consumo);
-        $convenios = $this->convenios->todosPorUf();
+        $rotulos = $this->rotulosDeConvenio($escritorios);
 
         $contas = [];
         // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. Pastas e
@@ -85,7 +88,7 @@ final class ConsultarContasUseCase
                 'ehDoMaster'    => $e['do_master'],
                 'purgaEm'       => $this->purgaEm($e['excluido_em']),
                 'espaco'        => EspacoDaContaOutput::doRetrato($retratos[$id])->paraArray(),
-                ...self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $convenios),
+                ...$rotulos[$id],
             ];
         }
 
@@ -145,15 +148,63 @@ final class ConsultarContasUseCase
     }
 
     /**
-     * @param array<string, ConvenioDaUf> $convenios
+     * O rótulo de convênio de cada conta, em lote (spec docs/specs/convenios.md, §3.4). Com a chave geral desligada,
+     * nem o convênio vigente nem a exceção da UF entram: `convenio` sai nulo.
      *
-     * @return array{uf: ?string, convenio: array{modo: string, valor: float}}
+     * @param list<array{id: int, estado: ?string}> $escritorios
+     *
+     * @return array<int, array{uf: ?string, convenio: ?array{modo: string, valor: float}}>
      */
-    private static function convenioDaConta(?string $uf, array $convenios): array
+    private function rotulosDeConvenio(array $escritorios): array
     {
-        $c = $uf !== null ? ($convenios[$uf] ?? null) : null;
+        $exibir = $this->conveniosDoEscritorio->exibicaoLigada();
+        $excecoes = $exibir ? $this->convenios->todosPorUf() : [];
+        $vigentes = $this->conveniosDoEscritorio->dosTenants(self::ufPorConta($escritorios));
 
-        return ['uf' => $uf, 'convenio' => ['modo' => $c?->getModo() ?? 'livre', 'valor' => $c?->getValor() ?? 0.0]];
+        $rotulos = [];
+        foreach ($escritorios as $e) {
+            $rotulos[$e['id']] = self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $excecoes, $exibir ? ($vigentes[$e['id']] ?? []) : []);
+        }
+
+        return $rotulos;
+    }
+
+    /**
+     * @param list<array{id: int, estado: ?string}> $escritorios
+     *
+     * @return array<int, ?string>
+     */
+    private static function ufPorConta(array $escritorios): array
+    {
+        $ufs = [];
+        foreach ($escritorios as $e) {
+            $ufs[$e['id']] = LocalizacaoDaPessoa::uf($e['estado']);
+        }
+
+        return $ufs;
+    }
+
+    /**
+     * O rótulo de convênio da conta (spec docs/specs/convenios.md, §3.4 e PR 2), lido pela ConveniosDoEscritorio. Com a
+     * chave geral ligada e sem vínculo gravado a saída é a mesma de antes: o convênio OAB vale implícito; `dif` traz o
+     * valor; `sem` some dos vigentes, mas a conta segue com o rótulo vermelho "sem convênio" do estado. Sem convênio
+     * OAB vigente nem exceção `sem`, e com a chave geral desligada: `convenio` nulo (sem rótulo).
+     *
+     * @param array<string, ConvenioDaUf> $convenios exceções por UF (vazio com a chave geral desligada)
+     * @param list<ConvenioVigente>       $vigentes
+     *
+     * @return array{uf: ?string, convenio: ?array{modo: string, valor: float}}
+     */
+    private static function convenioDaConta(?string $uf, array $convenios, array $vigentes): array
+    {
+        foreach ($vigentes as $vigente) {
+            if ($vigente->ehOab()) {
+                return ['uf' => $uf, 'convenio' => ['modo' => $vigente->modoUf ?? 'livre', 'valor' => $vigente->valorUf ?? 0.0]];
+            }
+        }
+        $sem = $uf !== null ? ($convenios[$uf] ?? null) : null;
+
+        return ['uf' => $uf, 'convenio' => $sem?->getModo() === ConvenioDaUf::MODO_SEM ? ['modo' => ConvenioDaUf::MODO_SEM, 'valor' => $sem->getValor()] : null];
     }
 
     /**
