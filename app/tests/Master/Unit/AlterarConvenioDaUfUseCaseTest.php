@@ -9,14 +9,21 @@ use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Master\DTO\AlterarConvenioDaUfInput;
 use App\Master\Entity\ConvenioDaUf;
+use App\Master\Exception\AvisoDeConvenioNaoEnfileirado;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Master\Repository\ConvenioDaUfRepository;
+use App\Master\Repository\ConvenioRepository;
+use App\Master\Repository\ConvenioVinculoRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Repository\PrimariosDosEscritoriosRepository;
 use App\Master\Service\AvisoDeConvenioDaUf;
+use App\Master\Service\ChaveDoConvenio;
+use App\Master\Service\RegraDosVinculosDeConvenio;
 use App\Master\UseCase\AlterarConvenioDaUfUseCase;
+use App\Master\UseCase\SincronizarVinculosDeConvenioUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
-use App\Master\Exception\AvisoDeConvenioNaoEnfileirado;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -65,7 +72,25 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
         $conexao = $this->createStub(Connection::class);
         $conexao->method('transactional')->willReturnCallback(static fn (\Closure $f): mixed => $f());
 
-        return new AlterarConvenioDaUfUseCase($convenios, new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')), new EscopoDeAuditoriaDePlataforma(), $aviso, $conexao, new NullLogger());
+        return new AlterarConvenioDaUfUseCase($convenios, new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')), new EscopoDeAuditoriaDePlataforma(), $aviso, $conexao, new NullLogger(), $this->vinculosSemEscritorios($conexao));
+    }
+
+    /** Sem escritórios na UF: a sincronização dos vínculos depois da mudança não tem o que fazer aqui. */
+    private function vinculosSemEscritorios(Connection $conexao): SincronizarVinculosDeConvenioUseCase
+    {
+        return new SincronizarVinculosDeConvenioUseCase(
+            $this->createStub(ConvenioVinculoRepository::class),
+            $this->createStub(ConvenioRepository::class),
+            $this->createStub(ConvenioDaUfRepository::class),
+            new ChaveDoConvenio($this->createStub(ConfiguracaoGlobalRepository::class)),
+            $this->createStub(ConfiguracaoGlobalRepository::class),
+            new RegraDosVinculosDeConvenio(),
+            new EscopoDeAuditoriaDePlataforma(),
+            $this->createStub(EntityManagerInterface::class),
+            $conexao,
+            new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')),
+            new NullLogger(),
+        );
     }
 
     private function pedido(string $modo, float $valor = 9.9, string $desde = '2026-11-01', ?string $motivo = null): AlterarConvenioDaUfInput

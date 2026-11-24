@@ -6,6 +6,7 @@ namespace App\Tenant\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\UseCase\SincronizarVinculosDeConvenioUseCase;
 use App\Shared\Service\DigitoVerificador;
 use App\Tenant\DTO\SalvarDadosDoEscritorioInput;
 use App\Tenant\Exception\AcessoAoEscritorioNegado;
@@ -14,6 +15,7 @@ use App\Tenant\Service\EnderecoDoEscritorio;
 use App\Tenant\Service\GuardaDaEdicaoDoEscritorio;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * "Salvar" do modo edição da tela Meu Escritório (spec meu-escritorio.md). Só o primário ou o Master (D1, no servidor).
@@ -36,6 +38,8 @@ final class SalvarDadosDoEscritorioUseCase
         private readonly GuardaDaEdicaoDoEscritorio $guarda,
         private readonly EntityManagerInterface $em,
         private readonly ClockInterface $relogio,
+        private readonly SincronizarVinculosDeConvenioUseCase $vinculosDeConvenio,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -49,11 +53,28 @@ final class SalvarDadosDoEscritorioUseCase
         $valores = $this->validar($input);
 
         $antes = $this->retrato($tenant);
+        $estadoAntes = $tenant->getEstado();
         $this->aplicar($tenant, $valores);
         if ($this->retrato($tenant) !== $antes) {
             $tenant->carimbarAlteracao($ator, \DateTimeImmutable::createFromInterface($this->relogio->now()));
         }
         $this->em->flush();
+        if ($tenant->getEstado() !== $estadoAntes) {
+            $this->sincronizarConvenios($tenant);
+        }
+    }
+
+    /**
+     * Mudou o estado: o vínculo com o Convênio OAB acompanha na hora (spec docs/specs/convenios.md, §5.1). Melhor
+     * esforço: os dados já foram gravados, e a tarefa diária corrige o que falhar aqui.
+     */
+    private function sincronizarConvenios(Tenant $tenant): void
+    {
+        try {
+            $this->vinculosDeConvenio->doEscritorio((int) $tenant->getId());
+        } catch (\Throwable $e) {
+            $this->logger->error('Convênios: o vínculo não acompanhou a mudança de estado; a tarefa diária confere.', ['tenantId' => $tenant->getId(), 'erro' => $e::class]);
+        }
     }
 
     /**

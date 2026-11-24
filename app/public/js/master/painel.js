@@ -797,6 +797,9 @@
     window.BJConvenioOab.montar(el, {
       url: URLS.convenios, token: URLS.conveniosToken,
       aoMudar: estados => { CONVENIO = Object.fromEntries(estados.map(x => [x.uf, x])); renderContasLista(); },
+      // O servidor acerta os vínculos OAB da UF ao gravar (spec convenios §6.1): a lista de contas vem de novo, para o
+      // rótulo de quem não tem vínculo (sem `convenio`) também acompanhar.
+      aoGravar: () => { D.contas = null; ERRO.contas = null; carregar('contas', URLS.contas); },
     });
   }
 

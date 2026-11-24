@@ -89,6 +89,31 @@ class ConvenioVinculo implements Auditavel
         $this->encerradoPor = $por;
     }
 
+    /**
+     * Falta a prova (a OAB do criador do escritório está divergente ou sumiu, §5.2): marca o começo da espera de 30 dias.
+     * Devolve se mudou.
+     */
+    public function marcarProvaPendente(\DateTimeImmutable $desde): bool
+    {
+        if ($this->provaPendenteDesde !== null) {
+            return false;
+        }
+        $this->provaPendenteDesde = $desde;
+
+        return true;
+    }
+
+    /** A prova voltou antes do prazo: a marca some. Devolve se mudou. */
+    public function limparProvaPendente(): bool
+    {
+        if ($this->provaPendenteDesde === null) {
+            return false;
+        }
+        $this->provaPendenteDesde = null;
+
+        return true;
+    }
+
     public function estaAberto(): bool
     {
         return $this->fim === null;

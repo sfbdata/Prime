@@ -47,6 +47,8 @@ final class AgendaDeTarefasTest extends TestCase
             // Nova (conector de I.A., PR 3): faxina das tabelas do conector, 1h10 de Brasília.
             'app:conector:faxinar' => ['app:conector:faxinar --no-interaction', '10 1 * * *', '10 4 * * *'],
             'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
+            // Nova (convênios, PR 3): o "UTC antigo" é a mesma hora em UTC, para a prova do fuso.
+            'app:convenios:sincronizar-vinculos' => ['app:convenios:sincronizar-vinculos --no-interaction', '10 2 * * *', '10 5 * * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
             // Novas (espelho R2, P2.5 e P2.7): o "UTC antigo" é a mesma hora em UTC, para a prova do fuso.
             'armazenamento:reconciliar-espelho' => ['armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction', '30 3 * * *', '30 6 * * *'],
