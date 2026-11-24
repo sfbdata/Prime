@@ -8,6 +8,15 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.7.0] - 2026-11-24
+
+### Alterado
+
+- Convênios, PR 3 da spec `docs/specs/convenios.md`: `SincronizarVinculosDeConvenioUseCase` e a regra `RegraDosVinculosDeConvenio` gravam os vínculos dos escritórios com o Convênio OAB (UF válida e não desligada, OAB do criador não divergente, chave geral ligada).
+- Tarefa diária `app:convenios:sincronizar-vinculos` às 2h10. A primeira volta completa grava `convenio.vinculosSincronizadosEm` e acaba com o convênio OAB implícito.
+- OAB divergente ou ausente: prova pendente por 30 dias, depois o vínculo fecha. Fecha também por estado, pela UF sem convênio e pela validade.
+- Ganchos: mudança de estado nos dados do escritório e mudança da UF no painel "Convênio OAB por estado" acertam os vínculos na hora; o painel recarrega a lista de contas depois de gravar uma UF.
+
 ## [3.6.0] - 2026-11-24
 
 ### Alterado
@@ -2504,7 +2513,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.6.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.7.0...HEAD
+[3.7.0]: https://github.com/sfbdata/Prime/compare/v3.6.0...v3.7.0
 [3.6.0]: https://github.com/sfbdata/Prime/compare/v3.5.0...v3.6.0
 [3.5.0]: https://github.com/sfbdata/Prime/compare/v3.4.0...v3.5.0
 [3.4.0]: https://github.com/sfbdata/Prime/compare/v3.3.0...v3.4.0
