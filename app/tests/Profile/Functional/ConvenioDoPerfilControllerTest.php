@@ -93,6 +93,24 @@ final class ConvenioDoPerfilControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->abertos($tenant));
     }
 
+    #[TestDox('o POST do secundário é 403 e não gasta a cota de tentativas do escritório')]
+    public function testSecundarioNaoGastaACota(): void
+    {
+        [$tenant] = $this->escritorio();
+        $secundario = $this->usuario();
+        $this->em->persist(new UserTenant($secundario, $tenant));
+        $this->em->flush();
+        $this->client->disableReboot();
+        $espiao = new RateLimiterFactoryEspiao();
+        static::getContainer()->set('limiter.convenio_codigo', $espiao);
+        $this->logarComTenant($this->client, $secundario, $tenant);
+
+        $this->client->request('POST', '/perfil/convenio/codigo', ['_token' => $this->tokenNaSessao(), 'codigo' => 'ABCD2345']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $espiao->chavesConsumidas);
+    }
+
     #[TestDox('secundário não vê o bloco e o POST dele é 403; sem login vai para o login; token errado 403')]
     public function testAcesso(): void
     {
@@ -162,7 +180,7 @@ final class ConvenioDoPerfilControllerTest extends JusPrimeWebTestCase
     /** Grava o token do formulário na sessão, como o csrf_token() da página faria (o secundário não tem o bloco). */
     private function tokenNaSessao(): string
     {
-        $sessao = $this->client->getRequest()->getSession();
+        $sessao = $this->client->getSession();
         $sessao->set('_csrf/' . ConvenioDoPerfilController::CSRF, 'token-do-codigo');
         $sessao->save();
 

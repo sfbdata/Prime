@@ -44,6 +44,11 @@ final class ConvenioDoPerfilController extends AbstractController
         if (!$user instanceof User || $tenant === null) {
             throw $this->createAccessDeniedException();
         }
+        try {
+            $this->aplicar->exigirPrimario($user, $tenant);
+        } catch (OperacaoDePrimarioRecusada $e) {
+            throw $this->createAccessDeniedException($e->getMessage());
+        }
         if (!$this->convenioCodigoLimiter->create('escritorio-' . $tenant->getId())->consume()->isAccepted()) {
             $this->addFlash('error', $this->tradutor->trans('perfil.convenio.muitas_tentativas'));
 

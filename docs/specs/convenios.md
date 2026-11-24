@@ -320,12 +320,14 @@ Para o benefício `gratuidade` isso só muda rótulo; o rigor importa quando hou
   (`RegraDosVinculosDeConvenio::motivoDoFim`, que antes só olhava o estado no convênio OAB).
 - **Cadastro:** `GET /cadastro?convenio=` guarda o código na sessão (só se tiver a forma de um: 4 a 16 letras e números,
   sem espaço nem hífen). Ao criar a conta (formulário, Google e Facebook) o código é aplicado com quem criou, que já é o
-  primário. Melhor esforço: código que não vale fica no log (`info`) e a conta nasce sem convênio; a chave sai da sessão
-  nos dois casos.
+  primário. Melhor esforço: código que não vale fica no log (`info`), erro de banco no log (`error`, e o EntityManager
+  fechado é reaberto para o login seguir), e a conta nasce sem convênio; a chave sai da sessão nos dois casos. Se a conta
+  não nasce (e-mail já cadastrado), o código fica na sessão: a pessoa que tentar de novo com outro e-mail segue no
+  convênio do link.
 - **Meu Perfil:** bloco "Tenho um código de convênio" só para o primário e com a chave geral ligada; `POST
   /perfil/convenio/codigo` (CSRF `profile_convenio_codigo`), aviso pelo flash. Secundário recebe 403.
-- **Tentativas:** limitador `convenio_codigo` (janela deslizante, 5 por hora, chave `escritorio-<id>`), consumido antes
-  de conferir o código. Só o Meu Perfil conta: o cadastro já tem o limitador próprio por IP.
+- **Tentativas:** limitador `convenio_codigo` (janela deslizante, 5 por hora, chave `escritorio-<id>`), consumido depois
+  de conferir que quem pede é primário (o secundário não gasta a cota do escritório) e antes de conferir o código. Só o Meu Perfil conta: o cadastro já tem o limitador próprio por IP.
 - **Recusas:** código que não existe, convênio desligado, fora da validade, com fim marcado, no limite de usos (conta
   vínculos por código abertos e fechados), estado diferente e chave geral desligada dão o mesmo "Código inválido ou
   encerrado.". O convênio que já vale para o escritório diz isso ("Este convênio já vale para o seu escritório.").

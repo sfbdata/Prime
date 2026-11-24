@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Master\Service;
 
 use App\Auth\DTO\ContaCriadaOutput;
+use App\Master\Exception\ConvenioRecusado;
 use App\Master\UseCase\AplicarCodigoDeConvenioUseCase;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
@@ -21,6 +25,8 @@ final class ConvenioDoCadastro
     public function __construct(
         private readonly AplicarCodigoDeConvenioUseCase $aplicar,
         private readonly LoggerInterface $logger,
+        private readonly EntityManagerInterface $em,
+        private readonly ManagerRegistry $doctrine,
     ) {
     }
 
@@ -46,8 +52,15 @@ final class ConvenioDoCadastro
         }
         try {
             $this->aplicar->executar($conta->user, $conta->tenant, $codigo);
+        } catch (ConvenioRecusado|OperacaoDePrimarioRecusada $e) {
+            $this->logger->info('Convênios: o código do link de cadastro não foi aplicado.', ['tenantId' => $conta->tenant->getId(), 'mensagem' => $e->getMessage()]);
         } catch (\Throwable $e) {
-            $this->logger->info('Convênios: o código do link de cadastro não foi aplicado.', ['tenantId' => $conta->tenant->getId(), 'erro' => $e::class, 'mensagem' => $e->getMessage()]);
+            // Falha de verdade (banco): a conta já nasceu e não pode cair por causa do convênio. O flush que falhou fecha
+            // o EntityManager, e o login logo depois (Google, Facebook) precisa dele aberto.
+            $this->logger->error('Convênios: erro ao aplicar o código do link de cadastro.', ['tenantId' => $conta->tenant->getId(), 'erro' => $e::class, 'mensagem' => $e->getMessage()]);
+            if (!$this->em->isOpen()) {
+                $this->doctrine->resetManager();
+            }
         }
     }
 }

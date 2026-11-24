@@ -65,10 +65,7 @@ final class AplicarCodigoDeConvenioUseCase
      */
     public function executar(User $quem, Tenant $tenant, string $codigo): Convenio
     {
-        $vinculo = $this->userTenants->findAtivoPorUserETenant($quem, $tenant);
-        if ($vinculo === null || !$this->regraDosPrimarios->ehPrimario($vinculo)) {
-            throw new OperacaoDePrimarioRecusada(self::RECUSA_PRIMARIO);
-        }
+        $this->exigirPrimario($quem, $tenant);
         $codigo = self::normalizar($codigo);
         if (!$this->chave->ativo() || preg_match('/^[A-Z0-9]{4,16}$/', $codigo) !== 1) {
             throw new ConvenioRecusado(self::RECUSA);
@@ -92,6 +89,20 @@ final class AplicarCodigoDeConvenioUseCase
 
             return $convenio;
         });
+    }
+
+    /**
+     * O Meu Perfil confere antes de gastar a cota de tentativas: senão um secundário, pela rota, esgotaria as tentativas
+     * do escritório e travaria o primário por uma hora.
+     *
+     * @throws OperacaoDePrimarioRecusada
+     */
+    public function exigirPrimario(User $quem, Tenant $tenant): void
+    {
+        $vinculo = $this->userTenants->findAtivoPorUserETenant($quem, $tenant);
+        if ($vinculo === null || !$this->regraDosPrimarios->ehPrimario($vinculo)) {
+            throw new OperacaoDePrimarioRecusada(self::RECUSA_PRIMARIO);
+        }
     }
 
     private function exigirQueVale(Convenio $convenio, Tenant $tenant, \DateTimeImmutable $agora): void
