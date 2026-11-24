@@ -73,7 +73,8 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringContainsString("T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>'", $js);
         self::assertSame('{n} conta(s) · {acima} perto ou acima da franquia', self::catalogo('master.js.planos.contas'));
         self::assertStringContainsString("const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };", $js);
-        self::textoNoCatalogo($js, 'master.js.planos.nota', 'Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.');
+        // Com o convênio desligado (M2.1) a nota troca para nota_sem_convenio: o uso no JS está em testChaveDoConvenio.
+        self::assertSame('Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.', self::catalogo('master.js.planos.nota'));
 
         $css = self::css();
         self::assertStringContainsString('.mp-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }', $css);
@@ -203,6 +204,9 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringContainsString('data-ir="contas"', $js, 'o atalho abre a seção Contas, onde mora o painel "Convênio OAB por estado"');
         self::assertStringContainsString("(convenio ? '<div class=\"mp-convenio-faixa\">", $js, 'a faixa só com o convênio ligado');
         self::assertStringContainsString("(TAG_PLANO[p.codigo] && (p.codigo !== 'free' || convenio) ?", $js, 'a tag do Free só com o convênio ligado; "Mais escolhido" fica');
+        self::assertStringContainsString("T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio')", $js, 'a nota perde a menção ao convênio');
+        self::assertStringNotContainsString('convênio', mb_strtolower(self::catalogo('master.js.planos.nota_sem_convenio')));
+        self::assertSame(str_replace(' pelo convênio OAB', '', self::catalogo('master.js.planos.nota')), self::catalogo('master.js.planos.nota_sem_convenio'), 'o resto da nota é o mesmo');
         self::assertStringContainsString("postar(URLS.convenioAlterar, corpo", $js);
         self::assertStringContainsString("corpo.append('_token', D.planos.tokenConvenio", $js);
         self::assertStringContainsString("if (t.closest('[data-convenio-alternar]')) return alternarConvenio();", $js);

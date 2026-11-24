@@ -338,6 +338,9 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('[data-modal-oab]');
         self::assertSelectorNotExists('[data-abrir-oab]');
         self::assertSelectorExists('.ct-pacote > .ct-nuvem', 'os planos pagos seguem à venda');
+        self::assertSelectorCount(4, '#faq details.ct-faq', 'sai a pergunta que cita o convênio');
+        self::assertStringNotContainsString('Por que é gratuito?', $this->client->getCrawler()->filter('#faq')->text());
+        self::assertStringNotContainsString('convênio', mb_strtolower($this->client->getCrawler()->filter('main, body')->first()->text()), 'nada na página cita o convênio');
 
         static::getContainer()->get(AlterarConvenioAtivoUseCase::class)->executar(true, $this->master);
         $this->abrir($this->primario);
@@ -346,6 +349,7 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('.ct-atalhos a[href="#convenio"]');
         self::assertSelectorCount(1, '.ct-pacote > .ct-oab-selo[data-abrir-oab]');
         self::assertSelectorExists('[data-modal-oab]');
+        self::assertSelectorCount(5, '#faq details.ct-faq');
     }
 
     #[TestDox('O escritório não vê as sugestões de outro; o Master vê todas e pode atender')]

@@ -344,6 +344,12 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         self::assertTrue($this->dadosDosPlanos()['convenioAtivo'], 'CSRF errado não grava');
 
+        foreach ([[], ['ativo' => ''], ['ativo' => 'talvez']] as $corpo) {
+            self::assertSame(['erro' => 'Informe se o Convênio OAB fica ligado ou desligado.'], $this->postar('/master/convenio', $corpo + ['_token' => 'TOKEN_master_convenio']));
+            self::assertResponseStatusCodeSame(400);
+        }
+        self::assertTrue($this->dadosDosPlanos()['convenioAtivo'], 'sem o campo nada muda (não desliga por falta)');
+
         $resposta = $this->postar('/master/convenio', ['_token' => 'TOKEN_master_convenio', 'ativo' => '0']);
         self::assertResponseIsSuccessful();
         self::assertSame(['mensagem' => 'Convênio OAB desligado. A faixa e os selos saíram das telas; a cobrança não muda.', 'convenioAtivo' => false], $resposta);

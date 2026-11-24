@@ -107,7 +107,7 @@ final class PlanosELimitesController extends AbstractController
     }
 
     /**
-     * Chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): `ativo` = 1 liga, 0 desliga. Desligada, somem a
+     * Chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): `ativo` = 1 liga, 0 desliga; outro valor ou nenhum, 400. Desligada, somem a
      * faixa e a tag do Free do painel e os selos do Contribua; a cobrança não muda. A troca entra na Trilha.
      */
     #[Route('/master/convenio', name: 'master_convenio_alterar', methods: ['POST'])]
@@ -116,7 +116,11 @@ final class PlanosELimitesController extends AbstractController
         if (!$this->isCsrfTokenValid(self::CSRF_CONVENIO, $request->request->getString('_token'))) {
             return $this->sessaoExpirada();
         }
-        $ativo = $alterar->executar($request->request->getBoolean('ativo'), $this->ator());
+        // Sem o campo, nada muda: getBoolean leria "falta" como desligar o convênio da plataforma inteira.
+        if (!\in_array($request->request->getString('ativo'), ['0', '1'], true)) {
+            return $this->json(['erro' => $this->tradutor->trans('master.planos.convenio_informe')], Response::HTTP_BAD_REQUEST);
+        }
+        $ativo = $alterar->executar($request->request->getString('ativo') === '1', $this->ator());
 
         return $this->json([
             'mensagem' => $this->tradutor->trans($ativo ? 'master.planos.convenio_ligado' : 'master.planos.convenio_desligado'),

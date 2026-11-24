@@ -1138,7 +1138,7 @@
   const TAG_PLANO = { free: 'master.js.planos.tag_free', profissional: 'master.js.planos.tag_escolhido' };
 
   // Chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): discreta, em lilás porque é só do Master, com o
-  // atalho para o painel "Convênio OAB por estado" (seção Contas). Desligada, somem a faixa e a tag do Free; a cobrança não muda.
+  // atalho para o painel "Convênio OAB por estado" (seção Contas). Desligada, somem a faixa, a tag do Free e a menção na nota; a cobrança não muda.
   const convenioAtivo = () => D.planos.convenioAtivo !== false;
   const chaveDoConvenio = on => '<div class="mp-convenio-chave"><button type="button" class="mp-convenio-alternar' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" data-convenio-alternar'
     + (S.convenioEnviando ? ' disabled' : '') + '><span class="mp-convenio-trilho"><span></span></span>' + T('master.js.planos.convenio_chave') + '</button>'
@@ -1160,7 +1160,7 @@
         + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
         + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
-      + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
+      + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
   }
 

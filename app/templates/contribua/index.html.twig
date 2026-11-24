@@ -85,15 +85,16 @@
     <section id="faq" class="ct-cartao">
         <div class="ct-faq-cabeca"><i class="bi bi-patch-question"></i><b>Gratuito de verdade: perguntas frequentes</b></div>
         <div class="ct-faq-corpo">
+            {# Com a chave geral do convênio desligada (M2.1), sai a pergunta que cita o convênio. #}
             {% for f in [
                 ['O BlueJus é gratuito mesmo?', 'Sim. Para usar o sistema não há mensalidade, período de teste nem cartão de crédito. Todos os recursos ficam liberados para o escritório.'],
                 ['Por que é gratuito?', 'O BlueJus nasceu para aproximar a tecnologia da advocacia. Os convênios com a OAB, a CAA e as subseções, e as contribuições voluntárias de quem quiser apoiar, ajudam a manter o sistema.'],
                 ['Existe alguma coisa paga?', 'Só o espaço extra de armazenamento, para quem passar dos 10 GB e quiser ampliar. É opcional e só aparece quando o escritório solicita ou chega perto do limite.' ~ (cp ? cp.faqPago : '')],
                 ['E se o meu espaço acabar?', 'Nada é apagado. Consultar e baixar arquivos continua liberado; apenas novos envios ficam pausados até liberar espaço.'],
                 ['Preciso contribuir para continuar usando?', 'Não. A contribuição por PIX é voluntária e não muda nada no seu acesso.'],
-            ] %}
+            ]|filter(f => p.convenioAtivo or f[0] != 'Por que é gratuito?') %}
                 <details class="ct-faq"><summary><span>{{ f[0] }}</span></summary><div>{{ f[1] }}</div></details>
-                {% if loop.index == 3 and cp and cp.mostrarFaq %}
+                {% if f[0] == 'Existe alguma coisa paga?' and cp and cp.mostrarFaq %}
                     <details class="ct-faq"><summary><span>Se o BlueJus é gratuito, por que o Desafio de {{ cp.preco }}?</span></summary><div>O sistema continua gratuito para todos. O Desafio {{ cp.nome }} é uma ação opcional para quem quer testar a fundo com o apoio da equipe. Se não gostar, você pede a devolução em até {{ cp.prazoPedido }} dias e recebe {{ cp.devolve }}, {{ cp.multTx }} do que pagou, sem precisar justificar. <a href="#black" data-campanha-abrir>Ver as regras completas</a>.</div></details>
                 {% endif %}
             {% endfor %}

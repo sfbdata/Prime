@@ -128,6 +128,7 @@ master:
         faixas_atualizadas: Faixas de alerta atualizadas.
         convenio_ligado: Convênio OAB ligado. A faixa e os selos voltaram a aparecer.
         convenio_desligado: 'Convênio OAB desligado. A faixa e os selos saíram das telas; a cobrança não muda.'
+        convenio_informe: Informe se o Convênio OAB fica ligado ou desligado.
         limite_arm_atualizado: Limite de armazenamento atualizado.
         limite_usu_atualizado: Limite de usuários atualizado.
     # P2b: rótulo das faixas etárias da Visão geral (FaixaEtaria::FAIXAS é o português), traduzido no
@@ -864,6 +865,7 @@ master:
             convenio_desligado: 'desligado: faixa, tag do Free e selos do Contribua ocultos'
             convenio_por_estado: Convênio OAB por estado
             nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
+            nota_sem_convenio: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
         # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
         limite:
             em_uso: EM USO
