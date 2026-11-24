@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Master\Unit;
 
 use App\Entity\Tenant\Tenant;
+use App\Master\DTO\DadosDoConvenio;
 use App\Master\Entity\Convenio;
 use App\Master\Entity\ConvenioVinculo;
 use App\Master\Enum\AbrangenciaDoConvenio;
@@ -109,6 +110,69 @@ final class ConvenioTest extends TestCase
 
         $this->expectException(ConvenioRecusado::class);
         $vinculo->encerrar(MotivoDoFimDoVinculo::Saiu, new \DateTimeImmutable('2026-11-24 09:59:59'));
+    }
+
+    #[TestDox('editar: muda o que o Master pode; no OAB a abrangência e o benefício ficam; validade e limite conferidos')]
+    public function testEditar(): void
+    {
+        $em = new \DateTimeImmutable('2026-11-24 10:00:00');
+        $caasp = Convenio::novoPorCodigo('caasp', $this->dados(), 'ABCD2345', null, $em);
+        $caasp->editar($this->dados(nome: 'CAASP 2027', ate: '2027-12-31'), null, $em);
+        self::assertSame(['caasp', 'CAASP 2027', '2027-12-31', ProvaDoConvenio::Codigo], [$caasp->getChave(), $caasp->getNome(), $caasp->getValidoAte()?->format('Y-m-d'), $caasp->getProva()]);
+
+        foreach ([fn () => $caasp->editar($this->dados(ate: '2026-01-01'), null, $em), fn () => $caasp->editar($this->dados(limite: 0), null, $em), fn () => $this->convenio()->editar($this->dados(), null, $em)] as $recusa) {
+            try {
+                $recusa();
+                self::fail('devia recusar');
+            } catch (ConvenioRecusado) {
+                self::assertTrue(true);
+            }
+        }
+        $this->expectException(ConvenioRecusado::class);
+        $this->convenio()->trocarCodigo('ABCD2345', null, $em);
+    }
+
+    #[TestDox('fim: marca, cancela (só se havia), desliga no dia e religa limpando o fim')]
+    public function testFim(): void
+    {
+        $em = new \DateTimeImmutable('2026-11-24 10:00:00');
+        $convenio = $this->convenio();
+        self::assertFalse($convenio->cancelarFim(null, $em));
+
+        $convenio->marcarFim(new \DateTimeImmutable('2026-12-24'), 'Fim da parceria', null, $em);
+        self::assertFalse($convenio->fimChegouEm(new \DateTimeImmutable('2026-12-23 23:00')));
+        self::assertTrue($convenio->fimChegouEm(new \DateTimeImmutable('2026-12-24 00:10')));
+        self::assertTrue($convenio->cancelarFim(null, $em));
+        self::assertNull($convenio->getEncerraEm());
+        self::assertNull($convenio->getMotivo());
+
+        $convenio->marcarFim(new \DateTimeImmutable('2026-11-24'), null, null, $em);
+        $convenio->desligar(null, $em);
+        self::assertFalse($convenio->fimChegouEm(new \DateTimeImmutable('2026-11-25')), 'desligado não desliga de novo');
+        $convenio->ligar(null, $em);
+        self::assertSame([true, null], [$convenio->isAtivo(), $convenio->getEncerraEm()]);
+
+        $convenio->desligar(null, $em);
+        $this->expectException(ConvenioRecusado::class);
+        $convenio->marcarFim(new \DateTimeImmutable('2026-12-24'), null, null, $em);
+    }
+
+    #[TestDox('vínculo: o aviso grava o dia previsto uma vez; cancelar diz se havia')]
+    public function testVinculoAvisoDoFim(): void
+    {
+        $vinculo = new ConvenioVinculo(new Tenant(), $this->convenio(), OrigemDoVinculo::Master, new \DateTimeImmutable('2026-11-24 10:00:00'));
+        $dia = new \DateTimeImmutable('2026-12-24');
+
+        self::assertTrue($vinculo->avisarFim($dia, new \DateTimeImmutable('2026-11-24 11:00')));
+        self::assertFalse($vinculo->avisarFim($dia, new \DateTimeImmutable('2026-11-25 11:00')));
+        self::assertSame('2026-11-24 11:00', $vinculo->getAvisoEnviadoEm()?->format('Y-m-d H:i'));
+        self::assertTrue($vinculo->cancelarFimPrevisto());
+        self::assertFalse($vinculo->cancelarFimPrevisto());
+    }
+
+    private function dados(string $nome = 'CAASP', ?string $ate = null, ?int $limite = null): DadosDoConvenio
+    {
+        return new DadosDoConvenio($nome, 'Caixa de SP', 'caixa-de-sp', AbrangenciaDoConvenio::Uf, 'SP', BeneficioDoConvenio::DescontoPercentual, 10, 'CONVÊNIO CAASP', new \DateTimeImmutable('2026-11-01'), $ate === null ? null : new \DateTimeImmutable($ate), $limite);
     }
 
     public function convenio(

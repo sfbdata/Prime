@@ -1,0 +1,42 @@
+/* BlueJus · Painel do Master, janela "Convênios" (convenios.js). Reusa mp-cab-roxo, mp-lin, mp-btn-roxo e mp-lim-*
+   do master.css; aqui só o que falta. Cores e medidas do master.css. */
+.mp-lim.mp-cv-caixa { max-width: 980px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.mp-cv-caixa .mp-cab-roxo { flex: none; }
+.mp-cv-caixa .mp-lim-corpo { overflow-y: auto; flex: 1 1 auto; }
+.mp-cv-caixa .mp-lim-rodape { flex: none; align-items: center; }
+.mp-cv-caixa .mp-lim-rodape .mp-btn-roxo { margin-right: auto; }
+.mp-cv-cab-btn { border: none; background: transparent; color: #7a3e8f; font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+.mp-cv-cab-btn:hover { background: #e6d6ee; }
+.mp-cv-lista { display: flex; flex-direction: column; border: 1px solid #e1e8ed; border-radius: 4px; }
+.mp-cv-lin { display: grid; grid-template-columns: 1.4fr 1.1fr 1.3fr 1fr auto; gap: 14px; align-items: center; padding: 11px 16px; background: #fff; border-bottom: 1px solid #e1e8ed; }
+.mp-cv-lin:last-child { border-bottom: none; }
+.mp-cv-lin.is-desligado .mp-cv-nome > b { color: #7d909d; }
+.mp-cv-nome, .mp-cv-meta, .mp-cv-estado { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12.5px; color: #4a6373; }
+.mp-cv-nome > b { font-size: 13.5px; color: #12242f; }
+.mp-cv-estado > span { font-weight: bold; }
+.mp-cv-estado .is-ligado { color: #1e7b45; }
+.mp-cv-estado .is-termina { color: #8a5a12; }
+.mp-cv-estado .is-off { color: #7d909d; }
+.mp-cv-estado .mp-convenio-link { align-self: flex-start; }
+.mp-cv-acoes { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
+.mp-cv-vazio { padding: 28px 12px; text-align: center; color: #5b7383; }
+.mp-cv-faixa { background: #eaf6ef; border: 1px solid #bfe0cc; color: #1e7b45; border-radius: 4px; padding: 9px 12px; font-size: 13px; }
+.mp-cv-erro { background: #fdf3f4; border: 1px solid #f1c4c9; color: #a3232b; border-radius: 4px; padding: 9px 12px; font-size: 13px; }
+.mp-cv-sub { font-weight: normal; color: #5b7383; margin-left: 6px; }
+.mp-cv-contador { align-self: flex-end; font-size: 11px; font-weight: normal; letter-spacing: 0; color: #5b7383; }
+.mp-cv-codigo { display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #f3e9f7; border: 1px solid #e6d6ee; border-radius: 4px; padding: 12px 16px; }
+.mp-cv-codigo > div:first-child > span { display: block; font-size: 11px; font-weight: bold; letter-spacing: 1.1px; color: #7a3e8f; }
+.mp-cv-codigo > div:first-child > b { font-size: 22px; letter-spacing: 3px; color: #4b2259; }
+.mp-cv-codigo > div:last-child { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 280px; text-align: right; }
+.mp-cv-codigo small { font-size: 11.5px; color: #5b7383; }
+.mp-lim-campo > select { box-sizing: content-box; height: 38px; border: 1px solid #d6e0e7; border-radius: 4px; padding: 0 10px; font: inherit; font-size: 14px; color: #12242f; background: #fff; }
+.mp-lim-campo > select:disabled { background: #f5f8fa; color: #7d909d; }
+.mp-cv-previa { background: #f5f8fa; border-radius: 4px; padding: 10px 12px; font-size: 13px; color: #12242f; }
+.mp-cv-previa:empty { display: none; }
+.mp .mp-cv-btn-sec { height: 34px; border: 1px solid #7a3e8f; background: #fff; color: #7a3e8f; font-size: 13.5px; font-weight: bold; padding: 0 14px; cursor: pointer; border-radius: 4px; }
+.mp .mp-cv-btn-sec:hover { background: #f3e9f7; }
+.mp .mp-cv-btn-sec:disabled { border-color: #9fb3c0; color: #9fb3c0; cursor: not-allowed; background: #fff; }
+@media (max-width: 860px) {
+  .mp-cv-lin { grid-template-columns: 1fr; gap: 6px; }
+  .mp-cv-acoes { justify-content: flex-start; }
+}

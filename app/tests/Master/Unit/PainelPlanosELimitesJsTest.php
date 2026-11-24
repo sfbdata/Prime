@@ -157,7 +157,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertSame('de {cota} GB contratados · livre {livre}', $kpi['arm_desc']);
         self::assertSame('+ {gb} em {n} conta(s) sem limite', $kpi['arm_sem_limite']);
         self::assertStringContainsString("return Object.assign(base, { n: gb(a.bytesUsados), desc:", $js, 'o número grande soma só as contas com limite');
-        self::assertSame(4, substr_count($js, 'recarregarVisaoETrilha();'), 'limite, faixas, plano e a chave do convênio (M2.1) recarregam o KPI e o selo');
+        self::assertSame(5, substr_count($js, 'recarregarVisaoETrilha();'), 'limite, faixas, plano, a chave do convênio (M2.1) e a lista de convênios (PR 4) recarregam o KPI e o selo');
         self::assertStringContainsString(': S.nAud || 0;', $js, 'o selo fica com o último número enquanto recarrega');
         self::assertStringContainsString("D.visao ? D.visao.registrosDeAuditoria || 0", $js);
         self::assertStringContainsString("carregar('visao', URLS.visao);", $js);

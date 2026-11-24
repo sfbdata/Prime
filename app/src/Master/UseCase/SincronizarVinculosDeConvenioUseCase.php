@@ -58,6 +58,7 @@ final class SincronizarVinculosDeConvenioUseCase
      */
     public function executar(): ResultadoDaSincronizacao
     {
+        $this->desligarOsQueChegaramAoFim(\DateTimeImmutable::createFromInterface($this->relogio->now()));
         $ids = array_map(static fn (EscritorioParaConvenio $e): int => $e->tenantId, $this->vinculos->escritoriosParaConvenio());
         $resultado = $this->sincronizar($ids, MotivoDoFimDoVinculo::UfDesligada, seguirAposFalha: true);
         if ($this->chave->ativo()) {
@@ -71,6 +72,17 @@ final class SincronizarVinculosDeConvenioUseCase
     public function doEscritorio(int $tenantId, MotivoDoFimDoVinculo $motivoDaUf = MotivoDoFimDoVinculo::EstadoMudou): ResultadoDaSincronizacao
     {
         return $this->sincronizar([$tenantId], $motivoDaUf, seguirAposFalha: false);
+    }
+
+    /**
+     * Escritórios escolhidos, logo depois de o Master desligar um convênio na hora (spec docs/specs/convenios.md, §6.2).
+     * Quem falha vai para o log e a tarefa diária corrige.
+     *
+     * @param list<int> $tenantIds
+     */
+    public function dosEscritorios(array $tenantIds): ResultadoDaSincronizacao
+    {
+        return $this->sincronizar(array_values(array_unique($tenantIds)), MotivoDoFimDoVinculo::UfDesligada, seguirAposFalha: true);
     }
 
     /** Os escritórios de uma UF, logo depois de o Master mudar o convênio dela. */
@@ -134,6 +146,22 @@ final class SincronizarVinculosDeConvenioUseCase
             \DateTimeImmutable::createFromInterface($this->relogio->now()),
             $motivoDaUf,
         );
+    }
+
+    /**
+     * O dia do fim marcado chegou (§6.2, item 3): o convênio desliga, e a regra fecha os vínculos dele com
+     * `convenio_desligado` na mesma volta. Ato do sistema, na Trilha da plataforma.
+     */
+    private function desligarOsQueChegaramAoFim(\DateTimeImmutable $agora): void
+    {
+        $chegaram = $this->convenios->comFimAte($agora);
+        if ($chegaram === []) {
+            return;
+        }
+        foreach ($chegaram as $convenio) {
+            $convenio->desligar(null, $agora);
+        }
+        $this->escopoDePlataforma->executar(fn () => $this->em->flush());
     }
 
     private function marcarSincronizados(\DateTimeImmutable $agora): void

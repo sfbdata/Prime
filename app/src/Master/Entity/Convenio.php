@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Master\Entity;
 
 use App\Entity\Auth\User;
+use App\Master\DTO\DadosDoConvenio;
 use App\Master\Enum\AbrangenciaDoConvenio;
 use App\Master\Enum\BeneficioDoConvenio;
 use App\Master\Enum\ProvaDoConvenio;
@@ -112,6 +113,108 @@ class Convenio implements Auditavel
     public function ehOab(): bool
     {
         return $this->chave === self::CHAVE_OAB;
+    }
+
+    /** Convênio novo pelo Master (§7.3): prova por código de convite (D8), com o código já gerado. */
+    public static function novoPorCodigo(string $chave, DadosDoConvenio $dados, string $codigo, ?User $por, \DateTimeImmutable $em): self
+    {
+        $convenio = new self($chave, $dados->nome, $dados->instituicao, $dados->instituicaoChave, $dados->abrangencia, $dados->uf, ProvaDoConvenio::Codigo, $dados->beneficio, $dados->beneficioValor, $dados->textoSelo, $dados->validoDe, $em, $codigo, $dados->limiteDeUsos, $por);
+        $convenio->validoAte = $dados->validoAte;
+        $convenio->exigirValidade();
+
+        return $convenio;
+    }
+
+    /**
+     * Muda o que o Master pode mudar (§7.3). `chave` e `prova` ficam. No convênio OAB, a abrangência e o benefício
+     * também ficam: as exceções por estado moram no painel "Convênio OAB por estado".
+     */
+    public function editar(DadosDoConvenio $dados, ?User $por, \DateTimeImmutable $em): void
+    {
+        if ($this->ehOab() && ($dados->abrangencia !== $this->abrangencia || $dados->beneficio !== $this->beneficio || $dados->beneficioValor !== $this->beneficioValor)) {
+            throw new ConvenioRecusado('No convênio OAB, a abrangência e o benefício não mudam por aqui.');
+        }
+        [$this->nome, $this->instituicao, $this->instituicaoChave, $this->abrangencia, $this->uf] = [$dados->nome, $dados->instituicao, $dados->instituicaoChave, $dados->abrangencia, $dados->uf];
+        [$this->beneficio, $this->beneficioValor, $this->textoSelo] = [$dados->beneficio, $dados->beneficioValor, $dados->textoSelo];
+        [$this->validoDe, $this->validoAte, $this->limiteDeUsos] = [$dados->validoDe, $dados->validoAte, $dados->limiteDeUsos];
+        $this->exigirValido();
+        $this->exigirValidade();
+        $this->alterado($por, $em);
+    }
+
+    /** "Gerar outro" (§7.3): o código anterior deixa de valer para novos usos. */
+    public function trocarCodigo(string $codigo, ?User $por, \DateTimeImmutable $em): void
+    {
+        if ($this->prova !== ProvaDoConvenio::Codigo) {
+            throw new ConvenioRecusado('O código de convite vale só para convênio com prova por código.');
+        }
+        $this->codigoConvite = $codigo;
+        $this->alterado($por, $em);
+    }
+
+    /** Desligar com aviso prévio (§6.2): marca o dia do fim; no dia, a tarefa diária desliga. */
+    public function marcarFim(\DateTimeImmutable $dia, ?string $motivo, ?User $por, \DateTimeImmutable $em): void
+    {
+        if (!$this->ativo) {
+            throw new ConvenioRecusado('Este convênio já está desligado.');
+        }
+        if ($motivo !== null && mb_strlen($motivo) > 200) {
+            throw new ConvenioRecusado('O motivo tem até 200 caracteres.');
+        }
+        $this->encerraEm = $dia;
+        $this->motivo = $motivo;
+        $this->alterado($por, $em);
+    }
+
+    /** Religar antes do dia cancela o fim (§6.2, item 5). Devolve se havia fim marcado. */
+    public function cancelarFim(?User $por, \DateTimeImmutable $em): bool
+    {
+        if (!$this->ativo || $this->encerraEm === null) {
+            return false;
+        }
+        $this->encerraEm = null;
+        $this->motivo = null;
+        $this->alterado($por, $em);
+
+        return true;
+    }
+
+    /** O dia do fim chegou (ou o Master desligou na hora um convênio só de gratuidade). */
+    public function desligar(?User $por, \DateTimeImmutable $em): void
+    {
+        $this->ativo = false;
+        $this->alterado($por, $em);
+    }
+
+    /** Religa um convênio desligado. Os vínculos voltam pela sincronização (OAB) ou por código novo. */
+    public function ligar(?User $por, \DateTimeImmutable $em): void
+    {
+        $this->ativo = true;
+        $this->encerraEm = null;
+        $this->motivo = null;
+        $this->alterado($por, $em);
+    }
+
+    /** Ligado com o dia do fim já chegado: a tarefa diária desliga. */
+    public function fimChegouEm(\DateTimeImmutable $hoje): bool
+    {
+        return $this->ativo && $this->encerraEm !== null && $this->encerraEm->format('Y-m-d') <= $hoje->format('Y-m-d');
+    }
+
+    private function alterado(?User $por, \DateTimeImmutable $em): void
+    {
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $em;
+    }
+
+    private function exigirValidade(): void
+    {
+        if ($this->validoAte !== null && $this->validoAte->format('Y-m-d') < $this->validoDe->format('Y-m-d')) {
+            throw new ConvenioRecusado('A validade termina antes de começar.');
+        }
+        if ($this->limiteDeUsos !== null && $this->limiteDeUsos < 1) {
+            throw new ConvenioRecusado('O limite de usos é de 1 para cima.');
+        }
     }
 
     private function exigirValido(): void

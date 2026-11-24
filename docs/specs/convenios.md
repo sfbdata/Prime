@@ -373,6 +373,25 @@ Rotas (proposta, prefixo `master_`, fora da guarda de produto): `master_convenio
 `/master/convenios/{id}/ligar`), `master_convenio_instituicao_desligar` (POST
 `/master/convenios/instituicao/{chave}/desligar`). CSRF por header, como ConveniosDaOabController.php:43.
 
+**Decisões de implementação do PR 4 (24/11, pela recomendação):**
+
+- **Convênio novo é sempre por código** (D8): a tela não oferece `prova`. A `chave` sai do nome (repetida ganha `-2`);
+  a `instituicao_chave` sai do nome da instituição e agrupa o "desligar por instituição". Código de 8 letras e números
+  sem 0, O, 1 e I, único; "Gerar outro" troca o código.
+- **Linha OAB:** edita nome, selo e validade; a abrangência e o benefício não mudam por aqui (as exceções por estado
+  ficam no painel "Convênio OAB por estado").
+- **Desligar** é sempre "marcar o fim" numa data: nunca antes de hoje; com benefício real, de hoje + 30 dias para a
+  frente; gratuidade pode ser hoje, e então desliga na hora (os vínculos fecham logo depois, em melhor esforço). O
+  e-mail sai para os primários dos escritórios com vínculo aberto, um por pessoa, dentro da transação (falha desfaz).
+  Os vínculos ganham `fim_previsto` e `aviso_enviado_em`, gravados escritório por escritório (Trilha no escritório).
+- **No dia**, a tarefa diária desliga o convênio (`ativo` falso, a data fica como registro) e fecha os vínculos com
+  `convenio_desligado`.
+- **Religar:** com fim marcado, cancela o fim e avisa "o convênio continua" a quem tinha sido avisado; desligado, liga
+  de novo sem e-mail (os vínculos OAB voltam na tarefa diária; os por código, com o código no PR 5).
+- **Por instituição:** todos os convênios ligados da instituição, numa transação, com a trava de cada um; um benefício
+  real em qualquer deles exige os 30 dias para todos.
+- O rótulo "prova pendente" nas contas (item 6) fica para o PR 6, com os outros textos de convênio das contas.
+
 ## 8. Textos para o cliente
 
 Tudo depende de `ConveniosDoEscritorio`; sem convênio vigente, o texto some (não fica vazio).

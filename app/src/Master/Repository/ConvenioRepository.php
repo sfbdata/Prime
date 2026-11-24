@@ -26,6 +26,57 @@ class ConvenioRepository extends ServiceEntityRepository
         return $this->findOneBy(['chave' => $chave]);
     }
 
+    /** @return list<Convenio> o OAB primeiro, depois por nome */
+    public function todos(): array
+    {
+        /** @var list<Convenio> $lista */
+        $lista = $this->createQueryBuilder('c')
+            ->addSelect("CASE WHEN c.chave = :oab THEN 0 ELSE 1 END AS HIDDEN ordem")
+            ->setParameter('oab', Convenio::CHAVE_OAB)
+            ->orderBy('ordem', 'ASC')
+            ->addOrderBy('c.nome', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $lista;
+    }
+
+    /** @return list<Convenio> os convênios da mesma instituição (desligar por instituição, §6.1) */
+    public function daInstituicao(string $instituicaoChave): array
+    {
+        /** @var list<Convenio> $lista */
+        $lista = $this->findBy(['instituicaoChave' => $instituicaoChave], ['id' => 'ASC']);
+
+        return $lista;
+    }
+
+    /** @return list<Convenio> ligados com o dia do fim já chegado (a tarefa diária desliga, §6.2) */
+    public function comFimAte(\DateTimeImmutable $hoje): array
+    {
+        /** @var list<Convenio> $lista */
+        $lista = $this->createQueryBuilder('c')
+            ->andWhere('c.ativo = true')
+            ->andWhere('c.encerraEm IS NOT NULL')
+            ->andWhere('c.encerraEm <= :hoje')
+            ->setParameter('hoje', $hoje->setTime(0, 0), 'date_immutable')
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $lista;
+    }
+
+    public function existeChave(string $chave): bool
+    {
+        return $this->count(['chave' => $chave]) > 0;
+    }
+
+    public function existeCodigo(string $codigo): bool
+    {
+        return $this->count(['codigoConvite' => $codigo]) > 0;
+    }
+
     public function salvar(Convenio $convenio, bool $flush = false): void
     {
         $this->getEntityManager()->persist($convenio);
