@@ -8,6 +8,21 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.4.0] - 2026-11-24
+
+### Adicionado
+
+- Conector de I.A. (Painel do Master): nova ferramenta `campanhas_de_email`, só para o Master da plataforma (some do `tools/list`, da `quem_sou_eu` e do guia para os demais). Ações `criar`, `editar` e `cancelar` por proposta e `confirmar_acao` (um "sim" por ação) e `enviar_teste` direto, só para o e-mail do próprio Master.
+- `criar` usa só modelo salvo (público `leads`, `prim`, `sec` ou `todos`; frequência e data opcionais) e o resumo traz modelo, assunto, texto puro, público, total, data e frequência, com aviso se o envio de campanhas estiver desligado. `editar` muda a agenda e, se pedido, regrava o conteúdo com a versão atual do modelo, só antes de a campanha começar a sair. A proposta guarda o hash do modelo ou do estado da campanha e recusa a confirmação se mudou.
+- Reusa os UseCases do Comercial (`ConfirmarCampanhaUseCase`, `EditarCampanhaUseCase`, `EncerrarCampanhaUseCase`, `EnviarTesteDaCampanhaUseCase`); toda gravação vai ao `audit_log` com rota `conector_mcp` e escritório nulo. Nenhuma resposta traz e-mail de destinatário.
+- Rota `POST /perfil/ferramentas/{produto}` (`app_profile_ferramenta`, núcleo, `App\Produto\Controller\FerramentasDoEscritorioController`): corpo JSON `{ligar: bool}`, CSRF `perfil_ferramentas` no header `X-CSRF-Token`; responde `{ok, ligada}` ou `{erro}` com 403 (CSRF ou quem não é o dono), 404 (sem escritório na sessão ou ferramenta fora da lista) e 422 (corpo inválido, travada pelo Master, assembleia em andamento).
+- `LigarFerramentaUseCase` e `DesligarFerramentaUseCase` (spec multiproduto, §9): só o dono (`DonoDoEscritorio`), antes de qualquer outra checagem. Ligar o Voto libera a `LiberacaoDoVoto` (cria se faltar); ligar a I.A. grava `liberarPeloDono()` e, só com orçamento nulo, `Incluso` com o teto `ia.tetoPadraoCentavos` da `configuracao_global` (reserva de 500); ligar o Expediente semeia os marcadores padrão se o escritório não tem nenhum. Desligar o Voto com assembleia em andamento é recusado; desligar o Voto bloqueia a liberação e desligar a I.A. chama `bloquearPeloMaster()` (o aceite fica).
+- Serviço `ContratacoesDoEscritorio`: trava `pg_advisory_xact_lock(4801, tenant_id)`, materialização na primeira vez que algo é desligado num escritório sem linhas ou com `completo` (D5) e trava do Master (D16: última linha do produto encerrada com origem `master`; marcador aberto e encerrado no mesmo instante quando não havia linha ativa).
+- Abas "Voto" e "I.A." do painel do Master: bloquear também encerra a contratação com origem `master` (o dono não religa); liberar reabre a contratação quando o produto não está incluído. Só a troca de estado mexe na contratação, com o estado lido dentro da trava do escritório. "Liberar todos" e "bloquear todos" passam, escritório por escritório, pelo mesmo caminho (na I.A., o modo e o teto de cada um ficam como estão).
+- D7: o dono não desliga a última ferramenta ligada (422).
+- Cobranças: o Judicializar na página do objeto passa a exigir também o Expediente, só com a chave `MULTIPRODUTO_MODO` ligada (`ProdutosNaTela`).
+- Sem tabela, coluna nem migration nova. O cartão "Ferramentas do escritório" no Meu Perfil chega no próximo PR.
+
 ## [3.3.0] - 2026-11-23
 
 ### Adicionado
@@ -2447,7 +2462,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.3.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/sfbdata/Prime/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/sfbdata/Prime/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/sfbdata/Prime/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/sfbdata/Prime/compare/v3.0.0...v3.1.0
