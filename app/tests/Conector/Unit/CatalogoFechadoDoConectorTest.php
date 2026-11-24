@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A lista fechada do conector (spec mcp-remoto-oauth 6, 6.2 regra 8, 6.3 item 1, 5.1 e 12.14): 17 ferramentas de escritório (7 de
- * leitura, 9 de gravação e a confirmação) mais as do Painel do Master que já entraram (6.9; hoje a `ler_comercial`, a `automacoes_de_email` e a `modelos_de_email`); a política de escopo do SDK pede `mcp:escrita` para gravar e confirmar; toda
+ * leitura, 9 de gravação e a confirmação) mais as do Painel do Master que já entraram (6.9; hoje a `ler_comercial`, a `automacoes_de_email`, a `modelos_de_email` e a `campanhas_de_email`); a política de escopo do SDK pede `mcp:escrita` para gravar e confirmar; toda
  * ferramenta tem `title` e as quatro dicas com valor explícito; `_meta` com `securitySchemes`.
  */
 #[CoversClass(CatalogoFechadoDoConector::class)]
@@ -20,18 +20,18 @@ use PHPUnit\Framework\TestCase;
 final class CatalogoFechadoDoConectorTest extends TestCase
 {
     private const LEITURA = ['quem_sou_eu', 'buscar_pastas', 'ler_pasta', 'ler_documentos_e_modelos', 'ler_processos', 'ler_clientes', 'ler_agenda'];
-    /** As três do Master que já entraram (6.9): ficam no catálogo, depois das 7 de leitura de escritório; a primeira lê, as outras gravam. */
-    private const DO_MASTER = ['ler_comercial', 'automacoes_de_email', 'modelos_de_email'];
+    /** As quatro do Master que já entraram (6.9): ficam no catálogo, depois das 7 de leitura de escritório; a primeira lê, as outras gravam. */
+    private const DO_MASTER = ['ler_comercial', 'automacoes_de_email', 'modelos_de_email', 'campanhas_de_email'];
     private const GRAVACAO = ['atualizar_pasta', 'mudar_andamento', 'registrar_na_pasta', 'prazos_e_metas_da_pasta', 'documentos_e_pecas', 'financeiro_da_pasta', 'atualizar_cliente', 'processos_da_pasta', 'gravar_na_agenda'];
 
-    #[TestDox('são exatamente 20 ferramentas: as 7 de leitura da 6.4, a ler_comercial, a automacoes_de_email e a modelos_de_email (só do Master, 6.9), as 9 de gravação da 6.6 e a confirmar_acao')]
+    #[TestDox('são exatamente 21 ferramentas: as 7 de leitura da 6.4, a ler_comercial, a automacoes_de_email, a modelos_de_email e a campanhas_de_email (só do Master, 6.9), as 9 de gravação da 6.6 e a confirmar_acao')]
     public function testListaFechada(): void
     {
-        self::assertCount(20, CatalogoFechadoDoConector::FERRAMENTAS);
+        self::assertCount(21, CatalogoFechadoDoConector::FERRAMENTAS);
         self::assertSame([...self::LEITURA, ...self::DO_MASTER, ...self::GRAVACAO, 'confirmar_acao'], CatalogoFechadoDoConector::nomes());
 
         $porTipo = array_count_values(array_map(static fn (TipoDeFerramenta $t): string => $t->value, CatalogoFechadoDoConector::FERRAMENTAS));
-        self::assertSame(['leitura' => 8, 'gravacao' => 11, 'confirmacao' => 1], $porTipo);
+        self::assertSame(['leitura' => 8, 'gravacao' => 12, 'confirmacao' => 1], $porTipo);
         foreach (self::GRAVACAO as $nome) {
             self::assertSame(TipoDeFerramenta::Gravacao, CatalogoFechadoDoConector::tipo($nome), $nome);
         }
@@ -49,6 +49,7 @@ final class CatalogoFechadoDoConectorTest extends TestCase
         self::assertTrue(CatalogoFechadoDoConector::soDoMaster('ler_comercial'));
         self::assertTrue(CatalogoFechadoDoConector::existe('automacoes_de_email'));
         self::assertTrue(CatalogoFechadoDoConector::existe('modelos_de_email'));
+        self::assertSame(TipoDeFerramenta::Gravacao, CatalogoFechadoDoConector::tipo('campanhas_de_email'));
         self::assertSame(TipoDeFerramenta::Gravacao, CatalogoFechadoDoConector::tipo('modelos_de_email'));
         self::assertSame(TipoDeFerramenta::Gravacao, CatalogoFechadoDoConector::tipo('automacoes_de_email'));
 
@@ -68,7 +69,7 @@ final class CatalogoFechadoDoConectorTest extends TestCase
             self::assertSame(['mcp:leitura'], $politica->requiredFor(self::chamada($nome)), $nome);
             self::assertSame(['mcp:leitura'], CatalogoFechadoDoConector::escoposExigidos($nome), $nome);
         }
-        foreach ([...self::GRAVACAO, 'automacoes_de_email', 'modelos_de_email', 'confirmar_acao'] as $nome) {
+        foreach ([...self::GRAVACAO, 'automacoes_de_email', 'modelos_de_email', 'campanhas_de_email', 'confirmar_acao'] as $nome) {
             self::assertSame(['mcp:leitura', 'mcp:escrita'], $politica->requiredFor(self::chamada($nome)), $nome);
             self::assertSame(['mcp:leitura', 'mcp:escrita'], CatalogoFechadoDoConector::escoposExigidos($nome), $nome);
         }
