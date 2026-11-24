@@ -838,6 +838,10 @@ master:
                 arquivos_desc: '{reais} real(is) · {virtuais} virtual(is)'
                 arquivos_dica: 'Real: gravado no servidor. Virtual: aponta para um arquivo real idêntico'
             ranking: Contas por consumo
+            ordenar: Ordenar contas por consumo
+            ordem_cons: 'Ordem: maior consumo'
+            ordem_nome: 'Ordem: nome (A-Z)'
+            ordem_sit: 'Ordem: situação'
             nenhuma: Nenhuma conta.
             editar_limite: Editar limite
             nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
